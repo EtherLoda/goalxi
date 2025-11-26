@@ -15,7 +15,7 @@ services:
 
   db:
     image: postgres:16
-    container_name: minifc-postgres
+    container_name: minifc-db
     restart: always
     volumes:
       - postgres_data:/var/lib/postgresql/data
@@ -31,6 +31,7 @@ services:
 
   redis:
     image: redis/redis-stack:latest
+    container_name: minifc-redis
     restart: always
     ports:
       - "6379:6379"
