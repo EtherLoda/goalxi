@@ -1,6 +1,6 @@
 import 'reflect-metadata';
-import { DataSource, DataSourceOptions } from 'typeorm';
-import { SeederOptions } from 'typeorm-extension';
+import { DataSource } from 'typeorm';
+import type { SeederOptions } from 'typeorm-extension';
 
 export const AppDataSource = new DataSource({
   type: process.env.DATABASE_TYPE,
@@ -16,8 +16,8 @@ export const AppDataSource = new DataSource({
   dropSchema: false,
   keepConnectionAlive: true,
   logging: process.env.NODE_ENV !== 'production',
-  entities: [__dirname + '/../**/*.entity{.ts,.js}'],
-  migrations: [__dirname + '/migrations/**/*{.ts,.js}'],
+  entities: ['src/**/*.entity{.ts,.js}'],
+  migrations: ['src/database/migrations/**/*{.ts,.js}'],
   migrationsTableName: 'migrations',
   poolSize: process.env.DATABASE_MAX_CONNECTIONS
     ? parseInt(process.env.DATABASE_MAX_CONNECTIONS, 10)
@@ -25,14 +25,14 @@ export const AppDataSource = new DataSource({
   ssl:
     process.env.DATABASE_SSL_ENABLED === 'true'
       ? {
-          rejectUnauthorized:
-            process.env.DATABASE_REJECT_UNAUTHORIZED === 'true',
-          ca: process.env.DATABASE_CA ?? undefined,
-          key: process.env.DATABASE_KEY ?? undefined,
-          cert: process.env.DATABASE_CERT ?? undefined,
-        }
+        rejectUnauthorized:
+          process.env.DATABASE_REJECT_UNAUTHORIZED === 'true',
+        ca: process.env.DATABASE_CA ?? undefined,
+        key: process.env.DATABASE_KEY ?? undefined,
+        cert: process.env.DATABASE_CERT ?? undefined,
+      }
       : undefined,
-  seeds: [__dirname + '/seeds/**/*{.ts,.js}'],
+  seeds: ['src/database/seeds/**/*{.ts,.js}'],
   seedTracking: true,
-  factories: [__dirname + '/factories/**/*{.ts,.js}'],
-} as DataSourceOptions & SeederOptions);
+  factories: ['src/database/factories/**/*{.ts,.js}'],
+} as any);

@@ -20,7 +20,4 @@ export class CreateUserReqDto {
 
   @StringFieldOptional()
   bio?: string;
-
-  @StringFieldOptional()
-  image?: string;
 }

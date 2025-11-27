@@ -26,10 +26,10 @@ export class UserService {
   constructor(
     @InjectRepository(UserEntity)
     private readonly userRepository: Repository<UserEntity>,
-  ) {}
+  ) { }
 
   async create(dto: CreateUserReqDto): Promise<UserResDto> {
-    const { username, email, password, bio, image } = dto;
+    const { username, email, password, bio } = dto;
 
     // check uniqueness of username/email
     const user = await this.userRepository.findOne({
@@ -52,9 +52,6 @@ export class UserService {
       email,
       password,
       bio,
-      image,
-      createdBy: SYSTEM_USER_ID,
-      updatedBy: SYSTEM_USER_ID,
     });
 
     const savedUser = await this.userRepository.save(newUser);
@@ -115,8 +112,6 @@ export class UserService {
     const user = await this.userRepository.findOneByOrFail({ id });
 
     user.bio = updateUserDto.bio;
-    user.image = updateUserDto.image;
-    user.updatedBy = SYSTEM_USER_ID;
 
     await this.userRepository.save(user);
   }

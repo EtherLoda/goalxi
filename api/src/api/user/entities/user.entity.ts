@@ -43,8 +43,15 @@ export class UserEntity extends AbstractEntity {
   @Column({ default: '' })
   bio?: string;
 
-  @Column({ default: '' })
-  image?: string;
+  // Football Manager specific fields
+  @Column({ name: 'nickname', length: 50, nullable: true })
+  nickname?: string;
+
+  @Column({ name: 'avatar', default: '' })
+  avatar?: string;
+
+  @Column({ name: 'supporter_level', type: 'int', default: 0 })
+  supporterLevel: number; // 0 = no, 1 = tier1, 2 = tier2, 3 = tier3
 
   @DeleteDateColumn({
     name: 'deleted_at',

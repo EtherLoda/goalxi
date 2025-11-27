@@ -52,7 +52,7 @@ export class AuthService {
     private readonly emailQueue: Queue<IEmailJob, any, string>,
     @Inject(CACHE_MANAGER)
     private readonly cacheManager: Cache,
-  ) {}
+  ) { }
 
   /**
    * Sign in user
@@ -81,8 +81,6 @@ export class AuthService {
     const session = new SessionEntity({
       hash,
       userId: user.id,
-      createdBy: SYSTEM_USER_ID,
-      updatedBy: SYSTEM_USER_ID,
     });
     await session.save();
 
@@ -110,10 +108,9 @@ export class AuthService {
 
     // Register user
     const user = new UserEntity({
+      username: dto.username,
       email: dto.email,
       password: dto.password,
-      createdBy: SYSTEM_USER_ID,
-      updatedBy: SYSTEM_USER_ID,
     });
 
     await user.save();

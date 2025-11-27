@@ -11,9 +11,7 @@ export default setSeederFactory(UserEntity, (fake) => {
   user.email = fake.internet.email({ firstName, lastName });
   user.password = '12345678';
   user.bio = fake.lorem.sentence();
-  user.image = fake.image.avatar();
-  user.createdBy = SYSTEM_USER_ID;
-  user.updatedBy = SYSTEM_USER_ID;
+  user.avatar = fake.image.avatar();
 
   return user;
 });

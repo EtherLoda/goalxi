@@ -20,40 +20,23 @@ export class PlayerEntity extends AbstractEntity {
     @Column()
     name!: string;
 
-    @Column()
-    position!: string;
+    @Column({ nullable: true })
+    birthday?: Date;
 
-    // Appearance properties
-    @Column({ name: 'skin_tone' })
-    skinTone!: string;
+    @Column({ default: '' })
+    avatar!: string;
 
-    @Column({ name: 'hair_color' })
-    hairColor!: string;
+    @Column({ nullable: true })
+    position?: string;
 
-    @Column({ name: 'hair_style' })
-    hairStyle!: string;
+    @Column({ name: 'is_goalkeeper', default: false })
+    isGoalkeeper!: boolean;
 
-    @Column({ name: 'body_type' })
-    bodyType!: string;
+    @Column({ name: 'on_transfer', default: false })
+    onTransfer!: boolean;
 
-    @Column({ name: 'jersey_color_primary' })
-    jerseyColorPrimary!: string;
-
-    @Column({ name: 'jersey_color_secondary' })
-    jerseyColorSecondary!: string;
-
-    @Column()
-    accessory!: string;
-
-    // Stats
-    @Column({ type: 'int' })
-    speed!: number;
-
-    @Column({ type: 'int' })
-    power!: number;
-
-    @Column({ type: 'int' })
-    skill!: number;
+    @Column({ type: 'jsonb' })
+    attributes!: Record<string, any>;
 
     @DeleteDateColumn({
         name: 'deleted_at',

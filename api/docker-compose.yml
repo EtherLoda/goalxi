@@ -19,8 +19,9 @@ services:
     restart: always
     volumes:
       - postgres_data:/var/lib/postgresql/data
+      - ./docker/postgres/init-db.sh:/docker-entrypoint-initdb.d/init-db.sh
     environment:
-      POSTGRES_DB: minifc
+      POSTGRES_DB: postgres
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
       TZ: "UTC"

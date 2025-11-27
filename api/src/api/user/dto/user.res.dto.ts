@@ -1,5 +1,6 @@
 import {
   ClassField,
+  NumberField,
   StringField,
   StringFieldOptional,
 } from '@/decorators/field.decorators';
@@ -23,9 +24,18 @@ export class UserResDto {
   @Expose()
   bio?: string;
 
+  // Football Manager specific fields
+  @StringFieldOptional()
+  @Expose()
+  nickname?: string;
+
   @StringField()
   @Expose()
-  image: string;
+  avatar: string;
+
+  @NumberField()
+  @Expose()
+  supporterLevel: number;
 
   @ClassField(() => Date)
   @Expose()

@@ -20,9 +20,7 @@ export class UserSeeder1722335726360 implements Seeder {
           email: 'admin@example.com',
           password: '12345678',
           bio: "hello, i'm a backend developer",
-          image: 'https://example.com/avatar.png',
-          createdBy: SYSTEM_USER_ID,
-          updatedBy: SYSTEM_USER_ID,
+          avatar: 'https://example.com/avatar.png',
         }),
       );
     }

@@ -1,56 +1,11 @@
 import {
-    ClassField,
+    BooleanField,
     DateField,
-    NumberField,
     StringField,
+    StringFieldOptional,
     UUIDField,
 } from '@/decorators/field.decorators';
-import { WrapperType } from '@/common/types/types';
-import { Exclude, Expose, Type } from 'class-transformer';
-
-export class PlayerAppearanceResDto {
-    @StringField()
-    @Expose()
-    skinTone: string;
-
-    @StringField()
-    @Expose()
-    hairColor: string;
-
-    @StringField()
-    @Expose()
-    hairStyle: string;
-
-    @StringField()
-    @Expose()
-    bodyType: string;
-
-    @StringField()
-    @Expose()
-    jerseyColorPrimary: string;
-
-    @StringField()
-    @Expose()
-    jerseyColorSecondary: string;
-
-    @StringField()
-    @Expose()
-    accessory: string;
-}
-
-export class PlayerStatsResDto {
-    @NumberField()
-    @Expose()
-    speed: number;
-
-    @NumberField()
-    @Expose()
-    power: number;
-
-    @NumberField()
-    @Expose()
-    skill: number;
-}
+import { Exclude, Expose } from 'class-transformer';
 
 @Exclude()
 export class PlayerResDto {
@@ -62,27 +17,28 @@ export class PlayerResDto {
     @Expose()
     name: string;
 
-    @StringField()
+    @DateField({ nullable: true })
     @Expose()
-    position: string;
-
-    @ClassField(() => PlayerAppearanceResDto)
-    @Expose()
-    @Type(() => PlayerAppearanceResDto)
-    appearance: WrapperType<PlayerAppearanceResDto>;
-
-    @ClassField(() => PlayerStatsResDto)
-    @Expose()
-    @Type(() => PlayerStatsResDto)
-    stats: WrapperType<PlayerStatsResDto>;
+    birthday?: Date;
 
     @StringField()
     @Expose()
-    createdBy: string;
+    avatar: string;
 
-    @StringField()
+    @StringFieldOptional()
     @Expose()
-    updatedBy: string;
+    position?: string;
+
+    @BooleanField()
+    @Expose()
+    isGoalkeeper: boolean;
+
+    @BooleanField()
+    @Expose()
+    onTransfer: boolean;
+
+    @Expose()
+    attributes: Record<string, any>;
 
     @DateField()
     @Expose()
