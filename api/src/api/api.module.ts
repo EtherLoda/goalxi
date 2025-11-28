@@ -1,3 +1,5 @@
+import { TransferModule } from './transfer/transfer.module';
+import { FinanceModule } from './finance/finance.module';
 import { Module } from '@nestjs/common';
 import { AuthModule } from './auth/auth.module';
 import { LeagueModule } from './league/league.module';
@@ -6,6 +8,6 @@ import { TeamModule } from './team/team.module';
 import { UserModule } from './user/user.module';
 
 @Module({
-  imports: [UserModule, AuthModule, PlayerModule, LeagueModule, TeamModule],
+  imports: [UserModule, AuthModule, PlayerModule, LeagueModule, TeamModule, FinanceModule, TransferModule],
 })
 export class ApiModule { }

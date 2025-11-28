@@ -26,7 +26,7 @@ export class GlobalExceptionFilter implements ExceptionFilter {
   private debug: boolean = false;
   private readonly logger = new Logger(GlobalExceptionFilter.name);
 
-  constructor(private readonly configService: ConfigService<AllConfigType>) {}
+  constructor(private readonly configService: ConfigService<AllConfigType>) { }
 
   catch(exception: any, host: ArgumentsHost): void {
     const ctx = host.switchToHttp();
@@ -52,7 +52,7 @@ export class GlobalExceptionFilter implements ExceptionFilter {
       error = this.handleError(exception);
     }
 
-    if (this.debug) {
+    if (this.debug && error.statusCode !== HttpStatus.UNAUTHORIZED) {
       error.stack = exception.stack;
       error.trace = exception;
 
@@ -130,7 +130,9 @@ export class GlobalExceptionFilter implements ExceptionFilter {
       message: exception.message,
     };
 
-    this.logger.debug(exception);
+    if (statusCode !== HttpStatus.UNAUTHORIZED) {
+      this.logger.debug(exception);
+    }
 
     return errorRes;
   }
@@ -144,18 +146,18 @@ export class GlobalExceptionFilter implements ExceptionFilter {
     const r = error as QueryFailedError & { constraint?: string };
     const { status, message } = r.constraint?.startsWith('UQ')
       ? {
-          status: HttpStatus.CONFLICT,
-          message: r.constraint
-            ? this.i18n.t(
-                (constraintErrors[r.constraint] ||
-                  r.constraint) as keyof I18nTranslations,
-              )
-            : undefined,
-        }
+        status: HttpStatus.CONFLICT,
+        message: r.constraint
+          ? this.i18n.t(
+            (constraintErrors[r.constraint] ||
+              r.constraint) as keyof I18nTranslations,
+          )
+          : undefined,
+      }
       : {
-          status: HttpStatus.INTERNAL_SERVER_ERROR,
-          message: this.i18n.t('common.error.internal_server_error'),
-        };
+        status: HttpStatus.INTERNAL_SERVER_ERROR,
+        message: this.i18n.t('common.error.internal_server_error'),
+      };
     const errorRes = {
       timestamp: new Date().toISOString(),
       statusCode: status,

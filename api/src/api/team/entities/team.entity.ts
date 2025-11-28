@@ -2,6 +2,7 @@ import { Uuid } from '@/common/types/common.type';
 import { AbstractEntity } from '@/database/entities/abstract.entity';
 import { UserEntity } from '@/api/user/entities/user.entity';
 import { LeagueEntity } from '@/api/league/entities/league.entity';
+import type { FinanceEntity } from '@/api/finance/entities/finance.entity';
 import { Column, DeleteDateColumn, Entity, JoinColumn, ManyToOne, OneToOne, PrimaryGeneratedColumn } from 'typeorm';
 
 @Entity('team')
@@ -15,6 +16,9 @@ export class TeamEntity extends AbstractEntity {
     @OneToOne(() => UserEntity)
     @JoinColumn({ name: 'user_id' })
     user: UserEntity;
+
+    @OneToOne('FinanceEntity', (finance: any) => finance.team)
+    finance: FinanceEntity;
 
     @Column({ name: 'league_id', type: 'uuid', nullable: true })
     leagueId: string | null;

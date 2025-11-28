@@ -209,7 +209,7 @@ Represents a competition/league.
 |--------|------|-------------|-------------|
 | `id` | UUID | PRIMARY KEY | Unique league identifier |
 | `name` | VARCHAR | NOT NULL | League name (e.g., "Premier League") |
-| `season` | VARCHAR | NOT NULL | Season (e.g., "2024-25") |
+| `season` | INTEGER | NOT NULL | Season number (1, 2, 3...) |
 | `status` | VARCHAR | DEFAULT 'active' | active, completed |
 | `created_at` | TIMESTAMPTZ | NOT NULL | Record creation timestamp |
 | `updated_at` | TIMESTAMPTZ | NOT NULL | Record last update timestamp |
