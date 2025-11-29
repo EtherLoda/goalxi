@@ -315,24 +315,25 @@ Tracks events that occurred during a match.
 
 ### Phase 3: Advanced Features
 
-#### Transfer Table (Implemented - Legacy)
-Tracks direct player transfers between teams (deprecated in favor of Auction system).
+#### PlayerTransaction Table (Implemented)
+Records completed player transfers between teams.
 
 | Column | Type | Constraints | Description |
 |--------|------|-------------|-------------|
-| `id` | UUID | PRIMARY KEY | Unique transfer identifier |
-| `player_id` | UUID | FOREIGN KEY, NOT NULL | Player being transferred |
+| `id` | UUID | PRIMARY KEY | Unique transaction identifier |
+| `player_id` | UUID | FOREIGN KEY, NOT NULL | Player transferred |
 | `from_team_id` | UUID | FOREIGN KEY, NOT NULL | Selling team |
-| `to_team_id` | UUID | FOREIGN KEY, NULLABLE | Buying team (null until completed) |
+| `to_team_id` | UUID | FOREIGN KEY, NOT NULL | Buying team |
 | `price` | INTEGER | NOT NULL | Transfer fee |
-| `status` | VARCHAR | DEFAULT 'LISTED' | LISTED, PENDING, COMPLETED, CANCELLED |
-| `completed_at` | TIMESTAMPTZ | NULLABLE | When transfer was completed |
-| `created_at` | TIMESTAMPTZ | NOT NULL | Record creation timestamp |
+| `season` | INTEGER | NOT NULL | Season when transfer occurred |
+| `transaction_date` | TIMESTAMPTZ | NOT NULL | When transfer was completed |
+| `auction_id` | UUID | FOREIGN KEY, NULLABLE | Reference to associated auction |
 
 **Relations:**
 - Many-to-One with `Player`
 - Many-to-One with `Team` (from_team_id)
 - Many-to-One with `Team` (to_team_id)
+- Many-to-One with `Auction`
 
 ---
 
@@ -459,8 +460,8 @@ Team
 ├── 1:N → Transaction
 ├── 1:N → Auction (as seller)
 ├── 1:N → Auction (as current_bidder)
-├── 1:N → Transfer (from_team)
-├── 1:N → Transfer (to_team)
+├── 1:N → PlayerTransaction (from_team)
+├── 1:N → PlayerTransaction (to_team)
 ├── 1:N → Match (as home_team)
 ├── 1:N → Match (as away_team)
 └── 1:N → LeagueStanding
@@ -474,7 +475,7 @@ Transaction
 Player
 ├── N:1 → Team
 ├── 1:N → Auction
-├── 1:N → Transfer
+├── 1:N → PlayerTransaction
 ├── 1:N → PlayerHistory
 └── 1:N → MatchEvent
 
@@ -486,10 +487,11 @@ Auction
 PlayerHistory
 └── N:1 → Player
 
-Transfer
+PlayerTransaction
 ├── N:1 → Player
 ├── N:1 → Team (from_team)
-└── N:1 → Team (to_team)
+├── N:1 → Team (to_team)
+└── N:1 → Auction
 
 Match
 ├── N:1 → Team (home_team)

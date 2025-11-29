@@ -2,24 +2,15 @@ import { Uuid } from '@/common/types/common.type';
 import { AbstractEntity } from '@/database/entities/abstract.entity';
 import { PlayerEntity } from '@/api/player/entities/player.entity';
 import { TeamEntity } from '@/api/team/entities/team.entity';
-import { Column, Entity, JoinColumn, ManyToOne, PrimaryGeneratedColumn } from 'typeorm';
+import { AuctionEntity } from './auction.entity';
+import { Column, Entity, JoinColumn, ManyToOne } from 'typeorm';
 
-export enum TransferStatus {
-    LISTED = 'LISTED',
-    PENDING = 'PENDING',
-    COMPLETED = 'COMPLETED',
-    CANCELLED = 'CANCELLED',
-}
-
-@Entity('transfer')
-export class TransferEntity extends AbstractEntity {
-    constructor(data?: Partial<TransferEntity>) {
+@Entity('player_transaction')
+export class PlayerTransactionEntity extends AbstractEntity {
+    constructor(data?: Partial<PlayerTransactionEntity>) {
         super();
         Object.assign(this, data);
     }
-
-    @PrimaryGeneratedColumn('uuid', { primaryKeyConstraintName: 'PK_transfer_id' })
-    id!: Uuid;
 
     @Column({ name: 'player_id', type: 'uuid' })
     playerId!: Uuid;
@@ -35,8 +26,8 @@ export class TransferEntity extends AbstractEntity {
     @JoinColumn({ name: 'from_team_id' })
     fromTeam?: TeamEntity;
 
-    @Column({ name: 'to_team_id', type: 'uuid', nullable: true })
-    toTeamId?: Uuid;
+    @Column({ name: 'to_team_id', type: 'uuid' })
+    toTeamId!: Uuid;
 
     @ManyToOne(() => TeamEntity)
     @JoinColumn({ name: 'to_team_id' })
@@ -45,9 +36,16 @@ export class TransferEntity extends AbstractEntity {
     @Column({ type: 'integer' })
     price!: number;
 
-    @Column({ type: 'enum', enum: TransferStatus, default: TransferStatus.LISTED })
-    status!: TransferStatus;
+    @Column({ type: 'integer' })
+    season!: number;
 
-    @Column({ type: 'timestamptz', nullable: true })
-    completedAt?: Date;
+    @Column({ name: 'transaction_date', type: 'timestamptz' })
+    transactionDate!: Date;
+
+    @Column({ name: 'auction_id', type: 'uuid', nullable: true })
+    auctionId?: Uuid;
+
+    @ManyToOne(() => AuctionEntity)
+    @JoinColumn({ name: 'auction_id' })
+    auction?: AuctionEntity;
 }

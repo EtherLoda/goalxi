@@ -243,6 +243,19 @@ export class AuctionService {
         });
         await manager.save(history);
 
+        // Create player transaction record
+        const PlayerTransactionEntity = (await import('./entities/player-transaction.entity')).PlayerTransactionEntity;
+        const transaction = new PlayerTransactionEntity({
+            playerId: player.id,
+            fromTeamId: auction.teamId,
+            toTeamId: buyerTeam.id,
+            price: amount,
+            season,
+            transactionDate: new Date(),
+            auctionId: auction.id,
+        });
+        await manager.save(transaction);
+
         return auction;
     }
 

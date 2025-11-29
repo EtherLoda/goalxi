@@ -1,9 +1,8 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
-import { TransferEntity } from './entities/transfer.entity';
+import { PlayerTransactionEntity } from './entities/player-transaction.entity';
 import { PlayerHistoryEntity } from './entities/player-history.entity';
 import { AuctionEntity } from './entities/auction.entity';
-import { TransferService } from './transfer.service';
 import { AuctionService } from './auction.service';
 import { TransferController } from './transfer.controller';
 import { AuthModule } from '../auth/auth.module';
@@ -14,7 +13,7 @@ import { TeamEntity } from '../team/entities/team.entity';
 @Module({
     imports: [
         TypeOrmModule.forFeature([
-            TransferEntity,
+            PlayerTransactionEntity,
             PlayerHistoryEntity,
             AuctionEntity,
             PlayerEntity,
@@ -24,7 +23,7 @@ import { TeamEntity } from '../team/entities/team.entity';
         FinanceModule,
     ],
     controllers: [TransferController],
-    providers: [TransferService, AuctionService],
-    exports: [TransferService, AuctionService],
+    providers: [AuctionService],
+    exports: [AuctionService],
 })
 export class TransferModule { }
