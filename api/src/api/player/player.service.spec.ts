@@ -1,6 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { Uuid } from '@/common/types/common.type';
-import { PlayerEntity } from './entities/player.entity';
+import { PlayerEntity } from '@goalxi/database';
 import { PlayerService } from './player.service';
 import { CreatePlayerReqDto } from './dto/create-player.req.dto';
 import { UpdatePlayerReqDto } from './dto/update-player.req.dto';

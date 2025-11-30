@@ -8,7 +8,7 @@ import { CreateLeagueReqDto } from './dto/create-league.req.dto';
 import { LeagueResDto } from './dto/league.res.dto';
 import { ListLeagueReqDto } from './dto/list-league.req.dto';
 import { UpdateLeagueReqDto } from './dto/update-league.req.dto';
-import { LeagueEntity } from './entities/league.entity';
+import { LeagueEntity } from '@goalxi/database';
 
 @Injectable()
 export class LeagueService {
@@ -44,6 +44,8 @@ export class LeagueService {
             name: reqDto.name,
             season: reqDto.season,
             status: reqDto.status || 'active',
+            tier: reqDto.tier || 1,
+            division: reqDto.division || 1,
         });
 
         await league.save();
@@ -58,6 +60,8 @@ export class LeagueService {
         if (reqDto.name) league.name = reqDto.name;
         if (reqDto.season) league.season = reqDto.season;
         if (reqDto.status) league.status = reqDto.status;
+        if (reqDto.tier) league.tier = reqDto.tier;
+        if (reqDto.division) league.division = reqDto.division;
 
         await league.save();
 
@@ -75,6 +79,8 @@ export class LeagueService {
             id: league.id,
             name: league.name,
             season: league.season,
+            tier: league.tier,
+            division: league.division,
             status: league.status,
             createdAt: league.createdAt,
             updatedAt: league.updatedAt,

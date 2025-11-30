@@ -1,6 +1,6 @@
-import { Uuid } from '@/common/types/common.type';
-import { AbstractEntity } from '@/database/entities/abstract.entity';
-import { TeamEntity } from '@/api/team/entities/team.entity';
+import { Uuid } from '../types/common.type';
+import { AbstractEntity } from './abstract.entity';
+import { TeamEntity } from './team.entity';
 import { Column, Entity, JoinColumn, OneToOne, PrimaryGeneratedColumn } from 'typeorm';
 
 @Entity('finance')

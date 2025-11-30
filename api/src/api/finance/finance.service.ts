@@ -2,9 +2,7 @@ import { Uuid } from '@/common/types/common.type';
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { DataSource, Repository } from 'typeorm';
-import { FinanceEntity } from './entities/finance.entity';
-import { TransactionEntity } from './entities/transaction.entity';
-import { TransactionType } from './finance.constants';
+import { FinanceEntity, TransactionEntity, TransactionType } from '@goalxi/database';
 
 @Injectable()
 export class FinanceService {

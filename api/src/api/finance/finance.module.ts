@@ -2,8 +2,7 @@ import { AuthModule } from '../auth/auth.module';
 import { FinanceController } from './finance.controller';
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
-import { FinanceEntity } from './entities/finance.entity';
-import { TransactionEntity } from './entities/transaction.entity';
+import { FinanceEntity, TransactionEntity } from '@goalxi/database';
 import { FinanceService } from './finance.service';
 
 @Module({

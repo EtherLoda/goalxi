@@ -1,11 +1,17 @@
-import { StringFieldOptional } from '@/decorators/field.decorators';
+import { NumberFieldOptional, StringFieldOptional } from '@/decorators/field.decorators';
 
 export class UpdateLeagueReqDto {
     @StringFieldOptional()
     name?: string;
 
-    @StringFieldOptional()
-    season?: string;
+    @NumberFieldOptional()
+    season?: number;
+
+    @NumberFieldOptional({ min: 1 })
+    tier?: number;
+
+    @NumberFieldOptional({ min: 1 })
+    division?: number;
 
     @StringFieldOptional()
     status?: string;

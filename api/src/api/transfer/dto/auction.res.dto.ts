@@ -5,7 +5,7 @@ import {
     UUIDField,
 } from '@/decorators/field.decorators';
 import { Exclude, Expose, Type } from 'class-transformer';
-import { AuctionStatus, BidRecord } from '../entities/auction.entity';
+import { AuctionStatus, BidRecord } from '@goalxi/database';
 import { PlayerResDto } from '@/api/player/dto/player.res.dto';
 import { TeamResDto } from '@/api/team/dto/team.res.dto';
 

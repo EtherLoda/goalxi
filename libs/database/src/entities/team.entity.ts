@@ -1,9 +1,11 @@
-import { Uuid } from '@/common/types/common.type';
-import { AbstractEntity } from '@/database/entities/abstract.entity';
-import { UserEntity } from '@/api/user/entities/user.entity';
-import { LeagueEntity } from '@/api/league/entities/league.entity';
-import type { FinanceEntity } from '@/api/finance/entities/finance.entity';
-import { Column, DeleteDateColumn, Entity, JoinColumn, ManyToOne, OneToOne, PrimaryGeneratedColumn } from 'typeorm';
+import { Uuid } from '../types/common.type';
+import { AbstractEntity } from './abstract.entity';
+import { UserEntity } from './user.entity';
+import { LeagueEntity } from './league.entity';
+import type { FinanceEntity } from './finance.entity';
+import type { MatchEntity } from './match.entity';
+import type { SeasonResultEntity } from './season-result.entity';
+import { Column, DeleteDateColumn, Entity, JoinColumn, ManyToOne, OneToMany, OneToOne, PrimaryGeneratedColumn } from 'typeorm';
 
 @Entity('team')
 export class TeamEntity extends AbstractEntity {
@@ -38,6 +40,15 @@ export class TeamEntity extends AbstractEntity {
 
     @Column({ name: 'jersey_color_secondary', type: 'varchar', default: '#FFFFFF' })
     jerseyColorSecondary: string;
+
+    @OneToMany('MatchEntity', (match: MatchEntity) => match.homeTeam)
+    homeMatches: MatchEntity[];
+
+    @OneToMany('MatchEntity', (match: MatchEntity) => match.awayTeam)
+    awayMatches: MatchEntity[];
+
+    @OneToMany('SeasonResultEntity', (result: SeasonResultEntity) => result.team)
+    seasonResults: SeasonResultEntity[];
 
     @DeleteDateColumn({ name: 'deleted_at', type: 'timestamptz', nullable: true })
     deletedAt: Date | null;

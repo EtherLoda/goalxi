@@ -8,7 +8,7 @@ import { CreatePlayerReqDto } from './dto/create-player.req.dto';
 import { ListPlayerReqDto } from './dto/list-player.req.dto';
 import { PlayerResDto } from './dto/player.res.dto';
 import { UpdatePlayerReqDto } from './dto/update-player.req.dto';
-import { PlayerEntity } from './entities/player.entity';
+import { PlayerEntity } from '@goalxi/database';
 
 @Injectable()
 export class PlayerService {

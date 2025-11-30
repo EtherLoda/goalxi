@@ -1,6 +1,6 @@
-import { Uuid } from '@/common/types/common.type';
-import { AbstractEntity } from '@/database/entities/abstract.entity';
-import { hashPassword as hashPass } from '@/utils/password.util';
+import { Uuid } from '../types/common.type';
+import { AbstractEntity } from './abstract.entity';
+import { hashPassword as hashPass } from '../utils/password.util';
 import {
   BeforeInsert,
   BeforeUpdate,

@@ -1,6 +1,6 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
-import { PlayerEntity } from './entities/player.entity';
+import { PlayerEntity } from '@goalxi/database';
 import { PlayerController } from './player.controller';
 import { PlayerService } from './player.service';
 

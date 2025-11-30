@@ -1,5 +1,5 @@
 import { AppDataSource } from '../src/database/data-source';
-import { UserEntity } from '../src/api/user/entities/user.entity';
+import { UserEntity } from '@goalxi/database';
 import { hashPassword } from '../src/utils/password.util';
 import { SYSTEM_USER_ID } from '../src/constants/app.constant';
 

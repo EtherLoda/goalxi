@@ -10,7 +10,7 @@ import { CreateTeamReqDto } from './dto/create-team.req.dto';
 import { ListTeamReqDto } from './dto/list-team.req.dto';
 import { TeamResDto } from './dto/team.res.dto';
 import { UpdateTeamReqDto } from './dto/update-team.req.dto';
-import { TeamEntity } from './entities/team.entity';
+import { TeamEntity } from '@goalxi/database';
 
 @Injectable()
 export class TeamService {

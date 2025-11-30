@@ -8,7 +8,13 @@ export class LeagueResDto {
     name: string;
 
     @Expose()
-    season: string;
+    season: number;
+
+    @Expose()
+    tier: number;
+
+    @Expose()
+    division: number;
 
     @Expose()
     status: string;

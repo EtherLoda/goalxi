@@ -1,4 +1,4 @@
-import { PlayerEntity } from '@/api/player/entities/player.entity';
+import { PlayerEntity } from '@goalxi/database';
 import { DataSource } from 'typeorm';
 import { Seeder } from 'typeorm-extension';
 

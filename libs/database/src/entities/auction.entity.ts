@@ -1,7 +1,7 @@
-import { Uuid } from '@/common/types/common.type';
-import { AbstractEntity } from '@/database/entities/abstract.entity';
-import { PlayerEntity } from '@/api/player/entities/player.entity';
-import { TeamEntity } from '@/api/team/entities/team.entity';
+import { Uuid } from '../types/common.type';
+import { AbstractEntity } from './abstract.entity';
+import { PlayerEntity } from './player.entity';
+import { TeamEntity } from './team.entity';
 import { Column, Entity, JoinColumn, ManyToOne, PrimaryGeneratedColumn } from 'typeorm';
 
 export enum AuctionStatus {

@@ -17,7 +17,7 @@ import { ListUserReqDto } from './dto/list-user.req.dto';
 import { LoadMoreUsersReqDto } from './dto/load-more-users.req.dto';
 import { UpdateUserReqDto } from './dto/update-user.req.dto';
 import { UserResDto } from './dto/user.res.dto';
-import { UserEntity } from './entities/user.entity';
+import { UserEntity } from '@goalxi/database';
 
 @Injectable()
 export class UserService {

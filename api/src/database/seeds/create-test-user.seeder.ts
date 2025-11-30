@@ -1,4 +1,4 @@
-import { UserEntity } from '@/api/user/entities/user.entity';
+import { UserEntity } from '@goalxi/database';
 import { SYSTEM_USER_ID } from '@/constants/app.constant';
 import { DataSource } from 'typeorm';
 import { Seeder } from 'typeorm-extension';

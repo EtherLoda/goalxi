@@ -1,9 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { DataSource, Repository } from 'typeorm';
-import { FinanceEntity } from './entities/finance.entity';
-import { TransactionEntity } from './entities/transaction.entity';
-import { TransactionType } from './finance.constants';
+import { FinanceEntity, TransactionEntity, TransactionType } from '@goalxi/database';
 import { FinanceService } from './finance.service';
 
 const mockFinanceRepo = () => ({

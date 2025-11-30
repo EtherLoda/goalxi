@@ -1,6 +1,6 @@
-import { Uuid } from '@/common/types/common.type';
-import { AbstractEntity } from '@/database/entities/abstract.entity';
-import { PlayerEntity } from '@/api/player/entities/player.entity';
+import { Uuid } from '../types/common.type';
+import { AbstractEntity } from './abstract.entity';
+import { PlayerEntity } from './player.entity';
 import { Column, Entity, JoinColumn, ManyToOne, PrimaryGeneratedColumn } from 'typeorm';
 
 export enum PlayerHistoryType {

@@ -1,9 +1,9 @@
-import { Uuid } from '@/common/types/common.type';
-import { AbstractEntity } from '@/database/entities/abstract.entity';
-import { PlayerEntity } from '@/api/player/entities/player.entity';
-import { TeamEntity } from '@/api/team/entities/team.entity';
+import { Uuid } from '../types/common.type';
+import { AbstractEntity } from './abstract.entity';
+import { PlayerEntity } from './player.entity';
+import { TeamEntity } from './team.entity';
 import { AuctionEntity } from './auction.entity';
-import { Column, Entity, JoinColumn, ManyToOne } from 'typeorm';
+import { Column, Entity, JoinColumn, ManyToOne, PrimaryGeneratedColumn } from 'typeorm';
 
 @Entity('player_transaction')
 export class PlayerTransactionEntity extends AbstractEntity {
@@ -11,6 +11,9 @@ export class PlayerTransactionEntity extends AbstractEntity {
         super();
         Object.assign(this, data);
     }
+
+    @PrimaryGeneratedColumn('uuid', { primaryKeyConstraintName: 'PK_player_transaction_id' })
+    id!: Uuid;
 
     @Column({ name: 'player_id', type: 'uuid' })
     playerId!: Uuid;

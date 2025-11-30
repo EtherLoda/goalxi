@@ -1,0 +1,9 @@
+{
+    "name": "goalxi-monorepo",
+    "version": "0.0.0",
+    "private": true,
+    "scripts": {
+        "dev": "pnpm -r run dev",
+        "build": "pnpm -r run build"
+    }
+}

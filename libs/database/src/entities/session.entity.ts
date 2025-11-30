@@ -1,5 +1,5 @@
-import { Uuid } from '@/common/types/common.type';
-import { AbstractEntity } from '@/database/entities/abstract.entity';
+import { Uuid } from '../types/common.type';
+import { AbstractEntity } from './abstract.entity';
 import {
   Column,
   Entity,

@@ -1,6 +1,21 @@
 import 'reflect-metadata';
 import { DataSource } from 'typeorm';
 import type { SeederOptions } from 'typeorm-extension';
+import {
+  UserEntity,
+  SessionEntity,
+  TeamEntity,
+  LeagueEntity,
+  MatchEntity,
+  SeasonResultEntity,
+  LeagueStandingEntity,
+  FinanceEntity,
+  PlayerEntity,
+  TransactionEntity,
+  AuctionEntity,
+  PlayerHistoryEntity,
+  PlayerTransactionEntity,
+} from '@goalxi/database';
 
 export const AppDataSource = new DataSource({
   type: process.env.DATABASE_TYPE,
@@ -16,7 +31,21 @@ export const AppDataSource = new DataSource({
   dropSchema: false,
   keepConnectionAlive: true,
   logging: process.env.NODE_ENV !== 'production',
-  entities: ['src/**/*.entity{.ts,.js}'],
+  entities: [
+    UserEntity,
+    SessionEntity,
+    TeamEntity,
+    LeagueEntity,
+    MatchEntity,
+    SeasonResultEntity,
+    LeagueStandingEntity,
+    FinanceEntity,
+    PlayerEntity,
+    TransactionEntity,
+    AuctionEntity,
+    PlayerHistoryEntity,
+    PlayerTransactionEntity,
+  ],
   migrations: ['src/database/migrations/**/*{.ts,.js}'],
   migrationsTableName: 'migrations',
   poolSize: process.env.DATABASE_MAX_CONNECTIONS

@@ -52,7 +52,7 @@ export class GlobalExceptionFilter implements ExceptionFilter {
       error = this.handleError(exception);
     }
 
-    if (this.debug && error.statusCode !== HttpStatus.UNAUTHORIZED) {
+    if (this.debug && error.statusCode !== HttpStatus.UNAUTHORIZED && error.statusCode !== HttpStatus.NOT_FOUND) {
       error.stack = exception.stack;
       error.trace = exception;
 
@@ -130,7 +130,8 @@ export class GlobalExceptionFilter implements ExceptionFilter {
       message: exception.message,
     };
 
-    if (statusCode !== HttpStatus.UNAUTHORIZED) {
+    // Don't log 404s and 401s as errors - they're normal API responses
+    if (statusCode !== HttpStatus.UNAUTHORIZED && statusCode !== HttpStatus.NOT_FOUND) {
       this.logger.debug(exception);
     }
 

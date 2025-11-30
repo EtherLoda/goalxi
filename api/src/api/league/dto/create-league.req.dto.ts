@@ -1,11 +1,17 @@
-import { StringField } from '@/decorators/field.decorators';
+import { NumberField, StringField } from '@/decorators/field.decorators';
 
 export class CreateLeagueReqDto {
     @StringField()
     name: string;
 
-    @StringField()
-    season: string;
+    @NumberField()
+    season: number;
+
+    @NumberField({ required: false, min: 1 })
+    tier?: number;
+
+    @NumberField({ required: false, min: 1 })
+    division?: number;
 
     @StringField({ required: false })
     status?: string;

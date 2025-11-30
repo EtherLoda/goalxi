@@ -2,10 +2,13 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { DataSource } from 'typeorm';
 import { AuctionService } from './auction.service';
-import { AuctionEntity, AuctionStatus } from './entities/auction.entity';
-import { PlayerEntity } from '../player/entities/player.entity';
-import { TeamEntity } from '../team/entities/team.entity';
-import { PlayerHistoryEntity } from './entities/player-history.entity';
+import {
+    AuctionEntity,
+    AuctionStatus,
+    PlayerEntity,
+    TeamEntity,
+    PlayerHistoryEntity,
+} from '@goalxi/database';
 import { FinanceService } from '../finance/finance.service';
 import { BadRequestException, NotFoundException } from '@nestjs/common';
 

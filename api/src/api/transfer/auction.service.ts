@@ -2,15 +2,22 @@ import { Uuid } from '@/common/types/common.type';
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { DataSource, Repository } from 'typeorm';
-import { AuctionEntity, AuctionStatus } from './entities/auction.entity';
-import { PlayerEntity } from '../player/entities/player.entity';
-import { TeamEntity } from '../team/entities/team.entity';
+import {
+    AuctionEntity,
+    AuctionStatus,
+    PlayerEntity,
+    TeamEntity,
+    PlayerHistoryEntity,
+    PlayerHistoryType,
+    TransactionType,
+    FinanceEntity,
+    TransactionEntity,
+    PlayerTransactionEntity,
+} from '@goalxi/database';
 import { FinanceService } from '../finance/finance.service';
 import { CreateAuctionReqDto } from './dto/create-auction.req.dto';
 import { PlaceBidReqDto } from './dto/place-bid.req.dto';
 import { AUCTION_CONFIG } from './auction.constants';
-import { PlayerHistoryEntity, PlayerHistoryType } from './entities/player-history.entity';
-import { TransactionType } from '../finance/finance.constants';
 
 @Injectable()
 export class AuctionService {
@@ -114,7 +121,6 @@ export class AuctionService {
             }
 
             // Check funds
-            const FinanceEntity = (await import('../finance/entities/finance.entity')).FinanceEntity;
             const bidderFinance = await manager.findOne(FinanceEntity, { where: { teamId: bidderTeam.id } });
             if (!bidderFinance || bidderFinance.balance < dto.amount) {
                 throw new BadRequestException('Insufficient funds');
@@ -175,10 +181,6 @@ export class AuctionService {
         const auctionRepo = manager.getRepository(AuctionEntity);
         const playerRepo = manager.getRepository(PlayerEntity);
         const historyRepo = manager.getRepository(PlayerHistoryEntity);
-
-        // Import entities
-        const FinanceEntity = (await import('../finance/entities/finance.entity')).FinanceEntity;
-        const TransactionEntity = (await import('../finance/entities/transaction.entity')).TransactionEntity;
 
         // Check funds
         const buyerFinance = await manager.findOne(FinanceEntity, { where: { teamId: buyerTeam.id } });
@@ -244,7 +246,6 @@ export class AuctionService {
         await manager.save(history);
 
         // Create player transaction record
-        const PlayerTransactionEntity = (await import('./entities/player-transaction.entity')).PlayerTransactionEntity;
         const transaction = new PlayerTransactionEntity({
             playerId: player.id,
             fromTeamId: auction.teamId,

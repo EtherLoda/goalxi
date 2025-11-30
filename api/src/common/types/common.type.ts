@@ -1,3 +1,3 @@
 import { Branded } from './types';
 
-export type Uuid = Branded<string, 'Uuid'>;
+export { Uuid } from '@goalxi/database';

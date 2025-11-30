@@ -1,8 +1,8 @@
-import { Uuid } from '@/common/types/common.type';
-import { AbstractEntity } from '@/database/entities/abstract.entity';
-import { TeamEntity } from '@/api/team/entities/team.entity';
+import { Uuid } from '../types/common.type';
+import { AbstractEntity } from './abstract.entity';
+import { TeamEntity } from './team.entity';
 import { Column, Entity, JoinColumn, ManyToOne, PrimaryGeneratedColumn } from 'typeorm';
-import { TransactionType } from '../finance.constants';
+import { TransactionType } from '../constants/finance.constants';
 
 @Entity('transaction')
 export class TransactionEntity extends AbstractEntity {

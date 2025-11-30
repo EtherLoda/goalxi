@@ -1,7 +1,7 @@
 services:
-  minifc-api:
-    image: minifc-api
-    container_name: minifc-api
+  goalxi-api:
+    image: goalxi-api
+    container_name: goalxi-api
     restart: always
     build:
       context: .
@@ -11,11 +11,11 @@ services:
     ports:
       - "3000:3000"
     networks:
-      - minifc-network
+      - goalxi-network
 
   db:
     image: postgres:16
-    container_name: minifc-db
+    container_name: goalxi-db
     restart: always
     volumes:
       - postgres_data:/var/lib/postgresql/data
@@ -28,11 +28,11 @@ services:
     ports:
       - "25432:5432"
     networks:
-      - minifc-network
+      - goalxi-network
 
   redis:
     image: redis/redis-stack:latest
-    container_name: minifc-redis
+    container_name: goalxi-redis
     restart: always
     ports:
       - "6379:6379"
@@ -44,7 +44,7 @@ services:
     environment:
       REDIS_ARGS: "--requirepass redispass"
     networks:
-      - minifc-network
+      - goalxi-network
 
   maildev:
     build:
@@ -54,7 +54,7 @@ services:
       - ${MAIL_CLIENT_PORT}:1080
       - ${MAIL_PORT}:1025
     networks:
-      - minifc-network
+      - goalxi-network
 
   pgadmin:
     container_name: pgadmin
@@ -69,7 +69,7 @@ services:
       PGADMIN_CONFIG_WTF_CSRF_ENABLED: "False"
       PGADMIN_CONFIG_ENHANCED_COOKIE_PROTECTION: "False"
     networks:
-      - minifc-network
+      - goalxi-network
 
 volumes:
   postgres_data:
@@ -78,5 +78,5 @@ volumes:
 
 
 networks:
-  minifc-network:
+  goalxi-network:
     driver: bridge
