@@ -1,6 +1,6 @@
-# Mini-FC Database Schema
+# GoalXI Database Schema
 
-This document describes the current database schema for the Mini-FC football manager game.
+This document describes the current database schema for the GoalXI football manager game.
 
 ## Current Schema (Implemented)
 
@@ -29,6 +29,7 @@ Represents a football manager/user account.
 
 **Relations:**
 - One-to-Many with `Session` (user sessions)
+- One-to-One with `Team`
 
 ---
 
@@ -166,29 +167,61 @@ Stores user authentication sessions.
 
 ---
 
-## Planned Schema Enhancements
+### League Table (Implemented)
+Represents a competition/league.
 
-### Phase 1: MVP Enhancements
-
-#### Player Table - Proposed Additions
 | Column | Type | Constraints | Description |
 |--------|------|-------------|-------------|
-| `user_id` | UUID | FOREIGN KEY, NULLABLE | Owner/manager of the player |
-| `overall_rating` | INTEGER | COMPUTED | Average of speed, power, skill |
-| `market_value` | INTEGER | DEFAULT 10000 | Player's market value |
-| `contract_expiry` | DATE | NULLABLE | When contract ends |
-| `morale` | INTEGER | DEFAULT 75 | Player happiness (1-100) |
-| `injury_status` | VARCHAR | DEFAULT 'fit' | fit, minor_injury, major_injury |
-| `stamina` | INTEGER | DEFAULT 100 | Energy level (0-100) |
+| `id` | UUID | PRIMARY KEY | Unique league identifier |
+| `name` | VARCHAR | NOT NULL | League name (e.g., "Premier League") |
+| `season` | VARCHAR | NOT NULL | Season identifier (e.g., "2024-25") |
+| `status` | VARCHAR | DEFAULT 'active' | active, completed |
+| `created_at` | TIMESTAMPTZ | NOT NULL | Record creation timestamp |
+| `updated_at` | TIMESTAMPTZ | NOT NULL | Record last update timestamp |
+| `deleted_at` | TIMESTAMPTZ | NULLABLE | Soft delete timestamp |
 
-**New Relations:**
-- Many-to-One with `User` (user.id)
+**Relations:**
+- One-to-Many with `Team`
+- One-to-Many with `Match`
+
+**Notes:**
+- Season is stored as VARCHAR to support formats like "2024-25" or "Season 1"
+- Status tracks whether league is currently active or has completed
 
 ---
 
-### Phase 2: Core Gameplay
+### Team Table (Implemented)
+Represents a football team owned by a manager.
 
-#### Finance Table (Implemented)
+| Column | Type | Constraints | Description |
+|--------|------|-------------|-------------|
+| `id` | UUID | PRIMARY KEY | Unique team identifier |
+| `user_id` | UUID | FOREIGN KEY, UNIQUE, NOT NULL | Manager/owner of the team (one-to-one) |
+| `league_id` | UUID | FOREIGN KEY, NULLABLE | Current league |
+| `name` | VARCHAR | NOT NULL | Team name |
+| `logo_url` | VARCHAR | DEFAULT '' | Team logo image URL |
+| `jersey_color_primary` | VARCHAR | DEFAULT '#FF0000' | Primary jersey color (hex) |
+| `jersey_color_secondary` | VARCHAR | DEFAULT '#FFFFFF' | Secondary jersey color (hex) |
+| `created_at` | TIMESTAMPTZ | NOT NULL | Record creation timestamp |
+| `updated_at` | TIMESTAMPTZ | NOT NULL | Record last update timestamp |
+| `deleted_at` | TIMESTAMPTZ | NULLABLE | Soft delete timestamp |
+
+**Indexes:**
+- `IDX_team_league` - Index on league_id
+
+**Relations:**
+- One-to-One with `User`
+- Many-to-One with `League`
+- One-to-Many with `Player`
+- One-to-One with `Finance`
+- One-to-Many with `Transaction`
+- One-to-Many with `Auction` (as seller)
+- One-to-Many with `Match` (as home_team)
+- One-to-Many with `Match` (as away_team)
+
+---
+
+### Finance Table (Implemented)
 Stores the current financial state of a team.
 
 | Column | Type | Constraints | Description |
@@ -223,24 +256,6 @@ Records individual financial events for detailed tracking and statistics.
 - Positive amounts = income, Negative amounts = expenses
 - Season-based statistics can be calculated by grouping transactions
 - Type enum: MATCH_INCOME, TRANSFER_IN, TRANSFER_OUT, WAGES, SPONSORSHIP, FACILITY_UPGRADE
-
----
-
-#### League Table (New)
-Represents a competition/league.
-
-| Column | Type | Constraints | Description |
-|--------|------|-------------|-------------|
-| `id` | UUID | PRIMARY KEY | Unique league identifier |
-| `name` | VARCHAR | NOT NULL | League name (e.g., "Premier League") |
-| `season` | INTEGER | NOT NULL | Season number (1, 2, 3...) |
-| `status` | VARCHAR | DEFAULT 'active' | active, completed |
-| `created_at` | TIMESTAMPTZ | NOT NULL | Record creation timestamp |
-| `updated_at` | TIMESTAMPTZ | NOT NULL | Record last update timestamp |
-
-**Relations:**
-- One-to-Many with `Team`
-- One-to-Many with `LeagueStanding`
 
 ---
 
@@ -527,5 +542,6 @@ League
 
 ---
 
-**Last Updated**: 2025-11-29
-**Version**: 2.0.0
+**Last Updated**: 2025-12-01
+**Version**: 2.1.0
+

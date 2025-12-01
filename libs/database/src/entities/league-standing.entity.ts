@@ -30,6 +30,9 @@ export class LeagueStandingEntity extends AbstractEntity {
     @Column({ name: 'team_id' })
     teamId: string;
 
+    @Column({ type: 'int', nullable: false, default: 1 })
+    season: number;
+
     @Column({ default: 0 })
     position: number;
 

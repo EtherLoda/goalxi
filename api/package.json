@@ -28,6 +28,7 @@
     "db:drop": "env-cmd ts-node ./node_modules/typeorm-extension/bin/cli.cjs db:drop",
     "seed:run": "env-cmd ts-node ./node_modules/typeorm-extension/bin/cli.cjs seed:run",
     "seed:create": "env-cmd ts-node ./node_modules/typeorm-extension/bin/cli.cjs seed:create",
+    "dev:seed": "env-cmd ts-node -r tsconfig-paths/register scripts/seed-dev-data.ts",
     "prepare": "husky || true",
     "docs:dev": "vuepress dev docs",
     "docs:build": "vuepress build docs"

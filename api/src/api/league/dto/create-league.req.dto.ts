@@ -4,8 +4,7 @@ export class CreateLeagueReqDto {
     @StringField()
     name: string;
 
-    @NumberField()
-    season: number;
+
 
     @NumberField({ required: false, min: 1 })
     tier?: number;

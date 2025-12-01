@@ -42,7 +42,6 @@ export class LeagueService {
     async create(reqDto: CreateLeagueReqDto): Promise<LeagueResDto> {
         const league = new LeagueEntity({
             name: reqDto.name,
-            season: reqDto.season,
             status: reqDto.status || 'active',
             tier: reqDto.tier || 1,
             division: reqDto.division || 1,
@@ -58,7 +57,6 @@ export class LeagueService {
         const league = await LeagueEntity.findOneByOrFail({ id });
 
         if (reqDto.name) league.name = reqDto.name;
-        if (reqDto.season) league.season = reqDto.season;
         if (reqDto.status) league.status = reqDto.status;
         if (reqDto.tier) league.tier = reqDto.tier;
         if (reqDto.division) league.division = reqDto.division;
@@ -78,7 +76,6 @@ export class LeagueService {
         return plainToInstance(LeagueResDto, {
             id: league.id,
             name: league.name,
-            season: league.season,
             tier: league.tier,
             division: league.division,
             status: league.status,

@@ -4,8 +4,7 @@ export class UpdateLeagueReqDto {
     @StringFieldOptional()
     name?: string;
 
-    @NumberFieldOptional()
-    season?: number;
+
 
     @NumberFieldOptional({ min: 1 })
     tier?: number;
