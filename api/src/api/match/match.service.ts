@@ -425,6 +425,13 @@ export class MatchService {
                 name: match.awayTeam.name,
                 logo: match.awayTeam.logoUrl || null,
             },
+            // Phase 4 fields
+            tacticsLocked: match.tacticsLocked,
+            homeForfeit: match.homeForfeit,
+            awayForfeit: match.awayForfeit,
+            firstHalfInjuryTime: match.firstHalfInjuryTime,
+            secondHalfInjuryTime: match.secondHalfInjuryTime,
+            hasExtraTime: match.hasExtraTime,
         };
     }
 

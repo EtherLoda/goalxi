@@ -23,4 +23,12 @@ export class MatchResDto {
         name: string;
         logo: string | null;
     };
+
+    // Phase 4: Match automation fields
+    tacticsLocked!: boolean;
+    homeForfeit!: boolean;
+    awayForfeit!: boolean;
+    firstHalfInjuryTime!: number | null;
+    secondHalfInjuryTime!: number | null;
+    hasExtraTime!: boolean;
 }

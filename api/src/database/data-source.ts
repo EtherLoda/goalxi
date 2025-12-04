@@ -46,7 +46,10 @@ export const AppDataSource = new DataSource({
     PlayerHistoryEntity,
     PlayerTransactionEntity,
   ],
-  migrations: ['src/database/migrations/**/*{.ts,.js}'],
+  migrations: [
+    'src/database/migrations/**/*{.ts,.js}',
+    '../libs/database/src/migrations/**/*{.ts,.js}',
+  ],
   migrationsTableName: 'migrations',
   poolSize: process.env.DATABASE_MAX_CONNECTIONS
     ? parseInt(process.env.DATABASE_MAX_CONNECTIONS, 10)

@@ -79,6 +79,33 @@ export class MatchEntity extends AbstractEntity {
     @Column({ name: 'simulation_completed_at', type: 'timestamp', nullable: true })
     simulationCompletedAt?: Date;
 
+    @Column({ name: 'tactics_locked', type: 'boolean', default: false })
+    tacticsLocked!: boolean;
+
+    @Column({ name: 'home_forfeit', type: 'boolean', default: false })
+    homeForfeit!: boolean;
+
+    @Column({ name: 'away_forfeit', type: 'boolean', default: false })
+    awayForfeit!: boolean;
+
+    @Column({ name: 'first_half_injury_time', type: 'int', nullable: true })
+    firstHalfInjuryTime?: number;
+
+    @Column({ name: 'second_half_injury_time', type: 'int', nullable: true })
+    secondHalfInjuryTime?: number;
+
+    @Column({ name: 'has_extra_time', type: 'boolean', default: false })
+    hasExtraTime!: boolean;
+
+    @Column({ name: 'extra_time_first_half_injury', type: 'int', nullable: true })
+    extraTimeFirstHalfInjury?: number;
+
+    @Column({ name: 'extra_time_second_half_injury', type: 'int', nullable: true })
+    extraTimeSecondHalfInjury?: number;
+
+    @Column({ name: 'has_penalty_shootout', type: 'boolean', default: false })
+    hasPenaltyShootout!: boolean;
+
     constructor(partial?: Partial<MatchEntity>) {
         super();
         Object.assign(this, partial);

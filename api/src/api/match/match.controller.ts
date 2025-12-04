@@ -25,6 +25,7 @@ import { PresetResDto } from './dto/preset.res.dto';
 import { CurrentUser } from '@/decorators/current-user.decorator';
 import { JwtPayloadType } from '@/api/auth/types/jwt-payload.type';
 import { AuthGuard } from '@/guards/auth.guard';
+import { MatchEventService } from './match-event.service';
 
 @Controller('matches')
 @UseGuards(AuthGuard)
@@ -32,6 +33,7 @@ export class MatchController {
     constructor(
         private readonly matchService: MatchService,
         private readonly presetService: PresetService,
+        private readonly matchEventService: MatchEventService,
     ) { }
 
     // ==================== Match Endpoints ====================
@@ -65,6 +67,16 @@ export class MatchController {
     // TODO: Add AdminGuard
     async deleteMatch(@Param('id') id: string): Promise<void> {
         return this.matchService.delete(id);
+    }
+
+    // ==================== Event Delivery Endpoints ====================
+
+    @Get(':matchId/events')
+    async getMatchEvents(
+        @Param('matchId') matchId: string,
+        @CurrentUser() user: JwtPayloadType,
+    ) {
+        return this.matchEventService.getMatchEvents(matchId, user.id);
     }
 
     // ==================== Tactics Endpoints ====================

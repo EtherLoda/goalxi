@@ -6,5 +6,22 @@ export const GAME_SETTINGS = {
     },
     get MS_PER_YEAR() {
         return this.DAYS_PER_YEAR * 24 * 60 * 60 * 1000;
-    }
+    },
+
+    // Match Settings
+    MATCH_STREAMING_SPEED: 1.0,  // 1x = real-time (90 min = 90 min)
+    MATCH_TACTICS_DEADLINE_MINUTES: 30,
+    MATCH_POLLING_INTERVAL_MINUTES: 5,
+
+    // Match Duration
+    MATCH_FIRST_HALF_MINUTES: 45,
+    MATCH_SECOND_HALF_MINUTES: 45,
+    MATCH_HALF_TIME_MINUTES: 15,
+    MATCH_INJURY_TIME_MIN: 1,
+    MATCH_INJURY_TIME_MAX: 5,
+
+    // Extra Time (Tournament) - No injury time
+    MATCH_EXTRA_TIME_FIRST_HALF_MINUTES: 15,
+    MATCH_EXTRA_TIME_SECOND_HALF_MINUTES: 15,
+    MATCH_EXTRA_TIME_BREAK_MINUTES: 5,
 };
