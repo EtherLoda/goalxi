@@ -6,8 +6,9 @@ import { LeagueModule } from './league/league.module';
 import { PlayerModule } from './player/player.module';
 import { TeamModule } from './team/team.module';
 import { UserModule } from './user/user.module';
+import { MatchModule } from './match/match.module';
 
 @Module({
-  imports: [UserModule, AuthModule, PlayerModule, LeagueModule, TeamModule, FinanceModule, TransferModule],
+  imports: [UserModule, AuthModule, PlayerModule, LeagueModule, TeamModule, FinanceModule, TransferModule, MatchModule],
 })
 export class ApiModule { }
