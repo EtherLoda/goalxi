@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { CacheModule } from '@nestjs/cache-manager';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import {
   MatchEntity,
@@ -19,6 +20,7 @@ import { AuthModule } from '../auth/auth.module';
 @Module({
   imports: [
     AuthModule,
+    CacheModule.register(),
     TypeOrmModule.forFeature([
       MatchEntity,
       MatchTacticsEntity,

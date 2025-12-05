@@ -8,6 +8,8 @@ import {
     MatchEventEntity,
     MatchTeamStatsEntity,
     MatchStatus,
+    PlayerEntity,
+    MatchType,
 } from '@goalxi/database';
 import { MatchEngine } from '../engine/match.engine';
 import { MatchEventType } from '../engine/types';
@@ -35,6 +37,8 @@ export class SimulationProcessor extends WorkerHost {
         private readonly eventRepository: Repository<MatchEventEntity>,
         @InjectRepository(MatchTeamStatsEntity)
         private readonly statsRepository: Repository<MatchTeamStatsEntity>,
+        @InjectRepository(PlayerEntity)
+        private readonly playerRepository: Repository<PlayerEntity>,
         private readonly dataSource: DataSource,
     ) {
         super();
@@ -147,7 +151,82 @@ export class SimulationProcessor extends WorkerHost {
             });
 
             await manager.save([homeStats, awayStats]);
+
+            // Update player career stats
+            await this.updatePlayerStats(manager, match, finalState.events, homeTactics, awayTactics);
         });
+    }
+
+    private async updatePlayerStats(
+        manager: any,
+        match: MatchEntity,
+        events: any[],
+        homeTactics: any,
+        awayTactics: any,
+    ): Promise<void> {
+        const playerIds = new Set<string>();
+
+        // Helper to process team tactics
+        const processTeam = (tactics: any) => {
+            if (!tactics || !tactics.lineup) return;
+
+            // Starters
+            tactics.lineup.forEach((p: any) => {
+                playerIds.add(p.playerId);
+            });
+
+            // Substitutions
+            if (tactics.substitutions) {
+                tactics.substitutions.forEach((sub: any) => {
+                    playerIds.add(sub.playerInId);
+                });
+            }
+        };
+
+        processTeam(homeTactics);
+        processTeam(awayTactics);
+
+        if (playerIds.size === 0) return;
+
+        // Fetch players
+        const playersList = await manager
+            .createQueryBuilder(PlayerEntity, 'player')
+            .where('player.id IN (:...ids)', { ids: Array.from(playerIds) })
+            .getMany();
+
+        const isNationalMatch = match.type === MatchType.NATIONAL_TEAM;
+
+        for (const player of playersList) {
+            // Initialize stats if missing
+            if (!player.careerStats) player.careerStats = { club: { matches: 0, goals: 0, assists: 0, yellowCards: 0, redCards: 0 } };
+            if (!player.careerStats.club) player.careerStats.club = { matches: 0, goals: 0, assists: 0, yellowCards: 0, redCards: 0 };
+
+            let statsTarget = player.careerStats.club;
+
+            if (isNationalMatch) {
+                if (!player.careerStats.national) {
+                    player.careerStats.national = { matches: 0, goals: 0, assists: 0, yellowCards: 0, redCards: 0 };
+                }
+                statsTarget = player.careerStats.national;
+            }
+
+            // Update basic stats
+            statsTarget.matches++;
+
+            // Calculate events for this player
+            const playerEvents = events.filter((e: any) => e.playerId === player.id);
+
+            statsTarget.goals += playerEvents.filter((e: any) => e.type === MatchEventType.GOAL).length;
+            statsTarget.yellowCards += playerEvents.filter((e: any) => e.type === MatchEventType.YELLOW_CARD).length;
+            statsTarget.redCards += playerEvents.filter((e: any) => e.type === MatchEventType.RED_CARD).length;
+
+            // Assists
+            const assists = events.filter((e: any) => e.type === MatchEventType.GOAL && e.relatedPlayerId === player.id).length;
+            statsTarget.assists += assists;
+
+            // Save
+            await manager.save(player);
+        }
     }
 
     private async handleForfeit(

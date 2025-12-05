@@ -1,5 +1,5 @@
 import { IsEnum, IsInt, IsOptional, IsUUID, Max, Min } from 'class-validator';
-import { MatchStatus } from '@goalxi/database';
+import { MatchStatus, MatchType } from '@goalxi/database';
 import { Type } from 'class-transformer';
 
 export class ListMatchesReqDto {
@@ -24,6 +24,10 @@ export class ListMatchesReqDto {
     @IsEnum(MatchStatus)
     @IsOptional()
     status?: MatchStatus;
+
+    @IsEnum(MatchType)
+    @IsOptional()
+    type?: MatchType;
 
     @IsInt()
     @Min(1)

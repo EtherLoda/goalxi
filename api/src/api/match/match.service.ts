@@ -3,7 +3,10 @@ import {
     NotFoundException,
     BadRequestException,
     ForbiddenException,
+    Inject,
 } from '@nestjs/common';
+import { CACHE_MANAGER } from '@nestjs/cache-manager';
+import { Cache } from 'cache-manager';
 import { InjectRepository } from '@nestjs/typeorm';
 import {
     MatchEntity,
@@ -44,11 +47,12 @@ export class MatchService {
         private readonly eventRepository: Repository<MatchEventEntity>,
         @InjectRepository(MatchTeamStatsEntity)
         private readonly statsRepository: Repository<MatchTeamStatsEntity>,
+        @Inject(CACHE_MANAGER) private cacheManager: Cache,
         private readonly dataSource: DataSource,
     ) { }
 
     async findAll(filters: ListMatchesReqDto): Promise<MatchListResDto> {
-        const { leagueId, teamId, season, week, status, page = 1, limit = 20 } = filters;
+        const { leagueId, teamId, season, week, status, type, page = 1, limit = 20 } = filters;
 
         const query = this.matchRepository
             .createQueryBuilder('match')
@@ -78,6 +82,10 @@ export class MatchService {
             query.andWhere('match.status = :status', { status });
         }
 
+        if (type) {
+            query.andWhere('match.type = :type', { type });
+        }
+
         query.orderBy('match.scheduledAt', 'DESC');
 
         const [matches, total] = await query
@@ -97,6 +105,13 @@ export class MatchService {
     }
 
     async findOne(id: string): Promise<MatchResDto> {
+        const cacheKey = `match:${id}`;
+        const cachedMatch = await this.cacheManager.get<MatchResDto>(cacheKey);
+
+        if (cachedMatch) {
+            return cachedMatch;
+        }
+
         const match = await this.matchRepository.findOne({
             where: { id },
             relations: ['homeTeam', 'awayTeam', 'league'],
@@ -106,7 +121,13 @@ export class MatchService {
             throw new NotFoundException(`Match with ID ${id} not found`);
         }
 
-        return this.mapToResDto(match);
+        const result = this.mapToResDto(match);
+
+        // Cache completed matches for 1 hour, others for 1 minute
+        const ttl = match.status === MatchStatus.COMPLETED ? 3600000 : 60000;
+        await this.cacheManager.set(cacheKey, result, ttl);
+
+        return result;
     }
 
     async create(dto: CreateMatchReqDto): Promise<MatchResDto> {

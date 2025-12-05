@@ -9,6 +9,7 @@ import {
     MatchTeamStatsEntity,
     MatchStatus,
     MatchType,
+    PlayerEntity,
 } from '@goalxi/database';
 
 describe('SimulationProcessor', () => {
@@ -16,6 +17,7 @@ describe('SimulationProcessor', () => {
     let matchRepository: jest.Mocked<Repository<MatchEntity>>;
     let eventRepository: jest.Mocked<Repository<MatchEventEntity>>;
     let statsRepository: jest.Mocked<Repository<MatchTeamStatsEntity>>;
+    let playerRepository: jest.Mocked<Repository<PlayerEntity>>;
     let dataSource: jest.Mocked<DataSource>;
 
     const mockMatch = {
@@ -29,8 +31,16 @@ describe('SimulationProcessor', () => {
     const mockJob = {
         data: {
             matchId: 'match-1',
-            homeTactics: { formation: '4-4-2' },
-            awayTactics: { formation: '4-3-3' },
+            homeTactics: {
+                formation: '4-4-2',
+                lineup: [{ playerId: 'p1' }],
+                substitutions: []
+            },
+            awayTactics: {
+                formation: '4-3-3',
+                lineup: [{ playerId: 'p2' }],
+                substitutions: []
+            },
             homeForfeit: false,
             awayForfeit: false,
         },
@@ -40,6 +50,13 @@ describe('SimulationProcessor', () => {
         const mockTransactionManager = {
             save: jest.fn().mockResolvedValue({}),
             create: jest.fn((entity, data) => data),
+            createQueryBuilder: jest.fn(() => ({
+                where: jest.fn().mockReturnThis(),
+                getMany: jest.fn().mockResolvedValue([
+                    { id: 'p1', careerStats: {} },
+                    { id: 'p2', careerStats: {} }
+                ]),
+            })),
         };
 
         const module: TestingModule = await Test.createTestingModule({
@@ -64,6 +81,12 @@ describe('SimulationProcessor', () => {
                     },
                 },
                 {
+                    provide: getRepositoryToken(PlayerEntity),
+                    useValue: {
+                        save: jest.fn(),
+                    },
+                },
+                {
                     provide: DataSource,
                     useValue: {
                         transaction: jest.fn((callback) =>
@@ -78,6 +101,7 @@ describe('SimulationProcessor', () => {
         matchRepository = module.get(getRepositoryToken(MatchEntity));
         eventRepository = module.get(getRepositoryToken(MatchEventEntity));
         statsRepository = module.get(getRepositoryToken(MatchTeamStatsEntity));
+        playerRepository = module.get(getRepositoryToken(PlayerEntity));
         dataSource = module.get(DataSource);
     });
 
