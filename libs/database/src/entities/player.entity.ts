@@ -25,11 +25,33 @@ export enum TrainingSlot {
     NONE = 'NONE',
 }
 
-export interface PlayerSkills {
-    physical: Record<string, number>;
-    technical: Record<string, number>;
-    mental: Record<string, number>;
+export interface OutfieldPhysical {
+    pace: number;
+    strength: number;
 }
+export interface OutfieldTechnical {
+    finishing: number;
+    passing: number;
+    dribbling: number;
+    defending: number;
+}
+export interface OutfieldMental {
+    positioning: number;
+    composure: number;
+}
+
+export interface GKTechnical {
+    reflexes: number;
+    handling: number;
+    distribution: number;
+}
+
+export interface PlayerSkills {
+    physical: OutfieldPhysical;
+    technical: OutfieldTechnical | GKTechnical;
+    mental: OutfieldMental;
+}
+
 
 export interface CareerStats {
     club: {

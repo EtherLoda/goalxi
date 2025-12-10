@@ -18,7 +18,7 @@ import {
     MatchEventEntity,
     MatchTeamStatsEntity,
 } from '@goalxi/database';
-import { Repository, DataSource } from 'typeorm';
+import { Repository, DataSource, In } from 'typeorm';
 import { CreateMatchReqDto } from './dto/create-match.req.dto';
 import { UpdateMatchReqDto } from './dto/update-match.req.dto';
 import { ListMatchesReqDto } from './dto/list-matches.req.dto';
@@ -29,6 +29,9 @@ import { TacticsResDto } from './dto/tactics.res.dto';
 import { LineupValidator } from './validators/lineup.validator';
 import { MatchEngine } from './engine/match.engine';
 import { MatchEventType } from './engine/types';
+import { TacticalPlayer } from './engine/types/simulation.types';
+import { Team } from './engine/classes/Team';
+import { PlayerAdapter } from './engine/utils/player-adapter';
 
 @Injectable()
 export class MatchService {
@@ -356,70 +359,148 @@ export class MatchService {
             throw new BadRequestException('Both teams must submit tactics before simulation');
         }
 
+        // Fetch Players for Home Team
+        const homePlayerIds = homeTactics.lineup.map(p => p.playerId);
+        const homePlayers = await this.playerRepository.findBy({ id: In(homePlayerIds) });
+        const homePlayerMap = new Map(homePlayers.map(p => [p.id, p]));
+
+        const homeTacticalPlayers: TacticalPlayer[] = homeTactics.lineup.map(slot => {
+            const entity = homePlayerMap.get(slot.playerId);
+            if (!entity) throw new Error(`Player ${slot.playerId} not found`);
+            return {
+                player: PlayerAdapter.toSimulationPlayer(entity),
+                positionKey: slot.position
+            };
+        });
+
+        // Fetch Players for Away Team
+        const awayPlayerIds = awayTactics.lineup.map(p => p.playerId);
+        const awayPlayers = await this.playerRepository.findBy({ id: In(awayPlayerIds) });
+        const awayPlayerMap = new Map(awayPlayers.map(p => [p.id, p]));
+
+        const awayTacticalPlayers: TacticalPlayer[] = awayTactics.lineup.map(slot => {
+            const entity = awayPlayerMap.get(slot.playerId);
+            if (!entity) throw new Error(`Player ${slot.playerId} not found`);
+            return {
+                player: PlayerAdapter.toSimulationPlayer(entity),
+                positionKey: slot.position
+            };
+        });
+
+        // Setup Teams
+        const homeTeam = new Team(match.homeTeamId, homeTacticalPlayers); // Use ID or Name? Engine expects Name in constructor usually but ID is safer. Wait Team class uses name.
+        // Let's fetch team names for display or use generic. 
+        // Engine events use teamName for description.
+        // Let's reload match with team relations to get names
+        const matchWithTeams = await this.matchRepository.findOne({
+            where: { id: matchId },
+            relations: ['homeTeam', 'awayTeam']
+        });
+
+        // Re-instantiate Teams with Names
+        const finalHomeTeam = new Team(matchWithTeams.homeTeam.name, homeTacticalPlayers);
+        const finalAwayTeam = new Team(matchWithTeams.awayTeam.name, awayTacticalPlayers);
+
         // Run simulation
-        const engine = new MatchEngine(match, homeTactics, awayTactics);
-        const finalState = engine.simulateMatch();
+        const engine = new MatchEngine(finalHomeTeam, finalAwayTeam);
+        let events = engine.simulateMatch();
+
+        // Extra Time Check
+        if (match.hasExtraTime) {
+            const homeGoals = events.filter(e => e.type === 'goal' && e.teamName === finalHomeTeam.name).length;
+            const awayGoals = events.filter(e => e.type === 'goal' && e.teamName === finalAwayTeam.name).length;
+
+            if (homeGoals === awayGoals) {
+                const etEvents = engine.simulateExtraTime();
+                events = [...events, ...etEvents];
+            }
+        }
+
+        // Calculate Stats (Post-processing)
+        const calculateStats = (teamName: string) => {
+            const teamEvents = events.filter(e => e.teamName === teamName);
+            const goals = teamEvents.filter(e => e.type === 'goal').length;
+            // Poss, Threat, Finish were tracked internally but removed. 
+            // We only have Events now: goal, miss, save, turnover, advance.
+            // We can infer some stats or set placeholders.
+            // For now, let's set basic stats based on available events.
+            const shots = events.filter(e => e.teamName === teamName && (e.type === 'goal' || e.type === 'save' || e.type === 'miss')).length;
+            const saves = events.filter(e => e.type === 'save' && e.teamName !== teamName).length; // Opponent GK saves? No, wait. 
+            // Event description usually says "Shot by X saved by Y". teamName in event is Possession Team.
+
+            return {
+                possession: 50, // improved logic needed later
+                shots,
+                shotsOnTarget: shots - events.filter(e => e.type === 'miss' && e.teamName === teamName).length,
+                passes: 0,
+                tackles: 0,
+                fouls: 0,
+                corners: 0,
+                offsides: 0,
+                yellowCards: 0,
+                redCards: 0,
+                score: goals
+            };
+        };
+
+        const homeStatsRaw = calculateStats(finalHomeTeam.name);
+        const awayStatsRaw = calculateStats(finalAwayTeam.name);
 
         // Save results in a transaction
         await this.dataSource.transaction(async (manager) => {
             // Update match
-            match.homeScore = finalState.homeScore;
-            match.awayScore = finalState.awayScore;
+            match.homeScore = homeStatsRaw.score;
+            match.awayScore = awayStatsRaw.score;
             match.status = MatchStatus.COMPLETED;
             match.simulationCompletedAt = new Date();
             await manager.save(match);
 
             // Save events
-            const eventEntities = finalState.events.map((event) =>
-                manager.create(MatchEventEntity, {
-                    matchId,
-                    minute: event.minute,
-                    second: event.second || 0,
-                    type: event.type,
-                    typeName: MatchEventType[event.type],
-                    teamId: event.teamId || null,
-                    playerId: event.playerId || null,
-                    relatedPlayerId: event.relatedPlayerId || null,
-                    data: event.data || null,
-                }),
-            );
+            const eventEntities: MatchEventEntity[] = [];
+            for (const event of events) {
+                const mappedType = this.mapEventType(event.type);
+                if (mappedType) {
+                    eventEntities.push(manager.create(MatchEventEntity, {
+                        matchId,
+                        minute: event.minute,
+                        second: 0,
+                        type: mappedType,
+                        typeName: MatchEventType[mappedType],
+                        teamId: event.teamId || null,
+                        playerId: event.playerId || null,
+                        data: { description: event.description },
+                    }));
+                }
+            }
             await manager.save(eventEntities);
 
             // Save team stats
             const homeStats = manager.create(MatchTeamStatsEntity, {
                 matchId,
                 teamId: match.homeTeamId,
-                possession: finalState.stats.home.possessionTime,
-                shots: finalState.stats.home.shots,
-                shotsOnTarget: finalState.stats.home.shotsOnTarget,
-                passes: finalState.stats.home.passes,
-                passAccuracy: finalState.stats.home.passesCompleted / finalState.stats.home.passes || 0,
-                tackles: finalState.stats.home.tackles,
-                fouls: finalState.stats.home.fouls,
-                corners: finalState.stats.home.corners,
-                offsides: finalState.stats.home.offsides,
-                yellowCards: finalState.stats.home.yellowCards,
-                redCards: finalState.stats.home.redCards,
+                ...homeStatsRaw,
+                passAccuracy: 0
             });
 
             const awayStats = manager.create(MatchTeamStatsEntity, {
                 matchId,
                 teamId: match.awayTeamId,
-                possession: finalState.stats.away.possessionTime,
-                shots: finalState.stats.away.shots,
-                shotsOnTarget: finalState.stats.away.shotsOnTarget,
-                passes: finalState.stats.away.passes,
-                passAccuracy: finalState.stats.away.passesCompleted / finalState.stats.away.passes || 0,
-                tackles: finalState.stats.away.tackles,
-                fouls: finalState.stats.away.fouls,
-                corners: finalState.stats.away.corners,
-                offsides: finalState.stats.away.offsides,
-                yellowCards: finalState.stats.away.yellowCards,
-                redCards: finalState.stats.away.redCards,
+                ...awayStatsRaw,
+                passAccuracy: 0
             });
 
             await manager.save([homeStats, awayStats]);
         });
+    }
+
+    private mapEventType(engineType: string): MatchEventType | null {
+        switch (engineType) {
+            case 'goal': return MatchEventType.GOAL;
+            case 'save': return MatchEventType.SAVE;
+            case 'miss': return MatchEventType.SHOT_OFF_TARGET;
+            case 'turnover': return MatchEventType.INTERCEPTION; // Proxied for now
+            default: return null; // Skip advance/others
+        }
     }
 
     private mapToResDto(match: MatchEntity): MatchResDto {
