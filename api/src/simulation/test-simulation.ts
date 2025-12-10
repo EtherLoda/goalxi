@@ -25,7 +25,10 @@ function createMockPlayer(id: string, name: string, pos: string, attrVal: number
             gk_reflexes: attrVal,
             gk_handling: attrVal,
             gk_distribution: attrVal
-        }
+        },
+        currentStamina: 3,
+        form: 5,
+        experience: 10
     };
 }
 

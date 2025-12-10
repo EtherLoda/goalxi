@@ -28,7 +28,7 @@ describe('MatchEngine', () => {
             gk_handling: 50,
             gk_distribution: 50,
         },
-        currentStamina: 100,
+        currentStamina: 3,
         form: 5,
         experience: 10
     });
@@ -136,5 +136,20 @@ describe('MatchEngine', () => {
         // Yes, `this.events` accumulates.
         expect(eventsET.length).toBeGreaterThanOrEqual(events90.length);
         expect(eventsET.slice(0, events90.length)).toEqual(events90);
+    });
+    it('should generate snapshot events periodically', () => {
+        engine.simulateMatch();
+        // Access private 'events' property via casting to any or bracket notation
+        const events = (engine as any).events as MatchEvent[];
+        const snapshots = events.filter(e => e.type === 'snapshot');
+
+        expect(snapshots.length).toBeGreaterThan(0);
+
+        const firstSnapshot = snapshots[0];
+        expect(firstSnapshot.data).toBeDefined();
+        expect(firstSnapshot.data.home).toBeDefined();
+        expect(firstSnapshot.data.home.laneStrengths).toBeDefined();
+        expect(firstSnapshot.data.home.playerEnergies).toBeDefined();
+        expect(Object.keys(firstSnapshot.data.home.playerEnergies).length).toBeGreaterThan(0);
     });
 });

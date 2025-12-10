@@ -5,11 +5,12 @@ import { Player } from '../../../types/player.types';
 
 export interface MatchEvent {
     minute: number;
-    type: 'goal' | 'miss' | 'save' | 'turnover' | 'advance';
+    type: 'goal' | 'miss' | 'save' | 'turnover' | 'advance' | 'snapshot';
     description: string;
     teamName?: string;
     teamId?: string; // Added for compatibility with Service
     playerId?: string; // Added for compatibility with Service
+    data?: any;
 }
 
 export class MatchEngine {
@@ -45,6 +46,7 @@ export class MatchEngine {
         // Initial Snapshot (Form/Stamina applied)
         this.homeTeam.updateSnapshot(0, 0);
         this.awayTeam.updateSnapshot(0, 0);
+        this.generateSnapshotEvent(0);
 
         let lastTime = 0;
         this.homeScore = 0;
@@ -76,6 +78,7 @@ export class MatchEngine {
                 const scoreDiff = this.homeScore - this.awayScore;
                 this.homeTeam.updateSnapshot(this.time, scoreDiff);
                 this.awayTeam.updateSnapshot(this.time, -scoreDiff);
+                this.generateSnapshotEvent(this.time);
             }
 
             const initialEventCount = this.events.length;
@@ -112,6 +115,7 @@ export class MatchEngine {
         const scoreDiff = this.homeScore - this.awayScore;
         this.homeTeam.updateSnapshot(this.time, scoreDiff);
         this.awayTeam.updateSnapshot(this.time, -scoreDiff);
+        this.generateSnapshotEvent(this.time);
 
         let lastTime = this.time; // Start from 90 (or wherever ended)
 
@@ -136,6 +140,7 @@ export class MatchEngine {
                 const diff = this.homeScore - this.awayScore;
                 this.homeTeam.updateSnapshot(this.time, diff);
                 this.awayTeam.updateSnapshot(this.time, -diff);
+                this.generateSnapshotEvent(this.time);
             }
 
             // Simulate Moment
@@ -267,5 +272,28 @@ export class MatchEngine {
     private changeLane() {
         const lanes: Lane[] = ['left', 'center', 'right'];
         this.currentLane = lanes[Math.floor(Math.random() * lanes.length)];
+    }
+
+    private generateSnapshotEvent(time: number) {
+        const homeSnapshot = this.homeTeam.getSnapshot();
+        const awaySnapshot = this.awayTeam.getSnapshot();
+        const homeEnergies = Object.fromEntries(this.homeTeam.playerEnergies);
+        const awayEnergies = Object.fromEntries(this.awayTeam.playerEnergies);
+
+        this.events.push({
+            minute: time,
+            type: 'snapshot',
+            description: 'Match Snapshot Update',
+            data: {
+                home: {
+                    laneStrengths: homeSnapshot?.laneStrengths,
+                    playerEnergies: homeEnergies
+                },
+                away: {
+                    laneStrengths: awaySnapshot?.laneStrengths,
+                    playerEnergies: awayEnergies
+                }
+            }
+        });
     }
 }

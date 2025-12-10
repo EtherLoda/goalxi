@@ -360,11 +360,20 @@ export class MatchService {
         }
 
         // Fetch Players for Home Team
-        const homePlayerIds = homeTactics.lineup.map(p => p.playerId);
-        const homePlayers = await this.playerRepository.findBy({ id: In(homePlayerIds) });
+        if (!homeTactics) throw new Error('Home tactics not found');
+        if (!awayTactics) throw new Error('Away tactics not found');
+
+        // Fetch Players for Home Team
+        const homeLineup = Array.isArray(homeTactics.lineup) ? homeTactics.lineup : [];
+        const homePlayerIds = homeLineup.map(p => p.playerId);
+
+        let homePlayers: PlayerEntity[] = [];
+        if (homePlayerIds.length > 0) {
+            homePlayers = await this.playerRepository.findBy({ id: In(homePlayerIds) });
+        }
         const homePlayerMap = new Map(homePlayers.map(p => [p.id, p]));
 
-        const homeTacticalPlayers: TacticalPlayer[] = homeTactics.lineup.map(slot => {
+        const homeTacticalPlayers: TacticalPlayer[] = homeLineup.map(slot => {
             const entity = homePlayerMap.get(slot.playerId);
             if (!entity) throw new Error(`Player ${slot.playerId} not found`);
             return {
@@ -374,11 +383,16 @@ export class MatchService {
         });
 
         // Fetch Players for Away Team
-        const awayPlayerIds = awayTactics.lineup.map(p => p.playerId);
-        const awayPlayers = await this.playerRepository.findBy({ id: In(awayPlayerIds) });
+        const awayLineup = Array.isArray(awayTactics.lineup) ? awayTactics.lineup : [];
+        const awayPlayerIds = awayLineup.map(p => p.playerId);
+
+        let awayPlayers: PlayerEntity[] = [];
+        if (awayPlayerIds.length > 0) {
+            awayPlayers = await this.playerRepository.findBy({ id: In(awayPlayerIds) });
+        }
         const awayPlayerMap = new Map(awayPlayers.map(p => [p.id, p]));
 
-        const awayTacticalPlayers: TacticalPlayer[] = awayTactics.lineup.map(slot => {
+        const awayTacticalPlayers: TacticalPlayer[] = awayLineup.map(slot => {
             const entity = awayPlayerMap.get(slot.playerId);
             if (!entity) throw new Error(`Player ${slot.playerId} not found`);
             return {
@@ -468,7 +482,7 @@ export class MatchService {
                         typeName: MatchEventType[mappedType],
                         teamId: event.teamId || null,
                         playerId: event.playerId || null,
-                        data: { description: event.description },
+                        data: event.data ? { ...event.data, description: event.description } : { description: event.description },
                     }));
                 }
             }
@@ -499,6 +513,7 @@ export class MatchService {
             case 'save': return MatchEventType.SAVE;
             case 'miss': return MatchEventType.SHOT_OFF_TARGET;
             case 'turnover': return MatchEventType.INTERCEPTION; // Proxied for now
+            case 'snapshot': return MatchEventType.SNAPSHOT;
             default: return null; // Skip advance/others
         }
     }

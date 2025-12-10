@@ -37,7 +37,7 @@ export class PlayerAdapter {
             // GK also has basic technical stats usually 0 or low in DB? 
             // If the DB explicitly stores them as GKTechnical, they don't have finishing/etc.
         } else {
-            const tech = skills.technical as OutfieldTechnical;
+            const tech = skills.technical as any;
             attributes.finishing = tech.finishing || 0;
             attributes.passing = tech.passing || 0;
             attributes.dribbling = tech.dribbling || 0;
@@ -49,7 +49,7 @@ export class PlayerAdapter {
             name: entity.name,
             position: isGK ? 'GK' : 'ST', // Placeholder natural position
             attributes: attributes,
-            currentStamina: 100, // TODO: Map real stamina (0-100)
+            currentStamina: entity.stamina || 3,
             form: entity.form || 5,
             experience: entity.experience || 10
         };
@@ -63,7 +63,10 @@ export class PlayerAdapter {
             attributes: {
                 pace: 10, strength: 10, finishing: 10, passing: 10,
                 dribbling: 10, defending: 10, positioning: 10, composure: 10
-            }
+            },
+            currentStamina: 3,
+            form: 5,
+            experience: 0
         };
     }
 }
