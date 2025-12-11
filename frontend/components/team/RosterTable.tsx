@@ -132,23 +132,23 @@ export function RosterTable({ players }: RosterTableProps) {
 
             {/* Player Cards Grid */}
             <div className="relative z-10 p-6">
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
                     {sortedPlayers.map((player, index) => (
                         <Link
                             key={player.id}
                             href={`/players/${player.id}`}
-                            className="group relative overflow-hidden rounded-2xl border-2 border-emerald-500/20 bg-black/40 backdrop-blur-sm p-6 hover:bg-emerald-500/5 hover:border-emerald-400/40 transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_0_30px_rgba(16,185,129,0.3)]"
+                            className="group relative overflow-hidden rounded-2xl border-2 border-emerald-500/20 bg-black/40 backdrop-blur-sm p-4 md:p-6 hover:bg-emerald-500/5 hover:border-emerald-400/40 transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_0_30px_rgba(16,185,129,0.3)]"
                         >
                             {/* Scanline effect */}
                             <div className="absolute inset-0 bg-[linear-gradient(transparent_50%,rgba(0,0,0,0.05)_50%)] bg-[size:100%_4px] pointer-events-none rounded-2xl"></div>
 
-                            <div className="flex gap-6">
+                            <div className="flex flex-col sm:flex-row gap-4 sm:gap-6">
                                 {/* Left: Avatar & Basic Info */}
-                                <div className="flex flex-col items-center gap-4 shrink-0">
+                                <div className="flex sm:flex-col items-center gap-3 sm:gap-4 shrink-0">
                                     {/* Player Avatar */}
                                     <div className="relative">
                                         {/* Hologram base */}
-                                        <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-24 h-8 bg-emerald-500/20 blur-xl rounded-full"></div>
+                                        <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-16 sm:w-24 h-6 sm:h-8 bg-emerald-500/20 blur-xl rounded-full"></div>
 
                                         <div className="relative z-10 filter drop-shadow-[0_0_15px_rgba(16,185,129,0.4)] group-hover:drop-shadow-[0_0_25px_rgba(16,185,129,0.6)] transition-all scale-110">
                                             <MiniPlayer
@@ -170,7 +170,7 @@ export function RosterTable({ players }: RosterTableProps) {
                                     {/* Header */}
                                     <div className="mb-4">
                                         <div className="flex-1">
-                                            <h3 className="font-black text-2xl text-white group-hover:text-emerald-300 transition-colors mb-2 tracking-tight">
+                                            <h3 className="font-black text-xl sm:text-2xl text-white group-hover:text-emerald-300 transition-colors mb-1 sm:mb-2 tracking-tight truncate">
                                                 {player.name}
                                             </h3>
                                             <div className="flex items-center gap-2 mt-0.5">

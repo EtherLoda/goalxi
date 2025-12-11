@@ -1,10 +1,11 @@
-import React from 'react';
+import React, { Suspense } from 'react';
 import { api } from '@/lib/api';
 import Link from 'next/link';
 import { MiniPlayer } from '@/components/MiniPlayer';
+import { LoadingSpinner, LoadingOverlay } from '@/components/ui/LoadingSpinner';
+import { SkeletonCard } from '@/components/ui/SkeletonLoader';
 
-export default async function PlayerPage({ params }: { params: Promise<{ id: string }> }) {
-    const { id } = await params;
+async function PlayerData({ id }: { id: string }) {
     const player = await api.getPlayer(id);
     const team = await api.getTeam(player.teamId);
 
@@ -22,7 +23,6 @@ export default async function PlayerPage({ params }: { params: Promise<{ id: str
         return 'from-slate-600 to-slate-700';
     };
 
-    // Generate appearance (placeholder)
     const playerAppearance = {
         skinTone: '#c68642',
         hairColor: '#3b2414',
@@ -133,12 +133,12 @@ export default async function PlayerPage({ params }: { params: Promise<{ id: str
 
                 {/* Player Card */}
                 <div className="mb-12">
-                    <div className="relative overflow-hidden rounded-2xl border-2 border-emerald-500/20 bg-black/40 backdrop-blur-md p-8 shadow-[0_0_40px_rgba(16,185,129,0.2)]">
+                    <div className="relative overflow-hidden rounded-2xl border-2 border-emerald-500/20 bg-black/40 backdrop-blur-md p-4 sm:p-6 md:p-8 shadow-[0_0_40px_rgba(16,185,129,0.2)]">
                         {/* Background effects */}
                         <div className="absolute top-0 right-0 w-96 h-96 bg-emerald-500/10 rounded-full blur-3xl pointer-events-none"></div>
                         <div className="absolute inset-0 bg-[linear-gradient(transparent_50%,rgba(0,0,0,0.05)_50%)] bg-[size:100%_4px] pointer-events-none rounded-2xl"></div>
 
-                        <div className="relative z-10 flex flex-col md:flex-row gap-8 items-center md:items-start">
+                        <div className="relative z-10 flex flex-col md:flex-row gap-6 md:gap-8 items-center md:items-start">
                             {/* Left: Avatar */}
                             <div className="flex flex-col items-center gap-6 shrink-0">
                                 {/* Player Avatar */}
@@ -169,11 +169,11 @@ export default async function PlayerPage({ params }: { params: Promise<{ id: str
                                     Player Profile
                                 </div>
 
-                                <h1 className="text-5xl md:text-6xl font-black italic tracking-tighter text-transparent bg-clip-text bg-gradient-to-r from-white via-emerald-200 to-emerald-400 drop-shadow-[0_0_15px_rgba(16,185,129,0.4)] mb-6">
+                                <h1 className="text-4xl sm:text-5xl md:text-6xl font-black italic tracking-tighter text-transparent bg-clip-text bg-gradient-to-r from-white via-emerald-200 to-emerald-400 drop-shadow-[0_0_15px_rgba(16,185,129,0.4)] mb-4 md:mb-6">
                                     {player.name}
                                 </h1>
 
-                                <div className="flex flex-wrap gap-3 justify-center md:justify-start mb-8">
+                                <div className="flex flex-wrap gap-2 sm:gap-3 justify-center md:justify-start mb-6 md:mb-8">
                                     <span className="text-emerald-600 text-lg font-mono font-bold px-4 py-2 bg-black/40 rounded-lg border border-emerald-500/30">
                                         AGE {player.age}, DAY {player.ageDays}
                                     </span>
@@ -185,7 +185,7 @@ export default async function PlayerPage({ params }: { params: Promise<{ id: str
                                 </div>
 
                                 {/* Quick Stats Grid */}
-                                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                                <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
                                     <div className="bg-black/60 rounded-xl p-4 border-2 border-emerald-500/30 backdrop-blur-sm">
                                         <div className="text-[10px] text-emerald-600 font-bold tracking-widest uppercase mb-2">Stamina</div>
                                         <div className="text-4xl font-black text-white">{player.stamina.toFixed(1)}</div>
@@ -273,5 +273,42 @@ export default async function PlayerPage({ params }: { params: Promise<{ id: str
                 </div>
             </div>
         </div>
+    );
+}
+
+function PlayerLoadingSkeleton() {
+    return (
+        <div className="min-h-screen bg-black font-mono">
+            <div className="fixed inset-0 pointer-events-none z-0">
+                <div className="absolute inset-0 bg-[linear-gradient(to_right,#083344_1px,transparent_1px),linear-gradient(to_bottom,#083344_1px,transparent_1px)] bg-[size:40px_40px] [mask-image:radial-gradient(ellipse_60%_50%_at_50%_0%,#000_70%,transparent_100%)] opacity-50"></div>
+                <div className="absolute top-[-10%] left-[20%] w-[50%] h-[50%] rounded-full bg-emerald-900/10 blur-[120px] animate-pulse"></div>
+            </div>
+
+            <div className="relative z-10 container mx-auto px-4 py-8">
+                <div className="mb-6">
+                    <div className="h-4 w-48 bg-emerald-950/40 rounded animate-pulse"></div>
+                </div>
+
+                <div className="mb-12">
+                    <SkeletonCard />
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+                    <SkeletonCard />
+                    <SkeletonCard />
+                    <SkeletonCard />
+                </div>
+            </div>
+        </div>
+    );
+}
+
+export default async function PlayerPage({ params }: { params: Promise<{ id: string }> }) {
+    const { id } = await params;
+
+    return (
+        <Suspense fallback={<PlayerLoadingSkeleton />}>
+            <PlayerData id={id} />
+        </Suspense>
     );
 }
