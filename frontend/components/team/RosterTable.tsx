@@ -88,9 +88,17 @@ export function RosterTable({ players }: RosterTableProps) {
                                                 {value}
                                             </span>
                                         </div>
-                                        <div className="h-1.5 bg-black/60 rounded-full overflow-hidden border border-emerald-900/30">
+                                        <div className="h-1.5 bg-black/60 rounded-full overflow-hidden border border-emerald-900/30 relative">
+                                            {/* Potential bar (background) */}
+                                            {player.potentialSkills?.[cat.key]?.[key] && (
+                                                <div
+                                                    className="absolute inset-0 bg-gradient-to-r from-slate-600/30 to-slate-500/30"
+                                                    style={{ width: `${((player.potentialSkills[cat.key][key] as number) / 20) * 100}%` }}
+                                                />
+                                            )}
+                                            {/* Current skill bar (foreground) */}
                                             <div
-                                                className={`h-full bg-gradient-to-r ${getSkillBarColor(value as number)} transition-all duration-500 shadow-[0_0_8px_rgba(16,185,129,0.3)]`}
+                                                className={`relative h-full bg-gradient-to-r ${getSkillBarColor(value as number)} transition-all duration-500 shadow-[0_0_8px_rgba(16,185,129,0.3)]`}
                                                 style={{ width: `${((value as number) / 20) * 100}%` }}
                                             />
                                         </div>
