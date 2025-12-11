@@ -3,6 +3,7 @@ import { Player } from '@/lib/api';
 import { clsx } from 'clsx';
 import Link from 'next/link';
 import { MiniPlayer } from '@/components/MiniPlayer';
+import { PotentialBadge } from '@/components/ui/PotentialBadge';
 
 interface RosterTableProps {
     players: Player[];
@@ -173,14 +174,17 @@ export function RosterTable({ players }: RosterTableProps) {
                                             <h3 className="font-black text-xl sm:text-2xl text-white group-hover:text-emerald-300 transition-colors mb-1 sm:mb-2 tracking-tight truncate">
                                                 {player.name}
                                             </h3>
-                                            <div className="flex items-center gap-2 mt-0.5">
-                                                <span className="text-emerald-600 text-[10px] font-mono">
+                                            <div className="flex items-center flex-wrap gap-2 mt-0.5">
+                                                <span className="text-emerald-600 text-[9px] sm:text-[10px] font-mono">
                                                     AGE {player.age}, DAY {player.ageDays}
                                                 </span>
                                                 {player.isYouth && (
-                                                    <span className="text-[9px] text-emerald-400 border border-emerald-400/30 bg-emerald-500/10 px-1.5 py-0.5 rounded font-bold">
+                                                    <span className="text-[8px] sm:text-[9px] text-emerald-400 border border-emerald-400/30 bg-emerald-500/10 px-1.5 py-0.5 rounded font-bold">
                                                         YTH
                                                     </span>
+                                                )}
+                                                {player.potentialTier && (
+                                                    <PotentialBadge tier={player.potentialTier as any} size="sm" showLabel={false} />
                                                 )}
                                             </div>
                                         </div>
