@@ -4,11 +4,17 @@ import { MatchStatsResDto } from './dto/match-stats.res.dto';
 import { TeamStatsResDto } from './dto/team-stats.res.dto';
 import { AuthGuard } from '../../guards/auth.guard';
 
-@Controller('stats')
+import { Public } from '@/decorators/public.decorator';
+
+@Controller({
+    path: 'stats',
+    version: '1',
+})
 @UseGuards(AuthGuard)
 export class StatsController {
     constructor(private readonly statsService: StatsService) { }
 
+    @Public()
     @Get('matches/:matchId')
     async getMatchStats(
         @Param('matchId') matchId: string,
@@ -16,6 +22,7 @@ export class StatsController {
         return this.statsService.getMatchStats(matchId);
     }
 
+    @Public()
     @Get('teams/:teamId/season/:season')
     async getTeamSeasonStats(
         @Param('teamId') teamId: string,

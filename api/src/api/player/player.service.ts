@@ -181,13 +181,13 @@ export class PlayerService {
 
         const currentSkills: PlayerSkills = {
             physical: currentPhysical,
-            technical: currentTechnical as Record<string, number>,
+            technical: currentTechnical,
             mental: currentMental,
         };
 
         const potentialSkills: PlayerSkills = {
             physical: potentialPhysical,
-            technical: potentialTechnical as Record<string, number>,
+            technical: potentialTechnical,
             mental: potentialMental,
         };
 

@@ -5,18 +5,15 @@ import Image from 'next/image';
 import { MiniPlayer } from '@/components/MiniPlayer';
 import { generateTeam } from '@/lib/playerGenerator';
 import { Player } from '@/types/player';
+import { useTheme } from '@/components/layout/ThemeContext';
 
 export default function Home() {
   const [team, setTeam] = useState<Player[]>([]);
-  const [theme, setTheme] = useState<'dark' | 'light'>('dark');
+  const { theme } = useTheme();
 
   useEffect(() => {
     setTeam(generateTeam(11));
   }, []);
-
-  const toggleTheme = () => {
-    setTheme(prev => prev === 'dark' ? 'light' : 'dark');
-  };
 
   // Theme Config
   const isDark = theme === 'dark';
@@ -72,14 +69,6 @@ export default function Home() {
           </div>
 
           <div className="flex items-center gap-6">
-            {/* Theme Toggle */}
-            <button
-              onClick={toggleTheme}
-              className={`p-3 rounded-xl border-2 transition-all ${isDark ? 'bg-black/40 border-emerald-500/30 hover:bg-emerald-900/20 text-emerald-400' : 'bg-green-50 border-green-300 hover:bg-green-100 text-green-700 shadow-sm'}`}
-            >
-              {isDark ? '☀️ DAY MATCH' : '🌙 NIGHT MATCH'}
-            </button>
-
             <div className={`hidden md:flex gap-8 text-sm font-bold rounded-xl p-4 border-2 ${isDark ? 'bg-black/40 border-emerald-900/50' : 'bg-green-50/50 border-green-200'}`}>
               <div className="text-right">
                 <div className={`text-[10px] uppercase ${subText}`}>Budget</div>

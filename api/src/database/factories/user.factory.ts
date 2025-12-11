@@ -1,5 +1,5 @@
 import { UserEntity } from '@goalxi/database';
-import { SYSTEM_USER_ID } from '@/constants/app.constant';
+const SYSTEM_USER_ID = 'system'; // Inlined to avoid seed resolution issues
 import { setSeederFactory } from 'typeorm-extension';
 
 export default setSeederFactory(UserEntity, (fake) => {

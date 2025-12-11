@@ -5,6 +5,7 @@ This document describes the current database schema for the GoalXI football mana
 ## Current Schema (Implemented)
 
 ### User Table
+
 Represents a football manager/user account.
 
 | Column | Type | Constraints | Description |
@@ -24,10 +25,12 @@ Represents a football manager/user account.
 | `deleted_at` | TIMESTAMPTZ | NULLABLE | Soft delete timestamp |
 
 **Indexes:**
+
 - `UQ_user_username` - Unique index on username (where deleted_at IS NULL)
 - `UQ_user_email` - Unique index on email (where deleted_at IS NULL)
 
 **Relations:**
+
 - One-to-Many with `Session` (user sessions)
 - One-to-One with `Team`
 
@@ -71,6 +74,7 @@ The appearance object defines the visual characteristics of a player for fronten
 **Attributes Structure (JSONB):**
 
 For **Outfield Players** (`is_goalkeeper = false`):
+
 ```json
 {
   "current": {
@@ -85,11 +89,8 @@ For **Outfield Players** (`is_goalkeeper = false`):
       "defending": 8.50     // 防守 (0-20)
     },
     "mental": {
-      "vision": 14.70,      // 视野 (0-20)
       "positioning": 13.90, // 跑位 (0-20)
-      "awareness": 12.60,   // 防守站位 (0-20)
-      "composure": 15.30,   // 决断 (0-20)
-      "aggression": 11.20   // 侵略性 (0-20)
+      "composure": 15.30    // 决断 (0-20)
     }
   },
   "potential": {
@@ -104,17 +105,15 @@ For **Outfield Players** (`is_goalkeeper = false`):
       "defending": 10.00
     },
     "mental": {
-      "vision": 17.00,
       "positioning": 16.00,
-      "awareness": 15.00,
-      "composure": 18.00,
-      "aggression": 13.00
+      "composure": 18.00
     }
   }
 }
 ```
 
 For **Goalkeepers** (`is_goalkeeper = true`):
+
 ```json
 {
   "current": {
@@ -128,11 +127,8 @@ For **Goalkeepers** (`is_goalkeeper = true`):
       "distribution": 13.40 // 出球 (0-20)
     },
     "mental": {
-      "vision": 12.10,      // 视野 (0-20)
       "positioning": 15.80, // 站位 (0-20)
-      "awareness": 14.30,   // 意识 (0-20)
-      "composure": 16.20,   // 决断 (0-20)
-      "aggression": 9.50    // 侵略性 (0-20)
+      "composure": 16.20    // 决断 (0-20)
     }
   },
   "potential": {
@@ -146,11 +142,8 @@ For **Goalkeepers** (`is_goalkeeper = true`):
       "distribution": 16.00
     },
     "mental": {
-      "vision": 14.00,
       "positioning": 18.00,
-      "awareness": 17.00,
-      "composure": 19.00,
-      "aggression": 11.00
+      "composure": 19.00
     }
   }
 }
@@ -158,7 +151,8 @@ For **Goalkeepers** (`is_goalkeeper = true`):
 
 **Note**: Stamina is now a separate field (not in attributes). Form and stamina are both float values (1.0-5.0).
 
-**Note**: 
+**Note**:
+
 - All attribute values are stored as decimals (0.00-20.00) with 2 decimal precision
 - **API Response**: Attributes are automatically rounded to integers (0-20) for display via Transform decorator
 - **Database Storage**: Attributes remain as floats for precise calculations
@@ -167,15 +161,18 @@ For **Goalkeepers** (`is_goalkeeper = true`):
 - Form is an integer (1-10) representing current player condition
 
 **Indexes:**
+
 - Primary key on `id`
 - Foreign key on `team_id`
 
 **Relations:**
+
 - Many-to-One with `Team`
 
 ---
 
 ### Session Table
+
 Stores user authentication sessions.
 
 | Column | Type | Constraints | Description |
@@ -188,11 +185,13 @@ Stores user authentication sessions.
 | `deleted_at` | TIMESTAMPTZ | NULLABLE | Soft delete timestamp |
 
 **Relations:**
+
 - Many-to-One with `User` (user.id)
 
 ---
 
 ### League Table (Implemented)
+
 Represents a competition/league.
 
 | Column | Type | Constraints | Description |
@@ -206,16 +205,19 @@ Represents a competition/league.
 | `deleted_at` | TIMESTAMPTZ | NULLABLE | Soft delete timestamp |
 
 **Relations:**
+
 - One-to-Many with `Team`
 - One-to-Many with `Match`
 
 **Notes:**
+
 - Season is stored as VARCHAR to support formats like "2024-25" or "Season 1"
 - Status tracks whether league is currently active or has completed
 
 ---
 
 ### Team Table (Implemented)
+
 Represents a football team owned by a manager.
 
 | Column | Type | Constraints | Description |
@@ -232,9 +234,11 @@ Represents a football team owned by a manager.
 | `deleted_at` | TIMESTAMPTZ | NULLABLE | Soft delete timestamp |
 
 **Indexes:**
+
 - `IDX_team_league` - Index on league_id
 
 **Relations:**
+
 - One-to-One with `User`
 - Many-to-One with `League`
 - One-to-Many with `Player`
@@ -247,6 +251,7 @@ Represents a football team owned by a manager.
 ---
 
 ### Finance Table (Implemented)
+
 Stores the current financial state of a team.
 
 | Column | Type | Constraints | Description |
@@ -258,11 +263,13 @@ Stores the current financial state of a team.
 | `updated_at` | TIMESTAMPTZ | NOT NULL | Last update timestamp |
 
 **Relations:**
+
 - One-to-One with `Team`
 
 ---
 
 #### Transaction Table (Implemented)
+
 Records individual financial events for detailed tracking and statistics.
 
 | Column | Type | Constraints | Description |
@@ -275,9 +282,11 @@ Records individual financial events for detailed tracking and statistics.
 | `created_at` | TIMESTAMPTZ | NOT NULL | When the transaction occurred |
 
 **Relations:**
+
 - Many-to-One with `Team`
 
 **Notes:**
+
 - Positive amounts = income, Negative amounts = expenses
 - Season-based statistics can be calculated by grouping transactions
 - Type enum: MATCH_INCOME, TRANSFER_IN, TRANSFER_OUT, WAGES, SPONSORSHIP, FACILITY_UPGRADE
@@ -285,6 +294,7 @@ Records individual financial events for detailed tracking and statistics.
 ---
 
 #### Team Table (New)
+
 Represents a football team owned by a manager.
 
 | Column | Type | Constraints | Description |
@@ -301,9 +311,11 @@ Represents a football team owned by a manager.
 | `deleted_at` | TIMESTAMPTZ | NULLABLE | Soft delete timestamp |
 
 **Indexes:**
+
 - `IDX_team_league` - Index on league_id
 
 **Relations:**
+
 - One-to-One with `User`
 - Many-to-One with `League`
 - One-to-Many with `Player`
@@ -313,6 +325,7 @@ Represents a football team owned by a manager.
 ---
 
 ### Match Table (Implemented)
+
 Represents a football match between two teams.
 
 | Column | Type | Constraints | Description |
@@ -338,6 +351,7 @@ Represents a football match between two teams.
 | `updated_at` | TIMESTAMPTZ | NOT NULL | Record last update timestamp |
 
 **Relations:**
+
 - Many-to-One with `League`
 - Many-to-One with `Team` (home_team_id)
 - Many-to-One with `Team` (away_team_id)
@@ -348,6 +362,7 @@ Represents a football match between two teams.
 ---
 
 ### MatchEvent Table (Implemented)
+
 Tracks events that occurred during a match.
 
 | Column | Type | Constraints | Description |
@@ -365,6 +380,7 @@ Tracks events that occurred during a match.
 | `created_at` | TIMESTAMPTZ | NOT NULL | Record creation timestamp |
 
 **Relations:**
+
 - Many-to-One with `Match`
 - Many-to-One with `Team`
 - Many-to-One with `Player`
@@ -372,6 +388,7 @@ Tracks events that occurred during a match.
 ---
 
 ### MatchTactics Table (Implemented)
+
 Stores tactics submitted by a team for a specific match.
 
 | Column | Type | Constraints | Description |
@@ -389,6 +406,7 @@ Stores tactics submitted by a team for a specific match.
 | `updated_at` | TIMESTAMPTZ | NOT NULL | Record last update timestamp |
 
 **Relations:**
+
 - Many-to-One with `Match`
 - Many-to-One with `Team`
 - Many-to-One with `TacticsPreset`
@@ -396,6 +414,7 @@ Stores tactics submitted by a team for a specific match.
 ---
 
 ### TacticsPreset Table (Implemented)
+
 Stores reusable tactical setups for a team.
 
 | Column | Type | Constraints | Description |
@@ -412,11 +431,13 @@ Stores reusable tactical setups for a team.
 | `updated_at` | TIMESTAMPTZ | NOT NULL | Record last update timestamp |
 
 **Relations:**
+
 - Many-to-One with `Team`
 
 ---
 
 ### MatchTeamStats Table (Implemented)
+
 Stores aggregated statistics for a team in a match.
 
 | Column | Type | Constraints | Description |
@@ -438,12 +459,14 @@ Stores aggregated statistics for a team in a match.
 | `created_at` | TIMESTAMPTZ | NOT NULL | Record creation timestamp |
 
 **Relations:**
+
 - Many-to-One with `Match`
 - Many-to-One with `Team`
 
 ---
 
 ### LeagueStanding Table (New)
+
 Tracks team positions in a league.
 
 | Column | Type | Constraints | Description |
@@ -461,9 +484,11 @@ Tracks team positions in a league.
 | `updated_at` | TIMESTAMPTZ | NOT NULL | Record last update timestamp |
 
 **Unique Constraints:**
+
 - `UQ_league_team` - Unique (league_id, team_id)
 
 **Relations:**
+
 - Many-to-One with `League`
 - Many-to-One with `Team`
 
@@ -571,4 +596,3 @@ League
 
 **Last Updated**: 2025-12-05
 **Version**: 2.2.0
-

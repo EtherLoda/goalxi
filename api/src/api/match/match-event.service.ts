@@ -57,7 +57,7 @@ export class MatchEventService {
 
     async getMatchEvents(
         matchId: string,
-        userId: string,
+        userId?: string,
     ): Promise<MatchEventsResponse> {
         const match = await this.matchRepository.findOne({
             where: { id: matchId },
@@ -68,8 +68,14 @@ export class MatchEventService {
             throw new NotFoundException('Match not found');
         }
 
-        // Authorization check
-        await this.validateAccess(userId, match);
+
+        // Authorization check - Currently disabled to allow public access
+        // All users (logged-in or not) can view all match events
+        // Future: Re-enable for private matches if needed
+        // if (userId) {
+        //     await this.validateAccess(userId, match);
+        // }
+
 
         // Get streaming speed from settings
         const streamingSpeed = GAME_SETTINGS.MATCH_STREAMING_SPEED;
@@ -155,6 +161,14 @@ export class MatchEventService {
         return { home: homeScore, away: awayScore };
     }
 
+    /**
+     * Validates that the user has access to view this match.
+     * This is only called when userId is provided (logged-in users).
+     * For public/anonymous access, this method is not called.
+     * 
+     * Currently enforces that logged-in users can only view matches 
+     * where they own one of the participating teams.
+     */
     private async validateAccess(
         userId: string,
         match: MatchEntity,

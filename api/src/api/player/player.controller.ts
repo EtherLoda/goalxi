@@ -18,6 +18,8 @@ import { PlayerResDto } from './dto/player.res.dto';
 import { UpdatePlayerReqDto } from './dto/update-player.req.dto';
 import { PlayerService } from './player.service';
 
+import { Public } from '@/decorators/public.decorator';
+
 @ApiTags('Players')
 @Controller({
     path: 'players',
@@ -33,6 +35,7 @@ export class PlayerController {
         return this.playerService.create(createPlayerDto);
     }
 
+    @Public()
     @ApiAuth({ summary: 'Get all players' })
     @Get()
     @ApiOkResponse({ type: OffsetPaginatedDto<PlayerResDto> })
@@ -42,6 +45,7 @@ export class PlayerController {
         return this.playerService.findMany(query);
     }
 
+    @Public()
     @ApiAuth({ summary: 'Get a player by ID' })
     @Get(':id')
     @ApiOkResponse({ type: PlayerResDto })

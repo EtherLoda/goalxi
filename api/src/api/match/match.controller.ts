@@ -27,7 +27,12 @@ import { JwtPayloadType } from '@/api/auth/types/jwt-payload.type';
 import { AuthGuard } from '@/guards/auth.guard';
 import { MatchEventService } from './match-event.service';
 
-@Controller('matches')
+import { Public } from '@/decorators/public.decorator';
+
+@Controller({
+    path: 'matches',
+    version: '1',
+})
 @UseGuards(AuthGuard)
 export class MatchController {
     constructor(
@@ -38,11 +43,13 @@ export class MatchController {
 
     // ==================== Match Endpoints ====================
 
+    @Public()
     @Get()
     async listMatches(@Query() filters: ListMatchesReqDto): Promise<MatchListResDto> {
         return this.matchService.findAll(filters);
     }
 
+    @Public()
     @Get(':id')
     async getMatch(@Param('id') id: string): Promise<MatchResDto> {
         return this.matchService.findOne(id);
@@ -71,12 +78,13 @@ export class MatchController {
 
     // ==================== Event Delivery Endpoints ====================
 
+    @Public()
     @Get(':matchId/events')
     async getMatchEvents(
         @Param('matchId') matchId: string,
-        @CurrentUser() user: JwtPayloadType,
+        @CurrentUser() user?: JwtPayloadType,
     ) {
-        return this.matchEventService.getMatchEvents(matchId, user.id);
+        return this.matchEventService.getMatchEvents(matchId, user?.id);
     }
 
     // ==================== Tactics Endpoints ====================

@@ -42,7 +42,7 @@ export class MatchTacticsEntity extends BaseEntity {
     formation!: string;
 
     @Column({ type: 'jsonb' })
-    lineup!: Array<{ position: string; playerId: string }>;
+    lineup!: Record<string, string>;
 
     @Column({ type: 'jsonb', nullable: true })
     instructions?: Record<string, any>;

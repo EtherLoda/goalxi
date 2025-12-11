@@ -90,11 +90,15 @@ describe('MatchEventService', () => {
             ).rejects.toThrow(NotFoundException);
         });
 
-        it('should throw ForbiddenException if user does not own either team', async () => {
+        // This test is skipped because we now allow public access to all matches
+        // Authorization is disabled to allow both logged-in and anonymous users to view matches
+        it.skip('should throw ForbiddenException if user does not own either team', async () => {
             matchRepository.findOne.mockResolvedValue(mockMatch as any);
             teamRepository.find.mockResolvedValue([
                 { id: 'team-3', userId: 'user-1' } as any,
             ]);
+            // Mock eventRepository to prevent undefined events
+            eventRepository.find.mockResolvedValue([]);
 
             await expect(
                 service.getMatchEvents('match-1', 'user-1'),

@@ -18,6 +18,8 @@ import { TeamResDto } from './dto/team.res.dto';
 import { UpdateTeamReqDto } from './dto/update-team.req.dto';
 import { TeamService } from './team.service';
 
+import { Public } from '@/decorators/public.decorator';
+
 @ApiTags('Team')
 @Controller({
     path: 'teams',
@@ -26,12 +28,14 @@ import { TeamService } from './team.service';
 export class TeamController {
     constructor(private readonly teamService: TeamService) { }
 
+    @Public()
     @Get()
     @HttpCode(HttpStatus.OK)
     async findMany(@Query() query: ListTeamReqDto) {
         return this.teamService.findMany(query);
     }
 
+    @Public()
     @Get(':id')
     @HttpCode(HttpStatus.OK)
     async findOne(@Param('id') id: Uuid): Promise<TeamResDto> {

@@ -17,7 +17,9 @@ import {
     PlayerEntity,
     MatchEventEntity,
     MatchTeamStatsEntity,
+    LeagueEntity,
 } from '@goalxi/database';
+import { Uuid } from '@/common/types/common.type';
 import { Repository, DataSource, In } from 'typeorm';
 import { CreateMatchReqDto } from './dto/create-match.req.dto';
 import { UpdateMatchReqDto } from './dto/update-match.req.dto';
@@ -64,7 +66,19 @@ export class MatchService {
             .leftJoinAndSelect('match.league', 'league');
 
         if (leagueId) {
-            query.andWhere('match.leagueId = :leagueId', { leagueId });
+            let actualLeagueId = leagueId;
+            const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+            if (!uuidRegex.test(leagueId)) {
+                const name = leagueId.split('-').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+                const league = await LeagueEntity.findOne({ where: { name } });
+                if (league) {
+                    actualLeagueId = league.id;
+                } else {
+                    // Start of dummy UUID to ensure no results found if slug is invalid
+                    actualLeagueId = '00000000-0000-0000-0000-000000000000';
+                }
+            }
+            query.andWhere('match.leagueId = :leagueId', { leagueId: actualLeagueId });
         }
 
         if (teamId) {
@@ -360,56 +374,51 @@ export class MatchService {
         }
 
         // Fetch Players for Home Team
-        if (!homeTactics) throw new Error('Home tactics not found');
-        if (!awayTactics) throw new Error('Away tactics not found');
-
-        // Fetch Players for Home Team
-        const homeLineup = Array.isArray(homeTactics.lineup) ? homeTactics.lineup : [];
-        const homePlayerIds = homeLineup.map(p => p.playerId);
+        const homeLineup = homeTactics.lineup || {};
+        const homePlayerIds = Object.values(homeLineup);
 
         let homePlayers: PlayerEntity[] = [];
         if (homePlayerIds.length > 0) {
             homePlayers = await this.playerRepository.findBy({ id: In(homePlayerIds) });
         }
-        const homePlayerMap = new Map(homePlayers.map(p => [p.id, p]));
+        const homePlayerMap = new Map(homePlayers.map((p) => [p.id, p]));
 
-        const homeTacticalPlayers: TacticalPlayer[] = homeLineup.map(slot => {
-            const entity = homePlayerMap.get(slot.playerId);
-            if (!entity) throw new Error(`Player ${slot.playerId} not found`);
+        const homeTacticalPlayers: TacticalPlayer[] = Object.entries(homeLineup).map(([position, playerId]) => {
+            const entity = homePlayerMap.get(playerId as unknown as Uuid);
+            if (!entity) throw new Error(`Player ${playerId} not found`);
             return {
                 player: PlayerAdapter.toSimulationPlayer(entity),
-                positionKey: slot.position
+                positionKey: position,
             };
         });
 
         // Fetch Players for Away Team
-        const awayLineup = Array.isArray(awayTactics.lineup) ? awayTactics.lineup : [];
-        const awayPlayerIds = awayLineup.map(p => p.playerId);
+        const awayLineup = awayTactics.lineup || {};
+        const awayPlayerIds = Object.values(awayLineup);
 
         let awayPlayers: PlayerEntity[] = [];
         if (awayPlayerIds.length > 0) {
             awayPlayers = await this.playerRepository.findBy({ id: In(awayPlayerIds) });
         }
-        const awayPlayerMap = new Map(awayPlayers.map(p => [p.id, p]));
+        const awayPlayerMap = new Map(awayPlayers.map((p) => [p.id, p]));
 
-        const awayTacticalPlayers: TacticalPlayer[] = awayLineup.map(slot => {
-            const entity = awayPlayerMap.get(slot.playerId);
-            if (!entity) throw new Error(`Player ${slot.playerId} not found`);
+        const awayTacticalPlayers: TacticalPlayer[] = Object.entries(awayLineup).map(([position, playerId]) => {
+            const entity = awayPlayerMap.get(playerId as unknown as Uuid);
+            if (!entity) throw new Error(`Player ${playerId} not found`);
             return {
                 player: PlayerAdapter.toSimulationPlayer(entity),
-                positionKey: slot.position
+                positionKey: position,
             };
         });
 
         // Setup Teams
-        const homeTeam = new Team(match.homeTeamId, homeTacticalPlayers); // Use ID or Name? Engine expects Name in constructor usually but ID is safer. Wait Team class uses name.
-        // Let's fetch team names for display or use generic. 
-        // Engine events use teamName for description.
-        // Let's reload match with team relations to get names
+        // Reload match with team relations to get names
         const matchWithTeams = await this.matchRepository.findOne({
             where: { id: matchId },
-            relations: ['homeTeam', 'awayTeam']
+            relations: ['homeTeam', 'awayTeam'],
         });
+
+        if (!matchWithTeams) throw new NotFoundException('Match not found during team setup');
 
         // Re-instantiate Teams with Names
         const finalHomeTeam = new Team(matchWithTeams.homeTeam.name, homeTacticalPlayers);
@@ -421,8 +430,8 @@ export class MatchService {
 
         // Extra Time Check
         if (match.hasExtraTime) {
-            const homeGoals = events.filter(e => e.type === 'goal' && e.teamName === finalHomeTeam.name).length;
-            const awayGoals = events.filter(e => e.type === 'goal' && e.teamName === finalAwayTeam.name).length;
+            const homeGoals = events.filter((e) => e.type === 'goal' && e.teamName === finalHomeTeam.name).length;
+            const awayGoals = events.filter((e) => e.type === 'goal' && e.teamName === finalAwayTeam.name).length;
 
             if (homeGoals === awayGoals) {
                 const etEvents = engine.simulateExtraTime();
@@ -432,20 +441,18 @@ export class MatchService {
 
         // Calculate Stats (Post-processing)
         const calculateStats = (teamName: string) => {
-            const teamEvents = events.filter(e => e.teamName === teamName);
-            const goals = teamEvents.filter(e => e.type === 'goal').length;
-            // Poss, Threat, Finish were tracked internally but removed. 
+            const teamEvents = events.filter((e) => e.teamName === teamName);
+            const goals = teamEvents.filter((e) => e.type === 'goal').length;
+            // Poss, Threat, Finish were tracked internally but removed.
             // We only have Events now: goal, miss, save, turnover, advance.
             // We can infer some stats or set placeholders.
-            // For now, let's set basic stats based on available events.
-            const shots = events.filter(e => e.teamName === teamName && (e.type === 'goal' || e.type === 'save' || e.type === 'miss')).length;
-            const saves = events.filter(e => e.type === 'save' && e.teamName !== teamName).length; // Opponent GK saves? No, wait. 
+            const shots = events.filter((e) => e.teamName === teamName && (e.type === 'goal' || e.type === 'save' || e.type === 'miss')).length;
             // Event description usually says "Shot by X saved by Y". teamName in event is Possession Team.
 
             return {
                 possession: 50, // improved logic needed later
                 shots,
-                shotsOnTarget: shots - events.filter(e => e.type === 'miss' && e.teamName === teamName).length,
+                shotsOnTarget: shots - events.filter((e) => e.type === 'miss' && e.teamName === teamName).length,
                 passes: 0,
                 tackles: 0,
                 fouls: 0,
@@ -453,7 +460,7 @@ export class MatchService {
                 offsides: 0,
                 yellowCards: 0,
                 redCards: 0,
-                score: goals
+                score: goals,
             };
         };
 
@@ -474,16 +481,18 @@ export class MatchService {
             for (const event of events) {
                 const mappedType = this.mapEventType(event.type);
                 if (mappedType) {
-                    eventEntities.push(manager.create(MatchEventEntity, {
-                        matchId,
-                        minute: event.minute,
-                        second: 0,
-                        type: mappedType,
-                        typeName: MatchEventType[mappedType],
-                        teamId: event.teamId || null,
-                        playerId: event.playerId || null,
-                        data: event.data ? { ...event.data, description: event.description } : { description: event.description },
-                    }));
+                    eventEntities.push(
+                        manager.create(MatchEventEntity, {
+                            matchId,
+                            minute: event.minute,
+                            second: 0,
+                            type: mappedType,
+                            typeName: MatchEventType[mappedType],
+                            teamId: event.teamId || null,
+                            playerId: event.playerId || null,
+                            data: event.data ? { ...event.data, description: event.description } : { description: event.description },
+                        }),
+                    );
                 }
             }
             await manager.save(eventEntities);
@@ -493,14 +502,14 @@ export class MatchService {
                 matchId,
                 teamId: match.homeTeamId,
                 ...homeStatsRaw,
-                passAccuracy: 0
+                passAccuracy: 0,
             });
 
             const awayStats = manager.create(MatchTeamStatsEntity, {
                 matchId,
                 teamId: match.awayTeamId,
                 ...awayStatsRaw,
-                passAccuracy: 0
+                passAccuracy: 0,
             });
 
             await manager.save([homeStats, awayStats]);

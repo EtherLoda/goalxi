@@ -3,7 +3,7 @@ import { Cron } from '@nestjs/schedule';
 import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, Between } from 'typeorm';
+import { Repository, LessThanOrEqual } from 'typeorm';
 import {
     MatchEntity,
     MatchTacticsEntity,
@@ -24,20 +24,17 @@ export class MatchSchedulerService {
         private tacticsRepository: Repository<MatchTacticsEntity>,
     ) { }
 
-    @Cron('* * * * *') // Every minute
+    @Cron('*/5 * * * *') // Every 5 minutes
     async lockTacticsAndSimulate() {
         const deadlineMs =
             GAME_SETTINGS.MATCH_TACTICS_DEADLINE_MINUTES * 60 * 1000;
         const targetTime = new Date(Date.now() + deadlineMs);
 
-        // Find matches that are 30 minutes away (within a 1-minute window)
+        // Find matches that are scheduled at or before the deadline (catch-up logic)
         const matches = await this.matchRepository.find({
             where: {
                 status: MatchStatus.SCHEDULED,
-                scheduledAt: Between(
-                    new Date(targetTime.getTime() - 60000),
-                    new Date(targetTime.getTime() + 60000),
-                ),
+                scheduledAt: LessThanOrEqual(targetTime),
             },
         });
 

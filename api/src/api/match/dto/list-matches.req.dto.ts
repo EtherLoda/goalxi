@@ -1,9 +1,9 @@
-import { IsEnum, IsInt, IsOptional, IsUUID, Max, Min } from 'class-validator';
+import { IsEnum, IsInt, IsOptional, IsString, IsUUID, Max, Min } from 'class-validator';
 import { MatchStatus, MatchType } from '@goalxi/database';
 import { Type } from 'class-transformer';
 
 export class ListMatchesReqDto {
-    @IsUUID()
+    @IsString()
     @IsOptional()
     leagueId?: string;
 
