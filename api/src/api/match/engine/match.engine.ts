@@ -5,7 +5,7 @@ import { Player } from '../../../types/player.types';
 
 export interface MatchEvent {
     minute: number;
-    type: 'goal' | 'miss' | 'save' | 'turnover' | 'advance' | 'snapshot';
+    type: 'goal' | 'miss' | 'save' | 'turnover' | 'advance' | 'snapshot' | 'shot' | 'corner' | 'foul' | 'yellow_card' | 'red_card' | 'offside' | 'substitution' | 'injury' | 'penalty_goal' | 'penalty_miss';
     description: string;
     teamName?: string;
     teamId?: string; // Added for compatibility with Service

@@ -1,9 +1,9 @@
 import { Injectable } from '@nestjs/common';
-import { MatchEngine, MatchEvent } from './classes/MatchEngine';
-import { Team } from './classes/Team';
+import { MatchEngine, MatchEvent } from '../api/match/engine/match.engine';
+import { Team } from '../api/match/engine/classes/Team';
 import { PlayerAdapter } from './utils/player-adapter';
 import { PlayerEntity } from '@goalxi/database';
-import { TacticalPlayer } from './types/simulation.types';
+import { TacticalPlayer } from '../api/match/engine/types/simulation.types';
 
 @Injectable()
 export class SimulationService {
