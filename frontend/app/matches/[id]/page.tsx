@@ -13,7 +13,7 @@ interface PageProps {
     params: Promise<{ id: string }>;
 }
 
-export default function TeamFixturesPage({ params }: PageProps) {
+export default function TeamMatchesPage({ params }: PageProps) {
     const { id: teamId } = use(params);
     const { user } = useAuth();
     const [matches, setMatches] = useState<Match[]>([]);
@@ -60,7 +60,7 @@ export default function TeamFixturesPage({ params }: PageProps) {
                         Team Schedule
                     </div>
                     <h1 className="text-4xl md:text-5xl font-black italic tracking-tighter text-emerald-900 dark:text-white uppercase">
-                        {team?.name} FIXTURES
+                        {team?.name} MATCHES
                     </h1>
                 </div>
 
@@ -69,7 +69,7 @@ export default function TeamFixturesPage({ params }: PageProps) {
                         href="/matches"
                         className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold transition-all border border-emerald-500/20 text-slate-500 hover:text-emerald-600 dark:text-emerald-400 dark:hover:text-emerald-300"
                     >
-                        <ListIcon size={18} /> All League Fixtures
+                        <ListIcon size={18} /> All League Matches
                     </Link>
                 </div>
             </div>

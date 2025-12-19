@@ -20,7 +20,7 @@ interface PitchLayoutProps {
 const POSITION_COORDS: Record<string, { x: number; y: number }> = {
     // Attack (Top)
     CFL: { x: 35, y: 15 }, CF: { x: 50, y: 12 }, CFR: { x: 65, y: 15 },
-    LW: { x: 15, y: 20 }, RW: { x: 85, y: 20 },
+    LW: { x: 10, y: 20 }, RW: { x: 90, y: 20 },
 
     // Attacking Midfield
     AML: { x: 35, y: 28 }, AM: { x: 50, y: 28 }, AMR: { x: 65, y: 28 },
@@ -33,10 +33,10 @@ const POSITION_COORDS: Record<string, { x: number; y: number }> = {
     DML: { x: 35, y: 58 }, DM: { x: 50, y: 58 }, DMR: { x: 65, y: 58 },
 
     // Wingbacks (Wide)
-    WBL: { x: 8, y: 65 }, WBR: { x: 92, y: 65 },
+    WBL: { x: 10, y: 65 }, WBR: { x: 90, y: 65 },
 
     // Defense
-    LB: { x: 18, y: 75 }, RB: { x: 82, y: 75 },
+    LB: { x: 10, y: 75 }, RB: { x: 90, y: 75 },
     CDL: { x: 36, y: 75 }, CD: { x: 50, y: 78 }, CDR: { x: 64, y: 75 },
 
     // Goalkeeper
@@ -72,10 +72,7 @@ export function PitchLayout({ lineup, players, onDrop, onRemove, onDragStart }: 
                 {/* Center Line */}
                 <div className="absolute top-1/2 left-0 right-0 h-0.5 bg-white/70" />
 
-                {/* Penalty Boxes */}
-                <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[60%] h-[16%] border-2 border-white/70 border-t-0" />
-                <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[30%] h-[6%] border-2 border-white/70 border-t-0" />
-                <div className="absolute top-[11%] left-1/2 -translate-x-1/2 w-1 h-1 rounded-full bg-white/70" />
+
 
                 <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-[60%] h-[16%] border-2 border-white/70 border-b-0" />
                 <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-[30%] h-[6%] border-2 border-white/70 border-b-0" />
@@ -161,12 +158,7 @@ export function PitchLayout({ lineup, players, onDrop, onRemove, onDragStart }: 
                 })}
             </div>
 
-            {/* Field directional arrow */}
-            <div className="absolute right-2 top-1/2 -translate-y-1/2 flex flex-col items-center opacity-30 pointer-events-none">
-                <div className="text-[10px] font-bold text-white uppercase transform -rotate-90 origin-center translate-y-8">Attack</div>
-                <div className="h-20 w-0.5 bg-gradient-to-t from-transparent via-white to-white mb-1" />
-                <div className="w-0 h-0 border-l-[4px] border-l-transparent border-r-[4px] border-r-transparent border-b-[6px] border-b-white" />
-            </div>
+
 
         </div>
     );

@@ -9,7 +9,7 @@ import FixturesList from '@/components/league/FixturesList';
 import Link from 'next/link';
 import { clsx } from 'clsx';
 
-export default function FixturesPage() {
+export default function MatchesPage() {
     const { user } = useAuth();
     const [matches, setMatches] = useState<Match[]>([]);
     const [loading, setLoading] = useState(true);
@@ -55,7 +55,7 @@ export default function FixturesPage() {
                         Competition Schedule
                     </div>
                     <h1 className="text-4xl md:text-5xl font-black italic tracking-tighter text-emerald-900 dark:text-white">
-                        FIXTURES
+                        MATCHES
                     </h1>
                 </div>
 

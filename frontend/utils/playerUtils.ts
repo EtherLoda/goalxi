@@ -1,4 +1,4 @@
-import { PlayerAppearance, SkinTone, HairStyle, BodyType, Accessory } from '@/types/player';
+import { PlayerAppearance, SkinTone, HairStyle, BodyType, Accessory, Position } from '@/types/player';
 
 export function generateAppearance(playerId: string): PlayerAppearance {
     let hash = 0;
@@ -24,4 +24,14 @@ export function generateAppearance(playerId: string): PlayerAppearance {
         jerseyColorSecondary: '#ffffff',
         accessory: accessories[h2 % accessories.length]
     };
+}
+
+export function mapPosition(detailedPos: string): Position {
+    if (!detailedPos) return 'MID'; // Fallback for undefined
+    const pos = detailedPos.toUpperCase();
+    if (pos === 'GK') return 'GK';
+    if (['CB', 'LB', 'RB', 'LWB', 'RWB'].includes(pos)) return 'DEF';
+    if (['CM', 'CDM', 'CAM', 'LM', 'RM'].includes(pos)) return 'MID';
+    if (['ST', 'LW', 'RW', 'CF'].includes(pos)) return 'FWD';
+    return 'MID'; // Fallback
 }

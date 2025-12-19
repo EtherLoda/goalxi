@@ -199,6 +199,21 @@ export class PlayerService {
         return [currentSkills, potentialSkills];
     }
 
+    private calculateOverall(skills: PlayerSkills): number {
+        if (!skills) return 0;
+        let total = 0;
+        let count = 0;
+
+        for (const cat of Object.values(skills)) {
+            for (const val of Object.values(cat)) {
+                total += val as number;
+                count++;
+            }
+        }
+
+        return count > 0 ? Math.round(total / count * 5) : 0; // Scale to 0-100 roughly (avg * 5 as max is 20)
+    }
+
     private generateRandomAppearance(): Record<string, any> {
         const randInt = (min: number, max: number) => Math.floor(Math.random() * (max - min + 1)) + min;
 
@@ -227,6 +242,8 @@ export class PlayerService {
             ageDays: days,
             appearance: player.appearance,
             isGoalkeeper: player.isGoalkeeper,
+            position: player.position,
+            overall: this.calculateOverall(player.currentSkills),
             onTransfer: player.onTransfer,
             currentSkills: player.currentSkills,
             potentialSkills: player.potentialSkills,

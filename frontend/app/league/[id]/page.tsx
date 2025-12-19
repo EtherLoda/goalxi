@@ -66,7 +66,7 @@ export default async function LeagueDashboard({ params }: PageProps) {
                         <StandingsTable standings={standings} />
                     </div>
                     <div className="lg:col-span-1">
-                        <FixturesList matches={matches} />
+                        <FixturesList matches={matches} initialMode="week" />
                     </div>
                 </div>
             </div>

@@ -45,7 +45,12 @@ export class AuctionResDto {
 
     @ClassField(() => Date)
     @Expose()
-    endsAt: Date;
+    expiresAt: Date;
+
+    @ClassField(() => Date)
+    @Expose()
+    @Type(() => Date)
+    endsAt?: Date;
 
     @Expose()
     @Type(() => Object)

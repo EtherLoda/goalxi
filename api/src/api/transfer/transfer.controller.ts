@@ -9,7 +9,10 @@ import { PlaceBidReqDto } from './dto/place-bid.req.dto';
 import { AuctionResDto } from './dto/auction.res.dto';
 import { AuctionService } from './auction.service';
 
-@Controller('transfer')
+@Controller({
+    path: 'transfer',
+    version: '1',
+})
 @ApiTags('Transfer')
 @ApiBearerAuth()
 @UseGuards(AuthGuard)

@@ -124,6 +124,9 @@ export class PlayerEntity extends AbstractEntity {
     @Column({ name: 'is_goalkeeper', default: false })
     isGoalkeeper!: boolean;
 
+    @Column({ nullable: true })
+    position?: string;
+
     @Column({ name: 'on_transfer', default: false })
     onTransfer!: boolean;
 

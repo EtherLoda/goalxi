@@ -49,9 +49,9 @@ export default function Sidebar() {
             title: 'Senior Team',
             items: [
                 { label: 'Squad', href: user?.teamId ? `/teams/${user.teamId}` : '/teams/my-team', icon: Users }, // Dynamic team ID
-                { label: 'Fixtures', href: user?.teamId ? `/matches/${user.teamId}` : '/matches', icon: Calendar },
-                { label: 'League Table', href: '/league/elite-league', icon: Trophy },
-                { label: 'Tactics', href: '/tactics', icon: Settings }, // Placeholder
+                { label: 'Matches', href: user?.teamId ? `/matches/${user.teamId}` : '/matches', icon: Calendar },
+                { label: 'League', href: '/league/elite-league', icon: Trophy },
+                { label: 'Transfer', href: '/transfer', icon: Target },
             ]
         },
         {

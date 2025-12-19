@@ -8,7 +8,10 @@ import { TransactionResDto } from './dto/transaction.res.dto';
 import { FinanceService } from './finance.service';
 import { TransactionType } from './finance.constants';
 
-@Controller('finance')
+@Controller({
+    path: 'finance',
+    version: '1',
+})
 @ApiTags('Finance')
 @ApiBearerAuth()
 @UseGuards(AuthGuard)

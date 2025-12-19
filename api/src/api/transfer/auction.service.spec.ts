@@ -89,7 +89,7 @@ describe('AuctionService', () => {
             expect(auctionRepo.find).toHaveBeenCalledWith({
                 where: { status: AuctionStatus.ACTIVE },
                 relations: ['player', 'team', 'currentBidder'],
-                order: { endsAt: 'ASC' },
+                order: { expiresAt: 'ASC' },
             });
         });
     });

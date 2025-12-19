@@ -38,7 +38,7 @@ export class AuctionService {
         return this.auctionRepo.find({
             where: { status: AuctionStatus.ACTIVE },
             relations: ['player', 'team', 'currentBidder'],
-            order: { endsAt: 'ASC' },
+            order: { expiresAt: 'ASC' },
         });
     }
 
@@ -79,7 +79,7 @@ export class AuctionService {
             buyoutPrice: dto.buyoutPrice,
             currentPrice: dto.startPrice,
             startedAt: now,
-            endsAt,
+            expiresAt: endsAt,
             bidHistory: [],
             status: AuctionStatus.ACTIVE,
         });
@@ -105,7 +105,7 @@ export class AuctionService {
             if (auction.teamId === bidderTeam.id) throw new BadRequestException('Cannot bid on your own auction');
 
             const now = new Date();
-            if (now > auction.endsAt) {
+            if (now > auction.expiresAt) {
                 throw new BadRequestException('Auction has ended');
             }
 
@@ -136,12 +136,11 @@ export class AuctionService {
             });
 
             // Check if bid is in last X minutes - extend time
-            const timeLeft = auction.endsAt.getTime() - now.getTime();
+            const timeLeft = auction.expiresAt.getTime() - now.getTime();
             const thresholdMs = AUCTION_CONFIG.EXTENSION_THRESHOLD_MINUTES * 60 * 1000;
 
             if (timeLeft < thresholdMs) {
-                const extensionMs = AUCTION_CONFIG.EXTENSION_MINUTES * 60 * 1000;
-                auction.endsAt = new Date(auction.endsAt.getTime() + extensionMs);
+                auction.expiresAt = new Date(now.getTime() + thresholdMs);
             }
 
             await auctionRepo.save(auction);
@@ -164,7 +163,7 @@ export class AuctionService {
             if (auction.teamId === buyerTeam.id) throw new BadRequestException('Cannot buy your own auction');
 
             const now = new Date();
-            if (now > auction.endsAt) {
+            if (now > auction.expiresAt) {
                 throw new BadRequestException('Auction has ended');
             }
 
@@ -223,6 +222,7 @@ export class AuctionService {
         auction.status = AuctionStatus.SOLD;
         auction.currentBidderId = buyerTeam.id;
         auction.currentPrice = amount;
+        auction.endsAt = new Date();
         auction.bidHistory.push({
             teamId: buyerTeam.id,
             amount,
@@ -268,7 +268,7 @@ export class AuctionService {
         });
 
         for (const auction of expiredAuctions) {
-            if (auction.endsAt <= now) {
+            if (auction.expiresAt <= now) {
                 if (auction.currentBidderId) {
                     // Has winner - complete the sale
                     await this.dataSource.transaction(async (manager) => {
@@ -280,6 +280,7 @@ export class AuctionService {
                 } else {
                     // No bids - mark as expired
                     auction.status = AuctionStatus.EXPIRED;
+                    auction.endsAt = now;
                     await this.auctionRepo.save(auction);
                 }
             }

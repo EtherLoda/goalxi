@@ -328,6 +328,13 @@ async function createTestData() {
                 const name = randomElement(PLAYER_NAMES);
                 const age = randomInt(17, 34);
 
+                let position = 'GK';
+                if (!isGK) {
+                    if (j < 6) position = randomElement(['CB', 'LB', 'RB']);
+                    else if (j < 12) position = randomElement(['CM', 'CDM', 'CAM', 'LM', 'RM']);
+                    else position = randomElement(['ST', 'CF', 'LW', 'RW']);
+                }
+
                 const { tier, ability } = generatePlayerPotential();
                 const { current, potential } = generatePlayerAttributes(isGK, ability, age);
 
@@ -335,6 +342,7 @@ async function createTestData() {
                     name,
                     teamId: team.id,
                     isGoalkeeper: isGK,
+                    position,
                     birthday: new Date(Date.now() - (age * GAME_SETTINGS.MS_PER_YEAR) - (Math.floor(Math.random() * GAME_SETTINGS.DAYS_PER_YEAR) * 24 * 60 * 60 * 1000)),
                     isYouth: age <= 18,
                     potentialAbility: ability,

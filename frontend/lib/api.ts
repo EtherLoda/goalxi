@@ -63,14 +63,52 @@ export interface LeagueStanding {
     goalDifference: number;
     points: number;
 }
+
+export interface Transaction {
+    id: string;
+    season: number;
+    amount: number;
+    type: 'MATCH_INCOME' | 'TRANSFER_IN' | 'TRANSFER_OUT' | 'WAGES' | 'SPONSORSHIP' | 'FACILITY_UPGRADE';
+    description?: string;
+    createdAt: string;
+}
+
+export interface FinanceState {
+    balance: number;
+}
+
+export interface Auction {
+    id: string;
+    player: Player;
+    team: Team;
+    startPrice: number;
+    buyoutPrice: number;
+    currentPrice: number;
+    currentBidder?: Team;
+    startedAt: string;
+    expiresAt: string;
+    endsAt?: string;
+    status: 'ACTIVE' | 'SOLD' | 'EXPIRED' | 'CANCELLED';
+    bidHistory: any[];
+}
 const API_BASE_URL = 'http://127.0.0.1:3000/api/v1';
 
 async function fetchJson<T>(endpoint: string, options?: RequestInit): Promise<T> {
+    // Get token from localStorage if in browser environment
+    const token = typeof window !== 'undefined' ? localStorage.getItem('goalxi_token') : null;
+
+    // Merge headers
+    const headers = new Headers(options?.headers);
+    if (token && !headers.has('Authorization')) {
+        headers.set('Authorization', `Bearer ${token}`);
+    }
+
     console.log(`[API] Fetching: ${API_BASE_URL}${endpoint}`);
     try {
         const res = await fetch(`${API_BASE_URL}${endpoint}`, {
             cache: 'no-store', // Always fetch fresh data for now
             ...options,
+            headers,
         });
 
         if (!res.ok) {
@@ -209,5 +247,36 @@ export const api = {
     getMe: (token: string) => fetchJson<any>('/users/me', {
         headers: { 'Authorization': `Bearer ${token}` }
     }),
+
+    // Finance
+    getFinanceBalance: () => fetchJson<FinanceState>('/finance/balance'),
+    getTransactions: (season?: number, type?: string) => {
+        let url = '/finance/transactions';
+        const params = new URLSearchParams();
+        if (season) params.append('season', season.toString());
+        if (type) params.append('type', type);
+        const queryString = params.toString();
+        if (queryString) url += `?${queryString}`;
+        return fetchJson<Transaction[]>(url);
+    },
+
+    // Transfer/Auction
+    getAuctions: () => fetchJson<Auction[]>('/transfer/auction'),
+    placeBid: (auctionId: string, amount: number) =>
+        fetchJson<Auction>(`/transfer/auction/${auctionId}/bid`, {
+            method: 'POST',
+            body: JSON.stringify({ amount }),
+            headers: { 'Content-Type': 'application/json' }
+        }),
+    buyoutAuction: (auctionId: string) =>
+        fetchJson<Auction>(`/transfer/auction/${auctionId}/buyout`, {
+            method: 'POST'
+        }),
+    createAuction: (playerId: string, startPrice: number, buyoutPrice: number, durationHours: number) =>
+        fetchJson<Auction>('/transfer/auction', {
+            method: 'POST',
+            body: JSON.stringify({ playerId, startPrice, buyoutPrice, durationHours }),
+            headers: { 'Content-Type': 'application/json' }
+        }),
 };
 

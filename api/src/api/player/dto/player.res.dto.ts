@@ -49,6 +49,14 @@ export class PlayerResDto {
     @Expose()
     isGoalkeeper: boolean;
 
+    @StringFieldOptional()
+    @Expose()
+    position?: string;
+
+    @NumberField({ int: true })
+    @Expose()
+    overall: number;
+
     @BooleanField()
     @Expose()
     onTransfer: boolean;

@@ -4,12 +4,23 @@ import { clsx } from 'clsx';
 import Link from 'next/link';
 import { MiniPlayer } from '@/components/MiniPlayer';
 import { AbilityStars } from '@/components/ui/AbilityStars';
+import { ListPlayerDialog } from '@/components/transfer/ListPlayerDialog';
+import { useAuth } from '@/components/auth/AuthContext';
+import { Tag, Clock } from 'lucide-react';
+import { useState } from 'react';
+import { PlayerAppearance, Position } from '@/types/player';
 
 interface RosterTableProps {
     players: Player[];
 }
 
 export function RosterTable({ players }: RosterTableProps) {
+    const { user } = useAuth();
+    const [listingPlayerId, setListingPlayerId] = useState<string | null>(null);
+
+    // Check if these are the user's players
+    const isOwnSquad = players.length > 0 && players[0].teamId === user?.teamId;
+
     // Sort: Goalkeepers first, then by name
     const sortedPlayers = [...players].sort((a, b) => {
         if (a.isGoalkeeper && !b.isGoalkeeper) return -1;
@@ -241,12 +252,47 @@ export function RosterTable({ players }: RosterTableProps) {
 
                                     {/* Attributes by Category */}
                                     {renderPlayerSkills(player)}
+
+                                    {/* Actions */}
+                                    {isOwnSquad && !player.onTransfer && (
+                                        <button
+                                            onClick={(e) => {
+                                                e.preventDefault();
+                                                e.stopPropagation();
+                                                setListingPlayerId(player.id);
+                                            }}
+                                            className="mt-4 w-full flex items-center justify-center gap-2 py-2 px-4 rounded-xl border-2 border-emerald-500/40 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500 hover:text-white transition-all font-bold text-xs uppercase tracking-widest group/btn"
+                                        >
+                                            <Tag size={14} className="group-hover/btn:rotate-12 transition-transform" />
+                                            LIST ON MARKET
+                                        </button>
+                                    )}
+
+                                    {isOwnSquad && player.onTransfer && (
+                                        <div className="mt-4 w-full flex items-center justify-center gap-2 py-2 px-4 rounded-xl border-2 border-amber-500/20 bg-amber-500/5 text-amber-600 dark:text-amber-400 font-bold text-xs uppercase tracking-widest">
+                                            <Clock size={14} />
+                                            ON AUCTION
+                                        </div>
+                                    )}
                                 </div>
                             </div>
                         </Link>
                     ))}
                 </div>
             </div>
+
+            {/* List Player Dialog */}
+            {listingPlayerId && (
+                <ListPlayerDialog
+                    playerId={listingPlayerId}
+                    onClose={() => setListingPlayerId(null)}
+                    onSuccess={() => {
+                        setListingPlayerId(null);
+                        // Optional: refresh page or state
+                        window.location.reload();
+                    }}
+                />
+            )}
 
             {/* Footer */}
             <div className="relative z-10 p-5 border-t 

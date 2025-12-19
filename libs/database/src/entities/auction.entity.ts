@@ -60,8 +60,11 @@ export class AuctionEntity extends AbstractEntity {
     @Column({ name: 'started_at', type: 'timestamptz' })
     startedAt!: Date;
 
-    @Column({ name: 'ends_at', type: 'timestamptz' })
-    endsAt!: Date;
+    @Column({ name: 'expires_at', type: 'timestamptz' })
+    expiresAt!: Date;
+
+    @Column({ name: 'ends_at', type: 'timestamptz', nullable: true })
+    endsAt?: Date;
 
     @Column({ name: 'bid_history', type: 'jsonb', default: [] })
     bidHistory!: BidRecord[];
