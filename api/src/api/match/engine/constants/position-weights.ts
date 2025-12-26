@@ -469,15 +469,15 @@ export const GK_WEIGHTS: GKWeightMatrix = {
     saveRating: {
         gk_reflexes: 4.0,
         gk_handling: 2.5,
-        positioning: 2.5,
-        strength: 1.0,
+        positioning: 2.0,
+        composure: 1.5,
         // All generic fields are 0 by default for GK specific calculations if needed
         pace: 0.0,
         passing: 0.0,
         dribbling: 0.0,
         finishing: 0.0,
         defending: 0.0,
-        composure: 0.0
+        strength: 0.0
     }
 };
 

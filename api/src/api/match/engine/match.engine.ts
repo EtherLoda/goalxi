@@ -1,6 +1,7 @@
 import { Team } from './classes/Team';
 import { Lane, TacticalPlayer, TacticalInstruction, ScoreStatus } from './types/simulation.types';
 import { AttributeCalculator } from './utils/attribute-calculator';
+import { ConditionSystem } from './systems/condition.system';
 import { Player } from '../../../types/player.types';
 
 export interface MatchEvent {
@@ -16,8 +17,8 @@ export interface MatchEvent {
 export class MatchEngine {
     private time: number = 0;
     private events: MatchEvent[] = [];
-    private homeScore: number = 0;
-    private awayScore: number = 0;
+    public homeScore: number = 0;
+    public awayScore: number = 0;
 
     private possessionTeam: Team;
     private defendingTeam: Team;
@@ -178,6 +179,118 @@ export class MatchEngine {
         return this.events;
     }
 
+    public simulatePenaltyShootout(): MatchEvent[] {
+        let homePKScore = 0;
+        let awayPKScore = 0;
+        let round = 1;
+
+        const homeKickers = this.homeTeam.players.filter(p => !p.isSentOff);
+        const awayKickers = this.awayTeam.players.filter(p => !p.isSentOff);
+        const homeGK = this.homeTeam.getGoalkeeper();
+        const awayGK = this.awayTeam.getGoalkeeper();
+
+        const getPenaltyScore = (player: Player, multiplier: number, isGK: boolean) => {
+            const attrs = player.attributes;
+            if (isGK) {
+                return (attrs.gk_reflexes * 0.7 + attrs.composure * 0.3) * multiplier;
+            } else {
+                return (attrs.finishing * 0.3 + attrs.composure * 0.7) * multiplier;
+            }
+        };
+
+        const resolvePenalty = (kicker: TacticalPlayer, keeper: TacticalPlayer | undefined): boolean => {
+            if (!keeper) return true;
+            const kPlayer = kicker.player as Player;
+            const gPlayer = keeper.player as Player;
+
+            const kMultiplier = ConditionSystem.calculatePenaltyMultiplier(kPlayer.form, kPlayer.experience);
+            const gMultiplier = ConditionSystem.calculatePenaltyMultiplier(gPlayer.form, gPlayer.experience);
+
+            const kickerScore = getPenaltyScore(kPlayer, kMultiplier, false);
+            const keeperScore = getPenaltyScore(gPlayer, gMultiplier, true);
+
+            // K=0.1, Offset=11.5 for ~76% base
+            return this.resolveDuel(kickerScore, keeperScore, 0.1, -11.5);
+        };
+
+        // Standard 5 rounds
+        for (round = 1; round <= 5; round++) {
+            // Home team kicks
+            const hKicker = homeKickers[(round - 1) % homeKickers.length];
+            const hGoal = resolvePenalty(hKicker, awayGK);
+            if (hGoal) homePKScore++;
+            this.recordPenaltyEvent(hKicker, hGoal, homePKScore, awayPKScore);
+
+            // Check if decided
+            if (this.isShootoutDecided(homePKScore, awayPKScore, 5, round, true)) break;
+
+            // Away team kicks
+            const aKicker = awayKickers[(round - 1) % awayKickers.length];
+            const aGoal = resolvePenalty(aKicker, homeGK);
+            if (aGoal) awayPKScore++;
+            this.recordPenaltyEvent(aKicker, aGoal, homePKScore, awayPKScore);
+
+            // Check if decided
+            if (this.isShootoutDecided(homePKScore, awayPKScore, 5, round, false)) break;
+        }
+
+        // Sudden Death
+        if (homePKScore === awayPKScore) {
+            round = 6;
+            while (true) {
+                const hKicker = homeKickers[(round - 1) % homeKickers.length];
+                const hGoal = resolvePenalty(hKicker, awayGK);
+
+                const aKicker = awayKickers[(round - 1) % awayKickers.length];
+                const aGoal = resolvePenalty(aKicker, homeGK);
+
+                if (hGoal) homePKScore++;
+                this.recordPenaltyEvent(hKicker, hGoal, homePKScore, awayPKScore);
+
+                if (aGoal) awayPKScore++;
+                this.recordPenaltyEvent(aKicker, aGoal, homePKScore, awayPKScore);
+
+                if (hGoal !== aGoal) break; // Decided
+                round++;
+                if (round > 22) break; // Safety
+            }
+        }
+
+        // Update main score for record keeping
+        this.homeScore = homePKScore;
+        this.awayScore = awayPKScore;
+
+        this.events.push({
+            minute: 120,
+            type: 'full_time',
+            description: `Penalty Shootout Ends! ${this.homeTeam.name} ${homePKScore} - ${awayPKScore} ${this.awayTeam.name}`,
+            data: { homeScore: homePKScore, awayScore: awayPKScore, isPenalty: true }
+        });
+
+        return this.events;
+    }
+
+    private isShootoutDecided(hScore: number, aScore: number, total: number, currentRound: number, homeJustKicked: boolean): boolean {
+        const hRemaining = total - currentRound + (homeJustKicked ? 0 : 1);
+        const aRemaining = total - currentRound;
+
+        if (hScore > aScore + aRemaining) return true;
+        if (aScore > hScore + hRemaining) return true;
+        return false;
+    }
+
+    private recordPenaltyEvent(kicker: TacticalPlayer, goal: boolean, hScore: number, aScore: number) {
+        const p = kicker.player as Player;
+        this.events.push({
+            minute: 120,
+            type: goal ? 'penalty_goal' : 'penalty_miss',
+            teamName: this.homeTeam.players.includes(kicker) ? this.homeTeam.name : this.awayTeam.name,
+            playerId: p.id,
+            description: `Penalty ${goal ? 'GOAL' : 'MISS'} by ${p.name}! (Current: ${hScore}-${aScore})`,
+            data: { homeScore: hScore, awayScore: aScore }
+        });
+    }
+
     private processTacticalInstructions(minute: number) {
         const homeScoreStatus: ScoreStatus = this.homeScore > this.awayScore ? 'leading' : (this.homeScore === this.awayScore ? 'draw' : 'trailing');
         const awayScoreStatus: ScoreStatus = this.awayScore > this.homeScore ? 'leading' : (this.awayScore === this.homeScore ? 'draw' : 'trailing');
@@ -244,17 +357,17 @@ export class MatchEngine {
         const homeControl = this.homeTeam.calculateLaneStrength(this.currentLane, 'possession');
         const awayControl = this.awayTeam.calculateLaneStrength(this.currentLane, 'possession');
 
-        const homeWinsPossession = this.resolveDuel(homeControl, awayControl, 0.01, 0);
+        const homeWinsPossession = this.resolveDuel(homeControl, awayControl, 0.02, 0);
 
         this.possessionTeam = homeWinsPossession ? this.homeTeam : this.awayTeam;
         this.defendingTeam = homeWinsPossession ? this.awayTeam : this.homeTeam;
 
-        // Step 3: Threat Calculation
+        // Step 3: Threat Calculation (Attack vs Defense)
         const ATTACK_SCALAR = 1.15;
         const attPower = this.possessionTeam.calculateLaneStrength(this.currentLane, 'attack') * ATTACK_SCALAR;
         const defPower = this.defendingTeam.calculateLaneStrength(this.currentLane, 'defense');
 
-        const threatSuccess = this.resolveDuel(attPower, defPower, 0.008, 0);
+        const threatSuccess = this.resolveDuel(attPower, defPower, 0.025, 0);
 
         if (threatSuccess) {
             this.resolveFinish();
@@ -326,7 +439,7 @@ export class MatchEngine {
             gkRating = this.defendingTeam.getSnapshot()?.gkRating || 100;
         }
 
-        const isGoal = this.resolveDuel(finalShootRating, gkRating, 0.012, 0);
+        const isGoal = this.resolveDuel(finalShootRating, gkRating, 0.03, 0);
 
         if (isGoal) {
             this.events.push({
@@ -347,25 +460,24 @@ export class MatchEngine {
     }
 
     private selectShooter(team: Team): TacticalPlayer {
-        const candidates = team.players.filter(p => p.positionKey !== 'GK');
-        const weighted: TacticalPlayer[] = [];
-
-        for (const p of candidates) {
-            let w = 1;
-            if (p.positionKey.includes('CF')) w = 6;
-            else if (p.positionKey.includes('W')) w = 3;
-            else if (p.positionKey.includes('AM')) w = 3;
-            else if (p.positionKey.includes('CM')) w = 2;
-
-            for (let i = 0; i < w; i++) weighted.push(p);
+        const candidates = team.players;
+        const len = candidates.length;
+        // CFs focus
+        for (let i = 0; i < len; i++) {
+            const p = candidates[i];
+            if (p.positionKey.includes('CF') && Math.random() < 0.6) return p;
         }
-
-        return weighted[(Math.random() * weighted.length) | 0];
+        // Midfielders
+        for (let i = 0; i < len; i++) {
+            const p = candidates[i];
+            if (p.positionKey.includes('AM') || p.positionKey.includes('W')) return p;
+        }
+        // Fallback
+        return candidates[(Math.random() * len) | 0];
     }
 
     private resolveDuel(valA: number, valB: number, k: number, offset: number): boolean {
-        let diff = valA - valB - offset;
-        if (diff < 0) diff = diff * 0.5;
+        const diff = valA - valB - offset;
         const probability = 1 / (1 + Math.exp(-diff * k));
         return Math.random() < probability;
     }

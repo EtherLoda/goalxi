@@ -67,5 +67,25 @@ export class ConditionSystem {
         // Recover 0.1 to 0.4 units based on stamina
         return 0.1 + (stamina / 6) * 0.3;
     }
+
+    /**
+     * Penalty specific multiplier: Ignores stamina, high experience bonus.
+     */
+    static calculatePenaltyMultiplier(status: number, exp: number): number {
+        // 1. Status Factor (Sigmoid)
+        let statusFactor: number;
+        const sDiff = status - this.S_MID;
+        if (sDiff === 0) {
+            statusFactor = 0.95;
+        } else {
+            statusFactor = this.S_MIN + this.S_RANGE / (1 + Math.exp(-this.S_K * sDiff));
+        }
+
+        // 2. Large Experience Bonus (up to 50%)
+        const PENALTY_E_LIMIT = 0.50;
+        const expFactor = 1 + (PENALTY_E_LIMIT * exp) / (exp + this.E_GROWTH_K);
+
+        return Math.round(statusFactor * expFactor * 1000) / 1000;
+    }
 }
 
