@@ -60,9 +60,9 @@ function randomInt(min: number, max: number): number {
     return Math.floor(Math.random() * (max - min + 1)) + min;
 }
 
-function randomFloat(min: number, max: number, decimals: number = 2): number {
+function randomFloat(min: number, max: number, decimals: number = 1): number {
     const value = Math.random() * (max - min) + min;
-    return parseFloat(value.toFixed(decimals));
+    return Math.round(value * Math.pow(10, decimals)) / Math.pow(10, decimals);
 }
 
 function generatePlayerAppearance() {
@@ -343,9 +343,9 @@ async function createTestData() {
                     appearance: generatePlayerAppearance(),
                     currentSkills: current,
                     potentialSkills: potential,
-                    experience: randomFloat(0, 10, 2),
-                    form: randomFloat(1.0, 5.99, 2),
-                    stamina: randomFloat(1.0, 5.99, 2),
+                    experience: randomFloat(0, 10),
+                    form: randomFloat(3, 5),
+                    stamina: randomFloat(3, 5),
                     onTransfer: false,
                 }));
             }

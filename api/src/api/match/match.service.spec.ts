@@ -198,6 +198,7 @@ describe('MatchService', () => {
         homeTeamId: teamId,
         awayTeamId: 'other-id',
         scheduledAt: new Date(Date.now() + 86400000), // Future
+        tacticsLocked: false, // Tactics not locked yet
       });
 
       mockPlayerRepository.find.mockResolvedValue([
@@ -225,10 +226,95 @@ describe('MatchService', () => {
       mockMatchRepository.findOne.mockResolvedValue({
         id: matchId,
         homeTeamId: teamId,
-        scheduledAt: new Date(Date.now() - 1000), // Past
+        scheduledAt: new Date(Date.now() - 1000), // Past (deadline passed)
+        tacticsLocked: false,
       });
 
       await expect(service.submitTactics(matchId, teamId, dto)).rejects.toThrow(BadRequestException);
+    });
+
+    it('should fail if tactics are locked', async () => {
+      const matchId = 'match-id';
+      const teamId = 'team-id';
+      const dto: SubmitTacticsReqDto = {
+        teamId: 'team-id',
+        formation: '4-4-2',
+        lineup: {},
+      };
+
+      mockMatchRepository.findOne.mockResolvedValue({
+        id: matchId,
+        homeTeamId: teamId,
+        scheduledAt: new Date(Date.now() + 86400000), // Future
+        tacticsLocked: true, // Tactics already locked
+      });
+
+      await expect(service.submitTactics(matchId, teamId, dto)).rejects.toThrow(BadRequestException);
+    });
+
+    it('should fail if deadline is exactly at current time', async () => {
+      const matchId = 'match-id';
+      const teamId = 'team-id';
+      const dto: SubmitTacticsReqDto = {
+        teamId: 'team-id',
+        formation: '4-4-2',
+        lineup: {},
+      };
+
+      // Set scheduledAt to exactly 30 minutes from now (deadline is now)
+      const scheduledAt = new Date(Date.now() + 30 * 60 * 1000);
+      mockMatchRepository.findOne.mockResolvedValue({
+        id: matchId,
+        homeTeamId: teamId,
+        scheduledAt,
+        tacticsLocked: false,
+      });
+
+      await expect(service.submitTactics(matchId, teamId, dto)).rejects.toThrow(BadRequestException);
+    });
+
+    it('should succeed if deadline is in the future', async () => {
+      const matchId = 'match-id';
+      const teamId = 'team-id';
+      const dto: SubmitTacticsReqDto = {
+        teamId: 'team-id',
+        formation: '4-4-2',
+        lineup: {
+          GK: 'gk-id',
+          CB1: 'cb1-id',
+          CB2: 'cb2-id',
+          LB: 'lb-id',
+          RB: 'rb-id',
+          DMF1: 'dmf1-id',
+          CM1: 'cm1-id',
+          CAM1: 'cam1-id',
+          LW: 'lw-id',
+          RW: 'rw-id',
+          ST1: 'st1-id',
+        },
+      };
+
+      // Set scheduledAt to 31 minutes from now (deadline is 1 minute from now)
+      const scheduledAt = new Date(Date.now() + 31 * 60 * 1000);
+      mockMatchRepository.findOne.mockResolvedValue({
+        id: matchId,
+        homeTeamId: teamId,
+        awayTeamId: 'other-id',
+        scheduledAt,
+        tacticsLocked: false,
+      });
+
+      mockPlayerRepository.find.mockResolvedValue([
+        { id: 'gk-id' }, { id: 'cb1-id' }, { id: 'cb2-id' }, { id: 'lb-id' }, { id: 'rb-id' },
+        { id: 'dmf1-id' }, { id: 'cm1-id' }, { id: 'cam1-id' }, { id: 'lw-id' }, { id: 'rw-id' }, { id: 'st1-id' },
+      ]);
+
+      mockTacticsRepository.findOne.mockResolvedValue(null);
+      mockTacticsRepository.create.mockReturnValue({ ...dto, id: 'tactics-id' });
+      mockTacticsRepository.save.mockResolvedValue({ ...dto, id: 'tactics-id' });
+
+      const result = await service.submitTactics(matchId, teamId, dto);
+      expect(result.formation).toBe('4-4-2');
     });
   });
 

@@ -26,20 +26,44 @@ export class MatchSchedulerService {
 
     @Cron('*/5 * * * *') // Every 5 minutes
     async lockTacticsAndSimulate() {
+        this.logger.debug('Starting match scheduler cycle');
+
         const deadlineMs =
             GAME_SETTINGS.MATCH_TACTICS_DEADLINE_MINUTES * 60 * 1000;
         const targetTime = new Date(Date.now() + deadlineMs);
 
         // Find matches that are scheduled at or before the deadline (catch-up logic)
+        // Only process matches that are still SCHEDULED and not yet locked
         const matches = await this.matchRepository.find({
             where: {
                 status: MatchStatus.SCHEDULED,
+                tacticsLocked: false, // Additional safety check
                 scheduledAt: LessThanOrEqual(targetTime),
             },
         });
 
+        if (matches.length === 0) {
+            this.logger.debug('No matches to process in this cycle');
+            return;
+        }
+
+        this.logger.log(
+            `Found ${matches.length} match(es) ready for tactics locking and simulation`,
+        );
+
+        let processedCount = 0;
+        let errorCount = 0;
+
         for (const match of matches) {
             try {
+                // Double-check: skip if already locked (race condition protection)
+                if (match.tacticsLocked) {
+                    this.logger.warn(
+                        `Match ${match.id} is already locked, skipping`,
+                    );
+                    continue;
+                }
+
                 // Get tactics for both teams
                 const [homeTactics, awayTactics] = await Promise.all([
                     this.tacticsRepository.findOne({
@@ -58,7 +82,8 @@ export class MatchSchedulerService {
                 await this.matchRepository.save(match);
 
                 this.logger.log(
-                    `Locked tactics for match ${match.id}. Home forfeit: ${match.homeForfeit}, Away forfeit: ${match.awayForfeit}`,
+                    `Locked tactics for match ${match.id} (scheduled: ${match.scheduledAt.toISOString()}). ` +
+                        `Home forfeit: ${match.homeForfeit}, Away forfeit: ${match.awayForfeit}`,
                 );
 
                 // Send to simulation queue
@@ -74,11 +99,18 @@ export class MatchSchedulerService {
                 });
 
                 this.logger.log(`Queued match ${match.id} for simulation`);
+                processedCount++;
             } catch (error) {
+                errorCount++;
                 this.logger.error(
                     `Failed to process match ${match.id}: ${error.message}`,
+                    error.stack,
                 );
             }
         }
+
+        this.logger.log(
+            `Scheduler cycle completed: ${processedCount} processed, ${errorCount} errors`,
+        );
     }
 }

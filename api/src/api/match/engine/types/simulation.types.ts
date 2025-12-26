@@ -6,9 +6,22 @@ export interface WeightedAttributeResult {
     breakdown: Record<string, number>;
 }
 
+export type ScoreStatus = 'leading' | 'draw' | 'trailing';
+
+export interface TacticalInstruction {
+    minute: number;
+    type: 'move' | 'swap';
+    condition?: ScoreStatus;
+    playerId?: string; // For MOVE or SWAP-OUT
+    newPlayerId?: string; // For SWAP-IN
+    newPosition: string;
+}
+
 export interface TacticalPlayer {
     player: any; // Using any for now to avoid circular dependency or import Player type
     positionKey: string;
+    isOriginal?: boolean; // To track if they were in the starting 11
+    isSentOff?: boolean;
 }
 
 export interface TeamSnapshot {
@@ -19,3 +32,4 @@ export interface TeamSnapshot {
     };
     gkRating: number;
 }
+

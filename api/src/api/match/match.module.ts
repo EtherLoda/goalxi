@@ -16,6 +16,7 @@ import { MatchController } from './match.controller';
 import { MatchService } from './match.service';
 import { PresetService } from './preset.service';
 import { MatchEventService } from './match-event.service';
+import { MatchCacheService } from './match-cache.service';
 import { AuthModule } from '../auth/auth.module';
 
 @Module({
@@ -37,7 +38,7 @@ import { AuthModule } from '../auth/auth.module';
     ]),
   ],
   controllers: [MatchController],
-  providers: [MatchService, PresetService, MatchEventService],
-  exports: [MatchService, PresetService],
+  providers: [MatchService, PresetService, MatchEventService, MatchCacheService],
+  exports: [MatchService, PresetService, MatchCacheService],
 })
 export class MatchModule { }

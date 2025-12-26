@@ -1,107 +1,71 @@
 
-import { Player, PlayerAttributes } from '../../../../types/player.types';
-
 export class ConditionSystem {
-    // ==========================================
-    // FORM & EXPERIENCE (Static / Contextual)
-    // ==========================================
+    // --- Status (Sigmoid) constants ---
+    private static readonly S_MIN = 0.78;
+    private static readonly S_RANGE = 0.34; // (1.12 - 0.78)
+    private static readonly S_K = 1.5;
+    private static readonly S_MID = 3.5;
+
+    // --- Fitness (Exponential Decay) constants ---
+    private static readonly F_R_FREE = 0.25;
+    private static readonly F_LAMBDA = 1.00;
+
+    // --- Experience (Exp) Hyperbolic Saturation constants ---
+    private static readonly E_LIMIT_BONUS = 0.21;
+    private static readonly E_GROWTH_K = 6.0;
 
     /**
-     * Applies Pre-Match Form Factor to attributes.
-     * Formula: Factor = 1 + ((Form - 5) * 0.02)
+     * Calculates the overall performance multiplier for a player.
+     * @param currentFit Current fitness [1, 6)
+     * @param startFit Starting fitness (Stamina attribute) [1, 6)
+     * @param status Form/Status [1, 6)
+     * @param exp Experience [0, Infinity)
      */
-    static applyForm(attributes: PlayerAttributes, form: number): PlayerAttributes {
-        const factor = 1 + ((form - 5) * 0.02);
+    static calculateMultiplier(currentFit: number, startFit: number, status: number, exp: number): number {
+        // 1. Experience Factor (Hyperbolic)
+        const expFactor = 1 + (this.E_LIMIT_BONUS * exp) / (exp + this.E_GROWTH_K);
 
-        // Deep copy and apply factor
-        const newAttrs = { ...attributes };
-        for (const key in newAttrs) {
-            if (typeof newAttrs[key as keyof PlayerAttributes] === 'number') {
-                (newAttrs as any)[key] *= factor;
-            }
+        // 2. Status/Form Factor (Sigmoid)
+        let statusFactor: number;
+        const sDiff = status - this.S_MID;
+        if (sDiff === 0) {
+            statusFactor = 0.95; // Midpoint approximation
+        } else {
+            statusFactor = this.S_MIN + this.S_RANGE / (1 + Math.exp(-this.S_K * sDiff));
         }
-        return newAttrs;
+
+        // 3. Fitness Factor (Exponential Decay)
+        let fitnessFactor = 1.0;
+        const consumed = startFit - currentFit;
+        const buffer = startFit * this.F_R_FREE;
+
+        if (consumed > buffer) {
+            const overdraftRatio = (consumed - buffer) / startFit;
+            fitnessFactor = Math.exp(-this.F_LAMBDA * overdraftRatio);
+        }
+
+        // 4. Combined Result
+        const result = fitnessFactor * statusFactor * expFactor;
+
+        return Math.round(result * 1000) / 1000;
     }
 
     /**
-     * Applies Late-Game Veteran Bonus.
-     * If Minute > 75 and Score is close.
+     * Calculates fitness loss per minute.
+     * We aim for a natural decay where a typical match consumes a significant portion of the "tank".
      */
-    static applyExperience(attributes: PlayerAttributes, experience: number, minute: number, scoreDiff: number): PlayerAttributes {
-        if (minute > 75 && Math.abs(scoreDiff) <= 1) {
-            const bonus = experience / 10;
-            const newAttrs = { ...attributes };
-            newAttrs.composure += bonus;
-            newAttrs.positioning += bonus;
-            return newAttrs;
-        }
-        return attributes;
-    }
-
-    // ==========================================
-    // STAMINA & ENERGY (Dynamic)
-    // ==========================================
-
-    private static readonly CAPACITY = 100;
-    private static readonly THRESHOLD = 30;
-
-    /**
-     * Calculates Decay Rate (Energy lost per minute).
-     * Formula: D = 70 / SafeMinutes(Stamina)
-     * S5 -> Safe 90 -> D=0.77 (actually we tuned to 1.55 for Safe 45 per half? No, S5 Safe 90 means 90 continuous?)
-     * Let's use the explicit tuned values from the plan.
-     * S1 (4.66), S3 (2.33), S5 (1.55).
-     * Linear interpolation for others.
-     */
-    static calculateDecayRate(stamina: number): number {
-        // Linear Interpolation segments
-        if (stamina <= 1) return 4.66;
-        if (stamina >= 5) return 1.55;
-
-        // Between 1 and 3
-        if (stamina <= 3) {
-            // Range [1, 3] -> Decay [4.66, 2.33]
-            const ratio = (stamina - 1) / 2;
-            return 4.66 - (ratio * (4.66 - 2.33));
-        }
-
-        // Between 3 and 5
-        // Range [3, 5] -> Decay [2.33, 1.55]
-        const ratio = (stamina - 3) / 2;
-        return 2.33 - (ratio * (2.33 - 1.55));
+    static calculateFitnessDecay(minutes: number): number {
+        // Base rate: approx 1.2 to 2.0 units per match depending on intensity.
+        // Let's use a standard 0.018 per minute (~1.6 units per 90m).
+        return minutes * 0.018;
     }
 
     /**
-     * Calculates Half-Time Recovery.
-     * S1 (53), S3 (65), S5 (70).
+     * Recovery at half-time.
      */
     static calculateRecovery(stamina: number): number {
-        if (stamina <= 1) return 53;
-        if (stamina >= 5) return 70;
-
-        if (stamina <= 3) {
-            // Range [1, 3] -> Rec [53, 65]
-            const ratio = (stamina - 1) / 2;
-            return 53 + (ratio * (65 - 53));
-        }
-
-        // Range [3, 5] -> Rec [65, 70]
-        const ratio = (stamina - 3) / 2;
-        return 65 + (ratio * (70 - 65));
-    }
-
-    /**
-     * Calculates performance factor based on current energy.
-     * Energy > 30: 1.0
-     * Energy < 30: Drop curve.
-     */
-    static getFatigueFactor(currentEnergy: number): number {
-        if (currentEnergy >= this.THRESHOLD) return 1.0;
-
-        // Curve: 0.5 + 0.5 * (Energy / 30)
-        // At 30: 1.0
-        // At 0: 0.5
-        const ratio = currentEnergy / this.THRESHOLD;
-        return 0.5 + (0.5 * ratio);
+        // Recover 0.1 to 0.4 units based on stamina
+        return 0.1 + (stamina / 6) * 0.3;
     }
 }
+

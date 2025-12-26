@@ -20,6 +20,7 @@ import {
     MatchEventEntity,
     MatchTeamStatsEntity,
     LeagueEntity,
+    GAME_SETTINGS,
 } from '@goalxi/database';
 import { Uuid } from '@/common/types/common.type';
 import { Repository, DataSource, In } from 'typeorm';
@@ -381,11 +382,23 @@ export class MatchService {
             throw new ForbiddenException('Team is not participating in this match');
         }
 
-        // Check deadline (30 minutes before kickoff)
-        const deadline = new Date(match.scheduledAt.getTime() - 30 * 60 * 1000);
-        if (new Date() > deadline) {
+        // Check if tactics are already locked
+        if (match.tacticsLocked) {
             throw new BadRequestException(
-                'Tactics submission deadline has passed (30 minutes before kickoff)',
+                'Tactics are already locked for this match. The deadline has passed.',
+            );
+        }
+
+        // Check deadline (30 minutes before kickoff)
+        const deadlineMinutes = GAME_SETTINGS.MATCH_TACTICS_DEADLINE_MINUTES;
+        const deadline = new Date(
+            match.scheduledAt.getTime() - deadlineMinutes * 60 * 1000,
+        );
+        const now = new Date();
+
+        if (now >= deadline) {
+            throw new BadRequestException(
+                `Tactics submission deadline has passed. Tactics must be submitted at least ${deadlineMinutes} minutes before match start.`,
             );
         }
 

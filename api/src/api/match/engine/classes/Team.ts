@@ -5,57 +5,53 @@ import { Player } from '../../../../types/player.types';
 
 export class Team {
     private snapshot: TeamSnapshot | null = null;
-    public playerEnergies: Map<string, number> = new Map();
+    public playerFitness: Map<string, number> = new Map();
 
     constructor(
         public name: string,
         public players: TacticalPlayer[]
     ) {
-        // Initialize Energy to 100
+        // Initialize Fitness to starting Stamina
         for (const p of players) {
-            const pid = (p.player as Player).id;
-            this.playerEnergies.set(pid, 100);
+            const player = p.player as Player;
+            this.playerFitness.set(player.id, player.currentStamina);
+            p.isOriginal = true;
         }
     }
 
     /**
-     * Updates player energy levels based on minutes played.
-     * Also handles Half-Time and Extra-Time recovery.
+     * Updates player fitness levels based on minutes played.
      */
-    updateCondition(minutesDelta: number, isHalfTime: boolean = false, isExtraTimeBreak: boolean = false) {
+    updateCondition(minutesDelta: number, isHalfTime: boolean = false) {
         for (const p of this.players) {
+            if (p.isSentOff) continue;
+
             const player = p.player as Player;
-            const pid = player.id;
-            let current = this.playerEnergies.get(pid) || 100;
+            let current = this.playerFitness.get(player.id) || 3.0;
 
             // Decay
             if (minutesDelta > 0) {
-                const decay = ConditionSystem.calculateDecayRate(player.currentStamina);
-                current -= decay * minutesDelta;
+                current -= ConditionSystem.calculateFitnessDecay(minutesDelta);
             }
 
             // Recovery
             if (isHalfTime) {
                 current += ConditionSystem.calculateRecovery(player.currentStamina);
-            } else if (isExtraTimeBreak) {
-                // Recover 50% of HT amount for ET break
-                current += ConditionSystem.calculateRecovery(player.currentStamina) * 0.5;
             }
 
-            // Cap at 100
-            if (current > 100) current = 100;
-            // Floor at 0 (optional)
-            if (current < 0) current = 0;
+            // Cap at start stamina (or 6.0)
+            if (current > 6.0) current = 6.0;
+            // Floor at 1.0
+            if (current < 1.0) current = 1.0;
 
-            this.playerEnergies.set(pid, current);
+            this.playerFitness.set(player.id, current);
         }
     }
 
     /**
      * Generates a new snapshot of effective team strengths.
-     * Applies Form, Experience, and Fatigue.
      */
-    updateSnapshot(minute: number, scoreDiff: number) {
+    updateSnapshot() {
         const lanes: Lane[] = ['left', 'center', 'right'];
         const laneStrengths: TeamSnapshot['laneStrengths'] = {
             left: { attack: 0, defense: 0, possession: 0 },
@@ -64,53 +60,46 @@ export class Team {
         };
 
         for (const p of this.players) {
+            if (p.isSentOff) continue;
+
             const player = p.player as Player;
-            const pid = player.id;
-            const energy = this.playerEnergies.get(pid) || 100;
+            const currentFit = this.playerFitness.get(player.id) || 3.0;
 
-            // 1. Static Modifiers (Form)
-            let attrs = ConditionSystem.applyForm(player.attributes, player.form);
+            // Calculate Performance Multiplier (The "PerformanceEngine" logic)
+            const multiplier = ConditionSystem.calculateMultiplier(
+                currentFit,
+                player.currentStamina,
+                player.form,
+                player.experience
+            );
 
-            // 2. Context Modifiers (Experience)
-            attrs = ConditionSystem.applyExperience(attrs, player.experience, minute, scoreDiff);
-
-            // 3. Dynamic Modifiers (Fatigue)
-            const fatigueFactor = ConditionSystem.getFatigueFactor(energy);
-
-            // Calculate Base Contribution
+            // Apply to all lane contributions
             for (const lane of lanes) {
-                // We calculate contribution using the MODIFIED attributes (except fatigue applied last)
-                // AttributeCalculator.calculateContribution(player, key, lane, phase) uses player.attributes.
-                // We need to inject our modified attributes? 
-                // AttributeCalculator accepts a Player object with attributes.
-                // We can creates a temp player proxy.
-                const tempPlayer = { ...player, attributes: attrs };
+                const att = AttributeCalculator.calculateContribution(player, p.positionKey, lane, 'attack');
+                const def = AttributeCalculator.calculateContribution(player, p.positionKey, lane, 'defense');
+                const poss = AttributeCalculator.calculateContribution(player, p.positionKey, lane, 'possession');
 
-                const att = AttributeCalculator.calculateContribution(tempPlayer, p.positionKey, lane, 'attack');
-                const def = AttributeCalculator.calculateContribution(tempPlayer, p.positionKey, lane, 'defense');
-                const poss = AttributeCalculator.calculateContribution(tempPlayer, p.positionKey, lane, 'possession');
-
-                // Apply Fatigue to the final contribution
-                laneStrengths[lane].attack += att * fatigueFactor;
-                laneStrengths[lane].defense += def * fatigueFactor;
-                laneStrengths[lane].possession += poss * fatigueFactor;
+                laneStrengths[lane].attack += att * multiplier;
+                laneStrengths[lane].defense += def * multiplier;
+                laneStrengths[lane].possession += poss * multiplier;
             }
         }
 
-        // GK Rating (Update logic if GK affected)
-        // GK usually less affected by fatigue in saving, but we can apply it.
+        // GK Rating
         const gk = this.getGoalkeeper();
         let gkRating = 100;
-        if (gk) {
+        if (gk && !gk.isSentOff) {
             const player = gk.player as Player;
-            const energy = this.playerEnergies.get(player.id) || 100;
-            let attrs = ConditionSystem.applyForm(player.attributes, player.form);
-            attrs = ConditionSystem.applyExperience(attrs, player.experience, minute, scoreDiff);
-            const tempPlayer = { ...player, attributes: attrs };
+            const currentFit = this.playerFitness.get(player.id) || 3.0;
+            const multiplier = ConditionSystem.calculateMultiplier(
+                currentFit,
+                player.currentStamina,
+                player.form,
+                player.experience
+            );
 
-            const rawRating = AttributeCalculator.calculateGKSaveRating(tempPlayer);
-            const fatigue = ConditionSystem.getFatigueFactor(energy);
-            gkRating = rawRating * fatigue;
+            const rawRating = AttributeCalculator.calculateGKSaveRating(player);
+            gkRating = rawRating * multiplier;
         }
 
         this.snapshot = {
@@ -120,24 +109,62 @@ export class Team {
     }
 
     /**
-     * Calculates the total team strength for a specific lane and phase.
-     * Uses the cached snapshot for performance.
+     * Marks a player as sent off.
      */
+    sendOffPlayer(playerId: string) {
+        const p = this.players.find(p => (p.player as Player).id === playerId);
+        if (p) {
+            p.isSentOff = true;
+            this.playerFitness.delete(playerId);
+        }
+    }
+
+    /**
+     * Performs a substitution.
+     */
+    substitutePlayer(outId: string, inTacticalPlayer: TacticalPlayer) {
+        const index = this.players.findIndex(p => (p.player as Player).id === outId);
+        if (index !== -1) {
+            const outPlayer = this.players[index];
+            if (outPlayer.isSentOff) return; // Cannot sub out a sent off player
+
+            // Stop tracking old player energy
+            this.playerFitness.delete(outId);
+
+            // Add new player
+            const newPlayer = inTacticalPlayer.player as Player;
+            this.playerFitness.set(newPlayer.id, newPlayer.currentStamina || 3.0);
+            inTacticalPlayer.isOriginal = false;
+            inTacticalPlayer.isSentOff = false;
+
+            this.players[index] = inTacticalPlayer;
+        }
+    }
+
+    /**
+     * Moves a player to a new position.
+     */
+    movePlayer(playerId: string, newPosition: string) {
+        const p = this.players.find(p => (p.player as Player).id === playerId);
+        if (p && !p.isSentOff) {
+            p.positionKey = newPosition;
+        }
+    }
+
+    /**
+     * Checks if a position is currently occupied.
+     */
+    isPositionOccupied(positionKey: string): boolean {
+        return this.players.some(p => p.positionKey === positionKey && !p.isSentOff);
+    }
+
     calculateLaneStrength(lane: Lane, phase: Phase): number {
         if (this.snapshot) {
             return parseFloat(this.snapshot.laneStrengths[lane][phase].toFixed(2));
         }
-
-        // Fallback (or Error?) - For now fallback to non-fatigued static calculation
-        // Or trigger snapshot update? Better to trigger update.
-        // But we don't know Minute/ScoreDiff here. 
-        // We assume updateSnapshot is called before consistent usage.
         return 0;
     }
 
-    /**
-     * Get the goalkeeper from the team.
-     */
     getGoalkeeper(): TacticalPlayer | undefined {
         return this.players.find(p => p.positionKey === 'GK');
     }
@@ -146,3 +173,4 @@ export class Team {
         return this.snapshot;
     }
 }
+

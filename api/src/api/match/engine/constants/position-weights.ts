@@ -488,6 +488,7 @@ export const GK_WEIGHTS: GKWeightMatrix = {
 export const POSITION_WEIGHTS: PositionWeightsMap = {
     // Forwards
     'CF': CF_WEIGHTS,
+    'ST': CF_WEIGHTS,
     'CF_L': CF_L_WEIGHTS,
     'CF_R': CF_R_WEIGHTS,
     'LW': LW_WEIGHTS,

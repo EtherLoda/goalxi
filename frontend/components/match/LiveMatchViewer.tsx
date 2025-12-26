@@ -1,5 +1,6 @@
 'use client';
 
+import { useMatchPolling } from '@/hooks/useMatchPolling';
 import { useMatchSimulation } from '@/hooks/useMatchSimulation';
 import { MatchEvents } from '@/components/match/MatchEvents';
 import { MatchStats } from '@/components/match/MatchStats';
@@ -27,9 +28,14 @@ export function LiveMatchViewer({
     initialStats,
     matchStatus,
 }: LiveMatchViewerProps) {
-    const { data, isSimulating, error, startSimulation } = useMatchSimulation(matchId, initialEventsData);
+    // We use useMatchPolling for regular 5-minute updates
+    // and useMatchSimulation if we want to manually trigger/follow a simulation.
+    // However, the plan specifically asks to use the new polling hook.
+    const { data: pollingData } = useMatchPolling(matchId, initialEventsData);
+    const { startSimulation, isSimulating, error, data: simData } = useMatchSimulation(matchId, initialEventsData);
 
-    const eventsData = data || initialEventsData;
+    const data = simData || pollingData || initialEventsData;
+    const eventsData = data;
     const canSimulate = matchStatus === 'scheduled' || matchStatus === 'tactics_locked';
 
     return (

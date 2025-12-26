@@ -1,15 +1,15 @@
 import { Team } from './classes/Team';
-import { Lane, TacticalPlayer } from './types/simulation.types';
+import { Lane, TacticalPlayer, TacticalInstruction, ScoreStatus } from './types/simulation.types';
 import { AttributeCalculator } from './utils/attribute-calculator';
 import { Player } from '../../../types/player.types';
 
 export interface MatchEvent {
     minute: number;
-    type: 'goal' | 'miss' | 'save' | 'turnover' | 'advance' | 'snapshot' | 'shot' | 'corner' | 'foul' | 'yellow_card' | 'red_card' | 'offside' | 'substitution' | 'injury' | 'penalty_goal' | 'penalty_miss';
+    type: 'goal' | 'miss' | 'save' | 'turnover' | 'advance' | 'snapshot' | 'shot' | 'corner' | 'foul' | 'yellow_card' | 'red_card' | 'offside' | 'substitution' | 'injury' | 'penalty_goal' | 'penalty_miss' | 'kickoff' | 'full_time' | 'tactical_change';
     description: string;
     teamName?: string;
-    teamId?: string; // Added for compatibility with Service
-    playerId?: string; // Added for compatibility with Service
+    teamId?: string;
+    playerId?: string;
     data?: any;
 }
 
@@ -19,16 +19,17 @@ export class MatchEngine {
     private homeScore: number = 0;
     private awayScore: number = 0;
 
-
     private possessionTeam: Team;
     private defendingTeam: Team;
-
 
     private currentLane: Lane = 'center';
 
     constructor(
         public homeTeam: Team,
-        public awayTeam: Team
+        public awayTeam: Team,
+        private homeInstructions: TacticalInstruction[] = [],
+        private awayInstructions: TacticalInstruction[] = [],
+        private substitutePlayers: Map<string, TacticalPlayer> = new Map() // All potential subs mapped by ID
     ) {
         this.possessionTeam = homeTeam;
         this.defendingTeam = awayTeam;
@@ -38,14 +39,23 @@ export class MatchEngine {
         this.events = [];
         this.time = 0;
 
+        // KICKOFF Event
+        this.events.push({
+            minute: 0,
+            type: 'kickoff',
+            description: 'The match has started!',
+            data: {
+                homeTeam: this.homeTeam.name,
+                awayTeam: this.awayTeam.name
+            }
+        });
 
-        // 20 Discrete Key Moments
         const MOMENTS_COUNT = 20;
         const MINS_PER_MOMENT = 90 / MOMENTS_COUNT;
 
-        // Initial Snapshot (Form/Stamina applied)
-        this.homeTeam.updateSnapshot(0, 0);
-        this.awayTeam.updateSnapshot(0, 0);
+        // Initial Snapshot
+        this.homeTeam.updateSnapshot();
+        this.awayTeam.updateSnapshot();
         this.generateSnapshotEvent(0);
 
         let lastTime = 0;
@@ -53,38 +63,38 @@ export class MatchEngine {
         this.awayScore = 0;
 
         for (let i = 0; i < MOMENTS_COUNT; i++) {
-            // Generate time for this moment
-            // Ensures strictly increasing time to avoid negative deltas and logic errors
             let nextTime = Math.floor((i * MINS_PER_MOMENT) + (Math.random() * MINS_PER_MOMENT));
-            if (nextTime <= lastTime) nextTime = lastTime + 1; // Ensure forward progress
+            if (nextTime <= lastTime) nextTime = lastTime + 1;
             if (nextTime > 90) nextTime = 90;
 
             this.time = nextTime;
             const delta = this.time - lastTime;
 
-            // Half-Time Check (If we crossed 45m mark)
             const isHalfTime = lastTime <= 45 && this.time > 45;
 
-            // 1. Update Condition (Decay) for time passed
+            // 1. Process Tactical Instructions for every minute in the delta
+            for (let t = lastTime + 1; t <= this.time; t++) {
+                this.processTacticalInstructions(t);
+            }
+
+            // 2. Update Condition (Decay)
             this.homeTeam.updateCondition(delta, isHalfTime);
             this.awayTeam.updateCondition(delta, isHalfTime);
 
-            // 2. Update Snapshot (every 5 mins roughly, or just every moment if expensive? No, user wanted 5 min cache)
-            // Check if we crossed a 5-min boundary
+            // 3. Regular Snapshot Update (every 5 mins)
             const currentBlock = Math.floor(this.time / 5);
             const lastBlock = Math.floor(lastTime / 5);
 
             if (currentBlock > lastBlock || i === 0 || isHalfTime) {
-                const scoreDiff = this.homeScore - this.awayScore;
-                this.homeTeam.updateSnapshot(this.time, scoreDiff);
-                this.awayTeam.updateSnapshot(this.time, -scoreDiff);
+                this.homeTeam.updateSnapshot();
+                this.awayTeam.updateSnapshot();
                 this.generateSnapshotEvent(this.time);
             }
 
             const initialEventCount = this.events.length;
-            this.simulateKeyMoment(this.homeScore, this.awayScore);
+            this.simulateKeyMoment();
 
-            // Update Score Tracker by checking all new events
+            // Update Score Tracker
             const newEvents = this.events.slice(initialEventCount);
             for (const event of newEvents) {
                 if (event.type === 'goal') {
@@ -96,11 +106,19 @@ export class MatchEngine {
             lastTime = this.time;
         }
 
+        // FULL_TIME Event
+        this.events.push({
+            minute: lastTime > 90 ? lastTime : 90 + Math.floor(Math.random() * 4),
+            type: 'full_time',
+            description: 'The referee blows the final whistle!',
+            data: {
+                homeScore: this.homeScore,
+                awayScore: this.awayScore
+            }
+        });
+
         return this.events;
     }
-
-
-
 
     public simulateExtraTime(): MatchEvent[] {
         // Extra Time Setup (30 mins = ~7 moments)
@@ -108,13 +126,12 @@ export class MatchEngine {
         const MINS_PER_MOMENT = 30 / MOMENTS_COUNT;
 
         // Extra Time Break Recovery (Recover 50% of HT)
-        this.homeTeam.updateCondition(0, false, true);
-        this.awayTeam.updateCondition(0, false, true);
+        this.homeTeam.updateCondition(0, true); // Simplified recovery for now
+        this.awayTeam.updateCondition(0, true);
 
         // Update Snapshot for start of ET
-        const scoreDiff = this.homeScore - this.awayScore;
-        this.homeTeam.updateSnapshot(this.time, scoreDiff);
-        this.awayTeam.updateSnapshot(this.time, -scoreDiff);
+        this.homeTeam.updateSnapshot();
+        this.awayTeam.updateSnapshot();
         this.generateSnapshotEvent(this.time);
 
         let lastTime = this.time; // Start from 90 (or wherever ended)
@@ -128,7 +145,7 @@ export class MatchEngine {
             this.time = nextTime;
             const delta = this.time - lastTime;
 
-            // Update Condition (Decay) for time passed
+            // Update Condition
             this.homeTeam.updateCondition(delta);
             this.awayTeam.updateCondition(delta);
 
@@ -137,15 +154,14 @@ export class MatchEngine {
             const lastBlock = Math.floor(lastTime / 5);
 
             if (currentBlock > lastBlock) {
-                const diff = this.homeScore - this.awayScore;
-                this.homeTeam.updateSnapshot(this.time, diff);
-                this.awayTeam.updateSnapshot(this.time, -diff);
+                this.homeTeam.updateSnapshot();
+                this.awayTeam.updateSnapshot();
                 this.generateSnapshotEvent(this.time);
             }
 
             // Simulate Moment
             const initialEventCount = this.events.length;
-            this.simulateKeyMoment(this.homeScore, this.awayScore);
+            this.simulateKeyMoment();
 
             // Update Score
             const newEvents = this.events.slice(initialEventCount);
@@ -162,14 +178,72 @@ export class MatchEngine {
         return this.events;
     }
 
-    private simulateKeyMoment(homeScore: number, awayScore: number) {
+    private processTacticalInstructions(minute: number) {
+        const homeScoreStatus: ScoreStatus = this.homeScore > this.awayScore ? 'leading' : (this.homeScore === this.awayScore ? 'draw' : 'trailing');
+        const awayScoreStatus: ScoreStatus = this.awayScore > this.homeScore ? 'leading' : (this.awayScore === this.homeScore ? 'draw' : 'trailing');
+
+        this.applyInstructionsForTeam(this.homeTeam, this.homeInstructions, minute, homeScoreStatus);
+        this.applyInstructionsForTeam(this.awayTeam, this.awayInstructions, minute, awayScoreStatus);
+    }
+
+    private applyInstructionsForTeam(team: Team, instructions: TacticalInstruction[], minute: number, scoreStatus: ScoreStatus) {
+        const pending = instructions.filter(ins => ins.minute === minute && (!ins.condition || ins.condition === scoreStatus));
+
+        for (const ins of pending) {
+            let success = false;
+            let description = '';
+
+            if (ins.type === 'move') {
+                if (!team.isPositionOccupied(ins.newPosition)) {
+                    team.movePlayer(ins.playerId, ins.newPosition);
+                    description = `Tactical change: ${team.name} moves a player to ${ins.newPosition}.`;
+                    success = true;
+                }
+            } else if (ins.type === 'swap') {
+                if (!team.isPositionOccupied(ins.newPosition) || (ins.playerId && team.isPositionOccupied(ins.newPosition) && this.getPlayerById(team, ins.playerId)?.id === this.getPlayerAtPos(team, ins.newPosition)?.id)) {
+                    const subPlayer = this.substitutePlayers.get(ins.newPlayerId);
+                    if (subPlayer) {
+                        team.substitutePlayer(ins.playerId, subPlayer);
+                        description = `Substitution for ${team.name}: ${subPlayer.player.name} comes in for ${ins.playerId}.`;
+                        success = true;
+                    }
+                }
+            }
+
+            if (success) {
+                this.events.push({
+                    minute,
+                    type: ins.type === 'swap' ? 'substitution' : 'tactical_change',
+                    teamName: team.name,
+                    playerId: ins.type === 'swap' ? ins.newPlayerId : ins.playerId,
+                    description,
+                    data: ins
+                });
+                team.updateSnapshot(); // Immediate re-calculation
+            }
+        }
+    }
+
+    private getPlayerById(team: Team, id: string): Player | undefined {
+        return team.players.find(p => (p.player as Player).id === id)?.player;
+    }
+
+    private getPlayerAtPos(team: Team, pos: string): Player | undefined {
+        return team.players.find(p => p.positionKey === pos)?.player;
+    }
+
+    private simulateKeyMoment() {
         this.changeLane();
+
+        // Step 1: Foul Check (Small random chance)
+        if (Math.random() < 0.08) {
+            this.resolveFoul();
+        }
 
         // Step 2: Possession Battle
         const homeControl = this.homeTeam.calculateLaneStrength(this.currentLane, 'possession');
         const awayControl = this.awayTeam.calculateLaneStrength(this.currentLane, 'possession');
 
-        // K=0.01 for ~70% Elite Win
         const homeWinsPossession = this.resolveDuel(homeControl, awayControl, 0.01, 0);
 
         this.possessionTeam = homeWinsPossession ? this.homeTeam : this.awayTeam;
@@ -180,7 +254,6 @@ export class MatchEngine {
         const attPower = this.possessionTeam.calculateLaneStrength(this.currentLane, 'attack') * ATTACK_SCALAR;
         const defPower = this.defendingTeam.calculateLaneStrength(this.currentLane, 'defense');
 
-        // K=0.008 -> Flat curve
         const threatSuccess = this.resolveDuel(attPower, defPower, 0.008, 0);
 
         if (threatSuccess) {
@@ -188,30 +261,70 @@ export class MatchEngine {
         }
     }
 
+    private resolveFoul() {
+        const team = Math.random() < 0.5 ? this.homeTeam : this.awayTeam;
+        const player = team.players[Math.floor(Math.random() * team.players.length)];
+        if (!player || player.isSentOff) return;
+
+        const p = player.player as Player;
+        const roll = Math.random();
+
+        if (roll < 0.1) {
+            // Red Card
+            team.sendOffPlayer(p.id);
+            this.events.push({
+                minute: this.time,
+                type: 'red_card',
+                teamName: team.name,
+                playerId: p.id,
+                description: `RED CARD! ${p.name} is sent off for a professional foul!`
+            });
+            team.updateSnapshot();
+        } else if (roll < 0.4) {
+            // Yellow Card
+            this.events.push({
+                minute: this.time,
+                type: 'yellow_card',
+                teamName: team.name,
+                playerId: p.id,
+                description: `Yellow card for ${p.name}.`
+            });
+        } else {
+            // Just a foul
+            this.events.push({
+                minute: this.time,
+                type: 'foul',
+                teamName: team.name,
+                description: `Foul by ${p.name}.`
+            });
+        }
+    }
+
     private resolveFinish() {
-        // Step 4: Finishing - PLAYER vs GK
-
-        // 1. Select Shooter
         const shooter = this.selectShooter(this.possessionTeam);
+        if (!shooter) {
+            this.events.push({
+                minute: this.time,
+                type: 'miss',
+                teamName: this.possessionTeam.name,
+                description: `Pressure by ${this.defendingTeam.name} forces a turnover!`
+            });
+            return;
+        }
 
-        // 2. Calculate Shooter Rating (Scale ~100-180 like GK)
-        // Weight: Finishing 4, Composure 3, Positioning 2, Strength 1
-        const attrs = shooter.player.attributes;
+        const player = shooter.player as Player;
+        const attrs = player.attributes;
         const shootRatingRaw = (attrs.finishing * 4) + (attrs.composure * 3) + (attrs.positioning * 2) + (attrs.strength * 1);
 
-        // 3. Distance/Angle Factor (0.6 to 1.1)
         const distanceFactor = 0.6 + (Math.random() * 0.5);
         const finalShootRating = shootRatingRaw * distanceFactor;
 
-        // 4. GK Rating
         const gk = this.defendingTeam.getGoalkeeper();
-        let gkRating = 100; // Base weak GK
+        let gkRating = 100;
         if (gk) {
-            gkRating = AttributeCalculator.calculateGKSaveRating(gk.player);
+            gkRating = this.defendingTeam.getSnapshot()?.gkRating || 100;
         }
 
-        // 5. Comparison
-        // K=0.012, Offset 0 for 30-70% range
         const isGoal = this.resolveDuel(finalShootRating, gkRating, 0.012, 0);
 
         if (isGoal) {
@@ -219,22 +332,20 @@ export class MatchEngine {
                 minute: this.time,
                 type: 'goal',
                 teamName: this.possessionTeam.name,
-                teamId: typeof this.possessionTeam.name === 'string' ? undefined : (this.possessionTeam as any).id, // Adapt if Team has ID
-                playerId: shooter.player.id,
-                description: `GOAL! ${shooter.player.name} scores for ${this.possessionTeam.name}!`
+                playerId: player.id,
+                description: `GOAL! ${player.name} scores for ${this.possessionTeam.name}!`
             });
         } else {
             this.events.push({
                 minute: this.time,
                 type: 'save',
-                teamName: this.defendingTeam.name, // Credit save to team for now
-                description: `Shot by ${shooter.player.name} saved by ${this.defendingTeam.name} goalkeeper!`
+                teamName: this.defendingTeam.name,
+                description: `Shot by ${player.name} saved by ${this.defendingTeam.name} goalkeeper!`
             });
         }
     }
 
     private selectShooter(team: Team): TacticalPlayer {
-        // Weighted random selection
         const candidates = team.players.filter(p => p.positionKey !== 'GK');
         const weighted: TacticalPlayer[] = [];
 
@@ -251,22 +362,11 @@ export class MatchEngine {
         return weighted[Math.floor(Math.random() * weighted.length)];
     }
 
-    private resolveDuel(
-        valA: number, valB: number,
-        k: number, offset: number
-    ): boolean {
-
+    private resolveDuel(valA: number, valB: number, k: number, offset: number): boolean {
         let diff = valA - valB - offset;
-
-        // Underdog Discount (0.5)
-        if (diff < 0) {
-            diff = diff * 0.5;
-        }
-
+        if (diff < 0) diff = diff * 0.5;
         const probability = 1 / (1 + Math.exp(-diff * k));
-        const roll = Math.random();
-
-        return roll < probability;
+        return Math.random() < probability;
     }
 
     private changeLane() {
@@ -277,8 +377,8 @@ export class MatchEngine {
     private generateSnapshotEvent(time: number) {
         const homeSnapshot = this.homeTeam.getSnapshot();
         const awaySnapshot = this.awayTeam.getSnapshot();
-        const homeEnergies = Object.fromEntries(this.homeTeam.playerEnergies);
-        const awayEnergies = Object.fromEntries(this.awayTeam.playerEnergies);
+        const homeFitness = Object.fromEntries(this.homeTeam.playerFitness);
+        const awayFitness = Object.fromEntries(this.awayTeam.playerFitness);
 
         this.events.push({
             minute: time,
@@ -287,13 +387,14 @@ export class MatchEngine {
             data: {
                 home: {
                     laneStrengths: homeSnapshot?.laneStrengths,
-                    playerEnergies: homeEnergies
+                    playerFitness: homeFitness
                 },
                 away: {
                     laneStrengths: awaySnapshot?.laneStrengths,
-                    playerEnergies: awayEnergies
+                    playerFitness: awayFitness
                 }
             }
         });
     }
 }
+

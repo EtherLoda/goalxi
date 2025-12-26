@@ -9,6 +9,7 @@ import {
     GAME_SETTINGS,
     MatchStatus,
 } from '@goalxi/database';
+import { MatchCacheService } from './match-cache.service';
 
 // MatchEventType enum (matches simulator/src/engine/types.ts)
 enum MatchEventType {
@@ -54,6 +55,7 @@ export class MatchEventService {
         private statsRepository: Repository<MatchTeamStatsEntity>,
         @InjectRepository(TeamEntity)
         private teamRepository: Repository<TeamEntity>,
+        private matchCacheService: MatchCacheService,
     ) { }
 
     async getMatchEvents(
@@ -68,7 +70,6 @@ export class MatchEventService {
         if (!match) {
             throw new NotFoundException('Match not found');
         }
-
 
         // Authorization check - Currently disabled to allow public access
         // All users (logged-in or not) can view all match events
@@ -97,17 +98,28 @@ export class MatchEventService {
             maxVisibleMinute = Math.min(currentMinute, totalMinutes);
         }
 
-        // Fetch events up to current minute
-        const events = await this.eventRepository.find({
-            where: {
-                matchId,
-                minute: LessThanOrEqual(maxVisibleMinute),
-            },
-            order: { minute: 'ASC', second: 'ASC' },
-        });
+        // Try to get events from cache first
+        let events = await this.matchCacheService.getMatchEvents(matchId);
+
+        if (!events) {
+            // Cache miss, fetch from DB
+            events = await this.eventRepository.find({
+                where: { matchId },
+                order: { minute: 'ASC', second: 'ASC' },
+            });
+
+            // If we have events and the simulation has run (events exist), cache them
+            // We verify simulation has run if we have more than just a kickoff, or any events really.
+            if (events && events.length > 0) {
+                await this.matchCacheService.cacheMatchEvents(matchId, events);
+            }
+        }
+
+        // Filter events by visible minute (Timeline Logic)
+        const visibleEvents = events.filter(e => e.minute <= maxVisibleMinute);
 
         // Calculate current score from visible events
-        const currentScore = this.calculateScoreFromEvents(events, match);
+        const currentScore = this.calculateScoreFromEvents(visibleEvents, match);
 
         // Get stats only if match is complete
         let stats = null;
@@ -136,10 +148,10 @@ export class MatchEventService {
                 logo: match.awayTeam!.logoUrl || null,
             },
             scheduledAt: match.scheduledAt,
-            currentMinute: maxVisibleMinute,
+            currentMinute: Math.max(0, maxVisibleMinute), // Ensure no negative time
             totalMinutes,
             isComplete: maxVisibleMinute >= totalMinutes,
-            events,
+            events: visibleEvents,
             currentScore,
             stats,
         };

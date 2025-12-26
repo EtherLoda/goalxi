@@ -88,6 +88,12 @@ export class MatchEntity extends AbstractEntity {
     @Column({ name: 'away_forfeit', type: 'boolean', default: false })
     awayForfeit!: boolean;
 
+    @Column({ name: 'started_at', type: 'timestamp', nullable: true })
+    startedAt?: Date;
+
+    @Column({ name: 'completed_at', type: 'timestamp', nullable: true })
+    completedAt?: Date;
+
     @Column({ name: 'first_half_injury_time', type: 'int', nullable: true })
     firstHalfInjuryTime?: number;
 

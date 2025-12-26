@@ -60,9 +60,15 @@ describe('MatchEngine', () => {
         const events = engine.simulateMatch();
         expect(events.length).toBeGreaterThan(0);
 
-        // Check if last event is within 90 mins
+        // Check for Kickoff event
+        const firstEvent = events[0];
+        expect(firstEvent.type).toBe('kickoff');
+        expect(firstEvent.minute).toBe(0);
+
+        // Check if last event is full_time
         const lastEvent = events[events.length - 1];
-        expect(lastEvent.minute).toBeLessThanOrEqual(90);
+        expect(lastEvent.type).toBe('full_time');
+        expect(lastEvent.minute).toBeGreaterThanOrEqual(90);
     });
 
     it('should track score internally during regular time', () => {
