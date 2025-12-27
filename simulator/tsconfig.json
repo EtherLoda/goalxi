@@ -21,7 +21,7 @@
     "allowJs": true,
     "paths": {
       "@goalxi/database": [
-        "../libs/database/src"
+        "../libs/database/dist"
       ]
     }
   },

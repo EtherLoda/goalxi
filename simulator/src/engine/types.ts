@@ -19,6 +19,7 @@ export enum MatchEventType {
     FREE_KICK = 18,
     PENALTY = 19,
     FORFEIT = 20,
+    SNAPSHOT = 21,
 }
 
 export type Zone = 'Defense' | 'Midfield' | 'Attack';

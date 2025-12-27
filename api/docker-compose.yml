@@ -13,6 +13,21 @@ services:
     networks:
       - goalxi-network
 
+  goalxi-simulator:
+    image: goalxi-simulator
+    container_name: goalxi-simulator
+    restart: always
+    build:
+      context: ../simulator
+      dockerfile: Dockerfile
+    env_file:
+      - .env.docker
+    depends_on:
+      - db
+      - redis
+    networks:
+      - goalxi-network
+
   db:
     image: postgres:16
     container_name: goalxi-db

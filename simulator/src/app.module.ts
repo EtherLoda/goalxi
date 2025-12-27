@@ -3,12 +3,45 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { BullModule } from '@nestjs/bullmq';
 import {
+  UserEntity,
+  SessionEntity,
+  TeamEntity,
+  LeagueEntity,
   MatchEntity,
-  MatchEventEntity,
   MatchTacticsEntity,
+  TacticsPresetEntity,
+  MatchEventEntity,
   MatchTeamStatsEntity,
+  SeasonResultEntity,
+  LeagueStandingEntity,
+  FinanceEntity,
+  PlayerEntity,
+  TransactionEntity,
+  AuctionEntity,
+  PlayerHistoryEntity,
+  PlayerTransactionEntity,
 } from '@goalxi/database';
 import { SimulationProcessor } from './processor/simulation.processor';
+
+const entities = [
+  UserEntity,
+  SessionEntity,
+  TeamEntity,
+  LeagueEntity,
+  MatchEntity,
+  MatchTacticsEntity,
+  TacticsPresetEntity,
+  MatchEventEntity,
+  MatchTeamStatsEntity,
+  SeasonResultEntity,
+  LeagueStandingEntity,
+  FinanceEntity,
+  PlayerEntity,
+  TransactionEntity,
+  AuctionEntity,
+  PlayerHistoryEntity,
+  PlayerTransactionEntity,
+];
 
 @Module({
   imports: [
@@ -24,12 +57,7 @@ import { SimulationProcessor } from './processor/simulation.processor';
         username: configService.get('DATABASE_USERNAME'),
         password: configService.get('DATABASE_PASSWORD'),
         database: configService.get('DATABASE_NAME'),
-        entities: [
-          MatchEntity,
-          MatchEventEntity,
-          MatchTacticsEntity,
-          MatchTeamStatsEntity,
-        ],
+        entities,
         synchronize: false,
       }),
     }),
@@ -39,6 +67,7 @@ import { SimulationProcessor } from './processor/simulation.processor';
         connection: {
           host: configService.get('REDIS_HOST'),
           port: configService.get('REDIS_PORT'),
+          password: configService.get('REDIS_PASSWORD'),
         },
       }),
     }),
@@ -50,6 +79,8 @@ import { SimulationProcessor } from './processor/simulation.processor';
       MatchEventEntity,
       MatchTacticsEntity,
       MatchTeamStatsEntity,
+      PlayerEntity,
+      TeamEntity,
     ]),
   ],
   providers: [SimulationProcessor],

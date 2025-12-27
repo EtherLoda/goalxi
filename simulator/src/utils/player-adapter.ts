@@ -1,5 +1,5 @@
-import { PlayerEntity } from '@goalxi/database';
-import { Player, PlayerAttributes } from '../../../../types/player.types';
+import { PlayerEntity, PlayerSkills } from '@goalxi/database';
+import { Player, PlayerAttributes } from '../types/player.types';
 
 export class PlayerAdapter {
     static toSimulationPlayer(entity: PlayerEntity): Player {

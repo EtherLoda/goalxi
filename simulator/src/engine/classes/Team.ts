@@ -1,7 +1,7 @@
 import { TacticalPlayer, Lane, Phase, TeamSnapshot } from '../types/simulation.types';
 import { AttributeCalculator } from '../utils/attribute-calculator';
 import { ConditionSystem } from '../systems/condition.system';
-import { Player } from '../../../../types/player.types';
+import { Player } from '../../types/player.types';
 
 export class Team {
     private snapshot: TeamSnapshot | null = null;

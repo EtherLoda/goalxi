@@ -1,4 +1,4 @@
-import { PlayerAttributes } from '../../../../types/player.types';
+import { PlayerAttributes } from '../../types/player.types';
 
 export interface LaneWeights {
     attack: Partial<PlayerAttributes>;

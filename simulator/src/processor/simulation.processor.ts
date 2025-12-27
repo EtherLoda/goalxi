@@ -1,28 +1,28 @@
+
 import { Processor, WorkerHost, OnWorkerEvent } from '@nestjs/bullmq';
 import { Job } from 'bullmq';
 import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, DataSource } from 'typeorm';
+import { Repository, DataSource, In } from 'typeorm';
 import {
     MatchEntity,
     MatchEventEntity,
     MatchTeamStatsEntity,
     MatchStatus,
+    MatchTacticsEntity,
     PlayerEntity,
+    TeamEntity,
     MatchType,
 } from '@goalxi/database';
-import { MatchEngine } from '../engine/match.engine';
-import { MatchEventType } from '../engine/types';
+import { MatchEngine, MatchEvent } from '../engine/match.engine';
+import { Team } from '../engine/classes/Team';
+import { PlayerAdapter } from '../utils/player-adapter';
+import { TacticalInstruction, TacticalPlayer } from '../engine/types/simulation.types';
 
 interface SimulationJobData {
     matchId: string;
-    homeTeamId: string;
-    awayTeamId: string;
-    homeTactics: any;
-    awayTactics: any;
-    homeForfeit: boolean;
-    awayForfeit: boolean;
-    matchType: string;
+    homeForfeit?: boolean;
+    awayForfeit?: boolean;
 }
 
 @Processor('match-simulation')
@@ -37,252 +37,192 @@ export class SimulationProcessor extends WorkerHost {
         private readonly eventRepository: Repository<MatchEventEntity>,
         @InjectRepository(MatchTeamStatsEntity)
         private readonly statsRepository: Repository<MatchTeamStatsEntity>,
+        @InjectRepository(MatchTacticsEntity)
+        private readonly tacticsRepository: Repository<MatchTacticsEntity>,
         @InjectRepository(PlayerEntity)
         private readonly playerRepository: Repository<PlayerEntity>,
+        @InjectRepository(TeamEntity)
+        private readonly teamRepository: Repository<TeamEntity>,
         private readonly dataSource: DataSource,
     ) {
         super();
     }
 
     async process(job: Job<SimulationJobData>): Promise<void> {
-        const { matchId, homeTactics, awayTactics, homeForfeit, awayForfeit } =
-            job.data;
+        const { matchId, homeForfeit, awayForfeit } = job.data;
 
         this.logger.log(`[Simulator] Processing match ${matchId}`);
 
         const match = await this.matchRepository.findOne({
             where: { id: matchId },
+            relations: ['homeTeam', 'awayTeam'],
         });
 
         if (!match) {
-            throw new Error(`Match ${matchId} not found`);
+            this.logger.error(`Match ${matchId} not found`);
+            return;
+        }
+
+        if (match.status === MatchStatus.COMPLETED) {
+            this.logger.warn(`Match ${matchId} already completed.`);
+            return;
         }
 
         if (homeForfeit || awayForfeit) {
-            await this.handleForfeit(match, homeForfeit, awayForfeit);
+            await this.handleForfeit(match, !!homeForfeit, !!awayForfeit);
         } else {
-            await this.runSimulation(match, homeTactics, awayTactics);
+            await this.runSimulation(match);
         }
 
         this.logger.log(`[Simulator] Completed match ${matchId}`);
     }
 
-    private async runSimulation(
-        match: MatchEntity,
-        homeTactics: any,
-        awayTactics: any,
-    ): Promise<void> {
-        // Run engine
-        const engine = new MatchEngine(match, homeTactics, awayTactics);
-        const finalState = engine.simulateMatch();
-
-        // Save to database
-        await this.dataSource.transaction(async (manager) => {
-            // Update match
-            match.homeScore = finalState.homeScore;
-            match.awayScore = finalState.awayScore;
-            match.status = MatchStatus.COMPLETED;
-            match.simulationCompletedAt = new Date();
-            await manager.save(match);
-
-            // Save events
-            const eventEntities = finalState.events.map((event) =>
-                manager.create(MatchEventEntity, {
-                    matchId: match.id,
-                    minute: event.minute,
-                    second: event.second || 0,
-                    type: event.type,
-                    typeName: event.typeName,
-                    teamId: event.teamId || null,
-                    playerId: event.playerId || null,
-                    relatedPlayerId: event.relatedPlayerId || null,
-                    data: event.data || null,
-                }),
-            );
-            await manager.save(eventEntities);
-
-            // Save stats
-            const homeStats = manager.create(MatchTeamStatsEntity, {
-                matchId: match.id,
-                teamId: match.homeTeamId,
-                possession:
-                    (finalState.stats.home.possessionTime /
-                        (finalState.currentTime || 90)) *
-                    100,
-                shots: finalState.stats.home.shots,
-                shotsOnTarget: finalState.stats.home.shotsOnTarget,
-                passes: finalState.stats.home.passes,
-                passAccuracy:
-                    finalState.stats.home.passes > 0
-                        ? (finalState.stats.home.passesCompleted /
-                            finalState.stats.home.passes) *
-                        100
-                        : 0,
-                tackles: finalState.stats.home.tackles,
-                fouls: finalState.stats.home.fouls,
-                corners: finalState.stats.home.corners,
-                offsides: finalState.stats.home.offsides,
-                yellowCards: finalState.stats.home.yellowCards,
-                redCards: finalState.stats.home.redCards,
-            });
-
-            const awayStats = manager.create(MatchTeamStatsEntity, {
-                matchId: match.id,
-                teamId: match.awayTeamId,
-                possession:
-                    (finalState.stats.away.possessionTime /
-                        (finalState.currentTime || 90)) *
-                    100,
-                shots: finalState.stats.away.shots,
-                shotsOnTarget: finalState.stats.away.shotsOnTarget,
-                passes: finalState.stats.away.passes,
-                passAccuracy:
-                    finalState.stats.away.passes > 0
-                        ? (finalState.stats.away.passesCompleted /
-                            finalState.stats.away.passes) *
-                        100
-                        : 0,
-                tackles: finalState.stats.away.tackles,
-                fouls: finalState.stats.away.fouls,
-                corners: finalState.stats.away.corners,
-                offsides: finalState.stats.away.offsides,
-                yellowCards: finalState.stats.away.yellowCards,
-                redCards: finalState.stats.away.redCards,
-            });
-
-            await manager.save([homeStats, awayStats]);
-
-            // Update player career stats
-            await this.updatePlayerStats(manager, match, finalState.events, homeTactics, awayTactics);
-        });
+    private findPositionInLineup(lineup: Record<string, string>, playerId: string): string | undefined {
+        return Object.keys(lineup).find(key => lineup[key] === playerId);
     }
 
-    private async updatePlayerStats(
-        manager: any,
-        match: MatchEntity,
-        events: any[],
-        homeTactics: any,
-        awayTactics: any,
-    ): Promise<void> {
-        const playerIds = new Set<string>();
+    private async runSimulation(match: MatchEntity): Promise<void> {
+        // 1. Fetch Tactics
+        const homeTactics = await this.tacticsRepository.findOne({ where: { matchId: match.id, teamId: match.homeTeamId } });
+        const awayTactics = await this.tacticsRepository.findOne({ where: { matchId: match.id, teamId: match.awayTeamId } });
 
-        // Helper to process team tactics
-        const processTeam = (tactics: any) => {
-            if (!tactics || !tactics.lineup) return;
+        if (!homeTactics || !awayTactics) {
+            throw new Error(`Tactics missing for match ${match.id}`);
+        }
 
-            // Starters
-            tactics.lineup.forEach((p: any) => {
-                playerIds.add(p.playerId);
-            });
+        // 2. Fetch Players
+        const homeStarterIds = Object.values(homeTactics.lineup).filter(id => typeof id === 'string');
+        const awayStarterIds = Object.values(awayTactics.lineup).filter(id => typeof id === 'string');
+        const homeSubIds = (homeTactics.substitutions || []).map(s => s.in);
+        const awaySubIds = (awayTactics.substitutions || []).map(s => s.in);
 
-            // Substitutions
+        const allPlayerIds = [...homeStarterIds, ...awayStarterIds, ...homeSubIds, ...awaySubIds];
+        const allPlayers = await this.playerRepository.find({
+            where: { id: In(allPlayerIds) }
+        });
+
+        // 3. Map Instructions
+        const mapInstructions = (tactics: MatchTacticsEntity): TacticalInstruction[] => {
+            const results: TacticalInstruction[] = [];
             if (tactics.substitutions) {
-                tactics.substitutions.forEach((sub: any) => {
-                    playerIds.add(sub.playerInId);
-                });
+                for (const s of tactics.substitutions) {
+                    results.push({
+                        minute: s.minute,
+                        type: 'swap',
+                        playerId: s.out,
+                        newPlayerId: s.in,
+                        newPosition: this.findPositionInLineup(tactics.lineup, s.out) || 'CF'
+                    });
+                }
             }
+            return results;
         };
 
-        processTeam(homeTactics);
-        processTeam(awayTactics);
+        const homeInstructions = mapInstructions(homeTactics);
+        const awayInstructions = mapInstructions(awayTactics);
 
-        if (playerIds.size === 0) return;
+        // 4. Setup Engine Teams
+        const homeTacticalPlayers: TacticalPlayer[] = homeStarterIds.map(pid => ({
+            player: PlayerAdapter.toSimulationPlayer(allPlayers.find(p => p.id === pid)!),
+            positionKey: this.findPositionInLineup(homeTactics.lineup, pid)!
+        }));
 
-        // Fetch players
-        const playersList = await manager
-            .createQueryBuilder(PlayerEntity, 'player')
-            .where('player.id IN (:...ids)', { ids: Array.from(playerIds) })
-            .getMany();
+        const awayTacticalPlayers: TacticalPlayer[] = awayStarterIds.map(pid => ({
+            player: PlayerAdapter.toSimulationPlayer(allPlayers.find(p => p.id === pid)!),
+            positionKey: this.findPositionInLineup(awayTactics.lineup, pid)!
+        }));
 
-        const isNationalMatch = match.type === MatchType.NATIONAL_TEAM;
-
-        for (const player of playersList) {
-            // Initialize stats if missing
-            if (!player.careerStats) player.careerStats = { club: { matches: 0, goals: 0, assists: 0, yellowCards: 0, redCards: 0 } };
-            if (!player.careerStats.club) player.careerStats.club = { matches: 0, goals: 0, assists: 0, yellowCards: 0, redCards: 0 };
-
-            let statsTarget = player.careerStats.club;
-
-            if (isNationalMatch) {
-                if (!player.careerStats.national) {
-                    player.careerStats.national = { matches: 0, goals: 0, assists: 0, yellowCards: 0, redCards: 0 };
-                }
-                statsTarget = player.careerStats.national;
+        const subMap = new Map<string, TacticalPlayer>();
+        for (const pid of [...homeSubIds, ...awaySubIds]) {
+            const entity = allPlayers.find(p => p.id === pid);
+            if (entity) {
+                subMap.set(pid, {
+                    player: PlayerAdapter.toSimulationPlayer(entity),
+                    positionKey: 'SUB'
+                });
             }
-
-            // Update basic stats
-            statsTarget.matches++;
-
-            // Calculate events for this player
-            const playerEvents = events.filter((e: any) => e.playerId === player.id);
-
-            statsTarget.goals += playerEvents.filter((e: any) => e.type === MatchEventType.GOAL).length;
-            statsTarget.yellowCards += playerEvents.filter((e: any) => e.type === MatchEventType.YELLOW_CARD).length;
-            statsTarget.redCards += playerEvents.filter((e: any) => e.type === MatchEventType.RED_CARD).length;
-
-            // Assists
-            const assists = events.filter((e: any) => e.type === MatchEventType.GOAL && e.relatedPlayerId === player.id).length;
-            statsTarget.assists += assists;
-
-            // Save
-            await manager.save(player);
         }
-    }
 
-    private async handleForfeit(
-        match: MatchEntity,
-        homeForfeit: boolean,
-        awayForfeit: boolean,
-    ): Promise<void> {
+        const tA = new Team(match.homeTeam!.name, homeTacticalPlayers);
+        const tB = new Team(match.awayTeam!.name, awayTacticalPlayers);
+
+        const engine = new MatchEngine(tA, tB, homeInstructions, awayInstructions, subMap);
+
+        // 5. Run Match
+        this.logger.log(`[Simulator] Starting engine for ${match.id}`);
+        let events = engine.simulateMatch();
+
+        if (match.type === MatchType.TOURNAMENT && engine.homeScore === engine.awayScore) {
+            events = engine.simulateExtraTime();
+            if (engine.homeScore === engine.awayScore) {
+                events = engine.simulatePenaltyShootout();
+            }
+        }
+
+        // 6. Persist Results
         await this.dataSource.transaction(async (manager) => {
-            // Set forfeit score (0-5)
-            match.homeScore = homeForfeit ? 0 : 5;
-            match.awayScore = awayForfeit ? 0 : 5;
+            // Update Match
+            match.homeScore = engine.homeScore;
+            match.awayScore = engine.awayScore;
             match.status = MatchStatus.COMPLETED;
             match.simulationCompletedAt = new Date();
             await manager.save(match);
 
-            // Create forfeit event
-            const forfeitEvent = manager.create(MatchEventEntity, {
+            // Save Events
+            const eventEntities = events.map(e => manager.create(MatchEventEntity, {
                 matchId: match.id,
-                minute: 0,
+                minute: e.minute,
                 second: 0,
-                type: MatchEventType.FORFEIT,
-                typeName: 'FORFEIT',
-                teamId: homeForfeit ? match.homeTeamId : match.awayTeamId,
-                data: { reason: 'No tactics submitted' },
-            });
-            await manager.save(forfeitEvent);
+                type: this.mapEventType(e.type),
+                typeName: e.type,
+                teamId: e.teamName === match.homeTeam!.name ? match.homeTeamId : (e.teamName === match.awayTeam!.name ? match.awayTeamId : null),
+                playerId: e.playerId || null,
+                data: e.data || null
+            }));
+            await manager.save(eventEntities);
 
-            // Create empty stats
-            const emptyStats = {
-                possession: 0,
-                shots: 0,
-                shotsOnTarget: 0,
-                passes: 0,
-                passAccuracy: 0,
-                tackles: 0,
-                fouls: 0,
-                corners: 0,
-                offsides: 0,
-                yellowCards: 0,
-                redCards: 0,
+            // Save Stats (Simplified)
+            const calculateStats = (teamName: string, teamId: string) => {
+                const goals = events.filter(e => e.type === 'goal' && e.teamName === teamName).length;
+                const misses = events.filter(e => e.type === 'miss' && e.teamName === teamName).length;
+                const savesByOpponent = events.filter(e => e.type === 'save' && e.teamName !== teamName).length;
+
+                return manager.create(MatchTeamStatsEntity, {
+                    matchId: match.id,
+                    teamId,
+                    possessionPercentage: 50,
+                    shots: goals + misses + savesByOpponent,
+                    shotsOnTarget: goals + savesByOpponent,
+                    corners: events.filter(e => e.type === 'corner' && e.teamName === teamName).length,
+                    fouls: events.filter(e => e.type === 'foul' && e.teamName === teamName).length,
+                    yellowCards: events.filter(e => e.type === 'yellow_card' && e.teamName === teamName).length,
+                    redCards: events.filter(e => e.type === 'red_card' && e.teamName === teamName).length,
+                });
             };
 
-            const homeStats = manager.create(MatchTeamStatsEntity, {
-                matchId: match.id,
-                teamId: match.homeTeamId,
-                ...emptyStats,
-            });
-
-            const awayStats = manager.create(MatchTeamStatsEntity, {
-                matchId: match.id,
-                teamId: match.awayTeamId,
-                ...emptyStats,
-            });
-
-            await manager.save([homeStats, awayStats]);
+            await manager.save([
+                calculateStats(match.homeTeam!.name, match.homeTeamId),
+                calculateStats(match.awayTeam!.name, match.awayTeamId)
+            ]);
         });
+    }
+
+    private mapEventType(type: string): number {
+        const mapping: Record<string, number> = {
+            'kickoff': 0, 'goal': 1, 'shot': 3, 'miss': 3, 'save': 4,
+            'yellow_card': 5, 'red_card': 6, 'substitution': 7, 'foul': 9,
+            'offside': 10, 'corner': 11, 'penalty_goal': 12, 'penalty_miss': 13,
+            'full_time': 14, 'turnover': 20, 'snapshot': 21
+        };
+        return mapping[type] || 99;
+    }
+
+    private async handleForfeit(match: MatchEntity, homeForfeit: boolean, awayForfeit: boolean) {
+        match.homeScore = homeForfeit ? 0 : 3;
+        match.awayScore = awayForfeit ? 0 : 3;
+        match.status = MatchStatus.COMPLETED;
+        match.simulationCompletedAt = new Date();
+        await this.matchRepository.save(match);
     }
 
     @OnWorkerEvent('completed')
@@ -292,6 +232,6 @@ export class SimulationProcessor extends WorkerHost {
 
     @OnWorkerEvent('failed')
     onFailed(job: Job, error: Error) {
-        this.logger.error(`Job ${job.id} failed with error: ${error.message}`);
+        this.logger.error(`Job ${job.id} failed: ${error.message}`);
     }
 }
