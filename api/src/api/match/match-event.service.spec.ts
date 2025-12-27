@@ -2,6 +2,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { MatchEventService } from './match-event.service';
+import { MatchCacheService } from './match-cache.service';
 import {
     MatchEntity,
     MatchEventEntity,
@@ -17,6 +18,7 @@ describe('MatchEventService', () => {
     let eventRepository: jest.Mocked<Repository<MatchEventEntity>>;
     let statsRepository: jest.Mocked<Repository<MatchTeamStatsEntity>>;
     let teamRepository: jest.Mocked<Repository<TeamEntity>>;
+    let matchCacheService: jest.Mocked<MatchCacheService>;
 
     const mockMatch = {
         id: 'match-1',
@@ -67,6 +69,14 @@ describe('MatchEventService', () => {
                         find: jest.fn(),
                     },
                 },
+                {
+                    provide: MatchCacheService,
+                    useValue: {
+                        getMatchEvents: jest.fn().mockResolvedValue(null), // Cache miss by default
+                        cacheMatchEvents: jest.fn(),
+                        invalidateMatch: jest.fn(),
+                    },
+                },
             ],
         }).compile();
 
@@ -75,6 +85,7 @@ describe('MatchEventService', () => {
         eventRepository = module.get(getRepositoryToken(MatchEventEntity));
         statsRepository = module.get(getRepositoryToken(MatchTeamStatsEntity));
         teamRepository = module.get(getRepositoryToken(TeamEntity));
+        matchCacheService = module.get(MatchCacheService);
     });
 
     it('should be defined', () => {
@@ -161,10 +172,10 @@ describe('MatchEventService', () => {
             ]);
 
             const mockEvents = [
-                { type: 2, teamId: 'team-1' }, // Home goal
-                { type: 2, teamId: 'team-2' }, // Away goal
-                { type: 2, teamId: 'team-1' }, // Home goal
-                { type: 3, teamId: 'team-1' }, // Shot (not a goal)
+                { type: 2, teamId: 'team-1', minute: 10, second: 0 }, // Home goal
+                { type: 2, teamId: 'team-2', minute: 20, second: 0 }, // Away goal
+                { type: 2, teamId: 'team-1', minute: 30, second: 0 }, // Home goal
+                { type: 3, teamId: 'team-1', minute: 40, second: 0 }, // Shot (not a goal)
             ];
 
             eventRepository.find.mockResolvedValue(mockEvents as any);
