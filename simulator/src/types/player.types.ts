@@ -29,5 +29,6 @@ export interface Player {
     form: number;
     experience: number;
     overall?: number; // Overall rating for performance calculation
+    appearance?: any; // Player appearance data from database
     // ... other fields
 }

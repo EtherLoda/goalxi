@@ -131,9 +131,9 @@ export class MatchEngine {
             lastTime = this.time;
         }
 
-        // FULL_TIME Event
+        // FULL_TIME Event - Mark exactly at 90 minutes
         this.events.push({
-            minute: lastTime > 90 ? lastTime : (90 + (Math.random() * 4 | 0)),
+            minute: 90,
             type: 'full_time',
             description: 'The referee blows the final whistle!',
             data: {
@@ -226,6 +226,17 @@ export class MatchEngine {
 
             lastTime = this.time;
         }
+
+        // FULL_TIME Event for Extra Time - Mark exactly at 120 minutes
+        this.events.push({
+            minute: 120,
+            type: 'full_time',
+            description: 'Extra time ends! Moving to penalty shootout...',
+            data: {
+                homeScore: this.homeScore,
+                awayScore: this.awayScore
+            }
+        });
 
         return this.events;
     }
@@ -706,7 +717,8 @@ export class MatchEngine {
                         overall: player.overall || 50,
                         conditionMultiplier: parseFloat(conditionMultiplier.toFixed(3)),
                         positionalContribution: parseFloat(totalContribution.toFixed(2)), // Raw contribution from position
-                        isSubstitute: tacticalPlayer.isOriginal === false
+                        isSubstitute: tacticalPlayer.isOriginal === false,
+                        appearance: player.appearance // Include player appearance from database
                     };
                 });
         };

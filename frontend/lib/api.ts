@@ -212,6 +212,7 @@ export interface PlayerState {
     conditionMultiplier: number;
     positionalContribution: number; // Raw contribution from position (before condition multiplier)
     isSubstitute: boolean;
+    appearance?: any; // Player appearance data from database
 }
 
 export interface TeamSnapshot {

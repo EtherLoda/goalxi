@@ -51,7 +51,8 @@ export class PlayerAdapter {
             attributes: attributes,
             currentStamina: entity.stamina || 3,
             form: entity.form || 5,
-            experience: entity.experience || 10
+            experience: entity.experience || 10,
+            appearance: entity.appearance // Include player appearance from database
         };
     }
 
@@ -66,7 +67,8 @@ export class PlayerAdapter {
             },
             currentStamina: 3,
             form: 5,
-            experience: 0
+            experience: 0,
+            appearance: entity.appearance // Include player appearance from database
         };
     }
 }

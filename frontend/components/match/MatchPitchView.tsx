@@ -3,6 +3,7 @@
 import { PlayerState, MatchEvent } from '@/lib/api';
 import { MiniPlayer } from '@/components/MiniPlayer';
 import { generateAppearance } from '@/utils/playerUtils';
+import { convertAppearance } from '@/utils/playerUtils';
 
 interface MatchPitchViewProps {
     homeTeamName: string;
@@ -134,7 +135,8 @@ const POSITION_COORDS: Record<string, { x: number; y: number }> = {
 };
 
 function PlayerCard({ player, isHome, viewMode, initialStamina }: PlayerCardProps) {
-    const appearance = generateAppearance(player.playerId);
+    // Use appearance from player data if available, otherwise generate from ID
+    const appearance = convertAppearance(player.appearance) || generateAppearance(player.playerId);
     
     // Stamina calculation
     const currentStamina = player.stamina;
