@@ -7,6 +7,7 @@ import { MatchStats } from '@/components/match/MatchStats';
 import { TeamLineupView } from '@/components/match/TeamLineupView';
 import { MatchPitchView } from '@/components/match/MatchPitchView';
 import { MatchTimeline } from '@/components/match/MatchTimeline';
+import { TacticalAnalysis } from '@/components/match/TacticalAnalysis';
 import { MatchEventsResponse, MatchStatsRes, TeamSnapshot } from '@/lib/api';
 import { Play, Loader2, Clock } from 'lucide-react';
 import { useMemo, useState, useEffect } from 'react';
@@ -198,6 +199,18 @@ export function LiveMatchViewer({
                         currentMinute={liveMinute}
                         onTimeSelect={(minute) => setSelectedMinute(minute)}
                     />
+                )}
+
+                {/* Tactical Analysis - Show 3-lane battle metrics */}
+                {(homeSnapshot && awaySnapshot) && (
+                    <div className="mb-6">
+                        <TacticalAnalysis
+                            homeSnapshot={homeSnapshot}
+                            awaySnapshot={awaySnapshot}
+                            homeTeamName={homeTeamName}
+                            awayTeamName={awayTeamName}
+                        />
+                    </div>
                 )}
 
                 {/* Match Pitch View - Show formations with player stats */}
