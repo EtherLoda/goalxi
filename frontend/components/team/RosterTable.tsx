@@ -8,7 +8,6 @@ import { MiniPlayer } from '@/components/MiniPlayer';
 import { AbilityStars } from '@/components/ui/AbilityStars';
 import { ListPlayerDialog } from '@/components/transfer/ListPlayerDialog';
 import { useAuth } from '@/components/auth/AuthContext';
-import { Tag, Clock } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { PlayerAppearance, Position } from '@/types/player';
 import { convertAppearance, generateAppearance } from '@/utils/playerUtils';
@@ -117,28 +116,30 @@ export function RosterTable({ players }: RosterTableProps) {
                                     {cat.label}
                                 </h4>
                             </div>
-                            <div className="grid grid-cols-2 gap-2">
+                            <div className="grid grid-cols-2 gap-x-8 gap-y-2">
                                 {Object.entries(group).map(([key, value]) => (
-                                    <div key={key} className="space-y-1">
-                                        <div className="flex items-center justify-between">
-                                            <span className={`text-[10px] ${textColor} font-bold tracking-wider uppercase`}>
-                                                {key}
-                                            </span>
-                                            <span className={`font-mono text-sm ${getSkillColor(value as number)}`}>
-                                                {String(value)}
-                                            </span>
-                                        </div>
-                                        <div className="h-1.5 bg-black/60 rounded-full overflow-hidden border border-emerald-900/30 relative">
+                                    <div key={key} className="flex items-center gap-3">
+                                        <span className={`text-xs ${textColor} font-bold uppercase w-16 shrink-0`}>
+                                            {key}
+                                        </span>
+                                        <span className={`font-mono text-sm ${getSkillColor(value as number)} font-bold w-6 text-center shrink-0`}>
+                                            {String(value)}
+                                        </span>
+                                        <div className="flex-1 relative h-1.5 rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden">
                                             {/* Potential bar (background) */}
                                             {player.potentialSkills?.[cat.key]?.[key] && (
                                                 <div
-                                                    className="absolute inset-0 bg-gradient-to-r from-slate-600/30 to-slate-500/30"
+                                                    className="absolute inset-y-0 left-0 h-full rounded-full bg-slate-300 dark:bg-slate-600 opacity-60"
                                                     style={{ width: `${((player.potentialSkills[cat.key][key] as number) / 20) * 100}%` }}
                                                 />
                                             )}
                                             {/* Current skill bar (foreground) */}
                                             <div
-                                                className={`relative h-full bg-gradient-to-r ${getSkillBarColor(value as number)} transition-all duration-500 shadow-[0_0_8px_rgba(16,185,129,0.3)]`}
+                                                className={`absolute inset-y-0 left-0 h-full rounded-full transition-all duration-300 ${
+                                                    (value as number) >= (player.potentialSkills?.[cat.key]?.[key] || 0)
+                                                        ? 'bg-emerald-500'
+                                                        : 'bg-amber-500'
+                                                }`}
                                                 style={{ width: `${((value as number) / 20) * 100}%` }}
                                             />
                                         </div>
@@ -185,113 +186,96 @@ export function RosterTable({ players }: RosterTableProps) {
                         <Link
                             key={player.id}
                             href={`/players/${player.id}`}
-                            className="group relative overflow-hidden rounded-2xl border-2 transition-all duration-300 p-4 md:p-6 backdrop-blur-sm
+                            className="group relative overflow-hidden rounded-2xl border-2 transition-all duration-300 p-4 md:p-5 backdrop-blur-sm
                                 bg-white border-emerald-500/40 shadow-none hover:border-emerald-500 hover:shadow-none hover:-translate-y-1
-                                dark:bg-black/40 dark:border-emerald-500/20 dark:hover:bg-emerald-500/5 dark:hover:border-emerald-400/40 dark:hover:shadow-[0_0_30px_rgba(16,185,129,0.3)]"
+                                dark:bg-black/40 dark:border-emerald-500/20 dark:hover:bg-emerald-500/5 dark:hover:border-emerald-400/40"
                         >
                             {/* Scanline effect */}
                             <div className="hidden dark:block absolute inset-0 bg-[linear-gradient(transparent_50%,rgba(0,0,0,0.05)_50%)] bg-[size:100%_4px] pointer-events-none rounded-2xl"></div>
 
-                            <div className="flex flex-col sm:flex-row gap-4 sm:gap-6">
-                                {/* Left: Avatar & Basic Info */}
-                                <div className="flex sm:flex-col items-center gap-3 sm:gap-4 shrink-0">
-                                    {/* Player Avatar */}
+                            <div className="flex gap-4">
+                                {/* Left: Avatar with Number Badge */}
+                                <div className="relative shrink-0">
                                     <div className="relative">
-                                        {/* Hologram base */}
-                                        <div className="dark:hidden absolute bottom-0 left-1/2 -translate-x-1/2 w-16 sm:w-24 h-4 bg-slate-900/10 blur-xl rounded-full"></div>
-                                        <div className="hidden dark:block absolute bottom-0 left-1/2 -translate-x-1/2 w-16 sm:w-24 h-6 sm:h-8 bg-emerald-500/20 blur-xl rounded-full"></div>
-
-                                        <div className="relative z-10 filter drop-shadow-[0_0_15px_rgba(16,185,129,0.4)] group-hover:drop-shadow-[0_0_25px_rgba(16,185,129,0.6)] transition-all scale-110">
-                                            <MiniPlayer
-                                                appearance={getPlayerAppearance(player)}
-                                                size={120}
-                                            />
+                                        <MiniPlayer
+                                            appearance={getPlayerAppearance(player)}
+                                            size={80}
+                                        />
+                                        {/* Number Badge - 头像右下角 */}
+                                        <div className="absolute -bottom-1 -right-1 w-8 h-8 rounded-lg flex items-center justify-center font-black text-sm
+                                            bg-emerald-500 text-white border-2 border-white dark:border-slate-900 shadow-sm">
+                                            {index + 1}
                                         </div>
-                                    </div>
-
-                                    {/* Number Badge */}
-                                    <div className="w-12 h-12 rounded-xl flex items-center justify-center font-black text-xl shadow-none
-                                        bg-emerald-50 border-2 border-emerald-500/40 text-emerald-700
-                                        dark:bg-black/60 dark:border-emerald-500/30 dark:text-emerald-400 dark:shadow-[0_0_15px_rgba(16,185,129,0.2)]">
-                                        {index + 1}
                                     </div>
                                 </div>
 
-                                {/* Right: Info & Stats */}
+                                {/* Right: Info Area */}
                                 <div className="flex-1 min-w-0">
-                                    {/* Header */}
-                                    <div className="mb-4">
-                                        <div className="flex-1">
-                                            <h3 className="font-black text-xl sm:text-2xl transition-colors mb-1 sm:mb-2 tracking-tight truncate
-                                            text-slate-900 group-hover:text-emerald-700
-                                            dark:text-white dark:group-hover:text-emerald-300">
+                                    {/* Top Row: Name + Age + List Button */}
+                                    <div className="flex items-start justify-between gap-2 mb-2">
+                                        <div className="flex-1 min-w-0">
+                                            <h3 className="font-black text-lg transition-colors truncate
+                                                text-slate-900 group-hover:text-emerald-700
+                                                dark:text-white dark:group-hover:text-emerald-300">
                                                 {player.name}
                                             </h3>
-                                            <div className="flex items-center flex-wrap gap-2 mt-0.5">
-                                                <span className="text-[9px] sm:text-[10px] font-mono font-bold text-slate-500 dark:text-emerald-600">
-                                                    {player.age},{player.ageDays}
+                                            <div className="flex items-center gap-2 mt-0.5">
+                                                <span className="text-xs font-mono text-slate-400 dark:text-emerald-500">
+                                                    {player.age} yrs
                                                 </span>
-                                                {player.isYouth && (
-                                                    <span className="text-[8px] sm:text-[9px] px-1.5 py-0.5 rounded font-bold border
-                                                        bg-emerald-50 text-emerald-600 border-emerald-200
-                                                        dark:text-emerald-400 dark:border-emerald-400/30 dark:bg-emerald-500/10">
-                                                        YTH
-                                                    </span>
+                                                {isOwnSquad && (
+                                                    <AbilityStars currentSkills={player.currentSkills} isGoalkeeper={player.isGoalkeeper} size="sm" />
                                                 )}
-                                                <AbilityStars currentSkills={player.currentSkills} isGoalkeeper={player.isGoalkeeper} size="sm" />
                                             </div>
                                         </div>
+                                        {/* List Button / Auction Status */}
+                                        {isOwnSquad && !isPlayerInAuction(player.id) && !player.onTransfer && (
+                                            <button
+                                                onClick={(e) => {
+                                                    e.preventDefault();
+                                                    e.stopPropagation();
+                                                    setListingPlayerId(player.id);
+                                                }}
+                                                disabled={loadingAuctions}
+                                                className="shrink-0 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider rounded-lg
+                                                    bg-emerald-500 text-white hover:bg-emerald-600 transition-colors
+                                                    disabled:opacity-50"
+                                            >
+                                                + List
+                                            </button>
+                                        )}
+                                        {(isOwnSquad && (isPlayerInAuction(player.id) || player.onTransfer)) && (
+                                            <span className="shrink-0 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider rounded-lg
+                                                bg-amber-100 text-amber-700 dark:bg-amber-500/20 dark:text-amber-400">
+                                                On Auction
+                                            </span>
+                                        )}
                                     </div>
 
-                                    {/* Quick Stats */}
-                                    <div className="grid grid-cols-3 gap-2 mb-4">
-                                        <div className="rounded-xl p-2 border-2
-                                            bg-white border-emerald-500/40
-                                            dark:bg-black/60 dark:border-amber-500/30">
-                                            <div className="text-[9px] font-bold tracking-wider uppercase mb-1 text-emerald-700">Stamina</div>
-                                            <div className="text-2xl font-black text-emerald-900 dark:text-amber-500">{Math.floor(player.stamina)}</div>
+                                    {/* Bottom Row: Quick Stats (Stamina, Form, Exp) */}
+                                    <div className="flex gap-3">
+                                        <div className="flex-1 rounded-lg px-2 py-1.5 bg-slate-50 dark:bg-slate-800/50">
+                                            <div className="text-[9px] uppercase text-slate-400 dark:text-slate-500">STA</div>
+                                            <div className="font-black text-emerald-600 dark:text-amber-500">{Math.floor(player.stamina)}</div>
                                         </div>
-                                        <div className="rounded-xl p-2 border-2
-                                            bg-white border-emerald-500/40
-                                            dark:bg-black/60 dark:border-emerald-500/30">
-                                            <div className="text-[9px] font-bold tracking-wider uppercase mb-1 text-emerald-700">Form</div>
-                                            <div className="text-2xl font-black text-emerald-900 dark:text-emerald-400">{Math.floor(player.form)}</div>
+                                        <div className="flex-1 rounded-lg px-2 py-1.5 bg-slate-50 dark:bg-slate-800/50">
+                                            <div className="text-[9px] uppercase text-slate-400 dark:text-slate-500">FRM</div>
+                                            <div className="font-black text-emerald-600 dark:text-emerald-400">{Math.floor(player.form)}</div>
                                         </div>
-                                        <div className="rounded-xl p-2 border-2
-                                            bg-white border-emerald-500/40
-                                            dark:bg-black/60 dark:border-blue-500/30">
-                                            <div className="text-[9px] font-bold tracking-wider uppercase mb-1 text-emerald-700">EXP</div>
-                                            <div className="text-2xl font-black text-emerald-900 dark:text-blue-400">{player.experience || 0}</div>
+                                        <div className="flex-1 rounded-lg px-2 py-1.5 bg-slate-50 dark:bg-slate-800/50">
+                                            <div className="text-[9px] uppercase text-slate-400 dark:text-slate-500">EXP</div>
+                                            <div className="font-black text-emerald-600 dark:text-blue-400">{player.experience || 0}</div>
                                         </div>
                                     </div>
-
-                                    {/* Attributes by Category */}
-                                    {renderPlayerSkills(player)}
-
-                                    {/* Actions */}
-                                    {isOwnSquad && !isPlayerInAuction(player.id) && !player.onTransfer && (
-                                        <button
-                                            onClick={(e) => {
-                                                e.preventDefault();
-                                                e.stopPropagation();
-                                                setListingPlayerId(player.id);
-                                            }}
-                                            disabled={loadingAuctions}
-                                            className="mt-4 w-full flex items-center justify-center gap-2 py-2 px-4 rounded-xl border-2 border-emerald-500/40 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500 hover:text-white transition-all font-bold text-xs uppercase tracking-widest group/btn disabled:opacity-50 disabled:cursor-not-allowed"
-                                        >
-                                            <Tag size={14} className="group-hover/btn:rotate-12 transition-transform" />
-                                            LIST ON MARKET
-                                        </button>
-                                    )}
-
-                                    {(isOwnSquad && (isPlayerInAuction(player.id) || player.onTransfer)) && (
-                                        <div className="mt-4 w-full flex items-center justify-center gap-2 py-2 px-4 rounded-xl border-2 border-amber-500/20 bg-amber-500/5 text-amber-600 dark:text-amber-400 font-bold text-xs uppercase tracking-widest">
-                                            <Clock size={14} />
-                                            ON AUCTION
-                                        </div>
-                                    )}
                                 </div>
                             </div>
+
+                            {/* Detailed Skills - Only for own squad */}
+                            {isOwnSquad && (
+                                <div className="mt-4 pt-4 border-t border-slate-100 dark:border-slate-800">
+                                    {renderPlayerSkills(player)}
+                                </div>
+                            )}
                         </Link>
                     ))}
                 </div>

@@ -237,7 +237,7 @@ export function PlayerRoster({ players, assignedPlayerIds, onDragStart, onDragEn
                             <div className="pt-6 pb-2">
                                 <div className="text-xs font-black text-slate-400 dark:text-emerald-700 uppercase tracking-[0.2em] pl-3 mb-4">On Pitch</div>
                                 {assignedPlayers.map(player => {
-                                    const appearance = generateAppearance(player.id);
+                                    const appearance = convertAppearance(player.appearance) || generateAppearance(player.id);
                                     return (
                                         <div
                                             key={player.id}

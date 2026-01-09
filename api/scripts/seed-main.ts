@@ -1,6 +1,7 @@
 
 import 'reflect-metadata';
 import { AppDataSource } from '../src/database/data-source';
+import { v4 as uuidv4 } from 'uuid';
 import {
     UserEntity,
     TeamEntity,
@@ -17,19 +18,7 @@ import {
     GAME_SETTINGS,
 } from '@goalxi/database';
 import * as argon2 from 'argon2';
-
-const PLAYER_NAMES = [
-    'James Smith', 'John Johnson', 'Robert Williams', 'Michael Brown', 'William Jones',
-    'David Garcia', 'Richard Miller', 'Joseph Davis', 'Thomas Rodriguez', 'Christopher Martinez',
-    'Daniel Hernandez', 'Matthew Lopez', 'Anthony Gonzalez', 'Mark Wilson', 'Donald Anderson',
-    'Steven Thomas', 'Andrew Taylor', 'Kenneth Moore', 'Joshua Jackson', 'Kevin Martin',
-    'Brian Lee', 'George Thompson', 'Timothy White', 'Ronald Harris', 'Edward Sanchez',
-    'Jason Clark', 'Jeffrey Ramirez', 'Ryan Lewis', 'Jacob Robinson', 'Gary Walker',
-    'Luca Rossi', 'Marco Bianchi', 'Alessandro Romano', 'Giuseppe Colombo', 'Antonio Ricci',
-    'Jean Dupont', 'Pierre Martin', 'Michel Bernard', 'Andre Simon', 'Philippe Laurent',
-    'Hans Muller', 'Karl Weber', 'Klaus Wagner', 'Jurgen Becker', 'Stefan Hoffman',
-    'Luis Garcia', 'Carlos Rodriguez', 'Jose Martinez', 'Manuel Hernandez', 'Francisco Lopez',
-];
+import { NAME_DATABASE, getRandomNameByNationality } from '../src/constants/name-database';
 
 const TEAM_NAMES = [
     'Manchester Dragons', 'London Tigers', 'Liverpool Eagles', 'Birmingham Lions',
@@ -45,6 +34,18 @@ const TEAM_IDS = [
     '17298712-aeb7-4685-aa4c-442cad956c78', // Birmingham Lions
     'a1b2c3d4-e5f6-4a7b-8c9d-e0f1a2b3c4d5',
     'f6e5d4c3-b2a1-4f0e-9d8c-7b6a5e4d3c2b',
+];
+
+// Team nationalities: testuser 1-4 use China (CN), testuser 5-8 use other nationalities
+const TEAM_NATIONALITIES = [
+    'CN', // testuser1
+    'CN', // testuser2
+    'CN', // testuser3
+    'CN', // testuser4
+    'GB', // testuser5
+    'ES', // testuser6
+    'BR', // testuser7
+    'IT', // testuser8
 ];
 
 // Positions distribution for 16 players: 2 GK, 14 Outfield
@@ -274,13 +275,14 @@ async function createTestData() {
             let owner = await userRepo.findOneBy({ email: ownerEmail });
 
             if (!owner) {
-                const pw = await argon2.hash('Test123456!');
+                // 直接传入原始密码，@BeforeInsert() 钩子会自动哈希
                 owner = await userRepo.save(new UserEntity({
                     username: `testuser${i + 1}`,
                     email: ownerEmail,
-                    password: pw,
+                    password: 'Test123456!',  // 原始密码，Entity 会自动哈希
                     nickname: `Test Manager ${i + 1}`,
                 }));
+                console.log(`   ✓ Created user: ${ownerEmail}`);
             }
 
             const teamName = TEAM_NAMES[i] || `Team ${i + 1}`;
@@ -303,18 +305,46 @@ async function createTestData() {
                 await financeRepo.save(new FinanceEntity({ teamId: team.id, balance: 100000000 }));
                 console.log(`   ✓ Created team: ${teamName} (${teamId})`);
             } else {
-                // Ensure team is linked to correct user and league
-                team.userId = owner.id;
-                team.leagueId = league!.id;
-                await teamRepo.save(team);
-                console.log(`   ⊙ Team already exists: ${teamName}`);
+                // Only update if team has no owner (orphan team) or same user
+                if (!team.userId || team.userId === owner.id) {
+                    team.userId = owner.id;
+                    team.leagueId = league!.id;
+                    await teamRepo.save(team);
+                    console.log(`   ⊙ Linked existing team: ${teamName} to ${owner.email}`);
+                } else {
+                    // Team already owned by another user - find or create a new team
+                    const existingTeamWithUser = await teamRepo.findOne({
+                        where: { userId: owner.id },
+                    });
+                    if (existingTeamWithUser) {
+                        team = existingTeamWithUser;
+                        console.log(`   ⊙ User ${owner.email} already has team: ${team.name}`);
+                    } else {
+                        // Create new team for this user
+                        const newTeamId = uuidv4();
+                        const newTeam = new TeamEntity({
+                            id: newTeamId as any,
+                            name: `${teamName} (${owner.username})`,
+                            userId: owner.id,
+                            leagueId: league!.id,
+                            logoUrl: '',
+                            jerseyColorPrimary: '#FF0000',
+                            jerseyColorSecondary: '#FFFFFF',
+                        });
+                        await teamRepo.save(newTeam);
+                        await financeRepo.save(new FinanceEntity({ teamId: newTeam.id, balance: 100000000 }));
+                        team = newTeam;
+                        console.log(`   ✓ Created new team for ${owner.email}: ${newTeam.name}`);
+                    }
+                }
             }
             createdTeams.push(team);
         }
 
         // 4. Create Players (16 per team)
         console.log('\n👥 Creating Players...');
-        for (const team of createdTeams) {
+        for (let i = 0; i < createdTeams.length; i++) {
+            const team = createdTeams[i];
             const playerCount = await playerRepo.count({ where: { teamId: team.id } });
             if (playerCount >= TEAM_ROSTER_SIZE) {
                 console.log(`   ⊙ ${team.name} has enough players (${playerCount})`);
@@ -322,11 +352,16 @@ async function createTestData() {
             }
 
             const playersToCreate = [];
+            // Use team's assigned nationality
+            const teamNationality = TEAM_NATIONALITIES[i] || 'GB';
             for (let j = 0; j < TEAM_ROSTER_SIZE; j++) {
                 // First 2 are GKs
                 const isGK = j < GK_COUNT;
-                const name = randomElement(PLAYER_NAMES);
-                const age = randomInt(17, 34);
+                // Use team nationality for player names
+                const { firstName, lastName } = getRandomNameByNationality(teamNationality);
+                const name = `${firstName} ${lastName}`;
+                // Age 18-34, no youth players (青训系统未实装)
+                const age = randomInt(18, 34);
 
                 const { tier, ability } = generatePlayerPotential();
                 const { current, potential } = generatePlayerAttributes(isGK, ability, age);
@@ -336,7 +371,7 @@ async function createTestData() {
                     teamId: team.id,
                     isGoalkeeper: isGK,
                     birthday: new Date(Date.now() - (age * GAME_SETTINGS.MS_PER_YEAR) - (Math.floor(Math.random() * GAME_SETTINGS.DAYS_PER_YEAR) * 24 * 60 * 60 * 1000)),
-                    isYouth: age <= 18,
+                    isYouth: false,
                     potentialAbility: ability,
                     potentialTier: tier,
                     trainingSlot: TrainingSlot.REGULAR,

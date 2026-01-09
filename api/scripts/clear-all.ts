@@ -34,10 +34,30 @@ async function clearAllData() {
 
         console.log('🗑️  Deleting players...');
         await AppDataSource.query('DELETE FROM player');
-        console.log(`✅ Deleted all players\n`);
 
+        console.log('🗑️  Deleting sessions...');
+        await AppDataSource.query('DELETE FROM session');
+
+        console.log('🗑️  Deleting transactions...');
+        await AppDataSource.query('DELETE FROM transaction');
+
+        console.log('🗑️  Deleting finance...');
+        await AppDataSource.query('DELETE FROM finance');
+
+        console.log('🗑️  Deleting team season results...');
+        await AppDataSource.query('DELETE FROM season_result');
+
+        console.log('🗑️  Deleting teams...');
+        await AppDataSource.query('DELETE FROM team');
+
+        console.log('🗑️  Deleting users...');
+        await AppDataSource.query('DELETE FROM "user"');
+
+        console.log('🗑️  Deleting leagues...');
+        await AppDataSource.query('DELETE FROM league');
+
+        console.log('✅ All data cleared!\n');
         await AppDataSource.destroy();
-        console.log('✅ All data cleared! You can now run: pnpm seed:run');
     } catch (error) {
         console.error('❌ Error:', error);
         process.exit(1);

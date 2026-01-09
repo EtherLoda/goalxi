@@ -6,14 +6,13 @@ interface AbilityStarsProps {
     size?: 'sm' | 'md' | 'lg';
 }
 
-// Calculate overall rating from skills
+// Calculate overall rating from skills (0-20 scale)
 const calculateOverallRating = (skills: any, isGoalkeeper: boolean = false): number => {
     if (!skills) return 0;
 
     let total = 0;
     let count = 0;
 
-    // For goalkeepers, prioritize GK skills
     if (isGoalkeeper && skills.technical) {
         const gkSkills = ['handling', 'reflexes', 'positioning'];
         gkSkills.forEach(skill => {
@@ -24,7 +23,6 @@ const calculateOverallRating = (skills: any, isGoalkeeper: boolean = false): num
         });
     }
 
-    // Add all skills
     Object.values(skills).forEach((category: any) => {
         if (typeof category === 'object') {
             Object.values(category).forEach((value: any) => {
@@ -39,10 +37,7 @@ const calculateOverallRating = (skills: any, isGoalkeeper: boolean = false): num
     return count > 0 ? total / count : 0;
 };
 
-// Convert rating to stars (0-5)
 const ratingToStars = (rating: number): number => {
-    // Rating is 0-20, convert to 0-5 stars
-    // 0-4: 1 star, 4-8: 2 stars, 8-12: 3 stars, 12-16: 4 stars, 16-20: 5 stars
     if (rating < 4) return 1;
     if (rating < 8) return 2;
     if (rating < 12) return 3;
@@ -58,34 +53,27 @@ export const AbilityStars: React.FC<AbilityStarsProps> = ({
     const rating = calculateOverallRating(currentSkills, isGoalkeeper);
     const stars = ratingToStars(rating);
 
+    const getStarColor = (index: number) => {
+        if (index < stars) {
+            if (stars === 5) return 'text-amber-400';
+            if (stars === 4) return 'text-purple-400';
+            if (stars === 3) return 'text-emerald-400';
+            if (stars === 2) return 'text-blue-400';
+            return 'text-slate-400';
+        }
+        return 'text-slate-300 dark:text-slate-700';
+    };
+
     const sizeClasses = {
         sm: 'text-xs',
         md: 'text-sm',
-        lg: 'text-lg',
-    };
-
-    // Color based on stars
-    const getStarColor = (index: number) => {
-        if (index < stars) {
-            if (stars === 5) return 'text-amber-400';   // Legend (Gold)
-            if (stars === 4) return 'text-purple-400';  // Elite (Purple)
-            if (stars === 3) return 'text-emerald-400'; // Good (Emerald)
-            if (stars === 2) return 'text-blue-400';    // Average (Blue)
-            return 'text-slate-500';                    // Poor (Slate)
-        }
-        return 'text-slate-800';
+        lg: 'text-base',
     };
 
     return (
-        <div className={`flex gap-0.5 ${sizeClasses[size]}`}>
+        <div className={`flex items-center ${sizeClasses[size]}`}>
             {Array.from({ length: 5 }).map((_, i) => (
-                <span
-                    key={i}
-                    className={`${getStarColor(i)} transition-all`}
-                    style={{
-                        filter: i < stars ? 'drop-shadow(0 0 2px currentColor)' : 'none'
-                    }}
-                >
+                <span key={i} className={getStarColor(i)}>
                     ★
                 </span>
             ))}
