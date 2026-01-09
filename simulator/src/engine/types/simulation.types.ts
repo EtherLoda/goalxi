@@ -10,7 +10,7 @@ export type ScoreStatus = 'leading' | 'draw' | 'trailing';
 
 export interface TacticalInstruction {
     minute: number;
-    type: 'move' | 'swap';
+    type: 'move' | 'swap' | 'position_swap';
     condition?: ScoreStatus;
     playerId?: string; // For MOVE or SWAP-OUT
     newPlayerId?: string; // For SWAP-IN

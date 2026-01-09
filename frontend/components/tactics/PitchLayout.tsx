@@ -41,9 +41,8 @@ const POSITION_COORDS: Record<string, { x: number; y: number }> = {
 
     // Defense - Better spacing, staggered center back
     LB: { x: 8, y: 74 }, RB: { x: 92, y: 74 },
-    // Support both CD (Center Defender) and CB (Center Back) naming
+    // Center Backs (CD = Center Defender)
     CDL: { x: 34, y: 74 }, CD: { x: 50, y: 77 }, CDR: { x: 66, y: 74 },
-    CBL: { x: 34, y: 74 }, CB: { x: 50, y: 77 }, CBR: { x: 66, y: 74 },
 
     // Goalkeeper
     GK: { x: 50, y: 92 },
@@ -51,7 +50,7 @@ const POSITION_COORDS: Record<string, { x: number; y: number }> = {
 
 export function PitchLayout({ lineup, players, onDrop, onRemove, onDragStart, onDragEnd, isDragging = false }: PitchLayoutProps) {
     const [dragOverPitch, setDragOverPitch] = useState(false);
-    
+
     const handleDragOver = (e: React.DragEvent) => {
         e.preventDefault();
         if (!dragOverPitch) {
@@ -68,7 +67,7 @@ export function PitchLayout({ lineup, players, onDrop, onRemove, onDragStart, on
         // Only set to false if we're leaving the pitch area completely
         const relatedTarget = e.relatedTarget as HTMLElement;
         const currentTarget = e.currentTarget as HTMLElement;
-        
+
         // Check if we're leaving to outside the pitch
         if (!relatedTarget || !currentTarget.contains(relatedTarget)) {
             setDragOverPitch(false);
@@ -107,7 +106,7 @@ export function PitchLayout({ lineup, players, onDrop, onRemove, onDragStart, on
     };
 
     return (
-        <div 
+        <div
             className="relative aspect-3/4 w-full max-w-[700px] mx-auto rounded-xl border-4 overflow-hidden border-emerald-900/40 shadow-2xl bg-emerald-600 dark:bg-emerald-900"
             onDragEnter={handleDragEnter}
             onDragLeave={handleDragLeave}
@@ -190,34 +189,34 @@ export function PitchLayout({ lineup, players, onDrop, onRemove, onDragStart, on
                                                 <div className="text-[11px] font-bold text-white truncate text-center leading-tight tracking-wide">
                                                     {player.name}
                                                 </div>
-                                                
+
                                                 {/* Divider */}
                                                 <div className="h-px bg-gradient-to-r from-transparent via-emerald-500/50 to-transparent my-1.5"></div>
-                                                
+
                                                 {/* Position and Rating Row */}
                                                 <div className="flex items-center justify-between gap-2">
                                                     {/* Position Badge */}
                                                     <div className="bg-emerald-600/30 backdrop-blur-sm px-2 py-0.5 rounded-md border border-emerald-400/40">
                                                         <span className="text-[9px] font-black text-emerald-300 tracking-wider">{position}</span>
                                                     </div>
-                                                    
+
                                                     {/* Overall Rating Badge */}
                                                     <div className="bg-gradient-to-br from-yellow-500/30 to-orange-500/30 backdrop-blur-sm px-2 py-0.5 rounded-md border border-yellow-400/50">
                                                         <span className="text-[10px] font-black text-yellow-300">{player.overall}</span>
                                                     </div>
                                                 </div>
-                                                
+
                                                 {/* Shine effect on hover */}
                                                 <div className="absolute inset-0 rounded-xl bg-gradient-to-tr from-transparent via-white/0 to-transparent group-hover/card:via-white/10 transition-all duration-500 pointer-events-none"></div>
                                             </div>
-                                            
+
                                             {/* Glow effect */}
                                             <div className="absolute inset-0 rounded-xl bg-emerald-500/20 blur-xl opacity-0 group-hover/card:opacity-100 transition-opacity duration-300 -z-10"></div>
                                         </div>
                                     </div>
                                 </div>
                             ) : (isDragging || dragOverPitch) ? (
-                                <div 
+                                <div
                                     className="w-10 h-10 rounded-full border-2 border-dashed border-white/50 flex items-center justify-center transition-all bg-white/10 hover:bg-white/20 hover:border-white/70 hover:scale-110 cursor-pointer"
                                     onDragOver={handleDragOver}
                                     onDrop={(e) => handleDrop(e, position)}

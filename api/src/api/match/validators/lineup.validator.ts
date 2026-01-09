@@ -10,7 +10,7 @@ export class LineupValidator {
         'CAM1', 'CAM2', 'CAM3',
         'LM', 'RM',
         // Attack (5)
-        'LW', 'RW', 'ST1', 'ST2', 'ST3',
+        'LW', 'RW', 'CFL', 'CF', 'CFR',
     ];
 
     static validate(

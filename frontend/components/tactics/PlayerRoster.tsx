@@ -28,7 +28,7 @@ export function PlayerRoster({ players, assignedPlayerIds, onDragStart, onDragEn
 
     const filteredPlayers = players.filter(player => {
         const matchesSearch = (player.name?.toLowerCase() || '').includes(searchTerm.toLowerCase());
-        const playerPos = player.isGoalkeeper ? 'GK' : 'MID';
+        const playerPos = player.isGoalkeeper ? 'GK' : 'Outfielder';
         const matchesPosition = positionFilter === 'all' || getPositionCategory(playerPos) === positionFilter;
         return matchesSearch && matchesPosition;
     });
@@ -147,7 +147,7 @@ export function PlayerRoster({ players, assignedPlayerIds, onDragStart, onDragEn
                                                 <div className="px-2.5 py-1 rounded text-xs font-black uppercase tracking-wider
                                                     bg-slate-100 text-slate-600
                                                     dark:bg-emerald-500/10 dark:text-emerald-400">
-                                                    {player.isGoalkeeper ? 'GK' : 'MID'}
+                                                    {player.isGoalkeeper ? 'GK' : 'Outfielder'}
                                                 </div>
                                             </div>
 
@@ -256,7 +256,7 @@ export function PlayerRoster({ players, assignedPlayerIds, onDragStart, onDragEn
                                             </div>
                                             <div className="flex-1 min-w-0">
                                                 <div className="text-sm font-bold text-slate-700 dark:text-slate-300 truncate">{player.name}</div>
-                                                <div className="text-xs text-slate-500 font-mono">{player.isGoalkeeper ? 'GK' : 'MID'}</div>
+                                                <div className="text-xs text-slate-500 font-mono">{player.isGoalkeeper ? 'GK' : 'Outfielder'}</div>
                                             </div>
                                             <div className="text-lg font-black text-slate-300 dark:text-slate-600">{player.overall}</div>
                                         </div>

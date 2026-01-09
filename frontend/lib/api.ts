@@ -283,11 +283,11 @@ export const api = {
 
     getTactics: (matchId: string) => fetchJson<{ homeTactics: Tactics | null; awayTactics: Tactics | null }>(`/matches/${matchId}/tactics`),
 
-    submitTactics: (matchId: string, teamId: string, lineup: Record<string, string | null>, formation: string) =>
+    submitTactics: (matchId: string, teamId: string, lineup: Record<string, string | null>, formation: string, substitutions: any[] = [], instructions: any = {}) =>
         fetchJson<Tactics>(`/matches/${matchId}/tactics`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ teamId, lineup, formation }),
+            body: JSON.stringify({ teamId, lineup, formation, substitutions, instructions }),
         }),
 
     // Auth

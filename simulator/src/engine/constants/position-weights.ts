@@ -489,11 +489,8 @@ export const POSITION_WEIGHTS: PositionWeightsMap = {
     // Forwards
     'CF': CF_WEIGHTS,
     'ST': CF_WEIGHTS,
-    'ST1': CF_WEIGHTS,
-    'ST2': CF_WEIGHTS,
-    'ST3': CF_WEIGHTS,
-    'CF_L': CF_L_WEIGHTS,
-    'CF_R': CF_R_WEIGHTS,
+    'CFL': CF_L_WEIGHTS,
+    'CFR': CF_R_WEIGHTS,
     'LW': LW_WEIGHTS,
     'RW': RW_WEIGHTS,
 

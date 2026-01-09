@@ -407,6 +407,21 @@ export class MatchEngine {
                     (ins as any).playerOutName = playerOutName;
                     success = true;
                 }
+            } else if (ins.type === 'position_swap') {
+                const playerA = team.players.find(p => (p.player as Player).id === ins.playerId);
+                const playerB = team.players.find(p => (p.player as Player).id === ins.newPlayerId);
+
+                if (playerA && playerB && !playerA.isSentOff && !playerB.isSentOff) {
+                    const tempPos = playerA.positionKey;
+                    playerA.positionKey = playerB.positionKey;
+                    playerB.positionKey = tempPos;
+
+                    const playerAName = (playerA.player as Player).name;
+                    const playerBName = (playerB.player as Player).name;
+
+                    description = `Tactical change: ${team.name} swaps positions between ${playerAName} and ${playerBName}.`;
+                    success = true;
+                }
             }
 
             if (success) {

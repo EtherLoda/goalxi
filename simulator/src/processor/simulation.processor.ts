@@ -116,6 +116,29 @@ export class SimulationProcessor extends WorkerHost {
                     });
                 }
             }
+            if (tactics.instructions) {
+                if (Array.isArray(tactics.instructions.positionSwaps)) {
+                    for (const ps of tactics.instructions.positionSwaps) {
+                        results.push({
+                            minute: ps.minute,
+                            type: 'position_swap',
+                            playerId: ps.playerA,
+                            newPlayerId: ps.playerB,
+                            newPosition: 'SWAP'
+                        });
+                    }
+                }
+                if (Array.isArray(tactics.instructions.moves)) {
+                    for (const m of tactics.instructions.moves) {
+                        results.push({
+                            minute: m.minute,
+                            type: 'move',
+                            playerId: m.player,
+                            newPosition: m.position,
+                        });
+                    }
+                }
+            }
             return results;
         };
 
@@ -156,7 +179,7 @@ export class SimulationProcessor extends WorkerHost {
         // Generate injury time (1-5 minutes for each half)
         const firstHalfInjuryTime = Math.floor(Math.random() * (GAME_SETTINGS.MATCH_INJURY_TIME_MAX - GAME_SETTINGS.MATCH_INJURY_TIME_MIN + 1)) + GAME_SETTINGS.MATCH_INJURY_TIME_MIN;
         const secondHalfInjuryTime = Math.floor(Math.random() * (GAME_SETTINGS.MATCH_INJURY_TIME_MAX - GAME_SETTINGS.MATCH_INJURY_TIME_MIN + 1)) + GAME_SETTINGS.MATCH_INJURY_TIME_MIN;
-        
+
         match.firstHalfInjuryTime = firstHalfInjuryTime;
         match.secondHalfInjuryTime = secondHalfInjuryTime;
 
@@ -165,13 +188,13 @@ export class SimulationProcessor extends WorkerHost {
             this.logger.log(`[Simulator] Match ${match.id} is tied and requires winner - playing extra time`);
             events = engine.simulateExtraTime();
             match.hasExtraTime = true;
-            
+
             // Generate ET injury time
             const etFirstHalfInjury = Math.floor(Math.random() * 3) + 1; // 1-3 minutes for ET
             const etSecondHalfInjury = Math.floor(Math.random() * 3) + 1;
             match.extraTimeFirstHalfInjury = etFirstHalfInjury;
             match.extraTimeSecondHalfInjury = etSecondHalfInjury;
-            
+
             // If still tied after extra time, penalty shootout
             if (engine.homeScore === engine.awayScore) {
                 this.logger.log(`[Simulator] Still tied after extra time - penalty shootout`);
@@ -185,17 +208,17 @@ export class SimulationProcessor extends WorkerHost {
         const matchStartTime = new Date(match.scheduledAt);
         // Force to UTC by getting the time value directly
         const matchStartTimeUTC = new Date(matchStartTime.toISOString());
-        
+
         this.logger.log(
             `[Simulator] Calculating event scheduled times (match starts: ${matchStartTimeUTC.toISOString()})
 ` +
             `  1st half injury time: ${firstHalfInjuryTime}min, 2nd half injury time: ${secondHalfInjuryTime}min`
         );
-        
+
         for (const event of events) {
             const eventMinute = event.minute;
             let realWorldOffset = 0; // Will calculate based on event minute
-            
+
             /**
              * Timeline breakdown:
              * Minutes 0-45: First half (0 to 45 real-world minutes)
@@ -206,22 +229,22 @@ export class SimulationProcessor extends WorkerHost {
              * Note: Game minutes don't include halftime break
              * Event at minute 46 happens at real-world T+60 (45min play + 15min break)
              */
-            
+
             // Special case: Second half kickoff at minute 45 (but type is 'kickoff' for second half)
-            const isSecondHalfKickoff = eventMinute === 45 && 
-                event.type === 'kickoff' && 
+            const isSecondHalfKickoff = eventMinute === 45 &&
+                event.type === 'kickoff' &&
                 event.data?.period === 'second_half';
-            
+
             // Special case: Extra time kickoff at minute 90
-            const isExtraTimeKickoff = eventMinute === 90 && 
-                event.type === 'kickoff' && 
+            const isExtraTimeKickoff = eventMinute === 90 &&
+                event.type === 'kickoff' &&
                 event.data?.period === 'extra_time';
-            
+
             // Special case: Extra time second half kickoff at minute 105
-            const isExtraTimeSecondHalfKickoff = eventMinute === 105 && 
-                event.type === 'kickoff' && 
+            const isExtraTimeSecondHalfKickoff = eventMinute === 105 &&
+                event.type === 'kickoff' &&
                 event.data?.period === 'extra_time_second_half';
-            
+
             if (eventMinute < 45) {
                 // First half: direct mapping (minutes 0-44)
                 realWorldOffset = eventMinute * 60 * 1000;
@@ -254,31 +277,31 @@ export class SimulationProcessor extends WorkerHost {
                 else if (isExtraTimeSecondHalfKickoff) {
                     // ET second half kickoff: happens after 5-minute ET break
                     // Real time = 90min play + 15min HT + 15min ET1st + 5min ET break
-                    realWorldOffset = (90 * 60 * 1000) + 
-                                    (GAME_SETTINGS.MATCH_HALF_TIME_MINUTES * 60 * 1000) + 
-                                    (15 * 60 * 1000) + // ET first half
-                                    (GAME_SETTINGS.MATCH_EXTRA_TIME_BREAK_MINUTES * 60 * 1000);
+                    realWorldOffset = (90 * 60 * 1000) +
+                        (GAME_SETTINGS.MATCH_HALF_TIME_MINUTES * 60 * 1000) +
+                        (15 * 60 * 1000) + // ET first half
+                        (GAME_SETTINGS.MATCH_EXTRA_TIME_BREAK_MINUTES * 60 * 1000);
                 }
                 else {
                     // ET second half (106-120): regular events
                     // Real time = 90min play + 15min HT + 15min ET1st + 5min ET break + (eventMinute - 105) ET2nd minutes
-                    realWorldOffset = (90 * 60 * 1000) + 
-                                    (GAME_SETTINGS.MATCH_HALF_TIME_MINUTES * 60 * 1000) + 
-                                    (15 * 60 * 1000) + // ET first half
-                                    (GAME_SETTINGS.MATCH_EXTRA_TIME_BREAK_MINUTES * 60 * 1000) + 
-                                    ((eventMinute - 105) * 60 * 1000);
+                    realWorldOffset = (90 * 60 * 1000) +
+                        (GAME_SETTINGS.MATCH_HALF_TIME_MINUTES * 60 * 1000) +
+                        (15 * 60 * 1000) + // ET first half
+                        (GAME_SETTINGS.MATCH_EXTRA_TIME_BREAK_MINUTES * 60 * 1000) +
+                        ((eventMinute - 105) * 60 * 1000);
                 }
             }
-            
+
             // Create event scheduled time in UTC
             event.eventScheduledTime = new Date(matchStartTimeUTC.getTime() + realWorldOffset);
         }
-        
+
         const lastEvent = events[events.length - 1];
-        const totalDuration = lastEvent?.eventScheduledTime 
+        const totalDuration = lastEvent?.eventScheduledTime
             ? (lastEvent.eventScheduledTime.getTime() - matchStartTimeUTC.getTime()) / (60 * 1000)
             : 0;
-        
+
         this.logger.log(
             `[Simulator] Events will be revealed from ${matchStartTimeUTC.toISOString()} ` +
             `to ${lastEvent?.eventScheduledTime?.toISOString() || 'unknown'}\n` +

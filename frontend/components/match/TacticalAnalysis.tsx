@@ -23,7 +23,6 @@ function formatPositionName(position: string): string {
         'CM1': 'CML', 'CM2': 'CM', 'CM3': 'CMR',
         'CAM1': 'AML', 'CAM2': 'AM', 'CAM3': 'AMR',
         'CAM': 'AM',
-        'ST1': 'CFL', 'ST2': 'CF', 'ST3': 'CFR',
         'ST': 'CF',
         'CF_L': 'CFL', 'CF_R': 'CFR',
     };
@@ -43,7 +42,6 @@ const POSITION_COORDS: Record<string, { x: number; y: number }> = {
     AML: { x: 37, y: 32 }, AM: { x: 37, y: 50 }, AMR: { x: 37, y: 68 }, CAM: { x: 37, y: 50 },
     CAM1: { x: 37, y: 32 }, CAM2: { x: 37, y: 50 }, CAM3: { x: 37, y: 68 },
     LW: { x: 45, y: 12 }, CFL: { x: 45, y: 32 }, CF: { x: 45, y: 50 }, CFR: { x: 45, y: 68 }, ST: { x: 45, y: 50 }, RW: { x: 45, y: 88 },
-    ST1: { x: 45, y: 32 }, ST2: { x: 45, y: 50 }, ST3: { x: 45, y: 68 },
 };
 
 interface PlayerCardProps {

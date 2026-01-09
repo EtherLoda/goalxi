@@ -42,7 +42,7 @@ export function PlayerPerformanceCard({ player, compact = false }: PlayerPerform
                     </div>
                 </div>
                 <PlayerStaminaBar stamina={player.stamina} showLabel={false} />
-                {player.isSubstitute && (
+                {player.entryMinute > 0 && (
                     <div className="mt-1 text-xs text-blue-600 dark:text-blue-400 font-medium">
                         SUB
                     </div>
@@ -58,7 +58,7 @@ export function PlayerPerformanceCard({ player, compact = false }: PlayerPerform
                     <h3 className="font-bold text-gray-900 dark:text-white">{player.name}</h3>
                     <p className="text-sm text-gray-600 dark:text-gray-400">{player.position}</p>
                 </div>
-                {player.isSubstitute && (
+                {player.entryMinute > 0 && (
                     <span className="px-2 py-1 text-xs font-semibold rounded-full bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200">
                         SUB
                     </span>

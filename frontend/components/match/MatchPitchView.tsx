@@ -30,32 +30,32 @@ function formatPositionName(position: string): string {
         'CB1': 'CBL',
         'CB2': 'CB',
         'CB3': 'CBR',
-        
+
         // Defensive midfielders
         'DMF1': 'DML',
         'DMF2': 'DM',
         'DMF3': 'DMR',
         'DMF': 'DM',
         'CDM': 'DM',
-        
+
         // Central midfielders
         'CM1': 'CML',
         'CM2': 'CM',
         'CM3': 'CMR',
-        
+
         // Attacking midfielders
         'CAM1': 'AML',
         'CAM2': 'AM',
         'CAM3': 'AMR',
         'CAM': 'AM',
-        
+
         // Strikers
         'ST1': 'CF_L',
         'ST2': 'CF',
         'ST3': 'CF_R',
         'ST': 'CF',
     };
-    
+
     return positionMap[position] || position;
 }
 
@@ -67,118 +67,113 @@ function formatPositionName(position: string): string {
 const POSITION_COORDS: Record<string, { x: number; y: number }> = {
     // ===== GOALKEEPER (x: 5%) =====
     GK: { x: 5, y: 50 },
-    
+
     // ===== DEFENSE (x: 15%) =====
     LB: { x: 15, y: 12 },   // Left back (moved inward from 8%)
     CBL: { x: 15, y: 32 },  // Center back left (±18% from center)
     CB: { x: 15, y: 50 },   // Center back
     CBR: { x: 15, y: 68 },  // Center back right (±18% from center)
     RB: { x: 15, y: 88 },   // Right back (moved inward from 92%)
-    
+
     // Backward compatibility aliases
     CB1: { x: 15, y: 32 },  // Alias for CBL
     CB2: { x: 15, y: 50 },  // Alias for CB
     CB3: { x: 15, y: 68 },  // Alias for CBR
-    
+
     // ===== WINGBACKS (x: 20%) =====
     LWB: { x: 20, y: 12 },  // Left wingback (moved inward from 8%)
     WB: { x: 20, y: 50 },   // Center wingback
     WBR: { x: 20, y: 68 },  // Right wingback
     RWB: { x: 20, y: 88 },  // Right wingback (moved inward from 92%)
-    
+
     // ===== DEFENSIVE MIDFIELD (x: 25%) =====
     DML: { x: 25, y: 32 },  // Defensive midfielder left
     DM: { x: 25, y: 50 },   // Defensive midfielder center
     DMR: { x: 25, y: 68 },  // Defensive midfielder right
     CDM: { x: 25, y: 50 },  // Alias for DM
-    
+
     // Backward compatibility aliases
     DMF1: { x: 25, y: 32 }, // Alias for DML
     DMF2: { x: 25, y: 50 }, // Alias for DM
     DMF3: { x: 25, y: 68 }, // Alias for DMR
-    
+
     // ===== CENTRAL MIDFIELD (x: 30%) =====
     LM: { x: 30, y: 12 },   // Left midfielder (moved inward from 8%)
     CML: { x: 30, y: 32 },  // Central midfielder left
     CM: { x: 30, y: 50 },   // Central midfielder center
     CMR: { x: 30, y: 68 },  // Central midfielder right
     RM: { x: 30, y: 88 },   // Right midfielder (moved inward from 92%)
-    
+
     // Backward compatibility aliases
     CM1: { x: 30, y: 32 },  // Alias for CML
     CM2: { x: 30, y: 50 },  // Alias for CM
     CM3: { x: 30, y: 68 },  // Alias for CMR
-    
+
     // ===== ATTACKING MIDFIELD (x: 37%) =====
     AML: { x: 37, y: 32 },  // Attacking midfielder left
     AM: { x: 37, y: 50 },   // Attacking midfielder center
     AMR: { x: 37, y: 68 },  // Attacking midfielder right
     CAM: { x: 37, y: 50 },  // Alias for AM
-    
+
     // Backward compatibility aliases
     CAM1: { x: 37, y: 32 }, // Alias for AML
     CAM2: { x: 37, y: 50 }, // Alias for AM
     CAM3: { x: 37, y: 68 }, // Alias for AMR
-    
+
     // ===== FORWARDS (x: 45%) =====
     LW: { x: 45, y: 12 },   // Left winger (moved inward from 8%)
-    CF_L: { x: 45, y: 32 }, // Center forward left
+    CFL: { x: 45, y: 32 }, // Center forward left
     CF: { x: 45, y: 50 },   // Center forward
-    CF_R: { x: 45, y: 68 }, // Center forward right
+    CFR: { x: 45, y: 68 }, // Center forward right
     ST: { x: 45, y: 50 },   // Alias for CF
     RW: { x: 45, y: 88 },   // Right winger (moved inward from 92%)
-    
-    // Backward compatibility aliases
-    ST1: { x: 45, y: 32 },  // Alias for CF_L
-    ST2: { x: 45, y: 50 },  // Alias for CF
-    ST3: { x: 45, y: 68 },  // Alias for CF_R
 };
 
-function PlayerCard({ player, isHome, viewMode, initialStamina }: PlayerCardProps) {
+function PlayerCard({ player, isHome, initialStamina }: PlayerCardProps) {
     // Use appearance from player data if available, otherwise generate from ID
     const appearance = convertAppearance(player.appearance) || generateAppearance(player.playerId);
-    
+
     // Stamina calculation
     const currentStamina = player.stamina;
     const playerInitialStamina = initialStamina || 6.0;
     const staminaRatio = currentStamina / playerInitialStamina;
-    
+
     // Calculate display percentage with 25% buffer
     let staminaPercentage: number;
     const bufferThreshold = 0.75;
-    
+
     if (staminaRatio >= bufferThreshold) {
         staminaPercentage = 100;
     } else {
         staminaPercentage = Math.round((staminaRatio / bufferThreshold) * 100);
     }
-    
+
     // Determine stamina circle color
     const getStaminaColor = () => {
         if (staminaPercentage >= 80) return '#10b981'; // green-500
         if (staminaPercentage >= 60) return '#eab308'; // yellow-500
         return '#ef4444'; // red-500
     };
-    
+
     // Performance = positionalContribution × conditionMultiplier
     const contribution = player.positionalContribution || 50;
     const conditionMult = player.conditionMultiplier || 1.0;
     const performance = Math.round(contribution * conditionMult);
-    
+
     // SVG circle properties for stamina ring
     const circleRadius = 28; // radius of the circle
     const circleCircumference = 2 * Math.PI * circleRadius;
     const staminaStrokeDashoffset = circleCircumference * (1 - staminaPercentage / 100);
-    
+
     return (
         <div className="relative flex flex-col items-center">
             {/* Substitute Badge */}
-            {player.isSubstitute && (
+            {player.entryMinute > 0 && (
                 <div className="absolute -top-1 -right-1 z-20 bg-orange-500 text-white text-[6px] font-bold px-1 py-0.5 rounded shadow-md">
                     SUB
                 </div>
             )}
-            
+
             {/* Avatar with Performance & Stamina Circle */}
             <div className="relative w-16 h-16">
                 {/* Stamina Progress Ring (SVG) */}
@@ -207,17 +202,17 @@ function PlayerCard({ player, isHome, viewMode, initialStamina }: PlayerCardProp
                         className="transition-all duration-300"
                     />
                 </svg>
-                
+
                 {/* Avatar in center */}
                 <div className="absolute inset-2 rounded-full overflow-hidden border-2 border-white dark:border-slate-800 shadow-lg">
                     {appearance && (
-                        <MiniPlayer 
-                            appearance={appearance} 
+                        <MiniPlayer
+                            appearance={appearance}
                             size={48}
                         />
                     )}
                 </div>
-                
+
                 {/* Performance Badge (bottom right of circle) */}
                 <div className="absolute -bottom-1 -right-1 w-6 h-6 rounded-full bg-gradient-to-br from-emerald-500 to-emerald-600 dark:from-emerald-600 dark:to-emerald-700 flex items-center justify-center shadow-lg border-2 border-white dark:border-slate-900">
                     <span className="text-[10px] font-black text-white">
@@ -225,7 +220,7 @@ function PlayerCard({ player, isHome, viewMode, initialStamina }: PlayerCardProp
                     </span>
                 </div>
             </div>
-            
+
             {/* Player Name */}
             <div className="mt-1 text-[8px] font-bold text-slate-900 dark:text-white text-center max-w-[70px] truncate">
                 {player.name.split(' ').pop()}
@@ -235,10 +230,10 @@ function PlayerCard({ player, isHome, viewMode, initialStamina }: PlayerCardProp
 }
 
 export function MatchPitchView({ homeTeamName, awayTeamName, homePlayers, awayPlayers, initialStamina }: MatchPitchViewProps) {
-    const homeStarters = homePlayers.filter(p => !p.isSubstitute);
-    const homeSubs = homePlayers.filter(p => p.isSubstitute);
-    const awayStarters = awayPlayers.filter(p => !p.isSubstitute);
-    const awaySubs = awayPlayers.filter(p => p.isSubstitute);
+    const homeStarters = homePlayers.filter(p => !p.entryMinute);
+    const homeSubs = homePlayers.filter(p => p.entryMinute > 0);
+    const awayStarters = awayPlayers.filter(p => !p.entryMinute);
+    const awaySubs = awayPlayers.filter(p => p.entryMinute > 0);
 
     // Create position map for home team (left side)
     const homePositionMap: Record<string, PlayerState> = {};
@@ -288,13 +283,13 @@ export function MatchPitchView({ homeTeamName, awayTeamName, homePlayers, awayPl
                         <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-2 h-2 rounded-full bg-white" />
                         {/* Center line */}
                         <div className="absolute left-1/2 top-0 bottom-0 w-0.5 bg-white" />
-                        
+
                         {/* Left penalty area (home) */}
                         <div className="absolute left-0 top-1/2 -translate-y-1/2 w-[16%] h-[60%] border-2 border-white border-l-0" />
                         <div className="absolute left-0 top-1/2 -translate-y-1/2 w-[6%] h-[30%] border-2 border-white border-l-0" />
                         {/* Left goal line */}
                         <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-[20%] bg-white" />
-                        
+
                         {/* Right penalty area (away) */}
                         <div className="absolute right-0 top-1/2 -translate-y-1/2 w-[16%] h-[60%] border-2 border-white border-r-0" />
                         <div className="absolute right-0 top-1/2 -translate-y-1/2 w-[6%] h-[30%] border-2 border-white border-r-0" />
@@ -318,9 +313,9 @@ export function MatchPitchView({ homeTeamName, awayTeamName, homePlayers, awayPl
                                         transform: 'translate(-50%, -50%)',
                                     }}
                                 >
-                                    <PlayerCard 
-                                        player={player} 
-                                        isHome={true} 
+                                    <PlayerCard
+                                        player={player}
+                                        isHome={true}
                                         initialStamina={initialStamina?.get(player.playerId)}
                                     />
                                 </div>
@@ -347,9 +342,9 @@ export function MatchPitchView({ homeTeamName, awayTeamName, homePlayers, awayPl
                                         transform: 'translate(-50%, -50%)',
                                     }}
                                 >
-                                    <PlayerCard 
-                                        player={player} 
-                                        isHome={false} 
+                                    <PlayerCard
+                                        player={player}
+                                        isHome={false}
                                         initialStamina={initialStamina?.get(player.playerId)}
                                     />
                                 </div>
@@ -370,9 +365,9 @@ export function MatchPitchView({ homeTeamName, awayTeamName, homePlayers, awayPl
                                 <div className="flex flex-wrap gap-3">
                                     {homeSubs.map(player => (
                                         <div key={player.playerId} className="flex-shrink-0">
-                                            <PlayerCard 
-                                                player={player} 
-                                                isHome={true} 
+                                            <PlayerCard
+                                                player={player}
+                                                isHome={true}
                                                 initialStamina={initialStamina?.get(player.playerId)}
                                             />
                                         </div>
@@ -380,7 +375,7 @@ export function MatchPitchView({ homeTeamName, awayTeamName, homePlayers, awayPl
                                 </div>
                             </div>
                         )}
-                        
+
                         {/* Away Subs */}
                         {awaySubs.length > 0 && (
                             <div>
@@ -390,9 +385,9 @@ export function MatchPitchView({ homeTeamName, awayTeamName, homePlayers, awayPl
                                 <div className="flex flex-wrap gap-3">
                                     {awaySubs.map(player => (
                                         <div key={player.playerId} className="flex-shrink-0">
-                                            <PlayerCard 
-                                                player={player} 
-                                                isHome={false} 
+                                            <PlayerCard
+                                                player={player}
+                                                isHome={false}
                                                 initialStamina={initialStamina?.get(player.playerId)}
                                             />
                                         </div>
