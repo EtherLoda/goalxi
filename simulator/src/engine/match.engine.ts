@@ -30,7 +30,7 @@ const POSITION_TO_BENCH_KEY: Record<string, keyof BenchConfig> = {
 
 export interface MatchEvent {
     minute: number;
-    type: 'goal' | 'miss' | 'save' | 'turnover' | 'advance' | 'snapshot' | 'shot' | 'corner' | 'foul' | 'yellow_card' | 'red_card' | 'offside' | 'substitution' | 'injury' | 'penalty_goal' | 'penalty_miss' | 'kickoff' | 'half_time' | 'second_half' | 'full_time' | 'tactical_change' | 'attack_sequence';
+    type: 'goal' | 'miss' | 'save' | 'turnover' | 'advance' | 'snapshot' | 'shot' | 'corner' | 'foul' | 'yellow_card' | 'red_card' | 'offside' | 'substitution' | 'injury' | 'penalty_goal' | 'penalty_miss' | 'kickoff' | 'half_time' | 'second_half' | 'full_time' | 'tactical_change' | 'attack_sequence' | 'free_kick';
     description: string;
     teamName?: string;
     teamId?: string;
@@ -499,7 +499,7 @@ export class MatchEngine {
         this.changeLane();
 
         // Step 1: Foul Check (Small random chance)
-        if (Math.random() < 0.08) {
+        if (Math.random() < 0.10) {
             this.resolveFoul();
             return; // Foul interrupts the play
         }
@@ -540,14 +540,20 @@ export class MatchEngine {
                     gkRating = this.defendingTeam.getSnapshot()?.gkRating || 100;
                 }
 
-                const isGoal = this.resolveDuel(finalShootRating, gkRating, 0.03, 0);
+                const isGoal = this.resolveDuel(finalShootRating, gkRating, 0.05, 28);
 
                 // 65% chance to have an assist
                 if (Math.random() < 0.65) {
                     assistPlayer = this.selectAssist(this.possessionTeam, shooter);
                 }
 
-                shotResult = isGoal ? 'goal' : 'save';
+                // 15% chance shot is blocked (deflected) even if not saved by GK
+                // This creates corner kick opportunities
+                if (!isGoal && Math.random() < 0.15) {
+                    shotResult = 'blocked';
+                } else {
+                    shotResult = isGoal ? 'goal' : 'save';
+                }
             } else {
                 shotResult = 'blocked';
             }
@@ -577,9 +583,10 @@ export class MatchEngine {
     }
 
     private resolveFoul() {
-        const team = Math.random() < 0.5 ? this.homeTeam : this.awayTeam;
-        const playerIdx = (Math.random() * team.players.length) | 0;
-        const player = team.players[playerIdx];
+        const foulingTeam = Math.random() < 0.5 ? this.homeTeam : this.awayTeam;
+        const victimTeam = foulingTeam === this.homeTeam ? this.awayTeam : this.homeTeam;
+        const playerIdx = (Math.random() * foulingTeam.players.length) | 0;
+        const player = foulingTeam.players[playerIdx];
         if (!player || player.isSentOff) return;
 
         const p = player.player as Player;
@@ -587,16 +594,16 @@ export class MatchEngine {
 
         if (roll < 0.1) {
             // Direct Red Card
-            team.sendOffPlayer(p.id);
+            foulingTeam.sendOffPlayer(p.id);
             player.isSentOff = true;
             this.events.push({
                 minute: this.time,
                 type: 'red_card',
-                teamName: team.name,
+                teamName: foulingTeam.name,
                 playerId: p.id,
-                description: `🟥 RED CARD! ${p.name} is sent off after a reckless challenge! ${team.name} are down to 10 men.`
+                description: `🟥 RED CARD! ${p.name} is sent off after a reckless challenge! ${foulingTeam.name} are down to 10 men.`
             });
-            team.updateSnapshot();
+            foulingTeam.updateSnapshot();
         } else if (roll < 0.4) {
             // Yellow Card - check for second yellow
             const currentYellows = player.yellowCards || 0;
@@ -604,33 +611,66 @@ export class MatchEngine {
 
             if (currentYellows >= 1) {
                 // Second yellow = red card
-                team.sendOffPlayer(p.id);
+                foulingTeam.sendOffPlayer(p.id);
                 this.events.push({
                     minute: this.time,
                     type: 'red_card',
-                    teamName: team.name,
+                    teamName: foulingTeam.name,
                     playerId: p.id,
-                    description: `🟥 SECOND YELLOW! ${p.name} receives a second yellow and is sent off! ${team.name} down to 10 men.`
+                    description: `🟥 SECOND YELLOW! ${p.name} receives a second yellow and is sent off! ${foulingTeam.name} down to 10 men.`
                 });
-                team.updateSnapshot();
+                foulingTeam.updateSnapshot();
             } else {
-                // First yellow
+                // First yellow - also determine set piece
                 this.events.push({
                     minute: this.time,
                     type: 'yellow_card',
-                    teamName: team.name,
+                    teamName: foulingTeam.name,
                     playerId: p.id,
                     description: `🟨 Yellow card for ${p.name}. The referee warns him to be careful.`
                 });
+                // Trigger set piece
+                this.resolveSetPieceFromFoul(foulingTeam, victimTeam);
             }
         } else {
-            // Just a foul
+            // Just a foul - trigger set piece
             this.events.push({
                 minute: this.time,
                 type: 'foul',
-                teamName: team.name,
+                teamName: foulingTeam.name,
                 description: `⚠️ Foul by ${p.name}. A brief stoppage in play.`
             });
+            // Trigger set piece
+            this.resolveSetPieceFromFoul(foulingTeam, victimTeam);
+        }
+    }
+
+    /**
+     * Determine and resolve set piece from foul
+     * Using 'center' lane as proxy for attacking/penalty area
+     */
+    private resolveSetPieceFromFoul(foulingTeam: Team, victimTeam: Team): void {
+        const roll = Math.random();
+
+        // Determine set piece type based on position
+        // 'center' lane is used as proxy for penalty area/attacking zone
+        const isInPenaltyArea = this.currentLane === 'center';
+
+        if (isInPenaltyArea) {
+            // In attacking zone - could be penalty or indirect FK
+            if (roll < 0.30) {
+                // 30% chance to be a penalty in the box
+                this.resolvePenalty(foulingTeam, victimTeam);
+            } else {
+                // 70% chance to be indirect free kick
+                this.resolveIndirectFreeKick(victimTeam, foulingTeam);
+            }
+        } else {
+            // Not in attacking zone - 65% chance to be direct free kick
+            if (roll < 0.65) {
+                this.resolveDirectFreeKick(victimTeam, foulingTeam);
+            }
+            // 35% chance nothing happens (simple foul)
         }
     }
 
@@ -730,6 +770,15 @@ export class MatchEngine {
             description: description,
             data: eventData
         });
+
+        // Trigger corner if shot was blocked
+        if (finalResult === 'blocked' && shot?.shooter) {
+            if (Math.random() < 0.87) {
+                const cornerTeam = midfieldBattle.winner === 'home' ? this.homeTeam : this.awayTeam;
+                const defendingTeam = midfieldBattle.winner === 'home' ? this.awayTeam : this.homeTeam;
+                this.resolveCorner(cornerTeam, defendingTeam);
+            }
+        }
     }
 
     private selectShooter(team: Team): TacticalPlayer {
@@ -882,6 +931,238 @@ export class MatchEngine {
                 }
             }
         });
+    }
+
+    // ==================== SET PIECE METHODS ====================
+
+    /**
+     * Resolve a corner kick
+     * Formula: P = 1 / (1 + exp(-diff × 0.15 + 2.3))
+     * Attack = avgFK×0.7 + kickerFK×0.5
+     * Defense = opponentAvgFK×0.6 + GKRating×0.2
+     * When skills equal (avg=10, kicker≈11.7, diff≈5): P ≈ 18%
+     */
+    private resolveCorner(attackingTeam: Team, defendingTeam: Team): void {
+        const avgFK = attackingTeam.getAvgFreeKicks();
+        const kicker = attackingTeam.getBestSetPieceTaker('corner');
+        const opponentAvgFK = defendingTeam.getAvgFreeKicks();
+        const gkRating = defendingTeam.getGoalkeeperSetPieceRating();
+
+        if (!kicker) return;
+
+        const attackScore = avgFK * 0.7 + (kicker.player as Player).attributes.freeKicks * 0.5;
+        const defenseScore = opponentAvgFK * 0.6 + gkRating * 0.2;
+        const diff = attackScore - defenseScore;
+        const probability = 1 / (1 + Math.exp(-diff * 0.15 + 2.2));
+        const isGoal = Math.random() < probability;
+
+        const kickerPlayer = kicker.player as Player;
+        const kickerName = kickerPlayer.name;
+
+        this.events.push({
+            minute: this.time,
+            type: isGoal ? 'goal' : 'corner',
+            teamName: attackingTeam.name,
+            playerId: kickerPlayer.id,
+            description: isGoal
+                ? `⚽ GOAL from corner! ${kickerName} delivers a perfect set-piece!`
+                : `🚩 Corner for ${attackingTeam.name}. ${kickerName}'s delivery is cleared.`,
+            data: {
+                setPieceType: 'corner',
+                attackScore: parseFloat(attackScore.toFixed(2)),
+                defenseScore: parseFloat(defenseScore.toFixed(2)),
+                probability: parseFloat(probability.toFixed(2)),
+                result: isGoal ? 'goal' : 'save'
+            }
+        });
+
+        if (isGoal) {
+            if (attackingTeam === this.homeTeam) this.homeScore++;
+            else this.awayScore++;
+        }
+
+        // Update stats (use team name as ID for now, should use teamId)
+        const teamId = attackingTeam.name; // TODO: Use actual team ID
+        this.updateSetPieceStats(teamId, 'corner');
+    }
+
+    /**
+     * Resolve an indirect free kick (free kick that requires a touch)
+     * Formula: P = 1 / (1 + exp(-diff × 0.15 + 2.3))
+     * Attack = avgFK×0.6 + kickerFK×0.6
+     * Defense = opponentAvgFK×0.6 + GKRating×0.2
+     * When skills equal (avg=10, kicker≈11.7, diff≈5): P ≈ 18%
+     */
+    private resolveIndirectFreeKick(attackingTeam: Team, defendingTeam: Team): void {
+        const avgFK = attackingTeam.getAvgFreeKicks();
+        const kicker = attackingTeam.getBestSetPieceTaker('free_kick');
+        const opponentAvgFK = defendingTeam.getAvgFreeKicks();
+        const gkRating = defendingTeam.getGoalkeeperSetPieceRating();
+
+        if (!kicker) return;
+
+        const attackScore = avgFK * 0.6 + (kicker.player as Player).attributes.freeKicks * 0.6;
+        const defenseScore = opponentAvgFK * 0.6 + gkRating * 0.2;
+        const diff = attackScore - defenseScore;
+        const probability = 1 / (1 + Math.exp(-diff * 0.15 + 2.3));
+
+        const isGoal = Math.random() < probability;
+
+        const kickerPlayer = kicker.player as Player;
+        const kickerName = kickerPlayer.name;
+
+        this.events.push({
+            minute: this.time,
+            type: isGoal ? 'goal' : 'free_kick',
+            teamName: attackingTeam.name,
+            playerId: kickerPlayer.id,
+            description: isGoal
+                ? `⚽ GOAL from indirect free kick! ${kickerName} finds the net!`
+                : `🚫 Indirect free kick for ${attackingTeam.name}. ${kickerName}'s effort is blocked.`,
+            data: {
+                setPieceType: 'indirect_free_kick',
+                attackScore: parseFloat(attackScore.toFixed(2)),
+                defenseScore: parseFloat(defenseScore.toFixed(2)),
+                probability: parseFloat(probability.toFixed(2)),
+                result: isGoal ? 'goal' : 'save'
+            }
+        });
+
+        if (isGoal) {
+            if (attackingTeam === this.homeTeam) this.homeScore++;
+            else this.awayScore++;
+        }
+
+        // Update stats
+        const teamId = attackingTeam.name;
+        this.updateSetPieceStats(teamId, 'indirect_fk');
+    }
+
+    /**
+     * Resolve a direct free kick (shoot directly on goal)
+     * Formula: P = 1 / (1 + exp(-diff × 0.15 + 2.3))
+     * Attack = kickerFK×1.0 + kickerComp×0.5
+     * Defense = GKref×0.6 + GKhand×0.4 + GKcomp×0.4
+     * When skills equal (avg=10, kicker≈11.7, diff≈5): P ≈ 18%
+     */
+    private resolveDirectFreeKick(attackingTeam: Team, defendingTeam: Team): void {
+        const kicker = attackingTeam.getBestSetPieceTaker('free_kick');
+        const gk = defendingTeam.getGoalkeeper();
+
+        if (!kicker || !gk) return;
+
+        const kickerP = kicker.player as Player;
+        const gkP = gk.player as Player;
+
+        const attackScore = (kickerP.attributes.freeKicks ?? 10) * 1.0 + (kickerP.attributes.composure ?? 10) * 0.5;
+        const defenseScore = (gkP.attributes.gk_reflexes ?? 10) * 0.6 +
+                            (gkP.attributes.gk_handling ?? 10) * 0.4 +
+                            (gkP.attributes.composure ?? 10) * 0.4;
+        const diff = attackScore - defenseScore;
+        const probability = 1 / (1 + Math.exp(-diff * 0.15 + 2.2));
+        const isGoal = Math.random() < probability;
+
+        const kickerName = kickerP.name;
+        const gkName = gkP.name;
+
+        this.events.push({
+            minute: this.time,
+            type: isGoal ? 'goal' : 'free_kick',
+            teamName: attackingTeam.name,
+            playerId: kickerP.id,
+            description: isGoal
+                ? `🔥 WHAT A FREE KICK! ${kickerName} bends it into the top corner!`
+                : `🧱 Direct free kick from ${attackingTeam.name}. ${kickerName}'s shot hits the wall.`,
+            data: {
+                setPieceType: 'direct_free_kick',
+                attackScore: parseFloat(attackScore.toFixed(2)),
+                defenseScore: parseFloat(defenseScore.toFixed(2)),
+                probability: parseFloat(probability.toFixed(2)),
+                result: isGoal ? 'goal' : 'save'
+            }
+        });
+
+        if (isGoal) {
+            if (attackingTeam === this.homeTeam) this.homeScore++;
+            else this.awayScore++;
+        }
+
+        // Update stats
+        const teamId = attackingTeam.name;
+        this.updateSetPieceStats(teamId, 'direct_fk');
+    }
+
+    /**
+     * Resolve a penalty kick
+     * Formula: P = 1 / (1 + exp(-diff × 0.12 - 0.9))
+     * Attack = kickerPen×1.2 + kickerComp×0.5
+     * Defense = GKref×0.8 + GKhand×0.6 + GKcomp×0.4
+     * When skills equal (avg=10, diff≈0): P ≈ 72%
+     */
+    private resolvePenalty(foulingTeam: Team, attackingTeam: Team): void {
+        const kicker = attackingTeam.getBestSetPieceTaker('penalty');
+        const gk = foulingTeam.getGoalkeeper();
+
+        if (!kicker || !gk) return;
+
+        const kickerP = kicker.player as Player;
+        const gkP = gk.player as Player;
+
+        const attackScore = (kickerP.attributes.penalties ?? 10) * 1.2 + (kickerP.attributes.composure ?? 10) * 0.5;
+        const defenseScore = (gkP.attributes.gk_reflexes ?? 10) * 0.8 +
+                            (gkP.attributes.gk_handling ?? 10) * 0.6 +
+                            (gkP.attributes.composure ?? 10) * 0.4;
+        const diff = attackScore - defenseScore;
+        const probability = 1 / (1 + Math.exp(-diff * 0.12 - 0.9));
+        const isGoal = Math.random() < probability;
+
+        const kickerName = kickerP.name;
+        const gkName = gkP.name;
+
+        this.events.push({
+            minute: this.time,
+            type: isGoal ? 'goal' : 'penalty_miss',
+            teamName: attackingTeam.name,
+            playerId: kickerP.id,
+            description: isGoal
+                ? `🥅 PENALTY CONVERTED! ${kickerName} sends the keeper the wrong way!`
+                : `❌ PENALTY SAVED! ${gkName} makes a stunning save!`,
+            data: {
+                setPieceType: 'penalty',
+                attackScore: parseFloat(attackScore.toFixed(2)),
+                defenseScore: parseFloat(defenseScore.toFixed(2)),
+                probability: parseFloat(probability.toFixed(2)),
+                result: isGoal ? 'goal' : 'save'
+            }
+        });
+
+        if (isGoal) {
+            if (attackingTeam === this.homeTeam) this.homeScore++;
+            else this.awayScore++;
+        }
+
+        // Update stats
+        const teamId = attackingTeam.name;
+        this.updateSetPieceStats(teamId, 'penalty');
+    }
+
+    // ==================== SET PIECE STATS ====================
+
+    private setPieceStats: Map<string, { corners: number; freeKicks: number; indirectFreeKicks: number; penalties: number }> = new Map();
+
+    private updateSetPieceStats(teamId: string, type: 'corner' | 'direct_fk' | 'indirect_fk' | 'penalty'): void {
+        const stats = this.setPieceStats.get(teamId) || { corners: 0, freeKicks: 0, indirectFreeKicks: 0, penalties: 0 };
+        switch (type) {
+            case 'corner': stats.corners++; break;
+            case 'direct_fk': stats.freeKicks++; break;
+            case 'indirect_fk': stats.indirectFreeKicks++; break;
+            case 'penalty': stats.penalties++; break;
+        }
+        this.setPieceStats.set(teamId, stats);
+    }
+
+    getSetPieceStats(): Map<string, { corners: number; freeKicks: number; indirectFreeKicks: number; penalties: number }> {
+        return this.setPieceStats;
     }
 }
 

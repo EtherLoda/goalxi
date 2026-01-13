@@ -209,4 +209,90 @@ export class Team {
     getSnapshot(): TeamSnapshot | null {
         return this.snapshot;
     }
+
+    /**
+     * Get average freeKicks skill of the team (excluding sent off players)
+     */
+    getAvgFreeKicks(): number {
+        const players = this.players.filter(p => !p.isSentOff && !p.positionKey.includes('GK'));
+        if (players.length === 0) return 10;
+
+        let total = 0;
+        let count = 0;
+        for (const p of players) {
+            const player = p.player as Player;
+            const freeKicks = player.attributes.freeKicks ?? 10;
+            total += freeKicks;
+            count++;
+        }
+        return count > 0 ? total / count : 10;
+    }
+
+    /**
+     * Get average penalties skill of the team (excluding sent off players)
+     */
+    getAvgPenalties(): number {
+        const players = this.players.filter(p => !p.isSentOff && !p.positionKey.includes('GK'));
+        if (players.length === 0) return 10;
+
+        let total = 0;
+        let count = 0;
+        for (const p of players) {
+            const player = p.player as Player;
+            const penalties = player.attributes.penalties ?? 10;
+            total += penalties;
+            count++;
+        }
+        return count > 0 ? total / count : 10;
+    }
+
+    /**
+     * Get the best set-piece taker for a specific type
+     */
+    getBestSetPieceTaker(type: 'corner' | 'free_kick' | 'penalty'): TacticalPlayer | undefined {
+        const candidates = this.players.filter(p => !p.isSentOff && !p.positionKey.includes('GK'));
+        if (candidates.length === 0) return undefined;
+
+        let bestPlayer = candidates[0];
+        let bestScore = -Infinity;
+
+        for (const p of candidates) {
+            const player = p.player as Player;
+
+            let score = 0;
+            if (type === 'penalty') {
+                score = (player.attributes.penalties ?? 10) * 2;
+            } else {
+                score = (player.attributes.freeKicks ?? 10) * 2;
+            }
+
+            // AM/CM position bonus
+            if (p.positionKey.includes('AM') || p.positionKey.includes('CM')) {
+                score *= 1.3;
+            }
+
+            if (score > bestScore) {
+                bestScore = score;
+                bestPlayer = p;
+            }
+        }
+
+        return bestPlayer;
+    }
+
+    /**
+     * Get goalkeeper's set-piece defense rating
+     */
+    getGoalkeeperSetPieceRating(): number {
+        const gk = this.getGoalkeeper();
+        if (!gk) return 10;
+
+        const player = gk.player as Player;
+        const attrs = player.attributes;
+        return (
+            (attrs.gk_reflexes ?? 10) +
+            (attrs.gk_handling ?? 10) +
+            (attrs.composure ?? 10)
+        ) / 3;
+    }
 }

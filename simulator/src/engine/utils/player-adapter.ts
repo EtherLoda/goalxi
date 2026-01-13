@@ -19,6 +19,9 @@ export class PlayerAdapter {
             strength: phys.strength || 0,
             positioning: ment.positioning || 0,
             composure: ment.composure || 0,
+            // Set pieces
+            freeKicks: skills.setPieces?.freeKicks || 10,
+            penalties: skills.setPieces?.penalties || 10,
             // Default logical zeros
             finishing: 0,
             passing: 0,
@@ -65,7 +68,8 @@ export class PlayerAdapter {
             position: 'Unknown',
             attributes: {
                 pace: 10, strength: 10, finishing: 10, passing: 10,
-                dribbling: 10, defending: 10, positioning: 10, composure: 10
+                dribbling: 10, defending: 10, positioning: 10, composure: 10,
+                freeKicks: 10, penalties: 10
             },
             currentStamina: 3,
             form: 5,

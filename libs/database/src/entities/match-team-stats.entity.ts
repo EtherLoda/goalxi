@@ -42,6 +42,24 @@ export class MatchTeamStatsEntity extends BaseEntity {
     @Column({ type: 'int', default: 0 })
     corners!: number;
 
+    @Column({ name: 'free_kicks', type: 'int', default: 0 })
+    freeKicks!: number;
+
+    @Column({ name: 'free_kick_goals', type: 'int', default: 0 })
+    freeKickGoals!: number;
+
+    @Column({ name: 'indirect_free_kicks', type: 'int', default: 0 })
+    indirectFreeKicks!: number;
+
+    @Column({ name: 'indirect_free_kick_goals', type: 'int', default: 0 })
+    indirectFreeKickGoals!: number;
+
+    @Column({ type: 'int', default: 0 })
+    penalties!: number;
+
+    @Column({ name: 'penalty_goals', type: 'int', default: 0 })
+    penaltyGoals!: number;
+
     @Column({ type: 'int', default: 0 })
     fouls!: number;
 

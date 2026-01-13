@@ -181,12 +181,14 @@ export class PlayerService {
             physical: currentPhysical,
             technical: currentTechnical,
             mental: currentMental,
+            setPieces: { freeKicks: 10, penalties: 10 },
         };
 
         const potentialSkills: PlayerSkills = {
             physical: potentialPhysical,
             technical: potentialTechnical,
             mental: potentialMental,
+            setPieces: { freeKicks: 10, penalties: 10 },
         };
 
         return [currentSkills, potentialSkills];

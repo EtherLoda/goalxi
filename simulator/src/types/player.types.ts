@@ -13,6 +13,10 @@ export interface PlayerAttributes {
     positioning: number;
     composure: number;
 
+    // Set Pieces
+    freeKicks: number;
+    penalties: number;
+
     // Goalkeeper Specific (Technical)
     gk_reflexes?: number;
     gk_handling?: number;

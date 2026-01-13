@@ -93,8 +93,8 @@ export class SimulationProcessor extends WorkerHost {
 
         // 2. Fetch Teams with Bench Config
         const [homeTeamEntity, awayTeamEntity] = await Promise.all([
-            this.teamRepository.findOne({ where: { id: match.homeTeamId } }),
-            this.teamRepository.findOne({ where: { id: match.awayTeamId } }),
+            this.teamRepository.findOne({ where: { id: match.homeTeamId as any } }),
+            this.teamRepository.findOne({ where: { id: match.awayTeamId as any } }),
         ]);
 
         const homeBenchConfig = homeTeamEntity?.benchConfig || null;
