@@ -67,3 +67,11 @@ report.[0-9]*.[0-9]*.[0-9]*.[0-9]*.json
 # Ignore local match lifecycle notes and setup script
 /api/match-lifecycle-implementation-plan.md
 /api/scripts/setup-match-db.ts
+
+# Claude Code
+.claude/
+
+# Documentation files
+*.md
+!README.md
+!CLAUDE.md

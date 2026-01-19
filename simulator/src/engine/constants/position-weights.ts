@@ -425,6 +425,9 @@ export const CB_WEIGHTS: PositionWeightMatrix = {
     }
 };
 
+// CD (Center Defense) - Same as CB
+export const CD_WEIGHTS: PositionWeightMatrix = CB_WEIGHTS;
+
 export const CBL_WEIGHTS: PositionWeightMatrix = {
     center: {
         attack: {},
@@ -532,12 +535,9 @@ export const POSITION_WEIGHTS: PositionWeightsMap = {
     'LWB': WB_WEIGHTS, // Alias
     'WBR': WBR_WEIGHTS,
     'RWB': WBR_WEIGHTS, // Alias
-    'CB': CB_WEIGHTS,
-    'CB1': CB_WEIGHTS,  // First center back
-    'CB2': CB_WEIGHTS,  // Second center back
-    'CB3': CB_WEIGHTS,  // Third center back (for 3-back formations)
-    'CBL': CBL_WEIGHTS,
-    'CBR': CBR_WEIGHTS,
+    'CD': CD_WEIGHTS,   // Center Defense (generic)
+    'CDL': CD_WEIGHTS,  // Left center back (same weights)
+    'CDR': CD_WEIGHTS,  // Right center back (same weights)
 
     // Goalkeeper
     'GK': GK_WEIGHTS

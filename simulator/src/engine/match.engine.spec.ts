@@ -15,6 +15,7 @@ describe('MatchEngine', () => {
         id,
         name,
         position: 'CM',
+        exactAge: [25, 0],
         attributes: {
             finishing: ovr,
             composure: ovr,
@@ -24,6 +25,8 @@ describe('MatchEngine', () => {
             dribbling: ovr,
             passing: ovr,
             defending: ovr,
+            freeKicks: 50,
+            penalties: 50,
             gk_reflexes: 50,
             gk_handling: 50,
             gk_distribution: 50,

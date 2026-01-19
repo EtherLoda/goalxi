@@ -92,8 +92,17 @@ export function MatchEvents({ events, homeTeamId, awayTeamId }: MatchEventsProps
             
             // Fouls
             case 'FOUL':
-            case 'PENALTY':
                 return <Flag size={16} className="text-current" />;
+
+            // Set Pieces
+            case 'CORNER':
+                return <Target size={16} className="text-amber-600 dark:text-amber-500" />;
+            case 'FREE_KICK':
+                return <Flag size={16} className="text-amber-600 dark:text-amber-500" />;
+            case 'PENALTY':
+                return <Target size={16} className="text-amber-600 dark:text-amber-500" />;
+            case 'PENALTY_MISS':
+                return <XCircle size={16} className="text-red-600 dark:text-red-500" />;
             
             // Substitutions
             case 'SUBSTITUTION':
@@ -194,10 +203,33 @@ export function MatchEvents({ events, homeTeamId, awayTeamId }: MatchEventsProps
                                             {event.data?.description || event.description || 'No description'}
                                         </p>
 
-                                        {/* Additional Details */}
-                                        {event.data?.playerName && (
-                                            <div className="mt-2 text-xs text-slate-600 dark:text-slate-400">
-                                                👤 {event.data.playerName}
+                                        {/* Player Details (Shooter + Assist) */}
+                                        {(event.data?.playerName || event.data?.assistName) && (
+                                            <div className="mt-2 flex flex-wrap gap-2 text-xs">
+                                                {event.data?.playerName && (
+                                                    <span className="inline-flex items-center gap-1 px-2 py-1 rounded bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300">
+                                                        👤 {event.data.playerName}
+                                                    </span>
+                                                )}
+                                                {event.data?.assistName && (
+                                                    <span className="inline-flex items-center gap-1 px-2 py-1 rounded bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300">
+                                                        🅰️ {event.data.assistName}
+                                                    </span>
+                                                )}
+                                            </div>
+                                        )}
+
+                                        {/* Shot Type Badge (for attack_sequence events) */}
+                                        {event.data?.sequence?.shot?.shotType && (
+                                            <div className="mt-2 flex flex-wrap gap-2 text-xs">
+                                                <span className="inline-flex items-center gap-1 px-2 py-1 rounded bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300">
+                                                    🎯 {event.data.sequence.shot.shotType.replace(/_/g, ' ')}
+                                                </span>
+                                                {event.data.sequence.attackType && (
+                                                    <span className="inline-flex items-center gap-1 px-2 py-1 rounded bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300">
+                                                        ⚔️ {event.data.sequence.attackType.replace(/_/g, ' ')}
+                                                    </span>
+                                                )}
                                             </div>
                                         )}
                                     </div>

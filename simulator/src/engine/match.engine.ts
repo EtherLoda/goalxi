@@ -1,9 +1,35 @@
 import { Team } from './classes/Team';
-import { Lane, TacticalPlayer, TacticalInstruction, ScoreStatus } from './types/simulation.types';
+import { Lane, TacticalPlayer, TacticalInstruction, ScoreStatus, AttackType, ShotType } from './types/simulation.types';
 import { AttributeCalculator } from './utils/attribute-calculator';
 import { ConditionSystem } from './systems/condition.system';
 import { Player } from '../types/player.types';
 import { BenchConfig } from '@goalxi/database';
+
+// 进攻类型分布配置（仅 balanced 模式已实现）
+const ATTACK_TYPE_DISTRIBUTION: Record<number, number[]> = {
+    0: [15, 30, 15, 30, 10], // balanced: 传中, 短传, 直塞, 突破, 远射
+};
+
+// 进攻类型配置（推进参数）
+const ATTACK_TYPE_CONFIG: Record<AttackType, { pushK: number; pushOffset: number }> = {
+    [AttackType.CROSS]: { pushK: 0.025, pushOffset: -5 },
+    [AttackType.SHORT_PASS]: { pushK: 0.030, pushOffset: -5 },
+    [AttackType.THROUGH_PASS]: { pushK: 0.030, pushOffset: -8 },
+    [AttackType.DRIBBLE]: { pushK: 0.035, pushOffset: -10 },
+    [AttackType.LONG_SHOT]: { pushK: 0, pushOffset: 0 }, // 远射不经过推进阶段
+};
+
+// 射门类型配置
+// 公式: P = 1 / (1 + exp(-(rating - gkRating - offset) * k / 1.5))
+// 注意：offset 会先除以 1.5
+// 目标进球率: 单刀 60%+, 头球 50%, 补射 50%, 抽射 35%, 远射 20%
+const SHOT_TYPE_CONFIG: Record<ShotType, { k: number; offset: number }> = {
+    [ShotType.ONE_ON_ONE]: { k: 0.012, offset: -65 }, // ~60%+
+    [ShotType.HEADER]: { k: 0.010, offset: -40 },     // ~50%
+    [ShotType.REBOUND]: { k: 0.008, offset: -30 },    // ~50%
+    [ShotType.NORMAL]: { k: 0.012, offset: 25 },      // ~35%
+    [ShotType.LONG_SHOT]: { k: 0.012, offset: 50 },   // ~20%
+};
 
 /**
  * Map position keys to bench config keys
@@ -52,6 +78,13 @@ export class MatchEngine {
     private currentLane: Lane = 'center';
     private knownPlayerIds: Set<string> = new Set();
 
+    // 比赛统计
+    private matchStats: {
+        attackTypeStats: Record<string, { attempts: number; goals: number; shots: number }>;
+        shotTypeStats: Record<string, { attempts: number; goals: number; saves: number; misses: number; blocks: number }>;
+        possessionStats: { home: number; away: number };
+    };
+
     constructor(
         public homeTeam: Team,
         public awayTeam: Team,
@@ -67,6 +100,27 @@ export class MatchEngine {
         // Register starting lineups
         [...homeTeam.players, ...awayTeam.players].forEach(p => {
             this.knownPlayerIds.add((p.player as Player).id);
+        });
+
+        // 初始化比赛统计
+        this.matchStats = {
+            attackTypeStats: {},
+            shotTypeStats: {},
+            possessionStats: { home: 0, away: 0 }
+        };
+
+        // 初始化攻击类型统计（只使用字符串键）
+        Object.keys(AttackType).forEach(key => {
+            if (isNaN(Number(key))) {
+                this.matchStats.attackTypeStats[key] = { attempts: 0, goals: 0, shots: 0 };
+            }
+        });
+
+        // 初始化射门类型统计（只使用字符串键）
+        Object.keys(ShotType).forEach(key => {
+            if (isNaN(Number(key))) {
+                this.matchStats.shotTypeStats[key] = { attempts: 0, goals: 0, saves: 0, misses: 0, blocks: 0 };
+            }
         });
     }
 
@@ -395,6 +449,56 @@ export class MatchEngine {
         return this.events;
     }
 
+    /**
+     * 获取比赛统计数据
+     */
+    public getMatchStats() {
+        const totalAttacks = Object.values(this.matchStats.attackTypeStats).reduce((sum, s) => sum + s.attempts, 0);
+        const totalShots = Object.values(this.matchStats.shotTypeStats).reduce((sum, s) => sum + s.attempts, 0);
+        const totalPossession = this.matchStats.possessionStats.home + this.matchStats.possessionStats.away;
+
+        return {
+            // 进攻类型统计
+            attackTypeStats: Object.entries(this.matchStats.attackTypeStats).map(([type, stats]) => ({
+                type,
+                attempts: stats.attempts,
+                attemptsPercent: totalAttacks > 0 ? (stats.attempts / totalAttacks * 100).toFixed(1) + '%' : '0%',
+                shots: stats.shots,
+                shotPercent: stats.attempts > 0 ? (stats.shots / stats.attempts * 100).toFixed(1) + '%' : '0%',
+                goals: stats.goals,
+                goalRate: stats.shots > 0 ? (stats.goals / stats.shots * 100).toFixed(1) + '%' : '0%'
+            })),
+            // 射门类型统计
+            shotTypeStats: Object.entries(this.matchStats.shotTypeStats).map(([type, stats]) => ({
+                type,
+                attempts: stats.attempts,
+                attemptsPercent: totalShots > 0 ? (stats.attempts / totalShots * 100).toFixed(1) + '%' : '0%',
+                goals: stats.goals,
+                goalRate: stats.attempts > 0 ? (stats.goals / stats.attempts * 100).toFixed(1) + '%' : '0%',
+                saves: stats.saves,
+                saveRate: stats.attempts > 0 ? (stats.saves / stats.attempts * 100).toFixed(1) + '%' : '0%',
+                misses: stats.misses,
+                missRate: stats.attempts > 0 ? (stats.misses / stats.attempts * 100).toFixed(1) + '%' : '0%',
+                blocks: stats.blocks,
+                blockRate: stats.attempts > 0 ? (stats.blocks / stats.attempts * 100).toFixed(1) + '%' : '0%'
+            })),
+            // 控球统计
+            possessionStats: {
+                home: this.matchStats.possessionStats.home,
+                away: this.matchStats.possessionStats.away,
+                homePercent: totalPossession > 0 ? (this.matchStats.possessionStats.home / totalPossession * 100).toFixed(1) + '%' : '0%',
+                awayPercent: totalPossession > 0 ? (this.matchStats.possessionStats.away / totalPossession * 100).toFixed(1) + '%' : '0%'
+            },
+            summary: {
+                totalAttacks,
+                totalShots,
+                totalGoals: this.homeScore + this.awayScore,
+                homeScore: this.homeScore,
+                awayScore: this.awayScore
+            }
+        };
+    }
+
     private isShootoutDecided(hScore: number, aScore: number, total: number, currentRound: number, homeJustKicked: boolean): boolean {
         const hRemaining = total - currentRound + (homeJustKicked ? 0 : 1);
         const aRemaining = total - currentRound;
@@ -512,43 +616,100 @@ export class MatchEngine {
         this.possessionTeam = homeWinsPossession ? this.homeTeam : this.awayTeam;
         this.defendingTeam = homeWinsPossession ? this.awayTeam : this.homeTeam;
 
-        // Step 3: Attack Push (Attack vs Defense)
-        const ATTACK_SCALAR = 1.15;
-        const attPower = this.possessionTeam.calculateLaneStrength(this.currentLane, 'attack') * ATTACK_SCALAR;
-        const defPower = this.defendingTeam.calculateLaneStrength(this.currentLane, 'defense');
-        const pushSuccess = this.resolveDuel(attPower, defPower, 0.025, 0);
+        // Step 3: Select Attack Type (based on attackStyle)
+        const attackStyle = 0; // 当前仅支持 balanced
+        const attackType = this.selectAttackType(attackStyle);
 
-        // Step 4: Shot attempt (if push successful)
-        let shotResult: 'goal' | 'save' | 'blocked' | 'no_shot' = 'no_shot';
+        // Calculate attack/defense power for this lane
+        const attPower = this.possessionTeam.calculateLaneStrength(this.currentLane, 'attack') * 1.15;
+        const defPower = this.defendingTeam.calculateLaneStrength(this.currentLane, 'defense');
+
+        // Step 4: Attack Push (Attack vs Defense)
+        // 远射跳过推进阶段
+        let pushSuccess = false;
+        if (attackType !== AttackType.LONG_SHOT) {
+            const attackConfig = ATTACK_TYPE_CONFIG[attackType];
+            pushSuccess = this.resolveDuel(attPower, defPower, attackConfig.pushK, attackConfig.pushOffset);
+        }
+
+        // Step 5: Shot attempt
+        let shotResult: 'goal' | 'save' | 'blocked' | 'miss' | 'no_shot' = 'no_shot';
         let shooter: TacticalPlayer | null = null;
         let assistPlayer: TacticalPlayer | null = null;
         let finalShootRating = 0;
         let gkRating = 0;
+        let shotType: ShotType = ShotType.NORMAL;
 
-        if (pushSuccess) {
-            shooter = this.selectShooter(this.possessionTeam);
+        // 远射：直接起脚，不经过推进
+        if (attackType === AttackType.LONG_SHOT) {
+            shooter = this.selectLongShotShooter(this.possessionTeam);
             if (shooter) {
                 const player = shooter.player as Player;
-                const attrs = player.attributes;
-                const shootRatingRaw = (attrs.finishing * 4) + (attrs.composure * 3) + (attrs.positioning * 2) + (attrs.strength * 1);
-                const distanceFactor = 0.6 + (Math.random() * 0.5);
-                finalShootRating = shootRatingRaw * distanceFactor;
+                shotType = ShotType.LONG_SHOT;
+                finalShootRating = this.calculateLongShotRating(player);
 
                 const gk = this.defendingTeam.getGoalkeeper();
-                gkRating = 100;
-                if (gk) {
-                    gkRating = this.defendingTeam.getSnapshot()?.gkRating || 100;
-                }
+                gkRating = gk ? (this.defendingTeam.getSnapshot()?.gkRating || 100) : 100;
 
-                const isGoal = this.resolveDuel(finalShootRating, gkRating, 0.05, 28);
+                const shotConfig = SHOT_TYPE_CONFIG[shotType];
+                const isGoal = this.resolveDuel(finalShootRating, gkRating, shotConfig.k, shotConfig.offset);
 
-                // 65% chance to have an assist
+                // 远射：65% 有助攻
                 if (Math.random() < 0.65) {
-                    assistPlayer = this.selectAssist(this.possessionTeam, shooter);
+                    assistPlayer = this.selectAssist(this.possessionTeam, shooter, 'OTHER');
                 }
 
-                // 15% chance shot is blocked (deflected) even if not saved by GK
-                // This creates corner kick opportunities
+                shotResult = isGoal ? 'goal' : 'miss';
+            }
+        } else if (pushSuccess) {
+            // 常规进攻：推进成功后选择射门类型
+            shotType = this.selectShotType(attackType);
+            shooter = this.selectShooter(this.possessionTeam);
+
+            if (shooter) {
+                const player = shooter.player as Player;
+
+                // 根据射门类型计算评分
+                switch (shotType) {
+                    case ShotType.HEADER:
+                        finalShootRating = this.calculateHeaderRating(player);
+                        break;
+                    case ShotType.ONE_ON_ONE:
+                        finalShootRating = this.calculateOneOnOneRating(player);
+                        break;
+                    case ShotType.REBOUND:
+                    case ShotType.NORMAL:
+                        finalShootRating = this.calculateShootRating(player);
+                        break;
+                    default:
+                        finalShootRating = this.calculateShootRating(player);
+                }
+
+                // 随机波动因子
+                finalShootRating *= (0.6 + Math.random() * 0.5);
+
+                const gk = this.defendingTeam.getGoalkeeper();
+                gkRating = gk ? (this.defendingTeam.getSnapshot()?.gkRating || 100) : 100;
+
+                // 根据射门类型计算成功率
+                const shotConfig = SHOT_TYPE_CONFIG[shotType];
+                const isGoal = this.resolveDuel(finalShootRating, gkRating, shotConfig.k, shotConfig.offset);
+
+                // 助攻逻辑（根据射门类型）
+                if (shotType === ShotType.HEADER) {
+                    // 头球：100% 有助攻（来自传中）
+                    assistPlayer = this.selectAssist(this.possessionTeam, shooter, 'CROSS');
+                } else if (shotType === ShotType.REBOUND) {
+                    // 补射：0% 助攻
+                    assistPlayer = null;
+                } else {
+                    // 抽射/单刀：65% 有助攻
+                    if (Math.random() < 0.65) {
+                        assistPlayer = this.selectAssist(this.possessionTeam, shooter, 'OTHER');
+                    }
+                }
+
+                // 15% 概率被封堵（产生角球）
                 if (!isGoal && Math.random() < 0.15) {
                     shotResult = 'blocked';
                 } else {
@@ -562,6 +723,7 @@ export class MatchEngine {
         // Record the complete attack sequence as ONE event
         this.recordAttackSequence({
             lane: this.currentLane,
+            attackType: attackType,
             midfieldBattle: {
                 homeStrength: homeControl,
                 awayStrength: awayControl,
@@ -574,6 +736,7 @@ export class MatchEngine {
             },
             shot: shotResult === 'no_shot' ? null : {
                 result: shotResult,
+                shotType: shotType,
                 shooter: shooter,
                 assist: assistPlayer,
                 shootRating: finalShootRating,
@@ -676,14 +839,15 @@ export class MatchEngine {
 
     private recordAttackSequence(sequence: {
         lane: Lane;
+        attackType: AttackType;
         midfieldBattle: { homeStrength: number; awayStrength: number; winner: 'home' | 'away' };
         attackPush: { attackPower: number; defensePower: number; success: boolean };
-        shot: { result: 'goal' | 'save' | 'blocked'; shooter: TacticalPlayer | null; assist: TacticalPlayer | null; shootRating: number; gkRating: number } | null;
+        shot: { result: 'goal' | 'save' | 'blocked' | 'miss'; shotType: ShotType; shooter: TacticalPlayer | null; assist: TacticalPlayer | null; shootRating: number; gkRating: number } | null;
     }) {
-        const { lane, midfieldBattle, attackPush, shot } = sequence;
+        const { lane, attackType, midfieldBattle, attackPush, shot } = sequence;
 
         // Determine overall result
-        let finalResult: 'goal' | 'save' | 'blocked' | 'defense_stopped';
+        let finalResult: 'goal' | 'save' | 'blocked' | 'miss' | 'defense_stopped';
         let eventType: MatchEvent['type'];
 
         if (shot) {
@@ -697,6 +861,17 @@ export class MatchEngine {
             eventType = 'turnover';
         }
 
+        // Helper to get shot type name
+        const getShotTypeName = (type: ShotType): string => {
+            switch (type) {
+                case ShotType.HEADER: return 'header';
+                case ShotType.ONE_ON_ONE: return 'one-on-one';
+                case ShotType.REBOUND: return 'rebound';
+                case ShotType.LONG_SHOT: return 'long-range shot';
+                default: return 'shot';
+            }
+        };
+
         // Build description
         let description = '';
         const possessor = midfieldBattle.winner === 'home' ? this.homeTeam.name : this.awayTeam.name;
@@ -705,15 +880,27 @@ export class MatchEngine {
         if (finalResult === 'goal' && shot?.shooter) {
             const shooterName = (shot.shooter.player as Player).name;
             const assistName = shot.assist ? (shot.assist.player as Player).name : null;
-            description = assistName
-                ? `⚽ GOAL! ${shooterName} scores for ${possessor}! Brilliant assist by ${assistName}`
-                : `⚽ GOAL! ${shooterName} scores for ${possessor}! What a clinical finish!`;
+
+            if (shot.shotType === ShotType.HEADER && assistName) {
+                // Header from cross
+                description = `⚽ GOAL! ${shooterName} heads in from ${assistName}'s cross for ${possessor}!`;
+            } else if (shot.shotType === ShotType.LONG_SHOT && assistName) {
+                // Long shot with assist
+                description = `⚽ GOAL! ${shooterName} fires from distance for ${possessor}! Great setup by ${assistName}!`;
+            } else if (assistName) {
+                // Normal assist
+                description = `⚽ GOAL! ${shooterName} scores for ${possessor}! Great build-up play, finishing by ${assistName}`;
+            } else {
+                description = `⚽ GOAL! ${shooterName} scores for ${possessor}! What a clinical finish!`;
+            }
         } else if (finalResult === 'save' && shot?.shooter) {
             const shooterName = (shot.shooter.player as Player).name;
-            description = `🧤 SPECTACULAR SAVE! ${possessor} breaks through ${lane}, but ${shooterName}'s powerful shot is denied by ${defender}'s keeper!`;
+            const shotTypeName = getShotTypeName(shot.shotType);
+            description = `🧤 SPECTACULAR SAVE! ${possessor} breaks through ${lane}, but ${shooterName}'s powerful ${shotTypeName} is denied by ${defender}'s keeper!`;
         } else if (finalResult === 'blocked' && shot?.shooter) {
             const shooterName = (shot.shooter.player as Player).name;
-            description = `🛑 Deflected! ${shooterName} tries his luck from the ${lane}, but the defense blocks it for a corner.`;
+            const shotTypeName = getShotTypeName(shot.shotType);
+            description = `🛑 Blocked! ${shooterName} tries his luck with a ${shotTypeName} from the ${lane}, but the defense blocks it for a corner.`;
         } else if (finalResult === 'defense_stopped') {
             description = `🛡️ Excellent defensive work! ${defender} intercepts the build-up through the ${lane}.`;
         } else if (finalResult === 'blocked') {
@@ -731,6 +918,7 @@ export class MatchEngine {
         // Build event data
         const eventData: any = {
             sequence: {
+                attackType: AttackType[attackType],
                 midfieldBattle: {
                     homeTeam: this.homeTeam.name,
                     awayTeam: this.awayTeam.name,
@@ -747,6 +935,7 @@ export class MatchEngine {
                 },
                 shot: shot ? {
                     result: shot.result,
+                    shotType: ShotType[shot.shotType],
                     shooter: shot.shooter ? (shot.shooter.player as Player).name : null,
                     shooterId: shot.shooter ? (shot.shooter.player as Player).id : null,
                     assist: shot.assist ? (shot.assist.player as Player).name : null,
@@ -779,26 +968,114 @@ export class MatchEngine {
                 this.resolveCorner(cornerTeam, defendingTeam);
             }
         }
+
+        // 更新统计数据
+        this.updateStats(attackType, shot, finalResult);
+    }
+
+    /**
+     * 更新比赛统计
+     */
+    private updateStats(attackType: AttackType, shot: any, result: string) {
+        const attackKey = AttackType[attackType];
+        this.matchStats.attackTypeStats[attackKey].attempts++;
+
+        if (shot) {
+            const shotKey = ShotType[shot.shotType];
+            this.matchStats.attackTypeStats[attackKey].shots++;
+            this.matchStats.shotTypeStats[shotKey].attempts++;
+
+            if (result === 'goal') {
+                this.matchStats.attackTypeStats[attackKey].goals++;
+                this.matchStats.shotTypeStats[shotKey].goals++;
+            } else if (result === 'save') {
+                this.matchStats.shotTypeStats[shotKey].saves++;
+            } else if (result === 'miss') {
+                this.matchStats.shotTypeStats[shotKey].misses++;
+            } else if (result === 'blocked') {
+                this.matchStats.shotTypeStats[shotKey].blocks++;
+            }
+        }
+
+        // 更新控球统计（每次进攻算一次控球）
+        const possessionTeam = result === 'goal' || result === 'save' || result === 'blocked' || result === 'miss'
+            ? this.possessionTeam.name
+            : this.defendingTeam.name;
+        if (possessionTeam === this.homeTeam.name) {
+            this.matchStats.possessionStats.home++;
+        } else {
+            this.matchStats.possessionStats.away++;
+        }
     }
 
     private selectShooter(team: Team): TacticalPlayer {
         const candidates = team.players.filter(p => !p.isSentOff);
         const len = candidates.length;
-        // CFs focus
-        for (let i = 0; i < len; i++) {
-            const p = candidates[i];
-            if (p.positionKey.includes('CF') && Math.random() < 0.6) return p;
+
+        // 射手权重：CF 40% | W 20% | AM 15% | 其他 25%
+        const rand = Math.random();
+
+        // 优先 CF（40%）
+        const cfs = candidates.filter(p => p.positionKey.includes('CF'));
+        if (cfs.length > 0 && rand < 0.40) {
+            return cfs[(Math.random() * cfs.length) | 0];
         }
-        // Midfielders
-        for (let i = 0; i < len; i++) {
-            const p = candidates[i];
-            if (p.positionKey.includes('AM') || p.positionKey.includes('W')) return p;
+
+        // 其次 W（20%）
+        const ws = candidates.filter(p => p.positionKey.includes('W'));
+        if (ws.length > 0 && rand < 0.60) { // 0.40 + 0.20
+            return ws[(Math.random() * ws.length) | 0];
         }
-        // Fallback
+
+        // 再次 AM（15%）
+        const ams = candidates.filter(p => p.positionKey.includes('AM'));
+        if (ams.length > 0 && rand < 0.75) { // 0.60 + 0.15
+            return ams[(Math.random() * ams.length) | 0];
+        }
+
+        // 其他位置随机（剩余 25%）
         return candidates[(Math.random() * len) | 0];
     }
 
-    private selectAssist(team: Team, shooter: TacticalPlayer): TacticalPlayer | null {
+    /**
+     * 远射射手选择：按位置权重，不看属性
+     * AM(45%) > W(25%) > CM(20%) > 其他(10%)
+     */
+    private selectLongShotShooter(team: Team): TacticalPlayer {
+        const candidates = team.players.filter(p => !p.isSentOff && !p.positionKey.includes('GK'));
+
+        // 优先级1：AM（45%）
+        const ams = candidates.filter(p => p.positionKey.includes('AM'));
+        if (ams.length > 0 && Math.random() < 0.45) {
+            return ams[(Math.random() * ams.length) | 0];
+        }
+
+        // 优先级2：W（25%，在剩余55%中）
+        const ws = candidates.filter(p => p.positionKey.includes('W'));
+        if (ws.length > 0 && Math.random() < 0.4545) { // 0.25 / 0.55
+            return ws[(Math.random() * ws.length) | 0];
+        }
+
+        // 优先级3：CM（20%，在剩余30%中）
+        const cms = candidates.filter(p => p.positionKey.includes('CM'));
+        if (cms.length > 0 && Math.random() < 0.6667) { // 0.20 / 0.30
+            return cms[(Math.random() * cms.length) | 0];
+        }
+
+        // 优先级4：其他位置（剩余10%）
+        const others = candidates.filter(p =>
+            !p.positionKey.includes('AM') &&
+            !p.positionKey.includes('W') &&
+            !p.positionKey.includes('CM')
+        );
+        if (others.length > 0) {
+            return others[(Math.random() * others.length) | 0];
+        }
+
+        return candidates[(Math.random() * candidates.length) | 0];
+    }
+
+    private selectAssist(team: Team, shooter: TacticalPlayer, attackType: 'CROSS' | 'OTHER' = 'OTHER'): TacticalPlayer | null {
         // Get all players except the shooter and GK
         const candidates = team.players.filter(p =>
             !p.isSentOff &&
@@ -808,7 +1085,24 @@ export class MatchEngine {
 
         if (candidates.length === 0) return null;
 
-        // Prioritize midfielders and wingers for assists
+        // For CROSS (传中), the assister must be a wide player
+        if (attackType === 'CROSS') {
+            const widePlayers = candidates.filter(p =>
+                p.positionKey.includes('LB') ||
+                p.positionKey.includes('RB') ||
+                p.positionKey.includes('WBL') ||
+                p.positionKey.includes('WBR') ||
+                p.positionKey.includes('LW') ||
+                p.positionKey.includes('RW')
+            );
+            if (widePlayers.length > 0) {
+                return widePlayers[(Math.random() * widePlayers.length) | 0];
+            }
+            // Fallback: no wide player available, no assist
+            return null;
+        }
+
+        // For other attack types, prioritize midfielders and wingers
         const preferredAssisters = candidates.filter(p =>
             p.positionKey.includes('AM') ||
             p.positionKey.includes('CM') ||
@@ -817,16 +1111,140 @@ export class MatchEngine {
         );
 
         if (preferredAssisters.length > 0 && Math.random() < 0.7) {
-            // 70% chance to pick from preferred assisters
             return preferredAssisters[(Math.random() * preferredAssisters.length) | 0];
         }
 
-        // Otherwise pick any outfield player
         return candidates[(Math.random() * candidates.length) | 0];
     }
 
+    /**
+     * 根据 attackStyle 选择进攻类型
+     * @param attackStyle 0=balanced (当前唯一实现)
+     * @returns 进攻类型枚举
+     */
+    private selectAttackType(attackStyle: number = 0): AttackType {
+        const distribution = ATTACK_TYPE_DISTRIBUTION[attackStyle];
+        if (!distribution) {
+            // 默认使用 balanced
+            return AttackType.DRIBBLE;
+        }
+
+        const rand = Math.random() * 100;
+        let cumulative = 0;
+
+        for (let i = 0; i < distribution.length; i++) {
+            cumulative += distribution[i];
+            if (rand < cumulative) {
+                return i as AttackType;
+            }
+        }
+
+        return AttackType.DRIBBLE; // Fallback
+    }
+
+    /**
+     * 根据进攻类型选择射门类型
+     * @param attackType 进攻类型
+     * @returns 射门类型
+     */
+    private selectShotType(attackType: AttackType): ShotType {
+        const rand = Math.random() * 100;
+
+        switch (attackType) {
+            case AttackType.CROSS:
+                // 传中：头球 50%，抽射 30%，补射 20%
+                if (rand < 50) return ShotType.HEADER;
+                if (rand < 80) return ShotType.NORMAL;
+                return ShotType.REBOUND;
+
+            case AttackType.SHORT_PASS:
+                // 短传配合：抽射 80%，补射 20%
+                return rand < 80 ? ShotType.NORMAL : ShotType.REBOUND;
+
+            case AttackType.THROUGH_PASS:
+                // 直塞：单刀 50%，抽射 50%
+                return rand < 50 ? ShotType.ONE_ON_ONE : ShotType.NORMAL;
+
+            case AttackType.DRIBBLE:
+                // 突破：抽射 70%，补射 30%
+                return rand < 70 ? ShotType.NORMAL : ShotType.REBOUND;
+
+            case AttackType.LONG_SHOT:
+                return ShotType.LONG_SHOT;
+
+            default:
+                return ShotType.NORMAL;
+        }
+    }
+
+    /**
+     * 计算头球评分
+     * 头球评分 = strength×5 + positioning×3 + finishing×2
+     */
+    private calculateHeaderRating(player: Player): number {
+        const attrs = player.attributes;
+        return (
+            (attrs.strength ?? 10) * 5 +
+            (attrs.positioning ?? 10) * 3 +
+            (attrs.finishing ?? 10) * 2
+        );
+    }
+
+    /**
+     * 计算抽射评分（禁区内常规射门）
+     * 抽射评分 = finishing×4 + composure×3 + positioning×2 + strength×1
+     */
+    private calculateShootRating(player: Player): number {
+        const attrs = player.attributes;
+        return (
+            (attrs.finishing ?? 10) * 4 +
+            (attrs.composure ?? 10) * 3 +
+            (attrs.positioning ?? 10) * 2 +
+            (attrs.strength ?? 10) * 1
+        );
+    }
+
+    /**
+     * 计算单刀球评分
+     * 单刀评分 = finishing×5 + composure×3 + pace×2
+     */
+    private calculateOneOnOneRating(player: Player): number {
+        const attrs = player.attributes;
+        return (
+            (attrs.finishing ?? 10) * 5 +
+            (attrs.composure ?? 10) * 3 +
+            (attrs.pace ?? 10) * 2
+        );
+    }
+
+    /**
+     * 计算远射评分
+     * 远射评分 = finishing×0.6 + composure×0.3 + strength×0.1
+     * 距离因子（18-30米）会影响最终评分
+     */
+    private calculateLongShotRating(player: Player): number {
+        const attrs = player.attributes;
+
+        // 基础评分
+        const baseRating = (
+            (attrs.finishing ?? 10) * 0.6 +
+            (attrs.composure ?? 10) * 0.3 +
+            (attrs.strength ?? 10) * 0.1
+        );
+
+        // 距离因子（越远越难）
+        const minDistance = 18;
+        const maxDistance = 30;
+        const distance = minDistance + Math.random() * (maxDistance - minDistance);
+        const distanceFactor = 1 - (distance - minDistance) / 50;
+
+        return baseRating * distanceFactor;
+    }
+
     private resolveDuel(valA: number, valB: number, k: number, offset: number): boolean {
-        const diff = valA - valB - offset;
+        // 属性差距系数：让 4 点属性差距不会导致进球数差距过大
+        // 除以 1.5 来降低属性差距对结果的影响
+        const diff = (valA - valB - offset) / 1.5;
         const probability = 1 / (1 + Math.exp(-diff * k));
         return Math.random() < probability;
     }
