@@ -19,7 +19,11 @@
       "Bash(npm run build)",
       "Bash(pnpm test)",
       "Bash(pnpm test:*)",
-      "Bash(npx jest:*)"
+      "Bash(npx jest:*)",
+      "Bash(npx tsc:*)",
+      "Bash(cd:*)",
+      "Bash(pnpm tsc --noEmit)",
+      "mcp__ide__getDiagnostics"
     ]
   }
 }

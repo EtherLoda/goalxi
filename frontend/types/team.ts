@@ -39,4 +39,4 @@ export const BENCH_CONFIG_DESCRIPTIONS: Record<keyof BenchConfig, string> = {
 /**
  * Bench positions for drag and drop (6 slots below pitch)
  */
-export const BENCH_SLOTS = ['BENCH1', 'BENCH2', 'BENCH3', 'BENCH4', 'BENCH5', 'BENCH6'];
+export const BENCH_SLOTS = ['BENCH_GK', 'BENCH_CB', 'BENCH_FB', 'BENCH_W', 'BENCH_CM', 'BENCH_FW'];

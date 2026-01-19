@@ -2,239 +2,266 @@
 
 import { Player } from '@/lib/api';
 import { X } from 'lucide-react';
-import { MiniPlayer } from '@/components/MiniPlayer';
 import { generateAppearance } from '@/utils/playerUtils';
-import { useState } from 'react';
+import { useState, useRef, useCallback } from 'react';
+import { PlayerCard } from './PlayerCard';
+
+// Position coordinates on the pitch (FM style)
+const POSITION_COORDS: Record<string, { x: number; y: number }> = {
+    CFL: { x: 30, y: 15 }, CF: { x: 50, y: 10 }, CFR: { x: 70, y: 15 },
+    LW: { x: 8, y: 18 }, RW: { x: 92, y: 18 },
+    AML: { x: 30, y: 28 }, AM: { x: 50, y: 25 }, AMR: { x: 70, y: 28 },
+    LM: { x: 8, y: 42 }, RM: { x: 92, y: 42 },
+    CML: { x: 32, y: 44 }, CM: { x: 50, y: 42 }, CMR: { x: 68, y: 44 },
+    DML: { x: 32, y: 58 }, DM: { x: 50, y: 56 }, DMR: { x: 68, y: 58 },
+    WBL: { x: 8, y: 64 }, WBR: { x: 92, y: 64 },
+    LB: { x: 8, y: 74 }, RB: { x: 92, y: 74 },
+    CDL: { x: 34, y: 74 }, CD: { x: 50, y: 77 }, CDR: { x: 66, y: 74 },
+    GK: { x: 50, y: 92 },
+};
 
 interface PitchLayoutProps {
     lineup: Record<string, string | null>;
     players: Player[];
-    onDrop: (position: string) => void;
+    onDrop: (position: string, playerId: string) => void;
     onRemove: (position: string) => void;
     onDragStart: (playerId: string, position: string) => void;
     onDragEnd?: () => void;
     isDragging?: boolean;
 }
 
-// Position coordinates on the pitch (grid-based, y increases downward from attack to defense)
-// Precise position coordinates (percentages)
-// X: 0 (left) -> 100 (right)
-// Y: 0 (top/attack) -> 100 (bottom/defense)
-// Optimized to prevent card overlap
-const POSITION_COORDS: Record<string, { x: number; y: number }> = {
-    // Attack (Top) - Wider spread for front three
-    CFL: { x: 30, y: 15 }, CF: { x: 50, y: 10 }, CFR: { x: 70, y: 15 },
-    LW: { x: 8, y: 18 }, RW: { x: 92, y: 18 },
-
-    // Attacking Midfield - Staggered Y positions to avoid overlap
-    AML: { x: 30, y: 28 }, AM: { x: 50, y: 25 }, AMR: { x: 70, y: 28 },
-
-    // Midfield - Wider horizontal spacing
-    LM: { x: 8, y: 42 }, RM: { x: 92, y: 42 },
-    CML: { x: 32, y: 44 }, CM: { x: 50, y: 42 }, CMR: { x: 68, y: 44 },
-
-    // Defensive Midfield - Staggered Y positions
-    DML: { x: 32, y: 58 }, DM: { x: 50, y: 56 }, DMR: { x: 68, y: 58 },
-
-    // Wingbacks (Wide)
-    WBL: { x: 8, y: 64 }, WBR: { x: 92, y: 64 },
-
-    // Defense - Better spacing, staggered center back
-    LB: { x: 8, y: 74 }, RB: { x: 92, y: 74 },
-    // Center Backs (CD = Center Defender)
-    CDL: { x: 34, y: 74 }, CD: { x: 50, y: 77 }, CDR: { x: 66, y: 74 },
-
-    // Goalkeeper
-    GK: { x: 50, y: 92 },
-};
-
 export function PitchLayout({ lineup, players, onDrop, onRemove, onDragStart, onDragEnd, isDragging = false }: PitchLayoutProps) {
-    const [dragOverPitch, setDragOverPitch] = useState(false);
+    const [dragOverPosition, setDragOverPosition] = useState<string | null>(null);
+    const [selectedPosition, setSelectedPosition] = useState<string | null>(null);
+    const [draggedPlayerId, setDraggedPlayerId] = useState<string | null>(null);
+    const svgRef = useRef<SVGSVGElement>(null);
 
-    const handleDragOver = (e: React.DragEvent) => {
-        e.preventDefault();
-        if (!dragOverPitch) {
-            setDragOverPitch(true);
-        }
+    const getPlayerById = useCallback((playerId: string | null) => {
+        if (!playerId) return null;
+        return players.find(p => p.id === playerId);
+    }, [players]);
+
+    // Generate connections between players (FM style - show team shape)
+    const getConnections = useCallback(() => {
+        const connections: { from: string; to: string }[] = [];
+        const positions = Object.keys(lineup).filter(p => lineup[p]);
+
+        // Connect goalkeeper to nearest defender
+        if (lineup.GK && lineup.CD) connections.push({ from: 'GK', to: 'CD' });
+        if (lineup.CD && lineup.CDL) connections.push({ from: 'CD', to: 'CDL' });
+        if (lineup.CD && lineup.CDR) connections.push({ from: 'CD', to: 'CDR' });
+
+        // Connect back line
+        if (lineup.CDL && lineup.LB) connections.push({ from: 'CDL', to: 'LB' });
+        if (lineup.CDR && lineup.RB) connections.push({ from: 'CDR', to: 'RB' });
+
+        // Connect midfield
+        if (lineup.CM && lineup.CML) connections.push({ from: 'CM', to: 'CML' });
+        if (lineup.CM && lineup.CMR) connections.push({ from: 'CM', to: 'CMR' });
+
+        return connections;
+    }, [lineup]);
+
+    const handleDragStart = (playerId: string, position: string) => {
+        setDraggedPlayerId(playerId);
+        onDragStart(playerId, position);
     };
 
-    const handleDragEnter = (e: React.DragEvent) => {
-        e.preventDefault();
-        setDragOverPitch(true);
+    const handleDragEnd = () => {
+        setDraggedPlayerId(null);
+        setDragOverPosition(null);
+        onDragEnd?.();
     };
 
-    const handleDragLeave = (e: React.DragEvent) => {
-        // Only set to false if we're leaving the pitch area completely
-        const relatedTarget = e.relatedTarget as HTMLElement;
-        const currentTarget = e.currentTarget as HTMLElement;
+    const handleDragOver = (e: React.DragEvent, position: string) => {
+        e.preventDefault();
+        e.stopPropagation();
+        setDragOverPosition(position);
+    };
 
-        // Check if we're leaving to outside the pitch
-        if (!relatedTarget || !currentTarget.contains(relatedTarget)) {
-            setDragOverPitch(false);
-        }
+    const handleDragLeave = () => {
+        setDragOverPosition(null);
     };
 
     const handleDrop = (e: React.DragEvent, position: string) => {
         e.preventDefault();
-        e.stopPropagation(); // Prevent event bubbling to avoid duplicate calls
-        onDrop(position);
-        setDragOverPitch(false);
-        if (onDragEnd) {
-            onDragEnd();
+        e.stopPropagation();
+
+        // Get playerId from dataTransfer (for cross-component drag) or state (for internal drag)
+        const playerId = e.dataTransfer.getData('playerId') || draggedPlayerId;
+
+        if (playerId) {
+            onDrop(position, playerId);
         }
+
+        setDragOverPosition(null);
+        setDraggedPlayerId(null);
     };
 
-    const handleDragEnd = (e?: React.DragEvent) => {
-        // Immediately hide slots when drag ends
-        setDragOverPitch(false);
-        if (onDragEnd) {
-            onDragEnd();
-        }
-    };
+    const renderPositionMarker = (position: string, coords: { x: number; y: number }) => {
+        const isOver = dragOverPosition === position;
+        const player = getPlayerById(lineup[position]);
 
-    const handleDragStart = (playerId: string, position: string) => {
-        onDragStart(playerId, position);
-    };
+        return (
+            <div
+                key={position}
+                className="absolute z-10 transition-all duration-200"
+                style={{
+                    left: `${coords.x}%`,
+                    top: `${coords.y}%`,
+                    transform: 'translate(-50%, -50%)',
+                }}
+                onDragOver={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    setDragOverPosition(position);
+                }}
+                onDragLeave={(e) => {
+                    if (!e.currentTarget.contains(e.relatedTarget as Node)) {
+                        setDragOverPosition(null);
+                    }
+                }}
+                onDrop={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    const playerId = e.dataTransfer.getData('playerId') || draggedPlayerId;
+                    if (playerId) {
+                        onDrop(position, playerId);
+                    }
+                    setDragOverPosition(null);
+                    setDraggedPlayerId(null);
+                }}
+            >
+                {/* Position marker circle (shown only when dragging) */}
+                {!player && draggedPlayerId && (
+                    <div className={`
+                        absolute inset-0 w-16 h-16 -mt-8 -ml-8 rounded-full
+                        border-2 border-dashed transition-all duration-200
+                        ${isOver
+                            ? 'border-yellow-400 bg-yellow-400/20 scale-110'
+                            : 'border-white/30 hover:border-white/50 hover:bg-white/10'
+                        }
+                    `}>
+                        <div className="absolute inset-0 flex items-center justify-center">
+                            <span className="text-[10px] font-bold text-white/70">{position}</span>
+                        </div>
+                    </div>
+                )}
 
-    const handleRemovePlayer = (position: string) => {
-        onRemove(position);
-    };
-
-    const getPlayerById = (playerId: string | null) => {
-        if (!playerId) return null;
-        return players.find(p => p.id === playerId);
+                {/* Player card (FM style) */}
+                {player && (
+                    <PlayerCard
+                        player={player}
+                        position={position}
+                        isSelected={selectedPosition === position}
+                        isDragging={draggedPlayerId === player.id}
+                        onRemove={() => onRemove(position)}
+                        onClick={() => setSelectedPosition(
+                            selectedPosition === position ? null : position
+                        )}
+                        onDragStart={() => handleDragStart(player.id, position)}
+                        onDragEnd={handleDragEnd}
+                    />
+                )}
+            </div>
+        );
     };
 
     return (
-        <div
-            className="w-full max-w-[700px] mx-auto"
-        >
+        <div className="relative w-full max-w-4xl mx-auto">
             {/* Pitch container */}
             <div
-                className="relative aspect-3/4 rounded-xl border-4 overflow-hidden border-emerald-900/40 shadow-2xl bg-emerald-600 dark:bg-emerald-900"
-                onDragEnter={handleDragEnter}
-                onDragLeave={handleDragLeave}
-                onDragEnd={handleDragEnd}
+                className="relative aspect-[3/4] rounded-xl overflow-hidden shadow-2xl"
+                onDragOver={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                }}
+                onDrop={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    const playerId = e.dataTransfer.getData('playerId');
+                    if (playerId) {
+                        // Find closest position or use default
+                        onDrop('CM', playerId); // Default to CM position
+                    }
+                }}
             >
-                {/* Pitch Grass Pattern */}
-                <div className="absolute inset-0 bg-[repeating-linear-gradient(to_bottom,transparent,transparent_10%,rgba(0,0,0,0.05)_10%,rgba(0,0,0,0.05)_20%)] pointer-events-none" />
+                {/* Grass background with gradient */}
+                <div className="absolute inset-0 bg-gradient-to-b from-emerald-700 via-emerald-600 to-emerald-800" />
+
+                {/* Grass stripes pattern */}
+                <div className="absolute inset-0 opacity-20">
+                    <div className="absolute inset-0 bg-[repeating-linear-gradient(0deg,transparent,transparent_40px,rgba(0,0,0,0.1)_40px,rgba(0,0,0,0.1)_80px)]" />
+                </div>
 
                 {/* Pitch markings */}
-                <div className="absolute inset-0 opacity-40 pointer-events-none">
-                    {/* Center Circle */}
-                    <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-32 h-32 rounded-full border-2 border-white/70" />
-                    <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-1 h-1 rounded-full bg-white/70" />
+                <svg ref={svgRef} className="absolute inset-0 w-full h-full pointer-events-none">
+                    {/* Center circle */}
+                    <circle cx="50%" cy="50%" r="8" fill="none" stroke="rgba(255,255,255,0.6)" strokeWidth="0.5" />
+                    <circle cx="50%" cy="50%" r="1" fill="rgba(255,255,255,0.6)" />
 
-                    {/* Center Line */}
-                    <div className="absolute top-1/2 left-0 right-0 h-0.5 bg-white/70" />
+                    {/* Center line */}
+                    <line x1="0" y1="50%" x2="100%" y2="50%" stroke="rgba(255,255,255,0.6)" strokeWidth="0.5" />
 
+                    {/* Penalty areas */}
+                    <path d="M 0 100 L 35 100 L 35 75 L 65 75 L 65 100 L 100 100" fill="none" stroke="rgba(255,255,255,0.5)" strokeWidth="0.5" />
+                    <path d="M 0 0 L 35 0 L 35 25 L 65 25 L 65 0 L 100 0" fill="none" stroke="rgba(255,255,255,0.5)" strokeWidth="0.5" />
 
+                    {/* Goal areas */}
+                    <path d="M 0 100 L 45 100 L 45 88 L 55 88 L 55 100 L 100 100" fill="none" stroke="rgba(255,255,255,0.4)" strokeWidth="0.3" />
+                    <path d="M 0 0 L 45 0 L 45 12 L 55 12 L 55 0 L 100 0" fill="none" stroke="rgba(255,255,255,0.4)" strokeWidth="0.3" />
 
-                    <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-[60%] h-[16%] border-2 border-white/70 border-b-0" />
-                    <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-[30%] h-[6%] border-2 border-white/70 border-b-0" />
-                    <div className="absolute bottom-[11%] left-1/2 -translate-x-1/2 w-1 h-1 rounded-full bg-white/70" />
+                    {/* Corner arcs */}
+                    <path d="M 0 2 Q 2 2 2 0" fill="none" stroke="rgba(255,255,255,0.6)" strokeWidth="0.5" />
+                    <path d="M 100 2 Q 98 2 98 0" fill="none" stroke="rgba(255,255,255,0.6)" strokeWidth="0.5" />
+                    <path d="M 0 98 Q 2 98 2 100" fill="none" stroke="rgba(255,255,255,0.6)" strokeWidth="0.5" />
+                    <path d="M 100 98 Q 98 98 98 100" fill="none" stroke="rgba(255,255,255,0.6)" strokeWidth="0.5" />
 
-                    {/* Corner Arcs */}
-                    <div className="absolute top-0 left-0 w-8 h-8 border-b-2 border-r-2 border-white/70 rounded-br-full" />
-                    <div className="absolute top-0 right-0 w-8 h-8 border-b-2 border-l-2 border-white/70 rounded-bl-full" />
-                    <div className="absolute bottom-0 left-0 w-8 h-8 border-t-2 border-r-2 border-white/70 rounded-tr-full" />
-                    <div className="absolute bottom-0 right-0 w-8 h-8 border-t-2 border-l-2 border-white/70 rounded-tl-full" />
-                </div>
+                    {/* Penalty spots */}
+                    <circle cx="50%" cy="88%" r="0.5" fill="rgba(255,255,255,0.6)" />
+                    <circle cx="50%" cy="12%" r="0.5" fill="rgba(255,255,255,0.6)" />
 
-                {/* Position slots */}
-                <div className="relative h-full w-full">
-                    {Object.entries(POSITION_COORDS).map(([position, coords]) => {
-                        const player = getPlayerById(lineup[position]);
-                        const { x, y } = coords;
-                        const appearance = player ? generateAppearance(player.id) : undefined;
-
+                    {/* Team shape connections */}
+                    {getConnections().map((conn, i) => {
+                        const from = POSITION_COORDS[conn.from];
+                        const to = POSITION_COORDS[conn.to];
+                        if (!from || !to) return null;
                         return (
-                            <div
-                                key={position}
-                                className="absolute z-10"
-                                style={{
-                                    left: `${x}%`,
-                                    top: `${y}%`,
-                                    transform: 'translate(-50%, -50%)',
-                                }}
-                                onDragOver={handleDragOver}
-                                onDrop={(e) => handleDrop(e, position)}
-                            >
-                                {player ? (
-                                    <div
-                                        draggable
-                                        onDragStart={() => handleDragStart(player.id, position)}
-                                        onDragEnd={handleDragEnd}
-                                        className="relative group cursor-move transition-transform duration-200 active:scale-95"
-                                    >
-                                        <div className="flex flex-col items-center">
-                                            {/* Player Circle/Jersey with 3D effect */}
-                                            <div className="w-16 h-16 rounded-full border-2 border-white shadow-lg bg-emerald-800 flex items-center justify-center mb-1 group-hover:scale-110 group-hover:border-emerald-400 group-hover:ring-2 group-hover:ring-emerald-400/50 transition-all relative overflow-hidden transform transition-transform duration-200 hover:-translate-y-1">
-                                                {appearance && (
-                                                    <div className="mt-2">
-                                                        <MiniPlayer appearance={appearance} size={64} />
-                                                    </div>
-                                                )}
-
-                                                {/* Remove button (hover) */}
-                                                <button
-                                                    onClick={(e) => { e.stopPropagation(); handleRemovePlayer(position); }}
-                                                    className="absolute inset-0 bg-red-500/80 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity backdrop-blur-[2px] z-20"
-                                                    title="Remove player from position"
-                                                >
-                                                    <X size={20} />
-                                                </button>
-                                            </div>
-
-                                            {/* Enhanced Player Info Card */}
-                                            <div className="relative mt-2 group/card">
-                                                <div className="bg-gradient-to-br from-slate-900/95 via-emerald-950/90 to-slate-900/95 backdrop-blur-xl px-3 py-1.5 rounded-xl shadow-2xl border border-emerald-500/30 w-[110px] transform transition-all duration-300 hover:-translate-y-1 hover:scale-105 hover:shadow-emerald-500/50 hover:border-emerald-400/60">
-                                                    {/* Player Name */}
-                                                    <div className="text-[11px] font-bold text-white truncate text-center leading-tight tracking-wide">
-                                                        {player.name}
-                                                    </div>
-
-                                                    {/* Divider */}
-                                                    <div className="h-px bg-gradient-to-r from-transparent via-emerald-500/50 to-transparent my-1.5"></div>
-
-                                                    {/* Position and Rating Row */}
-                                                    <div className="flex items-center justify-between gap-2">
-                                                        {/* Position Badge */}
-                                                        <div className="bg-emerald-600/30 backdrop-blur-sm px-2 py-0.5 rounded-md border border-emerald-400/40">
-                                                            <span className="text-[9px] font-black text-emerald-300 tracking-wider">{position}</span>
-                                                        </div>
-
-                                                        {/* Overall Rating Badge */}
-                                                        <div className="bg-gradient-to-br from-yellow-500/30 to-orange-500/30 backdrop-blur-sm px-2 py-0.5 rounded-md border border-yellow-400/50">
-                                                            <span className="text-[10px] font-black text-yellow-300">{player.overall}</span>
-                                                        </div>
-                                                    </div>
-
-                                                    {/* Shine effect on hover */}
-                                                    <div className="absolute inset-0 rounded-xl bg-gradient-to-tr from-transparent via-white/0 to-transparent group-hover/card:via-white/10 transition-all duration-500 pointer-events-none"></div>
-                                                </div>
-
-                                                {/* Glow effect */}
-                                                <div className="absolute inset-0 rounded-xl bg-emerald-500/20 blur-xl opacity-0 group-hover/card:opacity-100 transition-opacity duration-300 -z-10"></div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                ) : (isDragging || dragOverPitch) ? (
-                                    <div
-                                        className="w-10 h-10 rounded-full border-2 border-dashed border-white/50 flex items-center justify-center transition-all bg-white/10 hover:bg-white/20 hover:border-white/70 hover:scale-110 cursor-pointer"
-                                        onDragOver={handleDragOver}
-                                        onDrop={(e) => handleDrop(e, position)}
-                                        onDragEnd={handleDragEnd}
-                                    >
-                                        <span className="text-[9px] font-bold text-white/70">
-                                            {position}
-                                        </span>
-                                    </div>
-                                ) : null}
-                            </div>
+                            <line
+                                key={i}
+                                x1={`${from.x}%`}
+                                y1={`${from.y}%`}
+                                x2={`${to.x}%`}
+                                y2={`${to.y}%`}
+                                stroke="rgba(255,255,255,0.2)"
+                                strokeWidth="1"
+                                strokeDasharray="4 4"
+                            />
                         );
                     })}
+                </svg>
+
+                {/* Position slots */}
+                <div className="absolute inset-0">
+                    {Object.entries(POSITION_COORDS).map(([position, coords]) =>
+                        renderPositionMarker(position, coords)
+                    )}
                 </div>
+
+                {/* Pitch border */}
+                <div className="absolute inset-0 border-4 border-emerald-900/50 pointer-events-none" />
+            </div>
+
+            {/* Formation name display */}
+            <div className="absolute top-4 left-4 px-4 py-2 bg-slate-900/90 backdrop-blur-sm rounded-lg">
+                <span className="text-white font-bold">
+                    {(() => {
+                        const defenders = ['CDL', 'CD', 'CDR', 'LB', 'RB', 'WBL', 'WBR'].filter(p => lineup[p]).length;
+                        const midfielders = ['DML', 'DM', 'DMR', 'CML', 'CM', 'CMR', 'LM', 'RM'].filter(p => lineup[p]).length;
+                        const attackers = ['AML', 'AM', 'AMR', 'LW', 'RW', 'CFL', 'CF', 'CFR'].filter(p => lineup[p]).length;
+                        return `${defenders}-${midfielders}-${attackers}`;
+                    })()}
+                </span>
             </div>
         </div>
     );

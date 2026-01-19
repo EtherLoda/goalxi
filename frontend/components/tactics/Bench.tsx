@@ -1,122 +1,139 @@
 'use client';
 
 import { Player } from '@/lib/api';
-import { X, User } from 'lucide-react';
-import { MiniPlayer } from '@/components/MiniPlayer';
-import { generateAppearance, convertAppearance } from '@/utils/playerUtils';
+import { User, Users } from 'lucide-react';
+import { useState } from 'react';
+import { PlayerCard } from './PlayerCard';
 
 interface BenchProps {
     bench: Record<string, string | null>;
     players: Player[];
-    onDrop: (benchSlot: string) => void;
+    onDrop: (benchSlot: string, playerId: string) => void;
     onRemove: (benchSlot: string) => void;
     onDragStart: (playerId: string, position: string) => void;
     onDragEnd?: () => void;
     isDragging?: boolean;
 }
 
-// Position labels for bench slots (6 positions including GK)
-const BENCH_LABELS = ['GK', 'CD', 'FB', 'W', 'CM', 'FW'];
+const BENCH_LABELS = ['BENCH_GK', 'BENCH_CB', 'BENCH_FB', 'BENCH_W', 'BENCH_CM', 'BENCH_FW'];
+
+// Display labels for bench positions
+const BENCH_DISPLAY_LABELS: Record<string, string> = {
+    BENCH_GK: 'GK',
+    BENCH_CB: 'CB',
+    BENCH_FB: 'FB',
+    BENCH_W: 'W',
+    BENCH_CM: 'CM',
+    BENCH_FW: 'FW'
+};
 
 export function Bench({ bench, players, onDrop, onRemove, onDragStart, onDragEnd, isDragging = false }: BenchProps) {
+    const [dragOverSlot, setDragOverSlot] = useState<string | null>(null);
+    const [draggedPlayerId, setDraggedPlayerId] = useState<string | null>(null);
+
     const getPlayerById = (playerId: string | null) => {
         if (!playerId) return null;
         return players.find(p => p.id === playerId);
     };
 
     const handleDragStart = (playerId: string, position: string) => {
+        setDraggedPlayerId(playerId);
         onDragStart(playerId, position);
     };
 
     const handleDragEnd = () => {
+        setDraggedPlayerId(null);
+        setDragOverSlot(null);
         if (onDragEnd) {
             onDragEnd();
         }
     };
 
-    const handleRemovePlayer = (benchSlot: string) => {
-        onRemove(benchSlot);
+    const handleDragOver = (e: React.DragEvent, slot: string) => {
+        e.preventDefault();
+        e.stopPropagation();
+        setDragOverSlot(slot);
+    };
+
+    const handleDragLeave = () => {
+        setDragOverSlot(null);
+    };
+
+    const handleDrop = (e: React.DragEvent, slot: string) => {
+        e.preventDefault();
+        e.stopPropagation();
+        const playerId = e.dataTransfer.getData('playerId') || draggedPlayerId;
+        if (playerId) {
+            onDrop(slot, playerId);
+        }
+        setDragOverSlot(null);
+        setDraggedPlayerId(null);
     };
 
     const benchSlots = Object.keys(bench);
 
     return (
-        <div className="mt-4 w-full max-w-[700px] mx-auto p-3 rounded-xl border-2 bg-white border-emerald-300 dark:bg-slate-900 dark:border-emerald-600/50">
-            <div className="flex items-center gap-2 mb-3">
-                <User size={14} className="text-emerald-600 dark:text-emerald-400" />
-                <span className="text-xs font-bold uppercase tracking-wider text-emerald-700 dark:text-emerald-400">Substitutes</span>
-                <span className="text-[10px] text-slate-400 dark:text-slate-500">(Drag players here)</span>
+        <div className="mt-4 w-full max-w-4xl mx-auto">
+            <div className="flex items-center gap-2 mb-3 px-1">
+                <Users size={14} className="text-slate-400" />
+                <span className="text-xs font-bold uppercase tracking-wider text-slate-500">Substitutes</span>
+                <span className="text-[10px] text-slate-400">(Drag to reorder)</span>
             </div>
 
-            <div className="flex justify-between gap-2">
+            <div className="flex gap-3 p-3 rounded-xl bg-gradient-to-b from-slate-800 to-slate-900 border border-slate-700 shadow-xl">
                 {benchSlots.map((slot, index) => {
                     const player = getPlayerById(bench[slot]);
-                    const appearance = player ? (convertAppearance(player.appearance) || generateAppearance(player.id)) : undefined;
-                    const label = BENCH_LABELS[index] || `BENCH${index + 1}`;
+                    const displayLabel = BENCH_DISPLAY_LABELS[slot] || slot;
+                    const isOver = dragOverSlot === slot;
 
                     return (
                         <div
                             key={slot}
                             className="flex-1 flex flex-col items-center"
                         >
-                            {/* Position Label */}
-                            <div className="mb-1.5 px-1.5 py-0.5 rounded bg-emerald-100 dark:bg-emerald-900/50 border border-emerald-200 dark:border-emerald-700/50">
-                                <span className="text-[9px] font-bold text-emerald-700 dark:text-emerald-400 tracking-wider">{label}</span>
+                            <div className={`
+                                mb-2 px-2 py-1 rounded-lg text-[10px] font-bold uppercase tracking-wider
+                                transition-all duration-200
+                                ${isOver
+                                    ? 'bg-yellow-500/30 text-yellow-400 border border-yellow-500/50'
+                                    : 'bg-slate-700/50 text-slate-400 border border-slate-600/50'
+                                }
+                            `}>
+                                {displayLabel}
                             </div>
 
                             <div
-                                className="flex items-center justify-center"
-                                onDragOver={(e) => {
-                                    e.preventDefault();
-                                }}
-                                onDrop={(e) => {
-                                    e.preventDefault();
-                                    onDrop(slot);
-                                }}
+                                className="relative"
+                                onDragOver={(e) => handleDragOver(e, slot)}
+                                onDragLeave={handleDragLeave}
+                                onDrop={(e) => handleDrop(e, slot)}
                             >
                                 {player ? (
-                                    <div
-                                        draggable
+                                    <PlayerCard
+                                        player={player}
+                                        position={displayLabel}
+                                        isDragging={draggedPlayerId === player.id}
+                                        onRemove={() => onRemove(slot)}
                                         onDragStart={() => handleDragStart(player.id, slot)}
                                         onDragEnd={handleDragEnd}
-                                        className="relative group cursor-move transition-transform duration-200 active:scale-95"
-                                    >
-                                        <div className="flex flex-col items-center">
-                                            {/* Rounded square player slot - same size as pitch */}
-                                            <div className="w-16 h-16 rounded-full border-2 border-white shadow-lg bg-emerald-800 flex items-center justify-center group-hover:scale-110 group-hover:border-emerald-400 transition-all relative overflow-hidden">
-                                                {appearance && (
-                                                    <MiniPlayer appearance={appearance} size={64} />
-                                                )}
-                                                {/* Remove button */}
-                                                <button
-                                                    onClick={(e) => { e.stopPropagation(); handleRemovePlayer(slot); }}
-                                                    className="absolute inset-0 bg-red-500/80 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity backdrop-blur-[2px]"
-                                                    title="Remove from bench"
-                                                >
-                                                    <X size={20} />
-                                                </button>
-                                            </div>
-                                            {/* Player info */}
-                                            <div className="mt-2 bg-gradient-to-br from-slate-900/95 via-emerald-950/90 to-slate-900/95 backdrop-blur-xl px-2 py-1 rounded-lg shadow-lg border border-emerald-500/30">
-                                                <div className="text-[10px] font-bold text-white truncate max-w-[70px] text-center leading-tight">{player.name}</div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                ) : (isDragging) ? (
+                                    />
+                                ) : (
                                     <div
-                                        className="w-16 h-16 rounded-full border-2 border-dashed border-white/50 flex items-center justify-center transition-all bg-white/10 hover:bg-white/20 hover:border-white/70 hover:scale-110 cursor-pointer"
-                                        onDragOver={(e) => e.preventDefault()}
-                                        onDrop={(e) => {
-                                            e.preventDefault();
-                                            onDrop(slot);
-                                        }}
+                                        className={`
+                                            w-16 h-16 rounded-full border-2 border-dashed flex items-center justify-center
+                                            transition-all duration-200
+                                            ${isOver
+                                                ? 'border-yellow-400 bg-yellow-400/20 scale-110'
+                                                : 'border-slate-600 bg-slate-800/50 hover:border-slate-500'
+                                            }
+                                            ${isDragging ? 'cursor-pointer' : ''}
+                                        `}
+                                        onDragOver={(e) => handleDragOver(e, slot)}
+                                        onDragLeave={handleDragLeave}
+                                        onDrop={(e) => handleDrop(e, slot)}
                                         onDragEnd={handleDragEnd}
                                     >
-                                        <User size={20} className="text-white/70" />
-                                    </div>
-                                ) : (
-                                    <div className="w-16 h-16 rounded-full border border-dashed border-slate-300 dark:border-slate-600 flex items-center justify-center bg-slate-50 dark:bg-slate-800/50">
-                                        <User size={18} className="text-slate-300 dark:text-slate-500" />
+                                        <User size={20} className={isOver ? 'text-yellow-400' : 'text-slate-500'} />
                                     </div>
                                 )}
                             </div>

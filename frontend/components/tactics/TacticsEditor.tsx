@@ -90,10 +90,20 @@ export function TacticsEditor({ matchId, teamId, players, initialTactics, matchS
         return initial;
     });
 
-    // Bench state for 5 bench slots (drag and drop)
+    // Bench state - load from initialTactics.lineup
     const [bench, setBench] = useState<Record<string, string | null>>(() => {
         const initial: Record<string, string | null> = {};
         BENCH_SLOTS.forEach(slot => initial[slot] = null);
+
+        if (initialTactics?.lineup) {
+            Object.entries(initialTactics.lineup).forEach(([slot, playerId]) => {
+                // Match BENCH_GK, BENCH_CB, etc.
+                if (BENCH_SLOTS.includes(slot)) {
+                    initial[slot] = playerId as string;
+                }
+            });
+        }
+
         return initial;
     });
 
@@ -197,10 +207,10 @@ export function TacticsEditor({ matchId, teamId, players, initialTactics, matchS
         setDraggedFrom(null);
     };
 
-    const handleDrop = (position: string) => {
-        if (!draggedPlayer) return;
+    const handleDrop = (position: string, playerId: string) => {
+        if (!playerId) return;
 
-        const player = players.find(p => p.id === draggedPlayer);
+        const player = players.find(p => p.id === playerId);
         if (!player) return;
 
         // Validate GK position
@@ -219,7 +229,7 @@ export function TacticsEditor({ matchId, teamId, players, initialTactics, matchS
         }
 
         // Check if player is currently on bench
-        const benchSlot = Object.entries(bench).find(([_, pid]) => pid === draggedPlayer)?.[0];
+        const benchSlot = Object.entries(bench).find(([_, pid]) => pid === playerId)?.[0];
 
         const newLineup = { ...lineup };
         if (draggedFrom && BENCH_SLOTS.includes(draggedFrom)) {
@@ -235,24 +245,24 @@ export function TacticsEditor({ matchId, teamId, players, initialTactics, matchS
             setBench(prev => ({ ...prev, [benchSlot]: null }));
         }
 
-        newLineup[position] = draggedPlayer;
+        newLineup[position] = playerId;
 
         setLineup(newLineup);
         setDraggedPlayer(null);
         setDraggedFrom(null);
     };
 
-    const handleDropOnBench = (benchSlot: string) => {
-        if (!draggedPlayer) return;
+    const handleDropOnBench = (benchSlot: string, playerId: string) => {
+        if (!playerId) return;
 
-        const player = players.find(p => p.id === draggedPlayer);
+        const player = players.find(p => p.id === playerId);
         if (!player) return;
 
-        const isGKBenchSlot = benchSlot === 'BENCH1';
+        const isGKBenchSlot = benchSlot === 'BENCH_GK';
 
         // GK slot can only accept goalkeepers
         if (isGKBenchSlot && !player.isGoalkeeper) {
-            showNotification({ type: 'warning', title: 'Invalid Position', message: 'Only goalkeepers can be placed in the GK substitute position.' });
+            showNotification({ type: 'warning', title: 'Invalid Position', message: 'Only goalkeepers can be placed in the BENCH_GK position.' });
             setDraggedPlayer(null);
             setDraggedFrom(null);
             return;
@@ -260,7 +270,7 @@ export function TacticsEditor({ matchId, teamId, players, initialTactics, matchS
 
         // Other bench slots cannot accept goalkeepers
         if (!isGKBenchSlot && player.isGoalkeeper) {
-            showNotification({ type: 'warning', title: 'Invalid Position', message: 'Goalkeepers can only be placed in the GK substitute position.' });
+            showNotification({ type: 'warning', title: 'Invalid Position', message: 'Goalkeepers can only be placed in BENCH_GK.' });
             setDraggedPlayer(null);
             setDraggedFrom(null);
             return;
@@ -272,27 +282,23 @@ export function TacticsEditor({ matchId, teamId, players, initialTactics, matchS
             newLineup[draggedFrom] = null;
         }
 
-        // Remove player from any other bench slot
-        const currentBenchSlot = Object.entries(bench).find(([_, pid]) => pid === draggedPlayer)?.[0];
+        // Allow same player in multiple bench slots - don't remove from other bench slots
         const newBench = { ...bench };
-        if (currentBenchSlot && currentBenchSlot !== benchSlot) {
-            newBench[currentBenchSlot] = null;
-        }
 
         // If target slot is occupied, swap with the player at target
         if (newBench[benchSlot]) {
             if (draggedFrom && !BENCH_SLOTS.includes(draggedFrom)) {
                 // Swap: move occupant to pitch position
-                newBench[benchSlot] = draggedPlayer;
+                newBench[benchSlot] = playerId;
                 newLineup[draggedFrom] = newBench[benchSlot];
             } else if (draggedFrom && BENCH_SLOTS.includes(draggedFrom)) {
                 // Swap bench slots
                 const occupant = newBench[benchSlot];
-                newBench[benchSlot] = draggedPlayer;
+                newBench[benchSlot] = playerId;
                 newBench[draggedFrom] = occupant;
             }
         } else {
-            newBench[benchSlot] = draggedPlayer;
+            newBench[benchSlot] = playerId;
         }
 
         setLineup(newLineup);
@@ -399,13 +405,13 @@ export function TacticsEditor({ matchId, teamId, players, initialTactics, matchS
             }
         }
 
-        // 3. Check bench - GK can only be in BENCH1
-        const benchGkPlayer = players.find(p => p.id === bench.BENCH1);
-        if (benchGkPlayer && !benchGkPlayer.isGoalkeeper) return { valid: false, error: 'Only goalkeepers can be placed in GK substitute position' };
+        // 3. Check bench - GK can only be in BENCH_GK
+        const benchGkPlayer = players.find(p => p.id === bench.BENCH_GK);
+        if (benchGkPlayer && !benchGkPlayer.isGoalkeeper) return { valid: false, error: 'Only goalkeepers can be placed in BENCH_GK' };
         for (const [slot, playerId] of Object.entries(bench)) {
-            if (slot !== 'BENCH1' && playerId) {
+            if (slot !== 'BENCH_GK' && playerId) {
                 const player = players.find(p => p.id === playerId);
-                if (player?.isGoalkeeper) return { valid: false, error: 'Goalkeepers can only be placed in GK substitute position' };
+                if (player?.isGoalkeeper) return { valid: false, error: 'Goalkeepers can only be placed in BENCH_GK' };
             }
         }
 
@@ -465,9 +471,18 @@ export function TacticsEditor({ matchId, teamId, players, initialTactics, matchS
         setIsSubmitting(true);
 
         const backendLineup: Record<string, string> = {};
+
+        // Map pitch positions
         Object.entries(lineup).forEach(([slot, playerId]) => {
             if (playerId && SLOT_MAPPING[slot]) {
                 backendLineup[SLOT_MAPPING[slot]] = playerId;
+            }
+        });
+
+        // Add bench slots
+        Object.entries(bench).forEach(([slot, playerId]) => {
+            if (playerId) {
+                backendLineup[slot] = playerId;
             }
         });
 
@@ -525,7 +540,8 @@ export function TacticsEditor({ matchId, teamId, players, initialTactics, matchS
     const formation = generateFormation();
     const lineupPlayerIds = new Set(Object.values(lineup).filter((id): id is string => id !== null));
     const benchPlayerIds = new Set(Object.values(bench).filter((id): id is string => id !== null));
-    const assignedPlayerIds = new Set([...lineupPlayerIds, ...benchPlayerIds]);
+    // PlayerRoster 只显示场上球员，不包含替补
+    const assignedPlayerIds = lineupPlayerIds;
 
     // Notify parent of lineup changes
     React.useEffect(() => {
@@ -536,7 +552,7 @@ export function TacticsEditor({ matchId, teamId, players, initialTactics, matchS
 
     return (
         <div className="grid grid-cols-1 lg:grid-cols-[1fr_480px] gap-6">
-            <div>
+            <div className="flex flex-col items-center">
                 <PitchLayout
                     lineup={lineup}
                     players={players}

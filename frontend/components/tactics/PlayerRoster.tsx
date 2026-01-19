@@ -91,6 +91,8 @@ export function PlayerRoster({ players, assignedPlayerIds, onDragStart, onDragEn
         if (dragIcon) {
             e.dataTransfer.setDragImage(dragIcon, 32, 32);
         }
+        // Pass playerId via dataTransfer for cross-component drag
+        e.dataTransfer.setData('playerId', playerId);
         onDragStart(playerId);
     };
 
@@ -291,13 +293,13 @@ export function PlayerRoster({ players, assignedPlayerIds, onDragStart, onDragEn
                                                     <div className="col-span-2 bg-slate-50 dark:bg-emerald-500/5 rounded p-2 border border-slate-100 dark:border-emerald-500/10">
                                                         <div className="flex items-center gap-1.5 mb-1 border-b border-slate-200 dark:border-emerald-500/20 pb-1">
                                                             <span className="text-xs grayscale opacity-70">⚡</span>
-                                                            <div className="text-[10px] font-black uppercase text-slate-400 dark:text-emerald-600">PHY</div>
+                                                            <div className="text-[10px] font-black uppercase text-emerald-600">PHY</div>
                                                         </div>
                                                         <div className="space-y-0.5">
                                                             {physical.slice(0, 3).map(s => (
                                                                 <div key={s.label} className="flex justify-between text-[10px]">
-                                                                    <span className="text-slate-400 dark:text-emerald-700/70">{s.label}</span>
-                                                                    <span className="font-bold text-slate-600 dark:text-emerald-400">{s.value}</span>
+                                                                    <span className="text-slate-400">{s.label}</span>
+                                                                    <span className="font-bold text-emerald-600">{s.value}</span>
                                                                 </div>
                                                             ))}
                                                         </div>
@@ -307,13 +309,13 @@ export function PlayerRoster({ players, assignedPlayerIds, onDragStart, onDragEn
                                                     <div className="col-span-3 bg-slate-50 dark:bg-blue-500/5 rounded p-2 border border-slate-100 dark:border-blue-500/10">
                                                         <div className="flex items-center gap-1.5 mb-1 border-b border-slate-200 dark:border-blue-500/20 pb-1">
                                                             <span className="text-xs grayscale opacity-70">⚽</span>
-                                                            <div className="text-[10px] font-black uppercase text-slate-400 dark:text-blue-500">TEC</div>
+                                                            <div className="text-[10px] font-black uppercase text-blue-500">TEC</div>
                                                         </div>
                                                         <div className="grid grid-cols-2 gap-x-2 gap-y-0.5">
                                                             {technical.slice(0, 4).map(s => (
                                                                 <div key={s.label} className="flex justify-between text-[10px]">
-                                                                    <span className="text-slate-400 dark:text-blue-700/70">{s.label}</span>
-                                                                    <span className="font-bold text-slate-600 dark:text-blue-400">{s.value}</span>
+                                                                    <span className="text-slate-400">{s.label}</span>
+                                                                    <span className="font-bold text-blue-500">{s.value}</span>
                                                                 </div>
                                                             ))}
                                                         </div>
@@ -323,13 +325,13 @@ export function PlayerRoster({ players, assignedPlayerIds, onDragStart, onDragEn
                                                     <div className="col-span-2 bg-slate-50 dark:bg-purple-500/5 rounded p-2 border border-slate-100 dark:border-purple-500/10">
                                                         <div className="flex items-center gap-1.5 mb-1 border-b border-slate-200 dark:border-purple-500/20 pb-1">
                                                             <span className="text-xs grayscale opacity-70">🧠</span>
-                                                            <div className="text-[10px] font-black uppercase text-slate-400 dark:text-purple-500">MEN</div>
+                                                            <div className="text-[10px] font-black uppercase text-purple-500">MEN</div>
                                                         </div>
                                                         <div className="space-y-0.5">
                                                             {mental.slice(0, 3).map(s => (
                                                                 <div key={s.label} className="flex justify-between text-[10px]">
-                                                                    <span className="text-slate-400 dark:text-purple-700/70">{s.label}</span>
-                                                                    <span className="font-bold text-slate-600 dark:text-purple-400">{s.value}</span>
+                                                                    <span className="text-slate-400">{s.label}</span>
+                                                                    <span className="font-bold text-purple-500">{s.value}</span>
                                                                 </div>
                                                             ))}
                                                         </div>
@@ -339,18 +341,18 @@ export function PlayerRoster({ players, assignedPlayerIds, onDragStart, onDragEn
                                                     <div className="col-span-2 bg-slate-50 dark:bg-amber-500/5 rounded p-2 border border-slate-100 dark:border-amber-500/10">
                                                         <div className="flex items-center gap-1.5 mb-1 border-b border-slate-200 dark:border-amber-500/20 pb-1">
                                                             <span className="text-xs grayscale opacity-70">🎯</span>
-                                                            <div className="text-[10px] font-black uppercase text-slate-400 dark:text-amber-500">SP</div>
+                                                            <div className="text-[10px] font-black uppercase text-amber-500">SP</div>
                                                         </div>
                                                         <div className="space-y-0.5">
                                                             {skills.setPieces ? (
                                                                 <>
                                                                     <div className="flex justify-between text-[10px]">
-                                                                        <span className="text-slate-400 dark:text-amber-700/70">FK</span>
-                                                                        <span className="font-bold text-slate-600 dark:text-amber-400">{skills.setPieces.freeKicks}</span>
+                                                                        <span className="text-slate-400">FK</span>
+                                                                        <span className="font-bold text-amber-500">{skills.setPieces.freeKicks}</span>
                                                                     </div>
                                                                     <div className="flex justify-between text-[10px]">
-                                                                        <span className="text-slate-400 dark:text-amber-700/70">PEN</span>
-                                                                        <span className="font-bold text-slate-600 dark:text-amber-400">{skills.setPieces.penalties}</span>
+                                                                        <span className="text-slate-400">PEN</span>
+                                                                        <span className="font-bold text-amber-500">{skills.setPieces.penalties}</span>
                                                                     </div>
                                                                 </>
                                                             ) : (
