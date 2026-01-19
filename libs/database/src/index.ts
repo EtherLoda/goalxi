@@ -16,6 +16,7 @@ export * from './entities/transaction.entity';
 export * from './entities/auction.entity';
 export * from './entities/player-history.entity';
 export * from './entities/player-transaction.entity';
+export * from './entities/injury.entity';
 export * from './utils/password.util';
 export * from './types/common.type';
 export * from './constants/finance.constants';

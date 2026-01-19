@@ -175,4 +175,14 @@ export class PlayerEntity extends AbstractEntity {
 
     @DeleteDateColumn({ name: 'deleted_at', type: 'timestamptz', nullable: true })
     deletedAt?: Date;
+
+    // Injury fields
+    @Column({ name: 'current_injury_value', type: 'int', default: 0 })
+    currentInjuryValue!: number;
+
+    @Column({ name: 'injury_type', type: 'varchar', length: 20, nullable: true })
+    injuryType?: 'muscle' | 'ligament' | 'joint' | 'head' | 'other' | null;
+
+    @Column({ name: 'injured_at', type: 'timestamptz', nullable: true })
+    injuredAt?: Date | null;
 }

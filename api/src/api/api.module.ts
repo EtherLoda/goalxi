@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { AuthModule } from './auth/auth.module';
 import { FinanceModule } from './finance/finance.module';
+import { InjuryModule } from './injury/injury.module';
 import { LeagueModule } from './league/league.module';
 import { MatchModule } from './match/match.module';
 import { PlayerModule } from './player/player.module';
@@ -20,6 +21,7 @@ import { StatsModule } from './stats/stats.module';
     TransferModule,
     MatchModule,
     StatsModule,
+    InjuryModule,
   ],
 })
 export class ApiModule { }

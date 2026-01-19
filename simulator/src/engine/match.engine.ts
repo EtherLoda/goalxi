@@ -2,6 +2,7 @@ import { Team } from './classes/Team';
 import { Lane, TacticalPlayer, TacticalInstruction, ScoreStatus, AttackType, ShotType } from './types/simulation.types';
 import { AttributeCalculator } from './utils/attribute-calculator';
 import { ConditionSystem } from './systems/condition.system';
+import { InjurySystem, InjuryEventData } from './systems/injury.system';
 import { Player } from '../types/player.types';
 import { BenchConfig } from '@goalxi/database';
 
@@ -61,7 +62,7 @@ export interface MatchEvent {
     teamId?: string;
     playerId?: string;
     relatedPlayerId?: string; // For assists, second yellow cards, etc.
-    data?: any;
+    data?: Record<string, any>;
     eventScheduledTime?: Date; // Real-world time when this event should be revealed (calculated by processor)
 }
 
@@ -789,6 +790,9 @@ export class MatchEngine {
             // Trigger set piece
             this.resolveSetPieceFromFoul(foulingTeam, victimTeam);
         }
+
+        // After resolving the foul, check if victim player gets injured
+        this.checkAndGenerateInjury(victimTeam, 'collision');
     }
 
     /**
@@ -817,6 +821,66 @@ export class MatchEngine {
                 this.resolveDirectFreeKick(victimTeam, foulingTeam);
             }
             // 35% chance nothing happens (simple foul)
+        }
+    }
+
+    /**
+     * Check if a player gets injured and generate injury event
+     */
+    private checkAndGenerateInjury(team: Team, actionType: 'tackle' | 'sprint' | 'jump' | 'collision' | 'other'): void {
+        // Get a random player from the team
+        const playerIdx = (Math.random() * team.players.length) | 0;
+        const tacticalPlayer = team.players[playerIdx];
+        if (!tacticalPlayer) return;
+
+        const player = tacticalPlayer.player as Player;
+        if (!player) return;
+
+        // Get player age (use a default if not available)
+        const playerAge = (player as any).age || 25;
+
+        // Get player stamina (use player currentStamina or default)
+        const playerStamina = (player as any).currentStamina || 4;
+
+        // Generate injury
+        const injuryResult = InjurySystem.generateInjury(
+            actionType,
+            playerAge,
+            playerStamina,
+            team === this.homeTeam
+        );
+
+        if (injuryResult.willInjure && injuryResult.injuryType && injuryResult.severity && injuryResult.injuryValue) {
+            const injuryEventData: InjuryEventData = {
+                playerId: player.id,
+                injuryType: injuryResult.injuryType,
+                severity: injuryResult.severity,
+                injuryValue: injuryResult.injuryValue,
+                estimatedRecoveryDays: {
+                    min: injuryResult.estimatedMinDays!,
+                    max: injuryResult.estimatedMaxDays!,
+                },
+                treatmentTime: InjurySystem.getTreatmentTime(injuryResult.severity),
+            };
+
+            // Push injury event
+            this.events.push({
+                minute: this.time,
+                type: 'injury',
+                teamName: team.name,
+                playerId: player.id,
+                data: {
+                    injuryData: injuryEventData,
+                    injuryValue: injuryResult.injuryValue,
+                    estimatedRecoveryDays: {
+                        min: injuryResult.estimatedMinDays!,
+                        max: injuryResult.estimatedMaxDays!,
+                    },
+                },
+            });
+
+            // Update team snapshot
+            team.updateSnapshot();
         }
     }
 
