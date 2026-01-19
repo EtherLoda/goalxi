@@ -340,7 +340,6 @@ export class SimulationProcessor extends WorkerHost {
                 relatedPlayerId: e.relatedPlayerId || null, // For assists
                 data: {
                     ...e.data,
-                    description: e.description, // Add description to data for backward compatibility
                     playerName: e.playerId ? allPlayers.find(p => p.id === e.playerId)?.name : undefined, // Add player name from DB
                     assistName: e.relatedPlayerId ? allPlayers.find(p => p.id === e.relatedPlayerId)?.name : undefined, // Add assist player name
                 },

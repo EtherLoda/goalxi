@@ -177,6 +177,9 @@ export class Team {
             inTacticalPlayer.isSentOff = false;
             inTacticalPlayer.yellowCards = 0; // Reset yellow cards for new player
             this.players[index] = inTacticalPlayer;
+
+            // 预缓存新球员的贡献值
+            AttributeCalculator.preCachePlayerContributions(newPlayer, inTacticalPlayer.positionKey);
         }
     }
 

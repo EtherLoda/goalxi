@@ -57,7 +57,6 @@ const POSITION_TO_BENCH_KEY: Record<string, keyof BenchConfig> = {
 export interface MatchEvent {
     minute: number;
     type: 'goal' | 'miss' | 'save' | 'turnover' | 'advance' | 'snapshot' | 'shot' | 'corner' | 'foul' | 'yellow_card' | 'red_card' | 'offside' | 'substitution' | 'injury' | 'penalty_goal' | 'penalty_miss' | 'kickoff' | 'half_time' | 'second_half' | 'full_time' | 'tactical_change' | 'attack_sequence' | 'free_kick';
-    description: string;
     teamName?: string;
     teamId?: string;
     playerId?: string;
@@ -155,7 +154,6 @@ export class MatchEngine {
         this.events.push({
             minute: 0,
             type: 'kickoff',
-            description: `The match has started! ${this.homeTeam.name} vs ${this.awayTeam.name}`,
             data: {
                 homeTeam: this.homeTeam.name,
                 awayTeam: this.awayTeam.name
@@ -174,14 +172,12 @@ export class MatchEngine {
         this.events.push({
             minute: 0,
             type: 'kickoff',
-            description: getLineupText(this.homeTeam),
             teamName: this.homeTeam.name
         });
 
         this.events.push({
             minute: 0,
             type: 'kickoff',
-            description: getLineupText(this.awayTeam),
             teamName: this.awayTeam.name
         });
 
@@ -213,14 +209,12 @@ export class MatchEngine {
                 this.events.push({
                     minute: 45,
                     type: 'half_time',
-                    description: `The referee blows for half-time! Score: ${this.homeTeam.name} ${this.homeScore}-${this.awayScore} ${this.awayTeam.name}`,
                     data: { period: 'half_time' }
                 });
 
                 this.events.push({
                     minute: 46,
                     type: 'second_half',
-                    description: 'The players return to the pitch. Second half begins!',
                     data: {
                         period: 'second_half',
                         homeScore: this.homeScore,
@@ -265,7 +259,6 @@ export class MatchEngine {
         this.events.push({
             minute: 90,
             type: 'full_time',
-            description: 'The referee blows the final whistle!',
             data: {
                 homeScore: this.homeScore,
                 awayScore: this.awayScore
@@ -302,7 +295,6 @@ export class MatchEngine {
                 this.events.push({
                     minute: 90,
                     type: 'kickoff',
-                    description: 'Extra time begins!',
                     data: { period: 'extra_time', homeScore: this.homeScore, awayScore: this.awayScore }
                 });
             }
@@ -310,7 +302,6 @@ export class MatchEngine {
                 this.events.push({
                     minute: 105,
                     type: 'kickoff',
-                    description: 'Second half of extra time begins!',
                     data: { period: 'extra_time_second_half', homeScore: this.homeScore, awayScore: this.awayScore }
                 });
             }
@@ -351,7 +342,6 @@ export class MatchEngine {
         this.events.push({
             minute: 120,
             type: 'full_time',
-            description: 'Extra time ends! Moving to penalty shootout...',
             data: {
                 homeScore: this.homeScore,
                 awayScore: this.awayScore
@@ -445,7 +435,6 @@ export class MatchEngine {
         this.events.push({
             minute: 120,
             type: 'full_time',
-            description: `Penalty Shootout Ends! ${this.homeTeam.name} ${homePKScore} - ${awayPKScore} ${this.awayTeam.name}`,
             data: { homeScore: homePKScore, awayScore: awayPKScore, isPenalty: true }
         });
 
@@ -521,7 +510,6 @@ export class MatchEngine {
             type: goal ? 'penalty_goal' : 'penalty_miss',
             teamName: kickerTeam,
             playerId: p.id,
-            description: `Penalty ${goal ? 'GOAL' : 'MISS'} by ${p.name}! (Current: ${hScore}-${aScore})`,
             data: { homeScore: hScore, awayScore: aScore }
         });
     }
@@ -539,12 +527,10 @@ export class MatchEngine {
 
         for (const ins of pending) {
             let success = false;
-            let description = '';
 
             if (ins.type === 'move') {
                 if (!team.isPositionOccupied(ins.newPosition)) {
                     team.movePlayer(ins.playerId, ins.newPosition);
-                    description = `Tactical change: ${team.name} moves a player to ${ins.newPosition}.`;
                     success = true;
                 }
             } else if (ins.type === 'swap') {
@@ -557,7 +543,6 @@ export class MatchEngine {
 
                     team.substitutePlayer(ins.playerId, subPlayer);
                     subPlayer.entryMinute = minute; // Set entry minute
-                    description = `Substitution for ${team.name}: ${playerInName} replaces ${playerOutName}.`;
 
                     (ins as any).playerInName = playerInName;
                     (ins as any).playerOutName = playerOutName;
@@ -572,10 +557,10 @@ export class MatchEngine {
                     playerA.positionKey = playerB.positionKey;
                     playerB.positionKey = tempPos;
 
-                    const playerAName = (playerA.player as Player).name;
-                    const playerBName = (playerB.player as Player).name;
+                    // 重新缓存两个球员在新位置的贡献值
+                    AttributeCalculator.preCachePlayerContributions(playerA.player as Player, playerA.positionKey);
+                    AttributeCalculator.preCachePlayerContributions(playerB.player as Player, playerB.positionKey);
 
-                    description = `Tactical change: ${team.name} swaps positions between ${playerAName} and ${playerBName}.`;
                     success = true;
                 }
             }
@@ -586,7 +571,6 @@ export class MatchEngine {
                     type: ins.type === 'swap' ? 'substitution' : 'tactical_change',
                     teamName: team.name,
                     playerId: ins.type === 'swap' ? ins.newPlayerId : ins.playerId,
-                    description,
                     data: ins
                 });
                 team.updateSnapshot(); // Immediate re-calculation
@@ -767,7 +751,6 @@ export class MatchEngine {
                 type: 'red_card',
                 teamName: foulingTeam.name,
                 playerId: p.id,
-                description: `🟥 RED CARD! ${p.name} is sent off after a reckless challenge! ${foulingTeam.name} are down to 10 men.`
             });
             foulingTeam.updateSnapshot();
         } else if (roll < 0.4) {
@@ -783,7 +766,6 @@ export class MatchEngine {
                     type: 'red_card',
                     teamName: foulingTeam.name,
                     playerId: p.id,
-                    description: `🟥 SECOND YELLOW! ${p.name} receives a second yellow and is sent off! ${foulingTeam.name} down to 10 men.`
                 });
                 foulingTeam.updateSnapshot();
             } else {
@@ -793,7 +775,6 @@ export class MatchEngine {
                     type: 'yellow_card',
                     teamName: foulingTeam.name,
                     playerId: p.id,
-                    description: `🟨 Yellow card for ${p.name}. The referee warns him to be careful.`
                 });
                 // Trigger set piece
                 this.resolveSetPieceFromFoul(foulingTeam, victimTeam);
@@ -804,7 +785,6 @@ export class MatchEngine {
                 minute: this.time,
                 type: 'foul',
                 teamName: foulingTeam.name,
-                description: `⚠️ Foul by ${p.name}. A brief stoppage in play.`
             });
             // Trigger set piece
             this.resolveSetPieceFromFoul(foulingTeam, victimTeam);
@@ -872,47 +852,12 @@ export class MatchEngine {
                 case ShotType.REBOUND: return 'rebound';
                 case ShotType.LONG_SHOT: return 'long-range shot';
                 default: return 'shot';
-            }
+        }
         };
 
-        // Build description
-        let description = '';
         const possessor = midfieldBattle.winner === 'home' ? this.homeTeam.name : this.awayTeam.name;
         const defender = midfieldBattle.winner === 'home' ? this.awayTeam.name : this.homeTeam.name;
 
-        if (finalResult === 'goal' && shot?.shooter) {
-            const shooterName = (shot.shooter.player as Player).name;
-            const assistName = shot.assist ? (shot.assist.player as Player).name : null;
-
-            if (shot.shotType === ShotType.HEADER && assistName) {
-                // Header from cross
-                description = `⚽ GOAL! ${shooterName} heads in from ${assistName}'s cross for ${possessor}!`;
-            } else if (shot.shotType === ShotType.LONG_SHOT && assistName) {
-                // Long shot with assist
-                description = `⚽ GOAL! ${shooterName} fires from distance for ${possessor}! Great setup by ${assistName}!`;
-            } else if (assistName) {
-                // Normal assist
-                description = `⚽ GOAL! ${shooterName} scores for ${possessor}! Great build-up play, finishing by ${assistName}`;
-            } else {
-                description = `⚽ GOAL! ${shooterName} scores for ${possessor}! What a clinical finish!`;
-            }
-        } else if (finalResult === 'save' && shot?.shooter) {
-            const shooterName = (shot.shooter.player as Player).name;
-            const shotTypeName = getShotTypeName(shot.shotType);
-            description = `🧤 SPECTACULAR SAVE! ${possessor} breaks through ${lane}, but ${shooterName}'s powerful ${shotTypeName} is denied by ${defender}'s keeper!`;
-        } else if (finalResult === 'blocked' && shot?.shooter) {
-            const shooterName = (shot.shooter.player as Player).name;
-            const shotTypeName = getShotTypeName(shot.shotType);
-            description = `🛑 Blocked! ${shooterName} tries his luck with a ${shotTypeName} from the ${lane}, but the defense blocks it for a corner.`;
-        } else if (finalResult === 'defense_stopped') {
-            description = `🛡️ Excellent defensive work! ${defender} intercepts the build-up through the ${lane}.`;
-        } else if (finalResult === 'blocked') {
-            description = `🛡️ ${possessor} wins possession in ${lane} and pushes forward, but the attack is blocked under pressure from ${defender}!`;
-        } else {
-            description = `⚔️ ${possessor} wins possession in ${lane}, but ${defender} defends successfully and stops the attack!`;
-        }
-
-        // Calculate the score AFTER this event (for goal events)
         const scoreAfterEvent = {
             home: finalResult === 'goal' && midfieldBattle.winner === 'home' ? this.homeScore + 1 : this.homeScore,
             away: finalResult === 'goal' && midfieldBattle.winner === 'away' ? this.awayScore + 1 : this.awayScore
@@ -959,7 +904,6 @@ export class MatchEngine {
             teamName: possessor,
             playerId: shot?.shooter ? (shot.shooter.player as Player).id : undefined,
             relatedPlayerId: shot?.assist ? (shot.assist.player as Player).id : undefined,
-            description: description,
             data: eventData
         });
 
@@ -1336,7 +1280,6 @@ export class MatchEngine {
         this.events.push({
             minute: time,
             type: 'snapshot',
-            description: 'Match Snapshot Update',
             data: {
                 h: {
                     n: time === 0 ? this.homeTeam.name : undefined,
@@ -1378,16 +1321,12 @@ export class MatchEngine {
         const isGoal = Math.random() < probability;
 
         const kickerPlayer = kicker.player as Player;
-        const kickerName = kickerPlayer.name;
 
         this.events.push({
             minute: this.time,
             type: isGoal ? 'goal' : 'corner',
             teamName: attackingTeam.name,
             playerId: kickerPlayer.id,
-            description: isGoal
-                ? `⚽ GOAL from corner! ${kickerName} delivers a perfect set-piece!`
-                : `🚩 Corner for ${attackingTeam.name}. ${kickerName}'s delivery is cleared.`,
             data: {
                 setPieceType: 'corner',
                 attackScore: parseFloat(attackScore.toFixed(2)),
@@ -1430,16 +1369,12 @@ export class MatchEngine {
         const isGoal = Math.random() < probability;
 
         const kickerPlayer = kicker.player as Player;
-        const kickerName = kickerPlayer.name;
 
         this.events.push({
             minute: this.time,
             type: isGoal ? 'goal' : 'free_kick',
             teamName: attackingTeam.name,
             playerId: kickerPlayer.id,
-            description: isGoal
-                ? `⚽ GOAL from indirect free kick! ${kickerName} finds the net!`
-                : `🚫 Indirect free kick for ${attackingTeam.name}. ${kickerName}'s effort is blocked.`,
             data: {
                 setPieceType: 'indirect_free_kick',
                 attackScore: parseFloat(attackScore.toFixed(2)),
@@ -1483,17 +1418,11 @@ export class MatchEngine {
         const probability = 1 / (1 + Math.exp(-diff * 0.15 + 2.2));
         const isGoal = Math.random() < probability;
 
-        const kickerName = kickerP.name;
-        const gkName = gkP.name;
-
         this.events.push({
             minute: this.time,
             type: isGoal ? 'goal' : 'free_kick',
             teamName: attackingTeam.name,
             playerId: kickerP.id,
-            description: isGoal
-                ? `🔥 WHAT A FREE KICK! ${kickerName} bends it into the top corner!`
-                : `🧱 Direct free kick from ${attackingTeam.name}. ${kickerName}'s shot hits the wall.`,
             data: {
                 setPieceType: 'direct_free_kick',
                 attackScore: parseFloat(attackScore.toFixed(2)),
@@ -1537,17 +1466,11 @@ export class MatchEngine {
         const probability = 1 / (1 + Math.exp(-diff * 0.12 - 0.9));
         const isGoal = Math.random() < probability;
 
-        const kickerName = kickerP.name;
-        const gkName = gkP.name;
-
         this.events.push({
             minute: this.time,
             type: isGoal ? 'goal' : 'penalty_miss',
             teamName: attackingTeam.name,
             playerId: kickerP.id,
-            description: isGoal
-                ? `🥅 PENALTY CONVERTED! ${kickerName} sends the keeper the wrong way!`
-                : `❌ PENALTY SAVED! ${gkName} makes a stunning save!`,
             data: {
                 setPieceType: 'penalty',
                 attackScore: parseFloat(attackScore.toFixed(2)),
