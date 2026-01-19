@@ -20,6 +20,7 @@ export class Team {
             this.playerToIdx.set(player.id, i);
             this.playerFitness[i] = player.currentStamina || 3.0;
             p.entryMinute = 0;
+            // 不在这里预缓存，让updateSnapshot时按需缓存
         }
     }
 
@@ -63,6 +64,7 @@ export class Team {
 
     /**
      * Generates a new snapshot of effective team strengths.
+     * 使用缓存的贡献值，只需应用multiplier
      */
     updateSnapshot() {
         const lanes: Lane[] = ['left', 'center', 'right'];
@@ -79,7 +81,7 @@ export class Team {
             const player = p.player as Player;
             const currentFit = this.playerFitness[i];
 
-            // Calculate Performance Multiplier (The "PerformanceEngine" logic)
+            // Calculate Performance Multiplier
             const multiplier = ConditionSystem.calculateMultiplier(
                 currentFit,
                 player.currentStamina,
@@ -87,11 +89,11 @@ export class Team {
                 player.experience
             );
 
-            // Apply to all lane contributions
+            // 使用calculateAndCacheContribution，自动缓存
             for (const lane of lanes) {
-                const att = AttributeCalculator.calculateContribution(player, p.positionKey, lane, 'attack');
-                const def = AttributeCalculator.calculateContribution(player, p.positionKey, lane, 'defense');
-                const poss = AttributeCalculator.calculateContribution(player, p.positionKey, lane, 'possession');
+                const att = AttributeCalculator.calculateAndCacheContribution(player, p.positionKey, lane, 'attack');
+                const def = AttributeCalculator.calculateAndCacheContribution(player, p.positionKey, lane, 'defense');
+                const poss = AttributeCalculator.calculateAndCacheContribution(player, p.positionKey, lane, 'possession');
 
                 laneStrengths[lane].attack += att * multiplier;
                 laneStrengths[lane].defense += def * multiplier;
@@ -99,7 +101,7 @@ export class Team {
             }
         }
 
-        // Round all lane strengths to 2 decimal places
+        // Round all lane strengths
         const roundedLaneStrengths: TeamSnapshot['laneStrengths'] = {
             left: {
                 attack: parseFloat(laneStrengths.left.attack.toFixed(2)),
@@ -118,7 +120,7 @@ export class Team {
             }
         };
 
-        // GK Rating
+        // GK Rating - 使用缓存
         const gk = this.getGoalkeeper();
         let gkRating = 100;
         if (gk && !gk.isSentOff) {
@@ -132,7 +134,7 @@ export class Team {
                 player.experience
             );
 
-            const rawRating = AttributeCalculator.calculateGKSaveRating(player);
+            const rawRating = AttributeCalculator.calculateAndCacheGKSaveRating(player);
             gkRating = parseFloat((rawRating * multiplier).toFixed(2));
         }
 
@@ -185,6 +187,8 @@ export class Team {
         const p = this.players.find(p => (p.player as Player).id === playerId);
         if (p && !p.isSentOff) {
             p.positionKey = newPosition;
+            // 重新缓存新位置的所有贡献值
+            AttributeCalculator.preCachePlayerContributions(p.player as Player, newPosition);
         }
     }
 

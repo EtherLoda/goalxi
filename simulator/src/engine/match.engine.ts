@@ -145,6 +145,9 @@ export class MatchEngine {
     }
 
     public simulateMatch(): MatchEvent[] {
+        // 清除属性计算缓存，确保每次模拟从零开始
+        AttributeCalculator.clearCache();
+
         this.events = [];
         this.time = 0;
 

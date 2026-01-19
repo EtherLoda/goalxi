@@ -3,55 +3,76 @@ import { Player, PlayerAttributes } from '../../types/player.types';
 import { Lane, Phase } from '../types/simulation.types';
 
 export class AttributeCalculator {
+    // 缓存：playerId + positionKey + lane + phase -> base contribution (without multiplier)
+    private static contributionCache = new Map<string, number>();
+
+    // 缓存：playerId -> GK save rating
+    private static gkCache = new Map<string, number>();
+
+    // 缓存键生成
+    private static getCacheKey(playerId: string, positionKey: string, lane: Lane, phase: Phase): string {
+        return `${playerId}:${positionKey}:${lane}:${phase}`;
+    }
+
     /**
-     * Calculates the contribution score for an outfield player in a specific lane and phase.
+     * 清除所有缓存
      */
-    static calculateContribution(
+    static clearCache(): void {
+        this.contributionCache.clear();
+        this.gkCache.clear();
+    }
+
+    /**
+     * 计算并缓存球员的基础贡献值
+     */
+    static calculateAndCacheContribution(
         player: Player,
-        positionKey: string, // e.g. "CF_L", must match keys in POSITION_WEIGHTS
+        positionKey: string,
+        lane: Lane,
+        phase: Phase
+    ): number {
+        const cacheKey = this.getCacheKey(player.id, positionKey, lane, phase);
+
+        // 尝试从缓存获取
+        const cached = this.contributionCache.get(cacheKey);
+        if (cached !== undefined) {
+            return cached;
+        }
+
+        // 计算并缓存
+        const score = this.calculateContributionRaw(player, positionKey, lane, phase);
+        this.contributionCache.set(cacheKey, score);
+        return score;
+    }
+
+    /**
+     * 原始计算（不缓存）
+     */
+    private static calculateContributionRaw(
+        player: Player,
+        positionKey: string,
         lane: Lane,
         phase: Phase
     ): number {
         const weights = POSITION_WEIGHTS[positionKey];
 
-        // Validation
-        if (!weights) {
-            console.warn(`No weights found for position: ${positionKey}`);
+        if (!weights || positionKey === 'GK') {
             return 0;
         }
 
-        if (positionKey === 'GK') {
-            // GK does not contribute to lane battles
-            return 0;
-        }
-
-        // Cast to Outfield Matrix
         const outfieldWeights = weights as PositionWeightMatrix;
-
-        // Get weights for specific lane
         const laneWeights = outfieldWeights[lane];
-        if (!laneWeights) {
-            // Should not happen if matrix is complete, but safe fallback
-            return 0;
-        }
+        if (!laneWeights) return 0;
 
-        // Get weights for specific phase (attack/possession/defense)
         const phaseWeights = laneWeights[phase];
-        if (!phaseWeights) {
-            return 0;
-        }
+        if (!phaseWeights) return 0;
 
-        // Calculate weighted sum
         let totalScore = 0;
-        // phaseWeights is Partial<PlayerAttributes>, keys are attribute names, values are weights
         for (const [attrName, weight] of Object.entries(phaseWeights)) {
-            // Ensure weight is a number
             if (typeof weight !== 'number') continue;
 
-            // Get player attribute value
             const attributeName = attrName as keyof PlayerAttributes;
             const attrValue = player.attributes[attributeName] || 0;
-
             totalScore += attrValue * weight;
         }
 
@@ -59,9 +80,36 @@ export class AttributeCalculator {
     }
 
     /**
-     * Calculates the Save Rating for a Goalkeeper.
+     * 使用缓存的贡献值（需要在缓存后调用）
      */
-    static calculateGKSaveRating(player: Player): number {
+    static getCachedContribution(
+        playerId: string,
+        positionKey: string,
+        lane: Lane,
+        phase: Phase
+    ): number {
+        const cacheKey = this.getCacheKey(playerId, positionKey, lane, phase);
+        return this.contributionCache.get(cacheKey) ?? 0;
+    }
+
+    /**
+     * 计算并缓存GK评分
+     */
+    static calculateAndCacheGKSaveRating(player: Player): number {
+        const cached = this.gkCache.get(player.id);
+        if (cached !== undefined) {
+            return cached;
+        }
+
+        const score = this.calculateGKSaveRatingRaw(player);
+        this.gkCache.set(player.id, score);
+        return score;
+    }
+
+    /**
+     * 原始GK评分计算（不缓存）
+     */
+    private static calculateGKSaveRatingRaw(player: Player): number {
         const weights = POSITION_WEIGHTS['GK'] as GKWeightMatrix;
         if (!weights) return 0;
 
@@ -73,10 +121,65 @@ export class AttributeCalculator {
 
             const attributeName = attrName as keyof PlayerAttributes;
             const attrValue = player.attributes[attributeName] || 0;
-
             totalScore += attrValue * weight;
         }
 
         return parseFloat(totalScore.toFixed(2));
+    }
+
+    /**
+     * 获取缓存的GK评分
+     */
+    static getCachedGKSaveRating(playerId: string): number {
+        return this.gkCache.get(playerId) ?? 100; // 默认100
+    }
+
+    /**
+     * 预缓存球员的所有贡献值（用于批量模拟前）
+     */
+    static preCachePlayerContributions(player: Player, positionKey: string): void {
+        const lanes: Lane[] = ['left', 'center', 'right'];
+        const phases: Phase[] = ['attack', 'possession', 'defense'];
+
+        for (const lane of lanes) {
+            for (const phase of phases) {
+                this.calculateAndCacheContribution(player, positionKey, lane, phase);
+            }
+        }
+
+        // GK 也缓存
+        if (positionKey === 'GK') {
+            this.calculateAndCacheGKSaveRating(player);
+        }
+    }
+
+    /**
+     * 旧方法：保持向后兼容
+     */
+    static calculateContribution(
+        player: Player,
+        positionKey: string,
+        lane: Lane,
+        phase: Phase
+    ): number {
+        // 优先使用缓存
+        const cacheKey = this.getCacheKey(player.id, positionKey, lane, phase);
+        const cached = this.contributionCache.get(cacheKey);
+        if (cached !== undefined) {
+            return cached;
+        }
+        // 计算并缓存
+        return this.calculateAndCacheContribution(player, positionKey, lane, phase);
+    }
+
+    /**
+     * 旧方法：保持向后兼容
+     */
+    static calculateGKSaveRating(player: Player): number {
+        const cached = this.gkCache.get(player.id);
+        if (cached !== undefined) {
+            return cached;
+        }
+        return this.calculateAndCacheGKSaveRating(player);
     }
 }
