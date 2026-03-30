@@ -20,7 +20,7 @@ export class Team {
             this.playerToIdx.set(player.id, i);
             this.playerFitness[i] = player.currentStamina || 3.0;
             p.entryMinute = 0;
-            // 不在这里预缓存，让updateSnapshot时按需缓存
+            p.teamName = this.name;
         }
     }
 
@@ -173,9 +173,10 @@ export class Team {
             this.playerToIdx.set(newPlayer.id, index);
 
             this.playerFitness[index] = newPlayer.currentStamina || 3.0;
-            inTacticalPlayer.entryMinute = 0; // Default, expected to be set by caller
+            inTacticalPlayer.entryMinute = 0;
             inTacticalPlayer.isSentOff = false;
-            inTacticalPlayer.yellowCards = 0; // Reset yellow cards for new player
+            inTacticalPlayer.yellowCards = 0;
+            inTacticalPlayer.teamName = this.name;
             this.players[index] = inTacticalPlayer;
 
             // 预缓存新球员的贡献值

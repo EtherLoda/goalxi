@@ -156,9 +156,9 @@ describe('MatchEngine', () => {
 
         const firstSnapshot = snapshots[0];
         expect(firstSnapshot.data).toBeDefined();
-        expect(firstSnapshot.data.home).toBeDefined();
-        expect(firstSnapshot.data.home.laneStrengths).toBeDefined();
-        expect(firstSnapshot.data.home.ps).toBeDefined(); // player states
-        expect(firstSnapshot.data.home.ps.length).toBeGreaterThan(0);
+        expect(firstSnapshot.data.h).toBeDefined();
+        expect(firstSnapshot.data.h.ls).toBeDefined();
+        expect(firstSnapshot.data.h.ps).toBeDefined(); // player states
+        expect(firstSnapshot.data.h.ps.length).toBeGreaterThan(0);
     });
 });

@@ -7,6 +7,7 @@ import { MatchSchedulerService } from './match-scheduler.service';
 import {
     MatchEntity,
     MatchTacticsEntity,
+    MatchEventEntity,
     MatchStatus,
     MatchType,
 } from '@goalxi/database';
@@ -15,7 +16,9 @@ describe('MatchSchedulerService', () => {
     let service: MatchSchedulerService;
     let matchRepository: jest.Mocked<Repository<MatchEntity>>;
     let tacticsRepository: jest.Mocked<Repository<MatchTacticsEntity>>;
+    let eventRepository: jest.Mocked<Repository<MatchEventEntity>>;
     let simulationQueue: jest.Mocked<Queue>;
+    let completionQueue: jest.Mocked<Queue>;
 
     const createMockMatch = (overrides = {}) => ({
         id: 'match-1',
@@ -55,20 +58,34 @@ describe('MatchSchedulerService', () => {
                         add: jest.fn(),
                     },
                 },
+                {
+                    provide: getQueueToken('match-completion'),
+                    useValue: {
+                        add: jest.fn(),
+                    },
+                },
+                {
+                    provide: getRepositoryToken(MatchEventEntity),
+                    useValue: {
+                        findOne: jest.fn(),
+                    },
+                },
             ],
         }).compile();
 
         service = module.get<MatchSchedulerService>(MatchSchedulerService);
         matchRepository = module.get(getRepositoryToken(MatchEntity));
         tacticsRepository = module.get(getRepositoryToken(MatchTacticsEntity));
+        eventRepository = module.get(getRepositoryToken(MatchEventEntity));
         simulationQueue = module.get(getQueueToken('match-simulation'));
+        completionQueue = module.get(getQueueToken('match-completion'));
     });
 
     it('should be defined', () => {
         expect(service).toBeDefined();
     });
 
-    describe('lockTacticsAndSimulate', () => {
+    describe('lockTactics', () => {
         beforeEach(() => {
             jest.clearAllMocks();
         });
@@ -76,7 +93,7 @@ describe('MatchSchedulerService', () => {
         it('should not process matches that are not in the time window', async () => {
             matchRepository.find.mockResolvedValue([]);
 
-            await service.lockTacticsAndSimulate();
+            await service.lockTactics();
 
             expect(simulationQueue.add).not.toHaveBeenCalled();
             expect(matchRepository.save).not.toHaveBeenCalled();
@@ -87,7 +104,7 @@ describe('MatchSchedulerService', () => {
             // Query should filter out locked matches, so find should return empty
             matchRepository.find.mockResolvedValue([]);
 
-            await service.lockTacticsAndSimulate();
+            await service.lockTactics();
 
             expect(matchRepository.save).not.toHaveBeenCalled();
             expect(simulationQueue.add).not.toHaveBeenCalled();
@@ -99,7 +116,7 @@ describe('MatchSchedulerService', () => {
                 .mockResolvedValueOnce(null) // No home tactics
                 .mockResolvedValueOnce({ id: 'tactics-2' } as any); // Away tactics exist
 
-            await service.lockTacticsAndSimulate();
+            await service.lockTactics();
 
             expect(matchRepository.save).toHaveBeenCalledWith(
                 expect.objectContaining({
@@ -119,7 +136,7 @@ describe('MatchSchedulerService', () => {
                 .mockResolvedValueOnce(null); // No away tactics
             matchRepository.save.mockResolvedValue(match as any);
 
-            await service.lockTacticsAndSimulate();
+            await service.lockTactics();
 
             expect(matchRepository.save).toHaveBeenCalledWith(
                 expect.objectContaining({
@@ -139,7 +156,7 @@ describe('MatchSchedulerService', () => {
                 .mockResolvedValueOnce(null); // No away tactics
             matchRepository.save.mockResolvedValue(match as any);
 
-            await service.lockTacticsAndSimulate();
+            await service.lockTactics();
 
             expect(matchRepository.save).toHaveBeenCalledWith(
                 expect.objectContaining({
@@ -162,7 +179,7 @@ describe('MatchSchedulerService', () => {
                 .mockResolvedValueOnce(awayTactics as any);
             matchRepository.save.mockResolvedValue(match as any);
 
-            await service.lockTacticsAndSimulate();
+            await service.lockTactics();
 
             expect(simulationQueue.add).toHaveBeenCalledWith(
                 'simulate-match',
@@ -187,7 +204,7 @@ describe('MatchSchedulerService', () => {
                 .mockResolvedValueOnce({ id: 'tactics-2' } as any); // Away tactics exist
             matchRepository.save.mockResolvedValue(match as any);
 
-            await service.lockTacticsAndSimulate();
+            await service.lockTactics();
 
             expect(simulationQueue.add).toHaveBeenCalledWith(
                 'simulate-match',
@@ -206,7 +223,7 @@ describe('MatchSchedulerService', () => {
             // But we can test that the query includes the status filter
             matchRepository.find.mockResolvedValue([]);
 
-            await service.lockTacticsAndSimulate();
+            await service.lockTactics();
 
             expect(matchRepository.find).toHaveBeenCalledWith({
                 where: {
@@ -233,7 +250,7 @@ describe('MatchSchedulerService', () => {
                 .mockRejectedValueOnce(new Error('Database error'))
                 .mockResolvedValueOnce(match2 as any);
 
-            await service.lockTacticsAndSimulate();
+            await service.lockTactics();
 
             // Should still process the second match
             expect(matchRepository.save).toHaveBeenCalledTimes(2);
@@ -259,7 +276,7 @@ describe('MatchSchedulerService', () => {
                 .mockResolvedValueOnce(match2 as any)
                 .mockResolvedValueOnce(match3 as any);
 
-            await service.lockTacticsAndSimulate();
+            await service.lockTactics();
 
             expect(matchRepository.save).toHaveBeenCalledTimes(3);
             expect(simulationQueue.add).toHaveBeenCalledTimes(3);

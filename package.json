@@ -3,7 +3,10 @@
     "version": "0.0.0",
     "private": true,
     "scripts": {
-        "dev": "pnpm -r run dev",
+        "dev": "concurrently -n api,sim,web -c blue,green,yellow \"pnpm -F goalxi-api start:dev\" \"pnpm -F simulator start:dev\" \"pnpm -F goalxi-frontend dev\"",
         "build": "pnpm -r run build"
+    },
+    "devDependencies": {
+        "concurrently": "^9.2.1"
     }
 }

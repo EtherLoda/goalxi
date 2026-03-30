@@ -14,10 +14,13 @@ import {
     TeamEntity,
     MatchType,
     GAME_SETTINGS,
+    MatchPhase,
+    MatchLane,
+    toSimulationPlayer,
+    InjuryEntity,
 } from '@goalxi/database';
 import { MatchEngine, MatchEvent } from '../engine/match.engine';
 import { Team } from '../engine/classes/Team';
-import { PlayerAdapter } from '../utils/player-adapter';
 import { TacticalInstruction, TacticalPlayer } from '../engine/types/simulation.types';
 
 interface SimulationJobData {
@@ -44,6 +47,8 @@ export class SimulationProcessor extends WorkerHost {
         private readonly playerRepository: Repository<PlayerEntity>,
         @InjectRepository(TeamEntity)
         private readonly teamRepository: Repository<TeamEntity>,
+        @InjectRepository(InjuryEntity)
+        private readonly injuryRepository: Repository<InjuryEntity>,
         private readonly dataSource: DataSource,
     ) {
         super();
@@ -155,14 +160,24 @@ export class SimulationProcessor extends WorkerHost {
         const awayInstructions = mapInstructions(awayTactics);
 
         // 4. Setup Engine Teams
-        const homeTacticalPlayers: TacticalPlayer[] = homeStarterIds.map(pid => ({
-            player: PlayerAdapter.toSimulationPlayer(allPlayers.find(p => p.id === pid)!),
-            positionKey: this.findPositionInLineup(homeTactics.lineup, pid)!
+        // Filter out players that don't exist in DB to avoid runtime crashes
+        const homePlayerIds = new Set(allPlayers.map(p => p.id));
+        const missingHome = homeStarterIds.filter(pid => !(pid as any in homePlayerIds));
+        const missingAway = awayStarterIds.filter(pid => !(pid as any in homePlayerIds));
+        if (missingHome.length > 0) this.logger.warn(`[Simulator] Home lineup references missing players: ${missingHome.join(', ')}`);
+        if (missingAway.length > 0) this.logger.warn(`[Simulator] Away lineup references missing players: ${missingAway.join(', ')}`);
+
+        const validHomeIds = homeStarterIds.filter(pid => (pid as any) in homePlayerIds);
+        const validAwayIds = awayStarterIds.filter(pid => (pid as any) in homePlayerIds);
+
+        const homeTacticalPlayers: TacticalPlayer[] = validHomeIds.map(pid => ({
+            player: toSimulationPlayer(allPlayers.find(p => p.id === pid)!),
+            positionKey: this.findPositionInLineup(homeTactics.lineup, pid) ?? 'ST'
         }));
 
-        const awayTacticalPlayers: TacticalPlayer[] = awayStarterIds.map(pid => ({
-            player: PlayerAdapter.toSimulationPlayer(allPlayers.find(p => p.id === pid)!),
-            positionKey: this.findPositionInLineup(awayTactics.lineup, pid)!
+        const awayTacticalPlayers: TacticalPlayer[] = validAwayIds.map(pid => ({
+            player: toSimulationPlayer(allPlayers.find(p => p.id === pid)!),
+            positionKey: this.findPositionInLineup(awayTactics.lineup, pid) ?? 'ST'
         }));
 
         const subMap = new Map<string, TacticalPlayer>();
@@ -170,7 +185,7 @@ export class SimulationProcessor extends WorkerHost {
             const entity = allPlayers.find(p => p.id === pid);
             if (entity) {
                 subMap.set(pid, {
-                    player: PlayerAdapter.toSimulationPlayer(entity),
+                    player: toSimulationPlayer(entity),
                     positionKey: 'SUB'
                 });
             }
@@ -181,9 +196,15 @@ export class SimulationProcessor extends WorkerHost {
 
         const engine = new MatchEngine(tA, tB, homeInstructions, awayInstructions, subMap, homeBenchConfig, awayBenchConfig);
 
-        // 5. Run Match
+        // 5. Run Match (wrapped in try/catch to ensure transaction rollback on error)
         this.logger.log(`[Simulator] Starting engine for ${match.id}`);
-        let events = engine.simulateMatch();
+        let events: MatchEvent[];
+        try {
+            events = engine.simulateMatch();
+        } catch (err) {
+            this.logger.error(`[Simulator] simulateMatch crashed for match ${match.id}: ${(err as Error).message}`, (err as Error).stack);
+            throw err;
+        }
 
         // Generate injury time (1-5 minutes for each half)
         const firstHalfInjuryTime = Math.floor(Math.random() * (GAME_SETTINGS.MATCH_INJURY_TIME_MAX - GAME_SETTINGS.MATCH_INJURY_TIME_MIN + 1)) + GAME_SETTINGS.MATCH_INJURY_TIME_MIN;
@@ -195,19 +216,29 @@ export class SimulationProcessor extends WorkerHost {
         // Check if extra time is needed (match requires winner and is tied)
         if (match.requiresWinner && engine.homeScore === engine.awayScore) {
             this.logger.log(`[Simulator] Match ${match.id} is tied and requires winner - playing extra time`);
-            events = engine.simulateExtraTime();
+            try {
+                events = engine.simulateExtraTime();
+            } catch (err) {
+                this.logger.error(`[Simulator] simulateExtraTime crashed for match ${match.id}: ${(err as Error).message}`, (err as Error).stack);
+                throw err;
+            }
             match.hasExtraTime = true;
 
             // Generate ET injury time
-            const etFirstHalfInjury = Math.floor(Math.random() * 3) + 1; // 1-3 minutes for ET
-            const etSecondHalfInjury = Math.floor(Math.random() * 3) + 1;
+            const etFirstHalfInjury = Math.floor(Math.random() * (GAME_SETTINGS.MATCH_INJURY_TIME_MAX - GAME_SETTINGS.MATCH_INJURY_TIME_MIN + 1)) + GAME_SETTINGS.MATCH_INJURY_TIME_MIN;
+            const etSecondHalfInjury = Math.floor(Math.random() * (GAME_SETTINGS.MATCH_INJURY_TIME_MAX - GAME_SETTINGS.MATCH_INJURY_TIME_MIN + 1)) + GAME_SETTINGS.MATCH_INJURY_TIME_MIN;
             match.extraTimeFirstHalfInjury = etFirstHalfInjury;
             match.extraTimeSecondHalfInjury = etSecondHalfInjury;
 
             // If still tied after extra time, penalty shootout
             if (engine.homeScore === engine.awayScore) {
                 this.logger.log(`[Simulator] Still tied after extra time - penalty shootout`);
-                events = engine.simulatePenaltyShootout();
+                try {
+                    events = engine.simulatePenaltyShootout();
+                } catch (err) {
+                    this.logger.error(`[Simulator] simulatePenaltyShootout crashed for match ${match.id}: ${(err as Error).message}`, (err as Error).stack);
+                    throw err;
+                }
                 match.hasPenaltyShootout = true;
             }
         }
@@ -328,25 +359,31 @@ export class SimulationProcessor extends WorkerHost {
             match.actualEndTime = lastEvent?.eventScheduledTime || new Date(); // When match will actually end
             await manager.save(match);
 
-            // Save Events with scheduled times
-            const eventEntities = events.map(e => manager.create(MatchEventEntity, {
-                matchId: match.id,
-                minute: e.minute,
-                second: 0,
-                type: this.mapEventType(e.type),
-                typeName: e.type,
-                teamId: e.teamName === match.homeTeam!.name ? match.homeTeamId : (e.teamName === match.awayTeam!.name ? match.awayTeamId : null),
-                playerId: e.playerId || null,
-                relatedPlayerId: e.relatedPlayerId || null, // For assists
-                data: {
-                    ...e.data,
-                    playerName: e.playerId ? allPlayers.find(p => p.id === e.playerId)?.name : undefined, // Add player name from DB
-                    assistName: e.relatedPlayerId ? allPlayers.find(p => p.id === e.relatedPlayerId)?.name : undefined, // Add assist player name
-                },
-                eventScheduledTime: e.eventScheduledTime, // Real-world time when event should be revealed
-                isRevealed: false, // Will be revealed when current time reaches eventScheduledTime
-            }));
-            await manager.save(eventEntities);
+            // Save Events with Bulk Insert (bypass entity instantiation overhead)
+            await manager.createQueryBuilder()
+                .insert()
+                .into(MatchEventEntity)
+                .values(events.map(e => {
+                    const playerName = e.playerId ? allPlayers.find(p => p.id === e.playerId)?.name : undefined;
+                    const assistName = e.relatedPlayerId ? allPlayers.find(p => p.id === e.relatedPlayerId)?.name : undefined;
+                    return {
+                        matchId: match.id,
+                        minute: e.minute,
+                        second: 0,
+                        type: this.mapEventType(e.type),
+                        typeName: e.type,
+                        teamId: e.teamName === match.homeTeam!.name ? match.homeTeamId : (e.teamName === match.awayTeam!.name ? match.awayTeamId : null),
+                        playerId: e.playerId || null,
+                        relatedPlayerId: e.relatedPlayerId || null,
+                        phase: (e.phase as MatchPhase) || MatchPhase.FIRST_HALF,
+                        lane: e.lane as any || null,
+                        isHome: e.teamName ? e.teamName === match.homeTeam!.name : null,
+                        data: { ...e.data, playerName, assistName },
+                        eventScheduledTime: e.eventScheduledTime,
+                        isRevealed: false,
+                    } as any;
+                }))
+                .execute();
 
             // Save Stats (Simplified)
             const calculateStats = (teamName: string, teamId: string) => {
@@ -371,17 +408,82 @@ export class SimulationProcessor extends WorkerHost {
                 calculateStats(match.homeTeam!.name, match.homeTeamId),
                 calculateStats(match.awayTeam!.name, match.awayTeamId)
             ]);
+
+            // Persist injury records in bulk
+            const injuryEvents = events.filter(e => e.type === 'injury');
+            const injuryRecords: any[] = [];
+            const injuredPlayerIds: string[] = [];
+
+            for (const e of injuryEvents) {
+                const injuryData = (e.data as any)?.injuryData;
+                if (!injuryData?.playerId) continue;
+
+                injuryRecords.push({
+                    playerId: injuryData.playerId,
+                    matchId: match.id,
+                    injuryType: injuryData.injuryType,
+                    severity: injuryData.severity,
+                    injuryValue: injuryData.injuryValue,
+                    estimatedMinDays: injuryData.estimatedRecoveryDays?.min,
+                    estimatedMaxDays: injuryData.estimatedRecoveryDays?.max,
+                    occurredAt: match.scheduledAt,
+                    isRecovered: false,
+                });
+                injuredPlayerIds.push(injuryData.playerId);
+            }
+
+            if (injuryRecords.length > 0) {
+                await manager.createQueryBuilder()
+                    .insert()
+                    .into(InjuryEntity)
+                    .values(injuryRecords)
+                    .execute();
+            }
+
+            // Batch update injured players
+            if (injuredPlayerIds.length > 0) {
+                const now = new Date();
+                for (const player of allPlayers) {
+                    if (injuredPlayerIds.includes(player.id)) {
+                        const e = events.find(ev => ev.type === 'injury' && (ev.data as any)?.injuryData?.playerId === player.id);
+                        const injuryData = (e?.data as any)?.injuryData;
+                        if (injuryData) {
+                            player.currentInjuryValue = injuryData.injuryValue;
+                            player.injuryType = injuryData.injuryType;
+                            player.injuredAt = now;
+                        }
+                    }
+                }
+                await manager.save(allPlayers.filter(p => injuredPlayerIds.includes(p.id)));
+            }
         });
     }
 
     private mapEventType(type: string): number {
         const mapping: Record<string, number> = {
-            'kickoff': 1, 'goal': 2, 'shot': 3, 'miss': 4, 'save': 8,
-            'yellow_card': 10, 'red_card': 11, 'substitution': 12, 'foul': 9,
-            'offside': 16, 'corner': 17, 'penalty_goal': 2, 'penalty_miss': 4,
-            'full_time': 14, 'turnover': 5, 'snapshot': 21
+            'kickoff': 1,
+            'goal': 2,
+            'shot_on_target': 3,
+            'save': 8,
+            'miss': 4,
+            'turnover': 5,
+            'foul': 9,
+            'yellow_card': 10,
+            'red_card': 11,
+            'substitution': 12,
+            'half_time': 13,
+            'second_half': 23,
+            'full_time': 14,
+            'injury': 15,
+            'offside': 16,
+            'corner': 17,
+            'free_kick': 18,
+            'penalty_goal': 19,
+            'penalty_miss': 31,
+            'snapshot': 21,
+            'tactical_change': 27,
         };
-        return mapping[type] || 99;
+        return mapping[type] ?? 27;
     }
 
     private async handleForfeit(match: MatchEntity, homeForfeit: boolean, awayForfeit: boolean) {

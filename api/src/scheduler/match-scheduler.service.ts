@@ -209,6 +209,7 @@ export class MatchSchedulerService {
                 const lastEvent = await this.eventRepository.findOne({
                     where: { matchId: match.id },
                     order: { eventScheduledTime: 'DESC' },
+                    select: ['id', 'matchId', 'minute', 'eventScheduledTime'],
                 });
 
                 // If no events or last event hasn't happened yet, skip

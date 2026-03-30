@@ -8,14 +8,9 @@ import {
     TeamEntity,
     GAME_SETTINGS,
     MatchStatus,
+    MatchEventType,
 } from '@goalxi/database';
 import { MatchCacheService } from './match-cache.service';
-
-// MatchEventType enum (matches simulator/src/engine/types.ts)
-enum MatchEventType {
-    GOAL = 2,
-    FORFEIT = 20,
-}
 
 export interface MatchEventsResponse {
     matchId: string;
@@ -127,7 +122,10 @@ export class MatchEventService {
             // Cache miss, fetch from DB
             events = await this.eventRepository.find({
                 where: { matchId },
-                order: { minute: 'ASC', second: 'ASC' },
+                order: { phase: 'ASC', minute: 'ASC', second: 'ASC' },
+                select: ['id', 'matchId', 'minute', 'second', 'type', 'typeName', 'teamId', 'playerId',
+                         'relatedPlayerId', 'phase', 'lane', 'isHome', 'data',
+                         'eventScheduledTime', 'isRevealed', 'createdAt'],
             });
 
             // If we have events and the simulation has run (events exist), cache them

@@ -189,7 +189,7 @@ describe('MatchService', () => {
           CAM1: 'cam1-id',
           LW: 'lw-id',
           RW: 'rw-id',
-          ST1: 'st1-id',
+          CF: 'st1-id',
         },
       };
 
@@ -290,7 +290,7 @@ describe('MatchService', () => {
           CAM1: 'cam1-id',
           LW: 'lw-id',
           RW: 'rw-id',
-          ST1: 'st1-id',
+          CF: 'st1-id',
         },
       };
 

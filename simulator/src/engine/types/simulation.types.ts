@@ -36,11 +36,12 @@ export interface TacticalInstruction {
 }
 
 export interface TacticalPlayer {
-    player: any; // Using any for now to avoid circular dependency or import Player type
+    player: any;
     positionKey: string;
-    entryMinute?: number; // Minute they entered the pitch (0 if starter)
+    entryMinute?: number;
     isSentOff?: boolean;
-    yellowCards?: number; // Track yellow cards (2 = send off)
+    yellowCards?: number;
+    teamName?: string; // Set during Team construction for injury tracking
 }
 
 export interface TeamSnapshot {

@@ -20,6 +20,7 @@ import {
   AuctionEntity,
   PlayerHistoryEntity,
   PlayerTransactionEntity,
+  InjuryEntity,
 } from '@goalxi/database';
 import { SimulationProcessor } from './processor/simulation.processor';
 
@@ -41,7 +42,9 @@ const entities = [
   AuctionEntity,
   PlayerHistoryEntity,
   PlayerTransactionEntity,
+  InjuryEntity,
 ];
+// 顺带把 PlayerTransactionEntity 从 forFeature 里去掉（processor 没用它）
 
 @Module({
   imports: [
@@ -81,6 +84,7 @@ const entities = [
       MatchTeamStatsEntity,
       PlayerEntity,
       TeamEntity,
+      InjuryEntity,
     ]),
   ],
   providers: [SimulationProcessor],

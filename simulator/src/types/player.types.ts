@@ -1,39 +1,7 @@
-export interface PlayerAttributes {
-    // Physical (Shared)
-    pace: number;
-    strength: number;
-
-    // Technical (Outfield)
-    finishing: number;
-    passing: number;
-    dribbling: number;
-    defending: number;
-
-    // Mental (Shared)
-    positioning: number;
-    composure: number;
-
-    // Set Pieces
-    freeKicks: number;
-    penalties: number;
-
-    // Goalkeeper Specific (Technical)
-    gk_reflexes?: number;
-    gk_handling?: number;
-    gk_distribution?: number;
-}
-
-
-export interface Player {
-    id: string;
-    name: string;
-    position: string; // "CF", "GK", etc.
-    attributes: PlayerAttributes;
-    currentStamina: number;
-    form: number;
-    experience: number;
-    exactAge: [number, number];
-    overall?: number; // Overall rating for performance calculation
-    appearance?: any; // Player appearance data from database
-    // ... other fields
-}
+// Re-export simulation player types from shared database package.
+// The mapping from PlayerEntity.currentSkills to SimulationPlayer is defined
+// in @goalxi/database — single source of truth.
+export {
+    SimulationPlayerAttributes as PlayerAttributes,
+    SimulationPlayer as Player,
+} from '@goalxi/database';

@@ -135,6 +135,7 @@ export class MatchCompletionService {
     private async updatePlayerStats(matchId: string): Promise<void> {
         const events = await this.eventRepository.find({
             where: { matchId },
+            select: ['id', 'typeName', 'playerId', 'relatedPlayerId'],
         });
 
         const playerStatsUpdate = new Map<string, { goals: number, assists: number, yellowCards: number, redCards: number, appearances: number }>();
@@ -184,11 +185,7 @@ export class MatchCompletionService {
                 assistStats.assists += 1;
             }
 
-            // Backward compatibility for data.assistPlayerId
-            if (event.data?.assistPlayerId) {
-                this.ensurePlayerInMap(playerStatsUpdate, event.data.assistPlayerId);
-                playerStatsUpdate.get(event.data.assistPlayerId)!.assists += 1;
-            }
+            // Backward compatibility for data.assistPlayerId — removed; assist info is now in relatedPlayerId (handled above)
         }
 
         // What about players who played but didn't have events?

@@ -62,6 +62,8 @@ export interface MatchEvent {
     teamId?: string;
     playerId?: string;
     relatedPlayerId?: string; // For assists, second yellow cards, etc.
+    phase?: string;
+    lane?: string;
     data?: Record<string, any>;
     eventScheduledTime?: Date; // Real-world time when this event should be revealed (calculated by processor)
 }

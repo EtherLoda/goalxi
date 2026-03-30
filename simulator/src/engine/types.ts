@@ -1,34 +1,6 @@
-export enum MatchEventType {
-    KICKOFF = 1,
-    GOAL = 2,
-    SHOT_ON_TARGET = 3,
-    SHOT_OFF_TARGET = 4,
-    PASS = 5,
-    TACKLE = 6,
-    INTERCEPTION = 7,
-    SAVE = 8,
-    FOUL = 9,
-    YELLOW_CARD = 10,
-    RED_CARD = 11,
-    SUBSTITUTION = 12,
-    HALF_TIME = 13,
-    FULL_TIME = 14,
-    INJURY = 15,
-    OFFSIDE = 16,
-    CORNER = 17,
-    FREE_KICK = 18,
-    PENALTY = 19,
-    FORFEIT = 20,
-    SNAPSHOT = 21,
-    // New events
-    MATCH_START = 22,      // Match starts with lineup announcement
-    SECOND_HALF_START = 23, // Second half kickoff
-    EXTRA_TIME_START = 24,  // Extra time kickoff
-    PENALTY_START = 25,     // Penalty shootout starts
-    CELEBRATION = 26,       // Goal celebration
-    NEUTRAL_EVENT = 27,     // Neutral events (crowd, etc)
-    CLEARANCE = 28,         // Ball cleared from danger zone
-}
+import { MatchEventType } from '@goalxi/database';
+
+export { MatchEventType };
 
 export type Zone = 'Defense' | 'Midfield' | 'Attack';
 
