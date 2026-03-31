@@ -173,8 +173,14 @@ export class MatchCompletionService {
                 } else if (type === 'red_card') {
                     stats.redCards += 1;
                 } else if (type === 'substitution') {
-                    // Re-ensure sub player gets credit if they had an event
+                    // Mark sub IN player as appeared
                     stats.appearances = 1;
+                    // Mark sub OUT player as also appeared (they played until this minute)
+                    const subData = (event as any).data;
+                    if (subData?.playerId) {
+                        this.ensurePlayerInMap(playerStatsUpdate, subData.playerId);
+                        playerStatsUpdate.get(subData.playerId)!.appearances = 1;
+                    }
                 }
             }
 

@@ -21,6 +21,7 @@ import {
   PlayerHistoryEntity,
   PlayerTransactionEntity,
   InjuryEntity,
+  StaffEntity,
 } from '@goalxi/database';
 import { SimulationProcessor } from './processor/simulation.processor';
 
