@@ -51,7 +51,12 @@ coverage
 .env.production
 .env.production.local
 
-# temp directory
+# Build artifacts
+*.tsbuildinfo
+tsconfig.build.tsbuildinfo
+
+# Package lock (use pnpm-lock.yaml from repo, not local)
+/pnpm-lock.yaml
 .temp
 .tmp
 
