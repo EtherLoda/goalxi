@@ -70,9 +70,10 @@ export class AttributeCalculator {
         let totalScore = 0;
         for (const [attrName, weight] of Object.entries(phaseWeights)) {
             if (typeof weight !== 'number') continue;
+            if (attrName === 'abilities') continue; // not a numeric attribute
 
             const attributeName = attrName as keyof PlayerAttributes;
-            const attrValue = player.attributes[attributeName] || 0;
+            const attrValue = (player.attributes[attributeName] as number) ?? 0;
             totalScore += attrValue * weight;
         }
 
@@ -118,9 +119,10 @@ export class AttributeCalculator {
 
         for (const [attrName, weight] of Object.entries(saveWeights)) {
             if (typeof weight !== 'number') continue;
+            if (attrName === 'abilities') continue; // not a numeric attribute
 
             const attributeName = attrName as keyof PlayerAttributes;
-            const attrValue = player.attributes[attributeName] || 0;
+            const attrValue = (player.attributes[attributeName] as number) ?? 0;
             totalScore += attrValue * weight;
         }
 

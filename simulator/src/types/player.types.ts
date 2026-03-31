@@ -4,4 +4,5 @@
 export {
     SimulationPlayerAttributes as PlayerAttributes,
     SimulationPlayer as Player,
+    PlayerAbility,
 } from '@goalxi/database';

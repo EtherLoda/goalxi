@@ -9,6 +9,8 @@ import { TeamModule } from './team/team.module';
 import { TransferModule } from './transfer/transfer.module';
 import { UserModule } from './user/user.module';
 import { StatsModule } from './stats/stats.module';
+import { YouthModule } from './youth/youth.module';
+import { ScoutsModule } from './scouts/scouts.module';
 
 @Module({
   imports: [
@@ -22,6 +24,8 @@ import { StatsModule } from './stats/stats.module';
     MatchModule,
     StatsModule,
     InjuryModule,
+    YouthModule,
+    ScoutsModule,
   ],
 })
 export class ApiModule { }

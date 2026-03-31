@@ -3,7 +3,7 @@ import { Cron } from '@nestjs/schedule';
 import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, LessThanOrEqual, LessThan } from 'typeorm';
+import { Repository, LessThanOrEqual } from 'typeorm';
 import {
     MatchEntity,
     MatchTacticsEntity,

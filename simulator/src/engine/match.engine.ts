@@ -3,8 +3,14 @@ import { Lane, TacticalPlayer, TacticalInstruction, ScoreStatus, AttackType, Sho
 import { AttributeCalculator } from './utils/attribute-calculator';
 import { ConditionSystem } from './systems/condition.system';
 import { InjurySystem, InjuryEventData } from './systems/injury.system';
-import { Player } from '../types/player.types';
+import { Player, PlayerAbility } from '../types/player.types';
 import { BenchConfig } from '@goalxi/database';
+
+// ---------- Ability Helper ----------
+const hasAbility = (player: Player | undefined, ability: PlayerAbility): boolean => {
+    return Array.isArray(player?.attributes?.abilities) &&
+        player.attributes.abilities.includes(ability);
+};
 
 // 进攻类型分布配置（仅 balanced 模式已实现）
 const ATTACK_TYPE_DISTRIBUTION: Record<number, number[]> = {
@@ -617,9 +623,28 @@ export class MatchEngine {
         // Step 4: Attack Push (Attack vs Defense)
         // 远射跳过推进阶段
         let pushSuccess = false;
+        let preSelectedShooter: TacticalPlayer | null = null;
+        let preSelectedPasser: TacticalPlayer | null = null;
         if (attackType !== AttackType.LONG_SHOT) {
+            preSelectedShooter = this.selectShooter(this.possessionTeam);
+            // 预先选取传球者，以便检查 ability 对 push 的加成
+            const passAssistType = attackType === AttackType.CROSS ? 'CROSS' : 'OTHER';
+            preSelectedPasser = this.selectAssist(this.possessionTeam, preSelectedShooter, passAssistType);
+            const passerPlayer = preSelectedPasser?.player as Player | undefined;
+
             const attackConfig = ATTACK_TYPE_CONFIG[attackType];
-            pushSuccess = this.resolveDuel(attPower, defPower, attackConfig.pushK, attackConfig.pushOffset);
+            let effectiveAttPower = attPower;
+
+            // long_passer: 直塞进攻时进攻贡献 +6%
+            if (attackType === AttackType.THROUGH_PASS && hasAbility(passerPlayer, 'long_passer')) {
+                effectiveAttPower *= 1.06;
+            }
+            // cross_specialist: 传中进攻时进攻贡献 +8%
+            if (attackType === AttackType.CROSS && hasAbility(passerPlayer, 'cross_specialist')) {
+                effectiveAttPower *= 1.08;
+            }
+
+            pushSuccess = this.resolveDuel(effectiveAttPower, defPower, attackConfig.pushK, attackConfig.pushOffset);
         }
 
         // Step 5: Shot attempt
@@ -652,9 +677,9 @@ export class MatchEngine {
                 shotResult = isGoal ? 'goal' : 'miss';
             }
         } else if (pushSuccess) {
-            // 常规进攻：推进成功后选择射门类型
+            // 常规进攻：推进成功后选择射门类型（复用预选的射手）
             shotType = this.selectShotType(attackType);
-            shooter = this.selectShooter(this.possessionTeam);
+            shooter = preSelectedShooter;
 
             if (shooter) {
                 const player = shooter.player as Player;
@@ -687,15 +712,15 @@ export class MatchEngine {
 
                 // 助攻逻辑（根据射门类型）
                 if (shotType === ShotType.HEADER) {
-                    // 头球：100% 有助攻（来自传中）
-                    assistPlayer = this.selectAssist(this.possessionTeam, shooter, 'CROSS');
+                    // 头球：100% 有助攻（来自传中），复用预选的边路传球者
+                    assistPlayer = preSelectedPasser;
                 } else if (shotType === ShotType.REBOUND) {
                     // 补射：0% 助攻
                     assistPlayer = null;
                 } else {
-                    // 抽射/单刀：65% 有助攻
+                    // 抽射/单刀：65% 有助攻，复用预选的传球者
                     if (Math.random() < 0.65) {
-                        assistPlayer = this.selectAssist(this.possessionTeam, shooter, 'OTHER');
+                        assistPlayer = preSelectedPasser;
                     }
                 }
 
@@ -1193,14 +1218,17 @@ export class MatchEngine {
     /**
      * 计算头球评分
      * 头球评分 = strength×5 + positioning×3 + finishing×2
+     * header_specialist: 头球射门评分 +8%
      */
     private calculateHeaderRating(player: Player): number {
         const attrs = player.attributes;
-        return (
+        const raw = (
             (attrs.strength ?? 10) * 5 +
             (attrs.positioning ?? 10) * 3 +
             (attrs.finishing ?? 10) * 2
         );
+        // header_specialist: 头球射门评分 +8%
+        return hasAbility(player, 'header_specialist') ? raw * 1.08 : raw;
     }
 
     /**

@@ -64,7 +64,10 @@ export interface SimulationPlayerAttributes {
     gk_reflexes?: number;
     gk_handling?: number;
     gk_distribution?: number;
+    abilities?: PlayerAbility[];
 }
+
+export type PlayerAbility = 'header_specialist' | 'long_passer' | 'cross_specialist';
 
 export interface SimulationPlayer {
     id: string;
@@ -103,6 +106,11 @@ export function toSimulationPlayer(entity: PlayerEntity): SimulationPlayer {
         (attributes as any).gk_reflexes = getIn(skills, FIELD_MAP.gk_reflexes);
         (attributes as any).gk_handling = getIn(skills, FIELD_MAP.gk_handling);
         (attributes as any).gk_distribution = getIn(skills, FIELD_MAP.gk_distribution);
+    }
+
+    const rawAbilities = (skills as any)?.abilities;
+    if (Array.isArray(rawAbilities)) {
+        attributes.abilities = rawAbilities;
     }
 
     return {
