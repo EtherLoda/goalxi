@@ -874,7 +874,8 @@ export class MatchEngine {
             actionType,
             playerAge,
             playerStamina,
-            team === this.homeTeam
+            team === this.homeTeam,
+            team.doctorLevel
         );
 
         if (injuryResult.willInjure && injuryResult.injuryType && injuryResult.severity && injuryResult.injuryValue) {

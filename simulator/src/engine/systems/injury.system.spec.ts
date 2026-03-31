@@ -2,16 +2,10 @@ import { InjurySystem, InjuryType, InjurySeverity } from './injury.system';
 
 describe('InjurySystem', () => {
     describe('calculateInjuryChance', () => {
-        it('should return base chance for young player with good stamina at home', () => {
+        it('should return base chance for player with good stamina at home', () => {
             const chance = InjurySystem.calculateInjuryChance(0.02, 22, 5, true);
             expect(chance).toBeGreaterThan(0);
             expect(chance).toBeLessThan(0.1);
-        });
-
-        it('should increase chance for older players', () => {
-            const youngChance = InjurySystem.calculateInjuryChance(0.02, 22, 5, true);
-            const oldChance = InjurySystem.calculateInjuryChance(0.02, 35, 5, true);
-            expect(oldChance).toBeGreaterThan(youngChance);
         });
 
         it('should increase chance for players with low stamina', () => {
@@ -26,11 +20,11 @@ describe('InjurySystem', () => {
             expect(homeChance).toBeLessThan(awayChance);
         });
 
-        it('should combine all multipliers correctly', () => {
-            // Old player, low stamina, away match - highest risk
-            const highRisk = InjurySystem.calculateInjuryChance(0.02, 35, 2, false);
-            // Young player, good stamina, home match - lowest risk
-            const lowRisk = InjurySystem.calculateInjuryChance(0.02, 22, 5, true);
+        it('should combine stamina and home multipliers correctly', () => {
+            // Low stamina, away match - highest risk
+            const highRisk = InjurySystem.calculateInjuryChance(0.02, 25, 2, false);
+            // Good stamina, home match - lowest risk
+            const lowRisk = InjurySystem.calculateInjuryChance(0.02, 25, 5, true);
             expect(highRisk).toBeGreaterThan(lowRisk);
         });
 
@@ -162,65 +156,6 @@ describe('InjurySystem', () => {
 
         it('should return 180 seconds for severe injury', () => {
             expect(InjurySystem.getTreatmentTime('severe')).toBe(180);
-        });
-    });
-
-    describe('calculateDailyRecovery', () => {
-        it('should return positive value', () => {
-            const recovery = InjurySystem.calculateDailyRecovery(25);
-            expect(recovery).toBeGreaterThan(0);
-        });
-
-        it('should return higher values for younger players on average', () => {
-            // Run multiple times to account for random fluctuation
-            let youngWins = 0;
-            const iterations = 30;
-            for (let i = 0; i < iterations; i++) {
-                const youngRecovery = InjurySystem.calculateDailyRecovery(20);
-                const oldRecovery = InjurySystem.calculateDailyRecovery(35);
-                if (youngRecovery > oldRecovery) {
-                    youngWins++;
-                }
-            }
-            // Young players should recover faster more often than not
-            expect(youngWins).toBeGreaterThan(iterations / 2);
-        });
-
-        it('should use sigmoid curve for age-based recovery on average', () => {
-            // Run multiple times to account for random fluctuation
-            let youngFasterThanMid = 0;
-            let oldSlowerThanMid = 0;
-            const iterations = 30;
-
-            for (let i = 0; i < iterations; i++) {
-                const recovery18 = InjurySystem.calculateDailyRecovery(18);
-                const recovery28 = InjurySystem.calculateDailyRecovery(28);
-                const recovery38 = InjurySystem.calculateDailyRecovery(38);
-
-                if (recovery18 > recovery28) youngFasterThanMid++;
-                if (recovery38 < recovery28) oldSlowerThanMid++;
-            }
-
-            // More often than not, younger should be faster than midpoint age
-            expect(youngFasterThanMid).toBeGreaterThan(iterations / 2);
-            // More often than not, older should be slower than midpoint age
-            expect(oldSlowerThanMid).toBeGreaterThan(iterations / 2);
-        });
-
-        it('should be within expected range (2.5-14 with fluctuation)', () => {
-            for (let age = 18; age <= 40; age++) {
-                for (let i = 0; i < 50; i++) {
-                    const recovery = InjurySystem.calculateDailyRecovery(age);
-                    expect(recovery).toBeGreaterThanOrEqual(2);
-                    expect(recovery).toBeLessThanOrEqual(15);
-                }
-            }
-        });
-
-        it('should vary between calls (random fluctuation)', () => {
-            const recoveries = Array.from({ length: 10 }, () => InjurySystem.calculateDailyRecovery(25));
-            const uniqueValues = new Set(recoveries);
-            expect(uniqueValues.size).toBeGreaterThan(1);
         });
     });
 

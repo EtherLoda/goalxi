@@ -85,6 +85,7 @@ const entities = [
       PlayerEntity,
       TeamEntity,
       InjuryEntity,
+      StaffEntity,
     ]),
   ],
   providers: [SimulationProcessor],

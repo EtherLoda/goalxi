@@ -25,6 +25,14 @@ export enum TrainingSlot {
     NONE = 'NONE',
 }
 
+export enum TrainingCategory {
+    PHYSICAL = 'physical',
+    TECHNICAL = 'technical',
+    MENTAL = 'mental',
+    SET_PIECES = 'setPieces',
+    GOALKEEPER = 'goalkeeper',
+}
+
 export interface OutfieldPhysical {
     pace: number;
     strength: number;
@@ -160,6 +168,14 @@ export class PlayerEntity extends AbstractEntity {
         default: TrainingSlot.REGULAR,
     })
     trainingSlot!: TrainingSlot;
+
+    @Column({
+        name: 'training_category',
+        type: 'enum',
+        enum: TrainingCategory,
+        default: TrainingCategory.PHYSICAL,
+    })
+    trainingCategory!: TrainingCategory;
 
     @Column({ type: 'float', default: 0.0 })
     experience!: number;

@@ -3,7 +3,7 @@
  * No database or NestJS dependencies - shareable between API and Settlement
  */
 
-import { PlayerSkills, TrainingSlot } from '../entities/player.entity';
+import { PlayerSkills, TrainingCategory, TrainingSlot } from '../entities/player.entity';
 import { StaffEntity, StaffRole } from '../entities/staff.entity';
 import {
     TRAINING_SETTINGS,
@@ -30,14 +30,14 @@ export interface TrainingResult {
 export function calculateWeeklyTrainingPoints(
     age: number,
     trainingSlot: TrainingSlot,
-    isGoalkeeper: boolean,
+    trainingCategory: TrainingCategory,
     staffList: StaffEntity[],
 ): number {
     const slotMultiplier = getSlotMultiplier(trainingSlot);
     if (slotMultiplier === 0) return 0;
 
     const ageFactor = getAgeTrainingFactor(age);
-    const coachBonus = calculateCoachBonus(staffList, isGoalkeeper);
+    const coachBonus = calculateCoachBonus(staffList, trainingCategory);
 
     return Math.round(
         TRAINING_SETTINGS.BASE_WEEKLY_TRAINING *
@@ -62,32 +62,27 @@ function getSlotMultiplier(slot: TrainingSlot): number {
 
 /**
  * Calculate combined coach bonus for a player
- * Formula: 1 + headBonus + avgCategoryBonus
+ * Formula: 1 + headBonus + relevantCategoryBonus
  */
-export function calculateCoachBonus(staffList: StaffEntity[], isGoalkeeper: boolean): number {
+export function calculateCoachBonus(staffList: StaffEntity[], trainingCategory: TrainingCategory): number {
     const activeStaff = staffList.filter(s => s.isActive);
     const headCoach = activeStaff.find(s => s.role === StaffRole.HEAD_COACH);
     const headBonus = headCoach
         ? headCoach.level * TRAINING_SETTINGS.COACH_BONUS_PER_LEVEL
         : 0;
 
-    const categories = isGoalkeeper
-        ? ['goalkeeper']
-        : ['physical', 'technical', 'mental', 'setPieces'];
-
-    let totalCategoryBonus = 0;
-    for (const category of categories) {
-        const coachRole = getCoachRoleForCategory(category);
-        if (coachRole) {
-            const coach = activeStaff.find(s => s.role === coachRole);
-            if (coach) {
-                totalCategoryBonus += coach.level * TRAINING_SETTINGS.COACH_BONUS_PER_LEVEL;
-            }
+    // Get the relevant category coach based on trainingCategory
+    const categoryStr = trainingCategory as string;
+    const coachRole = getCoachRoleForCategory(categoryStr);
+    let categoryBonus = 0;
+    if (coachRole) {
+        const categoryCoach = activeStaff.find(s => s.role === coachRole);
+        if (categoryCoach) {
+            categoryBonus = categoryCoach.level * TRAINING_SETTINGS.COACH_BONUS_PER_LEVEL;
         }
     }
 
-    const avgCategoryBonus = totalCategoryBonus / categories.length;
-    return 1 + headBonus + avgCategoryBonus;
+    return 1 + headBonus + categoryBonus;
 }
 
 function getCoachRoleForCategory(category: string): StaffRole | null {
@@ -198,11 +193,12 @@ export function applyTrainingToPlayer(
     currentSkills: PlayerSkills,
     potentialSkills: PlayerSkills,
     trainingSlot: TrainingSlot,
+    trainingCategory: TrainingCategory,
     isGoalkeeper: boolean,
     staffList: StaffEntity[],
     weeksElapsed: number,
 ): TrainingResult {
-    const weeklyPoints = calculateWeeklyTrainingPoints(age, trainingSlot, isGoalkeeper, staffList);
+    const weeklyPoints = calculateWeeklyTrainingPoints(age, trainingSlot, trainingCategory, staffList);
     if (weeklyPoints === 0) {
         return {
             playerId,

@@ -89,6 +89,7 @@ export class TrainingProcessor extends WorkerHost {
                 player.currentSkills,
                 player.potentialSkills,
                 player.trainingSlot,
+                player.trainingCategory,
                 player.isGoalkeeper,
                 staffList,
                 1, // 1 week

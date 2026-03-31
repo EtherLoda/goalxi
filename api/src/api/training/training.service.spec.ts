@@ -8,6 +8,7 @@ import {
     StaffRole,
     StaffLevel,
     TrainingSlot,
+    TrainingCategory,
 } from '@goalxi/database';
 import { getSkillUpgradeCost, getTotalTrainingCost } from '@goalxi/database';
 
@@ -23,6 +24,7 @@ describe('TrainingService', () => {
         age: 20,
         isGoalkeeper: false,
         trainingSlot: TrainingSlot.REGULAR,
+        trainingCategory: TrainingCategory.PHYSICAL,
         currentSkills: {
             physical: { pace: 10, strength: 10 },
             technical: { finishing: 10, passing: 10, dribbling: 10, defending: 10 },
@@ -118,9 +120,10 @@ describe('TrainingService', () => {
             const withFitness = service.calculateWeeklyTrainingPoints(player, [headCoach, fitnessCoach]);
             const withBoth = service.calculateWeeklyTrainingPoints(player, [headCoach, fitnessCoach, techCoach]);
 
-            // Adding category coaches should increase points
+            // Adding fitness coach (matching PHYSICAL category) increases points
             expect(withFitness).toBeGreaterThan(onlyHead);
-            expect(withBoth).toBeGreaterThan(withFitness);
+            // Tech coach doesn't add bonus since category is PHYSICAL, not TECHNICAL
+            expect(withBoth).toBe(withFitness);
         });
 
         it('should apply age factor (17 years = 1.0)', () => {
@@ -149,16 +152,16 @@ describe('TrainingService', () => {
             const fitnessCoach = createStaff(StaffRole.FITNESS_COACH, 5);
             const techCoach = createStaff(StaffRole.TECHNICAL_COACH, 5);
 
-            // Additive: 1 + headBonus + avgCategoryBonus
-            // headBonus = 0.25
-            // avgCategoryBonus = (0.25 + 0.25) / 4 = 0.125
-            // multiplier = 1 + 0.25 + 0.125 = 1.375
+            // Formula: 1 + headBonus + categoryBonus
+            // headBonus = 0.25 (level 5 * 5%)
+            // categoryBonus = 0.25 (fitness coach matches PHYSICAL category)
+            // multiplier = 1 + 0.25 + 0.25 = 1.5
+            // tech coach doesn't add since category is PHYSICAL
             const points = service.calculateWeeklyTrainingPoints(player, [headCoach, fitnessCoach, techCoach]);
             const noCoachPoints = service.calculateWeeklyTrainingPoints(player, []);
 
-            // Should be roughly 1.375x
-            expect(points / noCoachPoints).toBeGreaterThan(1.3);
-            expect(points / noCoachPoints).toBeLessThan(1.5);
+            // Should be exactly 1.5x (head + category coach matching PHYSICAL)
+            expect(points / noCoachPoints).toBe(1.5);
         });
     });
 

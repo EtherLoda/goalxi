@@ -43,7 +43,7 @@ export class InjurySystem {
      * Calculate if a player will get injured based on various factors.
      *
      * @param baseChance - Base probability (already calculated from action type)
-     * @param playerAge - Player's age
+     * @param playerAge - Player's age (not used for injury chance anymore, kept for signature)
      * @param playerStamina - Player's stamina level [1-6]
      * @param isHomeMatch - Whether the match is at home
      * @param doctorLevel - Team doctor level (0 = no doctor)
@@ -56,13 +56,6 @@ export class InjurySystem {
         doctorLevel: number = 0
     ): number {
         let chance = baseChance;
-
-        // Age multiplier
-        const ageMultiplier = playerAge >= 34 ? 1.5
-            : playerAge >= 31 ? 1.2
-            : playerAge >= 25 ? 1.0
-            : 0.8; // 18-24
-        chance *= ageMultiplier;
 
         // Stamina multiplier (low stamina = higher injury risk)
         const staminaMultiplier = playerStamina <= 2 ? 1.5
@@ -173,37 +166,8 @@ export class InjurySystem {
     }
 
     /**
-     * Calculate daily recovery value based on player age using sigmoid function.
-     * Age affects the sigmoid parameters (recovery speed).
-     * Recovery range comes from daily random fluctuation.
-     *
-     * @param playerAge - Player's age (18-40)
-     * @returns Daily recovery value (typically 3-12)
-     */
-    static calculateDailyRecovery(playerAge: number): number {
-        // Sigmoid parameters tuned for age-based recovery
-        // Younger players recover faster, older players recover slower
-        // Sigmoid: base + amplitude / (1 + exp(-k * (age - midpoint)))
-        const midpoint = 28;      // Age where recovery is average
-        const k = 0.25;           // Steepness of the curve
-        const base = 3;           // Minimum recovery (older players)
-        const amplitude = 9;      // Range of recovery variation
-
-        // Calculate sigmoid value
-        // Negative exponent to make younger players recover faster
-        const sigmoid = base + amplitude / (1 + Math.exp(k * (playerAge - midpoint)));
-
-        // Add random fluctuation (±15%) for daily variation
-        // This creates the recovery range, not age
-        const fluctuation = 0.85 + Math.random() * 0.3;
-
-        const recovery = sigmoid * fluctuation;
-        return Math.round(recovery * 10) / 10;
-    }
-
-    /**
      * Get the expected recovery range for a given injury value.
-     * Range comes from daily random fluctuation, not age.
+     * Range comes from daily random fluctuation.
      *
      * @param injuryValue - Current injury value
      * @returns { minDays, maxDays } - Estimated recovery range

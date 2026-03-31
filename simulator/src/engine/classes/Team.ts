@@ -10,7 +10,8 @@ export class Team {
 
     constructor(
         public name: string,
-        public players: TacticalPlayer[]
+        public players: TacticalPlayer[],
+        public doctorLevel: number = 0,
     ) {
         this.playerFitness = new Float32Array(players.length);
         // Initialize Fitness to starting Stamina

@@ -18,6 +18,8 @@ import {
     MatchLane,
     toSimulationPlayer,
     InjuryEntity,
+    StaffEntity,
+    StaffRole,
 } from '@goalxi/database';
 import { MatchEngine, MatchEvent } from '../engine/match.engine';
 import { Team } from '../engine/classes/Team';
@@ -49,6 +51,8 @@ export class SimulationProcessor extends WorkerHost {
         private readonly teamRepository: Repository<TeamEntity>,
         @InjectRepository(InjuryEntity)
         private readonly injuryRepository: Repository<InjuryEntity>,
+        @InjectRepository(StaffEntity)
+        private readonly staffRepository: Repository<StaffEntity>,
         private readonly dataSource: DataSource,
     ) {
         super();
@@ -96,7 +100,7 @@ export class SimulationProcessor extends WorkerHost {
             throw new Error(`Tactics missing for match ${match.id}`);
         }
 
-        // 2. Fetch Teams with Bench Config
+        // 2. Fetch Teams with Bench Config and Doctors
         const [homeTeamEntity, awayTeamEntity] = await Promise.all([
             this.teamRepository.findOne({ where: { id: match.homeTeamId as any } }),
             this.teamRepository.findOne({ where: { id: match.awayTeamId as any } }),
@@ -104,6 +108,14 @@ export class SimulationProcessor extends WorkerHost {
 
         const homeBenchConfig = homeTeamEntity?.benchConfig || null;
         const awayBenchConfig = awayTeamEntity?.benchConfig || null;
+
+        // Fetch team doctors for injury calculation
+        const [homeDoctors, awayDoctors] = await Promise.all([
+            this.staffRepository.find({ where: { teamId: match.homeTeamId, role: StaffRole.TEAM_DOCTOR, isActive: true } }),
+            this.staffRepository.find({ where: { teamId: match.awayTeamId, role: StaffRole.TEAM_DOCTOR, isActive: true } }),
+        ]);
+        const homeDoctorLevel = homeDoctors[0]?.level || 0;
+        const awayDoctorLevel = awayDoctors[0]?.level || 0;
 
         // 3. Fetch Players
         const homeStarterIds = Object.values(homeTactics.lineup).filter(id => typeof id === 'string');
@@ -191,8 +203,8 @@ export class SimulationProcessor extends WorkerHost {
             }
         }
 
-        const tA = new Team(match.homeTeam!.name, homeTacticalPlayers);
-        const tB = new Team(match.awayTeam!.name, awayTacticalPlayers);
+        const tA = new Team(match.homeTeam!.name, homeTacticalPlayers, homeDoctorLevel);
+        const tB = new Team(match.awayTeam!.name, awayTacticalPlayers, awayDoctorLevel);
 
         const engine = new MatchEngine(tA, tB, homeInstructions, awayInstructions, subMap, homeBenchConfig, awayBenchConfig);
 

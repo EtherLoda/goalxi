@@ -13,6 +13,7 @@ import {
     MatchStatus,
     MatchType,
     InjuryEntity,
+    StaffEntity,
 } from '@goalxi/database';
 
 describe('SimulationProcessor', () => {
@@ -155,6 +156,12 @@ describe('SimulationProcessor', () => {
                     useValue: {
                         find: jest.fn(),
                         save: jest.fn(),
+                    },
+                },
+                {
+                    provide: getRepositoryToken(StaffEntity),
+                    useValue: {
+                        find: jest.fn().mockResolvedValue([]),
                     },
                 },
                 {

@@ -37,6 +37,7 @@ export class TrainingService {
             player.currentSkills,
             player.potentialSkills,
             player.trainingSlot,
+            player.trainingCategory,
             player.isGoalkeeper,
             staffList,
             1, // 1 week for calculation
@@ -62,6 +63,7 @@ export class TrainingService {
             player.currentSkills,
             player.potentialSkills,
             player.trainingSlot,
+            player.trainingCategory,
             player.isGoalkeeper,
             staffList,
             weeksElapsed,
