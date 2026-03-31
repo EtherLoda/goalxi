@@ -24,6 +24,7 @@ export enum MatchType {
     TOURNAMENT = 'tournament',
     FRIENDLY = 'friendly',
     NATIONAL_TEAM = 'national_team',
+    PLAYOFF = 'playoff',  // 升降级附加赛
 }
 
 @Entity('match')
@@ -120,6 +121,10 @@ export class MatchEntity extends AbstractEntity {
 
     @Column({ name: 'has_penalty_shootout', type: 'boolean', default: false })
     hasPenaltyShootout!: boolean;
+
+    /** 升降级附加赛时：低级联赛ID（高级联赛ID用 leagueId） */
+    @Column({ name: 'lower_league_id', type: 'uuid', nullable: true })
+    lowerLeagueId?: string | null;
 
     constructor(partial?: Partial<MatchEntity>) {
         super();

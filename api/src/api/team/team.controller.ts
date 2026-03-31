@@ -78,4 +78,21 @@ export class TeamController {
     async delete(@Param('id') id: Uuid): Promise<void> {
         return this.teamService.delete(id);
     }
+
+    @Public()
+    @Get('available')
+    @HttpCode(HttpStatus.OK)
+    async listAvailableBotTeams(@Query('leagueId') leagueId?: string): Promise<TeamResDto[]> {
+        return this.teamService.listAvailableBotTeams(leagueId);
+    }
+
+    @Public()
+    @Post(':id/apply')
+    @HttpCode(HttpStatus.OK)
+    async applyForTakeover(
+        @Param('id') id: Uuid,
+        @Body() body: { userId: Uuid },
+    ): Promise<{ success: boolean; message: string }> {
+        return this.teamService.applyForTakeover(id, body.userId);
+    }
 }

@@ -12,11 +12,19 @@ import {
     TeamEntity,
     ScoutCandidateEntity,
     StaffEntity,
+    LeagueEntity,
+    LeagueStandingEntity,
+    SeasonResultEntity,
 } from '@goalxi/database';
 import { MatchSchedulerService } from './match-scheduler.service';
 import { InjuryRecoveryService } from './injury-recovery.service';
 import { ScoutSchedulerService } from './scout-scheduler.service';
 import { TrainingSchedulerService } from './training-scheduler.service';
+import { SeasonSchedulerService } from './season-scheduler.service';
+import { PromotionRelegationService } from './promotion-relegation.service';
+import { PlayoffService } from './playoff.service';
+import { LeagueAdminService } from './league-admin.service';
+import { TeamGeneratorService } from './team-generator.service';
 
 @Module({
     imports: [
@@ -34,6 +42,7 @@ import { TrainingSchedulerService } from './training-scheduler.service';
             MatchEntity, MatchTacticsEntity, MatchEventEntity,
             PlayerEntity, InjuryEntity, YouthPlayerEntity,
             TeamEntity, ScoutCandidateEntity, StaffEntity,
+            LeagueEntity, LeagueStandingEntity, SeasonResultEntity,
         ]),
     ],
     providers: [
@@ -41,12 +50,22 @@ import { TrainingSchedulerService } from './training-scheduler.service';
         InjuryRecoveryService,
         ScoutSchedulerService,
         TrainingSchedulerService,
+        SeasonSchedulerService,
+        PromotionRelegationService,
+        PlayoffService,
+        LeagueAdminService,
+        TeamGeneratorService,
     ],
     exports: [
         MatchSchedulerService,
         InjuryRecoveryService,
         ScoutSchedulerService,
         TrainingSchedulerService,
+        SeasonSchedulerService,
+        PromotionRelegationService,
+        PlayoffService,
+        LeagueAdminService,
+        TeamGeneratorService,
     ],
 })
 export class SchedulerModule { }

@@ -16,39 +16,27 @@ import {
     PlayerSkills,
     LeagueStandingEntity,
     GAME_SETTINGS,
+    Uuid,
 } from '@goalxi/database';
 import * as argon2 from 'argon2';
-import { NAME_DATABASE, getRandomNameByNationality } from '../src/constants/name-database';
+import { getRandomNameByNationality } from '../src/constants/name-database';
 
-const TEAM_NAMES = [
-    'Manchester Dragons', 'London Tigers', 'Liverpool Eagles', 'Birmingham Lions',
-    'Leeds Wolves', 'Newcastle Sharks', 'Bristol Bears', 'Sheffield Steelers'
-];
+/**
+ * Seed Main - Creates a minimal pyramid structure for production:
+ * - L1: 1 league (16 BOT teams)
+ * - L2: 4 leagues (16 BOT teams each), linked to L1
+ * - L3: 16 leagues (16 BOT teams each), linked to L2
+ *
+ * This is a simplified version for demonstration.
+ * Full pyramid: L1=1, L2=4, L3=16, L4=32+ leagues
+ */
 
-const TEAM_IDS = [
-    '4ea9e0d1-f3d3-4742-9000-132ed2b31f29', // Manchester Dragons
-    '25119a5e-31a5-4feb-ad7a-76b684d97045', // Sheffield Steelers
-    '3c145e10-fe6f-41ca-b4a7-e32511b228a6', // Bristol Bears
-    'b762d45f-f5a2-40fd-9b8e-91096cbbd55e', // Newcastle Sharks
-    '212e8d48-4859-448d-87f5-563bc6183e42', // Leeds Wolves
-    '17298712-aeb7-4685-aa4c-442cad956c78', // Birmingham Lions
-    'a1b2c3d4-e5f6-4a7b-8c9d-e0f1a2b3c4d5',
-    'f6e5d4c3-b2a1-4f0e-9d8c-7b6a5e4d3c2b',
-];
+const LEAGUE_CONFIG = {
+    L1: { count: 1, teamsPerLeague: 16 },
+    L2: { count: 4, teamsPerLeague: 16 },
+    L3: { count: 16, teamsPerLeague: 16 },
+};
 
-// Team nationalities: testuser 1-4 use China (CN), testuser 5-8 use other nationalities
-const TEAM_NATIONALITIES = [
-    'CN', // testuser1
-    'CN', // testuser2
-    'CN', // testuser3
-    'CN', // testuser4
-    'GB', // testuser5
-    'ES', // testuser6
-    'BR', // testuser7
-    'IT', // testuser8
-];
-
-// Positions distribution for 16 players: 2 GK, 14 Outfield
 const TEAM_ROSTER_SIZE = 16;
 const GK_COUNT = 2;
 
@@ -75,59 +63,54 @@ function generatePlayerAppearance() {
     };
 }
 
-function generatePlayerPotential(): { tier: PotentialTier, ability: number } {
+function generatePlayerPotential(): { tier: PotentialTier; ability: number } {
     const rand = Math.random() * 100;
-    if (rand < 0.5) return { tier: PotentialTier.LEGEND, ability: randomInt(91, 99) }; // 0.5% Legend
-    if (rand < 5.0) return { tier: PotentialTier.ELITE, ability: randomInt(81, 90) };  // 4.5% Elite
-    if (rand < 20.0) return { tier: PotentialTier.HIGH_PRO, ability: randomInt(71, 80) }; // 15% High Pro
-    if (rand < 55.0) return { tier: PotentialTier.REGULAR, ability: randomInt(56, 70) }; // 35% Regular
-    return { tier: PotentialTier.LOW, ability: randomInt(40, 55) }; // 45% Low
+    if (rand < 0.5) return { tier: PotentialTier.LEGEND, ability: randomInt(91, 99) };
+    if (rand < 5.0) return { tier: PotentialTier.ELITE, ability: randomInt(81, 90) };
+    if (rand < 20.0) return { tier: PotentialTier.HIGH_PRO, ability: randomInt(71, 80) };
+    if (rand < 55.0) return { tier: PotentialTier.REGULAR, ability: randomInt(56, 70) };
+    return { tier: PotentialTier.LOW, ability: randomInt(40, 55) };
 }
 
 function generatePlayerAttributes(isGK: boolean, potentialAbility: number, age: number): { current: PlayerSkills; potential: PlayerSkills } {
-    const targetPotentialAvg = potentialAbility / 5; // Map 0-100 PA to roughly 0-20 attributes
+    const targetPotentialAvg = potentialAbility / 5;
 
     const outfieldKeys = {
         physical: ['pace', 'strength'],
         technical: ['finishing', 'passing', 'dribbling', 'defending'],
         mental: ['positioning', 'composure'],
-        setPieces: ['freeKicks', 'penalties']
+        setPieces: ['freeKicks', 'penalties'],
     };
 
     const gkKeysActual = {
         physical: ['pace', 'strength'],
         technical: ['reflexes', 'handling', 'distribution'],
         mental: ['positioning', 'composure'],
-        setPieces: ['freeKicks', 'penalties']
+        setPieces: ['freeKicks', 'penalties'],
     };
 
     const keys = isGK ? gkKeysActual : outfieldKeys;
     const potential: Record<string, any> = { physical: {}, technical: {}, mental: {}, setPieces: {} };
     const current: Record<string, any> = { physical: {}, technical: {}, mental: {}, setPieces: {} };
 
-    // 1. Generate Potential (with 2 decimal places)
     Object.entries(keys).forEach(([category, attrs]) => {
-        attrs.forEach(attr => {
-            // Base value + random variance (with decimals)
+        attrs.forEach((attr) => {
             let val = targetPotentialAvg + (Math.random() * 6 - 3);
             val = Math.max(1, Math.min(20, val));
             potential[category][attr] = parseFloat(val.toFixed(2));
         });
     });
 
-    // 2. Generate Current based on age (with 2 decimal places)
     Object.entries(keys).forEach(([category, attrs]) => {
-        attrs.forEach(attr => {
+        attrs.forEach((attr) => {
             let ca: number;
             if (age <= 17) {
-                ca = Math.max(1, potential[category][attr] * 0.4); // Starts low
+                ca = Math.max(1, potential[category][attr] * 0.4);
             } else {
-                // Scale towards potential: 18yo ~50%, 28yo ~100%
                 const ratio = Math.min(1, 0.5 + (age - 18) * 0.05);
                 ca = potential[category][attr] * ratio;
             }
-            // Add noise (smaller for decimals)
-            ca += (Math.random() * 2 - 1);
+            ca += Math.random() * 2 - 1;
             ca = Math.max(1, Math.min(potential[category][attr], ca));
             current[category][attr] = parseFloat(ca.toFixed(2));
         });
@@ -136,246 +119,226 @@ function generatePlayerAttributes(isGK: boolean, potentialAbility: number, age: 
     return { current: current as PlayerSkills, potential: potential as PlayerSkills };
 }
 
-// Scheduling Helper: Round Robin
-function generateRoundRobinSchedule(teams: TeamEntity[], season: number, leagueId: string) {
-    if (teams.length % 2 !== 0) {
-        throw new Error('Number of teams must be even for simple round robin');
-    }
-
-    const matches: Partial<MatchEntity>[] = [];
-    const numRounds = (teams.length - 1) * 2; // Double Round Robin
-    const matchesPerRound = teams.length / 2;
-
-    const teamIds = teams.map(t => t.id);
-    // Standard Round Robin Algorithm
-    // Fix first team, rotate others
-
-    // First Half of Season (Rounds 1 to N-1)
-    let rotation = [...teamIds];
-    const dummy = rotation.shift()!; // Keep first team fixed
-
-    // Start Date: Next Saturday 13:00
-    let matchDate = new Date();
-    matchDate.setDate(matchDate.getDate() + (6 - matchDate.getDay() + 7) % 7); // Next Saturday
-    matchDate.setHours(13, 0, 0, 0);
-
-    for (let round = 0; round < numRounds; round++) {
-        // Prepare matchups for this round
-        const roundMatches: Partial<MatchEntity>[] = [];
-
-        // Match 0: Fixed team vs Rotation[0]
-        // Determine Home/Away based on round to balance (simple alternation)
-        const teamA = dummy;
-        const teamB = rotation[0];
-
-        // Alternating home/away for the fixed team
-        if (round % 2 === 0) {
-            roundMatches.push({ homeTeamId: teamA, awayTeamId: teamB });
-        } else {
-            roundMatches.push({ homeTeamId: teamB, awayTeamId: teamA });
-        }
-
-        // Other matches: pair ends of the array
-        for (let i = 1; i < matchesPerRound; i++) {
-            const t1 = rotation[i];
-            const t2 = rotation[rotation.length - i];
-            // Simple logic for home/away alternation
-            if (round % 2 === 0) {
-                roundMatches.push({ homeTeamId: t1, awayTeamId: t2 });
-            } else {
-                roundMatches.push({ homeTeamId: t2, awayTeamId: t1 });
-            }
-        }
-
-        // Add to main list with date
-        roundMatches.forEach(m => {
-            matches.push({
-                ...m,
-                leagueId,
-                season,
-                week: round + 1, // Correctly set the week number (1-indexed)
-                scheduledAt: new Date(matchDate),
-                status: MatchStatus.SCHEDULED,
-                type: MatchType.LEAGUE,
-                tacticsLocked: false,
-                homeForfeit: false,
-                awayForfeit: false,
-            });
-        });
-
-        // Rotate for next round
-        rotation.push(rotation.shift()!);
-
-        // Increment date by 1 week
-        matchDate.setDate(matchDate.getDate() + 7);
-    }
-
-    return matches;
+function generateTeamName(tier: number, division: number, index: number): string {
+    const prefixes = ['FC', 'SC', 'AC', 'United', 'City', 'Rovers', 'Athletic'];
+    const cities = ['North', 'South', 'East', 'West', 'Central', 'New', 'Royal', 'Grand'];
+    const names = ['Wolves', 'Eagles', 'Lions', 'Tigers', 'Bears', 'Sharks', 'Phoenix', 'Dragons', 'Warriors', 'Knights'];
+    const suffix = tier === 1 ? '' : ` Div ${division}`;
+    return `${randomElement(names)} ${randomElement(prefixes)}${suffix}`;
 }
 
+function getLeagueOvrRange(tier: number): { min: number; max: number } {
+    switch (tier) {
+        case 1: return { min: 55, max: 75 };
+        case 2: return { min: 45, max: 65 };
+        case 3: return { min: 35, max: 55 };
+        case 4: return { min: 30, max: 50 };
+        default: return { min: 40, max: 60 };
+    }
+}
 
-async function createTestData() {
-    try {
-        console.log('🚀 Initializing database connection...');
-        await AppDataSource.initialize();
-        console.log('✅ Database connected\n');
+async function createLeaguePyramid() {
+    console.log('🚀 Initializing database connection...');
+    await AppDataSource.initialize();
+    console.log('✅ Database connected\n');
 
-        const userRepo = AppDataSource.getRepository(UserEntity);
-        const teamRepo = AppDataSource.getRepository(TeamEntity);
-        const leagueRepo = AppDataSource.getRepository(LeagueEntity);
-        const playerRepo = AppDataSource.getRepository(PlayerEntity);
-        const financeRepo = AppDataSource.getRepository(FinanceEntity);
-        const matchRepo = AppDataSource.getRepository(MatchEntity);
+    const userRepo = AppDataSource.getRepository(UserEntity);
+    const teamRepo = AppDataSource.getRepository(TeamEntity);
+    const leagueRepo = AppDataSource.getRepository(LeagueEntity);
+    const playerRepo = AppDataSource.getRepository(PlayerEntity);
+    const financeRepo = AppDataSource.getRepository(FinanceEntity);
+    const standingRepo = AppDataSource.getRepository(LeagueStandingEntity);
 
-        // 1. Create Admin User
-        console.log('👤 Creating Admin User...');
-        const adminEmail = 'admin@goalxi.com';
-        let adminUser = await userRepo.findOneBy({ email: adminEmail });
+    // 1. Create Admin User
+    console.log('👤 Creating Admin User...');
+    const adminEmail = 'admin@goalxi.com';
+    let adminUser = await userRepo.findOneBy({ email: adminEmail });
 
-        if (!adminUser) {
-            const hashedPassword = await argon2.hash('Test123456!');
-            adminUser = new UserEntity({
-                username: 'admin',
-                email: adminEmail,
-                password: hashedPassword,
-                nickname: 'Admin Manager',
-                bio: 'System Administrator',
-                supporterLevel: 99,
-            });
-            await userRepo.save(adminUser);
-            console.log(`   ✓ Admin user created: ${adminEmail} / Test123456!`);
-        } else {
-            console.log(`   ⊙ Admin user already exists`);
-        }
+    if (!adminUser) {
+        const hashedPassword = await argon2.hash('Test123456!');
+        adminUser = new UserEntity({
+            username: 'admin',
+            email: adminEmail,
+            password: hashedPassword,
+            nickname: 'Admin Manager',
+            bio: 'System Administrator',
+            supporterLevel: 99,
+        });
+        await userRepo.save(adminUser);
+        console.log(`   ✓ Admin: ${adminEmail} / Test123456!`);
+    } else {
+        console.log(`   ⊙ Admin already exists`);
+    }
 
-        // 2. Create Elite League
-        console.log('\n🏆 Creating Elite League...');
-        const leagueName = 'Elite League';
-        const leagueId = 'ae18f738-ad83-4038-ae9d-af5dd773c0dc';
-        let league = await leagueRepo.findOneBy({ id: leagueId as any });
+    // 2. Create League Pyramid
+    console.log('\n🏆 Creating League Pyramid...');
+    const leagues: LeagueEntity[] = [];
+    const leagueIds: Record<string, string> = {};
 
-        if (!league) {
-            league = new LeagueEntity({
-                id: leagueId as any,
-                name: leagueName,
-                tier: 1,
-                division: 1,
+    // L1: 1 league
+    const l1Id = uuidv4();
+    leagueIds['L1'] = l1Id;
+    let l1League = await leagueRepo.findOneBy({ id: l1Id as any });
+    if (!l1League) {
+        l1League = new LeagueEntity({
+            id: l1Id as any,
+            name: 'Elite League',
+            tier: 1,
+            tierDivision: 1,
+            maxTeams: 16,
+            promotionSlots: 1,
+            playoffSlots: 4,
+            relegationSlots: 4,
+            status: 'active',
+            parentLeagueId: undefined,
+        });
+        await leagueRepo.save(l1League);
+        console.log(`   ✓ Created L1: Elite League`);
+    } else {
+        console.log(`   ⊙ L1 already exists`);
+    }
+    leagues.push(l1League);
+
+    // L2: 4 leagues (each linked to L1)
+    const l2Leagues: LeagueEntity[] = [];
+    for (let d = 1; d <= 4; d++) {
+        const l2Id = uuidv4();
+        leagueIds[`L2_${d}`] = l2Id;
+        let l2League = await leagueRepo.findOneBy({ id: l2Id as any });
+        if (!l2League) {
+            l2League = new LeagueEntity({
+                id: l2Id as any,
+                name: `Professional League Div ${d}`,
+                tier: 2,
+                tierDivision: d,
+                maxTeams: 16,
+                promotionSlots: 1,
+                playoffSlots: 4,
+                relegationSlots: 4,
                 status: 'active',
+                parentLeagueId: l1Id as Uuid,
             });
-            await leagueRepo.save(league);
-            console.log(`   ✓ Created league: ${leagueName} (${leagueId})`);
+            await leagueRepo.save(l2League);
+            console.log(`   ✓ Created L2 Div ${d}`);
         } else {
-            console.log(`   ⊙ League already exists: ${leagueName}`);
+            console.log(`   ⊙ L2 Div ${d} already exists`);
+        }
+        l2Leagues.push(l2League);
+        leagues.push(l2League);
+    }
+
+    // L3: 16 leagues (each linked to corresponding L2)
+    for (let d = 1; d <= 16; d++) {
+        const l3Id = uuidv4();
+        leagueIds[`L3_${d}`] = l3Id;
+        // L3 div 1-4 belong to L2 div 1, L3 div 5-8 to L2 div 2, etc.
+        const l2Division = Math.ceil(d / 4);
+        let l3League = await leagueRepo.findOneBy({ id: l3Id as any });
+        if (!l3League) {
+            l3League = new LeagueEntity({
+                id: l3Id as any,
+                name: `Amateur League Div ${d}`,
+                tier: 3,
+                tierDivision: d,
+                maxTeams: 16,
+                promotionSlots: 1,
+                playoffSlots: 4,
+                relegationSlots: 4,
+                status: 'active',
+                parentLeagueId: l2Leagues[l2Division - 1].id,
+            });
+            await leagueRepo.save(l3League);
+            console.log(`   ✓ Created L3 Div ${d} (parent: L2 Div ${l2Division})`);
+        } else {
+            console.log(`   ⊙ L3 Div ${d} already exists`);
+        }
+        leagues.push(l3League);
+    }
+
+    // 3. Create Teams for each league
+    console.log('\n⚽ Creating Teams...');
+    const ovrRange = getLeagueOvrRange(1);
+    const teamBaseOvr = randomInt(ovrRange.min, ovrRange.max);
+
+    for (const league of leagues) {
+        const existingStandings = await standingRepo.count({
+            where: { leagueId: league.id, season: 1 },
+        });
+
+        if (existingStandings >= league.maxTeams) {
+            console.log(`   ⊙ ${league.name}: already has ${existingStandings} teams`);
+            continue;
         }
 
-        // 3. Create Teams (8 Teams)
-        console.log('\n⚽ Creating Teams...');
-        const createdTeams: TeamEntity[] = [];
+        const teamsToCreate = league.maxTeams - existingStandings;
+        const tierOvrRange = getLeagueOvrRange(league.tier);
+        const tierBaseOvr = randomInt(tierOvrRange.min, tierOvrRange.max);
 
-        for (let i = 0; i < 8; i++) {
-            const ownerEmail = `testuser${i + 1}@goalxi.com`;
-            let owner = await userRepo.findOneBy({ email: ownerEmail });
+        for (let i = 0; i < teamsToCreate; i++) {
+            const teamId = uuidv4();
+            const teamName = generateTeamName(league.tier, league.tierDivision, i);
+            const nationality = randomElement(['CN', 'GB', 'ES', 'BR', 'IT', 'DE', 'FR']);
 
-            if (!owner) {
-                // 直接传入原始密码，@BeforeInsert() 钩子会自动哈希
-                owner = await userRepo.save(new UserEntity({
-                    username: `testuser${i + 1}`,
-                    email: ownerEmail,
-                    password: 'Test123456!',  // 原始密码，Entity 会自动哈希
-                    nickname: `Test Manager ${i + 1}`,
-                }));
-                console.log(`   ✓ Created user: ${ownerEmail}`);
-            }
+            const team = new TeamEntity({
+                id: teamId as any,
+                name: teamName,
+                userId: adminUser!.id,
+                leagueId: league.id,
+                isBot: true,
+                botLevel: 5,
+                logoUrl: '',
+                jerseyColorPrimary: `#${Math.floor(Math.random() * 16777215).toString(16).padStart(6, '0')}`,
+                jerseyColorSecondary: '#FFFFFF',
+            });
+            await teamRepo.save(team);
 
-            const teamName = TEAM_NAMES[i] || `Team ${i + 1}`;
-            const teamId = TEAM_IDS[i];
-            let team = await teamRepo.findOneBy({ id: teamId as any });
+            // Create finance
+            await financeRepo.save(new FinanceEntity({
+                teamId: team.id,
+                balance: randomInt(1000000, 10000000),
+            }));
 
-            if (!team) {
-                team = new TeamEntity({
-                    id: teamId as any,
-                    name: teamName,
-                    userId: owner.id,
-                    leagueId: league!.id,
-                    logoUrl: '',
-                    jerseyColorPrimary: '#FF0000',
-                    jerseyColorSecondary: '#FFFFFF',
-                });
-                await teamRepo.save(team);
+            // Create standing
+            const standing = standingRepo.create({
+                teamId: team.id,
+                leagueId: league.id,
+                season: 1,
+                position: existingStandings + i + 1,
+                played: 0,
+                points: 0,
+                wins: 0,
+                draws: 0,
+                losses: 0,
+                goalsFor: 0,
+                goalsAgainst: 0,
+                goalDifference: 0,
+                recentForm: '',
+            });
+            await standingRepo.save(standing);
 
-                // Initialize Finances
-                await financeRepo.save(new FinanceEntity({ teamId: team.id, balance: 100000000 }));
-                console.log(`   ✓ Created team: ${teamName} (${teamId})`);
-            } else {
-                // Only update if team has no owner (orphan team) or same user
-                if (!team.userId || team.userId === owner.id) {
-                    team.userId = owner.id;
-                    team.leagueId = league!.id;
-                    await teamRepo.save(team);
-                    console.log(`   ⊙ Linked existing team: ${teamName} to ${owner.email}`);
-                } else {
-                    // Team already owned by another user - find or create a new team
-                    const existingTeamWithUser = await teamRepo.findOne({
-                        where: { userId: owner.id },
-                    });
-                    if (existingTeamWithUser) {
-                        team = existingTeamWithUser;
-                        console.log(`   ⊙ User ${owner.email} already has team: ${team.name}`);
-                    } else {
-                        // Create new team for this user
-                        const newTeamId = uuidv4();
-                        const newTeam = new TeamEntity({
-                            id: newTeamId as any,
-                            name: `${teamName} (${owner.username})`,
-                            userId: owner.id,
-                            leagueId: league!.id,
-                            logoUrl: '',
-                            jerseyColorPrimary: '#FF0000',
-                            jerseyColorSecondary: '#FFFFFF',
-                        });
-                        await teamRepo.save(newTeam);
-                        await financeRepo.save(new FinanceEntity({ teamId: newTeam.id, balance: 100000000 }));
-                        team = newTeam;
-                        console.log(`   ✓ Created new team for ${owner.email}: ${newTeam.name}`);
-                    }
-                }
-            }
-            createdTeams.push(team);
-        }
-
-        // 4. Create Players (16 per team)
-        console.log('\n👥 Creating Players...');
-        for (let i = 0; i < createdTeams.length; i++) {
-            const team = createdTeams[i];
-            const playerCount = await playerRepo.count({ where: { teamId: team.id } });
-            if (playerCount >= TEAM_ROSTER_SIZE) {
-                console.log(`   ⊙ ${team.name} has enough players (${playerCount})`);
-                continue;
-            }
-
+            // Create players for this team
             const playersToCreate = [];
-            // Use team's assigned nationality
-            const teamNationality = TEAM_NATIONALITIES[i] || 'GB';
-            for (let j = 0; j < TEAM_ROSTER_SIZE; j++) {
-                // First 2 are GKs
-                const isGK = j < GK_COUNT;
-                // Use team nationality for player names
-                const { firstName, lastName } = getRandomNameByNationality(teamNationality);
+            for (let p = 0; p < TEAM_ROSTER_SIZE; p++) {
+                const isGK = p < GK_COUNT;
+                const { firstName, lastName } = getRandomNameByNationality(nationality);
                 const name = `${firstName} ${lastName}`;
-                // Age 18-34, no youth players (青训系统未实装)
-                const age = randomInt(18, 34);
+                const age = randomInt(17, 35);
 
-                const { tier, ability } = generatePlayerPotential();
-                const { current, potential } = generatePlayerAttributes(isGK, ability, age);
+                // Each player's OVR is within ±2 of team base
+                const playerOvr = tierBaseOvr + randomInt(-2, 2);
+                const ability = Math.round(playerOvr / 5 * 10) / 10; // Convert to 0-20 scale
+
+                const { tier: potentialTier, ability: potentialAbility } = generatePlayerPotential();
+                const { current, potential } = generatePlayerAttributes(isGK, potentialAbility, age);
 
                 playersToCreate.push(new PlayerEntity({
                     name,
                     teamId: team.id,
                     isGoalkeeper: isGK,
-                    birthday: new Date(Date.now() - (age * GAME_SETTINGS.MS_PER_YEAR) - (Math.floor(Math.random() * GAME_SETTINGS.DAYS_PER_YEAR) * 24 * 60 * 60 * 1000)),
-                    isYouth: false,
-                    potentialAbility: ability,
-                    potentialTier: tier,
+                    birthday: new Date(Date.now() - (age * GAME_SETTINGS.MS_PER_YEAR) - (randomInt(0, 365) * 24 * 60 * 60 * 1000)),
+                    isYouth: age <= 17,
+                    potentialAbility: Math.round(potentialAbility),
+                    potentialTier,
                     trainingSlot: TrainingSlot.REGULAR,
                     appearance: generatePlayerAppearance(),
                     currentSkills: current,
@@ -387,67 +350,27 @@ async function createTestData() {
                 }));
             }
             await playerRepo.save(playersToCreate);
-            console.log(`   ✓ Generated ${TEAM_ROSTER_SIZE} players for ${team.name}`);
         }
 
-        // 5. Generate Match Schedule
-        console.log('\n📅 Generating Match Schedule...');
-        // Clear existing matches for this league/season to prevent duplicates
-        await matchRepo.delete({ leagueId: league!.id, season: 1 });
-
-        const schedule = generateRoundRobinSchedule(createdTeams, 1, league!.id);
-
-        // Before saving, ensure all team IDs are valid in the DB context
-        // and add some randomness to match times
-        const finalSchedule = schedule.map(match => {
-            const baseDate = new Date(match.scheduledAt!);
-            // Randomly offset time by +/- 2 hours to look more dynamic
-            const offsetMinutes = Math.floor(Math.random() * 240) - 120;
-            baseDate.setMinutes(baseDate.getMinutes() + offsetMinutes);
-
-            return matchRepo.create({
-                ...match,
-                scheduledAt: baseDate,
-            });
-        });
-
-        await matchRepo.save(finalSchedule);
-        console.log(`   ✓ Scheduled ${finalSchedule.length} matches for Season 1 (Regenerated)`);
-
-        // 6. Create Initial Standings
-        console.log('\n📊 Creating Initial Standings...');
-        const standingRepo = AppDataSource.getRepository(LeagueStandingEntity);
-        // Clear existing standings
-        await standingRepo.delete({ leagueId: league!.id, season: 1 });
-
-        const standings = createdTeams.map((team, idx) => {
-            return standingRepo.create({
-                leagueId: league!.id,
-                teamId: team.id,
-                season: 1,
-                position: idx + 1,
-                points: 0,
-                goalsFor: 0,
-                goalsAgainst: 0,
-                wins: 0,
-                draws: 0,
-                losses: 0,
-            });
-        });
-        await standingRepo.save(standings);
-        console.log(`   ✓ Created standings for ${standings.length} teams`);
-
-        console.log('\n✅ Seed Completion Summary:');
-        console.log(`   League: ${league!.name}`);
-        console.log(`   Teams: ${createdTeams.length}`);
-        console.log(`   Matches: ${await matchRepo.count()}`);
-        console.log('Done.');
-
-        await AppDataSource.destroy();
-    } catch (e) {
-        console.error('❌ Errors:', e);
-        process.exit(1);
+        console.log(`   ✓ ${league.name}: created ${teamsToCreate} BOT teams with ${TEAM_ROSTER_SIZE} players each`);
     }
+
+    // 4. Summary
+    console.log('\n' + '='.repeat(60));
+    console.log('✅ Pyramid seed complete!');
+    console.log('='.repeat(60));
+    console.log(`   L1: 1 league (Elite League)`);
+    console.log(`   L2: 4 leagues (Professional League Div 1-4)`);
+    console.log(`   L3: 16 leagues (Amateur League Div 1-16)`);
+    console.log(`   Each league: 16 BOT teams`);
+    console.log(`   Each team: ${TEAM_ROSTER_SIZE} players`);
+    console.log(`   Hierarchy: L3 → L2 → L1 (via parentLeagueId)`);
+    console.log('='.repeat(60));
+
+    await AppDataSource.destroy();
 }
 
-createTestData();
+createLeaguePyramid().catch((e) => {
+    console.error('❌ Seed failed:', e);
+    process.exit(1);
+});

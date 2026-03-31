@@ -10,7 +10,7 @@ import { CreateTeamReqDto } from './dto/create-team.req.dto';
 import { ListTeamReqDto } from './dto/list-team.req.dto';
 import { TeamResDto } from './dto/team.res.dto';
 import { UpdateTeamReqDto } from './dto/update-team.req.dto';
-import { TeamEntity, BenchConfig } from '@goalxi/database';
+import { TeamEntity, BenchConfig, LeagueEntity } from '@goalxi/database';
 
 import { PlayerService } from '../player/player.service';
 import { PlayerEntity } from '@goalxi/database';
@@ -122,6 +122,69 @@ export class TeamService {
         assert(id, 'id is required');
         const team = await TeamEntity.findOneByOrFail({ id });
         await team.softRemove();
+    }
+
+    /**
+     * List BOT teams available for takeover (only lowest tier leagues)
+     */
+    async listAvailableBotTeams(leagueId?: string): Promise<TeamResDto[]> {
+        // Find the maximum tier (lowest league level)
+        const maxTierResult = await LeagueEntity.createQueryBuilder('league')
+            .select('MAX(league.tier)', 'maxTier')
+            .getRawOne();
+        const lowestTier = maxTierResult?.maxTier || 4;
+
+        const query = TeamEntity.createQueryBuilder('team')
+            .leftJoinAndSelect('team.league', 'league')
+            .where('team.isBot = :isBot', { isBot: true })
+            .andWhere('team.leagueId IS NOT NULL')
+            .andWhere('league.tier = :lowestTier', { lowestTier });
+
+        if (leagueId) {
+            query.andWhere('team.leagueId = :leagueId', { leagueId });
+        }
+
+        const teams = await query.getMany();
+        return teams.map((team) => this.mapToResDto(team));
+    }
+
+    /**
+     * Apply to take over a BOT team (must be in lowest tier league)
+     */
+    async applyForTakeover(teamId: string, userId: Uuid): Promise<{ success: boolean; message: string }> {
+        const team = await TeamEntity.findOneByOrFail({ id: teamId as Uuid });
+
+        if (!team.isBot) {
+            throw new ValidationException(ErrorCode.E001, 'Team is not a BOT team');
+        }
+
+        // Verify team is in the lowest tier league
+        const maxTierResult = await LeagueEntity.createQueryBuilder('league')
+            .select('MAX(league.tier)', 'maxTier')
+            .getRawOne();
+        const lowestTier = maxTierResult?.maxTier || 4;
+
+        const league = await LeagueEntity.findOneByOrFail({ id: team.leagueId as Uuid });
+        if (league.tier !== lowestTier) {
+            throw new ValidationException(ErrorCode.E001, 'Only BOT teams in the lowest tier league can be taken over');
+        }
+
+        // Check if user already has a team
+        const existingTeam = await TeamEntity.findOneBy({ userId });
+        if (existingTeam) {
+            throw new ValidationException(ErrorCode.E001, 'User already has a team');
+        }
+
+        // For now, auto-approve (manager takes over BOT team directly)
+        // In the future, this could be an application/approval process
+        team.userId = userId;
+        team.isBot = false;
+        await team.save();
+
+        return {
+            success: true,
+            message: `Successfully took over team ${team.name}`,
+        };
     }
 
     private mapToResDto(team: TeamEntity): TeamResDto {

@@ -60,7 +60,12 @@ export class LeagueService {
             name: reqDto.name,
             status: reqDto.status || 'active',
             tier: reqDto.tier || 1,
-            division: reqDto.division || 1,
+            tierDivision: reqDto.tierDivision || 1,
+            maxTeams: reqDto.maxTeams || 16,
+            promotionSlots: reqDto.promotionSlots ?? 1,
+            playoffSlots: reqDto.playoffSlots ?? 4,
+            relegationSlots: reqDto.relegationSlots ?? 4,
+            parentLeagueId: reqDto.parentLeagueId as Uuid,
         });
 
         await league.save();
@@ -75,7 +80,12 @@ export class LeagueService {
         if (reqDto.name) league.name = reqDto.name;
         if (reqDto.status) league.status = reqDto.status;
         if (reqDto.tier) league.tier = reqDto.tier;
-        if (reqDto.division) league.division = reqDto.division;
+        if (reqDto.tierDivision) league.tierDivision = reqDto.tierDivision;
+        if (reqDto.maxTeams) league.maxTeams = reqDto.maxTeams;
+        if (reqDto.promotionSlots !== undefined) league.promotionSlots = reqDto.promotionSlots;
+        if (reqDto.playoffSlots !== undefined) league.playoffSlots = reqDto.playoffSlots;
+        if (reqDto.relegationSlots !== undefined) league.relegationSlots = reqDto.relegationSlots;
+        if (reqDto.parentLeagueId !== undefined) league.parentLeagueId = reqDto.parentLeagueId as Uuid;
 
         await league.save();
 
@@ -134,7 +144,11 @@ export class LeagueService {
             id: league.id,
             name: league.name,
             tier: league.tier,
-            division: league.division,
+            tierDivision: league.tierDivision,
+            maxTeams: league.maxTeams,
+            promotionSlots: league.promotionSlots,
+            playoffSlots: league.playoffSlots,
+            relegationSlots: league.relegationSlots,
             status: league.status,
             createdAt: league.createdAt,
             updatedAt: league.updatedAt,
