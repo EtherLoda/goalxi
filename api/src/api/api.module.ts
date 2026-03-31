@@ -12,6 +12,7 @@ import { StatsModule } from './stats/stats.module';
 import { YouthModule } from './youth/youth.module';
 import { ScoutsModule } from './scouts/scouts.module';
 import { StaffsModule } from './staffs/staffs.module';
+import { TrainingModule } from './training/training.module';
 
 @Module({
   imports: [
@@ -28,6 +29,7 @@ import { StaffsModule } from './staffs/staffs.module';
     YouthModule,
     ScoutsModule,
     StaffsModule,
+    TrainingModule,
   ],
 })
 export class ApiModule { }

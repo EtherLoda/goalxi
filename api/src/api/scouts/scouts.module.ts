@@ -8,6 +8,7 @@ import {
     PlayerEntity,
     TeamEntity,
 } from '@goalxi/database';
+import { AuthModule } from '../auth/auth.module';
 
 @Module({
     imports: [
@@ -17,6 +18,7 @@ import {
             PlayerEntity,
             TeamEntity,
         ]),
+        AuthModule,
     ],
     controllers: [ScoutsController],
     providers: [ScoutsService],

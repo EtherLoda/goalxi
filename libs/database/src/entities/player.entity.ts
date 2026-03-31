@@ -20,7 +20,7 @@ export enum PotentialTier {
 }
 
 export enum TrainingSlot {
-    GENIUS = 'GENIUS',
+    ENHANCED = 'ENHANCED',
     REGULAR = 'REGULAR',
     NONE = 'NONE',
 }

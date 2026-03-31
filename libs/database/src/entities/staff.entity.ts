@@ -6,6 +6,8 @@ export enum StaffRole {
     FITNESS_COACH = 'fitness_coach',
     PSYCHOLOGY_COACH = 'psychology_coach',
     TECHNICAL_COACH = 'technical_coach',
+    SET_PIECE_COACH = 'set_piece_coach',
+    GOALKEEPER_COACH = 'goalkeeper_coach',
     TEAM_DOCTOR = 'team_doctor',
 }
 

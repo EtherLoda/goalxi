@@ -276,7 +276,7 @@ async function createTestData() {
 
                     const age = randomInt(17, 30);
                     const { tier, ability } = generatePlayerPotential();
-                    const trainingSlot = ability > 80 ? TrainingSlot.GENIUS : TrainingSlot.REGULAR;
+                    const trainingSlot = ability > 80 ? TrainingSlot.ENHANCED : TrainingSlot.REGULAR;
 
                     const { current, potential } = generatePlayerAttributes(position, ability, age);
                     const player = new PlayerEntity({

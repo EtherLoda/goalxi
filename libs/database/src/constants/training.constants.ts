@@ -1,0 +1,103 @@
+/**
+ * Training system constants
+ *
+ * Age factor: 17 years = 1.0, decreasing linearly to 0.65 at age 36
+ * Training cost per level: sigmoid curve, BASE=10, k=0.3, MID=10, SCALE=20
+ * Weekly training points = BASE_WEEKLY × slotMultiplier × ageFactor × coachBonus
+ *   where coachBonus = 1 + headBonus + relevantCategoryBonus
+ */
+
+export const TRAINING_SETTINGS = {
+    /** Base training points earned per week */
+    BASE_WEEKLY_TRAINING: 30,
+
+    /** Training slot multipliers */
+    ENHANCED_MULTIPLIER: 1.5,
+    REGULAR_MULTIPLIER: 1.0,
+    NONE_MULTIPLIER: 0,
+
+    /** Age training factor: 1.0 at age 17, decreasing linearly */
+    AGE_TRAINING_FACTOR: {
+        MIN_AGE: 17,
+        MIN_FACTOR: 1.0,
+        MAX_AGE: 36,
+        MAX_FACTOR: 0.65,
+    },
+
+    /** Coach bonus per level (5% per level) */
+    COACH_BONUS_PER_LEVEL: 0.05,
+};
+
+/**
+ * Calculate age factor using linear interpolation
+ * age 17 = 1.0, age 36 = 0.65
+ */
+export function getAgeTrainingFactor(age: number): number {
+    const { MIN_AGE, MIN_FACTOR, MAX_AGE, MAX_FACTOR } = TRAINING_SETTINGS.AGE_TRAINING_FACTOR;
+    if (age <= MIN_AGE) return MIN_FACTOR;
+    if (age >= MAX_AGE) return MAX_FACTOR;
+    const slope = (MAX_FACTOR - MIN_FACTOR) / (MAX_AGE - MIN_AGE);
+    return MIN_FACTOR + slope * (age - MIN_AGE);
+}
+
+/**
+ * Calculate training cost for upgrading from `level` to `level + 1`
+ * Using sigmoid: cost = 200 / (1 + exp(-0.3 * (level - 10)))
+ */
+export function getSkillUpgradeCost(level: number): number {
+    const k = 0.3;
+    const mid = 10;
+    const scale = 20;
+    const base = 10;
+    return base * (1 / (1 + Math.exp(-k * (level - mid)))) * scale;
+}
+
+/**
+ * Total training cost to reach target level from start level
+ */
+export function getTotalTrainingCost(startLevel: number, targetLevel: number): number {
+    let total = 0;
+    for (let lvl = startLevel; lvl < targetLevel; lvl++) {
+        total += getSkillUpgradeCost(lvl);
+    }
+    return total;
+}
+
+/**
+ * Skill category to coach mapping
+ * Key: StaffRole (without _COACH suffix)
+ * Value: array of skill keys that belong to this category
+ */
+export const SKILL_CATEGORY_MAP: Record<string, string[]> = {
+    physical: ['pace', 'strength'],
+    technical: ['finishing', 'passing', 'dribbling', 'defending'],
+    goalkeeper: ['reflexes', 'handling', 'distribution'],
+    mental: ['positioning', 'composure'],
+    setPieces: ['freeKicks', 'penalties'],
+};
+
+/**
+ * Get which coach role handles which skill category
+ */
+export function getSkillCategory(skillKey: string): string | null {
+    for (const [category, skills] of Object.entries(SKILL_CATEGORY_MAP)) {
+        if (skills.includes(skillKey)) {
+            return category;
+        }
+    }
+    return null;
+}
+
+/**
+ * Get staff role constant name from category name
+ */
+export function getCategoryCoachRole(category: string): string {
+    const map: Record<string, string> = {
+        physical: 'FITNESS_COACH',
+        technical: 'TECHNICAL_COACH',
+        goalkeeper: 'GOALKEEPER_COACH',
+        mental: 'PSYCHOLOGY_COACH',
+        setPieces: 'SET_PIECE_COACH',
+    };
+    return map[category] || '';
+}

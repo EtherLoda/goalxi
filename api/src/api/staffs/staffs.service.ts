@@ -182,6 +182,8 @@ export class StaffsService {
             [StaffRole.FITNESS_COACH]: 'Coach',
             [StaffRole.PSYCHOLOGY_COACH]: 'Dr.',
             [StaffRole.TECHNICAL_COACH]: 'Coach',
+            [StaffRole.SET_PIECE_COACH]: 'Coach',
+            [StaffRole.GOALKEEPER_COACH]: 'Coach',
             [StaffRole.TEAM_DOCTOR]: 'Dr.',
         }[role];
         const first = firstNames[Math.floor(Math.random() * firstNames.length)];
