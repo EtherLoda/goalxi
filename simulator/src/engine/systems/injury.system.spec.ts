@@ -33,6 +33,22 @@ describe('InjurySystem', () => {
             const lowRisk = InjurySystem.calculateInjuryChance(0.02, 22, 5, true);
             expect(highRisk).toBeGreaterThan(lowRisk);
         });
+
+        it('should reduce injury chance when team doctor is present', () => {
+            const withoutDoctor = InjurySystem.calculateInjuryChance(0.02, 25, 4, true, 0);
+            const withDoctor = InjurySystem.calculateInjuryChance(0.02, 25, 4, true, 5);
+            expect(withDoctor).toBeLessThan(withoutDoctor);
+            // Level 5 doctor reduces by 50% (1 - 0.1 * 5 = 0.5)
+            expect(withDoctor).toBeCloseTo(withoutDoctor * 0.5, 5);
+        });
+
+        it('should reduce injury chance by 10% per doctor level', () => {
+            const withoutDoctor = InjurySystem.calculateInjuryChance(0.02, 25, 4, true, 0);
+            const level1 = InjurySystem.calculateInjuryChance(0.02, 25, 4, true, 1);
+            const level3 = InjurySystem.calculateInjuryChance(0.02, 25, 4, true, 3);
+            expect(level1).toBeCloseTo(withoutDoctor * 0.9, 5);
+            expect(level3).toBeCloseTo(withoutDoctor * 0.7, 5);
+        });
     });
 
     describe('determineInjuryType', () => {
@@ -58,22 +74,22 @@ describe('InjurySystem', () => {
     });
 
     describe('determineSeverity', () => {
-        it('should always return 1, 2, or 3', () => {
+        it('should always return mild, moderate, or severe', () => {
             for (let i = 0; i < 100; i++) {
                 const severity = InjurySystem.determineSeverity();
-                expect([1, 2, 3]).toContain(severity);
+                expect(['mild', 'moderate', 'severe']).toContain(severity);
             }
         });
 
-        it('should have majority of mild injuries (severity 1)', () => {
+        it('should have majority of mild injuries', () => {
             const mildCount = Array.from({ length: 100 }, () => InjurySystem.determineSeverity())
-                .filter(s => s === 1).length;
+                .filter(s => s === 'mild').length;
             expect(mildCount).toBeGreaterThan(50);
         });
 
-        it('should have few severe injuries (severity 3)', () => {
+        it('should have few severe injuries', () => {
             const severeCount = Array.from({ length: 100 }, () => InjurySystem.determineSeverity())
-                .filter(s => s === 3).length;
+                .filter(s => s === 'severe').length;
             expect(severeCount).toBeLessThan(30);
         });
     });
@@ -115,8 +131,8 @@ describe('InjurySystem', () => {
             const result = InjurySystem.generateInjury('tackle', 25, 4, true);
 
             // Since tackle -> muscle, severity is random but based on mocked Math.random = 0
-            // With Math.random = 0, severity will be 1 (since roll < 0.6)
-            // Muscle severity 1: 20-40
+            // With Math.random = 0, severity will be 'mild' (since roll < 0.6)
+            // Muscle mild: 20-40
             expect(result.injuryValue!).toBeGreaterThanOrEqual(20);
             expect(result.injuryValue!).toBeLessThanOrEqual(40);
         });
@@ -137,15 +153,15 @@ describe('InjurySystem', () => {
 
     describe('getTreatmentTime', () => {
         it('should return 30 seconds for mild injury', () => {
-            expect(InjurySystem.getTreatmentTime(1)).toBe(30);
+            expect(InjurySystem.getTreatmentTime('mild')).toBe(30);
         });
 
         it('should return 90 seconds for moderate injury', () => {
-            expect(InjurySystem.getTreatmentTime(2)).toBe(90);
+            expect(InjurySystem.getTreatmentTime('moderate')).toBe(90);
         });
 
         it('should return 180 seconds for severe injury', () => {
-            expect(InjurySystem.getTreatmentTime(3)).toBe(180);
+            expect(InjurySystem.getTreatmentTime('severe')).toBe(180);
         });
     });
 

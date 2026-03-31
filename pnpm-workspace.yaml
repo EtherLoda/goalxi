@@ -1,5 +1,6 @@
 packages:
   - 'api'
+  - 'settlement'
   - 'simulator'
   - 'frontend'
   - 'libs/*'

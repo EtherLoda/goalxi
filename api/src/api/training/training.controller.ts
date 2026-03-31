@@ -1,9 +1,9 @@
 import { Controller, Get, Param, UseGuards } from '@nestjs/common';
 import { AuthGuard } from '../../guards/auth.guard';
 import { CurrentUser } from '../../decorators/current-user.decorator';
-import { TrainingService, TrainingResult } from './training.service';
+import { TrainingService } from './training.service';
 import { StaffsService } from '../staffs/staffs.service';
-import { PlayerEntity, StaffEntity, TeamEntity, Uuid } from '@goalxi/database';
+import { PlayerEntity, StaffEntity, TeamEntity, Uuid, TrainingResult } from '@goalxi/database';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { StaffRole, TrainingSlot } from '@goalxi/database';

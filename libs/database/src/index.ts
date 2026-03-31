@@ -26,5 +26,6 @@ export * from './constants/finance.constants';
 export * from './constants/game.constants';
 export * from './constants/event-types';
 export * from './constants/training.constants';
+export * from './services/training-calculator';
 export * from './types/match-event-data';
 export * from './types/simulation-player';

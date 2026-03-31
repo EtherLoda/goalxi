@@ -187,12 +187,12 @@ describe('TrainingService', () => {
             expect(totalGained).toBe(0);
         });
 
-        it('should apply training to low-level skills first', async () => {
+        it('should train only ONE random skill per session', async () => {
             const player = createPlayer({
                 age: 17,
                 trainingSlot: TrainingSlot.ENHANCED,
                 currentSkills: {
-                    physical: { pace: 3, strength: 15 }, // pace is very low
+                    physical: { pace: 10, strength: 10 },
                     technical: { finishing: 10, passing: 10, dribbling: 10, defending: 10 },
                     mental: { positioning: 10, composure: 10 },
                     setPieces: { freeKicks: 10, penalties: 10 },
@@ -206,11 +206,11 @@ describe('TrainingService', () => {
             });
 
             playerRepo.save.mockImplementation((p) => Promise.resolve(p as PlayerEntity));
-            const result = await service.applyTrainingToPlayer(player, 4, []); // 4 weeks to ensure enough points
+            const result = await service.applyTrainingToPlayer(player, 4, []);
 
-            // Should have gained pace (lowest skill)
-            const paceGain = result.skillsGained.find(g => g.skill === 'pace');
-            expect(paceGain).toBeDefined();
+            // Should have gained exactly one skill (random selection)
+            expect(result.skillsGained.length).toBe(1);
+            expect(result.totalPointsSpent).toBeGreaterThan(0);
         });
 
         it('should return 0 points for NONE slot', async () => {

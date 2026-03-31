@@ -11,10 +11,12 @@ import {
     YouthPlayerEntity,
     TeamEntity,
     ScoutCandidateEntity,
+    StaffEntity,
 } from '@goalxi/database';
 import { MatchSchedulerService } from './match-scheduler.service';
 import { InjuryRecoveryService } from './injury-recovery.service';
 import { ScoutSchedulerService } from './scout-scheduler.service';
+import { TrainingSchedulerService } from './training-scheduler.service';
 
 @Module({
     imports: [
@@ -25,13 +27,26 @@ import { ScoutSchedulerService } from './scout-scheduler.service';
         BullModule.registerQueue({
             name: 'match-completion',
         }),
+        BullModule.registerQueue({
+            name: 'training-settlement',
+        }),
         TypeOrmModule.forFeature([
             MatchEntity, MatchTacticsEntity, MatchEventEntity,
             PlayerEntity, InjuryEntity, YouthPlayerEntity,
-            TeamEntity, ScoutCandidateEntity,
+            TeamEntity, ScoutCandidateEntity, StaffEntity,
         ]),
     ],
-    providers: [MatchSchedulerService, InjuryRecoveryService, ScoutSchedulerService],
-    exports: [MatchSchedulerService, InjuryRecoveryService, ScoutSchedulerService],
+    providers: [
+        MatchSchedulerService,
+        InjuryRecoveryService,
+        ScoutSchedulerService,
+        TrainingSchedulerService,
+    ],
+    exports: [
+        MatchSchedulerService,
+        InjuryRecoveryService,
+        ScoutSchedulerService,
+        TrainingSchedulerService,
+    ],
 })
 export class SchedulerModule { }

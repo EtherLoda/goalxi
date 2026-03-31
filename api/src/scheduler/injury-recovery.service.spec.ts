@@ -2,12 +2,13 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { InjuryRecoveryService } from './injury-recovery.service';
-import { PlayerEntity, InjuryEntity } from '@goalxi/database';
+import { PlayerEntity, InjuryEntity, StaffEntity } from '@goalxi/database';
 
 describe('InjuryRecoveryService', () => {
     let service: InjuryRecoveryService;
     let playerRepo: jest.Mocked<Repository<PlayerEntity>>;
     let injuryRepo: jest.Mocked<Repository<InjuryEntity>>;
+    let staffRepo: jest.Mocked<Repository<StaffEntity>>;
 
     const mockPlayer = {
         id: 'player-uuid-1',
@@ -16,6 +17,7 @@ describe('InjuryRecoveryService', () => {
         currentInjuryValue: 50,
         injuryType: 'muscle' as const,
         injuredAt: new Date('2024-01-15'),
+        teamId: 'team-uuid-1',
     };
 
     const mockInjury = {
@@ -49,12 +51,19 @@ describe('InjuryRecoveryService', () => {
                         save: jest.fn(),
                     },
                 },
+                {
+                    provide: getRepositoryToken(StaffEntity),
+                    useValue: {
+                        findOne: jest.fn(),
+                    },
+                },
             ],
         }).compile();
 
         service = module.get<InjuryRecoveryService>(InjuryRecoveryService);
         playerRepo = module.get(getRepositoryToken(PlayerEntity));
         injuryRepo = module.get(getRepositoryToken(InjuryEntity));
+        staffRepo = module.get(getRepositoryToken(StaffEntity));
     });
 
     afterEach(() => {
@@ -153,6 +162,7 @@ describe('InjuryRecoveryService', () => {
             playerRepo.save.mockImplementation(async (p) => p as PlayerEntity);
             injuryRepo.findOne.mockResolvedValue({ ...mockInjury } as InjuryEntity);
             injuryRepo.save.mockImplementation(async (i) => i as InjuryEntity);
+            staffRepo.findOne.mockResolvedValue(null); // No team doctor
 
             // Run multiple times to account for random fluctuation
             let youngWinsCount = 0;

@@ -1,8 +1,8 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { Cron } from '@nestjs/schedule';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
-import { PlayerEntity, InjuryEntity } from '@goalxi/database';
+import { Repository, MoreThanOrEqual } from 'typeorm';
+import { PlayerEntity, InjuryEntity, StaffEntity, StaffRole } from '@goalxi/database';
 
 @Injectable()
 export class InjuryRecoveryService {
@@ -13,6 +13,8 @@ export class InjuryRecoveryService {
         private playerRepository: Repository<PlayerEntity>,
         @InjectRepository(InjuryEntity)
         private injuryRepository: Repository<InjuryEntity>,
+        @InjectRepository(StaffEntity)
+        private staffRepository: Repository<StaffEntity>,
     ) { }
 
     // ===== SCHEDULER: Daily Injury Recovery =====
@@ -24,7 +26,7 @@ export class InjuryRecoveryService {
 
         // Get all players with active injuries
         const injuredPlayers = await this.playerRepository.find({
-            where: { currentInjuryValue: 1 }, // Greater than 0
+            where: { currentInjuryValue: MoreThanOrEqual(1) },
         });
 
         this.logger.log(`[InjuryRecovery] Found ${injuredPlayers.length} player(s) with active injuries`);
@@ -34,6 +36,17 @@ export class InjuryRecoveryService {
         for (const player of injuredPlayers) {
             try {
                 const playerAge = player.age || 25;
+
+                // Get team doctor bonus
+                let doctorBonus = 1;
+                if (player.teamId) {
+                    const teamDoctor = await this.staffRepository.findOne({
+                        where: { teamId: player.teamId, role: StaffRole.TEAM_DOCTOR, isActive: true },
+                    });
+                    if (teamDoctor) {
+                        doctorBonus = 1 + teamDoctor.level * 0.1; // 10% per level
+                    }
+                }
 
                 // Calculate daily recovery using sigmoid function (same as simulator)
                 // Sigmoid: base + amplitude / (1 + exp(k * (age - midpoint)))
@@ -45,7 +58,7 @@ export class InjuryRecoveryService {
 
                 const sigmoid = base + amplitude / (1 + Math.exp(k * (playerAge - midpoint)));
                 const fluctuation = 0.85 + Math.random() * 0.3;
-                const dailyRecovery = Math.round(sigmoid * fluctuation * 10) / 10;
+                const dailyRecovery = Math.round(sigmoid * fluctuation * 10 * doctorBonus) / 10;
 
                 const oldValue = player.currentInjuryValue;
                 const newValue = Math.max(0, oldValue - dailyRecovery);

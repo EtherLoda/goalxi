@@ -1,5 +1,5 @@
 export type InjuryType = 'muscle' | 'ligament' | 'joint' | 'head' | 'other';
-export type InjurySeverity = 1 | 2 | 3;
+export type InjurySeverity = 'mild' | 'moderate' | 'severe';
 
 export interface InjuryResult {
     willInjure: boolean;
@@ -25,18 +25,18 @@ export class InjurySystem {
 
     // Injury value ranges by type and severity
     private static readonly INJURY_VALUES: Record<InjuryType, Record<InjurySeverity, [number, number]>> = {
-        muscle: { 1: [20, 40], 2: [50, 80], 3: [100, 150] },
-        ligament: { 1: [30, 50], 2: [60, 100], 3: [120, 180] },
-        joint: { 1: [25, 45], 2: [55, 90], 3: [110, 160] },
-        head: { 1: [35, 55], 2: [70, 110], 3: [130, 190] },
-        other: { 1: [20, 40], 2: [50, 80], 3: [100, 150] },
+        muscle: { mild: [20, 40], moderate: [50, 80], severe: [100, 150] },
+        ligament: { mild: [30, 50], moderate: [60, 100], severe: [120, 180] },
+        joint: { mild: [25, 45], moderate: [55, 90], severe: [110, 160] },
+        head: { mild: [35, 55], moderate: [70, 110], severe: [130, 190] },
+        other: { mild: [20, 40], moderate: [50, 80], severe: [100, 150] },
     };
 
     // Treatment time on pitch (seconds)
     private static readonly TREATMENT_TIME: Record<InjurySeverity, number> = {
-        1: 30,  // 30 seconds
-        2: 90,  // 90 seconds (1.5 min)
-        3: 180, // 180 seconds (3 min)
+        mild: 30,    // 30 seconds
+        moderate: 90, // 90 seconds (1.5 min)
+        severe: 180, // 180 seconds (3 min)
     };
 
     /**
@@ -46,12 +46,14 @@ export class InjurySystem {
      * @param playerAge - Player's age
      * @param playerStamina - Player's stamina level [1-6]
      * @param isHomeMatch - Whether the match is at home
+     * @param doctorLevel - Team doctor level (0 = no doctor)
      */
     static calculateInjuryChance(
         baseChance: number,
         playerAge: number,
         playerStamina: number,
-        isHomeMatch: boolean = true
+        isHomeMatch: boolean = true,
+        doctorLevel: number = 0
     ): number {
         let chance = baseChance;
 
@@ -72,6 +74,11 @@ export class InjurySystem {
         // Home advantage slightly reduces injury risk
         if (isHomeMatch) {
             chance *= 0.9;
+        }
+
+        // Team doctor reduces injury chance by 10% per level
+        if (doctorLevel > 0) {
+            chance *= (1 - 0.1 * doctorLevel);
         }
 
         return chance;
@@ -96,9 +103,9 @@ export class InjurySystem {
      */
     static determineSeverity(): InjurySeverity {
         const roll = Math.random();
-        if (roll < 0.6) return 1; // 60% mild
-        if (roll < 0.9) return 2; // 30% moderate
-        return 3; // 10% severe
+        if (roll < 0.6) return 'mild'; // 60% mild
+        if (roll < 0.9) return 'moderate'; // 30% moderate
+        return 'severe'; // 10% severe
     }
 
     /**
@@ -108,7 +115,8 @@ export class InjurySystem {
         actionType: 'tackle' | 'sprint' | 'jump' | 'collision' | 'other',
         playerAge: number,
         playerStamina: number,
-        isHomeMatch: boolean = true
+        isHomeMatch: boolean = true,
+        doctorLevel: number = 0
     ): InjuryResult {
         // Base chance varies by action type
         const actionChance: Record<string, number> = {
@@ -123,7 +131,8 @@ export class InjurySystem {
             actionChance[actionType],
             playerAge,
             playerStamina,
-            isHomeMatch
+            isHomeMatch,
+            doctorLevel
         );
 
         if (Math.random() > chance) {
