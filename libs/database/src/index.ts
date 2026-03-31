@@ -19,6 +19,7 @@ export * from './entities/player-transaction.entity';
 export * from './entities/injury.entity';
 export * from './entities/youth-player.entity';
 export * from './entities/scout-candidate.entity';
+export * from './entities/staff.entity';
 export * from './utils/password.util';
 export * from './types/common.type';
 export * from './constants/finance.constants';

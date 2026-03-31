@@ -1,0 +1,165 @@
+import { Controller, Get, Post, Param, Body, BadRequestException, UseGuards } from '@nestjs/common';
+import { AuthGuard } from '../../guards/auth.guard';
+import { CurrentUser } from '../../decorators/current-user.decorator';
+import { StaffsService, STAFF_SALARY, STAFF_HIRE_COST, STAFF_LEVEL_SCORE } from './staffs.service';
+import { StaffEntity, StaffRole, StaffLevel, TeamEntity, FinanceEntity } from '@goalxi/database';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
+import { Uuid } from '@goalxi/database';
+
+@Controller('staffs')
+@UseGuards(AuthGuard)
+export class StaffsController {
+    constructor(
+        private readonly staffsService: StaffsService,
+        @InjectRepository(TeamEntity)
+        private teamRepo: Repository<TeamEntity>,
+        @InjectRepository(FinanceEntity)
+        private financeRepo: Repository<FinanceEntity>,
+    ) {}
+
+    /** List staff for current team */
+    @Get()
+    async list(@CurrentUser('id') userId: Uuid): Promise<StaffDto[]> {
+        const team = await this.teamRepo.findOneBy({ userId });
+        if (!team) return [];
+        const staffs = await this.staffsService.findByTeam(team.id);
+        return staffs.map(mapStaffToDto);
+    }
+
+    /** Get single staff */
+    @Get(':id')
+    async getOne(@Param('id') id: string): Promise<StaffDto> {
+        const staff = await this.staffsService.findOne(id);
+        return mapStaffToDto(staff);
+    }
+
+    /** Hire a new staff member */
+    @Post('hire')
+    async hire(
+        @CurrentUser('id') userId: Uuid,
+        @Body() body: HireStaffDto,
+    ): Promise<StaffDto> {
+        const team = await this.teamRepo.findOneBy({ userId });
+        if (!team) throw new BadRequestException('Team not found');
+
+        const staff = await this.staffsService.hire(team.id, body.role, body.level, userId);
+        return mapStaffToDto(staff);
+    }
+
+    /** Fire a staff member */
+    @Post(':id/fire')
+    async fire(
+        @Param('id') id: string,
+        @CurrentUser('id') userId: Uuid,
+    ): Promise<{ success: boolean }> {
+        await this.staffsService.fire(id, userId);
+        return { success: true };
+    }
+
+    /** Toggle auto-renewal */
+    @Post(':id/auto-renew')
+    async setAutoRenew(
+        @Param('id') id: string,
+        @Body() body: SetAutoRenewDto,
+    ): Promise<StaffDto> {
+        const staff = await this.staffsService.setAutoRenew(id, body.autoRenew);
+        return mapStaffToDto(staff);
+    }
+
+    /** Get training quality score for current team */
+    @Get('training-quality')
+    async getTrainingQuality(@CurrentUser('id') userId: Uuid): Promise<TrainingQualityDto> {
+        const team = await this.teamRepo.findOneBy({ userId });
+        if (!team) throw new BadRequestException('Team not found');
+
+        const staffs = await this.staffsService.findByTeam(team.id);
+        const score = this.staffsService.getTrainingQualityScore(team.id, staffs);
+
+        const head = staffs.find(s => s.role === StaffRole.HEAD_COACH);
+        const fitness = staffs.find(s => s.role === StaffRole.FITNESS_COACH);
+        const psych = staffs.find(s => s.role === StaffRole.PSYCHOLOGY_COACH);
+        const tech = staffs.find(s => s.role === StaffRole.TECHNICAL_COACH);
+
+        return {
+            overall: score,
+            breakdown: {
+                headCoach: head ? { level: head.level, score: STAFF_LEVEL_SCORE[head.level] } : { level: null, score: 40 },
+                fitnessCoach: fitness ? { level: fitness.level, score: STAFF_LEVEL_SCORE[fitness.level] } : { level: null, score: 40 },
+                psychologyCoach: psych ? { level: psych.level, score: STAFF_LEVEL_SCORE[psych.level] } : { level: null, score: 40 },
+                technicalCoach: tech ? { level: tech.level, score: STAFF_LEVEL_SCORE[tech.level] } : { level: null, score: 40 },
+            },
+        };
+    }
+
+    /** Get staff cost summary */
+    @Get('cost-summary')
+    async getCostSummary(@CurrentUser('id') userId: Uuid): Promise<CostSummaryDto> {
+        const team = await this.teamRepo.findOneBy({ userId });
+        if (!team) throw new BadRequestException('Team not found');
+
+        const staffs = await this.staffsService.findByTeam(team.id);
+        const weeklySalary = staffs.reduce((sum, s) => sum + STAFF_SALARY[s.level], 0);
+
+        return {
+            staffCount: staffs.length,
+            weeklySalary,
+            hireCosts: Object.values(STAFF_HIRE_COST),
+            salaryByLevel: STAFF_SALARY,
+        };
+    }
+}
+
+// --- DTOs & Mappers ---
+
+export interface HireStaffDto {
+    role: StaffRole;
+    level: StaffLevel;
+}
+
+export interface SetAutoRenewDto {
+    autoRenew: boolean;
+}
+
+export interface StaffDto {
+    id: string;
+    name: string;
+    role: string;
+    level: number;
+    salary: number;
+    contractExpiry: string;
+    autoRenew: boolean;
+    isActive: boolean;
+    nationality?: string;
+}
+
+export interface TrainingQualityDto {
+    overall: number;
+    breakdown: {
+        headCoach: { level: number | null; score: number };
+        fitnessCoach: { level: number | null; score: number };
+        psychologyCoach: { level: number | null; score: number };
+        technicalCoach: { level: number | null; score: number };
+    };
+}
+
+export interface CostSummaryDto {
+    staffCount: number;
+    weeklySalary: number;
+    hireCosts: number[];
+    salaryByLevel: Record<number, number>;
+}
+
+function mapStaffToDto(s: StaffEntity): StaffDto {
+    return {
+        id: s.id,
+        name: s.name,
+        role: s.role,
+        level: s.level,
+        salary: s.salary,
+        contractExpiry: s.contractExpiry.toISOString(),
+        autoRenew: s.autoRenew,
+        isActive: s.isActive,
+        nationality: s.nationality,
+    };
+}

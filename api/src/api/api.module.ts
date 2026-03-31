@@ -11,6 +11,7 @@ import { UserModule } from './user/user.module';
 import { StatsModule } from './stats/stats.module';
 import { YouthModule } from './youth/youth.module';
 import { ScoutsModule } from './scouts/scouts.module';
+import { StaffsModule } from './staffs/staffs.module';
 
 @Module({
   imports: [
@@ -26,6 +27,7 @@ import { ScoutsModule } from './scouts/scouts.module';
     InjuryModule,
     YouthModule,
     ScoutsModule,
+    StaffsModule,
   ],
 })
 export class ApiModule { }
