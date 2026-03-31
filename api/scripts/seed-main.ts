@@ -17,6 +17,8 @@ import {
     LeagueStandingEntity,
     GAME_SETTINGS,
     Uuid,
+    StadiumEntity,
+    FanEntity,
 } from '@goalxi/database';
 import * as argon2 from 'argon2';
 import { getRandomNameByNationality } from '../src/constants/name-database';
@@ -148,6 +150,8 @@ async function createLeaguePyramid() {
     const playerRepo = AppDataSource.getRepository(PlayerEntity);
     const financeRepo = AppDataSource.getRepository(FinanceEntity);
     const standingRepo = AppDataSource.getRepository(LeagueStandingEntity);
+    const stadiumRepo = AppDataSource.getRepository(StadiumEntity);
+    const fanRepo = AppDataSource.getRepository(FanEntity);
 
     // 1. Create Admin User
     console.log('👤 Creating Admin User...');
@@ -296,6 +300,21 @@ async function createLeaguePyramid() {
             await financeRepo.save(new FinanceEntity({
                 teamId: team.id,
                 balance: randomInt(1000000, 10000000),
+            }));
+
+            // Create default stadium (10000 capacity for bot teams)
+            await stadiumRepo.save(new StadiumEntity({
+                teamId: team.id,
+                capacity: 10000,
+                isBuilt: true,
+            }));
+
+            // Create default fan record
+            await fanRepo.save(new FanEntity({
+                teamId: team.id,
+                totalFans: 10000,
+                fanMorale: 50,
+                recentForm: '',
             }));
 
             // Create standing

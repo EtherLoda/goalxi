@@ -15,6 +15,8 @@ import {
     LeagueEntity,
     LeagueStandingEntity,
     SeasonResultEntity,
+    StadiumEntity,
+    FanEntity,
 } from '@goalxi/database';
 import { MatchSchedulerService } from './match-scheduler.service';
 import { InjuryRecoveryService } from './injury-recovery.service';
@@ -43,6 +45,7 @@ import { TeamGeneratorService } from './team-generator.service';
             PlayerEntity, InjuryEntity, YouthPlayerEntity,
             TeamEntity, ScoutCandidateEntity, StaffEntity,
             LeagueEntity, LeagueStandingEntity, SeasonResultEntity,
+            StadiumEntity, FanEntity,
         ]),
     ],
     providers: [

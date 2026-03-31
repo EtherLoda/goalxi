@@ -61,6 +61,18 @@ export class TeamEntity extends AbstractEntity {
     @Column({ name: 'bench_config', type: 'jsonb', nullable: true, comment: 'Bench configuration for substitutions' })
     benchConfig: BenchConfig | null;
 
+    /** 是否为 BOT 球队 */
+    @Column({ name: 'is_bot', type: 'boolean', default: true })
+    isBot: boolean;
+
+    /** BOT 强度等级 (1-10)，仅 isBot=true 时有效 */
+    @Column({ name: 'bot_level', type: 'int', default: 5 })
+    botLevel: number;
+
+    /** ELO 评分（隐藏），用于计算比赛预期和球迷士气 */
+    @Column({ name: 'elo_rating', type: 'int', default: 1500 })
+    eloRating: number;
+
     @OneToMany('MatchEntity', (match: MatchEntity) => match.homeTeam)
     homeMatches: MatchEntity[];
 

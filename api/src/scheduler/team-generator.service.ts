@@ -7,6 +7,8 @@ import {
     PotentialTier,
     TrainingSlot,
     TrainingCategory,
+    StadiumEntity,
+    FanEntity,
 } from '@goalxi/database';
 
 interface GeneratedTeam {
@@ -67,6 +69,10 @@ export class TeamGeneratorService {
         private readonly teamRepository: Repository<TeamEntity>,
         @InjectRepository(PlayerEntity)
         private readonly playerRepository: Repository<PlayerEntity>,
+        @InjectRepository(StadiumEntity)
+        private readonly stadiumRepository: Repository<StadiumEntity>,
+        @InjectRepository(FanEntity)
+        private readonly fanRepository: Repository<FanEntity>,
     ) {}
 
     /**
@@ -112,9 +118,38 @@ export class TeamGeneratorService {
             await this.playerRepository.save(savedPlayer);
         }
 
+        // Create default stadium and fan records
+        await this.createDefaultStadiumAndFan(savedTeam.id, isBot);
+
         this.logger.log(`Generated team "${savedTeam.name}" with ${players.length} players`);
 
         return savedTeam;
+    }
+
+    /**
+     * 创建默认球场和球迷记录
+     */
+    private async createDefaultStadiumAndFan(teamId: string, isBot: boolean): Promise<void> {
+        // 所有球队默认10000容量球场
+        const stadiumCapacity = 10000;
+
+        const stadium = this.stadiumRepository.create({
+            teamId,
+            capacity: stadiumCapacity,
+            isBuilt: true,
+        });
+        await this.stadiumRepository.save(stadium);
+
+        // 初始球迷
+        const initialFans = 10000;
+
+        const fan = this.fanRepository.create({
+            teamId,
+            totalFans: initialFans,
+            fanMorale: 50,
+            recentForm: '',
+        });
+        await this.fanRepository.save(fan);
     }
 
     /**

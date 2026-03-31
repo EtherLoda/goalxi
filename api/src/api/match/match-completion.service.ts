@@ -8,8 +8,16 @@ import {
     PlayerEntity,
     MatchEventEntity,
     MatchTacticsEntity,
+    TeamEntity,
+    StadiumEntity,
+    FanEntity,
+    TransactionType,
+    TICKET_PRICE_MULTIPLIER,
+    Uuid,
 } from '@goalxi/database';
 import { MatchCacheService } from './match-cache.service';
+import { FinanceService } from '../finance/finance.service';
+import { FanService } from '../fan/fan.service';
 
 @Injectable()
 export class MatchCompletionService {
@@ -26,7 +34,15 @@ export class MatchCompletionService {
         private eventRepository: Repository<MatchEventEntity>,
         @InjectRepository(MatchTacticsEntity)
         private tacticsRepository: Repository<MatchTacticsEntity>,
+        @InjectRepository(TeamEntity)
+        private teamRepository: Repository<TeamEntity>,
+        @InjectRepository(StadiumEntity)
+        private stadiumRepository: Repository<StadiumEntity>,
+        @InjectRepository(FanEntity)
+        private fanRepository: Repository<FanEntity>,
         private matchCacheService: MatchCacheService,
+        private financeService: FinanceService,
+        private fanService: FanService,
     ) { }
 
     async completeMatch(matchId: string): Promise<void> {
@@ -41,7 +57,7 @@ export class MatchCompletionService {
 
         const match = await this.matchRepository.findOne({
             where: { id: matchId },
-            relations: ['homeTeam', 'awayTeam'],
+            relations: ['homeTeam', 'awayTeam', 'league'],
         });
 
         if (!match) {
@@ -62,10 +78,16 @@ export class MatchCompletionService {
         // 3. Update Player Stats
         await this.updatePlayerStats(matchId);
 
-        // 4. Mark as processed in cache
+        // 4. Update ELO ratings
+        await this.updateEloRatings(match);
+
+        // 5. Update Fan Morale and Calculate Revenue
+        await this.updateFanAndRevenue(match);
+
+        // 6. Mark as processed in cache
         await this.matchCacheService.setMatchProcessed(matchId);
 
-        // 5. Invalidate Cache
+        // 7. Invalidate Cache
         await this.matchCacheService.invalidateMatchCache(matchId);
 
         this.logger.log(`Match ${matchId} completion processing finished.`);
@@ -237,5 +259,128 @@ export class MatchCompletionService {
         if (!map.has(playerId)) {
             map.set(playerId, { goals: 0, assists: 0, yellowCards: 0, redCards: 0, appearances: 1 });
         }
+    }
+
+    /**
+     * Update ELO ratings after match
+     */
+    private async updateEloRatings(match: MatchEntity): Promise<void> {
+        if (!match.homeTeam || !match.awayTeam || match.homeScore === undefined || match.awayScore === undefined) {
+            return;
+        }
+
+        const homeElo = match.homeTeam.eloRating || 1500;
+        const awayElo = match.awayTeam.eloRating || 1500;
+        const K = 32;
+
+        // Expected score
+        const expectedHome = 1 / (1 + Math.pow(10, (awayElo - homeElo) / 400));
+        const expectedAway = 1 - expectedHome;
+
+        // Actual score
+        const actualHome = match.homeScore > match.awayScore ? 1 : match.homeScore < match.awayScore ? 0 : 0.5;
+        const actualAway = 1 - actualHome;
+
+        // Update ELO
+        const newHomeElo = homeElo + K * (actualHome - expectedHome);
+        const newAwayElo = awayElo + K * (actualAway - expectedAway);
+
+        await this.teamRepository.update({ id: match.homeTeamId as Uuid }, { eloRating: Math.round(newHomeElo) });
+        await this.teamRepository.update({ id: match.awayTeamId as Uuid }, { eloRating: Math.round(newAwayElo) });
+
+        this.logger.debug(
+            `ELO update: ${match.homeTeam.name} ${homeElo} -> ${Math.round(newHomeElo)}, ` +
+            `${match.awayTeam.name} ${awayElo} -> ${Math.round(newAwayElo)}`,
+        );
+    }
+
+    /**
+     * Update fan morale and calculate stadium revenue
+     */
+    private async updateFanAndRevenue(match: MatchEntity): Promise<void> {
+        if (!match.homeTeam || !match.awayTeam || match.homeScore === undefined || match.awayScore === undefined) {
+            return;
+        }
+
+        const tier = match.league?.tier || 4;
+        const homeElo = match.homeTeam.eloRating || 1500;
+        const awayElo = match.awayTeam.eloRating || 1500;
+
+        // Get expected points for home team
+        const homeExpected = this.fanService.getExpectedPoints(homeElo, awayElo);
+        const awayExpected = this.fanService.getExpectedPoints(awayElo, homeElo);
+
+        // Determine results
+        const homeResult: 'W' | 'D' | 'L' =
+            match.homeScore > match.awayScore ? 'W' :
+            match.homeScore < match.awayScore ? 'L' : 'D';
+        const awayResult: 'W' | 'D' | 'L' =
+            homeResult === 'W' ? 'L' : homeResult === 'L' ? 'W' : 'D';
+
+        // Calculate actual points
+        const homeActualPoints = homeResult === 'W' ? 3 : homeResult === 'D' ? 1 : 0;
+        const awayActualPoints = awayResult === 'W' ? 3 : awayResult === 'D' ? 1 : 0;
+
+        // Update fan morale
+        await this.fanService.updateAfterMatch(
+            match.homeTeamId,
+            homeActualPoints,
+            homeExpected,
+            homeResult,
+        );
+        await this.fanService.updateAfterMatch(
+            match.awayTeamId,
+            awayActualPoints,
+            awayExpected,
+            awayResult,
+        );
+
+        // Calculate and record stadium revenue
+        await this.calculateStadiumRevenue(match, tier);
+    }
+
+    /**
+     * Calculate and record stadium revenue
+     */
+    private async calculateStadiumRevenue(match: MatchEntity, tier: number): Promise<void> {
+        const homeStadium = await this.stadiumRepository.findOne({ where: { teamId: match.homeTeamId } });
+        const homeFan = await this.fanRepository.findOne({ where: { teamId: match.homeTeamId } });
+        const awayFan = await this.fanRepository.findOne({ where: { teamId: match.awayTeamId } });
+
+        if (!homeStadium?.isBuilt || !homeFan) {
+            return;
+        }
+
+        const homeFans = homeFan.totalFans;
+        const awayFans = awayFan?.totalFans || 0;
+
+        const homeMorale = homeFan.fanMorale;
+        const awayMorale = awayFan?.fanMorale || 50;
+
+        // Calculate attendance
+        const totalAttendance = this.fanService.calculateAttendance(
+            homeFans,
+            awayFans,
+            homeMorale,
+            awayMorale,
+            homeStadium.capacity,
+        );
+
+        // Calculate revenue
+        const baseTicketPrice = 30;
+        const tierMultiplier = TICKET_PRICE_MULTIPLIER[tier as keyof typeof TICKET_PRICE_MULTIPLIER] || 1.0;
+        const ticketRevenue = Math.round(totalAttendance * baseTicketPrice * tierMultiplier);
+
+        // Record revenue
+        await this.financeService.processTransaction(
+            match.homeTeamId as Uuid,
+            ticketRevenue,
+            TransactionType.TICKET_INCOME,
+            match.season,
+        );
+
+        this.logger.debug(
+            `Stadium revenue for ${match.homeTeam?.name}: ${totalAttendance} total fans = ${ticketRevenue} (tier ${tier})`,
+        );
     }
 }
