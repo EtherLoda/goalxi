@@ -72,7 +72,7 @@ export class FanProcessor extends WorkerHost {
                 const cap = FAN_HIDDEN_CAP[tier as keyof typeof FAN_HIDDEN_CAP] || 100_000;
 
                 // Calculate weekly change
-                const change = this.calculateWeeklyFanChange(fan.totalFans, cap, fan.fanMorale, fan.recentForm);
+                const change = this.calculateWeeklyFanChange(fan.totalFans, cap, fan.fanEmotion, fan.recentForm);
                 fan.totalFans = Math.max(1000, fan.totalFans + change);
 
                 await this.fanRepo.save(fan);

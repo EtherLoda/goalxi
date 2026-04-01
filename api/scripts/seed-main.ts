@@ -313,7 +313,7 @@ async function createLeaguePyramid() {
             await fanRepo.save(new FanEntity({
                 teamId: team.id,
                 totalFans: 10000,
-                fanMorale: 50,
+                fanEmotion: 50,
                 recentForm: '',
             }));
 

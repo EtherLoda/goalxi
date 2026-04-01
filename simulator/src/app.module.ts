@@ -27,6 +27,7 @@ import {
   YouthMatchTacticsEntity,
   YouthPlayerEntity,
   YouthTeamEntity,
+  YouthLeagueEntity,
 } from '@goalxi/database';
 import { SimulationProcessor } from './processor/simulation.processor';
 import { YouthSimulationProcessor } from './processor/youth-simulation.processor';
@@ -55,6 +56,7 @@ const entities = [
   YouthMatchTacticsEntity,
   YouthPlayerEntity,
   YouthTeamEntity,
+  YouthLeagueEntity,
 ];
 
 @Module({

@@ -354,8 +354,8 @@ export class MatchCompletionService {
         const homeFans = homeFan.totalFans;
         const awayFans = awayFan?.totalFans || 0;
 
-        const homeMorale = homeFan.fanMorale;
-        const awayMorale = awayFan?.fanMorale || 50;
+        const homeMorale = homeFan.fanEmotion;
+        const awayMorale = awayFan?.fanEmotion || 50;
 
         // Calculate attendance
         const totalAttendance = this.fanService.calculateAttendance(

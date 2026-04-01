@@ -404,7 +404,7 @@ export class TeamGeneratorService {
         const fan = this.fanRepository.create({
             teamId,
             totalFans: initialFans,
-            fanMorale: 50,
+            fanEmotion: 50,
             recentForm: '',
         });
         await this.fanRepository.save(fan);

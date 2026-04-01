@@ -6,7 +6,7 @@ import { Column, Entity, PrimaryGeneratedColumn } from 'typeorm';
  *
  * 球迷属性：
  * - totalFans: 球迷总数
- * - fanMorale: 球迷士气 (20-100)
+ * - fanEmotion: 球迷情绪 (0-100)，每20分一档，共5档
  * - recentForm: 最近5场结果 (如 "WWDLL")
  */
 
@@ -16,6 +16,15 @@ export const FAN_HIDDEN_CAP = {
     2: 200_000,   // L2: 20万
     3: 150_000,   // L3: 15万
     4: 100_000,   // L4: 10万
+} as const;
+
+/** 球迷情绪档次名称 */
+export const FAN_EMOTION_TIER_NAMES = {
+    0: { en: 'Hollow', zh: '沉寂' },
+    1: { en: 'Simmering', zh: '冷却' },
+    2: { en: 'Uncertain', zh: '观望' },
+    3: { en: 'Building', zh: '升温' },
+    4: { en: 'On Fire', zh: '狂热' },
 } as const;
 
 /** 基础周增长 */
@@ -47,9 +56,9 @@ export class FanEntity extends AbstractEntity {
     @Column({ name: 'total_fans', type: 'int', default: 10000 })
     totalFans!: number;
 
-    /** 球迷士气 (20-100) */
-    @Column({ name: 'fan_morale', type: 'int', default: 50 })
-    fanMorale!: number;
+    /** 球迷情绪 (0-100) */
+    @Column({ name: 'fan_emotion', type: 'int', default: 50 })
+    fanEmotion!: number;
 
     /** 最近5场结果 */
     @Column({ name: 'recent_form', type: 'varchar', length: 10, default: '' })

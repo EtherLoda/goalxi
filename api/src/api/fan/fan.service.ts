@@ -31,7 +31,7 @@ export class FanService {
         const fan = this.fanRepository.create({
             teamId,
             totalFans: 10000, // 初始 10000 球迷
-            fanMorale: 50,
+            fanEmotion: 50,
             recentForm: '',
         });
 
@@ -78,14 +78,17 @@ export class FanService {
     }
 
     /**
-     * 计算士气变化（基于预期 vs 实际）
+     * 计算情绪变化（基于预期 vs 实际）
      * @param diff actualPoints - expectedPoints (约 -3 到 +3)
+     * @param result W/D/L
      */
-    calculateMoraleChange(diff: number): number {
-        if (diff >= 0) {
-            return Math.round(diff * 8.3 + 5);
+    calculateMoraleChange(diff: number, result: 'W' | 'D' | 'L'): number {
+        if (result === 'W') {
+            return Math.round(diff * 8.3 + 5);  // 赢: +5 ~ +30
+        } else if (result === 'D') {
+            return Math.round(diff * 5);         // 平: 无基础奖励
         } else {
-            return Math.round(diff * 10 + 5);
+            return Math.round(diff * 10);        // 输: -30 ~ 0 (无基础奖励)
         }
     }
 
@@ -95,6 +98,13 @@ export class FanService {
     getExpectedPoints(myElo: number, opponentElo: number): number {
         const expectedWinProb = 1 / (1 + Math.pow(10, (opponentElo - myElo) / 400));
         return expectedWinProb * 3; // 0-3 分
+    }
+
+    /**
+     * 获取球迷情绪档次 (0-4)
+     */
+    getEmotionTier(fanEmotion: number): number {
+        return Math.min(4, Math.floor(fanEmotion / 20));
     }
 
     /**
@@ -117,15 +127,15 @@ export class FanService {
         if (promotion) {
             fan.totalFans = Math.floor(fan.totalFans * 1.1);
             fan.recentForm = '';
-            fan.fanMorale = Math.min(100, fan.fanMorale + 20);
+            fan.fanEmotion = Math.min(100, fan.fanEmotion + 20);
         } else if (relegation) {
             fan.totalFans = Math.floor(fan.totalFans * 0.9);
             fan.recentForm = '';
-            fan.fanMorale = Math.max(20, fan.fanMorale - 20);
+            fan.fanEmotion = Math.max(0, fan.fanEmotion - 20);
         }
 
         // 计算周变化
-        const change = this.calculateWeeklyFanChange(fan.totalFans, cap, fan.fanMorale, fan.recentForm);
+        const change = this.calculateWeeklyFanChange(fan.totalFans, cap, fan.fanEmotion, fan.recentForm);
         fan.totalFans = Math.max(1000, fan.totalFans + change);
 
         await this.fanRepository.save(fan);
@@ -148,21 +158,21 @@ export class FanService {
             fan = await this.create(teamId);
         }
 
-        // 计算士气变化
+        // 计算情绪变化
         const diff = actualPoints - expectedPoints;
-        const moraleChange = this.calculateMoraleChange(diff);
+        const moraleChange = this.calculateMoraleChange(diff, result);
 
         // 更新最近5场结果
         let recentForm = fan.recentForm || '';
         recentForm = (recentForm + result).slice(-5);
 
-        fan.fanMorale = Math.max(20, Math.min(100, fan.fanMorale + moraleChange));
+        fan.fanEmotion = Math.max(0, Math.min(100, fan.fanEmotion + moraleChange));
         fan.recentForm = recentForm;
 
         await this.fanRepository.save(fan);
 
         this.logger.debug(
-            `Fan morale update for team ${teamId}: ${result}, expected=${expectedPoints.toFixed(1)}, actual=${actualPoints}, diff=${diff.toFixed(1)}, moraleChange=${moraleChange}, newMorale=${fan.fanMorale}`,
+            `Fan emotion update for team ${teamId}: ${result}, expected=${expectedPoints.toFixed(1)}, actual=${actualPoints}, diff=${diff.toFixed(1)}, emotionChange=${moraleChange}, newEmotion=${fan.fanEmotion}`,
         );
 
         return fan;
