@@ -5,6 +5,8 @@ import {
     LeagueEntity,
     LeagueStandingEntity,
     TeamEntity,
+    YouthLeagueEntity,
+    YouthTeamEntity,
 } from '@goalxi/database';
 
 /**
@@ -27,11 +29,15 @@ export class LeagueAdminService {
         private readonly standingRepository: Repository<LeagueStandingEntity>,
         @InjectRepository(TeamEntity)
         private readonly teamRepository: Repository<TeamEntity>,
+        @InjectRepository(YouthLeagueEntity)
+        private readonly youthLeagueRepository: Repository<YouthLeagueEntity>,
+        @InjectRepository(YouthTeamEntity)
+        private readonly youthTeamRepository: Repository<YouthTeamEntity>,
         private readonly dataSource: DataSource,
     ) {}
 
     /**
-     * 创建新联赛
+     * 创建新联赛，同时创建对应的青训联赛
      */
     async createLeague(
         name: string,
@@ -56,12 +62,23 @@ export class LeagueAdminService {
         });
 
         await this.leagueRepository.save(league);
-        this.logger.log(`Created league: ${name} (Tier ${tier}, Division ${tierDivision})`);
+
+        // 创建对应的青训联赛
+        const youthLeagueName = `${name} Youth League`;
+        const youthLeague = this.youthLeagueRepository.create({
+            name: youthLeagueName,
+            parentTier: tier,
+            maxTeams: 16,
+            status: 'active',
+        });
+        await this.youthLeagueRepository.save(youthLeague);
+
+        this.logger.log(`Created league: ${name} (Tier ${tier}, Division ${tierDivision}) and youth league: ${youthLeagueName}`);
         return league;
     }
 
     /**
-     * 将球队添加到联赛
+     * 将球队添加到联赛，同时创建对应的青训队
      */
     async addTeamToLeague(teamId: string, leagueId: string, season: number = 1): Promise<void> {
         const team = await this.teamRepository.findOne({ where: { id: teamId as any } });
@@ -109,6 +126,20 @@ export class LeagueAdminService {
             recentForm: '',
         });
         await this.standingRepository.save(standing);
+
+        // 为球队创建对应的青训队
+        const youthLeague = await this.youthLeagueRepository.findOne({
+            where: { parentTier: league.tier },
+        });
+        if (youthLeague) {
+            const youthTeam = this.youthTeamRepository.create({
+                teamId: team.id,
+                youthLeagueId: youthLeague.id,
+                name: `${team.name} Youth`,
+            });
+            await this.youthTeamRepository.save(youthTeam);
+            this.logger.log(`Created youth team for ${team.name}`);
+        }
 
         this.logger.log(`Added team ${team.name} to league ${league.name} (season ${season})`);
     }

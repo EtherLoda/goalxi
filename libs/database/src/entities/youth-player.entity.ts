@@ -1,15 +1,25 @@
-import { Entity, Column, PrimaryGeneratedColumn } from 'typeorm';
+import { Entity, Column, PrimaryGeneratedColumn, ManyToOne, JoinColumn } from 'typeorm';
 import { AbstractEntity } from './abstract.entity';
 import { PlayerAbility } from '../types/simulation-player';
 import { PlayerSkills, PotentialTier } from './player.entity';
+import { YouthTeamEntity } from './youth-team.entity';
 
 @Entity('youth_player')
 export class YouthPlayerEntity extends AbstractEntity {
     @PrimaryGeneratedColumn('uuid', { primaryKeyConstraintName: 'PK_youth_player_id' })
     id!: string;
 
+    /** 关联的母队成年队（用于晋升时创建 PlayerEntity） */
     @Column({ name: 'team_id', type: 'uuid' })
     teamId!: string;
+
+    /** 关联的青训队 */
+    @Column({ name: 'youth_team_id', type: 'uuid', nullable: true })
+    youthTeamId?: string;
+
+    @ManyToOne(() => YouthTeamEntity, { nullable: true })
+    @JoinColumn({ name: 'youth_team_id' })
+    youthTeam?: YouthTeamEntity;
 
     @Column()
     name!: string;

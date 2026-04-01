@@ -5,6 +5,7 @@ import { ScoutsService } from './scouts.service';
 import {
     ScoutCandidateEntity,
     YouthPlayerEntity,
+    YouthTeamEntity,
     PlayerEntity,
     TeamEntity,
 } from '@goalxi/database';
@@ -15,6 +16,7 @@ import { AuthModule } from '../auth/auth.module';
         TypeOrmModule.forFeature([
             ScoutCandidateEntity,
             YouthPlayerEntity,
+            YouthTeamEntity,
             PlayerEntity,
             TeamEntity,
         ]),

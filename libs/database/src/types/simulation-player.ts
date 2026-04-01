@@ -6,6 +6,7 @@
  */
 
 import { PlayerEntity } from '../entities/player.entity';
+import { YouthPlayerEntity } from '../entities/youth-player.entity';
 
 // Field path: how to access each attribute inside PlayerSkills JSONB
 const FIELD_MAP = {
@@ -67,7 +68,18 @@ export interface SimulationPlayerAttributes {
     abilities?: PlayerAbility[];
 }
 
-export type PlayerAbility = 'header_specialist' | 'long_passer' | 'cross_specialist';
+export type PlayerAbility =
+    | 'header_specialist'
+    | 'long_passer'
+    | 'cross_specialist'
+    | 'dribble_master'
+    | 'long_shooter'
+    | 'clutch_player'
+    | 'tackle_master'
+    | 'penalty_saver'
+    | 'counter_starter'
+    | 'rebound_specialist'
+    | 'fast_start';
 
 export interface SimulationPlayer {
     id: string;
@@ -125,4 +137,65 @@ export function toSimulationPlayer(entity: PlayerEntity): SimulationPlayer {
         exactAge: entity.getExactAge(),
         appearance: entity.appearance,
     };
+}
+
+/**
+ * Convert a YouthPlayerEntity to the flat SimulationPlayer structure.
+ * Youth players use default values for stamina/form/experience.
+ */
+export function toSimulationYouthPlayer(entity: YouthPlayerEntity): SimulationPlayer {
+    const skills = entity.currentSkills ?? {};
+
+    const attributes: SimulationPlayerAttributes = {
+        pace: getIn(skills, FIELD_MAP.pace),
+        strength: getIn(skills, FIELD_MAP.strength),
+        positioning: getIn(skills, FIELD_MAP.positioning),
+        composure: getIn(skills, FIELD_MAP.composure),
+        freeKicks: getIn(skills, FIELD_MAP.freeKicks),
+        penalties: getIn(skills, FIELD_MAP.penalties),
+        finishing: getIn(skills, FIELD_MAP.finishing),
+        passing: getIn(skills, FIELD_MAP.passing),
+        dribbling: getIn(skills, FIELD_MAP.dribbling),
+        defending: getIn(skills, FIELD_MAP.defending),
+    };
+
+    if (entity.isGoalkeeper) {
+        (attributes as any).gk_reflexes = getIn(skills, FIELD_MAP.gk_reflexes);
+        (attributes as any).gk_handling = getIn(skills, FIELD_MAP.gk_handling);
+        (attributes as any).gk_distribution = getIn(skills, FIELD_MAP.gk_distribution);
+    }
+
+    const rawAbilities = (skills as any)?.abilities;
+    if (Array.isArray(rawAbilities)) {
+        attributes.abilities = rawAbilities;
+    }
+
+    // Youth players use defaults for stamina/form/experience
+    const exactAge = computeExactAge(entity.birthday);
+
+    return {
+        id: entity.id,
+        name: entity.name,
+        position: entity.isGoalkeeper ? 'GK' : 'ST',
+        attributes,
+        currentStamina: 3, // default
+        form: 5, // default
+        experience: 5, // default
+        overall: computeOverall(skills),
+        exactAge,
+        appearance: undefined,
+    };
+}
+
+function computeExactAge(birthday: Date): [number, number] {
+    if (!birthday) return [0, 0];
+    const birth = new Date(birthday);
+    const now = new Date();
+    const years = now.getFullYear() - birth.getFullYear();
+    const monthDiff = now.getMonth() - birth.getMonth();
+    const dayDiff = now.getDate() - birth.getDate();
+    let months = monthDiff;
+    if (dayDiff < 0) months--;
+    if (months < 0) months += 12;
+    return [years, months];
 }

@@ -9,6 +9,11 @@ import {
     PlayerEntity,
     InjuryEntity,
     YouthPlayerEntity,
+    YouthLeagueEntity,
+    YouthTeamEntity,
+    YouthMatchEntity,
+    YouthMatchEventEntity,
+    YouthMatchTacticsEntity,
     TeamEntity,
     ScoutCandidateEntity,
     StaffEntity,
@@ -23,6 +28,8 @@ import { InjuryRecoveryService } from './injury-recovery.service';
 import { ScoutSchedulerService } from './scout-scheduler.service';
 import { TrainingSchedulerService } from './training-scheduler.service';
 import { SeasonSchedulerService } from './season-scheduler.service';
+import { YouthSeasonSchedulerService } from './youth-season-scheduler.service';
+import { YouthMatchSchedulerService } from './youth-match-scheduler.service';
 import { PromotionRelegationService } from './promotion-relegation.service';
 import { PlayoffService } from './playoff.service';
 import { LeagueAdminService } from './league-admin.service';
@@ -40,9 +47,14 @@ import { TeamGeneratorService } from './team-generator.service';
         BullModule.registerQueue({
             name: 'training-settlement',
         }),
+        BullModule.registerQueue({
+            name: 'youth-match-simulation',
+        }),
         TypeOrmModule.forFeature([
             MatchEntity, MatchTacticsEntity, MatchEventEntity,
-            PlayerEntity, InjuryEntity, YouthPlayerEntity,
+            PlayerEntity, InjuryEntity,
+            YouthPlayerEntity, YouthLeagueEntity, YouthTeamEntity,
+            YouthMatchEntity, YouthMatchEventEntity, YouthMatchTacticsEntity,
             TeamEntity, ScoutCandidateEntity, StaffEntity,
             LeagueEntity, LeagueStandingEntity, SeasonResultEntity,
             StadiumEntity, FanEntity,
@@ -54,6 +66,8 @@ import { TeamGeneratorService } from './team-generator.service';
         ScoutSchedulerService,
         TrainingSchedulerService,
         SeasonSchedulerService,
+        YouthSeasonSchedulerService,
+        YouthMatchSchedulerService,
         PromotionRelegationService,
         PlayoffService,
         LeagueAdminService,
@@ -65,6 +79,8 @@ import { TeamGeneratorService } from './team-generator.service';
         ScoutSchedulerService,
         TrainingSchedulerService,
         SeasonSchedulerService,
+        YouthSeasonSchedulerService,
+        YouthMatchSchedulerService,
         PromotionRelegationService,
         PlayoffService,
         LeagueAdminService,

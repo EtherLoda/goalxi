@@ -5,24 +5,21 @@ import {
     ScoutCandidateEntity,
     ScoutCandidatePlayerData,
     YouthPlayerEntity,
+    YouthTeamEntity,
     TeamEntity,
     PlayerEntity,
 } from '@goalxi/database';
 import { PotentialTier, PlayerAbility } from '@goalxi/database';
 import { getRandomNameByNationality, getRandomNationality } from '../../constants/name-database';
 
-const ALL_ABILITIES: PlayerAbility[] = ['header_specialist', 'long_passer', 'cross_specialist'];
+// 青训球员可能获得的特技
+const YOUTH_ABILITIES: PlayerAbility[] = [
+    'fast_start', 'tackle_master', 'long_passer', 'cross_specialist',
+    'dribble_master', 'header_specialist', 'long_shooter',
+];
 
 const OUTFIELD_KEYS = ['pace', 'strength', 'finishing', 'passing', 'dribbling', 'defending', 'positioning', 'composure', 'freeKicks', 'penalties'];
 const GK_KEYS = ['pace', 'strength', 'reflexes', 'handling', 'distribution', 'positioning', 'composure', 'freeKicks', 'penalties'];
-
-const POTENTIAL_TIER_THRESHOLDS: Array<{ tier: PotentialTier; min: number }> = [
-    { tier: PotentialTier.LEGEND, min: 91 },
-    { tier: PotentialTier.ELITE, min: 81 },
-    { tier: PotentialTier.HIGH_PRO, min: 71 },
-    { tier: PotentialTier.REGULAR, min: 56 },
-    { tier: PotentialTier.LOW, min: 0 },
-];
 
 function randomBirthdayForAge(age: number): Date {
     const now = new Date();
@@ -35,41 +32,60 @@ function pickRandom<T>(arr: T[]): T {
     return arr[Math.floor(Math.random() * arr.length)];
 }
 
+/**
+ * Generate youth player data
+ * - Potential based on tier distribution: 5% LEGEND, 20% ELITE, 50% HIGH_PRO, 25% LOW
+ * - Current ability independent of potential: OVR 15-35
+ * - Skills random, no position templates
+ */
 function generatePlayerData(): Omit<ScoutCandidatePlayerData, 'revealedSkills' | 'joinedAt' | 'potentialRevealed' | 'potentialTier'> & { potentialTier: PotentialTier } {
-    const isGoalkeeper = Math.random() < 0.1;
+    const isGoalkeeper = Math.random() < 0.1; // 10% 概率是门将
     const nationality = getRandomNationality();
     const { firstName, lastName } = getRandomNameByNationality(nationality);
     const age = 15 + Math.floor(Math.random() * 2); // 15 or 16
     const birthday = randomBirthdayForAge(age);
 
-    // Generate potential ability (40-90 range)
-    const potentialAbility = Math.floor(Math.random() * 51) + 40;
+    // Generate potential based on tier distribution (一周可抽3次)
+    // 1.2% 天才 (86-92), 3.8% 明日之星 (76-85), 50% 未来职业 (56-75), 45% 业余 (40-55)
+    const rand = Math.random();
+    let potentialAbility: number;
+    let potentialTier: PotentialTier;
 
-    // Determine tier
-    let potentialTier = PotentialTier.LOW;
-    for (const t of POTENTIAL_TIER_THRESHOLDS) {
-        if (potentialAbility >= t.min) {
-            potentialTier = t.tier;
-            break;
-        }
+    if (rand < 0.012) {
+        potentialAbility = 86 + Math.floor(Math.random() * 7); // 86-92
+        potentialTier = PotentialTier.ELITE;
+    } else if (rand < 0.050) {
+        potentialAbility = 76 + Math.floor(Math.random() * 10); // 76-85
+        potentialTier = PotentialTier.HIGH_PRO;
+    } else if (rand < 0.550) {
+        potentialAbility = 56 + Math.floor(Math.random() * 20); // 56-75
+        potentialTier = PotentialTier.REGULAR;
+    } else {
+        potentialAbility = 40 + Math.floor(Math.random() * 16); // 40-55
+        potentialTier = PotentialTier.LOW;
     }
 
-    // Generate skills based on potentialAbility (target avg = potentialAbility/5, range 1-20)
-    const targetAvg = potentialAbility / 5;
+    // Generate current ability independent of potential: OVR 15-35
+    const currentOvr = 15 + Math.floor(Math.random() * 21); // 15-35
+    const currentAvg = currentOvr / 5;
+    const potentialAvg = potentialAbility / 5;
+
     const keys = isGoalkeeper ? GK_KEYS : OUTFIELD_KEYS;
     const potential: Record<string, number> = {};
     const current: Record<string, number> = {};
 
     keys.forEach(k => {
-        const potVal = Math.max(1, Math.min(20, targetAvg + (Math.random() * 6 - 3)));
+        // 潜力技能：围绕潜力平均值波动
+        const potVal = Math.max(1, Math.min(20, potentialAvg + (Math.random() * 6 - 3)));
         potential[k] = parseFloat(potVal.toFixed(2));
-        // Current for age 15-16: ~40% of potential
-        const curVal = Math.max(1, Math.min(potential[k], potential[k] * (0.35 + Math.random() * 0.1)));
+
+        // 当前技能：围绕当前平均值波动，跟潜力脱钩
+        const curVal = Math.max(1, Math.min(20, currentAvg + (Math.random() * 6 - 3)));
         current[k] = parseFloat(curVal.toFixed(2));
     });
 
     // 30% chance of having an ability
-    const abilities = Math.random() < 0.30 ? [pickRandom(ALL_ABILITIES)] : undefined;
+    const abilities = Math.random() < 0.30 ? [pickRandom(YOUTH_ABILITIES)] : undefined;
 
     return {
         name: `${firstName} ${lastName}`,
@@ -121,6 +137,8 @@ export class ScoutsService {
         private candidateRepo: Repository<ScoutCandidateEntity>,
         @InjectRepository(YouthPlayerEntity)
         private youthPlayerRepo: Repository<YouthPlayerEntity>,
+        @InjectRepository(YouthTeamEntity)
+        private youthTeamRepo: Repository<YouthTeamEntity>,
         @InjectRepository(PlayerEntity)
         private playerRepo: Repository<PlayerEntity>,
         @InjectRepository(TeamEntity)
@@ -167,8 +185,14 @@ export class ScoutsService {
         const candidate = await this.candidateRepo.findOneByOrFail({ id: candidateId });
         const { playerData } = candidate;
 
+        // Find the youth team for this senior team
+        const youthTeam = await this.youthTeamRepo.findOne({
+            where: { teamId: candidate.teamId },
+        });
+
         const youth = this.youthPlayerRepo.create({
             teamId: candidate.teamId,
+            youthTeamId: youthTeam?.id,
             name: playerData.name,
             birthday: playerData.birthday,
             isGoalkeeper: playerData.isGoalkeeper,

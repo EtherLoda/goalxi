@@ -22,8 +22,14 @@ import {
   PlayerTransactionEntity,
   InjuryEntity,
   StaffEntity,
+  YouthMatchEntity,
+  YouthMatchEventEntity,
+  YouthMatchTacticsEntity,
+  YouthPlayerEntity,
+  YouthTeamEntity,
 } from '@goalxi/database';
 import { SimulationProcessor } from './processor/simulation.processor';
+import { YouthSimulationProcessor } from './processor/youth-simulation.processor';
 
 const entities = [
   UserEntity,
@@ -44,8 +50,12 @@ const entities = [
   PlayerHistoryEntity,
   PlayerTransactionEntity,
   InjuryEntity,
+  YouthMatchEntity,
+  YouthMatchEventEntity,
+  YouthMatchTacticsEntity,
+  YouthPlayerEntity,
+  YouthTeamEntity,
 ];
-// 顺带把 PlayerTransactionEntity 从 forFeature 里去掉（processor 没用它）
 
 @Module({
   imports: [
@@ -78,6 +88,9 @@ const entities = [
     BullModule.registerQueue({
       name: 'match-simulation',
     }),
+    BullModule.registerQueue({
+      name: 'youth-match-simulation',
+    }),
     TypeOrmModule.forFeature([
       MatchEntity,
       MatchEventEntity,
@@ -87,8 +100,13 @@ const entities = [
       TeamEntity,
       InjuryEntity,
       StaffEntity,
+      YouthMatchEntity,
+      YouthMatchEventEntity,
+      YouthMatchTacticsEntity,
+      YouthPlayerEntity,
+      YouthTeamEntity,
     ]),
   ],
-  providers: [SimulationProcessor],
+  providers: [SimulationProcessor, YouthSimulationProcessor],
 })
 export class AppModule { }
