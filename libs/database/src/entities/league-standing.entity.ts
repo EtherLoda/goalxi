@@ -4,6 +4,7 @@ import { AbstractEntity } from './abstract.entity';
 import {
     Column,
     Entity,
+    Index,
     JoinColumn,
     ManyToOne,
     PrimaryGeneratedColumn,
@@ -11,7 +12,8 @@ import {
 } from 'typeorm';
 
 @Entity('league_standing')
-@Unique(['leagueId', 'teamId'])
+@Unique(['leagueId', 'teamId', 'season'])
+@Index(['leagueId', 'season', 'position'])
 export class LeagueStandingEntity extends AbstractEntity {
     @PrimaryGeneratedColumn('uuid')
     id: string;
@@ -36,6 +38,10 @@ export class LeagueStandingEntity extends AbstractEntity {
     @Column({ default: 0 })
     position: number;
 
+    /** 已赛场次 */
+    @Column({ default: 0 })
+    played: number;
+
     @Column({ default: 0 })
     points: number;
 
@@ -53,4 +59,12 @@ export class LeagueStandingEntity extends AbstractEntity {
 
     @Column({ name: 'goals_against', default: 0 })
     goalsAgainst: number;
+
+    /** 净胜球 */
+    @Column({ name: 'goal_difference', default: 0 })
+    goalDifference: number;
+
+    /** 最近5场结果 (如 "WWDLW") */
+    @Column({ name: 'recent_form', type: 'varchar', length: 10, default: '' })
+    recentForm: string;
 }

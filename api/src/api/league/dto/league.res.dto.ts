@@ -7,13 +7,23 @@ export class LeagueResDto {
     @Expose()
     name: string;
 
-
-
     @Expose()
     tier: number;
 
     @Expose()
-    division: number;
+    tierDivision: number;
+
+    @Expose()
+    maxTeams: number;
+
+    @Expose()
+    promotionSlots: number;
+
+    @Expose()
+    playoffSlots: number;
+
+    @Expose()
+    relegationSlots: number;
 
     @Expose()
     status: string;

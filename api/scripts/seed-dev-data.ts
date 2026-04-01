@@ -173,7 +173,11 @@ async function createTestData() {
             const result = await leagueRepo.insert({
                 name: 'Premier Development League',
                 tier: 1,
-                division: 1,
+                tierDivision: 1,
+                maxTeams: 16,
+                promotionSlots: 1,
+                playoffSlots: 4,
+                relegationSlots: 4,
                 status: 'active',
             });
             league = await leagueRepo.findOne({ where: { id: result.identifiers[0].id } });

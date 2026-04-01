@@ -1,7 +1,13 @@
 import { TacticalPlayer, Lane, Phase, TeamSnapshot } from '../types/simulation.types';
 import { AttributeCalculator } from '../utils/attribute-calculator';
 import { ConditionSystem } from '../systems/condition.system';
-import { Player } from '../../types/player.types';
+import { Player, PlayerAbility } from '../../types/player.types';
+
+// Ability helper
+const hasAbility = (player: Player | undefined, ability: PlayerAbility): boolean => {
+    return Array.isArray(player?.attributes?.abilities) &&
+        player.attributes.abilities.includes(ability);
+};
 
 export class Team {
     private snapshot: TeamSnapshot | null = null;
@@ -66,8 +72,9 @@ export class Team {
     /**
      * Generates a new snapshot of effective team strengths.
      * 使用缓存的贡献值，只需应用multiplier
+     * @param minute 当前比赛分钟，用于计算clutch_player加成
      */
-    updateSnapshot() {
+    updateSnapshot(minute: number = 0) {
         const lanes: Lane[] = ['left', 'center', 'right'];
         const laneStrengths: TeamSnapshot['laneStrengths'] = {
             left: { attack: 0, defense: 0, possession: 0 },
@@ -83,12 +90,21 @@ export class Team {
             const currentFit = this.playerFitness[i];
 
             // Calculate Performance Multiplier
-            const multiplier = ConditionSystem.calculateMultiplier(
+            let multiplier = ConditionSystem.calculateMultiplier(
                 currentFit,
                 player.currentStamina,
                 player.form,
                 player.experience
             );
+
+            // clutch_player: 最后15分钟所有评分 +5%
+            if (minute >= 75 && hasAbility(player, 'clutch_player')) {
+                multiplier *= 1.05;
+            }
+            // fast_start: 开局15分钟所有评分 +5%
+            if (minute <= 15 && minute > 0 && hasAbility(player, 'fast_start')) {
+                multiplier *= 1.05;
+            }
 
             // 使用calculateAndCacheContribution，自动缓存
             for (const lane of lanes) {

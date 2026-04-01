@@ -1,5 +1,6 @@
 export enum TransactionType {
     MATCH_INCOME = 'MATCH_INCOME',
+    TICKET_INCOME = 'TICKET_INCOME',
     TRANSFER_IN = 'TRANSFER_IN',
     TRANSFER_OUT = 'TRANSFER_OUT',
     WAGES = 'WAGES',

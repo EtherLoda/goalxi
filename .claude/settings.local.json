@@ -23,7 +23,10 @@
       "Bash(npx tsc:*)",
       "Bash(cd:*)",
       "Bash(pnpm tsc --noEmit)",
-      "mcp__ide__getDiagnostics"
+      "mcp__ide__getDiagnostics",
+      "Bash(pnpm --filter simulator test)",
+      "Bash(pnpm --filter goalxi-api test)",
+      "Bash(pnpm:*)"
     ]
   }
 }

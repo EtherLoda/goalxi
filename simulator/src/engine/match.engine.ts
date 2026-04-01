@@ -82,6 +82,7 @@ export class MatchEngine {
 
     private possessionTeam: Team;
     private defendingTeam: Team;
+    private freshPossession: boolean = false; // 刚获得球权，第一次进攻享受反击加成
 
     private currentLane: Lane = 'center';
     private knownPlayerIds: Set<string> = new Set();
@@ -158,6 +159,7 @@ export class MatchEngine {
 
         this.events = [];
         this.time = 0;
+        this.freshPossession = false;
 
         // KICKOFF Event
         this.events.push({
@@ -194,8 +196,8 @@ export class MatchEngine {
         const MINS_PER_MOMENT = 90 / MOMENTS_COUNT;
 
         // Initial Snapshot
-        this.homeTeam.updateSnapshot();
-        this.awayTeam.updateSnapshot();
+        this.homeTeam.updateSnapshot(0);
+        this.awayTeam.updateSnapshot(0);
         this.generateSnapshotEvent(0);
 
         // Pre-calculate moment times to maintain original pacing (approx 20 moments)
@@ -243,8 +245,8 @@ export class MatchEngine {
             // 3. Generate Snapshot (Every 5 mins, 45, 46, 90)
             const isSnapshotMinute = (t % 5 === 0 || t === 45 || t === 46 || t === 90);
             if (isSnapshotMinute) {
-                this.homeTeam.updateSnapshot();
-                this.awayTeam.updateSnapshot();
+                this.homeTeam.updateSnapshot(t);
+                this.awayTeam.updateSnapshot(t);
                 this.generateSnapshotEvent(t);
             }
 
@@ -283,8 +285,8 @@ export class MatchEngine {
         const MINS_PER_MOMENT = 30 / MOMENTS_COUNT;
 
         // Update Snapshot for start of ET
-        this.homeTeam.updateSnapshot();
-        this.awayTeam.updateSnapshot();
+        this.homeTeam.updateSnapshot(90);
+        this.awayTeam.updateSnapshot(90);
         this.generateSnapshotEvent(90);
 
         // Pre-calculate moment times for ET (approx 7 moments)
@@ -326,8 +328,8 @@ export class MatchEngine {
             // 3. Snapshot (95, 100, 105, 110, 115, 120)
             const isSnapshotMinute = (t % 5 === 0 || t === 105 || t === 120);
             if (isSnapshotMinute) {
-                this.homeTeam.updateSnapshot();
-                this.awayTeam.updateSnapshot();
+                this.homeTeam.updateSnapshot(t);
+                this.awayTeam.updateSnapshot(t);
                 this.generateSnapshotEvent(t);
             }
 
@@ -385,7 +387,12 @@ export class MatchEngine {
             const gPlayer = keeper.player as Player;
 
             const kMultiplier = ConditionSystem.calculatePenaltyMultiplier(kPlayer.form, kPlayer.experience);
-            const gMultiplier = ConditionSystem.calculatePenaltyMultiplier(gPlayer.form, gPlayer.experience);
+            let gMultiplier = ConditionSystem.calculatePenaltyMultiplier(gPlayer.form, gPlayer.experience);
+
+            // penalty_saver: 扑点球时扑救率 +10%
+            if (hasAbility(gPlayer, 'penalty_saver')) {
+                gMultiplier *= 1.10;
+            }
 
             const kickerScore = getPenaltyScore(kPlayer, kMultiplier, false);
             const keeperScore = getPenaltyScore(gPlayer, gMultiplier, true);
@@ -582,7 +589,7 @@ export class MatchEngine {
                     playerId: ins.type === 'swap' ? ins.newPlayerId : ins.playerId,
                     data: ins
                 });
-                team.updateSnapshot(); // Immediate re-calculation
+                team.updateSnapshot(this.time); // Immediate re-calculation
             }
         }
     }
@@ -607,7 +614,19 @@ export class MatchEngine {
         // Step 2: Midfield Battle (Possession)
         const homeControl = this.homeTeam.calculateLaneStrength(this.currentLane, 'possession');
         const awayControl = this.awayTeam.calculateLaneStrength(this.currentLane, 'possession');
-        const homeWinsPossession = this.resolveDuel(homeControl, awayControl, 0.02, 0);
+
+        // tackle_master: 防守方有抢断专家时中场控制 +8%
+        const homeTackleBonus = this.homeTeam.players.filter(
+            p => hasAbility(p.player as Player, 'tackle_master')
+        ).length * 0.08;
+        const awayTackleBonus = this.awayTeam.players.filter(
+            p => hasAbility(p.player as Player, 'tackle_master')
+        ).length * 0.08;
+
+        const homeControlWithBonus = homeControl * (1 + awayTackleBonus); // defending team benefits
+        const awayControlWithBonus = awayControl * (1 + homeTackleBonus); // defending team benefits
+
+        const homeWinsPossession = this.resolveDuel(homeControlWithBonus, awayControlWithBonus, 0.02, 0);
 
         this.possessionTeam = homeWinsPossession ? this.homeTeam : this.awayTeam;
         this.defendingTeam = homeWinsPossession ? this.awayTeam : this.homeTeam;
@@ -617,8 +636,20 @@ export class MatchEngine {
         const attackType = this.selectAttackType(attackStyle);
 
         // Calculate attack/defense power for this lane
-        const attPower = this.possessionTeam.calculateLaneStrength(this.currentLane, 'attack') * 1.15;
+        let attPower = this.possessionTeam.calculateLaneStrength(this.currentLane, 'attack') * 1.15;
         const defPower = this.defendingTeam.calculateLaneStrength(this.currentLane, 'defense');
+
+        // counter_starter: 防守抢断后反击时，每个反击专家 +5%
+        // 只有刚获得球权（freshPossession=true）时才触发
+        if (this.freshPossession) {
+            const counterStarterCount = this.possessionTeam.players.filter(
+                p => hasAbility(p.player as Player, 'counter_starter')
+            ).length;
+            if (counterStarterCount > 0) {
+                attPower *= (1 + 0.05 * counterStarterCount);
+            }
+            this.freshPossession = false; // 重置标志
+        }
 
         // Step 4: Attack Push (Attack vs Defense)
         // 远射跳过推进阶段
@@ -643,8 +674,39 @@ export class MatchEngine {
             if (attackType === AttackType.CROSS && hasAbility(passerPlayer, 'cross_specialist')) {
                 effectiveAttPower *= 1.08;
             }
+            // dribble_master: 突破进攻时进攻贡献 +6%
+            if (attackType === AttackType.DRIBBLE && hasAbility(passerPlayer, 'dribble_master')) {
+                effectiveAttPower *= 1.06;
+            }
 
-            pushSuccess = this.resolveDuel(effectiveAttPower, defPower, attackConfig.pushK, attackConfig.pushOffset);
+            // header_specialist: 进攻方头球专家加成（传中进攻时）
+            // 每个有头球专家的进攻球员提供+5%加成，可叠加
+            if (attackType === AttackType.CROSS) {
+                const attackerHeaderCount = this.possessionTeam.players.filter(
+                    p => hasAbility(p.player as Player, 'header_specialist')
+                ).length;
+                if (attackerHeaderCount > 0) {
+                    effectiveAttPower *= (1 + 0.05 * attackerHeaderCount);
+                }
+            }
+
+            // header_specialist: 防守方头球解围加成（传中进攻时）
+            // 每个有头球专家的球员提供+8%加成，可叠加
+            let effectiveDefPower = defPower;
+            if (attackType === AttackType.CROSS) {
+                const defenderHeaderCount = this.defendingTeam.players.filter(
+                    p => hasAbility(p.player as Player, 'header_specialist')
+                ).length;
+                if (defenderHeaderCount > 0) {
+                    effectiveDefPower *= (1 + 0.08 * defenderHeaderCount);
+                }
+            }
+
+            pushSuccess = this.resolveDuel(effectiveAttPower, effectiveDefPower, attackConfig.pushK, attackConfig.pushOffset);
+            // 如果进攻失败，防守方获得球权，下次进攻享受反击加成
+            if (!pushSuccess) {
+                this.freshPossession = true;
+            }
         }
 
         // Step 5: Shot attempt
@@ -662,6 +724,10 @@ export class MatchEngine {
                 const player = shooter.player as Player;
                 shotType = ShotType.LONG_SHOT;
                 finalShootRating = this.calculateLongShotRating(player);
+                // long_shooter: 远射评分 +10%
+                if (hasAbility(player, 'long_shooter')) {
+                    finalShootRating *= 1.10;
+                }
 
                 const gk = this.defendingTeam.getGoalkeeper();
                 gkRating = gk ? (this.defendingTeam.getSnapshot()?.gkRating || 100) : 100;
@@ -693,6 +759,12 @@ export class MatchEngine {
                         finalShootRating = this.calculateOneOnOneRating(player);
                         break;
                     case ShotType.REBOUND:
+                        finalShootRating = this.calculateShootRating(player);
+                        // rebound_specialist: 补射评分 +10%
+                        if (hasAbility(player, 'rebound_specialist')) {
+                            finalShootRating *= 1.10;
+                        }
+                        break;
                     case ShotType.NORMAL:
                         finalShootRating = this.calculateShootRating(player);
                         break;
@@ -780,7 +852,7 @@ export class MatchEngine {
                 teamName: foulingTeam.name,
                 playerId: p.id,
             });
-            foulingTeam.updateSnapshot();
+            foulingTeam.updateSnapshot(this.time);
         } else if (roll < 0.4) {
             // Yellow Card - check for second yellow
             const currentYellows = player.yellowCards || 0;
@@ -908,7 +980,7 @@ export class MatchEngine {
             });
 
             // Update team snapshot
-            team.updateSnapshot();
+            team.updateSnapshot(this.time);
         }
     }
 
@@ -1554,9 +1626,13 @@ export class MatchEngine {
         const gkP = gk.player as Player;
 
         const attackScore = (kickerP.attributes.penalties ?? 10) * 1.2 + (kickerP.attributes.composure ?? 10) * 0.5;
-        const defenseScore = (gkP.attributes.gk_reflexes ?? 10) * 0.8 +
+        let defenseScore = (gkP.attributes.gk_reflexes ?? 10) * 0.8 +
                             (gkP.attributes.gk_handling ?? 10) * 0.6 +
                             (gkP.attributes.composure ?? 10) * 0.4;
+        // penalty_saver: 扑点球时扑救率 +10%
+        if (hasAbility(gkP, 'penalty_saver')) {
+            defenseScore *= 1.10;
+        }
         const diff = attackScore - defenseScore;
         const probability = 1 / (1 + Math.exp(-diff * 0.12 - 0.9));
         const isGoal = Math.random() < probability;

@@ -4,6 +4,7 @@ import { BullModule } from '@nestjs/bullmq';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { DatabaseConfigService } from './config/database.config';
 import { TrainingModule } from './training.module';
+import { FanModule } from './fan.module';
 
 @Module({
     imports: [
@@ -26,6 +27,7 @@ import { TrainingModule } from './training.module';
             useClass: DatabaseConfigService,
         }),
         TrainingModule,
+        FanModule,
     ],
     controllers: [],
     providers: [],
