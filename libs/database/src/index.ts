@@ -29,6 +29,7 @@ export * from './entities/stadium.entity';
 export * from './entities/fan.entity';
 export * from './entities/weather.entity';
 export * from './utils/password.util';
+export * from './utils/position-fit.util';
 export * from './types/common.type';
 export * from './constants/finance.constants';
 export * from './constants/game.constants';

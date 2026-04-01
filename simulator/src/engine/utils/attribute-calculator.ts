@@ -1,4 +1,4 @@
-import { POSITION_WEIGHTS, PositionWeightMatrix, GKWeightMatrix } from '../constants/position-weights';
+import { POSITION_WEIGHTS, PositionWeightMatrix, GKWeightMatrix } from '@goalxi/database';
 import { Player, PlayerAttributes } from '../../types/player.types';
 import { Lane, Phase } from '../types/simulation.types';
 
