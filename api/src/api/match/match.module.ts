@@ -13,6 +13,7 @@ import {
   MatchTeamStatsEntity,
   StadiumEntity,
   FanEntity,
+  LeagueStandingEntity,
 } from '@goalxi/database';
 import { MatchController } from './match.controller';
 import { MatchService } from './match.service';
@@ -44,6 +45,7 @@ import { FinanceModule } from '../finance/finance.module';
       MatchTeamStatsEntity,
       StadiumEntity,
       FanEntity,
+      LeagueStandingEntity,
     ]),
   ],
   controllers: [MatchController],

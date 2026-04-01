@@ -7,10 +7,15 @@ import {
     PlayerEntity,
     MatchEventEntity,
     MatchTacticsEntity,
+    TeamEntity,
+    StadiumEntity,
+    FanEntity,
 } from '@goalxi/database';
 import { MatchCompletionProcessor } from './match-completion.processor';
 import { MatchCompletionService } from '@/api/match/match-completion.service';
 import { MatchCacheService } from '@/api/match/match-cache.service';
+import { FanModule } from '../../../api/fan/fan.module';
+import { FinanceModule } from '../../../api/finance/finance.module';
 
 @Module({
     imports: [
@@ -23,7 +28,12 @@ import { MatchCacheService } from '@/api/match/match-cache.service';
             PlayerEntity,
             MatchEventEntity,
             MatchTacticsEntity,
+            TeamEntity,
+            StadiumEntity,
+            FanEntity,
         ]),
+        FanModule,
+        FinanceModule,
     ],
     providers: [
         MatchCompletionProcessor,
