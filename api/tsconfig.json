@@ -78,6 +78,12 @@
       ],
       "@goalxi/database": [
         "../libs/database/dist"
+      ],
+      "settlement": [
+        "../settlement/dist"
+      ],
+      "settlement/*": [
+        "../settlement/dist/*"
       ]
     }
   }

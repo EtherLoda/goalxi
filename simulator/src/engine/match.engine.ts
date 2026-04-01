@@ -17,6 +17,18 @@ const ATTACK_TYPE_DISTRIBUTION: Record<number, number[]> = {
     0: [15, 30, 15, 30, 10], // balanced: 传中, 短传, 直塞, 突破, 远射
 };
 
+// 天气 × 进攻类型 权重矩阵（平均值 ≈ 1.0）
+// 索引顺序: 0=传中, 1=短传, 2=直塞, 3=突破, 4=远射
+const WEATHER_ATTACK_WEIGHTS: Record<string, number[]> = {
+    sunny:     [1.05, 0.95, 1.00, 1.10, 1.10],
+    cloudy:    [1.00, 1.00, 1.00, 1.00, 1.00],
+    rainy:     [0.90, 0.95, 0.85, 1.15, 0.80],
+    heavy_rain:[0.70, 0.80, 0.70, 1.20, 0.60],
+    windy:     [1.20, 0.95, 1.00, 1.00, 1.25],
+    foggy:     [0.90, 0.90, 0.60, 1.05, 0.70],
+    snowy:     [1.15, 0.90, 0.80, 0.90, 0.75],
+};
+
 // 进攻类型配置（推进参数）
 const ATTACK_TYPE_CONFIG: Record<AttackType, { pushK: number; pushOffset: number }> = {
     [AttackType.CROSS]: { pushK: 0.025, pushOffset: -5 },
@@ -101,7 +113,8 @@ export class MatchEngine {
         private awayInstructions: TacticalInstruction[] = [],
         private substitutePlayers: Map<string, TacticalPlayer> = new Map(), // All potential subs mapped by ID
         private homeBenchConfig: BenchConfig | null = null,
-        private awayBenchConfig: BenchConfig | null = null
+        private awayBenchConfig: BenchConfig | null = null,
+        private weather: string = 'cloudy' // Default weather
     ) {
         this.possessionTeam = homeTeam;
         this.defendingTeam = awayTeam;
@@ -1229,22 +1242,31 @@ export class MatchEngine {
     }
 
     /**
-     * 根据 attackStyle 选择进攻类型
+     * 根据 attackStyle 选择进攻类型（受天气影响）
      * @param attackStyle 0=balanced (当前唯一实现)
      * @returns 进攻类型枚举
      */
     private selectAttackType(attackStyle: number = 0): AttackType {
         const distribution = ATTACK_TYPE_DISTRIBUTION[attackStyle];
         if (!distribution) {
-            // 默认使用 balanced
             return AttackType.DRIBBLE;
         }
+
+        // 获取天气权重
+        const weatherWeights = WEATHER_ATTACK_WEIGHTS[this.weather] || WEATHER_ATTACK_WEIGHTS['cloudy'];
+
+        // 应用天气权重
+        const weightedDistribution = distribution.map((base, i) => base * weatherWeights[i]);
+
+        // 归一化（保持总和为100）
+        const sum = weightedDistribution.reduce((a, b) => a + b, 0);
+        const normalized = weightedDistribution.map(w => (w / sum) * 100);
 
         const rand = Math.random() * 100;
         let cumulative = 0;
 
-        for (let i = 0; i < distribution.length; i++) {
-            cumulative += distribution[i];
+        for (let i = 0; i < normalized.length; i++) {
+            cumulative += normalized[i];
             if (rand < cumulative) {
                 return i as AttackType;
             }

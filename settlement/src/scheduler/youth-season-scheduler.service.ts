@@ -3,19 +3,11 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { YouthMatchEntity, YouthMatchStatus } from '@goalxi/database';
 
-/**
- * Youth Season Scheduler Service
- *
- * 青训赛程生成规则：
- * - 与母队联赛同步，一周双赛（周三、周六）
- * - 联赛共15周 + 1周升降级附加赛 = 16周（但青训联赛无升降级）
- * - 每联赛16队，双循环赛制：30场/队
- */
 @Injectable()
 export class YouthSeasonSchedulerService {
     private readonly logger = new Logger(YouthSeasonSchedulerService.name);
 
-    private readonly MATCH_DAYS = [3, 6]; // 周三、周六
+    private readonly MATCH_DAYS = [3, 6];
     private readonly MATCH_HOUR = 13;
     private readonly MATCH_MINUTE = 0;
 
@@ -24,9 +16,6 @@ export class YouthSeasonSchedulerService {
         private readonly matchRepository: Repository<YouthMatchEntity>,
     ) {}
 
-    /**
-     * 生成青训赛季赛程
-     */
     async generateSeasonSchedule(
         youthLeagueId: string,
         youthTeamIds: string[],
@@ -92,7 +81,6 @@ export class YouthSeasonSchedulerService {
         const fixedTeam = youthTeamIds[0];
         const rotatingTeams = youthTeamIds.slice(1);
 
-        // 第一半（主场）
         for (let round = 0; round < numRounds; round++) {
             const roundMatchups = this.generateRoundMatchups(
                 fixedTeam,
@@ -119,7 +107,6 @@ export class YouthSeasonSchedulerService {
             }
         }
 
-        // 第二半（客场，对调主客场）
         for (let round = 0; round < numRounds; round++) {
             const roundMatchups = this.generateRoundMatchups(
                 fixedTeam,

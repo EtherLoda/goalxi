@@ -5,6 +5,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { DatabaseConfigService } from './config/database.config';
 import { TrainingModule } from './training.module';
 import { FanModule } from './fan.module';
+import { SchedulerModule } from './scheduler/scheduler.module';
 
 @Module({
     imports: [
@@ -28,6 +29,7 @@ import { FanModule } from './fan.module';
         }),
         TrainingModule,
         FanModule,
+        SchedulerModule,
     ],
     controllers: [],
     providers: [],

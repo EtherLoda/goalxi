@@ -2,7 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, LessThanOrEqual, Not, IsNull } from 'typeorm';
+import { Repository, LessThanOrEqual } from 'typeorm';
 import {
     YouthMatchEntity,
     YouthMatchStatus,
@@ -11,14 +11,6 @@ import {
     GAME_SETTINGS,
 } from '@goalxi/database';
 
-/**
- * Youth Match Scheduler Service
- *
- * Handles:
- * - Locking youth match tactics 30 minutes before kickoff
- * - Queuing youth match simulations to BullMQ
- * - Updating youth match status to IN_PROGRESS when it's time
- */
 @Injectable()
 export class YouthMatchSchedulerService {
     private readonly logger = new Logger(YouthMatchSchedulerService.name);
@@ -34,16 +26,11 @@ export class YouthMatchSchedulerService {
         private eventRepository: Repository<YouthMatchEventEntity>,
     ) {}
 
-    /**
-     * Lock tactics for youth matches that are 30 minutes away
-     * Called by the scheduler every minute
-     */
     async lockTactics(): Promise<void> {
         const deadlineMinutes = GAME_SETTINGS.MATCH_TACTICS_DEADLINE_MINUTES;
         const now = new Date();
         const deadline = new Date(now.getTime() + deadlineMinutes * 60 * 1000);
 
-        // Find matches that are within the deadline window and not yet locked
         const matches = await this.matchRepository.find({
             where: {
                 status: YouthMatchStatus.SCHEDULED,
@@ -61,7 +48,6 @@ export class YouthMatchSchedulerService {
 
         for (const match of matches) {
             try {
-                // Fetch tactics for both teams
                 const homeTactics = await this.tacticsRepository.findOne({
                     where: { youthMatchId: match.id, teamId: match.homeYouthTeamId },
                 });
@@ -69,7 +55,6 @@ export class YouthMatchSchedulerService {
                     where: { youthMatchId: match.id, teamId: match.awayYouthTeamId },
                 });
 
-                // Forfeit if no tactics submitted
                 if (!homeTactics) {
                     match.homeForfeit = true;
                     this.logger.warn(
@@ -83,11 +68,9 @@ export class YouthMatchSchedulerService {
                     );
                 }
 
-                // Lock tactics
                 match.tacticsLocked = true;
                 match.tacticsLockedAt = new Date();
 
-                // Queue simulation job immediately after locking tactics
                 const jobData = {
                     youthMatchId: match.id,
                     homeForfeit: match.homeForfeit,
@@ -122,14 +105,9 @@ export class YouthMatchSchedulerService {
         }
     }
 
-    /**
-     * Start youth matches that are at their scheduled time
-     * Called by the scheduler every minute
-     */
     async startMatches(): Promise<void> {
         const now = new Date();
 
-        // Find matches that should start now
         const matches = await this.matchRepository.find({
             where: {
                 status: YouthMatchStatus.TACTICS_LOCKED,
@@ -163,14 +141,9 @@ export class YouthMatchSchedulerService {
         }
     }
 
-    /**
-     * Complete youth matches that have ended
-     * Called by the scheduler every minute
-     */
     async completeMatches(): Promise<void> {
         const now = new Date();
 
-        // Find matches that are in progress and have ended
         const matches = await this.matchRepository.find({
             where: {
                 status: YouthMatchStatus.IN_PROGRESS,
@@ -183,7 +156,6 @@ export class YouthMatchSchedulerService {
         }
 
         for (const match of matches) {
-            // Check if the match has ended (simulationCompletedAt is set and actualEndTime has passed)
             if (!match.simulationCompletedAt || !match.actualEndTime) {
                 continue;
             }

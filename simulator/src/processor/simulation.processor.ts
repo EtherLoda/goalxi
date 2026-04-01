@@ -29,6 +29,7 @@ interface SimulationJobData {
     matchId: string;
     homeForfeit?: boolean;
     awayForfeit?: boolean;
+    weather?: string;
 }
 
 @Processor('match-simulation')
@@ -59,7 +60,7 @@ export class SimulationProcessor extends WorkerHost {
     }
 
     async process(job: Job<SimulationJobData>): Promise<void> {
-        const { matchId, homeForfeit, awayForfeit } = job.data;
+        const { matchId, homeForfeit, awayForfeit, weather } = job.data;
 
         this.logger.log(`[Simulator] Processing match ${matchId}`);
 
@@ -81,7 +82,7 @@ export class SimulationProcessor extends WorkerHost {
         if (homeForfeit || awayForfeit) {
             await this.handleForfeit(match, !!homeForfeit, !!awayForfeit);
         } else {
-            await this.runSimulation(match);
+            await this.runSimulation(match, weather);
         }
 
         this.logger.log(`[Simulator] Completed match ${matchId}`);
@@ -91,7 +92,7 @@ export class SimulationProcessor extends WorkerHost {
         return Object.keys(lineup).find(key => lineup[key] === playerId);
     }
 
-    private async runSimulation(match: MatchEntity): Promise<void> {
+    private async runSimulation(match: MatchEntity, weather?: string): Promise<void> {
         // 1. Fetch Tactics
         const homeTactics = await this.tacticsRepository.findOne({ where: { matchId: match.id, teamId: match.homeTeamId } });
         const awayTactics = await this.tacticsRepository.findOne({ where: { matchId: match.id, teamId: match.awayTeamId } });
@@ -206,10 +207,13 @@ export class SimulationProcessor extends WorkerHost {
         const tA = new Team(match.homeTeam!.name, homeTacticalPlayers, homeDoctorLevel);
         const tB = new Team(match.awayTeam!.name, awayTacticalPlayers, awayDoctorLevel);
 
-        const engine = new MatchEngine(tA, tB, homeInstructions, awayInstructions, subMap, homeBenchConfig, awayBenchConfig);
+        // Normalize weather string for MatchEngine
+        const normalizedWeather = weather || 'cloudy';
+
+        const engine = new MatchEngine(tA, tB, homeInstructions, awayInstructions, subMap, homeBenchConfig, awayBenchConfig, normalizedWeather);
 
         // 5. Run Match (wrapped in try/catch to ensure transaction rollback on error)
-        this.logger.log(`[Simulator] Starting engine for ${match.id}`);
+        this.logger.log(`[Simulator] Starting engine for ${match.id} with weather: ${normalizedWeather}`);
         let events: MatchEvent[];
         try {
             events = engine.simulateMatch();

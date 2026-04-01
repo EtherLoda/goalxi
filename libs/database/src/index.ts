@@ -27,6 +27,7 @@ export * from './entities/scout-candidate.entity';
 export * from './entities/staff.entity';
 export * from './entities/stadium.entity';
 export * from './entities/fan.entity';
+export * from './entities/weather.entity';
 export * from './utils/password.util';
 export * from './types/common.type';
 export * from './constants/finance.constants';

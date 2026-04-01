@@ -111,4 +111,4 @@ const entities = [
   ],
   providers: [SimulationProcessor, YouthSimulationProcessor],
 })
-export class AppModule { }
+export class AppModule {}

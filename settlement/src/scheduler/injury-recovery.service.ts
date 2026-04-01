@@ -24,7 +24,6 @@ export class InjuryRecoveryService {
         const now = new Date();
         this.logger.log(`[InjuryRecovery] Running daily injury recovery at ${now.toISOString()}`);
 
-        // Get all players with active injuries
         const injuredPlayers = await this.playerRepository.find({
             where: { currentInjuryValue: MoreThanOrEqual(1) },
         });
@@ -37,20 +36,16 @@ export class InjuryRecoveryService {
             try {
                 const playerAge = player.age || 25;
 
-                // Get team doctor bonus
                 let doctorBonus = 1;
                 if (player.teamId) {
                     const teamDoctor = await this.staffRepository.findOne({
                         where: { teamId: player.teamId, role: StaffRole.TEAM_DOCTOR, isActive: true },
                     });
                     if (teamDoctor) {
-                        doctorBonus = 1 + teamDoctor.level * 0.1; // 10% per level
+                        doctorBonus = 1 + teamDoctor.level * 0.1;
                     }
                 }
 
-                // Calculate daily recovery using sigmoid function (same as simulator)
-                // Sigmoid: base + amplitude / (1 + exp(k * (age - midpoint)))
-                // Negative exponent to make younger players recover faster
                 const midpoint = 28;
                 const k = 0.25;
                 const base = 3;
@@ -66,9 +61,7 @@ export class InjuryRecoveryService {
                 player.currentInjuryValue = newValue;
                 await this.playerRepository.save(player);
 
-                // Check if player just recovered
                 if (newValue === 0 && oldValue > 0) {
-                    // Update the active injury record
                     const activeInjury = await this.injuryRepository.findOne({
                         where: { playerId: player.id, isRecovered: false },
                         order: { occurredAt: 'DESC' },
@@ -80,7 +73,6 @@ export class InjuryRecoveryService {
                         await this.injuryRepository.save(activeInjury);
                     }
 
-                    // Clear injury fields on player
                     player.injuryType = null;
                     player.injuredAt = null;
                     await this.playerRepository.save(player);

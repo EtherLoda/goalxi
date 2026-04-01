@@ -22,18 +22,15 @@ export class ScoutSchedulerService {
         private scoutCandidateRepo: Repository<ScoutCandidateEntity>,
     ) {}
 
-    // ===== 每周期开始：生成新的球探候选球员 =====
     @Cron('0 0 0 * * 6') // 每周六 00:00
     async generateScoutCandidates() {
         this.logger.debug('[ScoutScheduler] Generating scout candidates for all teams');
 
-        // 先清理已过期的候选人
         await this.scoutCandidateRepo.delete({ expiresAt: LessThan(new Date()) });
 
         const teams = await this.teamRepo.find();
         for (const team of teams) {
             try {
-                // 检查本周是否已有候选人（防止重复生成）
                 const existing = await this.scoutCandidateRepo.find({
                     where: { teamId: team.id, expiresAt: LessThanOrEqual(new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)) },
                 });
@@ -53,7 +50,6 @@ export class ScoutSchedulerService {
         }
     }
 
-    // ===== 每周六：青训球员成长 + 技能揭露 =====
     @Cron('0 0 0 * * 6') // 每周六 00:00
     async growAndRevealYouthPlayers() {
         this.logger.debug('[YouthScheduler] Processing youth player growth and reveal');
@@ -216,7 +212,7 @@ export class ScoutSchedulerService {
             AR: ['Santiago', 'Mateo', 'Tomas', 'Franco', 'Joaquin', 'Santino', 'Lautaro', 'Thiago'],
             PT: ['Francisco', 'Goncalo', 'Tomas', 'Afonso', 'Joao', 'Pedro', 'Diogo', 'Bruno'],
             US: ['James', 'Michael', 'William', 'David', 'Richard', 'Joseph', 'Thomas', 'Charles'],
-            NG: ['Chidi', 'Emeka', 'Obinna', 'Kelechi', 'Ifeanyi', 'Uchenna', 'Chukwuemeka', 'Nnamdi'],
+            NG: ['Chidi', 'Emeka', 'Obinna', 'Kelechi', 'Ifeanyi', 'Uchenna', 'Nnamdi'],
             SN: ['Moussa', 'Mamadou', 'Ismaila', 'Sadio', 'Baba', 'Cheikh', 'Moustapha', 'Kalidou'],
             JP: ['Haruki', 'Haruto', 'Yuto', 'Sota', 'Riku', 'Kaito', 'Hayato', 'Soshi'],
             KR: ['Jin', 'Min', 'Hyeok', 'Seo', 'Jun', 'Hyun', 'Dae', 'Woo'],

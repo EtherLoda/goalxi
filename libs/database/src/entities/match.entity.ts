@@ -9,6 +9,7 @@ import {
     ManyToOne,
     PrimaryGeneratedColumn,
 } from 'typeorm';
+import { WeatherType } from './weather.entity';
 
 export enum MatchStatus {
     SCHEDULED = 'scheduled',
@@ -125,6 +126,10 @@ export class MatchEntity extends AbstractEntity {
     /** 升降级附加赛时：低级联赛ID（高级联赛ID用 leagueId） */
     @Column({ name: 'lower_league_id', type: 'uuid', nullable: true })
     lowerLeagueId?: string | null;
+
+    /** 比赛天气 */
+    @Column({ name: 'weather', type: 'varchar', length: 20, nullable: true })
+    weather?: WeatherType;
 
     constructor(partial?: Partial<MatchEntity>) {
         super();

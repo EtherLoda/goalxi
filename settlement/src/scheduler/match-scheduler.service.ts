@@ -9,6 +9,7 @@ import {
     MatchTacticsEntity,
     MatchEventEntity,
     MatchStatus,
+    WeatherEntity,
     GAME_SETTINGS,
 } from '@goalxi/database';
 
@@ -27,6 +28,8 @@ export class MatchSchedulerService {
         private tacticsRepository: Repository<MatchTacticsEntity>,
         @InjectRepository(MatchEventEntity)
         private eventRepository: Repository<MatchEventEntity>,
+        @InjectRepository(WeatherEntity)
+        private weatherRepository: Repository<WeatherEntity>,
     ) { }
 
     // ===== SCHEDULER 1: Lock Tactics 30 Minutes Before Match =====
@@ -46,7 +49,6 @@ export class MatchSchedulerService {
             `(${GAME_SETTINGS.MATCH_TACTICS_DEADLINE_MINUTES} minutes from now)`
         );
 
-        // Find matches scheduled within next 30 minutes that haven't been locked
         const matches = await this.matchRepository.find({
             where: {
                 status: MatchStatus.SCHEDULED,
@@ -76,7 +78,6 @@ export class MatchSchedulerService {
                     `Scheduled: ${match.scheduledAt.toISOString()}`
                 );
 
-                // Get tactics for both teams
                 const [homeTactics, awayTactics] = await Promise.all([
                     this.tacticsRepository.findOne({
                         where: { matchId: match.id, teamId: match.homeTeamId },
@@ -92,19 +93,26 @@ export class MatchSchedulerService {
                     `Away: ${awayTactics ? '✅ submitted' : '❌ missing'}`
                 );
 
-                // Mark forfeits and lock tactics
                 match.homeForfeit = !homeTactics;
                 match.awayForfeit = !awayTactics;
                 match.tacticsLocked = true;
                 match.tacticsLockedAt = now;
                 match.status = MatchStatus.TACTICS_LOCKED;
+
+                const matchDate = match.scheduledAt.toISOString().split('T')[0];
+                const weather = await this.weatherRepository.findOne({
+                    where: { date: matchDate, locationId: 'default' },
+                });
+                if (weather) {
+                    match.weather = weather.actualWeather;
+                }
+
                 await this.matchRepository.save(match);
 
                 this.logger.log(
                     `[TacticsLockScheduler] ✅ Match ${match.id} tactics locked and saved to DB`
                 );
 
-                // Queue simulation job immediately after locking tactics
                 const jobData = {
                     matchId: match.id,
                     homeTeamId: match.homeTeamId,
@@ -114,6 +122,7 @@ export class MatchSchedulerService {
                     homeForfeit: match.homeForfeit,
                     awayForfeit: match.awayForfeit,
                     matchType: match.type,
+                    weather: match.weather || null,
                 };
 
                 this.logger.log(
@@ -149,7 +158,6 @@ export class MatchSchedulerService {
 
         const now = new Date();
 
-        // Find matches that should start now (simulation already queued at tactics lock)
         const matches = await this.matchRepository.find({
             where: {
                 status: MatchStatus.TACTICS_LOCKED,
@@ -167,9 +175,8 @@ export class MatchSchedulerService {
 
         for (const match of matches) {
             try {
-                // Update match status to IN_PROGRESS (simulation was already queued at tactics lock)
                 match.status = MatchStatus.IN_PROGRESS;
-                match.startedAt = match.scheduledAt; // Use scheduled time, not current time
+                match.startedAt = match.scheduledAt;
                 await this.matchRepository.save(match);
 
                 this.logger.log(
@@ -192,7 +199,6 @@ export class MatchSchedulerService {
 
         const now = new Date();
 
-        // Find matches that are currently in progress
         const matches = await this.matchRepository.find({
             where: {
                 status: MatchStatus.IN_PROGRESS,
@@ -205,26 +211,22 @@ export class MatchSchedulerService {
 
         for (const match of matches) {
             try {
-                // Get the last event for this match
                 const lastEvent = await this.eventRepository.findOne({
                     where: { matchId: match.id },
                     order: { eventScheduledTime: 'DESC' },
                     select: ['id', 'matchId', 'minute', 'eventScheduledTime'],
                 });
 
-                // If no events or last event hasn't happened yet, skip
                 if (!lastEvent || !lastEvent.eventScheduledTime) {
                     continue;
                 }
 
-                // Check if last event time has passed
                 if (lastEvent.eventScheduledTime <= now) {
                     match.status = MatchStatus.COMPLETED;
                     match.completedAt = lastEvent.eventScheduledTime;
                     match.actualEndTime = lastEvent.eventScheduledTime;
                     await this.matchRepository.save(match);
 
-                    // Queue post-match processing (player stats, league standings)
                     await this.completionQueue.add(
                         'complete-match',
                         { matchId: match.id },

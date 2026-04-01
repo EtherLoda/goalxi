@@ -5,6 +5,7 @@ import { ScoutsService } from './scouts.service';
 import {
     ScoutCandidateEntity,
     YouthPlayerEntity,
+    YouthTeamEntity,
     PlayerEntity,
     TeamEntity,
 } from '@goalxi/database';
@@ -13,6 +14,7 @@ describe('ScoutsService', () => {
     let service: ScoutsService;
     let candidateRepo: jest.Mocked<Repository<ScoutCandidateEntity>>;
     let youthRepo: jest.Mocked<Repository<YouthPlayerEntity>>;
+    let youthTeamRepo: jest.Mocked<Repository<YouthTeamEntity>>;
     let playerRepo: jest.Mocked<Repository<PlayerEntity>>;
     let teamRepo: jest.Mocked<Repository<TeamEntity>>;
 
@@ -24,6 +26,7 @@ describe('ScoutsService', () => {
                     provide: getRepositoryToken(ScoutCandidateEntity),
                     useValue: {
                         find: jest.fn(),
+                        findOne: jest.fn(),
                         findOneByOrFail: jest.fn(),
                         save: jest.fn(),
                         delete: jest.fn(),
@@ -42,6 +45,13 @@ describe('ScoutsService', () => {
                     },
                 },
                 {
+                    provide: getRepositoryToken(YouthTeamEntity),
+                    useValue: {
+                        findOne: jest.fn(),
+                        findOneByOrFail: jest.fn(),
+                    },
+                },
+                {
                     provide: getRepositoryToken(PlayerEntity),
                     useValue: { save: jest.fn(), create: jest.fn() },
                 },
@@ -55,6 +65,7 @@ describe('ScoutsService', () => {
         service = module.get<ScoutsService>(ScoutsService);
         candidateRepo = module.get(getRepositoryToken(ScoutCandidateEntity));
         youthRepo = module.get(getRepositoryToken(YouthPlayerEntity));
+        youthTeamRepo = module.get(getRepositoryToken(YouthTeamEntity));
         playerRepo = module.get(getRepositoryToken(PlayerEntity));
         teamRepo = module.get(getRepositoryToken(TeamEntity));
     });
@@ -110,6 +121,7 @@ describe('ScoutsService', () => {
                 expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
             };
 
+            youthTeamRepo.findOne.mockResolvedValue({ id: 'youth-team-1', teamId: 'team-1' } as YouthTeamEntity);
             candidateRepo.findOneByOrFail.mockResolvedValue(candidate as ScoutCandidateEntity);
             youthRepo.create.mockImplementation((data) => data as YouthPlayerEntity);
             youthRepo.save.mockImplementation((y) => Promise.resolve(y as YouthPlayerEntity));
@@ -117,6 +129,7 @@ describe('ScoutsService', () => {
 
             const result = await service.selectCandidate('candidate-1');
 
+            expect(youthTeamRepo.findOne).toHaveBeenCalled();
             expect(youthRepo.create).toHaveBeenCalled();
             expect(youthRepo.save).toHaveBeenCalled();
             expect(candidateRepo.delete).toHaveBeenCalledWith({ id: 'candidate-1' });
