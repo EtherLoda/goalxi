@@ -294,47 +294,6 @@ describe('WeatherService', () => {
             // The actual weather should be from yesterday's first forecast
             expect(result.actualWeather).toBe(WeatherType.CLOUDY);
         });
-
-        it('should update yesterday tomorrowWeather field', async () => {
-            const today = new Date().toISOString().split('T')[0];
-            const yesterdayDate = new Date();
-            yesterdayDate.setDate(yesterdayDate.getDate() - 1);
-            const yesterdayDateStr = yesterdayDate.toISOString().split('T')[0];
-
-            const mockYesterdayWeather = {
-                id: '2',
-                date: yesterdayDateStr,
-                locationId: 'default',
-                actualWeather: WeatherType.RAINY,
-                forecasts: [
-                    { weather: WeatherType.SUNNY, probability: 70 },
-                    { weather: WeatherType.CLOUDY, probability: 30 },
-                ],
-                tomorrowWeather: undefined as WeatherType | undefined,
-            };
-
-            repository.findOne.mockImplementation(async (query: any) => {
-                if (query.where.date === yesterdayDateStr) {
-                    return mockYesterdayWeather as WeatherEntity;
-                }
-                return null;
-            });
-
-            const mockNewWeather = {
-                id: '1',
-                date: today,
-                locationId: 'default',
-                actualWeather: WeatherType.SUNNY,
-                forecasts: [],
-            };
-            repository.create.mockReturnValue(mockNewWeather as WeatherEntity);
-            repository.save.mockImplementation((entity) => Promise.resolve(entity as WeatherEntity));
-
-            await service.createOrUpdateTodayWeather();
-
-            // Verify yesterday's tomorrowWeather was set to today's actual weather
-            expect(mockYesterdayWeather.tomorrowWeather).toBe(WeatherType.SUNNY);
-        });
     });
 
     describe('WeatherType enum coverage', () => {

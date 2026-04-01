@@ -95,7 +95,11 @@ export class SeasonSchedulerService {
             );
 
             const roundMatchDateIndices = [round * 2, round * 2 + 1];
-            const roundMatchDates = roundMatchDateIndices.map(idx => matchDates[idx]);
+            const roundMatchDates = roundMatchDateIndices.map(idx => matchDates[idx]).filter(Boolean);
+
+            if (roundMatchDates.length === 0) {
+                continue;
+            }
 
             for (let i = 0; i < roundMatchups.length; i++) {
                 const { home, away } = roundMatchups[i];
@@ -105,7 +109,7 @@ export class SeasonSchedulerService {
                     awayTeamId: away,
                     season,
                     week: round + 1,
-                    scheduledAt: roundMatchDates[i % 2],
+                    scheduledAt: roundMatchDates[i % roundMatchDates.length],
                     status: MatchStatus.SCHEDULED,
                     type: MatchType.LEAGUE,
                     tacticsLocked: false,
@@ -122,7 +126,11 @@ export class SeasonSchedulerService {
             );
 
             const roundMatchDateIndices = [round * 2, round * 2 + 1];
-            const roundMatchDates = roundMatchDateIndices.map(idx => matchDates[idx]);
+            const roundMatchDates = roundMatchDateIndices.map(idx => matchDates[idx]).filter(Boolean);
+
+            if (roundMatchDates.length === 0) {
+                continue;
+            }
 
             for (let i = 0; i < roundMatchups.length; i++) {
                 const { home, away } = roundMatchups[i];
@@ -132,7 +140,7 @@ export class SeasonSchedulerService {
                     awayTeamId: home,
                     season,
                     week: numRounds + round + 1,
-                    scheduledAt: roundMatchDates[i % 2],
+                    scheduledAt: roundMatchDates[i % roundMatchDates.length],
                     status: MatchStatus.SCHEDULED,
                     type: MatchType.LEAGUE,
                     tacticsLocked: false,

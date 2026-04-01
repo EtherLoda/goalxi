@@ -23,6 +23,7 @@ import {
     StadiumEntity,
     FanEntity,
     WeatherEntity,
+    TacticsPresetEntity,
 } from '@goalxi/database';
 import { WeatherSchedulerService } from './weather-scheduler.service';
 import { WeatherService } from './weather.service';
@@ -61,6 +62,7 @@ import { ScoutSchedulerService } from './scout-scheduler.service';
             TeamEntity, ScoutCandidateEntity, StaffEntity,
             LeagueEntity, LeagueStandingEntity, SeasonResultEntity,
             StadiumEntity, FanEntity, WeatherEntity,
+            TacticsPresetEntity,
         ]),
     ],
     providers: [

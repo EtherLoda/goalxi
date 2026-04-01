@@ -22,7 +22,7 @@ export class ScoutSchedulerService {
         private scoutCandidateRepo: Repository<ScoutCandidateEntity>,
     ) {}
 
-    @Cron('0 0 0 * * 6') // 每周六 00:00
+    @Cron('0 0 6 * * 6') // 每周六 06:00
     async generateScoutCandidates() {
         this.logger.debug('[ScoutScheduler] Generating scout candidates for all teams');
 
