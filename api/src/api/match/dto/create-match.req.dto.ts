@@ -1,28 +1,35 @@
-import { IsDateString, IsEnum, IsInt, IsOptional, IsUUID, Min } from 'class-validator';
 import { MatchType } from '@goalxi/database';
+import {
+  IsDateString,
+  IsEnum,
+  IsInt,
+  IsOptional,
+  IsUUID,
+  Min,
+} from 'class-validator';
 
 export class CreateMatchReqDto {
-    @IsUUID()
-    leagueId!: string;
+  @IsUUID()
+  leagueId!: string;
 
-    @IsInt()
-    @Min(1)
-    season!: number;
+  @IsInt()
+  @Min(1)
+  season!: number;
 
-    @IsInt()
-    @Min(1)
-    week!: number;
+  @IsInt()
+  @Min(1)
+  week!: number;
 
-    @IsUUID()
-    homeTeamId!: string;
+  @IsUUID()
+  homeTeamId!: string;
 
-    @IsUUID()
-    awayTeamId!: string;
+  @IsUUID()
+  awayTeamId!: string;
 
-    @IsDateString()
-    scheduledAt!: string;
+  @IsDateString()
+  scheduledAt!: string;
 
-    @IsEnum(MatchType)
-    @IsOptional()
-    type?: MatchType;
+  @IsEnum(MatchType)
+  @IsOptional()
+  type?: MatchType;
 }

@@ -1,11 +1,11 @@
-import { MigrationInterface, QueryRunner } from "typeorm";
+import { MigrationInterface, QueryRunner } from 'typeorm';
 
 export class CreateMatchTables1733230000000 implements MigrationInterface {
-    name = 'CreateMatchTables1733230000000'
+  name = 'CreateMatchTables1733230000000';
 
-    public async up(queryRunner: QueryRunner): Promise<void> {
-        // Update match table with new fields
-        await queryRunner.query(`
+  public async up(queryRunner: QueryRunner): Promise<void> {
+    // Update match table with new fields
+    await queryRunner.query(`
             ALTER TABLE "match" 
             DROP COLUMN IF EXISTS "match_date",
             DROP COLUMN IF EXISTS "match_type",
@@ -25,25 +25,25 @@ export class CreateMatchTables1733230000000 implements MigrationInterface {
             ALTER COLUMN "away_team_id" TYPE UUID USING "away_team_id"::uuid
         `);
 
-        // Add foreign key for league_id
-        await queryRunner.query(`
+    // Add foreign key for league_id
+    await queryRunner.query(`
             ALTER TABLE "match"
             ADD CONSTRAINT "FK_match_league" FOREIGN KEY("league_id") REFERENCES "league"("id")
         `);
 
-        // Create indexes for match table
-        await queryRunner.query(`
+    // Create indexes for match table
+    await queryRunner.query(`
             CREATE INDEX IF NOT EXISTS "IDX_match_league_season_week" ON "match"("league_id", "season", "week")
         `);
-        await queryRunner.query(`
+    await queryRunner.query(`
             CREATE INDEX IF NOT EXISTS "IDX_match_home_team" ON "match"("home_team_id")
         `);
-        await queryRunner.query(`
+    await queryRunner.query(`
             CREATE INDEX IF NOT EXISTS "IDX_match_away_team" ON "match"("away_team_id")
         `);
 
-        // Create tactics_preset table
-        await queryRunner.query(`
+    // Create tactics_preset table
+    await queryRunner.query(`
             CREATE TABLE "tactics_preset"(
                 "id" UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
                 "team_id" UUID NOT NULL,
@@ -60,12 +60,12 @@ export class CreateMatchTables1733230000000 implements MigrationInterface {
             )
         `);
 
-        await queryRunner.query(`
+    await queryRunner.query(`
             CREATE INDEX "IDX_tactics_preset_team_default" ON "tactics_preset"("team_id", "is_default")
         `);
 
-        // Create match_tactics table
-        await queryRunner.query(`
+    // Create match_tactics table
+    await queryRunner.query(`
             CREATE TABLE "match_tactics"(
                 "id" UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
                 "match_id" UUID NOT NULL,
@@ -85,8 +85,8 @@ export class CreateMatchTables1733230000000 implements MigrationInterface {
             )
         `);
 
-        // Create match_event table
-        await queryRunner.query(`
+    // Create match_event table
+    await queryRunner.query(`
             CREATE TABLE "match_event"(
                 "id" UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
                 "match_id" UUID NOT NULL,
@@ -106,12 +106,12 @@ export class CreateMatchTables1733230000000 implements MigrationInterface {
             )
         `);
 
-        await queryRunner.query(`
+    await queryRunner.query(`
             CREATE INDEX "IDX_match_event_match_minute_second" ON "match_event"("match_id", "minute", "second")
         `);
 
-        // Create match_team_stats table
-        await queryRunner.query(`
+    // Create match_team_stats table
+    await queryRunner.query(`
             CREATE TABLE "match_team_stats"(
                 "id" UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
                 "match_id" UUID NOT NULL,
@@ -134,49 +134,53 @@ export class CreateMatchTables1733230000000 implements MigrationInterface {
             )
         `);
 
-        // Add career_stats column to player table
-        await queryRunner.query(`
+    // Add career_stats column to player table
+    await queryRunner.query(`
             ALTER TABLE "player"
             ADD COLUMN IF NOT EXISTS "career_stats" JSONB DEFAULT '{}'::jsonb
         `);
-    }
+  }
 
-    public async down(queryRunner: QueryRunner): Promise<void> {
-        // Drop career_stats column from player table
-        await queryRunner.query(`
+  public async down(queryRunner: QueryRunner): Promise<void> {
+    // Drop career_stats column from player table
+    await queryRunner.query(`
             ALTER TABLE "player"
             DROP COLUMN IF EXISTS "career_stats"
         `);
 
-        // Drop match_team_stats table
-        await queryRunner.query(`DROP TABLE IF EXISTS "match_team_stats"`);
+    // Drop match_team_stats table
+    await queryRunner.query(`DROP TABLE IF EXISTS "match_team_stats"`);
 
-        // Drop match_event table
-        await queryRunner.query(`DROP INDEX IF EXISTS "IDX_match_event_match_minute_second"`);
-        await queryRunner.query(`DROP TABLE IF EXISTS "match_event"`);
+    // Drop match_event table
+    await queryRunner.query(
+      `DROP INDEX IF EXISTS "IDX_match_event_match_minute_second"`,
+    );
+    await queryRunner.query(`DROP TABLE IF EXISTS "match_event"`);
 
-        // Drop match_tactics table
-        await queryRunner.query(`DROP TABLE IF EXISTS "match_tactics"`);
+    // Drop match_tactics table
+    await queryRunner.query(`DROP TABLE IF EXISTS "match_tactics"`);
 
-        // Drop tactics_preset table
-        await queryRunner.query(`DROP INDEX IF EXISTS "IDX_tactics_preset_team_default"`);
-        await queryRunner.query(`DROP TABLE IF EXISTS "tactics_preset"`);
+    // Drop tactics_preset table
+    await queryRunner.query(
+      `DROP INDEX IF EXISTS "IDX_tactics_preset_team_default"`,
+    );
+    await queryRunner.query(`DROP TABLE IF EXISTS "tactics_preset"`);
 
-        // Revert match table changes
-        await queryRunner.query(`
+    // Revert match table changes
+    await queryRunner.query(`
             DROP INDEX IF EXISTS "IDX_match_away_team"
         `);
-        await queryRunner.query(`
+    await queryRunner.query(`
             DROP INDEX IF EXISTS "IDX_match_home_team"
         `);
-        await queryRunner.query(`
+    await queryRunner.query(`
             DROP INDEX IF EXISTS "IDX_match_league_season_week"
         `);
-        await queryRunner.query(`
+    await queryRunner.query(`
             ALTER TABLE "match"
             DROP CONSTRAINT IF EXISTS "FK_match_league"
         `);
-        await queryRunner.query(`
+    await queryRunner.query(`
             ALTER TABLE "match"
             DROP COLUMN IF EXISTS "simulation_completed_at",
             DROP COLUMN IF EXISTS "type",
@@ -192,5 +196,5 @@ export class CreateMatchTables1733230000000 implements MigrationInterface {
             ALTER COLUMN "away_score" SET DEFAULT 0,
             ALTER COLUMN "away_score" SET NOT NULL
         `);
-    }
+  }
 }

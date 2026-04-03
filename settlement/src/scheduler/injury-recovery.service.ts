@@ -2,101 +2,116 @@ import { Injectable, Logger } from '@nestjs/common';
 import { Cron } from '@nestjs/schedule';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, MoreThanOrEqual } from 'typeorm';
-import { PlayerEntity, InjuryEntity, StaffEntity, StaffRole } from '@goalxi/database';
+import {
+  PlayerEntity,
+  InjuryEntity,
+  StaffEntity,
+  StaffRole,
+} from '@goalxi/database';
 
 @Injectable()
 export class InjuryRecoveryService {
-    private readonly logger = new Logger(InjuryRecoveryService.name);
+  private readonly logger = new Logger(InjuryRecoveryService.name);
 
-    constructor(
-        @InjectRepository(PlayerEntity)
-        private playerRepository: Repository<PlayerEntity>,
-        @InjectRepository(InjuryEntity)
-        private injuryRepository: Repository<InjuryEntity>,
-        @InjectRepository(StaffEntity)
-        private staffRepository: Repository<StaffEntity>,
-    ) { }
+  constructor(
+    @InjectRepository(PlayerEntity)
+    private playerRepository: Repository<PlayerEntity>,
+    @InjectRepository(InjuryEntity)
+    private injuryRepository: Repository<InjuryEntity>,
+    @InjectRepository(StaffEntity)
+    private staffRepository: Repository<StaffEntity>,
+  ) {}
 
-    // ===== SCHEDULER: Daily Injury Recovery =====
-    // Run at 2 AM every day
-    @Cron('0 0 2 * * *')
-    async processDailyInjuryRecovery() {
-        const now = new Date();
-        this.logger.log(`[InjuryRecovery] Running daily injury recovery at ${now.toISOString()}`);
+  // ===== SCHEDULER: Daily Injury Recovery =====
+  // Run at 2 AM every day
+  @Cron('0 0 2 * * *')
+  async processDailyInjuryRecovery() {
+    const now = new Date();
+    this.logger.log(
+      `[InjuryRecovery] Running daily injury recovery at ${now.toISOString()}`,
+    );
 
-        const injuredPlayers = await this.playerRepository.find({
-            where: { currentInjuryValue: MoreThanOrEqual(1) },
-        });
+    const injuredPlayers = await this.playerRepository.find({
+      where: { currentInjuryValue: MoreThanOrEqual(1) },
+    });
 
-        this.logger.log(`[InjuryRecovery] Found ${injuredPlayers.length} player(s) with active injuries`);
+    this.logger.log(
+      `[InjuryRecovery] Found ${injuredPlayers.length} player(s) with active injuries`,
+    );
 
-        let recoveredCount = 0;
+    let recoveredCount = 0;
 
-        for (const player of injuredPlayers) {
-            try {
-                const playerAge = player.age || 25;
+    for (const player of injuredPlayers) {
+      try {
+        const playerAge = player.age || 25;
 
-                let doctorBonus = 1;
-                if (player.teamId) {
-                    const teamDoctor = await this.staffRepository.findOne({
-                        where: { teamId: player.teamId, role: StaffRole.TEAM_DOCTOR, isActive: true },
-                    });
-                    if (teamDoctor) {
-                        doctorBonus = 1 + teamDoctor.level * 0.1;
-                    }
-                }
-
-                const midpoint = 28;
-                const k = 0.25;
-                const base = 3;
-                const amplitude = 9;
-
-                const sigmoid = base + amplitude / (1 + Math.exp(k * (playerAge - midpoint)));
-                const fluctuation = 0.85 + Math.random() * 0.3;
-                const dailyRecovery = Math.round(sigmoid * fluctuation * 10 * doctorBonus) / 10;
-
-                const oldValue = player.currentInjuryValue;
-                const newValue = Math.max(0, oldValue - dailyRecovery);
-
-                player.currentInjuryValue = newValue;
-                await this.playerRepository.save(player);
-
-                if (newValue === 0 && oldValue > 0) {
-                    const activeInjury = await this.injuryRepository.findOne({
-                        where: { playerId: player.id, isRecovered: false },
-                        order: { occurredAt: 'DESC' },
-                    });
-
-                    if (activeInjury) {
-                        activeInjury.isRecovered = true;
-                        activeInjury.recoveredAt = new Date();
-                        await this.injuryRepository.save(activeInjury);
-                    }
-
-                    player.injuryType = null;
-                    player.injuredAt = null;
-                    await this.playerRepository.save(player);
-
-                    recoveredCount++;
-                    this.logger.log(
-                        `[InjuryRecovery] ✅ Player ${player.name} (${player.id}) has fully recovered! ` +
-                        `(injuryValue: ${oldValue} -> 0)`
-                    );
-                } else {
-                    this.logger.debug(
-                        `[InjuryRecovery] Player ${player.name}: ${oldValue} -> ${newValue} (daily recovery: ${dailyRecovery})`
-                    );
-                }
-            } catch (error) {
-                this.logger.error(
-                    `[InjuryRecovery] Error processing injury recovery for player ${player.id}:`,
-                    error
-                );
-            }
+        let doctorBonus = 1;
+        if (player.teamId) {
+          const teamDoctor = await this.staffRepository.findOne({
+            where: {
+              teamId: player.teamId,
+              role: StaffRole.TEAM_DOCTOR,
+              isActive: true,
+            },
+          });
+          if (teamDoctor) {
+            doctorBonus = 1 + teamDoctor.level * 0.1;
+          }
         }
 
-        this.logger.log(
-            `[InjuryRecovery] Completed. ${recoveredCount} player(s) fully recovered today.`
+        const midpoint = 28;
+        const k = 0.25;
+        const base = 3;
+        const amplitude = 9;
+
+        const sigmoid =
+          base + amplitude / (1 + Math.exp(k * (playerAge - midpoint)));
+        const fluctuation = 0.85 + Math.random() * 0.3;
+        const dailyRecovery =
+          Math.round(sigmoid * fluctuation * 10 * doctorBonus) / 10;
+
+        const oldValue = player.currentInjuryValue;
+        const newValue = Math.max(0, oldValue - dailyRecovery);
+
+        player.currentInjuryValue = newValue;
+        await this.playerRepository.save(player);
+
+        if (newValue === 0 && oldValue > 0) {
+          const activeInjury = await this.injuryRepository.findOne({
+            where: { playerId: player.id, isRecovered: false },
+            order: { occurredAt: 'DESC' },
+          });
+
+          if (activeInjury) {
+            activeInjury.isRecovered = true;
+            activeInjury.recoveredAt = new Date();
+            await this.injuryRepository.save(activeInjury);
+          }
+
+          player.injuryType = null;
+          player.injuredAt = null;
+          await this.playerRepository.save(player);
+
+          recoveredCount++;
+          this.logger.log(
+            `[InjuryRecovery] ✅ Player ${player.name} (${player.id}) has fully recovered! ` +
+              `(injuryValue: ${oldValue} -> 0)`,
+          );
+        } else {
+          this.logger.debug(
+            `[InjuryRecovery] Player ${player.name}: ${oldValue} -> ${newValue} (daily recovery: ${dailyRecovery})`,
+          );
+        }
+      } catch (error) {
+        this.logger.error(
+          `[InjuryRecovery] Error processing injury recovery for player ${player.id}:`,
+          error,
         );
+      }
     }
+
+    this.logger.log(
+      `[InjuryRecovery] Completed. ${recoveredCount} player(s) fully recovered today.`,
+    );
+  }
 }

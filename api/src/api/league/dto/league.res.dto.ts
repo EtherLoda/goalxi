@@ -1,36 +1,36 @@
 import { Expose } from 'class-transformer';
 
 export class LeagueResDto {
-    @Expose()
-    id: string;
+  @Expose()
+  id: string;
 
-    @Expose()
-    name: string;
+  @Expose()
+  name: string;
 
-    @Expose()
-    tier: number;
+  @Expose()
+  tier: number;
 
-    @Expose()
-    tierDivision: number;
+  @Expose()
+  tierDivision: number;
 
-    @Expose()
-    maxTeams: number;
+  @Expose()
+  maxTeams: number;
 
-    @Expose()
-    promotionSlots: number;
+  @Expose()
+  promotionSlots: number;
 
-    @Expose()
-    playoffSlots: number;
+  @Expose()
+  playoffSlots: number;
 
-    @Expose()
-    relegationSlots: number;
+  @Expose()
+  relegationSlots: number;
 
-    @Expose()
-    status: string;
+  @Expose()
+  status: string;
 
-    @Expose()
-    createdAt: Date;
+  @Expose()
+  createdAt: Date;
 
-    @Expose()
-    updatedAt: Date;
+  @Expose()
+  updatedAt: Date;
 }

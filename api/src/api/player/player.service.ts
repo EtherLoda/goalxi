@@ -1,255 +1,315 @@
 import { OffsetPaginatedDto } from '@/common/dto/offset-pagination/paginated.dto';
 import { Uuid } from '@/common/types/common.type';
 import { paginate } from '@/utils/offset-pagination';
+import { PlayerEntity, PlayerSkills, TrainingCategory } from '@goalxi/database';
 import { Injectable } from '@nestjs/common';
 import assert from 'assert';
 import { plainToInstance } from 'class-transformer';
+import {
+  getRandomNameByNationality,
+  getRandomNationality,
+} from '../../constants/name-database';
 import { CreatePlayerReqDto } from './dto/create-player.req.dto';
 import { ListPlayerReqDto } from './dto/list-player.req.dto';
 import { PlayerResDto } from './dto/player.res.dto';
 import { UpdatePlayerReqDto } from './dto/update-player.req.dto';
-import { PlayerEntity, PotentialTier, TrainingSlot, PlayerSkills } from '@goalxi/database';
-import { getRandomNameByNationality, getRandomNationality } from '../../constants/name-database';
 
 @Injectable()
 export class PlayerService {
-    constructor() { }
+  constructor() {}
 
-    async findMany(
-        reqDto: ListPlayerReqDto,
-    ): Promise<OffsetPaginatedDto<PlayerResDto>> {
-        const query = PlayerEntity.createQueryBuilder('player');
+  async findMany(
+    reqDto: ListPlayerReqDto,
+  ): Promise<OffsetPaginatedDto<PlayerResDto>> {
+    const query = PlayerEntity.createQueryBuilder('player');
 
-        if (reqDto.teamId) {
-            query.where('player.teamId = :teamId', { teamId: reqDto.teamId });
-        }
+    if (reqDto.teamId) {
+      query.where('player.teamId = :teamId', { teamId: reqDto.teamId });
+    }
 
-        query.orderBy('player.createdAt', 'DESC');
+    query.orderBy('player.createdAt', 'DESC');
 
-        const [players, metaDto] = await paginate<PlayerEntity>(query, reqDto, {
-            skipCount: false,
-            takeAll: false,
-        });
+    const [players, metaDto] = await paginate<PlayerEntity>(query, reqDto, {
+      skipCount: false,
+      takeAll: false,
+    });
 
-        return new OffsetPaginatedDto(
-            players.map((player) => this.mapToResDto(player)),
-            metaDto,
+    return new OffsetPaginatedDto(
+      players.map((player) => this.mapToResDto(player)),
+      metaDto,
+    );
+  }
+
+  async findOne(id: Uuid): Promise<PlayerResDto> {
+    assert(id, 'id is required');
+    const player = await PlayerEntity.findOneByOrFail({ id });
+
+    return this.mapToResDto(player);
+  }
+
+  async create(reqDto: CreatePlayerReqDto): Promise<PlayerResDto> {
+    const [currentSkills, potentialSkills] = this.generateRandomSkills(
+      reqDto.isGoalkeeper || false,
+    );
+
+    // Validate trainingCategory: goalkeepers cannot use TECHNICAL category
+    if (
+      reqDto.isGoalkeeper &&
+      reqDto.trainingCategory === TrainingCategory.TECHNICAL
+    ) {
+      throw new Error(
+        'Goalkeepers cannot train technical skills. Use goalkeeper training category instead.',
+      );
+    }
+
+    const player = new PlayerEntity({
+      name: reqDto.name,
+      nationality: reqDto.nationality,
+      teamId: reqDto.teamId,
+      birthday: reqDto.birthday,
+      appearance: reqDto.appearance || this.generateRandomAppearance(),
+      isGoalkeeper: reqDto.isGoalkeeper,
+      currentSkills,
+      potentialSkills,
+      potentialAbility: reqDto.potentialAbility,
+      potentialTier: reqDto.potentialTier,
+      trainingSlot: reqDto.trainingSlot,
+      trainingCategory: reqDto.trainingCategory,
+      trainingSkill: reqDto.trainingSkill || null,
+    });
+
+    await player.save();
+
+    return this.mapToResDto(player);
+  }
+
+  async update(id: Uuid, reqDto: UpdatePlayerReqDto): Promise<PlayerResDto> {
+    assert(id, 'id is required');
+    const player = await PlayerEntity.findOneByOrFail({ id });
+
+    if (reqDto.name) player.name = reqDto.name;
+    if (reqDto.nationality !== undefined)
+      player.nationality = reqDto.nationality;
+    if (reqDto.teamId !== undefined) player.teamId = reqDto.teamId;
+    if (reqDto.birthday) player.birthday = reqDto.birthday;
+    if (reqDto.appearance) {
+      player.appearance = {
+        ...player.appearance,
+        ...reqDto.appearance,
+      };
+    }
+    if (reqDto.isGoalkeeper !== undefined)
+      player.isGoalkeeper = reqDto.isGoalkeeper;
+    if (reqDto.onTransfer !== undefined) player.onTransfer = reqDto.onTransfer;
+    if (reqDto.potentialAbility !== undefined)
+      player.potentialAbility = reqDto.potentialAbility;
+    if (reqDto.potentialTier) player.potentialTier = reqDto.potentialTier;
+    if (reqDto.trainingSlot) player.trainingSlot = reqDto.trainingSlot;
+
+    // Validate trainingCategory: goalkeepers cannot use TECHNICAL category
+    if (reqDto.trainingCategory !== undefined) {
+      if (
+        player.isGoalkeeper &&
+        reqDto.trainingCategory === TrainingCategory.TECHNICAL
+      ) {
+        throw new Error(
+          'Goalkeepers cannot train technical skills. Use goalkeeper training category instead.',
         );
+      }
+      player.trainingCategory = reqDto.trainingCategory;
     }
 
-    async findOne(id: Uuid): Promise<PlayerResDto> {
-        assert(id, 'id is required');
-        const player = await PlayerEntity.findOneByOrFail({ id });
-
-        return this.mapToResDto(player);
+    if (reqDto.trainingSkill !== undefined) {
+      player.trainingSkill = reqDto.trainingSkill || null;
     }
 
-    async create(reqDto: CreatePlayerReqDto): Promise<PlayerResDto> {
-        const [currentSkills, potentialSkills] = this.generateRandomSkills(reqDto.isGoalkeeper || false);
-        const player = new PlayerEntity({
-            name: reqDto.name,
-            nationality: reqDto.nationality,
-            teamId: reqDto.teamId,
-            birthday: reqDto.birthday,
-            appearance: reqDto.appearance || this.generateRandomAppearance(),
-            isGoalkeeper: reqDto.isGoalkeeper,
-            currentSkills,
-            potentialSkills,
-            potentialAbility: reqDto.potentialAbility,
-            potentialTier: reqDto.potentialTier,
-            trainingSlot: reqDto.trainingSlot,
-        });
+    await player.save();
 
-        await player.save();
+    return this.mapToResDto(player);
+  }
 
-        return this.mapToResDto(player);
+  async delete(id: Uuid): Promise<void> {
+    assert(id, 'id is required');
+    const player = await PlayerEntity.findOneByOrFail({ id });
+    await player.softRemove();
+  }
+
+  async generateRandom(
+    count: number = 1,
+    teamId?: string,
+    nationality?: string,
+  ): Promise<PlayerResDto[]> {
+    const players: PlayerResDto[] = [];
+
+    for (let i = 0; i < count; i++) {
+      // Use provided nationality or generate random one
+      const playerNationality = nationality || getRandomNationality();
+      const { firstName, lastName } =
+        getRandomNameByNationality(playerNationality);
+      const isGoalkeeper = Math.random() < 0.1; // 10% chance to be a GK
+
+      const [currentSkills, potentialSkills] =
+        this.generateRandomSkills(isGoalkeeper);
+      const player = new PlayerEntity({
+        name: `${firstName} ${lastName}`,
+        nationality: playerNationality,
+        teamId: teamId || null,
+        isGoalkeeper,
+        appearance: this.generateRandomAppearance(),
+        currentSkills,
+        potentialSkills,
+      });
+
+      await player.save();
+      players.push(this.mapToResDto(player));
     }
 
-    async update(id: Uuid, reqDto: UpdatePlayerReqDto): Promise<PlayerResDto> {
-        assert(id, 'id is required');
-        const player = await PlayerEntity.findOneByOrFail({ id });
+    return players;
+  }
 
-        if (reqDto.name) player.name = reqDto.name;
-        if (reqDto.nationality !== undefined) player.nationality = reqDto.nationality;
-        if (reqDto.teamId !== undefined) player.teamId = reqDto.teamId;
-        if (reqDto.birthday) player.birthday = reqDto.birthday;
-        if (reqDto.appearance) {
-            player.appearance = {
-                ...player.appearance,
-                ...reqDto.appearance,
-            };
-        }
-        if (reqDto.isGoalkeeper !== undefined) player.isGoalkeeper = reqDto.isGoalkeeper;
-        if (reqDto.onTransfer !== undefined) player.onTransfer = reqDto.onTransfer;
-        if (reqDto.potentialAbility !== undefined) player.potentialAbility = reqDto.potentialAbility;
-        if (reqDto.potentialTier) player.potentialTier = reqDto.potentialTier;
-        if (reqDto.trainingSlot) player.trainingSlot = reqDto.trainingSlot;
+  private generateRandomSkills(
+    isGoalkeeper: boolean,
+  ): [PlayerSkills, PlayerSkills] {
+    const rand = (min: number, max: number) =>
+      Number((Math.random() * (max - min) + min).toFixed(2));
 
-        await player.save();
+    // Helper to create attribute sets for each category
+    const createPhysical = () => ({
+      pace: rand(isGoalkeeper ? 5 : 10, 20),
+      strength: rand(5, 20),
+    });
 
-        return this.mapToResDto(player);
+    const createTechnicalGK = () => ({
+      reflexes: rand(10, 20),
+      handling: rand(10, 20),
+      distribution: rand(5, 18),
+    });
+
+    const createTechnicalOutfield = () => ({
+      finishing: rand(5, 20),
+      passing: rand(5, 20),
+      dribbling: rand(5, 20),
+      defending: rand(5, 20),
+    });
+
+    const createMental = () => ({
+      vision: rand(5, 20),
+      positioning: rand(5, 20),
+      awareness: rand(5, 20),
+      composure: rand(5, 20),
+      aggression: rand(5, 20),
+    });
+
+    const currentPhysical = createPhysical();
+    const currentTechnical = isGoalkeeper
+      ? createTechnicalGK()
+      : createTechnicalOutfield();
+    const currentMental = createMental();
+
+    // Potential values start as a copy of current then possibly increase
+    const potentialPhysical = { ...currentPhysical };
+    const potentialTechnical = { ...currentTechnical };
+    const potentialMental = { ...currentMental };
+
+    // Randomly increase potential values
+    (
+      Object.keys(potentialPhysical) as Array<keyof typeof potentialPhysical>
+    ).forEach((key) => {
+      potentialPhysical[key] = Math.max(
+        potentialPhysical[key],
+        currentPhysical[key] + rand(0, 5),
+      );
+    });
+
+    const pTech = potentialTechnical as Record<string, number>;
+    const cTech = currentTechnical as Record<string, number>;
+    Object.keys(pTech).forEach((key) => {
+      pTech[key] = Math.max(pTech[key], cTech[key] + rand(0, 5));
+    });
+
+    (
+      Object.keys(potentialMental) as Array<keyof typeof potentialMental>
+    ).forEach((key) => {
+      potentialMental[key] = Math.max(
+        potentialMental[key],
+        currentMental[key] + rand(0, 5),
+      );
+    });
+
+    const currentSkills: PlayerSkills = {
+      physical: currentPhysical,
+      technical: currentTechnical,
+      mental: currentMental,
+      setPieces: { freeKicks: 10, penalties: 10 },
+    };
+
+    const potentialSkills: PlayerSkills = {
+      physical: potentialPhysical,
+      technical: potentialTechnical,
+      mental: potentialMental,
+      setPieces: { freeKicks: 10, penalties: 10 },
+    };
+
+    return [currentSkills, potentialSkills];
+  }
+
+  private calculateOverall(skills: PlayerSkills): number {
+    if (!skills) return 0;
+    let total = 0;
+    let count = 0;
+
+    for (const cat of Object.values(skills)) {
+      for (const val of Object.values(cat)) {
+        total += val as number;
+        count++;
+      }
     }
 
-    async delete(id: Uuid): Promise<void> {
-        assert(id, 'id is required');
-        const player = await PlayerEntity.findOneByOrFail({ id });
-        await player.softRemove();
-    }
+    return count > 0 ? Math.round((total / count) * 5) : 0; // Scale to 0-100 roughly (avg * 5 as max is 20)
+  }
 
-    async generateRandom(count: number = 1, teamId?: string, nationality?: string): Promise<PlayerResDto[]> {
-        const players: PlayerResDto[] = [];
+  private generateRandomAppearance(): Record<string, any> {
+    const randInt = (min: number, max: number) =>
+      Math.floor(Math.random() * (max - min + 1)) + min;
 
-        for (let i = 0; i < count; i++) {
-            // Use provided nationality or generate random one
-            const playerNationality = nationality || getRandomNationality();
-            const { firstName, lastName } = getRandomNameByNationality(playerNationality);
-            const isGoalkeeper = Math.random() < 0.1; // 10% chance to be a GK
+    return {
+      skinTone: randInt(1, 6),
+      hairStyle: randInt(1, 10),
+      hairColor: randInt(1, 8),
+      facialHair: randInt(0, 5),
+      accessories: {
+        headband: Math.random() < 0.15,
+        wristband: Math.random() < 0.3,
+        captainBand: Math.random() < 0.05,
+      },
+    };
+  }
 
-            const [currentSkills, potentialSkills] = this.generateRandomSkills(isGoalkeeper);
-            const player = new PlayerEntity({
-                name: `${firstName} ${lastName}`,
-                nationality: playerNationality,
-                teamId: teamId || null,
-                isGoalkeeper,
-                appearance: this.generateRandomAppearance(),
-                currentSkills,
-                potentialSkills,
-            });
-
-            await player.save();
-            players.push(this.mapToResDto(player));
-        }
-
-        return players;
-    }
-
-    private generateRandomSkills(isGoalkeeper: boolean): [PlayerSkills, PlayerSkills] {
-        const rand = (min: number, max: number) => Number((Math.random() * (max - min) + min).toFixed(2));
-
-        // Helper to create attribute sets for each category
-        const createPhysical = () => ({
-            pace: rand(isGoalkeeper ? 5 : 10, 20),
-            strength: rand(5, 20),
-        });
-
-        const createTechnicalGK = () => ({
-            reflexes: rand(10, 20),
-            handling: rand(10, 20),
-            distribution: rand(5, 18),
-        });
-
-        const createTechnicalOutfield = () => ({
-            finishing: rand(5, 20),
-            passing: rand(5, 20),
-            dribbling: rand(5, 20),
-            defending: rand(5, 20),
-        });
-
-        const createMental = () => ({
-            vision: rand(5, 20),
-            positioning: rand(5, 20),
-            awareness: rand(5, 20),
-            composure: rand(5, 20),
-            aggression: rand(5, 20),
-        });
-
-        const currentPhysical = createPhysical();
-        const currentTechnical = isGoalkeeper ? createTechnicalGK() : createTechnicalOutfield();
-        const currentMental = createMental();
-
-        // Potential values start as a copy of current then possibly increase
-        const potentialPhysical = { ...currentPhysical };
-        const potentialTechnical = { ...currentTechnical };
-        const potentialMental = { ...currentMental };
-
-        // Randomly increase potential values
-        (Object.keys(potentialPhysical) as Array<keyof typeof potentialPhysical>).forEach(key => {
-            potentialPhysical[key] = Math.max(potentialPhysical[key], currentPhysical[key] + rand(0, 5));
-        });
-
-        const pTech = potentialTechnical as Record<string, number>;
-        const cTech = currentTechnical as Record<string, number>;
-        Object.keys(pTech).forEach(key => {
-            pTech[key] = Math.max(pTech[key], cTech[key] + rand(0, 5));
-        });
-
-        (Object.keys(potentialMental) as Array<keyof typeof potentialMental>).forEach(key => {
-            potentialMental[key] = Math.max(potentialMental[key], currentMental[key] + rand(0, 5));
-        });
-
-        const currentSkills: PlayerSkills = {
-            physical: currentPhysical,
-            technical: currentTechnical,
-            mental: currentMental,
-            setPieces: { freeKicks: 10, penalties: 10 },
-        };
-
-        const potentialSkills: PlayerSkills = {
-            physical: potentialPhysical,
-            technical: potentialTechnical,
-            mental: potentialMental,
-            setPieces: { freeKicks: 10, penalties: 10 },
-        };
-
-        return [currentSkills, potentialSkills];
-    }
-
-    private calculateOverall(skills: PlayerSkills): number {
-        if (!skills) return 0;
-        let total = 0;
-        let count = 0;
-
-        for (const cat of Object.values(skills)) {
-            for (const val of Object.values(cat)) {
-                total += val as number;
-                count++;
-            }
-        }
-
-        return count > 0 ? Math.round(total / count * 5) : 0; // Scale to 0-100 roughly (avg * 5 as max is 20)
-    }
-
-    private generateRandomAppearance(): Record<string, any> {
-        const randInt = (min: number, max: number) => Math.floor(Math.random() * (max - min + 1)) + min;
-
-        return {
-            skinTone: randInt(1, 6),
-            hairStyle: randInt(1, 10),
-            hairColor: randInt(1, 8),
-            facialHair: randInt(0, 5),
-            accessories: {
-                headband: Math.random() < 0.15,
-                wristband: Math.random() < 0.3,
-                captainBand: Math.random() < 0.05,
-            },
-        };
-    }
-
-    private mapToResDto(player: PlayerEntity): PlayerResDto {
-        const [years, days] = player.getExactAge();
-        return plainToInstance(PlayerResDto, {
-            id: player.id,
-            teamId: player.teamId,
-            name: player.name,
-            nationality: player.nationality,
-            birthday: player.birthday,
-            isYouth: player.isYouth,
-            age: years,
-            ageDays: days,
-            appearance: player.appearance,
-            isGoalkeeper: player.isGoalkeeper,
-            overall: this.calculateOverall(player.currentSkills),
-            onTransfer: player.onTransfer,
-            currentSkills: player.currentSkills,
-            potentialSkills: player.potentialSkills,
-            potentialAbility: player.potentialAbility,
-            potentialTier: player.potentialTier,
-            trainingSlot: player.trainingSlot,
-            experience: player.experience,
-            form: player.form,
-            stamina: player.stamina,
-            createdAt: player.createdAt,
-            updatedAt: player.updatedAt,
-        });
-    }
+  private mapToResDto(player: PlayerEntity): PlayerResDto {
+    const [years, days] = player.getExactAge();
+    return plainToInstance(PlayerResDto, {
+      id: player.id,
+      teamId: player.teamId,
+      name: player.name,
+      nationality: player.nationality,
+      birthday: player.birthday,
+      isYouth: player.isYouth,
+      age: years,
+      ageDays: days,
+      appearance: player.appearance,
+      isGoalkeeper: player.isGoalkeeper,
+      overall: this.calculateOverall(player.currentSkills),
+      onTransfer: player.onTransfer,
+      currentSkills: player.currentSkills,
+      potentialSkills: player.potentialSkills,
+      potentialAbility: player.potentialAbility,
+      potentialTier: player.potentialTier,
+      trainingSlot: player.trainingSlot,
+      experience: player.experience,
+      form: player.form,
+      stamina: player.stamina,
+      createdAt: player.createdAt,
+      updatedAt: player.updatedAt,
+    });
+  }
 }

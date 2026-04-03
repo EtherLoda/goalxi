@@ -160,8 +160,6 @@ describe('UserController', () => {
         const errors = await validate(createUserReqDto);
         expect(errors.length).toEqual(0);
       });
-
-
     });
   });
 

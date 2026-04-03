@@ -135,7 +135,8 @@ export function setSkillLevel(
 }
 
 /**
- * Distribute training points to ONE random skill
+ * Distribute training points to ONE skill
+ * If trainingSkill is specified, train that specific skill; otherwise randomly select one
  * Returns gains and total points spent
  */
 export function distributeTrainingPoints(
@@ -143,6 +144,7 @@ export function distributeTrainingPoints(
     potentialSkills: PlayerSkills,
     totalPoints: number,
     isGoalkeeper: boolean,
+    trainingSkill?: string | null,
 ): { gains: SkillGain[]; totalSpent: number } {
     const gains: SkillGain[] = [];
     let totalSpent = 0;
@@ -160,8 +162,14 @@ export function distributeTrainingPoints(
         return { gains, totalSpent };
     }
 
-    // Randomly select ONE skill to train
-    const selectedKey = eligibleKeys[Math.floor(Math.random() * eligibleKeys.length)];
+    // If trainingSkill is specified and is eligible, use it; otherwise randomly select
+    let selectedKey: string;
+    if (trainingSkill && eligibleKeys.includes(trainingSkill)) {
+        selectedKey = trainingSkill;
+    } else {
+        selectedKey = eligibleKeys[Math.floor(Math.random() * eligibleKeys.length)];
+    }
+
     const currentLevel = getSkillLevel(currentSkills, selectedKey);
     const potentialLevel = getSkillLevel(potentialSkills, selectedKey);
 
@@ -197,6 +205,7 @@ export function applyTrainingToPlayer(
     isGoalkeeper: boolean,
     staffList: StaffEntity[],
     weeksElapsed: number,
+    trainingSkill?: string | null,
 ): TrainingResult {
     const weeklyPoints = calculateWeeklyTrainingPoints(age, trainingSlot, trainingCategory, staffList);
     if (weeklyPoints === 0) {
@@ -209,7 +218,7 @@ export function applyTrainingToPlayer(
     }
 
     const totalPoints = weeklyPoints * weeksElapsed;
-    const result = distributeTrainingPoints(currentSkills, potentialSkills, totalPoints, isGoalkeeper);
+    const result = distributeTrainingPoints(currentSkills, potentialSkills, totalPoints, isGoalkeeper, trainingSkill);
 
     return {
         playerId,

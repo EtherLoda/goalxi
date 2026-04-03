@@ -1,19 +1,19 @@
-import { MigrationInterface, QueryRunner } from "typeorm";
+import { MigrationInterface, QueryRunner } from 'typeorm';
 
 export class RemovePlayerPosition1733150000000 implements MigrationInterface {
-    name = 'RemovePlayerPosition1733150000000'
+  name = 'RemovePlayerPosition1733150000000';
 
-    public async up(queryRunner: QueryRunner): Promise<void> {
-        await queryRunner.query(`
+  public async up(queryRunner: QueryRunner): Promise<void> {
+    await queryRunner.query(`
             ALTER TABLE "player" 
             DROP COLUMN "position"
         `);
-    }
+  }
 
-    public async down(queryRunner: QueryRunner): Promise<void> {
-        await queryRunner.query(`
+  public async down(queryRunner: QueryRunner): Promise<void> {
+    await queryRunner.query(`
             ALTER TABLE "player" 
             ADD COLUMN "position" character varying
         `);
-    }
+  }
 }

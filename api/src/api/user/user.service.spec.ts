@@ -1,7 +1,7 @@
+import { UserEntity } from '@goalxi/database';
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { UserEntity } from '@goalxi/database';
 import { UserService } from './user.service';
 
 describe('UserService', () => {

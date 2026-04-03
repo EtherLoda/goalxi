@@ -161,4 +161,76 @@ describe('MatchEngine', () => {
         expect(firstSnapshot.data.h.ps).toBeDefined(); // player states
         expect(firstSnapshot.data.h.ps.length).toBeGreaterThan(0);
     });
+
+    describe('Player Match Stats', () => {
+        it('should track player stats after match simulation', () => {
+            engine.simulateMatch();
+
+            const playerStats = (engine as any).getPlayerMatchStats();
+            expect(playerStats).toBeDefined();
+            expect(Array.isArray(playerStats)).toBe(true);
+
+            // All players should have zeroed stats initially
+            for (const stat of playerStats) {
+                expect(stat.goals).toBeGreaterThanOrEqual(0);
+                expect(stat.assists).toBeGreaterThanOrEqual(0);
+                expect(stat.tackles).toBeGreaterThanOrEqual(0);
+                expect(stat.minutesPlayed).toBeGreaterThanOrEqual(0);
+            }
+        });
+
+        it('should track minutes played correctly', () => {
+            engine.simulateMatch();
+
+            const playerStats = (engine as any).getPlayerMatchStats();
+
+            // Starting players should have played some minutes
+            for (const stat of playerStats) {
+                if (stat.appearances > 0) {
+                    expect(stat.minutesPlayed).toBeGreaterThan(0);
+                }
+            }
+        });
+    });
+
+    describe('Lane Strength Averages', () => {
+        it('should calculate lane strength averages', () => {
+            engine.simulateMatch();
+
+            const averages = (engine as any).getLaneStrengthAverages();
+
+            expect(averages.home).toBeDefined();
+            expect(averages.away).toBeDefined();
+
+            // Check structure
+            for (const side of ['home', 'away'] as const) {
+                for (const lane of ['left', 'center', 'right'] as const) {
+                    expect(averages[side][lane].attack).toBeGreaterThan(0);
+                    expect(averages[side][lane].defense).toBeGreaterThan(0);
+                    expect(averages[side][lane].possession).toBeGreaterThan(0);
+                }
+            }
+        });
+    });
+
+    describe('Match Report', () => {
+        it('should generate complete match report', () => {
+            engine.simulateMatch();
+
+            const report = (engine as any).getMatchReport();
+
+            expect(report.matchInfo).toBeDefined();
+            expect(report.matchInfo.homeTeam).toBe('HomeFC');
+            expect(report.matchInfo.awayTeam).toBe('AwayFC');
+
+            expect(report.playerStats).toBeDefined();
+            expect(Array.isArray(report.playerStats)).toBe(true);
+
+            expect(report.laneStrengthAverages).toBeDefined();
+            expect(report.matchStats).toBeDefined();
+
+            expect(report.matchStats.summary.homeScore).toBeGreaterThanOrEqual(0);
+            expect(report.matchStats.summary.awayScore).toBeGreaterThanOrEqual(0);
+        });
+    });
 });

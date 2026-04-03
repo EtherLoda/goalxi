@@ -1,6 +1,6 @@
+import { UserEntity } from '@goalxi/database';
 import { Injectable } from '@nestjs/common';
 import { DataSource, Repository } from 'typeorm';
-import { UserEntity } from '@goalxi/database';
 
 @Injectable()
 export class UserRepository extends Repository<UserEntity> {

@@ -1,25 +1,24 @@
-import 'reflect-metadata';
-import { DataSource } from 'typeorm';
-import type { SeederOptions } from 'typeorm-extension';
 import {
-  UserEntity,
-  SessionEntity,
-  TeamEntity,
-  LeagueEntity,
-  MatchEntity,
-  MatchTacticsEntity,
-  TacticsPresetEntity,
-  MatchEventEntity,
-  MatchTeamStatsEntity,
-  SeasonResultEntity,
-  LeagueStandingEntity,
-  FinanceEntity,
-  PlayerEntity,
-  TransactionEntity,
   AuctionEntity,
+  FinanceEntity,
+  LeagueEntity,
+  LeagueStandingEntity,
+  MatchEntity,
+  MatchEventEntity,
+  MatchTacticsEntity,
+  MatchTeamStatsEntity,
+  PlayerEntity,
   PlayerHistoryEntity,
   PlayerTransactionEntity,
+  SeasonResultEntity,
+  SessionEntity,
+  TacticsPresetEntity,
+  TeamEntity,
+  TransactionEntity,
+  UserEntity,
 } from '@goalxi/database';
+import 'reflect-metadata';
+import { DataSource } from 'typeorm';
 
 export const AppDataSource = new DataSource({
   type: process.env.DATABASE_TYPE,
@@ -65,12 +64,12 @@ export const AppDataSource = new DataSource({
   ssl:
     process.env.DATABASE_SSL_ENABLED === 'true'
       ? {
-        rejectUnauthorized:
-          process.env.DATABASE_REJECT_UNAUTHORIZED === 'true',
-        ca: process.env.DATABASE_CA ?? undefined,
-        key: process.env.DATABASE_KEY ?? undefined,
-        cert: process.env.DATABASE_CERT ?? undefined,
-      }
+          rejectUnauthorized:
+            process.env.DATABASE_REJECT_UNAUTHORIZED === 'true',
+          ca: process.env.DATABASE_CA ?? undefined,
+          key: process.env.DATABASE_KEY ?? undefined,
+          cert: process.env.DATABASE_CERT ?? undefined,
+        }
       : undefined,
   seeds: ['src/database/seeds/**/*{.ts,.js}'],
   seedTracking: true,

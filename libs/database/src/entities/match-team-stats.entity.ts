@@ -78,6 +78,14 @@ export class MatchTeamStatsEntity extends BaseEntity {
     @Column({ name: 'passes_attempted', type: 'int', default: 0 })
     passesAttempted!: number;
 
+    // Lane strength averages (stored as JSON)
+    @Column({ name: 'lane_strength_averages', type: 'jsonb', nullable: true })
+    laneStrengthAverages?: {
+        left: { attack: number; defense: number; possession: number };
+        center: { attack: number; defense: number; possession: number };
+        right: { attack: number; defense: number; possession: number };
+    };
+
     @CreateDateColumn({ name: 'created_at' })
     createdAt!: Date;
 

@@ -1,13 +1,7 @@
 import { IEmailJob, IVerifyEmailJob } from '@/common/interfaces/job.interface';
 import { Branded } from '@/common/types/types';
 import { AllConfigType } from '@/config/config.type';
-import { SYSTEM_USER_ID } from '../../constants/app.constant';
-import { CacheKey } from '../../constants/cache.constant';
-import { ErrorCode } from '../../constants/error-code.constant';
-import { JobName, QueueName } from '../../constants/job.constant';
-import { ValidationException } from '../../exceptions/validation.exception';
-import { createCacheKey } from '../../utils/cache.util';
-import { verifyPassword } from '../../utils/password.util';
+import { SessionEntity, UserEntity } from '@goalxi/database';
 import { InjectQueue } from '@nestjs/bullmq';
 import { CACHE_MANAGER } from '@nestjs/cache-manager';
 import { Inject, Injectable, UnauthorizedException } from '@nestjs/common';
@@ -21,7 +15,12 @@ import { plainToInstance } from 'class-transformer';
 import crypto from 'crypto';
 import ms from 'ms';
 import { Repository } from 'typeorm';
-import { SessionEntity, UserEntity } from '@goalxi/database';
+import { CacheKey } from '../../constants/cache.constant';
+import { ErrorCode } from '../../constants/error-code.constant';
+import { JobName, QueueName } from '../../constants/job.constant';
+import { ValidationException } from '../../exceptions/validation.exception';
+import { createCacheKey } from '../../utils/cache.util';
+import { verifyPassword } from '../../utils/password.util';
 import { LoginReqDto } from './dto/login.req.dto';
 import { LoginResDto } from './dto/login.res.dto';
 import { RefreshReqDto } from './dto/refresh.req.dto';
@@ -51,7 +50,7 @@ export class AuthService {
     private readonly emailQueue: Queue<IEmailJob, any, string>,
     @Inject(CACHE_MANAGER)
     private readonly cacheManager: Cache,
-  ) { }
+  ) {}
 
   /**
    * Sign in user

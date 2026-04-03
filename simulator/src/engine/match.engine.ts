@@ -1,5 +1,5 @@
 import { Team } from './classes/Team';
-import { Lane, TacticalPlayer, TacticalInstruction, ScoreStatus, AttackType, ShotType } from './types/simulation.types';
+import { Lane, TacticalPlayer, TacticalInstruction, ScoreStatus, AttackType, ShotType, TeamSnapshot } from './types/simulation.types';
 import { AttributeCalculator } from './utils/attribute-calculator';
 import { ConditionSystem } from './systems/condition.system';
 import { InjurySystem, InjuryEventData } from './systems/injury.system';
@@ -110,6 +110,21 @@ export class MatchEngine {
         possessionStats: { home: number; away: number };
     };
 
+    // 球员比赛数据统计
+    private playerMatchStats: Map<string, {
+        goals: number;
+        assists: number;
+        tackles: number; // 抢断成功次数
+        appearances: number; // 出场次数（用于判断是否上场）
+        minutesPlayed: number;
+    }> = new Map();
+
+    // 双方 lane strength 历史（用于计算平均值）
+    private laneStrengthHistory: {
+        home: Array<{ minute: number; laneStrengths: TeamSnapshot['laneStrengths'] }>;
+        away: Array<{ minute: number; laneStrengths: TeamSnapshot['laneStrengths'] }>;
+    } = { home: [], away: [] };
+
     constructor(
         public homeTeam: Team,
         public awayTeam: Team,
@@ -123,9 +138,17 @@ export class MatchEngine {
         this.possessionTeam = homeTeam;
         this.defendingTeam = awayTeam;
 
-        // Register starting lineups
+        // Register starting lineups and initialize player stats
         [...homeTeam.players, ...awayTeam.players].forEach(p => {
-            this.knownPlayerIds.add((p.player as Player).id);
+            const player = p.player as Player;
+            this.knownPlayerIds.add(player.id);
+            this.playerMatchStats.set(player.id, {
+                goals: 0,
+                assists: 0,
+                tackles: 0,
+                appearances: 1, // Starting players have 1 appearance
+                minutesPlayed: 0
+            });
         });
 
         // 初始化比赛统计
@@ -293,6 +316,9 @@ export class MatchEngine {
             }
         });
 
+        // Finalize player minutes played
+        this.finalizePlayerMinutes(90);
+
         return this.events;
     }
 
@@ -375,6 +401,9 @@ export class MatchEngine {
                 awayScore: this.awayScore
             }
         });
+
+        // Finalize player minutes played
+        this.finalizePlayerMinutes(120);
 
         return this.events;
     }
@@ -524,6 +553,190 @@ export class MatchEngine {
         };
     }
 
+    /**
+     * Finalize minutes played for all players at end of match
+     */
+    private finalizePlayerMinutes(finalMinute: number) {
+        // Update all players who were on the field
+        for (const [playerId, stats] of this.playerMatchStats.entries()) {
+            if (stats.appearances > 0 && stats.minutesPlayed === 0) {
+                // Player was on field but no minutes tracked yet (substituted in)
+                // This is handled at substitution time, but handle edge case
+                const player = this.findPlayerById(playerId);
+                if (player) {
+                    const entryMinute = player.entryMinute || 0;
+                    stats.minutesPlayed = finalMinute - entryMinute;
+                }
+            }
+        }
+
+        // Update starting players who played full match
+        for (const team of [this.homeTeam, this.awayTeam]) {
+            for (const tp of team.players) {
+                const playerId = (tp.player as Player).id;
+                const stats = this.playerMatchStats.get(playerId);
+                if (stats && stats.appearances > 0 && stats.minutesPlayed === 0) {
+                    // Starting player who went the full 90/120
+                    stats.minutesPlayed = finalMinute;
+                }
+            }
+        }
+    }
+
+    /**
+     * Find player by ID across all teams
+     */
+    private findPlayerById(playerId: string): TacticalPlayer | undefined {
+        for (const team of [this.homeTeam, this.awayTeam]) {
+            const found = team.players.find(p => (p.player as Player).id === playerId);
+            if (found) return found;
+        }
+        for (const [, sub] of this.substitutePlayers) {
+            if ((sub.player as Player).id === playerId) return sub;
+        }
+        return undefined;
+    }
+
+    /**
+     * Get player match stats for all players in the match
+     */
+    public getPlayerMatchStats(): Array<{
+        playerId: string;
+        playerName: string;
+        teamName: string;
+        position: string;
+        goals: number;
+        assists: number;
+        tackles: number;
+        appearances: number;
+        minutesPlayed: number;
+    }> {
+        const result: Array<{
+            playerId: string;
+            playerName: string;
+            teamName: string;
+            position: string;
+            goals: number;
+            assists: number;
+            tackles: number;
+            appearances: number;
+            minutesPlayed: number;
+        }> = [];
+
+        for (const team of [this.homeTeam, this.awayTeam]) {
+            for (const tp of team.players) {
+                const player = tp.player as Player;
+                const stats = this.playerMatchStats.get(player.id);
+                if (stats && (stats.goals > 0 || stats.assists > 0 || stats.tackles > 0 || stats.minutesPlayed > 0)) {
+                    result.push({
+                        playerId: player.id,
+                        playerName: player.name,
+                        teamName: team.name,
+                        position: tp.positionKey,
+                        goals: stats.goals,
+                        assists: stats.assists,
+                        tackles: stats.tackles,
+                        appearances: stats.appearances,
+                        minutesPlayed: stats.minutesPlayed
+                    });
+                }
+            }
+        }
+
+        return result;
+    }
+
+    /**
+     * Get lane strength averages for the match
+     */
+    public getLaneStrengthAverages(): {
+        home: {
+            left: { attack: number; defense: number; possession: number };
+            center: { attack: number; defense: number; possession: number };
+            right: { attack: number; defense: number; possession: number };
+        };
+        away: {
+            left: { attack: number; defense: number; possession: number };
+            center: { attack: number; defense: number; possession: number };
+            right: { attack: number; defense: number; possession: number };
+        };
+    } {
+        const avgLaneStrength = (history: Array<{ minute: number; laneStrengths: TeamSnapshot['laneStrengths'] }>) => {
+            if (history.length === 0) {
+                return {
+                    left: { attack: 0, defense: 0, possession: 0 },
+                    center: { attack: 0, defense: 0, possession: 0 },
+                    right: { attack: 0, defense: 0, possession: 0 }
+                };
+            }
+
+            const totals = {
+                left: { attack: 0, defense: 0, possession: 0 },
+                center: { attack: 0, defense: 0, possession: 0 },
+                right: { attack: 0, defense: 0, possession: 0 }
+            };
+
+            for (const snapshot of history) {
+                for (const lane of ['left', 'center', 'right'] as const) {
+                    totals[lane].attack += snapshot.laneStrengths[lane].attack;
+                    totals[lane].defense += snapshot.laneStrengths[lane].defense;
+                    totals[lane].possession += snapshot.laneStrengths[lane].possession;
+                }
+            }
+
+            const count = history.length;
+            return {
+                left: {
+                    attack: parseFloat((totals.left.attack / count).toFixed(2)),
+                    defense: parseFloat((totals.left.defense / count).toFixed(2)),
+                    possession: parseFloat((totals.left.possession / count).toFixed(2))
+                },
+                center: {
+                    attack: parseFloat((totals.center.attack / count).toFixed(2)),
+                    defense: parseFloat((totals.center.defense / count).toFixed(2)),
+                    possession: parseFloat((totals.center.possession / count).toFixed(2))
+                },
+                right: {
+                    attack: parseFloat((totals.right.attack / count).toFixed(2)),
+                    defense: parseFloat((totals.right.defense / count).toFixed(2)),
+                    possession: parseFloat((totals.right.possession / count).toFixed(2))
+                }
+            };
+        };
+
+        return {
+            home: avgLaneStrength(this.laneStrengthHistory.home),
+            away: avgLaneStrength(this.laneStrengthHistory.away)
+        };
+    }
+
+    /**
+     * Get complete match report with all details
+     */
+    public getMatchReport(): {
+        matchInfo: {
+            homeTeam: string;
+            awayTeam: string;
+            homeScore: number;
+            awayScore: number;
+        };
+        playerStats: ReturnType<MatchEngine['getPlayerMatchStats']>;
+        laneStrengthAverages: ReturnType<MatchEngine['getLaneStrengthAverages']>;
+        matchStats: ReturnType<MatchEngine['getMatchStats']>;
+    } {
+        return {
+            matchInfo: {
+                homeTeam: this.homeTeam.name,
+                awayTeam: this.awayTeam.name,
+                homeScore: this.homeScore,
+                awayScore: this.awayScore
+            },
+            playerStats: this.getPlayerMatchStats(),
+            laneStrengthAverages: this.getLaneStrengthAverages(),
+            matchStats: this.getMatchStats()
+        };
+    }
+
     private isShootoutDecided(hScore: number, aScore: number, total: number, currentRound: number, homeJustKicked: boolean): boolean {
         const hRemaining = total - currentRound + (homeJustKicked ? 0 : 1);
         const aRemaining = total - currentRound;
@@ -573,6 +786,31 @@ export class MatchEngine {
                 if (subPlayer && playerOut) {
                     const playerOutName = (playerOut.player as Player).name;
                     const playerInName = (subPlayer.player as Player).name;
+
+                    // Track player stats for substitution
+                    const playerOutId = (playerOut.player as Player).id;
+                    const playerInId = (subPlayer.player as Player).id;
+
+                    // Update minutes played for player going out
+                    const outStats = this.playerMatchStats.get(playerOutId);
+                    if (outStats) {
+                        outStats.minutesPlayed += minute - (playerOut.entryMinute || 0);
+                    }
+
+                    // Initialize stats for player coming in
+                    let inStats = this.playerMatchStats.get(playerInId);
+                    if (!inStats) {
+                        inStats = {
+                            goals: 0,
+                            assists: 0,
+                            tackles: 0,
+                            appearances: 1,
+                            minutesPlayed: 0
+                        };
+                        this.playerMatchStats.set(playerInId, inStats);
+                    } else {
+                        inStats.appearances++;
+                    }
 
                     team.substitutePlayer(ins.playerId, subPlayer);
                     subPlayer.entryMinute = minute; // Set entry minute
@@ -1127,6 +1365,39 @@ export class MatchEngine {
             scoreAfterEvent: finalResult === 'goal' ? scoreAfterEvent : undefined
         };
 
+        // Track player stats: goals and assists
+        if (shot?.shooter) {
+            const shooterId = (shot.shooter.player as Player).id;
+            const stats = this.playerMatchStats.get(shooterId);
+            if (stats) {
+                if (finalResult === 'goal') {
+                    stats.goals++;
+                }
+                if (shot.assist) {
+                    const assistId = (shot.assist.player as Player).id;
+                    const assistStats = this.playerMatchStats.get(assistId);
+                    if (assistStats) {
+                        assistStats.assists++;
+                    }
+                }
+            }
+        }
+
+        // Track tackles: defense_stopped means defensive player made a tackle
+        if (finalResult === 'defense_stopped') {
+            // Attributing tackle to defender (simplified: use random defender)
+            const defendingTeam = midfieldBattle.winner === 'home' ? this.awayTeam : this.homeTeam;
+            const defenderIdx = (Math.random() * defendingTeam.players.length) | 0;
+            const defender = defendingTeam.players[defenderIdx];
+            if (defender) {
+                const defenderId = (defender.player as Player).id;
+                const stats = this.playerMatchStats.get(defenderId);
+                if (stats) {
+                    stats.tackles++;
+                }
+            }
+        }
+
         // Create the event
         this.events.push({
             minute: this.time,
@@ -1440,6 +1711,20 @@ export class MatchEngine {
     private generateSnapshotEvent(time: number) {
         const homeSnapshot = this.homeTeam.getSnapshot();
         const awaySnapshot = this.awayTeam.getSnapshot();
+
+        // Record lane strength history for averaging
+        if (homeSnapshot) {
+            this.laneStrengthHistory.home.push({
+                minute: time,
+                laneStrengths: homeSnapshot.laneStrengths
+            });
+        }
+        if (awaySnapshot) {
+            this.laneStrengthHistory.away.push({
+                minute: time,
+                laneStrengths: awaySnapshot.laneStrengths
+            });
+        }
 
         const mapPlayerStates = (team: Team, isFullMatchSnapshot: boolean) => {
             const teamStates = [];

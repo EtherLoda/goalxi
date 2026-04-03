@@ -1,7 +1,6 @@
 import { plainToInstance } from 'class-transformer';
 import {
   BaseEntity,
-  Column,
   CreateDateColumn,
   DataSource,
   UpdateDateColumn,

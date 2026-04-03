@@ -5,13 +5,13 @@ import { FanEntity, TeamEntity, LeagueEntity } from '@goalxi/database';
 import { FanProcessor } from './processors/fan.processor';
 
 @Module({
-    imports: [
-        BullModule.registerQueue({
-            name: 'fan-settlement',
-        }),
-        TypeOrmModule.forFeature([FanEntity, TeamEntity, LeagueEntity]),
-    ],
-    providers: [FanProcessor],
-    exports: [BullModule],
+  imports: [
+    BullModule.registerQueue({
+      name: 'fan-settlement',
+    }),
+    TypeOrmModule.forFeature([FanEntity, TeamEntity, LeagueEntity]),
+  ],
+  providers: [FanProcessor],
+  exports: [BullModule],
 })
 export class FanModule {}

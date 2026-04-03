@@ -1,17 +1,17 @@
-import { AuthModule } from '../auth/auth.module';
-import { FinanceController } from './finance.controller';
+import { FinanceEntity, TransactionEntity } from '@goalxi/database';
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
-import { FinanceEntity, TransactionEntity } from '@goalxi/database';
+import { AuthModule } from '../auth/auth.module';
+import { FinanceController } from './finance.controller';
 import { FinanceService } from './finance.service';
 
 @Module({
-    imports: [
-        TypeOrmModule.forFeature([FinanceEntity, TransactionEntity]),
-        AuthModule,
-    ],
-    controllers: [FinanceController],
-    providers: [FinanceService],
-    exports: [FinanceService],
+  imports: [
+    TypeOrmModule.forFeature([FinanceEntity, TransactionEntity]),
+    AuthModule,
+  ],
+  controllers: [FinanceController],
+  providers: [FinanceService],
+  exports: [FinanceService],
 })
-export class FinanceModule { }
+export class FinanceModule {}

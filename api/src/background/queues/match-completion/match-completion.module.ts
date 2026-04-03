@@ -1,45 +1,45 @@
-import { Module } from '@nestjs/common';
-import { BullModule } from '@nestjs/bullmq';
-import { TypeOrmModule } from '@nestjs/typeorm';
-import {
-    MatchEntity,
-    LeagueStandingEntity,
-    PlayerEntity,
-    MatchEventEntity,
-    MatchTacticsEntity,
-    TeamEntity,
-    StadiumEntity,
-    FanEntity,
-} from '@goalxi/database';
-import { MatchCompletionProcessor } from './match-completion.processor';
-import { MatchCompletionService } from '@/api/match/match-completion.service';
 import { MatchCacheService } from '@/api/match/match-cache.service';
+import { MatchCompletionService } from '@/api/match/match-completion.service';
+import {
+  FanEntity,
+  LeagueStandingEntity,
+  MatchEntity,
+  MatchEventEntity,
+  MatchTacticsEntity,
+  PlayerEntity,
+  StadiumEntity,
+  TeamEntity,
+} from '@goalxi/database';
+import { BullModule } from '@nestjs/bullmq';
+import { Module } from '@nestjs/common';
+import { TypeOrmModule } from '@nestjs/typeorm';
 import { FanModule } from '../../../api/fan/fan.module';
 import { FinanceModule } from '../../../api/finance/finance.module';
+import { MatchCompletionProcessor } from './match-completion.processor';
 
 @Module({
-    imports: [
-        BullModule.registerQueue({
-            name: 'match-completion',
-        }),
-        TypeOrmModule.forFeature([
-            MatchEntity,
-            LeagueStandingEntity,
-            PlayerEntity,
-            MatchEventEntity,
-            MatchTacticsEntity,
-            TeamEntity,
-            StadiumEntity,
-            FanEntity,
-        ]),
-        FanModule,
-        FinanceModule,
-    ],
-    providers: [
-        MatchCompletionProcessor,
-        MatchCompletionService,
-        MatchCacheService,
-    ],
-    exports: [BullModule],
+  imports: [
+    BullModule.registerQueue({
+      name: 'match-completion',
+    }),
+    TypeOrmModule.forFeature([
+      MatchEntity,
+      LeagueStandingEntity,
+      PlayerEntity,
+      MatchEventEntity,
+      MatchTacticsEntity,
+      TeamEntity,
+      StadiumEntity,
+      FanEntity,
+    ]),
+    FanModule,
+    FinanceModule,
+  ],
+  providers: [
+    MatchCompletionProcessor,
+    MatchCompletionService,
+    MatchCacheService,
+  ],
+  exports: [BullModule],
 })
-export class MatchCompletionModule { }
+export class MatchCompletionModule {}

@@ -1,3 +1,3 @@
 import { PageOptionsDto } from '@/common/dto/offset-pagination/page-options.dto';
 
-export class ListLeagueReqDto extends PageOptionsDto { }
+export class ListLeagueReqDto extends PageOptionsDto {}

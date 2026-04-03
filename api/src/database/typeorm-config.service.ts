@@ -1,31 +1,31 @@
 import TypeOrmCustomLogger from '@/utils/typeorm-custom-logger';
+import {
+  AuctionEntity,
+  FinanceEntity,
+  LeagueEntity,
+  LeagueStandingEntity,
+  MatchEntity,
+  MatchEventEntity,
+  MatchTacticsEntity,
+  MatchTeamStatsEntity,
+  PlayerEntity,
+  PlayerHistoryEntity,
+  PlayerTransactionEntity,
+  SeasonResultEntity,
+  SessionEntity,
+  TacticsPresetEntity,
+  TeamEntity,
+  TransactionEntity,
+  UserEntity,
+} from '@goalxi/database';
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { TypeOrmModuleOptions, TypeOrmOptionsFactory } from '@nestjs/typeorm';
 import { AllConfigType } from '../config/config.type';
-import {
-  UserEntity,
-  SessionEntity,
-  TeamEntity,
-  LeagueEntity,
-  MatchEntity,
-  MatchTacticsEntity,
-  TacticsPresetEntity,
-  MatchEventEntity,
-  MatchTeamStatsEntity,
-  SeasonResultEntity,
-  LeagueStandingEntity,
-  FinanceEntity,
-  PlayerEntity,
-  TransactionEntity,
-  AuctionEntity,
-  PlayerHistoryEntity,
-  PlayerTransactionEntity,
-} from '@goalxi/database';
 
 @Injectable()
 export class TypeOrmConfigService implements TypeOrmOptionsFactory {
-  constructor(private configService: ConfigService<AllConfigType>) { }
+  constructor(private configService: ConfigService<AllConfigType>) {}
 
   createTypeOrmOptions(): TypeOrmModuleOptions {
     return {
@@ -74,20 +74,20 @@ export class TypeOrmConfigService implements TypeOrmOptionsFactory {
       }),
       ssl: this.configService.get('database.sslEnabled', { infer: true })
         ? {
-          rejectUnauthorized: this.configService.get(
-            'database.rejectUnauthorized',
-            { infer: true },
-          ),
-          ca:
-            this.configService.get('database.ca', { infer: true }) ??
-            undefined,
-          key:
-            this.configService.get('database.key', { infer: true }) ??
-            undefined,
-          cert:
-            this.configService.get('database.cert', { infer: true }) ??
-            undefined,
-        }
+            rejectUnauthorized: this.configService.get(
+              'database.rejectUnauthorized',
+              { infer: true },
+            ),
+            ca:
+              this.configService.get('database.ca', { infer: true }) ??
+              undefined,
+            key:
+              this.configService.get('database.key', { infer: true }) ??
+              undefined,
+            cert:
+              this.configService.get('database.cert', { infer: true }) ??
+              undefined,
+          }
         : undefined,
     } as TypeOrmModuleOptions;
   }

@@ -1,22 +1,21 @@
-import { Test, TestingModule } from '@nestjs/testing';
-import { getRepositoryToken } from '@nestjs/typeorm';
-import { getQueueToken } from '@nestjs/bullmq';
-import { DataSource } from 'typeorm';
 import {
   MatchEntity,
-  MatchStatus,
+  MatchEventEntity,
   MatchTacticsEntity,
+  MatchTeamStatsEntity,
+  MatchType,
+  PlayerEntity,
   TacticsPresetEntity,
   TeamEntity,
-  PlayerEntity,
-  MatchType,
-  MatchEventEntity,
-  MatchTeamStatsEntity,
 } from '@goalxi/database';
-import { MatchService } from './match.service';
+import { getQueueToken } from '@nestjs/bullmq';
+import { BadRequestException, ForbiddenException } from '@nestjs/common';
+import { Test, TestingModule } from '@nestjs/testing';
+import { getRepositoryToken } from '@nestjs/typeorm';
+import { DataSource } from 'typeorm';
 import { CreateMatchReqDto } from './dto/create-match.req.dto';
 import { SubmitTacticsReqDto } from './dto/submit-tactics.req.dto';
-import { NotFoundException, BadRequestException, ForbiddenException } from '@nestjs/common';
+import { MatchService } from './match.service';
 
 describe('MatchService', () => {
   let service: MatchService;
@@ -65,10 +64,12 @@ describe('MatchService', () => {
   };
 
   const mockDataSource = {
-    transaction: jest.fn((callback) => callback({
-      save: jest.fn(),
-      create: jest.fn((entity, data) => data),
-    })),
+    transaction: jest.fn((callback) =>
+      callback({
+        save: jest.fn(),
+        create: jest.fn((entity, data) => data),
+      }),
+    ),
   };
 
   beforeEach(async () => {
@@ -202,13 +203,28 @@ describe('MatchService', () => {
       });
 
       mockPlayerRepository.find.mockResolvedValue([
-        { id: 'gk-id' }, { id: 'cb1-id' }, { id: 'cb2-id' }, { id: 'lb-id' }, { id: 'rb-id' },
-        { id: 'dmf1-id' }, { id: 'cm1-id' }, { id: 'cam1-id' }, { id: 'lw-id' }, { id: 'rw-id' }, { id: 'st1-id' },
+        { id: 'gk-id' },
+        { id: 'cb1-id' },
+        { id: 'cb2-id' },
+        { id: 'lb-id' },
+        { id: 'rb-id' },
+        { id: 'dmf1-id' },
+        { id: 'cm1-id' },
+        { id: 'cam1-id' },
+        { id: 'lw-id' },
+        { id: 'rw-id' },
+        { id: 'st1-id' },
       ]);
 
       mockTacticsRepository.findOne.mockResolvedValue(null);
-      mockTacticsRepository.create.mockReturnValue({ ...dto, id: 'tactics-id' });
-      mockTacticsRepository.save.mockResolvedValue({ ...dto, id: 'tactics-id' });
+      mockTacticsRepository.create.mockReturnValue({
+        ...dto,
+        id: 'tactics-id',
+      });
+      mockTacticsRepository.save.mockResolvedValue({
+        ...dto,
+        id: 'tactics-id',
+      });
 
       const result = await service.submitTactics(matchId, teamId, dto);
       expect(result.formation).toBe('4-4-2');
@@ -230,7 +246,9 @@ describe('MatchService', () => {
         tacticsLocked: false,
       });
 
-      await expect(service.submitTactics(matchId, teamId, dto)).rejects.toThrow(BadRequestException);
+      await expect(service.submitTactics(matchId, teamId, dto)).rejects.toThrow(
+        BadRequestException,
+      );
     });
 
     it('should fail if tactics are locked', async () => {
@@ -249,7 +267,9 @@ describe('MatchService', () => {
         tacticsLocked: true, // Tactics already locked
       });
 
-      await expect(service.submitTactics(matchId, teamId, dto)).rejects.toThrow(BadRequestException);
+      await expect(service.submitTactics(matchId, teamId, dto)).rejects.toThrow(
+        BadRequestException,
+      );
     });
 
     it('should fail if deadline is exactly at current time', async () => {
@@ -270,7 +290,9 @@ describe('MatchService', () => {
         tacticsLocked: false,
       });
 
-      await expect(service.submitTactics(matchId, teamId, dto)).rejects.toThrow(BadRequestException);
+      await expect(service.submitTactics(matchId, teamId, dto)).rejects.toThrow(
+        BadRequestException,
+      );
     });
 
     it('should succeed if deadline is in the future', async () => {
@@ -305,13 +327,28 @@ describe('MatchService', () => {
       });
 
       mockPlayerRepository.find.mockResolvedValue([
-        { id: 'gk-id' }, { id: 'cb1-id' }, { id: 'cb2-id' }, { id: 'lb-id' }, { id: 'rb-id' },
-        { id: 'dmf1-id' }, { id: 'cm1-id' }, { id: 'cam1-id' }, { id: 'lw-id' }, { id: 'rw-id' }, { id: 'st1-id' },
+        { id: 'gk-id' },
+        { id: 'cb1-id' },
+        { id: 'cb2-id' },
+        { id: 'lb-id' },
+        { id: 'rb-id' },
+        { id: 'dmf1-id' },
+        { id: 'cm1-id' },
+        { id: 'cam1-id' },
+        { id: 'lw-id' },
+        { id: 'rw-id' },
+        { id: 'st1-id' },
       ]);
 
       mockTacticsRepository.findOne.mockResolvedValue(null);
-      mockTacticsRepository.create.mockReturnValue({ ...dto, id: 'tactics-id' });
-      mockTacticsRepository.save.mockResolvedValue({ ...dto, id: 'tactics-id' });
+      mockTacticsRepository.create.mockReturnValue({
+        ...dto,
+        id: 'tactics-id',
+      });
+      mockTacticsRepository.save.mockResolvedValue({
+        ...dto,
+        id: 'tactics-id',
+      });
 
       const result = await service.submitTactics(matchId, teamId, dto);
       expect(result.formation).toBe('4-4-2');
@@ -320,16 +357,19 @@ describe('MatchService', () => {
 
   describe('validateTeamOwnership', () => {
     it('should return true if user owns team', async () => {
-      mockTeamRepository.findOne.mockResolvedValue({ id: 'team-id', userId: 'user-id' });
+      mockTeamRepository.findOne.mockResolvedValue({
+        id: 'team-id',
+        userId: 'user-id',
+      });
       const result = await service.validateTeamOwnership('user-id', 'team-id');
       expect(result).toBe(true);
     });
 
     it('should throw ForbiddenException if user does not own team', async () => {
       mockTeamRepository.findOne.mockResolvedValue(null);
-      await expect(service.validateTeamOwnership('user-id', 'team-id')).rejects.toThrow(
-        ForbiddenException,
-      );
+      await expect(
+        service.validateTeamOwnership('user-id', 'team-id'),
+      ).rejects.toThrow(ForbiddenException);
     });
   });
 });

@@ -366,6 +366,9 @@ export class SimulationProcessor extends WorkerHost {
 
         // 7. Persist Results
         await this.dataSource.transaction(async (manager) => {
+            // Get match report from engine for settlement
+            const matchReport = engine.getMatchReport();
+
             // Update Match - DON'T change status, let scheduler handle it
             // Simulation completes BEFORE match starts, status should remain TACTICS_LOCKED
             match.homeScore = engine.homeScore;
@@ -401,22 +404,35 @@ export class SimulationProcessor extends WorkerHost {
                 }))
                 .execute();
 
-            // Save Stats (Simplified)
+            // Save Stats with Lane Strength Averages
+            const laneStrengthAverages = matchReport.laneStrengthAverages;
             const calculateStats = (teamName: string, teamId: string) => {
                 const goals = events.filter(e => e.type === 'goal' && e.teamName === teamName).length;
                 const misses = events.filter(e => e.type === 'miss' && e.teamName === teamName).length;
                 const savesByOpponent = events.filter(e => e.type === 'save' && e.teamName !== teamName).length;
 
+                // Get possession from match stats
+                const possessionStats = matchReport.matchStats.possessionStats;
+                const totalPossession = possessionStats.home + possessionStats.away;
+                const possessionPercent = totalPossession > 0
+                    ? (teamName === match.homeTeam!.name ? possessionStats.home : possessionStats.away) / totalPossession * 100
+                    : 50;
+
+                // Get lane strength averages for this team
+                const isHome = teamName === match.homeTeam!.name;
+                const teamLaneStrengths = isHome ? laneStrengthAverages.home : laneStrengthAverages.away;
+
                 return manager.create(MatchTeamStatsEntity, {
                     matchId: match.id,
                     teamId,
-                    possessionPercentage: 50,
+                    possessionPercentage: possessionPercent,
                     shots: goals + misses + savesByOpponent,
                     shotsOnTarget: goals + savesByOpponent,
                     corners: events.filter(e => e.type === 'corner' && e.teamName === teamName).length,
                     fouls: events.filter(e => e.type === 'foul' && e.teamName === teamName).length,
                     yellowCards: events.filter(e => e.type === 'yellow_card' && e.teamName === teamName).length,
                     redCards: events.filter(e => e.type === 'red_card' && e.teamName === teamName).length,
+                    laneStrengthAverages: teamLaneStrengths,
                 });
             };
 
@@ -424,6 +440,45 @@ export class SimulationProcessor extends WorkerHost {
                 calculateStats(match.homeTeam!.name, match.homeTeamId),
                 calculateStats(match.awayTeam!.name, match.awayTeamId)
             ]);
+
+            // Update Player Career Stats (Settlement)
+            const playerStats = matchReport.playerStats;
+            const playerStatsMap = new Map(playerStats.map(p => [p.playerId, p]));
+
+            // Find players and update their career stats
+            for (const player of allPlayers) {
+                const stats = playerStatsMap.get(player.id);
+                if (!stats || stats.minutesPlayed === 0) continue; // Skip players who didn't play
+
+                // Ensure careerStats has proper structure
+                if (!player.careerStats || typeof player.careerStats !== 'object') {
+                    player.careerStats = {
+                        club: { matches: 0, goals: 0, assists: 0, tackles: 0, yellowCards: 0, redCards: 0 }
+                    };
+                }
+                if (!player.careerStats.club) {
+                    player.careerStats.club = { matches: 0, goals: 0, assists: 0, tackles: 0, yellowCards: 0, redCards: 0 };
+                }
+
+                // Update club stats
+                player.careerStats.club.matches += 1;
+                player.careerStats.club.goals += stats.goals;
+                player.careerStats.club.assists += stats.assists;
+                player.careerStats.club.tackles += stats.tackles;
+
+                // Count cards from events
+                const playerYellowCards = events.filter(
+                    e => e.type === 'yellow_card' && e.playerId === player.id
+                ).length;
+                const playerRedCards = events.filter(
+                    e => e.type === 'red_card' && e.playerId === player.id
+                ).length;
+                player.careerStats.club.yellowCards += playerYellowCards;
+                player.careerStats.club.redCards += playerRedCards;
+            }
+
+            // Save all updated players
+            await manager.save(allPlayers.filter(p => playerStatsMap.has(p.id) && playerStatsMap.get(p.id)!.minutesPlayed > 0));
 
             // Persist injury records in bulk
             const injuryEvents = events.filter(e => e.type === 'injury');

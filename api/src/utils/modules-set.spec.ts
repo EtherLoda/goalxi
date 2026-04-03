@@ -1,6 +1,6 @@
+import { ConfigModule } from '@nestjs/config';
 import { ApiModule } from '../api/api.module';
 import { MailModule } from '../mail/mail.module';
-import { ConfigModule } from '@nestjs/config';
 import generateModulesSet from './modules-set';
 
 describe('generateModulesSet', () => {
@@ -88,7 +88,7 @@ describe('generateModulesSet', () => {
   it('should handle unsupported modules set', () => {
     const consoleErrorSpy = jest
       .spyOn(console, 'error')
-      .mockImplementation(() => { });
+      .mockImplementation(() => {});
     process.env.MODULES_SET = 'unsupported';
     const modules = generateModulesSet();
     expect(modules).toEqual(

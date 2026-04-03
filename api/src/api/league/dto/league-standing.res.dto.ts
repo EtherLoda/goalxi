@@ -1,36 +1,36 @@
 import { Expose } from 'class-transformer';
 
 export class LeagueStandingResDto {
-    @Expose()
-    position: number;
+  @Expose()
+  position: number;
 
-    @Expose()
-    teamId: string;
+  @Expose()
+  teamId: string;
 
-    @Expose()
-    teamName: string;
+  @Expose()
+  teamName: string;
 
-    @Expose()
-    played: number;
+  @Expose()
+  played: number;
 
-    @Expose()
-    won: number;
+  @Expose()
+  won: number;
 
-    @Expose()
-    drawn: number;
+  @Expose()
+  drawn: number;
 
-    @Expose()
-    lost: number;
+  @Expose()
+  lost: number;
 
-    @Expose()
-    goalsFor: number;
+  @Expose()
+  goalsFor: number;
 
-    @Expose()
-    goalsAgainst: number;
+  @Expose()
+  goalsAgainst: number;
 
-    @Expose()
-    goalDifference: number;
+  @Expose()
+  goalDifference: number;
 
-    @Expose()
-    points: number;
+  @Expose()
+  points: number;
 }

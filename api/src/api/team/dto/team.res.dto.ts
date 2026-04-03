@@ -1,37 +1,37 @@
-import { Expose } from 'class-transformer';
 import { BenchConfig } from '@goalxi/database';
+import { Expose } from 'class-transformer';
 
 export class TeamResDto {
-    @Expose()
-    id: string;
+  @Expose()
+  id: string;
 
-    @Expose()
-    userId: string;
+  @Expose()
+  userId: string;
 
-    @Expose()
-    leagueId: string | null;
+  @Expose()
+  leagueId: string | null;
 
-    @Expose()
-    name: string;
+  @Expose()
+  name: string;
 
-    @Expose()
-    nationality?: string;
+  @Expose()
+  nationality?: string;
 
-    @Expose()
-    logoUrl: string;
+  @Expose()
+  logoUrl: string;
 
-    @Expose()
-    jerseyColorPrimary: string;
+  @Expose()
+  jerseyColorPrimary: string;
 
-    @Expose()
-    jerseyColorSecondary: string;
+  @Expose()
+  jerseyColorSecondary: string;
 
-    @Expose()
-    benchConfig: BenchConfig | null;
+  @Expose()
+  benchConfig: BenchConfig | null;
 
-    @Expose()
-    createdAt: Date;
+  @Expose()
+  createdAt: Date;
 
-    @Expose()
-    updatedAt: Date;
+  @Expose()
+  updatedAt: Date;
 }

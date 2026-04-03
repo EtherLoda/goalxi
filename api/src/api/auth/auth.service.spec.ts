@@ -1,3 +1,4 @@
+import { UserEntity } from '@goalxi/database';
 import { getQueueToken } from '@nestjs/bullmq';
 import { CACHE_MANAGER } from '@nestjs/cache-manager';
 import { ConfigService } from '@nestjs/config';
@@ -5,7 +6,6 @@ import { JwtService } from '@nestjs/jwt';
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { UserEntity } from '@goalxi/database';
 import { AuthService } from './auth.service';
 
 describe('AuthService', () => {

@@ -72,6 +72,7 @@ export interface CareerStats {
         matches: number;
         goals: number;
         assists: number;
+        tackles: number;
         yellowCards: number;
         redCards: number;
     };
@@ -79,6 +80,7 @@ export interface CareerStats {
         matches: number;
         goals: number;
         assists: number;
+        tackles: number;
         yellowCards: number;
         redCards: number;
     };
@@ -176,6 +178,14 @@ export class PlayerEntity extends AbstractEntity {
         default: TrainingCategory.PHYSICAL,
     })
     trainingCategory!: TrainingCategory;
+
+    @Column({
+        name: 'training_skill',
+        type: 'varchar',
+        length: 20,
+        nullable: true,
+    })
+    trainingSkill?: string | null;
 
     @Column({ type: 'float', default: 0.0 })
     experience!: number;

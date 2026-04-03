@@ -6,16 +6,16 @@ import { InjuryModule } from './injury/injury.module';
 import { LeagueModule } from './league/league.module';
 import { MatchModule } from './match/match.module';
 import { PlayerModule } from './player/player.module';
+import { ScoutsModule } from './scouts/scouts.module';
 import { StadiumModule } from './stadium/stadium.module';
+import { StaffsModule } from './staffs/staffs.module';
+import { StatsModule } from './stats/stats.module';
 import { TeamModule } from './team/team.module';
+import { TrainingModule } from './training/training.module';
 import { TransferModule } from './transfer/transfer.module';
 import { UserModule } from './user/user.module';
-import { StatsModule } from './stats/stats.module';
-import { YouthModule } from './youth/youth.module';
 import { YouthMatchModule } from './youth-match/youth-match.module';
-import { ScoutsModule } from './scouts/scouts.module';
-import { StaffsModule } from './staffs/staffs.module';
-import { TrainingModule } from './training/training.module';
+import { YouthModule } from './youth/youth.module';
 
 @Module({
   imports: [
@@ -38,4 +38,4 @@ import { TrainingModule } from './training/training.module';
     FanModule,
   ],
 })
-export class ApiModule { }
+export class ApiModule {}
