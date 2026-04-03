@@ -1,6 +1,11 @@
 import { Uuid } from '@/common/types/common.type';
 import {
+  FanEntity,
+  FINANCE_CONSTANTS,
   FinanceEntity,
+  StadiumEntity,
+  StaffEntity,
+  TeamEntity,
   TransactionEntity,
   TransactionType,
 } from '@goalxi/database';
@@ -15,6 +20,14 @@ export class FinanceService {
     private readonly financeRepo: Repository<FinanceEntity>,
     @InjectRepository(TransactionEntity)
     private readonly transactionRepo: Repository<TransactionEntity>,
+    @InjectRepository(TeamEntity)
+    private readonly teamRepo: Repository<TeamEntity>,
+    @InjectRepository(FanEntity)
+    private readonly fanRepo: Repository<FanEntity>,
+    @InjectRepository(StadiumEntity)
+    private readonly stadiumRepo: Repository<StadiumEntity>,
+    @InjectRepository(StaffEntity)
+    private readonly staffRepo: Repository<StaffEntity>,
     private readonly dataSource: DataSource,
   ) {}
 
@@ -42,8 +55,6 @@ export class FinanceService {
       relations: ['team'],
     });
     if (!finance) {
-      // If team exists but no finance, maybe create it? Or throw.
-      // For now, throw not found.
       throw new NotFoundException(
         `Finance record not found for user ${userId}`,
       );
@@ -56,6 +67,8 @@ export class FinanceService {
     amount: number,
     type: TransactionType,
     season: number,
+    description?: string,
+    relatedId?: string,
   ): Promise<TransactionEntity> {
     return this.dataSource.transaction(async (manager) => {
       const financeRepo = manager.getRepository(FinanceEntity);
@@ -78,6 +91,8 @@ export class FinanceService {
         amount,
         type,
         season,
+        description,
+        relatedId,
       });
       return transactionRepo.save(transaction);
     });
@@ -142,5 +157,81 @@ export class FinanceService {
     }
 
     return stats;
+  }
+
+  /**
+   * Process weekly settlement for a team
+   * Includes: sponsorship (基础值 × 2 × √(球迷数/1万)), staff wages, youth team cost, stadium maintenance
+   */
+  async processWeeklySettlement(teamId: Uuid, season: number): Promise<void> {
+    const team = await this.teamRepo.findOne({
+      where: { id: teamId },
+      relations: ['league'],
+    });
+    if (!team) {
+      throw new NotFoundException(`Team not found: ${teamId}`);
+    }
+
+    const tier = team.league?.tier || 4;
+
+    // Income: Sponsorship = 基础值 × 2 × √(球迷数/1万)
+    const fan = await this.fanRepo.findOne({ where: { teamId } });
+    const baseSponsorship =
+      FINANCE_CONSTANTS.SPONSORSHIP_BASE[
+        tier as keyof typeof FINANCE_CONSTANTS.SPONSORSHIP_BASE
+      ] || 30000;
+    const fanCount = fan?.totalFans || 1000;
+    const sponsorshipMultiplier = Math.sqrt(fanCount / 10000);
+    const sponsorship = Math.floor(baseSponsorship * 2 * sponsorshipMultiplier);
+    await this.processTransaction(
+      teamId,
+      sponsorship,
+      TransactionType.SPONSORSHIP,
+      season,
+      `Weekly sponsorship income (Tier ${tier}, ${fanCount} fans)`,
+    );
+
+    // Expense: Staff wages
+    const staffMembers = await this.staffRepo.find({
+      where: { teamId, isActive: true },
+    });
+    for (const staff of staffMembers) {
+      const staffWage =
+        FINANCE_CONSTANTS.STAFF_WAGE[
+          staff.level as keyof typeof FINANCE_CONSTANTS.STAFF_WAGE
+        ] || 15000;
+      await this.processTransaction(
+        teamId,
+        -staffWage,
+        TransactionType.STAFF_WAGES,
+        season,
+        `Weekly wage for ${staff.name} (${staff.role})`,
+        staff.id,
+      );
+    }
+
+    // Expense: Youth team
+    await this.processTransaction(
+      teamId,
+      -FINANCE_CONSTANTS.YOUTH_TEAM_COST,
+      TransactionType.YOUTH_TEAM,
+      season,
+      'Weekly youth team operation',
+    );
+
+    // Expense: Stadium maintenance (based on capacity)
+    const stadium = await this.stadiumRepo.findOne({ where: { teamId } });
+    if (stadium?.isBuilt) {
+      const maintenanceCost =
+        stadium.capacity * FINANCE_CONSTANTS.STADIUM_MAINTENANCE_PER_SEAT;
+      await this.processTransaction(
+        teamId,
+        -maintenanceCost,
+        TransactionType.STADIUM_MAINTENANCE,
+        season,
+        `Weekly stadium maintenance (${stadium.capacity} seats)`,
+        stadium.id,
+      );
+    }
   }
 }

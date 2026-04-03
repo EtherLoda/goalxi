@@ -1,4 +1,11 @@
-import { FinanceEntity, TransactionEntity } from '@goalxi/database';
+import {
+  FanEntity,
+  FinanceEntity,
+  StadiumEntity,
+  StaffEntity,
+  TeamEntity,
+  TransactionEntity,
+} from '@goalxi/database';
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { AuthModule } from '../auth/auth.module';
@@ -7,7 +14,14 @@ import { FinanceService } from './finance.service';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([FinanceEntity, TransactionEntity]),
+    TypeOrmModule.forFeature([
+      FinanceEntity,
+      TransactionEntity,
+      TeamEntity,
+      FanEntity,
+      StadiumEntity,
+      StaffEntity,
+    ]),
     AuthModule,
   ],
   controllers: [FinanceController],

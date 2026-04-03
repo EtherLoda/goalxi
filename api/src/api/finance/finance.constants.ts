@@ -1,8 +1,1 @@
-export enum TransactionType {
-  MATCH_INCOME = 'MATCH_INCOME',
-  TRANSFER_IN = 'TRANSFER_IN',
-  TRANSFER_OUT = 'TRANSFER_OUT',
-  WAGES = 'WAGES',
-  SPONSORSHIP = 'SPONSORSHIP',
-  FACILITY_UPGRADE = 'FACILITY_UPGRADE',
-}
+export { TransactionType } from '@goalxi/database';

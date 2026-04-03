@@ -29,4 +29,10 @@ export class TransactionEntity extends AbstractEntity {
 
     @Column({ type: 'enum', enum: TransactionType })
     type!: TransactionType;
+
+    @Column({ type: 'varchar', nullable: true })
+    description?: string;
+
+    @Column({ name: 'related_id', type: 'uuid', nullable: true })
+    relatedId?: string;
 }

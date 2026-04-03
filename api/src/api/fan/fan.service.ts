@@ -49,38 +49,23 @@ export class FanService {
 
   /**
    * 计算周球迷变化
+   * growth = 1000 × (1 - ratio²) × (0.2 + 0.8 × emotionFactor)
+   * - 情绪越好增长越快
+   * - 接近天花板时增长放缓
+   * - 情绪差时少增长，接近天花板时可能负增长
    */
   calculateWeeklyFanChange(
     currentFans: number,
     cap: number,
     morale: number,
-    recentForm: string,
   ): number {
-    // 上限压力系数
-    const ratio = Math.min(currentFans / cap, 0.999);
-    const capPressure = Math.pow(1 - ratio, FAN_CAP_SMOOTHING);
-
-    // 士气影响: 30 -> -125, 100 -> +312
-    const moraleEffect = (morale - 50) * 6.25;
-
-    // 表现影响: W=+120, D=0, L=-100
-    let performanceEffect = 0;
-    for (const r of recentForm) {
-      if (r === 'W') performanceEffect += 120;
-      else if (r === 'L') performanceEffect -= 100;
-    }
-
-    // 总增长
-    const totalGrowth = FAN_BASE_GROWTH + moraleEffect + performanceEffect;
-    const netChange = Math.floor(totalGrowth * capPressure) - FAN_BASE_LOSS;
-
-    // 超过80%上限且无胜时额外惩罚
-    if (ratio > 0.8 && !recentForm.includes('W')) {
-      const penalty = Math.floor(Math.abs(netChange) * 0.5);
-      return netChange - penalty;
-    }
-
-    return netChange;
+    const ratio = currentFans / cap;
+    const ceilingFactor = 1 - ratio * ratio;
+    const emotionFactor = morale / 100;
+    const growth = Math.floor(
+      1000 * ceilingFactor * (0.2 + 0.8 * emotionFactor),
+    );
+    return growth;
   }
 
   /**
@@ -145,7 +130,6 @@ export class FanService {
       fan.totalFans,
       cap,
       fan.fanEmotion,
-      fan.recentForm,
     );
     fan.totalFans = Math.max(1000, fan.totalFans + change);
 

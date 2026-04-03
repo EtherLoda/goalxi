@@ -10,12 +10,13 @@ import { Column, Entity, PrimaryGeneratedColumn } from 'typeorm';
  * - recentForm: 最近5场结果 (如 "WWDLL")
  */
 
-/** 球迷隐藏上限 */
+/** 球迷隐藏上限 = 基准值100,000 × 联赛票价倍率 */
 export const FAN_HIDDEN_CAP = {
-    1: 300_000,   // L1: 30万
-    2: 200_000,   // L2: 20万
-    3: 150_000,   // L3: 15万
-    4: 100_000,   // L4: 10万
+    1: 300_000,   // L1: 基准10万 × 2.0 = 30万
+    2: 200_000,   // L2: 基准10万 × 1.6 = 16万 → 20万（四舍五入）
+    3: 150_000,   // L3: 基准10万 × 1.3 = 13万 → 15万（四舍五入）
+    4: 110_000,   // L4: 基准10万 × 1.1 = 11万
+    5: 100_000,   // L5+: 基准10万 × 1.0 = 10万
 } as const;
 
 /** 球迷情绪档次名称 */
@@ -39,10 +40,24 @@ export const FAN_CAP_SMOOTHING = 2;
 /** 联赛票价系数 */
 export const TICKET_PRICE_MULTIPLIER = {
     1: 2.0,   // L1
-    2: 1.5,   // L2
-    3: 1.0,   // L3
-    4: 1.0,   // L4
+    2: 1.6,   // L2
+    3: 1.3,   // L3
+    4: 1.1,   // L4
 } as const;
+
+/** 获取票价系数（超过L4的都返回1.0） */
+export function getTicketMultiplier(tier: number): number {
+    return TICKET_PRICE_MULTIPLIER[tier as keyof typeof TICKET_PRICE_MULTIPLIER] ?? 1.0;
+}
+
+/** 球迷天花板基准值 */
+export const FAN_CAP_BASE = 100_000;
+
+/** 获取球迷天花板（超过L4的都返回基准值） */
+export function getFanCap(tier: number): number {
+    const multiplier = getTicketMultiplier(tier);
+    return Math.round(FAN_CAP_BASE * multiplier);
+}
 
 @Entity('fan')
 export class FanEntity extends AbstractEntity {

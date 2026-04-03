@@ -263,6 +263,7 @@ export class MatchCompletionService {
               matches: 0,
               goals: 0,
               assists: 0,
+              tackles: 0,
               yellowCards: 0,
               redCards: 0,
             },
@@ -272,6 +273,7 @@ export class MatchCompletionService {
             matches: 0,
             goals: 0,
             assists: 0,
+            tackles: 0,
             yellowCards: 0,
             redCards: 0,
           };
@@ -445,7 +447,7 @@ export class MatchCompletionService {
     );
 
     // Calculate revenue
-    const baseTicketPrice = 30;
+    const baseTicketPrice = 20;
     const tierMultiplier =
       TICKET_PRICE_MULTIPLIER[tier as keyof typeof TICKET_PRICE_MULTIPLIER] ||
       1.0;
@@ -453,12 +455,14 @@ export class MatchCompletionService {
       totalAttendance * baseTicketPrice * tierMultiplier,
     );
 
-    // Record revenue
+    // Record ticket revenue
     await this.financeService.processTransaction(
       match.homeTeamId as Uuid,
       ticketRevenue,
       TransactionType.TICKET_INCOME,
       match.season,
+      `Match ticket revenue (${totalAttendance} attendance)`,
+      match.id,
     );
 
     this.logger.debug(
