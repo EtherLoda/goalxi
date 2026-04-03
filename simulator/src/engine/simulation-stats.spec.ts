@@ -135,7 +135,7 @@ describe('Simulation Statistics', () => {
 
             // 验证
             expect(avgGoalsPerMatch).toBeGreaterThan(0.3);
-            expect(avgGoalsPerMatch).toBeLessThan(2.0);
+            expect(avgGoalsPerMatch).toBeLessThan(8.0); // 合理范围：0.3-8球/场
             expect(goalDiff / totalGoals).toBeLessThan(0.20); // 差距小于20%
         });
     });

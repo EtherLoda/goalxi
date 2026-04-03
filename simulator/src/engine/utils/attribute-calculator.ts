@@ -111,22 +111,11 @@ export class AttributeCalculator {
      * 原始GK评分计算（不缓存）
      */
     private static calculateGKSaveRatingRaw(player: Player): number {
-        const weights = POSITION_WEIGHTS['GK'] as GKWeightMatrix;
-        if (!weights) return 0;
-
-        let totalScore = 0;
-        const saveWeights = weights.saveRating;
-
-        for (const [attrName, weight] of Object.entries(saveWeights)) {
-            if (typeof weight !== 'number') continue;
-            if (attrName === 'abilities') continue; // not a numeric attribute
-
-            const attributeName = attrName as keyof PlayerAttributes;
-            const attrValue = (player.attributes[attributeName] as number) ?? 0;
-            totalScore += attrValue * weight;
-        }
-
-        return parseFloat(totalScore.toFixed(2));
+        const attrs = player.attributes;
+        const raw = (attrs.gk_reflexes ?? 10) * 5
+            + (attrs.gk_handling ?? 10) * 3
+            + (attrs.positioning ?? 10) * 2;
+        return parseFloat((raw * 1.0).toFixed(2));
     }
 
     /**

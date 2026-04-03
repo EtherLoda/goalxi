@@ -12,12 +12,7 @@ const hasAbility = (player: Player | undefined, ability: PlayerAbility): boolean
         player.attributes.abilities.includes(ability);
 };
 
-// 进攻类型分布配置（仅 balanced 模式已实现）
-const ATTACK_TYPE_DISTRIBUTION: Record<number, number[]> = {
-    0: [15, 30, 15, 30, 10], // balanced: 传中, 短传, 直塞, 突破, 远射
-};
-
-// 天气 × 进攻类型 权重矩阵（平均值 ≈ 1.0）
+// 三条路的进攻方式分布配置（平均值 ≈ 1.0）
 // 索引顺序: 0=传中, 1=短传, 2=直塞, 3=突破, 4=远射
 const WEATHER_ATTACK_WEIGHTS: Record<string, number[]> = {
     sunny:     [1.05, 0.95, 1.00, 1.10, 1.10],
@@ -29,25 +24,34 @@ const WEATHER_ATTACK_WEIGHTS: Record<string, number[]> = {
     snowy:     [1.15, 0.90, 0.80, 0.90, 0.75],
 };
 
+// 三条路的进攻方式分布配置（balanced模式）
+// 索引顺序: 0=传中, 1=短传, 2=直塞, 3=突破, 4=远射
+const LANE_ATTACK_DISTRIBUTION: Record<string, number[]> = {
+    left:  [25, 30, 10, 30, 5],  // 边路：短传/带球为主，传中次之
+    right: [25, 30, 10, 30, 5],  // 边路：短传/带球为主，传中次之
+    center:[5,  45, 15, 25, 10], // 中路：短传为主
+};
+
 // 进攻类型配置（推进参数）
+// pushOffset 为正时增加进攻难度，目标推进成功率约 50%
 const ATTACK_TYPE_CONFIG: Record<AttackType, { pushK: number; pushOffset: number }> = {
-    [AttackType.CROSS]: { pushK: 0.025, pushOffset: -5 },
-    [AttackType.SHORT_PASS]: { pushK: 0.030, pushOffset: -5 },
-    [AttackType.THROUGH_PASS]: { pushK: 0.030, pushOffset: -8 },
-    [AttackType.DRIBBLE]: { pushK: 0.035, pushOffset: -10 },
+    [AttackType.CROSS]: { pushK: 3.5, pushOffset: -7 },
+    [AttackType.SHORT_PASS]: { pushK: 3.5, pushOffset: -7 },
+    [AttackType.THROUGH_PASS]: { pushK: 3.5, pushOffset: -7 },
+    [AttackType.DRIBBLE]: { pushK: 3.5, pushOffset: -7 },
     [AttackType.LONG_SHOT]: { pushK: 0, pushOffset: 0 }, // 远射不经过推进阶段
 };
 
 // 射门类型配置
-// 公式: P = 1 / (1 + exp(-(rating - gkRating - offset) * k / 1.5))
-// 注意：offset 会先除以 1.5
-// 目标进球率: 单刀 60%+, 头球 50%, 补射 50%, 抽射 35%, 远射 20%
+// 新公式: P = 1 / (1 + exp(-(ratio - 1 - offset/100) * k))
+// 射门公式用k=2.2，让ratio=2时约90%
+// 目标进球率: 单刀 ~60%, 头球 ~50%, 补射 ~50%, 抽射 ~38%, 远射 ~22%
 const SHOT_TYPE_CONFIG: Record<ShotType, { k: number; offset: number }> = {
-    [ShotType.ONE_ON_ONE]: { k: 0.012, offset: -65 }, // ~60%+
-    [ShotType.HEADER]: { k: 0.010, offset: -40 },     // ~50%
-    [ShotType.REBOUND]: { k: 0.008, offset: -30 },    // ~50%
-    [ShotType.NORMAL]: { k: 0.012, offset: 25 },      // ~35%
-    [ShotType.LONG_SHOT]: { k: 0.012, offset: 50 },   // ~20%
+    [ShotType.ONE_ON_ONE]: { k: 2.2, offset: -15 },  // ratio=1→56%, ratio=2→90%
+    [ShotType.HEADER]: { k: 2.2, offset: -8 },      // ratio=1→52%, ratio=2→88%
+    [ShotType.REBOUND]: { k: 2.2, offset: -8 },    // ratio=1→52%, ratio=2→88%
+    [ShotType.NORMAL]: { k: 2.2, offset: 8 },       // ratio=1→44%, ratio=2→85%
+    [ShotType.LONG_SHOT]: { k: 2.2, offset: 20 },  // ratio=1→35%, ratio=2→80%
 };
 
 /**
@@ -639,17 +643,17 @@ export class MatchEngine {
         const homeControlWithBonus = homeControl * (1 + awayTackleBonus); // defending team benefits
         const awayControlWithBonus = awayControl * (1 + homeTackleBonus); // defending team benefits
 
-        const homeWinsPossession = this.resolveDuel(homeControlWithBonus, awayControlWithBonus, 0.02, 0);
+        const homeWinsPossession = this.resolveDuel(homeControlWithBonus, awayControlWithBonus, 0.5, 0);
 
         this.possessionTeam = homeWinsPossession ? this.homeTeam : this.awayTeam;
         this.defendingTeam = homeWinsPossession ? this.awayTeam : this.homeTeam;
 
-        // Step 3: Select Attack Type (based on attackStyle)
-        const attackStyle = 0; // 当前仅支持 balanced
-        const attackType = this.selectAttackType(attackStyle);
+        // Step 3: Select Attack Type (based on lane)
+        const attackType = this.selectAttackType(this.currentLane);
 
         // Calculate attack/defense power for this lane
-        let attPower = this.possessionTeam.calculateLaneStrength(this.currentLane, 'attack') * 1.15;
+        // 移除 1.15 进攻加成和 1.3 防守倍率，让攻守双方在相等的 lane strength 下公平对抗
+        let attPower = this.possessionTeam.calculateLaneStrength(this.currentLane, 'attack');
         const defPower = this.defendingTeam.calculateLaneStrength(this.currentLane, 'defense');
 
         // counter_starter: 防守抢断后反击时，每个反击专家 +5%
@@ -715,10 +719,59 @@ export class MatchEngine {
                 }
             }
 
-            pushSuccess = this.resolveDuel(effectiveAttPower, effectiveDefPower, attackConfig.pushK, attackConfig.pushOffset);
-            // 如果进攻失败，防守方获得球权，下次进攻享受反击加成
-            if (!pushSuccess) {
-                this.freshPossession = true;
+            // ==========================================
+            // 反击机制：当防守强度远高于进攻时，增加断球概率和反击加成
+            // ==========================================
+            const DEF_THRESHOLD = 1.3;  // defRatio 阈值
+            const MAX_INTERCEPT_CHANCE = 0.25;  // 最高25%断球率
+            const MAX_COUNTER_BONUS = 0.30;     // 最高30%反击加成
+
+            let interceptTriggered = false;
+            const defRatio = effectiveDefPower / effectiveAttPower;
+
+            if (defRatio > DEF_THRESHOLD) {
+                // 计算断球机会（防守远强于进攻时，有概率直接断球打反击）
+                const interceptChance = Math.min(MAX_INTERCEPT_CHANCE, (defRatio - DEF_THRESHOLD) * 0.10);
+
+                if (Math.random() < interceptChance) {
+                    // 直接断球，防守方获得球权并发动反击
+                    interceptTriggered = true;
+
+                    // 角色互换： possessionTeam 变成 defendingTeam，defendingTeam 变成 possessionTeam
+                    const temp = this.possessionTeam;
+                    this.possessionTeam = this.defendingTeam;
+                    this.defendingTeam = temp;
+
+                    // 反击时进攻加成
+                    const counterBonus = Math.min(MAX_COUNTER_BONUS, (defRatio - DEF_THRESHOLD) * 0.15);
+                    // 直接在effectiveAttPower上应用反击加成
+                    effectiveAttPower *= (1 + counterBonus);
+
+                    // 拦截成功后，让新的进攻方直接射门（不需要再走推进流程）
+                    pushSuccess = true;
+                }
+            }
+
+            // 反击加成：刚获得球权时（反击），进攻贡献提升
+            if (!interceptTriggered && this.freshPossession) {
+                const counterStarterCount = this.possessionTeam.players.filter(
+                    p => hasAbility(p.player as Player, 'counter_starter')
+                ).length;
+                if (counterStarterCount > 0) {
+                    effectiveAttPower *= (1 + 0.05 * counterStarterCount);
+                }
+            }
+
+            // 推进判定（正常流程）
+            if (!interceptTriggered) {
+                pushSuccess = this.resolveDuel(effectiveAttPower, effectiveDefPower, attackConfig.pushK, attackConfig.pushOffset);
+                // 如果进攻失败，防守方获得球权，下次进攻享受反击加成
+                if (!pushSuccess) {
+                    this.freshPossession = true;
+                }
+            } else {
+                // 反击触发后，重置标志（反击加成已应用）
+                this.freshPossession = false;
             }
         }
 
@@ -1242,14 +1295,15 @@ export class MatchEngine {
     }
 
     /**
-     * 根据 attackStyle 选择进攻类型（受天气影响）
-     * @param attackStyle 0=balanced (当前唯一实现)
+     * 根据当前路（lane）选择进攻类型（受天气影响）
+     * @param lane 当前攻击的路
      * @returns 进攻类型枚举
      */
-    private selectAttackType(attackStyle: number = 0): AttackType {
-        const distribution = ATTACK_TYPE_DISTRIBUTION[attackStyle];
+    private selectAttackType(lane: Lane): AttackType {
+        // 获取该路的进攻方式分布
+        const distribution = LANE_ATTACK_DISTRIBUTION[lane];
         if (!distribution) {
-            return AttackType.DRIBBLE;
+            return AttackType.SHORT_PASS;
         }
 
         // 获取天气权重
@@ -1272,7 +1326,7 @@ export class MatchEngine {
             }
         }
 
-        return AttackType.DRIBBLE; // Fallback
+        return AttackType.SHORT_PASS; // Fallback
     }
 
     /**
@@ -1312,61 +1366,44 @@ export class MatchEngine {
 
     /**
      * 计算头球评分
-     * 头球评分 = strength×5 + positioning×3 + finishing×2
+     * 头球评分 = finishing×7 + composure×3
      * header_specialist: 头球射门评分 +8%
      */
     private calculateHeaderRating(player: Player): number {
         const attrs = player.attributes;
-        const raw = (
-            (attrs.strength ?? 10) * 5 +
-            (attrs.positioning ?? 10) * 3 +
-            (attrs.finishing ?? 10) * 2
-        );
+        const raw = (attrs.finishing ?? 10) * 7 + (attrs.composure ?? 10) * 3;
         // header_specialist: 头球射门评分 +8%
         return hasAbility(player, 'header_specialist') ? raw * 1.08 : raw;
     }
 
     /**
      * 计算抽射评分（禁区内常规射门）
-     * 抽射评分 = finishing×4 + composure×3 + positioning×2 + strength×1
+     * 抽射评分 = finishing×7 + composure×3
      */
     private calculateShootRating(player: Player): number {
         const attrs = player.attributes;
-        return (
-            (attrs.finishing ?? 10) * 4 +
-            (attrs.composure ?? 10) * 3 +
-            (attrs.positioning ?? 10) * 2 +
-            (attrs.strength ?? 10) * 1
-        );
+        return (attrs.finishing ?? 10) * 7 + (attrs.composure ?? 10) * 3;
     }
 
     /**
      * 计算单刀球评分
-     * 单刀评分 = finishing×5 + composure×3 + pace×2
+     * 单刀评分 = finishing×7 + composure×3
      */
     private calculateOneOnOneRating(player: Player): number {
         const attrs = player.attributes;
-        return (
-            (attrs.finishing ?? 10) * 5 +
-            (attrs.composure ?? 10) * 3 +
-            (attrs.pace ?? 10) * 2
-        );
+        return (attrs.finishing ?? 10) * 7 + (attrs.composure ?? 10) * 3;
     }
 
     /**
      * 计算远射评分
-     * 远射评分 = finishing×0.6 + composure×0.3 + strength×0.1
+     * 远射评分 = finishing×7 + composure×3
      * 距离因子（18-30米）会影响最终评分
      */
     private calculateLongShotRating(player: Player): number {
         const attrs = player.attributes;
 
         // 基础评分
-        const baseRating = (
-            (attrs.finishing ?? 10) * 0.6 +
-            (attrs.composure ?? 10) * 0.3 +
-            (attrs.strength ?? 10) * 0.1
-        );
+        const baseRating = (attrs.finishing ?? 10) * 7 + (attrs.composure ?? 10) * 3;
 
         // 距离因子（越远越难）
         const minDistance = 18;
@@ -1378,16 +1415,26 @@ export class MatchEngine {
     }
 
     private resolveDuel(valA: number, valB: number, k: number, offset: number): boolean {
-        // 属性差距系数：让 4 点属性差距不会导致进球数差距过大
-        // 除以 1.5 来降低属性差距对结果的影响
-        const diff = (valA - valB - offset) / 1.5;
+        // 新公式：用比率 (valA / valB)
+        // P = 1 / (1 + exp(-(ratio - 1 - offsetCoef) * k))
+        // offsetCoef = offset / 100 (归一化到与ratio同一量级)
+        const ratio = valB > 0 ? valA / valB : 1;
+        const offsetCoef = offset / 100;
+        const diff = (ratio - 1 - offsetCoef);
         const probability = 1 / (1 + Math.exp(-diff * k));
         return Math.random() < probability;
     }
 
     private changeLane() {
-        const lanes: Lane[] = ['left', 'center', 'right'];
-        this.currentLane = lanes[(Math.random() * lanes.length) | 0];
+        // 中路42%，左路29%，右路29%
+        const rand = Math.random() * 100;
+        if (rand < 42) {
+            this.currentLane = 'center';
+        } else if (rand < 71) { // 42 + 29 = 71
+            this.currentLane = 'left';
+        } else {
+            this.currentLane = 'right';
+        }
     }
 
     private generateSnapshotEvent(time: number) {

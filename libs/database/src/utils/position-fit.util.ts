@@ -470,9 +470,9 @@ const WMR_WEIGHTS: PositionWeightMatrix = {
  */
 const CB_WEIGHTS: PositionWeightMatrix = {
     center: {
-        attack: {},
+        attack: { passing: 4 },
         possession: { passing: 12, dribbling: 4 },
-        defense: { defending: 16, positioning: 8, strength: 8, pace: 4, composure: 4 }
+        defense: { defending: 16, positioning: 8, strength: 8, pace: 4 }
     },
     left: {
         attack: {},
@@ -492,9 +492,9 @@ const CB_WEIGHTS: PositionWeightMatrix = {
  */
 const CBL_WEIGHTS: PositionWeightMatrix = {
     center: {
-        attack: {},
+        attack: { passing: 4 },
         possession: { passing: 12, dribbling: 4 },
-        defense: { defending: 16, positioning: 8, strength: 8, pace: 4, composure: 4 }
+        defense: { defending: 16, positioning: 8, strength: 8, pace: 4 }
     },
     left: {
         attack: {},
@@ -514,9 +514,9 @@ const CBL_WEIGHTS: PositionWeightMatrix = {
  */
 const CBR_WEIGHTS: PositionWeightMatrix = {
     center: {
-        attack: {},
+        attack: { passing: 4 },
         possession: { passing: 12, dribbling: 4 },
-        defense: { defending: 16, positioning: 8, strength: 8, pace: 4, composure: 4 }
+        defense: { defending: 16, positioning: 8, strength: 8, pace: 4 }
     },
     right: {
         attack: {},
@@ -536,9 +536,9 @@ const CBR_WEIGHTS: PositionWeightMatrix = {
  */
 const LB_WEIGHTS: PositionWeightMatrix = {
     left: {
-        attack: { passing: 8, dribbling: 8, pace: 6, finishing: 2 },
+        attack: { passing: 8, dribbling: 4, pace: 6, finishing: 2 },
         possession: { passing: 8, dribbling: 4, pace: 2 },
-        defense: { defending: 16, positioning: 8, pace: 4, strength: 2, composure: 2 }
+        defense: { defending: 16, positioning: 8, pace: 8, strength: 2, composure: 2 }
     },
     center: {
         attack: {},
@@ -558,9 +558,9 @@ const LB_WEIGHTS: PositionWeightMatrix = {
  */
 const RB_WEIGHTS: PositionWeightMatrix = {
     right: {
-        attack: { passing: 8, dribbling: 8, pace: 6, finishing: 2 },
+        attack: { passing: 8, dribbling: 4, pace: 6, finishing: 2 },
         possession: { passing: 8, dribbling: 4, pace: 2 },
-        defense: { defending: 16, positioning: 8, pace: 4, strength: 2, composure: 2 }
+        defense: { defending: 16, positioning: 8, pace: 8, strength: 2, composure: 2 }
     },
     center: {
         attack: {},
@@ -628,12 +628,9 @@ const WBR_WEIGHTS: PositionWeightMatrix = {
  */
 const GK_WEIGHTS: GKWeightMatrix = {
     saveRating: {
-        gk_reflexes: 40,
-        gk_handling: 20,
-        positioning: 16,
-        composure: 12,
-        pace: 4,
-        strength: 8,
+        gk_reflexes: 5,
+        gk_handling: 3,
+        positioning: 2,
     }
 };
 

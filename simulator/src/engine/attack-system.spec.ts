@@ -72,18 +72,18 @@ describe('Attack System', () => {
             });
         });
 
-        it('balanced mode should have 5 attack types', () => {
+        it('center lane should have 5 attack types with short_pass dominant', () => {
             const typeCounts: Record<number, number> = {};
 
             for (let i = 0; i < 1000; i++) {
-                const type = (engine as any).selectAttackType(0);
+                const type = (engine as any).selectAttackType('center');
                 typeCounts[type] = (typeCounts[type] || 0) + 1;
             }
 
             // Check that all 5 types are represented
             expect(Object.keys(typeCounts).length).toBe(5);
 
-            // Check distribution is roughly correct (15/30/15/30/10)
+            // Check distribution is roughly correct (5/40/20/25/10 for center)
             // Allow some variance due to randomness
             const total = Object.values(typeCounts).reduce((a, b) => a + b, 0);
             const distribution = Object.entries(typeCounts).map(([k, v]) => ({
@@ -125,10 +125,10 @@ describe('Attack System', () => {
     });
 
     describe('calculateHeaderRating', () => {
-        it('should use strength as primary factor', () => {
-            // Use more extreme difference to ensure strength dominates
-            const weakPlayer = createMockPlayer('p1', 'Weak', { strength: 30, positioning: 90, finishing: 90 });
-            const strongPlayer = createMockPlayer('p2', 'Strong', { strength: 90, positioning: 90, finishing: 90 });
+        it('should use finishing as primary factor', () => {
+            // Use more extreme difference to ensure finishing dominates
+            const weakPlayer = createMockPlayer('p1', 'Weak', { finishing: 30, composure: 50 });
+            const strongPlayer = createMockPlayer('p2', 'Strong', { finishing: 90, composure: 50 });
 
             const weakRating = (engine as any).calculateHeaderRating(weakPlayer);
             const strongRating = (engine as any).calculateHeaderRating(strongPlayer);
@@ -301,9 +301,10 @@ describe('Attack System', () => {
             let lowWin = 0;
             let highWin = 0;
 
+            // Use k=2.0 for clearer difference: ratio=2 vs ratio=3
             for (let i = 0; i < 1000; i++) {
-                if ((engine as any).resolveDuel(100, 50, 0.05, 0)) lowWin++;
-                if ((engine as any).resolveDuel(150, 50, 0.05, 0)) highWin++;
+                if ((engine as any).resolveDuel(100, 50, 2.0, 0)) lowWin++;
+                if ((engine as any).resolveDuel(150, 50, 2.0, 0)) highWin++;
             }
 
             expect(highWin).toBeGreaterThan(lowWin);
@@ -313,9 +314,10 @@ describe('Attack System', () => {
             let lowOffsetWin = 0;
             let highOffsetWin = 0;
 
+            // Use k=2.0 to make offset effect more noticeable
             for (let i = 0; i < 1000; i++) {
-                if ((engine as any).resolveDuel(100, 50, 0.05, 10)) lowOffsetWin++;
-                if ((engine as any).resolveDuel(100, 50, 0.05, 50)) highOffsetWin++;
+                if ((engine as any).resolveDuel(100, 50, 2.0, -20)) lowOffsetWin++;  // offset=-20 boosts success
+                if ((engine as any).resolveDuel(100, 50, 2.0, 20)) highOffsetWin++;  // offset=20 reduces success
             }
 
             expect(lowOffsetWin).toBeGreaterThan(highOffsetWin);
@@ -324,11 +326,13 @@ describe('Attack System', () => {
         it('should handle equal values with base offset', () => {
             let goals = 0;
             for (let i = 0; i < 1000; i++) {
-                if ((engine as any).resolveDuel(100, 100, 0.05, 42)) goals++;
+                // With k=2, offset=0: P = 1/(1+exp(-(1-1-0)*2)) = 1/(1+1) = 0.5
+                if ((engine as any).resolveDuel(100, 100, 2.0, 0)) goals++;
             }
 
-            // With offset 42 (effective ~28 after /1.5), success rate should be low
-            expect(goals / 1000).toBeLessThan(0.3);
+            // Equal values with offset=0 should give ~50% success rate
+            expect(goals / 1000).toBeGreaterThan(0.45);
+            expect(goals / 1000).toBeLessThan(0.55);
         });
     });
 });
