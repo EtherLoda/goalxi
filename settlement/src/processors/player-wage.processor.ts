@@ -40,10 +40,10 @@ export class PlayerWageProcessor extends WorkerHost {
       return;
     }
 
-    // Extract skills array from currentSkills
-    const skills = this.extractSkills(player.currentSkills);
+    // Extract skills with keys for weighted calculation
+    const { values, keys } = this.extractSkillsWithKeys(player.currentSkills);
     const oldWage = player.currentWage;
-    const newWage = calculatePlayerWage(skills);
+    const newWage = calculatePlayerWage(values, keys);
 
     if (oldWage !== newWage) {
       player.currentWage = newWage;
@@ -55,45 +55,45 @@ export class PlayerWageProcessor extends WorkerHost {
   }
 
   /**
-   * Extract skills array from PlayerSkills object
+   * Extract skills with keys from PlayerSkills object for weighted wage calculation
    */
-  private extractSkills(currentSkills: PlayerSkills): number[] {
-    const skills: number[] = [];
+  private extractSkillsWithKeys(currentSkills: PlayerSkills): {
+    values: number[];
+    keys: string[];
+  } {
+    const values: number[] = [];
+    const keys: string[] = [];
 
-    // Physical skills
-    if (currentSkills.physical) {
-      skills.push(currentSkills.physical.pace);
-      skills.push(currentSkills.physical.strength);
+    // Physical skills (same for all outfield players)
+    values.push(currentSkills.physical.pace, currentSkills.physical.strength);
+    keys.push('pace', 'strength');
+
+    // Technical skills: GK has different structure than outfield
+    if ('reflexes' in currentSkills.technical) {
+      values.push(
+        currentSkills.technical.reflexes,
+        currentSkills.technical.handling,
+        currentSkills.technical.distribution,
+      );
+      keys.push('gk_reflexes', 'gk_handling', 'gk_distribution');
+    } else {
+      values.push(
+        currentSkills.technical.finishing,
+        currentSkills.technical.passing,
+        currentSkills.technical.dribbling,
+        currentSkills.technical.defending,
+      );
+      keys.push('finishing', 'passing', 'dribbling', 'defending');
     }
 
-    // Technical skills (could be GK or outfield)
-    if (currentSkills.technical) {
-      if ('reflexes' in currentSkills.technical) {
-        // GK skills
-        skills.push(currentSkills.technical.reflexes);
-        skills.push(currentSkills.technical.handling);
-        skills.push(currentSkills.technical.distribution);
-      } else {
-        // Outfield skills
-        skills.push(currentSkills.technical.finishing);
-        skills.push(currentSkills.technical.passing);
-        skills.push(currentSkills.technical.dribbling);
-        skills.push(currentSkills.technical.defending);
-      }
-    }
+    // Mental skills (same for all players)
+    values.push(currentSkills.mental.positioning, currentSkills.mental.composure);
+    keys.push('positioning', 'composure');
 
-    // Mental skills
-    if (currentSkills.mental) {
-      skills.push(currentSkills.mental.positioning);
-      skills.push(currentSkills.mental.composure);
-    }
+    // Set pieces (same for all players)
+    values.push(currentSkills.setPieces.freeKicks, currentSkills.setPieces.penalties);
+    keys.push('freeKicks', 'penalties');
 
-    // Set pieces
-    if (currentSkills.setPieces) {
-      skills.push(currentSkills.setPieces.freeKicks);
-      skills.push(currentSkills.setPieces.penalties);
-    }
-
-    return skills;
+    return { values, keys };
   }
 }

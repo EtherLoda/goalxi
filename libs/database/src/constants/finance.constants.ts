@@ -28,54 +28,119 @@ export const FINANCE_CONSTANTS = {
 } as const;
 
 /**
- * Calculate player weekly wage based on individual skills
- *
- * Formula: wage = sum of (base + k * skill^n) for each skill >= 6
- * where n = 4.8, k = 0.02835, base = 179
- *
- * 6-skill reference (20 players per team):
- * - 6 skills@16: ~103,500
- * - 6 skills@14: ~55,000
- * - 6 skills@12: ~26,800
- * - 6 skills@10: ~11,800
- * - 6 skills@8: ~4,700
- * - 6 skills@6: ~2,000 (minimum wage)
+ * Skill wage weights based on position-fit.util.ts analysis
+ * Higher weight = skill contributes more to weekly wage
  */
-export function calculatePlayerWage(skills: number[]): number {
-  const countableSkills = skills.filter(s => s >= 6);
+export const SKILL_WAGE_WEIGHT: Record<string, number> = {
+  // Outfield skills
+  finishing: 1.30,
+  defending: 1.00,
+  dribbling: 1.20,
+  passing: 1.05,
+  positioning: 0.70,
+  pace: 1.15,
+  strength: 0.90,
+  composure: 0.60,
+};
 
-  if (countableSkills.length === 0) {
+export const GK_SKILL_WAGE_WEIGHT: Record<string, number> = {
+  // Goalkeeper skills (independent scale)
+  gk_reflexes: 1.35,
+  gk_handling: 1.25,
+  gk_distribution: 1.05,
+};
+
+// Set piece skills do not contribute to regular wage calculation
+// Instead, they provide a bonus: 0.5% per level above 6
+export const SET_PIECE_SKILL_BONUS_PER_LEVEL = 0.005;
+export const SET_PIECE_SKILLS = ['freeKicks', 'penalties'];
+
+/**
+ * Calculate player weekly wage based on weighted skills
+ *
+ * Formula: wage = (sum of (base + k * (skill * skillWageWeight)^n) for each skill >= 6) * (1 + bonus%)
+ * where n = 4.75, k = 0.025, base = 180
+ * Set piece skills (freeKicks, penalties) do not contribute to base calculation,
+ * but provide 0.5% bonus per level above 6
+ *
+ * Minimum wage: 2000
+ *
+ * Reference values:
+ * - Outfield all 18: ~250,000
+ * - Outfield all 17: ~190,800
+ * - Outfield all 16: ~143,400
+ * - GK all 18: ~170,900
+ * - GK all 17: ~132,400
+ * - GK all 16: ~101,600
+ */
+export function calculatePlayerWage(
+  skillValues: number[],
+  skillKeys: string[],
+): number {
+  const regularPairs: { value: number; weight: number }[] = [];
+  let setPieceBonus = 0;
+
+  for (let i = 0; i < skillValues.length; i++) {
+    const value = skillValues[i];
+    const key = skillKeys[i] || '';
+
+    if (SET_PIECE_SKILLS.includes(key)) {
+      // Set piece skills: no regular contribution, but +0.5% per level above 6
+      if (value > 6) {
+        setPieceBonus += (value - 6) * SET_PIECE_SKILL_BONUS_PER_LEVEL;
+      }
+    } else if (value >= 6) {
+      // Regular skills
+      const weight = GK_SKILL_WAGE_WEIGHT[key] ?? SKILL_WAGE_WEIGHT[key] ?? 1.0;
+      regularPairs.push({ value, weight });
+    }
+  }
+
+  if (regularPairs.length === 0 && setPieceBonus === 0) {
     return 2000;
   }
 
-  const n = 4.8;
-  const k = 0.02835;
-  const base = 179;
+  const n = 4.75;
+  const k = 0.025;
+  const base = 180;
 
-  const total = countableSkills.reduce((sum, s) => sum + base + k * Math.pow(s, n), 0);
+  // Calculate base wage from regular skills
+  let total = 0;
+  if (regularPairs.length > 0) {
+    total = regularPairs.reduce((sum, pair) => {
+      return sum + base + k * Math.pow(pair.value * pair.weight, n);
+    }, 0);
+  }
 
-  return Math.max(2000, Math.floor(Math.round(total) / 100) * 100);
+  // Apply set piece bonus multiplier
+  const multiplier = 1 + setPieceBonus;
+  const finalWage = total * multiplier;
+
+  return Math.max(2000, Math.floor(Math.round(finalWage) / 100) * 100);
 }
 
 /**
  * Test wage calculation with sample players
  */
 export function testWageCalculation(): void {
-  console.log('=== Player Wage Test ===\n');
+  console.log('=== Player Wage Test (n=4.75, k=0.025, base=180) ===\n');
+
+  const outfieldKeys = ['pace', 'strength', 'finishing', 'passing', 'dribbling', 'defending', 'positioning'];
 
   const testCases = [
-    { name: 'Elite (18,18,18)', skills: [18, 18, 18, 10, 10, 10, 5, 5, 5] },
-    { name: 'Top (15,15,15)', skills: [15, 15, 15, 12, 12, 8, 5, 5, 5] },
-    { name: 'Good (12,12,12)', skills: [12, 12, 12, 10, 10, 7, 5, 5, 5] },
-    { name: 'Average (10,10,10)', skills: [10, 10, 10, 8, 8, 6, 5, 5, 5] },
-    { name: 'Low (7,7,7)', skills: [7, 7, 7, 5, 5, 5, 5, 5, 5] },
-    { name: 'Minimum (6,6,6)', skills: [6, 6, 6, 5, 5, 5, 5, 5, 5] },
-    { name: 'Mixed (18,15,12)', skills: [18, 15, 12, 5, 5, 5, 5, 5, 5] },
-    { name: 'Poor (5,5,5)', skills: [5, 5, 5, 5, 5, 5, 5, 5, 5] },
+    { name: 'Outfield all 18', skills: [18, 18, 18, 18, 18, 18, 18] },
+    { name: 'Outfield all 17', skills: [17, 17, 17, 17, 17, 17, 17] },
+    { name: 'Outfield all 16', skills: [16, 16, 16, 16, 16, 16, 16] },
+    { name: 'GK all 18', skills: [18, 18, 14], keys: ['gk_reflexes', 'gk_handling', 'gk_distribution'] },
+    { name: 'GK all 17', skills: [17, 17, 14], keys: ['gk_reflexes', 'gk_handling', 'gk_distribution'] },
+    { name: 'GK all 16', skills: [16, 16, 14], keys: ['gk_reflexes', 'gk_handling', 'gk_distribution'] },
+    { name: 'Outfield 18 + FK18', skills: [18, 18, 18, 18, 18, 18, 18, 18], keys: [...outfieldKeys, 'freeKicks'] },
+    { name: 'Outfield 18 + FK18 + P18', skills: [18, 18, 18, 18, 18, 18, 18, 18, 18], keys: [...outfieldKeys, 'freeKicks', 'penalties'] },
   ];
 
   for (const tc of testCases) {
-    const wage = calculatePlayerWage(tc.skills);
+    const keys = tc.keys || outfieldKeys;
+    const wage = calculatePlayerWage(tc.skills, keys);
     console.log(`${tc.name}: ${wage.toLocaleString()}`);
   }
 }

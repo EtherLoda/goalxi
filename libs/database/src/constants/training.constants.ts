@@ -102,9 +102,44 @@ export function getCategoryCoachRole(category: string): string {
     return map[category] || '';
 }
 
+/**
+ * Skill training speed multipliers
+ * Based on how difficult each skill is to improve
+ * Range: 0.8 - 1.2 (1.0 is baseline)
+ *
+ * Mental skills train faster (1.15-1.20)
+ * Physical skills train slower (0.80-0.85)
+ * Technical skills are moderate (0.85-1.00)
+ */
+export const SKILL_TRAINING_SPEED: Record<string, number> = {
+    // Outfield skills
+    finishing: 0.85,
+    defending: 0.90,
+    dribbling: 1.00,
+    passing: 1.10,
+    positioning: 1.25,
+    pace: 0.88,
+    strength: 0.90,
+    composure: 1.30,
+    // GK skills
+    gk_reflexes: 0.80,
+    gk_handling: 0.85,
+    gk_distribution: 1.00,
+    // Set piece skills (5x speed -选修技能，快速训练）
+    freeKicks: 5.0,
+    penalties: 5.0,
+};
+
+/**
+ * Get training speed for a skill
+ */
+export function getSkillTrainingSpeed(skillKey: string): number {
+    return SKILL_TRAINING_SPEED[skillKey] ?? 1.0;
+}
+
 // =====================
 // PLAYER WAGE CALCULATION
 // =====================
 
 // Re-export from finance.constants (wage calculation belongs to finance, not training)
-export { calculatePlayerWage, testWageCalculation } from './finance.constants';
+export { calculatePlayerWage, testWageCalculation, SKILL_WAGE_WEIGHT, GK_SKILL_WAGE_WEIGHT } from './finance.constants';
