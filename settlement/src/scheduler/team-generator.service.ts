@@ -8,6 +8,11 @@ import {
   TrainingSlot,
   StadiumEntity,
   FanEntity,
+  StaffEntity,
+  StaffRole,
+  StaffLevel,
+  getRandomNameByNationality,
+  getRandomNationality,
 } from '@goalxi/database';
 
 type TemplateType = 'elite' | 'balanced' | 'rookie' | 'specialized';
@@ -382,6 +387,8 @@ export class TeamGeneratorService {
     private readonly stadiumRepository: Repository<StadiumEntity>,
     @InjectRepository(FanEntity)
     private readonly fanRepository: Repository<FanEntity>,
+    @InjectRepository(StaffEntity)
+    private readonly staffRepository: Repository<StaffEntity>,
   ) {}
 
   async generateTeam(
@@ -436,6 +443,7 @@ export class TeamGeneratorService {
     }
 
     await this.createDefaultStadiumAndFan(savedTeam.id, isBot);
+    await this.createDefaultStaff(savedTeam.id);
 
     this.logger.log(
       `Generated team "${savedTeam.name}" with ${players.length} players`,
@@ -457,7 +465,8 @@ export class TeamGeneratorService {
     });
     await this.stadiumRepository.save(stadium);
 
-    const initialFans = 10000;
+    // 初始球迷 5000 +/- 100
+    const initialFans = 5000 + this.randomInRange(-100, 100);
 
     const fan = this.fanRepository.create({
       teamId,
@@ -466,6 +475,27 @@ export class TeamGeneratorService {
       recentForm: '',
     });
     await this.fanRepository.save(fan);
+  }
+
+  /**
+   * 创建默认 Level 2 主教练
+   */
+  private async createDefaultStaff(teamId: string): Promise<void> {
+    const nationality = getRandomNationality();
+    const { firstName, lastName } = getRandomNameByNationality(nationality);
+
+    const headCoach = this.staffRepository.create({
+      teamId,
+      name: `${firstName} ${lastName}`,
+      role: StaffRole.HEAD_COACH,
+      level: StaffLevel.LEVEL_2,
+      salary: 4000, // Level 2 周薪
+      contractExpiry: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000), // 1年合同
+      autoRenew: true,
+      isActive: true,
+      nationality,
+    });
+    await this.staffRepository.save(headCoach);
   }
 
   private generatePlayers(

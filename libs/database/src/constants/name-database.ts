@@ -1,0 +1,231 @@
+/**
+ * Player Name Database
+ * Organized by nationality for realistic name generation
+ */
+
+export interface NameDatabase {
+  firstNames: string[];
+  lastNames: string[];
+}
+
+export const NAME_DATABASE: Record<string, NameDatabase> = {
+  // England/Great Britain
+  GB: {
+    firstNames: [
+      'James', 'Harry', 'Jack', 'Oliver', 'Charlie', 'George', 'Thomas', 'William',
+      'Joshua', 'Daniel', 'Matthew', 'Ryan', 'Luke', 'Jake', 'Connor', 'Lewis',
+      'Sam', 'Ben', 'Alex', 'Tom', 'Joe', 'Adam', 'Chris', 'Rob',
+    ],
+    lastNames: [
+      'Smith', 'Johnson', 'Williams', 'Brown', 'Jones', 'Miller', 'Davis', 'Wilson',
+      'Anderson', 'Taylor', 'Thomas', 'Moore', 'Jackson', 'White', 'Harris', 'Martin',
+      'Thompson', 'Walker', 'Young', 'Allen', 'King', 'Wright', 'Scott', 'Green',
+      'Baker', 'Adams', 'Nelson', 'Hill', 'Carter', 'Mitchell', 'Roberts', 'Turner',
+    ],
+  },
+
+  // Spain
+  ES: {
+    firstNames: [
+      'Marcus', 'Diego', 'Carlos', 'Luis', 'Miguel', 'Rafael', 'Gabriel', 'Juan',
+      'Pedro', 'Antonio', 'Manuel', 'Jose', 'David', 'Alex', 'Sergio', 'Fernando',
+      'Eduardo', 'Ricardo', 'Pablo', 'Javier', 'Alejandro', 'Francisco', 'Raul', 'Alvaro',
+    ],
+    lastNames: [
+      'Garcia', 'Rodriguez', 'Martinez', 'Lopez', 'Gonzalez', 'Perez', 'Sanchez', 'Ramirez',
+      'Torres', 'Flores', 'Rivera', 'Gomez', 'Diaz', 'Cruz', 'Morales', 'Reyes',
+      'Ortiz', 'Gutierrez', 'Jimenez', 'Ruiz', 'Hernandez', 'Mendoza', 'Vargas', 'Castro',
+      'Ramos', 'Alvarez', 'Fernandez', 'Romero', 'Castillo',
+    ],
+  },
+
+  // Brazil
+  BR: {
+    firstNames: [
+      'Paulo', 'Roberto', 'Andre', 'Bruno', 'Thiago', 'Lucas', 'Matheus', 'Felipe',
+      'Vinicius', 'Gustavo', 'Leonardo', 'Rodrigo', 'Marcelo', 'Davi', 'Bernardo', 'Gabriel',
+      'Rafael', 'Pedro', 'Igor', 'Joao', 'Diego', 'Fabio', 'Julio',
+    ],
+    lastNames: [
+      'Silva', 'Santos', 'Oliveira', 'Souza', 'Rodrigues', 'Ferreira', 'Alves', 'Pereira',
+      'Lima', 'Gomes', 'Costa', 'Ribeiro', 'Martins', 'Carvalho', 'Rocha', 'Almeida',
+      'Nascimento', 'Araujo', 'Melo', 'Barbosa', 'Cardoso',
+    ],
+  },
+
+  // Italy
+  IT: {
+    firstNames: [
+      'Marco', 'Alessandro', 'Lorenzo', 'Matteo', 'Andrea', 'Francesco', 'Luca', 'Giovanni',
+      'Simone', 'Federico', 'Davide', 'Stefano', 'Antonio', 'Giuseppe', 'Riccardo', 'Nicola',
+      'Tommaso', 'Filippo', 'Leonardo', 'Pietro',
+    ],
+    lastNames: [
+      'Rossi', 'Russo', 'Ferrari', 'Esposito', 'Bianchi', 'Romano', 'Colombo', 'Ricci',
+      'Marino', 'Greco', 'Bruno', 'Gallo', 'Conti', 'De Luca', 'Mancini', 'Costa',
+      'Giordano', 'Rizzo', 'Lombardi', 'Moretti', 'Barbieri',
+    ],
+  },
+
+  // France
+  FR: {
+    firstNames: [
+      'Antoine', 'Alexandre', 'Maxime', 'Nicolas', 'Pierre', 'Louis', 'Hugo', 'Theo',
+      'Jules', 'Clement', 'Raphael', 'Arthur', 'Mathis', 'Romain', 'Lucas', 'Thomas',
+      'Nathan', 'Leo', 'Gabriel', 'Enzo',
+    ],
+    lastNames: [
+      'Martin', 'Bernard', 'Dubois', 'Thomas', 'Robert', 'Richard', 'Petit', 'Durand',
+      'Leroy', 'Moreau', 'Simon', 'Laurent', 'Lefebvre', 'Michel', 'Garcia', 'Roux',
+      'Vincent', 'Fournier', 'Morel', 'Girard', 'Andre',
+    ],
+  },
+
+  // Germany
+  DE: {
+    firstNames: [
+      'Lukas', 'Leon', 'Maximilian', 'Felix', 'Jonas', 'Elias', 'Noah', 'Paul',
+      'Finn', 'Julian', 'Ben', 'Tim', 'Moritz', 'Nico', 'Erik', 'David',
+      'Jan', 'Luca', 'Simon', 'Marcel', 'Tobias', 'Philipp', 'Sebastian',
+    ],
+    lastNames: [
+      'Müller', 'Schmidt', 'Schneider', 'Fischer', 'Weber', 'Meyer', 'Wagner', 'Becker',
+      'Schulz', 'Hoffmann', 'Koch', 'Bauer', 'Richter', 'Klein', 'Wolf', 'Schröder',
+      'Neumann', 'Schwarz', 'Zimmermann', 'Braun', 'Krüger',
+    ],
+  },
+
+  // Netherlands
+  NL: {
+    firstNames: [
+      'Lars', 'Daan', 'Siem', 'Bram', 'Thijs', 'Ruben', 'Sem', 'Milan',
+      'Stijn', 'Luuk', 'Jesse', 'Jasper', 'Niels', 'Robin', 'Kevin', 'Dennis',
+      'Tom', 'Tim', 'Max', 'Finn', 'Noah', 'Lucas',
+    ],
+    lastNames: [
+      'De Jong', 'Jansen', 'De Vries', 'Van den Berg', 'Van Dijk', 'Bakker', 'Janssen', 'Visser',
+      'Smit', 'Meijer', 'De Boer', 'Mulder', 'De Groot', 'Bos', 'Vos', 'Peters',
+      'Hendriks', 'Van Leeuwen', 'Dekker', 'Brink',
+    ],
+  },
+
+  // Argentina
+  AR: {
+    firstNames: [
+      'Lionel', 'Diego', 'Sergio', 'Angel', 'Gonzalo', 'Javier', 'Pablo', 'Martin',
+      'Nicolas', 'Ezequiel', 'Maxi', 'Lucas', 'Fernando', 'Rodrigo', 'Facundo',
+    ],
+    lastNames: [
+      'Fernandez', 'Rodriguez', 'Gonzalez', 'Garcia', 'Martinez', 'Lopez', 'Diaz', 'Perez',
+      'Alvarez', 'Torres', 'Ramirez', 'Flores', 'Silva', 'Romero',
+    ],
+  },
+
+  // Portugal
+  PT: {
+    firstNames: [
+      'Cristiano', 'Bruno', 'Joao', 'Diogo', 'Bernardo', 'Ruben', 'Andre', 'Pedro',
+      'Goncalo', 'Ricardo', 'Tiago', 'Nuno', 'Rui', 'Miguel', 'Rafael',
+    ],
+    lastNames: [
+      'Silva', 'Santos', 'Ferreira', 'Pereira', 'Costa', 'Rodrigues', 'Martins', 'Sousa',
+      'Fernandes', 'Gomes', 'Alves', 'Lopes', 'Carvalho', 'Oliveira',
+    ],
+  },
+
+  // United States
+  US: {
+    firstNames: [
+      'Christian', 'Tyler', 'Weston', 'Tim', 'Gio', 'Josh', 'Walker', 'Brenden',
+      'Matt', 'DaMarcus', 'Antonee', 'Yunus', 'Kellyn', 'Paul', 'Clint', 'Michael',
+    ],
+    lastNames: [
+      'Pulisic', 'Adams', 'McKennie', 'Reyna', 'Dest', 'Sargent', 'Zimmerman', 'Aaronson',
+      'Turner', 'Beasley', 'Robinson', 'Musah', 'Acosta', 'Arriola',
+    ],
+  },
+
+  // China
+  CN: {
+    firstNames: [
+      'Wei', 'Ming', 'Jun', 'Hao', 'Feng', 'Long', 'Tao', 'Yang',
+      'Qiang', 'Lei', 'Jian', 'Chao', 'Bo', 'Kai', 'Yu', 'Xin',
+      'Peng', 'Liang', 'Chen', 'Hui', 'Gang', 'Yong', 'Dong', 'Jie',
+      'Xiang', 'Kun', 'Bin', 'Rui', 'Wen', 'Qing', 'Han', 'Zhi',
+    ],
+    lastNames: [
+      'Wang', 'Li', 'Zhang', 'Liu', 'Chen', 'Yang', 'Huang', 'Zhao',
+      'Wu', 'Zhou', 'Xu', 'Sun', 'Ma', 'Zhu', 'Hu', 'Guo',
+      'He', 'Gao', 'Lin', 'Luo', 'Zheng', 'Liang', 'Xie', 'Song',
+      'Tang', 'Han', 'Feng', 'Deng', 'Cao', 'Peng', 'Zeng', 'Ye',
+    ],
+  },
+
+  // Japan
+  JP: {
+    firstNames: [
+      'Takumi', 'Takefusa', 'Yuya', 'Shinji', 'Keisuke', 'Takashi', 'Yuto', 'Hiroki',
+      'Daichi', 'Shoya', 'Ritsu', 'Kaoru', 'Junya',
+    ],
+    lastNames: [
+      'Minamino', 'Kubo', 'Osako', 'Kagawa', 'Honda', 'Inui', 'Nagatomo', 'Sakai',
+      'Kamada', 'Nakajima', 'Doan', 'Mitoma', 'Ito',
+    ],
+  },
+
+  // South Korea
+  KR: {
+    firstNames: ['Son', 'Lee', 'Kim', 'Park', 'Hwang', 'Jung', 'Cho', 'Kang', 'Moon', 'Jae', 'Min', 'Seung', 'Heung'],
+    lastNames: [
+      'Heung-min', 'Kang-in', 'Min-jae', 'Ji-sung', 'Hee-chan', 'Woo-young', 'Gue-sung', 'Young-woo', 'Seon-min', 'Sang-ho', 'Tae-hwan',
+    ],
+  },
+
+  // Mexico
+  MX: {
+    firstNames: [
+      'Hirving', 'Raul', 'Javier', 'Andres', 'Hector', 'Jesus', 'Carlos', 'Edson',
+      'Cesar', 'Guillermo', 'Santiago', 'Diego', 'Luis', 'Miguel',
+    ],
+    lastNames: [
+      'Lozano', 'Jimenez', 'Hernandez', 'Guardado', 'Herrera', 'Corona', 'Vela', 'Ochoa',
+      'Moreno', 'Marquez', 'Alvarez', 'Sanchez', 'Rodriguez',
+    ],
+  },
+};
+
+/**
+ * Get all available nationality codes
+ */
+export function getNationalityCodes(): string[] {
+  return Object.keys(NAME_DATABASE);
+}
+
+/**
+ * Get a random name for a specific nationality
+ */
+export function getRandomNameByNationality(nationality: string): {
+  firstName: string;
+  lastName: string;
+} {
+  const database = NAME_DATABASE[nationality];
+  if (!database) {
+    const fallback = NAME_DATABASE['GB'];
+    return {
+      firstName: fallback.firstNames[Math.floor(Math.random() * fallback.firstNames.length)],
+      lastName: fallback.lastNames[Math.floor(Math.random() * fallback.lastNames.length)],
+    };
+  }
+  return {
+    firstName: database.firstNames[Math.floor(Math.random() * database.firstNames.length)],
+    lastName: database.lastNames[Math.floor(Math.random() * database.lastNames.length)],
+  };
+}
+
+/**
+ * Get a random nationality code
+ */
+export function getRandomNationality(): string {
+  const nationalities = getNationalityCodes();
+  return nationalities[Math.floor(Math.random() * nationalities.length)];
+}

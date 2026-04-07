@@ -187,10 +187,6 @@ export class FanService {
     awayMorale: number,
     capacity: number,
   ): number {
-    // S曲线中立球迷：球迷少时多（补新球队），球迷多时少
-    const totalFans = homeFans + awayFans;
-    const neutralFans = Math.floor((capacity * 0.3) / (1 + totalFans / 5000));
-
     // 主队球迷进场 (20%基础)
     const homeRate = 0.6 + (homeMorale / 100) * 0.4;
     const homeFansAttendance = Math.floor(homeFans * 0.2 * homeRate);
@@ -199,10 +195,14 @@ export class FanService {
     const awayRate = 0.6 + (awayMorale / 100) * 0.4;
     const awayFansAttendance = Math.floor(awayFans * 0.08 * awayRate);
 
+    // 计算总入场（无中立球迷）
+    const totalAttendance = homeFansAttendance + awayFansAttendance;
+
+    // 添加随机波动 +/- 5%
+    const fluctuation = 0.95 + Math.random() * 0.1; // 0.95 ~ 1.05
+    const finalAttendance = Math.floor(totalAttendance * fluctuation);
+
     // 总入场不超过容量
-    return Math.min(
-      capacity,
-      neutralFans + homeFansAttendance + awayFansAttendance,
-    );
+    return Math.min(capacity, finalAttendance);
   }
 }

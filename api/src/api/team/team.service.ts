@@ -3,10 +3,23 @@ import { Uuid } from '@/common/types/common.type';
 import { ErrorCode } from '@/constants/error-code.constant';
 import { ValidationException } from '@/exceptions/validation.exception';
 import { paginate } from '@/utils/offset-pagination';
-import { BenchConfig, LeagueEntity, TeamEntity } from '@goalxi/database';
+import {
+  getRandomNameByNationality,
+  getRandomNationality,
+} from '@/constants/name-database';
+import {
+  BenchConfig,
+  LeagueEntity,
+  StaffEntity,
+  StaffLevel,
+  StaffRole,
+  TeamEntity,
+} from '@goalxi/database';
 import { Injectable } from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
 import assert from 'assert';
 import { plainToInstance } from 'class-transformer';
+import { Repository } from 'typeorm';
 import { CreateTeamReqDto } from './dto/create-team.req.dto';
 import { ListTeamReqDto } from './dto/list-team.req.dto';
 import { TeamResDto } from './dto/team.res.dto';
@@ -17,7 +30,11 @@ import { PlayerService } from '../player/player.service';
 
 @Injectable()
 export class TeamService {
-  constructor(private readonly playerService: PlayerService) {}
+  constructor(
+    private readonly playerService: PlayerService,
+    @InjectRepository(StaffEntity)
+    private readonly staffRepo: Repository<StaffEntity>,
+  ) {}
 
   async findMany(
     reqDto: ListTeamReqDto,
@@ -87,6 +104,22 @@ export class TeamService {
     // Initialize team with a starting squad of 18 players
     // Use team's nationality for player generation to create cohesive squads
     await this.playerService.generateRandom(18, team.id, team.nationality);
+
+    // Create default Level 2 head coach
+    const nationality = team.nationality || getRandomNationality();
+    const { firstName, lastName } = getRandomNameByNationality(nationality);
+    const headCoach = this.staffRepo.create({
+      teamId: team.id,
+      name: `${firstName} ${lastName}`,
+      role: StaffRole.HEAD_COACH,
+      level: StaffLevel.LEVEL_2,
+      salary: 4000,
+      contractExpiry: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000),
+      autoRenew: true,
+      isActive: true,
+      nationality,
+    });
+    await this.staffRepo.save(headCoach);
 
     return this.mapToResDto(team);
   }

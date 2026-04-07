@@ -5,6 +5,7 @@ import {
   FinanceEntity,
   StadiumEntity,
   StaffEntity,
+  StaffRole,
   TeamEntity,
   TransactionEntity,
   TransactionType,
@@ -191,15 +192,17 @@ export class FinanceService {
       `Weekly sponsorship income (Tier ${tier}, ${fanCount} fans)`,
     );
 
-    // Expense: Staff wages
+    // Expense: Staff wages (HEAD_COACH gets 2x)
     const staffMembers = await this.staffRepo.find({
       where: { teamId, isActive: true },
     });
     for (const staff of staffMembers) {
-      const staffWage =
+      const baseWage =
         FINANCE_CONSTANTS.STAFF_WAGE[
           staff.level as keyof typeof FINANCE_CONSTANTS.STAFF_WAGE
         ] || 15000;
+      const staffWage =
+        staff.role === StaffRole.HEAD_COACH ? baseWage * 2 : baseWage;
       await this.processTransaction(
         teamId,
         -staffWage,
