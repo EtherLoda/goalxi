@@ -39,6 +39,7 @@ import { LeagueAdminService } from './league-admin.service';
 import { TeamGeneratorService } from './team-generator.service';
 import { ScoutSchedulerService } from './scout-scheduler.service';
 import { FinanceSchedulerService } from './finance-scheduler.service';
+import { PlayerWageSchedulerService } from './player-wage-scheduler.service';
 
 @Module({
   imports: [
@@ -57,6 +58,9 @@ import { FinanceSchedulerService } from './finance-scheduler.service';
     }),
     BullModule.registerQueue({
       name: 'finance-settlement',
+    }),
+    BullModule.registerQueue({
+      name: 'player-wage',
     }),
     TypeOrmModule.forFeature([
       MatchEntity,
@@ -97,6 +101,7 @@ import { FinanceSchedulerService } from './finance-scheduler.service';
     TeamGeneratorService,
     ScoutSchedulerService,
     FinanceSchedulerService,
+    PlayerWageSchedulerService,
   ],
   exports: [
     WeatherSchedulerService,
@@ -113,6 +118,7 @@ import { FinanceSchedulerService } from './finance-scheduler.service';
     TeamGeneratorService,
     ScoutSchedulerService,
     FinanceSchedulerService,
+    PlayerWageSchedulerService,
   ],
 })
 export class SchedulerModule {}

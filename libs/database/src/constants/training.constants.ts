@@ -101,3 +101,10 @@ export function getCategoryCoachRole(category: string): string {
     };
     return map[category] || '';
 }
+
+// =====================
+// PLAYER WAGE CALCULATION
+// =====================
+
+// Re-export from finance.constants (wage calculation belongs to finance, not training)
+export { calculatePlayerWage, testWageCalculation } from './finance.constants';

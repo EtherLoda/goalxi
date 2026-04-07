@@ -196,6 +196,9 @@ export class PlayerEntity extends AbstractEntity {
     @Column({ type: 'float', default: 3.0 })
     stamina!: number;
 
+    @Column({ name: 'current_wage', type: 'int', default: 2000 })
+    currentWage!: number;
+
     @Column({ name: 'career_stats', type: 'jsonb', default: '{}' })
     careerStats!: CareerStats;
 
