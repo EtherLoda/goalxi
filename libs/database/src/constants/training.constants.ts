@@ -124,7 +124,8 @@ export const SKILL_TRAINING_SPEED: Record<string, number> = {
     // GK skills
     gk_reflexes: 0.80,
     gk_handling: 0.85,
-    gk_distribution: 1.00,
+    gk_aerial: 0.82,
+    gk_positioning: 1.00,
     // Set piece skills (5x speed -选修技能，快速训练）
     freeKicks: 5.0,
     penalties: 5.0,

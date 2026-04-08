@@ -23,7 +23,7 @@ const FIELD_MAP = {
     // GK
     gk_reflexes: ['technical', 'reflexes'],
     gk_handling: ['technical', 'handling'],
-    gk_distribution: ['technical', 'distribution'],
+    gk_aerial: ['technical', 'aerial'],
 } as const;
 
 function getIn(obj: any, path: readonly string[]): number {
@@ -64,7 +64,7 @@ export interface SimulationPlayerAttributes {
     defending: number;
     gk_reflexes?: number;
     gk_handling?: number;
-    gk_distribution?: number;
+    gk_aerial?: number;
     abilities?: PlayerAbility[];
 }
 
@@ -117,7 +117,7 @@ export function toSimulationPlayer(entity: PlayerEntity): SimulationPlayer {
     if (entity.isGoalkeeper) {
         (attributes as any).gk_reflexes = getIn(skills, FIELD_MAP.gk_reflexes);
         (attributes as any).gk_handling = getIn(skills, FIELD_MAP.gk_handling);
-        (attributes as any).gk_distribution = getIn(skills, FIELD_MAP.gk_distribution);
+        (attributes as any).gk_aerial = getIn(skills, FIELD_MAP.gk_aerial);
     }
 
     const rawAbilities = (skills as any)?.abilities;
@@ -162,7 +162,7 @@ export function toSimulationYouthPlayer(entity: YouthPlayerEntity): SimulationPl
     if (entity.isGoalkeeper) {
         (attributes as any).gk_reflexes = getIn(skills, FIELD_MAP.gk_reflexes);
         (attributes as any).gk_handling = getIn(skills, FIELD_MAP.gk_handling);
-        (attributes as any).gk_distribution = getIn(skills, FIELD_MAP.gk_distribution);
+        (attributes as any).gk_aerial = getIn(skills, FIELD_MAP.gk_aerial);
     }
 
     const rawAbilities = (skills as any)?.abilities;

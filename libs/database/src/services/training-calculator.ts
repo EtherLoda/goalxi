@@ -101,7 +101,7 @@ function getCoachRoleForCategory(category: string): StaffRole | null {
  */
 export function getPlayerSkillKeys(isGoalkeeper: boolean): string[] {
     if (isGoalkeeper) {
-        return ['pace', 'strength', 'reflexes', 'handling', 'distribution', 'positioning', 'composure', 'freeKicks', 'penalties'];
+        return ['pace', 'strength', 'reflexes', 'handling', 'aerial', 'positioning', 'composure', 'freeKicks', 'penalties'];
     }
     return ['pace', 'strength', 'finishing', 'passing', 'dribbling', 'defending', 'positioning', 'composure', 'freeKicks', 'penalties'];
 }

@@ -182,7 +182,8 @@ export class PlayerService {
     const createTechnicalGK = () => ({
       reflexes: rand(10, 20),
       handling: rand(10, 20),
-      distribution: rand(5, 18),
+      aerial: rand(5, 18),
+      positioning: rand(10, 20),
     });
 
     const createTechnicalOutfield = () => ({

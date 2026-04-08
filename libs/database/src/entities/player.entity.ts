@@ -51,7 +51,8 @@ export interface OutfieldMental {
 export interface GKTechnical {
     reflexes: number;
     handling: number;
-    distribution: number;
+    aerial: number;
+    positioning: number;
 }
 
 export interface SetPiecesSkills {

@@ -44,11 +44,100 @@ const GK_KEYS = [
   'strength',
   'reflexes',
   'handling',
-  'distribution',
+  'aerial',
   'positioning',
   'composure',
   'freeKicks',
   'penalties',
+];
+
+// 位置影响力技能分类（每个位置3个高影响力技能）
+// 高影响力: 围绕 potentialAvg 正态分布(stdDev=1.5)
+// 中/低影响力: 围绕 potentialAvg * 系数 正态分布(stdDev=1.5)
+// 系数根据潜力等级决定: ELITE(0.5/0.85), HIGH_PRO(0.65/0.9), REGULAR(0.8/0.95), LOW(0.9/0.98)
+type SkillImpact = 'high' | 'medium' | 'low';
+const POSITION_SKILL_IMPACT: Record<string, Record<SkillImpact, string[]>> = {
+  ST: {
+    high: ['finishing', 'positioning', 'pace'],
+    medium: ['strength', 'composure', 'dribbling'],
+    low: ['passing', 'defending'],
+  },
+  CF: {
+    high: ['finishing', 'positioning', 'strength'],
+    medium: ['pace', 'composure', 'dribbling'],
+    low: ['passing', 'defending'],
+  },
+  LW: {
+    high: ['pace', 'dribbling', 'finishing'],
+    medium: ['passing', 'strength'],
+    low: ['defending', 'composure'],
+  },
+  RW: {
+    high: ['pace', 'dribbling', 'finishing'],
+    medium: ['passing', 'strength'],
+    low: ['defending', 'composure'],
+  },
+  AM: {
+    high: ['dribbling', 'passing', 'finishing'],
+    medium: ['positioning', 'pace'],
+    low: ['defending', 'strength', 'composure'],
+  },
+  CM: {
+    high: ['passing', 'dribbling', 'positioning'],
+    medium: ['composure', 'defending', 'strength'],
+    low: ['finishing', 'pace'],
+  },
+  DM: {
+    high: ['defending', 'positioning', 'passing'],
+    medium: ['dribbling', 'composure', 'strength'],
+    low: ['finishing', 'pace'],
+  },
+  LB: {
+    high: ['defending', 'positioning', 'pace'],
+    medium: ['strength', 'composure', 'passing'],
+    low: ['finishing', 'dribbling'],
+  },
+  RB: {
+    high: ['defending', 'positioning', 'pace'],
+    medium: ['strength', 'composure', 'passing'],
+    low: ['finishing', 'dribbling'],
+  },
+  CB: {
+    high: ['defending', 'positioning', 'strength'],
+    medium: ['pace', 'composure'],
+    low: ['dribbling', 'passing', 'finishing'],
+  },
+  GK: {
+    high: ['reflexes', 'handling'],
+    medium: ['aerial', 'positioning', 'composure'],
+    low: ['pace', 'strength'],
+  },
+};
+
+// 潜力等级对应的中低影响系数
+const IMPACT_COEFFICIENTS: Record<
+  PotentialTier,
+  { medium: number; low: number }
+> = {
+  [PotentialTier.LEGEND]: { medium: 0.8, low: 0.45 },
+  [PotentialTier.ELITE]: { medium: 0.85, low: 0.5 },
+  [PotentialTier.HIGH_PRO]: { medium: 0.9, low: 0.65 },
+  [PotentialTier.REGULAR]: { medium: 0.95, low: 0.8 },
+  [PotentialTier.LOW]: { medium: 0.98, low: 0.9 },
+};
+
+// 外场位置列表
+const OUTFIELD_POSITIONS = [
+  'ST',
+  'CF',
+  'LW',
+  'RW',
+  'AM',
+  'CM',
+  'DM',
+  'LB',
+  'RB',
+  'CB',
 ];
 
 function randomBirthdayForAge(age: number): Date {
@@ -67,34 +156,56 @@ function pickRandom<T>(arr: T[]): T {
 }
 
 /**
+ * Box-Muller变换生成正态分布随机数
+ * 大多数值聚集在均值附近，极端值罕见
+ */
+function gaussianRandom(mean: number, stdDev: number): number {
+  let u = 0,
+    v = 0;
+  while (u === 0) u = Math.random();
+  while (v === 0) v = Math.random();
+  const z = Math.sqrt(-2.0 * Math.log(u)) * Math.cos(2.0 * Math.PI * v);
+  return mean + z * stdDev;
+}
+
+function clamp(value: number, min: number, max: number): number {
+  return Math.max(min, Math.min(max, value));
+}
+
+/**
  * Generate youth player data
- * - Potential based on tier distribution: 5% LEGEND, 20% ELITE, 50% HIGH_PRO, 25% LOW
- * - Current ability independent of potential: OVR 15-35
- * - Skills random, no position templates
+ * - Position determines high/medium/low impact skills (3 high impact per position)
+ * - High impact: gaussian around potentialAvg (stdDev=1.5)
+ * - Medium/Low impact: gaussian around potentialAvg * coefficient (stdDev=1.5)
+ * - Coefficient based on potential tier: ELITE(0.5/0.85), HIGH_PRO(0.65/0.9), REGULAR(0.8/0.95), LOW(0.9/0.98)
+ * - Current ability <= potential ability
  */
 function generatePlayerData(): Omit<
   ScoutCandidatePlayerData,
   'revealedSkills' | 'joinedAt' | 'potentialRevealed' | 'potentialTier'
-> & { potentialTier: PotentialTier } {
+> & { potentialTier: PotentialTier; position: string } {
   const isGoalkeeper = Math.random() < 0.1; // 10% 概率是门将
   const nationality = getRandomNationality();
   const { firstName, lastName } = getRandomNameByNationality(nationality);
   const age = 15 + Math.floor(Math.random() * 2); // 15 or 16
   const birthday = randomBirthdayForAge(age);
 
-  // Generate potential based on tier distribution (一周可抽3次)
-  // 1.2% 天才 (86-92), 3.8% 明日之星 (76-85), 50% 未来职业 (56-75), 45% 业余 (40-55)
+  // Generate potential based on tier distribution
+  // 0.5% LEGEND (93-99), 1.5% ELITE (86-92), 5% HIGH_PRO (76-85), 43% REGULAR (56-75), 50% LOW (40-55)
   const rand = Math.random();
   let potentialAbility: number;
   let potentialTier: PotentialTier;
 
-  if (rand < 0.012) {
+  if (rand < 0.005) {
+    potentialAbility = 93 + Math.floor(Math.random() * 7); // 93-99
+    potentialTier = PotentialTier.LEGEND;
+  } else if (rand < 0.02) {
     potentialAbility = 86 + Math.floor(Math.random() * 7); // 86-92
     potentialTier = PotentialTier.ELITE;
-  } else if (rand < 0.05) {
+  } else if (rand < 0.07) {
     potentialAbility = 76 + Math.floor(Math.random() * 10); // 76-85
     potentialTier = PotentialTier.HIGH_PRO;
-  } else if (rand < 0.55) {
+  } else if (rand < 0.5) {
     potentialAbility = 56 + Math.floor(Math.random() * 20); // 56-75
     potentialTier = PotentialTier.REGULAR;
   } else {
@@ -102,28 +213,42 @@ function generatePlayerData(): Omit<
     potentialTier = PotentialTier.LOW;
   }
 
-  // Generate current ability independent of potential: OVR 15-35
-  const currentOvr = 15 + Math.floor(Math.random() * 21); // 15-35
+  // Generate current ability: OVR 15-35, but must be <= potentialAbility
+  const maxCurrentOvr = Math.min(35, potentialAbility - 5);
+  const currentOvr = 15 + Math.floor(Math.random() * (maxCurrentOvr - 15 + 1));
   const currentAvg = currentOvr / 5;
   const potentialAvg = potentialAbility / 5;
+  const coeffs = IMPACT_COEFFICIENTS[potentialTier];
 
+  // 确定球员位置
+  const position = isGoalkeeper ? 'GK' : pickRandom(OUTFIELD_POSITIONS);
+  const impact = POSITION_SKILL_IMPACT[position];
   const keys = isGoalkeeper ? GK_KEYS : OUTFIELD_KEYS;
+
   const potential: Record<string, number> = {};
   const current: Record<string, number> = {};
 
   keys.forEach((k) => {
-    // 潜力技能：围绕潜力平均值波动
-    const potVal = Math.max(
-      1,
-      Math.min(20, potentialAvg + (Math.random() * 6 - 3)),
-    );
-    potential[k] = parseFloat(potVal.toFixed(2));
-
-    // 当前技能：围绕当前平均值波动，跟潜力脱钩
-    const curVal = Math.max(
-      1,
-      Math.min(20, currentAvg + (Math.random() * 6 - 3)),
-    );
+    if (impact.low.includes(k)) {
+      // 低影响力技能：围绕 potentialAvg * low系数 正态分布
+      potential[k] = clamp(
+        gaussianRandom(potentialAvg * coeffs.low, 1.5),
+        1,
+        20,
+      );
+    } else if (impact.high.includes(k)) {
+      // 高影响力技能：围绕 potentialAvg 正态分布
+      potential[k] = clamp(gaussianRandom(potentialAvg, 1.5), 1, 20);
+    } else {
+      // 中影响力技能：围绕 potentialAvg * medium系数 正态分布
+      potential[k] = clamp(
+        gaussianRandom(potentialAvg * coeffs.medium, 1.5),
+        1,
+        20,
+      );
+    }
+    // 当前技能围绕当前能力均值波动，但不能超过潜力
+    const curVal = clamp(gaussianRandom(currentAvg, 2), 1, potentialAvg);
     current[k] = parseFloat(curVal.toFixed(2));
   });
 
@@ -136,6 +261,7 @@ function generatePlayerData(): Omit<
     birthday,
     nationality,
     isGoalkeeper,
+    position,
     currentSkills: {
       physical: { pace: current['pace'], strength: current['strength'] },
       technical: isGoalkeeper

@@ -20,7 +20,7 @@ const GK_KEYS = [
   'strength',
   'reflexes',
   'handling',
-  'distribution',
+  'aerial',
   'positioning',
   'composure',
   'freeKicks',

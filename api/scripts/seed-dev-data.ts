@@ -87,7 +87,7 @@ function generatePlayerAttributes(position: string, potentialAbility: number, ag
 
     const gkKeys = {
         physical: ['pace', 'strength'],
-        technical: ['reflexes', 'handling', 'distribution'],
+        technical: ['reflexes', 'handling', 'aerial'],
         mental: ['positioning', 'composure'],
         setPieces: ['freeKicks', 'penalties']
     };

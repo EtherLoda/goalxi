@@ -98,7 +98,7 @@ export class ScoutSchedulerService {
           'strength',
           'reflexes',
           'handling',
-          'distribution',
+          'aerial',
           'positioning',
           'composure',
           'freeKicks',
@@ -145,7 +145,7 @@ export class ScoutSchedulerService {
           'strength',
           'reflexes',
           'handling',
-          'distribution',
+          'aerial',
           'positioning',
           'composure',
           'freeKicks',
@@ -189,7 +189,7 @@ export class ScoutSchedulerService {
           'strength',
           'reflexes',
           'handling',
-          'distribution',
+          'aerial',
           'positioning',
           'composure',
           'freeKicks',
@@ -266,7 +266,7 @@ export class ScoutSchedulerService {
           ? {
               reflexes: current['reflexes'],
               handling: current['handling'],
-              distribution: current['distribution'],
+              aerial: current['aerial'],
             }
           : {
               finishing: current['finishing'],
@@ -289,7 +289,7 @@ export class ScoutSchedulerService {
           ? {
               reflexes: potential['reflexes'],
               handling: potential['handling'],
-              distribution: potential['distribution'],
+              aerial: potential['aerial'],
             }
           : {
               finishing: potential['finishing'],

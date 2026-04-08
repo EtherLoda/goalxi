@@ -315,9 +315,11 @@ export class Team {
         const player = gk.player as Player;
         const attrs = player.attributes;
         return (
-            (attrs.gk_reflexes ?? 10) +
-            (attrs.gk_handling ?? 10) +
-            (attrs.composure ?? 10)
-        ) / 3;
+            (attrs.gk_reflexes ?? 10) * 4 +
+            (attrs.gk_handling ?? 10) * 2.5 +
+            (attrs.positioning ?? 10) * 1.5 +
+            (attrs.gk_aerial ?? 10) * 1 +
+            (attrs.composure ?? 10) * 1
+        ) / 9;
     }
 }

@@ -45,9 +45,10 @@ export const SKILL_WAGE_WEIGHT: Record<string, number> = {
 
 export const GK_SKILL_WAGE_WEIGHT: Record<string, number> = {
   // Goalkeeper skills (independent scale)
-  gk_reflexes: 1.35,
+  gk_reflexes: 1.40,
   gk_handling: 1.25,
-  gk_distribution: 1.05,
+  gk_aerial: 1.30,
+  gk_positioning: 1.00,
 };
 
 // Set piece skills do not contribute to regular wage calculation

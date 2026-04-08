@@ -47,11 +47,11 @@ const ATTACK_TYPE_CONFIG: Record<AttackType, { pushK: number; pushOffset: number
 // 射门公式用k=2.2，让ratio=2时约90%
 // 目标进球率: 单刀 ~60%, 头球 ~50%, 补射 ~50%, 抽射 ~38%, 远射 ~22%
 const SHOT_TYPE_CONFIG: Record<ShotType, { k: number; offset: number }> = {
-    [ShotType.ONE_ON_ONE]: { k: 2.2, offset: -15 },  // ratio=1→56%, ratio=2→90%
-    [ShotType.HEADER]: { k: 2.2, offset: -8 },      // ratio=1→52%, ratio=2→88%
-    [ShotType.REBOUND]: { k: 2.2, offset: -8 },    // ratio=1→52%, ratio=2→88%
-    [ShotType.NORMAL]: { k: 2.2, offset: 8 },       // ratio=1→44%, ratio=2→85%
-    [ShotType.LONG_SHOT]: { k: 2.2, offset: 20 },  // ratio=1→35%, ratio=2→80%
+    [ShotType.ONE_ON_ONE]: { k: 1.5, offset: 0 },  // ratio=1→50%, ratio=2→82%
+    [ShotType.HEADER]: { k: 1.5, offset: 0 },      // ratio=1→50%, ratio=2→82%
+    [ShotType.REBOUND]: { k: 1.5, offset: 0 },    // ratio=1→50%, ratio=2→82%
+    [ShotType.NORMAL]: { k: 1.5, offset: 0 },       // ratio=1→50%, ratio=2→82%
+    [ShotType.LONG_SHOT]: { k: 1.5, offset: 0 },  // ratio=1→50%, ratio=2→82%
 };
 
 /**

@@ -35,7 +35,8 @@
       "Bash(echo \"Exit: $?\")",
       "Bash(ls libs/database/*.json)",
       "Bash(ls libs/database/jest*)",
-      "Bash(node --eval ':*)"
+      "Bash(node --eval ':*)",
+      "Bash(npx eslint:*)"
     ]
   }
 }

@@ -73,9 +73,9 @@ export class PlayerWageProcessor extends WorkerHost {
       values.push(
         currentSkills.technical.reflexes,
         currentSkills.technical.handling,
-        currentSkills.technical.distribution,
+        currentSkills.technical.aerial,
       );
-      keys.push('gk_reflexes', 'gk_handling', 'gk_distribution');
+      keys.push('gk_reflexes', 'gk_handling', 'gk_aerial');
     } else {
       values.push(
         currentSkills.technical.finishing,

@@ -16,7 +16,7 @@ export interface PlayerAttributes {
   // Goalkeeper Specific (Technical)
   gk_reflexes?: number;
   gk_handling?: number;
-  gk_distribution?: number;
+  gk_aerial?: number;
 }
 
 export interface Player {

@@ -109,12 +109,15 @@ export class AttributeCalculator {
 
     /**
      * 原始GK评分计算（不缓存）
+     * GK_save_rating = reflexes * 4 + handling * 2.5 + positioning * 1.5 + aerial * 1 + composure * 1
      */
     private static calculateGKSaveRatingRaw(player: Player): number {
         const attrs = player.attributes;
-        const raw = (attrs.gk_reflexes ?? 10) * 5
-            + (attrs.gk_handling ?? 10) * 3
-            + (attrs.positioning ?? 10) * 2;
+        const raw = (attrs.gk_reflexes ?? 10) * 4
+            + (attrs.gk_handling ?? 10) * 2.5
+            + (attrs.positioning ?? 10) * 1.5
+            + (attrs.gk_aerial ?? 10) * 1
+            + (attrs.composure ?? 10) * 1;
         return parseFloat((raw * 1.0).toFixed(2));
     }
 
