@@ -286,7 +286,6 @@ async function createLeaguePyramid() {
             const team = new TeamEntity({
                 id: teamId as any,
                 name: teamName,
-                userId: adminUser!.id,
                 leagueId: league.id,
                 isBot: true,
                 botLevel: 5,

@@ -5,15 +5,14 @@ export class RemovePlayerPosition1733150000000 implements MigrationInterface {
 
   public async up(queryRunner: QueryRunner): Promise<void> {
     await queryRunner.query(`
-            ALTER TABLE "player" 
-            DROP COLUMN "position"
+            ALTER TABLE "player" DROP COLUMN IF EXISTS "position"
         `);
   }
 
   public async down(queryRunner: QueryRunner): Promise<void> {
     await queryRunner.query(`
             ALTER TABLE "player" 
-            ADD COLUMN "position" character varying
+            ADD COLUMN IF NOT EXISTS "position" character varying
         `);
   }
 }

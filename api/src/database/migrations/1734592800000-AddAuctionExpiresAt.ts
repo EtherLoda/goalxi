@@ -7,7 +7,7 @@ export class AddAuctionExpiresAt1734592800000 implements MigrationInterface {
     // Add expires_at column (NOT NULL with default)
     await queryRunner.query(`
             ALTER TABLE "auction" 
-            ADD COLUMN "expires_at" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW() + INTERVAL '24 hours'
+            ADD COLUMN IF NOT EXISTS "expires_at" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW() + INTERVAL '24 hours'
         `);
 
     // Copy existing ends_at values to expires_at for existing records

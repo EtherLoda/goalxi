@@ -16,7 +16,7 @@ export class DatabaseConfigService implements TypeOrmOptionsFactory {
       database: this.configService.getOrThrow('DB_DATABASE', { infer: true }),
       entities: ['**/*.entity{.ts,.js}'],
       autoLoadEntities: true,
-      synchronize: false,
+      synchronize: process.env.DATABASE_SYNCHRONIZE === 'true',
     };
   }
 }

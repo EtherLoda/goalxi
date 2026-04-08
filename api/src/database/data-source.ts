@@ -1,5 +1,6 @@
 import {
   AuctionEntity,
+  FanEntity,
   FinanceEntity,
   LeagueEntity,
   LeagueStandingEntity,
@@ -12,6 +13,7 @@ import {
   PlayerTransactionEntity,
   SeasonResultEntity,
   SessionEntity,
+  StadiumEntity,
   TacticsPresetEntity,
   TeamEntity,
   TransactionEntity,
@@ -52,6 +54,8 @@ export const AppDataSource = new DataSource({
     AuctionEntity,
     PlayerHistoryEntity,
     PlayerTransactionEntity,
+    StadiumEntity,
+    FanEntity,
   ],
   migrations: [
     'src/database/migrations/**/*{.ts,.js}',

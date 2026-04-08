@@ -4,42 +4,47 @@ export class RefactorPlayerSkills1733148638000 implements MigrationInterface {
   name = 'RefactorPlayerSkills1733148638000';
 
   public async up(queryRunner: QueryRunner): Promise<void> {
-    // Add new columns
+    // Add new columns (if not already exists in InitialSchema)
     await queryRunner.query(`
-            ALTER TABLE "player" 
-            ADD COLUMN "current_skills" jsonb,
-            ADD COLUMN "potential_skills" jsonb,
-            ADD COLUMN "is_youth" boolean NOT NULL DEFAULT false
+            ALTER TABLE "player"
+            ADD COLUMN IF NOT EXISTS "current_skills" jsonb,
+            ADD COLUMN IF NOT EXISTS "potential_skills" jsonb,
+            ADD COLUMN IF NOT EXISTS "is_youth" boolean NOT NULL DEFAULT false
         `);
 
-    // Migrate existing data from attributes to new structure
+    // Migrate existing data from attributes to new structure (only if attributes column exists)
     await queryRunner.query(`
-            UPDATE "player" 
-            SET 
-                "current_skills" = COALESCE("attributes"->'current', '{"physical": {}, "technical": {}, "mental": {}}'::jsonb),
-                "potential_skills" = COALESCE("attributes"->'potential', '{"physical": {}, "technical": {}, "mental": {}}'::jsonb)
-            WHERE "attributes" IS NOT NULL
+            DO $$
+            BEGIN
+              IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'player' AND column_name = 'attributes') THEN
+                UPDATE "player"
+                SET
+                    "current_skills" = COALESCE("attributes"->'current', '{"physical": {}, "technical": {}, "mental": {}}'::jsonb),
+                    "potential_skills" = COALESCE("attributes"->'potential', '{"physical": {}, "technical": {}, "mental": {}}'::jsonb)
+                WHERE "attributes" IS NOT NULL;
+              END IF;
+            END $$;
         `);
 
-    // Set default values for rows without attributes
+    // Set default values for rows without these columns
     await queryRunner.query(`
-            UPDATE "player" 
-            SET 
+            UPDATE "player"
+            SET
                 "current_skills" = '{"physical": {}, "technical": {}, "mental": {}}'::jsonb,
                 "potential_skills" = '{"physical": {}, "technical": {}, "mental": {}}'::jsonb
             WHERE "current_skills" IS NULL OR "potential_skills" IS NULL
         `);
 
-    // Make new columns NOT NULL
+    // Make new columns NOT NULL (ignore errors if already not null)
     await queryRunner.query(`
-            ALTER TABLE "player" 
+            ALTER TABLE "player"
             ALTER COLUMN "current_skills" SET NOT NULL,
             ALTER COLUMN "potential_skills" SET NOT NULL
         `);
 
-    // Drop old attributes column
+    // Drop old attributes column (if exists)
     await queryRunner.query(`
-            ALTER TABLE "player" DROP COLUMN "attributes"
+            ALTER TABLE "player" DROP COLUMN IF EXISTS "attributes"
         `);
 
     // Drop age column (redundant, calculated from birthday)

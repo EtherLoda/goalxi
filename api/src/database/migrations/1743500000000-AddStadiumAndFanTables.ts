@@ -117,14 +117,9 @@ export class AddStadiumAndFanTables1743500000000 implements MigrationInterface {
     );
 
     // Add elo_rating column to team table
-    await queryRunner.addColumn(
-      'team',
-      new TableColumn({
-        name: 'elo_rating',
-        type: 'int',
-        default: 1500,
-      }),
-    );
+    await queryRunner.query(`
+            ALTER TABLE "team" ADD COLUMN IF NOT EXISTS "elo_rating" integer NOT NULL DEFAULT 1500
+        `);
   }
 
   public async down(queryRunner: QueryRunner): Promise<void> {

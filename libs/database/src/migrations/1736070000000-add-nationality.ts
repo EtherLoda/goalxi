@@ -5,28 +5,14 @@ export class AddNationality1736070000000 implements MigrationInterface {
 
     public async up(queryRunner: QueryRunner): Promise<void> {
         // Add nationality column to player table
-        await queryRunner.addColumn(
-            'player',
-            new TableColumn({
-                name: 'nationality',
-                type: 'varchar',
-                length: '2',
-                isNullable: true,
-                comment: 'ISO 3166-1 alpha-2 country code (e.g., CN, US, GB, DE)',
-            }),
-        );
+        await queryRunner.query(`
+            ALTER TABLE "player" ADD COLUMN IF NOT EXISTS "nationality" varchar(2)
+        `);
 
         // Add nationality column to team table
-        await queryRunner.addColumn(
-            'team',
-            new TableColumn({
-                name: 'nationality',
-                type: 'varchar',
-                length: '2',
-                isNullable: true,
-                comment: 'ISO 3166-1 alpha-2 country code (e.g., CN, US, GB, DE)',
-            }),
-        );
+        await queryRunner.query(`
+            ALTER TABLE "team" ADD COLUMN IF NOT EXISTS "nationality" varchar(2)
+        `);
     }
 
     public async down(queryRunner: QueryRunner): Promise<void> {

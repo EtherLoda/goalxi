@@ -26,8 +26,8 @@ export class TeamEntity extends AbstractEntity {
     @PrimaryGeneratedColumn('uuid', { primaryKeyConstraintName: 'PK_team_id' })
     id!: Uuid;
 
-    @Column({ name: 'user_id', type: 'uuid', nullable: false })
-    userId: string;
+    @Column({ name: 'user_id', type: 'uuid', nullable: true })
+    userId: string | null;
 
     @OneToOne(() => UserEntity)
     @JoinColumn({ name: 'user_id' })

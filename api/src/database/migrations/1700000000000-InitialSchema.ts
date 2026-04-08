@@ -1,7 +1,7 @@
 import { MigrationInterface, QueryRunner } from 'typeorm';
 
-export class InitialSchema1764595173536 implements MigrationInterface {
-  name = 'InitialSchema1764595173536';
+export class InitialSchema1700000000000 implements MigrationInterface {
+  name = 'InitialSchema1700000000000';
 
   public async up(queryRunner: QueryRunner): Promise<void> {
     // Enable UUID extension
@@ -47,7 +47,7 @@ export class InitialSchema1764595173536 implements MigrationInterface {
         `);
 
     await queryRunner.query(`
-            ALTER TABLE "session" ADD CONSTRAINT "FK_session_user" 
+            ALTER TABLE "session" ADD CONSTRAINT "FK_session_user"
             FOREIGN KEY ("user_id") REFERENCES "user"("id") ON DELETE CASCADE ON UPDATE NO ACTION
         `);
 
@@ -57,8 +57,13 @@ export class InitialSchema1764595173536 implements MigrationInterface {
                 "id" uuid NOT NULL DEFAULT uuid_generate_v4(),
                 "name" character varying NOT NULL,
                 "tier" integer NOT NULL DEFAULT '1',
-                "division" integer NOT NULL DEFAULT '1',
+                "tierDivision" integer NOT NULL DEFAULT '1',
+                "maxTeams" integer NOT NULL DEFAULT '16',
+                "promotion_slots" integer NOT NULL DEFAULT '1',
+                "playoff_slots" integer NOT NULL DEFAULT '4',
+                "relegation_slots" integer NOT NULL DEFAULT '4',
                 "status" character varying NOT NULL DEFAULT 'active',
+                "parent_league_id" uuid,
                 "created_at" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
                 "updated_at" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
                 "deleted_at" TIMESTAMP WITH TIME ZONE,
@@ -66,21 +71,31 @@ export class InitialSchema1764595173536 implements MigrationInterface {
             )
         `);
 
+    await queryRunner.query(`
+            ALTER TABLE "league" ADD CONSTRAINT "FK_league_parent"
+            FOREIGN KEY ("parent_league_id") REFERENCES "league"("id") ON DELETE SET NULL ON UPDATE NO ACTION
+        `);
+
     // Create team table
     await queryRunner.query(`
             CREATE TABLE "team" (
                 "id" uuid NOT NULL DEFAULT uuid_generate_v4(),
-                "user_id" uuid NOT NULL,
+                "user_id" uuid,
                 "league_id" uuid,
                 "name" character varying NOT NULL,
+                "nationality" character varying(2),
                 "logo_url" character varying NOT NULL DEFAULT '',
                 "jersey_color_primary" character varying NOT NULL DEFAULT '#FF0000',
                 "jersey_color_secondary" character varying NOT NULL DEFAULT '#FFFFFF',
+                "bench_config" jsonb,
+                "is_bot" boolean NOT NULL DEFAULT true,
+                "bot_level" integer NOT NULL DEFAULT 5,
+                "training_physical_intensity" double precision NOT NULL DEFAULT 0.1,
+                "elo_rating" integer NOT NULL DEFAULT 1500,
                 "created_at" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
                 "updated_at" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
                 "deleted_at" TIMESTAMP WITH TIME ZONE,
-                CONSTRAINT "PK_team_id" PRIMARY KEY ("id"),
-                CONSTRAINT "UQ_team_user" UNIQUE ("user_id")
+                CONSTRAINT "PK_team_id" PRIMARY KEY ("id")
             )
         `);
 
@@ -89,13 +104,52 @@ export class InitialSchema1764595173536 implements MigrationInterface {
         `);
 
     await queryRunner.query(`
-            ALTER TABLE "team" ADD CONSTRAINT "FK_team_user" 
+            ALTER TABLE "team" ADD CONSTRAINT "FK_team_user"
             FOREIGN KEY ("user_id") REFERENCES "user"("id") ON DELETE CASCADE ON UPDATE NO ACTION
         `);
 
     await queryRunner.query(`
-            ALTER TABLE "team" ADD CONSTRAINT "FK_team_league" 
+            ALTER TABLE "team" ADD CONSTRAINT "FK_team_league"
             FOREIGN KEY ("league_id") REFERENCES "league"("id") ON DELETE SET NULL ON UPDATE NO ACTION
+        `);
+
+    // Create stadium table
+    await queryRunner.query(`
+            CREATE TABLE "stadium" (
+                "id" uuid NOT NULL DEFAULT uuid_generate_v4(),
+                "team_id" uuid NOT NULL,
+                "capacity" integer NOT NULL DEFAULT 5000,
+                "is_built" boolean NOT NULL DEFAULT true,
+                "created_at" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
+                "updated_at" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
+                "deleted_at" TIMESTAMP WITH TIME ZONE,
+                CONSTRAINT "PK_stadium_id" PRIMARY KEY ("id")
+            )
+        `);
+
+    await queryRunner.query(`
+            ALTER TABLE "stadium" ADD CONSTRAINT "FK_stadium_team"
+            FOREIGN KEY ("team_id") REFERENCES "team"("id") ON DELETE CASCADE ON UPDATE NO ACTION
+        `);
+
+    // Create fan table
+    await queryRunner.query(`
+            CREATE TABLE "fan" (
+                "id" uuid NOT NULL DEFAULT uuid_generate_v4(),
+                "team_id" uuid NOT NULL,
+                "total_fans" integer NOT NULL DEFAULT 10000,
+                "fan_emotion" integer NOT NULL DEFAULT 50,
+                "recent_form" character varying(10) NOT NULL DEFAULT '',
+                "created_at" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
+                "updated_at" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
+                "deleted_at" TIMESTAMP WITH TIME ZONE,
+                CONSTRAINT "PK_fan_id" PRIMARY KEY ("id")
+            )
+        `);
+
+    await queryRunner.query(`
+            ALTER TABLE "fan" ADD CONSTRAINT "FK_fan_team"
+            FOREIGN KEY ("team_id") REFERENCES "team"("id") ON DELETE CASCADE ON UPDATE NO ACTION
         `);
 
     // Create player table
@@ -104,14 +158,29 @@ export class InitialSchema1764595173536 implements MigrationInterface {
                 "id" uuid NOT NULL DEFAULT uuid_generate_v4(),
                 "team_id" uuid,
                 "name" character varying NOT NULL,
+                "nationality" character varying(2),
                 "birthday" date,
-                "appearance" jsonb NOT NULL,
-                "position" character varying,
+                "is_youth" boolean NOT NULL DEFAULT false,
+                "appearance" jsonb NOT NULL DEFAULT '{}',
                 "is_goalkeeper" boolean NOT NULL DEFAULT false,
                 "on_transfer" boolean NOT NULL DEFAULT false,
-                "attributes" jsonb NOT NULL,
-                "experience" double precision NOT NULL DEFAULT '0',
-                "form" integer NOT NULL DEFAULT '5',
+                "current_skills" jsonb NOT NULL DEFAULT '{"physical":{},"technical":{},"mental":{}}',
+                "potential_skills" jsonb NOT NULL DEFAULT '{"physical":{},"technical":{},"mental":{}}',
+                "potential_ability" integer NOT NULL DEFAULT 50,
+                "potential_tier" character varying(20) NOT NULL DEFAULT 'LOW',
+                "training_slot" character varying(20) NOT NULL DEFAULT 'REGULAR',
+                "training_category" character varying(20),
+                "training_skill" double precision NOT NULL DEFAULT 0,
+                "experience" double precision NOT NULL DEFAULT 0,
+                "form" integer NOT NULL DEFAULT 5,
+                "match_minutes" integer NOT NULL DEFAULT 0,
+                "stamina" double precision NOT NULL DEFAULT 3.0,
+                "current_wage" integer NOT NULL DEFAULT 2000,
+                "career_stats" jsonb NOT NULL DEFAULT '{}',
+                "current_injury_value" integer NOT NULL DEFAULT 0,
+                "injury_type" character varying(20),
+                "injury_state" character varying(10),
+                "injured_at" TIMESTAMP WITH TIME ZONE,
                 "created_at" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
                 "updated_at" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
                 "deleted_at" TIMESTAMP WITH TIME ZONE,
@@ -120,7 +189,7 @@ export class InitialSchema1764595173536 implements MigrationInterface {
         `);
 
     await queryRunner.query(`
-            ALTER TABLE "player" ADD CONSTRAINT "FK_player_team" 
+            ALTER TABLE "player" ADD CONSTRAINT "FK_player_team"
             FOREIGN KEY ("team_id") REFERENCES "team"("id") ON DELETE SET NULL ON UPDATE NO ACTION
         `);
 
@@ -138,7 +207,7 @@ export class InitialSchema1764595173536 implements MigrationInterface {
         `);
 
     await queryRunner.query(`
-            ALTER TABLE "finance" ADD CONSTRAINT "FK_finance_team" 
+            ALTER TABLE "finance" ADD CONSTRAINT "FK_finance_team"
             FOREIGN KEY ("team_id") REFERENCES "team"("id") ON DELETE CASCADE ON UPDATE NO ACTION
         `);
 
@@ -156,7 +225,7 @@ export class InitialSchema1764595173536 implements MigrationInterface {
         `);
 
     await queryRunner.query(`
-            ALTER TABLE "transaction" ADD CONSTRAINT "FK_transaction_team" 
+            ALTER TABLE "transaction" ADD CONSTRAINT "FK_transaction_team"
             FOREIGN KEY ("team_id") REFERENCES "team"("id") ON DELETE CASCADE ON UPDATE NO ACTION
         `);
 
@@ -181,17 +250,17 @@ export class InitialSchema1764595173536 implements MigrationInterface {
         `);
 
     await queryRunner.query(`
-            ALTER TABLE "auction" ADD CONSTRAINT "FK_auction_player" 
+            ALTER TABLE "auction" ADD CONSTRAINT "FK_auction_player"
             FOREIGN KEY ("player_id") REFERENCES "player"("id") ON DELETE CASCADE ON UPDATE NO ACTION
         `);
 
     await queryRunner.query(`
-            ALTER TABLE "auction" ADD CONSTRAINT "FK_auction_team" 
+            ALTER TABLE "auction" ADD CONSTRAINT "FK_auction_team"
             FOREIGN KEY ("team_id") REFERENCES "team"("id") ON DELETE CASCADE ON UPDATE NO ACTION
         `);
 
     await queryRunner.query(`
-            ALTER TABLE "auction" ADD CONSTRAINT "FK_auction_current_bidder" 
+            ALTER TABLE "auction" ADD CONSTRAINT "FK_auction_current_bidder"
             FOREIGN KEY ("current_bidder_id") REFERENCES "team"("id") ON DELETE SET NULL ON UPDATE NO ACTION
         `);
 
@@ -211,7 +280,7 @@ export class InitialSchema1764595173536 implements MigrationInterface {
         `);
 
     await queryRunner.query(`
-            ALTER TABLE "player_history" ADD CONSTRAINT "FK_player_history_player" 
+            ALTER TABLE "player_history" ADD CONSTRAINT "FK_player_history_player"
             FOREIGN KEY ("player_id") REFERENCES "player"("id") ON DELETE CASCADE ON UPDATE NO ACTION
         `);
 
@@ -231,22 +300,22 @@ export class InitialSchema1764595173536 implements MigrationInterface {
         `);
 
     await queryRunner.query(`
-            ALTER TABLE "player_transaction" ADD CONSTRAINT "FK_player_transaction_player" 
+            ALTER TABLE "player_transaction" ADD CONSTRAINT "FK_player_transaction_player"
             FOREIGN KEY ("player_id") REFERENCES "player"("id") ON DELETE CASCADE ON UPDATE NO ACTION
         `);
 
     await queryRunner.query(`
-            ALTER TABLE "player_transaction" ADD CONSTRAINT "FK_player_transaction_from_team" 
+            ALTER TABLE "player_transaction" ADD CONSTRAINT "FK_player_transaction_from_team"
             FOREIGN KEY ("from_team_id") REFERENCES "team"("id") ON DELETE CASCADE ON UPDATE NO ACTION
         `);
 
     await queryRunner.query(`
-            ALTER TABLE "player_transaction" ADD CONSTRAINT "FK_player_transaction_to_team" 
+            ALTER TABLE "player_transaction" ADD CONSTRAINT "FK_player_transaction_to_team"
             FOREIGN KEY ("to_team_id") REFERENCES "team"("id") ON DELETE CASCADE ON UPDATE NO ACTION
         `);
 
     await queryRunner.query(`
-            ALTER TABLE "player_transaction" ADD CONSTRAINT "FK_player_transaction_auction" 
+            ALTER TABLE "player_transaction" ADD CONSTRAINT "FK_player_transaction_auction"
             FOREIGN KEY ("auction_id") REFERENCES "auction"("id") ON DELETE SET NULL ON UPDATE NO ACTION
         `);
 
@@ -268,12 +337,12 @@ export class InitialSchema1764595173536 implements MigrationInterface {
         `);
 
     await queryRunner.query(`
-            ALTER TABLE "match" ADD CONSTRAINT "FK_match_home_team" 
+            ALTER TABLE "match" ADD CONSTRAINT "FK_match_home_team"
             FOREIGN KEY ("home_team_id") REFERENCES "team"("id") ON DELETE CASCADE ON UPDATE NO ACTION
         `);
 
     await queryRunner.query(`
-            ALTER TABLE "match" ADD CONSTRAINT "FK_match_away_team" 
+            ALTER TABLE "match" ADD CONSTRAINT "FK_match_away_team"
             FOREIGN KEY ("away_team_id") REFERENCES "team"("id") ON DELETE CASCADE ON UPDATE NO ACTION
         `);
 
@@ -285,12 +354,15 @@ export class InitialSchema1764595173536 implements MigrationInterface {
                 "team_id" uuid NOT NULL,
                 "season" integer NOT NULL DEFAULT '1',
                 "position" integer NOT NULL DEFAULT '0',
+                "played" integer NOT NULL DEFAULT '0',
                 "points" integer NOT NULL DEFAULT '0',
                 "wins" integer NOT NULL DEFAULT '0',
                 "draws" integer NOT NULL DEFAULT '0',
                 "losses" integer NOT NULL DEFAULT '0',
                 "goals_for" integer NOT NULL DEFAULT '0',
                 "goals_against" integer NOT NULL DEFAULT '0',
+                "goal_difference" integer NOT NULL DEFAULT '0',
+                "recent_form" character varying(10) NOT NULL DEFAULT '',
                 "created_at" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
                 "updated_at" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
                 CONSTRAINT "PK_league_standing_id" PRIMARY KEY ("id"),
@@ -299,13 +371,79 @@ export class InitialSchema1764595173536 implements MigrationInterface {
         `);
 
     await queryRunner.query(`
-            ALTER TABLE "league_standing" ADD CONSTRAINT "FK_league_standing_league" 
+            ALTER TABLE "league_standing" ADD CONSTRAINT "FK_league_standing_league"
             FOREIGN KEY ("league_id") REFERENCES "league"("id") ON DELETE CASCADE ON UPDATE NO ACTION
         `);
 
     await queryRunner.query(`
-            ALTER TABLE "league_standing" ADD CONSTRAINT "FK_league_standing_team" 
+            ALTER TABLE "league_standing" ADD CONSTRAINT "FK_league_standing_team"
             FOREIGN KEY ("team_id") REFERENCES "team"("id") ON DELETE CASCADE ON UPDATE NO ACTION
+        `);
+
+    // Create youth_league table
+    await queryRunner.query(`
+            CREATE TABLE "youth_league" (
+                "id" uuid NOT NULL DEFAULT uuid_generate_v4(),
+                "name" character varying NOT NULL,
+                "parent_tier" integer NOT NULL,
+                "max_teams" integer NOT NULL DEFAULT '16',
+                "status" character varying NOT NULL DEFAULT 'active',
+                "created_at" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
+                "updated_at" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
+                "deleted_at" TIMESTAMP WITH TIME ZONE,
+                CONSTRAINT "PK_youth_league_id" PRIMARY KEY ("id")
+            )
+        `);
+
+    await queryRunner.query(`
+            CREATE TABLE "youth_team" (
+                "id" uuid NOT NULL DEFAULT uuid_generate_v4(),
+                "team_id" uuid NOT NULL,
+                "youth_league_id" uuid NOT NULL,
+                "name" character varying NOT NULL,
+                "created_at" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
+                "updated_at" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
+                "deleted_at" TIMESTAMP WITH TIME ZONE,
+                CONSTRAINT "PK_youth_team_id" PRIMARY KEY ("id")
+            )
+        `);
+
+    await queryRunner.query(`
+            CREATE TABLE "youth_match" (
+                "id" uuid NOT NULL DEFAULT uuid_generate_v4(),
+                "youth_league_id" uuid NOT NULL,
+                "season" integer NOT NULL,
+                "week" integer NOT NULL,
+                "home_youth_team_id" uuid NOT NULL,
+                "away_youth_team_id" uuid NOT NULL,
+                "scheduled_at" TIMESTAMP NOT NULL,
+                "status" character varying NOT NULL DEFAULT 'scheduled',
+                "home_score" integer,
+                "away_score" integer,
+                "simulation_completed_at" TIMESTAMP,
+                "tactics_locked_at" TIMESTAMP,
+                "actual_end_time" TIMESTAMP,
+                "tactics_locked" boolean NOT NULL DEFAULT false,
+                "home_forfeit" boolean NOT NULL DEFAULT false,
+                "away_forfeit" boolean NOT NULL DEFAULT false,
+                "started_at" TIMESTAMP,
+                "completed_at" TIMESTAMP,
+                "first_half_injury_time" integer,
+                "second_half_injury_time" integer,
+                "has_extra_time" boolean NOT NULL DEFAULT false,
+                "requires_winner" boolean NOT NULL DEFAULT false,
+                "extra_time_first_half_injury" integer,
+                "extra_time_second_half_injury" integer,
+                "has_penalty_shootout" boolean NOT NULL DEFAULT false,
+                "created_at" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
+                "updated_at" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
+                "deleted_at" TIMESTAMP WITH TIME ZONE,
+                CONSTRAINT "PK_youth_match_id" PRIMARY KEY ("id")
+            )
+        `);
+
+    await queryRunner.query(`
+            CREATE INDEX "IDX_youth_match_league_season_week" ON "youth_match" ("youth_league_id", "season", "week")
         `);
 
     // Create season_result table
@@ -328,7 +466,7 @@ export class InitialSchema1764595173536 implements MigrationInterface {
         `);
 
     await queryRunner.query(`
-            ALTER TABLE "season_result" ADD CONSTRAINT "FK_season_result_team" 
+            ALTER TABLE "season_result" ADD CONSTRAINT "FK_season_result_team"
             FOREIGN KEY ("team_id") REFERENCES "team"("id") ON DELETE CASCADE ON UPDATE NO ACTION
         `);
   }
@@ -390,10 +528,21 @@ export class InitialSchema1764595173536 implements MigrationInterface {
       `ALTER TABLE "team" DROP CONSTRAINT "FK_team_user"`,
     );
     await queryRunner.query(
+      `ALTER TABLE "stadium" DROP CONSTRAINT "FK_stadium_team"`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE "fan" DROP CONSTRAINT "FK_fan_team"`,
+    );
+    await queryRunner.query(
       `ALTER TABLE "session" DROP CONSTRAINT "FK_session_user"`,
     );
 
     // Drop tables
+    await queryRunner.query(`DROP TABLE "youth_match"`);
+    await queryRunner.query(`DROP TABLE "youth_team"`);
+    await queryRunner.query(`DROP TABLE "youth_league"`);
+    await queryRunner.query(`DROP TABLE "stadium"`);
+    await queryRunner.query(`DROP TABLE "fan"`);
     await queryRunner.query(`DROP TABLE "season_result"`);
     await queryRunner.query(`DROP TABLE "league_standing"`);
     await queryRunner.query(`DROP TABLE "match"`);
@@ -404,6 +553,9 @@ export class InitialSchema1764595173536 implements MigrationInterface {
     await queryRunner.query(`DROP TABLE "finance"`);
     await queryRunner.query(`DROP TABLE "player"`);
     await queryRunner.query(`DROP TABLE "team"`);
+    await queryRunner.query(
+      `ALTER TABLE "league" DROP CONSTRAINT "FK_league_parent"`,
+    );
     await queryRunner.query(`DROP TABLE "league"`);
     await queryRunner.query(`DROP TABLE "session"`);
     await queryRunner.query(`DROP TABLE "user"`);
