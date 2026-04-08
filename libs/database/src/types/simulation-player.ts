@@ -103,8 +103,8 @@ export interface SimulationPlayer {
 /**
  * Calculate injury penalty based on injury state.
  * - null: full ability (100%)
- * - 'light': can play at 95%
- * - 'heavy': cannot play (0%)
+ * - 'minor': can play at 95%
+ * - 'severe': cannot play (0%)
  */
 export function calculateInjuryPenalty(
     injuryState: string | null | undefined,
@@ -114,11 +114,11 @@ export function calculateInjuryPenalty(
         return 1.0; // No injury, full ability
     }
 
-    if (injuryState === 'light') {
+    if (injuryState === 'minor') {
         return 0.95; // Recovering, can play at 95%
     }
 
-    // 'heavy' or other states - cannot play
+    // 'severe' or other states - cannot play
     return 0;
 }
 

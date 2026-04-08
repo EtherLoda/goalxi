@@ -2,184 +2,206 @@ export type InjuryType = 'muscle' | 'ligament' | 'joint' | 'head' | 'other';
 export type InjurySeverity = 'mild' | 'moderate' | 'severe';
 
 export interface InjuryResult {
-    willInjure: boolean;
-    injuryType: InjuryType | null;
-    severity: InjurySeverity | null;
-    injuryValue: number | null;
-    estimatedMinDays: number | null;
-    estimatedMaxDays: number | null;
+  willInjure: boolean;
+  injuryType: InjuryType | null;
+  severity: InjurySeverity | null;
+  injuryValue: number | null;
+  estimatedMinDays: number | null;
+  estimatedMaxDays: number | null;
 }
 
 export interface InjuryEventData {
-    playerId: string;
-    injuryType: InjuryType;
-    severity: InjurySeverity;
-    injuryValue: number;
-    estimatedRecoveryDays: { min: number; max: number };
-    treatmentTime: number; // seconds on pitch
+  playerId: string;
+  injuryType: InjuryType;
+  severity: InjurySeverity;
+  injuryValue: number;
+  estimatedRecoveryDays: { min: number; max: number };
+  treatmentTime: number; // seconds on pitch
 }
 
 export class InjurySystem {
-    // Base injury probability per match (0.5%)
-    private static readonly BASE_INJURY_CHANCE = 0.005;
+  // Base injury probability per match (0.5%)
+  private static readonly BASE_INJURY_CHANCE = 0.005;
 
-    // Injury value ranges by type and severity
-    private static readonly INJURY_VALUES: Record<InjuryType, Record<InjurySeverity, [number, number]>> = {
-        muscle: { mild: [20, 40], moderate: [50, 80], severe: [100, 150] },
-        ligament: { mild: [30, 50], moderate: [60, 100], severe: [120, 180] },
-        joint: { mild: [25, 45], moderate: [55, 90], severe: [110, 160] },
-        head: { mild: [35, 55], moderate: [70, 110], severe: [130, 190] },
-        other: { mild: [20, 40], moderate: [50, 80], severe: [100, 150] },
-    };
+  // Injury value ranges by type and severity
+  private static readonly INJURY_VALUES: Record<
+    InjuryType,
+    Record<InjurySeverity, [number, number]>
+  > = {
+    muscle: { mild: [20, 40], moderate: [50, 80], severe: [100, 150] },
+    ligament: { mild: [30, 50], moderate: [60, 100], severe: [120, 180] },
+    joint: { mild: [25, 45], moderate: [55, 90], severe: [110, 160] },
+    head: { mild: [35, 55], moderate: [70, 110], severe: [130, 190] },
+    other: { mild: [20, 40], moderate: [50, 80], severe: [100, 150] },
+  };
 
-    // Treatment time on pitch (seconds)
-    private static readonly TREATMENT_TIME: Record<InjurySeverity, number> = {
-        mild: 30,    // 30 seconds
-        moderate: 90, // 90 seconds (1.5 min)
-        severe: 180, // 180 seconds (3 min)
-    };
+  // Treatment time on pitch (seconds)
+  private static readonly TREATMENT_TIME: Record<InjurySeverity, number> = {
+    mild: 30, // 30 seconds
+    moderate: 90, // 90 seconds (1.5 min)
+    severe: 180, // 180 seconds (3 min)
+  };
 
-    /**
-     * Calculate if a player will get injured based on various factors.
-     *
-     * @param baseChance - Base probability (already calculated from action type)
-     * @param playerAge - Player's age (not used for injury chance anymore, kept for signature)
-     * @param playerStamina - Player's stamina level [1-6]
-     * @param isHomeMatch - Whether the match is at home
-     * @param doctorLevel - Team doctor level (0 = no doctor)
-     */
-    static calculateInjuryChance(
-        baseChance: number,
-        playerAge: number,
-        playerStamina: number,
-        isHomeMatch: boolean = true,
-        doctorLevel: number = 0
-    ): number {
-        let chance = baseChance;
+  /**
+   * Calculate if a player will get injured based on various factors.
+   *
+   * @param baseChance - Base probability (already calculated from action type)
+   * @param playerAge - Player's age (not used for injury chance anymore, kept for signature)
+   * @param playerStamina - Player's stamina level [1-6]
+   * @param isHomeMatch - Whether the match is at home
+   * @param doctorLevel - Team doctor level (0 = no doctor)
+   * @param injuryState - Player's current injury state ('minor' increases risk)
+   */
+  static calculateInjuryChance(
+    baseChance: number,
+    playerAge: number,
+    playerStamina: number,
+    isHomeMatch: boolean = true,
+    doctorLevel: number = 0,
+    injuryState?: 'minor' | 'severe' | null,
+  ): number {
+    let chance = baseChance;
 
-        // Stamina multiplier (low stamina = higher injury risk)
-        const staminaMultiplier = playerStamina <= 2 ? 1.5
-            : playerStamina <= 3 ? 1.2
-            : playerStamina <= 4 ? 1.0
+    // Stamina multiplier (low stamina = higher injury risk)
+    const staminaMultiplier =
+      playerStamina <= 2
+        ? 1.5
+        : playerStamina <= 3
+          ? 1.2
+          : playerStamina <= 4
+            ? 1.0
             : 0.8;
-        chance *= staminaMultiplier;
+    chance *= staminaMultiplier;
 
-        // Home advantage slightly reduces injury risk
-        if (isHomeMatch) {
-            chance *= 0.9;
-        }
-
-        // Team doctor reduces injury chance by 10% per level
-        if (doctorLevel > 0) {
-            chance *= (1 - 0.1 * doctorLevel);
-        }
-
-        return chance;
+    // Minor injury increases injury probability (already injured body is more vulnerable)
+    if (injuryState === 'minor') {
+      chance *= 2.0;
     }
 
-    /**
-     * Determine injury type based on the action that caused it.
-     */
-    static determineInjuryType(actionType: 'tackle' | 'sprint' | 'jump' | 'collision' | 'other'): InjuryType {
-        const typeMap: Record<string, InjuryType> = {
-            tackle: 'muscle',
-            sprint: 'muscle',
-            jump: 'joint',
-            collision: 'head',
-            other: 'other',
-        };
-        return typeMap[actionType];
+    // Home advantage slightly reduces injury risk
+    if (isHomeMatch) {
+      chance *= 0.9;
     }
 
-    /**
-     * Determine injury severity based on random chance.
-     */
-    static determineSeverity(): InjurySeverity {
-        const roll = Math.random();
-        if (roll < 0.6) return 'mild'; // 60% mild
-        if (roll < 0.9) return 'moderate'; // 30% moderate
-        return 'severe'; // 10% severe
+    // Team doctor reduces injury chance by 10% per level
+    if (doctorLevel > 0) {
+      chance *= 1 - 0.1 * doctorLevel;
     }
 
-    /**
-     * Generate injury result for an action that could cause injury.
-     */
-    static generateInjury(
-        actionType: 'tackle' | 'sprint' | 'jump' | 'collision' | 'other',
-        playerAge: number,
-        playerStamina: number,
-        isHomeMatch: boolean = true,
-        doctorLevel: number = 0
-    ): InjuryResult {
-        // Base chance varies by action type
-        const actionChance: Record<string, number> = {
-            tackle: 0.02,   // 2% chance on tackle
-            sprint: 0.015,  // 1.5% chance on sprint
-            jump: 0.01,     // 1% chance on jump
-            collision: 0.03, // 3% chance on collision
-            other: 0.005,   // 0.5% chance on other actions
-        };
+    return chance;
+  }
 
-        const chance = this.calculateInjuryChance(
-            actionChance[actionType],
-            playerAge,
-            playerStamina,
-            isHomeMatch,
-            doctorLevel
-        );
+  /**
+   * Determine injury type based on the action that caused it.
+   */
+  static determineInjuryType(
+    actionType: 'tackle' | 'sprint' | 'jump' | 'collision' | 'other',
+  ): InjuryType {
+    const typeMap: Record<string, InjuryType> = {
+      tackle: 'muscle',
+      sprint: 'muscle',
+      jump: 'joint',
+      collision: 'head',
+      other: 'other',
+    };
+    return typeMap[actionType];
+  }
 
-        if (Math.random() > chance) {
-            return {
-                willInjure: false,
-                injuryType: null,
-                severity: null,
-                injuryValue: null,
-                estimatedMinDays: null,
-                estimatedMaxDays: null,
-            };
-        }
+  /**
+   * Determine injury severity based on random chance.
+   */
+  static determineSeverity(): InjurySeverity {
+    const roll = Math.random();
+    if (roll < 0.6) return 'mild'; // 60% mild
+    if (roll < 0.9) return 'moderate'; // 30% moderate
+    return 'severe'; // 10% severe
+  }
 
-        const injuryType = this.determineInjuryType(actionType);
-        const severity = this.determineSeverity();
-        const [minValue, maxValue] = this.INJURY_VALUES[injuryType][severity];
-        const injuryValue = Math.floor(Math.random() * (maxValue - minValue + 1)) + minValue;
+  /**
+   * Generate injury result for an action that could cause injury.
+   */
+  static generateInjury(
+    actionType: 'tackle' | 'sprint' | 'jump' | 'collision' | 'other',
+    playerAge: number,
+    playerStamina: number,
+    isHomeMatch: boolean = true,
+    doctorLevel: number = 0,
+    injuryState?: 'minor' | 'severe' | null,
+  ): InjuryResult {
+    // Base chance varies by action type
+    const actionChance: Record<string, number> = {
+      tackle: 0.02, // 2% chance on tackle
+      sprint: 0.015, // 1.5% chance on sprint
+      jump: 0.01, // 1% chance on jump
+      collision: 0.03, // 3% chance on collision
+      other: 0.005, // 0.5% chance on other actions
+    };
 
-        // Calculate estimated recovery days
-        // Range comes from daily random fluctuation, not age
-        const recoveryRange = this.calculateRecoveryRange(injuryValue);
+    const chance = this.calculateInjuryChance(
+      actionChance[actionType],
+      playerAge,
+      playerStamina,
+      isHomeMatch,
+      doctorLevel,
+      injuryState,
+    );
 
-        return {
-            willInjure: true,
-            injuryType,
-            severity,
-            injuryValue,
-            estimatedMinDays: recoveryRange.min,
-            estimatedMaxDays: recoveryRange.max,
-        };
+    if (Math.random() > chance) {
+      return {
+        willInjure: false,
+        injuryType: null,
+        severity: null,
+        injuryValue: null,
+        estimatedMinDays: null,
+        estimatedMaxDays: null,
+      };
     }
 
-    /**
-     * Get treatment time for an injury.
-     */
-    static getTreatmentTime(severity: InjurySeverity): number {
-        return this.TREATMENT_TIME[severity];
-    }
+    const injuryType = this.determineInjuryType(actionType);
+    const severity = this.determineSeverity();
+    const [minValue, maxValue] = this.INJURY_VALUES[injuryType][severity];
+    const injuryValue =
+      Math.floor(Math.random() * (maxValue - minValue + 1)) + minValue;
 
-    /**
-     * Get the expected recovery range for a given injury value.
-     * Range comes from daily random fluctuation.
-     *
-     * @param injuryValue - Current injury value
-     * @returns { minDays, maxDays } - Estimated recovery range
-     */
-    static calculateRecoveryRange(injuryValue: number): { min: number; max: number } {
-        // Base recovery range (without age factor for estimation)
-        const minDailyRecovery = 3 * 0.85;  // Min fluctuation
-        const maxDailyRecovery = 12 * 1.15; // Max fluctuation
+    // Calculate estimated recovery days
+    // Range comes from daily random fluctuation, not age
+    const recoveryRange = this.calculateRecoveryRange(injuryValue);
 
-        const minDays = Math.ceil(injuryValue / maxDailyRecovery);
-        const maxDays = Math.ceil(injuryValue / minDailyRecovery);
+    return {
+      willInjure: true,
+      injuryType,
+      severity,
+      injuryValue,
+      estimatedMinDays: recoveryRange.min,
+      estimatedMaxDays: recoveryRange.max,
+    };
+  }
 
-        return { min: Math.max(1, minDays), max: Math.max(1, maxDays) };
-    }
+  /**
+   * Get treatment time for an injury.
+   */
+  static getTreatmentTime(severity: InjurySeverity): number {
+    return this.TREATMENT_TIME[severity];
+  }
+
+  /**
+   * Get the expected recovery range for a given injury value.
+   * Range comes from daily random fluctuation.
+   *
+   * @param injuryValue - Current injury value
+   * @returns { minDays, maxDays } - Estimated recovery range
+   */
+  static calculateRecoveryRange(injuryValue: number): {
+    min: number;
+    max: number;
+  } {
+    // Base recovery range (without age factor for estimation)
+    const minDailyRecovery = 3 * 0.85; // Min fluctuation
+    const maxDailyRecovery = 12 * 1.15; // Max fluctuation
+
+    const minDays = Math.ceil(injuryValue / maxDailyRecovery);
+    const maxDays = Math.ceil(injuryValue / minDailyRecovery);
+
+    return { min: Math.max(1, minDays), max: Math.max(1, maxDays) };
+  }
 }

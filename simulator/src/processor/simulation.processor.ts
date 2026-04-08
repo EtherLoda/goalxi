@@ -1,586 +1,772 @@
-
 import { Processor, WorkerHost, OnWorkerEvent } from '@nestjs/bullmq';
 import { Job } from 'bullmq';
 import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, DataSource, In } from 'typeorm';
 import {
-    MatchEntity,
-    MatchEventEntity,
-    MatchTeamStatsEntity,
-    MatchStatus,
-    MatchTacticsEntity,
-    PlayerEntity,
-    TeamEntity,
-    MatchType,
-    GAME_SETTINGS,
-    MatchPhase,
-    MatchLane,
-    toSimulationPlayer,
-    InjuryEntity,
-    StaffEntity,
-    StaffRole,
-    calculateMatchExperience,
-    addExperience,
+  MatchEntity,
+  MatchEventEntity,
+  MatchTeamStatsEntity,
+  MatchStatus,
+  MatchTacticsEntity,
+  PlayerEntity,
+  TeamEntity,
+  MatchType,
+  GAME_SETTINGS,
+  MatchPhase,
+  MatchLane,
+  toSimulationPlayer,
+  InjuryEntity,
+  StaffEntity,
+  StaffRole,
+  calculateMatchExperience,
+  addExperience,
 } from '@goalxi/database';
 import { MatchEngine, MatchEvent } from '../engine/match.engine';
 import { Team } from '../engine/classes/Team';
-import { TacticalInstruction, TacticalPlayer } from '../engine/types/simulation.types';
+import {
+  TacticalInstruction,
+  TacticalPlayer,
+} from '../engine/types/simulation.types';
 
 interface SimulationJobData {
-    matchId: string;
-    homeForfeit?: boolean;
-    awayForfeit?: boolean;
-    weather?: string;
+  matchId: string;
+  homeForfeit?: boolean;
+  awayForfeit?: boolean;
+  weather?: string;
 }
 
 @Processor('match-simulation')
 @Injectable()
 export class SimulationProcessor extends WorkerHost {
-    private readonly logger = new Logger(SimulationProcessor.name);
+  private readonly logger = new Logger(SimulationProcessor.name);
 
-    constructor(
-        @InjectRepository(MatchEntity)
-        private readonly matchRepository: Repository<MatchEntity>,
-        @InjectRepository(MatchEventEntity)
-        private readonly eventRepository: Repository<MatchEventEntity>,
-        @InjectRepository(MatchTeamStatsEntity)
-        private readonly statsRepository: Repository<MatchTeamStatsEntity>,
-        @InjectRepository(MatchTacticsEntity)
-        private readonly tacticsRepository: Repository<MatchTacticsEntity>,
-        @InjectRepository(PlayerEntity)
-        private readonly playerRepository: Repository<PlayerEntity>,
-        @InjectRepository(TeamEntity)
-        private readonly teamRepository: Repository<TeamEntity>,
-        @InjectRepository(InjuryEntity)
-        private readonly injuryRepository: Repository<InjuryEntity>,
-        @InjectRepository(StaffEntity)
-        private readonly staffRepository: Repository<StaffEntity>,
-        private readonly dataSource: DataSource,
-    ) {
-        super();
+  constructor(
+    @InjectRepository(MatchEntity)
+    private readonly matchRepository: Repository<MatchEntity>,
+    @InjectRepository(MatchEventEntity)
+    private readonly eventRepository: Repository<MatchEventEntity>,
+    @InjectRepository(MatchTeamStatsEntity)
+    private readonly statsRepository: Repository<MatchTeamStatsEntity>,
+    @InjectRepository(MatchTacticsEntity)
+    private readonly tacticsRepository: Repository<MatchTacticsEntity>,
+    @InjectRepository(PlayerEntity)
+    private readonly playerRepository: Repository<PlayerEntity>,
+    @InjectRepository(TeamEntity)
+    private readonly teamRepository: Repository<TeamEntity>,
+    @InjectRepository(InjuryEntity)
+    private readonly injuryRepository: Repository<InjuryEntity>,
+    @InjectRepository(StaffEntity)
+    private readonly staffRepository: Repository<StaffEntity>,
+    private readonly dataSource: DataSource,
+  ) {
+    super();
+  }
+
+  async process(job: Job<SimulationJobData>): Promise<void> {
+    const { matchId, homeForfeit, awayForfeit, weather } = job.data;
+
+    this.logger.log(`[Simulator] Processing match ${matchId}`);
+
+    const match = await this.matchRepository.findOne({
+      where: { id: matchId },
+      relations: ['homeTeam', 'awayTeam'],
+    });
+
+    if (!match) {
+      this.logger.error(`Match ${matchId} not found`);
+      return;
     }
 
-    async process(job: Job<SimulationJobData>): Promise<void> {
-        const { matchId, homeForfeit, awayForfeit, weather } = job.data;
+    if (match.status === MatchStatus.COMPLETED) {
+      this.logger.warn(`Match ${matchId} already completed.`);
+      return;
+    }
 
-        this.logger.log(`[Simulator] Processing match ${matchId}`);
+    if (homeForfeit || awayForfeit) {
+      await this.handleForfeit(match, !!homeForfeit, !!awayForfeit);
+    } else {
+      await this.runSimulation(match, weather);
+    }
 
-        const match = await this.matchRepository.findOne({
-            where: { id: matchId },
-            relations: ['homeTeam', 'awayTeam'],
+    this.logger.log(`[Simulator] Completed match ${matchId}`);
+  }
+
+  private findPositionInLineup(
+    lineup: Record<string, string>,
+    playerId: string,
+  ): string | undefined {
+    return Object.keys(lineup).find((key) => lineup[key] === playerId);
+  }
+
+  private async runSimulation(
+    match: MatchEntity,
+    weather?: string,
+  ): Promise<void> {
+    // 1. Fetch Tactics
+    const homeTactics = await this.tacticsRepository.findOne({
+      where: { matchId: match.id, teamId: match.homeTeamId },
+    });
+    const awayTactics = await this.tacticsRepository.findOne({
+      where: { matchId: match.id, teamId: match.awayTeamId },
+    });
+
+    if (!homeTactics || !awayTactics) {
+      throw new Error(`Tactics missing for match ${match.id}`);
+    }
+
+    // 2. Fetch Teams with Bench Config and Doctors
+    const [homeTeamEntity, awayTeamEntity] = await Promise.all([
+      this.teamRepository.findOne({ where: { id: match.homeTeamId as any } }),
+      this.teamRepository.findOne({ where: { id: match.awayTeamId as any } }),
+    ]);
+
+    const homeBenchConfig = homeTeamEntity?.benchConfig || null;
+    const awayBenchConfig = awayTeamEntity?.benchConfig || null;
+
+    // Fetch team doctors for injury calculation
+    const [homeDoctors, awayDoctors] = await Promise.all([
+      this.staffRepository.find({
+        where: {
+          teamId: match.homeTeamId,
+          role: StaffRole.TEAM_DOCTOR,
+          isActive: true,
+        },
+      }),
+      this.staffRepository.find({
+        where: {
+          teamId: match.awayTeamId,
+          role: StaffRole.TEAM_DOCTOR,
+          isActive: true,
+        },
+      }),
+    ]);
+    const homeDoctorLevel = homeDoctors[0]?.level || 0;
+    const awayDoctorLevel = awayDoctors[0]?.level || 0;
+
+    // 3. Fetch Players
+    const homeStarterIds = Object.values(homeTactics.lineup).filter(
+      (id) => typeof id === 'string',
+    );
+    const awayStarterIds = Object.values(awayTactics.lineup).filter(
+      (id) => typeof id === 'string',
+    );
+    const homeSubIds = (homeTactics.substitutions || []).map((s) => s.in);
+    const awaySubIds = (awayTactics.substitutions || []).map((s) => s.in);
+
+    const allPlayerIds = [
+      ...homeStarterIds,
+      ...awayStarterIds,
+      ...homeSubIds,
+      ...awaySubIds,
+    ];
+    const allPlayers = await this.playerRepository.find({
+      where: { id: In(allPlayerIds) },
+    });
+
+    // 3. Map Instructions
+    const mapInstructions = (
+      tactics: MatchTacticsEntity,
+    ): TacticalInstruction[] => {
+      const results: TacticalInstruction[] = [];
+      if (tactics.substitutions) {
+        for (const s of tactics.substitutions) {
+          results.push({
+            minute: s.minute,
+            type: 'swap',
+            playerId: s.out,
+            newPlayerId: s.in,
+            newPosition:
+              this.findPositionInLineup(tactics.lineup, s.out) || 'CF',
+          });
+        }
+      }
+      if (tactics.instructions) {
+        if (Array.isArray(tactics.instructions.positionSwaps)) {
+          for (const ps of tactics.instructions.positionSwaps) {
+            results.push({
+              minute: ps.minute,
+              type: 'position_swap',
+              playerId: ps.playerA,
+              newPlayerId: ps.playerB,
+              newPosition: 'SWAP',
+            });
+          }
+        }
+        if (Array.isArray(tactics.instructions.moves)) {
+          for (const m of tactics.instructions.moves) {
+            results.push({
+              minute: m.minute,
+              type: 'move',
+              playerId: m.player,
+              newPosition: m.position,
+            });
+          }
+        }
+      }
+      return results;
+    };
+
+    const homeInstructions = mapInstructions(homeTactics);
+    const awayInstructions = mapInstructions(awayTactics);
+
+    // 4. Setup Engine Teams
+    // Filter out players that don't exist in DB to avoid runtime crashes
+    const homePlayerIds = new Set(allPlayers.map((p) => p.id));
+    const missingHome = homeStarterIds.filter(
+      (pid) => !((pid as any) in homePlayerIds),
+    );
+    const missingAway = awayStarterIds.filter(
+      (pid) => !((pid as any) in homePlayerIds),
+    );
+    if (missingHome.length > 0)
+      this.logger.warn(
+        `[Simulator] Home lineup references missing players: ${missingHome.join(', ')}`,
+      );
+    if (missingAway.length > 0)
+      this.logger.warn(
+        `[Simulator] Away lineup references missing players: ${missingAway.join(', ')}`,
+      );
+
+    const validHomeIds = homeStarterIds.filter(
+      (pid) => (pid as any) in homePlayerIds,
+    );
+    const validAwayIds = awayStarterIds.filter(
+      (pid) => (pid as any) in homePlayerIds,
+    );
+
+    const homeTacticalPlayers: TacticalPlayer[] = validHomeIds.map((pid) => ({
+      player: toSimulationPlayer(allPlayers.find((p) => p.id === pid)),
+      positionKey: this.findPositionInLineup(homeTactics.lineup, pid) ?? 'ST',
+    }));
+
+    const awayTacticalPlayers: TacticalPlayer[] = validAwayIds.map((pid) => ({
+      player: toSimulationPlayer(allPlayers.find((p) => p.id === pid)),
+      positionKey: this.findPositionInLineup(awayTactics.lineup, pid) ?? 'ST',
+    }));
+
+    const subMap = new Map<string, TacticalPlayer>();
+    for (const pid of [...homeSubIds, ...awaySubIds]) {
+      const entity = allPlayers.find((p) => p.id === pid);
+      if (entity) {
+        subMap.set(pid, {
+          player: toSimulationPlayer(entity),
+          positionKey: 'SUB',
         });
-
-        if (!match) {
-            this.logger.error(`Match ${matchId} not found`);
-            return;
-        }
-
-        if (match.status === MatchStatus.COMPLETED) {
-            this.logger.warn(`Match ${matchId} already completed.`);
-            return;
-        }
-
-        if (homeForfeit || awayForfeit) {
-            await this.handleForfeit(match, !!homeForfeit, !!awayForfeit);
-        } else {
-            await this.runSimulation(match, weather);
-        }
-
-        this.logger.log(`[Simulator] Completed match ${matchId}`);
+      }
     }
 
-    private findPositionInLineup(lineup: Record<string, string>, playerId: string): string | undefined {
-        return Object.keys(lineup).find(key => lineup[key] === playerId);
+    const tA = new Team(
+      match.homeTeam.name,
+      homeTacticalPlayers,
+      homeDoctorLevel,
+    );
+    const tB = new Team(
+      match.awayTeam.name,
+      awayTacticalPlayers,
+      awayDoctorLevel,
+    );
+
+    // Normalize weather string for MatchEngine
+    const normalizedWeather = weather || 'cloudy';
+
+    const engine = new MatchEngine(
+      tA,
+      tB,
+      homeInstructions,
+      awayInstructions,
+      subMap,
+      homeBenchConfig,
+      awayBenchConfig,
+      normalizedWeather,
+    );
+
+    // 5. Run Match (wrapped in try/catch to ensure transaction rollback on error)
+    this.logger.log(
+      `[Simulator] Starting engine for ${match.id} with weather: ${normalizedWeather}`,
+    );
+    let events: MatchEvent[];
+    try {
+      events = engine.simulateMatch();
+    } catch (err) {
+      this.logger.error(
+        `[Simulator] simulateMatch crashed for match ${match.id}: ${(err as Error).message}`,
+        (err as Error).stack,
+      );
+      throw err;
     }
 
-    private async runSimulation(match: MatchEntity, weather?: string): Promise<void> {
-        // 1. Fetch Tactics
-        const homeTactics = await this.tacticsRepository.findOne({ where: { matchId: match.id, teamId: match.homeTeamId } });
-        const awayTactics = await this.tacticsRepository.findOne({ where: { matchId: match.id, teamId: match.awayTeamId } });
+    // Generate injury time (1-5 minutes for each half)
+    const firstHalfInjuryTime =
+      Math.floor(
+        Math.random() *
+          (GAME_SETTINGS.MATCH_INJURY_TIME_MAX -
+            GAME_SETTINGS.MATCH_INJURY_TIME_MIN +
+            1),
+      ) + GAME_SETTINGS.MATCH_INJURY_TIME_MIN;
+    const secondHalfInjuryTime =
+      Math.floor(
+        Math.random() *
+          (GAME_SETTINGS.MATCH_INJURY_TIME_MAX -
+            GAME_SETTINGS.MATCH_INJURY_TIME_MIN +
+            1),
+      ) + GAME_SETTINGS.MATCH_INJURY_TIME_MIN;
 
-        if (!homeTactics || !awayTactics) {
-            throw new Error(`Tactics missing for match ${match.id}`);
-        }
+    match.firstHalfInjuryTime = firstHalfInjuryTime;
+    match.secondHalfInjuryTime = secondHalfInjuryTime;
 
-        // 2. Fetch Teams with Bench Config and Doctors
-        const [homeTeamEntity, awayTeamEntity] = await Promise.all([
-            this.teamRepository.findOne({ where: { id: match.homeTeamId as any } }),
-            this.teamRepository.findOne({ where: { id: match.awayTeamId as any } }),
-        ]);
+    // Check if extra time is needed (match requires winner and is tied)
+    if (match.requiresWinner && engine.homeScore === engine.awayScore) {
+      this.logger.log(
+        `[Simulator] Match ${match.id} is tied and requires winner - playing extra time`,
+      );
+      try {
+        events = engine.simulateExtraTime();
+      } catch (err) {
+        this.logger.error(
+          `[Simulator] simulateExtraTime crashed for match ${match.id}: ${(err as Error).message}`,
+          (err as Error).stack,
+        );
+        throw err;
+      }
+      match.hasExtraTime = true;
 
-        const homeBenchConfig = homeTeamEntity?.benchConfig || null;
-        const awayBenchConfig = awayTeamEntity?.benchConfig || null;
+      // Generate ET injury time
+      const etFirstHalfInjury =
+        Math.floor(
+          Math.random() *
+            (GAME_SETTINGS.MATCH_INJURY_TIME_MAX -
+              GAME_SETTINGS.MATCH_INJURY_TIME_MIN +
+              1),
+        ) + GAME_SETTINGS.MATCH_INJURY_TIME_MIN;
+      const etSecondHalfInjury =
+        Math.floor(
+          Math.random() *
+            (GAME_SETTINGS.MATCH_INJURY_TIME_MAX -
+              GAME_SETTINGS.MATCH_INJURY_TIME_MIN +
+              1),
+        ) + GAME_SETTINGS.MATCH_INJURY_TIME_MIN;
+      match.extraTimeFirstHalfInjury = etFirstHalfInjury;
+      match.extraTimeSecondHalfInjury = etSecondHalfInjury;
 
-        // Fetch team doctors for injury calculation
-        const [homeDoctors, awayDoctors] = await Promise.all([
-            this.staffRepository.find({ where: { teamId: match.homeTeamId, role: StaffRole.TEAM_DOCTOR, isActive: true } }),
-            this.staffRepository.find({ where: { teamId: match.awayTeamId, role: StaffRole.TEAM_DOCTOR, isActive: true } }),
-        ]);
-        const homeDoctorLevel = homeDoctors[0]?.level || 0;
-        const awayDoctorLevel = awayDoctors[0]?.level || 0;
-
-        // 3. Fetch Players
-        const homeStarterIds = Object.values(homeTactics.lineup).filter(id => typeof id === 'string');
-        const awayStarterIds = Object.values(awayTactics.lineup).filter(id => typeof id === 'string');
-        const homeSubIds = (homeTactics.substitutions || []).map(s => s.in);
-        const awaySubIds = (awayTactics.substitutions || []).map(s => s.in);
-
-        const allPlayerIds = [...homeStarterIds, ...awayStarterIds, ...homeSubIds, ...awaySubIds];
-        const allPlayers = await this.playerRepository.find({
-            where: { id: In(allPlayerIds) }
-        });
-
-        // 3. Map Instructions
-        const mapInstructions = (tactics: MatchTacticsEntity): TacticalInstruction[] => {
-            const results: TacticalInstruction[] = [];
-            if (tactics.substitutions) {
-                for (const s of tactics.substitutions) {
-                    results.push({
-                        minute: s.minute,
-                        type: 'swap',
-                        playerId: s.out,
-                        newPlayerId: s.in,
-                        newPosition: this.findPositionInLineup(tactics.lineup, s.out) || 'CF'
-                    });
-                }
-            }
-            if (tactics.instructions) {
-                if (Array.isArray(tactics.instructions.positionSwaps)) {
-                    for (const ps of tactics.instructions.positionSwaps) {
-                        results.push({
-                            minute: ps.minute,
-                            type: 'position_swap',
-                            playerId: ps.playerA,
-                            newPlayerId: ps.playerB,
-                            newPosition: 'SWAP'
-                        });
-                    }
-                }
-                if (Array.isArray(tactics.instructions.moves)) {
-                    for (const m of tactics.instructions.moves) {
-                        results.push({
-                            minute: m.minute,
-                            type: 'move',
-                            playerId: m.player,
-                            newPosition: m.position,
-                        });
-                    }
-                }
-            }
-            return results;
-        };
-
-        const homeInstructions = mapInstructions(homeTactics);
-        const awayInstructions = mapInstructions(awayTactics);
-
-        // 4. Setup Engine Teams
-        // Filter out players that don't exist in DB to avoid runtime crashes
-        const homePlayerIds = new Set(allPlayers.map(p => p.id));
-        const missingHome = homeStarterIds.filter(pid => !(pid as any in homePlayerIds));
-        const missingAway = awayStarterIds.filter(pid => !(pid as any in homePlayerIds));
-        if (missingHome.length > 0) this.logger.warn(`[Simulator] Home lineup references missing players: ${missingHome.join(', ')}`);
-        if (missingAway.length > 0) this.logger.warn(`[Simulator] Away lineup references missing players: ${missingAway.join(', ')}`);
-
-        const validHomeIds = homeStarterIds.filter(pid => (pid as any) in homePlayerIds);
-        const validAwayIds = awayStarterIds.filter(pid => (pid as any) in homePlayerIds);
-
-        const homeTacticalPlayers: TacticalPlayer[] = validHomeIds.map(pid => ({
-            player: toSimulationPlayer(allPlayers.find(p => p.id === pid)!),
-            positionKey: this.findPositionInLineup(homeTactics.lineup, pid) ?? 'ST'
-        }));
-
-        const awayTacticalPlayers: TacticalPlayer[] = validAwayIds.map(pid => ({
-            player: toSimulationPlayer(allPlayers.find(p => p.id === pid)!),
-            positionKey: this.findPositionInLineup(awayTactics.lineup, pid) ?? 'ST'
-        }));
-
-        const subMap = new Map<string, TacticalPlayer>();
-        for (const pid of [...homeSubIds, ...awaySubIds]) {
-            const entity = allPlayers.find(p => p.id === pid);
-            if (entity) {
-                subMap.set(pid, {
-                    player: toSimulationPlayer(entity),
-                    positionKey: 'SUB'
-                });
-            }
-        }
-
-        const tA = new Team(match.homeTeam!.name, homeTacticalPlayers, homeDoctorLevel);
-        const tB = new Team(match.awayTeam!.name, awayTacticalPlayers, awayDoctorLevel);
-
-        // Normalize weather string for MatchEngine
-        const normalizedWeather = weather || 'cloudy';
-
-        const engine = new MatchEngine(tA, tB, homeInstructions, awayInstructions, subMap, homeBenchConfig, awayBenchConfig, normalizedWeather);
-
-        // 5. Run Match (wrapped in try/catch to ensure transaction rollback on error)
-        this.logger.log(`[Simulator] Starting engine for ${match.id} with weather: ${normalizedWeather}`);
-        let events: MatchEvent[];
+      // If still tied after extra time, penalty shootout
+      if (engine.homeScore === engine.awayScore) {
+        this.logger.log(
+          `[Simulator] Still tied after extra time - penalty shootout`,
+        );
         try {
-            events = engine.simulateMatch();
+          events = engine.simulatePenaltyShootout();
         } catch (err) {
-            this.logger.error(`[Simulator] simulateMatch crashed for match ${match.id}: ${(err as Error).message}`, (err as Error).stack);
-            throw err;
+          this.logger.error(
+            `[Simulator] simulatePenaltyShootout crashed for match ${match.id}: ${(err as Error).message}`,
+            (err as Error).stack,
+          );
+          throw err;
         }
+        match.hasPenaltyShootout = true;
+      }
+    }
 
-        // Generate injury time (1-5 minutes for each half)
-        const firstHalfInjuryTime = Math.floor(Math.random() * (GAME_SETTINGS.MATCH_INJURY_TIME_MAX - GAME_SETTINGS.MATCH_INJURY_TIME_MIN + 1)) + GAME_SETTINGS.MATCH_INJURY_TIME_MIN;
-        const secondHalfInjuryTime = Math.floor(Math.random() * (GAME_SETTINGS.MATCH_INJURY_TIME_MAX - GAME_SETTINGS.MATCH_INJURY_TIME_MIN + 1)) + GAME_SETTINGS.MATCH_INJURY_TIME_MIN;
+    // 6. Calculate Event Scheduled Times
+    // Ensure matchStartTime is in UTC by creating a new Date from ISO string
+    const matchStartTime = new Date(match.scheduledAt);
+    // Force to UTC by getting the time value directly
+    const matchStartTimeUTC = new Date(matchStartTime.toISOString());
 
-        match.firstHalfInjuryTime = firstHalfInjuryTime;
-        match.secondHalfInjuryTime = secondHalfInjuryTime;
-
-        // Check if extra time is needed (match requires winner and is tied)
-        if (match.requiresWinner && engine.homeScore === engine.awayScore) {
-            this.logger.log(`[Simulator] Match ${match.id} is tied and requires winner - playing extra time`);
-            try {
-                events = engine.simulateExtraTime();
-            } catch (err) {
-                this.logger.error(`[Simulator] simulateExtraTime crashed for match ${match.id}: ${(err as Error).message}`, (err as Error).stack);
-                throw err;
-            }
-            match.hasExtraTime = true;
-
-            // Generate ET injury time
-            const etFirstHalfInjury = Math.floor(Math.random() * (GAME_SETTINGS.MATCH_INJURY_TIME_MAX - GAME_SETTINGS.MATCH_INJURY_TIME_MIN + 1)) + GAME_SETTINGS.MATCH_INJURY_TIME_MIN;
-            const etSecondHalfInjury = Math.floor(Math.random() * (GAME_SETTINGS.MATCH_INJURY_TIME_MAX - GAME_SETTINGS.MATCH_INJURY_TIME_MIN + 1)) + GAME_SETTINGS.MATCH_INJURY_TIME_MIN;
-            match.extraTimeFirstHalfInjury = etFirstHalfInjury;
-            match.extraTimeSecondHalfInjury = etSecondHalfInjury;
-
-            // If still tied after extra time, penalty shootout
-            if (engine.homeScore === engine.awayScore) {
-                this.logger.log(`[Simulator] Still tied after extra time - penalty shootout`);
-                try {
-                    events = engine.simulatePenaltyShootout();
-                } catch (err) {
-                    this.logger.error(`[Simulator] simulatePenaltyShootout crashed for match ${match.id}: ${(err as Error).message}`, (err as Error).stack);
-                    throw err;
-                }
-                match.hasPenaltyShootout = true;
-            }
-        }
-
-        // 6. Calculate Event Scheduled Times
-        // Ensure matchStartTime is in UTC by creating a new Date from ISO string
-        const matchStartTime = new Date(match.scheduledAt);
-        // Force to UTC by getting the time value directly
-        const matchStartTimeUTC = new Date(matchStartTime.toISOString());
-
-        this.logger.log(
-            `[Simulator] Calculating event scheduled times (match starts: ${matchStartTimeUTC.toISOString()})
+    this.logger.log(
+      `[Simulator] Calculating event scheduled times (match starts: ${matchStartTimeUTC.toISOString()})
 ` +
-            `  1st half injury time: ${firstHalfInjuryTime}min, 2nd half injury time: ${secondHalfInjuryTime}min`
-        );
+        `  1st half injury time: ${firstHalfInjuryTime}min, 2nd half injury time: ${secondHalfInjuryTime}min`,
+    );
 
-        for (const event of events) {
-            const eventMinute = event.minute;
-            let realWorldOffset = 0; // Will calculate based on event minute
+    for (const event of events) {
+      const eventMinute = event.minute;
+      let realWorldOffset = 0; // Will calculate based on event minute
 
-            /**
-             * Timeline breakdown:
-             * Minutes 0-45: First half (0 to 45 real-world minutes)
-             * Minute 45 (second half kickoff): Halftime break (revealed at T+60, after 15min break)
-             * Minutes 46-90: Second half starts at T+60 (T+45 + 15min break)
-             * Minute 90+: Match ends when last event scheduled
-             * 
-             * Note: Game minutes don't include halftime break
-             * Event at minute 46 happens at real-world T+60 (45min play + 15min break)
-             */
+      /**
+       * Timeline breakdown:
+       * Minutes 0-45: First half (0 to 45 real-world minutes)
+       * Minute 45 (second half kickoff): Halftime break (revealed at T+60, after 15min break)
+       * Minutes 46-90: Second half starts at T+60 (T+45 + 15min break)
+       * Minute 90+: Match ends when last event scheduled
+       *
+       * Note: Game minutes don't include halftime break
+       * Event at minute 46 happens at real-world T+60 (45min play + 15min break)
+       */
 
-            // Special case: Second half kickoff at minute 45 (but type is 'kickoff' for second half)
-            const isSecondHalfKickoff = eventMinute === 45 &&
-                event.type === 'kickoff' &&
-                event.data?.period === 'second_half';
+      // Special case: Second half kickoff at minute 45 (but type is 'kickoff' for second half)
+      const isSecondHalfKickoff =
+        eventMinute === 45 &&
+        event.type === 'kickoff' &&
+        event.data?.period === 'second_half';
 
-            // Special case: Extra time kickoff at minute 90
-            const isExtraTimeKickoff = eventMinute === 90 &&
-                event.type === 'kickoff' &&
-                event.data?.period === 'extra_time';
+      // Special case: Extra time kickoff at minute 90
+      const isExtraTimeKickoff =
+        eventMinute === 90 &&
+        event.type === 'kickoff' &&
+        event.data?.period === 'extra_time';
 
-            // Special case: Extra time second half kickoff at minute 105
-            const isExtraTimeSecondHalfKickoff = eventMinute === 105 &&
-                event.type === 'kickoff' &&
-                event.data?.period === 'extra_time_second_half';
+      // Special case: Extra time second half kickoff at minute 105
+      const isExtraTimeSecondHalfKickoff =
+        eventMinute === 105 &&
+        event.type === 'kickoff' &&
+        event.data?.period === 'extra_time_second_half';
 
-            if (eventMinute < 45) {
-                // First half: direct mapping (minutes 0-44)
-                realWorldOffset = eventMinute * 60 * 1000;
-            }
-            else if (eventMinute === 45 && !isSecondHalfKickoff) {
-                // First half minute 45 events (goals, fouls, etc. at 45')
-                realWorldOffset = 45 * 60 * 1000;
-            }
-            else if (isSecondHalfKickoff) {
-                // Second half kickoff: happens after 15-minute break
-                // Real time = 45min play + 15min break = 60 minutes
-                realWorldOffset = (45 * 60 * 1000) + (GAME_SETTINGS.MATCH_HALF_TIME_MINUTES * 60 * 1000);
-            }
-            else if (eventMinute <= 90) {
-                // Second half (minutes 46-90): add 15-minute halftime break
-                realWorldOffset = eventMinute * 60 * 1000 + (GAME_SETTINGS.MATCH_HALF_TIME_MINUTES * 60 * 1000);
-            }
-            else if (match.hasExtraTime) {
-                // Extra time kickoff events and regular ET events
-                if (isExtraTimeKickoff) {
-                    // Extra time kickoff: happens immediately after regular time ends
-                    // Real time = 90min play + 15min HT = 105 minutes
-                    realWorldOffset = (90 * 60 * 1000) + (GAME_SETTINGS.MATCH_HALF_TIME_MINUTES * 60 * 1000);
-                }
-                else if (eventMinute < 105) {
-                    // ET first half (91-104): regular events
-                    // Real time = 90min play + 15min HT + (eventMinute - 90) ET minutes
-                    realWorldOffset = (90 * 60 * 1000) + (GAME_SETTINGS.MATCH_HALF_TIME_MINUTES * 60 * 1000) + ((eventMinute - 90) * 60 * 1000);
-                }
-                else if (isExtraTimeSecondHalfKickoff) {
-                    // ET second half kickoff: happens after 5-minute ET break
-                    // Real time = 90min play + 15min HT + 15min ET1st + 5min ET break
-                    realWorldOffset = (90 * 60 * 1000) +
-                        (GAME_SETTINGS.MATCH_HALF_TIME_MINUTES * 60 * 1000) +
-                        (15 * 60 * 1000) + // ET first half
-                        (GAME_SETTINGS.MATCH_EXTRA_TIME_BREAK_MINUTES * 60 * 1000);
-                }
-                else {
-                    // ET second half (106-120): regular events
-                    // Real time = 90min play + 15min HT + 15min ET1st + 5min ET break + (eventMinute - 105) ET2nd minutes
-                    realWorldOffset = (90 * 60 * 1000) +
-                        (GAME_SETTINGS.MATCH_HALF_TIME_MINUTES * 60 * 1000) +
-                        (15 * 60 * 1000) + // ET first half
-                        (GAME_SETTINGS.MATCH_EXTRA_TIME_BREAK_MINUTES * 60 * 1000) +
-                        ((eventMinute - 105) * 60 * 1000);
-                }
-            }
+      if (eventMinute < 45) {
+        // First half: direct mapping (minutes 0-44)
+        realWorldOffset = eventMinute * 60 * 1000;
+      } else if (eventMinute === 45 && !isSecondHalfKickoff) {
+        // First half minute 45 events (goals, fouls, etc. at 45')
+        realWorldOffset = 45 * 60 * 1000;
+      } else if (isSecondHalfKickoff) {
+        // Second half kickoff: happens after 15-minute break
+        // Real time = 45min play + 15min break = 60 minutes
+        realWorldOffset =
+          45 * 60 * 1000 + GAME_SETTINGS.MATCH_HALF_TIME_MINUTES * 60 * 1000;
+      } else if (eventMinute <= 90) {
+        // Second half (minutes 46-90): add 15-minute halftime break
+        realWorldOffset =
+          eventMinute * 60 * 1000 +
+          GAME_SETTINGS.MATCH_HALF_TIME_MINUTES * 60 * 1000;
+      } else if (match.hasExtraTime) {
+        // Extra time kickoff events and regular ET events
+        if (isExtraTimeKickoff) {
+          // Extra time kickoff: happens immediately after regular time ends
+          // Real time = 90min play + 15min HT = 105 minutes
+          realWorldOffset =
+            90 * 60 * 1000 + GAME_SETTINGS.MATCH_HALF_TIME_MINUTES * 60 * 1000;
+        } else if (eventMinute < 105) {
+          // ET first half (91-104): regular events
+          // Real time = 90min play + 15min HT + (eventMinute - 90) ET minutes
+          realWorldOffset =
+            90 * 60 * 1000 +
+            GAME_SETTINGS.MATCH_HALF_TIME_MINUTES * 60 * 1000 +
+            (eventMinute - 90) * 60 * 1000;
+        } else if (isExtraTimeSecondHalfKickoff) {
+          // ET second half kickoff: happens after 5-minute ET break
+          // Real time = 90min play + 15min HT + 15min ET1st + 5min ET break
+          realWorldOffset =
+            90 * 60 * 1000 +
+            GAME_SETTINGS.MATCH_HALF_TIME_MINUTES * 60 * 1000 +
+            15 * 60 * 1000 + // ET first half
+            GAME_SETTINGS.MATCH_EXTRA_TIME_BREAK_MINUTES * 60 * 1000;
+        } else {
+          // ET second half (106-120): regular events
+          // Real time = 90min play + 15min HT + 15min ET1st + 5min ET break + (eventMinute - 105) ET2nd minutes
+          realWorldOffset =
+            90 * 60 * 1000 +
+            GAME_SETTINGS.MATCH_HALF_TIME_MINUTES * 60 * 1000 +
+            15 * 60 * 1000 + // ET first half
+            GAME_SETTINGS.MATCH_EXTRA_TIME_BREAK_MINUTES * 60 * 1000 +
+            (eventMinute - 105) * 60 * 1000;
+        }
+      }
 
-            // Create event scheduled time in UTC
-            event.eventScheduledTime = new Date(matchStartTimeUTC.getTime() + realWorldOffset);
+      // Create event scheduled time in UTC
+      event.eventScheduledTime = new Date(
+        matchStartTimeUTC.getTime() + realWorldOffset,
+      );
+    }
+
+    const lastEvent = events[events.length - 1];
+    const totalDuration = lastEvent?.eventScheduledTime
+      ? (lastEvent.eventScheduledTime.getTime() - matchStartTimeUTC.getTime()) /
+        (60 * 1000)
+      : 0;
+
+    this.logger.log(
+      `[Simulator] Events will be revealed from ${matchStartTimeUTC.toISOString()} ` +
+        `to ${lastEvent?.eventScheduledTime?.toISOString() || 'unknown'}\n` +
+        `  Total events: ${events.length}, Real-world duration: ~${Math.ceil(totalDuration)} minutes`,
+    );
+
+    // 7. Persist Results
+    await this.dataSource.transaction(async (manager) => {
+      // Get match report from engine for settlement
+      const matchReport = engine.getMatchReport();
+
+      // Update Match - DON'T change status, let scheduler handle it
+      // Simulation completes BEFORE match starts, status should remain TACTICS_LOCKED
+      match.homeScore = engine.homeScore;
+      match.awayScore = engine.awayScore;
+      // match.status stays as TACTICS_LOCKED - scheduler will change to IN_PROGRESS at match start time
+      match.simulationCompletedAt = new Date(); // Internal timestamp
+      match.actualEndTime = lastEvent?.eventScheduledTime || new Date(); // When match will actually end
+      await manager.save(match);
+
+      // Save Events with Bulk Insert (bypass entity instantiation overhead)
+      await manager
+        .createQueryBuilder()
+        .insert()
+        .into(MatchEventEntity)
+        .values(
+          events.map((e) => {
+            const playerName = e.playerId
+              ? allPlayers.find((p) => p.id === e.playerId)?.name
+              : undefined;
+            const assistName = e.relatedPlayerId
+              ? allPlayers.find((p) => p.id === e.relatedPlayerId)?.name
+              : undefined;
+            return {
+              matchId: match.id,
+              minute: e.minute,
+              second: 0,
+              type: this.mapEventType(e.type),
+              typeName: e.type,
+              teamId:
+                e.teamName === match.homeTeam.name
+                  ? match.homeTeamId
+                  : e.teamName === match.awayTeam.name
+                    ? match.awayTeamId
+                    : null,
+              playerId: e.playerId || null,
+              relatedPlayerId: e.relatedPlayerId || null,
+              phase: (e.phase as MatchPhase) || MatchPhase.FIRST_HALF,
+              lane: (e.lane as any) || null,
+              isHome: e.teamName ? e.teamName === match.homeTeam.name : null,
+              data: { ...e.data, playerName, assistName },
+              eventScheduledTime: e.eventScheduledTime,
+              isRevealed: false,
+            } as any;
+          }),
+        )
+        .execute();
+
+      // Save Stats with Lane Strength Averages
+      const laneStrengthAverages = matchReport.laneStrengthAverages;
+      const calculateStats = (teamName: string, teamId: string) => {
+        const goals = events.filter(
+          (e) => e.type === 'goal' && e.teamName === teamName,
+        ).length;
+        const misses = events.filter(
+          (e) => e.type === 'miss' && e.teamName === teamName,
+        ).length;
+        const savesByOpponent = events.filter(
+          (e) => e.type === 'save' && e.teamName !== teamName,
+        ).length;
+
+        // Get possession from match stats
+        const possessionStats = matchReport.matchStats.possessionStats;
+        const totalPossession = possessionStats.home + possessionStats.away;
+        const possessionPercent =
+          totalPossession > 0
+            ? ((teamName === match.homeTeam.name
+                ? possessionStats.home
+                : possessionStats.away) /
+                totalPossession) *
+              100
+            : 50;
+
+        // Get lane strength averages for this team
+        const isHome = teamName === match.homeTeam.name;
+        const teamLaneStrengths = isHome
+          ? laneStrengthAverages.home
+          : laneStrengthAverages.away;
+
+        return manager.create(MatchTeamStatsEntity, {
+          matchId: match.id,
+          teamId,
+          possessionPercentage: possessionPercent,
+          shots: goals + misses + savesByOpponent,
+          shotsOnTarget: goals + savesByOpponent,
+          corners: events.filter(
+            (e) => e.type === 'corner' && e.teamName === teamName,
+          ).length,
+          fouls: events.filter(
+            (e) => e.type === 'foul' && e.teamName === teamName,
+          ).length,
+          yellowCards: events.filter(
+            (e) => e.type === 'yellow_card' && e.teamName === teamName,
+          ).length,
+          redCards: events.filter(
+            (e) => e.type === 'red_card' && e.teamName === teamName,
+          ).length,
+          laneStrengthAverages: teamLaneStrengths,
+        });
+      };
+
+      await manager.save([
+        calculateStats(match.homeTeam.name, match.homeTeamId),
+        calculateStats(match.awayTeam.name, match.awayTeamId),
+      ]);
+
+      // Update Player Career Stats (Settlement)
+      const playerStats = matchReport.playerStats;
+      const playerStatsMap = new Map(playerStats.map((p) => [p.playerId, p]));
+
+      // Find players and update their career stats
+      for (const player of allPlayers) {
+        const stats = playerStatsMap.get(player.id);
+        if (!stats || stats.minutesPlayed === 0) continue; // Skip players who didn't play
+
+        // Ensure careerStats has proper structure
+        if (!player.careerStats || typeof player.careerStats !== 'object') {
+          player.careerStats = {
+            club: {
+              matches: 0,
+              goals: 0,
+              assists: 0,
+              tackles: 0,
+              yellowCards: 0,
+              redCards: 0,
+            },
+          };
+        }
+        if (!player.careerStats.club) {
+          player.careerStats.club = {
+            matches: 0,
+            goals: 0,
+            assists: 0,
+            tackles: 0,
+            yellowCards: 0,
+            redCards: 0,
+          };
         }
 
-        const lastEvent = events[events.length - 1];
-        const totalDuration = lastEvent?.eventScheduledTime
-            ? (lastEvent.eventScheduledTime.getTime() - matchStartTimeUTC.getTime()) / (60 * 1000)
-            : 0;
+        // Update club stats
+        player.careerStats.club.matches += 1;
+        player.careerStats.club.goals += stats.goals;
+        player.careerStats.club.assists += stats.assists;
+        player.careerStats.club.tackles += stats.tackles;
 
-        this.logger.log(
-            `[Simulator] Events will be revealed from ${matchStartTimeUTC.toISOString()} ` +
-            `to ${lastEvent?.eventScheduledTime?.toISOString() || 'unknown'}\n` +
-            `  Total events: ${events.length}, Real-world duration: ~${Math.ceil(totalDuration)} minutes`
+        // Count cards from events
+        const playerYellowCards = events.filter(
+          (e) => e.type === 'yellow_card' && e.playerId === player.id,
+        ).length;
+        const playerRedCards = events.filter(
+          (e) => e.type === 'red_card' && e.playerId === player.id,
+        ).length;
+        player.careerStats.club.yellowCards += playerYellowCards;
+        player.careerStats.club.redCards += playerRedCards;
+
+        // Calculate and update experience
+        const experienceGain = calculateMatchExperience(
+          match.type,
+          stats.minutesPlayed,
         );
+        const expResult = addExperience(
+          player.id,
+          player.experience,
+          experienceGain,
+        );
+        player.experience = expResult.experienceAfter;
+      }
 
-        // 7. Persist Results
-        await this.dataSource.transaction(async (manager) => {
-            // Get match report from engine for settlement
-            const matchReport = engine.getMatchReport();
+      // Save all updated players
+      await manager.save(
+        allPlayers.filter(
+          (p) =>
+            playerStatsMap.has(p.id) &&
+            playerStatsMap.get(p.id).minutesPlayed > 0,
+        ),
+      );
 
-            // Update Match - DON'T change status, let scheduler handle it
-            // Simulation completes BEFORE match starts, status should remain TACTICS_LOCKED
-            match.homeScore = engine.homeScore;
-            match.awayScore = engine.awayScore;
-            // match.status stays as TACTICS_LOCKED - scheduler will change to IN_PROGRESS at match start time
-            match.simulationCompletedAt = new Date(); // Internal timestamp
-            match.actualEndTime = lastEvent?.eventScheduledTime || new Date(); // When match will actually end
-            await manager.save(match);
+      // Persist injury records in bulk
+      const injuryEvents = events.filter((e) => e.type === 'injury');
+      const injuryRecords: any[] = [];
+      const injuredPlayerIds: string[] = [];
 
-            // Save Events with Bulk Insert (bypass entity instantiation overhead)
-            await manager.createQueryBuilder()
-                .insert()
-                .into(MatchEventEntity)
-                .values(events.map(e => {
-                    const playerName = e.playerId ? allPlayers.find(p => p.id === e.playerId)?.name : undefined;
-                    const assistName = e.relatedPlayerId ? allPlayers.find(p => p.id === e.relatedPlayerId)?.name : undefined;
-                    return {
-                        matchId: match.id,
-                        minute: e.minute,
-                        second: 0,
-                        type: this.mapEventType(e.type),
-                        typeName: e.type,
-                        teamId: e.teamName === match.homeTeam!.name ? match.homeTeamId : (e.teamName === match.awayTeam!.name ? match.awayTeamId : null),
-                        playerId: e.playerId || null,
-                        relatedPlayerId: e.relatedPlayerId || null,
-                        phase: (e.phase as MatchPhase) || MatchPhase.FIRST_HALF,
-                        lane: e.lane as any || null,
-                        isHome: e.teamName ? e.teamName === match.homeTeam!.name : null,
-                        data: { ...e.data, playerName, assistName },
-                        eventScheduledTime: e.eventScheduledTime,
-                        isRevealed: false,
-                    } as any;
-                }))
-                .execute();
+      for (const e of injuryEvents) {
+        const injuryData = (e.data as any)?.injuryData;
+        if (!injuryData?.playerId) continue;
 
-            // Save Stats with Lane Strength Averages
-            const laneStrengthAverages = matchReport.laneStrengthAverages;
-            const calculateStats = (teamName: string, teamId: string) => {
-                const goals = events.filter(e => e.type === 'goal' && e.teamName === teamName).length;
-                const misses = events.filter(e => e.type === 'miss' && e.teamName === teamName).length;
-                const savesByOpponent = events.filter(e => e.type === 'save' && e.teamName !== teamName).length;
-
-                // Get possession from match stats
-                const possessionStats = matchReport.matchStats.possessionStats;
-                const totalPossession = possessionStats.home + possessionStats.away;
-                const possessionPercent = totalPossession > 0
-                    ? (teamName === match.homeTeam!.name ? possessionStats.home : possessionStats.away) / totalPossession * 100
-                    : 50;
-
-                // Get lane strength averages for this team
-                const isHome = teamName === match.homeTeam!.name;
-                const teamLaneStrengths = isHome ? laneStrengthAverages.home : laneStrengthAverages.away;
-
-                return manager.create(MatchTeamStatsEntity, {
-                    matchId: match.id,
-                    teamId,
-                    possessionPercentage: possessionPercent,
-                    shots: goals + misses + savesByOpponent,
-                    shotsOnTarget: goals + savesByOpponent,
-                    corners: events.filter(e => e.type === 'corner' && e.teamName === teamName).length,
-                    fouls: events.filter(e => e.type === 'foul' && e.teamName === teamName).length,
-                    yellowCards: events.filter(e => e.type === 'yellow_card' && e.teamName === teamName).length,
-                    redCards: events.filter(e => e.type === 'red_card' && e.teamName === teamName).length,
-                    laneStrengthAverages: teamLaneStrengths,
-                });
-            };
-
-            await manager.save([
-                calculateStats(match.homeTeam!.name, match.homeTeamId),
-                calculateStats(match.awayTeam!.name, match.awayTeamId)
-            ]);
-
-            // Update Player Career Stats (Settlement)
-            const playerStats = matchReport.playerStats;
-            const playerStatsMap = new Map(playerStats.map(p => [p.playerId, p]));
-
-            // Find players and update their career stats
-            for (const player of allPlayers) {
-                const stats = playerStatsMap.get(player.id);
-                if (!stats || stats.minutesPlayed === 0) continue; // Skip players who didn't play
-
-                // Ensure careerStats has proper structure
-                if (!player.careerStats || typeof player.careerStats !== 'object') {
-                    player.careerStats = {
-                        club: { matches: 0, goals: 0, assists: 0, tackles: 0, yellowCards: 0, redCards: 0 }
-                    };
-                }
-                if (!player.careerStats.club) {
-                    player.careerStats.club = { matches: 0, goals: 0, assists: 0, tackles: 0, yellowCards: 0, redCards: 0 };
-                }
-
-                // Update club stats
-                player.careerStats.club.matches += 1;
-                player.careerStats.club.goals += stats.goals;
-                player.careerStats.club.assists += stats.assists;
-                player.careerStats.club.tackles += stats.tackles;
-
-                // Count cards from events
-                const playerYellowCards = events.filter(
-                    e => e.type === 'yellow_card' && e.playerId === player.id
-                ).length;
-                const playerRedCards = events.filter(
-                    e => e.type === 'red_card' && e.playerId === player.id
-                ).length;
-                player.careerStats.club.yellowCards += playerYellowCards;
-                player.careerStats.club.redCards += playerRedCards;
-
-                // Calculate and update experience
-                const experienceGain = calculateMatchExperience(match.type, stats.minutesPlayed);
-                const expResult = addExperience(player.id, player.experience, experienceGain);
-                player.experience = expResult.experienceAfter;
-            }
-
-            // Save all updated players
-            await manager.save(allPlayers.filter(p => playerStatsMap.has(p.id) && playerStatsMap.get(p.id)!.minutesPlayed > 0));
-
-            // Persist injury records in bulk
-            const injuryEvents = events.filter(e => e.type === 'injury');
-            const injuryRecords: any[] = [];
-            const injuredPlayerIds: string[] = [];
-
-            for (const e of injuryEvents) {
-                const injuryData = (e.data as any)?.injuryData;
-                if (!injuryData?.playerId) continue;
-
-                injuryRecords.push({
-                    playerId: injuryData.playerId,
-                    matchId: match.id,
-                    injuryType: injuryData.injuryType,
-                    severity: injuryData.severity,
-                    injuryValue: injuryData.injuryValue,
-                    estimatedMinDays: injuryData.estimatedRecoveryDays?.min,
-                    estimatedMaxDays: injuryData.estimatedRecoveryDays?.max,
-                    occurredAt: match.scheduledAt,
-                    isRecovered: false,
-                });
-                injuredPlayerIds.push(injuryData.playerId);
-            }
-
-            if (injuryRecords.length > 0) {
-                await manager.createQueryBuilder()
-                    .insert()
-                    .into(InjuryEntity)
-                    .values(injuryRecords)
-                    .execute();
-            }
-
-            // Batch update injured players
-            if (injuredPlayerIds.length > 0) {
-                const now = new Date();
-                for (const player of allPlayers) {
-                    if (injuredPlayerIds.includes(player.id)) {
-                        const e = events.find(ev => ev.type === 'injury' && (ev.data as any)?.injuryData?.playerId === player.id);
-                        const injuryData = (e?.data as any)?.injuryData;
-                        if (injuryData) {
-                            player.currentInjuryValue = injuryData.injuryValue;
-                            player.injuryType = injuryData.injuryType;
-                            // injuryValue <= 30 is light (can play at 95%), > 30 is heavy (cannot play)
-                            player.injuryState = injuryData.injuryValue <= 30 ? 'light' : 'heavy';
-                            player.injuredAt = now;
-                        }
-                    }
-                }
-                await manager.save(allPlayers.filter(p => injuredPlayerIds.includes(p.id)));
-            }
+        injuryRecords.push({
+          playerId: injuryData.playerId,
+          matchId: match.id,
+          injuryType: injuryData.injuryType,
+          severity: injuryData.severity,
+          injuryValue: injuryData.injuryValue,
+          estimatedMinDays: injuryData.estimatedRecoveryDays?.min,
+          estimatedMaxDays: injuryData.estimatedRecoveryDays?.max,
+          occurredAt: match.scheduledAt,
+          isRecovered: false,
         });
-    }
+        injuredPlayerIds.push(injuryData.playerId);
+      }
 
-    private mapEventType(type: string): number {
-        const mapping: Record<string, number> = {
-            'kickoff': 1,
-            'goal': 2,
-            'shot_on_target': 3,
-            'save': 8,
-            'miss': 4,
-            'turnover': 5,
-            'foul': 9,
-            'yellow_card': 10,
-            'red_card': 11,
-            'substitution': 12,
-            'half_time': 13,
-            'second_half': 23,
-            'full_time': 14,
-            'injury': 15,
-            'offside': 16,
-            'corner': 17,
-            'free_kick': 18,
-            'penalty_goal': 19,
-            'penalty_miss': 31,
-            'snapshot': 21,
-            'tactical_change': 27,
-        };
-        return mapping[type] ?? 27;
-    }
+      if (injuryRecords.length > 0) {
+        await manager
+          .createQueryBuilder()
+          .insert()
+          .into(InjuryEntity)
+          .values(injuryRecords)
+          .execute();
+      }
 
-    private async handleForfeit(match: MatchEntity, homeForfeit: boolean, awayForfeit: boolean) {
-        match.homeScore = homeForfeit ? 0 : 3;
-        match.awayScore = awayForfeit ? 0 : 3;
-        match.status = MatchStatus.COMPLETED;
-        match.simulationCompletedAt = new Date();
-        await this.matchRepository.save(match);
-    }
+      // Batch update injured players
+      if (injuredPlayerIds.length > 0) {
+        const now = new Date();
+        for (const player of allPlayers) {
+          if (injuredPlayerIds.includes(player.id)) {
+            const e = events.find(
+              (ev) =>
+                ev.type === 'injury' &&
+                (ev.data as any)?.injuryData?.playerId === player.id,
+            );
+            const injuryData = (e?.data as any)?.injuryData;
+            if (injuryData) {
+              player.currentInjuryValue = injuryData.injuryValue;
+              player.injuryType = injuryData.injuryType;
+              // injuryValue <= 30 is minor (can play at 95%), > 30 is severe (cannot play)
+              player.injuryState =
+                injuryData.injuryValue <= 30 ? 'minor' : 'severe';
+              player.injuredAt = now;
+            }
+          }
+        }
+        await manager.save(
+          allPlayers.filter((p) => injuredPlayerIds.includes(p.id)),
+        );
+      }
+    });
+  }
 
-    @OnWorkerEvent('completed')
-    onCompleted(job: Job) {
-        this.logger.log(`Job ${job.id} completed successfully`);
-    }
+  private mapEventType(type: string): number {
+    const mapping: Record<string, number> = {
+      kickoff: 1,
+      goal: 2,
+      shot_on_target: 3,
+      save: 8,
+      miss: 4,
+      turnover: 5,
+      foul: 9,
+      yellow_card: 10,
+      red_card: 11,
+      substitution: 12,
+      half_time: 13,
+      second_half: 23,
+      full_time: 14,
+      injury: 15,
+      offside: 16,
+      corner: 17,
+      free_kick: 18,
+      penalty_goal: 19,
+      penalty_miss: 31,
+      snapshot: 21,
+      tactical_change: 27,
+    };
+    return mapping[type] ?? 27;
+  }
 
-    @OnWorkerEvent('failed')
-    onFailed(job: Job, error: Error) {
-        this.logger.error(`Job ${job.id} failed: ${error.message}`);
-    }
+  private async handleForfeit(
+    match: MatchEntity,
+    homeForfeit: boolean,
+    awayForfeit: boolean,
+  ) {
+    match.homeScore = homeForfeit ? 0 : 3;
+    match.awayScore = awayForfeit ? 0 : 3;
+    match.status = MatchStatus.COMPLETED;
+    match.simulationCompletedAt = new Date();
+    await this.matchRepository.save(match);
+  }
+
+  @OnWorkerEvent('completed')
+  onCompleted(job: Job) {
+    this.logger.log(`Job ${job.id} completed successfully`);
+  }
+
+  @OnWorkerEvent('failed')
+  onFailed(job: Job, error: Error) {
+    this.logger.error(`Job ${job.id} failed: ${error.message}`);
+  }
 }

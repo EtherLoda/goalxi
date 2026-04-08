@@ -220,9 +220,9 @@ export class PlayerEntity extends AbstractEntity {
     @Column({ name: 'injury_type', type: 'varchar', length: 20, nullable: true })
     injuryType?: 'muscle' | 'ligament' | 'joint' | 'head' | 'other' | null;
 
-    /** Injury state: 'heavy' = cannot play, 'light' = can play at 95% */
+    /** Injury state: 'severe' = cannot play, 'minor' = can play at 95% */
     @Column({ name: 'injury_state', type: 'varchar', length: 10, nullable: true })
-    injuryState?: 'heavy' | 'light' | null;
+    injuryState?: 'severe' | 'minor' | null;
 
     @Column({ name: 'injured_at', type: 'timestamptz', nullable: true })
     injuredAt?: Date | null;

@@ -2,7 +2,7 @@
 // The mapping from PlayerEntity.currentSkills to SimulationPlayer is defined
 // in @goalxi/database — single source of truth.
 export {
-    SimulationPlayerAttributes as PlayerAttributes,
-    SimulationPlayer as Player,
-    PlayerAbility,
+  SimulationPlayerAttributes as PlayerAttributes,
+  SimulationPlayer as Player,
+  PlayerAbility,
 } from '@goalxi/database';

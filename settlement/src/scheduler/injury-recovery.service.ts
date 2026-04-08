@@ -79,11 +79,11 @@ export class InjuryRecoveryService {
         const maxDailyRecovery = 12 * 1.15;
         const estimatedMaxDays = newValue / maxDailyRecovery;
 
-        // If estimated recovery time <= 7 days, set to light injury (can play with 95% ability)
+        // If estimated recovery time <= 7 days, set to minor injury (can play with 95% ability)
         if (newValue > 0 && newValue <= 30 && estimatedMaxDays <= 7) {
-          player.injuryState = 'light';
+          player.injuryState = 'minor';
           this.logger.debug(
-            `[InjuryRecovery] Player ${player.name}: ${oldValue} -> ${newValue} (light injury, ~${estimatedMaxDays.toFixed(1)} days)`,
+            `[InjuryRecovery] Player ${player.name}: ${oldValue} -> ${newValue} (minor injury, ~${estimatedMaxDays.toFixed(1)} days)`,
           );
         }
 
