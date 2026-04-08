@@ -92,6 +92,34 @@ export interface SimulationPlayer {
     exactAge: [number, number];
     appearance?: Record<string, any>;
     overall?: number; // Snapshots use player.overall || 50
+    /**
+     * Injury penalty factor (0-1).
+     * 1.0 = full ability, 0.95 = 95% ability when minor injury (recovering).
+     * If currentInjuryValue > threshold (estimated >7 days recovery), player cannot play.
+     */
+    injuryPenalty?: number;
+}
+
+/**
+ * Calculate injury penalty based on injury state.
+ * - null: full ability (100%)
+ * - 'light': can play at 95%
+ * - 'heavy': cannot play (0%)
+ */
+export function calculateInjuryPenalty(
+    injuryState: string | null | undefined,
+    currentInjuryValue: number,
+): number {
+    if (!injuryState) {
+        return 1.0; // No injury, full ability
+    }
+
+    if (injuryState === 'light') {
+        return 0.95; // Recovering, can play at 95%
+    }
+
+    // 'heavy' or other states - cannot play
+    return 0;
 }
 
 /**
@@ -136,6 +164,7 @@ export function toSimulationPlayer(entity: PlayerEntity): SimulationPlayer {
         overall: computeOverall(skills),
         exactAge: entity.getExactAge(),
         appearance: entity.appearance,
+        injuryPenalty: calculateInjuryPenalty(entity.injuryState, entity.currentInjuryValue ?? 0),
     };
 }
 
@@ -184,6 +213,7 @@ export function toSimulationYouthPlayer(entity: YouthPlayerEntity): SimulationPl
         overall: computeOverall(skills),
         exactAge,
         appearance: undefined,
+        injuryPenalty: 1.0, // Youth players have no injury penalty
     };
 }
 

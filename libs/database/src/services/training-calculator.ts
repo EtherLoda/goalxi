@@ -141,8 +141,8 @@ export function setSkillLevel(
 
 /**
  * Distribute training points to ONE skill
- * If trainingSkill is specified, train that specific skill; otherwise randomly select one
- * Returns gains and total points spent
+ * Points are converted to skill fractional levels without waste
+ * Formula: remainingLevels * upgradeCost = points, so remainingLevels = points / upgradeCost
  */
 export function distributeTrainingPoints(
     currentSkills: PlayerSkills,
@@ -175,27 +175,53 @@ export function distributeTrainingPoints(
         selectedKey = eligibleKeys[Math.floor(Math.random() * eligibleKeys.length)];
     }
 
-    const currentLevel = getSkillLevel(currentSkills, selectedKey);
+    let currentLevel = getSkillLevel(currentSkills, selectedKey);
     const potentialLevel = getSkillLevel(potentialSkills, selectedKey);
-
-    // Try to gain as many levels as points allow for that single skill
-    // Cost per level is adjusted by skill training speed
     const skillSpeed = getSkillTrainingSpeed(selectedKey);
-    let tempLevel = currentLevel;
-    let tempCost = 0;
+    const DECIMAL_PLACES = 4;
 
-    while (tempLevel < potentialLevel) {
-        const levelCost = getSkillUpgradeCost(tempLevel) / skillSpeed;
-        if (totalPoints < tempCost + levelCost) break;
-        tempCost += levelCost;
-        tempLevel++;
+    let remainingPoints = totalPoints;
+
+    while (remainingPoints > 0) {
+        const currentIntegerLevel = Math.floor(currentLevel);
+        const nextIntegerLevel = currentIntegerLevel + 1;
+
+        if (currentIntegerLevel >= potentialLevel) {
+            break; // Reached potential, stop
+        }
+
+        // Calculate points needed to reach next integer level
+        const upgradeCost = getSkillUpgradeCost(currentIntegerLevel) / skillSpeed;
+        // levelsToNextInteger: e.g., 5.2 -> 6.0 = 0.8 (avoid floating point drift)
+        const levelsToNextInteger = Math.round((nextIntegerLevel - currentLevel) * 1000) / 1000;
+        const pointsNeededForOneLevel = upgradeCost * levelsToNextInteger;
+
+        if (remainingPoints < pointsNeededForOneLevel) {
+            // Not enough points to level up, convert to fractional progress
+            const fractionalProgress = remainingPoints / upgradeCost;
+            const newLevel = currentLevel + fractionalProgress;
+            currentLevel = Math.min(
+                potentialLevel,
+                Math.round(newLevel * Math.pow(10, DECIMAL_PLACES)) / Math.pow(10, DECIMAL_PLACES)
+            );
+            totalSpent += remainingPoints;
+            remainingPoints = 0;
+        } else {
+            // Enough points to level up
+            remainingPoints -= pointsNeededForOneLevel;
+            totalSpent += pointsNeededForOneLevel;
+
+            // Move to next integer level
+            currentLevel = nextIntegerLevel;
+        }
     }
 
-    if (tempLevel > currentLevel) {
-        setSkillLevel(currentSkills, selectedKey, tempLevel);
-        const levelsGained = tempLevel - currentLevel;
+    const oldLevel = getSkillLevel(currentSkills, selectedKey);
+    const levelsGained = Math.max(0, Math.floor(currentLevel) - Math.floor(oldLevel));
+
+    if (levelsGained > 0 || totalPoints > 0) {
+        setSkillLevel(currentSkills, selectedKey, currentLevel);
         gains.push({ skill: selectedKey, levels: levelsGained });
-        totalSpent = tempCost;
     }
 
     return { gains, totalSpent };

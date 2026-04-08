@@ -42,11 +42,11 @@ export function getAgeTrainingFactor(age: number): number {
 
 /**
  * Calculate training cost for upgrading from `level` to `level + 1`
- * Formula: cost = level^2 + 20
+ * Formula: cost = 0.8 * level^2 + 20
  * Higher levels cost more, curve is monotonically increasing
  */
 export function getSkillUpgradeCost(level: number): number {
-    return level * level + 20;
+    return 0.8 * level * level + 20;
 }
 
 /**

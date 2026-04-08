@@ -67,6 +67,9 @@ export class AttributeCalculator {
         const phaseWeights = laneWeights[phase];
         if (!phaseWeights) return 0;
 
+        // Apply injury penalty (light injury = 0.95, heavy = 0)
+        const injuryPenalty = (player as any).injuryPenalty ?? 1.0;
+
         let totalScore = 0;
         for (const [attrName, weight] of Object.entries(phaseWeights)) {
             if (typeof weight !== 'number') continue;
@@ -74,7 +77,7 @@ export class AttributeCalculator {
 
             const attributeName = attrName as keyof PlayerAttributes;
             const attrValue = (player.attributes[attributeName] as number) ?? 0;
-            totalScore += attrValue * weight;
+            totalScore += attrValue * weight * injuryPenalty;
         }
 
         return parseFloat(totalScore.toFixed(2));
@@ -113,11 +116,12 @@ export class AttributeCalculator {
      */
     private static calculateGKSaveRatingRaw(player: Player): number {
         const attrs = player.attributes;
-        const raw = (attrs.gk_reflexes ?? 10) * 4
+        const injuryPenalty = (player as any).injuryPenalty ?? 1.0;
+        const raw = ((attrs.gk_reflexes ?? 10) * 4
             + (attrs.gk_handling ?? 10) * 2.5
             + (attrs.positioning ?? 10) * 1.5
             + (attrs.gk_aerial ?? 10) * 1
-            + (attrs.composure ?? 10) * 1;
+            + (attrs.composure ?? 10) * 1) * injuryPenalty;
         return parseFloat((raw * 1.0).toFixed(2));
     }
 

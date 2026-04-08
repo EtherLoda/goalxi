@@ -39,7 +39,8 @@ export class InjuryRecoveryService {
       `[InjuryRecovery] Found ${injuredPlayers.length} player(s) with active injuries`,
     );
 
-    let recoveredCount = 0;
+    const playersToSave: PlayerEntity[] = [];
+    const injuriesToRecover: { playerId: string; playerName: string; oldValue: number }[] = [];
 
     for (const player of injuredPlayers) {
       try {
@@ -73,30 +74,28 @@ export class InjuryRecoveryService {
         const oldValue = player.currentInjuryValue;
         const newValue = Math.max(0, oldValue - dailyRecovery);
 
+        // Estimate recovery days based on current injury value
+        // maxDailyRecovery = 12 * 1.15 ≈ 13.8
+        const maxDailyRecovery = 12 * 1.15;
+        const estimatedMaxDays = newValue / maxDailyRecovery;
+
+        // If estimated recovery time <= 7 days, set to light injury (can play with 95% ability)
+        if (newValue > 0 && newValue <= 30 && estimatedMaxDays <= 7) {
+          player.injuryState = 'light';
+          this.logger.debug(
+            `[InjuryRecovery] Player ${player.name}: ${oldValue} -> ${newValue} (light injury, ~${estimatedMaxDays.toFixed(1)} days)`,
+          );
+        }
+
         player.currentInjuryValue = newValue;
-        await this.playerRepository.save(player);
+        playersToSave.push(player);
 
         if (newValue === 0 && oldValue > 0) {
-          const activeInjury = await this.injuryRepository.findOne({
-            where: { playerId: player.id, isRecovered: false },
-            order: { occurredAt: 'DESC' },
+          injuriesToRecover.push({
+            playerId: player.id,
+            playerName: player.name,
+            oldValue,
           });
-
-          if (activeInjury) {
-            activeInjury.isRecovered = true;
-            activeInjury.recoveredAt = new Date();
-            await this.injuryRepository.save(activeInjury);
-          }
-
-          player.injuryType = null;
-          player.injuredAt = null;
-          await this.playerRepository.save(player);
-
-          recoveredCount++;
-          this.logger.log(
-            `[InjuryRecovery] ✅ Player ${player.name} (${player.id}) has fully recovered! ` +
-              `(injuryValue: ${oldValue} -> 0)`,
-          );
         } else {
           this.logger.debug(
             `[InjuryRecovery] Player ${player.name}: ${oldValue} -> ${newValue} (daily recovery: ${dailyRecovery})`,
@@ -108,6 +107,48 @@ export class InjuryRecoveryService {
           error,
         );
       }
+    }
+
+    // Batch save all players with updated injury values
+    if (playersToSave.length > 0) {
+      await this.playerRepository.save(playersToSave);
+      this.logger.debug(`[InjuryRecovery] Batch saved ${playersToSave.length} players`);
+    }
+
+    // Process recovered injuries
+    let recoveredCount = 0;
+    for (const { playerId, playerName, oldValue } of injuriesToRecover) {
+      const activeInjury = await this.injuryRepository.findOne({
+        where: { playerId, isRecovered: false },
+        order: { occurredAt: 'DESC' },
+      });
+
+      if (activeInjury) {
+        activeInjury.isRecovered = true;
+        activeInjury.recoveredAt = new Date();
+        await this.injuryRepository.save(activeInjury);
+      }
+
+      // Clear injury fields on the player
+      const player = playersToSave.find(p => p.id === playerId);
+      if (player) {
+        player.injuryType = null;
+        player.injuryState = null;
+        player.injuredAt = null;
+      }
+
+      recoveredCount++;
+      this.logger.log(
+        `[InjuryRecovery] Player ${playerName} (${playerId}) has fully recovered! (injuryValue: ${oldValue} -> 0)`,
+      );
+    }
+
+    // Save players with cleared injury fields
+    const recoveredPlayers = playersToSave.filter(p =>
+      injuriesToRecover.some(r => r.playerId === p.id)
+    );
+    if (recoveredPlayers.length > 0) {
+      await this.playerRepository.save(recoveredPlayers);
     }
 
     this.logger.log(

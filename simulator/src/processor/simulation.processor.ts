@@ -528,6 +528,8 @@ export class SimulationProcessor extends WorkerHost {
                         if (injuryData) {
                             player.currentInjuryValue = injuryData.injuryValue;
                             player.injuryType = injuryData.injuryType;
+                            // injuryValue <= 30 is light (can play at 95%), > 30 is heavy (cannot play)
+                            player.injuryState = injuryData.injuryValue <= 30 ? 'light' : 'heavy';
                             player.injuredAt = now;
                         }
                     }
