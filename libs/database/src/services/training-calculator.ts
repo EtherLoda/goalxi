@@ -26,13 +26,14 @@ export interface TrainingResult {
 
 /**
  * Calculate weekly training points for a player
- * Formula: BASE_WEEKLY × slotMultiplier × ageFactor × coachBonus
+ * Formula: BASE_WEEKLY × (1 - physicalIntensity) × slotMultiplier × ageFactor × coachBonus
  */
 export function calculateWeeklyTrainingPoints(
     age: number,
     trainingSlot: TrainingSlot,
     trainingCategory: TrainingCategory,
     staffList: StaffEntity[],
+    physicalIntensity: number = 0,
 ): number {
     const slotMultiplier = getSlotMultiplier(trainingSlot);
     if (slotMultiplier === 0) return 0;
@@ -40,8 +41,11 @@ export function calculateWeeklyTrainingPoints(
     const ageFactor = getAgeTrainingFactor(age);
     const coachBonus = calculateCoachBonus(staffList, trainingCategory);
 
+    // Skill training gets (1 - physicalIntensity) of base training
+    const skillTrainingBase = TRAINING_SETTINGS.BASE_WEEKLY_TRAINING * (1 - physicalIntensity);
+
     return Math.round(
-        TRAINING_SETTINGS.BASE_WEEKLY_TRAINING *
+        skillTrainingBase *
             slotMultiplier *
             ageFactor *
             coachBonus *
@@ -211,8 +215,15 @@ export function applyTrainingToPlayer(
     staffList: StaffEntity[],
     weeksElapsed: number,
     trainingSkill?: string | null,
+    physicalIntensity: number = 0,
 ): TrainingResult {
-    const weeklyPoints = calculateWeeklyTrainingPoints(age, trainingSlot, trainingCategory, staffList);
+    const weeklyPoints = calculateWeeklyTrainingPoints(
+        age,
+        trainingSlot,
+        trainingCategory,
+        staffList,
+        physicalIntensity,
+    );
     if (weeklyPoints === 0) {
         return {
             playerId,

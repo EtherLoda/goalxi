@@ -36,7 +36,9 @@
       "Bash(ls libs/database/*.json)",
       "Bash(ls libs/database/jest*)",
       "Bash(node --eval ':*)",
-      "Bash(npx eslint:*)"
+      "Bash(npx eslint:*)",
+      "Bash(git push:*)",
+      "Bash(git config:*)"
     ]
   }
 }

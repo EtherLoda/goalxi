@@ -8,6 +8,8 @@ import {
   StaffEntity,
   TeamEntity,
   applyTrainingToPlayer,
+  calculateWeeklyStaminaChange,
+  calculateCoachBonus,
 } from '@goalxi/database';
 
 @Injectable()
@@ -41,7 +43,7 @@ export class TrainingProcessor extends WorkerHost {
       this.logger.log(`[TrainingProcessor] Processing ${teams.length} teams`);
 
       for (const team of teams) {
-        const teamResult = await this.processTeamTraining(team.id);
+        const teamResult = await this.processTeamTraining(team);
         totalPlayersProcessed += teamResult.playersProcessed;
         totalPlayersTrained += teamResult.playersTrained;
       }
@@ -68,18 +70,24 @@ export class TrainingProcessor extends WorkerHost {
     }
   }
 
-  private async processTeamTraining(teamId: string): Promise<{
+  private async processTeamTraining(team: TeamEntity): Promise<{
     playersProcessed: number;
     playersTrained: number;
   }> {
     // Get all active staff for bonus calculation
     const staffList = await this.staffRepo.find({
-      where: { teamId, isActive: true },
+      where: { teamId: team.id, isActive: true },
     });
+
+    // Get team's physical training intensity
+    const physicalIntensity = team.trainingPhysicalIntensity ?? 0;
+
+    // Calculate coach bonus for stamina (includes head + fitness coach)
+    const fitnessCoachBonus = calculateCoachBonus(staffList, 'physical' as any);
 
     // Get all players on the team
     const players = await this.playerRepo.find({
-      where: { teamId },
+      where: { teamId: team.id },
     });
 
     let playersTrained = 0;
@@ -89,6 +97,16 @@ export class TrainingProcessor extends WorkerHost {
       if (player.isYouth) {
         continue;
       }
+
+      // Calculate stamina change
+      const staminaResult = calculateWeeklyStaminaChange(
+        player.id,
+        player.stamina,
+        player.age,
+        physicalIntensity,
+        fitnessCoachBonus,
+      );
+      player.stamina = staminaResult.staminaAfter;
 
       const result = applyTrainingToPlayer(
         player.id,
@@ -101,15 +119,18 @@ export class TrainingProcessor extends WorkerHost {
         staffList,
         1, // 1 week
         player.trainingSkill,
+        physicalIntensity,
       );
 
-      if (result.weeklyPoints > 0) {
+      if (result.weeklyPoints > 0 || staminaResult.netChange !== 0) {
         await this.playerRepo.save(player);
         playersTrained++;
 
         this.logger.debug(
           `[TrainingProcessor] Player ${player.name} (${player.id}): ` +
-            `${result.weeklyPoints} pts, gained ${result.skillsGained.map((g) => g.skill).join(', ')}`,
+            `stamina ${staminaResult.staminaBefore.toFixed(2)} → ${staminaResult.staminaAfter.toFixed(2)} ` +
+            `(${staminaResult.netChange >= 0 ? '+' : ''}${staminaResult.netChange.toFixed(2)}), ` +
+            `skill pts: ${result.weeklyPoints}, gained ${result.skillsGained.map((g) => g.skill).join(', ')}`,
         );
       }
     }

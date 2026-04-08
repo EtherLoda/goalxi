@@ -39,5 +39,6 @@ export * from './constants/training.constants';
 export * from './constants/name-database';
 export * from './services/training-calculator';
 export * from './services/condition-calculator';
+export * from './services/stamina-calculator';
 export * from './types/match-event-data';
 export * from './types/simulation-player';
