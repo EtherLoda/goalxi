@@ -9,6 +9,7 @@ import {
     TRAINING_SETTINGS,
     getAgeTrainingFactor,
     getSkillUpgradeCost,
+    getSkillTrainingSpeed,
 } from '../constants/training.constants';
 
 export interface SkillGain {
@@ -174,11 +175,15 @@ export function distributeTrainingPoints(
     const potentialLevel = getSkillLevel(potentialSkills, selectedKey);
 
     // Try to gain as many levels as points allow for that single skill
+    // Cost per level is adjusted by skill training speed
+    const skillSpeed = getSkillTrainingSpeed(selectedKey);
     let tempLevel = currentLevel;
     let tempCost = 0;
 
-    while (tempLevel < potentialLevel && totalPoints >= tempCost + getSkillUpgradeCost(tempLevel)) {
-        tempCost += getSkillUpgradeCost(tempLevel);
+    while (tempLevel < potentialLevel) {
+        const levelCost = getSkillUpgradeCost(tempLevel) / skillSpeed;
+        if (totalPoints < tempCost + levelCost) break;
+        tempCost += levelCost;
         tempLevel++;
     }
 

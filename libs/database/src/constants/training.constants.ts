@@ -9,7 +9,7 @@
 
 export const TRAINING_SETTINGS = {
     /** Base training points earned per week */
-    BASE_WEEKLY_TRAINING: 30,
+    BASE_WEEKLY_TRAINING: 20,
 
     /** Training slot multipliers */
     ENHANCED_MULTIPLIER: 1.5,
@@ -42,14 +42,11 @@ export function getAgeTrainingFactor(age: number): number {
 
 /**
  * Calculate training cost for upgrading from `level` to `level + 1`
- * Using sigmoid: cost = 200 / (1 + exp(-0.3 * (level - 10)))
+ * Formula: cost = level^2 + 20
+ * Higher levels cost more, curve is monotonically increasing
  */
 export function getSkillUpgradeCost(level: number): number {
-    const k = 0.3;
-    const mid = 10;
-    const scale = 20;
-    const base = 10;
-    return base * (1 / (1 + Math.exp(-k * (level - mid)))) * scale;
+    return level * level + 20;
 }
 
 /**
@@ -71,7 +68,7 @@ export function getTotalTrainingCost(startLevel: number, targetLevel: number): n
 export const SKILL_CATEGORY_MAP: Record<string, string[]> = {
     physical: ['pace', 'strength'],
     technical: ['finishing', 'passing', 'dribbling', 'defending'],
-    goalkeeper: ['reflexes', 'handling', 'distribution'],
+    goalkeeper: ['reflexes', 'handling', 'aerial'],
     mental: ['positioning', 'composure'],
     setPieces: ['freeKicks', 'penalties'],
 };

@@ -28,7 +28,8 @@ describe('TrainingCalculator', () => {
       const keys = getPlayerSkillKeys(true);
       expect(keys).toContain('reflexes');
       expect(keys).toContain('handling');
-      expect(keys).toContain('distribution');
+      expect(keys).toContain('aerial');
+      expect(keys).not.toContain('distribution');
       expect(keys).not.toContain('finishing');
       expect(keys).not.toContain('dribbling');
     });
@@ -91,10 +92,10 @@ describe('TrainingCalculator', () => {
 
     it('should calculate base points for REGULAR slot', () => {
       const points = calculateWeeklyTrainingPoints(20, TrainingSlot.REGULAR, TrainingCategory.PHYSICAL, []);
-      // BASE=30, age 20 factor≈0.895, no coaches
-      // 30 * 1.0 * 0.895 ≈ 26.85
-      expect(points).toBeGreaterThan(25);
-      expect(points).toBeLessThan(30);
+      // BASE=20, age 20 factor≈0.895, no coaches
+      // 20 * 1.0 * 0.895 ≈ 17.9
+      expect(points).toBeGreaterThan(17);
+      expect(points).toBeLessThan(20);
     });
 
     it('should apply ENHANCED multiplier (1.5x)', () => {
@@ -129,7 +130,7 @@ describe('TrainingCalculator', () => {
       const noCoach = calculateWeeklyTrainingPoints(20, TrainingSlot.REGULAR, TrainingCategory.PHYSICAL, []);
 
       // Formula: 1 + 0.25 (head) + 0.25 (fitness) = 1.5
-      expect(points / noCoach).toBe(1.5);
+      expect(points / noCoach).toBeCloseTo(1.5, 2);
     });
   });
 

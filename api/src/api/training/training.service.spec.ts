@@ -208,7 +208,7 @@ describe('TrainingService', () => {
       const noCoachPoints = service.calculateWeeklyTrainingPoints(player, []);
 
       // Should be exactly 1.5x (head + category coach matching PHYSICAL)
-      expect(points / noCoachPoints).toBe(1.5);
+      expect(points / noCoachPoints).toBeCloseTo(1.5, 2);
     });
   });
 
@@ -283,7 +283,7 @@ describe('TrainingService', () => {
       playerRepo.save.mockImplementation((p) =>
         Promise.resolve(p as PlayerEntity),
       );
-      const result = await service.applyTrainingToPlayer(player, 4, []);
+      const result = await service.applyTrainingToPlayer(player, 8, []);
 
       // Should have gained exactly one skill (random selection)
       expect(result.skillsGained.length).toBe(1);
@@ -347,9 +347,10 @@ describe('TrainingService', () => {
       playerRepo.save.mockImplementation((p) =>
         Promise.resolve(p as PlayerEntity),
       );
-      const result = await service.applyTrainingToPlayer(player, 4, []);
+      const result = await service.applyTrainingToPlayer(player, 8, []);
 
       // Should have gained exactly one skill - the specified one
+      // finishing speed=0.85, level10->11 costs (100+20)/0.85=141, 8 weeks=160 points enough
       expect(result.skillsGained.length).toBe(1);
       expect(result.skillsGained[0].skill).toBe('finishing');
       expect(result.totalPointsSpent).toBeGreaterThan(0);
@@ -423,12 +424,12 @@ describe('TrainingService', () => {
         `Scenario 1: ${weeklyPoints} pts/week, total cost ${totalCost.toFixed(0)}, ${weeksNeeded} weeks to reach potential`,
       );
 
-      // Weekly = 30 * 1.5 (ENHANCED) * 1.0 (age 17) * 1.5 (full coaches) = 67.5
-      expect(weeklyPoints).toBeCloseTo(67.5, 1);
-      // Total cost 7->18 per skill: ~1367 points
-      expect(totalCost).toBeGreaterThan(1300);
-      // Single skill: 1367 / 67.5 ≈ 21 weeks
-      expect(weeksNeeded).toBeLessThanOrEqual(21);
+      // Weekly = 20 * 1.5 (ENHANCED) * 1.0 (age 17) * 1.5 (full coaches) = 45
+      expect(weeklyPoints).toBeCloseTo(45, 1);
+      // Total cost 7->18 per skill: ~1914 points
+      expect(totalCost).toBeGreaterThan(1900);
+      // Single skill: 1914 / 45 ≈ 43 weeks
+      expect(weeksNeeded).toBeLessThanOrEqual(43);
     });
 
     it('Scenario 2: 6 start -> 15 potential, ENHANCED, full coaches', async () => {
@@ -469,12 +470,12 @@ describe('TrainingService', () => {
         `Scenario 2: ${weeklyPoints} pts/week, total cost ${totalCost.toFixed(0)}, ${weeksNeeded} weeks to reach potential`,
       );
 
-      // Weekly = 30 * 1.5 (ENHANCED) * 1.0 (age 17) * 1.5 (full coaches) = 67.5
-      expect(weeklyPoints).toBeCloseTo(67.5, 1);
-      // Total cost 6->15 per skill: ~900 points
-      expect(totalCost).toBeGreaterThan(850);
-      // Single skill: 900 / 67.5 ≈ 14 weeks
-      expect(weeksNeeded).toBeLessThanOrEqual(14);
+      // Weekly = 20 * 1.5 (ENHANCED) * 1.0 (age 17) * 1.5 (full coaches) = 45
+      expect(weeklyPoints).toBeCloseTo(45, 1);
+      // Total cost 6->15 per skill: ~1140 points
+      expect(totalCost).toBeGreaterThan(1100);
+      // Single skill: 1140 / 45 ≈ 26 weeks
+      expect(weeksNeeded).toBeLessThanOrEqual(26);
     });
 
     it('Scenario 3: 6 start -> 12 potential, REGULAR, full coaches', async () => {
@@ -515,12 +516,12 @@ describe('TrainingService', () => {
         `Scenario 3: ${weeklyPoints} pts/week, total cost ${totalCost.toFixed(0)}, ${weeksNeeded} weeks to reach potential`,
       );
 
-      // Weekly = 30 * 1.0 (REGULAR) * 1.0 (age 17) * 1.5 (full coaches) = 45
-      expect(weeklyPoints).toBeCloseTo(45, 1);
-      // Total cost 6->12 per skill: ~475 points
-      expect(totalCost).toBeGreaterThan(450);
-      // Single skill: 475 / 45 ≈ 11 weeks
-      expect(weeksNeeded).toBeLessThanOrEqual(11);
+      // Weekly = 20 * 1.0 (REGULAR) * 1.0 (age 17) * 1.5 (full coaches) = 30
+      expect(weeklyPoints).toBeCloseTo(30, 1);
+      // Total cost 6->12 per skill: ~571 points
+      expect(totalCost).toBeGreaterThan(560);
+      // Single skill: 571 / 30 ≈ 20 weeks
+      expect(weeksNeeded).toBeLessThanOrEqual(20);
     });
   });
 });
