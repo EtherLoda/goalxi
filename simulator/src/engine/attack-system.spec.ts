@@ -25,7 +25,7 @@ describe('Attack System', () => {
             penalties: 10,
             gk_reflexes: 10,
             gk_handling: 10,
-            gk_distribution: 10,
+            gk_aerial: 10,
         },
         currentStamina: 3,
         form: 5,

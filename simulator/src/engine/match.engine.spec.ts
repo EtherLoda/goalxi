@@ -29,7 +29,7 @@ describe('MatchEngine', () => {
             penalties: 50,
             gk_reflexes: 50,
             gk_handling: 50,
-            gk_distribution: 50,
+            gk_aerial: 50,
         },
         currentStamina: 3,
         form: 5,

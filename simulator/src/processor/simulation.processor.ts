@@ -20,6 +20,8 @@ import {
     InjuryEntity,
     StaffEntity,
     StaffRole,
+    calculateMatchExperience,
+    addExperience,
 } from '@goalxi/database';
 import { MatchEngine, MatchEvent } from '../engine/match.engine';
 import { Team } from '../engine/classes/Team';
@@ -475,6 +477,11 @@ export class SimulationProcessor extends WorkerHost {
                 ).length;
                 player.careerStats.club.yellowCards += playerYellowCards;
                 player.careerStats.club.redCards += playerRedCards;
+
+                // Calculate and update experience
+                const experienceGain = calculateMatchExperience(match.type, stats.minutesPlayed);
+                const expResult = addExperience(player.id, player.experience, experienceGain);
+                player.experience = expResult.experienceAfter;
             }
 
             // Save all updated players

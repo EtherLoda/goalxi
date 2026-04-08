@@ -26,7 +26,7 @@ describe('Shot Type Goal Rates', () => {
             penalties: attrValue,
             gk_reflexes: attrValue,
             gk_handling: attrValue,
-            gk_distribution: attrValue,
+            gk_aerial: attrValue,
         },
         currentStamina: 3,
         form: 5,
