@@ -194,6 +194,13 @@ export class PlayerEntity extends AbstractEntity {
     @Column({ type: 'float', default: 3.0 })
     form!: number;
 
+    /**
+     * 累计比赛分钟数
+     * 每场比赛后累加，状态更新后清零
+     */
+    @Column({ name: 'match_minutes', type: 'int', default: 0 })
+    matchMinutes!: number;
+
     @Column({ type: 'float', default: 3.0 })
     stamina!: number;
 

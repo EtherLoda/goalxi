@@ -28,7 +28,7 @@ import {
 import { WeatherSchedulerService } from './weather-scheduler.service';
 import { WeatherService } from './weather.service';
 import { InjuryRecoveryService } from './injury-recovery.service';
-import { TrainingSchedulerService } from './training-scheduler.service';
+import { WeeklySettlementService } from './weekly-settlement.service';
 import { MatchSchedulerService } from './match-scheduler.service';
 import { YouthMatchSchedulerService } from './youth-match-scheduler.service';
 import { SeasonSchedulerService } from './season-scheduler.service';
@@ -62,6 +62,9 @@ import { PlayerWageSchedulerService } from './player-wage-scheduler.service';
     BullModule.registerQueue({
       name: 'player-wage',
     }),
+    BullModule.registerQueue({
+      name: 'condition-settlement',
+    }),
     TypeOrmModule.forFeature([
       MatchEntity,
       MatchTacticsEntity,
@@ -90,7 +93,7 @@ import { PlayerWageSchedulerService } from './player-wage-scheduler.service';
     WeatherSchedulerService,
     WeatherService,
     InjuryRecoveryService,
-    TrainingSchedulerService,
+    WeeklySettlementService,
     MatchSchedulerService,
     YouthMatchSchedulerService,
     SeasonSchedulerService,
@@ -107,7 +110,7 @@ import { PlayerWageSchedulerService } from './player-wage-scheduler.service';
     WeatherSchedulerService,
     WeatherService,
     InjuryRecoveryService,
-    TrainingSchedulerService,
+    WeeklySettlementService,
     MatchSchedulerService,
     YouthMatchSchedulerService,
     SeasonSchedulerService,

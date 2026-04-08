@@ -80,6 +80,9 @@ export class MatchCompletionService {
     // 3. Update Player Stats
     await this.updatePlayerStats(matchId);
 
+    // 3.5. Add match minutes to players for condition/form calculation
+    await this.addMatchMinutes(matchId);
+
     // 4. Update ELO ratings
     await this.updateEloRatings(match);
 
@@ -304,6 +307,86 @@ export class MatchCompletionService {
         appearances: 1,
       });
     }
+  }
+
+  /**
+   * Add match minutes to players for condition/form calculation
+   * Accumulates minutes played since last condition update
+   */
+  private async addMatchMinutes(matchId: string): Promise<void> {
+    // Get substitution events to determine actual playing time
+    const substitutionEvents = await this.eventRepository.find({
+      where: { matchId },
+    });
+
+    // Build a map of playerId -> minute they were substituted out
+    const substitutedOut = new Map<string, number>();
+    // Build a map of playerId -> minute they were substituted in
+    const substitutedIn = new Map<string, number>();
+
+    for (const event of substitutionEvents) {
+      if ((event.typeName || '').toLowerCase() === 'substitution') {
+        const data = event.data as any;
+        if (data?.playerId) {
+          substitutedOut.set(data.playerId, event.minute);
+        }
+        if (data?.substitutedPlayerId) {
+          substitutedIn.set(data.substitutedPlayerId, event.minute);
+        }
+      }
+    }
+
+    // Get tactics to find starters
+    const tactics = await this.tacticsRepository.find({ where: { matchId } });
+
+    // Collect all playerIds and their minutes
+    const playerMinutes: Map<string, { teamId: string; minutes: number }> = new Map();
+
+    for (const t of tactics) {
+      const teamId = t.teamId;
+      const starterIds = Object.values(t.lineup).filter((id): id is string => typeof id === 'string');
+
+      // Process starters
+      for (const playerId of starterIds) {
+        const subOutMinute = substitutedOut.get(playerId);
+        const minutesPlayed = subOutMinute ?? 90;
+        const existing = playerMinutes.get(playerId);
+        if (existing) {
+          existing.minutes += minutesPlayed;
+        } else {
+          playerMinutes.set(playerId, { teamId, minutes: minutesPlayed });
+        }
+      }
+
+      // Process substitutes who actually came in
+      if (t.substitutions) {
+        for (const sub of t.substitutions) {
+          const subInMinute = substitutedIn.get(sub.in);
+          if (subInMinute !== undefined) {
+            const minutesPlayed = 90 - subInMinute;
+            const existing = playerMinutes.get(sub.in);
+            if (existing) {
+              existing.minutes += minutesPlayed;
+            } else {
+              playerMinutes.set(sub.in, { teamId, minutes: minutesPlayed });
+            }
+          }
+        }
+      }
+    }
+
+    // Update each player's matchMinutes
+    for (const [playerId, data] of playerMinutes) {
+      await this.playerRepository.increment(
+        { id: playerId as any },
+        'matchMinutes',
+        data.minutes,
+      );
+    }
+
+    this.logger.debug(
+      `[MatchCompletion] Added match minutes for ${playerMinutes.size} players in match ${matchId}`,
+    );
   }
 
   /**
