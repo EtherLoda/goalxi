@@ -1,0 +1,92 @@
+{
+  "langSwitcher": {
+    "switchLang": "Switch Language"
+  },
+  "nav": {
+    "howToPlay": "How to Play",
+    "leaderboard": "Leaderboard",
+    "news": "News",
+    "login": "Login",
+    "signUp": "Sign Up"
+  },
+  "hero": {
+    "title": "FROM PLAYER TO TECHNICAL DIRECTOR",
+    "subtitle": "The most immersive tactical football management experience on the web. Master the pitch with precision data.",
+    "cta": "Join GoalXI"
+  },
+  "stats": {
+    "managersOnline": "Managers Online",
+    "matchesPlayed": "Matches Played",
+    "tacticalSimulation": "Tactical Simulation"
+  },
+  "features": {
+    "title": "WHY GOALXI?",
+    "subtitle": "Revolutionary depth meets elite presentation. The next generation of tactical control starts here.",
+    "tacticalCanvas": {
+      "title": "Various Tactical Canvas",
+      "desc": "Free-form drag & drop systems that allow you to dictate every phase of play. No more rigid templates—just pure coaching."
+    },
+    "scouting": {
+      "title": "Global Scouting Network",
+      "desc": "Discover the next generational talent using our proprietary scouting algorithm. 150,000+ players tracked across 60 nations."
+    },
+    "dataDriven": {
+      "title": "Data-Driven Decisions",
+      "desc": "Every individual stat matters. Use our 1-20 attribute system and heatmaps to optimize your squad rotation and match-day prep."
+    }
+  },
+  "cta": {
+    "title": "READY TO LEAD THE LEAGUE?",
+    "subtitle": "Join the world's most sophisticated manager community and start your dynasty today.",
+    "placeholder": "ENTER YOUR EMAIL",
+    "button": "GET STARTED",
+    "note": "No credit card required. Free to play, forever."
+  },
+  "footer": {
+    "brand": "GOALXI",
+    "copyright": "© 2026 GOALXI TACTICAL INTELLIGENCE",
+    "allRights": "ALL RIGHTS RESERVED.",
+    "privacy": "Privacy Policy",
+    "terms": "Terms of Service",
+    "cookies": "Cookie Settings",
+    "contact": "Contact Support"
+  },
+  "auth": {
+    "login": {
+      "title": "Welcome Back",
+      "subtitle": "Sign in to your manager account",
+      "email": "Email",
+      "password": "Password",
+      "rememberMe": "Remember me",
+      "forgotPassword": "Forgot password?",
+      "submit": "Sign In",
+      "noAccount": "Don't have an account?"
+    },
+    "register": {
+      "title": "Create Account",
+      "subtitle": "Start your managerial journey",
+      "username": "Username",
+      "email": "Email",
+      "password": "Password",
+      "confirmPassword": "Confirm Password",
+      "submit": "Create Account",
+      "hasAccount": "Already have an account?"
+    }
+  },
+  "dashboard": {
+    "title": "Dashboard",
+    "nextMatch": "Next Match",
+    "squadStatus": "Squad Status",
+    "position": "Position",
+    "points": "Points",
+    "games": "Games",
+    "recentForm": "Recent Form",
+    "actionRequired": "Action Required",
+    "officialNews": "Official News",
+    "matchday": "Matchday",
+    "kickoff": "Kickoff",
+    "venue": "Venue",
+    "home": "Home",
+    "away": "Away"
+  }
+}

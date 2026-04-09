@@ -1,0 +1,215 @@
+@import "tailwindcss";
+
+/* =============================================================================
+   GOALXI DESIGN TOKEN SYSTEM — goalxi_dark
+   Based on: stitch_design/goalxi_dark/DESIGN.md
+
+   Design Philosophy: "The Tactical Architect" — Premium data-war-room aesthetic.
+   High-density information layouts with Glass-on-Dark architecture.
+   ============================================================================= */
+
+@theme inline {
+  /* -------------------------------------------------------------------------
+     SURFACE SYSTEM
+     Surfaces describe hierarchy, NOT lightness.
+     surface-container-lowest (#02110d) is the darkest element.
+  ------------------------------------------------------------------------- */
+  --color-surface: #051612;
+  --color-surface-container: #11231e;
+  --color-surface-container-low: #0d1f1a;
+  --color-surface-container-high: #1c2d29;
+  --color-surface-container-highest: #273833;
+  --color-surface-container-lowest: #02110d;
+  --color-surface-bright: #2b3d38;
+  --color-surface-dim: #051612;
+  --color-background: #051612;
+
+  /* -------------------------------------------------------------------------
+     PRIMARY — CTAs, positive metrics, active states
+  ------------------------------------------------------------------------- */
+  --color-primary: #00e479;
+  --color-primary-fixed: #60ff99;
+  --color-primary-fixed-dim: #00e479;
+  --color-primary-dim: #00ec90;
+  --color-on-primary: #003919;
+  --color-primary-container: #002c12;
+  --color-on-primary-container: #00a154;
+  --color-on-primary-fixed: #00210c;
+  --color-on-primary-fixed-variant: #005228;
+  --color-inverse-primary: #006d37;
+  --color-surface-tint: #00e479;
+
+  /* -------------------------------------------------------------------------
+     SECONDARY — Elite status, premium indicators
+  ------------------------------------------------------------------------- */
+  --color-secondary: #ffdb9d;
+  --color-secondary-fixed: #ffdea8;
+  --color-secondary-fixed-dim: #ffba20;
+  --color-secondary-dim: #9ee945;
+  --color-secondary-container: #feb700;
+  --color-on-secondary: #412d00;
+  --color-on-secondary-container: #6b4b00;
+  --color-on-secondary-fixed: #271900;
+  --color-on-secondary-fixed-variant: #5e4200;
+
+  /* -------------------------------------------------------------------------
+     TERRTIARY — Star players, world-class status
+  ------------------------------------------------------------------------- */
+  --color-tertiary: #e9c349;
+  --color-tertiary-fixed: #ffe088;
+  --color-tertiary-fixed-dim: #e9c349;
+  --color-tertiary-dim: #9cdbca;
+  --color-tertiary-container: #cca830;
+  --color-on-tertiary: #3c2f00;
+  --color-on-tertiary-container: #4f3e00;
+  --color-on-tertiary-fixed: #241a00;
+  --color-on-tertiary-fixed-variant: #574500;
+
+  /* -------------------------------------------------------------------------
+     ERROR & SURFACE VARIANTS
+  ------------------------------------------------------------------------- */
+  --color-error: #ffb4ab;
+  --color-error-dim: #d7383b;
+  --color-error-container: #93000a;
+  --color-on-error: #690005;
+  --color-on-error-container: #ffdad6;
+  --color-surface-variant: #273833;
+
+  /* -------------------------------------------------------------------------
+     ON-COLORS — Text on surfaces
+  ------------------------------------------------------------------------- */
+  --color-on-surface: #d3e7e0;
+  --color-on-surface-variant: #c1c8c4;
+  --color-on-background: #d3e7e0;
+  --color-inverse-surface: #d3e7e0;
+  --color-inverse-on-surface: #22342f;
+
+  /* -------------------------------------------------------------------------
+     OUTLINES & BORDERS
+  ------------------------------------------------------------------------- */
+  --color-outline: #8b928f;
+  --color-outline-variant: #414845;
+
+  /* -------------------------------------------------------------------------
+     TYPOGRAPHY — Font families (loaded via <link> in layout.tsx)
+  ------------------------------------------------------------------------- */
+  --font-headline: "Space Grotesk", system-ui, sans-serif;
+  --font-body: "Inter", system-ui, sans-serif;
+  --font-label: "Inter", system-ui, sans-serif;
+
+  /* -------------------------------------------------------------------------
+     BORDER RADIUS — Following spec
+  ------------------------------------------------------------------------- */
+  --radius-sm: 0.125rem;   /* inline elements */
+  --radius-lg: 0.25rem;    /* small buttons */
+  --radius-xl: 0.5rem;     /* cards, inputs */
+  --radius-2xl: 0.75rem;   /* modals, FABs */
+  --radius-full: 0.75rem;  /* pills, avatars, FABs */
+
+  /* -------------------------------------------------------------------------
+     SHADOWS — Following spec
+  ------------------------------------------------------------------------- */
+  --shadow-card: 0 4px 16px rgba(0, 0, 0, 0.3);
+  --shadow-glass: 0 8px 32px rgba(0, 0, 0, 0.37);
+  --shadow-floating: 0 12px 32px rgba(0, 0, 0, 0.4);
+}
+
+/* -------------------------------------------------------------------------
+   BASE STYLES
+------------------------------------------------------------------------- */
+*, *::before, *::after {
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  background-color: var(--color-surface);
+  color: var(--color-on-surface);
+  font-family: var(--font-body);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* -------------------------------------------------------------------------
+   TYPOGRAPHY UTILITY CLASSES
+   Use these instead of raw Tailwind font classes
+------------------------------------------------------------------------- */
+.font-headline {
+  font-family: "Space Grotesk", system-ui, sans-serif;
+}
+
+.font-body {
+  font-family: "Inter", system-ui, sans-serif;
+}
+
+.font-label {
+  font-family: "Inter", system-ui, sans-serif;
+}
+
+/* -------------------------------------------------------------------------
+   MATERIAL SYMBOLS — Icon font setup
+------------------------------------------------------------------------- */
+.material-symbols-outlined {
+  font-variation-settings:
+    "FILL" 0,
+    "wght" 400,
+    "GRAD" 0,
+    "opsz" 24;
+  display: inline-block;
+  vertical-align: middle;
+  user-select: none;
+}
+
+/* Filled variant */
+.material-symbols-filled {
+  font-variation-settings:
+    "FILL" 1,
+    "wght" 400,
+    "GRAD" 0,
+    "opsz" 24;
+  display: inline-block;
+  vertical-align: middle;
+  user-select: none;
+}
+
+/* -------------------------------------------------------------------------
+   CUSTOM COMPONENT CLASSES
+------------------------------------------------------------------------- */
+.glass-panel {
+  background: rgba(13, 31, 26, 0.75);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+/* -------------------------------------------------------------------------
+   SELECTION
+------------------------------------------------------------------------- */
+::selection {
+  background-color: color-mix(in srgb, var(--color-primary) 30%, transparent);
+  color: var(--color-on-surface);
+}
+
+/* -------------------------------------------------------------------------
+   SCROLLBAR — Dark theme styling
+------------------------------------------------------------------------- */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--color-surface-container-low);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--color-surface-container-highest);
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-outline);
+}

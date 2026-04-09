@@ -1,0 +1,92 @@
+{
+  "langSwitcher": {
+    "switchLang": "切换语言"
+  },
+  "nav": {
+    "howToPlay": "游戏指南",
+    "leaderboard": "排行榜",
+    "news": "资讯",
+    "login": "登录",
+    "signUp": "注册"
+  },
+  "hero": {
+    "title": "从球员到技术总监",
+    "subtitle": "最沉浸式的足球管理体验。用精准数据掌控球场。",
+    "cta": "加入 GoalXI"
+  },
+  "stats": {
+    "managersOnline": "在线经理",
+    "matchesPlayed": "已完成比赛",
+    "tacticalSimulation": "战术模拟"
+  },
+  "features": {
+    "title": "为什么选择 GOALXI？",
+    "subtitle": "深度与精英级呈现的完美结合。下一代战术控制从这里开始。",
+    "tacticalCanvas": {
+      "title": "多样战术画布",
+      "desc": "自由拖放系统，让你在比赛的每个阶段都精确掌控。不再受限于固定模板——纯粹的执教体验。"
+    },
+    "scouting": {
+      "title": "全球球探网络",
+      "desc": "使用我们的专利球探算法，发掘下一代天才球员。追踪 15 万+ 球员，覆盖 60 个国家。"
+    },
+    "dataDriven": {
+      "title": "数据驱动决策",
+      "desc": "每一项数据都至关重要。使用我们的 1-20 属性系统和热力图，优化阵容轮换和赛前准备。"
+    }
+  },
+  "cta": {
+    "title": "准备好统领联赛了吗？",
+    "subtitle": "加入世界上最高级的经理社区，今天开始建立你的王朝。",
+    "placeholder": "输入你的邮箱",
+    "button": "立即开始",
+    "note": "无需信用卡。免费游玩。"
+  },
+  "footer": {
+    "brand": "GOALXI",
+    "copyright": "© 2026 GOALXI 战术情报系统",
+    "allRights": "版权所有。",
+    "privacy": "隐私政策",
+    "terms": "服务条款",
+    "cookies": "Cookie 设置",
+    "contact": "联系我们"
+  },
+  "auth": {
+    "login": {
+      "title": "欢迎回来",
+      "subtitle": "登录你的经理账户",
+      "email": "邮箱",
+      "password": "密码",
+      "rememberMe": "记住我",
+      "forgotPassword": "忘记密码？",
+      "submit": "登录",
+      "noAccount": "还没有账户？"
+    },
+    "register": {
+      "title": "创建账户",
+      "subtitle": "开始你的执教之旅",
+      "username": "用户名",
+      "email": "邮箱",
+      "password": "密码",
+      "confirmPassword": "确认密码",
+      "submit": "创建账户",
+      "hasAccount": "已有账户？"
+    }
+  },
+  "dashboard": {
+    "title": "仪表盘",
+    "nextMatch": "下一场比赛",
+    "squadStatus": "球队状态",
+    "position": "排名",
+    "points": "积分",
+    "games": "场次",
+    "recentForm": "近期战绩",
+    "actionRequired": "待处理事项",
+    "officialNews": "官方资讯",
+    "matchday": "比赛日",
+    "kickoff": "开球时间",
+    "venue": "场地",
+    "home": "主场",
+    "away": "客场"
+  }
+}
