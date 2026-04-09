@@ -38,7 +38,18 @@
       "Bash(node --eval ':*)",
       "Bash(npx eslint:*)",
       "Bash(git push:*)",
-      "Bash(git config:*)"
+      "Bash(git config:*)",
+      "Read(//tmp/**)",
+      "Bash(rm -f api/src/database/migrations/*.ts)",
+      "Bash(rm -f libs/database/src/migrations/*.ts)",
+      "Bash(npx typeorm:*)",
+      "Bash(ls:*)",
+      "Bash(docker exec:*)",
+      "Bash(mkdir:*)",
+      "Bash(mkdir -p /c/Code/Project/GoalXI/web/src/app/[locale])",
+      "Bash(mv /c/Code/Project/GoalXI/web/src/app/page.tsx /c/Code/Project/GoalXI/web/src/app/[locale]/page.tsx)",
+      "Bash(rm:*)",
+      "Bash(tasklist)"
     ]
   }
 }

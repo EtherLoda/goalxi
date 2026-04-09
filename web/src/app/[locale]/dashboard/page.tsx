@@ -1,66 +1,82 @@
 "use client";
 
 import { useTranslations } from "next-intl";
+import { useEffect, useState } from "react";
 import Sidebar from "../../../components/dashboard/Sidebar";
+import { useAuth } from "@/contexts/AuthContext";
+import { api, type Standing, type Match } from "@/lib/api";
 
 export default function DashboardPage() {
   const t = useTranslations();
+  const { user, team, isLoading: authLoading } = useAuth();
+  const [standings, setStandings] = useState<Standing[]>([]);
+  const [upcomingMatch, setUpcomingMatch] = useState<Match | null>(null);
+  const [recentMatches, setRecentMatches] = useState<Match[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
 
-  const alerts = [
-    {
-      type: "warning" as const,
-      icon: "contract",
-      color: "tertiary",
-      title: "Contract Expiring: Bruno Fernandes",
-      desc: "Player contract expires in 6 months. Begin negotiations.",
-    },
-    {
-      type: "danger" as const,
-      icon: "medical_services",
-      color: "error",
-      title: "Injured: Rashford",
-      desc: "Pulled Hamstring. Out for approximately 2 weeks.",
-    },
-    {
-      type: "success" as const,
-      icon: "check_circle",
-      color: "primary",
-      title: "Tactical Training Complete",
-      desc: "Attacking cohesion drill finished. +3 chemistry boost.",
-    },
-  ];
+  useEffect(() => {
+    if (!team?.leagueId) return;
 
-  const formResults = [
-    { result: "W", type: "win" as const },
-    { result: "W", type: "win" as const },
-    { result: "D", type: "draw" as const },
-    { result: "L", type: "loss" as const },
-    { result: "W", type: "win" as const },
-  ];
+    setIsLoading(true);
 
-  const news = [
-    {
-      tag: "Club Feature",
-      tagColor: "primary",
-      title: "New Season Pass Available",
-      desc: "Unlock exclusive retro kits, training stadium skins, and premium scouting reports for Season 4.",
-      time: "Released Today",
-    },
-    {
-      tag: "Operations",
-      tagColor: "white",
-      title: "Server Maintenance on July 20th",
-      desc: "Scheduled downtime from 02:00 UTC to 04:00 UTC for infrastructure optimization.",
-      time: "2 Days Ago",
-    },
-    {
-      tag: "Scouting Update",
-      tagColor: "tertiary",
-      title: "Youth Intake Phase 2 Begins",
-      desc: "The latest wave of prospects from South America is being processed into the scouting database.",
-      time: "3 Days Ago",
-    },
-  ];
+    Promise.all([
+      api.leagues.getStandings(team.leagueId),
+      api.matches.getByTeam(team.id, "scheduled"),
+      api.matches.getByTeam(team.id, "completed"),
+    ])
+      .then(([standingsData, upcomingData, recentData]) => {
+        setStandings(standingsData);
+        const upcoming = upcomingData.matches[0] || null;
+        setUpcomingMatch(upcoming);
+        // Get last 5 completed matches for form
+        const recent = recentData.matches
+          .sort((a, b) => new Date(b.scheduledAt).getTime() - new Date(a.scheduledAt).getTime())
+          .slice(0, 5);
+        setRecentMatches(recent);
+      })
+      .catch(console.error)
+      .finally(() => setIsLoading(false));
+  }, [team?.leagueId, team?.id]);
+
+  const userStanding = standings.find((s) => s.teamId === team?.id);
+
+  const getFormResults = () => {
+    return recentMatches.map((match) => {
+      const isHome = match.homeTeamId === team?.id;
+      const userScore = isHome ? match.homeScore : match.awayScore;
+      const opponentScore = isHome ? match.awayScore : match.homeScore;
+
+      if (userScore === null || opponentScore === null) return { result: "-", type: "pending" as const };
+      if (userScore > opponentScore) return { result: "W", type: "win" as const };
+      if (userScore < opponentScore) return { result: "L", type: "loss" as const };
+      return { result: "D", type: "draw" as const };
+    });
+  };
+
+  const formResults = getFormResults();
+
+  const getOpponentName = (match: Match) => {
+    if (!team) return "";
+    return match.homeTeamId === team.id ? match.awayTeamName : match.homeTeamName;
+  };
+
+  const getOpponentInitials = (name: string) => {
+    return name
+      .split(" ")
+      .map((w) => w[0])
+      .join("")
+      .slice(0, 2)
+      .toUpperCase();
+  };
+
+  const formatDate = (dateStr: string) => {
+    const date = new Date(dateStr);
+    return date.toLocaleDateString("en-US", {
+      weekday: "short",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  };
 
   return (
     <div className="flex min-h-screen bg-surface">
@@ -83,11 +99,15 @@ export default function DashboardPage() {
                   {t("dashboard.nextMatch")}
                 </div>
                 <div className="font-headline text-[10px] text-on-surface-variant">
-                  vs Liverpool (H)
+                  {upcomingMatch
+                    ? `vs ${getOpponentName(upcomingMatch)} (${upcomingMatch.homeTeamId === team?.id ? t("dashboard.home") : t("dashboard.away")})`
+                    : "No upcoming matches"}
                 </div>
               </div>
               <div className="w-8 h-8 rounded-full bg-primary/20 border border-primary/30 flex items-center justify-center">
-                <span className="font-headline font-black text-xs text-primary">A</span>
+                <span className="font-headline font-black text-xs text-primary">
+                  {user?.nickname?.charAt(0) || "U"}
+                </span>
               </div>
             </div>
           </div>
@@ -106,28 +126,34 @@ export default function DashboardPage() {
                   <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary/10 border border-primary/20">
                     <span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
                     <span className="font-label text-[10px] font-black uppercase tracking-[0.2em] text-primary">
-                      {t("dashboard.matchday")} 24
+                      {t("dashboard.matchday")} {upcomingMatch?.matchday || "--"}
                     </span>
                   </div>
                   <h2 className="font-headline text-5xl font-black tracking-tighter text-on-surface">
-                    THE DERBY
+                    {upcomingMatch ? getOpponentName(upcomingMatch).toUpperCase() : "NO MATCHES"}
                   </h2>
                   <p className="font-body text-sm text-on-surface-variant max-w-sm leading-relaxed">
-                    Liverpool visit the Fortress this Sunday. Tactical adjustments in defensive transitions are prioritized.
+                    {upcomingMatch
+                      ? `${t("dashboard.venue")}: ${upcomingMatch.venue || "TBD"}`
+                      : "No upcoming matches scheduled"}
                   </p>
                   <div className="flex flex-wrap gap-6 pt-2 justify-center md:justify-start">
                     <div className="flex flex-col">
                       <span className="font-label text-[9px] uppercase tracking-[0.2em] text-primary font-black mb-1">
                         {t("dashboard.kickoff")}
                       </span>
-                      <span className="font-headline font-bold text-on-surface">SUNDAY 15:00</span>
+                      <span className="font-headline font-bold text-on-surface">
+                        {upcomingMatch ? formatDate(upcomingMatch.scheduledAt) : "-- : --"}
+                      </span>
                     </div>
                     <div className="w-px h-8 bg-white/10" />
                     <div className="flex flex-col">
                       <span className="font-label text-[9px] uppercase tracking-[0.2em] text-primary font-black mb-1">
                         {t("dashboard.venue")}
                       </span>
-                      <span className="font-headline font-bold text-on-surface">ELITE STADIUM</span>
+                      <span className="font-headline font-bold text-on-surface">
+                        {upcomingMatch?.venue || "TBD"}
+                      </span>
                     </div>
                   </div>
                 </div>
@@ -135,8 +161,19 @@ export default function DashboardPage() {
                 {/* VS Block */}
                 <div className="flex items-center gap-6 px-8 py-6 rounded-3xl bg-surface-container-low/80 backdrop-blur-md border border-white/5">
                   <div className="text-center space-y-2">
-                    <div className="w-16 h-16 rounded-full bg-primary/10 border-2 border-primary/30 flex items-center justify-center">
-                      <span className="font-headline font-black text-lg text-primary">EF</span>
+                    <div
+                      className="w-16 h-16 rounded-full border-2 flex items-center justify-center"
+                      style={{
+                        backgroundColor: `${team?.jerseyColorPrimary || "#00E479"}20`,
+                        borderColor: team?.jerseyColorPrimary || "#00E479",
+                      }}
+                    >
+                      <span
+                        className="font-headline font-black text-lg"
+                        style={{ color: team?.jerseyColorPrimary || "#00E479" }}
+                      >
+                        {team?.name?.slice(0, 2).toUpperCase() || "EF"}
+                      </span>
                     </div>
                     <span className="font-label text-[10px] font-black text-secondary uppercase tracking-widest">
                       {t("dashboard.home")}
@@ -145,7 +182,9 @@ export default function DashboardPage() {
                   <div className="font-headline font-black text-2xl text-on-surface-variant/30">VS</div>
                   <div className="text-center space-y-2">
                     <div className="w-16 h-16 rounded-full bg-error/10 border-2 border-error/30 flex items-center justify-center">
-                      <span className="font-headline font-black text-lg text-error">LIV</span>
+                      <span className="font-headline font-black text-lg text-error">
+                        {upcomingMatch ? getOpponentInitials(getOpponentName(upcomingMatch)) : "TBD"}
+                      </span>
                     </div>
                     <span className="font-label text-[10px] font-black text-error uppercase tracking-widest">
                       {t("dashboard.away")}
@@ -163,18 +202,40 @@ export default function DashboardPage() {
                     {t("dashboard.squadStatus")}
                   </h3>
                   <span className="font-label text-[9px] font-black text-on-surface-variant uppercase tracking-widest">
-                    Premier Division
+                    {team?.name || "Loading..."}
                   </span>
                 </div>
                 <div className="flex items-center gap-4 mb-6">
-                  <span className="font-headline text-6xl font-black text-on-surface tracking-tighter">03</span>
+                  <span className="font-headline text-6xl font-black text-on-surface tracking-tighter">
+                    {userStanding ? `#${userStanding.position}` : "--"}
+                  </span>
                   <div className="space-y-1">
-                    <div className="flex items-center gap-2 text-primary">
-                      <span className="material-symbols-outlined text-sm">trending_up</span>
-                      <span className="font-label text-[10px] font-black uppercase tracking-wider">UP 2</span>
-                    </div>
+                    {userStanding && userStanding.position <= 4 ? (
+                      <div className="flex items-center gap-2 text-primary">
+                        <span className="material-symbols-outlined text-sm">trending_up</span>
+                        <span className="font-label text-[10px] font-black uppercase tracking-wider">
+                          Playoff Zone
+                        </span>
+                      </div>
+                    ) : userStanding && userStanding.position > 12 ? (
+                      <div className="flex items-center gap-2 text-error">
+                        <span className="material-symbols-outlined text-sm">trending_down</span>
+                        <span className="font-label text-[10px] font-black uppercase tracking-wider">
+                          Relegation Zone
+                        </span>
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-2 text-on-surface-variant">
+                        <span className="material-symbols-outlined text-sm">trending_flat</span>
+                        <span className="font-label text-[10px] font-black uppercase tracking-wider">
+                          Mid Table
+                        </span>
+                      </div>
+                    )}
                     <p className="font-body text-[10px] text-on-surface-variant font-bold uppercase tracking-widest">
-                      48 {t("dashboard.points")} | 23 {t("dashboard.games")}
+                      {userStanding
+                        ? `${userStanding.points} ${t("dashboard.points")} | ${userStanding.played} ${t("dashboard.games")}`
+                        : "Loading..."}
                     </p>
                   </div>
                 </div>
@@ -186,24 +247,32 @@ export default function DashboardPage() {
                   {t("dashboard.recentForm")}
                 </p>
                 <div className="flex gap-2">
-                  {formResults.map((r, i) => (
-                    <div
-                      key={i}
-                      className={`w-9 h-9 rounded-lg flex items-center justify-center font-headline font-black text-xs border ${
-                        r.type === "win"
-                          ? "bg-primary text-on-primary border-primary shadow-[0_0_12px_rgba(0,228,121,0.3)]"
-                          : r.type === "draw"
-                          ? "bg-white/5 text-on-surface-variant border-white/10"
-                          : "bg-error/10 text-error border-error/20"
-                      }`}
-                    >
-                      {r.result}
-                    </div>
-                  ))}
+                  {formResults.length > 0 ? (
+                    formResults.map((r, i) => (
+                      <div
+                        key={i}
+                        className={`w-9 h-9 rounded-lg flex items-center justify-center font-headline font-black text-xs border ${
+                          r.type === "win"
+                            ? "bg-primary text-on-primary border-primary shadow-[0_0_12px_rgba(0,228,121,0.3)]"
+                            : r.type === "draw"
+                            ? "bg-white/5 text-on-surface-variant border-white/10"
+                            : r.type === "loss"
+                            ? "bg-error/10 text-error border-error/20"
+                            : "bg-white/5 text-on-surface-variant border-white/10"
+                        }`}
+                      >
+                        {r.result}
+                      </div>
+                    ))
+                  ) : (
+                    <div className="text-on-surface-variant text-sm">No recent matches</div>
+                  )}
                 </div>
                 <div className="pt-3 border-t border-white/5 flex justify-between items-center">
                   <span className="font-label text-[10px] text-on-surface-variant font-bold uppercase">
-                    Next: Liverpool (H)
+                    {upcomingMatch
+                      ? `Next: ${getOpponentName(upcomingMatch)}`
+                      : "No upcoming matches"}
                   </span>
                   <a href="#" className="font-label text-[10px] font-black text-primary uppercase tracking-widest hover:underline">
                     Full Table →
@@ -223,38 +292,16 @@ export default function DashboardPage() {
                   {t("dashboard.actionRequired")}
                 </h3>
                 <span className="font-label text-[10px] font-black text-on-surface-variant uppercase tracking-widest">
-                  3 Active
+                  0 Active
                 </span>
               </div>
-              <div className="glass-panel rounded-2xl overflow-hidden divide-y divide-white/5">
-                {alerts.map((alert, i) => (
-                  <div
-                    key={i}
-                    className="p-5 flex items-center gap-4 hover:bg-white/5 transition-colors cursor-pointer group"
-                  >
-                    <div
-                      className={`w-10 h-10 rounded-xl flex items-center justify-center border text-${alert.color}`}
-                      style={{
-                        background: `var(--color-${alert.color})/10`,
-                        borderColor: `var(--color-${alert.color})/20`,
-                        color: `var(--color-${alert.color})`,
-                      }}
-                    >
-                      <span className="material-symbols-outlined text-lg">{alert.icon}</span>
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <h4 className={`font-headline text-sm font-bold text-on-surface group-hover:text-${alert.color} transition-colors truncate`}>
-                        {alert.title}
-                      </h4>
-                      <p className="font-body text-xs text-on-surface-variant leading-relaxed">
-                        {alert.desc}
-                      </p>
-                    </div>
-                    <span className="material-symbols-outlined text-on-surface-variant group-hover:text-primary transition-colors">
-                      chevron_right
-                    </span>
-                  </div>
-                ))}
+              <div className="glass-panel rounded-2xl p-8 text-center">
+                <span className="material-symbols-outlined text-4xl text-on-surface-variant/30 mb-2">
+                  check_circle
+                </span>
+                <p className="font-body text-sm text-on-surface-variant">
+                  No pending actions at this time
+                </p>
               </div>
             </div>
 
@@ -269,36 +316,13 @@ export default function DashboardPage() {
                   Archive
                 </a>
               </div>
-              <div className="space-y-4">
-                {news.map((item, i) => (
-                  <div
-                    key={i}
-                    className="glass-panel rounded-2xl p-5 relative group cursor-pointer"
-                    style={{ borderLeftWidth: "3px", borderLeftColor: `var(--color-${item.tagColor})` }}
-                  >
-                    <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity bg-white/2" />
-                    <span
-                      className="font-label text-[9px] font-black uppercase tracking-[0.2em] block mb-2"
-                      style={{ color: `var(--color-${item.tagColor})` }}
-                    >
-                      {item.tag}
-                    </span>
-                    <h4 className="font-headline text-sm font-bold text-on-surface mb-1 relative z-10">
-                      {item.title}
-                    </h4>
-                    <p className="font-body text-xs text-on-surface-variant leading-relaxed relative z-10">
-                      {item.desc}
-                    </p>
-                    <div className="mt-3 flex justify-between items-center relative z-10">
-                      <span className="font-label text-[9px] text-on-surface-variant/50 font-black uppercase tracking-widest">
-                        {item.time}
-                      </span>
-                      <span className="font-label text-[9px] font-black text-primary uppercase tracking-widest hover:underline">
-                        Read More
-                      </span>
-                    </div>
-                  </div>
-                ))}
+              <div className="glass-panel rounded-2xl p-8 text-center">
+                <span className="material-symbols-outlined text-4xl text-on-surface-variant/30 mb-2">
+                  newsmode
+                </span>
+                <p className="font-body text-sm text-on-surface-variant">
+                  No news at this time
+                </p>
               </div>
             </div>
           </section>

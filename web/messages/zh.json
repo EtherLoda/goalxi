@@ -87,6 +87,51 @@
     "kickoff": "开球时间",
     "venue": "场地",
     "home": "主场",
-    "away": "客场"
+    "away": "客场",
+    "nav": {
+      "overview": "概览",
+      "dashboard": "仪表盘",
+      "squad": "球队",
+      "matches": "比赛",
+      "league": "联赛",
+      "operations": "运营",
+      "transfers": "转会",
+      "finance": "财务",
+      "scouting": "球探",
+      "academy": "青训",
+      "youthSquad": "青训球队",
+      "youthMatches": "青训比赛"
+    }
+  },
+  "squad": {
+    "title": "球队阵容",
+    "all": "全部",
+    "gk": "门将",
+    "field": "场上",
+    "players": "球员",
+    "overall": "总评",
+    "stamina": "体能",
+    "form": "状态",
+    "potential": "潜力",
+    "selectPlayer": "选择一个球员查看详情",
+    "skills": {
+      "physical": "身体",
+      "technical": "技术",
+      "mental": "心理",
+      "setPieces": "定位球",
+      "pace": "速度",
+      "strength": "力量",
+      "finishing": "射门",
+      "passing": "传球",
+      "dribbling": "盘带",
+      "defending": "防守",
+      "reflexes": "反应",
+      "handling": "扑救",
+      "aerial": "空中",
+      "positioning": "位置感",
+      "composure": "冷静",
+      "freeKicks": "任意球",
+      "penalties": "点球"
+    }
   }
 }

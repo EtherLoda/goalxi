@@ -3,22 +3,52 @@
 import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { useState } from "react";
+import { useAuth } from "@/contexts/AuthContext";
+import { useRouter, useParams } from "next/navigation";
 
 export default function RegisterPage() {
   const t = useTranslations();
+  const { login } = useAuth();
+  const router = useRouter();
+  const params = useParams();
   const [username, setUsername] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const locale = params.locale as string;
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (password !== confirm) {
-      alert("Passwords do not match");
+      setError("Passwords do not match");
       return;
     }
-    // TODO: call register API
-    console.log({ username, email, password });
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      // Register via API
+      const res = await fetch("http://localhost:3000/api/v1/auth/email/register", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ username, email, password }),
+      });
+
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.message || "Registration failed");
+      }
+
+      // Auto login after register
+      await login(email, password);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Registration failed");
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -37,7 +67,7 @@ export default function RegisterPage() {
       <div className="relative z-10 w-full max-w-md">
         {/* Logo */}
         <div className="text-center mb-10">
-          <Link href="/en" className="inline-block">
+          <Link href={`/${locale}`} className="inline-block">
             <span className="font-headline font-black text-2xl tracking-tighter text-primary uppercase">
               GoalXi
             </span>
@@ -115,12 +145,20 @@ export default function RegisterPage() {
               />
             </div>
 
+            {/* Error message */}
+            {error && (
+              <div className="mb-4 p-3 bg-error/20 border border-error/30 rounded-xl text-error text-sm">
+                {error}
+              </div>
+            )}
+
             {/* Submit */}
             <button
               type="submit"
-              className="w-full py-3.5 bg-primary text-on-primary font-headline font-bold text-sm uppercase tracking-widest rounded-xl hover:opacity-90 transition-opacity mt-2"
+              disabled={isLoading}
+              className="w-full py-3.5 bg-primary text-on-primary font-headline font-bold text-sm uppercase tracking-widest rounded-xl hover:opacity-90 transition-opacity mt-2 disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {t("auth.register.submit")}
+              {isLoading ? "Creating account..." : t("auth.register.submit")}
             </button>
           </form>
 
@@ -137,7 +175,7 @@ export default function RegisterPage() {
           <p className="text-center font-body text-sm text-on-surface-variant">
             {t("auth.register.hasAccount")}{" "}
             <Link
-              href="/auth/login"
+              href={`/${locale}/auth/login`}
               className="text-primary font-bold hover:underline"
             >
               {t("nav.login")}

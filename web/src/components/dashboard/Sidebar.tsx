@@ -1,51 +1,67 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { clsx } from "clsx";
+import { useAuth } from "@/contexts/AuthContext";
+import { useParams } from "next/navigation";
+import { useTranslations } from "next-intl";
+
+type Locale = "en" | "zh";
 
 type NavItem = {
-  label: string;
+  labelKey: string;
   href: string;
-  icon: string; // material symbol name
-  activeIcon?: string;
+  icon: string;
 };
 
-const navGroups: { title: string; items: NavItem[] }[] = [
-  {
-    title: "Overview",
-    items: [
-      { label: "Dashboard", href: "/dashboard", icon: "home" },
-      { label: "Squad", href: "/teams/my-team", icon: "groups" },
-      { label: "Matches", href: "/matches", icon: "calendar_month" },
-      { label: "League", href: "/league/elite", icon: "emoji_events" },
-    ],
-  },
-  {
-    title: "Operations",
-    items: [
-      { label: "Transfers", href: "/transfer", icon: "swap_horiz" },
-      { label: "Finance", href: "/club/finance", icon: "account_balance_wallet" },
-      { label: "Scouting", href: "/scouts", icon: "travel_explore" },
-    ],
-  },
-  {
-    title: "Academy",
-    items: [
-      { label: "Youth Squad", href: "/youth/squad", icon: "child_care" },
-      { label: "Youth Matches", href: "/youth/matches", icon: "sports" },
-    ],
-  },
-];
-
 export default function Sidebar() {
+  const t = useTranslations("dashboard.nav");
   const pathname = usePathname();
+  const router = useRouter();
+  const params = useParams();
+  const { user, team, logout } = useAuth();
+
+  const locale = (params.locale as Locale) || "en";
+
+  const navGroups: { titleKey: string; items: NavItem[] }[] = [
+    {
+      titleKey: "overview",
+      items: [
+        { labelKey: "dashboard", href: `/${locale}/dashboard`, icon: "home" },
+        { labelKey: "squad", href: `/${locale}/teams/my-team`, icon: "groups" },
+        { labelKey: "matches", href: `/${locale}/matches`, icon: "calendar_month" },
+        { labelKey: "league", href: `/${locale}/league/elite`, icon: "emoji_events" },
+      ],
+    },
+    {
+      titleKey: "operations",
+      items: [
+        { labelKey: "transfers", href: `/${locale}/transfer`, icon: "swap_horiz" },
+        { labelKey: "finance", href: `/${locale}/club/finance`, icon: "account_balance_wallet" },
+        { labelKey: "scouting", href: `/${locale}/scouts`, icon: "travel_explore" },
+      ],
+    },
+    {
+      titleKey: "academy",
+      items: [
+        { labelKey: "youthSquad", href: `/${locale}/youth/squad`, icon: "child_care" },
+        { labelKey: "youthMatches", href: `/${locale}/youth/matches`, icon: "sports" },
+      ],
+    },
+  ];
+
+  const switchLocale = (nextLocale: Locale) => {
+    const currentLocale = pathname.split("/")[1];
+    const newPath = pathname.replace(`/${currentLocale}`, `/${nextLocale}`);
+    router.push(newPath);
+  };
 
   return (
     <aside className="fixed left-0 top-0 h-screen w-64 bg-surface-container-low border-r border-white/5 flex flex-col z-40">
       {/* Logo */}
       <div className="h-16 flex items-center px-6 border-b border-white/5">
-        <Link href="/dashboard" className="flex items-center gap-2">
+        <Link href={`/${locale}/dashboard`} className="flex items-center gap-2">
           <span className="font-headline font-black text-sm uppercase tracking-[0.15em] text-primary">
             GoalXi
           </span>
@@ -58,9 +74,9 @@ export default function Sidebar() {
       {/* Nav */}
       <nav className="flex-1 overflow-y-auto py-6 px-3 space-y-6">
         {navGroups.map((group) => (
-          <div key={group.title}>
+          <div key={group.titleKey}>
             <h4 className="font-label text-[10px] font-black uppercase tracking-[0.2em] text-on-surface-variant/50 mb-3 px-3">
-              {group.title}
+              {t(group.titleKey)}
             </h4>
             <div className="space-y-0.5">
               {group.items.map((item) => {
@@ -83,9 +99,9 @@ export default function Sidebar() {
                       )}
                       style={isActive ? { fontVariationSettings: "'FILL' 1" } : {}}
                     >
-                      {isActive && item.activeIcon ? item.activeIcon : item.icon}
+                      {item.icon}
                     </span>
-                    {item.label}
+                    {t(item.labelKey)}
                   </Link>
                 );
               })}
@@ -96,6 +112,34 @@ export default function Sidebar() {
 
       {/* Bottom */}
       <div className="p-4 border-t border-white/5 space-y-3">
+        {/* Language Switcher */}
+        <div className="flex gap-1">
+          <button
+            onClick={() => switchLocale("en")}
+            disabled={locale === "en"}
+            className={clsx(
+              "flex-1 py-1.5 text-xs font-headline font-bold uppercase tracking-widest rounded-md border transition-all",
+              locale === "en"
+                ? "bg-primary text-on-primary border-primary"
+                : "bg-surface-container-low text-on-surface-variant border-white/10 hover:border-primary hover:text-primary"
+            )}
+          >
+            EN
+          </button>
+          <button
+            onClick={() => switchLocale("zh")}
+            disabled={locale === "zh"}
+            className={clsx(
+              "flex-1 py-1.5 text-xs font-headline font-bold uppercase tracking-widest rounded-md border transition-all",
+              locale === "zh"
+                ? "bg-primary text-on-primary border-primary"
+                : "bg-surface-container-low text-on-surface-variant border-white/10 hover:border-primary hover:text-primary"
+            )}
+          >
+            中文
+          </button>
+        </div>
+
         <div className="flex gap-3">
           <button className="flex-1 flex items-center justify-center py-2 rounded-lg text-on-surface-variant hover:text-primary hover:bg-white/5 transition-all">
             <span className="material-symbols-outlined text-lg">settings</span>
@@ -107,17 +151,22 @@ export default function Sidebar() {
         {/* User */}
         <div className="flex items-center gap-3 px-2">
           <div className="w-8 h-8 rounded-full bg-primary/20 border border-primary/30 flex items-center justify-center">
-            <span className="font-headline font-black text-xs text-primary">A</span>
+            <span className="font-headline font-black text-xs text-primary">
+              {user?.nickname?.charAt(0) || "U"}
+            </span>
           </div>
           <div className="flex-1 min-w-0">
             <div className="font-headline text-xs font-bold text-on-surface truncate">
-              Alex Ferguson
+              {user?.nickname || "Manager"}
             </div>
             <div className="font-body text-[10px] text-on-surface-variant truncate">
-              Elite FC
+              {team?.name || "No Team"}
             </div>
           </div>
-          <button className="text-on-surface-variant hover:text-error transition-colors">
+          <button
+            onClick={logout}
+            className="text-on-surface-variant hover:text-error transition-colors"
+          >
             <span className="material-symbols-outlined text-base">logout</span>
           </button>
         </div>

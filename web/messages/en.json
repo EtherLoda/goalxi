@@ -87,6 +87,51 @@
     "kickoff": "Kickoff",
     "venue": "Venue",
     "home": "Home",
-    "away": "Away"
+    "away": "Away",
+    "nav": {
+      "overview": "Overview",
+      "dashboard": "Dashboard",
+      "squad": "Squad",
+      "matches": "Matches",
+      "league": "League",
+      "operations": "Operations",
+      "transfers": "Transfers",
+      "finance": "Finance",
+      "scouting": "Scouting",
+      "academy": "Academy",
+      "youthSquad": "Youth Squad",
+      "youthMatches": "Youth Matches"
+    }
+  },
+  "squad": {
+    "title": "Squad",
+    "all": "All",
+    "gk": "GK",
+    "field": "Field",
+    "players": "Players",
+    "overall": "Overall",
+    "stamina": "Stamina",
+    "form": "Form",
+    "potential": "Potential",
+    "selectPlayer": "Select a player to view details",
+    "skills": {
+      "physical": "Physical",
+      "technical": "Technical",
+      "mental": "Mental",
+      "setPieces": "Set Pieces",
+      "pace": "Pace",
+      "strength": "Strength",
+      "finishing": "Finishing",
+      "passing": "Passing",
+      "dribbling": "Dribbling",
+      "defending": "Defending",
+      "reflexes": "Reflexes",
+      "handling": "Handling",
+      "aerial": "Aerial",
+      "positioning": "Positioning",
+      "composure": "Composure",
+      "freeKicks": "Free Kicks",
+      "penalties": "Penalties"
+    }
   }
 }

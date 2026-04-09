@@ -3,17 +3,30 @@
 import Link from "next/link";
 import { useTranslations, useLocale } from "next-intl";
 import { useState } from "react";
+import { useAuth } from "@/contexts/AuthContext";
 
 export default function LoginPage() {
   const t = useTranslations();
   const locale = useLocale();
+  const { login } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [remember, setRemember] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    console.log({ email, password, remember });
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      await login(email, password);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Login failed");
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -98,12 +111,20 @@ export default function LoginPage() {
               </a>
             </div>
 
-            {/* Submit */}
+            {/* Error message */}
+          {error && (
+            <div className="mb-4 p-3 bg-error/20 border border-error/30 rounded-xl text-error text-sm">
+              {error}
+            </div>
+          )}
+
+          {/* Submit */}
             <button
               type="submit"
-              className="w-full py-3.5 bg-primary text-on-primary font-headline font-bold text-sm uppercase tracking-widest rounded-xl hover:opacity-90 transition-opacity"
+              disabled={isLoading}
+              className="w-full py-3.5 bg-primary text-on-primary font-headline font-bold text-sm uppercase tracking-widest rounded-xl hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {t("auth.login.submit")}
+              {isLoading ? "Signing in..." : t("auth.login.submit")}
             </button>
           </form>
 

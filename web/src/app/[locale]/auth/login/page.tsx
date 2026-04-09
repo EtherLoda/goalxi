@@ -3,17 +3,28 @@
 import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { useState } from "react";
+import { useAuth } from "@/contexts/AuthContext";
 
 export default function LoginPage() {
   const t = useTranslations();
+  const { login } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [remember, setRemember] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState("");
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    // TODO: call auth API
-    console.log({ email, password, remember });
+    setError("");
+    setIsLoading(true);
+    try {
+      await login(email, password);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Login failed");
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -101,12 +112,20 @@ export default function LoginPage() {
               </a>
             </div>
 
+            {/* Error message */}
+            {error && (
+              <div className="text-red-500 text-sm text-center py-2 bg-red-500/10 rounded-lg">
+                {error}
+              </div>
+            )}
+
             {/* Submit */}
             <button
               type="submit"
-              className="w-full py-3.5 bg-primary text-on-primary font-headline font-bold text-sm uppercase tracking-widest rounded-xl hover:opacity-90 transition-opacity"
+              disabled={isLoading}
+              className="w-full py-3.5 bg-primary text-on-primary font-headline font-bold text-sm uppercase tracking-widest rounded-xl hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {t("auth.login.submit")}
+              {isLoading ? "Signing in..." : t("auth.login.submit")}
             </button>
           </form>
 
