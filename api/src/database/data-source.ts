@@ -3,6 +3,12 @@ import {
   FanEntity,
   FinanceEntity,
   LeagueEntity,
+  YouthLeagueEntity,
+  YouthTeamEntity,
+  YouthMatchEntity,
+  YouthPlayerEntity,
+  YouthMatchEventEntity,
+  YouthMatchTacticsEntity,
   LeagueStandingEntity,
   MatchEntity,
   MatchEventEntity,
@@ -18,6 +24,7 @@ import {
   TeamEntity,
   TransactionEntity,
   UserEntity,
+  StaffEntity,
 } from '@goalxi/database';
 import 'reflect-metadata';
 import { DataSource } from 'typeorm';
@@ -39,6 +46,7 @@ export const AppDataSource = new DataSource({
   entities: [
     UserEntity,
     SessionEntity,
+    StaffEntity,
     TeamEntity,
     LeagueEntity,
     MatchEntity,
@@ -56,6 +64,12 @@ export const AppDataSource = new DataSource({
     PlayerTransactionEntity,
     StadiumEntity,
     FanEntity,
+    YouthLeagueEntity,
+    YouthTeamEntity,
+    YouthMatchEntity,
+    YouthPlayerEntity,
+    YouthMatchEventEntity,
+    YouthMatchTacticsEntity,
   ],
   migrations: [
     'src/database/migrations/**/*{.ts,.js}',
