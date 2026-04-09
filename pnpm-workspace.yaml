@@ -3,4 +3,5 @@ packages:
   - 'settlement'
   - 'simulator'
   - 'frontend'
+  - 'web'
   - 'libs/*'
