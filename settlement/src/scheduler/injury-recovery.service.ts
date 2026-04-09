@@ -7,6 +7,7 @@ import {
   InjuryEntity,
   StaffEntity,
   StaffRole,
+  Uuid,
 } from '@goalxi/database';
 
 @Injectable()
@@ -119,7 +120,7 @@ export class InjuryRecoveryService {
     let recoveredCount = 0;
     for (const { playerId, playerName, oldValue } of injuriesToRecover) {
       const activeInjury = await this.injuryRepository.findOne({
-        where: { playerId, isRecovered: false },
+        where: { playerId: playerId as Uuid, isRecovered: false },
         order: { occurredAt: 'DESC' },
       });
 
