@@ -29,7 +29,7 @@ export class TeamEntity extends AbstractEntity {
     @Column({ name: 'user_id', type: 'uuid', nullable: true })
     userId: string | null;
 
-    @OneToOne(() => UserEntity)
+    @ManyToOne(() => UserEntity)
     @JoinColumn({ name: 'user_id' })
     user: UserEntity;
 

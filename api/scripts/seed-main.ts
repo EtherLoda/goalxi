@@ -27,7 +27,6 @@ import { getRandomNameByNationality } from '../src/constants/name-database';
  * Seed Main - Creates a minimal pyramid structure for production:
  * - L1: 1 league (16 BOT teams)
  * - L2: 4 leagues (16 BOT teams each), linked to L1
- * - L3: 16 leagues (16 BOT teams each), linked to L2
  *
  * This is a simplified version for demonstration.
  * Full pyramid: L1=1, L2=4, L3=16, L4=32+ leagues
@@ -36,7 +35,6 @@ import { getRandomNameByNationality } from '../src/constants/name-database';
 const LEAGUE_CONFIG = {
     L1: { count: 1, teamsPerLeague: 16 },
     L2: { count: 4, teamsPerLeague: 16 },
-    L3: { count: 16, teamsPerLeague: 16 },
 };
 
 const TEAM_ROSTER_SIZE = 16;
@@ -174,8 +172,27 @@ async function createLeaguePyramid() {
         console.log(`   ⊙ Admin already exists`);
     }
 
-    // 2. Create League Pyramid
-    console.log('\n🏆 Creating League Pyramid...');
+    // 2. Create Bot Manager User (all bot teams belong to this user)
+    console.log('🤖 Creating Bot Manager User...');
+    const botEmail = 'bot@goalxi.com';
+    let botUser = await userRepo.findOneBy({ email: botEmail });
+    if (!botUser) {
+        const hashedPassword = await argon2.hash('Bot123456!');
+        botUser = new UserEntity({
+            username: 'bot_manager',
+            email: botEmail,
+            password: hashedPassword,
+            nickname: 'Bot Manager',
+            bio: 'System Bot Manager',
+            supporterLevel: 0,
+        });
+        await userRepo.save(botUser);
+        console.log(`   ✓ Bot Manager: ${botEmail}`);
+    } else {
+        console.log(`   ⊙ Bot Manager already exists`);
+    }
+
+    // 3. Create League Pyramid
     const leagues: LeagueEntity[] = [];
     const leagueIds: Record<string, string> = {};
 
@@ -204,7 +221,6 @@ async function createLeaguePyramid() {
     leagues.push(l1League);
 
     // L2: 4 leagues (each linked to L1)
-    const l2Leagues: LeagueEntity[] = [];
     for (let d = 1; d <= 4; d++) {
         const l2Id = uuidv4();
         leagueIds[`L2_${d}`] = l2Id;
@@ -227,36 +243,7 @@ async function createLeaguePyramid() {
         } else {
             console.log(`   ⊙ L2 Div ${d} already exists`);
         }
-        l2Leagues.push(l2League);
         leagues.push(l2League);
-    }
-
-    // L3: 16 leagues (each linked to corresponding L2)
-    for (let d = 1; d <= 16; d++) {
-        const l3Id = uuidv4();
-        leagueIds[`L3_${d}`] = l3Id;
-        // L3 div 1-4 belong to L2 div 1, L3 div 5-8 to L2 div 2, etc.
-        const l2Division = Math.ceil(d / 4);
-        let l3League = await leagueRepo.findOneBy({ id: l3Id as any });
-        if (!l3League) {
-            l3League = new LeagueEntity({
-                id: l3Id as any,
-                name: `Amateur League Div ${d}`,
-                tier: 3,
-                tierDivision: d,
-                maxTeams: 16,
-                promotionSlots: 1,
-                playoffSlots: 4,
-                relegationSlots: 4,
-                status: 'active',
-                parentLeagueId: l2Leagues[l2Division - 1].id,
-            });
-            await leagueRepo.save(l3League);
-            console.log(`   ✓ Created L3 Div ${d} (parent: L2 Div ${l2Division})`);
-        } else {
-            console.log(`   ⊙ L3 Div ${d} already exists`);
-        }
-        leagues.push(l3League);
     }
 
     // 3. Create Teams for each league
@@ -285,6 +272,7 @@ async function createLeaguePyramid() {
 
             const team = new TeamEntity({
                 id: teamId as any,
+                userId: botUser.id,
                 name: teamName,
                 leagueId: league.id,
                 isBot: true,
@@ -379,10 +367,9 @@ async function createLeaguePyramid() {
     console.log('='.repeat(60));
     console.log(`   L1: 1 league (Elite League)`);
     console.log(`   L2: 4 leagues (Professional League Div 1-4)`);
-    console.log(`   L3: 16 leagues (Amateur League Div 1-16)`);
     console.log(`   Each league: 16 BOT teams`);
     console.log(`   Each team: ${TEAM_ROSTER_SIZE} players`);
-    console.log(`   Hierarchy: L3 → L2 → L1 (via parentLeagueId)`);
+    console.log(`   Hierarchy: L2 → L1 (via parentLeagueId)`);
     console.log('='.repeat(60));
 
     await AppDataSource.destroy();
