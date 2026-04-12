@@ -29,7 +29,7 @@ export default function Sidebar() {
       titleKey: "overview",
       items: [
         { labelKey: "dashboard", href: `/${locale}/dashboard`, icon: "home" },
-        { labelKey: "squad", href: `/${locale}/teams/my-team`, icon: "groups" },
+        { labelKey: "squad", href: `/${locale}/teams/squad`, icon: "groups" },
         { labelKey: "matches", href: `/${locale}/matches`, icon: "calendar_month" },
         { labelKey: "league", href: `/${locale}/league/elite`, icon: "emoji_events" },
       ],
@@ -37,7 +37,7 @@ export default function Sidebar() {
     {
       titleKey: "operations",
       items: [
-        { labelKey: "transfers", href: `/${locale}/transfer`, icon: "swap_horiz" },
+        { labelKey: "transfers", href: `/${locale}/transfers`, icon: "swap_horiz" },
         { labelKey: "finance", href: `/${locale}/club/finance`, icon: "account_balance_wallet" },
         { labelKey: "scouting", href: `/${locale}/scouts`, icon: "travel_explore" },
       ],

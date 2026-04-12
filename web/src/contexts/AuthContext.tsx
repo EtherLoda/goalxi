@@ -30,10 +30,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const pathname = usePathname();
 
   const logout = useCallback(async () => {
-    await api.auth.logout();
-    setUser(null);
-    setTeam(null);
-    router.push('/auth/login');
+    try {
+      await api.auth.logout();
+    } catch {
+      // ignore logout API errors
+    } finally {
+      setUser(null);
+      setTeam(null);
+      router.push('/');
+    }
   }, [router]);
 
   const fetchUserAndTeam = useCallback(async (userId: string) => {

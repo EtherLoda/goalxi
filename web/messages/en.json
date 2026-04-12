@@ -110,14 +110,26 @@
     "field": "Field",
     "players": "Players",
     "overall": "Overall",
+    "ovr": "OVR",
+    "age": "Age",
     "stamina": "Stamina",
     "form": "Form",
     "potential": "Potential",
+    "exp": "EXP",
     "selectPlayer": "Select a player to view details",
+    "status": {
+      "matchReady": "MATCH READY",
+      "fatigued": "FATIGUED",
+      "lowEnergy": "LOW ENERGY"
+    },
     "skills": {
       "physical": "Physical",
+      "physicalAttributes": "Physical Attributes",
       "technical": "Technical",
+      "technicalSkills": "Technical Skills",
+      "goalkeeperSkills": "Goalkeeper Skills",
       "mental": "Mental",
+      "mentalProfile": "Mental Profile",
       "setPieces": "Set Pieces",
       "pace": "Pace",
       "strength": "Strength",
@@ -132,6 +144,109 @@
       "composure": "Composure",
       "freeKicks": "Free Kicks",
       "penalties": "Penalties"
+    },
+    "position": {
+      "gk": "GK",
+      "str": "STR",
+      "mid": "MID",
+      "out": "OUT"
+    },
+    "transfer": {
+      "listed": "LISTED",
+      "onTransfer": "On Transfer Market",
+      "onTransferDesc": "This player is currently listed on the transfer market",
+      "listPlayer": "List Player",
+      "listButton": "List on Transfer Market",
+      "startPrice": "Starting Price",
+      "buyoutPrice": "Buyout Price"
     }
+  },
+  "transfers": {
+    "title": "Transfer Market",
+    "scoutedCandidates": "Scouted Candidates",
+    "showingProfiles": "Showing {count} elite profiles matching your criteria.",
+    "filters": {
+      "scoutingFilters": "Scouting Filters",
+      "searchPlayer": "Search Player",
+      "searchPlaceholder": "Name, Club or Nation...",
+      "addAttributeFilter": "Add Attribute Filter",
+      "attributeRange": "Range",
+      "age": "Age",
+      "contractStatus": "Contract Status",
+      "any": "Any",
+      "expiring": "Expiring (6 Months)",
+      "listed": "Listed",
+      "freeAgent": "Free Agent",
+      "resetAllFilters": "Reset All Filters"
+    },
+    "table": {
+      "playerProfile": "Player Profile",
+      "value": "Value",
+      "wage": "Wage",
+      "deadline": "Deadline"
+    },
+    "detail": {
+      "currentPrice": "Current Price",
+      "buyout": "Buyout",
+      "profile": "Profile",
+      "tacticalProfile": "Tactical Profile",
+      "technical": "Technical",
+      "physical": "Physical",
+      "mental": "Mental",
+      "keyTarget": "Key Target",
+      "offerPrice": "Offer Price",
+      "offerPlaceholder": "e.g. 55,000,000",
+      "makeOffer": "Make Offer"
+    },
+    "modal": {
+      "negotiationPhase": "Negotiation Phase",
+      "currentAsk": "Current Ask",
+      "transferOffer": "Transfer Offer",
+      "upfrontFee": "Upfront Fee",
+      "installments": "Installments (3 yrs)",
+      "sellOnClause": "Sell-on Clause",
+      "profit10": "10% of profit",
+      "profit15": "15% of profit",
+      "profit20": "20% of profit",
+      "noClause": "No Clause",
+      "totalPackage": "Total Package",
+      "strength": "Strength",
+      "draft": "Draft",
+      "submit": "Submit"
+    },
+    "nav": {
+      "market": "Market",
+      "shortlist": "Shortlist",
+      "history": "History"
+    },
+    "budget": "Budget",
+    "filter": {
+      "attributeFilter": "Skill Filters",
+      "attributeCount": "Skill Filters ({count}/3)",
+      "addAttributeFilter": "Add Skill Filter",
+      "ageFilter": "Age Filter",
+      "specialtyFilter": "Specialty Filter",
+      "alreadyAdded": "Added"
+    },
+    "empty": {
+      "noResults": "No players found",
+      "adjustFilters": "Try adjusting your filters",
+      "resetFilters": "Reset Filters"
+    },
+    "error": {
+      "failedToLoad": "Failed to load transfers",
+      "retry": "Retry"
+    },
+    "bidHistory": "Bid History",
+    "buyout": {
+      "directBuyout": "Direct Buyout",
+      "confirmTitle": "Confirm Buyout",
+      "confirmMessage": "Are you sure you want to buyout {playerName} for {price}?",
+      "cancel": "Cancel",
+      "confirm": "Confirm Buyout",
+      "buyoutSuccess": "Buyout successful!",
+      "buyoutFailed": "Buyout failed"
+    },
+    "submitting": "Submitting..."
   }
 }

@@ -130,6 +130,10 @@ export class PlayerResDto {
   @Transform(({ value }) => Math.floor(value)) // Floor to integer (hide decimals from users)
   stamina: number;
 
+  @NumberField({ int: true })
+  @Expose()
+  currentWage: number;
+
   @DateField()
   @Expose()
   createdAt: Date;

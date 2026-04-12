@@ -54,6 +54,8 @@ interface Player {
   isYouth: boolean;
   isGoalkeeper: boolean;
   overall: number;
+  position?: string;
+  teamName?: string;
   onTransfer: boolean;
   currentSkills: PlayerSkills;
   potentialSkills: PlayerSkills;
@@ -63,6 +65,8 @@ interface Player {
   experience: number;
   form: number;
   stamina: number;
+  currentWage: number;
+  specialties?: string[];
 }
 
 interface PlayerListResponse {
@@ -211,7 +215,7 @@ export const api = {
 
   players: {
     getByTeam: async (teamId: string): Promise<{ items: Player[]; meta: any }> => {
-      const response = await request<any>(`/players?teamId=${teamId}`);
+      const response = await request<any>(`/players?teamId=${teamId}&limit=100`);
       // Handle both paginated {data, pagination} and direct array responses
       if (Array.isArray(response)) {
         return { items: response, meta: {} };
@@ -236,6 +240,52 @@ export const api = {
       return request<MatchListResponse>(`/matches?${params.toString()}`);
     },
   },
+
+  transfers: {
+    getAuctions: async (): Promise<TransferAuction[]> => {
+      return request<TransferAuction[]>('/transfer/auction');
+    },
+    createAuction: async (playerId: string, startPrice: number, buyoutPrice: number, durationHours: number): Promise<TransferAuction> => {
+      return request<TransferAuction>('/transfer/auction', {
+        method: 'POST',
+        body: JSON.stringify({ playerId, startPrice, buyoutPrice, durationHours }),
+      });
+    },
+    placeBid: async (auctionId: string, amount: number): Promise<TransferAuction> => {
+      return request<TransferAuction>(`/transfer/auction/${auctionId}/bid`, {
+        method: 'POST',
+        body: JSON.stringify({ amount }),
+      });
+    },
+    buyout: async (auctionId: string): Promise<TransferAuction> => {
+      return request<TransferAuction>(`/transfer/auction/${auctionId}/buyout`, {
+        method: 'POST',
+      });
+    },
+  },
 };
 
-export type { User, Team, LoginResponse, League, Standing };
+interface TransferAuction {
+  id: string;
+  player: Player;
+  team: Team;
+  startPrice: number;
+  buyoutPrice: number;
+  currentPrice: number;
+  currentBidder?: Team;
+  startedAt: string;
+  expiresAt: string;
+  endsAt?: string;
+  bidHistory: BidRecord[];
+  status: 'active' | 'completed' | 'cancelled';
+  createdAt: string;
+}
+
+interface BidRecord {
+  teamId: string;
+  teamName: string;
+  amount: number;
+  timestamp: string;
+}
+
+export type { User, Team, LoginResponse, League, Standing, Match, Player, TransferAuction, BidRecord };

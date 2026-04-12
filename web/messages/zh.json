@@ -110,14 +110,26 @@
     "field": "场上",
     "players": "球员",
     "overall": "总评",
+    "ovr": "总评",
+    "age": "年龄",
     "stamina": "体能",
     "form": "状态",
     "potential": "潜力",
+    "exp": "经验",
     "selectPlayer": "选择一个球员查看详情",
+    "status": {
+      "matchReady": "比赛就绪",
+      "fatigued": "疲劳",
+      "lowEnergy": "体能不足"
+    },
     "skills": {
       "physical": "身体",
+      "physicalAttributes": "身体属性",
       "technical": "技术",
+      "technicalSkills": "技术能力",
+      "goalkeeperSkills": "门将技能",
       "mental": "心理",
+      "mentalProfile": "心理属性",
       "setPieces": "定位球",
       "pace": "速度",
       "strength": "力量",
@@ -132,6 +144,109 @@
       "composure": "冷静",
       "freeKicks": "任意球",
       "penalties": "点球"
+    },
+    "position": {
+      "gk": "门将",
+      "str": "前锋",
+      "mid": "中场",
+      "out": "后卫"
+    },
+    "transfer": {
+      "listed": "挂牌中",
+      "onTransfer": "转会市场中",
+      "onTransferDesc": "该球员目前在转会市场上挂牌",
+      "listPlayer": "挂牌球员",
+      "listButton": "上架到转会市场",
+      "startPrice": "起始价格",
+      "buyoutPrice": "买断价格"
     }
+  },
+  "transfers": {
+    "title": "转会市场",
+    "scoutedCandidates": "球探候选",
+    "showingProfiles": "显示 {count} 名符合条件的高潜力球员。",
+    "filters": {
+      "scoutingFilters": "球探筛选",
+      "searchPlayer": "搜索球员",
+      "searchPlaceholder": "姓名、俱乐部或国家...",
+      "addAttributeFilter": "添加属性筛选",
+      "attributeRange": "范围",
+      "age": "年龄",
+      "contractStatus": "合同状态",
+      "any": "不限",
+      "expiring": "即将到期（6个月）",
+      "listed": "挂牌中",
+      "freeAgent": "自由球员",
+      "resetAllFilters": "重置所有筛选"
+    },
+    "table": {
+      "playerProfile": "球员资料",
+      "value": "身价",
+      "wage": "周薪",
+      "deadline": "截止时间"
+    },
+    "detail": {
+      "currentPrice": "当前价格",
+      "buyout": "买断价",
+      "profile": "档案",
+      "tacticalProfile": "战术档案",
+      "technical": "技术",
+      "physical": "身体",
+      "mental": "心理",
+      "keyTarget": "重点目标",
+      "offerPrice": "报价",
+      "offerPlaceholder": "例如 55,000,000",
+      "makeOffer": "提交报价"
+    },
+    "modal": {
+      "negotiationPhase": "谈判阶段",
+      "currentAsk": "当前要价",
+      "transferOffer": "转会报价",
+      "upfrontFee": "首付金额",
+      "installments": "分期付款（3年）",
+      "sellOnClause": "二次转会分成",
+      "profit10": "利润10%",
+      "profit15": "利润15%",
+      "profit20": "利润20%",
+      "noClause": "无分成",
+      "totalPackage": "总费用",
+      "strength": "竞争力",
+      "draft": "草稿",
+      "submit": "提交"
+    },
+    "nav": {
+      "market": "市场",
+      "shortlist": "候选名单",
+      "history": "历史记录"
+    },
+    "budget": "预算",
+    "filter": {
+      "attributeFilter": "技能筛选",
+      "attributeCount": "技能筛选 ({count}/3)",
+      "addAttributeFilter": "添加技能筛选",
+      "ageFilter": "年龄筛选",
+      "specialtyFilter": "特技筛选",
+      "alreadyAdded": "已添加"
+    },
+    "empty": {
+      "noResults": "未找到球员",
+      "adjustFilters": "尝试调整筛选条件",
+      "resetFilters": "重置筛选"
+    },
+    "error": {
+      "failedToLoad": "加载转会数据失败",
+      "retry": "重试"
+    },
+    "bidHistory": "竞价历史",
+    "buyout": {
+      "directBuyout": "直接买断",
+      "confirmTitle": "确认买断",
+      "confirmMessage": "你确定要以 {price} 买断 {playerName} 吗？",
+      "cancel": "取消",
+      "confirm": "确认买断",
+      "buyoutSuccess": "买断成功！",
+      "buyoutFailed": "买断失败"
+    },
+    "submitting": "提交中..."
   }
 }

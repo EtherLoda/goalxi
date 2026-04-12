@@ -7,6 +7,7 @@ import { TrainingModule } from './training.module';
 import { FanModule } from './fan.module';
 import { PlayerWageModule } from './player-wage.module';
 import { SchedulerModule } from './scheduler/scheduler.module';
+import { TransferModule } from './transfer.module';
 
 @Module({
   imports: [
@@ -32,6 +33,7 @@ import { SchedulerModule } from './scheduler/scheduler.module';
     FanModule,
     PlayerWageModule,
     SchedulerModule,
+    TransferModule,
   ],
   controllers: [],
   providers: [],

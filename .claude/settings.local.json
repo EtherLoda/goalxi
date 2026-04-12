@@ -49,7 +49,8 @@
       "Bash(mkdir -p /c/Code/Project/GoalXI/web/src/app/[locale])",
       "Bash(mv /c/Code/Project/GoalXI/web/src/app/page.tsx /c/Code/Project/GoalXI/web/src/app/[locale]/page.tsx)",
       "Bash(rm:*)",
-      "Bash(tasklist)"
+      "Bash(tasklist)",
+      "Bash(npx next:*)"
     ]
   }
 }

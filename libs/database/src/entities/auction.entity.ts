@@ -6,6 +6,7 @@ import { Column, Entity, JoinColumn, ManyToOne, PrimaryGeneratedColumn } from 't
 
 export enum AuctionStatus {
     ACTIVE = 'ACTIVE',
+    SETTLING = 'SETTLING',
     SOLD = 'SOLD',
     EXPIRED = 'EXPIRED',
     CANCELLED = 'CANCELLED',
@@ -57,6 +58,10 @@ export class AuctionEntity extends AbstractEntity {
     @JoinColumn({ name: 'current_bidder_id' })
     currentBidder?: TeamEntity;
 
+    /** 当前出价者锁定的金额 */
+    @Column({ name: 'bid_lock_amount', type: 'integer', default: 0 })
+    bidLockAmount!: number;
+
     @Column({ name: 'started_at', type: 'timestamptz' })
     startedAt!: Date;
 
@@ -71,4 +76,12 @@ export class AuctionEntity extends AbstractEntity {
 
     @Column({ type: 'enum', enum: AuctionStatus, default: AuctionStatus.ACTIVE })
     status!: AuctionStatus;
+
+    /** 最终获胜者 */
+    @Column({ name: 'winner_id', type: 'uuid', nullable: true })
+    winnerId?: Uuid;
+
+    @ManyToOne(() => TeamEntity)
+    @JoinColumn({ name: 'winner_id' })
+    winner?: TeamEntity;
 }

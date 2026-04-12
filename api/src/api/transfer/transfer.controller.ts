@@ -6,8 +6,10 @@ import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { plainToInstance } from 'class-transformer';
 import { AuctionService } from './auction.service';
 import { AuctionResDto } from './dto/auction.res.dto';
+import { BuyoutResDto } from './dto/buyout.res.dto';
 import { CreateAuctionReqDto } from './dto/create-auction.req.dto';
 import { PlaceBidReqDto } from './dto/place-bid.req.dto';
+import { PlaceBidResDto } from './dto/place-bid.res.dto';
 
 @Controller({
   path: 'transfer',
@@ -43,9 +45,12 @@ export class TransferController {
     @CurrentUser('id') userId: Uuid,
     @Param('id') auctionId: Uuid,
     @Body() dto: PlaceBidReqDto,
-  ): Promise<AuctionResDto> {
-    const auction = await this.auctionService.placeBid(userId, auctionId, dto);
-    return plainToInstance(AuctionResDto, auction);
+  ): Promise<PlaceBidResDto> {
+    const result = await this.auctionService.placeBid(userId, auctionId, dto);
+    return {
+      ...plainToInstance(AuctionResDto, result.auction),
+      lockedAmount: result.lockedAmount,
+    };
   }
 
   @Post('auction/:id/buyout')
@@ -53,8 +58,7 @@ export class TransferController {
   async buyout(
     @CurrentUser('id') userId: Uuid,
     @Param('id') auctionId: Uuid,
-  ): Promise<AuctionResDto> {
-    const auction = await this.auctionService.buyout(userId, auctionId);
-    return plainToInstance(AuctionResDto, auction);
+  ): Promise<BuyoutResDto> {
+    return this.auctionService.buyout(userId, auctionId);
   }
 }

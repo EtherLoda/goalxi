@@ -2,26 +2,38 @@ import { Uuid } from '@/common/types/common.type';
 import {
   AuctionEntity,
   AuctionStatus,
-  FinanceEntity,
   PlayerEntity,
   PlayerHistoryEntity,
-  PlayerHistoryType,
-  PlayerTransactionEntity,
   TeamEntity,
-  TransactionEntity,
-  TransactionType,
+  TransferTransactionEntity,
+  TransferTransactionStatus,
+  TransferTransactionType,
 } from '@goalxi/database';
+import { InjectQueue } from '@nestjs/bullmq';
 import {
   BadRequestException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
+import { Cron } from '@nestjs/schedule';
 import { InjectRepository } from '@nestjs/typeorm';
+import { Queue } from 'bullmq';
 import { DataSource, In, Repository } from 'typeorm';
 import { FinanceService } from '../finance/finance.service';
 import { AUCTION_CONFIG, calculateMinBidIncrement } from './auction.constants';
 import { CreateAuctionReqDto } from './dto/create-auction.req.dto';
 import { PlaceBidReqDto } from './dto/place-bid.req.dto';
+
+interface TransferSettlementJobData {
+  type: 'BUYOUT' | 'AUCTION_COMPLETE';
+  transactionId: string;
+  auctionId: string;
+  playerId: string;
+  buyerTeamId: string;
+  sellerTeamId: string;
+  amount: number;
+  timestamp: number;
+}
 
 @Injectable()
 export class AuctionService {
@@ -34,7 +46,11 @@ export class AuctionService {
     private readonly teamRepo: Repository<TeamEntity>,
     @InjectRepository(PlayerHistoryEntity)
     private readonly historyRepo: Repository<PlayerHistoryEntity>,
+    @InjectRepository(TransferTransactionEntity)
+    private readonly transferTxRepo: Repository<TransferTransactionEntity>,
     private readonly financeService: FinanceService,
+    @InjectQueue('transfer-settlement')
+    private readonly transferQueue: Queue<TransferSettlementJobData>,
     private readonly dataSource: DataSource,
   ) {}
 
@@ -61,6 +77,17 @@ export class AuctionService {
           ...bid,
           teamName: teamMap.get(bid.teamId) || 'Unknown Team',
         }));
+      }
+
+      // Compute player age from getExactAge() method and add to player object
+      if (auction.player) {
+        const [age, ageDays] = auction.player.getExactAge();
+        // Convert to plain object with computed age fields for serialization
+        auction.player = {
+          ...auction.player,
+          age,
+          ageDays,
+        } as any;
       }
     }
 
@@ -116,6 +143,10 @@ export class AuctionService {
       status: AuctionStatus.ACTIVE,
     });
 
+    // Mark player as on transfer
+    player.onTransfer = true;
+    await this.playerRepo.save(player);
+
     return this.auctionRepo.save(auction);
   }
 
@@ -123,24 +154,21 @@ export class AuctionService {
     userId: Uuid,
     auctionId: Uuid,
     dto: PlaceBidReqDto,
-  ): Promise<AuctionEntity> {
+  ): Promise<{ auction: AuctionEntity; lockedAmount: number }> {
     return this.dataSource.transaction(async (manager) => {
       const auctionRepo = manager.getRepository(AuctionEntity);
-      const playerRepo = manager.getRepository(PlayerEntity);
-      const historyRepo = manager.getRepository(PlayerHistoryEntity);
+      const teamRepo = manager.getRepository(TeamEntity);
 
-      const bidderTeam = await manager.findOne(TeamEntity, {
+      const bidderTeam = await teamRepo.findOne({
         where: { userId },
       });
       if (!bidderTeam) throw new NotFoundException('Bidder team not found');
 
-      // Use pessimistic lock (SELECT FOR UPDATE) to prevent concurrent bid conflicts
+      // Use pessimistic lock to prevent concurrent bid conflicts
       const auction = await manager
         .createQueryBuilder(AuctionEntity, 'auction')
         .where('auction.id = :id', { id: auctionId })
         .setLock('pessimistic_write')
-        .leftJoinAndSelect('auction.team', 'team')
-        .leftJoinAndSelect('auction.player', 'player')
         .getOne();
       if (!auction) throw new NotFoundException('Auction not found');
       if (auction.status !== AuctionStatus.ACTIVE)
@@ -153,18 +181,11 @@ export class AuctionService {
         throw new BadRequestException('Auction has ended');
       }
 
-      // Check if buyout price
-      if (dto.amount >= auction.buyoutPrice) {
-        return this.completeBuyout(manager, auction, bidderTeam, dto.amount);
-      }
-
-      // Regular bid validation
-      // Check if this is the first bid (no bid history or currentPrice equals startPrice with no bids)
+      // Calculate minimum bid
       const hasBids = auction.bidHistory && auction.bidHistory.length > 0;
       const isFirstBid =
         !hasBids || (auction.currentPrice === auction.startPrice && !hasBids);
 
-      // For first bid, minimum is startPrice; for subsequent bids, add increment
       const minBid = isFirstBid
         ? auction.startPrice
         : auction.currentPrice + calculateMinBidIncrement(auction.currentPrice);
@@ -173,52 +194,75 @@ export class AuctionService {
         throw new BadRequestException(`Minimum bid is ${minBid}`);
       }
 
-      // Check funds
-      const bidderFinance = await manager.findOne(FinanceEntity, {
-        where: { teamId: bidderTeam.id },
-      });
-      if (!bidderFinance || bidderFinance.balance < dto.amount) {
-        throw new BadRequestException('Insufficient funds');
+      // Check available funds (cash - lockedCash)
+      const availableCash = bidderTeam.cash - bidderTeam.lockedCash;
+      if (availableCash < dto.amount) {
+        throw new BadRequestException(
+          `Insufficient funds. Available: ${availableCash}, Required: ${dto.amount}`,
+        );
       }
+
+      // If there's a previous bidder, release their locked cash
+      if (auction.currentBidderId && auction.bidLockAmount) {
+        await teamRepo.decrement(
+          { id: auction.currentBidderId },
+          'lockedCash',
+          auction.bidLockAmount,
+        );
+      }
+
+      // Lock new bidder's cash
+      bidderTeam.lockedCash += dto.amount;
+      await teamRepo.save(bidderTeam);
 
       // Update auction
       auction.currentPrice = dto.amount;
       auction.currentBidderId = bidderTeam.id;
+      auction.bidLockAmount = dto.amount;
       auction.bidHistory.push({
         teamId: bidderTeam.id,
         amount: dto.amount,
         timestamp: now.toISOString(),
       });
 
-      // Check if bid is in last X minutes - extend time
+      // Extend time if needed
       const timeLeft = auction.expiresAt.getTime() - now.getTime();
       const thresholdMs =
         AUCTION_CONFIG.EXTENSION_THRESHOLD_MINUTES * 60 * 1000;
-
       if (timeLeft < thresholdMs) {
         auction.expiresAt = new Date(now.getTime() + thresholdMs);
       }
 
       await auctionRepo.save(auction);
 
-      return auction;
+      return { auction, lockedAmount: dto.amount };
     });
   }
 
-  async buyout(userId: Uuid, auctionId: Uuid): Promise<AuctionEntity> {
+  async buyout(
+    userId: Uuid,
+    auctionId: Uuid,
+  ): Promise<{
+    success: boolean;
+    transactionId: string;
+    status: string;
+    message: string;
+  }> {
     return this.dataSource.transaction(async (manager) => {
-      const buyerTeam = await manager.findOne(TeamEntity, {
+      const auctionRepo = manager.getRepository(AuctionEntity);
+      const teamRepo = manager.getRepository(TeamEntity);
+      const transferTxRepo = manager.getRepository(TransferTransactionEntity);
+
+      const buyerTeam = await teamRepo.findOne({
         where: { userId },
       });
       if (!buyerTeam) throw new NotFoundException('Buyer team not found');
 
-      // Use pessimistic lock (SELECT FOR UPDATE) to prevent concurrent buyout conflicts
+      // Use pessimistic lock to prevent concurrent buyout conflicts
       const auction = await manager
         .createQueryBuilder(AuctionEntity, 'auction')
         .where('auction.id = :id', { id: auctionId })
         .setLock('pessimistic_write')
-        .leftJoinAndSelect('auction.team', 'team')
-        .leftJoinAndSelect('auction.player', 'player')
         .getOne();
       if (!auction) throw new NotFoundException('Auction not found');
       if (auction.status !== AuctionStatus.ACTIVE)
@@ -231,110 +275,75 @@ export class AuctionService {
         throw new BadRequestException('Auction has ended');
       }
 
-      return this.completeBuyout(
-        manager,
-        auction,
-        buyerTeam,
-        auction.buyoutPrice,
-      );
-    });
-  }
+      // Check available funds
+      const availableCash = buyerTeam.cash - buyerTeam.lockedCash;
+      if (availableCash < auction.buyoutPrice) {
+        throw new BadRequestException(
+          `Insufficient funds. Available: ${availableCash}, Required: ${auction.buyoutPrice}`,
+        );
+      }
 
-  private async completeBuyout(
-    manager: any,
-    auction: AuctionEntity,
-    buyerTeam: TeamEntity,
-    amount: number,
-  ): Promise<AuctionEntity> {
-    const auctionRepo = manager.getRepository(AuctionEntity);
-    const playerRepo = manager.getRepository(PlayerEntity);
-    const historyRepo = manager.getRepository(PlayerHistoryEntity);
+      // If buyer had a bid on this auction, release the lock first
+      if (auction.currentBidderId === buyerTeam.id && auction.bidLockAmount) {
+        buyerTeam.lockedCash -= auction.bidLockAmount;
+        await teamRepo.save(buyerTeam);
+      }
 
-    // Check funds
-    const buyerFinance = await manager.findOne(FinanceEntity, {
-      where: { teamId: buyerTeam.id },
-    });
-    if (!buyerFinance || buyerFinance.balance < amount) {
-      throw new BadRequestException('Insufficient funds');
-    }
-
-    const sellerFinance = await manager.findOne(FinanceEntity, {
-      where: { teamId: auction.teamId },
-    });
-    if (!sellerFinance)
-      throw new BadRequestException('Seller finance not found');
-
-    // Process money
-    buyerFinance.balance -= amount;
-    sellerFinance.balance += amount;
-    await manager.save(buyerFinance);
-    await manager.save(sellerFinance);
-
-    // Create finance transactions
-    const season = 1; // TODO: Get current season
-    const buyerTx = new TransactionEntity({
-      teamId: buyerTeam.id,
-      amount: -amount,
-      type: TransactionType.TRANSFER_OUT,
-      season,
-    });
-    const sellerTx = new TransactionEntity({
-      teamId: auction.teamId,
-      amount: amount,
-      type: TransactionType.TRANSFER_IN,
-      season,
-    });
-    await manager.save(buyerTx);
-    await manager.save(sellerTx);
-
-    // Transfer player
-    const player = await playerRepo.findOneByOrFail({ id: auction.playerId });
-    player.teamId = buyerTeam.id;
-    await manager.save(player);
-
-    // Update auction
-    auction.status = AuctionStatus.SOLD;
-    auction.currentBidderId = buyerTeam.id;
-    auction.currentPrice = amount;
-    auction.endsAt = new Date();
-    auction.bidHistory.push({
-      teamId: buyerTeam.id,
-      amount,
-      timestamp: new Date().toISOString(),
-    });
-    await auctionRepo.save(auction);
-
-    // Create player history
-    const history = new PlayerHistoryEntity({
-      playerId: player.id,
-      season,
-      date: new Date(),
-      eventType: PlayerHistoryType.TRANSFER,
-      details: {
+      // Create transfer transaction
+      const transaction = manager.create(TransferTransactionEntity, {
+        auctionId: auction.id,
+        playerId: auction.playerId,
         fromTeamId: auction.teamId,
         toTeamId: buyerTeam.id,
-        price: amount,
+        amount: auction.buyoutPrice,
+        type: TransferTransactionType.BUYOUT,
+        status: TransferTransactionStatus.PENDING,
+      });
+      await manager.save(transaction);
+
+      // Update auction status
+      auction.status = AuctionStatus.SETTLING;
+      auction.currentBidderId = buyerTeam.id;
+      auction.currentPrice = auction.buyoutPrice;
+      auction.endsAt = new Date();
+      auction.bidHistory.push({
+        teamId: buyerTeam.id,
+        amount: auction.buyoutPrice,
+        timestamp: now.toISOString(),
+      });
+      await auctionRepo.save(auction);
+
+      // Enqueue settlement job
+      const jobData: TransferSettlementJobData = {
+        type: 'BUYOUT',
+        transactionId: transaction.id,
         auctionId: auction.id,
-      },
-    });
-    await manager.save(history);
+        playerId: auction.playerId,
+        buyerTeamId: buyerTeam.id,
+        sellerTeamId: auction.teamId,
+        amount: auction.buyoutPrice,
+        timestamp: now.getTime(),
+      };
+      await this.transferQueue.add('transfer-settlement', jobData, {
+        attempts: 3,
+        backoff: {
+          type: 'exponential',
+          delay: 1000,
+        },
+      });
 
-    // Create player transaction record
-    const transaction = new PlayerTransactionEntity({
-      playerId: player.id,
-      fromTeamId: auction.teamId,
-      toTeamId: buyerTeam.id,
-      price: amount,
-      season,
-      transactionDate: new Date(),
-      auctionId: auction.id,
+      return {
+        success: true,
+        transactionId: transaction.id,
+        status: 'PROCESSING',
+        message:
+          'Buyout is being processed. Player will be transferred shortly.',
+      };
     });
-    await manager.save(transaction);
-
-    return auction;
   }
 
-  // This should be called by a cron job to finalize expired auctions
+  // Called by cron job to finalize expired auctions
+  @Cron('0 * * * * *') // Every minute
   async finalizeExpiredAuctions(): Promise<void> {
     const now = new Date();
     const expiredAuctions = await this.auctionRepo.find({
@@ -344,20 +353,59 @@ export class AuctionService {
     for (const auction of expiredAuctions) {
       if (auction.expiresAt <= now) {
         if (auction.currentBidderId) {
-          // Has winner - complete the sale
+          // Has winner - create transaction and enqueue
           await this.dataSource.transaction(async (manager) => {
-            const buyerTeam = await manager.findOneOrFail(TeamEntity, {
-              where: { id: auction.currentBidderId },
-            });
-            await this.completeBuyout(
-              manager,
-              auction,
-              buyerTeam,
-              auction.currentPrice,
+            const auctionRepo = manager.getRepository(AuctionEntity);
+            const transferTxRepo = manager.getRepository(
+              TransferTransactionEntity,
             );
+
+            // Create transfer transaction
+            const transaction = manager.create(TransferTransactionEntity, {
+              auctionId: auction.id,
+              playerId: auction.playerId,
+              fromTeamId: auction.teamId,
+              toTeamId: auction.currentBidderId,
+              amount: auction.currentPrice,
+              type: TransferTransactionType.AUCTION_COMPLETE,
+              status: TransferTransactionStatus.PENDING,
+            });
+            await manager.save(transaction);
+
+            // Update auction status
+            await auctionRepo.update(auction.id, {
+              status: AuctionStatus.SETTLING,
+            });
+
+            // Enqueue settlement job
+            const jobData: TransferSettlementJobData = {
+              type: 'AUCTION_COMPLETE',
+              transactionId: transaction.id,
+              auctionId: auction.id,
+              playerId: auction.playerId,
+              buyerTeamId: auction.currentBidderId,
+              sellerTeamId: auction.teamId,
+              amount: auction.currentPrice,
+              timestamp: now.getTime(),
+            };
+            await this.transferQueue.add('transfer-settlement', jobData, {
+              attempts: 3,
+              backoff: {
+                type: 'exponential',
+                delay: 1000,
+              },
+            });
           });
         } else {
-          // No bids - mark as expired
+          // No bids - mark as expired and reset player's onTransfer
+          const player = await this.playerRepo.findOne({
+            where: { id: auction.playerId as Uuid },
+          });
+          if (player) {
+            player.onTransfer = false;
+            await this.playerRepo.save(player);
+          }
+
           auction.status = AuctionStatus.EXPIRED;
           auction.endsAt = now;
           await this.auctionRepo.save(auction);

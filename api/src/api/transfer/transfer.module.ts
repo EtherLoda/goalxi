@@ -4,9 +4,11 @@ import {
   PlayerHistoryEntity,
   PlayerTransactionEntity,
   TeamEntity,
+  TransferTransactionEntity,
 } from '@goalxi/database';
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { TransferQueueModule } from '../../background/queues/transfer-settlement/transfer-settlement.module';
 import { AuthModule } from '../auth/auth.module';
 import { FinanceModule } from '../finance/finance.module';
 import { AuctionService } from './auction.service';
@@ -20,9 +22,11 @@ import { TransferController } from './transfer.controller';
       AuctionEntity,
       PlayerEntity,
       TeamEntity,
+      TransferTransactionEntity,
     ]),
     AuthModule,
     FinanceModule,
+    TransferQueueModule,
   ],
   controllers: [TransferController],
   providers: [AuctionService],

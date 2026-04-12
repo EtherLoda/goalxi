@@ -2,12 +2,15 @@
 
 import { useTranslations } from "next-intl";
 import { useEffect, useState } from "react";
+import { useParams } from "next/navigation";
 import Sidebar from "../../../components/dashboard/Sidebar";
+import Header from "../../../components/dashboard/Header";
 import { useAuth } from "@/contexts/AuthContext";
 import { api, type Standing, type Match } from "@/lib/api";
 
 export default function DashboardPage() {
   const t = useTranslations();
+  const params = useParams();
   const { user, team, isLoading: authLoading } = useAuth();
   const [standings, setStandings] = useState<Standing[]>([]);
   const [upcomingMatch, setUpcomingMatch] = useState<Match | null>(null);
@@ -26,10 +29,10 @@ export default function DashboardPage() {
     ])
       .then(([standingsData, upcomingData, recentData]) => {
         setStandings(standingsData);
-        const upcoming = upcomingData.matches[0] || null;
+        const upcoming = upcomingData?.matches?.[0] || null;
         setUpcomingMatch(upcoming);
         // Get last 5 completed matches for form
-        const recent = recentData.matches
+        const recent = (recentData?.matches || [])
           .sort((a, b) => new Date(b.scheduledAt).getTime() - new Date(a.scheduledAt).getTime())
           .slice(0, 5);
         setRecentMatches(recent);
@@ -84,15 +87,9 @@ export default function DashboardPage() {
 
       <main className="flex-1 ml-64 flex flex-col">
         {/* Top AppBar */}
-        <header className="h-16 bg-surface/70 backdrop-blur-2xl border-b border-white/5 flex items-center justify-between px-6 shrink-0">
-          <h1 className="font-headline font-black text-sm uppercase tracking-[0.2em] text-primary">
-            {t("dashboard.title")}
-          </h1>
-          <div className="flex items-center gap-4">
-            <button className="p-2 text-on-surface-variant hover:text-primary transition-colors">
-              <span className="material-symbols-outlined">notifications</span>
-            </button>
-            <div className="w-px h-6 bg-white/10" />
+        <Header
+          title={t("dashboard.title")}
+          actions={
             <div className="flex items-center gap-3">
               <div className="hidden sm:block text-right">
                 <div className="font-label text-[10px] font-black text-primary uppercase tracking-widest">
@@ -104,14 +101,9 @@ export default function DashboardPage() {
                     : "No upcoming matches"}
                 </div>
               </div>
-              <div className="w-8 h-8 rounded-full bg-primary/20 border border-primary/30 flex items-center justify-center">
-                <span className="font-headline font-black text-xs text-primary">
-                  {user?.nickname?.charAt(0) || "U"}
-                </span>
-              </div>
             </div>
-          </div>
-        </header>
+          }
+        />
 
         {/* Content */}
         <div className="flex-1 p-6 space-y-6 max-w-7xl mx-auto w-full">

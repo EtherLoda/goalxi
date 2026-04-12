@@ -309,6 +309,7 @@ export class PlayerService {
       experience: player.experience,
       form: player.form,
       stamina: player.stamina,
+      currentWage: player.currentWage,
       createdAt: player.createdAt,
       updatedAt: player.updatedAt,
     });

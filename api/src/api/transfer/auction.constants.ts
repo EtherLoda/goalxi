@@ -6,10 +6,9 @@ export const AUCTION_CONFIG = {
   EXTENSION_THRESHOLD_MINUTES: 3,
 } as const;
 
-// Calculate minimum bid increment: max(10000, currentPrice * 2%)
-export function calculateMinBidIncrement(currentPrice: number): number {
-  const percentIncrement = Math.ceil(
-    currentPrice * AUCTION_CONFIG.MIN_BID_INCREMENT_PERCENT,
-  );
-  return Math.max(AUCTION_CONFIG.MIN_BID_INCREMENT_FIXED, percentIncrement);
+// Calculate minimum bid increment: max(lastBid + 10000, lastBid * 1.05)
+export function calculateMinBidIncrement(lastBid: number): number {
+  const fixedIncrement = 10000;
+  const percentIncrement = Math.ceil(lastBid * 0.05);
+  return Math.max(fixedIncrement, percentIncrement);
 }
