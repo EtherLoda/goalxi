@@ -1,15 +1,28 @@
 import { Uuid } from '@/common/types/common.type';
 import { CurrentUser } from '@/decorators/current-user.decorator';
 import { AuthGuard } from '@/guards/auth.guard';
-import { Body, Controller, Get, Param, Post, UseGuards } from '@nestjs/common';
+import { TeamEntity } from '@goalxi/database';
+import {
+  Body,
+  Controller,
+  Get,
+  Param,
+  Post,
+  Query,
+  UseGuards,
+} from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { InjectRepository } from '@nestjs/typeorm';
 import { plainToInstance } from 'class-transformer';
+import { Repository } from 'typeorm';
 import { AuctionService } from './auction.service';
 import { AuctionResDto } from './dto/auction.res.dto';
 import { BuyoutResDto } from './dto/buyout.res.dto';
 import { CreateAuctionReqDto } from './dto/create-auction.req.dto';
+import { MyBidResDto } from './dto/my-bid.res.dto';
 import { PlaceBidReqDto } from './dto/place-bid.req.dto';
 import { PlaceBidResDto } from './dto/place-bid.res.dto';
+import { TransactionResDto } from './dto/transaction.res.dto';
 
 @Controller({
   path: 'transfer',
@@ -19,7 +32,11 @@ import { PlaceBidResDto } from './dto/place-bid.res.dto';
 @ApiBearerAuth()
 @UseGuards(AuthGuard)
 export class TransferController {
-  constructor(private readonly auctionService: AuctionService) {}
+  constructor(
+    private readonly auctionService: AuctionService,
+    @InjectRepository(TeamEntity)
+    private readonly teamRepo: Repository<TeamEntity>,
+  ) {}
 
   // Auction endpoints
   @Get('auction')
@@ -27,6 +44,61 @@ export class TransferController {
   async findAllAuctions(): Promise<AuctionResDto[]> {
     const auctions = await this.auctionService.findAllActive();
     return auctions.map((a) => plainToInstance(AuctionResDto, a));
+  }
+
+  @Get('auction/my-bids')
+  @ApiOperation({ summary: 'Get auctions where current team has bid' })
+  async findMyBids(@CurrentUser('id') userId: Uuid): Promise<MyBidResDto[]> {
+    const team = await this.teamRepo.findOneBy({ userId });
+    if (!team) throw new Error('User has no team');
+    const auctions = await this.auctionService.findMyBids(team.id);
+    return auctions.map((a) => {
+      const dto = plainToInstance(MyBidResDto, a);
+      dto.isLeading = a.currentBidderId === team.id;
+      dto.isOutbid =
+        a.currentBidderId !== undefined &&
+        a.currentBidderId !== team.id &&
+        a.bidHistory.some((b: any) => b.teamId === team.id);
+      return dto;
+    });
+  }
+
+  @Get('auction/my-listings')
+  @ApiOperation({ summary: 'Get auctions listed by current team' })
+  async findMyListings(
+    @CurrentUser('id') userId: Uuid,
+  ): Promise<AuctionResDto[]> {
+    const team = await this.teamRepo.findOneBy({ userId });
+    if (!team) throw new Error('User has no team');
+    const auctions = await this.auctionService.findMyListings(team.id);
+    return auctions.map((a) => plainToInstance(AuctionResDto, a));
+  }
+
+  @Get('transactions/purchases')
+  @ApiOperation({ summary: "Get today's purchases for current team" })
+  async findMyPurchases(
+    @CurrentUser('id') userId: Uuid,
+    @Query('date') date?: string,
+  ): Promise<TransactionResDto[]> {
+    const team = await this.teamRepo.findOneBy({ userId });
+    if (!team) throw new Error('User has no team');
+    const transactions = await this.auctionService.findMyPurchases(
+      team.id,
+      date,
+    );
+    return transactions.map((t) => plainToInstance(TransactionResDto, t));
+  }
+
+  @Get('transactions/sales')
+  @ApiOperation({ summary: "Get today's sales for current team" })
+  async findMySales(
+    @CurrentUser('id') userId: Uuid,
+    @Query('date') date?: string,
+  ): Promise<TransactionResDto[]> {
+    const team = await this.teamRepo.findOneBy({ userId });
+    if (!team) throw new Error('User has no team');
+    const transactions = await this.auctionService.findMySales(team.id, date);
+    return transactions.map((t) => plainToInstance(TransactionResDto, t));
   }
 
   @Post('auction')

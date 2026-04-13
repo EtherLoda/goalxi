@@ -268,6 +268,20 @@ export const api = {
         method: 'POST',
       });
     },
+    getMyBids: async (): Promise<MyBid[]> => {
+      return request<MyBid[]>('/transfer/auction/my-bids');
+    },
+    getMyListings: async (): Promise<TransferAuction[]> => {
+      return request<TransferAuction[]>('/transfer/auction/my-listings');
+    },
+    getMyPurchases: async (date?: string): Promise<TransferTransaction[]> => {
+      const params = date ? `?date=${date}` : '';
+      return request<TransferTransaction[]>(`/transfer/transactions/purchases${params}`);
+    },
+    getMySales: async (date?: string): Promise<TransferTransaction[]> => {
+      const params = date ? `?date=${date}` : '';
+      return request<TransferTransaction[]>(`/transfer/transactions/sales${params}`);
+    },
   },
 };
 
@@ -283,8 +297,28 @@ interface TransferAuction {
   expiresAt: string;
   endsAt?: string;
   bidHistory: BidRecord[];
-  status: 'active' | 'completed' | 'cancelled';
+  status: 'ACTIVE' | 'SETTLING' | 'SOLD' | 'EXPIRED' | 'CANCELLED';
   createdAt: string;
+}
+
+interface MyBid extends TransferAuction {
+  isLeading: boolean;
+  isOutbid: boolean;
+}
+
+interface TransferTransaction {
+  id: string;
+  auctionId: string;
+  player: Player;
+  fromTeam: Team;
+  fromTeamId?: string;
+  toTeam: Team;
+  toTeamId?: string;
+  amount: number;
+  type: 'BUYOUT' | 'AUCTION_COMPLETE';
+  status: 'PENDING' | 'PROCESSING' | 'COMPLETED' | 'FAILED';
+  transactionDate: string;
+  settledAt?: string;
 }
 
 interface BidRecord {
@@ -294,4 +328,4 @@ interface BidRecord {
   timestamp: string;
 }
 
-export type { User, Team, LoginResponse, League, Standing, Match, Player, TransferAuction, BidRecord };
+export type { User, Team, LoginResponse, League, Standing, Match, Player, TransferAuction, MyBid, TransferTransaction, BidRecord };

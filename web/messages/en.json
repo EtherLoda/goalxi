@@ -248,5 +248,12 @@
       "buyoutFailed": "Buyout failed"
     },
     "submitting": "Submitting..."
+  },
+  "shortlist": {
+    "title": "My Transfer Shortlist",
+    "myBids": "My Bids",
+    "myListings": "My Listings",
+    "myPurchases": "Purchases",
+    "mySales": "Sales"
   }
 }

@@ -248,5 +248,12 @@
       "buyoutFailed": "买断失败"
     },
     "submitting": "提交中..."
+  },
+  "shortlist": {
+    "title": "我的转会清单",
+    "myBids": "我的出价",
+    "myListings": "挂牌中",
+    "myPurchases": "今日买入",
+    "mySales": "今日出售"
   }
 }

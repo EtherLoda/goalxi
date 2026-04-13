@@ -1,4 +1,5 @@
 import { Uuid } from '@/common/types/common.type';
+import { AuctionRedisRepository } from '@/redis/auction-redis.repository';
 import {
   AuctionEntity,
   AuctionStatus,
@@ -20,7 +21,7 @@ import {
 import { Cron } from '@nestjs/schedule';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Queue } from 'bullmq';
-import { DataSource, In, Repository } from 'typeorm';
+import { DataSource, In, MoreThanOrEqual, Repository } from 'typeorm';
 import { FinanceService } from '../finance/finance.service';
 import { AUCTION_CONFIG, calculateMinBidIncrement } from './auction.constants';
 import { CreateAuctionReqDto } from './dto/create-auction.req.dto';
@@ -56,6 +57,7 @@ export class AuctionService implements OnModuleInit {
     @InjectQueue('transfer-settlement')
     private readonly transferQueue: Queue<TransferSettlementJobData>,
     private readonly dataSource: DataSource,
+    private readonly auctionRedisRepo: AuctionRedisRepository,
   ) {}
 
   async onModuleInit() {
@@ -193,11 +195,16 @@ export class AuctionService implements OnModuleInit {
       order: { expiresAt: 'ASC' },
     });
 
-    // Enrich bidHistory with team names
+    // Enrich bidHistory from Redis
     for (const auction of auctions) {
-      if (auction.bidHistory && auction.bidHistory.length > 0) {
+      const redisState = await this.auctionRedisRepo.getAuctionState(
+        auction.id,
+      );
+
+      if (redisState && redisState.bidHistory.length > 0) {
+        // Enrich bidHistory with team names
         const teamIds = [
-          ...new Set(auction.bidHistory.map((bid: any) => bid.teamId)),
+          ...new Set(redisState.bidHistory.map((bid) => bid.teamId)),
         ];
         const teams = await this.teamRepo.find({
           where: { id: In(teamIds) },
@@ -205,16 +212,95 @@ export class AuctionService implements OnModuleInit {
         });
         const teamMap = new Map(teams.map((t) => [t.id, t.name]));
 
-        auction.bidHistory = auction.bidHistory.map((bid: any) => ({
+        auction.bidHistory = redisState.bidHistory.map((bid) => ({
           ...bid,
-          teamName: teamMap.get(bid.teamId) || 'Unknown Team',
+          teamName: teamMap.get(bid.teamId as Uuid) || 'Unknown Team',
         }));
+      } else {
+        auction.bidHistory = [];
       }
 
       // Compute player age from getExactAge() method and add to player object
       if (auction.player) {
         const [age, ageDays] = auction.player.getExactAge();
         // Convert to plain object with computed age fields for serialization
+        auction.player = {
+          ...auction.player,
+          age,
+          ageDays,
+        } as any;
+      }
+    }
+
+    return auctions;
+  }
+
+  async findMyBids(teamId: Uuid) {
+    // Get auction IDs that this team has bid on from Redis
+    const auctionIds = await this.auctionRedisRepo.getTeamBidAuctions(teamId);
+
+    if (auctionIds.length === 0) {
+      return [];
+    }
+
+    // Find auctions where this team has placed bids
+    const auctions = await this.auctionRepo
+      .createQueryBuilder('auction')
+      .leftJoinAndSelect('auction.player', 'player')
+      .leftJoinAndSelect('auction.team', 'team')
+      .leftJoinAndSelect('auction.currentBidder', 'currentBidder')
+      .where('auction.id IN (:...auctionIds)', { auctionIds })
+      .andWhere('auction.status IN (:...statuses)', {
+        statuses: [AuctionStatus.ACTIVE, AuctionStatus.SETTLING],
+      })
+      .orderBy('auction.expiresAt', 'ASC')
+      .getMany();
+
+    // Enrich with computed fields
+    return this.enrichAuctions(auctions);
+  }
+
+  async findMyListings(teamId: Uuid) {
+    // Find auctions where this team listed the player
+    const auctions = await this.auctionRepo.find({
+      where: [
+        { teamId, status: AuctionStatus.ACTIVE },
+        { teamId, status: AuctionStatus.SETTLING },
+      ],
+      relations: ['player', 'team', 'currentBidder'],
+      order: { expiresAt: 'ASC' },
+    });
+
+    return this.enrichAuctions(auctions);
+  }
+
+  private async enrichAuctions(auctions: AuctionEntity[]) {
+    for (const auction of auctions) {
+      // Get bidHistory from Redis
+      const redisState = await this.auctionRedisRepo.getAuctionState(
+        auction.id,
+      );
+
+      if (redisState && redisState.bidHistory.length > 0) {
+        const teamIds = [
+          ...new Set(redisState.bidHistory.map((bid) => bid.teamId)),
+        ];
+        const teams = await this.teamRepo.find({
+          where: { id: In(teamIds) },
+          select: ['id', 'name'],
+        });
+        const teamMap = new Map(teams.map((t) => [t.id, t.name]));
+
+        auction.bidHistory = redisState.bidHistory.map((bid) => ({
+          ...bid,
+          teamName: teamMap.get(bid.teamId as Uuid) || 'Unknown Team',
+        }));
+      } else {
+        auction.bidHistory = [];
+      }
+
+      if (auction.player) {
+        const [age, ageDays] = (auction.player as PlayerEntity).getExactAge();
         auction.player = {
           ...auction.player,
           age,
@@ -281,7 +367,12 @@ export class AuctionService implements OnModuleInit {
     player.onTransfer = true;
     await this.playerRepo.save(player);
 
-    return this.auctionRepo.save(auction);
+    const savedAuction = await this.auctionRepo.save(auction);
+
+    // Initialize Redis state for the auction
+    await this.auctionRedisRepo.initializeAuction(savedAuction.id, endsAt);
+
+    return savedAuction;
   }
 
   async placeBid(
@@ -315,14 +406,16 @@ export class AuctionService implements OnModuleInit {
         throw new BadRequestException('Auction has ended');
       }
 
-      // Calculate minimum bid
-      const hasBids = auction.bidHistory && auction.bidHistory.length > 0;
+      // Get current bid state from Redis
+      const redisState = await this.auctionRedisRepo.getAuctionState(auctionId);
+      const currentBid = redisState?.currentBid || auction.startPrice;
       const isFirstBid =
-        !hasBids || (auction.currentPrice === auction.startPrice && !hasBids);
+        !redisState?.bidHistory.length && currentBid === auction.startPrice;
 
+      // Calculate minimum bid
       const minBid = isFirstBid
         ? auction.startPrice
-        : auction.currentPrice + calculateMinBidIncrement(auction.currentPrice);
+        : currentBid + calculateMinBidIncrement(currentBid);
 
       if (dto.amount < minBid) {
         throw new BadRequestException(`Minimum bid is ${minBid}`);
@@ -336,12 +429,12 @@ export class AuctionService implements OnModuleInit {
         );
       }
 
-      // If there's a previous bidder, release their locked cash
-      if (auction.currentBidderId && auction.bidLockAmount) {
+      // Release previous bidder's locked cash (from Redis state)
+      if (redisState?.currentBidder && redisState.lockAmount) {
         await teamRepo.decrement(
-          { id: auction.currentBidderId },
+          { id: redisState.currentBidder as Uuid },
           'lockedCash',
-          auction.bidLockAmount,
+          redisState.lockAmount,
         );
       }
 
@@ -349,15 +442,25 @@ export class AuctionService implements OnModuleInit {
       bidderTeam.lockedCash += dto.amount;
       await teamRepo.save(bidderTeam);
 
-      // Update auction
+      // Write to Redis (bid history and current state)
+      const { previousBidder } = await this.auctionRedisRepo.placeBid(
+        auctionId,
+        bidderTeam.id,
+        dto.amount,
+        auction.expiresAt,
+      );
+
+      // Track team bid for findMyBids query
+      await this.auctionRedisRepo.addTeamBid(
+        auctionId,
+        bidderTeam.id,
+        auction.expiresAt,
+      );
+
+      // Update auction in PostgreSQL (currentPrice, currentBidderId, bidLockAmount)
       auction.currentPrice = dto.amount;
       auction.currentBidderId = bidderTeam.id;
       auction.bidLockAmount = dto.amount;
-      auction.bidHistory.push({
-        teamId: bidderTeam.id,
-        amount: dto.amount,
-        timestamp: now.toISOString(),
-      });
 
       // Extend time if needed
       const timeLeft = auction.expiresAt.getTime() - now.getTime();
@@ -365,6 +468,11 @@ export class AuctionService implements OnModuleInit {
         AUCTION_CONFIG.EXTENSION_THRESHOLD_MINUTES * 60 * 1000;
       if (timeLeft < thresholdMs) {
         auction.expiresAt = new Date(now.getTime() + thresholdMs);
+        // Update expiresAt in Redis for correct TTL calculation
+        await this.auctionRedisRepo.updateExpiresAt(
+          auctionId,
+          auction.expiresAt,
+        );
       }
 
       await auctionRepo.save(auction);
@@ -417,11 +525,45 @@ export class AuctionService implements OnModuleInit {
         );
       }
 
+      // Get current bid state from Redis
+      const redisState = await this.auctionRedisRepo.getAuctionState(auctionId);
+
       // If buyer had a bid on this auction, release the lock first
-      if (auction.currentBidderId === buyerTeam.id && auction.bidLockAmount) {
-        buyerTeam.lockedCash -= auction.bidLockAmount;
+      if (redisState?.currentBidder === buyerTeam.id && redisState.lockAmount) {
+        buyerTeam.lockedCash -= redisState.lockAmount;
         await teamRepo.save(buyerTeam);
       }
+
+      // Release previous bidder's lock if exists
+      if (
+        redisState?.currentBidder &&
+        redisState.currentBidder !== buyerTeam.id
+      ) {
+        await teamRepo.decrement(
+          { id: redisState.currentBidder as Uuid },
+          'lockedCash',
+          redisState.lockAmount,
+        );
+      }
+
+      // Lock buyer's cash
+      buyerTeam.lockedCash += auction.buyoutPrice;
+      await teamRepo.save(buyerTeam);
+
+      // Write buyout to Redis
+      await this.auctionRedisRepo.placeBid(
+        auctionId,
+        buyerTeam.id,
+        auction.buyoutPrice,
+        auction.expiresAt,
+      );
+
+      // Track team bid for findMyBids
+      await this.auctionRedisRepo.addTeamBid(
+        auctionId,
+        buyerTeam.id,
+        auction.expiresAt,
+      );
 
       // Create transfer transaction
       const transaction = manager.create(TransferTransactionEntity, {
@@ -440,11 +582,6 @@ export class AuctionService implements OnModuleInit {
       auction.currentBidderId = buyerTeam.id;
       auction.currentPrice = auction.buyoutPrice;
       auction.endsAt = new Date();
-      auction.bidHistory.push({
-        teamId: buyerTeam.id,
-        amount: auction.buyoutPrice,
-        timestamp: now.toISOString(),
-      });
       await auctionRepo.save(auction);
 
       // Enqueue settlement job
@@ -486,79 +623,216 @@ export class AuctionService implements OnModuleInit {
 
     for (const auction of expiredAuctions) {
       if (auction.expiresAt <= now) {
-        // Check if auction already has a pending/processing transaction (idempotency)
-        const existingTx = await this.transferTxRepo.findOne({
-          where: { auctionId: auction.id },
-          order: { createdAt: 'DESC' },
-        });
-
-        if (
-          existingTx &&
-          existingTx.status !== TransferTransactionStatus.FAILED
-        ) {
-          // Already has a transaction that's not failed, skip
-          continue;
+        // Acquire settlement lock to prevent concurrent settlement
+        const lockAcquired = await this.auctionRedisRepo.acquireSettlementLock(
+          auction.id,
+        );
+        if (!lockAcquired) {
+          continue; // Another process is settling this auction
         }
 
-        if (auction.currentBidderId) {
-          // Has winner - create transaction and enqueue
-          await this.dataSource.transaction(async (manager) => {
-            const auctionRepo = manager.getRepository(AuctionEntity);
-            const transferTxRepo = manager.getRepository(
-              TransferTransactionEntity,
-            );
-
-            // Create transfer transaction
-            const transaction = manager.create(TransferTransactionEntity, {
-              auctionId: auction.id,
-              playerId: auction.playerId,
-              fromTeamId: auction.teamId,
-              toTeamId: auction.currentBidderId,
-              amount: auction.currentPrice,
-              type: TransferTransactionType.AUCTION_COMPLETE,
-              status: TransferTransactionStatus.PENDING,
-            });
-            await manager.save(transaction);
-
-            // Update auction status
-            await auctionRepo.update(auction.id, {
-              status: AuctionStatus.SETTLING,
-            });
-
-            // Enqueue settlement job
-            const jobData: TransferSettlementJobData = {
-              type: 'AUCTION_COMPLETE',
-              transactionId: transaction.id,
-              auctionId: auction.id,
-              playerId: auction.playerId,
-              buyerTeamId: auction.currentBidderId,
-              sellerTeamId: auction.teamId,
-              amount: auction.currentPrice,
-              timestamp: now.getTime(),
-            };
-            await this.transferQueue.add('transfer-settlement', jobData, {
-              attempts: 3,
-              backoff: {
-                type: 'exponential',
-                delay: 1000,
-              },
-            });
+        try {
+          // Check if auction already has a pending/processing transaction (idempotency)
+          const existingTx = await this.transferTxRepo.findOne({
+            where: { auctionId: auction.id },
+            order: { createdAt: 'DESC' },
           });
-        } else {
-          // No bids - mark as expired and reset player's onTransfer
-          const player = await this.playerRepo.findOne({
-            where: { id: auction.playerId as Uuid },
-          });
-          if (player) {
-            player.onTransfer = false;
-            await this.playerRepo.save(player);
+
+          if (
+            existingTx &&
+            existingTx.status !== TransferTransactionStatus.FAILED
+          ) {
+            // Already has a transaction that's not failed, skip
+            continue;
           }
 
-          auction.status = AuctionStatus.EXPIRED;
-          auction.endsAt = now;
-          await this.auctionRepo.save(auction);
+          // Get bid state from Redis for final cleanup of team bid sets
+          const redisState = await this.auctionRedisRepo.getAuctionState(
+            auction.id,
+          );
+
+          if (auction.currentBidderId) {
+            // Has winner - create transaction and enqueue
+            await this.dataSource.transaction(async (manager) => {
+              const auctionRepo = manager.getRepository(AuctionEntity);
+              const transferTxRepo = manager.getRepository(
+                TransferTransactionEntity,
+              );
+
+              // Create transfer transaction
+              const transaction = manager.create(TransferTransactionEntity, {
+                auctionId: auction.id,
+                playerId: auction.playerId,
+                fromTeamId: auction.teamId,
+                toTeamId: auction.currentBidderId,
+                amount: auction.currentPrice,
+                type: TransferTransactionType.AUCTION_COMPLETE,
+                status: TransferTransactionStatus.PENDING,
+              });
+              await manager.save(transaction);
+
+              // Update auction status
+              await auctionRepo.update(auction.id, {
+                status: AuctionStatus.SETTLING,
+              });
+
+              // Enqueue settlement job
+              const jobData: TransferSettlementJobData = {
+                type: 'AUCTION_COMPLETE',
+                transactionId: transaction.id,
+                auctionId: auction.id,
+                playerId: auction.playerId,
+                buyerTeamId: auction.currentBidderId,
+                sellerTeamId: auction.teamId,
+                amount: auction.currentPrice,
+                timestamp: now.getTime(),
+              };
+              await this.transferQueue.add('transfer-settlement', jobData, {
+                attempts: 3,
+                backoff: {
+                  type: 'exponential',
+                  delay: 1000,
+                },
+              });
+            });
+          } else {
+            // No bids - mark as expired and reset player's onTransfer
+            const player = await this.playerRepo.findOne({
+              where: { id: auction.playerId as Uuid },
+            });
+            if (player) {
+              player.onTransfer = false;
+              await this.playerRepo.save(player);
+            }
+
+            auction.status = AuctionStatus.EXPIRED;
+            auction.endsAt = now;
+            await this.auctionRepo.save(auction);
+          }
+
+          // Cleanup Redis data for this auction
+          await this.auctionRedisRepo.cleanupAuction(auction.id);
+
+          // Cleanup team bid sets
+          if (redisState?.bidHistory) {
+            for (const bid of redisState.bidHistory) {
+              await this.auctionRedisRepo.removeTeamBid(auction.id, bid.teamId);
+            }
+          }
+        } finally {
+          await this.auctionRedisRepo.releaseSettlementLock(auction.id);
         }
       }
     }
+  }
+
+  async findMyPurchases(teamId: Uuid, date?: string) {
+    const queryDate = date ? new Date(date) : new Date();
+    const startOfDay = new Date(queryDate);
+    startOfDay.setHours(0, 0, 0, 0);
+    const endOfDay = new Date(queryDate);
+    endOfDay.setHours(23, 59, 59, 999);
+
+    const transactions = await this.transferTxRepo.find({
+      where: {
+        toTeamId: teamId,
+        createdAt: MoreThanOrEqual(startOfDay),
+      },
+      relations: ['player', 'fromTeam', 'toTeam', 'auction'],
+      order: { createdAt: 'DESC' },
+    });
+
+    // Also get transactions where settledAt is today (for SETTLING->COMPLETED)
+    const settledToday = await this.transferTxRepo
+      .createQueryBuilder('tx')
+      .leftJoinAndSelect('tx.player', 'player')
+      .leftJoinAndSelect('tx.fromTeam', 'fromTeam')
+      .leftJoinAndSelect('tx.toTeam', 'toTeam')
+      .leftJoinAndSelect('tx.auction', 'auction')
+      .where('tx.toTeamId = :teamId', { teamId })
+      .andWhere('tx.settledAt >= :startOfDay', { startOfDay })
+      .andWhere('tx.settledAt <= :endOfDay', { endOfDay })
+      .orderBy('tx.settledAt', 'DESC')
+      .getMany();
+
+    // Merge and deduplicate
+    const allTransactions = [...transactions];
+    for (const tx of settledToday) {
+      if (!allTransactions.find((t) => t.id === tx.id)) {
+        allTransactions.push(tx);
+      }
+    }
+
+    // Enrich player with computed age fields
+    for (const tx of allTransactions) {
+      if (tx.player) {
+        const [age, ageDays] = (tx.player as PlayerEntity).getExactAge();
+        tx.player = {
+          ...tx.player,
+          age,
+          ageDays,
+        } as any;
+      }
+    }
+
+    return allTransactions.sort(
+      (a, b) =>
+        new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+    );
+  }
+
+  async findMySales(teamId: Uuid, date?: string) {
+    const queryDate = date ? new Date(date) : new Date();
+    const startOfDay = new Date(queryDate);
+    startOfDay.setHours(0, 0, 0, 0);
+    const endOfDay = new Date(queryDate);
+    endOfDay.setHours(23, 59, 59, 999);
+
+    const transactions = await this.transferTxRepo.find({
+      where: {
+        fromTeamId: teamId,
+        createdAt: MoreThanOrEqual(startOfDay),
+      },
+      relations: ['player', 'fromTeam', 'toTeam', 'auction'],
+      order: { createdAt: 'DESC' },
+    });
+
+    // Also get transactions where settledAt is today
+    const settledToday = await this.transferTxRepo
+      .createQueryBuilder('tx')
+      .leftJoinAndSelect('tx.player', 'player')
+      .leftJoinAndSelect('tx.fromTeam', 'fromTeam')
+      .leftJoinAndSelect('tx.toTeam', 'toTeam')
+      .leftJoinAndSelect('tx.auction', 'auction')
+      .where('tx.fromTeamId = :teamId', { teamId })
+      .andWhere('tx.settledAt >= :startOfDay', { startOfDay })
+      .andWhere('tx.settledAt <= :endOfDay', { endOfDay })
+      .orderBy('tx.settledAt', 'DESC')
+      .getMany();
+
+    // Merge and deduplicate
+    const allTransactions = [...transactions];
+    for (const tx of settledToday) {
+      if (!allTransactions.find((t) => t.id === tx.id)) {
+        allTransactions.push(tx);
+      }
+    }
+
+    // Enrich player with computed age fields
+    for (const tx of allTransactions) {
+      if (tx.player) {
+        const [age, ageDays] = (tx.player as PlayerEntity).getExactAge();
+        tx.player = {
+          ...tx.player,
+          age,
+          ageDays,
+        } as any;
+      }
+    }
+
+    return allTransactions.sort(
+      (a, b) =>
+        new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+    );
   }
 }
