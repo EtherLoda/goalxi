@@ -24,7 +24,7 @@ export class PlayerHistoryEntity extends AbstractEntity {
     @Column({ name: 'player_id', type: 'uuid' })
     playerId!: Uuid;
 
-    @ManyToOne(() => PlayerEntity)
+    @ManyToOne(() => PlayerEntity, { onDelete: 'CASCADE' })
     @JoinColumn({ name: 'player_id' })
     player?: PlayerEntity;
 

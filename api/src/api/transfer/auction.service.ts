@@ -13,7 +13,9 @@ import { InjectQueue } from '@nestjs/bullmq';
 import {
   BadRequestException,
   Injectable,
+  Logger,
   NotFoundException,
+  OnModuleInit,
 } from '@nestjs/common';
 import { Cron } from '@nestjs/schedule';
 import { InjectRepository } from '@nestjs/typeorm';
@@ -36,7 +38,9 @@ interface TransferSettlementJobData {
 }
 
 @Injectable()
-export class AuctionService {
+export class AuctionService implements OnModuleInit {
+  private readonly logger = new Logger(AuctionService.name);
+
   constructor(
     @InjectRepository(AuctionEntity)
     private readonly auctionRepo: Repository<AuctionEntity>,
@@ -54,9 +58,137 @@ export class AuctionService {
     private readonly dataSource: DataSource,
   ) {}
 
-  async findAllActive() {
-    const auctions = await this.auctionRepo.find({
+  async onModuleInit() {
+    this.logger.log('Running auction recovery on startup...');
+    await this.recoverStuckSettlingAuctions();
+    await this.extendExpiredAuctions();
+    this.logger.log('Auction recovery completed.');
+  }
+
+  /**
+   * Find auctions stuck in SETTLING state and re-enqueue their settlement.
+   * This handles cases where server crashed after setting SETTLING but before job was processed.
+   */
+  private async recoverStuckSettlingAuctions(): Promise<void> {
+    const settlingAuctions = await this.auctionRepo.find({
+      where: { status: AuctionStatus.SETTLING },
+    });
+
+    if (settlingAuctions.length === 0) {
+      return;
+    }
+
+    this.logger.log(
+      `Found ${settlingAuctions.length} auctions in SETTLING state`,
+    );
+
+    for (const auction of settlingAuctions) {
+      // Check if there's a transaction for this auction
+      const tx = await this.transferTxRepo.findOne({
+        where: { auctionId: auction.id },
+        order: { createdAt: 'DESC' },
+      });
+
+      if (!tx) {
+        // No transaction exists - re-enqueue settlement
+        this.logger.warn(
+          `Auction ${auction.id} has SETTLING but no transaction, re-enqueuing`,
+        );
+        await this.enqueueSettlement(auction);
+      } else if (tx.status === TransferTransactionStatus.COMPLETED) {
+        // Already completed - just update auction status to SOLD
+        this.logger.log(
+          `Auction ${auction.id} already completed, updating to SOLD`,
+        );
+        await this.auctionRepo.update(auction.id, {
+          status: AuctionStatus.SOLD,
+        });
+      } else if (tx.status === TransferTransactionStatus.FAILED) {
+        // Failed - reset auction and player
+        this.logger.log(`Auction ${auction.id} settlement failed, resetting`);
+        await this.auctionRepo.update(auction.id, {
+          status: AuctionStatus.CANCELLED,
+        });
+        await this.playerRepo.update(auction.playerId as Uuid, {
+          onTransfer: false,
+        });
+      }
+      // PENDING/PROCESSING will be picked up by settlement processor when it runs
+    }
+  }
+
+  /**
+   * Extend auctions that expired during server downtime.
+   * Bidders get compensated for the time they couldn't bid.
+   */
+  private async extendExpiredAuctions(): Promise<void> {
+    const DOWNTIME_EXTENSION_MINUTES = 5; // Minimum 5 minutes extension
+
+    const activeAuctions = await this.auctionRepo.find({
       where: { status: AuctionStatus.ACTIVE },
+    });
+
+    const now = new Date();
+    let extendedCount = 0;
+
+    for (const auction of activeAuctions) {
+      if (auction.expiresAt < now) {
+        const downtimeMs = now.getTime() - auction.expiresAt.getTime();
+        const extensionMs = Math.max(
+          DOWNTIME_EXTENSION_MINUTES * 60 * 1000,
+          downtimeMs,
+        );
+        auction.expiresAt = new Date(now.getTime() + extensionMs);
+        await this.auctionRepo.save(auction);
+        extendedCount++;
+      }
+    }
+
+    if (extendedCount > 0) {
+      this.logger.log(
+        `Extended ${extendedCount} auctions that expired during downtime`,
+      );
+    }
+  }
+
+  /**
+   * Enqueue a settlement job for an auction.
+   */
+  private async enqueueSettlement(auction: AuctionEntity): Promise<void> {
+    const now = new Date();
+    const type = auction.currentBidderId ? 'AUCTION_COMPLETE' : 'BUYOUT';
+    const amount = auction.currentBidderId
+      ? auction.currentPrice
+      : auction.buyoutPrice;
+    const buyerTeamId = auction.currentBidderId || auction.teamId;
+
+    const jobData: TransferSettlementJobData = {
+      type,
+      transactionId: '', // Will be created in the settlement
+      auctionId: auction.id,
+      playerId: auction.playerId,
+      buyerTeamId,
+      sellerTeamId: auction.teamId,
+      amount,
+      timestamp: now.getTime(),
+    };
+
+    await this.transferQueue.add('transfer-settlement', jobData, {
+      attempts: 3,
+      backoff: {
+        type: 'exponential',
+        delay: 1000,
+      },
+    });
+  }
+
+  async findAllActive() {
+    // Include both ACTIVE and SETTLING auctions
+    const auctions = await this.auctionRepo.find({
+      where: [
+        { status: AuctionStatus.ACTIVE },
+        { status: AuctionStatus.SETTLING },
+      ],
       relations: ['player', 'team', 'currentBidder'],
       order: { expiresAt: 'ASC' },
     });
@@ -129,7 +261,9 @@ export class AuctionService {
     }
 
     const now = new Date();
-    const endsAt = new Date(now.getTime() + dto.durationHours * 60 * 60 * 1000);
+    const durationHours =
+      dto.durationHours ?? AUCTION_CONFIG.DEFAULT_DURATION_HOURS;
+    const endsAt = new Date(now.getTime() + durationHours * 60 * 60 * 1000);
 
     const auction = new AuctionEntity({
       playerId: player.id,
@@ -352,6 +486,20 @@ export class AuctionService {
 
     for (const auction of expiredAuctions) {
       if (auction.expiresAt <= now) {
+        // Check if auction already has a pending/processing transaction (idempotency)
+        const existingTx = await this.transferTxRepo.findOne({
+          where: { auctionId: auction.id },
+          order: { createdAt: 'DESC' },
+        });
+
+        if (
+          existingTx &&
+          existingTx.status !== TransferTransactionStatus.FAILED
+        ) {
+          // Already has a transaction that's not failed, skip
+          continue;
+        }
+
         if (auction.currentBidderId) {
           // Has winner - create transaction and enqueue
           await this.dataSource.transaction(async (manager) => {

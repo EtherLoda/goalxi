@@ -30,6 +30,7 @@ import {
   YouthMatchTacticsEntity,
   WeatherEntity,
   SessionEntity,
+  TransferTransactionEntity,
 } from '@goalxi/database';
 
 @Injectable()
@@ -40,9 +41,15 @@ export class DatabaseConfigService implements TypeOrmOptionsFactory {
     return {
       type: 'postgres',
       host: this.configService.getOrThrow('DATABASE_HOST', { infer: true }),
-      port: this.configService.getOrThrow<number>('DATABASE_PORT', { infer: true }),
-      username: this.configService.getOrThrow('DATABASE_USERNAME', { infer: true }),
-      password: this.configService.getOrThrow('DATABASE_PASSWORD', { infer: true }),
+      port: this.configService.getOrThrow<number>('DATABASE_PORT', {
+        infer: true,
+      }),
+      username: this.configService.getOrThrow('DATABASE_USERNAME', {
+        infer: true,
+      }),
+      password: this.configService.getOrThrow('DATABASE_PASSWORD', {
+        infer: true,
+      }),
       database: this.configService.getOrThrow('DATABASE_NAME', { infer: true }),
       entities: [
         PlayerEntity,
@@ -73,6 +80,7 @@ export class DatabaseConfigService implements TypeOrmOptionsFactory {
         YouthMatchTacticsEntity,
         WeatherEntity,
         SessionEntity,
+        TransferTransactionEntity,
       ],
       synchronize: process.env.DATABASE_SYNCHRONIZE === 'true',
     };

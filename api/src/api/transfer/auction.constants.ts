@@ -1,5 +1,8 @@
 export const AUCTION_CONFIG = {
-  DEFAULT_DURATION_HOURS: 24,
+  DEFAULT_DURATION_HOURS: parseInt(
+    process.env.AUCTION_DURATION_HOURS || '1',
+    10,
+  ),
   MIN_BID_INCREMENT_FIXED: 10000, // Fixed minimum increment
   MIN_BID_INCREMENT_PERCENT: 0.02, // 2% of current price
   EXTENSION_MINUTES: 3,

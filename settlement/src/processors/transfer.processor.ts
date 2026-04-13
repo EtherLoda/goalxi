@@ -143,6 +143,7 @@ export class TransferProcessor extends WorkerHost {
           throw new Error(`Player ${playerId} not found`);
         }
         player.teamId = buyerTeamId;
+        player.onTransfer = false;
         await playerRepo.save(player);
 
         // 5. Update auction status
@@ -185,55 +186,57 @@ export class TransferProcessor extends WorkerHost {
         });
         await manager.save(playerTx);
 
+        // 9. Release previous bidder's locked cash (if any) - inside transaction
+        if (type === 'AUCTION_COMPLETE') {
+          const auction = await auctionRepo.findOne({
+            where: { id: auctionId as Uuid },
+          });
+          if (
+            auction &&
+            auction.bidLockAmount &&
+            auction.currentBidderId &&
+            auction.currentBidderId !== buyerTeamId
+          ) {
+            await teamRepo.decrement(
+              { id: auction.currentBidderId as Uuid },
+              'lockedCash',
+              auction.bidLockAmount,
+            );
+            this.logger.log(
+              `[TransferProcessor] Released ${auction.bidLockAmount} locked cash from previous bidder ${auction.currentBidderId}`,
+            );
+          }
+        }
+
+        // 10. For BUYOUT, release buyer's own bid lock if exists - inside transaction
+        if (type === 'BUYOUT') {
+          const auction = await auctionRepo.findOne({
+            where: { id: auctionId as Uuid },
+          });
+          if (
+            auction &&
+            auction.bidLockAmount &&
+            auction.currentBidderId === buyerTeamId
+          ) {
+            await teamRepo.decrement(
+              { id: buyerTeamId as Uuid },
+              'lockedCash',
+              auction.bidLockAmount,
+            );
+            this.logger.log(
+              `[TransferProcessor] Released ${auction.bidLockAmount} bid lock from buyer ${buyerTeamId}`,
+            );
+          }
+        }
+
         this.logger.log(
           `[TransferProcessor] Successfully settled ${type}: Player ${playerId} transferred from Team ${sellerTeamId} to Team ${buyerTeamId} for ${amount}`,
         );
       });
 
-      // 9. If buyer had a bid on this auction, release the locked amount
-      if (type === 'AUCTION_COMPLETE') {
-        const auction = await this.auctionRepo.findOne({
-          where: { id: auctionId as Uuid },
-        });
-        if (
-          auction &&
-          auction.bidLockAmount &&
-          auction.currentBidderId &&
-          auction.currentBidderId !== buyerTeamId
-        ) {
-          // Release previous bidder's locked cash
-          await this.teamRepo.decrement(
-            { id: auction.currentBidderId as Uuid },
-            'lockedCash',
-            auction.bidLockAmount,
-          );
-          this.logger.log(
-            `[TransferProcessor] Released ${auction.bidLockAmount} locked cash from previous bidder ${auction.currentBidderId}`,
-          );
-        }
-      }
-
-      // 10. For BUYOUT, also release any previous bid lock from this buyer if exists
-      if (type === 'BUYOUT') {
-        const auction = await this.auctionRepo.findOne({
-          where: { id: auctionId as Uuid },
-        });
-        if (
-          auction &&
-          auction.bidLockAmount &&
-          auction.currentBidderId === buyerTeamId
-        ) {
-          // Release the bid lock amount
-          await this.teamRepo.decrement(
-            { id: buyerTeamId as Uuid },
-            'lockedCash',
-            auction.bidLockAmount,
-          );
-          this.logger.log(
-            `[TransferProcessor] Released ${auction.bidLockAmount} bid lock from buyer ${buyerTeamId}`,
-          );
-        }
-      }
+      // Note: Bid lock release is now inside the transaction for crash safety
+      // If server crashes after commit, locks are properly released
+      // If server crashes before commit, transaction rolls back correctly
     } catch (error) {
       this.logger.error(
         `[TransferProcessor] Failed to process transaction ${transactionId}: ${error.message || error}`,

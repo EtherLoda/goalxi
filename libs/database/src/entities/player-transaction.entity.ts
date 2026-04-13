@@ -48,7 +48,7 @@ export class PlayerTransactionEntity extends AbstractEntity {
     @Column({ name: 'auction_id', type: 'uuid', nullable: true })
     auctionId?: Uuid;
 
-    @ManyToOne(() => AuctionEntity)
+    @ManyToOne(() => AuctionEntity, { onDelete: 'CASCADE' })
     @JoinColumn({ name: 'auction_id' })
     auction?: AuctionEntity;
 }

@@ -30,7 +30,7 @@ export class TransferTransactionEntity extends AbstractEntity {
     @Column({ name: 'auction_id', type: 'uuid' })
     auctionId!: Uuid;
 
-    @ManyToOne(() => AuctionEntity)
+    @ManyToOne(() => AuctionEntity, { onDelete: 'CASCADE' })
     @JoinColumn({ name: 'auction_id' })
     auction?: AuctionEntity;
 
