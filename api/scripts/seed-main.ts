@@ -14,7 +14,6 @@ import {
   Uuid,
 } from '@goalxi/database';
 import { calculatePlayerWage } from '@goalxi/database/src/constants/finance.constants';
-import * as argon2 from 'argon2';
 import 'reflect-metadata';
 import { v4 as uuidv4 } from 'uuid';
 import { getRandomNameByNationality } from '../src/constants/name-database';
@@ -204,11 +203,10 @@ async function createLeaguePyramid() {
   let adminUser = await userRepo.findOneBy({ email: adminEmail });
 
   if (!adminUser) {
-    const hashedPassword = await argon2.hash('Test123456!');
     adminUser = new UserEntity({
       username: 'admin',
       email: adminEmail,
-      password: hashedPassword,
+      password: 'Test123456!', // Let @BeforeInsert hook handle hashing
       nickname: 'Admin Manager',
       bio: 'System Administrator',
       supporterLevel: 99,
@@ -224,11 +222,10 @@ async function createLeaguePyramid() {
   const botEmail = 'bot@goalxi.com';
   let botUser = await userRepo.findOneBy({ email: botEmail });
   if (!botUser) {
-    const hashedPassword = await argon2.hash('Bot123456!');
     botUser = new UserEntity({
       username: 'bot_manager',
       email: botEmail,
-      password: hashedPassword,
+      password: 'Bot123456!', // Let @BeforeInsert hook handle hashing
       nickname: 'Bot Manager',
       bio: 'System Bot Manager',
       supporterLevel: 0,
@@ -257,11 +254,10 @@ async function createLeaguePyramid() {
   for (const config of testUserConfigs) {
     let user = await userRepo.findOneBy({ email: config.email });
     if (!user) {
-      const hashedPassword = await argon2.hash('123123');
       user = new UserEntity({
         username: config.username,
         email: config.email,
-        password: hashedPassword,
+        password: '123123', // Let @BeforeUpdate hook handle hashing
         nickname: config.nickname,
         bio: 'Test user',
         supporterLevel: 1,
@@ -269,9 +265,8 @@ async function createLeaguePyramid() {
       await userRepo.save(user);
       console.log(`   ✓ Created: ${config.email} / 123123`);
     } else {
-      // Update password to ensure it's correct
-      const hashedPassword = await argon2.hash('123123');
-      user.password = hashedPassword;
+      // Update password to ensure it's correct (don't hash - let the hook do it)
+      user.password = '123123';
       await userRepo.save(user);
       console.log(`   ✓ Updated password: ${config.email} / 123123`);
     }

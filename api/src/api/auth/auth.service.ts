@@ -68,7 +68,7 @@ export class AuthService {
       user && (await verifyPassword(password, user.password));
 
     if (!isPasswordValid) {
-      throw new UnauthorizedException();
+      throw new UnauthorizedException('Invalid email or password');
     }
 
     const hash = crypto
