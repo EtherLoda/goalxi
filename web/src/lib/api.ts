@@ -154,8 +154,10 @@ async function request<T>(
   });
 
   if (!response.ok) {
-    const error = await response.json().catch(() => ({ message: 'Request failed' }));
-    throw new Error(error.message || `HTTP ${response.status}`);
+    const errorData = await response.json().catch(() => null);
+    // Prefer the API's error message, fallback to status text
+    const errorMessage = errorData?.message || response.statusText || `Error ${response.status}`;
+    throw new Error(errorMessage);
   }
 
   return response.json();
@@ -245,10 +247,14 @@ export const api = {
     getAuctions: async (): Promise<TransferAuction[]> => {
       return request<TransferAuction[]>('/transfer/auction');
     },
-    createAuction: async (playerId: string, startPrice: number, buyoutPrice: number, durationHours: number): Promise<TransferAuction> => {
+    createAuction: async (playerId: string, startPrice: number, buyoutPrice: number, durationHours?: number): Promise<TransferAuction> => {
+      const body: Record<string, unknown> = { playerId, startPrice, buyoutPrice };
+      if (durationHours !== undefined) {
+        body.durationHours = durationHours;
+      }
       return request<TransferAuction>('/transfer/auction', {
         method: 'POST',
-        body: JSON.stringify({ playerId, startPrice, buyoutPrice, durationHours }),
+        body: JSON.stringify(body),
       });
     },
     placeBid: async (auctionId: string, amount: number): Promise<TransferAuction> => {

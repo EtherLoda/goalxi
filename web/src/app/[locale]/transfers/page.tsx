@@ -353,21 +353,78 @@ export default function TransfersPage() {
     <div className="flex min-h-screen bg-[#00110c]">
       {/* Notification Toast */}
       {notification && (
-        <div className={`fixed top-4 right-4 z-[200] px-6 py-4 rounded-xl shadow-lg flex items-center gap-3 animate-in slide-in-from-top ${
-          notification.type === 'success' ? 'bg-[#002c22] border border-[#a1ffc2]' : 'bg-red-900/80 border border-red-500'
-        }`}>
-          <span className={`material-symbols-outlined ${notification.type === 'success' ? 'text-[#a1ffc2]' : 'text-red-400'}`}>
-            {notification.type === 'success' ? 'check_circle' : 'error'}
-          </span>
-          <span className="text-sm font-bold text-[#d3f5e8]">{notification.message}</span>
-          <button
-            onClick={() => setNotification(null)}
-            className="ml-2 text-[#91b2a6] hover:text-white transition-colors"
-          >
-            <span className="material-symbols-outlined text-sm">close</span>
-          </button>
+        <div className="fixed top-5 right-5 z-[200] flex flex-col">
+          <div className={`
+            relative overflow-hidden rounded-2xl border backdrop-blur-2xl
+            ${notification.type === 'success'
+              ? 'bg-[#002c22]/95 border-[#a1ffc2]/30 shadow-[0_0_30px_rgba(161,255,194,0.15)]'
+              : 'bg-[#2a1515]/95 border-red-500/30 shadow-[0_0_30px_rgba(255,100,100,0.1)]'
+            }
+          `}>
+            {/* Accent line */}
+            <div className={`absolute left-0 top-0 bottom-0 w-[3px] ${
+              notification.type === 'success' ? 'bg-[#a1ffc2]' : 'bg-red-500'
+            }`} />
+
+            {/* Content */}
+            <div className="flex items-center gap-4 px-5 py-4 pl-6">
+              <div className={`
+                w-10 h-10 rounded-xl flex items-center justify-center shrink-0
+                ${notification.type === 'success'
+                  ? 'bg-[#a1ffc2]/10 text-[#a1ffc2]'
+                  : 'bg-red-500/10 text-red-400'
+                }
+              `}>
+                <span className="material-symbols-outlined text-xl">
+                  {notification.type === 'success' ? 'check_circle' : 'error'}
+                </span>
+              </div>
+
+              <div className="flex-1 min-w-0">
+                <p className={`text-sm font-semibold ${
+                  notification.type === 'success' ? 'text-[#d3f5e8]' : 'text-red-200'
+                }`}>
+                  {notification.message}
+                </p>
+              </div>
+
+              <button
+                onClick={() => setNotification(null)}
+                className={`
+                  w-8 h-8 rounded-lg flex items-center justify-center shrink-0
+                  transition-all duration-200 hover:scale-110
+                  ${notification.type === 'success'
+                    ? 'text-[#91b2a6] hover:text-[#d3f5e8] hover:bg-[#a1ffc2]/10'
+                    : 'text-red-400/60 hover:text-red-300 hover:bg-red-500/10'
+                  }
+                `}
+              >
+                <span className="material-symbols-outlined text-lg">close</span>
+              </button>
+            </div>
+
+            {/* Auto-dismiss progress bar */}
+            <div className="absolute bottom-0 left-0 right-0 h-[2px] bg-black/20">
+              <div
+                className={`h-full animate-[shrink_5s_linear_forwards] ${
+                  notification.type === 'success'
+                    ? 'bg-[#a1ffc2]'
+                    : 'bg-red-500'
+                }`}
+                style={{
+                  animation: 'shrink 5s linear forwards',
+                }}
+              />
+            </div>
+          </div>
         </div>
       )}
+      <style jsx>{`
+        @keyframes shrink {
+          from { width: 100%; }
+          to { width: 0%; }
+        }
+      `}</style>
       <Sidebar />
 
       <main className="flex-1 ml-64 flex flex-col overflow-hidden">

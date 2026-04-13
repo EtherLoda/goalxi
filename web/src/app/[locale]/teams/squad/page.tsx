@@ -36,7 +36,7 @@ function ListPlayerModal({ player, onClose, onSuccess }: ListPlayerModalProps) {
     setError(null);
 
     try {
-      await api.transfers.createAuction(player.id, start, buyout, 72);
+      await api.transfers.createAuction(player.id, start, buyout);
       onSuccess();
       onClose();
     } catch (err) {
