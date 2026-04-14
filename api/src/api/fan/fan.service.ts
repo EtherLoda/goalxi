@@ -1,10 +1,4 @@
-import {
-  FAN_BASE_GROWTH,
-  FAN_BASE_LOSS,
-  FAN_CAP_SMOOTHING,
-  FAN_HIDDEN_CAP,
-  FanEntity,
-} from '@goalxi/database';
+import { FAN_HIDDEN_CAP, FanEntity } from '@goalxi/database';
 import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';

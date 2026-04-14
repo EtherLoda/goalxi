@@ -9,6 +9,7 @@ import { TypeOrmConfigService } from '@/database/typeorm-config.service';
 import mailConfig from '@/mail/config/mail.config';
 import { MailModule } from '@/mail/mail.module';
 import redisConfig from '@/redis/config/redis.config';
+import { RedisModule } from '@/redis/redis.module';
 import { BullModule } from '@nestjs/bullmq';
 import { CacheModule } from '@nestjs/cache-manager';
 import { ModuleMetadata } from '@nestjs/common';
@@ -137,6 +138,7 @@ function generateModulesSet() {
         i18nModule,
         loggerModule,
         MailModule,
+        RedisModule,
       ];
       break;
     case 'api':
@@ -148,6 +150,7 @@ function generateModulesSet() {
         i18nModule,
         loggerModule,
         MailModule,
+        RedisModule,
       ];
       break;
     case 'background':
@@ -158,6 +161,7 @@ function generateModulesSet() {
         dbModule,
         i18nModule,
         loggerModule,
+        RedisModule,
       ];
       break;
     default:

@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { AuthModule } from './auth/auth.module';
 import { FanModule } from './fan/fan.module';
 import { FinanceModule } from './finance/finance.module';
+import { GameModule } from './game/game.module';
 import { InjuryModule } from './injury/injury.module';
 import { LeagueModule } from './league/league.module';
 import { MatchModule } from './match/match.module';
@@ -36,6 +37,7 @@ import { YouthModule } from './youth/youth.module';
     TrainingModule,
     StadiumModule,
     FanModule,
+    GameModule,
   ],
 })
 export class ApiModule {}

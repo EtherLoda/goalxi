@@ -1,7 +1,7 @@
+import { StaffEntity } from '@goalxi/database';
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { PlayerModule } from '../player/player.module';
-import { StaffEntity } from '@goalxi/database';
 import { TeamController } from './team.controller';
 import { TeamService } from './team.service';
 
