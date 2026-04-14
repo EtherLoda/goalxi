@@ -232,4 +232,166 @@ describe('MatchEngine', () => {
       expect(report.matchStats.summary.awayScore).toBeGreaterThanOrEqual(0);
     });
   });
+
+  describe('Star Rating Calculation', () => {
+    it('should show different stars for different OVR levels', () => {
+      // Create team with varied OVR players
+      const createPlayer = (id: string, name: string, ovr: number): Player => ({
+        id,
+        name,
+        position: 'CM',
+        exactAge: [25, 0],
+        attributes: {
+          finishing: ovr,
+          composure: ovr,
+          positioning: ovr,
+          strength: ovr,
+          pace: ovr,
+          dribbling: ovr,
+          passing: ovr,
+          defending: ovr,
+          freeKicks: 50,
+          penalties: 50,
+          gk_reflexes: 50,
+          gk_handling: 50,
+          gk_aerial: 50,
+        },
+        currentStamina: 3,
+        form: 5, // Max form
+        experience: 10,
+      });
+
+      const homeTeam = new Team('HomeFC', [
+        {
+          player: createPlayer('p1', 'World Class CM', 18),
+          positionKey: 'CM',
+        },
+        {
+          player: createPlayer('p2', 'Good CM', 14),
+          positionKey: 'CM',
+        },
+        {
+          player: createPlayer('p3', 'Average CM', 10),
+          positionKey: 'CM',
+        },
+        {
+          player: createPlayer('p4', 'Weak CM', 6),
+          positionKey: 'CM',
+        },
+      ]);
+
+      const awayTeam = new Team('AwayFC', [
+        {
+          player: createPlayer('p5', 'Away World Class', 18),
+          positionKey: 'CM',
+        },
+      ]);
+
+      const testEngine = new MatchEngine(homeTeam, awayTeam);
+      testEngine.simulateMatch();
+
+      const report = (testEngine as any).getPlayerMatchStats();
+
+      console.log('\n=== Star Rating by OVR Level ===');
+      for (const stat of report) {
+        console.log(
+          `${stat.playerName} (${stat.position}): avgStars=${stat.avgStars}, avgContribution=${stat.avgContribution}, minutes=${stat.minutesPlayed}`,
+        );
+      }
+
+      // Verify higher OVR has higher stars
+      const worldClass = report.find(
+        (s: any) => s.playerName === 'World Class CM',
+      );
+      const average = report.find((s: any) => s.playerName === 'Average CM');
+      const weak = report.find((s: any) => s.playerName === 'Weak CM');
+
+      expect(worldClass?.avgStars).toBeGreaterThan(average?.avgStars ?? 0);
+      expect(average?.avgStars).toBeGreaterThan(weak?.avgStars ?? 0);
+
+      // World class should be 4+ stars
+      expect(worldClass?.avgStars).toBeGreaterThanOrEqual(4.0);
+      // Average should be 2-3 stars
+      expect(average?.avgStars).toBeGreaterThanOrEqual(2.0);
+      expect(average?.avgStars).toBeLessThan(3.5);
+      // Weak should be 1-2 stars
+      expect(weak?.avgStars).toBeGreaterThanOrEqual(1.0);
+      expect(weak?.avgStars).toBeLessThan(2.5);
+    });
+
+    it('should show different stars for different positions', () => {
+      const createPlayer = (
+        id: string,
+        name: string,
+        position: string,
+        ovr: number,
+      ): Player => ({
+        id,
+        name,
+        position,
+        exactAge: [25, 0],
+        attributes: {
+          finishing: position.includes('F') ? ovr : 10,
+          composure: ovr,
+          positioning: ovr,
+          strength: ovr,
+          pace: ovr,
+          dribbling: position.includes('W') ? ovr : 10,
+          passing: ovr,
+          defending:
+            position.includes('D') || position.includes('B') ? ovr : 10,
+          freeKicks: 50,
+          penalties: 50,
+          gk_reflexes: position === 'GK' ? ovr : 50,
+          gk_handling: position === 'GK' ? ovr : 50,
+          gk_aerial: position === 'GK' ? ovr : 50,
+        },
+        currentStamina: 3,
+        form: 5,
+        experience: 10,
+      });
+
+      const homeTeam = new Team('PositionTest', [
+        {
+          player: createPlayer('cf', 'CF', 'CF', 15),
+          positionKey: 'CF',
+        },
+        {
+          player: createPlayer('cm', 'CM', 'CM', 15),
+          positionKey: 'CM',
+        },
+        {
+          player: createPlayer('cb', 'CB', 'CB', 15),
+          positionKey: 'CB',
+        },
+        {
+          player: createPlayer('lb', 'LB', 'LB', 15),
+          positionKey: 'LB',
+        },
+        {
+          player: createPlayer('gk', 'GK', 'GK', 15),
+          positionKey: 'GK',
+        },
+      ]);
+
+      const awayTeam = new Team('AwayTeam', [
+        {
+          player: createPlayer('away', 'Away', 'CM', 15),
+          positionKey: 'CM',
+        },
+      ]);
+
+      const testEngine = new MatchEngine(homeTeam, awayTeam);
+      testEngine.simulateMatch();
+
+      const report = (testEngine as any).getPlayerMatchStats();
+
+      console.log('\n=== Star Rating by Position (Skill 15) ===');
+      for (const stat of report) {
+        console.log(
+          `${stat.playerName} (${stat.position}): avgStars=${stat.avgStars}, avgContribution=${stat.avgContribution}`,
+        );
+      }
+    });
+  });
 });

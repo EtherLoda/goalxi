@@ -12,7 +12,7 @@ import { AttributeCalculator } from './utils/attribute-calculator';
 import { ConditionSystem } from './systems/condition.system';
 import { InjurySystem, InjuryEventData } from './systems/injury.system';
 import { Player, PlayerAbility } from '../types/player.types';
-import { BenchConfig } from '@goalxi/database';
+import { BenchConfig, calculatePositionFit } from '@goalxi/database';
 
 // ---------- Ability Helper ----------
 const hasAbility = (
@@ -109,6 +109,33 @@ const POSITION_TO_BENCH_KEY: Record<string, keyof BenchConfig> = {
   CFR: 'forward',
 };
 
+// ==================== STAR RATING HELPERS ====================
+// Thresholds for all players (0-100 scale contribution)
+const STAR_THRESHOLDS = [
+  { threshold: 95, stars: 5.0 },
+  { threshold: 85, stars: 4.5 },
+  { threshold: 75, stars: 4.0 },
+  { threshold: 65, stars: 3.5 },
+  { threshold: 50, stars: 3.0 },
+  { threshold: 40, stars: 2.5 },
+  { threshold: 30, stars: 2.0 },
+  { threshold: 22, stars: 1.5 },
+  { threshold: 14, stars: 1.0 },
+  { threshold: 0, stars: 0.5 },
+];
+
+function contributionToStars(contribution: number): number {
+  let stars = 0.5;
+  for (const { threshold, stars: s } of STAR_THRESHOLDS) {
+    if (contribution >= threshold) {
+      stars = s;
+      break;
+    }
+  }
+  // 向上取整到0.5星: 3.2→3.5, 3.7→4.0
+  return Math.ceil(stars * 2) / 2;
+}
+
 export interface MatchEvent {
   minute: number;
   type:
@@ -186,7 +213,16 @@ export class MatchEngine {
       tackles: number; // 抢断成功次数
       appearances: number; // 出场次数（用于判断是否上场）
       minutesPlayed: number;
+      contributionSum: number; // 累计贡献值（用于计算平均值）
+      contributionCount: number; // 贡献值记录次数
+      starsSum: number; // 累计星级
     }
+  > = new Map();
+
+  // 球员贡献历史（用于计算平均值）
+  private playerContributionHistory: Map<
+    string,
+    Array<{ minute: number; contribution: number; stars: number }>
   > = new Map();
 
   // 双方 lane strength 历史（用于计算平均值）
@@ -224,7 +260,11 @@ export class MatchEngine {
         tackles: 0,
         appearances: 1, // Starting players have 1 appearance
         minutesPlayed: 0,
+        contributionSum: 0,
+        contributionCount: 0,
+        starsSum: 0,
       });
+      this.playerContributionHistory.set(player.id, []);
     });
 
     // 初始化比赛统计
@@ -768,6 +808,8 @@ export class MatchEngine {
     tackles: number;
     appearances: number;
     minutesPlayed: number;
+    avgContribution: number;
+    avgStars: number;
   }> {
     const result: Array<{
       playerId: string;
@@ -779,12 +821,15 @@ export class MatchEngine {
       tackles: number;
       appearances: number;
       minutesPlayed: number;
+      avgContribution: number;
+      avgStars: number;
     }> = [];
 
     for (const team of [this.homeTeam, this.awayTeam]) {
       for (const tp of team.players) {
         const player = tp.player as Player;
         const stats = this.playerMatchStats.get(player.id);
+        const history = this.playerContributionHistory.get(player.id);
         if (
           stats &&
           (stats.goals > 0 ||
@@ -792,6 +837,21 @@ export class MatchEngine {
             stats.tackles > 0 ||
             stats.minutesPlayed > 0)
         ) {
+          // Calculate averages from history
+          let avgContribution = 0;
+          let avgStars = 0;
+          if (history && history.length > 0) {
+            const totalContribution = history.reduce(
+              (sum, h) => sum + h.contribution,
+              0,
+            );
+            const totalStars = history.reduce((sum, h) => sum + h.stars, 0);
+            avgContribution = parseFloat(
+              (totalContribution / history.length).toFixed(1),
+            );
+            avgStars = parseFloat((totalStars / history.length).toFixed(2));
+          }
+
           result.push({
             playerId: player.id,
             playerName: player.name,
@@ -802,6 +862,8 @@ export class MatchEngine {
             tackles: stats.tackles,
             appearances: stats.appearances,
             minutesPlayed: stats.minutesPlayed,
+            avgContribution,
+            avgStars,
           });
         }
       }
@@ -1019,8 +1081,12 @@ export class MatchEngine {
               tackles: 0,
               appearances: 1,
               minutesPlayed: 0,
+              contributionSum: 0,
+              contributionCount: 0,
+              starsSum: 0,
             };
             this.playerMatchStats.set(playerInId, inStats);
+            this.playerContributionHistory.set(playerInId, []);
           } else {
             inStats.appearances++;
           }
@@ -1652,7 +1718,11 @@ export class MatchEngine {
               tackles: 0,
               appearances: 1,
               minutesPlayed: 0,
+              contributionSum: 0,
+              contributionCount: 0,
+              starsSum: 0,
             });
+            this.playerContributionHistory.set(playerInId, []);
           }
         } else {
           // No substitute available - player must stay on (heavily limping)
@@ -2253,6 +2323,48 @@ export class MatchEngine {
           (lAtk + lDef + lPos + cAtk + cDef + cPos + rAtk + rDef + rPos) *
           multiplier;
 
+        // Calculate stars based on position
+        let stars = 0.5;
+        let normalizedContribution = totalContribution; // For history tracking
+        if (tacticalPlayer.positionKey === 'GK') {
+          // GK: apply multiplier first, then normalize to 0-100 scale
+          // gkRating range: ~100 (skill 10) to ~200 (skill 20)
+          // With multiplier 1.2, raw range is ~120 to ~240
+          // Divide by 2.4 to get 0-100 scale (240/2.4 = 100)
+          const gkRating =
+            AttributeCalculator.calculateAndCacheGKSaveRating(player);
+          const rawContribution = gkRating * multiplier;
+          // Normalize: divide by 2.4 to match 0-100 scale
+          normalizedContribution = rawContribution / 2.4;
+          stars = contributionToStars(normalizedContribution);
+        } else {
+          // Outfield: apply multiplier then normalize to 0-100 scale
+          const positionFit = calculatePositionFit(
+            player.attributes,
+            tacticalPlayer.positionKey,
+          );
+          const rawContribution = positionFit * multiplier;
+          // Normalize: divide by 1.2 (max multiplier) to get 0-100 scale
+          normalizedContribution = rawContribution / 1.2;
+          stars = contributionToStars(normalizedContribution);
+        }
+
+        // Note: GK normalization uses a different divisor (7.5) because gkRating
+        // has a different scale (max ~625 for skills=100). Formula:
+        // (gkRating * multiplier) / 7.5 ≈ (positionFit * multiplier) / 1.2
+        // Both evaluate to ~100 at max quality with max multiplier
+
+        // Track contribution and stars history for this player
+        // Use normalizedContribution for consistent 0-100 scale across all positions
+        const playerHistory = this.playerContributionHistory.get(player.id);
+        if (playerHistory) {
+          playerHistory.push({
+            minute: time,
+            contribution: normalizedContribution,
+            stars,
+          });
+        }
+
         // A player needs full data if it's the global full snapshot (min 0) or if they just appeared (sub)
         const isNewPlayer = !this.knownPlayerIds.has(player.id);
         const needsFullData = isFullMatchSnapshot || isNewPlayer;
@@ -2263,7 +2375,8 @@ export class MatchEngine {
           st: parseFloat(fitness.toFixed(1)),
           f: player.form,
           cm: parseFloat(multiplier.toFixed(3)),
-          pc: parseFloat(totalContribution.toFixed(1)),
+          pc: parseFloat(normalizedContribution.toFixed(1)), // Normalized to 0-100 scale
+          sr: stars, // star rating
           em: tacticalPlayer.entryMinute || 0,
         };
 

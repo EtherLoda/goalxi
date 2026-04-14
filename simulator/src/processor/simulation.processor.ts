@@ -609,6 +609,8 @@ export class SimulationProcessor extends WorkerHost {
               tackles: 0,
               yellowCards: 0,
               redCards: 0,
+              avgContribution: 0,
+              avgStars: 0,
             },
           };
         }
@@ -620,6 +622,8 @@ export class SimulationProcessor extends WorkerHost {
             tackles: 0,
             yellowCards: 0,
             redCards: 0,
+            avgContribution: 0,
+            avgStars: 0,
           };
         }
 
@@ -628,6 +632,8 @@ export class SimulationProcessor extends WorkerHost {
         player.careerStats.club.goals += stats.goals;
         player.careerStats.club.assists += stats.assists;
         player.careerStats.club.tackles += stats.tackles;
+        player.careerStats.club.avgContribution = stats.avgContribution;
+        player.careerStats.club.avgStars = stats.avgStars;
 
         // Count cards from events
         const playerYellowCards = events.filter(
