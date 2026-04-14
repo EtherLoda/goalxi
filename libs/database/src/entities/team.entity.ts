@@ -86,18 +86,9 @@ export class TeamEntity extends AbstractEntity {
     @OneToMany('SeasonResultEntity', (result: SeasonResultEntity) => result.team)
     seasonResults: SeasonResultEntity[];
 
-    /** 总现金 */
-    @Column({ name: 'cash', type: 'integer', default: 500000 })
-    cash!: number;
-
     /** 已锁定金额（所有待成交出价之和） */
     @Column({ name: 'locked_cash', type: 'integer', default: 0 })
     lockedCash!: number;
-
-    /** 可用现金 = cash - lockedCash */
-    get availableCash(): number {
-        return this.cash - this.lockedCash;
-    }
 
     @DeleteDateColumn({ name: 'deleted_at', type: 'timestamptz', nullable: true })
     deletedAt: Date | null;
