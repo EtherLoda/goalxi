@@ -1,5 +1,6 @@
 import {
   FanEntity,
+  InjuryEntity,
   LeagueStandingEntity,
   MatchEntity,
   MatchEventEntity,
@@ -14,7 +15,7 @@ import {
 } from '@goalxi/database';
 import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { In, Repository } from 'typeorm';
+import { In, MoreThanOrEqual, Repository } from 'typeorm';
 import { FanService } from '../fan/fan.service';
 import { FinanceService } from '../finance/finance.service';
 import { MatchCacheService } from './match-cache.service';
@@ -40,6 +41,8 @@ export class MatchCompletionService {
     private stadiumRepository: Repository<StadiumEntity>,
     @InjectRepository(FanEntity)
     private fanRepository: Repository<FanEntity>,
+    @InjectRepository(InjuryEntity)
+    private injuryRepository: Repository<InjuryEntity>,
     private matchCacheService: MatchCacheService,
     private financeService: FinanceService,
     private fanService: FanService,
@@ -89,7 +92,10 @@ export class MatchCompletionService {
     // 5. Update Fan Morale and Calculate Revenue
     await this.updateFanAndRevenue(match);
 
-    // 6. Mark as processed in cache
+    // 6. Instant injury recovery for bot players
+    await this.recoverBotPlayerInjuries(match);
+
+    // 7. Mark as processed in cache
     await this.matchCacheService.setMatchProcessed(matchId);
 
     // 7. Invalidate Cache
@@ -340,11 +346,14 @@ export class MatchCompletionService {
     const tactics = await this.tacticsRepository.find({ where: { matchId } });
 
     // Collect all playerIds and their minutes
-    const playerMinutes: Map<string, { teamId: string; minutes: number }> = new Map();
+    const playerMinutes: Map<string, { teamId: string; minutes: number }> =
+      new Map();
 
     for (const t of tactics) {
       const teamId = t.teamId;
-      const starterIds = Object.values(t.lineup).filter((id): id is string => typeof id === 'string');
+      const starterIds = Object.values(t.lineup).filter(
+        (id): id is string => typeof id === 'string',
+      );
 
       // Process starters
       for (const playerId of starterIds) {
@@ -550,6 +559,88 @@ export class MatchCompletionService {
 
     this.logger.debug(
       `Stadium revenue for ${match.homeTeam?.name}: ${totalAttendance} total fans = ${ticketRevenue} (tier ${tier})`,
+    );
+  }
+
+  /**
+   * Instantly recover injuries for bot team players after match ends
+   * Bot players should not suffer from lingering injuries
+   */
+  private async recoverBotPlayerInjuries(match: MatchEntity): Promise<void> {
+    const botTeamIds: string[] = [];
+
+    // Check if home team is a bot
+    if (match.homeTeam?.isBot) {
+      botTeamIds.push(match.homeTeamId as string);
+    }
+    // Check if away team is a bot
+    if (match.awayTeam?.isBot) {
+      botTeamIds.push(match.awayTeamId as string);
+    }
+
+    if (botTeamIds.length === 0) {
+      return;
+    }
+
+    this.logger.debug(
+      `[MatchCompletion] Recovering injuries for bot teams: ${botTeamIds.join(', ')}`,
+    );
+
+    // Find all bot players with active injuries
+    const botPlayersWithInjuries = await this.playerRepository.find({
+      where: {
+        teamId: In(botTeamIds as any[]),
+        currentInjuryValue: MoreThanOrEqual(1),
+      },
+    });
+
+    if (botPlayersWithInjuries.length === 0) {
+      return;
+    }
+
+    this.logger.log(
+      `[MatchCompletion] Found ${botPlayersWithInjuries.length} bot player(s) with active injuries to recover`,
+    );
+
+    const playersToSave: PlayerEntity[] = [];
+    const playerIds = botPlayersWithInjuries.map((p) => p.id);
+
+    // Mark all active injuries as recovered
+    const activeInjuries = await this.injuryRepository.find({
+      where: {
+        playerId: In(playerIds as any[]),
+        isRecovered: false,
+      },
+    });
+
+    for (const injury of activeInjuries) {
+      injury.isRecovered = true;
+      injury.recoveredAt = new Date();
+    }
+
+    if (activeInjuries.length > 0) {
+      await this.injuryRepository.save(activeInjuries);
+    }
+
+    // Clear injury fields on players
+    for (const player of botPlayersWithInjuries) {
+      player.currentInjuryValue = 0;
+      player.injuryType = null;
+      player.injuryState = null;
+      player.injuredAt = null;
+      playersToSave.push(player);
+
+      this.logger.debug(
+        `[MatchCompletion] Bot player ${player.name} injury instantly recovered`,
+      );
+    }
+
+    if (playersToSave.length > 0) {
+      await this.playerRepository.save(playersToSave);
+    }
+
+    this.logger.log(
+      `[MatchCompletion] Completed instant injury recovery for ${playersToSave.length} bot player(s)`,
     );
   }
 }
