@@ -27,7 +27,7 @@ export class ConsolidateAuctionMigrations1744500000001 implements MigrationInter
     `);
     await queryRunner.query(`
       ALTER TABLE "player_transaction"
-      ADD CONSTRAINT "FK_45e941155f5a8b50d464f548654"
+      ADD CONSTRAINT "FK_45e941155f5a8b50d464f548546"
       FOREIGN KEY ("auction_id") REFERENCES "auction"("id") ON DELETE CASCADE
     `);
 
