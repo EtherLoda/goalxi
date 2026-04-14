@@ -190,34 +190,6 @@ export class StaffsService {
     return { renewed, expired };
   }
 
-  /** Calculate team training quality score */
-  getTrainingQualityScore(teamId: string, staffList: StaffEntity[]): number {
-    const head = staffList.find(
-      (s) => s.role === StaffRole.HEAD_COACH && s.isActive,
-    );
-    const fitness = staffList.find(
-      (s) => s.role === StaffRole.FITNESS_COACH && s.isActive,
-    );
-    const psych = staffList.find(
-      (s) => s.role === StaffRole.PSYCHOLOGY_COACH && s.isActive,
-    );
-    const tech = staffList.find(
-      (s) => s.role === StaffRole.TECHNICAL_COACH && s.isActive,
-    );
-
-    const headScore = head ? STAFF_LEVEL_SCORE[head.level] : 40;
-    const fitnessScore = fitness ? STAFF_LEVEL_SCORE[fitness.level] : 40;
-    const psychScore = psych ? STAFF_LEVEL_SCORE[psych.level] : 40;
-    const techScore = tech ? STAFF_LEVEL_SCORE[tech.level] : 40;
-
-    return Math.round(
-      headScore * 0.6 +
-        fitnessScore * 0.15 +
-        psychScore * 0.15 +
-        techScore * 0.1,
-    );
-  }
-
   private generateStaffName(role: StaffRole, level: StaffLevel): string {
     const firstNames = [
       'John',

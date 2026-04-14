@@ -19,12 +19,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { CurrentUser } from '../../decorators/current-user.decorator';
 import { AuthGuard } from '../../guards/auth.guard';
-import {
-  STAFF_HIRE_COST,
-  STAFF_LEVEL_SCORE,
-  STAFF_SALARY,
-  StaffsService,
-} from './staffs.service';
+import { STAFF_HIRE_COST, STAFF_SALARY, StaffsService } from './staffs.service';
 
 @Controller('staffs')
 @UseGuards(AuthGuard)
@@ -91,41 +86,6 @@ export class StaffsController {
     return mapStaffToDto(staff);
   }
 
-  /** Get training quality score for current team */
-  @Get('training-quality')
-  async getTrainingQuality(
-    @CurrentUser('id') userId: Uuid,
-  ): Promise<TrainingQualityDto> {
-    const team = await this.teamRepo.findOneBy({ userId });
-    if (!team) throw new BadRequestException('Team not found');
-
-    const staffs = await this.staffsService.findByTeam(team.id);
-    const score = this.staffsService.getTrainingQualityScore(team.id, staffs);
-
-    const head = staffs.find((s) => s.role === StaffRole.HEAD_COACH);
-    const fitness = staffs.find((s) => s.role === StaffRole.FITNESS_COACH);
-    const psych = staffs.find((s) => s.role === StaffRole.PSYCHOLOGY_COACH);
-    const tech = staffs.find((s) => s.role === StaffRole.TECHNICAL_COACH);
-
-    return {
-      overall: score,
-      breakdown: {
-        headCoach: head
-          ? { level: head.level, score: STAFF_LEVEL_SCORE[head.level] }
-          : { level: null, score: 40 },
-        fitnessCoach: fitness
-          ? { level: fitness.level, score: STAFF_LEVEL_SCORE[fitness.level] }
-          : { level: null, score: 40 },
-        psychologyCoach: psych
-          ? { level: psych.level, score: STAFF_LEVEL_SCORE[psych.level] }
-          : { level: null, score: 40 },
-        technicalCoach: tech
-          ? { level: tech.level, score: STAFF_LEVEL_SCORE[tech.level] }
-          : { level: null, score: 40 },
-      },
-    };
-  }
-
   /** Get staff cost summary */
   @Get('cost-summary')
   async getCostSummary(
@@ -170,16 +130,6 @@ export interface StaffDto {
   autoRenew: boolean;
   isActive: boolean;
   nationality?: string;
-}
-
-export interface TrainingQualityDto {
-  overall: number;
-  breakdown: {
-    headCoach: { level: number | null; score: number };
-    fitnessCoach: { level: number | null; score: number };
-    psychologyCoach: { level: number | null; score: number };
-    technicalCoach: { level: number | null; score: number };
-  };
 }
 
 export interface CostSummaryDto {
