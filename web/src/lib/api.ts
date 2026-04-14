@@ -283,6 +283,25 @@ export const api = {
       return request<TransferTransaction[]>(`/transfer/transactions/sales${params}`);
     },
   },
+
+  game: {
+    getCurrent: async (): Promise<{ season: number; week: number }> => {
+      return request<{ season: number; week: number }>('/game/current');
+    },
+  },
+
+  finance: {
+    getBalance: async (): Promise<{ balance: number; lockedCash: number }> => {
+      return request<{ balance: number; lockedCash: number }>('/finance/balance');
+    },
+    getTransactions: async (params?: { season?: number; type?: string }): Promise<FinanceTransaction[]> => {
+      const searchParams = new URLSearchParams();
+      if (params?.season) searchParams.set('season', String(params.season));
+      if (params?.type) searchParams.set('type', params.type);
+      const query = searchParams.toString() ? `?${searchParams.toString()}` : '';
+      return request<FinanceTransaction[]>(`/finance/transactions${query}`);
+    },
+  },
 };
 
 interface TransferAuction {
@@ -328,4 +347,13 @@ interface BidRecord {
   timestamp: string;
 }
 
-export type { User, Team, LoginResponse, League, Standing, Match, Player, TransferAuction, MyBid, TransferTransaction, BidRecord };
+interface FinanceTransaction {
+  id: string;
+  season: number;
+  amount: number;
+  type: string;
+  description?: string;
+  createdAt: string;
+}
+
+export type { User, Team, LoginResponse, League, Standing, Match, Player, TransferAuction, MyBid, TransferTransaction, BidRecord, FinanceTransaction };
