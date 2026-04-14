@@ -14,13 +14,13 @@ export class LeagueStandingResDto {
   played: number;
 
   @Expose()
-  won: number;
+  wins: number;
 
   @Expose()
-  drawn: number;
+  draws: number;
 
   @Expose()
-  lost: number;
+  losses: number;
 
   @Expose()
   goalsFor: number;

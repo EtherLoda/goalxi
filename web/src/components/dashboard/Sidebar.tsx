@@ -31,7 +31,7 @@ export default function Sidebar() {
         { labelKey: "dashboard", href: `/${locale}/dashboard`, icon: "home" },
         { labelKey: "squad", href: `/${locale}/teams/squad`, icon: "groups" },
         { labelKey: "matches", href: `/${locale}/matches`, icon: "calendar_month" },
-        { labelKey: "league", href: `/${locale}/league/elite`, icon: "emoji_events" },
+        { labelKey: "league", href: team?.leagueId ? `/${locale}/league/${team.leagueId}` : "#", icon: "emoji_events" },
       ],
     },
     {

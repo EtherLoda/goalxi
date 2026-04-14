@@ -91,11 +91,13 @@ interface Match {
   scheduledAt: string;
   matchday: number | null;
   leagueId: string;
+  season: number;
+  week: number;
   venue: string | null;
 }
 
 interface MatchListResponse {
-  matches: Match[];
+  data: Match[];
   meta: {
     total: number;
     page: number;
@@ -107,6 +109,7 @@ interface MatchListResponse {
 interface Standing {
   position: number;
   teamId: string;
+  teamName: string;
   leagueId: string;
   season: number;
   played: number;
@@ -236,9 +239,28 @@ export const api = {
   },
 
   matches: {
-    getByTeam: async (teamId: string, status?: string): Promise<MatchListResponse> => {
+    getByTeam: async (teamId: string, filters?: {
+      status?: string;
+      week?: number;
+      season?: number;
+      leagueId?: string;
+    }): Promise<MatchListResponse> => {
       const params = new URLSearchParams({ teamId });
-      if (status) params.append('status', status);
+      if (filters?.status) params.append('status', filters.status);
+      if (filters?.week) params.append('week', String(filters.week));
+      if (filters?.season) params.append('season', String(filters.season));
+      if (filters?.leagueId) params.append('leagueId', filters.leagueId);
+      return request<MatchListResponse>(`/matches?${params.toString()}`);
+    },
+    getByLeague: async (leagueId: string, filters?: {
+      status?: string;
+      week?: number;
+      season?: number;
+    }): Promise<MatchListResponse> => {
+      const params = new URLSearchParams({ leagueId });
+      if (filters?.status) params.append('status', filters.status);
+      if (filters?.week) params.append('week', String(filters.week));
+      if (filters?.season) params.append('season', String(filters.season));
       return request<MatchListResponse>(`/matches?${params.toString()}`);
     },
   },

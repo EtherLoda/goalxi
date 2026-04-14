@@ -4,6 +4,8 @@ import {
   GAME_SETTINGS,
   LeagueEntity,
   LeagueStandingEntity,
+  MatchEntity,
+  MatchStatus,
   PlayerEntity,
   PlayerSkills,
   PotentialTier,
@@ -651,6 +653,166 @@ async function createLeaguePyramid() {
 
     console.log(
       `   ✓ ${league.name}: created ${teamsToCreate} BOT teams with ${TEAM_ROSTER_SIZE} players each`,
+    );
+  }
+
+  // 4b. Generate matches and simulate results for each league
+  console.log('\n⚽ Generating matches and simulating results...');
+
+  const matchRepo = AppDataSource.getRepository(MatchEntity);
+
+  for (const league of leagues) {
+    // Get all teams in this league
+    const teamsInLeague = await teamRepo.find({
+      where: { leagueId: league.id },
+      order: { createdAt: 'ASC' },
+    });
+
+    if (teamsInLeague.length < 2) continue;
+
+    // Check if matches already exist
+    const existingMatches = await matchRepo.count({
+      where: { leagueId: league.id, season: 1 },
+    });
+
+    if (existingMatches > 0) {
+      console.log(
+        `   ⊙ ${league.name}: ${existingMatches} matches already exist`,
+      );
+      continue;
+    }
+
+    // Generate round-robin: each team plays every other team once
+    // For simplicity, we generate 5 "weeks" of matches (not full round-robin)
+    const matchesToCreate: MatchEntity[] = [];
+    const MATCHES_PER_WEEK = Math.floor(teamsInLeague.length / 2);
+    const TOTAL_WEEKS = 5;
+    const season = 1;
+
+    for (let week = 1; week <= TOTAL_WEEKS; week++) {
+      // Simple pairing: team[i] vs team[last-i]
+      for (let i = 0; i < MATCHES_PER_WEEK; i++) {
+        const homeTeam = teamsInLeague[(week + i) % teamsInLeague.length];
+        const awayTeam =
+          teamsInLeague[
+            (week + teamsInLeague.length - i) % teamsInLeague.length
+          ];
+
+        if (!homeTeam || !awayTeam) continue;
+        if (homeTeam.id === awayTeam.id) continue;
+
+        // Random scores: 0-4 goals each
+        const homeScore = randomInt(0, 4);
+        const awayScore = randomInt(0, 4);
+
+        // Determine winner/draw for standings update
+        let homePoints = 1,
+          awayPoints = 1;
+        let homeWins = 0,
+          homeDraws = 0,
+          homeLosses = 0;
+        let awayWins = 0,
+          awayDraws = 0,
+          awayLosses = 0;
+
+        if (homeScore > awayScore) {
+          homePoints = 3;
+          homeWins = 1;
+          homeDraws = 0;
+          homeLosses = 0;
+          awayPoints = 0;
+          awayWins = 0;
+          awayDraws = 0;
+          awayLosses = 1;
+        } else if (homeScore < awayScore) {
+          homePoints = 0;
+          homeWins = 0;
+          homeDraws = 0;
+          homeLosses = 1;
+          awayPoints = 3;
+          awayWins = 1;
+          awayDraws = 0;
+          awayLosses = 0;
+        } else {
+          homePoints = 1;
+          homeWins = 0;
+          homeDraws = 1;
+          homeLosses = 0;
+          awayPoints = 1;
+          awayWins = 0;
+          awayDraws = 1;
+          awayLosses = 0;
+        }
+
+        // Update standings directly
+        const homeStanding = await standingRepo.findOne({
+          where: { leagueId: league.id, teamId: homeTeam.id, season },
+        });
+        const awayStanding = await standingRepo.findOne({
+          where: { leagueId: league.id, teamId: awayTeam.id, season },
+        });
+
+        if (homeStanding && awayStanding) {
+          homeStanding.played += 1;
+          homeStanding.wins += homeWins;
+          homeStanding.draws += homeDraws;
+          homeStanding.losses += homeLosses;
+          homeStanding.goalsFor += homeScore;
+          homeStanding.goalsAgainst += awayScore;
+          homeStanding.goalDifference =
+            homeStanding.goalsFor - homeStanding.goalsAgainst;
+          homeStanding.points += homePoints;
+
+          awayStanding.played += 1;
+          awayStanding.wins += awayWins;
+          awayStanding.draws += awayDraws;
+          awayStanding.losses += awayLosses;
+          awayStanding.goalsFor += awayScore;
+          awayStanding.goalsAgainst += homeScore;
+          awayStanding.goalDifference =
+            awayStanding.goalsFor - awayStanding.goalsAgainst;
+          awayStanding.points += awayPoints;
+
+          await standingRepo.save([homeStanding, awayStanding]);
+        }
+
+        // Create match record
+        const match = new MatchEntity({
+          id: uuidv4() as any,
+          leagueId: league.id,
+          season,
+          week,
+          homeTeamId: homeTeam.id,
+          awayTeamId: awayTeam.id,
+          homeScore,
+          awayScore,
+          status: MatchStatus.COMPLETED,
+          type: 'league' as any,
+          scheduledAt: new Date(
+            Date.now() - (TOTAL_WEEKS - week) * 7 * 24 * 60 * 60 * 1000,
+          ),
+          homeForfeit: false,
+          awayForfeit: false,
+          tacticsLocked: true,
+          hasExtraTime: false,
+          requiresWinner: false,
+          hasPenaltyShootout: false,
+          startedAt: new Date(
+            Date.now() - (TOTAL_WEEKS - week) * 7 * 24 * 60 * 60 * 1000,
+          ),
+          completedAt: new Date(
+            Date.now() -
+              (TOTAL_WEEKS - week) * 7 * 24 * 60 * 60 * 1000 +
+              2 * 60 * 60 * 1000,
+          ),
+        });
+        matchesToCreate.push(match);
+      }
+    }
+
+    await matchRepo.save(matchesToCreate);
+    console.log(
+      `   ✓ ${league.name}: created ${matchesToCreate.length} matches (${TOTAL_WEEKS} weeks)`,
     );
   }
 

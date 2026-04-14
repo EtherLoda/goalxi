@@ -151,6 +151,11 @@ export class LeagueService {
       return b.goalsFor - a.goalsFor;
     });
 
+    // Re-number positions after sort
+    result.forEach((item, index) => {
+      item.position = index + 1;
+    });
+
     return plainToInstance(LeagueStandingResDto, result, {
       excludeExtraneousValues: true,
     });

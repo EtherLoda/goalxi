@@ -256,6 +256,44 @@
     "myPurchases": "今日买入",
     "mySales": "今日出售"
   },
+  "league": {
+    "tabs": {
+      "data": "联赛数据",
+      "history": "历史",
+      "rules": "规则"
+    },
+    "season": "赛季",
+    "matchweekShort": "第",
+    "recentEvents": {
+      "title": "近期动态"
+    },
+    "matchweek": {
+      "results": "第 {matchday} 轮赛果",
+      "completed": "已结束"
+    },
+    "standings": {
+      "title": "积分榜",
+      "club": "球队",
+      "pl": "赛",
+      "w": "胜",
+      "d": "平",
+      "l": "负",
+      "gd": "净胜",
+      "pts": "分",
+      "ucl": "欧冠",
+      "uel": "欧联",
+      "rel": "降级",
+      "lastUpdated": "更新时间: 今天 14:32",
+      "expand": "展开",
+      "export": "导出"
+    },
+    "rightColumn": {
+      "standings": "积分榜",
+      "data": "联赛数据",
+      "history": "历史",
+      "comingSoon": "即将推出"
+    }
+  },
   "finance": {
     "title": "财务中心",
     "currentBudget": "当前预算",

@@ -24,15 +24,15 @@ export default function DashboardPage() {
 
     Promise.all([
       api.leagues.getStandings(team.leagueId),
-      api.matches.getByTeam(team.id, "scheduled"),
-      api.matches.getByTeam(team.id, "completed"),
+      api.matches.getByTeam(team.id, { status: "scheduled" }),
+      api.matches.getByTeam(team.id, { status: "completed", season: 1 }),
     ])
       .then(([standingsData, upcomingData, recentData]) => {
         setStandings(standingsData);
-        const upcoming = upcomingData?.matches?.[0] || null;
+        const upcoming = upcomingData?.data?.[0] || null;
         setUpcomingMatch(upcoming);
         // Get last 5 completed matches for form
-        const recent = (recentData?.matches || [])
+        const recent = (recentData?.data || [])
           .sort((a, b) => new Date(b.scheduledAt).getTime() - new Date(a.scheduledAt).getTime())
           .slice(0, 5);
         setRecentMatches(recent);

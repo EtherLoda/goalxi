@@ -256,6 +256,44 @@
     "myPurchases": "Purchases",
     "mySales": "Sales"
   },
+  "league": {
+    "tabs": {
+      "data": "League Data",
+      "history": "History",
+      "rules": "Rules"
+    },
+    "season": "Season",
+    "matchweekShort": "MW",
+    "recentEvents": {
+      "title": "Recent Events"
+    },
+    "matchweek": {
+      "results": "MW {matchday} Results",
+      "completed": "Completed"
+    },
+    "standings": {
+      "title": "League Standings",
+      "club": "Club",
+      "pl": "PL",
+      "w": "W",
+      "d": "D",
+      "l": "L",
+      "gd": "GD",
+      "pts": "PTS",
+      "ucl": "UCL",
+      "uel": "UEL",
+      "rel": "REL",
+      "lastUpdated": "Last updated: Today, 14:32",
+      "expand": "Expand",
+      "export": "Export"
+    },
+    "rightColumn": {
+      "standings": "Standings",
+      "data": "League Data",
+      "history": "History",
+      "comingSoon": "Coming Soon"
+    }
+  },
   "finance": {
     "title": "Financial Command",
     "currentBudget": "Current Budget",
