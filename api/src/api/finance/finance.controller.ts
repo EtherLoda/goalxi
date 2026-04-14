@@ -26,8 +26,7 @@ export class FinanceController {
   @Get('balance')
   @ApiOperation({ summary: 'Get current team balance' })
   async getBalance(@CurrentUser('id') userId: Uuid) {
-    const balance = await this.financeService.getBalanceByUserId(userId);
-    return { balance };
+    return this.financeService.getBalanceByUserId(userId);
   }
 
   @Get('transactions')

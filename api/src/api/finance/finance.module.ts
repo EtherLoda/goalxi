@@ -1,6 +1,7 @@
 import {
   FanEntity,
   FinanceEntity,
+  PlayerEntity,
   StadiumEntity,
   StaffEntity,
   TeamEntity,
@@ -21,6 +22,7 @@ import { FinanceService } from './finance.service';
       FanEntity,
       StadiumEntity,
       StaffEntity,
+      PlayerEntity,
     ]),
     AuthModule,
   ],

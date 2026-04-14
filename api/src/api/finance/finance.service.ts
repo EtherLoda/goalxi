@@ -3,6 +3,7 @@ import {
   FanEntity,
   FINANCE_CONSTANTS,
   FinanceEntity,
+  PlayerEntity,
   StadiumEntity,
   StaffEntity,
   StaffRole,
@@ -29,6 +30,8 @@ export class FinanceService {
     private readonly stadiumRepo: Repository<StadiumEntity>,
     @InjectRepository(StaffEntity)
     private readonly staffRepo: Repository<StaffEntity>,
+    @InjectRepository(PlayerEntity)
+    private readonly playerRepo: Repository<PlayerEntity>,
     private readonly dataSource: DataSource,
   ) {}
 
@@ -50,7 +53,9 @@ export class FinanceService {
     return finance.balance;
   }
 
-  async getBalanceByUserId(userId: Uuid): Promise<number> {
+  async getBalanceByUserId(
+    userId: Uuid,
+  ): Promise<{ balance: number; lockedCash: number }> {
     const finance = await this.financeRepo.findOne({
       where: { team: { userId } },
       relations: ['team'],
@@ -60,7 +65,10 @@ export class FinanceService {
         `Finance record not found for user ${userId}`,
       );
     }
-    return finance.balance;
+    return {
+      balance: finance.balance,
+      lockedCash: (finance.team as any)?.lockedCash || 0,
+    };
   }
 
   async processTransaction(
@@ -82,12 +90,12 @@ export class FinanceService {
         );
       }
 
-      // Update balance
+      // Update FinanceEntity.balance
       finance.balance += amount;
       await financeRepo.save(finance);
 
       // Create transaction record
-      const transaction = new TransactionEntity({
+      const transaction = manager.create(TransactionEntity, {
         teamId,
         amount,
         type,
@@ -235,6 +243,26 @@ export class FinanceService {
         `Weekly stadium maintenance (${stadium.capacity} seats)`,
         stadium.id,
       );
+    }
+
+    // Expense: Player wages (all non-youth players)
+    const players = await this.playerRepo.find({
+      where: { teamId, isYouth: false },
+    });
+    if (players.length > 0) {
+      const totalPlayerWages = players.reduce(
+        (sum, player) => sum + (player.currentWage || 0),
+        0,
+      );
+      if (totalPlayerWages > 0) {
+        await this.processTransaction(
+          teamId,
+          -totalPlayerWages,
+          TransactionType.WAGES,
+          season,
+          `Weekly player wages (${players.length} players)`,
+        );
+      }
     }
   }
 }
