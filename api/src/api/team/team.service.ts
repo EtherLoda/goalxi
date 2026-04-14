@@ -1,12 +1,12 @@
 import { OffsetPaginatedDto } from '@/common/dto/offset-pagination/paginated.dto';
 import { Uuid } from '@/common/types/common.type';
 import { ErrorCode } from '@/constants/error-code.constant';
-import { ValidationException } from '@/exceptions/validation.exception';
-import { paginate } from '@/utils/offset-pagination';
 import {
   getRandomNameByNationality,
   getRandomNationality,
 } from '@/constants/name-database';
+import { ValidationException } from '@/exceptions/validation.exception';
+import { paginate } from '@/utils/offset-pagination';
 import {
   BenchConfig,
   LeagueEntity,
