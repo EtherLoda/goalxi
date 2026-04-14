@@ -1,7 +1,7 @@
 import { MigrationInterface, QueryRunner } from 'typeorm';
 
-export class RemoveTeamCashColumn1746300000001 implements MigrationInterface {
-  name = 'RemoveTeamCashColumn1746300000001';
+export class RemoveTeamCashColumn1700000000004 implements MigrationInterface {
+  name = 'RemoveTeamCashColumn1700000000004';
 
   public async up(queryRunner: QueryRunner): Promise<void> {
     // TeamEntity.cash column is no longer needed - FinanceEntity.balance is the source of truth

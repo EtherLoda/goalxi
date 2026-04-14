@@ -1,5 +1,6 @@
 import {
   FanEntity,
+  InjuryEntity,
   LeagueEntity,
   LeagueStandingEntity,
   MatchEntity,
@@ -46,6 +47,7 @@ import { PresetService } from './preset.service';
       StadiumEntity,
       FanEntity,
       LeagueStandingEntity,
+      InjuryEntity,
     ]),
   ],
   controllers: [MatchController],

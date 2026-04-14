@@ -1,7 +1,7 @@
 import { MigrationInterface, QueryRunner } from 'typeorm';
 
-export class ConsolidateAuctionMigrations1744500000001 implements MigrationInterface {
-  name = 'ConsolidateAuctionMigrations1744500000001';
+export class ConsolidateAuctionMigrations1700000000003 implements MigrationInterface {
+  name = 'ConsolidateAuctionMigrations1700000000003';
 
   public async up(queryRunner: QueryRunner): Promise<void> {
     // 1. Add SETTLING to the auction_status_enum

@@ -2,6 +2,7 @@ import { MatchCacheService } from '@/api/match/match-cache.service';
 import { MatchCompletionService } from '@/api/match/match-completion.service';
 import {
   FanEntity,
+  InjuryEntity,
   LeagueStandingEntity,
   MatchEntity,
   MatchEventEntity,
@@ -31,6 +32,7 @@ import { MatchCompletionProcessor } from './match-completion.processor';
       TeamEntity,
       StadiumEntity,
       FanEntity,
+      InjuryEntity,
     ]),
     FanModule,
     FinanceModule,

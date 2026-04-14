@@ -1,7 +1,7 @@
 import { MigrationInterface, QueryRunner } from 'typeorm';
 
-export class TransferSettlementSchema1744500000000 implements MigrationInterface {
-  name = 'TransferSettlementSchema1744500000000';
+export class TransferSettlementSchema1700000000002 implements MigrationInterface {
+  name = 'TransferSettlementSchema1700000000002';
 
   public async up(queryRunner: QueryRunner): Promise<void> {
     // 1. Add cash and lockedCash to team table
