@@ -40,6 +40,8 @@ import { TeamGeneratorService } from './team-generator.service';
 import { ScoutSchedulerService } from './scout-scheduler.service';
 import { FinanceSchedulerService } from './finance-scheduler.service';
 import { PlayerWageSchedulerService } from './player-wage-scheduler.service';
+import { LeagueStandingService } from './league-standing.service';
+import { SeasonTransitionService } from './season-transition.service';
 
 @Module({
   imports: [
@@ -105,6 +107,8 @@ import { PlayerWageSchedulerService } from './player-wage-scheduler.service';
     ScoutSchedulerService,
     FinanceSchedulerService,
     PlayerWageSchedulerService,
+    LeagueStandingService,
+    SeasonTransitionService,
   ],
   exports: [
     WeatherSchedulerService,
@@ -122,6 +126,8 @@ import { PlayerWageSchedulerService } from './player-wage-scheduler.service';
     ScoutSchedulerService,
     FinanceSchedulerService,
     PlayerWageSchedulerService,
+    LeagueStandingService,
+    SeasonTransitionService,
   ],
 })
 export class SchedulerModule {}

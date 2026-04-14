@@ -8,17 +8,23 @@ import {
   SeasonResultEntity,
 } from '@goalxi/database';
 
-export interface RelegationResult {
-  promoted: TeamEntity[];
-  relegated: TeamEntity[];
-  playoffMatches: PlayoffMatch[];
-}
-
-export interface PlayoffMatch {
+export interface PlayoffMatchResult {
   upperTeam: TeamEntity;
   lowerTeam: TeamEntity;
   upperLeague: LeagueEntity;
   lowerLeague: LeagueEntity;
+  upperWon: boolean;
+}
+
+export interface RelegationResult {
+  promoted: TeamEntity[];
+  relegated: TeamEntity[];
+  swappedTeams: Array<{
+    upper: TeamEntity;
+    lower: TeamEntity;
+    upperLeague: LeagueEntity;
+    lowerLeague: LeagueEntity;
+  }>;
 }
 
 @Injectable()
@@ -36,153 +42,218 @@ export class PromotionRelegationService {
     private readonly seasonResultRepository: Repository<SeasonResultEntity>,
   ) {}
 
-  async processSeasonEnd(
-    leagueId: string,
-    season: number,
-  ): Promise<RelegationResult> {
-    const league = await this.leagueRepository.findOne({
-      where: { id: leagueId as any },
+  /**
+   * 处理所有级别的升降级
+   * 从最高级开始，逐级向下处理
+   */
+  async processAllTiers(season: number): Promise<void> {
+    // 获取所有 tier，按从高到低排序
+    const leagues = await this.leagueRepository.find({
+      order: { tier: 'ASC' },
     });
-    if (!league) {
-      throw new Error(`League ${leagueId} not found`);
-    }
 
-    this.logger.log(
-      `Processing promotion/relegation for league ${league.name} (Tier ${league.tier})`,
+    const tiers = [...new Set(leagues.map((l) => l.tier))].sort(
+      (a, b) => a - b,
     );
 
+    this.logger.log(
+      `Processing promotion/relegation for ${tiers.length} tiers`,
+    );
+
+    for (const tier of tiers) {
+      const tierLeagues = leagues.filter((l) => l.tier === tier);
+      this.logger.log(
+        `Processing Tier ${tier} with ${tierLeagues.length} leagues`,
+      );
+
+      for (const league of tierLeagues) {
+        await this.processLeaguePromotions(league, season);
+      }
+    }
+  }
+
+  /**
+   * 处理单个联赛的升降级（直接升级/降级，不含附加赛）
+   */
+  async processLeaguePromotions(
+    league: LeagueEntity,
+    season: number,
+  ): Promise<void> {
     const standings = await this.standingRepository.find({
-      where: { leagueId, season },
+      where: { leagueId: league.id, season },
       relations: ['team'],
       order: { position: 'ASC' },
     });
 
     if (standings.length === 0) {
-      throw new Error(
-        `No standings found for league ${leagueId} season ${season}`,
+      this.logger.warn(
+        `No standings found for league ${league.id} season ${season}`,
+      );
+      return;
+    }
+
+    // 直接升级：第1名
+    const promotionPosition = 1;
+    const promotionStanding = standings.find(
+      (s) => s.position === promotionPosition,
+    );
+    if (promotionStanding) {
+      await this.promoteTeam(
+        promotionStanding.team,
+        league,
+        season,
+        promotionStanding.position,
       );
     }
 
-    const result: RelegationResult = {
-      promoted: [],
-      relegated: [],
-      playoffMatches: [],
-    };
-
-    const promotedCount = league.promotionSlots;
-    for (let i = 0; i < promotedCount && i < standings.length; i++) {
-      const standing = standings[i];
-      if (
-        standing &&
-        standing.position >= 1 &&
-        standing.position <= promotedCount
-      ) {
-        const team = await this.teamRepository.findOne({
-          where: { id: standing.teamId as any },
-        });
-        if (team) {
-          result.promoted.push(team);
-          await this.saveSeasonResult(
-            team,
-            league,
-            season,
-            standing.position,
-            true,
-            false,
-          );
-          this.logger.log(
-            `   ↑ ${team.name} promoted (position ${standing.position})`,
-          );
-        }
+    // 直接降级：第13-16名
+    const relegationPositions = [13, 14, 15, 16];
+    for (const pos of relegationPositions) {
+      const relegationStanding = standings.find((s) => s.position === pos);
+      if (relegationStanding) {
+        await this.relegateTeam(
+          relegationStanding.team,
+          league,
+          season,
+          relegationStanding.position,
+        );
       }
     }
-
-    for (const team of result.promoted) {
-      const upperLeague = await this.getUpperLeague(league);
-      if (upperLeague) {
-        await this.updateTeamLeagueAndStanding(team.id, upperLeague.id, season);
-      }
-    }
-
-    const relegationStart = league.maxTeams - league.relegationSlots + 1;
-    const relegationCount = league.relegationSlots;
-    for (let i = 0; i < standings.length; i++) {
-      const standing = standings[i];
-      if (standing && standing.position >= relegationStart) {
-        const team = await this.teamRepository.findOne({
-          where: { id: standing.teamId as any },
-        });
-        if (team) {
-          result.relegated.push(team);
-          await this.saveSeasonResult(
-            team,
-            league,
-            season,
-            standing.position,
-            false,
-            true,
-          );
-          this.logger.log(
-            `   ↓ ${team.name} relegated (position ${standing.position})`,
-          );
-        }
-      }
-    }
-
-    for (const team of result.relegated) {
-      const lowerLeague = await this.getLowerLeague(league);
-      if (lowerLeague) {
-        await this.updateTeamLeagueAndStanding(team.id, lowerLeague.id, season);
-      }
-    }
-
-    this.logger.log(
-      `Promotion/Relegation complete for ${league.name}: ` +
-        `${result.promoted.length} promoted, ${result.relegated.length} relegated`,
-    );
-
-    return result;
   }
 
+  /**
+   * 处理附加赛结果并执行升降级
+   * @param playoffResults 附加赛结果数组
+   */
+  async processPlayoffResultsAndExecuteSwaps(
+    playoffResults: PlayoffMatchResult[],
+  ): Promise<void> {
+    for (const result of playoffResults) {
+      if (result.upperWon) {
+        // 上级球队赢，保持原 leagueId 不变
+        this.logger.log(
+          `${result.upperTeam.name} won playoff, stays in ${result.upperLeague.name}`,
+        );
+      } else {
+        // 下级球队赢，互换 leagueId
+        await this.swapTeamLeague(
+          result.upperTeam.id,
+          result.lowerTeam.id,
+          result.upperLeague.id,
+          result.lowerLeague.id,
+        );
+        this.logger.log(
+          `${result.lowerTeam.name} won playoff, promoted to ${result.upperLeague.name}; ` +
+            `${result.upperTeam.name} relegated to ${result.lowerLeague.name}`,
+        );
+      }
+    }
+  }
+
+  /**
+   * 升级球队
+   */
+  private async promoteTeam(
+    team: TeamEntity,
+    league: LeagueEntity,
+    season: number,
+    position: number,
+  ): Promise<void> {
+    const upperLeague = await this.getUpperLeague(league);
+    if (!upperLeague) {
+      this.logger.log(`${team.name} is at top tier, cannot promote further`);
+      return;
+    }
+
+    await this.swapTeamLeague(team.id, null, league.id, upperLeague.id);
+    await this.saveSeasonResult(team, league, season, position, true, false);
+    this.logger.log(
+      `↑ ${team.name} promoted from ${league.name} to ${upperLeague.name}`,
+    );
+  }
+
+  /**
+   * 降级球队
+   */
+  private async relegateTeam(
+    team: TeamEntity,
+    league: LeagueEntity,
+    season: number,
+    position: number,
+  ): Promise<void> {
+    const lowerLeague = await this.getLowerLeague(league);
+    if (!lowerLeague) {
+      this.logger.log(
+        `${team.name} is at bottom tier, cannot relegate further`,
+      );
+      return;
+    }
+
+    await this.swapTeamLeague(team.id, null, league.id, lowerLeague.id);
+    await this.saveSeasonResult(team, league, season, position, false, true);
+    this.logger.log(
+      `↓ ${team.name} relegated from ${league.name} to ${lowerLeague.name}`,
+    );
+  }
+
+  /**
+   * 互换球队 leagueId（或只升级/只降级）
+   */
+  async swapTeamLeague(
+    upperTeamId: string,
+    lowerTeamId: string | null,
+    upperLeagueId: string,
+    lowerLeagueId: string,
+  ): Promise<void> {
+    // 升级球队
+    const upperTeam = await this.teamRepository.findOne({
+      where: { id: upperTeamId as any },
+    });
+    if (upperTeam) {
+      upperTeam.leagueId = lowerLeagueId;
+      await this.teamRepository.save(upperTeam);
+    }
+
+    // 降级球队（如果有）
+    if (lowerTeamId) {
+      const lowerTeam = await this.teamRepository.findOne({
+        where: { id: lowerTeamId as any },
+      });
+      if (lowerTeam) {
+        lowerTeam.leagueId = upperLeagueId;
+        await this.teamRepository.save(lowerTeam);
+      }
+    }
+  }
+
+  /**
+   * 获取上级联赛
+   */
   private async getUpperLeague(
     league: LeagueEntity,
   ): Promise<LeagueEntity | null> {
     if (league.tier <= 1) return null;
+    // 找到对应的上级联赛（tier-1，tierDivision 对应）
     return this.leagueRepository.findOne({
       where: { tier: league.tier - 1, tierDivision: league.tierDivision },
     });
   }
 
+  /**
+   * 获取下级联赛
+   */
   private async getLowerLeague(
     league: LeagueEntity,
   ): Promise<LeagueEntity | null> {
+    // 找到对应的下级联赛（tier+1，tierDivision 对应）
     return this.leagueRepository.findOne({
       where: { tier: league.tier + 1, tierDivision: league.tierDivision },
     });
   }
 
-  private async updateTeamLeagueAndStanding(
-    teamId: string,
-    newLeagueId: string,
-    season: number,
-  ): Promise<void> {
-    const team = await this.teamRepository.findOne({
-      where: { id: teamId as any },
-    });
-    if (team) {
-      team.leagueId = newLeagueId;
-      await this.teamRepository.save(team);
-    }
-
-    const standing = await this.standingRepository.findOne({
-      where: { teamId: teamId as any, season },
-    });
-    if (standing) {
-      standing.leagueId = newLeagueId;
-      await this.standingRepository.save(standing);
-    }
-  }
-
+  /**
+   * 保存赛季结果
+   */
   private async saveSeasonResult(
     team: TeamEntity,
     league: LeagueEntity,

@@ -2,6 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { Cron } from '@nestjs/schedule';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
+import { GAME_SETTINGS } from '@goalxi/database';
 import { MatchEntity, MatchStatus, MatchType } from '@goalxi/database';
 
 @Injectable()
@@ -20,6 +21,9 @@ export class SeasonSchedulerService {
     private readonly matchRepository: Repository<MatchEntity>,
   ) {}
 
+  /**
+   * 生成指定联赛的赛季赛程
+   */
   async generateSeasonSchedule(
     leagueId: string,
     teamIds: string[],
@@ -59,10 +63,92 @@ export class SeasonSchedulerService {
     return savedMatches;
   }
 
+  /**
+   * 为新赛季生成所有联赛的赛程
+   * @param currentSeason 当前赛季
+   * @returns 新赛季所有联赛的赛程
+   */
+  async generateNextSeasonSchedule(
+    currentSeason: number,
+  ): Promise<MatchEntity[]> {
+    const nextSeason = currentSeason + 1;
+
+    // 获取所有联赛及其球队
+    const leagues = await this.matchRepository.manager
+      .createQueryBuilder(MatchEntity, 'match')
+      .select('DISTINCT match.leagueId', 'leagueId')
+      .innerJoin('match.league', 'league')
+      .getRawMany();
+
+    // 计算新赛季开始日期（当前赛季Week 16结束后）
+    const startDate = this.calculateNextSeasonStartDate();
+
+    const allMatches: MatchEntity[] = [];
+
+    for (const { leagueId } of leagues) {
+      // 获取该联赛的16支球队
+      const league = await this.matchRepository.manager
+        .createQueryBuilder(MatchEntity, 'match')
+        .innerJoinAndSelect('match.league', 'league')
+        .where('match.leagueId = :leagueId', { leagueId })
+        .getOne();
+
+      if (!league?.league) continue;
+
+      // 获取联赛所有球队（从 standing 表获取当前 leagueId 的球队）
+      const standings = await this.matchRepository.manager
+        .createQueryBuilder(MatchEntity, 'match')
+        .select('standing.team_id', 'teamId')
+        .from('league_standing', 'standing')
+        .where('standing.league_id = :leagueId', { leagueId })
+        .getRawMany();
+
+      const teamIds = standings.map((s) => s.teamId);
+
+      if (teamIds.length === 16) {
+        const matches = await this.generateSeasonSchedule(
+          leagueId,
+          teamIds,
+          nextSeason,
+          startDate,
+        );
+        allMatches.push(...matches);
+      }
+    }
+
+    this.logger.log(
+      `Generated ${allMatches.length} matches for Season ${nextSeason}`,
+    );
+
+    return allMatches;
+  }
+
+  /**
+   * 计算新赛季开始日期
+   * 当前赛季 Week 16 结束后（周三附加赛后）的下一个周三
+   */
+  private calculateNextSeasonStartDate(): Date {
+    const now = new Date();
+    const dayOfWeek = now.getDay();
+
+    // 找到下一个周三
+    let daysUntilWednesday = (3 - dayOfWeek + 7) % 7;
+    if (daysUntilWednesday === 0) {
+      daysUntilWednesday = 7; // 如果今天是周三，则找下周三
+    }
+
+    const nextSeasonStart = new Date(now);
+    nextSeasonStart.setDate(now.getDate() + daysUntilWednesday + 7); // Week 16 结束后
+    nextSeasonStart.setHours(this.MATCH_HOUR, this.MATCH_MINUTE, 0, 0);
+
+    return nextSeasonStart;
+  }
+
   private calculateMatchDates(startDate: Date, weeks: number): Date[] {
     const dates: Date[] = [];
     const currentDate = new Date(startDate);
 
+    // 找到第一个周三
     while (currentDate.getDay() !== 3) {
       currentDate.setDate(currentDate.getDate() + 1);
     }
@@ -90,7 +176,6 @@ export class SeasonSchedulerService {
   ): Partial<MatchEntity>[] {
     const matches: Partial<MatchEntity>[] = [];
     const numRounds = teamIds.length - 1;
-    const matchesPerRound = teamIds.length / 2;
 
     const fixedTeam = teamIds[0];
     const rotatingTeams = teamIds.slice(1);
@@ -128,6 +213,7 @@ export class SeasonSchedulerService {
       }
     }
 
+    // 第二循环（主场客场对调）
     for (let round = 0; round < numRounds; round++) {
       const roundMatchups = this.generateRoundMatchups(
         fixedTeam,

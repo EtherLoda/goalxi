@@ -177,7 +177,7 @@ export class TransferProcessor extends WorkerHost {
             auction.currentBidderId !== buyerTeamId
           ) {
             await teamRepo.decrement(
-              { id: auction.currentBidderId as Uuid },
+              { id: auction.currentBidderId },
               'lockedCash',
               auction.bidLockAmount,
             );
