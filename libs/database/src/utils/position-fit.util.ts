@@ -744,7 +744,7 @@ export function calculatePositionFit(
         const totalWeight = getPhaseWeightTotal(gkWeights.saveRating);
         if (totalWeight === 0) return 0;
         const rawScore = computeWeightedSum(attrs, gkWeights.saveRating);
-        // max rawScore = totalWeight × 20
+        // max rawScore = totalWeight × 20 (since skills go up to 20)
         return Math.round((rawScore / (totalWeight * 20)) * 100);
     }
 
@@ -767,7 +767,7 @@ export function calculatePositionFit(
     }
 
     if (totalWeight === 0) return 0;
-    // max rawScore = totalWeight × 20
+    // max rawScore = totalWeight × 20 (since skills go up to 20)
     return Math.round((totalScore / (totalWeight * 20)) * 100);
 }
 
