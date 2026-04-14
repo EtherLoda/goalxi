@@ -106,34 +106,13 @@ export class TransferProcessor extends WorkerHost {
         const historyRepo = manager.getRepository(PlayerHistoryEntity);
         const playerTxRepo = manager.getRepository(PlayerTransactionEntity);
 
-        // 1. Re-verify buyer has enough available cash
+        // 1. Re-verify buyer team exists (funds already validated by AuctionService)
         const buyer = await teamRepo.findOne({
           where: { id: buyerTeamId as Uuid },
         });
         if (!buyer) {
           throw new Error(`Buyer team ${buyerTeamId} not found`);
         }
-
-        const buyerAvailable = buyer.cash - buyer.lockedCash;
-        if (buyerAvailable < amount) {
-          throw new Error(
-            `Insufficient funds: available ${buyerAvailable}, required ${amount}`,
-          );
-        }
-
-        // 2. Deduct cash from buyer (NOT lockedCash - that's for bids)
-        buyer.cash -= amount;
-        await teamRepo.save(buyer);
-
-        // 3. Add cash to seller
-        const seller = await teamRepo.findOne({
-          where: { id: sellerTeamId as Uuid },
-        });
-        if (!seller) {
-          throw new Error(`Seller team ${sellerTeamId} not found`);
-        }
-        seller.cash += amount;
-        await teamRepo.save(seller);
 
         // 4. Update player team
         const player = await playerRepo.findOne({
@@ -258,12 +237,20 @@ export class TransferProcessor extends WorkerHost {
         onTransfer: false,
       });
 
-      // Release buyer's locked cash if they had a bid
-      await this.teamRepo.decrement(
-        { id: buyerTeamId as Uuid },
-        'lockedCash',
-        amount,
-      );
+      // Release buyer's locked cash if they had a bid (use bidLockAmount, not transfer amount)
+      const auctionForRelease = await this.auctionRepo.findOne({
+        where: { id: auctionId as Uuid },
+      });
+      if (
+        auctionForRelease?.bidLockAmount &&
+        auctionForRelease?.currentBidderId === buyerTeamId
+      ) {
+        await this.teamRepo.decrement(
+          { id: buyerTeamId as Uuid },
+          'lockedCash',
+          auctionForRelease.bidLockAmount,
+        );
+      }
 
       throw error;
     }
