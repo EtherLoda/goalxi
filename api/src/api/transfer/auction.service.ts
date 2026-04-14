@@ -3,9 +3,11 @@ import { AuctionRedisRepository } from '@/redis/auction-redis.repository';
 import {
   AuctionEntity,
   AuctionStatus,
+  FinanceEntity,
   PlayerEntity,
   PlayerHistoryEntity,
   TeamEntity,
+  TransactionType,
   TransferTransactionEntity,
   TransferTransactionStatus,
   TransferTransactionType,
@@ -383,6 +385,7 @@ export class AuctionService implements OnModuleInit {
     return this.dataSource.transaction(async (manager) => {
       const auctionRepo = manager.getRepository(AuctionEntity);
       const teamRepo = manager.getRepository(TeamEntity);
+      const financeRepo = manager.getRepository(FinanceEntity);
 
       const bidderTeam = await teamRepo.findOne({
         where: { userId },
@@ -421,11 +424,15 @@ export class AuctionService implements OnModuleInit {
         throw new BadRequestException(`Minimum bid is ${minBid}`);
       }
 
-      // Check available funds (cash - lockedCash)
-      const availableCash = bidderTeam.cash - bidderTeam.lockedCash;
-      if (availableCash < dto.amount) {
+      // Check available funds from FinanceEntity.balance (minus already locked bid amounts)
+      const bidderFinance = await financeRepo.findOne({
+        where: { teamId: bidderTeam.id },
+      });
+      const availableFunds =
+        (bidderFinance?.balance || 0) - bidderTeam.lockedCash;
+      if (availableFunds < dto.amount) {
         throw new BadRequestException(
-          `Insufficient funds. Available: ${availableCash}, Required: ${dto.amount}`,
+          `Insufficient funds. Available: ${availableFunds}, Required: ${dto.amount}`,
         );
       }
 
@@ -493,6 +500,7 @@ export class AuctionService implements OnModuleInit {
     return this.dataSource.transaction(async (manager) => {
       const auctionRepo = manager.getRepository(AuctionEntity);
       const teamRepo = manager.getRepository(TeamEntity);
+      const financeRepo = manager.getRepository(FinanceEntity);
       const transferTxRepo = manager.getRepository(TransferTransactionEntity);
 
       const buyerTeam = await teamRepo.findOne({
@@ -517,24 +525,21 @@ export class AuctionService implements OnModuleInit {
         throw new BadRequestException('Auction has ended');
       }
 
-      // Check available funds
-      const availableCash = buyerTeam.cash - buyerTeam.lockedCash;
-      if (availableCash < auction.buyoutPrice) {
+      // Check available funds from FinanceEntity.balance
+      const buyerFinance = await financeRepo.findOne({
+        where: { teamId: buyerTeam.id },
+      });
+      if (!buyerFinance) {
+        throw new NotFoundException('Buyer finance record not found');
+      }
+      if (buyerFinance.balance < auction.buyoutPrice) {
         throw new BadRequestException(
-          `Insufficient funds. Available: ${availableCash}, Required: ${auction.buyoutPrice}`,
+          `Insufficient funds. Available: ${buyerFinance.balance}, Required: ${auction.buyoutPrice}`,
         );
       }
 
-      // Get current bid state from Redis
-      const redisState = await this.auctionRedisRepo.getAuctionState(auctionId);
-
-      // If buyer had a bid on this auction, release the lock first
-      if (redisState?.currentBidder === buyerTeam.id && redisState.lockAmount) {
-        buyerTeam.lockedCash -= redisState.lockAmount;
-        await teamRepo.save(buyerTeam);
-      }
-
       // Release previous bidder's lock if exists
+      const redisState = await this.auctionRedisRepo.getAuctionState(auctionId);
       if (
         redisState?.currentBidder &&
         redisState.currentBidder !== buyerTeam.id
@@ -545,10 +550,6 @@ export class AuctionService implements OnModuleInit {
           redisState.lockAmount,
         );
       }
-
-      // Lock buyer's cash
-      buyerTeam.lockedCash += auction.buyoutPrice;
-      await teamRepo.save(buyerTeam);
 
       // Write buyout to Redis
       await this.auctionRedisRepo.placeBid(
@@ -565,6 +566,13 @@ export class AuctionService implements OnModuleInit {
         auction.expiresAt,
       );
 
+      // Get current season
+      const seasonResult = await manager
+        .createQueryBuilder('match', 'match')
+        .select('MAX(match.season)', 'maxSeason')
+        .getRawOne();
+      const currentSeason = seasonResult?.maxSeason || 1;
+
       // Create transfer transaction
       const transaction = manager.create(TransferTransactionEntity, {
         auctionId: auction.id,
@@ -576,6 +584,26 @@ export class AuctionService implements OnModuleInit {
         status: TransferTransactionStatus.PENDING,
       });
       await manager.save(transaction);
+
+      // Process TRANSFER_OUT for buyer (deduct from balance)
+      await this.financeService.processTransaction(
+        buyerTeam.id,
+        -auction.buyoutPrice,
+        TransactionType.TRANSFER_OUT,
+        currentSeason,
+        `Transfer fee paid for player`,
+        transaction.id,
+      );
+
+      // Process TRANSFER_IN for seller (add to balance)
+      await this.financeService.processTransaction(
+        auction.teamId,
+        auction.buyoutPrice,
+        TransactionType.TRANSFER_IN,
+        currentSeason,
+        `Transfer fee received for player`,
+        transaction.id,
+      );
 
       // Update auction status
       auction.status = AuctionStatus.SETTLING;
@@ -659,6 +687,13 @@ export class AuctionService implements OnModuleInit {
                 TransferTransactionEntity,
               );
 
+              // Get current season
+              const seasonResult = await manager
+                .createQueryBuilder('match', 'match')
+                .select('MAX(match.season)', 'maxSeason')
+                .getRawOne();
+              const currentSeason = seasonResult?.maxSeason || 1;
+
               // Create transfer transaction
               const transaction = manager.create(TransferTransactionEntity, {
                 auctionId: auction.id,
@@ -670,6 +705,26 @@ export class AuctionService implements OnModuleInit {
                 status: TransferTransactionStatus.PENDING,
               });
               await manager.save(transaction);
+
+              // Process TRANSFER_OUT for buyer (deduct from balance)
+              await this.financeService.processTransaction(
+                auction.currentBidderId,
+                -auction.currentPrice,
+                TransactionType.TRANSFER_OUT,
+                currentSeason,
+                `Transfer fee paid for player`,
+                transaction.id,
+              );
+
+              // Process TRANSFER_IN for seller (add to balance)
+              await this.financeService.processTransaction(
+                auction.teamId,
+                auction.currentPrice,
+                TransactionType.TRANSFER_IN,
+                currentSeason,
+                `Transfer fee received for player`,
+                transaction.id,
+              );
 
               // Update auction status
               await auctionRepo.update(auction.id, {
