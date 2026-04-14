@@ -76,6 +76,8 @@ export interface CareerStats {
         tackles: number;
         yellowCards: number;
         redCards: number;
+        avgContribution?: number; // 平均比赛贡献值
+        avgStars?: number; // 平均比赛星级
     };
     national?: {
         matches: number;
@@ -84,6 +86,8 @@ export interface CareerStats {
         tackles: number;
         yellowCards: number;
         redCards: number;
+        avgContribution?: number;
+        avgStars?: number;
     };
 }
 
