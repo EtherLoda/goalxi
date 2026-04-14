@@ -4,7 +4,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { Queue } from 'bullmq';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { TeamEntity } from '@goalxi/database';
+import { MatchEntity, TeamEntity } from '@goalxi/database';
 
 @Injectable()
 export class FinanceSchedulerService {
@@ -15,7 +15,21 @@ export class FinanceSchedulerService {
     private readonly financeQueue: Queue,
     @InjectRepository(TeamEntity)
     private readonly teamRepo: Repository<TeamEntity>,
+    @InjectRepository(MatchEntity)
+    private readonly matchRepo: Repository<MatchEntity>,
   ) {}
+
+  /**
+   * Get the current season from the database (max season from matches)
+   */
+  private async getCurrentSeason(): Promise<number> {
+    const latestMatch = await this.matchRepo
+      .createQueryBuilder('match')
+      .select('MAX(match.season)', 'maxSeason')
+      .getRawOne();
+
+    return latestMatch?.maxSeason || 1;
+  }
 
   /**
    * Weekly finance settlement cron - runs every Sunday at midnight
@@ -28,16 +42,16 @@ export class FinanceSchedulerService {
     try {
       // Get all teams and their current season
       const teams = await this.teamRepo.find();
+      const currentSeason = await this.getCurrentSeason();
+
+      this.logger.log(`[FinanceScheduler] Current season: ${currentSeason}`);
 
       for (const team of teams) {
-        // Determine current season (simplified: assume season 1 for now)
-        const season = 1;
-
         await this.financeQueue.add(
           'weekly-settlement',
           {
             teamId: team.id,
-            season,
+            season: currentSeason,
             type: 'weekly',
           },
           {
@@ -47,7 +61,7 @@ export class FinanceSchedulerService {
       }
 
       this.logger.log(
-        `[FinanceScheduler] Finance settlement queued for ${teams.length} teams`,
+        `[FinanceScheduler] Finance settlement queued for ${teams.length} teams (season ${currentSeason})`,
       );
     } catch (error) {
       this.logger.error(

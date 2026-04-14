@@ -7,6 +7,7 @@ import {
   InjuryEntity,
   StaffEntity,
   StaffRole,
+  TeamEntity,
   Uuid,
 } from '@goalxi/database';
 
@@ -21,6 +22,8 @@ export class InjuryRecoveryService {
     private injuryRepository: Repository<InjuryEntity>,
     @InjectRepository(StaffEntity)
     private staffRepository: Repository<StaffEntity>,
+    @InjectRepository(TeamEntity)
+    private teamRepository: Repository<TeamEntity>,
   ) {}
 
   // ===== SCHEDULER: Daily Injury Recovery =====
@@ -41,9 +44,24 @@ export class InjuryRecoveryService {
     );
 
     const playersToSave: PlayerEntity[] = [];
-    const injuriesToRecover: { playerId: string; playerName: string; oldValue: number }[] = [];
+    const injuriesToRecover: {
+      playerId: string;
+      playerName: string;
+      oldValue: number;
+    }[] = [];
 
     for (const player of injuredPlayers) {
+      // Skip bot team players - their injuries don't recover automatically
+      const team = await this.teamRepository.findOne({
+        where: { id: player.teamId as Uuid },
+      });
+      if (team?.isBot) {
+        this.logger.debug(
+          `[InjuryRecovery] Skipping bot player: ${player.name}`,
+        );
+        continue;
+      }
+
       try {
         const playerAge = player.age || 25;
 
@@ -113,7 +131,9 @@ export class InjuryRecoveryService {
     // Batch save all players with updated injury values
     if (playersToSave.length > 0) {
       await this.playerRepository.save(playersToSave);
-      this.logger.debug(`[InjuryRecovery] Batch saved ${playersToSave.length} players`);
+      this.logger.debug(
+        `[InjuryRecovery] Batch saved ${playersToSave.length} players`,
+      );
     }
 
     // Process recovered injuries
@@ -131,7 +151,7 @@ export class InjuryRecoveryService {
       }
 
       // Clear injury fields on the player
-      const player = playersToSave.find(p => p.id === playerId);
+      const player = playersToSave.find((p) => p.id === playerId);
       if (player) {
         player.injuryType = null;
         player.injuryState = null;
@@ -145,8 +165,8 @@ export class InjuryRecoveryService {
     }
 
     // Save players with cleared injury fields
-    const recoveredPlayers = playersToSave.filter(p =>
-      injuriesToRecover.some(r => r.playerId === p.id)
+    const recoveredPlayers = playersToSave.filter((p) =>
+      injuriesToRecover.some((r) => r.playerId === p.id),
     );
     if (recoveredPlayers.length > 0) {
       await this.playerRepository.save(recoveredPlayers);

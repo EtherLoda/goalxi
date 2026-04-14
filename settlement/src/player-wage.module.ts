@@ -1,7 +1,7 @@
 import { Module } from '@nestjs/common';
 import { BullModule } from '@nestjs/bullmq';
 import { TypeOrmModule } from '@nestjs/typeorm';
-import { PlayerEntity } from '@goalxi/database';
+import { PlayerEntity, TeamEntity } from '@goalxi/database';
 import { PlayerWageProcessor } from './processors/player-wage.processor';
 
 @Module({
@@ -9,7 +9,7 @@ import { PlayerWageProcessor } from './processors/player-wage.processor';
     BullModule.registerQueue({
       name: 'player-wage',
     }),
-    TypeOrmModule.forFeature([PlayerEntity]),
+    TypeOrmModule.forFeature([PlayerEntity, TeamEntity]),
   ],
   providers: [PlayerWageProcessor],
   exports: [BullModule],

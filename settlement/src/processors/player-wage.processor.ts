@@ -6,6 +6,7 @@ import { Repository, FindOptionsWhere } from 'typeorm';
 import {
   PlayerEntity,
   PlayerSkills,
+  TeamEntity,
   Uuid,
   calculatePlayerWage,
 } from '@goalxi/database';
@@ -22,6 +23,8 @@ export class PlayerWageProcessor extends WorkerHost {
   constructor(
     @InjectRepository(PlayerEntity)
     private readonly playerRepo: Repository<PlayerEntity>,
+    @InjectRepository(TeamEntity)
+    private readonly teamRepo: Repository<TeamEntity>,
   ) {
     super();
   }
@@ -33,10 +36,20 @@ export class PlayerWageProcessor extends WorkerHost {
   }
 
   private async processBirthdayWageUpdate(playerId: string): Promise<void> {
-    const where: FindOptionsWhere<PlayerEntity> = { id: playerId as Uuid };
-    const player = await this.playerRepo.findOne({ where });
+    const player = await this.playerRepo.findOne({
+      where: { id: playerId as Uuid },
+      relations: ['team'],
+    });
     if (!player) {
       this.logger.warn(`[PlayerWageProcessor] Player not found: ${playerId}`);
+      return;
+    }
+
+    // Skip bot teams - their players don't get wage updates
+    if ((player.team as any)?.isBot) {
+      this.logger.debug(
+        `[PlayerWageProcessor] Skipping bot player: ${player.name}`,
+      );
       return;
     }
 
@@ -87,11 +100,17 @@ export class PlayerWageProcessor extends WorkerHost {
     }
 
     // Mental skills (same for all players)
-    values.push(currentSkills.mental.positioning, currentSkills.mental.composure);
+    values.push(
+      currentSkills.mental.positioning,
+      currentSkills.mental.composure,
+    );
     keys.push('positioning', 'composure');
 
     // Set pieces (same for all players)
-    values.push(currentSkills.setPieces.freeKicks, currentSkills.setPieces.penalties);
+    values.push(
+      currentSkills.setPieces.freeKicks,
+      currentSkills.setPieces.penalties,
+    );
     keys.push('freeKicks', 'penalties');
 
     return { values, keys };

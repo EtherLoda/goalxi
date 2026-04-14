@@ -74,6 +74,11 @@ export class TrainingProcessor extends WorkerHost {
     playersProcessed: number;
     playersTrained: number;
   }> {
+    // Skip bot teams - their players don't train
+    if (team.isBot) {
+      return { playersProcessed: 0, playersTrained: 0 };
+    }
+
     // Get all active staff for bonus calculation
     const staffList = await this.staffRepo.find({
       where: { teamId: team.id, isActive: true },
