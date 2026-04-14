@@ -7,36 +7,85 @@ async function clearAllData() {
     await AppDataSource.initialize();
     console.log('✅ Connected\n');
 
-    // Delete in correct order (respecting foreign keys)
-    console.log('🗑️  Deleting auctions...');
-    await AppDataSource.query('DELETE FROM auction');
+    // Use DROP TABLE IF EXISTS ... CASCADE to handle dependent objects
+    console.log('🗑️  Dropping match events...');
+    await AppDataSource.query('DROP TABLE IF EXISTS match_event CASCADE');
 
-    console.log('🗑️  Deleting players...');
-    await AppDataSource.query('DELETE FROM player');
+    console.log('🗑️  Dropping match tactics...');
+    await AppDataSource.query('DROP TABLE IF EXISTS match_tactics CASCADE');
 
-    console.log('🗑️  Deleting league standings...');
-    await AppDataSource.query('DELETE FROM league_standing');
+    console.log('🗑️  Dropping match team stats...');
+    await AppDataSource.query('DROP TABLE IF EXISTS match_team_stats CASCADE');
 
-    console.log('🗑️  Deleting finance...');
-    await AppDataSource.query('DELETE FROM finance');
+    console.log('🗑️  Dropping matches...');
+    await AppDataSource.query('DROP TABLE IF EXISTS match CASCADE');
 
-    console.log('🗑️  Deleting fans...');
-    await AppDataSource.query('DELETE FROM fan');
+    console.log('🗑️  Dropping youth match events...');
+    await AppDataSource.query('DROP TABLE IF EXISTS youth_match_event CASCADE');
 
-    console.log('🗑️  Deleting stadiums...');
-    await AppDataSource.query('DELETE FROM stadium');
+    console.log('🗑️  Dropping youth match tactics...');
+    await AppDataSource.query(
+      'DROP TABLE IF EXISTS youth_match_tactics CASCADE',
+    );
 
-    console.log('🗑️  Deleting sessions...');
-    await AppDataSource.query('DELETE FROM session');
+    console.log('🗑️  Dropping youth matches...');
+    await AppDataSource.query('DROP TABLE IF EXISTS youth_match CASCADE');
 
-    console.log('🗑️  Deleting teams...');
-    await AppDataSource.query('DELETE FROM team');
+    console.log('🗑️  Dropping tactics presets...');
+    await AppDataSource.query('DROP TABLE IF EXISTS tactics_preset CASCADE');
 
-    console.log('🗑️  Deleting leagues...');
-    await AppDataSource.query('DELETE FROM league');
+    console.log('🗑️  Dropping staff...');
+    await AppDataSource.query('DROP TABLE IF EXISTS staff CASCADE');
 
-    console.log('🗑️  Deleting users...');
-    await AppDataSource.query('DELETE FROM "user"');
+    console.log('🗑️  Dropping season results...');
+    await AppDataSource.query('DROP TABLE IF EXISTS season_result CASCADE');
+
+    console.log('🗑️  Dropping transactions...');
+    await AppDataSource.query('DROP TABLE IF EXISTS transaction CASCADE');
+
+    console.log('🗑️  Dropping transfer transactions...');
+    await AppDataSource.query(
+      'DROP TABLE IF EXISTS transfer_transaction CASCADE',
+    );
+
+    console.log('🗑️  Dropping injuries...');
+    await AppDataSource.query('DROP TABLE IF EXISTS injury CASCADE');
+
+    console.log('🗑️  Dropping auctions...');
+    await AppDataSource.query('DROP TABLE IF EXISTS auction CASCADE');
+
+    console.log('🗑️  Dropping players...');
+    await AppDataSource.query('DROP TABLE IF EXISTS player CASCADE');
+
+    console.log('🗑️  Dropping youth players...');
+    await AppDataSource.query('DROP TABLE IF EXISTS youth_player CASCADE');
+
+    console.log('🗑️  Dropping league standings...');
+    await AppDataSource.query('DROP TABLE IF EXISTS league_standing CASCADE');
+
+    console.log('🗑️  Dropping finance...');
+    await AppDataSource.query('DROP TABLE IF EXISTS finance CASCADE');
+
+    console.log('🗑️  Dropping fans...');
+    await AppDataSource.query('DROP TABLE IF EXISTS fan CASCADE');
+
+    console.log('🗑️  Dropping stadiums...');
+    await AppDataSource.query('DROP TABLE IF EXISTS stadium CASCADE');
+
+    console.log('🗑️  Dropping youth teams...');
+    await AppDataSource.query('DROP TABLE IF EXISTS youth_team CASCADE');
+
+    console.log('🗑️  Dropping sessions...');
+    await AppDataSource.query('DROP TABLE IF EXISTS session CASCADE');
+
+    console.log('🗑️  Dropping teams...');
+    await AppDataSource.query('DROP TABLE IF EXISTS team CASCADE');
+
+    console.log('🗑️  Dropping leagues...');
+    await AppDataSource.query('DROP TABLE IF EXISTS league CASCADE');
+
+    console.log('🗑️  Dropping users...');
+    await AppDataSource.query('DROP TABLE IF EXISTS "user" CASCADE');
 
     console.log('✅ All seed data cleared!\n');
     await AppDataSource.destroy();
