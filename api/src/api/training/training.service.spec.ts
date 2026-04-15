@@ -426,10 +426,11 @@ describe('TrainingService', () => {
 
       // Weekly = 20 * 1.5 (ENHANCED) * 1.0 (age 17) * 1.5 (full coaches) = 45
       expect(weeklyPoints).toBeCloseTo(45, 1);
-      // Total cost 7->18 per skill: ~1914 points
-      expect(totalCost).toBeGreaterThan(1900);
-      // Single skill: 1914 / 45 ≈ 43 weeks
-      expect(weeksNeeded).toBeLessThanOrEqual(43);
+      // Total cost 7->18 per skill: ~1575 points (0.8*lvl²+20 per level)
+      expect(totalCost).toBeGreaterThan(1570);
+      expect(totalCost).toBeLessThan(1580);
+      // Single skill: 1575 / 45 ≈ 35 weeks (ceil = 36)
+      expect(weeksNeeded).toBeLessThanOrEqual(36);
     });
 
     it('Scenario 2: 6 start -> 15 potential, ENHANCED, full coaches', async () => {
@@ -472,10 +473,11 @@ describe('TrainingService', () => {
 
       // Weekly = 20 * 1.5 (ENHANCED) * 1.0 (age 17) * 1.5 (full coaches) = 45
       expect(weeklyPoints).toBeCloseTo(45, 1);
-      // Total cost 6->15 per skill: ~1140 points
-      expect(totalCost).toBeGreaterThan(1100);
-      // Single skill: 1140 / 45 ≈ 26 weeks
-      expect(weeksNeeded).toBeLessThanOrEqual(26);
+      // Total cost 6->15 per skill: ~948 points (0.8*lvl²+20 per level)
+      expect(totalCost).toBeGreaterThan(940);
+      expect(totalCost).toBeLessThan(960);
+      // Single skill: 948 / 45 ≈ 22 weeks
+      expect(weeksNeeded).toBeLessThanOrEqual(22);
     });
 
     it('Scenario 3: 6 start -> 12 potential, REGULAR, full coaches', async () => {
@@ -518,10 +520,11 @@ describe('TrainingService', () => {
 
       // Weekly = 20 * 1.0 (REGULAR) * 1.0 (age 17) * 1.5 (full coaches) = 30
       expect(weeklyPoints).toBeCloseTo(30, 1);
-      // Total cost 6->12 per skill: ~571 points
-      expect(totalCost).toBeGreaterThan(560);
-      // Single skill: 571 / 30 ≈ 20 weeks
-      expect(weeksNeeded).toBeLessThanOrEqual(20);
+      // Total cost 6->12 per skill: ~481 points (0.8*lvl²+20 per level)
+      expect(totalCost).toBeGreaterThan(475);
+      expect(totalCost).toBeLessThan(490);
+      // Single skill: 481 / 30 ≈ 17 weeks
+      expect(weeksNeeded).toBeLessThanOrEqual(17);
     });
   });
 });

@@ -36,19 +36,22 @@ describe('FanService', () => {
   describe('calculateAttendance', () => {
     const capacity = 10000;
 
-    it('should return 3000 for zero fans (neutral only)', () => {
+    it('should return 0 for zero fans with random fluctuation', () => {
+      // With 0 home and 0 away fans, total attendance is 0
+      // Even with +/- 5% fluctuation, 0 * anything = 0
       const attendance = service.calculateAttendance(0, 0, 50, 50, capacity);
-      // neutral = capacity * 0.3 / (1 + 0/5000) = 3000
-      expect(attendance).toBe(3000);
+      expect(attendance).toBe(0);
     });
 
     it('should calculate attendance for small fan base', () => {
       // 1000 home fans, 0 away fans, 50 morale
-      // neutral = 10000 * 0.3 / (1 + 1000/5000) = 2500
+      // homeRate = 0.6 + (50/100) * 0.4 = 0.8
       // home = 1000 * 0.2 * 0.8 = 160
-      // total = 2660
+      // total = 160 (no neutral fans in new formula)
       const attendance = service.calculateAttendance(1000, 0, 50, 50, capacity);
-      expect(attendance).toBe(2660);
+      // With fluctuation 0.95 ~ 1.05, result is 152 ~ 168
+      expect(attendance).toBeGreaterThanOrEqual(152);
+      expect(attendance).toBeLessThanOrEqual(168);
     });
 
     it('should cap attendance at stadium capacity', () => {
@@ -99,10 +102,11 @@ describe('FanService', () => {
         50,
         capacity,
       );
-      // neutral = 10000 * 0.3 / (1 + 10000/5000) = 1000
+      // homeRate = 0.6 + (50/100) * 0.4 = 0.8
       // home = 10000 * 0.2 * 0.8 = 1600
-      // total = 2600
-      expect(attendance).toBe(2600);
+      // With fluctuation 0.95 ~ 1.05: 1520 ~ 1680
+      expect(attendance).toBeGreaterThanOrEqual(1520);
+      expect(attendance).toBeLessThanOrEqual(1680);
     });
 
     it('should handle only away fans', () => {
@@ -113,10 +117,11 @@ describe('FanService', () => {
         50,
         capacity,
       );
-      // neutral = 10000 * 0.3 / (1 + 10000/5000) = 1000
+      // awayRate = 0.6 + (50/100) * 0.4 = 0.8
       // away = 10000 * 0.08 * 0.8 = 640
-      // total = 1640
-      expect(attendance).toBe(1640);
+      // With fluctuation 0.95 ~ 1.05: 608 ~ 672
+      expect(attendance).toBeGreaterThanOrEqual(608);
+      expect(attendance).toBeLessThanOrEqual(672);
     });
 
     it('should combine all attendance sources', () => {
@@ -127,11 +132,13 @@ describe('FanService', () => {
         50,
         capacity,
       );
-      // neutral = 10000 * 0.3 / (1 + 15000/5000) = 750
+      // homeRate = 0.8, awayRate = 0.8
       // home = 10000 * 0.2 * 0.8 = 1600
       // away = 5000 * 0.08 * 0.8 = 320
-      // total = 2670
-      expect(attendance).toBe(2670);
+      // total = 1920
+      // With fluctuation 0.95 ~ 1.05: 1824 ~ 2016
+      expect(attendance).toBeGreaterThanOrEqual(1824);
+      expect(attendance).toBeLessThanOrEqual(2016);
     });
   });
 });

@@ -243,8 +243,9 @@ describe('PlayerService', () => {
         // Check GK specific technical attributes
         expect(goalkeeper.currentSkills.technical).toHaveProperty('reflexes');
         expect(goalkeeper.currentSkills.technical).toHaveProperty('handling');
+        expect(goalkeeper.currentSkills.technical).toHaveProperty('aerial');
         expect(goalkeeper.currentSkills.technical).toHaveProperty(
-          'distribution',
+          'positioning',
         );
         expect(goalkeeper.currentSkills.technical).not.toHaveProperty(
           'finishing',

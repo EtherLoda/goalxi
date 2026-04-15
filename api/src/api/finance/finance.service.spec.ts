@@ -1,4 +1,12 @@
-import { FinanceEntity, TransactionEntity } from '@goalxi/database';
+import {
+  FanEntity,
+  FinanceEntity,
+  PlayerEntity,
+  StadiumEntity,
+  StaffEntity,
+  TeamEntity,
+  TransactionEntity,
+} from '@goalxi/database';
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { DataSource, Repository } from 'typeorm';
@@ -7,10 +15,31 @@ import { FinanceService } from './finance.service';
 const mockFinanceRepo = () => ({
   save: jest.fn(),
   findOneBy: jest.fn(),
+  findOne: jest.fn(),
 });
 
 const mockTransactionRepo = () => ({
   save: jest.fn(),
+  find: jest.fn(),
+});
+
+const mockTeamRepo = () => ({
+  findOne: jest.fn(),
+});
+
+const mockFanRepo = () => ({
+  findOne: jest.fn(),
+});
+
+const mockStadiumRepo = () => ({
+  findOne: jest.fn(),
+});
+
+const mockStaffRepo = () => ({
+  find: jest.fn(),
+});
+
+const mockPlayerRepo = () => ({
   find: jest.fn(),
 });
 
@@ -26,6 +55,11 @@ describe('FinanceService', () => {
   let service: FinanceService;
   let financeRepo: MockType<Repository<FinanceEntity>>;
   let transactionRepo: MockType<Repository<TransactionEntity>>;
+  let teamRepo: MockType<Repository<TeamEntity>>;
+  let fanRepo: MockType<Repository<FanEntity>>;
+  let stadiumRepo: MockType<Repository<any>>;
+  let staffRepo: MockType<Repository<any>>;
+  let playerRepo: MockType<Repository<any>>;
   let dataSource: MockType<DataSource>;
 
   beforeEach(async () => {
@@ -40,6 +74,26 @@ describe('FinanceService', () => {
           provide: getRepositoryToken(TransactionEntity),
           useFactory: mockTransactionRepo,
         },
+        {
+          provide: getRepositoryToken(TeamEntity),
+          useFactory: mockTeamRepo,
+        },
+        {
+          provide: getRepositoryToken(FanEntity),
+          useFactory: mockFanRepo,
+        },
+        {
+          provide: getRepositoryToken(StadiumEntity),
+          useFactory: mockStadiumRepo,
+        },
+        {
+          provide: getRepositoryToken(StaffEntity),
+          useFactory: mockStaffRepo,
+        },
+        {
+          provide: getRepositoryToken(PlayerEntity),
+          useFactory: mockPlayerRepo,
+        },
         { provide: DataSource, useFactory: mockDataSource },
       ],
     }).compile();
@@ -47,6 +101,11 @@ describe('FinanceService', () => {
     service = module.get<FinanceService>(FinanceService);
     financeRepo = module.get(getRepositoryToken(FinanceEntity));
     transactionRepo = module.get(getRepositoryToken(TransactionEntity));
+    teamRepo = module.get(getRepositoryToken(TeamEntity));
+    fanRepo = module.get(getRepositoryToken(FanEntity));
+    stadiumRepo = module.get(getRepositoryToken(StadiumEntity));
+    staffRepo = module.get(getRepositoryToken(StaffEntity));
+    playerRepo = module.get(getRepositoryToken(PlayerEntity));
     dataSource = module.get(DataSource);
   });
 

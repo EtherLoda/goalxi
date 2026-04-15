@@ -4,13 +4,36 @@ import {
   PlayerEntity,
   PlayerHistoryEntity,
   TeamEntity,
+  TransferTransactionEntity,
 } from '@goalxi/database';
 import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { DataSource } from 'typeorm';
+import { AuctionRedisRepository } from '../../redis/auction-redis.repository';
 import { FinanceService } from '../finance/finance.service';
 import { AuctionService } from './auction.service';
+
+const mockTransferTxRepo = () => ({
+  findOne: jest.fn(),
+  find: jest.fn(),
+  save: jest.fn(),
+});
+
+const mockQueue = () => ({
+  add: jest.fn(),
+});
+
+const mockAuctionRedisRepo = () => ({
+  getAuctionState: jest.fn(),
+  initializeAuction: jest.fn(),
+  placeBid: jest.fn(),
+  addTeamBid: jest.fn(),
+  getTeamBidAuctions: jest.fn(),
+  cleanupAuction: jest.fn(),
+  acquireSettlementLock: jest.fn(),
+  releaseSettlementLock: jest.fn(),
+});
 
 describe('AuctionService', () => {
   let service: AuctionService;
@@ -18,8 +41,10 @@ describe('AuctionService', () => {
   let playerRepo: any;
   let teamRepo: any;
   let historyRepo: any;
+  let transferTxRepo: any;
   let financeService: any;
   let dataSource: any;
+  let transferQueue: any;
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
@@ -31,18 +56,24 @@ describe('AuctionService', () => {
             find: jest.fn(),
             findOne: jest.fn(),
             save: jest.fn(),
+            update: jest.fn(),
           },
         },
         {
           provide: getRepositoryToken(PlayerEntity),
           useValue: {
             findOneBy: jest.fn(),
+            findOne: jest.fn(),
+            save: jest.fn(),
           },
         },
         {
           provide: getRepositoryToken(TeamEntity),
           useValue: {
             findOneBy: jest.fn(),
+            findOne: jest.fn(),
+            save: jest.fn(),
+            decrement: jest.fn(),
           },
         },
         {
@@ -50,8 +81,24 @@ describe('AuctionService', () => {
           useValue: {},
         },
         {
+          provide: getRepositoryToken(TransferTransactionEntity),
+          useFactory: mockTransferTxRepo,
+        },
+        {
           provide: FinanceService,
           useValue: {},
+        },
+        {
+          provide: 'REDIS_AUCTION_CLIENT',
+          useValue: {},
+        },
+        {
+          provide: 'BullQueue_transfer-settlement',
+          useFactory: mockQueue,
+        },
+        {
+          provide: AuctionRedisRepository,
+          useFactory: mockAuctionRedisRepo,
         },
         {
           provide: DataSource,
@@ -67,8 +114,10 @@ describe('AuctionService', () => {
     playerRepo = module.get(getRepositoryToken(PlayerEntity));
     teamRepo = module.get(getRepositoryToken(TeamEntity));
     historyRepo = module.get(getRepositoryToken(PlayerHistoryEntity));
+    transferTxRepo = module.get(getRepositoryToken(TransferTransactionEntity));
     financeService = module.get(FinanceService);
     dataSource = module.get(DataSource);
+    transferQueue = module.get('BullQueue_transfer-settlement');
   });
 
   it('should be defined', () => {
@@ -87,7 +136,10 @@ describe('AuctionService', () => {
 
       expect(result).toEqual(mockAuctions);
       expect(auctionRepo.find).toHaveBeenCalledWith({
-        where: { status: AuctionStatus.ACTIVE },
+        where: [
+          { status: AuctionStatus.ACTIVE },
+          { status: AuctionStatus.SETTLING },
+        ],
         relations: ['player', 'team', 'currentBidder'],
         order: { expiresAt: 'ASC' },
       });
