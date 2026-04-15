@@ -56,4 +56,8 @@ export class TransactionResDto {
   @Expose()
   @Transform(({ value }) => (value ? new Date(value).toISOString() : null))
   settledAt?: Date | string;
+
+  @NumberField()
+  @Expose()
+  season: number;
 }

@@ -12,6 +12,12 @@ export default function TransferHistoryPanel({ team, initialTransactions }: Tran
   const [transactions, setTransactions] = useState<TransferTransaction[]>(initialTransactions || []);
   const [isLoading, setIsLoading] = useState(!initialTransactions);
   const [typeFilter, setTypeFilter] = useState<"all" | "inbound" | "outbound">("all");
+  const [seasonFilter, setSeasonFilter] = useState<number | "all">("all");
+
+  // Get available seasons from transactions
+  const availableSeasons = Array.from(
+    new Set(transactions.map((tx) => tx.season).filter(Boolean))
+  ).sort((a, b) => b - a);
 
   useEffect(() => {
     if (!team || initialTransactions) return;
@@ -40,9 +46,9 @@ export default function TransferHistoryPanel({ team, initialTransactions }: Tran
   }, [team, initialTransactions]);
 
   const filteredTransactions = transactions.filter((tx) => {
-    if (typeFilter === "all") return true;
-    if (typeFilter === "inbound") return tx.toTeam?.id === team?.id;
-    if (typeFilter === "outbound") return tx.fromTeam?.id === team?.id;
+    if (typeFilter === "inbound" && tx.toTeam?.id !== team?.id) return false;
+    if (typeFilter === "outbound" && tx.fromTeam?.id !== team?.id) return false;
+    if (seasonFilter !== "all" && tx.season !== seasonFilter) return false;
     return true;
   });
 
@@ -149,6 +155,21 @@ export default function TransferHistoryPanel({ team, initialTransactions }: Tran
               Outbound
             </button>
           </div>
+          {availableSeasons.length > 0 && (
+            <div className="flex items-center gap-2">
+              <span className="text-[10px] text-[#91b2a6] uppercase tracking-widest">Season</span>
+              <select
+                value={seasonFilter}
+                onChange={(e) => setSeasonFilter(e.target.value === "all" ? "all" : Number(e.target.value))}
+                className="bg-[#00251c] text-[#d3f5e8] text-[10px] font-bold rounded-lg px-3 py-1.5 border border-[#2f4e44]/30 focus:outline-none focus:border-[#a1ffc2]/50"
+              >
+                <option value="all">All</option>
+                {availableSeasons.map((s) => (
+                  <option key={s} value={s}>S{s}</option>
+                ))}
+              </select>
+            </div>
+          )}
         </div>
 
         <div className="rounded-2xl overflow-hidden glass-card">
@@ -162,6 +183,9 @@ export default function TransferHistoryPanel({ team, initialTransactions }: Tran
             <table className="w-full text-left border-collapse">
               <thead>
                 <tr className="bg-[#00251c]">
+                  <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-[#91b2a6]">
+                    Season
+                  </th>
                   <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-[#91b2a6]">
                     Date
                   </th>
@@ -190,6 +214,11 @@ export default function TransferHistoryPanel({ team, initialTransactions }: Tran
                       key={tx.id}
                       className="hover:bg-[#001e17] transition-colors group"
                     >
+                      <td className="px-6 py-4">
+                        <span className="text-[10px] font-bold text-[#91b2a6]">
+                          S{tx.season}
+                        </span>
+                      </td>
                       <td className="px-6 py-4">
                         <p className="text-xs font-medium text-[#d3f5e8]">
                           {tx.transactionDate ? formatDate(tx.transactionDate) : "—"}

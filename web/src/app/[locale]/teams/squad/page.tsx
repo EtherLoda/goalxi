@@ -7,7 +7,7 @@ import Link from "next/link";
 import Sidebar from "@/components/dashboard/Sidebar";
 import Header from "@/components/dashboard/Header";
 import { useAuth } from "@/contexts/AuthContext";
-import { api, type Player } from "@/lib/api";
+import { api, type Player, type PlayerEvent } from "@/lib/api";
 
 const SKILL_MAX = 20;
 
@@ -24,6 +24,40 @@ const SPECIALTIES: { value: string; label: string; labelEn: string }[] = [
   { value: "REBND", label: "补射专家", labelEn: "Rebound" },
   { value: "FSTRT", label: "快发", labelEn: "Fast Start" },
 ];
+
+const EVENT_ICONS: Record<string, string> = {
+  TRANSFER: "swap_horiz",
+  YOUTH_PROMOTION: "trending_up",
+  HAT_TRICK: "sports_kabaddi",
+  CHAMPIONSHIP_TITLE: "emoji_events",
+  GOLDEN_BOOT: "military_tech",
+  ASSISTS_LEADER: "assist_hand",
+  TACKLES_LEADER: "shield",
+  MAN_OF_THE_MATCH: "star",
+  INJURY: "local_hospital",
+  DEBUT: "play_circle",
+  LEAGUE_DEBUT: "stadium",
+  CAPTAIN_DEBUT: "captain",
+  RECORD_BROKEN: "record_voice_over",
+  CONTRACT_RENEWAL: "renewal",
+};
+
+const EVENT_COLORS: Record<string, string> = {
+  TRANSFER: "text-[#60a5fa]",
+  YOUTH_PROMOTION: "text-[#34d399]",
+  HAT_TRICK: "text-[#fbbf24]",
+  CHAMPIONSHIP_TITLE: "text-[#f59e0b]",
+  GOLDEN_BOOT: "text-[#fbbf24]",
+  ASSISTS_LEADER: "text-[#60a5fa]",
+  TACKLES_LEADER: "text-[#34d399]",
+  MAN_OF_THE_MATCH: "text-[#f472b6]",
+  INJURY: "text-[#ef4444]",
+  DEBUT: "text-[#a78bfa]",
+  LEAGUE_DEBUT: "text-[#a78bfa]",
+  CAPTAIN_DEBUT: "text-[#fbbf24]",
+  RECORD_BROKEN: "text-[#22d3ee]",
+  CONTRACT_RENEWAL: "text-[#60a5fa]",
+};
 
 interface ListPlayerModalProps {
   player: Player;
@@ -199,12 +233,14 @@ function ListPlayerModal({ player, onClose, onSuccess }: ListPlayerModalProps) {
 
 export default function SquadPage() {
   const t = useTranslations();
+  const te = useTranslations("player_events");
   const { user, team } = useAuth();
   const params = useParams();
   const locale = params.locale as string;
   const [players, setPlayers] = useState<Player[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [selectedPlayer, setSelectedPlayer] = useState<Player | null>(null);
+  const [playerEvents, setPlayerEvents] = useState<PlayerEvent[]>([]);
   const [filter, setFilter] = useState<"all" | "GK" | "outfield">("all");
   const [showListModal, setShowListModal] = useState(false);
 
@@ -228,6 +264,14 @@ export default function SquadPage() {
       .catch(console.error)
       .finally(() => setIsLoading(false));
   }, [team?.id]);
+
+  useEffect(() => {
+    if (!selectedPlayer) {
+      setPlayerEvents([]);
+      return;
+    }
+    api.players.getEvents(selectedPlayer.id).then(setPlayerEvents).catch(console.error);
+  }, [selectedPlayer?.id]);
 
   const filteredPlayers = players.filter((p) => {
     if (filter === "GK") return p.isGoalkeeper;
@@ -838,6 +882,46 @@ export default function SquadPage() {
                               </div>
                             </div>
                           </div>
+                        </div>
+
+                        {/* Player Events Section */}
+                        <div className="mt-6">
+                          <div className="flex items-center gap-2 mb-3">
+                            <div className="w-1.5 h-4 bg-[#f59e0b] rounded-full" />
+                            <h3 className="text-xs font-black font-space tracking-widest uppercase text-[#91b2a6]">
+                              {t("player_events.title")}
+                            </h3>
+                          </div>
+                          {playerEvents.length === 0 ? (
+                            <div className="bg-[#00251c]/50 rounded-xl p-4 text-center">
+                              <span className="material-symbols-outlined text-2xl text-[#4a7a6a]">history</span>
+                              <p className="text-[#4a7a6a] text-xs mt-1">{t("player_events.no_events")}</p>
+                            </div>
+                          ) : (
+                            <div className="space-y-2">
+                              {playerEvents.slice(0, 5).map((event) => {
+                                const iconName = EVENT_ICONS[event.eventType] || "event";
+                                const colorClass = EVENT_COLORS[event.eventType] || "text-[#a1ffc2]";
+                                const eventDate = new Date(event.date);
+                                const dateStr = `${eventDate.getFullYear()}/${eventDate.getMonth() + 1}/${eventDate.getDate()}`;
+                                return (
+                                  <div key={event.id} className="flex items-center gap-3 p-2 bg-[#00251c]/30 rounded-lg">
+                                    <div className={`w-8 h-8 rounded-full flex items-center justify-center bg-[#00251c] ${colorClass}`}>
+                                      <span className="material-symbols-outlined text-sm">{iconName}</span>
+                                    </div>
+                                    <div className="flex-1 min-w-0">
+                                      <p className="text-xs font-bold text-[#d3f5e8] truncate">
+                                        {event.titleKey ? te(event.titleKey.replace(/^player_events\./, '')) : event.eventType}
+                                      </p>
+                                      <p className="text-[10px] text-[#91b2a6]">
+                                        {dateStr} - S{event.season}
+                                      </p>
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          )}
                         </div>
                       </div>
                     </>

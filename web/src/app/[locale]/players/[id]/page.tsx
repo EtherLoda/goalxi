@@ -5,8 +5,9 @@ import { useParams } from "next/navigation";
 import Link from "next/link";
 import Sidebar from "@/components/dashboard/Sidebar";
 import Header from "@/components/dashboard/Header";
-import { api, type Player } from "@/lib/api";
+import { api, type Player, type TransferAuction } from "@/lib/api";
 import { useTranslations } from "next-intl";
+import { useAuth } from "@/contexts/AuthContext";
 
 const SKILL_MAX = 20;
 
@@ -75,13 +76,124 @@ interface PlayerEvent {
   details?: any;
 }
 
+interface ListPlayerModalProps {
+  player: Player;
+  onClose: () => void;
+  onSuccess: () => void;
+}
+
+
+function ListPlayerModal({ player, onClose, onSuccess }: ListPlayerModalProps) {
+  const t = useTranslations();
+  const [startPrice, setStartPrice] = useState("");
+  const [buyoutPrice, setBuyoutPrice] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const start = parseInt(startPrice, 10);
+    const buyout = parseInt(buyoutPrice, 10);
+
+    if (isNaN(start) || isNaN(buyout)) {
+      setError("Please enter valid prices");
+      return;
+    }
+
+    setIsSubmitting(true);
+    setError(null);
+
+    try {
+      await api.transfers.createAuction(player.id, start, buyout);
+      onSuccess();
+      onClose();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to list player");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={onClose} />
+      <div className="relative w-full max-w-sm bg-gradient-to-b from-[#0a1a14] to-[#001e17] rounded-2xl border border-[#2f4e44]/50 shadow-2xl overflow-hidden">
+        <div className="relative px-6 pt-6 pb-4">
+          <div className="absolute inset-0 bg-gradient-to-r from-[#a1ffc2]/5 to-transparent pointer-events-none" />
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-[#a1ffc2]/20 flex items-center justify-center">
+                <span className="material-symbols-outlined text-[#a1ffc2]">sell</span>
+              </div>
+              <div>
+                <h3 className="text-lg font-black font-space text-[#d3f5e8]">{t("squad.transfer.listPlayer")}</h3>
+                <p className="text-[10px] text-[#91b2a6] font-space uppercase tracking-wider">Set your auction terms</p>
+              </div>
+            </div>
+            <button onClick={onClose} className="w-8 h-8 rounded-full flex items-center justify-center hover:bg-[#002c22] transition-colors">
+              <span className="material-symbols-outlined text-[#91b6a] text-lg">close</span>
+            </button>
+          </div>
+        </div>
+
+        <div className="mx-6 mt-4 mb-4 p-4 bg-[#00251c]/80 rounded-xl border border-[#2f4e44]/20">
+          <div className="flex items-center gap-3">
+            <div className="w-12 h-12 rounded-xl flex items-center justify-center font-space font-black text-lg text-[#a1ffc2]" style={{ background: "linear-gradient(135deg, #a1ffc220, #a1ffc210)" }}>
+              {player.name.split(" ").map((n) => n[0]).join("").slice(0, 2)}
+            </div>
+            <div>
+              <p className="text-sm font-bold text-[#d3f5e8]">{player.name}</p>
+              <div className="flex items-center gap-2 mt-0.5">
+                <span className="px-2 py-0.5 bg-[#a1ffc2]/20 text-[#a1ffc2] text-[10px] font-bold rounded">PWI {player.pwi?.toLocaleString() || "0"}</span>
+                <span className="text-[10px] text-[#91b2a6] font-space">{player.isGoalkeeper ? "GK" : ""}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <form onSubmit={handleSubmit} className="px-6 pb-6 space-y-4">
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-[10px] font-bold uppercase tracking-wider text-[#91b2a6] mb-1.5">{t("squad.transfer.startPrice")}</label>
+              <div className="relative">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[#91b2a6] text-sm font-space">£</span>
+                <input type="number" value={startPrice} onChange={(e) => setStartPrice(e.target.value)} placeholder="0" min={0} className="w-full bg-[#001a12] border border-[#2f4e44]/40 rounded-lg pl-7 pr-3 py-2.5 text-[#d3f5e8] font-space text-sm placeholder:text-[#4a7a6a] focus:outline-none focus:border-[#a1ffc2]/60 transition-colors" />
+              </div>
+            </div>
+            <div>
+              <label className="block text-[10px] font-bold uppercase tracking-wider text-[#91b2a6] mb-1.5">{t("squad.transfer.buyoutPrice")}</label>
+              <div className="relative">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[#91b2a6] text-sm font-space">£</span>
+                <input type="number" value={buyoutPrice} onChange={(e) => setBuyoutPrice(e.target.value)} placeholder="0" min={0} className="w-full bg-[#001a12] border border-[#2f4e44]/40 rounded-lg pl-7 pr-3 py-2.5 text-[#d3f5e8] font-space text-sm placeholder:text-[#4a7a6a] focus:outline-none focus:border-[#a1ffc2]/60 transition-colors" />
+              </div>
+            </div>
+          </div>
+
+          {error && <p className="text-red-400 text-xs">{error}</p>}
+
+          <button type="submit" disabled={isSubmitting} className="w-full py-3 rounded-xl bg-[#a1ffc2] text-[#001a12] font-bold text-sm hover:bg-[#8ee6b8] disabled:opacity-50 transition-colors">
+            {isSubmitting ? "Listing..." : t("squad.transfer.listButton")}
+          </button>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+
 export default function PlayerDetailPage({ params }: PageProps) {
   const t = useTranslations("squad");
   const te = useTranslations("player_events");
+  const { user, team } = useAuth();
   const [player, setPlayer] = useState<Player | null>(null);
   const [events, setEvents] = useState<PlayerEvent[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [resolvedParams, setResolvedParams] = useState<{ locale: string; id: string } | null>(null);
+  const [showListModal, setShowListModal] = useState(false);
+  const [auction, setAuction] = useState<TransferAuction | null>(null);
+  const [bidAmount, setBidAmount] = useState("");
+  const [isSubmittingBid, setIsSubmittingBid] = useState(false);
+  const [showBuyoutConfirm, setShowBuyoutConfirm] = useState(false);
 
   useEffect(() => {
     params.then(setResolvedParams);
@@ -104,6 +216,49 @@ export default function PlayerDetailPage({ params }: PageProps) {
       .catch(console.error)
       .finally(() => setIsLoading(false));
   }, [resolvedParams?.id]);
+
+  // Fetch auction when player is on transfer
+  useEffect(() => {
+    if (!player?.onTransfer || !player.id) return;
+    api.transfers.getAuctions().then((auctions) => {
+      const found = auctions.find((a) => a.player.id === player.id);
+      setAuction(found || null);
+    }).catch(console.error);
+  }, [player?.id, player?.onTransfer]);
+
+  // Pre-fill bid amount when auction is loaded
+  useEffect(() => {
+    if (auction && team) {
+      const userBids = auction.bidHistory.filter(b => b.teamId === team.id);
+      if (userBids.length > 0) {
+        const lastBid = userBids[userBids.length - 1].amount;
+        const newBid = Math.max(lastBid + 10000, Math.ceil(lastBid * 1.05));
+        setBidAmount(newBid.toString());
+      } else {
+        setBidAmount(auction.startPrice.toString());
+      }
+    }
+  }, [auction, team]);
+
+  const formatCurrency = (value: number) => `£${value.toLocaleString()}`;
+
+  const formatBidAmountInput = (value: string) => {
+    const num = parseInt(value.replace(/,/g, ''), 10);
+    if (isNaN(num)) return '';
+    return num.toLocaleString();
+  };
+
+  const formatTimeRemaining = (expiresAt: string) => {
+    const now = new Date().getTime();
+    const expires = new Date(expiresAt).getTime();
+    const diff = expires - now;
+    if (diff <= 0) return "Expired";
+    const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+    const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+    if (days > 0) return `${days}d ${hours}h`;
+    const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+    return `${hours}h ${minutes}m`;
+  };
 
   // Circular gauge component
   const renderGauge = (value: number, max: number, label: string, colorClass: string) => {
@@ -154,16 +309,6 @@ export default function PlayerDetailPage({ params }: PageProps) {
     );
   };
 
-  const getStatusBadge = (player: Player) => {
-    if (player.stamina >= 7) {
-      return { label: t("status.matchReady"), class: "bg-[#3e6a00]/30 text-[#abf853]" };
-    }
-    if (player.stamina >= 4) {
-      return { label: t("status.fatigued"), class: "bg-amber-500/30 text-amber-400" };
-    }
-    return { label: t("status.lowEnergy"), class: "bg-red-500/30 text-red-400" };
-  };
-
   return (
     <div className="flex min-h-screen bg-[#00110c]">
       <Sidebar />
@@ -179,7 +324,7 @@ export default function PlayerDetailPage({ params }: PageProps) {
               </span>
             </div>
           ) : player ? (
-            <div className="w-full max-w-[700px] mx-auto pb-8">
+            <div className="w-full max-w-[580px] mx-auto pb-8">
               {/* Player Card */}
               <div className="bg-[#001e17] rounded-xl flex flex-col overflow-hidden relative min-h-[600px]">
                 {/* Glass Background */}
@@ -265,6 +410,7 @@ export default function PlayerDetailPage({ params }: PageProps) {
                   <div className="flex gap-2">
                     {!player.onTransfer && (
                       <button
+                        onClick={() => setShowListModal(true)}
                         className="w-10 h-10 rounded-full flex items-center justify-center bg-[#a1ffc2]/20 text-[#a1ffc2] hover:bg-[#a1ffc2]/30 transition-colors border border-[#a1ffc2]/30"
                         title={t("transfer.listButton")}
                       >
@@ -302,33 +448,119 @@ export default function PlayerDetailPage({ params }: PageProps) {
                   {renderGauge(player.potentialAbility, 99, "PA", "text-[#00ec90]")}
                 </div>
 
-                {/* Status Badge */}
-                <div className="px-6 pb-4">
-                  {(() => {
-                    const status = getStatusBadge(player);
-                    return (
-                      <div className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-lg ${status.class}`}>
-                        <span className="material-symbols-outlined text-sm">energy</span>
-                        <span className="text-xs font-bold font-space">{status.label}</span>
-                      </div>
-                    );
-                  })()}
-                </div>
-
-                {/* Transfer Info Section */}
-                {player.onTransfer && (
+                {/* Transfer Market Section */}
+                {player.onTransfer && auction && (
                   <div className="px-6 pb-4">
-                    <div className="bg-[#002c22] rounded-xl p-4 border border-[#a1ffc2]/20">
-                      <div className="flex items-center gap-2 mb-2">
+                    {/* Header */}
+                    <div className="flex items-center justify-between mb-4">
+                      <div className="flex items-center gap-2">
                         <span className="material-symbols-outlined text-[#a1ffc2]">sell</span>
                         <h4 className="text-xs font-black font-space tracking-widest uppercase text-[#a1ffc2]">
                           {t("transfer.onTransfer")}
                         </h4>
                       </div>
-                      <p className="text-[10px] text-[#91b2a6]">
-                        {t("transfer.onTransferDesc")}
-                      </p>
+                      <div className={`px-3 py-1.5 rounded-lg flex items-center gap-2 ${
+                        formatTimeRemaining(auction.expiresAt) === "Expired"
+                          ? "bg-red-500/80"
+                          : "bg-[#002c22]/80 backdrop-blur-md"
+                      }`}>
+                        <span className="material-symbols-outlined text-xs text-[#ef4444]">timer</span>
+                        <span className="text-[10px] font-bold text-white uppercase tracking-wider">{formatTimeRemaining(auction.expiresAt)}</span>
+                      </div>
                     </div>
+
+                    {/* Pricing & Actions */}
+                    <div className="grid grid-cols-2 gap-4 mb-4">
+                      <div className="bg-[#002c22] p-4 rounded-2xl border border-[#2f4e44]/10">
+                        <p className="text-[10px] text-[#91b2a6] uppercase tracking-widest mb-1">Current Price</p>
+                        <p className="text-2xl font-bold text-[#a1ffc2] truncate">{formatCurrency(auction.currentPrice)}</p>
+                      </div>
+                      <div className="bg-[#002c22] p-4 rounded-2xl border border-[#2f4e44]/10">
+                        <p className="text-[10px] text-[#91b2a6] uppercase tracking-widest mb-1">Buyout</p>
+                        <p className="text-xl font-bold text-[#d3f5e8] mb-2 truncate">{formatCurrency(auction.buyoutPrice)}</p>
+                        {team && auction.team?.id !== team.id && (
+                          <button
+                            onClick={() => setShowBuyoutConfirm(true)}
+                            className="w-full py-2 bg-[#a1ffc2] text-[#00110c] font-bold text-[10px] rounded-lg uppercase tracking-widest hover:brightness-110 transition-all"
+                          >
+                            Buy
+                          </button>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Bid History */}
+                    {auction.bidHistory && auction.bidHistory.length > 0 && (
+                      <div className="mb-4">
+                        <div className="flex items-center gap-2 mb-3">
+                          <span className="material-symbols-outlined text-[#a1ffc2] text-sm">gavel</span>
+                          <h4 className="text-[10px] uppercase tracking-widest text-[#91b2a6] font-bold">Bid History</h4>
+                        </div>
+                        <div className="divide-y divide-[#2f4e44]/20">
+                          {[...auction.bidHistory].reverse().slice(0, 3).map((bid, idx) => (
+                            <div key={idx} className="flex items-center justify-between py-3">
+                              <div className="flex items-center gap-3">
+                                <div className="w-7 h-7 rounded-full bg-gradient-to-br from-[#a1ffc2]/30 to-[#002c22] flex items-center justify-center">
+                                  <span className="text-[9px] font-bold text-[#a1ffc2]">{(bid.teamName || '?').charAt(0)}</span>
+                                </div>
+                                <div>
+                                  <p className="text-[11px] font-semibold text-[#d3f5e8]">{bid.teamName || 'Unknown'}</p>
+                                  <p className="text-[9px] text-[#91b2a6]">{new Date(bid.timestamp).toLocaleString()}</p>
+                                </div>
+                              </div>
+                              <p className="text-[12px] font-bold text-[#a1ffc2]">{formatCurrency(bid.amount)}</p>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Bid Input */}
+                    {team && auction.team?.id !== team.id && (
+                      <div className="p-4 bg-[#001e17] rounded-xl border border-[#2f4e44]/10">
+                        <div className="flex gap-3 items-center">
+                          <div className="flex-1 relative">
+                            <label className="absolute -top-2 left-3 px-1 bg-[#001e17] text-[8px] text-[#00ec90] font-bold uppercase tracking-widest z-10">
+                              Offer Price
+                            </label>
+                            <div className="relative">
+                              <span className="absolute left-4 top-1/2 -translate-y-1/2 text-[#a1ffc2] font-bold text-sm">£</span>
+                              <input
+                                className="w-full bg-[#002c22] border border-[#2f4e44]/30 rounded-xl py-3 pl-8 pr-4 text-sm font-bold text-[#d3f5e8] focus:ring-1 focus:ring-[#a1ffc2] focus:border-[#a1ffc2] transition-all placeholder:text-[#91b2a6]/40"
+                                placeholder="Enter offer"
+                                type="text"
+                                value={formatBidAmountInput(bidAmount)}
+                                onChange={(e) => setBidAmount(e.target.value.replace(/,/g, '').replace(/[^0-9]/g, ''))}
+                              />
+                            </div>
+                          </div>
+                          <button
+                            className="px-6 py-3.5 bg-[#a1ffc2] text-[#00110c] font-bold rounded-xl flex items-center justify-center gap-2 hover:brightness-110 active:scale-95 transition-all shadow-lg shadow-[#a1ffc2]/20 uppercase tracking-widest text-[10px] whitespace-nowrap disabled:opacity-50"
+                            onClick={async () => {
+                              if (!auction || !bidAmount || !team) return;
+                              const amount = parseInt(bidAmount.replace(/,/g, ""), 10);
+                              if (isNaN(amount) || amount <= 0) return;
+                              setIsSubmittingBid(true);
+                              try {
+                                await api.transfers.placeBid(auction.id, amount);
+                                const auctions = await api.transfers.getAuctions();
+                                const found = auctions.find((a) => a.player.id === player?.id);
+                                setAuction(found || null);
+                                setBidAmount("");
+                              } catch (err) {
+                                console.error("Failed to place bid:", err);
+                              } finally {
+                                setIsSubmittingBid(false);
+                              }
+                            }}
+                            disabled={!bidAmount || isSubmittingBid}
+                          >
+                            <span className="material-symbols-outlined text-sm">payments</span>
+                            Make Offer
+                          </button>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 )}
 
@@ -422,7 +654,7 @@ export default function PlayerDetailPage({ params }: PageProps) {
                       {events.map((event) => {
                         const iconName = EVENT_ICONS[event.eventType] || "event";
                         const colorClass = EVENT_COLORS[event.eventType] || "text-[#a1ffc2]";
-                        const eventLabel = event.titleKey ? te(event.titleKey) : event.eventType;
+                        const eventLabel = event.titleKey ? te(event.titleKey.replace(/^player_events\./, '')) : event.eventType;
                         const eventDate = new Date(event.date);
                         const dateStr = `${eventDate.getFullYear()}/${eventDate.getMonth() + 1}/${eventDate.getDate()}`;
 
@@ -475,6 +707,62 @@ export default function PlayerDetailPage({ params }: PageProps) {
           background: #00251c;
         }
       `}</style>
+
+      {/* List Player Modal */}
+      {showListModal && player && (
+        <ListPlayerModal
+          player={player}
+          onClose={() => setShowListModal(false)}
+          onSuccess={() => {
+            // Refresh player data
+            if (resolvedParams?.id) {
+              api.players.getById(resolvedParams.id).then(setPlayer);
+            }
+          }}
+        />
+      )}
+
+      {/* Buyout Confirmation Modal */}
+      {showBuyoutConfirm && auction && player && (
+        <div className="fixed inset-0 z-[150] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
+          <div className="bg-[#001e17]/90 backdrop-blur-xl rounded-2xl overflow-hidden shadow-2xl border border-[#a1ffc2]/20 w-full max-w-md">
+            <div className="p-8 text-center">
+              <div className="w-16 h-16 rounded-full bg-[#002c22] flex items-center justify-center mx-auto mb-4">
+                <span className="material-symbols-outlined text-3xl text-[#a1ffc2]">warning</span>
+              </div>
+              <h3 className="text-xl font-bold text-[#d3f5e8] mb-2">Confirm Buyout</h3>
+              <p className="text-[#91b2a6] text-sm mb-6">
+                Buy out <span className="text-[#d3f5e8] font-bold">{player.name}</span> for <span className="text-[#a1ffc2] font-bold">{formatCurrency(auction.buyoutPrice)}</span>?
+              </p>
+              <div className="flex gap-4">
+                <button
+                  className="flex-1 py-3 bg-[#002c22] text-[#d3f5e8] font-bold rounded-xl hover:bg-[#003328] transition-all uppercase tracking-widest text-xs"
+                  onClick={() => setShowBuyoutConfirm(false)}
+                >
+                  Cancel
+                </button>
+                <button
+                  className="flex-1 py-3 bg-[#ef4444] text-white font-bold rounded-xl hover:bg-red-600 transition-all uppercase tracking-widest text-xs"
+                  onClick={async () => {
+                    try {
+                      await api.transfers.buyout(auction.id);
+                      setShowBuyoutConfirm(false);
+                      const auctions = await api.transfers.getAuctions();
+                      const found = auctions.find((a) => a.player.id === player.id);
+                      setAuction(found || null);
+                    } catch (err) {
+                      console.error("Buyout failed:", err);
+                    }
+                  }}
+                >
+                  Confirm
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 }

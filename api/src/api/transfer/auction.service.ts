@@ -582,6 +582,7 @@ export class AuctionService implements OnModuleInit {
         amount: auction.buyoutPrice,
         type: TransferTransactionType.BUYOUT,
         status: TransferTransactionStatus.PENDING,
+        season: currentSeason,
       });
       await manager.save(transaction);
 
@@ -703,6 +704,7 @@ export class AuctionService implements OnModuleInit {
                 amount: auction.currentPrice,
                 type: TransferTransactionType.AUCTION_COMPLETE,
                 status: TransferTransactionStatus.PENDING,
+                season: currentSeason,
               });
               await manager.save(transaction);
 

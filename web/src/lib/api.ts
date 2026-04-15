@@ -249,9 +249,10 @@ export const api = {
       return { items: response.data || response.items || [], meta: response.pagination || response.meta || {} };
     },
     getEvents: async (playerId: string, season?: number): Promise<PlayerEvent[]> => {
-      const params = new URLSearchParams({ playerId });
+      const params = new URLSearchParams();
       if (season !== undefined) params.append('season', String(season));
-      return request<PlayerEvent[]>(`/player-events/player/${playerId}?${params.toString()}`);
+      const qs = params.toString();
+      return request<PlayerEvent[]>(`/player-events/player/${playerId}${qs ? `?${qs}` : ''}`);
     },
   },
 
@@ -386,6 +387,7 @@ interface TransferTransaction {
   status: 'PENDING' | 'PROCESSING' | 'COMPLETED' | 'FAILED';
   transactionDate: string;
   settledAt?: string;
+  season: number;
 }
 
 interface BidRecord {
@@ -404,4 +406,4 @@ interface FinanceTransaction {
   createdAt: string;
 }
 
-export type { User, Team, LoginResponse, League, Standing, Match, Player, TransferAuction, MyBid, TransferTransaction, BidRecord, FinanceTransaction };
+export type { User, Team, LoginResponse, League, Standing, Match, Player, TransferAuction, MyBid, TransferTransaction, BidRecord, FinanceTransaction, PlayerEvent };

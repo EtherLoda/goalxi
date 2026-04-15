@@ -69,4 +69,7 @@ export class TransferTransactionEntity extends AbstractEntity {
 
     @Column({ name: 'settled_at', type: 'timestamptz', nullable: true })
     settledAt?: Date;
+
+    @Column({ type: 'integer' })
+    season!: number;
 }

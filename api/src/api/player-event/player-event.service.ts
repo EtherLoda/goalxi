@@ -22,7 +22,7 @@ export class PlayerEventService {
       .where('event.playerId = :playerId', { playerId })
       .orderBy('event.date', 'DESC');
 
-    if (season !== undefined) {
+    if (season !== undefined && season !== null && !isNaN(season)) {
       query.andWhere('event.season = :season', { season });
     }
 

@@ -7,10 +7,10 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { AuthGuard } from '../../guards/auth.guard';
+import { LeaderboardResDto } from './dto/leaderboard.res.dto';
 import { MatchStatsResDto } from './dto/match-stats.res.dto';
 import { TeamStatsResDto } from './dto/team-stats.res.dto';
 import { StatsService } from './stats.service';
-import { LeaderboardResDto } from './dto/leaderboard.res.dto';
 
 import { Public } from '@/decorators/public.decorator';
 
@@ -64,6 +64,10 @@ export class StatsController {
     @Query('leagueId') leagueId: string,
     @Query('season', ParseIntPipe) season: number,
   ) {
-    return this.statsService.getPlayerCompetitionStats(playerId, leagueId, season);
+    return this.statsService.getPlayerCompetitionStats(
+      playerId,
+      leagueId,
+      season,
+    );
   }
 }
