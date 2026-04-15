@@ -323,13 +323,23 @@ export const api = {
     getMyListings: async (): Promise<TransferAuction[]> => {
       return request<TransferAuction[]>('/transfer/auction/my-listings');
     },
-    getMyPurchases: async (date?: string): Promise<TransferTransaction[]> => {
-      const params = date ? `?date=${date}` : '';
-      return request<TransferTransaction[]>(`/transfer/transactions/purchases${params}`);
+    getMyPurchases: async (params?: { date?: string; season?: number; page?: number; limit?: number }): Promise<{ items: TransferTransaction[]; meta: { total: number; page: number; limit: number; totalPages: number } }> => {
+      const searchParams = new URLSearchParams();
+      if (params?.date) searchParams.set('date', params.date);
+      if (params?.season) searchParams.set('season', String(params.season));
+      if (params?.page) searchParams.set('page', String(params.page));
+      if (params?.limit) searchParams.set('limit', String(params.limit));
+      const qs = searchParams.toString();
+      return request<{ items: TransferTransaction[]; meta: { total: number; page: number; limit: number; totalPages: number } }>(`/transfer/transactions/purchases${qs ? `?${qs}` : ''}`);
     },
-    getMySales: async (date?: string): Promise<TransferTransaction[]> => {
-      const params = date ? `?date=${date}` : '';
-      return request<TransferTransaction[]>(`/transfer/transactions/sales${params}`);
+    getMySales: async (params?: { date?: string; season?: number; page?: number; limit?: number }): Promise<{ items: TransferTransaction[]; meta: { total: number; page: number; limit: number; totalPages: number } }> => {
+      const searchParams = new URLSearchParams();
+      if (params?.date) searchParams.set('date', params.date);
+      if (params?.season) searchParams.set('season', String(params.season));
+      if (params?.page) searchParams.set('page', String(params.page));
+      if (params?.limit) searchParams.set('limit', String(params.limit));
+      const qs = searchParams.toString();
+      return request<{ items: TransferTransaction[]; meta: { total: number; page: number; limit: number; totalPages: number } }>(`/transfer/transactions/sales${qs ? `?${qs}` : ''}`);
     },
   },
 
