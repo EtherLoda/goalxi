@@ -783,21 +783,38 @@ export class AuctionService implements OnModuleInit {
     }
   }
 
-  async findMyPurchases(teamId: Uuid, date?: string) {
+  async findMyPurchases(
+    teamId: Uuid,
+    date?: string,
+    season?: number,
+    page = 1,
+    limit = 20,
+  ) {
     const queryDate = date ? new Date(date) : new Date();
     const startOfDay = new Date(queryDate);
     startOfDay.setHours(0, 0, 0, 0);
     const endOfDay = new Date(queryDate);
     endOfDay.setHours(23, 59, 59, 999);
 
+    const whereCondition: any = {
+      toTeamId: teamId,
+    };
+
+    // If no date provided, return all time; otherwise filter by day
+    if (date) {
+      whereCondition.createdAt = MoreThanOrEqual(startOfDay);
+    }
+
     const transactions = await this.transferTxRepo.find({
-      where: {
-        toTeamId: teamId,
-        createdAt: MoreThanOrEqual(startOfDay),
-      },
+      where: whereCondition,
       relations: ['player', 'fromTeam', 'toTeam', 'auction'],
       order: { createdAt: 'DESC' },
     });
+
+    // Filter by season if provided
+    const seasonFiltered = season
+      ? transactions.filter((t) => t.season === season)
+      : transactions;
 
     // Also get transactions where settledAt is today (for SETTLING->COMPLETED)
     const settledToday = await this.transferTxRepo
@@ -813,10 +830,17 @@ export class AuctionService implements OnModuleInit {
       .getMany();
 
     // Merge and deduplicate
-    const allTransactions = [...transactions];
-    for (const tx of settledToday) {
+    const allTransactions: TransferTransactionEntity[] = [];
+    for (const tx of seasonFiltered) {
       if (!allTransactions.find((t) => t.id === tx.id)) {
         allTransactions.push(tx);
+      }
+    }
+    for (const tx of settledToday) {
+      if (!allTransactions.find((t) => t.id === tx.id)) {
+        if (!season || tx.season === season) {
+          allTransactions.push(tx);
+        }
       }
     }
 
@@ -832,27 +856,56 @@ export class AuctionService implements OnModuleInit {
       }
     }
 
-    return allTransactions.sort(
+    // Sort by createdAt descending
+    allTransactions.sort(
       (a, b) =>
         new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
     );
+
+    // Paginate
+    const total = allTransactions.length;
+    const totalPages = Math.ceil(total / limit);
+    const offset = (page - 1) * limit;
+    const items = allTransactions.slice(offset, offset + limit);
+
+    return {
+      items,
+      meta: { total, page, limit, totalPages },
+    };
   }
 
-  async findMySales(teamId: Uuid, date?: string) {
+  async findMySales(
+    teamId: Uuid,
+    date?: string,
+    season?: number,
+    page = 1,
+    limit = 20,
+  ) {
     const queryDate = date ? new Date(date) : new Date();
     const startOfDay = new Date(queryDate);
     startOfDay.setHours(0, 0, 0, 0);
     const endOfDay = new Date(queryDate);
     endOfDay.setHours(23, 59, 59, 999);
 
+    const whereCondition: any = {
+      fromTeamId: teamId,
+    };
+
+    // If no date provided, return all time; otherwise filter by day
+    if (date) {
+      whereCondition.createdAt = MoreThanOrEqual(startOfDay);
+    }
+
     const transactions = await this.transferTxRepo.find({
-      where: {
-        fromTeamId: teamId,
-        createdAt: MoreThanOrEqual(startOfDay),
-      },
+      where: whereCondition,
       relations: ['player', 'fromTeam', 'toTeam', 'auction'],
       order: { createdAt: 'DESC' },
     });
+
+    // Filter by season if provided
+    const seasonFiltered = season
+      ? transactions.filter((t) => t.season === season)
+      : transactions;
 
     // Also get transactions where settledAt is today
     const settledToday = await this.transferTxRepo
@@ -868,10 +921,17 @@ export class AuctionService implements OnModuleInit {
       .getMany();
 
     // Merge and deduplicate
-    const allTransactions = [...transactions];
-    for (const tx of settledToday) {
+    const allTransactions: TransferTransactionEntity[] = [];
+    for (const tx of seasonFiltered) {
       if (!allTransactions.find((t) => t.id === tx.id)) {
         allTransactions.push(tx);
+      }
+    }
+    for (const tx of settledToday) {
+      if (!allTransactions.find((t) => t.id === tx.id)) {
+        if (!season || tx.season === season) {
+          allTransactions.push(tx);
+        }
       }
     }
 
@@ -887,9 +947,21 @@ export class AuctionService implements OnModuleInit {
       }
     }
 
-    return allTransactions.sort(
+    // Sort by createdAt descending
+    allTransactions.sort(
       (a, b) =>
         new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
     );
+
+    // Paginate
+    const total = allTransactions.length;
+    const totalPages = Math.ceil(total / limit);
+    const offset = (page - 1) * limit;
+    const items = allTransactions.slice(offset, offset + limit);
+
+    return {
+      items,
+      meta: { total, page, limit, totalPages },
+    };
   }
 }

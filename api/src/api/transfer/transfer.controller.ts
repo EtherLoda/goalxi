@@ -75,30 +75,57 @@ export class TransferController {
   }
 
   @Get('transactions/purchases')
-  @ApiOperation({ summary: "Get today's purchases for current team" })
+  @ApiOperation({ summary: 'Get purchase transactions for current team' })
   async findMyPurchases(
     @CurrentUser('id') userId: Uuid,
     @Query('date') date?: string,
-  ): Promise<TransactionResDto[]> {
+    @Query('season') season?: string,
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
+  ): Promise<{
+    items: TransactionResDto[];
+    meta: { total: number; page: number; limit: number; totalPages: number };
+  }> {
     const team = await this.teamRepo.findOneBy({ userId });
     if (!team) throw new Error('User has no team');
-    const transactions = await this.auctionService.findMyPurchases(
+    const result = await this.auctionService.findMyPurchases(
       team.id,
       date,
+      season ? parseInt(season, 10) : undefined,
+      page ? parseInt(page, 10) : undefined,
+      limit ? parseInt(limit, 10) : undefined,
     );
-    return transactions.map((t) => plainToInstance(TransactionResDto, t));
+    return {
+      items: result.items.map((t) => plainToInstance(TransactionResDto, t)),
+      meta: result.meta,
+    };
   }
 
   @Get('transactions/sales')
-  @ApiOperation({ summary: "Get today's sales for current team" })
+  @ApiOperation({ summary: 'Get sale transactions for current team' })
   async findMySales(
     @CurrentUser('id') userId: Uuid,
     @Query('date') date?: string,
-  ): Promise<TransactionResDto[]> {
+    @Query('season') season?: string,
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
+  ): Promise<{
+    items: TransactionResDto[];
+    meta: { total: number; page: number; limit: number; totalPages: number };
+  }> {
     const team = await this.teamRepo.findOneBy({ userId });
     if (!team) throw new Error('User has no team');
-    const transactions = await this.auctionService.findMySales(team.id, date);
-    return transactions.map((t) => plainToInstance(TransactionResDto, t));
+    const result = await this.auctionService.findMySales(
+      team.id,
+      date,
+      season ? parseInt(season, 10) : undefined,
+      page ? parseInt(page, 10) : undefined,
+      limit ? parseInt(limit, 10) : undefined,
+    );
+    return {
+      items: result.items.map((t) => plainToInstance(TransactionResDto, t)),
+      meta: result.meta,
+    };
   }
 
   @Post('auction')
