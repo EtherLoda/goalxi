@@ -1,7 +1,13 @@
 import { OffsetPaginatedDto } from '@/common/dto/offset-pagination/paginated.dto';
 import { Uuid } from '@/common/types/common.type';
 import { paginate } from '@/utils/offset-pagination';
-import { PlayerEntity, PlayerSkills, TrainingCategory } from '@goalxi/database';
+import {
+  PlayerEntity,
+  PlayerSkills,
+  TrainingCategory,
+  calculatePlayerPWI,
+  formatPWI,
+} from '@goalxi/database';
 import { Injectable } from '@nestjs/common';
 import assert from 'assert';
 import { plainToInstance } from 'class-transformer';
@@ -288,6 +294,7 @@ export class PlayerService {
 
   private mapToResDto(player: PlayerEntity): PlayerResDto {
     const [years, days] = player.getExactAge();
+    const pwiResult = calculatePlayerPWI(player);
     return plainToInstance(PlayerResDto, {
       id: player.id,
       teamId: player.teamId,
@@ -299,8 +306,11 @@ export class PlayerService {
       ageDays: days,
       appearance: player.appearance,
       isGoalkeeper: player.isGoalkeeper,
-      overall: this.calculateOverall(player.currentSkills),
+      overall: pwiResult.pwi,
+      pwi: pwiResult.pwi,
+      pwiDisplay: formatPWI(pwiResult.pwi),
       onTransfer: player.onTransfer,
+      specialty: player.specialty,
       currentSkills: player.currentSkills,
       potentialSkills: player.potentialSkills,
       potentialAbility: player.potentialAbility,

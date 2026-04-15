@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { type TransferTransaction } from "@/lib/api";
 
 interface PlayerSkills {
@@ -65,9 +66,9 @@ export default function TransferTransactionCard({
         </div>
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-3">
-            <h3 className="font-bold text-xl text-[#d3f5e8] truncate">
+            <Link href={`/players/${player.id}`} className="font-bold text-xl text-[#d3f5e8] truncate hover:text-[#a1ffc2] transition-colors">
               {player.name}
-            </h3>
+            </Link>
             {status === "failed" ? (
               <span className="bg-red-500/20 text-red-400 text-[11px] font-bold px-2 py-1 rounded-md">
                 Failed
@@ -135,16 +136,13 @@ export default function TransferTransactionCard({
       </div>
 
       {/* Specialties */}
-      {player.specialties && player.specialties.length > 0 && (
+      {player.specialty && (
         <div className="flex flex-wrap gap-2 mb-5">
-          {player.specialties.map((spec, idx) => (
-            <span
-              key={idx}
-              className="bg-[#a1ffc2]/10 text-[#a1ffc2] text-[10px] px-3 py-1.5 rounded-lg border border-[#a1ffc2]/20 uppercase tracking-wider"
-            >
-              {spec}
-            </span>
-          ))}
+          <span
+            className="bg-[#a1ffc2]/10 text-[#a1ffc2] text-[10px] px-3 py-1.5 rounded-lg border border-[#a1ffc2]/20 uppercase tracking-wider"
+          >
+            {player.specialty}
+          </span>
         </div>
       )}
 

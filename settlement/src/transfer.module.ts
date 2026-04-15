@@ -4,7 +4,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import {
   AuctionEntity,
   PlayerEntity,
-  PlayerHistoryEntity,
+  PlayerEventEntity,
   PlayerTransactionEntity,
   TeamEntity,
   TransferTransactionEntity,
@@ -19,7 +19,7 @@ import { TransferProcessor } from './processors/transfer.processor';
     TypeOrmModule.forFeature([
       AuctionEntity,
       PlayerEntity,
-      PlayerHistoryEntity,
+      PlayerEventEntity,
       PlayerTransactionEntity,
       TeamEntity,
       TransferTransactionEntity,

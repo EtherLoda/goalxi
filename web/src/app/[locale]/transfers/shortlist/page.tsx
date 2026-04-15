@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
+import { useParams } from "next/navigation";
 import { useAuth } from "@/contexts/AuthContext";
 import { api, type MyBid, type TransferAuction, type TransferTransaction } from "@/lib/api";
 
@@ -9,6 +10,8 @@ type TabType = "buying" | "selling";
 
 export default function ShortlistPage() {
   const { user, team } = useAuth();
+  const params = useParams();
+  const locale = params.locale as string;
   const [activeTab, setActiveTab] = useState<TabType>("buying");
   type EnrichedBid = MyBid & { highestBid: number; isHighestBidder: boolean; competitorBid?: number; competitorTeam?: string };
   const [bids, setBids] = useState<EnrichedBid[]>([]);
@@ -118,7 +121,9 @@ export default function ShortlistPage() {
           </div>
         </div>
         <div>
-          <h4 className="font-headline font-bold text-lg text-[#d3f5e8] leading-tight">{bid.player.name}</h4>
+          <Link href={`/${locale}/players/${bid.player.id}`} className="hover:text-[#a1ffc2] transition-colors">
+            <h4 className="font-headline font-bold text-lg text-[#d3f5e8] leading-tight">{bid.player.name}</h4>
+          </Link>
           <p className="text-[10px] text-on-surface-variant font-bold uppercase tracking-widest mt-0.5">
             {bid.player.age}y • {bid.player.position} • {bid.team?.name?.toUpperCase() || 'UNKNOWN'}
           </p>
@@ -165,7 +170,9 @@ export default function ShortlistPage() {
           <span className="text-2xl">{tx.player.name.charAt(0)}</span>
         </div>
         <div>
-          <h4 className="font-headline font-bold text-lg text-[#d3f5e8]">{tx.player.name}</h4>
+          <Link href={`/${locale}/players/${tx.player.id}`} className="hover:text-[#a1ffc2] transition-colors">
+            <h4 className="font-headline font-bold text-lg text-[#d3f5e8]">{tx.player.name}</h4>
+          </Link>
           <p className="text-[10px] text-on-surface-variant font-bold uppercase tracking-widest mt-0.5">
             {tx.player.age}y • {tx.player.position} • {tx.fromTeam?.name?.toUpperCase() || 'UNKNOWN'}
           </p>
@@ -364,7 +371,9 @@ export default function ShortlistPage() {
                             </div>
                           </div>
                           <div>
-                            <h4 className="font-headline font-bold text-lg text-[#d3f5e8] leading-tight">{listing.player.name}</h4>
+                            <Link href={`/${locale}/players/${listing.player.id}`} className="hover:text-[#a1ffc2] transition-colors">
+                              <h4 className="font-headline font-bold text-lg text-[#d3f5e8] leading-tight">{listing.player.name}</h4>
+                            </Link>
                             <p className="text-[10px] text-on-surface-variant font-bold uppercase tracking-widest mt-0.5">
                               {listing.player.age}y • {listing.player.position}
                             </p>
@@ -412,7 +421,9 @@ export default function ShortlistPage() {
                             <span className="text-2xl">{tx.player.name.charAt(0)}</span>
                           </div>
                           <div>
-                            <h4 className="font-headline font-bold text-lg text-[#d3f5e8]">{tx.player.name}</h4>
+                            <Link href={`/${locale}/players/${tx.player.id}`} className="hover:text-[#a1ffc2] transition-colors">
+                              <h4 className="font-headline font-bold text-lg text-[#d3f5e8]">{tx.player.name}</h4>
+                            </Link>
                             <p className="text-[10px] text-on-surface-variant font-bold uppercase tracking-widest mt-0.5">
                               {tx.player.age}y • {tx.player.position} • {tx.toTeam?.name?.toUpperCase() || 'UNKNOWN'}
                             </p>

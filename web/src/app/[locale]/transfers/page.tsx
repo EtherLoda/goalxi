@@ -2,6 +2,8 @@
 
 import { useTranslations } from "next-intl";
 import { useEffect, useState, useCallback } from "react";
+import { useParams } from "next/navigation";
+import Link from "next/link";
 import Sidebar from "@/components/dashboard/Sidebar";
 import { useAuth } from "@/contexts/AuthContext";
 import { api, type Player, type TransferAuction } from "@/lib/api";
@@ -100,6 +102,8 @@ type TransferPlayer = Player;
 
 export default function TransfersPage() {
   const t = useTranslations();
+  const params = useParams();
+  const locale = params.locale as string;
   const { user, team } = useAuth();
   const [transfers, setTransfers] = useState<TransferAuction[]>([]);
   const [selectedTransfer, setSelectedTransfer] = useState<TransferAuction | null>(null);
@@ -151,17 +155,17 @@ export default function TransfersPage() {
   const ATTRIBUTES = playerTypeFilter === "gk" ? GK_ATTRIBUTES : OUTFIELD_ATTRIBUTES;
 
   const SPECIALTIES = [
-    { value: "header_specialist", label: "头球专家", icon: "sports_kabaddi" },
-    { value: "long_passer", label: "长传手", icon: "near_me" },
-    { value: "cross_specialist", label: "传中专家", icon: "swap_vert" },
-    { value: "dribble_master", label: "盘带大师", icon: "cruelty_free" },
-    { value: "long_shooter", label: "远射", icon: "my_location" },
-    { value: "clutch_player", label: "关键先生", icon: "emoji_events" },
-    { value: "tackle_master", label: "抢断大师", icon: "shield" },
-    { value: "penalty_saver", label: "点球门将", icon: "pan_tool" },
-    { value: "counter_starter", label: "反击启动", icon: "bolt" },
-    { value: "rebound_specialist", label: "补射专家", icon: "replay" },
-    { value: "fast_start", label: "快发", icon: "timer" },
+    { value: "HEADER", label: "头球专家", icon: "sports_kabaddi" },
+    { value: "LPASS", label: "长传手", icon: "near_me" },
+    { value: "CROSS", label: "传中专家", icon: "swap_vert" },
+    { value: "DRBLE", label: "盘带大师", icon: "cruelty_free" },
+    { value: "LSHT", label: "远射", icon: "my_location" },
+    { value: "CLUCH", label: "关键先生", icon: "emoji_events" },
+    { value: "TACKL", label: "抢断大师", icon: "shield" },
+    { value: "PSAVE", label: "点球门将", icon: "pan_tool" },
+    { value: "CNTR", label: "反击启动", icon: "bolt" },
+    { value: "REBND", label: "补射专家", icon: "replay" },
+    { value: "FSTRT", label: "快发", icon: "timer" },
   ];
 
   // Close dropdown when clicking outside
@@ -881,7 +885,9 @@ export default function TransfersPage() {
                       <span className="text-[10px] font-bold text-white uppercase tracking-wider">{formatTimeRemaining(selectedTransfer.expiresAt)}</span>
                     </div>
                     <div className="absolute bottom-4 left-4">
-                      <h3 className="text-3xl font-bold text-white tracking-tighter">{selectedTransfer.player.name}</h3>
+                      <Link href={`/${params.locale}/players/${selectedTransfer.player.id}`}>
+                        <h3 className="text-3xl font-bold text-white tracking-tighter hover:text-[#a1ffc2] transition-colors">{selectedTransfer.player.name}</h3>
+                      </Link>
                       <p className="text-[#91b2a6] text-xs">
                         {selectedTransfer.player.age}岁{selectedTransfer.player.ageDays || 0}天 · {selectedTransfer.player.teamName || selectedTransfer.team.name} · £{(selectedTransfer.player.currentWage || 0).toLocaleString()}/w
                       </p>
@@ -1075,7 +1081,7 @@ export default function TransfersPage() {
           </div>
         ) : (
           <div className="flex-grow overflow-auto p-8">
-            <TransferHistoryPanel team={team} transactions={historyTransactions} />
+            <TransferHistoryPanel team={team} initialTransactions={historyTransactions} />
           </div>
         )}
       </main>

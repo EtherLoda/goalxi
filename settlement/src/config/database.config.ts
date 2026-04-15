@@ -19,7 +19,7 @@ import {
   StaffEntity,
   InjuryEntity,
   AuctionEntity,
-  PlayerHistoryEntity,
+  PlayerEventEntity,
   PlayerTransactionEntity,
   TacticsPresetEntity,
   YouthLeagueEntity,
@@ -31,6 +31,7 @@ import {
   WeatherEntity,
   SessionEntity,
   TransferTransactionEntity,
+  PlayerCompetitionStatsEntity,
 } from '@goalxi/database';
 
 @Injectable()
@@ -69,7 +70,7 @@ export class DatabaseConfigService implements TypeOrmOptionsFactory {
         StaffEntity,
         InjuryEntity,
         AuctionEntity,
-        PlayerHistoryEntity,
+        PlayerEventEntity,
         PlayerTransactionEntity,
         TacticsPresetEntity,
         YouthLeagueEntity,
@@ -81,6 +82,7 @@ export class DatabaseConfigService implements TypeOrmOptionsFactory {
         WeatherEntity,
         SessionEntity,
         TransferTransactionEntity,
+        PlayerCompetitionStatsEntity,
       ],
       synchronize: process.env.DATABASE_SYNCHRONIZE === 'true',
     };

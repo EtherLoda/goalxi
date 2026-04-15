@@ -151,6 +151,9 @@ export class PlayerEntity extends AbstractEntity {
     @Column({ name: 'on_transfer', default: false })
     onTransfer!: boolean;
 
+    @Column({ name: 'specialty', type: 'varchar', length: 50, nullable: true })
+    specialty?: string | null;
+
     @Column({ name: 'current_skills', type: 'jsonb' })
     currentSkills!: PlayerSkills;
 

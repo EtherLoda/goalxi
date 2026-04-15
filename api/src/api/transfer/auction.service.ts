@@ -5,7 +5,7 @@ import {
   AuctionStatus,
   FinanceEntity,
   PlayerEntity,
-  PlayerHistoryEntity,
+  PlayerEventEntity,
   TeamEntity,
   TransactionType,
   TransferTransactionEntity,
@@ -51,8 +51,8 @@ export class AuctionService implements OnModuleInit {
     private readonly playerRepo: Repository<PlayerEntity>,
     @InjectRepository(TeamEntity)
     private readonly teamRepo: Repository<TeamEntity>,
-    @InjectRepository(PlayerHistoryEntity)
-    private readonly historyRepo: Repository<PlayerHistoryEntity>,
+    @InjectRepository(PlayerEventEntity)
+    private readonly historyRepo: Repository<PlayerEventEntity>,
     @InjectRepository(TransferTransactionEntity)
     private readonly transferTxRepo: Repository<TransferTransactionEntity>,
     private readonly financeService: FinanceService,

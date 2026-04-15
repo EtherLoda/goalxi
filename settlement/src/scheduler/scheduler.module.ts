@@ -22,9 +22,13 @@ import {
   SeasonResultEntity,
   StadiumEntity,
   FanEntity,
+  FinanceEntity,
   WeatherEntity,
   TacticsPresetEntity,
+  PlayerCompetitionStatsEntity,
+  PlayerEventEntity,
 } from '@goalxi/database';
+import { LeagueAwardService } from './league-award.service';
 import { WeatherSchedulerService } from './weather-scheduler.service';
 import { WeatherService } from './weather.service';
 import { InjuryRecoveryService } from './injury-recovery.service';
@@ -87,11 +91,15 @@ import { SeasonTransitionService } from './season-transition.service';
       SeasonResultEntity,
       StadiumEntity,
       FanEntity,
+      FinanceEntity,
       WeatherEntity,
       TacticsPresetEntity,
+      PlayerCompetitionStatsEntity,
+      PlayerEventEntity,
     ]),
   ],
   providers: [
+    LeagueAwardService,
     WeatherSchedulerService,
     WeatherService,
     InjuryRecoveryService,
@@ -111,6 +119,7 @@ import { SeasonTransitionService } from './season-transition.service';
     SeasonTransitionService,
   ],
   exports: [
+    LeagueAwardService,
     WeatherSchedulerService,
     WeatherService,
     InjuryRecoveryService,

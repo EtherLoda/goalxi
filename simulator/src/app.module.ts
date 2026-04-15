@@ -18,7 +18,7 @@ import {
   PlayerEntity,
   TransactionEntity,
   AuctionEntity,
-  PlayerHistoryEntity,
+  PlayerEventEntity,
   PlayerTransactionEntity,
   InjuryEntity,
   StaffEntity,
@@ -28,6 +28,7 @@ import {
   YouthPlayerEntity,
   YouthTeamEntity,
   YouthLeagueEntity,
+  PlayerCompetitionStatsEntity,
 } from '@goalxi/database';
 import { SimulationProcessor } from './processor/simulation.processor';
 import { YouthSimulationProcessor } from './processor/youth-simulation.processor';
@@ -48,7 +49,7 @@ const entities = [
   PlayerEntity,
   TransactionEntity,
   AuctionEntity,
-  PlayerHistoryEntity,
+  PlayerEventEntity,
   PlayerTransactionEntity,
   InjuryEntity,
   YouthMatchEntity,
@@ -57,6 +58,7 @@ const entities = [
   YouthPlayerEntity,
   YouthTeamEntity,
   YouthLeagueEntity,
+  PlayerCompetitionStatsEntity,
 ];
 
 @Module({
@@ -100,6 +102,7 @@ const entities = [
       MatchTeamStatsEntity,
       PlayerEntity,
       TeamEntity,
+      PlayerEventEntity,
       InjuryEntity,
       StaffEntity,
       YouthMatchEntity,
@@ -107,6 +110,7 @@ const entities = [
       YouthMatchTacticsEntity,
       YouthPlayerEntity,
       YouthTeamEntity,
+      PlayerCompetitionStatsEntity,
     ]),
   ],
   providers: [SimulationProcessor, YouthSimulationProcessor],

@@ -2,7 +2,7 @@ import {
   AuctionEntity,
   AuctionStatus,
   PlayerEntity,
-  PlayerHistoryEntity,
+  PlayerEventEntity,
   TeamEntity,
   TransferTransactionEntity,
 } from '@goalxi/database';
@@ -77,7 +77,7 @@ describe('AuctionService', () => {
           },
         },
         {
-          provide: getRepositoryToken(PlayerHistoryEntity),
+          provide: getRepositoryToken(PlayerEventEntity),
           useValue: {},
         },
         {
@@ -113,7 +113,7 @@ describe('AuctionService', () => {
     auctionRepo = module.get(getRepositoryToken(AuctionEntity));
     playerRepo = module.get(getRepositoryToken(PlayerEntity));
     teamRepo = module.get(getRepositoryToken(TeamEntity));
-    historyRepo = module.get(getRepositoryToken(PlayerHistoryEntity));
+    historyRepo = module.get(getRepositoryToken(PlayerEventEntity));
     transferTxRepo = module.get(getRepositoryToken(TransferTransactionEntity));
     financeService = module.get(FinanceService);
     dataSource = module.get(DataSource);

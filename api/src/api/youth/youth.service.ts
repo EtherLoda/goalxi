@@ -1,7 +1,13 @@
-import { PlayerEntity, TeamEntity, YouthPlayerEntity } from '@goalxi/database';
+import {
+  PlayerEntity,
+  PlayerEventType,
+  TeamEntity,
+  YouthPlayerEntity,
+} from '@goalxi/database';
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
+import { PlayerEventService } from '../player-event/player-event.service';
 
 const OUTFIELD_KEYS = [
   'pace',
@@ -36,6 +42,7 @@ export class YouthService {
     private playerRepo: Repository<PlayerEntity>,
     @InjectRepository(TeamEntity)
     private teamRepo: Repository<TeamEntity>,
+    private readonly playerEventService: PlayerEventService,
   ) {}
 
   /** Get all youth players for a team (with fog filtering) */
@@ -116,6 +123,18 @@ export class YouthService {
     const savedPlayer = Array.isArray(saved) ? saved[0] : saved;
     youth.isPromoted = true;
     await this.youthRepo.save(youth);
+
+    // Record youth promotion event
+    await this.playerEventService.create({
+      playerId: savedPlayer.id,
+      season: 1, // TODO: Get current season dynamically
+      date: new Date(),
+      eventType: PlayerEventType.YOUTH_PROMOTION,
+      icon: 'trending_up',
+      titleKey: 'player_events.youth_promotion',
+      details: { youthName: youth.name },
+    });
+
     return savedPlayer;
   }
 

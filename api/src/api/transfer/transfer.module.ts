@@ -1,7 +1,7 @@
 import {
   AuctionEntity,
   PlayerEntity,
-  PlayerHistoryEntity,
+  PlayerEventEntity,
   PlayerTransactionEntity,
   TeamEntity,
   TransferTransactionEntity,
@@ -18,7 +18,7 @@ import { TransferController } from './transfer.controller';
   imports: [
     TypeOrmModule.forFeature([
       PlayerTransactionEntity,
-      PlayerHistoryEntity,
+      PlayerEventEntity,
       AuctionEntity,
       PlayerEntity,
       TeamEntity,

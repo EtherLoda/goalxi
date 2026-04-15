@@ -1,6 +1,7 @@
 "use client";
 
 import { useTranslations } from "next-intl";
+import Link from "next/link";
 import { type TransferAuction, type Player } from "@/lib/api";
 
 interface TransferPlayerCardProps {
@@ -79,13 +80,9 @@ export default function TransferPlayerCard({
         </div>
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-3">
-            <h3
-              className={`font-bold text-xl truncate ${
-                isSelected ? "text-[#a1ffc2]" : "text-[#d3f5e8]"
-              }`}
-            >
+            <Link href={`/players/${player.id}`} className={`font-bold text-xl truncate hover:text-[#a1ffc2] transition-colors ${isSelected ? "text-[#a1ffc2]" : "text-[#d3f5e8]"}`}>
               {player.name}
-            </h3>
+            </Link>
             <span
               className={`text-[11px] font-bold px-2 py-1 rounded-md ${
                 isExpired
@@ -159,16 +156,13 @@ export default function TransferPlayerCard({
       </div>
 
       {/* Specialties */}
-      {player.specialties && player.specialties.length > 0 && (
+      {player.specialty && (
         <div className="flex flex-wrap gap-2 mb-5">
-          {player.specialties.map((spec, idx) => (
-            <span
-              key={idx}
-              className="bg-[#a1ffc2]/10 text-[#a1ffc2] text-[10px] px-3 py-1.5 rounded-lg border border-[#a1ffc2]/20 uppercase tracking-wider"
-            >
-              {spec}
-            </span>
-          ))}
+          <span
+            className="bg-[#a1ffc2]/10 text-[#a1ffc2] text-[10px] px-3 py-1.5 rounded-lg border border-[#a1ffc2]/20 uppercase tracking-wider"
+          >
+            {player.specialty}
+          </span>
         </div>
       )}
 

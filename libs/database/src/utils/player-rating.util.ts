@@ -143,10 +143,15 @@ function getPlayerSkillPairs(player: PlayerEntity): { key: string; value: number
     // GK skills + 定位球
     const tech = player.currentSkills.technical as any;
     if (tech) {
-      pairs.push({ key: 'gk_reflexes', value: tech.gk_reflexes ?? 0 });
-      pairs.push({ key: 'gk_handling', value: tech.gk_handling ?? 0 });
-      pairs.push({ key: 'gk_aerial', value: tech.gk_aerial ?? 0 });
-      pairs.push({ key: 'gk_positioning', value: tech.gk_positioning ?? 0 });
+      pairs.push({ key: 'gk_reflexes', value: tech.reflexes ?? 0 });
+      pairs.push({ key: 'gk_handling', value: tech.handling ?? 0 });
+      pairs.push({ key: 'gk_aerial', value: tech.aerial ?? 0 });
+      pairs.push({ key: 'gk_positioning', value: tech.positioning ?? 0 });
+    }
+    // GK mental - composure is important for GK
+    const mental = player.currentSkills.mental as any;
+    if (mental) {
+      pairs.push({ key: 'composure', value: mental.composure ?? 0 });
     }
     // GK 定位球权重较低
     const setPieces = player.currentSkills.setPieces;

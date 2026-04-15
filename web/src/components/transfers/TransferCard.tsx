@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { type TransferAuction, type MyBid } from "@/lib/api";
 
 interface TransferCardProps {
@@ -56,9 +57,11 @@ export default function TransferCard({
         </div>
         <div className="flex flex-col">
           <div className="flex items-center gap-3">
-            <h4 className="font-headline font-bold text-lg text-[#d3f5e8] leading-tight">
-              {player.name}
-            </h4>
+            <Link href={`/players/${player.id}`} className="hover:text-[#a1ffc2] transition-colors">
+              <h4 className="font-headline font-bold text-lg text-[#d3f5e8] leading-tight">
+                {player.name}
+              </h4>
+            </Link>
             <div className="flex items-center gap-1 text-[10px] text-on-surface-variant font-bold">
               <span className="material-symbols-outlined text-xs">schedule</span>
               {timeLeft}

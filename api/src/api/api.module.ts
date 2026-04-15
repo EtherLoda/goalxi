@@ -6,6 +6,7 @@ import { GameModule } from './game/game.module';
 import { InjuryModule } from './injury/injury.module';
 import { LeagueModule } from './league/league.module';
 import { MatchModule } from './match/match.module';
+import { PlayerEventModule } from './player-event/player-event.module';
 import { PlayerModule } from './player/player.module';
 import { ScoutsModule } from './scouts/scouts.module';
 import { StadiumModule } from './stadium/stadium.module';
@@ -23,6 +24,7 @@ import { YouthModule } from './youth/youth.module';
     UserModule,
     AuthModule,
     PlayerModule,
+    PlayerEventModule,
     LeagueModule,
     TeamModule,
     FinanceModule,

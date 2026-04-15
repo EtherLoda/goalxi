@@ -2,7 +2,7 @@ import { Processor, WorkerHost, OnWorkerEvent } from '@nestjs/bullmq';
 import { Job } from 'bullmq';
 import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, DataSource, In } from 'typeorm';
+import { Repository, DataSource, In, EntityManager } from 'typeorm';
 import {
   MatchEntity,
   MatchEventEntity,
@@ -10,6 +10,9 @@ import {
   MatchStatus,
   MatchTacticsEntity,
   PlayerEntity,
+  PlayerEventEntity,
+  PlayerEventType,
+  PlayerCompetitionStatsEntity,
   TeamEntity,
   MatchType,
   GAME_SETTINGS,
@@ -54,10 +57,14 @@ export class SimulationProcessor extends WorkerHost {
     private readonly playerRepository: Repository<PlayerEntity>,
     @InjectRepository(TeamEntity)
     private readonly teamRepository: Repository<TeamEntity>,
+    @InjectRepository(PlayerEventEntity)
+    private readonly playerEventRepository: Repository<PlayerEventEntity>,
     @InjectRepository(InjuryEntity)
     private readonly injuryRepository: Repository<InjuryEntity>,
     @InjectRepository(StaffEntity)
     private readonly staffRepository: Repository<StaffEntity>,
+    @InjectRepository(PlayerCompetitionStatsEntity)
+    private readonly competitionStatsRepo: Repository<PlayerCompetitionStatsEntity>,
     private readonly dataSource: DataSource,
   ) {
     super();
@@ -485,6 +492,28 @@ export class SimulationProcessor extends WorkerHost {
       // Get match report from engine for settlement
       const matchReport = engine.getMatchReport();
 
+      // Record hat-trick events
+      for (const hatTrick of matchReport.hatTricks) {
+        const playerEvent = manager.create(PlayerEventEntity, {
+          playerId: hatTrick.playerId,
+          season: match.season,
+          date: new Date(),
+          eventType: PlayerEventType.HAT_TRICK,
+          icon: 'sports_kabaddi',
+          titleKey: 'player_events.hat_trick',
+          matchId: match.id,
+          titleData: { goals: hatTrick.goals, minute: hatTrick.minute },
+          details: {
+            matchId: match.id,
+            homeTeam: match.homeTeam.name,
+            awayTeam: match.awayTeam.name,
+            homeScore: engine.homeScore,
+            awayScore: engine.awayScore,
+          },
+        });
+        await manager.save(playerEvent);
+      }
+
       // Update Match - DON'T change status, let scheduler handle it
       // Simulation completes BEFORE match starts, status should remain TACTICS_LOCKED
       match.homeScore = engine.homeScore;
@@ -667,6 +696,17 @@ export class SimulationProcessor extends WorkerHost {
         ),
       );
 
+      // Update Player Competition Stats
+      await this.updatePlayerCompetitionStats(
+        manager,
+        match,
+        events,
+        allPlayers,
+        playerStatsMap,
+        homeStarterIds,
+        awayStarterIds,
+      );
+
       // Persist injury records in bulk
       const injuryEvents = events.filter((e) => e.type === 'injury');
       const injuryRecords: any[] = [];
@@ -725,6 +765,95 @@ export class SimulationProcessor extends WorkerHost {
         );
       }
     });
+  }
+
+  private async updatePlayerCompetitionStats(
+    manager: EntityManager,
+    match: MatchEntity,
+    events: MatchEvent[],
+    allPlayers: PlayerEntity[],
+    playerStatsMap: Map<string, any>,
+    homeStarterIds: string[],
+    awayStarterIds: string[],
+  ): Promise<void> {
+    const { id: matchId, leagueId, season } = match;
+    const starterIds = new Set([...homeStarterIds, ...awayStarterIds]);
+
+    // Count cards from events (yellow/red)
+    const playerCardCounts = new Map<
+      string,
+      { yellowCards: number; redCards: number }
+    >();
+
+    for (const e of events) {
+      if (!e.playerId) continue;
+
+      if (!playerCardCounts.has(e.playerId)) {
+        playerCardCounts.set(e.playerId, {
+          yellowCards: 0,
+          redCards: 0,
+        });
+      }
+
+      const counts = playerCardCounts.get(e.playerId)!;
+      switch (e.type) {
+        case 'yellow_card':
+          counts.yellowCards++;
+          break;
+        case 'red_card':
+          counts.redCards++;
+          break;
+      }
+    }
+
+    // Update competition stats for each player who participated
+    for (const player of allPlayers) {
+      const stats = playerStatsMap.get(player.id);
+      if (!stats || stats.minutesPlayed === 0) continue;
+
+      const cardCounts = playerCardCounts.get(player.id) || {
+        yellowCards: 0,
+        redCards: 0,
+      };
+
+      // Find or create competition stats record
+      let compStats = await manager.findOne(PlayerCompetitionStatsEntity, {
+        where: { playerId: player.id, leagueId: leagueId as any, season },
+      });
+
+      if (!compStats) {
+        compStats = manager.create(PlayerCompetitionStatsEntity, {
+          playerId: player.id,
+          leagueId: leagueId as any,
+          season,
+          goals: 0,
+          assists: 0,
+          tackles: 0,
+          yellowCards: 0,
+          redCards: 0,
+          starts: 0,
+          substituteAppearances: 0,
+          appearances: 0,
+        });
+      }
+
+      // Update stats using playerStatsMap (which comes from match report)
+      compStats.goals += stats.goals || 0;
+      compStats.assists += stats.assists || 0;
+      compStats.tackles += stats.tackles || 0;
+      compStats.yellowCards += cardCounts.yellowCards;
+      compStats.redCards += cardCounts.redCards;
+      compStats.appearances += 1;
+
+      // Determine if starter or substitute
+      if (starterIds.has(player.id) || stats.minutesPlayed >= 45) {
+        compStats.starts += 1;
+      } else {
+        compStats.substituteAppearances += 1;
+      }
+
+      await manager.save(compStats);
+    }
   }
 
   private mapEventType(type: string): number {

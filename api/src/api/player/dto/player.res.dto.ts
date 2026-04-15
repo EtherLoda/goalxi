@@ -55,9 +55,21 @@ export class PlayerResDto {
   @Expose()
   overall: number;
 
+  @NumberField({ int: true })
+  @Expose()
+  pwi: number;
+
+  @StringField()
+  @Expose()
+  pwiDisplay: string;
+
   @BooleanField()
   @Expose()
   onTransfer: boolean;
+
+  @StringFieldOptional()
+  @Expose()
+  specialty?: string | null;
 
   @Expose()
   @Transform(({ value }) => {

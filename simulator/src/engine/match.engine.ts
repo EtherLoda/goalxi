@@ -237,6 +237,14 @@ export class MatchEngine {
     }>;
   } = { home: [], away: [] };
 
+  // 待记录的帽子戏法列表
+  private pendingHatTricks: Array<{
+    playerId: string;
+    playerName: string;
+    goals: number;
+    minute: number;
+  }> = [];
+
   constructor(
     public homeTeam: Team,
     public awayTeam: Team,
@@ -954,6 +962,12 @@ export class MatchEngine {
     playerStats: ReturnType<MatchEngine['getPlayerMatchStats']>;
     laneStrengthAverages: ReturnType<MatchEngine['getLaneStrengthAverages']>;
     matchStats: ReturnType<MatchEngine['getMatchStats']>;
+    hatTricks: Array<{
+      playerId: string;
+      playerName: string;
+      goals: number;
+      minute: number;
+    }>;
   } {
     return {
       matchInfo: {
@@ -965,6 +979,7 @@ export class MatchEngine {
       playerStats: this.getPlayerMatchStats(),
       laneStrengthAverages: this.getLaneStrengthAverages(),
       matchStats: this.getMatchStats(),
+      hatTricks: this.pendingHatTricks,
     };
   }
 
@@ -1857,10 +1872,20 @@ export class MatchEngine {
     // Track player stats: goals and assists
     if (shot?.shooter) {
       const shooterId = (shot.shooter.player as Player).id;
+      const shooterName = (shot.shooter.player as Player).name;
       const stats = this.playerMatchStats.get(shooterId);
       if (stats) {
         if (finalResult === 'goal') {
           stats.goals++;
+          // Check for hat-trick (3 goals)
+          if (stats.goals === 3) {
+            this.pendingHatTricks.push({
+              playerId: shooterId,
+              playerName: shooterName,
+              goals: stats.goals,
+              minute: this.time,
+            });
+          }
         }
         if (shot.assist) {
           const assistId = (shot.assist.player as Player).id;

@@ -7,8 +7,8 @@ import {
   AuctionEntity,
   AuctionStatus,
   PlayerEntity,
-  PlayerHistoryEntity,
-  PlayerHistoryType,
+  PlayerEventEntity,
+  PlayerEventType,
   PlayerTransactionEntity,
   TeamEntity,
   TransferTransactionEntity,
@@ -40,8 +40,8 @@ export class TransferProcessor extends WorkerHost {
     private readonly playerRepo: Repository<PlayerEntity>,
     @InjectRepository(TeamEntity)
     private readonly teamRepo: Repository<TeamEntity>,
-    @InjectRepository(PlayerHistoryEntity)
-    private readonly historyRepo: Repository<PlayerHistoryEntity>,
+    @InjectRepository(PlayerEventEntity)
+    private readonly historyRepo: Repository<PlayerEventEntity>,
     @InjectRepository(PlayerTransactionEntity)
     private readonly playerTxRepo: Repository<PlayerTransactionEntity>,
     @InjectRepository(TransferTransactionEntity)
@@ -103,7 +103,7 @@ export class TransferProcessor extends WorkerHost {
         const auctionRepo = manager.getRepository(AuctionEntity);
         const playerRepo = manager.getRepository(PlayerEntity);
         const teamRepo = manager.getRepository(TeamEntity);
-        const historyRepo = manager.getRepository(PlayerHistoryEntity);
+        const historyRepo = manager.getRepository(PlayerEventEntity);
         const playerTxRepo = manager.getRepository(PlayerTransactionEntity);
 
         // 1. Re-verify buyer team exists (funds already validated by AuctionService)
@@ -138,12 +138,12 @@ export class TransferProcessor extends WorkerHost {
           settledAt: new Date(),
         });
 
-        // 7. Create player history
-        const history = manager.create(PlayerHistoryEntity, {
+        // 7. Create player event
+        const history = manager.create(PlayerEventEntity, {
           playerId: playerId as Uuid,
           season: 1, // TODO: Get current season dynamically
           date: new Date(),
-          eventType: PlayerHistoryType.TRANSFER,
+          eventType: PlayerEventType.TRANSFER,
           details: {
             fromTeamId: sellerTeamId,
             toTeamId: buyerTeamId,
