@@ -7,6 +7,8 @@ import {
   MatchEntity,
   MatchStatus,
   PlayerEntity,
+  PlayerEventEntity,
+  PlayerEventType,
   PlayerSkills,
   PotentialTier,
   StadiumEntity,
@@ -815,6 +817,68 @@ async function createLeaguePyramid() {
       `   ✓ ${league.name}: created ${matchesToCreate.length} matches (${TOTAL_WEEKS} weeks)`,
     );
   }
+
+  // 4b. Seed mock player events for 2 real team players
+  console.log('\n🎯 Seeding mock player events...');
+  const playerEventRepo = AppDataSource.getRepository(PlayerEventEntity);
+
+  // Get 2 players from user-owned teams (Test City FC and Test United)
+  const realTeams = await teamRepo.find({
+    where: { isBot: false },
+  });
+
+  for (const team of realTeams) {
+    const players = await playerRepo.find({
+      where: { teamId: team.id },
+      take: 2,
+    });
+
+    for (const player of players) {
+      // Mock league debut
+      await playerEventRepo.save(
+        playerEventRepo.create({
+          playerId: player.id,
+          season: 1,
+          date: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000),
+          eventType: PlayerEventType.LEAGUE_DEBUT,
+          icon: 'stadium',
+          titleKey: 'player_events.league_debut',
+          details: { teamName: team.name, leagueId: team.leagueId },
+        }),
+      );
+
+      // Random chance of hat-trick
+      if (Math.random() > 0.5) {
+        await playerEventRepo.save(
+          playerEventRepo.create({
+            playerId: player.id,
+            season: 1,
+            date: new Date(Date.now() - 15 * 24 * 60 * 60 * 1000),
+            eventType: PlayerEventType.HAT_TRICK,
+            icon: 'sports_kabaddi',
+            titleKey: 'player_events.hat_trick',
+            details: { goals: 3, matchId: null },
+          }),
+        );
+      }
+
+      // Mock man of the match
+      if (Math.random() > 0.3) {
+        await playerEventRepo.save(
+          playerEventRepo.create({
+            playerId: player.id,
+            season: 1,
+            date: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000),
+            eventType: PlayerEventType.MAN_OF_THE_MATCH,
+            icon: 'star',
+            titleKey: 'player_events.man_of_the_match',
+            details: { matchId: null },
+          }),
+        );
+      }
+    }
+  }
+  console.log('   ✓ Mock player events seeded');
 
   // 4. Summary
   console.log('\n' + '='.repeat(60));

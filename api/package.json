@@ -28,6 +28,7 @@
     "db:drop": "env-cmd ts-node ./node_modules/typeorm-extension/bin/cli.cjs db:drop",
     "seed:run": "env-cmd ts-node -r tsconfig-paths/register scripts/seed-main.ts",
     "clear:all": "env-cmd ts-node -r tsconfig-paths/register scripts/clear-all.ts",
+    "reset:db": "env-cmd ts-node -r tsconfig-paths/register scripts/reset-db.ts",
     "setup:match": "ts-node -r tsconfig-paths/register scripts/setup-match-db.ts",
     "seed:create": "env-cmd ts-node ./node_modules/typeorm-extension/bin/cli.cjs seed:create",
     "prepare": "husky || true",

@@ -87,6 +87,9 @@ async function clearAllData() {
     console.log('🗑️  Dropping users...');
     await AppDataSource.query('DROP TABLE IF EXISTS "user" CASCADE');
 
+    console.log('🗑️  Clearing migration records...');
+    await AppDataSource.query('DELETE FROM migrations');
+
     console.log('✅ All seed data cleared!\n');
     await AppDataSource.destroy();
   } catch (error) {

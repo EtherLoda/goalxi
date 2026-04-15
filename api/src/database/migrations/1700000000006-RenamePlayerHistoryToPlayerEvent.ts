@@ -66,10 +66,10 @@ export class RenamePlayerHistoryToPlayerEvent1700000000006 implements MigrationI
         `);
 
     // Step 3: Copy existing data from player_history to player_event
-    // Map old enum values to new enum values (most are same, just rename)
+    // Note: old table has "eventType" (camelCase), new table has "event_type" (snake_case)
     await queryRunner.query(`
             INSERT INTO "player_event" ("id", "player_id", "season", "date", "event_type", "details", "created_at", "updated_at")
-            SELECT "id", "player_id", "season", "date", "event_type", "details", "created_at", "updated_at"
+            SELECT "id", "player_id", "season", "date", "eventType", "details", "created_at", "updated_at"
             FROM "player_history"
         `);
 
