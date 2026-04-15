@@ -8,11 +8,25 @@ interface TransferHistoryPanelProps {
   initialTransactions?: TransferTransaction[];
 }
 
+interface PaginatedResponse<T> {
+  items: T[];
+  meta: {
+    total: number;
+    page: number;
+    limit: number;
+    totalPages: number;
+  };
+}
+
 export default function TransferHistoryPanel({ team, initialTransactions }: TransferHistoryPanelProps) {
   const [transactions, setTransactions] = useState<TransferTransaction[]>(initialTransactions || []);
   const [isLoading, setIsLoading] = useState(!initialTransactions);
   const [typeFilter, setTypeFilter] = useState<"all" | "inbound" | "outbound">("all");
   const [seasonFilter, setSeasonFilter] = useState<number | "all">("all");
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [total, setTotal] = useState(0);
+  const limit = 20;
 
   // Get available seasons from transactions
   const availableSeasons = Array.from(
@@ -20,21 +34,34 @@ export default function TransferHistoryPanel({ team, initialTransactions }: Tran
   ).sort((a, b) => b - a);
 
   useEffect(() => {
-    if (!team || initialTransactions) return;
+    if (!team || (initialTransactions && initialTransactions.length > 0)) return;
 
     const fetchHistory = async () => {
       setIsLoading(true);
       try {
-        const [purchases, sales] = await Promise.all([
-          api.transfers.getMyPurchases(),
-          api.transfers.getMySales(),
+        const query: { season?: number; page?: number; limit?: number } = {
+          limit,
+          page: seasonFilter !== "all" ? 1 : page,
+        };
+        if (seasonFilter !== "all") {
+          query.season = seasonFilter;
+        }
+        const [purchasesResult, salesResult] = await Promise.all([
+          api.transfers.getMyPurchases(query),
+          api.transfers.getMySales(query),
         ]);
-        const all = [...purchases, ...sales].sort(
+        const allPurchases = purchasesResult.items;
+        const allSales = salesResult.items;
+        const all = [...allPurchases, ...allSales].sort(
           (a, b) =>
             new Date(b.transactionDate).getTime() -
             new Date(a.transactionDate).getTime(),
         );
         setTransactions(all);
+        // Use the larger totalPages between purchases and sales
+        const maxTotal = Math.max(purchasesResult.meta.total, salesResult.meta.total);
+        setTotal(maxTotal);
+        setTotalPages(Math.ceil(maxTotal / limit));
       } catch (err) {
         console.error("Failed to fetch history:", err);
       } finally {
@@ -43,7 +70,7 @@ export default function TransferHistoryPanel({ team, initialTransactions }: Tran
     };
 
     fetchHistory();
-  }, [team, initialTransactions]);
+  }, [team, initialTransactions, seasonFilter, page]);
 
   const filteredTransactions = transactions.filter((tx) => {
     if (typeFilter === "inbound" && tx.toTeam?.id !== team?.id) return false;
@@ -70,6 +97,33 @@ export default function TransferHistoryPanel({ team, initialTransactions }: Tran
       return "—";
     }
   };
+
+  const paginationControls = totalPages > 1 ? (
+    <div className="flex items-center justify-between px-6 py-4 border-t border-[#2f4e44]/10">
+      <span className="text-xs text-[#91b2a6]">
+        Showing {transactions.length} of {total} transactions
+      </span>
+      <div className="flex items-center gap-2">
+        <button
+          onClick={() => setPage((p) => Math.max(1, p - 1))}
+          disabled={page === 1}
+          className="px-3 py-1.5 text-[10px] font-bold uppercase tracking-widest rounded-full transition-all disabled:opacity-30 disabled:cursor-not-allowed bg-[#00251c] text-[#d3f5e8] hover:bg-[#003d2e]"
+        >
+          Prev
+        </button>
+        <span className="text-xs text-[#d3f5e8] font-medium">
+          Page {page} of {totalPages}
+        </span>
+        <button
+          onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+          disabled={page === totalPages}
+          className="px-3 py-1.5 text-[10px] font-bold uppercase tracking-widest rounded-full transition-all disabled:opacity-30 disabled:cursor-not-allowed bg-[#00251c] text-[#d3f5e8] hover:bg-[#003d2e]"
+        >
+          Next
+        </button>
+      </div>
+    </div>
+  ) : null;
 
   // Recent arrivals = purchases (inbound)
   const recentArrivals = transactions.filter((tx) => tx.toTeam?.id === team?.id).slice(0, 2);
@@ -156,18 +210,18 @@ export default function TransferHistoryPanel({ team, initialTransactions }: Tran
             </button>
           </div>
           {availableSeasons.length > 0 && (
-            <div className="flex items-center gap-2">
-              <span className="text-[10px] text-[#91b2a6] uppercase tracking-widest">Season</span>
+            <div className="relative">
               <select
                 value={seasonFilter}
-                onChange={(e) => setSeasonFilter(e.target.value === "all" ? "all" : Number(e.target.value))}
-                className="bg-[#00251c] text-[#d3f5e8] text-[10px] font-bold rounded-lg px-3 py-1.5 border border-[#2f4e44]/30 focus:outline-none focus:border-[#a1ffc2]/50"
+                onChange={(e) => { setSeasonFilter(e.target.value === "all" ? "all" : Number(e.target.value)); setPage(1); }}
+                className="appearance-none bg-[#002c22] border border-[#2f4e44]/30 rounded-xl px-4 py-2.5 pr-10 text-xs font-bold text-[#d3f5e8] cursor-pointer hover:border-[#a1ffc2]/30 transition-colors focus:outline-none focus:border-[#a1ffc2]/50 shadow-lg"
               >
-                <option value="all">All</option>
+                <option value="all">All Seasons</option>
                 {availableSeasons.map((s) => (
-                  <option key={s} value={s}>S{s}</option>
+                  <option key={s} value={s}>Season {s}</option>
                 ))}
               </select>
+              <span className="absolute right-3 top-1/2 -translate-y-1/2 material-symbols-outlined text-sm text-[#91b2a6] pointer-events-none">expand_more</span>
             </div>
           )}
         </div>
@@ -180,6 +234,7 @@ export default function TransferHistoryPanel({ team, initialTransactions }: Tran
               No transactions found.
             </div>
           ) : (
+            <>
             <table className="w-full text-left border-collapse">
               <thead>
                 <tr className="bg-[#00251c]">
@@ -283,6 +338,8 @@ export default function TransferHistoryPanel({ team, initialTransactions }: Tran
                 })}
               </tbody>
             </table>
+            {paginationControls}
+            </>
           )}
         </div>
       </section>
