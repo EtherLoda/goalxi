@@ -325,5 +325,23 @@
     "exportReport": "导出报告",
     "filterBySeason": "筛选赛季",
     "filterByWeek": "筛选周"
+  },
+  "player_events": {
+    "title": "球员事件",
+    "no_events": "暂无记录",
+    "transfer": "转会至新俱乐部",
+    "youth_promotion": "从青训提拔",
+    "hat_trick": "帽子戏法",
+    "championship_title": "联赛冠军",
+    "golden_boot": "金靴奖",
+    "assists_leader": "助攻王",
+    "tackles_leader": "抢断王",
+    "man_of_the_match": "全场最佳",
+    "injury": "受伤",
+    "debut": "一线队首秀",
+    "league_debut": "联赛首秀",
+    "captain_debut": "首次担任队长",
+    "record_broken": "创造新纪录",
+    "contract_renewal": "续约"
   }
 }

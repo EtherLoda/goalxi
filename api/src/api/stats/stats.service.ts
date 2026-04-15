@@ -2,11 +2,17 @@ import {
   MatchEntity,
   MatchStatus,
   MatchTeamStatsEntity,
+  PlayerCompetitionStatsEntity,
+  PlayerEntity,
   TeamEntity,
 } from '@goalxi/database';
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { In, Repository } from 'typeorm';
+import {
+  CompetitionStatsEntryDto,
+  LeaderboardResDto,
+} from './dto/leaderboard.res.dto';
 import { MatchStatsResDto } from './dto/match-stats.res.dto';
 import { TeamStatsResDto } from './dto/team-stats.res.dto';
 
@@ -19,6 +25,10 @@ export class StatsService {
     private readonly matchStatsRepository: Repository<MatchTeamStatsEntity>,
     @InjectRepository(TeamEntity)
     private readonly teamRepository: Repository<TeamEntity>,
+    @InjectRepository(PlayerCompetitionStatsEntity)
+    private readonly competitionStatsRepo: Repository<PlayerCompetitionStatsEntity>,
+    @InjectRepository(PlayerEntity)
+    private readonly playerRepo: Repository<PlayerEntity>,
   ) {}
 
   async getMatchStats(matchId: string): Promise<MatchStatsResDto> {
@@ -118,5 +128,100 @@ export class StatsService {
     stats.goalDifference = stats.goalsFor - stats.goalsAgainst;
 
     return stats;
+  }
+
+  async getLeaderboard(
+    leagueId: string,
+    season: number,
+    type: 'goals' | 'assists' | 'tackles',
+    limit: number = 10,
+    offset: number = 0,
+  ): Promise<LeaderboardResDto> {
+    const orderColumn =
+      type === 'goals' ? 'goals' : type === 'assists' ? 'assists' : 'tackles';
+
+    const stats = await this.competitionStatsRepo.find({
+      where: { leagueId: leagueId as any, season },
+      order: { [orderColumn]: 'DESC', playerId: 'ASC' },
+      take: limit,
+      skip: offset,
+    });
+
+    if (stats.length === 0) {
+      return { leagueId, season, type, entries: [] };
+    }
+
+    // Get player and team info
+    const playerIds = stats.map((s) => s.playerId);
+    const players = await this.playerRepo.find({
+      where: { id: In(playerIds as any[]) },
+    });
+    const playerMap = new Map(players.map((p) => [p.id, p]));
+
+    const teamIds = [...new Set(players.map((p) => p.teamId).filter(Boolean))];
+    const teams = await this.teamRepository.find({
+      where: { id: In(teamIds as any[]) },
+    });
+    const teamMap = new Map(teams.map((t) => [t.id, t]));
+
+    const entries: CompetitionStatsEntryDto[] = stats.map((s) => {
+      const player = playerMap.get(s.playerId);
+      const team = player?.teamId
+        ? teamMap.get(player.teamId as any)
+        : undefined;
+
+      return {
+        playerId: s.playerId,
+        playerName: player?.name || 'Unknown',
+        teamId: player?.teamId || ('' as any),
+        teamName: team?.name || 'Unknown',
+        goals: s.goals,
+        assists: s.assists,
+        tackles: s.tackles,
+        yellowCards: s.yellowCards,
+        redCards: s.redCards,
+        appearances: s.appearances,
+        starts: s.starts,
+      };
+    });
+
+    return { leagueId, season, type, entries };
+  }
+
+  async getPlayerCompetitionStats(
+    playerId: string,
+    leagueId: string,
+    season: number,
+  ): Promise<CompetitionStatsEntryDto | null> {
+    const stats = await this.competitionStatsRepo.findOne({
+      where: { playerId: playerId as any, leagueId: leagueId as any, season },
+    });
+
+    if (!stats) {
+      return null;
+    }
+
+    const player = await this.playerRepo.findOne({
+      where: { id: playerId as any },
+    });
+    const team = player?.teamId
+      ? await this.teamRepository.findOne({
+          where: { id: player.teamId as any },
+        })
+      : undefined;
+
+    return {
+      playerId: stats.playerId,
+      playerName: player?.name || 'Unknown',
+      teamId: player?.teamId || ('' as any),
+      teamName: team?.name || 'Unknown',
+      goals: stats.goals,
+      assists: stats.assists,
+      tackles: stats.tackles,
+      yellowCards: stats.yellowCards,
+      redCards: stats.redCards,
+      appearances: stats.appearances,
+      starts: stats.starts,
+    };
   }
 }

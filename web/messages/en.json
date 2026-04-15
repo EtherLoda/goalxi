@@ -325,5 +325,23 @@
     "exportReport": "Export Report",
     "filterBySeason": "Filter by Season",
     "filterByWeek": "Filter by Week"
+  },
+  "player_events": {
+    "title": "Player Events",
+    "no_events": "No events recorded yet",
+    "transfer": "Transferred to new club",
+    "youth_promotion": "Promoted from youth academy",
+    "hat_trick": "Hat-trick hero",
+    "championship_title": "League Champion",
+    "golden_boot": "Golden Boot Winner",
+    "assists_leader": "Assists Leader",
+    "tackles_leader": "Tackles Leader",
+    "man_of_the_match": "Man of the Match",
+    "injury": "Injury",
+    "debut": "First team debut",
+    "league_debut": "League debut",
+    "captain_debut": "First time captain",
+    "record_broken": "New record set",
+    "contract_renewal": "Contract renewed"
   }
 }

@@ -54,6 +54,8 @@ interface Player {
   isYouth: boolean;
   isGoalkeeper: boolean;
   overall: number;
+  pwi: number;
+  pwiDisplay: string;
   position?: string;
   teamName?: string;
   onTransfer: boolean;
@@ -66,7 +68,7 @@ interface Player {
   form: number;
   stamina: number;
   currentWage: number;
-  specialties?: string[];
+  specialty?: string;
 }
 
 interface PlayerListResponse {
@@ -77,6 +79,19 @@ interface PlayerListResponse {
     limit: number;
     totalPages: number;
   };
+}
+
+interface PlayerEvent {
+  id: string;
+  playerId: string;
+  season: number;
+  date: string;
+  eventType: string;
+  icon?: string;
+  titleKey?: string;
+  matchId?: string;
+  titleData?: Record<string, any>;
+  details?: any;
 }
 
 interface Match {
@@ -213,12 +228,18 @@ export const api = {
   },
 
   teams: {
+    getById: async (id: string): Promise<Team> => {
+      return request<Team>(`/teams/${id}`);
+    },
     getByUser: async (userId: string): Promise<Team> => {
       return request<Team>(`/teams/user/${userId}`);
     },
   },
 
   players: {
+    getById: async (id: string): Promise<Player> => {
+      return request<Player>(`/players/${id}`);
+    },
     getByTeam: async (teamId: string): Promise<{ items: Player[]; meta: any }> => {
       const response = await request<any>(`/players?teamId=${teamId}&limit=100`);
       // Handle both paginated {data, pagination} and direct array responses
@@ -226,6 +247,11 @@ export const api = {
         return { items: response, meta: {} };
       }
       return { items: response.data || response.items || [], meta: response.pagination || response.meta || {} };
+    },
+    getEvents: async (playerId: string, season?: number): Promise<PlayerEvent[]> => {
+      const params = new URLSearchParams({ playerId });
+      if (season !== undefined) params.append('season', String(season));
+      return request<PlayerEvent[]>(`/player-events/player/${playerId}?${params.toString()}`);
     },
   },
 

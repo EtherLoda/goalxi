@@ -2,6 +2,8 @@ import {
   MatchEntity,
   MatchTeamStatsEntity,
   TeamEntity,
+  PlayerCompetitionStatsEntity,
+  PlayerEntity,
 } from '@goalxi/database';
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
@@ -12,7 +14,13 @@ import { StatsService } from './stats.service';
 @Module({
   imports: [
     AuthModule,
-    TypeOrmModule.forFeature([MatchEntity, MatchTeamStatsEntity, TeamEntity]),
+    TypeOrmModule.forFeature([
+      MatchEntity,
+      MatchTeamStatsEntity,
+      TeamEntity,
+      PlayerCompetitionStatsEntity,
+      PlayerEntity,
+    ]),
   ],
   controllers: [StatsController],
   providers: [StatsService],
