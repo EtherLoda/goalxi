@@ -39,14 +39,17 @@ export class FinanceSchedulerService {
   async processWeeklyFinanceSettlement() {
     this.logger.log('[FinanceScheduler] Starting weekly finance settlement...');
 
-    try {
-      // Get all teams and their current season
-      const teams = await this.teamRepo.find();
-      const currentSeason = await this.getCurrentSeason();
+    // Get all teams and their current season
+    const teams = await this.teamRepo.find();
+    const currentSeason = await this.getCurrentSeason();
 
-      this.logger.log(`[FinanceScheduler] Current season: ${currentSeason}`);
+    this.logger.log(`[FinanceScheduler] Current season: ${currentSeason}`);
 
-      for (const team of teams) {
+    let successCount = 0;
+    let failCount = 0;
+
+    for (const team of teams) {
+      try {
         await this.financeQueue.add(
           'weekly-settlement',
           {
@@ -58,16 +61,17 @@ export class FinanceSchedulerService {
             jobId: `finance-weekly-${team.id}-${Date.now()}`,
           },
         );
+        successCount++;
+      } catch (error) {
+        failCount++;
+        this.logger.error(
+          `[FinanceScheduler] Failed to queue finance settlement for team ${team.id}: ${error.message}`,
+        );
       }
-
-      this.logger.log(
-        `[FinanceScheduler] Finance settlement queued for ${teams.length} teams (season ${currentSeason})`,
-      );
-    } catch (error) {
-      this.logger.error(
-        `[FinanceScheduler] Failed to queue finance settlement: ${error.message}`,
-        error.stack,
-      );
     }
+
+    this.logger.log(
+      `[FinanceScheduler] Finance settlement queued: ${successCount} teams succeeded, ${failCount} failed (season ${currentSeason})`,
+    );
   }
 }

@@ -92,30 +92,33 @@ export class PromotionRelegationService {
       return;
     }
 
-    // 直接升级：第1名
-    const promotionPosition = 1;
-    const promotionStanding = standings.find(
-      (s) => s.position === promotionPosition,
-    );
-    if (promotionStanding) {
-      await this.promoteTeam(
-        promotionStanding.team,
-        league,
-        season,
-        promotionStanding.position,
-      );
-    }
+    const maxTeams = league.maxTeams || 16;
+    const promotionSlots = league.promotionSlots || 1;
+    const relegationSlots = league.relegationSlots || 4;
 
-    // 直接降级：第13-16名
-    const relegationPositions = [13, 14, 15, 16];
-    for (const pos of relegationPositions) {
-      const relegationStanding = standings.find((s) => s.position === pos);
-      if (relegationStanding) {
-        await this.relegateTeam(
-          relegationStanding.team,
+    // Direct promotion: top positions
+    for (let i = 0; i < promotionSlots; i++) {
+      const standing = standings[i];
+      if (standing) {
+        await this.promoteTeam(
+          standing.team,
           league,
           season,
-          relegationStanding.position,
+          standing.position,
+        );
+      }
+    }
+
+    // Direct relegation: bottom positions
+    const relegationStart = maxTeams - relegationSlots + 1;
+    for (let pos = relegationStart; pos <= maxTeams; pos++) {
+      const standing = standings.find((s) => s.position === pos);
+      if (standing) {
+        await this.relegateTeam(
+          standing.team,
+          league,
+          season,
+          standing.position,
         );
       }
     }

@@ -7,6 +7,7 @@ import {
   LeagueStandingEntity,
   TeamEntity,
   SeasonResultEntity,
+  Uuid,
 } from '@goalxi/database';
 
 describe('PromotionRelegationService', () => {
@@ -38,7 +39,7 @@ describe('PromotionRelegationService', () => {
   };
 
   const TIER1_LEAGUE: Partial<LeagueEntity> = {
-    id: 'tier1-league-id',
+    id: 'tier1-league-id' as Uuid,
     name: 'Tier 1 League',
     tier: 1,
     tierDivision: 1,
@@ -49,7 +50,7 @@ describe('PromotionRelegationService', () => {
   };
 
   const TIER2_LEAGUE_L1: Partial<LeagueEntity> = {
-    id: 'tier2-league-l1-id',
+    id: 'tier2-league-l1-id' as Uuid,
     name: 'Tier 2 League L1',
     tier: 2,
     tierDivision: 1,
@@ -60,7 +61,7 @@ describe('PromotionRelegationService', () => {
   };
 
   const TIER2_LEAGUE_L2: Partial<LeagueEntity> = {
-    id: 'tier2-league-l2-id',
+    id: 'tier2-league-l2-id' as Uuid,
     name: 'Tier 2 League L2',
     tier: 2,
     tierDivision: 2,
@@ -71,7 +72,7 @@ describe('PromotionRelegationService', () => {
   };
 
   const TIER3_LEAGUE: Partial<LeagueEntity> = {
-    id: 'tier3-league-id',
+    id: 'tier3-league-id' as Uuid,
     name: 'Tier 3 League',
     tier: 3,
     tierDivision: 1,
@@ -82,9 +83,9 @@ describe('PromotionRelegationService', () => {
   };
 
   const createMockTeam = (id: string, name: string): Partial<TeamEntity> => ({
-    id,
+    id: id as Uuid,
     name,
-    leagueId: 'some-league-id',
+    leagueId: 'some-league-id' as Uuid,
   });
 
   beforeEach(async () => {

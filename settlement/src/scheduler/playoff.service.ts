@@ -120,20 +120,33 @@ export class PlayoffService {
   ): Promise<PlayoffMatchInfo[]> {
     const matches: PlayoffMatchInfo[] = [];
 
-    // 获取上级联赛第9-12名的球队
+    const maxTeams = upperLeague.maxTeams || 16;
+    const playoffSlots = upperLeague.playoffSlots || 4;
+    const relegationSlots = upperLeague.relegationSlots || 4;
+
+    // Calculate playoff positions: e.g., for 16-team league with 4 playoff slots and 4 relegation slots
+    // positions = [16 - 4 - 4 + 1 = 9, to 16 - 4 = 12]
+    const playoffStart = maxTeams - playoffSlots - relegationSlots + 1;
+    const playoffEnd = maxTeams - relegationSlots;
+
+    // 获取上级联赛参加附加赛的球队
     const upperStandings = await this.standingRepository.find({
       where: { leagueId: upperLeague.id, season },
       relations: ['team'],
       order: { position: 'ASC' },
     });
 
-    const positions9to12 = upperStandings.filter(
-      (s) => s.position >= 9 && s.position <= 12,
+    const playoffPositions = upperStandings.filter(
+      (s) => s.position >= playoffStart && s.position <= playoffEnd,
     );
 
     // 获取下级各联赛第2名的球队
-    for (let i = 0; i < positions9to12.length && i < lowerLeagues.length; i++) {
-      const upperStanding = positions9to12[i];
+    for (
+      let i = 0;
+      i < playoffPositions.length && i < lowerLeagues.length;
+      i++
+    ) {
+      const upperStanding = playoffPositions[i];
       const lowerLeague = lowerLeagues[i];
 
       const lowerStanding = await this.standingRepository.findOne({

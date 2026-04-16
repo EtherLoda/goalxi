@@ -207,23 +207,31 @@ export class LeagueAwardService {
 
     if (!champion) return;
 
-    await this.playerEventRepo.save(
-      this.playerEventRepo.create({
-        playerId: champion.teamId,
-        season,
-        date: new Date(),
-        eventType: PlayerEventType.CHAMPIONSHIP_TITLE,
-        icon: 'emoji_events',
-        titleKey: 'player_events.championship_title',
-        details: {
-          teamId: champion.teamId,
-          teamName: champion.team?.name,
-          leagueId,
+    // Find all players from the champion team
+    const championPlayers = await this.playerRepo.find({
+      where: { teamId: champion.teamId as any },
+    });
+
+    // Create a championship event for each player on the team
+    for (const player of championPlayers) {
+      await this.playerEventRepo.save(
+        this.playerEventRepo.create({
+          playerId: player.id,
           season,
-          position: champion.position,
-        },
-      }),
-    );
+          date: new Date(),
+          eventType: PlayerEventType.CHAMPIONSHIP_TITLE,
+          icon: 'emoji_events',
+          titleKey: 'player_events.championship_title',
+          details: {
+            teamId: champion.teamId,
+            teamName: champion.team?.name,
+            leagueId,
+            season,
+            position: champion.position,
+          },
+        }),
+      );
+    }
 
     // 冠军球队直接加奖金
     const finance = await this.financeRepo.findOne({

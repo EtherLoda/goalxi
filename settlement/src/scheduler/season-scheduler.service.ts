@@ -95,12 +95,13 @@ export class SeasonSchedulerService {
 
       if (!league?.league) continue;
 
-      // 获取联赛所有球队（从 standing 表获取当前 leagueId 的球队）
+      // 获取联赛所有球队（从新赛季 standings 获取，此时升降级已完成）
       const standings = await this.matchRepository.manager
         .createQueryBuilder(MatchEntity, 'match')
         .select('standing.team_id', 'teamId')
         .from('league_standing', 'standing')
         .where('standing.league_id = :leagueId', { leagueId })
+        .andWhere('standing.season = :season', { season: nextSeason })
         .getRawMany();
 
       const teamIds = standings.map((s) => s.teamId);

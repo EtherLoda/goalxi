@@ -6,12 +6,14 @@ import { PromotionRelegationService } from './promotion-relegation.service';
 import { PlayoffService } from './playoff.service';
 import { SeasonSchedulerService } from './season-scheduler.service';
 import { LeagueStandingService } from './league-standing.service';
+import { SeasonArchiveService } from '../services/season-archive.service';
 import {
   MatchEntity,
   MatchStatus,
   MatchType,
   TeamEntity,
   LeagueEntity,
+  Uuid,
 } from '@goalxi/database';
 
 describe('SeasonTransitionService', () => {
@@ -21,6 +23,7 @@ describe('SeasonTransitionService', () => {
   let playoffService: jest.Mocked<PlayoffService>;
   let seasonSchedulerService: jest.Mocked<SeasonSchedulerService>;
   let leagueStandingService: jest.Mocked<LeagueStandingService>;
+  let seasonArchiveService: jest.Mocked<SeasonArchiveService>;
 
   const mockMatchRepository = {
     find: jest.fn(),
@@ -53,13 +56,23 @@ describe('SeasonTransitionService', () => {
     initNewSeasonStandings: jest.fn(),
   };
 
+  const mockSeasonArchiveService = {
+    archiveSeason: jest.fn().mockResolvedValue({
+      season: 1,
+      seasonResultCount: 0,
+      playerStatsCount: 0,
+      transactionCount: 0,
+      playerEventCount: 0,
+    }),
+  };
+
   const createMockMatch = (
     overrides?: Partial<MatchEntity>,
   ): Partial<MatchEntity> => ({
-    id: 'match-id',
-    homeTeamId: 'home-team-id',
-    awayTeamId: 'away-team-id',
-    leagueId: 'league-id',
+    id: 'match-id' as Uuid,
+    homeTeamId: 'home-team-id' as Uuid,
+    awayTeamId: 'away-team-id' as Uuid,
+    leagueId: 'league-id' as Uuid,
     season: 1,
     week: 15,
     scheduledAt: new Date(),
@@ -67,10 +80,10 @@ describe('SeasonTransitionService', () => {
     type: MatchType.LEAGUE,
     homeScore: 2,
     awayScore: 1,
-    homeTeam: { id: 'home-team-id', name: 'Home Team' } as TeamEntity,
-    awayTeam: { id: 'away-team-id', name: 'Away Team' } as TeamEntity,
-    league: { id: 'league-id', name: 'Test League' } as LeagueEntity,
-    lowerLeagueId: 'lower-league-id',
+    homeTeam: { id: 'home-team-id' as Uuid, name: 'Home Team' } as TeamEntity,
+    awayTeam: { id: 'away-team-id' as Uuid, name: 'Away Team' } as TeamEntity,
+    league: { id: 'league-id' as Uuid, name: 'Test League' } as LeagueEntity,
+    lowerLeagueId: 'lower-league-id' as Uuid,
     ...overrides,
   });
 
@@ -98,6 +111,10 @@ describe('SeasonTransitionService', () => {
           provide: LeagueStandingService,
           useValue: mockLeagueStandingService,
         },
+        {
+          provide: SeasonArchiveService,
+          useValue: mockSeasonArchiveService,
+        },
       ],
     }).compile();
 
@@ -107,25 +124,26 @@ describe('SeasonTransitionService', () => {
     playoffService = module.get(PlayoffService);
     seasonSchedulerService = module.get(SeasonSchedulerService);
     leagueStandingService = module.get(LeagueStandingService);
+    seasonArchiveService = module.get(SeasonArchiveService);
 
     jest.clearAllMocks();
   });
 
-  describe('checkSeasonTransition', () => {
-    it('should not trigger transition when not week 15', async () => {
+  describe('checkAndGeneratePlayoffs', () => {
+    it('should not trigger playoffs when not week 15', async () => {
       mockMatchRepository.findOne.mockResolvedValue({
         season: 1,
         week: 10,
       } as MatchEntity);
 
-      await service.checkSeasonTransition();
+      await service.checkAndGeneratePlayoffs();
 
       expect(
         mockPlayoffService.generateAllPlayoffMatches,
       ).not.toHaveBeenCalled();
     });
 
-    it('should not trigger transition when week 15 matches are not complete', async () => {
+    it('should not trigger playoffs when week 15 matches are not complete', async () => {
       mockMatchRepository.findOne.mockResolvedValue({
         season: 1,
         week: 15,
@@ -134,14 +152,14 @@ describe('SeasonTransitionService', () => {
         .mockResolvedValueOnce(30)
         .mockResolvedValueOnce(20); // Total 30, completed 20
 
-      await service.checkSeasonTransition();
+      await service.checkAndGeneratePlayoffs();
 
       expect(
         mockPlayoffService.generateAllPlayoffMatches,
       ).not.toHaveBeenCalled();
     });
 
-    it('should trigger transition when week 15 is complete', async () => {
+    it('should trigger playoffs when week 15 is complete', async () => {
       mockMatchRepository.findOne.mockResolvedValue({
         season: 1,
         week: 15,
@@ -150,7 +168,7 @@ describe('SeasonTransitionService', () => {
 
       mockPlayoffService.generateAllPlayoffMatches.mockResolvedValue([]);
 
-      await service.checkSeasonTransition();
+      await service.checkAndGeneratePlayoffs();
 
       expect(mockPlayoffService.generateAllPlayoffMatches).toHaveBeenCalledWith(
         1,
@@ -158,94 +176,104 @@ describe('SeasonTransitionService', () => {
     });
   });
 
-  describe('executeSeasonTransition', () => {
-    it('should generate playoff matches', async () => {
-      mockPlayoffService.generateAllPlayoffMatches.mockResolvedValue([
-        createMockMatch({ week: 16, type: MatchType.PLAYOFF }),
-      ]);
+  describe('checkAndProcessSeasonStart', () => {
+    it('should not process if not week 0 or week 1', async () => {
+      mockMatchRepository.findOne.mockResolvedValue({
+        season: 1,
+        week: 5,
+      } as MatchEntity);
 
-      await service.executeSeasonTransition(1);
+      await service.checkAndProcessSeasonStart();
 
-      expect(mockPlayoffService.generateAllPlayoffMatches).toHaveBeenCalledWith(
-        1,
-      );
-    });
-
-    it('should set transitioning flag to prevent re-entry', async () => {
-      mockPlayoffService.generateAllPlayoffMatches.mockResolvedValue([]);
-
-      // First call should succeed
-      await service.executeSeasonTransition(1);
-
-      // Second call should be skipped
-      await service.executeSeasonTransition(1);
-
-      // Should only be called once
+      expect(mockPromotionService.processAllTiers).not.toHaveBeenCalled();
       expect(
-        mockPlayoffService.generateAllPlayoffMatches,
-      ).toHaveBeenCalledTimes(1);
+        mockLeagueStandingService.initNewSeasonStandings,
+      ).not.toHaveBeenCalled();
     });
-  });
 
-  describe('processAfterPlayoffsComplete', () => {
-    it('should process playoff results and execute promotions/relegations', async () => {
-      // Set transitioning flag to true (simulating executeSeasonTransition was called)
-      (service as any).isTransitioning = true;
+    it('should process season transition at week 1', async () => {
+      mockMatchRepository.findOne.mockResolvedValue({
+        season: 1,
+        week: 1,
+      } as MatchEntity);
 
-      // Setup playoff matches
-      const playoffMatch = createMockMatch({
-        week: 16,
-        type: MatchType.PLAYOFF,
-        status: MatchStatus.COMPLETED,
-        homeScore: 1,
-        awayScore: 2, // Away team wins (lower league team)
-        lowerLeagueId: 'lower-league-id',
-      });
+      // Mock empty playoff matches for processAfterPlayoffsComplete
+      mockMatchRepository.find.mockResolvedValue([]);
 
-      mockMatchRepository.find.mockResolvedValue([
-        playoffMatch,
-      ] as MatchEntity[]);
-
-      mockPromotionService.swapTeamLeague.mockResolvedValue(undefined);
       mockPromotionService.processAllTiers.mockResolvedValue(undefined);
-      mockLeagueStandingService.archiveSeasonFinalStandings.mockResolvedValue(
+      mockSeasonArchiveService.archiveSeason.mockResolvedValue({
+        season: 1,
+        seasonResultCount: 16,
+        playerStatsCount: 100,
+        transactionCount: 200,
+        playerEventCount: 50,
+      });
+      mockLeagueStandingService.initNewSeasonStandings.mockResolvedValue(
         undefined,
       );
       mockSeasonSchedulerService.generateNextSeasonSchedule.mockResolvedValue(
         [],
       );
-      mockLeagueStandingService.initNewSeasonStandings.mockResolvedValue(
-        undefined,
-      );
 
-      await service.processAfterPlayoffsComplete(1);
+      await service.checkAndProcessSeasonStart();
 
-      // Should process playoff results
-      expect(mockPromotionService.swapTeamLeague).toHaveBeenCalled();
-
-      // Should archive standings
-      expect(
-        mockLeagueStandingService.archiveSeasonFinalStandings,
-      ).toHaveBeenCalledWith(1);
-
-      // Should generate next season schedule
-      expect(
-        mockSeasonSchedulerService.generateNextSeasonSchedule,
-      ).toHaveBeenCalledWith(1);
-
-      // Should init new season standings
+      expect(mockPromotionService.processAllTiers).toHaveBeenCalledWith(1);
+      expect(mockSeasonArchiveService.archiveSeason).toHaveBeenCalledWith(1);
       expect(
         mockLeagueStandingService.initNewSeasonStandings,
       ).toHaveBeenCalledWith(2);
+      expect(
+        mockSeasonSchedulerService.generateNextSeasonSchedule,
+      ).toHaveBeenCalledWith(1);
     });
 
-    it('should not process if not in transitioning state', async () => {
-      // Reset the transitioning flag by accessing private property
-      (service as any).isTransitioning = false;
+    it('should process playoffs at week 0 before season transition', async () => {
+      mockMatchRepository.findOne.mockResolvedValue({
+        season: 1,
+        week: 0,
+      } as MatchEntity);
 
-      await service.processAfterPlayoffsComplete(1);
+      // Week 16 playoff matches
+      mockMatchRepository.find.mockResolvedValue([
+        createMockMatch({ week: 16, type: MatchType.PLAYOFF }),
+      ] as MatchEntity[]);
+      mockMatchRepository.count.mockResolvedValue(2); // Total playoffs
+      mockMatchRepository.count.mockResolvedValue(2); // Completed playoffs
 
-      expect(mockPromotionService.swapTeamLeague).not.toHaveBeenCalled();
+      mockPromotionService.processAllTiers.mockResolvedValue(undefined);
+      mockPromotionService.swapTeamLeague.mockResolvedValue(undefined);
+      mockSeasonArchiveService.archiveSeason.mockResolvedValue({
+        season: 1,
+        seasonResultCount: 16,
+        playerStatsCount: 100,
+        transactionCount: 200,
+        playerEventCount: 50,
+      });
+      mockLeagueStandingService.initNewSeasonStandings.mockResolvedValue(
+        undefined,
+      );
+      mockSeasonSchedulerService.generateNextSeasonSchedule.mockResolvedValue(
+        [],
+      );
+
+      await service.checkAndProcessSeasonStart();
+
+      expect(mockPromotionService.processAllTiers).toHaveBeenCalled();
+      expect(mockSeasonArchiveService.archiveSeason).toHaveBeenCalled();
+    });
+  });
+
+  describe('generatePlayoffs', () => {
+    it('should call playoff service to generate matches', async () => {
+      mockPlayoffService.generateAllPlayoffMatches.mockResolvedValue([
+        createMockMatch({ week: 16, type: MatchType.PLAYOFF }),
+      ] as any);
+
+      await service.generatePlayoffs(1);
+
+      expect(mockPlayoffService.generateAllPlayoffMatches).toHaveBeenCalledWith(
+        1,
+      );
     });
   });
 

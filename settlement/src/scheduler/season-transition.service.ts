@@ -7,13 +7,11 @@ import { PromotionRelegationService } from './promotion-relegation.service';
 import { PlayoffService } from './playoff.service';
 import { SeasonSchedulerService } from './season-scheduler.service';
 import { LeagueStandingService } from './league-standing.service';
+import { SeasonArchiveService } from '../services/season-archive.service';
 
 @Injectable()
 export class SeasonTransitionService {
   private readonly logger = new Logger(SeasonTransitionService.name);
-
-  // 标记是否正在处理赛季过渡，防止重复触发
-  private isTransitioning = false;
 
   constructor(
     @InjectRepository(MatchEntity)
@@ -22,21 +20,15 @@ export class SeasonTransitionService {
     private readonly playoffService: PlayoffService,
     private readonly seasonSchedulerService: SeasonSchedulerService,
     private readonly leagueStandingService: LeagueStandingService,
+    private readonly seasonArchiveService: SeasonArchiveService,
   ) {}
 
   /**
-   * 每周一 00:00 检查是否需要触发赛季过渡
+   * 每周一 00:00 检查是否需要生成附加赛
    * 条件：Week 15 结束，所有 Week 15 比赛已完成
    */
   @Cron('0 0 * * 1') // 每周一 00:00
-  async checkSeasonTransition() {
-    if (this.isTransitioning) {
-      this.logger.log(
-        '[SeasonTransition] Transition already in progress, skipping...',
-      );
-      return;
-    }
-
+  async checkAndGeneratePlayoffs() {
     const currentSeasonWeek = await this.getCurrentSeasonAndWeek();
 
     this.logger.log(
@@ -59,108 +51,121 @@ export class SeasonTransitionService {
       return;
     }
 
-    // 触发赛季过渡
-    await this.executeSeasonTransition(currentSeasonWeek.season);
+    // 生成附加赛
+    this.logger.log(
+      `[SeasonTransition] Week 15 complete, generating playoff matches for Season ${currentSeasonWeek.season}...`,
+    );
+    await this.generatePlayoffs(currentSeasonWeek.season);
   }
 
   /**
-   * 执行赛季过渡
+   * 新赛季第一天（周二 00:00）执行升降级和生成新赛季赛程
+   * 在 Week 1 比赛开始前触发
    */
-  async executeSeasonTransition(currentSeason: number): Promise<void> {
-    if (this.isTransitioning) {
-      this.logger.log('[SeasonTransition] Transition already in progress');
+  @Cron('0 0 * * 2') // 每周二 00:00
+  async checkAndProcessSeasonStart() {
+    const currentSeasonWeek = await this.getCurrentSeasonAndWeek();
+
+    // 只在赛季结束后处理（新赛季第0周或第1周开始时）
+    // 如果是第0周说明附加赛刚结束，如果是第1周说明还没处理过
+    if (currentSeasonWeek.week !== 0 && currentSeasonWeek.week !== 1) {
       return;
     }
 
-    this.isTransitioning = true;
+    // 检查是否所有 Week 16 附加赛都已完成（如果是第0周）
+    if (currentSeasonWeek.week === 0) {
+      const playoffsComplete = await this.areAllPlayoffsCompleted(
+        currentSeasonWeek.season,
+      );
+      if (!playoffsComplete) {
+        this.logger.log('[SeasonTransition] Playoff matches not yet complete');
+        return;
+      }
+    }
+
+    const previousSeason = currentSeasonWeek.season;
+    const newSeason = previousSeason + 1;
+
     this.logger.log(
-      `[SeasonTransition] Starting Season ${currentSeason} → ${currentSeason + 1} transition`,
+      `[SeasonTransition] Processing Season ${newSeason} start (after Season ${previousSeason})...`,
     );
 
     try {
-      // 1. 生成附加赛（Week 16）
+      // 1. 执行升降级（基于上赛季排名）
       this.logger.log(
-        '[SeasonTransition] Step 1: Generating playoff matches...',
+        '[SeasonTransition] Step 1: Executing promotions/relegations...',
       );
-      const playoffMatches =
-        await this.playoffService.generateAllPlayoffMatches(currentSeason);
+      await this.promotionService.processAllTiers(previousSeason);
+
+      // 2. 处理附加赛结果并执行互换升降级（如果有）
       this.logger.log(
-        `[SeasonTransition] Generated ${playoffMatches.length} playoff matches`,
+        '[SeasonTransition] Step 2: Processing playoff results...',
+      );
+      await this.processAfterPlayoffsComplete(previousSeason);
+
+      // 3. 归档上赛季数据
+      this.logger.log(
+        '[SeasonTransition] Step 3: Archiving previous season data...',
+      );
+      const archiveSummary = await this.seasonArchiveService.archiveSeason(
+        previousSeason,
+      );
+      this.logger.log(
+        `[SeasonTransition] Archived: seasonResults=${archiveSummary.seasonResultCount}, playerStats=${archiveSummary.playerStatsCount}, transactions=${archiveSummary.transactionCount}, playerEvents=${archiveSummary.playerEventCount}`,
       );
 
-      // 等待附加赛完成（这里需要等待到周三晚上8点比赛结束）
-      // TODO: 实际实现应该等待 match completion 事件触发
-      // 暂时用 setTimeout 模拟，实际应该用队列事件驱动
+      // 4. 初始化新赛季排行榜（根据新的 leagueId）
       this.logger.log(
-        '[SeasonTransition] Playoffs scheduled, waiting for completion...',
+        '[SeasonTransition] Step 4: Initializing new season standings...',
+      );
+      await this.leagueStandingService.initNewSeasonStandings(newSeason);
+
+      // 5. 生成新赛季赛程
+      this.logger.log(
+        '[SeasonTransition] Step 5: Generating new season schedule...',
+      );
+      await this.seasonSchedulerService.generateNextSeasonSchedule(
+        previousSeason,
+      );
+
+      this.logger.log(
+        `[SeasonTransition] Season ${newSeason} setup completed!`,
       );
     } catch (error) {
       this.logger.error(
-        `[SeasonTransition] Error during transition: ${error.message}`,
+        `[SeasonTransition] Error during season start processing: ${error.message}`,
         error.stack,
       );
-      this.isTransitioning = false;
       throw error;
     }
   }
 
   /**
-   * 附加赛完成后的处理
-   * 由 match-completion 队列在所有 Week 16 附加赛完成后触发
+   * 生成附加赛（赛季末 Week 15 结束后调用）
    */
-  async processAfterPlayoffsComplete(currentSeason: number): Promise<void> {
-    if (!this.isTransitioning) {
-      this.logger.warn('[SeasonTransition] Not in transition state');
-      return;
-    }
-
+  async generatePlayoffs(season: number): Promise<void> {
     try {
-      // 2. 处理附加赛结果并执行升降级
       this.logger.log(
-        '[SeasonTransition] Step 2: Processing playoff results and executing promotions/relegations...',
+        `[SeasonTransition] Generating playoff matches for Season ${season}...`,
       );
-      await this.processPlayoffResults(currentSeason);
-
-      // 3. 归档当前赛季排名
+      const playoffMatches =
+        await this.playoffService.generateAllPlayoffMatches(season);
       this.logger.log(
-        '[SeasonTransition] Step 3: Archiving current season standings...',
-      );
-      await this.leagueStandingService.archiveSeasonFinalStandings(
-        currentSeason,
-      );
-
-      // 4. 生成新赛季赛程
-      this.logger.log(
-        '[SeasonTransition] Step 4: Generating next season schedule...',
-      );
-      const nextSeason = currentSeason + 1;
-      await this.seasonSchedulerService.generateNextSeasonSchedule(
-        currentSeason,
-      );
-
-      // 5. 初始化新赛季排行榜
-      this.logger.log(
-        '[SeasonTransition] Step 5: Initializing new season standings...',
-      );
-      await this.leagueStandingService.initNewSeasonStandings(nextSeason);
-
-      this.logger.log(
-        `[SeasonTransition] Season ${currentSeason} → ${nextSeason} transition completed!`,
+        `[SeasonTransition] Generated ${playoffMatches.length} playoff matches`,
       );
     } catch (error) {
       this.logger.error(
-        `[SeasonTransition] Error during post-playoff processing: ${error.message}`,
+        `[SeasonTransition] Error generating playoffs: ${error.message}`,
         error.stack,
       );
-    } finally {
-      this.isTransitioning = false;
+      throw error;
     }
   }
 
   /**
    * 处理附加赛结果并执行升降级
    */
-  private async processPlayoffResults(season: number): Promise<void> {
+  private async processAfterPlayoffsComplete(season: number): Promise<void> {
     // 获取所有 Week 16 的附加赛
     const playoffMatches = await this.matchRepository.find({
       where: {
@@ -216,9 +221,6 @@ export class SeasonTransitionService {
         );
       }
     }
-
-    // 执行其他升降级（直接升级/降级）
-    await this.promotionService.processAllTiers(season);
   }
 
   /**
@@ -234,7 +236,7 @@ export class SeasonTransitionService {
     });
 
     if (!latestMatch) {
-      return { season: 1, week: 1 };
+      return { season: 1, week: 0 };
     }
 
     return { season: latestMatch.season, week: latestMatch.week };
@@ -265,5 +267,34 @@ export class SeasonTransitionService {
     });
 
     return completedMatches >= totalMatches;
+  }
+
+  /**
+   * 检查所有附加赛是否完成
+   */
+  private async areAllPlayoffsCompleted(season: number): Promise<boolean> {
+    const totalPlayoffs = await this.matchRepository.count({
+      where: {
+        season,
+        week: 16,
+        type: MatchType.PLAYOFF,
+      },
+    });
+
+    if (totalPlayoffs === 0) {
+      // 没有附加赛，直接返回true（可能是单级联赛没有升降级）
+      return true;
+    }
+
+    const completedPlayoffs = await this.matchRepository.count({
+      where: {
+        season,
+        week: 16,
+        type: MatchType.PLAYOFF,
+        status: MatchStatus.COMPLETED,
+      },
+    });
+
+    return completedPlayoffs >= totalPlayoffs;
   }
 }

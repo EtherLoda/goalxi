@@ -6,11 +6,14 @@ import { Job } from 'bullmq';
 import {
   AuctionEntity,
   AuctionStatus,
+  FinanceEntity,
   PlayerEntity,
   PlayerEventEntity,
   PlayerEventType,
   PlayerTransactionEntity,
   TeamEntity,
+  TransactionEntity,
+  TransactionType,
   TransferTransactionEntity,
   TransferTransactionStatus,
   TransferTransactionType,
@@ -25,6 +28,7 @@ export interface TransferSettlementJobData {
   buyerTeamId: string;
   sellerTeamId: string;
   amount: number;
+  season: number;
   timestamp: number;
 }
 
@@ -46,6 +50,10 @@ export class TransferProcessor extends WorkerHost {
     private readonly playerTxRepo: Repository<PlayerTransactionEntity>,
     @InjectRepository(TransferTransactionEntity)
     private readonly transferTxRepo: Repository<TransferTransactionEntity>,
+    @InjectRepository(FinanceEntity)
+    private readonly financeRepo: Repository<FinanceEntity>,
+    @InjectRepository(TransactionEntity)
+    private readonly transactionRepo: Repository<TransactionEntity>,
     private readonly dataSource: DataSource,
   ) {
     super();
@@ -60,6 +68,7 @@ export class TransferProcessor extends WorkerHost {
       buyerTeamId,
       sellerTeamId,
       amount,
+      season,
     } = job.data;
 
     this.logger.log(
@@ -105,14 +114,72 @@ export class TransferProcessor extends WorkerHost {
         const teamRepo = manager.getRepository(TeamEntity);
         const historyRepo = manager.getRepository(PlayerEventEntity);
         const playerTxRepo = manager.getRepository(PlayerTransactionEntity);
+        const financeRepo = manager.getRepository(FinanceEntity);
+        const transactionRepo = manager.getRepository(TransactionEntity);
 
-        // 1. Re-verify buyer team exists (funds already validated by AuctionService)
+        // 1. Verify buyer team and validate balance
         const buyer = await teamRepo.findOne({
           where: { id: buyerTeamId as Uuid },
         });
         if (!buyer) {
           throw new Error(`Buyer team ${buyerTeamId} not found`);
         }
+
+        const buyerFinance = await financeRepo.findOne({
+          where: { teamId: buyerTeamId as Uuid },
+        });
+        if (!buyerFinance) {
+          throw new Error(
+            `Buyer finance record not found for team ${buyerTeamId}`,
+          );
+        }
+
+        // Validate buyer has sufficient balance (accounting for locked cash)
+        const availableBalance = buyerFinance.balance - (buyer.lockedCash || 0);
+        if (availableBalance < amount) {
+          throw new Error(
+            `Buyer team ${buyerTeamId} has insufficient balance. Available: ${availableBalance}, Required: ${amount}`,
+          );
+        }
+
+        // 2. Deduct from buyer
+        buyerFinance.balance -= amount;
+        await financeRepo.save(buyerFinance);
+
+        // Create transaction record for buyer (debit)
+        const buyerTransaction = manager.create(TransactionEntity, {
+          teamId: buyerTeamId as Uuid,
+          amount: -amount,
+          type: TransactionType.TRANSFER_OUT,
+          season,
+          description: `Transfer fee paid for player ${playerId}`,
+          relatedId: transactionId,
+        });
+        await transactionRepo.save(buyerTransaction);
+
+        // 3. Credit to seller
+        const sellerFinance = await financeRepo.findOne({
+          where: { teamId: sellerTeamId as Uuid },
+        });
+        if (!sellerFinance) {
+          throw new Error(
+            `Seller finance record not found for team ${sellerTeamId}`,
+          );
+        }
+
+        sellerFinance.balance += amount;
+        await financeRepo.save(sellerFinance);
+
+        // Create transaction record for seller (credit)
+        const sellerTransaction = manager.create(TransactionEntity, {
+          teamId: sellerTeamId as Uuid,
+          amount: amount,
+          type: TransactionType.TRANSFER_IN,
+          season,
+          description: `Transfer fee received for player ${playerId}`,
+          relatedId: transactionId,
+        });
+        await transactionRepo.save(sellerTransaction);
 
         // 4. Update player team
         const player = await playerRepo.findOne({
@@ -141,7 +208,7 @@ export class TransferProcessor extends WorkerHost {
         // 7. Create player event
         const history = manager.create(PlayerEventEntity, {
           playerId: playerId as Uuid,
-          season: 1, // TODO: Get current season dynamically
+          season,
           date: new Date(),
           eventType: PlayerEventType.TRANSFER,
           details: {
@@ -159,7 +226,7 @@ export class TransferProcessor extends WorkerHost {
           fromTeamId: sellerTeamId as Uuid,
           toTeamId: buyerTeamId as Uuid,
           price: amount,
-          season: 1,
+          season,
           transactionDate: new Date(),
           auctionId: auctionId as Uuid,
         });
@@ -212,10 +279,6 @@ export class TransferProcessor extends WorkerHost {
           `[TransferProcessor] Successfully settled ${type}: Player ${playerId} transferred from Team ${sellerTeamId} to Team ${buyerTeamId} for ${amount}`,
         );
       });
-
-      // Note: Bid lock release is now inside the transaction for crash safety
-      // If server crashes after commit, locks are properly released
-      // If server crashes before commit, transaction rolls back correctly
     } catch (error) {
       this.logger.error(
         `[TransferProcessor] Failed to process transaction ${transactionId}: ${error.message || error}`,

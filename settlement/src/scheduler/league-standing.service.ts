@@ -5,6 +5,7 @@ import {
   LeagueEntity,
   LeagueStandingEntity,
   SeasonResultEntity,
+  TeamEntity,
 } from '@goalxi/database';
 
 @Injectable()
@@ -18,6 +19,8 @@ export class LeagueStandingService {
     private readonly standingRepository: Repository<LeagueStandingEntity>,
     @InjectRepository(SeasonResultEntity)
     private readonly seasonResultRepository: Repository<SeasonResultEntity>,
+    @InjectRepository(TeamEntity)
+    private readonly teamRepository: Repository<TeamEntity>,
   ) {}
 
   /**
@@ -60,23 +63,22 @@ export class LeagueStandingService {
   /**
    * 初始化新赛季的排行榜
    * 为所有联赛创建新的赛季排行记录
+   * 注意：此时升降级已完成，team.leagueId 已经是新的联赛
    */
   async initNewSeasonStandings(newSeason: number): Promise<void> {
     const leagues = await this.leagueRepository.find();
 
     for (const league of leagues) {
-      // 获取该联赛当前所有球队
-      const currentStandings = await this.standingRepository.find({
+      // 获取该联赛当前（升降级后）的所有球队
+      const teamsInLeague = await this.teamRepository.find({
         where: { leagueId: league.id },
-        order: { position: 'ASC' },
       });
 
-      // 为每支球队创建新赛季的排行榜记录
-      for (const standing of currentStandings) {
+      for (const team of teamsInLeague) {
         const existing = await this.standingRepository.findOne({
           where: {
             leagueId: league.id,
-            teamId: standing.teamId,
+            teamId: team.id,
             season: newSeason,
           },
         });
@@ -84,7 +86,7 @@ export class LeagueStandingService {
         if (!existing) {
           const newStanding = this.standingRepository.create({
             leagueId: league.id,
-            teamId: standing.teamId,
+            teamId: team.id,
             season: newSeason,
             position: 0, // 初始排名为0，赛季开始后更新
             played: 0,

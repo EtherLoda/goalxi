@@ -3,10 +3,12 @@ import { BullModule } from '@nestjs/bullmq';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import {
   AuctionEntity,
+  FinanceEntity,
   PlayerEntity,
   PlayerEventEntity,
   PlayerTransactionEntity,
   TeamEntity,
+  TransactionEntity,
   TransferTransactionEntity,
 } from '@goalxi/database';
 import { TransferProcessor } from './processors/transfer.processor';
@@ -18,10 +20,12 @@ import { TransferProcessor } from './processors/transfer.processor';
     }),
     TypeOrmModule.forFeature([
       AuctionEntity,
+      FinanceEntity,
       PlayerEntity,
       PlayerEventEntity,
       PlayerTransactionEntity,
       TeamEntity,
+      TransactionEntity,
       TransferTransactionEntity,
     ]),
   ],

@@ -63,7 +63,11 @@ export class InjuryRecoveryService {
       }
 
       try {
-        const playerAge = player.age || 25;
+        // Calculate fractional age: years + days / DAYS_PER_SEASON
+        // A season has 16 weeks × 7 days = 112 days
+        const DAYS_PER_SEASON = 112;
+        const [years, days] = player.getExactAge();
+        const playerAge = years + days / DAYS_PER_SEASON;
 
         let doctorBonus = 1;
         if (player.teamId) {
@@ -79,6 +83,12 @@ export class InjuryRecoveryService {
           }
         }
 
+        // Sigmoid recovery formula: base + amplitude / (1 + exp(k * (age - midpoint)))
+        // - midpoint=28: recovery peaks around age 28
+        // - k=0.25: curve steepness
+        // - base=3: minimum daily recovery (days)
+        // - amplitude=9: maximum additional recovery above base
+        // Formula produces: young players ~12, peak ~10, older ~3-5
         const midpoint = 28;
         const k = 0.25;
         const base = 3;
@@ -86,6 +96,7 @@ export class InjuryRecoveryService {
 
         const sigmoid =
           base + amplitude / (1 + Math.exp(k * (playerAge - midpoint)));
+        // Random fluctuation factor: 0.85 to 1.15
         const fluctuation = 0.85 + Math.random() * 0.3;
         const dailyRecovery =
           Math.round(sigmoid * fluctuation * 10 * doctorBonus) / 10;

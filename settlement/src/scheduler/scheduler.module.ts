@@ -27,6 +27,11 @@ import {
   TacticsPresetEntity,
   PlayerCompetitionStatsEntity,
   PlayerEventEntity,
+  TransactionEntity,
+  ArchivedSeasonResultEntity,
+  ArchivedPlayerCompetitionStatsEntity,
+  ArchivedTransactionEntity,
+  ArchivedPlayerEventEntity,
 } from '@goalxi/database';
 import { LeagueAwardService } from './league-award.service';
 import { WeatherSchedulerService } from './weather-scheduler.service';
@@ -46,6 +51,7 @@ import { FinanceSchedulerService } from './finance-scheduler.service';
 import { PlayerWageSchedulerService } from './player-wage-scheduler.service';
 import { LeagueStandingService } from './league-standing.service';
 import { SeasonTransitionService } from './season-transition.service';
+import { SeasonArchiveService } from '../services/season-archive.service';
 
 @Module({
   imports: [
@@ -96,6 +102,11 @@ import { SeasonTransitionService } from './season-transition.service';
       TacticsPresetEntity,
       PlayerCompetitionStatsEntity,
       PlayerEventEntity,
+      TransactionEntity,
+      ArchivedSeasonResultEntity,
+      ArchivedPlayerCompetitionStatsEntity,
+      ArchivedTransactionEntity,
+      ArchivedPlayerEventEntity,
     ]),
   ],
   providers: [
@@ -117,6 +128,7 @@ import { SeasonTransitionService } from './season-transition.service';
     PlayerWageSchedulerService,
     LeagueStandingService,
     SeasonTransitionService,
+    SeasonArchiveService,
   ],
   exports: [
     LeagueAwardService,
@@ -137,6 +149,7 @@ import { SeasonTransitionService } from './season-transition.service';
     PlayerWageSchedulerService,
     LeagueStandingService,
     SeasonTransitionService,
+    SeasonArchiveService,
   ],
 })
 export class SchedulerModule {}

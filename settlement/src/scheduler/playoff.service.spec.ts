@@ -139,24 +139,20 @@ describe('PlayoffService', () => {
       const upperStandings = [
         {
           teamId: 'upper-9',
-          teamId: 'upper-9',
           position: 9,
           team: { id: 'upper-9', name: 'Upper 9th' },
         },
         {
-          teamId: 'upper-10',
           teamId: 'upper-10',
           position: 10,
           team: { id: 'upper-10', name: 'Upper 10th' },
         },
         {
           teamId: 'upper-11',
-          teamId: 'upper-11',
           position: 11,
           team: { id: 'upper-11', name: 'Upper 11th' },
         },
         {
-          teamId: 'upper-12',
           teamId: 'upper-12',
           position: 12,
           team: { id: 'upper-12', name: 'Upper 12th' },

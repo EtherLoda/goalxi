@@ -32,6 +32,10 @@ import {
   SessionEntity,
   TransferTransactionEntity,
   PlayerCompetitionStatsEntity,
+  ArchivedSeasonResultEntity,
+  ArchivedPlayerCompetitionStatsEntity,
+  ArchivedTransactionEntity,
+  ArchivedPlayerEventEntity,
 } from '@goalxi/database';
 
 @Injectable()
@@ -83,6 +87,10 @@ export class DatabaseConfigService implements TypeOrmOptionsFactory {
         SessionEntity,
         TransferTransactionEntity,
         PlayerCompetitionStatsEntity,
+        ArchivedSeasonResultEntity,
+        ArchivedPlayerCompetitionStatsEntity,
+        ArchivedTransactionEntity,
+        ArchivedPlayerEventEntity,
       ],
       synchronize: process.env.DATABASE_SYNCHRONIZE === 'true',
     };

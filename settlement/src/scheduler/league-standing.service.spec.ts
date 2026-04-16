@@ -6,6 +6,8 @@ import {
   LeagueEntity,
   LeagueStandingEntity,
   SeasonResultEntity,
+  TeamEntity,
+  Uuid,
 } from '@goalxi/database';
 
 describe('LeagueStandingService', () => {
@@ -13,6 +15,7 @@ describe('LeagueStandingService', () => {
   let leagueRepository: jest.Mocked<Repository<LeagueEntity>>;
   let standingRepository: jest.Mocked<Repository<LeagueStandingEntity>>;
   let seasonResultRepository: jest.Mocked<Repository<SeasonResultEntity>>;
+  let teamRepository: jest.Mocked<Repository<TeamEntity>>;
 
   const mockLeagueRepository = {
     find: jest.fn(),
@@ -32,8 +35,13 @@ describe('LeagueStandingService', () => {
     save: jest.fn(),
   };
 
+  const mockTeamRepository = {
+    find: jest.fn(),
+    findOne: jest.fn(),
+  };
+
   const TIER1_LEAGUE: Partial<LeagueEntity> = {
-    id: 'tier1-league-id',
+    id: 'tier1-league-id' as Uuid,
     name: 'Tier 1 League',
     tier: 1,
     tierDivision: 1,
@@ -47,9 +55,9 @@ describe('LeagueStandingService', () => {
     position: number,
     points: number,
   ): Partial<LeagueStandingEntity> => ({
-    id: `standing-${teamId}`,
-    teamId,
-    leagueId: 'tier1-league-id',
+    id: `standing-${teamId}` as Uuid,
+    teamId: teamId as Uuid,
+    leagueId: 'tier1-league-id' as Uuid,
     season: 1,
     position,
     played: 15,
@@ -61,7 +69,7 @@ describe('LeagueStandingService', () => {
     goalsAgainst: 15 + Math.floor(Math.random() * 15),
     goalDifference: 5,
     recentForm: 'WWDLW',
-    team: { id: teamId, name: `Team ${teamId}` } as any,
+    team: { id: teamId as Uuid, name: `Team ${teamId}` } as any,
     league: TIER1_LEAGUE as LeagueEntity,
   });
 
@@ -81,6 +89,10 @@ describe('LeagueStandingService', () => {
           provide: getRepositoryToken(SeasonResultEntity),
           useValue: mockSeasonResultRepository,
         },
+        {
+          provide: getRepositoryToken(TeamEntity),
+          useValue: mockTeamRepository,
+        },
       ],
     }).compile();
 
@@ -88,6 +100,7 @@ describe('LeagueStandingService', () => {
     leagueRepository = module.get(getRepositoryToken(LeagueEntity));
     standingRepository = module.get(getRepositoryToken(LeagueStandingEntity));
     seasonResultRepository = module.get(getRepositoryToken(SeasonResultEntity));
+    teamRepository = module.get(getRepositoryToken(TeamEntity));
 
     jest.clearAllMocks();
   });
@@ -155,6 +168,13 @@ describe('LeagueStandingService', () => {
       mockLeagueRepository.find.mockResolvedValue([
         TIER1_LEAGUE as LeagueEntity,
       ]);
+      // Mock teams in league (used by initNewSeasonStandings)
+      mockTeamRepository.find.mockResolvedValue([
+        { id: 'team-1', name: 'Team team-1' },
+        { id: 'team-2', name: 'Team team-2' },
+        { id: 'team-3', name: 'Team team-3' },
+        { id: 'team-4', name: 'Team team-4' },
+      ] as TeamEntity[]);
       mockStandingRepository.find.mockResolvedValue(
         currentStandings as LeagueStandingEntity[],
       );
@@ -183,6 +203,9 @@ describe('LeagueStandingService', () => {
       mockLeagueRepository.find.mockResolvedValue([
         TIER1_LEAGUE as LeagueEntity,
       ]);
+      mockTeamRepository.find.mockResolvedValue([
+        { id: 'team-1', name: 'Team team-1' },
+      ] as TeamEntity[]);
       mockStandingRepository.find.mockResolvedValue(
         currentStandings as LeagueStandingEntity[],
       );

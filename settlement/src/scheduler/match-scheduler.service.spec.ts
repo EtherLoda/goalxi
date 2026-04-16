@@ -102,10 +102,8 @@ describe('MatchSchedulerService', () => {
         formation: '4-3-3',
         lineup: { GK: 'player-1', LB: 'player-2' },
         submittedAt: new Date(),
-      };
-      mockTacticsRepository.findOne.mockResolvedValue(
-        mockTactics as MatchTacticsEntity,
-      );
+      } as unknown as MatchTacticsEntity;
+      mockTacticsRepository.findOne.mockResolvedValue(mockTactics);
 
       const result = await service['getTeamTactics'](matchId, teamId);
 
@@ -125,11 +123,9 @@ describe('MatchSchedulerService', () => {
         lineup: { GK: 'player-1', CB1: 'player-2', CB2: 'player-3' },
         instructions: { style: 'attacking' },
         substitutions: [],
-      };
+      } as unknown as TacticsPresetEntity;
       mockTacticsRepository.findOne.mockResolvedValue(null);
-      mockPresetRepository.findOne.mockResolvedValue(
-        mockPreset as TacticsPresetEntity,
-      );
+      mockPresetRepository.findOne.mockResolvedValue(mockPreset);
 
       const result = await service['getTeamTactics'](matchId, teamId);
 

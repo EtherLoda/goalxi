@@ -162,9 +162,11 @@ describe('WeatherService', () => {
         date: '2026-04-01',
         locationId: 'default',
         actualWeather: WeatherType.SUNNY,
-        forecasts: [],
+        forecasts: [] as any[],
       };
-      repository.findOne.mockResolvedValue(mockWeather as WeatherEntity);
+      repository.findOne.mockResolvedValue(
+        mockWeather as unknown as WeatherEntity,
+      );
 
       const result = await service.getWeatherByDate('2026-04-01');
       expect(result).toEqual(mockWeather);
@@ -204,7 +206,7 @@ describe('WeatherService', () => {
         locationId: 'default',
         actualWeather: WeatherType.SUNNY,
         forecasts: mockForecasts,
-      } as WeatherEntity);
+      } as unknown as WeatherEntity);
 
       const result = await service.getTomorrowForecast();
       expect(result).toEqual(mockForecasts);
@@ -229,10 +231,14 @@ describe('WeatherService', () => {
         date: today,
         locationId: 'default',
         actualWeather: WeatherType.SUNNY,
-        forecasts: [],
+        forecasts: [] as any[],
       };
-      repository.create.mockReturnValue(mockWeather as WeatherEntity);
-      repository.save.mockResolvedValue(mockWeather as WeatherEntity);
+      repository.create.mockReturnValue(
+        mockWeather as unknown as WeatherEntity,
+      );
+      repository.save.mockResolvedValue(
+        mockWeather as unknown as WeatherEntity,
+      );
 
       const result = await service.createOrUpdateTodayWeather();
 
@@ -249,10 +255,14 @@ describe('WeatherService', () => {
         date: today,
         locationId: 'default',
         actualWeather: WeatherType.CLOUDY,
-        forecasts: [],
+        forecasts: [] as any[],
       };
-      repository.findOne.mockResolvedValue(existingWeather as WeatherEntity);
-      repository.save.mockResolvedValue(existingWeather as WeatherEntity);
+      repository.findOne.mockResolvedValue(
+        existingWeather as unknown as WeatherEntity,
+      );
+      repository.save.mockResolvedValue(
+        existingWeather as unknown as WeatherEntity,
+      );
 
       await service.createOrUpdateTodayWeather();
 
@@ -280,7 +290,7 @@ describe('WeatherService', () => {
       // Use mockImplementation to handle calls based on date argument
       repository.findOne.mockImplementation(async (query: any) => {
         if (query.where.date === yesterdayDateStr) {
-          return mockYesterdayWeather as WeatherEntity;
+          return mockYesterdayWeather as unknown as WeatherEntity;
         }
         return null;
       });
@@ -290,11 +300,13 @@ describe('WeatherService', () => {
         date: today,
         locationId: 'default',
         actualWeather: WeatherType.CLOUDY,
-        forecasts: [],
+        forecasts: [] as any[],
       };
-      repository.create.mockReturnValue(mockNewWeather as WeatherEntity);
+      repository.create.mockReturnValue(
+        mockNewWeather as unknown as WeatherEntity,
+      );
       repository.save.mockImplementation((entity) =>
-        Promise.resolve(entity as WeatherEntity),
+        Promise.resolve(entity as unknown as WeatherEntity),
       );
 
       const result = await service.createOrUpdateTodayWeather();
@@ -316,7 +328,7 @@ describe('WeatherService', () => {
     });
 
     it('should have 7 weather types', () => {
-      expect(Object.keys(WeatherType)).length = 7;
+      expect(Object.keys(WeatherType)).toHaveLength(7);
     });
   });
 });
