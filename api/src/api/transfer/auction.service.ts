@@ -7,7 +7,6 @@ import {
   PlayerEntity,
   PlayerEventEntity,
   TeamEntity,
-  TransactionType,
   TransferTransactionEntity,
   TransferTransactionStatus,
   TransferTransactionType,
@@ -24,7 +23,6 @@ import { Cron } from '@nestjs/schedule';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Queue } from 'bullmq';
 import { DataSource, In, MoreThanOrEqual, Repository } from 'typeorm';
-import { FinanceService } from '../finance/finance.service';
 import { AUCTION_CONFIG, calculateMinBidIncrement } from './auction.constants';
 import { CreateAuctionReqDto } from './dto/create-auction.req.dto';
 import { PlaceBidReqDto } from './dto/place-bid.req.dto';
@@ -37,6 +35,7 @@ interface TransferSettlementJobData {
   buyerTeamId: string;
   sellerTeamId: string;
   amount: number;
+  season: number;
   timestamp: number;
 }
 
@@ -55,7 +54,6 @@ export class AuctionService implements OnModuleInit {
     private readonly historyRepo: Repository<PlayerEventEntity>,
     @InjectRepository(TransferTransactionEntity)
     private readonly transferTxRepo: Repository<TransferTransactionEntity>,
-    private readonly financeService: FinanceService,
     @InjectQueue('transfer-settlement')
     private readonly transferQueue: Queue<TransferSettlementJobData>,
     private readonly dataSource: DataSource,
@@ -166,6 +164,13 @@ export class AuctionService implements OnModuleInit {
       : auction.buyoutPrice;
     const buyerTeamId = auction.currentBidderId || auction.teamId;
 
+    // Get current season
+    const seasonResult = await this.transferTxRepo.manager
+      .createQueryBuilder('match', 'match')
+      .select('MAX(match.season)', 'maxSeason')
+      .getRawOne();
+    const season = seasonResult?.maxSeason || 1;
+
     const jobData: TransferSettlementJobData = {
       type,
       transactionId: '', // Will be created in the settlement
@@ -174,6 +179,7 @@ export class AuctionService implements OnModuleInit {
       buyerTeamId,
       sellerTeamId: auction.teamId,
       amount,
+      season,
       timestamp: now.getTime(),
     };
 
@@ -586,26 +592,6 @@ export class AuctionService implements OnModuleInit {
       });
       await manager.save(transaction);
 
-      // Process TRANSFER_OUT for buyer (deduct from balance)
-      await this.financeService.processTransaction(
-        buyerTeam.id,
-        -auction.buyoutPrice,
-        TransactionType.TRANSFER_OUT,
-        currentSeason,
-        `Transfer fee paid for player`,
-        transaction.id,
-      );
-
-      // Process TRANSFER_IN for seller (add to balance)
-      await this.financeService.processTransaction(
-        auction.teamId,
-        auction.buyoutPrice,
-        TransactionType.TRANSFER_IN,
-        currentSeason,
-        `Transfer fee received for player`,
-        transaction.id,
-      );
-
       // Update auction status
       auction.status = AuctionStatus.SETTLING;
       auction.currentBidderId = buyerTeam.id;
@@ -622,6 +608,7 @@ export class AuctionService implements OnModuleInit {
         buyerTeamId: buyerTeam.id,
         sellerTeamId: auction.teamId,
         amount: auction.buyoutPrice,
+        season: currentSeason,
         timestamp: now.getTime(),
       };
       await this.transferQueue.add('transfer-settlement', jobData, {
@@ -708,26 +695,6 @@ export class AuctionService implements OnModuleInit {
               });
               await manager.save(transaction);
 
-              // Process TRANSFER_OUT for buyer (deduct from balance)
-              await this.financeService.processTransaction(
-                auction.currentBidderId,
-                -auction.currentPrice,
-                TransactionType.TRANSFER_OUT,
-                currentSeason,
-                `Transfer fee paid for player`,
-                transaction.id,
-              );
-
-              // Process TRANSFER_IN for seller (add to balance)
-              await this.financeService.processTransaction(
-                auction.teamId,
-                auction.currentPrice,
-                TransactionType.TRANSFER_IN,
-                currentSeason,
-                `Transfer fee received for player`,
-                transaction.id,
-              );
-
               // Update auction status
               await auctionRepo.update(auction.id, {
                 status: AuctionStatus.SETTLING,
@@ -742,6 +709,7 @@ export class AuctionService implements OnModuleInit {
                 buyerTeamId: auction.currentBidderId,
                 sellerTeamId: auction.teamId,
                 amount: auction.currentPrice,
+                season: currentSeason,
                 timestamp: now.getTime(),
               };
               await this.transferQueue.add('transfer-settlement', jobData, {
