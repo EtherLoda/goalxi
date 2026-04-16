@@ -2,6 +2,8 @@ import {
   MatchEntity,
   MatchStatus,
   MatchTeamStatsEntity,
+  PlayerCompetitionStatsEntity,
+  PlayerEntity,
   TeamEntity,
 } from '@goalxi/database';
 import { NotFoundException } from '@nestjs/common';
@@ -69,6 +71,18 @@ describe('StatsService', () => {
           provide: getRepositoryToken(TeamEntity),
           useValue: {
             findOne: jest.fn(),
+          },
+        },
+        {
+          provide: getRepositoryToken(PlayerCompetitionStatsEntity),
+          useValue: {
+            find: jest.fn(),
+          },
+        },
+        {
+          provide: getRepositoryToken(PlayerEntity),
+          useValue: {
+            find: jest.fn(),
           },
         },
       ],

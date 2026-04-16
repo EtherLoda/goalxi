@@ -1,4 +1,4 @@
-import { PlayerEntity } from '@goalxi/database';
+import { PlayerEntity, PotentialTier } from '@goalxi/database';
 import { Test, TestingModule } from '@nestjs/testing';
 import { Uuid } from '../../common/types/common.type';
 import { CreatePlayerReqDto } from './dto/create-player.req.dto';
@@ -132,6 +132,37 @@ describe('PlayerService', () => {
             captainBand: false,
           },
         },
+        isGoalkeeper: false,
+        currentSkills: {
+          physical: { pace: 70, strength: 70, stamina: 70, jumping: 70 },
+          technical: {
+            finishing: 70,
+            passing: 70,
+            dribbling: 70,
+            tackling: 70,
+            marking: 70,
+            crossing: 70,
+            longShots: 70,
+          },
+          mental: { positioning: 70, composure: 70 },
+          setPieces: { freeKicks: 70, penalties: 70 },
+        },
+        potentialSkills: {
+          physical: { pace: 80, strength: 80, stamina: 80, jumping: 80 },
+          technical: {
+            finishing: 80,
+            passing: 80,
+            dribbling: 80,
+            tackling: 80,
+            marking: 80,
+            crossing: 80,
+            longShots: 80,
+          },
+          mental: { positioning: 80, composure: 80 },
+          setPieces: { freeKicks: 80, penalties: 80 },
+        },
+        potentialTier: PotentialTier.REGULAR,
+        form: 5,
         save: jest.fn().mockResolvedValue(undefined),
       });
 
@@ -154,7 +185,38 @@ describe('PlayerService', () => {
         id: playerId,
         name: 'Test Player',
         teamId: 'old-team-uuid',
+        isGoalkeeper: false,
         appearance: {},
+        currentSkills: {
+          physical: { pace: 70, strength: 70, stamina: 70, jumping: 70 },
+          technical: {
+            finishing: 70,
+            passing: 70,
+            dribbling: 70,
+            tackling: 70,
+            marking: 70,
+            crossing: 70,
+            longShots: 70,
+          },
+          mental: { positioning: 70, composure: 70 },
+          setPieces: { freeKicks: 70, penalties: 70 },
+        },
+        potentialSkills: {
+          physical: { pace: 80, strength: 80, stamina: 80, jumping: 80 },
+          technical: {
+            finishing: 80,
+            passing: 80,
+            dribbling: 80,
+            tackling: 80,
+            marking: 80,
+            crossing: 80,
+            longShots: 80,
+          },
+          mental: { positioning: 80, composure: 80 },
+          setPieces: { freeKicks: 80, penalties: 80 },
+        },
+        potentialTier: PotentialTier.REGULAR,
+        form: 5,
         save: jest.fn().mockResolvedValue(undefined),
       });
 

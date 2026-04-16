@@ -9,6 +9,8 @@ import {
   MatchTeamStatsEntity,
   MatchTacticsEntity,
   PlayerEntity,
+  PlayerEventEntity,
+  PlayerCompetitionStatsEntity,
   TeamEntity,
   MatchStatus,
   MatchType,
@@ -197,6 +199,19 @@ describe('SimulationProcessor', () => {
           provide: getRepositoryToken(StaffEntity),
           useValue: {
             find: jest.fn().mockResolvedValue([]),
+          },
+        },
+        {
+          provide: getRepositoryToken(PlayerEventEntity),
+          useValue: {
+            save: jest.fn(),
+          },
+        },
+        {
+          provide: getRepositoryToken(PlayerCompetitionStatsEntity),
+          useValue: {
+            find: jest.fn().mockResolvedValue([]),
+            save: jest.fn(),
           },
         },
         {

@@ -3,11 +3,13 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { YouthService } from './youth.service';
+import { PlayerEventService } from '../player-event/player-event.service';
 
 describe('YouthService', () => {
   let service: YouthService;
   let youthRepo: jest.Mocked<Repository<YouthPlayerEntity>>;
   let playerRepo: jest.Mocked<Repository<PlayerEntity>>;
+  let playerEventService: jest.Mocked<PlayerEventService>;
 
   const createYouthPlayer = (overrides = {}): YouthPlayerEntity =>
     ({
@@ -61,12 +63,17 @@ describe('YouthService', () => {
           provide: getRepositoryToken(TeamEntity),
           useValue: { findOneBy: jest.fn() },
         },
+        {
+          provide: PlayerEventService,
+          useValue: { create: jest.fn().mockResolvedValue({}) },
+        },
       ],
     }).compile();
 
     service = module.get<YouthService>(YouthService);
     youthRepo = module.get(getRepositoryToken(YouthPlayerEntity));
     playerRepo = module.get(getRepositoryToken(PlayerEntity));
+    playerEventService = module.get(PlayerEventService);
   });
 
   it('should be defined', () => {
