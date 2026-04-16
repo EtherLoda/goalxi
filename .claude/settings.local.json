@@ -50,7 +50,8 @@
       "Bash(mv /c/Code/Project/GoalXI/web/src/app/page.tsx /c/Code/Project/GoalXI/web/src/app/[locale]/page.tsx)",
       "Bash(rm:*)",
       "Bash(tasklist)",
-      "Bash(npx next:*)"
+      "Bash(npx next:*)",
+      "Bash(npx env-cmd:*)"
     ]
   }
 }
