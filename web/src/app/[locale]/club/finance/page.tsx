@@ -3,8 +3,6 @@
 import { useTranslations } from "next-intl";
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
-import Sidebar from "@/components/dashboard/Sidebar";
-import Header from "@/components/dashboard/Header";
 import { useAuth } from "@/contexts/AuthContext";
 import { api, type FinanceTransaction } from "@/lib/api";
 
@@ -255,15 +253,7 @@ export default function FinancePage() {
   );
 
   return (
-    <div className="flex min-h-screen bg-surface">
-      <Sidebar />
-
-      <main className="flex-1 ml-64 flex flex-col">
-        {/* Top AppBar */}
-        <Header title={t("dashboard.nav.finance")} />
-
-        {/* Page Content */}
-        <div className="flex-1 p-6 space-y-6 max-w-7xl mx-auto w-full">
+    <div className="p-6 space-y-6 max-w-7xl mx-auto w-full">
           {/* Filter Bar */}
           <div className="flex items-center justify-between mb-8 gap-6">
             {/* Balance Card */}
@@ -688,7 +678,5 @@ export default function FinancePage() {
             </div>
           </section>
         </div>
-      </main>
-    </div>
   );
 }

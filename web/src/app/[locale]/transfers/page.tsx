@@ -4,7 +4,6 @@ import { useTranslations } from "next-intl";
 import { useEffect, useState, useCallback } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
-import Sidebar from "@/components/dashboard/Sidebar";
 import { useAuth } from "@/contexts/AuthContext";
 import { api, type Player, type TransferAuction } from "@/lib/api";
 import TransferListSkeleton from "@/components/transfers/TransferListSkeleton";
@@ -360,7 +359,7 @@ export default function TransfersPage() {
   };
 
   return (
-    <div className="flex min-h-screen bg-[#00110c]">
+    <>
       {/* Notification Toast */}
       {notification && (
         <div className="fixed top-5 right-5 z-[200] flex flex-col">
@@ -435,55 +434,10 @@ export default function TransfersPage() {
           to { width: 0%; }
         }
       `}</style>
-      <Sidebar />
 
-      <main className="flex-1 ml-64 flex flex-col overflow-hidden">
-        {/* Header */}
-        <header className="h-16 bg-[#00110c]/70 backdrop-blur-2xl border-b border-white/5 flex items-center justify-between px-6 shrink-0">
-          <div className="flex items-center gap-8">
-            <h1 className="font-headline font-black text-sm uppercase tracking-[0.2em] text-[#a1ffc2]">
-              {t("transfers.title")}
-            </h1>
-            <nav className="flex items-center gap-6 border-l border-[#2f4e44]/30 pl-6">
-              <button
-                onClick={() => setActiveTab("market")}
-                className={`text-xs font-bold pb-1 transition-colors ${activeTab === "market" ? 'text-[#a1ffc2] border-b border-[#a1ffc2]' : 'text-[#91b2a6] hover:text-[#a1ffc2]'}`}
-              >{t("transfers.nav.market")}</button>
-              <button
-                onClick={() => setActiveTab("shortlist")}
-                className={`text-xs font-bold pb-1 transition-colors ${activeTab === "shortlist" ? 'text-[#a1ffc2] border-b border-[#a1ffc2]' : 'text-[#91b2a6] hover:text-[#a1ffc2]'}`}
-              >{t("transfers.nav.shortlist")}</button>
-              <button
-                onClick={() => setActiveTab("history")}
-                className={`text-xs font-bold pb-1 transition-colors ${activeTab === "history" ? 'text-[#a1ffc2] border-b border-[#a1ffc2]' : 'text-[#91b2a6] hover:text-[#a1ffc2]'}`}
-              >{t("transfers.nav.history")}</button>
-            </nav>
-          </div>
-          <div className="flex items-center gap-6">
-            <div className="flex items-center bg-[#001e17] px-4 py-2 rounded-full border border-[#2f4e44]/30">
-              <span className="text-[10px] text-[#00ec90] mr-2 font-bold">{t("transfers.budget")}</span>
-              {budget !== null ? (
-                <span className="text-[#d3f5e8] font-bold tracking-tight">{formatCurrency(budget)}</span>
-              ) : (
-                <div className="w-16 h-4 bg-[#002c22] rounded animate-pulse" />
-              )}
-            </div>
-            <div className="flex items-center gap-4">
-              <span className="material-symbols-outlined text-[#91b2a6] cursor-pointer hover:text-[#a1ffc2] transition-colors">notifications</span>
-              <span className="material-symbols-outlined text-[#91b2a6] cursor-pointer hover:text-[#a1ffc2] transition-colors">account_balance_wallet</span>
-              <div className="w-8 h-8 rounded-full bg-[#002c22] flex items-center justify-center border border-[#a1ffc2]/20">
-                <span className="font-headline font-black text-xs text-[#a1ffc2]">
-                  {user?.nickname?.charAt(0) || "U"}
-                </span>
-              </div>
-            </div>
-          </div>
-        </header>
-
-        {/* Main Content */}
-        {activeTab === "market" ? (
-        <div className="flex-grow flex overflow-hidden">
-          {/* Left Panel: Filters */}
+      {/* Main Content - Market */}
+      <div className="flex-grow flex overflow-hidden">
+        {/* Left Panel: Filters */}
           <aside className="w-72 h-full bg-[#001e17] border-r border-[#2f4e44]/10 p-6 overflow-y-auto custom-scrollbar">
             <div className="flex items-center justify-between mb-6">
               <h2 className="font-bold text-[#a1ffc2] tracking-tight text-xs uppercase">{t("transfers.filters.scoutingFilters")}</h2>
@@ -1075,16 +1029,6 @@ export default function TransfersPage() {
             )}
           </aside>
         </div>
-        ) : activeTab === "shortlist" ? (
-          <div className="flex-grow overflow-auto">
-            <ShortlistPanel teamId={team?.id || ''} userId={user?.id || ''} />
-          </div>
-        ) : (
-          <div className="flex-grow overflow-auto p-8">
-            <TransferHistoryPanel team={team} initialTransactions={historyTransactions} />
-          </div>
-        )}
-      </main>
 
       {/* Buyout Confirmation Modal */}
       {showBuyoutConfirm && selectedTransfer && (
@@ -1165,6 +1109,6 @@ export default function TransfersPage() {
           </div>
         </div>
       )}
-    </div>
+    </>
   );
 }

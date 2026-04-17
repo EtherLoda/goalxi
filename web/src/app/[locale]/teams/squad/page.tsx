@@ -4,8 +4,6 @@ import { useTranslations } from "next-intl";
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
-import Sidebar from "@/components/dashboard/Sidebar";
-import Header from "@/components/dashboard/Header";
 import { useAuth } from "@/contexts/AuthContext";
 import { api, type Player, type PlayerEvent } from "@/lib/api";
 
@@ -410,15 +408,8 @@ export default function SquadPage() {
   };
 
   return (
-    <div className="flex min-h-screen bg-[#00110c]">
-      <Sidebar />
-
-      <main className="flex-1 ml-64 flex flex-col overflow-hidden">
-        {/* Header Section */}
-        <Header title={t("squad.title")} />
-
-        {/* Content Area */}
-        <div className="flex-grow flex p-6 min-h-0">
+    <div>
+      <div className="flex-grow flex p-6 min-h-0">
           {isLoading ? (
             <div className="flex items-center justify-center h-full w-full">
               <span className="material-symbols-outlined text-4xl text-[#a1ffc2] animate-spin">
@@ -940,7 +931,6 @@ export default function SquadPage() {
             </>
           )}
         </div>
-      </main>
 
       {/* List Player Modal */}
       {showListModal && selectedPlayer && (

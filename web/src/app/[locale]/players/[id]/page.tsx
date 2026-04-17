@@ -3,8 +3,6 @@
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
-import Sidebar from "@/components/dashboard/Sidebar";
-import Header from "@/components/dashboard/Header";
 import { api, type Player, type TransferAuction } from "@/lib/api";
 import { useTranslations } from "next-intl";
 import { useAuth } from "@/contexts/AuthContext";
@@ -310,13 +308,8 @@ export default function PlayerDetailPage({ params }: PageProps) {
   };
 
   return (
-    <div className="flex min-h-screen bg-[#00110c]">
-      <Sidebar />
-
-      <main className="flex-1 ml-64 flex flex-col overflow-hidden">
-        <Header title={t("title")} />
-
-        <div className="flex-grow p-6 pt-4">
+    <div>
+      <div className="flex-grow p-6 pt-4">
           {isLoading ? (
             <div className="flex items-center justify-center h-full w-full">
               <span className="material-symbols-outlined text-4xl text-[#a1ffc2] animate-spin">
@@ -690,7 +683,6 @@ export default function PlayerDetailPage({ params }: PageProps) {
             </div>
           )}
         </div>
-      </main>
 
       <style jsx global>{`
         .custom-scrollbar::-webkit-scrollbar {
@@ -762,7 +754,6 @@ export default function PlayerDetailPage({ params }: PageProps) {
           </div>
         </div>
       )}
-
     </div>
   );
 }

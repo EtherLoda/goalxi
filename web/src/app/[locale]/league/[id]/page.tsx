@@ -3,9 +3,6 @@
 import { useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
 import { useParams } from "next/navigation";
-import Sidebar from "@/components/dashboard/Sidebar";
-import Header from "@/components/dashboard/Header";
-import LeagueHeader from "@/components/league/LeagueHeader";
 import LeftColumn from "@/components/league/LeftColumn";
 import RightColumn from "@/components/league/RightColumn";
 import { useAuth } from "@/contexts/AuthContext";
@@ -152,13 +149,10 @@ export default function LeaguePage() {
 
   if (isLoading) {
     return (
-      <div className="flex min-h-screen bg-surface">
-        <Sidebar />
-        <main className="flex-1 ml-64 flex items-center justify-center">
-          <span className="material-symbols-outlined text-4xl text-primary animate-spin">
-            progress_activity
-          </span>
-        </main>
+      <div className="flex items-center justify-center min-h-screen">
+        <span className="material-symbols-outlined text-4xl text-primary animate-spin">
+          progress_activity
+        </span>
       </div>
     );
   }
@@ -167,23 +161,9 @@ export default function LeaguePage() {
   const currentMatchweek = gameState?.week || 24;
 
   return (
-    <div className="flex min-h-screen bg-surface">
-      <Sidebar />
-
-      <main className="flex-1 ml-64 flex flex-col overflow-hidden">
-        {/* Header */}
-        <Header title={t("dashboard.nav.league")} />
-
-        {/* League Header with tabs */}
-        <LeagueHeader
-          leagueName={league?.name || "Premier Division"}
-          season={gameState?.season || 2024}
-          matchweek={currentMatchweek}
-          totalMatchweeks={totalMatchweeks}
-        />
-
-        {/* Content Area */}
-        <div className="flex-grow flex p-6 min-h-0">
+    <>
+      {/* Content Area */}
+      <div className="flex-grow flex p-6 min-h-0">
           {/* Left Spacer */}
           <div className="flex-1" />
 
@@ -214,7 +194,6 @@ export default function LeaguePage() {
           {/* Right Spacer */}
           <div className="flex-1" />
         </div>
-      </main>
-    </div>
+    </>
   );
 }
