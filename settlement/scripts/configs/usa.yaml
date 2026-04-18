@@ -1,0 +1,83 @@
+country: USA
+name: Major League Soccer
+tierNum: 2
+cities:
+  - New York
+  - Los Angeles
+  - Chicago
+  - Houston
+  - Phoenix
+  - Philadelphia
+  - San Antonio
+  - San Diego
+  - Dallas
+  - San Jose
+  - Austin
+  - Jacksonville
+  - Columbus
+  - Indianapolis
+  - Charlotte
+  - Seattle
+  - Sacramento
+  - Tampa
+  - Minneapolis
+  - Nashville
+  - Orlando
+  - Salt Lake City
+  - Kansas City
+  - Atlanta
+  - Denver
+  - Portland
+  - Las Vegas
+  - Milwaukee
+  - Raleigh
+  - Omaha
+  - Albuquerque
+  - Tucson
+  - Boise
+  - Reno
+  - Spokane
+  - Sioux Falls
+  - Grand Rapids
+  - Madison
+  - Birmingham
+  - Little Rock
+  - Oklahoma City
+  - Tulsa
+  - Springfield
+  - Columbia
+  - Charleston
+  - Richmond
+  - Hartford
+  - Buffalo
+  - Rochester
+  - Syracuse
+  - Erie
+  - Allentown
+  - Harrisburg
+  - Baton Rouge
+  - Knoxville
+  - Louisville
+  - Lexington
+  - Flint
+  - Ann Arbor
+  - Lansing
+  - Fort Wayne
+  - Evansville
+  - South Bend
+  - Green Bay
+  - Appleton
+  - Oshkosh
+  - Rockford
+  - Peoria
+  - Springfield
+  - Champaign
+  - Decatur
+  - Roanoke
+  - Huntington
+  - Morgantown
+suffixes:
+  - FC
+  - United
+  - SC
+  - City
