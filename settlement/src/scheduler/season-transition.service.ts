@@ -107,9 +107,8 @@ export class SeasonTransitionService {
       this.logger.log(
         '[SeasonTransition] Step 3: Archiving previous season data...',
       );
-      const archiveSummary = await this.seasonArchiveService.archiveSeason(
-        previousSeason,
-      );
+      const archiveSummary =
+        await this.seasonArchiveService.archiveSeason(previousSeason);
       this.logger.log(
         `[SeasonTransition] Archived: seasonResults=${archiveSummary.seasonResultCount}, playerStats=${archiveSummary.playerStatsCount}, transactions=${archiveSummary.transactionCount}, playerEvents=${archiveSummary.playerEventCount}`,
       );

@@ -48,7 +48,9 @@ export class SeasonArchiveService {
    * Called during season transition (checkAndProcessSeasonStart)
    */
   async archiveSeason(season: number): Promise<ArchiveSummary> {
-    this.logger.log(`[SeasonArchive] Starting archive process for Season ${season}`);
+    this.logger.log(
+      `[SeasonArchive] Starting archive process for Season ${season}`,
+    );
 
     const summary: ArchiveSummary = {
       season,
@@ -86,7 +88,9 @@ export class SeasonArchiveService {
     });
 
     if (standings.length === 0) {
-      this.logger.warn(`[SeasonArchive] No standings found for Season ${season}`);
+      this.logger.warn(
+        `[SeasonArchive] No standings found for Season ${season}`,
+      );
       return 0;
     }
 
@@ -121,9 +125,7 @@ export class SeasonArchiveService {
   /**
    * Archive player competition stats for a season
    */
-  private async archivePlayerCompetitionStats(
-    season: number,
-  ): Promise<number> {
+  private async archivePlayerCompetitionStats(season: number): Promise<number> {
     const stats = await this.playerStatsRepo.find({ where: { season } });
 
     if (stats.length === 0) {
@@ -196,7 +198,9 @@ export class SeasonArchiveService {
     const events = await this.playerEventRepo.find({ where: { season } });
 
     if (events.length === 0) {
-      this.logger.warn(`[SeasonArchive] No player events found for Season ${season}`);
+      this.logger.warn(
+        `[SeasonArchive] No player events found for Season ${season}`,
+      );
       return 0;
     }
 
