@@ -125,9 +125,12 @@ export class TransferProcessor extends WorkerHost {
           throw new Error(`Buyer team ${buyerTeamId} not found`);
         }
 
-        const buyerFinance = await financeRepo.findOne({
-          where: { teamId: buyerTeamId as Uuid },
-        });
+        // Get buyer finance with pessimistic lock to prevent TOCTOU
+        const buyerFinance = await manager
+          .createQueryBuilder(FinanceEntity, 'finance')
+          .where('finance.teamId = :teamId', { teamId: buyerTeamId })
+          .setLock('pessimistic_write')
+          .getOne();
         if (!buyerFinance) {
           throw new Error(
             `Buyer finance record not found for team ${buyerTeamId}`,
@@ -157,10 +160,12 @@ export class TransferProcessor extends WorkerHost {
         });
         await transactionRepo.save(buyerTransaction);
 
-        // 3. Credit to seller
-        const sellerFinance = await financeRepo.findOne({
-          where: { teamId: sellerTeamId as Uuid },
-        });
+        // 3. Credit to seller (with pessimistic lock)
+        const sellerFinance = await manager
+          .createQueryBuilder(FinanceEntity, 'finance')
+          .where('finance.teamId = :teamId', { teamId: sellerTeamId })
+          .setLock('pessimistic_write')
+          .getOne();
         if (!sellerFinance) {
           throw new Error(
             `Seller finance record not found for team ${sellerTeamId}`,

@@ -431,9 +431,12 @@ export class AuctionService implements OnModuleInit {
       }
 
       // Check available funds from FinanceEntity.balance (minus already locked bid amounts)
-      const bidderFinance = await financeRepo.findOne({
-        where: { teamId: bidderTeam.id },
-      });
+      // Use pessimistic lock to prevent TOCTOU race conditions
+      const bidderFinance = await manager
+        .createQueryBuilder(FinanceEntity, 'finance')
+        .where('finance.teamId = :teamId', { teamId: bidderTeam.id })
+        .setLock('pessimistic_write')
+        .getOne();
       const availableFunds =
         (bidderFinance?.balance || 0) - bidderTeam.lockedCash;
       if (availableFunds < dto.amount) {
@@ -531,10 +534,12 @@ export class AuctionService implements OnModuleInit {
         throw new BadRequestException('Auction has ended');
       }
 
-      // Check available funds from FinanceEntity.balance
-      const buyerFinance = await financeRepo.findOne({
-        where: { teamId: buyerTeam.id },
-      });
+      // Check available funds from FinanceEntity.balance (with pessimistic lock to prevent TOCTOU)
+      const buyerFinance = await manager
+        .createQueryBuilder(FinanceEntity, 'finance')
+        .where('finance.teamId = :teamId', { teamId: buyerTeam.id })
+        .setLock('pessimistic_write')
+        .getOne();
       if (!buyerFinance) {
         throw new NotFoundException('Buyer finance record not found');
       }
