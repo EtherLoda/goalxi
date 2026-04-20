@@ -94,12 +94,18 @@ interface PlayerEvent {
   details?: any;
 }
 
+interface MatchTeam {
+  id: string;
+  name: string;
+  logo: string | null;
+}
+
 interface Match {
   id: string;
   homeTeamId: string;
   awayTeamId: string;
-  homeTeamName: string;
-  awayTeamName: string;
+  homeTeam: MatchTeam;
+  awayTeam: MatchTeam;
   homeScore: number | null;
   awayScore: number | null;
   status: string;

@@ -23,7 +23,7 @@ import Link from 'next/link';
 import { clsx } from 'clsx';
 import { Skeleton } from '@/components/ui/SkeletonLoader';
 
-type TransactionType = 'MATCH_INCOME' | 'TRANSFER_IN' | 'TRANSFER_OUT' | 'WAGES' | 'SPONSORSHIP' | 'FACILITY_UPGRADE' | 'ALL';
+type TransactionType = 'MATCH_INCOME' | 'TRANSFER_IN' | 'TRANSFER_OUT' | 'WAGES' | 'SPONSORSHIP' | 'OTHER_EXPENSE' | 'OTHER_INCOME' | 'ALL';
 
 const TRANSACTION_TYPES: { value: TransactionType; label: string }[] = [
     { value: 'ALL', label: 'All Types' },
@@ -32,7 +32,8 @@ const TRANSACTION_TYPES: { value: TransactionType; label: string }[] = [
     { value: 'TRANSFER_OUT', label: 'Transfer Out' },
     { value: 'WAGES', label: 'Wages' },
     { value: 'SPONSORSHIP', label: 'Sponsorship' },
-    { value: 'FACILITY_UPGRADE', label: 'Facility Upgrade' },
+    { value: 'OTHER_EXPENSE', label: 'Other Expense' },
+    { value: 'OTHER_INCOME', label: 'Other Income' },
 ];
 
 const ITEMS_PER_PAGE = 10;
@@ -179,7 +180,8 @@ export default function FinancePage() {
             case 'TRANSFER_IN': return <TrendingDown className="text-rose-500" size={18} />;
             case 'TRANSFER_OUT': return <TrendingUp className="text-emerald-500" size={18} />;
             case 'SPONSORSHIP': return <DollarSign className="text-emerald-500" size={18} />;
-            case 'FACILITY_UPGRADE': return <Activity className="text-rose-500" size={18} />;
+            case 'OTHER_EXPENSE': return <Activity className="text-rose-500" size={18} />;
+            case 'OTHER_INCOME': return <Activity className="text-emerald-500" size={18} />;
             default: return <Receipt className="text-slate-400" size={18} />;
         }
     };

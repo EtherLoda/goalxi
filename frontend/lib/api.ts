@@ -70,7 +70,7 @@ export interface Transaction {
     id: string;
     season: number;
     amount: number;
-    type: 'MATCH_INCOME' | 'TRANSFER_IN' | 'TRANSFER_OUT' | 'WAGES' | 'SPONSORSHIP' | 'FACILITY_UPGRADE';
+    type: 'MATCH_INCOME' | 'TRANSFER_IN' | 'TRANSFER_OUT' | 'WAGES' | 'SPONSORSHIP' | 'OTHER_EXPENSE' | 'OTHER_INCOME';
     description?: string;
     createdAt: string;
 }

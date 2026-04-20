@@ -118,7 +118,7 @@ export default function FinancePage() {
         case "STAFF_WAGES":
           stats.staffWages += Math.abs(tx.amount);
           break;
-        case "STADIUM_MAINTENANCE":
+        case "OTHER_EXPENSE":
           stats.maintenance += Math.abs(tx.amount);
           break;
       }
