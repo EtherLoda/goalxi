@@ -1,11 +1,14 @@
 import {
+  MatchEntity,
   STADIUM_COST_PER_SEAT,
-  STADIUM_DEMOLISH_REFUND_RATE,
   StadiumEntity,
+  TransactionType,
+  Uuid,
 } from '@goalxi/database';
 import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
+import { FinanceService } from '../finance/finance.service';
 import { BuildStadiumReqDto, ResizeStadiumReqDto } from './dto/stadium.req.dto';
 
 @Injectable()
@@ -15,7 +18,18 @@ export class StadiumService {
   constructor(
     @InjectRepository(StadiumEntity)
     private readonly stadiumRepository: Repository<StadiumEntity>,
+    @InjectRepository(MatchEntity)
+    private readonly matchRepository: Repository<MatchEntity>,
+    private readonly financeService: FinanceService,
   ) {}
+
+  private async getCurrentSeason(): Promise<number> {
+    const result = await this.matchRepository
+      .createQueryBuilder('match')
+      .select('MAX(match.season)', 'maxSeason')
+      .getRawOne();
+    return result?.maxSeason || 1;
+  }
 
   /**
    * 获取球队球场
@@ -39,23 +53,15 @@ export class StadiumService {
     const existing = await this.stadiumRepository.findOne({
       where: { teamId },
     });
-    let refund = 0;
 
     if (existing) {
-      // 如果已有球场，计算拆除返还
-      if (existing.isBuilt) {
-        refund = Math.floor(
-          existing.capacity *
-            STADIUM_COST_PER_SEAT *
-            STADIUM_DEMOLISH_REFUND_RATE,
-        );
-      }
       // 删除旧球场
       await this.stadiumRepository.remove(existing);
     }
 
-    // 计算新球场费用
-    const cost = dto.capacity * STADIUM_COST_PER_SEAT - refund;
+    // 计算新球场费用（无退款）
+    const cost = dto.capacity * STADIUM_COST_PER_SEAT;
+    const season = await this.getCurrentSeason();
 
     // 创建新球场
     const stadium = this.stadiumRepository.create({
@@ -65,6 +71,16 @@ export class StadiumService {
     });
 
     await this.stadiumRepository.save(stadium);
+
+    // 记录交易
+    await this.financeService.processTransaction(
+      teamId as Uuid,
+      -cost,
+      TransactionType.OTHER_EXPENSE,
+      season,
+      `Stadium construction (${dto.capacity} seats)`,
+    );
+
     this.logger.log(
       `Stadium built for team ${teamId}: capacity=${dto.capacity}, cost=${cost}`,
     );
@@ -73,67 +89,45 @@ export class StadiumService {
   }
 
   /**
-   * 调整球场容量（增减座位）
+   * 调整球场容量 - 不再支持，请使用新建和拆除
+   * @deprecated Use build() to construct a new stadium
    */
   async resize(
     teamId: string,
     dto: ResizeStadiumReqDto,
   ): Promise<{ stadium: StadiumEntity; cost: number }> {
-    if (dto.capacity < 1000) {
-      throw new BadRequestException('Capacity must be at least 1000');
-    }
-
-    const stadium = await this.stadiumRepository.findOne({ where: { teamId } });
-    if (!stadium) {
-      throw new BadRequestException('Stadium not found');
-    }
-
-    const oldCapacity = stadium.capacity;
-    const capacityDiff = dto.capacity - oldCapacity;
-
-    if (capacityDiff === 0) {
-      return { stadium, cost: 0 };
-    }
-
-    let cost: number;
-    if (capacityDiff > 0) {
-      // 增加座位：付费
-      cost = capacityDiff * STADIUM_COST_PER_SEAT;
-    } else {
-      // 减少座位：返还部分费用
-      cost = Math.floor(
-        capacityDiff * STADIUM_COST_PER_SEAT * STADIUM_DEMOLISH_REFUND_RATE,
-      );
-    }
-
-    stadium.capacity = dto.capacity;
-    await this.stadiumRepository.save(stadium);
-
-    this.logger.log(
-      `Stadium resized for team ${teamId}: ${oldCapacity} -> ${dto.capacity}, cost=${cost}`,
+    throw new BadRequestException(
+      'Stadium resize is no longer supported. Use build() to construct a new stadium.',
     );
-
-    return { stadium, cost };
   }
 
   /**
-   * 拆除球场（返还30%费用）
+   * 拆除球场（支出，无退款）
    */
-  async demolish(teamId: string): Promise<{ refund: number }> {
+  async demolish(teamId: string): Promise<{ cost: number }> {
     const stadium = await this.stadiumRepository.findOne({ where: { teamId } });
     if (!stadium) {
       throw new BadRequestException('Stadium not found');
     }
 
-    // 计算返还金额
-    const refund = Math.floor(
-      stadium.capacity * STADIUM_COST_PER_SEAT * STADIUM_DEMOLISH_REFUND_RATE,
-    );
+    // 拆除费用 = 容量 × 单位成本
+    const cost = stadium.capacity * STADIUM_COST_PER_SEAT;
+    const season = await this.getCurrentSeason();
 
     await this.stadiumRepository.remove(stadium);
-    this.logger.log(`Stadium demolished for team ${teamId}: refund=${refund}`);
 
-    return { refund };
+    // 记录交易
+    await this.financeService.processTransaction(
+      teamId as Uuid,
+      -cost,
+      TransactionType.OTHER_EXPENSE,
+      season,
+      `Stadium demolition (${stadium.capacity} seats)`,
+    );
+
+    this.logger.log(`Stadium demolished for team ${teamId}: cost=${cost}`);
+
+    return { cost };
   }
 
   /**

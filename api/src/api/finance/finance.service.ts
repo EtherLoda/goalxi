@@ -13,7 +13,7 @@ import {
 } from '@goalxi/database';
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { DataSource, Repository } from 'typeorm';
+import { DataSource, EntityManager, Repository } from 'typeorm';
 
 @Injectable()
 export class FinanceService {
@@ -169,11 +169,26 @@ export class FinanceService {
   }
 
   /**
-   * Process weekly settlement for a team
-   * Includes: sponsorship (基础值 × 2 × √(球迷数/1万)), staff wages, youth team cost, stadium maintenance
+   * Process weekly settlement for a team (non-atomic, each tx commits independently)
+   * @deprecated Use processWeeklySettlementAtomic instead
    */
   async processWeeklySettlement(teamId: Uuid, season: number): Promise<void> {
-    const team = await this.teamRepo.findOne({
+    await this.dataSource.transaction(async (manager) => {
+      await this.processWeeklySettlementAtomic(teamId, season, manager);
+    });
+  }
+
+  /**
+   * Process weekly settlement for a team - atomic version
+   * Uses provided EntityManager so all operations are in a single transaction
+   * Includes: sponsorship (基础值 × 2 × √(球迷数/1万)), staff wages, youth team cost, stadium maintenance
+   */
+  async processWeeklySettlementAtomic(
+    teamId: Uuid,
+    season: number,
+    manager: EntityManager,
+  ): Promise<void> {
+    const team = await manager.getRepository(TeamEntity).findOne({
       where: { id: teamId },
       relations: ['league'],
     });
@@ -182,9 +197,20 @@ export class FinanceService {
     }
 
     const tier = team.league?.tier || 4;
+    const financeRepo = manager.getRepository(FinanceEntity);
+    const transactionRepo = manager.getRepository(TransactionEntity);
+
+    // Get or create finance record
+    let finance = await financeRepo.findOneBy({ teamId });
+    if (!finance) {
+      finance = financeRepo.create({ teamId, balance: 100000 });
+      finance = await financeRepo.save(finance);
+    }
 
     // Income: Sponsorship = 基础值 × 2 × √(球迷数/1万)
-    const fan = await this.fanRepo.findOne({ where: { teamId } });
+    const fan = await manager
+      .getRepository(FanEntity)
+      .findOne({ where: { teamId } });
     const baseSponsorship =
       FINANCE_CONSTANTS.SPONSORSHIP_BASE[
         tier as keyof typeof FINANCE_CONSTANTS.SPONSORSHIP_BASE
@@ -192,16 +218,19 @@ export class FinanceService {
     const fanCount = fan?.totalFans || 1000;
     const sponsorshipMultiplier = Math.sqrt(fanCount / 10000);
     const sponsorship = Math.floor(baseSponsorship * 2 * sponsorshipMultiplier);
-    await this.processTransaction(
+
+    const sponsorshipTx = transactionRepo.create({
       teamId,
-      sponsorship,
-      TransactionType.SPONSORSHIP,
+      amount: sponsorship,
+      type: TransactionType.SPONSORSHIP,
       season,
-      `Weekly sponsorship income (Tier ${tier}, ${fanCount} fans)`,
-    );
+      description: `Weekly sponsorship income (Tier ${tier}, ${fanCount} fans)`,
+    });
+    finance.balance += sponsorship;
+    await transactionRepo.save(sponsorshipTx);
 
     // Expense: Staff wages (HEAD_COACH gets 2x)
-    const staffMembers = await this.staffRepo.find({
+    const staffMembers = await manager.getRepository(StaffEntity).find({
       where: { teamId, isActive: true },
     });
     for (const staff of staffMembers) {
@@ -211,42 +240,51 @@ export class FinanceService {
         ] || 15000;
       const staffWage =
         staff.role === StaffRole.HEAD_COACH ? baseWage * 2 : baseWage;
-      await this.processTransaction(
+
+      const staffTx = transactionRepo.create({
         teamId,
-        -staffWage,
-        TransactionType.STAFF_WAGES,
+        amount: -staffWage,
+        type: TransactionType.STAFF_WAGES,
         season,
-        `Weekly wage for ${staff.name} (${staff.role})`,
-        staff.id,
-      );
+        description: `Weekly wage for ${staff.name} (${staff.role})`,
+        relatedId: staff.id,
+      });
+      finance.balance -= staffWage;
+      await transactionRepo.save(staffTx);
     }
 
     // Expense: Youth team
-    await this.processTransaction(
+    const youthTx = transactionRepo.create({
       teamId,
-      -FINANCE_CONSTANTS.YOUTH_TEAM_COST,
-      TransactionType.YOUTH_TEAM,
+      amount: -FINANCE_CONSTANTS.YOUTH_TEAM_COST,
+      type: TransactionType.YOUTH_TEAM,
       season,
-      'Weekly youth team operation',
-    );
+      description: 'Weekly youth team operation',
+    });
+    finance.balance -= FINANCE_CONSTANTS.YOUTH_TEAM_COST;
+    await transactionRepo.save(youthTx);
 
     // Expense: Stadium maintenance (based on capacity)
-    const stadium = await this.stadiumRepo.findOne({ where: { teamId } });
+    const stadium = await manager
+      .getRepository(StadiumEntity)
+      .findOne({ where: { teamId } });
     if (stadium?.isBuilt) {
       const maintenanceCost =
         stadium.capacity * FINANCE_CONSTANTS.STADIUM_MAINTENANCE_PER_SEAT;
-      await this.processTransaction(
+      const stadiumTx = transactionRepo.create({
         teamId,
-        -maintenanceCost,
-        TransactionType.STADIUM_MAINTENANCE,
+        amount: -maintenanceCost,
+        type: TransactionType.OTHER_EXPENSE,
         season,
-        `Weekly stadium maintenance (${stadium.capacity} seats)`,
-        stadium.id,
-      );
+        description: `Weekly stadium maintenance (${stadium.capacity} seats)`,
+        relatedId: stadium.id,
+      });
+      finance.balance -= maintenanceCost;
+      await transactionRepo.save(stadiumTx);
     }
 
     // Expense: Player wages (all non-youth players)
-    const players = await this.playerRepo.find({
+    const players = await manager.getRepository(PlayerEntity).find({
       where: { teamId, isYouth: false },
     });
     if (players.length > 0) {
@@ -255,14 +293,19 @@ export class FinanceService {
         0,
       );
       if (totalPlayerWages > 0) {
-        await this.processTransaction(
+        const wagesTx = transactionRepo.create({
           teamId,
-          -totalPlayerWages,
-          TransactionType.WAGES,
+          amount: -totalPlayerWages,
+          type: TransactionType.WAGES,
           season,
-          `Weekly player wages (${players.length} players)`,
-        );
+          description: `Weekly player wages (${players.length} players)`,
+        });
+        finance.balance -= totalPlayerWages;
+        await transactionRepo.save(wagesTx);
       }
     }
+
+    // Save final balance
+    await financeRepo.save(finance);
   }
 }

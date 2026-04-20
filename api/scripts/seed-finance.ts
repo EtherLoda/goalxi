@@ -298,7 +298,7 @@ async function seedFinanceData() {
         transactionsToCreate.push({
           teamId: team.id,
           amount: -data.stadiumMaintenance,
-          type: TransactionType.STADIUM_MAINTENANCE,
+          type: TransactionType.OTHER_EXPENSE,
           season,
           description: `Week ${weekInSeason} stadium maintenance`,
         });
@@ -331,7 +331,7 @@ async function seedFinanceData() {
         transactionsToCreate.push({
           teamId: team.id,
           amount: -data.medical,
-          type: TransactionType.MEDICAL,
+          type: TransactionType.OTHER_EXPENSE,
           season,
           description: `Week ${weekInSeason} medical expenses`,
         });
