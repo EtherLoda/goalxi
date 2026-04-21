@@ -88,6 +88,7 @@
     "venue": "Venue",
     "home": "Home",
     "away": "Away",
+    "setTactics": "Set Tactics",
     "nav": {
       "overview": "Overview",
       "dashboard": "Dashboard",
@@ -268,8 +269,12 @@
       "title": "Recent Events"
     },
     "matchweek": {
-      "results": "MW {matchday} Results",
-      "completed": "Completed"
+      "thisRound": "Round {round}",
+      "nextRound": "Round {round}",
+      "completed": "Completed",
+      "upcoming": "Upcoming",
+      "noResults": "No results yet",
+      "noUpcoming": "No fixtures scheduled"
     },
     "standings": {
       "title": "League Standings",
@@ -280,8 +285,11 @@
       "l": "L",
       "gd": "GD",
       "pts": "PTS",
-      "ucl": "UCL",
-      "uel": "UEL",
+      "form": "Last 5",
+      "recentForm": "Recent 5",
+      "promote": "PROMO",
+      "promotePlayoff": "P.PLAYOFF",
+      "relPlayoff": "R.PLAYOFF",
       "rel": "REL",
       "lastUpdated": "Last updated: Today, 14:32",
       "expand": "Expand",
@@ -290,6 +298,7 @@
     "rightColumn": {
       "standings": "Standings",
       "data": "League Data",
+      "fixtures": "Fixtures",
       "history": "History",
       "comingSoon": "Coming Soon"
     }
@@ -343,5 +352,24 @@
     "captain_debut": "First time captain",
     "record_broken": "New record set",
     "contract_renewal": "Contract renewed"
+  },
+  "notification": {
+    "title": "Notifications",
+    "markAllRead": "Mark all as read",
+    "clearAll": "Clear all",
+    "loadMore": "Load more",
+    "empty": "No notifications yet",
+    "matchResult_win": "Victory! {homeTeam} {homeScore} - {awayScore} {awayTeam}",
+    "matchResult_loss": "Defeat. {homeTeam} {homeScore} - {awayScore} {awayTeam}",
+    "matchResult_draw": "Draw. {homeTeam} {homeScore} - {awayScore} {awayTeam}",
+    "playerSkillImproved": "{player}'s {skill} improved to {value}",
+    "playerSkillDecreased": "{player}'s {skill} dropped to {value}",
+    "playerInjured": "{player} is injured",
+    "playerRecovered": "{player} has recovered from injury",
+    "playerPurchased": "Purchased {player} for {amount}",
+    "playerSold": "Sold {player} for {amount}",
+    "auctionOutbid": "You've been outbid on {player}",
+    "auctionWon": "You won the auction for {player}!",
+    "auctionLost": "You lost the auction for {player}"
   }
 }

@@ -16,27 +16,40 @@ interface MatchResult {
   id: string;
   homeTeam: string;
   homeTeamShort: string;
+  homeTeamId?: string;
   awayTeam: string;
   awayTeamShort: string;
+  awayTeamId?: string;
   homeScore: number;
   awayScore: number;
+  scheduledAt?: string;
+  status?: string;
 }
 
 interface LeftColumnProps {
   news: NewsItem[];
-  matchday: number;
-  matchResults: MatchResult[];
+  currentRound: number;
+  lastRoundResults: MatchResult[];
+  nextRoundMatches: MatchResult[];
+  userTeamId?: string;
 }
 
 export default function LeftColumn({
   news,
-  matchday,
-  matchResults,
+  currentRound,
+  lastRoundResults,
+  nextRoundMatches,
+  userTeamId,
 }: LeftColumnProps) {
   return (
     <div className="space-y-6">
       <RecentEvents news={news} />
-      <MatchweekResults matchday={matchday} results={matchResults} />
+      <MatchweekResults
+        currentRound={currentRound}
+        lastRoundResults={lastRoundResults}
+        nextRoundMatches={nextRoundMatches}
+        userTeamId={userTeamId}
+      />
     </div>
   );
 }

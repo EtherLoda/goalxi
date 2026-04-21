@@ -6,7 +6,7 @@ import { useParams } from "next/navigation";
 import LeftColumn from "@/components/league/LeftColumn";
 import RightColumn from "@/components/league/RightColumn";
 import { useAuth } from "@/contexts/AuthContext";
-import { api, type Standing, type Team } from "@/lib/api";
+import { api, type Standing, type Team, type Match } from "@/lib/api";
 
 interface NewsItem {
   id: string;
@@ -24,9 +24,11 @@ interface MatchResult {
   awayTeamShort: string;
   homeScore: number;
   awayScore: number;
+  scheduledAt?: string;
+  status?: string;
 }
 
-// Mock data for demo - replace with API calls
+// Mock news data - replace with API when news endpoint is available
 const MOCK_NEWS: NewsItem[] = [
   {
     id: "1",
@@ -54,44 +56,35 @@ const MOCK_NEWS: NewsItem[] = [
   },
 ];
 
-const MOCK_MATCH_RESULTS: MatchResult[] = [
-  {
-    id: "1",
-    homeTeam: "Manchester United",
-    homeTeamShort: "MUN",
-    awayTeam: "Liverpool",
-    awayTeamShort: "LIV",
-    homeScore: 1,
-    awayScore: 2,
-  },
-  {
-    id: "2",
-    homeTeam: "Chelsea",
-    homeTeamShort: "CHE",
-    awayTeam: "Arsenal",
-    awayTeamShort: "ARS",
-    homeScore: 0,
-    awayScore: 0,
-  },
-  {
-    id: "3",
-    homeTeam: "Tottenham",
-    homeTeamShort: "TOT",
-    awayTeam: "Newcastle",
-    awayTeamShort: "NEW",
-    homeScore: 3,
-    awayScore: 1,
-  },
-  {
-    id: "4",
-    homeTeam: "Aston Villa",
-    homeTeamShort: "AVL",
-    awayTeam: "West Ham",
-    awayTeamShort: "WHU",
-    homeScore: 2,
-    awayScore: 2,
-  },
-];
+// Helper to shorten team name to 3-letter code
+function toShortName(name: string): string {
+  // Handle "Team X" pattern -> "TX"
+  const teamMatch = name.match(/^Team\s+(\d+)$/i);
+  if (teamMatch) {
+    return `T${teamMatch[1]}`;
+  }
+  // Handle "Team XX" (two digit) -> "TXX"
+  const words = name.split(' ');
+  if (words.length === 1) return name.slice(0, 3).toUpperCase();
+  return words.map(w => w[0]).join('').slice(0, 3).toUpperCase();
+}
+
+// Transform API match to MatchResult
+function matchToResult(match: Match, isCompleted: boolean): MatchResult {
+  return {
+    id: match.id,
+    homeTeam: match.homeTeam.name,
+    homeTeamShort: toShortName(match.homeTeam.name),
+    homeTeamId: match.homeTeam.id,
+    awayTeam: match.awayTeam.name,
+    awayTeamShort: toShortName(match.awayTeam.name),
+    awayTeamId: match.awayTeam.id,
+    homeScore: match.homeScore ?? 0,
+    awayScore: match.awayScore ?? 0,
+    scheduledAt: match.scheduledAt,
+    status: match.status,
+  };
+}
 
 export default function LeaguePage() {
   const t = useTranslations();
@@ -106,21 +99,70 @@ export default function LeaguePage() {
   const [gameState, setGameState] = useState<{
     season: number;
     week: number;
+    round: number;
   } | null>(null);
+  const [lastRoundResults, setLastRoundResults] = useState<MatchResult[]>([]);
+  const [nextRoundMatches, setNextRoundMatches] = useState<MatchResult[]>([]);
+  const [allMatches, setAllMatches] = useState<Match[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const [leagueData, standingsData, gameData] = await Promise.all([
+        // Fetch league data, standings, and all matches in parallel
+        const [leagueData, standingsData, matchesData] = await Promise.all([
           api.leagues.getById(leagueId).catch(() => null),
           api.leagues.getStandings(leagueId).catch(() => []),
-          api.game.getCurrent().catch(() => ({ season: 2024, week: 24 })),
+          api.matches.getByLeague(leagueId, {}).catch(() => ({ data: [] })),
         ]);
 
         setLeague(leagueData);
         setStandings(standingsData);
-        setGameState(gameData);
+
+        const matches = matchesData.data || [];
+        setAllMatches(matches);
+        console.log(`[LeaguePage] leagueId=${leagueId}, totalMatches=${matches.length}, rounds found:`, [...new Set(matches.map((m: Match) => m.round))]);
+
+        // Find the latest completed round (this round with results)
+        const completedMatches = matches
+          .filter((m: Match) => m.status === 'completed')
+          .sort((a: Match, b: Match) => {
+            const roundA = a.round ?? a.week * 2;
+            const roundB = b.round ?? b.week * 2;
+            return roundB - roundA;
+          });
+
+        const latestCompletedRound = completedMatches.length > 0
+          ? (completedMatches[0].round ?? completedMatches[0].week * 2)
+          : 0;
+
+        // Find next scheduled round (next round with no results yet)
+        const scheduledMatches = matches
+          .filter((m: Match) => m.status === 'scheduled' || m.status === 'tactics_locked')
+          .sort((a: Match, b: Match) => {
+            const roundA = a.round ?? a.week * 2;
+            const roundB = b.round ?? b.week * 2;
+            return roundA - roundB;
+          });
+
+        const nextScheduledRound = scheduledMatches.length > 0
+          ? (scheduledMatches[0].round ?? scheduledMatches[0].week * 2)
+          : latestCompletedRound + 1;
+
+        // Set current round for display
+        setGameState({ season: 2024, week: latestCompletedRound, round: latestCompletedRound });
+
+        // Transform last round matches (this round = latest completed)
+        const lastMatches = completedMatches
+          .filter((m: Match) => (m.round ?? m.week * 2) === latestCompletedRound)
+          .map((m: Match) => matchToResult(m, true));
+        setLastRoundResults(lastMatches);
+
+        // Transform next round matches (next scheduled round)
+        const nextMatches = scheduledMatches
+          .filter((m: Match) => (m.round ?? m.week * 2) === nextScheduledRound)
+          .map((m: Match) => matchToResult(m, false));
+        setNextRoundMatches(nextMatches);
 
         // Build teams map from standings
         const teamsMap: Record<string, Team> = {};
@@ -128,7 +170,7 @@ export default function LeaguePage() {
           if (!teamsMap[s.teamId]) {
             teamsMap[s.teamId] = {
               id: s.teamId,
-              name: `Club ${s.teamId.slice(0, 6)}`,
+              name: s.teamName || `Club ${s.teamId.slice(0, 6)}`,
               leagueId: s.leagueId,
               isBot: true,
               jerseyColorPrimary: "#00e479",
@@ -157,8 +199,8 @@ export default function LeaguePage() {
     );
   }
 
-  const totalMatchweeks = 38;
-  const currentMatchweek = gameState?.week || 24;
+  const totalMatchweeks = 16;
+  const currentRound = gameState?.round || 0;
 
   return (
     <>
@@ -173,8 +215,10 @@ export default function LeaguePage() {
             <div className="flex-1 min-w-0">
               <LeftColumn
                 news={MOCK_NEWS}
-                matchday={currentMatchweek}
-                matchResults={MOCK_MATCH_RESULTS}
+                currentRound={currentRound}
+                lastRoundResults={lastRoundResults}
+                nextRoundMatches={nextRoundMatches}
+                userTeamId={userTeam?.id}
               />
             </div>
 
@@ -187,6 +231,7 @@ export default function LeaguePage() {
                 standings={standings}
                 teams={teams}
                 userTeamId={userTeam?.id}
+                allMatches={allMatches}
               />
             </div>
           </div>

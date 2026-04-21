@@ -10,8 +10,9 @@ interface StandingsTableProps {
 }
 
 const ZONE_COLORS = {
-  ucl: "#00e479",   // UCL zone - primary
-  uel: "#ffdb9d",   // UEL zone - secondary
+  promote: "#00e479",   // Promotion - primary
+  promotePlayoff: "#a3e635",   // Promotion playoffs - lime
+  relPlayoff: "#fbbf24",   // Relegation playoffs - amber
   rel: "#ffb4ab",   // Relegation - error
 };
 
@@ -23,18 +24,69 @@ export default function StandingsTable({
   const t = useTranslations();
 
   const getZone = (pos: number): keyof typeof ZONE_COLORS | null => {
-    if (pos <= 4) return "ucl";
-    if (pos <= 6) return "uel";
-    if (pos >= 17) return "rel";
+    if (pos === 1) return "promote";
+    if (pos === 2) return "promotePlayoff";
+    if (pos >= 9 && pos <= 12) return "relPlayoff";
+    if (pos >= 13) return "rel";
     return null;
   };
 
   const getZoneLabel = (zone: keyof typeof ZONE_COLORS | null): string => {
-    if (zone === "ucl") return "UCL";
-    if (zone === "uel") return "UEL";
-    if (zone === "rel") return "REL";
+    if (zone === "promote") return "PROMO";
+    if (zone === "promotePlayoff") return "P.PLAYOFF";
+    if (zone === "relPlayoff") return "R.PLAYOFF";
+    if (zone === "rel") return "RELEG";
     return "";
   };
+
+  // Recent form icons with hover showing scores
+  function RecentFormIcons({ recentMatches }: { recentMatches: Standing['recentMatches'] }) {
+    if (!recentMatches || recentMatches.length === 0) {
+      return <span className="text-on-surface-variant text-xs">-</span>;
+    }
+
+    const icons: Record<string, string> = {
+      W: "✓",
+      D: "-",
+      L: "×",
+    };
+
+    const colors: Record<string, string> = {
+      W: "#00e479", // win - green
+      D: "#8b928f", // draw - gray
+      L: "#ffb4ab", // loss - red
+    };
+
+    return (
+      <div className="flex items-center gap-0.5">
+        {recentMatches.slice(0, 5).map((m, i) => (
+          <div
+            key={i}
+            className="relative group"
+          >
+            <div
+              className="w-4 h-4 rounded flex items-center justify-center text-[8px] font-headline font-black cursor-pointer"
+              style={{
+                backgroundColor: colors[m.result] || "#8b928f",
+                color: "#fff",
+              }}
+            >
+              {icons[m.result]}
+            </div>
+            {/* Hover tooltip for single match */}
+            <div className="absolute bottom-full right-0 mb-1 px-2 py-1 bg-surface-container rounded text-[10px] whitespace-nowrap opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-50">
+              <span className="text-on-surface">
+                {m.isHome ? 'vs' : '@'} {m.opponentName}
+              </span>
+              <span className="ml-2 font-mono text-on-surface-variant">
+                {m.homeScore} - {m.awayScore}
+              </span>
+            </div>
+          </div>
+        ))}
+      </div>
+    );
+  }
 
   return (
     <div className="bg-surface-container rounded-2xl overflow-hidden flex flex-col h-full">
@@ -50,19 +102,28 @@ export default function StandingsTable({
             <div className="flex items-center gap-1.5">
               <span
                 className="w-2 h-2 rounded-full"
-                style={{ backgroundColor: ZONE_COLORS.ucl }}
+                style={{ backgroundColor: ZONE_COLORS.promote }}
               />
               <span className="text-[9px] font-bold font-label uppercase tracking-widest text-on-surface-variant">
-                {t("league.standings.ucl")}
+                {t("league.standings.promote")}
               </span>
             </div>
             <div className="flex items-center gap-1.5">
               <span
                 className="w-2 h-2 rounded-full"
-                style={{ backgroundColor: ZONE_COLORS.uel }}
+                style={{ backgroundColor: ZONE_COLORS.promotePlayoff }}
               />
               <span className="text-[9px] font-bold font-label uppercase tracking-widest text-on-surface-variant">
-                {t("league.standings.uel")}
+                {t("league.standings.promotePlayoff")}
+              </span>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <span
+                className="w-2 h-2 rounded-full"
+                style={{ backgroundColor: ZONE_COLORS.relPlayoff }}
+              />
+              <span className="text-[9px] font-bold font-label uppercase tracking-widest text-on-surface-variant">
+                {t("league.standings.relPlayoff")}
               </span>
             </div>
             <div className="flex items-center gap-1.5">
@@ -93,6 +154,7 @@ export default function StandingsTable({
               <th className="pb-2 text-center w-10 font-black text-on-surface">
                 {t("league.standings.pts")}
               </th>
+              <th className="pb-2 pl-4 text-center w-28">{t("league.standings.form")}</th>
             </tr>
           </thead>
           <tbody className="text-sm">
@@ -165,6 +227,15 @@ export default function StandingsTable({
                   {/* Points */}
                   <td className="py-3 text-center font-headline font-black text-primary">
                     {row.points}
+                  </td>
+
+                  {/* Recent Form */}
+                  <td className="py-3 pl-4">
+                    {row.recentMatches && row.recentMatches.length > 0 ? (
+                      <RecentFormIcons recentMatches={row.recentMatches} />
+                    ) : (
+                      <span className="text-on-surface-variant text-xs">-</span>
+                    )}
                   </td>
                 </tr>
               );

@@ -88,6 +88,7 @@
     "venue": "场地",
     "home": "主场",
     "away": "客场",
+    "setTactics": "布阵",
     "nav": {
       "overview": "概览",
       "dashboard": "仪表盘",
@@ -268,8 +269,12 @@
       "title": "近期动态"
     },
     "matchweek": {
-      "results": "第 {matchday} 轮赛果",
-      "completed": "已结束"
+      "thisRound": "第 {round} 轮",
+      "nextRound": "第 {round} 轮",
+      "completed": "已结束",
+      "upcoming": "待进行",
+      "noResults": "暂无赛果",
+      "noUpcoming": "暂无赛程"
     },
     "standings": {
       "title": "积分榜",
@@ -280,8 +285,12 @@
       "l": "负",
       "gd": "净胜",
       "pts": "分",
-      "ucl": "欧冠",
-      "uel": "欧联",
+      "form": "近5场",
+      "recentForm": "最近5场",
+      "last5": "Last 5",
+      "promote": "晋级",
+      "promotePlayoff": "附加赛",
+      "relPlayoff": "降级附加赛",
       "rel": "降级",
       "lastUpdated": "更新时间: 今天 14:32",
       "expand": "展开",
@@ -290,6 +299,7 @@
     "rightColumn": {
       "standings": "积分榜",
       "data": "联赛数据",
+      "fixtures": "对阵表",
       "history": "历史",
       "comingSoon": "即将推出"
     }
@@ -343,5 +353,24 @@
     "captain_debut": "首次担任队长",
     "record_broken": "创造新纪录",
     "contract_renewal": "续约"
+  },
+  "notification": {
+    "title": "通知",
+    "markAllRead": "全部标为已读",
+    "clearAll": "清除全部",
+    "loadMore": "加载更多",
+    "empty": "暂无通知",
+    "matchResult_win": "胜利！{homeTeam} {homeScore} - {awayScore} {awayTeam}",
+    "matchResult_loss": "失利。{homeTeam} {homeScore} - {awayScore} {awayTeam}",
+    "matchResult_draw": "平局。{homeTeam} {homeScore} - {awayScore} {awayTeam}",
+    "playerSkillImproved": "{player} 的 {skill} 提升到 {value}",
+    "playerSkillDecreased": "{player} 的 {skill} 下降到 {value}",
+    "playerInjured": "{player} 受伤了",
+    "playerRecovered": "{player} 已从伤病中恢复",
+    "playerPurchased": "签下 {player}，花费 {amount}",
+    "playerSold": "出售 {player}，收入 {amount}",
+    "auctionOutbid": "你在 {player} 的竞拍中被超越",
+    "auctionWon": "你赢得了 {player} 的竞拍！",
+    "auctionLost": "你未能赢得 {player} 的竞拍"
   }
 }
