@@ -18,7 +18,8 @@
     "test:cov": "jest --coverage",
     "test:debug": "node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand",
     "test:e2e": "jest --config ./test/jest-e2e.json",
-    "cli:league": "env-cmd ts-node -r tsconfig-paths/register scripts/league-cli.ts"
+    "cli:league": "env-cmd ts-node -r tsconfig-paths/register scripts/league-cli.ts",
+    "cli:season-test": "env-cmd ts-node -r tsconfig-paths/register scripts/season-test-cli.ts"
   },
   "dependencies": {
     "@goalxi/database": "workspace:*",

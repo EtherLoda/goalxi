@@ -32,6 +32,7 @@ import {
 } from '@goalxi/database';
 import { SimulationProcessor } from './processor/simulation.processor';
 import { YouthSimulationProcessor } from './processor/youth-simulation.processor';
+import { NotificationModule } from './notification/notification.module';
 
 const entities = [
   UserEntity,
@@ -112,6 +113,7 @@ const entities = [
       YouthTeamEntity,
       PlayerCompetitionStatsEntity,
     ]),
+    NotificationModule,
   ],
   providers: [SimulationProcessor, YouthSimulationProcessor],
 })

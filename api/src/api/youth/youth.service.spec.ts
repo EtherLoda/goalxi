@@ -2,8 +2,8 @@ import { PlayerEntity, TeamEntity, YouthPlayerEntity } from '@goalxi/database';
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { YouthService } from './youth.service';
 import { PlayerEventService } from '../player-event/player-event.service';
+import { YouthService } from './youth.service';
 
 describe('YouthService', () => {
   let service: YouthService;
