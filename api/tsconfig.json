@@ -80,10 +80,10 @@
         "../libs/database/dist"
       ],
       "settlement": [
-        "../settlement/dist"
+        "../settlement/dist/src"
       ],
       "settlement/*": [
-        "../settlement/dist/*"
+        "../settlement/dist/src/*"
       ]
     }
   }
