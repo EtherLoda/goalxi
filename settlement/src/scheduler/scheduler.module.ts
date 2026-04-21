@@ -52,6 +52,7 @@ import { PlayerWageSchedulerService } from './player-wage-scheduler.service';
 import { LeagueStandingService } from './league-standing.service';
 import { SeasonTransitionService } from './season-transition.service';
 import { SeasonArchiveService } from '../services/season-archive.service';
+import { NotificationModule } from '../notification/notification.module';
 
 @Module({
   imports: [
@@ -108,6 +109,7 @@ import { SeasonArchiveService } from '../services/season-archive.service';
       ArchivedTransactionEntity,
       ArchivedPlayerEventEntity,
     ]),
+    NotificationModule,
   ],
   providers: [
     LeagueAwardService,

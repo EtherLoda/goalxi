@@ -12,6 +12,7 @@ import {
   TransferTransactionEntity,
 } from '@goalxi/database';
 import { TransferProcessor } from './processors/transfer.processor';
+import { NotificationModule } from './notification/notification.module';
 
 @Module({
   imports: [
@@ -28,6 +29,7 @@ import { TransferProcessor } from './processors/transfer.processor';
       TransactionEntity,
       TransferTransactionEntity,
     ]),
+    NotificationModule,
   ],
   providers: [TransferProcessor],
   exports: [BullModule],

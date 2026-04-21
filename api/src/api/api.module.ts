@@ -5,7 +5,9 @@ import { FinanceModule } from './finance/finance.module';
 import { GameModule } from './game/game.module';
 import { InjuryModule } from './injury/injury.module';
 import { LeagueModule } from './league/league.module';
+import { MatchLiveModule } from './match/match-live.module';
 import { MatchModule } from './match/match.module';
+import { NotificationModule } from './notification/notification.module';
 import { PlayerEventModule } from './player-event/player-event.module';
 import { PlayerModule } from './player/player.module';
 import { ScoutsModule } from './scouts/scouts.module';
@@ -30,6 +32,7 @@ import { YouthModule } from './youth/youth.module';
     FinanceModule,
     TransferModule,
     MatchModule,
+    MatchLiveModule,
     StatsModule,
     InjuryModule,
     YouthModule,
@@ -40,6 +43,7 @@ import { YouthModule } from './youth/youth.module';
     StadiumModule,
     FanModule,
     GameModule,
+    NotificationModule,
   ],
 })
 export class ApiModule {}

@@ -1,3 +1,7 @@
+import {
+  NotificationRedisService,
+  NotificationType,
+} from '@/api/notification/notification-redis.service';
 import { Uuid } from '@/common/types/common.type';
 import { AuctionRedisRepository } from '@/redis/auction-redis.repository';
 import {
@@ -58,6 +62,7 @@ export class AuctionService implements OnModuleInit {
     private readonly transferQueue: Queue<TransferSettlementJobData>,
     private readonly dataSource: DataSource,
     private readonly auctionRedisRepo: AuctionRedisRepository,
+    private readonly notificationRedis: NotificationRedisService,
   ) {}
 
   async onModuleInit() {
@@ -492,6 +497,31 @@ export class AuctionService implements OnModuleInit {
       }
 
       await auctionRepo.save(auction);
+
+      // Notify previous bidder that they were outbid
+      if (previousBidder) {
+        const previousTeam = await this.teamRepo.findOne({
+          where: { id: previousBidder as Uuid },
+          relations: ['user'],
+        });
+        const player = await this.playerRepo.findOne({
+          where: { id: auction.playerId },
+        });
+
+        if (previousTeam?.userId && player) {
+          await this.notificationRedis.create({
+            userId: previousTeam.userId,
+            type: NotificationType.AUCTION_OUTBID,
+            messageKey: 'notification.auctionOutbid',
+            data: {
+              auctionId,
+              playerId: auction.playerId,
+              playerName: player.name,
+              amount: dto.amount,
+            },
+          });
+        }
+      }
 
       return { auction, lockedAmount: dto.amount };
     });

@@ -3,6 +3,7 @@ import { BullModule } from '@nestjs/bullmq';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { PlayerEntity, StaffEntity, TeamEntity } from '@goalxi/database';
 import { TrainingProcessor } from './processors/training.processor';
+import { NotificationModule } from './notification/notification.module';
 
 @Module({
   imports: [
@@ -10,6 +11,7 @@ import { TrainingProcessor } from './processors/training.processor';
       name: 'training-settlement',
     }),
     TypeOrmModule.forFeature([PlayerEntity, StaffEntity, TeamEntity]),
+    NotificationModule,
   ],
   providers: [TrainingProcessor],
   exports: [BullModule],

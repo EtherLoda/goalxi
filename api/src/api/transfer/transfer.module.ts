@@ -11,6 +11,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { TransferQueueModule } from '../../background/queues/transfer-settlement/transfer-settlement.module';
 import { AuthModule } from '../auth/auth.module';
 import { FinanceModule } from '../finance/finance.module';
+import { NotificationModule } from '../notification/notification.module';
 import { AuctionService } from './auction.service';
 import { TransferController } from './transfer.controller';
 
@@ -27,6 +28,7 @@ import { TransferController } from './transfer.controller';
     AuthModule,
     FinanceModule,
     TransferQueueModule,
+    NotificationModule,
   ],
   controllers: [TransferController],
   providers: [AuctionService],

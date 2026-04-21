@@ -6,6 +6,7 @@ import {
 } from '@goalxi/database';
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { FinanceModule } from '../finance/finance.module';
 import { StadiumController } from './stadium.controller';
 import { StadiumService } from './stadium.service';
 
@@ -17,6 +18,7 @@ import { StadiumService } from './stadium.service';
       TransactionEntity,
       MatchEntity,
     ]),
+    FinanceModule,
   ],
   controllers: [StadiumController],
   providers: [StadiumService],

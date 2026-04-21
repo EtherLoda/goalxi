@@ -10,6 +10,10 @@ import {
   TeamEntity,
   Uuid,
 } from '@goalxi/database';
+import {
+  NotificationService,
+  NotificationType,
+} from '../notification/notification.service';
 
 @Injectable()
 export class InjuryRecoveryService {
@@ -24,6 +28,7 @@ export class InjuryRecoveryService {
     private staffRepository: Repository<StaffEntity>,
     @InjectRepository(TeamEntity)
     private teamRepository: Repository<TeamEntity>,
+    private readonly notificationService: NotificationService,
   ) {}
 
   // ===== SCHEDULER: Daily Injury Recovery =====
@@ -167,6 +172,24 @@ export class InjuryRecoveryService {
         player.injuryType = null;
         player.injuryState = null;
         player.injuredAt = null;
+      }
+
+      // Send recovery notification
+      const playerWithTeam = await this.playerRepository.findOne({
+        where: { id: playerId as Uuid },
+        relations: ['team'],
+      });
+      if (playerWithTeam?.team?.userId) {
+        await this.notificationService.create(
+          playerWithTeam.team.userId,
+          NotificationType.PLAYER_RECOVERED,
+          'notification.playerRecovered',
+          {
+            playerId,
+            playerName,
+            injuryType: activeInjury?.injuryType,
+          },
+        );
       }
 
       recoveredCount++;
