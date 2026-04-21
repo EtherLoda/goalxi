@@ -19,6 +19,10 @@ import {
   TransferTransactionType,
   Uuid,
 } from '@goalxi/database';
+import {
+  NotificationService,
+  NotificationType,
+} from '../notification/notification.service';
 
 export interface TransferSettlementJobData {
   type: 'BUYOUT' | 'AUCTION_COMPLETE';
@@ -55,6 +59,7 @@ export class TransferProcessor extends WorkerHost {
     @InjectRepository(TransactionEntity)
     private readonly transactionRepo: Repository<TransactionEntity>,
     private readonly dataSource: DataSource,
+    private readonly notificationService: NotificationService,
   ) {
     super();
   }
@@ -278,6 +283,46 @@ export class TransferProcessor extends WorkerHost {
               `[TransferProcessor] Released ${auction.bidLockAmount} bid lock from buyer ${buyerTeamId}`,
             );
           }
+        }
+
+        // Create notifications for buyer and seller
+        const buyerTeam = await teamRepo.findOne({
+          where: { id: buyerTeamId as Uuid },
+          relations: ['user'],
+        });
+        const sellerTeam = await teamRepo.findOne({
+          where: { id: sellerTeamId as Uuid },
+          relations: ['user'],
+        });
+
+        if (buyerTeam?.userId) {
+          await this.notificationService.create(
+            buyerTeam.userId,
+            NotificationType.PLAYER_PURCHASED,
+            'notification.playerPurchased',
+            {
+              playerId,
+              playerName: player.name,
+              amount,
+              fromTeamId: sellerTeamId,
+              toTeamId: buyerTeamId,
+            },
+          );
+        }
+
+        if (sellerTeam?.userId) {
+          await this.notificationService.create(
+            sellerTeam.userId,
+            NotificationType.PLAYER_SOLD,
+            'notification.playerSold',
+            {
+              playerId,
+              playerName: player.name,
+              amount,
+              fromTeamId: sellerTeamId,
+              toTeamId: buyerTeamId,
+            },
+          );
         }
 
         this.logger.log(

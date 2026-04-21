@@ -31,6 +31,10 @@ import {
   TacticalInstruction,
   TacticalPlayer,
 } from '../engine/types/simulation.types';
+import {
+  NotificationService,
+  NotificationType,
+} from '../notification/notification.service';
 
 interface SimulationJobData {
   matchId: string;
@@ -66,6 +70,7 @@ export class SimulationProcessor extends WorkerHost {
     @InjectRepository(PlayerCompetitionStatsEntity)
     private readonly competitionStatsRepo: Repository<PlayerCompetitionStatsEntity>,
     private readonly dataSource: DataSource,
+    private readonly notificationService: NotificationService,
   ) {
     super();
   }
@@ -96,7 +101,100 @@ export class SimulationProcessor extends WorkerHost {
       await this.runSimulation(match, weather);
     }
 
+    // Create match result notifications for both teams
+    const homeTeam = await this.teamRepository.findOne({
+      where: { id: match.homeTeamId as any },
+    });
+    const awayTeam = await this.teamRepository.findOne({
+      where: { id: match.awayTeamId as any },
+    });
+
+    const homeUserId = homeTeam?.userId;
+    const awayUserId = awayTeam?.userId;
+    const homeScore = match.homeScore ?? 0;
+    const awayScore = match.awayScore ?? 0;
+
+    if (homeUserId) {
+      const resultType =
+        homeScore > awayScore
+          ? NotificationType.MATCH_RESULT_WIN
+          : homeScore < awayScore
+            ? NotificationType.MATCH_RESULT_LOSS
+            : NotificationType.MATCH_RESULT_DRAW;
+      await this.notificationService.createWithTime(
+        homeUserId,
+        resultType,
+        `notification.${resultType.toLowerCase()}`,
+        {
+          matchId: match.id,
+          homeTeamId: match.homeTeamId,
+          awayTeamId: match.awayTeamId,
+          homeTeamName: homeTeam?.name || 'Unknown',
+          awayTeamName: awayTeam?.name || 'Unknown',
+          homeScore,
+          awayScore,
+        },
+        match.actualEndTime?.getTime() || Date.now(),
+      );
+    }
+
+    if (awayUserId) {
+      const resultType =
+        awayScore > homeScore
+          ? NotificationType.MATCH_RESULT_WIN
+          : awayScore < homeScore
+            ? NotificationType.MATCH_RESULT_LOSS
+            : NotificationType.MATCH_RESULT_DRAW;
+      await this.notificationService.createWithTime(
+        awayUserId,
+        resultType,
+        `notification.${resultType.toLowerCase()}`,
+        {
+          matchId: match.id,
+          homeTeamId: match.homeTeamId,
+          awayTeamId: match.awayTeamId,
+          homeTeamName: homeTeam?.name || 'Unknown',
+          awayTeamName: awayTeam?.name || 'Unknown',
+          homeScore,
+          awayScore,
+        },
+        match.actualEndTime?.getTime() || Date.now(),
+      );
+    }
+
     this.logger.log(`[Simulator] Completed match ${matchId}`);
+
+    // Create injury notifications for both teams
+    const injuryEvents = await this.eventRepository.find({
+      where: { matchId: matchId, type: 15 as any }, // 15 = injury event type
+    });
+
+    if (injuryEvents.length > 0) {
+      for (const event of injuryEvents) {
+        const eventData = event.data as any;
+        const injuryData = eventData?.injuryData;
+        if (!injuryData) continue;
+
+        const playerName = eventData?.playerName || 'Unknown Player';
+        const team = event.team;
+        if (!team?.userId) continue;
+
+        await this.notificationService.createWithTime(
+          team.userId,
+          NotificationType.PLAYER_INJURED,
+          'notification.playerInjured',
+          {
+            playerId: event.playerId,
+            playerName,
+            injuryType: injuryData.injuryType,
+            injuryValue: injuryData.injuryValue,
+            severity: injuryData.severity,
+            estimatedRecoveryDays: injuryData.estimatedRecoveryDays?.max,
+          },
+          match.actualEndTime?.getTime() || Date.now(),
+        );
+      }
+    }
   }
 
   private findPositionInLineup(

@@ -11,6 +11,10 @@ import {
   calculateWeeklyStaminaChange,
   calculateCoachBonus,
 } from '@goalxi/database';
+import {
+  NotificationService,
+  NotificationType,
+} from '../notification/notification.service';
 
 @Injectable()
 @Processor('training-settlement')
@@ -24,6 +28,7 @@ export class TrainingProcessor extends WorkerHost {
     private staffRepo: Repository<StaffEntity>,
     @InjectRepository(TeamEntity)
     private teamRepo: Repository<TeamEntity>,
+    private readonly notificationService: NotificationService,
   ) {
     super();
   }
@@ -130,6 +135,26 @@ export class TrainingProcessor extends WorkerHost {
       if (result.weeklyPoints > 0 || staminaResult.netChange !== 0) {
         await this.playerRepo.save(player);
         playersTrained++;
+
+        // Send notification for skill improvements
+        if (result.skillsGained.length > 0 && team.userId) {
+          for (const gain of result.skillsGained) {
+            await this.notificationService.create(
+              team.userId,
+              NotificationType.PLAYER_SKILL_IMPROVED,
+              'notification.playerSkillImproved',
+              {
+                playerId: player.id,
+                playerName: player.name,
+                skillType: gain.skill,
+                oldValue:
+                  (player.currentSkills as any)[gain.skill] - gain.levels,
+                newValue: (player.currentSkills as any)[gain.skill],
+                levels: gain.levels,
+              },
+            );
+          }
+        }
 
         this.logger.debug(
           `[TrainingProcessor] Player ${player.name} (${player.id}): ` +
