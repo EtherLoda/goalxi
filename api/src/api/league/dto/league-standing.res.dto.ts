@@ -1,4 +1,24 @@
-import { Expose } from 'class-transformer';
+import { Expose, Type } from 'class-transformer';
+
+export class RecentMatchDto {
+  @Expose()
+  result: 'W' | 'D' | 'L';
+
+  @Expose()
+  homeScore: number;
+
+  @Expose()
+  awayScore: number;
+
+  @Expose()
+  opponentName: string;
+
+  @Expose()
+  isHome: boolean;
+
+  @Expose()
+  scheduledAt: string;
+}
 
 export class LeagueStandingResDto {
   @Expose()
@@ -33,4 +53,8 @@ export class LeagueStandingResDto {
 
   @Expose()
   points: number;
+
+  @Expose()
+  @Type(() => RecentMatchDto)
+  recentMatches: RecentMatchDto[];
 }

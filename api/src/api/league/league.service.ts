@@ -1,7 +1,11 @@
 import { OffsetPaginatedDto } from '@/common/dto/offset-pagination/paginated.dto';
 import { Uuid } from '@/common/types/common.type';
 import { paginate } from '@/utils/offset-pagination';
-import { LeagueEntity, LeagueStandingEntity } from '@goalxi/database';
+import {
+  LeagueEntity,
+  LeagueStandingEntity,
+  MatchEntity,
+} from '@goalxi/database';
 import { Injectable, NotFoundException } from '@nestjs/common';
 import assert from 'assert';
 import { plainToInstance } from 'class-transformer';
@@ -128,18 +132,64 @@ export class LeagueService {
       relations: ['team'],
       order: {
         points: 'DESC',
-        // goalDifference is not a column, so we rely on goalsFor/Against or handle sort in memory
         goalsFor: 'DESC',
       },
     });
 
+    // Get completed matches to calculate recentForm dynamically
+    const completedMatches = await MatchEntity.find({
+      where: { leagueId, season, status: 'completed' as any },
+      relations: ['homeTeam', 'awayTeam'],
+      order: { completedAt: 'DESC' },
+    });
+
+    // Build recentMatches with details for each team
+    const teamRecentMatches: Record<string, any[]> = {};
+    for (const standing of standings) {
+      const teamMatches = completedMatches
+        .filter(
+          (m) =>
+            m.homeTeamId === standing.teamId ||
+            m.awayTeamId === standing.teamId,
+        )
+        .slice(0, 5);
+
+      const matches = [];
+      for (const m of teamMatches) {
+        const isHome = m.homeTeamId === standing.teamId;
+        const myScore = isHome ? m.homeScore : m.awayScore;
+        const oppScore = isHome ? m.awayScore : m.homeScore;
+        const opponentName = isHome
+          ? (m.awayTeam as any)?.name || 'Unknown'
+          : (m.homeTeam as any)?.name || 'Unknown';
+
+        let result: 'W' | 'D' | 'L';
+        if (myScore > oppScore) result = 'W';
+        else if (myScore < oppScore) result = 'L';
+        else result = 'D';
+
+        matches.push({
+          result,
+          homeScore: m.homeScore,
+          awayScore: m.awayScore,
+          opponentName,
+          isHome,
+          scheduledAt:
+            m.completedAt?.toISOString() || m.scheduledAt?.toISOString() || '',
+        });
+      }
+      teamRecentMatches[standing.teamId] = matches;
+    }
+
     // Calculate goal difference and sort fully in memory to be correct
     const result = standings.map((s) => {
       const gd = s.goalsFor - s.goalsAgainst;
+      const recentMatches = teamRecentMatches[s.teamId] || [];
       return {
         ...s,
         goalDifference: gd,
         teamName: s.team?.name || 'Unknown',
+        recentMatches,
       };
     });
 
