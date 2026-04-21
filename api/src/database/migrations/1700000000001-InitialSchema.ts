@@ -333,12 +333,11 @@ export class InitialSchema1700000000001 implements MigrationInterface {
                 'SPONSORSHIP',
                 'TRANSFER_IN',
                 'PRIZE_MONEY',
+                'OTHER_INCOME',
                 'WAGES',
                 'STAFF_WAGES',
                 'TRANSFER_OUT',
-                'FACILITY_UPGRADE',
-                'STADIUM_MAINTENANCE',
-                'MEDICAL',
+                'OTHER_EXPENSE',
                 'YOUTH_TEAM'
             )
         `);

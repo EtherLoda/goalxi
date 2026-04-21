@@ -5,6 +5,7 @@ export class MatchResDto {
   leagueId!: string;
   season!: number;
   week!: number;
+  round?: number;
   homeTeamId!: string;
   awayTeamId!: string;
   homeScore!: number | null;

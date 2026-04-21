@@ -49,6 +49,10 @@ export class MatchEntity extends AbstractEntity {
     @Column({ type: 'int' })
     week!: number;
 
+    /** Round within the week (1 or 2 for double matchweeks) */
+    @Column({ type: 'int', name: 'round', nullable: true })
+    round?: number;
+
     @Column({ name: 'home_team_id', type: 'uuid' })
     homeTeamId!: string;
 

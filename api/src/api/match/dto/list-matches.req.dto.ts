@@ -29,6 +29,11 @@ export class ListMatchesReqDto {
   @Type(() => Number)
   week?: number;
 
+  @IsInt()
+  @IsOptional()
+  @Type(() => Number)
+  round?: number;
+
   @IsEnum(MatchStatus)
   @IsOptional()
   status?: MatchStatus;

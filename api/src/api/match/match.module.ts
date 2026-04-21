@@ -60,6 +60,7 @@ import { PresetService } from './preset.service';
   ],
   exports: [
     MatchService,
+    MatchEventService,
     PresetService,
     MatchCacheService,
     MatchCompletionService,

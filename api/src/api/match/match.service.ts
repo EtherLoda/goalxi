@@ -61,6 +61,7 @@ export class MatchService {
       teamId,
       season,
       week,
+      round,
       status,
       type,
       page = 1,
@@ -110,6 +111,10 @@ export class MatchService {
 
     if (week) {
       query.andWhere('match.week = :week', { week });
+    }
+
+    if (round !== undefined) {
+      query.andWhere('match.round = :round', { round });
     }
 
     if (status) {
@@ -533,6 +538,7 @@ export class MatchService {
       leagueId: match.leagueId,
       season: match.season,
       week: match.week,
+      round: match.round,
       homeTeamId: match.homeTeamId,
       awayTeamId: match.awayTeamId,
       homeScore: match.homeScore,
