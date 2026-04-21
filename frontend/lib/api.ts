@@ -255,6 +255,40 @@ export interface MatchEventsResponse {
     } | null;
 }
 
+export interface Notification {
+    id: string;
+    type: string;
+    messageKey: string;
+    data: NotificationData;
+    createdAt: number;
+    expiresAt?: number;
+}
+
+export interface NotificationData {
+    matchId?: string;
+    playerId?: string;
+    playerName?: string;
+    skillType?: string;
+    homeTeamName?: string;
+    awayTeamName?: string;
+    homeScore?: number;
+    awayScore?: number;
+    amount?: number;
+    auctionId?: string;
+    [key: string]: any;
+}
+
+export interface NotificationListResponse {
+    items: Notification[];
+    meta: {
+        total: number;
+        page: number;
+        limit: number;
+        totalPages: number;
+        unreadCount: number;
+    };
+}
+
 export const api = {
     getLeague: (id: string) => fetchJson<League>(`/leagues/${id}`),
 
@@ -376,5 +410,18 @@ export const api = {
             body: JSON.stringify({ playerId, startPrice, buyoutPrice, durationHours }),
             headers: { 'Content-Type': 'application/json' }
         }),
+
+    // Notifications
+    getNotifications: (page: number = 1, limit: number = 20) =>
+        fetchJson<NotificationListResponse>(`/notifications?page=${page}&limit=${limit}`),
+    getUnreadCount: () => fetchJson<{ count: number }>('/notifications/unread-count'),
+    markNotificationsRead: (ids?: string[]) =>
+        fetchJson<{ markedCount: number }>('/notifications/read', {
+            method: 'POST',
+            body: JSON.stringify({ ids }),
+            headers: { 'Content-Type': 'application/json' }
+        }),
+    deleteReadNotifications: () =>
+        fetchJson<{ deletedCount: number }>('/notifications', { method: 'DELETE' }),
 };
 

@@ -110,7 +110,7 @@ interface Match {
   awayScore: number | null;
   status: string;
   scheduledAt: string;
-  matchday: number | null;
+  round?: number;
   leagueId: string;
   season: number;
   week: number;
@@ -127,6 +127,15 @@ interface MatchListResponse {
   };
 }
 
+interface RecentMatch {
+  result: 'W' | 'D' | 'L';
+  homeScore: number;
+  awayScore: number;
+  opponentName: string;
+  isHome: boolean;
+  scheduledAt: string;
+}
+
 interface Standing {
   position: number;
   teamId: string;
@@ -141,6 +150,7 @@ interface Standing {
   goalsFor: number;
   goalsAgainst: number;
   goalDifference: number;
+  recentMatches?: RecentMatch[];
 }
 
 function getToken(): string | null {
@@ -288,12 +298,15 @@ export const api = {
     getByLeague: async (leagueId: string, filters?: {
       status?: string;
       week?: number;
+      round?: number;
       season?: number;
     }): Promise<MatchListResponse> => {
       const params = new URLSearchParams({ leagueId });
       if (filters?.status) params.append('status', filters.status);
       if (filters?.week) params.append('week', String(filters.week));
+      if (filters?.round !== undefined) params.append('round', String(filters.round));
       if (filters?.season) params.append('season', String(filters.season));
+      params.append('limit', '100'); // Get all matches for a league
       return request<MatchListResponse>(`/matches?${params.toString()}`);
     },
   },
