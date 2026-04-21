@@ -58,7 +58,7 @@ export default function DashboardPage() {
 
   const getOpponentName = (match: Match) => {
     if (!team) return "";
-    return match.homeTeamId === team.id ? match.awayTeamName : match.homeTeamName;
+    return match.homeTeamId === team.id ? match.awayTeam?.name : match.homeTeam?.name;
   };
 
   const getOpponentInitials = (name: string) => {
@@ -92,7 +92,7 @@ export default function DashboardPage() {
                   <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary/10 border border-primary/20">
                     <span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
                     <span className="font-label text-[10px] font-black uppercase tracking-[0.2em] text-primary">
-                      {t("dashboard.matchday")} {upcomingMatch?.matchday || "--"}
+                      {t("dashboard.matchday")} {upcomingMatch?.round || "--"}
                     </span>
                   </div>
                   <h2 className="font-headline text-5xl font-black tracking-tighter text-on-surface">

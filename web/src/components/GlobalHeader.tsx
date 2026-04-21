@@ -33,7 +33,7 @@ export default function GlobalHeader({ locale }: GlobalHeaderProps) {
   }, [team?.leagueId]);
 
   const leagueId = team?.leagueId;
-  const totalMatchweeks = 15;
+  const totalMatchweeks = 16;
   const isTransfersPage = pathname?.startsWith(`/${locale}/transfers`);
 
   return (
