@@ -13,9 +13,11 @@ import {
   MatchEntity,
   MatchStatus,
   MatchType,
+  LeagueEntity,
+  TransactionEntity,
+  TransactionType,
+  PRIZE_MONEY,
 } from '@goalxi/database';
-
-const AWARD_PRIZE = 200000;
 
 @Injectable()
 export class LeagueAwardService {
@@ -36,6 +38,10 @@ export class LeagueAwardService {
     private readonly financeRepo: Repository<FinanceEntity>,
     @InjectRepository(MatchEntity)
     private readonly matchRepo: Repository<MatchEntity>,
+    @InjectRepository(LeagueEntity)
+    private readonly leagueRepo: Repository<LeagueEntity>,
+    @InjectRepository(TransactionEntity)
+    private readonly transactionRepo: Repository<TransactionEntity>,
   ) {}
 
   /**
@@ -69,7 +75,7 @@ export class LeagueAwardService {
   }
 
   /**
-   * 发放赛季末奖项（金靴、助攻王、抢断王、冠军）
+   * 发放赛季末奖项（金靴、助攻王、抢断王、冠军、排名奖金）
    * 需在联赛最后一轮结束后调用
    */
   async processSeasonAwards(season: number): Promise<void> {
@@ -106,7 +112,80 @@ export class LeagueAwardService {
       this.awardAssistsLeader(leagueId, season),
       this.awardTacklesLeader(leagueId, season),
       this.awardChampion(leagueId, season),
+      this.awardPrizeMoney(leagueId, season),
     ]);
+  }
+
+  /**
+   * 发放排名奖金给前8名球队
+   */
+  private async awardPrizeMoney(leagueId: string, season: number): Promise<void> {
+    // 获取联赛信息获取tier
+    const league = await this.leagueRepo.findOne({
+      where: { id: leagueId as any },
+    });
+    if (!league) return;
+
+    const tier = Math.min(league.tier, 5); // L5+ 用同一标准
+    const prizeTable = PRIZE_MONEY[tier];
+    if (!prizeTable) return;
+
+    // 获取前8名排名
+    const top8Standings = await this.standingRepo.find({
+      where: { leagueId, season },
+      order: { position: 'ASC' },
+      take: 8,
+      relations: ['team'],
+    });
+
+    for (const standing of top8Standings) {
+      const position = standing.position;
+      // 3-4名用position 3的奖金，5-8名用position 5的奖金
+      let prizePosition: number;
+      if (position <= 2) {
+        prizePosition = position;
+      } else if (position <= 4) {
+        prizePosition = 3;
+      } else {
+        prizePosition = 5;
+      }
+
+      const prizeAmount = prizeTable[prizePosition];
+      if (!prizeAmount || prizeAmount === 0) continue;
+
+      // 给球队加奖金和交易记录
+      const finance = await this.financeRepo.findOne({
+        where: { teamId: standing.teamId as any },
+      });
+
+      if (finance) {
+        // 创建交易记录
+        const transaction = this.transactionRepo.create({
+          teamId: standing.teamId as any,
+          amount: prizeAmount,
+          type: TransactionType.PRIZE_MONEY,
+          season,
+          week: 16, // 赛季结束时（第16周结算）
+          description: `Season ${season} final position prize (${position}${this.getPositionSuffix(position)} in ${league.name})`,
+        });
+        await this.transactionRepo.save(transaction);
+
+        // 更新余额
+        finance.balance += prizeAmount;
+        await this.financeRepo.save(finance);
+
+        this.logger.log(
+          `[LeagueAward] PRIZE: team=${standing.team?.name} position=${position} amount=£${prizeAmount}`,
+        );
+      }
+    }
+  }
+
+  private getPositionSuffix(position: number): string {
+    if (position === 1) return 'st';
+    if (position === 2) return 'nd';
+    if (position === 3) return 'rd';
+    return 'th';
   }
 
   private async awardGoldenBoot(
@@ -134,7 +213,7 @@ export class LeagueAwardService {
     );
 
     // 发放奖金给球员所在球队
-    await this.addPrizeToTeam(topScorer.playerId, AWARD_PRIZE);
+    await this.addPrizeToTeam(topScorer.playerId, 100000);
     this.logger.log(
       `[LeagueAward] GOLDEN_BOOT: player=${topScorer.playerId} goals=${topScorer.goals}`,
     );
@@ -163,7 +242,7 @@ export class LeagueAwardService {
       }),
     );
 
-    await this.addPrizeToTeam(topAssister.playerId, AWARD_PRIZE);
+    await this.addPrizeToTeam(topAssister.playerId, 100000);
     this.logger.log(
       `[LeagueAward] ASSISTS_LEADER: player=${topAssister.playerId} assists=${topAssister.assists}`,
     );
@@ -192,7 +271,7 @@ export class LeagueAwardService {
       }),
     );
 
-    await this.addPrizeToTeam(topTackler.playerId, AWARD_PRIZE);
+    await this.addPrizeToTeam(topTackler.playerId, 100000);
     this.logger.log(
       `[LeagueAward] TACKLES_LEADER: player=${topTackler.playerId} tackles=${topTackler.tackles}`,
     );
@@ -231,15 +310,6 @@ export class LeagueAwardService {
           },
         }),
       );
-    }
-
-    // 冠军球队直接加奖金
-    const finance = await this.financeRepo.findOne({
-      where: { teamId: champion.teamId as any },
-    });
-    if (finance) {
-      finance.balance += AWARD_PRIZE;
-      await this.financeRepo.save(finance);
     }
 
     this.logger.log(
