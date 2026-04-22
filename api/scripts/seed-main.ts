@@ -105,17 +105,18 @@ function generatePlayerAppearance() {
 }
 
 function generatePlayerPotential(): { tier: PotentialTier; ability: number } {
-  // Shifted distribution: higher overall abilities for more competitive feel
+  // Match team generator: skillBase 11-15 gives OVR 55-75
+  // Distribution: 1% LEGEND, 7% ELITE, 17% HIGH_PRO, 35% REGULAR, 40% LOW
   const rand = Math.random() * 100;
   if (rand < 1)
-    return { tier: PotentialTier.LEGEND, ability: randomInt(88, 99) };
+    return { tier: PotentialTier.LEGEND, ability: randomInt(75, 85) }; // OVR ~75-85
   if (rand < 8)
-    return { tier: PotentialTier.ELITE, ability: randomInt(78, 92) };
+    return { tier: PotentialTier.ELITE, ability: randomInt(65, 75) }; // OVR ~65-75
   if (rand < 25)
-    return { tier: PotentialTier.HIGH_PRO, ability: randomInt(68, 82) };
+    return { tier: PotentialTier.HIGH_PRO, ability: randomInt(55, 65) }; // OVR ~55-65
   if (rand < 60)
-    return { tier: PotentialTier.REGULAR, ability: randomInt(55, 72) };
-  return { tier: PotentialTier.LOW, ability: randomInt(40, 58) };
+    return { tier: PotentialTier.REGULAR, ability: randomInt(45, 55) }; // OVR ~45-55
+  return { tier: PotentialTier.LOW, ability: randomInt(30, 45) }; // OVR ~30-45
 }
 
 function generatePlayerAttributes(
@@ -1103,8 +1104,9 @@ async function createLeaguePyramid() {
       teamId: match.homeTeamId,
       amount: revenue,
       season: SEASON,
+      week: match.week,
       type: TransactionType.TICKET_INCOME,
-      description: `Match ticket revenue (${attendance} attendance)`,
+      description: `Week ${match.week} match ticket revenue (${attendance} attendance)`,
       relatedId: match.id as Uuid,
     });
     await transactionRepo.save(tx);
@@ -1122,13 +1124,14 @@ async function createLeaguePyramid() {
   }
 
   // ==========================================================================
-  // 7. WEEKLY SETTLEMENT (2 weeks completed)
+  // 7. WEEKLY SETTLEMENT (2 weeks completed + Week 3 initial data)
   // ==========================================================================
   console.log('\n💵 Processing weekly settlements...');
 
   const settlements = [
-    { date: SETTLEMENT_WEEK_1, label: 'Week 1' },
-    { date: SETTLEMENT_WEEK_2, label: 'Week 2' },
+    { date: SETTLEMENT_WEEK_1, label: 'Week 1', week: 1 },
+    { date: SETTLEMENT_WEEK_2, label: 'Week 2', week: 2 },
+    { date: SETTLEMENT_WEEK_2, label: 'Week 3', week: 3 }, // Initial data for current week
   ];
 
   for (const settlement of settlements) {
@@ -1164,8 +1167,9 @@ async function createLeaguePyramid() {
         teamId: team.id,
         amount: sponsorship,
         season: SEASON,
+        week: settlement.week,
         type: TransactionType.SPONSORSHIP,
-        description: `Weekly sponsorship (Tier ${tier}, ${fanCount} fans)`,
+        description: `Week ${settlement.week} sponsorship (Tier ${tier}, ${fanCount} fans)`,
       });
       await transactionRepo.save(tx);
       if (finance) {
@@ -1185,8 +1189,9 @@ async function createLeaguePyramid() {
           teamId: team.id,
           amount: -staffWage,
           season: SEASON,
+          week: settlement.week,
           type: TransactionType.STAFF_WAGES,
-          description: `Weekly wage for ${staff.name} (${staff.role})`,
+          description: `Week ${settlement.week} wage for ${staff.name} (${staff.role})`,
           relatedId: staff.id as Uuid,
         });
         await transactionRepo.save(tx);
@@ -1200,8 +1205,9 @@ async function createLeaguePyramid() {
         teamId: team.id,
         amount: -FINANCE_CONSTANTS.YOUTH_TEAM_COST,
         season: SEASON,
+        week: settlement.week,
         type: TransactionType.YOUTH_TEAM,
-        description: 'Weekly youth team operation',
+        description: `Week ${settlement.week} youth team operation`,
       });
       await transactionRepo.save(tx);
       if (finance) {
@@ -1216,8 +1222,9 @@ async function createLeaguePyramid() {
           teamId: team.id,
           amount: -maintenanceCost,
           season: SEASON,
+          week: settlement.week,
           type: TransactionType.OTHER_EXPENSE,
-          description: `Weekly stadium maintenance (${stadium.capacity} seats)`,
+          description: `Week ${settlement.week} stadium maintenance (${stadium.capacity} seats)`,
           relatedId: stadium.id as Uuid,
         });
         await transactionRepo.save(tx);
@@ -1237,8 +1244,9 @@ async function createLeaguePyramid() {
             teamId: team.id,
             amount: -totalWages,
             season: SEASON,
+            week: settlement.week,
             type: TransactionType.WAGES,
-            description: `Weekly player wages (${players.length} players)`,
+            description: `Week ${settlement.week} player wages (${players.length} players)`,
           });
           await transactionRepo.save(tx);
           if (finance) {

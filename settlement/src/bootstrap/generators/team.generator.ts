@@ -268,7 +268,7 @@ export class TeamGenerator {
           isYouth: false,
           currentSkills: current,
           potentialSkills: potential,
-          potentialAbility: Math.round(this.calculateOvr(potential) * 5),
+          potentialAbility: Math.round(this.calculateOvr(potential)),
           potentialTier: this.determinePotentialTier(potential),
           trainingSlot: TrainingSlot.NONE,
           experience: this.randomFloat(5, 15),
