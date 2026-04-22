@@ -429,6 +429,7 @@ interface BidRecord {
 interface FinanceTransaction {
   id: string;
   season: number;
+  week: number;
   amount: number;
   type: string;
   description?: string;

@@ -7,16 +7,18 @@ import { useAuth } from "@/contexts/AuthContext";
 import { api, type FinanceTransaction } from "@/lib/api";
 
 interface WeeklyStats {
-  ticketSales: number;
-  merchandising: number;
-  tvRights: number;
-  sponsorships: number;
-  playerSales: number;
-  playerWages: number;
-  staffWages: number;
-  maintenance: number;
-  transferFees: number;
-  taxes: number;
+  // Income
+  ticketSales: number;    // TICKET_INCOME
+  sponsorships: number;    // SPONSORSHIP
+  prizeMoney: number;      // PRIZE_MONEY
+  otherIncome: number;     // OTHER_INCOME
+  transferIn: number;      // TRANSFER_IN (player sales)
+  // Expense
+  playerWages: number;    // WAGES
+  staffWages: number;      // STAFF_WAGES
+  youthTeam: number;       // YOUTH_TEAM
+  other: number;           // OTHER_EXPENSE (stadium maintenance, etc)
+  transferOut: number;     // TRANSFER_OUT
 }
 
 interface WeeklyData {
@@ -34,68 +36,106 @@ export default function FinancePage() {
   const [transactions, setTransactions] = useState<FinanceTransaction[]>([]);
   const [allTransactions, setAllTransactions] = useState<FinanceTransaction[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [selectedSeason, setSelectedSeason] = useState<number>(4);
-  const [selectedWeek, setSelectedWeek] = useState<number>(12);
-
-  const SEASONS = [1, 2, 3, 4];
-  const WEEKS_PER_SEASON = 16;
+  const [selectedSeason, setSelectedSeason] = useState<number>(1);
+  const [selectedWeek, setSelectedWeek] = useState<number>(1);
+  const [availableSeasons, setAvailableSeasons] = useState<number[]>([]);
+  const [availableWeeks, setAvailableWeeks] = useState<number[]>([]);
 
   useEffect(() => {
     if (!team) return;
 
     setIsLoading(true);
-    // First get current game state (season and week)
+
+    // Fetch current game state first to use as default
     api.game.getCurrent()
-      .then(({ season, week }) => {
-        // Then fetch transactions for all seasons and the current game state
-        return Promise.all([
-          api.finance.getBalance(),
-          api.finance.getTransactions({ season: 1 }),
-          api.finance.getTransactions({ season: 2 }),
-          api.finance.getTransactions({ season: 3 }),
-          api.finance.getTransactions({ season: 4 }),
-        ]).then(([balanceData, s1, s2, s3, s4]) => ({
-          balanceData,
-          s1, s2, s3, s4,
-          season,
-          week,
+      .then(({ season: currentSeason, week: currentWeek }) => {
+        // Fetch all transactions to determine available seasons and weeks
+        return api.finance.getTransactions().then(allTxs => ({
+          allTxs,
+          currentSeason,
+          currentWeek,
         }));
       })
-      .then(({ balanceData, s1, s2, s3, s4, season, week }) => {
+      .then(({ allTxs, currentSeason, currentWeek }) => {
+        // Get available seasons
+        const seasons = [...new Set(allTxs.map(tx => tx.season))].sort((a, b) => a - b);
+        setAvailableSeasons(seasons);
+
+        // Get available weeks for the selected season
+        const weeks = [...new Set(allTxs.filter(tx => tx.season === currentSeason).map(tx => tx.week))].sort((a, b) => a - b);
+        setAvailableWeeks(weeks);
+
+        // Get balance
+        return api.finance.getBalance().then(balanceData => ({
+          allTxs,
+          balanceData,
+          currentSeason,
+          currentWeek,
+          availableSeasons: seasons,
+          availableWeeks: weeks,
+        }));
+      })
+      .then(({ allTxs, balanceData, currentSeason, currentWeek, availableSeasons, availableWeeks }) => {
         setBalance(balanceData.balance);
         setLockedCash(balanceData.lockedCash || 0);
-        setAllTransactions([...s1, ...s2, ...s3, ...s4]);
-        setSelectedSeason(season);
-        setSelectedWeek(week);
-        // Set transactions for current season
-        const seasonTxs = [s1, s2, s3, s4][season - 1] || [];
-        setTransactions(seasonTxs);
+        setAllTransactions(allTxs);
+
+        // Default to current game season/week if available, otherwise use first available
+        const hasCurrentWeek = availableWeeks.includes(currentWeek);
+        const defaultSeason = hasCurrentWeek ? currentSeason : (availableSeasons[0] || 1);
+        const defaultWeek = hasCurrentWeek ? currentWeek : (availableWeeks[0] || 1);
+
+        setSelectedSeason(defaultSeason);
+        setSelectedWeek(defaultWeek);
+
+        // Filter transactions for initial display
+        const filteredTxs = allTxs.filter(tx => tx.season === defaultSeason && tx.week === defaultWeek);
+        setTransactions(filteredTxs);
       })
       .catch(console.error)
       .finally(() => setIsLoading(false));
   }, [team]);
 
-  // Change selected season transactions
+  // Update week options when season changes
   useEffect(() => {
     if (allTransactions.length > 0) {
-      const seasonTxs = allTransactions.filter(tx => tx.season === selectedSeason);
-      setTransactions(seasonTxs);
+      // Fetch current game week
+      api.game.getCurrent().then(({ week: currentWeek }) => {
+        const weeks = [...new Set(allTransactions.filter(tx => tx.season === selectedSeason).map(tx => tx.week))].sort((a, b) => a - b);
+        setAvailableWeeks(weeks);
+        // Prefer current game week if it exists in this season, otherwise keep current or fall back to first
+        if (weeks.includes(currentWeek)) {
+          setSelectedWeek(currentWeek);
+        } else if (!weeks.includes(selectedWeek)) {
+          setSelectedWeek(weeks[0] || 1);
+        }
+      });
     }
   }, [selectedSeason, allTransactions]);
+
+  // Change selected season/week transactions
+  useEffect(() => {
+    if (allTransactions.length > 0) {
+      const filteredTxs = allTransactions.filter(tx =>
+        tx.season === selectedSeason && tx.week === selectedWeek
+      );
+      setTransactions(filteredTxs);
+    }
+  }, [selectedSeason, selectedWeek, allTransactions]);
 
   // Calculate weekly stats from transactions
   const calculateWeeklyStats = (txs: FinanceTransaction[]): WeeklyStats => {
     const stats: WeeklyStats = {
       ticketSales: 0,
-      merchandising: 0,
-      tvRights: 0,
       sponsorships: 0,
-      playerSales: 0,
+      prizeMoney: 0,
+      otherIncome: 0,
+      transferIn: 0,
       playerWages: 0,
       staffWages: 0,
-      maintenance: 0,
-      transferFees: 0,
-      taxes: 0,
+      youthTeam: 0,
+      other: 0,
+      transferOut: 0,
     };
 
     txs.forEach((tx) => {
@@ -106,11 +146,17 @@ export default function FinancePage() {
         case "SPONSORSHIP":
           stats.sponsorships += tx.amount;
           break;
+        case "PRIZE_MONEY":
+          stats.prizeMoney += tx.amount;
+          break;
+        case "OTHER_INCOME":
+          stats.otherIncome += tx.amount;
+          break;
         case "TRANSFER_IN":
-          stats.playerSales += tx.amount;
+          stats.transferIn += tx.amount;
           break;
         case "TRANSFER_OUT":
-          stats.transferFees += Math.abs(tx.amount);
+          stats.transferOut += Math.abs(tx.amount);
           break;
         case "WAGES":
           stats.playerWages += Math.abs(tx.amount);
@@ -118,8 +164,11 @@ export default function FinancePage() {
         case "STAFF_WAGES":
           stats.staffWages += Math.abs(tx.amount);
           break;
+        case "YOUTH_TEAM":
+          stats.youthTeam += Math.abs(tx.amount);
+          break;
         case "OTHER_EXPENSE":
-          stats.maintenance += Math.abs(tx.amount);
+          stats.other += Math.abs(tx.amount);
           break;
       }
     });
@@ -127,32 +176,16 @@ export default function FinancePage() {
     return stats;
   };
 
-  // Generate trend data from real transactions
+  // Generate trend data - always 8 weeks, empty weeks show as empty
   const generateTrendData = (): WeeklyData[] => {
-    if (allTransactions.length === 0) {
-      // Return realistic mock data matching seed data scale
-      return [
-        { week: 5, income: 225000, expense: 131000 },
-        { week: 6, income: 248000, expense: 142000 },
-        { week: 7, income: 198000, expense: 158000 },
-        { week: 8, income: 265000, expense: 113000 },
-        { week: 9, income: 218000, expense: 134000 },
-        { week: 10, income: 289000, expense: 124000 },
-        { week: 11, income: 227000, expense: 147000 },
-        { week: 12, income: 248000, expense: 131000 },
-      ];
-    }
+    // Always show 8 weeks (weeks 1-8), fill 0 for empty weeks
+    const result: WeeklyData[] = [];
+    const season = 1;
 
-    // Group transactions by season and week
-    const season = 4;
-    const weeks: WeeklyData[] = [];
-
-    for (let w = 5; w <= 12; w++) {
-      const weekTxs = allTransactions.filter(tx => {
-        // Simple week extraction from description "Week X ..."
-        const match = tx.description?.match(/Week (\d+)/);
-        return match && parseInt(match[1]) === w && tx.season === season;
-      });
+    for (let w = 1; w <= 8; w++) {
+      const weekTxs = allTransactions.filter(tx =>
+        tx.season === season && tx.week === w
+      );
 
       let income = 0;
       let expense = 0;
@@ -161,33 +194,16 @@ export default function FinancePage() {
         else expense += Math.abs(tx.amount);
       });
 
-      // If no real data for this week, use mock
-      if (income === 0 && expense === 0) {
-        const mockData: Record<number, { income: number; expense: number }> = {
-          5: { income: 18400000, expense: 11200000 },
-          6: { income: 21500000, expense: 9500000 },
-          7: { income: 12800000, expense: 15800000 },
-          8: { income: 24000000, expense: 6300000 },
-          9: { income: 19800000, expense: 8400000 },
-          10: { income: 26500000, expense: 7400000 },
-          11: { income: 18200000, expense: 13700000 },
-          12: { income: 20770500, expense: 10740000 },
-        };
-        income = mockData[w].income;
-        expense = mockData[w].expense;
-      }
-
-      weeks.push({ week: w, income, expense });
+      result.push({ week: w, income, expense });
     }
 
-    return weeks;
+    return result;
   };
 
-  // Filter transactions by selected week
-  const weekTransactions = transactions.filter(tx => {
-    const match = tx.description?.match(/Week (\d+)/);
-    return match && parseInt(match[1]) === selectedWeek;
-  });
+  // Filter transactions by selected season AND week
+  const seasonTransactions = transactions.filter(tx =>
+    tx.season === selectedSeason && tx.week === selectedWeek
+  );
 
   // Calculate last week (previous week data)
   let lastWeek = selectedWeek - 1;
@@ -196,19 +212,26 @@ export default function FinancePage() {
     lastWeek = 16;
     lastWeekSeason = selectedSeason - 1;
   }
-  // Filter last week transactions from allTransactions
+  // Filter last week transactions
   const lastWeekTransactions = lastWeekSeason > 0
-    ? allTransactions.filter(tx => {
-        const match = tx.description?.match(/Week (\d+)/);
-        return match && parseInt(match[1]) === lastWeek && tx.season === lastWeekSeason;
-      })
+    ? allTransactions.filter(tx => tx.season === lastWeekSeason && tx.week === lastWeek)
     : [];
 
-  const thisWeekStats = calculateWeeklyStats(weekTransactions);
+  const thisWeekStats = calculateWeeklyStats(seasonTransactions);
   const lastWeekStats = lastWeekTransactions.length > 0
     ? calculateWeeklyStats(lastWeekTransactions)
-    : { ticketSales: 0, merchandising: 0, tvRights: 0, sponsorships: 0, playerSales: 0, playerWages: 0, staffWages: 0, maintenance: 0, transferFees: 0, taxes: 0 };
+    : { ticketSales: 0, sponsorships: 0, prizeMoney: 0, otherIncome: 0, transferIn: 0, playerWages: 0, staffWages: 0, youthTeam: 0, other: 0, transferOut: 0 };
   const trendData = generateTrendData();
+
+  // Calculate averages from real data
+  const weeksWithData = trendData.filter(w => w.income > 0 || w.expense > 0);
+  const avgWeeklyIncome = weeksWithData.length > 0
+    ? weeksWithData.reduce((sum, w) => sum + w.income, 0) / weeksWithData.length
+    : 0;
+  const avgWeeklyExpense = weeksWithData.length > 0
+    ? weeksWithData.reduce((sum, w) => sum + w.expense, 0) / weeksWithData.length
+    : 0;
+  const projectedNet = (avgWeeklyIncome - avgWeeklyExpense) * 16;
 
   const formatCurrency = (amount: number): string => {
     if (amount >= 1000000) {
@@ -224,19 +247,19 @@ export default function FinancePage() {
   const calculateTotal = (stats: WeeklyStats, isIncome: boolean): number => {
     if (isIncome) {
       return (
-        stats.tvRights +
-        stats.merchandising +
+        stats.ticketSales +
         stats.sponsorships +
-        stats.playerSales +
-        stats.ticketSales
+        stats.prizeMoney +
+        stats.otherIncome +
+        stats.transferIn
       );
     }
     return (
       stats.playerWages +
       stats.staffWages +
-      stats.maintenance +
-      stats.transferFees +
-      stats.taxes
+      stats.youthTeam +
+      stats.other +
+      stats.transferOut
     );
   };
 
@@ -246,11 +269,6 @@ export default function FinancePage() {
     calculateTotal(lastWeekStats, true) - calculateTotal(lastWeekStats, false);
   const growthPercent =
     lastWeekNet > 0 ? ((netGrowth - lastWeekNet) / lastWeekNet) * 100 : 0;
-
-  // For bar chart scaling
-  const maxValue = Math.max(
-    ...trendData.map((d) => Math.max(d.income, d.expense)),
-  );
 
   return (
     <div className="p-6 space-y-6 max-w-7xl mx-auto w-full">
@@ -284,7 +302,7 @@ export default function FinancePage() {
                   value={selectedSeason}
                   onChange={(e) => setSelectedSeason(Number(e.target.value))}
                 >
-                  {SEASONS.map(s => (
+                  {availableSeasons.map(s => (
                     <option key={s} value={s}>Season {s}</option>
                   ))}
                 </select>
@@ -298,9 +316,9 @@ export default function FinancePage() {
                   value={selectedWeek}
                   onChange={(e) => setSelectedWeek(Number(e.target.value))}
                 >
-                  {Array.from({ length: WEEKS_PER_SEASON }, (_, i) => i + 1).map(w => (
+                  {availableWeeks.map(w => (
                     <option key={w} value={w}>
-                      {w === WEEKS_PER_SEASON ? `Week ${w} (Final)` : `Week ${w}`}
+                      {w === 16 ? `Week ${w} (Final)` : `Week ${w}`}
                     </option>
                   ))}
                 </select>
@@ -343,22 +361,6 @@ export default function FinancePage() {
                     </div>
                     <div className="flex justify-between items-center group">
                       <span className="text-sm text-on-surface/80 group-hover:text-on-surface transition-colors">
-                        Merchandising
-                      </span>
-                      <span className="font-headline text-sm font-bold text-on-background">
-                        {formatCurrency(thisWeekStats.merchandising)}
-                      </span>
-                    </div>
-                    <div className="flex justify-between items-center group">
-                      <span className="text-sm text-on-surface/80 group-hover:text-on-surface transition-colors">
-                        TV Rights
-                      </span>
-                      <span className="font-headline text-sm font-bold text-on-background">
-                        {formatCurrency(thisWeekStats.tvRights)}
-                      </span>
-                    </div>
-                    <div className="flex justify-between items-center group">
-                      <span className="text-sm text-on-surface/80 group-hover:text-on-surface transition-colors">
                         Sponsorships
                       </span>
                       <span className="font-headline text-sm font-bold text-on-background">
@@ -367,10 +369,26 @@ export default function FinancePage() {
                     </div>
                     <div className="flex justify-between items-center group">
                       <span className="text-sm text-on-surface/80 group-hover:text-on-surface transition-colors">
-                        Player Sales
+                        Prize Money
+                      </span>
+                      <span className="font-headline text-sm font-bold text-on-background">
+                        {formatCurrency(thisWeekStats.prizeMoney)}
+                      </span>
+                    </div>
+                    <div className="flex justify-between items-center group">
+                      <span className="text-sm text-on-surface/80 group-hover:text-on-surface transition-colors">
+                        Other Income
+                      </span>
+                      <span className="font-headline text-sm font-bold text-on-background">
+                        {formatCurrency(thisWeekStats.otherIncome)}
+                      </span>
+                    </div>
+                    <div className="flex justify-between items-center group">
+                      <span className="text-sm text-on-surface/80 group-hover:text-on-surface transition-colors">
+                        Transfer In
                       </span>
                       <span className="font-headline text-sm font-bold text-primary-fixed-dim">
-                        + {formatCurrency(thisWeekStats.playerSales)}
+                        + {formatCurrency(thisWeekStats.transferIn)}
                       </span>
                     </div>
                     <div className="pt-4 border-t border-outline-variant flex justify-between items-end">
@@ -408,26 +426,26 @@ export default function FinancePage() {
                     </div>
                     <div className="flex justify-between items-center group">
                       <span className="text-sm text-on-surface/80 group-hover:text-on-surface transition-colors">
-                        Maintenance
+                        Youth Team
                       </span>
                       <span className="font-headline text-sm font-bold text-on-background">
-                        {formatCurrency(thisWeekStats.maintenance)}
+                        {formatCurrency(thisWeekStats.youthTeam)}
                       </span>
                     </div>
                     <div className="flex justify-between items-center group">
                       <span className="text-sm text-on-surface/80 group-hover:text-on-surface transition-colors">
-                        Transfer Fees
+                        Other
                       </span>
                       <span className="font-headline text-sm font-bold text-on-background">
-                        {formatCurrency(thisWeekStats.transferFees)}
+                        {formatCurrency(thisWeekStats.other)}
                       </span>
                     </div>
                     <div className="flex justify-between items-center group">
                       <span className="text-sm text-on-surface/80 group-hover:text-on-surface transition-colors">
-                        Taxes
+                        Transfer Out
                       </span>
                       <span className="font-headline text-sm font-bold text-on-background">
-                        {formatCurrency(thisWeekStats.taxes)}
+                        {formatCurrency(thisWeekStats.transferOut)}
                       </span>
                     </div>
                     <div className="pt-4 border-t border-outline-variant flex justify-between items-end">
@@ -473,27 +491,27 @@ export default function FinancePage() {
                       </span>
                     </div>
                     <div className="flex justify-between items-center">
-                      <span className="text-sm">Merchandising</span>
-                      <span className="font-headline text-sm">
-                        {formatCurrency(lastWeekStats.merchandising)}
-                      </span>
-                    </div>
-                    <div className="flex justify-between items-center">
-                      <span className="text-sm">TV Rights</span>
-                      <span className="font-headline text-sm">
-                        {formatCurrency(lastWeekStats.tvRights)}
-                      </span>
-                    </div>
-                    <div className="flex justify-between items-center">
                       <span className="text-sm">Sponsorships</span>
                       <span className="font-headline text-sm">
                         {formatCurrency(lastWeekStats.sponsorships)}
                       </span>
                     </div>
                     <div className="flex justify-between items-center">
-                      <span className="text-sm">Player Sales</span>
+                      <span className="text-sm">Prize Money</span>
                       <span className="font-headline text-sm">
-                        {formatCurrency(lastWeekStats.playerSales)}
+                        {formatCurrency(lastWeekStats.prizeMoney)}
+                      </span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm">Other Income</span>
+                      <span className="font-headline text-sm">
+                        {formatCurrency(lastWeekStats.otherIncome)}
+                      </span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm">Transfer In</span>
+                      <span className="font-headline text-sm">
+                        {formatCurrency(lastWeekStats.transferIn)}
                       </span>
                     </div>
                     <div className="pt-4 border-t border-outline-variant/30 flex justify-between items-end">
@@ -523,21 +541,21 @@ export default function FinancePage() {
                       </span>
                     </div>
                     <div className="flex justify-between items-center">
-                      <span className="text-sm">Maintenance</span>
+                      <span className="text-sm">Youth Team</span>
                       <span className="font-headline text-sm">
-                        {formatCurrency(lastWeekStats.maintenance)}
+                        {formatCurrency(lastWeekStats.youthTeam)}
                       </span>
                     </div>
                     <div className="flex justify-between items-center">
-                      <span className="text-sm">Transfer Fees</span>
+                      <span className="text-sm">Other</span>
                       <span className="font-headline text-sm">
-                        {formatCurrency(lastWeekStats.transferFees)}
+                        {formatCurrency(lastWeekStats.other)}
                       </span>
                     </div>
                     <div className="flex justify-between items-center">
-                      <span className="text-sm">Taxes</span>
+                      <span className="text-sm">Transfer Out</span>
                       <span className="font-headline text-sm">
-                        {formatCurrency(lastWeekStats.taxes)}
+                        {formatCurrency(lastWeekStats.transferOut)}
                       </span>
                     </div>
                     <div className="pt-4 border-t border-outline-variant/30 flex justify-between items-end">
@@ -579,25 +597,21 @@ export default function FinancePage() {
               </div>
             </div>
 
-            {/* Custom Bar Chart UI */}
+            {/* Custom Bar Chart UI - Fixed 1/8 width per week */}
             <div className="h-72 flex items-end justify-between gap-3 px-2">
-              {trendData.map((data, idx) => {
-                const isCurrentWeek = data.week === 12;
-                // Dynamic heights based on actual data values (max ~220px)
-                const scale = maxValue > 0 ? 220 / maxValue : 1;
-                const incomeHeight = Math.max(4, Math.round(data.income * scale));
-                const expenseHeight = Math.max(4, Math.round(data.expense * scale));
-                // Format numbers for display
-                const formatBarValue = (val: number) => {
-                  if (val >= 1000000) return `£${(val / 1000000).toFixed(1)}M`;
-                  if (val >= 1000) return `£${(val / 1000).toFixed(0)}K`;
-                  return `£${val}`;
-                };
+              {trendData.map((data) => {
+                const hasData = data.income > 0 || data.expense > 0;
+                // Scale based on max value among weeks with data
+                const maxAmongWeeksWithData = Math.max(...trendData.map(w => Math.max(w.income, w.expense)));
+                const scale = maxAmongWeeksWithData > 0 ? 220 / maxAmongWeeksWithData : 1;
+                const incomeHeight = hasData ? Math.max(4, Math.round(data.income * scale)) : 0;
+                const expenseHeight = hasData ? Math.max(4, Math.round(data.expense * scale)) : 0;
+                const isCurrentWeek = data.week === selectedWeek;
 
                 return (
                   <div
                     key={data.week}
-                    className="flex-1 flex flex-col items-center"
+                    className="w-1/8 flex flex-col items-center"
                   >
                     {/* Values above bars */}
                     <div
@@ -605,26 +619,32 @@ export default function FinancePage() {
                       style={{ height: "220px" }}
                     >
                       <div className="flex flex-col items-center">
-                        <span
-                          className={`text-[9px] font-headline font-bold mb-1 ${isCurrentWeek ? "text-primary" : "text-on-surface/60"}`}
-                        >
-                          {formatBarValue(data.income)}
-                        </span>
+                        {hasData && (
+                          <span
+                            className={`text-[9px] font-headline font-bold mb-1 ${isCurrentWeek ? "text-primary" : "text-on-surface/60"}`}
+                          >
+                            {data.income >= 1000000 ? `£${(data.income / 1000000).toFixed(1)}M` : `£${(data.income / 1000).toFixed(0)}K`}
+                          </span>
+                        )}
                         <div
                           className={`w-6 rounded-t-sm transition-all duration-300 ${
-                            isCurrentWeek
-                              ? "bg-primary shadow-[0_0_12px_rgba(0,228,121,0.6)]"
-                              : "bg-gradient-to-t from-primary/80 to-primary/40"
+                            hasData
+                              ? isCurrentWeek
+                                ? "bg-primary shadow-[0_0_12px_rgba(0,228,121,0.6)]"
+                                : "bg-gradient-to-t from-primary/80 to-primary/40"
+                              : "bg-transparent"
                           }`}
                           style={{ height: `${incomeHeight}px` }}
                         ></div>
                       </div>
                       <div className="flex flex-col items-center">
-                        <span className="text-[9px] font-headline font-bold mb-1 text-error/70">
-                          {formatBarValue(data.expense)}
-                        </span>
+                        {hasData && (
+                          <span className="text-[9px] font-headline font-bold mb-1 text-error/70">
+                            {data.expense >= 1000000 ? `£${(data.expense / 1000000).toFixed(1)}M` : `£${(data.expense / 1000).toFixed(0)}K`}
+                          </span>
+                        )}
                         <div
-                          className="w-6 bg-gradient-to-t from-error/80 to-error/40 rounded-t-sm"
+                          className={`w-6 rounded-t-sm ${hasData ? "bg-gradient-to-t from-error/80 to-error/40" : "bg-transparent"}`}
                           style={{ height: `${expenseHeight}px` }}
                         ></div>
                       </div>
@@ -652,7 +672,7 @@ export default function FinancePage() {
                     Avg. Weekly Income
                   </p>
                   <p className="font-headline font-bold text-on-surface text-lg">
-                    £18.4M
+                    {avgWeeklyIncome >= 1000000 ? `£${(avgWeeklyIncome / 1000000).toFixed(1)}M` : `£${(avgWeeklyIncome / 1000).toFixed(0)}K`}
                   </p>
                 </div>
                 <div>
@@ -660,15 +680,15 @@ export default function FinancePage() {
                     Avg. Weekly Expense
                   </p>
                   <p className="font-headline font-bold text-on-surface text-lg">
-                    £11.2M
+                    {avgWeeklyExpense >= 1000000 ? `£${(avgWeeklyExpense / 1000000).toFixed(1)}M` : `£${(avgWeeklyExpense / 1000).toFixed(0)}K`}
                   </p>
                 </div>
                 <div>
                   <p className="text-[10px] text-on-surface-variant uppercase tracking-widest">
-                    Projected Year End
+                    Projected Season End
                   </p>
-                  <p className="font-headline font-bold text-primary text-lg">
-                    +£244.1M
+                  <p className={`font-headline font-bold text-lg ${projectedNet >= 0 ? "text-primary" : "text-error"}`}>
+                    {projectedNet >= 0 ? "+" : ""}{projectedNet >= 1000000 ? `£${(projectedNet / 1000000).toFixed(1)}M` : `£${(projectedNet / 1000).toFixed(0)}K`}
                   </p>
                 </div>
               </div>
