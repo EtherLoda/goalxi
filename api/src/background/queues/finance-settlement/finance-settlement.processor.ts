@@ -13,11 +13,13 @@ export class FinanceSettlementProcessor extends WorkerHost {
   }
 
   async process(job: Job<any, any, string>): Promise<any> {
-    const { teamId, season } = job.data;
+    const { teamId, season, week } = job.data;
 
     try {
-      this.logger.log(`Processing weekly settlement for team: ${teamId}`);
-      await this.financeService.processWeeklySettlement(teamId, season);
+      this.logger.log(
+        `Processing weekly settlement for team: ${teamId} (Season ${season}, Week ${week})`,
+      );
+      await this.financeService.processWeeklySettlement(teamId, season, week);
       this.logger.log(`Weekly settlement completed for team ${teamId}`);
     } catch (error) {
       this.logger.error(

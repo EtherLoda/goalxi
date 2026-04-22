@@ -172,9 +172,13 @@ export class FinanceService {
    * Process weekly settlement for a team (non-atomic, each tx commits independently)
    * @deprecated Use processWeeklySettlementAtomic instead
    */
-  async processWeeklySettlement(teamId: Uuid, season: number): Promise<void> {
+  async processWeeklySettlement(
+    teamId: Uuid,
+    season: number,
+    week: number,
+  ): Promise<void> {
     await this.dataSource.transaction(async (manager) => {
-      await this.processWeeklySettlementAtomic(teamId, season, manager);
+      await this.processWeeklySettlementAtomic(teamId, season, week, manager);
     });
   }
 
@@ -186,6 +190,7 @@ export class FinanceService {
   async processWeeklySettlementAtomic(
     teamId: Uuid,
     season: number,
+    week: number,
     manager: EntityManager,
   ): Promise<void> {
     const team = await manager.getRepository(TeamEntity).findOne({
@@ -224,6 +229,7 @@ export class FinanceService {
       amount: sponsorship,
       type: TransactionType.SPONSORSHIP,
       season,
+      week,
       description: `Weekly sponsorship income (Tier ${tier}, ${fanCount} fans)`,
     });
     finance.balance += sponsorship;
@@ -246,6 +252,7 @@ export class FinanceService {
         amount: -staffWage,
         type: TransactionType.STAFF_WAGES,
         season,
+        week,
         description: `Weekly wage for ${staff.name} (${staff.role})`,
         relatedId: staff.id,
       });
@@ -259,6 +266,7 @@ export class FinanceService {
       amount: -FINANCE_CONSTANTS.YOUTH_TEAM_COST,
       type: TransactionType.YOUTH_TEAM,
       season,
+      week,
       description: 'Weekly youth team operation',
     });
     finance.balance -= FINANCE_CONSTANTS.YOUTH_TEAM_COST;
@@ -276,6 +284,7 @@ export class FinanceService {
         amount: -maintenanceCost,
         type: TransactionType.OTHER_EXPENSE,
         season,
+        week,
         description: `Weekly stadium maintenance (${stadium.capacity} seats)`,
         relatedId: stadium.id,
       });
@@ -298,6 +307,7 @@ export class FinanceService {
           amount: -totalPlayerWages,
           type: TransactionType.WAGES,
           season,
+          week,
           description: `Weekly player wages (${players.length} players)`,
         });
         finance.balance -= totalPlayerWages;

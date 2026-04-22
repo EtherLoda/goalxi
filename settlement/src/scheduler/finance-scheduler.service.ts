@@ -4,11 +4,14 @@ import { Injectable, Logger } from '@nestjs/common';
 import { Queue } from 'bullmq';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { MatchEntity, TeamEntity } from '@goalxi/database';
+import { MatchEntity, TeamEntity, GAME_SETTINGS } from '@goalxi/database';
 
 @Injectable()
 export class FinanceSchedulerService {
   private readonly logger = new Logger(FinanceSchedulerService.name);
+
+  // Game start date: Season 1, Week 1 begins at this date (UTC)
+  private readonly GAME_START_DATE = new Date('2026-04-06T00:00:00Z');
 
   constructor(
     @InjectQueue('finance-settlement')
@@ -20,30 +23,40 @@ export class FinanceSchedulerService {
   ) {}
 
   /**
-   * Get the current season from the database (max season from matches)
+   * Get current season and week based on UTC time elapsed since game start
    */
-  private async getCurrentSeason(): Promise<number> {
-    const latestMatch = await this.matchRepo
-      .createQueryBuilder('match')
-      .select('MAX(match.season)', 'maxSeason')
-      .getRawOne();
+  private getCurrentSeasonWeek(): { season: number; week: number } {
+    const now = new Date();
+    const msPerWeek = 7 * 24 * 60 * 60 * 1000;
 
-    return latestMatch?.maxSeason || 1;
+    const weeksElapsed = Math.floor(
+      (now.getTime() - this.GAME_START_DATE.getTime()) / msPerWeek,
+    );
+
+    const season =
+      Math.floor(weeksElapsed / GAME_SETTINGS.SEASON_LENGTH_WEEKS) + 1;
+    const week = (weeksElapsed % GAME_SETTINGS.SEASON_LENGTH_WEEKS) + 1;
+
+    return { season, week };
   }
 
   /**
-   * Weekly finance settlement cron - runs every Sunday at midnight
-   * Processes sponsorship, TV revenue, merchandise, staff wages, youth team cost
+   * Weekly finance settlement cron - runs every Monday at UTC 00:00
+   * Generates financial data (sponsorship, wages, staff, youth) for the NEW week
    */
-  @Cron('0 0 0 * * 0') // Every Sunday at 00:00
+  @Cron('0 0 0 * * 1') // Every Monday at 00:00 UTC
   async processWeeklyFinanceSettlement() {
     this.logger.log('[FinanceScheduler] Starting weekly finance settlement...');
 
-    // Get all teams and their current season
-    const teams = await this.teamRepo.find();
-    const currentSeason = await this.getCurrentSeason();
+    // Get current season and week from game state
+    const { season, week } = this.getCurrentSeasonWeek();
 
-    this.logger.log(`[FinanceScheduler] Current season: ${currentSeason}`);
+    this.logger.log(
+      `[FinanceScheduler] Current game state: Season ${season}, Week ${week}`,
+    );
+
+    // Get all teams
+    const teams = await this.teamRepo.find();
 
     let successCount = 0;
     let failCount = 0;
@@ -54,7 +67,8 @@ export class FinanceSchedulerService {
           'weekly-settlement',
           {
             teamId: team.id,
-            season: currentSeason,
+            season,
+            week,
             type: 'weekly',
           },
           {
@@ -71,7 +85,7 @@ export class FinanceSchedulerService {
     }
 
     this.logger.log(
-      `[FinanceScheduler] Finance settlement queued: ${successCount} teams succeeded, ${failCount} failed (season ${currentSeason})`,
+      `[FinanceScheduler] Finance settlement queued: ${successCount} teams succeeded, ${failCount} failed (Season ${season}, Week ${week})`,
     );
   }
 }
