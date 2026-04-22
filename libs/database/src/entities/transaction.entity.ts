@@ -25,6 +25,9 @@ export class TransactionEntity extends AbstractEntity {
     season!: number;
 
     @Column({ type: 'integer' })
+    week!: number;
+
+    @Column({ type: 'integer' })
     amount!: number;
 
     @Column({ type: 'enum', enum: TransactionType })
