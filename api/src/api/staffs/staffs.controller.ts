@@ -19,7 +19,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { CurrentUser } from '../../decorators/current-user.decorator';
 import { AuthGuard } from '../../guards/auth.guard';
-import { STAFF_HIRE_COST, STAFF_SALARY, StaffsService } from './staffs.service';
+import { getSigningFee, STAFF_SALARY, StaffsService } from './staffs.service';
 
 @Controller('staffs')
 @UseGuards(AuthGuard)
@@ -76,6 +76,48 @@ export class StaffsController {
     return { success: true };
   }
 
+  /** Assign a player to a coach */
+  @Post(':coachId/assign')
+  async assignPlayer(
+    @Param('coachId') coachId: string,
+    @Body() body: AssignPlayerDto,
+  ): Promise<AssignmentDto> {
+    const assignment = await this.staffsService.assignPlayer(
+      coachId,
+      body.playerId,
+    );
+    return mapAssignmentToDto(assignment);
+  }
+
+  /** Unassign a player from a coach */
+  @Post(':coachId/unassign')
+  async unassignPlayer(
+    @Param('coachId') coachId: string,
+    @Body() body: UnassignPlayerDto,
+  ): Promise<{ success: boolean }> {
+    await this.staffsService.unassignPlayer(coachId, body.playerId);
+    return { success: true };
+  }
+
+  /** Get assignments for a coach */
+  @Get(':coachId/assignments')
+  async getCoachAssignments(
+    @Param('coachId') coachId: string,
+  ): Promise<AssignmentDto[]> {
+    const assignments = await this.staffsService.getAssignmentsByCoach(coachId);
+    return assignments.map(mapAssignmentToDto);
+  }
+
+  /** Get assignments for a player */
+  @Get('player/:playerId/assignments')
+  async getPlayerAssignments(
+    @Param('playerId') playerId: string,
+  ): Promise<AssignmentDto[]> {
+    const assignments =
+      await this.staffsService.getAssignmentsByPlayer(playerId);
+    return assignments.map(mapAssignmentToDto);
+  }
+
   /** Toggle auto-renewal */
   @Post(':id/auto-renew')
   async setAutoRenew(
@@ -103,7 +145,13 @@ export class StaffsController {
     return {
       staffCount: staffs.length,
       weeklySalary,
-      hireCosts: Object.values(STAFF_HIRE_COST),
+      signingFeesByLevel: {
+        [StaffLevel.LEVEL_1]: getSigningFee(StaffLevel.LEVEL_1),
+        [StaffLevel.LEVEL_2]: getSigningFee(StaffLevel.LEVEL_2),
+        [StaffLevel.LEVEL_3]: getSigningFee(StaffLevel.LEVEL_3),
+        [StaffLevel.LEVEL_4]: getSigningFee(StaffLevel.LEVEL_4),
+        [StaffLevel.LEVEL_5]: getSigningFee(StaffLevel.LEVEL_5),
+      },
       salaryByLevel: STAFF_SALARY,
     };
   }
@@ -135,8 +183,25 @@ export interface StaffDto {
 export interface CostSummaryDto {
   staffCount: number;
   weeklySalary: number;
-  hireCosts: number[];
+  signingFeesByLevel: Record<StaffLevel, number>;
   salaryByLevel: Record<number, number>;
+}
+
+export interface AssignPlayerDto {
+  playerId: string;
+}
+
+export interface UnassignPlayerDto {
+  playerId: string;
+}
+
+export interface AssignmentDto {
+  id: string;
+  coachId: string;
+  playerId: string;
+  playerName?: string;
+  trainingCategory: string;
+  assignedAt: string;
 }
 
 function mapStaffToDto(s: StaffEntity): StaffDto {
@@ -150,5 +215,16 @@ function mapStaffToDto(s: StaffEntity): StaffDto {
     autoRenew: s.autoRenew,
     isActive: s.isActive,
     nationality: s.nationality,
+  };
+}
+
+function mapAssignmentToDto(a: any): AssignmentDto {
+  return {
+    id: a.id,
+    coachId: a.coachId,
+    playerId: a.playerId,
+    playerName: a.player?.name,
+    trainingCategory: a.trainingCategory,
+    assignedAt: a.assignedAt?.toISOString(),
   };
 }

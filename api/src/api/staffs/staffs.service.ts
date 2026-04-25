@@ -1,10 +1,14 @@
 import {
+  CoachPlayerAssignmentEntity,
   FinanceEntity,
+  PlayerEntity,
   StaffEntity,
   StaffLevel,
   StaffRole,
   TeamEntity,
   Uuid,
+  getMaxPlayersForRole,
+  getTrainingCategoryForRole,
 } from '@goalxi/database';
 import {
   BadRequestException,
@@ -22,13 +26,10 @@ export const STAFF_SALARY: Record<StaffLevel, number> = {
   [StaffLevel.LEVEL_5]: 128000,
 };
 
-export const STAFF_HIRE_COST: Record<StaffLevel, number> = {
-  [StaffLevel.LEVEL_1]: 5000,
-  [StaffLevel.LEVEL_2]: 20000,
-  [StaffLevel.LEVEL_3]: 80000,
-  [StaffLevel.LEVEL_4]: 320000,
-  [StaffLevel.LEVEL_5]: 1280000,
-};
+/** Signing fee = 16 weeks of salary */
+export function getSigningFee(level: StaffLevel): number {
+  return STAFF_SALARY[level] * 16;
+}
 
 export const STAFF_LEVEL_SCORE: Record<StaffLevel, number> = {
   [StaffLevel.LEVEL_1]: 40,
@@ -47,6 +48,10 @@ export class StaffsService {
     private teamRepo: Repository<TeamEntity>,
     @InjectRepository(FinanceEntity)
     private financeRepo: Repository<FinanceEntity>,
+    @InjectRepository(CoachPlayerAssignmentEntity)
+    private assignmentRepo: Repository<CoachPlayerAssignmentEntity>,
+    @InjectRepository(PlayerEntity)
+    private playerRepo: Repository<PlayerEntity>,
   ) {}
 
   /** Get all staff for a team */
@@ -80,25 +85,24 @@ export class StaffsService {
     }
 
     // Check finance
-    const hireCost = STAFF_HIRE_COST[level];
+    const signingFee = getSigningFee(level);
     const team = await this.teamRepo.findOne({ where: { id: teamId as Uuid } });
     if (!team) throw new NotFoundException('Team not found');
 
     const finance = await this.financeRepo.findOne({
       where: { teamId: teamId as Uuid },
     });
-    if (!finance || finance.balance < hireCost) {
+    if (!finance || finance.balance < signingFee) {
       throw new BadRequestException('Insufficient funds');
     }
 
-    // Deduct hire cost
-    finance.balance -= hireCost;
+    // Deduct signing fee
+    finance.balance -= signingFee;
     await this.financeRepo.save(finance);
 
-    // Create staff
-    const seasonWeeks = 16;
+    // Create staff - contract is 1 season (16 weeks)
     const contractExpiry = new Date();
-    contractExpiry.setDate(contractExpiry.getDate() + seasonWeeks * 7);
+    contractExpiry.setDate(contractExpiry.getDate() + 16 * 7);
 
     const staff = this.staffRepo.create({
       teamId,
@@ -162,6 +166,98 @@ export class StaffsService {
     return this.staffRepo.save(staff);
   }
 
+  /** Assign a player to a coach */
+  async assignPlayer(
+    coachId: string,
+    playerId: string,
+  ): Promise<CoachPlayerAssignmentEntity> {
+    const coach = await this.findOne(coachId);
+    if (!coach.isActive) {
+      throw new BadRequestException('Cannot assign player to inactive coach');
+    }
+
+    const player = await this.playerRepo.findOne({
+      where: { id: playerId as Uuid },
+    });
+    if (!player) {
+      throw new NotFoundException('Player not found');
+    }
+
+    const maxPlayers = getMaxPlayersForRole(coach.role);
+
+    // Check current assignments for this coach
+    const currentAssignments = await this.assignmentRepo.count({
+      where: { coachId },
+    });
+    if (currentAssignments >= maxPlayers) {
+      throw new BadRequestException(
+        `Coach can only manage ${maxPlayers} players`,
+      );
+    }
+
+    // Check if player already assigned to this coach
+    const existingAssignment = await this.assignmentRepo.findOne({
+      where: { coachId, playerId },
+    });
+    if (existingAssignment) {
+      throw new BadRequestException('Player already assigned to this coach');
+    }
+
+    // Check training category conflict - player can only have one coach per category
+    const trainingCategory = getTrainingCategoryForRole(coach.role);
+    const conflictingAssignment = await this.assignmentRepo.findOne({
+      where: { playerId, trainingCategory },
+    });
+    if (conflictingAssignment) {
+      throw new BadRequestException(
+        'Player already has a coach for this training category',
+      );
+    }
+
+    const assignment = this.assignmentRepo.create({
+      coachId,
+      playerId,
+      trainingCategory,
+    });
+    return this.assignmentRepo.save(assignment);
+  }
+
+  /** Unassign a player from a coach */
+  async unassignPlayer(coachId: string, playerId: string): Promise<void> {
+    const assignment = await this.assignmentRepo.findOne({
+      where: { coachId, playerId },
+    });
+    if (!assignment) {
+      throw new NotFoundException('Assignment not found');
+    }
+    await this.assignmentRepo.remove(assignment);
+  }
+
+  /** Get all assignments for a coach */
+  async getAssignmentsByCoach(
+    coachId: string,
+  ): Promise<CoachPlayerAssignmentEntity[]> {
+    return this.assignmentRepo.find({
+      where: { coachId },
+      relations: ['player'],
+    });
+  }
+
+  /** Get all assignments for a player */
+  async getAssignmentsByPlayer(
+    playerId: string,
+  ): Promise<CoachPlayerAssignmentEntity[]> {
+    return this.assignmentRepo.find({
+      where: { playerId },
+      relations: ['coach'],
+    });
+  }
+
+  /** Get assignment count for a coach */
+  async getAssignmentCount(coachId: string): Promise<number> {
+    return this.assignmentRepo.count({ where: { coachId } });
+  }
+
   /** Process contract renewals at season end */
   async processSeasonEnd(): Promise<{ renewed: number; expired: number }> {
     const now = new Date();
@@ -174,7 +270,7 @@ export class StaffsService {
 
     for (const staff of expiring) {
       if (staff.autoRenew) {
-        // Renew for another season
+        // Renew for another season (16 weeks)
         const newExpiry = new Date();
         newExpiry.setDate(newExpiry.getDate() + 16 * 7);
         staff.contractExpiry = newExpiry;

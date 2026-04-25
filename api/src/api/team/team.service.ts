@@ -114,12 +114,28 @@ export class TeamService {
       role: StaffRole.HEAD_COACH,
       level: StaffLevel.LEVEL_2,
       salary: 4000,
-      contractExpiry: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000),
+      contractExpiry: new Date(Date.now() + 16 * 7 * 24 * 60 * 60 * 1000),
       autoRenew: true,
       isActive: true,
       nationality,
     });
     await this.staffRepo.save(headCoach);
+
+    // Create default Level 2 fitness coach
+    const { firstName: fitFirst, lastName: fitLast } =
+      getRandomNameByNationality(nationality);
+    const fitnessCoach = this.staffRepo.create({
+      teamId: team.id,
+      name: `${fitFirst} ${fitLast}`,
+      role: StaffRole.FITNESS_COACH,
+      level: StaffLevel.LEVEL_2,
+      salary: 2000,
+      contractExpiry: new Date(Date.now() + 16 * 7 * 24 * 60 * 60 * 1000),
+      autoRenew: true,
+      isActive: true,
+      nationality,
+    });
+    await this.staffRepo.save(fitnessCoach);
 
     return this.mapToResDto(team);
   }
