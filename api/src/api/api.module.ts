@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { AnnouncementModule } from './announcement/announcement.module';
 import { AuthModule } from './auth/auth.module';
 import { FanModule } from './fan/fan.module';
 import { FinanceModule } from './finance/finance.module';
@@ -7,6 +8,7 @@ import { InjuryModule } from './injury/injury.module';
 import { LeagueModule } from './league/league.module';
 import { MatchLiveModule } from './match/match-live.module';
 import { MatchModule } from './match/match.module';
+import { NewsModule } from './news/news.module';
 import { NotificationModule } from './notification/notification.module';
 import { PlayerEventModule } from './player-event/player-event.module';
 import { PlayerModule } from './player/player.module';
@@ -44,6 +46,8 @@ import { YouthModule } from './youth/youth.module';
     FanModule,
     GameModule,
     NotificationModule,
+    NewsModule,
+    AnnouncementModule,
   ],
 })
 export class ApiModule {}
