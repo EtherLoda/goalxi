@@ -119,7 +119,10 @@ export class LeagueAwardService {
   /**
    * 发放排名奖金给前8名球队
    */
-  private async awardPrizeMoney(leagueId: string, season: number): Promise<void> {
+  private async awardPrizeMoney(
+    leagueId: string,
+    season: number,
+  ): Promise<void> {
     // 获取联赛信息获取tier
     const league = await this.leagueRepo.findOne({
       where: { id: leagueId as any },

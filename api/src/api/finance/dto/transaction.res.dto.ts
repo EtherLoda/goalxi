@@ -19,6 +19,10 @@ export class TransactionResDto {
 
   @NumberField()
   @Expose()
+  week: number;
+
+  @NumberField()
+  @Expose()
   amount: number;
 
   @EnumField(() => TransactionType)
