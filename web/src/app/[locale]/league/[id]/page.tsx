@@ -6,7 +6,7 @@ import { useParams } from "next/navigation";
 import LeftColumn from "@/components/league/LeftColumn";
 import RightColumn from "@/components/league/RightColumn";
 import { useAuth } from "@/contexts/AuthContext";
-import { api, type Standing, type Team, type Match } from "@/lib/api";
+import { api, type Standing, type Team, type Match, type LeagueNewsItem } from "@/lib/api";
 
 interface NewsItem {
   id: string;
@@ -20,8 +20,10 @@ interface MatchResult {
   id: string;
   homeTeam: string;
   homeTeamShort: string;
+  homeTeamId?: string;
   awayTeam: string;
   awayTeamShort: string;
+  awayTeamId?: string;
   homeScore: number;
   awayScore: number;
   scheduledAt?: string;
@@ -104,16 +106,18 @@ export default function LeaguePage() {
   const [lastRoundResults, setLastRoundResults] = useState<MatchResult[]>([]);
   const [nextRoundMatches, setNextRoundMatches] = useState<MatchResult[]>([]);
   const [allMatches, setAllMatches] = useState<Match[]>([]);
+  const [leagueNews, setLeagueNews] = useState<NewsItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     const fetchData = async () => {
       try {
         // Fetch league data, standings, and all matches in parallel
-        const [leagueData, standingsData, matchesData] = await Promise.all([
+        const [leagueData, standingsData, matchesData, newsData] = await Promise.all([
           api.leagues.getById(leagueId).catch(() => null),
           api.leagues.getStandings(leagueId).catch(() => []),
           api.matches.getByLeague(leagueId, {}).catch(() => ({ data: [] })),
+          api.news.getLeagueNews(leagueId, { limit: 10 }).catch(() => ({ items: [] })),
         ]);
 
         setLeague(leagueData);
@@ -179,6 +183,42 @@ export default function LeaguePage() {
           }
         }
         setTeams(teamsMap);
+
+        // Transform league news to NewsItem format
+        const transformedNews: NewsItem[] = (newsData?.items || []).map((item: LeagueNewsItem) => {
+          let type: "manager" | "transfer" | "general" = "general";
+          let title = item.title;
+          let excerpt = item.description;
+
+          if (item.type === 'TRANSFER') {
+            type = "transfer";
+            title = item.playerName ? `Transfer: ${item.playerName}` : 'Player Transfer';
+          } else if (item.type === 'MATCH_RESULT') {
+            type = "general";
+            title = `Match Result: ${item.homeTeam?.name || 'Home'} vs ${item.awayTeam?.name || 'Away'}`;
+            excerpt = `${item.homeScore} - ${item.awayScore}`;
+          } else if (item.type === 'PRIZE_MONEY') {
+            type = "general";
+            title = 'Prize Money Awarded';
+          }
+
+          // Calculate time ago from date
+          const date = new Date(item.date);
+          const now = new Date();
+          const diffMs = now.getTime() - date.getTime();
+          const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+          const diffDays = Math.floor(diffHours / 24);
+          const timeAgo = diffDays > 0 ? `${diffDays}d ago` : diffHours > 0 ? `${diffHours}h ago` : 'Just now';
+
+          return {
+            id: item.id,
+            type,
+            title,
+            excerpt,
+            timeAgo,
+          };
+        });
+        setLeagueNews(transformedNews);
       } catch (error) {
         console.error("Failed to fetch league data:", error);
       } finally {
@@ -214,7 +254,7 @@ export default function LeaguePage() {
             {/* Left Column: 5/12 */}
             <div className="flex-1 min-w-0">
               <LeftColumn
-                news={MOCK_NEWS}
+                news={leagueNews.length > 0 ? leagueNews : []}
                 currentRound={currentRound}
                 lastRoundResults={lastRoundResults}
                 nextRoundMatches={nextRoundMatches}

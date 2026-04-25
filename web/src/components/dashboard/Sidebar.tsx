@@ -38,6 +38,7 @@ export default function Sidebar() {
       titleKey: "operations",
       items: [
         { labelKey: "transfers", href: `/${locale}/transfers`, icon: "swap_horiz" },
+        { labelKey: "training", href: `/${locale}/training`, icon: "fitness_center" },
         { labelKey: "finance", href: `/${locale}/club/finance`, icon: "account_balance_wallet" },
         { labelKey: "scouting", href: `/${locale}/scouts`, icon: "travel_explore" },
       ],

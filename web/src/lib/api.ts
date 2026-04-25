@@ -380,6 +380,58 @@ export const api = {
       return request<FinanceTransaction[]>(`/finance/transactions${query}`);
     },
   },
+
+  staff: {
+    getAll: async (): Promise<Staff[]> => {
+      return request<Staff[]>('/staffs');
+    },
+  },
+
+  training: {
+    getWeeklyPoints: async (): Promise<TrainingPlayer[]> => {
+      return request<TrainingPlayer[]>('/training/weekly-points');
+    },
+  },
+
+  notifications: {
+    getNotifications: async (page = 1, limit = 20): Promise<NotificationListResponse> => {
+      return request<NotificationListResponse>(`/notifications?page=${page}&limit=${limit}`);
+    },
+    getUnreadCount: async (): Promise<{ count: number }> => {
+      return request<{ count: number }>('/notifications/unread-count');
+    },
+    markAsRead: async (ids?: string[]): Promise<{ markedCount: number }> => {
+      return request<{ markedCount: number }>('/notifications/read', {
+        method: 'POST',
+        body: JSON.stringify({ ids }),
+      });
+    },
+    markAllRead: async (): Promise<{ markedCount: number }> => {
+      return request<{ markedCount: number }>('/notifications/read', {
+        method: 'POST',
+        body: JSON.stringify({}),
+      });
+    },
+    deleteRead: async (): Promise<{ deletedCount: number }> => {
+      return request<{ deletedCount: number }>('/notifications', { method: 'DELETE' });
+    },
+  },
+
+  news: {
+    getLeagueNews: async (leagueId: string, params?: { season?: number; limit?: number }): Promise<LeagueNewsResponse> => {
+      const searchParams = new URLSearchParams();
+      if (params?.season) searchParams.set('season', String(params.season));
+      if (params?.limit) searchParams.set('limit', String(params.limit));
+      const query = searchParams.toString() ? `?${searchParams.toString()}` : '';
+      return request<LeagueNewsResponse>(`/news/league/${leagueId}${query}`);
+    },
+  },
+
+  announcements: {
+    getAnnouncements: async (limit = 10): Promise<Announcement[]> => {
+      return request<Announcement[]>(`/announcements?limit=${limit}`);
+    },
+  },
 };
 
 interface TransferAuction {
@@ -436,4 +488,89 @@ interface FinanceTransaction {
   createdAt: string;
 }
 
-export type { User, Team, LoginResponse, League, Standing, Match, Player, TransferAuction, MyBid, TransferTransaction, BidRecord, FinanceTransaction, PlayerEvent };
+interface Notification {
+  id: string;
+  type: string;
+  messageKey: string;
+  data: Record<string, any>;
+  createdAt: number;
+  expiresAt?: number;
+}
+
+interface NotificationListResponse {
+  items: Notification[];
+  meta: {
+    total: number;
+    page: number;
+    limit: number;
+    totalPages: number;
+    unreadCount: number;
+  };
+}
+
+interface LeagueNewsItem {
+  id: string;
+  type: 'TRANSFER' | 'MATCH_RESULT' | 'PRIZE_MONEY';
+  date: string;
+  title: string;
+  description: string;
+  season: number;
+  week: number;
+  playerId?: string;
+  playerName?: string;
+  fromTeam?: Team;
+  toTeam?: Team;
+  amount?: number;
+  matchId?: string;
+  homeTeam?: Team;
+  awayTeam?: Team;
+  homeScore?: number;
+  awayScore?: number;
+  prizeAmount?: number;
+  position?: number;
+}
+
+interface LeagueNewsResponse {
+  items: LeagueNewsItem[];
+  total: number;
+}
+
+interface Announcement {
+  id: string;
+  title: string;
+  content: string;
+  type: 'GENERAL' | 'FEATURE' | 'EVENT' | 'MAINTENANCE';
+  priority: number;
+  createdAt: string;
+}
+
+interface Staff {
+  id: string;
+  name: string;
+  role: string;
+  level: number;
+  salary: number;
+  contractExpiry: string;
+  autoRenew: boolean;
+  isActive: boolean;
+  nationality?: string;
+}
+
+interface TrainingSkill {
+  skill: string;
+  current: number;
+  potential: number;
+  category: string | null;
+  remainingToPotential: number;
+}
+
+interface TrainingPlayer {
+  playerId: string;
+  playerName: string;
+  trainingSlot: string;
+  age: number;
+  weeklyPoints: number;
+  skillBreakdown: TrainingSkill[];
+}
+
+export type { User, Team, LoginResponse, League, Standing, Match, Player, TransferAuction, MyBid, TransferTransaction, BidRecord, FinanceTransaction, PlayerEvent, Notification, NotificationListResponse, LeagueNewsItem, LeagueNewsResponse, Announcement, Staff, TrainingPlayer };

@@ -1,10 +1,36 @@
 "use client";
 
+import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import { useAuth } from "@/contexts/AuthContext";
-import { api, type Standing, type Match } from "@/lib/api";
+import { api, type Standing, type Match, type Notification } from "@/lib/api";
+
+// Mock announcements for System Announcements panel
+const MOCK_ANNOUNCEMENTS = [
+  {
+    id: '1',
+    type: 'FEATURE',
+    title: 'Season 2 Coming Soon!',
+    content: 'Get ready for Season 2! New features including enhanced tactical options and improved youth academy system.',
+    createdAt: Date.now() - 2 * 60 * 60 * 1000, // 2 hours ago
+  },
+  {
+    id: '2',
+    type: 'EVENT',
+    title: 'Transfer Window Opens',
+    content: 'The winter transfer window is now open. Teams can buy and sell players until the deadline.',
+    createdAt: Date.now() - 24 * 60 * 60 * 1000, // 1 day ago
+  },
+  {
+    id: '3',
+    type: 'MAINTENANCE',
+    title: 'Server Maintenance Scheduled',
+    content: 'Scheduled maintenance on April 30th from 02:00 to 04:00 UTC.',
+    createdAt: Date.now() - 3 * 24 * 60 * 60 * 1000, // 3 days ago
+  },
+];
 
 export default function DashboardPage() {
   const t = useTranslations();
@@ -13,6 +39,7 @@ export default function DashboardPage() {
   const [standings, setStandings] = useState<Standing[]>([]);
   const [upcomingMatch, setUpcomingMatch] = useState<Match | null>(null);
   const [recentMatches, setRecentMatches] = useState<Match[]>([]);
+  const [teamNotifications, setTeamNotifications] = useState<Notification[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
@@ -24,8 +51,9 @@ export default function DashboardPage() {
       api.leagues.getStandings(team.leagueId),
       api.matches.getByTeam(team.id, { status: "scheduled" }),
       api.matches.getByTeam(team.id, { status: "completed", season: 1 }),
+      api.notifications.getNotifications(1, 50),
     ])
-      .then(([standingsData, upcomingData, recentData]) => {
+      .then(([standingsData, upcomingData, recentData, notificationsData]) => {
         setStandings(standingsData);
         const upcoming = upcomingData?.data?.[0] || null;
         setUpcomingMatch(upcoming);
@@ -34,6 +62,8 @@ export default function DashboardPage() {
           .sort((a, b) => new Date(b.scheduledAt).getTime() - new Date(a.scheduledAt).getTime())
           .slice(0, 5);
         setRecentMatches(recent);
+        // Set team notifications (personal notifications)
+        setTeamNotifications(notificationsData?.items || []);
       })
       .catch(console.error)
       .finally(() => setIsLoading(false));
@@ -77,6 +107,44 @@ export default function DashboardPage() {
       hour: "2-digit",
       minute: "2-digit",
     });
+  };
+
+  const formatRelativeTime = (timestamp: number) => {
+    const now = Date.now();
+    const diff = now - timestamp;
+    const seconds = Math.floor(diff / 1000);
+    const minutes = Math.floor(seconds / 60);
+    const hours = Math.floor(minutes / 60);
+    const days = Math.floor(hours / 24);
+    if (days > 0) return `${days}d ago`;
+    if (hours > 0) return `${hours}h ago`;
+    if (minutes > 0) return `${minutes}m ago`;
+    return 'Just now';
+  };
+
+  const formatAmount = (amount: number) => {
+    if (amount >= 1000000) return `${(amount / 1000000).toFixed(1)}M`;
+    if (amount >= 1000) return `${(amount / 1000).toFixed(0)}K`;
+    return amount.toString();
+  };
+
+  const getNotificationMessage = (notification: Notification) => {
+    const { type, data } = notification;
+    switch (type) {
+      case 'MATCH_RESULT_WIN': return `Victory! ${data.homeTeamName} ${data.homeScore} - ${data.awayScore} ${data.awayTeamName}`;
+      case 'MATCH_RESULT_LOSS': return `Defeat. ${data.homeTeamName} ${data.homeScore} - ${data.awayScore} ${data.awayTeamName}`;
+      case 'MATCH_RESULT_DRAW': return `Draw. ${data.homeTeamName} ${data.homeScore} - ${data.awayScore} ${data.awayTeamName}`;
+      case 'PLAYER_PURCHASED': return `Purchased ${data.playerName} for ${formatAmount(data.amount)}`;
+      case 'PLAYER_SOLD': return `Sold ${data.playerName} for ${formatAmount(data.amount)}`;
+      case 'AUCTION_OUTBID': return `Outbid on ${data.playerName}`;
+      case 'AUCTION_WON': return `Won auction for ${data.playerName}!`;
+      case 'AUCTION_LOST': return `Lost auction for ${data.playerName}`;
+      case 'PLAYER_INJURED': return `${data.playerName} is injured`;
+      case 'PLAYER_RECOVERED': return `${data.playerName} has recovered`;
+      case 'PLAYER_SKILL_IMPROVED': return `${data.playerName}'s ${data.skillType} improved`;
+      case 'PLAYER_SKILL_DECREASED': return `${data.playerName}'s ${data.skillType} dropped`;
+      default: return data.message || type;
+    }
   };
 
   return (
@@ -250,45 +318,111 @@ export default function DashboardPage() {
 
           {/* Second Grid */}
           <section className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {/* Action Required */}
+            {/* Team News - Action Required */}
             <div className="space-y-4">
-              <div className="flex items-center justify-between">
+              <div className="flex items-center justify-between px-2">
                 <h3 className="font-headline font-black text-xs uppercase tracking-[0.2em] text-primary flex items-center gap-2">
                   <span className="material-symbols-outlined text-lg">assignment_late</span>
-                  {t("dashboard.actionRequired")}
+                  Team News
                 </h3>
                 <span className="font-label text-[10px] font-black text-on-surface-variant uppercase tracking-widest">
-                  0 Active
+                  {teamNotifications.length} Updates
                 </span>
               </div>
-              <div className="glass-panel rounded-2xl p-8 text-center">
-                <span className="material-symbols-outlined text-4xl text-on-surface-variant/30 mb-2">
-                  check_circle
-                </span>
-                <p className="font-body text-sm text-on-surface-variant">
-                  No pending actions at this time
-                </p>
+              <div className="bg-surface-container-low/75 backdrop-blur-xl border border-white/5 rounded-2xl overflow-hidden shadow-glass divide-y divide-white/5">
+                {teamNotifications.length === 0 ? (
+                  <div className="p-8 text-center">
+                    <span className="material-symbols-outlined text-4xl text-on-surface-variant/30 mb-2 block">
+                      check_circle
+                    </span>
+                    <p className="font-body text-sm text-on-surface-variant">
+                      No team news at this time
+                    </p>
+                  </div>
+                ) : (
+                  teamNotifications.map((notification) => {
+                    const getNotificationIcon = (type: string) => {
+                      switch (type) {
+                        case 'MATCH_RESULT_WIN': return { icon: 'emoji_events', bg: 'bg-tertiary/10', border: 'border-tertiary/20', text: 'text-tertiary' };
+                        case 'MATCH_RESULT_LOSS': return { icon: 'sentiment_dissatisfied', bg: 'bg-error/10', border: 'border-error/20', text: 'text-error' };
+                        case 'MATCH_RESULT_DRAW': return { icon: 'remove', bg: 'bg-white/10', border: 'border-white/20', text: 'text-on-surface-variant' };
+                        case 'PLAYER_SKILL_IMPROVED': return { icon: 'trending_up', bg: 'bg-primary/10', border: 'border-primary/20', text: 'text-primary' };
+                        case 'PLAYER_SKILL_DECREASED': return { icon: 'trending_down', bg: 'bg-error/10', border: 'border-error/20', text: 'text-error' };
+                        case 'PLAYER_INJURED': return { icon: 'medical_services', bg: 'bg-error/10', border: 'border-error/20', text: 'text-error' };
+                        case 'PLAYER_RECOVERED': return { icon: 'healing', bg: 'bg-primary/10', border: 'border-primary/20', text: 'text-primary' };
+                        case 'PLAYER_PURCHASED': return { icon: 'person_add', bg: 'bg-primary/10', border: 'border-primary/20', text: 'text-primary' };
+                        case 'PLAYER_SOLD': return { icon: 'person_remove', bg: 'bg-white/10', border: 'border-white/20', text: 'text-on-surface-variant' };
+                        case 'AUCTION_OUTBID': return { icon: 'gavel', bg: 'bg-tertiary/10', border: 'border-tertiary/20', text: 'text-tertiary' };
+                        case 'AUCTION_WON': return { icon: 'workspace_premium', bg: 'bg-tertiary/10', border: 'border-tertiary/20', text: 'text-tertiary' };
+                        case 'AUCTION_LOST': return { icon: 'cancel', bg: 'bg-white/10', border: 'border-white/20', text: 'text-on-surface-variant' };
+                        default: return { icon: 'notifications', bg: 'bg-white/10', border: 'border-white/20', text: 'text-on-surface-variant' };
+                      }
+                    };
+                    const iconStyle = getNotificationIcon(notification.type);
+                    const hasPlayerLink = notification.data?.playerId;
+                    const content = (
+                      <div className="p-5 flex items-center gap-4 hover:bg-primary/5 transition-colors cursor-pointer group">
+                        <div className={`w-10 h-10 rounded-xl ${iconStyle.bg} border ${iconStyle.border} flex items-center justify-center ${iconStyle.text} shrink-0`}>
+                          <span className="material-symbols-outlined text-sm">{iconStyle.icon}</span>
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <h4 className="text-sm font-bold text-on-surface group-hover:text-primary transition-colors line-clamp-1">
+                            {getNotificationMessage(notification)}
+                          </h4>
+                          <p className="text-xs text-on-surface-variant">
+                            {formatRelativeTime(notification.createdAt)}
+                          </p>
+                        </div>
+                        <span className="material-symbols-outlined text-on-surface-variant group-hover:text-primary">chevron_right</span>
+                      </div>
+                    );
+                    return hasPlayerLink ? (
+                      <Link key={notification.id} href={`/players/${notification.data.playerId}`}>
+                        {content}
+                      </Link>
+                    ) : (
+                      <div key={notification.id}>{content}</div>
+                    );
+                  })
+                )}
               </div>
             </div>
 
-            {/* Official News */}
+            {/* System Announcements */}
             <div className="space-y-4">
-              <div className="flex items-center justify-between">
+              <div className="flex items-center justify-between px-2">
                 <h3 className="font-headline font-black text-xs uppercase tracking-[0.2em] text-primary flex items-center gap-2">
                   <span className="material-symbols-outlined text-lg" style={{ fontVariationSettings: "'FILL' 1" }}>campaign</span>
-                  {t("dashboard.officialNews")}
+                  System Announcements
                 </h3>
                 <a href="#" className="font-label text-[10px] font-black text-on-surface-variant uppercase tracking-widest hover:text-primary transition-colors">
                   Archive
                 </a>
               </div>
-              <div className="glass-panel rounded-2xl p-8 text-center">
-                <span className="material-symbols-outlined text-4xl text-on-surface-variant/30 mb-2">
-                  newsmode
-                </span>
-                <p className="font-body text-sm text-on-surface-variant">
-                  No news at this time
-                </p>
+              <div className="space-y-4 overflow-visible">
+                {MOCK_ANNOUNCEMENTS.length === 0 ? (
+                  <div className="bg-surface-container-low/75 backdrop-blur-xl border border-white/5 rounded-2xl p-8 text-center shadow-glass">
+                    <span className="material-symbols-outlined text-4xl text-on-surface-variant/30 mb-2 block">
+                      newsmode
+                    </span>
+                    <p className="font-body text-sm text-on-surface-variant">
+                      No announcements at this time
+                    </p>
+                  </div>
+                ) : (
+                  MOCK_ANNOUNCEMENTS.slice(0, 5).map((item) => (
+                    <div key={item.id} className="bg-surface-container-low/75 backdrop-blur-xl border border-white/5 rounded-2xl p-5 border-l-4 border-primary relative group overflow-hidden shadow-glass">
+                      <div className="absolute inset-0 bg-primary/5 opacity-0 group-hover:opacity-100 transition-opacity" />
+                      <span className="text-[9px] font-black text-primary uppercase tracking-[0.3em] block mb-2 relative z-10">{item.type}</span>
+                      <h4 className="text-on-surface font-headline font-bold mb-1 relative z-10">{item.title}</h4>
+                      <p className="text-xs text-on-surface-variant leading-relaxed relative z-10">{item.content}</p>
+                      <div className="mt-4 flex justify-between items-center relative z-10">
+                        <span className="text-[9px] text-on-surface-variant/50 font-black uppercase tracking-widest">{formatRelativeTime(item.createdAt)}</span>
+                        <span className="text-[9px] font-black text-primary uppercase tracking-widest cursor-pointer hover:underline">Read More</span>
+                      </div>
+                    </div>
+                  ))
+                )}
               </div>
             </div>
           </section>
