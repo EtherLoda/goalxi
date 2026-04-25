@@ -2,13 +2,18 @@
  * Stamina Calculator - Pure calculation logic for stamina system
  * No database or NestJS dependencies - shareable between API and Settlement
  *
- * Formula:
- * - decay = 0.36 × (1 + (age - 17) × 0.044)
- * - ageFactor = max(0.3, 1 - (age - 17) × 0.035)
- * - efficiency = 1 / (1 + stamina × 0.9)
- * - trainingEffect = 20 × intensity × coachBonus × ageFactor × efficiency
- * - netChange = trainingEffect - decay
+ * Formula (based on FitnessSystem):
+ * - decay = BASE_DECAY_RATE * ageFactor * staminaFactor
+ * - ageFactor = 1 + (age - 23)^2 * 0.005
+ * - staminaFactor = (stamina + 1)^1.2 / 5
+ * - trainingGain = physicalIntensity * 0.5 * coachBonus
+ * - netChange = trainingGain - decay
  */
+
+export const STAMINA_MAX = 5.99;
+export const STAMINA_MIN = 0;
+export const PEAK_AGE = 23;
+export const BASE_DECAY_RATE = 0.05;
 
 export interface StaminaResult {
     playerId: string;
@@ -20,40 +25,41 @@ export interface StaminaResult {
 }
 
 /**
- * Calculate stamina age factor
- * Younger players recover faster
+ * Calculate age factor based on parabolic function
+ * 23岁时 ageFactor = 1.0 (最小衰减)
+ * 17岁时 ageFactor ≈ 1.18, 34岁时 ageFactor ≈ 1.72
  */
 export function calculateAgeFactor(age: number): number {
-    return Math.max(0.3, 1 - (age - 17) * 0.035);
+    const ageGap = age - PEAK_AGE;
+    return 1 + ageGap * ageGap * 0.005;
 }
 
 /**
- * Calculate weekly stamina decay (regardless of current stamina)
+ * Calculate stamina factor - higher stamina = faster natural decay
  */
-export function calculateStaminaDecay(age: number): number {
-    return 0.36 * (1 + (age - 17) * 0.044);
+export function calculateStaminaFactor(currentStamina: number): number {
+    return Math.pow(currentStamina + 1, 1.2) / 5;
 }
 
 /**
- * Calculate training efficiency
- * Higher current stamina = lower efficiency (harder to improve further)
+ * Calculate weekly stamina decay
+ * 受年龄和当前体能两个维度影响
  */
-export function calculateStaminaEfficiency(currentStamina: number): number {
-    return 1 / (1 + currentStamina * 0.9);
+export function calculateDecay(age: number, currentStamina: number): number {
+    const ageFactor = calculateAgeFactor(age);
+    const staminaFactor = calculateStaminaFactor(currentStamina);
+    return BASE_DECAY_RATE * ageFactor * staminaFactor;
 }
 
 /**
- * Calculate training effect on stamina
+ * Calculate training effect (gain) from training percentage
+ * physicalIntensity 是 0-1 的比例，0.5 是效率常数
  */
 export function calculateTrainingEffect(
     physicalIntensity: number,
     coachBonus: number,
-    age: number,
-    currentStamina: number,
 ): number {
-    const ageFactor = calculateAgeFactor(age);
-    const efficiency = calculateStaminaEfficiency(currentStamina);
-    return 20 * physicalIntensity * coachBonus * ageFactor * efficiency;
+    return physicalIntensity * 0.5 * coachBonus;
 }
 
 /**
@@ -66,6 +72,7 @@ export function calculateMaxStamina(age: number): number {
 
 /**
  * Calculate weekly stamina change and return result
+ * 当 trainingEffect = decay 时，刚好维持体能 (netChange = 0)
  */
 export function calculateWeeklyStaminaChange(
     playerId: string,
@@ -74,16 +81,15 @@ export function calculateWeeklyStaminaChange(
     physicalIntensity: number,
     coachBonus: number,
 ): StaminaResult {
-    const decay = calculateStaminaDecay(age);
-    const trainingEffect = calculateTrainingEffect(
-        physicalIntensity,
-        coachBonus,
-        age,
-        currentStamina,
-    );
+    const decay = calculateDecay(age, currentStamina);
+    const trainingEffect = calculateTrainingEffect(physicalIntensity, coachBonus);
+
     const netChange = trainingEffect - decay;
     const maxStamina = calculateMaxStamina(age);
-    const staminaAfter = Math.max(0, Math.min(maxStamina, currentStamina + netChange));
+    const staminaAfter = Math.max(
+        STAMINA_MIN,
+        Math.min(maxStamina, currentStamina + netChange),
+    );
 
     return {
         playerId,

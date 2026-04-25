@@ -140,6 +140,14 @@ export class PlayerEntity extends AbstractEntity {
         return [years, days];
     }
 
+    /**
+     * Returns fractional age in years (e.g., 23.49 for 23 years and 55 days)
+     */
+    get fractionalAge(): number {
+        const [years, days] = this.getExactAge();
+        return years + days / GAME_SETTINGS.DAYS_PER_YEAR;
+    }
+
     @Column({ type: 'jsonb', default: {} })
     appearance!: Record<string, any>;
 

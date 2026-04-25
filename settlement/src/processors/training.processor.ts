@@ -112,7 +112,7 @@ export class TrainingProcessor extends WorkerHost {
       const staminaResult = calculateWeeklyStaminaChange(
         player.id,
         player.stamina,
-        player.age,
+        player.fractionalAge,
         physicalIntensity,
         fitnessCoachBonus,
       );
@@ -120,7 +120,7 @@ export class TrainingProcessor extends WorkerHost {
 
       const result = applyTrainingToPlayer(
         player.id,
-        player.age,
+        player.fractionalAge,
         player.currentSkills,
         player.potentialSkills,
         player.trainingSlot,
