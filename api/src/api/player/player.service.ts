@@ -4,7 +4,6 @@ import { paginate } from '@/utils/offset-pagination';
 import {
   PlayerEntity,
   PlayerSkills,
-  TrainingCategory,
   calculatePlayerPWI,
   formatPWI,
 } from '@goalxi/database';
@@ -58,16 +57,6 @@ export class PlayerService {
       reqDto.isGoalkeeper || false,
     );
 
-    // Validate trainingCategory: goalkeepers cannot use TECHNICAL category
-    if (
-      reqDto.isGoalkeeper &&
-      reqDto.trainingCategory === TrainingCategory.TECHNICAL
-    ) {
-      throw new Error(
-        'Goalkeepers cannot train technical skills. Use goalkeeper training category instead.',
-      );
-    }
-
     const player = new PlayerEntity({
       name: reqDto.name,
       nationality: reqDto.nationality,
@@ -79,9 +68,6 @@ export class PlayerService {
       potentialSkills,
       potentialAbility: reqDto.potentialAbility,
       potentialTier: reqDto.potentialTier,
-      trainingSlot: reqDto.trainingSlot,
-      trainingCategory: reqDto.trainingCategory,
-      trainingSkill: reqDto.trainingSkill || null,
     });
 
     await player.save();
@@ -110,24 +96,6 @@ export class PlayerService {
     if (reqDto.potentialAbility !== undefined)
       player.potentialAbility = reqDto.potentialAbility;
     if (reqDto.potentialTier) player.potentialTier = reqDto.potentialTier;
-    if (reqDto.trainingSlot) player.trainingSlot = reqDto.trainingSlot;
-
-    // Validate trainingCategory: goalkeepers cannot use TECHNICAL category
-    if (reqDto.trainingCategory !== undefined) {
-      if (
-        player.isGoalkeeper &&
-        reqDto.trainingCategory === TrainingCategory.TECHNICAL
-      ) {
-        throw new Error(
-          'Goalkeepers cannot train technical skills. Use goalkeeper training category instead.',
-        );
-      }
-      player.trainingCategory = reqDto.trainingCategory;
-    }
-
-    if (reqDto.trainingSkill !== undefined) {
-      player.trainingSkill = reqDto.trainingSkill || null;
-    }
 
     await player.save();
 
@@ -315,7 +283,6 @@ export class PlayerService {
       potentialSkills: player.potentialSkills,
       potentialAbility: player.potentialAbility,
       potentialTier: player.potentialTier,
-      trainingSlot: player.trainingSlot,
       experience: player.experience,
       form: player.form,
       stamina: player.stamina,

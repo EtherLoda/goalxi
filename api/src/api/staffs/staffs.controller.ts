@@ -12,6 +12,7 @@ import {
   Controller,
   Get,
   Param,
+  Patch,
   Post,
   UseGuards,
 } from '@nestjs/common';
@@ -21,7 +22,7 @@ import { CurrentUser } from '../../decorators/current-user.decorator';
 import { AuthGuard } from '../../guards/auth.guard';
 import { getSigningFee, STAFF_SALARY, StaffsService } from './staffs.service';
 
-@Controller('staffs')
+@Controller({ path: 'staffs', version: '1' })
 @UseGuards(AuthGuard)
 export class StaffsController {
   constructor(
@@ -39,6 +40,34 @@ export class StaffsController {
     if (!team) return [];
     const staffs = await this.staffsService.findByTeam(team.id);
     return staffs.map(mapStaffToDto);
+  }
+
+  /** Get staff cost summary */
+  @Get('cost-summary')
+  async getCostSummary(
+    @CurrentUser('id') userId: Uuid,
+  ): Promise<CostSummaryDto> {
+    const team = await this.teamRepo.findOneBy({ userId });
+    if (!team) throw new BadRequestException('Team not found');
+
+    const staffs = await this.staffsService.findByTeam(team.id);
+    const weeklySalary = staffs.reduce(
+      (sum, s) => sum + STAFF_SALARY[s.level],
+      0,
+    );
+
+    return {
+      staffCount: staffs.length,
+      weeklySalary,
+      signingFeesByLevel: {
+        [StaffLevel.LEVEL_1]: getSigningFee(StaffLevel.LEVEL_1),
+        [StaffLevel.LEVEL_2]: getSigningFee(StaffLevel.LEVEL_2),
+        [StaffLevel.LEVEL_3]: getSigningFee(StaffLevel.LEVEL_3),
+        [StaffLevel.LEVEL_4]: getSigningFee(StaffLevel.LEVEL_4),
+        [StaffLevel.LEVEL_5]: getSigningFee(StaffLevel.LEVEL_5),
+      },
+      salaryByLevel: STAFF_SALARY,
+    };
   }
 
   /** Get single staff */
@@ -62,6 +91,7 @@ export class StaffsController {
       body.role,
       body.level,
       userId,
+      body.trainedSkill,
     );
     return mapStaffToDto(staff);
   }
@@ -128,32 +158,17 @@ export class StaffsController {
     return mapStaffToDto(staff);
   }
 
-  /** Get staff cost summary */
-  @Get('cost-summary')
-  async getCostSummary(
-    @CurrentUser('id') userId: Uuid,
-  ): Promise<CostSummaryDto> {
-    const team = await this.teamRepo.findOneBy({ userId });
-    if (!team) throw new BadRequestException('Team not found');
-
-    const staffs = await this.staffsService.findByTeam(team.id);
-    const weeklySalary = staffs.reduce(
-      (sum, s) => sum + STAFF_SALARY[s.level],
-      0,
+  /** Update a coach's trained skill */
+  @Patch(':id/trained-skill')
+  async updateTrainedSkill(
+    @Param('id') id: string,
+    @Body() body: UpdateTrainedSkillDto,
+  ): Promise<StaffDto> {
+    const staff = await this.staffsService.updateTrainedSkill(
+      id,
+      body.trainedSkill,
     );
-
-    return {
-      staffCount: staffs.length,
-      weeklySalary,
-      signingFeesByLevel: {
-        [StaffLevel.LEVEL_1]: getSigningFee(StaffLevel.LEVEL_1),
-        [StaffLevel.LEVEL_2]: getSigningFee(StaffLevel.LEVEL_2),
-        [StaffLevel.LEVEL_3]: getSigningFee(StaffLevel.LEVEL_3),
-        [StaffLevel.LEVEL_4]: getSigningFee(StaffLevel.LEVEL_4),
-        [StaffLevel.LEVEL_5]: getSigningFee(StaffLevel.LEVEL_5),
-      },
-      salaryByLevel: STAFF_SALARY,
-    };
+    return mapStaffToDto(staff);
   }
 }
 
@@ -162,10 +177,15 @@ export class StaffsController {
 export interface HireStaffDto {
   role: StaffRole;
   level: StaffLevel;
+  trainedSkill?: string;
 }
 
 export interface SetAutoRenewDto {
   autoRenew: boolean;
+}
+
+export interface UpdateTrainedSkillDto {
+  trainedSkill: string | null;
 }
 
 export interface StaffDto {
@@ -178,6 +198,7 @@ export interface StaffDto {
   autoRenew: boolean;
   isActive: boolean;
   nationality?: string;
+  trainedSkill?: string;
 }
 
 export interface CostSummaryDto {
@@ -215,6 +236,7 @@ function mapStaffToDto(s: StaffEntity): StaffDto {
     autoRenew: s.autoRenew,
     isActive: s.isActive,
     nationality: s.nationality,
+    trainedSkill: s.trainedSkill,
   };
 }
 

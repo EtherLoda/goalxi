@@ -2,7 +2,6 @@
   "preset": "ts-jest",
   "testEnvironment": "node",
   "rootDir": "src",
-  "testRegex": ".*\\.spec\\.ts$",
   "testMatch": ["**/*.spec.ts"],
   "moduleFileExtensions": ["js", "json", "ts"],
   "collectCoverageFrom": ["**/*.(t|j)s", "!**/*.spec.(t|j)s"],

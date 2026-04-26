@@ -19,12 +19,6 @@ export enum PotentialTier {
     LEGEND = 'LEGEND',
 }
 
-export enum TrainingSlot {
-    ENHANCED = 'ENHANCED',
-    REGULAR = 'REGULAR',
-    NONE = 'NONE',
-}
-
 export enum TrainingCategory {
     PHYSICAL = 'physical',
     TECHNICAL = 'technical',
@@ -179,29 +173,6 @@ export class PlayerEntity extends AbstractEntity {
     })
     potentialTier!: PotentialTier;
 
-    @Column({
-        name: 'training_slot',
-        type: 'enum',
-        enum: TrainingSlot,
-        default: TrainingSlot.REGULAR,
-    })
-    trainingSlot!: TrainingSlot;
-
-    @Column({
-        name: 'training_category',
-        type: 'enum',
-        enum: TrainingCategory,
-        default: TrainingCategory.PHYSICAL,
-    })
-    trainingCategory!: TrainingCategory;
-
-    @Column({
-        name: 'training_skill',
-        type: 'varchar',
-        length: 20,
-        nullable: true,
-    })
-    trainingSkill?: string | null;
 
     @Column({ type: 'float', default: 0.0 })
     experience!: number;

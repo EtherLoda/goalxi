@@ -553,6 +553,7 @@ export class MatchCompletionService {
       ticketRevenue,
       TransactionType.TICKET_INCOME,
       match.season,
+      match.week,
       `Match ticket revenue (${totalAttendance} attendance)`,
       match.id,
     );

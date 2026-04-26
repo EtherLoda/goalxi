@@ -43,13 +43,13 @@ export default function LeftColumn({
 }: LeftColumnProps) {
   return (
     <div className="space-y-6">
-      <RecentEvents news={news} />
       <MatchweekResults
         currentRound={currentRound}
         lastRoundResults={lastRoundResults}
         nextRoundMatches={nextRoundMatches}
         userTeamId={userTeamId}
       />
+      <RecentEvents news={news} />
     </div>
   );
 }

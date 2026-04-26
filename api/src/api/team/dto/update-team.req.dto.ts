@@ -1,4 +1,5 @@
 import {
+  NumberFieldOptional,
   StringFieldOptional,
   UUIDFieldOptional,
 } from '@/decorators/field.decorators';
@@ -21,4 +22,7 @@ export class UpdateTeamReqDto {
 
   @StringFieldOptional()
   jerseyColorSecondary?: string;
+
+  @NumberFieldOptional({ min: 0, max: 1 })
+  staminaTrainingIntensity?: number;
 }

@@ -152,6 +152,8 @@ export class TeamService {
       team.jerseyColorPrimary = reqDto.jerseyColorPrimary;
     if (reqDto.jerseyColorSecondary)
       team.jerseyColorSecondary = reqDto.jerseyColorSecondary;
+    if (reqDto.staminaTrainingIntensity !== undefined)
+      team.staminaTrainingIntensity = reqDto.staminaTrainingIntensity;
 
     await team.save();
 
@@ -258,6 +260,7 @@ export class TeamService {
       logoUrl: team.logoUrl,
       jerseyColorPrimary: team.jerseyColorPrimary,
       jerseyColorSecondary: team.jerseyColorSecondary,
+      staminaTrainingIntensity: team.staminaTrainingIntensity,
       createdAt: team.createdAt,
       updatedAt: team.updatedAt,
     });

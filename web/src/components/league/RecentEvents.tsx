@@ -34,10 +34,11 @@ const TYPE_STYLES = {
 
 export default function RecentEvents({ news }: RecentEventsProps) {
   const t = useTranslations();
+  const hasNews = news.length > 0;
 
   return (
     <div className="space-y-4">
-      <div>
+      <div className={!hasNews ? "pb-4 border-b border-white/10" : ""}>
         <h2 className="text-2xl font-headline font-extrabold tracking-tight text-on-surface">
           {t("league.recentEvents.title")}
         </h2>

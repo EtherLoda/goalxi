@@ -426,10 +426,11 @@ export default function SquadPage() {
                 <div className="bg-[#001e17] rounded-xl flex flex-col overflow-hidden h-full">
                   {/* List Header */}
                   <div className="grid grid-cols-12 px-4 py-3 border-b border-[#2f4e44]/10 text-[10px] font-bold font-space text-[#91b2a6] uppercase tracking-wider">
-                    <div className="col-span-4">{t("squad.players")}</div>
+                    <div className="col-span-5">{t("squad.players")}</div>
                     <div className="col-span-1 text-center">{t("squad.age")}</div>
-                    <div className="col-span-2 text-center">{locale === "zh" ? "体能" : "STA"}</div>
-                    <div className="col-span-2 text-center">{locale === "zh" ? "状态" : "FRM"}</div>
+                    <div className="col-span-1 text-center">{locale === "zh" ? "体能" : "STA"}</div>
+                    <div className="col-span-1 text-center">{locale === "zh" ? "状态" : "FRM"}</div>
+                    <div className="col-span-1 text-center">EXP</div>
                     <div className="col-span-2 text-center">PWI</div>
                     <div className="col-span-1 text-center">{locale === "zh" ? "特技" : "SPC"}</div>
                   </div>
@@ -455,7 +456,7 @@ export default function SquadPage() {
                               : "hover:bg-[#00251c]"
                           } ${!isLast ? "mb-1" : ""}`}
                         >
-                          <div className="col-span-4 flex items-center gap-2">
+                          <div className="col-span-5 flex items-center gap-2">
                             <div
                               className="w-9 h-9 rounded-full flex items-center justify-center font-bold text-[11px] text-[#a1ffc2]"
                               style={{ backgroundColor: "#00251c" }}
@@ -471,21 +472,42 @@ export default function SquadPage() {
                                   {player.name}
                                 </Link>
                                 {player.onTransfer && (
-                                  <span className="px-1.5 py-0.5 bg-[#a1ffc2]/20 text-[#a1ffc2] text-[8px] font-bold rounded">
-                                    {t("squad.transfer.listed")}
-                                  </span>
+                                  <span className="material-symbols-outlined text-[#a1ffc2]" style={{fontSize: '14px'}} title={t("squad.transfer.listed")}>sell</span>
                                 )}
                               </div>
                             </div>
                           </div>
-                          <div className="col-span-1 text-[11px] font-space text-[#d3f5e8] text-center">
-                            {player.age}y
+                          <div className="col-span-1 text-center">
+                            <span className="font-bold text-sm text-[#d3f5e8]">
+                              {player.age}
+                            </span>
                           </div>
-                          <div className="col-span-2 flex justify-center">
-                            {renderMiniCircle(player.stamina)}
+                          <div className="col-span-1 text-center">
+                            <span className={`font-bold text-sm ${
+                              player.stamina >= 4
+                                ? "text-[#a1ffc2]"
+                                : player.stamina >= 2
+                                  ? "text-[#abf853]"
+                                  : "text-red-400"
+                            }`}>
+                              {Math.round(player.stamina)}
+                            </span>
                           </div>
-                          <div className="col-span-2 flex justify-center">
-                            {renderMiniCircle(player.form)}
+                          <div className="col-span-1 text-center">
+                            <span className={`font-bold text-sm ${
+                              player.form >= 4
+                                ? "text-[#a1ffc2]"
+                                : player.form >= 2
+                                  ? "text-[#abf853]"
+                                  : "text-red-400"
+                            }`}>
+                              {Math.round(player.form)}
+                            </span>
+                          </div>
+                          <div className="col-span-1 text-center">
+                            <span className="font-bold text-sm text-[#d3f5e8]">
+                              {player.experience || 0}
+                            </span>
                           </div>
                           <div className="col-span-2 text-center">
                             <span className="text-[10px] font-black text-[#a1ffc2] block">

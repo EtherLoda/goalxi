@@ -23,12 +23,19 @@ export class StadiumService {
     private readonly financeService: FinanceService,
   ) {}
 
-  private async getCurrentSeason(): Promise<number> {
+  private async getCurrentSeasonAndWeek(): Promise<{
+    season: number;
+    week: number;
+  }> {
     const result = await this.matchRepository
       .createQueryBuilder('match')
       .select('MAX(match.season)', 'maxSeason')
+      .addSelect('MAX(match.week)', 'maxWeek')
       .getRawOne();
-    return result?.maxSeason || 1;
+    return {
+      season: result?.maxSeason || 1,
+      week: result?.maxWeek || 1,
+    };
   }
 
   /**
@@ -61,7 +68,7 @@ export class StadiumService {
 
     // 计算新球场费用（无退款）
     const cost = dto.capacity * STADIUM_COST_PER_SEAT;
-    const season = await this.getCurrentSeason();
+    const { season, week } = await this.getCurrentSeasonAndWeek();
 
     // 创建新球场
     const stadium = this.stadiumRepository.create({
@@ -78,6 +85,7 @@ export class StadiumService {
       -cost,
       TransactionType.OTHER_EXPENSE,
       season,
+      week,
       `Stadium construction (${dto.capacity} seats)`,
     );
 
@@ -112,7 +120,7 @@ export class StadiumService {
 
     // 拆除费用 = 容量 × 单位成本
     const cost = stadium.capacity * STADIUM_COST_PER_SEAT;
-    const season = await this.getCurrentSeason();
+    const { season, week } = await this.getCurrentSeasonAndWeek();
 
     await this.stadiumRepository.remove(stadium);
 
@@ -122,6 +130,7 @@ export class StadiumService {
       -cost,
       TransactionType.OTHER_EXPENSE,
       season,
+      week,
       `Stadium demolition (${stadium.capacity} seats)`,
     );
 

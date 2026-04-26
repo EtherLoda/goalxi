@@ -1,4 +1,10 @@
-import { PlayerEntity, StaffEntity, TeamEntity } from '@goalxi/database';
+import {
+  CoachPlayerAssignmentEntity,
+  PlayerEntity,
+  StaffEntity,
+  TeamEntity,
+  TrainingUpdateEntity,
+} from '@goalxi/database';
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { AuthModule } from '../auth/auth.module';
@@ -8,7 +14,13 @@ import { TrainingService } from './training.service';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([PlayerEntity, StaffEntity, TeamEntity]),
+    TypeOrmModule.forFeature([
+      PlayerEntity,
+      StaffEntity,
+      TeamEntity,
+      CoachPlayerAssignmentEntity,
+      TrainingUpdateEntity,
+    ]),
     StaffsModule,
     AuthModule,
   ],

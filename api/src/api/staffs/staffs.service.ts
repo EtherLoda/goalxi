@@ -1,22 +1,27 @@
 import {
   CoachPlayerAssignmentEntity,
   FinanceEntity,
+  GAME_SETTINGS,
+  getMaxPlayersForRole,
+  getTrainingCategoryForRole,
   PlayerEntity,
+  SKILL_CATEGORY_MAP,
   StaffEntity,
   StaffLevel,
   StaffRole,
   TeamEntity,
+  TransactionType,
   Uuid,
-  getMaxPlayersForRole,
-  getTrainingCategoryForRole,
 } from '@goalxi/database';
 import {
   BadRequestException,
   Injectable,
+  Logger,
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { LessThanOrEqual, Repository } from 'typeorm';
+import { FinanceService } from '../finance/finance.service';
 
 export const STAFF_SALARY: Record<StaffLevel, number> = {
   [StaffLevel.LEVEL_1]: 500,
@@ -41,6 +46,8 @@ export const STAFF_LEVEL_SCORE: Record<StaffLevel, number> = {
 
 @Injectable()
 export class StaffsService {
+  private readonly logger = new Logger(StaffsService.name);
+
   constructor(
     @InjectRepository(StaffEntity)
     private staffRepo: Repository<StaffEntity>,
@@ -52,6 +59,7 @@ export class StaffsService {
     private assignmentRepo: Repository<CoachPlayerAssignmentEntity>,
     @InjectRepository(PlayerEntity)
     private playerRepo: Repository<PlayerEntity>,
+    private readonly financeService: FinanceService,
   ) {}
 
   /** Get all staff for a team */
@@ -75,13 +83,45 @@ export class StaffsService {
     role: StaffRole,
     level: StaffLevel,
     userId: string,
+    trainedSkill?: string,
   ): Promise<StaffEntity> {
+    // Validate trainedSkill if provided
+    if (trainedSkill) {
+      const category = getTrainingCategoryForRole(role);
+      const validSkills = SKILL_CATEGORY_MAP[category] || [];
+      if (!validSkills.includes(trainedSkill)) {
+        throw new BadRequestException(
+          `Invalid trained skill "${trainedSkill}" for role ${role}. Valid skills: ${validSkills.join(', ')}`,
+        );
+      }
+    }
     // Check if role already filled
     const existing = await this.staffRepo.findOne({
       where: { teamId, role, isActive: true },
     });
     if (existing) {
       throw new BadRequestException(`Team already has an active ${role}`);
+    }
+
+    // Check specialized coach limit (max 2, excluding HEAD_COACH, TEAM_DOCTOR, and FITNESS_COACH)
+    const specializedRoles = [
+      StaffRole.PSYCHOLOGY_COACH,
+      StaffRole.TECHNICAL_COACH,
+      StaffRole.SET_PIECE_COACH,
+      StaffRole.GOALKEEPER_COACH,
+    ];
+    if (specializedRoles.includes(role)) {
+      const activeSpecializedCoaches = await this.staffRepo.find({
+        where: { teamId, isActive: true },
+      });
+      const currentSpecializedCount = activeSpecializedCoaches.filter((s) =>
+        specializedRoles.includes(s.role),
+      ).length;
+      if (currentSpecializedCount >= 2) {
+        throw new BadRequestException(
+          '球队最多只能有2个专项教练（技术/心理/定位球/门将）',
+        );
+      }
     }
 
     // Check finance
@@ -96,9 +136,8 @@ export class StaffsService {
       throw new BadRequestException('Insufficient funds');
     }
 
-    // Deduct signing fee
-    finance.balance -= signingFee;
-    await this.financeRepo.save(finance);
+    // Get current season and week
+    const { season, week } = this.getCurrentSeasonWeek();
 
     // Create staff - contract is 1 season (16 weeks)
     const contractExpiry = new Date();
@@ -113,9 +152,27 @@ export class StaffsService {
       contractExpiry,
       autoRenew: true,
       isActive: true,
+      trainedSkill,
     });
 
     await this.staffRepo.save(staff);
+
+    // Record signing fee transaction (non-critical, staff already created)
+    try {
+      await this.financeService.processTransaction(
+        teamId as Uuid,
+        -signingFee,
+        TransactionType.STAFF_EXPENSES,
+        season,
+        week,
+        `Signing fee for ${staff.name} (${role})`,
+        staff.id,
+      );
+    } catch (error) {
+      this.logger.error('Failed to record signing fee transaction', error);
+      // Don't throw - staff was already created
+    }
+
     return staff;
   }
 
@@ -124,6 +181,17 @@ export class StaffsService {
     const staff = await this.findOne(staffId);
     if (!staff.isActive)
       throw new BadRequestException('Staff already inactive');
+
+    // Get current season and week
+    const { season, week } = this.getCurrentSeasonWeek();
+
+    // First, unassign all players from this coach
+    const assignments = await this.assignmentRepo.find({
+      where: { coachId: staffId },
+    });
+    for (const assignment of assignments) {
+      await this.assignmentRepo.remove(assignment);
+    }
 
     // Calculate termination fee
     const now = new Date();
@@ -148,12 +216,25 @@ export class StaffsService {
       throw new BadRequestException('Insufficient funds for termination fee');
     }
 
-    // Deduct and deactivate
-    finance.balance -= terminationFee;
-    await this.financeRepo.save(finance);
-
+    // Deactivate staff
     staff.isActive = false;
     await this.staffRepo.save(staff);
+
+    // Record termination fee transaction (non-critical, staff already deactivated)
+    try {
+      await this.financeService.processTransaction(
+        staff.teamId as Uuid,
+        -terminationFee,
+        TransactionType.STAFF_EXPENSES,
+        season,
+        week,
+        `Termination fee for ${staff.name} (${staff.role})`,
+        staff.id,
+      );
+    } catch (error) {
+      this.logger.error('Failed to record termination fee transaction', error);
+      // Don't throw - staff was already deactivated
+    }
   }
 
   /** Toggle auto-renewal */
@@ -163,6 +244,28 @@ export class StaffsService {
   ): Promise<StaffEntity> {
     const staff = await this.findOne(staffId);
     staff.autoRenew = autoRenew;
+    return this.staffRepo.save(staff);
+  }
+
+  /** Update a coach's trained skill */
+  async updateTrainedSkill(
+    staffId: string,
+    trainedSkill: string | null,
+  ): Promise<StaffEntity> {
+    const staff = await this.findOne(staffId);
+
+    // Validate trainedSkill if provided
+    if (trainedSkill) {
+      const category = getTrainingCategoryForRole(staff.role);
+      const validSkills = SKILL_CATEGORY_MAP[category] || [];
+      if (!validSkills.includes(trainedSkill)) {
+        throw new BadRequestException(
+          `Invalid trained skill "${trainedSkill}" for role ${staff.role}. Valid skills: ${validSkills.join(', ')}`,
+        );
+      }
+    }
+
+    staff.trainedSkill = trainedSkill || undefined;
     return this.staffRepo.save(staff);
   }
 
@@ -181,6 +284,13 @@ export class StaffsService {
     });
     if (!player) {
       throw new NotFoundException('Player not found');
+    }
+
+    // Goalkeeper coaches can only train goalkeepers
+    if (coach.role === 'goalkeeper_coach' && !player.isGoalkeeper) {
+      throw new BadRequestException(
+        'Goalkeeper coaches can only train goalkeepers',
+      );
     }
 
     const maxPlayers = getMaxPlayersForRole(coach.role);
@@ -204,14 +314,16 @@ export class StaffsService {
     }
 
     // Check training category conflict - player can only have one coach per category
+    // If conflict exists with a different coach, auto-unassign from the old coach first
     const trainingCategory = getTrainingCategoryForRole(coach.role);
     const conflictingAssignment = await this.assignmentRepo.findOne({
       where: { playerId, trainingCategory },
     });
     if (conflictingAssignment) {
-      throw new BadRequestException(
-        'Player already has a coach for this training category',
-      );
+      if (conflictingAssignment.coachId !== coachId) {
+        // Auto-unassign from the old coach in the same category
+        await this.assignmentRepo.remove(conflictingAssignment);
+      }
     }
 
     const assignment = this.assignmentRepo.create({
@@ -284,6 +396,22 @@ export class StaffsService {
     }
 
     return { renewed, expired };
+  }
+
+  private getCurrentSeasonWeek(): { season: number; week: number } {
+    const now = new Date();
+    const msPerWeek = 7 * 24 * 60 * 60 * 1000;
+    const GAME_START_DATE = new Date('2026-04-06T00:00:00Z');
+
+    const weeksElapsed = Math.floor(
+      (now.getTime() - GAME_START_DATE.getTime()) / msPerWeek,
+    );
+
+    const season =
+      Math.floor(weeksElapsed / GAME_SETTINGS.SEASON_LENGTH_WEEKS) + 1;
+    const week = (weeksElapsed % GAME_SETTINGS.SEASON_LENGTH_WEEKS) + 1;
+
+    return { season, week };
   }
 
   private generateStaffName(role: StaffRole, level: StaffLevel): string {

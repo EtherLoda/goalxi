@@ -7,7 +7,7 @@ import {
   UUIDField,
   UUIDFieldOptional,
 } from '@/decorators/field.decorators';
-import { PlayerSkills, PotentialTier, TrainingSlot } from '@goalxi/database';
+import { PlayerSkills, PotentialTier } from '@goalxi/database';
 import { Exclude, Expose, Transform } from 'class-transformer';
 
 @Exclude()
@@ -123,9 +123,6 @@ export class PlayerResDto {
 
   @Expose()
   potentialTier: PotentialTier;
-
-  @Expose()
-  trainingSlot: TrainingSlot;
 
   @NumberField()
   @Expose()

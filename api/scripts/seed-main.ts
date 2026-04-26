@@ -20,7 +20,6 @@ import {
   StaffEntity,
   StaffRole,
   TeamEntity,
-  TrainingSlot,
   TransactionEntity,
   TransactionType,
   UserEntity,
@@ -606,7 +605,7 @@ async function createLeaguePyramid() {
         generatePlayerPotential();
       const { current, potential } = generatePlayerAttributes(
         isGK,
-        potentialAbility * 5,
+        potentialAbility,
         gameAge,
       );
 
@@ -655,7 +654,6 @@ async function createLeaguePyramid() {
         isYouth: false,
         potentialAbility: Math.round(potentialAbility),
         potentialTier,
-        trainingSlot: TrainingSlot.REGULAR,
         appearance: generatePlayerAppearance(),
         currentSkills: current,
         potentialSkills: potential,
@@ -1190,7 +1188,7 @@ async function createLeaguePyramid() {
           amount: -staffWage,
           season: SEASON,
           week: settlement.week,
-          type: TransactionType.STAFF_WAGES,
+          type: TransactionType.STAFF_EXPENSES,
           description: `Week ${settlement.week} wage for ${staff.name} (${staff.role})`,
           relatedId: staff.id as Uuid,
         });

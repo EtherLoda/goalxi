@@ -69,9 +69,9 @@ export class TeamEntity extends AbstractEntity {
     @Column({ name: 'bot_level', type: 'int', default: 5 })
     botLevel: number;
 
-    /** 全队体能训练占比 (0-1)，用于每周体能恢复 */
-    @Column({ name: 'training_physical_intensity', type: 'float', default: 0.1 })
-    trainingPhysicalIntensity: number;
+    /** 体能训练强度 (0-1)，每周用于体能恢复的比例，默认10% */
+    @Column({ name: 'stamina_training_intensity', type: 'float', default: 0.1 })
+    staminaTrainingIntensity: number;
 
     /** ELO 评分（隐藏），用于计算比赛预期和球迷士气 */
     @Column({ name: 'elo_rating', type: 'int', default: 1500 })

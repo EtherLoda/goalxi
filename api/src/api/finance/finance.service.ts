@@ -76,6 +76,7 @@ export class FinanceService {
     amount: number,
     type: TransactionType,
     season: number,
+    week: number,
     description?: string,
     relatedId?: string,
   ): Promise<TransactionEntity> {
@@ -100,6 +101,7 @@ export class FinanceService {
         amount,
         type,
         season,
+        week,
         description,
         relatedId,
       });
@@ -250,7 +252,7 @@ export class FinanceService {
       const staffTx = transactionRepo.create({
         teamId,
         amount: -staffWage,
-        type: TransactionType.STAFF_WAGES,
+        type: TransactionType.STAFF_EXPENSES,
         season,
         week,
         description: `Weekly wage for ${staff.name} (${staff.role})`,

@@ -11,7 +11,7 @@ import { CurrentUser } from '../../decorators/current-user.decorator';
 import { AuthGuard } from '../../guards/auth.guard';
 import { ScoutsService } from './scouts.service';
 
-@Controller('scouts')
+@Controller({ path: 'scouts', version: '1' })
 @UseGuards(AuthGuard)
 export class ScoutsController {
   constructor(

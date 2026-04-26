@@ -32,6 +32,7 @@ export * from './entities/youth-match-tactics.entity';
 export * from './entities/scout-candidate.entity';
 export * from './entities/staff.entity';
 export * from './entities/coach-player-assignment.entity';
+export * from './entities/training-update.entity';
 export * from './entities/stadium.entity';
 export * from './entities/fan.entity';
 export * from './entities/weather.entity';

@@ -13,6 +13,7 @@ export enum LeagueNewsItemType {
   TRANSFER = 'TRANSFER',
   MATCH_RESULT = 'MATCH_RESULT',
   PRIZE_MONEY = 'PRIZE_MONEY',
+  TRAINING_UPDATE = 'TRAINING_UPDATE',
 }
 
 @Exclude()

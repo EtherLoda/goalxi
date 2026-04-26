@@ -1,9 +1,19 @@
 /**
  * Training Calculator - Pure calculation logic for training system
  * No database or NestJS dependencies - shareable between API and Settlement
+ *
+ * NEW Training Model:
+ * - All players receive stamina recovery: staminaIntensity × 0.5 × fitnessCoachBonus
+ * - Only assigned players receive specialized training:
+ *   (1 - staminaIntensity) × 0.5 × assignedCoachBonus × BASE × ageFactor
+ *
+ * Coach limits:
+ * - Max 2 specialized coaches per team (excludes HEAD_COACH, TEAM_DOCTOR)
+ * - Each specialized coach can train max 3 players
+ * - Fitness coach provides stamina recovery bonus
  */
 
-import { PlayerSkills, TrainingCategory, TrainingSlot } from '../entities/player.entity';
+import { PlayerSkills, TrainingCategory } from '../entities/player.entity';
 import { StaffEntity, StaffRole } from '../entities/staff.entity';
 import {
     TRAINING_SETTINGS,
@@ -11,6 +21,8 @@ import {
     getSkillUpgradeCost,
     getSkillTrainingSpeed,
 } from '../constants/training.constants';
+
+export { TrainingCategory } from '../entities/player.entity';
 
 export interface SkillGain {
     skill: string;
@@ -25,84 +37,83 @@ export interface TrainingResult {
 }
 
 /**
- * Calculate weekly training points for a player
- * Formula: BASE_WEEKLY × (1 - physicalIntensity) × slotMultiplier × ageFactor × coachBonus
+ * Calculate fitness coach bonus for stamina recovery
+ * Includes head coach + fitness coach bonuses
  */
-export function calculateWeeklyTrainingPoints(
-    age: number,
-    trainingSlot: TrainingSlot,
-    trainingCategory: TrainingCategory,
-    staffList: StaffEntity[],
-    physicalIntensity: number = 0,
-): number {
-    const slotMultiplier = getSlotMultiplier(trainingSlot);
-    if (slotMultiplier === 0) return 0;
-
-    const ageFactor = getAgeTrainingFactor(age);
-    const coachBonus = calculateCoachBonus(staffList, trainingCategory);
-
-    // Skill training gets (1 - physicalIntensity) of base training
-    const skillTrainingBase = TRAINING_SETTINGS.BASE_WEEKLY_TRAINING * (1 - physicalIntensity);
-
-    return Math.round(
-        skillTrainingBase *
-            slotMultiplier *
-            ageFactor *
-            coachBonus *
-            100,
-    ) / 100;
-}
-
-function getSlotMultiplier(slot: TrainingSlot): number {
-    switch (slot) {
-        case TrainingSlot.ENHANCED:
-            return TRAINING_SETTINGS.ENHANCED_MULTIPLIER;
-        case TrainingSlot.REGULAR:
-            return TRAINING_SETTINGS.REGULAR_MULTIPLIER;
-        case TrainingSlot.NONE:
-        default:
-            return TRAINING_SETTINGS.NONE_MULTIPLIER;
-    }
-}
-
-/**
- * Calculate combined coach bonus for a player
- * Formula: 1 + headBonus + relevantCategoryBonus
- */
-export function calculateCoachBonus(staffList: StaffEntity[], trainingCategory: TrainingCategory): number {
+export function calculateFitnessCoachBonus(staffList: StaffEntity[]): number {
     const activeStaff = staffList.filter(s => s.isActive);
+
+    // Head coach bonus
     const headCoach = activeStaff.find(s => s.role === StaffRole.HEAD_COACH);
     const headBonus = headCoach
         ? headCoach.level * TRAINING_SETTINGS.COACH_BONUS_PER_LEVEL
         : 0;
 
-    // Get the relevant category coach based on trainingCategory
-    const categoryStr = trainingCategory as string;
-    const coachRole = getCoachRoleForCategory(categoryStr);
-    let categoryBonus = 0;
-    if (coachRole) {
-        const categoryCoach = activeStaff.find(s => s.role === coachRole);
-        if (categoryCoach) {
-            categoryBonus = categoryCoach.level * TRAINING_SETTINGS.COACH_BONUS_PER_LEVEL;
-        }
-    }
+    // Fitness coach bonus
+    const fitnessCoach = activeStaff.find(s => s.role === StaffRole.FITNESS_COACH);
+    const fitnessBonus = fitnessCoach
+        ? fitnessCoach.level * TRAINING_SETTINGS.COACH_BONUS_PER_LEVEL
+        : 0;
 
-    return 1 + headBonus + categoryBonus;
-}
-
-function getCoachRoleForCategory(category: string): StaffRole | null {
-    const map: Record<string, StaffRole> = {
-        physical: StaffRole.FITNESS_COACH,
-        technical: StaffRole.TECHNICAL_COACH,
-        goalkeeper: StaffRole.GOALKEEPER_COACH,
-        mental: StaffRole.PSYCHOLOGY_COACH,
-        setPieces: StaffRole.SET_PIECE_COACH,
-    };
-    return map[category] || null;
+    return 1 + headBonus + fitnessBonus;
 }
 
 /**
- * Get all skill keys for a player type
+ * Calculate assigned coach bonus for specialized training
+ * Includes head coach + assigned coach bonuses
+ */
+export function calculateAssignedCoachBonus(
+    staffList: StaffEntity[],
+    assignedCoachLevel: number,
+): number {
+    const activeStaff = staffList.filter(s => s.isActive);
+
+    // Head coach bonus
+    const headCoach = activeStaff.find(s => s.role === StaffRole.HEAD_COACH);
+    const headBonus = headCoach
+        ? headCoach.level * TRAINING_SETTINGS.COACH_BONUS_PER_LEVEL
+        : 0;
+
+    // Assigned specialized coach bonus
+    const assignedBonus = assignedCoachLevel * TRAINING_SETTINGS.COACH_BONUS_PER_LEVEL;
+
+    return 1 + headBonus + assignedBonus;
+}
+
+/**
+ * Calculate specialized training points for an assigned player
+ * Formula: (1 - staminaIntensity) × 0.5 × assignedCoachBonus × BASE × ageFactor
+ */
+export function calculateSpecializedTrainingPoints(
+    age: number,
+    staminaIntensity: number,
+    assignedCoachBonus: number,
+): number {
+    const ageFactor = getAgeTrainingFactor(age);
+    const basePoints = TRAINING_SETTINGS.BASE_WEEKLY_TRAINING;
+
+    const points = (1 - staminaIntensity)
+        * 0.5
+        * assignedCoachBonus
+        * basePoints
+        * ageFactor;
+
+    return Math.round(points * 100) / 100;
+}
+
+/**
+ * Calculate weekly stamina change for a player
+ * Returns stamina gain (not net change - caller calculates net)
+ */
+export function calculateStaminaGain(
+    staminaIntensity: number,
+    fitnessCoachBonus: number,
+): number {
+    return staminaIntensity * 0.5 * fitnessCoachBonus;
+}
+
+/**
+ * Get player skill keys for a player type
  */
 export function getPlayerSkillKeys(isGoalkeeper: boolean): string[] {
     if (isGoalkeeper) {
@@ -112,7 +123,7 @@ export function getPlayerSkillKeys(isGoalkeeper: boolean): string[] {
 }
 
 /**
- * Get current level of a skill from player skills object
+ * Get skill level from player skills object
  */
 export function getSkillLevel(skills: PlayerSkills, key: string): number {
     for (const category of Object.values(skills)) {
@@ -142,7 +153,6 @@ export function setSkillLevel(
 /**
  * Distribute training points to ONE skill
  * Points are converted to skill fractional levels without waste
- * Formula: remainingLevels * upgradeCost = points, so remainingLevels = points / upgradeCost
  */
 export function distributeTrainingPoints(
     currentSkills: PlayerSkills,
@@ -187,17 +197,14 @@ export function distributeTrainingPoints(
         const nextIntegerLevel = currentIntegerLevel + 1;
 
         if (currentIntegerLevel >= potentialLevel) {
-            break; // Reached potential, stop
+            break;
         }
 
-        // Calculate points needed to reach next integer level
         const upgradeCost = getSkillUpgradeCost(currentIntegerLevel) / skillSpeed;
-        // levelsToNextInteger: e.g., 5.2 -> 6.0 = 0.8 (avoid floating point drift)
         const levelsToNextInteger = Math.round((nextIntegerLevel - currentLevel) * 1000) / 1000;
         const pointsNeededForOneLevel = upgradeCost * levelsToNextInteger;
 
         if (remainingPoints < pointsNeededForOneLevel) {
-            // Not enough points to level up, convert to fractional progress
             const fractionalProgress = remainingPoints / upgradeCost;
             const newLevel = currentLevel + fractionalProgress;
             currentLevel = Math.min(
@@ -207,11 +214,8 @@ export function distributeTrainingPoints(
             totalSpent += remainingPoints;
             remainingPoints = 0;
         } else {
-            // Enough points to level up
             remainingPoints -= pointsNeededForOneLevel;
             totalSpent += pointsNeededForOneLevel;
-
-            // Move to next integer level
             currentLevel = nextIntegerLevel;
         }
     }
@@ -228,28 +232,25 @@ export function distributeTrainingPoints(
 }
 
 /**
- * Apply training to a player for given weeks
+ * Apply specialized training to a player for given weeks
  */
-export function applyTrainingToPlayer(
+export function applySpecializedTraining(
     playerId: string,
     age: number,
     currentSkills: PlayerSkills,
     potentialSkills: PlayerSkills,
-    trainingSlot: TrainingSlot,
-    trainingCategory: TrainingCategory,
     isGoalkeeper: boolean,
-    staffList: StaffEntity[],
-    weeksElapsed: number,
+    staminaIntensity: number,
+    assignedCoachBonus: number,
+    weeksElapsed: number = 1,
     trainingSkill?: string | null,
-    physicalIntensity: number = 0,
 ): TrainingResult {
-    const weeklyPoints = calculateWeeklyTrainingPoints(
+    const weeklyPoints = calculateSpecializedTrainingPoints(
         age,
-        trainingSlot,
-        trainingCategory,
-        staffList,
-        physicalIntensity,
+        staminaIntensity,
+        assignedCoachBonus,
     );
+
     if (weeklyPoints === 0) {
         return {
             playerId,
@@ -260,7 +261,13 @@ export function applyTrainingToPlayer(
     }
 
     const totalPoints = weeklyPoints * weeksElapsed;
-    const result = distributeTrainingPoints(currentSkills, potentialSkills, totalPoints, isGoalkeeper, trainingSkill);
+    const result = distributeTrainingPoints(
+        currentSkills,
+        potentialSkills,
+        totalPoints,
+        isGoalkeeper,
+        trainingSkill,
+    );
 
     return {
         playerId,

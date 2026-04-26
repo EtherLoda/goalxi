@@ -30,6 +30,9 @@ export class TeamResDto {
   benchConfig: BenchConfig | null;
 
   @Expose()
+  staminaTrainingIntensity: number;
+
+  @Expose()
   createdAt: Date;
 
   @Expose()

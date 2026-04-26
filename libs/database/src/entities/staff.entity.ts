@@ -61,4 +61,8 @@ export class StaffEntity extends AbstractEntity {
     /** 青训教练专属：每周汇报文本 */
     @Column({ name: 'youth_report', type: 'text', nullable: true })
     youthReport?: string;
+
+    /** 专项教练训练的具体技能（如 finishing, passing 等），为空则训练该类别下随机技能 */
+    @Column({ name: 'trained_skill', type: 'varchar', length: 50, nullable: true })
+    trainedSkill?: string;
 }

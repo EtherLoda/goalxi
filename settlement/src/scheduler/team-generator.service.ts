@@ -5,7 +5,6 @@ import {
   TeamEntity,
   PlayerEntity,
   PotentialTier,
-  TrainingSlot,
   StadiumEntity,
   FanEntity,
   StaffEntity,
@@ -592,7 +591,6 @@ export class TeamGeneratorService {
       potentialTier,
       abilities,
       appearance: this.randomInRange(50, 100),
-      trainingSlot: TrainingSlot.NONE,
     };
   }
 

@@ -7,11 +7,7 @@ import {
   StringFieldOptional,
   UUIDFieldOptional,
 } from '@/decorators/field.decorators';
-import {
-  PotentialTier,
-  TrainingCategory,
-  TrainingSlot,
-} from '@goalxi/database';
+import { PotentialTier } from '@goalxi/database';
 import { IsObject, IsOptional } from 'class-validator';
 
 export class CreatePlayerReqDto {
@@ -49,13 +45,4 @@ export class CreatePlayerReqDto {
 
   @EnumFieldOptional(() => PotentialTier)
   potentialTier?: PotentialTier;
-
-  @EnumFieldOptional(() => TrainingSlot)
-  trainingSlot?: TrainingSlot;
-
-  @EnumFieldOptional(() => TrainingCategory)
-  trainingCategory?: TrainingCategory;
-
-  @StringFieldOptional({ minLength: 2, maxLength: 20 })
-  trainingSkill?: string;
 }

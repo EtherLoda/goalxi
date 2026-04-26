@@ -287,7 +287,7 @@ async function seedFinanceData() {
         transactionsToCreate.push({
           teamId: team.id,
           amount: -data.staffWages,
-          type: TransactionType.STAFF_WAGES,
+          type: TransactionType.STAFF_EXPENSES,
           season,
           description: `Week ${weekInSeason} staff wages (${staffCount} staff)`,
         });

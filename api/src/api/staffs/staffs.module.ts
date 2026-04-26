@@ -8,6 +8,7 @@ import {
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { AuthModule } from '../auth/auth.module';
+import { FinanceModule } from '../finance/finance.module';
 import { StaffsController } from './staffs.controller';
 import { StaffsService } from './staffs.service';
 
@@ -21,6 +22,7 @@ import { StaffsService } from './staffs.service';
       PlayerEntity,
     ]),
     AuthModule,
+    FinanceModule,
   ],
   controllers: [StaffsController],
   providers: [StaffsService],

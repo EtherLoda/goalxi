@@ -140,8 +140,8 @@ export default function MatchweekResults({
         <div className="p-3 space-y-2">
           {nextRoundMatches.length > 0 ? (
             nextRoundMatches.map((match) => {
-              const isUserHome = userTeamId && match.homeTeamId === userTeamId;
-              const isUserAway = userTeamId && match.awayTeamId === userTeamId;
+              const isUserHome = !!userTeamId && match.homeTeamId === userTeamId;
+              const isUserAway = !!userTeamId && match.awayTeamId === userTeamId;
               return (
                 <MatchRow key={match.id} match={match} showScore={false} showIcon={true} isUserHome={isUserHome} isUserAway={isUserAway} />
               );

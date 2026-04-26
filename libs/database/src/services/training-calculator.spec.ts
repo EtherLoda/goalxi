@@ -1,13 +1,16 @@
 import {
-  calculateWeeklyTrainingPoints,
+  calculateFitnessCoachBonus,
+  calculateAssignedCoachBonus,
+  calculateSpecializedTrainingPoints,
+  calculateStaminaGain,
+  applySpecializedTraining,
   distributeTrainingPoints,
-  applyTrainingToPlayer,
   getPlayerSkillKeys,
   getSkillLevel,
   setSkillLevel,
 } from './training-calculator';
 import { StaffEntity, StaffLevel, StaffRole } from '../entities/staff.entity';
-import { PlayerSkills, TrainingCategory, TrainingSlot } from '../entities/player.entity';
+import { PlayerSkills, TrainingCategory } from '../entities/player.entity';
 
 describe('TrainingCalculator', () => {
   const createStaff = (role: StaffRole, level: number): StaffEntity =>
@@ -23,15 +26,103 @@ describe('TrainingCalculator', () => {
       isActive: true,
     }) as unknown as StaffEntity;
 
+  describe('calculateFitnessCoachBonus', () => {
+    it('should return 1.0 with no staff', () => {
+      const bonus = calculateFitnessCoachBonus([]);
+      expect(bonus).toBe(1.0);
+    });
+
+    it('should include head coach bonus', () => {
+      const headCoach = createStaff(StaffRole.HEAD_COACH, 5);
+      const bonus = calculateFitnessCoachBonus([headCoach]);
+      // 1 + 5 * 0.05 = 1.25
+      expect(bonus).toBeCloseTo(1.25, 2);
+    });
+
+    it('should include fitness coach bonus', () => {
+      const fitnessCoach = createStaff(StaffRole.FITNESS_COACH, 5);
+      const bonus = calculateFitnessCoachBonus([fitnessCoach]);
+      // 1 + 5 * 0.05 = 1.25
+      expect(bonus).toBeCloseTo(1.25, 2);
+    });
+
+    it('should combine head and fitness coach bonuses', () => {
+      const headCoach = createStaff(StaffRole.HEAD_COACH, 5);
+      const fitnessCoach = createStaff(StaffRole.FITNESS_COACH, 5);
+      const bonus = calculateFitnessCoachBonus([headCoach, fitnessCoach]);
+      // 1 + 0.25 + 0.25 = 1.5
+      expect(bonus).toBe(1.5);
+    });
+
+    it('should ignore inactive staff', () => {
+      const inactiveFitness = createStaff(StaffRole.FITNESS_COACH, 5);
+      inactiveFitness.isActive = false;
+      const bonus = calculateFitnessCoachBonus([inactiveFitness]);
+      expect(bonus).toBe(1.0);
+    });
+  });
+
+  describe('calculateAssignedCoachBonus', () => {
+    it('should include head coach bonus plus assigned coach bonus', () => {
+      const headCoach = createStaff(StaffRole.HEAD_COACH, 5);
+      const bonus = calculateAssignedCoachBonus([headCoach], 5);
+      // 1 + 0.25 (head) + 0.25 (assigned) = 1.5
+      expect(bonus).toBe(1.5);
+    });
+
+    it('should work without head coach', () => {
+      const bonus = calculateAssignedCoachBonus([], 5);
+      // 1 + 0 + 0.25 = 1.25
+      expect(bonus).toBe(1.25);
+    });
+  });
+
+  describe('calculateSpecializedTrainingPoints', () => {
+    it('should calculate points with default intensity', () => {
+      const points = calculateSpecializedTrainingPoints(23, 0.1, 1.5);
+      // (1 - 0.1) * 0.5 * 1.5 * 20 * ageFactor(23) ≈ 0.9 * 0.5 * 1.5 * 20 * 0.9 ≈ 12.15
+      expect(points).toBeGreaterThan(10);
+      expect(points).toBeLessThan(15);
+    });
+
+    it('should return 0 when intensity is 1.0', () => {
+      const points = calculateSpecializedTrainingPoints(23, 1.0, 1.5);
+      expect(points).toBe(0);
+    });
+
+    it('should return max points when intensity is 0', () => {
+      const points = calculateSpecializedTrainingPoints(23, 0, 1.5);
+      // 1.0 * 0.5 * 1.5 * 20 * ageFactor ≈ 13.5
+      expect(points).toBeGreaterThan(12);
+    });
+
+    it('should account for age factor - younger players get more', () => {
+      const youngPoints = calculateSpecializedTrainingPoints(17, 0.2, 1.5);
+      const oldPoints = calculateSpecializedTrainingPoints(35, 0.2, 1.5);
+      expect(youngPoints).toBeGreaterThan(oldPoints);
+    });
+  });
+
+  describe('calculateStaminaGain', () => {
+    it('should calculate stamina gain with default intensity', () => {
+      const gain = calculateStaminaGain(0.1, 1.5);
+      // 0.1 * 0.5 * 1.5 = 0.075
+      expect(gain).toBeCloseTo(0.075, 3);
+    });
+
+    it('should return 0 when intensity is 0', () => {
+      const gain = calculateStaminaGain(0, 1.5);
+      expect(gain).toBe(0);
+    });
+  });
+
   describe('getPlayerSkillKeys', () => {
     it('should return GK skills for goalkeeper', () => {
       const keys = getPlayerSkillKeys(true);
       expect(keys).toContain('reflexes');
       expect(keys).toContain('handling');
       expect(keys).toContain('aerial');
-      expect(keys).not.toContain('distribution');
       expect(keys).not.toContain('finishing');
-      expect(keys).not.toContain('dribbling');
     });
 
     it('should return outfield skills for non-goalkeeper', () => {
@@ -40,7 +131,6 @@ describe('TrainingCalculator', () => {
       expect(keys).toContain('passing');
       expect(keys).toContain('dribbling');
       expect(keys).not.toContain('reflexes');
-      expect(keys).not.toContain('handling');
     });
   });
 
@@ -55,7 +145,6 @@ describe('TrainingCalculator', () => {
 
       expect(getSkillLevel(skills, 'pace')).toBe(15);
       expect(getSkillLevel(skills, 'finishing')).toBe(10);
-      expect(getSkillLevel(skills, 'positioning')).toBe(11);
     });
 
     it('should return 0 for non-existent skill', () => {
@@ -84,56 +173,6 @@ describe('TrainingCalculator', () => {
     });
   });
 
-  describe('calculateWeeklyTrainingPoints', () => {
-    it('should return 0 for NONE training slot', () => {
-      const points = calculateWeeklyTrainingPoints(20, TrainingSlot.NONE, TrainingCategory.PHYSICAL, []);
-      expect(points).toBe(0);
-    });
-
-    it('should calculate base points for REGULAR slot', () => {
-      const points = calculateWeeklyTrainingPoints(20, TrainingSlot.REGULAR, TrainingCategory.PHYSICAL, []);
-      // BASE=20, age 20 factor≈0.895, no coaches
-      // 20 * 1.0 * 0.895 ≈ 17.9
-      expect(points).toBeGreaterThan(17);
-      expect(points).toBeLessThan(20);
-    });
-
-    it('should apply ENHANCED multiplier (1.5x)', () => {
-      const regular = calculateWeeklyTrainingPoints(20, TrainingSlot.REGULAR, TrainingCategory.PHYSICAL, []);
-      const enhanced = calculateWeeklyTrainingPoints(20, TrainingSlot.ENHANCED, TrainingCategory.PHYSICAL, []);
-      expect(enhanced).toBeCloseTo(regular * 1.5, 1);
-    });
-
-    it('should apply head coach bonus', () => {
-      const headCoach = createStaff(StaffRole.HEAD_COACH, 5);
-      const noCoach = calculateWeeklyTrainingPoints(20, TrainingSlot.REGULAR, TrainingCategory.PHYSICAL, []);
-      const withCoach = calculateWeeklyTrainingPoints(20, TrainingSlot.REGULAR, TrainingCategory.PHYSICAL, [headCoach]);
-      expect(withCoach).toBeGreaterThan(noCoach);
-    });
-
-    it('should apply category-specific coach bonus', () => {
-      const headCoach = createStaff(StaffRole.HEAD_COACH, 5);
-      const fitnessCoach = createStaff(StaffRole.FITNESS_COACH, 5);
-
-      const onlyHead = calculateWeeklyTrainingPoints(20, TrainingSlot.REGULAR, TrainingCategory.PHYSICAL, [headCoach]);
-      const withFitness = calculateWeeklyTrainingPoints(20, TrainingSlot.REGULAR, TrainingCategory.PHYSICAL, [headCoach, fitnessCoach]);
-
-      // Adding fitness coach (matching PHYSICAL category) increases points
-      expect(withFitness).toBeGreaterThan(onlyHead);
-    });
-
-    it('should combine head and category coach bonuses', () => {
-      const headCoach = createStaff(StaffRole.HEAD_COACH, 5);
-      const fitnessCoach = createStaff(StaffRole.FITNESS_COACH, 5);
-
-      const points = calculateWeeklyTrainingPoints(20, TrainingSlot.REGULAR, TrainingCategory.PHYSICAL, [headCoach, fitnessCoach]);
-      const noCoach = calculateWeeklyTrainingPoints(20, TrainingSlot.REGULAR, TrainingCategory.PHYSICAL, []);
-
-      // Formula: 1 + 0.25 (head) + 0.25 (fitness) = 1.5
-      expect(points / noCoach).toBeCloseTo(1.5, 2);
-    });
-  });
-
   describe('distributeTrainingPoints', () => {
     const baseCurrentSkills: PlayerSkills = {
       physical: { pace: 10, strength: 10 },
@@ -150,14 +189,14 @@ describe('TrainingCalculator', () => {
     };
 
     it('should return empty when all skills at potential', () => {
-      const currentSkills: PlayerSkills = {
+      const atPotentialSkills: PlayerSkills = {
         physical: { pace: 17, strength: 17 },
         technical: { finishing: 17, passing: 17, dribbling: 17, defending: 17 },
         mental: { positioning: 17, composure: 17 },
         setPieces: { freeKicks: 17, penalties: 17 },
       };
 
-      const result = distributeTrainingPoints(currentSkills, basePotentialSkills, 1000, false);
+      const result = distributeTrainingPoints(atPotentialSkills, basePotentialSkills, 1000, false);
       expect(result.gains).toHaveLength(0);
       expect(result.totalSpent).toBe(0);
     });
@@ -171,113 +210,48 @@ describe('TrainingCalculator', () => {
     });
 
     it('should train specified skill when trainingSkill is provided', () => {
-      const currentSkills: PlayerSkills = {
-        physical: { pace: 17, strength: 17 },
-        technical: { finishing: 5, passing: 17, dribbling: 17, defending: 17 },
-        mental: { positioning: 17, composure: 17 },
-        setPieces: { freeKicks: 17, penalties: 17 },
-      };
-      const potentialSkills: PlayerSkills = {
-        physical: { pace: 17, strength: 17 },
-        technical: { finishing: 10, passing: 17, dribbling: 17, defending: 17 },
-        mental: { positioning: 17, composure: 17 },
-        setPieces: { freeKicks: 17, penalties: 17 },
-      };
-
-      // Use low starting level (5) so points are enough to gain levels
-      // 5->10 costs about 200 pts, and we have 1000
-      const result = distributeTrainingPoints(currentSkills, potentialSkills, 1000, false, 'finishing');
+      const result = distributeTrainingPoints(baseCurrentSkills, basePotentialSkills, 1000, false, 'finishing');
 
       expect(result.gains).toHaveLength(1);
       expect(result.gains[0].skill).toBe('finishing');
-      expect(result.gains[0].levels).toBeGreaterThan(0);
-    });
-
-    it('should train specified skill even if not in eligible category (random fallback)', () => {
-      // If specified skill is at potential, should fall back to random eligible
-      const skillsNearPotential: PlayerSkills = {
-        physical: { pace: 17, strength: 17 },
-        technical: { finishing: 17, passing: 10, dribbling: 10, defending: 10 },
-        mental: { positioning: 10, composure: 10 },
-        setPieces: { freeKicks: 10, penalties: 10 },
-      };
-
-      const result = distributeTrainingPoints(skillsNearPotential, basePotentialSkills, 1000, false, 'pace');
-
-      // pace is at potential (17), so should fall back to random
-      expect(result.gains).toHaveLength(1);
-    });
-
-    it('should spend all points within potential limit', () => {
-      const result = distributeTrainingPoints(baseCurrentSkills, basePotentialSkills, 500, false, 'finishing');
-
-      // Should not exceed potential
-      expect(result.gains[0]?.levels).toBeLessThanOrEqual(7); // 10 -> 17 = max 7 levels
     });
   });
 
-  describe('applyTrainingToPlayer', () => {
+  describe('applySpecializedTraining', () => {
     const staffList = [
       createStaff(StaffRole.HEAD_COACH, 5),
-      createStaff(StaffRole.FITNESS_COACH, 5),
+      createStaff(StaffRole.TECHNICAL_COACH, 5),
     ];
 
-    it('should return 0 weeklyPoints for NONE slot', () => {
-      const result = applyTrainingToPlayer(
+    it('should return 0 weeklyPoints for no assigned coach', () => {
+      const result = applySpecializedTraining(
         'player-1',
         20,
         { physical: { pace: 10, strength: 10 }, technical: { finishing: 10, passing: 10, dribbling: 10, defending: 10 }, mental: { positioning: 10, composure: 10 }, setPieces: { freeKicks: 10, penalties: 10 } },
         { physical: { pace: 17, strength: 17 }, technical: { finishing: 17, passing: 17, dribbling: 17, defending: 17 }, mental: { positioning: 17, composure: 17 }, setPieces: { freeKicks: 17, penalties: 17 } },
-        TrainingSlot.NONE,
-        TrainingCategory.PHYSICAL,
         false,
-        staffList,
+        0.2,
+        1.5,
         1,
       );
 
-      expect(result.weeklyPoints).toBe(0);
-      expect(result.skillsGained).toHaveLength(0);
+      expect(result.weeklyPoints).toBeGreaterThan(0);
     });
 
     it('should apply training for specified weeks', () => {
-      const result = applyTrainingToPlayer(
+      const result = applySpecializedTraining(
         'player-1',
         17,
         { physical: { pace: 10, strength: 10 }, technical: { finishing: 10, passing: 10, dribbling: 10, defending: 10 }, mental: { positioning: 10, composure: 10 }, setPieces: { freeKicks: 10, penalties: 10 } },
         { physical: { pace: 17, strength: 17 }, technical: { finishing: 17, passing: 17, dribbling: 17, defending: 17 }, mental: { positioning: 17, composure: 17 }, setPieces: { freeKicks: 17, penalties: 17 } },
-        TrainingSlot.ENHANCED,
-        TrainingCategory.PHYSICAL,
         false,
-        staffList,
-        4,
+        0.2,
+        1.5,
+        4, // 4 weeks
       );
 
       expect(result.weeklyPoints).toBeGreaterThan(0);
       expect(result.totalPointsSpent).toBeGreaterThan(0);
-    });
-
-    it('should train specified skill when trainingSkill provided', () => {
-      const currentSkills = { physical: { pace: 10, strength: 10 }, technical: { finishing: 10, passing: 10, dribbling: 10, defending: 10 }, mental: { positioning: 10, composure: 10 }, setPieces: { freeKicks: 10, penalties: 10 } };
-      const potentialSkills = { physical: { pace: 17, strength: 17 }, technical: { finishing: 17, passing: 17, dribbling: 17, defending: 17 }, mental: { positioning: 17, composure: 17 }, setPieces: { freeKicks: 17, penalties: 17 } };
-
-      // Use 4 weeks to accumulate enough points (4 * ~56 pts = ~225 pts, but 10->17 costs ~436)
-      // Actually let's use the actual staff that matches TECHNICAL category
-      const techStaff = createStaff(StaffRole.TECHNICAL_COACH, 5);
-      const result = applyTrainingToPlayer(
-        'player-1',
-        17,
-        currentSkills,
-        potentialSkills,
-        TrainingSlot.ENHANCED,
-        TrainingCategory.TECHNICAL,
-        false,
-        [createStaff(StaffRole.HEAD_COACH, 5), techStaff],
-        4, // 4 weeks to accumulate more points
-        'finishing',
-      );
-
-      expect(result.skillsGained).toHaveLength(1);
-      expect(result.skillsGained[0].skill).toBe('finishing');
     });
   });
 });

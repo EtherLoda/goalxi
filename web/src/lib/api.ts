@@ -27,6 +27,7 @@ interface Team {
   isBot: boolean;
   jerseyColorPrimary: string;
   jerseyColorSecondary: string;
+  staminaTrainingIntensity?: number;
 }
 
 interface League {
@@ -63,7 +64,6 @@ interface Player {
   potentialSkills: PlayerSkills;
   potentialAbility: number;
   potentialTier: string;
-  trainingSlot: string;
   experience: number;
   form: number;
   stamina: number;
@@ -194,7 +194,9 @@ async function request<T>(
     throw new Error(errorMessage);
   }
 
-  return response.json();
+  const text = await response.text();
+  if (!text) return null as T;
+  return JSON.parse(text) as T;
 }
 
 export const api = {
@@ -249,6 +251,12 @@ export const api = {
     },
     getByUser: async (userId: string): Promise<Team> => {
       return request<Team>(`/teams/user/${userId}`);
+    },
+    update: async (id: string, data: { staminaTrainingIntensity?: number }): Promise<Team> => {
+      return request<Team>(`/teams/${id}`, {
+        method: 'PATCH',
+        body: JSON.stringify(data),
+      });
     },
   },
 
@@ -385,11 +393,55 @@ export const api = {
     getAll: async (): Promise<Staff[]> => {
       return request<Staff[]>('/staffs');
     },
+    hire: async (role: string, level: number, trainedSkill?: string): Promise<Staff> => {
+      return request<Staff>('/staffs/hire', {
+        method: 'POST',
+        body: JSON.stringify({ role, level, trainedSkill }),
+      });
+    },
+    fire: async (staffId: string): Promise<{ success: boolean }> => {
+      return request<{ success: boolean }>(`/staffs/${staffId}/fire`, {
+        method: 'POST',
+      });
+    },
+    getCostSummary: async (): Promise<StaffCostSummary> => {
+      return request<StaffCostSummary>('/staffs/cost-summary');
+    },
+    assignPlayer: async (coachId: string, playerId: string): Promise<CoachAssignment> => {
+      return request<CoachAssignment>(`/staffs/${coachId}/assign`, {
+        method: 'POST',
+        body: JSON.stringify({ playerId }),
+      });
+    },
+    unassignPlayer: async (coachId: string, playerId: string): Promise<{ success: boolean }> => {
+      return request<{ success: boolean }>(`/staffs/${coachId}/unassign`, {
+        method: 'POST',
+        body: JSON.stringify({ playerId }),
+      });
+    },
+    getAssignments: async (coachId: string): Promise<CoachAssignment[]> => {
+      return request<CoachAssignment[]>(`/staffs/${coachId}/assignments`);
+    },
+    updateTrainedSkill: async (staffId: string, trainedSkill: string | null): Promise<Staff> => {
+      return request<Staff>(`/staffs/${staffId}/trained-skill`, {
+        method: 'PATCH',
+        body: JSON.stringify({ trainedSkill }),
+      });
+    },
   },
 
   training: {
     getWeeklyPoints: async (): Promise<TrainingPlayer[]> => {
       return request<TrainingPlayer[]>('/training/weekly-points');
+    },
+    getLatestUpdate: async (): Promise<TrainingUpdate | null> => {
+      return request<TrainingUpdate | null>('/training/latest-update');
+    },
+    getUpdateBySeasonWeek: async (season: number, week: number): Promise<TrainingUpdate | null> => {
+      return request<TrainingUpdate | null>(`/training/update/${season}/${week}`);
+    },
+    getAvailableUpdates: async (): Promise<{ season: number; week: number }[]> => {
+      return request<{ season: number; week: number }[]>('/training/available-updates');
     },
   },
 
@@ -554,6 +606,23 @@ interface Staff {
   autoRenew: boolean;
   isActive: boolean;
   nationality?: string;
+  trainedSkill?: string;
+}
+
+interface StaffCostSummary {
+  staffCount: number;
+  weeklySalary: number;
+  signingFeesByLevel: Record<number, number>;
+  salaryByLevel: Record<number, number>;
+}
+
+interface CoachAssignment {
+  id: string;
+  coachId: string;
+  playerId: string;
+  playerName: string;
+  trainingCategory: string;
+  assignedAt: string;
 }
 
 interface TrainingSkill {
@@ -567,10 +636,37 @@ interface TrainingSkill {
 interface TrainingPlayer {
   playerId: string;
   playerName: string;
-  trainingSlot: string;
+  assignedCoachId?: string;
+  assignedCoachName?: string;
   age: number;
+  stamina: number;
+  condition: number;
+  experience: number;
+  pwi: number;
   weeklyPoints: number;
   skillBreakdown: TrainingSkill[];
+  isGoalkeeper: boolean;
 }
 
-export type { User, Team, LoginResponse, League, Standing, Match, Player, TransferAuction, MyBid, TransferTransaction, BidRecord, FinanceTransaction, PlayerEvent, Notification, NotificationListResponse, LeagueNewsItem, LeagueNewsResponse, Announcement, Staff, TrainingPlayer };
+interface TrainingUpdateChange {
+  field: string;
+  oldValue: number;
+  newValue: number;
+}
+
+interface TrainingUpdatePlayer {
+  playerId: string;
+  playerName: string;
+  changes: TrainingUpdateChange[];
+}
+
+interface TrainingUpdate {
+  id: string;
+  teamId: string;
+  season: number;
+  week: number;
+  playerUpdates: TrainingUpdatePlayer[];
+  createdAt: string;
+}
+
+export type { User, Team, LoginResponse, League, Standing, Match, Player, TransferAuction, MyBid, TransferTransaction, BidRecord, FinanceTransaction, PlayerEvent, Notification, NotificationListResponse, LeagueNewsItem, LeagueNewsResponse, Announcement, Staff, StaffCostSummary, TrainingPlayer, CoachAssignment, TrainingUpdate };

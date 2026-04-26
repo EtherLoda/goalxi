@@ -1,10 +1,9 @@
 import {
-  getSkillCategory,
-  getTotalTrainingCost,
+  CoachPlayerAssignmentEntity,
   PlayerEntity,
   StaffEntity,
   TeamEntity,
-  TrainingSlot,
+  TrainingUpdateEntity,
   Uuid,
 } from '@goalxi/database';
 import { Controller, Get, Param, UseGuards } from '@nestjs/common';
@@ -15,7 +14,7 @@ import { AuthGuard } from '../../guards/auth.guard';
 import { StaffsService } from '../staffs/staffs.service';
 import { TrainingService } from './training.service';
 
-@Controller('training')
+@Controller({ path: 'training', version: '1' })
 @UseGuards(AuthGuard)
 export class TrainingController {
   constructor(
@@ -27,71 +26,22 @@ export class TrainingController {
     private playerRepo: Repository<PlayerEntity>,
     @InjectRepository(StaffEntity)
     private staffRepo: Repository<StaffEntity>,
+    @InjectRepository(CoachPlayerAssignmentEntity)
+    private assignmentRepo: Repository<CoachPlayerAssignmentEntity>,
+    @InjectRepository(TrainingUpdateEntity)
+    private trainingUpdateRepo: Repository<TrainingUpdateEntity>,
   ) {}
 
-  /** Get weekly training points preview for current user's team */
+  /** Get weekly training preview for current user's team */
   @Get('weekly-points')
-  async getWeeklyPoints(
-    @CurrentUser('id') userId: Uuid,
-  ): Promise<WeeklyPointsDto[]> {
+  async getWeeklyPoints(@CurrentUser('id') userId: Uuid): Promise<any[]> {
     const team = await this.teamRepo.findOneBy({ userId });
     if (!team) return [];
 
-    const staffList = await this.staffsService.findByTeam(team.id);
-    const players = await this.playerRepo.find({
-      where: { teamId: team.id as Uuid },
-    });
-
-    return players.map((player) => {
-      const points = this.trainingService.calculateWeeklyTrainingPoints(
-        player,
-        staffList,
-      );
-      const skills = player.isGoalkeeper
-        ? [
-            'pace',
-            'strength',
-            'reflexes',
-            'handling',
-            'distribution',
-            'positioning',
-            'composure',
-            'freeKicks',
-            'penalties',
-          ]
-        : [
-            'pace',
-            'strength',
-            'finishing',
-            'passing',
-            'dribbling',
-            'defending',
-            'positioning',
-            'composure',
-            'freeKicks',
-            'penalties',
-          ];
-
-      return {
-        playerId: player.id,
-        playerName: player.name,
-        trainingSlot: player.trainingSlot,
-        age: player.age,
-        weeklyPoints: points,
-        skillBreakdown: skills.map((skill) => {
-          const current = this.getSkillLevel(player, skill);
-          const potential = this.getSkillPotential(player, skill);
-          const category = getSkillCategory(skill);
-          return {
-            skill,
-            current,
-            potential,
-            category,
-            remainingToPotential: potential - current,
-          };
-        }),
-      };
-    });
+    return this.trainingService.getWeeklyTrainingPreview(
+      team.id,
+      team.staminaTrainingIntensity,
+    );
   }
 
   /** Get training status for a specific player */
@@ -99,7 +49,7 @@ export class TrainingController {
   async getPlayerTraining(
     @Param('id') playerId: string,
     @CurrentUser('id') userId: Uuid,
-  ): Promise<PlayerTrainingDto> {
+  ): Promise<any> {
     const player = await this.playerRepo.findOne({
       where: { id: playerId as Uuid },
     });
@@ -112,134 +62,48 @@ export class TrainingController {
       return null;
     }
 
-    const staffList = await this.staffsService.findByTeam(team.id);
-    const weeklyPoints = this.trainingService.calculateWeeklyTrainingPoints(
-      player,
-      staffList,
+    const previews = await this.trainingService.getWeeklyTrainingPreview(
+      team.id,
+      team.staminaTrainingIntensity,
     );
 
-    const skills = player.isGoalkeeper
-      ? [
-          'pace',
-          'strength',
-          'reflexes',
-          'handling',
-          'distribution',
-          'positioning',
-          'composure',
-          'freeKicks',
-          'penalties',
-        ]
-      : [
-          'pace',
-          'strength',
-          'finishing',
-          'passing',
-          'dribbling',
-          'defending',
-          'positioning',
-          'composure',
-          'freeKicks',
-          'penalties',
-        ];
-
-    return {
-      playerId: player.id,
-      playerName: player.name,
-      trainingSlot: player.trainingSlot,
-      age: player.age,
-      weeklyPoints,
-      skills: skills.map((skill) => {
-        const current = this.getSkillLevel(player, skill);
-        const potential = this.getSkillPotential(player, skill);
-        const category = getSkillCategory(skill);
-        const weeksToPotential = this.estimateWeeksToPotential(
-          current,
-          potential,
-          weeklyPoints,
-          category,
-        );
-
-        return {
-          skill,
-          current,
-          potential,
-          category,
-          weeksToPotential,
-        };
-      }),
-    };
+    return previews.find((p) => p.playerId === playerId);
   }
 
-  private getSkillLevel(player: PlayerEntity, key: string): number {
-    const skills = player.currentSkills as unknown as Record<
-      string,
-      Record<string, number>
-    >;
-    for (const category of Object.values(skills)) {
-      if (category && typeof category === 'object' && key in category) {
-        return category[key];
-      }
-    }
-    return 0;
+  /** Get the latest training update for current user's team */
+  @Get('latest-update')
+  async getLatestUpdate(@CurrentUser('id') userId: Uuid): Promise<any | null> {
+    const team = await this.teamRepo.findOneBy({ userId });
+    if (!team) return null;
+
+    return this.trainingService.getLatestTrainingUpdate(team.id);
   }
 
-  private getSkillPotential(player: PlayerEntity, key: string): number {
-    const potential = player.potentialSkills as unknown as Record<
-      string,
-      Record<string, number>
-    >;
-    for (const category of Object.values(potential)) {
-      if (category && typeof category === 'object' && key in category) {
-        return category[key];
-      }
-    }
-    return 20;
+  /** Get training update by season and week */
+  @Get('update/:season/:week')
+  async getUpdateBySeasonWeek(
+    @Param('season') season: number,
+    @Param('week') week: number,
+    @CurrentUser('id') userId: Uuid,
+  ): Promise<any | null> {
+    const team = await this.teamRepo.findOneBy({ userId });
+    if (!team) return null;
+
+    return this.trainingService.getTrainingUpdateBySeasonWeek(
+      team.id,
+      season,
+      week,
+    );
   }
 
-  private estimateWeeksToPotential(
-    current: number,
-    potential: number,
-    weeklyPoints: number,
-    category: string | null,
-  ): number | null {
-    if (current >= potential || weeklyPoints === 0) return null;
+  /** Get available training update seasons/weeks */
+  @Get('available-updates')
+  async getAvailableUpdates(
+    @CurrentUser('id') userId: Uuid,
+  ): Promise<{ season: number; week: number }[]> {
+    const team = await this.teamRepo.findOneBy({ userId });
+    if (!team) return [];
 
-    const totalCost = getTotalTrainingCost(current, potential);
-    return Math.ceil(totalCost / weeklyPoints);
+    return this.trainingService.getAvailableTrainingUpdates(team.id);
   }
-}
-
-export interface WeeklyPointsDto {
-  playerId: string;
-  playerName: string;
-  trainingSlot: TrainingSlot;
-  age: number;
-  weeklyPoints: number;
-  skillBreakdown: SkillBreakdownDto[];
-}
-
-export interface SkillBreakdownDto {
-  skill: string;
-  current: number;
-  potential: number;
-  category: string | null;
-  remainingToPotential: number;
-}
-
-export interface PlayerTrainingDto {
-  playerId: string;
-  playerName: string;
-  trainingSlot: TrainingSlot;
-  age: number;
-  weeklyPoints: number;
-  skills: PlayerSkillDto[];
-}
-
-export interface PlayerSkillDto {
-  skill: string;
-  current: number;
-  potential: number;
-  category: string | null;
-  weeksToPotential: number | null;
 }
