@@ -264,8 +264,10 @@ export const api = {
     getById: async (id: string): Promise<Player> => {
       return request<Player>(`/players/${id}`);
     },
-    getByTeam: async (teamId: string): Promise<{ items: Player[]; meta: any }> => {
-      const response = await request<any>(`/players?teamId=${teamId}&limit=100`);
+    getByTeam: async (teamId: string, detailed?: boolean): Promise<{ items: Player[]; meta: any }> => {
+      const params = new URLSearchParams({ teamId });
+      if (detailed !== undefined) params.set('detailed', String(detailed));
+      const response = await request<any>(`/players?${params.toString()}&limit=100`);
       // Handle both paginated {data, pagination} and direct array responses
       if (Array.isArray(response)) {
         return { items: response, meta: {} };
@@ -484,6 +486,23 @@ export const api = {
       return request<Announcement[]>(`/announcements?limit=${limit}`);
     },
   },
+
+  search: {
+    teams: async (q: string, leagueId?: string, limit = 10): Promise<SearchTeamResult[]> => {
+      const params = new URLSearchParams({ q, limit: String(limit) });
+      if (leagueId) params.append('leagueId', leagueId);
+      return request<SearchTeamResult[]>(`/search/teams?${params.toString()}`);
+    },
+    players: async (q: string, leagueId?: string, limit = 10): Promise<SearchPlayerResult[]> => {
+      const params = new URLSearchParams({ q, limit: String(limit) });
+      if (leagueId) params.append('leagueId', leagueId);
+      return request<SearchPlayerResult[]>(`/search/players?${params.toString()}`);
+    },
+    leagues: async (q: string, limit = 10): Promise<SearchLeagueResult[]> => {
+      const params = new URLSearchParams({ q, limit: String(limit) });
+      return request<SearchLeagueResult[]>(`/search/leagues?${params.toString()}`);
+    },
+  },
 };
 
 interface TransferAuction {
@@ -669,4 +688,27 @@ interface TrainingUpdate {
   createdAt: string;
 }
 
-export type { User, Team, LoginResponse, League, Standing, Match, Player, TransferAuction, MyBid, TransferTransaction, BidRecord, FinanceTransaction, PlayerEvent, Notification, NotificationListResponse, LeagueNewsItem, LeagueNewsResponse, Announcement, Staff, StaffCostSummary, TrainingPlayer, CoachAssignment, TrainingUpdate };
+interface SearchTeamResult {
+  id: string;
+  name: string;
+  leagueId: string | null;
+  logoUrl: string;
+}
+
+interface SearchPlayerResult {
+  id: string;
+  name: string;
+  teamId: string | null;
+  teamName?: string;
+  leagueId?: string;
+  isGoalkeeper: boolean;
+}
+
+interface SearchLeagueResult {
+  id: string;
+  name: string;
+  tier: number;
+  tierDivision: number;
+}
+
+export type { User, Team, LoginResponse, League, Standing, Match, Player, TransferAuction, MyBid, TransferTransaction, BidRecord, FinanceTransaction, PlayerEvent, Notification, NotificationListResponse, LeagueNewsItem, LeagueNewsResponse, Announcement, Staff, StaffCostSummary, TrainingPlayer, CoachAssignment, TrainingUpdate, SearchTeamResult, SearchPlayerResult, SearchLeagueResult };

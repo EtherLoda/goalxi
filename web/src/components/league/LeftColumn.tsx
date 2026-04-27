@@ -2,7 +2,7 @@
 
 import RecentEvents from "./RecentEvents";
 import MatchweekResults from "./MatchweekResults";
-import type { Match } from "@/lib/api";
+import type { Match, LeagueNewsItem } from "@/lib/api";
 
 interface NewsItem {
   id: string;
@@ -10,6 +10,12 @@ interface NewsItem {
   title: string;
   excerpt: string;
   timeAgo: string;
+  playerId?: string;
+  playerName?: string;
+  fromTeamId?: string;
+  fromTeamName?: string;
+  toTeamId?: string;
+  toTeamName?: string;
 }
 
 interface MatchResult {
@@ -27,7 +33,7 @@ interface MatchResult {
 }
 
 interface LeftColumnProps {
-  news: NewsItem[];
+  news: (LeagueNewsItem & { timeAgo: string })[];
   currentRound: number;
   lastRoundResults: MatchResult[];
   nextRoundMatches: MatchResult[];

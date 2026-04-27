@@ -6,14 +6,11 @@ import { clsx } from "clsx";
 import { useAuth } from "@/contexts/AuthContext";
 import { useParams } from "next/navigation";
 import { useTranslations } from "next-intl";
+import { useEffect, useState } from "react";
+import { api, type Team } from "@/lib/api";
+import { useGameStore } from "@/stores/gameStore";
 
 type Locale = "en" | "zh";
-
-type NavItem = {
-  labelKey: string;
-  href: string;
-  icon: string;
-};
 
 export default function Sidebar() {
   const t = useTranslations("dashboard.nav");
@@ -21,33 +18,50 @@ export default function Sidebar() {
   const router = useRouter();
   const params = useParams();
   const { user, team, logout } = useAuth();
+  const { viewTeamId, setViewTeam, clearViewTeam } = useGameStore();
 
   const locale = (params.locale as Locale) || "en";
+  const myTeam = viewTeamId === null || viewTeamId === team?.id;
+  const currentTeamId = viewTeamId || team?.id;
 
-  const navGroups: { titleKey: string; items: NavItem[] }[] = [
+  const [viewedTeam, setViewedTeam] = useState<Team | null>(null);
+
+  // Fetch viewed team when viewing another team (regardless of login status)
+  useEffect(() => {
+    if (!viewTeamId || myTeam) {
+      setViewedTeam(null);
+      return;
+    }
+    api.teams.getById(viewTeamId).then(setViewedTeam).catch(() => setViewedTeam(null));
+  }, [viewTeamId, myTeam]);
+
+  const displayTeam = myTeam ? team : viewedTeam;
+
+  const navGroups = [
     {
       titleKey: "overview",
       items: [
-        { labelKey: "dashboard", href: `/${locale}/dashboard`, icon: "home" },
-        { labelKey: "squad", href: `/${locale}/teams/squad`, icon: "groups" },
-        { labelKey: "matches", href: `/${locale}/matches`, icon: "calendar_month" },
-        { labelKey: "league", href: team?.leagueId ? `/${locale}/league/${team.leagueId}` : "#", icon: "emoji_events" },
+        { labelKey: "dashboard", href: `/${locale}/dashboard?team=${currentTeamId}`, icon: "home" },
+        { labelKey: "squad", href: `/${locale}/teams/squad?team=${currentTeamId}`, icon: "groups" },
+        { labelKey: "matches", href: `/${locale}/matches?team=${currentTeamId}`, icon: "calendar_month" },
+        { labelKey: "league", href: displayTeam?.leagueId ? `/${locale}/league/${displayTeam.leagueId}?team=${currentTeamId}` : "#", icon: "emoji_events" },
       ],
     },
     {
       titleKey: "operations",
       items: [
-        { labelKey: "transfers", href: `/${locale}/transfers`, icon: "swap_horiz" },
-        { labelKey: "training", href: `/${locale}/training`, icon: "fitness_center" },
-        { labelKey: "finance", href: `/${locale}/club/finance`, icon: "account_balance_wallet" },
-        { labelKey: "scouting", href: `/${locale}/scouts`, icon: "travel_explore" },
+        { labelKey: "search", href: `/${locale}/search`, icon: "search" },
+        { labelKey: "transfers", href: `/${locale}/transfers?team=${currentTeamId}`, icon: "swap_horiz" },
+        { labelKey: "training", href: `/${locale}/training?team=${currentTeamId}`, icon: "fitness_center" },
+        { labelKey: "finance", href: `/${locale}/club/finance?team=${currentTeamId}`, icon: "account_balance_wallet" },
+        { labelKey: "scouting", href: `/${locale}/scouts?team=${currentTeamId}`, icon: "travel_explore" },
       ],
     },
     {
       titleKey: "academy",
       items: [
-        { labelKey: "youthSquad", href: `/${locale}/youth/squad`, icon: "child_care" },
-        { labelKey: "youthMatches", href: `/${locale}/youth/matches`, icon: "sports" },
+        { labelKey: "youthSquad", href: `/${locale}/youth/squad?team=${currentTeamId}`, icon: "child_care" },
+        { labelKey: "youthMatches", href: `/${locale}/youth/matches?team=${currentTeamId}`, icon: "sports" },
       ],
     },
   ];
@@ -62,7 +76,7 @@ export default function Sidebar() {
     <aside className="fixed left-0 top-0 h-screen w-64 bg-surface-container-low border-r border-white/5 flex flex-col z-40">
       {/* Logo */}
       <div className="h-16 flex items-center px-6 border-b border-white/5">
-        <Link href={`/${locale}/dashboard`} className="flex items-center gap-2">
+        <Link href={`/${locale}/dashboard?team=${currentTeamId}`} className="flex items-center gap-2">
           <span className="font-headline font-black text-sm uppercase tracking-[0.15em] text-primary">
             GoalXi
           </span>
@@ -72,43 +86,90 @@ export default function Sidebar() {
         </Link>
       </div>
 
+      {/* Team Indicator */}
+      <div className="px-3 py-3 border-b border-white/5 flex justify-center">
+        <span className="font-headline font-black text-sm uppercase tracking-[0.2em] text-on-surface/70">
+          {displayTeam?.name || "Team"}
+        </span>
+      </div>
+
       {/* Nav */}
       <nav className="flex-1 overflow-y-auto py-6 px-3 space-y-6">
-        {navGroups.map((group) => (
-          <div key={group.titleKey}>
-            <h4 className="font-label text-[10px] font-black uppercase tracking-[0.2em] text-on-surface-variant/50 mb-3 px-3">
-              {t(group.titleKey)}
-            </h4>
-            <div className="space-y-0.5">
-              {group.items.map((item) => {
-                const isActive = pathname === item.href || pathname.startsWith(item.href + "/");
-                return (
-                  <Link
-                    key={item.href}
-                    href={item.href}
-                    className={clsx(
-                      "flex items-center gap-3 px-3 py-2.5 rounded-lg font-headline text-xs font-medium transition-all",
-                      isActive
-                        ? "bg-primary text-on-primary"
-                        : "text-on-surface-variant hover:text-on-surface hover:bg-white/5"
-                    )}
-                  >
-                    <span
+        {myTeam ? (
+          navGroups.map((group) => (
+            <div key={group.titleKey}>
+              <h4 className="font-label text-[10px] font-black uppercase tracking-[0.2em] text-on-surface-variant/50 mb-3 px-3">
+                {t(group.titleKey)}
+              </h4>
+              <div className="space-y-0.5">
+                {group.items.map((item) => {
+                  const isActive = pathname === item.href || pathname.startsWith(item.href + "/");
+                  return (
+                    <Link
+                      key={item.href}
+                      href={item.href}
                       className={clsx(
-                        "material-symbols-outlined text-lg",
-                        isActive ? "" : "text-on-surface-variant/60"
+                        "flex items-center gap-3 px-3 py-2.5 rounded-lg font-headline text-xs font-medium transition-all",
+                        isActive
+                          ? "bg-primary text-on-primary"
+                          : "text-on-surface-variant hover:text-on-surface hover:bg-white/5"
                       )}
-                      style={isActive ? { fontVariationSettings: "'FILL' 1" } : {}}
                     >
-                      {item.icon}
-                    </span>
-                    {t(item.labelKey)}
-                  </Link>
-                );
-              })}
+                      <span
+                        className={clsx(
+                          "material-symbols-outlined text-lg",
+                          isActive ? "" : "text-on-surface-variant/60"
+                        )}
+                        style={isActive ? { fontVariationSettings: "'FILL' 1" } : {}}
+                      >
+                        {item.icon}
+                      </span>
+                      {t(item.labelKey)}
+                    </Link>
+                  );
+                })}
+              </div>
             </div>
-          </div>
-        ))}
+          ))
+        ) : (
+          navGroups
+            .filter((g) => g.titleKey === "overview")
+            .map((group) => (
+              <div key={group.titleKey}>
+                <h4 className="font-label text-[10px] font-black uppercase tracking-[0.2em] text-on-surface-variant/50 mb-3 px-3">
+                  {t(group.titleKey)}
+                </h4>
+                <div className="space-y-0.5">
+                  {group.items.map((item) => {
+                    const isActive = pathname === item.href || pathname.startsWith(item.href + "/");
+                    return (
+                      <Link
+                        key={item.href}
+                        href={item.href}
+                        className={clsx(
+                          "flex items-center gap-3 px-3 py-2.5 rounded-lg font-headline text-xs font-medium transition-all",
+                          isActive
+                            ? "bg-primary text-on-primary"
+                            : "text-on-surface-variant hover:text-on-surface hover:bg-white/5"
+                        )}
+                      >
+                        <span
+                          className={clsx(
+                            "material-symbols-outlined text-lg",
+                            isActive ? "" : "text-on-surface-variant/60"
+                          )}
+                          style={isActive ? { fontVariationSettings: "'FILL' 1" } : {}}
+                        >
+                          {item.icon}
+                        </span>
+                        {t(item.labelKey)}
+                      </Link>
+                    );
+                  })}
+                </div>
+              </div>
+            ))
+        )}
       </nav>
 
       {/* Bottom */}

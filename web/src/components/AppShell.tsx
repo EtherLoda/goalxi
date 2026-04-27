@@ -1,5 +1,6 @@
 "use client";
 
+import { Suspense } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import Sidebar from "@/components/dashboard/Sidebar";
 import GlobalHeader from "@/components/GlobalHeader";
@@ -22,8 +23,8 @@ export default function AppShell({ locale, children }: AppShellProps) {
     (route) => pathname === `/${locale}${route}` || pathname === route
   );
 
-  // Don't show sidebar/header for public routes or when not logged in
-  if (isPublicRoute || !user) {
+  // Don't show sidebar/header only for public routes (allow anonymous viewing)
+  if (isPublicRoute) {
     return <>{children}</>;
   }
 
@@ -31,7 +32,9 @@ export default function AppShell({ locale, children }: AppShellProps) {
     <>
       <Sidebar />
       <div className="fixed top-0 left-64 right-0 z-50">
-        <GlobalHeader locale={locale} />
+        <Suspense fallback={<div className="h-16 bg-surface/70" />}>
+          <GlobalHeader locale={locale} />
+        </Suspense>
       </div>
       <main className="pt-16 pl-64">{children}</main>
     </>

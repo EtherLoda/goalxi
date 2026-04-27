@@ -2,6 +2,17 @@
   "langSwitcher": {
     "switchLang": "切换语言"
   },
+  "search": {
+    "title": "搜索",
+    "placeholder": "搜索球队、球员、联赛...",
+    "hint": "输入至少2个字符开始搜索",
+    "noResults": "未找到结果",
+    "types": {
+      "league": "联赛",
+      "team": "球队",
+      "player": "球员"
+    }
+  },
   "nav": {
     "howToPlay": "游戏指南",
     "leaderboard": "排行榜",
@@ -96,13 +107,15 @@
       "matches": "比赛",
       "league": "联赛",
       "operations": "运营",
+      "search": "搜索",
       "transfers": "转会",
       "training": "训练",
       "finance": "财务",
       "scouting": "球探",
       "academy": "青训",
       "youthSquad": "青训球队",
-      "youthMatches": "青训比赛"
+      "youthMatches": "青训比赛",
+      "viewingMyTeam": "返回我的球队"
     }
   },
   "squad": {
@@ -267,7 +280,13 @@
     "season": "赛季",
     "matchweekShort": "第",
     "recentEvents": {
-      "title": "近期动态"
+      "title": "近期动态",
+      "types": {
+        "transfer": "转会",
+        "matchResult": "比赛结果",
+        "prizeMoney": "奖金"
+      },
+      "viewMatch": "查看比赛"
     },
     "matchweek": {
       "thisRound": "第 {round} 轮",

@@ -2,10 +2,11 @@
 
 import Link from "next/link";
 import { useTranslations } from "next-intl";
-import { useEffect, useState } from "react";
-import { useParams } from "next/navigation";
+import { useEffect, useState, Suspense } from "react";
+import { useParams, useSearchParams } from "next/navigation";
 import { useAuth } from "@/contexts/AuthContext";
-import { api, type Standing, type Match, type Notification } from "@/lib/api";
+import { api, type Standing, type Match, type Notification, type Team } from "@/lib/api";
+import { useGameStore } from "@/stores/gameStore";
 
 // Mock announcements for System Announcements panel
 const MOCK_ANNOUNCEMENTS = [
@@ -32,30 +33,67 @@ const MOCK_ANNOUNCEMENTS = [
   },
 ];
 
-export default function DashboardPage() {
+function DashboardPageContent() {
   const t = useTranslations();
   const params = useParams();
+  const searchParams = useSearchParams();
   const { user, team, isLoading: authLoading } = useAuth();
+  const { viewTeamId, setViewTeam, teamId } = useGameStore();
+
+  // Sync URL params to Zustand on mount
+  useEffect(() => {
+    const urlTeamId = searchParams.get("team");
+    if (urlTeamId && urlTeamId !== viewTeamId) {
+      setViewTeam(urlTeamId);
+    }
+  }, []);
+
+  const myTeam = viewTeamId === null || viewTeamId === teamId;
+  const displayTeamId = myTeam ? teamId : viewTeamId;
+  const isViewingMyTeam = myTeam;
+
+  const [viewedTeam, setViewedTeam] = useState<Team | null>(null);
   const [standings, setStandings] = useState<Standing[]>([]);
   const [upcomingMatch, setUpcomingMatch] = useState<Match | null>(null);
   const [recentMatches, setRecentMatches] = useState<Match[]>([]);
   const [teamNotifications, setTeamNotifications] = useState<Notification[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
+  // Fetch viewed team info when teamId changes
   useEffect(() => {
-    if (!team?.leagueId) return;
+    if (myTeam) {
+      setViewedTeam(null);
+      return;
+    }
+    if (viewTeamId) {
+      api.teams.getById(viewTeamId).then(setViewedTeam).catch(() => setViewedTeam(null));
+    }
+  }, [viewTeamId, myTeam]);
+
+  // Use viewedTeam when viewing another team, otherwise use team from auth
+  const currentTeam = myTeam ? team : viewedTeam;
+
+  // Fetch dashboard data - depends on viewedTeam to re-run when team data is loaded
+  useEffect(() => {
+    if (!currentTeam?.leagueId) return;
 
     setIsLoading(true);
 
     Promise.all([
-      api.leagues.getStandings(team.leagueId),
-      api.matches.getByTeam(team.id, { status: "scheduled" }),
-      api.matches.getByTeam(team.id, { status: "completed", season: 1 }),
-      api.notifications.getNotifications(1, 50),
+      api.leagues.getStandings(currentTeam.leagueId),
+      api.matches.getByTeam(currentTeam.id, { status: "scheduled" }),
+      api.matches.getByTeam(currentTeam.id, { status: "completed", season: 1 }),
+      api.notifications.getNotifications(1, 50).catch(() => ({ items: [] })),
     ])
       .then(([standingsData, upcomingData, recentData, notificationsData]) => {
         setStandings(standingsData);
-        const upcoming = upcomingData?.data?.[0] || null;
+        // Sort by round to get the actual next match (same logic as League page)
+        const sortedUpcoming = [...(upcomingData?.data || [])].sort((a, b) => {
+          const roundA = a.round ?? a.week * 2;
+          const roundB = b.round ?? b.week * 2;
+          return roundA - roundB;
+        });
+        const upcoming = sortedUpcoming[0] || null;
         setUpcomingMatch(upcoming);
         // Get last 5 completed matches for form
         const recent = (recentData?.data || [])
@@ -67,13 +105,13 @@ export default function DashboardPage() {
       })
       .catch(console.error)
       .finally(() => setIsLoading(false));
-  }, [team?.leagueId, team?.id]);
+  }, [currentTeam?.id, currentTeam?.leagueId, viewedTeam]);
 
-  const userStanding = standings.find((s) => s.teamId === team?.id);
+  const userStanding = standings.find((s) => s.teamId === currentTeam?.id);
 
   const getFormResults = () => {
     return recentMatches.map((match) => {
-      const isHome = match.homeTeamId === team?.id;
+      const isHome = match.homeTeamId === currentTeam?.id;
       const userScore = isHome ? match.homeScore : match.awayScore;
       const opponentScore = isHome ? match.awayScore : match.homeScore;
 
@@ -87,16 +125,22 @@ export default function DashboardPage() {
   const formResults = getFormResults();
 
   const getOpponentName = (match: Match) => {
-    if (!team) return "";
-    return match.homeTeamId === team.id ? match.awayTeam?.name : match.homeTeam?.name;
+    if (!currentTeam) return "";
+    return match.homeTeamId === currentTeam.id ? match.awayTeam?.name : match.homeTeam?.name;
   };
 
   const getOpponentInitials = (name: string) => {
+    // Handle "Team X" or "Team XX" pattern -> "T1" or "T11"
+    const teamMatch = name.match(/^Team\s+(\d+)$/i);
+    if (teamMatch) {
+      return `T${teamMatch[1]}`;
+    }
+    // For other names, take first letter of each word
     return name
       .split(" ")
       .map((w) => w[0])
       .join("")
-      .slice(0, 2)
+      .slice(0, 3)
       .toUpperCase();
   };
 
@@ -198,15 +242,15 @@ export default function DashboardPage() {
                     <div
                       className="w-16 h-16 rounded-full border-2 flex items-center justify-center"
                       style={{
-                        backgroundColor: `${team?.jerseyColorPrimary || "#00E479"}20`,
-                        borderColor: team?.jerseyColorPrimary || "#00E479",
+                        backgroundColor: `${currentTeam?.jerseyColorPrimary || "#00E479"}20`,
+                        borderColor: currentTeam?.jerseyColorPrimary || "#00E479",
                       }}
                     >
                       <span
                         className="font-headline font-black text-lg"
-                        style={{ color: team?.jerseyColorPrimary || "#00E479" }}
+                        style={{ color: currentTeam?.jerseyColorPrimary || "#00E479" }}
                       >
-                        {team?.name?.slice(0, 2).toUpperCase() || "EF"}
+                        {currentTeam ? getOpponentInitials(currentTeam.name) : "EF"}
                       </span>
                     </div>
                     <span className="font-label text-[10px] font-black text-secondary uppercase tracking-widest">
@@ -236,7 +280,7 @@ export default function DashboardPage() {
                     {t("dashboard.squadStatus")}
                   </h3>
                   <span className="font-label text-[9px] font-black text-on-surface-variant uppercase tracking-widest">
-                    {team?.name || "Loading..."}
+                    {currentTeam?.name || "Loading..."}
                   </span>
                 </div>
                 <div className="flex items-center gap-4 mb-6">
@@ -323,14 +367,25 @@ export default function DashboardPage() {
               <div className="flex items-center justify-between px-2">
                 <h3 className="font-headline font-black text-xs uppercase tracking-[0.2em] text-primary flex items-center gap-2">
                   <span className="material-symbols-outlined text-lg">assignment_late</span>
-                  Team News
+                  {isViewingMyTeam ? "Team News" : `${currentTeam?.name || "Team"} News`}
                 </h3>
-                <span className="font-label text-[10px] font-black text-on-surface-variant uppercase tracking-widest">
-                  {teamNotifications.length} Updates
-                </span>
+                {isViewingMyTeam && (
+                  <span className="font-label text-[10px] font-black text-on-surface-variant uppercase tracking-widest">
+                    {teamNotifications.length} Updates
+                  </span>
+                )}
               </div>
               <div className="bg-surface-container-low/75 backdrop-blur-xl border border-white/5 rounded-2xl overflow-hidden shadow-glass divide-y divide-white/5">
-                {teamNotifications.length === 0 ? (
+                {!isViewingMyTeam ? (
+                  <div className="p-8 text-center">
+                    <span className="material-symbols-outlined text-4xl text-on-surface-variant/30 mb-2 block">
+                      visibility
+                    </span>
+                    <p className="font-body text-sm text-on-surface-variant">
+                      You are viewing {currentTeam?.name || "this team"}'s dashboard
+                    </p>
+                  </div>
+                ) : teamNotifications.length === 0 ? (
                   <div className="p-8 text-center">
                     <span className="material-symbols-outlined text-4xl text-on-surface-variant/30 mb-2 block">
                       check_circle
@@ -427,5 +482,27 @@ export default function DashboardPage() {
             </div>
           </section>
         </div>
+  );
+}
+
+export default function DashboardPage() {
+  return (
+    <Suspense fallback={<DashboardPageLoading />}>
+      <DashboardPageContent />
+    </Suspense>
+  );
+}
+
+function DashboardPageLoading() {
+  return (
+    <div className="p-6 space-y-6 max-w-7xl mx-auto w-full">
+      <div className="animate-pulse space-y-6">
+        <div className="h-12 w-64 bg-surface-container rounded-lg" />
+        <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
+          <div className="xl:col-span-2 h-48 bg-surface-container-highest rounded-2xl" />
+          <div className="h-48 bg-surface-container-highest rounded-2xl" />
+        </div>
+      </div>
+    </div>
   );
 }

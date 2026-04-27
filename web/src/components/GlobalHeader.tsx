@@ -4,7 +4,9 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { api } from "@/lib/api";
-import { useParams, usePathname } from "next/navigation";
+import { useParams, usePathname, useRouter, useSearchParams } from "next/navigation";
+import { useGameStore } from "@/stores/gameStore";
+import type { Team } from "@/lib/api";
 
 interface GameState {
   season: number;
@@ -19,18 +21,45 @@ export default function GlobalHeader({ locale }: GlobalHeaderProps) {
   const { team } = useAuth();
   const params = useParams();
   const pathname = usePathname();
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const { viewTeamId, setViewTeam, teamId } = useGameStore();
   const [gameState, setGameState] = useState<GameState | null>(null);
   const [leagueName, setLeagueName] = useState<string | null>(null);
+  const [viewedTeam, setViewedTeam] = useState<Team | null>(null);
+
+  const isViewingMyTeam = viewTeamId === null || viewTeamId === teamId;
+
+  // Sync URL params to Zustand on mount
+  useEffect(() => {
+    const urlTeamId = searchParams.get("team");
+    if (urlTeamId) {
+      setViewTeam(urlTeamId);
+    }
+  }, []);
+
+  // Fetch viewed team info when viewing another team
+  useEffect(() => {
+    if (isViewingMyTeam || !viewTeamId) {
+      setViewedTeam(null);
+      return;
+    }
+    api.teams.getById(viewTeamId).then(setViewedTeam).catch(() => setViewedTeam(null));
+  }, [viewTeamId, isViewingMyTeam]);
+
+  // Display team: own team if viewing my team, otherwise the viewed team
+  const displayTeam = isViewingMyTeam ? team : viewedTeam;
 
   useEffect(() => {
     api.game.getCurrent().then(setGameState).catch(() => null);
   }, []);
 
   useEffect(() => {
-    if (team?.leagueId) {
-      api.leagues.getById(team.leagueId).then((league) => setLeagueName(league.name)).catch(() => null);
+    const leagueIdToFetch = team?.leagueId || viewedTeam?.leagueId;
+    if (leagueIdToFetch) {
+      api.leagues.getById(leagueIdToFetch).then((league) => setLeagueName(league.name)).catch(() => null);
     }
-  }, [team?.leagueId]);
+  }, [team?.leagueId, viewedTeam?.leagueId]);
 
   const leagueId = team?.leagueId;
   const totalMatchweeks = 16;
@@ -40,9 +69,9 @@ export default function GlobalHeader({ locale }: GlobalHeaderProps) {
     <header className="h-16 bg-surface/70 backdrop-blur-2xl border-b border-white/5 flex items-center px-6 relative">
       {/* Left: League + Team */}
       <div className="flex items-center gap-6">
-        {leagueId && leagueName ? (
+        {displayTeam?.leagueId && leagueName ? (
           <Link
-            href={`/${locale}/league/${leagueId}`}
+            href={`/${locale}/league/${displayTeam.leagueId}`}
             className="font-headline font-black text-sm uppercase tracking-[0.2em] text-primary hover:text-primary/80 transition-colors"
           >
             {leagueName}
@@ -53,12 +82,22 @@ export default function GlobalHeader({ locale }: GlobalHeaderProps) {
           </span>
         )}
         <span className="text-white/20">|</span>
-        <Link
-          href={`/${locale}/dashboard`}
-          className="font-headline font-black text-sm uppercase tracking-[0.2em] text-on-surface hover:text-primary transition-colors"
-        >
-          {team?.name || "Team"}
-        </Link>
+        {team && !isViewingMyTeam ? (
+          <button
+            onClick={() => {
+              setViewTeam(teamId);
+              router.push(`/${locale}/dashboard?team=${teamId}`);
+            }}
+            className="font-headline font-black text-sm uppercase tracking-[0.2em] text-on-surface hover:text-primary transition-colors flex items-center gap-1"
+          >
+            <span className="material-symbols-outlined text-sm">arrow_back</span>
+            {team.name || "Team"}
+          </button>
+        ) : (
+          <span className="font-headline font-black text-sm uppercase tracking-[0.2em] text-on-surface/70">
+            {displayTeam?.name || "Team"}
+          </span>
+        )}
       </div>
 
       {/* Center: Transfers tabs (on any transfers page) */}
@@ -132,6 +171,14 @@ export default function GlobalHeader({ locale }: GlobalHeaderProps) {
         <button className="w-9 h-9 rounded-full flex items-center justify-center text-on-surface-variant hover:text-primary hover:bg-white/5 transition-colors">
           <span className="material-symbols-outlined">settings</span>
         </button>
+
+        {/* Search icon */}
+        <Link
+          href={`/${locale}/search`}
+          className="w-9 h-9 rounded-full flex items-center justify-center text-on-surface-variant hover:text-primary hover:bg-white/5 transition-colors"
+        >
+          <span className="material-symbols-outlined">search</span>
+        </Link>
       </div>
     </header>
   );

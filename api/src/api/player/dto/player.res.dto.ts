@@ -7,11 +7,11 @@ import {
   UUIDField,
   UUIDFieldOptional,
 } from '@/decorators/field.decorators';
-import { PlayerSkills, PotentialTier } from '@goalxi/database';
+import { PotentialTier } from '@goalxi/database';
 import { Exclude, Expose, Transform } from 'class-transformer';
 
 @Exclude()
-export class PlayerResDto {
+export class PlayerPublicResDto {
   @UUIDField()
   @Expose()
   id: string;
@@ -71,52 +71,6 @@ export class PlayerResDto {
   @Expose()
   specialty?: string | null;
 
-  @Expose()
-  @Transform(({ value }) => {
-    if (!value) return value;
-    const floored: any = {
-      physical: {},
-      technical: {},
-      mental: {},
-      setPieces: {},
-    };
-
-    // Floor all skill values to integers (hide decimals from users)
-    for (const category of ['physical', 'technical', 'mental', 'setPieces']) {
-      if (value[category]) {
-        floored[category] = {};
-        for (const attr in value[category]) {
-          floored[category][attr] = Math.floor(value[category][attr]);
-        }
-      }
-    }
-    return floored;
-  })
-  currentSkills: PlayerSkills;
-
-  @Expose()
-  @Transform(({ value }) => {
-    if (!value) return value;
-    const floored: any = {
-      physical: {},
-      technical: {},
-      mental: {},
-      setPieces: {},
-    };
-
-    // Floor all skill values to integers (hide decimals from users)
-    for (const category of ['physical', 'technical', 'mental', 'setPieces']) {
-      if (value[category]) {
-        floored[category] = {};
-        for (const attr in value[category]) {
-          floored[category][attr] = Math.floor(value[category][attr]);
-        }
-      }
-    }
-    return floored;
-  })
-  potentialSkills: PlayerSkills;
-
   @NumberField({ int: true })
   @Expose()
   potentialAbility: number;
@@ -126,17 +80,17 @@ export class PlayerResDto {
 
   @NumberField()
   @Expose()
-  @Transform(({ value }) => Math.floor(value)) // Floor to integer (hide decimals from users)
+  @Transform(({ value }) => Math.floor(value))
   experience: number;
 
   @NumberField()
   @Expose()
-  @Transform(({ value }) => Math.floor(value)) // Floor to integer (hide decimals from users)
+  @Transform(({ value }) => Math.floor(value))
   form: number;
 
   @NumberField()
   @Expose()
-  @Transform(({ value }) => Math.floor(value)) // Floor to integer (hide decimals from users)
+  @Transform(({ value }) => Math.floor(value))
   stamina: number;
 
   @NumberField({ int: true })
@@ -150,4 +104,51 @@ export class PlayerResDto {
   @DateField()
   @Expose()
   updatedAt: Date;
+}
+
+@Exclude()
+export class PlayerResDto extends PlayerPublicResDto {
+  @Expose()
+  @Transform(({ value }) => {
+    if (!value) return value;
+    const floored: any = {
+      physical: {},
+      technical: {},
+      mental: {},
+      setPieces: {},
+    };
+
+    for (const category of ['physical', 'technical', 'mental', 'setPieces']) {
+      if (value[category]) {
+        floored[category] = {};
+        for (const attr in value[category]) {
+          floored[category][attr] = Math.floor(value[category][attr]);
+        }
+      }
+    }
+    return floored;
+  })
+  currentSkills: any;
+
+  @Expose()
+  @Transform(({ value }) => {
+    if (!value) return value;
+    const floored: any = {
+      physical: {},
+      technical: {},
+      mental: {},
+      setPieces: {},
+    };
+
+    for (const category of ['physical', 'technical', 'mental', 'setPieces']) {
+      if (value[category]) {
+        floored[category] = {};
+        for (const attr in value[category]) {
+          floored[category][attr] = Math.floor(value[category][attr]);
+        }
+      }
+    }
+    return floored;
+  })
+  potentialSkills: any;
 }

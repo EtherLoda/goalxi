@@ -16,7 +16,7 @@ import {
 } from '../../constants/name-database';
 import { CreatePlayerReqDto } from './dto/create-player.req.dto';
 import { ListPlayerReqDto } from './dto/list-player.req.dto';
-import { PlayerResDto } from './dto/player.res.dto';
+import { PlayerPublicResDto, PlayerResDto } from './dto/player.res.dto';
 import { UpdatePlayerReqDto } from './dto/update-player.req.dto';
 
 @Injectable()
@@ -25,7 +25,7 @@ export class PlayerService {
 
   async findMany(
     reqDto: ListPlayerReqDto,
-  ): Promise<OffsetPaginatedDto<PlayerResDto>> {
+  ): Promise<OffsetPaginatedDto<PlayerResDto | PlayerPublicResDto>> {
     const query = PlayerEntity.createQueryBuilder('player');
 
     if (reqDto.teamId) {
@@ -39,8 +39,10 @@ export class PlayerService {
       takeAll: false,
     });
 
+    const DtoClass = reqDto.detailed ? PlayerResDto : PlayerPublicResDto;
+
     return new OffsetPaginatedDto(
-      players.map((player) => this.mapToResDto(player)),
+      players.map((player) => this.mapToResDto(player, DtoClass as any)),
       metaDto,
     );
   }
@@ -49,7 +51,7 @@ export class PlayerService {
     assert(id, 'id is required');
     const player = await PlayerEntity.findOneByOrFail({ id });
 
-    return this.mapToResDto(player);
+    return this.mapToResDto(player, PlayerResDto);
   }
 
   async create(reqDto: CreatePlayerReqDto): Promise<PlayerResDto> {
@@ -260,10 +262,10 @@ export class PlayerService {
     };
   }
 
-  private mapToResDto(player: PlayerEntity): PlayerResDto {
+  private mapToResDto(player: PlayerEntity, DtoClass: any = PlayerResDto): any {
     const [years, days] = player.getExactAge();
     const pwiResult = calculatePlayerPWI(player);
-    return plainToInstance(PlayerResDto, {
+    return plainToInstance(DtoClass, {
       id: player.id,
       teamId: player.teamId,
       name: player.name,

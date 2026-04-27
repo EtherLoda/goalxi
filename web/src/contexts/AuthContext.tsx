@@ -10,6 +10,7 @@ import {
 } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import { api, type User, type Team } from '@/lib/api';
+import { useGameStore } from '@/stores/gameStore';
 
 interface AuthContextType {
   user: User | null;
@@ -37,6 +38,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } finally {
       setUser(null);
       setTeam(null);
+      useGameStore.getState().clear();
       router.push('/');
     }
   }, [router]);
@@ -48,6 +50,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       const teamData = await api.teams.getByUser(userId);
       setTeam(teamData);
+
+      // Sync game state to global store
+      const gameState = await api.game.getCurrent();
+      useGameStore.getState().setSeason(gameState.season);
+      useGameStore.getState().setWeek(gameState.week);
+      useGameStore.getState().setTeam({
+        teamId: teamData.id,
+        teamName: teamData.name,
+        leagueId: teamData.leagueId,
+        leagueName: '', // league name not in team data, can be fetched separately if needed
+      });
     } catch (error) {
       console.error('Failed to fetch user/team:', error);
       logout();
@@ -61,36 +74,41 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return;
     }
 
-    api.users
-      .me()
-      .then((userData) => {
+    Promise.all([api.users.me(), api.game.getCurrent()])
+      .then(([userData, gameState]) => {
         setUser(userData);
+        useGameStore.getState().setSeason(gameState.season);
+        useGameStore.getState().setWeek(gameState.week);
         return api.teams.getByUser(userData.id);
       })
       .then((teamData) => {
         setTeam(teamData);
+        useGameStore.getState().setTeam({
+          teamId: teamData.id,
+          teamName: teamData.name,
+          leagueId: teamData.leagueId,
+          leagueName: '',
+        });
       })
       .catch(() => {
         localStorage.removeItem('goalxi_token');
         setUser(null);
         setTeam(null);
+        useGameStore.getState().clear();
       })
       .finally(() => {
         setIsLoading(false);
       });
   }, []);
 
-  // Redirect to login if not authenticated and on protected route
-  useEffect(() => {
-    if (!isLoading && !user && pathname?.startsWith('/en/dashboard')) {
-      router.push('/auth/login');
-    }
-  }, [isLoading, user, pathname, router]);
+  // Allow anonymous viewing - auth only needed for private operations
 
   const login = async (email: string, password: string) => {
     const { userId } = await api.auth.login(email, password);
     await fetchUserAndTeam(userId);
-    router.push('/en/dashboard');
+    // Use the team from the AuthContext state via the callback to ensure it's set
+    const currentTeam = useGameStore.getState().teamId;
+    router.push(`/en/dashboard?team=${currentTeam}`);
   };
 
   return (

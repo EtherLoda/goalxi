@@ -1,11 +1,12 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, Suspense } from "react";
 import { useAuth } from "@/contexts/AuthContext";
-import { useParams } from "next/navigation";
-import { api, type Match } from "@/lib/api";
+import { useParams, useSearchParams } from "next/navigation";
+import { api, type Match, type Team } from "@/lib/api";
 import Link from "next/link";
 import { clsx } from "clsx";
+import { useGameStore } from "@/stores/gameStore";
 
 interface MatchWithResult extends Match {
   result?: "W" | "D" | "L" | null;
@@ -14,10 +15,38 @@ interface MatchWithResult extends Match {
 
 const ONE_MONTH_MS = 30 * 24 * 60 * 60 * 1000;
 
-export default function MatchesPage() {
-  const { team } = useAuth();
+function MatchesPageContent() {
+  const { team: myTeam } = useAuth();
   const params = useParams();
+  const searchParams = useSearchParams();
   const locale = (params.locale as string) || "en";
+  const { viewTeamId, setViewTeam, teamId } = useGameStore();
+
+  // Sync URL params to Zustand on mount
+  useEffect(() => {
+    const urlTeamId = searchParams.get("team");
+    if (urlTeamId && urlTeamId !== viewTeamId) {
+      setViewTeam(urlTeamId);
+    }
+  }, []);
+
+  const myTeamFlag = viewTeamId === null || viewTeamId === teamId;
+  const currentTeamId = myTeamFlag ? teamId : viewTeamId;
+  const isViewingMyTeam = myTeamFlag;
+
+  const [viewedTeam, setViewedTeam] = useState<Team | null>(null);
+  const currentTeam = myTeamFlag ? myTeam : viewedTeam;
+
+  // Fetch viewed team info when teamId changes
+  useEffect(() => {
+    if (myTeamFlag) {
+      setViewedTeam(null);
+      return;
+    }
+    if (viewTeamId) {
+      api.teams.getById(viewTeamId).then(setViewedTeam).catch(() => setViewedTeam(null));
+    }
+  }, [viewTeamId, myTeamFlag]);
 
   const [allRecentMatches, setAllRecentMatches] = useState<MatchWithResult[]>([]);
   const [allUpcomingMatches, setAllUpcomingMatches] = useState<MatchWithResult[]>([]);
@@ -29,16 +58,16 @@ export default function MatchesPage() {
   const [leagueName, setLeagueName] = useState<string>("");
 
   useEffect(() => {
-    if (!team?.id || !team?.leagueId) return;
+    if (!currentTeam?.id || !currentTeam?.leagueId) return;
 
     const fetchMatches = async () => {
       setIsLoading(true);
       try {
         const [completedData, upcomingData, liveData, leagueData] = await Promise.all([
-          api.matches.getByTeam(team.id, { status: "completed" }),
-          api.matches.getByTeam(team.id, { status: "scheduled" }),
-          api.matches.getByTeam(team.id, { status: "in_progress" }),
-          api.leagues.getById(team.leagueId),
+          api.matches.getByTeam(currentTeam.id, { status: "completed" }),
+          api.matches.getByTeam(currentTeam.id, { status: "scheduled" }),
+          api.matches.getByTeam(currentTeam.id, { status: "in_progress" }),
+          api.leagues.getById(currentTeam.leagueId),
         ]);
 
         setLeagueName(leagueData.name);
@@ -53,7 +82,7 @@ export default function MatchesPage() {
           .sort((a: Match, b: Match) => new Date(b.scheduledAt).getTime() - new Date(a.scheduledAt).getTime())
           .slice(0, 5)
           .map((match: Match) => {
-            const isHome = match.homeTeamId === team.id;
+            const isHome = match.homeTeamId === currentTeam.id;
             const userScore = isHome ? match.homeScore : match.awayScore;
             const opponentScore = isHome ? match.awayScore : match.homeScore;
 
@@ -72,7 +101,7 @@ export default function MatchesPage() {
           .sort((a: Match, b: Match) => new Date(a.scheduledAt).getTime() - new Date(b.scheduledAt).getTime())
           .map((match: Match) => ({
             ...match,
-            isUserHome: match.homeTeamId === team.id,
+            isUserHome: match.homeTeamId === currentTeam.id,
           }));
 
         // Filter to next month for display
@@ -82,7 +111,7 @@ export default function MatchesPage() {
 
         // Process live match
         const processedLive = liveData?.data?.[0]
-          ? { ...liveData.data[0], isUserHome: liveData.data[0].homeTeamId === team.id }
+          ? { ...liveData.data[0], isUserHome: liveData.data[0].homeTeamId === currentTeam.id }
           : null;
 
         setAllRecentMatches(processedRecent);
@@ -98,7 +127,7 @@ export default function MatchesPage() {
     };
 
     fetchMatches();
-  }, [team?.id, team?.leagueId]);
+  }, [currentTeam?.id, currentTeam?.leagueId]);
 
   const formatDate = (dateStr: string) => {
     const date = new Date(dateStr);
@@ -118,10 +147,10 @@ export default function MatchesPage() {
   };
 
   const getOpponentName = (match: MatchWithResult) => {
-    return match.homeTeamId === team?.id ? match.awayTeam?.name : match.homeTeam?.name;
+    return match.homeTeamId === currentTeam?.id ? match.awayTeam?.name : match.homeTeam?.name;
   };
 
-  const isHomeMatch = (match: MatchWithResult) => match.homeTeamId === team?.id;
+  const isHomeMatch = (match: MatchWithResult) => match.homeTeamId === currentTeam?.id;
 
   const getResultBadgeClass = (result: "W" | "D" | "L" | null | undefined) => {
     switch (result) {
@@ -508,7 +537,7 @@ export default function MatchesPage() {
                     <div className="min-w-0">
                       <div className="flex items-center gap-2 mb-0.5">
                         <span className="px-1.5 py-0.5 bg-surface-variant rounded text-[10px] font-bold text-on-surface-variant uppercase">
-                          {team?.leagueId ? "League" : "Match"}
+                          {currentTeam?.leagueId ? "League" : "Match"}
                         </span>
                         <span className="text-xs text-on-surface-variant">
                           {formatTime(match.scheduledAt)}
@@ -533,6 +562,28 @@ export default function MatchesPage() {
               ))}
             </div>
           )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export default function MatchesPage() {
+  return (
+    <Suspense fallback={<MatchesPageLoading />}>
+      <MatchesPageContent />
+    </Suspense>
+  );
+}
+
+function MatchesPageLoading() {
+  return (
+    <div className="p-6 md:p-8 max-w-7xl mx-auto w-full">
+      <div className="animate-pulse space-y-6">
+        <div className="h-12 w-64 bg-surface-container rounded-lg" />
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <div className="h-48 bg-surface-container-highest rounded-2xl" />
+          <div className="h-48 bg-surface-container-highest rounded-2xl" />
         </div>
       </div>
     </div>

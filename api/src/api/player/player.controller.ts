@@ -14,7 +14,7 @@ import {
 import { ApiOkResponse, ApiTags } from '@nestjs/swagger';
 import { CreatePlayerReqDto } from './dto/create-player.req.dto';
 import { ListPlayerReqDto } from './dto/list-player.req.dto';
-import { PlayerResDto } from './dto/player.res.dto';
+import { PlayerPublicResDto, PlayerResDto } from './dto/player.res.dto';
 import { UpdatePlayerReqDto } from './dto/update-player.req.dto';
 import { PlayerService } from './player.service';
 
@@ -43,7 +43,7 @@ export class PlayerController {
   @ApiOkResponse({ type: OffsetPaginatedDto<PlayerResDto> })
   async findAll(
     @Query() query: ListPlayerReqDto,
-  ): Promise<OffsetPaginatedDto<PlayerResDto>> {
+  ): Promise<OffsetPaginatedDto<PlayerResDto | PlayerPublicResDto>> {
     return this.playerService.findMany(query);
   }
 

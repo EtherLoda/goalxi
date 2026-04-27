@@ -1,11 +1,12 @@
 "use client";
 
 import { useTranslations } from "next-intl";
-import { useEffect, useState } from "react";
-import { useParams } from "next/navigation";
+import { useEffect, useState, Suspense } from "react";
+import { useParams, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { useAuth } from "@/contexts/AuthContext";
-import { api, type Player, type PlayerEvent } from "@/lib/api";
+import { api, type Player, type PlayerEvent, type Team } from "@/lib/api";
+import { useGameStore } from "@/stores/gameStore";
 
 const SKILL_MAX = 20;
 
@@ -229,25 +230,55 @@ function ListPlayerModal({ player, onClose, onSuccess }: ListPlayerModalProps) {
   );
 }
 
-export default function SquadPage() {
+function SquadPageContent() {
   const t = useTranslations();
   const te = useTranslations("player_events");
   const { user, team } = useAuth();
   const params = useParams();
+  const searchParams = useSearchParams();
   const locale = params.locale as string;
+
+  const { viewTeamId, setViewTeam, teamId } = useGameStore();
+
+  // Sync URL params to Zustand on mount
+  useEffect(() => {
+    const urlTeamId = searchParams.get("team");
+    if (urlTeamId && urlTeamId !== viewTeamId) {
+      setViewTeam(urlTeamId);
+    }
+  }, []);
+
+  const myTeam = viewTeamId === null || viewTeamId === teamId;
+  const currentTeamId = myTeam ? teamId : viewTeamId;
+  const isViewingMyTeam = myTeam;
+
   const [players, setPlayers] = useState<Player[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [selectedPlayer, setSelectedPlayer] = useState<Player | null>(null);
   const [playerEvents, setPlayerEvents] = useState<PlayerEvent[]>([]);
   const [filter, setFilter] = useState<"all" | "GK" | "outfield">("all");
   const [showListModal, setShowListModal] = useState(false);
+  const [viewedTeam, setViewedTeam] = useState<Team | null>(null);
+
+  // Fetch viewed team info when teamId changes
+  useEffect(() => {
+    if (myTeam) {
+      setViewedTeam(null);
+      return;
+    }
+    if (viewTeamId) {
+      api.teams.getById(viewTeamId).then(setViewedTeam).catch(() => setViewedTeam(null));
+    }
+  }, [viewTeamId, myTeam]);
+
+  const displayTeam = isViewingMyTeam ? team : viewedTeam;
 
   useEffect(() => {
-    if (!team?.id) return;
+    if (!currentTeamId) return;
 
     setIsLoading(true);
     api.players
-      .getByTeam(team.id)
+      .getByTeam(currentTeamId, isViewingMyTeam)
       .then((data) => {
         const sorted = data.items.sort((a, b) => {
           if (a.isGoalkeeper && !b.isGoalkeeper) return -1;
@@ -261,7 +292,7 @@ export default function SquadPage() {
       })
       .catch(console.error)
       .finally(() => setIsLoading(false));
-  }, [team?.id]);
+  }, [currentTeamId, isViewingMyTeam]);
 
   useEffect(() => {
     if (!selectedPlayer) {
@@ -554,7 +585,7 @@ export default function SquadPage() {
                               <div
                                 className="w-full h-full rounded-xl flex items-center justify-center font-space font-black text-3xl text-[#a1ffc2]"
                                 style={{
-                                  background: `linear-gradient(135deg, ${team?.jerseyColorPrimary || "#a1ffc2"}30, ${team?.jerseyColorPrimary || "#a1ffc2"}10)`,
+                                  background: `linear-gradient(135deg, ${displayTeam?.jerseyColorPrimary || "#a1ffc2"}30, ${displayTeam?.jerseyColorPrimary || "#a1ffc2"}10)`,
                                 }}
                               >
                                 {selectedPlayer.name
@@ -616,7 +647,7 @@ export default function SquadPage() {
 
                         {/* Action Buttons */}
                         <div className="flex gap-2">
-                          {!selectedPlayer.onTransfer && (
+                          {isViewingMyTeam && !selectedPlayer.onTransfer && (
                             <button
                               onClick={() => setShowListModal(true)}
                               className="w-10 h-10 rounded-full flex items-center justify-center bg-[#a1ffc2]/20 text-[#a1ffc2] hover:bg-[#a1ffc2]/30 transition-colors border border-[#a1ffc2]/30"
@@ -698,11 +729,10 @@ export default function SquadPage() {
                         </div>
                       )}
 
-                      {/* Skills Matrix */}
-                      <div className="flex-grow overflow-y-auto custom-scrollbar px-6 pb-6">
-                        <div className="grid grid-cols-2 gap-10">
-                          {/* Physical & Technical */}
-                          <div className="space-y-8">
+                      {/* Skills Matrix - only show when detailed info is available */}
+                      {selectedPlayer.currentSkills ? (
+                        <div className="flex-grow overflow-y-auto custom-scrollbar px-6 pb-6">
+                          <div className="grid grid-cols-2 gap-10">
                             {/* Physical */}
                             <div>
                               <div className="flex items-center gap-2 mb-3">
@@ -714,18 +744,14 @@ export default function SquadPage() {
                               <div className="space-y-3">
                                 {renderSkillBar(
                                   t("squad.skills.pace"),
-                                  selectedPlayer.currentSkills.physical?.pace ||
-                                    0,
-                                  selectedPlayer.potentialSkills.physical
-                                    ?.pace || 0,
+                                  selectedPlayer.currentSkills.physical?.pace || 0,
+                                  selectedPlayer.potentialSkills.physical?.pace || 0,
                                   "text-[#a1ffc2]",
                                 )}
                                 {renderSkillBar(
                                   t("squad.skills.strength"),
-                                  selectedPlayer.currentSkills.physical
-                                    ?.strength || 0,
-                                  selectedPlayer.potentialSkills.physical
-                                    ?.strength || 0,
+                                  selectedPlayer.currentSkills.physical?.strength || 0,
+                                  selectedPlayer.potentialSkills.physical?.strength || 0,
                                   "text-[#a1ffc2]",
                                 )}
                               </div>
@@ -746,38 +772,20 @@ export default function SquadPage() {
                                   <>
                                     {renderSkillBar(
                                       t("squad.skills.reflexes"),
-                                      (
-                                        selectedPlayer.currentSkills
-                                          .technical as any
-                                      )?.reflexes || 0,
-                                      (
-                                        selectedPlayer.potentialSkills
-                                          .technical as any
-                                      )?.reflexes || 0,
+                                      (selectedPlayer.currentSkills.technical as any)?.reflexes || 0,
+                                      (selectedPlayer.potentialSkills.technical as any)?.reflexes || 0,
                                       "text-[#a1ffc2]",
                                     )}
                                     {renderSkillBar(
                                       t("squad.skills.handling"),
-                                      (
-                                        selectedPlayer.currentSkills
-                                          .technical as any
-                                      )?.handling || 0,
-                                      (
-                                        selectedPlayer.potentialSkills
-                                          .technical as any
-                                      )?.handling || 0,
+                                      (selectedPlayer.currentSkills.technical as any)?.handling || 0,
+                                      (selectedPlayer.potentialSkills.technical as any)?.handling || 0,
                                       "text-[#a1ffc2]",
                                     )}
                                     {renderSkillBar(
                                       t("squad.skills.aerial"),
-                                      (
-                                        selectedPlayer.currentSkills
-                                          .technical as any
-                                      )?.aerial || 0,
-                                      (
-                                        selectedPlayer.potentialSkills
-                                          .technical as any
-                                      )?.aerial || 0,
+                                      (selectedPlayer.currentSkills.technical as any)?.aerial || 0,
+                                      (selectedPlayer.potentialSkills.technical as any)?.aerial || 0,
                                       "text-[#a1ffc2]",
                                     )}
                                   </>
@@ -785,50 +793,26 @@ export default function SquadPage() {
                                   <>
                                     {renderSkillBar(
                                       t("squad.skills.finishing"),
-                                      (
-                                        selectedPlayer.currentSkills
-                                          .technical as any
-                                      )?.finishing || 0,
-                                      (
-                                        selectedPlayer.potentialSkills
-                                          .technical as any
-                                      )?.finishing || 0,
+                                      (selectedPlayer.currentSkills.technical as any)?.finishing || 0,
+                                      (selectedPlayer.potentialSkills.technical as any)?.finishing || 0,
                                       "text-[#a1ffc2]",
                                     )}
                                     {renderSkillBar(
                                       t("squad.skills.passing"),
-                                      (
-                                        selectedPlayer.currentSkills
-                                          .technical as any
-                                      )?.passing || 0,
-                                      (
-                                        selectedPlayer.potentialSkills
-                                          .technical as any
-                                      )?.passing || 0,
+                                      (selectedPlayer.currentSkills.technical as any)?.passing || 0,
+                                      (selectedPlayer.potentialSkills.technical as any)?.passing || 0,
                                       "text-[#a1ffc2]",
                                     )}
                                     {renderSkillBar(
                                       t("squad.skills.dribbling"),
-                                      (
-                                        selectedPlayer.currentSkills
-                                          .technical as any
-                                      )?.dribbling || 0,
-                                      (
-                                        selectedPlayer.potentialSkills
-                                          .technical as any
-                                      )?.dribbling || 0,
+                                      (selectedPlayer.currentSkills.technical as any)?.dribbling || 0,
+                                      (selectedPlayer.potentialSkills.technical as any)?.dribbling || 0,
                                       "text-[#a1ffc2]",
                                     )}
                                     {renderSkillBar(
                                       t("squad.skills.defending"),
-                                      (
-                                        selectedPlayer.currentSkills
-                                          .technical as any
-                                      )?.defending || 0,
-                                      (
-                                        selectedPlayer.potentialSkills
-                                          .technical as any
-                                      )?.defending || 0,
+                                      (selectedPlayer.currentSkills.technical as any)?.defending || 0,
+                                      (selectedPlayer.potentialSkills.technical as any)?.defending || 0,
                                       "text-[#a1ffc2]",
                                     )}
                                   </>
@@ -838,8 +822,7 @@ export default function SquadPage() {
                           </div>
 
                           {/* Mental & Set Pieces */}
-                          <div className="space-y-8">
-                            {/* Mental */}
+                          <div className="grid grid-cols-2 gap-10 mt-14">
                             <div>
                               <div className="flex items-center gap-2 mb-3">
                                 <div className="w-1.5 h-4 bg-[#abf853] rounded-full" />
@@ -850,24 +833,19 @@ export default function SquadPage() {
                               <div className="space-y-3">
                                 {renderSkillBar(
                                   t("squad.skills.positioning"),
-                                  selectedPlayer.currentSkills.mental
-                                    ?.positioning || 0,
-                                  selectedPlayer.potentialSkills.mental
-                                    ?.positioning || 0,
+                                  selectedPlayer.currentSkills.mental?.positioning || 0,
+                                  selectedPlayer.potentialSkills.mental?.positioning || 0,
                                   "text-[#abf853]",
                                 )}
                                 {renderSkillBar(
                                   t("squad.skills.composure"),
-                                  selectedPlayer.currentSkills.mental
-                                    ?.composure || 0,
-                                  selectedPlayer.potentialSkills.mental
-                                    ?.composure || 0,
+                                  selectedPlayer.currentSkills.mental?.composure || 0,
+                                  selectedPlayer.potentialSkills.mental?.composure || 0,
                                   "text-[#abf853]",
                                 )}
                               </div>
                             </div>
 
-                            {/* Set Pieces */}
                             <div>
                               <div className="flex items-center gap-2 mb-3">
                                 <div className="w-1.5 h-4 bg-[#abf853] rounded-full" />
@@ -878,64 +856,60 @@ export default function SquadPage() {
                               <div className="space-y-3">
                                 {renderSkillBar(
                                   t("squad.skills.freeKicks"),
-                                  selectedPlayer.currentSkills.setPieces
-                                    ?.freeKicks || 0,
-                                  selectedPlayer.potentialSkills.setPieces
-                                    ?.freeKicks || 0,
+                                  selectedPlayer.currentSkills.setPieces?.freeKicks || 0,
+                                  selectedPlayer.potentialSkills.setPieces?.freeKicks || 0,
                                   "text-[#abf853]",
                                 )}
                                 {renderSkillBar(
                                   t("squad.skills.penalties"),
-                                  selectedPlayer.currentSkills.setPieces
-                                    ?.penalties || 0,
-                                  selectedPlayer.potentialSkills.setPieces
-                                    ?.penalties || 0,
+                                  selectedPlayer.currentSkills.setPieces?.penalties || 0,
+                                  selectedPlayer.potentialSkills.setPieces?.penalties || 0,
                                   "text-[#abf853]",
                                 )}
                               </div>
                             </div>
                           </div>
                         </div>
+                      ) : null}
 
-                        {/* Player Events Section */}
-                        <div className="mt-6">
-                          <div className="flex items-center gap-2 mb-3">
-                            <div className="w-1.5 h-4 bg-[#f59e0b] rounded-full" />
-                            <h3 className="text-xs font-black font-space tracking-widest uppercase text-[#91b2a6]">
-                              {t("player_events.title")}
-                            </h3>
-                          </div>
-                          {playerEvents.length === 0 ? (
-                            <div className="bg-[#00251c]/50 rounded-xl p-4 text-center">
-                              <span className="material-symbols-outlined text-2xl text-[#4a7a6a]">history</span>
-                              <p className="text-[#4a7a6a] text-xs mt-1">{t("player_events.no_events")}</p>
-                            </div>
-                          ) : (
-                            <div className="space-y-2">
-                              {playerEvents.slice(0, 5).map((event) => {
-                                const iconName = EVENT_ICONS[event.eventType] || "event";
-                                const colorClass = EVENT_COLORS[event.eventType] || "text-[#a1ffc2]";
-                                const eventDate = new Date(event.date);
-                                const dateStr = `${eventDate.getFullYear()}/${eventDate.getMonth() + 1}/${eventDate.getDate()}`;
-                                return (
-                                  <div key={event.id} className="flex items-center gap-3 p-2 bg-[#00251c]/30 rounded-lg">
-                                    <div className={`w-8 h-8 rounded-full flex items-center justify-center bg-[#00251c] ${colorClass}`}>
-                                      <span className="material-symbols-outlined text-sm">{iconName}</span>
-                                    </div>
-                                    <div className="flex-1 min-w-0">
-                                      <p className="text-xs font-bold text-[#d3f5e8] truncate">
-                                        {event.titleKey ? te(event.titleKey.replace(/^player_events\./, '')) : event.eventType}
-                                      </p>
-                                      <p className="text-[10px] text-[#91b2a6]">
-                                        {dateStr} - S{event.season}
-                                      </p>
-                                    </div>
-                                  </div>
-                                );
-                              })}
-                            </div>
-                          )}
+                      {/* Player Events Section */}
+                      <div className="mt-6 px-6 pb-6">
+                        <div className="flex items-center gap-2 mb-3">
+                          <div className="w-1.5 h-4 bg-[#f59e0b] rounded-full" />
+                          <h3 className="text-xs font-black font-space tracking-widest uppercase text-[#91b2a6]">
+                            {t("player_events.title")}
+                          </h3>
                         </div>
+                        {playerEvents.length === 0 ? (
+                          <div className="bg-[#00251c]/50 rounded-xl p-4 text-center">
+                            <span className="material-symbols-outlined text-2xl text-[#4a7a6a]">history</span>
+                            <p className="text-[#4a7a6a] text-xs mt-1">{t("player_events.no_events")}</p>
+                          </div>
+                        ) : (
+                          <div className="space-y-2">
+                            {playerEvents.slice(0, 5).map((event) => {
+                              const iconName = EVENT_ICONS[event.eventType] || "event";
+                              const colorClass = EVENT_COLORS[event.eventType] || "text-[#a1ffc2]";
+                              const eventDate = new Date(event.date);
+                              const dateStr = `${eventDate.getFullYear()}/${eventDate.getMonth() + 1}/${eventDate.getDate()}`;
+                              return (
+                                <div key={event.id} className="flex items-center gap-3 p-2 bg-[#00251c]/30 rounded-lg">
+                                  <div className={`w-8 h-8 rounded-full flex items-center justify-center bg-[#00251c] ${colorClass}`}>
+                                    <span className="material-symbols-outlined text-sm">{iconName}</span>
+                                  </div>
+                                  <div className="flex-1 min-w-0">
+                                    <p className="text-xs font-bold text-[#d3f5e8] truncate">
+                                      {event.titleKey ? te(event.titleKey.replace(/^player_events\./, '')) : event.eventType}
+                                    </p>
+                                    <p className="text-[10px] text-[#91b2a6]">
+                                      {dateStr} - S{event.season}
+                                    </p>
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        )}
                       </div>
                     </>
                   ) : (
@@ -962,7 +936,7 @@ export default function SquadPage() {
           onSuccess={() => {
             // Refresh players list
             if (team?.id) {
-              api.players.getByTeam(team.id).then((data) => {
+              api.players.getByTeam(team.id, true).then((data) => {
                 const sorted = data.items.sort((a, b) => {
                   if (a.isGoalkeeper && !b.isGoalkeeper) return -1;
                   if (!a.isGoalkeeper && b.isGoalkeeper) return 1;
@@ -993,6 +967,24 @@ export default function SquadPage() {
           background: #00251c;
         }
       `}</style>
+    </div>
+  );
+}
+
+export default function SquadPage() {
+  return (
+    <Suspense fallback={<SquadPageLoading />}>
+      <SquadPageContent />
+    </Suspense>
+  );
+}
+
+function SquadPageLoading() {
+  return (
+    <div className="flex items-center justify-center h-full w-full">
+      <span className="material-symbols-outlined text-4xl text-[#a1ffc2] animate-spin">
+        progress_activity
+      </span>
     </div>
   );
 }

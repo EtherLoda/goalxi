@@ -13,6 +13,7 @@ import { NotificationModule } from './notification/notification.module';
 import { PlayerEventModule } from './player-event/player-event.module';
 import { PlayerModule } from './player/player.module';
 import { ScoutsModule } from './scouts/scouts.module';
+import { SearchModule } from './search/search.module';
 import { StadiumModule } from './stadium/stadium.module';
 import { StaffsModule } from './staffs/staffs.module';
 import { StatsModule } from './stats/stats.module';
@@ -40,6 +41,7 @@ import { YouthModule } from './youth/youth.module';
     YouthModule,
     YouthMatchModule,
     ScoutsModule,
+    SearchModule,
     StaffsModule,
     TrainingModule,
     StadiumModule,

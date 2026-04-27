@@ -1,27 +1,48 @@
 "use client";
 
 import { useTranslations } from "next-intl";
+import { clsx } from "clsx";
+import { useRouter, usePathname } from "next/navigation";
 import type { Standing, Team } from "@/lib/api";
+import { useGameStore } from "@/stores/gameStore";
 
 interface StandingsTableProps {
   standings: Standing[];
   teams: Record<string, Team>;
   userTeamId?: string;
+  locale?: string;
 }
 
 const ZONE_COLORS = {
-  promote: "#00e479",   // Promotion - primary
-  promotePlayoff: "#a3e635",   // Promotion playoffs - lime
-  relPlayoff: "#fbbf24",   // Relegation playoffs - amber
-  rel: "#ffb4ab",   // Relegation - error
+  promote: "#00e479",
+  promotePlayoff: "#a3e635",
+  relPlayoff: "#fbbf24",
+  rel: "#ffb4ab",
 };
 
 export default function StandingsTable({
   standings,
   teams,
   userTeamId,
+  locale = "en",
 }: StandingsTableProps) {
   const t = useTranslations();
+  const router = useRouter();
+  const pathname = usePathname();
+  const { viewTeamId, setViewTeam, teamId } = useGameStore();
+
+  const myTeam = viewTeamId === null || viewTeamId === teamId;
+
+  const handleTeamClick = (clickedTeamId: string) => {
+    const isOwnTeam = clickedTeamId === userTeamId;
+    // Set viewTeamId to own team id (not null) so Zustand matches URL
+    setViewTeam(isOwnTeam ? userTeamId : clickedTeamId);
+    router.push(`/${locale}/dashboard?team=${clickedTeamId}`);
+  };
+
+  const isCurrentViewTeam = (teamId: string) => {
+    return viewTeamId ? viewTeamId === teamId : teamId === userTeamId;
+  };
 
   const getZone = (pos: number): keyof typeof ZONE_COLORS | null => {
     if (pos === 1) return "promote";
@@ -31,49 +52,24 @@ export default function StandingsTable({
     return null;
   };
 
-  const getZoneLabel = (zone: keyof typeof ZONE_COLORS | null): string => {
-    if (zone === "promote") return "PROMO";
-    if (zone === "promotePlayoff") return "P.PLAYOFF";
-    if (zone === "relPlayoff") return "R.PLAYOFF";
-    if (zone === "rel") return "RELEG";
-    return "";
-  };
-
-  // Recent form icons with hover showing scores
   function RecentFormIcons({ recentMatches }: { recentMatches: Standing['recentMatches'] }) {
     if (!recentMatches || recentMatches.length === 0) {
       return <span className="text-on-surface-variant text-xs">-</span>;
     }
 
-    const icons: Record<string, string> = {
-      W: "✓",
-      D: "-",
-      L: "×",
-    };
-
-    const colors: Record<string, string> = {
-      W: "#00e479", // win - green
-      D: "#8b928f", // draw - gray
-      L: "#ffb4ab", // loss - red
-    };
+    const icons: Record<string, string> = { W: "✓", D: "-", L: "×" };
+    const colors: Record<string, string> = { W: "#00e479", D: "#8b928f", L: "#ffb4ab" };
 
     return (
       <div className="flex items-center gap-0.5">
         {recentMatches.slice(0, 5).map((m, i) => (
-          <div
-            key={i}
-            className="relative group"
-          >
+          <div key={i} className="relative group">
             <div
               className="w-4 h-4 rounded flex items-center justify-center text-[8px] font-headline font-black cursor-pointer"
-              style={{
-                backgroundColor: colors[m.result] || "#8b928f",
-                color: "#fff",
-              }}
+              style={{ backgroundColor: colors[m.result] || "#8b928f", color: "#fff" }}
             >
               {icons[m.result]}
             </div>
-            {/* Hover tooltip for single match */}
             <div className="absolute bottom-full right-0 mb-1 px-2 py-1 bg-surface-container rounded text-[10px] whitespace-nowrap opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-50">
               <span className="text-on-surface">
                 {m.isHome ? 'vs' : '@'} {m.opponentName}
@@ -161,22 +157,23 @@ export default function StandingsTable({
             {standings.map((row, idx) => {
               const zone = getZone(row.position);
               const isUserTeam = row.teamId === userTeamId;
-              const isLast = idx === standings.length - 1;
+              const isViewingTeam = isCurrentViewTeam(row.teamId);
 
               return (
                 <tr
                   key={row.teamId}
-                  className={`
-                    border-b border-white/5 transition-colors
-                    ${isUserTeam ? "bg-primary/5" : ""}
-                    ${!isLast ? "" : ""}
-                  `}
+                  className={clsx(
+                    "border-b border-white/5 transition-colors",
+                    isViewingTeam && "bg-primary/10",
+                    isUserTeam && !isViewingTeam && "bg-primary/5"
+                  )}
                 >
                   {/* Position */}
                   <td
-                    className={`py-3 pl-5 pr-2 font-headline font-black ${
-                      zone ? "" : "text-on-surface-variant"
-                    }`}
+                    className={clsx(
+                      "py-3 pl-5 pr-2 font-headline font-black",
+                      !zone && "text-on-surface-variant"
+                    )}
                     style={zone ? { color: ZONE_COLORS[zone] } : {}}
                   >
                     {String(row.position).padStart(2, "0")}
@@ -185,7 +182,6 @@ export default function StandingsTable({
                   {/* Club */}
                   <td className="py-3 pr-4">
                     <div className="flex items-center gap-2">
-                      {/* Zone indicator bar */}
                       {zone && (
                         <span
                           className="w-1 h-4 rounded-full"
@@ -195,10 +191,19 @@ export default function StandingsTable({
                       {!zone && <span className="w-1 h-4" />}
 
                       <span
-                        className={`font-bold ${isUserTeam ? "text-primary" : "text-on-surface"}`}
+                        className={clsx(
+                          "font-bold cursor-pointer hover:text-primary transition-colors",
+                          isViewingTeam ? "text-primary" : isUserTeam ? "text-primary/70" : "text-on-surface"
+                        )}
+                        onClick={() => handleTeamClick(row.teamId)}
                       >
                         {row.teamName || `Club ${row.teamId.slice(0, 6)}`}
                       </span>
+                      {isViewingTeam && !isUserTeam && (
+                        <span className="text-[8px] px-1.5 py-0.5 bg-primary/20 text-primary rounded font-bold">
+                          VIEWING
+                        </span>
+                      )}
                     </div>
                   </td>
 

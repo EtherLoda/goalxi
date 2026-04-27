@@ -10,6 +10,7 @@ interface RightColumnProps {
   teams: Record<string, Team>;
   userTeamId?: string;
   allMatches?: Match[];
+  locale?: string;
 }
 
 type TabKey = "standings" | "data" | "fixtures";
@@ -19,6 +20,7 @@ export default function RightColumn({
   teams,
   userTeamId,
   allMatches = [],
+  locale = "en",
 }: RightColumnProps) {
   const t = useTranslations();
   const [activeTab, setActiveTab] = useState<TabKey>("standings");
@@ -67,6 +69,7 @@ export default function RightColumn({
             standings={standings}
             teams={teams}
             userTeamId={userTeamId}
+            locale={locale}
           />
         )}
 

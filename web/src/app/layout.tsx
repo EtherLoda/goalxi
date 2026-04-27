@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { NextIntlClientProvider } from "next-intl";
 import { getMessages, setRequestLocale } from "next-intl/server";
 import { AuthProvider } from "@/contexts/AuthContext";
+import { TeamViewProvider } from "@/contexts/TeamViewContext";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -42,7 +43,9 @@ export default async function RootLayout({
       <body className="min-h-screen bg-surface text-on-surface antialiased">
         <NextIntlClientProvider messages={messages} locale={locale}>
           <AuthProvider>
-            {children}
+            <TeamViewProvider>
+              {children}
+            </TeamViewProvider>
           </AuthProvider>
         </NextIntlClientProvider>
       </body>

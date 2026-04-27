@@ -2,6 +2,17 @@
   "langSwitcher": {
     "switchLang": "Switch Language"
   },
+  "search": {
+    "title": "Search",
+    "placeholder": "Search teams, players, leagues...",
+    "hint": "Enter at least 2 characters to search",
+    "noResults": "No results found",
+    "types": {
+      "league": "League",
+      "team": "Team",
+      "player": "Player"
+    }
+  },
   "nav": {
     "howToPlay": "How to Play",
     "leaderboard": "Leaderboard",
@@ -96,13 +107,15 @@
       "matches": "Matches",
       "league": "League",
       "operations": "Operations",
+      "search": "Search",
       "transfers": "Transfers",
       "training": "Training",
       "finance": "Finance",
       "scouting": "Scouting",
       "academy": "Academy",
       "youthSquad": "Youth Squad",
-      "youthMatches": "Youth Matches"
+      "youthMatches": "Youth Matches",
+      "viewingMyTeam": "View My Team"
     }
   },
   "squad": {
@@ -267,7 +280,13 @@
     "season": "Season",
     "matchweekShort": "MW",
     "recentEvents": {
-      "title": "Recent Events"
+      "title": "Recent Events",
+      "types": {
+        "transfer": "Transfer",
+        "matchResult": "Match Result",
+        "prizeMoney": "Prize"
+      },
+      "viewMatch": "View Match"
     },
     "matchweek": {
       "thisRound": "Round {round}",
