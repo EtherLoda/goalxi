@@ -949,8 +949,8 @@ export default function TrainingPage() {
           {latestUpdate && latestUpdate.playerUpdates.length > 0 ? (
             <div className="relative overflow-hidden rounded-DEFAULT border border-[#a1ffc2]/20 bg-gradient-to-br from-[#001a14] to-[#002219] p-5 shadow-[0_8px_32px_rgba(0,0,0,0.5)]">
               {/* Decorative elements */}
-              <div className="absolute top-0 right-0 w-32 h-32 bg-[#a1ffc2]/5 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2" />
-              <div className="absolute bottom-0 left-0 w-24 h-24 bg-[#abf853]/5 rounded-full blur-2xl translate-y-1/2 -translate-x-1/2" />
+              <div className="absolute top-0 right-0 w-32 h-32 bg-[#a1ffc2]/5 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2 pointer-events-none" />
+              <div className="absolute bottom-0 left-0 w-24 h-24 bg-[#abf853]/5 rounded-full blur-2xl translate-y-1/2 -translate-x-1/2 pointer-events-none" />
 
               {/* Header with selector */}
               <div className="flex items-center justify-between mb-5">
@@ -978,8 +978,8 @@ export default function TrainingPage() {
                     }}
                     className="bg-[#00251c] border border-[#2f4e44]/50 text-[#a1ffc2] text-xs rounded-lg px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-[#a1ffc2]/50"
                   >
-                    {[...new Set([1, currentGame.season, ...availableUpdates.map(u => u.season)])].sort((a, b) => a - b).map((s) => (
-                      <option key={s} value={s}>{t('league.season')} {s}</option>
+                    {[...new Set([1, currentGame.season, ...availableUpdates.map(u => u.season)])].sort((a, b) => a - b).map((s, i) => (
+                      <option key={`season-${s}-${i}`} value={s}>{t('league.season')} {s}</option>
                     ))}
                   </select>
                   <select
@@ -1150,8 +1150,8 @@ export default function TrainingPage() {
                     }}
                     className="bg-[#00251c] border border-[#2f4e44]/50 text-[#a1ffc2] text-xs rounded-lg px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-[#a1ffc2]/50"
                   >
-                    {[...new Set([1, currentGame.season, ...availableUpdates.map(u => u.season)])].sort((a, b) => a - b).map((s) => (
-                      <option key={s} value={s}>{t('league.season')} {s}</option>
+                    {[...new Set([1, currentGame.season, ...availableUpdates.map(u => u.season)])].sort((a, b) => a - b).map((s, i) => (
+                      <option key={`season-${s}-${i}`} value={s}>{t('league.season')} {s}</option>
                     ))}
                   </select>
                   <select
