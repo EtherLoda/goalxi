@@ -1,9 +1,7 @@
-import { NestFactory } from '@nestjs/core';
 import { LoggerService } from '@nestjs/common';
 import pino from 'pino';
-import { AppModule } from './app.module';
 
-class PinoLoggerService implements LoggerService {
+export class PinoLoggerService implements LoggerService {
   private logger: pino.Logger;
 
   constructor(options: {
@@ -51,41 +49,28 @@ class PinoLoggerService implements LoggerService {
   log(message: unknown, ...optionalParams: unknown[]) {
     this.logger.info(this.formatMessage(message, ...optionalParams));
   }
+
   info(message: unknown, ...optionalParams: unknown[]) {
     this.logger.info(this.formatMessage(message, ...optionalParams));
   }
+
   error(message: unknown, ...optionalParams: unknown[]) {
     this.logger.error(this.formatMessage(message, ...optionalParams));
   }
+
   warn(message: unknown, ...optionalParams: unknown[]) {
     this.logger.warn(this.formatMessage(message, ...optionalParams));
   }
+
   fatal(message: unknown, ...optionalParams: unknown[]) {
     this.logger.fatal(this.formatMessage(message, ...optionalParams));
   }
+
   debug(message: unknown, ...optionalParams: unknown[]) {
     this.logger.debug(this.formatMessage(message, ...optionalParams));
   }
+
   verbose(message: unknown, ...optionalParams: unknown[]) {
     this.logger.trace(this.formatMessage(message, ...optionalParams));
   }
 }
-
-const logger = new PinoLoggerService({
-  file: './logs/settlement.log',
-  maxSize: 100 * 1024 * 1024,
-  maxFiles: 7,
-  level: 'warn',
-  service: 'settlement',
-});
-
-async function bootstrap() {
-  const app = await NestFactory.create(AppModule, {
-    bufferLogs: true,
-    logger,
-  });
-
-  logger.warn('Settlement service started');
-  await app.listen(process.env.PORT ?? 3000);
-}
-bootstrap();

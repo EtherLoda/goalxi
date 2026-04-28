@@ -11,25 +11,28 @@ import { ConfigService } from '@nestjs/config';
 import { NestFactory, Reflector } from '@nestjs/core';
 import compression from 'compression';
 import helmet from 'helmet';
-import { Logger } from 'nestjs-pino';
 import { AuthService } from './api/auth/auth.service';
 import { AppModule } from './app.module';
+import { PinoLoggerService } from './common/PinoLoggerService';
 import { type AllConfigType } from './config/config.type';
 import { GlobalExceptionFilter } from './filters/global-exception.filter';
 import { AuthGuard } from './guards/auth.guard';
 import setupSwagger from './utils/setup-swagger';
+
+const logger = new PinoLoggerService({
+  file: './logs/api.log',
+  maxSize: 100 * 1024 * 1024, // 100MB
+  maxFiles: 7,
+  level: 'warn',
+  service: 'api',
+});
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule, {
     bufferLogs: true,
   });
 
-  app.useLogger(app.get(Logger));
-
-  app.use((req, res, next) => {
-    console.log(`[Request] ${req.method} ${req.url}`);
-    next();
-  });
+  app.useLogger(logger);
 
   // Setup security headers
   app.use(helmet());
@@ -57,7 +60,7 @@ async function bootstrap() {
     allowedHeaders: 'Content-Type, Accept, Authorization', // 加上 Authorization
     credentials: true,
   });
-  console.info('CORS Origin:', corsOrigin);
+  logger.warn(`CORS Origin: ${corsOrigin}`);
 
   // Use global prefix if you don't have subdomain
   app.setGlobalPrefix(
@@ -94,7 +97,7 @@ async function bootstrap() {
 
   await app.listen(configService.getOrThrow('app.port', { infer: true }));
 
-  console.info(`Server running on ${await app.getUrl()}`);
+  logger.info(`Server running on ${await app.getUrl()}`);
 
   return app;
 }
