@@ -1,0 +1,75 @@
+# GoalXI Log Collection Configuration
+# Vector collects logs from all services and forwards to OpenObserve
+
+[sources.api_logs]
+type = "file"
+include = ["/app/logs/api/*.log"]
+read_from = "beginning"
+
+[sources.settlement_logs]
+type = "file"
+include = ["/app/logs/settlement/*.log"]
+read_from = "beginning"
+
+[sources.simulator_logs]
+type = "file"
+include = ["/app/logs/simulator/*.log"]
+read_from = "beginning"
+
+[sources.web_logs]
+type = "file"
+include = ["/app/logs/web/*.log"]
+read_from = "beginning"
+
+# Transforms - Parse JSON and add service tag
+[transforms.parse_logs]
+type = "remap"
+inputs = ["api_logs", "settlement_logs", "simulator_logs", "web_logs"]
+source = """
+# Safely parse JSON from message field, keep original if parsing fails
+if exists(.message) && is_string(.message) {
+    parsed = parse_json(.message) ?? {}
+    . = merge!(., parsed)
+}
+
+# Remove the raw message field after parsing
+del(.message)
+
+# Convert Pino's millisecond timestamp to proper timestamp
+if exists(.time) {
+    .timestamp = from_unix_timestamp!(to_int!(.time), unit: "milliseconds")
+    del(.time)
+}
+
+# Tag by file path (only if .file exists and is string)
+if exists(.file) && is_string(.file) {
+    if contains(string!(.file), "api") {
+        .service = "api"
+    } else if contains(string!(.file), "settlement") {
+        .service = "settlement"
+    } else if contains(string!(.file), "simulator") {
+        .service = "simulator"
+    } else if contains(string!(.file), "web") {
+        .service = "web"
+    }
+}
+"""
+
+# Sinks - OpenObserve with batching
+[sinks.openobserve]
+type = "http"
+inputs = ["parse_logs"]
+method = "post"
+uri = "http://openobserve:5080/api/default/goalxi-logs/_json"
+
+[sinks.openobserve.auth]
+strategy = "basic"
+user = "admin@goalxi.com"
+password = "changeme"
+
+[sinks.openobserve.batch]
+max_bytes = 1048576
+timeout_secs = 5
+
+[sinks.openobserve.encoding]
+codec = "json"
