@@ -1,5 +1,6 @@
 import {
   MatchEntity,
+  MatchEventEntity,
   MatchStatus,
   MatchTeamStatsEntity,
   PlayerCompetitionStatsEntity,
@@ -13,7 +14,7 @@ import {
   CompetitionStatsEntryDto,
   LeaderboardResDto,
 } from './dto/leaderboard.res.dto';
-import { MatchStatsResDto } from './dto/match-stats.res.dto';
+import { ComputedTeamStats, MatchStatsResDto } from './dto/match-stats.res.dto';
 import { TeamStatsResDto } from './dto/team-stats.res.dto';
 
 @Injectable()
@@ -21,6 +22,8 @@ export class StatsService {
   constructor(
     @InjectRepository(MatchEntity)
     private readonly matchRepository: Repository<MatchEntity>,
+    @InjectRepository(MatchEventEntity)
+    private readonly eventRepository: Repository<MatchEventEntity>,
     @InjectRepository(MatchTeamStatsEntity)
     private readonly matchStatsRepository: Repository<MatchTeamStatsEntity>,
     @InjectRepository(TeamEntity)
@@ -40,7 +43,6 @@ export class StatsService {
       throw new NotFoundException(`Match with ID ${matchId} not found`);
     }
 
-    // Allow stats for both in-progress and completed matches
     if (
       match.status !== MatchStatus.COMPLETED &&
       match.status !== MatchStatus.IN_PROGRESS
@@ -50,21 +52,80 @@ export class StatsService {
       );
     }
 
-    const stats = await this.matchStatsRepository.find({
-      where: { matchId: matchId as any },
-    });
+    const [stats, events] = await Promise.all([
+      this.matchStatsRepository.find({ where: { matchId: matchId as any } }),
+      this.eventRepository.find({ where: { matchId: matchId as any } }),
+    ]);
 
     const homeStats = stats.find((s) => s.teamId === match.homeTeamId);
     const awayStats = stats.find((s) => s.teamId === match.awayTeamId);
 
-    if (!homeStats || !awayStats) {
-      throw new NotFoundException(`Stats not found for match ${matchId}`);
-    }
+    // If no stats records exist (old matches), create empty stats objects
+    // Stats will still be computed from events
+    const homeStatsData = homeStats || new MatchTeamStatsEntity();
+    const awayStatsData = awayStats || new MatchTeamStatsEntity();
+
+    const computeStats = (
+      teamId: string,
+      rawStats: MatchTeamStatsEntity,
+    ): ComputedTeamStats => {
+      const teamEvents = events.filter((e) => e.teamId === teamId);
+      const typeNameUpper = (t: string) => t.toUpperCase();
+
+      const isShotEvent = (e: MatchEventEntity) =>
+        ['GOAL', 'SHOT_ON_TARGET', 'SHOT_OFF_TARGET', 'MISS'].includes(
+          typeNameUpper(e.typeName || ''),
+        );
+
+      const xG = teamEvents.filter(isShotEvent).reduce((sum, e) => {
+        const data = e.data as any;
+        return sum + (data?.quality ?? data?.sequence?.shootRating ?? 0);
+      }, 0);
+
+      const goals = teamEvents.filter(
+        (e) => typeNameUpper(e.typeName || '') === 'GOAL',
+      ).length;
+
+      const saves = teamEvents.filter(
+        (e) => typeNameUpper(e.typeName || '') === 'SAVE',
+      ).length;
+
+      const tackles = teamEvents.filter(
+        (e) => typeNameUpper(e.typeName || '') === 'TACKLE',
+      ).length;
+
+      const interceptions = teamEvents.filter(
+        (e) => typeNameUpper(e.typeName || '') === 'INTERCEPTION',
+      ).length;
+
+      const clearances = teamEvents.filter(
+        (e) => typeNameUpper(e.typeName || '') === 'CLEARANCE',
+      ).length;
+
+      const passAccuracy =
+        rawStats.passesAttempted > 0
+          ? Math.round(
+              (rawStats.passesCompleted / rawStats.passesAttempted) * 100,
+            )
+          : 0;
+
+      return {
+        xG: Math.round(xG * 100) / 100,
+        goals,
+        saves,
+        tackles,
+        interceptions,
+        clearances,
+        passAccuracy,
+      };
+    };
 
     return {
       matchId,
-      homeTeamStats: homeStats,
-      awayTeamStats: awayStats,
+      homeTeamStats: homeStatsData,
+      awayTeamStats: awayStatsData,
+      homeComputed: computeStats(match.homeTeamId, homeStatsData),
+      awayComputed: computeStats(match.awayTeamId, awayStatsData),
     };
   }
 

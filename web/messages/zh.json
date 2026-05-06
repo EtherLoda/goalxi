@@ -456,5 +456,120 @@
     "auctionOutbid": "你在 {player} 的竞拍中被超越",
     "auctionWon": "你赢得了 {player} 的竞拍！",
     "auctionLost": "你未能赢得 {player} 的竞拍"
+  },
+  "commentary": {
+    "goal": {
+      "tpl_0": "{player} 为 {team} 进球！",
+      "tpl_1": "{player} 攻破球门！",
+      "tpl_2": "精彩的射门！{player} 得分！",
+      "tpl_3": "{player} 将球送入网窝！",
+      "quality_excellent": "世界波！",
+      "quality_great": "漂亮的进球！",
+      "quality_good": "进球！",
+      "quality_chance": "绝佳机会！",
+      "quality_opportunity": "好机会"
+    },
+    "shot_on_target": {
+      "tpl_0": "{player} 射门被扑出！",
+      "tpl_1": "{player} 的射门被门将化解！",
+      "tpl_2": "门将挡住了 {player} 的射门！",
+      "tpl_3": "{player} 考验了对方门将！"
+    },
+    "shot_off_target": {
+      "tpl_0": "{player} 的射门偏出",
+      "tpl_1": "{player} 没有射正",
+      "tpl_2": "{player} 的射门擦柱而出"
+    },
+    "save": {
+      "tpl_0": "精彩的扑救！",
+      "tpl_1": "门将表现出色！",
+      "tpl_2": "一次漂亮的防守！"
+    },
+    "foul": {
+      "tpl_0": "{team} 犯规",
+      "tpl_1": "{team} 吃到犯规",
+      "tpl_2": "{team} 防守犯规"
+    },
+    "offside": {
+      "tpl_0": "{team} 越位",
+      "tpl_1": "{team} 落入越位陷阱"
+    },
+    "corner": {
+      "tpl_0": "{team} 获得角球",
+      "tpl_1": "{team} 赢得角球机会"
+    },
+    "yellow_card": {
+      "tpl_0": "黄牌 — {player}{reason}",
+      "tpl_1": "{player} 被出示黄牌{reason}"
+    },
+    "red_card": {
+      "tpl_0": "红牌 — {player}",
+      "tpl_1": "{player} 被罚下场！"
+    },
+    "substitution": {
+      "tpl_0": "换人 — {playerIn} 登场，{team}",
+      "tpl_1": "{playerIn} 替补出场，{team}",
+      "tpl_2": "{team} 进行换人调整"
+    },
+    "injury": {
+      "tpl_0": "伤病 — {player}{severity}",
+      "tpl_1": "{player} 倒地受伤{severity}",
+      "tpl_2": "{player} 需要医疗帮助{severity}"
+    },
+    "clearance": {
+      "tpl_0": "{team} 解围",
+      "tpl_1": "{team} 破坏危险球"
+    },
+    "interception": {
+      "tpl_0": "{team} 拦截",
+      "tpl_1": "{team} 断球成功"
+    },
+    "penalty": {
+      "tpl_0": "{team} 获得点球！",
+      "tpl_1": "{team} 赢得点球机会！"
+    },
+    "penalty_miss": {
+      "tpl_0": "点球罚失 — {player}",
+      "tpl_1": "{player} 将点球打偏！"
+    },
+    "half_time": {
+      "tpl_0": "半场结束 — {homeTeam} {homeScore} : {awayScore} {awayTeam}"
+    },
+    "full_time": {
+      "tpl_0": "全场结束！{homeTeam} {homeScore} : {awayScore} {awayTeam} — {winner} 获胜！",
+      "tpl_1": "比赛结束！{homeTeam} {homeScore} : {awayScore} {awayTeam}。恭喜 {winner}！",
+      "tpl_2": "终场哨响！{homeTeam} {homeScore} : {awayScore} {awayTeam} — {winner} 赢得比赛！",
+      "draw": "双方握手言和！"
+    },
+    "kickoff": {
+      "tpl_0": "比赛开始！"
+    },
+    "second_half_start": {
+      "tpl_0": "下半场开始"
+    },
+    "extra_time_start": {
+      "tpl_0": "加时赛开始！"
+    },
+    "penalty_start": {
+      "tpl_0": "点球大战开始"
+    },
+    "weather_announcement": {
+      "tpl_0": "今日天气：{weather}"
+    },
+    "player_introduction": {
+      "tpl_0": "双方球员就位！{homePlayers} vs {awayPlayers} 名球员"
+    },
+    "lane": {
+      "left": "左路",
+      "center": "中路",
+      "right": "右路"
+    },
+    "shotType": {
+      "header": "头球",
+      "one_on_one": "单刀",
+      "normal": "射门",
+      "long_shot": "远射",
+      "rebound": "补射"
+    }
   }
 }

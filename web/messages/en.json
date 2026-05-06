@@ -455,5 +455,120 @@
     "auctionOutbid": "You've been outbid on {player}",
     "auctionWon": "You won the auction for {player}!",
     "auctionLost": "You lost the auction for {player}"
+  },
+  "commentary": {
+    "goal": {
+      "tpl_0": "{player} scores for {team}!",
+      "tpl_1": "{player} finds the net for {team}!",
+      "tpl_2": "What a finish! {player} scores!",
+      "tpl_3": "{player} puts it away for {team}!",
+      "quality_excellent": "Excellent strike!",
+      "quality_great": "Great finish!",
+      "quality_good": "Goal!",
+      "quality_chance": "Great chance!",
+      "quality_opportunity": "Good opportunity"
+    },
+    "shot_on_target": {
+      "tpl_0": "{player} shoots — saved!",
+      "tpl_1": "{player}'s effort is stopped by the keeper!",
+      "tpl_2": "The keeper denies {player}!",
+      "tpl_3": "{player} tests the keeper!"
+    },
+    "shot_off_target": {
+      "tpl_0": "{player}'s shot goes wide",
+      "tpl_1": "{player} misses the target",
+      "tpl_2": "{player}'s effort sails past the post"
+    },
+    "save": {
+      "tpl_0": "Great save!",
+      "tpl_1": "The keeper is equal to it!",
+      "tpl_2": "A brilliant stop!"
+    },
+    "foul": {
+      "tpl_0": "Foul by {team}",
+      "tpl_1": "{team} commits a foul",
+      "tpl_2": "Foul on {team}"
+    },
+    "offside": {
+      "tpl_0": "Offside — {team}",
+      "tpl_1": "{team} caught offside"
+    },
+    "corner": {
+      "tpl_0": "Corner for {team}",
+      "tpl_1": "{team} wins a corner"
+    },
+    "yellow_card": {
+      "tpl_0": "Yellow card — {player}{reason}",
+      "tpl_1": "{player} is shown the yellow card{reason}"
+    },
+    "red_card": {
+      "tpl_0": "Red card — {player}",
+      "tpl_1": "{player} is sent off!"
+    },
+    "substitution": {
+      "tpl_0": "Substitution — {playerIn} on for {team}",
+      "tpl_1": "{playerIn} comes on for {team}",
+      "tpl_2": "{team} makes a substitution"
+    },
+    "injury": {
+      "tpl_0": "Injury — {player}{severity}",
+      "tpl_1": "{player} is down injured{severity}",
+      "tpl_2": "Medical attention needed for {player}{severity}"
+    },
+    "clearance": {
+      "tpl_0": "Clearance by {team}",
+      "tpl_1": "{team} clears the danger"
+    },
+    "interception": {
+      "tpl_0": "Interception — {team}",
+      "tpl_1": "{team} intercepts the pass"
+    },
+    "penalty": {
+      "tpl_0": "Penalty for {team}!",
+      "tpl_1": "{team} awarded a penalty!"
+    },
+    "penalty_miss": {
+      "tpl_0": "Penalty missed — {player}",
+      "tpl_1": "{player} sends the penalty wide!"
+    },
+    "half_time": {
+      "tpl_0": "Half-time whistle — {homeTeam} {homeScore} : {awayScore} {awayTeam}"
+    },
+    "full_time": {
+      "tpl_0": "Full-time! {homeTeam} {homeScore} : {awayScore} {awayTeam} — {winner} wins!",
+      "tpl_1": "It's all over! {homeTeam} {homeScore} : {awayScore} {awayTeam}. Congratulations to {winner}!",
+      "tpl_2": "Final whistle! {homeTeam} {homeScore} : {awayScore} {awayTeam} — {winner} takes the victory!",
+      "draw": "It's a draw!"
+    },
+    "kickoff": {
+      "tpl_0": "Kick-off!"
+    },
+    "second_half_start": {
+      "tpl_0": "Second half begins"
+    },
+    "extra_time_start": {
+      "tpl_0": "Extra time!"
+    },
+    "penalty_start": {
+      "tpl_0": "Penalty shootout begins"
+    },
+    "weather_announcement": {
+      "tpl_0": "Today's weather: {weather}"
+    },
+    "player_introduction": {
+      "tpl_0": "Teams ready! {homePlayers} vs {awayPlayers} players"
+    },
+    "lane": {
+      "left": "left wing",
+      "center": "center",
+      "right": "right wing"
+    },
+    "shotType": {
+      "header": "header",
+      "one_on_one": "one-on-one",
+      "normal": "shot",
+      "long_shot": "long-range shot",
+      "rebound": "rebound"
+    }
   }
 }

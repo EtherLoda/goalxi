@@ -13,6 +13,10 @@ import { ConditionSystem } from './systems/condition.system';
 import { InjurySystem, InjuryEventData } from './systems/injury.system';
 import { Player, PlayerAbility } from '../types/player.types';
 import { BenchConfig, calculatePositionFit } from '@goalxi/database';
+import {
+  generateWeatherAnnouncementEvent,
+  generatePlayerIntroductionEvent,
+} from './event.generator';
 
 // ---------- Ability Helper ----------
 const hasAbility = (
@@ -363,6 +367,40 @@ export class MatchEngine {
       teamName: this.awayTeam.name,
     });
 
+    // Weather Announcement Event
+    this.events.push(
+      generateWeatherAnnouncementEvent(
+        0,
+        this.weather,
+        this.homeTeam.name,
+        this.awayTeam.name,
+      ),
+    );
+
+    // Player Introduction Event
+    const getPlayerInfo = (p: TacticalPlayer) => ({
+      name: (p.player as Player).name,
+      position: p.positionKey,
+    });
+
+    // Get starting 11 (players with entryMinute === 0 or undefined)
+    const homeStartingPlayers = this.homeTeam.players
+      .filter((p) => !p.entryMinute || p.entryMinute === 0)
+      .map(getPlayerInfo);
+    const awayStartingPlayers = this.awayTeam.players
+      .filter((p) => !p.entryMinute || p.entryMinute === 0)
+      .map(getPlayerInfo);
+
+    this.events.push(
+      generatePlayerIntroductionEvent(
+        0,
+        this.homeTeam.name,
+        this.awayTeam.name,
+        homeStartingPlayers,
+        awayStartingPlayers,
+      ),
+    );
+
     const MOMENTS_COUNT = 20;
 
     // Initial Snapshot
@@ -391,7 +429,11 @@ export class MatchEngine {
         this.events.push({
           minute: 45,
           type: 'half_time',
-          data: { period: 'half_time' },
+          data: {
+            period: 'half_time',
+            homeScore: this.homeScore,
+            awayScore: this.awayScore,
+          },
         });
 
         this.events.push({

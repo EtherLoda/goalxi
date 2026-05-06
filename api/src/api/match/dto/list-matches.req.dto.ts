@@ -50,8 +50,8 @@ export class ListMatchesReqDto {
 
   @IsInt()
   @Min(1)
-  @Max(100)
+  @Max(500)
   @IsOptional()
   @Type(() => Number)
-  limit?: number = 20;
+  limit?: number = 500;
 }

@@ -117,6 +117,77 @@ interface Match {
   venue: string | null;
 }
 
+interface MatchEvent {
+  id: string;
+  matchId: string;
+  minute: number;
+  second: number;
+  type: string;
+  typeName: string;
+  teamId?: string;
+  playerId?: string;
+  data?: any;
+  description?: string;
+  eventType?: string;
+  eventData?: any;
+  isHome?: boolean;
+}
+
+interface MatchTeamStats {
+  id: string;
+  matchId: string;
+  teamId: string;
+  possession: number;
+  shots: number;
+  shotsOnTarget: number;
+  corners: number;
+  fouls: number;
+  offsides: number;
+  yellowCards: number;
+  redCards: number;
+  passes: number;
+  score: number;
+  possessionPercentage?: number;
+  passesCompleted?: number;
+  passesAttempted?: number;
+  freeKicks?: number;
+  penalties?: number;
+  penaltyGoals?: number;
+  laneStrengthAverages?: {
+    left: { attack: number; defense: number; possession: number };
+    center: { attack: number; defense: number; possession: number };
+    right: { attack: number; defense: number; possession: number };
+  };
+}
+
+interface ComputedStats {
+  xG: number;
+  goals: number;
+  saves: number;
+  tackles: number;
+  interceptions: number;
+  clearances: number;
+  passAccuracy: number;
+}
+
+interface MatchStatsRes {
+  matchId: string;
+  homeTeamStats: MatchTeamStats;
+  awayTeamStats: MatchTeamStats;
+  homeComputed: ComputedStats;
+  awayComputed: ComputedStats;
+}
+
+interface MatchEventsResponse {
+  matchId: string;
+  currentMinute: number;
+  totalMinutes: number;
+  isComplete: boolean;
+  events: MatchEvent[];
+  currentScore: { home: number; away: number };
+  stats: { home: MatchTeamStats; away: MatchTeamStats } | null;
+}
+
 interface MatchListResponse {
   data: Match[];
   meta: {
@@ -292,6 +363,9 @@ export const api = {
   },
 
   matches: {
+    getById: async (matchId: string): Promise<Match> => {
+      return request<Match>(`/matches/${matchId}`);
+    },
     getByTeam: async (teamId: string, filters?: {
       status?: string;
       week?: number;
@@ -316,8 +390,14 @@ export const api = {
       if (filters?.week) params.append('week', String(filters.week));
       if (filters?.round !== undefined) params.append('round', String(filters.round));
       if (filters?.season) params.append('season', String(filters.season));
-      params.append('limit', '100'); // Get all matches for a league
+      params.append('limit', '500');
       return request<MatchListResponse>(`/matches?${params.toString()}`);
+    },
+    getEvents: async (matchId: string): Promise<MatchEventsResponse> => {
+      return request<MatchEventsResponse>(`/matches/${matchId}/events`);
+    },
+    getStats: async (matchId: string): Promise<MatchStatsRes> => {
+      return request<MatchStatsRes>(`/stats/matches/${matchId}`);
     },
   },
 
@@ -711,4 +791,4 @@ interface SearchLeagueResult {
   tierDivision: number;
 }
 
-export type { User, Team, LoginResponse, League, Standing, Match, Player, TransferAuction, MyBid, TransferTransaction, BidRecord, FinanceTransaction, PlayerEvent, Notification, NotificationListResponse, LeagueNewsItem, LeagueNewsResponse, Announcement, Staff, StaffCostSummary, TrainingPlayer, CoachAssignment, TrainingUpdate, SearchTeamResult, SearchPlayerResult, SearchLeagueResult };
+export type { User, Team, LoginResponse, League, Standing, Match, Player, TransferAuction, MyBid, TransferTransaction, BidRecord, FinanceTransaction, PlayerEvent, Notification, NotificationListResponse, LeagueNewsItem, LeagueNewsResponse, Announcement, Staff, StaffCostSummary, TrainingPlayer, CoachAssignment, TrainingUpdate, SearchTeamResult, SearchPlayerResult, SearchLeagueResult, MatchEvent, MatchTeamStats, ComputedStats, MatchStatsRes, MatchEventsResponse };

@@ -3,19 +3,23 @@ import { Injectable } from '@nestjs/common';
 
 @Injectable()
 export class GameStateService {
-  // Game start date: Season 1, Week 1 begins at this date
-  private readonly GAME_START_DATE = new Date('2026-04-06T00:00:00Z');
-
   /**
-   * Get current season and week based on time elapsed since game start
-   * Time-driven: each season has 16 weeks, automatically advances
+   * Get current season and week based on time elapsed since game start.
+   * Game start is the most recent Wednesday (or today if Wednesday).
+   * This ensures reseeding on any day shows Week 1.
    */
   getCurrentSeasonWeek(): { season: number; week: number } {
     const now = new Date();
     const msPerWeek = 7 * 24 * 60 * 60 * 1000;
 
+    // Calculate most recent Wednesday: go back to Sunday of current week, then add 3 days
+    // JavaScript setDate automatically handles month/year boundaries
+    const gameStartDate = new Date(now);
+    gameStartDate.setDate(gameStartDate.getDate() - gameStartDate.getDay() + 3);
+    gameStartDate.setHours(0, 0, 0, 0);
+
     const weeksElapsed = Math.floor(
-      (now.getTime() - this.GAME_START_DATE.getTime()) / msPerWeek,
+      (now.getTime() - gameStartDate.getTime()) / msPerWeek,
     );
 
     const season =

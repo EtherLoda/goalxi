@@ -1,27 +1,20 @@
 import {
   FanEntity,
-  FINANCE_CONSTANTS,
   FinanceEntity,
+  FormationKey,
   GAME_SETTINGS,
+  generateAutoLineup,
   LeagueEntity,
   LeagueStandingEntity,
   MatchEntity,
-  MatchEventEntity,
-  MatchEventType,
-  MatchPhase,
   MatchStatus,
   MatchTacticsEntity,
   PlayerEntity,
-  PlayerEventEntity,
-  PlayerEventType,
   PlayerSkills,
   PotentialTier,
   StadiumEntity,
   StaffEntity,
-  StaffRole,
   TeamEntity,
-  TransactionEntity,
-  TransactionType,
   UserEntity,
   Uuid,
 } from '@goalxi/database';
@@ -48,21 +41,100 @@ import { AppDataSource } from '../src/database/data-source';
 // Season 1 starts at Apr 6, 2026 (Monday)
 const SEASON_START_DATE = new Date('2026-04-06T00:00:00Z');
 
-// Completed match dates (Week 1 & 2)
-const MATCH_WEEK_1_DAY_1 = new Date('2026-04-09T20:00:00Z'); // Wed
-const MATCH_WEEK_1_DAY_2 = new Date('2026-04-12T15:00:00Z'); // Sat
-const MATCH_WEEK_2_DAY_1 = new Date('2026-04-16T20:00:00Z'); // Wed
-const MATCH_WEEK_2_DAY_2 = new Date('2026-04-19T15:00:00Z'); // Sat
+// ============================================================================
+// DYNAMIC SCHEDULE CALCULATION
+// ============================================================================
 
-// Settlement dates (Sundays after each week)
-const SETTLEMENT_WEEK_1 = new Date('2026-04-13T00:00:00Z');
-const SETTLEMENT_WEEK_2 = new Date('2026-04-20T00:00:00Z');
+/**
+ * Get the next occurrence of a specific day of week
+ * @param date - Starting date
+ * @param targetDay - 0 = Sunday, 1 = Monday, ..., 3 = Wednesday, 6 = Saturday
+ * @param includeDate - If true and date falls on target day, return that day
+ */
+function getNextDayOfWeek(
+  date: Date,
+  targetDay: number,
+  includeDate: boolean = false,
+): Date {
+  const result = new Date(date);
+  result.setHours(0, 0, 0, 0);
 
-// Future scheduled matches (not yet played)
-const MATCH_WEEK_3_DAY_1 = new Date('2026-04-23T20:00:00Z'); // Wed
-const MATCH_WEEK_3_DAY_2 = new Date('2026-04-26T15:00:00Z'); // Sat
-const MATCH_WEEK_4_DAY_1 = new Date('2026-04-30T20:00:00Z'); // Wed
-const MATCH_WEEK_4_DAY_2 = new Date('2026-05-03T15:00:00Z'); // Sat
+  const currentDay = result.getDay();
+  let daysUntilTarget = targetDay - currentDay;
+
+  if (daysUntilTarget < 0) {
+    daysUntilTarget += 7;
+  } else if (daysUntilTarget === 0 && !includeDate) {
+    daysUntilTarget = 7;
+  }
+
+  result.setDate(result.getDate() + daysUntilTarget);
+  return result;
+}
+
+/**
+ * Calculate all match dates for a season
+ * - Season starts from next Wednesday after initialDate
+ * - 15 weeks, 2 matchdays per week (Wed + Sat)
+ * - Total: 30 rounds
+ */
+function calculateSeasonMatchDates(
+  initialDate: Date,
+): { date: Date; week: number; matchday: number; round: number }[] {
+  const matchDates: {
+    date: Date;
+    week: number;
+    matchday: number;
+    round: number;
+  }[] = [];
+
+  // Get first Wednesday after initial date
+  const firstWednesday = getNextDayOfWeek(initialDate, 3, false); // 3 = Wednesday
+  firstWednesday.setHours(20, 0, 0, 0); // 20:00 UTC
+
+  const weeksPerSeason = 15;
+  const roundsPerWeek = 2;
+
+  for (let week = 1; week <= weeksPerSeason; week++) {
+    // Matchday 1 (Wednesday)
+    const matchDay1 = new Date(firstWednesday);
+    matchDay1.setDate(firstWednesday.getDate() + (week - 1) * 7);
+    matchDates.push({
+      date: new Date(matchDay1),
+      week,
+      matchday: 1,
+      round: (week - 1) * roundsPerWeek + 1,
+    });
+
+    // Matchday 2 (Saturday) - 3 days after Wednesday
+    const matchDay2 = new Date(matchDay1);
+    matchDay2.setDate(matchDay1.getDate() + 3);
+    matchDay2.setHours(15, 0, 0, 0); // 15:00 UTC
+    matchDates.push({
+      date: new Date(matchDay2),
+      week,
+      matchday: 2,
+      round: (week - 1) * roundsPerWeek + 2,
+    });
+  }
+
+  return matchDates;
+}
+
+// Get today's date as the initial reference
+const INITIAL_DATE = new Date();
+console.log(`[SEED] Initial date: ${INITIAL_DATE.toISOString().split('T')[0]}`);
+
+// Calculate all match dates for the season
+const allMatchDates = calculateSeasonMatchDates(INITIAL_DATE);
+console.log(`[SEED] Season schedule:`);
+console.log(
+  `  - First match: ${allMatchDates[0].date.toISOString().split('T')[0]} (Round ${allMatchDates[0].round})`,
+);
+console.log(
+  `  - Last match: ${allMatchDates[allMatchDates.length - 1].date.toISOString().split('T')[0]} (Round ${allMatchDates[allMatchDates.length - 1].round})`,
+);
+console.log(`  - Total rounds: ${allMatchDates.length}`);
 
 // ============================================================================
 // LEAGUE CONFIG
@@ -277,31 +349,43 @@ function calculateTeamOvr(players: PlayerEntity[]): number {
 }
 
 /**
- * Generate realistic match score based on team OVRs
+ * Create MatchTacticsEntity for a team using auto-lineup generator
  */
-function generateMatchScore(
-  homeOvr: number,
-  awayOvr: number,
-): { homeScore: number; awayScore: number } {
-  const ovrDiff = homeOvr - awayOvr;
-  // Home advantage: ~3 OVR equivalent
-  const effectiveDiff = ovrDiff + 3;
+async function createTeamTactics(
+  matchId: string,
+  teamId: string,
+  players: PlayerEntity[],
+  formation: FormationKey = '4-4-2',
+): Promise<MatchTacticsEntity> {
+  const result = generateAutoLineup(players, formation);
+  const tactics = new MatchTacticsEntity({
+    matchId,
+    teamId,
+    formation: result.formation,
+    lineup: result.lineup,
+    substitutions: result.bench.slice(0, 3).map((playerId, idx) => ({
+      minute: 60 + idx * 5,
+      out: '', // filled below
+      in: playerId,
+    })),
+    submittedAt: new Date(),
+  });
 
-  // Base expected goals for each team
-  const homeExpected = 1.3 + effectiveDiff / 50;
-  const awayExpected = 1.3 - effectiveDiff / 50;
+  // Fill in substitution "out" positions from lineup
+  const lineupPositions = Object.keys(result.lineup).filter((k) => k !== 'GK');
+  tactics.substitutions = tactics.substitutions
+    .map((sub, idx) => {
+      if (lineupPositions[idx] && result.lineup[lineupPositions[idx]]) {
+        return {
+          ...sub,
+          out: result.lineup[lineupPositions[idx]],
+        };
+      }
+      return sub;
+    })
+    .filter((s) => s.out);
 
-  // Poisson-like distribution for goals
-  const homeScore = Math.max(
-    0,
-    Math.min(5, Math.round(homeExpected + (Math.random() - 0.5) * 3)),
-  );
-  const awayScore = Math.max(
-    0,
-    Math.min(5, Math.round(awayExpected + (Math.random() - 0.5) * 3)),
-  );
-
-  return { homeScore, awayScore };
+  return tactics;
 }
 
 // ============================================================================
@@ -323,9 +407,7 @@ async function createLeaguePyramid() {
   const fanRepo = AppDataSource.getRepository(FanEntity);
   const staffRepo = AppDataSource.getRepository(StaffEntity);
   const matchRepo = AppDataSource.getRepository(MatchEntity);
-  const matchEventRepo = AppDataSource.getRepository(MatchEventEntity);
   const matchTacticsRepo = AppDataSource.getRepository(MatchTacticsEntity);
-  const transactionRepo = AppDataSource.getRepository(TransactionEntity);
 
   // ==========================================================================
   // 1. CREATE USERS
@@ -701,32 +783,9 @@ async function createLeaguePyramid() {
   }
 
   // ==========================================================================
-  // 4. CREATE MATCHES (2 completed weeks + 2 future weeks)
+  // 4. CREATE MATCHES (Basic structure only - no simulation)
   // ==========================================================================
   console.log('\n📅 Creating matches...');
-
-  const completedMatchDates = [
-    MATCH_WEEK_1_DAY_1,
-    MATCH_WEEK_1_DAY_2,
-    MATCH_WEEK_2_DAY_1,
-    MATCH_WEEK_2_DAY_2,
-  ];
-  const futureMatchDates = [
-    MATCH_WEEK_3_DAY_1,
-    MATCH_WEEK_3_DAY_2,
-    MATCH_WEEK_4_DAY_1,
-    MATCH_WEEK_4_DAY_2,
-  ];
-  const allMatchDates = [
-    { date: MATCH_WEEK_1_DAY_1, week: 1, matchday: 1 },
-    { date: MATCH_WEEK_1_DAY_2, week: 1, matchday: 2 },
-    { date: MATCH_WEEK_2_DAY_1, week: 2, matchday: 1 },
-    { date: MATCH_WEEK_2_DAY_2, week: 2, matchday: 2 },
-    { date: MATCH_WEEK_3_DAY_1, week: 3, matchday: 1 },
-    { date: MATCH_WEEK_3_DAY_2, week: 3, matchday: 2 },
-    { date: MATCH_WEEK_4_DAY_1, week: 4, matchday: 1 },
-    { date: MATCH_WEEK_4_DAY_2, week: 4, matchday: 2 },
-  ];
 
   for (const league of leagues) {
     const teamsInLeague = await teamRepo.find({
@@ -748,15 +807,13 @@ async function createLeaguePyramid() {
 
     const MATCHES_PER_DAY = teamsInLeague.length / 2;
     console.log(
-      `[SEED] League ${league.name}: ${teamsInLeague.length} teams, ${MATCHES_PER_DAY} matches per round, ${allMatchDates.length} total rounds`,
+      `[SEED] League ${league.name}: ${teamsInLeague.length} teams, ${MATCHES_PER_DAY} matches per round, ${allMatchDates.length} rounds`,
     );
 
     for (let mdIndex = 0; mdIndex < allMatchDates.length; mdIndex++) {
-      const { date, week, matchday } = allMatchDates[mdIndex];
-      const isCompleted = mdIndex < 4; // First 4 matchdays are completed
-      const roundNum = mdIndex + 1;
+      const { date, week, matchday, round } = allMatchDates[mdIndex];
       console.log(
-        `[SEED] Creating round ${roundNum} (week ${week}, mdIndex ${mdIndex}): ${MATCHES_PER_DAY} matches`,
+        `[SEED] Creating round ${round} (week ${week}, md${matchday})`,
       );
 
       // Build rotating teams array (indices 0 to n-2, excluding fixed team at n-1)
@@ -772,539 +829,114 @@ async function createLeaguePyramid() {
         ...rotatingTeamIndices.slice(mdIndex),
         ...rotatingTeamIndices.slice(0, mdIndex),
       ];
-      // rotatedIndices[0] is the rotating opponent for this round
 
       // Match 1: fixed team (team n-1) vs rotating opponent (rotatedIndices[0])
       const rotatingOpponentIdx = rotatedIndices[0];
       const rotatingOpponent = teamsInLeague[rotatingOpponentIdx];
       if (fixedTeam && rotatingOpponent) {
-        let homeScore = 0,
-          awayScore = 0;
-        if (isCompleted) {
-          const homePlayers = await playerRepo.find({
-            where: { teamId: fixedTeam.id },
-          });
-          const awayPlayers = await playerRepo.find({
-            where: { teamId: rotatingOpponent.id },
-          });
-          const score = generateMatchScore(
-            calculateTeamOvr(homePlayers),
-            calculateTeamOvr(awayPlayers),
-          );
-          homeScore = score.homeScore;
-          awayScore = score.awayScore;
-        }
+        const homePlayers = await playerRepo.find({
+          where: { teamId: fixedTeam.id },
+        });
+        const awayPlayers = await playerRepo.find({
+          where: { teamId: rotatingOpponent.id },
+        });
+
         const match = new MatchEntity({
           id: uuidv4() as any,
           leagueId: league.id,
           season: SEASON,
           week,
-          round: roundNum,
+          round,
           homeTeamId: fixedTeam.id,
           awayTeamId: rotatingOpponent.id,
-          homeScore: isCompleted ? homeScore : null,
-          awayScore: isCompleted ? awayScore : null,
-          status: isCompleted ? MatchStatus.COMPLETED : MatchStatus.SCHEDULED,
+          homeScore: null,
+          awayScore: null,
+          status: MatchStatus.SCHEDULED,
           type: 'league' as any,
           scheduledAt: date,
           homeForfeit: false,
           awayForfeit: false,
-          tacticsLocked: isCompleted,
+          tacticsLocked: false,
           hasExtraTime: false,
           requiresWinner: false,
           hasPenaltyShootout: false,
-          startedAt: isCompleted ? date : null,
-          completedAt: isCompleted
-            ? new Date(date.getTime() + 2 * 60 * 60 * 1000)
-            : null,
+          startedAt: null,
+          completedAt: null,
         });
         await matchRepo.save(match);
-        if (isCompleted)
-          await generateMatchEvents(match, homeScore, awayScore, date);
+
+        // Create tactics for both teams (for lineup display)
+        const homeTactics = await createTeamTactics(
+          match.id,
+          fixedTeam.id,
+          homePlayers,
+        );
+        const awayTactics = await createTeamTactics(
+          match.id,
+          rotatingOpponent.id,
+          awayPlayers,
+        );
+        await matchTacticsRepo.save([homeTactics, awayTactics]);
       }
 
-      // 7 pairs from remaining 14 teams (excluding rotating opponent)
-      // Proper round-robin: first half (indices 1-7 of rotatedIndices) vs second half (indices 8-14)
+      // 7 pairs from remaining 14 teams
       for (let i = 1; i < rotatedIndices.length / 2; i++) {
-        const awayIdx = rotatedIndices[i]; // First half plays away
-        const homeIdx = rotatedIndices[rotatedIndices.length - i]; // Second half plays home
+        const awayIdx = rotatedIndices[i];
+        const homeIdx = rotatedIndices[rotatedIndices.length - i];
 
         const homeTeam = teamsInLeague[homeIdx];
         const awayTeam = teamsInLeague[awayIdx];
         if (!homeTeam || !awayTeam || homeTeam.id === awayTeam.id) continue;
 
-        let homeScore = 0,
-          awayScore = 0;
-        if (isCompleted) {
-          const homePlayers = await playerRepo.find({
-            where: { teamId: homeTeam.id },
-          });
-          const awayPlayers = await playerRepo.find({
-            where: { teamId: awayTeam.id },
-          });
-          const score = generateMatchScore(
-            calculateTeamOvr(homePlayers),
-            calculateTeamOvr(awayPlayers),
-          );
-          homeScore = score.homeScore;
-          awayScore = score.awayScore;
-        }
+        const homePlayers = await playerRepo.find({
+          where: { teamId: homeTeam.id },
+        });
+        const awayPlayers = await playerRepo.find({
+          where: { teamId: awayTeam.id },
+        });
 
         const match = new MatchEntity({
           id: uuidv4() as any,
           leagueId: league.id,
           season: SEASON,
           week,
-          round: roundNum,
+          round,
           homeTeamId: homeTeam.id,
           awayTeamId: awayTeam.id,
-          homeScore: isCompleted ? homeScore : null,
-          awayScore: isCompleted ? awayScore : null,
-          status: isCompleted ? MatchStatus.COMPLETED : MatchStatus.SCHEDULED,
+          homeScore: null,
+          awayScore: null,
+          status: MatchStatus.SCHEDULED,
           type: 'league' as any,
           scheduledAt: date,
           homeForfeit: false,
           awayForfeit: false,
-          tacticsLocked: isCompleted,
+          tacticsLocked: false,
           hasExtraTime: false,
           requiresWinner: false,
           hasPenaltyShootout: false,
-          startedAt: isCompleted ? date : null,
-          completedAt: isCompleted
-            ? new Date(date.getTime() + 2 * 60 * 60 * 1000)
-            : null,
+          startedAt: null,
+          completedAt: null,
         });
         await matchRepo.save(match);
-        if (isCompleted)
-          await generateMatchEvents(match, homeScore, awayScore, date);
-      }
-    }
 
-    console.log(
-      `   ✓ ${league.name}: created ${MATCHES_PER_DAY * allMatchDates.length} matches (4 completed, 4 scheduled)`,
-    );
-  }
-
-  async function generateMatchEvents(
-    match: MatchEntity,
-    homeScore: number,
-    awayScore: number,
-    scheduledAt: Date,
-  ) {
-    // Create basic goal events
-    const events: Partial<MatchEventEntity>[] = [];
-
-    // Kickoff
-    events.push({
-      matchId: match.id,
-      minute: 0,
-      second: 0,
-      type: MatchEventType.KICKOFF,
-      typeName: 'kickoff',
-      teamId: match.homeTeamId,
-      phase: MatchPhase.FIRST_HALF,
-      data: { period: 'first_half' } as any,
-      eventScheduledTime: scheduledAt,
-      isRevealed: true,
-    });
-
-    // Home goals
-    for (let g = 0; g < homeScore; g++) {
-      const minute = randomInt(5, 90);
-      events.push({
-        matchId: match.id,
-        minute,
-        second: 0,
-        type: MatchEventType.GOAL,
-        typeName: 'goal',
-        teamId: match.homeTeamId,
-        isHome: true,
-        phase: minute <= 45 ? MatchPhase.FIRST_HALF : MatchPhase.SECOND_HALF,
-        data: {
-          teamName: 'Home Team',
-          playerName: 'Player',
-          assistPlayerName: null,
-        } as any,
-        eventScheduledTime: new Date(
-          scheduledAt.getTime() + minute * 60 * 1000,
-        ),
-        isRevealed: true,
-      });
-    }
-
-    // Away goals
-    for (let g = 0; g < awayScore; g++) {
-      const minute = randomInt(5, 90);
-      events.push({
-        matchId: match.id,
-        minute,
-        second: 0,
-        type: MatchEventType.GOAL,
-        typeName: 'goal',
-        teamId: match.awayTeamId,
-        isHome: false,
-        phase: minute <= 45 ? MatchPhase.FIRST_HALF : MatchPhase.SECOND_HALF,
-        data: {
-          teamName: 'Away Team',
-          playerName: 'Player',
-          assistPlayerName: null,
-        } as any,
-        eventScheduledTime: new Date(
-          scheduledAt.getTime() + minute * 60 * 1000,
-        ),
-        isRevealed: true,
-      });
-    }
-
-    // Half time
-    events.push({
-      matchId: match.id,
-      minute: 45,
-      second: 0,
-      type: MatchEventType.HALF_TIME,
-      typeName: 'half_time',
-      teamId: undefined,
-      phase: MatchPhase.FIRST_HALF,
-      data: {} as any,
-      eventScheduledTime: new Date(scheduledAt.getTime() + 45 * 60 * 1000),
-      isRevealed: true,
-    });
-
-    // Second half kickoff
-    events.push({
-      matchId: match.id,
-      minute: 45,
-      second: 0,
-      type: MatchEventType.KICKOFF,
-      typeName: 'kickoff',
-      teamId: match.awayTeamId,
-      phase: MatchPhase.SECOND_HALF,
-      data: { period: 'second_half' } as any,
-      eventScheduledTime: new Date(scheduledAt.getTime() + 60 * 60 * 1000),
-      isRevealed: true,
-    });
-
-    // Full time
-    events.push({
-      matchId: match.id,
-      minute: 90,
-      second: 0,
-      type: MatchEventType.FULL_TIME,
-      typeName: 'full_time',
-      teamId: undefined,
-      phase: MatchPhase.SECOND_HALF,
-      data: {} as any,
-      eventScheduledTime: new Date(scheduledAt.getTime() + 90 * 60 * 1000),
-      isRevealed: true,
-    });
-
-    await matchEventRepo.save(events.map((e) => matchEventRepo.create(e)));
-  }
-
-  // ==========================================================================
-  // 5. UPDATE STANDINGS FOR COMPLETED MATCHES
-  // ==========================================================================
-  console.log('\n📊 Updating standings for completed matches...');
-
-  const completedMatches = await matchRepo.find({
-    where: { season: SEASON, status: MatchStatus.COMPLETED },
-    relations: ['homeTeam', 'awayTeam'],
-  });
-
-  for (const match of completedMatches) {
-    if (match.homeScore === undefined || match.awayScore === undefined)
-      continue;
-
-    const homeStanding = await standingRepo.findOne({
-      where: {
-        leagueId: match.leagueId,
-        teamId: match.homeTeamId,
-        season: SEASON,
-      },
-    });
-    const awayStanding = await standingRepo.findOne({
-      where: {
-        leagueId: match.leagueId,
-        teamId: match.awayTeamId,
-        season: SEASON,
-      },
-    });
-
-    if (homeStanding && awayStanding) {
-      homeStanding.played += 1;
-      homeStanding.goalsFor += match.homeScore;
-      homeStanding.goalsAgainst += match.awayScore;
-      homeStanding.goalDifference =
-        homeStanding.goalsFor - homeStanding.goalsAgainst;
-
-      awayStanding.played += 1;
-      awayStanding.goalsFor += match.awayScore;
-      awayStanding.goalsAgainst += match.homeScore;
-      awayStanding.goalDifference =
-        awayStanding.goalsFor - awayStanding.goalsAgainst;
-
-      if (match.homeScore > match.awayScore) {
-        homeStanding.wins += 1;
-        homeStanding.points += 3;
-        homeStanding.recentForm = (homeStanding.recentForm + 'W').slice(-5);
-        awayStanding.losses += 1;
-        awayStanding.recentForm = (awayStanding.recentForm + 'L').slice(-5);
-      } else if (match.homeScore < match.awayScore) {
-        awayStanding.wins += 1;
-        awayStanding.points += 3;
-        awayStanding.recentForm = (awayStanding.recentForm + 'W').slice(-5);
-        homeStanding.losses += 1;
-        homeStanding.recentForm = (homeStanding.recentForm + 'L').slice(-5);
-      } else {
-        homeStanding.draws += 1;
-        awayStanding.draws += 1;
-        homeStanding.points += 1;
-        homeStanding.recentForm = (homeStanding.recentForm + 'D').slice(-5);
-        awayStanding.points += 1;
-        awayStanding.recentForm = (awayStanding.recentForm + 'D').slice(-5);
-      }
-
-      await standingRepo.save([homeStanding, awayStanding]);
-    }
-  }
-  console.log(
-    `   ✓ Updated standings for ${completedMatches.length} completed matches`,
-  );
-
-  // ==========================================================================
-  // 6. GENERATE TICKET REVENUE FOR COMPLETED MATCHES
-  // ==========================================================================
-  console.log('\n💰 Generating ticket revenue...');
-
-  for (const match of completedMatches) {
-    const homeStadium = await stadiumRepo.findOne({
-      where: { teamId: match.homeTeamId },
-    });
-    const homeFan = await fanRepo.findOne({
-      where: { teamId: match.homeTeamId },
-    });
-    if (!homeStadium?.isBuilt || !homeFan) continue;
-
-    // Calculate attendance (~70% of capacity for bot teams, 85% for user teams)
-    const homeTeam = await teamRepo.findOne({
-      where: { id: match.homeTeamId as Uuid },
-    });
-    const attendanceRate = homeTeam?.isBot ? 0.5 : 0.85;
-    const attendance = Math.floor(homeStadium.capacity * attendanceRate);
-
-    // Base ticket price 20, tier multiplier
-    const tier = match.league?.tier || 2;
-    const tierMultiplier = { 1: 2.0, 2: 1.5, 3: 1.0, 4: 0.7 }[tier] || 1.0;
-    const revenue = Math.floor(attendance * 20 * tierMultiplier);
-
-    // Create transaction
-    const tx = transactionRepo.create({
-      teamId: match.homeTeamId,
-      amount: revenue,
-      season: SEASON,
-      week: match.week,
-      type: TransactionType.TICKET_INCOME,
-      description: `Week ${match.week} match ticket revenue (${attendance} attendance)`,
-      relatedId: match.id as Uuid,
-    });
-    await transactionRepo.save(tx);
-
-    // Update finance balance
-    await financeRepo.increment(
-      { teamId: match.homeTeamId as Uuid },
-      'balance',
-      revenue,
-    );
-
-    console.log(
-      `   ✓ ${homeTeam?.name || 'Home'}: ${revenue} ticket revenue (${attendance} attendance)`,
-    );
-  }
-
-  // ==========================================================================
-  // 7. WEEKLY SETTLEMENT (2 weeks completed + Week 3 initial data)
-  // ==========================================================================
-  console.log('\n💵 Processing weekly settlements...');
-
-  const settlements = [
-    { date: SETTLEMENT_WEEK_1, label: 'Week 1', week: 1 },
-    { date: SETTLEMENT_WEEK_2, label: 'Week 2', week: 2 },
-    { date: SETTLEMENT_WEEK_2, label: 'Week 3', week: 3 }, // Initial data for current week
-  ];
-
-  for (const settlement of settlements) {
-    const allTeams = await teamRepo.find();
-    console.log(
-      `\n   Processing ${settlement.label} settlement (${settlement.date.toISOString().split('T')[0]})...`,
-    );
-
-    for (const team of allTeams) {
-      const tier = team.league?.tier || 2;
-      const finance = await financeRepo.findOne({ where: { teamId: team.id } });
-      const fan = await fanRepo.findOne({ where: { teamId: team.id } });
-      const stadium = await stadiumRepo.findOne({ where: { teamId: team.id } });
-      const players = await playerRepo.find({
-        where: { teamId: team.id, isYouth: false },
-      });
-      const staffMembers = await staffRepo.find({
-        where: { teamId: team.id, isActive: true },
-      });
-
-      // 1. Sponsorship income
-      const baseSponsorship =
-        FINANCE_CONSTANTS.SPONSORSHIP_BASE[
-          tier as keyof typeof FINANCE_CONSTANTS.SPONSORSHIP_BASE
-        ] || 30000;
-      const fanCount = fan?.totalFans || 1000;
-      const sponsorshipMultiplier = Math.sqrt(fanCount / 10000);
-      const sponsorship = Math.floor(
-        baseSponsorship * 2 * sponsorshipMultiplier,
-      );
-
-      let tx = transactionRepo.create({
-        teamId: team.id,
-        amount: sponsorship,
-        season: SEASON,
-        week: settlement.week,
-        type: TransactionType.SPONSORSHIP,
-        description: `Week ${settlement.week} sponsorship (Tier ${tier}, ${fanCount} fans)`,
-      });
-      await transactionRepo.save(tx);
-      if (finance) {
-        finance.balance += sponsorship;
-      }
-
-      // 2. Staff wages
-      for (const staff of staffMembers) {
-        const baseWage =
-          FINANCE_CONSTANTS.STAFF_WAGE[
-            staff.level as keyof typeof FINANCE_CONSTANTS.STAFF_WAGE
-          ] || 15000;
-        const staffWage =
-          staff.role === StaffRole.HEAD_COACH ? baseWage * 2 : baseWage;
-
-        tx = transactionRepo.create({
-          teamId: team.id,
-          amount: -staffWage,
-          season: SEASON,
-          week: settlement.week,
-          type: TransactionType.STAFF_EXPENSES,
-          description: `Week ${settlement.week} wage for ${staff.name} (${staff.role})`,
-          relatedId: staff.id as Uuid,
-        });
-        await transactionRepo.save(tx);
-        if (finance) {
-          finance.balance -= staffWage;
-        }
-      }
-
-      // 3. Youth team cost
-      tx = transactionRepo.create({
-        teamId: team.id,
-        amount: -FINANCE_CONSTANTS.YOUTH_TEAM_COST,
-        season: SEASON,
-        week: settlement.week,
-        type: TransactionType.YOUTH_TEAM,
-        description: `Week ${settlement.week} youth team operation`,
-      });
-      await transactionRepo.save(tx);
-      if (finance) {
-        finance.balance -= FINANCE_CONSTANTS.YOUTH_TEAM_COST;
-      }
-
-      // 4. Stadium maintenance
-      if (stadium?.isBuilt) {
-        const maintenanceCost =
-          stadium.capacity * FINANCE_CONSTANTS.STADIUM_MAINTENANCE_PER_SEAT;
-        tx = transactionRepo.create({
-          teamId: team.id,
-          amount: -maintenanceCost,
-          season: SEASON,
-          week: settlement.week,
-          type: TransactionType.OTHER_EXPENSE,
-          description: `Week ${settlement.week} stadium maintenance (${stadium.capacity} seats)`,
-          relatedId: stadium.id as Uuid,
-        });
-        await transactionRepo.save(tx);
-        if (finance) {
-          finance.balance -= maintenanceCost;
-        }
-      }
-
-      // 5. Player wages
-      if (players.length > 0) {
-        const totalWages = players.reduce(
-          (sum, p) => sum + (p.currentWage || 0),
-          0,
+        const homeTactics = await createTeamTactics(
+          match.id,
+          homeTeam.id,
+          homePlayers,
         );
-        if (totalWages > 0) {
-          tx = transactionRepo.create({
-            teamId: team.id,
-            amount: -totalWages,
-            season: SEASON,
-            week: settlement.week,
-            type: TransactionType.WAGES,
-            description: `Week ${settlement.week} player wages (${players.length} players)`,
-          });
-          await transactionRepo.save(tx);
-          if (finance) {
-            finance.balance -= totalWages;
-          }
-        }
+        const awayTactics = await createTeamTactics(
+          match.id,
+          awayTeam.id,
+          awayPlayers,
+        );
+        await matchTacticsRepo.save([homeTactics, awayTactics]);
       }
-
-      await financeRepo.save(finance);
     }
+
     console.log(
-      `   ✓ ${settlement.label} settlement completed for ${allTeams.length} teams`,
+      `   ✓ ${league.name}: created ${(teamsInLeague.length / 2) * allMatchDates.length} matches`,
     );
   }
-
-  // ==========================================================================
-  // 8. CREATE PLAYER EVENTS FOR USER TEAM PLAYERS
-  // ==========================================================================
-  console.log('\n🎯 Creating player events...');
-  const playerEventRepo = AppDataSource.getRepository(PlayerEventEntity);
-
-  const userTeams = await teamRepo.find({ where: { isBot: false } });
-  for (const team of userTeams) {
-    const players = await playerRepo.find({
-      where: { teamId: team.id },
-      take: 3,
-    });
-    for (const player of players) {
-      // League debut
-      await playerEventRepo.save(
-        playerEventRepo.create({
-          playerId: player.id,
-          season: SEASON,
-          date: new Date(SEASON_START_DATE.getTime() + 3 * 24 * 60 * 60 * 1000),
-          eventType: PlayerEventType.LEAGUE_DEBUT,
-          icon: 'stadium',
-          titleKey: 'player_events.league_debut',
-          details: { teamName: team.name, leagueId: team.leagueId },
-        }),
-      );
-
-      // Random events
-      if (Math.random() > 0.5) {
-        await playerEventRepo.save(
-          playerEventRepo.create({
-            playerId: player.id,
-            season: SEASON,
-            date: new Date(
-              SEASON_START_DATE.getTime() + 10 * 24 * 60 * 60 * 1000,
-            ),
-            eventType: PlayerEventType.MAN_OF_THE_MATCH,
-            icon: 'star',
-            titleKey: 'player_events.man_of_the_match',
-            details: { matchId: null },
-          }),
-        );
-      }
-    }
-  }
-  console.log('   ✓ Player events created');
 
   // ==========================================================================
   // SUMMARY
@@ -1312,12 +944,14 @@ async function createLeaguePyramid() {
   console.log('\n' + '='.repeat(60));
   console.log('✅ Season 1 seed complete!');
   console.log('='.repeat(60));
+  console.log(`   Initial Date: ${INITIAL_DATE.toISOString().split('T')[0]}`);
   console.log(
-    `   Start Date: ${SEASON_START_DATE.toISOString().split('T')[0]}`,
+    `   First Match: ${allMatchDates[0].date.toISOString().split('T')[0]} (Round ${allMatchDates[0].round})`,
   );
-  console.log(`   Completed Matches: 4 matchdays (Apr 9, 12, 16, 19)`);
-  console.log(`   Scheduled Matches: 4 matchdays (Apr 23, 26, 30, May 3)`);
-  console.log(`   Settlements: 2 weeks (Apr 13, Apr 20)`);
+  console.log(
+    `   Last Match: ${allMatchDates[allMatchDates.length - 1].date.toISOString().split('T')[0]} (Round ${allMatchDates[allMatchDates.length - 1].round})`,
+  );
+  console.log(`   Total Rounds: ${allMatchDates.length}`);
   console.log(`   L1: 1 league (16 teams)`);
   console.log(`   L2: 4 leagues (16 teams each)`);
   console.log(`   User Teams: Team 1, Team 2`);

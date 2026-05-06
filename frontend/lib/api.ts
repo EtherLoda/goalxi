@@ -173,6 +173,16 @@ export interface MatchEvent {
     eventData?: any; // Alternative data field
 }
 
+export interface ComputedStats {
+    xG: number;
+    goals: number;
+    saves: number;
+    tackles: number;
+    interceptions: number;
+    clearances: number;
+    passAccuracy: number;
+}
+
 export interface MatchTeamStats {
     id: string;
     matchId: string;
@@ -190,8 +200,11 @@ export interface MatchTeamStats {
 }
 
 export interface MatchStatsRes {
-    home: MatchTeamStats;
-    away: MatchTeamStats;
+    matchId: string;
+    homeTeamStats: MatchTeamStats;
+    awayTeamStats: MatchTeamStats;
+    homeComputed: ComputedStats;
+    awayComputed: ComputedStats;
 }
 
 export interface Tactics {

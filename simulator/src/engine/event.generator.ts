@@ -232,6 +232,64 @@ export function generateLineupEvent(
 }
 
 /**
+ * Generate weather announcement event
+ */
+export function generateWeatherAnnouncementEvent(
+  minute: number,
+  weather: string,
+  homeTeam: string,
+  awayTeam: string,
+): any {
+  const descriptionIndex = getRandomDescriptionIndex();
+  // Format weather for display
+  const weatherDisplay = weather
+    .split('_')
+    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+    .join(' ');
+
+  return {
+    type: MatchEventType.WEATHER_ANNOUNCEMENT,
+    minute,
+    second: 0,
+    descriptionIndex,
+    teamId: undefined, // Neutral event
+    data: {
+      weather: weatherDisplay,
+      weatherKey: weather,
+      homeTeam,
+      awayTeam,
+    },
+  };
+}
+
+/**
+ * Generate player introduction event (both teams lineup)
+ */
+export function generatePlayerIntroductionEvent(
+  minute: number,
+  homeTeam: string,
+  awayTeam: string,
+  homePlayers: Array<{ name: string; position: string }>,
+  awayPlayers: Array<{ name: string; position: string }>,
+): any {
+  const descriptionIndex = getRandomDescriptionIndex();
+
+  return {
+    type: MatchEventType.PLAYER_INTRODUCTION,
+    minute,
+    second: 0,
+    descriptionIndex,
+    teamId: undefined, // Neutral event
+    data: {
+      homeTeam,
+      awayTeam,
+      homePlayers,
+      awayPlayers,
+    },
+  };
+}
+
+/**
  * Generate forfeit event
  */
 export function generateForfeitEvent(

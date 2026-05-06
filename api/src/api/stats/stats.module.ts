@@ -1,5 +1,6 @@
 import {
   MatchEntity,
+  MatchEventEntity,
   MatchTeamStatsEntity,
   PlayerCompetitionStatsEntity,
   PlayerEntity,
@@ -16,6 +17,7 @@ import { StatsService } from './stats.service';
     AuthModule,
     TypeOrmModule.forFeature([
       MatchEntity,
+      MatchEventEntity,
       MatchTeamStatsEntity,
       TeamEntity,
       PlayerCompetitionStatsEntity,

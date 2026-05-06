@@ -977,6 +977,8 @@ export class SimulationProcessor extends WorkerHost {
       penalty_miss: 31,
       snapshot: 21,
       tactical_change: 27,
+      weather_announcement: 32,
+      player_introduction: 33,
     };
     return mapping[type] ?? 27;
   }

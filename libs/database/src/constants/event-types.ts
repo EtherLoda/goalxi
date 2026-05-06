@@ -32,6 +32,8 @@ export enum MatchEventType {
     OWN_GOAL = 29,
     VAR_DECISION = 30,
     PENALTY_MISS = 31,
+    WEATHER_ANNOUNCEMENT = 32,
+    PLAYER_INTRODUCTION = 33,
 }
 
 export enum MatchPhase {
