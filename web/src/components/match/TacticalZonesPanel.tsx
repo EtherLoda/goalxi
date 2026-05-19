@@ -38,12 +38,12 @@ function ZoneCell({
 
   const homeBar =
     homeColor === 'primary'
-      ? 'bg-gradient-to-r from-primary to-primary/70'
-      : 'bg-gradient-to-r from-amber-500 to-amber-400';
+      ? 'bg-linear-to-r from-primary to-primary/70'
+      : 'bg-linear-to-r from-amber-500 to-amber-400';
   const awayBar =
     awayColor === 'primary'
-      ? 'bg-gradient-to-l from-secondary to-secondary/70'
-      : 'bg-gradient-to-l from-amber-600 to-amber-500';
+      ? 'bg-linear-to-l from-secondary to-secondary/70'
+      : 'bg-linear-to-l from-amber-600 to-amber-500';
 
   return (
     <div className="bg-surface-container rounded-lg p-2">

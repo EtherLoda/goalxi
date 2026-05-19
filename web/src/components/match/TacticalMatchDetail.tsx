@@ -150,12 +150,12 @@ export function TacticalMatchDetail({
   return (
     <div className="h-full flex flex-col gap-4">
       {/* Floating Score Header */}
-      <header className="glass-panel rounded-2xl px-6 py-3 flex items-center justify-between relative overflow-hidden flex-shrink-0">
-        <div className="absolute inset-0 bg-gradient-to-r from-primary/5 via-transparent to-secondary/5 pointer-events-none" />
+      <header className="glass-panel rounded-2xl px-6 py-3 flex items-center justify-between relative overflow-hidden shrink-0">
+        <div className="absolute inset-0 bg-linear-to-r from-primary/5 via-transparent to-secondary/5 pointer-events-none" />
 
         {/* Home Team */}
         <div className="flex items-center gap-4 z-10 flex-1">
-          <div className="text-right flex-grow">
+          <div className="text-right grow">
             <div className="font-headline font-bold text-lg tracking-tight text-white uppercase">
               {homeName}
             </div>
@@ -205,7 +205,7 @@ export function TacticalMatchDetail({
               <span className="text-secondary font-black text-xs">{awayName.charAt(0)}</span>
             </div>
           </div>
-          <div className="text-left flex-grow">
+          <div className="text-left grow">
             <div className="font-headline font-bold text-lg tracking-tight text-white uppercase">
               {awayName}
             </div>
@@ -217,11 +217,11 @@ export function TacticalMatchDetail({
       </header>
 
       {/* Main Content Grid */}
-      <div className="flex-grow flex gap-4 min-h-0">
+      <div className="grow flex gap-4 min-h-0">
         {/* Left & Center: Pitch + Commentary */}
         <div className="flex-1 flex flex-col gap-4 min-h-0">
           {/* 2D Tactical Pitch */}
-          <div className="aspect-[16/9] bg-[#051a14] rounded-3xl relative border border-white/5 overflow-hidden">
+          <div className="aspect-video bg-[#051a14] rounded-3xl relative border border-white/5 overflow-hidden">
             <div className="absolute inset-0 pitch-surface" />
             {/* Pitch Markings */}
             <div className="absolute inset-0 p-6">
@@ -330,7 +330,7 @@ export function TacticalMatchDetail({
           </div>
 
           {/* Commentary Bar */}
-          <div className="h-[160px] glass-panel rounded-2xl px-5 py-3 flex flex-col flex-shrink-0">
+          <div className="h-40 glass-panel rounded-2xl px-5 py-3 flex flex-col shrink-0">
             <div className="flex items-center justify-between mb-2 pb-2 border-b border-primary/5">
               <h3 className="font-headline font-bold text-[10px] uppercase tracking-widest text-primary/80 flex items-center gap-2">
                 <span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
@@ -340,7 +340,7 @@ export function TacticalMatchDetail({
                 {events.length} events
               </span>
             </div>
-            <div className="flex-grow overflow-y-auto space-y-2 pr-2">
+            <div className="grow overflow-y-auto space-y-2 pr-2">
               {events.slice(-6).reverse().map((event, idx) => {
                 const type = (event.typeName || event.type || '').toUpperCase();
                 const text = formatEventCommentary(event, homeName, awayName, (key: string) => key);
@@ -378,7 +378,7 @@ export function TacticalMatchDetail({
                 return (
                   <div key={event.id || idx} className="flex items-start gap-2">
                     <span
-                      className={`font-black font-headline text-xs px-1.5 py-0.5 rounded w-7 text-center flex-shrink-0 ${minuteBg}`}
+                      className={`font-black font-headline text-xs px-1.5 py-0.5 rounded w-7 text-center shrink-0 ${minuteBg}`}
                     >
                       {event.minute}&apos;
                     </span>
@@ -393,7 +393,7 @@ export function TacticalMatchDetail({
         </div>
 
         {/* Right Sidebar: Squad Monitor + Stats */}
-        <aside className="w-72 flex flex-col gap-4 flex-shrink-0">
+        <aside className="w-72 flex flex-col gap-4 shrink-0">
           {/* Squad Monitor */}
           <div className="flex-1 glass-panel rounded-2xl p-4 flex flex-col min-h-0">
             <div className="flex items-center justify-between mb-3">
@@ -402,7 +402,7 @@ export function TacticalMatchDetail({
                 Squad Monitor
               </h2>
             </div>
-            <div className="flex-grow overflow-y-auto custom-scrollbar">
+            <div className="grow overflow-y-auto custom-scrollbar">
               <table className="w-full text-left">
                 <thead>
                   <tr className="text-[9px] font-label uppercase tracking-widest text-outline border-b border-primary/5">
@@ -500,7 +500,7 @@ export function TacticalMatchDetail({
                   <span>Intensity</span>
                   <span className="text-primary">Peak (92)</span>
                 </div>
-                <div className="flex items-end gap-[2px] h-12">
+                <div className="flex items-end gap-0.5 h-12">
                   {[
                     30, 45, 70, 85, 100, 90, 60, 40, 20, 30,
                   ].map((h, i) => (

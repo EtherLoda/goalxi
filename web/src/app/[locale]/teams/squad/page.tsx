@@ -104,7 +104,7 @@ function ListPlayerModal({ player, onClose, onSuccess }: ListPlayerModalProps) {
       <div className="relative w-full max-w-sm bg-gradient-to-b from-[#0a1a14] to-[#001e17] rounded-2xl border border-[#2f4e44]/50 shadow-2xl overflow-hidden">
         {/* Header */}
         <div className="relative px-6 pt-6 pb-4">
-          <div className="absolute inset-0 bg-gradient-to-r from-[#a1ffc2]/5 to-transparent pointer-events-none" />
+          <div className="absolute inset-0 bg-linear-to-r from-[#a1ffc2]/5 to-transparent pointer-events-none" />
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-xl bg-[#a1ffc2]/20 flex items-center justify-center">

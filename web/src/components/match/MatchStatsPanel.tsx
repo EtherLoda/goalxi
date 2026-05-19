@@ -48,11 +48,11 @@ function StatBar({
       </div>
       <div className="flex h-1.5 rounded-full overflow-hidden bg-surface-container">
         <div
-          className={`bg-gradient-to-r ${homeColor} rounded-l-full transition-all duration-500`}
+          className={`bg-linear-to-r ${homeColor} rounded-l-full transition-all duration-500`}
           style={{ width: `${homePercent}%` }}
         />
         <div
-          className={`bg-gradient-to-l ${awayColor} rounded-r-full transition-all duration-500`}
+          className={`bg-linear-to-l ${awayColor} rounded-r-full transition-all duration-500`}
           style={{ width: `${100 - homePercent}%` }}
         />
       </div>

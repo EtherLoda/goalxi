@@ -79,7 +79,7 @@ export function LiveCommentary({ events, currentMinute, homeTeamName, awayTeamNa
                     : 'hover:bg-surface-container'
                 }`}
               >
-                <div className="flex-shrink-0 mt-0.5">
+                <div className="shrink-0 mt-0.5">
                   <EventIcon type={type} />
                 </div>
                 <div className="flex-1 min-w-0">
@@ -87,7 +87,7 @@ export function LiveCommentary({ events, currentMinute, homeTeamName, awayTeamNa
                     {text}
                   </p>
                 </div>
-                <span className={`flex-shrink-0 font-mono font-black text-[11px] ${isLatest ? 'text-primary' : 'text-on-surface-variant'}`}>
+                <span className={`shrink-0 font-mono font-black text-[11px] ${isLatest ? 'text-primary' : 'text-on-surface-variant'}`}>
                   {event.minute}&apos;
                 </span>
               </div>

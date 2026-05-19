@@ -108,7 +108,7 @@ export function MatchReport({ match, events, stats }: MatchReportProps) {
                   {homeGoals.map((g, i) => (
                     <div key={i} className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
-                        <span className="w-1.5 h-1.5 rounded-full bg-primary flex-shrink-0" />
+                        <span className="w-1.5 h-1.5 rounded-full bg-primary shrink-0" />
                         <span className="text-xs text-on-surface">{g.playerName}</span>
                         {g.assistName && (
                           <span className="text-[10px] text-on-surface-variant">assist {g.assistName}</span>
@@ -125,7 +125,7 @@ export function MatchReport({ match, events, stats }: MatchReportProps) {
                   {awayGoals.map((g, i) => (
                     <div key={i} className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
-                        <span className="w-1.5 h-1.5 rounded-full bg-secondary flex-shrink-0" />
+                        <span className="w-1.5 h-1.5 rounded-full bg-secondary shrink-0" />
                         <span className="text-xs text-on-surface">{g.playerName}</span>
                         {g.assistName && (
                           <span className="text-[10px] text-on-surface-variant">assist {g.assistName}</span>

@@ -282,7 +282,7 @@ function MatchesPageContent() {
                 className="block bg-surface-container-highest/80 backdrop-blur-md rounded-DEFAULT p-4 md:p-5 relative overflow-hidden border border-outline-variant/15 hover:brightness-110 transition-all group"
               >
                 {/* Top gradient bar */}
-                <div className="absolute top-0 left-0 w-full h-0.5 bg-gradient-to-r from-primary/60 to-transparent" />
+                <div className="absolute top-0 left-0 w-full h-0.5 bg-linear-to-r from-primary/60 to-transparent" />
 
                 {/* Date & Venue */}
                 <div className="flex items-center gap-2 text-xs text-on-surface-variant mb-3 relative z-10">
@@ -316,7 +316,7 @@ function MatchesPageContent() {
               </Link>
             ) : (
               <div className="block bg-surface-container-highest/80 backdrop-blur-md rounded-DEFAULT p-5 relative overflow-hidden border border-outline-variant/15">
-                <div className="absolute top-0 left-0 w-full h-0.5 bg-gradient-to-r from-primary/40 to-transparent" />
+                <div className="absolute top-0 left-0 w-full h-0.5 bg-linear-to-r from-primary/40 to-transparent" />
                 <div className="text-center py-6 relative z-10">
                   <span className="material-symbols-outlined text-4xl text-on-surface-variant/30 mb-2 block">
                     history
@@ -355,7 +355,7 @@ function MatchesPageContent() {
                 {/* Top gradient bar */}
                 <div className={clsx(
                   "absolute top-0 left-0 w-full h-0.5",
-                  liveMatch ? "bg-gradient-to-r from-primary to-transparent" : "bg-gradient-to-r from-tertiary/60 to-transparent"
+                  liveMatch ? "bg-linear-to-r from-primary to-transparent" : "bg-linear-to-r from-tertiary/60 to-transparent"
                 )} />
 
                 {/* Live Badge or Date */}
@@ -412,7 +412,7 @@ function MatchesPageContent() {
               </Link>
             ) : (
               <div className="block bg-surface-container-highest/80 backdrop-blur-md rounded-DEFAULT p-5 relative overflow-hidden border border-outline-variant/15">
-                <div className="absolute top-0 left-0 w-full h-0.5 bg-gradient-to-r from-tertiary/40 to-transparent" />
+                <div className="absolute top-0 left-0 w-full h-0.5 bg-linear-to-r from-tertiary/40 to-transparent" />
                 <div className="text-center py-6 relative z-10">
                   <span className="material-symbols-outlined text-4xl text-on-surface-variant/30 mb-2 block">
                     event_busy
