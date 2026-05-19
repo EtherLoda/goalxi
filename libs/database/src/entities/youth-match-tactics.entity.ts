@@ -50,6 +50,15 @@ export class YouthMatchTacticsEntity extends BaseEntity {
     @Column({ type: 'jsonb', nullable: true })
     instructions?: Record<string, any>;
 
+    @Column({ type: 'varchar', length: 10, default: 'balanced' })
+    tempo!: string;
+
+    @Column({ type: 'varchar', length: 10, default: 'balanced' })
+    pitchWidth!: string;
+
+    @Column({ type: 'varchar', length: 10, default: 'mid' })
+    defensiveLine!: string;
+
     @Column({ name: 'created_at', type: 'timestamp', default: () => 'CURRENT_TIMESTAMP' })
     createdAt!: Date;
 }

@@ -50,6 +50,15 @@ export class MatchTacticsEntity extends BaseEntity {
     @Column({ type: 'jsonb', nullable: true })
     substitutions?: Array<{ minute: number; out: string; in: string }>;
 
+    @Column({ type: 'varchar', length: 10, default: 'balanced' })
+    tempo!: string;
+
+    @Column({ type: 'varchar', length: 10, default: 'balanced' })
+    pitchWidth!: string;
+
+    @Column({ type: 'varchar', length: 10, default: 'mid' })
+    defensiveLine!: string;
+
     @Column({ name: 'submitted_at', type: 'timestamp' })
     submittedAt!: Date;
 
