@@ -459,102 +459,108 @@
   },
   "commentary": {
     "goal": {
-      "tpl_0": "{player} 为 {team} 进球！",
-      "tpl_1": "{player} 攻破球门！",
-      "tpl_2": "精彩的射门！{player} 得分！",
-      "tpl_3": "{player} 将球送入网窝！",
-      "quality_excellent": "世界波！",
-      "quality_great": "漂亮的进球！",
-      "quality_good": "进球！",
-      "quality_chance": "绝佳机会！",
-      "quality_opportunity": "好机会"
+      "tpl_0": "球进了！{player} 为 {team} 拔得头筹！",
+      "tpl_1": "{player} 破门得分！简直势不可挡！",
+      "tpl_2": "漂亮的进球！{player} 冷静推射死角入网！",
+      "tpl_3": "{player} 凌空抽射！球像炮弹一样飞入球门！",
+      "quality_excellent": "这是一记足以载入史册的世界波！",
+      "quality_great": "精彩绝伦的破门！",
+      "quality_good": "进球漂亮！",
+      "quality_chance": "这球居然进了！简直是神来之笔！",
+      "quality_opportunity": "把握住了转瞬即逝的机会！"
     },
     "shot_on_target": {
-      "tpl_0": "{player} 射门被扑出！",
-      "tpl_1": "{player} 的射门被门将化解！",
-      "tpl_2": "门将挡住了 {player} 的射门！",
-      "tpl_3": "{player} 考验了对方门将！"
+      "tpl_0": "{player} 拔脚怒射，可惜被门将神勇扑出！",
+      "tpl_1": "{player} 的劲射被对方门将化解，险些破门！",
+      "tpl_2": "门将注意力非常集中，单掌托出了 {player} 的射门！",
+      "tpl_3": "{player} 这球打得极具威胁，考验了门将的反应！"
     },
     "shot_off_target": {
-      "tpl_0": "{player} 的射门偏出",
-      "tpl_1": "{player} 没有射正",
-      "tpl_2": "{player} 的射门擦柱而出"
+      "tpl_0": "{player} 的射门稍微偏出，差之毫厘！",
+      "tpl_1": "哎呀！{player} 没能压住球，这球打高了！",
+      "tpl_2": "{player} 错失良机，球擦着立柱飞出了底线！"
     },
     "save": {
-      "tpl_0": "精彩的扑救！",
-      "tpl_1": "门将表现出色！",
-      "tpl_2": "一次漂亮的防守！"
+      "tpl_0": "神扑！门将拯救了球队！",
+      "tpl_1": "世界级的扑救！守门员表现太稳健了！",
+      "tpl_2": "这球都能扑出来？不可思议的防守！"
     },
     "foul": {
-      "tpl_0": "{team} 犯规",
-      "tpl_1": "{team} 吃到犯规",
-      "tpl_2": "{team} 防守犯规"
+      "tpl_0": "{team} 防守动作过大，裁判鸣哨了！",
+      "tpl_1": "{team} 球员犯规，主裁判正在上前警告。",
+      "tpl_2": "{team} 在防守中推人犯规。"
     },
     "offside": {
-      "tpl_0": "{team} 越位",
-      "tpl_1": "{team} 落入越位陷阱"
+      "tpl_0": "边裁举旗了，{team} 越位在先。",
+      "tpl_1": "{team} 掉入了对方布置的越位陷阱！"
     },
     "corner": {
-      "tpl_0": "{team} 获得角球",
-      "tpl_1": "{team} 赢得角球机会"
+      "tpl_0": "{team} 获得底线角球，看看这次定位球机会。",
+      "tpl_1": "{team} 赢得角球，禁区内高个球员都上来了。"
     },
     "yellow_card": {
-      "tpl_0": "黄牌 — {player}{reason}",
-      "tpl_1": "{player} 被出示黄牌{reason}"
+      "tpl_0": "黄牌！裁判向 {player} 出示了警告{reason}。",
+      "tpl_1": "{player} 因为战术犯规被黄牌警告{reason}。"
     },
     "red_card": {
-      "tpl_0": "红牌 — {player}",
-      "tpl_1": "{player} 被罚下场！"
+      "tpl_0": "红牌！{player} 被直接罚下，形势对他们不利了！",
+      "tpl_1": "主裁判毫不犹豫，出示红牌！{player} 必须离场！"
     },
     "substitution": {
-      "tpl_0": "换人 — {playerIn} 登场，{team}",
-      "tpl_1": "{playerIn} 替补出场，{team}",
-      "tpl_2": "{team} 进行换人调整"
+      "tpl_0": "换人调整：{playerIn} 披挂上阵，{team} 试图加强进攻。",
+      "tpl_1": "{team} 做出人员变动，{playerIn} 替补登场。",
+      "tpl_2": "{team} 主教练在场边调兵遣将。"
     },
     "injury": {
-      "tpl_0": "伤病 — {player}{severity}",
-      "tpl_1": "{player} 倒地受伤{severity}",
-      "tpl_2": "{player} 需要医疗帮助{severity}"
+      "tpl_0": "突发状况：{player} 似乎受伤了{severity}。",
+      "tpl_1": "{player} 痛苦倒地，队医正紧急入场检查{severity}。",
+      "tpl_2": "比赛暂时中断，{player} 的伤情看起来有些反复{severity}。"
     },
     "clearance": {
-      "tpl_0": "{team} 解围",
-      "tpl_1": "{team} 破坏危险球"
+      "tpl_0": "{team} 禁区内大脚解围，化解了险情。",
+      "tpl_1": "{team} 后卫抢先一步将球破坏出危险区。"
     },
     "interception": {
-      "tpl_0": "{team} 拦截",
-      "tpl_1": "{team} 断球成功"
+      "tpl_0": "{team} 完成关键拦截，拿回了球权。",
+      "tpl_1": "{team} 预判准确，成功断球！"
     },
     "penalty": {
-      "tpl_0": "{team} 获得点球！",
-      "tpl_1": "{team} 赢得点球机会！"
+      "tpl_0": "点球！主裁判手指点球点，{team} 获得绝佳机会！",
+      "tpl_1": "{team} 赢得点球！全场的目光都集中在罚球点上！"
     },
     "penalty_miss": {
-      "tpl_0": "点球罚失 — {player}",
-      "tpl_1": "{player} 将点球打偏！"
+      "tpl_0": "天哪！点球罚失了！{player} 压力太大了。",
+      "tpl_1": "{player} 的点球竟然打偏了！错失了反超的最好机会！"
     },
     "half_time": {
-      "tpl_0": "半场结束 — {homeTeam} {homeScore} : {awayScore} {awayTeam}"
+      "tpl_0": "半场哨响。{homeTeam} {homeScore} : {awayScore} {awayTeam}，球员们进入更衣室稍作休息。"
     },
     "full_time": {
-      "tpl_0": "全场结束！{homeTeam} {homeScore} : {awayScore} {awayTeam} — {winner} 获胜！",
-      "tpl_1": "比赛结束！{homeTeam} {homeScore} : {awayScore} {awayTeam}。恭喜 {winner}！",
-      "tpl_2": "终场哨响！{homeTeam} {homeScore} : {awayScore} {awayTeam} — {winner} 赢得比赛！",
-      "draw": "双方握手言和！"
+      "tpl_0": "全场比赛结束！最终比分定格在 {homeTeam} {homeScore} : {awayScore} {awayTeam}，{winner} 拿到了宝贵的胜利！",
+      "tpl_1": "终场哨响！{homeTeam} 对阵 {awayTeam}，比分 {homeScore} : {awayScore}。恭喜 {winner} 赢下比赛！",
+      "tpl_2": "全场比赛结束，{winner} 凭借出色的发挥笑到了最后！",
+      "draw": "两队鏖战90分钟，最终握手言和！"
     },
     "kickoff": {
-      "tpl_0": "比赛开始！"
+      "tpl_0": "随着主裁判的一声哨响，比赛正式开始！"
     },
     "second_half_start": {
-      "tpl_0": "下半场开始"
+      "tpl_0": "双方易边再战，下半场比赛正式开启。"
     },
     "extra_time_start": {
-      "tpl_0": "加时赛开始！"
+      "tpl_0": "常规时间不分胜负，加时赛的考验开始了！"
     },
     "penalty_start": {
-      "tpl_0": "点球大战开始"
+      "tpl_0": "残酷的点球大战即将开始，这将是心理素质的终极对决。"
     },
-    "weather_announcement": {
-      "tpl_0": "今日天气：{weather}"
+    "weather": {
+      "sunny": "今天天气晴好！阳光明媚，是踢球的完美日子。",
+      "cloudy": "今天阴云密布——球场被云层笼罩，但比赛依然精彩进行。",
+      "rainy": "雨水降临球场！皮球会变得湿滑——期待一些精彩的雨战！",
+      "heavy_rain": "大雨倾盆！暴雨让比赛条件变得极为困难。",
+      "windy": "今天风很大！强风可能会影响传球和射门的准确性。",
+      "foggy": "浓雾来袭！能见度下降——两队都需要适应这种条件。",
+      "snowy": "大雪纷飞！银装素裹的球场，但球员们要面对挑战了。"
     },
     "player_introduction": {
       "tpl_0": "双方球员就位！{homePlayers} vs {awayPlayers} 名球员"

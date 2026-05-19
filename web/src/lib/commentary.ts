@@ -327,11 +327,12 @@ export function formatWeatherAnnouncementCommentary(
   t: TranslationFunction,
 ): string {
   const data = event.data as any;
-  const weather = data?.weather || data?.weatherKey || 'Unknown';
+  const weather = data?.weather || data?.weatherKey || 'sunny';
 
-  const template = getTemplate(t, 'commentary.weather_announcement', 0);
+  // Use the weather type as the key directly
+  const template = t(`commentary.weather.${weather.toLowerCase()}`);
 
-  return interpolate(template, { weather });
+  return template;
 }
 
 export function formatPlayerIntroductionCommentary(

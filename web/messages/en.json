@@ -458,102 +458,108 @@
   },
   "commentary": {
     "goal": {
-      "tpl_0": "{player} scores for {team}!",
-      "tpl_1": "{player} finds the net for {team}!",
-      "tpl_2": "What a finish! {player} scores!",
-      "tpl_3": "{player} puts it away for {team}!",
-      "quality_excellent": "Excellent strike!",
-      "quality_great": "Great finish!",
-      "quality_good": "Goal!",
-      "quality_chance": "Great chance!",
-      "quality_opportunity": "Good opportunity"
+      "tpl_0": "GOAL! {player} opens the scoring for {team}!",
+      "tpl_1": "What a strike! {player} finds the back of the net!",
+      "tpl_2": "Brilliant finish! {player} curls it into the corner!",
+      "tpl_3": "Unstoppable! {player} smashes it into the roof of the net!",
+      "quality_excellent": "An absolute screamer that will be remembered for years!",
+      "quality_great": "Stunning goal from {player}!",
+      "quality_good": "A composed finish from {player}!",
+      "quality_chance": "He made it look so easy!",
+      "quality_opportunity": "Took it well under pressure!"
     },
     "shot_on_target": {
-      "tpl_0": "{player} shoots — saved!",
-      "tpl_1": "{player}'s effort is stopped by the keeper!",
-      "tpl_2": "The keeper denies {player}!",
-      "tpl_3": "{player} tests the keeper!"
+      "tpl_0": "{player} fires one in — the keeper pulls off a superb save!",
+      "tpl_1": "{player} unleashes a fierce drive, but the keeper is equal to it!",
+      "tpl_2": "The keeper shows great reflexes to palm away {player}'s effort!",
+      "tpl_3": "{player} forces the keeper into action with a powerful shot!"
     },
     "shot_off_target": {
-      "tpl_0": "{player}'s shot goes wide",
-      "tpl_1": "{player} misses the target",
-      "tpl_2": "{player}'s effort sails past the post"
+      "tpl_0": "So close! {player}'s shot drifts just wide of the post!",
+      "tpl_1": "{player} couldn't keep it down — over the bar!",
+      "tpl_2": " agony for {player}! The ball clips the post and goes out!"
     },
     "save": {
-      "tpl_0": "Great save!",
-      "tpl_1": "The keeper is equal to it!",
-      "tpl_2": "A brilliant stop!"
+      "tpl_0": "World-class save! The keeper bails out his team!",
+      "tpl_1": "Absolutely brilliant stop! The keeper is unbeatable today!",
+      "tpl_2": "Can you believe that? An incredible double save!"
     },
     "foul": {
-      "tpl_0": "Foul by {team}",
-      "tpl_1": "{team} commits a foul",
-      "tpl_2": "Foul on {team}"
+      "tpl_0": "{team} with a heavy challenge — the referee blows his whistle!",
+      "tpl_1": "Foul on {team}! The ref is giving a warning to the offender.",
+      "tpl_2": "{team} caught pushing in the box."
     },
     "offside": {
-      "tpl_0": "Offside — {team}",
-      "tpl_1": "{team} caught offside"
+      "tpl_0": "The assistant's flag goes up — {team} caught offside.",
+      "tpl_1": "Clever play by the defense! {team} falls into the offside trap!"
     },
     "corner": {
-      "tpl_0": "Corner for {team}",
-      "tpl_1": "{team} wins a corner"
+      "tpl_0": "{team} earns a corner kick. Let's see what they can create here.",
+      "tpl_1": "{team} with a corner — the big men are queuing up in the box!"
     },
     "yellow_card": {
-      "tpl_0": "Yellow card — {player}{reason}",
-      "tpl_1": "{player} is shown the yellow card{reason}"
+      "tpl_0": "Yellow card! The referee shows a warning to {player}{reason}.",
+      "tpl_1": "{player} is booked for a tactical foul{reason}."
     },
     "red_card": {
-      "tpl_0": "Red card — {player}",
-      "tpl_1": "{player} is sent off!"
+      "tpl_0": "RED CARD! {player} is sent off! Their team is in trouble now!",
+      "tpl_1": "No hesitation from the referee — straight red for {player}!"
     },
     "substitution": {
-      "tpl_0": "Substitution — {playerIn} on for {team}",
-      "tpl_1": "{playerIn} comes on for {team}",
-      "tpl_2": "{team} makes a substitution"
+      "tpl_0": "Substitution: {playerIn} gets ready to come on — {team} looking to freshen things up.",
+      "tpl_1": "Change for {team} — {playerIn} is warming up to enter the pitch.",
+      "tpl_2": "The manager is making changes on the touchline."
     },
     "injury": {
-      "tpl_0": "Injury — {player}{severity}",
-      "tpl_1": "{player} is down injured{severity}",
-      "tpl_2": "Medical attention needed for {player}{severity}"
+      "tpl_0": "Concern for {team} as {player} goes down{severity}.",
+      "tpl_1": "{player} looks in pain as he stays down{severity}. Medical staff are coming on.",
+      "tpl_2": "Play is stopped as {player} receives treatment{severity}."
     },
     "clearance": {
-      "tpl_0": "Clearance by {team}",
-      "tpl_1": "{team} clears the danger"
+      "tpl_0": "{team} with a crucial clearance under pressure!",
+      "tpl_1": "{team} defender gets there first and boots it to safety!"
     },
     "interception": {
-      "tpl_0": "Interception — {team}",
-      "tpl_1": "{team} intercepts the pass"
+      "tpl_0": "{team} reads that beautifully and intercepts the pass!",
+      "tpl_1": "Perfectly timed tackle by {team}! They've won the ball back!"
     },
     "penalty": {
-      "tpl_0": "Penalty for {team}!",
-      "tpl_1": "{team} awarded a penalty!"
+      "tpl_0": "PENALTY! The referee points to the spot — what a chance for {team}!",
+      "tpl_1": "{team} wins a penalty! The entire stadium holds its breath!"
     },
     "penalty_miss": {
-      "tpl_0": "Penalty missed — {player}",
-      "tpl_1": "{player} sends the penalty wide!"
+      "tpl_0": "Oh no! The penalty is missed! {player} couldn't handle the pressure.",
+      "tpl_1": "How did that miss? {player} blazes it over from the spot!"
     },
     "half_time": {
-      "tpl_0": "Half-time whistle — {homeTeam} {homeScore} : {awayScore} {awayTeam}"
+      "tpl_0": "Half-time whistle! {homeTeam} {homeScore} : {awayScore} {awayTeam} — players head to the dressing room."
     },
     "full_time": {
-      "tpl_0": "Full-time! {homeTeam} {homeScore} : {awayScore} {awayTeam} — {winner} wins!",
-      "tpl_1": "It's all over! {homeTeam} {homeScore} : {awayScore} {awayTeam}. Congratulations to {winner}!",
-      "tpl_2": "Final whistle! {homeTeam} {homeScore} : {awayScore} {awayTeam} — {winner} takes the victory!",
-      "draw": "It's a draw!"
+      "tpl_0": "Full-time! The final score: {homeTeam} {homeScore} : {awayScore} {awayTeam} — {winner} claims all three points!",
+      "tpl_1": "That's it! {homeTeam} vs {awayTeam} ends {homeScore} : {awayScore}. Congratulations to {winner}!",
+      "tpl_2": "Final whistle! {winner} shows why they're champions with a dominant display!",
+      "draw": "It's a draw after 90 minutes — both teams share the spoils!"
     },
     "kickoff": {
-      "tpl_0": "Kick-off!"
+      "tpl_0": "And we're off! The referee blows the whistle and we're underway!"
     },
     "second_half_start": {
-      "tpl_0": "Second half begins"
+      "tpl_0": "Second half kicks off! Let's see what the next 45 minutes bring."
     },
     "extra_time_start": {
-      "tpl_0": "Extra time!"
+      "tpl_0": "Thirty more minutes to decide this. Extra time begins!"
     },
     "penalty_start": {
-      "tpl_0": "Penalty shootout begins"
+      "tpl_0": "It's time for the ultimate test — penalty shootout! Nerves of steel needed now."
     },
-    "weather_announcement": {
-      "tpl_0": "Today's weather: {weather}"
+    "weather": {
+      "sunny": "Perfect football weather! Clear skies and sunshine greet the players today.",
+      "cloudy": "Overcast conditions today — clouds blanket the stadium but play continues undeterred.",
+      "rainy": "Rain is falling at the stadium! The ball will be slippery — expect some messy passages of play.",
+      "heavy_rain": "It's tipping down! Heavy rain making conditions extremely difficult out there.",
+      "windy": "A blustery day! Strong winds could affect passing and shooting accuracy.",
+      "foggy": "Thick fog rolling in! Visibility is reduced — both teams need to adapt.",
+      "snowy": "Snow is falling at the stadium! A winter wonderland but challenging for the players."
     },
     "player_introduction": {
       "tpl_0": "Teams ready! {homePlayers} vs {awayPlayers} players"
