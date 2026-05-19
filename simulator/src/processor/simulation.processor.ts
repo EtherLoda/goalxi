@@ -32,6 +32,13 @@ import {
   TacticalPlayer,
 } from '../engine/types/simulation.types';
 import {
+  TacticsConfig,
+  Tempo,
+  PitchWidth,
+  DefensiveLine,
+} from '../engine/types/tactics-config';
+import { DEFAULT_TACTICS } from '../engine/tactics/tactics-presets';
+import {
   NotificationService,
   NotificationType,
 } from '../notification/notification.service';
@@ -375,6 +382,18 @@ export class SimulationProcessor extends WorkerHost {
     // Normalize weather string for MatchEngine
     const normalizedWeather = weather || 'cloudy';
 
+    const homeTacticsConfig: TacticsConfig = {
+      tempo: (homeTactics.tempo as Tempo) || Tempo.BALANCED,
+      pitchWidth: (homeTactics.pitchWidth as PitchWidth) || PitchWidth.BALANCED,
+      defensiveLine: (homeTactics.defensiveLine as DefensiveLine) || DefensiveLine.MID,
+    };
+
+    const awayTacticsConfig: TacticsConfig = {
+      tempo: (awayTactics.tempo as Tempo) || Tempo.BALANCED,
+      pitchWidth: (awayTactics.pitchWidth as PitchWidth) || PitchWidth.BALANCED,
+      defensiveLine: (awayTactics.defensiveLine as DefensiveLine) || DefensiveLine.MID,
+    };
+
     const engine = new MatchEngine(
       tA,
       tB,
@@ -384,6 +403,8 @@ export class SimulationProcessor extends WorkerHost {
       homeBenchConfig,
       awayBenchConfig,
       normalizedWeather,
+      homeTacticsConfig,
+      awayTacticsConfig,
     );
 
     // 5. Run Match (wrapped in try/catch to ensure transaction rollback on error)

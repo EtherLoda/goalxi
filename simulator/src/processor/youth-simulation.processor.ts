@@ -22,6 +22,13 @@ import {
   TacticalInstruction,
   TacticalPlayer,
 } from '../engine/types/simulation.types';
+import {
+  TacticsConfig,
+  Tempo,
+  PitchWidth,
+  DefensiveLine,
+} from '../engine/types/tactics-config';
+import { DEFAULT_TACTICS } from '../engine/tactics/tactics-presets';
 
 interface YouthSimulationJobData {
   youthMatchId: string;
@@ -98,6 +105,20 @@ export class YouthSimulationProcessor extends WorkerHost {
     if (!homeTactics || !awayTactics) {
       throw new Error(`Youth tactics missing for match ${match.id}`);
     }
+
+    // Build tactics config from entity fields
+    const homeTacticsConfig: TacticsConfig = {
+      tempo: (homeTactics.tempo as Tempo) || Tempo.BALANCED,
+      pitchWidth: (homeTactics.pitchWidth as PitchWidth) || PitchWidth.BALANCED,
+      defensiveLine:
+        (homeTactics.defensiveLine as DefensiveLine) || DefensiveLine.MID,
+    };
+    const awayTacticsConfig: TacticsConfig = {
+      tempo: (awayTactics.tempo as Tempo) || Tempo.BALANCED,
+      pitchWidth: (awayTactics.pitchWidth as PitchWidth) || PitchWidth.BALANCED,
+      defensiveLine:
+        (awayTactics.defensiveLine as DefensiveLine) || DefensiveLine.MID,
+    };
 
     // 2. Fetch Youth Teams (no bench config for youth teams)
     const [homeTeamEntity, awayTeamEntity] = await Promise.all([
@@ -217,6 +238,9 @@ export class YouthSimulationProcessor extends WorkerHost {
       subMap,
       null,
       null,
+      'cloudy',
+      homeTacticsConfig,
+      awayTacticsConfig,
     );
 
     // 6. Run Match
