@@ -1,0 +1,1375 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>GoalXI 比赛引擎文档</title>
+  <style>
+    :root {
+      --bg: #0f1117;
+      --surface: #1a1d27;
+      --surface2: #242836;
+      --border: #2e3344;
+      --text: #e4e7ef;
+      --text-muted: #8b90a0;
+      --accent: #5e8aff;
+      --accent-dim: #3a5cbf;
+      --green: #34d399;
+      --yellow: #fbbf24;
+      --red: #f87171;
+      --purple: #a78bfa;
+      --cyan: #22d3ee;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.7;
+      font-size: 14px;
+    }
+    [lang="en"] { display: none; }
+    body.en [lang="zh"] { display: none; }
+    body.en [lang="en"] { display: block; }
+    body.en [lang="en-row"] { display: table-row; }
+    body.en [lang="en-inline"] { display: inline; }
+
+    nav {
+      position: fixed;
+      top: 0; left: 0; right: 0;
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      padding: 0 24px;
+      height: 52px;
+      display: flex;
+      align-items: center;
+      gap: 24px;
+      z-index: 100;
+    }
+    nav h1 { font-size: 15px; font-weight: 600; color: var(--accent); }
+    nav a { color: var(--text-muted); text-decoration: none; font-size: 13px; }
+    nav a:hover { color: var(--text); }
+    nav a.active { color: var(--accent); }
+    nav .lang-toggle {
+      margin-left: auto;
+      display: flex;
+      gap: 8px;
+    }
+    nav .lang-btn {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 4px 12px;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      color: var(--text-muted);
+      transition: all 0.15s;
+    }
+    nav .lang-btn:hover { color: var(--text); border-color: var(--accent); }
+    nav .lang-btn.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+    main { padding: 72px 24px 80px; max-width: 900px; margin: 0 auto; }
+    h1 { font-size: 28px; font-weight: 700; margin-bottom: 8px; }
+    h2 { font-size: 20px; font-weight: 600; margin: 40px 0 16px; color: var(--accent); border-bottom: 1px solid var(--border); padding-bottom: 8px; }
+    h3 { font-size: 15px; font-weight: 600; margin: 24px 0 10px; color: var(--yellow); }
+    h4 { font-size: 13px; font-weight: 600; margin: 16px 0 8px; color: var(--green); }
+    p { margin-bottom: 12px; color: var(--text); }
+    .lead { font-size: 15px; color: var(--text-muted); margin-bottom: 24px; }
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 16px;
+      margin-bottom: 16px;
+    }
+    .card-header { font-weight: 600; margin-bottom: 10px; color: var(--accent); font-size: 13px; text-transform: uppercase; letter-spacing: 0.5px; }
+    .card-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; }
+    .card-item { background: var(--surface2); border-radius: 6px; padding: 10px 12px; }
+    .card-item .label { font-size: 11px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.3px; }
+    .card-item .value { font-size: 18px; font-weight: 700; margin-top: 2px; }
+    .code {
+      font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 12px;
+      font-size: 12px;
+      overflow-x: auto;
+      margin: 12px 0;
+      color: var(--cyan);
+      line-height: 1.8;
+    }
+    .comment { color: var(--text-muted); }
+    .keyword { color: var(--purple); }
+    .number { color: var(--green); }
+    .string { color: var(--yellow); }
+    .flow { position: relative; padding-left: 20px; }
+    .flow::before {
+      content: '';
+      position: absolute;
+      left: 6px; top: 0; bottom: 0;
+      width: 2px;
+      background: var(--border);
+      border-radius: 1px;
+    }
+    .flow-item {
+      position: relative;
+      margin-bottom: 12px;
+      padding-left: 16px;
+    }
+    .flow-item::before {
+      content: '';
+      position: absolute;
+      left: -17px; top: 8px;
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      background: var(--accent);
+      border: 2px solid var(--bg);
+    }
+    .flow-item.alt::before { background: var(--yellow); }
+    .flow-item.goal::before { background: var(--green); }
+    .flow-item.miss::before { background: var(--red); }
+    .flow-item.info::before { background: var(--text-muted); }
+    .badge {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 4px;
+      font-size: 11px;
+      font-weight: 600;
+    }
+    .badge-green { background: rgba(52,211,153,0.15); color: var(--green); }
+    .badge-yellow { background: rgba(251,191,36,0.15); color: var(--yellow); }
+    .badge-red { background: rgba(248,113,113,0.15); color: var(--red); }
+    .badge-blue { background: rgba(94,138,255,0.15); color: var(--accent); }
+    .badge-purple { background: rgba(167,139,250,0.15); color: var(--purple); }
+    .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+    table { width: 100%; border-collapse: collapse; margin: 12px 0; font-size: 13px; }
+    th { text-align: left; padding: 8px 12px; background: var(--surface2); color: var(--accent); font-size: 11px; text-transform: uppercase; letter-spacing: 0.3px; }
+    td { padding: 8px 12px; border-bottom: 1px solid var(--border); }
+    tr:last-child td { border-bottom: none; }
+    .formula {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 12px 16px;
+      font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
+      font-size: 13px;
+      margin: 12px 0;
+      color: var(--green);
+      text-align: center;
+    }
+    .highlight { background: rgba(94,138,255,0.1); border-left: 3px solid var(--accent); padding: 12px; margin: 12px 0; border-radius: 0 6px 6px 0; }
+    .tactic-diagram { display: flex; gap: 12px; margin: 12px 0; flex-wrap: wrap; }
+    .tactic-option { flex: 1; min-width: 160px; background: var(--surface2); border-radius: 8px; padding: 12px; text-align: center; }
+    .tactic-option .name { font-weight: 700; font-size: 14px; margin-bottom: 4px; }
+    .tactic-option .effect { font-size: 12px; color: var(--text-muted); }
+    .star { color: var(--yellow); }
+    hr { border: none; border-top: 1px solid var(--border); margin: 32px 0; }
+    ul { margin: 8px 0 12px 20px; }
+    li { margin-bottom: 4px; }
+  </style>
+</head>
+<body>
+
+<nav>
+  <h1>⚽ GoalXI Match Engine</h1>
+  <a href="#overview" lang="zh">概览</a>
+  <a href="#overview" lang="en">Overview</a>
+  <a href="#duel" lang="zh">对抗系统</a>
+  <a href="#duel" lang="en">Duel System</a>
+  <a href="#keymoment" lang="zh">关键时刻</a>
+  <a href="#keymoment" lang="en">Key Moment</a>
+  <a href="#tactics" lang="zh">战术维度</a>
+  <a href="#tactics" lang="en">Tactics</a>
+  <a href="#setpieces" lang="zh">定位球</a>
+  <a href="#setpieces" lang="en">Set Pieces</a>
+  <a href="#injury" lang="zh">伤病</a>
+  <a href="#injury" lang="en">Injury</a>
+  <a href="#stats" lang="zh">数据统计</a>
+  <a href="#stats" lang="en">Stats</a>
+  <div class="lang-toggle">
+    <button class="lang-btn active" id="btn-zh" onclick="setLang('zh')">中文</button>
+    <button class="lang-btn" id="btn-en" onclick="setLang('en')">EN</button>
+  </div>
+</nav>
+
+<main>
+
+<h1 lang="zh">比赛引擎文档</h1>
+<h1 lang="en">Match Engine Documentation</h1>
+<p class="lead">
+  <span lang="zh">GoalXI 比赛模拟引擎完整技术参考。涵盖对抗系统、关键时刻流程、战术维度、定位球、伤病与数据统计。</span>
+  <span lang="en">Complete technical reference for GoalXI's match simulation engine. Covers the duel system, key moment flow, tactical dimensions, set pieces, injuries, and statistics tracking.</span>
+</p>
+
+<h2 id="overview">
+  <span lang="zh">1. 整体架构</span>
+  <span lang="en">1. Architecture Overview</span>
+</h2>
+
+<h3>
+  <span lang="zh">比赛流程</span>
+  <span lang="en">Match Flow</span>
+</h3>
+<p lang="zh">每分钟按以下顺序执行：</p>
+<p lang="en">Each minute executes in this order:</p>
+
+<div class="flow" style="margin: 16px 0;">
+  <div class="flow-item info">
+    <strong lang="zh">处理战术指令</strong>
+    <strong lang="en">Process Tactical Instructions</strong>
+    <div style="font-size:12px; color:var(--text-muted); margin-top:2px;">
+      <span lang="zh">应用本分钟待执行的换人、位置对调、阵型调整</span>
+      <span lang="en">Apply pending substitutions, position swaps, or tactical changes for this minute</span>
+    </div>
+  </div>
+  <div class="flow-item info">
+    <strong lang="zh">更新球员状态</strong>
+    <strong lang="en">Update Condition</strong>
+    <div style="font-size:12px; color:var(--text-muted); margin-top:2px;">
+      <span lang="zh">体能衰减并重新计算 condition multiplier（中场休息时部分恢复）</span>
+      <span lang="en">Decay stamina and recalculate player fitness multipliers (halftime resets recovery)</span>
+    </div>
+  </div>
+  <div class="flow-item info">
+    <strong lang="zh">生成快照</strong>
+    <strong lang="en">Generate Snapshot</strong>
+    <div style="font-size:12px; color:var(--text-muted); margin-top:2px;">
+      <span lang="zh">每5分钟 + 45、46、90 分钟。记录路强度、球员体能、星级评分</span>
+      <span lang="en">Every 5 minutes + 45, 46, 90. Records lane strengths, player fitness, and star ratings</span>
+    </div>
+  </div>
+  <div class="flow-item info">
+    <strong lang="zh">模拟关键时刻</strong>
+    <strong lang="en">Simulate Key Moment</strong>
+    <div style="font-size:12px; color:var(--text-muted); margin-top:2px;">
+      <span lang="zh">全场约20次。核心比赛模拟流程（见第4章）</span>
+      <span lang="en">~20 moments per match. The core match simulation (see Section 4)</span>
+    </div>
+  </div>
+</div>
+
+<h3>
+  <span lang="zh">加时赛</span>
+  <span lang="en">Extra Time</span>
+</h3>
+<p lang="zh">加时赛运行30分钟（91–120分钟），约7个关键时刻。结构与常规时间相同。加时半场在105–106分钟。120分钟后仍平局则进入点球大战。</p>
+<p lang="en">Extra time runs 30 minutes (91–120) with ~7 key moments. Same structure as regular time, with halftime within ET at 105–106. If scores are still level after 120 minutes, proceeds to penalty shootout.</p>
+
+<h3>
+  <span lang="zh">构造函数参数</span>
+  <span lang="en">Constructor Parameters</span>
+</h3>
+<div class="code"><span class="keyword">new MatchEngine</span>(
+  homeTeam,           <span class="comment">// Team</span>
+  awayTeam,           <span class="comment">// Team</span>
+  homeInstructions,    <span class="comment">// TacticalInstruction[]</span>
+  awayInstructions,
+  substitutePlayers,   <span class="comment">// Map&lt;playerId, TacticalPlayer&gt;</span>
+  homeBenchConfig,    <span class="comment">// BenchConfig | null</span>
+  awayBenchConfig,
+  weather,             <span class="comment">// 'cloudy'|'sunny'|'rainy'|'windy'|'foggy'|'snowy'</span>
+  homeTactics,        <span class="comment">// TacticsConfig</span>
+  awayTactics
+)</div>
+
+<hr>
+
+<h2 id="duel">
+  <span lang="zh">2. 对抗系统（Sigmoid）</span>
+  <span lang="en">2. The Duel System (Sigmoid)</span>
+</h2>
+
+<p lang="zh">所有对抗结果都使用 Sigmoid 对抗函数。包括中场争夺、进攻推进、射门、定位球，全部基于此。</p>
+<p lang="en">All contest outcomes use a sigmoid duel function. Used for midfield battles, attack pushes, shots, set pieces — everything.</p>
+
+<div class="formula">P = 1 / (1 + exp(-(ratio - 1 - offset/100) × k))</div>
+
+<table>
+  <tr>
+    <th lang="zh">参数</th>
+    <th lang="en">Param</th>
+    <th lang="zh">含义</th>
+    <th lang="en">Meaning</th>
+  </tr>
+  <tr>
+    <td><span class="string">ratio</span></td>
+    <td>valA / valB</td>
+    <td lang="zh">进攻方 / 防守方</td>
+    <td lang="en">attacker value / defender value</td>
+  </tr>
+  <tr>
+    <td><span class="string">offset</span></td>
+    <td>偏置值</td>
+    <td lang="zh">正偏置 = 进攻方更容易赢；负偏置 = 进攻方更难赢</td>
+    <td lang="en">Positive = easier for attacker; negative = harder</td>
+  </tr>
+  <tr>
+    <td><span class="string">k</span></td>
+    <td>敏感度</td>
+    <td lang="zh">k 越高，相同 ratio 差时结果越极端</td>
+    <td lang="en">Higher k = more decisive at same ratio difference</td>
+  </tr>
+  <tr>
+    <td><span class="string">P</span></td>
+    <td>概率</td>
+    <td lang="zh">进攻方 valA 获胜的概率</td>
+    <td lang="en">Probability that valA (attacker) wins</td>
+  </tr>
+</table>
+
+<h3>
+  <span lang="zh">参数示例</span>
+  <span lang="en">Examples</span>
+</h3>
+
+<table>
+  <tr>
+    <th lang="zh">场景</th><th lang="en">Scenario</th>
+    <th>k</th><th>offset</th>
+    <th lang="zh">ratio=1 时</th><th lang="en">at ratio=1</th>
+    <th lang="zh">ratio=2 时</th><th lang="en">at ratio=2</th>
+  </tr>
+  <tr>
+    <td lang="zh">中场争夺</td><td lang="en">Midfield battle</td>
+    <td>0.5</td><td>0</td>
+    <td>50%</td><td>78%</td>
+  </tr>
+  <tr>
+    <td lang="zh">进攻推进（各种进攻类型）</td><td lang="en">Attack push (all types)</td>
+    <td>3.5</td><td>-7</td>
+    <td>~42%</td><td>~98%</td>
+  </tr>
+  <tr>
+    <td lang="zh">射门</td><td lang="en">Shot</td>
+    <td>1.5</td><td>0</td>
+    <td>50%</td><td>82%</td>
+  </tr>
+  <tr>
+    <td lang="zh">定位球</td><td lang="en">Set piece</td>
+    <td>0.15</td><td>+147 or +153</td>
+    <td>~18%</td><td>~45%</td>
+  </tr>
+</table>
+
+<hr>
+
+<h2 id="core">
+  <span lang="zh">3. 核心概念</span>
+  <span lang="en">3. Core Concepts</span>
+</h2>
+
+<h3>3.1
+  <span lang="zh">三路体系</span>
+  <span lang="en">Three Lanes</span>
+</h3>
+<p lang="zh">场地分为三路：<strong>左路</strong>、<strong>中路</strong>、<strong>右路</strong>。所有进攻强度、防守强度、控球强度都按路计算。每次关键时刻选择其中一路。</p>
+<p lang="en">The pitch is divided into three lanes: <strong>left</strong>, <strong>center</strong>, <strong>right</strong>. All attack power, defense power, and possession strength are calculated per-lane. One lane is selected per key moment.</p>
+
+<div class="card-grid" style="margin: 12px 0;">
+  <div class="card-item">
+    <div class="label" lang="zh">左路进攻类型分布</div>
+    <div class="label" lang="en">Left Lane Attack Types</div>
+    <div class="value" style="font-size:13px; color:var(--text);">CROSS 25% · SHORT 30% · THROUGH 10% · DRIBBLE 30% · LONG 5%</div>
+  </div>
+  <div class="card-item">
+    <div class="label" lang="zh">中路进攻类型分布</div>
+    <div class="label" lang="en">Center Lane Attack Types</div>
+    <div class="value" style="font-size:13px; color:var(--text);">CROSS 5% · SHORT 45% · THROUGH 15% · DRIBBLE 25% · LONG 10%</div>
+  </div>
+  <div class="card-item">
+    <div class="label" lang="zh">右路进攻类型分布</div>
+    <div class="label" lang="en">Right Lane Attack Types</div>
+    <div class="value" style="font-size:13px; color:var(--text);">CROSS 25% · SHORT 30% · THROUGH 10% · DRIBBLE 30% · LONG 5%</div>
+  </div>
+</div>
+
+<h3>3.2
+  <span lang="zh">路强度计算</span>
+  <span lang="en">Lane Strength</span>
+</h3>
+<p lang="zh">每队每路的强度 = 该路所有球员贡献值的加权和：</p>
+<p lang="en">Each team's strength in each lane is a weighted sum of player contributions:</p>
+<ul style="margin: 8px 0 12px 20px;">
+  <li lang="zh"><strong>进攻强度</strong> = 该球员在左路进攻贡献之和</li>
+  <li lang="en"><strong>Attack strength</strong> = sum of each player's attack contribution in that lane</li>
+  <li lang="zh"><strong>防守强度</strong> = 该球员在左路防守贡献之和</li>
+  <li lang="en"><strong>Defense strength</strong> = sum of each player's defense contribution in that lane</li>
+  <li lang="zh"><strong>控球强度</strong> = 该球员在左路控球贡献之和</li>
+  <li lang="en"><strong>Possession strength</strong> = sum of each player's possession contribution in that lane</li>
+</ul>
+<p lang="zh">球员贡献由 <code>AttributeCalculator</code> 根据球员属性、位置契合度、体能/状态修正计算。</p>
+<p lang="en">Player contributions are calculated by <code>AttributeCalculator</code> based on player attributes, position fit, stamina/fitness multiplier, and form.</p>
+
+<h3>3.3
+  <span lang="zh">控球方 vs 防守方</span>
+  <span lang="en">Possession Team vs Defending Team</span>
+</h3>
+<p lang="zh"><strong>中场争夺</strong>之后，胜方成为 <code>possessionTeam</code>（控球方），负方成为 <code>defendingTeam</code>（防守方）。后续所有计算（路强度、进攻类型、推进判定）都基于此身份。</p>
+<p lang="en">After the <strong>midfield battle</strong>, the winner becomes <code>possessionTeam</code>, the loser becomes <code>defendingTeam</code>. All subsequent calculations (lane strength, attack type, push) use this designation.</p>
+
+<h3>3.4
+  <span lang="zh">进攻类型（5种）</span>
+  <span lang="en">Attack Types (5 types)</span>
+</h3>
+<table>
+  <tr>
+    <th lang="zh">类型</th><th lang="en">Type</th>
+    <th lang="zh">描述</th><th lang="en">Description</th>
+    <th>push k</th>
+    <th lang="zh">射门分布</th><th lang="en">Shot type distribution</th>
+  </tr>
+  <tr>
+    <td><span class="badge badge-blue">CROSS</span></td>
+    <td lang="zh">边路传中</td><td lang="en">Wing cross into box</td>
+    <td>3.5</td>
+    <td lang="zh">头球 50% · 抽射 30% · 补射 20%</td>
+    <td lang="en">HEADER 50% · NORMAL 30% · REBOUND 20%</td>
+  </tr>
+  <tr>
+    <td><span class="badge badge-blue">SHORT_PASS</span></td>
+    <td lang="zh">短传配合</td><td lang="en">Short passing build-up</td>
+    <td>3.5</td>
+    <td lang="zh">抽射 80% · 补射 20%</td>
+    <td lang="en">NORMAL 80% · REBOUND 20%</td>
+  </tr>
+  <tr>
+    <td><span class="badge badge-blue">THROUGH_PASS</span></td>
+    <td lang="zh">直塞/反攻</td><td lang="en">Through ball / counter</td>
+    <td>3.5</td>
+    <td lang="zh">单刀 50% · 抽射 50%</td>
+    <td lang="en">1v1 50% · NORMAL 50%</td>
+  </tr>
+  <tr>
+    <td><span class="badge badge-blue">DRIBBLE</span></td>
+    <td lang="zh">带球突破</td><td lang="en">Individual dribble attempt</td>
+    <td>3.5</td>
+    <td lang="zh">抽射 70% · 补射 30%</td>
+    <td lang="en">NORMAL 70% · REBOUND 30%</td>
+  </tr>
+  <tr>
+    <td><span class="badge badge-purple">LONG_SHOT</span></td>
+    <td lang="zh">远射</td><td lang="en">Long range effort</td>
+    <td>0 <span lang="zh" style="color:var(--text-muted); font-size:11px;">（跳过推进）</span><span lang="en" style="color:var(--text-muted); font-size:11px;">(skipped)</span></td>
+    <td lang="zh">远射（固定）</td><td lang="en">LONG_SHOT (fixed)</td>
+  </tr>
+</table>
+
+<h3>3.5
+  <span lang="zh">射门类型（5种）</span>
+  <span lang="en">Shot Types (5 types)</span>
+</h3>
+<table>
+  <tr>
+    <th lang="zh">类型</th><th lang="en">Type</th>
+    <th lang="zh">评分公式</th><th lang="en">Formula</th>
+    <th>k</th>
+    <th lang="zh">备注</th><th lang="en">Notes</th>
+  </tr>
+  <tr>
+    <td><span class="badge badge-green">ONE_ON_ONE</span></td>
+    <td lang="zh">单刀球</td><td lang="en">1v1</td>
+    <td>finishing×7 + composure×3</td>
+    <td>1.5</td>
+    <td lang="zh">ratio=1→50%, ratio=2→82%</td><td lang="en">ratio=1→50%, ratio=2→82%</td>
+  </tr>
+  <tr>
+    <td><span class="badge badge-green">HEADER</span></td>
+    <td lang="zh">头球</td><td lang="en">Header</td>
+    <td>finishing×7 + composure×3</td>
+    <td>1.5</td>
+    <td lang="zh">header_specialist: +8%；同时触发争顶受伤检核</td>
+    <td lang="en">+8% if header_specialist. Jump injury check triggered.</td>
+  </tr>
+  <tr>
+    <td><span class="badge badge-green">REBOUND</span></td>
+    <td lang="zh">补射</td><td lang="en">Rebound</td>
+    <td>finishing×7 + composure×3</td>
+    <td>1.5</td>
+    <td lang="zh">rebound_specialist: +10%</td>
+    <td lang="en">+10% if rebound_specialist</td>
+  </tr>
+  <tr>
+    <td><span class="badge badge-green">NORMAL</span></td>
+    <td lang="zh">抽射</td><td lang="en">Regular shot</td>
+    <td>finishing×7 + composure×3</td>
+    <td>1.5</td>
+    <td lang="zh">禁区内常规射门</td><td lang="en">Inside box</td>
+  </tr>
+  <tr>
+    <td><span class="badge badge-purple">LONG_SHOT</span></td>
+    <td lang="zh">远射</td><td lang="en">Long shot</td>
+    <td>(finishing×7 + composure×3) × distance_factor</td>
+    <td>1.5</td>
+    <td lang="zh">距离18–30米，factor 0.6–0.76；long_shooter +10%；65%概率有助攻；跳过推进阶段</td>
+    <td lang="en">Distance 18–30m; long_shooter +10%; 65% assist chance; skips push phase</td>
+  </tr>
+</table>
+
+<hr>
+
+<h2 id="keymoment">
+  <span lang="zh">4. 关键时刻模拟（核心循环）</span>
+  <span lang="en">4. Key Moment Simulation (Core Loop)</span>
+</h2>
+
+<p lang="zh">全场约20次，每次处理一次完整进攻序列：从选路到射门或丢球权。</p>
+<p lang="en">~20 times per match. Each call processes one full attack sequence from lane selection through to a shot or turnover.</p>
+
+<div class="flow" style="margin: 16px 0;">
+  <div class="flow-item info">
+    <strong lang="zh">Step 0: 选择路</strong>
+    <strong lang="en">Step 0: Select Lane</strong>
+    <div style="font-size:12px; color:var(--text-muted); margin-top:2px;">
+      <span lang="zh">中立分布 [左=29, 中=42, 右=29]。这条路是"机会出现的位置"，与任何队伍的战术无关。</span>
+      <span lang="en">Neutral distribution [left=29, center=42, right=29]. The lane represents "where an opportunity appears", independent of any team's tactics.</span>
+    </div>
+  </div>
+  <div class="flow-item info">
+    <strong lang="zh">Step 1: 犯规检核</strong>
+    <strong lang="en">Step 1: Foul Check</strong>
+    <div style="font-size:12px; color:var(--text-muted); margin-top:2px;">
+      <span lang="zh">10% 概率触发。若触发 → resolveFoul() → 直接退出（不射门）</span>
+      <span lang="en">10% chance. If triggered → resolveFoul() → exits (no shot)</span>
+    </div>
+  </div>
+  <div class="flow-item info">
+    <strong lang="zh">Step 1b: 通用伤病检核</strong>
+    <strong lang="en">Step 1b: General Injury Check</strong>
+    <div style="font-size:12px; color:var(--text-muted); margin-top:2px;">
+      <span lang="zh">每队随机抽取一名球员，actionType='other'</span>
+      <span lang="en">Random player from each team, actionType='other'</span>
+    </div>
+  </div>
+  <div class="flow-item alt">
+    <strong lang="zh">Step 2: 中场争夺</strong>
+    <strong lang="en">Step 2: Midfield Battle</strong>
+    <div style="font-size:12px; color:var(--text-muted); margin-top:2px;">
+      <span lang="zh">当前路的 possession vs defense。Lane Strengths 已经受了 Pitch Width 影响（宽→边路强、窄→中路强）。胜方 = possessionTeam。k=0.5, offset=0。负方获抢断伤病检核。</span>
+      <span lang="en">possession vs defense in currentLane. Lane strengths are already modified by each team's Pitch Width (wide→flanks strong, narrow→center strong). Winner = possessionTeam. k=0.5, offset=0. Losing team gets tackle injury check.</span>
+    </div>
+  </div>
+  <div class="flow-item alt">
+    <strong lang="zh">Step 3: 选择进攻类型</strong>
+    <strong lang="en">Step 3: Select Attack Type</strong>
+    <div style="font-size:12px; color:var(--text-muted); margin-top:2px;">
+      <span lang="zh">基于路的基准分布 × 天气权重 × tempo 权重抽取进攻类型（Pitch Width 不影响进攻类型）。LONG_SHOT 则直接射门。</span>
+      <span lang="en">Based on lane base distribution × weather weights × tempo weights. Pitch Width does not affect attack type selection. LONG_SHOT goes straight to shot.</span>
+    </div>
+  </div>
+  <div class="flow-item alt">
+    <strong lang="zh">Step 4: 进攻推进</strong>
+    <strong lang="en">Step 4: Attack Push</strong>
+    <div style="font-size:12px; color:var(--text-muted); margin-top:2px;">
+      <span lang="zh">resolveDuel(attPower, defPower, k, offset)。成功 → 射门；失败 → 防守方获得 freshPossession=true。</span>
+      <span lang="en">resolveDuel(att, def, k, offset). Success → shot. Failure → defendingTeam gets freshPossession=true.</span>
+    </div>
+  </div>
+  <div class="flow-item goal">
+    <strong lang="zh">Step 5: 射门</strong>
+    <strong lang="en">Step 5: Shot Attempt</strong>
+    <div style="font-size:12px; color:var(--text-muted); margin-top:2px;">
+      <span lang="zh">resolveDuel(shootRating, gkRating, k=1.5, offset=0)。结果：goal / save / blocked / miss。</span>
+      <span lang="en">resolveDuel(shootRating, gkRating, k=1.5, offset=0). Outcome: goal / save / blocked / miss.</span>
+    </div>
+  </div>
+</div>
+
+<h3>Step 0:
+  <span lang="zh">选路 — changeLane()</span>
+  <span lang="en">Lane Selection — changeLane()</span>
+</h3>
+<p lang="zh">中立分布 [左=29, 中=42, 右=29]。路代表"机会出现的位置"——无论哪支队伍、采用什么战术，机会在三条路的分布始终固定。Pitch Width 不影响选路，而影响每条路的 <strong>攻防强度</strong>（见下方）。</p>
+<p lang="en">Neutral distribution [left=29, center=42, right=29]. The lane represents "where an opportunity appears" — regardless of which team or tactics, opportunities are always distributed this way. Pitch Width does not affect lane selection; it affects the <strong>attack/defense strength</strong> of each lane (see below).</p>
+
+<p lang="zh">选路分布：</p>
+<p lang="en">Lane selection distribution:</p>
+
+<div class="card-grid" style="margin: 12px 0;">
+  <div class="card-item">
+    <div class="label" lang="zh">左路</div>
+    <div class="label" lang="en">Left</div>
+    <div class="value" style="font-size:13px; color:var(--text);">29%</div>
+  </div>
+  <div class="card-item">
+    <div class="label" lang="zh">中路</div>
+    <div class="label" lang="en">Center</div>
+    <div class="value" style="font-size:13px; color:var(--text);">42%</div>
+  </div>
+  <div class="card-item">
+    <div class="label" lang="zh">右路</div>
+    <div class="label" lang="en">Right</div>
+    <div class="value" style="font-size:13px; color:var(--text);">29%</div>
+  </div>
+</div>
+<p lang="zh" style="font-size:12px; color:var(--text-muted);">Pitch Width 在 Step 2（<strong>updateSnapshot</strong>）中影响 lane strength，而非 Step 0 的选路。</p>
+<p lang="en" style="font-size:12px; color:var(--text-muted);">Pitch Width affects lane strength in Step 2 (<strong>updateSnapshot</strong>), not lane selection in Step 0.</p>
+
+<h3>Step 2:
+  <span lang="zh">中场争夺</span>
+  <span lang="en">Midfield Battle</span>
+</h3>
+<div class="formula">P = 1 / (1 + exp(-(homeControl/awayControl - 1) × 0.5))</div>
+<ul style="margin: 8px 0 12px 20px;">
+  <li lang="zh"><code>tackle_master</code> 能力：防守方每有一个 +8%</li>
+  <li lang="en"><code>tackle_master</code>: defending team gets +8% per specialist</li>
+  <li lang="zh">胜方 = <code>possessionTeam</code>，负方 = <code>defendingTeam</code></li>
+  <li lang="en">Winner = <code>possessionTeam</code>, loser = <code>defendingTeam</code></li>
+  <li lang="zh">负方获得抢断伤病检核</li>
+  <li lang="en">Losing team gets tackle injury check</li>
+</ul>
+
+<h3>Step 3:
+  <span lang="zh">进攻类型 — selectAttackType()</span>
+  <span lang="en">Attack Type — selectAttackType()</span>
+</h3>
+<div class="code">weight[i] = base_distribution[i] × weather_weights[i] × tempo_weights[AttackType[i]]</div>
+<ul style="margin: 8px 0 12px 20px;">
+  <li lang="zh"><strong>天气权重</strong>：如 <code>rainy</code> 使 DRIBBLE +15%，但降低 CROSS/THROUGH/LONG_SHOT</li>
+  <li lang="en"><strong>Weather weights</strong>: e.g., <code>rainy</code> boosts DRIBBLE (+15%) but reduces CROSS/THROUGH/LONG_SHOT</li>
+  <li lang="zh"><strong>Tempo 权重</strong>：如 <code>SLOW</code> 使 SHORT_PASS +50%</li>
+  <li lang="en"><strong>Tempo weights</strong>: e.g., <code>SLOW</code> boosts SHORT_PASS (+50%)</li>
+</ul>
+
+<h3>Step 4:
+  <span lang="zh">进攻推进 — Attack Push</span>
+</h3>
+<p lang="zh">在调用 duel 之前应用大量修正：</p>
+<p lang="en">Many modifiers are applied before calling the duel function:</p>
+
+<h4>
+  <span lang="zh">能力加成</span>
+  <span lang="en">Ability Modifiers</span>
+</h4>
+<table>
+  <tr>
+    <th lang="zh">能力</th><th lang="en">Ability</th>
+    <th lang="zh">条件</th><th lang="en">Condition</th>
+    <th lang="zh">效果</th><th lang="en">Effect</th>
+  </tr>
+  <tr>
+    <td><span class="string">long_passer</span></td>
+    <td lang="zh">进攻类型 = THROUGH_PASS</td><td lang="en">attackType = THROUGH_PASS</td>
+    <td>attPower ×1.06</td>
+  </tr>
+  <tr>
+    <td><span class="string">cross_specialist</span></td>
+    <td lang="zh">进攻类型 = CROSS</td><td lang="en">attackType = CROSS</td>
+    <td>attPower ×1.08</td>
+  </tr>
+  <tr>
+    <td><span class="string">dribble_master</span></td>
+    <td lang="zh">进攻类型 = DRIBBLE</td><td lang="en">attackType = DRIBBLE</td>
+    <td>attPower ×1.06</td>
+  </tr>
+  <tr>
+    <td><span class="string">header_specialist</span> <span lang="zh">(攻方)</span><span lang="en">(attacker)</span></td>
+    <td lang="zh">进攻类型 = CROSS</td><td lang="en">attackType = CROSS</td>
+    <td>attPower ×1.05 <span lang="zh">每个</span><span lang="en">per specialist</span></td>
+  </tr>
+  <tr>
+    <td><span class="string">header_specialist</span> <span lang="zh">(守方)</span><span lang="en">(defender)</span></td>
+    <td lang="zh">进攻类型 = CROSS</td><td lang="en">attackType = CROSS</td>
+    <td>defPower ×1.08 <span lang="zh">每个</span><span lang="en">per specialist</span></td>
+  </tr>
+  <tr>
+    <td><span class="string">counter_starter</span></td>
+    <td lang="zh">freshPossession = true</td><td lang="en">freshPossession = true</td>
+    <td>attPower ×1.05 <span lang="zh">每个</span><span lang="en">per specialist</span></td>
+  </tr>
+</table>
+
+<h4>
+  <span lang="zh">战术加成</span>
+  <span lang="en">Tactical Modifiers</span>
+</h4>
+<table>
+  <tr>
+    <th lang="zh">修正量</th><th lang="en">Modifier</th>
+    <th lang="zh">来源</th><th lang="en">Source</th>
+    <th lang="zh">效果</th><th lang="en">Effect</th>
+  </tr>
+  <tr>
+    <td><span class="badge badge-yellow">attackMult</span></td>
+    <td lang="zh">防线高度（进攻方）</td><td lang="en">Defensive Line (attacker)</td>
+    <td>attPower × 0.9/1.0/1.1</td>
+  </tr>
+  <tr>
+    <td><span class="badge badge-yellow">defenseMult</span></td>
+    <td lang="zh">防线高度（防守方）</td><td lang="en">Defensive Line (defender)</td>
+    <td>defPower × 0.9/1.0/1.15</td>
+  </tr>
+  <tr>
+    <td><span class="badge badge-purple">duelK</span></td>
+    <td lang="zh">节奏 Tempo（进攻方）</td><td lang="en">Tempo (attacker)</td>
+    <td>effectiveK = pushK × (duelK / 0.5)</td>
+  </tr>
+</table>
+
+<h4>
+  <span lang="zh">拦截反击机制（Counter-attack / Intercept）</span>
+  <span lang="en">Counter-attack (Intercept) Mechanism</span>
+</h4>
+<p lang="zh">当 <code>defRatio = defPower / attPower > 1.3</code> 时，有概率发生拦截并发动反击：</p>
+<p lang="en">When <code>defRatio = defPower / attPower > 1.3</code>, there's a chance the defender intercepts and launches a counter:</p>
+
+<ul style="margin: 8px 0 12px 20px;">
+  <li lang="zh"><strong>拦截概率</strong>: <code>min(0.25, (defRatio - 1.3) × 0.1)</code></li>
+  <li lang="en"><strong>Intercept chance</strong>: <code>min(0.25, (defRatio - 1.3) × 0.1)</code></li>
+  <li lang="zh">触发时：控球方 ↔ 防守方立即互换</li>
+  <li lang="en">If triggered: possessionTeam ↔ defendingTeam swap immediately</li>
+  <li lang="zh">新进攻方用自己当前路的进攻强度和防线加成重新计算 <code>effectiveAttPower</code></li>
+  <li lang="en">New attacking team recalculates effectiveAttPower with its own lane strength + defensive line modifier</li>
+  <li lang="zh"><strong>反击加成</strong>: <code>attPower × (1 + min(0.30, (defRatio - 1.3) × 0.15 × (1/counterVuln)))</code></li>
+  <li lang="en"><strong>Counter bonus</strong>: <code>attPower × (1 + min(0.30, (defRatio - 1.3) × 0.15 × (1/counterVuln)))</code></li>
+  <li lang="zh"><strong>SLOW 队</strong>: counterVuln=1.3 → 加成 = 1/1.3 = 0.77×（被反击时更安全）</li>
+  <li lang="en"><strong>SLOW team</strong>: counterVuln=1.3 → bonus = 1/1.3 = 0.77× (less exposed when countered)</li>
+  <li lang="zh"><strong>FAST 队</strong>: counterVuln=0.7 → 加成 = 1/0.7 = 1.43×（被反击时更危险）</li>
+  <li lang="en"><strong>FAST team</strong>: counterVuln=0.7 → bonus = 1/0.7 = 1.43× (more exposed when countered)</li>
+  <li lang="zh"><code>pushSuccess = true</code> → 直接进入射门（不再重复判定）</li>
+  <li lang="en"><code>pushSuccess = true</code> → goes directly to shot (no second resolveDuel)</li>
+  <li lang="zh">interceptTriggered 时，重新从新进攻方选射手</li>
+  <li lang="en">When interceptTriggered, shooter is re-selected from the new attacking team</li>
+</ul>
+
+<h3>Step 5:
+  <span lang="zh">射门</span>
+  <span lang="en">Shot</span>
+</h3>
+<div class="formula">P = 1 / (1 + exp(-(shootRating/gkRating - 1) × 1.5))</div>
+<ul style="margin: 8px 0 12px 20px;">
+  <li lang="zh"><code>shootRating</code> 乘以 <code>0.6 + random() × 0.5</code>（随机波动）</li>
+  <li lang="en"><code>shootRating</code> multiplied by <code>0.6 + random() × 0.5</code> (random variance)</li>
+  <li lang="zh"><strong>助攻逻辑</strong>: HEADER 必定有助攻（来自边路球员），REBOUND 必定无助攻，其他65%概率有</li>
+  <li lang="en"><strong>Assist logic</strong>: HEADER always has assist (from wide player), REBOUND never, others 65% chance</li>
+  <li lang="zh"><strong>被封堵</strong>: 15% 概率产生角球</li>
+  <li lang="en"><strong>Blocked</strong>: 15% chance → generates corner kick</li>
+  <li lang="zh"><strong>进球</strong>: 立即更新 homeScore/awayScore，记录球员进球和助攻</li>
+  <li lang="en"><strong>Goal</strong>: updates homeScore/awayScore immediately, records player goals + assists</li>
+</ul>
+
+<h3>
+  <span lang="zh">射门结果 → 事件类型 映射</span>
+  <span lang="en">Shot Result → Event Type Mapping</span>
+</h3>
+<table>
+  <tr>
+    <th>pushSuccess</th>
+    <th lang="zh">射门结果</th><th lang="en">Shot result</th>
+    <th lang="zh">事件类型</th><th lang="en">Event type</th>
+    <th lang="zh">后续动作</th><th lang="en">Next action</th>
+  </tr>
+  <tr>
+    <td>true</td><td lang="zh">进球</td><td lang="en">goal</td>
+    <td><span class="badge badge-green">goal</span></td>
+    <td lang="zh">更新比分</td><td lang="en">Score updated</td>
+  </tr>
+  <tr>
+    <td>true</td><td lang="zh">扑救</td><td lang="en">save</td>
+    <td><span class="badge badge-blue">save</span></td>
+    <td lang="zh">保持球权</td><td lang="en">Possession stays</td>
+  </tr>
+  <tr>
+    <td>true</td><td lang="zh">封堵</td><td lang="en">blocked</td>
+    <td><span class="badge badge-yellow">miss</span></td>
+    <td lang="zh">87% 概率产生角球</td><td lang="en">87% chance → corner</td>
+  </tr>
+  <tr>
+    <td>true</td><td lang="zh">射偏</td><td lang="en">miss</td>
+    <td><span class="badge badge-red">miss</span></td>
+    <td lang="zh">球权转换</td><td lang="en">Possession changes</td>
+  </tr>
+  <tr>
+    <td>false</td><td>—</td>
+    <td><span class="badge badge-red">turnover</span></td>
+    <td lang="zh">防守方获得 freshPossession</td><td lang="en">defendingTeam gets freshPossession</td>
+  </tr>
+</table>
+
+<hr>
+
+<h2 id="foul">
+  <span lang="zh">5. 犯规与定位球</span>
+  <span lang="en">5. Foul &amp; Set Pieces</span>
+</h2>
+
+<h3>
+  <span lang="zh">犯规 — resolveFoul()</span>
+  <span lang="en">Foul — resolveFoul()</span>
+</h3>
+<p lang="zh">每个关键时刻开始时有10%概率触发（在争夺之前）。结果随机：</p>
+<p lang="en">Triggered with 10% probability at the start of each key moment (before midfield battle). Outcome is random:</p>
+
+<ul style="margin: 8px 0 12px 20px;">
+  <li lang="zh"><strong>60%</strong>: 黄牌 + 定位球</li>
+  <li lang="en"><strong>60%</strong>: Yellow card + set piece awarded</li>
+  <li lang="zh"><strong>30%</strong>: 普通犯规（无牌）+ 定位球</li>
+  <li lang="en"><strong>30%</strong>: Foul (no card) + set piece awarded</li>
+  <li lang="zh"><strong>10%</strong>: 红牌（球员被罚下，无换人）</li>
+  <li lang="en"><strong>10%</strong>: Red card (player sent off, no substitution)</li>
+</ul>
+<p lang="zh">第二张黄牌 = 红牌（同规则）。被犯规方获碰撞伤病检核。</p>
+<p lang="en">Second yellow = red card (same rules). Victim gets collision injury check.</p>
+
+<h3>
+  <span lang="zh">定位球类型判定</span>
+  <span lang="en">Set Piece Type (from Foul)</span>
+</h3>
+<ul style="margin: 8px 0 12px 20px;">
+  <li lang="zh"><strong>禁区内（中路）</strong>: 30% 点球 / 70% 间接任意球</li>
+  <li lang="en"><strong>In penalty area (center lane)</strong>: 30% penalty / 70% indirect free kick</li>
+  <li lang="zh"><strong>禁区外</strong>: 65% 直接任意球 / 35% 无事发生</li>
+  <li lang="en"><strong>Outside penalty area</strong>: 65% direct free kick / 35% nothing happens</li>
+</ul>
+
+<h3>
+  <span lang="zh">角球 — resolveCorner()</span>
+  <span lang="en">Corner Kick — resolveCorner()</span>
+</h3>
+<div class="formula">P = 1 / (1 + exp(-diff × 0.15 + 2.2))</div>
+<div class="code">attackScore = avgFK × 0.7 + kickerFK × 0.5
+defenseScore = opponentAvgFK × 0.6 + GKSetPieceRating × 0.2
+diff = attackScore - defenseScore</div>
+
+<h3>
+  <span lang="zh">直接任意球 — resolveDirectFreeKick()</span>
+  <span lang="en">Direct Free Kick — resolveDirectFreeKick()</span>
+</h3>
+<div class="formula">P = 1 / (1 + exp(-diff × 0.15 + 2.2))</div>
+<div class="code">attackScore = kickerFK × 1.0 + kickerComp × 0.5
+defenseScore = GKref × 0.6 + GKhand × 0.4 + GKcomp × 0.4</div>
+
+<h3>
+  <span lang="zh">间接任意球 — resolveIndirectFreeKick()</span>
+  <span lang="en">Indirect Free Kick — resolveIndirectFreeKick()</span>
+</h3>
+<div class="formula">P = 1 / (1 + exp(-diff × 0.15 + 2.3))</div>
+<div class="code">attackScore = avgFK × 0.6 + kickerFK × 0.6
+defenseScore = opponentAvgFK × 0.6 + GKSetPieceRating × 0.2</div>
+
+<h3>
+  <span lang="zh">点球 — resolvePenalty()</span>
+  <span lang="en">Penalty Kick — resolvePenalty()</span>
+</h3>
+<div class="formula">P = 1 / (1 + exp(-diff × 0.12 - 0.9))</div>
+<div class="code">attackScore = kickerPen × 1.2 + kickerComp × 0.5
+defenseScore = GKref × 0.8 + GKhand × 0.6 + GKcomp × 0.4
+<span class="comment">// penalty_saver: defenseScore × 1.1</span></div>
+
+<hr>
+
+<h2 id="injury">
+  <span lang="zh">6. 伤病系统</span>
+  <span lang="en">6. Injury System</span>
+</h2>
+
+<p lang="zh"><code>InjurySystem</code> 根据受伤类型、球员年龄、体能、队医等级和伤病历史生成伤病。在以下时机调用：</p>
+<p lang="en"><code>InjurySystem</code> generates injuries based on action type, player age, stamina, team doctor level, and injury history. Called at these points:</p>
+
+<table>
+  <tr>
+    <th lang="zh">时机</th><th lang="en">When</th>
+    <th>Action Type</th>
+    <th lang="zh">说明</th><th lang="en">Context</th>
+  </tr>
+  <tr>
+    <td lang="zh">每个关键时刻 (Step 1b)</td><td lang="en">Every key moment (Step 1b)</td>
+    <td>other</td>
+    <td lang="zh">每队随机球员，肌肉/关节拉伤</td><td lang="en">Random player from each team, muscle/joint strain</td>
+  </tr>
+  <tr>
+    <td lang="zh">中场争夺后 (Step 2b)</td><td lang="en">After midfield battle (Step 2b)</td>
+    <td>tackle</td>
+    <td lang="zh">负方球员，抢断拉伤</td><td lang="en">Losing team player, tackle strain</td>
+  </tr>
+  <tr>
+    <td lang="zh">带球突破成功后</td><td lang="en">After sprint/dribble success</td>
+    <td>sprint</td>
+    <td lang="zh">进攻球员，肌肉拉伤</td><td lang="en">Attacking player, muscle strain</td>
+  </tr>
+  <tr>
+    <td lang="zh">头球争顶后</td><td lang="en">After header</td>
+    <td>jump</td>
+    <td lang="zh">争顶球员，头部/颈椎撞击</td><td lang="en">Jumping player, head/neck impact</td>
+  </tr>
+  <tr>
+    <td lang="zh">犯规后</td><td lang="en">After foul</td>
+    <td>collision</td>
+    <td lang="zh">被犯规球员，身体接触</td><td lang="en">Victim player, physical contact</td>
+  </tr>
+</table>
+
+<h3>
+  <span lang="zh">严重程度</span>
+  <span lang="en">Severity Outcomes</span>
+</h3>
+<ul style="margin: 8px 0 12px 20px;">
+  <li lang="zh"><strong>无伤</strong>: 最常见</li>
+  <li lang="en"><strong>None</strong>: Most common</li>
+  <li lang="zh"><strong>轻伤</strong>: 球员继续比赛，本场剩余时间受伤概率翻倍</li>
+  <li lang="en"><strong>Minor</strong>: Player continues, injury probability doubled for remainder of match</li>
+  <li lang="zh"><strong>重伤</strong>: 球员必须被换下（若有替补）。产生换人事件。</li>
+  <li lang="en"><strong>Severe</strong>: Player must be substituted (if bench available). Substitution event added.</li>
+</ul>
+
+<hr>
+
+<h2 id="tactics">
+  <span lang="zh">7. 战术维度</span>
+  <span lang="en">7. Tactical Dimensions</span>
+</h2>
+
+<p lang="zh">三个独立的赛前战术设置，在关键时刻中生效。每个都有明确的优势和劣势——剪刀石头布的博弈关系从数值交互中自然涌现。</p>
+<p lang="en">Three independent pre-match tactical settings that modify engine behavior during key moments. Each has clear advantages AND disadvantages — rock-paper-scissors dynamics emerge from the numerical interactions.</p>
+
+<h3>7.1 Tempo (比赛节奏)</h3>
+<p lang="zh">控制球队在控球时的比赛风格。与阵型无关。</p>
+<p lang="en">Controls how the team plays when in possession. Independent of formation.</p>
+
+<div class="tactic-diagram">
+  <div class="tactic-option">
+    <div class="name" style="color:var(--cyan);">🐢 SLOW</div>
+    <div class="effect">k=0.35 · shots×0.8 · counterVuln=1.3</div>
+    <div style="margin-top:8px; font-size:12px; text-align:left;">
+      <div><span class="badge badge-green">+</span> <span lang="zh">短传为主：安全，失误少</span><span lang="en">Short-pass: safe, few turnovers</span></div>
+      <div><span class="badge badge-green">+</span> <span lang="zh">射门质量高</span><span lang="en">High shot quality</span></div>
+      <div><span class="badge badge-red">−</span> <span lang="zh">射门次数少</span><span lang="en">Less shot volume</span></div>
+      <div><span class="badge badge-red">−</span> <span lang="zh">被高位压迫（LOW 防）克制</span><span lang="en">Vulnerable to high press (LOW def)</span></div>
+    </div>
+  </div>
+  <div class="tactic-option">
+    <div class="name" style="color:var(--yellow);">⚖️ BALANCED</div>
+    <div class="effect">k=0.50 · shots×1.0 · counterVuln=1.0</div>
+    <div style="margin-top:8px; font-size:12px; text-align:left;">
+      <div><span class="badge badge-yellow">~</span> <span lang="zh">基准值：所有权重=1.0</span><span lang="en">Baseline: all weights = 1.0</span></div>
+    </div>
+  </div>
+  <div class="tactic-option">
+    <div class="name" style="color:var(--red);">🐇 FAST</div>
+    <div class="effect">k=0.70 · shots×1.3 · counterVuln=0.7</div>
+    <div style="margin-top:8px; font-size:12px; text-align:left;">
+      <div><span class="badge badge-green">+</span> <span lang="zh">直塞/突破为主</span><span lang="en">Through-pass/dribble dominant</span></div>
+      <div><span class="badge badge-green">+</span> <span lang="zh">进攻次数多</span><span lang="en">More attempts</span></div>
+      <div><span class="badge badge-red">−</span> <span lang="zh">失误多 → 被反击暴露更多</span><span lang="en">More turnovers → more exposed to counters</span></div>
+      <div><span class="badge badge-red">−</span> <span lang="zh">更容易被拦截</span><span lang="en">Easier to intercept</span></div>
+    </div>
+  </div>
+</div>
+
+<p lang="zh">Tempo 的 <code>duelK</code> 直接缩放进攻推进的 k 值：</p>
+<p lang="en">Tempo's <code>duelK</code> directly scales the attack push k-value:</p>
+<div class="formula">effectiveK = pushK × (tempo.duelK / 0.5)</div>
+<p lang="zh">SLOW (k=0.42) → effectiveK=0.294（稳定，失误少）；FAST (k=0.58) → effectiveK=0.406（稍容易丢球）。</p>
+<p lang="en">SLOW (k=0.42) → effectiveK=0.294 (stable, fewer turnovers); FAST (k=0.58) → effectiveK=0.406 (slightly more turnovers).</p>
+
+<p lang="zh"><code>counterVulnerability</code>：FAST 队失误后反击威胁略低（0.85），SLOW 队失误后反击威胁略高（1.15）。差值仅 ±15%。</p>
+<p lang="en"><code>counterVulnerability</code>: FAST teams are slightly less exposed on turnovers (0.85), SLOW teams slightly more (1.15). Difference is only ±15%.</p>
+
+<h3>7.2 Pitch Width (球场宽度)</h3>
+<p lang="zh">控制三条路的 <strong>攻防强度</strong>（±10%）。每支队伍独立应用，两队可以用不同 Width，同一条路对双方 strength 不同。</p>
+<p lang="en">Controls the <strong>attack/defense strength</strong> of each lane (±10%). Applied independently per team — both teams can use different Width settings, creating strategic mismatch.</p>
+
+<style>
+  .pitch-grid {
+    display: grid;
+    grid-template-columns: auto repeat(3, 1fr);
+    grid-template-rows: auto repeat(3, 56px);
+    gap: 4px;
+    margin: 16px 0;
+  }
+  .pitch-grid .h-cell {
+    background: var(--surface2);
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 600;
+    font-size: 12px;
+    line-height: 1.3;
+    color: var(--text-muted);
+  }
+  .pitch-grid .corner { background: transparent; }
+  .pitch-grid .lane-label {
+    background: var(--surface2);
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    color: var(--text);
+    font-size: 12px;
+  }
+  .pitch-grid .cell {
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    font-size: 14px;
+  }
+  /* base side: gray */
+  .pitch-grid .cell.side {
+    background: var(--surface2);
+    color: var(--text-muted);
+  }
+  /* base center: blue accent */
+  .pitch-grid .cell.center {
+    background: var(--accent);
+    color: #fff;
+  }
+  /* side weaken: red text */
+  .pitch-grid .cell.side-weaken {
+    background: var(--surface2);
+    color: var(--red);
+  }
+  /* side boost: green text */
+  .pitch-grid .cell.side-boost {
+    background: var(--surface2);
+    color: var(--green);
+  }
+  /* center weaken: dark bg, red text */
+  .pitch-grid .cell.center-weaken {
+    background: var(--surface2);
+    color: var(--red);
+  }
+  /* center boost: accent bg, white text */
+  .pitch-grid .cell.center-boost {
+    background: var(--accent);
+    color: #fff;
+  }
+</style>
+
+<div class="pitch-grid">
+  <!-- Header row: 1 corner + 3 headers -->
+  <div class="corner"></div>
+  <div class="h-cell"><span lang="zh">← 左路</span><span lang="en">← Left</span></div>
+  <div class="h-cell"><span lang="zh">中路</span><span lang="en">Center</span></div>
+  <div class="h-cell"><span lang="zh">右路 →</span><span lang="en">Right →</span></div>
+
+  <!-- NARROW row -->
+  <div class="lane-label"><span lang="zh">NARROW</span><span lang="en">NARROW</span></div>
+  <div class="cell side-weaken">×0.90</div>
+  <div class="cell center-boost">×1.12</div>
+  <div class="cell side-weaken">×0.90</div>
+
+  <!-- BALANCED row -->
+  <div class="lane-label"><span lang="zh">均衡</span><span lang="en">BAL</span></div>
+  <div class="cell side">×1.00</div>
+  <div class="cell center">×1.00</div>
+  <div class="cell side">×1.00</div>
+
+  <!-- WIDE row -->
+  <div class="lane-label"><span lang="zh">WIDE</span><span lang="en">WIDE</span></div>
+  <div class="cell side-boost">×1.07</div>
+  <div class="cell center-weaken">×0.90</div>
+  <div class="cell side-boost">×1.07</div>
+</div>
+
+<div style="display:flex; gap:16px; font-size:12px; color:var(--text-muted); margin-bottom:16px;">
+  <span><span style="color:var(--green);">●</span> <span lang="zh">强化</span><span lang="en">Boosted</span></span>
+  <span><span style="color:var(--text-muted);">●</span> <span lang="zh">基准</span><span lang="en">Baseline</span> (×1.00)</span>
+  <span><span style="color:var(--red);">●</span> <span lang="zh">削弱</span><span lang="en">Weakened</span></span>
+</div>
+
+<p lang="zh">边路天然概率（58%）高于中路（42%），所以 WIDE 边路只加强 7%（×1.07）而 NARROW 中路加强 12%（×1.12）。NARROW 中路 strength 是 WIDE 的 1.12/0.9≈1.24×（+24%），WIDE 边路是 NARROW 的 1.07/0.9≈1.19×（+19%）。</p>
+<p lang="en">Since flanks have 58% vs center's 42%, WIDE flank boost is only +7% (×1.07) while NARROW center boost is +12% (×1.12). NARROW center strength is 1.12/0.9≈1.24× WIDE's (+24%); WIDE flanks are 1.07/0.9≈1.19× NARROW's (+19%).</p>
+
+<h3>7.3 Defensive Line (防线高度)</h3>
+<p lang="zh">控制防线的高度位置。影响越位概率（未来）和攻守强度加成。</p>
+<p lang="en">Controls how high the defensive line sits. Affects offside probability (future) and attack/defense multipliers.</p>
+
+<div class="tactic-diagram">
+  <div class="tactic-option">
+    <div class="name" style="color:var(--cyan);">🔽 LOW</div>
+    <div class="effect">offsideProb=0.01 · atkMult=0.9 · defMult=1.15</div>
+    <div style="margin-top:8px; font-size:12px; text-align:left;">
+      <div><span class="badge badge-green">+</span> <span lang="zh">低位蹲守，几乎不造越位</span><span lang="en">Deep block, rarely caught offside</span></div>
+      <div><span class="badge badge-green">+</span> <span lang="zh">防守 +15%</span><span lang="en">Defense +15%</span></div>
+      <div><span class="badge badge-red">−</span> <span lang="zh">进攻 −10%</span><span lang="en">Attack −10%</span></div>
+      <div><span class="badge badge-red">−</span> <span lang="zh">被 FAST 节奏克制（直接打身后）</span><span lang="en">Vulnerable to FAST tempo (direct play beats low block)</span></div>
+    </div>
+  </div>
+  <div class="tactic-option">
+    <div class="name" style="color:var(--yellow);">⚖️ MID</div>
+    <div class="effect">offsideProb=0.04 · atkMult=1.0 · defMult=1.0</div>
+    <div style="margin-top:8px; font-size:12px; text-align:left;">
+      <div><span class="badge badge-yellow">~</span> <span lang="zh">基准值：无修正</span><span lang="en">Baseline: no modifiers</span></div>
+    </div>
+  </div>
+  <div class="tactic-option">
+    <div class="name" style="color:var(--red);">🔼 HIGH</div>
+    <div class="effect">offsideProb=0.15 · atkMult=1.1 · defMult=0.9</div>
+    <div style="margin-top:8px; font-size:12px; text-align:left;">
+      <div><span class="badge badge-green">+</span> <span lang="zh">进攻 +10%</span><span lang="en">Attack +10%</span></div>
+      <div><span class="badge badge-green">+</span> <span lang="zh">克制 SLOW 节奏（高位压迫，断球快）</span><span lang="en">Good vs SLOW tempo (press high, win ball back quickly)</span></div>
+      <div><span class="badge badge-red">−</span> <span lang="zh">防守 −10%</span><span lang="en">Defense −10%</span></div>
+      <div><span class="badge badge-red">−</span> <span lang="zh">越位陷阱：每次关键时刻 15% 概率</span><span lang="en">Offside trap: 15% chance per key moment</span></div>
+      <div><span class="badge badge-red">−</span> <span lang="zh">被直接打法（LONG_SHOT/THROUGH）克制</span><span lang="en">Vulnerable to direct play (LONG_SHOT, THROUGH)</span></div>
+    </div>
+  </div>
+</div>
+
+<h3>7.4
+  <span lang="zh">战术克制关系（自然涌现）</span>
+  <span lang="en">Tactical Counters (Emergent)</span>
+</h3>
+<p lang="zh">无硬编码的克制表。关系从数值中自然产生：</p>
+<p lang="en">No hard-coded counter table. Relationships emerge from the numbers:</p>
+
+<h4>
+  <span lang="zh">节奏 vs 防线高度</span>
+  <span lang="en">Tempo vs Defensive Line</span>
+</h4>
+
+<table>
+  <tr>
+    <th lang="zh">进攻方节奏</th><th lang="en">Attacker Tempo</th>
+    <th lang="zh">vs 防守方防线</th><th lang="en">vs Defensive Line</th>
+    <th lang="zh">结果</th><th lang="en">Outcome</th>
+  </tr>
+  <tr>
+    <td><span class="badge badge-red">FAST</span></td>
+    <td><span class="badge badge-red">HIGH</span></td>
+    <td lang="zh">差：k=0.58（较高失误率）+ defMult=0.9（对手防守+10%）。快攻被高位压迫收割。</td>
+    <td lang="en">Bad: k=0.58 (higher turnover) + defMult=0.9 (opponent defense +10%). Fast attacks get picked off by high press.</td>
+  </tr>
+  <tr>
+    <td><span class="badge badge-cyan">SLOW</span></td>
+    <td><span class="badge badge-cyan">LOW</span></td>
+    <td lang="zh">差：k=0.42（稳定）但 atkMult=0.9（进攻−10%）且 counterVuln=1.15（被反击更危险）。磨渗透对抗蹲坑，收益低。</td>
+    <td lang="en">Bad: k=0.42 (stable) but atkMult=0.9 (−10% attack) and counterVuln=1.15 (more exposed on turnovers). Patient build-up grinds but low reward.</td>
+  </tr>
+  <tr>
+    <td><span class="badge badge-red">FAST</span></td>
+    <td><span class="badge badge-cyan">LOW</span></td>
+    <td lang="zh">好：直接打法（直塞/突破）利用低位防线身后的空间。counterVuln=0.85（被反击风险低）。</td>
+    <td lang="en">Good: direct play (through/dribble) exploits space behind low block. counterVuln=0.85 (less exposed on turnovers).</td>
+  </tr>
+  <tr>
+    <td><span class="badge badge-cyan">SLOW</span></td>
+    <td><span class="badge badge-red">HIGH</span></td>
+    <td lang="zh">好：耐心传控等待 HIGH 压上，然后横向转移绕过越位陷阱。</td>
+    <td lang="en">Good: patient build-up waits for HIGH to press, then plays around them. Bypasses offside trap via lateral passing.</td>
+  </tr>
+</table>
+
+<h4>
+  <span lang="zh">球场宽度 vs 球场宽度（同路对抗）</span>
+  <span lang="en">Pitch Width vs Pitch Width (Same Lane Contest)</span>
+</h4>
+<p lang="zh" style="font-size:12px; color:var(--text-muted);">因为边路天然概率（58%）高于中路（42%），所以 WIDE 边路只加强 7%（×1.07）而 NARROW 中路加强 12%（×1.12）。与 BALANCED 对比：NARROW 中路 vs BALANCED 中路 = 1.12/1.0=+12%，NARROW 边路 vs BALANCED 边路 = 0.9/1.0=−10%；WIDE 中路 vs BALANCED 中路 = 0.9/1.0=−10%，WIDE 边路 vs BALANCED 边路 = 1.07/1.0=+7%。</p>
+<p lang="en" style="font-size:12px; color:var(--text-muted);">Since flanks have 58% vs center's 42%, WIDE flank boost is only +7% (×1.07) while NARROW center boost is +12% (×1.12). vs BALANCED: NARROW center vs BALANCED center = 1.12/1.0=+12%, NARROW flanks vs BALANCED flanks = 0.9/1.0=−10%; WIDE center vs BALANCED center = 0.9/1.0=−10%, WIDE flanks vs BALANCED flanks = 1.07/1.0=+7%.</p>
+
+<table>
+  <tr>
+    <th lang="zh">进攻方 Width</th><th lang="en">Attacker Width</th>
+    <th lang="zh">vs 防守方 Width</th><th lang="en">vs Defender Width</th>
+    <th lang="zh">结果</th><th lang="en">Outcome</th>
+  </tr>
+  <tr>
+    <td><span class="badge" style="background:var(--cyan); color:#000;">NARROW</span></td>
+    <td><span class="badge" style="background:var(--yellow); color:#000;">BALANCED</span></td>
+    <td lang="zh">中路 +12%，边路 −10%。</td>
+    <td lang="en">Center +12%, flanks −10%.</td>
+  </tr>
+  <tr>
+    <td><span class="badge" style="background:var(--yellow); color:#000;">BALANCED</span></td>
+    <td><span class="badge" style="background:var(--cyan); color:#000;">NARROW</span></td>
+    <td lang="zh">中路 −10%，边路 +10%。</td>
+    <td lang="en">Center −10%, flanks +10%.</td>
+  </tr>
+  <tr>
+    <td><span class="badge" style="background:var(--red);">WIDE</span></td>
+    <td><span class="badge" style="background:var(--yellow); color:#000;">BALANCED</span></td>
+    <td lang="zh">边路 +7%，中路 −10%。</td>
+    <td lang="en">Flanks +7%, center −10%.</td>
+  </tr>
+  <tr>
+    <td><span class="badge" style="background:var(--yellow); color:#000;">BALANCED</span></td>
+    <td><span class="badge" style="background:var(--red);">WIDE</span></td>
+    <td lang="zh">边路 −7%，中路 +10%。</td>
+    <td lang="en">Flanks −7%, center +10%.</td>
+  </tr>
+  <tr>
+    <td><span class="badge" style="background:var(--cyan); color:#000;">NARROW</span></td>
+    <td><span class="badge" style="background:var(--red);">WIDE</span></td>
+    <td lang="zh">中路 +24%（1.12/0.9），边路 −19%（0.9/1.07）。</td>
+    <td lang="en">Center +24% (1.12/0.9), flanks −19% (0.9/1.07).</td>
+  </tr>
+  <tr>
+    <td><span class="badge" style="background:var(--red);">WIDE</span></td>
+    <td><span class="badge" style="background:var(--cyan); color:#000;">NARROW</span></td>
+    <td lang="zh">边路 +19%（1.07/0.9），中路 −24%（0.9/1.12）。</td>
+    <td lang="en">Flanks +19% (1.07/0.9), center −24% (0.9/1.12).</td>
+  </tr>
+</table>
+
+<hr>
+
+<h2 id="stats">
+  <span lang="zh">8. 数据统计与报告</span>
+  <span lang="en">8. Statistics &amp; Reporting</span>
+</h2>
+
+<h3>
+  <span lang="zh">比赛统计 (getMatchStats())</span>
+  <span lang="en">Match Stats (getMatchStats())</span>
+</h3>
+<ul style="margin: 8px 0 12px 20px;">
+  <li lang="zh"><strong>attackTypeStats</strong>: 每种进攻类型的尝试/射门/进球次数</li>
+  <li lang="en"><strong>attackTypeStats</strong>: attempts / shots / goals per attack type</li>
+  <li lang="zh"><strong>shotTypeStats</strong>: 每种射门类型的尝试/进球/扑救/射偏/封堵次数</li>
+  <li lang="en"><strong>shotTypeStats</strong>: attempts / goals / saves / misses / blocks per shot type</li>
+  <li lang="zh"><strong>possessionStats</strong>: 主/客队控球计数</li>
+  <li lang="en"><strong>possessionStats</strong>: home/away possession counts</li>
+  <li lang="zh"><strong>summary</strong>: 总进攻次数、总射门次数、总进球、比分</li>
+  <li lang="en"><strong>summary</strong>: totalAttacks, totalShots, totalGoals, scores</li>
+</ul>
+
+<h3>
+  <span lang="zh">球员统计 (getPlayerMatchStats())</span>
+  <span lang="en">Player Stats (getPlayerMatchStats())</span>
+</h3>
+<ul style="margin: 8px 0 12px 20px;">
+  <li lang="zh"><strong>goals / assists / tackles</strong>: 基于比赛事件的计数</li>
+  <li lang="en"><strong>goals / assists / tackles</strong>: match event-based counts</li>
+  <li lang="zh"><strong>minutesPlayed</strong>: 在换人时和比赛结束时追踪</li>
+  <li lang="en"><strong>minutesPlayed</strong>: tracked at substitution time and match end</li>
+  <li lang="zh"><strong>avgContribution / avgStars</strong>: 所有快照记录中归一化贡献值的平均值</li>
+  <li lang="en"><strong>avgContribution / avgStars</strong>: average of normalized contributions across all snapshot records</li>
+  <li lang="zh"><strong>appearances</strong>: 球员出场次数（首发=1，每次换人+1）</li>
+  <li lang="en"><strong>appearances</strong>: number of times player entered match (starts=1, subs add 1)</li>
+</ul>
+
+<h3>
+  <span lang="zh">路强度历史</span>
+  <span lang="en">Lane Strength History</span>
+</h3>
+<p lang="zh">每次快照（每5分钟）时记录双方路强度。<code>getLaneStrengthAverages()</code> 返回全场比赛各路、各阶段（进攻/防守/控球）的平均值。</p>
+<p lang="en">At each snapshot (every 5 mins), both teams' laneStrengths are recorded. <code>getLaneStrengthAverages()</code> returns per-lane, per-phase (attack/defense/possession) averages across the match.</p>
+
+<h3>
+  <span lang="zh">快照事件 (generateSnapshotEvent())</span>
+  <span lang="en">Snapshot Events (generateSnapshotEvent())</span>
+</h3>
+<p lang="zh">在 0, 5, 10, ... 45, 46, 50, ... 90 分钟生成（加时赛同理）。每次快照包含：</p>
+<p lang="en">Generated at minutes 0, 5, 10, ... 45, 46, 50, ... 90 (and in extra time). Each snapshot contains:</p>
+<ul style="margin: 8px 0 12px 20px;">
+  <li lang="zh">路强度（左/中/右 × 进攻/防守/控球）</li>
+  <li lang="en">Lane strengths (left/center/right × attack/defense/possession)</li>
+  <li lang="zh">门将评分</li>
+  <li lang="en">GK rating</li>
+  <li lang="zh">每名球员：体能、状态、condition multiplier、归一化贡献值（0–100）、星级、入场分钟</li>
+  <li lang="en">Per-player: fitness, form, condition multiplier, normalized contribution (0–100), star rating, entry minute</li>
+  <li lang="zh">完整数据（姓名、总体评分、年龄、出场次数）仅在第0分钟或换人后发送</li>
+  <li lang="en">Full data (name, overall, age, appearances) sent only at minute 0 or for newly substituted players</li>
+</ul>
+
+<hr>
+
+<h2 id="abilities">
+  <span lang="zh">9. 球员能力参考</span>
+  <span lang="en">9. Player Abilities Reference</span>
+</h2>
+
+<table>
+  <tr>
+    <th lang="zh">能力</th><th lang="en">Ability</th>
+    <th lang="zh">场景</th><th lang="en">Context</th>
+    <th lang="zh">效果</th><th lang="en">Effect</th>
+  </tr>
+  <tr>
+    <td><span class="string">tackle_master</span></td>
+    <td lang="zh">中场争夺</td><td lang="en">Midfield battle</td>
+    <td lang="zh">防守方每有一个 +8%</td><td lang="en">Defending team +8% per specialist</td>
+  </tr>
+  <tr>
+    <td><span class="string">counter_starter</span></td>
+    <td lang="zh">刚获得球权后（freshPossession）</td><td lang="en">After winning possession (freshPossession)</td>
+    <td lang="zh">进攻方每有一个 +5%</td><td lang="en">Attacking team +5% per specialist</td>
+  </tr>
+  <tr>
+    <td><span class="string">long_passer</span></td>
+    <td lang="zh">THROUGH_PASS 进攻类型</td><td lang="en">THROUGH_PASS attack type</td>
+    <td>attPower ×1.06</td>
+  </tr>
+  <tr>
+    <td><span class="string">cross_specialist</span></td>
+    <td lang="zh">CROSS 进攻类型</td><td lang="en">CROSS attack type</td>
+    <td>attPower ×1.08</td>
+  </tr>
+  <tr>
+    <td><span class="string">dribble_master</span></td>
+    <td lang="zh">DRIBBLE 进攻类型</td><td lang="en">DRIBBLE attack type</td>
+    <td>attPower ×1.06</td>
+  </tr>
+  <tr>
+    <td><span class="string">header_specialist</span></td>
+    <td lang="zh">CROSS 进攻类型，两队</td><td lang="en">CROSS attack, both teams</td>
+    <td lang="zh">进攻方: attPower ×1.05 每个；防守方: defPower ×1.08 每个</td>
+    <td lang="en">Attacker: attPower ×1.05 each · Defender: defPower ×1.08 each</td>
+  </tr>
+  <tr>
+    <td><span class="string">long_shooter</span></td>
+    <td lang="zh">LONG_SHOT 射门</td><td lang="en">LONG_SHOT shot</td>
+    <td>shootRating ×1.10</td>
+  </tr>
+  <tr>
+    <td><span class="string">rebound_specialist</span></td>
+    <td lang="zh">REBOUND 射门</td><td lang="en">REBOUND shot</td>
+    <td>shootRating ×1.10</td>
+  </tr>
+  <tr>
+    <td><span class="string">penalty_saver</span></td>
+    <td lang="zh">点球（门将）</td><td lang="en">Penalty kick (GK)</td>
+    <td>defenseScore ×1.10</td>
+  </tr>
+</table>
+
+<hr>
+
+<h2 id="condition">
+  <span lang="zh">10. 体能系统</span>
+  <span lang="en">10. Condition System (Stamina &amp; Fitness)</span>
+</h2>
+
+<p lang="zh">每分钟 <code>Team.updateCondition()</code> 衰减球员体能并重新计算 condition multiplier。该修正值应用于球员所有贡献值。</p>
+<p lang="en">Every minute, <code>Team.updateCondition()</code> decays player fitness and recalculates a condition multiplier. This multiplier scales all of a player's contribution values.</p>
+
+<div class="formula">multiplier = f(fitness, stamina, form, experience)</div>
+
+<ul style="margin: 8px 0 12px 20px;">
+  <li lang="zh"><strong>体能衰减</strong>: 比赛期间每分钟约 0.5%。中场休息（46分钟）时部分恢复。</li>
+  <li lang="en"><strong>Stamina decay</strong>: ~0.5% per minute during play. Partial recovery at halftime (46).</li>
+  <li lang="zh"><strong>Fitness</strong>: 从 1.0 开始，随体能衰减。代表身体准备度。</li>
+  <li lang="en"><strong>Fitness</strong>: Starts at 1.0, decays with stamina. Represents physical readiness.</li>
+  <li lang="zh"><strong>Form</strong>: 静态的比赛间修正值（1–10范围），代表近期表现。</li>
+  <li lang="en"><strong>Form</strong>: Static match-to-match modifier (1–10 scale). Represents recent performance.</li>
+  <li lang="zh"><strong>Experience</strong>: 降低低体能/低 fitness 的负面影响。</li>
+  <li lang="en"><strong>Experience</strong>: Reduces the negative impact of low stamina/fitness.</li>
+  <li lang="zh"><strong>Condition multiplier</strong>: 应用于所有贡献计算。最大疲劳时约 0.7。</li>
+  <li lang="en"><strong>Condition multiplier</strong>: Applied to all contribution calculations. Min ~0.7 at full fatigue.</li>
+</ul>
+
+<p lang="zh">被以下模块使用：<code>AttributeCalculator</code> 在计算路强度、射门评分、定位球得分时都会应用此修正。</p>
+<p lang="en">Used by: <code>AttributeCalculator</code> when calculating lane strengths, shot ratings, set piece scores.</p>
+
+</main>
+
+<script>
+  function setLang(lang) {
+    document.body.classList.toggle('en', lang === 'en');
+    document.querySelectorAll('.lang-btn').forEach(btn => {
+      btn.classList.toggle('active', btn.id === 'btn-' + lang);
+    });
+  }
+  // Sync anchor links with current lang
+  document.querySelectorAll('nav a[href^="#"]').forEach(a => {
+    a.addEventListener('click', () => {
+      // Lang is already shown via CSS, no action needed
+    });
+  });
+</script>
+
+</body>
+</html>

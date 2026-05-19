@@ -17,6 +17,18 @@ import {
   generateWeatherAnnouncementEvent,
   generatePlayerIntroductionEvent,
 } from './event.generator';
+import {
+  TacticsConfig,
+  Tempo,
+  PitchWidth,
+  DefensiveLine,
+} from './types/tactics-config';
+import {
+  WIDTH_MODIFIERS,
+  DEFENSIVE_LINE_MODIFIERS,
+  TEMPO_MODIFIERS,
+  DEFAULT_TACTICS,
+} from './tactics/tactics-presets';
 
 // ---------- Ability Helper ----------
 const hasAbility = (
@@ -258,6 +270,8 @@ export class MatchEngine {
     private homeBenchConfig: BenchConfig | null = null,
     private awayBenchConfig: BenchConfig | null = null,
     private weather: string = 'cloudy', // Default weather
+    private homeTactics: TacticsConfig = DEFAULT_TACTICS,
+    private awayTactics: TacticsConfig = DEFAULT_TACTICS,
   ) {
     this.possessionTeam = homeTeam;
     this.defendingTeam = awayTeam;
@@ -309,6 +323,13 @@ export class MatchEngine {
         };
       }
     });
+  }
+
+  /**
+   * Get tactics config for a team
+   */
+  private getTacticsForTeam(team: Team): TacticsConfig {
+    return team === this.homeTeam ? this.homeTactics : this.awayTactics;
   }
 
   /**
@@ -404,8 +425,8 @@ export class MatchEngine {
     const MOMENTS_COUNT = 20;
 
     // Initial Snapshot
-    this.homeTeam.updateSnapshot(0);
-    this.awayTeam.updateSnapshot(0);
+    this.homeTeam.updateSnapshot(0, this.homeTactics.pitchWidth);
+    this.awayTeam.updateSnapshot(0, this.awayTactics.pitchWidth);
     this.generateSnapshotEvent(0);
 
     // Pre-calculate moment times to maintain original pacing (approx 20 moments)
@@ -458,8 +479,8 @@ export class MatchEngine {
       // 3. Generate Snapshot (Every 5 mins, 45, 46, 90)
       const isSnapshotMinute = t % 5 === 0 || t === 45 || t === 46 || t === 90;
       if (isSnapshotMinute) {
-        this.homeTeam.updateSnapshot(t);
-        this.awayTeam.updateSnapshot(t);
+        this.homeTeam.updateSnapshot(t, this.homeTactics.pitchWidth);
+        this.awayTeam.updateSnapshot(t, this.awayTactics.pitchWidth);
         this.generateSnapshotEvent(t);
       }
 
@@ -500,8 +521,8 @@ export class MatchEngine {
     const MOMENTS_COUNT = 7;
 
     // Update Snapshot for start of ET
-    this.homeTeam.updateSnapshot(90);
-    this.awayTeam.updateSnapshot(90);
+    this.homeTeam.updateSnapshot(90, this.homeTactics.pitchWidth);
+    this.awayTeam.updateSnapshot(90, this.awayTactics.pitchWidth);
     this.generateSnapshotEvent(90);
 
     // Pre-calculate moment times for ET (approx 7 moments)
@@ -554,8 +575,8 @@ export class MatchEngine {
       // 3. Snapshot (95, 100, 105, 110, 115, 120)
       const isSnapshotMinute = t % 5 === 0 || t === 105 || t === 120;
       if (isSnapshotMinute) {
-        this.homeTeam.updateSnapshot(t);
-        this.awayTeam.updateSnapshot(t);
+        this.homeTeam.updateSnapshot(t, this.homeTactics.pitchWidth);
+        this.awayTeam.updateSnapshot(t, this.awayTactics.pitchWidth);
         this.generateSnapshotEvent(t);
       }
 
@@ -1190,7 +1211,7 @@ export class MatchEngine {
           playerId: ins.type === 'swap' ? ins.newPlayerId : ins.playerId,
           data: ins,
         });
-        team.updateSnapshot(this.time); // Immediate re-calculation
+        team.updateSnapshot(this.time, this.getTacticsForTeam(team).pitchWidth); // Immediate re-calculation
       }
     }
   }
@@ -1285,6 +1306,9 @@ export class MatchEngine {
     let pushSuccess = false;
     let preSelectedShooter: TacticalPlayer | null = null;
     let preSelectedPasser: TacticalPlayer | null = null;
+    let interceptTriggered = false;
+    let effectiveAttPower: number;
+    let effectiveDefPower: number;
     if (attackType !== AttackType.LONG_SHOT) {
       preSelectedShooter = this.selectShooter(this.possessionTeam);
       // 预先选取传球者，以便检查 ability 对 push 的加成
@@ -1346,13 +1370,29 @@ export class MatchEngine {
       }
 
       // ==========================================
+      // 战术维度加成：防线高度 → 攻守强度修正
+      // ==========================================
+      const attDefConfig = this.getTacticsForTeam(this.possessionTeam);
+      const defDefConfig = this.getTacticsForTeam(this.defendingTeam);
+
+      // 进攻方受防线高度影响（进攻加成）
+      const attDefMult =
+        DEFENSIVE_LINE_MODIFIERS[attDefConfig.defensiveLine].attackMult;
+      // 防守方受防线高度影响（防守加成）
+      const defDefMult =
+        DEFENSIVE_LINE_MODIFIERS[defDefConfig.defensiveLine].defenseMult;
+
+      effectiveAttPower *= attDefMult;
+      effectiveDefPower *= defDefMult;
+
+      // ==========================================
       // 反击机制：当防守强度远高于进攻时，增加断球概率和反击加成
       // ==========================================
       const DEF_THRESHOLD = 1.3; // defRatio 阈值
       const MAX_INTERCEPT_CHANCE = 0.25; // 最高25%断球率
       const MAX_COUNTER_BONUS = 0.3; // 最高30%反击加成
 
-      let interceptTriggered = false;
+      interceptTriggered = false;
       const defRatio = effectiveDefPower / effectiveAttPower;
 
       if (defRatio > DEF_THRESHOLD) {
@@ -1366,20 +1406,49 @@ export class MatchEngine {
           // 直接断球，防守方获得球权并发动反击
           interceptTriggered = true;
 
+          // 先保存原始进攻方用于反击加成计算
+          const originalAttackingTeam = this.possessionTeam;
+
           // 角色互换： possessionTeam 变成 defendingTeam，defendingTeam 变成 possessionTeam
           const temp = this.possessionTeam;
           this.possessionTeam = this.defendingTeam;
           this.defendingTeam = temp;
 
-          // 反击时进攻加成
+          // 重新计算新进攻方的effectiveAttPower（换了队）
+          const newAttPower = this.possessionTeam.calculateLaneStrength(
+            this.currentLane,
+            'attack',
+          );
+          const newDefConfig = this.getTacticsForTeam(this.defendingTeam);
+          const newAttDefConfig = this.getTacticsForTeam(this.possessionTeam);
+          const newAttDefMult =
+            DEFENSIVE_LINE_MODIFIERS[newAttDefConfig.defensiveLine].attackMult;
+          const newDefDefMult =
+            DEFENSIVE_LINE_MODIFIERS[newDefConfig.defensiveLine].defenseMult;
+
+          effectiveAttPower = newAttPower * newAttDefMult;
+          const newDefPower =
+            this.defendingTeam.calculateLaneStrength(
+              this.currentLane,
+              'defense',
+            ) * newDefDefMult;
+
+          // 反击加成，受tempo counterVulnerability影响
+          // 快节奏队反击更危险（counterVulnerability低→反击加成高）
+          const counterVuln =
+            TEMPO_MODIFIERS[
+              (originalAttackingTeam === this.homeTeam
+                ? this.awayTactics
+                : this.homeTactics
+              ).tempo
+            ].counterVulnerability;
           const counterBonus = Math.min(
             MAX_COUNTER_BONUS,
-            (defRatio - DEF_THRESHOLD) * 0.15,
+            (defRatio - DEF_THRESHOLD) * 0.15 * (1 / counterVuln),
           );
-          // 直接在effectiveAttPower上应用反击加成
           effectiveAttPower *= 1 + counterBonus;
 
-          // 拦截成功后，让新的进攻方直接射门（不需要再走推进流程）
+          // 拦截成功后直接射门（不需要再走推进流程）
           pushSuccess = true;
         }
       }
@@ -1394,12 +1463,19 @@ export class MatchEngine {
         }
       }
 
+      // ==========================================
+      // 战术维度加成：tempo → 推进k值修正
+      // SLOW更稳定（k低），FAST更冒险（k高）
+      // ==========================================
+      const attTempo = TEMPO_MODIFIERS[attDefConfig.tempo];
+      const effectiveK = attackConfig.pushK * (attTempo.duelK / 0.5);
+
       // 推进判定（正常流程）
       if (!interceptTriggered) {
         pushSuccess = this.resolveDuel(
           effectiveAttPower,
           effectiveDefPower,
-          attackConfig.pushK,
+          effectiveK,
           attackConfig.pushOffset,
         );
         // 如果进攻失败，防守方获得球权，下次进攻享受反击加成
@@ -1459,9 +1535,15 @@ export class MatchEngine {
         shotResult = isGoal ? 'goal' : 'miss';
       }
     } else if (pushSuccess) {
-      // 常规进攻：推进成功后选择射门类型（复用预选的射手）
+      // 常规进攻：推进成功后选择射门类型
       shotType = this.selectShotType(attackType);
-      shooter = preSelectedShooter;
+      // 如果是反击（interceptTriggered），进攻方已换，需要重新选射手
+      // 否则复用预选的射手
+      if (interceptTriggered) {
+        shooter = this.selectShooter(this.possessionTeam);
+      } else {
+        shooter = preSelectedShooter;
+      }
 
       if (shooter) {
         const player = shooter.player as Player;
@@ -1579,7 +1661,10 @@ export class MatchEngine {
         teamName: foulingTeam.name,
         playerId: p.id,
       });
-      foulingTeam.updateSnapshot(this.time);
+      foulingTeam.updateSnapshot(
+        this.time,
+        this.getTacticsForTeam(foulingTeam).pitchWidth,
+      );
     } else if (roll < 0.4) {
       // Yellow Card - check for second yellow
       const currentYellows = player.yellowCards || 0;
@@ -1594,7 +1679,10 @@ export class MatchEngine {
           teamName: foulingTeam.name,
           playerId: p.id,
         });
-        foulingTeam.updateSnapshot();
+        foulingTeam.updateSnapshot(
+          this.time,
+          this.getTacticsForTeam(foulingTeam).pitchWidth,
+        );
       } else {
         // First yellow - also determine set piece
         this.events.push({
@@ -1788,7 +1876,7 @@ export class MatchEngine {
       }
 
       // Update team snapshot
-      team.updateSnapshot(this.time);
+      team.updateSnapshot(this.time, this.getTacticsForTeam(team).pitchWidth);
     }
   }
 
@@ -2144,24 +2232,27 @@ export class MatchEngine {
   }
 
   /**
-   * 根据当前路（lane）选择进攻类型（受天气影响）
+   * 根据当前路（lane）选择进攻类型（受天气+tempo影响）
    * @param lane 当前攻击的路
    * @returns 进攻类型枚举
    */
   private selectAttackType(lane: Lane): AttackType {
-    // 获取该路的进攻方式分布
     const distribution = LANE_ATTACK_DISTRIBUTION[lane];
     if (!distribution) {
       return AttackType.SHORT_PASS;
     }
 
-    // 获取天气权重
+    // Get tempo weights for attacking team
+    const attConfig = this.getTacticsForTeam(this.possessionTeam);
+    const tempoWeights = TEMPO_MODIFIERS[attConfig.tempo].attackTypeWeights;
+
+    // Get weather weights
     const weatherWeights =
       WEATHER_ATTACK_WEIGHTS[this.weather] || WEATHER_ATTACK_WEIGHTS['cloudy'];
 
-    // 应用天气权重
+    // Apply both tempo and weather weights
     const weightedDistribution = distribution.map(
-      (base, i) => base * weatherWeights[i],
+      (base, i) => base * weatherWeights[i] * tempoWeights[AttackType[i]],
     );
 
     // 归一化（保持总和为100）
@@ -2284,13 +2375,17 @@ export class MatchEngine {
   }
 
   private changeLane() {
-    // 中路42%，左路29%，右路29%
+    // Lane is determined neutrally — opportunities appear regardless of which team will get possession.
+    // Base distribution: left=29, center=42, right=29
+    const base = [29, 42, 29];
+    const sum = base.reduce((a, b) => a + b, 0);
+    const normalized = base.map((w) => (w / sum) * 100);
+
     const rand = Math.random() * 100;
-    if (rand < 42) {
-      this.currentLane = 'center';
-    } else if (rand < 71) {
-      // 42 + 29 = 71
+    if (rand < normalized[0]) {
       this.currentLane = 'left';
+    } else if (rand < normalized[0] + normalized[1]) {
+      this.currentLane = 'center';
     } else {
       this.currentLane = 'right';
     }

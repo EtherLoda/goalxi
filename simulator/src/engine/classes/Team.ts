@@ -7,6 +7,8 @@ import {
 import { AttributeCalculator } from '../utils/attribute-calculator';
 import { ConditionSystem } from '../systems/condition.system';
 import { Player, PlayerAbility } from '../../types/player.types';
+import { PitchWidth } from '../types/tactics-config';
+import { WIDTH_MODIFIERS } from '../tactics/tactics-presets';
 
 // Ability helper
 const hasAbility = (
@@ -84,7 +86,7 @@ export class Team {
    * 使用缓存的贡献值，只需应用multiplier
    * @param minute 当前比赛分钟，用于计算clutch_player加成
    */
-  updateSnapshot(minute: number = 0) {
+  updateSnapshot(minute: number = 0, pitchWidth?: PitchWidth) {
     const lanes: Lane[] = ['left', 'center', 'right'];
     const laneStrengths: TeamSnapshot['laneStrengths'] = {
       left: { attack: 0, defense: 0, possession: 0 },
@@ -141,6 +143,14 @@ export class Team {
         laneStrengths[lane].defense += def * multiplier;
         laneStrengths[lane].possession += poss * multiplier;
       }
+    }
+
+    // Apply pitch width modifiers to attack and defense (not possession)
+    // NARROW: concentrate through center; WIDE: spread to flanks
+    const widthMults = WIDTH_MODIFIERS[pitchWidth ?? PitchWidth.BALANCED];
+    for (const lane of lanes) {
+      laneStrengths[lane].attack *= widthMults[lane];
+      laneStrengths[lane].defense *= widthMults[lane];
     }
 
     // Round all lane strengths
