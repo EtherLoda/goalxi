@@ -15,13 +15,15 @@ interface AppShellProps {
 const PUBLIC_ROUTES = ["/", "/auth/login", "/auth/register"];
 
 export default function AppShell({ locale, children }: AppShellProps) {
-  const { user } = useAuth();
+  const { user: _user } = useAuth();
   const pathname = usePathname();
 
+  // Strip locale prefix for public route matching
+  const stripLocale = (path: string) => path.replace(`/${locale}`, "") || "/";
+  const routeWithoutLocale = stripLocale(pathname);
+
   // Check if current route is public
-  const isPublicRoute = PUBLIC_ROUTES.some(
-    (route) => pathname === `/${locale}${route}` || pathname === route
-  );
+  const isPublicRoute = PUBLIC_ROUTES.includes(routeWithoutLocale);
 
   // Don't show sidebar/header only for public routes (allow anonymous viewing)
   if (isPublicRoute) {
