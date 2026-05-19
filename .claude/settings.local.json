@@ -54,7 +54,12 @@
       "Bash(npx env-cmd:*)",
       "Bash(DB_HOST=localhost DB_PORT=25432 pnpm cli:season-test --tiers 2 --weeks 2 --fresh)",
       "Bash(DB_HOST=localhost DB_PORT=25432 pnpm cli:season-test --tiers 2 --weeks 1 --fresh)",
-      "PowerShell(Stop-Process *)"
+      "PowerShell(Stop-Process *)",
+      "Bash(docker restart *)",
+      "Bash(docker stop *)",
+      "Bash(docker start *)",
+      "Bash(docker compose *)",
+      "Bash(docker pull *)"
     ]
   }
 }
