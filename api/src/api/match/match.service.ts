@@ -500,6 +500,9 @@ export class MatchService {
       tactics.substitutions = substitutions || null;
       tactics.presetId = dto.presetId || null;
       tactics.submittedAt = new Date();
+      if (dto.tempo) tactics.tempo = dto.tempo;
+      if (dto.pitchWidth) tactics.pitchWidth = dto.pitchWidth;
+      if (dto.defensiveLine) tactics.defensiveLine = dto.defensiveLine;
     } else {
       // Create new
       tactics = this.tacticsRepository.create({
@@ -511,6 +514,9 @@ export class MatchService {
         substitutions: substitutions || null,
         presetId: dto.presetId || null,
         submittedAt: new Date(),
+        tempo: dto.tempo || 'balanced',
+        pitchWidth: dto.pitchWidth || 'balanced',
+        defensiveLine: dto.defensiveLine || 'mid',
       });
     }
 
@@ -578,6 +584,9 @@ export class MatchService {
       substitutions: tactics.substitutions,
       submittedAt: tactics.submittedAt,
       presetId: tactics.presetId,
+      tempo: (tactics.tempo || 'balanced') as any,
+      pitchWidth: (tactics.pitchWidth || 'balanced') as any,
+      defensiveLine: (tactics.defensiveLine || 'mid') as any,
     };
   }
 }

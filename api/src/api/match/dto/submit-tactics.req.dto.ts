@@ -1,6 +1,7 @@
 import { Type } from 'class-transformer';
 import {
   IsArray,
+  IsEnum,
   IsObject,
   IsOptional,
   IsString,
@@ -8,6 +9,7 @@ import {
   ValidateNested,
 } from 'class-validator';
 import { SubstitutionDto } from './substitution.dto';
+import { Tempo, PitchWidth, DefensiveLine } from '../types/tactical-dimensions';
 
 export class SubmitTacticsReqDto {
   @IsString()
@@ -32,4 +34,16 @@ export class SubmitTacticsReqDto {
 
   @IsUUID()
   teamId!: string;
+
+  @IsEnum(Tempo)
+  @IsOptional()
+  tempo?: Tempo;
+
+  @IsEnum(PitchWidth)
+  @IsOptional()
+  pitchWidth?: PitchWidth;
+
+  @IsEnum(DefensiveLine)
+  @IsOptional()
+  defensiveLine?: DefensiveLine;
 }

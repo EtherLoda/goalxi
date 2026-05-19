@@ -1,4 +1,5 @@
 import { SubstitutionDto } from './substitution.dto';
+import { Tempo, PitchWidth, DefensiveLine } from '../types/tactical-dimensions';
 
 export class TacticsResDto {
   id!: string;
@@ -10,4 +11,7 @@ export class TacticsResDto {
   substitutions!: SubstitutionDto[] | null;
   submittedAt!: Date;
   presetId!: string | null;
+  tempo!: Tempo;
+  pitchWidth!: PitchWidth;
+  defensiveLine!: DefensiveLine;
 }
