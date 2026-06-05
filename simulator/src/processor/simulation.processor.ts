@@ -385,13 +385,15 @@ export class SimulationProcessor extends WorkerHost {
     const homeTacticsConfig: TacticsConfig = {
       tempo: (homeTactics.tempo as Tempo) || Tempo.BALANCED,
       pitchWidth: (homeTactics.pitchWidth as PitchWidth) || PitchWidth.BALANCED,
-      defensiveLine: (homeTactics.defensiveLine as DefensiveLine) || DefensiveLine.MID,
+      defensiveLine:
+        (homeTactics.defensiveLine as DefensiveLine) || DefensiveLine.MID,
     };
 
     const awayTacticsConfig: TacticsConfig = {
       tempo: (awayTactics.tempo as Tempo) || Tempo.BALANCED,
       pitchWidth: (awayTactics.pitchWidth as PitchWidth) || PitchWidth.BALANCED,
-      defensiveLine: (awayTactics.defensiveLine as DefensiveLine) || DefensiveLine.MID,
+      defensiveLine:
+        (awayTactics.defensiveLine as DefensiveLine) || DefensiveLine.MID,
     };
 
     const engine = new MatchEngine(

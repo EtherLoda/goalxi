@@ -8,8 +8,8 @@ import {
   IsUUID,
   ValidateNested,
 } from 'class-validator';
+import { DefensiveLine, PitchWidth, Tempo } from '../types/tactical-dimensions';
 import { SubstitutionDto } from './substitution.dto';
-import { Tempo, PitchWidth, DefensiveLine } from '../types/tactical-dimensions';
 
 export class SubmitTacticsReqDto {
   @IsString()

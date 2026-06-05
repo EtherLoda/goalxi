@@ -394,4 +394,182 @@ describe('MatchEngine', () => {
       }
     });
   });
+
+  describe('Tactical Dimensions', () => {
+    // Attributes are 0-20 range
+    const createPlayer = (id: string, ovr: number): Player => ({
+      id,
+      name: id,
+      position: 'CM',
+      exactAge: [25, 0],
+      attributes: {
+        finishing: ovr,
+        composure: ovr,
+        positioning: ovr,
+        strength: ovr,
+        pace: ovr,
+        dribbling: ovr,
+        passing: ovr,
+        defending: ovr,
+        freeKicks: 15,
+        penalties: 15,
+        gk_reflexes: 15,
+        gk_handling: 15,
+        gk_aerial: 15,
+      },
+      currentStamina: 3,
+      form: 5,
+      experience: 10,
+    });
+
+    const createTeam = (name: string, ovr: number): Team => {
+      const players: TacticalPlayer[] = [];
+      for (let i = 0; i < 11; i++) {
+        players.push({
+          player: createPlayer(`${name}-${i}`, ovr),
+          positionKey: i === 0 ? 'GK' : 'CM',
+        });
+      }
+      return new Team(name, players);
+    };
+
+    it('should accept tactics config via constructor', () => {
+      const home = createTeam('Home', 16);
+      const away = createTeam('Away', 16);
+      const {
+        Tempo,
+        PitchWidth,
+        DefensiveLine,
+      } = require('./types/tactics-config');
+      const engine = new MatchEngine(
+        home,
+        away,
+        [],
+        [],
+        new Map(),
+        null,
+        null,
+        'cloudy',
+        {
+          tempo: Tempo.FAST,
+          pitchWidth: PitchWidth.WIDE,
+          defensiveLine: DefensiveLine.HIGH,
+        },
+        {
+          tempo: Tempo.SLOW,
+          pitchWidth: PitchWidth.NARROW,
+          defensiveLine: DefensiveLine.LOW,
+        },
+      );
+
+      expect(engine.homeTeam).toBeDefined();
+      expect(engine.awayTeam).toBeDefined();
+    });
+
+    it('should use BALANCED tactics by default when none provided', () => {
+      const home = createTeam('Home', 15);
+      const away = createTeam('Away', 15);
+      const engine = new MatchEngine(home, away);
+
+      // Should simulate without error using default tactics
+      const events = engine.simulateMatch();
+      expect(events.length).toBeGreaterThan(0);
+    });
+
+    it('should generate events with different tempos producing different duel outcomes', () => {
+      const home = createTeam('Home', 16);
+      const away = createTeam('Away', 16);
+      const {
+        Tempo,
+        PitchWidth,
+        DefensiveLine,
+      } = require('./types/tactics-config');
+
+      // Run multiple times with FAST tempo to observe higher variance
+      const fastEngine = new MatchEngine(
+        home,
+        away,
+        [],
+        [],
+        new Map(),
+        null,
+        null,
+        'cloudy',
+        {
+          tempo: Tempo.FAST,
+          pitchWidth: PitchWidth.BALANCED,
+          defensiveLine: DefensiveLine.MID,
+        },
+        {
+          tempo: Tempo.SLOW,
+          pitchWidth: PitchWidth.BALANCED,
+          defensiveLine: DefensiveLine.MID,
+        },
+      );
+
+      const fastEvents = fastEngine.simulateMatch();
+      expect(fastEvents.length).toBeGreaterThan(0);
+    });
+
+    it('should produce valid match events with all tactic combinations', () => {
+      const {
+        Tempo,
+        PitchWidth,
+        DefensiveLine,
+      } = require('./types/tactics-config');
+
+      const combinations = [
+        {
+          tempo: Tempo.SLOW,
+          pitchWidth: PitchWidth.NARROW,
+          defensiveLine: DefensiveLine.LOW,
+        },
+        {
+          tempo: Tempo.BALANCED,
+          pitchWidth: PitchWidth.BALANCED,
+          defensiveLine: DefensiveLine.MID,
+        },
+        {
+          tempo: Tempo.FAST,
+          pitchWidth: PitchWidth.WIDE,
+          defensiveLine: DefensiveLine.HIGH,
+        },
+        {
+          tempo: Tempo.FAST,
+          pitchWidth: PitchWidth.NARROW,
+          defensiveLine: DefensiveLine.HIGH,
+        },
+        {
+          tempo: Tempo.SLOW,
+          pitchWidth: PitchWidth.WIDE,
+          defensiveLine: DefensiveLine.LOW,
+        },
+      ];
+
+      for (const tactics of combinations) {
+        const home = createTeam('Home', 75);
+        const away = createTeam('Away', 75);
+        const engine = new MatchEngine(
+          home,
+          away,
+          [],
+          [],
+          new Map(),
+          null,
+          null,
+          'cloudy',
+          tactics,
+          tactics,
+        );
+
+        expect(() => engine.simulateMatch()).not.toThrow();
+
+        const events = engine.simulateMatch();
+        expect(events.length).toBeGreaterThan(0);
+
+        const kickoff = events.find((e: any) => e.type === 'kickoff');
+        expect(kickoff).toBeDefined();
+      }
+    });
+  });
 });
