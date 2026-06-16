@@ -1,5 +1,6 @@
 import pino from 'pino';
-import pinoRoll from 'pino-roll';
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const pinoRoll = require('pino-roll');
 
 const isServer = typeof window === 'undefined';
 
@@ -13,10 +14,8 @@ const transport = isServer
     })
   : undefined;
 
-export const logger = pino(
-  {
+export const logger = pino({
     level: 'warn',
-    service: 'web',
-  },
+  } as Parameters<typeof pino>[0],
   transport,
 );
