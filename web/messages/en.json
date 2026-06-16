@@ -120,6 +120,7 @@
   },
   "squad": {
     "title": "Squad",
+    "squad": "Squad",
     "all": "All",
     "gk": "GK",
     "field": "Field",

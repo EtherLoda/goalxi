@@ -903,12 +903,12 @@ export default function TransfersPage() {
                         {/* Physical */}
                         <div>
                           <div className="flex items-center gap-2 mb-3">
-                            <div className="w-1.5 h-4 bg-[#abf853] rounded-full" />
+                            <div className="w-1.5 h-4 bg-[#60a5fa] rounded-full" />
                             <h3 className="text-xs font-black font-space tracking-widest uppercase text-[#91b2a6]">{t("transfers.detail.physical")}</h3>
                           </div>
                           <div className="space-y-3">
-                            {renderSkillBar(t("squad.skills.pace"), (selectedTransfer.player.currentSkills as any)?.physical?.pace || 0, (selectedTransfer.player.potentialSkills as any)?.physical?.pace || 0, "text-[#abf853]")}
-                            {renderSkillBar(t("squad.skills.strength"), (selectedTransfer.player.currentSkills as any)?.physical?.strength || 0, (selectedTransfer.player.potentialSkills as any)?.physical?.strength || 0, "text-[#abf853]")}
+                            {renderSkillBar(t("squad.skills.pace"), (selectedTransfer.player.currentSkills as any)?.physical?.pace || 0, (selectedTransfer.player.potentialSkills as any)?.physical?.pace || 0, "text-[#60a5fa]")}
+                            {renderSkillBar(t("squad.skills.strength"), (selectedTransfer.player.currentSkills as any)?.physical?.strength || 0, (selectedTransfer.player.potentialSkills as any)?.physical?.strength || 0, "text-[#60a5fa]")}
                           </div>
                         </div>
                       </div>
@@ -918,24 +918,24 @@ export default function TransfersPage() {
                         {/* Mental */}
                         <div>
                           <div className="flex items-center gap-2 mb-3">
-                            <div className="w-1.5 h-4 bg-[#f59e0b] rounded-full" />
-                            <h3 className="text-xs font-black font-space tracking-widest uppercase text-[#91b2a6]">{t("transfers.detail.mental")}</h3>
+                            <div className="w-1.5 h-4 bg-[#abf853] rounded-full" />
+                            <h3 className="text-xs font-black font-space tracking-widest uppercase text-[#91b12a6]">{t("transfers.detail.mental")}</h3>
                           </div>
                           <div className="space-y-3">
-                            {renderSkillBar(t("squad.skills.composure"), (selectedTransfer.player.currentSkills as any)?.mental?.composure || 0, (selectedTransfer.player.potentialSkills as any)?.mental?.composure || 0, "text-[#f59e0b]")}
-                            {renderSkillBar(t("squad.skills.positioning"), (selectedTransfer.player.currentSkills as any)?.mental?.positioning || 0, (selectedTransfer.player.potentialSkills as any)?.mental?.positioning || 0, "text-[#f59e0b]")}
+                            {renderSkillBar(t("squad.skills.composure"), (selectedTransfer.player.currentSkills as any)?.mental?.composure || 0, (selectedTransfer.player.potentialSkills as any)?.mental?.composure || 0, "text-[#abf853]")}
+                            {renderSkillBar(t("squad.skills.positioning"), (selectedTransfer.player.currentSkills as any)?.mental?.positioning || 0, (selectedTransfer.player.potentialSkills as any)?.mental?.positioning || 0, "text-[#abf853]")}
                           </div>
                         </div>
 
                         {/* Set Pieces */}
                         <div>
                           <div className="flex items-center gap-2 mb-3">
-                            <div className="w-1.5 h-4 bg-[#ec4899] rounded-full" />
+                            <div className="w-1.5 h-4 bg-[#f59e0b] rounded-full" />
                             <h3 className="text-xs font-black font-space tracking-widest uppercase text-[#91b2a6]">{t("squad.skills.setPieces")}</h3>
                           </div>
                           <div className="space-y-3">
-                            {renderSkillBar(t("squad.skills.freeKicks"), (selectedTransfer.player.currentSkills as any)?.setPieces?.freeKicks || 0, (selectedTransfer.player.potentialSkills as any)?.setPieces?.freeKicks || 0, "text-[#ec4899]")}
-                            {renderSkillBar(t("squad.skills.penalties"), (selectedTransfer.player.currentSkills as any)?.setPieces?.penalties || 0, (selectedTransfer.player.potentialSkills as any)?.setPieces?.penalties || 0, "text-[#ec4899]")}
+                            {renderSkillBar(t("squad.skills.freeKicks"), (selectedTransfer.player.currentSkills as any)?.setPieces?.freeKicks || 0, (selectedTransfer.player.potentialSkills as any)?.setPieces?.freeKicks || 0, "text-[#f59e0b]")}
+                            {renderSkillBar(t("squad.skills.penalties"), (selectedTransfer.player.currentSkills as any)?.setPieces?.penalties || 0, (selectedTransfer.player.potentialSkills as any)?.setPieces?.penalties || 0, "text-[#f59e0b]")}
                           </div>
                         </div>
                       </div>

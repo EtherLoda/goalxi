@@ -565,19 +565,19 @@ export default function PlayerDetailPage({ params }: PageProps) {
                       {/* Physical */}
                       <div>
                         <div className="flex items-center gap-2 mb-3">
-                          <div className="w-1.5 h-4 bg-[#a1ffc2] rounded-full" />
+                          <div className="w-1.5 h-4 bg-[#60a5fa] rounded-full" />
                           <h3 className="text-xs font-black font-space tracking-widest uppercase text-[#91b2a6]">{t("skills.physicalAttributes")}</h3>
                         </div>
                         <div className="space-y-3">
-                          {renderSkillBar(t("skills.pace"), player.currentSkills.physical?.pace || 0, player.potentialSkills.physical?.pace || 0, "text-[#a1ffc2]")}
-                          {renderSkillBar(t("skills.strength"), player.currentSkills.physical?.strength || 0, player.potentialSkills.physical?.strength || 0, "text-[#a1ffc2]")}
+                          {renderSkillBar(t("skills.pace"), player.currentSkills.physical?.pace || 0, player.potentialSkills.physical?.pace || 0, "text-[#60a5fa]")}
+                          {renderSkillBar(t("skills.strength"), player.currentSkills.physical?.strength || 0, player.potentialSkills.physical?.strength || 0, "text-[#60a5fa]")}
                         </div>
                       </div>
 
                       {/* Technical */}
                       <div>
                         <div className="flex items-center gap-2 mb-3">
-                          <div className="w-1.5 h-4 bg-[#a1ffc2] rounded-full" />
+                          <div className={`w-1.5 h-4 ${player.isGoalkeeper ? 'bg-[#a1ffc2]' : 'bg-[#a1ffc2]'} rounded-full`} />
                           <h3 className="text-xs font-black font-space tracking-widest uppercase text-[#91b2a6]">
                             {player.isGoalkeeper ? t("skills.goalkeeperSkills") : t("skills.technicalSkills")}
                           </h3>
@@ -588,7 +588,6 @@ export default function PlayerDetailPage({ params }: PageProps) {
                               {renderSkillBar(t("skills.reflexes"), (player.currentSkills.technical as any)?.reflexes || 0, (player.potentialSkills.technical as any)?.reflexes || 0, "text-[#a1ffc2]")}
                               {renderSkillBar(t("skills.handling"), (player.currentSkills.technical as any)?.handling || 0, (player.potentialSkills.technical as any)?.handling || 0, "text-[#a1ffc2]")}
                               {renderSkillBar(t("skills.aerial"), (player.currentSkills.technical as any)?.aerial || 0, (player.potentialSkills.technical as any)?.aerial || 0, "text-[#a1ffc2]")}
-                              {renderSkillBar(t("skills.positioning"), (player.currentSkills.technical as any)?.positioning || 0, (player.potentialSkills.technical as any)?.positioning || 0, "text-[#a1ffc2]")}
                             </>
                           ) : (
                             <>
@@ -619,12 +618,12 @@ export default function PlayerDetailPage({ params }: PageProps) {
                       {/* Set Pieces */}
                       <div>
                         <div className="flex items-center gap-2 mb-3">
-                          <div className="w-1.5 h-4 bg-[#abf853] rounded-full" />
+                          <div className="w-1.5 h-4 bg-[#f59e0b] rounded-full" />
                           <h3 className="text-xs font-black font-space tracking-widest uppercase text-[#91b2a6]">{t("skills.setPieces")}</h3>
                         </div>
                         <div className="space-y-3">
-                          {renderSkillBar(t("skills.freeKicks"), player.currentSkills.setPieces?.freeKicks || 0, player.potentialSkills.setPieces?.freeKicks || 0, "text-[#abf853]")}
-                          {renderSkillBar(t("skills.penalties"), player.currentSkills.setPieces?.penalties || 0, player.potentialSkills.setPieces?.penalties || 0, "text-[#abf853]")}
+                          {renderSkillBar(t("skills.freeKicks"), player.currentSkills.setPieces?.freeKicks || 0, player.potentialSkills.setPieces?.freeKicks || 0, "text-[#f59e0b]")}
+                          {renderSkillBar(t("skills.penalties"), player.currentSkills.setPieces?.penalties || 0, player.potentialSkills.setPieces?.penalties || 0, "text-[#f59e0b]")}
                         </div>
                       </div>
                     </div>
