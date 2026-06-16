@@ -1,7 +1,7 @@
 import { Entity, Column, PrimaryGeneratedColumn } from 'typeorm';
 import { AbstractEntity } from './abstract.entity';
 import { PlayerAbility } from '../types/simulation-player';
-import { PlayerSkills, PotentialTier } from './player.entity';
+import { PlayerSkills } from './player.entity';
 
 export interface ScoutCandidatePlayerData {
     name: string;
@@ -11,7 +11,7 @@ export interface ScoutCandidatePlayerData {
     currentSkills: PlayerSkills;
     potentialSkills: PlayerSkills;
     abilities?: PlayerAbility[];
-    potentialTier?: PotentialTier;
+    potentialTier?: string;
     potentialRevealed: boolean;
     revealedSkills: string[];
     joinedAt: Date;

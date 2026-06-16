@@ -2,7 +2,6 @@ import {
   FanEntity,
   FinanceEntity,
   FormationKey,
-  GAME_SETTINGS,
   generateAutoLineup,
   LeagueEntity,
   LeagueStandingEntity,
@@ -10,8 +9,6 @@ import {
   MatchStatus,
   MatchTacticsEntity,
   PlayerEntity,
-  PlayerSkills,
-  PotentialTier,
   StadiumEntity,
   StaffEntity,
   TeamEntity,
@@ -23,6 +20,7 @@ import 'reflect-metadata';
 import { v4 as uuidv4 } from 'uuid';
 import { getRandomNameByNationality } from '../src/constants/name-database';
 import { AppDataSource } from '../src/database/data-source';
+import { generatePlayerData } from '../src/utils/player-generator';
 
 /**
  * Seed Main - Season 1 Starting Point (Apr 6, 2026)
@@ -175,98 +173,6 @@ function generatePlayerAppearance() {
   };
 }
 
-function generatePlayerPotential(): { tier: PotentialTier; ability: number } {
-  // Match team generator: skillBase 11-15 gives OVR 55-75
-  // Distribution: 1% LEGEND, 7% ELITE, 17% HIGH_PRO, 35% REGULAR, 40% LOW
-  const rand = Math.random() * 100;
-  if (rand < 1)
-    return { tier: PotentialTier.LEGEND, ability: randomInt(75, 85) }; // OVR ~75-85
-  if (rand < 8)
-    return { tier: PotentialTier.ELITE, ability: randomInt(65, 75) }; // OVR ~65-75
-  if (rand < 25)
-    return { tier: PotentialTier.HIGH_PRO, ability: randomInt(55, 65) }; // OVR ~55-65
-  if (rand < 60)
-    return { tier: PotentialTier.REGULAR, ability: randomInt(45, 55) }; // OVR ~45-55
-  return { tier: PotentialTier.LOW, ability: randomInt(30, 45) }; // OVR ~30-45
-}
-
-function generatePlayerAttributes(
-  isGK: boolean,
-  potentialAbility: number,
-  age: number,
-): { current: PlayerSkills; potential: PlayerSkills } {
-  // Target average skill on 0-20 scale = potentialAbility / 5
-  const targetPotentialAvg = potentialAbility / 5;
-
-  const outfieldKeys = {
-    physical: ['pace', 'strength'],
-    technical: ['finishing', 'passing', 'dribbling', 'defending'],
-    mental: ['positioning', 'composure'],
-    setPieces: ['freeKicks', 'penalties'],
-  };
-
-  const gkKeys = {
-    physical: ['pace', 'strength'],
-    technical: ['reflexes', 'handling', 'aerial'],
-    mental: ['positioning', 'composure'],
-    setPieces: ['freeKicks', 'penalties'],
-  };
-
-  const keys = isGK ? gkKeys : outfieldKeys;
-
-  const potential: Record<string, any> = {
-    physical: {},
-    technical: {},
-    mental: {},
-    setPieces: {},
-  };
-  const current: Record<string, any> = {
-    physical: {},
-    technical: {},
-    mental: {},
-    setPieces: {},
-  };
-
-  // Generate potential skills (full development)
-  Object.entries(keys).forEach(([category, attrs]) => {
-    attrs.forEach((attr) => {
-      let val = targetPotentialAvg + (Math.random() * 6 - 3);
-      val = Math.max(5, Math.min(20, val));
-      potential[category][attr] = parseFloat(val.toFixed(2));
-    });
-  });
-
-  // Generate current skills based on age ratio
-  // Age 18-20: 60-80% of potential, Age 21-25: 80-95%, Age 26+: 95-100%
-  let ageRatio: number;
-  if (age <= 17) {
-    ageRatio = 0.4 + Math.random() * 0.1;
-  } else if (age <= 20) {
-    ageRatio = 0.6 + Math.random() * 0.2;
-  } else if (age <= 25) {
-    ageRatio = 0.8 + Math.random() * 0.15;
-  } else if (age <= 30) {
-    ageRatio = 0.92 + Math.random() * 0.08;
-  } else {
-    ageRatio = 0.95 + Math.random() * 0.05;
-  }
-  ageRatio = Math.min(1.0, ageRatio);
-
-  Object.entries(keys).forEach(([category, attrs]) => {
-    attrs.forEach((attr) => {
-      let ca = potential[category][attr] * ageRatio;
-      ca += Math.random() * 2 - 1; // ±1 variance
-      ca = Math.max(5, Math.min(potential[category][attr], ca));
-      current[category][attr] = parseFloat(ca.toFixed(2));
-    });
-  });
-
-  return {
-    current: current as PlayerSkills,
-    potential: potential as PlayerSkills,
-  };
-}
-
 function generateTeamName(
   tier: number,
   division: number,
@@ -289,40 +195,6 @@ function getLeagueOvrRange(tier: number): { min: number; max: number } {
     default:
       return { min: 50, max: 70 };
   }
-}
-
-/**
- * Calculate game age from birthday
- * 1 game year = SEASON_LENGTH_WEEKS * DAYS_PER_WEEK * 24 * 60 * 60 * 1000 ms
- */
-function calculateGameAge(birthday: Date): number {
-  const gameYearMs =
-    GAME_SETTINGS.SEASON_LENGTH_WEEKS *
-    GAME_SETTINGS.DAYS_PER_WEEK *
-    24 *
-    60 *
-    60 *
-    1000;
-  const ageMs = SEASON_START_DATE.getTime() - birthday.getTime();
-  return Math.floor(ageMs / gameYearMs);
-}
-
-/**
- * Generate birthday for a player of given game age
- */
-function generateBirthday(gameAge: number): Date {
-  const gameYearMs =
-    GAME_SETTINGS.SEASON_LENGTH_WEEKS *
-    GAME_SETTINGS.DAYS_PER_WEEK *
-    24 *
-    60 *
-    60 *
-    1000;
-  const ageMs = gameAge * gameYearMs;
-  const birthdayTime = SEASON_START_DATE.getTime() - ageMs;
-  // Add some random days within the year
-  const randomDays = Math.floor(Math.random() * 365);
-  return new Date(birthdayTime - randomDays * 24 * 60 * 60 * 1000);
 }
 
 /**
@@ -659,7 +531,6 @@ async function createLeaguePyramid() {
     if (existingPlayers > 0) return; // Already has players
 
     const players: PlayerEntity[] = [];
-    const baseOvr = randomInt(ovrRange.min, ovrRange.max);
 
     for (let p = 0; p < TEAM_ROSTER_SIZE; p++) {
       const isGK = p < GK_COUNT;
@@ -673,28 +544,32 @@ async function createLeaguePyramid() {
         'FR',
       ]);
       const { firstName, lastName } = getRandomNameByNationality(nationality);
-      const name = `${firstName} ${lastName}`;
 
       // Game age 20-32 for competitive players
       const gameAge = randomInt(20, 32);
-      const birthday = generateBirthday(gameAge);
 
-      // Slightly higher OVR than bot teams for user teams
-      const playerOvrOffset = isBot ? randomInt(-2, 2) : randomInt(0, 5);
-      const ability = Math.round(((baseOvr + playerOvrOffset) / 5) * 10) / 10;
+      // Generate player using new generator
+      const playerData = generatePlayerData({
+        isGoalkeeper: isGK,
+        nationality,
+        firstName,
+        lastName,
+        age: gameAge,
+      });
 
-      const { tier: potentialTier, ability: potentialAbility } =
-        generatePlayerPotential();
-      const { current, potential } = generatePlayerAttributes(
-        isGK,
-        potentialAbility,
-        gameAge,
-      );
-
-      // Calculate wage
-      const tech = current.technical as unknown as Record<string, number>;
-      const phys = current.physical as unknown as Record<string, number>;
-      const ment = current.mental as unknown as Record<string, number>;
+      // Calculate wage based on current skills
+      const tech = playerData.currentSkills.technical as unknown as Record<
+        string,
+        number
+      >;
+      const phys = playerData.currentSkills.physical as unknown as Record<
+        string,
+        number
+      >;
+      const ment = playerData.currentSkills.mental as unknown as Record<
+        string,
+        number
+      >;
       let skillValues: number[], skillKeys: string[];
       if (isGK) {
         skillValues = [
@@ -729,16 +604,14 @@ async function createLeaguePyramid() {
       const currentWage = calculatePlayerWage(skillValues, skillKeys);
 
       const player = new PlayerEntity({
-        name,
+        name: playerData.name,
         teamId: team.id,
         isGoalkeeper: isGK,
-        birthday,
+        birthday: playerData.birthday,
         isYouth: false,
-        potentialAbility: Math.round(potentialAbility),
-        potentialTier,
-        appearance: generatePlayerAppearance(),
-        currentSkills: current,
-        potentialSkills: potential,
+        potentialAbility: playerData.potentialAbility,
+        currentSkills: playerData.currentSkills as any,
+        potentialSkills: playerData.potentialSkills as any,
         experience: randomFloat(isBot ? 5 : 10, isBot ? 15 : 20),
         form: randomFloat(3.5, 5.0),
         stamina: randomFloat(4.0, 5.0),

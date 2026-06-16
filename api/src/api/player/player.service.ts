@@ -64,12 +64,10 @@ export class PlayerService {
       nationality: reqDto.nationality,
       teamId: reqDto.teamId,
       birthday: reqDto.birthday,
-      appearance: reqDto.appearance || this.generateRandomAppearance(),
       isGoalkeeper: reqDto.isGoalkeeper,
       currentSkills,
       potentialSkills,
       potentialAbility: reqDto.potentialAbility,
-      potentialTier: reqDto.potentialTier,
     });
 
     await player.save();
@@ -86,18 +84,11 @@ export class PlayerService {
       player.nationality = reqDto.nationality;
     if (reqDto.teamId !== undefined) player.teamId = reqDto.teamId;
     if (reqDto.birthday) player.birthday = reqDto.birthday;
-    if (reqDto.appearance) {
-      player.appearance = {
-        ...player.appearance,
-        ...reqDto.appearance,
-      };
-    }
     if (reqDto.isGoalkeeper !== undefined)
       player.isGoalkeeper = reqDto.isGoalkeeper;
     if (reqDto.onTransfer !== undefined) player.onTransfer = reqDto.onTransfer;
     if (reqDto.potentialAbility !== undefined)
       player.potentialAbility = reqDto.potentialAbility;
-    if (reqDto.potentialTier) player.potentialTier = reqDto.potentialTier;
 
     await player.save();
 
@@ -126,14 +117,15 @@ export class PlayerService {
 
       const [currentSkills, potentialSkills] =
         this.generateRandomSkills(isGoalkeeper);
+      const potentialAbility = this.calculatePotentialAbility(potentialSkills);
       const player = new PlayerEntity({
         name: `${firstName} ${lastName}`,
         nationality: playerNationality,
         teamId: teamId || null,
         isGoalkeeper,
-        appearance: this.generateRandomAppearance(),
         currentSkills,
         potentialSkills,
+        potentialAbility,
       });
 
       await player.save();
@@ -245,21 +237,32 @@ export class PlayerService {
     return count > 0 ? Math.round((total / count) * 5) : 0; // Scale to 0-100 roughly (avg * 5 as max is 20)
   }
 
-  private generateRandomAppearance(): Record<string, any> {
-    const randInt = (min: number, max: number) =>
-      Math.floor(Math.random() * (max - min + 1)) + min;
+  /**
+   * Calculate potential ability from potential skills
+   * Formula: PA = (Σ physical + Σ technical) × 1 + Σ mental × 0.4 + Σ setPieces × 0.1
+   * Normalized to 0-100
+   */
+  private calculatePotentialAbility(skills: PlayerSkills): number {
+    if (!skills) return 50;
+    const physical = skills.physical as unknown as Record<string, number>;
+    const technical = skills.technical as unknown as Record<string, number>;
+    const mental = skills.mental as unknown as Record<string, number>;
+    const setPieces = skills.setPieces as unknown as Record<string, number>;
 
-    return {
-      skinTone: randInt(1, 6),
-      hairStyle: randInt(1, 10),
-      hairColor: randInt(1, 8),
-      facialHair: randInt(0, 5),
-      accessories: {
-        headband: Math.random() < 0.15,
-        wristband: Math.random() < 0.3,
-        captainBand: Math.random() < 0.05,
-      },
-    };
+    const physicalSum = Object.values(physical).reduce((a, b) => a + b, 0);
+    const technicalSum = Object.values(technical).reduce((a, b) => a + b, 0);
+    const mentalSum = Object.values(mental).reduce((a, b) => a + b, 0);
+    const setPiecesSum = Object.values(setPieces).reduce((a, b) => a + b, 0);
+
+    const rawPA =
+      physicalSum * 1 +
+      technicalSum * 1 +
+      mentalSum * 0.4 +
+      setPiecesSum * 0.1;
+
+    // Normalize to 0-100 (max raw for outfield: 6*20 + 4*20*0.4 + 2*20*0.1 = 140)
+    const maxRaw = 140;
+    return Math.min(100, Math.max(0, Math.round((rawPA / maxRaw) * 100)));
   }
 
   private mapToResDto(player: PlayerEntity, DtoClass: any = PlayerResDto): any {
@@ -274,7 +277,6 @@ export class PlayerService {
       isYouth: player.isYouth,
       age: years,
       ageDays: days,
-      appearance: player.appearance,
       isGoalkeeper: player.isGoalkeeper,
       overall: pwiResult.pwi,
       pwi: pwiResult.pwi,
@@ -284,7 +286,6 @@ export class PlayerService {
       currentSkills: player.currentSkills,
       potentialSkills: player.potentialSkills,
       potentialAbility: player.potentialAbility,
-      potentialTier: player.potentialTier,
       experience: player.experience,
       form: player.form,
       stamina: player.stamina,

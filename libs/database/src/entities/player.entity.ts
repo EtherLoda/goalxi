@@ -11,14 +11,6 @@ import {
 } from 'typeorm';
 import { GAME_SETTINGS } from '../constants/game.constants';
 
-export enum PotentialTier {
-    LOW = 'LOW',
-    REGULAR = 'REGULAR',
-    HIGH_PRO = 'HIGH_PRO',
-    ELITE = 'ELITE',
-    LEGEND = 'LEGEND',
-}
-
 export enum TrainingCategory {
     PHYSICAL = 'physical',
     TECHNICAL = 'technical',
@@ -142,11 +134,6 @@ export class PlayerEntity extends AbstractEntity {
         return years + days / GAME_SETTINGS.DAYS_PER_YEAR;
     }
 
-    @Column({ type: 'jsonb', default: {} })
-    appearance!: Record<string, any>;
-
-
-
     @Column({ name: 'is_goalkeeper', default: false })
     isGoalkeeper!: boolean;
 
@@ -164,15 +151,6 @@ export class PlayerEntity extends AbstractEntity {
 
     @Column({ name: 'potential_ability', type: 'int', default: 50 })
     potentialAbility!: number;
-
-    @Column({
-        name: 'potential_tier',
-        type: 'enum',
-        enum: PotentialTier,
-        default: PotentialTier.LOW,
-    })
-    potentialTier!: PotentialTier;
-
 
     @Column({ type: 'float', default: 0.0 })
     experience!: number;

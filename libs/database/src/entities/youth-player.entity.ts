@@ -1,7 +1,7 @@
 import { Entity, Column, PrimaryGeneratedColumn, ManyToOne, JoinColumn } from 'typeorm';
 import { AbstractEntity } from './abstract.entity';
 import { PlayerAbility } from '../types/simulation-player';
-import { PlayerSkills, PotentialTier } from './player.entity';
+import { PlayerSkills } from './player.entity';
 import { YouthTeamEntity } from './youth-team.entity';
 
 @Entity('youth_player')
@@ -53,8 +53,8 @@ export class YouthPlayerEntity extends AbstractEntity {
     @Column({ name: 'potential_revealed', default: false })
     potentialRevealed!: boolean;
 
-    @Column({ name: 'potential_tier', type: 'enum', enum: PotentialTier, nullable: true })
-    potentialTier?: PotentialTier;
+    @Column({ name: 'potential_tier', type: 'varchar', length: 50, nullable: true })
+    potentialTier?: string;
 
     @Column({ name: 'is_promoted', default: false })
     isPromoted!: boolean;

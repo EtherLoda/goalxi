@@ -10,7 +10,6 @@ describe('PlayerEntity age calculations', () => {
       name: 'Test',
       birthday,
       isYouth: false,
-      appearance: {},
     });
     expect(player.age).toBe(20);
     expect(player.getExactAge()).toEqual([20, 33]);
@@ -22,7 +21,6 @@ describe('PlayerEntity age calculations', () => {
       name: 'Youth',
       birthday,
       isYouth: true,
-      appearance: {},
     });
     expect(player.age).toBe(18);
     expect(player.isYouth).toBe(true);

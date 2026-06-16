@@ -7,7 +7,6 @@ import {
   UUIDField,
   UUIDFieldOptional,
 } from '@/decorators/field.decorators';
-import { PotentialTier } from '@goalxi/database';
 import { Exclude, Expose, Transform } from 'class-transformer';
 
 @Exclude()
@@ -44,9 +43,6 @@ export class PlayerPublicResDto {
   @Expose()
   ageDays: number;
 
-  @Expose()
-  appearance: Record<string, any>;
-
   @BooleanField()
   @Expose()
   isGoalkeeper: boolean;
@@ -74,9 +70,6 @@ export class PlayerPublicResDto {
   @NumberField({ int: true })
   @Expose()
   potentialAbility: number;
-
-  @Expose()
-  potentialTier: PotentialTier;
 
   @NumberField()
   @Expose()

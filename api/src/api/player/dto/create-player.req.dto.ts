@@ -1,13 +1,11 @@
 import {
   BooleanFieldOptional,
   DateFieldOptional,
-  EnumFieldOptional,
   NumberFieldOptional,
   StringField,
   StringFieldOptional,
   UUIDFieldOptional,
 } from '@/decorators/field.decorators';
-import { PotentialTier } from '@goalxi/database';
 import { IsObject, IsOptional } from 'class-validator';
 
 export class CreatePlayerReqDto {
@@ -26,10 +24,6 @@ export class CreatePlayerReqDto {
   @NumberFieldOptional({ int: true, min: 15, max: 45 })
   age?: number;
 
-  @IsOptional()
-  @IsObject()
-  appearance?: Record<string, any>;
-
   @StringFieldOptional()
   position?: string;
 
@@ -42,7 +36,4 @@ export class CreatePlayerReqDto {
 
   @NumberFieldOptional({ int: true, min: 0, max: 100 })
   potentialAbility?: number;
-
-  @EnumFieldOptional(() => PotentialTier)
-  potentialTier?: PotentialTier;
 }

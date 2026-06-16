@@ -90,7 +90,6 @@ export interface SimulationPlayer {
     form: number;
     experience: number;
     exactAge: [number, number];
-    appearance?: Record<string, any>;
     overall?: number; // Snapshots use player.overall || 50
     /**
      * Injury penalty factor (0-1).
@@ -163,7 +162,6 @@ export function toSimulationPlayer(entity: PlayerEntity): SimulationPlayer {
         experience: entity.experience ?? 10,
         overall: computeOverall(skills),
         exactAge: entity.getExactAge(),
-        appearance: entity.appearance,
         injuryPenalty: calculateInjuryPenalty(entity.injuryState, entity.currentInjuryValue ?? 0),
     };
 }
@@ -212,7 +210,6 @@ export function toSimulationYouthPlayer(entity: YouthPlayerEntity): SimulationPl
         experience: 5, // default
         overall: computeOverall(skills),
         exactAge,
-        appearance: undefined,
         injuryPenalty: 1.0, // Youth players have no injury penalty
     };
 }

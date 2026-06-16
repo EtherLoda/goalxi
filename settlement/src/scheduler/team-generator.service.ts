@@ -4,7 +4,6 @@ import { Repository } from 'typeorm';
 import {
   TeamEntity,
   PlayerEntity,
-  PotentialTier,
   StadiumEntity,
   FanEntity,
   StaffEntity,
@@ -13,6 +12,9 @@ import {
   getRandomNameByNationality,
   getRandomNationality,
 } from '@goalxi/database';
+
+/** Local tier type for settlement service (5-tier system) */
+type SettlementTier = 'LOW' | 'REGULAR' | 'HIGH_PRO' | 'ELITE' | 'LEGEND';
 
 type TemplateType = 'elite' | 'balanced' | 'rookie' | 'specialized';
 
@@ -588,9 +590,7 @@ export class TeamGeneratorService {
       currentStamina: rand2dec(),
       form: rand2dec(),
       experience: exp2dec(),
-      potentialTier,
       abilities,
-      appearance: this.randomInRange(50, 100),
     };
   }
 
@@ -604,7 +604,7 @@ export class TeamGeneratorService {
   private generateAbilities(
     position: string,
     templateType: TemplateType,
-    potentialTier: PotentialTier,
+    potentialTier: SettlementTier,
   ): string[] {
     const template = POSITION_TEMPLATES[position];
     if (!template) return [];
@@ -631,10 +631,7 @@ export class TeamGeneratorService {
     let availableAbilities = possibleAbilities.filter((a) =>
       commonAbilities.includes(a),
     );
-    if (
-      potentialTier === PotentialTier.ELITE ||
-      potentialTier === PotentialTier.HIGH_PRO
-    ) {
+    if (potentialTier === 'ELITE' || potentialTier === 'HIGH_PRO') {
       availableAbilities = [
         ...availableAbilities,
         ...possibleAbilities.filter((a) => eliteAbilities.includes(a)),
@@ -781,11 +778,11 @@ export class TeamGeneratorService {
     return this.randomInRange(31, 32);
   }
 
-  private determinePotentialTier(potentialOvr: number): PotentialTier {
-    if (potentialOvr >= 80) return PotentialTier.ELITE;
-    if (potentialOvr >= 70) return PotentialTier.HIGH_PRO;
-    if (potentialOvr >= 60) return PotentialTier.REGULAR;
-    return PotentialTier.LOW;
+  private determinePotentialTier(potentialOvr: number): SettlementTier {
+    if (potentialOvr >= 80) return 'ELITE';
+    if (potentialOvr >= 70) return 'HIGH_PRO';
+    if (potentialOvr >= 60) return 'REGULAR';
+    return 'LOW';
   }
 
   private generateTeamName(leagueTier: number): string {

@@ -12,7 +12,6 @@ import {
   LeagueEntity,
   StaffRole,
   StaffLevel,
-  PotentialTier,
   PlayerSkills,
   GKTechnical,
   OutfieldTechnical,
@@ -268,7 +267,6 @@ export class TeamGenerator {
           currentSkills: current,
           potentialSkills: potential,
           potentialAbility: Math.round(this.calculateOvr(potential)),
-          potentialTier: this.determinePotentialTier(potential),
           experience: this.randomFloat(5, 15),
           form: this.randomFloat(3, 5),
           stamina: this.randomFloat(4, 5),
@@ -370,15 +368,6 @@ export class TeamGenerator {
     const tech = skills.technical as unknown as Record<string, number>;
     const vals = Object.values(tech);
     return (vals.reduce((a, b) => a + b, 0) / vals.length) * 5;
-  }
-
-  private determinePotentialTier(skills: PlayerSkills): PotentialTier {
-    const ovr = this.calculateOvr(skills);
-    if (ovr >= 85) return PotentialTier.LEGEND;
-    if (ovr >= 75) return PotentialTier.ELITE;
-    if (ovr >= 65) return PotentialTier.HIGH_PRO;
-    if (ovr >= 50) return PotentialTier.REGULAR;
-    return PotentialTier.LOW;
   }
 
   private getSkillValues(skills: PlayerSkills, isGK: boolean): number[] {
