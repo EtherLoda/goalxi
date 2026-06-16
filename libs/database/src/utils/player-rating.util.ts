@@ -9,10 +9,18 @@
  * 基于引擎公式：positionFit × multiplier
  */
 
-import { PlayerEntity, PotentialTier, OutfieldPhysical, OutfieldTechnical, OutfieldMental, GKTechnical } from '../entities/player.entity';
-import { SKILL_TRAINING_SPEED } from '../constants/training.constants';
-import { toSimulationPlayer, SimulationPlayerAttributes } from '../types/simulation-player';
-import { calculatePositionFit } from './position-fit.util';
+import {
+  PlayerEntity,
+  OutfieldPhysical,
+  OutfieldTechnical,
+  OutfieldMental,
+} from "../entities/player.entity";
+import { SKILL_TRAINING_SPEED } from "../constants/training.constants";
+import {
+  toSimulationPlayer,
+  SimulationPlayerAttributes,
+} from "../types/simulation-player";
+import { calculatePositionFit } from "./position-fit.util";
 
 // =====================
 // SKILL WEIGHT MAP
@@ -26,7 +34,7 @@ const SKILL_WEIGHT_MAP: Record<string, number> = {
   defending: 1.39,
   dribbling: 1.25,
   passing: 1.14,
-  positioning: 1.00,
+  positioning: 1.0,
   pace: 1.42,
   strength: 1.39,
   composure: 0.96,
@@ -34,7 +42,7 @@ const SKILL_WEIGHT_MAP: Record<string, number> = {
   gk_reflexes: 1.56,
   gk_handling: 1.47,
   gk_aerial: 1.52,
-  gk_positioning: 1.00,
+  gk_positioning: 1.0,
   // Set pieces - 选修技能，极快训练，权重极低
   freeKicks: 0.25,
   penalties: 0.25,
@@ -42,18 +50,6 @@ const SKILL_WEIGHT_MAP: Record<string, number> = {
 
 // GK base rating multiplier (GK skills are generally more impactful)
 const GK_BASE_MULTIPLIER = 1.65;
-
-// =====================
-// POTENTIAL FACTOR
-// =====================
-
-const POTENTIAL_FACTOR: Record<PotentialTier, number> = {
-  [PotentialTier.LOW]: 1.0,
-  [PotentialTier.REGULAR]: 1.2,
-  [PotentialTier.HIGH_PRO]: 1.5,
-  [PotentialTier.ELITE]: 2.0,
-  [PotentialTier.LEGEND]: 2.5,
-};
 
 // =====================
 // FORM FACTOR
@@ -70,11 +66,11 @@ const FORM_FACTOR_PER_POINT = 0.05; // 每点form增加0.05
 // 贡献值 0-100+ 映射到 0.5-5 星
 
 const STAR_THRESHOLDS = {
-  FIVE: 90,    // ⭐⭐⭐⭐⭐ 世界级
-  FOUR: 75,    // ⭐⭐⭐⭐ 豪门主力
-  THREE: 55,   // ⭐⭐⭐ 联赛水准
-  TWO: 35,     // ⭐⭐ 替补/年轻
-  ONE: 15,     // ⭐ 勉强能用
+  FIVE: 90, // ⭐⭐⭐⭐⭐ 世界级
+  FOUR: 75, // ⭐⭐⭐⭐ 豪门主力
+  THREE: 55, // ⭐⭐⭐ 联赛水准
+  TWO: 35, // ⭐⭐ 替补/年轻
+  ONE: 15, // ⭐ 勉强能用
   // Below 15 = 0.5 星
 };
 
@@ -119,7 +115,13 @@ export interface PositionRating {
   stars: number;
 }
 
-export type StarLabel = 'World Class' | 'Great' | 'Average' | 'Poor' | 'Weak' | 'Very Weak';
+export type StarLabel =
+  | "World Class"
+  | "Great"
+  | "Average"
+  | "Poor"
+  | "Weak"
+  | "Very Weak";
 
 // =====================
 // HELPER FUNCTIONS
@@ -136,41 +138,43 @@ export function getSkillWeight(skillKey: string): number {
 /**
  * Get all skill keys and values from player
  */
-function getPlayerSkillPairs(player: PlayerEntity): { key: string; value: number }[] {
+function getPlayerSkillPairs(
+  player: PlayerEntity,
+): { key: string; value: number }[] {
   const pairs: { key: string; value: number }[] = [];
 
   if (player.isGoalkeeper) {
     // GK skills + 定位球
     const tech = player.currentSkills.technical as any;
     if (tech) {
-      pairs.push({ key: 'gk_reflexes', value: tech.reflexes ?? 0 });
-      pairs.push({ key: 'gk_handling', value: tech.handling ?? 0 });
-      pairs.push({ key: 'gk_aerial', value: tech.aerial ?? 0 });
-      pairs.push({ key: 'gk_positioning', value: tech.positioning ?? 0 });
+      pairs.push({ key: "gk_reflexes", value: tech.reflexes ?? 0 });
+      pairs.push({ key: "gk_handling", value: tech.handling ?? 0 });
+      pairs.push({ key: "gk_aerial", value: tech.aerial ?? 0 });
+      pairs.push({ key: "gk_positioning", value: tech.positioning ?? 0 });
     }
     // GK mental - composure is important for GK
     const mental = player.currentSkills.mental as any;
     if (mental) {
-      pairs.push({ key: 'composure', value: mental.composure ?? 0 });
+      pairs.push({ key: "composure", value: mental.composure ?? 0 });
     }
     // GK 定位球权重较低
     const setPieces = player.currentSkills.setPieces;
-    pairs.push({ key: 'freeKicks', value: (setPieces?.freeKicks ?? 0) * 0.5 });
-    pairs.push({ key: 'penalties', value: (setPieces?.penalties ?? 0) * 0.5 });
+    pairs.push({ key: "freeKicks", value: (setPieces?.freeKicks ?? 0) * 0.5 });
+    pairs.push({ key: "penalties", value: (setPieces?.penalties ?? 0) * 0.5 });
   } else {
     const physical = player.currentSkills.physical as OutfieldPhysical;
     const technical = player.currentSkills.technical as OutfieldTechnical;
     const mental = player.currentSkills.mental as OutfieldMental;
     // 外场球员不含定位球（定位球是选修技能，不影响身价）
 
-    pairs.push({ key: 'pace', value: physical.pace ?? 0 });
-    pairs.push({ key: 'strength', value: physical.strength ?? 0 });
-    pairs.push({ key: 'finishing', value: technical.finishing ?? 0 });
-    pairs.push({ key: 'passing', value: technical.passing ?? 0 });
-    pairs.push({ key: 'dribbling', value: technical.dribbling ?? 0 });
-    pairs.push({ key: 'defending', value: technical.defending ?? 0 });
-    pairs.push({ key: 'positioning', value: mental.positioning ?? 0 });
-    pairs.push({ key: 'composure', value: mental.composure ?? 0 });
+    pairs.push({ key: "pace", value: physical.pace ?? 0 });
+    pairs.push({ key: "strength", value: physical.strength ?? 0 });
+    pairs.push({ key: "finishing", value: technical.finishing ?? 0 });
+    pairs.push({ key: "passing", value: technical.passing ?? 0 });
+    pairs.push({ key: "dribbling", value: technical.dribbling ?? 0 });
+    pairs.push({ key: "defending", value: technical.defending ?? 0 });
+    pairs.push({ key: "positioning", value: mental.positioning ?? 0 });
+    pairs.push({ key: "composure", value: mental.composure ?? 0 });
   }
 
   return pairs;
@@ -212,12 +216,12 @@ export function getStarRatingFromContribution(contribution: number): number {
  * Get star label text
  */
 export function getStarLabel(stars: number): StarLabel {
-  if (stars >= 5) return 'World Class';
-  if (stars >= 4) return 'Great';
-  if (stars >= 3) return 'Average';
-  if (stars >= 2) return 'Poor';
-  if (stars >= 1) return 'Weak';
-  return 'Very Weak';
+  if (stars >= 5) return "World Class";
+  if (stars >= 4) return "Great";
+  if (stars >= 3) return "Average";
+  if (stars >= 2) return "Poor";
+  if (stars >= 1) return "Weak";
+  return "Very Weak";
 }
 
 /**
@@ -225,13 +229,7 @@ export function getStarLabel(stars: number): StarLabel {
  * 如 125000 → "125.0k", 2500000 → "2.5M"
  */
 export function formatPWI(pwi: number): string {
-  if (pwi >= 1000000) {
-    return (pwi / 1000000).toFixed(1) + 'M';
-  }
-  if (pwi >= 1000) {
-    return (pwi / 1000).toFixed(1) + 'k';
-  }
-  return pwi.toString();
+  return Math.round(pwi).toString();
 }
 
 /**
@@ -251,7 +249,7 @@ function getFormFactor(form: number): number {
  *
  * Formula:
  *   weightedSum = Σ(skill × weight)
- *   basePWI = (weightedSum / 30) ^ 2.2 × 5000
+ *   basePWI = (weightedSum / 30) ^ 2.2 × 100
  *   finalPWI = basePWI × potentialFactor × formFactor
  */
 export function calculatePlayerPWI(player: PlayerEntity): PWICalculationResult {
@@ -259,12 +257,13 @@ export function calculatePlayerPWI(player: PlayerEntity): PWICalculationResult {
   const weightedSum = calculateWeightedSum(player);
 
   // Step 2: Non-linear scaling
-  // (weightedSum / 30) ^ 2.2 creates huge gap: 80→~81k, 120→~210k, 160→~420k
+  // (weightedSum / 30) ^ 2.2 × 100: 30→100, 60→~452, 90→~1520
   const normalizedSum = weightedSum / 30;
-  const basePWI = Math.pow(normalizedSum, 2.2) * 5000;
+  const basePWI = Math.pow(normalizedSum, 2.2) * 100;
 
-  // Step 3: Potential factor
-  const potentialFactor = POTENTIAL_FACTOR[player.potentialTier] ?? 1.0;
+  // Step 3: Potential factor (derived from potentialAbility 0-100)
+  // Maps to range [1.0, 2.5] — matches old tier-based factors
+  const potentialFactor = 1.0 + (player.potentialAbility / 100) * 1.5;
 
   // Step 4: Form factor
   const formFactor = getFormFactor(player.form);
@@ -296,24 +295,33 @@ export function calculatePlayerPWI(player: PlayerEntity): PWICalculationResult {
  */
 export function calculatePlayerStars(
   player: PlayerEntity,
-  positionKey: string = 'CM'
-): { stars: number; label: StarLabel; contribution: number; multiplier: number } {
+  positionKey: string = "CM",
+): {
+  stars: number;
+  label: StarLabel;
+  contribution: number;
+  multiplier: number;
+} {
   const simPlayer = toSimulationPlayer(player);
   let contribution: number;
   let multiplier: number;
 
-  if (player.isGoalkeeper || positionKey === 'GK') {
+  if (player.isGoalkeeper || positionKey === "GK") {
     // GK: use save rating from attribute-calculator.ts
     // saveRating = reflexes*4 + handling*2.5 + positioning*1.5 + aerial*1 + composure*1
     const attrs = simPlayer.attributes;
-    const baseRating = (attrs.gk_reflexes ?? 10) * 4 +
-                      (attrs.gk_handling ?? 10) * 2.5 +
-                      (attrs.positioning ?? 10) * 1.5 +
-                      (attrs.gk_aerial ?? 10) * 1 +
-                      (attrs.composure ?? 10) * 1;
+    const baseRating =
+      (attrs.gk_reflexes ?? 10) * 4 +
+      (attrs.gk_handling ?? 10) * 2.5 +
+      (attrs.positioning ?? 10) * 1.5 +
+      (attrs.gk_aerial ?? 10) * 1 +
+      (attrs.composure ?? 10) * 1;
 
     // GK multiplier (simplified from ConditionSystem)
-    multiplier = calculateSimpleMultiplier(simPlayer.form, simPlayer.experience);
+    multiplier = calculateSimpleMultiplier(
+      simPlayer.form,
+      simPlayer.experience,
+    );
 
     // GK contribution with multiplier applied
     contribution = baseRating * multiplier;
@@ -324,7 +332,7 @@ export function calculatePlayerStars(
       stars,
       label,
       contribution: Math.round(contribution * 10) / 10,
-      multiplier: Math.round(multiplier * 1000) / 1000
+      multiplier: Math.round(multiplier * 1000) / 1000,
     };
   } else {
     // Outfield: use position-fit contribution
@@ -332,7 +340,10 @@ export function calculatePlayerStars(
     contribution = calculatePositionFit(simPlayer.attributes, positionKey);
 
     // Outfield multiplier
-    multiplier = calculateSimpleMultiplier(simPlayer.form, simPlayer.experience);
+    multiplier = calculateSimpleMultiplier(
+      simPlayer.form,
+      simPlayer.experience,
+    );
 
     // Apply multiplier to contribution (multiplier is ~0.9-1.3)
     const effectiveContribution = contribution * multiplier;
@@ -343,7 +354,7 @@ export function calculatePlayerStars(
       stars,
       label,
       contribution: Math.round(effectiveContribution * 10) / 10,
-      multiplier: Math.round(multiplier * 1000) / 1000
+      multiplier: Math.round(multiplier * 1000) / 1000,
     };
   }
 }
@@ -418,10 +429,17 @@ function calculateOutfieldContribution(player: PlayerEntity): number {
   const strength = physical?.strength ?? 10;
 
   // Attack-focused calculation (similar to CF center-attack)
-  const attackScore = finishing * 16 + positioning * 6 + strength * 6 + composure * 4 + pace * 4 + dribbling * 4;
+  const attackScore =
+    finishing * 16 +
+    positioning * 6 +
+    strength * 6 +
+    composure * 4 +
+    pace * 4 +
+    dribbling * 4;
 
   // Defense-focused calculation (similar to CB center-defense)
-  const defenseScore = defending * 16 + positioning * 8 + strength * 8 + pace * 4;
+  const defenseScore =
+    defending * 16 + positioning * 8 + strength * 8 + pace * 4;
 
   // Use the higher one (best position fit)
   const bestScore = Math.max(attackScore, defenseScore);
@@ -460,28 +478,131 @@ export function getPlayerRating(player: PlayerEntity): PlayerRatingResult {
  * Run: npx ts-node -r tsconfig-paths/register libs/database/src/utils/player-rating.util.ts
  */
 export function testPWICalculation(): void {
-  console.log('=== PWI Test (exponent 1.8, potential factors applied) ===\n');
+  console.log("=== PWI Test (exponent 1.8, potential factors applied) ===\n");
 
   // Simulated players
   const testCases = [
-    { name: '世界级前锋', skills: { pace: 18, strength: 16, finishing: 19, passing: 14, dribbling: 17, defending: 8, positioning: 13, composure: 15, freeKicks: 10, penalties: 12 }, isGoalkeeper: false, potential: PotentialTier.ELITE },
-    { name: '普通主力', skills: { pace: 15, strength: 14, finishing: 15, passing: 13, dribbling: 14, defending: 10, positioning: 12, composure: 12, freeKicks: 8, penalties: 8 }, isGoalkeeper: false, potential: PotentialTier.REGULAR },
-    { name: '联赛替补', skills: { pace: 13, strength: 12, finishing: 12, passing: 11, dribbling: 12, defending: 10, positioning: 10, composure: 10, freeKicks: 6, penalties: 6 }, isGoalkeeper: false, potential: PotentialTier.REGULAR },
-    { name: '年轻小妖', skills: { pace: 16, strength: 13, finishing: 14, passing: 12, dribbling: 15, defending: 8, positioning: 10, composure: 8, freeKicks: 5, penalties: 5 }, isGoalkeeper: false, potential: PotentialTier.LEGEND },
-    { name: '顶级门将', skills: { gk_reflexes: 18, gk_handling: 17, gk_aerial: 16, gk_positioning: 15 }, isGoalkeeper: true, potential: PotentialTier.ELITE },
-    { name: '普通门将', skills: { gk_reflexes: 14, gk_handling: 13, gk_aerial: 13, gk_positioning: 12 }, isGoalkeeper: true, potential: PotentialTier.REGULAR },
+    {
+      name: "世界级前锋",
+      skills: {
+        pace: 18,
+        strength: 16,
+        finishing: 19,
+        passing: 14,
+        dribbling: 17,
+        defending: 8,
+        positioning: 13,
+        composure: 15,
+        freeKicks: 10,
+        penalties: 12,
+      },
+      isGoalkeeper: false,
+      potentialAbility: 85,
+    },
+    {
+      name: "普通主力",
+      skills: {
+        pace: 15,
+        strength: 14,
+        finishing: 15,
+        passing: 13,
+        dribbling: 14,
+        defending: 10,
+        positioning: 12,
+        composure: 12,
+        freeKicks: 8,
+        penalties: 8,
+      },
+      isGoalkeeper: false,
+      potentialAbility: 55,
+    },
+    {
+      name: "联赛替补",
+      skills: {
+        pace: 13,
+        strength: 12,
+        finishing: 12,
+        passing: 11,
+        dribbling: 12,
+        defending: 10,
+        positioning: 10,
+        composure: 10,
+        freeKicks: 6,
+        penalties: 6,
+      },
+      isGoalkeeper: false,
+      potentialAbility: 35,
+    },
+    {
+      name: "年轻小妖",
+      skills: {
+        pace: 16,
+        strength: 13,
+        finishing: 14,
+        passing: 12,
+        dribbling: 15,
+        defending: 8,
+        positioning: 10,
+        composure: 8,
+        freeKicks: 5,
+        penalties: 5,
+      },
+      isGoalkeeper: false,
+      potentialAbility: 92,
+    },
+    {
+      name: "顶级门将",
+      skills: {
+        gk_reflexes: 18,
+        gk_handling: 17,
+        gk_aerial: 16,
+        gk_positioning: 15,
+      },
+      isGoalkeeper: true,
+      potentialAbility: 82,
+    },
+    {
+      name: "普通门将",
+      skills: {
+        gk_reflexes: 14,
+        gk_handling: 13,
+        gk_aerial: 13,
+        gk_positioning: 12,
+      },
+      isGoalkeeper: true,
+      potentialAbility: 45,
+    },
   ];
 
   for (const tc of testCases) {
     // Create mock player
     const mockPlayer = {
-      id: 'test',
+      id: "test",
       name: tc.name,
       isGoalkeeper: tc.isGoalkeeper,
       currentSkills: tc.isGoalkeeper
         ? { technical: tc.skills, physical: {}, mental: {}, setPieces: {} }
-        : { physical: { pace: (tc.skills as any).pace, strength: (tc.skills as any).strength }, technical: { finishing: (tc.skills as any).finishing, passing: (tc.skills as any).passing, dribbling: (tc.skills as any).dribbling, defending: (tc.skills as any).defending }, mental: { positioning: (tc.skills as any).positioning, composure: (tc.skills as any).composure }, setPieces: { freeKicks: (tc.skills as any).freeKicks, penalties: (tc.skills as any).penalties } },
-      potentialTier: tc.potential,
+        : {
+            physical: {
+              pace: (tc.skills as any).pace,
+              strength: (tc.skills as any).strength,
+            },
+            technical: {
+              finishing: (tc.skills as any).finishing,
+              passing: (tc.skills as any).passing,
+              dribbling: (tc.skills as any).dribbling,
+              defending: (tc.skills as any).defending,
+            },
+            mental: {
+              positioning: (tc.skills as any).positioning,
+              composure: (tc.skills as any).composure,
+            },
+            setPieces: {
+              freeKicks: (tc.skills as any).freeKicks,
+              penalties: (tc.skills as any).penalties,
+            },
+          },
+      potentialAbility: tc.potentialAbility,
       form: 3.5,
     } as unknown as PlayerEntity;
 
@@ -489,8 +610,10 @@ export function testPWICalculation(): void {
     console.log(`${tc.name}:`);
     console.log(`  Weighted Sum: ${result.breakdown.weightedSum}`);
     console.log(`  PWI: ${result.pwiDisplay} (${result.pwi.toLocaleString()})`);
-    console.log(`  Stars: ${'⭐'.repeat(Math.floor(result.stars))}${result.stars % 1 >= 0.5 ? '½' : ''} (${result.stars}) - ${result.starLabel}`);
-    console.log('');
+    console.log(
+      `  Stars: ${"⭐".repeat(Math.floor(result.stars))}${result.stars % 1 >= 0.5 ? "½" : ""} (${result.stars}) - ${result.starLabel}`,
+    );
+    console.log("");
   }
 }
 
