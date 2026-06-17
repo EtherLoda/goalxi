@@ -1,15 +1,20 @@
 import { OffsetPaginatedDto } from '@/common/dto/offset-pagination/paginated.dto';
 import { Uuid } from '@/common/types/common.type';
+import { isUuid } from '@/common/utils/is-uuid.util';
 import { paginate } from '@/utils/offset-pagination';
 import {
   PlayerEntity,
   PlayerSkills,
   calculatePlayerPWI,
+  displayIdFromUuid,
+  formatDisplayId,
   formatPWI,
+  isValidDisplayId,
 } from '@goalxi/database';
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import assert from 'assert';
 import { plainToInstance } from 'class-transformer';
+import { v4 as uuidv4 } from 'uuid';
 import {
   getRandomNameByNationality,
   getRandomNationality,
@@ -47,9 +52,23 @@ export class PlayerService {
     );
   }
 
-  async findOne(id: Uuid): Promise<PlayerResDto> {
-    assert(id, 'id is required');
-    const player = await PlayerEntity.findOneByOrFail({ id });
+  async findOne(idOrDId: string): Promise<PlayerResDto> {
+    assert(idOrDId, 'id is required');
+
+    let player: PlayerEntity | null = null;
+    if (isUuid(idOrDId)) {
+      player = await PlayerEntity.findOneBy({ id: idOrDId as Uuid });
+    } else if (isValidDisplayId(idOrDId)) {
+      player = await PlayerEntity.findOneBy({ displayId: idOrDId });
+    } else {
+      throw new NotFoundException(
+        'Invalid player identifier (expected UUID or 11-digit displayId)',
+      );
+    }
+
+    if (!player) {
+      throw new NotFoundException('Player not found');
+    }
 
     return this.mapToResDto(player, PlayerResDto);
   }
@@ -59,7 +78,12 @@ export class PlayerService {
       reqDto.isGoalkeeper || false,
     );
 
+    const id = uuidv4();
+    const displayId = formatDisplayId(displayIdFromUuid(id));
+
     const player = new PlayerEntity({
+      id: id as Uuid,
+      displayId,
       name: reqDto.name,
       nationality: reqDto.nationality,
       teamId: reqDto.teamId,
@@ -118,7 +142,13 @@ export class PlayerService {
       const [currentSkills, potentialSkills] =
         this.generateRandomSkills(isGoalkeeper);
       const potentialAbility = this.calculatePotentialAbility(potentialSkills);
+
+      const id = uuidv4();
+      const displayId = formatDisplayId(displayIdFromUuid(id));
+
       const player = new PlayerEntity({
+        id: id as Uuid,
+        displayId,
         name: `${firstName} ${lastName}`,
         nationality: playerNationality,
         teamId: teamId || null,
@@ -267,6 +297,7 @@ export class PlayerService {
     const pwiResult = calculatePlayerPWI(player);
     return plainToInstance(DtoClass, {
       id: player.id,
+      displayId: player.displayId,
       teamId: player.teamId,
       name: player.name,
       nationality: player.nationality,

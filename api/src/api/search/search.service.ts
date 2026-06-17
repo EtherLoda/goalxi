@@ -44,6 +44,22 @@ export class SearchService {
   }
 
   async searchPlayers(reqDto: SearchPlayersReqDto) {
+    // Exact dId lookup takes precedence over text search.
+    if (reqDto.dId) {
+      const player = await this.playerRepo.findOne({
+        where: { displayId: reqDto.dId },
+        relations: ['team'],
+      });
+      if (!player) {
+        return [];
+      }
+      return [this.toPlayerSearchResult(player)];
+    }
+
+    if (!reqDto.q) {
+      return [];
+    }
+
     const limit = reqDto.limit || 10;
 
     const query = this.playerRepo
@@ -61,14 +77,19 @@ export class SearchService {
     }
 
     const players = await query.getMany();
-    return players.map((player) => ({
+    return players.map((player) => this.toPlayerSearchResult(player));
+  }
+
+  private toPlayerSearchResult(player: PlayerEntity) {
+    return {
       id: player.id,
+      displayId: player.displayId,
       name: player.name,
       teamId: player.teamId,
       teamName: player.team?.name,
       leagueId: player.team?.leagueId,
       isGoalkeeper: player.isGoalkeeper,
-    }));
+    };
   }
 
   async searchLeagues(reqDto: SearchLeaguesReqDto) {

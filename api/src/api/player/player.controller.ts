@@ -48,10 +48,10 @@ export class PlayerController {
   }
 
   @Public()
-  @ApiAuth({ summary: 'Get a player by ID' })
+  @ApiAuth({ summary: 'Get a player by ID or displayId' })
   @Get(':id')
   @ApiOkResponse({ type: PlayerResDto })
-  async findOne(@Param('id') id: Uuid): Promise<PlayerResDto> {
+  async findOne(@Param('id') id: string): Promise<PlayerResDto> {
     return this.playerService.findOne(id);
   }
 

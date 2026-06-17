@@ -15,6 +15,10 @@ export class PlayerPublicResDto {
   @Expose()
   id: string;
 
+  @StringField()
+  @Expose()
+  displayId: string;
+
   @UUIDFieldOptional()
   @Expose()
   teamId?: string | null;

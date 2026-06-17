@@ -123,9 +123,7 @@ describe('StatsService', () => {
       jest
         .spyOn(matchStatsRepository, 'find')
         .mockResolvedValue(mockStats as any);
-      jest
-        .spyOn(eventRepository, 'find')
-        .mockResolvedValue([] as any);
+      jest.spyOn(eventRepository, 'find').mockResolvedValue([] as any);
 
       const result = await service.getMatchStats('match-1');
 

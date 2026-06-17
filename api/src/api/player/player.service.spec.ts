@@ -241,4 +241,98 @@ describe('PlayerService', () => {
       }
     });
   });
+
+  describe('create — auto-generates displayId', () => {
+    it('assigns an 11-digit displayId alongside the UUID', async () => {
+      jest
+        .spyOn(PlayerEntity.prototype, 'save')
+        .mockImplementation(async function () {
+          Object.assign(this, {
+            id: 'some-uuid',
+            createdAt: new Date(),
+            updatedAt: new Date(),
+          });
+          return this;
+        });
+
+      const result = await service.create({ name: 'Demo' } as any);
+
+      expect(result.displayId).toMatch(/^\d{11}$/);
+      expect(result.id).toBeDefined();
+    });
+  });
+
+  describe('findOne — UUID or displayId resolution', () => {
+    const VALID_UUID = '550e8400-e29b-41d4-a716-446655440000';
+    const VALID_DID = '12345678901';
+
+    beforeEach(() => {
+      jest
+        .spyOn(PlayerEntity, 'findOneBy')
+        .mockImplementation((async () => null) as never);
+    });
+
+    it('resolves by UUID when the param is a UUID', async () => {
+      const player = Object.assign(new PlayerEntity(), {
+        id: VALID_UUID as Uuid,
+        displayId: VALID_DID,
+        name: 'F1',
+        currentSkills: {
+          physical: {},
+          technical: {},
+          mental: {},
+          setPieces: {},
+        },
+        potentialSkills: {
+          physical: {},
+          technical: {},
+          mental: {},
+          setPieces: {},
+        },
+      });
+      (PlayerEntity.findOneBy as jest.Mock).mockResolvedValue(player);
+
+      const result = await service.findOne(VALID_UUID);
+
+      expect(PlayerEntity.findOneBy).toHaveBeenCalledWith({ id: VALID_UUID });
+      expect(result.displayId).toBe(VALID_DID);
+    });
+
+    it('resolves by displayId when the param is an 11-digit number', async () => {
+      const player = Object.assign(new PlayerEntity(), {
+        id: VALID_UUID as Uuid,
+        displayId: VALID_DID,
+        name: 'F2',
+        currentSkills: {
+          physical: {},
+          technical: {},
+          mental: {},
+          setPieces: {},
+        },
+        potentialSkills: {
+          physical: {},
+          technical: {},
+          mental: {},
+          setPieces: {},
+        },
+      });
+      (PlayerEntity.findOneBy as jest.Mock).mockResolvedValue(player);
+
+      const result = await service.findOne(VALID_DID);
+
+      expect(PlayerEntity.findOneBy).toHaveBeenCalledWith({
+        displayId: VALID_DID,
+      });
+      expect(result.id).toBe(VALID_UUID);
+    });
+
+    it('throws NotFoundException for an invalid identifier', async () => {
+      await expect(service.findOne('!!!')).rejects.toThrow();
+    });
+
+    it('throws NotFoundException when the displayId is unknown', async () => {
+      (PlayerEntity.findOneBy as jest.Mock).mockResolvedValue(null);
+      await expect(service.findOne(VALID_DID)).rejects.toThrow();
+    });
+  });
 });
