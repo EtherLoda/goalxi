@@ -85,6 +85,10 @@ export class TeamEntity extends AbstractEntity {
     @Column({ name: 'stamina_training_intensity', type: 'float', default: 0.1 })
     staminaTrainingIntensity: number;
 
+    /** 体能训练强度最近修改时间，用于 §5.4 每周 1 次限制 */
+    @Column({ name: 'training_intensity_last_changed_at', type: 'timestamptz', nullable: true })
+    trainingIntensityLastChangedAt: Date | null;
+
     /** ELO 评分（隐藏），用于计算比赛预期和球迷士气 */
     @Column({ name: 'elo_rating', type: 'int', default: 1500 })
     eloRating: number;

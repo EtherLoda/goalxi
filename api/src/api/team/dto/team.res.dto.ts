@@ -46,6 +46,10 @@ export class TeamResDto {
 
   @Expose()
   @Type(() => Date)
+  trainingIntensityLastChangedAt: Date | null;
+
+  @Expose()
+  @Type(() => Date)
   createdAt: Date;
 
   @Expose()

@@ -34,6 +34,7 @@ interface Team {
   logoUrl?: string;
   nationality?: string;
   staminaTrainingIntensity?: number;
+  trainingIntensityLastChangedAt?: string | null;
   benchConfig?: BenchConfig | null;
 }
 

@@ -57,6 +57,13 @@ export default function BenchQuickEdit({
         try {
             await api.teams.updateBenchConfig(teamId, draft);
             onSaved(draft);
+            // §5.4 cross-page sync: notify other listeners (e.g. tactics editor
+            // if it starts reading benchConfig later) to refetch.
+            if (typeof window !== "undefined") {
+                window.dispatchEvent(
+                    new CustomEvent("club:bench-updated", { detail: { teamId, bench: draft } }),
+                );
+            }
         } catch (err: unknown) {
             setError(err instanceof Error ? err.message : tCommon("common.error"));
         } finally {

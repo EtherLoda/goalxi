@@ -128,8 +128,17 @@ export default function ClubSettingsPage() {
                         <TrainingSlider
                             teamId={currentTeamId}
                             value={team.staminaTrainingIntensity ?? 0.1}
+                            lastChangedAt={team.trainingIntensityLastChangedAt}
                             onSaved={(v) =>
-                                setTeam((t) => (t ? { ...t, staminaTrainingIntensity: v } : t))
+                                setTeam((t) =>
+                                    t
+                                        ? {
+                                              ...t,
+                                              staminaTrainingIntensity: v,
+                                              trainingIntensityLastChangedAt: new Date().toISOString(),
+                                          }
+                                        : t,
+                                )
                             }
                         />
                     </section>

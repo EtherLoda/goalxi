@@ -162,8 +162,11 @@ export class TeamService {
       team.foundedYear = reqDto.foundedYear ?? null;
     if (reqDto.city !== undefined) team.city = reqDto.city ?? null;
     if (reqDto.bio !== undefined) team.bio = reqDto.bio ?? null;
-    if (reqDto.staminaTrainingIntensity !== undefined)
+    if (reqDto.staminaTrainingIntensity !== undefined) {
       team.staminaTrainingIntensity = reqDto.staminaTrainingIntensity;
+      // §5.4: reset the weekly change timer on every training intensity update
+      team.trainingIntensityLastChangedAt = new Date();
+    }
 
     await team.save();
 
@@ -276,6 +279,7 @@ export class TeamService {
       bio: team.bio,
       benchConfig: team.benchConfig,
       staminaTrainingIntensity: team.staminaTrainingIntensity,
+      trainingIntensityLastChangedAt: team.trainingIntensityLastChangedAt,
       createdAt: team.createdAt,
       updatedAt: team.updatedAt,
     });
