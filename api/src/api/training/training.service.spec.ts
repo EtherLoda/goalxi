@@ -4,6 +4,7 @@ import {
   StaffEntity,
   StaffLevel,
   StaffRole,
+  TrainingUpdateEntity,
 } from '@goalxi/database';
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
@@ -86,6 +87,13 @@ describe('TrainingService', () => {
           provide: getRepositoryToken(CoachPlayerAssignmentEntity),
           useValue: {
             find: jest.fn(),
+          },
+        },
+        {
+          provide: getRepositoryToken(TrainingUpdateEntity),
+          useValue: {
+            find: jest.fn(),
+            save: jest.fn(),
           },
         },
       ],

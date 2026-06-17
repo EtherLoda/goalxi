@@ -255,10 +255,7 @@ export class PlayerService {
     const setPiecesSum = Object.values(setPieces).reduce((a, b) => a + b, 0);
 
     const rawPA =
-      physicalSum * 1 +
-      technicalSum * 1 +
-      mentalSum * 0.4 +
-      setPiecesSum * 0.1;
+      physicalSum * 1 + technicalSum * 1 + mentalSum * 0.4 + setPiecesSum * 0.1;
 
     // Normalize to 0-100 (max raw for outfield: 6*20 + 4*20*0.4 + 2*20*0.1 = 140)
     const maxRaw = 140;

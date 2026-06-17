@@ -19,9 +19,7 @@ describe('InjuryService', () => {
   let matchRepo: jest.Mocked<Repository<MatchEntity>>;
 
   // PlayerEntity.getExactAge() is consumed by getTeamInjuredPlayers — stub it.
-  const makePlayer = (
-    overrides: Partial<PlayerEntity> = {},
-  ): PlayerEntity => {
+  const makePlayer = (overrides: Partial<PlayerEntity> = {}): PlayerEntity => {
     const player = {
       id: 'player-uuid-1' as Uuid,
       name: 'Test Player',
@@ -195,9 +193,7 @@ describe('InjuryService', () => {
     });
 
     it('should propagate injuryState (minor/severe)', async () => {
-      playerRepo.find.mockResolvedValue([
-        makePlayer({ injuryState: 'minor' }),
-      ]);
+      playerRepo.find.mockResolvedValue([makePlayer({ injuryState: 'minor' })]);
       staffRepo.findOne.mockResolvedValue(null);
 
       const result = await service.getTeamInjuredPlayers('team-uuid-1');
@@ -248,10 +244,7 @@ describe('InjuryService', () => {
         'injury.occurredAt >= :cutoff',
         expect.objectContaining({ cutoff: expect.any(Date) }),
       );
-      expect(qb.orderBy).toHaveBeenCalledWith(
-        'injury.occurredAt',
-        'DESC',
-      );
+      expect(qb.orderBy).toHaveBeenCalledWith('injury.occurredAt', 'DESC');
       expect(qb.limit).toHaveBeenCalledWith(20);
     });
 

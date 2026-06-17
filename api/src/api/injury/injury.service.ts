@@ -9,11 +9,7 @@ import {
 } from '@goalxi/database';
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import {
-  In,
-  MoreThanOrEqual,
-  Repository,
-} from 'typeorm';
+import { In, MoreThanOrEqual, Repository } from 'typeorm';
 
 export interface InjuryHistoryResDto {
   id: string;

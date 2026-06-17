@@ -1,5 +1,6 @@
 import {
   MatchEntity,
+  MatchEventEntity,
   MatchStatus,
   MatchTeamStatsEntity,
   PlayerCompetitionStatsEntity,
@@ -17,6 +18,7 @@ describe('StatsService', () => {
   let matchRepository: Repository<MatchEntity>;
   let matchStatsRepository: Repository<MatchTeamStatsEntity>;
   let teamRepository: Repository<TeamEntity>;
+  let eventRepository: Repository<MatchEventEntity>;
 
   const mockMatch = {
     id: 'match-1',
@@ -68,6 +70,12 @@ describe('StatsService', () => {
           },
         },
         {
+          provide: getRepositoryToken(MatchEventEntity),
+          useValue: {
+            find: jest.fn(),
+          },
+        },
+        {
           provide: getRepositoryToken(TeamEntity),
           useValue: {
             findOne: jest.fn(),
@@ -98,6 +106,9 @@ describe('StatsService', () => {
     teamRepository = module.get<Repository<TeamEntity>>(
       getRepositoryToken(TeamEntity),
     );
+    eventRepository = module.get<Repository<MatchEventEntity>>(
+      getRepositoryToken(MatchEventEntity),
+    );
   });
 
   it('should be defined', () => {
@@ -112,6 +123,9 @@ describe('StatsService', () => {
       jest
         .spyOn(matchStatsRepository, 'find')
         .mockResolvedValue(mockStats as any);
+      jest
+        .spyOn(eventRepository, 'find')
+        .mockResolvedValue([] as any);
 
       const result = await service.getMatchStats('match-1');
 
@@ -122,6 +136,7 @@ describe('StatsService', () => {
 
     it('should throw NotFoundException if match not found', async () => {
       jest.spyOn(matchRepository, 'findOne').mockResolvedValue(null);
+      jest.spyOn(eventRepository, 'find').mockResolvedValue([] as any);
 
       await expect(service.getMatchStats('invalid')).rejects.toThrow(
         NotFoundException,
@@ -133,6 +148,7 @@ describe('StatsService', () => {
         ...mockMatch,
         status: MatchStatus.SCHEDULED,
       } as any);
+      jest.spyOn(eventRepository, 'find').mockResolvedValue([] as any);
 
       await expect(service.getMatchStats('match-1')).rejects.toThrow(
         NotFoundException,
