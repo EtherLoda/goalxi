@@ -8,6 +8,7 @@ import {
   IsDefined,
   IsEmail,
   IsEnum,
+  IsHexColor,
   IsInt,
   IsJWT,
   IsNumber,
@@ -330,6 +331,47 @@ export function URLFieldOptional(
   return applyDecorators(
     IsOptional({ each: options.each }),
     URLField({ required: false, ...options }),
+  );
+}
+
+export function HexColorField(
+  options: Omit<ApiPropertyOptions, 'type'> & IStringFieldOptions = {},
+): PropertyDecorator {
+  const decorators = [
+    Type(() => String),
+    IsString({ each: options.each }),
+    IsHexColor({ each: options.each }),
+  ];
+
+  if (options.nullable) {
+    decorators.push(IsNullable({ each: options.each }));
+  } else {
+    decorators.push(NotEquals(null, { each: options.each }));
+  }
+
+  if (options.swagger !== false) {
+    const { required = true, ...restOptions } = options;
+    decorators.push(
+      ApiProperty({ type: String, required: !!required, ...restOptions }),
+    );
+  }
+
+  const minLength = options.minLength || 1;
+  decorators.push(MinLength(minLength, { each: options.each }));
+  if (options.maxLength) {
+    decorators.push(MaxLength(options.maxLength, { each: options.each }));
+  }
+
+  return applyDecorators(...decorators);
+}
+
+export function HexColorFieldOptional(
+  options: Omit<ApiPropertyOptions, 'type' | 'required'> &
+    IStringFieldOptions = {},
+): PropertyDecorator {
+  return applyDecorators(
+    IsOptional({ each: options.each }),
+    HexColorField({ required: false, ...options }),
   );
 }
 

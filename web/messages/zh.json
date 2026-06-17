@@ -105,14 +105,17 @@
       "dashboard": "仪表盘",
       "squad": "球队",
       "matches": "比赛",
+      "tactics": "战术",
       "league": "联赛",
       "operations": "运营",
       "search": "搜索",
       "transfers": "转会",
       "training": "训练",
+      "medical": "医务室",
       "finance": "财务",
       "scouting": "球探",
       "academy": "青训",
+      "settings": "俱乐部设置",
       "youthSquad": "青训球队",
       "youthMatches": "青训比赛",
       "viewingMyTeam": "返回我的球队"
@@ -578,5 +581,212 @@
       "long_shot": "远射",
       "rebound": "补射"
     }
+  },
+  "tactics": {
+    "title": "战术编辑器",
+    "subtitle": "设置阵型与战术方案",
+    "lock": {
+      "locked": "战术已锁定",
+      "lockedDesc": "战术已锁定。距离比赛开始 {time}。",
+      "warning": "时间紧迫！",
+      "warningDesc": "战术将在 {time} 后锁定。",
+      "submitted": "战术已提交",
+      "completed": "比赛已结束",
+      "inProgress": "比赛进行中"
+    },
+    "entry": {
+      "setTactics": "设置战术",
+      "locked": "战术已锁定",
+      "locksIn": "{time} 后锁定"
+    },
+    "formation": "阵型",
+    "formationAuto": "自动阵型: {formation}",
+    "submit": "保存战术",
+    "submitting": "保存中...",
+    "submitError": "战术保存失败",
+    "submitSuccess": "战术已保存",
+    "submitSuccessDesc": "已提交 {formation} 阵型,共 {events} 项调整。",
+    "pitch": {
+      "title": "球场",
+      "emptySlot": "空位"
+    },
+    "bench": {
+      "title": "替补席",
+      "hint": "拖拽分配"
+    },
+    "roster": {
+      "title": "球队",
+      "available": "可用球员",
+      "onPitch": "场上球员",
+      "sort": {
+        "label": "排序方式",
+        "overall": "综合能力",
+        "stamina": "体能",
+        "form": "状态",
+        "name": "姓名"
+      },
+      "filter": {
+        "all": "全部",
+        "gk": "门将",
+        "def": "后卫",
+        "mid": "中场",
+        "fwd": "前锋"
+      }
+    },
+    "dimensions": {
+      "title": "战术风格",
+      "tempo": { "label": "节奏", "slow": "慢", "balanced": "均衡", "fast": "快" },
+      "pitchWidth": { "label": "球场宽度", "narrow": "窄", "balanced": "均衡", "wide": "宽" },
+      "defensiveLine": { "label": "防线高度", "low": "低", "mid": "中", "high": "高" }
+    },
+    "events": {
+      "title": "战术调整",
+      "add": "添加",
+      "sub": "换人",
+      "move": "移位",
+      "minute": "分钟",
+      "out": "下",
+      "in": "上",
+      "player": "球员",
+      "newPosition": "新位置",
+      "empty": "暂无调整"
+    },
+    "presets": {
+      "title": "战术预设",
+      "save": "保存为预设",
+      "apply": "应用",
+      "delete": "删除",
+      "setDefault": "设为默认",
+      "isDefault": "默认",
+      "dialog": {
+        "title": "保存战术预设",
+        "name": "预设名称",
+        "namePlaceholder": "如:激进 4-3-3",
+        "setDefault": "设为默认",
+        "confirm": "保存",
+        "cancel": "取消"
+      },
+      "deleteConfirm": "确认删除预设 \"{name}\"？"
+    },
+    "validation": {
+      "goalkeeperRequired": "必须设置首发门将",
+      "gkOnlyInGk": "GK 位置只能安排门将",
+      "outfieldersNotInGk": "门将只能安排在 GK 位置",
+      "benchGkOnly": "替补席 GK 位置只能安排门将",
+      "playerCountMin": "至少需要 9 名球员 (当前 {count} 人)",
+      "playerCountMax": "最多 11 名球员 (当前 {count} 人)",
+      "invalidSlot": "无效的位置: {slot}",
+      "duplicatePlayer": "球员 {player} 被分配到多个位置",
+      "playerNotInTeam": "球员 {player} 不在你的球队中",
+      "eventPlayerMissing": "第 {minute} 分钟调整中的球员不在场上",
+      "moveToSamePosition": "不能将球员移至其当前所在位置"
+    },
+    "position": {
+      "GK": "门将",
+      "CB1": "中后卫",
+      "CB2": "中后卫",
+      "CB3": "中后卫",
+      "LB": "左后卫",
+      "RB": "右后卫",
+      "LWB": "左翼卫",
+      "RWB": "右翼卫",
+      "DMF1": "防守型中场",
+      "DMF2": "防守型中场",
+      "DMF3": "防守型中场",
+      "CM1": "中前卫",
+      "CM2": "中前卫",
+      "CM3": "中前卫",
+      "CAM1": "前腰",
+      "CAM2": "前腰",
+      "CAM3": "前腰",
+      "LM": "左中场",
+      "RM": "右中场",
+      "LW": "左边锋",
+      "RW": "右边锋",
+      "CFL": "左前锋",
+      "CF": "中锋",
+      "CFR": "右前锋",
+      "BENCH_GK": "门将",
+      "BENCH_CB": "中卫",
+      "BENCH_FB": "边卫",
+      "BENCH_W": "边路",
+      "BENCH_CM": "中场",
+      "BENCH_FW": "前锋"
+    }
+  },
+  "club": {
+    "nav": {
+      "aria": "俱乐部分区",
+      "overview": "总览",
+      "settings": "设置",
+      "medical": "医务室"
+    },
+    "overview": {
+      "eyebrow": "我的俱乐部",
+      "fallbackName": "你的俱乐部",
+      "subtitle": "查看俱乐部身份、主场和基本信息的快照。",
+      "stadium": {
+        "title": "主场",
+        "none": "尚未建造球场",
+        "capacity": "{n} 个座位"
+      },
+      "info": {
+        "title": "身份信息",
+        "city": "城市",
+        "founded": "成立年份",
+        "empty": "前往设置页补充城市和成立年份。"
+      }
+    }
+  },
+  "medical": {
+    "title": "医务室",
+    "subtitle": "查看当前伤员、恢复进度,以及队医对每日恢复速率的影响。",
+    "summary": {
+      "total": "伤员",
+      "severe": "重伤",
+      "minor": "轻伤",
+      "avgRecovery": "平均恢复",
+      "weeksShort": "{n}周"
+    },
+    "doctor": {
+      "title": "队医",
+      "level": "Lv. {level}",
+      "recoveryBonus": "恢复加成",
+      "contractExpiry": "合同到期",
+      "none": "尚未聘任队医,按基础速率恢复。"
+    },
+    "active": {
+      "title": "当前伤员",
+      "count": "{n, plural, =0 {无} other {# 人}}",
+      "empty": "全队健康,无人受伤。",
+      "player": "球员",
+      "injury": "伤型",
+      "state": "状态",
+      "recovery": "恢复",
+      "severeTag": "重伤",
+      "minorTag": "轻伤 · 95%",
+      "eta": "约 {n} 周"
+    },
+    "history": {
+      "title": "近期历史",
+      "window": "近 60 天",
+      "empty": "近 60 天内无伤病记录。",
+      "date": "日期",
+      "type": "伤型",
+      "opponent": "比赛",
+      "status": "状态",
+      "recovered": "已恢复",
+      "active": "在治"
+    },
+    "injuryTypes": {
+      "muscle": "肌肉",
+      "ligament": "韧带",
+      "joint": "关节",
+      "head": "头部",
+      "other": "其他"
+    },
+    "recoveryWeeks": "约 {n} 周",
+    "minorBadge": "95%",
+    "minorAbleToPlay": "可 95% 能力出场"
   }
 }

@@ -2,6 +2,18 @@
   "langSwitcher": {
     "switchLang": "Switch Language"
   },
+  "common": {
+    "loading": "Loading...",
+    "error": "Something went wrong",
+    "retry": "Retry",
+    "save": "Save",
+    "cancel": "Cancel",
+    "confirm": "Confirm"
+  },
+  "auth": {
+    "loginRequired": "Please log in to continue",
+    "sessionExpired": "Session expired, please log in again"
+  },
   "search": {
     "title": "Search",
     "placeholder": "Search teams, players, leagues...",
@@ -105,14 +117,17 @@
       "dashboard": "Dashboard",
       "squad": "Squad",
       "matches": "Matches",
+      "tactics": "Tactics",
       "league": "League",
       "operations": "Operations",
       "search": "Search",
       "transfers": "Transfers",
       "training": "Training",
+      "medical": "Medical",
       "finance": "Finance",
       "scouting": "Scouting",
       "academy": "Academy",
+      "settings": "Settings",
       "youthSquad": "Youth Squad",
       "youthMatches": "Youth Matches",
       "viewingMyTeam": "View My Team"
@@ -577,5 +592,212 @@
       "long_shot": "long-range shot",
       "rebound": "rebound"
     }
+  },
+  "tactics": {
+    "title": "Tactics Editor",
+    "subtitle": "Set up your formation and tactical plan",
+    "lock": {
+      "locked": "Tactics Locked",
+      "lockedDesc": "Tactics are locked. Match starts in {time}.",
+      "warning": "Time Running Out!",
+      "warningDesc": "Tactics lock in {time}.",
+      "submitted": "Tactics submitted",
+      "completed": "Match completed",
+      "inProgress": "Match in progress"
+    },
+    "entry": {
+      "setTactics": "Set Tactics",
+      "locked": "Tactics locked",
+      "locksIn": "Locks in {time}"
+    },
+    "formation": "Formation",
+    "formationAuto": "Auto: {formation}",
+    "submit": "Save Tactics",
+    "submitting": "Saving...",
+    "submitError": "Failed to save tactics",
+    "submitSuccess": "Tactics saved",
+    "submitSuccessDesc": "{formation} formation with {events} changes submitted.",
+    "pitch": {
+      "title": "Pitch",
+      "emptySlot": "Empty"
+    },
+    "bench": {
+      "title": "Substitutes",
+      "hint": "Drag to assign"
+    },
+    "roster": {
+      "title": "Squad",
+      "available": "Available",
+      "onPitch": "On Pitch",
+      "sort": {
+        "label": "Sort by",
+        "overall": "Overall",
+        "stamina": "Stamina",
+        "form": "Form",
+        "name": "Name"
+      },
+      "filter": {
+        "all": "All",
+        "gk": "GK",
+        "def": "DEF",
+        "mid": "MID",
+        "fwd": "FWD"
+      }
+    },
+    "dimensions": {
+      "title": "Tactical Style",
+      "tempo": { "label": "Tempo", "slow": "Slow", "balanced": "Balanced", "fast": "Fast" },
+      "pitchWidth": { "label": "Pitch Width", "narrow": "Narrow", "balanced": "Balanced", "wide": "Wide" },
+      "defensiveLine": { "label": "Defensive Line", "low": "Low", "mid": "Mid", "high": "High" }
+    },
+    "events": {
+      "title": "Tactical Changes",
+      "add": "Add",
+      "sub": "Sub",
+      "move": "Move",
+      "minute": "Min",
+      "out": "Out",
+      "in": "In",
+      "player": "Player",
+      "newPosition": "New Position",
+      "empty": "No changes planned"
+    },
+    "presets": {
+      "title": "Presets",
+      "save": "Save as Preset",
+      "apply": "Apply",
+      "delete": "Delete",
+      "setDefault": "Set Default",
+      "isDefault": "Default",
+      "dialog": {
+        "title": "Save as Preset",
+        "name": "Preset Name",
+        "namePlaceholder": "e.g. Aggressive 4-3-3",
+        "setDefault": "Set as default",
+        "confirm": "Save",
+        "cancel": "Cancel"
+      },
+      "deleteConfirm": "Delete preset \"{name}\"?"
+    },
+    "validation": {
+      "goalkeeperRequired": "Goalkeeper is required",
+      "gkOnlyInGk": "Only a goalkeeper can play in GK",
+      "outfieldersNotInGk": "Goalkeepers can only play in GK",
+      "benchGkOnly": "Only a goalkeeper can be on the GK bench",
+      "playerCountMin": "Minimum 9 players required (currently {count})",
+      "playerCountMax": "Maximum 11 players allowed (currently {count})",
+      "invalidSlot": "Invalid position slot: {slot}",
+      "duplicatePlayer": "Player {player} is assigned to multiple positions",
+      "playerNotInTeam": "Player {player} is not on your team",
+      "eventPlayerMissing": "Player in event at minute {minute} is not on the pitch",
+      "moveToSamePosition": "Cannot move a player to their current position"
+    },
+    "position": {
+      "GK": "Goalkeeper",
+      "CB1": "Centre Back",
+      "CB2": "Centre Back",
+      "CB3": "Centre Back",
+      "LB": "Left Back",
+      "RB": "Right Back",
+      "LWB": "Left Wing Back",
+      "RWB": "Right Wing Back",
+      "DMF1": "Defensive Mid",
+      "DMF2": "Defensive Mid",
+      "DMF3": "Defensive Mid",
+      "CM1": "Central Mid",
+      "CM2": "Central Mid",
+      "CM3": "Central Mid",
+      "CAM1": "Attacking Mid",
+      "CAM2": "Attacking Mid",
+      "CAM3": "Attacking Mid",
+      "LM": "Left Mid",
+      "RM": "Right Mid",
+      "LW": "Left Wing",
+      "RW": "Right Wing",
+      "CFL": "Left Forward",
+      "CF": "Centre Forward",
+      "CFR": "Right Forward",
+      "BENCH_GK": "GK",
+      "BENCH_CB": "CB",
+      "BENCH_FB": "FB",
+      "BENCH_W": "W",
+      "BENCH_CM": "CM",
+      "BENCH_FW": "FW"
+    }
+  },
+  "club": {
+    "nav": {
+      "aria": "Club sections",
+      "overview": "Overview",
+      "settings": "Settings",
+      "medical": "Medical"
+    },
+    "overview": {
+      "eyebrow": "My Club",
+      "fallbackName": "Your Club",
+      "subtitle": "Snapshot of your club identity, home ground, and basic info.",
+      "stadium": {
+        "title": "Home Ground",
+        "none": "No stadium yet",
+        "capacity": "{n} seats"
+      },
+      "info": {
+        "title": "Identity",
+        "city": "City",
+        "founded": "Founded",
+        "empty": "Edit your club details in Settings to add city and founding year."
+      }
+    }
+  },
+  "medical": {
+    "title": "Medical Room",
+    "subtitle": "Track active injuries, recovery progress, and your team doctor's impact on daily healing.",
+    "summary": {
+      "total": "Injured",
+      "severe": "Severe",
+      "minor": "Minor",
+      "avgRecovery": "Avg Recovery",
+      "weeksShort": "{n}w"
+    },
+    "doctor": {
+      "title": "Team Doctor",
+      "level": "Level {level}",
+      "recoveryBonus": "Recovery bonus",
+      "contractExpiry": "Contract ends",
+      "none": "No team doctor hired. Recovery is at the base rate."
+    },
+    "active": {
+      "title": "Active Injuries",
+      "count": "{n, plural, =0 {None} one {# player} other {# players}}",
+      "empty": "No active injuries. Your squad is fully fit.",
+      "player": "Player",
+      "injury": "Injury",
+      "state": "State",
+      "recovery": "Recovery",
+      "severeTag": "Severe",
+      "minorTag": "Minor · 95%",
+      "eta": "{n, plural, one {~1 week} other {~# weeks}}"
+    },
+    "history": {
+      "title": "Recent History",
+      "window": "Last 60 days",
+      "empty": "No injuries recorded in the last 60 days.",
+      "date": "Date",
+      "type": "Type",
+      "opponent": "Match",
+      "status": "Status",
+      "recovered": "Recovered",
+      "active": "Active"
+    },
+    "injuryTypes": {
+      "muscle": "Muscle",
+      "ligament": "Ligament",
+      "joint": "Joint",
+      "head": "Head",
+      "other": "Other"
+    },
+    "recoveryWeeks": "{n, plural, one {~# week} other {~# weeks}}",
+    "minorBadge": "95%",
+    "minorAbleToPlay": "Able to play at 95% ability"
   }
 }

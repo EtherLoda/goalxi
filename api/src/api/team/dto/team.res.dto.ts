@@ -1,5 +1,5 @@
 import { BenchConfig } from '@goalxi/database';
-import { Expose } from 'class-transformer';
+import { Expose, Type } from 'class-transformer';
 
 export class TeamResDto {
   @Expose()
@@ -27,14 +27,28 @@ export class TeamResDto {
   jerseyColorSecondary: string;
 
   @Expose()
+  jerseyColorTertiary: string;
+
+  @Expose()
+  foundedYear: number | null;
+
+  @Expose()
+  city: string | null;
+
+  @Expose()
+  bio: string | null;
+
+  @Expose()
   benchConfig: BenchConfig | null;
 
   @Expose()
   staminaTrainingIntensity: number;
 
   @Expose()
+  @Type(() => Date)
   createdAt: Date;
 
   @Expose()
+  @Type(() => Date)
   updatedAt: Date;
 }

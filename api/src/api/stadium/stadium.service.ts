@@ -1,6 +1,7 @@
 import {
   MatchEntity,
   STADIUM_COST_PER_SEAT,
+  STADIUM_DEMOLISH_REFUND_RATE,
   StadiumEntity,
   TransactionType,
   Uuid,
@@ -10,6 +11,22 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { FinanceService } from '../finance/finance.service';
 import { BuildStadiumReqDto, ResizeStadiumReqDto } from './dto/stadium.req.dto';
+import { RenameStadiumReqDto } from './dto/rename-stadium.req.dto';
+
+/**
+ * 球场摘要 — §5.3 设置页用
+ * 含容量、当前赛季平均上座率、预估比赛日收入
+ */
+export interface StadiumSummary {
+    teamId: string;
+    name: string;
+    capacity: number;
+    isBuilt: boolean;
+    currentSeasonAvgAttendance: number | null;
+    estMatchdayRevenue: number;
+    buildCost: number;
+    demolishRefund: number;
+}
 
 @Injectable()
 export class StadiumService {
@@ -43,6 +60,65 @@ export class StadiumService {
    */
   async getByTeamId(teamId: string): Promise<StadiumEntity | null> {
     return this.stadiumRepository.findOne({ where: { teamId } });
+  }
+
+  /**
+   * §5.3 获取球场摘要（容量 + 预估收入）
+   */
+  async getSummary(teamId: string): Promise<StadiumSummary | null> {
+    const stadium = await this.getByTeamId(teamId);
+    if (!stadium) {
+      return null;
+    }
+
+    // 近 4 场主场比赛平均上座率
+    const { season } = await this.getCurrentSeasonAndWeek();
+    const attendanceResult = await this.matchRepository
+      .createQueryBuilder('match')
+      .select('AVG(match.attendance)', 'avgAttendance')
+      .where('match.homeTeamId = :teamId', { teamId })
+      .andWhere('match.season = :season', { season })
+      .andWhere('match.status = :status', { status: 'completed' })
+      .getRawOne();
+
+    const avgAttendance =
+      attendanceResult?.avgAttendance != null
+        ? Math.round(Number(attendanceResult.avgAttendance))
+        : null;
+
+    // 票价假设：单座均价 (capacity × 20)
+    const TICKET_PRICE = 20;
+    const estMatchdayRevenue =
+      avgAttendance != null ? avgAttendance * TICKET_PRICE : 0;
+
+    const buildCost = stadium.capacity * STADIUM_COST_PER_SEAT;
+    const demolishRefund = Math.floor(buildCost * STADIUM_DEMOLISH_REFUND_RATE);
+
+    return {
+      teamId: stadium.teamId,
+      name: stadium.name,
+      capacity: stadium.capacity,
+      isBuilt: stadium.isBuilt,
+      currentSeasonAvgAttendance: avgAttendance,
+      estMatchdayRevenue,
+      buildCost,
+      demolishRefund,
+    };
+  }
+
+  /**
+   * §5.3 重命名球场
+   */
+  async rename(
+    teamId: string,
+    name: string,
+  ): Promise<StadiumEntity> {
+    const stadium = await this.getByTeamId(teamId);
+    if (!stadium) {
+      throw new BadRequestException('Stadium not found');
+    }
+    stadium.name = name;
+    return this.stadiumRepository.save(stadium);
   }
 
   /**

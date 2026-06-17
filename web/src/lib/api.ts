@@ -27,7 +27,112 @@ interface Team {
   isBot: boolean;
   jerseyColorPrimary: string;
   jerseyColorSecondary: string;
+  jerseyColorTertiary?: string;
+  foundedYear?: number | null;
+  city?: string | null;
+  bio?: string | null;
+  logoUrl?: string;
+  nationality?: string;
   staminaTrainingIntensity?: number;
+  benchConfig?: BenchConfig | null;
+}
+
+interface StadiumSummary {
+  teamId: string;
+  name: string;
+  capacity: number;
+  isBuilt: boolean;
+  currentSeasonAvgAttendance: number | null;
+  estMatchdayRevenue: number;
+  buildCost: number;
+  demolishRefund: number;
+}
+
+interface BenchConfig {
+  goalkeeper: string | null;
+  centerBack: string | null;
+  fullback: string | null;
+  winger: string | null;
+  centralMidfield: string | null;
+  forward: string | null;
+}
+
+// ============================================================================
+// Tactics types (mirror backend SubmitTacticsReqDto / TacticsResDto / presets)
+// ============================================================================
+
+type TempoValue = 'slow' | 'balanced' | 'fast';
+type PitchWidthValue = 'narrow' | 'balanced' | 'wide';
+type DefensiveLineValue = 'low' | 'mid' | 'high';
+
+interface TacticsSubstitution {
+  minute: number;
+  out: string;
+  in: string;
+}
+
+interface TacticsMove {
+  minute: number;
+  player: string;
+  position: string;
+}
+
+interface TacticsInstructions {
+  moves?: TacticsMove[];
+}
+
+interface SubmitTacticsPayload {
+  teamId: string;
+  formation: string;
+  lineup: Record<string, string>;
+  tempo: TempoValue;
+  pitchWidth: PitchWidthValue;
+  defensiveLine: DefensiveLineValue;
+  substitutions: TacticsSubstitution[];
+  instructions: TacticsInstructions;
+  presetId: string | null;
+}
+
+interface Tactics {
+  id: string;
+  matchId: string;
+  teamId: string;
+  formation: string;
+  lineup: Record<string, string>;
+  tempo: TempoValue;
+  pitchWidth: PitchWidthValue;
+  defensiveLine: DefensiveLineValue;
+  substitutions: TacticsSubstitution[] | null;
+  instructions: TacticsInstructions | null;
+  submittedAt: string;
+  presetId: string | null;
+}
+
+interface TacticsResponse {
+  homeTactics: Tactics | null;
+  awayTactics: Tactics | null;
+}
+
+interface Preset {
+  id: string;
+  teamId: string;
+  name: string;
+  isDefault: boolean;
+  formation: string;
+  lineup: Record<string, string>;
+  substitutions: TacticsSubstitution[] | null;
+  instructions: TacticsInstructions | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+interface CreatePresetPayload {
+  name: string;
+  formation: string;
+  lineup: Record<string, string>;
+  isDefault: boolean;
+  substitutions: TacticsSubstitution[] | null;
+  instructions: TacticsInstructions | null;
 }
 
 interface League {
@@ -69,6 +174,44 @@ interface Player {
   stamina: number;
   currentWage: number;
   specialty?: string;
+  // Injury surface — populated by the Medical module.
+  currentInjuryValue?: number;
+  injuryType?: 'muscle' | 'ligament' | 'joint' | 'head' | 'other' | null;
+  injuryState?: 'minor' | 'severe' | null;
+  injuredAt?: string | null;
+}
+
+export interface PlayerInjuryStatus {
+  playerId: string;
+  playerName: string;
+  isInjured: boolean;
+  currentInjuryValue: number;
+  injuryType?: string;
+  injuryState?: 'minor' | 'severe' | null;
+  injuredAt?: string;
+  /** Single deterministic estimate in days. */
+  estimatedRecoveryDays?: number;
+}
+
+export interface InjuryHistoryEntry {
+  id: string;
+  injuryType: string;
+  severity: number;
+  estimatedDays: number;
+  occurredAt: string;
+  recoveredAt?: string;
+  isRecovered: boolean;
+  matchId?: string | null;
+  opponentName?: string | null;
+}
+
+export interface TeamDoctor {
+  id: string;
+  name: string;
+  level: number;
+  recoveryBonus: number;
+  contractExpiry: string;
+  nationality?: string;
 }
 
 interface PlayerListResponse {
@@ -323,10 +466,48 @@ export const api = {
     getByUser: async (userId: string): Promise<Team> => {
       return request<Team>(`/teams/user/${userId}`);
     },
-    update: async (id: string, data: { staminaTrainingIntensity?: number }): Promise<Team> => {
+    update: async (
+      id: string,
+      data: Partial<
+        Pick<
+          Team,
+          | 'name'
+          | 'nationality'
+          | 'logoUrl'
+          | 'jerseyColorPrimary'
+          | 'jerseyColorSecondary'
+          | 'jerseyColorTertiary'
+          | 'foundedYear'
+          | 'city'
+          | 'bio'
+          | 'staminaTrainingIntensity'
+        >
+      >,
+    ): Promise<Team> => {
       return request<Team>(`/teams/${id}`, {
         method: 'PATCH',
         body: JSON.stringify(data),
+      });
+    },
+  },
+
+  stadium: {
+    getSummary: async (teamId: string): Promise<StadiumSummary | null> => {
+      return request<StadiumSummary | null>(`/teams/${teamId}/stadium/summary`);
+    },
+    build: async (teamId: string, capacity: number): Promise<{ stadium: unknown; cost: number }> => {
+      return request(`/teams/${teamId}/stadium`, {
+        method: 'POST',
+        body: JSON.stringify({ capacity }),
+      });
+    },
+    demolish: async (teamId: string): Promise<{ cost: number }> => {
+      return request(`/teams/${teamId}/stadium`, { method: 'DELETE' });
+    },
+    rename: async (teamId: string, name: string): Promise<unknown> => {
+      return request(`/teams/${teamId}/stadium`, {
+        method: 'PATCH',
+        body: JSON.stringify({ name }),
       });
     },
   },
@@ -359,6 +540,27 @@ export const api = {
     },
     getStandings: async (leagueId: string): Promise<Standing[]> => {
       return request<Standing[]>(`/leagues/${leagueId}/standings`);
+    },
+  },
+
+  injuries: {
+    getTeamInjured: async (teamId: string): Promise<PlayerInjuryStatus[]> => {
+      return request<PlayerInjuryStatus[]>(`/injuries/team/${teamId}/injured-players`);
+    },
+    getPlayerHistory: async (playerId: string): Promise<InjuryHistoryEntry[]> => {
+      return request<InjuryHistoryEntry[]>(`/injuries/player/${playerId}/history`);
+    },
+    getTeamHistory: async (
+      teamId: string,
+      options?: { limit?: number; days?: number },
+    ): Promise<InjuryHistoryEntry[]> => {
+      const params = new URLSearchParams();
+      if (options?.limit) params.append('limit', String(options.limit));
+      if (options?.days) params.append('days', String(options.days));
+      const qs = params.toString();
+      return request<InjuryHistoryEntry[]>(
+        `/injuries/team/${teamId}/history${qs ? `?${qs}` : ''}`,
+      );
     },
   },
 
@@ -398,6 +600,41 @@ export const api = {
     },
     getStats: async (matchId: string): Promise<MatchStatsRes> => {
       return request<MatchStatsRes>(`/stats/matches/${matchId}`);
+    },
+    getTactics: async (matchId: string): Promise<TacticsResponse> => {
+      return request<TacticsResponse>(`/matches/${matchId}/tactics`);
+    },
+    submitTactics: async (matchId: string, payload: SubmitTacticsPayload): Promise<Tactics> => {
+      return request<Tactics>(`/matches/${matchId}/tactics`, {
+        method: 'POST',
+        body: JSON.stringify(payload),
+      });
+    },
+  },
+
+  presets: {
+    list: async (teamId: string): Promise<Preset[]> => {
+      return request<Preset[]>(`/matches/teams/${teamId}/presets`);
+    },
+    get: async (teamId: string, presetId: string): Promise<Preset> => {
+      return request<Preset>(`/matches/teams/${teamId}/presets/${presetId}`);
+    },
+    create: async (teamId: string, payload: CreatePresetPayload): Promise<Preset> => {
+      return request<Preset>(`/matches/teams/${teamId}/presets`, {
+        method: 'POST',
+        body: JSON.stringify(payload),
+      });
+    },
+    update: async (teamId: string, presetId: string, payload: CreatePresetPayload): Promise<Preset> => {
+      return request<Preset>(`/matches/teams/${teamId}/presets/${presetId}`, {
+        method: 'PUT',
+        body: JSON.stringify(payload),
+      });
+    },
+    remove: async (teamId: string, presetId: string): Promise<void> => {
+      await request<void>(`/matches/teams/${teamId}/presets/${presetId}`, {
+        method: 'DELETE',
+      });
     },
   },
 
@@ -488,6 +725,13 @@ export const api = {
     },
     getCostSummary: async (): Promise<StaffCostSummary> => {
       return request<StaffCostSummary>('/staffs/cost-summary');
+    },
+    /**
+     * Get the active team doctor for any team. Used by the Medical Room
+     * to show the recovery bonus (1 + level × 0.1).
+     */
+    getDoctor: async (teamId: string): Promise<TeamDoctor | null> => {
+      return request<TeamDoctor | null>(`/staffs/team/${teamId}/doctor`);
     },
     assignPlayer: async (coachId: string, playerId: string): Promise<CoachAssignment> => {
       return request<CoachAssignment>(`/staffs/${coachId}/assign`, {
@@ -791,4 +1035,50 @@ interface SearchLeagueResult {
   tierDivision: number;
 }
 
-export type { User, Team, LoginResponse, League, Standing, Match, Player, TransferAuction, MyBid, TransferTransaction, BidRecord, FinanceTransaction, PlayerEvent, Notification, NotificationListResponse, LeagueNewsItem, LeagueNewsResponse, Announcement, Staff, StaffCostSummary, TrainingPlayer, CoachAssignment, TrainingUpdate, SearchTeamResult, SearchPlayerResult, SearchLeagueResult, MatchEvent, MatchTeamStats, ComputedStats, MatchStatsRes, MatchEventsResponse };
+export type {
+  User,
+  Team,
+  StadiumSummary,
+  LoginResponse,
+  League,
+  Standing,
+  Match,
+  Player,
+  TransferAuction,
+  MyBid,
+  TransferTransaction,
+  BidRecord,
+  FinanceTransaction,
+  PlayerEvent,
+  Notification,
+  NotificationListResponse,
+  LeagueNewsItem,
+  LeagueNewsResponse,
+  Announcement,
+  Staff,
+  StaffCostSummary,
+  TrainingPlayer,
+  CoachAssignment,
+  TrainingUpdate,
+  SearchTeamResult,
+  SearchPlayerResult,
+  SearchLeagueResult,
+  MatchEvent,
+  MatchTeamStats,
+  ComputedStats,
+  MatchStatsRes,
+  MatchEventsResponse,
+  // Tactics
+  BenchConfig,
+  TempoValue,
+  PitchWidthValue,
+  DefensiveLineValue,
+  Tactics,
+  TacticsResponse,
+  TacticsSubstitution,
+  TacticsMove,
+  TacticsInstructions,
+  SubmitTacticsPayload,
+  Preset,
+  CreatePresetPayload,
+};

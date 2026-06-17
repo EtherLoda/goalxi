@@ -58,6 +58,18 @@ export class TeamEntity extends AbstractEntity {
     @Column({ name: 'jersey_color_secondary', type: 'varchar', default: '#FFFFFF' })
     jerseyColorSecondary: string;
 
+    @Column({ name: 'jersey_color_tertiary', type: 'varchar', length: 7, default: '#000000' })
+    jerseyColorTertiary: string;
+
+    @Column({ name: 'founded_year', type: 'int', nullable: true })
+    foundedYear: number | null;
+
+    @Column({ name: 'city', type: 'varchar', length: 64, nullable: true })
+    city: string | null;
+
+    @Column({ name: 'bio', type: 'text', nullable: true })
+    bio: string | null;
+
     @Column({ name: 'bench_config', type: 'jsonb', nullable: true, comment: 'Bench configuration for substitutions' })
     benchConfig: BenchConfig | null;
 

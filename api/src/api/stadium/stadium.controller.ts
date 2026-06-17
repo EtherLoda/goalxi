@@ -8,11 +8,13 @@ import {
   HttpCode,
   HttpStatus,
   Param,
+  Patch,
   Post,
   Put,
 } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
 import { BuildStadiumReqDto, ResizeStadiumReqDto } from './dto/stadium.req.dto';
+import { RenameStadiumReqDto } from './dto/rename-stadium.req.dto';
 import { StadiumService } from './stadium.service';
 
 @ApiTags('Stadium')
@@ -28,6 +30,24 @@ export class StadiumController {
   @HttpCode(HttpStatus.OK)
   async getStadium(@Param('teamId') teamId: Uuid) {
     return this.stadiumService.getByTeamId(teamId);
+  }
+
+  // §5.3 球场摘要 (容量 + 预估收入)
+  @Public()
+  @Get('summary')
+  @HttpCode(HttpStatus.OK)
+  async getStadiumSummary(@Param('teamId') teamId: Uuid) {
+    return this.stadiumService.getSummary(teamId);
+  }
+
+  // §5.3 重命名球场
+  @Patch()
+  @HttpCode(HttpStatus.OK)
+  async renameStadium(
+    @Param('teamId') teamId: Uuid,
+    @Body() dto: RenameStadiumReqDto,
+  ) {
+    return this.stadiumService.rename(teamId, dto.name);
   }
 
   @Post()

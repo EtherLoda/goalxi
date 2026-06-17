@@ -97,6 +97,10 @@ export class TeamService {
       logoUrl: reqDto.logoUrl || '',
       jerseyColorPrimary: reqDto.jerseyColorPrimary || '#FF0000',
       jerseyColorSecondary: reqDto.jerseyColorSecondary || '#FFFFFF',
+      jerseyColorTertiary: reqDto.jerseyColorTertiary || '#000000',
+      foundedYear: reqDto.foundedYear ?? null,
+      city: reqDto.city ?? null,
+      bio: reqDto.bio ?? null,
     });
 
     await team.save();
@@ -152,6 +156,12 @@ export class TeamService {
       team.jerseyColorPrimary = reqDto.jerseyColorPrimary;
     if (reqDto.jerseyColorSecondary)
       team.jerseyColorSecondary = reqDto.jerseyColorSecondary;
+    if (reqDto.jerseyColorTertiary)
+      team.jerseyColorTertiary = reqDto.jerseyColorTertiary;
+    if (reqDto.foundedYear !== undefined)
+      team.foundedYear = reqDto.foundedYear ?? null;
+    if (reqDto.city !== undefined) team.city = reqDto.city ?? null;
+    if (reqDto.bio !== undefined) team.bio = reqDto.bio ?? null;
     if (reqDto.staminaTrainingIntensity !== undefined)
       team.staminaTrainingIntensity = reqDto.staminaTrainingIntensity;
 
@@ -260,6 +270,11 @@ export class TeamService {
       logoUrl: team.logoUrl,
       jerseyColorPrimary: team.jerseyColorPrimary,
       jerseyColorSecondary: team.jerseyColorSecondary,
+      jerseyColorTertiary: team.jerseyColorTertiary,
+      foundedYear: team.foundedYear,
+      city: team.city,
+      bio: team.bio,
+      benchConfig: team.benchConfig,
       staminaTrainingIntensity: team.staminaTrainingIntensity,
       createdAt: team.createdAt,
       updatedAt: team.updatedAt,

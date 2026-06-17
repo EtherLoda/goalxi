@@ -44,6 +44,7 @@ export default function Sidebar() {
         { labelKey: "dashboard", href: `/${locale}/dashboard?team=${currentTeamId}`, icon: "home" },
         { labelKey: "squad", href: `/${locale}/teams/squad?team=${currentTeamId}`, icon: "groups" },
         { labelKey: "matches", href: `/${locale}/matches?team=${currentTeamId}`, icon: "calendar_month" },
+        { labelKey: "tactics", href: `/${locale}/matches?team=${currentTeamId}`, icon: "strategy" },
         { labelKey: "league", href: displayTeam?.leagueId ? `/${locale}/league/${displayTeam.leagueId}?team=${currentTeamId}` : "#", icon: "emoji_events" },
       ],
     },
@@ -53,8 +54,10 @@ export default function Sidebar() {
         { labelKey: "search", href: `/${locale}/search`, icon: "search" },
         { labelKey: "transfers", href: `/${locale}/transfers?team=${currentTeamId}`, icon: "swap_horiz" },
         { labelKey: "training", href: `/${locale}/training?team=${currentTeamId}`, icon: "fitness_center" },
+        { labelKey: "medical", href: `/${locale}/club/medical?team=${currentTeamId}`, icon: "medical_services" },
         { labelKey: "finance", href: `/${locale}/club/finance?team=${currentTeamId}`, icon: "account_balance_wallet" },
         { labelKey: "scouting", href: `/${locale}/scouts?team=${currentTeamId}`, icon: "travel_explore" },
+        { labelKey: "settings", href: `/${locale}/club?team=${currentTeamId}`, icon: "settings" },
       ],
     },
     {
@@ -106,7 +109,7 @@ export default function Sidebar() {
                   const isActive = pathname === item.href || pathname.startsWith(item.href + "/");
                   return (
                     <Link
-                      key={item.href}
+                      key={item.labelKey}
                       href={item.href}
                       className={clsx(
                         "flex items-center gap-3 px-3 py-2.5 rounded-lg font-headline text-xs font-medium transition-all",
@@ -144,7 +147,7 @@ export default function Sidebar() {
                     const isActive = pathname === item.href || pathname.startsWith(item.href + "/");
                     return (
                       <Link
-                        key={item.href}
+                        key={item.labelKey}
                         href={item.href}
                         className={clsx(
                           "flex items-center gap-3 px-3 py-2.5 rounded-lg font-headline text-xs font-medium transition-all",

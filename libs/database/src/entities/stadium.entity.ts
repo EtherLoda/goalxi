@@ -25,6 +25,10 @@ export class StadiumEntity extends AbstractEntity {
     @Column({ name: 'is_built', type: 'boolean', default: true })
     isBuilt!: boolean;
 
+    /** 球场名称 */
+    @Column({ type: 'varchar', length: 128, default: 'Home Stadium' })
+    name!: string;
+
     constructor(data?: Partial<StadiumEntity>) {
         super();
         Object.assign(this, data);
