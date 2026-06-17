@@ -489,6 +489,12 @@ export const api = {
         body: JSON.stringify(data),
       });
     },
+    updateBenchConfig: async (id: string, benchConfig: NonNullable<Team['benchConfig']>): Promise<Team> => {
+      return request<Team>(`/teams/${id}/bench-config`, {
+        method: 'PATCH',
+        body: JSON.stringify({ benchConfig }),
+      });
+    },
   },
 
   stadium: {

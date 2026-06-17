@@ -100,5 +100,25 @@ describe('StadiumService — §5.3 summary & rename', () => {
             stadiumRepository.findOne.mockResolvedValue(null);
             await expect(service.rename('team-x', 'Foo')).rejects.toThrow();
         });
+
+        it('should write a 0-amount audit transaction so the timeline picks it up', async () => {
+            const stadium = mockStadium({ name: 'Old Name' });
+            stadiumRepository.findOne.mockResolvedValue(stadium);
+            stadiumRepository.save.mockResolvedValue(stadium);
+
+            await service.rename('team-1', 'New Name');
+
+            const financeService = (
+                service as unknown as { financeService: { processTransaction: jest.Mock } }
+            ).financeService;
+            expect(financeService.processTransaction).toHaveBeenCalledWith(
+                'team-1',
+                0,
+                expect.anything(), // TransactionType
+                expect.any(Number),
+                expect.any(Number),
+                'Stadium rename: Old Name → New Name',
+            );
+        });
     });
 });

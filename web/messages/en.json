@@ -747,6 +747,80 @@
         "founded": "Founded",
         "empty": "Edit your club details in Settings to add city and founding year."
       }
+    },
+    "settingsPage": {
+      "eyebrow": "Settings",
+      "title": "Club Settings",
+      "subtitle": "Manage identity, stadium, training, and bench configuration.",
+      "sections": {
+        "info": "Identity",
+        "stadium": "Home Ground",
+        "training": "Training",
+        "bench": "Bench",
+        "audit": "History"
+      }
+    },
+    "settings": {
+      "name": "Club Name",
+      "nationality": "Country",
+      "logoUrl": "Logo URL",
+      "logoUrlHint": "HTTPS only. Use a trusted CDN (e.g. cdn.goalxi.com).",
+      "logoUrlInvalid": "Logo URL must be a valid HTTPS link.",
+      "foundedYear": "Founded Year",
+      "foundedYearHint": "Between {min} and {max}.",
+      "foundedYearInvalid": "Year must be a whole number in range.",
+      "city": "City",
+      "bio": "Club Bio",
+      "bioHint": "Up to {max} characters. ({current} used)",
+      "bioTooLong": "Bio too long.",
+      "jerseyContrastWarning": "Primary and secondary jersey contrast is only {ratio}:1 — guests may struggle to tell teams apart on screen.",
+      "saved": "Saved.",
+      "saving": "Saving...",
+      "save": "Save"
+    },
+    "stadium": {
+      "none": "No stadium built yet. Build one to start earning matchday revenue.",
+      "title": "Home Ground",
+      "capacity": "Capacity",
+      "avgAttendance": "Avg Att.",
+      "estRevenue": "Est. Revenue",
+      "demolishRefund": "Demolish Refund",
+      "rebuild": "Rebuild",
+      "newCapacity": "New capacity",
+      "cost": "Cost",
+      "rebuilding": "Rebuilding...",
+      "demolishTitle": "Demolish Stadium",
+      "demolishWarn": "This refunds 30% of build cost and removes the stadium. Your team will play away until rebuilt.",
+      "demolishConfirmPlaceholder": "Type 'demolish' to confirm",
+      "demolish": "Demolish",
+      "demolishing": "Demolishing..."
+    },
+    "training": {
+      "title": "Stamina Training",
+      "subtitle": "Weekly fraction of recovery spent on stamina training.",
+      "step": "Step: {pct}%",
+      "highWarn": "Above 50% increases injury risk. Use with caution.",
+      "weeklyLimit": "You can only change this once per week."
+    },
+    "bench": {
+      "title": "Bench",
+      "subtitle": "Quick assignment of substitute players.",
+      "hint": "Tap a slot to choose a player. Full tactics editor lives in the Squad page.",
+      "slots": {
+        "goalkeeper": "Goalkeeper",
+        "centerBack": "Center Back",
+        "fullback": "Fullback",
+        "winger": "Winger",
+        "centralMidfield": "Central Midfield",
+        "forward": "Forward"
+      },
+      "empty": "Empty",
+      "unassigned": "Unassigned"
+    },
+    "audit": {
+      "title": "Recent Activity",
+      "subtitle": "Stadium builds, demolitions, and renames. Backed by the finance ledger.",
+      "empty": "No club activity yet."
     }
   },
   "medical": {

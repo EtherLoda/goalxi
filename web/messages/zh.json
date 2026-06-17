@@ -736,6 +736,80 @@
         "founded": "成立年份",
         "empty": "前往设置页补充城市和成立年份。"
       }
+    },
+    "settingsPage": {
+      "eyebrow": "设置",
+      "title": "俱乐部设置",
+      "subtitle": "管理身份、球场、训练和替补席。",
+      "sections": {
+        "info": "身份",
+        "stadium": "主场",
+        "training": "训练",
+        "bench": "替补席",
+        "audit": "历史"
+      }
+    },
+    "settings": {
+      "name": "俱乐部名称",
+      "nationality": "国家",
+      "logoUrl": "队徽 URL",
+      "logoUrlHint": "仅支持 HTTPS,推荐使用可信 CDN (如 cdn.goalxi.com)。",
+      "logoUrlInvalid": "队徽 URL 必须是有效的 HTTPS 链接。",
+      "foundedYear": "成立年份",
+      "foundedYearHint": "范围 {min} - {max}。",
+      "foundedYearInvalid": "年份必须是范围内的整数。",
+      "city": "城市",
+      "bio": "俱乐部简介",
+      "bioHint": "最多 {max} 字符 (已用 {current})",
+      "bioTooLong": "简介过长。",
+      "jerseyContrastWarning": "主客场球衣对比度仅 {ratio}:1 — 观众可能难以分辨。",
+      "saved": "已保存。",
+      "saving": "保存中...",
+      "save": "保存"
+    },
+    "stadium": {
+      "none": "尚未建造球场。先建一座,比赛日才有收入。",
+      "title": "主场",
+      "capacity": "容量",
+      "avgAttendance": "平均上座",
+      "estRevenue": "预估收入",
+      "demolishRefund": "拆除返还",
+      "rebuild": "重建",
+      "newCapacity": "新容量",
+      "cost": "费用",
+      "rebuilding": "重建中...",
+      "demolishTitle": "拆除球场",
+      "demolishWarn": "返还 30% 建造成本并移除球场。在此重建前,你的球队只能打客场。",
+      "demolishConfirmPlaceholder": "输入 'demolish' 以确认",
+      "demolish": "拆除",
+      "demolishing": "拆除中..."
+    },
+    "training": {
+      "title": "体能训练",
+      "subtitle": "每周用于恢复的体能训练比例。",
+      "step": "步长:{pct}%",
+      "highWarn": "超过 50% 会增加伤病率,请谨慎使用。",
+      "weeklyLimit": "每周最多修改 1 次。"
+    },
+    "bench": {
+      "title": "替补席",
+      "subtitle": "快速分配替补球员。",
+      "hint": "点击槽位选择球员。完整战术编辑在阵容页。",
+      "slots": {
+        "goalkeeper": "门将",
+        "centerBack": "中后卫",
+        "fullback": "边后卫",
+        "winger": "边锋",
+        "centralMidfield": "中场",
+        "forward": "前锋"
+      },
+      "empty": "空",
+      "unassigned": "未分配"
+    },
+    "audit": {
+      "title": "最近活动",
+      "subtitle": "球场建造、拆除和重命名。数据来自财务账本。",
+      "empty": "暂无活动记录。"
     }
   },
   "medical": {

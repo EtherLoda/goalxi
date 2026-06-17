@@ -108,6 +108,9 @@ export class StadiumService {
 
   /**
    * §5.3 重命名球场
+   *
+   * Writes a 0-amount audit transaction so the club audit timeline picks it up.
+   * The classifier in club-audit.service.ts keys on "Stadium rename" prefix.
    */
   async rename(
     teamId: string,
@@ -117,8 +120,21 @@ export class StadiumService {
     if (!stadium) {
       throw new BadRequestException('Stadium not found');
     }
+    const oldName = stadium.name;
     stadium.name = name;
-    return this.stadiumRepository.save(stadium);
+    const saved = await this.stadiumRepository.save(stadium);
+
+    const { season, week } = await this.getCurrentSeasonAndWeek();
+    await this.financeService.processTransaction(
+      teamId as Uuid,
+      0,
+      TransactionType.OTHER_EXPENSE,
+      season,
+      week,
+      `Stadium rename: ${oldName} → ${name}`,
+    );
+
+    return saved;
   }
 
   /**
