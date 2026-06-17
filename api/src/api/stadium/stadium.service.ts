@@ -11,21 +11,20 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { FinanceService } from '../finance/finance.service';
 import { BuildStadiumReqDto, ResizeStadiumReqDto } from './dto/stadium.req.dto';
-import { RenameStadiumReqDto } from './dto/rename-stadium.req.dto';
 
 /**
  * 球场摘要 — §5.3 设置页用
  * 含容量、当前赛季平均上座率、预估比赛日收入
  */
 export interface StadiumSummary {
-    teamId: string;
-    name: string;
-    capacity: number;
-    isBuilt: boolean;
-    currentSeasonAvgAttendance: number | null;
-    estMatchdayRevenue: number;
-    buildCost: number;
-    demolishRefund: number;
+  teamId: string;
+  name: string;
+  capacity: number;
+  isBuilt: boolean;
+  currentSeasonAvgAttendance: number | null;
+  estMatchdayRevenue: number;
+  buildCost: number;
+  demolishRefund: number;
 }
 
 @Injectable()
@@ -112,10 +111,7 @@ export class StadiumService {
    * Writes a 0-amount audit transaction so the club audit timeline picks it up.
    * The classifier in club-audit.service.ts keys on "Stadium rename" prefix.
    */
-  async rename(
-    teamId: string,
-    name: string,
-  ): Promise<StadiumEntity> {
+  async rename(teamId: string, name: string): Promise<StadiumEntity> {
     const stadium = await this.getByTeamId(teamId);
     if (!stadium) {
       throw new BadRequestException('Stadium not found');

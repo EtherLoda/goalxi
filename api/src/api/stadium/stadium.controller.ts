@@ -13,8 +13,8 @@ import {
   Put,
 } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
-import { BuildStadiumReqDto, ResizeStadiumReqDto } from './dto/stadium.req.dto';
 import { RenameStadiumReqDto } from './dto/rename-stadium.req.dto';
+import { BuildStadiumReqDto, ResizeStadiumReqDto } from './dto/stadium.req.dto';
 import { StadiumService } from './stadium.service';
 
 @ApiTags('Stadium')
