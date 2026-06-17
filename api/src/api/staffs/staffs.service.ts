@@ -70,6 +70,21 @@ export class StaffsService {
     });
   }
 
+  /**
+   * Get the active team doctor for a team, if any.
+   * Returns the highest-level active doctor; null when the team has none.
+   */
+  async findDoctorByTeam(teamId: string): Promise<StaffEntity | null> {
+    return this.staffRepo.findOne({
+      where: {
+        teamId,
+        role: StaffRole.TEAM_DOCTOR,
+        isActive: true,
+      },
+      order: { level: 'DESC' },
+    });
+  }
+
   /** Get single staff */
   async findOne(id: string): Promise<StaffEntity> {
     const staff = await this.staffRepo.findOne({ where: { id } });

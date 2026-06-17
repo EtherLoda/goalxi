@@ -1,11 +1,23 @@
-import { InjuryEntity, PlayerEntity } from '@goalxi/database';
+import {
+  InjuryEntity,
+  MatchEntity,
+  PlayerEntity,
+  StaffEntity,
+} from '@goalxi/database';
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { InjuryController } from './injury.controller';
 import { InjuryService } from './injury.service';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([InjuryEntity, PlayerEntity])],
+  imports: [
+    TypeOrmModule.forFeature([
+      InjuryEntity,
+      PlayerEntity,
+      StaffEntity,
+      MatchEntity,
+    ]),
+  ],
   controllers: [InjuryController],
   providers: [InjuryService],
   exports: [InjuryService],

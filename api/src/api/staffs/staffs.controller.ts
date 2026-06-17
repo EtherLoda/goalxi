@@ -19,6 +19,7 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { CurrentUser } from '../../decorators/current-user.decorator';
+import { Public } from '../../decorators/public.decorator';
 import { AuthGuard } from '../../guards/auth.guard';
 import { getSigningFee, STAFF_SALARY, StaffsService } from './staffs.service';
 
@@ -68,6 +69,20 @@ export class StaffsController {
       },
       salaryByLevel: STAFF_SALARY,
     };
+  }
+
+  /**
+   * Get the active team doctor for a team. Public so the Medical Room
+   * can display it for any team without requiring login.
+   */
+  @Public()
+  @Get('team/:teamId/doctor')
+  async getTeamDoctor(
+    @Param('teamId') teamId: string,
+  ): Promise<TeamDoctorDto | null> {
+    const doctor = await this.staffsService.findDoctorByTeam(teamId);
+    if (!doctor) return null;
+    return mapDoctorToDto(doctor);
   }
 
   /** Get single staff */
@@ -225,6 +240,16 @@ export interface AssignmentDto {
   assignedAt: string;
 }
 
+export interface TeamDoctorDto {
+  id: string;
+  name: string;
+  level: number;
+  /** Multiplier applied to daily injury recovery (1 + level × 0.1). */
+  recoveryBonus: number;
+  contractExpiry: string;
+  nationality?: string;
+}
+
 function mapStaffToDto(s: StaffEntity): StaffDto {
   return {
     id: s.id,
@@ -248,5 +273,16 @@ function mapAssignmentToDto(a: any): AssignmentDto {
     playerName: a.player?.name,
     trainingCategory: a.trainingCategory,
     assignedAt: a.assignedAt?.toISOString(),
+  };
+}
+
+function mapDoctorToDto(s: StaffEntity): TeamDoctorDto {
+  return {
+    id: s.id,
+    name: s.name,
+    level: s.level,
+    recoveryBonus: 1 + s.level * 0.1,
+    contractExpiry: s.contractExpiry.toISOString(),
+    nationality: s.nationality,
   };
 }
