@@ -15,6 +15,9 @@ export class TeamResDto {
   name: string;
 
   @Expose()
+  shortCode: string;
+
+  @Expose()
   nationality?: string;
 
   @Expose()

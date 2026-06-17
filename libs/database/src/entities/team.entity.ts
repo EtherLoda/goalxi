@@ -46,6 +46,14 @@ export class TeamEntity extends AbstractEntity {
     @Column({ type: 'varchar', nullable: false })
     name: string;
 
+    /**
+     * Human-facing short code (5 chars, ambiguous chars excluded).
+     * Displayed in URLs and UI; the UUID `id` stays the internal PK.
+     * Auto-generated on team creation, not user-editable.
+     */
+    @Column({ name: 'short_code', type: 'varchar', length: 5, unique: true })
+    shortCode: string;
+
     @Column({ type: 'varchar', length: 2, nullable: true, comment: 'ISO 3166-1 alpha-2 country code (e.g., CN, US, GB, DE)' })
     nationality?: string;
 

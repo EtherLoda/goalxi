@@ -1,5 +1,6 @@
 import { OffsetPaginatedDto } from '@/common/dto/offset-pagination/paginated.dto';
 import { Uuid } from '@/common/types/common.type';
+import { isUuid } from '@/common/utils/is-uuid.util';
 import { ErrorCode } from '@/constants/error-code.constant';
 import {
   getRandomNameByNationality,
@@ -9,7 +10,10 @@ import { ValidationException } from '@/exceptions/validation.exception';
 import { paginate } from '@/utils/offset-pagination';
 import {
   BenchConfig,
+  generateUniqueShortCode,
+  isValidShortCode,
   LeagueEntity,
+  normalizeShortCode,
   StaffEntity,
   StaffLevel,
   StaffRole,
@@ -54,17 +58,10 @@ export class TeamService {
     );
   }
 
-  async findOne(id: string): Promise<TeamResDto> {
-    assert(id, 'id is required');
+  async findOne(idOrCode: string): Promise<TeamResDto> {
+    assert(idOrCode, 'id is required');
 
-    // Generic UUID regex to prevent DB errors
-    const uuidRegex =
-      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-    if (!uuidRegex.test(id)) {
-      throw new ValidationException(ErrorCode.E002, 'Invalid ID format');
-    }
-
-    const team = await TeamEntity.findOneByOrFail({ id: id as Uuid });
+    const team = await this.resolveTeam(idOrCode);
 
     // Auto-generate players if team has none (e.g. for existing teams before this logic)
     const playersCount = await PlayerEntity.countBy({ teamId: team.id });
@@ -73,6 +70,28 @@ export class TeamService {
     }
 
     return this.mapToResDto(team);
+  }
+
+  /**
+   * Resolve a path parameter that may carry either a UUID or a 5-char short code.
+   * Throws ValidationException if neither format is recognized.
+   */
+  private async resolveTeam(idOrCode: string): Promise<TeamEntity> {
+    if (isUuid(idOrCode)) {
+      return TeamEntity.findOneByOrFail({ id: idOrCode as Uuid });
+    }
+    if (isValidShortCode(idOrCode)) {
+      const team = await TeamEntity.findOneBy({
+        shortCode: normalizeShortCode(idOrCode),
+      });
+      if (team) {
+        return team;
+      }
+    }
+    throw new ValidationException(
+      ErrorCode.E002,
+      'Invalid team identifier (expected UUID or 5-char short code)',
+    );
   }
 
   async findByUserId(userId: Uuid): Promise<TeamResDto | null> {
@@ -89,9 +108,19 @@ export class TeamService {
       throw new ValidationException(ErrorCode.E001, 'User already has a team');
     }
 
+    // Generate a unique short code (5 chars, ambiguous chars excluded)
+    const shortCode = await generateUniqueShortCode(async (code) => {
+      const hit = await TeamEntity.findOne({
+        where: { shortCode: code },
+        select: { id: true },
+      });
+      return hit !== null;
+    });
+
     const team = new TeamEntity({
       userId: reqDto.userId,
       name: reqDto.name,
+      shortCode,
       nationality: reqDto.nationality,
       leagueId: reqDto.leagueId || null,
       logoUrl: reqDto.logoUrl || '',
@@ -269,6 +298,7 @@ export class TeamService {
       userId: team.userId,
       leagueId: team.leagueId,
       name: team.name,
+      shortCode: team.shortCode,
       nationality: team.nationality,
       logoUrl: team.logoUrl,
       jerseyColorPrimary: team.jerseyColorPrimary,

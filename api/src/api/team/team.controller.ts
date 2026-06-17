@@ -39,7 +39,7 @@ export class TeamController {
   @Public()
   @Get(':id')
   @HttpCode(HttpStatus.OK)
-  async findOne(@Param('id') id: Uuid): Promise<TeamResDto> {
+  async findOne(@Param('id') id: string): Promise<TeamResDto> {
     return this.teamService.findOne(id);
   }
 
