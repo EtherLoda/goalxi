@@ -80,6 +80,10 @@ api/scripts/reset-db.js
 # Claude Code
 .claude/
 !.claude/settings.json
+.claude/settings.local.json
+
+# Codegraph cache (local dev only)
+.codegraph/
 
 # Documentation files
 *.md
