@@ -1,18 +1,31 @@
 import { Uuid } from '@/common/types/common.type';
-import { InjuryEntity, PlayerEntity } from '@goalxi/database';
+import {
+  InjuryEntity,
+  MatchEntity,
+  PlayerEntity,
+  StaffEntity,
+  StaffRole,
+  estimateRecoveryDays,
+} from '@goalxi/database';
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { MoreThanOrEqual, Repository } from 'typeorm';
+import {
+  In,
+  MoreThanOrEqual,
+  Repository,
+} from 'typeorm';
 
 export interface InjuryHistoryResDto {
   id: string;
   injuryType: string;
   severity: number;
-  estimatedMinDays: number;
-  estimatedMaxDays: number;
+  /** Single deterministic estimate (legacy min/max columns merged). */
+  estimatedDays: number;
   occurredAt: Date;
   recoveredAt?: Date;
   isRecovered: boolean;
+  matchId?: string | null;
+  opponentName?: string | null;
 }
 
 export interface PlayerInjuryStatusResDto {
@@ -21,11 +34,17 @@ export interface PlayerInjuryStatusResDto {
   isInjured: boolean;
   currentInjuryValue: number;
   injuryType?: string;
+  injuryState?: 'minor' | 'severe' | null;
   injuredAt?: Date;
-  estimatedRecoveryDays?: {
-    min: number;
-    max: number;
-  };
+  /** Single deterministic estimate in days. */
+  estimatedRecoveryDays?: number;
+}
+
+export interface TeamInjuryHistoryQuery {
+  /** Max rows to return. Default 20. */
+  limit?: number;
+  /** Only include injuries occurred within this many days. Default 60. */
+  days?: number;
 }
 
 @Injectable()
@@ -35,7 +54,27 @@ export class InjuryService {
     private playerRepo: Repository<PlayerEntity>,
     @InjectRepository(InjuryEntity)
     private injuryRepo: Repository<InjuryEntity>,
+    @InjectRepository(StaffEntity)
+    private staffRepo: Repository<StaffEntity>,
+    @InjectRepository(MatchEntity)
+    private matchRepo: Repository<MatchEntity>,
   ) {}
+
+  /**
+   * Resolve the active team doctor level (0 = none).
+   * Used to feed the deterministic recovery formula.
+   */
+  private async getTeamDoctorLevel(teamId: string): Promise<number> {
+    if (!teamId) return 0;
+    const doctor = await this.staffRepo.findOne({
+      where: {
+        teamId,
+        role: StaffRole.TEAM_DOCTOR,
+        isActive: true,
+      },
+    });
+    return doctor?.level ?? 0;
+  }
 
   /**
    * Get a player's injury history
@@ -52,11 +91,12 @@ export class InjuryService {
       id: injury.id,
       injuryType: injury.injuryType,
       severity: injury.severity,
-      estimatedMinDays: injury.estimatedMinDays,
-      estimatedMaxDays: injury.estimatedMaxDays,
+      // min/max collapsed: take max (more conservative) as the single value.
+      estimatedDays: injury.estimatedMaxDays,
       occurredAt: injury.occurredAt,
-      recoveredAt: injury.recoveredAt,
+      recoveredAt: injury.recoveredAt ?? undefined,
       isRecovered: injury.isRecovered,
+      matchId: injury.matchId ?? null,
     }));
   }
 
@@ -70,32 +110,90 @@ export class InjuryService {
       where: { teamId, currentInjuryValue: MoreThanOrEqual(1) },
     });
 
-    const result: PlayerInjuryStatusResDto[] = [];
+    if (players.length === 0) return [];
 
-    for (const player of players) {
-      // Calculate estimated days based on current injury value
-      // Recovery range comes from daily random fluctuation (3-12 range with ±15%)
-      const minDailyRecovery = 3 * 0.85;
-      const maxDailyRecovery = 12 * 1.15;
+    // Single batched doctor lookup — feeds the shared deterministic formula.
+    const doctorLevel = await this.getTeamDoctorLevel(teamId);
 
-      const minDays = Math.ceil(player.currentInjuryValue / maxDailyRecovery);
-      const maxDays = Math.ceil(player.currentInjuryValue / minDailyRecovery);
+    return players.map((player) => {
+      const [years, days] = player.getExactAge();
+      const playerAge = years + days / 112; // DAYS_PER_SEASON
 
-      result.push({
+      const estimated = estimateRecoveryDays(
+        player.currentInjuryValue,
+        playerAge,
+        doctorLevel,
+      );
+
+      return {
         playerId: player.id,
         playerName: player.name,
         isInjured: true,
         currentInjuryValue: player.currentInjuryValue,
         injuryType: player.injuryType || undefined,
+        injuryState: player.injuryState ?? null,
         injuredAt: player.injuredAt || undefined,
-        estimatedRecoveryDays: {
-          min: Math.max(1, minDays),
-          max: Math.max(1, maxDays),
-        },
-      });
-    }
+        estimatedRecoveryDays: estimated,
+      };
+    });
+  }
 
-    return result;
+  /**
+   * Get recent injuries for every player currently belonging to the team.
+   * Used by the Medical Room "Recent history" panel.
+   *
+   * Single JOIN query: `injury` ⋈ `player` filtered by `player.teamId`.
+   * Keeps the "injuries follow the player on transfer" semantic without
+   * a 2-step lookup + IN-subquery.
+   */
+  async getTeamInjuryHistory(
+    teamId: string,
+    options: TeamInjuryHistoryQuery = {},
+  ): Promise<InjuryHistoryResDto[]> {
+    const limit = Math.max(1, Math.min(options.limit ?? 20, 100));
+    const days = Math.max(1, Math.min(options.days ?? 60, 365));
+    const cutoff = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
+
+    const injuries = await this.injuryRepo
+      .createQueryBuilder('injury')
+      .innerJoin('injury.player', 'player')
+      .where('player.teamId = :teamId', { teamId })
+      .andWhere('injury.occurredAt >= :cutoff', { cutoff })
+      .orderBy('injury.occurredAt', 'DESC')
+      .limit(limit)
+      .getMany();
+
+    if (injuries.length === 0) return [];
+
+    // Resolve match → opponent name in a single batch.
+    const matchIds = injuries
+      .map((i) => i.matchId)
+      .filter((id): id is string => !!id);
+    const matches = matchIds.length
+      ? await this.matchRepo.find({ where: { id: In(matchIds) as any } })
+      : [];
+    const matchById = new Map(matches.map((m) => [m.id, m]));
+
+    return injuries.map((injury) => {
+      const match = injury.matchId ? matchById.get(injury.matchId) : undefined;
+      const opponent = match
+        ? match.homeTeamId === teamId
+          ? match.awayTeam?.name
+          : match.homeTeam?.name
+        : undefined;
+
+      return {
+        id: injury.id,
+        injuryType: injury.injuryType,
+        severity: injury.severity,
+        estimatedDays: injury.estimatedMaxDays,
+        occurredAt: injury.occurredAt,
+        recoveredAt: injury.recoveredAt ?? undefined,
+        isRecovered: injury.isRecovered,
+        matchId: injury.matchId ?? null,
+        opponentName: opponent ?? null,
+      };
+    });
   }
 
   /**
@@ -147,15 +245,16 @@ export class InjuryService {
   }
 
   /**
-   * Apply injury to a player (called after match simulation)
+   * Apply injury to a player (called after match simulation).
+   * Accepts a single estimatedDays value; written to both legacy min/max columns
+   * so the InjuryEntity table contract stays backwards-compatible.
    */
   async applyInjury(
     playerId: string,
     injuryType: string,
     severity: number,
     injuryValue: number,
-    estimatedMinDays: number,
-    estimatedMaxDays: number,
+    estimatedDays: number,
     matchId?: string,
   ): Promise<InjuryEntity> {
     // Update player
@@ -172,8 +271,8 @@ export class InjuryService {
       injuryType: injuryType as any,
       severity: severity as 1 | 2 | 3,
       injuryValue,
-      estimatedMinDays,
-      estimatedMaxDays,
+      estimatedMinDays: estimatedDays,
+      estimatedMaxDays: estimatedDays,
       occurredAt: new Date(),
       isRecovered: false,
     });

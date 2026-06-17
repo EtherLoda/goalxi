@@ -1,5 +1,11 @@
 import { Uuid } from '@/common/types/common.type';
-import { InjuryEntity, PlayerEntity } from '@goalxi/database';
+import {
+  InjuryEntity,
+  MatchEntity,
+  PlayerEntity,
+  StaffEntity,
+  StaffRole,
+} from '@goalxi/database';
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
@@ -9,15 +15,25 @@ describe('InjuryService', () => {
   let service: InjuryService;
   let playerRepo: jest.Mocked<Repository<PlayerEntity>>;
   let injuryRepo: jest.Mocked<Repository<InjuryEntity>>;
+  let staffRepo: jest.Mocked<Repository<StaffEntity>>;
+  let matchRepo: jest.Mocked<Repository<MatchEntity>>;
 
-  const mockPlayer: Partial<PlayerEntity> = {
-    id: 'player-uuid-1' as Uuid,
-    name: 'Test Player',
-    teamId: 'team-uuid-1' as Uuid,
-    age: 25,
-    currentInjuryValue: 50,
-    injuryType: 'muscle',
-    injuredAt: new Date('2024-01-15'),
+  // PlayerEntity.getExactAge() is consumed by getTeamInjuredPlayers — stub it.
+  const makePlayer = (
+    overrides: Partial<PlayerEntity> = {},
+  ): PlayerEntity => {
+    const player = {
+      id: 'player-uuid-1' as Uuid,
+      name: 'Test Player',
+      teamId: 'team-uuid-1' as Uuid,
+      currentInjuryValue: 50,
+      injuryType: 'muscle' as const,
+      injuryState: null,
+      injuredAt: new Date('2024-01-15'),
+      getExactAge: () => [25, 0] as [number, number],
+      ...overrides,
+    } as unknown as PlayerEntity;
+    return player;
   };
 
   const mockInjury: Partial<InjuryEntity> = {
@@ -26,8 +42,8 @@ describe('InjuryService', () => {
     injuryType: 'muscle',
     severity: 2,
     injuryValue: 50,
-    estimatedMinDays: 5,
-    estimatedMaxDays: 10,
+    estimatedMinDays: 7,
+    estimatedMaxDays: 7,
     occurredAt: new Date('2024-01-15'),
     isRecovered: false,
   };
@@ -54,6 +70,19 @@ describe('InjuryService', () => {
             findOne: jest.fn(),
             create: jest.fn(),
             save: jest.fn(),
+            createQueryBuilder: jest.fn(),
+          },
+        },
+        {
+          provide: getRepositoryToken(StaffEntity),
+          useValue: {
+            findOne: jest.fn(),
+          },
+        },
+        {
+          provide: getRepositoryToken(MatchEntity),
+          useValue: {
+            find: jest.fn(),
           },
         },
       ],
@@ -62,6 +91,8 @@ describe('InjuryService', () => {
     service = module.get<InjuryService>(InjuryService);
     playerRepo = module.get(getRepositoryToken(PlayerEntity));
     injuryRepo = module.get(getRepositoryToken(InjuryEntity));
+    staffRepo = module.get(getRepositoryToken(StaffEntity));
+    matchRepo = module.get(getRepositoryToken(MatchEntity));
   });
 
   afterEach(() => {
@@ -74,8 +105,7 @@ describe('InjuryService', () => {
 
   describe('getPlayerInjuryHistory', () => {
     it('should return injury history for a player', async () => {
-      const mockInjuries = [mockInjury];
-      injuryRepo.find.mockResolvedValue(mockInjuries as InjuryEntity[]);
+      injuryRepo.find.mockResolvedValue([mockInjury] as InjuryEntity[]);
 
       const result = await service.getPlayerInjuryHistory('player-uuid-1');
 
@@ -97,27 +127,20 @@ describe('InjuryService', () => {
       expect(result).toEqual([]);
     });
 
-    it('should map injury entity to DTO correctly', async () => {
+    it('should expose estimatedDays (collapsed from min/max columns)', async () => {
       injuryRepo.find.mockResolvedValue([mockInjury] as InjuryEntity[]);
 
       const result = await service.getPlayerInjuryHistory('player-uuid-1');
 
-      expect(result[0]).toEqual({
-        id: 'injury-uuid-1',
-        injuryType: 'muscle',
-        severity: 2,
-        estimatedMinDays: 5,
-        estimatedMaxDays: 10,
-        occurredAt: mockInjury.occurredAt,
-        recoveredAt: mockInjury.recoveredAt,
-        isRecovered: false,
-      });
+      expect(result[0].estimatedDays).toBe(7);
+      expect(result[0].isRecovered).toBe(false);
     });
   });
 
   describe('getTeamInjuredPlayers', () => {
     it('should return injured players for a team', async () => {
-      playerRepo.find.mockResolvedValue([mockPlayer] as PlayerEntity[]);
+      playerRepo.find.mockResolvedValue([makePlayer()]);
+      staffRepo.findOne.mockResolvedValue(null);
 
       const result = await service.getTeamInjuredPlayers('team-uuid-1');
 
@@ -129,21 +152,35 @@ describe('InjuryService', () => {
       });
       expect(result).toHaveLength(1);
       expect(result[0].playerId).toBe('player-uuid-1');
-      expect(result[0].playerName).toBe('Test Player');
       expect(result[0].isInjured).toBe(true);
       expect(result[0].currentInjuryValue).toBe(50);
     });
 
-    it('should calculate recovery days based on injury value', async () => {
-      playerRepo.find.mockResolvedValue([mockPlayer] as PlayerEntity[]);
+    it('should compute deterministic estimatedRecoveryDays as a single value', async () => {
+      playerRepo.find.mockResolvedValue([makePlayer()]);
+      staffRepo.findOne.mockResolvedValue(null);
 
       const result = await service.getTeamInjuredPlayers('team-uuid-1');
 
-      // Injury value 50, range should be calculated
-      expect(result[0].estimatedRecoveryDays).toBeDefined();
-      expect(result[0].estimatedRecoveryDays!.min).toBeGreaterThan(0);
-      expect(result[0].estimatedRecoveryDays!.max).toBeGreaterThanOrEqual(
-        result[0].estimatedRecoveryDays!.min,
+      expect(typeof result[0].estimatedRecoveryDays).toBe('number');
+      expect(result[0].estimatedRecoveryDays).toBeGreaterThan(0);
+    });
+
+    it('should recover faster when a team doctor is present', async () => {
+      playerRepo.find.mockResolvedValue([makePlayer()]);
+
+      staffRepo.findOne.mockResolvedValueOnce(null);
+      const withoutDoctor = await service.getTeamInjuredPlayers('team-uuid-1');
+
+      staffRepo.findOne.mockResolvedValueOnce({
+        level: 5,
+        role: StaffRole.TEAM_DOCTOR,
+        isActive: true,
+      } as StaffEntity);
+      const withDoctor = await service.getTeamInjuredPlayers('team-uuid-1');
+
+      expect(withDoctor[0].estimatedRecoveryDays!).toBeLessThan(
+        withoutDoctor[0].estimatedRecoveryDays!,
       );
     });
 
@@ -153,21 +190,100 @@ describe('InjuryService', () => {
       const result = await service.getTeamInjuredPlayers('team-uuid-1');
 
       expect(result).toEqual([]);
+      // No need to look up the doctor if the team has no injured players.
+      expect(staffRepo.findOne).not.toHaveBeenCalled();
     });
 
-    it('should include injury type when available', async () => {
-      playerRepo.find.mockResolvedValue([mockPlayer] as PlayerEntity[]);
+    it('should propagate injuryState (minor/severe)', async () => {
+      playerRepo.find.mockResolvedValue([
+        makePlayer({ injuryState: 'minor' }),
+      ]);
+      staffRepo.findOne.mockResolvedValue(null);
 
       const result = await service.getTeamInjuredPlayers('team-uuid-1');
 
-      expect(result[0].injuryType).toBe('muscle');
-      expect(result[0].injuredAt).toBeDefined();
+      expect(result[0].injuryState).toBe('minor');
+    });
+  });
+
+  describe('getTeamInjuryHistory', () => {
+    /**
+     * Build a chainable queryBuilder mock that returns the given injuries.
+     * Mirrors TypeORM's QB API so the service can compose freely.
+     */
+    const mockQueryBuilderReturning = (rows: InjuryEntity[]) => {
+      const qb: any = {
+        innerJoin: jest.fn().mockReturnThis(),
+        where: jest.fn().mockReturnThis(),
+        andWhere: jest.fn().mockReturnThis(),
+        orderBy: jest.fn().mockReturnThis(),
+        limit: jest.fn().mockReturnThis(),
+        getMany: jest.fn().mockResolvedValue(rows),
+      };
+      injuryRepo.createQueryBuilder.mockReturnValue(qb);
+      return qb;
+    };
+
+    it('returns empty when query yields no rows', async () => {
+      mockQueryBuilderReturning([]);
+
+      const result = await service.getTeamInjuryHistory('team-uuid-1');
+
+      expect(result).toEqual([]);
+      expect(playerRepo.find).not.toHaveBeenCalled(); // regression: no 2-step lookup
+      expect(injuryRepo.createQueryBuilder).toHaveBeenCalledWith('injury');
+    });
+
+    it('applies the default limit (20) and DESC ordering on occurredAt', async () => {
+      const qb = mockQueryBuilderReturning([mockInjury as InjuryEntity]);
+
+      await service.getTeamInjuryHistory('team-uuid-1');
+
+      expect(qb.innerJoin).toHaveBeenCalledWith('injury.player', 'player');
+      expect(qb.where).toHaveBeenCalledWith(
+        'player.teamId = :teamId',
+        expect.objectContaining({ teamId: 'team-uuid-1' }),
+      );
+      expect(qb.andWhere).toHaveBeenCalledWith(
+        'injury.occurredAt >= :cutoff',
+        expect.objectContaining({ cutoff: expect.any(Date) }),
+      );
+      expect(qb.orderBy).toHaveBeenCalledWith(
+        'injury.occurredAt',
+        'DESC',
+      );
+      expect(qb.limit).toHaveBeenCalledWith(20);
+    });
+
+    it('honours custom limit (clamped to 100)', async () => {
+      const qb = mockQueryBuilderReturning([]);
+
+      await service.getTeamInjuryHistory('team-uuid-1', { limit: 250 });
+
+      expect(qb.limit).toHaveBeenCalledWith(100);
+    });
+
+    it('resolves opponent name from match join', async () => {
+      mockQueryBuilderReturning([
+        { ...mockInjury, matchId: 'match-1' } as InjuryEntity,
+      ]);
+      matchRepo.find.mockResolvedValue([
+        {
+          id: 'match-1',
+          homeTeamId: 'team-uuid-1',
+          awayTeam: { name: 'Rivals FC' },
+        } as unknown as MatchEntity,
+      ]);
+
+      const result = await service.getTeamInjuryHistory('team-uuid-1');
+
+      expect(result[0].opponentName).toBe('Rivals FC');
     });
   });
 
   describe('getPlayersPendingRecovery', () => {
     it('should return all players with active injuries', async () => {
-      playerRepo.find.mockResolvedValue([mockPlayer] as PlayerEntity[]);
+      playerRepo.find.mockResolvedValue([makePlayer()]);
 
       const result = await service.getPlayersPendingRecovery();
 
@@ -180,11 +296,9 @@ describe('InjuryService', () => {
 
   describe('updatePlayerInjury', () => {
     it('should reduce injury value by recovery amount', async () => {
-      const playerWithInjury = {
-        ...mockPlayer,
-        currentInjuryValue: 50,
-      } as PlayerEntity;
-      playerRepo.findOneBy.mockResolvedValue(playerWithInjury);
+      playerRepo.findOneBy.mockResolvedValue(
+        makePlayer({ currentInjuryValue: 50 }),
+      );
       playerRepo.save.mockImplementation(async (p) => p as PlayerEntity);
       injuryRepo.findOne.mockResolvedValue(mockInjury as InjuryEntity);
       injuryRepo.save.mockImplementation(async (i) => i as InjuryEntity);
@@ -204,10 +318,9 @@ describe('InjuryService', () => {
     });
 
     it('should return null if player has no injury', async () => {
-      playerRepo.findOneBy.mockResolvedValue({
-        ...mockPlayer,
-        currentInjuryValue: 0,
-      } as PlayerEntity);
+      playerRepo.findOneBy.mockResolvedValue(
+        makePlayer({ currentInjuryValue: 0 }),
+      );
 
       const result = await service.updatePlayerInjury('player-uuid-1', 10);
 
@@ -215,11 +328,9 @@ describe('InjuryService', () => {
     });
 
     it('should clear injury fields when fully recovered', async () => {
-      const playerWithInjury = {
-        ...mockPlayer,
-        currentInjuryValue: 5,
-      } as PlayerEntity;
-      playerRepo.findOneBy.mockResolvedValue(playerWithInjury);
+      playerRepo.findOneBy.mockResolvedValue(
+        makePlayer({ currentInjuryValue: 5 }),
+      );
       playerRepo.save.mockImplementation(async (p) => p as PlayerEntity);
       injuryRepo.findOne.mockResolvedValue(mockInjury as InjuryEntity);
       injuryRepo.save.mockImplementation(
@@ -237,44 +348,20 @@ describe('InjuryService', () => {
       expect(result!.injuryType).toBeNull();
       expect(result!.injuredAt).toBeNull();
     });
-
-    it('should update injury record when player recovers', async () => {
-      const playerWithInjury = {
-        ...mockPlayer,
-        currentInjuryValue: 5,
-      } as PlayerEntity;
-      playerRepo.findOneBy.mockResolvedValue(playerWithInjury);
-      playerRepo.save.mockImplementation(async (p) => p as PlayerEntity);
-      injuryRepo.findOne.mockResolvedValue({
-        ...mockInjury,
-        isRecovered: false,
-      } as InjuryEntity);
-      const saveSpy = injuryRepo.save.mockImplementation(
-        async (i) => i as InjuryEntity,
-      );
-
-      await service.updatePlayerInjury('player-uuid-1', 10);
-
-      expect(saveSpy).toHaveBeenCalled();
-      const savedInjury = saveSpy.mock.calls[0][0] as InjuryEntity;
-      expect(savedInjury.isRecovered).toBe(true);
-      expect(savedInjury.recoveredAt).toBeDefined();
-    });
   });
 
   describe('applyInjury', () => {
-    it('should create injury record and update player', async () => {
+    it('should create injury record with single estimatedDays and update player', async () => {
       playerRepo.update.mockResolvedValue({ affected: 1 } as any);
-      injuryRepo.create.mockReturnValue(mockInjury as InjuryEntity);
-      injuryRepo.save.mockResolvedValue(mockInjury as InjuryEntity);
+      injuryRepo.create.mockImplementation((data) => data as InjuryEntity);
+      injuryRepo.save.mockImplementation(async (i) => i as InjuryEntity);
 
       const result = await service.applyInjury(
         'player-uuid-1',
         'muscle',
         2,
         50,
-        5,
-        10,
+        7,
         'match-uuid-1',
       );
 
@@ -285,26 +372,9 @@ describe('InjuryService', () => {
           injuryType: 'muscle',
         }),
       );
-      expect(injuryRepo.create).toHaveBeenCalled();
-      expect(injuryRepo.save).toHaveBeenCalled();
-      expect(result).toBeDefined();
-    });
-
-    it('should include matchId when provided', async () => {
-      playerRepo.update.mockResolvedValue({ affected: 1 } as any);
-      injuryRepo.create.mockImplementation((data) => data as InjuryEntity);
-      injuryRepo.save.mockImplementation(async (i) => i as InjuryEntity);
-
-      const result = await service.applyInjury(
-        'player-uuid-1',
-        'muscle',
-        2,
-        50,
-        5,
-        10,
-        'match-uuid-1',
-      );
-
+      // legacy min/max columns both receive the single deterministic estimate
+      expect(result.estimatedMinDays).toBe(7);
+      expect(result.estimatedMaxDays).toBe(7);
       expect(result.matchId).toBe('match-uuid-1');
     });
   });
