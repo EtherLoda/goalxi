@@ -196,7 +196,7 @@ export class SimulationProcessor extends WorkerHost {
             injuryType: injuryData.injuryType,
             injuryValue: injuryData.injuryValue,
             severity: injuryData.severity,
-            estimatedRecoveryDays: injuryData.estimatedRecoveryDays?.max,
+            estimatedRecoveryDays: injuryData.estimatedRecoveryDays,
           },
           match.actualEndTime?.getTime() || Date.now(),
         );
@@ -843,8 +843,10 @@ export class SimulationProcessor extends WorkerHost {
           injuryType: injuryData.injuryType,
           severity: injuryData.severity,
           injuryValue: injuryData.injuryValue,
-          estimatedMinDays: injuryData.estimatedRecoveryDays?.min,
-          estimatedMaxDays: injuryData.estimatedRecoveryDays?.max,
+          // ±15% fluctuation removed — single deterministic estimate is written to both columns
+          // so legacy NOT NULL min/max columns stay valid.
+          estimatedMinDays: injuryData.estimatedRecoveryDays,
+          estimatedMaxDays: injuryData.estimatedRecoveryDays,
           occurredAt: match.scheduledAt,
           isRecovered: false,
         });

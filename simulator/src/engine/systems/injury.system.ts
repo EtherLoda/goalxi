@@ -1,3 +1,5 @@
+import { estimateRecoveryDays } from '@goalxi/database';
+
 export type InjuryType = 'muscle' | 'ligament' | 'joint' | 'head' | 'other';
 export type InjurySeverity = 'mild' | 'moderate' | 'severe';
 
@@ -6,8 +8,8 @@ export interface InjuryResult {
   injuryType: InjuryType | null;
   severity: InjurySeverity | null;
   injuryValue: number | null;
-  estimatedMinDays: number | null;
-  estimatedMaxDays: number | null;
+  /** Estimated days to fully recover (single value, deterministic). */
+  estimatedDays: number | null;
 }
 
 export interface InjuryEventData {
@@ -15,7 +17,8 @@ export interface InjuryEventData {
   injuryType: InjuryType;
   severity: InjurySeverity;
   injuryValue: number;
-  estimatedRecoveryDays: { min: number; max: number };
+  /** Estimated days to fully recover (single value). */
+  estimatedRecoveryDays: number;
   treatmentTime: number; // seconds on pitch
 }
 
@@ -152,8 +155,7 @@ export class InjurySystem {
         injuryType: null,
         severity: null,
         injuryValue: null,
-        estimatedMinDays: null,
-        estimatedMaxDays: null,
+        estimatedDays: null,
       };
     }
 
@@ -163,17 +165,19 @@ export class InjurySystem {
     const injuryValue =
       Math.floor(Math.random() * (maxValue - minValue + 1)) + minValue;
 
-    // Calculate estimated recovery days
-    // Range comes from daily random fluctuation, not age
-    const recoveryRange = this.calculateRecoveryRange(injuryValue);
+    // Deterministic recovery estimate based on shared formula.
+    const estimatedDays = estimateRecoveryDays(
+      injuryValue,
+      playerAge,
+      doctorLevel,
+    );
 
     return {
       willInjure: true,
       injuryType,
       severity,
       injuryValue,
-      estimatedMinDays: recoveryRange.min,
-      estimatedMaxDays: recoveryRange.max,
+      estimatedDays,
     };
   }
 
@@ -185,23 +189,20 @@ export class InjurySystem {
   }
 
   /**
-   * Get the expected recovery range for a given injury value.
-   * Range comes from daily random fluctuation.
+   * Estimate recovery days for a given injury value and player profile.
+   * Thin re-export of the shared deterministic formula for backwards
+   * compatibility with engine call sites that don't have the util at hand.
    *
    * @param injuryValue - Current injury value
-   * @returns { minDays, maxDays } - Estimated recovery range
+   * @param playerAge - Player age (years, fractional ok)
+   * @param doctorLevel - Team doctor level (0 = no doctor)
+   * @returns Estimated days to full recovery, minimum 1
    */
-  static calculateRecoveryRange(injuryValue: number): {
-    min: number;
-    max: number;
-  } {
-    // Base recovery range (without age factor for estimation)
-    const minDailyRecovery = 3 * 0.85; // Min fluctuation
-    const maxDailyRecovery = 12 * 1.15; // Max fluctuation
-
-    const minDays = Math.ceil(injuryValue / maxDailyRecovery);
-    const maxDays = Math.ceil(injuryValue / minDailyRecovery);
-
-    return { min: Math.max(1, minDays), max: Math.max(1, maxDays) };
+  static estimateRecoveryDays(
+    injuryValue: number,
+    playerAge: number,
+    doctorLevel: number = 0,
+  ): number {
+    return estimateRecoveryDays(injuryValue, playerAge, doctorLevel);
   }
 }

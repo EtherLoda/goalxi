@@ -9,6 +9,8 @@ import {
   StaffRole,
   TeamEntity,
   Uuid,
+  calculateDailyRecovery,
+  estimateRecoveryDays,
 } from '@goalxi/database';
 import {
   NotificationService,
@@ -74,7 +76,7 @@ export class InjuryRecoveryService {
         const [years, days] = player.getExactAge();
         const playerAge = years + days / DAYS_PER_SEASON;
 
-        let doctorBonus = 1;
+        let doctorLevel = 0;
         if (player.teamId) {
           const teamDoctor = await this.staffRepository.findOne({
             where: {
@@ -84,41 +86,28 @@ export class InjuryRecoveryService {
             },
           });
           if (teamDoctor) {
-            doctorBonus = 1 + teamDoctor.level * 0.1;
+            doctorLevel = teamDoctor.level;
           }
         }
 
-        // Sigmoid recovery formula: base + amplitude / (1 + exp(k * (age - midpoint)))
-        // - midpoint=28: recovery peaks around age 28
-        // - k=0.25: curve steepness
-        // - base=3: minimum daily recovery (days)
-        // - amplitude=9: maximum additional recovery above base
-        // Formula produces: young players ~12, peak ~10, older ~3-5
-        const midpoint = 28;
-        const k = 0.25;
-        const base = 3;
-        const amplitude = 9;
-
-        const sigmoid =
-          base + amplitude / (1 + Math.exp(k * (playerAge - midpoint)));
-        // Random fluctuation factor: 0.85 to 1.15
-        const fluctuation = 0.85 + Math.random() * 0.3;
-        const dailyRecovery =
-          Math.round(sigmoid * fluctuation * 10 * doctorBonus) / 10;
+        // Deterministic daily recovery — shared formula (no random fluctuation).
+        const dailyRecovery = calculateDailyRecovery(playerAge, doctorLevel);
 
         const oldValue = player.currentInjuryValue;
         const newValue = Math.max(0, oldValue - dailyRecovery);
 
-        // Estimate recovery days based on current injury value
-        // maxDailyRecovery = 12 * 1.15 ≈ 13.8
-        const maxDailyRecovery = 12 * 1.15;
-        const estimatedMaxDays = newValue / maxDailyRecovery;
+        // Estimate remaining recovery days based on the same deterministic formula.
+        const estimatedDays = estimateRecoveryDays(
+          newValue,
+          playerAge,
+          doctorLevel,
+        );
 
         // If estimated recovery time <= 7 days, set to minor injury (can play with 95% ability)
-        if (newValue > 0 && newValue <= 30 && estimatedMaxDays <= 7) {
+        if (newValue > 0 && newValue <= 30 && estimatedDays <= 7) {
           player.injuryState = 'minor';
           this.logger.debug(
-            `[InjuryRecovery] Player ${player.name}: ${oldValue} -> ${newValue} (minor injury, ~${estimatedMaxDays.toFixed(1)} days)`,
+            `[InjuryRecovery] Player ${player.name}: ${oldValue} -> ${newValue} (minor injury, ~${estimatedDays} days)`,
           );
         }
 

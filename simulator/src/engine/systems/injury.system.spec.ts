@@ -137,10 +137,7 @@ describe('InjurySystem', () => {
       expect(result.injuryType).toBeDefined();
       expect(result.severity).toBeDefined();
       expect(result.injuryValue).toBeGreaterThan(0);
-      expect(result.estimatedMinDays).toBeGreaterThan(0);
-      expect(result.estimatedMaxDays).toBeGreaterThanOrEqual(
-        result.estimatedMinDays,
-      );
+      expect(result.estimatedDays).toBeGreaterThan(0);
     });
 
     it('should assign correct injury type based on action', () => {
@@ -175,11 +172,9 @@ describe('InjurySystem', () => {
       jest.spyOn(Math, 'random').mockReturnValue(0);
       const result = InjurySystem.generateInjury('tackle', 25, 4, true);
 
-      // Recovery range should be reasonable for injury value
-      expect(result.estimatedMinDays).toBeGreaterThan(0);
-      expect(result.estimatedMaxDays).toBeGreaterThanOrEqual(
-        result.estimatedMinDays,
-      );
+      // Recovery should be a positive integer day count
+      expect(result.estimatedDays).toBeGreaterThan(0);
+      expect(Number.isInteger(result.estimatedDays)).toBe(true);
     });
 
     afterEach(() => {
@@ -201,31 +196,34 @@ describe('InjurySystem', () => {
     });
   });
 
-  describe('calculateRecoveryRange', () => {
-    it('should return min days less than max days', () => {
-      const range = InjurySystem.calculateRecoveryRange(100);
-      expect(range.min).toBeLessThan(range.max);
-    });
-
-    it('should return at least 1 day for any injury value', () => {
-      const range = InjurySystem.calculateRecoveryRange(1);
-      expect(range.min).toBeGreaterThanOrEqual(1);
-      expect(range.max).toBeGreaterThanOrEqual(1);
+  describe('estimateRecoveryDays', () => {
+    it('should return at least 1 day for any positive injury value', () => {
+      expect(InjurySystem.estimateRecoveryDays(1, 25)).toBeGreaterThanOrEqual(1);
+      expect(InjurySystem.estimateRecoveryDays(100, 25)).toBeGreaterThanOrEqual(1);
     });
 
     it('should return more days for higher injury values', () => {
-      const smallInjury = InjurySystem.calculateRecoveryRange(50);
-      const largeInjury = InjurySystem.calculateRecoveryRange(200);
-      expect(largeInjury.min).toBeGreaterThan(smallInjury.min);
-      expect(largeInjury.max).toBeGreaterThan(smallInjury.max);
+      const smallInjury = InjurySystem.estimateRecoveryDays(50, 25);
+      const largeInjury = InjurySystem.estimateRecoveryDays(200, 25);
+      expect(largeInjury).toBeGreaterThan(smallInjury);
     });
 
-    it('should use consistent range calculation (not age-dependent)', () => {
-      // Range should be based on injury value and fluctuation, not age
-      const range1 = InjurySystem.calculateRecoveryRange(100);
-      const range2 = InjurySystem.calculateRecoveryRange(100);
-      expect(range1.min).toBe(range2.min);
-      expect(range1.max).toBe(range2.max);
+    it('should be deterministic for same inputs', () => {
+      const a = InjurySystem.estimateRecoveryDays(100, 25);
+      const b = InjurySystem.estimateRecoveryDays(100, 25);
+      expect(a).toBe(b);
+    });
+
+    it('should recover faster for younger players', () => {
+      const young = InjurySystem.estimateRecoveryDays(100, 18);
+      const old = InjurySystem.estimateRecoveryDays(100, 36);
+      expect(young).toBeLessThan(old);
+    });
+
+    it('should recover faster with a higher-level team doctor', () => {
+      const noDoctor = InjurySystem.estimateRecoveryDays(100, 25, 0);
+      const level5Doctor = InjurySystem.estimateRecoveryDays(100, 25, 5);
+      expect(level5Doctor).toBeLessThan(noDoctor);
     });
   });
 });

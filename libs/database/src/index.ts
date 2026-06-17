@@ -51,5 +51,6 @@ export * from './services/training-calculator';
 export * from './services/condition-calculator';
 export * from './services/stamina-calculator';
 export * from './services/experience-calculator';
+export * from './services/injury-recovery-calculator';
 export * from './types/match-event-data';
 export * from './types/simulation-player';

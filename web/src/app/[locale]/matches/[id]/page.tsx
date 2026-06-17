@@ -5,6 +5,7 @@ import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import { api, type Match, type MatchEvent, type MatchStatsRes } from '@/lib/api';
 import { TacticalMatchDetail } from '@/components/match/TacticalMatchDetail';
+import { TacticsEntryButton } from '@/components/tactics/shared/TacticsEntryButton';
 
 interface MatchPageData {
   match: Match;
@@ -20,6 +21,7 @@ function MatchDetailContent() {
   const [data, setData] = useState<MatchPageData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [now, setNow] = useState<number>(Date.now());
 
   useEffect(() => {
     if (!matchId) return;
@@ -44,6 +46,12 @@ function MatchDetailContent() {
 
     fetchData();
   }, [matchId]);
+
+  // Re-tick `now` so the lock countdown stays current
+  useEffect(() => {
+    const id = setInterval(() => setNow(Date.now()), 30_000);
+    return () => clearInterval(id);
+  }, []);
 
   if (isLoading) {
     return <MatchDetailLoading />;
@@ -101,6 +109,18 @@ function MatchDetailContent() {
             <span className="w-2 h-2 rounded-full bg-primary animate-pulse" />
             Enter Live Match
           </Link>
+        )}
+
+        {/* Tactics entry for scheduled (or in lock window) matches */}
+        {match.status !== 'in_progress' && match.status !== 'completed' && match.status !== 'cancelled' && (
+          <TacticsEntryButton
+            matchId={match.id}
+            matchStatus={match.status}
+            scheduledAt={match.scheduledAt}
+            variant="full"
+            locale={locale}
+            now={now}
+          />
         )}
       </header>
 

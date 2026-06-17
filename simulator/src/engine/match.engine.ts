@@ -1786,10 +1786,7 @@ export class MatchEngine {
         injuryType: injuryResult.injuryType,
         severity: injuryResult.severity,
         injuryValue: injuryResult.injuryValue,
-        estimatedRecoveryDays: {
-          min: injuryResult.estimatedMinDays,
-          max: injuryResult.estimatedMaxDays,
-        },
+        estimatedRecoveryDays: injuryResult.estimatedDays ?? 1,
         treatmentTime: InjurySystem.getTreatmentTime(injuryResult.severity),
       };
 
@@ -1802,10 +1799,7 @@ export class MatchEngine {
         data: {
           injuryData: injuryEventData,
           injuryValue: injuryResult.injuryValue,
-          estimatedRecoveryDays: {
-            min: injuryResult.estimatedMinDays,
-            max: injuryResult.estimatedMaxDays,
-          },
+          estimatedRecoveryDays: injuryResult.estimatedDays ?? 1,
         },
       });
 
@@ -2548,7 +2542,9 @@ export class MatchEngine {
           state.ex = player.experience || 0;
           state.age = player.exactAge[0] || 0;
           state.ad = player.exactAge[1] || 0;
-          state.ap = player.appearance;
+          // state.ap (appearance) removed: the underlying `player.appearance` field
+          // was dropped in commit 952c812. Keep this comment as a marker in case a
+          // replacement visual attribute is introduced later.
 
           // Mark as known so we don't send full data again
           this.knownPlayerIds.add(player.id);

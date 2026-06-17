@@ -3,6 +3,7 @@ import { Job } from 'bullmq';
 import { DataSource, Repository } from 'typeorm';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { SimulationProcessor } from './simulation.processor';
+import { NotificationService } from '../notification/notification.service';
 import {
   MatchEntity,
   MatchEventEntity,
@@ -161,6 +162,7 @@ describe('SimulationProcessor', () => {
           provide: getRepositoryToken(MatchEventEntity),
           useValue: {
             save: jest.fn(),
+            find: jest.fn().mockResolvedValue([]),
           },
         },
         {
@@ -220,6 +222,16 @@ describe('SimulationProcessor', () => {
             transaction: jest.fn((callback) =>
               callback(mockTransactionManager),
             ),
+          },
+        },
+        {
+          // NotificationService constructor pulls in ConfigService + Redis.
+          // Replace the whole class with a no-op stub for the unit test.
+          provide: NotificationService,
+          useValue: {
+            create: jest.fn().mockResolvedValue(undefined),
+            createWithTime: jest.fn().mockResolvedValue(undefined),
+            deleteExpired: jest.fn().mockResolvedValue(undefined),
           },
         },
       ],

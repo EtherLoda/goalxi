@@ -7,6 +7,7 @@ import { api, type Match, type Team } from "@/lib/api";
 import Link from "next/link";
 import { clsx } from "clsx";
 import { useGameStore } from "@/stores/gameStore";
+import { TacticsEntryButton } from "@/components/tactics/shared/TacticsEntryButton";
 
 interface MatchWithResult extends Match {
   result?: "W" | "D" | "L" | null;
@@ -56,6 +57,13 @@ function MatchesPageContent() {
   const [showAllUpcoming, setShowAllUpcoming] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [leagueName, setLeagueName] = useState<string>("");
+  // Live `now` so the tactics entry button can re-render the lock countdown
+  const [now, setNow] = useState<number>(Date.now());
+
+  useEffect(() => {
+    const id = setInterval(() => setNow(Date.now()), 30_000);
+    return () => clearInterval(id);
+  }, []);
 
   useEffect(() => {
     if (!currentTeam?.id || !currentTeam?.leagueId) return;
@@ -343,73 +351,89 @@ function MatchesPageContent() {
               )}
             </h2>
             {featuredRight ? (
-              <Link
-                href={liveMatch ? `/${locale}/matches/live/${featuredRight.id}` : `/${locale}/matches/${featuredRight.id}`}
+              <div
                 className={clsx(
-                  "block rounded-DEFAULT p-4 md:p-5 relative overflow-hidden border hover:brightness-110 transition-all group",
+                  "block rounded-DEFAULT p-4 md:p-5 relative overflow-hidden border transition-all group",
                   liveMatch
                     ? "bg-surface-container-highest/80 backdrop-blur-md border-primary/30"
-                    : "bg-surface-container-highest/80 backdrop-blur-md border-outline-variant/15"
+                    : "bg-surface-container-highest/80 backdrop-blur-md border-outline-variant/15 hover:brightness-110"
                 )}
               >
-                {/* Top gradient bar */}
-                <div className={clsx(
-                  "absolute top-0 left-0 w-full h-0.5",
-                  liveMatch ? "bg-linear-to-r from-primary to-transparent" : "bg-linear-to-r from-tertiary/60 to-transparent"
-                )} />
+                <Link
+                  href={liveMatch ? `/${locale}/matches/live/${featuredRight.id}` : `/${locale}/matches/${featuredRight.id}`}
+                  className="block"
+                >
+                  {/* Top gradient bar */}
+                  <div className={clsx(
+                    "absolute top-0 left-0 w-full h-0.5",
+                    liveMatch ? "bg-linear-to-r from-primary to-transparent" : "bg-linear-to-r from-tertiary/60 to-transparent"
+                  )} />
 
-                {/* Live Badge or Date */}
-                <div className="flex items-center gap-2 text-xs mb-3 relative z-10">
-                  {liveMatch ? (
-                    <div className="inline-flex items-center gap-2 px-2 py-0.5 rounded-full bg-primary/10 text-primary border border-primary/20">
-                      <span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
-                      LIVE • {liveMatch.round || "?"}'
-                    </div>
-                  ) : (
-                    <>
-                      <span className="material-symbols-outlined text-[14px]">stadium</span>
-                      <span className="text-on-surface-variant">
-                        {formatDate(featuredRight.scheduledAt)} • {formatTime(featuredRight.scheduledAt)}
-                      </span>
-                    </>
-                  )}
-                  <span className="ml-auto px-1.5 py-0.5 bg-surface-variant rounded text-[10px] font-bold uppercase">
-                    {featuredRight.round ? `Round ${featuredRight.round} • ` : ""}{leagueName}
-                  </span>
-                </div>
-
-                {/* Teams & Score or VS */}
-                <div className="flex items-center justify-between relative z-10">
-                  <div className="flex-1 flex items-center justify-center gap-4 md:gap-6">
-                    <TeamLogo team={featuredRight.homeTeam} />
-                    <div className="flex flex-col items-center justify-center min-w-[80px] md:min-w-[100px]">
-                      {liveMatch ? (
-                        <div className="font-headline text-2xl md:text-3xl font-black text-on-surface">
-                          {liveMatch.homeScore ?? 0} - {liveMatch.awayScore ?? 0}
-                        </div>
-                      ) : (
-                        <div className="text-center">
-                          <div className="font-headline text-xs font-medium text-on-surface-variant mb-0.5">
-                            {isHomeMatch(featuredRight) ? "Home" : "Away"}
-                          </div>
-                          <div className="font-headline text-2xl font-black text-on-surface">
-                            VS
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                    <TeamLogo team={featuredRight.awayTeam} />
+                  {/* Live Badge or Date */}
+                  <div className="flex items-center gap-2 text-xs mb-3 relative z-10">
+                    {liveMatch ? (
+                      <div className="inline-flex items-center gap-2 px-2 py-0.5 rounded-full bg-primary/10 text-primary border border-primary/20">
+                        <span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
+                        LIVE • {liveMatch.round || "?"}'
+                      </div>
+                    ) : (
+                      <>
+                        <span className="material-symbols-outlined text-[14px]">stadium</span>
+                        <span className="text-on-surface-variant">
+                          {formatDate(featuredRight.scheduledAt)} • {formatTime(featuredRight.scheduledAt)}
+                        </span>
+                      </>
+                    )}
+                    <span className="ml-auto px-1.5 py-0.5 bg-surface-variant rounded text-[10px] font-bold uppercase">
+                      {featuredRight.round ? `Round ${featuredRight.round} • ` : ""}{leagueName}
+                    </span>
                   </div>
-                </div>
 
-                {/* Hover indicator */}
-                <div className="mt-2 pt-1.5 border-t border-white/5 flex items-center justify-between opacity-0 group-hover:opacity-100 transition-opacity relative z-10">
-                  <span className="text-xs text-primary font-medium">
+                  {/* Teams & Score or VS */}
+                  <div className="flex items-center justify-between relative z-10">
+                    <div className="flex-1 flex items-center justify-center gap-4 md:gap-6">
+                      <TeamLogo team={featuredRight.homeTeam} />
+                      <div className="flex flex-col items-center justify-center min-w-[80px] md:min-w-[100px]">
+                        {liveMatch ? (
+                          <div className="font-headline text-2xl md:text-3xl font-black text-on-surface">
+                            {liveMatch.homeScore ?? 0} - {liveMatch.awayScore ?? 0}
+                          </div>
+                        ) : (
+                          <div className="text-center">
+                            <div className="font-headline text-xs font-medium text-on-surface-variant mb-0.5">
+                              {isHomeMatch(featuredRight) ? "Home" : "Away"}
+                            </div>
+                            <div className="font-headline text-2xl font-black text-on-surface">
+                              VS
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                      <TeamLogo team={featuredRight.awayTeam} />
+                    </div>
+                  </div>
+                </Link>
+
+                {/* Footer: view details + tactics entry (only for upcoming, not live) */}
+                <div className="mt-2 pt-1.5 border-t border-white/5 flex items-center justify-between gap-2 relative z-10">
+                  <Link
+                    href={liveMatch ? `/${locale}/matches/live/${featuredRight.id}` : `/${locale}/matches/${featuredRight.id}`}
+                    className="text-xs text-primary font-medium hover:underline"
+                  >
                     {liveMatch ? "Enter Match Center" : "View Details"}
-                  </span>
-                  <span className="material-symbols-outlined text-primary text-lg">chevron_right</span>
+                  </Link>
+                  {!liveMatch && (
+                    <TacticsEntryButton
+                      matchId={featuredRight.id}
+                      matchStatus={featuredRight.status}
+                      scheduledAt={featuredRight.scheduledAt}
+                      variant="full"
+                      locale={locale}
+                      now={now}
+                    />
+                  )}
                 </div>
-              </Link>
+              </div>
             ) : (
               <div className="block bg-surface-container-highest/80 backdrop-blur-md rounded-DEFAULT p-5 relative overflow-hidden border border-outline-variant/15">
                 <div className="absolute top-0 left-0 w-full h-0.5 bg-linear-to-r from-tertiary/40 to-transparent" />
@@ -518,13 +542,14 @@ function MatchesPageContent() {
           ) : (
             <div className="space-y-2">
               {(showAllUpcoming ? allUpcomingMatches : upcomingMatches).map((match) => (
-                <Link
+                <div
                   key={match.id}
-                  href={`/${locale}/matches/${match.id}`}
-                  className="flex items-center justify-between p-3 bg-surface-container-low rounded-lg border border-outline-variant/10 hover:bg-surface-container transition-colors group"
+                  className="flex items-center justify-between p-3 bg-surface-container-low rounded-lg border border-outline-variant/10 hover:bg-surface-container transition-colors group gap-2"
                 >
-                  {/* Left: Date + Teams */}
-                  <div className="flex items-center gap-3 flex-1 min-w-0">
+                  <Link
+                    href={`/${locale}/matches/${match.id}`}
+                    className="flex items-center gap-3 flex-1 min-w-0"
+                  >
                     {/* Date badge */}
                     <div className="w-12 h-12 rounded-lg bg-surface-container flex flex-col items-center justify-center border border-outline-variant/20 shrink-0">
                       <span className="text-[10px] font-bold text-on-surface-variant uppercase">
@@ -550,15 +575,27 @@ function MatchesPageContent() {
                         </span>
                       </div>
                     </div>
-                  </div>
+                  </Link>
 
-                  {/* Right: Arrow */}
-                  <div className="shrink-0">
-                    <span className="material-symbols-outlined text-xl text-on-surface-variant group-hover:text-primary transition-colors">
-                      chevron_right
-                    </span>
+                  {/* Right: tactics entry + arrow */}
+                  <div className="flex items-center gap-2 shrink-0">
+                    <TacticsEntryButton
+                      matchId={match.id}
+                      matchStatus={match.status}
+                      scheduledAt={match.scheduledAt}
+                      variant="icon"
+                      locale={locale}
+                      now={now}
+                    />
+                    <Link
+                      href={`/${locale}/matches/${match.id}`}
+                      className="inline-flex items-center justify-center w-8 h-8 rounded-lg text-on-surface-variant hover:text-primary transition-colors"
+                      aria-label="View match"
+                    >
+                      <span className="material-symbols-outlined text-xl">chevron_right</span>
+                    </Link>
                   </div>
-                </Link>
+                </div>
               ))}
             </div>
           )}

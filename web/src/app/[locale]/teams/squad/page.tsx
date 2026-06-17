@@ -9,6 +9,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { api, type Player, type PlayerEvent, type Team } from "@/lib/api";
 import { useGameStore } from "@/stores/gameStore";
 import { RadarChart } from "@/components/player/RadarChart";
+import { InjuryBadge } from "@/components/player/InjuryBadge";
 import { getConditionText } from "@/lib/constants";
 
 const SPECIALTIES: { value: string; label: string; labelEn: string }[] = [
@@ -496,6 +497,12 @@ function SquadPageContent() {
                                         ) : null;
                                       })()
                                     )}
+                                    <InjuryBadge
+                                      player={player}
+                                      estimatedDays={Math.ceil(
+                                        (player.currentInjuryValue ?? 0) / 8,
+                                      )}
+                                    />
                                   </div>
                                   <div className="flex items-center gap-4 text-xs font-space">
                                     <span>
