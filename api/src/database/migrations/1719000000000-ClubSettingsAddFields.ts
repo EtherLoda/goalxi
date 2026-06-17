@@ -6,10 +6,10 @@ import { MigrationInterface, QueryRunner } from 'typeorm';
  * - stadium: 加 name (默认 'Home Stadium')
  */
 export class ClubSettingsAddFields1719000000000 implements MigrationInterface {
-    name = 'ClubSettingsAddFields1719000000000';
+  name = 'ClubSettingsAddFields1719000000000';
 
-    public async up(queryRunner: QueryRunner): Promise<void> {
-        await queryRunner.query(`
+  public async up(queryRunner: QueryRunner): Promise<void> {
+    await queryRunner.query(`
             ALTER TABLE "team"
             ADD COLUMN "founded_year" integer,
             ADD COLUMN "city" varchar(64),
@@ -17,14 +17,14 @@ export class ClubSettingsAddFields1719000000000 implements MigrationInterface {
             ADD COLUMN "jersey_color_tertiary" varchar(7) DEFAULT '#000000'
         `);
 
-        await queryRunner.query(`
+    await queryRunner.query(`
             ALTER TABLE "stadium"
             ADD COLUMN "name" varchar(128) DEFAULT 'Home Stadium'
         `);
-    }
+  }
 
-    public async down(queryRunner: QueryRunner): Promise<void> {
-        await queryRunner.query(`
+  public async down(queryRunner: QueryRunner): Promise<void> {
+    await queryRunner.query(`
             ALTER TABLE "team"
             DROP COLUMN "founded_year",
             DROP COLUMN "city",
@@ -32,9 +32,9 @@ export class ClubSettingsAddFields1719000000000 implements MigrationInterface {
             DROP COLUMN "jersey_color_tertiary"
         `);
 
-        await queryRunner.query(`
+    await queryRunner.query(`
             ALTER TABLE "stadium"
             DROP COLUMN "name"
         `);
-    }
+  }
 }
