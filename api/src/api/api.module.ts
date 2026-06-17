@@ -1,7 +1,6 @@
 import { Module } from '@nestjs/common';
 import { AnnouncementModule } from './announcement/announcement.module';
 import { AuthModule } from './auth/auth.module';
-import { ClubAuditModule } from './team/club-audit.module';
 import { FanModule } from './fan/fan.module';
 import { FinanceModule } from './finance/finance.module';
 import { GameModule } from './game/game.module';
@@ -18,6 +17,7 @@ import { SearchModule } from './search/search.module';
 import { StadiumModule } from './stadium/stadium.module';
 import { StaffsModule } from './staffs/staffs.module';
 import { StatsModule } from './stats/stats.module';
+import { ClubAuditModule } from './team/club-audit.module';
 import { TeamModule } from './team/team.module';
 import { TrainingModule } from './training/training.module';
 import { TransferModule } from './transfer/transfer.module';

@@ -3,6 +3,7 @@ import {
   FinanceEntity,
   FormationKey,
   generateAutoLineup,
+  generateUniqueShortCode,
   LeagueEntity,
   LeagueStandingEntity,
   MatchEntity,
@@ -17,6 +18,7 @@ import {
 } from '@goalxi/database';
 import { calculatePlayerWage } from '@goalxi/database/src/constants/finance.constants';
 import 'reflect-metadata';
+import { Repository } from 'typeorm';
 import { v4 as uuidv4 } from 'uuid';
 import { getRandomNameByNationality } from '../src/constants/name-database';
 import { AppDataSource } from '../src/database/data-source';
@@ -179,6 +181,22 @@ function generateTeamName(
   index: number,
 ): string {
   return `Team ${index + 1}`;
+}
+
+/**
+ * Generate a short code that doesn't collide with any team in the DB.
+ * Used during seeding and idempotent re-runs (existing teams already have one).
+ */
+async function generateFreshShortCode(
+  teamRepo: Repository<TeamEntity>,
+): Promise<string> {
+  return generateUniqueShortCode(async (code) => {
+    const hit = await teamRepo.findOne({
+      where: { shortCode: code },
+      select: { id: true },
+    });
+    return hit !== null;
+  });
 }
 
 function getLeagueOvrRange(tier: number): { min: number; max: number } {
@@ -426,6 +444,7 @@ async function createLeaguePyramid() {
           id: uuidv4() as any,
           userId: testUser1.id,
           name: 'Team 1',
+          shortCode: await generateFreshShortCode(teamRepo),
           leagueId: league.id,
           isBot: false,
           logoUrl: '',
@@ -443,6 +462,7 @@ async function createLeaguePyramid() {
           id: uuidv4() as any,
           userId: testUser2.id,
           name: 'Team 2',
+          shortCode: await generateFreshShortCode(teamRepo),
           leagueId: league.id,
           isBot: false,
           logoUrl: '',
@@ -641,6 +661,7 @@ async function createLeaguePyramid() {
         id: uuidv4() as any,
         userId: botUser.id,
         name: teamName,
+        shortCode: await generateFreshShortCode(teamRepo),
         leagueId: league.id,
         isBot: true,
         botLevel: 5,
