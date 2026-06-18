@@ -268,8 +268,8 @@ export function calculatePlayerPWI(player: PlayerEntity): PWICalculationResult {
   // Step 4: Form factor
   const formFactor = getFormFactor(player.form);
 
-  // Step 5: Final PWI
-  const pwi = Math.round(basePWI * potentialFactor * formFactor);
+  // Step 5: Final PWI rounded to nearest 10 (e.g. 4772 → 4770, 4775 → 4780)
+  const pwi = Math.round(basePWI * potentialFactor * formFactor / 10) * 10;
 
   return {
     weightedSum: Math.round(weightedSum * 100) / 100,
