@@ -62,12 +62,14 @@ export function useMatchLive({
   const [lineup, setLineup] = useState<LineupData | null>(null);
   const [error, setError] = useState<string | null>(null);
 
+  // Use a ref to track the current socket so callbacks don't need socket as a dep
+  const socketRef = useRef<Socket | null>(null);
   const eventsRef = useRef<Map<string, MatchEvent>>(new Map());
   const reconnectAttemptsRef = useRef(0);
   const maxReconnectAttempts = 5;
 
   const connect = useCallback(() => {
-    if (socket?.connected) return;
+    if (socketRef.current?.connected) return;
 
     setConnectionStatus('connecting');
     setError(null);
@@ -207,23 +209,26 @@ export function useMatchLive({
     });
 
     setSocket(newSocket);
+    socketRef.current = newSocket;
   }, [matchId, token]);
 
   const disconnect = useCallback(() => {
-    if (socket) {
-      socket.emit('leave_match', { matchId });
-      socket.disconnect();
-      socket.removeAllListeners();
+    const s = socketRef.current;
+    if (s) {
+      s.emit('leave_match', { matchId });
+      s.disconnect();
+      s.removeAllListeners();
+      socketRef.current = null;
       setSocket(null);
       setConnectionStatus('disconnected');
     }
-  }, [socket, matchId]);
+  }, [matchId]);
 
   const sendPing = useCallback(() => {
-    if (socket?.connected) {
-      socket.emit('ping');
+    if (socketRef.current?.connected) {
+      socketRef.current.emit('ping');
     }
-  }, [socket]);
+  }, []);
 
   // Auto-connect on mount
   useEffect(() => {
@@ -235,16 +240,6 @@ export function useMatchLive({
       disconnect();
     };
   }, [autoConnect, matchId, connect, disconnect]);
-
-  // Cleanup on unmount
-  useEffect(() => {
-    return () => {
-      if (socket) {
-        socket.removeAllListeners();
-        socket.disconnect();
-      }
-    };
-  }, [socket]);
 
   return {
     socket,
