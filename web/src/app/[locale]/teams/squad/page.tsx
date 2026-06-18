@@ -141,6 +141,7 @@ function ListPlayerModal({ player, onClose, onSuccess }: ListPlayerModalProps) {
             </div>
             <div>
               <p className="text-sm font-bold text-[#d3f5e8]">{player.name}</p>
+              {player.displayId && <p className="text-[10px] text-[#91b2a6] font-mono">({player.displayId})</p>}
               <div className="flex items-center gap-2 mt-0.5">
                 <span className="px-2 py-0.5 bg-[#a1ffc2]/20 text-[#a1ffc2] text-[10px] font-bold rounded">
                   PWI {player.pwi?.toLocaleString() || "0"}

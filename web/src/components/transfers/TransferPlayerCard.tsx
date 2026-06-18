@@ -83,6 +83,7 @@ export default function TransferPlayerCard({
             <Link href={`/players/${player.id}`} className={`font-bold text-xl truncate hover:text-[#a1ffc2] transition-colors ${isSelected ? "text-[#a1ffc2]" : "text-[#d3f5e8]"}`}>
               {player.name}
             </Link>
+            {player.displayId && <span className="text-[11px] text-[#91b2a6] font-mono ml-1">({player.displayId})</span>}
             <span
               className={`text-[11px] font-bold px-2 py-1 rounded-md ${
                 isExpired

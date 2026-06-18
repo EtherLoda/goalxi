@@ -154,6 +154,7 @@ interface Player {
   id: string;
   teamId: string | null;
   name: string;
+  displayId?: string;
   nationality?: string;
   birthday?: string;
   age: number;
@@ -825,8 +826,16 @@ export const api = {
       return request<SearchTeamResult[]>(`/search/teams?${params.toString()}`);
     },
     players: async (q: string, leagueId?: string, limit = 10): Promise<SearchPlayerResult[]> => {
-      const params = new URLSearchParams({ q, limit: String(limit) });
+      const params = new URLSearchParams({ limit: String(limit) });
       if (leagueId) params.append('leagueId', leagueId);
+      // Backend supports exact dId lookup (must be exactly 11 digits).
+      // Forward it as `dId` so displayId searches hit the indexed column
+      // instead of a `LIKE '%q%'` against the player name.
+      if (/^\d{11}$/.test(q)) {
+        params.append('dId', q);
+      } else {
+        params.append('q', q);
+      }
       return request<SearchPlayerResult[]>(`/search/players?${params.toString()}`);
     },
     leagues: async (q: string, limit = 10): Promise<SearchLeagueResult[]> => {
@@ -1029,6 +1038,7 @@ interface SearchTeamResult {
 interface SearchPlayerResult {
   id: string;
   name: string;
+  displayId?: string;
   teamId: string | null;
   teamName?: string;
   leagueId?: string;

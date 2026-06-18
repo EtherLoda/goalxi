@@ -57,6 +57,7 @@ export function RosterPlayerCard({ player, isAssigned, onDragStart, onDragEnd }:
       </div>
       <div className="flex-1 min-w-0">
         <div className="font-headline font-bold text-sm text-white truncate">{player.name}</div>
+        {player.displayId && <div className="font-mono text-[9px] text-[#91b2a6]">({player.displayId})</div>}
         <div className="font-label text-[9px] tracking-widest uppercase text-outline">
           {player.position}
         </div>

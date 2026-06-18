@@ -160,6 +160,7 @@ function SearchPageContent() {
           </div>
           <div className="flex-1 min-w-0">
             <div className="font-headline text-sm font-bold text-on-surface truncate">{player.name}</div>
+            {player.displayId && <div className="font-mono text-[10px] text-on-surface-variant">({player.displayId})</div>}
             <div className="font-body text-xs text-on-surface-variant">
               {player.teamName || "Free Agent"}
             </div>

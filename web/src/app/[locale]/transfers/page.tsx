@@ -841,6 +841,7 @@ export default function TransfersPage() {
                     <div className="absolute bottom-4 left-4">
                       <Link href={`/${params.locale}/players/${selectedTransfer.player.id}`}>
                         <h3 className="text-3xl font-bold text-white tracking-tighter hover:text-[#a1ffc2] transition-colors">{selectedTransfer.player.name}</h3>
+                        {selectedTransfer.player.displayId && <p className="text-sm text-[#91b2a6] font-mono">({selectedTransfer.player.displayId})</p>}
                       </Link>
                       <p className="text-[#91b2a6] text-xs">
                         {selectedTransfer.player.age}岁{selectedTransfer.player.ageDays || 0}天 · {selectedTransfer.player.teamName || selectedTransfer.team.name} · £{(selectedTransfer.player.currentWage || 0).toLocaleString()}/w

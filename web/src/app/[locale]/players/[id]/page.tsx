@@ -345,7 +345,13 @@ export default function PlayerDetailPage({ params }: PageProps) {
                       <h1 className="text-4xl font-black font-space tracking-tight leading-none text-[#d3f5e8]">
                         {player.name}
                       </h1>
-                      <div className="flex items-center gap-4 mt-3">
+                      {player.displayId && (
+                        <div className="flex items-center gap-1 mt-1">
+                          <span className="material-symbols-outlined text-[#91b2a6] text-xs">tag</span>
+                          <span className="text-[14px] font-mono text-[#91b2a6]">{player.displayId}</span>
+                        </div>
+                      )}
+                      <div className="flex items-center gap-4 mt-2">
                         <div className="flex items-center gap-2">
                           <span className="material-symbols-outlined text-[#91b2a6] text-sm">calendar_month</span>
                           <span className="text-xs font-bold uppercase tracking-widest text-[#91b2a6]">{player.age}y {player.ageDays}d</span>
@@ -360,9 +366,11 @@ export default function PlayerDetailPage({ params }: PageProps) {
                         </div>
                       </div>
                       <div className="mt-4 flex gap-2">
-                        <span className="bg-[#3e6a00]/20 text-[#abf853] px-3 py-1 rounded-full text-[10px] font-bold font-space">
-                          {player.potentialTier.replace("_", " ")}
-                        </span>
+                        {player.potentialTier && (
+                          <span className="bg-[#3e6a00]/20 text-[#abf853] px-3 py-1 rounded-full text-[10px] font-bold font-space">
+                            {player.potentialTier.replace("_", " ")}
+                          </span>
+                        )}
                         {player.isGoalkeeper && (
                           <span className="bg-[#0066ff]/20 text-[#60a5fa] px-3 py-1 rounded-full text-[10px] font-bold font-space">
                             GOALKEEPER
@@ -423,7 +431,7 @@ export default function PlayerDetailPage({ params }: PageProps) {
                 <div className="px-6 py-4 grid grid-cols-4 gap-3">
                   {/* PWI - Simple text display */}
                   <div className="bg-[#00251c] rounded-xl p-3 flex flex-col items-center justify-center border border-[#2f4e44]/10">
-                    <div className="text-lg font-black font-space text-[#a1ffc2]">{player.pwi.toLocaleString()}</div>
+                    <div className="text-lg font-black font-space text-[#a1ffc2]">{player.pwi?.toLocaleString() || "0"}</div>
                     <span className="text-[8px] font-bold font-space mt-1 tracking-widest uppercase text-[#91b2a6]">PWI</span>
                   </div>
                   {renderGauge(
