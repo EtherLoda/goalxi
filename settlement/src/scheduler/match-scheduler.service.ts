@@ -137,7 +137,7 @@ export class MatchSchedulerService {
           `[MatchPreprocessScheduler] 🚀 Queueing simulation job to BullMQ queue 'match-simulation'...`,
         );
 
-        const job = await this.simulationQueue.add('simulate-match', jobData);
+        const job = await this.simulationQueue.add('simulate', jobData);
 
         this.logger.log(
           `[MatchPreprocessScheduler] ✅ Simulation job added to BullMQ! ` +
