@@ -168,9 +168,14 @@ export default function GlobalHeader({ locale }: GlobalHeaderProps) {
         </button>
 
         {/* Settings icon */}
-        <button className="w-9 h-9 rounded-full flex items-center justify-center text-on-surface-variant hover:text-primary hover:bg-white/5 transition-colors">
+        <Link
+          href={`/${locale}/club/settings`}
+          aria-label={team ? "Club Settings" : "Settings"}
+          title="Club Settings"
+          className="w-9 h-9 rounded-full flex items-center justify-center text-on-surface-variant hover:text-primary hover:bg-white/5 transition-colors"
+        >
           <span className="material-symbols-outlined">settings</span>
-        </button>
+        </Link>
 
         {/* Search icon */}
         <Link

@@ -1,25 +1,40 @@
 import { LoggerService } from '@nestjs/common';
-import pino from 'pino';
+import pino, { type LevelWithSilent } from 'pino';
 
 export class PinoLoggerService implements LoggerService {
   private logger: pino.Logger;
 
   constructor(options: {
-    file: string;
-    level: 'warn' | 'error' | 'fatal';
+    level: LevelWithSilent;
     service: string;
+    isDevelopment: boolean;
+    file?: string;
     maxSize?: number;
     maxFiles?: number;
   }) {
-    const transport = pino.transport({
-      target: 'pino-roll',
-      options: {
-        file: options.file,
-        size: options.maxSize ?? 100 * 1024 * 1024,
-        maxFiles: options.maxFiles ?? 7,
-        mkdir: true,
-      },
-    });
+    // In development, pretty-print to stdout so logs are visible in the
+    // terminal. In production, keep the existing file-rolling behavior so
+    // log volume doesn't blow up the dev machine's terminal and historical
+    // logs are still available for post-mortem.
+    const transport = options.isDevelopment
+      ? pino.transport({
+          target: 'pino-pretty',
+          options: {
+            colorize: true,
+            translateTime: 'SYS:HH:MM:ss.l',
+            ignore: 'pid,hostname,context,traceId',
+            singleLine: false,
+          },
+        })
+      : pino.transport({
+          target: 'pino-roll',
+          options: {
+            file: options.file ?? './logs/api.log',
+            size: options.maxSize ?? 100 * 1024 * 1024,
+            maxFiles: options.maxFiles ?? 7,
+            mkdir: true,
+          },
+        });
 
     this.logger = pino(
       {

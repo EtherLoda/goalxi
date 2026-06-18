@@ -7,21 +7,32 @@ class PinoLoggerService implements LoggerService {
   private logger: pino.Logger;
 
   constructor(options: {
-    file: string;
-    level: 'warn' | 'error' | 'fatal';
+    level: pino.LevelWithSilent;
     service: string;
+    isDevelopment: boolean;
+    file?: string;
     maxSize?: number;
     maxFiles?: number;
   }) {
-    const transport = pino.transport({
-      target: 'pino-roll',
-      options: {
-        file: options.file,
-        size: options.maxSize ?? 100 * 1024 * 1024,
-        maxFiles: options.maxFiles ?? 7,
-        mkdir: true,
-      },
-    });
+    const transport = options.isDevelopment
+      ? pino.transport({
+          target: 'pino-pretty',
+          options: {
+            colorize: true,
+            translateTime: 'SYS:HH:MM:ss.l',
+            ignore: 'pid,hostname,context,traceId',
+            singleLine: false,
+          },
+        })
+      : pino.transport({
+          target: 'pino-roll',
+          options: {
+            file: options.file ?? './logs/settlement.log',
+            size: options.maxSize ?? 100 * 1024 * 1024,
+            maxFiles: options.maxFiles ?? 7,
+            mkdir: true,
+          },
+        });
 
     this.logger = pino(
       {
@@ -71,12 +82,17 @@ class PinoLoggerService implements LoggerService {
   }
 }
 
+const isDevelopment =
+  (process.env.NODE_ENV || 'development') === 'development';
+
 const logger = new PinoLoggerService({
+  level: (process.env.APP_LOG_LEVEL as pino.LevelWithSilent | undefined) ??
+    (isDevelopment ? 'debug' : 'warn'),
+  service: 'settlement',
+  isDevelopment,
   file: './logs/settlement.log',
   maxSize: 100 * 1024 * 1024,
   maxFiles: 7,
-  level: 'warn',
-  service: 'settlement',
 });
 
 async function bootstrap() {

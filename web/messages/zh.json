@@ -104,6 +104,7 @@
       "overview": "概览",
       "dashboard": "仪表盘",
       "squad": "球队",
+      "stadium": "球场",
       "matches": "比赛",
       "tactics": "战术",
       "league": "联赛",
@@ -718,6 +719,7 @@
     "nav": {
       "aria": "俱乐部分区",
       "overview": "总览",
+      "stadium": "球场",
       "settings": "设置",
       "medical": "医务室"
     },
@@ -740,10 +742,9 @@
     "settingsPage": {
       "eyebrow": "设置",
       "title": "俱乐部设置",
-      "subtitle": "管理身份、球场、训练和替补席。",
+      "subtitle": "管理身份、训练和替补席。",
       "sections": {
         "info": "身份",
-        "stadium": "主场",
         "training": "训练",
         "bench": "替补席",
         "audit": "历史"
@@ -783,6 +784,39 @@
       "demolishConfirmPlaceholder": "输入 'demolish' 以确认",
       "demolish": "拆除",
       "demolishing": "拆除中..."
+    },
+    "stadiumPage": {
+      "title": "球场",
+      "subtitle": "容量、上座率、最近比赛与座位扩建/拆除,全部集中在一页。",
+      "renameCta": "重命名",
+      "lastMatchAttendance": "最近主场上座率",
+      "fillRateHint": "占容量",
+      "seasonAttendance": "赛季均值",
+      "recentMatches": {
+        "eyebrow": "历史",
+        "title": "最近主场比赛",
+        "viewAll": "查看全部比赛",
+        "empty": "还没有已结束的主场比赛。",
+        "attendance": "观众数",
+        "fillRate": "上座率",
+        "vs": "打开"
+      },
+      "adjust": {
+        "eyebrow": "施工",
+        "title": "调整座位",
+        "subtitle": "按批次新增或拆除座位。扩建按座收费,拆除按比例返还。",
+        "stepLabel": "步长",
+        "minStep": "最小步长 {step} 座。",
+        "expandTitle": "扩建",
+        "expand": "添加座位",
+        "expanding": "添加中...",
+        "costHint": "→ 合计 {next} 座",
+        "demolishTitle": "拆除",
+        "demolishSeats": "移除座位",
+        "demolishing": "移除中...",
+        "refundHint": "→ 合计 {next} 座",
+        "fullRefund": "完整拆除返还: {refund}"
+      }
     },
     "training": {
       "title": "体能训练",

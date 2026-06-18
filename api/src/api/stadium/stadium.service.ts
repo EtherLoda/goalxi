@@ -1,5 +1,6 @@
 import {
   MatchEntity,
+  MatchStatus,
   STADIUM_COST_PER_SEAT,
   STADIUM_DEMOLISH_REFUND_RATE,
   StadiumEntity,
@@ -12,19 +13,48 @@ import { Repository } from 'typeorm';
 import { FinanceService } from '../finance/finance.service';
 import { BuildStadiumReqDto, ResizeStadiumReqDto } from './dto/stadium.req.dto';
 
+/** 单次扩/缩座位时的最小步长 */
+export const SEAT_ADJUST_STEP = 500;
+/** 增量拆除返还比例(单座返还) */
+export const SEAT_DEMOLISH_REFUND_RATE = 0.15;
+/** 历史比赛无 attendance 时的回退填充率 */
+export const DEFAULT_FILL_RATE = 0.7;
+
 /**
- * 球场摘要 — §5.3 设置页用
- * 含容量、当前赛季平均上座率、预估比赛日收入
+ * 球场摘要 — §5.3 / Stadium 页
+ *  含容量、当前赛季平均上座率、最近一场主场上座率、预估比赛日收入
  */
 export interface StadiumSummary {
   teamId: string;
   name: string;
   capacity: number;
   isBuilt: boolean;
+  /** 当前赛季所有已完成主场比赛的平均上座人数(可为 null) */
   currentSeasonAvgAttendance: number | null;
+  /** 最近一场主场比赛的上座率(0-1),用于场馆页大数字展示 */
+  lastHomeFillRate: number | null;
+  /** 当前赛季比赛日预估收入 */
   estMatchdayRevenue: number;
+  /** 重新建造一座同等规模球场的费用 */
   buildCost: number;
+  /** 完整拆除的返还金额 */
   demolishRefund: number;
+  /** 每次扩/缩 ±1 座位的单价 */
+  seatAdjustCost: number;
+  /** 每拆除一座座位的返还 */
+  seatDemolishRefund: number;
+}
+
+export interface RecentHomeMatch {
+  id: string;
+  scheduledAt: Date;
+  opponentName: string;
+  homeScore: number | null;
+  awayScore: number | null;
+  attendance: number | null;
+  capacity: number;
+  fillRate: number | null;
+  result: 'W' | 'D' | 'L' | null;
 }
 
 @Injectable()
@@ -62,25 +92,50 @@ export class StadiumService {
   }
 
   /**
-   * §5.3 获取球场摘要（容量 + 预估收入）
+   * §5.3 获取球场摘要(容量 + 真实平均上座率 + 最近一场 fillRate)
    */
   async getSummary(teamId: string): Promise<StadiumSummary | null> {
-    let stadium: StadiumEntity | null = null;
-    try {
-      stadium = await this.getByTeamId(teamId);
-    } catch (err) {
-      this.logger.error(`getByTeamId failed for ${teamId}: ${err}`);
-      throw err;
-    }
+    const stadium = await this.getByTeamId(teamId);
     if (!stadium) {
       return null;
     }
 
-    // 近 4 场主场比赛平均上座率
-    // TODO: attendance column not yet implemented in match entity
-    const avgAttendance: number | null = null;
+    const { season } = await this.getCurrentSeasonAndWeek();
 
-    // 票价假设：单座均价 (capacity × 20)
+    // 当前赛季已完成的主场比赛(最多取 30 场,够一个完整赛季)
+    const homeMatches = await this.matchRepository.find({
+      where: {
+        homeTeamId: teamId,
+        season,
+        status: MatchStatus.COMPLETED,
+      },
+      order: { completedAt: 'DESC' },
+      take: 30,
+    });
+
+    let avgAttendance: number | null = null;
+    let lastHomeFillRate: number | null = null;
+    if (homeMatches.length > 0) {
+      const filled = homeMatches.map((m) =>
+        typeof m.attendance === 'number' && m.attendance > 0
+          ? m.attendance
+          : Math.floor(stadium.capacity * DEFAULT_FILL_RATE),
+      );
+      avgAttendance = Math.round(
+        filled.reduce((a, b) => a + b, 0) / filled.length,
+      );
+
+      const last = homeMatches[0];
+      const lastAttendance =
+        typeof last.attendance === 'number' && last.attendance > 0
+          ? last.attendance
+          : Math.floor(stadium.capacity * DEFAULT_FILL_RATE);
+      lastHomeFillRate = stadium.capacity
+        ? Math.min(1, lastAttendance / stadium.capacity)
+        : null;
+    }
+
+    // 票价假设:单座均价 (capacity × 20),与历史实现保持一致
     const TICKET_PRICE = 20;
     const estMatchdayRevenue =
       avgAttendance != null ? avgAttendance * TICKET_PRICE : 0;
@@ -94,10 +149,61 @@ export class StadiumService {
       capacity: stadium.capacity,
       isBuilt: stadium.isBuilt,
       currentSeasonAvgAttendance: avgAttendance,
+      lastHomeFillRate,
       estMatchdayRevenue,
       buildCost,
       demolishRefund,
+      seatAdjustCost: STADIUM_COST_PER_SEAT,
+      seatDemolishRefund: Math.floor(
+        STADIUM_COST_PER_SEAT * SEAT_DEMOLISH_REFUND_RATE,
+      ),
     };
+  }
+
+  /**
+   * 获取最近 N 场主场比赛,带 attendance 与上座率
+   */
+  async getRecentHomeMatches(
+    teamId: string,
+    limit = 6,
+  ): Promise<RecentHomeMatch[]> {
+    const stadium = await this.getByTeamId(teamId);
+    if (!stadium) return [];
+
+    const matches = await this.matchRepository.find({
+      where: { homeTeamId: teamId, status: MatchStatus.COMPLETED },
+      order: { completedAt: 'DESC' },
+      take: limit,
+    });
+
+    return matches.map((m) => {
+      const attendance =
+        typeof m.attendance === 'number' && m.attendance > 0
+          ? m.attendance
+          : Math.floor(stadium.capacity * DEFAULT_FILL_RATE);
+      const fillRate = stadium.capacity
+        ? Math.min(1, attendance / stadium.capacity)
+        : null;
+      const result: 'W' | 'D' | 'L' | null =
+        m.homeScore == null || m.awayScore == null
+          ? null
+          : m.homeScore > m.awayScore
+            ? 'W'
+            : m.homeScore < m.awayScore
+              ? 'L'
+              : 'D';
+      return {
+        id: m.id,
+        scheduledAt: m.scheduledAt,
+        opponentName: m.awayTeam?.name ?? 'TBD',
+        homeScore: m.homeScore ?? null,
+        awayScore: m.awayScore ?? null,
+        attendance,
+        capacity: stadium.capacity,
+        fillRate,
+        result,
+      };
+    });
   }
 
   /**
@@ -129,7 +235,117 @@ export class StadiumService {
   }
 
   /**
-   * 建造新球场（替换现有）
+   * §5 Stadium — 增量扩建座位
+   *
+   * 增加 `delta` 个座位(以 SEAT_ADJUST_STEP 为最小步长),扣费 = delta × STADIUM_COST_PER_SEAT。
+   * 单次请求不能超过当前容量的 50%,避免一次性大改。
+   */
+  async expandSeats(
+    teamId: string,
+    delta: number,
+  ): Promise<{ stadium: StadiumEntity; cost: number; newCapacity: number }> {
+    if (!Number.isFinite(delta) || delta <= 0) {
+      throw new BadRequestException('Delta must be a positive number');
+    }
+    if (delta % SEAT_ADJUST_STEP !== 0) {
+      throw new BadRequestException(
+        `Delta must be a multiple of ${SEAT_ADJUST_STEP}`,
+      );
+    }
+    const stadium = await this.getByTeamId(teamId);
+    if (!stadium) {
+      throw new BadRequestException('Stadium not found');
+    }
+    const maxIncrement = Math.max(
+      SEAT_ADJUST_STEP,
+      Math.floor(stadium.capacity * 0.5),
+    );
+    if (delta > maxIncrement) {
+      throw new BadRequestException(
+        `Cannot expand more than ${maxIncrement} seats at once`,
+      );
+    }
+
+    const newCapacity = stadium.capacity + delta;
+    const cost = delta * STADIUM_COST_PER_SEAT;
+    stadium.capacity = newCapacity;
+    const saved = await this.stadiumRepository.save(stadium);
+
+    const { season, week } = await this.getCurrentSeasonAndWeek();
+    await this.financeService.processTransaction(
+      teamId as Uuid,
+      -cost,
+      TransactionType.OTHER_EXPENSE,
+      season,
+      week,
+      `Stadium expansion (+${delta} seats → ${newCapacity})`,
+    );
+
+    this.logger.log(
+      `Stadium expanded for team ${teamId}: +${delta} seats → ${newCapacity}, cost=${cost}`,
+    );
+
+    return { stadium: saved, cost, newCapacity };
+  }
+
+  /**
+   * §5 Stadium — 增量拆除座位
+   *
+   * 拆除 `delta` 个座位,以 SEAT_ADJUST_STEP 为最小步长。
+   * 返还金额 = delta × STADIUM_COST_PER_SEAT × SEAT_DEMOLISH_REFUND_RATE。
+   * 拆除后总容量不能低于 1000。
+   */
+  async demolishSeats(
+    teamId: string,
+    delta: number,
+  ): Promise<{ stadium: StadiumEntity; refund: number; newCapacity: number }> {
+    if (!Number.isFinite(delta) || delta <= 0) {
+      throw new BadRequestException('Delta must be a positive number');
+    }
+    if (delta % SEAT_ADJUST_STEP !== 0) {
+      throw new BadRequestException(
+        `Delta must be a multiple of ${SEAT_ADJUST_STEP}`,
+      );
+    }
+    const stadium = await this.getByTeamId(teamId);
+    if (!stadium) {
+      throw new BadRequestException('Stadium not found');
+    }
+    if (delta >= stadium.capacity) {
+      throw new BadRequestException(
+        'Cannot demolish more seats than the stadium holds. Use full demolish instead.',
+      );
+    }
+    const newCapacity = stadium.capacity - delta;
+    if (newCapacity < 1000) {
+      throw new BadRequestException('Stadium must keep at least 1000 seats');
+    }
+
+    const refund = Math.floor(
+      delta * STADIUM_COST_PER_SEAT * SEAT_DEMOLISH_REFUND_RATE,
+    );
+    stadium.capacity = newCapacity;
+    const saved = await this.stadiumRepository.save(stadium);
+
+    const { season, week } = await this.getCurrentSeasonAndWeek();
+    await this.financeService.processTransaction(
+      teamId as Uuid,
+      refund,
+      TransactionType.OTHER_INCOME,
+      season,
+      week,
+      `Stadium partial demolition (-${delta} seats → ${newCapacity})`,
+    );
+
+    this.logger.log(
+      `Stadium partially demolished for team ${teamId}: -${delta} seats → ${newCapacity}, refund=${refund}`,
+    );
+
+    return { stadium: saved, refund, newCapacity };
+  }
+
+  /**
+   * 建造新球场(替换现有)
    */
   async build(
     teamId: string,
@@ -149,7 +365,7 @@ export class StadiumService {
       await this.stadiumRepository.remove(existing);
     }
 
-    // 计算新球场费用（无退款）
+    // 计算新球场费用(无退款)
     const cost = dto.capacity * STADIUM_COST_PER_SEAT;
     const { season, week } = await this.getCurrentSeasonAndWeek();
 
@@ -193,7 +409,7 @@ export class StadiumService {
   }
 
   /**
-   * 拆除球场（支出，无退款）
+   * 拆除球场(支出，无退款)
    */
   async demolish(teamId: string): Promise<{ cost: number }> {
     const stadium = await this.stadiumRepository.findOne({ where: { teamId } });
@@ -223,7 +439,7 @@ export class StadiumService {
   }
 
   /**
-   * 创建默认球场（5000容量）
+   * 创建默认球场(5000容量)
    */
   async createDefault(teamId: string): Promise<StadiumEntity> {
     const existing = await this.stadiumRepository.findOne({

@@ -44,9 +44,25 @@ interface StadiumSummary {
   capacity: number;
   isBuilt: boolean;
   currentSeasonAvgAttendance: number | null;
+  /** 最近一场主场比赛的上座率(0-1),用于场馆页大数字展示 */
+  lastHomeFillRate: number | null;
   estMatchdayRevenue: number;
   buildCost: number;
   demolishRefund: number;
+  seatAdjustCost: number;
+  seatDemolishRefund: number;
+}
+
+interface RecentHomeMatch {
+  id: string;
+  scheduledAt: string;
+  opponentName: string;
+  homeScore: number | null;
+  awayScore: number | null;
+  attendance: number | null;
+  capacity: number;
+  fillRate: number | null;
+  result: 'W' | 'D' | 'L' | null;
 }
 
 interface BenchConfig {
@@ -503,6 +519,14 @@ export const api = {
     getSummary: async (teamId: string): Promise<StadiumSummary | null> => {
       return request<StadiumSummary | null>(`/teams/${teamId}/stadium/summary`);
     },
+    getRecentHomeMatches: async (
+      teamId: string,
+      limit = 6,
+    ): Promise<RecentHomeMatch[]> => {
+      return request<RecentHomeMatch[]>(
+        `/teams/${teamId}/stadium/recent-matches?limit=${limit}`,
+      );
+    },
     build: async (teamId: string, capacity: number): Promise<{ stadium: unknown; cost: number }> => {
       return request(`/teams/${teamId}/stadium`, {
         method: 'POST',
@@ -516,6 +540,25 @@ export const api = {
       return request(`/teams/${teamId}/stadium`, {
         method: 'PATCH',
         body: JSON.stringify({ name }),
+      });
+    },
+    /**
+     * §5 Stadium — 增量调整座位
+     * delta > 0: 扩建(扣费);delta < 0: 拆除(返还)
+     */
+    adjustSeats: async (
+      teamId: string,
+      delta: number,
+    ): Promise<{
+      action: 'expand' | 'demolish';
+      stadium: unknown;
+      cost?: number;
+      refund?: number;
+      newCapacity: number;
+    }> => {
+      return request(`/teams/${teamId}/stadium/seats`, {
+        method: 'PATCH',
+        body: JSON.stringify({ delta }),
       });
     },
   },
@@ -1056,6 +1099,7 @@ export type {
   User,
   Team,
   StadiumSummary,
+  RecentHomeMatch,
   LoginResponse,
   League,
   Standing,

@@ -66,7 +66,6 @@ export class SearchService {
       .createQueryBuilder('player')
       .leftJoinAndSelect('player.team', 'team')
       .where('LOWER(player.name) LIKE LOWER(:q)', { q: `%${reqDto.q}%` })
-      .andWhere('player.onTransfer = :onTransfer', { onTransfer: false })
       .orderBy('player.name', 'ASC')
       .take(limit);
 

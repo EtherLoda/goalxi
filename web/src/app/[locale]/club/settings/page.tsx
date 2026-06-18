@@ -4,13 +4,12 @@ import { useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
 import { useParams } from "next/navigation";
 import { useAuth } from "@/contexts/AuthContext";
-import { api, type StadiumSummary, type Team } from "@/lib/api";
+import { api, type Team } from "@/lib/api";
 import { useCurrentTeamId } from "@/stores/gameStore";
 
 import AuditTimeline from "@/components/club/AuditTimeline";
 import BenchQuickEdit from "@/components/club/BenchQuickEdit";
 import ClubInfoForm from "@/components/club/ClubInfoForm";
-import StadiumCapacityPanel from "@/components/club/StadiumCapacityPanel";
 import TrainingSlider from "@/components/club/TrainingSlider";
 
 type Locale = "en" | "zh";
@@ -24,7 +23,6 @@ export default function ClubSettingsPage() {
     const locale = (params.locale as Locale) || "en";
 
     const [team, setTeam] = useState<Team | null>(null);
-    const [stadium, setStadium] = useState<StadiumSummary | null>(null);
     const [players, setPlayers] = useState<{ id: string; name: string }[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
@@ -35,12 +33,10 @@ export default function ClubSettingsPage() {
         setError(null);
         Promise.all([
             api.teams.getById(currentTeamId).catch(() => null),
-            api.stadium.getSummary(currentTeamId).catch(() => null),
             api.players.getByTeam(currentTeamId).catch(() => ({ items: [], meta: {} })),
         ])
-            .then(([teamData, stadiumData, playersData]) => {
+            .then(([teamData, playersData]) => {
                 setTeam(teamData);
-                setStadium(stadiumData);
                 setPlayers(
                     (playersData.items ?? []).map((p: { id: string; name: string }) => ({
                         id: p.id,
@@ -108,17 +104,6 @@ export default function ClubSettingsPage() {
                         <div className="bg-surface-container-low rounded-xl p-6 border border-outline-variant/10">
                             <ClubInfoForm team={team} onSaved={setTeam} />
                         </div>
-                    </section>
-
-                    <section>
-                        <h2 className="font-headline text-sm font-bold text-on-surface-variant uppercase tracking-widest mb-3">
-                            {t("sections.stadium")}
-                        </h2>
-                        <StadiumCapacityPanel
-                            teamId={currentTeamId}
-                            summary={stadium}
-                            onChanged={() => api.stadium.getSummary(currentTeamId).then(setStadium)}
-                        />
                     </section>
 
                     <section>

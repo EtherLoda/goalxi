@@ -135,6 +135,10 @@ export class MatchEntity extends AbstractEntity {
     @Column({ name: 'weather', type: 'varchar', length: 20, nullable: true })
     weather?: WeatherType;
 
+    /** 上座人数(主场比赛)。在比赛结算时由赛事引擎填入,用于场馆页面统计。 */
+    @Column({ name: 'attendance', type: 'int', nullable: true })
+    attendance?: number | null;
+
     constructor(partial?: Partial<MatchEntity>) {
         super();
         Object.assign(this, partial);

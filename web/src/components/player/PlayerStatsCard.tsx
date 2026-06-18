@@ -42,6 +42,7 @@ interface SkillData {
 interface PlayerStatsCardProps {
   player: {
     name: string;
+    displayId?: string;
     age: number;
     ageDays?: number;
     stamina: number;

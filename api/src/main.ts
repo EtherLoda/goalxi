@@ -19,12 +19,28 @@ import { GlobalExceptionFilter } from './filters/global-exception.filter';
 import { AuthGuard } from './guards/auth.guard';
 import setupSwagger from './utils/setup-swagger';
 
+// Computed at module-load time so the logger transport can branch on it
+// before NestFactory boots. `configService.getOrThrow('app.nodeEnv')` would
+// also work, but it requires the config module to be initialized first.
+const isDevelopment =
+  (process.env.NODE_ENV || 'development') === 'development';
+
 const logger = new PinoLoggerService({
+  level: (process.env.APP_LOG_LEVEL as
+    | 'fatal'
+    | 'error'
+    | 'warn'
+    | 'info'
+    | 'debug'
+    | 'trace'
+    | undefined) ?? (isDevelopment ? 'debug' : 'warn'),
+  service: 'api',
+  isDevelopment,
+  // File-rolling options are only used in production. Safe to pass
+  // unconditionally — they're ignored when isDevelopment is true.
   file: './logs/api.log',
   maxSize: 100 * 1024 * 1024, // 100MB
   maxFiles: 7,
-  level: 'warn',
-  service: 'api',
 });
 
 async function bootstrap() {
@@ -42,8 +58,6 @@ async function bootstrap() {
 
   const configService = app.get(ConfigService<AllConfigType>);
   const reflector = app.get(Reflector);
-  const isDevelopment =
-    configService.getOrThrow('app.nodeEnv', { infer: true }) === 'development';
   const corsOrigin = configService.getOrThrow('app.corsOrigin', {
     infer: true,
   });

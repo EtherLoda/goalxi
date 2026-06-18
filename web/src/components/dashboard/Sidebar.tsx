@@ -43,6 +43,7 @@ export default function Sidebar() {
       items: [
         { labelKey: "dashboard", href: `/${locale}/dashboard?team=${currentTeamId}`, icon: "home" },
         { labelKey: "squad", href: `/${locale}/teams/squad?team=${currentTeamId}`, icon: "groups" },
+        { labelKey: "stadium", href: `/${locale}/club/stadium?team=${currentTeamId}`, icon: "stadium" },
         { labelKey: "matches", href: `/${locale}/matches?team=${currentTeamId}`, icon: "calendar_month" },
         { labelKey: "tactics", href: `/${locale}/matches?team=${currentTeamId}`, icon: "strategy" },
         { labelKey: "league", href: displayTeam?.leagueId ? `/${locale}/league/${displayTeam.leagueId}?team=${currentTeamId}` : "#", icon: "emoji_events" },
@@ -57,7 +58,6 @@ export default function Sidebar() {
         { labelKey: "medical", href: `/${locale}/club/medical?team=${currentTeamId}`, icon: "medical_services" },
         { labelKey: "finance", href: `/${locale}/club/finance?team=${currentTeamId}`, icon: "account_balance_wallet" },
         { labelKey: "scouting", href: `/${locale}/scouts?team=${currentTeamId}`, icon: "travel_explore" },
-        { labelKey: "settings", href: `/${locale}/club?team=${currentTeamId}`, icon: "settings" },
       ],
     },
     {

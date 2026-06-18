@@ -116,6 +116,7 @@
       "overview": "Overview",
       "dashboard": "Dashboard",
       "squad": "Squad",
+      "stadium": "Stadium",
       "matches": "Matches",
       "tactics": "Tactics",
       "league": "League",
@@ -729,6 +730,7 @@
     "nav": {
       "aria": "Club sections",
       "overview": "Overview",
+      "stadium": "Stadium",
       "settings": "Settings",
       "medical": "Medical"
     },
@@ -751,10 +753,9 @@
     "settingsPage": {
       "eyebrow": "Settings",
       "title": "Club Settings",
-      "subtitle": "Manage identity, stadium, training, and bench configuration.",
+      "subtitle": "Manage identity, training, and bench configuration.",
       "sections": {
         "info": "Identity",
-        "stadium": "Home Ground",
         "training": "Training",
         "bench": "Bench",
         "audit": "History"
@@ -794,6 +795,39 @@
       "demolishConfirmPlaceholder": "Type 'demolish' to confirm",
       "demolish": "Demolish",
       "demolishing": "Demolishing..."
+    },
+    "stadiumPage": {
+      "title": "Stadium",
+      "subtitle": "Capacity, attendance rate, recent matches and seat expansion — all in one place.",
+      "renameCta": "Rename",
+      "lastMatchAttendance": "Last Home Attendance",
+      "fillRateHint": "of capacity",
+      "seasonAttendance": "Season Avg",
+      "recentMatches": {
+        "eyebrow": "History",
+        "title": "Recent Home Matches",
+        "viewAll": "View all matches",
+        "empty": "No completed home matches yet.",
+        "attendance": "Attendance",
+        "fillRate": "Fill Rate",
+        "vs": "Open"
+      },
+      "adjust": {
+        "eyebrow": "Construction",
+        "title": "Adjust Seats",
+        "subtitle": "Add or remove seats in batches. Expansions cost per seat; demolitions refund a portion.",
+        "stepLabel": "Step size",
+        "minStep": "Minimum step is {step} seats.",
+        "expandTitle": "Expand",
+        "expand": "Add seats",
+        "expanding": "Adding...",
+        "costHint": "→ {next} seats total",
+        "demolishTitle": "Demolish",
+        "demolishSeats": "Remove seats",
+        "demolishing": "Removing...",
+        "refundHint": "→ {next} seats total",
+        "fullRefund": "Full demolish refund: {refund}"
+      }
     },
     "training": {
       "title": "Stamina Training",
