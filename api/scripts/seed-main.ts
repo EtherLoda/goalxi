@@ -500,15 +500,22 @@ async function createLeaguePyramid() {
       await financeRepo.save(finance);
     }
 
-    // Stadium
-    let stadium = await stadiumRepo.findOne({ where: { teamId: team.id } });
-    if (!stadium) {
-      stadium = new StadiumEntity({
-        teamId: team.id,
-        capacity: isBot ? 10000 : 50000,
-        isBuilt: true,
-      });
-      await stadiumRepo.save(stadium);
+    // Stadium — upsert to ensure every team has a 10 000-seat stadium
+    const existingStadium = await stadiumRepo.findOne({
+      where: { teamId: team.id },
+    });
+    if (existingStadium) {
+      existingStadium.capacity = 10000;
+      existingStadium.isBuilt = true;
+      await stadiumRepo.save(existingStadium);
+    } else {
+      await stadiumRepo.save(
+        stadiumRepo.create({
+          teamId: team.id,
+          capacity: 10000,
+          isBuilt: true,
+        }),
+      );
     }
 
     // Fan
