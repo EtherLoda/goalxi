@@ -65,25 +65,20 @@ export class StadiumService {
    * §5.3 获取球场摘要（容量 + 预估收入）
    */
   async getSummary(teamId: string): Promise<StadiumSummary | null> {
-    const stadium = await this.getByTeamId(teamId);
+    let stadium: StadiumEntity | null = null;
+    try {
+      stadium = await this.getByTeamId(teamId);
+    } catch (err) {
+      this.logger.error(`getByTeamId failed for ${teamId}: ${err}`);
+      throw err;
+    }
     if (!stadium) {
       return null;
     }
 
     // 近 4 场主场比赛平均上座率
-    const { season } = await this.getCurrentSeasonAndWeek();
-    const attendanceResult = await this.matchRepository
-      .createQueryBuilder('match')
-      .select('AVG(match.attendance)', 'avgAttendance')
-      .where('match.homeTeamId = :teamId', { teamId })
-      .andWhere('match.season = :season', { season })
-      .andWhere('match.status = :status', { status: 'completed' })
-      .getRawOne();
-
-    const avgAttendance =
-      attendanceResult?.avgAttendance != null
-        ? Math.round(Number(attendanceResult.avgAttendance))
-        : null;
+    // TODO: attendance column not yet implemented in match entity
+    const avgAttendance: number | null = null;
 
     // 票价假设：单座均价 (capacity × 20)
     const TICKET_PRICE = 20;
