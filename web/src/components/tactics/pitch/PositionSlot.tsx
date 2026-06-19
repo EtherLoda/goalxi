@@ -70,7 +70,9 @@ export function PositionSlot({
           onDragStart={onDragStart}
           onDragEnd={onDragEnd}
         />
-      ) : (
+      ) : isDragging ? (
+        // Empty slots only appear as drop targets while a drag is in
+        // flight. Outside of drag mode the pitch stays clean.
         <div
           className={`w-12 h-12 rounded-full border-2 border-dashed flex items-center justify-center transition-all duration-200 ${
             isDragOver
@@ -86,7 +88,7 @@ export function PositionSlot({
             {slot}
           </span>
         </div>
-      )}
+      ) : null}
     </div>
   );
 }

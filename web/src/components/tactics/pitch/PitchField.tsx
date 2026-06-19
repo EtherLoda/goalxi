@@ -56,7 +56,7 @@ export function PitchField({
   );
 
   return (
-    <div className={`relative w-full rounded-2xl overflow-hidden border border-white/5 bg-[#051a14] transition-shadow duration-500 ${tempoGlow}`}>
+    <div className={`relative w-full aspect-[3/4] rounded-2xl overflow-hidden border border-white/5 bg-[#051a14] transition-shadow duration-500 ${tempoGlow}`}>
       {/* Pitch surface */}
       <div className="absolute inset-0 bg-gradient-to-b from-emerald-900/40 via-emerald-800/30 to-emerald-950/40" />
       <div className="absolute inset-0 opacity-20 bg-[repeating-linear-gradient(0deg,transparent,transparent_40px,rgba(0,0,0,0.15)_40px,rgba(0,0,0,0.15)_80px)]" />

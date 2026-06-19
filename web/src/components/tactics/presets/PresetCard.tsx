@@ -23,7 +23,7 @@ export function PresetCard({ preset, disabled, isActive, onApply, onDelete }: Pr
       }`}
       data-testid={`preset-${preset.id}`}
     >
-      <div className="flex items-center justify-between mb-2">
+      <div className="flex items-center justify-between">
         <div className="flex items-center gap-2 min-w-0 flex-1">
           {preset.isDefault && (
             <span
@@ -40,23 +40,24 @@ export function PresetCard({ preset, disabled, isActive, onApply, onDelete }: Pr
           {preset.formation}
         </span>
       </div>
-      <div className="flex gap-1.5">
-        <button
-          type="button"
-          onClick={() => onApply(preset)}
-          disabled={disabled}
-          className="flex-1 px-2 py-1 rounded bg-primary/20 text-primary border border-primary/30 font-label text-[9px] tracking-widest uppercase hover:bg-primary/30 transition-all disabled:opacity-50"
-        >
-          {t('apply')}
-        </button>
+      <div className="flex items-center justify-end gap-1.5 mt-2 pt-2 border-t border-outline-variant/15">
         <button
           type="button"
           onClick={() => onDelete(preset)}
           disabled={disabled}
-          className="px-2 py-1 rounded text-outline hover:text-error transition-colors disabled:opacity-50"
+          className="p-1 rounded text-outline hover:text-error transition-colors disabled:opacity-50"
           aria-label={t('delete')}
         >
           <span className="material-symbols-outlined text-base">delete</span>
+        </button>
+        <button
+          type="button"
+          onClick={() => onApply(preset)}
+          disabled={disabled}
+          className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-primary/15 text-primary border border-primary/25 font-label text-[9px] font-bold tracking-widest uppercase hover:bg-primary/25 transition-colors disabled:opacity-50"
+        >
+          <span className="material-symbols-outlined text-[10px]">play_arrow</span>
+          {t('apply')}
         </button>
       </div>
     </div>

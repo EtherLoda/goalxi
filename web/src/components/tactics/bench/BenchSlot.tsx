@@ -76,7 +76,9 @@ export function BenchSlotView({
           onDragStart={onDragStart}
           onDragEnd={onDragEnd}
         />
-      ) : (
+      ) : isDragging ? (
+        // Empty bench slots only appear as drop targets while a drag is
+        // in flight. Otherwise the strip stays clean.
         <div
           className={`w-10 h-10 rounded-full border-2 border-dashed flex items-center justify-center transition-all ${
             isDragOver
@@ -90,7 +92,7 @@ export function BenchSlotView({
         >
           <span className="material-symbols-outlined text-base text-outline">person_add</span>
         </div>
-      )}
+      ) : null}
     </div>
   );
 }

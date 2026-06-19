@@ -31,6 +31,7 @@ import {
 } from '../types';
 import { EditorBentoGrid } from './EditorBentoGrid';
 import { EditorHeader } from './EditorHeader';
+import type { RosterDensity } from '../roster/PlayerRoster';
 
 interface TacticsEditorProps {
   matchId: string;
@@ -56,6 +57,8 @@ export function TacticsEditor({ matchId, match }: TacticsEditorProps) {
   const [players, setPlayers] = React.useState<Player[]>([]);
   const [dataReady, setDataReady] = React.useState(false);
   const [dataError, setDataError] = React.useState<string | null>(null);
+  // Roster density — personal view preference, not persisted (per project pattern).
+  const [density, setDensity] = React.useState<RosterDensity>('detailed');
 
   // Initial lock state from match
   const matchStatus: MatchStatus = (match.status as MatchStatus) ?? 'scheduled';
@@ -406,6 +409,8 @@ export function TacticsEditor({ matchId, match }: TacticsEditorProps) {
         pitchPlayers={pitchPlayers}
         presets={presets}
         activePresetId={state.draft.activePresetId}
+        density={density}
+        onDensityChange={setDensity}
         isDragging={isDragging}
         isLocked={state.lock.isLocked}
         onPitchDrop={handlePitchDrop}

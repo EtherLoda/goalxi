@@ -3,7 +3,7 @@
 import React from 'react';
 import type { Player } from '@/lib/api';
 import type { Preset } from '@/lib/api';
-import { PlayerRoster } from '../roster/PlayerRoster';
+import { PlayerRoster, type RosterDensity } from '../roster/PlayerRoster';
 import { PitchField } from '../pitch/PitchField';
 import { BenchStrip } from '../bench/BenchStrip';
 import { DimensionsPanel } from '../dimensions/DimensionsPanel';
@@ -39,6 +39,9 @@ interface EditorBentoGridProps {
   // Presets
   presets: Preset[];
   activePresetId: string | null;
+  // Roster density (compact | detailed)
+  density: RosterDensity;
+  onDensityChange: (density: RosterDensity) => void;
   // State
   isDragging: boolean;
   isLocked: boolean;
@@ -66,6 +69,7 @@ export function EditorBentoGrid(props: EditorBentoGridProps) {
     tempo, pitchWidth, defensiveLine,
     events, starters, benchPlayers, pitchPlayers,
     presets, activePresetId,
+    density, onDensityChange,
     isDragging, isLocked,
     onPitchDrop, onBenchDrop, onRemovePitch, onRemoveBench,
     onDimensionChange,
@@ -75,31 +79,9 @@ export function EditorBentoGrid(props: EditorBentoGridProps) {
   } = props;
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-[1fr_360px] gap-4">
-      <div className="flex flex-col gap-3">
-        <PitchField
-          lineup={lineup}
-          playersById={playersById}
-          defensiveLine={defensiveLine}
-          pitchWidth={pitchWidth}
-          tempo={tempo}
-          isDragging={isDragging}
-          onDrop={onPitchDrop}
-          onRemove={onRemovePitch}
-          onDragStart={(slot) => onDragStart(slot)}
-          onDragEnd={onDragEnd}
-        />
-        <BenchStrip
-          bench={bench}
-          playersById={playersById}
-          isDragging={isDragging}
-          onDrop={onBenchDrop}
-          onRemove={onRemoveBench}
-          onDragStart={(slot) => onDragStart(slot)}
-          onDragEnd={onDragEnd}
-        />
-      </div>
-      <div className="flex flex-col gap-3">
+    <div className="grid grid-cols-1 lg:grid-cols-[400px_minmax(0,1fr)_380px] gap-4">
+      {/* Left — tactical controls (stacked, scrollable at lg+) */}
+      <div className="flex flex-col gap-3 order-2 lg:order-1 lg:max-h-[calc(100vh-220px)] lg:overflow-y-auto lg:pr-1">
         <DimensionsPanel
           tempo={tempo}
           pitchWidth={pitchWidth}
@@ -127,10 +109,39 @@ export function EditorBentoGrid(props: EditorBentoGridProps) {
           onRemove={onRemoveEvent}
         />
       </div>
-      <div className="lg:col-span-2">
+
+      {/* Center — pitch + bench (visual focus) */}
+      <div className="flex flex-col gap-3 order-1 lg:order-2">
+        <PitchField
+          lineup={lineup}
+          playersById={playersById}
+          defensiveLine={defensiveLine}
+          pitchWidth={pitchWidth}
+          tempo={tempo}
+          isDragging={isDragging}
+          onDrop={onPitchDrop}
+          onRemove={onRemovePitch}
+          onDragStart={(slot) => onDragStart(slot)}
+          onDragEnd={onDragEnd}
+        />
+        <BenchStrip
+          bench={bench}
+          playersById={playersById}
+          isDragging={isDragging}
+          onDrop={onBenchDrop}
+          onRemove={onRemoveBench}
+          onDragStart={(slot) => onDragStart(slot)}
+          onDragEnd={onDragEnd}
+        />
+      </div>
+
+      {/* Right — roster (with density toggle) */}
+      <div className="order-3 lg:max-h-[calc(100vh-220px)] lg:overflow-hidden">
         <PlayerRoster
           players={players}
           assignedPlayerIds={assignedPlayerIds}
+          density={density}
+          onDensityChange={onDensityChange}
           onDragStart={onRosterDragStart}
           onDragEnd={onDragEnd}
         />

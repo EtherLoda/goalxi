@@ -8,12 +8,12 @@ import type { PositionKey } from '../types';
 
 const SHORT_LABEL: Record<PositionKey, string> = {
   GK: 'GK',
-  CB1: 'CB', CB2: 'CB', CB3: 'CB',
+  CB1: 'CBL', CB2: 'CBC', CB3: 'CBR',
   LB: 'LB', RB: 'RB',
   LWB: 'LWB', RWB: 'RWB',
-  DMF1: 'DMF', DMF2: 'DMF', DMF3: 'DMF',
-  CM1: 'CM', CM2: 'CM', CM3: 'CM',
-  CAM1: 'CAM', CAM2: 'CAM', CAM3: 'CAM',
+  DMF1: 'DML', DMF2: 'DMC', DMF3: 'DMR',
+  CM1: 'CML', CM2: 'CMC', CM3: 'CMR',
+  CAM1: 'AML', CAM2: 'AMC', CAM3: 'AMR',
   LM: 'LM', RM: 'RM',
   LW: 'LW', RW: 'RW',
   CFL: 'CFL', CF: 'CF', CFR: 'CFR',

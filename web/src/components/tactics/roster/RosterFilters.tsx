@@ -1,41 +1,27 @@
 'use client';
 
+/**
+ * RosterFilters — sort-only toolbar for the right-rail PlayerRoster.
+ * The previous position filter (all/gk/def/mid/fwd) was removed to keep
+ * the right rail focused on the player list; the sort dropdown stays.
+ */
 import React, { useState } from 'react';
 import { useTranslations } from 'next-intl';
 import type { Player } from '@/lib/api';
 
 export type RosterSortKey = 'overall' | 'stamina' | 'form' | 'name';
-export type RosterFilterKey = 'all' | 'gk' | 'def' | 'mid' | 'fwd';
 
 interface RosterFiltersProps {
   sort: RosterSortKey;
   onSortChange: (key: RosterSortKey) => void;
-  filter: RosterFilterKey;
-  onFilterChange: (key: RosterFilterKey) => void;
 }
 
-export function RosterFilters({ sort, onSortChange, filter, onFilterChange }: RosterFiltersProps) {
+export function RosterFilters({ sort, onSortChange }: RosterFiltersProps) {
   const t = useTranslations('tactics.roster');
   const [open, setOpen] = useState(false);
 
   return (
-    <div className="flex items-center justify-between gap-2 mb-3">
-      <div className="flex gap-1 p-0.5 rounded-lg bg-surface-container-highest">
-        {(['all', 'gk', 'def', 'mid', 'fwd'] as RosterFilterKey[]).map((key) => (
-          <button
-            key={key}
-            type="button"
-            onClick={() => onFilterChange(key)}
-            className={`px-2.5 py-1 rounded font-label text-[10px] tracking-widest uppercase transition-all ${
-              filter === key
-                ? 'bg-primary text-on-primary'
-                : 'text-on-surface-variant hover:text-on-surface'
-            }`}
-          >
-            {t(`filter.${key}`)}
-          </button>
-        ))}
-      </div>
+    <div className="flex items-center justify-end mb-2">
       <div className="relative">
         <button
           type="button"
@@ -73,20 +59,10 @@ export function RosterFilters({ sort, onSortChange, filter, onFilterChange }: Ro
 
 export function filterAndSort(
   players: Player[],
-  filter: RosterFilterKey,
   sort: RosterSortKey,
   assignedIds: Set<string>,
 ): { available: Player[]; onPitch: Player[] } {
-  const filtered = players.filter((p) => {
-    if (filter === 'all') return true;
-    if (filter === 'gk') return p.isGoalkeeper;
-    if (filter === 'def') return !p.isGoalkeeper && isDef(p.position);
-    if (filter === 'mid') return !p.isGoalkeeper && isMid(p.position);
-    if (filter === 'fwd') return !p.isGoalkeeper && isFwd(p.position);
-    return true;
-  });
-
-  const sorted = [...filtered].sort((a, b) => {
+  const sorted = [...players].sort((a, b) => {
     if (sort === 'name') return a.name.localeCompare(b.name);
     if (sort === 'overall') return b.overall - a.overall;
     if (sort === 'stamina') return b.stamina - a.stamina;
@@ -98,14 +74,4 @@ export function filterAndSort(
     available: sorted.filter((p) => !assignedIds.has(p.id)),
     onPitch: sorted.filter((p) => assignedIds.has(p.id)),
   };
-}
-
-function isDef(pos?: string): boolean {
-  return pos === 'DEF' || (pos?.startsWith('CB') ?? false) || pos === 'LB' || pos === 'RB' || pos === 'LWB' || pos === 'RWB';
-}
-function isMid(pos?: string): boolean {
-  return pos === 'MID' || pos === 'CM' || pos === 'DM' || pos === 'AM' || pos === 'LM' || pos === 'RM';
-}
-function isFwd(pos?: string): boolean {
-  return pos === 'FWD' || pos === 'ST' || pos === 'CF' || pos === 'LW' || pos === 'RW';
 }

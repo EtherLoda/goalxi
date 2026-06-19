@@ -1,7 +1,8 @@
 'use client';
 
-import React from 'react';
+import React, { useRef } from 'react';
 import type { Player } from '@/lib/api';
+import { usePlayerDrag } from '../shared/usePlayerDrag';
 
 interface RosterPlayerCardProps {
   player: Player;
@@ -9,8 +10,6 @@ interface RosterPlayerCardProps {
   onDragStart: (e: React.DragEvent) => void;
   onDragEnd: () => void;
 }
-
-const DRAG_MIME = 'application/x-goalxi-player';
 
 function staminaBars(stamina: number): number {
   return Math.max(0, Math.min(5, Math.round(stamina)));
@@ -21,17 +20,18 @@ function formDots(form: number): number {
 }
 
 export function RosterPlayerCard({ player, isAssigned, onDragStart, onDragEnd }: RosterPlayerCardProps) {
-  const handleDragStart = (e: React.DragEvent) => {
-    e.dataTransfer.setData(DRAG_MIME, player.id);
-    e.dataTransfer.effectAllowed = 'move';
-    onDragStart(e);
-  };
+  const avatarRef = useRef<HTMLDivElement>(null);
+  const drag = usePlayerDrag(player.id, {
+    onStart: onDragStart,
+    onEnd: onDragEnd,
+    dragImageRef: avatarRef,
+  });
 
   return (
     <div
       draggable
-      onDragStart={handleDragStart}
-      onDragEnd={onDragEnd}
+      onDragStart={drag.onDragStart}
+      onDragEnd={drag.onDragEnd}
       className={`group relative flex items-center gap-3 p-3 rounded-xl border bg-surface-container cursor-grab active:cursor-grabbing transition-all ${
         isAssigned
           ? 'border-outline-variant/20 opacity-60 grayscale'
@@ -41,6 +41,7 @@ export function RosterPlayerCard({ player, isAssigned, onDragStart, onDragEnd }:
       data-testid={`roster-player-${player.id}`}
     >
       <div
+        ref={avatarRef}
         className={`w-10 h-10 rounded-full flex items-center justify-center font-headline font-extrabold text-[10px] shrink-0 ${
           player.isGoalkeeper
             ? 'bg-tertiary/15 border border-tertiary/40 text-tertiary'

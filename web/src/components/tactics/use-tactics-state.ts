@@ -42,8 +42,8 @@ export interface HydratePayload {
   tempo: TempoValue;
   pitchWidth: PitchWidthValue;
   defensiveLine: DefensiveLineValue;
-  substitutions: Array<{ minute: number; out: string; in: string }> | null;
-  instructions: { moves?: Array<{ minute: number; player: string; position: string }> } | null;
+  substitutions: Array<{ minute: number; out: string; in: string; condition?: string }> | null;
+  instructions: { moves?: Array<{ minute: number; player: string; position: string; condition?: string }> } | null;
   presetId: string | null;
 }
 
@@ -53,8 +53,8 @@ export interface PresetPayload {
   isDefault: boolean;
   formation: string;
   lineup: Record<string, string>;
-  substitutions: Array<{ minute: number; out: string; in: string }> | null;
-  instructions: { moves?: Array<{ minute: number; player: string; position: string }> } | null;
+  substitutions: Array<{ minute: number; out: string; in: string; condition?: string }> | null;
+  instructions: { moves?: Array<{ minute: number; player: string; position: string; condition?: string }> } | null;
 }
 
 // ============================================================================
@@ -130,12 +130,24 @@ export function reducer(state: EditorState, action: Action): EditorState {
       const events: TacticalEvent[] = [];
       if (payload.substitutions) {
         for (const s of payload.substitutions) {
-          events.push({ kind: 'sub', minute: s.minute, outId: s.out, inId: s.in });
+          events.push({
+            kind: 'sub',
+            minute: s.minute,
+            outId: s.out,
+            inId: s.in,
+            ...(s.condition ? { condition: s.condition as TacticalEvent['condition'] } : {}),
+          });
         }
       }
       if (payload.instructions?.moves) {
         for (const m of payload.instructions.moves) {
-          events.push({ kind: 'move', minute: m.minute, playerId: m.player, toSlot: m.position as PositionKey });
+          events.push({
+            kind: 'move',
+            minute: m.minute,
+            playerId: m.player,
+            toSlot: m.position as PositionKey,
+            ...(m.condition ? { condition: m.condition as TacticalEvent['condition'] } : {}),
+          });
         }
       }
       return {
@@ -183,6 +195,17 @@ export function reducer(state: EditorState, action: Action): EditorState {
     case 'UPDATE_EVENT': {
       const events = state.draft.events.map((e, i) => {
         if (i !== action.index) return e;
+        // When the caller flips `kind` (sub ↔ move) we discard the
+        // previous player/position fields so the row starts clean, but
+        // we keep the condition (a planned sub can be retargeted as a
+        // move without losing its trigger rule).
+        if (action.patch.kind && action.patch.kind !== e.kind) {
+          return {
+            kind: action.patch.kind,
+            minute: action.patch.minute ?? e.minute,
+            ...(e.condition ? { condition: e.condition } : {}),
+          } as TacticalEvent;
+        }
         return { ...e, ...action.patch } as TacticalEvent;
       });
       return markDirty({ ...state, draft: { ...state.draft, events: sortEventsByMinute(events) } });
@@ -241,12 +264,24 @@ export function reducer(state: EditorState, action: Action): EditorState {
       const events: TacticalEvent[] = [];
       if (action.preset.substitutions) {
         for (const s of action.preset.substitutions) {
-          events.push({ kind: 'sub', minute: s.minute, outId: s.out, inId: s.in });
+          events.push({
+            kind: 'sub',
+            minute: s.minute,
+            outId: s.out,
+            inId: s.in,
+            ...(s.condition ? { condition: s.condition as TacticalEvent['condition'] } : {}),
+          });
         }
       }
       if (action.preset.instructions?.moves) {
         for (const m of action.preset.instructions.moves) {
-          events.push({ kind: 'move', minute: m.minute, playerId: m.player, toSlot: m.position as PositionKey });
+          events.push({
+            kind: 'move',
+            minute: m.minute,
+            playerId: m.player,
+            toSlot: m.position as PositionKey,
+            ...(m.condition ? { condition: m.condition as TacticalEvent['condition'] } : {}),
+          });
         }
       }
       return {

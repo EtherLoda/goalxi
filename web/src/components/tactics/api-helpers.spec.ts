@@ -10,6 +10,7 @@ import {
   hydratePreset,
   computeFormation,
   flattenLineup,
+  normalizeLineup,
 } from './api-helpers';
 import { createEmptyDraft, type TacticsDraft } from './types';
 
@@ -132,6 +133,32 @@ describe('serializeTactics', () => {
     ]);
   });
 
+  it('passes through event.condition on substitutions and moves', () => {
+    const draft = baseDraft({
+      events: [
+        { kind: 'sub', minute: 60, outId: 'a', inId: 'b', condition: 'leading' },
+        { kind: 'move', minute: 70, playerId: 'c', toSlot: 'CF', condition: 'trailing' },
+      ],
+    });
+    const result = serializeTactics('m', 't', draft);
+    expect(result.substitutions[0]).toEqual({
+      minute: 60, out: 'a', in: 'b', condition: 'leading',
+    });
+    expect(result.instructions.moves[0]).toEqual({
+      minute: 70, player: 'c', position: 'CF', condition: 'trailing',
+    });
+  });
+
+  it('omits the condition field when it is "always" (the implicit default)', () => {
+    const draft = baseDraft({
+      events: [
+        { kind: 'sub', minute: 60, outId: 'a', inId: 'b', condition: 'always' },
+      ],
+    });
+    const result = serializeTactics('m', 't', draft);
+    expect(result.substitutions[0]).not.toHaveProperty('condition');
+  });
+
   it('produces empty arrays when no events', () => {
     const result = serializeTactics('m', 't', baseDraft());
     expect(result.substitutions).toEqual([]);
@@ -226,5 +253,154 @@ describe('hydratePreset', () => {
     };
     const result = hydratePreset(preset);
     expect(result).toEqual(preset);
+  });
+});
+
+// ============================================================================
+// normalizeLineup — legacy short code aliasing
+// ============================================================================
+
+describe('normalizeLineup', () => {
+  it('passes through canonical slot keys untouched', () => {
+    const { pitch, bench } = normalizeLineup({
+      GK: 'p-gk',
+      CB1: 'p-cb-1',
+      CB2: 'p-cb-2',
+      CB3: 'p-cb-3',
+      CM1: 'p-cm-1',
+      CM2: 'p-cm-2',
+      BENCH_GK: 'p-bench-gk',
+    });
+    expect(pitch).toEqual({
+      GK: 'p-gk',
+      CB1: 'p-cb-1',
+      CB2: 'p-cb-2',
+      CB3: 'p-cb-3',
+      CM1: 'p-cm-1',
+      CM2: 'p-cm-2',
+    });
+    expect(bench).toEqual({ BENCH_GK: 'p-bench-gk' });
+  });
+
+  it('maps legacy short codes CB/CM/ST to canonical pitch slots', () => {
+    const { pitch, bench } = normalizeLineup({
+      GK: 'p-gk',
+      CB: 'p-cb-1',
+      CM: 'p-cm-1',
+      ST: 'p-st',
+    });
+    expect(pitch.GK).toBe('p-gk');
+    expect(pitch.CB1).toBe('p-cb-1');
+    expect(pitch.CM1).toBe('p-cm-1');
+    expect(pitch.CF).toBe('p-st');
+    expect(bench).toEqual({});
+  });
+
+  it('maps DM/AM to the defensive/attacking midfield slots', () => {
+    const { pitch } = normalizeLineup({
+      DM: 'p-dm',
+      AM: 'p-am',
+    });
+    expect(pitch.DMF1).toBe('p-dm');
+    expect(pitch.CAM1).toBe('p-am');
+  });
+
+  it('drops unrecognised slot keys instead of producing invalid slots', () => {
+    const { pitch, bench } = normalizeLineup({
+      GK: 'p-gk',
+      BANANA: 'p-bad',
+      BENCH_PINEAPPLE: 'p-bad-2',
+    });
+    expect(pitch).toEqual({ GK: 'p-gk' });
+    expect(bench).toEqual({});
+  });
+
+  it('skips entries with empty playerIds', () => {
+    const { pitch, bench } = normalizeLineup({
+      GK: 'p-gk',
+      CB: '',
+      BENCH_GK: '',
+    });
+    expect(pitch).toEqual({ GK: 'p-gk' });
+    expect(bench).toEqual({});
+  });
+});
+
+describe('hydrateTactics — legacy short code aliasing', () => {
+  it('normalizes CB/CM/ST keys in the returned lineup', () => {
+    const server = {
+      formation: '4-4-2',
+      lineup: { GK: 'p-gk', CB: 'p-cb-1', CM: 'p-cm-1', ST: 'p-st' },
+      tempo: 'balanced' as const,
+      pitchWidth: 'balanced' as const,
+      defensiveLine: 'mid' as const,
+      substitutions: null,
+      instructions: null,
+      presetId: null,
+    };
+    const result = hydrateTactics(server);
+    expect(result.lineup).toEqual({
+      GK: 'p-gk',
+      CB1: 'p-cb-1',
+      CM1: 'p-cm-1',
+      CF: 'p-st',
+    });
+  });
+
+  it('normalizes move.toSlot short codes (ST → CF) and drops unrecognised ones', () => {
+    const server = {
+      formation: '4-4-2',
+      lineup: { GK: 'p-gk' },
+      tempo: 'balanced' as const,
+      pitchWidth: 'balanced' as const,
+      defensiveLine: 'mid' as const,
+      substitutions: null,
+      instructions: {
+        moves: [
+          { minute: 60, player: 'p-st', position: 'ST' },
+          { minute: 70, player: 'p-cb', position: 'CB' },
+          { minute: 80, player: 'p-bad', position: 'BANANA' },
+        ],
+      },
+      presetId: null,
+    };
+    const result = hydrateTactics(server);
+    expect(result.instructions).not.toBeNull();
+    expect(result.instructions!.moves).toEqual([
+      { minute: 60, player: 'p-st', position: 'CF' },
+      { minute: 70, player: 'p-cb', position: 'CB1' },
+    ]);
+  });
+
+  it('returns null instructions when all moves are dropped', () => {
+    const server = {
+      formation: '4-4-2',
+      lineup: { GK: 'p-gk' },
+      tempo: 'balanced' as const,
+      pitchWidth: 'balanced' as const,
+      defensiveLine: 'mid' as const,
+      substitutions: null,
+      instructions: { moves: [{ minute: 60, player: 'p', position: 'BANANA' }] },
+      presetId: null,
+    };
+    const result = hydrateTactics(server);
+    expect(result.instructions).toBeNull();
+  });
+
+  it('preserves condition field on server substitutions', () => {
+    const server = {
+      formation: '4-4-2',
+      lineup: { GK: 'p-gk' },
+      tempo: 'balanced' as const,
+      pitchWidth: 'balanced' as const,
+      defensiveLine: 'mid' as const,
+      substitutions: [{ minute: 60, out: 'a', in: 'b', condition: 'leading' }],
+      instructions: null,
+      presetId: null,
+    };
+    const result = hydrateTactics(server);
+    expect(result.substitutions![0]).toEqual({
+      minute: 60, out: 'a', in: 'b', condition: 'leading',
+    });
   });
 });

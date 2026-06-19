@@ -20,7 +20,7 @@ interface DimensionsPanelProps {
 }
 
 const TEMPO_OPTIONS: DimensionOption[] = [
-  { value: 'slow', labelKey: 'tempo.slow', iconName: 'turtle' },
+  { value: 'slow', labelKey: 'tempo.slow', iconName: 'slow_motion_video' },
   { value: 'balanced', labelKey: 'tempo.balanced', iconName: 'balance' },
   { value: 'fast', labelKey: 'tempo.fast', iconName: 'speed' },
 ];

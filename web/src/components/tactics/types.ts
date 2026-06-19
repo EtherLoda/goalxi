@@ -292,11 +292,42 @@ export const DEFENSIVE_LINE_VALUES: readonly DefensiveLineValue[] = ['low', 'mid
 // Tactical Events (substitutions + position moves)
 // ============================================================================
 
+/**
+ * Trigger condition for a tactical event. Determines whether the
+ * sub / move fires at the scheduled minute:
+ *   - `always`        — fire unconditionally
+ *   - `leading`       — only when the team is ahead
+ *   - `trailing`      — only when the team is behind
+ *   - `tied`          — only when the score is level
+ *   - `notLeading`    — only when NOT ahead (trailing or tied)
+ *   - `notTrailing`   — only when NOT behind (leading or tied)
+ *
+ * Stored as a snake_case string in the API payload; the simulator /
+ * backend resolve it at runtime.
+ */
+export type EventCondition =
+  | 'always'
+  | 'leading'
+  | 'trailing'
+  | 'tied'
+  | 'notLeading'
+  | 'notTrailing';
+
+export const EVENT_CONDITIONS: readonly EventCondition[] = [
+  'always',
+  'leading',
+  'trailing',
+  'tied',
+  'notLeading',
+  'notTrailing',
+] as const;
+
 export interface SubstitutionEvent {
   readonly kind: 'sub';
   readonly minute: number;
   readonly outId: string;
   readonly inId: string;
+  readonly condition?: EventCondition;
 }
 
 export interface MoveEvent {
@@ -304,6 +335,7 @@ export interface MoveEvent {
   readonly minute: number;
   readonly playerId: string;
   readonly toSlot: PositionKey;
+  readonly condition?: EventCondition;
 }
 
 export type TacticalEvent = SubstitutionEvent | MoveEvent;
