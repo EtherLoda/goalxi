@@ -10,9 +10,9 @@ import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { DataSource } from 'typeorm';
-import { NotificationRedisService } from '../notification/notification-redis.service';
 import { AuctionRedisRepository } from '../../redis/auction-redis.repository';
 import { FinanceService } from '../finance/finance.service';
+import { NotificationRedisService } from '../notification/notification-redis.service';
 import { AuctionService } from './auction.service';
 
 const mockTransferTxRepo = () => ({

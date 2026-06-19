@@ -135,10 +135,13 @@ export class StadiumService {
         : null;
     }
 
-    // 票价假设:单座均价 (capacity × 20),与历史实现保持一致
+    // 票价假设:单座均价 TICKET_PRICE,与历史实现保持一致
     const TICKET_PRICE = 20;
-    const estMatchdayRevenue =
-      avgAttendance != null ? avgAttendance * TICKET_PRICE : 0;
+    // Theoretical per-matchday revenue assuming 100% fill — the max the
+    // stadium could generate at full capacity. The Stadium page and
+    // construction dialog preview this number so the manager sees the
+    // upside of any expansion at a glance.
+    const estMatchdayRevenue = stadium.capacity * TICKET_PRICE;
 
     const buildCost = stadium.capacity * STADIUM_COST_PER_SEAT;
     const demolishRefund = Math.floor(buildCost * STADIUM_DEMOLISH_REFUND_RATE);

@@ -9,6 +9,7 @@ import { PlayerWageModule } from './player-wage.module';
 import { SchedulerModule } from './scheduler/scheduler.module';
 import { TransferModule } from './transfer.module';
 import { BootstrapModule } from './bootstrap/bootstrap.module';
+import { StadiumConstructionModule } from './stadium-construction.module';
 
 @Module({
   imports: [
@@ -36,6 +37,7 @@ import { BootstrapModule } from './bootstrap/bootstrap.module';
     SchedulerModule,
     TransferModule,
     BootstrapModule,
+    StadiumConstructionModule,
   ],
   controllers: [],
   providers: [],

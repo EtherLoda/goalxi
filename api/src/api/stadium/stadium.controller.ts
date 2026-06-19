@@ -20,6 +20,8 @@ import {
   BuildStadiumReqDto,
   ResizeStadiumReqDto,
 } from './dto/stadium.req.dto';
+import { StartConstructionReqDto } from './dto/start-construction.req.dto';
+import { StadiumConstructionService } from './stadium-construction.service';
 import { StadiumService } from './stadium.service';
 
 @ApiTags('Stadium')
@@ -28,7 +30,10 @@ import { StadiumService } from './stadium.service';
   version: '1',
 })
 export class StadiumController {
-  constructor(private readonly stadiumService: StadiumService) {}
+  constructor(
+    private readonly stadiumService: StadiumService,
+    private readonly constructionService: StadiumConstructionService,
+  ) {}
 
   @Public()
   @Get()
@@ -109,5 +114,25 @@ export class StadiumController {
   @HttpCode(HttpStatus.OK)
   async demolishStadium(@Param('teamId') teamId: Uuid) {
     return this.stadiumService.demolish(teamId);
+  }
+
+  // §5 Stadium — Time-based construction queue.
+  // List active + recently completed projects for a team (Stadium page UI).
+  @Get('constructions')
+  @HttpCode(HttpStatus.OK)
+  async listConstructions(@Param('teamId') teamId: Uuid) {
+    return this.constructionService.listForTeam(teamId);
+  }
+
+  // §5 Stadium — Queue a new expand or demolish project.
+  // Funds are deducted immediately for EXPAND; DEMOLISH refund is recorded on
+  // completion by the settlement processor.
+  @Post('constructions')
+  @HttpCode(HttpStatus.CREATED)
+  async startConstruction(
+    @Param('teamId') teamId: Uuid,
+    @Body() dto: StartConstructionReqDto,
+  ) {
+    return this.constructionService.start(teamId, dto.kind, dto.delta);
   }
 }

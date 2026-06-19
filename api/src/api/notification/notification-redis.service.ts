@@ -32,6 +32,9 @@ export enum NotificationType {
   // System notifications
   TEAM_INVITATION = 'TEAM_INVITATION',
   SYSTEM_MESSAGE = 'SYSTEM_MESSAGE',
+
+  // Stadium notifications
+  STADIUM_CONSTRUCTION_COMPLETED = 'STADIUM_CONSTRUCTION_COMPLETED',
 }
 
 export interface CreateNotificationParams {

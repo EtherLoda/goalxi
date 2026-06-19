@@ -19,6 +19,7 @@ import {
 import { MatchEngine, MatchEvent } from '../engine/match.engine';
 import { Team } from '../engine/classes/Team';
 import {
+  EventCondition,
   TacticalInstruction,
   TacticalPlayer,
 } from '../engine/types/simulation.types';
@@ -164,6 +165,11 @@ export class YouthSimulationProcessor extends WorkerHost {
             newPlayerId: s.in,
             newPosition:
               this.findPositionInLineup(tactics.lineup, s.out) || 'CF',
+            // Forward the user-selected trigger condition. `undefined`
+            // means "always" — the engine treats both the same way.
+            ...((s as { condition?: EventCondition }).condition
+              ? { condition: (s as { condition?: EventCondition }).condition! }
+              : {}),
           });
         }
       }
@@ -186,6 +192,9 @@ export class YouthSimulationProcessor extends WorkerHost {
               type: 'move',
               playerId: m.player,
               newPosition: m.position,
+              ...((m as { condition?: EventCondition }).condition
+                ? { condition: (m as { condition?: EventCondition }).condition! }
+                : {}),
             });
           }
         }

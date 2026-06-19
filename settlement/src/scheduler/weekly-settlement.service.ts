@@ -12,17 +12,20 @@ export class WeeklySettlementService {
     private trainingQueue: Queue,
     @InjectQueue('condition-settlement')
     private conditionQueue: Queue,
+    @InjectQueue('construction-settlement')
+    private constructionQueue: Queue,
   ) {}
 
   /**
-   * Weekly training and condition settlement cron - runs every Thursday at 00:00
-   * Processes training for all teams and updates player skills
-   * Also updates player form based on match appearances
+   * Weekly training, condition, and stadium construction settlement cron.
+   * Runs every Thursday at 00:00. The construction tick decrements
+   * `remaining_weeks` on every queued project and applies capacity changes
+   * to any project that lands on 0 this tick.
    */
   @Cron('0 0 0 * * 4') // Every Thursday at 00:00
   async processWeeklySettlement() {
     this.logger.log(
-      '[WeeklySettlement] Starting weekly training and condition settlement...',
+      '[WeeklySettlement] Starting weekly training, condition, and stadium construction settlement...',
     );
 
     try {
@@ -48,6 +51,18 @@ export class WeeklySettlementService {
       );
       this.logger.log(
         `[WeeklySettlement] Condition settlement job queued! Job ID: ${conditionJob.id}`,
+      );
+
+      // Queue stadium construction settlement
+      const constructionJob = await this.constructionQueue.add(
+        'process-all-stadium-constructions',
+        {},
+        {
+          jobId: `construction-${Date.now()}`,
+        },
+      );
+      this.logger.log(
+        `[WeeklySettlement] Stadium construction settlement job queued! Job ID: ${constructionJob.id}`,
       );
     } catch (error) {
       this.logger.error(

@@ -82,6 +82,8 @@ describe('StadiumService — §5.3 summary & rename', () => {
         demolishRefund: Math.floor(
           10000 * STADIUM_COST_PER_SEAT * STADIUM_DEMOLISH_REFUND_RATE,
         ),
+        // Theoretical max per-matchday revenue at 100% fill.
+        estMatchdayRevenue: 10000 * 20,
       });
     });
 

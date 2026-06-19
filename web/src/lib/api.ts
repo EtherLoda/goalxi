@@ -65,6 +65,33 @@ interface RecentHomeMatch {
   result: 'W' | 'D' | 'L' | null;
 }
 
+/**
+ * §5 Stadium — Time-based construction queue.
+ * Returned by `GET /teams/:teamId/stadium/constructions`. The Stadium page
+ * renders one card per row with a progress bar derived from
+ * `remainingWeeks / totalWeeks`.
+ */
+interface StadiumConstruction {
+  id: string;
+  teamId: string;
+  kind: 'EXPAND' | 'DEMOLISH';
+  deltaSeats: number;
+  startingCapacity: number;
+  endingCapacity: number;
+  totalWeeks: number;
+  remainingWeeks: number;
+  cost: number;
+  refund: number;
+  status: 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED';
+  seasonStarted: number;
+  weekStarted: number;
+  seasonCompleted: number | null;
+  weekCompleted: number | null;
+  completedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
 interface BenchConfig {
   goalkeeper: string | null;
   centerBack: string | null;
@@ -560,6 +587,40 @@ export const api = {
         method: 'PATCH',
         body: JSON.stringify({ delta }),
       });
+    },
+
+    /**
+     * §5 Stadium — Time-based construction queue (new dialog flow).
+     * `kind`: 'expand' deducts funds immediately and adds seats over weeks;
+     *         'demolish' refunds `refund` on completion.
+     */
+    startConstruction: async (
+      teamId: string,
+      params: { kind: 'expand' | 'demolish'; delta: number },
+    ): Promise<{
+      construction: StadiumConstruction;
+      weeks: number;
+      cost: number;
+    }> => {
+      return request(`/teams/${teamId}/stadium/constructions`, {
+        method: 'POST',
+        body: JSON.stringify({
+          kind: params.kind === 'expand' ? 'EXPAND' : 'DEMOLISH',
+          delta: params.delta,
+        }),
+      });
+    },
+
+    /**
+     * List active + recently completed construction projects for a team.
+     * Drives the "Active projects" card on the Stadium page.
+     */
+    listConstructions: async (
+      teamId: string,
+    ): Promise<StadiumConstruction[]> => {
+      return request<StadiumConstruction[]>(
+        `/teams/${teamId}/stadium/constructions`,
+      );
     },
   },
 
@@ -1100,6 +1161,7 @@ export type {
   Team,
   StadiumSummary,
   RecentHomeMatch,
+  StadiumConstruction,
   LoginResponse,
   League,
   Standing,

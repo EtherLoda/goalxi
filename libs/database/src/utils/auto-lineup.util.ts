@@ -14,32 +14,71 @@ export interface LineupResult {
 }
 
 /**
- * Standard formation templates (position keys)
+ * Standard formation templates.
+ *
+ * Each entry's `positions` is the **canonical slot-key list** that ends up in
+ * the persisted `lineup` map (e.g. `CB1`, `CM1`, `CFL`). These are the only
+ * keys the backend `LineupValidator` and the frontend `PITCH_SLOTS` accept.
+ *
+ * For position-fit scoring we translate each slot key through
+ * `SLOT_TO_FIT_POSITION` because `calculatePositionFit` understands the
+ * short player-position codes (`CB`, `CM`, `ST`, …) and not the numbered
+ * slot keys.
  */
 export const FORMATIONS = {
     '4-4-2': {
-        positions: ['LB', 'CB', 'CB', 'RB', 'LM', 'CM', 'CM', 'RM', 'ST', 'ST'],
+        positions: ['LB', 'CB1', 'CB2', 'RB', 'LM', 'CM1', 'CM2', 'RM', 'CFL', 'CFR'],
         label: '4-4-2',
     },
     '4-3-3': {
-        positions: ['LB', 'CB', 'CB', 'RB', 'LM', 'CM', 'CM', 'RM', 'LW', 'ST', 'RW'],
+        positions: ['LB', 'CB1', 'CB2', 'RB', 'LM', 'CM1', 'CM2', 'RM', 'LW', 'CF', 'RW'],
         label: '4-3-3',
     },
     '4-2-3-1': {
-        positions: ['LB', 'CB', 'CB', 'RB', 'DM', 'DM', 'LW', 'AM', 'RW', 'ST'],
+        positions: ['LB', 'CB1', 'CB2', 'RB', 'DMF1', 'DMF2', 'LW', 'CAM1', 'CAM2', 'CAM3', 'CF'],
         label: '4-2-3-1',
     },
     '3-5-2': {
-        positions: ['CB', 'CB', 'CB', 'LM', 'CM', 'CM', 'CM', 'RM', 'ST', 'ST'],
+        positions: ['CB1', 'CB2', 'CB3', 'LM', 'CM1', 'CM2', 'CM3', 'RM', 'CFL', 'CFR'],
         label: '3-5-2',
     },
     '5-3-2': {
-        positions: ['LB', 'CB', 'CB', 'CB', 'RB', 'LM', 'CM', 'CM', 'RM', 'ST', 'ST'],
+        positions: ['LWB', 'CB1', 'CB2', 'CB3', 'RWB', 'LM', 'CM1', 'CM2', 'RM', 'CFL', 'CFR'],
         label: '5-3-2',
     },
 } as const;
 
 export type FormationKey = keyof typeof FORMATIONS;
+
+/**
+ * Translate a canonical pitch slot key into the short position code that
+ * `calculatePositionFit` understands. Used to score candidates during the
+ * greedy lineup assignment.
+ */
+const SLOT_TO_FIT_POSITION: Readonly<Record<string, string>> = {
+    CB1: 'CB',
+    CB2: 'CB',
+    CB3: 'CB',
+    LWB: 'LWB',
+    RWB: 'RWB',
+    DMF1: 'DM',
+    DMF2: 'DM',
+    DMF3: 'DM',
+    CM1: 'CM',
+    CM2: 'CM',
+    CM3: 'CM',
+    CAM1: 'AM',
+    CAM2: 'AM',
+    CAM3: 'AM',
+    LM: 'LM',
+    RM: 'RM',
+    LW: 'LW',
+    RW: 'RW',
+    CFL: 'CFL',
+    CF: 'CF',
+    CFR: 'CFR',
+    // LB / RB / GK are 1:1 with their fit codes and left out for clarity.
+};
 
 /**
  * Convert PlayerEntity to SimulationPlayerAttributes for position fit calculation
@@ -102,23 +141,24 @@ export function generateAutoLineup(
     }
 
     // For each formation position, find best unassigned player
-    for (const posKey of formationConfig.positions) {
+    for (const slotKey of formationConfig.positions) {
         const candidates = outfieldPlayers.filter((p) => !assignedPlayers.has(p.id));
         if (candidates.length === 0) break;
 
-        // Score each candidate by position fit
+        // Score each candidate by position fit (translate slot → fit code)
+        const fitKey = SLOT_TO_FIT_POSITION[slotKey] ?? slotKey;
         let bestPlayer = candidates[0];
-        let bestScore = calculatePositionFit(playerToAttributes(bestPlayer), posKey);
+        let bestScore = calculatePositionFit(playerToAttributes(bestPlayer), fitKey);
 
         for (const candidate of candidates.slice(1)) {
-            const score = calculatePositionFit(playerToAttributes(candidate), posKey);
+            const score = calculatePositionFit(playerToAttributes(candidate), fitKey);
             if (score > bestScore) {
                 bestScore = score;
                 bestPlayer = candidate;
             }
         }
 
-        lineup[posKey] = bestPlayer.id;
+        lineup[slotKey] = bestPlayer.id;
         assignedPlayers.add(bestPlayer.id);
     }
 

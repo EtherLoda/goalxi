@@ -22,18 +22,18 @@ import setupSwagger from './utils/setup-swagger';
 // Computed at module-load time so the logger transport can branch on it
 // before NestFactory boots. `configService.getOrThrow('app.nodeEnv')` would
 // also work, but it requires the config module to be initialized first.
-const isDevelopment =
-  (process.env.NODE_ENV || 'development') === 'development';
+const isDevelopment = (process.env.NODE_ENV || 'development') === 'development';
 
 const logger = new PinoLoggerService({
-  level: (process.env.APP_LOG_LEVEL as
-    | 'fatal'
-    | 'error'
-    | 'warn'
-    | 'info'
-    | 'debug'
-    | 'trace'
-    | undefined) ?? (isDevelopment ? 'debug' : 'warn'),
+  level:
+    (process.env.APP_LOG_LEVEL as
+      | 'fatal'
+      | 'error'
+      | 'warn'
+      | 'info'
+      | 'debug'
+      | 'trace'
+      | undefined) ?? (isDevelopment ? 'debug' : 'warn'),
   service: 'api',
   isDevelopment,
   // File-rolling options are only used in production. Safe to pass

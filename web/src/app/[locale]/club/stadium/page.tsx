@@ -5,12 +5,16 @@ import { useParams } from "next/navigation";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { useAuth } from "@/contexts/AuthContext";
-import { api, type RecentHomeMatch, type StadiumSummary } from "@/lib/api";
+import {
+  api,
+  type RecentHomeMatch,
+  type StadiumConstruction,
+  type StadiumSummary,
+} from "@/lib/api";
 import { useCurrentTeamId } from "@/stores/gameStore";
+import { ConstructionDialog } from "@/components/club/ConstructionDialog";
 
 type Locale = "en" | "zh";
-
-const SEAT_STEP = 500;
 
 /** 把 0-1 的上座率渲染成球场座位 — 用「按行 hash 决定是否点亮」的方式,
  *  不需要后端返回真实座位图,只在客户端渲染纯装饰。
@@ -103,6 +107,8 @@ export default function StadiumPage() {
   const t = useTranslations("club.stadiumPage");
   const tCommon = useTranslations();
   const tStadium = useTranslations("club.stadium");
+  const tConstruction = useTranslations("club.stadiumPage.construction");
+  const tDialog = useTranslations("club.stadiumPage.constructionDialog");
   const params = useParams();
   const { user, isLoading: authLoading } = useAuth();
   const currentTeamId = useCurrentTeamId();
@@ -110,25 +116,26 @@ export default function StadiumPage() {
 
   const [summary, setSummary] = useState<StadiumSummary | null>(null);
   const [recent, setRecent] = useState<RecentHomeMatch[]>([]);
+  const [constructions, setConstructions] = useState<StadiumConstruction[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // 座位调整状态
-  const [adjustDelta, setAdjustDelta] = useState<number>(SEAT_STEP);
-  const [pendingAction, setPendingAction] = useState<
-    "expand" | "demolish" | "demolishAll" | null
-  >(null);
-  const [adjustError, setAdjustError] = useState<string | null>(null);
-  const [demolishAllConfirm, setDemolishAllConfirm] = useState("");
+  // Dialog state
+  const [dialogKind, setDialogKind] = useState<"expand" | "demolish" | null>(
+    null,
+  );
+  const [toast, setToast] = useState<string | null>(null);
 
   const refresh = async () => {
     if (!currentTeamId) return;
-    const [s, r] = await Promise.all([
+    const [s, r, c] = await Promise.all([
       api.stadium.getSummary(currentTeamId).catch(() => null),
       api.stadium.getRecentHomeMatches(currentTeamId, 6).catch(() => []),
+      api.stadium.listConstructions(currentTeamId).catch(() => []),
     ]);
     setSummary(s);
     setRecent(r);
+    setConstructions(c);
   };
 
   useEffect(() => {
@@ -143,6 +150,13 @@ export default function StadiumPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentTeamId, tCommon]);
 
+  // Auto-dismiss toast
+  useEffect(() => {
+    if (!toast) return;
+    const id = setTimeout(() => setToast(null), 4_000);
+    return () => clearTimeout(id);
+  }, [toast]);
+
   const fillRate = summary?.lastHomeFillRate ?? 0;
   const avgAttendance = summary?.currentSeasonAvgAttendance;
   const occupancyText = useMemo(() => {
@@ -150,50 +164,33 @@ export default function StadiumPage() {
     return `${Math.round(fillRate * 100)}%`;
   }, [fillRate]);
 
-  const seatCost = summary ? adjustDelta * summary.seatAdjustCost : 0;
-  const seatRefund = summary ? Math.floor(adjustDelta * summary.seatDemolishRefund) : 0;
+  const activeConstructions = constructions.filter(
+    (c) => c.status === "IN_PROGRESS",
+  );
+  const completedConstructions = constructions.filter(
+    (c) => c.status === "COMPLETED",
+  );
+  const blockedByActive = activeConstructions.length > 0;
 
-  const handleExpand = async () => {
-    if (!currentTeamId || adjustDelta <= 0) return;
-    setPendingAction("expand");
-    setAdjustError(null);
-    try {
-      await api.stadium.adjustSeats(currentTeamId, adjustDelta);
-      await refresh();
-    } catch (err: unknown) {
-      setAdjustError(err instanceof Error ? err.message : tCommon("common.error"));
-    } finally {
-      setPendingAction(null);
-    }
-  };
-
-  const handleDemolishSeats = async () => {
-    if (!currentTeamId || adjustDelta <= 0) return;
-    setPendingAction("demolish");
-    setAdjustError(null);
-    try {
-      await api.stadium.adjustSeats(currentTeamId, -adjustDelta);
-      await refresh();
-    } catch (err: unknown) {
-      setAdjustError(err instanceof Error ? err.message : tCommon("common.error"));
-    } finally {
-      setPendingAction(null);
-    }
-  };
-
-  const handleDemolishAll = async () => {
-    if (!currentTeamId || demolishAllConfirm !== "demolish") return;
-    setPendingAction("demolishAll");
-    setAdjustError(null);
-    try {
-      await api.stadium.demolish(currentTeamId);
-      await refresh();
-    } catch (err: unknown) {
-      setAdjustError(err instanceof Error ? err.message : tCommon("common.error"));
-    } finally {
-      setPendingAction(null);
-      setDemolishAllConfirm("");
-    }
+  const handleDialogSuccess = async (info: {
+    delta: number;
+    weeks: number;
+    cost: number;
+  }) => {
+    const wasKind = dialogKind;
+    setDialogKind(null);
+    setToast(
+      wasKind === "demolish"
+        ? tConstruction("queuedDemolishToast", {
+            delta: info.delta.toLocaleString(),
+            weeks: tConstruction("weeksValue", { n: info.weeks }),
+          })
+        : tConstruction("queuedExpandToast", {
+            delta: info.delta.toLocaleString(),
+            weeks: tConstruction("weeksValue", { n: info.weeks }),
+          }),
+    );
+    await refresh();
   };
 
   if (authLoading) {
@@ -234,6 +231,12 @@ export default function StadiumPage() {
       {error && (
         <div className="px-4 py-3 rounded-lg border border-error/30 bg-error/10 text-error text-sm">
           {error}
+        </div>
+      )}
+
+      {toast && (
+        <div className="fixed top-6 left-1/2 -translate-x-1/2 z-40 px-4 py-2 rounded-lg bg-surface-container-highest border border-primary/30 text-on-surface font-body text-sm shadow-lg">
+          {toast}
         </div>
       )}
 
@@ -322,12 +325,94 @@ export default function StadiumPage() {
             </div>
           </section>
 
+          {/* Construction — dialog-driven queue */}
+          <section className="bg-surface-container-low rounded-2xl p-6 border border-outline-variant/10">
+            <header className="flex items-center justify-between mb-5">
+              <div>
+                <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.3em] text-on-surface-variant mb-1">
+                  <span className="material-symbols-outlined text-base">
+                    construction
+                  </span>
+                  <span>{tConstruction("eyebrow")}</span>
+                </div>
+                <h3 className="font-headline text-xl font-black text-on-surface">
+                  {tConstruction("title")}
+                </h3>
+                <p className="text-xs text-on-surface-variant mt-1 max-w-xl">
+                  {tConstruction("subtitle")}
+                </p>
+              </div>
+            </header>
+
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setDialogKind("expand")}
+                disabled={blockedByActive}
+                className="inline-flex items-center gap-1.5 rounded-full border border-primary/30 bg-primary/5 px-3 py-1.5 text-[10px] font-black uppercase tracking-widest text-primary hover:bg-primary/15 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                <span className="material-symbols-outlined text-sm leading-none">
+                  add
+                </span>
+                {tConstruction("expandCta")}
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setDialogKind("demolish")}
+                disabled={blockedByActive}
+                className="inline-flex items-center gap-1.5 rounded-full border border-error/30 bg-error/5 px-3 py-1.5 text-[10px] font-black uppercase tracking-widest text-error hover:bg-error/15 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                <span className="material-symbols-outlined text-sm leading-none">
+                  remove
+                </span>
+                {tConstruction("demolishCta")}
+              </button>
+            </div>
+
+            {blockedByActive && (
+              <p className="mt-4 text-xs text-on-surface-variant">
+                {tDialog("oneAtATime")}
+              </p>
+            )}
+          </section>
+
+          {/* Active constructions */}
+          {activeConstructions.length > 0 && (
+            <section className="bg-surface-container-low rounded-2xl p-6 border border-outline-variant/10 space-y-3">
+              <header className="flex items-center gap-2 mb-2">
+                <span className="material-symbols-outlined text-base text-primary">
+                  schedule
+                </span>
+                <h3 className="font-headline text-base font-bold text-on-surface">
+                  {tConstruction("activeProjects")}
+                </h3>
+              </header>
+              {activeConstructions.map((c) => (
+                <ActiveConstructionCard
+                  key={c.id}
+                  construction={c}
+                  locale={locale}
+                  labels={{
+                    weeksLeft: tConstruction("weeksLeft", { n: c.remainingWeeks }),
+                    eta: tConstruction("eta", {
+                      season: c.seasonStarted,
+                      week: c.weekStarted + c.totalWeeks,
+                    }),
+                  }}
+                />
+              ))}
+            </section>
+          )}
+
           {/* Recent matches */}
           <section className="bg-surface-container-low rounded-2xl p-6 border border-outline-variant/10">
             <div className="flex items-center justify-between mb-5">
               <div>
                 <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.3em] text-on-surface-variant mb-1">
-                  <span className="material-symbols-outlined text-base">history</span>
+                  <span className="material-symbols-outlined text-base">
+                    history
+                  </span>
                   <span>{t("recentMatches.eyebrow")}</span>
                 </div>
                 <h3 className="font-headline text-xl font-black text-on-surface">
@@ -368,159 +453,138 @@ export default function StadiumPage() {
             )}
           </section>
 
-          {/* Adjust seats */}
-          <section className="bg-surface-container-low rounded-2xl p-6 border border-outline-variant/10">
-            <div className="flex items-center justify-between mb-5">
-              <div>
-                <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.3em] text-on-surface-variant mb-1">
-                  <span className="material-symbols-outlined text-base">construction</span>
-                  <span>{t("adjust.eyebrow")}</span>
-                </div>
-                <h3 className="font-headline text-xl font-black text-on-surface">
-                  {t("adjust.title")}
+          {/* Recently completed constructions */}
+          {completedConstructions.length > 0 && (
+            <section className="bg-surface-container-low rounded-2xl p-6 border border-outline-variant/10 space-y-2">
+              <header className="flex items-center gap-2 mb-2">
+                <span className="material-symbols-outlined text-base text-on-surface-variant">
+                  check_circle
+                </span>
+                <h3 className="font-headline text-sm font-bold uppercase tracking-widest text-on-surface-variant">
+                  {tConstruction("recentProjects")}
                 </h3>
-                <p className="text-xs text-on-surface-variant mt-1 max-w-xl">
-                  {t("adjust.subtitle")}
-                </p>
-              </div>
-            </div>
-
-            {adjustError && (
-              <div className="mb-4 px-4 py-3 rounded-lg border border-error/30 bg-error/10 text-error text-sm">
-                {adjustError}
-              </div>
-            )}
-
-            <div className="grid grid-cols-1 lg:grid-cols-[1fr_auto_auto] gap-4 items-end">
-              {/* Step picker */}
-              <div>
-                <label className="block font-label text-[10px] font-black uppercase tracking-widest text-on-surface-variant mb-1.5">
-                  {t("adjust.stepLabel")}
-                </label>
-                <div className="flex items-center gap-2">
-                  {[1000, 2000, 5000, 10000].map((s) => (
-                    <button
-                      key={s}
-                      type="button"
-                      onClick={() => setAdjustDelta(s)}
-                      className={
-                        "px-3 py-2 rounded-lg font-headline text-xs font-bold transition-colors " +
-                        (adjustDelta === s
-                          ? "bg-primary text-on-primary"
-                          : "bg-surface-container text-on-surface-variant hover:bg-surface-container-high")
-                      }
-                    >
-                      +{s.toLocaleString()}
-                    </button>
-                  ))}
-                </div>
-                <p className="text-[10px] text-on-surface-variant mt-2">
-                  {t("adjust.minStep", { step: SEAT_STEP.toLocaleString() })}
-                </p>
-              </div>
-
-              {/* Expand */}
-              <div className="rounded-xl border border-primary/30 bg-primary/5 p-4 min-w-[200px]">
-                <div className="text-[10px] font-black uppercase tracking-widest text-primary mb-1">
-                  {t("adjust.expandTitle")}
-                </div>
-                <div className="font-headline text-2xl font-black text-on-surface">
-                  −{seatCost.toLocaleString()}
-                </div>
-                <div className="text-[10px] text-on-surface-variant mt-1">
-                  {t("adjust.costHint", {
-                    next: (summary.capacity + adjustDelta).toLocaleString(),
-                  })}
-                </div>
-                <button
-                  type="button"
-                  onClick={handleExpand}
-                  disabled={
-                    pendingAction !== null ||
-                    seatCost === 0 ||
-                    summary.capacity + adjustDelta > 200_000
-                  }
-                  className="mt-3 w-full px-3 py-2 rounded-lg bg-primary text-on-primary font-headline text-xs font-bold uppercase tracking-widest disabled:opacity-40 hover:opacity-90 transition-opacity flex items-center justify-center gap-1.5"
-                >
-                  <span className="material-symbols-outlined text-base">add</span>
-                  {pendingAction === "expand"
-                    ? t("adjust.expanding")
-                    : t("adjust.expand")}
-                </button>
-              </div>
-
-              {/* Demolish */}
-              <div className="rounded-xl border border-error/30 bg-error/5 p-4 min-w-[200px]">
-                <div className="text-[10px] font-black uppercase tracking-widest text-error mb-1">
-                  {t("adjust.demolishTitle")}
-                </div>
-                <div className="font-headline text-2xl font-black text-on-surface">
-                  +{seatRefund.toLocaleString()}
-                </div>
-                <div className="text-[10px] text-on-surface-variant mt-1">
-                  {t("adjust.refundHint", {
-                    next: Math.max(0, summary.capacity - adjustDelta).toLocaleString(),
-                  })}
-                </div>
-                <button
-                  type="button"
-                  onClick={handleDemolishSeats}
-                  disabled={
-                    pendingAction !== null ||
-                    seatRefund === 0 ||
-                    summary.capacity - adjustDelta < 1000
-                  }
-                  className="mt-3 w-full px-3 py-2 rounded-lg border border-error/40 bg-error/15 text-error font-headline text-xs font-bold uppercase tracking-widest disabled:opacity-40 hover:bg-error/25 transition-colors flex items-center justify-center gap-1.5"
-                >
-                  <span className="material-symbols-outlined text-base">remove</span>
-                  {pendingAction === "demolish"
-                    ? t("adjust.demolishing")
-                    : t("adjust.demolishSeats")}
-                </button>
-              </div>
-            </div>
-
-            {/* Full demolish — destructive */}
-            <div className="mt-6 pt-6 border-t border-outline-variant/10">
-              <div className="flex flex-wrap items-center gap-3">
-                <div className="flex-1 min-w-[240px]">
-                  <div className="font-headline text-sm font-bold text-error uppercase tracking-widest">
-                    {tStadium("demolishTitle")}
-                  </div>
-                  <p className="text-xs text-on-surface-variant mt-1">
-                    {tStadium("demolishWarn")}
-                  </p>
-                  <p className="text-[10px] text-on-surface-variant mt-1">
-                    {t("adjust.fullRefund", {
-                      refund: summary.demolishRefund.toLocaleString(),
-                    })}
-                  </p>
-                </div>
-                <input
-                  type="text"
-                  value={demolishAllConfirm}
-                  onChange={(e) => setDemolishAllConfirm(e.target.value)}
-                  placeholder={tStadium("demolishConfirmPlaceholder")}
-                  className="px-3 py-2 bg-surface-container border border-outline-variant/20 rounded-lg font-mono text-xs text-on-surface focus:outline-none focus:border-error w-44"
-                />
-                <button
-                  type="button"
-                  onClick={handleDemolishAll}
-                  disabled={
-                    pendingAction !== null || demolishAllConfirm !== "demolish"
-                  }
-                  className="px-4 py-2.5 rounded-lg border border-error/40 bg-error/15 text-error font-headline text-xs font-bold uppercase tracking-widest disabled:opacity-40 hover:bg-error/25 transition-colors flex items-center gap-1.5"
-                >
-                  <span className="material-symbols-outlined text-base">delete_forever</span>
-                  {pendingAction === "demolishAll"
-                    ? tStadium("demolishing")
-                    : tStadium("demolish")}
-                </button>
-              </div>
-            </div>
-          </section>
+              </header>
+              {completedConstructions.slice(0, 3).map((c) => (
+                <CompletedConstructionRow key={c.id} construction={c} />
+              ))}
+            </section>
+          )}
         </>
       )}
+
+      {dialogKind && summary && (
+        <ConstructionDialog
+          kind={dialogKind}
+          teamId={currentTeamId}
+          currentCapacity={summary.capacity}
+          costPerSeat={summary.seatAdjustCost}
+          currentEstMatchdayRevenue={summary.estMatchdayRevenue}
+          onCancel={() => setDialogKind(null)}
+          onSuccess={handleDialogSuccess}
+        />
+      )}
+    </div>
+  );
+}
+
+function ActiveConstructionCard({
+  construction,
+  labels,
+}: {
+  construction: StadiumConstruction;
+  locale: Locale;
+  labels: { weeksLeft: string; eta: string };
+}) {
+  const isExpand = construction.kind === "EXPAND";
+  const progressPct = Math.min(
+    100,
+    Math.max(
+      0,
+      ((construction.totalWeeks - construction.remainingWeeks) /
+        construction.totalWeeks) *
+        100,
+    ),
+  );
+  const sign = isExpand ? "+" : "−";
+  return (
+    <div className="rounded-xl border border-outline-variant/15 bg-surface-container/40 p-4">
+      <div className="flex items-start justify-between gap-3 mb-3">
+        <div>
+          <div
+            className={
+              "text-[10px] font-black uppercase tracking-widest mb-0.5 " +
+              (isExpand ? "text-primary" : "text-error")
+            }
+          >
+            {isExpand ? "Expand" : "Demolish"}
+          </div>
+          <div className="font-headline text-xl font-black text-on-surface tabular-nums">
+            {sign}
+            {construction.deltaSeats.toLocaleString()}{" "}
+            <span className="text-xs text-on-surface-variant font-body font-normal">
+              seats
+            </span>
+          </div>
+          <div className="text-[10px] text-on-surface-variant mt-1">
+            {construction.startingCapacity.toLocaleString()} →{" "}
+            {construction.endingCapacity.toLocaleString()}
+          </div>
+        </div>
+        <div className="text-right">
+          <div className="font-headline text-sm font-bold text-on-surface">
+            {labels.weeksLeft}
+          </div>
+          <div className="text-[10px] text-on-surface-variant mt-0.5">
+            {labels.eta}
+          </div>
+        </div>
+      </div>
+      <div className="h-2 rounded-full bg-surface-container overflow-hidden">
+        <div
+          className={
+            "h-full transition-[width] duration-700 " +
+            (isExpand
+              ? "bg-gradient-to-r from-primary via-primary to-amber-300"
+              : "bg-gradient-to-r from-error via-error to-amber-300")
+          }
+          style={{ width: `${Math.round(progressPct)}%` }}
+        />
+      </div>
+    </div>
+  );
+}
+
+function CompletedConstructionRow({
+  construction,
+}: {
+  construction: StadiumConstruction;
+}) {
+  const isExpand = construction.kind === "EXPAND";
+  const sign = isExpand ? "+" : "−";
+  return (
+    <div className="flex items-center justify-between gap-3 px-3 py-2 rounded-lg bg-surface-container/40 border border-outline-variant/10 text-xs">
+      <div className="flex items-center gap-2">
+        <span
+          className={
+            "material-symbols-outlined text-base " +
+            (isExpand ? "text-primary" : "text-error")
+          }
+        >
+          {isExpand ? "trending_up" : "trending_down"}
+        </span>
+        <span className="font-headline text-on-surface tabular-nums">
+          {sign}
+          {construction.deltaSeats.toLocaleString()}
+        </span>
+        <span className="text-on-surface-variant">
+          → {construction.endingCapacity.toLocaleString()}
+        </span>
+      </div>
+      <span className="text-[10px] text-on-surface-variant">
+        {construction.completedAt
+          ? new Date(construction.completedAt).toLocaleDateString()
+          : "—"}
+      </span>
     </div>
   );
 }

@@ -1,8 +1,7 @@
 "use client";
 
 import { useTranslations } from "next-intl";
-
-const SKILL_MAX = 20;
+import { CATEGORY_COLORS, SKILL_CATEGORIES, SKILL_MAX, formatSkillLabel, getCategoryName } from "./skill-display";
 
 interface SkillBarProps {
   label: string;
@@ -71,13 +70,6 @@ interface PlayerStatsCardProps {
   onClick?: () => void;
 }
 
-const CATEGORY_COLORS: Record<string, string> = {
-  physical: "text-[#a1ffc2]",
-  technical: "text-[#60a5fa]",
-  mental: "text-[#c084fc]",
-  setPieces: "text-[#fbbf24]",
-};
-
 export default function PlayerStatsCard({
   player,
   skillBreakdown,
@@ -102,43 +94,6 @@ export default function PlayerStatsCard({
       : formOrCondition >= 2
         ? "text-[#abf853]"
         : "text-red-400";
-
-  const SKILL_LABELS: Record<string, { en: string; zh: string }> = {
-    pace: { en: "Pace", zh: "速度" },
-    strength: { en: "Strength", zh: "力量" },
-    tackling: { en: "Tackle", zh: "抢断" },
-    shooting: { en: "Shoot", zh: "射门" },
-    passing: { en: "Pass", zh: "传球" },
-    dribbling: { en: "Dribble", zh: "盘带" },
-    crossing: { en: "Cross", zh: "传中" },
-    finishing: { en: "Finish", zh: "终结" },
-    heading: { en: "Header", zh: "头球" },
-    positioning: { en: "Posit", zh: "位置" },
-    composure: { en: "Comps", zh: "镇定" },
-    vision: { en: "Vision", zh: "视野" },
-    freeKicks: { en: "FKick", zh: "任意球" },
-    penalties: { en: "Penalt", zh: "点球" },
-    agility: { en: "Agility", zh: "敏捷" },
-    reflexes: { en: "Reflex", zh: "反应" },
-    handling: { en: "Handle", zh: "扑救" },
-  };
-
-  const getSkillLabel = (skill: string) => {
-    const lower = skill.toLowerCase();
-    if (SKILL_LABELS[lower]) {
-      return locale === "zh" ? SKILL_LABELS[lower].zh : SKILL_LABELS[lower].en;
-    }
-    return skill.charAt(0).toUpperCase() + skill.slice(1);
-  };
-
-  const formatSkillLabel = (skill: string) => getSkillLabel(skill);
-
-  const categoryNames = {
-    physical: locale === "zh" ? "体能" : "Physical",
-    technical: locale === "zh" ? "技术" : "Technical",
-    mental: locale === "zh" ? "心智" : "Mental",
-    setPieces: locale === "zh" ? "定位球" : "Set Pieces",
-  };
 
   // Build skills data from skillBreakdown or currentSkills
   let skillsData: SkillData[] = [];
@@ -218,17 +173,17 @@ export default function PlayerStatsCard({
         {/* Skills Grid - 2 columns - only show if compactShowSkills is true */}
         {compactShowSkills && (
           <div className="grid grid-cols-2 gap-3">
-            {(["physical", "technical", "mental", "setPieces"] as const).map((cat) => {
+            {SKILL_CATEGORIES.map((cat) => {
               const catSkills = skillsByCategory[cat];
               if (!catSkills || catSkills.length === 0) return null;
               return (
                 <div key={cat}>
-                  <div className="text-[8px] text-[#4a7a6a] uppercase mb-1">{categoryNames[cat]}</div>
+                  <div className="text-[8px] text-[#4a7a6a] uppercase mb-1">{getCategoryName(cat, locale as 'en' | 'zh')}</div>
                   <div className="space-y-1">
                     {catSkills.slice(0, 2).map((sk) => (
                       <SkillBar
                         key={sk.skill}
-                        label={formatSkillLabel(sk.skill)}
+                        label={formatSkillLabel(sk.skill, locale as 'en' | 'zh')}
                         current={sk.current}
                         potential={sk.potential}
                         colorClass={CATEGORY_COLORS[cat] || "text-[#a1ffc2]"}
@@ -273,7 +228,7 @@ export default function PlayerStatsCard({
 
       {/* Skills */}
       <div className="grid grid-cols-2 gap-4">
-        {(["physical", "technical", "mental", "setPieces"] as const).map((cat) => {
+        {SKILL_CATEGORIES.map((cat) => {
           const catSkills = skillsByCategory[cat];
           if (!catSkills || catSkills.length === 0) return null;
           return (
@@ -281,14 +236,14 @@ export default function PlayerStatsCard({
               <div className="flex items-center gap-1.5 mb-2">
                 <div className={`w-1 h-3 rounded-full ${CATEGORY_COLORS[cat]?.replace("text-", "bg-") || "bg-[#a1ffc2]"}`} />
                 <span className="text-[10px] font-black uppercase tracking-widest text-[#91b2a6]">
-                  {categoryNames[cat]}
+                  {getCategoryName(cat, locale as 'en' | 'zh')}
                 </span>
               </div>
               <div className="space-y-2">
                 {catSkills.map((sk) => (
                   <SkillBar
                     key={sk.skill}
-                    label={formatSkillLabel(sk.skill)}
+                    label={formatSkillLabel(sk.skill, locale as 'en' | 'zh')}
                     current={sk.current}
                     potential={sk.potential}
                     colorClass={CATEGORY_COLORS[cat] || "text-[#a1ffc2]"}

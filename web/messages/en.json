@@ -471,7 +471,8 @@
     "playerSold": "Sold {player} for {amount}",
     "auctionOutbid": "You've been outbid on {player}",
     "auctionWon": "You won the auction for {player}!",
-    "auctionLost": "You lost the auction for {player}"
+    "auctionLost": "You lost the auction for {player}",
+    "stadiumConstructionCompleted": "Stadium construction complete — capacity now {newCapacity}"
   },
   "commentary": {
     "goal": {
@@ -637,12 +638,12 @@
         "form": "Form",
         "name": "Name"
       },
-      "filter": {
-        "all": "All",
-        "gk": "GK",
-        "def": "DEF",
-        "mid": "MID",
-        "fwd": "FWD"
+      "density": {
+        "label": "Card density",
+        "compact": "Compact",
+        "detailed": "Detailed",
+        "compactAria": "Switch to compact card view",
+        "detailedAria": "Switch to detailed card view"
       }
     },
     "dimensions": {
@@ -653,7 +654,9 @@
     },
     "events": {
       "title": "Tactical Changes",
+      "subtitle": "Schedule subs & moves",
       "add": "Add",
+      "addSub": "Add Substitution",
       "sub": "Sub",
       "move": "Move",
       "minute": "Min",
@@ -661,7 +664,26 @@
       "in": "In",
       "player": "Player",
       "newPosition": "New Position",
-      "empty": "No changes planned"
+      "empty": "No changes planned",
+      "minuteSuffix": "'",
+      "deleteAria": "Remove change",
+      "selectPlayer": "Select player",
+      "selectPosition": "Select position",
+      "roleGk": "GK",
+      "roleOutfielder": "Outfielder",
+      "overallLabel": "OVR {value}",
+      "searchPlaceholder": "Search…",
+      "noMatches": "No matches",
+      "outLabel": "Out",
+      "inLabel": "In",
+      "condition": {
+        "always": "Always",
+        "leading": "If Leading",
+        "trailing": "If Trailing",
+        "tied": "If Tied",
+        "notLeading": "If Not Leading",
+        "notTrailing": "If Not Trailing"
+      }
     },
     "presets": {
       "title": "Presets",
@@ -827,6 +849,47 @@
         "demolishing": "Removing...",
         "refundHint": "→ {next} seats total",
         "fullRefund": "Full demolish refund: {refund}"
+      },
+      "construction": {
+        "eyebrow": "Construction",
+        "title": "Stadium Construction",
+        "subtitle": "Queue expansions or demolitions. Projects complete over multiple weeks — you'll get a notification when ready.",
+        "expandCta": "Queue expansion",
+        "demolishCta": "Queue demolition",
+        "activeProjects": "Active projects",
+        "noProjects": "No projects in progress.",
+        "recentProjects": "Recently completed",
+        "queued": "Queued",
+        "inProgress": "In progress",
+        "completed": "Completed",
+        "weeksLeft": "{n, plural, one {# week left} other {# weeks left}}",
+        "weeksTotal": "{n, plural, one {# week} other {# weeks}}",
+        "queuedAt": "Queued S{season}W{week}",
+        "eta": "ETA S{season}W{week}",
+        "summaryExpand": "+{delta} seats over {weeks} ({cost})",
+        "summaryDemolish": "-{delta} seats over {weeks} (refund {refund} on completion)",
+        "queuedExpandToast": "Expansion queued: +{delta} seats, completes in {weeks}.",
+        "queuedDemolishToast": "Demolition queued: -{delta} seats, completes in {weeks}."
+      },
+      "constructionDialog": {
+        "titleExpand": "Queue Expansion",
+        "titleDemolish": "Queue Demolition",
+        "dragLabel": "Seats to change",
+        "previewCurrent": "Current capacity",
+        "previewNext": "After completion",
+        "revenueCurrent": "Current matchday rev.",
+        "revenueNext": "After matchday rev.",
+        "costLabel": "Upfront cost",
+        "refundLabel": "Refund on completion",
+        "weeksLabel": "Construction time",
+        "weeksValue": "{n, plural, one {# week} other {# weeks}}",
+        "confirmExpand": "Confirm expansion",
+        "confirmDemolish": "Confirm demolition",
+        "cancel": "Cancel",
+        "oneAtATime": "You already have a construction in progress.",
+        "submitting": "Queueing…",
+        "minHint": "Min {min} seats",
+        "maxHint": "Max {max} seats"
       }
     },
     "training": {

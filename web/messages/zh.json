@@ -456,11 +456,12 @@
     "playerSkillDecreased": "{player} 的 {skill} 下降到 {value}",
     "playerInjured": "{player} 受伤了",
     "playerRecovered": "{player} 已从伤病中恢复",
-    "playerPurchased": "签下 {player}，花费 {amount}",
-    "playerSold": "出售 {player}，收入 {amount}",
+    "playerPurchased": "签下 {player},花费 {amount}",
+    "playerSold": "出售 {player},收入 {amount}",
     "auctionOutbid": "你在 {player} 的竞拍中被超越",
-    "auctionWon": "你赢得了 {player} 的竞拍！",
-    "auctionLost": "你未能赢得 {player} 的竞拍"
+    "auctionWon": "你赢得了 {player} 的竞拍!",
+    "auctionLost": "你未能赢得 {player} 的竞拍",
+    "stadiumConstructionCompleted": "球场工程完工 — 容量更新为 {newCapacity}"
   },
   "commentary": {
     "goal": {
@@ -626,12 +627,12 @@
         "form": "状态",
         "name": "姓名"
       },
-      "filter": {
-        "all": "全部",
-        "gk": "门将",
-        "def": "后卫",
-        "mid": "中场",
-        "fwd": "前锋"
+      "density": {
+        "label": "卡片密度",
+        "compact": "精简",
+        "detailed": "详细",
+        "compactAria": "切换为精简卡片视图",
+        "detailedAria": "切换为详细卡片视图"
       }
     },
     "dimensions": {
@@ -641,16 +642,37 @@
       "defensiveLine": { "label": "防线高度", "low": "低", "mid": "中", "high": "高" }
     },
     "events": {
-      "title": "战术调整",
+      "title": "战术变化",
+      "subtitle": "安排换人 / 变阵",
       "add": "添加",
+      "addSub": "添加换人",
       "sub": "换人",
       "move": "移位",
-      "minute": "分钟",
+      "minute": "分",
       "out": "下",
       "in": "上",
       "player": "球员",
       "newPosition": "新位置",
-      "empty": "暂无调整"
+      "empty": "暂无调整",
+      "minuteSuffix": "'",
+      "deleteAria": "删除该变化",
+      "selectPlayer": "选择球员",
+      "selectPosition": "选择位置",
+      "roleGk": "门将",
+      "roleOutfielder": "场上",
+      "overallLabel": "OVR {value}",
+      "searchPlaceholder": "搜索…",
+      "noMatches": "无匹配",
+      "outLabel": "下",
+      "inLabel": "上",
+      "condition": {
+        "always": "始终",
+        "leading": "领先时",
+        "trailing": "落后时",
+        "tied": "平局时",
+        "notLeading": "未领先时",
+        "notTrailing": "未落后时"
+      }
     },
     "presets": {
       "title": "战术预设",
@@ -816,6 +838,47 @@
         "demolishing": "移除中...",
         "refundHint": "→ 合计 {next} 座",
         "fullRefund": "完整拆除返还: {refund}"
+      },
+      "construction": {
+        "eyebrow": "施工",
+        "title": "球场工程",
+        "subtitle": "排队扩建或拆除座位,工程需要数周完成,完工时会通知你。",
+        "expandCta": "排队扩建",
+        "demolishCta": "排队拆除",
+        "activeProjects": "进行中的工程",
+        "noProjects": "暂无进行中的工程。",
+        "recentProjects": "近期完工",
+        "queued": "已排队",
+        "inProgress": "施工中",
+        "completed": "已完成",
+        "weeksLeft": "{n} 周后完工",
+        "weeksTotal": "{n} 周",
+        "queuedAt": "已排队 S{season}W{week}",
+        "eta": "预计完工 S{season}W{week}",
+        "summaryExpand": "+{delta} 座,{weeks} 周({cost})",
+        "summaryDemolish": "-{delta} 座,{weeks} 周(完工返还 {refund})",
+        "queuedExpandToast": "扩建已排队:+{delta} 座,{weeks} 周后完工。",
+        "queuedDemolishToast": "拆除已排队:-{delta} 座,{weeks} 周后完工。"
+      },
+      "constructionDialog": {
+        "titleExpand": "排队扩建",
+        "titleDemolish": "排队拆除",
+        "dragLabel": "调整座位数",
+        "previewCurrent": "当前容量",
+        "previewNext": "完工后容量",
+        "revenueCurrent": "当前比赛日收入",
+        "revenueNext": "完工后比赛日收入",
+        "costLabel": "立即扣除",
+        "refundLabel": "完工返还",
+        "weeksLabel": "施工时间",
+        "weeksValue": "{n} 周",
+        "confirmExpand": "确认扩建",
+        "confirmDemolish": "确认拆除",
+        "cancel": "取消",
+        "oneAtATime": "已有进行中的工程,请等待完工后再排队。",
+        "submitting": "排队中...",
+        "minHint": "最少 {min} 座",
+        "maxHint": "最多 {max} 座"
       }
     },
     "training": {
