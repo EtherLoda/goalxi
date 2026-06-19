@@ -573,3 +573,165 @@ describe('MatchEngine', () => {
     });
   });
 });
+
+// ============================================================================
+// End-to-end: swap + move instructions are recognised by the engine
+// and gated by the EventCondition (only / always / leading / etc.).
+// ============================================================================
+
+describe('MatchEngine.applyInstructionsForTeam — move & swap plumbing', () => {
+  // Full-shape mock player — AttributeCalculator.preCachePlayerContributions
+  // (called from Team.movePlayer) reads `attributes.{finishing,pace,…}` so
+  // a partial mock triggers TypeError on every move.
+  const mkPlayer = (id: string, pos: string): Player => ({
+    id,
+    name: id,
+    position: pos,
+    exactAge: [25, 0],
+    attributes: {
+      finishing: 60, composure: 60, positioning: 60, strength: 60,
+      pace: 60, dribbling: 60, passing: 60, defending: 60,
+      freeKicks: 50, penalties: 50, gk_reflexes: 50, gk_handling: 50, gk_aerial: 50,
+    },
+    currentStamina: 3,
+    form: 5,
+    experience: 10,
+  });
+
+  const mkTeam = () => {
+    const players: TacticalPlayer[] = [
+      { player: mkPlayer('A', 'CM'), positionKey: 'CML' },
+      { player: mkPlayer('B', 'GK'), positionKey: 'GK' },
+      { player: mkPlayer('C', 'CM'), positionKey: 'CMC' },
+      { player: mkPlayer('D', 'CF'), positionKey: 'CF' },
+    ];
+    return new Team('Test', players);
+  };
+
+  it('runs a move at the scheduled minute regardless of score', () => {
+    const team = mkTeam();
+    const engine = new MatchEngine(team, mkTeam(), [], [], new Map(), null, null, 'cloudy');
+    (engine as any).homeInstructions = [
+      { minute: 70, type: 'move', playerId: 'A', newPosition: 'CMR' },
+    ];
+    (engine as any).applyInstructionsForTeam(team, (engine as any).homeInstructions, 70, 'draw');
+    const moved = team.players.find((p: TacticalPlayer) => (p.player as any).id === 'A');
+    expect(moved?.positionKey).toBe('CMR');
+  });
+
+  it('treats undefined condition as "always"', () => {
+    const team = mkTeam();
+    const engine = new MatchEngine(team, mkTeam(), [], [], new Map(), null, null, 'cloudy');
+    (engine as any).homeInstructions = [
+      { minute: 60, type: 'move', playerId: 'A', newPosition: 'CMR' },
+    ];
+    for (const status of ['leading', 'draw', 'trailing'] as const) {
+      const p = team.players.find((tp: TacticalPlayer) => (tp.player as any).id === 'A');
+      if (p) p.positionKey = 'CML';
+      (engine as any).applyInstructionsForTeam(team, (engine as any).homeInstructions, 60, status);
+      const moved = team.players.find((tp: TacticalPlayer) => (tp.player as any).id === 'A');
+      expect(moved?.positionKey).toBe('CMR');
+    }
+  });
+
+  it('skips a move when condition is leading but score is trailing', () => {
+    const team = mkTeam();
+    const engine = new MatchEngine(team, mkTeam(), [], [], new Map(), null, null, 'cloudy');
+    (engine as any).homeInstructions = [
+      { minute: 60, type: 'move', playerId: 'A', newPosition: 'CMR', condition: 'leading' },
+    ];
+    (engine as any).applyInstructionsForTeam(team, (engine as any).homeInstructions, 60, 'trailing');
+    const moved = team.players.find((p: TacticalPlayer) => (p.player as any).id === 'A');
+    expect(moved?.positionKey).toBe('CML'); // unchanged — move gated out
+  });
+
+  it('fires a move when condition is leading AND score is leading', () => {
+    const team = mkTeam();
+    const engine = new MatchEngine(team, mkTeam(), [], [], new Map(), null, null, 'cloudy');
+    (engine as any).homeInstructions = [
+      { minute: 60, type: 'move', playerId: 'A', newPosition: 'CMR', condition: 'leading' },
+    ];
+    (engine as any).applyInstructionsForTeam(team, (engine as any).homeInstructions, 60, 'leading');
+    const moved = team.players.find((p: TacticalPlayer) => (p.player as any).id === 'A');
+    expect(moved?.positionKey).toBe('CMR');
+  });
+});
+
+// ============================================================================
+// EventCondition — shouldFire() gating
+// ============================================================================
+
+describe('MatchEngine.shouldFire — condition gating', () => {
+  const createMockPlayer = (id: string): Player => ({
+    id,
+    name: id,
+    position: 'CM',
+    exactAge: [25, 0],
+    attributes: {
+      finishing: 50, composure: 50, positioning: 50, strength: 50,
+      pace: 50, dribbling: 50, passing: 50, defending: 50,
+      freeKicks: 50, penalties: 50, gk_reflexes: 50, gk_handling: 50, gk_aerial: 50,
+    },
+    currentStamina: 3,
+    form: 5,
+    experience: 10,
+  });
+
+  const createTeam = (name: string): Team => {
+    const players: TacticalPlayer[] = Array.from({ length: 11 }, (_, i) => ({
+      player: createMockPlayer(`${name}-${i}`),
+      positionKey: i === 0 ? 'GK' : 'CM',
+    }));
+    return new Team(name, players);
+  };
+
+  // Reach the private `shouldFire` for a focused unit test.
+  const shouldFire = (condition: any, status: 'leading' | 'draw' | 'trailing') => {
+    const engine = new MatchEngine(createTeam('Home'), createTeam('Away'));
+    return (engine as any).shouldFire(condition, status);
+  };
+
+  it('treats undefined condition as always', () => {
+    expect(shouldFire(undefined, 'leading')).toBe(true);
+    expect(shouldFire(undefined, 'trailing')).toBe(true);
+    expect(shouldFire(undefined, 'draw')).toBe(true);
+  });
+
+  it('always fires when condition is "always"', () => {
+    expect(shouldFire('always', 'leading')).toBe(true);
+    expect(shouldFire('always', 'trailing')).toBe(true);
+    expect(shouldFire('always', 'draw')).toBe(true);
+  });
+
+  it('fires only on the matching single-status condition', () => {
+    expect(shouldFire('leading', 'leading')).toBe(true);
+    expect(shouldFire('leading', 'trailing')).toBe(false);
+    expect(shouldFire('leading', 'draw')).toBe(false);
+
+    expect(shouldFire('trailing', 'trailing')).toBe(true);
+    expect(shouldFire('trailing', 'leading')).toBe(false);
+    expect(shouldFire('trailing', 'draw')).toBe(false);
+
+    // `tied` is the frontend spelling of the simulator's `draw`.
+    expect(shouldFire('tied', 'draw')).toBe(true);
+    expect(shouldFire('tied', 'leading')).toBe(false);
+    expect(shouldFire('tied', 'trailing')).toBe(false);
+  });
+
+  it('fires "notLeading" when the team is NOT ahead', () => {
+    expect(shouldFire('notLeading', 'leading')).toBe(false);
+    expect(shouldFire('notLeading', 'trailing')).toBe(true);
+    expect(shouldFire('notLeading', 'draw')).toBe(true);
+  });
+
+  it('fires "notTrailing" when the team is NOT behind', () => {
+    expect(shouldFire('notTrailing', 'leading')).toBe(true);
+    expect(shouldFire('notTrailing', 'trailing')).toBe(false);
+    expect(shouldFire('notTrailing', 'draw')).toBe(true);
+  });
+
+  it('falls back to firing for unknown conditions (forward compatibility)', () => {
+    expect(shouldFire('someFutureCondition', 'leading')).toBe(true);
+    expect(shouldFire('someFutureCondition', 'draw')).toBe(true);
+  });
+});

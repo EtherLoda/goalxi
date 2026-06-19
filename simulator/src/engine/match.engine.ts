@@ -4,6 +4,7 @@ import {
   TacticalPlayer,
   TacticalInstruction,
   ScoreStatus,
+  EventCondition,
   AttackType,
   ShotType,
   TeamSnapshot,
@@ -1110,6 +1111,26 @@ export class MatchEngine {
     );
   }
 
+  /**
+   * Decide whether a tactical instruction fires given the team's
+   * current score status. Mirrors the frontend's `EventCondition`
+   * values: `always` / `leading` / `trailing` / `tied` /
+   * `notLeading` / `notTrailing`. `tied` is treated as a synonym of
+   * `draw` (the simulator's internal `ScoreStatus`).
+   */
+  private shouldFire(
+    condition: EventCondition | undefined,
+    status: ScoreStatus,
+  ): boolean {
+    if (!condition || condition === 'always') return true;
+    if (condition === 'leading') return status === 'leading';
+    if (condition === 'trailing') return status === 'trailing';
+    if (condition === 'tied') return status === 'draw';
+    if (condition === 'notLeading') return status !== 'leading';
+    if (condition === 'notTrailing') return status !== 'trailing';
+    return true;
+  }
+
   private applyInstructionsForTeam(
     team: Team,
     instructions: TacticalInstruction[],
@@ -1118,8 +1139,7 @@ export class MatchEngine {
   ) {
     const pending = instructions.filter(
       (ins) =>
-        ins.minute === minute &&
-        (!ins.condition || ins.condition === scoreStatus),
+        ins.minute === minute && this.shouldFire(ins.condition, scoreStatus),
     );
 
     for (const ins of pending) {

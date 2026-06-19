@@ -26,10 +26,31 @@ export interface WeightedAttributeResult {
 
 export type ScoreStatus = 'leading' | 'draw' | 'trailing';
 
+/**
+ * Trigger condition for a tactical event (sub or move). Mirrors the
+ * frontend's `EventCondition` type. `always` fires unconditionally;
+ * the others gate the event on the team's score state at the
+ * scheduled minute.
+ *
+ *   always       — fire regardless of score
+ *   leading      — only when the team is ahead
+ *   trailing     — only when the team is behind
+ *   tied         — only when the score is level (synonym of `draw`)
+ *   notLeading   — only when NOT ahead (trailing or tied)
+ *   notTrailing  — only when NOT behind (leading or tied)
+ */
+export type EventCondition =
+  | 'always'
+  | 'leading'
+  | 'trailing'
+  | 'tied'
+  | 'notLeading'
+  | 'notTrailing';
+
 export interface TacticalInstruction {
   minute: number;
   type: 'move' | 'swap' | 'position_swap';
-  condition?: ScoreStatus;
+  condition?: EventCondition;
   playerId?: string; // For MOVE or SWAP-OUT
   newPlayerId?: string; // For SWAP-IN
   newPosition: string;
