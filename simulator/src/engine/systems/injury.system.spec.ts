@@ -198,8 +198,12 @@ describe('InjurySystem', () => {
 
   describe('estimateRecoveryDays', () => {
     it('should return at least 1 day for any positive injury value', () => {
-      expect(InjurySystem.estimateRecoveryDays(1, 25)).toBeGreaterThanOrEqual(1);
-      expect(InjurySystem.estimateRecoveryDays(100, 25)).toBeGreaterThanOrEqual(1);
+      expect(InjurySystem.estimateRecoveryDays(1, 25)).toBeGreaterThanOrEqual(
+        1,
+      );
+      expect(InjurySystem.estimateRecoveryDays(100, 25)).toBeGreaterThanOrEqual(
+        1,
+      );
     });
 
     it('should return more days for higher injury values', () => {

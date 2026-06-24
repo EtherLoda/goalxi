@@ -168,7 +168,7 @@ export class YouthSimulationProcessor extends WorkerHost {
             // Forward the user-selected trigger condition. `undefined`
             // means "always" — the engine treats both the same way.
             ...((s as { condition?: EventCondition }).condition
-              ? { condition: (s as { condition?: EventCondition }).condition! }
+              ? { condition: (s as { condition?: EventCondition }).condition }
               : {}),
           });
         }
@@ -193,7 +193,9 @@ export class YouthSimulationProcessor extends WorkerHost {
               playerId: m.player,
               newPosition: m.position,
               ...((m as { condition?: EventCondition }).condition
-                ? { condition: (m as { condition?: EventCondition }).condition! }
+                ? {
+                    condition: (m as { condition?: EventCondition }).condition,
+                  }
                 : {}),
             });
           }

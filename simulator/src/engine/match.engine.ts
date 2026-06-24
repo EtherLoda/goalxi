@@ -14,6 +14,7 @@ import { ConditionSystem } from './systems/condition.system';
 import { InjurySystem, InjuryEventData } from './systems/injury.system';
 import { Player, PlayerAbility } from '../types/player.types';
 import { BenchConfig, calculatePositionFit } from '@goalxi/database';
+import { resolveDuel as resolveDuelPure, duelProbability } from './duel';
 import {
   generateWeatherAnnouncementEvent,
   generatePlayerIntroductionEvent,
@@ -76,15 +77,14 @@ const ATTACK_TYPE_CONFIG: Record<
 };
 
 // 射门类型配置
-// 新公式: P = 1 / (1 + exp(-(ratio - 1 - offset/100) * k))
-// 射门公式用k=2.2，让ratio=2时约90%
-// 目标进球率: 单刀 ~60%, 头球 ~50%, 补射 ~50%, 抽射 ~38%, 远射 ~22%
-const SHOT_TYPE_CONFIG: Record<ShotType, { k: number; offset: number }> = {
-  [ShotType.ONE_ON_ONE]: { k: 1.5, offset: 0 }, // ratio=1→50%, ratio=2→82%
-  [ShotType.HEADER]: { k: 1.5, offset: 0 }, // ratio=1→50%, ratio=2→82%
-  [ShotType.REBOUND]: { k: 1.5, offset: 0 }, // ratio=1→50%, ratio=2→82%
-  [ShotType.NORMAL]: { k: 1.5, offset: 0 }, // ratio=1→50%, ratio=2→82%
-  [ShotType.LONG_SHOT]: { k: 1.5, offset: 0 }, // ratio=1→50%, ratio=2→82%
+// baseline 是对等双方射门时进球概率（GK 评分与射门员相当时）
+// 不同射门类型有显著差异，反映真实足球规律
+const SHOT_TYPE_CONFIG: Record<ShotType, { baseline: number }> = {
+  [ShotType.ONE_ON_ONE]: { baseline: 0.65 }, // 1v1 面对门将
+  [ShotType.HEADER]: { baseline: 0.45 }, // 头球靠位置争顶
+  [ShotType.NORMAL]: { baseline: 0.40 }, // 禁区内常规抽射
+  [ShotType.REBOUND]: { baseline: 0.50 }, // 补射（门前近距离）
+  [ShotType.LONG_SHOT]: { baseline: 0.30 }, // 远射
 };
 
 /**
@@ -1259,13 +1259,16 @@ export class MatchEngine {
     this.checkAndGenerateInjury(this.awayTeam, 'other');
 
     // Step 2: Midfield Battle (Possession)
+    // 双方都用 'possession' phase 才能形成有效 ratio
+    // 之前用 home='possession' vs away='defense' 是交叉 phase，
+    // 不同 phase 数量级不同，ratio ≈ 1，P ≈ 0.5，导致控球永远 50/50
     const homeControl = this.homeTeam.calculateLaneStrength(
       this.currentLane,
       'possession',
     );
     const awayControl = this.awayTeam.calculateLaneStrength(
       this.currentLane,
-      'defense',
+      'possession',
     );
 
     // tackle_master: 防守方有抢断专家时中场控制 +8%
@@ -1281,11 +1284,16 @@ export class MatchEngine {
     const homeControlWithBonus = homeControl * (1 + awayTackleBonus); // defending team benefits
     const awayControlWithBonus = awayControl * (1 + homeTackleBonus); // defending team benefits
 
-    const homeWinsPossession = this.resolveDuel(
+    // 拼抢：amplification=1.7（中场对抗温和放大，比主推更平）
+    const homeWinsPossession = resolveDuelPure(
       homeControlWithBonus,
       awayControlWithBonus,
-      0.5,
-      0,
+      {
+        amplification: 1.7,
+        baseline: 0.5,
+        anchorRatio: 2.0,
+        anchorProbability: 0.8,
+      },
     );
 
     this.possessionTeam = homeWinsPossession ? this.homeTeam : this.awayTeam;
@@ -1492,12 +1500,15 @@ export class MatchEngine {
 
       // 推进判定（正常流程）
       if (!interceptTriggered) {
-        pushSuccess = this.resolveDuel(
-          effectiveAttPower,
-          effectiveDefPower,
-          effectiveK,
-          attackConfig.pushOffset,
-        );
+        // 主推进参数：
+        // - amplification=1.5（弱凸性，避免强队推进率过度碾压）
+        // - baseline=0.35（真实足球推进率约 30-40%，旧公式 sigmoid 推出 0.44 偏高）
+        pushSuccess = resolveDuelPure(effectiveAttPower, effectiveDefPower, {
+          amplification: 1.5,
+          baseline: 0.35,
+          anchorRatio: 2.0,
+          anchorProbability: 0.8,
+        });
         // 如果进攻失败，防守方获得球权，下次进攻享受反击加成
         if (!pushSuccess) {
           this.freshPossession = true;
@@ -1536,12 +1547,13 @@ export class MatchEngine {
         gkRating = gk ? this.defendingTeam.getSnapshot()?.gkRating || 100 : 100;
 
         const shotConfig = SHOT_TYPE_CONFIG[shotType];
-        const isGoal = this.resolveDuel(
-          finalShootRating,
-          gkRating,
-          shotConfig.k,
-          shotConfig.offset,
-        );
+        // 直接从 shotConfig 读取 baseline（不再从 k+offset 反推）
+        const isGoal = resolveDuelPure(finalShootRating, gkRating, {
+          amplification: 2.0,
+          baseline: shotConfig.baseline,
+          anchorRatio: 2.0,
+          anchorProbability: 0.8,
+        });
 
         // 远射：65% 有助攻
         if (Math.random() < 0.65) {
@@ -1600,12 +1612,13 @@ export class MatchEngine {
 
         // 根据射门类型计算成功率
         const shotConfig = SHOT_TYPE_CONFIG[shotType];
-        const isGoal = this.resolveDuel(
-          finalShootRating,
-          gkRating,
-          shotConfig.k,
-          shotConfig.offset,
-        );
+        // 直接从 shotConfig 读取 baseline（不再从 k+offset 反推）
+        const isGoal = resolveDuelPure(finalShootRating, gkRating, {
+          amplification: 2.0,
+          baseline: shotConfig.baseline,
+          anchorRatio: 2.0,
+          anchorProbability: 0.8,
+        });
 
         // 助攻逻辑（根据射门类型）
         if (shotType === ShotType.HEADER) {
@@ -1742,11 +1755,12 @@ export class MatchEngine {
 
     if (isInPenaltyArea) {
       // In attacking zone - could be penalty or indirect FK
-      if (roll < 0.3) {
-        // 30% chance to be a penalty in the box
+      // 真实足球禁区犯规判点球率约 5%，这里用 8% 作为综合点球率（含手球、VAR等）
+      if (roll < 0.08) {
+        // 8% chance to be a penalty in the box
         this.resolvePenalty(foulingTeam, victimTeam);
       } else {
-        // 70% chance to be indirect free kick
+        // 92% chance to be indirect free kick
         this.resolveIndirectFreeKick(victimTeam, foulingTeam);
       }
     } else {
@@ -2232,8 +2246,7 @@ export class MatchEngine {
       (p) =>
         p.positionKey.includes('AM') ||
         p.positionKey.includes('CM') ||
-        p.positionKey.includes('W') ||
-        p.positionKey.includes('M'),
+        p.positionKey.includes('W'),
     );
 
     if (preferredAssisters.length > 0 && Math.random() < 0.7) {
@@ -2323,19 +2336,22 @@ export class MatchEngine {
 
   /**
    * 计算头球评分
-   * 头球评分 = finishing×7 + composure×3
+   * 头球靠位置争顶和空中能力：finishing×5 + composure×3 + positioning×2
    * header_specialist: 头球射门评分 +8%
    */
   private calculateHeaderRating(player: Player): number {
     const attrs = player.attributes;
-    const raw = (attrs.finishing ?? 10) * 7 + (attrs.composure ?? 10) * 3;
+    const raw =
+      (attrs.finishing ?? 10) * 5 +
+      (attrs.composure ?? 10) * 3 +
+      (attrs.positioning ?? 10) * 2;
     // header_specialist: 头球射门评分 +8%
     return hasAbility(player, 'header_specialist') ? raw * 1.08 : raw;
   }
 
   /**
    * 计算抽射评分（禁区内常规射门）
-   * 抽射评分 = finishing×7 + composure×3
+   * 抽射靠终结和冷静：finishing×7 + composure×3
    */
   private calculateShootRating(player: Player): number {
     const attrs = player.attributes;
@@ -2344,17 +2360,22 @@ export class MatchEngine {
 
   /**
    * 计算单刀球评分
-   * 单刀评分 = finishing×7 + composure×3
+   * 单刀 1v1 面对门将：终结能力最重要，冷静次之
+   * finishing×8 + composure×2 + dribbling×1
    */
   private calculateOneOnOneRating(player: Player): number {
     const attrs = player.attributes;
-    return (attrs.finishing ?? 10) * 7 + (attrs.composure ?? 10) * 3;
+    return (
+      (attrs.finishing ?? 10) * 8 +
+      (attrs.composure ?? 10) * 2 +
+      (attrs.dribbling ?? 10) * 1
+    );
   }
 
   /**
    * 计算远射评分
-   * 远射评分 = finishing×7 + composure×3
-   * 距离因子（18-30米）会影响最终评分
+   * 远射靠终结和力量：finishing×7 + composure×3 × 距离因子
+   * 距离因子（18-30米）会显著降低评分
    */
   private calculateLongShotRating(player: Player): number {
     const attrs = player.attributes;
@@ -2378,14 +2399,29 @@ export class MatchEngine {
     k: number,
     offset: number,
   ): boolean {
-    // 新公式：用比率 (valA / valB)
-    // P = 1 / (1 + exp(-(ratio - 1 - offsetCoef) * k))
-    // offsetCoef = offset / 100 (归一化到与ratio同一量级)
-    const ratio = valB > 0 ? valA / valB : 1;
-    const offsetCoef = offset / 100;
-    const diff = ratio - 1 - offsetCoef;
-    const probability = 1 / (1 + Math.exp(-diff * k));
-    return Math.random() < probability;
+    // 阶段 2 兼容层：保留旧 (k, offset) 四参签名，内部委托给 duel.ts。
+    //
+    // 旧公式语义：
+    //   ratio = valA / valB
+    //   P = sigmoid(-(ratio - 1 - offset/100) * k)
+    //
+    // 当 valA == valB（ratio=1）时，旧公式 P = sigmoid(offset * k / 100)
+    // 即负 offset → sigmoid 负数 → 低 P；正 offset → sigmoid 正数 → 高 P
+    // 注意：offset 的方向是"让 A 更难赢"为正（对应公式里的 -(ratio-1) 平移）
+    //
+    // 把这个值作为新公式的 baseline，让"对等点 P"与旧行为一致：
+    //   baseline = sigmoid(offset * k / 100)
+    //
+    // 注：旧公式在 ratio 上线性（ratio - 1），新公式在 log(ratio) 上线性。
+    // 对等点附近两种曲线接近相同，但 ratio > 2 时会有微小差异。
+    // 后续阶段会按场景引入 amplification > 1.0 以匹配业务直觉。
+    const baseline = 1 / (1 + Math.exp((offset * k) / 100));
+    return resolveDuelPure(valA, valB, {
+      amplification: 1.0,
+      baseline,
+      anchorRatio: 2.0,
+      anchorProbability: 0.8,
+    });
   }
 
   private changeLane() {
@@ -2610,11 +2646,14 @@ export class MatchEngine {
   // ==================== SET PIECE METHODS ====================
 
   /**
-   * Resolve a corner kick
-   * Formula: P = 1 / (1 + exp(-diff × 0.15 + 2.3))
-   * Attack = avgFK×0.7 + kickerFK×0.5
-   * Defense = opponentAvgFK×0.6 + GKRating×0.2
-   * When skills equal (avg=10, kicker≈11.7, diff≈5): P ≈ 18%
+   * Resolve a corner kick.
+   *
+   * 公式：duelProbability(attackScore, defenseScore, { amplification: 2.0, baseline: 0.10 })
+   * - Attack = avgFK×0.7 + kickerFK×0.5
+   * - Defense = opponentAvgFK×0.6 + GKRating×0.2
+   * - 对等双方时 P ≈ baseline = 0.10（角球转化率低）
+   * - attackScore 2 倍于 defenseScore 时 P = 0.80（锚点）
+   * - 大差距放大（amplification=2.0 让 ratio=3 接近 0.97）
    */
   private resolveCorner(attackingTeam: Team, defendingTeam: Team): void {
     const avgFK = attackingTeam.getAvgFreeKicks();
@@ -2627,8 +2666,12 @@ export class MatchEngine {
     const attackScore =
       avgFK * 0.7 + (kicker.player as Player).attributes.freeKicks * 0.5;
     const defenseScore = opponentAvgFK * 0.6 + gkRating * 0.2;
-    const diff = attackScore - defenseScore;
-    const probability = 1 / (1 + Math.exp(-diff * 0.15 + 2.2));
+    const probability = duelProbability(attackScore, defenseScore, {
+      amplification: 2.0,
+      baseline: 0.1,
+      anchorRatio: 2.0,
+      anchorProbability: 0.8,
+    });
     const isGoal = Math.random() < probability;
 
     const kickerPlayer = kicker.player as Player;
@@ -2658,11 +2701,11 @@ export class MatchEngine {
   }
 
   /**
-   * Resolve an indirect free kick (free kick that requires a touch)
-   * Formula: P = 1 / (1 + exp(-diff × 0.15 + 2.3))
-   * Attack = avgFK×0.6 + kickerFK×0.6
-   * Defense = opponentAvgFK×0.6 + GKRating×0.2
-   * When skills equal (avg=10, kicker≈11.7, diff≈5): P ≈ 18%
+   * Resolve an indirect free kick (free kick that requires a touch).
+   *
+   * 公式：duelProbability(attackScore, defenseScore, { amplification: 2.0, baseline: 0.12 })
+   * - Attack = avgFK×0.6 + kickerFK×0.6
+   * - Defense = opponentAvgFK×0.6 + GKRating×0.2
    */
   private resolveIndirectFreeKick(
     attackingTeam: Team,
@@ -2678,8 +2721,12 @@ export class MatchEngine {
     const attackScore =
       avgFK * 0.6 + (kicker.player as Player).attributes.freeKicks * 0.6;
     const defenseScore = opponentAvgFK * 0.6 + gkRating * 0.2;
-    const diff = attackScore - defenseScore;
-    const probability = 1 / (1 + Math.exp(-diff * 0.15 + 2.3));
+    const probability = duelProbability(attackScore, defenseScore, {
+      amplification: 2.0,
+      baseline: 0.12,
+      anchorRatio: 2.0,
+      anchorProbability: 0.8,
+    });
 
     const isGoal = Math.random() < probability;
 
@@ -2710,11 +2757,11 @@ export class MatchEngine {
   }
 
   /**
-   * Resolve a direct free kick (shoot directly on goal)
-   * Formula: P = 1 / (1 + exp(-diff × 0.15 + 2.3))
-   * Attack = kickerFK×1.0 + kickerComp×0.5
-   * Defense = GKref×0.6 + GKhand×0.4 + GKcomp×0.4
-   * When skills equal (avg=10, kicker≈11.7, diff≈5): P ≈ 18%
+   * Resolve a direct free kick (shoot directly on goal).
+   *
+   * 公式：duelProbability(attackScore, defenseScore, { amplification: 2.0, baseline: 0.18 })
+   * - Attack = kickerFK×1.0 + kickerComp×0.5
+   * - Defense = GKref×0.6 + GKhand×0.4 + GKcomp×0.4
    */
   private resolveDirectFreeKick(
     attackingTeam: Team,
@@ -2735,8 +2782,12 @@ export class MatchEngine {
       (gkP.attributes.gk_reflexes ?? 10) * 0.6 +
       (gkP.attributes.gk_handling ?? 10) * 0.4 +
       (gkP.attributes.composure ?? 10) * 0.4;
-    const diff = attackScore - defenseScore;
-    const probability = 1 / (1 + Math.exp(-diff * 0.15 + 2.2));
+    const probability = duelProbability(attackScore, defenseScore, {
+      amplification: 2.0,
+      baseline: 0.18,
+      anchorRatio: 2.0,
+      anchorProbability: 0.8,
+    });
     const isGoal = Math.random() < probability;
 
     this.events.push({
@@ -2764,11 +2815,13 @@ export class MatchEngine {
   }
 
   /**
-   * Resolve a penalty kick
-   * Formula: P = 1 / (1 + exp(-diff × 0.12 - 0.9))
-   * Attack = kickerPen×1.2 + kickerComp×0.5
-   * Defense = GKref×0.8 + GKhand×0.6 + GKcomp×0.4
-   * When skills equal (avg=10, diff≈0): P ≈ 72%
+   * Resolve a penalty kick.
+   *
+   * 公式：duelProbability(attackScore, defenseScore, { amplification: 1.0, baseline: 0.75 })
+   * - amplification=1.0 保持线性（点球是单挑对决，不需要凸性放大）
+   * - baseline=0.75 表示对等点球 P=75%（真实点球命中率）
+   * - Attack = kickerPen×1.2 + kickerComp×0.5
+   * - Defense = GKref×0.8 + GKhand×0.6 + GKcomp×0.4（penalty_saver 能力 +10%）
    */
   private resolvePenalty(foulingTeam: Team, attackingTeam: Team): void {
     const kicker = attackingTeam.getBestSetPieceTaker('penalty');
@@ -2790,8 +2843,12 @@ export class MatchEngine {
     if (hasAbility(gkP, 'penalty_saver')) {
       defenseScore *= 1.1;
     }
-    const diff = attackScore - defenseScore;
-    const probability = 1 / (1 + Math.exp(-diff * 0.12 - 0.9));
+    const probability = duelProbability(attackScore, defenseScore, {
+      amplification: 1.0,
+      baseline: 0.75,
+      anchorRatio: 2.0,
+      anchorProbability: 0.8,
+    });
     const isGoal = Math.random() < probability;
 
     this.events.push({

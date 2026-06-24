@@ -473,23 +473,25 @@ describe('Attack System', () => {
       expect(highWin).toBeGreaterThan(lowWin);
     });
 
-    it('higher offset should reduce success rate', () => {
-      let lowOffsetWin = 0;
-      let highOffsetWin = 0;
+    it('higher baseline should boost A win rate at equal strength', () => {
+      // 对应旧版"higher offset should reduce success rate"，但语义更直观：
+      // baseline 是对等时的 P，baseline > 0.5 表示 A 有先天优势。
+      // 旧版 offset 的方向在新 API 里反过来：positive offset → lower baseline → A 劣势。
+      let lowBaselineWin = 0;
+      let highBaselineWin = 0;
 
-      // Use k=2.0 to make offset effect more noticeable
       for (let i = 0; i < 1000; i++) {
-        if ((engine as any).resolveDuel(100, 50, 2.0, -20)) lowOffsetWin++; // offset=-20 boosts success
-        if ((engine as any).resolveDuel(100, 50, 2.0, 20)) highOffsetWin++; // offset=20 reduces success
+        if ((engine as any).resolveDuel(100, 100, 2.0, 20)) lowBaselineWin++; // offset=+20 → baseline<0.5 → 劣势
+        if ((engine as any).resolveDuel(100, 100, 2.0, -20)) highBaselineWin++; // offset=-20 → baseline>0.5 → 优势
       }
 
-      expect(lowOffsetWin).toBeGreaterThan(highOffsetWin);
+      expect(highBaselineWin).toBeGreaterThan(lowBaselineWin);
     });
 
     it('should handle equal values with base offset', () => {
       let goals = 0;
       for (let i = 0; i < 1000; i++) {
-        // With k=2, offset=0: P = 1/(1+exp(-(1-1-0)*2)) = 1/(1+1) = 0.5
+        // With k=2, offset=0: baseline = sigmoid(0) = 0.5 → P = 0.5
         if ((engine as any).resolveDuel(100, 100, 2.0, 0)) goals++;
       }
 

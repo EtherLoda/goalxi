@@ -296,7 +296,7 @@ export class SimulationProcessor extends WorkerHost {
             // `undefined` means "always" — the engine's shouldFire()
             // treats both the same way.
             ...((s as { condition?: EventCondition }).condition
-              ? { condition: (s as { condition?: EventCondition }).condition! }
+              ? { condition: (s as { condition?: EventCondition }).condition }
               : {}),
           });
         }
@@ -321,7 +321,9 @@ export class SimulationProcessor extends WorkerHost {
               playerId: m.player,
               newPosition: m.position,
               ...((m as { condition?: EventCondition }).condition
-                ? { condition: (m as { condition?: EventCondition }).condition! }
+                ? {
+                    condition: (m as { condition?: EventCondition }).condition,
+                  }
                 : {}),
             });
           }
@@ -929,7 +931,7 @@ export class SimulationProcessor extends WorkerHost {
         });
       }
 
-      const counts = playerCardCounts.get(e.playerId)!;
+      const counts = playerCardCounts.get(e.playerId);
       switch (e.type) {
         case 'yellow_card':
           counts.yellowCards++;

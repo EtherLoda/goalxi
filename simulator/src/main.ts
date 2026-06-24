@@ -82,11 +82,11 @@ class PinoLoggerService implements LoggerService {
   }
 }
 
-const isDevelopment =
-  (process.env.NODE_ENV || 'development') === 'development';
+const isDevelopment = (process.env.NODE_ENV || 'development') === 'development';
 
 const logger = new PinoLoggerService({
-  level: (process.env.APP_LOG_LEVEL as pino.LevelWithSilent | undefined) ??
+  level:
+    (process.env.APP_LOG_LEVEL as pino.LevelWithSilent | undefined) ??
     (isDevelopment ? 'debug' : 'warn'),
   service: 'simulator',
   isDevelopment,

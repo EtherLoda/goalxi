@@ -589,9 +589,19 @@ describe('MatchEngine.applyInstructionsForTeam — move & swap plumbing', () => 
     position: pos,
     exactAge: [25, 0],
     attributes: {
-      finishing: 60, composure: 60, positioning: 60, strength: 60,
-      pace: 60, dribbling: 60, passing: 60, defending: 60,
-      freeKicks: 50, penalties: 50, gk_reflexes: 50, gk_handling: 50, gk_aerial: 50,
+      finishing: 60,
+      composure: 60,
+      positioning: 60,
+      strength: 60,
+      pace: 60,
+      dribbling: 60,
+      passing: 60,
+      defending: 60,
+      freeKicks: 50,
+      penalties: 50,
+      gk_reflexes: 50,
+      gk_handling: 50,
+      gk_aerial: 50,
     },
     currentStamina: 3,
     form: 5,
@@ -610,49 +620,119 @@ describe('MatchEngine.applyInstructionsForTeam — move & swap plumbing', () => 
 
   it('runs a move at the scheduled minute regardless of score', () => {
     const team = mkTeam();
-    const engine = new MatchEngine(team, mkTeam(), [], [], new Map(), null, null, 'cloudy');
+    const engine = new MatchEngine(
+      team,
+      mkTeam(),
+      [],
+      [],
+      new Map(),
+      null,
+      null,
+      'cloudy',
+    );
     (engine as any).homeInstructions = [
       { minute: 70, type: 'move', playerId: 'A', newPosition: 'CMR' },
     ];
-    (engine as any).applyInstructionsForTeam(team, (engine as any).homeInstructions, 70, 'draw');
-    const moved = team.players.find((p: TacticalPlayer) => (p.player as any).id === 'A');
+    (engine as any).applyInstructionsForTeam(
+      team,
+      (engine as any).homeInstructions,
+      70,
+      'draw',
+    );
+    const moved = team.players.find((p: TacticalPlayer) => p.player.id === 'A');
     expect(moved?.positionKey).toBe('CMR');
   });
 
   it('treats undefined condition as "always"', () => {
     const team = mkTeam();
-    const engine = new MatchEngine(team, mkTeam(), [], [], new Map(), null, null, 'cloudy');
+    const engine = new MatchEngine(
+      team,
+      mkTeam(),
+      [],
+      [],
+      new Map(),
+      null,
+      null,
+      'cloudy',
+    );
     (engine as any).homeInstructions = [
       { minute: 60, type: 'move', playerId: 'A', newPosition: 'CMR' },
     ];
     for (const status of ['leading', 'draw', 'trailing'] as const) {
-      const p = team.players.find((tp: TacticalPlayer) => (tp.player as any).id === 'A');
+      const p = team.players.find((tp: TacticalPlayer) => tp.player.id === 'A');
       if (p) p.positionKey = 'CML';
-      (engine as any).applyInstructionsForTeam(team, (engine as any).homeInstructions, 60, status);
-      const moved = team.players.find((tp: TacticalPlayer) => (tp.player as any).id === 'A');
+      (engine as any).applyInstructionsForTeam(
+        team,
+        (engine as any).homeInstructions,
+        60,
+        status,
+      );
+      const moved = team.players.find(
+        (tp: TacticalPlayer) => tp.player.id === 'A',
+      );
       expect(moved?.positionKey).toBe('CMR');
     }
   });
 
   it('skips a move when condition is leading but score is trailing', () => {
     const team = mkTeam();
-    const engine = new MatchEngine(team, mkTeam(), [], [], new Map(), null, null, 'cloudy');
+    const engine = new MatchEngine(
+      team,
+      mkTeam(),
+      [],
+      [],
+      new Map(),
+      null,
+      null,
+      'cloudy',
+    );
     (engine as any).homeInstructions = [
-      { minute: 60, type: 'move', playerId: 'A', newPosition: 'CMR', condition: 'leading' },
+      {
+        minute: 60,
+        type: 'move',
+        playerId: 'A',
+        newPosition: 'CMR',
+        condition: 'leading',
+      },
     ];
-    (engine as any).applyInstructionsForTeam(team, (engine as any).homeInstructions, 60, 'trailing');
-    const moved = team.players.find((p: TacticalPlayer) => (p.player as any).id === 'A');
+    (engine as any).applyInstructionsForTeam(
+      team,
+      (engine as any).homeInstructions,
+      60,
+      'trailing',
+    );
+    const moved = team.players.find((p: TacticalPlayer) => p.player.id === 'A');
     expect(moved?.positionKey).toBe('CML'); // unchanged — move gated out
   });
 
   it('fires a move when condition is leading AND score is leading', () => {
     const team = mkTeam();
-    const engine = new MatchEngine(team, mkTeam(), [], [], new Map(), null, null, 'cloudy');
+    const engine = new MatchEngine(
+      team,
+      mkTeam(),
+      [],
+      [],
+      new Map(),
+      null,
+      null,
+      'cloudy',
+    );
     (engine as any).homeInstructions = [
-      { minute: 60, type: 'move', playerId: 'A', newPosition: 'CMR', condition: 'leading' },
+      {
+        minute: 60,
+        type: 'move',
+        playerId: 'A',
+        newPosition: 'CMR',
+        condition: 'leading',
+      },
     ];
-    (engine as any).applyInstructionsForTeam(team, (engine as any).homeInstructions, 60, 'leading');
-    const moved = team.players.find((p: TacticalPlayer) => (p.player as any).id === 'A');
+    (engine as any).applyInstructionsForTeam(
+      team,
+      (engine as any).homeInstructions,
+      60,
+      'leading',
+    );
+    const moved = team.players.find((p: TacticalPlayer) => p.player.id === 'A');
     expect(moved?.positionKey).toBe('CMR');
   });
 });
@@ -668,9 +748,19 @@ describe('MatchEngine.shouldFire — condition gating', () => {
     position: 'CM',
     exactAge: [25, 0],
     attributes: {
-      finishing: 50, composure: 50, positioning: 50, strength: 50,
-      pace: 50, dribbling: 50, passing: 50, defending: 50,
-      freeKicks: 50, penalties: 50, gk_reflexes: 50, gk_handling: 50, gk_aerial: 50,
+      finishing: 50,
+      composure: 50,
+      positioning: 50,
+      strength: 50,
+      pace: 50,
+      dribbling: 50,
+      passing: 50,
+      defending: 50,
+      freeKicks: 50,
+      penalties: 50,
+      gk_reflexes: 50,
+      gk_handling: 50,
+      gk_aerial: 50,
     },
     currentStamina: 3,
     form: 5,
@@ -686,7 +776,10 @@ describe('MatchEngine.shouldFire — condition gating', () => {
   };
 
   // Reach the private `shouldFire` for a focused unit test.
-  const shouldFire = (condition: any, status: 'leading' | 'draw' | 'trailing') => {
+  const shouldFire = (
+    condition: any,
+    status: 'leading' | 'draw' | 'trailing',
+  ) => {
     const engine = new MatchEngine(createTeam('Home'), createTeam('Away'));
     return (engine as any).shouldFire(condition, status);
   };
