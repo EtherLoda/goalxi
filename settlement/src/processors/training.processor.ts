@@ -1,5 +1,6 @@
 import { Processor, WorkerHost, OnWorkerEvent } from '@nestjs/bullmq';
-import { Injectable, Logger } from '@nestjs/common';
+import {Injectable, Logger, Inject } from '@nestjs/common';
+import { LOGGER_SERVICE, PinoLoggerService } from '@goalxi/logger';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Job } from 'bullmq';
@@ -34,10 +35,11 @@ interface PlayerSnapshot {
 @Injectable()
 @Processor('training-settlement')
 export class TrainingProcessor extends WorkerHost {
-  private readonly logger = new Logger(TrainingProcessor.name);
   private readonly GAME_START_DATE = new Date('2026-04-06T00:00:00Z');
 
   constructor(
+    @Inject(LOGGER_SERVICE)
+    private readonly logger: PinoLoggerService,
     @InjectRepository(PlayerEntity)
     private playerRepo: Repository<PlayerEntity>,
     @InjectRepository(StaffEntity)

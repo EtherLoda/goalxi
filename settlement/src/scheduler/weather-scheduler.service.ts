@@ -1,12 +1,15 @@
-import { Injectable, Logger } from '@nestjs/common';
+import {Injectable, Logger, Inject } from '@nestjs/common';
+import { LOGGER_SERVICE, PinoLoggerService } from '@goalxi/logger';
 import { Cron } from '@nestjs/schedule';
 import { WeatherService } from './weather.service';
 
 @Injectable()
 export class WeatherSchedulerService {
-  private readonly logger = new Logger(WeatherSchedulerService.name);
-
-  constructor(private readonly weatherService: WeatherService) {}
+  constructor(
+    @Inject(LOGGER_SERVICE)
+    private readonly logger: PinoLoggerService,
+    private readonly weatherService: WeatherService,
+  ) {}
 
   // ===== SCHEDULER: Daily Weather Generation =====
   // Run at midnight (00:00) UTC every day
@@ -20,14 +23,14 @@ export class WeatherSchedulerService {
     try {
       const weather = await this.weatherService.createOrUpdateTodayWeather();
       this.logger.log(
-        `[WeatherScheduler] ✅ Generated weather for ${weather.date}: ${weather.actualWeather}`,
+        `[WeatherScheduler] �?Generated weather for ${weather.date}: ${weather.actualWeather}`,
       );
       this.logger.log(
         `[WeatherScheduler] 📰 Tomorrow's forecast: ${JSON.stringify(weather.forecasts)}`,
       );
     } catch (error) {
       this.logger.error(
-        `[WeatherScheduler] ❌ Failed to generate weather: ${(error as Error).message}`,
+        `[WeatherScheduler] �?Failed to generate weather: ${(error as Error).message}`,
       );
     }
   }

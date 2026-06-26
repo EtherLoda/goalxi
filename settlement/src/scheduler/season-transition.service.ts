@@ -1,4 +1,5 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Inject } from '@nestjs/common';
+import { LOGGER_SERVICE, PinoLoggerService } from '@goalxi/logger';
 import { Cron } from '@nestjs/schedule';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
@@ -11,9 +12,9 @@ import { SeasonArchiveService } from '../services/season-archive.service';
 
 @Injectable()
 export class SeasonTransitionService {
-  private readonly logger = new Logger(SeasonTransitionService.name);
-
   constructor(
+    @Inject(LOGGER_SERVICE)
+    private readonly logger: PinoLoggerService,
     @InjectRepository(MatchEntity)
     private readonly matchRepository: Repository<MatchEntity>,
     private readonly promotionService: PromotionRelegationService,

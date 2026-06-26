@@ -1,6 +1,7 @@
 import { InjectQueue } from '@nestjs/bullmq';
 import { Cron } from '@nestjs/schedule';
-import { Injectable, Logger } from '@nestjs/common';
+import {Injectable, Logger, Inject } from '@nestjs/common';
+import { LOGGER_SERVICE, PinoLoggerService } from '@goalxi/logger';
 import { Queue } from 'bullmq';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
@@ -8,12 +9,13 @@ import { MatchEntity, TeamEntity, GAME_SETTINGS } from '@goalxi/database';
 
 @Injectable()
 export class FinanceSchedulerService {
-  private readonly logger = new Logger(FinanceSchedulerService.name);
 
   // Game start date: Season 1, Week 1 begins at this date (UTC)
   private readonly GAME_START_DATE = new Date('2026-04-06T00:00:00Z');
 
   constructor(
+    @Inject(LOGGER_SERVICE)
+    private readonly logger: PinoLoggerService,
     @InjectQueue('finance-settlement')
     private readonly financeQueue: Queue,
     @InjectRepository(TeamEntity)

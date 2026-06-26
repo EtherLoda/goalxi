@@ -1,4 +1,5 @@
-import { Injectable, Logger } from '@nestjs/common';
+import {Injectable, Logger, Inject } from '@nestjs/common';
+import { LOGGER_SERVICE, PinoLoggerService } from '@goalxi/logger';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import {
@@ -22,9 +23,10 @@ export interface ArchiveSummary {
 
 @Injectable()
 export class SeasonArchiveService {
-  private readonly logger = new Logger(SeasonArchiveService.name);
 
   constructor(
+    @Inject(LOGGER_SERVICE)
+    private readonly logger: PinoLoggerService,
     @InjectRepository(PlayerCompetitionStatsEntity)
     private readonly playerStatsRepo: Repository<PlayerCompetitionStatsEntity>,
     @InjectRepository(TransactionEntity)

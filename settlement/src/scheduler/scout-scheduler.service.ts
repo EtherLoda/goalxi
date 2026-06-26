@@ -1,4 +1,5 @@
-import { Injectable, Logger } from '@nestjs/common';
+import {Injectable, Logger, Inject } from '@nestjs/common';
+import { LOGGER_SERVICE, PinoLoggerService } from '@goalxi/logger';
 import { Cron } from '@nestjs/schedule';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, LessThan, LessThanOrEqual } from 'typeorm';
@@ -11,9 +12,10 @@ import {
 
 @Injectable()
 export class ScoutSchedulerService {
-  private readonly logger = new Logger(ScoutSchedulerService.name);
 
   constructor(
+    @Inject(LOGGER_SERVICE)
+    private readonly logger: PinoLoggerService,
     @InjectRepository(YouthPlayerEntity)
     private youthPlayerRepo: Repository<YouthPlayerEntity>,
     @InjectRepository(TeamEntity)
@@ -22,7 +24,7 @@ export class ScoutSchedulerService {
     private scoutCandidateRepo: Repository<ScoutCandidateEntity>,
   ) {}
 
-  @Cron('0 0 6 * * 6') // 每周六 06:00
+  @Cron('0 0 6 * * 6') // 每周�?06:00
   async generateScoutCandidates() {
     this.logger.debug(
       '[ScoutScheduler] Generating scout candidates for all teams',
@@ -63,7 +65,7 @@ export class ScoutSchedulerService {
     }
   }
 
-  @Cron('0 0 0 * * 6') // 每周六 00:00
+  @Cron('0 0 0 * * 6') // 每周�?00:00
   async growAndRevealYouthPlayers() {
     this.logger.debug(
       '[YouthScheduler] Processing youth player growth and reveal',

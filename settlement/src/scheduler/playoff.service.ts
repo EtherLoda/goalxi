@@ -1,4 +1,5 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, Inject } from '@nestjs/common';
+import { LOGGER_SERVICE, PinoLoggerService } from '@goalxi/logger';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import {
@@ -20,12 +21,12 @@ export interface PlayoffMatchInfo {
 
 @Injectable()
 export class PlayoffService {
-  private readonly logger = new Logger(PlayoffService.name);
-
   private readonly PLAYOFF_HOUR = 20;
   private readonly PLAYOFF_MINUTE = 0;
 
   constructor(
+    @Inject(LOGGER_SERVICE)
+    private readonly logger: PinoLoggerService,
     @InjectRepository(MatchEntity)
     private readonly matchRepository: Repository<MatchEntity>,
     @InjectRepository(LeagueStandingEntity)

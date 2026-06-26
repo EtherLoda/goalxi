@@ -1,5 +1,6 @@
 import { Processor, WorkerHost } from '@nestjs/bullmq';
-import { Injectable, Logger } from '@nestjs/common';
+import {Injectable, Logger, Inject } from '@nestjs/common';
+import { LOGGER_SERVICE, PinoLoggerService } from '@goalxi/logger';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, DataSource } from 'typeorm';
 import { Job } from 'bullmq';
@@ -39,9 +40,10 @@ export interface TransferSettlementJobData {
 @Injectable()
 @Processor('transfer-settlement')
 export class TransferProcessor extends WorkerHost {
-  private readonly logger = new Logger(TransferProcessor.name);
 
   constructor(
+    @Inject(LOGGER_SERVICE)
+    private readonly logger: PinoLoggerService,
     @InjectRepository(AuctionEntity)
     private readonly auctionRepo: Repository<AuctionEntity>,
     @InjectRepository(PlayerEntity)

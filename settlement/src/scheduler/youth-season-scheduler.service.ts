@@ -1,17 +1,19 @@
-import { Injectable, Logger } from '@nestjs/common';
+import {Injectable, Logger, Inject } from '@nestjs/common';
+import { LOGGER_SERVICE, PinoLoggerService } from '@goalxi/logger';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { YouthMatchEntity, YouthMatchStatus } from '@goalxi/database';
 
 @Injectable()
 export class YouthSeasonSchedulerService {
-  private readonly logger = new Logger(YouthSeasonSchedulerService.name);
 
   private readonly MATCH_DAYS = [3, 6];
   private readonly MATCH_HOUR = 13;
   private readonly MATCH_MINUTE = 0;
 
   constructor(
+    @Inject(LOGGER_SERVICE)
+    private readonly logger: PinoLoggerService,
     @InjectRepository(YouthMatchEntity)
     private readonly matchRepository: Repository<YouthMatchEntity>,
   ) {}

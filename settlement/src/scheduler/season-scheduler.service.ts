@@ -1,4 +1,5 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Inject } from '@nestjs/common';
+import { LOGGER_SERVICE, PinoLoggerService } from '@goalxi/logger';
 import { Cron } from '@nestjs/schedule';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
@@ -7,8 +8,6 @@ import { MatchEntity, MatchStatus, MatchType } from '@goalxi/database';
 
 @Injectable()
 export class SeasonSchedulerService {
-  private readonly logger = new Logger(SeasonSchedulerService.name);
-
   private readonly MATCH_DAYS = [3, 6]; // 周三、周六
   private readonly MATCH_HOUR = 13;
   private readonly MATCH_MINUTE = 0;
@@ -17,6 +16,8 @@ export class SeasonSchedulerService {
   private readonly PLAYOFF_WEEK = 16;
 
   constructor(
+    @Inject(LOGGER_SERVICE)
+    private readonly logger: PinoLoggerService,
     @InjectRepository(MatchEntity)
     private readonly matchRepository: Repository<MatchEntity>,
   ) {}

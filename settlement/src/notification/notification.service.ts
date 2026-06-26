@@ -1,4 +1,5 @@
-import { Injectable } from '@nestjs/common';
+import {Injectable, Inject } from '@nestjs/common';
+import { LOGGER_SERVICE, PinoLoggerService } from '@goalxi/logger';
 import { ConfigService } from '@nestjs/config';
 import Redis from 'ioredis';
 
@@ -55,7 +56,11 @@ const MAX_INBOX_SIZE = 100;
 export class NotificationService {
   private readonly redis: Redis;
 
-  constructor(private readonly config: ConfigService) {
+  constructor(
+    @Inject(LOGGER_SERVICE)
+    private readonly logger: PinoLoggerService,
+    private readonly config: ConfigService,
+  ) {
     this.redis = new Redis({
       host: this.config.getOrThrow<string>('REDIS_HOST'),
       port: this.config.getOrThrow<number>('REDIS_PORT'),

@@ -23,6 +23,7 @@
   },
   "dependencies": {
     "@goalxi/database": "workspace:*",
+    "@goalxi/logger": "workspace:*",
     "@nestjs/bullmq": "^10.2.2",
     "@nestjs/common": "^10.4.7",
     "@nestjs/config": "^3.3.0",

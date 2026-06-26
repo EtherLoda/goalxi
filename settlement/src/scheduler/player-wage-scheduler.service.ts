@@ -1,6 +1,7 @@
 import { InjectQueue } from '@nestjs/bullmq';
 import { Cron } from '@nestjs/schedule';
-import { Injectable, Logger } from '@nestjs/common';
+import {Injectable, Logger, Inject } from '@nestjs/common';
+import { LOGGER_SERVICE, PinoLoggerService } from '@goalxi/logger';
 import { Queue } from 'bullmq';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
@@ -8,9 +9,10 @@ import { PlayerEntity } from '@goalxi/database';
 
 @Injectable()
 export class PlayerWageSchedulerService {
-  private readonly logger = new Logger(PlayerWageSchedulerService.name);
 
   constructor(
+    @Inject(LOGGER_SERVICE)
+    private readonly logger: PinoLoggerService,
     @InjectQueue('player-wage')
     private readonly playerWageQueue: Queue,
     @InjectRepository(PlayerEntity)

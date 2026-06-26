@@ -1,5 +1,6 @@
 import { Processor, WorkerHost } from '@nestjs/bullmq';
-import { Injectable, Logger } from '@nestjs/common';
+import {Injectable, Logger, Inject } from '@nestjs/common';
+import { LOGGER_SERVICE, PinoLoggerService } from '@goalxi/logger';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Job } from 'bullmq';
@@ -16,9 +17,10 @@ import {
 @Injectable()
 @Processor('fan-settlement')
 export class FanProcessor extends WorkerHost {
-  private readonly logger = new Logger(FanProcessor.name);
 
   constructor(
+    @Inject(LOGGER_SERVICE)
+    private readonly logger: PinoLoggerService,
     @InjectRepository(FanEntity)
     private fanRepo: Repository<FanEntity>,
     @InjectRepository(TeamEntity)

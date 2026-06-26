@@ -1,4 +1,5 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Inject } from '@nestjs/common';
+import { LOGGER_SERVICE, PinoLoggerService } from '@goalxi/logger';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import {
@@ -10,9 +11,9 @@ import {
 
 @Injectable()
 export class LeagueStandingService {
-  private readonly logger = new Logger(LeagueStandingService.name);
-
   constructor(
+    @Inject(LOGGER_SERVICE)
+    private readonly logger: PinoLoggerService,
     @InjectRepository(LeagueEntity)
     private readonly leagueRepository: Repository<LeagueEntity>,
     @InjectRepository(LeagueStandingEntity)

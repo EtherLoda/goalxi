@@ -1,4 +1,5 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Inject } from '@nestjs/common';
+import { LOGGER_SERVICE, PinoLoggerService } from '@goalxi/logger';
 import { Cron } from '@nestjs/schedule';
 import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
@@ -14,9 +15,9 @@ import {
 
 @Injectable()
 export class YouthMatchSchedulerService {
-  private readonly logger = new Logger(YouthMatchSchedulerService.name);
-
   constructor(
+    @Inject(LOGGER_SERVICE)
+    private readonly logger: PinoLoggerService,
     @InjectQueue('youth-match-simulation')
     private simulationQueue: Queue,
     @InjectRepository(YouthMatchEntity)
