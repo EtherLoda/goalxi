@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { BullModule } from '@nestjs/bullmq';
+import { LoggerModule as SharedLoggerModule } from '@goalxi/logger';
 import {
   UserEntity,
   SessionEntity,
@@ -33,6 +34,9 @@ import {
 import { SimulationProcessor } from './processor/simulation.processor';
 import { YouthSimulationProcessor } from './processor/youth-simulation.processor';
 import { NotificationModule } from './notification/notification.module';
+
+const isDevelopmentFromEnv = () =>
+  (process.env.NODE_ENV || 'development') === 'development';
 
 const entities = [
   UserEntity,
@@ -114,6 +118,22 @@ const entities = [
       PlayerCompetitionStatsEntity,
     ]),
     NotificationModule,
+    SharedLoggerModule.forRoot({
+      level:
+        (process.env.APP_LOG_LEVEL as
+          | 'fatal'
+          | 'error'
+          | 'warn'
+          | 'info'
+          | 'debug'
+          | 'trace'
+          | undefined) ?? (isDevelopmentFromEnv() ? 'debug' : 'warn'),
+      service: 'simulator',
+      isDevelopment: isDevelopmentFromEnv(),
+      file: './logs/simulator.log',
+      maxSize: 100 * 1024 * 1024,
+      maxFiles: 7,
+    }),
   ],
   providers: [SimulationProcessor, YouthSimulationProcessor],
 })

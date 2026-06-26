@@ -420,6 +420,7 @@ export class SimulationProcessor extends WorkerHost {
       normalizedWeather,
       homeTacticsConfig,
       awayTacticsConfig,
+      this.logger,
     );
 
     // 5. Run Match (wrapped in try/catch to ensure transaction rollback on error)

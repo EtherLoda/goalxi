@@ -1,6 +1,8 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Inject } from '@nestjs/common';
+import { LOGGER_SERVICE, PinoLoggerService } from '@goalxi/logger';
 import { ConfigService } from '@nestjs/config';
 import Redis from 'ioredis';
+import { randomUUID } from 'crypto';
 
 export enum NotificationType {
   MATCH_RESULT_WIN = 'MATCH_RESULT_WIN',
@@ -52,12 +54,24 @@ const MAX_INBOX_SIZE = 100;
 export class NotificationService {
   private readonly redis: Redis;
 
-  constructor(private readonly config: ConfigService) {
+  constructor(
+    @Inject(LOGGER_SERVICE)
+    private readonly logger: PinoLoggerService,
+    private readonly config: ConfigService,
+  ) {
     this.redis = new Redis({
       host: this.config.getOrThrow<string>('REDIS_HOST'),
       port: this.config.getOrThrow<number>('REDIS_PORT'),
       password: this.config.getOrThrow<string>('REDIS_PASSWORD'),
       tls: this.config.get('REDIS_TLS_ENABLED') === 'true' ? {} : undefined,
+    });
+
+    // Surface ioredis connection/reconnect errors as logger.error instead
+    // of letting them bubble as uncaught exceptions.
+    this.redis.on('error', (err: Error) => {
+      this.logger.error(
+        `[Notification] redis.error message=${err.message}`,
+      );
     });
   }
 
@@ -81,7 +95,7 @@ export class NotificationService {
     data: NotificationData = {},
     timestamp: number,
   ): Promise<Notification> {
-    const id = require('uuid').v4();
+    const id = randomUUID();
 
     const notification: Notification = {
       id,
@@ -94,18 +108,38 @@ export class NotificationService {
     const inboxKey = this.getInboxKey(userId);
     const json = JSON.stringify(notification);
 
-    // Use provided timestamp as ZSET score for correct ordering
-    await this.redis.zadd(inboxKey, timestamp, json);
+    try {
+      // Use provided timestamp as ZSET score for correct ordering
+      await this.redis.zadd(inboxKey, timestamp, json);
 
-    const count = await this.redis.zcard(inboxKey);
-    if (count > MAX_INBOX_SIZE) {
-      await this.redis.zremrangebyrank(inboxKey, 0, count - MAX_INBOX_SIZE - 1);
+      const count = await this.redis.zcard(inboxKey);
+      if (count > MAX_INBOX_SIZE) {
+        await this.redis.zremrangebyrank(
+          inboxKey,
+          0,
+          count - MAX_INBOX_SIZE - 1,
+        );
+        this.logger.debug(
+          `[Notification] inbox.trimmed userId=${userId} count=${count} max=${MAX_INBOX_SIZE}`,
+        );
+      }
+    } catch (err) {
+      this.logger.error(
+        `[Notification] zadd.failed userId=${userId} type=${type} message=${(err as Error).message}`,
+      );
+      throw err;
     }
 
     return notification;
   }
 
   async onModuleDestroy() {
-    await this.redis.quit();
+    try {
+      await this.redis.quit();
+    } catch (err) {
+      this.logger.warn(
+        `[Notification] redis.quit.failed message=${(err as Error).message}`,
+      );
+    }
   }
 }

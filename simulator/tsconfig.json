@@ -22,6 +22,9 @@
     "paths": {
       "@goalxi/database": [
         "../libs/database/dist"
+      ],
+      "@goalxi/logger": [
+        "../libs/logger/dist"
       ]
     }
   },

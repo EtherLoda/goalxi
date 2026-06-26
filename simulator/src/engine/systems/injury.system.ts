@@ -122,6 +122,11 @@ export class InjurySystem {
 
   /**
    * Generate injury result for an action that could cause injury.
+   *
+   * @param onInjury Optional callback fired when an injury is triggered,
+   *   receiving the result plus the inputs that produced it. Used by the
+   *   match engine to log injury events without coupling InjurySystem to a
+   *   specific logger.
    */
   static generateInjury(
     actionType: 'tackle' | 'sprint' | 'jump' | 'collision' | 'other',
@@ -130,6 +135,14 @@ export class InjurySystem {
     isHomeMatch: boolean = true,
     doctorLevel: number = 0,
     injuryState?: 'minor' | 'severe' | null,
+    onInjury?: (
+      result: InjuryResult,
+      ctx: {
+        actionType: 'tackle' | 'sprint' | 'jump' | 'collision' | 'other';
+        playerAge: number;
+        doctorLevel: number;
+      },
+    ) => void,
   ): InjuryResult {
     // Base chance varies by action type
     const actionChance: Record<string, number> = {
@@ -172,13 +185,19 @@ export class InjurySystem {
       doctorLevel,
     );
 
-    return {
+    const result: InjuryResult = {
       willInjure: true,
       injuryType,
       severity,
       injuryValue,
       estimatedDays,
     };
+
+    if (onInjury) {
+      onInjury(result, { actionType, playerAge, doctorLevel });
+    }
+
+    return result;
   }
 
   /**

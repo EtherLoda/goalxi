@@ -14,6 +14,7 @@ import { ConditionSystem } from './systems/condition.system';
 import { InjurySystem, InjuryEventData } from './systems/injury.system';
 import { Player, PlayerAbility } from '../types/player.types';
 import { BenchConfig, calculatePositionFit } from '@goalxi/database';
+import { LoggerService } from '@nestjs/common';
 import { resolveDuel as resolveDuelPure, duelProbability } from './duel';
 import {
   generateWeatherAnnouncementEvent,
@@ -82,9 +83,9 @@ const ATTACK_TYPE_CONFIG: Record<
 const SHOT_TYPE_CONFIG: Record<ShotType, { baseline: number }> = {
   [ShotType.ONE_ON_ONE]: { baseline: 0.65 }, // 1v1 面对门将
   [ShotType.HEADER]: { baseline: 0.45 }, // 头球靠位置争顶
-  [ShotType.NORMAL]: { baseline: 0.40 }, // 禁区内常规抽射
-  [ShotType.REBOUND]: { baseline: 0.50 }, // 补射（门前近距离）
-  [ShotType.LONG_SHOT]: { baseline: 0.30 }, // 远射
+  [ShotType.NORMAL]: { baseline: 0.4 }, // 禁区内常规抽射
+  [ShotType.REBOUND]: { baseline: 0.5 }, // 补射（门前近距离）
+  [ShotType.LONG_SHOT]: { baseline: 0.3 }, // 远射
 };
 
 /**
@@ -273,6 +274,7 @@ export class MatchEngine {
     private weather: string = 'cloudy', // Default weather
     private homeTactics: TacticsConfig = DEFAULT_TACTICS,
     private awayTactics: TacticsConfig = DEFAULT_TACTICS,
+    private logger?: LoggerService, // Optional Nest logger — passed from SimulationProcessor
   ) {
     this.possessionTeam = homeTeam;
     this.defendingTeam = awayTeam;
@@ -366,6 +368,10 @@ export class MatchEngine {
     this.events = [];
     this.time = 0;
     this.freshPossession = false;
+
+    this.logger?.log(
+      `[MatchEngine] simulateMatch start ${this.homeTeam.name} vs ${this.awayTeam.name} weather=${this.weather}`,
+    );
 
     // KICKOFF Event
     this.events.push({
@@ -521,6 +527,10 @@ export class MatchEngine {
     // Extra Time Setup (30 mins = ~7 moments)
     const MOMENTS_COUNT = 7;
 
+    this.logger?.log(
+      `[MatchEngine] simulateExtraTime start ${this.homeTeam.name} ${this.homeScore}-${this.awayScore} ${this.awayTeam.name}`,
+    );
+
     // Update Snapshot for start of ET
     this.homeTeam.updateSnapshot(90, this.homeTactics.pitchWidth);
     this.awayTeam.updateSnapshot(90, this.awayTactics.pitchWidth);
@@ -617,6 +627,10 @@ export class MatchEngine {
     let homePKScore = 0;
     let awayPKScore = 0;
     let round = 1;
+
+    this.logger?.log(
+      `[MatchEngine] simulatePenaltyShootout start ${this.homeTeam.name} ${this.homeScore}-${this.awayScore} ${this.awayTeam.name}`,
+    );
 
     const homeKickers = this.homeTeam.players.filter((p) => !p.isSentOff);
     const awayKickers = this.awayTeam.players.filter((p) => !p.isSentOff);
@@ -1807,6 +1821,13 @@ export class MatchEngine {
       team === this.homeTeam,
       team.doctorLevel,
       playerInjuryState,
+      this.logger
+        ? (result, ctx) => {
+            this.logger?.debug(
+              `[MatchEngine] injury triggered player=${player.id} (${player.name}) team=${team.name} type=${result.injuryType} severity=${result.severity} value=${result.injuryValue} days=${result.estimatedDays} actionType=${ctx.actionType} age=${ctx.playerAge.toFixed(2)} doctorLevel=${ctx.doctorLevel}`,
+            );
+          }
+        : undefined,
     );
 
     if (
@@ -2082,6 +2103,16 @@ export class MatchEngine {
         : undefined,
       data: eventData,
     });
+
+    if (eventType === 'goal') {
+      this.logger?.debug(
+        `[MatchEngine] goal minute=${this.time} scorer=${
+          shot?.shooter ? (shot.shooter.player as Player).name : 'unknown'
+        } assist=${
+          shot?.assist ? (shot.assist.player as Player).name : 'none'
+        } score=${scoreAfterEvent.home}-${scoreAfterEvent.away}`,
+      );
+    }
 
     // Trigger corner if shot was blocked
     if (finalResult === 'blocked' && shot?.shooter) {
