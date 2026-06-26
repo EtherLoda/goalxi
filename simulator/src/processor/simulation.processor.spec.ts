@@ -2,6 +2,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { Job } from 'bullmq';
 import { DataSource, Repository } from 'typeorm';
 import { getRepositoryToken } from '@nestjs/typeorm';
+import { LOGGER_SERVICE } from '@goalxi/logger';
 import { SimulationProcessor } from './simulation.processor';
 import { NotificationService } from '../notification/notification.service';
 import {
@@ -233,6 +234,11 @@ describe('SimulationProcessor', () => {
             createWithTime: jest.fn().mockResolvedValue(undefined),
             deleteExpired: jest.fn().mockResolvedValue(undefined),
           },
+        },
+        {
+          // Shared @goalxi/logger pino instance.
+          provide: LOGGER_SERVICE,
+          useValue: { log: jest.fn(), info: jest.fn(), warn: jest.fn(), error: jest.fn(), debug: jest.fn(), child: jest.fn(function () { return this; }) },
         },
       ],
     }).compile();

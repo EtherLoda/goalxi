@@ -16,6 +16,7 @@ import { CacheModule } from '@nestjs/cache-manager';
 import { ModuleMetadata } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import type { Request, Response } from 'express';
 import { redisStore } from 'cache-manager-ioredis-yet';
 import {
   AcceptLanguageResolver,
@@ -23,10 +24,13 @@ import {
   I18nModule,
   QueryResolver,
 } from 'nestjs-i18n';
+import { ClsModule } from 'nestjs-cls';
 import { LoggerModule } from 'nestjs-pino';
 import path from 'path';
 import { DataSource, DataSourceOptions } from 'typeorm';
+import { v4 as uuidv4 } from 'uuid';
 import loggerFactory from './logger-factory';
+import { TraceIdMiddleware } from './trace-id.middleware';
 
 function generateModulesSet() {
   const imports: ModuleMetadata['imports'] = [
@@ -37,6 +41,28 @@ function generateModulesSet() {
     }),
   ];
   let customModules: ModuleMetadata['imports'] = [];
+
+  // CLS: scoped to each request so service code can read the inbound
+  // traceId (X-Request-Id header) without threading it through every
+  // method signature. See TraceIdMiddleware + TraceIdMiddleware.HANDLER
+  // wiring in AppModule / main.ts.
+  const clsModule = ClsModule.forRoot({
+    global: true,
+    middleware: {
+      mount: true,
+      generateId: false, // we use our own id (incoming header or uuid)
+      idGenerator: (req: Request) =>
+        ((req.headers['x-request-id'] as string | undefined) || '').trim() ||
+        `req-${uuidv4()}`,
+      setup: (cls, req, res) => {
+        const traceId =
+          ((req.headers['x-request-id'] as string | undefined) || '').trim() ||
+          `req-${uuidv4()}`;
+        cls.set(TraceIdMiddleware.CLS_KEY, traceId);
+        res.setHeader('x-request-id', traceId);
+      },
+    },
+  });
 
   const dbModule = TypeOrmModule.forRootAsync({
     useClass: TypeOrmConfigService,
@@ -157,6 +183,7 @@ function generateModulesSet() {
         bullModule,
         BackgroundModule,
         cacheModule,
+        clsModule,
         dbModule,
         i18nModule,
         loggerModule,
@@ -170,6 +197,7 @@ function generateModulesSet() {
         ApiModule,
         bullModule,
         cacheModule,
+        clsModule,
         dbModule,
         i18nModule,
         loggerModule,
@@ -183,6 +211,7 @@ function generateModulesSet() {
         bullModule,
         BackgroundModule,
         cacheModule,
+        clsModule,
         dbModule,
         i18nModule,
         loggerModule,

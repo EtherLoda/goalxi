@@ -43,6 +43,25 @@ export class PinoLoggerService implements LoggerService {
     );
   }
 
+  /**
+   * Returns a child logger that automatically attaches `bindings` to every
+   * log line. Used by BullMQ workers to propagate the inbound `traceId`
+   * (X-Request-Id from the originating HTTP request) through every log
+   * line emitted while processing the job.
+   *
+   * @example
+   *   const log = this.logger.child({ traceId: job.data.traceId });
+   *   log.info('simulation started');
+   *   // -> [2026-06-27 ...] traceId=req-abc123 msg="simulation started"
+   */
+  child(bindings: Record<string, unknown>): PinoLoggerService {
+    const child = Object.create(PinoLoggerService.prototype) as PinoLoggerService;
+    (child as unknown as { logger: pino.Logger }).logger = this.logger.child(
+      bindings,
+    );
+    return child;
+  }
+
   private formatMessage(
     message: unknown,
     ...optionalParams: unknown[]

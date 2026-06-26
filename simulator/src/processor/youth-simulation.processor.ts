@@ -1,6 +1,7 @@
 import { Processor, WorkerHost, OnWorkerEvent } from '@nestjs/bullmq';
 import { Job } from 'bullmq';
-import { Injectable, Logger } from '@nestjs/common';
+import { Inject, Injectable } from '@nestjs/common';
+import { LOGGER_SERVICE, PinoLoggerService } from '@goalxi/logger';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, DataSource, In } from 'typeorm';
 import {
@@ -35,14 +36,19 @@ interface YouthSimulationJobData {
   youthMatchId: string;
   homeForfeit?: boolean;
   awayForfeit?: boolean;
+  /** Inbound X-Request-Id from the api caller; propagates traceId to logs. */
+  traceId?: string;
 }
 
 @Processor('youth-match-simulation')
 @Injectable()
 export class YouthSimulationProcessor extends WorkerHost {
-  private readonly logger = new Logger(YouthSimulationProcessor.name);
+  /** Active job-scoped logger, bound to the inbound traceId at process() start. */
+  private jobLog!: PinoLoggerService;
 
   constructor(
+    @Inject(LOGGER_SERVICE)
+    private readonly logger: PinoLoggerService,
     @InjectRepository(YouthMatchEntity)
     private readonly matchRepository: Repository<YouthMatchEntity>,
     @InjectRepository(YouthMatchEventEntity)
@@ -59,9 +65,9 @@ export class YouthSimulationProcessor extends WorkerHost {
   }
 
   async process(job: Job<YouthSimulationJobData>): Promise<void> {
-    const { youthMatchId, homeForfeit, awayForfeit } = job.data;
-
-    this.logger.log(`[YouthSimulator] Processing youth match ${youthMatchId}`);
+    const { youthMatchId, homeForfeit, awayForfeit, traceId } = job.data;
+    this.jobLog = traceId ? this.logger.child({ traceId }) : this.logger;
+    this.jobLog.info(`[YouthSimulator] Processing youth match ${youthMatchId}`);
 
     const match = await this.matchRepository.findOne({
       where: { id: youthMatchId },
@@ -69,12 +75,12 @@ export class YouthSimulationProcessor extends WorkerHost {
     });
 
     if (!match) {
-      this.logger.error(`Youth match ${youthMatchId} not found`);
+      this.jobLog.error(`Youth match ${youthMatchId} not found`);
       return;
     }
 
     if (match.status === YouthMatchStatus.COMPLETED) {
-      this.logger.warn(`Youth match ${youthMatchId} already completed.`);
+      this.jobLog.warn(`Youth match ${youthMatchId} already completed.`);
       return;
     }
 
@@ -84,7 +90,7 @@ export class YouthSimulationProcessor extends WorkerHost {
       await this.runSimulation(match);
     }
 
-    this.logger.log(`[YouthSimulator] Completed youth match ${youthMatchId}`);
+    this.jobLog.log(`[YouthSimulator] Completed youth match ${youthMatchId}`);
   }
 
   private findPositionInLineup(
@@ -255,12 +261,12 @@ export class YouthSimulationProcessor extends WorkerHost {
     );
 
     // 6. Run Match
-    this.logger.log(`[YouthSimulator] Starting engine for ${match.id}`);
+    this.jobLog.log(`[YouthSimulator] Starting engine for ${match.id}`);
     let events: MatchEvent[];
     try {
       events = engine.simulateMatch();
     } catch (err) {
-      this.logger.error(
+      this.jobLog.error(
         `[YouthSimulator] simulateMatch crashed for match ${match.id}: ${(err as Error).message}`,
         (err as Error).stack,
       );
@@ -288,13 +294,13 @@ export class YouthSimulationProcessor extends WorkerHost {
 
     // Check if extra time is needed
     if (match.requiresWinner && engine.homeScore === engine.awayScore) {
-      this.logger.log(
+      this.jobLog.log(
         `[YouthSimulator] Match ${match.id} is tied and requires winner - playing extra time`,
       );
       try {
         events = engine.simulateExtraTime();
       } catch (err) {
-        this.logger.error(
+        this.jobLog.error(
           `[YouthSimulator] simulateExtraTime crashed for match ${match.id}: ${(err as Error).message}`,
           (err as Error).stack,
         );
@@ -320,13 +326,13 @@ export class YouthSimulationProcessor extends WorkerHost {
       match.extraTimeSecondHalfInjury = etSecondHalfInjury;
 
       if (engine.homeScore === engine.awayScore) {
-        this.logger.log(
+        this.jobLog.log(
           `[YouthSimulator] Still tied after extra time - penalty shootout`,
         );
         try {
           events = engine.simulatePenaltyShootout();
         } catch (err) {
-          this.logger.error(
+          this.jobLog.error(
             `[YouthSimulator] simulatePenaltyShootout crashed for match ${match.id}: ${(err as Error).message}`,
             (err as Error).stack,
           );
@@ -340,7 +346,7 @@ export class YouthSimulationProcessor extends WorkerHost {
     const matchStartTime = new Date(match.scheduledAt);
     const matchStartTimeUTC = new Date(matchStartTime.toISOString());
 
-    this.logger.log(
+    this.jobLog.log(
       `[YouthSimulator] Calculating event scheduled times (match starts: ${matchStartTimeUTC.toISOString()})` +
         `  1st half injury time: ${firstHalfInjuryTime}min, 2nd half injury time: ${secondHalfInjuryTime}min`,
     );
@@ -409,7 +415,7 @@ export class YouthSimulationProcessor extends WorkerHost {
         (60 * 1000)
       : 0;
 
-    this.logger.log(
+    this.jobLog.log(
       `[YouthSimulator] Events will be revealed from ${matchStartTimeUTC.toISOString()} ` +
         `to ${lastEvent?.eventScheduledTime?.toISOString() || 'unknown'}\n` +
         `  Total events: ${events.length}, Real-world duration: ~${Math.ceil(totalDuration)} minutes`,
@@ -506,11 +512,11 @@ export class YouthSimulationProcessor extends WorkerHost {
 
   @OnWorkerEvent('completed')
   onCompleted(job: Job) {
-    this.logger.log(`Youth Job ${job.id} completed successfully`);
+    this.jobLog.log(`Youth Job ${job.id} completed successfully`);
   }
 
   @OnWorkerEvent('failed')
   onFailed(job: Job, error: Error) {
-    this.logger.error(`Youth Job ${job.id} failed: ${error.message}`);
+    this.jobLog.error(`Youth Job ${job.id} failed: ${error.message}`);
   }
 }

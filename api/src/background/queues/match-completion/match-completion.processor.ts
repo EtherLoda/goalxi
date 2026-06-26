@@ -1,29 +1,35 @@
 import { MatchCompletionService } from '@/api/match/match-completion.service';
 import { OnWorkerEvent, Processor, WorkerHost } from '@nestjs/bullmq';
-import { Injectable, Logger } from '@nestjs/common';
+import { Inject, Injectable } from '@nestjs/common';
+import { LOGGER_SERVICE, PinoLoggerService } from '@goalxi/logger';
 import { Job } from 'bullmq';
 
 @Injectable()
 @Processor('match-completion')
 export class MatchCompletionProcessor extends WorkerHost {
-  private readonly logger = new Logger(MatchCompletionProcessor.name);
+  /** Active job-scoped logger, bound to the inbound traceId at process() start. */
+  private jobLog!: PinoLoggerService;
 
-  constructor(private readonly completionService: MatchCompletionService) {
+  constructor(
+    @Inject(LOGGER_SERVICE)
+    private readonly logger: PinoLoggerService,
+    private readonly completionService: MatchCompletionService,
+  ) {
     super();
   }
 
   async process(job: Job<any, any, string>): Promise<any> {
-    this.logger.log(
-      `Processing match completion for match ID: ${job.data.matchId}`,
+    const { matchId, traceId } = job.data;
+    this.jobLog = traceId ? this.logger.child({ traceId }) : this.logger;
+    this.jobLog.info(
+      `Processing match completion for match ID: ${matchId}`,
     );
-
-    const { matchId } = job.data;
 
     try {
       await this.completionService.completeMatch(matchId);
-      this.logger.log(`Post-match processing completed for match ${matchId}`);
+      this.jobLog.info(`Post-match processing completed for match ${matchId}`);
     } catch (error) {
-      this.logger.error(
+      this.jobLog.error(
         `Post-match processing failed for match ${matchId}: ${error.message}`,
         error.stack,
       );
@@ -33,11 +39,11 @@ export class MatchCompletionProcessor extends WorkerHost {
 
   @OnWorkerEvent('completed')
   onCompleted(job: Job) {
-    this.logger.debug(`Match completion job ${job.id} completed.`);
+    this.jobLog?.debug(`Match completion job ${job.id} completed.`);
   }
 
   @OnWorkerEvent('failed')
   onFailed(job: Job, err: Error) {
-    this.logger.error(`Match completion job ${job.id} failed: ${err.message}`);
+    this.jobLog?.error(`Match completion job ${job.id} failed: ${err.message}`);
   }
 }

@@ -25,6 +25,7 @@ import {
   OnModuleInit,
 } from '@nestjs/common';
 import { Cron } from '@nestjs/schedule';
+import { ClsService } from 'nestjs-cls';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Queue } from 'bullmq';
 import { DataSource, In, MoreThanOrEqual, Repository } from 'typeorm';
@@ -42,6 +43,9 @@ interface TransferSettlementJobData {
   amount: number;
   season: number;
   timestamp: number;
+  /** Inbound X-Request-Id (or generated `req-<uuid>`). Propagated by the
+   *  settlement worker so all settlement-side logs share the trace. */
+  traceId?: string;
 }
 
 @Injectable()
@@ -64,6 +68,7 @@ export class AuctionService implements OnModuleInit {
     private readonly dataSource: DataSource,
     private readonly auctionRedisRepo: AuctionRedisRepository,
     private readonly notificationRedis: NotificationRedisService,
+    private readonly cls: ClsService,
   ) {}
 
   async onModuleInit() {
@@ -187,6 +192,7 @@ export class AuctionService implements OnModuleInit {
       amount,
       season,
       timestamp: now.getTime(),
+      traceId: this.cls.get<string>('traceId'),
     };
 
     await this.transferQueue.add('transfer-settlement', jobData, {
@@ -664,6 +670,7 @@ export class AuctionService implements OnModuleInit {
         amount: auction.buyoutPrice,
         season: currentSeason,
         timestamp: now.getTime(),
+        traceId: this.cls.get<string>('traceId'),
       };
       await this.transferQueue.add('transfer-settlement', jobData, {
         attempts: 3,
@@ -786,6 +793,7 @@ export class AuctionService implements OnModuleInit {
                 amount: auction.currentPrice,
                 season: currentSeason,
                 timestamp: now.getTime(),
+                traceId: this.cls.get<string>('traceId'),
               };
               await this.transferQueue.add('transfer-settlement', jobData, {
                 attempts: 3,

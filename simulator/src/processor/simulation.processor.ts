@@ -1,6 +1,7 @@
 import { Processor, WorkerHost, OnWorkerEvent } from '@nestjs/bullmq';
 import { Job } from 'bullmq';
-import { Injectable, Logger } from '@nestjs/common';
+import { Inject, Injectable } from '@nestjs/common';
+import { LOGGER_SERVICE, PinoLoggerService } from '@goalxi/logger';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, DataSource, In, EntityManager } from 'typeorm';
 import {
@@ -49,14 +50,21 @@ interface SimulationJobData {
   homeForfeit?: boolean;
   awayForfeit?: boolean;
   weather?: string;
+  /** Inbound X-Request-Id from the api caller; propagates traceId to logs. */
+  traceId?: string;
 }
 
 @Processor('match-simulation')
 @Injectable()
 export class SimulationProcessor extends WorkerHost {
-  private readonly logger = new Logger(SimulationProcessor.name);
+  /** Active job-scoped logger. Set at the top of process() so every method
+   *  below emits lines bound to the inbound traceId without changing
+   *  signatures. */
+  private jobLog!: PinoLoggerService;
 
   constructor(
+    @Inject(LOGGER_SERVICE)
+    private readonly logger: PinoLoggerService,
     @InjectRepository(MatchEntity)
     private readonly matchRepository: Repository<MatchEntity>,
     @InjectRepository(MatchEventEntity)
@@ -84,9 +92,11 @@ export class SimulationProcessor extends WorkerHost {
   }
 
   async process(job: Job<SimulationJobData>): Promise<void> {
-    const { matchId, homeForfeit, awayForfeit, weather } = job.data;
-
-    this.logger.log(`[Simulator] Processing match ${matchId}`);
+    const { matchId, homeForfeit, awayForfeit, weather, traceId } = job.data;
+    // Bind the inbound traceId (X-Request-Id from the api caller) to every
+    // log line emitted for this job. If absent, fall back to the base logger.
+    this.jobLog = traceId ? this.logger.child({ traceId }) : this.logger;
+    this.jobLog.info(`[Simulator] Processing match ${matchId}`);
 
     const match = await this.matchRepository.findOne({
       where: { id: matchId },
@@ -94,12 +104,12 @@ export class SimulationProcessor extends WorkerHost {
     });
 
     if (!match) {
-      this.logger.error(`Match ${matchId} not found`);
+      this.jobLog.error(`Match ${matchId} not found`);
       return;
     }
 
     if (match.status === MatchStatus.COMPLETED) {
-      this.logger.warn(`Match ${matchId} already completed.`);
+      this.jobLog.warn(`Match ${matchId} already completed.`);
       return;
     }
 
@@ -170,7 +180,7 @@ export class SimulationProcessor extends WorkerHost {
       );
     }
 
-    this.logger.log(`[Simulator] Completed match ${matchId}`);
+    this.jobLog.log(`[Simulator] Completed match ${matchId}`);
 
     // Create injury notifications for both teams
     const injuryEvents = await this.eventRepository.find({
@@ -345,11 +355,11 @@ export class SimulationProcessor extends WorkerHost {
       (pid) => !((pid as any) in homePlayerIds),
     );
     if (missingHome.length > 0)
-      this.logger.warn(
+      this.jobLog.warn(
         `[Simulator] Home lineup references missing players: ${missingHome.join(', ')}`,
       );
     if (missingAway.length > 0)
-      this.logger.warn(
+      this.jobLog.warn(
         `[Simulator] Away lineup references missing players: ${missingAway.join(', ')}`,
       );
 
@@ -420,18 +430,18 @@ export class SimulationProcessor extends WorkerHost {
       normalizedWeather,
       homeTacticsConfig,
       awayTacticsConfig,
-      this.logger,
+      this.jobLog,
     );
 
     // 5. Run Match (wrapped in try/catch to ensure transaction rollback on error)
-    this.logger.log(
+    this.jobLog.log(
       `[Simulator] Starting engine for ${match.id} with weather: ${normalizedWeather}`,
     );
     let events: MatchEvent[];
     try {
       events = engine.simulateMatch();
     } catch (err) {
-      this.logger.error(
+      this.jobLog.error(
         `[Simulator] simulateMatch crashed for match ${match.id}: ${(err as Error).message}`,
         (err as Error).stack,
       );
@@ -459,13 +469,13 @@ export class SimulationProcessor extends WorkerHost {
 
     // Check if extra time is needed (match requires winner and is tied)
     if (match.requiresWinner && engine.homeScore === engine.awayScore) {
-      this.logger.log(
+      this.jobLog.log(
         `[Simulator] Match ${match.id} is tied and requires winner - playing extra time`,
       );
       try {
         events = engine.simulateExtraTime();
       } catch (err) {
-        this.logger.error(
+        this.jobLog.error(
           `[Simulator] simulateExtraTime crashed for match ${match.id}: ${(err as Error).message}`,
           (err as Error).stack,
         );
@@ -493,13 +503,13 @@ export class SimulationProcessor extends WorkerHost {
 
       // If still tied after extra time, penalty shootout
       if (engine.homeScore === engine.awayScore) {
-        this.logger.log(
+        this.jobLog.log(
           `[Simulator] Still tied after extra time - penalty shootout`,
         );
         try {
           events = engine.simulatePenaltyShootout();
         } catch (err) {
-          this.logger.error(
+          this.jobLog.error(
             `[Simulator] simulatePenaltyShootout crashed for match ${match.id}: ${(err as Error).message}`,
             (err as Error).stack,
           );
@@ -515,7 +525,7 @@ export class SimulationProcessor extends WorkerHost {
     // Force to UTC by getting the time value directly
     const matchStartTimeUTC = new Date(matchStartTime.toISOString());
 
-    this.logger.log(
+    this.jobLog.log(
       `[Simulator] Calculating event scheduled times (match starts: ${matchStartTimeUTC.toISOString()})
 ` +
         `  1st half injury time: ${firstHalfInjuryTime}min, 2nd half injury time: ${secondHalfInjuryTime}min`,
@@ -616,7 +626,7 @@ export class SimulationProcessor extends WorkerHost {
         (60 * 1000)
       : 0;
 
-    this.logger.log(
+    this.jobLog.log(
       `[Simulator] Events will be revealed from ${matchStartTimeUTC.toISOString()} ` +
         `to ${lastEvent?.eventScheduledTime?.toISOString() || 'unknown'}\n` +
         `  Total events: ${events.length}, Real-world duration: ~${Math.ceil(totalDuration)} minutes`,
@@ -1036,11 +1046,11 @@ export class SimulationProcessor extends WorkerHost {
 
   @OnWorkerEvent('completed')
   onCompleted(job: Job) {
-    this.logger.log(`Job ${job.id} completed successfully`);
+    this.jobLog.log(`Job ${job.id} completed successfully`);
   }
 
   @OnWorkerEvent('failed')
   onFailed(job: Job, error: Error) {
-    this.logger.error(`Job ${job.id} failed: ${error.message}`);
+    this.jobLog.error(`Job ${job.id} failed: ${error.message}`);
   }
 }

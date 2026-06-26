@@ -19,6 +19,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
+import { ClsService } from 'nestjs-cls';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Queue } from 'bullmq';
 import { Cache } from 'cache-manager';
@@ -51,6 +52,7 @@ export class MatchService {
     private readonly statsRepository: Repository<MatchTeamStatsEntity>,
     @Inject(CACHE_MANAGER) private cacheManager: Cache,
     private readonly dataSource: DataSource,
+    private readonly cls: ClsService,
     @InjectQueue('match-simulation')
     private readonly simulationQueue: Queue,
   ) {}
@@ -358,7 +360,10 @@ export class MatchService {
     }
 
     // Add job to simulation queue
-    await this.simulationQueue.add('simulate', { matchId });
+    await this.simulationQueue.add('simulate', {
+      matchId,
+      traceId: this.cls.get<string>('traceId'),
+    });
 
     return { status: 'queued', matchId };
   }

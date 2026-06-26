@@ -1,5 +1,5 @@
 import { Processor, WorkerHost } from '@nestjs/bullmq';
-import {Injectable, Logger, Inject } from '@nestjs/common';
+import {Injectable, Inject } from '@nestjs/common';
 import { LOGGER_SERVICE, PinoLoggerService } from '@goalxi/logger';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, DataSource } from 'typeorm';
@@ -35,11 +35,15 @@ export interface TransferSettlementJobData {
   amount: number;
   season: number;
   timestamp: number;
+  /** Inbound X-Request-Id from the api caller; propagates traceId to logs. */
+  traceId?: string;
 }
 
 @Injectable()
 @Processor('transfer-settlement')
 export class TransferProcessor extends WorkerHost {
+  /** Active job-scoped logger, bound to the inbound traceId at process() start. */
+  private jobLog!: PinoLoggerService;
 
   constructor(
     @Inject(LOGGER_SERVICE)
@@ -76,9 +80,11 @@ export class TransferProcessor extends WorkerHost {
       sellerTeamId,
       amount,
       season,
+      traceId,
     } = job.data;
+    this.jobLog = traceId ? this.logger.child({ traceId }) : this.logger;
 
-    this.logger.log(
+    this.jobLog.log(
       `[TransferProcessor] Processing ${type} for transaction ${transactionId}`,
     );
 
@@ -89,21 +95,21 @@ export class TransferProcessor extends WorkerHost {
       });
 
       if (!existingTx) {
-        this.logger.error(
+        this.jobLog.error(
           `[TransferProcessor] Transaction ${transactionId} not found`,
         );
         throw new Error(`Transaction ${transactionId} not found`);
       }
 
       if (existingTx.status === TransferTransactionStatus.COMPLETED) {
-        this.logger.warn(
+        this.jobLog.warn(
           `[TransferProcessor] Transaction ${transactionId} already completed, skipping`,
         );
         return;
       }
 
       if (existingTx.status === TransferTransactionStatus.PROCESSING) {
-        this.logger.warn(
+        this.jobLog.warn(
           `[TransferProcessor] Transaction ${transactionId} already being processed`,
         );
         throw new Error(`Transaction ${transactionId} already being processed`);
@@ -260,7 +266,7 @@ export class TransferProcessor extends WorkerHost {
               'lockedCash',
               auction.bidLockAmount,
             );
-            this.logger.log(
+            this.jobLog.log(
               `[TransferProcessor] Released ${auction.bidLockAmount} locked cash from previous bidder ${auction.currentBidderId}`,
             );
           }
@@ -281,7 +287,7 @@ export class TransferProcessor extends WorkerHost {
               'lockedCash',
               auction.bidLockAmount,
             );
-            this.logger.log(
+            this.jobLog.log(
               `[TransferProcessor] Released ${auction.bidLockAmount} bid lock from buyer ${buyerTeamId}`,
             );
           }
@@ -327,12 +333,12 @@ export class TransferProcessor extends WorkerHost {
           );
         }
 
-        this.logger.log(
+        this.jobLog.log(
           `[TransferProcessor] Successfully settled ${type}: Player ${playerId} transferred from Team ${sellerTeamId} to Team ${buyerTeamId} for ${amount}`,
         );
       });
     } catch (error) {
-      this.logger.error(
+      this.jobLog.error(
         `[TransferProcessor] Failed to process transaction ${transactionId}: ${error.message || error}`,
       );
 
