@@ -79,6 +79,9 @@
       "@goalxi/database": [
         "../libs/database/dist"
       ],
+      "@goalxi/logger": [
+        "../libs/logger/dist"
+      ],
       "settlement": [
         "../settlement/dist/src"
       ],

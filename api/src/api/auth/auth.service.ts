@@ -2,6 +2,7 @@ import { IEmailJob, IVerifyEmailJob } from '@/common/interfaces/job.interface';
 import { Branded } from '@/common/types/types';
 import { AllConfigType } from '@/config/config.type';
 import { SessionEntity, UserEntity } from '@goalxi/database';
+import { LOGGER_SERVICE, PinoLoggerService } from '@goalxi/logger';
 import { InjectQueue } from '@nestjs/bullmq';
 import { CACHE_MANAGER } from '@nestjs/cache-manager';
 import { Inject, Injectable, UnauthorizedException } from '@nestjs/common';
@@ -42,6 +43,8 @@ type Token = Branded<
 @Injectable()
 export class AuthService {
   constructor(
+    @Inject(LOGGER_SERVICE)
+    private readonly logger: PinoLoggerService,
     private readonly configService: ConfigService<AllConfigType>,
     private readonly jwtService: JwtService,
     @InjectRepository(UserEntity)
@@ -59,6 +62,8 @@ export class AuthService {
    */
   async signIn(dto: LoginReqDto): Promise<LoginResDto> {
     const { email, password } = dto;
+    this.logger.log(`[Auth] signIn attempt email=${email}`);
+
     const user = await this.userRepository.findOne({
       where: { email },
       select: ['id', 'email', 'password'],
@@ -68,6 +73,7 @@ export class AuthService {
       user && (await verifyPassword(password, user.password));
 
     if (!isPasswordValid) {
+      this.logger.warn(`[Auth] signIn failed email=${email}`);
       throw new UnauthorizedException('Invalid email or password');
     }
 
@@ -88,6 +94,10 @@ export class AuthService {
       hash,
     });
 
+    this.logger.log(
+      `[Auth] signIn success userId=${user.id} sessionId=${session.id}`,
+    );
+
     return plainToInstance(LoginResDto, {
       userId: user.id,
       ...token,
@@ -95,12 +105,15 @@ export class AuthService {
   }
 
   async register(dto: RegisterReqDto): Promise<RegisterResDto> {
+    this.logger.log(`[Auth] register attempt email=${dto.email}`);
+
     // Check if the user already exists
     const isExistUser = await UserEntity.exists({
       where: { email: dto.email },
     });
 
     if (isExistUser) {
+      this.logger.warn(`[Auth] register conflict email=${dto.email}`);
       throw new ValidationException(ErrorCode.E003);
     }
 
@@ -135,12 +148,16 @@ export class AuthService {
       { attempts: 3, backoff: { type: 'exponential', delay: 60000 } },
     );
 
+    this.logger.log(`[Auth] register success userId=${user.id}`);
+
     return plainToInstance(RegisterResDto, {
       userId: user.id,
     });
   }
 
   async logout(userToken: JwtPayloadType): Promise<void> {
+    this.logger.log(`[Auth] logout sessionId=${userToken.sessionId}`);
+
     await this.cacheManager.store.set<boolean>(
       createCacheKey(CacheKey.SESSION_BLACKLIST, userToken.sessionId),
       true,
@@ -154,6 +171,7 @@ export class AuthService {
     const session = await SessionEntity.findOneBy({ id: sessionId });
 
     if (!session || session.hash !== hash) {
+      this.logger.warn(`[Auth] refresh failed sessionId=${sessionId}`);
       throw new UnauthorizedException();
     }
 
@@ -168,6 +186,10 @@ export class AuthService {
       .digest('hex');
 
     SessionEntity.update(session.id, { hash: newHash });
+
+    this.logger.log(
+      `[Auth] refresh success sessionId=${sessionId} userId=${user.id}`,
+    );
 
     return await this.createToken({
       id: user.id,

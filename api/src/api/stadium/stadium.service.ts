@@ -7,7 +7,8 @@ import {
   TransactionType,
   Uuid,
 } from '@goalxi/database';
-import { BadRequestException, Injectable, Logger } from '@nestjs/common';
+import { LOGGER_SERVICE, PinoLoggerService } from '@goalxi/logger';
+import { BadRequestException, Inject, Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { FinanceService } from '../finance/finance.service';
@@ -59,9 +60,9 @@ export interface RecentHomeMatch {
 
 @Injectable()
 export class StadiumService {
-  private readonly logger = new Logger(StadiumService.name);
-
   constructor(
+    @Inject(LOGGER_SERVICE)
+    private readonly logger: PinoLoggerService,
     @InjectRepository(StadiumEntity)
     private readonly stadiumRepository: Repository<StadiumEntity>,
     @InjectRepository(MatchEntity)
@@ -284,7 +285,7 @@ export class StadiumService {
       `Stadium expansion (+${delta} seats → ${newCapacity})`,
     );
 
-    this.logger.log(
+    this.logger.info(
       `Stadium expanded for team ${teamId}: +${delta} seats → ${newCapacity}, cost=${cost}`,
     );
 
@@ -340,7 +341,7 @@ export class StadiumService {
       `Stadium partial demolition (-${delta} seats → ${newCapacity})`,
     );
 
-    this.logger.log(
+    this.logger.info(
       `Stadium partially demolished for team ${teamId}: -${delta} seats → ${newCapacity}, refund=${refund}`,
     );
 
@@ -391,7 +392,7 @@ export class StadiumService {
       `Stadium construction (${dto.capacity} seats)`,
     );
 
-    this.logger.log(
+    this.logger.info(
       `Stadium built for team ${teamId}: capacity=${dto.capacity}, cost=${cost}`,
     );
 
@@ -436,7 +437,7 @@ export class StadiumService {
       `Stadium demolition (${stadium.capacity} seats)`,
     );
 
-    this.logger.log(`Stadium demolished for team ${teamId}: cost=${cost}`);
+    this.logger.info(`Stadium demolished for team ${teamId}: cost=${cost}`);
 
     return { cost };
   }

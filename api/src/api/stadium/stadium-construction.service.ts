@@ -16,11 +16,12 @@ import {
   computeConstructionWeeks,
   computeDemolishWeeks,
 } from '@goalxi/database';
+import { LOGGER_SERVICE, PinoLoggerService } from '@goalxi/logger';
 import {
   BadRequestException,
   ConflictException,
+  Inject,
   Injectable,
-  Logger,
   NotFoundException,
 } from '@nestjs/common';
 import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
@@ -47,9 +48,9 @@ import { DataSource, Repository } from 'typeorm';
  */
 @Injectable()
 export class StadiumConstructionService {
-  private readonly logger = new Logger(StadiumConstructionService.name);
-
   constructor(
+    @Inject(LOGGER_SERVICE)
+    private readonly logger: PinoLoggerService,
     @InjectRepository(StadiumConstructionEntity)
     private readonly constructionRepo: Repository<StadiumConstructionEntity>,
     @InjectRepository(StadiumEntity)
@@ -171,7 +172,7 @@ export class StadiumConstructionService {
       return saved;
     });
 
-    this.logger.log(
+    this.logger.info(
       `Stadium ${kind.toLowerCase()} queued for team ${teamId}: ${delta} seats over ${weeks} weeks`,
     );
 

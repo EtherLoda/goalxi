@@ -15,11 +15,12 @@ import {
   TransferTransactionStatus,
   TransferTransactionType,
 } from '@goalxi/database';
+import { LOGGER_SERVICE, PinoLoggerService } from '@goalxi/logger';
 import { InjectQueue } from '@nestjs/bullmq';
 import {
   BadRequestException,
+  Inject,
   Injectable,
-  Logger,
   NotFoundException,
   OnModuleInit,
 } from '@nestjs/common';
@@ -45,9 +46,9 @@ interface TransferSettlementJobData {
 
 @Injectable()
 export class AuctionService implements OnModuleInit {
-  private readonly logger = new Logger(AuctionService.name);
-
   constructor(
+    @Inject(LOGGER_SERVICE)
+    private readonly logger: PinoLoggerService,
     @InjectRepository(AuctionEntity)
     private readonly auctionRepo: Repository<AuctionEntity>,
     @InjectRepository(PlayerEntity)
@@ -329,6 +330,10 @@ export class AuctionService implements OnModuleInit {
     userId: Uuid,
     dto: CreateAuctionReqDto,
   ): Promise<AuctionEntity> {
+    this.logger.log(
+      `[Auction] createAuction start userId=${userId} playerId=${dto.playerId} startPrice=${dto.startPrice} buyoutPrice=${dto.buyoutPrice}`,
+    );
+
     const team = await this.teamRepo.findOneBy({ userId });
     if (!team) throw new NotFoundException('User has no team');
 
@@ -385,6 +390,10 @@ export class AuctionService implements OnModuleInit {
     // Initialize Redis state for the auction
     await this.auctionRedisRepo.initializeAuction(savedAuction.id, endsAt);
 
+    this.logger.log(
+      `[Auction] createAuction success auctionId=${savedAuction.id} playerId=${player.id} sellerTeamId=${team.id} durationHours=${durationHours}`,
+    );
+
     return savedAuction;
   }
 
@@ -393,6 +402,9 @@ export class AuctionService implements OnModuleInit {
     auctionId: Uuid,
     dto: PlaceBidReqDto,
   ): Promise<{ auction: AuctionEntity; lockedAmount: number }> {
+    this.logger.log(
+      `[Auction] placeBid start userId=${userId} auctionId=${auctionId} amount=${dto.amount}`,
+    );
     return this.dataSource.transaction(async (manager) => {
       const auctionRepo = manager.getRepository(AuctionEntity);
       const teamRepo = manager.getRepository(TeamEntity);
@@ -498,6 +510,10 @@ export class AuctionService implements OnModuleInit {
 
       await auctionRepo.save(auction);
 
+      this.logger.log(
+        `[Auction] placeBid success auctionId=${auctionId} bidderTeamId=${bidderTeam.id} playerId=${auction.playerId} newPrice=${dto.amount} lockedAmount=${dto.amount}`,
+      );
+
       // Notify previous bidder that they were outbid
       if (previousBidder) {
         const previousTeam = await this.teamRepo.findOne({
@@ -536,6 +552,9 @@ export class AuctionService implements OnModuleInit {
     status: string;
     message: string;
   }> {
+    this.logger.log(
+      `[Auction] buyout start userId=${userId} auctionId=${auctionId}`,
+    );
     return this.dataSource.transaction(async (manager) => {
       const auctionRepo = manager.getRepository(AuctionEntity);
       const teamRepo = manager.getRepository(TeamEntity);
@@ -654,6 +673,10 @@ export class AuctionService implements OnModuleInit {
         },
       });
 
+      this.logger.log(
+        `[Auction] buyout queued settlement transactionId=${transaction.id} auctionId=${auction.id} buyerTeamId=${buyerTeam.id} sellerTeamId=${auction.teamId} playerId=${auction.playerId} amount=${auction.buyoutPrice}`,
+      );
+
       return {
         success: true,
         transactionId: transaction.id,
@@ -672,6 +695,14 @@ export class AuctionService implements OnModuleInit {
       where: { status: AuctionStatus.ACTIVE },
     });
 
+    if (expiredAuctions.length === 0) {
+      return;
+    }
+
+    this.logger.log(
+      `[Auction] finalizeExpiredAuctions scanning ${expiredAuctions.length} active auctions`,
+    );
+
     for (const auction of expiredAuctions) {
       if (auction.expiresAt <= now) {
         // Acquire settlement lock to prevent concurrent settlement
@@ -679,6 +710,9 @@ export class AuctionService implements OnModuleInit {
           auction.id,
         );
         if (!lockAcquired) {
+          this.logger.debug(
+            `[Auction] finalizeExpiredAuctions skipped (lock held) auctionId=${auction.id}`,
+          );
           continue; // Another process is settling this auction
         }
 
@@ -694,6 +728,9 @@ export class AuctionService implements OnModuleInit {
             existingTx.status !== TransferTransactionStatus.FAILED
           ) {
             // Already has a transaction that's not failed, skip
+            this.logger.debug(
+              `[Auction] finalizeExpiredAuctions skipped (existing tx ${existingTx.id}) auctionId=${auction.id}`,
+            );
             continue;
           }
 
@@ -703,6 +740,9 @@ export class AuctionService implements OnModuleInit {
           );
 
           if (auction.currentBidderId) {
+            this.logger.log(
+              `[Auction] finalizeExpiredAuctions winner found auctionId=${auction.id} playerId=${auction.playerId} winnerTeamId=${auction.currentBidderId} sellerTeamId=${auction.teamId} price=${auction.currentPrice}`,
+            );
             // Has winner - create transaction and enqueue
             await this.dataSource.transaction(async (manager) => {
               const auctionRepo = manager.getRepository(AuctionEntity);
@@ -757,6 +797,9 @@ export class AuctionService implements OnModuleInit {
             });
           } else {
             // No bids - mark as expired and reset player's onTransfer
+            this.logger.log(
+              `[Auction] finalizeExpiredAuctions no bids auctionId=${auction.id} playerId=${auction.playerId} sellerTeamId=${auction.teamId}`,
+            );
             const player = await this.playerRepo.findOne({
               where: { id: auction.playerId as Uuid },
             });

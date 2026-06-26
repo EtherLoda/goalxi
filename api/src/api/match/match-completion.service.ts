@@ -13,7 +13,8 @@ import {
   TransactionType,
   Uuid,
 } from '@goalxi/database';
-import { Injectable, Logger } from '@nestjs/common';
+import { LOGGER_SERVICE, PinoLoggerService } from '@goalxi/logger';
+import { Inject, Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, MoreThanOrEqual, Repository } from 'typeorm';
 import { FanService } from '../fan/fan.service';
@@ -22,9 +23,9 @@ import { MatchCacheService } from './match-cache.service';
 
 @Injectable()
 export class MatchCompletionService {
-  private readonly logger = new Logger(MatchCompletionService.name);
-
   constructor(
+    @Inject(LOGGER_SERVICE)
+    private readonly logger: PinoLoggerService,
     @InjectRepository(MatchEntity)
     private matchRepository: Repository<MatchEntity>,
     @InjectRepository(LeagueStandingEntity)
@@ -49,7 +50,7 @@ export class MatchCompletionService {
   ) {}
 
   async completeMatch(matchId: string): Promise<void> {
-    this.logger.log(`Completing match ${matchId}...`);
+    this.logger.info(`Completing match ${matchId}...`);
 
     // Check if stats already processed to avoid double counting
     const isProcessed = await this.matchCacheService.isMatchProcessed(matchId);
@@ -101,7 +102,7 @@ export class MatchCompletionService {
     // 7. Invalidate Cache
     await this.matchCacheService.invalidateMatchCache(matchId);
 
-    this.logger.log(`Match ${matchId} completion processing finished.`);
+    this.logger.info(`Match ${matchId} completion processing finished.`);
   }
 
   private async updateLeagueStandings(match: MatchEntity): Promise<void> {

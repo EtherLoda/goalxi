@@ -37,6 +37,7 @@
   },
   "dependencies": {
     "@goalxi/database": "workspace:*",
+    "@goalxi/logger": "workspace:*",
     "@nestjs-modules/ioredis": "^2.2.1",
     "@nestjs-modules/mailer": "^2.0.2",
     "@nestjs/axios": "^3.1.2",

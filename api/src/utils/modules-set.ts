@@ -10,6 +10,7 @@ import mailConfig from '@/mail/config/mail.config';
 import { MailModule } from '@/mail/mail.module';
 import redisConfig from '@/redis/config/redis.config';
 import { RedisModule } from '@/redis/redis.module';
+import { LoggerModule as SharedLoggerModule } from '@goalxi/logger';
 import { BullModule } from '@nestjs/bullmq';
 import { CacheModule } from '@nestjs/cache-manager';
 import { ModuleMetadata } from '@nestjs/common';
@@ -103,6 +104,28 @@ function generateModulesSet() {
     useFactory: loggerFactory,
   });
 
+  // Shared @goalxi/logger module — provides PinoLoggerService via the
+  // LOGGER_SERVICE DI token for any service that wants to inject it.
+  // Lives alongside nestjs-pino (which provides the HTTP request/response
+  // middleware); the bootstrap call `app.useLogger(sharedLogger)` in
+  // main.ts wires the shared instance into Nest's static logger.
+  const sharedLoggerModule = SharedLoggerModule.forRoot({
+    level:
+      (process.env.APP_LOG_LEVEL as
+        | 'fatal'
+        | 'error'
+        | 'warn'
+        | 'info'
+        | 'debug'
+        | 'trace'
+        | undefined) ?? (isDevelopmentFromEnv() ? 'debug' : 'warn'),
+    service: 'api',
+    isDevelopment: isDevelopmentFromEnv(),
+    file: './logs/api.log',
+    maxSize: 100 * 1024 * 1024,
+    maxFiles: 7,
+  });
+
   const cacheModule = CacheModule.registerAsync({
     imports: [ConfigModule],
     useFactory: async (configService: ConfigService<AllConfigType>) => {
@@ -137,6 +160,7 @@ function generateModulesSet() {
         dbModule,
         i18nModule,
         loggerModule,
+        sharedLoggerModule,
         MailModule,
         RedisModule,
       ];
@@ -149,6 +173,7 @@ function generateModulesSet() {
         dbModule,
         i18nModule,
         loggerModule,
+        sharedLoggerModule,
         MailModule,
         RedisModule,
       ];
@@ -161,6 +186,7 @@ function generateModulesSet() {
         dbModule,
         i18nModule,
         loggerModule,
+        sharedLoggerModule,
         RedisModule,
       ];
       break;
@@ -170,6 +196,10 @@ function generateModulesSet() {
   }
 
   return imports.concat(customModules);
+}
+
+function isDevelopmentFromEnv(): boolean {
+  return (process.env.NODE_ENV || 'development') === 'development';
 }
 
 export default generateModulesSet;
