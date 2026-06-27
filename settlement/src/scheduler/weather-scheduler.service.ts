@@ -16,16 +16,16 @@ export class WeatherSchedulerService {
   @Cron('0 0 0 * * *')
   async generateDailyWeather() {
     const now = new Date();
-    this.logger.log(
+    this.logger.info(
       `[WeatherScheduler] Generating daily weather at ${now.toISOString()}`,
     );
 
     try {
       const weather = await this.weatherService.createOrUpdateTodayWeather();
-      this.logger.log(
+      this.logger.info(
         `[WeatherScheduler] �?Generated weather for ${weather.date}: ${weather.actualWeather}`,
       );
-      this.logger.log(
+      this.logger.info(
         `[WeatherScheduler] 📰 Tomorrow's forecast: ${JSON.stringify(weather.forecasts)}`,
       );
     } catch (error) {

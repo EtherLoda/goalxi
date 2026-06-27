@@ -65,11 +65,11 @@ export class LeagueAwardService {
     );
 
     if (!weekComplete) {
-      this.logger.log('[LeagueAward] Week 15 matches not yet complete');
+      this.logger.info('[LeagueAward] Week 15 matches not yet complete');
       return;
     }
 
-    this.logger.log(
+    this.logger.info(
       `[LeagueAward] Week 15 complete, processing Season ${currentSeasonWeek.season} awards...`,
     );
     await this.processSeasonAwards(currentSeasonWeek.season);
@@ -90,7 +90,7 @@ export class LeagueAwardService {
       await this.processLeagueAwards(leagueId, season);
     }
 
-    this.logger.log(`[LeagueAward] Season ${season} awards processed`);
+    this.logger.info(`[LeagueAward] Season ${season} awards processed`);
   }
 
   private async processLeagueAwards(
@@ -102,7 +102,7 @@ export class LeagueAwardService {
       where: { season, eventType: PlayerEventType.CHAMPIONSHIP_TITLE },
     });
     if (existingAwards) {
-      this.logger.log(
+      this.logger.info(
         `[LeagueAward] Awards already processed for league ${leagueId} season ${season}`,
       );
       return;
@@ -178,7 +178,7 @@ export class LeagueAwardService {
         finance.balance += prizeAmount;
         await this.financeRepo.save(finance);
 
-        this.logger.log(
+        this.logger.info(
           `[LeagueAward] PRIZE: team=${standing.team?.name} position=${position} amount=£${prizeAmount}`,
         );
       }
@@ -218,7 +218,7 @@ export class LeagueAwardService {
 
     // 发放奖金给球员所在球队
     await this.addPrizeToTeam(topScorer.playerId, 100000);
-    this.logger.log(
+    this.logger.info(
       `[LeagueAward] GOLDEN_BOOT: player=${topScorer.playerId} goals=${topScorer.goals}`,
     );
   }
@@ -247,7 +247,7 @@ export class LeagueAwardService {
     );
 
     await this.addPrizeToTeam(topAssister.playerId, 100000);
-    this.logger.log(
+    this.logger.info(
       `[LeagueAward] ASSISTS_LEADER: player=${topAssister.playerId} assists=${topAssister.assists}`,
     );
   }
@@ -276,7 +276,7 @@ export class LeagueAwardService {
     );
 
     await this.addPrizeToTeam(topTackler.playerId, 100000);
-    this.logger.log(
+    this.logger.info(
       `[LeagueAward] TACKLES_LEADER: player=${topTackler.playerId} tackles=${topTackler.tackles}`,
     );
   }
@@ -316,7 +316,7 @@ export class LeagueAwardService {
       );
     }
 
-    this.logger.log(
+    this.logger.info(
       `[LeagueAward] CHAMPIONSHIP: team=${champion.teamId} position=${champion.position}`,
     );
   }

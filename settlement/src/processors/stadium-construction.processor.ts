@@ -58,7 +58,7 @@ export class StadiumConstructionProcessor extends WorkerHost {
   }
 
   async process(job: Job<any, any, string>): Promise<any> {
-    this.logger.log(
+    this.logger.info(
       `[StadiumConstructionProcessor] Starting tick (job ${job.id})`,
     );
 
@@ -88,7 +88,7 @@ export class StadiumConstructionProcessor extends WorkerHost {
     }
 
     const duration = Date.now() - start;
-    this.logger.log(
+    this.logger.info(
       `[StadiumConstructionProcessor] Done: ${completed} completed, ${ticked} ticked in ${duration}ms`,
     );
 
@@ -203,7 +203,7 @@ export class StadiumConstructionProcessor extends WorkerHost {
       );
     }
 
-    this.logger.log(
+    this.logger.info(
       `Stadium ${row.kind.toLowerCase()} completed for team ${row.teamId}: ${row.deltaSeats} seats â†?${row.endingCapacity}`,
     );
   }

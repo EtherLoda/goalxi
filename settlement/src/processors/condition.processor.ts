@@ -35,7 +35,7 @@ export class ConditionProcessor extends WorkerHost {
   }
 
   async process(job: Job<any, any, string>): Promise<any> {
-    this.logger.log(
+    this.logger.info(
       '[ConditionProcessor] Starting condition settlement processing...',
     );
 
@@ -45,7 +45,7 @@ export class ConditionProcessor extends WorkerHost {
     try {
       // Get all teams
       const teams = await this.teamRepo.find();
-      this.logger.log(`[ConditionProcessor] Processing ${teams.length} teams`);
+      this.logger.info(`[ConditionProcessor] Processing ${teams.length} teams`);
 
       for (const team of teams) {
         const result = await this.processTeamCondition(team.id);
@@ -53,7 +53,7 @@ export class ConditionProcessor extends WorkerHost {
       }
 
       const duration = Date.now() - startTime;
-      this.logger.log(
+      this.logger.info(
         `[ConditionProcessor] Condition settlement completed! ` +
           `${totalPlayersProcessed} players processed ` +
           `in ${duration}ms`,

@@ -1,4 +1,5 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Inject } from '@nestjs/common';
+import { LOGGER_SERVICE, PinoLoggerService } from '@goalxi/logger';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { LeagueEntity } from '@goalxi/database';
@@ -12,11 +13,11 @@ interface LeagueConfig {
 
 @Injectable()
 export class LeagueGenerator {
-  private readonly logger = new Logger(LeagueGenerator.name);
-
   constructor(
+    @Inject(LOGGER_SERVICE)
+    private readonly logger: PinoLoggerService,
     @InjectRepository(LeagueEntity)
-    private leagueRepo: Repository<LeagueEntity>,
+    private readonly leagueRepo: Repository<LeagueEntity>,
   ) {}
 
   async isAlreadyInitialized(): Promise<boolean> {
@@ -26,7 +27,7 @@ export class LeagueGenerator {
 
   async generatePyramid(): Promise<void> {
     if (await this.isAlreadyInitialized()) {
-      this.logger.log('[LeagueGenerator] Leagues already exist, skipping');
+      this.logger.info('[LeagueGenerator] Leagues already exist, skipping');
       return;
     }
 
@@ -36,7 +37,7 @@ export class LeagueGenerator {
       tier: 1,
       tierDivision: 1,
     });
-    this.logger.log(`[LeagueGenerator] Created L1: 精英联赛`);
+    this.logger.info(`[LeagueGenerator] Created L1: 精英联赛`);
 
     // L2: 4 leagues, each parent is L1
     const l2Divisions = ['第1区', '第2区', '第3区', '第4区'];
@@ -50,7 +51,7 @@ export class LeagueGenerator {
       });
       l2Ids.push(league.id);
     }
-    this.logger.log(`[LeagueGenerator] Created L2: 4 divisions`);
+    this.logger.info(`[LeagueGenerator] Created L2: 4 divisions`);
 
     // L3: 16 leagues, grouped under L2 divisions
     const l3Ids: string[] = [];
@@ -65,7 +66,7 @@ export class LeagueGenerator {
       });
       l3Ids.push(league.id);
     }
-    this.logger.log(`[LeagueGenerator] Created L3: 16 divisions`);
+    this.logger.info(`[LeagueGenerator] Created L3: 16 divisions`);
 
     // L4: 64 leagues, grouped under L3 divisions
     for (let d = 1; d <= 64; d++) {
@@ -78,9 +79,9 @@ export class LeagueGenerator {
         parentLeagueId: l3Ids[l3Division - 1],
       });
     }
-    this.logger.log(`[LeagueGenerator] Created L4: 64 divisions`);
+    this.logger.info(`[LeagueGenerator] Created L4: 64 divisions`);
 
-    this.logger.log('[LeagueGenerator] Pyramid complete: 85 leagues total');
+    this.logger.info('[LeagueGenerator] Pyramid complete: 85 leagues total');
   }
 
   private async createLeague(config: LeagueConfig): Promise<LeagueEntity> {

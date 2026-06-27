@@ -77,13 +77,13 @@ export class MatchSchedulerService {
       return;
     }
 
-    this.logger.log(
+    this.logger.info(
       `[MatchPreprocessScheduler] ✅ Found ${matches.length} match(es) ready for preprocessing`,
     );
 
     for (const match of matches) {
       try {
-        this.logger.log(
+        this.logger.info(
           `[MatchPreprocessScheduler] Processing match ${match.id}: ` +
             `${match.homeTeam?.name || 'Home'} vs ${match.awayTeam?.name || 'Away'}, ` +
             `Scheduled: ${match.scheduledAt.toISOString()}`,
@@ -118,7 +118,7 @@ export class MatchSchedulerService {
 
         await this.matchRepository.save(match);
 
-        this.logger.log(
+        this.logger.info(
           `[MatchPreprocessScheduler] ✅ Match ${match.id} preprocessed and saved to DB`,
         );
 
@@ -134,18 +134,18 @@ export class MatchSchedulerService {
           weather: match.weather || null,
         };
 
-        this.logger.log(
+        this.logger.info(
           `[MatchPreprocessScheduler] 🚀 Queueing simulation job to BullMQ queue 'match-simulation'...`,
         );
 
         const job = await this.simulationQueue.add('simulate', jobData);
 
-        this.logger.log(
+        this.logger.info(
           `[MatchPreprocessScheduler] ✅ Simulation job added to BullMQ! ` +
             `Job ID: ${job.id}, Match ID: ${match.id}`,
         );
 
-        this.logger.log(
+        this.logger.info(
           `🔒 Match preprocessed: ${match.id} ` +
             `(${match.homeTeam?.name || 'Home'} vs ${match.awayTeam?.name || 'Away'}). ` +
             `Scheduled: ${match.scheduledAt.toISOString()}. ` +
@@ -182,7 +182,7 @@ export class MatchSchedulerService {
       return;
     }
 
-    this.logger.log(
+    this.logger.info(
       `[MatchStartScheduler] Found ${matches.length} match(es) ready to start`,
     );
 
@@ -192,7 +192,7 @@ export class MatchSchedulerService {
         match.startedAt = match.scheduledAt;
         await this.matchRepository.save(match);
 
-        this.logger.log(
+        this.logger.info(
           `⚽ Match started: ${match.homeTeam?.name || 'Home'} vs ${match.awayTeam?.name || 'Away'} ` +
             `(ID: ${match.id}, Scheduled: ${match.scheduledAt.toISOString()})`,
         );
@@ -253,7 +253,7 @@ export class MatchSchedulerService {
             { jobId: `complete-${match.id}` },
           );
 
-          this.logger.log(
+          this.logger.info(
             `🏁 Match completed: ${match.homeTeam?.name || 'Home'} ${match.homeScore || 0} - ` +
               `${match.awayScore || 0} ${match.awayTeam?.name || 'Away'} ` +
               `(ID: ${match.id})`,

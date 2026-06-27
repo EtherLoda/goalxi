@@ -50,7 +50,7 @@ export class SeasonArchiveService {
    * Called during season transition (checkAndProcessSeasonStart)
    */
   async archiveSeason(season: number): Promise<ArchiveSummary> {
-    this.logger.log(
+    this.logger.info(
       `[SeasonArchive] Starting archive process for Season ${season}`,
     );
 
@@ -74,7 +74,7 @@ export class SeasonArchiveService {
     // 4. Archive player events
     summary.playerEventCount = await this.archivePlayerEvents(season);
 
-    this.logger.log(
+    this.logger.info(
       `[SeasonArchive] Archive complete for Season ${season}: ${JSON.stringify(summary)}`,
     );
     return summary;
@@ -118,7 +118,7 @@ export class SeasonArchiveService {
     });
 
     await this.archivedSeasonResultRepo.insert(archivedRecords);
-    this.logger.log(
+    this.logger.info(
       `[SeasonArchive] Archived ${archivedRecords.length} season results`,
     );
     return archivedRecords.length;
@@ -155,7 +155,7 @@ export class SeasonArchiveService {
     );
 
     await this.archivedPlayerStatsRepo.insert(archivedRecords);
-    this.logger.log(
+    this.logger.info(
       `[SeasonArchive] Archived ${archivedRecords.length} player competition stats`,
     );
     return archivedRecords.length;
@@ -187,7 +187,7 @@ export class SeasonArchiveService {
     );
 
     await this.archivedTransactionRepo.insert(archivedRecords);
-    this.logger.log(
+    this.logger.info(
       `[SeasonArchive] Archived ${archivedRecords.length} transactions`,
     );
     return archivedRecords.length;
@@ -222,7 +222,7 @@ export class SeasonArchiveService {
     );
 
     await this.archivedPlayerEventRepo.insert(archivedRecords);
-    this.logger.log(
+    this.logger.info(
       `[SeasonArchive] Archived ${archivedRecords.length} player events`,
     );
     return archivedRecords.length;

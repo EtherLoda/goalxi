@@ -448,7 +448,7 @@ export class TeamGeneratorService {
     await this.createDefaultStadiumAndFan(savedTeam.id, isBot);
     await this.createDefaultStaff(savedTeam.id);
 
-    this.logger.log(
+    this.logger.info(
       `Generated team "${savedTeam.name}" with ${players.length} players`,
     );
 

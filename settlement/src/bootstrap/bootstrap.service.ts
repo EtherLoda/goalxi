@@ -24,34 +24,34 @@ export class BootstrapService implements OnModuleInit {
     const alreadyInitialized =
       await this.leagueGenerator.isAlreadyInitialized();
     if (alreadyInitialized) {
-      this.logger.log('[Bootstrap] Already initialized, skipping');
+      this.logger.info('[Bootstrap] Already initialized, skipping');
       return;
     }
 
-    this.logger.log('[Bootstrap] Starting game initialization...');
+    this.logger.info('[Bootstrap] Starting game initialization...');
     const start = Date.now();
 
     // 1. Create system users
     const { botUserId } = await this.userGenerator.ensureSystemUsers();
-    this.logger.log('[Bootstrap] Users created');
+    this.logger.info('[Bootstrap] Users created');
 
     // 2. Create league pyramid
     await this.leagueGenerator.generatePyramid();
-    this.logger.log('[Bootstrap] Leagues created');
+    this.logger.info('[Bootstrap] Leagues created');
 
     // 3. Create teams with players, staff, and facilities
     await this.teamGenerator.generateAllTeams(botUserId);
-    this.logger.log('[Bootstrap] Teams created');
+    this.logger.info('[Bootstrap] Teams created');
 
     // 4. Generate Season 1 schedule (week 1-16)
     await this.scheduleGenerator.generateSeason1Schedule();
-    this.logger.log('[Bootstrap] Schedule created');
+    this.logger.info('[Bootstrap] Schedule created');
 
     // 5. Generate initial weather (settlement cron handles subsequent days)
     await this.weatherGenerator.generateInitialWeather();
-    this.logger.log('[Bootstrap] Initial weather created');
+    this.logger.info('[Bootstrap] Initial weather created');
 
     const elapsedMs = Date.now() - start;
-    this.logger.log(`[Bootstrap] Initialization complete in ${elapsedMs}ms`);
+    this.logger.info(`[Bootstrap] Initialization complete in ${elapsedMs}ms`);
   }
 }

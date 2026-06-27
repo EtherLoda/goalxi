@@ -39,7 +39,7 @@ export class SeasonSchedulerService {
       throw new Error('League must have at least 4 teams');
     }
 
-    this.logger.log(
+    this.logger.info(
       `Generating season ${season} schedule for league ${leagueId} with ${teamIds.length} teams`,
     );
 
@@ -57,7 +57,7 @@ export class SeasonSchedulerService {
 
     const savedMatches = await this.matchRepository.save(matches);
 
-    this.logger.log(
+    this.logger.info(
       `Generated ${savedMatches.length} matches for league ${leagueId} season ${season}`,
     );
 
@@ -118,7 +118,7 @@ export class SeasonSchedulerService {
       }
     }
 
-    this.logger.log(
+    this.logger.info(
       `Generated ${allMatches.length} matches for Season ${nextSeason}`,
     );
 

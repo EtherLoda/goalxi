@@ -40,7 +40,7 @@ export class InjuryRecoveryService {
   @Cron('0 0 2 * * *')
   async processDailyInjuryRecovery() {
     const now = new Date();
-    this.logger.log(
+    this.logger.info(
       `[InjuryRecovery] Running daily injury recovery at ${now.toISOString()}`,
     );
 
@@ -48,7 +48,7 @@ export class InjuryRecoveryService {
       where: { currentInjuryValue: MoreThanOrEqual(1) },
     });
 
-    this.logger.log(
+    this.logger.info(
       `[InjuryRecovery] Found ${injuredPlayers.length} player(s) with active injuries`,
     );
 
@@ -184,7 +184,7 @@ export class InjuryRecoveryService {
       }
 
       recoveredCount++;
-      this.logger.log(
+      this.logger.info(
         `[InjuryRecovery] Player ${playerName} (${playerId}) has fully recovered! (injuryValue: ${oldValue} -> 0)`,
       );
     }
@@ -197,7 +197,7 @@ export class InjuryRecoveryService {
       await this.playerRepository.save(recoveredPlayers);
     }
 
-    this.logger.log(
+    this.logger.info(
       `[InjuryRecovery] Completed. ${recoveredCount} player(s) fully recovered today.`,
     );
   }

@@ -84,7 +84,7 @@ export class TransferProcessor extends WorkerHost {
     } = job.data;
     this.jobLog = traceId ? this.logger.child({ traceId }) : this.logger;
 
-    this.jobLog.log(
+    this.jobLog.info(
       `[TransferProcessor] Processing ${type} for transaction ${transactionId}`,
     );
 
@@ -266,7 +266,7 @@ export class TransferProcessor extends WorkerHost {
               'lockedCash',
               auction.bidLockAmount,
             );
-            this.jobLog.log(
+            this.jobLog.info(
               `[TransferProcessor] Released ${auction.bidLockAmount} locked cash from previous bidder ${auction.currentBidderId}`,
             );
           }
@@ -287,7 +287,7 @@ export class TransferProcessor extends WorkerHost {
               'lockedCash',
               auction.bidLockAmount,
             );
-            this.jobLog.log(
+            this.jobLog.info(
               `[TransferProcessor] Released ${auction.bidLockAmount} bid lock from buyer ${buyerTeamId}`,
             );
           }
@@ -333,7 +333,7 @@ export class TransferProcessor extends WorkerHost {
           );
         }
 
-        this.jobLog.log(
+        this.jobLog.info(
           `[TransferProcessor] Successfully settled ${type}: Player ${playerId} transferred from Team ${sellerTeamId} to Team ${buyerTeamId} for ${amount}`,
         );
       });

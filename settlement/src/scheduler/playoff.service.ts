@@ -103,7 +103,7 @@ export class PlayoffService {
 
     // 保存所有附加赛
     await this.savePlayoffMatches(allMatches);
-    this.logger.log(
+    this.logger.info(
       `Generated ${allMatches.length} playoff matches for Season ${season}`,
     );
 
@@ -173,7 +173,7 @@ export class PlayoffService {
         week: 16,
       });
 
-      this.logger.log(
+      this.logger.info(
         `Playoff: ${upperStanding.team?.name || upperStanding.teamId} (Home, ${upperLeague.name} #${upperStanding.position}) vs ${lowerStanding.team?.name || lowerStanding.teamId} (Away, ${lowerLeague.name} #2)`,
       );
     }

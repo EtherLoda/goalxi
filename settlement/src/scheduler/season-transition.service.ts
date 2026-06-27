@@ -32,7 +32,7 @@ export class SeasonTransitionService {
   async checkAndGeneratePlayoffs() {
     const currentSeasonWeek = await this.getCurrentSeasonAndWeek();
 
-    this.logger.log(
+    this.logger.info(
       `[SeasonTransition] Checking Season ${currentSeasonWeek.season}, Week ${currentSeasonWeek.week}`,
     );
 
@@ -48,12 +48,12 @@ export class SeasonTransitionService {
     );
 
     if (!week15Complete) {
-      this.logger.log('[SeasonTransition] Week 15 matches not yet complete');
+      this.logger.info('[SeasonTransition] Week 15 matches not yet complete');
       return;
     }
 
     // 生成附加赛
-    this.logger.log(
+    this.logger.info(
       `[SeasonTransition] Week 15 complete, generating playoff matches for Season ${currentSeasonWeek.season}...`,
     );
     await this.generatePlayoffs(currentSeasonWeek.season);
@@ -79,7 +79,7 @@ export class SeasonTransitionService {
         currentSeasonWeek.season,
       );
       if (!playoffsComplete) {
-        this.logger.log('[SeasonTransition] Playoff matches not yet complete');
+        this.logger.info('[SeasonTransition] Playoff matches not yet complete');
         return;
       }
     }
@@ -87,48 +87,48 @@ export class SeasonTransitionService {
     const previousSeason = currentSeasonWeek.season;
     const newSeason = previousSeason + 1;
 
-    this.logger.log(
+    this.logger.info(
       `[SeasonTransition] Processing Season ${newSeason} start (after Season ${previousSeason})...`,
     );
 
     try {
       // 1. 执行升降级（基于上赛季排名）
-      this.logger.log(
+      this.logger.info(
         '[SeasonTransition] Step 1: Executing promotions/relegations...',
       );
       await this.promotionService.processAllTiers(previousSeason);
 
       // 2. 处理附加赛结果并执行互换升降级（如果有）
-      this.logger.log(
+      this.logger.info(
         '[SeasonTransition] Step 2: Processing playoff results...',
       );
       await this.processAfterPlayoffsComplete(previousSeason);
 
       // 3. 归档上赛季数据
-      this.logger.log(
+      this.logger.info(
         '[SeasonTransition] Step 3: Archiving previous season data...',
       );
       const archiveSummary =
         await this.seasonArchiveService.archiveSeason(previousSeason);
-      this.logger.log(
+      this.logger.info(
         `[SeasonTransition] Archived: seasonResults=${archiveSummary.seasonResultCount}, playerStats=${archiveSummary.playerStatsCount}, transactions=${archiveSummary.transactionCount}, playerEvents=${archiveSummary.playerEventCount}`,
       );
 
       // 4. 初始化新赛季排行榜（根据新的 leagueId）
-      this.logger.log(
+      this.logger.info(
         '[SeasonTransition] Step 4: Initializing new season standings...',
       );
       await this.leagueStandingService.initNewSeasonStandings(newSeason);
 
       // 5. 生成新赛季赛程
-      this.logger.log(
+      this.logger.info(
         '[SeasonTransition] Step 5: Generating new season schedule...',
       );
       await this.seasonSchedulerService.generateNextSeasonSchedule(
         previousSeason,
       );
 
-      this.logger.log(
+      this.logger.info(
         `[SeasonTransition] Season ${newSeason} setup completed!`,
       );
     } catch (error) {
@@ -145,12 +145,12 @@ export class SeasonTransitionService {
    */
   async generatePlayoffs(season: number): Promise<void> {
     try {
-      this.logger.log(
+      this.logger.info(
         `[SeasonTransition] Generating playoff matches for Season ${season}...`,
       );
       const playoffMatches =
         await this.playoffService.generateAllPlayoffMatches(season);
-      this.logger.log(
+      this.logger.info(
         `[SeasonTransition] Generated ${playoffMatches.length} playoff matches`,
       );
     } catch (error) {
@@ -177,7 +177,7 @@ export class SeasonTransitionService {
       relations: ['homeTeam', 'awayTeam', 'league'],
     });
 
-    this.logger.log(
+    this.logger.info(
       `[SeasonTransition] Processing ${playoffMatches.length} playoff results`,
     );
 
@@ -199,7 +199,7 @@ export class SeasonTransitionService {
     for (const result of results) {
       if (result.homeWon) {
         // 主队赢（上级球队），保持原 leagueId
-        this.logger.log(
+        this.logger.info(
           `${result.homeTeam.name} won playoff, stays in ${result.homeLeague.name}`,
         );
       } else {
@@ -215,7 +215,7 @@ export class SeasonTransitionService {
           result.awayLeagueId,
         );
 
-        this.logger.log(
+        this.logger.info(
           `${result.awayTeam.name} won playoff, promoted to ${result.homeLeague.name}; ` +
             `${result.homeTeam.name} relegated to ${(awayLeague as any)?.name || result.awayLeagueId}`,
         );

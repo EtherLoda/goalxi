@@ -57,13 +57,13 @@ export class PromotionRelegationService {
       (a, b) => a - b,
     );
 
-    this.logger.log(
+    this.logger.info(
       `Processing promotion/relegation for ${tiers.length} tiers`,
     );
 
     for (const tier of tiers) {
       const tierLeagues = leagues.filter((l) => l.tier === tier);
-      this.logger.log(
+      this.logger.info(
         `Processing Tier ${tier} with ${tierLeagues.length} leagues`,
       );
 
@@ -135,7 +135,7 @@ export class PromotionRelegationService {
     for (const result of playoffResults) {
       if (result.upperWon) {
         // 上级球队赢，保持原 leagueId 不变
-        this.logger.log(
+        this.logger.info(
           `${result.upperTeam.name} won playoff, stays in ${result.upperLeague.name}`,
         );
       } else {
@@ -146,7 +146,7 @@ export class PromotionRelegationService {
           result.upperLeague.id,
           result.lowerLeague.id,
         );
-        this.logger.log(
+        this.logger.info(
           `${result.lowerTeam.name} won playoff, promoted to ${result.upperLeague.name}; ` +
             `${result.upperTeam.name} relegated to ${result.lowerLeague.name}`,
         );
@@ -165,13 +165,13 @@ export class PromotionRelegationService {
   ): Promise<void> {
     const upperLeague = await this.getUpperLeague(league);
     if (!upperLeague) {
-      this.logger.log(`${team.name} is at top tier, cannot promote further`);
+      this.logger.info(`${team.name} is at top tier, cannot promote further`);
       return;
     }
 
     await this.swapTeamLeague(team.id, null, league.id, upperLeague.id);
     await this.saveSeasonResult(team, league, season, position, true, false);
-    this.logger.log(
+    this.logger.info(
       `↑ ${team.name} promoted from ${league.name} to ${upperLeague.name}`,
     );
   }
@@ -187,7 +187,7 @@ export class PromotionRelegationService {
   ): Promise<void> {
     const lowerLeague = await this.getLowerLeague(league);
     if (!lowerLeague) {
-      this.logger.log(
+      this.logger.info(
         `${team.name} is at bottom tier, cannot relegate further`,
       );
       return;
@@ -195,7 +195,7 @@ export class PromotionRelegationService {
 
     await this.swapTeamLeague(team.id, null, league.id, lowerLeague.id);
     await this.saveSeasonResult(team, league, season, position, false, true);
-    this.logger.log(
+    this.logger.info(
       `↓ ${team.name} relegated from ${league.name} to ${lowerLeague.name}`,
     );
   }

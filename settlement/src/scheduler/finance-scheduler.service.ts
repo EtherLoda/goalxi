@@ -48,12 +48,12 @@ export class FinanceSchedulerService {
    */
   @Cron('0 0 0 * * 1') // Every Monday at 00:00 UTC
   async processWeeklyFinanceSettlement() {
-    this.logger.log('[FinanceScheduler] Starting weekly finance settlement...');
+    this.logger.info('[FinanceScheduler] Starting weekly finance settlement...');
 
     // Get current season and week from game state
     const { season, week } = this.getCurrentSeasonWeek();
 
-    this.logger.log(
+    this.logger.info(
       `[FinanceScheduler] Current game state: Season ${season}, Week ${week}`,
     );
 
@@ -86,7 +86,7 @@ export class FinanceSchedulerService {
       }
     }
 
-    this.logger.log(
+    this.logger.info(
       `[FinanceScheduler] Finance settlement queued: ${successCount} teams succeeded, ${failCount} failed (Season ${season}, Week ${week})`,
     );
   }

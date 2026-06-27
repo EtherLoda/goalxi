@@ -63,7 +63,7 @@ export class PlayerWageProcessor extends WorkerHost {
     if (oldWage !== newWage) {
       player.currentWage = newWage;
       await this.playerRepo.save(player);
-      this.logger.log(
+      this.logger.info(
         `[PlayerWageProcessor] Player ${player.name} birthday wage update: ${oldWage} -> ${newWage}`,
       );
     }

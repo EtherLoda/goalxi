@@ -68,7 +68,7 @@ export class TrainingProcessor extends WorkerHost {
   }
 
   async process(job: Job<any, any, string>): Promise<any> {
-    this.logger.log(
+    this.logger.info(
       '[TrainingProcessor] Starting training settlement processing...',
     );
 
@@ -78,7 +78,7 @@ export class TrainingProcessor extends WorkerHost {
 
     try {
       const teams = await this.teamRepo.find();
-      this.logger.log(`[TrainingProcessor] Processing ${teams.length} teams`);
+      this.logger.info(`[TrainingProcessor] Processing ${teams.length} teams`);
 
       for (const team of teams) {
         const teamResult = await this.processTeamTraining(team);
@@ -87,7 +87,7 @@ export class TrainingProcessor extends WorkerHost {
       }
 
       const duration = Date.now() - startTime;
-      this.logger.log(
+      this.logger.info(
         `[TrainingProcessor] Training settlement completed! ` +
           `${totalPlayersTrained}/${totalPlayersProcessed} players received training ` +
           `in ${duration}ms`,

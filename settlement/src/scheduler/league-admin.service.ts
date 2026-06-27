@@ -62,7 +62,7 @@ export class LeagueAdminService {
     });
     await this.youthLeagueRepository.save(youthLeague);
 
-    this.logger.log(
+    this.logger.info(
       `Created league: ${name} (Tier ${tier}, Division ${tierDivision}) and youth league: ${youthLeagueName}`,
     );
     return league;
@@ -135,10 +135,10 @@ export class LeagueAdminService {
         name: `${team.name} Youth`,
       });
       await this.youthTeamRepository.save(youthTeam);
-      this.logger.log(`Created youth team for ${team.name}`);
+      this.logger.info(`Created youth team for ${team.name}`);
     }
 
-    this.logger.log(
+    this.logger.info(
       `Added team ${team.name} to league ${league.name} (season ${season})`,
     );
   }
@@ -156,7 +156,7 @@ export class LeagueAdminService {
     team.leagueId = null;
     await this.teamRepository.save(team);
 
-    this.logger.log(`Removed team ${team.name} from league`);
+    this.logger.info(`Removed team ${team.name} from league`);
   }
 
   async getAvailableSlots(leagueId: string): Promise<number> {

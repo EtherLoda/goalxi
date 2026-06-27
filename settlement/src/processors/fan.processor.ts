@@ -67,7 +67,7 @@ export class FanProcessor extends WorkerHost {
   }
 
   async process(job: Job<any, any, string>): Promise<any> {
-    this.logger.log('[FanProcessor] Starting weekly fan settlement...');
+    this.logger.info('[FanProcessor] Starting weekly fan settlement...');
 
     const startTime = Date.now();
 
@@ -101,7 +101,7 @@ export class FanProcessor extends WorkerHost {
       }
 
       const duration = Date.now() - startTime;
-      this.logger.log(
+      this.logger.info(
         `[FanProcessor] Fan settlement completed! ` +
           `${totalFansUpdated} teams updated ` +
           `in ${duration}ms`,

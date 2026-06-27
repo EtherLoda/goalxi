@@ -54,7 +54,7 @@ export class YouthMatchSchedulerService {
       return;
     }
 
-    this.logger.log(
+    this.logger.info(
       `[YouthPreprocessScheduler] Found ${matches.length} youth matches to preprocess`,
     );
 
@@ -99,7 +99,7 @@ export class YouthMatchSchedulerService {
           awayForfeit: match.awayForfeit,
         };
 
-        this.logger.log(
+        this.logger.info(
           `[YouthPreprocessScheduler] 🚀 Queueing youth simulation job to BullMQ queue 'youth-match-simulation'...`,
         );
 
@@ -108,12 +108,12 @@ export class YouthMatchSchedulerService {
           jobData,
         );
 
-        this.logger.log(
+        this.logger.info(
           `[YouthPreprocessScheduler] ✅ Youth simulation job added to BullMQ! ` +
             `Job ID: ${job.id}, Youth Match ID: ${match.id}`,
         );
 
-        this.logger.log(
+        this.logger.info(
           `🔒 Youth match preprocessed: ${match.homeYouthTeam?.name || 'Home'} vs ${match.awayYouthTeam?.name || 'Away'}. ` +
             `Scheduled: ${match.scheduledAt.toISOString()}. Simulation job ${job.id} queued.`,
         );
@@ -147,7 +147,7 @@ export class YouthMatchSchedulerService {
       return;
     }
 
-    this.logger.log(
+    this.logger.info(
       `[YouthMatchStartScheduler] Found ${matches.length} youth matches to start`,
     );
 
@@ -157,7 +157,7 @@ export class YouthMatchSchedulerService {
         match.startedAt = match.scheduledAt;
         await this.matchRepository.save(match);
 
-        this.logger.log(
+        this.logger.info(
           `⚽ Youth match started: ${match.homeYouthTeam?.name || 'Home'} vs ${match.awayYouthTeam?.name || 'Away'} ` +
             `(ID: ${match.id}, Scheduled: ${match.scheduledAt.toISOString()})`,
         );
@@ -203,7 +203,7 @@ export class YouthMatchSchedulerService {
           match.completedAt = match.actualEndTime;
           await this.matchRepository.save(match);
 
-          this.logger.log(
+          this.logger.info(
             `🏁 Youth match completed: ${match.homeYouthTeam?.name || 'Home'} vs ${match.awayYouthTeam?.name || 'Away'} ` +
               `(ID: ${match.id}, Score: ${match.homeScore}-${match.awayScore})`,
           );

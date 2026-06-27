@@ -56,7 +56,7 @@ export class LeagueStandingService {
       }
     }
 
-    this.logger.log(
+    this.logger.info(
       `Archived season ${season} final standings for ${standings.length} teams`,
     );
   }
@@ -105,7 +105,7 @@ export class LeagueStandingService {
       }
     }
 
-    this.logger.log(`Initialized standings for Season ${newSeason}`);
+    this.logger.info(`Initialized standings for Season ${newSeason}`);
   }
 
   /**
@@ -114,7 +114,7 @@ export class LeagueStandingService {
   async resetLeagueStandings(leagueId: string, season: number): Promise<void> {
     await this.standingRepository.delete({ leagueId, season });
 
-    this.logger.log(`Reset standings for league ${leagueId} season ${season}`);
+    this.logger.info(`Reset standings for league ${leagueId} season ${season}`);
   }
 
   /**

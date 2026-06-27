@@ -1,4 +1,5 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Inject } from '@nestjs/common';
+import { LOGGER_SERVICE, PinoLoggerService } from '@goalxi/logger';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import {
@@ -11,27 +12,27 @@ import {
 
 @Injectable()
 export class ScheduleGenerator {
-  private readonly logger = new Logger(ScheduleGenerator.name);
-
   constructor(
+    @Inject(LOGGER_SERVICE)
+    private readonly logger: PinoLoggerService,
     @InjectRepository(MatchEntity)
-    private matchRepo: Repository<MatchEntity>,
+    private readonly matchRepo: Repository<MatchEntity>,
     @InjectRepository(LeagueEntity)
-    private leagueRepo: Repository<LeagueEntity>,
+    private readonly leagueRepo: Repository<LeagueEntity>,
     @InjectRepository(TeamEntity)
-    private teamRepo: Repository<TeamEntity>,
+    private readonly teamRepo: Repository<TeamEntity>,
   ) {}
 
   async generateSeason1Schedule(): Promise<void> {
     const count = await this.matchRepo.count();
     if (count > 0) {
-      this.logger.log(
+      this.logger.info(
         `[ScheduleGenerator] ${count} matches already exist, skipping`,
       );
       return;
     }
 
-    this.logger.log('[ScheduleGenerator] Generating Season 1 schedule...');
+    this.logger.info('[ScheduleGenerator] Generating Season 1 schedule...');
 
     const leagues = await this.leagueRepo.find();
     let totalMatches = 0;
@@ -54,7 +55,7 @@ export class ScheduleGenerator {
       totalMatches += matches.length;
     }
 
-    this.logger.log(
+    this.logger.info(
       `[ScheduleGenerator] Generated ${totalMatches} matches for Season 1`,
     );
   }

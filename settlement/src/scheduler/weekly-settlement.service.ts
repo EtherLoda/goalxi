@@ -26,7 +26,7 @@ export class WeeklySettlementService {
    */
   @Cron('0 0 0 * * 4') // Every Thursday at 00:00
   async processWeeklySettlement() {
-    this.logger.log(
+    this.logger.info(
       '[WeeklySettlement] Starting weekly training, condition, and stadium construction settlement...',
     );
 
@@ -39,7 +39,7 @@ export class WeeklySettlementService {
           jobId: `training-${Date.now()}`,
         },
       );
-      this.logger.log(
+      this.logger.info(
         `[WeeklySettlement] Training settlement job queued! Job ID: ${trainingJob.id}`,
       );
 
@@ -51,7 +51,7 @@ export class WeeklySettlementService {
           jobId: `condition-${Date.now()}`,
         },
       );
-      this.logger.log(
+      this.logger.info(
         `[WeeklySettlement] Condition settlement job queued! Job ID: ${conditionJob.id}`,
       );
 
@@ -63,7 +63,7 @@ export class WeeklySettlementService {
           jobId: `construction-${Date.now()}`,
         },
       );
-      this.logger.log(
+      this.logger.info(
         `[WeeklySettlement] Stadium construction settlement job queued! Job ID: ${constructionJob.id}`,
       );
     } catch (error) {

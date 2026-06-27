@@ -25,7 +25,7 @@ export class PlayerWageSchedulerService {
    */
   @Cron('0 0 0 * * *') // Every day at midnight
   async processBirthdayWageUpdates() {
-    this.logger.log(
+    this.logger.info(
       '[PlayerWageScheduler] Checking for birthday wage updates...',
     );
 
@@ -43,7 +43,7 @@ export class PlayerWageSchedulerService {
         .getMany();
 
       if (playersWithBirthday.length === 0) {
-        this.logger.log('[PlayerWageScheduler] No birthday wage updates today');
+        this.logger.info('[PlayerWageScheduler] No birthday wage updates today');
         return;
       }
 
@@ -55,7 +55,7 @@ export class PlayerWageSchedulerService {
         );
       }
 
-      this.logger.log(
+      this.logger.info(
         `[PlayerWageScheduler] Birthday wage update queued for ${playersWithBirthday.length} players`,
       );
     } catch (error) {

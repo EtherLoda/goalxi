@@ -1,4 +1,5 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Inject } from '@nestjs/common';
+import { LOGGER_SERVICE, PinoLoggerService } from '@goalxi/logger';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, DataSource } from 'typeorm';
 import {
@@ -99,13 +100,13 @@ const SUFFIXES = ['FC', 'United', 'Club', 'City', 'Athletic'];
 
 @Injectable()
 export class TeamGenerator {
-  private readonly logger = new Logger(TeamGenerator.name);
-
   private cityIndex = 0;
 
   constructor(
+    @Inject(LOGGER_SERVICE)
+    private readonly logger: PinoLoggerService,
     @InjectRepository(TeamEntity)
-    private teamRepo: Repository<TeamEntity>,
+    private readonly teamRepo: Repository<TeamEntity>,
     @InjectRepository(PlayerEntity)
     private playerRepo: Repository<PlayerEntity>,
     @InjectRepository(StaffEntity)
@@ -125,12 +126,12 @@ export class TeamGenerator {
   async generateAllTeams(botUserId: string): Promise<void> {
     const count = await this.teamRepo.count();
     if (count > 0) {
-      this.logger.log(`[TeamGenerator] ${count} teams already exist, skipping`);
+      this.logger.info(`[TeamGenerator] ${count} teams already exist, skipping`);
       return;
     }
 
     const leagues = await this.leagueRepo.find();
-    this.logger.log(
+    this.logger.info(
       `[TeamGenerator] Generating teams for ${leagues.length} leagues...`,
     );
 
@@ -144,7 +145,7 @@ export class TeamGenerator {
       }
     }
 
-    this.logger.log(`[TeamGenerator] Created ${teamCount} teams`);
+    this.logger.info(`[TeamGenerator] Created ${teamCount} teams`);
   }
 
   private generateTeamName(tier: number, index: number): string {

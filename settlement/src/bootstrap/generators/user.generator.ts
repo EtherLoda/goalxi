@@ -1,15 +1,16 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Inject } from '@nestjs/common';
+import { LOGGER_SERVICE, PinoLoggerService } from '@goalxi/logger';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { UserEntity } from '@goalxi/database';
 
 @Injectable()
 export class UserGenerator {
-  private readonly logger = new Logger(UserGenerator.name);
-
   constructor(
+    @Inject(LOGGER_SERVICE)
+    private readonly logger: PinoLoggerService,
     @InjectRepository(UserEntity)
-    private userRepo: Repository<UserEntity>,
+    private readonly userRepo: Repository<UserEntity>,
   ) {}
 
   async ensureSystemUsers(): Promise<{
@@ -51,7 +52,7 @@ export class UserGenerator {
     let user = await this.userRepo.findOne({ where: { email: data.email } });
 
     if (user) {
-      this.logger.log(`[UserGenerator] ${data.email} already exists`);
+      this.logger.info(`[UserGenerator] ${data.email} already exists`);
       return user;
     }
 
@@ -65,7 +66,7 @@ export class UserGenerator {
     });
 
     await this.userRepo.save(user);
-    this.logger.log(`[UserGenerator] Created ${data.email}`);
+    this.logger.info(`[UserGenerator] Created ${data.email}`);
 
     return user;
   }

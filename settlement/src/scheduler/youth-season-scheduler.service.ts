@@ -32,7 +32,7 @@ export class YouthSeasonSchedulerService {
       throw new Error('Youth league must have at least 4 teams');
     }
 
-    this.logger.log(
+    this.logger.info(
       `Generating youth season ${season} schedule for league ${youthLeagueId} with ${youthTeamIds.length} teams`,
     );
 
@@ -48,7 +48,7 @@ export class YouthSeasonSchedulerService {
 
     const savedMatches = await this.matchRepository.save(matches);
 
-    this.logger.log(
+    this.logger.info(
       `Generated ${savedMatches.length} youth matches for league ${youthLeagueId} season ${season}`,
     );
 

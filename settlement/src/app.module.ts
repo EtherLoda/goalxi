@@ -3,6 +3,7 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import { BullModule } from '@nestjs/bullmq';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { DatabaseConfigService } from './config/database.config';
+import { GlobalExceptionFilter } from './common/global-exception.filter';
 import { TrainingModule } from './training.module';
 import { FanModule } from './fan.module';
 import { PlayerWageModule } from './player-wage.module';
@@ -40,6 +41,10 @@ import { StadiumConstructionModule } from './stadium-construction.module';
     StadiumConstructionModule,
   ],
   controllers: [],
-  providers: [],
+  providers: [
+    // Global exception filter. Registered as a plain provider; main.ts
+    // calls app.useGlobalFilters() to apply it.
+    GlobalExceptionFilter,
+  ],
 })
 export class AppModule {}

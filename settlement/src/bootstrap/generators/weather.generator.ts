@@ -1,4 +1,5 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Inject } from '@nestjs/common';
+import { LOGGER_SERVICE, PinoLoggerService } from '@goalxi/logger';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { WeatherEntity, WeatherType } from '@goalxi/database';
@@ -18,10 +19,11 @@ const BASE_WEATHER_WEIGHTS: Record<WeatherType, number> = {
 
 @Injectable()
 export class WeatherGenerator {
-  private readonly logger = new Logger(WeatherGenerator.name);
   private readonly DEFAULT_LOCATION = 'default';
 
   constructor(
+    @Inject(LOGGER_SERVICE)
+    private readonly logger: PinoLoggerService,
     @InjectRepository(WeatherEntity)
     private readonly weatherRepository: Repository<WeatherEntity>,
   ) {}
@@ -55,7 +57,7 @@ export class WeatherGenerator {
     });
 
     if (existing) {
-      this.logger.log(
+      this.logger.info(
         `[WeatherGenerator] Weather for ${today} already exists, skipping`,
       );
       return;
@@ -68,7 +70,7 @@ export class WeatherGenerator {
     });
 
     await this.weatherRepository.save(weather);
-    this.logger.log(
+    this.logger.info(
       `[WeatherGenerator] Generated initial weather for ${today}`,
     );
   }
