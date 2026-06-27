@@ -30,7 +30,11 @@ const customSuccessMessage = (
   res: ServerResponse<IncomingMessage>,
   responseTime: number,
 ) => {
-  return `[${req.id || '*'}] "${req.method} ${req.url}" ${res.statusCode} - "${req.headers['host']}" "${req.headers['user-agent']}" - ${responseTime} ms`;
+  // `userId` may be attached by AuthGuard onto `req.user`; default to "-"
+  // for anonymous endpoints.
+  const userId = (req as IncomingMessage & { user?: { id?: string } }).user
+    ?.id;
+  return `[${req.id || '*'}] userId=${userId ?? '-'} "${req.method} ${req.url}" ${res.statusCode} - "${req.headers['host']}" "${req.headers['user-agent']}" - ${responseTime} ms`;
 };
 
 const customReceivedMessage = (req: IncomingMessage) => {
@@ -38,7 +42,8 @@ const customReceivedMessage = (req: IncomingMessage) => {
 };
 
 const customErrorMessage = (req, res, err) => {
-  return `[${req.id || '*'}] "${req.method} ${req.url}" ${res.statusCode} - "${req.headers['host']}" "${req.headers['user-agent']}" - message: ${err.message}`;
+  const userId = req.user?.id;
+  return `[${req.id || '*'}] userId=${userId ?? '-'} "${req.method} ${req.url}" ${res.statusCode} - "${req.headers['host']}" "${req.headers['user-agent']}" - message: ${err.message}`;
 };
 
 function logServiceConfig(logService: string): Options {
