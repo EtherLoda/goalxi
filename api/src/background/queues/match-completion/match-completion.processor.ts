@@ -21,16 +21,13 @@ export class MatchCompletionProcessor extends WorkerHost {
   async process(job: Job<any, any, string>): Promise<any> {
     const { matchId, traceId } = job.data;
     this.jobLog = traceId ? this.logger.child({ traceId }) : this.logger;
-    this.jobLog.info(
-      `Processing match completion for match ID: ${matchId}`,
-    );
 
     try {
       await this.completionService.completeMatch(matchId);
-      this.jobLog.info(`Post-match processing completed for match ${matchId}`);
+      this.jobLog.info(`[Match] post-processing done matchId=${matchId}`);
     } catch (error) {
       this.jobLog.error(
-        `Post-match processing failed for match ${matchId}: ${error.message}`,
+        `[Match] post-processing failed matchId=${matchId}: ${error.message}`,
         error.stack,
       );
       throw error;

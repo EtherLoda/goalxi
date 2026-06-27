@@ -67,7 +67,6 @@ export class YouthSimulationProcessor extends WorkerHost {
   async process(job: Job<YouthSimulationJobData>): Promise<void> {
     const { youthMatchId, homeForfeit, awayForfeit, traceId } = job.data;
     this.jobLog = traceId ? this.logger.child({ traceId }) : this.logger;
-    this.jobLog.info(`[YouthSimulator] Processing youth match ${youthMatchId}`);
 
     const match = await this.matchRepository.findOne({
       where: { id: youthMatchId },
@@ -90,7 +89,15 @@ export class YouthSimulationProcessor extends WorkerHost {
       await this.runSimulation(match);
     }
 
-    this.jobLog.log(`[YouthSimulator] Completed youth match ${youthMatchId}`);
+    const winner =
+      match.homeScore > match.awayScore
+        ? 'home'
+        : match.awayScore > match.homeScore
+          ? 'away'
+          : 'draw';
+    this.jobLog.info(
+      `[YouthMatch] result matchId=${youthMatchId} ${match.homeScore}-${match.awayScore} winner=${winner}`,
+    );
   }
 
   private findPositionInLineup(
@@ -261,7 +268,6 @@ export class YouthSimulationProcessor extends WorkerHost {
     );
 
     // 6. Run Match
-    this.jobLog.log(`[YouthSimulator] Starting engine for ${match.id}`);
     let events: MatchEvent[];
     try {
       events = engine.simulateMatch();
@@ -294,9 +300,6 @@ export class YouthSimulationProcessor extends WorkerHost {
 
     // Check if extra time is needed
     if (match.requiresWinner && engine.homeScore === engine.awayScore) {
-      this.jobLog.log(
-        `[YouthSimulator] Match ${match.id} is tied and requires winner - playing extra time`,
-      );
       try {
         events = engine.simulateExtraTime();
       } catch (err) {
@@ -326,9 +329,6 @@ export class YouthSimulationProcessor extends WorkerHost {
       match.extraTimeSecondHalfInjury = etSecondHalfInjury;
 
       if (engine.homeScore === engine.awayScore) {
-        this.jobLog.log(
-          `[YouthSimulator] Still tied after extra time - penalty shootout`,
-        );
         try {
           events = engine.simulatePenaltyShootout();
         } catch (err) {
@@ -345,11 +345,6 @@ export class YouthSimulationProcessor extends WorkerHost {
     // 7. Calculate Event Scheduled Times
     const matchStartTime = new Date(match.scheduledAt);
     const matchStartTimeUTC = new Date(matchStartTime.toISOString());
-
-    this.jobLog.log(
-      `[YouthSimulator] Calculating event scheduled times (match starts: ${matchStartTimeUTC.toISOString()})` +
-        `  1st half injury time: ${firstHalfInjuryTime}min, 2nd half injury time: ${secondHalfInjuryTime}min`,
-    );
 
     for (const event of events) {
       const eventMinute = event.minute;
@@ -414,12 +409,6 @@ export class YouthSimulationProcessor extends WorkerHost {
       ? (lastEvent.eventScheduledTime.getTime() - matchStartTimeUTC.getTime()) /
         (60 * 1000)
       : 0;
-
-    this.jobLog.log(
-      `[YouthSimulator] Events will be revealed from ${matchStartTimeUTC.toISOString()} ` +
-        `to ${lastEvent?.eventScheduledTime?.toISOString() || 'unknown'}\n` +
-        `  Total events: ${events.length}, Real-world duration: ~${Math.ceil(totalDuration)} minutes`,
-    );
 
     // 8. Persist Results
     await this.dataSource.transaction(async (manager) => {

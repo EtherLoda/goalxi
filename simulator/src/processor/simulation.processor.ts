@@ -96,7 +96,6 @@ export class SimulationProcessor extends WorkerHost {
     // Bind the inbound traceId (X-Request-Id from the api caller) to every
     // log line emitted for this job. If absent, fall back to the base logger.
     this.jobLog = traceId ? this.logger.child({ traceId }) : this.logger;
-    this.jobLog.info(`[Simulator] Processing match ${matchId}`);
 
     const match = await this.matchRepository.findOne({
       where: { id: matchId },
@@ -180,7 +179,15 @@ export class SimulationProcessor extends WorkerHost {
       );
     }
 
-    this.jobLog.log(`[Simulator] Completed match ${matchId}`);
+    const winner =
+      match.homeScore > match.awayScore
+        ? 'home'
+        : match.awayScore > match.homeScore
+          ? 'away'
+          : 'draw';
+    this.jobLog.info(
+      `[Match] result matchId=${matchId} ${match.homeScore}-${match.awayScore} winner=${winner} extraTime=${!!match.hasExtraTime} penalties=${!!match.hasPenaltyShootout}`,
+    );
 
     // Create injury notifications for both teams
     const injuryEvents = await this.eventRepository.find({

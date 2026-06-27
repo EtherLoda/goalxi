@@ -369,10 +369,6 @@ export class MatchEngine {
     this.time = 0;
     this.freshPossession = false;
 
-    this.logger?.log(
-      `[MatchEngine] simulateMatch start ${this.homeTeam.name} vs ${this.awayTeam.name} weather=${this.weather}`,
-    );
-
     // KICKOFF Event
     this.events.push({
       minute: 0,
@@ -527,10 +523,6 @@ export class MatchEngine {
     // Extra Time Setup (30 mins = ~7 moments)
     const MOMENTS_COUNT = 7;
 
-    this.logger?.log(
-      `[MatchEngine] simulateExtraTime start ${this.homeTeam.name} ${this.homeScore}-${this.awayScore} ${this.awayTeam.name}`,
-    );
-
     // Update Snapshot for start of ET
     this.homeTeam.updateSnapshot(90, this.homeTactics.pitchWidth);
     this.awayTeam.updateSnapshot(90, this.awayTactics.pitchWidth);
@@ -627,10 +619,6 @@ export class MatchEngine {
     let homePKScore = 0;
     let awayPKScore = 0;
     let round = 1;
-
-    this.logger?.log(
-      `[MatchEngine] simulatePenaltyShootout start ${this.homeTeam.name} ${this.homeScore}-${this.awayScore} ${this.awayTeam.name}`,
-    );
 
     const homeKickers = this.homeTeam.players.filter((p) => !p.isSentOff);
     const awayKickers = this.awayTeam.players.filter((p) => !p.isSentOff);
