@@ -1,0 +1,14 @@
+{
+  "error": {
+    "category_not_found": "カテゴリが見つかりません",
+    "thread_not_found": "スレッドが見つかりません",
+    "post_not_found": "投稿が見つかりません",
+    "thread_locked": "このスレッドはロックされており、新しい返信を受け付けていません",
+    "not_thread_author": "自分のスレッドと投稿のみ編集・削除できます",
+    "title_too_short": "タイトルは5文字以上で入力してください",
+    "title_too_long": "タイトルは200文字以下で入力してください",
+    "body_too_short": "本文は10文字以上で入力してください",
+    "body_too_long": "本文は10000文字以下で入力してください",
+    "invalid_slug": "スラッグは英小文字、数字、ハイフンのみ使用できます"
+  }
+}

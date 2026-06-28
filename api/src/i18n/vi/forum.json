@@ -1,0 +1,14 @@
+{
+  "error": {
+    "category_not_found": "Không tìm thấy danh mục",
+    "thread_not_found": "Không tìm thấy chủ đề",
+    "post_not_found": "Không tìm thấy bài viết",
+    "thread_locked": "Chủ đề này đã bị khóa và không nhận thêm phản hồi mới",
+    "not_thread_author": "Bạn chỉ có thể chỉnh sửa hoặc xóa chủ đề và bài viết của chính mình",
+    "title_too_short": "Tiêu đề phải có ít nhất 5 ký tự",
+    "title_too_long": "Tiêu đề phải có nhiều nhất 200 ký tự",
+    "body_too_short": "Nội dung phải có ít nhất 10 ký tự",
+    "body_too_long": "Nội dung phải có nhiều nhất 10000 ký tự",
+    "invalid_slug": "Slug chỉ được chứa chữ cái thường, số và dấu gạch ngang"
+  }
+}

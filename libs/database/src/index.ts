@@ -38,6 +38,7 @@ export * from './entities/stadium-construction.entity';
 export * from './entities/fan.entity';
 export * from './entities/weather.entity';
 export * from './entities/announcement.entity';
+export * from './entities/forum';
 export * from './utils/password.util';
 export * from './utils/position-fit.util';
 export * from './utils/player-rating.util';

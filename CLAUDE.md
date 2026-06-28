@@ -94,6 +94,22 @@ The simulator microservice runs match logic in `simulator/src/engine/match.engin
 - `POST /matches/:id/simulate` - Trigger match simulation
 - `GET /matches/:id/events` - Live match events
 - `POST /matches/:id/tactics` - Submit team tactics
+- `GET /forum/categories` - List forum categories
+- `GET /forum/categories/:slug/threads` - List threads in a category (supports `?sort=latest|hot`)
+- `POST /forum/categories/:slug/threads` - Create thread (auth)
+- `GET /forum/threads/:id` - Thread detail + first post body
+- `POST /forum/threads/:id/posts` - Reply to thread (auth)
+- `POST /forum/posts/:id/reactions` - Toggle like on post (auth)
+
+### Forum Feature
+
+Community forum lives at `api/src/api/forum/` and `frontend/app/forum/`. Entities in `libs/database/src/entities/forum/`:
+- `ForumCategoryEntity` - Read-only seeded categories (announcements, general, tactics, transfer-market)
+- `ForumThreadEntity` - Thread with title, body, replyCount, hotScore
+- `ForumPostEntity` - Reply on a thread
+- `ForumReactionEntity` - Like-only reactions (`type='like'`)
+
+**MVP scope**: No category creation (seeded only), no edits (delete + repost), no Markdown, no view count, no moderator system. See `C:\Users\Administrator\.claude\plans\robust-exploring-meerkat.md` for the deferred P1+ work.
 
 ## Code Style
 

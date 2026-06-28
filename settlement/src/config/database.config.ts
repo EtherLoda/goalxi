@@ -37,11 +37,15 @@ import {
   ArchivedPlayerCompetitionStatsEntity,
   ArchivedTransactionEntity,
   ArchivedPlayerEventEntity,
+  ForumCategoryEntity,
+  ForumThreadEntity,
+  ForumPostEntity,
+  ForumReactionEntity,
 } from '@goalxi/database';
 
 @Injectable()
 export class DatabaseConfigService implements TypeOrmOptionsFactory {
-  constructor(private configService: ConfigService) {}
+  constructor(private readonly configService: ConfigService) {}
 
   createTypeOrmOptions(): TypeOrmModuleOptions {
     return {
@@ -93,6 +97,10 @@ export class DatabaseConfigService implements TypeOrmOptionsFactory {
         ArchivedPlayerCompetitionStatsEntity,
         ArchivedTransactionEntity,
         ArchivedPlayerEventEntity,
+        ForumCategoryEntity,
+        ForumThreadEntity,
+        ForumPostEntity,
+        ForumReactionEntity,
       ],
       synchronize: process.env.DATABASE_SYNCHRONIZE === 'true',
     };

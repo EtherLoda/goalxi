@@ -1,0 +1,14 @@
+{
+  "error": {
+    "category_not_found": "Category not found",
+    "thread_not_found": "Thread not found",
+    "post_not_found": "Post not found",
+    "thread_locked": "This thread is locked and cannot accept new replies",
+    "not_thread_author": "You can only modify your own threads and posts",
+    "title_too_short": "Title must be at least 5 characters",
+    "title_too_long": "Title must be at most 200 characters",
+    "body_too_short": "Body must be at least 10 characters",
+    "body_too_long": "Body must be at most 10000 characters",
+    "invalid_slug": "Slug must contain only lowercase letters, numbers and hyphens"
+  }
+}

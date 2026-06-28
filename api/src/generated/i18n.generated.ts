@@ -14,6 +14,20 @@ export type I18nTranslations = {
             "entity_not_found": string;
         };
     };
+    "forum": {
+        "error": {
+            "category_not_found": string;
+            "thread_not_found": string;
+            "post_not_found": string;
+            "thread_locked": string;
+            "not_thread_author": string;
+            "title_too_short": string;
+            "title_too_long": string;
+            "body_too_short": string;
+            "body_too_long": string;
+            "invalid_slug": string;
+        };
+    };
     "user": {
         "unique": {
             "username": string;

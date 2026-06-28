@@ -3,6 +3,7 @@ import { AnnouncementModule } from './announcement/announcement.module';
 import { AuthModule } from './auth/auth.module';
 import { FanModule } from './fan/fan.module';
 import { FinanceModule } from './finance/finance.module';
+import { ForumModule } from './forum/forum.module';
 import { GameModule } from './game/game.module';
 import { InjuryModule } from './injury/injury.module';
 import { LeagueModule } from './league/league.module';
@@ -51,6 +52,7 @@ import { YouthModule } from './youth/youth.module';
     NotificationModule,
     NewsModule,
     AnnouncementModule,
+    ForumModule,
     ClubAuditModule,
   ],
 })

@@ -14,7 +14,8 @@ import {
     ChevronDown,
     ChevronRight,
     Baby, // Youth
-    Landmark // Finance/Club
+    Landmark, // Finance/Club
+    MessageSquare, // Forum
 } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
@@ -60,6 +61,12 @@ export default function Sidebar() {
             items: [
                 { label: 'U18 Squad', href: '/youth/squad', icon: Baby },
                 { label: 'Scouting', href: '/youth/scouts', icon: Target },
+            ]
+        },
+        {
+            title: 'Community',
+            items: [
+                { label: 'Forum', href: '/forum', icon: MessageSquare },
             ]
         }
     ];
