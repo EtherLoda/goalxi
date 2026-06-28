@@ -340,6 +340,13 @@ describe('SimulationProcessor', () => {
     });
 
     it('should use transaction for database operations', async () => {
+      // Reset match status so the runSimulation path is exercised, even if
+      // a prior test left the shared mockMatch with status=COMPLETED.
+      matchRepository.findOne.mockResolvedValue({
+        ...mockMatch,
+        status: MatchStatus.TACTICS_LOCKED,
+      } as any);
+
       await processor.process(mockJob);
 
       expect(dataSource.transaction).toHaveBeenCalled();
