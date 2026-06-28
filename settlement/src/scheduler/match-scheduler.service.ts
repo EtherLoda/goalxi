@@ -1,10 +1,10 @@
-import { Injectable, Logger, Inject } from '@nestjs/common';
+import { Injectable, Inject } from '@nestjs/common';
 import { LOGGER_SERVICE, PinoLoggerService } from '@goalxi/logger';
 import { Cron } from '@nestjs/schedule';
 import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, LessThanOrEqual } from 'typeorm';
+import { Repository, LessThan, LessThanOrEqual } from 'typeorm';
 import {
   MatchEntity,
   MatchTacticsEntity,
@@ -14,6 +14,22 @@ import {
   TacticsPresetEntity,
   GAME_SETTINGS,
 } from '@goalxi/database';
+
+/**
+ * Recovery thresholds for stuck matches.
+ *
+ * - STUCK_IN_PROGRESS_MINUTES: an IN_PROGRESS match with no events past
+ *   this many minutes after scheduledAt is considered stuck — the worker
+ *   likely crashed or the BullMQ job was lost. Re-enqueue to retry.
+ * - STUCK_LOCKED_MINUTES: a TACTICS_LOCKED match whose scheduledAt is
+ *   already past this many minutes is similarly stuck.
+ * - RECOVERY_JOBID_BUCKET_MS: width of the jobId bucket used to throttle
+ *   re-enqueues. Within one bucket, BullMQ rejects duplicate jobIds, so
+ *   we re-enqueue at most once per bucket per match.
+ */
+const STUCK_IN_PROGRESS_MINUTES = 30;
+const STUCK_LOCKED_MINUTES = 5;
+const RECOVERY_JOBID_BUCKET_MS = 5 * 60 * 1000;
 
 @Injectable()
 export class MatchSchedulerService {
@@ -74,89 +90,192 @@ export class MatchSchedulerService {
     );
 
     if (matches.length === 0) {
+      // No new matches to lock — fall through to the recovery scan below.
+    } else {
+      this.logger.info(
+        `[MatchPreprocessScheduler] ✅ Found ${matches.length} match(es) ready for preprocessing`,
+      );
+
+      for (const match of matches) {
+        try {
+          this.logger.info(
+            `[MatchPreprocessScheduler] Processing match ${match.id}: ` +
+              `${match.homeTeam?.name || 'Home'} vs ${match.awayTeam?.name || 'Away'}, ` +
+              `Scheduled: ${match.scheduledAt.toISOString()}`,
+          );
+
+          const [homeTactics, awayTactics] = await Promise.all([
+            this.getTeamTactics(match.id, match.homeTeamId),
+            this.getTeamTactics(match.id, match.awayTeamId),
+          ]);
+
+          this.logger.debug(
+            `[MatchPreprocessScheduler] Tactics check - ` +
+              `Home: ${homeTactics ? '✅ submitted/default' : '❌ missing'}, ` +
+              `Away: ${awayTactics ? '✅ submitted/default' : '❌ missing'}`,
+          );
+
+          // 只要有一方提交了战术（或使用了默认/自动生成阵容），就不判负
+          // 只有双方都没有阵容时才判负
+          match.homeForfeit = !homeTactics;
+          match.awayForfeit = !awayTactics;
+          match.tacticsLocked = true;
+          match.tacticsLockedAt = now;
+          match.status = MatchStatus.TACTICS_LOCKED;
+
+          const matchDate = match.scheduledAt.toISOString().split('T')[0];
+          const weather = await this.weatherRepository.findOne({
+            where: { date: matchDate, locationId: 'default' },
+          });
+          if (weather) {
+            match.weather = weather.actualWeather;
+          }
+
+          await this.matchRepository.save(match);
+
+          this.logger.info(
+            `[MatchPreprocessScheduler] ✅ Match ${match.id} preprocessed and saved to DB`,
+          );
+
+          const jobData = {
+            matchId: match.id,
+            homeTeamId: match.homeTeamId,
+            awayTeamId: match.awayTeamId,
+            homeTactics: homeTactics || null,
+            awayTactics: awayTactics || null,
+            homeForfeit: match.homeForfeit,
+            awayForfeit: match.awayForfeit,
+            matchType: match.type,
+            weather: match.weather || null,
+          };
+
+          this.logger.info(
+            `[MatchPreprocessScheduler] 🚀 Queueing simulation job to BullMQ queue 'match-simulation'...`,
+          );
+
+          const job = await this.simulationQueue.add('simulate', jobData);
+
+          this.logger.info(
+            `[MatchPreprocessScheduler] ✅ Simulation job added to BullMQ! ` +
+              `Job ID: ${job.id}, Match ID: ${match.id}`,
+          );
+
+          this.logger.info(
+            `🔒 Match preprocessed: ${match.id} ` +
+              `(${match.homeTeam?.name || 'Home'} vs ${match.awayTeam?.name || 'Away'}). ` +
+              `Scheduled: ${match.scheduledAt.toISOString()}. ` +
+              `Simulation job ${job.id} queued to BullMQ.`,
+          );
+        } catch (error) {
+          this.logger.error(
+            `[MatchPreprocessScheduler] Failed to preprocess match ${match.id}: ${error.message}`,
+            error.stack,
+          );
+        }
+      }
+    }
+
+    // Recovery scan: re-enqueue simulation for matches stuck in TACTICS_LOCKED
+    // past their scheduled start. Catches the case where the BullMQ job was
+    // lost (e.g. Redis flush) between enqueue and worker pickup.
+    await this.recoverStuckTacticsLockedMatches(now);
+  }
+
+  /**
+   * Find matches stuck in TACTICS_LOCKED whose scheduledAt is already past
+   * the grace period, and re-enqueue their simulation job.
+   */
+  private async recoverStuckTacticsLockedMatches(now: Date): Promise<void> {
+    const stuckThreshold = new Date(
+      now.getTime() - STUCK_LOCKED_MINUTES * 60 * 1000,
+    );
+    const stuckMatches = await this.matchRepository.find({
+      where: {
+        status: MatchStatus.TACTICS_LOCKED,
+        scheduledAt: LessThan(stuckThreshold),
+      },
+    });
+
+    if (stuckMatches.length === 0) {
       return;
     }
 
-    this.logger.info(
-      `[MatchPreprocessScheduler] ✅ Found ${matches.length} match(es) ready for preprocessing`,
+    this.logger.warn(
+      `[MatchRecovery] Found ${stuckMatches.length} TACTICS_LOCKED match(es) past scheduledAt — re-enqueueing simulation`,
     );
 
-    for (const match of matches) {
-      try {
-        this.logger.info(
-          `[MatchPreprocessScheduler] Processing match ${match.id}: ` +
-            `${match.homeTeam?.name || 'Home'} vs ${match.awayTeam?.name || 'Away'}, ` +
-            `Scheduled: ${match.scheduledAt.toISOString()}`,
-        );
+    for (const match of stuckMatches) {
+      await this.enqueueSimulationRecovery(match.id);
+    }
+  }
 
-        const [homeTactics, awayTactics] = await Promise.all([
-          this.getTeamTactics(match.id, match.homeTeamId),
-          this.getTeamTactics(match.id, match.awayTeamId),
-        ]);
+  /**
+   * Enqueue a simulation job for a stuck match with a bucket-based jobId.
+   *
+   * The jobId encodes a 5-minute time bucket: `recover-${matchId}-${bucket}`.
+   * BullMQ rejects duplicate jobIds, so within one bucket we re-enqueue at
+   * most once per match — the throttle. The SimulationProcessor is itself
+   * idempotent (it short-circuits when match.status is COMPLETED), so a
+   * second re-enqueue is safe if the previous recovery actually ran.
+   *
+   * The payload is rebuilt from the current DB state (not just `{ matchId }`)
+   * because the worker reads `homeForfeit`/`awayForfeit`/`weather` from
+   * job.data — re-enqueueing with just matchId would silently turn a forfeit
+   * match into a real one.
+   */
+  private async enqueueSimulationRecovery(matchId: string): Promise<void> {
+    const bucket = Math.floor(Date.now() / RECOVERY_JOBID_BUCKET_MS);
+    const jobId = `recover-${matchId}-${bucket}`;
 
-        this.logger.debug(
-          `[MatchPreprocessScheduler] Tactics check - ` +
-            `Home: ${homeTactics ? '✅ submitted/default' : '❌ missing'}, ` +
-            `Away: ${awayTactics ? '✅ submitted/default' : '❌ missing'}`,
-        );
+    const match = await this.matchRepository.findOne({
+      where: { id: matchId },
+    });
+    if (!match) {
+      this.logger.warn(
+        `[MatchRecovery] Match ${matchId} no longer exists, skipping recovery`,
+      );
+      return;
+    }
+    if (match.status === MatchStatus.COMPLETED) {
+      this.logger.debug(
+        `[MatchRecovery] Match ${matchId} already completed, skipping recovery`,
+      );
+      return;
+    }
 
-        // 只要有一方提交了战术（或使用了默认/自动生成阵容），就不判负
-        // 只有双方都没有阵容时才判负
-        match.homeForfeit = !homeTactics;
-        match.awayForfeit = !awayTactics;
-        match.tacticsLocked = true;
-        match.tacticsLockedAt = now;
-        match.status = MatchStatus.TACTICS_LOCKED;
+    const [homeTactics, awayTactics] = await Promise.all([
+      this.tacticsRepository.findOne({
+        where: { matchId, teamId: match.homeTeamId },
+      }),
+      this.tacticsRepository.findOne({
+        where: { matchId, teamId: match.awayTeamId },
+      }),
+    ]);
 
-        const matchDate = match.scheduledAt.toISOString().split('T')[0];
-        const weather = await this.weatherRepository.findOne({
-          where: { date: matchDate, locationId: 'default' },
-        });
-        if (weather) {
-          match.weather = weather.actualWeather;
-        }
+    const jobData = {
+      matchId: match.id,
+      homeTeamId: match.homeTeamId,
+      awayTeamId: match.awayTeamId,
+      homeTactics: homeTactics || null,
+      awayTactics: awayTactics || null,
+      homeForfeit: match.homeForfeit,
+      awayForfeit: match.awayForfeit,
+      matchType: match.type,
+      weather: match.weather || null,
+    };
 
-        await this.matchRepository.save(match);
-
-        this.logger.info(
-          `[MatchPreprocessScheduler] ✅ Match ${match.id} preprocessed and saved to DB`,
-        );
-
-        const jobData = {
-          matchId: match.id,
-          homeTeamId: match.homeTeamId,
-          awayTeamId: match.awayTeamId,
-          homeTactics: homeTactics || null,
-          awayTactics: awayTactics || null,
-          homeForfeit: match.homeForfeit,
-          awayForfeit: match.awayForfeit,
-          matchType: match.type,
-          weather: match.weather || null,
-        };
-
-        this.logger.info(
-          `[MatchPreprocessScheduler] 🚀 Queueing simulation job to BullMQ queue 'match-simulation'...`,
-        );
-
-        const job = await this.simulationQueue.add('simulate', jobData);
-
-        this.logger.info(
-          `[MatchPreprocessScheduler] ✅ Simulation job added to BullMQ! ` +
-            `Job ID: ${job.id}, Match ID: ${match.id}`,
-        );
-
-        this.logger.info(
-          `🔒 Match preprocessed: ${match.id} ` +
-            `(${match.homeTeam?.name || 'Home'} vs ${match.awayTeam?.name || 'Away'}). ` +
-            `Scheduled: ${match.scheduledAt.toISOString()}. ` +
-            `Simulation job ${job.id} queued to BullMQ.`,
-        );
-      } catch (error) {
-        this.logger.error(
-          `[MatchPreprocessScheduler] Failed to preprocess match ${match.id}: ${error.message}`,
-          error.stack,
-        );
+    try {
+      await this.simulationQueue.add('simulate', jobData, { jobId });
+      this.logger.warn(
+        `[MatchRecovery] Re-enqueued simulation for stuck match ${matchId} (jobId=${jobId})`,
+      );
+    } catch (err) {
+      // BullMQ throws on duplicate jobId — that's the throttle working.
+      const msg = err instanceof Error ? err.message : String(err);
+      if (/already exists|Job with id|duplicate/i.test(msg)) {
+        return;
       }
+      throw err;
     }
   }
 
@@ -238,6 +357,17 @@ export class MatchSchedulerService {
         });
 
         if (!lastEvent || !lastEvent.eventScheduledTime) {
+          // Recovery branch: an IN_PROGRESS match with no events past the
+          // grace window is stuck — the simulation job was lost or the
+          // worker crashed. Re-enqueue (idempotent in the worker) to give
+          // it another chance. Within the grace window we just continue and
+          // let the simulation finish; re-enqueueing too eagerly would
+          // create duplicate worker invocations for normal slow runs.
+          const minutesSinceScheduled =
+            (now.getTime() - match.scheduledAt.getTime()) / 60000;
+          if (minutesSinceScheduled > STUCK_IN_PROGRESS_MINUTES) {
+            await this.enqueueSimulationRecovery(match.id);
+          }
           continue;
         }
 
