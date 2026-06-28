@@ -1,5 +1,5 @@
 import { Processor, WorkerHost } from '@nestjs/bullmq';
-import {Injectable, Logger, Inject } from '@nestjs/common';
+import { Injectable, Logger, Inject } from '@nestjs/common';
 import { LOGGER_SERVICE, PinoLoggerService } from '@goalxi/logger';
 import { Job } from 'bullmq';
 import { InjectRepository } from '@nestjs/typeorm';
@@ -19,7 +19,6 @@ interface BirthdayWageJobData {
 @Injectable()
 @Processor('player-wage')
 export class PlayerWageProcessor extends WorkerHost {
-
   constructor(
     @Inject(LOGGER_SERVICE)
     private readonly logger: PinoLoggerService,

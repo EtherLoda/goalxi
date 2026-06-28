@@ -34,7 +34,8 @@ export class GlobalExceptionFilter implements ExceptionFilter {
   ) {}
 
   catch(exception: unknown, host: ArgumentsHost): void {
-    const err = exception instanceof Error ? exception : new Error(String(exception));
+    const err =
+      exception instanceof Error ? exception : new Error(String(exception));
 
     if (exception instanceof HttpException) {
       const status = exception.getStatus();

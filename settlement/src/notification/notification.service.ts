@@ -1,4 +1,4 @@
-import {Injectable, Inject } from '@nestjs/common';
+import { Injectable, Inject } from '@nestjs/common';
 import { LOGGER_SERVICE, PinoLoggerService } from '@goalxi/logger';
 import { ConfigService } from '@nestjs/config';
 import Redis from 'ioredis';

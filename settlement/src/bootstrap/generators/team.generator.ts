@@ -126,7 +126,9 @@ export class TeamGenerator {
   async generateAllTeams(botUserId: string): Promise<void> {
     const count = await this.teamRepo.count();
     if (count > 0) {
-      this.logger.info(`[TeamGenerator] ${count} teams already exist, skipping`);
+      this.logger.info(
+        `[TeamGenerator] ${count} teams already exist, skipping`,
+      );
       return;
     }
 

@@ -1,4 +1,4 @@
-import {Injectable, Logger, Inject } from '@nestjs/common';
+import { Injectable, Logger, Inject } from '@nestjs/common';
 import { LOGGER_SERVICE, PinoLoggerService } from '@goalxi/logger';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
@@ -280,7 +280,6 @@ const POSITION_TEMPLATES: Record<
 
 @Injectable()
 export class TeamGeneratorService {
-
   private readonly POSITION_REQUIREMENTS: Record<string, number> = {
     GK: 2,
     CD: 2,
@@ -481,7 +480,7 @@ export class TeamGeneratorService {
   }
 
   /**
-   * 创建默认 Level 2 主教�?   */
+   * 创建默认 Level 2 主教�?   */
   private async createDefaultStaff(teamId: string): Promise<void> {
     const nationality = getRandomNationality();
     const { firstName, lastName } = getRandomNameByNationality(nationality);
@@ -492,7 +491,7 @@ export class TeamGeneratorService {
       role: StaffRole.HEAD_COACH,
       level: StaffLevel.LEVEL_2,
       salary: 4000, // Level 2 周薪
-      contractExpiry: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000), // 1年合�?      autoRenew: true,
+      contractExpiry: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000), // 1年合�?      autoRenew: true,
       isActive: true,
       nationality,
     });

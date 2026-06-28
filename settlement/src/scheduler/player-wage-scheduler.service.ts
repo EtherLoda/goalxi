@@ -1,6 +1,6 @@
 import { InjectQueue } from '@nestjs/bullmq';
 import { Cron } from '@nestjs/schedule';
-import {Injectable, Logger, Inject } from '@nestjs/common';
+import { Injectable, Logger, Inject } from '@nestjs/common';
 import { LOGGER_SERVICE, PinoLoggerService } from '@goalxi/logger';
 import { Queue } from 'bullmq';
 import { InjectRepository } from '@nestjs/typeorm';
@@ -9,7 +9,6 @@ import { PlayerEntity } from '@goalxi/database';
 
 @Injectable()
 export class PlayerWageSchedulerService {
-
   constructor(
     @Inject(LOGGER_SERVICE)
     private readonly logger: PinoLoggerService,
@@ -43,7 +42,9 @@ export class PlayerWageSchedulerService {
         .getMany();
 
       if (playersWithBirthday.length === 0) {
-        this.logger.info('[PlayerWageScheduler] No birthday wage updates today');
+        this.logger.info(
+          '[PlayerWageScheduler] No birthday wage updates today',
+        );
         return;
       }
 

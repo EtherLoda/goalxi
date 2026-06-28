@@ -1,6 +1,6 @@
 import { InjectQueue } from '@nestjs/bullmq';
 import { Cron } from '@nestjs/schedule';
-import {Injectable, Logger, Inject } from '@nestjs/common';
+import { Injectable, Logger, Inject } from '@nestjs/common';
 import { LOGGER_SERVICE, PinoLoggerService } from '@goalxi/logger';
 import { Queue } from 'bullmq';
 import { InjectRepository } from '@nestjs/typeorm';
@@ -9,7 +9,6 @@ import { MatchEntity, TeamEntity, GAME_SETTINGS } from '@goalxi/database';
 
 @Injectable()
 export class FinanceSchedulerService {
-
   // Game start date: Season 1, Week 1 begins at this date (UTC)
   private readonly GAME_START_DATE = new Date('2026-04-06T00:00:00Z');
 
@@ -48,7 +47,9 @@ export class FinanceSchedulerService {
    */
   @Cron('0 0 0 * * 1') // Every Monday at 00:00 UTC
   async processWeeklyFinanceSettlement() {
-    this.logger.info('[FinanceScheduler] Starting weekly finance settlement...');
+    this.logger.info(
+      '[FinanceScheduler] Starting weekly finance settlement...',
+    );
 
     // Get current season and week from game state
     const { season, week } = this.getCurrentSeasonWeek();

@@ -1,4 +1,4 @@
-import {Injectable, Logger, Inject } from '@nestjs/common';
+import { Injectable, Logger, Inject } from '@nestjs/common';
 import { LOGGER_SERVICE, PinoLoggerService } from '@goalxi/logger';
 import { Cron } from '@nestjs/schedule';
 import { InjectQueue } from '@nestjs/bullmq';
@@ -6,7 +6,6 @@ import { Queue } from 'bullmq';
 
 @Injectable()
 export class WeeklySettlementService {
-
   constructor(
     @Inject(LOGGER_SERVICE)
     private readonly logger: PinoLoggerService,

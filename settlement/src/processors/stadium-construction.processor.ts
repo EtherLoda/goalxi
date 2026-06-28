@@ -1,5 +1,5 @@
 import { Processor, WorkerHost, OnWorkerEvent } from '@nestjs/bullmq';
-import {Injectable, Logger, Inject } from '@nestjs/common';
+import { Injectable, Logger, Inject } from '@nestjs/common';
 import { LOGGER_SERVICE, PinoLoggerService } from '@goalxi/logger';
 import { InjectRepository } from '@nestjs/typeorm';
 import { InjectDataSource } from '@nestjs/typeorm';
@@ -23,7 +23,7 @@ import { NotificationService } from '../notification/notification.service';
 import { NotificationType } from '../notification/notification.service';
 
 /**
- * Â§5 Stadium â€?Weekly tick for queued construction / demolition projects.
+ * Â§5 Stadium ï¿½?Weekly tick for queued construction / demolition projects.
  *
  * Triggered by `WeeklySettlementService` every Thursday at 00:00 alongside
  * training / condition settlement. Decrements `remaining_weeks` on every
@@ -39,7 +39,6 @@ import { NotificationType } from '../notification/notification.service';
 @Injectable()
 @Processor('construction-settlement')
 export class StadiumConstructionProcessor extends WorkerHost {
-
   constructor(
     @Inject(LOGGER_SERVICE)
     private readonly logger: PinoLoggerService,
@@ -133,7 +132,7 @@ export class StadiumConstructionProcessor extends WorkerHost {
       });
       if (!stadium) {
         this.logger.error(
-          `Stadium vanished mid-construction for team ${row.teamId} â€?skipping`,
+          `Stadium vanished mid-construction for team ${row.teamId} ï¿½?skipping`,
         );
         return;
       }
@@ -159,13 +158,13 @@ export class StadiumConstructionProcessor extends WorkerHost {
               type: TransactionType.OTHER_INCOME,
               season: processingWeek.season,
               week: processingWeek.week,
-              description: `Stadium demolition completed (-${row.deltaSeats.toLocaleString()} â†?${stadium.capacity.toLocaleString()})`,
+              description: `Stadium demolition completed (-${row.deltaSeats.toLocaleString()} ï¿½?${stadium.capacity.toLocaleString()})`,
               relatedId: row.id,
             }),
           );
         } else {
           this.logger.error(
-            `Finance record missing for team ${row.teamId} â€?refund of ${refundAmount} skipped`,
+            `Finance record missing for team ${row.teamId} ï¿½?refund of ${refundAmount} skipped`,
           );
         }
       }
@@ -199,17 +198,17 @@ export class StadiumConstructionProcessor extends WorkerHost {
       );
     } else {
       this.logger.warn(
-        `Team ${row.teamId} has no userId â€?cannot notify of completed construction`,
+        `Team ${row.teamId} has no userId ï¿½?cannot notify of completed construction`,
       );
     }
 
     this.logger.info(
-      `Stadium ${row.kind.toLowerCase()} completed for team ${row.teamId}: ${row.deltaSeats} seats â†?${row.endingCapacity}`,
+      `Stadium ${row.kind.toLowerCase()} completed for team ${row.teamId}: ${row.deltaSeats} seats ï¿½?${row.endingCapacity}`,
     );
   }
 
   /**
-   * Resolve current season/week via MAX over match table â€?same query the
+   * Resolve current season/week via MAX over match table ï¿½?same query the
    * api StadiumConstructionService uses.
    */
   private async getCurrentSeasonAndWeek(): Promise<{

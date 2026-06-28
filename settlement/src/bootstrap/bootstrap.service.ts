@@ -1,4 +1,4 @@
-import {Injectable, Logger, OnModuleInit, Inject } from '@nestjs/common';
+import { Injectable, Logger, OnModuleInit, Inject } from '@nestjs/common';
 import { LOGGER_SERVICE, PinoLoggerService } from '@goalxi/logger';
 import { UserGenerator } from './generators/user.generator';
 import { LeagueGenerator } from './generators/league.generator';
@@ -8,12 +8,11 @@ import { WeatherGenerator } from './generators/weather.generator';
 
 @Injectable()
 export class BootstrapService implements OnModuleInit {
-
   constructor(
     @Inject(LOGGER_SERVICE)
-  private readonly logger: PinoLoggerService,
+    private readonly logger: PinoLoggerService,
 
-  private userGenerator: UserGenerator,
+    private userGenerator: UserGenerator,
     private leagueGenerator: LeagueGenerator,
     private teamGenerator: TeamGenerator,
     private scheduleGenerator: ScheduleGenerator,

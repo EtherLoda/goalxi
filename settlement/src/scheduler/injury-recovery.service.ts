@@ -1,4 +1,4 @@
-import {Injectable, Logger, Inject } from '@nestjs/common';
+import { Injectable, Logger, Inject } from '@nestjs/common';
 import { LOGGER_SERVICE, PinoLoggerService } from '@goalxi/logger';
 import { Cron } from '@nestjs/schedule';
 import { InjectRepository } from '@nestjs/typeorm';
@@ -20,7 +20,6 @@ import {
 
 @Injectable()
 export class InjuryRecoveryService {
-
   constructor(
     @Inject(LOGGER_SERVICE)
     private readonly logger: PinoLoggerService,
@@ -92,7 +91,7 @@ export class InjuryRecoveryService {
           }
         }
 
-        // Deterministic daily recovery â€?shared formula (no random fluctuation).
+        // Deterministic daily recovery ï¿½?shared formula (no random fluctuation).
         const dailyRecovery = calculateDailyRecovery(playerAge, doctorLevel);
 
         const oldValue = player.currentInjuryValue;
