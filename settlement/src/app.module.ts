@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { BullModule } from '@nestjs/bullmq';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { LoggerModule as SharedLoggerModule } from '@goalxi/logger';
 import { DatabaseConfigService } from './config/database.config';
 import { GlobalExceptionFilter } from './common/global-exception.filter';
 import { TrainingModule } from './training.module';
@@ -11,6 +12,9 @@ import { SchedulerModule } from './scheduler/scheduler.module';
 import { TransferModule } from './transfer.module';
 import { BootstrapModule } from './bootstrap/bootstrap.module';
 import { StadiumConstructionModule } from './stadium-construction.module';
+
+const isDevelopmentFromEnv = () =>
+  (process.env.NODE_ENV || 'development') === 'development';
 
 @Module({
   imports: [
@@ -39,6 +43,22 @@ import { StadiumConstructionModule } from './stadium-construction.module';
     TransferModule,
     BootstrapModule,
     StadiumConstructionModule,
+    SharedLoggerModule.forRoot({
+      level:
+        (process.env.APP_LOG_LEVEL as
+          | 'fatal'
+          | 'error'
+          | 'warn'
+          | 'info'
+          | 'debug'
+          | 'trace'
+          | undefined) ?? (isDevelopmentFromEnv() ? 'debug' : 'warn'),
+      service: 'settlement',
+      isDevelopment: isDevelopmentFromEnv(),
+      file: './logs/settlement.log',
+      maxSize: 100 * 1024 * 1024,
+      maxFiles: 7,
+    }),
   ],
   controllers: [],
   providers: [

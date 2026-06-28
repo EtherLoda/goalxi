@@ -3,11 +3,8 @@ import { APP_INTERCEPTOR } from '@nestjs/core';
 import { LoggingInterceptor } from './common/interceptors/logging.interceptor';
 import generateModulesSet from './utils/modules-set';
 
-const buildImports = async (): Promise<ModuleMetadata['imports']> =>
-  generateModulesSet();
-
 @Module({
-  imports: await buildImports(),
+  imports: generateModulesSet(),
   providers: [
     {
       // APP_INTERCEPTOR token: NestJS applies this interceptor to every

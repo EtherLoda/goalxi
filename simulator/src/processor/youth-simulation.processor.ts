@@ -239,6 +239,21 @@ export class YouthSimulationProcessor extends WorkerHost {
       positionKey: this.findPositionInLineup(awayTactics.lineup, pid) ?? 'ST',
     }));
 
+    // Roster gate: any team below the minimum field size forfeits the match.
+    const minPlayers = YouthSimulationProcessor.MIN_PLAYERS_PER_TEAM;
+    if (
+      homeTacticalPlayers.length < minPlayers ||
+      awayTacticalPlayers.length < minPlayers
+    ) {
+      const homeForfeit = homeTacticalPlayers.length < minPlayers;
+      const awayForfeit = awayTacticalPlayers.length < minPlayers;
+      this.jobLog.warn(
+        `[YouthSimulator] Match ${match.id} forfeit — home=${homeTacticalPlayers.length} away=${awayTacticalPlayers.length} (min=${minPlayers})`,
+      );
+      await this.handleRosterForfeit(match, homeForfeit, awayForfeit);
+      return;
+    }
+
     const subMap = new Map<string, TacticalPlayer>();
     for (const pid of [...homeSubIds, ...awaySubIds]) {
       const entity = allPlayers.find((p) => p.id === pid);
@@ -483,8 +498,78 @@ export class YouthSimulationProcessor extends WorkerHost {
       penalty_miss: 31,
       snapshot: 21,
       tactical_change: 27,
+      forfeit: 20,
     };
     return mapping[type] ?? 27;
+  }
+
+  /** Minimum number of players required in a team's lineup for a youth
+   *  match to be played. Below this, the team forfeits (3-0 walkover, or
+   *  0-0 if both teams forfeit). Mirrors SimulationProcessor. */
+  private static readonly MIN_PLAYERS_PER_TEAM = 9;
+
+  private async handleRosterForfeit(
+    match: YouthMatchEntity,
+    homeForfeit: boolean,
+    awayForfeit: boolean,
+  ): Promise<void> {
+    match.homeScore = homeForfeit ? 0 : 3;
+    match.awayScore = awayForfeit ? 0 : 3;
+    match.status = YouthMatchStatus.COMPLETED;
+    match.simulationCompletedAt = new Date();
+    match.actualEndTime = new Date(
+      new Date(match.scheduledAt).getTime() + 90 * 60 * 1000,
+    );
+
+    const homeName = match.homeYouthTeam.name;
+    const awayName = match.awayYouthTeam.name;
+    const winnerName = homeForfeit ? awayName : homeName;
+    const forfeitingName = homeForfeit ? homeName : awayName;
+
+    const start = new Date(match.scheduledAt);
+    const end = new Date(start.getTime() + 90 * 60 * 1000);
+    const forfeitEvents: Array<{
+      minute: number;
+      type: string;
+      data?: Record<string, any>;
+      eventScheduledTime: Date;
+    }> = [
+      { minute: 0, type: 'kickoff', eventScheduledTime: start },
+      {
+        minute: 0,
+        type: 'forfeit',
+        data: { forfeitingTeam: forfeitingName, winner: winnerName },
+        eventScheduledTime: start,
+      },
+      { minute: 90, type: 'full_time', eventScheduledTime: end },
+    ];
+
+    await this.dataSource.transaction(async (manager) => {
+      await manager.save(match);
+      await manager
+        .createQueryBuilder()
+        .insert()
+        .into(YouthMatchEventEntity)
+        .values(
+          forfeitEvents.map((e) => ({
+            youthMatchId: match.id,
+            minute: e.minute,
+            second: 0,
+            type: this.mapEventType(e.type),
+            typeName: e.type,
+            teamId: null,
+            playerId: null,
+            relatedPlayerId: null,
+            phase: MatchPhase.FIRST_HALF,
+            lane: null,
+            isHome: null,
+            data: e.data ?? {},
+            eventScheduledTime: e.eventScheduledTime,
+            isRevealed: true,
+          })),
+        )
+        .execute();
+    });
   }
 
   private async handleForfeit(

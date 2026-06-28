@@ -32,9 +32,9 @@ import { v4 as uuidv4 } from 'uuid';
 import loggerFactory from './logger-factory';
 import { TraceIdMiddleware } from './trace-id.middleware';
 
-async function generateModulesSet(): Promise<ModuleMetadata['imports']> {
+function generateModulesSet(): ModuleMetadata['imports'] {
   const imports: ModuleMetadata['imports'] = [
-    await ConfigModule.forRoot({
+    ConfigModule.forRoot({
       isGlobal: true,
       load: [appConfig, databaseConfig, redisConfig, authConfig, mailConfig],
       envFilePath: ['.env'],

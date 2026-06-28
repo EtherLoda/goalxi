@@ -57,6 +57,7 @@ const entities = [
   PlayerEventEntity,
   PlayerTransactionEntity,
   InjuryEntity,
+  StaffEntity,
   YouthMatchEntity,
   YouthMatchEventEntity,
   YouthMatchTacticsEntity,

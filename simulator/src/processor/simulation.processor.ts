@@ -387,6 +387,23 @@ export class SimulationProcessor extends WorkerHost {
       positionKey: this.findPositionInLineup(awayTactics.lineup, pid) ?? 'ST',
     }));
 
+    // Roster gate: any team below the minimum field size forfeits the match.
+    // Without this guard the engine runs with empty arrays and emits ~20 fake
+    // "key moment" events for a match that, in reality, never starts.
+    const minPlayers = SimulationProcessor.MIN_PLAYERS_PER_TEAM;
+    if (
+      homeTacticalPlayers.length < minPlayers ||
+      awayTacticalPlayers.length < minPlayers
+    ) {
+      const homeForfeit = homeTacticalPlayers.length < minPlayers;
+      const awayForfeit = awayTacticalPlayers.length < minPlayers;
+      this.jobLog.warn(
+        `[Simulator] Match ${match.id} forfeit — home=${homeTacticalPlayers.length} away=${awayTacticalPlayers.length} (min=${minPlayers})`,
+      );
+      await this.handleRosterForfeit(match, homeForfeit, awayForfeit);
+      return;
+    }
+
     const subMap = new Map<string, TacticalPlayer>();
     for (const pid of [...homeSubIds, ...awaySubIds]) {
       const entity = allPlayers.find((p) => p.id === pid);
@@ -1035,8 +1052,82 @@ export class SimulationProcessor extends WorkerHost {
       tactical_change: 27,
       weather_announcement: 32,
       player_introduction: 33,
+      forfeit: 20,
     };
     return mapping[type] ?? 27;
+  }
+
+  /** Minimum number of players required in a team's lineup for a match
+   *  to be played. Below this, the team forfeits (3-0 walkover, or 0-0
+   *  if both teams forfeit). */
+  private static readonly MIN_PLAYERS_PER_TEAM = 9;
+
+  private async handleRosterForfeit(
+    match: MatchEntity,
+    homeForfeit: boolean,
+    awayForfeit: boolean,
+  ): Promise<void> {
+    // Score rule mirrors the externally-triggered forfeit path:
+    // homeForfeit ? 0 : 3, awayForfeit ? 0 : 3 → 0-0 if both forfeit, 3-0 otherwise.
+    match.homeScore = homeForfeit ? 0 : 3;
+    match.awayScore = awayForfeit ? 0 : 3;
+    match.status = MatchStatus.COMPLETED;
+    match.simulationCompletedAt = new Date();
+    match.actualEndTime = new Date(
+      new Date(match.scheduledAt).getTime() + 90 * 60 * 1000,
+    );
+
+    const homeName = match.homeTeam.name;
+    const awayName = match.awayTeam.name;
+    const winnerName = homeForfeit ? awayName : homeName;
+    const forfeitingName = homeForfeit ? homeName : awayName;
+
+    // Clean event timeline: no fake key moments, just a single FORFEIT notice
+    // bracketed by kickoff and full_time. All immediately revealed.
+    const start = new Date(match.scheduledAt);
+    const end = new Date(start.getTime() + 90 * 60 * 1000);
+    const forfeitEvents: Array<{
+      minute: number;
+      type: string;
+      data?: Record<string, any>;
+      eventScheduledTime: Date;
+    }> = [
+      { minute: 0, type: 'kickoff', eventScheduledTime: start },
+      {
+        minute: 0,
+        type: 'forfeit',
+        data: { forfeitingTeam: forfeitingName, winner: winnerName },
+        eventScheduledTime: start,
+      },
+      { minute: 90, type: 'full_time', eventScheduledTime: end },
+    ];
+
+    await this.dataSource.transaction(async (manager) => {
+      await manager.save(match);
+      await manager
+        .createQueryBuilder()
+        .insert()
+        .into(MatchEventEntity)
+        .values(
+          forfeitEvents.map((e) => ({
+            matchId: match.id,
+            minute: e.minute,
+            second: 0,
+            type: this.mapEventType(e.type),
+            typeName: e.type,
+            teamId: null,
+            playerId: null,
+            relatedPlayerId: null,
+            phase: MatchPhase.FIRST_HALF,
+            lane: null,
+            isHome: null,
+            data: e.data ?? {},
+            eventScheduledTime: e.eventScheduledTime,
+            isRevealed: true,
+          })),
+        )
+        .execute();
+    });
   }
 
   private async handleForfeit(
