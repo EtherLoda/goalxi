@@ -25,9 +25,9 @@ import {
   OnModuleInit,
 } from '@nestjs/common';
 import { Cron } from '@nestjs/schedule';
-import { ClsService } from 'nestjs-cls';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Queue } from 'bullmq';
+import { ClsService } from 'nestjs-cls';
 import { DataSource, In, MoreThanOrEqual, Repository } from 'typeorm';
 import { AUCTION_CONFIG, calculateMinBidIncrement } from './auction.constants';
 import { CreateAuctionReqDto } from './dto/create-auction.req.dto';

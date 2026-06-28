@@ -1,7 +1,7 @@
 import { MatchCompletionService } from '@/api/match/match-completion.service';
+import { LOGGER_SERVICE, PinoLoggerService } from '@goalxi/logger';
 import { OnWorkerEvent, Processor, WorkerHost } from '@nestjs/bullmq';
 import { Inject, Injectable } from '@nestjs/common';
-import { LOGGER_SERVICE, PinoLoggerService } from '@goalxi/logger';
 import { Job } from 'bullmq';
 
 @Injectable()

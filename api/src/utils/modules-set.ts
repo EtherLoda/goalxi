@@ -16,15 +16,15 @@ import { CacheModule } from '@nestjs/cache-manager';
 import { ModuleMetadata } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
-import type { Request, Response } from 'express';
 import { redisStore } from 'cache-manager-ioredis-yet';
+import type { Request } from 'express';
+import { ClsModule } from 'nestjs-cls';
 import {
   AcceptLanguageResolver,
   HeaderResolver,
   I18nModule,
   QueryResolver,
 } from 'nestjs-i18n';
-import { ClsModule } from 'nestjs-cls';
 import { LoggerModule } from 'nestjs-pino';
 import path from 'path';
 import { DataSource, DataSourceOptions } from 'typeorm';

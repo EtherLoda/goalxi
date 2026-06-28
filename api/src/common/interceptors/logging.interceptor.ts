@@ -1,3 +1,4 @@
+import { LOGGER_SERVICE } from '@goalxi/logger';
 import {
   CallHandler,
   ExecutionContext,
@@ -6,7 +7,6 @@ import {
   LoggerService,
   NestInterceptor,
 } from '@nestjs/common';
-import { LOGGER_SERVICE } from '@goalxi/logger';
 import { Request, Response } from 'express';
 import { Observable, tap } from 'rxjs';
 
@@ -31,9 +31,7 @@ import { Observable, tap } from 'rxjs';
  */
 @Injectable()
 export class LoggingInterceptor implements NestInterceptor {
-  constructor(
-    @Inject(LOGGER_SERVICE) private readonly logger: LoggerService,
-  ) {}
+  constructor(@Inject(LOGGER_SERVICE) private readonly logger: LoggerService) {}
 
   intercept(context: ExecutionContext, next: CallHandler): Observable<unknown> {
     const http = context.switchToHttp();
@@ -58,9 +56,8 @@ export class LoggingInterceptor implements NestInterceptor {
           const durationMs = Date.now() - start;
           // res.statusCode may still be default (200) at this point because
           // the exception filter hasn't run yet; fall back to 500.
-          const status = res.statusCode && res.statusCode !== 200
-            ? res.statusCode
-            : 500;
+          const status =
+            res.statusCode && res.statusCode !== 200 ? res.statusCode : 500;
           this.logger.error(
             `[Http] ${method} ${url} handler=${handlerName} userId=${userId ?? '-'} status=${status} durationMs=${durationMs} error=${err.message}`,
           );

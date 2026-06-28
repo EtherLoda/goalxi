@@ -32,8 +32,7 @@ const customSuccessMessage = (
 ) => {
   // `userId` may be attached by AuthGuard onto `req.user`; default to "-"
   // for anonymous endpoints.
-  const userId = (req as IncomingMessage & { user?: { id?: string } }).user
-    ?.id;
+  const userId = (req as IncomingMessage & { user?: { id?: string } }).user?.id;
   return `[${req.id || '*'}] userId=${userId ?? '-'} "${req.method} ${req.url}" ${res.statusCode} - "${req.headers['host']}" "${req.headers['user-agent']}" - ${responseTime} ms`;
 };
 

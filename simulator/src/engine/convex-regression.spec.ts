@@ -296,8 +296,10 @@ function aggregate(
       totalAwayShots + totalAwayTurnovers > 0
         ? totalAwayShots / (totalAwayShots + totalAwayTurnovers)
         : 0,
-    homeShotConversion: totalHomeShots > 0 ? sum('homeGoals') / totalHomeShots : 0,
-    awayShotConversion: totalAwayShots > 0 ? sum('awayGoals') / totalAwayShots : 0,
+    homeShotConversion:
+      totalHomeShots > 0 ? sum('homeGoals') / totalHomeShots : 0,
+    awayShotConversion:
+      totalAwayShots > 0 ? sum('awayGoals') / totalAwayShots : 0,
     avgHomeCorners: sum('homeCorners') / n,
     avgAwayCorners: sum('awayCorners') / n,
     avgHomeFouls: sum('homeFouls') / n,
@@ -395,8 +397,8 @@ describe('凸性改造回归：100 场模拟', () => {
     const stats = (engine as any).matchStats.possessionStats;
     console.log('raw possessionStats:', JSON.stringify(stats));
     const total = stats.home + stats.away;
-    console.log('home pct:', (stats.home / total * 100).toFixed(1) + '%');
-    console.log('away pct:', (stats.away / total * 100).toFixed(1) + '%');
+    console.log('home pct:', ((stats.home / total) * 100).toFixed(1) + '%');
+    console.log('away pct:', ((stats.away / total) * 100).toFixed(1) + '%');
     expect(true).toBe(true);
   });
 
@@ -445,6 +447,6 @@ describe('凸性改造回归：100 场模拟', () => {
     const stats = aggregate(results, 'away');
     printStats('中等差距 70 vs 80', stats);
 
-    expect(stats.awayWinRate).toBeGreaterThan(0.40);
+    expect(stats.awayWinRate).toBeGreaterThan(0.4);
   });
 });
