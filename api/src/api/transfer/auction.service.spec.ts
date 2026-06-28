@@ -6,9 +6,11 @@ import {
   TeamEntity,
   TransferTransactionEntity,
 } from '@goalxi/database';
+import { LOGGER_SERVICE } from '@goalxi/logger';
 import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
+import { ClsService } from 'nestjs-cls';
 import { DataSource } from 'typeorm';
 import { AuctionRedisRepository } from '../../redis/auction-redis.repository';
 import { FinanceService } from '../finance/finance.service';
@@ -51,6 +53,16 @@ describe('AuctionService', () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         AuctionService,
+        {
+          provide: LOGGER_SERVICE,
+          useValue: {
+            log: jest.fn(),
+            error: jest.fn(),
+            warn: jest.fn(),
+            debug: jest.fn(),
+            info: jest.fn(),
+          },
+        },
         {
           provide: getRepositoryToken(AuctionEntity),
           useValue: {
@@ -112,6 +124,13 @@ describe('AuctionService', () => {
           useValue: {
             createNotification: jest.fn(),
             publishGlobal: jest.fn(),
+          },
+        },
+        {
+          provide: ClsService,
+          useValue: {
+            get: jest.fn(),
+            set: jest.fn(),
           },
         },
       ],

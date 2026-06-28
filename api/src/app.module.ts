@@ -1,10 +1,13 @@
-import { Module } from '@nestjs/common';
+import { Module, type ModuleMetadata } from '@nestjs/common';
 import { APP_INTERCEPTOR } from '@nestjs/core';
 import { LoggingInterceptor } from './common/interceptors/logging.interceptor';
 import generateModulesSet from './utils/modules-set';
 
+const buildImports = async (): Promise<ModuleMetadata['imports']> =>
+  generateModulesSet();
+
 @Module({
-  imports: generateModulesSet(),
+  imports: await buildImports(),
   providers: [
     {
       // APP_INTERCEPTOR token: NestJS applies this interceptor to every

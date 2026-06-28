@@ -1,4 +1,5 @@
 import { UserEntity } from '@goalxi/database';
+import { LOGGER_SERVICE } from '@goalxi/logger';
 import { getQueueToken } from '@nestjs/bullmq';
 import { CACHE_MANAGER } from '@nestjs/cache-manager';
 import { ConfigService } from '@nestjs/config';
@@ -33,6 +34,16 @@ describe('AuthService', () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         AuthService,
+        {
+          provide: LOGGER_SERVICE,
+          useValue: {
+            log: jest.fn(),
+            error: jest.fn(),
+            warn: jest.fn(),
+            debug: jest.fn(),
+            info: jest.fn(),
+          },
+        },
         {
           provide: ConfigService,
           useValue: configServiceValue,

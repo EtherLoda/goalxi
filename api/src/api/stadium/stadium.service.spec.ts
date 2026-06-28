@@ -4,6 +4,7 @@ import {
   STADIUM_DEMOLISH_REFUND_RATE,
   StadiumEntity,
 } from '@goalxi/database';
+import { LOGGER_SERVICE } from '@goalxi/logger';
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
@@ -32,6 +33,16 @@ describe('StadiumService — §5.3 summary & rename', () => {
       providers: [
         StadiumService,
         {
+          provide: LOGGER_SERVICE,
+          useValue: {
+            log: jest.fn(),
+            error: jest.fn(),
+            warn: jest.fn(),
+            debug: jest.fn(),
+            info: jest.fn(),
+          },
+        },
+        {
           provide: getRepositoryToken(StadiumEntity),
           useValue: {
             findOne: jest.fn(),
@@ -43,6 +54,7 @@ describe('StadiumService — §5.3 summary & rename', () => {
         {
           provide: getRepositoryToken(MatchEntity),
           useValue: {
+            find: jest.fn().mockResolvedValue([]),
             createQueryBuilder: jest.fn(() => ({
               select: jest.fn().mockReturnThis(),
               addSelect: jest.fn().mockReturnThis(),

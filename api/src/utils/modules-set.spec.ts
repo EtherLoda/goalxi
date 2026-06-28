@@ -15,16 +15,14 @@ describe('generateModulesSet', () => {
     process.env = originalEnv;
   });
 
-  it('should return correct modules for monolith set', () => {
+  it('should return correct modules for monolith set', async () => {
     process.env.MODULES_SET = 'monolith';
-    const modules = generateModulesSet();
+    const modules = await generateModulesSet();
     expect(modules).toEqual(
       expect.arrayContaining([
-        expect.objectContaining(
-          Promise.resolve({
-            module: ConfigModule,
-          }),
-        ), // ConfigModule
+        expect.objectContaining({
+          module: ConfigModule,
+        }), // ConfigModule
         ApiModule,
         expect.any(Object), // BullModule
         expect.any(Object), // BackgroundModule
@@ -36,30 +34,26 @@ describe('generateModulesSet', () => {
     );
   });
 
-  it('should return correct modules for default set', () => {
+  it('should return correct modules for default set', async () => {
     process.env.MODULES_SET = undefined;
-    const modules = generateModulesSet();
+    const modules = await generateModulesSet();
     expect(modules).toEqual(
       expect.arrayContaining([
-        expect.objectContaining(
-          Promise.resolve({
-            module: ConfigModule,
-          }),
-        ), // ConfigModule
+        expect.objectContaining({
+          module: ConfigModule,
+        }), // ConfigModule
       ]),
     );
   });
 
-  it('should return correct modules for api set', () => {
+  it('should return correct modules for api set', async () => {
     process.env.MODULES_SET = 'api';
-    const modules = generateModulesSet();
+    const modules = await generateModulesSet();
     expect(modules).toEqual(
       expect.arrayContaining([
-        expect.objectContaining(
-          Promise.resolve({
-            module: ConfigModule,
-          }),
-        ), // ConfigModule
+        expect.objectContaining({
+          module: ConfigModule,
+        }), // ConfigModule
         ApiModule,
         expect.any(Object), // BullModule
         expect.any(Object), // BackgroundModule
@@ -71,9 +65,9 @@ describe('generateModulesSet', () => {
     );
   });
 
-  it('should return correct modules for background set', () => {
+  it('should return correct modules for background set', async () => {
     process.env.MODULES_SET = 'background';
-    const modules = generateModulesSet();
+    const modules = await generateModulesSet();
     expect(modules).toEqual(
       expect.arrayContaining([
         expect.any(Object), // BullModule
@@ -85,19 +79,17 @@ describe('generateModulesSet', () => {
     );
   });
 
-  it('should handle unsupported modules set', () => {
+  it('should handle unsupported modules set', async () => {
     const consoleErrorSpy = jest
       .spyOn(console, 'error')
       .mockImplementation(() => {});
     process.env.MODULES_SET = 'unsupported';
-    const modules = generateModulesSet();
+    const modules = await generateModulesSet();
     expect(modules).toEqual(
       expect.arrayContaining([
-        expect.objectContaining(
-          Promise.resolve({
-            module: ConfigModule,
-          }),
-        ), // ConfigModule
+        expect.objectContaining({
+          module: ConfigModule,
+        }), // ConfigModule
       ]),
     );
     expect(consoleErrorSpy).toHaveBeenCalledWith(

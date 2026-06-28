@@ -6,6 +6,7 @@ import {
   StadiumConstructionStatus,
   StadiumEntity,
 } from '@goalxi/database';
+import { LOGGER_SERVICE } from '@goalxi/logger';
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { DataSource, Repository } from 'typeorm';
@@ -57,6 +58,16 @@ describe('StadiumConstructionService', () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         StadiumConstructionService,
+        {
+          provide: LOGGER_SERVICE,
+          useValue: {
+            log: jest.fn(),
+            error: jest.fn(),
+            warn: jest.fn(),
+            debug: jest.fn(),
+            info: jest.fn(),
+          },
+        },
         {
           provide: getRepositoryToken(StadiumConstructionEntity),
           useValue: {

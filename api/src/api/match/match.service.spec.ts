@@ -12,6 +12,7 @@ import { getQueueToken } from '@nestjs/bullmq';
 import { BadRequestException, ForbiddenException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
+import { ClsService } from 'nestjs-cls';
 import { DataSource } from 'typeorm';
 import { CreateMatchReqDto } from './dto/create-match.req.dto';
 import { SubmitTacticsReqDto } from './dto/submit-tactics.req.dto';
@@ -107,6 +108,13 @@ describe('MatchService', () => {
         {
           provide: DataSource,
           useValue: mockDataSource,
+        },
+        {
+          provide: ClsService,
+          useValue: {
+            get: jest.fn(),
+            set: jest.fn(),
+          },
         },
         {
           provide: 'CACHE_MANAGER',

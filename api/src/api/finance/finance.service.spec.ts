@@ -7,6 +7,7 @@ import {
   TeamEntity,
   TransactionEntity,
 } from '@goalxi/database';
+import { LOGGER_SERVICE } from '@goalxi/logger';
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { DataSource, Repository } from 'typeorm';
@@ -66,6 +67,16 @@ describe('FinanceService', () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         FinanceService,
+        {
+          provide: LOGGER_SERVICE,
+          useValue: {
+            log: jest.fn(),
+            error: jest.fn(),
+            warn: jest.fn(),
+            debug: jest.fn(),
+            info: jest.fn(),
+          },
+        },
         {
           provide: getRepositoryToken(FinanceEntity),
           useFactory: mockFinanceRepo,
