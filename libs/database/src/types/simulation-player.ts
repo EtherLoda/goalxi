@@ -172,6 +172,8 @@ export function toSimulationPlayer(entity: PlayerEntity): SimulationPlayer {
  */
 export function toSimulationYouthPlayer(entity: YouthPlayerEntity): SimulationPlayer {
     const skills = entity.currentSkills ?? {};
+    // Youth exact age is computed from createdDay; no real birthday math.
+    const exactAge: [number, number] = entity.getExactAge();
 
     const attributes: SimulationPlayerAttributes = {
         pace: getIn(skills, FIELD_MAP.pace),
@@ -198,7 +200,6 @@ export function toSimulationYouthPlayer(entity: YouthPlayerEntity): SimulationPl
     }
 
     // Youth players use defaults for stamina/form/experience
-    const exactAge = computeExactAge(entity.birthday);
 
     return {
         id: entity.id,
@@ -212,17 +213,4 @@ export function toSimulationYouthPlayer(entity: YouthPlayerEntity): SimulationPl
         exactAge,
         injuryPenalty: 1.0, // Youth players have no injury penalty
     };
-}
-
-function computeExactAge(birthday: Date): [number, number] {
-    if (!birthday) return [0, 0];
-    const birth = new Date(birthday);
-    const now = new Date();
-    const years = now.getFullYear() - birth.getFullYear();
-    const monthDiff = now.getMonth() - birth.getMonth();
-    const dayDiff = now.getDate() - birth.getDate();
-    let months = monthDiff;
-    if (dayDiff < 0) months--;
-    if (months < 0) months += 12;
-    return [years, months];
 }

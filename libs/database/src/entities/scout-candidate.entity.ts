@@ -5,7 +5,7 @@ import { PlayerSkills } from './player.entity';
 
 export interface ScoutCandidatePlayerData {
     name: string;
-    birthday: Date;
+    createdDay: number;
     nationality: string;
     isGoalkeeper: boolean;
     currentSkills: PlayerSkills;

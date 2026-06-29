@@ -639,7 +639,7 @@ async function createLeaguePyramid() {
         name: playerData.name,
         teamId: team.id,
         isGoalkeeper: isGK,
-        birthday: playerData.birthday,
+        createdDay: playerData.createdDay,
         isYouth: false,
         potentialAbility: playerData.potentialAbility,
         currentSkills: playerData.currentSkills as any,

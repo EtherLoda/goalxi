@@ -1,10 +1,12 @@
 import {
+  currentGameDay,
   ScoutCandidateEntity,
   TeamEntity,
   Uuid,
   YouthPlayerEntity,
+  getYouthSkillKeys,
 } from '@goalxi/database';
-import { Controller, Get, Param, Post, UseGuards } from '@nestjs/common';
+import { Controller, ForbiddenException, Get, Param, Post, UseGuards } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { CurrentUser } from '../../decorators/current-user.decorator';
@@ -37,7 +39,14 @@ export class ScoutsController {
     @Param('id') id: string,
     @CurrentUser('id') userId: Uuid,
   ): Promise<YouthPlayerDto> {
-    const candidate = await this.scoutsService.selectCandidate(id);
+    // [S2] Verify ownership BEFORE delegating to the service. Previously
+    // any authenticated user could select any candidate by ID, even ones
+    // belonging to other teams.
+    const team = await this.teamRepo.findOneBy({ userId });
+    if (!team) {
+      throw new ForbiddenException('You do not own a team');
+    }
+    const candidate = await this.scoutsService.selectCandidate(id, team.id);
     return mapYouthToDto(candidate);
   }
 
@@ -76,7 +85,7 @@ export interface YouthPlayerDto {
   id: string;
   name: string;
   age: number;
-  birthday: string;
+  createdDay: number;
   nationality?: string;
   isGoalkeeper: boolean;
   potentialTier?: string;
@@ -90,30 +99,6 @@ export interface YouthPlayerDto {
 
 function mapCandidateToDto(c: ScoutCandidateEntity): ScoutCandidateDto {
   const { playerData } = c;
-  const allKeys = playerData.isGoalkeeper
-    ? [
-        'pace',
-        'strength',
-        'reflexes',
-        'handling',
-        'distribution',
-        'positioning',
-        'composure',
-        'freeKicks',
-        'penalties',
-      ]
-    : [
-        'pace',
-        'strength',
-        'finishing',
-        'passing',
-        'dribbling',
-        'defending',
-        'positioning',
-        'composure',
-        'freeKicks',
-        'penalties',
-      ];
 
   const revealed = playerData.revealedSkills.map((key) => ({
     key,
@@ -126,7 +111,7 @@ function mapCandidateToDto(c: ScoutCandidateEntity): ScoutCandidateDto {
   return {
     id: c.id,
     name: playerData.name,
-    age: calcAge(playerData.birthday),
+    age: calcAge(playerData.createdDay),
     nationality: playerData.nationality,
     isGoalkeeper: playerData.isGoalkeeper,
     potentialTier: playerData.potentialTier,
@@ -140,8 +125,8 @@ function mapYouthToDto(y: YouthPlayerEntity): YouthPlayerDto {
   return {
     id: y.id,
     name: y.name,
-    age: calcAge(y.birthday),
-    birthday: y.birthday.toISOString(),
+    age: calcAge(y.createdDay),
+    createdDay: y.createdDay,
     nationality: y.nationality,
     isGoalkeeper: y.isGoalkeeper,
     potentialTier: y.potentialTier,
@@ -154,9 +139,9 @@ function mapYouthToDto(y: YouthPlayerEntity): YouthPlayerDto {
   };
 }
 
-function calcAge(birthday: Date): number {
-  const diffMs = Date.now() - new Date(birthday).getTime();
-  return Math.floor((diffMs / (1000 * 60 * 60 * 24 * 365.25)) * 10) / 10;
+/** Age derived from `createdDay`: floor((currentGameDay - createdDay) / 112). */
+function calcAge(createdDay: number): number {
+  return Math.floor((currentGameDay() - createdDay) / 112);
 }
 
 function extractSkill(skills: any, key: string): number {

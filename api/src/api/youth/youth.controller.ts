@@ -1,4 +1,11 @@
-import { TeamEntity, Uuid, YouthPlayerEntity } from '@goalxi/database';
+import {
+  PROMOTION_REVEAL_THRESHOLD,
+  TeamEntity,
+  Uuid,
+  YouthPlayerEntity,
+  currentGameDay,
+  getYouthSkillKeys,
+} from '@goalxi/database';
 import {
   BadRequestException,
   Controller,
@@ -48,34 +55,18 @@ export class YouthController {
     const youth = await this.youthService.findOne(id);
     if (!youth) throw new BadRequestException('Youth player not found');
 
-    const keys = youth.isGoalkeeper
-      ? [
-          'pace',
-          'strength',
-          'reflexes',
-          'handling',
-          'distribution',
-          'positioning',
-          'composure',
-          'freeKicks',
-          'penalties',
-        ]
-      : [
-          'pace',
-          'strength',
-          'finishing',
-          'passing',
-          'dribbling',
-          'defending',
-          'positioning',
-          'composure',
-          'freeKicks',
-          'penalties',
-        ];
+    // [C1] Use the shared skill-key list as the single source of truth.
+    // Previously this method hard-coded a 9-key GK list that mistakenly
+    // included `distribution` (which doesn't exist for GK) instead of
+    // `aerial`, causing the promotion gate to be unreachable for GKs.
+    const expectedKeys = getYouthSkillKeys(youth.isGoalkeeper);
+    const requiredCount = Math.ceil(
+      expectedKeys.length * PROMOTION_REVEAL_THRESHOLD,
+    );
 
-    if (youth.revealedSkills.length < keys.length * 0.5) {
+    if (youth.revealedSkills.length < requiredCount) {
       throw new BadRequestException(
-        'Player not yet fully scouted (need at least 50% skills revealed)',
+        `Player not yet fully scouted (need at least ${requiredCount} of ${expectedKeys.length} skills revealed)`,
       );
     }
 
@@ -94,7 +85,7 @@ export interface YouthPlayerDto {
   id: string;
   name: string;
   age: number;
-  birthday: string;
+  createdDay: number;
   nationality?: string;
   isGoalkeeper: boolean;
   potentialTier?: string;
@@ -116,8 +107,8 @@ function mapYouthToDto(y: YouthPlayerEntity): YouthPlayerDto {
   return {
     id: y.id,
     name: y.name,
-    age: calcAge(y.birthday),
-    birthday: y.birthday.toISOString(),
+    age: calcAge(y.createdDay),
+    createdDay: y.createdDay,
     nationality: y.nationality,
     isGoalkeeper: y.isGoalkeeper,
     potentialTier: y.potentialTier,
@@ -130,7 +121,7 @@ function mapYouthToDto(y: YouthPlayerEntity): YouthPlayerDto {
   };
 }
 
-function calcAge(birthday: Date): number {
-  const diffMs = Date.now() - new Date(birthday).getTime();
-  return Math.floor((diffMs / (1000 * 60 * 60 * 24 * 365.25)) * 10) / 10;
+/** Age derived from `createdDay`: floor((currentGameDay - createdDay) / 112). */
+function calcAge(createdDay: number): number {
+  return Math.floor((currentGameDay() - createdDay) / 112);
 }

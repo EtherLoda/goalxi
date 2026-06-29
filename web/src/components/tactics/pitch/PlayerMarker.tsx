@@ -143,8 +143,8 @@ export function PlayerMarker({
         <span className="font-label text-[8px] tracking-widest uppercase text-outline">
           {positionShortLabel(slot)}
         </span>
-        <span className="font-headline font-bold text-[10px] text-white truncate max-w-[64px]">
-          {player.name.split(' ').pop()}
+        <span className="font-headline font-bold text-[10px] text-white truncate max-w-[88px]">
+          {player.name}
         </span>
         <span className="font-headline font-black text-[10px] text-primary">{player.overall}</span>
       </div>

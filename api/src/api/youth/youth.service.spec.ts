@@ -2,6 +2,7 @@ import { PlayerEntity, TeamEntity, YouthPlayerEntity } from '@goalxi/database';
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
+import { GameStateService } from '../game/game-state.service';
 import { PlayerEventService } from '../player-event/player-event.service';
 import { YouthService } from './youth.service';
 
@@ -10,13 +11,14 @@ describe('YouthService', () => {
   let youthRepo: jest.Mocked<Repository<YouthPlayerEntity>>;
   let playerRepo: jest.Mocked<Repository<PlayerEntity>>;
   let playerEventService: jest.Mocked<PlayerEventService>;
+  let gameStateService: jest.Mocked<GameStateService>;
 
   const createYouthPlayer = (overrides = {}): YouthPlayerEntity =>
     ({
       id: 'youth-1',
       teamId: 'team-1',
       name: 'Test Youth',
-      birthday: new Date('2010-01-01'),
+      createdDay: 1000,
       nationality: 'BR',
       isGoalkeeper: false,
       isPromoted: false,
@@ -67,6 +69,14 @@ describe('YouthService', () => {
           provide: PlayerEventService,
           useValue: { create: jest.fn().mockResolvedValue({}) },
         },
+        {
+          provide: GameStateService,
+          useValue: {
+            getCurrentSeasonWeek: jest
+              .fn()
+              .mockReturnValue({ season: 5, week: 3 }),
+          },
+        },
       ],
     }).compile();
 
@@ -74,6 +84,7 @@ describe('YouthService', () => {
     youthRepo = module.get(getRepositoryToken(YouthPlayerEntity));
     playerRepo = module.get(getRepositoryToken(PlayerEntity));
     playerEventService = module.get(PlayerEventService);
+    gameStateService = module.get(GameStateService);
   });
 
   it('should be defined', () => {
@@ -173,6 +184,7 @@ describe('YouthService', () => {
           'freeKicks',
           'penalties',
         ],
+        abilities: ['header_specialist', 'tackle_master'],
       });
 
       youthRepo.findOneByOrFail.mockResolvedValue(youth);
@@ -192,6 +204,21 @@ describe('YouthService', () => {
       const savedYouth = youthRepo.save.mock.calls[0][0] as YouthPlayerEntity;
       expect(savedYouth.isPromoted).toBe(true);
       expect(result.name).toBe('Test Youth');
+      // [C3] senior player gets the first ability as `specialty` and the
+      // full ability list mirrored into `currentSkills.abilities`.
+      const createArg = playerRepo.create.mock.calls[0][0] as any;
+      expect(createArg.specialty).toBe('header_specialist');
+      expect(createArg.currentSkills.abilities).toEqual([
+        'header_specialist',
+        'tackle_master',
+      ]);
+      // [S3] promotion event uses the real current season, not hard-coded 1.
+      expect(gameStateService.getCurrentSeasonWeek).toHaveBeenCalled();
+      expect(playerEventService.create).toHaveBeenCalledWith(
+        expect.objectContaining({ season: 5 }),
+      );
+      // [U3] explicit wage default on the new senior player.
+      expect(createArg.currentWage).toBe(2000);
     });
 
     it('should throw if player already promoted', async () => {
@@ -201,6 +228,38 @@ describe('YouthService', () => {
       await expect(service.promote('youth-1')).rejects.toThrow(
         'already promoted',
       );
+    });
+
+    it('should set specialty to null when youth has no abilities', async () => {
+      const youth = createYouthPlayer({
+        revealedSkills: [
+          'pace',
+          'strength',
+          'finishing',
+          'passing',
+          'dribbling',
+          'defending',
+          'positioning',
+          'composure',
+          'freeKicks',
+          'penalties',
+        ],
+        abilities: undefined,
+      });
+
+      youthRepo.findOneByOrFail.mockResolvedValue(youth);
+      playerRepo.create.mockImplementation((data) => data as PlayerEntity);
+      playerRepo.save.mockImplementation((p) =>
+        Promise.resolve(p as PlayerEntity),
+      );
+      youthRepo.save.mockImplementation((y) =>
+        Promise.resolve(y as YouthPlayerEntity),
+      );
+
+      await service.promote('youth-1');
+      const createArg = playerRepo.create.mock.calls[0][0] as any;
+      expect(createArg.specialty).toBeNull();
+      expect(createArg.currentSkills.abilities).toEqual([]);
     });
   });
 

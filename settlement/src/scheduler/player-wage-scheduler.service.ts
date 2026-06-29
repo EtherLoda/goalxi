@@ -29,15 +29,16 @@ export class PlayerWageSchedulerService {
     );
 
     try {
-      const today = new Date();
-      const month = today.getMonth() + 1; // 1-12
-      const day = today.getDate(); // 1-31
+      // [C2] "Birthday today" check now uses the game-day clock:
+      //   a player's game-birthday is every (DAYS_PER_YEAR = 112) days
+      //   starting from their `createdDay`. PostgreSQL `MOD` always returns
+      //   a non-negative remainder, so the same query catches players whose
+      //   birthday is today regardless of how long ago they were created.
+      const today = Math.floor((Date.now() - Date.UTC(1970, 0, 1)) / 86_400_000);
 
-      // Find players whose birthday is today
       const playersWithBirthday = await this.playerRepo
         .createQueryBuilder('player')
-        .where('EXTRACT(MONTH FROM player.birthday) = :month', { month })
-        .andWhere('EXTRACT(DAY FROM player.birthday) = :day', { day })
+        .where('MOD(:today - player.created_day, 112) = 0', { today })
         .andWhere('player.is_youth = false') // Only adult players
         .getMany();
 

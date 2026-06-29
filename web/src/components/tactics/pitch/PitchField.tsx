@@ -42,6 +42,9 @@ export function PitchField({
   const [draggingFromSlot, setDraggingFromSlot] = useState<PitchSlot | null>(null);
 
   const offsets = computeDimensionOffsets(defensiveLine, pitchWidth);
+  // Slots spread apart when pitch is wide, but each card should keep a
+  // fixed visual width — so children counter-scale against the parent scaleX.
+  const counterScaleX = 1 / offsets.scaleX;
   const tempoGlow =
     tempo === 'fast' ? 'shadow-[0_0_60px_rgba(0,228,121,0.25)]' : tempo === 'slow' ? 'shadow-none' : 'shadow-[0_0_30px_rgba(0,228,121,0.12)]';
 
@@ -111,6 +114,7 @@ export function PitchField({
                 isGkSlot={slot === 'GK'}
                 isDragOver={dragOverSlot === slot}
                 isDragging={isDragging}
+                counterScaleX={counterScaleX}
                 onDrop={handleSlotDrop(slot)}
                 onRemove={() => onRemove(slot)}
                 onDragStart={() => {

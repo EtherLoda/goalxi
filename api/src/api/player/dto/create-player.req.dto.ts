@@ -1,12 +1,11 @@
 import {
   BooleanFieldOptional,
-  DateFieldOptional,
   NumberFieldOptional,
   StringField,
   StringFieldOptional,
   UUIDFieldOptional,
 } from '@/decorators/field.decorators';
-import { IsObject, IsOptional } from 'class-validator';
+import { IsInt, IsOptional, Min } from 'class-validator';
 
 export class CreatePlayerReqDto {
   @StringField()
@@ -15,8 +14,11 @@ export class CreatePlayerReqDto {
   @UUIDFieldOptional()
   teamId?: string;
 
-  @DateFieldOptional()
-  birthday?: Date;
+  /** Absolute game-day on which the player was created. Default: today. */
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  createdDay?: number;
 
   @StringFieldOptional({ minLength: 2, maxLength: 2 })
   nationality?: string;
@@ -31,7 +33,6 @@ export class CreatePlayerReqDto {
   isGoalkeeper?: boolean;
 
   @IsOptional()
-  @IsObject()
   attributes?: Record<string, any>;
 
   @NumberFieldOptional({ int: true, min: 0, max: 100 })

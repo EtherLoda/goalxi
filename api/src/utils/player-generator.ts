@@ -1,5 +1,7 @@
 // ============== 球员技能键常量 ==============
 
+import { currentGameDay } from '@goalxi/database';
+
 /** 外场球员技能键 (10个) */
 export const OUTFIELD_SKILL_KEYS = [
   'pace',
@@ -38,7 +40,7 @@ export interface PlayerSkills {
 
 export interface GeneratedPlayerData {
   name: string;
-  birthday: Date;
+  createdDay: number;
   nationality: string;
   isGoalkeeper: boolean;
   position: string;
@@ -441,11 +443,12 @@ export function generatePlayerData(options?: {
 
   // 年龄
   const age = options?.age ?? 15 + Math.floor(Math.random() * 2); // 15 or 16
-  const birthday = randomBirthdayForAge(age);
+  const birthday = age * 112 + Math.floor(Math.random() * 112);
+  const createdDay = currentGameDay(new Date()) - birthday;
 
   return {
     name: `${firstName} ${lastName}`,
-    birthday,
+    createdDay,
     nationality,
     isGoalkeeper,
     position,

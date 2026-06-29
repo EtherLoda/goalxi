@@ -290,7 +290,7 @@ async function generateTeams(ds: DataSource): Promise<void> {
             teamId: savedTeam.id,
             isGoalkeeper: isGK,
             nationality: 'CN',
-            birthday: generateBirthday(age),
+            createdDay: generateCreatedDay(age),
             isYouth: false,
             currentSkills: current,
             potentialSkills: potential,
@@ -427,11 +427,11 @@ function calculateOvr(skills: PlayerSkills): number {
   return (vals.reduce((a, b) => a + b, 0) / vals.length) * 5;
 }
 
-function generateBirthday(age: number): Date {
-  const now = Date.now();
-  const yearsAgo = age * 365 * 24 * 60 * 60 * 1000;
-  const daysVariation = Math.floor(Math.random() * 365) * 24 * 60 * 60 * 1000;
-  return new Date(now - yearsAgo - daysVariation);
+function generateCreatedDay(age: number): number {
+  // [C2] Age in days, anchored to the 1970-01-01 game epoch used everywhere.
+  const today = Math.floor((Date.now() - Date.UTC(1970, 0, 1)) / 86_400_000);
+  const daysAlive = age * 112 + Math.floor(Math.random() * 112);
+  return today - daysAlive;
 }
 
 function randomInt(min: number, max: number): number {
@@ -753,11 +753,10 @@ async function processWeeklyTraining(ds: DataSource): Promise<void> {
     );
 
     for (const player of trainees) {
-      const age = player.birthday
-        ? Math.floor(
-            (Date.now() - new Date(player.birthday).getTime()) /
-              GAME_SETTINGS.MS_PER_YEAR,
-          )
+      // [C2] Age derived from createdDay via the 1970-01-01 game epoch.
+      const today = Math.floor((Date.now() - Date.UTC(1970, 0, 1)) / 86_400_000);
+      const age = player.createdDay != null
+        ? Math.floor((today - player.createdDay) / 112)
         : 25;
 
       // Random training category

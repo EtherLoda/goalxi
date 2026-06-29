@@ -99,7 +99,7 @@ describe('ScoutsService', () => {
         teamId: 'team-1',
         playerData: {
           name: 'Test Player',
-          birthday: new Date('2010-01-01'),
+          createdDay: 1000,
           nationality: 'GB',
           isGoalkeeper: false,
           currentSkills: {
@@ -146,7 +146,7 @@ describe('ScoutsService', () => {
       );
       candidateRepo.delete.mockResolvedValue({ affected: 1 } as any);
 
-      const result = await service.selectCandidate('candidate-1');
+      const result = await service.selectCandidate('candidate-1', 'team-1');
 
       expect(youthTeamRepo.findOne).toHaveBeenCalled();
       expect(youthRepo.create).toHaveBeenCalled();

@@ -1,37 +1,18 @@
 import {
+  PlayerAbility,
   PlayerEntity,
   PlayerEventType,
   TeamEntity,
   YouthPlayerEntity,
+  YOUTH_PROMOTION_DEFAULT_WAGE,
+  applyWeeklyGrowth,
+  pickNextRevealSkills,
 } from '@goalxi/database';
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
+import { GameStateService } from '../game/game-state.service';
 import { PlayerEventService } from '../player-event/player-event.service';
-
-const OUTFIELD_KEYS = [
-  'pace',
-  'strength',
-  'finishing',
-  'passing',
-  'dribbling',
-  'defending',
-  'positioning',
-  'composure',
-  'freeKicks',
-  'penalties',
-];
-const GK_KEYS = [
-  'pace',
-  'strength',
-  'reflexes',
-  'handling',
-  'aerial',
-  'positioning',
-  'composure',
-  'freeKicks',
-  'penalties',
-];
 
 @Injectable()
 export class YouthService {
@@ -43,6 +24,7 @@ export class YouthService {
     @InjectRepository(TeamEntity)
     private teamRepo: Repository<TeamEntity>,
     private readonly playerEventService: PlayerEventService,
+    private readonly gameStateService: GameStateService,
   ) {}
 
   /** Get all youth players for a team (with fog filtering) */
@@ -58,42 +40,20 @@ export class YouthService {
     return this.youthRepo.findOne({ where: { id } });
   }
 
-  /** Apply natural growth to youth players (very slow) */
+  /** Apply natural growth to youth players (very slow).
+   *  [D2] Delegates to the shared progression utility. */
   async applyNaturalGrowth(youth: YouthPlayerEntity): Promise<void> {
-    const keys = youth.isGoalkeeper ? GK_KEYS : OUTFIELD_KEYS;
-    for (const cat of Object.values(youth.currentSkills)) {
-      if (cat && typeof cat === 'object') {
-        for (const key of Object.keys(cat as object)) {
-          if (keys.includes(key)) {
-            const current = (cat as any)[key] as number;
-            // Find corresponding potential value
-            let potential = current;
-            for (const pCat of Object.values(youth.potentialSkills)) {
-              if (pCat && (pCat as any)[key] !== undefined) {
-                potential = (pCat as any)[key];
-                break;
-              }
-            }
-            // Growth rate: 0.05 per week (very slow)
-            const growth = Math.random() * 0.1;
-            const newVal = Math.min(potential, current + growth);
-            (cat as any)[key] = parseFloat(newVal.toFixed(2));
-          }
-        }
-      }
-    }
+    applyWeeklyGrowth(youth);
     await this.youthRepo.save(youth);
   }
 
-  /** Reveal 1-2 next skills */
+  /** Reveal 1-2 next skills.
+   *  [D3] Delegates to the shared reveal utility. */
   async revealNextSkills(youth: YouthPlayerEntity): Promise<void> {
-    const keys = youth.isGoalkeeper ? GK_KEYS : OUTFIELD_KEYS;
-    const remaining = keys.filter((k) => !youth.revealedSkills.includes(k));
-    if (remaining.length === 0) return;
-
-    const count = Math.min(remaining.length, Math.random() < 0.5 ? 1 : 2);
-    const toReveal = remaining.sort(() => Math.random() - 0.5).slice(0, count);
-    youth.revealedSkills = [...youth.revealedSkills, ...toReveal];
+    youth.revealedSkills = pickNextRevealSkills({
+      isGoalkeeper: youth.isGoalkeeper,
+      revealedSkills: youth.revealedSkills,
+    });
     await this.youthRepo.save(youth);
   }
 
@@ -104,18 +64,37 @@ export class YouthService {
       throw new Error('Player already promoted');
     }
 
+    // [C3] Merge youth abilities into the senior player's storage:
+    //  - PlayerEntity.specialty is a single string column; pick the first
+    //    ability (deterministic order from JSONB storage) and store it.
+    //  - Mirror the full list into `currentSkills.abilities` because the
+    //    match engine reads abilities from there (see simulation-player.ts).
+    const seniorAbilities: PlayerAbility[] = Array.isArray(youth.abilities)
+      ? [...youth.abilities]
+      : [];
+    const seniorSpecialty = seniorAbilities[0] ?? null;
+    const currentSkills = {
+      ...youth.currentSkills,
+      abilities: seniorAbilities,
+    };
+
     const player = this.playerRepo.create({
       name: youth.name,
       nationality: youth.nationality,
-      birthday: youth.birthday,
+      createdDay: youth.createdDay,
       teamId: youth.teamId,
       isGoalkeeper: youth.isGoalkeeper,
       isYouth: false,
-      currentSkills: youth.currentSkills,
+      currentSkills,
       potentialSkills: youth.potentialSkills,
+      specialty: seniorSpecialty,
       experience: 0,
       form: 3,
       stamina: 3,
+      // [U3] Senior wage starts at the youth-promotion default. A full
+      // contract system (wage progression, contractExpiry) is tracked under
+      // Phase 4 (青训合同).
+      currentWage: YOUTH_PROMOTION_DEFAULT_WAGE,
       onTransfer: false,
     } as any);
 
@@ -124,10 +103,13 @@ export class YouthService {
     youth.isPromoted = true;
     await this.youthRepo.save(youth);
 
+    // [S3] Use the real current season instead of the previous hard-coded 1.
+    const { season } = this.gameStateService.getCurrentSeasonWeek();
+
     // Record youth promotion event
     await this.playerEventService.create({
       playerId: savedPlayer.id,
-      season: 1, // TODO: Get current season dynamically
+      season,
       date: new Date(),
       eventType: PlayerEventType.YOUTH_PROMOTION,
       icon: 'trending_up',

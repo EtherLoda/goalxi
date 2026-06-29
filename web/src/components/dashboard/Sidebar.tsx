@@ -57,7 +57,6 @@ export default function Sidebar() {
         { labelKey: "training", href: `/${locale}/training?team=${currentTeamId}`, icon: "fitness_center" },
         { labelKey: "medical", href: `/${locale}/club/medical?team=${currentTeamId}`, icon: "medical_services" },
         { labelKey: "finance", href: `/${locale}/club/finance?team=${currentTeamId}`, icon: "account_balance_wallet" },
-        { labelKey: "scouting", href: `/${locale}/scouts?team=${currentTeamId}`, icon: "travel_explore" },
       ],
     },
     {
@@ -65,6 +64,7 @@ export default function Sidebar() {
       items: [
         { labelKey: "youthSquad", href: `/${locale}/youth/squad?team=${currentTeamId}`, icon: "child_care" },
         { labelKey: "youthMatches", href: `/${locale}/youth/matches?team=${currentTeamId}`, icon: "sports" },
+        { labelKey: "scouting", href: `/${locale}/scouts?team=${currentTeamId}`, icon: "travel_explore" },
       ],
     },
   ];

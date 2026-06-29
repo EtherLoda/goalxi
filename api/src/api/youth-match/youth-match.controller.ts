@@ -4,6 +4,7 @@ import { AuthGuard } from '@/guards/auth.guard';
 import {
   Body,
   Controller,
+  ForbiddenException,
   Get,
   Param,
   Post,
@@ -57,6 +58,8 @@ export class YouthMatchController {
 
   // ==================== Tactics Endpoints ====================
 
+  // GET tactics stays @Public so fans can browse opponent lineups pre-match
+  // (intentional UX choice — kept symmetric with /scouts/candidates).
   @Public()
   @Get(':matchId/tactics')
   async getTactics(
@@ -69,27 +72,37 @@ export class YouthMatchController {
     return this.youthMatchService.getTactics(matchId, user?.id);
   }
 
-  @Public()
+  // [S1] POST/PUT tactics are NO LONGER @Public. The class-level
+  // `@UseGuards(AuthGuard)` now applies, and ownership is validated below.
   @Post(':matchId/tactics')
   async submitTactics(
     @Param('matchId') matchId: string,
     @Body() dto: SubmitYouthTacticsReqDto,
-    @CurrentUser() user?: JwtPayloadType,
+    @CurrentUser() user: JwtPayloadType,
   ): Promise<YouthTacticsResDto> {
-    // TODO: Re-enable ownership validation for production
-    // await this.youthMatchService.validateYouthTeamOwnership(user?.id, dto.youthTeamId);
+    if (!user?.id) {
+      throw new ForbiddenException('Authentication required');
+    }
+    await this.youthMatchService.validateYouthTeamOwnership(
+      user.id,
+      dto.youthTeamId,
+    );
     return this.youthMatchService.submitTactics(matchId, dto.youthTeamId, dto);
   }
 
-  @Public()
   @Put(':matchId/tactics')
   async updateTactics(
     @Param('matchId') matchId: string,
     @Body() dto: SubmitYouthTacticsReqDto,
-    @CurrentUser() user?: JwtPayloadType,
+    @CurrentUser() user: JwtPayloadType,
   ): Promise<YouthTacticsResDto> {
-    // TODO: Re-enable ownership validation for production
-    // await this.youthMatchService.validateYouthTeamOwnership(user?.id, dto.youthTeamId);
+    if (!user?.id) {
+      throw new ForbiddenException('Authentication required');
+    }
+    await this.youthMatchService.validateYouthTeamOwnership(
+      user.id,
+      dto.youthTeamId,
+    );
     return this.youthMatchService.submitTactics(matchId, dto.youthTeamId, dto);
   }
 }

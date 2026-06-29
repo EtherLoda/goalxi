@@ -87,7 +87,7 @@ export class PlayerService {
       name: reqDto.name,
       nationality: reqDto.nationality,
       teamId: reqDto.teamId,
-      birthday: reqDto.birthday,
+      createdDay: reqDto.createdDay,
       isGoalkeeper: reqDto.isGoalkeeper,
       currentSkills,
       potentialSkills,
@@ -107,7 +107,7 @@ export class PlayerService {
     if (reqDto.nationality !== undefined)
       player.nationality = reqDto.nationality;
     if (reqDto.teamId !== undefined) player.teamId = reqDto.teamId;
-    if (reqDto.birthday) player.birthday = reqDto.birthday;
+    if (reqDto.createdDay !== undefined) player.createdDay = reqDto.createdDay;
     if (reqDto.isGoalkeeper !== undefined)
       player.isGoalkeeper = reqDto.isGoalkeeper;
     if (reqDto.onTransfer !== undefined) player.onTransfer = reqDto.onTransfer;
@@ -301,7 +301,7 @@ export class PlayerService {
       teamId: player.teamId,
       name: player.name,
       nationality: player.nationality,
-      birthday: player.birthday,
+      createdDay: player.createdDay,
       isYouth: player.isYouth,
       age: years,
       ageDays: days,

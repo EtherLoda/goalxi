@@ -2,6 +2,8 @@ import { Entity, Column, PrimaryGeneratedColumn, ManyToOne, JoinColumn } from 't
 import { AbstractEntity } from './abstract.entity';
 import { PlayerAbility } from '../types/simulation-player';
 import { PlayerSkills } from './player.entity';
+import { GAME_SETTINGS } from '../constants/game.constants';
+import { currentGameDay } from '../utils/game-clock';
 import { YouthTeamEntity } from './youth-team.entity';
 
 @Entity('youth_player')
@@ -27,8 +29,13 @@ export class YouthPlayerEntity extends AbstractEntity {
     @Column({ nullable: true })
     nationality?: string;
 
-    @Column({ type: 'date' })
-    birthday!: Date;
+    /**
+     * Absolute game-day on which this youth was created (see
+     * `utils/game-clock`). Same semantics as `PlayerEntity.createdDay` so
+     * promote() can copy it verbatim without any age math.
+     */
+    @Column({ name: 'created_day', type: 'int' })
+    createdDay!: number;
 
     @Column({ name: 'is_goalkeeper', default: false })
     isGoalkeeper!: boolean;
@@ -62,12 +69,23 @@ export class YouthPlayerEntity extends AbstractEntity {
     @Column({ name: 'joined_at', type: 'date' })
     joinedAt!: Date;
 
-    /**
-     * Get player age in years (fractional)
-     */
+    /** Days this youth has existed in the game world. */
+    get daysAlive(): number {
+        return currentGameDay() - this.createdDay;
+    }
+
     get age(): number {
-        if (!this.birthday) return 0;
-        const diffMs = Date.now() - new Date(this.birthday).getTime();
-        return Math.floor(diffMs / (1000 * 60 * 60 * 24 * 365.25) * 10) / 10;
+        return Math.floor(this.daysAlive / GAME_SETTINGS.DAYS_PER_YEAR);
+    }
+
+    getExactAge(): [number, number] {
+        const total = this.daysAlive;
+        const years = Math.floor(total / GAME_SETTINGS.DAYS_PER_YEAR);
+        const days = total - years * GAME_SETTINGS.DAYS_PER_YEAR;
+        return [years, days];
+    }
+
+    get fractionalAge(): number {
+        return this.daysAlive / GAME_SETTINGS.DAYS_PER_YEAR;
     }
 }

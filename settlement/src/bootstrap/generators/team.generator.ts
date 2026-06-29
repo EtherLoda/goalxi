@@ -265,7 +265,7 @@ export class TeamGenerator {
           teamId,
           isGoalkeeper: isGK,
           nationality,
-          birthday: this.generateBirthday(age),
+          createdDay: this.generateCreatedDay(age),
           isYouth: false,
           currentSkills: current,
           potentialSkills: potential,
@@ -419,11 +419,11 @@ export class TeamGenerator {
     return calcWage(skillValues, skillKeys);
   }
 
-  private generateBirthday(age: number): Date {
-    const now = Date.now();
-    const yearsAgo = age * 365 * 24 * 60 * 60 * 1000;
-    const daysVariation = Math.floor(Math.random() * 365) * 24 * 60 * 60 * 1000;
-    return new Date(now - yearsAgo - daysVariation);
+  private generateCreatedDay(age: number): number {
+    // [C2] Age in days, anchored to the 1970-01-01 game epoch used elsewhere.
+    const today = Math.floor((Date.now() - Date.UTC(1970, 0, 1)) / 86_400_000);
+    const daysAlive = age * 112 + Math.floor(Math.random() * 112);
+    return today - daysAlive;
   }
 
   private getRandomChineseName(): { firstName: string; lastName: string } {

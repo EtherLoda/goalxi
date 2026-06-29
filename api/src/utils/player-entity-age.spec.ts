@@ -1,14 +1,16 @@
-import { GAME_SETTINGS, PlayerEntity } from '@goalxi/database';
+import { currentGameDay, PlayerEntity } from '@goalxi/database';
 
 describe('PlayerEntity age calculations', () => {
+  // Pin "now" so the test is deterministic — we want age to depend only
+  // on `createdDay`, not on wall-clock time.
+  const TODAY = currentGameDay(new Date('2026-06-29T12:00:00Z'));
+
   it('calculates age in years correctly', () => {
-    const now = Date.now();
-    const birthday = new Date(
-      now - 20 * GAME_SETTINGS.MS_PER_YEAR - 33 * 24 * 60 * 60 * 1000,
-    );
+    // Player created 20 years 33 days ago → age should be 20, ageDays 33.
+    const createdDay = TODAY - 20 * 112 - 33;
     const player = new PlayerEntity({
       name: 'Test',
-      birthday,
+      createdDay,
       isYouth: false,
     });
     expect(player.age).toBe(20);
@@ -16,13 +18,23 @@ describe('PlayerEntity age calculations', () => {
   });
 
   it('handles youth flag independently of age', () => {
-    const birthday = new Date(Date.now() - 18 * GAME_SETTINGS.MS_PER_YEAR);
+    const createdDay = TODAY - 18 * 112;
     const player = new PlayerEntity({
       name: 'Youth',
-      birthday,
+      createdDay,
       isYouth: true,
     });
     expect(player.age).toBe(18);
     expect(player.isYouth).toBe(true);
+  });
+
+  it('produces [0,0] on the day a player is created', () => {
+    const player = new PlayerEntity({
+      name: 'Newborn',
+      createdDay: TODAY,
+      isYouth: false,
+    });
+    expect(player.age).toBe(0);
+    expect(player.getExactAge()).toEqual([0, 0]);
   });
 });

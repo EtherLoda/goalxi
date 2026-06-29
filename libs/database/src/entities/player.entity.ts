@@ -10,6 +10,7 @@ import {
     PrimaryGeneratedColumn,
 } from 'typeorm';
 import { GAME_SETTINGS } from '../constants/game.constants';
+import { currentGameDay } from '../utils/game-clock';
 
 export enum TrainingCategory {
     PHYSICAL = 'physical',
@@ -38,7 +39,9 @@ export interface GKTechnical {
     reflexes: number;
     handling: number;
     aerial: number;
-    positioning: number;
+    // `positioning` is intentionally absent: GK reads positioning from `mental`
+    // (see simulation-player.ts FIELD_MAP). Removing it prevents drift between
+    // the type and runtime mapping.
 }
 
 export interface SetPiecesSkills {
@@ -110,38 +113,47 @@ export class PlayerEntity extends AbstractEntity {
     @Column({ type: 'varchar', length: 2, nullable: true, comment: 'ISO 3166-1 alpha-2 country code (e.g., CN, US, GB, DE)' })
     nationality?: string;
 
-    @Column({ type: 'date', nullable: true })
-    birthday?: Date;
+    /**
+     * Absolute game-day on which this player was created (see
+     * `utils/game-clock`). Age is derived from `(currentGameDay -
+     * createdDay) / DAYS_PER_YEAR`, which is independent of real-world
+     * timezones and produces the same value regardless of when the getter
+     * is called within the same real day.
+     *
+     * Replaces the previous `birthday: Date` field — see migration
+     * `1721000000000-ReplaceBirthdayWithCreatedDay` for the backfill that
+     * preserved the displayed age of existing rows.
+     */
+    @Column({ name: 'created_day', type: 'int' })
+    createdDay!: number;
 
     @Column({ name: 'is_youth', default: false })
     isYouth!: boolean;
 
+    /** Days this player has existed in the game world. */
+    get daysAlive(): number {
+        return currentGameDay() - this.createdDay;
+    }
+
     get age(): number {
-        if (!this.birthday) return 0;
-        const diff = Date.now() - new Date(this.birthday).getTime();
-        return Math.floor(diff / GAME_SETTINGS.MS_PER_YEAR);
+        return Math.floor(this.daysAlive / GAME_SETTINGS.DAYS_PER_YEAR);
     }
 
     /**
-     * Returns exact age as a tuple [years, days]
+     * Returns exact age as `[years, extraDays]`. Years is the whole-game-year
+     * count, extraDays is the leftover (0..DAYS_PER_YEAR-1).
+     *
+     *   currentGameDay = 2243, createdDay = 0  →  [20, 3]
      */
     getExactAge(): [number, number] {
-        if (!this.birthday) return [0, 0];
-        const now = new Date();
-        const birthdayDate = new Date(this.birthday);
-        const diffMs = now.getTime() - birthdayDate.getTime();
-        const totalDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
-        const years = Math.floor(totalDays / GAME_SETTINGS.DAYS_PER_YEAR);
-        const days = totalDays % GAME_SETTINGS.DAYS_PER_YEAR;
+        const total = this.daysAlive;
+        const years = Math.floor(total / GAME_SETTINGS.DAYS_PER_YEAR);
+        const days = total - years * GAME_SETTINGS.DAYS_PER_YEAR;
         return [years, days];
     }
 
-    /**
-     * Returns fractional age in years (e.g., 23.49 for 23 years and 55 days)
-     */
     get fractionalAge(): number {
-        const [years, days] = this.getExactAge();
-        return years + days / GAME_SETTINGS.DAYS_PER_YEAR;
+        return this.daysAlive / GAME_SETTINGS.DAYS_PER_YEAR;
     }
 
     @Column({ name: 'is_goalkeeper', default: false })

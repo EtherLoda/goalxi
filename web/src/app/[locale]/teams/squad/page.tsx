@@ -612,9 +612,9 @@ function SquadPageContent() {
 
                           {/* Potential Tier & Specialty */}
                           <div className="flex items-center gap-3 mt-4">
-                            <span className="bg-[#3e6a00]/30 text-[#abf853] px-3 py-1.5 rounded-full text-xs font-bold font-space border border-[#abf853]/20">
+                            {/* <span className="bg-[#3e6a00]/30 text-[#abf853] px-3 py-1.5 rounded-full text-xs font-bold font-space border border-[#abf853]/20">
                               {selectedPlayer.potentialTier?.replace("_", " ") || "REGULAR"}
-                            </span>
+                            </span> */}
                             {selectedPlayer.specialty && (
                               (() => {
                                 const specInfo = SPECIALTIES.find((s) => s.value === selectedPlayer.specialty);

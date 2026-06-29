@@ -31,9 +31,9 @@ export class PlayerPublicResDto {
   @Expose()
   nationality?: string;
 
-  @DateField({ nullable: true })
+  @NumberField({ int: true })
   @Expose()
-  birthday?: Date;
+  createdDay: number;
 
   @BooleanField()
   @Expose()
