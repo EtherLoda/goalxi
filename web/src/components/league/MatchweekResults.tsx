@@ -1,6 +1,7 @@
 "use client";
 
 import { useTranslations } from "next-intl";
+import { clsx } from "clsx";
 
 interface MatchResult {
   id: string;
@@ -21,6 +22,7 @@ interface MatchweekResultsProps {
   lastRoundResults: MatchResult[];
   nextRoundMatches: MatchResult[];
   userTeamId?: string;
+  userTeamColor?: string;
 }
 
 function MatchRow({
@@ -29,61 +31,139 @@ function MatchRow({
   showIcon = false,
   isUserHome = false,
   isUserAway = false,
+  userTeamColor = "#00e479",
 }: {
   match: MatchResult;
   showScore: boolean;
   showIcon?: boolean;
   isUserHome?: boolean;
   isUserAway?: boolean;
+  userTeamColor?: string;
 }) {
+  const homeWin = showScore && match.homeScore > match.awayScore;
+  const awayWin = showScore && match.awayScore > match.homeScore;
+  const draw = showScore && match.homeScore === match.awayScore;
+
   return (
-    <div className="flex items-center justify-between text-xs py-1.5 px-2 rounded-lg hover:bg-white/5 transition-colors">
+    <div className="flex items-center justify-between py-2 px-2.5 rounded-xl hover:bg-white/5 transition-colors group">
       {/* Home */}
-      <div className="flex items-center gap-2 flex-1">
+      <div className="flex items-center gap-2 flex-1 min-w-0">
         <span
-          className="w-1.5 h-1.5 rounded-full"
-          style={{
-            backgroundColor:
-              showScore && match.homeScore > match.awayScore
-                ? "#00e479"
-                : showScore && match.homeScore < match.awayScore
-                ? "#ffb4ab"
-                : "#8b928f",
-          }}
+          className={clsx(
+            'w-1.5 h-1.5 rounded-full shrink-0',
+            homeWin && 'bg-primary shadow-[0_0_6px_rgba(0,228,121,0.7)]',
+            awayWin && 'bg-error/70',
+            draw && 'bg-on-surface-variant/40',
+            !showScore && 'bg-on-surface-variant/30',
+          )}
         />
-        <span className="font-headline font-bold text-on-surface">
+        <span
+          className={clsx(
+            'font-headline text-sm font-bold truncate',
+            homeWin ? 'text-on-surface' : showScore ? 'text-on-surface-variant' : 'text-on-surface',
+            isUserHome && 'text-primary',
+          )}
+        >
           {match.homeTeamShort}
         </span>
         {showIcon && isUserHome && (
-          <span className="material-symbols-outlined text-sm text-primary cursor-pointer hover:opacity-80">sports</span>
+          <span
+            className="material-symbols-outlined text-sm shrink-0"
+            style={{ color: userTeamColor }}
+          >
+            sports
+          </span>
         )}
       </div>
 
       {/* Score or VS */}
-      <div className="font-headline font-black bg-surface px-3 py-0.5 rounded text-on-surface">
-        {showScore ? `${match.homeScore} - ${match.awayScore}` : "vs"}
+      <div
+        className={clsx(
+          'font-headline font-black px-2.5 py-0.5 rounded-md shrink-0 mx-2 min-w-[58px] text-center text-xs',
+          showScore
+            ? homeWin
+              ? 'bg-primary/15 text-primary'
+              : awayWin
+                ? 'bg-error/10 text-error'
+                : 'bg-white/5 text-on-surface'
+            : 'bg-white/5 text-on-surface-variant/60',
+        )}
+      >
+        {showScore ? `${match.homeScore} - ${match.awayScore}` : 'vs'}
       </div>
 
       {/* Away */}
-      <div className="flex items-center gap-2 flex-1 justify-end">
+      <div className="flex items-center gap-2 flex-1 min-w-0 justify-end">
         {showIcon && isUserAway && (
-          <span className="material-symbols-outlined text-sm text-primary cursor-pointer hover:opacity-80">sports</span>
+          <span
+            className="material-symbols-outlined text-sm shrink-0"
+            style={{ color: userTeamColor }}
+          >
+            sports
+          </span>
         )}
-        <span className="font-headline font-bold text-on-surface">
+        <span
+          className={clsx(
+            'font-headline text-sm font-bold truncate text-right',
+            awayWin ? 'text-on-surface' : showScore ? 'text-on-surface-variant' : 'text-on-surface',
+            isUserAway && 'text-primary',
+          )}
+        >
           {match.awayTeamShort}
         </span>
         <span
-          className="w-1.5 h-1.5 rounded-full"
-          style={{
-            backgroundColor:
-              showScore && match.awayScore > match.homeScore
-                ? "#00e479"
-                : showScore && match.awayScore < match.homeScore
-                ? "#ffb4ab"
-                : "#8b928f",
-          }}
+          className={clsx(
+            'w-1.5 h-1.5 rounded-full shrink-0',
+            awayWin && 'bg-primary shadow-[0_0_6px_rgba(0,228,121,0.7)]',
+            homeWin && 'bg-error/70',
+            draw && 'bg-on-surface-variant/40',
+            !showScore && 'bg-on-surface-variant/30',
+          )}
         />
       </div>
+    </div>
+  );
+}
+
+function RoundPanel({
+  kicker,
+  round,
+  status,
+  statusAccent,
+  children,
+}: {
+  kicker: string;
+  round: number;
+  status: string;
+  statusAccent: 'primary' | 'tertiary';
+  children: React.ReactNode;
+}) {
+  const statusClass =
+    statusAccent === 'primary'
+      ? 'bg-primary/10 text-primary border border-primary/20'
+      : 'bg-tertiary/10 text-tertiary border border-tertiary/20';
+
+  return (
+    <div className="glass-panel rounded-2xl overflow-hidden flex flex-col">
+      <div className="flex items-center justify-between px-4 py-3 border-b border-white/5">
+        <div className="flex items-center gap-2">
+          <span className="font-label text-[9px] font-black uppercase tracking-[0.25em] text-primary">
+            {kicker}
+          </span>
+          <span className="font-headline text-sm font-black text-on-surface">
+            {round}
+          </span>
+        </div>
+        <span
+          className={clsx(
+            'font-label text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full',
+            statusClass,
+          )}
+        >
+          {status}
+        </span>
+      </div>
+      <div className="p-2 space-y-0.5 flex-1">{children}</div>
     </div>
   );
 }
@@ -93,66 +173,66 @@ export default function MatchweekResults({
   lastRoundResults,
   nextRoundMatches,
   userTeamId,
+  userTeamColor = "#00e479",
 }: MatchweekResultsProps) {
   const t = useTranslations();
 
   return (
-    <div className="grid grid-cols-2 gap-4">
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
       {/* This Round (Last Completed) */}
-      <div className="bg-surface-container rounded-xl overflow-hidden">
-        {/* Header */}
-        <div className="flex items-center justify-between px-4 py-3 border-b border-white/5">
-          <h4 className="text-[10px] font-headline font-bold uppercase tracking-widest text-on-surface-variant">
-            {t("league.matchweek.thisRound", { round: currentRound })}
-          </h4>
-          <span className="text-[9px] px-2 py-0.5 bg-primary/10 text-primary font-label font-bold rounded-full">
-            {t("league.matchweek.completed")}
-          </span>
-        </div>
-
-        {/* Results */}
-        <div className="p-3 space-y-2">
-          {lastRoundResults.length > 0 ? (
-            lastRoundResults.map((match) => (
-              <MatchRow key={match.id} match={match} showScore={true} />
-            ))
-          ) : (
-            <div className="text-center py-4 text-on-surface-variant text-xs">
-              {t("league.matchweek.noResults")}
-            </div>
-          )}
-        </div>
-      </div>
+      <RoundPanel
+        kicker={t('league.sections.matchweek')}
+        round={currentRound}
+        status={t('league.matchweek.completed')}
+        statusAccent="primary"
+      >
+        {lastRoundResults.length > 0 ? (
+          lastRoundResults.map((match) => (
+            <MatchRow
+              key={match.id}
+              match={match}
+              showScore={true}
+              isUserHome={userTeamId === match.homeTeamId}
+              isUserAway={userTeamId === match.awayTeamId}
+              userTeamColor={userTeamColor}
+            />
+          ))
+        ) : (
+          <div className="text-center py-8 text-on-surface-variant text-xs">
+            {t('league.matchweek.noResults')}
+          </div>
+        )}
+      </RoundPanel>
 
       {/* Next Round */}
-      <div className="bg-surface-container rounded-xl overflow-hidden">
-        {/* Header */}
-        <div className="flex items-center justify-between px-4 py-3 border-b border-white/5">
-          <h4 className="text-[10px] font-headline font-bold uppercase tracking-widest text-on-surface-variant">
-            {t("league.matchweek.nextRound", { round: currentRound + 1 })}
-          </h4>
-          <span className="text-[9px] px-2 py-0.5 bg-white/10 text-on-surface-variant font-label font-bold rounded-full">
-            {t("league.matchweek.upcoming")}
-          </span>
-        </div>
-
-        {/* Upcoming Matches */}
-        <div className="p-3 space-y-2">
-          {nextRoundMatches.length > 0 ? (
-            nextRoundMatches.map((match) => {
-              const isUserHome = !!userTeamId && match.homeTeamId === userTeamId;
-              const isUserAway = !!userTeamId && match.awayTeamId === userTeamId;
-              return (
-                <MatchRow key={match.id} match={match} showScore={false} showIcon={true} isUserHome={isUserHome} isUserAway={isUserAway} />
-              );
-            })
-          ) : (
-            <div className="text-center py-4 text-on-surface-variant text-xs">
-              {t("league.matchweek.noUpcoming")}
-            </div>
-          )}
-        </div>
-      </div>
+      <RoundPanel
+        kicker={t('league.sections.nextMatchweek')}
+        round={currentRound + 1}
+        status={t('league.matchweek.upcoming')}
+        statusAccent="tertiary"
+      >
+        {nextRoundMatches.length > 0 ? (
+          nextRoundMatches.map((match) => {
+            const isUserHome = !!userTeamId && match.homeTeamId === userTeamId;
+            const isUserAway = !!userTeamId && match.awayTeamId === userTeamId;
+            return (
+              <MatchRow
+                key={match.id}
+                match={match}
+                showScore={false}
+                showIcon={true}
+                isUserHome={isUserHome}
+                isUserAway={isUserAway}
+                userTeamColor={userTeamColor}
+              />
+            );
+          })
+        ) : (
+          <div className="text-center py-8 text-on-surface-variant text-xs">
+            {t('league.matchweek.noUpcoming')}
+          </div>
+        )}
+      </RoundPanel>
     </div>
   );
 }

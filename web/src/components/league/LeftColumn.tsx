@@ -2,21 +2,7 @@
 
 import RecentEvents from "./RecentEvents";
 import MatchweekResults from "./MatchweekResults";
-import type { Match, LeagueNewsItem } from "@/lib/api";
-
-interface NewsItem {
-  id: string;
-  type: "manager" | "transfer" | "general";
-  title: string;
-  excerpt: string;
-  timeAgo: string;
-  playerId?: string;
-  playerName?: string;
-  fromTeamId?: string;
-  fromTeamName?: string;
-  toTeamId?: string;
-  toTeamName?: string;
-}
+import type { LeagueNewsItem } from "@/lib/api";
 
 interface MatchResult {
   id: string;
@@ -38,6 +24,7 @@ interface LeftColumnProps {
   lastRoundResults: MatchResult[];
   nextRoundMatches: MatchResult[];
   userTeamId?: string;
+  userTeamColor?: string;
 }
 
 export default function LeftColumn({
@@ -46,6 +33,7 @@ export default function LeftColumn({
   lastRoundResults,
   nextRoundMatches,
   userTeamId,
+  userTeamColor,
 }: LeftColumnProps) {
   return (
     <div className="space-y-6">
@@ -54,6 +42,7 @@ export default function LeftColumn({
         lastRoundResults={lastRoundResults}
         nextRoundMatches={nextRoundMatches}
         userTeamId={userTeamId}
+        userTeamColor={userTeamColor}
       />
       <RecentEvents news={news} />
     </div>

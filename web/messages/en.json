@@ -365,6 +365,32 @@
     },
     "season": "Season",
     "matchweekShort": "MW",
+    "hero": {
+      "kicker": "League",
+      "round": "Round {round} of {total}",
+      "completed": "{completed} / {total} played",
+      "viewing": "Viewing {team}"
+    },
+    "kpi": {
+      "leader": "Leader",
+      "form": "Best Form",
+      "topScorer": "Top Scorer",
+      "fouls": "Most Fouls",
+      "noData": "—"
+    },
+    "sections": {
+      "matchweek": "This Matchweek",
+      "nextMatchweek": "Next Matchweek",
+      "recentEvents": "Recent Events",
+      "noEvents": "No recent events"
+    },
+    "empty": {
+      "fixturesTitle": "No fixtures yet",
+      "fixturesDesc": "Fixtures will appear once the season schedule is published.",
+      "dataTitle": "League Data coming soon",
+      "dataDesc": "Advanced analytics and head-to-head stats will land here."
+    },
+    "viewing": "VIEWING",
     "recentEvents": {
       "title": "Recent Events",
       "types": {

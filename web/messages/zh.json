@@ -361,6 +361,32 @@
     },
     "season": "赛季",
     "matchweekShort": "第",
+    "hero": {
+      "kicker": "联赛",
+      "round": "第 {round} / {total} 轮",
+      "completed": "{completed} / {total} 已赛",
+      "viewing": "正在查看 {team}"
+    },
+    "kpi": {
+      "leader": "榜首",
+      "form": "最佳状态",
+      "topScorer": "最佳射手",
+      "fouls": "犯规最多",
+      "noData": "—"
+    },
+    "sections": {
+      "matchweek": "本轮",
+      "nextMatchweek": "下一轮",
+      "recentEvents": "近期动态",
+      "noEvents": "暂无动态"
+    },
+    "empty": {
+      "fixturesTitle": "暂无赛程",
+      "fixturesDesc": "赛季赛程发布后将自动出现。",
+      "dataTitle": "联赛数据即将推出",
+      "dataDesc": "高级数据分析和历史交锋数据将在此展示。"
+    },
+    "viewing": "查看中",
     "recentEvents": {
       "title": "近期动态",
       "types": {
@@ -389,7 +415,6 @@
       "pts": "分",
       "form": "近5场",
       "recentForm": "最近5场",
-      "last5": "Last 5",
       "promote": "晋级",
       "promotePlayoff": "附加赛",
       "relPlayoff": "降级附加赛",

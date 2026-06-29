@@ -2,13 +2,13 @@
 
 import { useTranslations } from "next-intl";
 import { clsx } from "clsx";
-import { useRouter, usePathname } from "next/navigation";
-import type { Standing, Team } from "@/lib/api";
+import { useRouter } from "next/navigation";
+import type { Standing } from "@/lib/api";
 import { useGameStore } from "@/stores/gameStore";
+import { FormChipStrip, type FormResult } from "@/components/match/FormChipStrip";
 
 interface StandingsTableProps {
   standings: Standing[];
-  teams: Record<string, Team>;
   userTeamId?: string;
   locale?: string;
 }
@@ -22,20 +22,15 @@ const ZONE_COLORS = {
 
 export default function StandingsTable({
   standings,
-  teams,
   userTeamId,
   locale = "en",
 }: StandingsTableProps) {
   const t = useTranslations();
   const router = useRouter();
-  const pathname = usePathname();
-  const { viewTeamId, setViewTeam, teamId } = useGameStore();
-
-  const myTeam = viewTeamId === null || viewTeamId === teamId;
+  const { viewTeamId, setViewTeam } = useGameStore();
 
   const handleTeamClick = (clickedTeamId: string) => {
     const isOwnTeam = clickedTeamId === userTeamId;
-    // Set viewTeamId to own team id (not null) so Zustand matches URL
     setViewTeam(isOwnTeam ? userTeamId : clickedTeamId);
     router.push(`/${locale}/dashboard?team=${clickedTeamId}`);
   };
@@ -52,85 +47,21 @@ export default function StandingsTable({
     return null;
   };
 
-  function RecentFormIcons({ recentMatches }: { recentMatches: Standing['recentMatches'] }) {
-    if (!recentMatches || recentMatches.length === 0) {
-      return <span className="text-on-surface-variant text-xs">-</span>;
-    }
-
-    const icons: Record<string, string> = { W: "✓", D: "-", L: "×" };
-    const colors: Record<string, string> = { W: "#00e479", D: "#8b928f", L: "#ffb4ab" };
-
-    return (
-      <div className="flex items-center gap-0.5">
-        {recentMatches.slice(0, 5).map((m, i) => (
-          <div key={i} className="relative group">
-            <div
-              className="w-4 h-4 rounded flex items-center justify-center text-[8px] font-headline font-black cursor-pointer"
-              style={{ backgroundColor: colors[m.result] || "#8b928f", color: "#fff" }}
-            >
-              {icons[m.result]}
-            </div>
-            <div className="absolute bottom-full right-0 mb-1 px-2 py-1 bg-surface-container rounded text-[10px] whitespace-nowrap opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-50">
-              <span className="text-on-surface">
-                {m.isHome ? 'vs' : '@'} {m.opponentName}
-              </span>
-              <span className="ml-2 font-mono text-on-surface-variant">
-                {m.homeScore} - {m.awayScore}
-              </span>
-            </div>
-          </div>
-        ))}
-      </div>
-    );
-  }
-
   return (
-    <div className="bg-surface-container rounded-2xl overflow-hidden flex flex-col h-full">
+    <div className="glass-panel rounded-2xl overflow-hidden flex flex-col h-full">
       {/* Header */}
-      <div className="px-5 pt-5 pb-3">
-        <div className="flex items-center justify-between">
-          <h3 className="font-headline font-black text-base tracking-tight text-on-surface">
+      <div className="px-5 pt-5 pb-4">
+        <div className="flex items-center justify-between gap-4 flex-wrap">
+          <h3 className="font-headline text-base font-black tracking-tight text-on-surface">
             {t("league.standings.title")}
           </h3>
 
           {/* Zone legend */}
-          <div className="flex items-center gap-4">
-            <div className="flex items-center gap-1.5">
-              <span
-                className="w-2 h-2 rounded-full"
-                style={{ backgroundColor: ZONE_COLORS.promote }}
-              />
-              <span className="text-[9px] font-bold font-label uppercase tracking-widest text-on-surface-variant">
-                {t("league.standings.promote")}
-              </span>
-            </div>
-            <div className="flex items-center gap-1.5">
-              <span
-                className="w-2 h-2 rounded-full"
-                style={{ backgroundColor: ZONE_COLORS.promotePlayoff }}
-              />
-              <span className="text-[9px] font-bold font-label uppercase tracking-widest text-on-surface-variant">
-                {t("league.standings.promotePlayoff")}
-              </span>
-            </div>
-            <div className="flex items-center gap-1.5">
-              <span
-                className="w-2 h-2 rounded-full"
-                style={{ backgroundColor: ZONE_COLORS.relPlayoff }}
-              />
-              <span className="text-[9px] font-bold font-label uppercase tracking-widest text-on-surface-variant">
-                {t("league.standings.relPlayoff")}
-              </span>
-            </div>
-            <div className="flex items-center gap-1.5">
-              <span
-                className="w-2 h-2 rounded-full"
-                style={{ backgroundColor: ZONE_COLORS.rel }}
-              />
-              <span className="text-[9px] font-bold font-label uppercase tracking-widest text-on-surface-variant">
-                {t("league.standings.rel")}
-              </span>
-            </div>
+          <div className="flex items-center gap-3 flex-wrap">
+            <ZoneLegend color={ZONE_COLORS.promote} label={t("league.standings.promote")} />
+            <ZoneLegend color={ZONE_COLORS.promotePlayoff} label={t("league.standings.promotePlayoff")} />
+            <ZoneLegend color={ZONE_COLORS.relPlayoff} label={t("league.standings.relPlayoff")} />
+            <ZoneLegend color={ZONE_COLORS.rel} label={t("league.standings.rel")} />
           </div>
         </div>
       </div>
@@ -138,8 +69,8 @@ export default function StandingsTable({
       {/* Table */}
       <div className="flex-1 overflow-y-auto custom-scrollbar">
         <table className="w-full text-left">
-          <thead className="sticky top-0 bg-surface-container z-10">
-            <tr className="text-[10px] font-headline font-bold uppercase tracking-widest text-on-surface-variant/60 border-b border-white/5">
+          <thead className="sticky top-0 z-10">
+            <tr className="text-[9px] font-label font-black uppercase tracking-[0.2em] text-on-surface-variant/70 border-b border-white/5 bg-surface-container/80 backdrop-blur-md">
               <th className="pb-2 pl-5 pr-2 w-10">#</th>
               <th className="pb-2 pr-4">{t("league.standings.club")}</th>
               <th className="pb-2 text-center w-10">{t("league.standings.pl")}</th>
@@ -150,58 +81,62 @@ export default function StandingsTable({
               <th className="pb-2 text-center w-10 font-black text-on-surface">
                 {t("league.standings.pts")}
               </th>
-              <th className="pb-2 pl-4 text-center w-28">{t("league.standings.form")}</th>
+              <th className="pb-2 pl-4 text-center w-32">{t("league.standings.form")}</th>
             </tr>
           </thead>
           <tbody className="text-sm">
-            {standings.map((row, idx) => {
+            {standings.map((row) => {
               const zone = getZone(row.position);
               const isUserTeam = row.teamId === userTeamId;
               const isViewingTeam = isCurrentViewTeam(row.teamId);
+
+              const formResults: FormResult[] = (row.recentMatches ?? [])
+                .slice(-5)
+                .map((m) => (m.result === 'W' || m.result === 'D' || m.result === 'L' ? m.result : 'pending'));
 
               return (
                 <tr
                   key={row.teamId}
                   className={clsx(
-                    "border-b border-white/5 transition-colors",
-                    isViewingTeam && "bg-primary/10",
-                    isUserTeam && !isViewingTeam && "bg-primary/5"
+                    'border-b border-white/5 transition-colors',
+                    isViewingTeam && 'bg-primary/10',
+                    isUserTeam && !isViewingTeam && 'bg-primary/5',
                   )}
                 >
                   {/* Position */}
                   <td
                     className={clsx(
-                      "py-3 pl-5 pr-2 font-headline font-black",
-                      !zone && "text-on-surface-variant"
+                      'py-3 pl-5 pr-2 font-headline font-black text-sm',
+                      !zone && 'text-on-surface-variant',
                     )}
                     style={zone ? { color: ZONE_COLORS[zone] } : {}}
                   >
-                    {String(row.position).padStart(2, "0")}
+                    {String(row.position).padStart(2, '0')}
                   </td>
 
                   {/* Club */}
                   <td className="py-3 pr-4">
                     <div className="flex items-center gap-2">
-                      {zone && (
-                        <span
-                          className="w-1 h-4 rounded-full"
-                          style={{ backgroundColor: ZONE_COLORS[zone] }}
-                        />
-                      )}
-                      {!zone && <span className="w-1 h-4" />}
-
+                      <span
+                        className="w-1 h-5 rounded-full shrink-0"
+                        style={{ backgroundColor: zone ? ZONE_COLORS[zone] : 'transparent' }}
+                      />
                       <span
                         className={clsx(
-                          "font-bold cursor-pointer hover:text-primary transition-colors",
-                          isViewingTeam ? "text-primary" : isUserTeam ? "text-primary/70" : "text-on-surface"
+                          'font-bold cursor-pointer hover:text-primary transition-colors truncate',
+                          isViewingTeam
+                            ? 'text-primary'
+                            : isUserTeam
+                              ? 'text-primary/80'
+                              : 'text-on-surface',
                         )}
                         onClick={() => handleTeamClick(row.teamId)}
                       >
                         {row.teamName || `Club ${row.teamId.slice(0, 6)}`}
                       </span>
                       {isViewingTeam && !isUserTeam && (
-                        <span className="text-[8px] px-1.5 py-0.5 bg-primary/20 text-primary rounded font-bold">
-                          VIEWING
+                        <span className="font-label text-[8px] font-black uppercase tracking-widest px-1.5 py-0.5 bg-primary/20 text-primary rounded shrink-0">
+                          {t('league.viewing')}
                         </span>
                       )}
                     </div>
@@ -223,8 +158,14 @@ export default function StandingsTable({
 
                   {/* Goal Difference */}
                   <td className="py-3 text-center font-headline">
-                    <span className={row.goalDifference > 0 ? "text-primary" : row.goalDifference < 0 ? "text-error" : "text-on-surface-variant"}>
-                      {row.goalDifference > 0 ? "+" : ""}
+                    <span
+                      className={clsx(
+                        row.goalDifference > 0 && 'text-primary',
+                        row.goalDifference < 0 && 'text-error',
+                        row.goalDifference === 0 && 'text-on-surface-variant',
+                      )}
+                    >
+                      {row.goalDifference > 0 ? '+' : ''}
                       {row.goalDifference}
                     </span>
                   </td>
@@ -236,10 +177,10 @@ export default function StandingsTable({
 
                   {/* Recent Form */}
                   <td className="py-3 pl-4">
-                    {row.recentMatches && row.recentMatches.length > 0 ? (
-                      <RecentFormIcons recentMatches={row.recentMatches} />
+                    {formResults.length > 0 ? (
+                      <FormChipStrip results={formResults} highlightLatest={false} />
                     ) : (
-                      <span className="text-on-surface-variant text-xs">-</span>
+                      <span className="text-on-surface-variant text-xs">—</span>
                     )}
                   </td>
                 </tr>
@@ -251,18 +192,29 @@ export default function StandingsTable({
 
       {/* Footer */}
       <div className="px-5 py-3 border-t border-white/5 flex justify-between items-center">
-        <span className="font-label text-[9px] font-bold uppercase tracking-widest text-on-surface-variant">
-          {t("league.standings.lastUpdated")}
+        <span className="font-label text-[9px] font-black uppercase tracking-[0.2em] text-on-surface-variant/70">
+          {t('league.standings.lastUpdated')}
         </span>
         <div className="flex gap-2">
-          <button className="px-3 py-1.5 bg-surface-container-lowest text-[10px] font-headline font-bold uppercase tracking-widest rounded-lg hover:bg-surface-container-low transition-colors border border-white/5">
-            {t("league.standings.expand")}
+          <button className="px-3 h-8 bg-surface-container-lowest text-[10px] font-headline font-black uppercase tracking-widest rounded-full hover:bg-surface-container-low transition-colors border border-white/5 text-on-surface-variant">
+            {t('league.standings.expand')}
           </button>
-          <button className="px-3 py-1.5 bg-primary text-on-primary text-[10px] font-headline font-bold uppercase tracking-widest rounded-lg hover:opacity-90 transition-opacity">
-            {t("league.standings.export")}
+          <button className="px-4 h-8 bg-primary text-on-primary text-[10px] font-headline font-black uppercase tracking-widest rounded-full hover:bg-primary-fixed transition-colors shadow-[0_0_14px_rgba(0,228,121,0.35)]">
+            {t('league.standings.export')}
           </button>
         </div>
       </div>
+    </div>
+  );
+}
+
+function ZoneLegend({ color, label }: { color: string; label: string }) {
+  return (
+    <div className="flex items-center gap-1.5">
+      <span className="w-2 h-2 rounded-full" style={{ backgroundColor: color }} />
+      <span className="font-label text-[9px] font-black uppercase tracking-[0.2em] text-on-surface-variant">
+        {label}
+      </span>
     </div>
   );
 }

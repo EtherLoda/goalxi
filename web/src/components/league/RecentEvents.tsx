@@ -11,21 +11,27 @@ interface RecentEventsProps {
 
 const TYPE_STYLES = {
   TRANSFER: {
-    border: "border-l-secondary",
+    accent: "border-l-secondary",
+    bg: "bg-secondary/10",
+    icon: "swap_horiz",
     labelKey: "league.recentEvents.types.transfer",
     labelColor: "text-secondary",
   },
   MATCH_RESULT: {
-    border: "border-l-primary",
+    accent: "border-l-primary",
+    bg: "bg-primary/10",
+    icon: "sports_score",
     labelKey: "league.recentEvents.types.matchResult",
     labelColor: "text-primary",
   },
   PRIZE_MONEY: {
-    border: "border-l-primary-dim",
+    accent: "border-l-tertiary",
+    bg: "bg-tertiary/10",
+    icon: "emoji_events",
     labelKey: "league.recentEvents.types.prizeMoney",
-    labelColor: "text-primary-dim",
+    labelColor: "text-tertiary",
   },
-};
+} as const;
 
 export default function RecentEvents({ news }: RecentEventsProps) {
   const t = useTranslations();
@@ -34,68 +40,101 @@ export default function RecentEvents({ news }: RecentEventsProps) {
   const hasNews = news.length > 0;
 
   return (
-    <div className="space-y-4">
-      <div className={!hasNews ? "pb-4 border-b border-white/10" : ""}>
-        <h2 className="text-2xl font-headline font-extrabold tracking-tight text-on-surface">
-          {t("league.recentEvents.title")}
-        </h2>
+    <section className="space-y-4">
+      {/* Section header */}
+      <div className="flex items-center justify-between px-1">
+        <div className="flex items-center gap-2">
+          <span className="font-label text-[10px] font-black uppercase tracking-[0.3em] text-primary">
+            {t('league.sections.recentEvents')}
+          </span>
+          {hasNews && (
+            <span className="font-label text-[9px] font-black uppercase tracking-widest text-on-surface-variant/60">
+              · {news.length}
+            </span>
+          )}
+        </div>
       </div>
 
-      <div className="space-y-3">
-        {news.map((item) => {
-          const style = TYPE_STYLES[item.type] || TYPE_STYLES.PRIZE_MONEY;
-          return (
-            <div
-              key={item.id}
-              className={`glass-panel p-4 rounded-xl border-l-2 ${style.border} group cursor-pointer hover:bg-surface-container-highest transition-all`}
-            >
-              <div className="flex items-start justify-between gap-3 mb-1">
-                <span className={`text-[9px] font-headline uppercase font-black tracking-widest ${style.labelColor}`}>
-                  {t(style.labelKey)}
-                </span>
-                <span className="text-[9px] font-label text-on-surface-variant">
-                  {item.timeAgo}
-                </span>
-              </div>
-              <h4 className="text-sm font-headline font-bold text-on-surface mb-1 group-hover:text-primary transition-colors">
-                {item.title}
-              </h4>
-              {/* Render description with embedded links for transfer events */}
-              {item.type === 'TRANSFER' ? (
-                <TransferDescription item={item} locale={locale} />
-              ) : (
-                <p className="text-xs text-on-surface-variant leading-relaxed line-clamp-2">
-                  {item.description}
-                </p>
-              )}
-              {/* Links for match result events */}
-              {item.type === 'MATCH_RESULT' && item.matchId && (
-                <div className="mt-2">
-                  <Link
-                    href={`/${locale}/matches?match=${item.matchId}`}
-                    className="text-xs text-primary hover:text-primary/80 underline"
-                  >
-                    {t("league.recentEvents.viewMatch")}
-                  </Link>
+      {hasNews ? (
+        <div className="space-y-2.5">
+          {news.map((item) => {
+            const style = TYPE_STYLES[item.type] || TYPE_STYLES.PRIZE_MONEY;
+            return (
+              <article
+                key={item.id}
+                className={`glass-panel rounded-2xl p-4 border-l-2 ${style.accent} group cursor-pointer hover:border-white/15 transition-all`}
+              >
+                <div className="flex items-start justify-between gap-3 mb-2">
+                  <div className="flex items-center gap-2">
+                    <div
+                      className={`w-6 h-6 rounded-lg ${style.bg} flex items-center justify-center ${style.labelColor}`}
+                    >
+                      <span className="material-symbols-outlined text-[14px]">
+                        {style.icon}
+                      </span>
+                    </div>
+                    <span
+                      className={`font-label text-[9px] font-headline uppercase font-black tracking-[0.25em] ${style.labelColor}`}
+                    >
+                      {t(style.labelKey)}
+                    </span>
+                  </div>
+                  <span className="font-label text-[9px] text-on-surface-variant/70 mt-1">
+                    {item.timeAgo}
+                  </span>
                 </div>
-              )}
-            </div>
-          );
-        })}
-      </div>
-    </div>
+                <h4 className="font-headline text-sm font-bold text-on-surface mb-1 group-hover:text-primary transition-colors">
+                  {item.title}
+                </h4>
+                {/* Render description with embedded links for transfer events */}
+                {item.type === 'TRANSFER' ? (
+                  <TransferDescription item={item} locale={locale} />
+                ) : (
+                  <p className="font-body text-xs text-on-surface-variant leading-relaxed line-clamp-2">
+                    {item.description}
+                  </p>
+                )}
+                {/* Links for match result events */}
+                {item.type === 'MATCH_RESULT' && item.matchId && (
+                  <div className="mt-2.5 pt-2 border-t border-white/5">
+                    <Link
+                      href={`/${locale}/matches/${item.matchId}`}
+                      className="inline-flex items-center gap-1 text-xs text-primary hover:text-primary-fixed font-medium transition-colors"
+                    >
+                      {t("league.recentEvents.viewMatch")}
+                      <span className="material-symbols-outlined text-sm">
+                        arrow_forward
+                      </span>
+                    </Link>
+                  </div>
+                )}
+              </article>
+            );
+          })}
+        </div>
+      ) : (
+        <div className="glass-panel rounded-2xl p-10 text-center">
+          <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-white/5 border border-white/10 mb-3">
+            <span className="material-symbols-outlined text-3xl text-on-surface-variant/40">
+              inbox
+            </span>
+          </div>
+          <p className="font-headline text-sm font-bold text-on-surface mb-1">
+            {t('league.sections.noEvents')}
+          </p>
+        </div>
+      )}
+    </section>
   );
 }
 
 function TransferDescription({ item, locale }: { item: LeagueNewsItem; locale: string }) {
   const { playerId, playerName, fromTeam, toTeam } = item;
 
-  // Build description with proper links using Next.js Link
   const parts: React.ReactNode[] = [];
   const text = item.description || '';
   let lastIndex = 0;
 
-  // Collect all matches
   const matches: { name: string; id: string; type: 'player' | 'team'; start: number; end: number }[] = [];
 
   if (playerName && playerId) {
@@ -117,19 +156,17 @@ function TransferDescription({ item, locale }: { item: LeagueNewsItem; locale: s
     }
   }
 
-  // Sort by start position
   matches.sort((a, b) => a.start - b.start);
 
-  // Build parts
   for (const match of matches) {
     if (match.start > lastIndex) {
       parts.push(text.slice(lastIndex, match.start));
     }
     const href = match.type === 'player' ? `/${locale}/players/${match.id}` : `/${locale}/dashboard?team=${match.id}`;
     parts.push(
-      <Link key={`${match.type}-${match.id}`} href={href} className="text-primary hover:text-primary/80 underline">
+      <Link key={`${match.type}-${match.id}`} href={href} className="text-primary hover:text-primary-fixed underline">
         {match.name}
-      </Link>
+      </Link>,
     );
     lastIndex = match.end;
   }
@@ -139,7 +176,7 @@ function TransferDescription({ item, locale }: { item: LeagueNewsItem; locale: s
   }
 
   return (
-    <p className="text-xs text-on-surface-variant leading-relaxed line-clamp-2">
+    <p className="font-body text-xs text-on-surface-variant leading-relaxed line-clamp-2">
       {parts.length > 0 ? parts : text}
     </p>
   );
