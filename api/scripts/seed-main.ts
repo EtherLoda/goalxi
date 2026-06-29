@@ -700,6 +700,16 @@ async function createLeaguePyramid() {
     });
     if (teamsInLeague.length < 2) continue;
 
+    // Pre-fetch every team's home stadium id once so each match we create
+    // below can resolve its venue in O(1) instead of issuing a query.
+    const stadiumRows = await stadiumRepo.find({
+      where: teamsInLeague.map((t) => ({ teamId: t.id })),
+      select: ['id', 'teamId'],
+    });
+    const stadiumByTeam = new Map<string, string>(
+      stadiumRows.map((s) => [s.teamId, s.id]),
+    );
+
     // Check if matches already exist
     const existingMatches = await matchRepo.count({
       where: { leagueId: league.id, season: SEASON },
@@ -755,6 +765,7 @@ async function createLeaguePyramid() {
           round,
           homeTeamId: fixedTeam.id,
           awayTeamId: rotatingOpponent.id,
+          stadiumId: stadiumByTeam.get(fixedTeam.id) ?? null,
           homeScore: null,
           awayScore: null,
           status: MatchStatus.SCHEDULED,
@@ -809,6 +820,7 @@ async function createLeaguePyramid() {
           round,
           homeTeamId: homeTeam.id,
           awayTeamId: awayTeam.id,
+          stadiumId: stadiumByTeam.get(homeTeam.id) ?? null,
           homeScore: null,
           awayScore: null,
           status: MatchStatus.SCHEDULED,

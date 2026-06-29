@@ -10,6 +10,7 @@ import {
     PrimaryGeneratedColumn,
 } from 'typeorm';
 import { WeatherType } from './weather.entity';
+import { StadiumEntity } from './stadium.entity';
 
 export enum MatchStatus {
     SCHEDULED = 'scheduled',
@@ -138,6 +139,20 @@ export class MatchEntity extends AbstractEntity {
     /** 上座人数(主场比赛)。在比赛结算时由赛事引擎填入,用于场馆页面统计。 */
     @Column({ name: 'attendance', type: 'int', nullable: true })
     attendance?: number | null;
+
+    /**
+     * Venue where this match is played. For home/away league matches this is
+     * the home team's stadium (set by the match scheduler / seed); for
+     * neutral-venue fixtures (cup finals, all-star games) it can be any
+     * stadium row. Nullable so historic matches pre-dating the column
+     * remain valid even if their team has since been deleted.
+     */
+    @Column({ name: 'stadium_id', type: 'uuid', nullable: true })
+    stadiumId?: string | null;
+
+    @ManyToOne(() => StadiumEntity, { nullable: true })
+    @JoinColumn({ name: 'stadium_id' })
+    stadium?: StadiumEntity;
 
     constructor(partial?: Partial<MatchEntity>) {
         super();
