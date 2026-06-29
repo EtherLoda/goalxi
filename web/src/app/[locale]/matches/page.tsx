@@ -3,11 +3,14 @@
 import { useEffect, useState, Suspense } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useParams, useSearchParams } from "next/navigation";
+import { useTranslations } from "next-intl";
 import { api, type Match, type Team } from "@/lib/api";
 import Link from "next/link";
 import { clsx } from "clsx";
 import { useGameStore } from "@/stores/gameStore";
-import { TacticsEntryButton } from "@/components/tactics/shared/TacticsEntryButton";
+import { MatchdayHero } from "@/components/match/MatchdayHero";
+import { FixtureTicket } from "@/components/match/FixtureTicket";
+import { FormChipStrip, type FormResult } from "@/components/match/FormChipStrip";
 
 interface MatchWithResult extends Match {
   result?: "W" | "D" | "L" | null;
@@ -21,19 +24,21 @@ function MatchesPageContent() {
   const params = useParams();
   const searchParams = useSearchParams();
   const locale = (params.locale as string) || "en";
-  const { viewTeamId, setViewTeam, teamId } = useGameStore();
+  const t = useTranslations('matches');
+  const { viewTeamId, teamId } = useGameStore();
 
-  // Sync URL params to Zustand on mount
+  // Sync URL params to Zustand on mount. Read the store value via getState()
+  // so we don't have to subscribe to it (and so we don't re-sync on store
+  // changes that originate from this effect itself).
   useEffect(() => {
     const urlTeamId = searchParams.get("team");
-    if (urlTeamId && urlTeamId !== viewTeamId) {
-      setViewTeam(urlTeamId);
+    if (!urlTeamId) return;
+    if (urlTeamId !== useGameStore.getState().viewTeamId) {
+      useGameStore.getState().setViewTeam(urlTeamId);
     }
-  }, []);
+  }, [searchParams]);
 
   const myTeamFlag = viewTeamId === null || viewTeamId === teamId;
-  const currentTeamId = myTeamFlag ? teamId : viewTeamId;
-  const isViewingMyTeam = myTeamFlag;
 
   const [viewedTeam, setViewedTeam] = useState<Team | null>(null);
   const currentTeam = myTeamFlag ? myTeam : viewedTeam;
@@ -49,7 +54,6 @@ function MatchesPageContent() {
     }
   }, [viewTeamId, myTeamFlag]);
 
-  const [allRecentMatches, setAllRecentMatches] = useState<MatchWithResult[]>([]);
   const [allUpcomingMatches, setAllUpcomingMatches] = useState<MatchWithResult[]>([]);
   const [recentMatches, setRecentMatches] = useState<MatchWithResult[]>([]);
   const [upcomingMatches, setUpcomingMatches] = useState<MatchWithResult[]>([]);
@@ -122,7 +126,6 @@ function MatchesPageContent() {
           ? { ...liveData.data[0], isUserHome: liveData.data[0].homeTeamId === currentTeam.id }
           : null;
 
-        setAllRecentMatches(processedRecent);
         setAllUpcomingMatches(processedUpcoming);
         setUpcomingMatches(upcomingThisMonth);
         setRecentMatches(processedRecent);
@@ -146,97 +149,11 @@ function MatchesPageContent() {
     });
   };
 
-  const formatTime = (dateStr: string) => {
-    const date = new Date(dateStr);
-    return date.toLocaleTimeString("en-US", {
-      hour: "2-digit",
-      minute: "2-digit",
-    });
-  };
-
   const getOpponentName = (match: MatchWithResult) => {
     return match.homeTeamId === currentTeam?.id ? match.awayTeam?.name : match.homeTeam?.name;
   };
 
   const isHomeMatch = (match: MatchWithResult) => match.homeTeamId === currentTeam?.id;
-
-  const getResultBadgeClass = (result: "W" | "D" | "L" | null | undefined) => {
-    switch (result) {
-      case "W":
-        return "bg-primary/10 text-primary border-primary/20";
-      case "D":
-        return "bg-white/5 text-on-surface-variant border-white/10";
-      case "L":
-        return "bg-error/10 text-error border-error/20";
-      default:
-        return "bg-white/5 text-on-surface-variant border-white/10";
-    }
-  };
-
-  const getResultLabel = (result: "W" | "D" | "L" | null | undefined) => {
-    switch (result) {
-      case "W":
-        return "W";
-      case "D":
-        return "D";
-      case "L":
-        return "L";
-      default:
-        return "-";
-    }
-  };
-
-  const getTeamInitials = (name: string) => {
-    const parts = name.split(" ");
-    if (parts.length === 1) {
-      // Single word like "Team1" or "Arsenal" - take first letter + any numbers
-      const match = name.match(/^([A-Za-z])(\d*)$/);
-      if (match) {
-        return (match[1] + match[2]).toUpperCase().slice(0, 3);
-      }
-      return name.slice(0, 3).toUpperCase();
-    }
-    // Multiple words - take first letter of each word, include full numeric parts
-    const initials = parts.map((word) => {
-      // If word is purely numbers, keep them all
-      if (/^\d+$/.test(word)) return word;
-      // Otherwise take first letter
-      return word[0];
-    }).join("").toUpperCase();
-    return initials.slice(0, 3);
-  };
-
-  const TeamLogo = ({ team }: { team: { name: string; logo: string | null } | undefined }) => {
-    const initials = team ? getTeamInitials(team.name) : "??";
-
-    if (team?.logo) {
-      return (
-        <div className="flex flex-col items-center gap-2">
-          <img
-            src={team.logo}
-            alt={team.name}
-            className="w-14 h-14 md:w-16 md:h-16 rounded-full object-cover bg-surface-container border border-outline-variant/20 shadow-lg"
-          />
-          <span className="font-headline font-semibold text-xs text-on-surface text-center truncate max-w-[80px]">
-            {team.name}
-          </span>
-        </div>
-      );
-    }
-
-    return (
-      <div className="flex flex-col items-center gap-2">
-        <div className="w-14 h-14 md:w-16 md:h-16 bg-surface-container rounded-full flex items-center justify-center border border-outline-variant/20 shadow-lg">
-          <span className="font-headline font-bold text-lg md:text-xl text-on-surface">
-            {initials}
-          </span>
-        </div>
-        <span className="font-headline font-semibold text-xs text-on-surface text-center truncate max-w-[80px]">
-          {team?.name || "Unknown"}
-        </span>
-      </div>
-    );
-  };
 
   // Get latest completed match
   const latestCompleted = recentMatches[0] || null;
@@ -245,290 +162,222 @@ function MatchesPageContent() {
   // Live match takes priority over next upcoming
   const featuredRight = liveMatch || nextUpcoming;
 
+  // Recent form chips (last 5 results, oldest → newest)
+  const formResults: FormResult[] = recentMatches
+    .slice()
+    .reverse()
+    .map((m) => m.result ?? 'pending');
+
+  // Mini KPIs for the header strip
+  const wins = recentMatches.filter((m) => m.result === 'W').length;
+  const draws = recentMatches.filter((m) => m.result === 'D').length;
+  const losses = recentMatches.filter((m) => m.result === 'L').length;
+
   if (isLoading) {
     return (
       <div className="p-6 md:p-8 max-w-7xl mx-auto w-full">
         <div className="animate-pulse space-y-6">
           <div className="h-12 w-64 bg-surface-container rounded-lg" />
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <div className="h-48 bg-surface-container-highest rounded-2xl" />
-            <div className="h-48 bg-surface-container-highest rounded-2xl" />
-          </div>
+          <div className="h-[420px] bg-surface-container rounded-3xl" />
         </div>
       </div>
     );
   }
 
+  const showHero = latestCompleted || featuredRight;
+
   return (
     <div className="p-6 md:p-8 space-y-8 max-w-7xl mx-auto w-full">
       {/* Page Header */}
-      <header className="flex items-center justify-between">
-        <h1 className="font-headline text-4xl md:text-5xl font-black tracking-tight text-on-surface uppercase italic">
-          Matches
-        </h1>
-        <Link
-          href={`/${locale}/matches/archive`}
-          className="flex items-center gap-2 px-4 py-2 bg-surface-container-low border border-outline-variant/30 text-on-surface rounded-DEFAULT text-sm font-medium hover:bg-surface-container-high hover:border-primary/30 transition-all"
-        >
-          <span className="material-symbols-outlined text-[18px]">inventory_2</span>
-          Archived Matches
-        </Link>
-      </header>
-
-      {/* Featured Matches Grid: Left (Latest Finished) | Right (Live/Next) */}
-      {(latestCompleted || featuredRight || recentMatches.length > 1 || upcomingMatches.length > 1) && (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* Left: Latest Completed Match */}
+      <header className="flex flex-col gap-5">
+        <div className="flex items-center justify-between">
           <div>
-            <h2 className="font-headline text-sm font-semibold text-on-surface-variant uppercase tracking-wider mb-3 flex items-center gap-2">
-              <span className="material-symbols-outlined text-primary text-lg">history</span>
-              Latest Result
-            </h2>
-            {latestCompleted ? (
-              <Link
-                href={`/${locale}/matches/${latestCompleted.id}`}
-                className="block bg-surface-container-highest/80 backdrop-blur-md rounded-DEFAULT p-4 md:p-5 relative overflow-hidden border border-outline-variant/15 hover:brightness-110 transition-all group"
-              >
-                {/* Top gradient bar */}
-                <div className="absolute top-0 left-0 w-full h-0.5 bg-linear-to-r from-primary/60 to-transparent" />
-
-                {/* Date & Venue */}
-                <div className="flex items-center gap-2 text-xs text-on-surface-variant mb-3 relative z-10">
-                  <span className="material-symbols-outlined text-[14px]">stadium</span>
-                  <span>{formatDate(latestCompleted.scheduledAt)}</span>
-                  <span>•</span>
-                  <span>{isHomeMatch(latestCompleted) ? "Home" : "Away"}</span>
-                  <span className="ml-auto px-1.5 py-0.5 bg-surface-variant rounded text-[10px] font-bold uppercase">
-                    {latestCompleted.round ? `Round ${latestCompleted.round} • ` : ""}{leagueName}
-                  </span>
-                </div>
-
-                {/* Teams & Score */}
-                <div className="flex items-center justify-between relative z-10">
-                  <div className="flex-1 flex items-center justify-center gap-4 md:gap-6">
-                    <TeamLogo team={latestCompleted.homeTeam} />
-                    <div className="flex flex-col items-center justify-center min-w-[80px] md:min-w-[100px]">
-                      <div className="font-headline text-2xl md:text-3xl font-black text-on-surface">
-                        {latestCompleted.homeScore} - {latestCompleted.awayScore}
-                      </div>
-                    </div>
-                    <TeamLogo team={latestCompleted.awayTeam} />
-                  </div>
-                </div>
-
-                {/* Hover indicator */}
-                <div className="mt-2 pt-1.5 border-t border-white/5 flex items-center justify-between opacity-0 group-hover:opacity-100 transition-opacity relative z-10">
-                  <span className="text-xs text-primary font-medium">View Match Report</span>
-                  <span className="material-symbols-outlined text-primary text-lg">chevron_right</span>
-                </div>
-              </Link>
-            ) : (
-              <div className="block bg-surface-container-highest/80 backdrop-blur-md rounded-DEFAULT p-5 relative overflow-hidden border border-outline-variant/15">
-                <div className="absolute top-0 left-0 w-full h-0.5 bg-linear-to-r from-primary/40 to-transparent" />
-                <div className="text-center py-6 relative z-10">
-                  <span className="material-symbols-outlined text-4xl text-on-surface-variant/30 mb-2 block">
-                    history
-                  </span>
-                  <p className="text-on-surface-variant text-sm">No completed matches</p>
-                </div>
-              </div>
-            )}
+            <span className="font-label text-[10px] font-black uppercase tracking-[0.3em] text-primary">
+              {leagueName || t('title')}
+            </span>
+            <h1 className="font-headline text-4xl md:text-5xl font-black tracking-tighter text-on-surface uppercase italic mt-1">
+              {t('title')}
+            </h1>
           </div>
+          <Link
+            href={`/${locale}/matches/archive`}
+            className="group inline-flex items-center gap-2 h-10 px-4 rounded-full glass-panel hover:border-white/20 hover:shadow-[0_0_18px_rgba(0,228,121,0.15)] transition-all"
+          >
+            <span className="material-symbols-outlined text-[18px] text-primary">inventory_2</span>
+            <span className="font-headline text-xs font-black uppercase tracking-[0.2em] text-on-surface">
+              {t('archive')}
+            </span>
+            <span className="material-symbols-outlined text-base text-on-surface-variant opacity-0 -ml-1 group-hover:opacity-100 group-hover:ml-0 transition-all">
+              arrow_forward
+            </span>
+          </Link>
+        </div>
 
-          {/* Right: Live Match or Next Upcoming */}
-          <div>
-            <h2 className="font-headline text-sm font-semibold text-on-surface-variant uppercase tracking-wider mb-3 flex items-center gap-2">
-              {liveMatch ? (
-                <>
-                  <span className="w-2 h-2 rounded-full bg-primary animate-pulse" />
-                  Live Now
-                </>
-              ) : (
-                <>
-                  <span className="material-symbols-outlined text-primary text-lg">event</span>
-                  {nextUpcoming ? "Next Match" : "Upcoming"}
-                </>
-              )}
-            </h2>
-            {featuredRight ? (
-              <div
-                className={clsx(
-                  "block rounded-DEFAULT p-4 md:p-5 relative overflow-hidden border transition-all group",
-                  liveMatch
-                    ? "bg-surface-container-highest/80 backdrop-blur-md border-primary/30"
-                    : "bg-surface-container-highest/80 backdrop-blur-md border-outline-variant/15 hover:brightness-110"
-                )}
-              >
-                <Link
-                  href={liveMatch ? `/${locale}/matches/live/${featuredRight.id}` : `/${locale}/matches/${featuredRight.id}`}
-                  className="block"
-                >
-                  {/* Top gradient bar */}
-                  <div className={clsx(
-                    "absolute top-0 left-0 w-full h-0.5",
-                    liveMatch ? "bg-linear-to-r from-primary to-transparent" : "bg-linear-to-r from-tertiary/60 to-transparent"
-                  )} />
-
-                  {/* Live Badge or Date */}
-                  <div className="flex items-center gap-2 text-xs mb-3 relative z-10">
-                    {liveMatch ? (
-                      <div className="inline-flex items-center gap-2 px-2 py-0.5 rounded-full bg-primary/10 text-primary border border-primary/20">
-                        <span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
-                        LIVE • {liveMatch.round || "?"}'
-                      </div>
-                    ) : (
-                      <>
-                        <span className="material-symbols-outlined text-[14px]">stadium</span>
-                        <span className="text-on-surface-variant">
-                          {formatDate(featuredRight.scheduledAt)} • {formatTime(featuredRight.scheduledAt)}
-                        </span>
-                      </>
-                    )}
-                    <span className="ml-auto px-1.5 py-0.5 bg-surface-variant rounded text-[10px] font-bold uppercase">
-                      {featuredRight.round ? `Round ${featuredRight.round} • ` : ""}{leagueName}
-                    </span>
-                  </div>
-
-                  {/* Teams & Score or VS */}
-                  <div className="flex items-center justify-between relative z-10">
-                    <div className="flex-1 flex items-center justify-center gap-4 md:gap-6">
-                      <TeamLogo team={featuredRight.homeTeam} />
-                      <div className="flex flex-col items-center justify-center min-w-[80px] md:min-w-[100px]">
-                        {liveMatch ? (
-                          <div className="font-headline text-2xl md:text-3xl font-black text-on-surface">
-                            {liveMatch.homeScore ?? 0} - {liveMatch.awayScore ?? 0}
-                          </div>
-                        ) : (
-                          <div className="text-center">
-                            <div className="font-headline text-xs font-medium text-on-surface-variant mb-0.5">
-                              {isHomeMatch(featuredRight) ? "Home" : "Away"}
-                            </div>
-                            <div className="font-headline text-2xl font-black text-on-surface">
-                              VS
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                      <TeamLogo team={featuredRight.awayTeam} />
-                    </div>
-                  </div>
-                </Link>
-
-                {/* Footer: view details + tactics entry (only for upcoming, not live) */}
-                <div className="mt-2 pt-1.5 border-t border-white/5 flex items-center justify-between gap-2 relative z-10">
-                  <Link
-                    href={liveMatch ? `/${locale}/matches/live/${featuredRight.id}` : `/${locale}/matches/${featuredRight.id}`}
-                    className="text-xs text-primary font-medium hover:underline"
-                  >
-                    {liveMatch ? "Enter Match Center" : "View Details"}
-                  </Link>
-                  {!liveMatch && (
-                    <TacticsEntryButton
-                      matchId={featuredRight.id}
-                      matchStatus={featuredRight.status}
-                      scheduledAt={featuredRight.scheduledAt}
-                      variant="full"
-                      locale={locale}
-                      now={now}
-                    />
-                  )}
-                </div>
-              </div>
-            ) : (
-              <div className="block bg-surface-container-highest/80 backdrop-blur-md rounded-DEFAULT p-5 relative overflow-hidden border border-outline-variant/15">
-                <div className="absolute top-0 left-0 w-full h-0.5 bg-linear-to-r from-tertiary/40 to-transparent" />
-                <div className="text-center py-6 relative z-10">
-                  <span className="material-symbols-outlined text-4xl text-on-surface-variant/30 mb-2 block">
-                    event_busy
-                  </span>
-                  <p className="text-on-surface-variant text-sm">No upcoming matches</p>
-                </div>
-              </div>
-            )}
+        {/* KPI strip — recent form + record */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+          {/* Recent form */}
+          <div className="glass-panel rounded-2xl p-4 flex items-center gap-4">
+            <div className="flex-1 min-w-0">
+              <p className="font-label text-[9px] uppercase tracking-[0.25em] text-primary font-black mb-2">
+                {t('kpi.recentForm')}
+              </p>
+              <FormChipStrip results={formResults} />
+            </div>
+          </div>
+          {/* W / D / L record */}
+          <div className="glass-panel rounded-2xl p-4 grid grid-cols-3 divide-x divide-white/5">
+            <div className="px-2 text-center">
+              <p className="font-label text-[9px] uppercase tracking-[0.25em] text-primary font-black">
+                W
+              </p>
+              <p className="font-headline text-2xl font-black text-on-surface">{wins}</p>
+            </div>
+            <div className="px-2 text-center">
+              <p className="font-label text-[9px] uppercase tracking-[0.25em] text-on-surface-variant font-black">
+                D
+              </p>
+              <p className="font-headline text-2xl font-black text-on-surface">{draws}</p>
+            </div>
+            <div className="px-2 text-center">
+              <p className="font-label text-[9px] uppercase tracking-[0.25em] text-error font-black">
+                L
+              </p>
+              <p className="font-headline text-2xl font-black text-on-surface">{losses}</p>
+            </div>
+          </div>
+          {/* Upcoming count + next opponent */}
+          <div className="glass-panel rounded-2xl p-4 flex items-center gap-3">
+            <div className="w-11 h-11 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center shrink-0">
+              <span className="material-symbols-outlined text-primary">event</span>
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className="font-label text-[9px] uppercase tracking-[0.25em] text-primary font-black">
+                {t('kpi.fixtures', { count: allUpcomingMatches.length })}
+              </p>
+              <p className="font-headline text-sm font-bold text-on-surface truncate">
+                {t('kpi.nextOpponent')}: {nextUpcoming ? getOpponentName(nextUpcoming) : t('kpi.noMatchScheduled')}
+              </p>
+            </div>
           </div>
         </div>
+      </header>
+
+      {/* Stadium hero — replaces the two-up featured cards */}
+      {showHero && (
+        <MatchdayHero
+          latestCompleted={latestCompleted}
+          featuredRight={featuredRight}
+          currentTeam={currentTeam}
+          leagueName={leagueName}
+          locale={locale}
+          now={now}
+        />
       )}
 
       {/* Recent & Upcoming Lists */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
         {/* Recent Results List */}
         <div className="lg:col-span-5 flex flex-col gap-3">
-          <h2 className="font-headline text-sm font-semibold text-on-surface-variant uppercase tracking-wider flex items-center gap-2">
-            <span className="material-symbols-outlined text-primary text-lg">history</span>
-            Recent Results
+          <h2 className="font-headline text-xs font-black uppercase tracking-[0.25em] text-primary flex items-center gap-2 px-1">
+            <span className="material-symbols-outlined text-base">history</span>
+            {t('sections.recentResults')}
           </h2>
 
           {recentMatches.length === 0 ? (
-            <div className="bg-surface-container-low rounded-xl p-6 text-center">
-              <p className="text-on-surface-variant text-sm">No recent matches</p>
+            <div className="glass-panel rounded-2xl p-10 text-center">
+              <span className="material-symbols-outlined text-5xl text-on-surface-variant/30 mb-2 block">
+                history
+              </span>
+              <p className="text-on-surface-variant text-sm">{t('empty.noRecent')}</p>
             </div>
           ) : (
             <div className="space-y-2">
-              {recentMatches.map((match) => (
-                <Link
-                  key={match.id}
-                  href={`/${locale}/matches/${match.id}`}
-                  className="flex items-center justify-between p-3 bg-surface-container-low rounded-lg border border-outline-variant/10 hover:bg-surface-container transition-colors group"
-                >
-                  {/* Left: Date + Teams */}
-                  <div className="flex items-center gap-3 flex-1 min-w-0">
-                    {/* Result indicator */}
+              {recentMatches.map((match) => {
+                const userScore = match.isUserHome ? match.homeScore : match.awayScore;
+                const opponentScore = match.isUserHome ? match.awayScore : match.homeScore;
+                return (
+                  <Link
+                    key={match.id}
+                    href={`/${locale}/matches/${match.id}`}
+                    className="group flex items-center gap-3 p-3 glass-panel rounded-2xl hover:border-white/15 hover:shadow-[0_0_20px_rgba(0,228,121,0.12)] transition-all"
+                  >
+                    {/* Result indicator — glowing chip */}
                     <div
                       className={clsx(
-                        "w-1.5 h-10 rounded-full shrink-0",
-                        match.result === "W" ? "bg-primary" :
-                        match.result === "L" ? "bg-error" : "bg-outline"
+                        'w-10 h-10 rounded-xl flex items-center justify-center font-headline font-black text-xs border shrink-0',
+                        match.result === 'W' &&
+                          'bg-primary text-on-primary border-primary shadow-[0_0_14px_rgba(0,228,121,0.45)]',
+                        match.result === 'D' &&
+                          'bg-white/5 text-on-surface-variant border-white/10',
+                        match.result === 'L' &&
+                          'bg-error/10 text-error border-error/30',
+                        (!match.result) &&
+                          'bg-white/5 text-on-surface-variant border-white/10',
                       )}
-                    />
-                    <div className="min-w-0">
-                      <div className="flex items-center gap-2 text-xs text-on-surface-variant mb-0.5">
+                    >
+                      {match.result ?? '—'}
+                    </div>
+                    {/* Middle: date + teams */}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 text-[10px] font-label uppercase tracking-widest text-on-surface-variant mb-0.5">
                         <span>{formatDate(match.scheduledAt)}</span>
-                        <span>•</span>
-                        <span>{isHomeMatch(match) ? "H" : "A"}</span>
+                        <span className="text-on-surface-variant/40">•</span>
+                        <span
+                          className={clsx(
+                            'font-black',
+                            isHomeMatch(match) ? 'text-primary' : 'text-on-surface-variant',
+                          )}
+                        >
+                          {isHomeMatch(match) ? 'H' : 'A'}
+                        </span>
                       </div>
-                      <div className="font-headline text-sm font-medium text-on-surface truncate">
+                      <div className="font-headline text-sm font-bold text-on-surface truncate">
                         {match.homeTeam?.name} - {match.awayTeam?.name}
                       </div>
                     </div>
-                  </div>
-
-                  {/* Right: Score + Result */}
-                  <div className="flex items-center gap-3 shrink-0">
-                    <span className="font-headline font-bold text-on-surface">
-                      {match.homeScore} - {match.awayScore}
-                    </span>
-                    <div className={clsx(
-                      "w-7 h-7 rounded-md border flex items-center justify-center font-headline font-bold text-xs",
-                      getResultBadgeClass(match.result)
-                    )}>
-                      {getResultLabel(match.result)}
+                    {/* Right: score */}
+                    <div className="text-right shrink-0">
+                      <p
+                        className={clsx(
+                          'font-headline text-lg font-black',
+                          match.result === 'W' && 'text-primary',
+                          match.result === 'L' && 'text-error',
+                          match.result === 'D' && 'text-on-surface',
+                          (!match.result) && 'text-on-surface-variant',
+                        )}
+                      >
+                        {userScore ?? '-'} - {opponentScore ?? '-'}
+                      </p>
+                      <span className="material-symbols-outlined text-on-surface-variant/40 text-base group-hover:text-primary group-hover:translate-x-0.5 transition-all">
+                        chevron_right
+                      </span>
                     </div>
-                  </div>
-                </Link>
-              ))}
+                  </Link>
+                );
+              })}
             </div>
           )}
         </div>
 
-        {/* Upcoming Fixtures List */}
+        {/* Upcoming Fixtures — stadium "departure board" */}
         <div className="lg:col-span-7 flex flex-col gap-3">
-          <h2 className="font-headline text-sm font-semibold text-on-surface-variant uppercase tracking-wider flex items-center gap-2">
-            <span className="material-symbols-outlined text-tertiary text-lg">event</span>
-            Upcoming Fixtures
+          <h2 className="font-headline text-xs font-black uppercase tracking-[0.25em] text-primary flex items-center gap-2 px-1">
+            <span className="material-symbols-outlined text-base">event</span>
+            {t('sections.upcomingFixtures')}
             {allUpcomingMatches.length > upcomingMatches.length && (
               <button
                 onClick={() => setShowAllUpcoming(!showAllUpcoming)}
-                className="ml-auto flex items-center gap-1 text-xs text-primary hover:underline font-medium"
+                className="ml-auto flex items-center gap-1 text-[10px] font-label font-black uppercase tracking-widest text-on-surface-variant hover:text-primary transition-colors"
               >
                 {showAllUpcoming ? (
                   <>
-                    Show Less
-                    <span className="material-symbols-outlined text-lg">expand_less</span>
+                    {t('showLess')}
+                    <span className="material-symbols-outlined text-base">expand_less</span>
                   </>
                 ) : (
                   <>
-                    All ({allUpcomingMatches.length})
-                    <span className="material-symbols-outlined text-lg">expand_more</span>
+                    {t('showAll', { count: allUpcomingMatches.length })}
+                    <span className="material-symbols-outlined text-base">expand_more</span>
                   </>
                 )}
               </button>
@@ -536,66 +385,24 @@ function MatchesPageContent() {
           </h2>
 
           {upcomingMatches.length === 0 ? (
-            <div className="bg-surface-container-low rounded-xl p-6 text-center">
-              <p className="text-on-surface-variant text-sm">No upcoming matches</p>
+            <div className="glass-panel rounded-2xl p-10 text-center">
+              <span className="material-symbols-outlined text-5xl text-on-surface-variant/30 mb-2 block">
+                event_busy
+              </span>
+              <p className="text-on-surface-variant text-sm">{t('empty.noUpcoming')}</p>
             </div>
           ) : (
             <div className="space-y-2">
               {(showAllUpcoming ? allUpcomingMatches : upcomingMatches).map((match) => (
-                <div
+                <FixtureTicket
                   key={match.id}
-                  className="flex items-center justify-between p-3 bg-surface-container-low rounded-lg border border-outline-variant/10 hover:bg-surface-container transition-colors group gap-2"
-                >
-                  <Link
-                    href={`/${locale}/matches/${match.id}`}
-                    className="flex items-center gap-3 flex-1 min-w-0"
-                  >
-                    {/* Date badge */}
-                    <div className="w-12 h-12 rounded-lg bg-surface-container flex flex-col items-center justify-center border border-outline-variant/20 shrink-0">
-                      <span className="text-[10px] font-bold text-on-surface-variant uppercase">
-                        {new Date(match.scheduledAt).toLocaleDateString("en-US", { month: "short" })}
-                      </span>
-                      <span className="font-headline font-bold text-on-surface">
-                        {new Date(match.scheduledAt).getDate()}
-                      </span>
-                    </div>
-                    <div className="min-w-0">
-                      <div className="flex items-center gap-2 mb-0.5">
-                        <span className="px-1.5 py-0.5 bg-surface-variant rounded text-[10px] font-bold text-on-surface-variant uppercase">
-                          {currentTeam?.leagueId ? "League" : "Match"}
-                        </span>
-                        <span className="text-xs text-on-surface-variant">
-                          {formatTime(match.scheduledAt)}
-                        </span>
-                      </div>
-                      <div className="font-headline text-sm font-medium text-on-surface">
-                        {isHomeMatch(match) ? "vs" : "@"} {getOpponentName(match)}
-                        <span className="ml-2 text-xs text-on-surface-variant font-normal">
-                          {isHomeMatch(match) ? "Home" : "Away"}
-                        </span>
-                      </div>
-                    </div>
-                  </Link>
-
-                  {/* Right: tactics entry + arrow */}
-                  <div className="flex items-center gap-2 shrink-0">
-                    <TacticsEntryButton
-                      matchId={match.id}
-                      matchStatus={match.status}
-                      scheduledAt={match.scheduledAt}
-                      variant="icon"
-                      locale={locale}
-                      now={now}
-                    />
-                    <Link
-                      href={`/${locale}/matches/${match.id}`}
-                      className="inline-flex items-center justify-center w-8 h-8 rounded-lg text-on-surface-variant hover:text-primary transition-colors"
-                      aria-label="View match"
-                    >
-                      <span className="material-symbols-outlined text-xl">chevron_right</span>
-                    </Link>
-                  </div>
-                </div>
+                  match={match}
+                  isHome={isHomeMatch(match)}
+                  currentTeam={currentTeam}
+                  leagueName={leagueName}
+                  locale={locale}
+                  now={now}
+                />
               ))}
             </div>
           )}
@@ -618,9 +425,20 @@ function MatchesPageLoading() {
     <div className="p-6 md:p-8 max-w-7xl mx-auto w-full">
       <div className="animate-pulse space-y-6">
         <div className="h-12 w-64 bg-surface-container rounded-lg" />
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <div className="h-48 bg-surface-container-highest rounded-2xl" />
-          <div className="h-48 bg-surface-container-highest rounded-2xl" />
+        <div className="h-[420px] bg-surface-container rounded-3xl" />
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+          <div className="lg:col-span-5 space-y-2">
+            <div className="h-6 w-40 bg-surface-container rounded mb-3" />
+            <div className="h-16 bg-surface-container rounded-2xl" />
+            <div className="h-16 bg-surface-container rounded-2xl" />
+            <div className="h-16 bg-surface-container rounded-2xl" />
+          </div>
+          <div className="lg:col-span-7 space-y-2">
+            <div className="h-6 w-40 bg-surface-container rounded mb-3" />
+            <div className="h-20 bg-surface-container rounded-2xl" />
+            <div className="h-20 bg-surface-container rounded-2xl" />
+            <div className="h-20 bg-surface-container rounded-2xl" />
+          </div>
         </div>
       </div>
     </div>

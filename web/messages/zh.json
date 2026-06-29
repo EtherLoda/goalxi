@@ -2,6 +2,21 @@
   "langSwitcher": {
     "switchLang": "切换语言"
   },
+  "common": {
+    "loading": "加载中...",
+    "error": "出错了",
+    "retry": "重试",
+    "save": "保存",
+    "cancel": "取消",
+    "confirm": "确认",
+    "home": "主",
+    "away": "客",
+    "vs": "vs",
+    "at": "@",
+    "round": "第 {round} 轮",
+    "tbd": "待定",
+    "match": "{count} 场比赛"
+  },
   "search": {
     "title": "搜索",
     "placeholder": "搜索球队、球员、联赛...",
@@ -120,6 +135,68 @@
       "youthSquad": "青训球队",
       "youthMatches": "青训比赛",
       "viewingMyTeam": "返回我的球队"
+    }
+  },
+  "matches": {
+    "title": "比赛",
+    "archive": "归档",
+    "kpi": {
+      "recentForm": "近期战绩",
+      "fixtures": "{count} 场比赛",
+      "nextOpponent": "下一场",
+      "noMatchScheduled": "暂无比赛",
+      "formEmpty": "暂无比赛"
+    },
+    "sections": {
+      "recentResults": "近期战果",
+      "upcomingFixtures": "未来赛程",
+      "matchLog": "比赛记录"
+    },
+    "hero": {
+      "liveLabel": "直播中",
+      "latest": "上一场战果",
+      "nextMatch": "下一场比赛",
+      "viewReport": "查看战报",
+      "enterLive": "进入比赛",
+      "inProgress": "进行中",
+      "fullTime": "全场结束",
+      "kickOff": "开球",
+      "venueTbd": "场地待定"
+    },
+    "ticket": {
+      "home": "主场",
+      "away": "客场",
+      "round": "第 {round} 轮",
+      "match": "比赛",
+      "league": "联赛"
+    },
+    "verdict": {
+      "victory": "胜",
+      "defeat": "负",
+      "draw": "平"
+    },
+    "showAll": "全部 ({count})",
+    "showLess": "收起",
+    "empty": {
+      "noRecent": "近 30 天内没有已完成的比赛",
+      "noUpcoming": "暂无未来赛程"
+    },
+    "archivePage": {
+      "kicker": "历史",
+      "title": "归档比赛",
+      "season": "第 {season} 赛季",
+      "currentSeason": "当前赛季",
+      "pastSeason": "历史赛季",
+      "seasonForm": "赛季战绩",
+      "entries": "{count} 条记录",
+      "noMatchFound": "未找到比赛",
+      "currentEmpty": "当前赛季还没有已完成的比赛。",
+      "pastEmpty": "第 {season} 赛季没有比赛记录。",
+      "played": "出场",
+      "wins": "胜",
+      "draws": "平",
+      "losses": "负",
+      "pointsShort": "分"
     }
   },
   "squad": {

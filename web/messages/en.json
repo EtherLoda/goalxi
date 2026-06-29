@@ -8,7 +8,14 @@
     "retry": "Retry",
     "save": "Save",
     "cancel": "Cancel",
-    "confirm": "Confirm"
+    "confirm": "Confirm",
+    "home": "Home",
+    "away": "Away",
+    "vs": "vs",
+    "at": "@",
+    "round": "Round {round}",
+    "tbd": "TBD",
+    "match": "{count, plural, =0 {no matches} one {# match} other {# matches}}"
   },
   "auth": {
     "loginRequired": "Please log in to continue",
@@ -132,6 +139,68 @@
       "youthSquad": "Youth Squad",
       "youthMatches": "Youth Matches",
       "viewingMyTeam": "View My Team"
+    }
+  },
+  "matches": {
+    "title": "Matches",
+    "archive": "Archive",
+    "kpi": {
+      "recentForm": "Recent Form",
+      "fixtures": "{count, plural, =0 {No fixtures} one {# Fixture} other {# Fixtures}}",
+      "nextOpponent": "Next",
+      "noMatchScheduled": "No match scheduled",
+      "formEmpty": "No matches yet"
+    },
+    "sections": {
+      "recentResults": "Recent Results",
+      "upcomingFixtures": "Upcoming Fixtures",
+      "matchLog": "Match Log"
+    },
+    "hero": {
+      "liveLabel": "Live",
+      "latest": "Latest Result",
+      "nextMatch": "Next Match",
+      "viewReport": "View Report",
+      "enterLive": "Enter Live",
+      "inProgress": "In Progress",
+      "fullTime": "Full Time",
+      "kickOff": "Kick Off",
+      "venueTbd": "Venue TBD"
+    },
+    "ticket": {
+      "home": "HOME",
+      "away": "AWAY",
+      "round": "Round {round}",
+      "match": "Match",
+      "league": "League"
+    },
+    "verdict": {
+      "victory": "Victory",
+      "defeat": "Defeat",
+      "draw": "Draw"
+    },
+    "showAll": "All ({count})",
+    "showLess": "Show Less",
+    "empty": {
+      "noRecent": "No completed matches in the last 30 days",
+      "noUpcoming": "No upcoming matches scheduled"
+    },
+    "archivePage": {
+      "kicker": "History",
+      "title": "Archived Matches",
+      "season": "Season {season}",
+      "currentSeason": "Current Season",
+      "pastSeason": "Past Season",
+      "seasonForm": "Season Form",
+      "entries": "{count, plural, =0 {No entries} one {# entry} other {# entries}}",
+      "noMatchFound": "No matches found",
+      "currentEmpty": "Current season has no completed matches yet.",
+      "pastEmpty": "Season {season} has no match records.",
+      "played": "Played",
+      "wins": "Wins",
+      "draws": "Draws",
+      "losses": "Losses",
+      "pointsShort": "pts"
     }
   },
   "squad": {
