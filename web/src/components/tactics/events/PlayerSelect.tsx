@@ -29,6 +29,13 @@ export interface PlayerSelectProps {
    * events panel can pass `false` to keep the row compact.
    */
   showOverall?: boolean;
+  /**
+   * When `false`, hides the GK / Outfielder role chip shown below the
+   * player name in both the trigger and the popover list. Sub / move
+   * pickers pass `false` since role is implicit (GK↔GK validation is
+   * handled elsewhere and the chip adds noise).
+   */
+  showRole?: boolean;
 }
 
 export function PlayerSelect({
@@ -41,6 +48,7 @@ export function PlayerSelect({
   tone = 'primary',
   className = '',
   showOverall = true,
+  showRole = true,
 }: PlayerSelectProps) {
   const t = useTranslations('tactics.events');
   const ph = placeholder ?? t('selectPlayer');
@@ -138,12 +146,14 @@ export function PlayerSelect({
           <div className={`flex-1 min-w-0 flex flex-col ${align === 'right' ? 'items-end text-right' : 'items-start text-left'}`}>
             <span className="text-xs font-bold text-white truncate w-full">{selected.name}</span>
             <div className={`flex items-center gap-1.5 mt-0.5 ${align === 'right' ? 'justify-end' : 'justify-start'}`}>
-              <span className="text-[9px] font-bold uppercase tracking-widest text-outline">
-                {selected.isGoalkeeper ? t('roleGk') : t('roleOutfielder')}
-              </span>
+              {showRole && (
+                <span className="text-[9px] font-bold uppercase tracking-widest text-outline">
+                  {selected.isGoalkeeper ? t('roleGk') : t('roleOutfielder')}
+                </span>
+              )}
               {showOverall && (
                 <>
-                  <span className="w-0.5 h-0.5 rounded-full bg-outline-variant" />
+                  {showRole && <span className="w-0.5 h-0.5 rounded-full bg-outline-variant" />}
                   <span className={`text-[9px] font-bold ${selected.overall >= 80 ? 'text-emerald-400' : 'text-outline'}`}>
                     {t('overallLabel', { value: selected.overall })}
                   </span>
@@ -215,11 +225,13 @@ export function PlayerSelect({
                   </span>
                   <div className="flex-1 min-w-0">
                     <div className="text-xs font-bold truncate">{p.name}</div>
-                    <div className="flex items-center gap-1.5">
-                      <span className="text-[9px] font-bold uppercase tracking-widest text-outline">
-                        {p.isGoalkeeper ? t('roleGk') : t('roleOutfielder')}
-                      </span>
-                    </div>
+                    {showRole && (
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-[9px] font-bold uppercase tracking-widest text-outline">
+                          {p.isGoalkeeper ? t('roleGk') : t('roleOutfielder')}
+                        </span>
+                      </div>
+                    )}
                   </div>
                   <span
                     className={`font-headline font-black text-sm tabular-nums ${

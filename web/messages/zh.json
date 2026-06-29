@@ -622,7 +622,7 @@
       "onPitch": "场上球员",
       "sort": {
         "label": "排序方式",
-        "overall": "综合能力",
+        "overall": "PWI",
         "stamina": "体能",
         "form": "状态",
         "name": "姓名"

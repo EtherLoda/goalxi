@@ -142,6 +142,7 @@ export function TacticalEventRow({
             placeholder={t('selectPlayer')}
             disabled={disabled}
             showOverall={false}
+            showRole={false}
           />
         </div>
 
@@ -174,6 +175,7 @@ export function TacticalEventRow({
               align="right"
               disabled={disabled}
               showOverall={false}
+              showRole={false}
             />
           ) : (
             <PositionSelect
