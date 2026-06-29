@@ -1,10 +1,9 @@
 'use client';
 
 /**
- * PlayerSelect — custom dropdown for picking a player. Inspired by
- * `frontend/components/ui/PlayerSelect.tsx`. Shows the selected player's
- * name + role chip (GK / Outfielder) + OVR score in the trigger, and a
- * filterable popover list of every candidate player.
+ * PlayerSelect — custom dropdown for picking a player. Shows the
+ * selected player's name + role chip (GK / Outfielder) + OVR score in
+ * the trigger, and a filterable popover list of every candidate player.
  *
  * Uses the project's Material Symbols icon set + Tailwind tokens so it
  * matches the rest of the editor (no lucide-react dependency in web/).

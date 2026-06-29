@@ -9,7 +9,7 @@ GoalXI is a football manager game with real-time match simulation, team manageme
 ## Tech Stack
 
 - **Backend**: NestJS 10/11 with TypeORM, PostgreSQL, Redis, BullMQ
-- **Frontend**: Next.js 16.0.4 (App Router), React 19.2.0, TailwindCSS 4
+- **Frontend**: Next.js 16.2.3 (App Router), React 19.2.4, TailwindCSS 4
 - **Package Manager**: pnpm 9.12.3
 - **Language**: TypeScript 5.6+
 
@@ -20,7 +20,7 @@ GoalXI/
 ├── api/           # Main API service (port 3000)
 ├── simulator/     # Match simulation microservice
 ├── settlement/    # Financial settlement microservice
-├── frontend/      # Next.js frontend (port 8000)
+├── web/           # Next.js frontend (port 8000)
 ├── libs/database/ # Shared TypeORM entities
 └── pnpm-workspace.yaml
 ```
@@ -55,12 +55,15 @@ pnpm lint               # ESLint + Prettier
 pnpm test               # Jest tests
 ```
 
-### Frontend (frontend/)
+### Web (web/)
 ```bash
-cd frontend
+cd web
 pnpm dev                # Next.js dev server on port 8000
 pnpm build              # Production build
 pnpm lint               # ESLint
+pnpm test               # Playwright E2E tests
+pnpm test:unit          # Jest unit tests
+pnpm test:unit:cov      # Jest with coverage
 ```
 
 ## Key Architecture Patterns
@@ -86,7 +89,7 @@ The simulator microservice runs match logic in `simulator/src/engine/match.engin
 ### API-FE Communication
 
 - **API base**: `http://127.0.0.1:3000/api/v1`
-- **Frontend client**: `frontend/lib/api.ts` - Centralized fetch wrapper
+- **Frontend client**: `web/src/lib/api.ts` - Centralized fetch wrapper
 - **Auth**: JWT stored in `localStorage.getItem('goalxi_token')`
 
 **Key endpoints**:
@@ -103,7 +106,7 @@ The simulator microservice runs match logic in `simulator/src/engine/match.engin
 
 ### Forum Feature
 
-Community forum lives at `api/src/api/forum/` and `frontend/app/forum/`. Entities in `libs/database/src/entities/forum/`:
+Community forum lives at `api/src/api/forum/` and `web/src/app/forum/`. Entities in `libs/database/src/entities/forum/`:
 - `ForumCategoryEntity` - Read-only seeded categories (announcements, general, tactics, transfer-market)
 - `ForumThreadEntity` - Thread with title, body, replyCount, hotScore
 - `ForumPostEntity` - Reply on a thread

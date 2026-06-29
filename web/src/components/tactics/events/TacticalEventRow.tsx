@@ -2,9 +2,9 @@
 
 /**
  * TacticalEventRow — single card for either a sub or a position move.
- * Replaces the previous separate SubstitutionRow / MoveRow split. Modeled
- * on `frontend/components/tactics/TacticsEditor.tsx` so the UI matches
- * the legacy "Tactical Changes" panel.
+ * Replaces the previous separate SubstitutionRow / MoveRow split. Renders
+ * the "Tactical Changes" row with header, player/position selectors, and
+ * a remove button.
  *
  * Visual:
  *   ┌───────────────────────────────────────────────┐

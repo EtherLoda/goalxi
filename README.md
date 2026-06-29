@@ -23,15 +23,16 @@ GoalXI is a modern, web-based football manager game where users can manage their
 ## 🛠️ Tech Stack
 
 - **Backend**: NestJS (Node.js), TypeORM, PostgreSQL, Redis, BullMQ
-- **Frontend**: React (Planned), Next.js (Planned)
+- **Frontend**: Next.js 16.2.3 (App Router), React 19.2.4, TailwindCSS 4, next-intl, Zustand
 - **Infrastructure**: Docker, Docker Compose
 
 ## 📂 Project Structure
 
 - `api/`: Main backend API service (NestJS)
 - `simulator/`: Dedicated microservice for match simulation (NestJS)
+- `settlement/`: Dedicated microservice for financial settlement (NestJS)
 - `libs/`: Shared libraries (Database entities, DTOs, Utilities)
-- `frontend/`: Frontend application (Coming Soon)
+- `web/`: Next.js frontend application (port 8000)
 
 ## 🚦 Getting Started
 

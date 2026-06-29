@@ -2,9 +2,8 @@
 
 /**
  * PositionSelect — custom dropdown for picking a pitch slot in tactical
- * events. Inspired by `frontend/components/ui/PositionSelect.tsx`. Shows
- * the slot's short label + a "New Position" hint when selected; the
- * popover is a narrow list of every PITCH_SLOTS entry.
+ * events. Shows the slot's short label + a "New Position" hint when
+ * selected; the popover is a narrow list of every PITCH_SLOTS entry.
  */
 import React, { useEffect, useRef, useState } from 'react';
 import { useTranslations } from 'next-intl';

@@ -3,6 +3,12 @@ import { ApiModule } from '../api/api.module';
 import { MailModule } from '../mail/mail.module';
 import generateModulesSet from './modules-set';
 
+// `@nestjs/config@3` returns `Promise<DynamicModule>` from
+// `ConfigModule.forRoot()` (see node_modules/@nestjs/config/dist/config.module.d.ts).
+// `generateModulesSet()` puts that Promise at index 0 of the imports array, so we
+// resolve the thenables before asserting on the module shape.
+const loadModules = async () => Promise.all(await generateModulesSet());
+
 describe('generateModulesSet', () => {
   const originalEnv = process.env;
 
@@ -17,7 +23,7 @@ describe('generateModulesSet', () => {
 
   it('should return correct modules for monolith set', async () => {
     process.env.MODULES_SET = 'monolith';
-    const modules = await generateModulesSet();
+    const modules = await loadModules();
     expect(modules).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
@@ -36,7 +42,7 @@ describe('generateModulesSet', () => {
 
   it('should return correct modules for default set', async () => {
     process.env.MODULES_SET = undefined;
-    const modules = await generateModulesSet();
+    const modules = await loadModules();
     expect(modules).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
@@ -48,7 +54,7 @@ describe('generateModulesSet', () => {
 
   it('should return correct modules for api set', async () => {
     process.env.MODULES_SET = 'api';
-    const modules = await generateModulesSet();
+    const modules = await loadModules();
     expect(modules).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
@@ -67,7 +73,7 @@ describe('generateModulesSet', () => {
 
   it('should return correct modules for background set', async () => {
     process.env.MODULES_SET = 'background';
-    const modules = await generateModulesSet();
+    const modules = await loadModules();
     expect(modules).toEqual(
       expect.arrayContaining([
         expect.any(Object), // BullModule
@@ -84,7 +90,7 @@ describe('generateModulesSet', () => {
       .spyOn(console, 'error')
       .mockImplementation(() => {});
     process.env.MODULES_SET = 'unsupported';
-    const modules = await generateModulesSet();
+    const modules = await loadModules();
     expect(modules).toEqual(
       expect.arrayContaining([
         expect.objectContaining({

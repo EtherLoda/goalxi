@@ -2,9 +2,8 @@
 
 /**
  * TacticalEventsPanel — "Tactical Changes" panel that lists every
- * planned sub / move. Modeled on the legacy
- * `frontend/components/tactics/TacticsEditor.tsx` for visual polish:
- * gradient surface + icon header + single Add button + animated cards.
+ * planned sub / move. Visual polish: gradient surface + icon header +
+ * single Add button + animated cards.
  */
 import React from 'react';
 import { useTranslations } from 'next-intl';
