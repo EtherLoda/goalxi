@@ -4,8 +4,9 @@ import {
   ScoutCandidateEntity,
   ScoutCandidatePlayerData,
   TeamEntity,
-  YouthPlayerEntity,
+  YouthLeagueEntity,
   YouthTeamEntity,
+  currentGameDay,
   generateScoutCandidate,
 } from '@goalxi/database';
 import { Injectable } from '@nestjs/common';
@@ -158,14 +159,14 @@ export class ScoutsService {
   constructor(
     @InjectRepository(ScoutCandidateEntity)
     private candidateRepo: Repository<ScoutCandidateEntity>,
-    @InjectRepository(YouthPlayerEntity)
-    private youthPlayerRepo: Repository<YouthPlayerEntity>,
-    @InjectRepository(YouthTeamEntity)
-    private youthTeamRepo: Repository<YouthTeamEntity>,
     @InjectRepository(PlayerEntity)
     private playerRepo: Repository<PlayerEntity>,
     @InjectRepository(TeamEntity)
     private teamRepo: Repository<TeamEntity>,
+    @InjectRepository(YouthTeamEntity)
+    private youthTeamRepo: Repository<YouthTeamEntity>,
+    @InjectRepository(YouthLeagueEntity)
+    private youthLeagueRepo: Repository<YouthLeagueEntity>,
   ) {}
 
   /** Generate 3 scout candidates for a team */
@@ -205,13 +206,18 @@ export class ScoutsService {
     });
   }
 
-  /** Select a candidate → convert to YouthPlayerEntity.
- *  [S2] Caller MUST pass `expectedTeamId`; the candidate is rejected if it
- *  does not belong to that team. */
+  /** Select a candidate → convert to a  row with
+   *   and the reveal state copied from the candidate.
+   *  After RFC 0001 there is no separate YouthPlayerEntity — youth
+   *  players are PlayerEntity rows that carry the  and
+   *   fields.
+   *
+   *  [S2] Caller MUST pass ; the candidate is rejected if it
+   *  does not belong to that team. */
   async selectCandidate(
     candidateId: string,
     expectedTeamId: string,
-  ): Promise<YouthPlayerEntity> {
+  ): Promise<PlayerEntity> {
     const candidate = await this.candidateRepo.findOneByOrFail({
       id: candidateId,
     });
@@ -222,31 +228,44 @@ export class ScoutsService {
     }
     const { playerData } = candidate;
 
-    // Find the youth team for this senior team
     const youthTeam = await this.youthTeamRepo.findOne({
       where: { teamId: candidate.teamId },
     });
+    const youthLeagueId = youthTeam?.youthLeagueId ?? null;
 
-    const youth = this.youthPlayerRepo.create({
+    const crypto = require('crypto');
+    const displayId =
+      'x' + crypto.createHash('md5').update(candidate.id).digest('hex').slice(0, 16);
+
+    const youth = this.playerRepo.create({
+      id: candidate.id,
+      displayId,
       teamId: candidate.teamId,
-      youthTeamId: youthTeam?.id,
-      name: playerData.name,
-      createdDay: playerData.createdDay,
       isGoalkeeper: playerData.isGoalkeeper,
+      isYouth: true,
+      youthLeagueId,
+      onTransfer: false,
       currentSkills: playerData.currentSkills,
       potentialSkills: playerData.potentialSkills,
-      abilities: playerData.abilities,
+      specialty: playerData.abilities?.[0] ?? null,
+      experience: 0,
+      form: 3,
+      stamina: 3,
+      matchMinutes: 0,
+      currentWage: 2000,
+      potentialAbility: 50,
+      careerStats: {},
+      currentInjuryValue: 0,
       revealLevel: 1,
       revealedSkills: playerData.revealedSkills,
       potentialRevealed: playerData.potentialRevealed,
       potentialTier: playerData.potentialTier,
-      isPromoted: false,
-      joinedAt: new Date(),
-    });
+      createdDay: playerData.createdDay ?? currentGameDay(),
+    } as any);
 
-    await this.youthPlayerRepo.save(youth);
+    await this.playerRepo.save(youth as any);
     await this.candidateRepo.delete({ id: candidateId });
-    return youth;
+    return youth as unknown as PlayerEntity;
   }
 
   /** Skip a candidate → delete it */

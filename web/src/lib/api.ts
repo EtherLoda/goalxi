@@ -923,6 +923,87 @@ export const api = {
     },
   },
 
+  // ---------- Youth academy ----------
+  youthPlayers: {
+    /** List all youth players on the current user's team. */
+    list: async (): Promise<YouthPlayer[]> => {
+      return request<YouthPlayer[]>('/youth-players');
+    },
+    get: async (id: string): Promise<YouthPlayer> => {
+      return request<YouthPlayer>(`/youth-players/${id}`);
+    },
+    /**
+     * Promote a youth player to the senior squad.
+     * Requires ≥ 50% of skills revealed (enforced server-side).
+     */
+    promote: async (id: string): Promise<{ id: string; name: string; teamId: string }> => {
+      return request<{ id: string; name: string; teamId: string }>(
+        `/youth-players/${id}/promote`,
+        { method: 'POST' },
+      );
+    },
+  },
+
+  scouts: {
+    listCandidates: async (): Promise<ScoutCandidate[]> => {
+      return request<ScoutCandidate[]>('/scouts/candidates');
+    },
+    selectCandidate: async (id: string): Promise<YouthPlayer> => {
+      return request<YouthPlayer>(`/scouts/${id}/select`, { method: 'POST' });
+    },
+    skipCandidate: async (id: string): Promise<{ success: boolean }> => {
+      return request<{ success: boolean }>(`/scouts/${id}/skip`, { method: 'POST' });
+    },
+  },
+
+  youthMatches: {
+    list: async (params?: {
+      youthLeagueId?: string;
+      teamId?: string;
+      season?: number;
+      week?: number;
+      status?: YouthMatch['status'];
+      page?: number;
+      limit?: number;
+    }): Promise<YouthMatchListResponse> => {
+      const search = new URLSearchParams();
+      if (params?.youthLeagueId) search.set('youthLeagueId', params.youthLeagueId);
+      if (params?.teamId) search.set('teamId', params.teamId);
+      if (params?.season) search.set('season', String(params.season));
+      if (params?.week) search.set('week', String(params.week));
+      if (params?.status) search.set('status', params.status);
+      if (params?.page) search.set('page', String(params.page));
+      if (params?.limit) search.set('limit', String(params.limit));
+      const qs = search.toString();
+      return request<YouthMatchListResponse>(`/youth-matches${qs ? `?${qs}` : ''}`);
+    },
+    get: async (id: string): Promise<YouthMatch> => {
+      return request<YouthMatch>(`/youth-matches/${id}`);
+    },
+    getEvents: async (
+      matchId: string,
+    ): Promise<YouthMatchEvent[]> => {
+      return request<YouthMatchEvent[]>(`/youth-matches/${matchId}/events`);
+    },
+    getTactics: async (
+      matchId: string,
+    ): Promise<{
+      homeTactics: YouthTactics | null;
+      awayTactics: YouthTactics | null;
+    }> => {
+      return request(`/youth-matches/${matchId}/tactics`);
+    },
+    submitTactics: async (
+      matchId: string,
+      payload: YouthTacticsLineupEntry & { youthTeamId: string },
+    ): Promise<YouthTactics> => {
+      return request<YouthTactics>(`/youth-matches/${matchId}/tactics`, {
+        method: 'POST',
+        body: JSON.stringify(payload),
+      });
+    },
+  },
+
   search: {
     teams: async (q: string, leagueId?: string, limit = 10): Promise<SearchTeamResult[]> => {
       const params = new URLSearchParams({ q, limit: String(limit) });
@@ -1057,6 +1138,126 @@ interface Announcement {
   type: 'GENERAL' | 'FEATURE' | 'EVENT' | 'MAINTENANCE';
   priority: number;
   createdAt: string;
+}
+
+// ---------- Youth / Scout domain types ----------
+
+/**
+ * Per-skill current value revealed by scouting (others stay hidden behind
+ * a `?` UI marker). For an unrevealed key the entry is absent from the
+ * `revealedSkills` array; for revealed ones both `current` and `potential`
+ * are exposed.
+ */
+interface YouthRevealedSkill {
+  key: string;
+  current: number;
+  potential: number;
+}
+
+export interface YouthPlayer {
+  id: string;
+  name: string;
+  age: number;
+  createdDay: number;
+  nationality?: string;
+  isGoalkeeper: boolean;
+  potentialTier?: string;
+  potentialRevealed: boolean;
+  abilities?: string[];
+  revealLevel: number;
+  revealedSkills: string[];
+  isPromoted: boolean;
+  joinedAt: string;
+  /** Flattened current skill values (all keys; unrevealed keys also included for fog display). */
+  currentSkills?: Record<string, number>;
+  /** Flattened potential skill values. */
+  potentialSkills?: Record<string, number>;
+}
+
+export interface ScoutCandidate {
+  id: string;
+  name: string;
+  age: number;
+  nationality: string;
+  isGoalkeeper: boolean;
+  potentialTier?: string;
+  potentialRevealed: boolean;
+  revealedSkills: YouthRevealedSkill[];
+  tendencyHint?: string;
+  /** Server-side expiry timestamp (7 days after generation). */
+  expiresAt: string;
+}
+
+interface YouthMatchTeamSummary {
+  id: string;
+  name: string;
+}
+
+export interface YouthMatch {
+  id: string;
+  youthLeagueId: string;
+  season: number;
+  week: number;
+  homeYouthTeamId: string;
+  awayYouthTeamId: string;
+  homeScore: number | null;
+  awayScore: number | null;
+  status:
+    | 'scheduled'
+    | 'tactics_locked'
+    | 'in_progress'
+    | 'completed'
+    | 'cancelled';
+  scheduledAt: string;
+  tacticsLocked: boolean;
+  homeForfeit: boolean;
+  awayForfeit: boolean;
+  startedAt?: string | null;
+  completedAt?: string | null;
+  homeYouthTeam?: YouthMatchTeamSummary;
+  awayYouthTeam?: YouthMatchTeamSummary;
+}
+
+export interface YouthMatchListResponse {
+  items: YouthMatch[];
+  total: number;
+  page: number;
+  limit: number;
+  totalPages: number;
+}
+
+interface YouthTacticsLineupEntry {
+  formation: string;
+  lineup: Record<string, string>;
+  instructions?: Record<string, unknown> | null;
+  substitutions?: unknown[] | null;
+}
+
+export interface YouthTactics {
+  id: string;
+  youthMatchId: string;
+  teamId: string;
+  formation: string;
+  lineup: Record<string, string>;
+  instructions?: Record<string, unknown> | null;
+  substitutions?: unknown[] | null;
+  createdAt: string;
+}
+
+export interface YouthMatchEvent {
+  id: string;
+  youthMatchId: string;
+  minute: number;
+  second: number;
+  type: number;
+  typeName: string;
+  teamId?: string;
+  playerId?: string;
+  relatedPlayerId?: string;
+  phase: string;
+  lane?: string;
+  isHome?: boolean;
+  isRevealed: boolean;
 }
 
 interface Staff {

@@ -8,12 +8,12 @@ import {
   MatchEventEntity,
   PlayerEntity,
   InjuryEntity,
-  YouthPlayerEntity,
+  
   YouthLeagueEntity,
   YouthTeamEntity,
-  YouthMatchEntity,
-  YouthMatchEventEntity,
-  YouthMatchTacticsEntity,
+  
+
+
   TeamEntity,
   ScoutCandidateEntity,
   StaffEntity,
@@ -39,9 +39,9 @@ import { WeatherService } from './weather.service';
 import { InjuryRecoveryService } from './injury-recovery.service';
 import { WeeklySettlementService } from './weekly-settlement.service';
 import { MatchSchedulerService } from './match-scheduler.service';
-import { YouthMatchSchedulerService } from './youth-match-scheduler.service';
+
 import { SeasonSchedulerService } from './season-scheduler.service';
-import { YouthSeasonSchedulerService } from './youth-season-scheduler.service';
+
 import { PromotionRelegationService } from './promotion-relegation.service';
 import { PlayoffService } from './playoff.service';
 import { LeagueAdminService } from './league-admin.service';
@@ -87,12 +87,10 @@ import { NotificationModule } from '../notification/notification.module';
       MatchEventEntity,
       PlayerEntity,
       InjuryEntity,
-      YouthPlayerEntity,
+      
       YouthLeagueEntity,
       YouthTeamEntity,
-      YouthMatchEntity,
-      YouthMatchEventEntity,
-      YouthMatchTacticsEntity,
+      
       TeamEntity,
       ScoutCandidateEntity,
       StaffEntity,
@@ -121,9 +119,9 @@ import { NotificationModule } from '../notification/notification.module';
     InjuryRecoveryService,
     WeeklySettlementService,
     MatchSchedulerService,
-    YouthMatchSchedulerService,
+
     SeasonSchedulerService,
-    YouthSeasonSchedulerService,
+
     PromotionRelegationService,
     PlayoffService,
     LeagueAdminService,
@@ -142,9 +140,9 @@ import { NotificationModule } from '../notification/notification.module';
     InjuryRecoveryService,
     WeeklySettlementService,
     MatchSchedulerService,
-    YouthMatchSchedulerService,
+
     SeasonSchedulerService,
-    YouthSeasonSchedulerService,
+
     PromotionRelegationService,
     PlayoffService,
     LeagueAdminService,

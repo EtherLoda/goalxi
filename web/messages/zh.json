@@ -137,6 +137,106 @@
       "viewingMyTeam": "返回我的球队"
     }
   },
+  "youth": {
+    "squad": {
+      "title": "青训球队",
+      "subtitle": "管理未来之星 — 每个球员都需要时间揭密和成长",
+      "empty": "暂无青训球员。下次球探报告（周六 06:00）后会出现候选。",
+      "totalPlayers": "共 {count} 名球员",
+      "view": {
+        "table": "表格",
+        "cards": "卡片"
+      },
+      "columns": {
+        "name": "姓名",
+        "age": "年龄",
+        "nationality": "国籍",
+        "position": "位置",
+        "potential": "潜力",
+        "revealed": "揭密",
+        "revealLevel": "观察周次",
+        "actions": "操作"
+      },
+      "position": {
+        "GK": "门将",
+        "OUT": "外场"
+      },
+      "potentialLabel": {
+        "LOW": "低潜",
+        "REGULAR": "普通",
+        "HIGH_PRO": "高级",
+        "ELITE": "精英",
+        "LEGEND": "传奇"
+      },
+      "revealProgress": "{current}/{total} 项已揭密",
+      "unrevealed": "未揭密",
+      "viewDetails": "查看详情",
+      "promote": "晋升到一线队",
+      "promoteConfirmTitle": "确认晋升 {name}？",
+      "promoteConfirmBody": "此球员将被转入一线队，青训档案保留。",
+      "promoteDisabledReason": "需要至少 50% 技能被揭密才能晋升",
+      "promoteSuccess": "{name} 已晋升到一线队",
+      "promoteError": "晋升失败",
+      "ability": "能力",
+      "ageDetail": "{years} 岁 {days} 天",
+      "joinedOn": "加入于 {date}"
+    },
+    "matches": {
+      "title": "青训比赛",
+      "tabs": {
+        "upcoming": "即将到来",
+        "thisWeek": "本周",
+        "completed": "已结束"
+      },
+      "tacticsLocked": "战术已锁定",
+      "submitTactics": "提交战术",
+      "noMatches": "暂无比赛",
+      "score": "{home} - {away}",
+      "scheduled": "开赛时间：{time}",
+      "weekRound": "第 {season} 赛季 · 第 {week} 轮",
+      "tactics": {
+        "title": "战术",
+        "formation": "阵型：{formation}",
+        "notSubmitted": "尚未提交",
+        "lineupCount": "首发 {count} 人"
+      },
+      "events": {
+        "title": "比赛事件",
+        "noEvents": "暂无事件",
+        "fog": "事件尚未揭密（你的球队是 {side}）",
+        "home": "主队",
+        "away": "客队"
+      },
+      "viewDetail": "查看详情",
+      "youAreHome": "你方为主队",
+      "youAreAway": "你方为客队",
+      "editor": {
+        "formation": "阵型",
+        "deadline": "战术锁定时间",
+        "minutesLeft": "需在开赛前 {minutes} 分钟提交",
+        "locked": "战术已锁定 — 截止时间已过",
+        "incomplete": "为每个位置选择球员后才能提交。",
+        "duplicatePlayer": "同一球员不能占据多个位置。",
+        "needMorePlayers": "你只有 {have} 名青训球员，至少需要 11 名才能提交战术。"
+      }
+    },
+    "scouts": {
+      "title": "球探报告",
+      "empty": "暂无候选。周六 06:00 自动生成新报告，或前往球探部门派遣任务。",
+      "expiresIn": "{hours} 小时后过期",
+      "select": "签下",
+      "skip": "跳过",
+      "selectConfirmTitle": "签下 {name}？",
+      "selectConfirmBody": "此候选将加入你的青训，开始揭密流程（揭密进度约需 {weeks} 周）。",
+      "nextReport": "下次自动报告：{time}",
+      "abilityTendency": {
+        "physical": "身体素质突出",
+        "technical": "技术能力出色",
+        "mental": "精神素质优异",
+        "balanced": "综合均衡"
+      }
+    }
+  },
   "matches": {
     "title": "比赛",
     "archive": "归档",

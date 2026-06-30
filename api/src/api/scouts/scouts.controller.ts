@@ -3,7 +3,7 @@ import {
   ScoutCandidateEntity,
   TeamEntity,
   Uuid,
-  YouthPlayerEntity,
+  PlayerEntity,
   getYouthSkillKeys,
 } from '@goalxi/database';
 import { Controller, ForbiddenException, Get, Param, Post, UseGuards } from '@nestjs/common';
@@ -121,7 +121,10 @@ function mapCandidateToDto(c: ScoutCandidateEntity): ScoutCandidateDto {
   };
 }
 
-function mapYouthToDto(y: YouthPlayerEntity): YouthPlayerDto {
+function mapYouthToDto(y: PlayerEntity): YouthPlayerDto {
+  // After RFC 0001 there is no separate YouthPlayerEntity; the player
+  // is a PlayerEntity row with `isYouth = true`. We translate the
+  // shape into the youth DTO (kept for frontend compatibility).
   return {
     id: y.id,
     name: y.name,
@@ -129,14 +132,28 @@ function mapYouthToDto(y: YouthPlayerEntity): YouthPlayerDto {
     createdDay: y.createdDay,
     nationality: y.nationality,
     isGoalkeeper: y.isGoalkeeper,
-    potentialTier: y.potentialTier,
+    // [RFC 0001] `potential_tier` was removed from `player` in migration
+    // 1718000000000. We derive the tier from `potentialAbility` so the
+    // frontend keeps working without an extra DB column.
+    potentialTier: derivePotentialTier(y.potentialAbility),
     potentialRevealed: y.potentialRevealed,
-    abilities: y.abilities,
+    abilities:
+      (y.currentSkills as any)?.abilities ?? undefined,
     revealLevel: y.revealLevel,
     revealedSkills: y.revealedSkills,
-    isPromoted: y.isPromoted,
-    joinedAt: y.joinedAt.toISOString(),
+    isPromoted: false,
+    joinedAt: y.createdAt
+      ? new Date(y.createdAt as any).toISOString()
+      : new Date().toISOString(),
   };
+}
+
+function derivePotentialTier(pa: number): string {
+  if (pa >= 91) return 'LEGEND';
+  if (pa >= 81) return 'ELITE';
+  if (pa >= 71) return 'HIGH_PRO';
+  if (pa >= 56) return 'REGULAR';
+  return 'LOW';
 }
 
 /** Age derived from `createdDay`: floor((currentGameDay - createdDay) / 112). */

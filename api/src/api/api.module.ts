@@ -14,6 +14,7 @@ import { NotificationModule } from './notification/notification.module';
 import { PlayerEventModule } from './player-event/player-event.module';
 import { PlayerModule } from './player/player.module';
 import { ScoutsModule } from './scouts/scouts.module';
+
 import { SearchModule } from './search/search.module';
 import { StadiumModule } from './stadium/stadium.module';
 import { StaffsModule } from './staffs/staffs.module';
@@ -23,8 +24,7 @@ import { TeamModule } from './team/team.module';
 import { TrainingModule } from './training/training.module';
 import { TransferModule } from './transfer/transfer.module';
 import { UserModule } from './user/user.module';
-import { YouthMatchModule } from './youth-match/youth-match.module';
-import { YouthModule } from './youth/youth.module';
+
 
 @Module({
   imports: [
@@ -40,8 +40,6 @@ import { YouthModule } from './youth/youth.module';
     MatchLiveModule,
     StatsModule,
     InjuryModule,
-    YouthModule,
-    YouthMatchModule,
     ScoutsModule,
     SearchModule,
     StaffsModule,

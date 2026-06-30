@@ -29,8 +29,10 @@ import { ListTeamReqDto } from './dto/list-team.req.dto';
 import { TeamResDto } from './dto/team.res.dto';
 import { UpdateTeamReqDto } from './dto/update-team.req.dto';
 
-import { PlayerEntity } from '@goalxi/database';
+import { PlayerEntity, YouthLeagueEntity, YouthTeamEntity } from '@goalxi/database';
 import { PlayerService } from '../player/player.service';
+import { ScoutsService } from '../scouts/scouts.service';
+
 
 @Injectable()
 export class TeamService {
@@ -38,6 +40,11 @@ export class TeamService {
     private readonly playerService: PlayerService,
     @InjectRepository(StaffEntity)
     private readonly staffRepo: Repository<StaffEntity>,
+    @InjectRepository(YouthTeamEntity)
+    private readonly youthTeamRepo: Repository<YouthTeamEntity>,
+    @InjectRepository(YouthLeagueEntity)
+    private readonly youthLeagueRepo: Repository<YouthLeagueEntity>,
+    private readonly scoutsService: ScoutsService,
   ) {}
 
   async findMany(
@@ -170,7 +177,54 @@ export class TeamService {
     });
     await this.staffRepo.save(fitnessCoach);
 
+    // [Onboarding] Bind a YouthTeam + seed the first batch of scout
+    // candidates so a new manager doesn't have to wait for the weekly
+    // Saturday cron. Both calls are idempotent.
+    await this.ensureYouthTeamForNewTeam(team);
+    try {
+      await this.scoutsService.generateThreeCandidates(team.id);
+    } catch (err) {
+      console.warn(
+        `[TeamService.create] Failed to seed initial scout candidates for team ${team.id}:`,
+        err,
+      );
+    }
+
     return this.mapToResDto(team);
+  }
+
+  /**
+   * Idempotent helper: ensure a `YouthTeam` row exists for the given
+   * senior team, bound to a (lazily-created) default youth league.
+   * Inlined here to avoid a circular dep on the deleted youth module.
+   */
+  private async ensureYouthTeamForNewTeam(
+    team: Pick<TeamEntity, 'id' | 'name'>,
+  ): Promise<void> {
+    const existing = await this.youthTeamRepo.findOne({
+      where: { teamId: team.id },
+    });
+    if (existing) return;
+
+    let league = await this.youthLeagueRepo.findOne({
+      where: { name: 'Youth Academy League' },
+    });
+    if (!league) {
+      league = this.youthLeagueRepo.create({
+        name: 'Youth Academy League',
+        parentTier: 1,
+        maxTeams: 9999,
+        status: 'active',
+      });
+      league = await this.youthLeagueRepo.save(league);
+    }
+
+    const youthTeam = this.youthTeamRepo.create({
+      teamId: team.id,
+      youthLeagueId: league.id,
+      name: `${team.name} Youth`,
+    });
+    await this.youthTeamRepo.save(youthTeam);
   }
 
   async update(id: Uuid, reqDto: UpdateTeamReqDto): Promise<TeamResDto> {

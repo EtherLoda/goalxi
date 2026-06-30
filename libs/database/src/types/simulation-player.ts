@@ -6,7 +6,6 @@
  */
 
 import { PlayerEntity } from '../entities/player.entity';
-import { YouthPlayerEntity } from '../entities/youth-player.entity';
 
 // Field path: how to access each attribute inside PlayerSkills JSONB
 const FIELD_MAP = {
@@ -167,10 +166,13 @@ export function toSimulationPlayer(entity: PlayerEntity): SimulationPlayer {
 }
 
 /**
- * Convert a YouthPlayerEntity to the flat SimulationPlayer structure.
- * Youth players use default values for stamina/form/experience.
+ * Convert a youth `PlayerEntity` (where `isYouth = true`) to the flat
+ * SimulationPlayer structure. After RFC 0001 there is no separate
+ * YouthPlayerEntity — youth players are PlayerEntity rows that
+ * happen to have `isYouth = true`. The match engine doesn't care
+ * about that flag; it just reads current_skills.
  */
-export function toSimulationYouthPlayer(entity: YouthPlayerEntity): SimulationPlayer {
+export function toSimulationYouthPlayer(entity: PlayerEntity): SimulationPlayer {
     const skills = entity.currentSkills ?? {};
     // Youth exact age is computed from createdDay; no real birthday math.
     const exactAge: [number, number] = entity.getExactAge();

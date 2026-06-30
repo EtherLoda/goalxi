@@ -25,10 +25,10 @@ import {
   TacticsPresetEntity,
   YouthLeagueEntity,
   YouthTeamEntity,
-  YouthMatchEntity,
-  YouthPlayerEntity,
-  YouthMatchEventEntity,
-  YouthMatchTacticsEntity,
+  
+  
+  
+  
   WeatherEntity,
   SessionEntity,
   TransferTransactionEntity,
@@ -85,10 +85,10 @@ export class DatabaseConfigService implements TypeOrmOptionsFactory {
         TacticsPresetEntity,
         YouthLeagueEntity,
         YouthTeamEntity,
-        YouthMatchEntity,
-        YouthPlayerEntity,
-        YouthMatchEventEntity,
-        YouthMatchTacticsEntity,
+        
+        
+        
+        
         WeatherEntity,
         SessionEntity,
         TransferTransactionEntity,

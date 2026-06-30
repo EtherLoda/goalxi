@@ -141,6 +141,24 @@ export class MatchEntity extends AbstractEntity {
     attendance?: number | null;
 
     /**
+     * [RFC 0001] When this is non-null, the match is a youth-league match
+     * (taken over from the dropped `youth_match` table). The senior
+     * `match` table now serves both senior and youth fixtures, with this
+     * column as the discriminator. Combined with the `type` column above
+     * which already includes `'youth_league'`, this is fully redundant;
+     * we keep `youthLeagueId` to preserve the 1:1 mapping to the
+     * `youth_league` table and to make JOINs cheap.
+     */
+    @Column({ name: 'youth_league_id', type: 'uuid', nullable: true })
+    youthLeagueId?: string | null;
+
+    @ManyToOne(() => require('./youth-league.entity').YouthLeagueEntity, {
+      nullable: true,
+    })
+    @JoinColumn({ name: 'youth_league_id' })
+    youthLeague?: any;
+
+    /**
      * Venue where this match is played. For home/away league matches this is
      * the home team's stadium (set by the match scheduler / seed); for
      * neutral-venue fixtures (cup finals, all-star games) it can be any

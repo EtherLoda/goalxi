@@ -141,6 +141,106 @@
       "viewingMyTeam": "View My Team"
     }
   },
+  "youth": {
+    "squad": {
+      "title": "Youth Academy",
+      "subtitle": "Develop the next generation — every player needs time to be revealed",
+      "empty": "No youth players yet. New scout reports arrive Saturdays at 06:00.",
+      "totalPlayers": "{count} players",
+      "view": {
+        "table": "Table",
+        "cards": "Cards"
+      },
+      "columns": {
+        "name": "Name",
+        "age": "Age",
+        "nationality": "Nationality",
+        "position": "Position",
+        "potential": "Potential",
+        "revealed": "Revealed",
+        "revealLevel": "Scout Week",
+        "actions": "Actions"
+      },
+      "position": {
+        "GK": "GK",
+        "OUT": "Outfield"
+      },
+      "potentialLabel": {
+        "LOW": "Low",
+        "REGULAR": "Regular",
+        "HIGH_PRO": "High Pro",
+        "ELITE": "Elite",
+        "LEGEND": "Legend"
+      },
+      "revealProgress": "{current}/{total} revealed",
+      "unrevealed": "Hidden",
+      "viewDetails": "Details",
+      "promote": "Promote to Senior",
+      "promoteConfirmTitle": "Promote {name}?",
+      "promoteConfirmBody": "This player will join your senior squad. The youth record stays.",
+      "promoteDisabledReason": "Need at least 50% of skills revealed first",
+      "promoteSuccess": "{name} promoted to senior squad",
+      "promoteError": "Promotion failed",
+      "ability": "Ability",
+      "ageDetail": "{years} years {days} days",
+      "joinedOn": "Joined {date}"
+    },
+    "matches": {
+      "title": "Youth Matches",
+      "tabs": {
+        "upcoming": "Upcoming",
+        "thisWeek": "This Week",
+        "completed": "Completed"
+      },
+      "tacticsLocked": "Tactics locked",
+      "submitTactics": "Submit Tactics",
+      "noMatches": "No matches",
+      "score": "{home} - {away}",
+      "scheduled": "Kickoff: {time}",
+      "weekRound": "Season {season} · Matchday {week}",
+      "tactics": {
+        "title": "Tactics",
+        "formation": "Formation: {formation}",
+        "notSubmitted": "Not submitted",
+        "lineupCount": "{count} starters"
+      },
+      "events": {
+        "title": "Match Events",
+        "noEvents": "No events",
+        "fog": "Events not revealed (you are the {side})",
+        "home": "Home",
+        "away": "Away"
+      },
+      "viewDetail": "View Details",
+      "youAreHome": "You are the home team",
+      "youAreAway": "You are the away team",
+      "editor": {
+        "formation": "Formation",
+        "deadline": "Tactics lock at",
+        "minutesLeft": "submit {minutes} min before kickoff",
+        "locked": "Tactics are locked — deadline passed",
+        "incomplete": "Assign a player to every position to enable submit.",
+        "duplicatePlayer": "Each player can only be assigned to one position.",
+        "needMorePlayers": "You have {have} youth players but need at least 11 to submit tactics."
+      }
+    },
+    "scouts": {
+      "title": "Scout Reports",
+      "empty": "No candidates. Reports auto-generate Saturdays at 06:00 — or hire scouts and send them on missions.",
+      "expiresIn": "Expires in {hours}h",
+      "select": "Sign",
+      "skip": "Skip",
+      "selectConfirmTitle": "Sign {name}?",
+      "selectConfirmBody": "This candidate joins your academy and starts the reveal process (~{weeks} weeks).",
+      "nextReport": "Next auto-report: {time}",
+      "abilityTendency": {
+        "physical": "Physical standout",
+        "technical": "Technical standout",
+        "mental": "Mental standout",
+        "balanced": "All-round"
+      }
+    }
+  },
   "matches": {
     "title": "Matches",
     "archive": "Archive",

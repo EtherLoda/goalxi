@@ -25,7 +25,7 @@ export class ScoutCandidateEntity extends AbstractEntity {
     @Column({ name: 'team_id', type: 'uuid' })
     teamId!: string;
 
-    @Column({ type: 'jsonb' })
+    @Column({ name: 'player_data', type: 'jsonb' })
     playerData!: ScoutCandidatePlayerData;
 
     /** 赛季末自动清除 */

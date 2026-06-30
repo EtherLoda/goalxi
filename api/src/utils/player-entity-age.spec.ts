@@ -1,9 +1,9 @@
 import { currentGameDay, PlayerEntity } from '@goalxi/database';
 
 describe('PlayerEntity age calculations', () => {
-  // Pin "now" so the test is deterministic — we want age to depend only
-  // on `createdDay`, not on wall-clock time.
-  const TODAY = currentGameDay(new Date('2026-06-29T12:00:00Z'));
+  // Pin "now" to today (2026-06-30) so the test is deterministic — we
+  // want age to depend only on `createdDay`, not on wall-clock time.
+  const TODAY = currentGameDay(new Date('2026-06-30T12:00:00Z'));
 
   it('calculates age in years correctly', () => {
     // Player created 20 years 33 days ago → age should be 20, ageDays 33.

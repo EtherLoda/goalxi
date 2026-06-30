@@ -119,16 +119,34 @@ export class PlayerEntity extends AbstractEntity {
      * createdDay) / DAYS_PER_YEAR`, which is independent of real-world
      * timezones and produces the same value regardless of when the getter
      * is called within the same real day.
-     *
-     * Replaces the previous `birthday: Date` field — see migration
-     * `1721000000000-ReplaceBirthdayWithCreatedDay` for the backfill that
-     * preserved the displayed age of existing rows.
      */
     @Column({ name: 'created_day', type: 'int' })
     createdDay!: number;
 
     @Column({ name: 'is_youth', default: false })
     isYouth!: boolean;
+
+    // [RFC 0001] Youth-fog fields — present on every player row.
+    // For senior players, `revealLevel = 0` and `revealedSkills = []`
+    // (effectively no fog). For youth players, these gate visibility
+    // of current/potential skills and the tier badge on the UI.
+    @Column({ name: 'reveal_level', type: 'int', default: 0 })
+    revealLevel!: number;
+
+    @Column({ name: 'revealed_skills', type: 'jsonb', default: () => "'[]'::jsonb" })
+    revealedSkills!: string[];
+
+    @Column({ name: 'potential_revealed', type: 'boolean', default: true })
+    potentialRevealed!: boolean;
+
+    @Column({ name: 'youth_league_id', type: 'uuid', nullable: true })
+    youthLeagueId?: string | null;
+
+    @ManyToOne(() => require('./youth-league.entity').YouthLeagueEntity, {
+      nullable: true,
+    })
+    @JoinColumn({ name: 'youth_league_id' })
+    youthLeague?: any;
 
     /** Days this player has existed in the game world. */
     get daysAlive(): number {
