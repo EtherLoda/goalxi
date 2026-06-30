@@ -186,7 +186,7 @@ export class SimulationProcessor extends WorkerHost {
           ? 'away'
           : 'draw';
     this.jobLog.info(
-      `[Match] result matchId=${matchId} ${match.homeScore}-${match.awayScore} winner=${winner} extraTime=${!!match.hasExtraTime} penalties=${!!match.hasPenaltyShootout}`,
+      `[Match] result matchId=${matchId} ${match.homeScore}-${match.awayScore} winner=${winner} type=${match.type} extraTime=${!!match.hasExtraTime} penalties=${!!match.hasPenaltyShootout}`,
     );
 
     // Create injury notifications for both teams
@@ -724,7 +724,14 @@ export class SimulationProcessor extends WorkerHost {
               isHome: e.teamName ? e.teamName === match.homeTeam.name : null,
               data: { ...e.data, playerName, assistName },
               eventScheduledTime: e.eventScheduledTime,
-              isRevealed: false,
+              // [RFC 0001] Per RFC §4.3 fog is a column on MatchEventEntity
+              // used by the live-match subscription to decide what to
+              // stream to each viewer. Both senior and youth matches
+              // start with isRevealed = true; the GET endpoints fog
+              // individual rows for unauthorized viewers. The player
+              // skill fog (PlayerEntity.revealedSkills) is a separate
+              // concern handled at the API/DTO layer.
+              isRevealed: true,
             } as any;
           }),
         )

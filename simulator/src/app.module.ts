@@ -23,16 +23,14 @@ import {
   PlayerTransactionEntity,
   InjuryEntity,
   StaffEntity,
-  YouthMatchEntity,
-  YouthMatchEventEntity,
-  YouthMatchTacticsEntity,
-  YouthPlayerEntity,
-  YouthTeamEntity,
+  // [RFC 0001] Register YouthLeagueEntity so the MatchEntity → youthLeague
+  // relation can resolve at metadata-build time. The simulator never
+  // queries this table directly; this is purely so TypeORM can
+  // introspect the relation without throwing at boot.
   YouthLeagueEntity,
   PlayerCompetitionStatsEntity,
 } from '@goalxi/database';
 import { SimulationProcessor } from './processor/simulation.processor';
-import { YouthSimulationProcessor } from './processor/youth-simulation.processor';
 import { NotificationModule } from './notification/notification.module';
 
 const isDevelopmentFromEnv = () =>
@@ -58,11 +56,11 @@ const entities = [
   PlayerTransactionEntity,
   InjuryEntity,
   StaffEntity,
-  YouthMatchEntity,
-  YouthMatchEventEntity,
-  YouthMatchTacticsEntity,
-  YouthPlayerEntity,
-  YouthTeamEntity,
+  // [RFC 0001] YouthLeagueEntity is referenced by MatchEntity.youthLeague.
+  // We don't query it directly in the simulator, but TypeORM scans
+  // every relation at boot — without this entry, the simulator
+  // crashes with "Entity metadata for MatchEntity#youthLeague was not
+  // found" before any code runs.
   YouthLeagueEntity,
   PlayerCompetitionStatsEntity,
 ];
@@ -98,9 +96,6 @@ const entities = [
     BullModule.registerQueue({
       name: 'match-simulation',
     }),
-    BullModule.registerQueue({
-      name: 'youth-match-simulation',
-    }),
     TypeOrmModule.forFeature([
       MatchEntity,
       MatchEventEntity,
@@ -111,11 +106,7 @@ const entities = [
       PlayerEventEntity,
       InjuryEntity,
       StaffEntity,
-      YouthMatchEntity,
-      YouthMatchEventEntity,
-      YouthMatchTacticsEntity,
-      YouthPlayerEntity,
-      YouthTeamEntity,
+      YouthLeagueEntity,
       PlayerCompetitionStatsEntity,
     ]),
     NotificationModule,
@@ -136,6 +127,6 @@ const entities = [
       maxFiles: 7,
     }),
   ],
-  providers: [SimulationProcessor, YouthSimulationProcessor],
+  providers: [SimulationProcessor],
 })
 export class AppModule {}
