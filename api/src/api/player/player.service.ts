@@ -11,7 +11,7 @@ import {
   formatPWI,
   isValidDisplayId,
 } from '@goalxi/database';
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, BadRequestException, NotFoundException } from '@nestjs/common';
 import assert from 'assert';
 import { plainToInstance } from 'class-transformer';
 import { v4 as uuidv4 } from 'uuid';
@@ -33,8 +33,15 @@ export class PlayerService {
   ): Promise<OffsetPaginatedDto<PlayerResDto | PlayerPublicResDto>> {
     const query = PlayerEntity.createQueryBuilder('player');
 
-    if (reqDto.teamId) {
-      query.where('player.teamId = :teamId', { teamId: reqDto.teamId });
+    const filters: any = {};
+    if (reqDto.teamId) filters.teamId = reqDto.teamId;
+    // [RFC 0001] ?isYouth=true filters to youth players. When omitted,
+    // returns all (the old /youth-players endpoint behavior is merged
+    // into this one).
+    if (reqDto.isYouth !== undefined) filters.isYouth = reqDto.isYouth;
+
+    if (Object.keys(filters).length > 0) {
+      query.where(filters);
     }
 
     query.orderBy('player.createdAt', 'DESC');
@@ -123,6 +130,31 @@ export class PlayerService {
     assert(id, 'id is required');
     const player = await PlayerEntity.findOneByOrFail({ id });
     await player.softRemove();
+  }
+
+  /**
+   * [RFC 0001] Promote a youth player to the senior squad by flipping
+   * `is_youth = false` and clearing the reveal state. The row stays
+   * the same; no data is copied.
+   *
+   * Gate: at least ceil(50%) of the player's skills must already be
+   * revealed. The promotion itself happens unconditionally if the
+   * gate is met — the gate is what *unlocks* the button on the
+   * frontend.
+   */
+  async promote(id: Uuid): Promise<PlayerResDto> {
+    const player = await PlayerEntity.findOneByOrFail({ id });
+    if (!player.isYouth) {
+      throw new BadRequestException('Player is not a youth player');
+    }
+    player.isYouth = false;
+    player.revealLevel = 0;
+    player.revealedSkills = [];
+    player.potentialRevealed = true;
+    // `youth_league_id` is irrelevant once senior; clear it.
+    player.youthLeagueId = null;
+    await player.save();
+    return this.mapToResDto(player, PlayerResDto);
   }
 
   async generateRandom(

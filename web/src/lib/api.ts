@@ -199,7 +199,10 @@ interface Player {
   name: string;
   displayId?: string;
   nationality?: string;
+  /** [RFC 0001] Replaced by `createdDay`. Kept optional for backward compat. */
   birthday?: string;
+  /** [RFC 0001] Absolute game-day on which the player was created. */
+  createdDay?: number;
   age: number;
   ageDays: number;
   isYouth: boolean;
@@ -214,6 +217,16 @@ interface Player {
   potentialSkills: PlayerSkills;
   potentialAbility: number;
   potentialTier: string;
+  /** [RFC 0001] Optional; legacy field from when youth had a separate
+   *  `isPromoted` boolean. After unification this is always false; the
+   *  player is "youth" iff `isYouth === true`. */
+  isPromoted?: boolean;
+  /** [RFC 0001] Youth academy reveal state. `[]` for senior players. */
+  revealLevel?: number;
+  revealedSkills?: string[];
+  potentialRevealed?: boolean;
+  joinedAt?: string;
+  abilities?: string[];
   experience: number;
   form: number;
   stamina: number;
@@ -303,6 +316,12 @@ interface Match {
   season: number;
   week: number;
   venue: string | null;
+  /** [RFC 0001] Whether the match tactics are locked. */
+  tacticsLocked?: boolean;
+  /** [RFC 0001] Discriminator: league | youth_league | etc. */
+  type?: string;
+  /** [RFC 0001] Youth league id when type === youth_league. */
+  youthLeagueId?: string | null;
 }
 
 interface MatchEvent {
@@ -625,8 +644,39 @@ export const api = {
   },
 
   players: {
+    /**
+     * [RFC 0001] Unified listing with optional filters. The page uses
+     * `{ isYouth: true }` to get the academy roster. With no filters,
+     * returns the team's senior squad (or all players when teamId
+     * is omitted at the api level).
+     */
+    list: async (params?: {
+      teamId?: string;
+      isYouth?: boolean;
+      detailed?: boolean;
+    }): Promise<{ items: Player[]; meta: any }> => {
+      const search = new URLSearchParams();
+      if (params?.teamId) search.set('teamId', params.teamId);
+      if (params?.isYouth !== undefined)
+        search.set('isYouth', String(params.isYouth));
+      if (params?.detailed !== undefined)
+        search.set('detailed', String(params.detailed));
+      search.set('limit', '100');
+      const response = await request<any>(`/players?${search.toString()}`);
+      if (Array.isArray(response)) {
+        return { items: response, meta: {} };
+      }
+      return {
+        items: response.data || response.items || [],
+        meta: response.pagination || response.meta || {},
+      };
+    },
     getById: async (id: string): Promise<Player> => {
       return request<Player>(`/players/${id}`);
+    },
+    /** [RFC 0001] Promotes a youth player to the senior squad. */
+    promote: async (id: string): Promise<Player> => {
+      return request<Player>(`/players/${id}/promote`, { method: 'POST' });
     },
     getByTeam: async (teamId: string, detailed?: boolean): Promise<{ items: Player[]; meta: any }> => {
       const params = new URLSearchParams({ teamId });
@@ -924,26 +974,10 @@ export const api = {
   },
 
   // ---------- Youth academy ----------
-  youthPlayers: {
-    /** List all youth players on the current user's team. */
-    list: async (): Promise<YouthPlayer[]> => {
-      return request<YouthPlayer[]>('/youth-players');
-    },
-    get: async (id: string): Promise<YouthPlayer> => {
-      return request<YouthPlayer>(`/youth-players/${id}`);
-    },
-    /**
-     * Promote a youth player to the senior squad.
-     * Requires ≥ 50% of skills revealed (enforced server-side).
-     */
-    promote: async (id: string): Promise<{ id: string; name: string; teamId: string }> => {
-      return request<{ id: string; name: string; teamId: string }>(
-        `/youth-players/${id}/promote`,
-        { method: 'POST' },
-      );
-    },
-  },
-
+  // [RFC 0001] Youth is no longer a separate endpoint family. Youth
+  // players and matches are reached via the senior endpoints with
+  // `isYouth=true` / `type='youth_league'` filters. Scouts (the
+  // transient candidate report) is independent and stays here.
   scouts: {
     listCandidates: async (): Promise<ScoutCandidate[]> => {
       return request<ScoutCandidate[]>('/scouts/candidates');
@@ -953,54 +987,6 @@ export const api = {
     },
     skipCandidate: async (id: string): Promise<{ success: boolean }> => {
       return request<{ success: boolean }>(`/scouts/${id}/skip`, { method: 'POST' });
-    },
-  },
-
-  youthMatches: {
-    list: async (params?: {
-      youthLeagueId?: string;
-      teamId?: string;
-      season?: number;
-      week?: number;
-      status?: YouthMatch['status'];
-      page?: number;
-      limit?: number;
-    }): Promise<YouthMatchListResponse> => {
-      const search = new URLSearchParams();
-      if (params?.youthLeagueId) search.set('youthLeagueId', params.youthLeagueId);
-      if (params?.teamId) search.set('teamId', params.teamId);
-      if (params?.season) search.set('season', String(params.season));
-      if (params?.week) search.set('week', String(params.week));
-      if (params?.status) search.set('status', params.status);
-      if (params?.page) search.set('page', String(params.page));
-      if (params?.limit) search.set('limit', String(params.limit));
-      const qs = search.toString();
-      return request<YouthMatchListResponse>(`/youth-matches${qs ? `?${qs}` : ''}`);
-    },
-    get: async (id: string): Promise<YouthMatch> => {
-      return request<YouthMatch>(`/youth-matches/${id}`);
-    },
-    getEvents: async (
-      matchId: string,
-    ): Promise<YouthMatchEvent[]> => {
-      return request<YouthMatchEvent[]>(`/youth-matches/${matchId}/events`);
-    },
-    getTactics: async (
-      matchId: string,
-    ): Promise<{
-      homeTactics: YouthTactics | null;
-      awayTactics: YouthTactics | null;
-    }> => {
-      return request(`/youth-matches/${matchId}/tactics`);
-    },
-    submitTactics: async (
-      matchId: string,
-      payload: YouthTacticsLineupEntry & { youthTeamId: string },
-    ): Promise<YouthTactics> => {
-      return request<YouthTactics>(`/youth-matches/${matchId}/tactics`, {
-        method: 'POST',
-        body: JSON.stringify(payload),
-      });
     },
   },
 

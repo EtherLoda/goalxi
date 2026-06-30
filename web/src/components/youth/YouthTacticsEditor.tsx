@@ -14,12 +14,7 @@
 
 import React, { useEffect, useMemo, useState } from "react";
 import { useTranslations } from "next-intl";
-import {
-  api,
-  type YouthMatch,
-  type YouthPlayer,
-  type YouthTactics,
-} from "@/lib/api";
+import { api, type Match, type Player, type Tactics } from "@/lib/api";
 
 type PositionKey = string;
 
@@ -109,13 +104,13 @@ const DEFAULT_FORMATION = "4-3-3";
 const TACTICS_DEADLINE_MIN = 10;
 
 interface Props {
-  match: YouthMatch;
-  /** Which side of the fixture the user controls (so we submit with the right youthTeamId). */
+  match: Match;
+  /** Which side of the fixture the user controls (so we submit with the right teamId). */
   side: "home" | "away";
   /** Initial tactics if the user already submitted some; null otherwise. */
-  initialTactics: YouthTactics | null;
+  initialTactics: Tactics | null;
   /** All youth players on the user's roster. */
-  availablePlayers: YouthPlayer[];
+  availablePlayers: Player[];
   /** Translation hook for "youth.matches" namespace. */
   tMatches: ReturnType<typeof useTranslations>;
   /** Translation hook for "common" namespace (loading/error). */
@@ -203,14 +198,25 @@ export default function YouthTacticsEditor({
     setSubmitting(true);
     setError(null);
     try {
-      // The controller derives the youth team from `dto.youthTeamId`.
-      // For simplicity we send the match's home/away id based on `side`.
-      const youthTeamId =
-        side === "home" ? match.homeYouthTeamId : match.awayYouthTeamId;
-      await api.youthMatches.submitTactics(match.id, {
+      // [RFC 0001] The senior endpoint uses `teamId` (the senior team's
+      // id, which doubles as the youth team id per the migration
+      // backfill). No more separate youthTeamId.
+      const teamId =
+        side === "home" ? match.homeTeamId : match.awayTeamId;
+      await api.matches.submitTactics(match.id, {
         formation,
         lineup,
-        youthTeamId,
+        teamId,
+        // [RFC 0001] Senior SubmitTacticsPayload requires these tactical
+        // dimensions. Youth editor doesn't expose them yet — send
+        // balanced defaults that match the original youth processor's
+        // behaviour.
+        tempo: 'balanced',
+        pitchWidth: 'balanced',
+        defensiveLine: 'mid',
+        substitutions: [],
+        instructions: {},
+        presetId: null,
       });
       onSubmitted?.();
     } catch (err) {
@@ -223,7 +229,7 @@ export default function YouthTacticsEditor({
   // Helper: a player's id -> display name, restricted to those in the
   // available roster (so we can offer them in dropdowns).
   const playersById = useMemo(() => {
-    const map = new Map<string, YouthPlayer>();
+    const map = new Map<string, Player>();
     for (const p of availablePlayers) map.set(p.id, p);
     return map;
   }, [availablePlayers]);
@@ -423,7 +429,7 @@ function PitchGrid({
   formation: string;
   lineup: Record<string, string>;
   positions: Array<{ key: string; label: string }>;
-  availablePlayers: YouthPlayer[];
+  availablePlayers: Player[];
   onChange: (key: string, playerId: string) => void;
   disabled: boolean;
 }) {

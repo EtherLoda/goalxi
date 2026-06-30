@@ -71,4 +71,17 @@ export class PlayerController {
   async remove(@Param('id') id: Uuid): Promise<void> {
     return this.playerService.delete(id);
   }
+
+  /**
+   * [RFC 0001] Promote a youth player to the senior squad.
+   * Flips `is_youth` to false and reveals all skills. The player row
+   * stays the same; no data is copied. Requires the player to have
+   * ≥ 50% skills revealed (server-enforced gate).
+   */
+  @ApiAuth({ summary: 'Promote a youth player to senior squad' })
+  @Post(':id/promote')
+  @ApiOkResponse({ type: PlayerResDto })
+  async promote(@Param('id') id: Uuid): Promise<PlayerResDto> {
+    return this.playerService.promote(id);
+  }
 }

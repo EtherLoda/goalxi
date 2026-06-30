@@ -6,10 +6,10 @@ import { useParams, useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
 import {
   api,
-  type YouthMatch,
-  type YouthMatchEvent,
-  type YouthPlayer,
-  type YouthTactics,
+  type Match,
+  type MatchEvent,
+  type Player,
+  type Tactics,
 } from "@/lib/api";
 import { useAuth } from "@/contexts/AuthContext";
 import YouthTacticsEditor from "@/components/youth/YouthTacticsEditor";
@@ -70,29 +70,29 @@ export default function YouthMatchDetailPage({
   const locale = (routeParams.locale as string) || "en";
   const teamIdParam = search.get("team") ?? team?.id ?? "";
 
-  const [match, setMatch] = useState<YouthMatch | null>(null);
-  const [events, setEvents] = useState<YouthMatchEvent[]>([]);
-  const [homeTactics, setHomeTactics] = useState<YouthTactics | null>(null);
-  const [awayTactics, setAwayTactics] = useState<YouthTactics | null>(null);
-  const [availablePlayers, setAvailablePlayers] = useState<YouthPlayer[]>([]);
+  const [match, setMatch] = useState<Match | null>(null);
+  const [events, setEvents] = useState<MatchEvent[]>([]);
+  const [homeTactics, setHomeTactics] = useState<Tactics | null>(null);
+  const [awayTactics, setAwayTactics] = useState<Tactics | null>(null);
+  const [availablePlayers, setAvailablePlayers] = useState<Player[]>([]);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
     setError(null);
     Promise.all([
-      api.youthMatches.get(params.id),
-      api.youthMatches.getEvents(params.id).catch(() => [] as YouthMatchEvent[]),
-      api.youthMatches.getTactics(params.id).catch(() => ({
+      api.matches.getById(params.id),
+      api.matches.getEvents(params.id).catch(() => ({ events: [] })),
+      api.matches.getTactics(params.id).catch(() => ({
         homeTactics: null,
         awayTactics: null,
       })),
-      api.youthPlayers.list().catch(() => [] as YouthPlayer[]),
+      api.players.getByTeam(team?.id ?? '').then((d) => d.items).catch(() => []),
     ])
       .then(([m, ev, tc, roster]) => {
         if (cancelled) return;
         setMatch(m);
-        setEvents(ev);
+        setEvents(ev.events ?? []);
         setHomeTactics(tc.homeTactics);
         setAwayTactics(tc.awayTactics);
         setAvailablePlayers(roster);
@@ -120,15 +120,15 @@ export default function YouthMatchDetailPage({
 
   const refetchAll = async () => {
     const [m, ev, tc] = await Promise.all([
-      api.youthMatches.get(params.id),
-      api.youthMatches.getEvents(params.id).catch(() => [] as YouthMatchEvent[]),
-      api.youthMatches.getTactics(params.id).catch(() => ({
+      api.matches.getById(params.id),
+      api.matches.getEvents(params.id).catch(() => ({ events: [] })),
+      api.matches.getTactics(params.id).catch(() => ({
         homeTactics: null,
         awayTactics: null,
       })),
     ]);
     setMatch(m);
-    setEvents(ev);
+    setEvents(ev.events ?? []);
     setHomeTactics(tc.homeTactics);
     setAwayTactics(tc.awayTactics);
   };
@@ -160,8 +160,8 @@ export default function YouthMatchDetailPage({
     );
   }
 
-  const home = match.homeYouthTeam?.name ?? "?";
-  const away = match.awayYouthTeam?.name ?? "?";
+  const home = match.homeTeam?.name ?? "?";
+  const away = match.awayTeam?.name ?? "?";
   const finished =
     match.status === "completed" || match.status === "cancelled";
   const cancelled = match.status === "cancelled";
@@ -307,7 +307,7 @@ function TacticsBlock({
 }: {
   label: string;
   side: "home" | "away";
-  tactics: YouthTactics | null;
+  tactics: Tactics | null;
   tTactics: ReturnType<typeof useTranslations>;
 }) {
   if (!tactics) {
@@ -341,12 +341,12 @@ function EventRow({
   away,
   tEvents,
 }: {
-  e: YouthMatchEvent;
+  e: MatchEvent;
   home: string;
   away: string;
   tEvents: ReturnType<typeof useTranslations>;
 }) {
-  if (!e.isRevealed) {
+  if (!(e as any).isRevealed) {
     return (
       <li className="flex items-center gap-3 p-2 rounded-lg bg-[#001e17]/40">
         <span className="w-7 h-7 rounded-full bg-[#2f4e44]/30 flex items-center justify-center">

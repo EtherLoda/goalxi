@@ -4,7 +4,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useParams, useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
-import { api, type YouthPlayer, type User } from "@/lib/api";
+import { api, type Player, type User } from "@/lib/api";
 import { useAuth } from "@/contexts/AuthContext";
 
 /** Skill keys total per player type — used to compute reveal progress. */
@@ -32,11 +32,11 @@ const GK_KEYS = [
   "penalties",
 ];
 
-function getExpectedKeyCount(p: YouthPlayer): number {
+function getExpectedKeyCount(p: Player): number {
   return p.isGoalkeeper ? GK_KEYS.length : OUTFIELD_KEYS.length;
 }
 
-function getRequiredRevealCount(p: YouthPlayer): number {
+function getRequiredRevealCount(p: Player): number {
   // Promotion gate is ceil(50% of expected keys) — see YouthController.promote.
   return Math.ceil(getExpectedKeyCount(p) * 0.5);
 }
@@ -63,10 +63,10 @@ export default function YouthSquadPage() {
   const teamIdFromQuery = search.get("team");
   const viewTeamId = teamIdFromQuery; // future: when viewing another team
 
-  const [players, setPlayers] = useState<YouthPlayer[] | null>(null);
+  const [players, setPlayers] = useState<Player[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [view, setView] = useState<ViewMode>("table");
-  const [promoting, setPromoting] = useState<YouthPlayer | null>(null);
+  const [promoting, setPromoting] = useState<Player | null>(null);
   const [toast, setToast] = useState<{
     kind: "success" | "error";
     text: string;
@@ -85,10 +85,10 @@ export default function YouthSquadPage() {
     // user is sufficient. If we're viewing another team's squad we still
     // hit the endpoint; the backend would currently return 403 — for now we
     // degrade gracefully and show "no players".
-    api.youthPlayers
-      .list()
+    api.players
+      .list({ isYouth: true })
       .then((data) => {
-        if (!cancelled) setPlayers(data);
+        if (!cancelled) setPlayers(data.items);
       })
       .catch((err) => {
         if (!cancelled) {
@@ -107,8 +107,8 @@ export default function YouthSquadPage() {
     return [...players].sort((a, b) => {
       // Active youth first, then by reveal progress desc, then by potential tier desc, then by joinedAt desc.
       if (a.isPromoted !== b.isPromoted) return a.isPromoted ? 1 : -1;
-      const pa = a.revealedSkills.length / Math.max(1, getExpectedKeyCount(a));
-      const pb = b.revealedSkills.length / Math.max(1, getExpectedKeyCount(b));
+      const pa = (a.revealedSkills ?? []).length / Math.max(1, getExpectedKeyCount(a));
+      const pb = (b.revealedSkills ?? []).length / Math.max(1, getExpectedKeyCount(b));
       if (pa !== pb) return pb - pa;
       const tierOrder: Record<string, number> = {
         LEGEND: 5,
@@ -124,15 +124,15 @@ export default function YouthSquadPage() {
     });
   }, [players]);
 
-  const handlePromote = async (p: YouthPlayer) => {
+  const handlePromote = async (p: Player) => {
     setPromoting(p);
     setToast(null);
     try {
-      await api.youthPlayers.promote(p.id);
+      await api.players.promote(p.id);
       setToast({ kind: "success", text: t("promoteSuccess", { name: p.name }) });
-      // Refresh list — promoted player disappears from /youth-players.
-      const fresh = await api.youthPlayers.list();
-      setPlayers(fresh);
+      // Refresh list — promoted player disappears from /youth (isYouth=true filter).
+      const fresh = await api.players.list({ isYouth: true });
+      setPlayers(fresh.items);
     } catch (err) {
       setToast({
         kind: "error",
@@ -270,7 +270,7 @@ function PlayerMeta({
   p,
   tPot,
 }: {
-  p: YouthPlayer;
+  p: Player;
   tPot: ReturnType<typeof useTranslations>;
 }) {
   const tier = p.potentialTier;
@@ -290,11 +290,11 @@ function RevealProgressBar({
   p,
   t,
 }: {
-  p: YouthPlayer;
+  p: Player;
   t: ReturnType<typeof useTranslations>;
 }) {
   const total = getExpectedKeyCount(p);
-  const cur = p.revealedSkills.length;
+  const cur = (p.revealedSkills ?? []).length;
   const pct = total > 0 ? (cur / total) * 100 : 0;
   const ready = cur >= getRequiredRevealCount(p);
   return (
@@ -326,7 +326,7 @@ function AgeCell({
   p,
   t,
 }: {
-  p: YouthPlayer;
+  p: Player;
   t: ReturnType<typeof useTranslations>;
 }) {
   return (
@@ -352,11 +352,11 @@ function TableView({
   t: ReturnType<typeof useTranslations>;
   tPos: ReturnType<typeof useTranslations>;
   tPot: ReturnType<typeof useTranslations>;
-  players: YouthPlayer[];
+  players: Player[];
   isOwnTeam: boolean;
   locale: string;
-  promoting: YouthPlayer | null;
-  onPromote: (p: YouthPlayer) => void;
+  promoting: Player | null;
+  onPromote: (p: Player) => void;
 }) {
   return (
     <div className="bg-[#00251c]/60 rounded-2xl border border-white/5 overflow-hidden">
@@ -378,7 +378,7 @@ function TableView({
           {players.map((p) => {
             const canPromote =
               isOwnTeam &&
-              p.revealedSkills.length >= getRequiredRevealCount(p) &&
+              (p.revealedSkills ?? []).length >= getRequiredRevealCount(p) &&
               !p.isPromoted;
             return (
               <tr
@@ -438,18 +438,18 @@ function CardsView({
   t: ReturnType<typeof useTranslations>;
   tPos: ReturnType<typeof useTranslations>;
   tPot: ReturnType<typeof useTranslations>;
-  players: YouthPlayer[];
+  players: Player[];
   isOwnTeam: boolean;
   locale?: string;
-  promoting: YouthPlayer | null;
-  onPromote: (p: YouthPlayer) => void;
+  promoting: Player | null;
+  onPromote: (p: Player) => void;
 }) {
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
       {players.map((p) => {
         const canPromote =
           isOwnTeam &&
-          p.revealedSkills.length >= getRequiredRevealCount(p) &&
+          (p.revealedSkills ?? []).length >= getRequiredRevealCount(p) &&
           !p.isPromoted;
         return (
           <article
@@ -509,9 +509,9 @@ function PromoteButton({
   onClick,
   t,
 }: {
-  p: YouthPlayer;
+  p: Player;
   canPromote: boolean;
-  promoting: YouthPlayer | null;
+  promoting: Player | null;
   onClick: () => void;
   t: ReturnType<typeof useTranslations>;
 }) {

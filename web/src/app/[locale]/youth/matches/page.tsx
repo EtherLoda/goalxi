@@ -4,7 +4,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useParams, useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
-import { api, type YouthMatch } from "@/lib/api";
+import { api, type Match } from "@/lib/api";
 import { useAuth } from "@/contexts/AuthContext";
 
 type TabKey = "upcoming" | "thisWeek" | "completed";
@@ -20,17 +20,17 @@ export default function YouthMatchesPage() {
   const viewTeamId = search.get("team");
   const isOwnTeam = !viewTeamId || viewTeamId === team?.id;
 
-  const [all, setAll] = useState<YouthMatch[] | null>(null);
+  const [all, setAll] = useState<Match[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [tab, setTab] = useState<TabKey>("upcoming");
 
   useEffect(() => {
     let cancelled = false;
     setError(null);
-    api.youthMatches
-      .list({ limit: 50, teamId: viewTeamId ?? undefined })
+    api.matches
+      .getByTeam(viewTeamId ?? team?.id ?? '', { week: undefined })
       .then((data) => {
-        if (!cancelled) setAll(data.items);
+        if (!cancelled) setAll(data.data ?? []);
       })
       .catch((err) => {
         if (!cancelled) {
@@ -133,13 +133,13 @@ function MatchRow({
   locale,
   teamIdParam,
 }: {
-  m: YouthMatch;
+  m: Match;
   t: ReturnType<typeof useTranslations>;
   locale: string;
   teamIdParam: string;
 }) {
-  const home = m.homeYouthTeam?.name ?? "?";
-  const away = m.awayYouthTeam?.name ?? "?";
+  const home = m.homeTeam?.name ?? "?";
+  const away = m.awayTeam?.name ?? "?";
   const finished = m.status === "completed" || m.status === "cancelled";
   const cancelled = m.status === "cancelled";
 

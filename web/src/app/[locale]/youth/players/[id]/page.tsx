@@ -4,7 +4,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
-import { api, type YouthPlayer } from "@/lib/api";
+import { api, type Player } from "@/lib/api";
 import { useAuth } from "@/contexts/AuthContext";
 
 const OUTFIELD_KEYS = [
@@ -57,11 +57,11 @@ const POTENTIAL_TIER_COLOR: Record<string, string> = {
   LEGEND: "text-[#a78bfa] bg-[#a78bfa]/10",
 };
 
-function getExpectedKeys(p: YouthPlayer): string[] {
+function getExpectedKeys(p: Player): string[] {
   return p.isGoalkeeper ? GK_KEYS : OUTFIELD_KEYS;
 }
 
-function getRequiredRevealCount(p: YouthPlayer): number {
+function getRequiredRevealCount(p: Player): number {
   return Math.ceil(getExpectedKeys(p).length * 0.5);
 }
 
@@ -78,7 +78,7 @@ export default function YouthPlayerDetailPage({
   const { team } = useAuth();
 
   const locale = (routeParams.locale as string) || "en";
-  const [player, setPlayer] = useState<YouthPlayer | null>(null);
+  const [player, setPlayer] = useState<Player | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [promoting, setPromoting] = useState(false);
   const [toast, setToast] = useState<{
@@ -91,8 +91,8 @@ export default function YouthPlayerDetailPage({
   useEffect(() => {
     let cancelled = false;
     setError(null);
-    api.youthPlayers
-      .get(params.id)
+    api.players
+      .getById(params.id)
       .then((data) => {
         if (!cancelled) setPlayer(data);
       })
@@ -110,7 +110,7 @@ export default function YouthPlayerDetailPage({
     if (!player) return false;
     return (
       !player.isPromoted &&
-      player.revealedSkills.length >= getRequiredRevealCount(player)
+      (player.revealedSkills?.length ?? 0) >= getRequiredRevealCount(player)
     );
   }, [player]);
 
@@ -119,7 +119,7 @@ export default function YouthPlayerDetailPage({
     setPromoting(true);
     setToast(null);
     try {
-      await api.youthPlayers.promote(player.id);
+      await api.players.promote(player.id);
       setToast({
         kind: "success",
         text: t("promoteSuccess", { name: player.name }),
@@ -158,7 +158,7 @@ export default function YouthPlayerDetailPage({
   const expectedKeys = getExpectedKeys(player);
   const requiredCount = getRequiredRevealCount(player);
   const total = expectedKeys.length;
-  const revealedCount = player.revealedSkills.length;
+  const revealedCount = player.revealedSkills?.length ?? 0;
   const tier = player.potentialTier;
   const tierClass = tier
     ? POTENTIAL_TIER_COLOR[tier] ?? POTENTIAL_TIER_COLOR.LOW
@@ -187,9 +187,11 @@ export default function YouthPlayerDetailPage({
           <p className="mt-2 text-sm text-[#91b2a6] font-space">
             {player.nationality ?? "—"} ·{" "}
             {player.isGoalkeeper ? tPos("GK") : tPos("OUT")} · age{" "}
-            {player.age} · {t("joinedOn", {
-              date: new Date(player.joinedAt).toLocaleDateString(locale),
-            })}
+            {player.age} ·{" "}
+            {player.joinedAt &&
+              t("joinedOn", {
+                date: new Date(player.joinedAt).toLocaleDateString(locale),
+              })}
           </p>
           {player.abilities && player.abilities.length > 0 && (
             <div className="mt-3 flex flex-wrap gap-1.5">
@@ -275,12 +277,12 @@ export default function YouthPlayerDetailPage({
         </h2>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
           {expectedKeys.map((key) => {
-            const isRevealed = player.revealedSkills.includes(key);
+            const isRevealed = (player.revealedSkills ?? []).includes(key);
             const cur = isRevealed
-              ? player.currentSkills?.[key]
+              ? (player.currentSkills as any)?.[key]
               : undefined;
             const pot = isRevealed
-              ? player.potentialSkills?.[key]
+              ? (player.potentialSkills as any)?.[key]
               : undefined;
             const label =
               SKILL_LABEL[key]?.[locale === "zh" ? "zh" : "en"] ?? key;

@@ -23,6 +23,7 @@ import {
   PlayerTransactionEntity,
   InjuryEntity,
   StaffEntity,
+  StadiumEntity,
   // [RFC 0001] Register YouthLeagueEntity so the MatchEntity → youthLeague
   // relation can resolve at metadata-build time. The simulator never
   // queries this table directly; this is purely so TypeORM can
@@ -56,6 +57,12 @@ const entities = [
   PlayerTransactionEntity,
   InjuryEntity,
   StaffEntity,
+  // StadiumEntity is referenced by MatchEntity.stadium (the venue FK added
+  // in migration AddMatchStadiumId). The simulator never queries this table
+  // directly, but TypeORM scans every relation at boot — without this entry
+  // the simulator crashes with "Entity metadata for MatchEntity#stadium was
+  // not found" before any code runs.
+  StadiumEntity,
   // [RFC 0001] YouthLeagueEntity is referenced by MatchEntity.youthLeague.
   // We don't query it directly in the simulator, but TypeORM scans
   // every relation at boot — without this entry, the simulator
@@ -106,6 +113,7 @@ const entities = [
       PlayerEventEntity,
       InjuryEntity,
       StaffEntity,
+      StadiumEntity,
       YouthLeagueEntity,
       PlayerCompetitionStatsEntity,
     ]),
