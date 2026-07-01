@@ -2,12 +2,11 @@ import { MatchState } from './match-state';
 import { MatchEventType, Zone } from './types';
 import { MatchTacticsEntity } from '@goalxi/database';
 
-/**
- * Generate a random description index (1-4) for variety in commentary
- */
-function getRandomDescriptionIndex(): number {
-  return Math.floor(Math.random() * 4) + 1;
-}
+// NOTE: `descriptionIndex` previously attached a random per-event index here
+// for picking among `commentary.*.tpl_N` templates. The field never crossed
+// any boundary (no entity column, gateway drops it, WS drops it, formatter
+// uses its own djb2 hash for stable variation). Generating it here just
+// produced noise that contradicted the front-end's chosen variation.
 
 export class EventGenerator {
   constructor() {}
@@ -36,7 +35,6 @@ export class EventGenerator {
           teamId: possessionTeamId,
           minute: state.currentTime,
           second: state.currentSecond,
-          descriptionIndex: getRandomDescriptionIndex(),
         };
       } else if (roll < 0.14) {
         return {
@@ -44,7 +42,6 @@ export class EventGenerator {
           teamId: possessionTeamId,
           minute: state.currentTime,
           second: state.currentSecond,
-          descriptionIndex: getRandomDescriptionIndex(),
         };
       } else if (roll < 0.23) {
         return {
@@ -52,7 +49,6 @@ export class EventGenerator {
           teamId: possessionTeamId,
           minute: state.currentTime,
           second: state.currentSecond,
-          descriptionIndex: getRandomDescriptionIndex(),
         };
       } else if (roll < 0.28) {
         return {
@@ -60,7 +56,6 @@ export class EventGenerator {
           teamId: isHomePossession ? state.awayTeamId : state.homeTeamId,
           minute: state.currentTime,
           second: state.currentSecond,
-          descriptionIndex: getRandomDescriptionIndex(),
         };
       } else if (roll < 0.32) {
         return {
@@ -68,7 +63,6 @@ export class EventGenerator {
           teamId: possessionTeamId,
           minute: state.currentTime,
           second: state.currentSecond,
-          descriptionIndex: getRandomDescriptionIndex(),
         };
       } else if (roll < 0.34) {
         return {
@@ -76,7 +70,6 @@ export class EventGenerator {
           teamId: possessionTeamId,
           minute: state.currentTime,
           second: state.currentSecond,
-          descriptionIndex: getRandomDescriptionIndex(),
         };
       }
     } else if (state.ballZone === 'Midfield') {
@@ -87,7 +80,6 @@ export class EventGenerator {
           teamId: possessionTeamId,
           minute: state.currentTime,
           second: state.currentSecond,
-          descriptionIndex: getRandomDescriptionIndex(),
         };
       } else if (roll > 0.8) {
         state.setPossession(
@@ -102,7 +94,6 @@ export class EventGenerator {
             : (state as any).homeTeamId,
           minute: state.currentTime,
           second: state.currentSecond,
-          descriptionIndex: getRandomDescriptionIndex(),
         };
       } else if (roll > 0.6 && roll < 0.7) {
         return {
@@ -112,7 +103,6 @@ export class EventGenerator {
             : (state as any).homeTeamId,
           minute: state.currentTime,
           second: state.currentSecond,
-          descriptionIndex: getRandomDescriptionIndex(),
         };
       } else if (roll > 0.9) {
         return {
@@ -122,7 +112,6 @@ export class EventGenerator {
             : (state as any).homeTeamId,
           minute: state.currentTime,
           second: state.currentSecond,
-          descriptionIndex: getRandomDescriptionIndex(),
         };
       } else if (roll > 0.95) {
         return {
@@ -132,7 +121,6 @@ export class EventGenerator {
             : (state as any).homeTeamId,
           minute: state.currentTime,
           second: state.currentSecond,
-          descriptionIndex: getRandomDescriptionIndex(),
         };
       }
     } else if (state.ballZone === 'Defense') {
@@ -143,7 +131,6 @@ export class EventGenerator {
           teamId: possessionTeamId,
           minute: state.currentTime,
           second: state.currentSecond,
-          descriptionIndex: getRandomDescriptionIndex(),
         };
       } else if (roll > 0.7) {
         state.setPossession(
@@ -158,7 +145,6 @@ export class EventGenerator {
             : (state as any).homeTeamId,
           minute: state.currentTime,
           second: state.currentSecond,
-          descriptionIndex: getRandomDescriptionIndex(),
         };
       } else if (roll > 0.85) {
         return {
@@ -166,7 +152,6 @@ export class EventGenerator {
           teamId: possessionTeamId,
           minute: state.currentTime,
           second: state.currentSecond,
-          descriptionIndex: getRandomDescriptionIndex(),
         };
       } else if (roll > 0.92) {
         return {
@@ -176,7 +161,6 @@ export class EventGenerator {
             : (state as any).homeTeamId,
           minute: state.currentTime,
           second: state.currentSecond,
-          descriptionIndex: getRandomDescriptionIndex(),
         };
       }
     }
@@ -186,7 +170,7 @@ export class EventGenerator {
 }
 
 /**
- * Generate kickoff/period start events with descriptionIndex
+ * Generate kickoff/period start events
  */
 export function generatePeriodStartEvent(
   type: MatchEventType,
@@ -195,12 +179,10 @@ export function generatePeriodStartEvent(
   awayTeamName: string,
   period: 'first_half' | 'second_half' | 'extra_time' | 'penalty',
 ): any {
-  const descriptionIndex = getRandomDescriptionIndex();
   return {
     type,
     minute,
     second: 0,
-    descriptionIndex,
     data: {
       homeTeam: homeTeamName,
       awayTeam: awayTeamName,
@@ -217,12 +199,10 @@ export function generateLineupEvent(
   teamName: string,
   players: Array<{ name: string; position: string; shirtNumber: number }>,
 ): any {
-  const descriptionIndex = getRandomDescriptionIndex();
   return {
     type: MatchEventType.MATCH_START,
     minute,
     second: 0,
-    descriptionIndex,
     teamName,
     data: {
       players,
@@ -240,7 +220,6 @@ export function generateWeatherAnnouncementEvent(
   homeTeam: string,
   awayTeam: string,
 ): any {
-  const descriptionIndex = getRandomDescriptionIndex();
   // Format weather for display
   const weatherDisplay = weather
     .split('_')
@@ -251,7 +230,6 @@ export function generateWeatherAnnouncementEvent(
     type: MatchEventType.WEATHER_ANNOUNCEMENT,
     minute,
     second: 0,
-    descriptionIndex,
     teamId: undefined, // Neutral event
     data: {
       weather: weatherDisplay,
@@ -272,13 +250,10 @@ export function generatePlayerIntroductionEvent(
   homePlayers: Array<{ name: string; position: string }>,
   awayPlayers: Array<{ name: string; position: string }>,
 ): any {
-  const descriptionIndex = getRandomDescriptionIndex();
-
   return {
     type: MatchEventType.PLAYER_INTRODUCTION,
     minute,
     second: 0,
-    descriptionIndex,
     teamId: undefined, // Neutral event
     data: {
       homeTeam,
@@ -297,12 +272,10 @@ export function generateForfeitEvent(
   forfeitingTeamName: string,
   winnerName: string,
 ): any {
-  const descriptionIndex = getRandomDescriptionIndex();
   return {
     type: MatchEventType.FORFEIT,
     minute,
     second: 0,
-    descriptionIndex,
     teamId: undefined, // Neutral event
     data: {
       forfeitingTeam: forfeitingTeamName,
