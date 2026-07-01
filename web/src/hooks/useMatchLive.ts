@@ -2,17 +2,26 @@
 
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { io, Socket } from 'socket.io-client';
+import type { MatchEvent as ApiMatchEvent } from '@/lib/api';
 
-export interface MatchEvent {
-  type: string;
-  matchId: string;
-  minute: number;
-  teamId?: string;
-  playerId?: string;
-  playerName?: string;
-  data?: any;
+/**
+ * [WAVE B4] WebSocket-side `MatchEvent` shape.
+ *
+ * Identical to `@/lib/api`'s `MatchEvent` (the entity-rest DTO) plus two
+ * transport-only fields the gateway emits: `eventScheduledTime` (reveal
+ * timestamp in ms, used for sorting) and `playerName` (denormalized from
+ * `data.playerName` at write time, no need for the client to look it up).
+ *
+ * `second` stays optional — the simulator never persists sub-minute data, so
+ * the gateway doesn't emit it. `id` is required because the gateway now
+ * forwards the entity UUID (Phase 1) which the formatter hashes for
+ * deterministic tpl_* variation.
+ */
+export type MatchEvent = Omit<ApiMatchEvent, 'second'> & {
+  second?: number;
   eventScheduledTime?: number;
-}
+  playerName?: string;
+};
 
 export interface MatchState {
   matchId: string;
@@ -43,6 +52,42 @@ export type ConnectionStatus = 'disconnected' | 'connecting' | 'connected';
 
 const WS_URL = process.env.NEXT_PUBLIC_WS_URL || 'http://localhost:3000';
 
+/**
+ * Stable composite key used to dedupe live events across reconnect/replay.
+ *
+ * Same tuple used by `commentary.ts`'s hash fallback for tpl_* variation,
+ * so the formatter and the in-memory store agree on identity. Exposed here
+ * (instead of inlined) so a unit spec can lock the contract.
+ */
+export function matchEventKey(event: MatchEvent): string {
+  return `${event.type}-${event.minute}-${event.playerId ?? ''}-${event.teamId ?? ''}`;
+}
+
+/**
+ * Merge an existing event list with newly-revealed events, dedupe by the
+ * composite key (last write wins), and return sorted by `eventScheduledTime`
+ * when both sides carry it, otherwise by `minute` ascending. Exported for
+ * unit testing the dedupe + sort invariants without spinning up a socket.
+ */
+export function mergeAndSortMatchEvents(
+  existing: MatchEvent[],
+  incoming: MatchEvent[],
+): MatchEvent[] {
+  const map = new Map<string, MatchEvent>();
+  for (const event of existing) {
+    map.set(matchEventKey(event), event);
+  }
+  for (const event of incoming) {
+    map.set(matchEventKey(event), event);
+  }
+  return Array.from(map.values()).sort((a, b) => {
+    if (a.eventScheduledTime && b.eventScheduledTime) {
+      return a.eventScheduledTime - b.eventScheduledTime;
+    }
+    return a.minute - b.minute;
+  });
+}
+
 interface UseMatchLiveOptions {
   matchId: string;
   token?: string | null;
@@ -65,8 +110,6 @@ export function useMatchLive({
   // Use a ref to track the current socket so callbacks don't need socket as a dep
   const socketRef = useRef<Socket | null>(null);
   const eventsRef = useRef<Map<string, MatchEvent>>(new Map());
-  const reconnectAttemptsRef = useRef(0);
-  const maxReconnectAttempts = 5;
 
   const connect = useCallback(() => {
     if (socketRef.current?.connected) return;
@@ -74,11 +117,15 @@ export function useMatchLive({
     setConnectionStatus('connecting');
     setError(null);
 
+    // Socket.io handles reconnection cadence internally
+    // (`reconnectionAttempts: maxReconnectAttempts`). No client-side counter
+    // needed — leaving the UI with a stale "Reconnecting…" pill until the
+    // status flips is fine; socket.io's transport hides transient failures.
     const newSocket = io(`${WS_URL}/matches`, {
       auth: { token: token || undefined },
       transports: ['websocket', 'polling'],
       reconnection: true,
-      reconnectionAttempts: maxReconnectAttempts,
+      reconnectionAttempts: 5,
       reconnectionDelay: 1000,
       reconnectionDelayMax: 5000,
     });
@@ -86,7 +133,6 @@ export function useMatchLive({
     newSocket.on('connect', () => {
       setConnectionStatus('connected');
       setError(null);
-      reconnectAttemptsRef.current = 0;
 
       // Join the match room
       newSocket.emit('join_match', { matchId });
@@ -99,7 +145,6 @@ export function useMatchLive({
     newSocket.on('connect_error', (err) => {
       setConnectionStatus('disconnected');
       setError(`Connection error: ${err.message}`);
-      reconnectAttemptsRef.current++;
     });
 
     newSocket.on('error', (data: { message: string }) => {
@@ -111,26 +156,24 @@ export function useMatchLive({
       setMatchState(state);
     });
 
-    // Initial events batch
+    // match_events payload — emitted both on join (initial replay) and on
+    // each 5-second reveal tick. The gateway adds a `timestamp` field on
+    // subsequent ticks; we ignore it (client only cares about events).
     newSocket.on('match_events', (data: { matchId: string; events: MatchEvent[] }) => {
       if (data.events) {
-        const newEvents = new Map(eventsRef.current);
-        for (const event of data.events) {
-          // Use event key to avoid duplicates
-          const eventKey = `${event.type}-${event.minute}-${event.playerId || ''}-${event.teamId || ''}`;
-          newEvents.set(eventKey, event);
-        }
-        eventsRef.current = newEvents;
-        setEvents(Array.from(newEvents.values()).sort((a, b) => {
-          if (a.eventScheduledTime && b.eventScheduledTime) {
-            return a.eventScheduledTime - b.eventScheduledTime;
-          }
-          return a.minute - b.minute;
-        }));
+        const next = mergeAndSortMatchEvents(
+          Array.from(eventsRef.current.values()),
+          data.events,
+        );
+        eventsRef.current = new Map(next.map((e) => [matchEventKey(e), e]));
+        setEvents(next);
       }
     });
 
-    // Score update (incremental)
+    // Score update (incremental). `currentMinute` is monotonic — never let
+    // a stale reconnect-packet or out-of-order `score_update` rewind the
+    // game clock, otherwise `events.filter(e => e.minute <= currentMinute)`
+    // would suppress already-revealed events.
     newSocket.on('score_update', (data: {
       matchId: string;
       homeScore: number;
@@ -143,34 +186,10 @@ export function useMatchLive({
               ...prev,
               homeScore: data.homeScore,
               awayScore: data.awayScore,
-              currentMinute: data.currentMinute,
+              currentMinute: Math.max(prev.currentMinute, data.currentMinute),
             }
           : null,
       );
-    });
-
-    // New events revealed
-    newSocket.on('match_events', (data: {
-      matchId: string;
-      events: MatchEvent[];
-      timestamp?: number;
-    }) => {
-      if (data.events && data.events.length > 0) {
-        const newEvents = new Map(eventsRef.current);
-        for (const event of data.events) {
-          const eventKey = `${event.type}-${event.minute}-${event.playerId || ''}-${event.teamId || ''}`;
-          newEvents.set(eventKey, event);
-        }
-        eventsRef.current = newEvents;
-        setEvents(
-          Array.from(newEvents.values()).sort((a, b) => {
-            if (a.eventScheduledTime && b.eventScheduledTime) {
-              return a.eventScheduledTime - b.eventScheduledTime;
-            }
-            return a.minute - b.minute;
-          }),
-        );
-      }
     });
 
     // Lineup update (5 min before kickoff)
