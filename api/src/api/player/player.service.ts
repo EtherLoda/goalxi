@@ -338,6 +338,7 @@ export class PlayerService {
       age: years,
       ageDays: days,
       isGoalkeeper: player.isGoalkeeper,
+      position: player.position ?? null,
       overall: pwiResult.pwi,
       pwi: pwiResult.pwi,
       pwiDisplay: formatPWI(pwiResult.pwi),

@@ -276,3 +276,79 @@ export function applySpecializedTraining(
         totalPointsSpent: result.totalSpent,
     };
 }
+
+/**
+ * Youth-coach training: same bonus math as `applySpecializedTraining`,
+ * but the coach picks a *category* (e.g. `physical`) and the bonus is
+ * split evenly across every skill in that category instead of dumped
+ * onto a single skill.
+ *
+ * Distribution is per-skill proportional to the per-skill base (so
+ * higher-cost skills get a larger share) — the existing
+ * `distributeTrainingPoints` already walks the upgrade curve
+ * skill-by-skill, so we just call it once per category-skill.
+ *
+ * Returns a merged `TrainingResult` so callers can write a single
+ * `TrainingUpdateEntity` row.
+ */
+export function applyYouthCoachCategoryTraining(
+    playerId: string,
+    age: number,
+    currentSkills: PlayerSkills,
+    potentialSkills: PlayerSkills,
+    isGoalkeeper: boolean,
+    staminaIntensity: number,
+    assignedCoachBonus: number,
+    weeksElapsed: number = 1,
+    category: string,
+    categorySkillKeys: string[],
+): TrainingResult {
+    if (categorySkillKeys.length === 0) {
+        return {
+            playerId,
+            weeklyPoints: 0,
+            skillsGained: [],
+            totalPointsSpent: 0,
+        };
+    }
+
+    const weeklyPoints = calculateSpecializedTrainingPoints(
+        age,
+        staminaIntensity,
+        assignedCoachBonus,
+    );
+    if (weeklyPoints === 0) {
+        return {
+            playerId,
+            weeklyPoints: 0,
+            skillsGained: [],
+            totalPointsSpent: 0,
+        };
+    }
+
+    // Even split — `weeklyPoints` is the per-player weekly total, not
+    // per-skill, so the per-skill share is `total / N`.
+    const totalPoints = (weeklyPoints * weeksElapsed) / categorySkillKeys.length;
+
+    const merged: SkillGain[] = [];
+    let totalSpent = 0;
+
+    for (const skill of categorySkillKeys) {
+        const r = distributeTrainingPoints(
+            currentSkills,
+            potentialSkills,
+            totalPoints,
+            isGoalkeeper,
+            skill,
+        );
+        merged.push(...r.gains);
+        totalSpent += r.totalSpent;
+    }
+
+    return {
+        playerId,
+        weeklyPoints,
+        skillsGained: merged,
+        totalPointsSpent: Math.round(totalSpent * 100) / 100,
+    };
+}

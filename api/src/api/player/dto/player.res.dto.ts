@@ -51,6 +51,10 @@ export class PlayerPublicResDto {
   @Expose()
   isGoalkeeper: boolean;
 
+  @StringFieldOptional({ maxLength: 8 })
+  @Expose()
+  position?: string | null;
+
   @NumberField({ int: true })
   @Expose()
   overall: number;

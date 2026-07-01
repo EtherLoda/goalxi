@@ -15,6 +15,8 @@ export class WeeklySettlementService {
     private conditionQueue: Queue,
     @InjectQueue('construction-settlement')
     private constructionQueue: Queue,
+    @InjectQueue('youth-progression-settlement')
+    private youthProgressionQueue: Queue,
   ) {}
 
   /**
@@ -64,6 +66,19 @@ export class WeeklySettlementService {
       );
       this.logger.info(
         `[WeeklySettlement] Stadium construction settlement job queued! Job ID: ${constructionJob.id}`,
+      );
+
+      // Queue youth-progression settlement. Same cadence as the senior
+      // training tick — youth and senior rosters grow in lockstep so
+      // that a youth's `potential` and `current` curves stay meaningful
+      // when a player is promoted mid-season.
+      const youthJob = await this.youthProgressionQueue.add(
+        'process-all-youth-progression',
+        {},
+        { jobId: `youth-progression-${Date.now()}` },
+      );
+      this.logger.info(
+        `[WeeklySettlement] Youth progression job queued! Job ID: ${youthJob.id}`,
       );
     } catch (error) {
       this.logger.error(

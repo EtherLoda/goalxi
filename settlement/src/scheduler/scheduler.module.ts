@@ -81,6 +81,9 @@ import { NotificationModule } from '../notification/notification.module';
     BullModule.registerQueue({
       name: 'construction-settlement',
     }),
+    BullModule.registerQueue({
+      name: 'youth-progression-settlement',
+    }),
     TypeOrmModule.forFeature([
       MatchEntity,
       MatchTacticsEntity,

@@ -177,6 +177,16 @@ export class PlayerEntity extends AbstractEntity {
     @Column({ name: 'is_goalkeeper', default: false })
     isGoalkeeper!: boolean;
 
+    /**
+     * Formation position the player is recruited for. For senior players
+     * this is null (formation assignment is tactical state, not a
+     * recruiter-facing attribute). For youth players it's the slot
+     * chosen by the scout generator and stays with the player through
+     * promotion.
+     */
+    @Column({ name: 'position', type: 'varchar', length: 8, nullable: true })
+    position?: string | null;
+
     @Column({ name: 'on_transfer', default: false })
     onTransfer!: boolean;
 

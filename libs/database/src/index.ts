@@ -48,6 +48,7 @@ export * from './constants/game.constants';
 export * from './constants/event-types';
 export * from './constants/training.constants';
 export * from './constants/stadium-construction.constants';
+export * from './constants/scout-config';
 export * from './constants/youth-keys.constants';
 export * from './constants/name-database';
 export * from './services/training-calculator';

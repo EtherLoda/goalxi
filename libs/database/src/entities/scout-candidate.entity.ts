@@ -8,6 +8,8 @@ export interface ScoutCandidatePlayerData {
     createdDay: number;
     nationality: string;
     isGoalkeeper: boolean;
+    /** Formation slot the candidate plays (ST/CF/LW/RW/AM/CM/DM/LB/RB/CB/GK). */
+    position?: string;
     currentSkills: PlayerSkills;
     potentialSkills: PlayerSkills;
     abilities?: PlayerAbility[];

@@ -86,6 +86,39 @@ export function getSkillCategory(skillKey: string): string | null {
 }
 
 /**
+ * List of valid youth-coach categories (the values `trainedSkill` may
+ * hold for a YOUTH_COACH staff row). Mirrors `SKILL_CATEGORY_MAP` keys.
+ */
+export const YOUTH_COACH_CATEGORIES = Object.keys(
+    SKILL_CATEGORY_MAP,
+) as Array<keyof typeof SKILL_CATEGORY_MAP>;
+
+/** Type guard for youth-coach category strings. */
+export function isYouthCoachCategory(
+    category: string | null | undefined,
+): category is keyof typeof SKILL_CATEGORY_MAP {
+    if (!category) return false;
+    return (YOUTH_COACH_CATEGORIES as readonly string[]).includes(category);
+}
+
+/**
+ * Return the skill keys belonging to `category` for the given player
+ * type. GK-only keys (`reflexes`/`handling`/`aerial`) are filtered out
+ * for outfield players so we never try to write them onto a row that
+ * has no such field in its `currentSkills.technical` object.
+ */
+export function getCategorySkillKeys(
+    category: string,
+    isGoalkeeper: boolean,
+): string[] {
+    const keys = SKILL_CATEGORY_MAP[category] ?? [];
+    if (isGoalkeeper) return [...keys];
+    return keys.filter(
+        (k) => k !== 'reflexes' && k !== 'handling' && k !== 'aerial',
+    );
+}
+
+/**
  * Get staff role constant name from category name
  */
 export function getCategoryCoachRole(category: string): string {

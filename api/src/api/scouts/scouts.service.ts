@@ -1,6 +1,13 @@
 import {
-  PlayerAbility,
   PlayerEntity,
+  SCOUT_ABILITY_CHANCE,
+  SCOUT_ABILITY_POOL,
+  SCOUT_AGE_RANGE,
+  SCOUT_GOALKEEPER_CHANCE,
+  SCOUT_IMPACT_COEFFICIENTS,
+  SCOUT_OUTFIELD_POSITIONS,
+  SCOUT_POSITION_SKILL_IMPACT,
+  SCOUT_REVEALED_SKILL_COUNT,
   ScoutCandidateEntity,
   ScoutCandidatePlayerData,
   TeamEntity,
@@ -8,6 +15,7 @@ import {
   YouthTeamEntity,
   currentGameDay,
   generateScoutCandidate,
+  getYouthSkillKeys,
 } from '@goalxi/database';
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
@@ -16,105 +24,7 @@ import {
   getRandomNameByNationality,
   getRandomNationality,
 } from '../../constants/name-database';
-
-/** Scout候选人的潜力等级 (5-tier system for scouting) */
-type ScoutTier = 'LOW' | 'REGULAR' | 'HIGH_PRO' | 'ELITE' | 'LEGEND';
-
-const ABILITY_POOL: PlayerAbility[] = [
-  'fast_start',
-  'tackle_master',
-  'long_passer',
-  'cross_specialist',
-  'dribble_master',
-  'header_specialist',
-  'long_shooter',
-];
-
-const OUTFIELD_POSITIONS = [
-  'ST',
-  'CF',
-  'LW',
-  'RW',
-  'AM',
-  'CM',
-  'DM',
-  'LB',
-  'RB',
-  'CB',
-];
-
-// 位置影响力技能分类（每个位置3个高影响力技能）
-// 高影响力: 围绕 potentialAvg 正态分布(stdDev=1.5)
-// 中/低影响力: 围绕 potentialAvg * 系数 正态分布(stdDev=1.5)
-// 系数根据潜力等级决定: ELITE(0.5/0.85), HIGH_PRO(0.65/0.9), REGULAR(0.8/0.95), LOW(0.9/0.98)
-type SkillImpact = 'high' | 'medium' | 'low';
-const POSITION_SKILL_IMPACT: Record<string, Record<SkillImpact, string[]>> = {
-  ST: {
-    high: ['finishing', 'positioning', 'pace'],
-    medium: ['strength', 'composure', 'dribbling'],
-    low: ['passing', 'defending'],
-  },
-  CF: {
-    high: ['finishing', 'positioning', 'strength'],
-    medium: ['pace', 'composure', 'dribbling'],
-    low: ['passing', 'defending'],
-  },
-  LW: {
-    high: ['pace', 'dribbling', 'finishing'],
-    medium: ['passing', 'strength'],
-    low: ['defending', 'composure'],
-  },
-  RW: {
-    high: ['pace', 'dribbling', 'finishing'],
-    medium: ['passing', 'strength'],
-    low: ['defending', 'composure'],
-  },
-  AM: {
-    high: ['dribbling', 'passing', 'finishing'],
-    medium: ['positioning', 'pace'],
-    low: ['defending', 'strength', 'composure'],
-  },
-  CM: {
-    high: ['passing', 'dribbling', 'positioning'],
-    medium: ['composure', 'defending', 'strength'],
-    low: ['finishing', 'pace'],
-  },
-  DM: {
-    high: ['defending', 'positioning', 'passing'],
-    medium: ['dribbling', 'composure', 'strength'],
-    low: ['finishing', 'pace'],
-  },
-  LB: {
-    high: ['defending', 'positioning', 'pace'],
-    medium: ['strength', 'composure', 'passing'],
-    low: ['finishing', 'dribbling'],
-  },
-  RB: {
-    high: ['defending', 'positioning', 'pace'],
-    medium: ['strength', 'composure', 'passing'],
-    low: ['finishing', 'dribbling'],
-  },
-  CB: {
-    high: ['defending', 'positioning', 'strength'],
-    medium: ['pace', 'composure'],
-    low: ['dribbling', 'passing', 'finishing'],
-  },
-  GK: {
-    high: ['reflexes', 'handling'],
-    medium: ['aerial', 'positioning', 'composure'],
-    low: ['pace', 'strength'],
-  },
-};
-
-// 潜力等级对应的中低影响系数
-const IMPACT_COEFFICIENTS: Record<ScoutTier, { medium: number; low: number }> =
-  {
-    LEGEND: { medium: 0.8, low: 0.45 },
-    ELITE: { medium: 0.85, low: 0.5 },
-    HIGH_PRO: { medium: 0.9, low: 0.65 },
-    REGULAR: { medium: 0.95, low: 0.8 },
-    LOW: { medium: 0.98, low: 0.9 },
-  };
+import { calculatePotentialAbility } from '../../utils/player-generator';
 
 /**
  * Generate scout candidate player data via the shared `@goalxi/database`
@@ -134,21 +44,15 @@ function generatePlayerData() {
     algorithm: 'gaussian',
     gaussianMean: 15,
     gaussianStdDev: 2,
-    impactCoefficients: {
-      LEGEND: { medium: 0.8, low: 0.45 },
-      ELITE: { medium: 0.85, low: 0.5 },
-      HIGH_PRO: { medium: 0.9, low: 0.65 },
-      REGULAR: { medium: 0.95, low: 0.8 },
-      LOW: { medium: 0.98, low: 0.9 },
-    },
+    impactCoefficients: SCOUT_IMPACT_COEFFICIENTS,
     currentRatio: [0.5, 0.8],
-    abilityPool: ABILITY_POOL,
-    abilityChance: 0.3,
-    revealedSkillCount: 4,
-    outfieldPositions: OUTFIELD_POSITIONS,
-    positionSkillImpact: POSITION_SKILL_IMPACT,
-    goalkeeperChance: 0.1,
-    ageRange: [15, 16],
+    abilityPool: SCOUT_ABILITY_POOL,
+    abilityChance: SCOUT_ABILITY_CHANCE,
+    revealedSkillCount: SCOUT_REVEALED_SKILL_COUNT,
+    outfieldPositions: SCOUT_OUTFIELD_POSITIONS as unknown as string[],
+    positionSkillImpact: SCOUT_POSITION_SKILL_IMPACT,
+    goalkeeperChance: SCOUT_GOALKEEPER_CHANCE,
+    ageRange: SCOUT_AGE_RANGE,
     pickRandomNationality: getRandomNationality,
     getRandomNameByNationality,
   });
@@ -237,6 +141,33 @@ export class ScoutsService {
     const displayId =
       'x' + crypto.createHash('md5').update(candidate.id).digest('hex').slice(0, 16);
 
+    // Recompute PA from the persisted potential-skills vector so the UI
+    // badge reflects the candidate's *true* potential instead of a
+    // placeholder 50. (See the unified PlayerEntity: potentialAbility
+    // is a denormalized display field.)
+    //
+    // The api-local `calculatePotentialAbility` accepts the looser
+    // `Record<string, number>` `technical` shape, so cast through
+    // `unknown` (the runtime values match the closed union in
+    // `@goalxi/database`; this is purely a TS shape bridge).
+    const potentialAbility = calculatePotentialAbility(
+      playerData.potentialSkills as unknown as Parameters<
+        typeof calculatePotentialAbility
+      >[0],
+      playerData.isGoalkeeper,
+    );
+
+    // revealLevel is a coarse counter; the precise gate lives in
+    // PROMOTION_REVEAL_THRESHOLD. The two must agree: revealLevel
+    // = revealedSkills.length, so the promotion check is
+    //   revealedSkills.length / keys.length >= 0.5
+    // and revealLevel / keys.length >= 0.5. Keeping them aligned here
+    // prevents the UI from showing a "ready to promote" badge that the
+    // server would later reject.
+    const totalKeys = getYouthSkillKeys(playerData.isGoalkeeper).length;
+    const revealed = playerData.revealedSkills ?? [];
+    const revealLevel = Math.min(revealed.length, totalKeys);
+
     const youth = this.playerRepo.create({
       id: candidate.id,
       displayId,
@@ -247,17 +178,18 @@ export class ScoutsService {
       onTransfer: false,
       currentSkills: playerData.currentSkills,
       potentialSkills: playerData.potentialSkills,
+      position: playerData.position ?? null,
       specialty: playerData.abilities?.[0] ?? null,
       experience: 0,
       form: 3,
       stamina: 3,
       matchMinutes: 0,
       currentWage: 2000,
-      potentialAbility: 50,
+      potentialAbility,
       careerStats: {},
       currentInjuryValue: 0,
-      revealLevel: 1,
-      revealedSkills: playerData.revealedSkills,
+      revealLevel,
+      revealedSkills: revealed,
       potentialRevealed: playerData.potentialRevealed,
       potentialTier: playerData.potentialTier,
       createdDay: playerData.createdDay ?? currentGameDay(),
