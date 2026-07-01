@@ -671,6 +671,11 @@ async function updateStandings(
   ds: DataSource,
   match: MatchEntity,
 ): Promise<void> {
+  // Youth-league matches don't update senior LeagueStanding rows —
+  // their standings live on a separate (TBD) table. Bail out if the
+  // match has no senior league id.
+  if (!match.leagueId) return;
+
   const standingRepo = ds.getRepository(LeagueStandingEntity);
 
   const homeStanding = await standingRepo.findOne({

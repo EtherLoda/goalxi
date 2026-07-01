@@ -1,5 +1,6 @@
 import { AbstractEntity } from "./abstract.entity";
-import { Column, Entity, PrimaryGeneratedColumn } from "typeorm";
+import { Column, Entity, PrimaryGeneratedColumn, ManyToOne, JoinColumn } from "typeorm";
+import { LeagueEntity } from "./league.entity";
 
 @Entity("youth_league")
 export class YouthLeagueEntity extends AbstractEntity {
@@ -18,4 +19,16 @@ export class YouthLeagueEntity extends AbstractEntity {
 
   @Column({ type: "varchar", default: "active" })
   status!: string;
+
+  /**
+   * 1:1 link to the parent senior league. Set by
+   * `YouthStructureGenerator` during bootstrap so the schedule
+   * generator can pair the two halves of the pyramid.
+   */
+  @Column({ name: "senior_league_id", type: "uuid", nullable: true })
+  seniorLeagueId?: string | null;
+
+  @ManyToOne(() => LeagueEntity, { nullable: true })
+  @JoinColumn({ name: "senior_league_id" })
+  seniorLeague?: LeagueEntity | null;
 }

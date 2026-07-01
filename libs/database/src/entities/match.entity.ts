@@ -38,7 +38,7 @@ export class MatchEntity extends AbstractEntity {
     id!: string;
 
     @Column({ name: 'league_id', type: 'uuid' })
-    leagueId!: string;
+    leagueId!: string | null;
 
     @ManyToOne(() => LeagueEntity)
     @JoinColumn({ name: 'league_id' })
