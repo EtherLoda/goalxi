@@ -99,10 +99,12 @@ export class MatchLiveScheduler {
           minutesBeforeKickoff > 0 &&
           minutesBeforeKickoff <= LINEUP_VISIBLE_BEFORE_KICKOFF_MINUTES
         ) {
-          // Get tactics (lineup) for both teams
-          const matchEvents = await this.eventRepository.find({
-            where: { matchId: match.id },
-            order: { createdAt: 'ASC' },
+          // Events include kickoff events with player info.
+          // The repository now filters at SQL level: pulling every event for
+          // a 90-minute match just to filter for `kickoff` is wasteful when
+          // we already have a (matchId, phase, minute) composite index.
+          const kickoffEvents = await this.eventRepository.find({
+            where: { matchId: match.id, typeName: 'kickoff' },
           });
 
           // Send lineup to subscribed clients
@@ -118,15 +120,12 @@ export class MatchLiveScheduler {
               logo: (match.awayTeam as any)?.logoUrl,
             },
             scheduledAt: match.scheduledAt,
-            // Events include kickoff events with player info
-            events: matchEvents
-              .filter((e) => e.typeName === 'kickoff')
-              .map((e) => ({
-                minute: e.minute,
-                phase: e.phase,
-                isHome: e.isHome,
-                data: e.data,
-              })),
+            events: kickoffEvents.map((e) => ({
+              minute: e.minute,
+              phase: e.phase,
+              isHome: e.isHome,
+              data: e.data,
+            })),
           });
 
           this.logger.debug(
@@ -215,6 +214,8 @@ export class MatchLiveScheduler {
       playerName: (e.data as any)?.playerName,
       data: e.data,
       eventScheduledTime: e.eventScheduledTime?.getTime(),
+      id: e.id,
+      isHome: e.isHome ?? undefined,
     }));
 
     this.matchLiveGateway.broadcastEvents(matchId, eventPayloads);

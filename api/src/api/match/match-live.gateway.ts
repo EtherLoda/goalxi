@@ -30,6 +30,13 @@ interface MatchEventPayload {
   playerName?: string;
   data?: any;
   eventScheduledTime?: number;
+  /** [WAVE B4] Stable entity UUID — lets the frontend dedupe and key events
+   *  across reconnect / replay without recomputing the legacy composite key. */
+  id?: string;
+  /** [WAVE B4] Backend-authoritative team side, computed at write time by the
+   *  simulator. Frontend should treat this as the source of truth — falling back
+   *  to `teamId` comparisons only when the backend omits it. */
+  isHome?: boolean;
 }
 
 interface MatchStatePayload {
@@ -287,6 +294,8 @@ export class MatchLiveGateway
       playerName: (e.data as any)?.playerName,
       data: e.data,
       eventScheduledTime: e.eventScheduledTime?.getTime(),
+      id: e.id,
+      isHome: e.isHome ?? undefined,
     }));
   }
 
