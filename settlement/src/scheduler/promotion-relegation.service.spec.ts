@@ -9,6 +9,7 @@ import {
   SeasonResultEntity,
   Uuid,
 } from '@goalxi/database';
+import { LOGGER_SERVICE_PROVIDER } from '../test-utils/test-logger';
 
 describe('PromotionRelegationService', () => {
   let service: PromotionRelegationService;
@@ -92,6 +93,7 @@ describe('PromotionRelegationService', () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         PromotionRelegationService,
+        LOGGER_SERVICE_PROVIDER,
         {
           provide: getRepositoryToken(LeagueEntity),
           useValue: mockLeagueRepository,

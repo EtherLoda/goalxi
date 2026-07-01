@@ -7,6 +7,7 @@ import { PlayoffService } from './playoff.service';
 import { SeasonSchedulerService } from './season-scheduler.service';
 import { LeagueStandingService } from './league-standing.service';
 import { SeasonArchiveService } from '../services/season-archive.service';
+import { LOGGER_SERVICE_PROVIDER } from '../test-utils/test-logger';
 import {
   MatchEntity,
   MatchStatus,
@@ -91,6 +92,7 @@ describe('SeasonTransitionService', () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         SeasonTransitionService,
+        LOGGER_SERVICE_PROVIDER,
         {
           provide: getRepositoryToken(MatchEntity),
           useValue: mockMatchRepository,

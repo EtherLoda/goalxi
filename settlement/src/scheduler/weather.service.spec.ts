@@ -3,6 +3,7 @@ import { getRepositoryToken } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { WeatherService } from './weather.service';
 import { WeatherEntity, WeatherType, WeatherForecast } from '@goalxi/database';
+import { LOGGER_SERVICE_PROVIDER } from '../test-utils/test-logger';
 
 describe('WeatherService', () => {
   let service: WeatherService;
@@ -18,6 +19,7 @@ describe('WeatherService', () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         WeatherService,
+        LOGGER_SERVICE_PROVIDER,
         {
           provide: getRepositoryToken(WeatherEntity),
           useValue: mockRepository,

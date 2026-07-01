@@ -13,6 +13,7 @@ import { getRepositoryToken } from '@nestjs/typeorm';
 import { DataSource, Repository } from 'typeorm';
 import { NotificationService } from '../notification/notification.service';
 import { StadiumConstructionProcessor } from './stadium-construction.processor';
+import { LOGGER_SERVICE_PROVIDER } from '../test-utils/test-logger';
 
 describe('StadiumConstructionProcessor', () => {
   let processor: StadiumConstructionProcessor;
@@ -60,6 +61,7 @@ describe('StadiumConstructionProcessor', () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         StadiumConstructionProcessor,
+        LOGGER_SERVICE_PROVIDER,
         {
           provide: getRepositoryToken(StadiumConstructionEntity),
           useValue: {

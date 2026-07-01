@@ -8,6 +8,7 @@ import {
   MatchType,
   LeagueStandingEntity,
 } from '@goalxi/database';
+import { LOGGER_SERVICE_PROVIDER } from '../test-utils/test-logger';
 
 describe('PlayoffService', () => {
   let service: PlayoffService;
@@ -69,6 +70,7 @@ describe('PlayoffService', () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         PlayoffService,
+        LOGGER_SERVICE_PROVIDER,
         {
           provide: getRepositoryToken(MatchEntity),
           useValue: mockMatchRepository,

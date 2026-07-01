@@ -2,6 +2,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { WeatherSchedulerService } from './weather-scheduler.service';
 import { WeatherService } from './weather.service';
 import { WeatherEntity, WeatherType, WeatherForecast } from '@goalxi/database';
+import { LOGGER_SERVICE_PROVIDER } from '../test-utils/test-logger';
 
 describe('WeatherSchedulerService', () => {
   let service: WeatherSchedulerService;
@@ -15,6 +16,7 @@ describe('WeatherSchedulerService', () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         WeatherSchedulerService,
+        LOGGER_SERVICE_PROVIDER,
         {
           provide: WeatherService,
           useValue: mockWeatherService,
@@ -66,7 +68,7 @@ describe('WeatherSchedulerService', () => {
         mockWeather as WeatherEntity,
       );
 
-      const loggerSpy = jest.spyOn(service['logger'], 'log');
+      const loggerSpy = jest.spyOn(service['logger'], 'info');
 
       await service.generateDailyWeather();
 
@@ -91,7 +93,7 @@ describe('WeatherSchedulerService', () => {
         mockWeather as WeatherEntity,
       );
 
-      const loggerSpy = jest.spyOn(service['logger'], 'log');
+      const loggerSpy = jest.spyOn(service['logger'], 'info');
 
       await service.generateDailyWeather();
 
