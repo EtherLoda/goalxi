@@ -73,6 +73,18 @@ export class PlayerController {
   }
 
   /**
+   * [WAVE B2] Release a youth player from the academy. Distinct from
+   * `DELETE /players/:id` — refuses to operate on a senior player so
+   * a UI typo can never dump a contracted first-teamer.
+   */
+  @ApiAuth({ summary: 'Release a youth player from the academy' })
+  @Post(':id/release')
+  @ApiOkResponse({ type: PlayerResDto })
+  async release(@Param('id') id: Uuid): Promise<void> {
+    return this.playerService.releaseYouth(id);
+  }
+
+  /**
    * [RFC 0001] Promote a youth player to the senior squad.
    * Flips `is_youth` to false and reveals all skills. The player row
    * stays the same; no data is copied. Requires the player to have

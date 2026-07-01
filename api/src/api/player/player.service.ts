@@ -5,13 +5,20 @@ import { paginate } from '@/utils/offset-pagination';
 import {
   PlayerEntity,
   PlayerSkills,
+  PROMOTION_REVEAL_THRESHOLD,
   calculatePlayerPWI,
   displayIdFromUuid,
   formatDisplayId,
   formatPWI,
+  getYouthSkillKeys,
   isValidDisplayId,
 } from '@goalxi/database';
-import { Injectable, BadRequestException, NotFoundException } from '@nestjs/common';
+import {
+  Injectable,
+  BadRequestException,
+  ForbiddenException,
+  NotFoundException,
+} from '@nestjs/common';
 import assert from 'assert';
 import { plainToInstance } from 'class-transformer';
 import { v4 as uuidv4 } from 'uuid';
@@ -133,20 +140,51 @@ export class PlayerService {
   }
 
   /**
-   * [RFC 0001] Promote a youth player to the senior squad by flipping
-   * `is_youth = false` and clearing the reveal state. The row stays
-   * the same; no data is copied.
+   * WAVE B2 — release a youth player from the academy. Distinct from
+   * `delete()` (which soft-deletes any player, including senior
+   * roster members): this method enforces `is_youth = true` so an
+   * accidental call can never dump a contracted first-teamer.
    *
-   * Gate: at least ceil(50%) of the player's skills must already be
-   * revealed. The promotion itself happens unconditionally if the
-   * gate is met — the gate is what *unlocks* the button on the
-   * frontend.
+   * Idempotent enough for typical UX: caller hits "release" on a
+   * youth they don't want, the row is soft-deleted (preserved for
+   * transfer history / event log), and the youth_list query hides it.
+   */
+  async releaseYouth(id: Uuid): Promise<void> {
+    const player = await PlayerEntity.findOneByOrFail({ id });
+    if (!player.isYouth) {
+      throw new BadRequestException(
+        'Only youth players can be released; promote or use soft-delete for senior players',
+      );
+    }
+    await player.softRemove();
+  }
+
+  /**
+   * [RFC 0001] Promote a youth player to the senior squad.
+   *
+   * Gate: at least `ceil(PROMOTION_REVEAL_THRESHOLD * total_keys)` of
+   * the player's skills must already be revealed. This is enforced
+   * server-side — the comment's earlier "server-enforced" claim was
+   * aspirational (the check was missing). Curl/Postman cannot promote
+   * a 0-revealed youth any more.
    */
   async promote(id: Uuid): Promise<PlayerResDto> {
     const player = await PlayerEntity.findOneByOrFail({ id });
     if (!player.isYouth) {
       throw new BadRequestException('Player is not a youth player');
     }
+
+    // ---- server-enforced reveal gate (WAVE B1) ----
+    const totalKeys = getYouthSkillKeys(player.isGoalkeeper).length;
+    const revealedCount = player.revealedSkills?.length ?? 0;
+    const required = Math.ceil(PROMOTION_REVEAL_THRESHOLD * totalKeys);
+    if (revealedCount < required) {
+      throw new ForbiddenException(
+        `Not enough skills revealed to promote: ${revealedCount}/${totalKeys} (need ≥ ${required})`,
+      );
+    }
+    // -------------------------------------------------
+
     player.isYouth = false;
     player.revealLevel = 0;
     player.revealedSkills = [];

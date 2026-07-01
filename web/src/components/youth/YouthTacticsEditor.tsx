@@ -103,6 +103,51 @@ const DEFAULT_FORMATION = "4-3-3";
 /** Minutes before kickoff after which the backend locks tactics. */
 const TACTICS_DEADLINE_MIN = 10;
 
+/**
+ * Small toggle-row used for the 3 tactical dimensions (tempo /
+ * pitch width / defensive line). Visually mirrors the formation
+ * picker above so the editor reads as one cohesive block.
+ */
+function TacticalDimensionRow<T extends string>({
+  label,
+  value,
+  options,
+  disabled,
+  onChange,
+}: {
+  label: string;
+  value: T;
+  options: Array<{ value: T; label: string }>;
+  disabled: boolean;
+  onChange: (next: T) => void;
+}) {
+  return (
+    <div>
+      <p className="text-[10px] uppercase tracking-wider font-bold text-[#91b2a6] mb-2">
+        {label}
+      </p>
+      <div className="inline-flex rounded-lg border border-white/5 overflow-hidden flex-wrap">
+        {options.map((o) => (
+          <button
+            key={o.value}
+            type="button"
+            disabled={disabled}
+            aria-pressed={value === o.value}
+            onClick={() => onChange(o.value)}
+            className={
+              value === o.value
+                ? "px-3 py-1.5 bg-[#a1ffc2] text-[#001e17] text-xs font-bold uppercase tracking-wider"
+                : "px-3 py-1.5 text-[#91b2a6] hover:bg-white/5 text-xs font-bold uppercase tracking-wider disabled:opacity-50"
+            }
+          >
+            {o.label}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 interface Props {
   match: Match;
   /** Which side of the fixture the user controls (so we submit with the right teamId). */
@@ -144,6 +189,16 @@ export default function YouthTacticsEditor({
     if (initialTactics) return { ...initialTactics.lineup };
     return {};
   });
+  // [WAVE B4] Tactical dimensions are now user-editable. Initial
+  // values come from existing tactics (if any); otherwise we fall
+  // back to the same balanced defaults the editor used to hardcode.
+  const [tempo, setTempo] = useState(initialTactics?.tempo ?? "balanced");
+  const [pitchWidth, setPitchWidth] = useState(
+    initialTactics?.pitchWidth ?? "balanced",
+  );
+  const [defensiveLine, setDefensiveLine] = useState(
+    initialTactics?.defensiveLine ?? "mid",
+  );
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -207,13 +262,11 @@ export default function YouthTacticsEditor({
         formation,
         lineup,
         teamId,
-        // [RFC 0001] Senior SubmitTacticsPayload requires these tactical
-        // dimensions. Youth editor doesn't expose them yet — send
-        // balanced defaults that match the original youth processor's
-        // behaviour.
-        tempo: 'balanced',
-        pitchWidth: 'balanced',
-        defensiveLine: 'mid',
+        // [WAVE B4] Driven by user-controlled state rather than the
+        // hardcoded balanced/mid defaults the editor used to ship.
+        tempo,
+        pitchWidth,
+        defensiveLine,
         substitutions: [],
         instructions: {},
         presetId: null,
@@ -267,6 +320,47 @@ export default function YouthTacticsEditor({
           ))}
         </div>
       </div>
+
+      {/* [WAVE B4] Tactical dimensions. Mirrors the formation-picker
+       *  styling (button-row toggles). Falls back to "balanced"/"mid"
+       *  state when no `initialTactics` exist, so existing youth
+       *  submissions stay observable. */}
+      <TacticalDimensionRow
+        label={tForm("tempo.label") as string}
+        value={tempo}
+        options={[
+          { value: "slow", label: tForm("tempo.slow") as string },
+          { value: "balanced", label: tForm("tempo.balanced") as string },
+          { value: "fast", label: tForm("tempo.fast") as string },
+        ]}
+        disabled={isLocked}
+        onChange={setTempo}
+      />
+      <TacticalDimensionRow
+        label={tForm("pitchWidth.label") as string}
+        value={pitchWidth}
+        options={[
+          { value: "narrow", label: tForm("pitchWidth.narrow") as string },
+          {
+            value: "balanced",
+            label: tForm("pitchWidth.balanced") as string,
+          },
+          { value: "wide", label: tForm("pitchWidth.wide") as string },
+        ]}
+        disabled={isLocked}
+        onChange={setPitchWidth}
+      />
+      <TacticalDimensionRow
+        label={tForm("defensiveLine.label") as string}
+        value={defensiveLine}
+        options={[
+          { value: "low", label: tForm("defensiveLine.low") as string },
+          { value: "mid", label: tForm("defensiveLine.mid") as string },
+          { value: "high", label: tForm("defensiveLine.high") as string },
+        ]}
+        disabled={isLocked}
+        onChange={setDefensiveLine}
+      />
 
       {/* Position slots — 11 select dropdowns in a CSS pitch layout */}
       <div className="rounded-xl border border-white/5 bg-[#001e17] p-3">

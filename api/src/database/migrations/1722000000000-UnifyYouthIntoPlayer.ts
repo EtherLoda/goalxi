@@ -234,6 +234,12 @@ export class UnifyYouthIntoPlayer1722000000000 implements MigrationInterface {
     //    `youth_team` (1:1 mapping). Players that don't have a
     //    `youth_team` row are skipped — this is the no-youth-team edge
     //    case (e.g. a player from a deleted team).
+    //
+    //    Note: `joined_at` was dropped from the unified `player` by
+    //    migration 1721000000000 (ReplaceBirthdayWithCreatedDay).
+    //    Backfilling with `created_at` is the closest reasonable
+    //    proxy for academy tenure — it's the only available timestamp
+    //    that's monotone per-player.
     await queryRunner.query(`
       INSERT INTO "youth_player" (
         "id", "team_id", "youth_team_id", "name", "nationality",
@@ -260,7 +266,7 @@ export class UnifyYouthIntoPlayer1722000000000 implements MigrationInterface {
         p."potential_revealed",
         COALESCE(p."potential_tier", 'LOW'),
         false,
-        p."joined_at",
+        p."created_at",
         p."created_at",
         p."updated_at"
       FROM "player" p

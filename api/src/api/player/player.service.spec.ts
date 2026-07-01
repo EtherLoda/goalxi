@@ -4,6 +4,7 @@ import { Uuid } from '../../common/types/common.type';
 import { CreatePlayerReqDto } from './dto/create-player.req.dto';
 import { UpdatePlayerReqDto } from './dto/update-player.req.dto';
 import { PlayerService } from './player.service';
+import { ForbiddenException } from '@nestjs/common';
 
 describe('PlayerService', () => {
   let service: PlayerService;
@@ -333,6 +334,191 @@ describe('PlayerService', () => {
     it('throws NotFoundException when the displayId is unknown', async () => {
       (PlayerEntity.findOneBy as jest.Mock).mockResolvedValue(null);
       await expect(service.findOne(VALID_DID)).rejects.toThrow();
+    });
+  });
+
+  describe('promote — server-enforced reveal gate (WAVE B1)', () => {
+    const playerId = '11111111-1111-4111-8111-111111111111';
+
+    // Build a real PlayerEntity-shaped instance (via Object.create so
+    // the prototype chain carries `save`, which the service calls).
+    const emptySkills = {
+      physical: { pace: 0, strength: 0 },
+      technical: { finishing: 0, passing: 0, dribbling: 0, defending: 0 },
+      mental: { positioning: 0, composure: 0 },
+      setPieces: { freeKicks: 0, penalties: 0 },
+    };
+    const youth = (overrides: Partial<PlayerEntity>): PlayerEntity => {
+      const p = Object.create(PlayerEntity.prototype) as PlayerEntity;
+      Object.assign(p, {
+        id: playerId,
+        isYouth: true,
+        isGoalkeeper: false,
+        currentSkills: emptySkills,
+        potentialSkills: emptySkills,
+        revealedSkills: [],
+        ...overrides,
+      });
+      return p;
+    };
+
+    // Each test mocks both the static `findOneByOrFail` (used by
+    // PlayerService.promote) and the prototype `save`.
+    const setup = (player: PlayerEntity) => {
+      jest
+        .spyOn(PlayerEntity, 'findOneByOrFail')
+        .mockResolvedValue(player);
+      jest
+        .spyOn(PlayerEntity.prototype, 'save')
+        .mockImplementation(async function () {
+          return this;
+        });
+    };
+
+    it('rejects a non-youth player outright with 400', async () => {
+      setup(youth({ isYouth: false }));
+      await expect(service.promote(playerId as Uuid)).rejects.toThrow(
+        /not a youth player/,
+      );
+    });
+
+    it('rejects an outfield player with 0 revealed skills (10 keys)', async () => {
+      setup(youth({ revealedSkills: [] }));
+      await expect(service.promote(playerId as Uuid)).rejects.toThrow(
+        /not enough skills revealed/i,
+      );
+    });
+
+    it('rejects an outfield player with only 4/10 skills revealed (ceil(50%)=5)', async () => {
+      setup(
+        youth({
+          revealedSkills: ['pace', 'strength', 'finishing', 'passing'],
+        }),
+      );
+      await expect(service.promote(playerId as Uuid)).rejects.toThrow(
+        /not enough skills revealed/i,
+      );
+    });
+
+    it('promotes an outfield player with exactly 5/10 skills revealed', async () => {
+      setup(
+        youth({
+          revealedSkills: [
+            'pace',
+            'strength',
+            'finishing',
+            'passing',
+            'dribbling',
+          ],
+        }),
+      );
+      const result = await service.promote(playerId as Uuid);
+      expect(result.isYouth).toBe(false);
+    });
+
+    it('rejects a goalkeeper with only 4/9 skills revealed (ceil(0.5*9)=5)', async () => {
+      setup(
+        youth({
+          isGoalkeeper: true,
+          revealedSkills: ['pace', 'strength', 'reflexes', 'handling'],
+        }),
+      );
+      await expect(service.promote(playerId as Uuid)).rejects.toThrow(
+        /not enough skills revealed/i,
+      );
+    });
+
+    it('promotes a goalkeeper with exactly 5/9 skills revealed', async () => {
+      setup(
+        youth({
+          isGoalkeeper: true,
+          revealedSkills: [
+            'pace',
+            'strength',
+            'reflexes',
+            'handling',
+            'aerial',
+          ],
+        }),
+      );
+      const result = await service.promote(playerId as Uuid);
+      expect(result.isYouth).toBe(false);
+    });
+
+    it('flips is_youth=false, clears the reveal mask, and clears youth_league_id on success', async () => {
+      const p = youth({
+        revealedSkills: [
+          'pace',
+          'strength',
+          'finishing',
+          'passing',
+          'dribbling',
+        ],
+        revealLevel: 5,
+        potentialRevealed: false,
+        youthLeagueId: 'YL1',
+      });
+      setup(p);
+
+      await service.promote(playerId as Uuid);
+
+      expect(p.isYouth).toBe(false);
+      expect(p.revealedSkills).toEqual([]);
+      expect(p.revealLevel).toBe(0);
+      expect(p.potentialRevealed).toBe(true);
+      expect(p.youthLeagueId).toBeNull();
+    });
+  });
+
+  describe('releaseYouth — WAVE B2', () => {
+    const playerId = '11111111-1111-4111-8111-111111111111';
+
+    const setup = (player: PlayerEntity) => {
+      jest
+        .spyOn(PlayerEntity, 'findOneByOrFail')
+        .mockResolvedValue(player);
+      jest
+        .spyOn(PlayerEntity.prototype, 'softRemove')
+        .mockResolvedValue(player as any);
+    };
+
+    it('soft-deletes a youth player', async () => {
+      const p = Object.create(PlayerEntity.prototype) as PlayerEntity;
+      Object.assign(p, {
+        id: playerId,
+        isYouth: true,
+      });
+      setup(p);
+
+      await service.releaseYouth(playerId as Uuid);
+      expect(PlayerEntity.prototype.softRemove).toHaveBeenCalledTimes(1);
+    });
+
+    it('refuses to release a senior player (400)', async () => {
+      const p = Object.create(PlayerEntity.prototype) as PlayerEntity;
+      Object.assign(p, {
+        id: playerId,
+        isYouth: false,
+      });
+      setup(p);
+
+      await expect(
+        service.releaseYouth(playerId as Uuid),
+      ).rejects.toThrow(/only youth players can be released/i);
+      expect(PlayerEntity.prototype.softRemove).not.toHaveBeenCalled();
+    });
+
+    it('surfaces NotFoundException for an unknown id', async () => {
+      // findOneByOrFail throws EntityNotFoundError; we forward it.
+      jest
+        .spyOn(PlayerEntity, 'findOneByOrFail')
+        .mockImplementation(() => {
+          throw new Error('not found');
+        });
+
+      await expect(
+        service.releaseYouth(playerId as Uuid),
+      ).rejects.toThrow(/not found/);
     });
   });
 });
