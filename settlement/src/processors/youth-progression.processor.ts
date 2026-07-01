@@ -1,4 +1,4 @@
-import { Injectable, Inject } from '@nestjs/common';
+import { Injectable, Inject, Optional } from '@nestjs/common';
 import { OnWorkerEvent, Processor, WorkerHost } from '@nestjs/bullmq';
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, Repository } from 'typeorm';
@@ -55,6 +55,7 @@ export class YouthProgressionProcessor extends WorkerHost {
     private readonly staffRepo: Repository<StaffEntity>,
     @InjectRepository(CoachPlayerAssignmentEntity)
     private readonly assignmentRepo: Repository<CoachPlayerAssignmentEntity>,
+    @Optional()
     private readonly random: () => number = Math.random,
   ) {
     super();

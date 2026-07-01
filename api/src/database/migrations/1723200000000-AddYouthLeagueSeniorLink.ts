@@ -19,11 +19,14 @@ export class AddYouthLeagueSeniorLink1723200000000
         ADD COLUMN IF NOT EXISTS "senior_league_id" uuid NULL
     `);
     // Best-effort backfill: pair each youth_league with the senior
-    // league whose (tier, tier_division) tuple matches the most common
-    // mapping. The `parent_tier` is the senior tier, so we group by it
-    // and assign the first senior_league per tier. The bootstrap
+    // league whose `tier` matches the youth's `parent_tier` and grab
+    // the lowest `tierDivision` per youth_league. The bootstrap
     // generator will overwrite/normalize these mappings on the next
     // service start.
+    //
+    // The `league` column is `tierDivision` (camelCase, see
+    // 1700000000001-InitialSchema), not snake_case — quote it so
+    // PostgreSQL preserves the case.
     await queryRunner.query(`
       UPDATE "youth_league" yl
         SET "senior_league_id" = sub.id
@@ -31,8 +34,8 @@ export class AddYouthLeagueSeniorLink1723200000000
         SELECT DISTINCT ON (yl2.id) yl2.id AS yl_id, sl.id
           FROM "youth_league" yl2
           JOIN "league" sl
-            ON sl.tier = yl2.parent_tier
-         ORDER BY yl2.id, sl.tier_division
+            ON sl."tier" = yl2."parent_tier"
+         ORDER BY yl2.id, sl."tierDivision"
       ) AS sub
       WHERE yl.id = sub.yl_id
         AND yl."senior_league_id" IS NULL

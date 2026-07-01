@@ -75,7 +75,13 @@ export class TypeOrmConfigService implements TypeOrmOptionsFactory {
         ForumPostEntity,
         ForumReactionEntity,
       ],
-      migrations: [__dirname + '/migrations/**/*{.ts,.js}'],
+      // Exclude `*.spec.ts` / `*.spec.js` so Jest tripwire specs that
+      // live next to migrations (see 1722000000000-UnifyYouthIntoPlayer
+      // .spec.ts) are not loaded as migrations at NestJS bootstrap.
+      // Without the negation, the glob also matches spec files and
+      // TypeORM evaluates `describe(...)` at import time, throwing
+      // `ReferenceError: describe is not defined` outside Jest.
+      migrations: [__dirname + '/migrations/**/!(*.spec).{ts,js}'],
       migrationsTableName: 'migrations',
       poolSize: this.configService.get('database.maxConnections', {
         infer: true,

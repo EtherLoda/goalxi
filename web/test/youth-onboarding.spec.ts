@@ -175,13 +175,10 @@ interface League {
     const scoutListAfter = (await scoutsAfter.json()) as ScoutCandidate[];
     expect(scoutListAfter.length).toBe(2);
 
-    // 9. UI smoke: visit /youth/squad through the browser. We don't
-    //    assert on UI layout here — the goal is just to confirm the
-    //    page renders without a 500.
-    const page = await ctx.request.newContext().then(() => null);
-    // We have an API context only; for UI we need a real browser.
-    // Skipping the browser step when running in API-only mode.
-    // (Full UI check is in web/test/onboarding-ui.spec.ts — future.)
+    // 9. UI smoke skipped: this spec runs against an APIRequestContext
+    //    only, so we can't drive the browser here. The full UI smoke
+    //    is left for a follow-up that boots a chromium browser fixture
+    //    (see web/test/onboarding-ui.spec.ts — future).
 
     // 10. Cleanup: skip in CI; in local dev we leave the user/team
     //     behind for manual inspection.

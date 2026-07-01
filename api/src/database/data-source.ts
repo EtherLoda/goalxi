@@ -69,9 +69,14 @@ export const AppDataSource = new DataSource({
     ForumPostEntity,
     ForumReactionEntity,
   ],
+  // Exclude `*.spec.ts` / `*.spec.js` so Jest tripwire specs that live next
+  // to migrations (see 1722000000000-UnifyYouthIntoPlayer.spec.ts) are not
+  // loaded as migrations. Without the negation, the glob would also match
+  // spec files and TypeORM would evaluate `describe(...)` at import time,
+  // which throws `ReferenceError: describe is not defined` outside Jest.
   migrations: [
-    'src/database/migrations/**/*{.ts,.js}',
-    '../libs/database/src/migrations/**/*{.ts,.js}',
+    'src/database/migrations/**/!(*.spec).{ts,js}',
+    '../libs/database/src/migrations/**/!(*.spec).{ts,js}',
   ],
   migrationsTableName: 'migrations',
   poolSize: process.env.DATABASE_MAX_CONNECTIONS
