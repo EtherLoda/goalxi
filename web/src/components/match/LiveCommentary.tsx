@@ -46,14 +46,14 @@ export function LiveCommentary({ events, currentMinute, homeTeamName, awayTeamNa
       <div className="flex items-center justify-between px-4 py-3 border-b border-surface-container-high">
         <h3 className="font-headline font-bold text-xs uppercase tracking-widest text-primary flex items-center gap-1.5">
           <span className="w-2 h-2 rounded-full bg-primary animate-pulse" />
-          Live Commentary
+          {t('matches.live.commentary')}
         </h3>
         <div className="flex items-center gap-1.5">
           <span className="font-mono font-black text-sm text-primary">
             {currentMinute}&apos;
           </span>
           <span className="text-[9px] font-bold uppercase tracking-widest text-error/80 font-headline animate-pulse">
-            LIVE
+            {t('matches.live.liveTag')}
           </span>
         </div>
       </div>
@@ -62,7 +62,7 @@ export function LiveCommentary({ events, currentMinute, homeTeamName, awayTeamNa
       <div className="max-h-[360px] overflow-y-auto px-4 py-3 space-y-1">
         {filtered.length === 0 ? (
           <div className="text-center py-8 text-on-surface-variant text-sm font-headline">
-            Waiting for events...
+            {t('matches.live.waiting')}
           </div>
         ) : (
           filtered.map((event, idx) => {

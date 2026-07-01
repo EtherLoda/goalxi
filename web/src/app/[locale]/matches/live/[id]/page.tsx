@@ -3,6 +3,7 @@
 import { useEffect, useState, Suspense, useCallback, useRef } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { useTranslations } from 'next-intl';
 import { api, type MatchStatsRes, type MatchEvent as ApiMatchEvent } from '@/lib/api';
 import { useMatchLive, type MatchEvent } from '@/hooks/useMatchLive';
 import { LiveCommentary } from '@/components/match/LiveCommentary';
@@ -16,6 +17,7 @@ function LiveMatchContent() {
   const router = useRouter();
   const locale = (params.locale as string) || 'en';
   const matchId = params.id as string;
+  const t = useTranslations('matches.live');
 
   const [stats, setStats] = useState<MatchStatsRes | null>(null);
   const [statsError, setStatsError] = useState<string | null>(null);
@@ -44,9 +46,9 @@ function LiveMatchContent() {
       setStatsError(null);
     } catch (err) {
       console.error('Failed to fetch stats:', err);
-      setStatsError('Stats may be stale — retrying…');
+      setStatsError(t('statsStale'));
     }
-  }, [matchId]);
+  }, [matchId, t]);
 
   // Initial stats fetch
   useEffect(() => {
@@ -128,14 +130,14 @@ function LiveMatchContent() {
           <span className="material-symbols-outlined text-6xl text-error/50 mb-4 block">
             wifi_off
           </span>
-          <p className="text-on-surface-variant text-lg font-medium mb-2">Connection lost</p>
+          <p className="text-on-surface-variant text-lg font-medium mb-2">{t('connectionLost')}</p>
           <p className="text-on-surface-variant/70 text-sm mb-4">{wsError}</p>
           <Link
             href={`/${locale}/matches`}
             className="inline-flex items-center gap-2 text-primary hover:underline mt-4"
           >
             <span className="material-symbols-outlined text-lg">arrow_back</span>
-            Back to Matches
+            {t('backToMatches')}
           </Link>
         </div>
       </div>
@@ -156,16 +158,20 @@ function LiveMatchContent() {
             <span className="material-symbols-outlined text-amber-500">sports_score</span>
             <div>
               <p className="font-headline font-bold text-amber-500 uppercase tracking-wider text-sm">
-                Full Time — Match Ended
+                {t('fullTimeTitle')}
               </p>
               <p className="text-on-surface-variant text-sm mt-0.5">
-                {matchState.homeTeam.name} {matchState.homeScore} – {matchState.awayScore}{' '}
-                {matchState.awayTeam.name}
+                {t('fullTimeScore', {
+                  home: matchState.homeTeam.name,
+                  homeScore: matchState.homeScore,
+                  awayScore: matchState.awayScore,
+                  away: matchState.awayTeam.name,
+                })}
               </p>
             </div>
           </div>
           <p className="text-xs text-on-surface-variant font-headline uppercase tracking-wider">
-            Redirecting…
+            {t('redirecting')}
           </p>
         </div>
       )}
@@ -181,7 +187,7 @@ function LiveMatchContent() {
           </Link>
           <div>
             <h1 className="font-headline text-2xl md:text-3xl font-black tracking-tight text-on-surface uppercase italic">
-              Live Match
+              {t('title')}
             </h1>
             <div className="flex items-center gap-2 mt-0.5">
               <span
@@ -191,10 +197,10 @@ function LiveMatchContent() {
               />
               <p className="text-sm text-on-surface-variant font-headline">
                 {isConnected
-                  ? 'Connected'
+                  ? t('connected')
                   : connectionStatus === 'connecting'
-                    ? 'Connecting…'
-                    : 'Reconnecting…'}
+                    ? t('connecting')
+                    : t('reconnecting')}
               </p>
             </div>
           </div>
@@ -207,7 +213,7 @@ function LiveMatchContent() {
               <div className="text-2xl font-black font-headline text-on-surface">
                 {matchState.homeTeam.name}
               </div>
-              <div className="text-xs text-on-surface-variant font-headline">Home</div>
+              <div className="text-xs text-on-surface-variant font-headline">{t('home')}</div>
             </div>
             <div className="flex items-center gap-3">
               <span className="font-headline text-4xl font-black text-primary">
@@ -222,7 +228,7 @@ function LiveMatchContent() {
               <div className="text-2xl font-black font-headline text-on-surface">
                 {matchState.awayTeam.name}
               </div>
-              <div className="text-xs text-on-surface-variant font-headline">Away</div>
+              <div className="text-xs text-on-surface-variant font-headline">{t('away')}</div>
             </div>
           </div>
         )}
@@ -245,8 +251,8 @@ function LiveMatchContent() {
           />
           <span className="font-headline font-bold text-sm uppercase tracking-wider">
             {isConnected
-              ? `Live • ${currentMinute}'`
-              : `Offline • last seen ${currentMinute}'`}
+              ? `${t('liveTag')} • ${currentMinute}'`
+              : t('offline', { minute: currentMinute })}
           </span>
         </div>
       )}

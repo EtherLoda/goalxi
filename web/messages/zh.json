@@ -297,6 +297,24 @@
       "draws": "平",
       "losses": "负",
       "pointsShort": "分"
+    },
+    "live": {
+      "title": "直播比赛",
+      "commentary": "实时解说",
+      "liveTag": "直播中",
+      "waiting": "等待事件…",
+      "home": "主队",
+      "away": "客队",
+      "connected": "已连接",
+      "connecting": "连接中…",
+      "reconnecting": "重连中…",
+      "offline": "离线 • 上次更新于 {minute}'",
+      "statsStale": "统计可能滞后,正在重试…",
+      "fullTimeTitle": "全场结束 — 比赛已结束",
+      "fullTimeScore": "{home} {homeScore} – {awayScore} {away}",
+      "redirecting": "正在跳转…",
+      "connectionLost": "连接已断开",
+      "backToMatches": "返回比赛列表"
     }
   },
   "squad": {

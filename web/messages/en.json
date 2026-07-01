@@ -301,6 +301,24 @@
       "draws": "Draws",
       "losses": "Losses",
       "pointsShort": "pts"
+    },
+    "live": {
+      "title": "Live Match",
+      "commentary": "Live Commentary",
+      "liveTag": "LIVE",
+      "waiting": "Waiting for events…",
+      "home": "Home",
+      "away": "Away",
+      "connected": "Connected",
+      "connecting": "Connecting…",
+      "reconnecting": "Reconnecting…",
+      "offline": "Offline • last seen {minute}'",
+      "statsStale": "Stats may be stale — retrying…",
+      "fullTimeTitle": "Full Time — Match Ended",
+      "fullTimeScore": "{home} {homeScore} – {awayScore} {away}",
+      "redirecting": "Redirecting…",
+      "connectionLost": "Connection lost",
+      "backToMatches": "Back to Matches"
     }
   },
   "squad": {
