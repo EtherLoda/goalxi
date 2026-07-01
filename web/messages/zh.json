@@ -779,6 +779,10 @@
     "penalty_start": {
       "tpl_0": "残酷的点球大战即将开始，这将是心理素质的终极对决。"
     },
+    "forfeit": {
+      "tpl_0": "{forfeitingTeam} 弃权本场比赛。{winner} 不战而胜，直接拿到三分。",
+      "tpl_1": "比赛判 {winner} 获胜。{forfeitingTeam} 无法出场。"
+    },
     "weather": {
       "sunny": "今天天气晴好！阳光明媚，是踢球的完美日子。",
       "cloudy": "今天阴云密布——球场被云层笼罩，但比赛依然精彩进行。",

@@ -28,7 +28,14 @@ function EventIcon({ type }: { type: string }) {
 }
 
 export function LiveCommentary({ events, currentMinute, homeTeamName, awayTeamName }: LiveCommentaryProps) {
-  const t = useTranslations();
+  // Two hooks, two scopes — the `commentary` scope feeds
+  // formatEventCommentary (which passes fully-qualified `commentary.X.tpl_N`
+  // keys via getTemplate), and `matches.live` covers this component's
+  // chrome (header text, "Waiting for events…"). Using a bare
+  // `useTranslations()` for either side made next-intl@4 return literal
+  // dotted keys as the rendered text.
+  const t = useTranslations('commentary');
+  const tChrome = useTranslations('matches.live');
 
   // Sort: newest first (higher minute = newer)
   const sorted = [...events].sort((a, b) => b.minute - a.minute);
@@ -46,14 +53,14 @@ export function LiveCommentary({ events, currentMinute, homeTeamName, awayTeamNa
       <div className="flex items-center justify-between px-4 py-3 border-b border-surface-container-high">
         <h3 className="font-headline font-bold text-xs uppercase tracking-widest text-primary flex items-center gap-1.5">
           <span className="w-2 h-2 rounded-full bg-primary animate-pulse" />
-          {t('matches.live.commentary')}
+          {tChrome('commentary')}
         </h3>
         <div className="flex items-center gap-1.5">
           <span className="font-mono font-black text-sm text-primary">
             {currentMinute}&apos;
           </span>
           <span className="text-[9px] font-bold uppercase tracking-widest text-error/80 font-headline animate-pulse">
-            {t('matches.live.liveTag')}
+            {tChrome('liveTag')}
           </span>
         </div>
       </div>
@@ -62,7 +69,7 @@ export function LiveCommentary({ events, currentMinute, homeTeamName, awayTeamNa
       <div className="max-h-[360px] overflow-y-auto px-4 py-3 space-y-1">
         {filtered.length === 0 ? (
           <div className="text-center py-8 text-on-surface-variant text-sm font-headline">
-            {t('matches.live.waiting')}
+            {tChrome('waiting')}
           </div>
         ) : (
           filtered.map((event, idx) => {

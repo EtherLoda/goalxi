@@ -114,24 +114,35 @@ function interpolate(template: string, params: Record<string, string | number>):
 }
 
 function getTemplate(t: TranslationFunction, section: string, idx: number): string {
-  const key = `${section}.tpl_${idx}`;
+  // Callers still pass fully-qualified keys (e.g. `commentary.goal`); strip
+  // the `commentary.` prefix so a hook scoped via `useTranslations('commentary')`
+  // resolves the rest as a relative path. Without this strip, next-intl@4
+  // returns the literal dotted key when the lookup path is double-qualified
+  // (e.g. `commentary.commentary.goal.tpl_1`), which surfaced in the UI as
+  // raw `commentary.full_time.tpl_2` strings.
+  const stripped = section.startsWith('commentary.')
+    ? section.slice('commentary.'.length)
+    : section;
+  const key = `${stripped}.tpl_${idx}`;
   return t(key);
 }
 
 function getQualityText(t: TranslationFunction, shootRating: number): string {
-  if (shootRating >= 80) return t('commentary.goal.quality_excellent');
-  if (shootRating >= 60) return t('commentary.goal.quality_great');
-  return t('commentary.goal.quality_good');
+  // Relative keys — the hook is expected to be scoped via
+  // `useTranslations('commentary')` so `commentary.` is implicit.
+  if (shootRating >= 80) return t('goal.quality_excellent');
+  if (shootRating >= 60) return t('goal.quality_great');
+  return t('goal.quality_good');
 }
 
 function getLaneText(t: TranslationFunction, lane: string | undefined): string {
   if (!lane) return '';
-  return t(`commentary.lane.${lane.toLowerCase()}`);
+  return t(`lane.${lane.toLowerCase()}`);
 }
 
 function getShotTypeText(t: TranslationFunction, shotType: string | undefined): string {
   if (!shotType) return '';
-  return t(`commentary.shotType.${shotType.toLowerCase()}`);
+  return t(`shotType.${shotType.toLowerCase()}`);
 }
 
 function getSeverityText(severity: string | undefined): string {
@@ -193,8 +204,8 @@ export function formatShotOnTargetCommentary(
   const shotType = data?.sequence?.shot?.shotType;
   const shootRating = data?.sequence?.shot?.shootRating || 0;
 
-  const quality = shootRating >= 80 ? t('commentary.goal.quality_chance')
-               : shootRating >= 60 ? t('commentary.goal.quality_opportunity')
+  const quality = shootRating >= 80 ? t('goal.quality_chance')
+               : shootRating >= 60 ? t('goal.quality_opportunity')
                : '';
   const laneDesc = lane ? `${getLaneText(t, lane)} ` : '';
   const shotTypeDesc = shotType ? ` (${getShotTypeText(t, shotType)})` : '';
@@ -436,10 +447,9 @@ export function formatWeatherAnnouncementCommentary(
   const data = event.data as any;
   const weather = data?.weather || data?.weatherKey || 'sunny';
 
-  // Use the weather type as the key directly
-  const template = t(`commentary.weather.${weather.toLowerCase()}`);
-
-  return template;
+  // Strip `commentary.` prefix when callers (see getTemplate) are scoped to
+  // the `commentary` namespace via `useTranslations('commentary')`.
+  return t(`weather.${weather.toLowerCase()}`);
 }
 
 export function formatPlayerIntroductionCommentary(
@@ -492,7 +502,7 @@ export function formatPeriodCommentary(
     } else if (awayScore > homeScore) {
       winner = awayTeamName;
     } else {
-      winner = t('commentary.full_time.draw');
+      winner = t('full_time.draw');
     }
 
     return interpolate(template, {
@@ -507,6 +517,19 @@ export function formatPeriodCommentary(
   // Simple period events without score
   const template = getTemplate(t, section, 0);
   return template;
+}
+
+export function formatForfeitCommentary(
+  event: MatchEvent,
+  t: TranslationFunction,
+): string {
+  const data = event.data as any;
+  const forfeitingTeam = data?.forfeitingTeam ?? '';
+  const winner = data?.winner ?? '';
+  const tplIdx = templateIndexFor(event) % 2;
+  const template = getTemplate(t, 'commentary.forfeit', tplIdx);
+
+  return interpolate(template, { forfeitingTeam, winner });
 }
 
 export function formatEventCommentary(
@@ -564,6 +587,8 @@ export function formatEventCommentary(
     case 'EXTRA_TIME_START':
     case 'PENALTY_START':
       return formatPeriodCommentary(event, homeTeamName, awayTeamName, t);
+    case 'FORFEIT':
+      return formatForfeitCommentary(event, t);
     case 'SNAPSHOT':
       return '';
     default:

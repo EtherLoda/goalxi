@@ -100,16 +100,18 @@ describe('formatEventCommentary dispatch', () => {
   });
 
   it('GOAL resolves to commentary.goal.tpl_* with {player} + {team} interpolated', () => {
+    // Simulates a hook scoped to `commentary`, so `getTemplate` strips the
+    // `commentary.` prefix before calling t(). The mock answers relative keys.
     const t = jest.fn((key: string) => {
-      if (key.startsWith('commentary.goal.tpl_')) {
+      if (key.startsWith('goal.tpl_')) {
         // Include `{quality}` so we can assert it was substituted.
         return 'GOAL_TPL:{player} scored for {team} — {quality}!';
       }
-      if (key === 'commentary.goal.quality_excellent') return 'brilliant';
-      if (key === 'commentary.goal.quality_great') return 'great';
-      if (key === 'commentary.goal.quality_good') return 'good';
-      if (key === 'commentary.lane.left') return 'left side';
-      if (key === 'commentary.shotType.normal') return 'normal';
+      if (key === 'goal.quality_excellent') return 'brilliant';
+      if (key === 'goal.quality_great') return 'great';
+      if (key === 'goal.quality_good') return 'good';
+      if (key === 'lane.left') return 'left side';
+      if (key === 'shotType.normal') return 'normal';
       return key;
     });
 
@@ -144,7 +146,7 @@ describe('formatEventCommentary dispatch', () => {
     // key was `SECOND_HALF_START` but the simulator emits `second_half`.
     // canonicalEventType aliases it; this test would have failed before.
     const t = jest.fn((key: string) => {
-      if (key === 'commentary.second_half_start.tpl_0') {
+      if (key === 'second_half_start.tpl_0') {
         return 'SECOND_HALF_BEGINS';
       }
       return key;
@@ -158,14 +160,14 @@ describe('formatEventCommentary dispatch', () => {
     );
 
     expect(text).toBe('SECOND_HALF_BEGINS');
-    expect(t).toHaveBeenCalledWith('commentary.second_half_start.tpl_0');
+    expect(t).toHaveBeenCalledWith('second_half_start.tpl_0');
   });
 
   it('PENALTY_GOAL is treated as a GOAL (penalty shootout scores count)', () => {
     const t = jest.fn((key: string) => {
       // Accept any tpl_N for the goal arm — the hash picks among 4
       // templates and we don't want the test tied to a specific hash.
-      if (key.startsWith('commentary.goal.tpl_')) return 'GOAL_DISPATCH';
+      if (key.startsWith('goal.tpl_')) return 'GOAL_DISPATCH';
       return key;
     });
     const text = formatEventCommentary(
@@ -176,14 +178,14 @@ describe('formatEventCommentary dispatch', () => {
     );
     expect(text).toBe('GOAL_DISPATCH');
     // The PENALTY_GOAL arm should NOT be hit — the alias routes it to GOAL.
-    expect(t).not.toHaveBeenCalledWith(expect.stringMatching(/commentary\.penalty\./));
+    expect(t).not.toHaveBeenCalledWith(expect.stringMatching(/^penalty\./));
   });
 
   it('falls through to default branch with title-cased text for unknown types', () => {
     // `weather_announcement` IS routed to formatWeatherAnnouncementCommentary,
-    // which queries `commentary.weather.sunny`. Confirm the route + i18n.
+    // which queries `weather.<key>` (post-prefix-strip). Confirm the route + i18n.
     const realT = jest.fn((key: string) => {
-      if (key === 'commentary.weather.sunny') return 'Sunny skies over the stadium';
+      if (key === 'weather.sunny') return 'Sunny skies over the stadium';
       return key;
     });
     const weatherText = formatEventCommentary(
@@ -305,10 +307,10 @@ describe('commentary tpl_* variation is per-event deterministic', () => {
 describe('formatEventCommentary period events', () => {
   it('FULL_TIME resolves winner via tpl_* variation', () => {
     const t = jest.fn((key: string) => {
-      if (key === 'commentary.full_time.tpl_0') return 'FT_TPL_0:{homeTeam} {homeScore}-{awayScore} {awayTeam} winner={winner}';
-      if (key === 'commentary.full_time.tpl_1') return 'FT_TPL_1';
-      if (key === 'commentary.full_time.tpl_2') return 'FT_TPL_2';
-      if (key === 'commentary.full_time.draw') return 'draw';
+      if (key === 'full_time.tpl_0') return 'FT_TPL_0:{homeTeam} {homeScore}-{awayScore} {awayTeam} winner={winner}';
+      if (key === 'full_time.tpl_1') return 'FT_TPL_1';
+      if (key === 'full_time.tpl_2') return 'FT_TPL_2';
+      if (key === 'full_time.draw') return 'draw';
       return key;
     });
     const text = formatEventCommentary(
@@ -330,7 +332,7 @@ describe('formatEventCommentary period events', () => {
 
   it('HALF_TIME interpolates half-time score', () => {
     const t = jest.fn((key: string) => {
-      if (key === 'commentary.half_time.tpl_0') {
+      if (key === 'half_time.tpl_0') {
         return 'HT:{homeTeam} {homeScore}-{awayScore} {awayTeam}';
       }
       return key;

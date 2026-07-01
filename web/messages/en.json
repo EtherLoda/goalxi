@@ -783,6 +783,10 @@
     "penalty_start": {
       "tpl_0": "It's time for the ultimate test — penalty shootout! Nerves of steel needed now."
     },
+    "forfeit": {
+      "tpl_0": "{forfeitingTeam} has forfeited the match. {winner} takes the three points by walkover.",
+      "tpl_1": "Match awarded to {winner}. {forfeitingTeam} failed to show."
+    },
     "weather": {
       "sunny": "Perfect football weather! Clear skies and sunshine greet the players today.",
       "cloudy": "Overcast conditions today — clouds blanket the stadium but play continues undeterred.",
