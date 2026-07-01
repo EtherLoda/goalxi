@@ -2,7 +2,7 @@
 
 import { useTranslations } from 'next-intl';
 import type { MatchEvent } from '@/lib/api';
-import { formatEventCommentary } from '@/lib/commentary';
+import { canonicalEventType, formatEventCommentary } from '@/lib/commentary';
 
 interface LiveCommentaryProps {
   events: MatchEvent[];
@@ -33,11 +33,12 @@ export function LiveCommentary({ events, currentMinute, homeTeamName, awayTeamNa
   // Sort: newest first (higher minute = newer)
   const sorted = [...events].sort((a, b) => b.minute - a.minute);
 
-  // Filter out SNAPSHOT
-  const filtered = sorted.filter((e) => {
-    const type = (e.typeName || e.type || '').toUpperCase();
-    return type !== 'SNAPSHOT';
-  });
+  // Filter out SNAPSHOT — resolve the type via the same alias map the
+  // formatter uses, so simulator strings that the formatter normalizes
+  // (e.g. raw `match_start` -> canonical `KICKOFF`) are filtered consistently.
+  const filtered = sorted.filter(
+    (e) => canonicalEventType(e.typeName ?? e.type) !== 'SNAPSHOT',
+  );
 
   return (
     <div className="rounded-DEFAULT border border-surface-container-high bg-surface-container-low overflow-hidden">
@@ -65,7 +66,7 @@ export function LiveCommentary({ events, currentMinute, homeTeamName, awayTeamNa
           </div>
         ) : (
           filtered.map((event, idx) => {
-            const type = (event.typeName || event.type || '').toUpperCase();
+            const type = canonicalEventType(event.typeName ?? event.type);
             const isLatest = idx === 0;
             const text = formatEventCommentary(event, homeTeamName, awayTeamName, t);
             if (!text) return null;

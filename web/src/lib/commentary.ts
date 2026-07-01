@@ -2,6 +2,113 @@ import type { MatchEvent } from './api';
 
 type TranslationFunction = (key: string, params?: Record<string, string | number>) => string;
 
+/**
+ * [WAVE B4] Single source of truth for live-event type normalization.
+ *
+ * The simulator (simulator/src/engine/match.engine.ts) emits events using
+ * lowercase_underscore `typeName` strings (e.g. `goal`, `miss`, `save`,
+ * `yellow_card`, `second_half`). The formatter switch below dispatches on
+ * canonical UPPER_CASE keys (e.g. `GOAL`, `SHOT_ON_TARGET`,
+ * `SECOND_HALF_START`). Without this map, every miss / save / turnover would
+ * fall through to the default branch and render ugly fallback text.
+ *
+ * Reasons some entries map to a non-obvious canonical key:
+ *  - `miss`/`save` → simulator doesn't distinguish on/off target; map to the
+ *    corresponding `SHOT_*_TARGET` arm so the formatter produces sensible text.
+ *  - `penalty_goal` → counted as a goal for scoring (scheduler
+ *    match-live.scheduler.ts:199); formatter dispatches the same way.
+ *  - `second_half` → i18n key is `commentary.second_half_start.tpl_0`.
+ *  - `forfeit`/`match_start` → legacy simulator names rarely seen in prod.
+ *
+ * Keys are UPPERCASE to match the canonical uppercase form `canonicalEventType`
+ * uses after normalizing inputs. Iteration order matters for the spec that
+ * asserts on map size.
+ */
+export const EVENT_TYPE_ALIAS = new Map<string, string>([
+  ['GOAL', 'GOAL'],
+  ['MISS', 'SHOT_OFF_TARGET'],
+  ['SAVE', 'SHOT_ON_TARGET'],
+  ['SHOT', 'SHOT_OFF_TARGET'],
+  ['SHOT_ON_TARGET', 'SHOT_ON_TARGET'],
+  ['SHOT_OFF_TARGET', 'SHOT_OFF_TARGET'],
+  ['TURNOVER', 'TURNOVER'],
+  ['ADVANCE', 'ADVANCE'],
+  ['ATTACK_SEQUENCE', 'ATTACK_SEQUENCE'],
+  ['SNAPSHOT', 'SNAPSHOT'],
+  ['CORNER', 'CORNER'],
+  ['FOUL', 'FOUL'],
+  ['YELLOW_CARD', 'YELLOW_CARD'],
+  ['SECOND_YELLOW', 'SECOND_YELLOW'],
+  ['RED_CARD', 'RED_CARD'],
+  ['OFFSIDE', 'OFFSIDE'],
+  ['SUBSTITUTION', 'SUBSTITUTION'],
+  ['INJURY', 'INJURY'],
+  ['PENALTY', 'PENALTY'],
+  ['PENALTY_GOAL', 'GOAL'],
+  ['PENALTY_MISS', 'PENALTY_MISS'],
+  ['KICKOFF', 'KICKOFF'],
+  ['MATCH_START', 'KICKOFF'],
+  ['HALF_TIME', 'HALF_TIME'],
+  ['SECOND_HALF', 'SECOND_HALF_START'],
+  ['FULL_TIME', 'FULL_TIME'],
+  ['EXTRA_TIME_START', 'EXTRA_TIME_START'],
+  ['PENALTY_START', 'PENALTY_START'],
+  ['TACTICAL_CHANGE', 'TACTICAL_CHANGE'],
+  ['FREE_KICK', 'FREE_KICK'],
+  ['WEATHER_ANNOUNCEMENT', 'WEATHER_ANNOUNCEMENT'],
+  ['PLAYER_INTRODUCTION', 'PLAYER_INTRODUCTION'],
+  ['FORFEIT', 'FORFEIT'],
+]);
+
+/**
+ * Resolve a raw simulator type string to the canonical uppercase switch key.
+ * Falls back to the raw upper-cased value so unknown events still route through
+ * the default branch (which produces ugly but non-broken text).
+ */
+export function canonicalEventType(raw: string | undefined | null): string {
+  const norm = (raw ?? '').toUpperCase().replace(/-/g, '_');
+  return EVENT_TYPE_ALIAS.get(norm) ?? norm;
+}
+
+/**
+ * [WAVE B4] Deterministic djb2 hash for stable per-event variation indices.
+ *
+ * The simulator used to attach a `descriptionIndex` field per event for
+ * picking among `tpl_0..tpl_N` templates, but that field never crosses the
+ * WS gateway boundary (no entity column, no transport field). Without it,
+ * every event collapsed to index 1, killing narrative variety.
+ *
+ * Hashing the event's stable key (its server-emitted UUID, or the same
+ * `(type, minute, playerId, teamId)` tuple the dedupe map uses as fallback)
+ * yields per-event indices that are stable across re-renders but vary across
+ * events — i.e. the visible behavior the original `descriptionIndex` was
+ * supposed to provide, without needing backend schema changes.
+ */
+function djb2(s: string): number {
+  let h = 5381;
+  for (let i = 0; i < s.length; i++) {
+    h = (((h << 5) + h) + s.charCodeAt(i)) | 0;
+  }
+  return Math.abs(h);
+}
+
+function stableEventKey(event: MatchEvent): string {
+  // Use `||` (not `??`) so empty-string ids (which the gateway can emit
+  // when its Phase 1 emission rolls out unevenly) fall back to the
+  // composite tuple. With `??`, an empty id passes through and all
+  // id-less events collapse to the same hash — which would kill the per-
+  // event template variation the hash is supposed to provide.
+  return (
+    event.id ||
+    `${event.type}-${event.minute}-${event.playerId ?? ''}-${event.teamId ?? ''}`
+  );
+}
+
+/** Returns a stable, event-unique non-negative integer. Modulo at call site. */
+function templateIndexFor(event: MatchEvent): number {
+  return djb2(stableEventKey(event));
+}
+
 function interpolate(template: string, params: Record<string, string | number>): string {
   return template.replace(/\{(\w+)\}/g, (_, key) => String(params[key] ?? `{${key}}`));
 }
@@ -44,7 +151,7 @@ export function formatGoalCommentary(
   t: TranslationFunction,
 ): string {
   const data = event.data as any;
-  const templateIdx = ((event as any).descriptionIndex ?? 1) % 4;
+  const templateIdx = templateIndexFor(event) % 4;
   const isHome = event.isHome ?? true;
   const teamName = isHome ? homeTeamName : awayTeamName;
 
@@ -77,7 +184,7 @@ export function formatShotOnTargetCommentary(
   t: TranslationFunction,
 ): string {
   const data = event.data as any;
-  const templateIdx = ((event as any).descriptionIndex ?? 1) % 4;
+  const templateIdx = templateIndexFor(event) % 4;
   const isHome = event.isHome ?? true;
   const teamName = isHome ? homeTeamName : awayTeamName;
 
@@ -112,7 +219,7 @@ export function formatShotOffTargetCommentary(
   t: TranslationFunction,
 ): string {
   const data = event.data as any;
-  const templateIdx = ((event as any).descriptionIndex ?? 1) % 3;
+  const templateIdx = templateIndexFor(event) % 3;
   const isHome = event.isHome ?? true;
   const teamName = isHome ? homeTeamName : awayTeamName;
 
@@ -137,7 +244,7 @@ export function formatSaveCommentary(
   awayTeamName: string,
   t: TranslationFunction,
 ): string {
-  const templateIdx = ((event as any).descriptionIndex ?? 1) % 3;
+  const templateIdx = templateIndexFor(event) % 3;
   const template = getTemplate(t, 'commentary.save', templateIdx);
   return template;
 }
@@ -149,7 +256,7 @@ export function formatFoulCommentary(
   t: TranslationFunction,
 ): string {
   const data = event.data as any;
-  const templateIdx = ((event as any).descriptionIndex ?? 1) % 3;
+  const templateIdx = templateIndexFor(event) % 3;
   const isHome = event.isHome ?? true;
   const teamName = isHome ? homeTeamName : awayTeamName;
 
@@ -164,7 +271,7 @@ export function formatOffsideCommentary(
   awayTeamName: string,
   t: TranslationFunction,
 ): string {
-  const templateIdx = ((event as any).descriptionIndex ?? 1) % 2;
+  const templateIdx = templateIndexFor(event) % 2;
   const isHome = event.isHome ?? true;
   const teamName = isHome ? homeTeamName : awayTeamName;
 
@@ -179,7 +286,7 @@ export function formatCornerCommentary(
   awayTeamName: string,
   t: TranslationFunction,
 ): string {
-  const templateIdx = ((event as any).descriptionIndex ?? 1) % 2;
+  const templateIdx = templateIndexFor(event) % 2;
   const isHome = event.isHome ?? true;
   const teamName = isHome ? homeTeamName : awayTeamName;
 
@@ -195,7 +302,7 @@ export function formatYellowCardCommentary(
   t: TranslationFunction,
 ): string {
   const data = event.data as any;
-  const templateIdx = ((event as any).descriptionIndex ?? 1) % 2;
+  const templateIdx = templateIndexFor(event) % 2;
   const isHome = event.isHome ?? true;
   const teamName = isHome ? homeTeamName : awayTeamName;
 
@@ -214,7 +321,7 @@ export function formatRedCardCommentary(
   t: TranslationFunction,
 ): string {
   const data = event.data as any;
-  const templateIdx = ((event as any).descriptionIndex ?? 1) % 2;
+  const templateIdx = templateIndexFor(event) % 2;
   const isHome = event.isHome ?? true;
   const teamName = isHome ? homeTeamName : awayTeamName;
 
@@ -232,7 +339,7 @@ export function formatSubstitutionCommentary(
   t: TranslationFunction,
 ): string {
   const data = event.data as any;
-  const templateIdx = ((event as any).descriptionIndex ?? 1) % 3;
+  const templateIdx = templateIndexFor(event) % 3;
   const isHome = event.isHome ?? true;
   const teamName = isHome ? homeTeamName : awayTeamName;
 
@@ -250,7 +357,7 @@ export function formatInjuryCommentary(
   t: TranslationFunction,
 ): string {
   const data = event.data as any;
-  const templateIdx = ((event as any).descriptionIndex ?? 1) % 3;
+  const templateIdx = templateIndexFor(event) % 3;
   const isHome = event.isHome ?? true;
   const teamName = isHome ? homeTeamName : awayTeamName;
 
@@ -268,7 +375,7 @@ export function formatClearanceCommentary(
   awayTeamName: string,
   t: TranslationFunction,
 ): string {
-  const templateIdx = ((event as any).descriptionIndex ?? 1) % 2;
+  const templateIdx = templateIndexFor(event) % 2;
   const isHome = event.isHome ?? true;
   const teamName = isHome ? homeTeamName : awayTeamName;
 
@@ -283,7 +390,7 @@ export function formatInterceptionCommentary(
   awayTeamName: string,
   t: TranslationFunction,
 ): string {
-  const templateIdx = ((event as any).descriptionIndex ?? 1) % 2;
+  const templateIdx = templateIndexFor(event) % 2;
   const isHome = event.isHome ?? true;
   const teamName = isHome ? homeTeamName : awayTeamName;
 
@@ -298,7 +405,7 @@ export function formatPenaltyCommentary(
   awayTeamName: string,
   t: TranslationFunction,
 ): string {
-  const templateIdx = ((event as any).descriptionIndex ?? 1) % 2;
+  const templateIdx = templateIndexFor(event) % 2;
   const isHome = event.isHome ?? true;
   const teamName = isHome ? homeTeamName : awayTeamName;
 
@@ -314,7 +421,7 @@ export function formatPenaltyMissCommentary(
   t: TranslationFunction,
 ): string {
   const data = event.data as any;
-  const templateIdx = ((event as any).descriptionIndex ?? 1) % 2;
+  const templateIdx = templateIndexFor(event) % 2;
   const player = data?.playerName || 'Unknown Player';
 
   const template = getTemplate(t, 'commentary.penalty_miss', templateIdx);
@@ -354,7 +461,7 @@ export function formatPeriodCommentary(
   awayTeamName: string,
   t: TranslationFunction,
 ): string {
-  const type = (event.typeName || event.type || '').toUpperCase();
+  const type = canonicalEventType(event.typeName ?? event.type);
   const data = event.data as any;
 
   let section = 'commentary.half_time';
@@ -376,7 +483,7 @@ export function formatPeriodCommentary(
   if (type === 'FULL_TIME') {
     const homeScore = data?.homeScore ?? 0;
     const awayScore = data?.awayScore ?? 0;
-    const templateIdx = ((event as any).descriptionIndex ?? 1) % 3;
+    const templateIdx = templateIndexFor(event) % 3;
     const template = getTemplate(t, section, templateIdx);
 
     let winner: string;
@@ -408,7 +515,11 @@ export function formatEventCommentary(
   awayTeamName: string,
   t: TranslationFunction,
 ): string {
-  const type = (event.typeName || event.type || '').toUpperCase();
+  // Canonicalize via EVENT_TYPE_ALIAS so simulator strings like `goal`,
+  // `miss`, `save`, `second_half`, `penalty_goal` resolve to the formatter's
+  // switch keys. Without the alias, ~half the event stream fell through to
+  // the default branch.
+  const type = canonicalEventType(event.typeName ?? event.type);
 
   switch (type) {
     case 'GOAL':
