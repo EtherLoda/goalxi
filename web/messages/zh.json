@@ -792,6 +792,9 @@
       "foggy": "浓雾来袭！能见度下降——两队都需要适应这种条件。",
       "snowy": "大雪纷飞！银装素裹的球场，但球员们要面对挑战了。"
     },
+    "attendance": {
+      "line": "现场观众 {count} 人。"
+    },
     "player_introduction": {
       "tpl_0": "双方球员就位！{homePlayers} vs {awayPlayers} 名球员"
     },

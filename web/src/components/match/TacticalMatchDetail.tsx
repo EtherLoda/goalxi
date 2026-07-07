@@ -1,16 +1,32 @@
 'use client';
 
-import type { MatchEvent, MatchStatsRes, Match } from '@/lib/api';
+import { useEffect, useMemo, useState } from 'react';
+import { useTranslations } from 'next-intl';
+import { api, type MatchEvent, type MatchStatsRes, type Match, type Player, type Tactics } from '@/lib/api';
 import { formatEventCommentary } from '@/lib/commentary';
+import { MatchPitch, type MatchSnapshot } from './MatchPitch';
+import { buildCards } from './match-pitch-data';
+import { BenchStrip } from '../tactics/bench/BenchStrip';
+import { normalizePitchLineup } from './pitch-coords';
+import { toPitchSlot } from '../tactics/api-helpers';
 
 interface TacticalMatchDetailProps {
+  matchId: string;
   match: {
     homeScore?: number | null;
     awayScore?: number | null;
-    homeTeam?: { name?: string; logoUrl?: string | null };
-    awayTeam?: { name?: string; logoUrl?: string | null };
+    homeTeam?: { id?: string; name?: string; logoUrl?: string | null };
+    awayTeam?: { id?: string; name?: string; logoUrl?: string | null };
     status?: string;
     scheduledAt?: string | Date;
+    /**
+     * Forfeit flags from the API. When set, the simulator never ran
+     * the match — no SNAPSHOT events were emitted. The match page must
+     * render an empty pitch + forfeit banner rather than the submitted
+     * lineups (which were never actually played).
+     */
+    homeForfeit?: boolean;
+    awayForfeit?: boolean;
   };
   events: MatchEvent[];
   stats: MatchStatsRes;
@@ -24,34 +40,41 @@ interface Goalscorer {
   assistName?: string;
 }
 
-interface SnapshotPlayer {
-  id: string;
-  p: string; // position key
-  n?: string; // name (only in full snapshot or for new players)
-  st: number; // stamina
-  sr: number; // star rating
-  em: number; // entry minute (when sub came in)
-}
-
 interface SnapshotData {
   h: {
     n?: string;
     ls: { left: any; center: any; right: any };
     gk: number;
-    ps: SnapshotPlayer[];
+    ps: Array<{
+      id: string;
+      p: string;
+      n?: string;
+      st: number;
+      sr: number;
+      em: number;
+    }>;
   };
   a: {
     n?: string;
     ls: { left: any; center: any; right: any };
     gk: number;
-    ps: SnapshotPlayer[];
+    ps: Array<{
+      id: string;
+      p: string;
+      n?: string;
+      st: number;
+      sr: number;
+      em: number;
+    }>;
   };
 }
 
 /**
- * Extract the latest snapshot event from match events
+ * Extract the latest snapshot event from match events and narrow it to the
+ * shape `MatchPitch` consumes (only `h.ps` / `a.ps` are needed; the rest of
+ * `SnapshotData` is informational and dropped here).
  */
-function getLatestSnapshot(events: MatchEvent[]): SnapshotData | null {
+function getLatestSnapshot(events: MatchEvent[]): MatchSnapshot | null {
   const snapshots = events.filter(
     (e) => (e.typeName || e.type || '').toUpperCase() === 'SNAPSHOT'
   );
@@ -64,53 +87,16 @@ function getLatestSnapshot(events: MatchEvent[]): SnapshotData | null {
     return currMinute > prevMinute ? curr : prev;
   });
 
-  return (latest as any).data as SnapshotData;
-}
-
-/**
- * Map position key to CSS positioning for the pitch
- * Returns { top%, left% } for player dot placement
- */
-function getPositionCoords(positionKey: string): { top: string; left: string } {
-  const pos = positionKey.toUpperCase();
-
-  // Goalkeeper
-  if (pos === 'GK') {
-    return { top: '85%', left: '50%' };
-  }
-
-  // Defenders
-  if (pos === 'LB' || pos === 'LBL') return { top: '70%', left: '15%' };
-  if (pos === 'CB' || pos === 'CDL') return { top: '70%', left: '32%' };
-  if (pos === 'CD' || pos === 'CD') return { top: '70%', left: '50%' };
-  if (pos === 'CDR' || pos === 'CB') return { top: '70%', left: '68%' };
-  if (pos === 'RB' || pos === 'RBR') return { top: '70%', left: '85%' };
-  if (pos === 'WBL') return { top: '70%', left: '10%' };
-  if (pos === 'WBR') return { top: '70%', left: '90%' };
-
-  // Midfielders
-  if (pos === 'LM') return { top: '50%', left: '15%' };
-  if (pos === 'LW') return { top: '50%', left: '15%' };
-  if (pos === 'CM' || pos === 'CM') return { top: '50%', left: '35%' };
-  if (pos === 'CMR') return { top: '50%', left: '50%' };
-  if (pos === 'AM' || pos === 'AM') return { top: '50%', left: '65%' };
-  if (pos === 'RM' || pos === 'RW') return { top: '50%', left: '85%' };
-  if (pos === 'DM') return { top: '50%', left: '35%' };
-  if (pos === 'DML') return { top: '50%', left: '25%' };
-  if (pos === 'DMR') return { top: '50%', left: '75%' };
-
-  // Forwards
-  if (pos === 'ST' || pos === 'CF' || pos === 'CFL') return { top: '30%', left: '35%' };
-  if (pos === 'STL' || pos === 'CF') return { top: '30%', left: '30%' };
-  if (pos === 'STR' || pos === 'CFR') return { top: '30%', left: '70%' };
-  if (pos === 'LW') return { top: '30%', left: '20%' };
-  if (pos === 'RW') return { top: '30%', left: '80%' };
-
-  // Fallback - center of pitch
-  return { top: '50%', left: '50%' };
+  const data = (latest as any).data as SnapshotData | undefined;
+  if (!data) return null;
+  return {
+    h: { ps: data.h?.ps ?? [] },
+    a: { ps: data.a?.ps ?? [] },
+  };
 }
 
 export function TacticalMatchDetail({
+  matchId,
   match,
   events,
   stats,
@@ -119,9 +105,105 @@ export function TacticalMatchDetail({
   const homeName = match.homeTeam?.name || 'Home';
   const awayName = match.awayTeam?.name || 'Away';
   const isLive = match.status === 'in_progress';
+  // Forfeit state is forwarded to <MatchPitch> as `homeForfeit` /
+  // `awayForfeit` props; the page itself doesn't need to gate any UI
+  // on forfeit anymore — benches + player dots render in all cases
+  // (the simulator now emits intro events for forfeits too).
+  const homeTeamId = match.homeTeam?.id;
+  const awayTeamId = match.awayTeam?.id;
+  // Same scoped hook as LiveCommentary — the formatter strips the
+  // `commentary.` prefix in `getTemplate` so a bare `useTranslations()`
+  // would otherwise render the literal dotted key.
+  const tCommentary = useTranslations('commentary');
+  // Heading chrome (was hardcoded "Live Commentary").
+  const tLiveChrome = useTranslations('matches.live');
 
   // Extract snapshot for real player positions
   const snapshot = getLatestSnapshot(events);
+
+  // [Live-page fix] Fetch the match's submitted tactics + both teams' player
+  // rosters so we can render real player dots whenever the event stream
+  // carries no SNAPSHOT (the common case for kickoff-only / forfeit
+  // / full_time matches). Snapshot remains primary — it reflects mid-game
+  // stamina/star-rating — lineup+roster is the fallback.
+  //
+  // Roster is split per team rather than merged so the bench strip can
+  // resolve each side's BENCH_* slots without contaminating home/away
+  // playerId namespaces.
+  const [homeTactics, setHomeTactics] = useState<Tactics | null>(null);
+  const [awayTactics, setAwayTactics] = useState<Tactics | null>(null);
+  const [homeRoster, setHomeRoster] = useState<Player[]>([]);
+  const [awayRoster, setAwayRoster] = useState<Player[]>([]);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const tacticsPromise = api.matches.getTactics(matchId);
+        const homeRosterPromise = homeTeamId
+          ? api.players.getByTeam(homeTeamId)
+          : Promise.resolve({ items: [] as Player[], meta: {} });
+        const awayRosterPromise = awayTeamId
+          ? api.players.getByTeam(awayTeamId)
+          : Promise.resolve({ items: [] as Player[], meta: {} });
+        const [tactics, homeRosterRes, awayRosterRes] = await Promise.all([
+          tacticsPromise,
+          homeRosterPromise,
+          awayRosterPromise,
+        ]);
+        if (cancelled) return;
+        setHomeTactics(tactics.homeTactics);
+        setAwayTactics(tactics.awayTactics);
+        setHomeRoster(homeRosterRes.items ?? []);
+        setAwayRoster(awayRosterRes.items ?? []);
+      } catch {
+        // Swallow — MatchPitch renders an empty pitch and benches render
+        // empty slots when nothing has loaded.
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [matchId, homeTeamId, awayTeamId]);
+
+  // playerId → Player lookup for fast resolution. Combined so snapshot
+  // playerIds (which may reference either team) resolve correctly.
+  const rosterById = useMemo(() => {
+    const map = new Map<string, Player>();
+    for (const p of homeRoster) map.set(p.id, p);
+    for (const p of awayRoster) map.set(p.id, p);
+    return map;
+  }, [homeRoster, awayRoster]);
+
+  // Per-team rosters keyed by id, used by the bench strip.
+  const homeRosterById = useMemo(
+    () => new Map(homeRoster.map((p) => [p.id, p])),
+    [homeRoster],
+  );
+  const awayRosterById = useMemo(
+    () => new Map(awayRoster.map((p) => [p.id, p])),
+    [awayRoster],
+  );
+
+  // Pull bench slots out of the lineup. The match page never renders
+  // the pitch-side lineupPlayers mapping any more — MatchPitch owns
+  // that — but the bench needs the BENCH_* entries.
+  const homeBench = useMemo(
+    () => (homeTactics?.lineup ? normalizePitchLineup(homeTactics.lineup).bench : {}),
+    [homeTactics],
+  );
+  const awayBench = useMemo(
+    () => (awayTactics?.lineup ? normalizePitchLineup(awayTactics.lineup).bench : {}),
+    [awayTactics],
+  );
+
+  // Squad Monitor's lineup fallback (when no SNAPSHOT event is in the
+  // stream) uses the same merger as the pitch — single source of truth
+  // for "which players are on the pitch for home".
+  const homeLineupCards = useMemo(
+    () => buildCards(homeTactics, snapshot?.h.ps ?? null, rosterById),
+    [homeTactics, snapshot, rosterById],
+  );
 
   // Extract goalscorers
   const goalscorers: Goalscorer[] = events
@@ -216,134 +298,74 @@ export function TacticalMatchDetail({
         </div>
       </header>
 
+      {/* Horizontal pitch — full width, then benches below.
+          Layout: header → pitch → home/away benches → (commentary | sidebar).
+          The pitch is intentionally OUT of the left column so its aspect-video
+          aspect ratio is preserved at the page's natural width. */}
+      <MatchPitch
+        homeTactics={homeTactics}
+        awayTactics={awayTactics}
+        homeRoster={homeRoster}
+        awayRoster={awayRoster}
+        snapshot={snapshot}
+        homeForfeit={match.homeForfeit ?? false}
+        awayForfeit={match.awayForfeit ?? false}
+        homeTeamName={homeName}
+        awayTeamName={awayName}
+      />
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {/* Editor's BenchStrip in view-only mode (no drag handlers) — renders
+            identical "Substitutes" header + slot badge + PlayerMarker row
+            that the editor shows. Forfeit matches show the submitted
+            benches too — the page surfaces the lineups even when no
+            simulator ran, so the user can see "who would have played"
+            alongside the forfeit banner + commentary intro events. */}
+        <BenchStrip
+          bench={homeBench as Record<string, string | null>}
+          playersById={homeRosterById}
+          isDragging={false}
+          onDrop={() => {}}
+          onRemove={() => {}}
+          onDragStart={() => {}}
+          onDragEnd={() => {}}
+        />
+        <BenchStrip
+          bench={awayBench as Record<string, string | null>}
+          playersById={awayRosterById}
+          isDragging={false}
+          onDrop={() => {}}
+          onRemove={() => {}}
+          onDragStart={() => {}}
+          onDragEnd={() => {}}
+        />
+      </div>
+
       {/* Main Content Grid */}
       <div className="grow flex gap-4 min-h-0">
-        {/* Left & Center: Pitch + Commentary */}
+        {/* Left & Center: Commentary */}
         <div className="flex-1 flex flex-col gap-4 min-h-0">
-          {/* 2D Tactical Pitch */}
-          <div className="aspect-video bg-[#051a14] rounded-3xl relative border border-white/5 overflow-hidden">
-            <div className="absolute inset-0 pitch-surface" />
-            {/* Pitch Markings */}
-            <div className="absolute inset-0 p-6">
-              <div className="w-full h-full border border-primary/10 rounded flex items-center justify-center relative neon-line">
-                {/* Center Line */}
-                <div className="absolute h-full w-px bg-primary/10 left-1/2 -translate-x-1/2" />
-                {/* Center Circle */}
-                <div className="absolute w-32 h-32 border border-primary/10 rounded-full" />
-                <div className="absolute w-1.5 h-1.5 bg-primary/30 rounded-full left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2" />
-                {/* Penalty Areas */}
-                <div className="absolute left-0 top-1/2 -translate-y-1/2 h-[60%] w-[16%] border border-primary/10 border-l-0" />
-                <div className="absolute right-0 top-1/2 -translate-y-1/2 h-[60%] w-[16%] border border-primary/10 border-r-0" />
-              </div>
-            </div>
 
-            {/* Real Player Dots from Snapshot */}
-            {snapshot ? (
-              <>
-                {/* Home Team Players (bottom half, defending) */}
-                {snapshot.h.ps.map((player) => {
-                  const coords = getPositionCoords(player.p);
-                  const displayName = player.n
-                    ? player.n.split(' ').pop() || player.n // Use last name
-                    : player.p;
-                  return (
-                    <div
-                      key={player.id}
-                      className="absolute z-20"
-                      style={{ top: coords.top, left: coords.left, transform: 'translate(-50%, -50%)' }}
-                    >
-                      <div
-                        className="w-8 h-8 rounded-full border border-primary/50 player-glow-home flex items-center justify-center"
-                        title={player.n || player.p}
-                      >
-                        <span className="font-headline font-extrabold text-[10px] text-primary">
-                          {displayName.substring(0, 3)}
-                        </span>
-                      </div>
-                    </div>
-                  );
-                })}
-                {/* Away Team Players (top half, attacking) */}
-                {snapshot.a.ps.map((player) => {
-                  const coords = getPositionCoords(player.p);
-                  // Mirror Y position for away team (they attack from top)
-                  const mirroredTop = 100 - parseFloat(coords.top);
-                  const displayName = player.n
-                    ? player.n.split(' ').pop() || player.n
-                    : player.p;
-                  return (
-                    <div
-                      key={player.id}
-                      className="absolute z-20"
-                      style={{ top: `${mirroredTop}%`, left: coords.left, transform: 'translate(-50%, -50%)' }}
-                      title={player.n || player.p}
-                    >
-                      <div className="w-8 h-8 rounded-full border border-secondary/50 player-glow-away flex items-center justify-center">
-                        <span className="font-headline font-extrabold text-[10px] text-secondary">
-                          {displayName.substring(0, 3)}
-                        </span>
-                      </div>
-                    </div>
-                  );
-                })}
-              </>
-            ) : (
-              /* Fallback placeholder players when no snapshot */
-              <>
-                <div className="absolute top-[20%] left-[15%] z-20">
-                  <div className="w-8 h-8 rounded-full border border-primary/50 player-glow-home flex items-center justify-center">
-                    <span className="font-headline font-extrabold text-[10px] text-primary">GK</span>
-                  </div>
-                </div>
-                <div className="absolute top-[35%] left-[8%] z-20">
-                  <div className="w-8 h-8 rounded-full border border-primary/50 player-glow-home flex items-center justify-center">
-                    <span className="font-headline font-extrabold text-[10px] text-primary">LB</span>
-                  </div>
-                </div>
-                <div className="absolute top-[35%] left-[25%] z-20">
-                  <div className="w-8 h-8 rounded-full border border-primary/50 player-glow-home flex items-center justify-center">
-                    <span className="font-headline font-extrabold text-[10px] text-primary">CB</span>
-                  </div>
-                </div>
-                <div className="absolute top-[35%] left-[40%] z-20">
-                  <div className="w-8 h-8 rounded-full border border-primary/50 player-glow-home flex items-center justify-center">
-                    <span className="font-headline font-extrabold text-[10px] text-primary">CB</span>
-                  </div>
-                </div>
-                <div className="absolute top-[35%] right-[25%] z-20">
-                  <div className="w-8 h-8 rounded-full border border-primary/50 player-glow-home flex items-center justify-center">
-                    <span className="font-headline font-extrabold text-[10px] text-primary">RB</span>
-                  </div>
-                </div>
-                <div className="absolute top-[55%] left-[8%] z-20">
-                  <div className="w-8 h-8 rounded-full border border-secondary/50 player-glow-away flex items-center justify-center">
-                    <span className="font-headline font-extrabold text-[10px] text-secondary">GK</span>
-                  </div>
-                </div>
-                <div className="absolute top-[70%] right-[8%] z-20">
-                  <div className="w-8 h-8 rounded-full border border-secondary/50 player-glow-away flex items-center justify-center">
-                    <span className="font-headline font-extrabold text-[10px] text-secondary">RB</span>
-                  </div>
-                </div>
-              </>
-            )}
-          </div>
-
-          {/* Commentary Bar */}
-          <div className="h-40 glass-panel rounded-2xl px-5 py-3 flex flex-col shrink-0">
-            <div className="flex items-center justify-between mb-2 pb-2 border-b border-primary/5">
+          {/* Commentary Bar.
+              Was `h-40` (160px fixed) — too narrow once a match accumulates
+              more than ~4 events. Switched to `flex-1 min-h-0` so it fills
+              the remaining column height, and added `min-h-0` on the events
+              list so flexbox actually lets it shrink below its intrinsic
+              content height — that's what makes `overflow-y-auto` engage. */}
+          <div className="flex-1 min-h-0 glass-panel rounded-2xl px-5 py-3 flex flex-col">
+            <div className="flex items-center justify-between mb-2 pb-2 border-b border-primary/5 shrink-0">
               <h3 className="font-headline font-bold text-[10px] uppercase tracking-widest text-primary/80 flex items-center gap-2">
                 <span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
-                Live Commentary
+                {tLiveChrome('commentary')}
               </h3>
               <span className="text-[9px] font-label text-outline uppercase tracking-widest">
                 {events.length} events
               </span>
             </div>
-            <div className="grow overflow-y-auto space-y-2 pr-2">
-              {events.slice(-6).reverse().map((event, idx) => {
+            <div className="grow min-h-0 overflow-y-auto space-y-2 pr-2">
+              {events.slice().reverse().map((event, idx) => {
                 const type = (event.typeName || event.type || '').toUpperCase();
-                const text = formatEventCommentary(event, homeName, awayName, (key: string) => key);
+                const text = formatEventCommentary(event, homeName, awayName, tCommentary);
                 if (!text) return null;
                 const isLatest = idx === 0;
 
@@ -412,19 +434,44 @@ export function TacticalMatchDetail({
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-primary/5">
-                  {/* Real players from snapshot */}
-                  {snapshot?.h.ps.slice(0, 8).map((p) => (
-                    <tr key={p.id} className="group hover:bg-primary/5 transition-colors">
+                  {/* Real players — snapshot wins (mid-game stamina/star),
+                      submitted lineup + roster is the fallback when there
+                      is no SNAPSHOT event in the stream. */}
+                  {(
+                    snapshot
+                      ? snapshot.h.ps.map((p) => ({
+                          id: p.id,
+                          name: p.n ?? p.id.substring(0, 8),
+                          // Fold legacy alias keys (CB → CB1, DM → DMF1, etc.)
+                          // onto canonical PitchSlot so the table column
+                          // shows what the editor would.
+                          pos: toPitchSlot(p.p) ?? p.p,
+                          sr: p.sr,
+                        }))
+                      : homeLineupCards
+                          .filter((c) => c.slotKey !== null)
+                          .map((c) => ({
+                            id: c.playerId,
+                            name: c.name,
+                            // Slot key is the authoritative PitchSlot
+                            // (CB1, DMF1, etc.) — drop the fallback null case.
+                            pos: c.slotKey ?? '',
+                            sr: rosterById.get(c.playerId)?.overall ?? 0,
+                          }))
+                  )
+                    .slice(0, 8)
+                    .map((row) => (
+                    <tr key={row.id} className="group hover:bg-primary/5 transition-colors">
                       <td className="py-2">
                         <div className="flex items-center gap-2">
                           <div className="w-1.5 h-1.5 rounded-full bg-primary" />
-                          <span className="text-xs font-headline font-bold text-on-surface" title={p.n}>
-                            {p.n || p.id.substring(0, 8)}
+                          <span className="text-xs font-headline font-bold text-on-surface" title={row.name}>
+                            {row.name}
                           </span>
                         </div>
                       </td>
                       <td className="py-2 text-center text-[10px] font-bold text-outline uppercase">
-                        {p.p}
+                        {row.pos}
                       </td>
                       <td className="py-2 text-center">
                         <div className="flex justify-center gap-0.5">
@@ -434,7 +481,7 @@ export function TacticalMatchDetail({
                               className="material-symbols-outlined text-[10px]"
                               style={{
                                 color: 'var(--primary)',
-                                opacity: s <= Math.round(p.sr / 20) ? 1 : 0.2,
+                                opacity: s <= Math.round((row.sr ?? 0) / 20) ? 1 : 0.2,
                               }}
                             >
                               star

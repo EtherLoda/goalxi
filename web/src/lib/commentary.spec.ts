@@ -195,23 +195,67 @@ describe('formatEventCommentary dispatch', () => {
       realT,
     );
     expect(weatherText).toBe('Sunny skies over the stadium');
+  });
 
-    // Now assert the default-branch behavior for a type not aliased AND not
-    // in the switch: the canonical key falls through to the formatter's
-    // default `Title At Minute'` shape.
-    const passingT = jest.fn(() => '');
-    const fallbackText = formatEventCommentary(
+  it('appends attendance as a trailing line when weather event carries a count', () => {
+    // Forfeit path piggybacks on the weather_announcement event's data
+    // to surface crowd size (there is no separate crowd-announcement
+    // event type). Verify both lines render together.
+    const t = jest.fn((key: string) => {
+      if (key === 'weather.cloudy') return 'Overcast skies';
+      if (key === 'attendance.line') return '{count} fans in attendance.';
+      return key;
+    });
+    const text = formatEventCommentary(
       baseEvent({
-        id: 'X',
-        type: 'no_such_event_kind',
-        typeName: 'no_such_event_kind',
-        minute: 73,
+        type: 'weather_announcement',
+        typeName: 'weather_announcement',
+        minute: 0,
+        data: { weather: 'Cloudy', weatherKey: 'cloudy', attendance: 25000 },
       }),
       'A',
       'B',
-      passingT,
+      t,
     );
-    expect(fallbackText).toBe("No Such Event Kind at 73'");
+    expect(text).toBe('Overcast skies 25,000 fans in attendance.');
+    // Both i18n keys must have been consulted.
+    expect(t).toHaveBeenCalledWith('weather.cloudy');
+    expect(t).toHaveBeenCalledWith('attendance.line');
+  });
+
+  it('omits attendance when count is 0 or missing', () => {
+    // Pre-sim matches may have attendance=0 (not yet computed) or the
+    // field absent. Don't render "0 fans in attendance." noise.
+    const t = jest.fn((key: string) => {
+      if (key === 'weather.rainy') return 'Rain falling';
+      if (key === 'weather.sunny') return 'Sunny skies';
+      return key;
+    });
+    const textZero = formatEventCommentary(
+      baseEvent({
+        type: 'weather_announcement',
+        typeName: 'weather_announcement',
+        minute: 0,
+        data: { weather: 'Rainy', weatherKey: 'rainy', attendance: 0 },
+      }),
+      'A',
+      'B',
+      t,
+    );
+    expect(textZero).toBe('Rain falling');
+
+    const textMissing = formatEventCommentary(
+      baseEvent({
+        type: 'weather_announcement',
+        typeName: 'weather_announcement',
+        minute: 0,
+        data: { weather: 'Sunny', weatherKey: 'sunny' },
+      }),
+      'A',
+      'B',
+      t,
+    );
+    expect(textMissing).toBe('Sunny skies');
   });
 
   it('default branch formats unknown events as "Title At Minute\'"', () => {
@@ -349,5 +393,41 @@ describe('formatEventCommentary period events', () => {
       t,
     );
     expect(text).toContain('A 1-0 B');
+  });
+
+  // Regression: next-intl@4 throws FORMATTING_ERROR when `t()` is called
+  // with a template that has `{var}` placeholders but no params object.
+  // getTemplate() must always forward the interpolation params, otherwise
+  // period templates (full_time, half_time, forfeit, …) surface as the
+  // literal `commentary.full_time.tpl_2` string in the UI.
+  it('getTemplate forwards interpolation params so next-intl does not throw', () => {
+    const t = jest.fn((key: string, params?: Record<string, string | number>) => {
+      // Real next-intl would interpolate via ICU MessageFormat; mimic that
+      // for any tpl_N in the full_time family so the test is hash-stable.
+      if (key.startsWith('full_time.tpl_') && params) {
+        const n = key.slice('full_time.tpl_'.length);
+        return `FT_TPL_${n}:${params.winner} (${params.homeScore}-${params.awayScore})`;
+      }
+      return key;
+    });
+    const text = formatEventCommentary(
+      baseEvent({
+        type: 'full_time',
+        typeName: 'full_time',
+        minute: 90,
+        data: { homeScore: 3, awayScore: 1 },
+      }),
+      'Winners',
+      'Losers',
+      t,
+    );
+    expect(text).toContain('Winners');
+    expect(text).toContain('3-1');
+    // Param object MUST include winner + scores — guards against a future
+    // refactor that drops them silently.
+    expect(t).toHaveBeenCalledWith(
+      expect.stringMatching(/^full_time\.tpl_\d+$/),
+      expect.objectContaining({ winner: 'Winners', homeScore: 3, awayScore: 1 }),
+    );
   });
 });

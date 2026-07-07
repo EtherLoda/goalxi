@@ -113,7 +113,12 @@ function interpolate(template: string, params: Record<string, string | number>):
   return template.replace(/\{(\w+)\}/g, (_, key) => String(params[key] ?? `{${key}}`));
 }
 
-function getTemplate(t: TranslationFunction, section: string, idx: number): string {
+function getTemplate(
+  t: TranslationFunction,
+  section: string,
+  idx: number,
+  params?: Record<string, string | number>,
+): string {
   // Callers still pass fully-qualified keys (e.g. `commentary.goal`); strip
   // the `commentary.` prefix so a hook scoped via `useTranslations('commentary')`
   // resolves the rest as a relative path. Without this strip, next-intl@4
@@ -124,7 +129,14 @@ function getTemplate(t: TranslationFunction, section: string, idx: number): stri
     ? section.slice('commentary.'.length)
     : section;
   const key = `${stripped}.tpl_${idx}`;
-  return t(key);
+  // Pass interpolation params to `t()` so next-intl does ICU MessageFormat
+  // substitution itself. Without this, next-intl@4 throws FORMATTING_ERROR
+  // for templates that declare `{var}` placeholders (e.g. full_time.tpl_0
+  // wants `{homeTeam}`, `{winner}`, …) — the error escaped as the literal
+  // dotted key in the UI because the formatter's try/catch was missing.
+  // The post-call `interpolate()` is intentionally kept for the spec's mock
+  // `t()` (which ignores params), so test fixtures still see {var} replaced.
+  return params ? t(key, params) : t(key);
 }
 
 function getQualityText(t: TranslationFunction, shootRating: number): string {
@@ -175,8 +187,6 @@ export function formatGoalCommentary(
   const laneDesc = getLaneText(t, lane);
   const shotTypeDesc = getShotTypeText(t, shotType);
 
-  const template = getTemplate(t, 'commentary.goal', templateIdx);
-
   const params: Record<string, string | number> = {
     player,
     team: teamName,
@@ -184,6 +194,8 @@ export function formatGoalCommentary(
     lane: laneDesc,
     shotType: shotTypeDesc,
   };
+
+  const template = getTemplate(t, 'commentary.goal', templateIdx, params);
 
   return interpolate(template, params);
 }
@@ -210,8 +222,6 @@ export function formatShotOnTargetCommentary(
   const laneDesc = lane ? `${getLaneText(t, lane)} ` : '';
   const shotTypeDesc = shotType ? ` (${getShotTypeText(t, shotType)})` : '';
 
-  const template = getTemplate(t, 'commentary.shot_on_target', templateIdx);
-
   const params: Record<string, string | number> = {
     player,
     team: teamName,
@@ -219,6 +229,8 @@ export function formatShotOnTargetCommentary(
     lane: laneDesc,
     shotType: shotTypeDesc,
   };
+
+  const template = getTemplate(t, 'commentary.shot_on_target', templateIdx, params);
 
   return interpolate(template, params);
 }
@@ -238,13 +250,13 @@ export function formatShotOffTargetCommentary(
   const lane = data?.lane;
   const laneDesc = lane ? `${getLaneText(t, lane)} ` : '';
 
-  const template = getTemplate(t, 'commentary.shot_off_target', templateIdx);
-
   const params: Record<string, string | number> = {
     player,
     team: teamName,
     lane: laneDesc,
   };
+
+  const template = getTemplate(t, 'commentary.shot_off_target', templateIdx, params);
 
   return interpolate(template, params);
 }
@@ -256,8 +268,7 @@ export function formatSaveCommentary(
   t: TranslationFunction,
 ): string {
   const templateIdx = templateIndexFor(event) % 3;
-  const template = getTemplate(t, 'commentary.save', templateIdx);
-  return template;
+  return getTemplate(t, 'commentary.save', templateIdx);
 }
 
 export function formatFoulCommentary(
@@ -271,9 +282,10 @@ export function formatFoulCommentary(
   const isHome = event.isHome ?? true;
   const teamName = isHome ? homeTeamName : awayTeamName;
 
-  const template = getTemplate(t, 'commentary.foul', templateIdx);
-
-  return interpolate(template, { team: teamName });
+  return interpolate(
+    getTemplate(t, 'commentary.foul', templateIdx, { team: teamName }),
+    { team: teamName },
+  );
 }
 
 export function formatOffsideCommentary(
@@ -286,9 +298,10 @@ export function formatOffsideCommentary(
   const isHome = event.isHome ?? true;
   const teamName = isHome ? homeTeamName : awayTeamName;
 
-  const template = getTemplate(t, 'commentary.offside', templateIdx);
-
-  return interpolate(template, { team: teamName });
+  return interpolate(
+    getTemplate(t, 'commentary.offside', templateIdx, { team: teamName }),
+    { team: teamName },
+  );
 }
 
 export function formatCornerCommentary(
@@ -301,9 +314,10 @@ export function formatCornerCommentary(
   const isHome = event.isHome ?? true;
   const teamName = isHome ? homeTeamName : awayTeamName;
 
-  const template = getTemplate(t, 'commentary.corner', templateIdx);
-
-  return interpolate(template, { team: teamName });
+  return interpolate(
+    getTemplate(t, 'commentary.corner', templateIdx, { team: teamName }),
+    { team: teamName },
+  );
 }
 
 export function formatYellowCardCommentary(
@@ -320,9 +334,10 @@ export function formatYellowCardCommentary(
   const player = data?.playerName || 'Unknown Player';
   const reason = getReasonText(data?.reason);
 
-  const template = getTemplate(t, 'commentary.yellow_card', templateIdx);
-
-  return interpolate(template, { player, reason });
+  return interpolate(
+    getTemplate(t, 'commentary.yellow_card', templateIdx, { player, reason, team: teamName }),
+    { player, reason, team: teamName },
+  );
 }
 
 export function formatRedCardCommentary(
@@ -338,9 +353,10 @@ export function formatRedCardCommentary(
 
   const player = data?.playerName || 'Unknown Player';
 
-  const template = getTemplate(t, 'commentary.red_card', templateIdx);
-
-  return interpolate(template, { player, team: teamName });
+  return interpolate(
+    getTemplate(t, 'commentary.red_card', templateIdx, { player, team: teamName }),
+    { player, team: teamName },
+  );
 }
 
 export function formatSubstitutionCommentary(
@@ -356,9 +372,10 @@ export function formatSubstitutionCommentary(
 
   const playerIn = data?.substitutePlayerName || data?.player?.name || 'Player';
 
-  const template = getTemplate(t, 'commentary.substitution', templateIdx);
-
-  return interpolate(template, { playerIn, team: teamName });
+  return interpolate(
+    getTemplate(t, 'commentary.substitution', templateIdx, { playerIn, team: teamName }),
+    { playerIn, team: teamName },
+  );
 }
 
 export function formatInjuryCommentary(
@@ -375,9 +392,10 @@ export function formatInjuryCommentary(
   const player = data?.playerName || 'Unknown Player';
   const severity = getSeverityText(data?.severity);
 
-  const template = getTemplate(t, 'commentary.injury', templateIdx);
-
-  return interpolate(template, { player, severity, team: teamName });
+  return interpolate(
+    getTemplate(t, 'commentary.injury', templateIdx, { player, severity, team: teamName }),
+    { player, severity, team: teamName },
+  );
 }
 
 export function formatClearanceCommentary(
@@ -390,9 +408,10 @@ export function formatClearanceCommentary(
   const isHome = event.isHome ?? true;
   const teamName = isHome ? homeTeamName : awayTeamName;
 
-  const template = getTemplate(t, 'commentary.clearance', templateIdx);
-
-  return interpolate(template, { team: teamName });
+  return interpolate(
+    getTemplate(t, 'commentary.clearance', templateIdx, { team: teamName }),
+    { team: teamName },
+  );
 }
 
 export function formatInterceptionCommentary(
@@ -405,9 +424,10 @@ export function formatInterceptionCommentary(
   const isHome = event.isHome ?? true;
   const teamName = isHome ? homeTeamName : awayTeamName;
 
-  const template = getTemplate(t, 'commentary.interception', templateIdx);
-
-  return interpolate(template, { team: teamName });
+  return interpolate(
+    getTemplate(t, 'commentary.interception', templateIdx, { team: teamName }),
+    { team: teamName },
+  );
 }
 
 export function formatPenaltyCommentary(
@@ -420,9 +440,10 @@ export function formatPenaltyCommentary(
   const isHome = event.isHome ?? true;
   const teamName = isHome ? homeTeamName : awayTeamName;
 
-  const template = getTemplate(t, 'commentary.penalty', templateIdx);
-
-  return interpolate(template, { team: teamName });
+  return interpolate(
+    getTemplate(t, 'commentary.penalty', templateIdx, { team: teamName }),
+    { team: teamName },
+  );
 }
 
 export function formatPenaltyMissCommentary(
@@ -435,9 +456,10 @@ export function formatPenaltyMissCommentary(
   const templateIdx = templateIndexFor(event) % 2;
   const player = data?.playerName || 'Unknown Player';
 
-  const template = getTemplate(t, 'commentary.penalty_miss', templateIdx);
-
-  return interpolate(template, { player });
+  return interpolate(
+    getTemplate(t, 'commentary.penalty_miss', templateIdx, { player }),
+    { player },
+  );
 }
 
 export function formatWeatherAnnouncementCommentary(
@@ -449,7 +471,27 @@ export function formatWeatherAnnouncementCommentary(
 
   // Strip `commentary.` prefix when callers (see getTemplate) are scoped to
   // the `commentary` namespace via `useTranslations('commentary')`.
-  return t(`weather.${weather.toLowerCase()}`);
+  const baseLine = t(`weather.${weather.toLowerCase()}`);
+
+  // Attendance piggybacks on the weather event — there is no separate
+  // crowd-announcement event type. The simulator's forfeit path also
+  // emits this field; normal matches populate it via the pre-sim
+  // scheduler. Render as a single trailing line so both messages read
+  // as "match preview" context.
+  const attendance = typeof data?.attendance === 'number' ? data.attendance : null;
+  if (attendance && attendance > 0) {
+    const crowdTemplate = t('attendance.line');
+    const crowdLine = interpolate(crowdTemplate, { count: formatNumber(attendance) });
+    return `${baseLine} ${crowdLine}`;
+  }
+  return baseLine;
+}
+
+function formatNumber(n: number): string {
+  // Locale-agnostic grouping (the formatter is rendered in en/zh based
+  // on the caller's `useTranslations` locale). Avoid Intl.* here to
+  // keep tests deterministic.
+  return n.toLocaleString('en-US');
 }
 
 export function formatPlayerIntroductionCommentary(
@@ -460,9 +502,10 @@ export function formatPlayerIntroductionCommentary(
   const homePlayers = data?.homePlayers?.length || 0;
   const awayPlayers = data?.awayPlayers?.length || 0;
 
-  const template = getTemplate(t, 'commentary.player_introduction', 0);
-
-  return interpolate(template, { homePlayers, awayPlayers });
+  return interpolate(
+    getTemplate(t, 'commentary.player_introduction', 0, { homePlayers, awayPlayers }),
+    { homePlayers, awayPlayers },
+  );
 }
 
 export function formatPeriodCommentary(
@@ -485,8 +528,15 @@ export function formatPeriodCommentary(
   if (type === 'HALF_TIME') {
     const homeScore = data?.homeScore ?? 0;
     const awayScore = data?.awayScore ?? 0;
-    const template = getTemplate(t, section, 0);
-    return interpolate(template, { homeTeam: homeTeamName, awayTeam: awayTeamName, homeScore, awayScore });
+    return interpolate(
+      getTemplate(t, section, 0, {
+        homeTeam: homeTeamName,
+        awayTeam: awayTeamName,
+        homeScore,
+        awayScore,
+      }),
+      { homeTeam: homeTeamName, awayTeam: awayTeamName, homeScore, awayScore },
+    );
   }
 
   // Handle full_time with score and winner
@@ -494,7 +544,6 @@ export function formatPeriodCommentary(
     const homeScore = data?.homeScore ?? 0;
     const awayScore = data?.awayScore ?? 0;
     const templateIdx = templateIndexFor(event) % 3;
-    const template = getTemplate(t, section, templateIdx);
 
     let winner: string;
     if (homeScore > awayScore) {
@@ -505,18 +554,18 @@ export function formatPeriodCommentary(
       winner = t('full_time.draw');
     }
 
-    return interpolate(template, {
+    const params = {
       homeTeam: homeTeamName,
       awayTeam: awayTeamName,
       homeScore,
       awayScore,
       winner,
-    });
+    };
+    return interpolate(getTemplate(t, section, templateIdx, params), params);
   }
 
   // Simple period events without score
-  const template = getTemplate(t, section, 0);
-  return template;
+  return getTemplate(t, section, 0);
 }
 
 export function formatForfeitCommentary(
@@ -527,9 +576,11 @@ export function formatForfeitCommentary(
   const forfeitingTeam = data?.forfeitingTeam ?? '';
   const winner = data?.winner ?? '';
   const tplIdx = templateIndexFor(event) % 2;
-  const template = getTemplate(t, 'commentary.forfeit', tplIdx);
 
-  return interpolate(template, { forfeitingTeam, winner });
+  return interpolate(
+    getTemplate(t, 'commentary.forfeit', tplIdx, { forfeitingTeam, winner }),
+    { forfeitingTeam, winner },
+  );
 }
 
 export function formatEventCommentary(

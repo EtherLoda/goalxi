@@ -796,6 +796,9 @@
       "foggy": "Thick fog rolling in! Visibility is reduced — both teams need to adapt.",
       "snowy": "Snow is falling at the stadium! A winter wonderland but challenging for the players."
     },
+    "attendance": {
+      "line": "{count} fans in attendance."
+    },
     "player_introduction": {
       "tpl_0": "Teams ready! {homePlayers} vs {awayPlayers} players"
     },

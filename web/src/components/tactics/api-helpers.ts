@@ -195,8 +195,12 @@ const LEGACY_SLOT_ALIASES: Readonly<Record<string, PitchSlot>> = {
 /**
  * Coerce a server-provided slot key into a valid pitch slot. Returns
  * `null` for keys we cannot map (caller decides whether to drop or surface).
+ *
+ * Exported so consumers outside the editor (e.g. `match-pitch-data.ts`
+ * resolving snapshot position keys) can reuse the same alias table
+ * without duplicating it.
  */
-function toPitchSlot(raw: string): PitchSlot | null {
+export function toPitchSlot(raw: string): PitchSlot | null {
   if (PITCH_SLOT_SET.has(raw as PitchSlot)) return raw as PitchSlot;
   const aliased = LEGACY_SLOT_ALIASES[raw];
   return aliased ?? null;

@@ -322,6 +322,15 @@ interface Match {
   type?: string;
   /** [RFC 0001] Youth league id when type === youth_league. */
   youthLeagueId?: string | null;
+  /**
+   * Forfeit flags — set when the match never simulated (e.g. one team
+   * showed up below the min-player threshold). Simulator emits no
+   * SNAPSHOT events for forfeit matches, so the match page must check
+   * these flags to avoid rendering submitted lineups as if they had
+   * actually played.
+   */
+  homeForfeit?: boolean;
+  awayForfeit?: boolean;
 }
 
 interface MatchEvent {

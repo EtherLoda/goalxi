@@ -39,6 +39,7 @@ import {
   PitchWidth,
   DefensiveLine,
 } from '../engine/types/tactics-config';
+import { Player } from '../types/player.types';
 import { DEFAULT_TACTICS } from '../engine/tactics/tactics-presets';
 import {
   NotificationService,
@@ -400,7 +401,16 @@ export class SimulationProcessor extends WorkerHost {
       this.jobLog.warn(
         `[Simulator] Match ${match.id} forfeit — home=${homeTacticalPlayers.length} away=${awayTacticalPlayers.length} (min=${minPlayers})`,
       );
-      await this.handleRosterForfeit(match, homeForfeit, awayForfeit);
+      // Pass the partial lineups so the forfeit event stream can still
+      // introduce any players that *did* show up (the non-forfeiting
+      // side). Players on the forfeiting side are dropped.
+      await this.handleRosterForfeit(
+        match,
+        homeForfeit,
+        awayForfeit,
+        homeTacticalPlayers,
+        awayTacticalPlayers,
+      );
       return;
     }
 
@@ -1073,6 +1083,8 @@ export class SimulationProcessor extends WorkerHost {
     match: MatchEntity,
     homeForfeit: boolean,
     awayForfeit: boolean,
+    homeTacticalPlayers: TacticalPlayer[] = [],
+    awayTacticalPlayers: TacticalPlayer[] = [],
   ): Promise<void> {
     // Score rule mirrors the externally-triggered forfeit path:
     // homeForfeit ? 0 : 3, awayForfeit ? 0 : 3 → 0-0 if both forfeit, 3-0 otherwise.
@@ -1089,10 +1101,20 @@ export class SimulationProcessor extends WorkerHost {
     const winnerName = homeForfeit ? awayName : homeName;
     const forfeitingName = homeForfeit ? homeName : awayName;
 
-    // Clean event timeline: no fake key moments, just a single FORFEIT notice
-    // bracketed by kickoff and full_time. All immediately revealed.
+    // Clean event timeline: kickoff → weather + crowd announcement → player
+    // introduction (only for the non-forfeiting side) → forfeit notice → full_time.
+    // Mirrors the normal match engine's minute-0 intro sequence so the match
+    // page renders a familiar "match preview" for forfeits too.
     const start = new Date(match.scheduledAt);
     const end = new Date(start.getTime() + 90 * 60 * 1000);
+    const weather = match.weather ?? 'cloudy';
+    const attendance = match.attendance ?? 0;
+
+    const toPlayerInfo = (p: TacticalPlayer) => ({
+      name: (p.player as Player).name,
+      position: p.positionKey,
+    });
+
     const forfeitEvents: Array<{
       minute: number;
       type: string;
@@ -1102,12 +1124,53 @@ export class SimulationProcessor extends WorkerHost {
       { minute: 0, type: 'kickoff', eventScheduledTime: start },
       {
         minute: 0,
+        type: 'weather_announcement',
+        data: {
+          weather: weather
+            .split('_')
+            .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+            .join(' '),
+          weatherKey: weather,
+          // Attendance piggybacks on the weather event since neither
+          // path emits a dedicated crowd-announcement event type. The
+          // commentary formatter reads this field to render "X fans in
+          // attendance" alongside the weather line.
+          attendance,
+          homeTeam: homeName,
+          awayTeam: awayName,
+        },
+        eventScheduledTime: start,
+      },
+    ];
+
+    // Player introduction: only emit when at least one team has players
+    // (i.e. the non-forfeiting side showed up). Forfeiting side is sent
+    // as an empty array — never synthesise fake players.
+    const homePlayers = homeForfeit ? [] : homeTacticalPlayers.map(toPlayerInfo);
+    const awayPlayers = awayForfeit ? [] : awayTacticalPlayers.map(toPlayerInfo);
+    if (homePlayers.length > 0 || awayPlayers.length > 0) {
+      forfeitEvents.push({
+        minute: 0,
+        type: 'player_introduction',
+        data: {
+          homeTeam: homeName,
+          awayTeam: awayName,
+          homePlayers,
+          awayPlayers,
+        },
+        eventScheduledTime: start,
+      });
+    }
+
+    forfeitEvents.push(
+      {
+        minute: 0,
         type: 'forfeit',
         data: { forfeitingTeam: forfeitingName, winner: winnerName },
         eventScheduledTime: start,
       },
       { minute: 90, type: 'full_time', eventScheduledTime: end },
-    ];
+    );
 
     await this.dataSource.transaction(async (manager) => {
       await manager.save(match);

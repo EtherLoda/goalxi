@@ -126,6 +126,7 @@ function MatchDetailContent() {
 
       {/* Main Content: 8:4 Ratio Grid */}
       <TacticalMatchDetail
+        matchId={match.id}
         match={{
           homeScore: match.homeScore,
           awayScore: match.awayScore,
@@ -133,6 +134,11 @@ function MatchDetailContent() {
           awayTeam: match.awayTeam,
           status: match.status,
           scheduledAt: match.scheduledAt,
+          // Forfeit flags drive the empty-pitch + banner rendering path
+          // on the match page. Both/either may be set when at least one
+          // team failed to field a legal roster.
+          homeForfeit: match.homeForfeit,
+          awayForfeit: match.awayForfeit,
         }}
         events={events}
         stats={stats}
