@@ -25,6 +25,7 @@ import {
   StaffRole,
   calculateMatchExperience,
   addExperience,
+  Uuid,
 } from '@goalxi/database';
 import { MatchEngine, MatchEvent } from '../engine/match.engine';
 import { Team } from '../engine/classes/Team';
@@ -113,10 +114,49 @@ export class SimulationProcessor extends WorkerHost {
       return;
     }
 
-    if (homeForfeit || awayForfeit) {
-      await this.handleForfeit(match, !!homeForfeit, !!awayForfeit);
-    } else {
-      await this.runSimulation(match, weather);
+    // [RFC sim-worker-lock] Atomic claim — a per-match lease that prevents
+    // two workers from both running the engine and bulk-inserting events for
+    // the same match. The recovery branch in `completeMatches`
+    // (settlement scheduler) re-enqueues while the first worker is still
+    // computing; the first worker never sets status=COMPLETED itself
+    // (the scheduler does that once lastEvent.eventScheduledTime <= now),
+    // so the old "skip if COMPLETED" guard was racey. The atomic
+    // UPDATE+RETURNING makes the second worker see 0 rows and bail out
+    // before touching `match_event`. See migration
+    // `1723500000000-AddSimulationStartedAt`.
+    const claimed = await this.dataSource.transaction(async (manager) => {
+      const result = await manager.query(
+        `UPDATE "match"
+         SET "simulation_started_at" = NOW()
+         WHERE "id" = $1
+           AND "simulation_started_at" IS NULL
+           AND "status" IN ('tactics_locked', 'in_progress')
+         RETURNING "id"`,
+        [matchId],
+      );
+      return Array.isArray(result) && result.length > 0;
+    });
+    if (!claimed) {
+      this.jobLog.warn(
+        `Match ${matchId} simulation already in flight or finished, skipping duplicate job`,
+      );
+      return;
+    }
+
+    try {
+      if (homeForfeit || awayForfeit) {
+        await this.handleForfeit(match, !!homeForfeit, !!awayForfeit);
+      } else {
+        await this.runSimulation(match, weather);
+      }
+    } finally {
+      // Release the lease on success OR crash so the next legitimate run
+      // (e.g. after a fixed worker) can claim. `completeMatches` has a
+      // separate stale-lock sweep for crashes that leave the lease set.
+      await this.matchRepository.update(
+        { id: matchId },
+        { simulationStartedAt: null },
+      );
     }
 
     // Create match result notifications for both teams
@@ -354,13 +394,16 @@ export class SimulationProcessor extends WorkerHost {
     const awayInstructions = mapInstructions(awayTactics);
 
     // 4. Setup Engine Teams
-    // Filter out players that don't exist in DB to avoid runtime crashes
-    const homePlayerIds = new Set(allPlayers.map((p) => p.id));
+    // Filter out players that don't exist in DB to avoid runtime crashes.
+    // NOTE: this is a combined lookup of starters + subs from BOTH teams (built
+    // above as `allPlayers`), not just the home side. The variable name is
+    // kept on the home side for historical reasons.
+    const knownPlayerIds = new Set(allPlayers.map((p) => p.id));
     const missingHome = homeStarterIds.filter(
-      (pid) => !((pid as any) in homePlayerIds),
+      (pid) => !knownPlayerIds.has(pid as Uuid),
     );
     const missingAway = awayStarterIds.filter(
-      (pid) => !((pid as any) in homePlayerIds),
+      (pid) => !knownPlayerIds.has(pid as Uuid),
     );
     if (missingHome.length > 0)
       this.jobLog.warn(
@@ -371,11 +414,11 @@ export class SimulationProcessor extends WorkerHost {
         `[Simulator] Away lineup references missing players: ${missingAway.join(', ')}`,
       );
 
-    const validHomeIds = homeStarterIds.filter(
-      (pid) => (pid as any) in homePlayerIds,
+    const validHomeIds = homeStarterIds.filter((pid) =>
+      knownPlayerIds.has(pid as Uuid),
     );
-    const validAwayIds = awayStarterIds.filter(
-      (pid) => (pid as any) in homePlayerIds,
+    const validAwayIds = awayStarterIds.filter((pid) =>
+      knownPlayerIds.has(pid as Uuid),
     );
 
     const homeTacticalPlayers: TacticalPlayer[] = validHomeIds.map((pid) => ({
@@ -668,6 +711,15 @@ export class SimulationProcessor extends WorkerHost {
 
     // 7. Persist Results
     await this.dataSource.transaction(async (manager) => {
+      // [RFC sim-worker-lock] Defense in depth: clear any stale events from
+      // a previous (now-released) attempt before inserting fresh ones. The
+      // atomic claim above already prevents two workers from running at the
+      // same time, but if a prior worker crashed mid-save after the lock
+      // was released by the sweep in `completeMatches`, those rows could
+      // otherwise linger and yield 2× snapshots at the same minute.
+      await manager.delete(MatchEventEntity, { matchId: match.id });
+      await manager.delete(MatchTeamStatsEntity, { matchId: match.id });
+
       // Get match report from engine for settlement
       const matchReport = engine.getMatchReport();
 
@@ -902,11 +954,25 @@ export class SimulationProcessor extends WorkerHost {
         const injuryData = (e.data as any)?.injuryData;
         if (!injuryData?.playerId) continue;
 
+        // Simulator emits severity as the string union
+        // 'mild' | 'moderate' | 'severe' (InjurySystem.InjurySeverity).
+        // InjuryEntity.severity is stored as int (1 | 2 | 3) — convert here
+        // so the bulk insert doesn't fail with "invalid input syntax for
+        // type integer: 'moderate'". Values outside the union fall back to
+        // 1 (mild) so an unexpected string never crashes the job.
+        const severityMap: Record<string, number> = {
+          mild: 1,
+          moderate: 2,
+          severe: 3,
+        };
+        const severityInt =
+          severityMap[injuryData.severity as string] ?? 1;
+
         injuryRecords.push({
           playerId: injuryData.playerId,
           matchId: match.id,
           injuryType: injuryData.injuryType,
-          severity: injuryData.severity,
+          severity: severityInt,
           injuryValue: injuryData.injuryValue,
           // ±15% fluctuation removed — single deterministic estimate is written to both columns
           // so legacy NOT NULL min/max columns stay valid.

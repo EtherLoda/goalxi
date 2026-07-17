@@ -63,7 +63,14 @@ export interface MatchPitchProps {
   awayTactics: Tactics | null;
   homeRoster: Player[];
   awayRoster: Player[];
-  snapshot: MatchSnapshot | null;
+  /**
+   * The snapshot whose player states the pitch should render. The parent
+   * (TacticalMatchDetail) owns which minute is "active" — by default it's
+   * the latest snapshot, but the SnapshotZonePanel scrubber can swap it
+   * out. When `null`, the pitch falls back to submitted tactics (the
+   * "predicted lineup" case for kickoff / forfeit / no-snapshot matches).
+   */
+  activeSnapshot: MatchSnapshot | null;
   /**
    * Forfeit flags from the API. When either is true, the simulator
    * never ran the match — no SNAPSHOT events were emitted and any
@@ -71,7 +78,7 @@ export interface MatchPitchProps {
    * render empty (no player dots) and surface the forfeit banner
    * instead of falling back to `tactics.lineup`.
    *
-   * When neither is true and `snapshot` is null, the page is showing
+   * When neither is true and `activeSnapshot` is null, the page is showing
    * submitted tactics as a "predicted" lineup (pre-game) — that case
    * still renders dots, since the user does want to see their lineup.
    */
@@ -202,7 +209,7 @@ export function MatchPitch({
   awayTactics,
   homeRoster,
   awayRoster,
-  snapshot,
+  activeSnapshot,
   homeForfeit = false,
   awayForfeit = false,
   homeTeamName,
@@ -226,12 +233,12 @@ export function MatchPitch({
   const isForfeit = homeForfeit || awayForfeit;
 
   const homeCards = useMemo(
-    () => buildCards(homeTactics, snapshot?.h.ps ?? null, rosterById),
-    [homeTactics, snapshot, rosterById],
+    () => buildCards(homeTactics, activeSnapshot?.h.ps ?? null, rosterById),
+    [homeTactics, activeSnapshot, rosterById],
   );
   const awayCards = useMemo(
-    () => buildCards(awayTactics, snapshot?.a.ps ?? null, rosterById),
-    [awayTactics, snapshot, rosterById],
+    () => buildCards(awayTactics, activeSnapshot?.a.ps ?? null, rosterById),
+    [awayTactics, activeSnapshot, rosterById],
   );
 
   const homeTempo = homeTactics?.tempo ?? 'balanced';
@@ -245,7 +252,7 @@ export function MatchPitch({
     <div className="relative w-full aspect-video rounded-2xl overflow-hidden border border-white/5 bg-[#051a14]">
       {/* Pitch surface — emerald gradient + vertical stripes (perpendicular
           to attack direction in this layout). */}
-      <div className="absolute inset-0 bg-gradient-to-r from-emerald-950/40 via-emerald-900/30 to-emerald-950/40" />
+      <div className="absolute inset-0 bg-linear-to-r from-emerald-950/40 via-emerald-900/30 to-emerald-950/40" />
       <div className="absolute inset-0 opacity-20 bg-[repeating-linear-gradient(90deg,transparent,transparent_40px,rgba(0,0,0,0.15)_40px,rgba(0,0,0,0.15)_80px)]" />
 
       {/* Single SVG: pitch markings span the whole pitch. */}

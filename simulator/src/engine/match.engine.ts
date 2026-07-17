@@ -13,7 +13,11 @@ import { AttributeCalculator } from './utils/attribute-calculator';
 import { ConditionSystem } from './systems/condition.system';
 import { InjurySystem, InjuryEventData } from './systems/injury.system';
 import { Player, PlayerAbility } from '../types/player.types';
-import { BenchConfig, calculatePositionFit } from '@goalxi/database';
+import {
+  BenchConfig,
+  calculatePositionFit,
+  Uuid,
+} from '@goalxi/database';
 import { LoggerService } from '@nestjs/common';
 import { resolveDuel as resolveDuelPure, duelProbability } from './duel';
 import {
@@ -255,6 +259,92 @@ export class MatchEngine {
     }>;
   } = { home: [], away: [] };
 
+  /**
+   * Running lane counters per team — used by the FE to render
+   * per-snapshot panel rates that mirror the simulator exactly.
+   *
+   * - `attempts` / `pushSuccess`: empirical counts (kept for debugging and
+   *   future use; not surfaced to the FE anymore).
+   * - `pushProbabilitySum` / `midfieldProbabilitySum`: cumulative
+   *   `duelProbability(...)` values from every push / midfield duel in
+   *   this lane for this team. Snapshot emission divides by `attempts`
+   *   to get the *expected* push success rate (probability) and by
+   *   `attempts` (push) / `midfieldBattles` (midfield) to get the
+   *   *expected* possession win rate. The FE reads these averages
+   *   directly — no client-side division, no "1/1 = 100%" noise.
+   *
+   * Reset in the constructor so each engine instance starts fresh.
+   */
+  private laneCounters: {
+    home: Record<
+      Lane,
+      {
+        attempts: number;
+        pushSuccess: number;
+        pushProbabilitySum: number;
+        midfieldProbabilitySum: number;
+        midfieldBattles: number;
+      }
+    >;
+    away: Record<
+      Lane,
+      {
+        attempts: number;
+        pushSuccess: number;
+        pushProbabilitySum: number;
+        midfieldProbabilitySum: number;
+        midfieldBattles: number;
+      }
+    >;
+  } = {
+    home: {
+      left: {
+        attempts: 0,
+        pushSuccess: 0,
+        pushProbabilitySum: 0,
+        midfieldProbabilitySum: 0,
+        midfieldBattles: 0,
+      },
+      center: {
+        attempts: 0,
+        pushSuccess: 0,
+        pushProbabilitySum: 0,
+        midfieldProbabilitySum: 0,
+        midfieldBattles: 0,
+      },
+      right: {
+        attempts: 0,
+        pushSuccess: 0,
+        pushProbabilitySum: 0,
+        midfieldProbabilitySum: 0,
+        midfieldBattles: 0,
+      },
+    },
+    away: {
+      left: {
+        attempts: 0,
+        pushSuccess: 0,
+        pushProbabilitySum: 0,
+        midfieldProbabilitySum: 0,
+        midfieldBattles: 0,
+      },
+      center: {
+        attempts: 0,
+        pushSuccess: 0,
+        pushProbabilitySum: 0,
+        midfieldProbabilitySum: 0,
+        midfieldBattles: 0,
+      },
+      right: {
+        attempts: 0,
+        pushSuccess: 0,
+        pushProbabilitySum: 0,
+        midfieldProbabilitySum: 0,
+        midfieldBattles: 0,
+      },
+    },
+  };
+
   // 待记录的帽子戏法列表
   private pendingHatTricks: Array<{
     playerId: string;
@@ -369,26 +459,17 @@ export class MatchEngine {
     this.time = 0;
     this.freshPossession = false;
 
-    // KICKOFF Event
+    // KICKOFF Event — single emission. Previously three `kickoff` events were
+    // pushed (data-only, home, away); the FE had no way to dedupe them and
+    // "And we're off!" rendered three times at minute 0.
     this.events.push({
       minute: 0,
       type: 'kickoff',
       data: {
         homeTeam: this.homeTeam.name,
         awayTeam: this.awayTeam.name,
+        period: 'first_half',
       },
-    });
-
-    this.events.push({
-      minute: 0,
-      type: 'kickoff',
-      teamName: this.homeTeam.name,
-    });
-
-    this.events.push({
-      minute: 0,
-      type: 'kickoff',
-      teamName: this.awayTeam.name,
     });
 
     // Weather Announcement Event
@@ -1287,7 +1368,10 @@ export class MatchEngine {
     const awayControlWithBonus = awayControl * (1 + homeTackleBonus); // defending team benefits
 
     // 拼抢：amplification=1.7（中场对抗温和放大，比主推更平）
-    const homeWinsPossession = resolveDuelPure(
+    // 同时累加 home 视角的预期控球概率——FE 的 Possession Share 面板
+    // 读 lc.mpr（=sum(midfieldProbability) / midfieldBattles），不再是
+    // ls.pos 的强度比，而是 engine 用 duelProbability 算出来的真实预期。
+    const midfieldProbability = duelProbability(
       homeControlWithBonus,
       awayControlWithBonus,
       {
@@ -1297,6 +1381,7 @@ export class MatchEngine {
         anchorProbability: 0.8,
       },
     );
+    const homeWinsPossession = Math.random() < midfieldProbability;
 
     this.possessionTeam = homeWinsPossession ? this.homeTeam : this.awayTeam;
     this.defendingTeam = homeWinsPossession ? this.awayTeam : this.homeTeam;
@@ -1334,6 +1419,11 @@ export class MatchEngine {
     // Step 4: Attack Push (Attack vs Defense)
     // 远射跳过推进阶段
     let pushSuccess = false;
+    // Attacker-perspective expected push success probability (0..1) from
+    // duelProbability(attPower, defPower, ...). Defaults to 0 when the
+    // sequence skips the push phase (intercept-then-shot, long_shot), so
+    // the accumulator never sees a fabricated probability.
+    let pushProbability = 0;
     let preSelectedShooter: TacticalPlayer | null = null;
     let preSelectedPasser: TacticalPlayer | null = null;
     let interceptTriggered = false;
@@ -1505,12 +1595,21 @@ export class MatchEngine {
         // 主推进参数：
         // - amplification=1.5（弱凸性，避免强队推进率过度碾压）
         // - baseline=0.35（真实足球推进率约 30-40%，旧公式 sigmoid 推出 0.44 偏高）
-        pushSuccess = resolveDuelPure(effectiveAttPower, effectiveDefPower, {
+        // 同时计算 attacker 视角的预期推进概率（0..1），通过 recordAttackSequence
+        // 累加到 laneCounters.pushProbabilitySum，给 FE 的 Push Success Rate 面板
+        // 提供模型输出而不是 empirical 命中率。
+        const pushDuelOptions = {
           amplification: 1.5,
           baseline: 0.35,
           anchorRatio: 2.0,
           anchorProbability: 0.8,
-        });
+        };
+        pushProbability = duelProbability(
+          effectiveAttPower,
+          effectiveDefPower,
+          pushDuelOptions,
+        );
+        pushSuccess = Math.random() < pushProbability;
         // 如果进攻失败，防守方获得球权，下次进攻享受反击加成
         if (!pushSuccess) {
           this.freshPossession = true;
@@ -1521,6 +1620,8 @@ export class MatchEngine {
       } else {
         // 反击触发后，重置标志（反击加成已应用）
         this.freshPossession = false;
+        // 拦截成功后直接射门（不需要再走推进流程）——push 阶段被跳过，
+        // pushProbability 保持 0，accumulator 不会计入假数据。
       }
     }
 
@@ -1648,6 +1749,11 @@ export class MatchEngine {
     }
 
     // Record the complete attack sequence as ONE event
+    // Attacker used as the event actor for turnover / miss-without-shot cases
+    // (shot?.shooter is null when the push fails, so without this the event
+    // would have no playerId).
+    const attacker: TacticalPlayer | null = shooter ?? preSelectedShooter;
+
     this.recordAttackSequence({
       lane: this.currentLane,
       attackType: attackType,
@@ -1655,11 +1761,22 @@ export class MatchEngine {
         homeStrength: homeControl,
         awayStrength: awayControl,
         winner: homeWinsPossession ? 'home' : 'away',
+        // home-perspective probability (0..1) — accumulated into the
+        // attacker's laneCounters.midfieldProbabilitySum by
+        // processAttackSequence so the FE's Possession Share panel can
+        // read the engine's expected rate instead of empirical counts.
+        probability: midfieldProbability,
       },
       attackPush: {
         attackPower: attPower,
         defensePower: defPower,
         success: pushSuccess,
+        attackingPlayer: attacker,
+        // attacker-perspective probability (0..1) — accumulated into
+        // laneCounters.pushProbabilitySum for the FE's Push Success Rate
+        // panel. Distinct from `success` (the sampled boolean) so the
+        // panel rate stays stable across small samples.
+        probability: pushProbability,
       },
       shot:
         shotResult === 'no_shot'
@@ -1735,6 +1852,7 @@ export class MatchEngine {
         minute: this.time,
         type: 'foul',
         teamName: foulingTeam.name,
+        playerId: p.id,
       });
       // Trigger set piece
       this.resolveSetPieceFromFoul(foulingTeam, victimTeam);
@@ -1924,8 +2042,20 @@ export class MatchEngine {
       homeStrength: number;
       awayStrength: number;
       winner: 'home' | 'away';
+      /** Home-perspective expected win probability (0..1) from
+       *  `duelProbability(homeControl, awayControl, ...)`. */
+      probability: number;
     };
-    attackPush: { attackPower: number; defensePower: number; success: boolean };
+    attackPush: {
+      attackPower: number;
+      defensePower: number;
+      success: boolean;
+      attackingPlayer: TacticalPlayer | null;
+      /** Attacker-perspective expected push success probability (0..1)
+       *  from `duelProbability(attPower, defPower, ...)`. 0 when the
+       *  sequence skipped the push phase (e.g. intercept-then-shoot). */
+      probability: number;
+    };
     shot: {
       result: 'goal' | 'save' | 'blocked' | 'miss';
       shotType: ShotType;
@@ -1936,6 +2066,25 @@ export class MatchEngine {
     } | null;
   }) {
     const { lane, attackType, midfieldBattle, attackPush, shot } = sequence;
+
+    // Running lane counters for the FE snapshot panel. The `winner` of the
+    // midfield battle is the attacking team for this sequence — increment
+    // THEIR lane's counters (not the defender's). `attempts` always ticks;
+    // `pushSuccess` only ticks when the push duel resolved successfully.
+    // `pushProbabilitySum` / `midfieldProbabilitySum` accumulate the
+    // engine-computed expected probabilities so the FE can read
+    // stable rate values via `lc.pr` and `lc.mpr` (no "1/1 = 100%"
+    // small-sample noise — the probability is the model output, not
+    // the empirical hit rate).
+    const attackerSide = midfieldBattle.winner;
+    const attackerCounters = this.laneCounters[attackerSide][lane];
+    attackerCounters.attempts += 1;
+    attackerCounters.pushProbabilitySum += attackPush.probability;
+    attackerCounters.midfieldProbabilitySum += midfieldBattle.probability;
+    attackerCounters.midfieldBattles += 1;
+    if (attackPush.success) {
+      attackerCounters.pushSuccess += 1;
+    }
 
     // Determine overall result
     let finalResult: 'goal' | 'save' | 'blocked' | 'miss' | 'defense_stopped';
@@ -2009,6 +2158,9 @@ export class MatchEngine {
         },
         attackPush: {
           attackingTeam: possessor,
+          attackingPlayer: attackPush.attackingPlayer
+            ? (attackPush.attackingPlayer.player as Player).name
+            : undefined,
           defendingTeam: defender,
           attackPower: parseFloat(attackPush.attackPower.toFixed(2)),
           defensePower: parseFloat(attackPush.defensePower.toFixed(2)),
@@ -2081,11 +2233,19 @@ export class MatchEngine {
     }
 
     // Create the event
+    const eventPlayer =
+      shot?.shooter ??
+      (eventType === 'turnover' || eventType === 'miss'
+        ? attackPush.attackingPlayer
+        : null);
+
     this.events.push({
       minute: this.time,
       type: eventType,
       teamName: possessor,
-      playerId: shot?.shooter ? (shot.shooter.player as Player).id : undefined,
+      playerId: eventPlayer
+        ? ((eventPlayer.player as Player).id as Uuid)
+        : undefined,
       relatedPlayerId: shot?.assist
         ? (shot.assist.player as Player).id
         : undefined,
@@ -2642,6 +2802,43 @@ export class MatchEngine {
       return res;
     };
 
+    // Lane counters as they stand at this snapshot — running totals since
+    // engine start. Two rates live here:
+    //   - `pr`  = pushProbabilitySum / attempts   (engine-computed
+    //             expected push success probability; 0 when no pushes yet)
+    //   - `mpr` = midfieldProbabilitySum / midfieldBattles  (engine-computed
+    //             expected possession win probability; 0 when no battles yet)
+    // The FE's Push Success Rate and Possession Share panels read these
+    // directly — no client-side division, no "1/1 = 100%" small-sample
+    // noise. `att` is kept for debugging / future use.
+    const formatCounters = (
+      counters: Record<
+        Lane,
+        {
+          attempts: number;
+          pushSuccess: number;
+          pushProbabilitySum: number;
+          midfieldProbabilitySum: number;
+          midfieldBattles: number;
+        }
+      >,
+    ) => {
+      const out: any = {};
+      for (const lane of ['left', 'center', 'right'] as const) {
+        const cell = counters[lane];
+        out[lane] = {
+          att: cell.attempts,
+          ps_: cell.pushSuccess,
+          pr: cell.attempts > 0 ? cell.pushProbabilitySum / cell.attempts : 0,
+          mpr:
+            cell.midfieldBattles > 0
+              ? cell.midfieldProbabilitySum / cell.midfieldBattles
+              : 0,
+        };
+      }
+      return out;
+    };
+
     this.events.push({
       minute: time,
       type: 'snapshot',
@@ -2649,12 +2846,14 @@ export class MatchEngine {
         h: {
           n: time === 0 ? this.homeTeam.name : undefined,
           ls: formatLanes(homeSnapshot?.laneStrengths),
+          lc: formatCounters(this.laneCounters.home),
           gk: parseFloat((homeSnapshot?.gkRating || 0).toFixed(1)),
           ps: mapPlayerStates(this.homeTeam, time === 0),
         },
         a: {
           n: time === 0 ? this.awayTeam.name : undefined,
           ls: formatLanes(awaySnapshot?.laneStrengths),
+          lc: formatCounters(this.laneCounters.away),
           gk: parseFloat((awaySnapshot?.gkRating || 0).toFixed(1)),
           ps: mapPlayerStates(this.awayTeam, time === 0),
         },

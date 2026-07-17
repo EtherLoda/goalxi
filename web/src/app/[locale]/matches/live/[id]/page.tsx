@@ -1,14 +1,23 @@
 'use client';
 
-import { useEffect, useState, Suspense, useCallback, useRef } from 'react';
+import { useEffect, useMemo, useState, Suspense, useCallback, useRef } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useTranslations } from 'next-intl';
-import { api, type MatchStatsRes, type MatchEvent as ApiMatchEvent } from '@/lib/api';
+import {
+  api,
+  type MatchStatsRes,
+  type MatchEvent as ApiMatchEvent,
+  type Player,
+  type Tactics,
+} from '@/lib/api';
 import { useMatchLive, type MatchEvent } from '@/hooks/useMatchLive';
 import { LiveCommentary } from '@/components/match/LiveCommentary';
 import { MatchStatsPanel } from '@/components/match/MatchStatsPanel';
 import { TacticalZonesPanel } from '@/components/match/TacticalZonesPanel';
+import { MatchPitch } from '@/components/match/MatchPitch';
+import { SnapshotZonePanel } from '@/components/match/SnapshotZonePanel';
+import { extractSnapshots } from '@/components/match/snapshot-stats';
 
 const MATCH_END_REDIRECT_DELAY_MS = 2500;
 
@@ -89,6 +98,51 @@ function LiveMatchContent() {
   const currentMinute = matchState?.currentMinute || 0;
   const isConnected = connectionStatus === 'connected';
 
+  // Pitch + zone panel data — fetched via REST because the WS stream
+  // doesn't carry tactics or roster details (only the simulator's per-
+  // match report does). Same fetch pattern as TacticalMatchDetail on
+  // the match report page; if the WS ever starts pushing these, swap
+  // out the REST call without changing the consumers.
+  const homeTeamId = matchState?.homeTeam?.id;
+  const awayTeamId = matchState?.awayTeam?.id;
+  const [homeTactics, setHomeTactics] = useState<Tactics | null>(null);
+  const [awayTactics, setAwayTactics] = useState<Tactics | null>(null);
+  const [homeRoster, setHomeRoster] = useState<Player[]>([]);
+  const [awayRoster, setAwayRoster] = useState<Player[]>([]);
+
+  useEffect(() => {
+    if (!matchId) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const tacticsPromise = api.matches.getTactics(matchId);
+        const homeRosterPromise = homeTeamId
+          ? api.players.getByTeam(homeTeamId)
+          : Promise.resolve({ items: [] as Player[], meta: {} });
+        const awayRosterPromise = awayTeamId
+          ? api.players.getByTeam(awayTeamId)
+          : Promise.resolve({ items: [] as Player[], meta: {} });
+        const [tactics, homeR, awayR] = await Promise.all([
+          tacticsPromise,
+          homeRosterPromise,
+          awayRosterPromise,
+        ]);
+        if (cancelled) return;
+        setHomeTactics(tactics.homeTactics);
+        setAwayTactics(tactics.awayTactics);
+        setHomeRoster(homeR.items ?? []);
+        setAwayRoster(awayR.items ?? []);
+      } catch {
+        // Swallow — the pitch renders an empty grid + the zone panel
+        // shows "No snapshot data yet" if the snapshot list is also
+        // empty. Don't block the live commentary on REST hiccups.
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [matchId, homeTeamId, awayTeamId]);
+
   // Map WebSocket events to the API/rest shape. Prefer backend-supplied fields
   // (entity UUID, isHome) — they were added in Phase 1 specifically so the
   // client doesn't have to guess from `teamId`. The composite `id` fallback
@@ -116,6 +170,34 @@ function LiveMatchContent() {
   const visibleEvents: ApiMatchEvent[] = events
     .filter((e) => e.minute <= currentMinute)
     .map(mapWsEventToApiEvent);
+
+  // Snapshots drive the scrubber + zone panel. WS events accumulate
+  // over the course of the match, so this list grows as the live
+  // simulation runs. The active index defaults to the latest
+  // snapshot — pre-scrubber behavior — and the panel's onChange
+  // commits a new index on mouseup / touchend.
+  //
+  // We extract from `visibleEvents` (filtered to `minute <= currentMinute`
+  // by the LiveCommentary pipeline above) so the scrubber never shows
+  // snapshots from minutes the user hasn't "watched" yet. The conversion
+  // through `mapWsEventToApiEvent` is also where the optional WS fields
+  // (`second`, `eventScheduledTime`, `playerName`) get coerced to the
+  // shape `extractSnapshots` expects.
+  const snapshots = useMemo(
+    () => extractSnapshots(visibleEvents),
+    [visibleEvents],
+  );
+  const [activeSnapshotIndex, setActiveSnapshotIndex] = useState<number>(
+    () => Math.max(0, snapshots.length - 1),
+  );
+  // Live mode — every new WS snapshot snaps the scrubber to "now"
+  // unless the user is actively viewing an earlier moment. The match
+  // report page skips this effect because once a match is over, no
+  // new snapshots arrive.
+  useEffect(() => {
+    setActiveSnapshotIndex((idx) => Math.max(0, snapshots.length - 1));
+  }, [snapshots.length]);
+  const activeSnapshot = snapshots[activeSnapshotIndex] ?? null;
 
   // If not connected yet and no match state
   if (connectionStatus === 'disconnected' && !matchState && !wsError) {
@@ -256,6 +338,32 @@ function LiveMatchContent() {
           </span>
         </div>
       )}
+
+      {/* Pitch + zone panel — same components as the match report
+          page, so live and post-match share one visual language. The
+          scrubber in SnapshotZonePanel drives both the zone stats and
+          the player markers on the pitch (the activeSnapshot is lifted
+          here just like in TacticalMatchDetail). WS events feed the
+          snapshot timeline; new snapshots snap the scrubber forward
+          unless the user is viewing an earlier minute. */}
+      <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-4 items-stretch">
+        <MatchPitch
+          homeTactics={homeTactics}
+          awayTactics={awayTactics}
+          homeRoster={homeRoster}
+          awayRoster={awayRoster}
+          activeSnapshot={activeSnapshot}
+          homeForfeit={false}
+          awayForfeit={false}
+          homeTeamName={homeTeamName}
+          awayTeamName={awayTeamName}
+        />
+        <SnapshotZonePanel
+          snapshots={snapshots}
+          activeIndex={activeSnapshotIndex}
+          onChange={setActiveSnapshotIndex}
+        />
+      </div>
 
       {/* Main Content Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">

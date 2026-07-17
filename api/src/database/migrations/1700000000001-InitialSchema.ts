@@ -607,6 +607,24 @@ export class InitialSchema1700000000001 implements MigrationInterface {
             )
         `);
     await queryRunner.query(`
+            CREATE TABLE "injury" (
+                "id" uuid NOT NULL DEFAULT uuid_generate_v4(),
+                "created_at" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
+                "updated_at" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
+                "player_id" uuid NOT NULL,
+                "match_id" uuid,
+                "injury_type" character varying(20) NOT NULL,
+                "severity" integer NOT NULL,
+                "injury_value" integer NOT NULL,
+                "estimated_min_days" integer NOT NULL,
+                "estimated_max_days" integer NOT NULL,
+                "occurred_at" TIMESTAMP WITH TIME ZONE NOT NULL,
+                "recovered_at" TIMESTAMP WITH TIME ZONE,
+                "is_recovered" boolean NOT NULL DEFAULT false,
+                CONSTRAINT "PK_injury_id" PRIMARY KEY ("id")
+            )
+        `);
+    await queryRunner.query(`
             ALTER TABLE "session"
             ADD CONSTRAINT "FK_session_user" FOREIGN KEY ("user_id") REFERENCES "user"("id") ON DELETE NO ACTION ON UPDATE NO ACTION
         `);
@@ -778,6 +796,19 @@ export class InitialSchema1700000000001 implements MigrationInterface {
             ALTER TABLE "youth_match_tactics"
             ADD CONSTRAINT "FK_fd6fcf47e399b1ce937c20a9284" FOREIGN KEY ("team_id") REFERENCES "youth_team"("id") ON DELETE NO ACTION ON UPDATE NO ACTION
         `);
+    await queryRunner.query(`
+            ALTER TABLE "injury"
+            ADD CONSTRAINT "FK_injury_player_id" FOREIGN KEY ("player_id") REFERENCES "player"("id") ON DELETE CASCADE ON UPDATE NO ACTION
+        `);
+    await queryRunner.query(`
+            CREATE INDEX "IDX_injury_player_id" ON "injury" ("player_id")
+        `);
+    await queryRunner.query(`
+            CREATE INDEX "IDX_injury_is_recovered" ON "injury" ("is_recovered")
+        `);
+    await queryRunner.query(`
+            CREATE INDEX "IDX_injury_occurred_at" ON "injury" ("occurred_at")
+        `);
   }
 
   public async down(queryRunner: QueryRunner): Promise<void> {
@@ -909,6 +940,12 @@ export class InitialSchema1700000000001 implements MigrationInterface {
         `);
     await queryRunner.query(`
             ALTER TABLE "session" DROP CONSTRAINT "FK_session_user"
+        `);
+    await queryRunner.query(`
+            ALTER TABLE "injury" DROP CONSTRAINT "FK_injury_player_id"
+        `);
+    await queryRunner.query(`
+            DROP TABLE "injury"
         `);
     await queryRunner.query(`
             DROP TABLE "fan"

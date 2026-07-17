@@ -26,10 +26,16 @@ import {
  * - RECOVERY_JOBID_BUCKET_MS: width of the jobId bucket used to throttle
  *   re-enqueues. Within one bucket, BullMQ rejects duplicate jobIds, so
  *   we re-enqueue at most once per bucket per match.
+ * - STALE_SIMULATION_LOCK_MS: a match whose `simulation_started_at` is
+ *   older than this is assumed to have a crashed worker — clear the lease
+ *   so the next job can claim. Pairs with the atomic claim in
+ *   SimulationProcessor (see migration 1723500000000). Should be safely
+ *   larger than the slowest possible simulation (engine + transaction).
  */
 const STUCK_IN_PROGRESS_MINUTES = 30;
 const STUCK_LOCKED_MINUTES = 5;
 const RECOVERY_JOBID_BUCKET_MS = 5 * 60 * 1000;
+const STALE_SIMULATION_LOCK_MS = 60 * 60 * 1000;
 
 @Injectable()
 export class MatchSchedulerService {
@@ -357,6 +363,27 @@ export class MatchSchedulerService {
         });
 
         if (!lastEvent || !lastEvent.eventScheduledTime) {
+          // Stale lease sweep: if a previous worker set simulation_started_at
+          // but crashed before completing, the lease is still held and the
+          // next simulation job would skip via the atomic claim. Clear it
+          // so the retry can actually run. Past STALE_SIMULATION_LOCK_MS,
+          // we treat the holder as dead. The processor's try/finally also
+          // releases the lease on the happy path — this sweep only matters
+          // for crashed workers.
+          if (
+            match.simulationStartedAt &&
+            now.getTime() - new Date(match.simulationStartedAt).getTime() >
+              STALE_SIMULATION_LOCK_MS
+          ) {
+            await this.matchRepository.update(
+              { id: match.id },
+              { simulationStartedAt: null },
+            );
+            this.logger.warn(
+              `[MatchRecovery] Cleared stale simulation lock for ${match.id}`,
+            );
+          }
+
           // Recovery branch: an IN_PROGRESS match with no events past the
           // grace window is stuck — the simulation job was lost or the
           // worker crashed. Re-enqueue (idempotent in the worker) to give

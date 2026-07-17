@@ -161,6 +161,56 @@ describe('MatchEngine', () => {
     expect(firstSnapshot.data.h.ps.length).toBeGreaterThan(0);
   });
 
+  it('snapshot lane counters (att / ps_) are non-decreasing and final ≥ any prior', () => {
+    // The lane counters in the snapshot are running totals since engine
+    // start — they only ever go up. The final snapshot's totals are the
+    // whole-match totals, and the FE computes `pushRate = ps_ / att`
+    // directly from these counters (no sigmoid reimplementation).
+    engine.simulateMatch();
+    const events = (engine as any).events as MatchEvent[];
+    const snapshots = events
+      .filter((e) => e.type === 'snapshot')
+      .sort((a, b) => a.minute - b.minute);
+
+    expect(snapshots.length).toBeGreaterThan(1);
+
+    const laneTotals = (
+      lc: { left: { att: number; ps_: number }; center: { att: number; ps_: number }; right: { att: number; ps_: number } } | undefined,
+      lane: 'left' | 'center' | 'right',
+    ) => {
+      const cell = lc?.[lane] ?? { att: 0, ps_: 0 };
+      return cell;
+    };
+
+    // Monotonicity check across all snapshot pairs.
+    for (let i = 1; i < snapshots.length; i++) {
+      const prev = snapshots[i - 1].data.h.lc;
+      const curr = snapshots[i].data.h.lc;
+      for (const lane of ['left', 'center', 'right'] as const) {
+        const p = laneTotals(prev, lane);
+        const c = laneTotals(curr, lane);
+        expect(c.att).toBeGreaterThanOrEqual(p.att);
+        expect(c.ps_).toBeGreaterThanOrEqual(p.ps_);
+        // ps_ never exceeds att — a push success must come from an attempt.
+        expect(c.ps_).toBeLessThanOrEqual(c.att);
+      }
+    }
+
+    // Final snapshot totals are the whole-match totals — both teams.
+    const final = snapshots[snapshots.length - 1];
+    const homeTotalAtt = ['left', 'center', 'right'].reduce(
+      (sum, lane) =>
+        sum + laneTotals(final.data.h.lc, lane as 'left' | 'center' | 'right').att,
+      0,
+    );
+    const awayTotalAtt = ['left', 'center', 'right'].reduce(
+      (sum, lane) =>
+        sum + laneTotals(final.data.a.lc, lane as 'left' | 'center' | 'right').att,
+      0,
+    );
+    expect(homeTotalAtt + awayTotalAtt).toBeGreaterThan(0);
+  });
+
   describe('Player Match Stats', () => {
     it('should track player stats after match simulation', () => {
       engine.simulateMatch();

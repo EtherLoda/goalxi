@@ -319,6 +319,22 @@
       "redirecting": "Redirecting…",
       "connectionLost": "Connection lost",
       "backToMatches": "Back to Matches"
+    },
+    "zone": {
+      "title": "Zone Control",
+      "snapLabel": "snap {index}/{total} · {minute}'",
+      "noSnapshots": "No snapshot data yet",
+      "left": "Left",
+      "center": "Center",
+      "right": "Right",
+      "leftSub": "top touchline",
+      "centerSub": "middle",
+      "rightSub": "bottom touchline",
+      "atk": "ATK",
+      "def": "DEF",
+      "poss": "POSS",
+      "possessionShare": "Possession Share",
+      "pushSuccess": "Push Success Rate"
     }
   },
   "squad": {
@@ -717,8 +733,16 @@
     },
     "foul": {
       "tpl_0": "{team} with a heavy challenge — the referee blows his whistle!",
-      "tpl_1": "Foul on {team}! The ref is giving a warning to the offender.",
-      "tpl_2": "{team} caught pushing in the box."
+      "tpl_1": "Foul on {team}! {player} is giving away a free kick.",
+      "tpl_2": "{team} caught pushing in the box — {player} the offender."
+    },
+    "turnover": {
+      "tpl_0": "Turnover at {team} — possession lost in the middle of the park.",
+      "tpl_1": "{team} give the ball away cheaply. {player} tried to force the pass."
+    },
+    "free_kick": {
+      "tpl_0": "Free kick to {team} — {player} lines it up.",
+      "tpl_1": "{team} win a set piece. {player} stands over the ball."
     },
     "offside": {
       "tpl_0": "The assistant's flag goes up — {team} caught offside.",

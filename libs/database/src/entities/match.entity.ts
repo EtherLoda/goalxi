@@ -86,6 +86,17 @@ export class MatchEntity extends AbstractEntity {
     @Column({ name: 'simulation_completed_at', type: 'timestamp', nullable: true })
     simulationCompletedAt?: Date;
 
+    /**
+     * [RFC sim-worker-lock] Set by SimulationProcessor via an atomic UPDATE
+     * before running the engine; cleared in a try/finally. Acts as a
+     * per-match lease so concurrent jobs (e.g. scheduler 3's recovery branch
+     * re-enqueuing while the first worker is still computing) cannot both
+     * bulk-insert events for the same match. See migration
+     * `1723500000000-AddSimulationStartedAt`.
+     */
+    @Column({ name: 'simulation_started_at', type: 'timestamp', nullable: true })
+    simulationStartedAt?: Date | null;
+
     @Column({ name: 'tactics_locked_at', type: 'timestamp', nullable: true })
     tacticsLockedAt?: Date;
 

@@ -226,8 +226,16 @@ export function generateWeatherAnnouncementEvent(
     .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
     .join(' ');
 
+  // IMPORTANT: `type` must be the canonical lower-snake string (matching
+  // the keys in simulation.processor.mapEventType), NOT the numeric
+  // MatchEventType enum. The processor's bulk-insert path stores
+  // `e.type` verbatim as `typeName`; if we pass the enum integer, the
+  // row ends up with typeName='32'/'33' and a wrong `type` code
+  // (the lookup map doesn't have those keys, so the fallback marks
+  // the event as a tactical_change), which the FE then renders as
+  // "32 at 0'" / "33 at 0'".
   return {
-    type: MatchEventType.WEATHER_ANNOUNCEMENT,
+    type: 'weather_announcement',
     minute,
     second: 0,
     teamId: undefined, // Neutral event
@@ -251,7 +259,7 @@ export function generatePlayerIntroductionEvent(
   awayPlayers: Array<{ name: string; position: string }>,
 ): any {
   return {
-    type: MatchEventType.PLAYER_INTRODUCTION,
+    type: 'player_introduction',
     minute,
     second: 0,
     teamId: undefined, // Neutral event

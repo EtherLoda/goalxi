@@ -12,6 +12,41 @@ import { PITCH_SLOTS, type PitchSlot } from '../tactics/types';
 import { toPitchSlot, normalizeLineup } from '../tactics/api-helpers';
 
 // ============================================================================
+// Lane shape (mirrors libs/database `SnapshotLaneStrengths` /
+// `SnapshotLaneCounters` — kept inline here so the match page can import
+// without reaching into @goalxi/database).
+// ============================================================================
+
+export type Lane = 'left' | 'center' | 'right';
+
+/**
+ * Per-snapshot lane strength for one team. Numbers are 1-decimal floats
+ * emitted by the simulator's `formatLanes` helper.
+ */
+export interface SnapshotLaneStrengths {
+  left: { atk: number; def: number; pos: number };
+  center: { atk: number; def: number; pos: number };
+  right: { atk: number; def: number; pos: number };
+}
+
+/**
+ * Per-snapshot push-success counters for one team. The `pr` / `mpr`
+ * fields are engine-computed expected probabilities (mean of
+ * `duelProbability(...)` across every duel in this lane) — the FE's
+ * Push Success Rate and Possession Share panels read them directly
+ * (no `ps_ / att` division on the client). `att` / `ps_` stay for
+ * debugging and future rate-based tooling. See
+ * `libs/database/src/types/match-event-data.ts` for the canonical shape.
+ */
+export interface SnapshotLaneCounters {
+  left: { att: number; ps_: number; pr: number; mpr: number };
+  center: { att: number; ps_: number; pr: number; mpr: number };
+  right: { att: number; ps_: number; pr: number; mpr: number };
+}
+
+export const LANES: readonly Lane[] = ['left', 'center', 'right'];
+
+// ============================================================================
 // Snapshot shape (matches what TacticalMatchDetail extracts from events)
 // ============================================================================
 
@@ -30,10 +65,21 @@ export interface MatchSnapshotPlayer {
 
 export interface MatchSnapshotSide {
   n?: string;
+  /** Lane strengths emitted by the simulator (1-decimal floats). */
+  ls?: SnapshotLaneStrengths;
+  /**
+   * Lane counters emitted by the simulator. Older matches pre-dating
+   * the lc field will have this undefined — UI must guard.
+   */
+  lc?: SnapshotLaneCounters;
+  /** GK rating at snapshot. */
+  gk?: number;
   ps: MatchSnapshotPlayer[];
 }
 
 export interface MatchSnapshot {
+  /** Snapshot minute — used by the snapshot scrubber on the match page. */
+  minute: number;
   h: MatchSnapshotSide;
   a: MatchSnapshotSide;
 }

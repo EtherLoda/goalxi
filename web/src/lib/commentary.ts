@@ -271,6 +271,58 @@ export function formatSaveCommentary(
   return getTemplate(t, 'commentary.save', templateIdx);
 }
 
+/**
+ * Turnover — possession lost on an attacking push that didn't become a shot.
+ * The simulator now sets `event.playerId` to the attacking player (shooter
+ * if available, else `preSelectedShooter` from simulateKeyMoment). Falls
+ * back to the nested `data.sequence.attackPush.attackingPlayer` for older
+ * events that predate the engine fix.
+ */
+export function formatTurnoverCommentary(
+  event: MatchEvent,
+  homeTeamName: string,
+  awayTeamName: string,
+  t: TranslationFunction,
+): string {
+  const data = event.data as any;
+  const isHome = event.isHome ?? true;
+  const teamName = isHome ? homeTeamName : awayTeamName;
+
+  const player: string | undefined =
+    data?.sequence?.attackPush?.attackingPlayer ??
+    data?.attackingPlayer ??
+    data?.playerName;
+
+  const templateIdx = templateIndexFor(event) % 2;
+  return interpolate(
+    getTemplate(t, 'commentary.turnover', templateIdx, { team: teamName, player: player ?? '' }),
+    { team: teamName, player: player ?? '' },
+  );
+}
+
+/**
+ * Free kick — emitted as a result of a direct set piece (free kick taken).
+ * The simulator puts the kicker's name in `data.playerName` and the fouling
+ * team on the event's `isHome` (or `data.setPieceType` for the variant).
+ */
+export function formatFreeKickCommentary(
+  event: MatchEvent,
+  homeTeamName: string,
+  awayTeamName: string,
+  t: TranslationFunction,
+): string {
+  const data = event.data as any;
+  const isHome = event.isHome ?? true;
+  const teamName = isHome ? homeTeamName : awayTeamName;
+  const player: string | undefined = data?.playerName ?? data?.kicker;
+
+  const templateIdx = templateIndexFor(event) % 2;
+  return interpolate(
+    getTemplate(t, 'commentary.free_kick', templateIdx, { team: teamName, player: player ?? '' }),
+    { team: teamName, player: player ?? '' },
+  );
+}
+
 export function formatFoulCommentary(
   event: MatchEvent,
   homeTeamName: string,
@@ -282,9 +334,14 @@ export function formatFoulCommentary(
   const isHome = event.isHome ?? true;
   const teamName = isHome ? homeTeamName : awayTeamName;
 
+  // Simulator now sets `event.playerId` on the foul event (the fouling
+  // player). The data JSON may also carry a denormalized name; prefer
+  // the structured field so future event-bus changes don't break it.
+  const player: string | undefined = data?.playerName;
+
   return interpolate(
-    getTemplate(t, 'commentary.foul', templateIdx, { team: teamName }),
-    { team: teamName },
+    getTemplate(t, 'commentary.foul', templateIdx, { team: teamName, player: player ?? '' }),
+    { team: teamName, player: player ?? '' },
   );
 }
 
@@ -606,6 +663,10 @@ export function formatEventCommentary(
       return formatShotOffTargetCommentary(event, homeTeamName, awayTeamName, t);
     case 'FOUL':
       return formatFoulCommentary(event, homeTeamName, awayTeamName, t);
+    case 'TURNOVER':
+      return formatTurnoverCommentary(event, homeTeamName, awayTeamName, t);
+    case 'FREE_KICK':
+      return formatFreeKickCommentary(event, homeTeamName, awayTeamName, t);
     case 'OFFSIDE':
       return formatOffsideCommentary(event, homeTeamName, awayTeamName, t);
     case 'CORNER':

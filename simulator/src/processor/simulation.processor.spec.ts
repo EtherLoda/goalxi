@@ -30,6 +30,7 @@ describe('SimulationProcessor', () => {
   let teamRepository: jest.Mocked<Repository<TeamEntity>>;
   let injuryRepository: jest.Mocked<Repository<InjuryEntity>>;
   let dataSource: jest.Mocked<DataSource>;
+  let mockLogger: { warn: jest.Mock; info: jest.Mock; error: jest.Mock; log: jest.Mock; debug: jest.Mock };
 
   const mockMatch = {
     id: 'match-1',
@@ -133,12 +134,22 @@ describe('SimulationProcessor', () => {
     careerStats: {},
     exactAge: [25, 0],
     appearance: 100,
+    getExactAge: () => [25, 0],
   }));
 
   beforeEach(async () => {
     const mockTransactionManager = {
       save: jest.fn().mockResolvedValue({}),
       create: jest.fn((entity, data) => data),
+      delete: jest.fn().mockResolvedValue({ affected: 0 }),
+      // `manager.query` powers the atomic claim in process() — the default
+      // returns a one-row array so the happy-path tests still pass. Tests
+      // that want to simulate a losing claim override this per-test.
+      query: jest.fn().mockResolvedValue([{ id: 'match-1' }]),
+      // `manager.findOne` is used by the player career-stats and competition-
+      // stats paths inside runSimulation. Default to null so those branches
+      // fall back to "create new row" without a 500.
+      findOne: jest.fn().mockResolvedValue(null),
       createQueryBuilder: jest.fn(() => ({
         where: jest.fn().mockReturnThis(),
         getMany: jest.fn().mockResolvedValue(mockPlayers),
@@ -157,6 +168,10 @@ describe('SimulationProcessor', () => {
           useValue: {
             findOne: jest.fn(),
             save: jest.fn(),
+            // `update` powers the lease-release in the process() finally
+            // block. Default to a successful no-op so existing tests don't
+            // have to care.
+            update: jest.fn().mockResolvedValue({ affected: 1 }),
           },
         },
         {
@@ -252,6 +267,9 @@ describe('SimulationProcessor', () => {
     teamRepository = module.get(getRepositoryToken(TeamEntity));
     injuryRepository = module.get(getRepositoryToken(InjuryEntity));
     dataSource = module.get(DataSource);
+    // Expose the logger so inner `describe('process', ...)` blocks can assert
+    // on warn/info calls without re-resolving the test module.
+    mockLogger = module.get(LOGGER_SERVICE) as any;
 
     // Default mocks for successful simulation
     matchRepository.findOne.mockResolvedValue(mockMatch as any);
@@ -274,6 +292,11 @@ describe('SimulationProcessor', () => {
   });
 
   describe('process', () => {
+    beforeEach(() => {
+      mockLogger.warn.mockClear();
+      mockLogger.info.mockClear();
+      mockLogger.error.mockClear();
+    });
     it('should return silently if match not found', async () => {
       matchRepository.findOne.mockResolvedValue(null);
 
@@ -350,6 +373,153 @@ describe('SimulationProcessor', () => {
       await processor.process(mockJob);
 
       expect(dataSource.transaction).toHaveBeenCalled();
+    });
+
+    // Regression: the processor used to filter starters with
+    // `(pid as any) in homePlayerIds`, which checks the Set's own
+    // properties (`size`/`add`/`has`) rather than its values. That
+    // flagged every UUID as "missing", dropped both teams to zero
+    // valid starters, and the roster-forfeit gate ran a 0-0 walkover
+    // even when the DB had all the players.
+    it('should not flag known lineup players as missing (Set.has vs `in`)', async () => {
+      // Downstream mocks for runSimulation are partial (e.g. manager.findOne),
+      // but the missing-player filter runs BEFORE that — so we only need to
+      // observe the logger. Swallow anything else.
+      try {
+        await processor.process(mockJob);
+      } catch {
+        /* ignore — we only care about the warn() calls */
+      }
+
+      // mockPlayers contains every ID referenced by mockHomeTactics /
+      // mockAwayTactics — none of them should be reported as missing.
+      const missingWarnings = mockLogger.warn.mock.calls.filter(
+        (c: unknown[]) =>
+          typeof c[0] === 'string' && c[0].includes('missing players'),
+      );
+      expect(missingWarnings).toEqual([]);
+    });
+
+    it('should warn only for genuinely missing player ids', async () => {
+      // Mix in two unknown ids into the home lineup.
+      tacticsRepository.findOne.mockImplementation(async ({ where }: any) => {
+        if (where?.teamId === 'team-1') {
+          return {
+            ...mockHomeTactics,
+            lineup: { ...mockHomeTactics.lineup, CD: 'ghost-1', LB: 'ghost-2' },
+          } as any;
+        }
+        if (where?.teamId === 'team-2') return mockAwayTactics as any;
+        return null;
+      });
+
+      try {
+        await processor.process(mockJob);
+      } catch {
+        /* ignore — we only care about the warn() calls */
+      }
+
+      const missingWarnings = mockLogger.warn.mock.calls.filter(
+        (c: unknown[]) =>
+          typeof c[0] === 'string' && c[0].includes('missing players'),
+      );
+      // Exactly one warning, naming both ghost ids.
+      expect(missingWarnings).toHaveLength(1);
+      expect(missingWarnings[0][0]).toContain('ghost-1');
+      expect(missingWarnings[0][0]).toContain('ghost-2');
+      expect(missingWarnings[0][0]).toContain('Home lineup');
+    });
+
+    // [RFC sim-worker-lock] Regression: a second concurrent worker that
+    // loses the atomic claim must bail out BEFORE running the engine. The
+    // old guard only checked status=COMPLETED, but the worker never sets
+    // that itself, so two workers could both pass the guard and bulk-insert
+    // events for the same match — producing 4× snapshots per minute.
+    it('skips when another worker already holds the simulation lease', async () => {
+      // Mock the manager.query UPDATE...RETURNING to return zero rows —
+      // that's what the DB returns when another worker already set
+      // simulation_started_at.
+      const txManager = (dataSource.transaction as jest.Mock).mock.calls[0]?.[0];
+      // The transaction callback in process() will receive the manager
+      // returned by dataSource.transaction. We override dataSource itself
+      // for this test to make the claim return zero rows.
+      const originalTransaction = dataSource.transaction.getMockImplementation();
+      (dataSource.transaction as jest.Mock).mockImplementation(
+        async (cb: any) => {
+          const manager = {
+            query: jest.fn().mockResolvedValue([]),
+            save: jest.fn().mockResolvedValue({}),
+            create: jest.fn((entity: any, data: any) => data),
+            delete: jest.fn().mockResolvedValue({ affected: 0 }),
+            createQueryBuilder: jest.fn(() => ({
+              where: jest.fn().mockReturnThis(),
+              getMany: jest.fn().mockResolvedValue(mockPlayers),
+              insert: jest.fn().mockReturnThis(),
+              into: jest.fn().mockReturnThis(),
+              values: jest.fn().mockReturnThis(),
+              execute: jest.fn().mockResolvedValue({ identifiers: [] }),
+            })),
+          };
+          return cb(manager);
+        },
+      );
+
+      try {
+        await processor.process(mockJob);
+      } finally {
+        if (originalTransaction) {
+          (dataSource.transaction as jest.Mock).mockImplementation(
+            originalTransaction,
+          );
+        }
+      }
+
+      // The losing worker must skip without invoking the engine —
+      // i.e. no tactics fetch, no player fetch, no event bulk-insert.
+      expect(tacticsRepository.findOne).not.toHaveBeenCalled();
+      expect(playerRepository.find).not.toHaveBeenCalled();
+      // And it must log a warning so the duplicate job shows up in logs.
+      const skipWarnings = mockLogger.warn.mock.calls.filter(
+        (c: unknown[]) =>
+          typeof c[0] === 'string' &&
+          c[0].includes('simulation already in flight'),
+      );
+      expect(skipWarnings).toHaveLength(1);
+      // The lease-release UPDATE should NOT fire on the skip path —
+      // releasing a lease we never held would clobber another worker's
+      // timestamp and let a third worker squeeze in.
+      const releaseCalls = matchRepository.update.mock.calls.filter(
+        (c: unknown[]) => {
+          const arg = c[1] as { simulationStartedAt?: unknown } | undefined;
+          return arg?.simulationStartedAt === null;
+        },
+      );
+      expect(releaseCalls).toHaveLength(0);
+    });
+
+    it('releases the lease after a successful simulation', async () => {
+      // Reset match status so the runSimulation path is exercised.
+      matchRepository.findOne.mockResolvedValue({
+        ...mockMatch,
+        status: MatchStatus.TACTICS_LOCKED,
+      } as any);
+
+      await processor.process(mockJob);
+
+      // Lease-release UPDATE must fire with simulationStartedAt: null.
+      const releaseCalls = matchRepository.update.mock.calls.filter(
+        (c: unknown[]) => {
+          const arg = c[1] as { simulationStartedAt?: unknown } | undefined;
+          return arg?.simulationStartedAt === null;
+        },
+      );
+      expect(releaseCalls).toHaveLength(1);
+      // And the claim UPDATE must have been issued against the DB.
+      // dataSource.transaction gets called at least twice: once for the
+      // claim, once for the persist transaction in runSimulation.
+      expect(dataSource.transaction.mock.calls.length).toBeGreaterThanOrEqual(
+        2,
+      );
     });
   });
 });

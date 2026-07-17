@@ -66,7 +66,7 @@ export function LiveCommentary({ events, currentMinute, homeTeamName, awayTeamNa
       </div>
 
       {/* Event List */}
-      <div className="max-h-[360px] overflow-y-auto px-4 py-3 space-y-1">
+      <div className="max-h-90 overflow-y-auto px-4 py-3 space-y-1">
         {filtered.length === 0 ? (
           <div className="text-center py-8 text-on-surface-variant text-sm font-headline">
             {tChrome('waiting')}

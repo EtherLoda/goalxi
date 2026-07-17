@@ -315,6 +315,22 @@
       "redirecting": "正在跳转…",
       "connectionLost": "连接已断开",
       "backToMatches": "返回比赛列表"
+    },
+    "zone": {
+      "title": "区域控制",
+      "snapLabel": "快照 {index}/{total} · {minute}'",
+      "noSnapshots": "暂无快照数据",
+      "left": "左路",
+      "center": "中路",
+      "right": "右路",
+      "leftSub": "顶边线",
+      "centerSub": "中间",
+      "rightSub": "底边线",
+      "atk": "进攻",
+      "def": "防守",
+      "poss": "控球",
+      "possessionShare": "控球率",
+      "pushSuccess": "推进成功率"
     }
   },
   "squad": {
@@ -713,8 +729,16 @@
     },
     "foul": {
       "tpl_0": "{team} 防守动作过大，裁判鸣哨了！",
-      "tpl_1": "{team} 球员犯规，主裁判正在上前警告。",
-      "tpl_2": "{team} 在防守中推人犯规。"
+      "tpl_1": "{team} 球员犯规，{player} 送给对手一个任意球。",
+      "tpl_2": "{team} 在禁区里推人犯规，{player} 受到了警告。"
+    },
+    "turnover": {
+      "tpl_0": "{team} 在中场丢失球权，被对手反抢。",
+      "tpl_1": "{team} 传球失误，{player} 试图强行出球但被断下。"
+    },
+    "free_kick": {
+      "tpl_0": "{team} 获得任意球，{player} 主罚。",
+      "tpl_1": "{team} 赢得定位球机会，{player} 站在球前准备主罚。"
     },
     "offside": {
       "tpl_0": "边裁举旗了，{team} 越位在先。",

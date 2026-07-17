@@ -85,6 +85,82 @@ export interface VarEventData {
     originalMinute: number;
 }
 
+/**
+ * Per-snapshot lane strengths (mirrors `simulator/.../match.engine.ts:2632`
+ * `formatLanes`). Each lane carries the team's current strength in three
+ * dimensions — `atk` for attacking push power, `def` for defending against
+ * push, `pos` for midfield control. Decimals to one place: the simulator
+ * rounds with `toFixed(1)` before emitting.
+ */
+export interface SnapshotLaneStrengths {
+    left: { atk: number; def: number; pos: number };
+    center: { atk: number; def: number; pos: number };
+    right: { atk: number; def: number; pos: number };
+}
+
+/**
+ * Per-snapshot lane counters (mirrors `simulator/.../match.engine.ts`
+ * `formatCounters`). Four numbers per lane:
+ *   - `att`  — running total of attacks attempted in this lane (debug).
+ *   - `ps_`  — running total of push duels actually won (debug).
+ *   - `pr`   — engine-computed expected push success probability (0..1),
+ *              the mean of `duelProbability(attPower, defPower)` across
+ *              every push duel in this lane. The FE's Push Success Rate
+ *              panel reads this directly — no client-side division, so
+ *              the rate is stable across small samples.
+ *   - `mpr`  — engine-computed expected midfield win probability (0..1),
+ *              the mean of `duelProbability(homeControl, awayControl)`
+ *              across every midfield battle in this lane. The FE's
+ *              Possession Share panel uses both sides' `mpr` (home /
+ *              (home + away)) to render the share.
+ */
+export interface SnapshotLaneCounters {
+    left: { att: number; ps_: number; pr: number; mpr: number };
+    center: { att: number; ps_: number; pr: number; mpr: number };
+    right: { att: number; ps_: number; pr: number; mpr: number };
+}
+
+/**
+ * Snapshot event payload — emitted by the simulator every ~5 minutes.
+ * Carries lane strengths (for ATK/DEF/POSS bars), lane counters (for
+ * PUSH SUCCESS RATE), the GK rating for that snapshot, and a per-player
+ * state array (stamina, star rating, entry minute) used by the match
+ * page pitch markers.
+ *
+ * `n` (team name) is set on the t=0 snapshot only — subsequent snapshots
+ * rely on the match metadata (homeTeam/awayTeam) for the names.
+ */
+export interface SnapshotEventData {
+    h: {
+        n?: string;
+        ls: SnapshotLaneStrengths;
+        lc: SnapshotLaneCounters;
+        gk: number;
+        ps: Array<{
+            id: string;
+            p: string;
+            n?: string;
+            st: number;
+            sr: number;
+            em: number;
+        }>;
+    };
+    a: {
+        n?: string;
+        ls: SnapshotLaneStrengths;
+        lc: SnapshotLaneCounters;
+        gk: number;
+        ps: Array<{
+            id: string;
+            p: string;
+            n?: string;
+            st: number;
+            sr: number;
+            em: number;
+        }>;
+    };
+}
+
 export type MatchEventData =
     | GoalEventData
     | ShotEventData

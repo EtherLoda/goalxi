@@ -46,7 +46,7 @@ export function FixtureTicket({
         'group relative flex items-stretch gap-0 rounded-2xl overflow-hidden',
         'bg-surface-container-low/70 backdrop-blur-xl',
         'border border-white/5 hover:border-white/15',
-        'shadow-[0_4px_16px_rgba(0,0,0,0.3)] hover:shadow-[0_8px_24px_rgba(0,0,0,0.45)]',
+        'shadow-card hover:shadow-[0_8px_24px_rgba(0,0,0,0.45)]',
         'transition-all duration-200',
       )}
     >
@@ -79,7 +79,7 @@ export function FixtureTicket({
       {/* Middle: venue + opponent + meta */}
       <Link
         href={`/${locale}/matches/${match.id}`}
-        className="flex-1 min-w-0 px-4 py-3 flex flex-col justify-center gap-1 hover:bg-white/[0.02] transition-colors"
+        className="flex-1 min-w-0 px-4 py-3 flex flex-col justify-center gap-1 hover:bg-white/2 transition-colors"
       >
         <div className="flex items-center gap-2 text-[10px] font-label uppercase tracking-widest text-on-surface-variant">
           <span

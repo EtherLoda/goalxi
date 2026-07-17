@@ -103,6 +103,7 @@ describe('buildCards', () => {
     const roster = mkRoster(['p-cf']);
     const tactics = mkTactics({ CF: 'p-cf' });
     const snapshot = {
+      minute: 0,
       h: { ps: [mkSnapshotPlayer('p-cf', 'CF', { sr: 92, st: 80 })] },
       a: { ps: [] },
     } as MatchSnapshot;
@@ -117,6 +118,7 @@ describe('buildCards', () => {
   it('snapshot-only path: emits cards even when no tactics are submitted', () => {
     const roster = mkRoster(['p-cf']);
     const snapshot = {
+      minute: 0,
       h: { ps: [mkSnapshotPlayer('p-cf', 'CF', { n: 'Cunha', sr: 88 })] },
       a: { ps: [] },
     } as MatchSnapshot;
@@ -128,6 +130,7 @@ describe('buildCards', () => {
 
   it('resolves legacy alias snapshot keys (CB → CB1) into canonical slots', () => {
     const snapshot = {
+      minute: 0,
       h: { ps: [mkSnapshotPlayer('p-cb', 'CB')] }, // legacy alias
       a: { ps: [] },
     } as MatchSnapshot;
@@ -137,6 +140,7 @@ describe('buildCards', () => {
 
   it('emits a fallback slotKey === null for unrecognised snapshot positions', () => {
     const snapshot = {
+      minute: 0,
       h: { ps: [mkSnapshotPlayer('p-x', 'TOTALLY_BOGUS')] },
       a: { ps: [] },
     } as MatchSnapshot;
@@ -150,6 +154,7 @@ describe('buildCards', () => {
     const tactics = mkTactics({ GK: 'p-gk', CF: 'p-cf' });
     // Snapshot only knows about the GK — the CF should come from lineup.
     const snapshot = {
+      minute: 0,
       h: { ps: [mkSnapshotPlayer('p-gk', 'GK', { sr: 70 })] },
       a: { ps: [] },
     } as MatchSnapshot;
@@ -165,6 +170,7 @@ describe('buildCards', () => {
     const roster = mkRoster(['p-gk']);
     const tactics = mkTactics({ GK: 'p-gk' });
     const snapshot = {
+      minute: 0,
       h: { ps: [mkSnapshotPlayer('p-gk', 'GK', { sr: 99 })] },
       a: { ps: [] },
     } as MatchSnapshot;
@@ -180,6 +186,7 @@ describe('buildCards', () => {
       'p-cm1', 'p-cm2', 'p-cm3', 'p-lw', 'p-cf', 'p-rw',
     ]);
     const snapshot = {
+      minute: 0,
       h: {
         ps: [
           mkSnapshotPlayer('p-gk', 'GK'),
@@ -209,6 +216,7 @@ describe('buildCards', () => {
 
   it('mixes legacy and canonical keys in the same snapshot', () => {
     const snapshot = {
+      minute: 0,
       h: {
         ps: [
           mkSnapshotPlayer('p-gk', 'GK'),

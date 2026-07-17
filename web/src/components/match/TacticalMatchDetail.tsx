@@ -6,6 +6,8 @@ import { api, type MatchEvent, type MatchStatsRes, type Match, type Player, type
 import { formatEventCommentary } from '@/lib/commentary';
 import { MatchPitch, type MatchSnapshot } from './MatchPitch';
 import { buildCards } from './match-pitch-data';
+import { SnapshotZonePanel } from './SnapshotZonePanel';
+import { extractSnapshots } from './snapshot-stats';
 import { BenchStrip } from '../tactics/bench/BenchStrip';
 import { normalizePitchLineup } from './pitch-coords';
 import { toPitchSlot } from '../tactics/api-helpers';
@@ -44,6 +46,15 @@ interface SnapshotData {
   h: {
     n?: string;
     ls: { left: any; center: any; right: any };
+    // Lane counters: `att`/`ps_` are empirical, `pr`/`mpr` are
+    // engine-computed expected probabilities. The match report's
+    // Push Success Rate / Possession Share panels read `pr`/`mpr`
+    // directly — see `snapshot-stats.ts` for the consumer side.
+    lc?: {
+      left: { att: number; ps_: number; pr: number; mpr: number };
+      center: { att: number; ps_: number; pr: number; mpr: number };
+      right: { att: number; ps_: number; pr: number; mpr: number };
+    };
     gk: number;
     ps: Array<{
       id: string;
@@ -57,6 +68,11 @@ interface SnapshotData {
   a: {
     n?: string;
     ls: { left: any; center: any; right: any };
+    lc?: {
+      left: { att: number; ps_: number; pr: number; mpr: number };
+      center: { att: number; ps_: number; pr: number; mpr: number };
+      right: { att: number; ps_: number; pr: number; mpr: number };
+    };
     gk: number;
     ps: Array<{
       id: string;
@@ -89,9 +105,24 @@ function getLatestSnapshot(events: MatchEvent[]): MatchSnapshot | null {
 
   const data = (latest as any).data as SnapshotData | undefined;
   if (!data) return null;
+  // Carry the snapshot's minute + lane payloads through — the zone panel
+  // reads `ls`/`lc` and the scrubber reads `minute`. Older simulator
+  // versions pre-dating the lane fields will leave them undefined; the
+  // helpers in `snapshot-stats.ts` handle that case.
   return {
-    h: { ps: data.h?.ps ?? [] },
-    a: { ps: data.a?.ps ?? [] },
+    minute: latest.minute ?? 0,
+    h: {
+      ls: data.h?.ls,
+      lc: data.h?.lc,
+      gk: data.h?.gk,
+      ps: data.h?.ps ?? [],
+    },
+    a: {
+      ls: data.a?.ls,
+      lc: data.a?.lc,
+      gk: data.a?.gk,
+      ps: data.a?.ps ?? [],
+    },
   };
 }
 
@@ -120,6 +151,30 @@ export function TacticalMatchDetail({
 
   // Extract snapshot for real player positions
   const snapshot = getLatestSnapshot(events);
+
+  // Lift "which snapshot is active" to page-level state so the
+  // SnapshotZonePanel scrubber can drive it. Default is the latest
+  // snapshot — pre-scrubber behavior — and the panel calls onChange
+  // (on mouseup / touchend, never mid-drag) to swap to an earlier one.
+  // Both MatchPitch and SnapshotZonePanel read from `activeSnapshot`,
+  // so the pitch's player markers and the panel's lane stats always
+  // show the same minute.
+  const allSnapshots = useMemo(
+    () => extractSnapshots(events),
+    [events],
+  );
+  const [activeSnapshotIndex, setActiveSnapshotIndex] = useState<number>(
+    () => Math.max(0, allSnapshots.length - 1),
+  );
+  // If new snapshots arrive (e.g. live match), keep the index in range
+  // and snap to the latest so the reader always sees fresh data.
+  useEffect(() => {
+    setActiveSnapshotIndex((idx) =>
+      Math.min(idx, Math.max(0, allSnapshots.length - 1)),
+    );
+  }, [allSnapshots.length]);
+  const activeSnapshot: MatchSnapshot | null =
+    allSnapshots[activeSnapshotIndex] ?? null;
 
   // [Live-page fix] Fetch the match's submitted tactics + both teams' player
   // rosters so we can render real player dots whenever the event stream
@@ -302,17 +357,30 @@ export function TacticalMatchDetail({
           Layout: header → pitch → home/away benches → (commentary | sidebar).
           The pitch is intentionally OUT of the left column so its aspect-video
           aspect ratio is preserved at the page's natural width. */}
-      <MatchPitch
-        homeTactics={homeTactics}
-        awayTactics={awayTactics}
-        homeRoster={homeRoster}
-        awayRoster={awayRoster}
-        snapshot={snapshot}
-        homeForfeit={match.homeForfeit ?? false}
-        awayForfeit={match.awayForfeit ?? false}
-        homeTeamName={homeName}
-        awayTeamName={awayName}
-      />
+      {/* Pitch + zone panel: pitch on the left (1fr), zone panel on the
+          right (320px) at the same row. The zone panel's scrubber drives
+          `activeSnapshotIndex` above, which in turn drives the pitch's
+          player markers — moving the scrubber re-renders BOTH pieces
+          together once the user settles (mouseup / touchend). Below
+          lg, the panel stacks under the pitch. */}
+      <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-4 items-stretch">
+        <MatchPitch
+          homeTactics={homeTactics}
+          awayTactics={awayTactics}
+          homeRoster={homeRoster}
+          awayRoster={awayRoster}
+          activeSnapshot={activeSnapshot}
+          homeForfeit={match.homeForfeit ?? false}
+          awayForfeit={match.awayForfeit ?? false}
+          homeTeamName={homeName}
+          awayTeamName={awayName}
+        />
+        <SnapshotZonePanel
+          snapshots={allSnapshots}
+          activeIndex={activeSnapshotIndex}
+          onChange={setActiveSnapshotIndex}
+        />
+      </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {/* Editor's BenchStrip in view-only mode (no drag handlers) — renders
