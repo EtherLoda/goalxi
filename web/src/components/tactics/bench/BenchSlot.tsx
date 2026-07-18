@@ -76,23 +76,30 @@ export function BenchSlotView({
           onDragStart={onDragStart}
           onDragEnd={onDragEnd}
         />
-      ) : isDragging ? (
-        // Empty bench slots only appear as drop targets while a drag is
-        // in flight. Otherwise the strip stays clean.
+      ) : (
+        // Empty-slot placeholder. Always rendered (not just during a
+        // drag) so the bench strip stays a clean visual grid even when
+        // no subs are queued. The placeholder tint signals whether the
+        // slot can accept a drop right now (`isDragging`).
         <div
-          className={`w-10 h-10 rounded-full border-2 border-dashed flex items-center justify-center transition-all ${
-            isDragOver
-              ? isGkSlot
+          className={`w-10 h-10 rounded-full border-2 flex items-center justify-center transition-all ${
+            isGkSlot
+              ? isDragOver
                 ? 'border-tertiary bg-tertiary/20 scale-110'
-                : 'border-primary bg-primary/20 scale-110'
-              : isGkSlot
-                ? 'border-tertiary/30 bg-surface-container/60'
-                : 'border-outline-variant/30 bg-surface-container/60'
+                : isDragging
+                  ? 'border-tertiary/30 bg-tertiary/10'
+                  : 'border-outline-variant/20 bg-surface-container/40'
+              : isDragOver
+                ? 'border-primary bg-primary/20 scale-110'
+                : isDragging
+                  ? 'border-primary/30 bg-primary/5'
+                  : 'border-outline-variant/20 bg-surface-container/40'
           } ${isDragging ? 'cursor-pointer' : ''}`}
+          data-testid={`slot-${slot}-empty`}
         >
           <span className="material-symbols-outlined text-base text-outline">person_add</span>
         </div>
-      ) : null}
+      )}
     </div>
   );
 }

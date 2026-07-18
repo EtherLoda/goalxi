@@ -141,6 +141,64 @@ describe('formatEventCommentary dispatch', () => {
     expect(text).toContain('brilliant');
   });
 
+  // Regression: `goal.quality_great` and `goal.quality_good` are i18n
+  // strings that contain a `{player}` placeholder, so calling t() without
+  // passing `player` in the params object made next-intl@4 throw
+  // FORMATTING_ERROR ("The intl string context variable 'player' was not
+  // provided to the string 'A composed finish from {player}!'").
+  // getQualityText now passes `{ player }` on every branch so the
+  // string is fully resolved before being dropped into the goal template.
+  it('GOAL with shootRating < 60 does not crash on the {player} placeholder (quality_good branch)', () => {
+    // Real next-intl substitutes `{var}` from the params before returning,
+    // so the test mock has to do the same — otherwise the inner `{player}`
+    // in the quality string would leak through and the outer template's
+    // interpolate() can't recurse into the substituted value.
+    const t = jest.fn((key: string, params?: Record<string, string | number>) => {
+      const render = (s: string) =>
+        params
+          ? s.replace(/\{(\w+)\}/g, (_, k) => String(params[k] ?? `{${k}}`))
+          : s;
+      if (key.startsWith('goal.tpl_')) return render('GOAL_TPL:{player} {quality}');
+      if (key === 'goal.quality_good') return render('good from {player}');
+      if (key === 'goal.quality_great') return render('great from {player}');
+      if (key === 'goal.quality_excellent') return render('brilliant from {player}');
+      if (key === 'lane.left') return 'left';
+      if (key === 'shotType.normal') return 'normal';
+      return key;
+    });
+
+    const text = formatEventCommentary(
+      baseEvent({
+        minute: 12,
+        data: {
+          playerName: 'Saka',
+          sequence: {
+            shot: {
+              shooter: 'Saka',
+              shotType: 'normal',
+              // 50 — falls into the quality_good branch (the one that
+              // crashed in production with FORMATTING_ERROR).
+              shootRating: 50,
+            },
+          },
+          lane: 'left',
+        },
+      }),
+      'Arsenal',
+      'Chelsea',
+      t,
+    );
+
+    // {player} should already be resolved inside the quality string —
+    // the template's {quality} placeholder then receives the rendered
+    // text, NOT a raw "{player}" token.
+    expect(text).toContain('Saka');
+    expect(text).toContain('good from Saka');
+    expect(text).not.toContain('{player}');
+    expect(text).not.toContain('{quality}');
+    expect(t).toHaveBeenCalledWith('goal.quality_good', { player: 'Saka' });
+  });
+
   it('SECOND_HALF resolves to commentary.second_half_start (regression for missing arm)', () => {
     // Pre-fix the second-half kickoff was unreachable because the canonical
     // key was `SECOND_HALF_START` but the simulator emits `second_half`.

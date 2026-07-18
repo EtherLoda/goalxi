@@ -6,17 +6,16 @@ import Link from 'next/link';
 import { useTranslations } from 'next-intl';
 import {
   api,
-  type MatchStatsRes,
   type MatchEvent as ApiMatchEvent,
   type Player,
   type Tactics,
 } from '@/lib/api';
 import { useMatchLive, type MatchEvent } from '@/hooks/useMatchLive';
 import { LiveCommentary } from '@/components/match/LiveCommentary';
-import { MatchStatsPanel } from '@/components/match/MatchStatsPanel';
-import { TacticalZonesPanel } from '@/components/match/TacticalZonesPanel';
 import { MatchPitch } from '@/components/match/MatchPitch';
-import { SnapshotZonePanel } from '@/components/match/SnapshotZonePanel';
+import { MatchTimeline } from '@/components/match/MatchTimeline';
+import { MatchBentoLayout } from '@/components/match/bento/MatchBentoLayout';
+import { MatchScoreHero } from '@/components/match/bento/MatchScoreHero';
 import { extractSnapshots } from '@/components/match/snapshot-stats';
 
 const MATCH_END_REDIRECT_DELAY_MS = 2500;
@@ -28,10 +27,13 @@ function LiveMatchContent() {
   const matchId = params.id as string;
   const t = useTranslations('matches.live');
 
-  const [stats, setStats] = useState<MatchStatsRes | null>(null);
-  const [statsError, setStatsError] = useState<string | null>(null);
-  // True once `match_end` fires; renders the "Match ended" overlay for
-  // MATCH_END_REDIRECT_DELAY_MS, then router.push fires.
+  // Lane-strength data (stats) used to be polled every 5s and rendered
+  // in a sidebar bento. The sidebar was removed in favour of a pitch-
+  // level stats-mode toggle (PitchStatsOverlay), which reads the same
+  // `ls` lane strengths already carried in the WebSocket snapshots —
+  // so the dedicated REST fetch is no longer needed. Leaving the
+  // existing matchEnded/match-end redirect machinery below untouched.
+
   const [matchEnded, setMatchEnded] = useState(false);
   const redirectTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -46,37 +48,9 @@ function LiveMatchContent() {
     autoConnect: true,
   });
 
-  // Fetch stats
-  const fetchStats = useCallback(async () => {
-    if (!matchId) return;
-    try {
-      const statsData = await api.matches.getStats(matchId);
-      setStats(statsData);
-      setStatsError(null);
-    } catch (err) {
-      console.error('Failed to fetch stats:', err);
-      setStatsError(t('statsStale'));
-    }
-  }, [matchId, t]);
-
-  // Initial stats fetch
-  useEffect(() => {
-    fetchStats();
-  }, [fetchStats]);
-
-  // Poll stats every 5 seconds while live
-  useEffect(() => {
-    if (!matchState?.isComplete) {
-      const interval = setInterval(fetchStats, 5000);
-      return () => clearInterval(interval);
-    }
-  }, [fetchStats, matchState?.isComplete]);
-
   // Match end → show an "ended" overlay for a beat so the user understands
-  // what just happened, then router.push to the match report. Previously this
-  // used `window.location.href` which is a full reload — it dropped WS state,
-  // scroll position, and felt jarring. The 2.5s delay gives the page time to
-  // render the full-time state visibly.
+  // what just happened, then router.push to the match report. The 2.5s delay
+  // gives the page time to render the full-time state visibly.
   useEffect(() => {
     if (matchState?.isComplete && !matchEnded) {
       setMatchEnded(true);
@@ -97,6 +71,12 @@ function LiveMatchContent() {
   const awayTeamName = matchState?.awayTeam.name || 'Away';
   const currentMinute = matchState?.currentMinute || 0;
   const isConnected = connectionStatus === 'connected';
+
+  // Pitch stats overlay toggle — when true, the pitch swaps player
+  // markers for the 3×3 zone grid (PitchStatsOverlay). Default off;
+  // local component state so the toggle survives snapshot scrub but
+  // resets on a hard refresh (intentional — no URL param).
+  const [statsMode, setStatsMode] = useState(false);
 
   // Pitch + zone panel data — fetched via REST because the WS stream
   // doesn't carry tactics or roster details (only the simulator's per-
@@ -227,7 +207,7 @@ function LiveMatchContent() {
   }
 
   return (
-    <div className="p-6 md:p-8 max-w-7xl mx-auto w-full space-y-6">
+    <div className="p-6 md:p-8 max-w-[1600px] mx-auto w-full space-y-6">
       {/* Match-end overlay — shown briefly so the user understands why the
           page is about to leave live mode, instead of jumping the URL. */}
       {matchEnded && matchState && (
@@ -258,220 +238,104 @@ function LiveMatchContent() {
         </div>
       )}
 
-      {/* Page Header */}
-      <header className="flex items-center justify-between">
-        <div className="flex items-center gap-4">
-          <Link
-            href={`/${locale}/matches`}
-            className="flex items-center justify-center w-10 h-10 bg-surface-container-low border border-outline-variant/30 text-on-surface-variant rounded-DEFAULT hover:bg-surface-container-high hover:text-on-surface transition-all"
-          >
-            <span className="material-symbols-outlined text-[18px]">arrow_back</span>
-          </Link>
-          <div>
-            <h1 className="font-headline text-2xl md:text-3xl font-black tracking-tight text-on-surface uppercase italic">
-              {t('title')}
-            </h1>
-            <div className="flex items-center gap-2 mt-0.5">
-              <span
-                className={`w-2 h-2 rounded-full animate-pulse ${
-                  isConnected ? 'bg-primary' : 'bg-amber-500'
-                }`}
-              />
-              <p className="text-sm text-on-surface-variant font-headline">
-                {isConnected
-                  ? t('connected')
-                  : connectionStatus === 'connecting'
-                    ? t('connecting')
-                    : t('reconnecting')}
-              </p>
-            </div>
-          </div>
-        </div>
-
-        {/* Score Display */}
-        {matchState && (
-          <div className="flex items-center gap-4 bg-surface-container-low border border-outline-variant/30 rounded-DEFAULT px-5 py-3">
-            <div className="text-center">
-              <div className="text-2xl font-black font-headline text-on-surface">
-                {matchState.homeTeam.name}
-              </div>
-              <div className="text-xs text-on-surface-variant font-headline">{t('home')}</div>
-            </div>
-            <div className="flex items-center gap-3">
-              <span className="font-headline text-4xl font-black text-primary">
-                {matchState.homeScore}
-              </span>
-              <span className="font-headline text-2xl text-on-surface-variant">-</span>
-              <span className="font-headline text-4xl font-black text-secondary">
-                {matchState.awayScore}
-              </span>
-            </div>
-            <div className="text-center">
-              <div className="text-2xl font-black font-headline text-on-surface">
-                {matchState.awayTeam.name}
-              </div>
-              <div className="text-xs text-on-surface-variant font-headline">{t('away')}</div>
-            </div>
-          </div>
-        )}
-      </header>
-
-      {/* Live Badge — dims when the socket is not currently connected so the
-          user doesn't mistake a stale display for a live state. */}
-      {matchState && (
-        <div
-          className={`inline-flex items-center gap-2 px-4 py-2 rounded-full ${
-            isConnected
-              ? 'bg-primary/10 text-primary border border-primary/20'
-              : 'bg-amber-500/10 text-amber-500 border border-amber-500/30'
-          }`}
-        >
-          <span
-            className={`w-2 h-2 rounded-full animate-pulse ${
-              isConnected ? 'bg-primary' : 'bg-amber-500'
-            }`}
+      {/* Bento layout — Score / Timeline / Pitch (full-width) / Commentary.
+          Sidebar removed: zone data + xG live on the pitch itself in
+          stats mode (toggle above the pitch). */}
+      <MatchBentoLayout
+        scoreHero={
+          <MatchScoreHero
+            locale={locale}
+            matchId={matchId}
+            homeTeamName={homeTeamName}
+            awayTeamName={awayTeamName}
+            homeScore={matchState?.homeScore ?? 0}
+            awayScore={matchState?.awayScore ?? 0}
+            currentMinute={currentMinute}
+            isComplete={matchState?.isComplete ?? false}
+            isConnected={isConnected}
           />
-          <span className="font-headline font-bold text-sm uppercase tracking-wider">
-            {isConnected
-              ? `${t('liveTag')} • ${currentMinute}'`
-              : t('offline', { minute: currentMinute })}
-          </span>
-        </div>
-      )}
-
-      {/* Pitch + zone panel — same components as the match report
-          page, so live and post-match share one visual language. The
-          scrubber in SnapshotZonePanel drives both the zone stats and
-          the player markers on the pitch (the activeSnapshot is lifted
-          here just like in TacticalMatchDetail). WS events feed the
-          snapshot timeline; new snapshots snap the scrubber forward
-          unless the user is viewing an earlier minute. */}
-      <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-4 items-stretch">
-        <MatchPitch
-          homeTactics={homeTactics}
-          awayTactics={awayTactics}
-          homeRoster={homeRoster}
-          awayRoster={awayRoster}
-          activeSnapshot={activeSnapshot}
-          homeForfeit={false}
-          awayForfeit={false}
-          homeTeamName={homeTeamName}
-          awayTeamName={awayTeamName}
-        />
-        <SnapshotZonePanel
-          snapshots={snapshots}
-          activeIndex={activeSnapshotIndex}
-          onChange={setActiveSnapshotIndex}
-        />
-      </div>
-
-      {/* Main Content Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
-        {/* Left Column: Live Commentary */}
-        <div className="lg:col-span-3 space-y-6">
+        }
+        timeline={
+          <MatchTimeline
+            events={visibleEvents}
+            snapshots={snapshots}
+            currentMinute={currentMinute}
+            activeIndex={activeSnapshotIndex}
+            onChange={setActiveSnapshotIndex}
+          />
+        }
+        pitch={
+          <div className="relative">
+            {/* Stats toggle chip — sits OUTSIDE the pitch surface in
+                document flow so it can never be clipped by overflow-hidden.
+                The chip is positioned just above the pitch's top-right
+                corner; the pitch itself is positioned relative so the
+                absolute-positioned `PitchStatsOverlay` (rendered inside
+                MatchPitch) still anchors correctly. */}
+            <div className="flex justify-end mb-2">
+              <button
+                type="button"
+                onClick={() => setStatsMode((v) => !v)}
+                aria-pressed={statsMode}
+                className={`inline-flex items-center gap-2 px-5 py-2.5 rounded-full font-headline font-bold text-sm transition-all ring-2 shadow-lg ${
+                  statsMode
+                    ? 'bg-primary text-on-primary ring-primary shadow-[0_0_16px_rgba(0,228,121,0.45)]'
+                    : 'bg-surface-container-low text-on-surface ring-primary/60 hover:bg-surface-container-high shadow-md'
+                }`}
+                data-testid="pitch-stats-toggle"
+              >
+                <span className="material-symbols-outlined text-base">
+                  {statsMode ? 'group' : 'monitoring'}
+                </span>
+                <span>
+                  {statsMode
+                    ? '球员视图'
+                    : '数据视图'}
+                </span>
+              </button>
+            </div>
+            <MatchPitch
+              homeTactics={homeTactics}
+              awayTactics={awayTactics}
+              homeRoster={homeRoster}
+              awayRoster={awayRoster}
+              activeSnapshot={activeSnapshot}
+              statsMode={statsMode}
+              onToggleStatsMode={() => setStatsMode((v) => !v)}
+              homeForfeit={false}
+              awayForfeit={false}
+              homeTeamName={homeTeamName}
+              awayTeamName={awayTeamName}
+            />
+          </div>
+        }
+        sidebar={null}
+        commentary={
           <LiveCommentary
             events={visibleEvents}
             currentMinute={currentMinute}
             homeTeamName={homeTeamName}
             awayTeamName={awayTeamName}
           />
-        </div>
-
-        {/* Right Column: Stats + Tactical */}
-        <div className="lg:col-span-2 space-y-6">
-          {statsError && (
-            <div
-              role="status"
-              aria-live="polite"
-              className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-amber-500/10 text-amber-500 border border-amber-500/30 text-xs font-headline uppercase tracking-wider"
-            >
-              <span className="material-symbols-outlined text-sm">sync_problem</span>
-              {statsError}
-            </div>
-          )}
-          {stats ? (
-            <>
-              <MatchStatsPanel
-                stats={stats}
-                homeTeamName={homeTeamName}
-                awayTeamName={awayTeamName}
-              />
-              <TacticalZonesPanel
-                stats={stats}
-                homeTeamName={homeTeamName}
-                awayTeamName={awayTeamName}
-              />
-            </>
-          ) : (
-            <>
-              <LiveStatsPanelSkeleton />
-              <LiveTacticalPanelSkeleton />
-            </>
-          )}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function LiveStatsPanelSkeleton() {
-  return (
-    <div className="rounded-DEFAULT border border-surface-container-high bg-surface-container-low overflow-hidden">
-      <div className="flex items-center justify-between px-4 py-3 border-b border-surface-container-high">
-        <div className="h-4 w-32 bg-surface-container animate-pulse rounded" />
-      </div>
-      <div className="px-4 py-4 space-y-4">
-        <div className="h-20 bg-surface-container animate-pulse rounded-lg" />
-        <div className="h-8 bg-surface-container animate-pulse rounded" />
-        <div className="h-8 bg-surface-container animate-pulse rounded" />
-        <div className="h-8 bg-surface-container animate-pulse rounded" />
-        <div className="h-8 bg-surface-container animate-pulse rounded" />
-      </div>
-    </div>
-  );
-}
-
-function LiveTacticalPanelSkeleton() {
-  return (
-    <div className="rounded-DEFAULT border border-surface-container-high bg-surface-container-low overflow-hidden">
-      <div className="flex items-center justify-between px-4 py-3 border-b border-surface-container-high">
-        <div className="h-4 w-32 bg-surface-container animate-pulse rounded" />
-      </div>
-      <div className="px-4 py-4">
-        <div className="grid grid-cols-3 gap-2">
-          {[1, 2, 3].map((i) => (
-            <div key={i} className="space-y-2">
-              <div className="h-16 bg-surface-container animate-pulse rounded-lg" />
-              <div className="h-16 bg-surface-container animate-pulse rounded-lg" />
-              <div className="h-16 bg-surface-container animate-pulse rounded-lg" />
-            </div>
-          ))}
-        </div>
-      </div>
+        }
+      />
     </div>
   );
 }
 
 function LiveMatchLoading() {
   return (
-    <div className="p-6 md:p-8 max-w-7xl mx-auto w-full space-y-6">
-      <div className="flex items-center gap-4">
-        <div className="w-10 h-10 bg-surface-container-low rounded-DEFAULT animate-pulse" />
-        <div className="space-y-2">
-          <div className="h-8 w-48 bg-surface-container-low rounded animate-pulse" />
-          <div className="h-4 w-32 bg-surface-container-low rounded animate-pulse" />
+    <div className="p-6 md:p-8 max-w-[1600px] mx-auto w-full space-y-4">
+      <div className="h-20 rounded-2xl bg-surface-container animate-pulse" />
+      <div className="h-16 rounded-2xl bg-surface-container animate-pulse" />
+      <div className="grid grid-cols-1 lg:grid-cols-[2fr_1fr] gap-4">
+        <div className="h-96 rounded-2xl bg-surface-container animate-pulse" />
+        <div className="flex flex-col gap-3">
+          <div className="h-64 rounded-2xl bg-surface-container animate-pulse" />
+          <div className="h-24 rounded-2xl bg-surface-container animate-pulse" />
         </div>
       </div>
-      <div className="h-12 w-64 bg-surface-container-low rounded-full animate-pulse" />
-      <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
-        <div className="lg:col-span-3">
-          <div className="h-96 bg-surface-container-low rounded-DEFAULT animate-pulse" />
-        </div>
-        <div className="lg:col-span-2 space-y-6">
-          <div className="h-56 bg-surface-container-low rounded-DEFAULT animate-pulse" />
-          <div className="h-48 bg-surface-container-low rounded-DEFAULT animate-pulse" />
-        </div>
-      </div>
+      <div className="h-48 rounded-2xl bg-surface-container animate-pulse" />
     </div>
   );
 }

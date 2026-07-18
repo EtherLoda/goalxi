@@ -330,7 +330,54 @@
       "def": "防守",
       "poss": "控球",
       "possessionShare": "控球率",
-      "pushSuccess": "推进成功率"
+      "pushSuccess": "推进成功率",
+      "snapshotHint": "拖动上方时间轴"
+    },
+    "timeline": {
+      "title": "比赛时间轴",
+      "snapLabel": "快照 {index}/{total} · {minute}'",
+      "ariaLabel": "比赛时间轴",
+      "fullTimeTick": "{minute}'",
+      "legend": {
+        "goal": "进球",
+        "substitution": "换人",
+        "yellow_card": "黄牌",
+        "red_card": "红牌"
+      }
+    },
+    "bento": {
+      "score": {
+        "title": "比赛比分"
+      },
+      "snapshot": {
+        "title": "区域强度",
+        "possession": "控球率",
+        "pushRate": "推进成功率",
+        "emptyData": "—"
+      },
+      "pitchChip": {
+        "statsView": "数据视图",
+        "playersView": "球员视图",
+        "switchToStats": "切换到数据视图",
+        "switchToPlayers": "切换到球员视图"
+      },
+      "pitchStats": {
+        "possession": "控球",
+        "pushRate": "推进",
+        "lane": {
+          "left": "左路",
+          "center": "中路",
+          "right": "右路"
+        }
+      },
+      "xg": {
+        "title": "预期进球",
+        "goals": "进球 · {goals}",
+        "delta": "Δ {value}"
+      },
+      "commentary": {
+        "title": "实时解说"
+      }
     }
   },
   "squad": {

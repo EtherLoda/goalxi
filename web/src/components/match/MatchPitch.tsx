@@ -49,6 +49,7 @@ import {
   type PitchCard,
   type MatchSnapshot,
 } from './match-pitch-data';
+import { PitchStatsOverlay } from './PitchStatsOverlay';
 import { PlayerMarker } from '../tactics/pitch/PlayerMarker';
 
 export type { PitchCard, MatchSnapshot, MatchSnapshotSide, MatchSnapshotPlayer } from './match-pitch-data';
@@ -71,6 +72,16 @@ export interface MatchPitchProps {
    * "predicted lineup" case for kickoff / forfeit / no-snapshot matches).
    */
   activeSnapshot: MatchSnapshot | null;
+  /**
+   * When true, the pitch swaps its player markers for a 3×3 zone grid
+   * showing lane strengths (ATK / POSS / DEF per lane). The toggle chip
+   * is rendered in the top-right corner of the pitch — click it to
+   * flip back to the player view. This is purely visual; the data
+   * shown comes from the same `activeSnapshot.h.ls` / `.a.ls` the
+   * player view uses for marker states, so no extra fetch is needed.
+   */
+  statsMode?: boolean;
+  onToggleStatsMode?: () => void;
   /**
    * Forfeit flags from the API. When either is true, the simulator
    * never ran the match — no SNAPSHOT events were emitted and any
@@ -210,6 +221,8 @@ export function MatchPitch({
   homeRoster,
   awayRoster,
   activeSnapshot,
+  statsMode = false,
+  onToggleStatsMode,
   homeForfeit = false,
   awayForfeit = false,
   homeTeamName,
@@ -250,109 +263,131 @@ export function MatchPitch({
 
   return (
     <div className="relative w-full aspect-video rounded-2xl overflow-hidden border border-white/5 bg-[#051a14]">
-      {/* Pitch surface — emerald gradient + vertical stripes (perpendicular
-          to attack direction in this layout). */}
-      <div className="absolute inset-0 bg-linear-to-r from-emerald-950/40 via-emerald-900/30 to-emerald-950/40" />
-      <div className="absolute inset-0 opacity-20 bg-[repeating-linear-gradient(90deg,transparent,transparent_40px,rgba(0,0,0,0.15)_40px,rgba(0,0,0,0.15)_80px)]" />
+      {/* Everything pitch-mode (gradient, stripes, markings, player
+          halves, forfeit chip) is rendered ONLY in non-stats mode.
+          When `statsMode` is true the container shows exclusively the
+          PitchStatsOverlay grid — no overlap, no see-through. The two
+          views are mutually exclusive so the reader can never confuse
+          a player dot for a data point. */}
+      {!statsMode && (
+        <>
+          {/* Pitch surface — emerald gradient + vertical stripes (perpendicular
+              to attack direction in this layout). */}
+          <div className="absolute inset-0 bg-linear-to-r from-emerald-950/40 via-emerald-900/30 to-emerald-950/40" />
+          <div className="absolute inset-0 opacity-20 bg-[repeating-linear-gradient(90deg,transparent,transparent_40px,rgba(0,0,0,0.15)_40px,rgba(0,0,0,0.15)_80px)]" />
 
-      {/* Single SVG: pitch markings span the whole pitch. */}
-      <svg
-        className="absolute inset-0 w-full h-full"
-        viewBox="0 0 100 100"
-        preserveAspectRatio="none"
-      >
-        {/* Outer rectangle */}
-        <rect
-          x="2"
-          y="6"
-          width="96"
-          height="88"
-          fill="none"
-          stroke="rgba(0,228,121,0.18)"
-          strokeWidth="0.3"
-        />
-        {/* Halfway line (vertical at x=50) */}
-        <line
-          x1="50"
-          y1="6"
-          x2="50"
-          y2="94"
-          stroke="rgba(0,228,121,0.18)"
-          strokeWidth="0.3"
-        />
-        {/* Center circle */}
-        <circle
-          cx="50"
-          cy="50"
-          r="6"
-          fill="none"
-          stroke="rgba(0,228,121,0.18)"
-          strokeWidth="0.3"
-        />
-        <circle cx="50" cy="50" r="0.4" fill="rgba(0,228,121,0.4)" />
+          {/* Single SVG: pitch markings span the whole pitch. */}
+          <svg
+            className="absolute inset-0 w-full h-full"
+            viewBox="0 0 100 100"
+            preserveAspectRatio="none"
+          >
+            {/* Outer rectangle */}
+            <rect
+              x="2"
+              y="6"
+              width="96"
+              height="88"
+              fill="none"
+              stroke="rgba(0,228,121,0.18)"
+              strokeWidth="0.3"
+            />
+            {/* Halfway line (vertical at x=50) */}
+            <line
+              x1="50"
+              y1="6"
+              x2="50"
+              y2="94"
+              stroke="rgba(0,228,121,0.18)"
+              strokeWidth="0.3"
+            />
+            {/* Center circle */}
+            <circle
+              cx="50"
+              cy="50"
+              r="6"
+              fill="none"
+              stroke="rgba(0,228,121,0.18)"
+              strokeWidth="0.3"
+            />
+            <circle cx="50" cy="50" r="0.4" fill="rgba(0,228,121,0.4)" />
 
-        {/* Home penalty area (left goal) */}
-        <path
-          d="M 4 30 L 16 30 L 16 70 L 4 70"
-          fill="none"
-          stroke="rgba(0,228,121,0.18)"
-          strokeWidth="0.3"
-        />
-        {/* Away penalty area (right goal) */}
-        <path
-          d="M 96 30 L 84 30 L 84 70 L 96 70"
-          fill="none"
-          stroke="rgba(0,228,121,0.18)"
-          strokeWidth="0.3"
-        />
-        {/* Home goal area (small box) */}
-        <path
-          d="M 4 38 L 10 38 L 10 62 L 4 62"
-          fill="none"
-          stroke="rgba(0,228,121,0.12)"
-          strokeWidth="0.3"
-        />
-        {/* Away goal area (small box) */}
-        <path
-          d="M 96 38 L 90 38 L 90 62 L 96 62"
-          fill="none"
-          stroke="rgba(0,228,121,0.12)"
-          strokeWidth="0.3"
-        />
-      </svg>
+            {/* Home penalty area (left goal) */}
+            <path
+              d="M 4 30 L 16 30 L 16 70 L 4 70"
+              fill="none"
+              stroke="rgba(0,228,121,0.18)"
+              strokeWidth="0.3"
+            />
+            {/* Away penalty area (right goal) */}
+            <path
+              d="M 96 30 L 84 30 L 84 70 L 96 70"
+              fill="none"
+              stroke="rgba(0,228,121,0.18)"
+              strokeWidth="0.3"
+            />
+            {/* Home goal area (small box) */}
+            <path
+              d="M 4 38 L 10 38 L 10 62 L 4 62"
+              fill="none"
+              stroke="rgba(0,228,121,0.12)"
+              strokeWidth="0.3"
+            />
+            {/* Away goal area (small box) */}
+            <path
+              d="M 96 38 L 90 38 L 90 62 L 96 62"
+              fill="none"
+              stroke="rgba(0,228,121,0.12)"
+              strokeWidth="0.3"
+            />
+          </svg>
 
-      {/* Home half — LEFT, defends left goal */}
-      <HalfPitch
-        side="home"
-        cards={homeCards}
-        rosterById={rosterById}
-        tempo={homeTempo}
-        defensiveLine={homeLine}
-        pitchWidth={homeWidth}
-      />
+          {/* Home half — LEFT, defends left goal */}
+          <HalfPitch
+            side="home"
+            cards={homeCards}
+            rosterById={rosterById}
+            tempo={homeTempo}
+            defensiveLine={homeLine}
+            pitchWidth={homeWidth}
+          />
 
-      {/* Away half — RIGHT, defends right goal */}
-      <HalfPitch
-        side="away"
-        cards={awayCards}
-        rosterById={rosterById}
-        tempo={awayTempo}
-        defensiveLine={awayLine}
-        pitchWidth={awayWidth}
-      />
+          {/* Away half — RIGHT, defends right goal */}
+          <HalfPitch
+            side="away"
+            cards={awayCards}
+            rosterById={rosterById}
+            tempo={awayTempo}
+            defensiveLine={awayLine}
+            pitchWidth={awayWidth}
+          />
 
-      {/* Forfeit chip — sits at the top of the pitch as a banner,
-          NOT a full-pitch replacement. Player dots and pitch
-          markings stay visible underneath; the chip just surfaces
-          the result + reason so the reader doesn't mistake the
-          rendered lineups for a real match. */}
-      {isForfeit && (
-        <ForfeitBanner
-          homeForfeit={homeForfeit}
-          awayForfeit={awayForfeit}
-          homeTeamName={homeTeamName ?? 'Home'}
-          awayTeamName={awayTeamName ?? 'Away'}
-        />
+          {/* Forfeit chip — sits at the top of the pitch as a banner,
+              NOT a full-pitch replacement. Player dots and pitch
+              markings stay visible underneath; the chip just surfaces
+              the result + reason so the reader doesn't mistake the
+              rendered lineups for a real match. */}
+          {isForfeit && (
+            <ForfeitBanner
+              homeForfeit={homeForfeit}
+              awayForfeit={awayForfeit}
+              homeTeamName={homeTeamName ?? 'Home'}
+              awayTeamName={awayTeamName ?? 'Away'}
+            />
+          )}
+        </>
+      )}
+
+      {/* Stats mode — REPLACES the entire pitch surface with the 3×3
+          data grid (mutually exclusive with the players view above).
+          No `aria-hidden` / `pointer-events-none` here because the
+          overlay IS the content of the container, not an overlay on
+          top — interactions inside the cells (e.g. tooltips, future
+          drill-downs) belong to this surface. */}
+      {statsMode && activeSnapshot && (
+        <div className="absolute inset-0" data-testid="pitch-stats-overlay">
+          <PitchStatsOverlay snapshot={activeSnapshot} />
+        </div>
       )}
     </div>
   );

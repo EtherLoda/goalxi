@@ -6,12 +6,80 @@ import {
 import { Player, PlayerAttributes } from '../../types/player.types';
 import { Lane, Phase } from '../types/simulation.types';
 
+// ============================================================================
+// Slot-key → POSITION_WEIGHTS key normalization
+// ============================================================================
+//
+// The formation editor (`web/src/components/tactics/types.ts`) stores
+// line-up slots as numbered variants (`CB1`, `CB2`, `CB3`, `CM1`, ...,
+// `DMF1`, `CAM1`, etc.) so it can hold multiple players at the same
+// family on the pitch. The simulator's `POSITION_WEIGHTS` matrix only
+// knows the family-level keys (`CB`, `CM`, `DM`, `CAM`, ...). The
+// mismatch silently zeroes every contribution from any numbered slot
+// — verified against match `bd7bbfeb-...` (Aug 2026) where home's
+// three CBs (slot keys `CB1/2/3`) all read as 0 in every lane/phase
+// even though their `defending` skill was ~6–9.
+//
+// This map is the single source of truth for the fold. Adding a new
+// slot to the editor? Add a line here. The unknown branch falls
+// through to the historical behavior (return 0) and warns once per
+// unique key so the operator notices a missing entry instead of
+// silently shipping wrong lane-strength numbers.
+
+const SLOT_KEY_NORMALIZER: Readonly<Record<string, string>> = Object.freeze({
+  // Center backs — number suffix is the player-index inside the
+  // formation; the family weight is the same `CB` table.
+  CB1: 'CB',
+  CB2: 'CB',
+  CB3: 'CB',
+  // Defensive midfielder family. Editor uses `DMF<n>`; the matrix
+  // keys are `DM` / `CDM` (both map to the same weights).
+  DMF1: 'DM',
+  DMF2: 'DM',
+  DMF3: 'DM',
+  // Central midfielder family.
+  CM1: 'CM',
+  CM2: 'CM',
+  CM3: 'CM',
+  // Attacking midfielder family. Editor stores `CAM<n>`; the matrix
+  // accepts both `AM` and `CAM` → same weights.
+  CAM1: 'CAM',
+  CAM2: 'CAM',
+  CAM3: 'CAM',
+});
+
+/**
+ * Fold a formation-editor slot key to the canonical key the engine's
+ * `POSITION_WEIGHTS` matrix understands. Returns the input unchanged
+ * when it's already a valid weight key.
+ *
+ * Pure, side-effect-free; safe to call once per snapshot-update tick
+ * (called O(players) per call site).
+ */
+export function normalizePositionKey(slotKey: string): string {
+  // Already a known key — short-circuit. The `in` check covers the
+  // wholesale matrix (CF, LB, RB, LW, RW, LM, RM, AM, AML, AMR, ...) and
+  // all bench keys (`BENCH_*`).
+  if (slotKey in POSITION_WEIGHTS) return slotKey;
+  const mapped = SLOT_KEY_NORMALIZER[slotKey];
+  if (mapped) return mapped;
+  return slotKey; // unknown — caller emits one warning, returns 0
+}
+
 export class AttributeCalculator {
   // 缓存：playerId + positionKey + lane + phase -> base contribution (without multiplier)
   private static contributionCache = new Map<string, number>();
 
   // 缓存：playerId -> GK save rating
   private static gkCache = new Map<string, number>();
+
+  // Dedup warn-set: log each unknown slot key once per process so a
+  // 90-min match full of badly-keyed players doesn't emit 90 * 11 logs.
+  private static unknownKeyWarned = new Set<string>();
+
+  static clearUnknownKeyWarnCache(): void {
+    this.unknownKeyWarned.clear();
+  }
 
   // 缓存键生成
   private static getCacheKey(
@@ -68,9 +136,27 @@ export class AttributeCalculator {
     lane: Lane,
     phase: Phase,
   ): number {
-    const weights = POSITION_WEIGHTS[positionKey];
+    // Fold editor slot keys (CB1, CM2, DMF1, …) to the canonical
+    // family key the weight matrix understands. See SLOT_KEY_NORMALIZER
+    // for the full mapping and the rationale.
+    const normalizedKey = normalizePositionKey(positionKey);
+    const weights = POSITION_WEIGHTS[normalizedKey];
 
-    if (!weights || positionKey === 'GK') {
+    if (!weights || normalizedKey === 'GK') {
+      // Unknown slot key — surface to the operator once per match so
+      // they notice a missing entry in SLOT_KEY_NORMALIZER. Returns 0
+      // (preserves the historical behavior — never throws mid-match).
+      if (
+        !weights &&
+        normalizedKey !== 'GK' &&
+        !this.unknownKeyWarned.has(positionKey)
+      ) {
+        this.unknownKeyWarned.add(positionKey);
+        // eslint-disable-next-line no-console
+        console.warn(
+          `[AttributeCalculator] Unknown positionKey '${positionKey}' — no entry in POSITION_WEIGHTS and no SLOT_KEY_NORMALIZER mapping. Player will contribute 0 to all phases. Add the mapping in simulator/src/engine/utils/attribute-calculator.ts.`,
+        );
+      }
       return 0;
     }
 

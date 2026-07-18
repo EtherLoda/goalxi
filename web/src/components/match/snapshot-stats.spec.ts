@@ -34,6 +34,16 @@ function mkLs(pos: number): SnapshotLaneStrengths {
   };
 }
 
+/** Lane strengths with per-phase values, for the strength-based
+ *  possession-share / push-rate specs. */
+function mkLsPhased(values: {
+  left: { atk: number; def: number; pos: number };
+  center: { atk: number; def: number; pos: number };
+  right: { atk: number; def: number; pos: number };
+}): SnapshotLaneStrengths {
+  return values;
+}
+
 function mkLc(att: number, pr: number, mpr: number): SnapshotLaneCounters {
   return {
     left: { att, ps_: 0, pr, mpr },
@@ -130,60 +140,92 @@ describe('extractSnapshots', () => {
 // ============================================================================
 
 describe('lanePossessionShare', () => {
-  // Helper that wires lc.mpr per lane — the engine emits the expected
-  // midfield win probability, not the strength.
-  const sideWithMpr = (mpr: {
-    left: number;
-    center: number;
-    right: number;
-  }): MatchSnapshotSide =>
-    ({
-      ls: mkLs(50),
-      lc: {
-        left: { att: 10, ps_: 0, pr: 0.5, mpr: mpr.left },
-        center: { att: 10, ps_: 0, pr: 0.5, mpr: mpr.center },
-        right: { att: 10, ps_: 0, pr: 0.5, mpr: mpr.right },
-      },
-      ps: [],
-    } as MatchSnapshotSide);
+  // Possession share is derived from each team's lane possession
+  // STRENGTH (`ls.pos`), not from observed wins (`lc.midfieldBattles`)
+  // or expected midfield probability (`lc.mpr`). Reason: strengths
+  // always have data; the battle-derived fields collapse to 0/0 or
+  // 1.0/0 depending on RNG.
+  const home = mkLsPhased({
+    left:   { atk: 600, def: 400, pos: 600 },
+    center: { atk: 700, def: 500, pos: 700 },
+    right:  { atk: 500, def: 600, pos: 500 },
+  });
+  const away = mkLsPhased({
+    left:   { atk: 400, def: 600, pos: 400 },
+    center: { atk: 500, def: 700, pos: 500 },
+    right:  { atk: 600, def: 500, pos: 600 },
+  });
 
-  it("returns home's expected win share (sums to 1.0 with the away call)", () => {
-    const home = sideWithMpr({ left: 0.6, center: 0.5, right: 0.3 });
-    const away = sideWithMpr({ left: 0.4, center: 0.5, right: 0.7 });
-    expect(lanePossessionShare(home, away, 'left')).toBeCloseTo(0.6, 5);
-    expect(lanePossessionShare(home, away, 'center')).toBeCloseTo(0.5, 5);
-    expect(lanePossessionShare(home, away, 'right')).toBeCloseTo(0.3, 5);
+  it("returns home's strength-based possession share (sums to 1.0 with the away call)", () => {
+    // left: 600 / (600 + 400) = 0.6
+    expect(lanePossessionShare({ ls: home, ps: [] } as MatchSnapshotSide, { ls: away, ps: [] } as MatchSnapshotSide, 'left')).toBeCloseTo(0.6, 5);
+    // center: 700 / (700 + 500) ≈ 0.5833
+    expect(lanePossessionShare({ ls: home, ps: [] } as MatchSnapshotSide, { ls: away, ps: [] } as MatchSnapshotSide, 'center')).toBeCloseTo(0.5833, 4);
+    // right: 500 / (500 + 600) ≈ 0.4545
+    expect(lanePossessionShare({ ls: home, ps: [] } as MatchSnapshotSide, { ls: away, ps: [] } as MatchSnapshotSide, 'right')).toBeCloseTo(0.4545, 4);
   });
 
   it('symmetric: homeShare + awayShare === 1', () => {
-    const home = sideWithMpr({ left: 0.6, center: 0.5, right: 0.3 });
-    const away = sideWithMpr({ left: 0.4, center: 0.5, right: 0.7 });
     for (const lane of ['left', 'center', 'right'] as const) {
-      const h = lanePossessionShare(home, away, lane);
-      const a = lanePossessionShare(away, home, lane);
+      const h = lanePossessionShare({ ls: home, ps: [] } as MatchSnapshotSide, { ls: away, ps: [] } as MatchSnapshotSide, lane);
+      const a = lanePossessionShare({ ls: away, ps: [] } as MatchSnapshotSide, { ls: home, ps: [] } as MatchSnapshotSide, lane);
       expect(h).not.toBeNull();
       expect(a).not.toBeNull();
       expect((h as number) + (a as number)).toBeCloseTo(1, 5);
     }
   });
 
-  it('returns 0.5 when both sides have 0 mpr (no data)', () => {
-    const emptyHome = sideWithMpr({ left: 0, center: 0, right: 0 });
-    const emptyAway = sideWithMpr({ left: 0, center: 0, right: 0 });
-    expect(lanePossessionShare(emptyHome, emptyAway, 'center')).toBe(0.5);
+  it('returns 0.5 when both sides have 0 pos strength (defensive fallback)', () => {
+    const empty = mkLsPhased({
+      left:   { atk: 0, def: 0, pos: 0 },
+      center: { atk: 0, def: 0, pos: 0 },
+      right:  { atk: 0, def: 0, pos: 0 },
+    });
+    expect(
+      lanePossessionShare(
+        { ls: empty, ps: [] } as MatchSnapshotSide,
+        { ls: empty, ps: [] } as MatchSnapshotSide,
+        'center',
+      ),
+    ).toBe(0.5);
   });
 
-  it('returns null when either side is missing `lc` entirely (legacy snapshots)', () => {
-    const home = { ps: [] } as MatchSnapshotSide;
-    const away = sideWithMpr({ left: 0.3, center: 0.3, right: 0.3 });
-    // Missing home `lc` → no data → null, NOT a misleading 0% / 50%.
-    expect(lanePossessionShare(home, away, 'left')).toBeNull();
+  it('returns null when either side is missing `ls` entirely (legacy snapshots)', () => {
+    const homeNoLs = { ls: undefined, ps: [] } as unknown as MatchSnapshotSide;
+    expect(
+      lanePossessionShare(homeNoLs, { ls: away, ps: [] } as MatchSnapshotSide, 'left'),
+    ).toBeNull();
   });
 
-  it('returns null when away side has lane data missing (legacy snapshots)', () => {
-    const home = sideWithMpr({ left: 0.3, center: 0.3, right: 0.3 });
-    const away = { ls: undefined, ps: [] } as MatchSnapshotSide;
-    expect(lanePossessionShare(home, away, 'center')).toBeNull();
+  it('returns null when away side has ls missing (legacy snapshots)', () => {
+    const awayNoLs = { ls: undefined, ps: [] } as unknown as MatchSnapshotSide;
+    expect(
+      lanePossessionShare({ ls: home, ps: [] } as MatchSnapshotSide, awayNoLs, 'center'),
+    ).toBeNull();
+  });
+
+  it('returns a plausible share even when one side has 0 attempts in this lane (no 0/100 collapse)', () => {
+    // Reproduces the production bug: a side that never attacks in a
+    // lane should still get a plausible share based on team strength,
+    // not a degenerate 100/0 from the formula's divide-by-zero path.
+    const homeNoRight = mkLsPhased({
+      left:   { atk: 600, def: 400, pos: 600 },
+      center: { atk: 700, def: 500, pos: 700 },
+      right:  { atk: 500, def: 600, pos: 0 }, // pos=0 for "no data"
+    });
+    const awayNoRight = mkLsPhased({
+      left:   { atk: 400, def: 600, pos: 400 },
+      center: { atk: 500, def: 700, pos: 500 },
+      right:  { atk: 600, def: 500, pos: 0 },
+    });
+    // Both pos=0 → defensive 0.5 fallback (NEVER 1.0/0.0)
+    expect(
+      lanePossessionShare(
+        { ls: homeNoRight, ps: [] } as MatchSnapshotSide,
+        { ls: awayNoRight, ps: [] } as MatchSnapshotSide,
+        'right',
+      ),
+    ).toBe(0.5);
   });
 });
 
@@ -192,82 +234,87 @@ describe('lanePossessionShare', () => {
 // ============================================================================
 
 describe('computePushRate', () => {
+  // Real scenario: home atk=600 in left lane, away def=400.
+  // Formula: home.ls.left.atk / (home.ls.left.atk + away.ls.left.def)
+  //         = 600 / (600 + 400) = 0.6.
+  // Note: `oppDef` is the OPPONENT's `ls[lane].def`, not their atk —
+  // a push fails against the defender's defense strength, not their
+  // attack strength.
   const snap: MatchSnapshot = {
     minute: 30,
     h: {
-      ls: mkLs(60),
-      lc: {
-        left: { att: 10, ps_: 0, pr: 0.6, mpr: 0.5 },
-        center: { att: 5, ps_: 0, pr: 0.4, mpr: 0.5 },
-        right: { att: 0, ps_: 0, pr: 0, mpr: 0 },
-      },
+      ls: mkLsPhased({
+        left:   { atk: 600, def: 400, pos: 600 },
+        center: { atk: 400, def: 600, pos: 600 },
+        right:  { atk: 500, def: 500, pos: 500 },
+      }),
       ps: [],
     },
     a: {
-      ls: mkLs(40),
-      lc: {
-        left: { att: 8, ps_: 0, pr: 0.5, mpr: 0.5 },
-        center: { att: 5, ps_: 0, pr: 0.6, mpr: 0.5 },
-        right: { att: 0, ps_: 0, pr: 0, mpr: 0 },
-      },
+      ls: mkLsPhased({
+        // Home atk=600 vs away def=400 → 0.6 home push success.
+        left:   { atk: 400, def: 400, pos: 400 },
+        // Home atk=400 vs away def=600 → 0.4 home push success.
+        center: { atk: 600, def: 600, pos: 500 },
+        // Both sides atk=def=500 → 0.5 (balanced).
+        right:  { atk: 500, def: 500, pos: 500 },
+      }),
       ps: [],
     },
   };
 
-  it("returns the engine's pr (push probability) directly — no division", () => {
+  it('returns home atk / (home atk + away def) — strength-based prediction', () => {
+    // home pushes in `left`: home.atk=600 vs away.def=400 → 600/1000=0.6
     expect(computePushRate(snap, 'left', 'h')).toBeCloseTo(0.6, 5);
-    expect(computePushRate(snap, 'left', 'a')).toBeCloseTo(0.5, 5);
+    // home pushes in `center`: home.atk=400 vs away.def=600 → 400/1000=0.4
     expect(computePushRate(snap, 'center', 'h')).toBeCloseTo(0.4, 5);
-    expect(computePushRate(snap, 'center', 'a')).toBeCloseTo(0.6, 5);
+    // away pushes in `left`: away.atk=400 vs home.def=400 → 400/800=0.5
+    expect(computePushRate(snap, 'left', 'a')).toBeCloseTo(0.5, 5);
+    // away pushes in `center`: away.atk=600 vs home.def=600 → 600/1200=0.5
+    expect(computePushRate(snap, 'center', 'a')).toBeCloseTo(0.5, 5);
   });
 
-  it('returns null when no attacks have happened (avoids 0/0)', () => {
-    expect(computePushRate(snap, 'right', 'h')).toBeNull();
-    expect(computePushRate(snap, 'right', 'a')).toBeNull();
+  it('returns 0.5 when both sides are perfectly balanced (atk === def)', () => {
+    expect(computePushRate(snap, 'right', 'h')).toBeCloseTo(0.5, 5);
+    expect(computePushRate(snap, 'right', 'a')).toBeCloseTo(0.5, 5);
   });
 
-  it('returns null when lc is missing on the side (legacy snapshots)', () => {
+  it('returns a plausible rate even when one side never attacked in this lane (no "—" bug)', () => {
+    // Reproduces the production bug: away right lane has atk=0 (no
+    // recorded push attempts historically). Old formula returned null
+    // ("—"); new formula still gives a strength-based prediction.
+    const scenario: MatchSnapshot = {
+      minute: 30,
+      h: {
+        ls: mkLsPhased({
+          left:   { atk: 600, def: 400, pos: 600 },
+          center: { atk: 400, def: 600, pos: 600 },
+          right:  { atk: 500, def: 500, pos: 500 },
+        }),
+        ps: [],
+      },
+      a: {
+        ls: mkLsPhased({
+          left:   { atk: 400, def: 600, pos: 400 },
+          center: { atk: 600, def: 400, pos: 500 },
+          right:  { atk: 0,   def: 500, pos: 500 },
+        }),
+        ps: [],
+      },
+    };
+    // away right: 0 / (0 + 500) = 0 (legitimately low — never attacks)
+    expect(computePushRate(scenario, 'right', 'a')).toBeCloseTo(0, 5);
+    // home right stays balanced: 500/1000 = 0.5
+    expect(computePushRate(scenario, 'right', 'h')).toBeCloseTo(0.5, 5);
+  });
+
+  it('returns null when ls is missing on either side (legacy snapshots)', () => {
     const legacy: MatchSnapshot = {
       minute: 0,
-      h: { ls: mkLs(50), ps: [] } as MatchSnapshotSide,
+      h: { ls: undefined, ps: [] } as unknown as MatchSnapshotSide,
       a: { ls: mkLs(50), ps: [] } as MatchSnapshotSide,
     };
     expect(computePushRate(legacy, 'left', 'h')).toBeNull();
-  });
-
-  it('rate is 0 when att > 0 but engine-emitted pr === 0 (every push expected to fail)', () => {
-    const allFailed: MatchSnapshot = {
-      ...snap,
-      h: {
-        ...snap.h,
-        lc: {
-          left: { att: 5, ps_: 0, pr: 0, mpr: 0.5 },
-          center: { att: 5, ps_: 0, pr: 0, mpr: 0.5 },
-          right: { att: 5, ps_: 0, pr: 0, mpr: 0.5 },
-        },
-      },
-    };
-    expect(computePushRate(allFailed, 'left', 'h')).toBe(0);
-  });
-
-  // [RFC snapshot-prob] Regression: a 1-attempt / 1-success empirical rate
-  // would render 100% on the FE; reading pr from the engine output keeps
-  // the rate stable regardless of how many pushes have happened.
-  it('rate is stable across small samples (engine output, not ps_/att)', () => {
-    const tinySample: MatchSnapshot = {
-      ...snap,
-      h: {
-        ...snap.h,
-        lc: {
-          left: { att: 1, ps_: 1, pr: 0.42, mpr: 0.5 },
-          center: { att: 1, ps_: 1, pr: 0.42, mpr: 0.5 },
-          right: { att: 1, ps_: 1, pr: 0.42, mpr: 0.5 },
-        },
-      },
-    };
-    // Old behavior would have returned 1.0 (1/1). Now the engine's
-    // 0.42 expected probability wins — small samples don't dominate.
-    expect(computePushRate(tinySample, 'left', 'h')).toBeCloseTo(0.42, 5);
   });
 });
 

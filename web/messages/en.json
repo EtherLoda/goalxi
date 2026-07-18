@@ -334,7 +334,54 @@
       "def": "DEF",
       "poss": "POSS",
       "possessionShare": "Possession Share",
-      "pushSuccess": "Push Success Rate"
+      "pushSuccess": "Push Success Rate",
+      "snapshotHint": "drag the timeline above"
+    },
+    "timeline": {
+      "title": "Match Timeline",
+      "snapLabel": "snap {index}/{total} · {minute}'",
+      "ariaLabel": "Match timeline",
+      "fullTimeTick": "{minute}'",
+      "legend": {
+        "goal": "Goal",
+        "substitution": "Substitution",
+        "yellow_card": "Yellow card",
+        "red_card": "Red card"
+      }
+    },
+    "bento": {
+      "score": {
+        "title": "Match Score"
+      },
+      "snapshot": {
+        "title": "Zone Strengths",
+        "possession": "Possession Share",
+        "pushRate": "Push Success Rate",
+        "emptyData": "—"
+      },
+      "pitchChip": {
+        "statsView": "Stats View",
+        "playersView": "Players View",
+        "switchToStats": "Switch to stats view",
+        "switchToPlayers": "Switch to players view"
+      },
+      "pitchStats": {
+        "possession": "Possession",
+        "pushRate": "Push Rate",
+        "lane": {
+          "left": "Left",
+          "center": "Center",
+          "right": "Right"
+        }
+      },
+      "xg": {
+        "title": "Expected Goals",
+        "goals": "Goals · {goals}",
+        "delta": "Δ {value}"
+      },
+      "commentary": {
+        "title": "Live Commentary"
+      }
     }
   },
   "squad": {

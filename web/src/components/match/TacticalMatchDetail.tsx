@@ -5,8 +5,8 @@ import { useTranslations } from 'next-intl';
 import { api, type MatchEvent, type MatchStatsRes, type Match, type Player, type Tactics } from '@/lib/api';
 import { formatEventCommentary } from '@/lib/commentary';
 import { MatchPitch, type MatchSnapshot } from './MatchPitch';
+import { MatchTimeline } from './MatchTimeline';
 import { buildCards } from './match-pitch-data';
-import { SnapshotZonePanel } from './SnapshotZonePanel';
 import { extractSnapshots } from './snapshot-stats';
 import { BenchStrip } from '../tactics/bench/BenchStrip';
 import { normalizePitchLineup } from './pitch-coords';
@@ -136,6 +136,10 @@ export function TacticalMatchDetail({
   const homeName = match.homeTeam?.name || 'Home';
   const awayName = match.awayTeam?.name || 'Away';
   const isLive = match.status === 'in_progress';
+  // Pitch stats overlay toggle — when on, the pitch swaps player dots
+  // for a 3×3 lane×phase grid (PitchStatsOverlay). Default off; local
+  // state because the toggle is view-only, no URL persistence.
+  const [statsMode, setStatsMode] = useState(false);
   // Forfeit state is forwarded to <MatchPitch> as `homeForfeit` /
   // `awayForfeit` props; the page itself doesn't need to gate any UI
   // on forfeit anymore — benches + player dots render in all cases
@@ -148,6 +152,7 @@ export function TacticalMatchDetail({
   const tCommentary = useTranslations('commentary');
   // Heading chrome (was hardcoded "Live Commentary").
   const tLiveChrome = useTranslations('matches.live');
+  const tChip = useTranslations('matches.bento.pitchChip');
 
   // Extract snapshot for real player positions
   const snapshot = getLatestSnapshot(events);
@@ -353,32 +358,67 @@ export function TacticalMatchDetail({
         </div>
       </header>
 
+      {/* Match timeline — spans the full width above the pitch + zone
+          panel. Same component as the live page so live + report share
+          one visual language. Clickable event markers (goals / subs /
+          cards) drive the same `activeSnapshotIndex` state the
+          scrubber used to own. */}
+      <MatchTimeline
+        events={events}
+        snapshots={allSnapshots}
+        currentMinute={currentMinute}
+        activeIndex={activeSnapshotIndex}
+        onChange={setActiveSnapshotIndex}
+      />
+
       {/* Horizontal pitch — full width, then benches below.
           Layout: header → pitch → home/away benches → (commentary | sidebar).
           The pitch is intentionally OUT of the left column so its aspect-video
           aspect ratio is preserved at the page's natural width. */}
       {/* Pitch + zone panel: pitch on the left (1fr), zone panel on the
-          right (320px) at the same row. The zone panel's scrubber drives
-          `activeSnapshotIndex` above, which in turn drives the pitch's
-          player markers — moving the scrubber re-renders BOTH pieces
-          together once the user settles (mouseup / touchend). Below
-          lg, the panel stacks under the pitch. */}
-      <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-4 items-stretch">
+          right (320px) at the same row. The timeline above drives
+          `activeSnapshotIndex` which in turn drives the pitch's player
+          markers — moving the timeline re-renders BOTH pieces together
+          once the user settles (mouseup / touchend). Below lg, the
+          panel stacks under the pitch. */}
+      {/* Pitch + stats toggle. The chip lives OUTSIDE the pitch's
+          overflow-hidden container so it's never clipped. The
+          PitchStatsOverlay itself is still rendered by MatchPitch
+          based on `statsMode` — we just hand the state down via the
+          `statsMode` + `onToggleStatsMode` props. */}
+      <div className="relative">
+        <div className="flex justify-end mb-2">
+          <button
+            type="button"
+            onClick={() => setStatsMode((v) => !v)}
+            aria-pressed={statsMode}
+            className={`inline-flex items-center gap-2 px-5 py-2.5 rounded-full font-headline font-bold text-sm transition-all ring-2 shadow-lg ${
+              statsMode
+                ? 'bg-primary text-on-primary ring-primary shadow-[0_0_16px_rgba(0,228,121,0.45)]'
+                : 'bg-surface-container-low text-on-surface ring-primary/60 hover:bg-surface-container-high shadow-md'
+            }`}
+            data-testid="pitch-stats-toggle"
+          >
+            <span className="material-symbols-outlined text-base">
+              {statsMode ? 'group' : 'monitoring'}
+            </span>
+            <span>
+              {statsMode ? tChip('playersView') : tChip('statsView')}
+            </span>
+          </button>
+        </div>
         <MatchPitch
           homeTactics={homeTactics}
           awayTactics={awayTactics}
           homeRoster={homeRoster}
           awayRoster={awayRoster}
           activeSnapshot={activeSnapshot}
+          statsMode={statsMode}
+          onToggleStatsMode={() => setStatsMode((v) => !v)}
           homeForfeit={match.homeForfeit ?? false}
           awayForfeit={match.awayForfeit ?? false}
           homeTeamName={homeName}
           awayTeamName={awayName}
-        />
-        <SnapshotZonePanel
-          snapshots={allSnapshots}
-          activeIndex={activeSnapshotIndex}
-          onChange={setActiveSnapshotIndex}
         />
       </div>
 

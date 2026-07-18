@@ -139,12 +139,20 @@ function getTemplate(
   return params ? t(key, params) : t(key);
 }
 
-function getQualityText(t: TranslationFunction, shootRating: number): string {
-  // Relative keys — the hook is expected to be scoped via
-  // `useTranslations('commentary')` so `commentary.` is implicit.
-  if (shootRating >= 80) return t('goal.quality_excellent');
-  if (shootRating >= 60) return t('goal.quality_great');
-  return t('goal.quality_good');
+// Reads `goal.quality_*` strings — two of which ({great}, {good}) contain
+// a `{player}` placeholder that must be filled in via `t()`'s params, not
+// via the post-call `interpolate()`. Returning a `{player}`-bearing raw
+// string would crash the t() call (next-intl@4 throws FORMATTING_ERROR
+// when an expected context variable is missing), so we always pass `player`
+// even for the {excellent} branch that doesn't use it (no-op there).
+function getQualityText(
+  t: TranslationFunction,
+  shootRating: number,
+  player: string,
+): string {
+  if (shootRating >= 80) return t('goal.quality_excellent', { player });
+  if (shootRating >= 60) return t('goal.quality_great', { player });
+  return t('goal.quality_good', { player });
 }
 
 function getLaneText(t: TranslationFunction, lane: string | undefined): string {
@@ -183,7 +191,7 @@ export function formatGoalCommentary(
   const shotType = data?.sequence?.shot?.shotType;
   const shootRating = data?.sequence?.shot?.shootRating || 0;
 
-  const quality = getQualityText(t, shootRating);
+  const quality = getQualityText(t, shootRating, player);
   const laneDesc = getLaneText(t, lane);
   const shotTypeDesc = getShotTypeText(t, shotType);
 

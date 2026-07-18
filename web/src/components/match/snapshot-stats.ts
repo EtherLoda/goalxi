@@ -71,30 +71,44 @@ export function extractSnapshots(events: MatchEvent[]): MatchSnapshot[] {
 // ============================================================================
 
 /**
- * Home's share of possession strength in a lane, derived from the
- * simulator's expected midfield win probability `mpr` (mean of
- * `duelProbability(homeControl, awayControl, ...)` across every
- * midfield battle in this lane — emitted by the engine, not derived
- * from empirical counters). Symmetric by construction:
- * `lanePossessionShare(h, a, lane) + lanePossessionShare(a, h, lane) === 1`.
+ * Home's share of possession in a lane, computed from each team's
+ * possession strength in that lane (`ls.pos`) — the engine's
+ * pre-battle strength estimate summed across all 11 starters.
  *
- * Falls back to `0.5` when both teams report 0 in the lane (e.g. t=0
- * snapshot with no battles fought yet) — matches the "no data, show
- * neutral" convention used elsewhere in the panel.
+ * Formula: `home.ls.pos / (home.ls.pos + away.ls.pos)`. Symmetric
+ * by construction (sums to 1.0).
+ *
+ * Why strength-based, not `lc.mpr` / observed: the simulator's
+ * `lc.mpr` only increments on the WINNER of each midfield battle.
+ * If one side never wins in a lane, its `mpr` stays 0 forever and
+ * the share collapses to 100% / 0% — which is mathematically true
+ * ("every battle was won by the other side") but UX-misleading
+ * (a reader looking at "Home 100%" naturally concludes the home
+ * team is dominant, when actually the engine just predicts a near
+ * 50/50 split from team strength). Lane strengths are the right
+ * input for a dashboard panel: they always have data, they're the
+ * engine's strength model output, and they're stable across the
+ * whole match (no small-sample noise from a few midfield battles).
+ *
+ * Falls back to `0.5` when neither side reports `ls.pos` for the
+ * lane (e.g. legacy match pre-dating lane strengths). Returns `null`
+ * when EITHER side is missing `ls` entirely so the panel can show
+ * "—" instead of a misleading 50/50.
  */
 export function lanePossessionShare(
   home: MatchSnapshotSide | undefined,
   away: MatchSnapshotSide | undefined,
   lane: Lane,
 ): number | null {
-  // Either side missing `lc` → no data. The UI renders "—" instead of a
-  // misleading 0% / 50% so the reader can tell the data isn't there.
-  if (!home?.lc || !away?.lc) return null;
-  const homeMpr = home.lc[lane]?.mpr ?? 0;
-  const awayMpr = away.lc[lane]?.mpr ?? 0;
-  const total = homeMpr + awayMpr;
+  // Either side missing `ls` → no data. The UI renders "—" instead
+  // of a misleading 50/50 fallback so the reader can tell the data
+  // isn't there.
+  if (!home?.ls || !away?.ls) return null;
+  const homePos = home.ls[lane]?.pos ?? 0;
+  const awayPos = away.ls[lane]?.pos ?? 0;
+  const total = homePos + awayPos;
   if (total <= 0) return 0.5;
-  return homeMpr / total;
+  return homePos / total;
 }
 
 // ============================================================================
@@ -102,25 +116,36 @@ export function lanePossessionShare(
 // ============================================================================
 
 /**
- * Push success rate for a lane on a side, read directly from the
- * simulator's `lc.pr` (mean of `duelProbability(attPower, defPower)`
- * across every push duel in this lane). The engine is the source of
- * truth for this value — the FE does no division, so the rate stays
- * stable regardless of how many pushes have happened so far.
+ * Push success rate for a lane on a side: `attack / (attack + opp.defense)`,
+ * derived from each team's lane strength. Mirrors the engine's
+ * `duelProbability(attPower, defPower)` model — push succeeds when
+ * the attacker's `ls.atk` outweighs the defender's `ls.def`.
  *
- * Returns `null` when no pushes have happened yet on that side/lane
- * (engine emits `pr=0` but we want the UI to render "—" rather than
- * "0%" to distinguish "no data" from "team really is at 0% expected").
+ * Why strength-based, not `lc.pr`: the simulator's `lc.pr` only
+ * accumulates when THIS side won the preceding midfield battle and
+ * actually attempted a push. A side that never wins midfield battles
+ * in a lane has `attempts === 0` for the whole match → the panel
+ * shows "—" next to its bar, which readers find confusing because
+ * the same row's home column has a real number. Lane strengths
+ * always have data and represent the engine's strength model.
+ *
+ * Returns `null` when either side is missing `ls` entirely (legacy
+ * match). Falls back to `0` only when BOTH sides are at zero
+ * (impossible in practice but defensive against divide-by-zero).
  */
 export function computePushRate(
   snapshot: MatchSnapshot,
   lane: Lane,
   side: 'h' | 'a',
 ): number | null {
-  const counters = side === 'h' ? snapshot.h.lc : snapshot.a.lc;
-  const cell = counters?.[lane];
-  if (!cell || cell.att === 0) return null;
-  return cell.pr;
+  const me = side === 'h' ? snapshot.h : snapshot.a;
+  const opp = side === 'h' ? snapshot.a : snapshot.h;
+  if (!me?.ls || !opp?.ls) return null;
+  const myAtk = me.ls[lane]?.atk ?? 0;
+  const oppDef = opp.ls[lane]?.def ?? 0;
+  const total = myAtk + oppDef;
+  if (total <= 0) return 0;
+  return myAtk / total;
 }
 
 // ============================================================================
