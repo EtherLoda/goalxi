@@ -232,6 +232,10 @@ export class Team {
       inTacticalPlayer.isSentOff = false;
       inTacticalPlayer.yellowCards = 0;
       inTacticalPlayer.teamName = this.name;
+      // Inherit the position key from the player being substituted out — 'SUB'
+      // in subMap is a placeholder; the real position is determined by the
+      // swap instruction's newPosition (which is the out-player's position).
+      inTacticalPlayer.positionKey = outPlayer.positionKey;
       this.players[index] = inTacticalPlayer;
 
       // 预缓存新球员的贡献值

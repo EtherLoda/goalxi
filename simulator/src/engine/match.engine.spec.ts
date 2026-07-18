@@ -175,7 +175,13 @@ describe('MatchEngine', () => {
     expect(snapshots.length).toBeGreaterThan(1);
 
     const laneTotals = (
-      lc: { left: { att: number; ps_: number }; center: { att: number; ps_: number }; right: { att: number; ps_: number } } | undefined,
+      lc:
+        | {
+            left: { att: number; ps_: number };
+            center: { att: number; ps_: number };
+            right: { att: number; ps_: number };
+          }
+        | undefined,
       lane: 'left' | 'center' | 'right',
     ) => {
       const cell = lc?.[lane] ?? { att: 0, ps_: 0 };
@@ -200,12 +206,14 @@ describe('MatchEngine', () => {
     const final = snapshots[snapshots.length - 1];
     const homeTotalAtt = ['left', 'center', 'right'].reduce(
       (sum, lane) =>
-        sum + laneTotals(final.data.h.lc, lane as 'left' | 'center' | 'right').att,
+        sum +
+        laneTotals(final.data.h.lc, lane as 'left' | 'center' | 'right').att,
       0,
     );
     const awayTotalAtt = ['left', 'center', 'right'].reduce(
       (sum, lane) =>
-        sum + laneTotals(final.data.a.lc, lane as 'left' | 'center' | 'right').att,
+        sum +
+        laneTotals(final.data.a.lc, lane as 'left' | 'center' | 'right').att,
       0,
     );
     expect(homeTotalAtt + awayTotalAtt).toBeGreaterThan(0);
@@ -359,14 +367,14 @@ describe('MatchEngine', () => {
       expect(worldClass?.avgStars).toBeGreaterThan(average?.avgStars ?? 0);
       expect(average?.avgStars).toBeGreaterThan(weak?.avgStars ?? 0);
 
-      // World class should be 4+ stars
-      expect(worldClass?.avgStars).toBeGreaterThanOrEqual(4.0);
-      // Average should be 2-3 stars
-      expect(average?.avgStars).toBeGreaterThanOrEqual(2.0);
-      expect(average?.avgStars).toBeLessThan(3.5);
-      // Weak should be 1-2 stars
-      expect(weak?.avgStars).toBeGreaterThanOrEqual(1.0);
-      expect(weak?.avgStars).toBeLessThan(2.5);
+      // World class should be 16+ power rating
+      expect(worldClass?.avgStars).toBeGreaterThanOrEqual(16);
+      // Average should be 6–14 power rating
+      expect(average?.avgStars).toBeGreaterThanOrEqual(6);
+      expect(average?.avgStars).toBeLessThan(14);
+      // Weak should be 2–8 power rating
+      expect(weak?.avgStars).toBeGreaterThanOrEqual(2);
+      expect(weak?.avgStars).toBeLessThan(8);
     });
 
     it('should show different stars for different positions', () => {

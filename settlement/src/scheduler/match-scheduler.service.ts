@@ -4,7 +4,7 @@ import { Cron } from '@nestjs/schedule';
 import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, LessThan, LessThanOrEqual } from 'typeorm';
+import { Repository, LessThan, LessThanOrEqual, IsNull, Not } from 'typeorm';
 import {
   MatchEntity,
   MatchTacticsEntity,
@@ -344,10 +344,17 @@ export class MatchSchedulerService {
 
     const now = new Date();
 
+    // Find IN_PROGRESS matches (normal live matches) and
+    // TACTICS_LOCKED matches where simulation has completed but status wasn't updated
+    // (simulation processor leaves status as TACTICS_LOCKED, expecting scheduler to finalize)
     const matches = await this.matchRepository.find({
-      where: {
-        status: MatchStatus.IN_PROGRESS,
-      },
+      where: [
+        { status: MatchStatus.IN_PROGRESS },
+        {
+          status: MatchStatus.TACTICS_LOCKED,
+          simulationCompletedAt: Not(IsNull()),
+        },
+      ],
     });
 
     if (matches.length === 0) {

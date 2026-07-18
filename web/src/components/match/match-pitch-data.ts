@@ -55,9 +55,30 @@ export interface MatchSnapshotPlayer {
   /** Position key from the engine. May be canonical (CB1) or legacy alias (CB). */
   p: string;
   n?: string;
-  /** Stamina 0–100. */
+  /** Current stamina 0–6 (engine scale; a fresh player = 6, exhausted = 0). */
   st?: number;
-  /** Star rating 0–100. */
+  /**
+   * Current form 0–6 (engine scale; mirrors the `Player.form` field).
+   * Used by the engine's ConditionSystem to derive `cm`.
+   */
+  f?: number;
+  /**
+   * Contribution multiplier the engine actually applied this minute
+   * (1.0 = baseline; 0.78–1.27 typical range — combines stamina,
+   * form, experience, and ability deltas). 0–100 display = `cm × 100`.
+   */
+  cm?: number;
+  /**
+   * Normalised match contribution 0–100 (engine-computed; the final
+   * "how much is this player actually contributing RIGHT NOW" number).
+   */
+  pc?: number;
+  /**
+   * Live power rating 0–20 (engine scale: 5-star max → 20). Combines
+   * the per-snapshot position fit, contribution multiplier, and
+   * star-bucket mapping. Use this to see "how well is the player
+   * actually performing RIGHT NOW" in a single number.
+   */
   sr?: number;
   /** Entry minute (substitution). */
   em?: number;

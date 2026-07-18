@@ -65,6 +65,40 @@ describe('PositionFitUtil', () => {
             expect(calculatePositionFit(attrs, 'UNKNOWN_POS')).toBe(0);
         });
 
+        // Numbered slot keys the editor uses (CB1/CB2/CB3 etc.) must
+        // resolve to the same weight table as their family key
+        // (CB / CM / CAM / DM). Pre-fix these all returned 0 because
+        // POSITION_WEIGHTS only had the un-numbered keys.
+        it('should map numbered slot keys to the family weight table', () => {
+            const attrs: SimulationPlayerAttributes = {
+                pace: 10, strength: 10, positioning: 10, composure: 10,
+                freeKicks: 10, penalties: 10, finishing: 10, passing: 10,
+                dribbling: 10, defending: 10, gk_reflexes: 0, gk_handling: 0,
+            };
+            const cbFit = calculatePositionFit(attrs, 'CB');
+            for (const slot of ['CB1', 'CB2', 'CB3', 'CD1', 'CD2', 'CD3']) {
+                expect(calculatePositionFit(attrs, slot)).toBe(cbFit);
+            }
+            const cmFit = calculatePositionFit(attrs, 'CM');
+            for (const slot of ['CM1', 'CM2', 'CM3']) {
+                expect(calculatePositionFit(attrs, slot)).toBe(cmFit);
+            }
+            const camFit = calculatePositionFit(attrs, 'CAM');
+            for (const slot of ['CAM1', 'CAM2', 'CAM3']) {
+                expect(calculatePositionFit(attrs, slot)).toBe(camFit);
+            }
+            const dmFit = calculatePositionFit(attrs, 'DM');
+            for (const slot of ['DM1', 'DM2', 'DM3', 'DMF1', 'DMF2', 'DMF3']) {
+                expect(calculatePositionFit(attrs, slot)).toBe(dmFit);
+            }
+            // The match engine keys too — LW/RW/CF/CDM/CAM (already
+            // covered above) + the rarer side variants.
+            const lwFit = calculatePositionFit(attrs, 'LW');
+            for (const slot of ['LW1', 'LW2']) {
+                expect(calculatePositionFit(attrs, slot)).toBe(lwFit);
+            }
+        });
+
         it('should handle GK with gk_reflexes and gk_handling', () => {
             const gkAttrs: SimulationPlayerAttributes = {
                 pace: 5, strength: 5, positioning: 10, composure: 10,

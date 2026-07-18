@@ -13,11 +13,7 @@ import { AttributeCalculator } from './utils/attribute-calculator';
 import { ConditionSystem } from './systems/condition.system';
 import { InjurySystem, InjuryEventData } from './systems/injury.system';
 import { Player, PlayerAbility } from '../types/player.types';
-import {
-  BenchConfig,
-  calculatePositionFit,
-  Uuid,
-} from '@goalxi/database';
+import { BenchConfig, calculatePositionFit, Uuid } from '@goalxi/database';
 import { LoggerService } from '@nestjs/common';
 import { resolveDuel as resolveDuelPure, duelProbability } from './duel';
 import {
@@ -131,31 +127,31 @@ const POSITION_TO_BENCH_KEY: Record<string, keyof BenchConfig> = {
   CFR: 'forward',
 };
 
-// ==================== STAR RATING HELPERS ====================
-// Thresholds for all players (0-100 scale contribution)
-const STAR_THRESHOLDS = [
-  { threshold: 95, stars: 5.0 },
-  { threshold: 85, stars: 4.5 },
-  { threshold: 75, stars: 4.0 },
-  { threshold: 65, stars: 3.5 },
-  { threshold: 50, stars: 3.0 },
-  { threshold: 40, stars: 2.5 },
-  { threshold: 30, stars: 2.0 },
-  { threshold: 22, stars: 1.5 },
-  { threshold: 14, stars: 1.0 },
-  { threshold: 0, stars: 0.5 },
-];
+// ==================== POWER RATING HELPERS ====================
+// Thresholds for all players (0-100 contribution). Output values
+// are 0-20 power ratings on a 0.5-step ladder (40 rungs:
+// 0, 0.5, 1, ..., 19.5, 20) so the snapshot's  field carries a
+// smooth, evenly-spaced 0-20 number end-to-end. The FE just reads
+// and displays - no rescaling.
+const STAR_THRESHOLDS: { threshold: number; power: number }[] = (() => {
+  // 40 rungs, each 0.5 apart, covering contribution 0..100 in 2.5
+  // steps. Linear: contribution 0 -> power 0; contribution 100 ->
+  // power 20. Even 0.5-step spacing so the ladder feels smooth.
+  const rungs: { threshold: number; power: number }[] = [];
+  for (let i = 0; i <= 40; i++) {
+    rungs.push({ threshold: i * 2.5, power: i * 0.5 });
+  }
+  return rungs;
+})();
 
 function contributionToStars(contribution: number): number {
-  let stars = 0.5;
-  for (const { threshold, stars: s } of STAR_THRESHOLDS) {
-    if (contribution >= threshold) {
-      stars = s;
-      break;
-    }
+  // Last rung whose threshold is <= contribution wins; defensive
+  // cap at 20 for bad input.
+  let stars = 0;
+  for (const { threshold, power } of STAR_THRESHOLDS) {
+    if (contribution >= threshold) stars = power;
   }
-  // 向上取整到0.5星: 3.2→3.5, 3.7→4.0
-  return Math.ceil(stars * 2) / 2;
+  return Math.min(20, stars);
 }
 
 export interface MatchEvent {
@@ -2646,6 +2642,10 @@ export class MatchEngine {
 
         const player = tacticalPlayer.player as Player;
         const fitness = team.playerFitness[i];
+        const fitnessFactor = ConditionSystem.getFitnessFactor(
+          fitness,
+          player.currentStamina,
+        );
         const multiplier = ConditionSystem.calculateMultiplier(
           fitness,
           player.currentStamina,
@@ -2765,9 +2765,12 @@ export class MatchEngine {
           p: tacticalPlayer.positionKey,
           st: parseFloat(fitness.toFixed(1)),
           f: player.form,
-          cm: parseFloat(multiplier.toFixed(3)),
+          ff: parseFloat(fitnessFactor.toFixed(3)),
           pc: parseFloat(normalizedContribution.toFixed(1)), // Normalized to 0-100 scale
-          sr: stars, // star rating
+          // Power rating 0–20 in 2-point steps (0.5-step × 4 = the
+          // 5-star max → 20 mapping). Emitted directly on the
+          // 0–20 scale so the FE just reads and displays.
+          sr: stars,
           em: tacticalPlayer.entryMinute || 0,
         };
 

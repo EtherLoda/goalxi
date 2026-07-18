@@ -6,7 +6,7 @@ export class ConditionSystem {
   private static readonly S_MID = 3.5;
 
   // --- Fitness (Exponential Decay) constants ---
-  private static readonly F_R_FREE = 0.25;
+  private static readonly F_R_FREE = 0.2;
   private static readonly F_LAMBDA = 1.0;
 
   // --- Experience (Exp) Hyperbolic Saturation constants ---
@@ -60,9 +60,8 @@ export class ConditionSystem {
    * We aim for a natural decay where a typical match consumes a significant portion of the "tank".
    */
   static calculateFitnessDecay(minutes: number): number {
-    // Base rate: approx 1.2 to 2.0 units per match depending on intensity.
-    // Let's use a standard 0.018 per minute (~1.6 units per 90m).
-    return minutes * 0.018;
+    // Base rate: approx 2.25 units per 90m match (was 1.62).
+    return minutes * 0.02;
   }
 
   /**
@@ -92,5 +91,22 @@ export class ConditionSystem {
     const expFactor = 1 + (PENALTY_E_LIMIT * exp) / (exp + this.E_GROWTH_K);
 
     return Math.round(statusFactor * expFactor * 1000) / 1000;
+  }
+
+  /**
+   * Returns only the fitness factor (0–1) based on current vs start stamina.
+   * Does NOT include form or experience.
+   */
+  static getFitnessFactor(currentFit: number, startFit: number): number {
+    let fitnessFactor = 1.0;
+    const consumed = startFit - currentFit;
+    const buffer = startFit * this.F_R_FREE;
+
+    if (consumed > buffer) {
+      const overdraftRatio = (consumed - buffer) / startFit;
+      fitnessFactor = Math.exp(-this.F_LAMBDA * overdraftRatio);
+    }
+
+    return Math.round(fitnessFactor * 1000) / 1000;
   }
 }

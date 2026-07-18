@@ -641,49 +641,88 @@ const GK_WEIGHTS: GKWeightMatrix = {
 export const POSITION_WEIGHTS: PositionWeightsMap = {
     // Forwards
     'CF': CF_WEIGHTS,
+    'CF1': CF_WEIGHTS,
+    'CF2': CF_WEIGHTS,
+    'CF3': CF_WEIGHTS,
     'ST': CF_WEIGHTS,
     'CFL': CFL_WEIGHTS,
     'CFR': CFR_WEIGHTS,
     'LW': LW_WEIGHTS,
+    'LW1': LW_WEIGHTS,
+    'LW2': LW_WEIGHTS,
     'RW': RW_WEIGHTS,
+    'RW1': RW_WEIGHTS,
+    'RW2': RW_WEIGHTS,
 
     // Attacking Midfielders
     'AM': AM_WEIGHTS,
     'CAM': AM_WEIGHTS,
+    'CAM1': AM_WEIGHTS,
+    'CAM2': AM_WEIGHTS,
+    'CAM3': AM_WEIGHTS,
     'AML': AML_WEIGHTS,
     'AMR': AMR_WEIGHTS,
 
     // Wide Midfielders
     'LM': WML_WEIGHTS,
+    'LM1': WML_WEIGHTS,
+    'LM2': WML_WEIGHTS,
     'RM': WMR_WEIGHTS,
+    'RM1': WMR_WEIGHTS,
+    'RM2': WMR_WEIGHTS,
     'WML': WML_WEIGHTS,
     'WMR': WMR_WEIGHTS,
 
     // Central Midfielders
     'CM': CM_WEIGHTS,
+    'CM1': CM_WEIGHTS,
+    'CM2': CM_WEIGHTS,
+    'CM3': CM_WEIGHTS,
     'CML': CML_WEIGHTS,
     'CMR': CMR_WEIGHTS,
 
     // Defensive Midfielders
     'DM': DM_WEIGHTS,
+    'DM1': DM_WEIGHTS,
+    'DM2': DM_WEIGHTS,
+    'DM3': DM_WEIGHTS,
     'CDM': DM_WEIGHTS,
     'DML': DML_WEIGHTS,
     'DMR': DMR_WEIGHTS,
+    // `DMF<n>` is the editor's preferred label for the
+    // "defensive midfielder" slot — semantically the same as DM,
+    // just numbered like the other editor slots. Map to the same
+    // DM weights so the engine can compute contributions.
+    'DMF1': DM_WEIGHTS,
+    'DMF2': DM_WEIGHTS,
+    'DMF3': DM_WEIGHTS,
 
     // Defenders
     'LB': LB_WEIGHTS,
+    'LB1': LB_WEIGHTS,
     'RB': RB_WEIGHTS,
+    'RB1': RB_WEIGHTS,
     'WB': WBL_WEIGHTS,
     'LWB': WBL_WEIGHTS,
     'WBR': WBR_WEIGHTS,
     'RWB': WBR_WEIGHTS,
     'CD': CB_WEIGHTS,
+    'CD1': CB_WEIGHTS,
+    'CD2': CB_WEIGHTS,
+    'CD3': CB_WEIGHTS,
     'CB': CB_WEIGHTS,
+    // Numbered centre-back slots the editor uses when more than 1
+    // CB is on the pitch (3-5-2 / 3-4-3 etc.). All three (and CD1-3)
+    // share the same single CB weight table.
+    'CB1': CB_WEIGHTS,
+    'CB2': CB_WEIGHTS,
+    'CB3': CB_WEIGHTS,
     'CDL': CBL_WEIGHTS,
     'CDR': CBR_WEIGHTS,
 
     // Goalkeeper
-    'GK': GK_WEIGHTS
+    'GK': GK_WEIGHTS,
+    'GK1': GK_WEIGHTS,
 };
 
 // ==========================================
