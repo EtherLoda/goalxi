@@ -36,8 +36,7 @@
 'use client';
 
 import { useMemo, type CSSProperties } from 'react';
-import type { Player, Tactics } from '@/lib/api';
-import { type PitchSlot } from '../tactics/types';
+import { type Player, type Tactics } from '@/lib/api';
 import {
   slotToMatchCoords,
   computeMatchDimensionOffsets,
@@ -48,7 +47,6 @@ import {
   buildCards,
   type PitchCard,
   type MatchSnapshot,
-  type MatchSnapshotPlayer,
 } from './match-pitch-data';
 import { PitchStatsOverlay } from './PitchStatsOverlay';
 import { PlayerMarker } from '../tactics/pitch/PlayerMarker';
@@ -113,14 +111,6 @@ interface HalfPitchProps {
    * are silently dropped (mirrors the editor's PitchField behaviour).
    */
   rosterById: Map<string, Player>;
-  /**
-   * playerId → per-snapshot player state (stamina + star rating) from
-   * the active `MatchSnapshot`. HalfPitch uses this to feed the marker
-   * with snapshot-driven values (real-time fitness %, real-time match
-   * contribution) instead of the raw stamina/form on the Player object.
-   * `undefined` is fine — the marker falls back to the raw values.
-   */
-  snapshotPlayers?: Map<string, MatchSnapshotPlayer>;
   tempo: 'slow' | 'balanced' | 'fast';
   defensiveLine: 'low' | 'mid' | 'high';
   pitchWidth: 'narrow' | 'balanced' | 'wide';
@@ -153,7 +143,6 @@ function HalfPitch({
   side,
   cards,
   rosterById,
-  snapshotPlayers,
   tempo,
   defensiveLine,
   pitchWidth,
@@ -211,8 +200,9 @@ function HalfPitch({
                   player={player}
                   slot={slotKey}
                   isGkSlot={slotKey === 'GK'}
-                  snapshotFitness={snapshotPlayers?.get(card.playerId)?.ff}
-                  snapshotStarRating={snapshotPlayers?.get(card.playerId)?.sr}
+                  isSubstitute={card.isSubstitute}
+                  snapshotFitness={card.fitnessFactor}
+                  snapshotStarRating={card.starRating}
                 />
               </div>
             </div>
@@ -265,19 +255,6 @@ export function MatchPitch({
     () => buildCards(awayTactics, activeSnapshot?.a.ps ?? null, rosterById),
     [awayTactics, activeSnapshot, rosterById],
   );
-
-  // Snapshot player lookup — playerId → per-snapshot stamina/star-rating
-  // values. Built once per active snapshot and shared by both halves so
-  // every marker shows the same per-player fitness % / contribution
-  // derived from the simulator's current state.
-  const snapshotPlayers = useMemo(() => {
-    const m = new Map<string, MatchSnapshotPlayer>();
-    if (activeSnapshot) {
-      for (const sp of activeSnapshot.h.ps) m.set(sp.id, sp);
-      for (const sp of activeSnapshot.a.ps) m.set(sp.id, sp);
-    }
-    return m;
-  }, [activeSnapshot]);
 
   const homeTempo = homeTactics?.tempo ?? 'balanced';
   const awayTempo = awayTactics?.tempo ?? 'balanced';
@@ -372,7 +349,6 @@ export function MatchPitch({
             side="home"
             cards={homeCards}
             rosterById={rosterById}
-            snapshotPlayers={snapshotPlayers}
             tempo={homeTempo}
             defensiveLine={homeLine}
             pitchWidth={homeWidth}
@@ -383,7 +359,6 @@ export function MatchPitch({
             side="away"
             cards={awayCards}
             rosterById={rosterById}
-            snapshotPlayers={snapshotPlayers}
             tempo={awayTempo}
             defensiveLine={awayLine}
             pitchWidth={awayWidth}

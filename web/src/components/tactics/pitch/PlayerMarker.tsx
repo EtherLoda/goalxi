@@ -4,6 +4,7 @@ import React from 'react';
 import type { Player } from '@/lib/api';
 import { positionShortLabel } from '../shared/position-legend';
 import type { PitchSlot } from '../types';
+import { MatchPlayerMarker } from '../../match/MatchPlayerMarker';
 
 interface PlayerMarkerProps {
   player: Player;
@@ -11,17 +12,16 @@ interface PlayerMarkerProps {
   isGkSlot: boolean;
   isSelected?: boolean;
   isDragging?: boolean;
+  isSubstitute?: boolean;
   onClick?: () => void;
   onRemove?: () => void;
   onDragStart?: (e: React.DragEvent) => void;
   onDragEnd?: (e: React.DragEvent) => void;
   /**
-   * Snapshot-driven fitness factor (cm, 0.78–1.27) and power rating
-   * (sr, 0–20). The engine emits `sr` directly on the 0–20 power
-   * scale (2-point ladder) — the FE just reads and displays, no
-   * rescaling. Falls back to raw 0–5 stamina / form on the Player
-   * object when the caller doesn't supply them (editor view,
-   * pre-snapshot cases).
+   * Snapshot-driven fitness factor (0–1 from ConditionSystem) and power
+   * rating 0–20. When provided, the coloured ring + power badge
+   * design is shown. When undefined (editor / tactics mode), the
+   * original form-dot / stamina-bar layout is shown.
    */
   snapshotFitness?: number;
   snapshotStarRating?: number;
@@ -39,11 +39,42 @@ function initials(name: string): string {
     .toUpperCase();
 }
 
+function clamp01to5(value: number): number {
+  return Math.max(0, Math.min(5, Math.round(value)));
+}
+
+function levelClass(value: number): string {
+  return value >= 4 ? 'bg-emerald-500' : value >= 2 ? 'bg-yellow-400' : 'bg-orange-500';
+}
+
+function renderVerticalStrip(
+  filled: number,
+  value: number,
+  rounded: 'full' | 'sm',
+  label: string,
+) {
+  return (
+    <div className="flex flex-col gap-px" aria-label={label} data-testid="pitch-marker-status">
+      {Array.from({ length: 5 }).map((_, i) => (
+        <span
+          key={i}
+          className={`${rounded === 'full' ? 'w-1.5 h-1.5 rounded-full' : 'w-2.5 h-1.5 rounded-xl'} ${
+            i < filled ? levelClass(value) : 'bg-outline-variant/30'
+          }`}
+        />
+      ))}
+    </div>
+  );
+}
+
 /**
  * Pitch-positioned player card. Round avatar + label below, with a
  * vertical form-dot strip on the left and a vertical stamina-bar strip
  * on the right. The whole element is draggable (drags set the player
  * id via custom MIME).
+ *
+ * When `snapshotFitness` or `snapshotStarRating` is provided, delegates
+ * to `MatchPlayerMarker` for the live match view.
  */
 export function PlayerMarker({
   player,
@@ -51,6 +82,7 @@ export function PlayerMarker({
   isGkSlot,
   isSelected = false,
   isDragging = false,
+  isSubstitute = false,
   onClick,
   onRemove,
   onDragStart,
@@ -58,36 +90,35 @@ export function PlayerMarker({
   snapshotFitness,
   snapshotStarRating,
 }: PlayerMarkerProps) {
+  // Live match view — delegate to dedicated component
+  if (snapshotFitness !== undefined || snapshotStarRating !== undefined) {
+    return (
+      <MatchPlayerMarker
+        player={player}
+        slot={slot}
+        isGkSlot={isGkSlot}
+        isSelected={isSelected}
+        isDragging={isDragging}
+        isSubstitute={isSubstitute}
+        onClick={onClick}
+        onRemove={onRemove}
+        onDragStart={onDragStart}
+        onDragEnd={onDragEnd}
+        snapshotFitness={snapshotFitness}
+        snapshotStarRating={snapshotStarRating}
+      />
+    );
+  }
+
+  // Editor / tactics view — original design
   const handleDragStart = (e: React.DragEvent) => {
     e.dataTransfer.setData(DRAG_MIME, player.id);
     e.dataTransfer.effectAllowed = 'move';
     onDragStart?.(e);
   };
 
-  // Left column: fitness-affected performance % (0–100). The engine's
-  // `cm` is the per-snapshot contribution multiplier that already
-  // folds in stamina + form + experience + ability weights
-  // (1.0 = baseline; 0.78–1.27 typical range). Display as a
-  // percentage capped at 100% so anything > 1.0 (experience /
-  // clutch_player boosts) shows as "100%" — the reader only needs
-  // to know the player is delivering full-or-better performance, not
-  // the exact 127% the engine computed. Falls back to deriving a
-  // proxy from raw stamina when no snapshot is supplied (editor
-  // view).
-  const fitnessPct =
-    snapshotFitness !== undefined
-      ? Math.max(0, Math.min(100, Math.round(snapshotFitness * 100)))
-      : Math.max(0, Math.min(100, Math.round((player.stamina / 5) * 100)));
-
-  // Right column: live match power rating (0–20, 2-point ladder).
-  // The engine emits `sr` directly on this scale (see STAR_THRESHOLDS
-  // in the simulator for the bucket table), so the FE just reads
-  // and displays. Falls back to deriving a 0–20 proxy from
-  // `player.overall` for the editor view.
-  const powerRating =
-    snapshotStarRating !== undefined
-      ? Math.max(0, Math.min(20, snapshotStarRating))
-      : Math.max(0, Math.min(20, player.overall / 5));
+  const staminaFilled = clamp01to5(player.stamina);
+  const formFilled = clamp01to5(player.form);
 
   return (
     <div
@@ -100,26 +131,13 @@ export function PlayerMarker({
       onClick={onClick}
       role="button"
       tabIndex={0}
-      aria-label={
-        snapshotFitness !== undefined && snapshotStarRating !== undefined
-          ? `${player.name} (${player.position}) — fitness ${Math.round(fitnessPct)}%, power ${powerRating.toFixed(0)}`
-          : `${player.name} (${player.position}) — stamina ${player.stamina}, form ${player.form}`
-      }
+      aria-label={`${player.name} (${player.position}) — stamina ${player.stamina}, form ${player.form}`}
     >
-      <div className="flex items-center gap-1.5">
-        {/* Left: fitness (numeric) */}
-        <div
-          className="flex flex-col items-center justify-center min-w-7 text-[10px] font-headline font-bold text-on-surface"
-          data-testid="pitch-marker-fitness"
-        >
-          <span className="text-outline text-[8px] uppercase tracking-widest">F</span>
-          <span
-            className="tabular-nums leading-none"
-            title="Fitness-modulated performance % (engine cm × 100, capped at 100%)"
-          >
-            {Math.round(fitnessPct)}
-          </span>
-        </div>
+      <div className="flex items-center gap-1">
+        {/* Form — vertical dots on the LEFT of the avatar */}
+        {renderVerticalStrip(formFilled, player.form, 'full', `form ${player.form}`)}
+
+        {/* Avatar */}
         <div
           className={`relative w-12 h-12 rounded-full flex items-center justify-center font-headline font-extrabold text-[10px] uppercase cursor-grab active:cursor-grabbing ${
             isGkSlot
@@ -142,30 +160,20 @@ export function PlayerMarker({
             </button>
           )}
         </div>
-        {/* Right: live power rating (0–20) */}
-        <div
-          className="flex flex-col items-center justify-center min-w-7 text-[10px] font-headline font-bold text-on-surface"
-          data-testid="pitch-marker-power"
-        >
-          <span className="text-outline text-[8px] uppercase tracking-widest">P</span>
-          <span
-            className="tabular-nums leading-none"
-            title="Live match power rating (engine sr × 4, 0–20)"
-          >
-            {powerRating.toFixed(0)}
-          </span>
-        </div>
+
+        {/* Stamina — horizontal bars stacked VERTICALLY on the RIGHT */}
+        {renderVerticalStrip(staminaFilled, player.stamina, 'sm', `stamina ${player.stamina}`)}
       </div>
+
+      {/* Bottom: slot + name + overall */}
       <div className="flex flex-col items-center leading-none">
         <span className="font-label text-[8px] tracking-widest uppercase text-outline">
           {positionShortLabel(slot)}
         </span>
-        <span className="font-headline font-bold text-[10px] text-white truncate max-w-[88px]">
-          {player.name}
+        <span className="font-headline font-bold text-[10px] text-white truncate max-w-[64px]">
+          {player.name.split(' ').pop()}
         </span>
-        <span className="font-headline font-black text-[10px] text-primary">
-          {powerRating.toFixed(0)}P
-        </span>
+        <span className="font-headline font-black text-[10px] text-primary">{player.overall}</span>
       </div>
     </div>
   );

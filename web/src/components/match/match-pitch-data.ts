@@ -63,11 +63,11 @@ export interface MatchSnapshotPlayer {
    */
   f?: number;
   /**
-   * Contribution multiplier the engine actually applied this minute
-   * (1.0 = baseline; 0.78–1.27 typical range — combines stamina,
-   * form, experience, and ability deltas). 0–100 display = `cm × 100`.
+   * Fitness factor 0–1 (from ConditionSystem.getFitnessFactor).
+   * 1.0 = fresh, <1.0 = tired/overdraft.
+   * Display as 0–100%: `ff × 100`.
    */
-  cm?: number;
+  ff?: number;
   /**
    * Normalised match contribution 0–100 (engine-computed; the final
    * "how much is this player actually contributing RIGHT NOW" number).
@@ -80,7 +80,7 @@ export interface MatchSnapshotPlayer {
    * actually performing RIGHT NOW" in a single number.
    */
   sr?: number;
-  /** Entry minute (substitution). */
+  /** Entry minute: 0 = started, >0 = substituted in. */
   em?: number;
 }
 
@@ -115,10 +115,12 @@ export interface PitchCard {
   slotKey: PitchSlot | null;
   /** Display name from roster (or snapshot fallback). */
   name: string;
-  /** Optional from snapshot. */
-  stamina?: number;
-  /** Optional from snapshot. */
+  /** Fitness factor 0–1 from snapshot (ConditionSystem.getFitnessFactor). */
+  fitnessFactor?: number;
+  /** Star rating 0–20 from snapshot. */
   starRating?: number;
+  /** True when the player entered as a substitute. */
+  isSubstitute?: boolean;
 }
 
 // ============================================================================
@@ -157,8 +159,9 @@ export function buildCards(
         playerId: sp.id,
         slotKey,
         name,
-        stamina: sp.st,
+        fitnessFactor: sp.ff,
         starRating: sp.sr,
+        isSubstitute: sp.em !== undefined && sp.em > 0,
       });
       seen.add(sp.id);
     }

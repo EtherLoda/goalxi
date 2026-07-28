@@ -104,7 +104,7 @@ describe('buildCards', () => {
     const tactics = mkTactics({ CF: 'p-cf' });
     const snapshot = {
       minute: 0,
-      h: { ps: [mkSnapshotPlayer('p-cf', 'CF', { sr: 92, st: 80 })] },
+      h: { ps: [mkSnapshotPlayer('p-cf', 'CF', { sr: 92, ff: 0.85 })] },
       a: { ps: [] },
     } as MatchSnapshot;
 
@@ -112,7 +112,8 @@ describe('buildCards', () => {
     expect(cards).toHaveLength(1);
     expect(cards[0].playerId).toBe('p-cf');
     expect(cards[0].starRating).toBe(92);
-    expect(cards[0].stamina).toBe(80);
+    // fitnessFactor (0-1) comes from the snapshot's ff field directly
+    expect(cards[0].fitnessFactor).toBe(0.85);
   });
 
   it('snapshot-only path: emits cards even when no tactics are submitted', () => {

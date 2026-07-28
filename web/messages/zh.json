@@ -314,7 +314,9 @@
       "fullTimeScore": "{home} {homeScore} – {awayScore} {away}",
       "redirecting": "正在跳转…",
       "connectionLost": "连接已断开",
-      "backToMatches": "返回比赛列表"
+      "backToMatches": "返回比赛列表",
+      "matchInfo": "比赛信息",
+      "keyEvents": "关键事件"
     },
     "zone": {
       "title": "区域控制",

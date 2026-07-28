@@ -3,68 +3,62 @@
 import { useEffect, useState, Suspense } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
-import { api, type Match, type MatchEvent, type MatchStatsRes } from '@/lib/api';
+import { api } from '@/lib/api';
+import { useMatchPage } from '@/hooks/useMatchPage';
+import { MatchLiveView } from '@/components/match/MatchLiveView';
 import { TacticalMatchDetail } from '@/components/match/TacticalMatchDetail';
 import { TacticsEntryButton } from '@/components/tactics/shared/TacticsEntryButton';
 
-interface MatchPageData {
-  match: Match;
-  events: MatchEvent[];
-  stats: MatchStatsRes;
-}
-
-function MatchDetailContent() {
+function MatchPageContent() {
   const params = useParams();
   const locale = (params.locale as string) || 'en';
   const matchId = params.id as string;
 
-  const [data, setData] = useState<MatchPageData | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [now, setNow] = useState<number>(Date.now());
+  const [now, setNow] = useState(() => Date.now());
 
-  useEffect(() => {
-    if (!matchId) return;
-
-    const fetchData = async () => {
-      setIsLoading(true);
-      setError(null);
-      try {
-        const [match, eventsData, stats] = await Promise.all([
-          api.matches.getById(matchId),
-          api.matches.getEvents(matchId),
-          api.matches.getStats(matchId),
-        ]);
-        setData({ match, events: eventsData.events, stats });
-      } catch (err) {
-        console.error('Failed to fetch match data:', err);
-        setError('Failed to load match data');
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    fetchData();
-  }, [matchId]);
-
-  // Re-tick `now` so the lock countdown stays current
+  // Keep the lock countdown current in the browser
   useEffect(() => {
     const id = setInterval(() => setNow(Date.now()), 30_000);
     return () => clearInterval(id);
   }, []);
 
+  const {
+    mode,
+    connectionStatus,
+    matchState,
+    wsEvents,
+    match,
+    restEvents,
+    stats,
+    homeTactics,
+    awayTactics,
+    homeRoster,
+    awayRoster,
+    isLoading,
+    error,
+  } = useMatchPage({ matchId });
+
+  // Derive whether we are reconnecting (vs. initial connect).
+  // We treat a 'connecting' state after the first successful connect as
+  // reconnecting — but since the hook re-runs per mount, we approximate
+  // by checking: was there a matchState already populated?
+  const isReconnecting =
+    connectionStatus === 'connecting' && matchState !== null;
+
   if (isLoading) {
-    return <MatchDetailLoading />;
+    return <MatchPageLoading />;
   }
 
-  if (error || !data) {
+  if (error || !match) {
     return (
       <div className="p-6 md:p-8 max-w-7xl mx-auto w-full">
         <div className="bg-surface-container-low rounded-2xl p-12 text-center border border-error/20">
           <span className="material-symbols-outlined text-6xl text-error/50 mb-4 block">
             error
           </span>
-          <p className="text-on-surface-variant text-lg font-medium mb-2">{error || 'Match not found'}</p>
+          <p className="text-on-surface-variant text-lg font-medium mb-2">
+            {error ?? 'Match not found'}
+          </p>
           <Link
             href={`/${locale}/matches`}
             className="inline-flex items-center gap-2 text-primary hover:underline mt-4"
@@ -77,11 +71,33 @@ function MatchDetailContent() {
     );
   }
 
-  const { match, events, stats } = data;
+  // ── LIVE MODE ────────────────────────────────────────────────────────────────
+  if (mode === 'live') {
+    return (
+      <div className="p-6 md:p-8 max-w-[1600px] mx-auto w-full">
+        <MatchLiveView
+          matchId={matchId}
+          locale={locale}
+          isReconnecting={isReconnecting}
+          connectionStatus={connectionStatus}
+          matchState={matchState}
+          wsEvents={wsEvents}
+          homeTactics={homeTactics}
+          awayTactics={awayTactics}
+          homeRoster={homeRoster}
+          awayRoster={awayRoster}
+          match={match}
+          error={error}
+          autoRedirectOnEnd={false}
+        />
+      </div>
+    );
+  }
 
+  // ── REPORT MODE ─────────────────────────────────────────────────────────────
   return (
     <div className="p-6 md:p-8 max-w-[1600px] mx-auto w-full">
-      {/* Page Header */}
+      {/* Page header */}
       <header className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-4">
           <Link
@@ -100,18 +116,7 @@ function MatchDetailContent() {
           </div>
         </div>
 
-        {/* Live badge if somehow accessed during live */}
-        {match.status === 'in_progress' && (
-          <Link
-            href={`/${locale}/matches/live/${match.id}`}
-            className="inline-flex items-center gap-2 px-4 py-2 bg-primary/10 text-primary border border-primary/20 rounded-DEFAULT text-sm font-medium hover:bg-primary/20 transition-all"
-          >
-            <span className="w-2 h-2 rounded-full bg-primary animate-pulse" />
-            Enter Live Match
-          </Link>
-        )}
-
-        {/* Tactics entry for scheduled (or in lock window) matches */}
+        {/* Tactics entry — only for scheduled (or in-lock-window) matches */}
         {match.status !== 'in_progress' && match.status !== 'completed' && match.status !== 'cancelled' && (
           <TacticsEntryButton
             matchId={match.id}
@@ -124,7 +129,6 @@ function MatchDetailContent() {
         )}
       </header>
 
-      {/* Main Content: 8:4 Ratio Grid */}
       <TacticalMatchDetail
         matchId={match.id}
         match={{
@@ -134,20 +138,17 @@ function MatchDetailContent() {
           awayTeam: match.awayTeam,
           status: match.status,
           scheduledAt: match.scheduledAt,
-          // Forfeit flags drive the empty-pitch + banner rendering path
-          // on the match page. Both/either may be set when at least one
-          // team failed to field a legal roster.
           homeForfeit: match.homeForfeit,
           awayForfeit: match.awayForfeit,
         }}
-        events={events}
-        stats={stats}
+        events={restEvents}
+        stats={stats!}
       />
     </div>
   );
 }
 
-function MatchDetailLoading() {
+function MatchPageLoading() {
   return (
     <div className="p-6 md:p-8 max-w-[1600px] mx-auto w-full">
       <div className="flex items-center gap-4 mb-6">
@@ -164,8 +165,8 @@ function MatchDetailLoading() {
 
 export default function MatchDetailPage() {
   return (
-    <Suspense fallback={<MatchDetailLoading />}>
-      <MatchDetailContent />
+    <Suspense fallback={<MatchPageLoading />}>
+      <MatchPageContent />
     </Suspense>
   );
 }

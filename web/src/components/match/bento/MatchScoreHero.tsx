@@ -36,7 +36,10 @@ export interface MatchScoreHeroProps {
   awayScore: number;
   currentMinute: number;
   isComplete: boolean;
-  isConnected: boolean;
+  /** True when the WS was previously connected and is now trying to reconnect. */
+  isReconnecting?: boolean;
+  /** Always true in report mode (no WS involved). Defaults to false. */
+  isConnected?: boolean;
 }
 
 export function MatchScoreHero({
@@ -48,7 +51,8 @@ export function MatchScoreHero({
   awayScore,
   currentMinute,
   isComplete,
-  isConnected,
+  isReconnecting = false,
+  isConnected = false,
 }: MatchScoreHeroProps) {
   const t = useTranslations('matches.live');
   return (
@@ -137,7 +141,11 @@ export function MatchScoreHero({
         </span>
         {!isComplete && (
           <span className="text-[10px] font-bold uppercase tracking-widest font-headline">
-            {isConnected ? t('liveTag') : t('connecting')}
+            {isConnected
+              ? t('liveTag')
+              : isReconnecting
+                ? 'Reconnecting...'
+                : t('connecting')}
           </span>
         )}
       </div>

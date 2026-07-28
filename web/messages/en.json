@@ -318,7 +318,9 @@
       "fullTimeScore": "{home} {homeScore} – {awayScore} {away}",
       "redirecting": "Redirecting…",
       "connectionLost": "Connection lost",
-      "backToMatches": "Back to Matches"
+      "backToMatches": "Back to Matches",
+      "matchInfo": "Match Info",
+      "keyEvents": "Key Events"
     },
     "zone": {
       "title": "Zone Control",
