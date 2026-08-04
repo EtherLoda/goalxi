@@ -1,0 +1,26 @@
+{
+  "teamId": "c5c7ee44-4a5e-4df8-ba5c-46c5ab9939df",
+  "formation": "4-4-2",
+  "lineup": {
+    "GK":  100000257,
+    "CBL": 100000259,
+    "CB":  100000260,
+    "CBR": 100000261,
+    "LB":  100000262,
+    "CML": 100000263,
+    "CM":  100000264,
+    "CMR": 100000265,
+    "LM":  100000266,
+    "CFL": 100000267,
+    "CFR": 100000268
+  },
+  "tempo": "balanced",
+  "pitchWidth": "balanced",
+  "defensiveLine": "mid",
+  "substitutions": [
+    { "minute": 60, "out": 100000262, "in": 100000269 },
+    { "minute": 70, "out": 100000260, "in": 100000270 }
+  ],
+  "instructions": { "moves": [] },
+  "presetId": null
+}

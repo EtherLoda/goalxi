@@ -477,9 +477,9 @@ export class MatchService {
     });
     const teamPlayerIds = teamPlayers.map((p) => p.id);
 
-    // Create a map of playerId -> isGoalkeeper for validation
-    // LineupValidator keys by string (lineup slot values come in as strings
-    // from the editor), so stringify the int player ids here.
+    // Map of playerId -> isGoalkeeper for validation. The validator now
+    // normalises ids to strings internally, so we can hand it the raw int
+    // ids here without the previous `String(p.id)` wrapping.
     const playerRoles = new Map<string, boolean>();
     teamPlayers.forEach((p) => {
       playerRoles.set(String(p.id), p.isGoalkeeper);
@@ -487,12 +487,20 @@ export class MatchService {
 
     const validation = LineupValidator.validate(
       lineup,
-      teamPlayerIds.map(String),
+      teamPlayerIds,
       playerRoles,
     );
     if (!validation.valid) {
       throw new BadRequestException(validation.errors.join(', '));
     }
+
+    // Normalise the wire payload into the v2 (int-keyed) shape that
+    // `match_tactics.lineupV2` / `substitutionsV2` expect. The legacy jsonb
+    // columns were wiped by the `MatchTacticsLineupToInt` migration and
+    // remain placeholder `{}` / NULL — anything we wrote there would not
+    // round-trip with the current `Player.id` being an int.
+    const lineupV2 = this.normaliseLineup(lineup);
+    const substitutionsV2 = this.normaliseSubstitutions(substitutions);
 
     // Check for existing tactics
     let tactics = await this.tacticsRepository.findOne({
@@ -502,9 +510,11 @@ export class MatchService {
     if (tactics) {
       // Update existing
       tactics.formation = formation;
-      tactics.lineup = lineup;
+      tactics.lineup = {} as Record<string, never>;
+      tactics.lineupV2 = lineupV2;
       tactics.instructions = instructions || null;
-      tactics.substitutions = substitutions || null;
+      tactics.substitutions = null;
+      tactics.substitutionsV2 = substitutionsV2;
       tactics.presetId = dto.presetId || null;
       tactics.submittedAt = new Date();
       if (dto.tempo) tactics.tempo = dto.tempo;
@@ -516,9 +526,11 @@ export class MatchService {
         matchId,
         teamId,
         formation,
-        lineup,
+        lineup: {} as Record<string, never>,
+        lineupV2,
         instructions: instructions || null,
-        substitutions: substitutions || null,
+        substitutions: null,
+        substitutionsV2,
         presetId: dto.presetId || null,
         submittedAt: new Date(),
         tempo: dto.tempo || 'balanced',
@@ -530,6 +542,47 @@ export class MatchService {
     const savedTactics = await this.tacticsRepository.save(tactics);
 
     return this.mapTacticsToResDto(savedTactics);
+  }
+
+  /**
+   * Coerce the wire `lineup` payload (slot → playerId) into the int-keyed
+   * shape `lineupV2` requires. Drops falsy values (empty slots) and casts
+   * any stringified id back to a number — the DTO accepts `Record<string,
+   * number>` but legacy callers (seed scripts, curl probes) may still send
+   * string ids, and we want to be tolerant.
+   */
+  private normaliseLineup(
+    lineup: Record<string, string | number | null | undefined> | undefined,
+  ): Record<string, number> {
+    if (!lineup) return {};
+    const out: Record<string, number> = {};
+    for (const [slot, raw] of Object.entries(lineup)) {
+      if (raw === null || raw === undefined || raw === '') continue;
+      const id =
+        typeof raw === 'number' ? raw : Number.parseInt(String(raw), 10);
+      if (Number.isFinite(id)) out[slot] = id;
+    }
+    return out;
+  }
+
+  /**
+   * Coerce wire `substitutions` into the int-keyed `substitutionsV2` shape.
+   * Returns `undefined` (which TypeORM persists as NULL) when the caller
+   * didn't send any, matching the entity column being nullable.
+   */
+  private normaliseSubstitutions(
+    substitutions:
+      | Array<{ minute: number; out: string | number; in: string | number }>
+      | null
+      | undefined,
+  ): Array<{ minute: number; out: number; in: number }> | undefined {
+    if (!substitutions || substitutions.length === 0) return undefined;
+    return substitutions.map((s) => ({
+      minute: Number(s.minute),
+      out:
+        typeof s.out === 'number' ? s.out : Number.parseInt(String(s.out), 10),
+      in: typeof s.in === 'number' ? s.in : Number.parseInt(String(s.in), 10),
+    }));
   }
 
   async validateTeamOwnership(
@@ -581,14 +634,32 @@ export class MatchService {
   }
 
   private mapTacticsToResDto(tactics: MatchTacticsEntity): TacticsResDto {
+    // Read the int-keyed v2 columns in priority. Fall back to legacy only if
+    // a row somehow predates the migration (it shouldn't — the migration
+    // wiped the legacy column to `{}` and sets `lineupV2` on the next save
+    // — but keep the fallback for safety on historical completed matches).
+    const lineup =
+      tactics.lineupV2 && Object.keys(tactics.lineupV2).length > 0
+        ? tactics.lineupV2
+        : ((tactics.lineup as Record<string, number>) ?? {});
+
+    const substitutions =
+      tactics.substitutionsV2 && tactics.substitutionsV2.length > 0
+        ? tactics.substitutionsV2
+        : (tactics.substitutions as Array<{
+            minute: number;
+            out: number;
+            in: number;
+          }> | null) ?? null;
+
     return {
       id: tactics.id,
       matchId: tactics.matchId,
       teamId: tactics.teamId,
       formation: tactics.formation,
-      lineup: tactics.lineup,
+      lineup,
       instructions: tactics.instructions,
-      substitutions: tactics.substitutions,
+      substitutions,
       submittedAt: tactics.submittedAt,
       presetId: tactics.presetId,
       tempo: (tactics.tempo || 'balanced') as any,

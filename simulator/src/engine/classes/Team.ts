@@ -110,11 +110,11 @@ export class Team {
       );
 
       // clutch_player: 最后15分钟所有评分 +5%
-      if (minute >= 75 && hasAbility(player, 'clutch_player')) {
+      if (minute >= 75 && hasAbility(player, 'CLUCH')) {
         multiplier *= 1.05;
       }
       // fast_start: 开局15分钟所有评分 +5%
-      if (minute <= 15 && minute > 0 && hasAbility(player, 'fast_start')) {
+      if (minute <= 15 && minute > 0 && hasAbility(player, 'FSTRT')) {
         multiplier *= 1.05;
       }
 

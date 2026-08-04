@@ -6,15 +6,16 @@ export class TacticsResDto {
   matchId!: string;
   teamId!: string;
   formation!: string;
-  // Player ids can be number (post-migration) or string (legacy rows
-  // surviving the wipe). Keep the union loose on the wire so the API
-  // contract doesn't break while the data store is in transition.
-  lineup!: Record<string, string | number>;
+  // Player ids are int (post-PlayerIdToNumeric migration). The legacy
+  // `lineup` / `substitutions` jsonb columns on `match_tactics` were wiped
+  // by the `MatchTacticsLineupToInt` migration; the API now reads/writes the
+  // `lineupV2` / `substitutionsV2` columns exclusively.
+  lineup!: Record<string, number>;
   instructions!: Record<string, any> | null;
   substitutions!: Array<{
     minute: number;
-    out: string | number;
-    in: string | number;
+    out: number;
+    in: number;
   }> | null;
   submittedAt!: Date;
   presetId!: string | null;

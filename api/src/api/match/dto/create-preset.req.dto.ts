@@ -20,8 +20,10 @@ export class CreatePresetReqDto {
   @IsString()
   formation!: string;
 
+  // Player ids are int (post-PlayerIdToNumeric migration). See
+  // SubmitTacticsReqDto for the rationale.
   @IsObject()
-  lineup!: Record<string, string>;
+  lineup!: Record<string, number>;
 
   @IsObject()
   @IsOptional()

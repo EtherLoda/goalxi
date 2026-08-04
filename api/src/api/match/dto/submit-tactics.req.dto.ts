@@ -15,8 +15,11 @@ export class SubmitTacticsReqDto {
   @IsString()
   formation!: string;
 
+  // Player ids are int (post-PlayerIdToNumeric migration). The wire payload
+  // is `Record<slot, int playerId>`; we keep `IsObject()` only and let the
+  // values stay as their native JSON type rather than enforcing string here.
   @IsObject()
-  lineup!: Record<string, string>;
+  lineup!: Record<string, number>;
 
   @IsObject()
   @IsOptional()

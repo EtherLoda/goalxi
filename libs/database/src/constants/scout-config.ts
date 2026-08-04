@@ -25,13 +25,13 @@ export const SCOUT_OUTFIELD_POSITIONS = [
 export type ScoutOutfieldPosition = (typeof SCOUT_OUTFIELD_POSITIONS)[number];
 
 export const SCOUT_ABILITY_POOL: PlayerAbility[] = [
-  'fast_start',
-  'header_specialist',
-  'long_passer',
-  'cross_specialist',
-  'dribble_master',
-  'tackle_master',
-  'long_shooter',
+  'FSTRT',
+  'HEADER',
+  'LPASS',
+  'CROSS',
+  'DRBLE',
+  'TACKL',
+  'LSHT',
 ];
 
 /**

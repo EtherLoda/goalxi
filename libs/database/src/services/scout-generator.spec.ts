@@ -9,13 +9,13 @@ import {
 // ---------- helpers ----------
 
 const ABILITY_POOL: PlayerAbility[] = [
-  'header_specialist',
-  'long_passer',
-  'cross_specialist',
-  'dribble_master',
-  'tackle_master',
-  'long_shooter',
-  'fast_start',
+  'HEADER',
+  'LPASS',
+  'CROSS',
+  'DRBLE',
+  'TACKL',
+  'LSHT',
+  'FSTRT',
 ];
 
 const OUTFIELD_POSITIONS = ['ST', 'CF', 'LW', 'RW', 'AM', 'CM', 'DM', 'LB', 'RB', 'CB'];

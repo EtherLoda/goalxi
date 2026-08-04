@@ -733,7 +733,7 @@ export class MatchEngine {
       );
 
       // penalty_saver: 扑点球时扑救率 +10%
-      if (hasAbility(gPlayer, 'penalty_saver')) {
+      if (hasAbility(gPlayer, 'PSAVE')) {
         gMultiplier *= 1.1;
       }
 
@@ -1353,11 +1353,11 @@ export class MatchEngine {
     // tackle_master: 防守方有抢断专家时中场控制 +8%
     const homeTackleBonus =
       this.homeTeam.players.filter((p) =>
-        hasAbility(p.player as Player, 'tackle_master'),
+        hasAbility(p.player as Player, 'TACKL'),
       ).length * 0.08;
     const awayTackleBonus =
       this.awayTeam.players.filter((p) =>
-        hasAbility(p.player as Player, 'tackle_master'),
+        hasAbility(p.player as Player, 'TACKL'),
       ).length * 0.08;
 
     const homeControlWithBonus = homeControl * (1 + awayTackleBonus); // defending team benefits
@@ -1404,7 +1404,7 @@ export class MatchEngine {
     // 只有刚获得球权（freshPossession=true）时才触发
     if (this.freshPossession) {
       const counterStarterCount = this.possessionTeam.players.filter((p) =>
-        hasAbility(p.player as Player, 'counter_starter'),
+        hasAbility(p.player as Player, 'CNTR'),
       ).length;
       if (counterStarterCount > 0) {
         attPower *= 1 + 0.05 * counterStarterCount;
@@ -1443,21 +1443,21 @@ export class MatchEngine {
       // long_passer: 直塞进攻时进攻贡献 +6%
       if (
         attackType === AttackType.THROUGH_PASS &&
-        hasAbility(passerPlayer, 'long_passer')
+        hasAbility(passerPlayer, 'LPASS')
       ) {
         effectiveAttPower *= 1.06;
       }
       // cross_specialist: 传中进攻时进攻贡献 +8%
       if (
         attackType === AttackType.CROSS &&
-        hasAbility(passerPlayer, 'cross_specialist')
+        hasAbility(passerPlayer, 'CROSS')
       ) {
         effectiveAttPower *= 1.08;
       }
       // dribble_master: 突破进攻时进攻贡献 +6%
       if (
         attackType === AttackType.DRIBBLE &&
-        hasAbility(passerPlayer, 'dribble_master')
+        hasAbility(passerPlayer, 'DRBLE')
       ) {
         effectiveAttPower *= 1.06;
       }
@@ -1466,7 +1466,7 @@ export class MatchEngine {
       // 每个有头球专家的进攻球员提供+5%加成，可叠加
       if (attackType === AttackType.CROSS) {
         const attackerHeaderCount = this.possessionTeam.players.filter((p) =>
-          hasAbility(p.player as Player, 'header_specialist'),
+          hasAbility(p.player as Player, 'HEADER'),
         ).length;
         if (attackerHeaderCount > 0) {
           effectiveAttPower *= 1 + 0.05 * attackerHeaderCount;
@@ -1478,7 +1478,7 @@ export class MatchEngine {
       let effectiveDefPower = defPower;
       if (attackType === AttackType.CROSS) {
         const defenderHeaderCount = this.defendingTeam.players.filter((p) =>
-          hasAbility(p.player as Player, 'header_specialist'),
+          hasAbility(p.player as Player, 'HEADER'),
         ).length;
         if (defenderHeaderCount > 0) {
           effectiveDefPower *= 1 + 0.08 * defenderHeaderCount;
@@ -1572,7 +1572,7 @@ export class MatchEngine {
       // 反击加成：刚获得球权时（反击），进攻贡献提升
       if (!interceptTriggered && this.freshPossession) {
         const counterStarterCount = this.possessionTeam.players.filter((p) =>
-          hasAbility(p.player as Player, 'counter_starter'),
+          hasAbility(p.player as Player, 'CNTR'),
         ).length;
         if (counterStarterCount > 0) {
           effectiveAttPower *= 1 + 0.05 * counterStarterCount;
@@ -1638,7 +1638,7 @@ export class MatchEngine {
         shotType = ShotType.LONG_SHOT;
         finalShootRating = this.calculateLongShotRating(player);
         // long_shooter: 远射评分 +10%
-        if (hasAbility(player, 'long_shooter')) {
+        if (hasAbility(player, 'LSHT')) {
           finalShootRating *= 1.1;
         }
 
@@ -1692,7 +1692,7 @@ export class MatchEngine {
           case ShotType.REBOUND:
             finalShootRating = this.calculateShootRating(player);
             // rebound_specialist: 补射评分 +10%
-            if (hasAbility(player, 'rebound_specialist')) {
+            if (hasAbility(player, 'REBND')) {
               finalShootRating *= 1.1;
             }
             break;
@@ -2521,7 +2521,7 @@ export class MatchEngine {
       (attrs.composure ?? 10) * 3 +
       (attrs.positioning ?? 10) * 2;
     // header_specialist: 头球射门评分 +8%
-    return hasAbility(player, 'header_specialist') ? raw * 1.08 : raw;
+    return hasAbility(player, 'HEADER') ? raw * 1.08 : raw;
   }
 
   /**
@@ -3061,7 +3061,7 @@ export class MatchEngine {
       (gkP.attributes.gk_handling ?? 10) * 0.6 +
       (gkP.attributes.composure ?? 10) * 0.4;
     // penalty_saver: 扑点球时扑救率 +10%
-    if (hasAbility(gkP, 'penalty_saver')) {
+    if (hasAbility(gkP, 'PSAVE')) {
       defenseScore *= 1.1;
     }
     const probability = duelProbability(attackScore, defenseScore, {

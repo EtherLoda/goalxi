@@ -57,7 +57,7 @@ describe('ScoutsService.selectCandidate — persistence invariants', () => {
         position: 'CM',
         currentSkills: baseSkills,
         potentialSkills: highPotential,
-        abilities: ['long_passer'],
+        abilities: ['LPASS'],
         potentialTier: 'REGULAR',
         potentialRevealed: true,
         revealedSkills: ['pace', 'strength', 'finishing', 'passing'],
@@ -243,7 +243,7 @@ describe('ScoutsService.selectCandidate — persistence invariants', () => {
     await service.selectCandidate('candidate-1', 'team-A');
 
     const saved = playerRepo.save.mock.calls[0][0];
-    expect(saved.specialty).toBe('long_passer');
+    expect(saved.specialty).toBe('LPASS');
     expect(saved.youthLeagueId).toBe('league-1');
   });
 

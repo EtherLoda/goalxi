@@ -73,7 +73,7 @@ const POSITION_TEMPLATES: Record<
       primary: ['defending', 'strength', 'positioning'],
       secondary: ['pace', 'composure'],
       tertiary: ['passing', 'finishing', 'dribbling'],
-      abilities: ['tackle_master'],
+      abilities: ['TACKL'],
     },
     balanced: {
       primary: ['defending', 'strength'],
@@ -96,7 +96,7 @@ const POSITION_TEMPLATES: Record<
       primary: ['defending', 'pace', 'composure'],
       secondary: ['strength', 'positioning', 'passing'],
       tertiary: ['dribbling', 'finishing'],
-      abilities: ['tackle_master'],
+      abilities: ['TACKL'],
     },
     balanced: {
       primary: ['defending', 'pace'],
@@ -119,7 +119,7 @@ const POSITION_TEMPLATES: Record<
       primary: ['defending', 'pace', 'composure'],
       secondary: ['strength', 'positioning', 'passing'],
       tertiary: ['dribbling', 'finishing'],
-      abilities: ['tackle_master'],
+      abilities: ['TACKL'],
     },
     balanced: {
       primary: ['defending', 'pace'],
@@ -142,7 +142,7 @@ const POSITION_TEMPLATES: Record<
       primary: ['passing', 'defending', 'positioning'],
       secondary: ['composure', 'strength', 'pace'],
       tertiary: ['dribbling', 'finishing'],
-      abilities: ['tackle_master', 'counter_starter'],
+      abilities: ['TACKL', 'CNTR'],
     },
     balanced: {
       primary: ['passing', 'defending'],
@@ -165,7 +165,7 @@ const POSITION_TEMPLATES: Record<
       primary: ['passing', 'dribbling', 'positioning'],
       secondary: ['defending', 'composure', 'pace'],
       tertiary: ['strength', 'finishing'],
-      abilities: ['long_passer', 'counter_starter'],
+      abilities: ['LPASS', 'CNTR'],
     },
     balanced: {
       primary: ['passing', 'dribbling'],
@@ -188,7 +188,7 @@ const POSITION_TEMPLATES: Record<
       primary: ['passing', 'dribbling', 'finishing'],
       secondary: ['positioning', 'composure', 'pace'],
       tertiary: ['defending', 'strength'],
-      abilities: ['long_passer', 'clutch_player'],
+      abilities: ['LPASS', 'CLUCH'],
     },
     balanced: {
       primary: ['passing', 'dribbling'],
@@ -211,7 +211,7 @@ const POSITION_TEMPLATES: Record<
       primary: ['pace', 'dribbling', 'passing'],
       secondary: ['finishing', 'positioning'],
       tertiary: ['strength', 'defending', 'composure'],
-      abilities: ['dribble_master', 'cross_specialist', 'fast_start'],
+      abilities: ['DRBLE', 'CROSS', 'FSTRT'],
     },
     balanced: {
       primary: ['pace', 'dribbling'],
@@ -225,7 +225,7 @@ const POSITION_TEMPLATES: Record<
     },
     specialized: {
       primary: ['pace', 'passing'],
-      secondary: ['cross_specialist', 'positioning'],
+      secondary: ['CROSS', 'positioning'],
       tertiary: ['dribbling', 'finishing'],
     },
   },
@@ -234,7 +234,7 @@ const POSITION_TEMPLATES: Record<
       primary: ['pace', 'dribbling', 'passing'],
       secondary: ['finishing', 'positioning'],
       tertiary: ['strength', 'defending', 'composure'],
-      abilities: ['dribble_master', 'cross_specialist', 'fast_start'],
+      abilities: ['DRBLE', 'CROSS', 'FSTRT'],
     },
     balanced: {
       primary: ['pace', 'dribbling'],
@@ -248,7 +248,7 @@ const POSITION_TEMPLATES: Record<
     },
     specialized: {
       primary: ['pace', 'passing'],
-      secondary: ['cross_specialist', 'positioning'],
+      secondary: ['CROSS', 'positioning'],
       tertiary: ['dribbling', 'finishing'],
     },
   },
@@ -257,7 +257,7 @@ const POSITION_TEMPLATES: Record<
       primary: ['finishing', 'positioning', 'strength'],
       secondary: ['pace', 'composure', 'dribbling'],
       tertiary: ['passing', 'defending'],
-      abilities: ['clutch_player', 'rebound_specialist', 'header_specialist'],
+      abilities: ['CLUCH', 'REBND', 'HEADER'],
     },
     balanced: {
       primary: ['finishing', 'positioning'],
@@ -273,7 +273,7 @@ const POSITION_TEMPLATES: Record<
       primary: ['positioning', 'strength'],
       secondary: ['finishing', 'pace'],
       tertiary: ['composure', 'dribbling'],
-      abilities: ['header_specialist'],
+      abilities: ['HEADER'],
     },
   },
 };
@@ -614,17 +614,17 @@ export class TeamGeneratorService {
     if (possibleAbilities.length === 0) return [];
 
     const commonAbilities = [
-      'tackle_master',
-      'cross_specialist',
-      'long_passer',
-      'counter_starter',
-      'fast_start',
+      'TACKL',
+      'CROSS',
+      'LPASS',
+      'CNTR',
+      'FSTRT',
     ];
     const eliteAbilities = [
-      'clutch_player',
-      'rebound_specialist',
-      'header_specialist',
-      'dribble_master',
+      'CLUCH',
+      'REBND',
+      'HEADER',
+      'DRBLE',
     ];
 
     let availableAbilities = possibleAbilities.filter((a) =>

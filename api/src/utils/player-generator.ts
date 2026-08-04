@@ -307,13 +307,13 @@ function randomBirthdayForAge(age: number): Date {
  * 青训球员可能获得的特技
  */
 const YOUTH_ABILITIES = [
-  'fast_start',
-  'tackle_master',
-  'long_passer',
-  'cross_specialist',
-  'dribble_master',
-  'header_specialist',
-  'long_shooter',
+  'FSTRT',
+  'TACKL',
+  'LPASS',
+  'CROSS',
+  'DRBLE',
+  'HEADER',
+  'LSHT',
 ] as const;
 
 /**

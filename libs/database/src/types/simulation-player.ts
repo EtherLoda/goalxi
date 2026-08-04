@@ -68,17 +68,17 @@ export interface SimulationPlayerAttributes {
 }
 
 export type PlayerAbility =
-    | 'header_specialist'
-    | 'long_passer'
-    | 'cross_specialist'
-    | 'dribble_master'
-    | 'long_shooter'
-    | 'clutch_player'
-    | 'tackle_master'
-    | 'penalty_saver'
-    | 'counter_starter'
-    | 'rebound_specialist'
-    | 'fast_start';
+    | 'HEADER'
+    | 'LPASS'
+    | 'CROSS'
+    | 'DRBLE'
+    | 'LSHT'
+    | 'CLUCH'
+    | 'TACKL'
+    | 'PSAVE'
+    | 'CNTR'
+    | 'REBND'
+    | 'FSTRT';
 
 export interface SimulationPlayer {
     id: number;
