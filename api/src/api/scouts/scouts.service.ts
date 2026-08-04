@@ -11,6 +11,7 @@ import {
   ScoutCandidateEntity,
   ScoutCandidatePlayerData,
   TeamEntity,
+  Uuid,
   YouthLeagueEntity,
   YouthTeamEntity,
   currentGameDay,
@@ -25,14 +26,20 @@ import {
   getRandomNationality,
 } from '../../constants/name-database';
 import { calculatePotentialAbility } from '../../utils/player-generator';
+import { NarrativeSection } from './scouts.narrative';
+
+/** Default nationality when the team has none set — fall back to CN. */
+const DEFAULT_TEAM_NATIONALITY = 'CN';
 
 /**
  * Generate scout candidate player data via the shared `@goalxi/database`
- * utility. Kept here as a thin wrapper that wires the gaussian-distribution
- * config used by the API-facing candidate generator (different from the
- * uniform PA-range config used by the cron-driven scheduler).
+ * utility. The team argument is used to pin the candidate's nationality
+ * to the team's own (a youth academy player comes from the same country
+ * as the parent club) — when the team has no nationality, we fall back
+ * to CN.
  */
-function generatePlayerData() {
+function generatePlayerData(team: TeamEntity) {
+  const nationality = team.nationality ?? DEFAULT_TEAM_NATIONALITY;
   return generateScoutCandidate({
     tierDistribution: {
       LEGEND: 0.005,
@@ -53,7 +60,7 @@ function generatePlayerData() {
     positionSkillImpact: SCOUT_POSITION_SKILL_IMPACT,
     goalkeeperChance: SCOUT_GOALKEEPER_CHANCE,
     ageRange: SCOUT_AGE_RANGE,
-    pickRandomNationality: getRandomNationality,
+    pickRandomNationality: () => nationality,
     getRandomNameByNationality,
   });
 }
@@ -75,8 +82,12 @@ export class ScoutsService {
 
   /** Generate 3 scout candidates for a team */
   async generateThreeCandidates(
-    teamId: string,
+    teamId: Uuid,
   ): Promise<ScoutCandidateEntity[]> {
+    // [D2] Pin the candidate's nationality to the team's own. The team
+    // may be missing (e.g. orphaned cron run) — fall back to CN so the
+    // generation still succeeds.
+    const team = await this.teamRepo.findOneBy({ id: teamId });
     const expiresAt = new Date();
     expiresAt.setDate(expiresAt.getDate() + 7); // 7 days expiry
 
@@ -84,7 +95,9 @@ export class ScoutsService {
     for (let i = 0; i < 3; i++) {
       // [D1] Generation now goes through the shared utility, so scheduler
       // and API produce a consistent shape (revealedSkills/joinedAt included).
-      const playerData = generatePlayerData();
+      const playerData = generatePlayerData(
+        team ?? ({ id: teamId, nationality: DEFAULT_TEAM_NATIONALITY } as TeamEntity),
+      );
       const candidate = this.candidateRepo.create({
         teamId,
         playerData: {
@@ -166,6 +179,12 @@ export class ScoutsService {
 
     const youth = this.playerRepo.create({
       teamId: candidate.teamId,
+      // [FIX] `name` and `nationality` were dropped during the RFC 0001
+      // PlayerEntity unification, but `player.name` is NOT NULL on the
+      // schema. Re-attach them from the candidate's playerData so the
+      // INSERT doesn't fail with a constraint violation.
+      name: playerData.name,
+      nationality: playerData.nationality,
       isGoalkeeper: playerData.isGoalkeeper,
       isYouth: true,
       youthLeagueId,

@@ -1,61 +1,36 @@
 "use client";
 
-import React, { useEffect, useMemo, useState } from "react";
-import { useParams, useSearchParams } from "next/navigation";
+import React, { Suspense, useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { api, type ScoutCandidate } from "@/lib/api";
 import { useAuth } from "@/contexts/AuthContext";
-
-/**
- * Computes the next Saturday 06:00 UTC — that's when the cron job
- * `ScoutSchedulerService.generateScoutCandidates` runs. Surfaced as a
- * "Next auto-report" countdown so the user knows when to check back.
- */
-function getNextAutoReport(now: Date = new Date()): Date {
-  const next = new Date(now);
-  // setDate(0) → last day of previous month; .getDay() on that gives the
-  // weekday offset we need. Easier path: walk day-by-day.
-  next.setUTCHours(6, 0, 0, 0);
-  // If today's 06:00 already passed, advance to next day.
-  if (next <= now) {
-    next.setUTCDate(next.getUTCDate() + 1);
-  }
-  // Now find the next Saturday (day 6).
-  while (next.getUTCDay() !== 6) {
-    next.setUTCDate(next.getUTCDate() + 1);
-  }
-  return next;
-}
-
-function formatCountdown(target: Date, now: Date = new Date()): string {
-  const diffMs = target.getTime() - now.getTime();
-  if (diffMs <= 0) return "now";
-  const days = Math.floor(diffMs / (24 * 60 * 60 * 1000));
-  const hours = Math.floor((diffMs % (24 * 60 * 60 * 1000)) / (60 * 60 * 1000));
-  const minutes = Math.floor((diffMs % (60 * 60 * 1000)) / (60 * 1000));
-  if (days > 0) return `${days}d ${hours}h`;
-  if (hours > 0) return `${hours}h ${minutes}m`;
-  return `${minutes}m`;
-}
-
-const TIER_COLOR: Record<string, string> = {
-  LOW: "text-[#91b2a6] bg-[#91b2a6]/10",
-  REGULAR: "text-[#a1ffc2] bg-[#a1ffc2]/10",
-  HIGH_PRO: "text-[#fbbf24] bg-[#fbbf24]/10",
-  ELITE: "text-[#f472b6] bg-[#f472b6]/10",
-  LEGEND: "text-[#a78bfa] bg-[#a78bfa]/10",
-};
+import { ScoutCard } from "@/components/youth/ScoutCard";
 
 export default function ScoutsPage() {
+  // useSearchParams() forces a CSR bailout; Next 16 requires it to
+  // live behind a <Suspense> boundary so the static shell can render
+  // independently. The fallback matches the page chrome so the swap
+  // is invisible.
+  return (
+    <Suspense
+      fallback={
+        <div className="px-8 py-6 text-sm text-[#91b2a6] font-space">
+          Loading…
+        </div>
+      }
+    >
+      <ScoutsPageInner />
+    </Suspense>
+  );
+}
+
+function ScoutsPageInner() {
   const t = useTranslations("youth.scouts");
   const tPos = useTranslations("youth.squad.position");
-  const tPot = useTranslations("youth.squad.potentialLabel");
-  const tTendency = useTranslations("youth.scouts.abilityTendency");
-  const params = useParams();
   const search = useSearchParams();
   const { team } = useAuth();
 
-  const locale = (params.locale as string) || "en";
   const teamIdFromQuery = search.get("team");
   // The scouts endpoint is class-level @UseGuards(AuthGuard) so any
   // authenticated user can read their own team's candidates. If they're
@@ -68,11 +43,11 @@ export default function ScoutsPage() {
   const [selecting, setSelecting] = useState<ScoutCandidate | null>(null);
   const [skipped, setSkipped] = useState<Set<string>>(new Set());
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
   const [toast, setToast] = useState<{
     kind: "success" | "error";
     text: string;
   } | null>(null);
-  const [now, setNow] = useState<Date>(() => new Date());
 
   useEffect(() => {
     let cancelled = false;
@@ -93,19 +68,10 @@ export default function ScoutsPage() {
     };
   }, []);
 
-  // Tick a "now" clock once a minute so the "next auto-report" countdown
-  // and per-card expiry labels stay current.
-  useEffect(() => {
-    const id = setInterval(() => setNow(new Date()), 60_000);
-    return () => clearInterval(id);
-  }, []);
-
   const visible = useMemo(() => {
     if (!candidates) return [];
     return candidates.filter((c) => !skipped.has(c.id));
   }, [candidates, skipped]);
-
-  const nextReport = useMemo(() => getNextAutoReport(now), [now]);
 
   const handleSelect = async (c: ScoutCandidate) => {
     setSelecting(null);
@@ -144,13 +110,41 @@ export default function ScoutsPage() {
     }
   };
 
+  // Manually draw a fresh batch of 3 candidates. After the server
+  // creates them, refetch the full list so any candidates the
+  // server has since dropped (expired, race-condition) drop out of
+  // the inbox too — keeps the UI in lockstep with the DB.
+  const handleRefresh = async () => {
+    if (refreshing) return;
+    setRefreshing(true);
+    setToast(null);
+    try {
+      const fresh = await api.scouts.refreshCandidates();
+      if (fresh.length === 0) {
+        setToast({ kind: "error", text: t("refreshEmpty") });
+        return;
+      }
+      // Re-sync with the server so expired rows fall off and the
+      // new three are included without us having to dedupe by hand.
+      const synced = await api.scouts.listCandidates();
+      setCandidates(synced);
+      setToast({
+        kind: "success",
+        text: t("refreshSuccess", { count: fresh.length }),
+      });
+    } catch (err) {
+      setToast({
+        kind: "error",
+        text: err instanceof Error ? err.message : t("refreshError"),
+      });
+    } finally {
+      setRefreshing(false);
+    }
+  };
+
   return (
-    <div className="px-8 py-6 space-y-6">
-      <Header
-        title={t("title")}
-        nextReport={nextReport}
-        now={now}
-      />
+    <div className="max-w-6xl mx-auto px-6 sm:px-8 py-6 space-y-6">
+      <Header title={t("title")} />
 
       {!isOwnTeam && (
         <div className="bg-[#fbbf24]/10 border border-[#fbbf24]/30 rounded-xl p-4 text-sm text-[#fbbf24] font-space">
@@ -166,26 +160,49 @@ export default function ScoutsPage() {
       )}
 
       {candidates && visible.length === 0 && !error && isOwnTeam && (
-        <EmptyState text={t("empty")} nextReport={nextReport} now={now} />
+        <EmptyState
+          text={t("empty")}
+          refreshLabel={refreshing ? t("refreshing") : t("refresh")}
+          refreshing={refreshing}
+          onRefresh={handleRefresh}
+        />
       )}
 
       {visible.length > 0 && (
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-          {visible.map((c) => (
-            <CandidateCard
-              key={c.id}
-              c={c}
-              tPos={tPos}
-              tPot={tPot}
-              tTendency={tTendency}
-              t={t}
-              now={now}
-              busy={busyId === c.id}
-              onSelect={() => setSelecting(c)}
-              onSkip={() => handleSkip(c)}
-            />
-          ))}
-        </div>
+        <>
+          <div className="flex items-center justify-end">
+            <button
+              onClick={handleRefresh}
+              disabled={refreshing}
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-[#a1ffc2]/10 border border-[#a1ffc2]/30 text-[#a1ffc2] text-xs font-bold uppercase tracking-wider hover:bg-[#a1ffc2]/20 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {refreshing ? (
+                <span className="material-symbols-outlined text-[14px] animate-spin">
+                  progress_activity
+                </span>
+              ) : (
+                <span className="material-symbols-outlined text-[14px]">
+                  refresh
+                </span>
+              )}
+              {refreshing ? t("refreshing") : t("refresh")}
+            </button>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+            {visible.map((c, i) => (
+              <ScoutCard
+                key={c.id}
+                c={c}
+                tPos={tPos}
+                t={t}
+                index={i}
+                busy={busyId === c.id}
+                onSelect={() => setSelecting(c)}
+                onSkip={() => handleSkip(c)}
+              />
+            ))}
+          </div>
+        </>
       )}
 
       {selecting && (
@@ -210,178 +227,58 @@ export default function ScoutsPage() {
 
 // ---------- Subcomponents ----------
 
-function Header({
-  title,
-  nextReport,
-  now,
-}: {
-  title: string;
-  nextReport: Date;
-  now: Date;
-}) {
+function Header({ title }: { title: string }) {
+  // The header used to show a "Next auto-report: 3d 16h" countdown,
+  // but with the manual refresh button the wait-time framing felt
+  // wrong — the inbox shouldn't punish first-time visitors. We just
+  // surface the cadence as a small footnote.
   return (
-    <header className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
-      <div>
-        <h1 className="text-3xl font-black font-space text-[#d3f5e8] tracking-tight">
-          {title}
-        </h1>
-      </div>
-      <div className="flex items-center gap-2 text-xs text-[#91b2a6] font-space">
-        <span className="material-symbols-outlined text-base">schedule</span>
-        <span>
-          Next auto-report:{" "}
-          <span className="text-[#d3f5e8] font-bold">
-            {formatCountdown(nextReport, now)}
-          </span>
-        </span>
-      </div>
+    <header className="flex flex-col gap-1">
+      <h1 className="text-3xl font-black font-space text-[#d3f5e8] tracking-tight">
+        {title}
+      </h1>
+      <p className="text-xs text-[#91b2a6] font-space">
+        Auto-refreshes every Saturday at 06:00 UTC. Tap the button below
+        to draw a fresh report on demand.
+      </p>
     </header>
   );
 }
 
 function EmptyState({
   text,
-  nextReport,
-  now,
+  refreshLabel,
+  refreshing,
+  onRefresh,
 }: {
   text: string;
-  nextReport: Date;
-  now: Date;
+  refreshLabel: string;
+  refreshing: boolean;
+  onRefresh: () => void;
 }) {
   return (
-    <div className="bg-[#00251c]/60 rounded-2xl border border-white/5 px-6 py-16 text-center">
+    <div className="bg-[#00251c]/60 rounded-2xl border border-white/5 px-6 py-12 sm:py-16 text-center">
       <span className="material-symbols-outlined text-[#91b2a6] text-5xl">
         travel_explore
       </span>
       <p className="mt-4 text-sm text-[#91b2a6] font-space max-w-md mx-auto">
         {text}
       </p>
-      <p className="mt-2 text-xs text-[#91b2a6] font-space">
-        Next report in{" "}
-        <span className="text-[#d3f5e8] font-bold">
-          {formatCountdown(nextReport, now)}
-        </span>
-      </p>
-    </div>
-  );
-}
-
-function CandidateCard({
-  c,
-  tPos,
-  tPot,
-  tTendency,
-  t,
-  now,
-  busy,
-  onSelect,
-  onSkip,
-}: {
-  c: ScoutCandidate;
-  tPos: ReturnType<typeof useTranslations>;
-  tPot: ReturnType<typeof useTranslations>;
-  tTendency: ReturnType<typeof useTranslations>;
-  t: ReturnType<typeof useTranslations>;
-  now: Date;
-  busy: boolean;
-  onSelect: () => void;
-  onSkip: () => void;
-}) {
-  const tier = c.potentialTier;
-  const tierClass = tier
-    ? TIER_COLOR[tier] ?? TIER_COLOR.LOW
-    : "bg-[#2f4e44]/40 text-[#91b2a6]";
-
-  const hoursLeft = Math.max(
-    0,
-    Math.floor((new Date(c.expiresAt).getTime() - now.getTime()) / 3_600_000),
-  );
-
-  return (
-    <article className="bg-[#00251c]/60 rounded-2xl border border-white/5 p-5 flex flex-col gap-4">
-      <div className="flex items-start justify-between gap-2">
-        <div className="min-w-0">
-          <h3 className="text-base font-bold text-[#d3f5e8] truncate">
-            {c.name}
-          </h3>
-          <p className="text-[11px] text-[#91b2a6] font-space">
-            {c.age} · {c.nationality} ·{" "}
-            {c.isGoalkeeper ? tPos("GK") : tPos("OUT")}
-          </p>
-        </div>
-        <span
-          className={`shrink-0 inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${tierClass}`}
-        >
-          {c.potentialRevealed && tier ? tPot(tier) : "?"}
-        </span>
-      </div>
-
-      {/* Tendency hint — top-of-mind summary line */}
-      {c.tendencyHint && (
-        <p className="text-xs text-[#a1ffc2] font-bold">
-          ✨ {c.tendencyHint}
-        </p>
-      )}
-
-      {/* Revealed skills mini grid */}
-      <div>
-        <p className="text-[10px] uppercase tracking-wider text-[#91b2a6] mb-1.5 font-bold">
-          Revealed skills ({c.revealedSkills.length})
-        </p>
-        <div className="grid grid-cols-2 gap-1.5">
-          {c.revealedSkills.map((s) => (
-            <div
-              key={s.key}
-              className="flex items-center justify-between bg-[#001e17] rounded px-2 py-1.5"
-            >
-              <span className="text-[10px] font-bold text-[#d3f5e8] uppercase">
-                {s.key}
-              </span>
-              <span className="text-[10px] text-[#91b2a6] tabular-nums">
-                {Math.floor(s.current)}
-                <span className="text-[#2f4e44]"> / </span>
-                <span className="text-[#a1ffc2]">{Math.floor(s.potential)}</span>
-              </span>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      {/* Expiry + actions */}
-      <div className="flex items-center justify-between pt-2 border-t border-white/5">
-        <span className="text-[10px] text-[#91b2a6] flex items-center gap-1">
-          <span className="material-symbols-outlined text-[14px]">
-            hourglass_empty
+      <button
+        onClick={onRefresh}
+        disabled={refreshing}
+        className="mt-6 inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-[#a1ffc2] text-[#001e17] text-sm font-bold uppercase tracking-wider hover:bg-[#b9ffce] transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-[#a1ffc2]/20"
+      >
+        {refreshing ? (
+          <span className="material-symbols-outlined text-[16px] animate-spin">
+            progress_activity
           </span>
-          {hoursLeft > 0
-            ? t("expiresIn", { hours: hoursLeft })
-            : "expired"}
-        </span>
-        <div className="flex items-center gap-2">
-          <button
-            onClick={onSkip}
-            disabled={busy}
-            className="px-3 py-1.5 rounded-lg text-[11px] font-bold uppercase tracking-wider text-[#91b2a6] hover:bg-white/5 transition-colors disabled:opacity-50"
-          >
-            {t("skip")}
-          </button>
-          <button
-            onClick={onSelect}
-            disabled={busy}
-            className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-[#a1ffc2] text-[#001e17] text-[11px] font-bold uppercase tracking-wider hover:bg-[#b9ffce] transition-colors disabled:opacity-50"
-          >
-            {busy ? (
-              <span className="material-symbols-outlined text-[14px] animate-spin">
-                progress_activity
-              </span>
-            ) : (
-              <span className="material-symbols-outlined text-[14px]">add</span>
-            )}
-            {t("select")}
-          </button>
-        </div>
-      </div>
-    </article>
+        ) : (
+          <span className="material-symbols-outlined text-[16px]">casino</span>
+        )}
+        {refreshLabel}
+      </button>
+    </div>
   );
 }
 

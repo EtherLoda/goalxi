@@ -1,4 +1,4 @@
-import {
+﻿import {
   currentGameDay,
   PlayerEntity,
   ScoutCandidateEntity,
@@ -17,6 +17,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { CurrentUser } from '../../decorators/current-user.decorator';
 import { AuthGuard } from '../../guards/auth.guard';
+import { NarrativeSection, buildNarrative } from './scouts.narrative';
 import { ScoutsService } from './scouts.service';
 
 @Controller({ path: 'scouts', version: '1' })
@@ -37,6 +38,29 @@ export class ScoutsController {
     if (!team) return [];
     const candidates = await this.scoutsService.getCandidates(team.id);
     return candidates.map(mapCandidateToDto);
+  }
+
+  /**
+   * Manually trigger a fresh batch of scout candidates for the current
+   * team. The endpoint generates 3 new candidates and returns them —
+   * existing unexpired candidates are preserved, so the client should
+   * treat the response as a delta (concatenate with the current list)
+   * rather than a replacement. Used by the inbox's "立即抽卡" button
+   * so a manager doesn't have to wait for the Saturday cron.
+   *
+   * NB: there is no server-side rate limit yet — the UI is expected
+   * to disable the button while the request is in flight.
+   */
+  @Post('refresh')
+  async refreshCandidates(
+    @CurrentUser('id') userId: Uuid,
+  ): Promise<ScoutCandidateDto[]> {
+    const team = await this.teamRepo.findOneBy({ userId });
+    if (!team) {
+      throw new ForbiddenException('You do not own a team');
+    }
+    const created = await this.scoutsService.generateThreeCandidates(team.id);
+    return created.map(mapCandidateToDto);
   }
 
   /** Select a candidate → add to youth academy */
@@ -78,7 +102,12 @@ export interface ScoutCandidateDto {
   potentialTier?: string;
   potentialRevealed: boolean;
   revealedSkills: RevealedSkillDto[];
-  tendencyHint?: string;
+  /**
+   * Structured 5-6 line narrative that the web frontend renders into
+   * localized text. Replaces the old `tendencyHint` field — same
+   * tendency, but now one of N sections with the rest of the report.
+   */
+  narrativeSections: NarrativeSection[];
 }
 
 export interface RevealedSkillDto {
@@ -112,7 +141,7 @@ function mapCandidateToDto(c: ScoutCandidateEntity): ScoutCandidateDto {
     potential: extractSkill(playerData.potentialSkills, key),
   }));
 
-  const tendencyHint = buildTendencyHint(playerData);
+  const narrativeSections = buildNarrative(playerData);
 
   return {
     id: c.id,
@@ -123,7 +152,7 @@ function mapCandidateToDto(c: ScoutCandidateEntity): ScoutCandidateDto {
     potentialTier: playerData.potentialTier,
     potentialRevealed: playerData.potentialRevealed,
     revealedSkills: revealed,
-    tendencyHint,
+    narrativeSections,
   };
 }
 
@@ -176,20 +205,4 @@ function extractSkill(skills: any, key: string): number {
   return 0;
 }
 
-function buildTendencyHint(playerData: any): string {
-  if (!playerData.currentSkills) return '未知';
-  const cs = playerData.currentSkills;
-  const phys = ((cs.physical?.pace ?? 0) + (cs.physical?.strength ?? 0)) / 2;
-  const tech =
-    Object.values(cs.technical as object).reduce(
-      (s: number, v: any) => s + (typeof v === 'number' ? v : 0),
-      0,
-    ) / Object.keys(cs.technical as object).length;
-  const ment =
-    ((cs.mental?.positioning ?? 0) + (cs.mental?.composure ?? 0)) / 2;
 
-  if (phys > tech && phys > ment) return '身体素质突出';
-  if (tech > phys && tech > ment) return '技术能力出色';
-  if (ment > phys && ment > tech) return '精神素质优异';
-  return '综合均衡';
-}

@@ -1021,6 +1021,15 @@ export const api = {
     listCandidates: async (): Promise<ScoutCandidate[]> => {
       return request<ScoutCandidate[]>('/scouts/candidates');
     },
+    /**
+     * Manually generate a fresh batch of 3 scout candidates for the
+     * current team. Server returns the newly-created candidates only
+     * (not a replacement) — caller should merge into the existing
+     * list. Used by the empty-state "立即抽卡" CTA.
+     */
+    refreshCandidates: async (): Promise<ScoutCandidate[]> => {
+      return request<ScoutCandidate[]>('/scouts/refresh', { method: 'POST' });
+    },
     selectCandidate: async (id: string): Promise<YouthPlayer> => {
       return request<YouthPlayer>(`/scouts/${id}/select`, { method: 'POST' });
     },
@@ -1246,10 +1255,53 @@ export interface ScoutCandidate {
   potentialTier?: string;
   potentialRevealed: boolean;
   revealedSkills: YouthRevealedSkill[];
-  tendencyHint?: string;
+  /**
+   * Structured 5-6 line narrative generated server-side. The web
+   * frontend maps each section to a localized string via next-intl
+   * (see `lib/scout-narrative.ts`). Replaces the old free-text
+   * `tendencyHint` field.
+   */
+  narrativeSections: ScoutNarrativeSection[];
   /** Server-side expiry timestamp (7 days after generation). */
   expiresAt: string;
 }
+
+/** Server-emitted shape — see api/src/api/scouts/scouts.narrative.ts. */
+export type ScoutNarrativeSection =
+  | { kind: "age"; data: { years: number; days: number }; variant: number }
+  | { kind: "abilities"; data: { list: string[] }; variant: number }
+  | {
+      kind: "skill";
+      data: {
+        skillKey: string;
+        current: number;
+        potential: number;
+        mode: "current" | "potential";
+      };
+      variant: number;
+    }
+  | {
+      kind: "tendency";
+      data: { tendencyKey: "physical" | "technical" | "mental" | "balanced" };
+      variant: number;
+    }
+  | {
+      kind: "physical";
+      data: {
+        profile:
+          | "balanced"
+          | "pace"
+          | "lean-pace"
+          | "strength"
+          | "lean-strength";
+      };
+      variant: number;
+    }
+  | {
+      kind: "ceiling";
+      data: { revealed: boolean; level: number | null };
+      variant: number;
+    };
 
 interface YouthMatchTeamSummary {
   id: string;

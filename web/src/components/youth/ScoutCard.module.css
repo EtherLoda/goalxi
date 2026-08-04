@@ -1,0 +1,303 @@
+/* =========================================================================
+   ScoutCard — single-face narrative report.
+   No tier badge, no expiry line, no tier-glow. The manager reads the
+   report "blind" — server keeps the tier / expiry state but the UI
+   intentionally hides it.
+   ========================================================================= */
+
+.scene {
+  position: relative;
+  perspective: 1200px;
+  perspective-origin: 50% 30%;
+  transform: translateZ(0);
+  opacity: 0;
+  animation: cardEnter 0.7s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+  animation-delay: var(--enter-delay, 0ms);
+}
+
+@keyframes cardEnter {
+  0% {
+    opacity: 0;
+    transform: translateY(18px) scale(0.96);
+  }
+  60% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.tilt {
+  position: relative;
+  transform-style: preserve-3d;
+  transition:
+    transform 0.6s cubic-bezier(0.22, 1, 0.36, 1),
+    box-shadow 0.4s ease;
+  will-change: transform;
+}
+
+.lift {
+  transform: translateY(-4px) scale(1.005);
+}
+
+/* ============================ Visual shell ============================ */
+
+.shell {
+  position: relative;
+  background: linear-gradient(
+    180deg,
+    var(--color-surface-container) 0%,
+    var(--color-surface-container-lowest) 100%
+  );
+  /* No hard 1px border — the layered shadows fake a soft rim and an
+     inner highlight so the card looks like a tangible object rather
+     than a flat panel. */
+  border: 1px solid transparent;
+  border-radius: 16px;
+  box-shadow:
+    0 0 0 1px rgba(255, 255, 255, 0.04),
+    0 2px 4px rgba(0, 0, 0, 0.2),
+    0 8px 24px rgba(0, 0, 0, 0.25),
+    inset 0 1px 0 rgba(255, 255, 255, 0.04);
+  overflow: hidden;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  transition:
+    transform 0.5s cubic-bezier(0.22, 1, 0.36, 1),
+    box-shadow 0.4s ease;
+}
+
+.shell:hover {
+  box-shadow:
+    0 0 0 1px rgba(255, 255, 255, 0.06),
+    0 4px 8px rgba(0, 0, 0, 0.25),
+    0 16px 36px rgba(0, 0, 0, 0.3),
+    inset 0 1px 0 rgba(255, 255, 255, 0.06);
+}
+
+.shell::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    140deg,
+    transparent 0%,
+    rgba(255, 255, 255, 0.025) 50%,
+    transparent 100%
+  );
+  pointer-events: none;
+  opacity: 0.7;
+  border-radius: inherit;
+}
+
+.shellPadding {
+  padding: 1.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+  min-height: 400px;
+}
+
+/* ============================ Header ============================ */
+
+.header {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+}
+
+/* Squad-style square avatar: outer frame is a tinted gradient with
+   a 1.5px padding, the inner tile is a dark fill that hosts the
+   initials. The whole thing feels like a player card swatch. */
+.avatar {
+  flex-shrink: 0;
+  width: 48px;
+  height: 48px;
+  border-radius: 12px;
+  padding: 1.5px;
+  display: inline-flex;
+  align-items: stretch;
+  justify-content: stretch;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+}
+
+.avatarInner {
+  flex: 1;
+  border-radius: 10px;
+  background: var(--color-surface-container-lowest);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-headline);
+  font-size: 0.95rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--color-primary);
+}
+
+.identity {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+}
+
+.name {
+  font-family: var(--font-headline);
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: var(--color-on-surface);
+  line-height: 1.15;
+  letter-spacing: -0.01em;
+  margin: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.ageLine {
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: var(--color-on-surface);
+  margin: 0.15rem 0 0;
+  font-family: var(--font-label);
+}
+
+.meta {
+  font-size: 0.7rem;
+  color: var(--color-on-surface-variant);
+  margin: 0;
+  font-family: var(--font-label);
+}
+
+/* ============================ Narrative ============================ */
+
+.narrative {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.narrativeLine {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.55rem;
+  font-size: 0.78rem;
+  line-height: 1.4;
+  color: var(--color-on-surface);
+  font-family: var(--font-label);
+}
+
+.narrativeIcon {
+  font-size: 16px;
+  line-height: 1.4;
+  flex-shrink: 0;
+  color: var(--color-primary);
+  margin-top: 0.05rem;
+}
+
+.narrativeText {
+  flex: 1;
+  min-width: 0;
+}
+
+/* ============================ Footer ============================ */
+
+.footer {
+  margin-top: auto;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--color-outline-variant);
+}
+
+.actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.btnSkip {
+  padding: 0.45rem 0.7rem;
+  border-radius: var(--radius-lg);
+  font-size: 10px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--color-on-surface-variant);
+  background: transparent;
+  border: 1px solid transparent;
+  cursor: pointer;
+  transition: background 0.2s ease, color 0.2s ease, border-color 0.2s ease;
+}
+.btnSkip:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--color-on-surface) 6%, transparent);
+  color: var(--color-on-surface);
+  border-color: var(--color-outline-variant);
+}
+.btnSkip:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.btnSelect {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.45rem 0.7rem;
+  border-radius: var(--radius-lg);
+  font-size: 10px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--color-on-primary);
+  background: var(--color-primary);
+  border: 1px solid var(--color-primary);
+  cursor: pointer;
+  transition: transform 0.15s ease, background 0.2s ease, box-shadow 0.2s ease;
+  box-shadow: 0 4px 12px -4px color-mix(in srgb, var(--color-primary) 60%, transparent);
+}
+.btnSelect:hover:not(:disabled) {
+  background: var(--color-primary-fixed);
+  transform: translateY(-1px);
+  box-shadow: 0 6px 18px -4px color-mix(in srgb, var(--color-primary) 80%, transparent);
+}
+.btnSelect:active:not(:disabled) {
+  transform: translateY(0);
+}
+.btnSelect:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* ============================ Spinner ============================ */
+
+.spinner {
+  font-size: 14px;
+  animation: spin 0.9s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* ============================ Reduced motion ============================ */
+
+@media (prefers-reduced-motion: reduce) {
+  .scene,
+  .tilt,
+  .btnSkip,
+  .btnSelect {
+    animation: none !important;
+    transition: none !important;
+  }
+}
