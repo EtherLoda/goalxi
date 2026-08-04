@@ -18,7 +18,7 @@ export enum LeagueNewsItemType {
 
 @Exclude()
 export class LeagueNewsItemDto {
-  @UUIDField()
+  @NumberField()
   @Expose()
   id: string;
 
@@ -47,9 +47,9 @@ export class LeagueNewsItemDto {
   week: number;
 
   // Transfer specific
-  @UUIDField()
+  @NumberField()
   @Expose()
-  playerId?: string;
+  playerId?: number;
 
   @StringField()
   @Expose()
@@ -68,7 +68,7 @@ export class LeagueNewsItemDto {
   amount?: number;
 
   // Match specific
-  @UUIDField()
+  @NumberField()
   @Expose()
   matchId?: string;
 

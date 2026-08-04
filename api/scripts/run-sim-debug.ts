@@ -163,35 +163,34 @@ function pickTeamEleven(players: PlayerEntity[]): Ranked {
 function home433Lineup(eleven: Ranked): Record<string, string | null> {
   const { gk, outfield } = eleven;
   return {
-    GK: gk?.id ?? null,
-    LB: outfield[0]?.id ?? null,
-    CB1: outfield[1]?.id ?? null,
-    CB2: outfield[2]?.id ?? null,
-    CB3: outfield[3]?.id ?? null,
-    RB: outfield[4]?.id ?? null,
-    CM1: outfield[5]?.id ?? null,
-    CM2: outfield[6]?.id ?? null,
-    CM3: outfield[7]?.id ?? null,
-    LW: outfield[8]?.id ?? null,
-    CF: outfield[9]?.id ?? null, // Only 10 outfield → drop the RW,
-    // run 4-3-3 with CF instead of full trio.
+    GK: gk?.id != null ? String(gk.id) : null,
+    LB: outfield[0]?.id != null ? String(outfield[0].id) : null,
+    CB1: outfield[1]?.id != null ? String(outfield[1].id) : null,
+    CB2: outfield[2]?.id != null ? String(outfield[2].id) : null,
+    CB3: outfield[3]?.id != null ? String(outfield[3].id) : null,
+    RB: outfield[4]?.id != null ? String(outfield[4].id) : null,
+    CM1: outfield[5]?.id != null ? String(outfield[5].id) : null,
+    CM2: outfield[6]?.id != null ? String(outfield[6].id) : null,
+    CM3: outfield[7]?.id != null ? String(outfield[7].id) : null,
+    LW: outfield[8]?.id != null ? String(outfield[8].id) : null,
+    CF: outfield[9]?.id != null ? String(outfield[9].id) : null,
   };
 }
 
 function away4231Lineup(eleven: Ranked): Record<string, string | null> {
   const { gk, outfield } = eleven;
   return {
-    GK: gk?.id ?? null,
-    LB: outfield[0]?.id ?? null,
-    CB1: outfield[1]?.id ?? null,
-    CB2: outfield[2]?.id ?? null,
-    RB: outfield[3]?.id ?? null,
-    DMF1: outfield[4]?.id ?? null,
-    DMF2: outfield[5]?.id ?? null,
-    CAM1: outfield[6]?.id ?? null,
-    CAM2: outfield[7]?.id ?? null,
-    CAM3: outfield[8]?.id ?? null,
-    CF: outfield[9]?.id ?? null,
+    GK: gk?.id != null ? String(gk.id) : null,
+    LB: outfield[0]?.id != null ? String(outfield[0].id) : null,
+    CB1: outfield[1]?.id != null ? String(outfield[1].id) : null,
+    CB2: outfield[2]?.id != null ? String(outfield[2].id) : null,
+    RB: outfield[3]?.id != null ? String(outfield[3].id) : null,
+    DMF1: outfield[4]?.id != null ? String(outfield[4].id) : null,
+    DMF2: outfield[5]?.id != null ? String(outfield[5].id) : null,
+    CAM1: outfield[6]?.id != null ? String(outfield[6].id) : null,
+    CAM2: outfield[7]?.id != null ? String(outfield[7].id) : null,
+    CAM3: outfield[8]?.id != null ? String(outfield[8].id) : null,
+    CF: outfield[9]?.id != null ? String(outfield[9].id) : null,
   };
 }
 
@@ -241,7 +240,9 @@ async function run() {
   // cache stays in sync (we rely on this cache later for the simulate
   // gate check).
   const farFuture = new Date(Date.now() + 60 * 60 * 1000);
-  console.log('📡 PATCH scheduledAt → +60min (so POST tactics passes deadline)');
+  console.log(
+    '📡 PATCH scheduledAt → +60min (so POST tactics passes deadline)',
+  );
   await patchMatchScheduledAt(match.id, farFuture.toISOString());
   console.log('   ✓ ok\n');
 

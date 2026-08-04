@@ -1,8 +1,7 @@
-import { Uuid } from '@/common/types/common.type';
 import { PlayerEventType } from '@goalxi/database';
 
 export class CreatePlayerEventDto {
-  playerId!: Uuid;
+  playerId!: number;
   season!: number;
   date!: Date;
   eventType!: PlayerEventType;

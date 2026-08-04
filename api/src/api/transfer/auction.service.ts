@@ -37,7 +37,7 @@ interface TransferSettlementJobData {
   type: 'BUYOUT' | 'AUCTION_COMPLETE';
   transactionId: string;
   auctionId: string;
-  playerId: string;
+  playerId: number;
   buyerTeamId: string;
   sellerTeamId: string;
   amount: number;

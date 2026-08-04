@@ -4,20 +4,15 @@ import {
   NumberField,
   StringField,
   StringFieldOptional,
-  UUIDField,
   UUIDFieldOptional,
 } from '@/decorators/field.decorators';
 import { Exclude, Expose, Transform } from 'class-transformer';
 
 @Exclude()
 export class PlayerPublicResDto {
-  @UUIDField()
+  @NumberField({ int: true })
   @Expose()
-  id: string;
-
-  @StringField()
-  @Expose()
-  displayId: string;
+  id: number;
 
   @UUIDFieldOptional()
   @Expose()

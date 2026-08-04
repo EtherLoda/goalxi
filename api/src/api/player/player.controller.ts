@@ -1,5 +1,4 @@
 import { OffsetPaginatedDto } from '@/common/dto/offset-pagination/paginated.dto';
-import { Uuid } from '@/common/types/common.type';
 import { ApiAuth } from '@/decorators/http.decorators';
 import {
   Body,
@@ -48,7 +47,7 @@ export class PlayerController {
   }
 
   @Public()
-  @ApiAuth({ summary: 'Get a player by ID or displayId' })
+  @ApiAuth({ summary: 'Get a player by ID' })
   @Get(':id')
   @ApiOkResponse({ type: PlayerResDto })
   async findOne(@Param('id') id: string): Promise<PlayerResDto> {
@@ -59,7 +58,7 @@ export class PlayerController {
   @Patch(':id')
   @ApiOkResponse({ type: PlayerResDto })
   async update(
-    @Param('id') id: Uuid,
+    @Param('id') id: number,
     @Body() updatePlayerDto: UpdatePlayerReqDto,
   ): Promise<PlayerResDto> {
     return this.playerService.update(id, updatePlayerDto);
@@ -68,7 +67,7 @@ export class PlayerController {
   @ApiAuth({ summary: 'Delete a player' })
   @Delete(':id')
   @ApiOkResponse({ type: PlayerResDto })
-  async remove(@Param('id') id: Uuid): Promise<void> {
+  async remove(@Param('id') id: number): Promise<void> {
     return this.playerService.delete(id);
   }
 
@@ -80,7 +79,7 @@ export class PlayerController {
   @ApiAuth({ summary: 'Release a youth player from the academy' })
   @Post(':id/release')
   @ApiOkResponse({ type: PlayerResDto })
-  async release(@Param('id') id: Uuid): Promise<void> {
+  async release(@Param('id') id: number): Promise<void> {
     return this.playerService.releaseYouth(id);
   }
 
@@ -93,7 +92,7 @@ export class PlayerController {
   @ApiAuth({ summary: 'Promote a youth player to senior squad' })
   @Post(':id/promote')
   @ApiOkResponse({ type: PlayerResDto })
-  async promote(@Param('id') id: Uuid): Promise<PlayerResDto> {
+  async promote(@Param('id') id: number): Promise<PlayerResDto> {
     return this.playerService.promote(id);
   }
 }

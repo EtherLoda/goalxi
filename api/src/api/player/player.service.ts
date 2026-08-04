@@ -1,17 +1,12 @@
 import { OffsetPaginatedDto } from '@/common/dto/offset-pagination/paginated.dto';
-import { Uuid } from '@/common/types/common.type';
-import { isUuid } from '@/common/utils/is-uuid.util';
 import { paginate } from '@/utils/offset-pagination';
 import {
   PlayerEntity,
   PlayerSkills,
   PROMOTION_REVEAL_THRESHOLD,
   calculatePlayerPWI,
-  displayIdFromUuid,
-  formatDisplayId,
   formatPWI,
   getYouthSkillKeys,
-  isValidDisplayId,
 } from '@goalxi/database';
 import {
   Injectable,
@@ -21,7 +16,6 @@ import {
 } from '@nestjs/common';
 import assert from 'assert';
 import { plainToInstance } from 'class-transformer';
-import { v4 as uuidv4 } from 'uuid';
 import {
   getRandomNameByNationality,
   getRandomNationality,
@@ -66,20 +60,15 @@ export class PlayerService {
     );
   }
 
-  async findOne(idOrDId: string): Promise<PlayerResDto> {
-    assert(idOrDId, 'id is required');
+  async findOne(id: string): Promise<PlayerResDto> {
+    assert(id, 'id is required');
 
-    let player: PlayerEntity | null = null;
-    if (isUuid(idOrDId)) {
-      player = await PlayerEntity.findOneBy({ id: idOrDId as Uuid });
-    } else if (isValidDisplayId(idOrDId)) {
-      player = await PlayerEntity.findOneBy({ displayId: idOrDId });
-    } else {
-      throw new NotFoundException(
-        'Invalid player identifier (expected UUID or 11-digit displayId)',
-      );
+    const numericId = parseInt(id, 10);
+    if (isNaN(numericId)) {
+      throw new NotFoundException('Invalid player ID (expected numeric)');
     }
 
+    const player = await PlayerEntity.findOneBy({ id: numericId });
     if (!player) {
       throw new NotFoundException('Player not found');
     }
@@ -92,12 +81,7 @@ export class PlayerService {
       reqDto.isGoalkeeper || false,
     );
 
-    const id = uuidv4();
-    const displayId = formatDisplayId(displayIdFromUuid(id));
-
     const player = new PlayerEntity({
-      id: id as Uuid,
-      displayId,
       name: reqDto.name,
       nationality: reqDto.nationality,
       teamId: reqDto.teamId,
@@ -113,7 +97,7 @@ export class PlayerService {
     return this.mapToResDto(player);
   }
 
-  async update(id: Uuid, reqDto: UpdatePlayerReqDto): Promise<PlayerResDto> {
+  async update(id: number, reqDto: UpdatePlayerReqDto): Promise<PlayerResDto> {
     assert(id, 'id is required');
     const player = await PlayerEntity.findOneByOrFail({ id });
 
@@ -133,7 +117,7 @@ export class PlayerService {
     return this.mapToResDto(player);
   }
 
-  async delete(id: Uuid): Promise<void> {
+  async delete(id: number): Promise<void> {
     assert(id, 'id is required');
     const player = await PlayerEntity.findOneByOrFail({ id });
     await player.softRemove();
@@ -149,7 +133,7 @@ export class PlayerService {
    * youth they don't want, the row is soft-deleted (preserved for
    * transfer history / event log), and the youth_list query hides it.
    */
-  async releaseYouth(id: Uuid): Promise<void> {
+  async releaseYouth(id: number): Promise<void> {
     const player = await PlayerEntity.findOneByOrFail({ id });
     if (!player.isYouth) {
       throw new BadRequestException(
@@ -168,7 +152,7 @@ export class PlayerService {
    * aspirational (the check was missing). Curl/Postman cannot promote
    * a 0-revealed youth any more.
    */
-  async promote(id: Uuid): Promise<PlayerResDto> {
+  async promote(id: number): Promise<PlayerResDto> {
     const player = await PlayerEntity.findOneByOrFail({ id });
     if (!player.isYouth) {
       throw new BadRequestException('Player is not a youth player');
@@ -213,12 +197,7 @@ export class PlayerService {
         this.generateRandomSkills(isGoalkeeper);
       const potentialAbility = this.calculatePotentialAbility(potentialSkills);
 
-      const id = uuidv4();
-      const displayId = formatDisplayId(displayIdFromUuid(id));
-
       const player = new PlayerEntity({
-        id: id as Uuid,
-        displayId,
         name: `${firstName} ${lastName}`,
         nationality: playerNationality,
         teamId: teamId || null,
@@ -367,7 +346,6 @@ export class PlayerService {
     const pwiResult = calculatePlayerPWI(player);
     return plainToInstance(DtoClass, {
       id: player.id,
-      displayId: player.displayId,
       teamId: player.teamId,
       name: player.name,
       nationality: player.nationality,

@@ -304,7 +304,7 @@ export class MatchCompletionService {
     }
   }
 
-  private ensurePlayerInMap(map: Map<string, any>, playerId: string) {
+  private ensurePlayerInMap(map: Map<number, any>, playerId: number) {
     if (!map.has(playerId)) {
       map.set(playerId, {
         goals: 0,

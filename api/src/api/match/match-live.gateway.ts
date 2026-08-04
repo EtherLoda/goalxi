@@ -26,7 +26,7 @@ interface MatchEventPayload {
   matchId: string;
   minute: number;
   teamId?: string;
-  playerId?: string;
+  playerId?: number;
   playerName?: string;
   data?: any;
   eventScheduledTime?: number;

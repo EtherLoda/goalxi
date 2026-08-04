@@ -44,10 +44,10 @@ export class SearchService {
   }
 
   async searchPlayers(reqDto: SearchPlayersReqDto) {
-    // Exact dId lookup takes precedence over text search.
-    if (reqDto.dId) {
+    // Exact playerId lookup takes precedence over text search.
+    if (reqDto.playerId) {
       const player = await this.playerRepo.findOne({
-        where: { displayId: reqDto.dId },
+        where: { id: reqDto.playerId },
         relations: ['team'],
       });
       if (!player) {
@@ -82,7 +82,6 @@ export class SearchService {
   private toPlayerSearchResult(player: PlayerEntity) {
     return {
       id: player.id,
-      displayId: player.displayId,
       name: player.name,
       teamId: player.teamId,
       teamName: player.team?.name,

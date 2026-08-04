@@ -478,14 +478,14 @@ export class MatchService {
     const teamPlayerIds = teamPlayers.map((p) => p.id);
 
     // Create a map of playerId -> isGoalkeeper for validation
-    const playerRoles = new Map<string, boolean>();
+    const playerRoles = new Map<number, boolean>();
     teamPlayers.forEach((p) => {
       playerRoles.set(p.id, p.isGoalkeeper);
     });
 
     const validation = LineupValidator.validate(
       lineup,
-      teamPlayerIds,
+      teamPlayerIds.map(String),
       playerRoles,
     );
     if (!validation.valid) {

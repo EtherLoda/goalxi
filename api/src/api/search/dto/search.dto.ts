@@ -41,9 +41,8 @@ export class SearchPlayersReqDto {
   limit?: number;
 
   @IsOptional()
-  @IsString()
-  @Matches(/^\d{11}$/, { message: 'dId must be exactly 11 digits' })
-  dId?: string;
+  @NumberFieldOptional({ min: 100000001, max: 999999999 })
+  playerId?: number;
 }
 
 export class SearchLeaguesReqDto {

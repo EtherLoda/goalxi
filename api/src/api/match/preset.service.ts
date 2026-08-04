@@ -109,7 +109,7 @@ export class PresetService {
       });
       const teamPlayerIds = teamPlayers.map((p) => p.id);
 
-      const validation = LineupValidator.validate(dto.lineup, teamPlayerIds);
+      const validation = LineupValidator.validate(dto.lineup, teamPlayerIds.map(String));
       if (!validation.valid) {
         throw new BadRequestException(validation.errors.join(', '));
       }

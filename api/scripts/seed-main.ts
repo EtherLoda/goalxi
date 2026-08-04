@@ -1,8 +1,6 @@
 import {
-  displayIdFromUuid,
   FanEntity,
   FinanceEntity,
-  formatDisplayId,
   FormationKey,
   generateAutoLineup,
   generateUniqueShortCode,
@@ -632,10 +630,7 @@ async function createLeaguePyramid() {
       }
       const currentWage = calculatePlayerWage(skillValues, skillKeys);
 
-      const playerId = uuidv4();
       const player = new PlayerEntity({
-        id: playerId as any,
-        displayId: formatDisplayId(displayIdFromUuid(playerId)),
         name: playerData.name,
         teamId: team.id,
         isGoalkeeper: isGK,

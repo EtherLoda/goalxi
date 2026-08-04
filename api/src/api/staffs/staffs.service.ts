@@ -314,7 +314,7 @@ export class StaffsService {
    */
   async assignPlayer(
     coachId: string,
-    playerId: string,
+    playerId: number,
   ): Promise<CoachPlayerAssignmentEntity> {
     const coach = await this.findOne(coachId);
     if (!coach.isActive) {
@@ -322,7 +322,7 @@ export class StaffsService {
     }
 
     const player = await this.playerRepo.findOne({
-      where: { id: playerId as Uuid },
+      where: { id: playerId },
     });
     if (!player) {
       throw new NotFoundException('Player not found');
@@ -425,7 +425,7 @@ export class StaffsService {
 
   /** Get all assignments for a player */
   async getAssignmentsByPlayer(
-    playerId: string,
+    playerId: number,
   ): Promise<CoachPlayerAssignmentEntity[]> {
     return this.assignmentRepo.find({
       where: { playerId },

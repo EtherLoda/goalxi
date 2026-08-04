@@ -2,7 +2,7 @@ import { Expose } from 'class-transformer';
 
 export class CompetitionStatsEntryDto {
   @Expose()
-  playerId!: string;
+  playerId!: number;
 
   @Expose()
   playerName!: string;

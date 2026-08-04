@@ -1,6 +1,5 @@
 import { PlayerEntity } from '@goalxi/database';
 import { Test, TestingModule } from '@nestjs/testing';
-import { Uuid } from '../../common/types/common.type';
 import { CreatePlayerReqDto } from './dto/create-player.req.dto';
 import { UpdatePlayerReqDto } from './dto/update-player.req.dto';
 import { PlayerService } from './player.service';
@@ -35,7 +34,7 @@ describe('PlayerService', () => {
         .spyOn(PlayerEntity.prototype, 'save')
         .mockImplementation(async function () {
           Object.assign(this, {
-            id: 'test-uuid',
+            id: 100000001,
             createdAt: new Date(),
             updatedAt: new Date(),
           });
@@ -58,7 +57,7 @@ describe('PlayerService', () => {
         .spyOn(PlayerEntity.prototype, 'save')
         .mockImplementation(async function () {
           Object.assign(this, {
-            id: 'test-uuid',
+            id: 100000001,
             createdAt: new Date(),
             updatedAt: new Date(),
           });
@@ -74,7 +73,7 @@ describe('PlayerService', () => {
 
   describe('update', () => {
     it('should update player teamId', async () => {
-      const playerId = 'test-uuid' as Uuid;
+      const playerId = 100000001;
       const updateDto: UpdatePlayerReqDto = {
         teamId: 'new-team-uuid',
       };
@@ -243,29 +242,8 @@ describe('PlayerService', () => {
     });
   });
 
-  describe('create — auto-generates displayId', () => {
-    it('assigns an 11-digit displayId alongside the UUID', async () => {
-      jest
-        .spyOn(PlayerEntity.prototype, 'save')
-        .mockImplementation(async function () {
-          Object.assign(this, {
-            id: 'some-uuid',
-            createdAt: new Date(),
-            updatedAt: new Date(),
-          });
-          return this;
-        });
-
-      const result = await service.create({ name: 'Demo' } as any);
-
-      expect(result.displayId).toMatch(/^\d{11}$/);
-      expect(result.id).toBeDefined();
-    });
-  });
-
-  describe('findOne — UUID or displayId resolution', () => {
-    const VALID_UUID = '550e8400-e29b-41d4-a716-446655440000';
-    const VALID_DID = '12345678901';
+  describe('findOne — numeric ID resolution', () => {
+    const VALID_NUMERIC_ID = 100000001;
 
     beforeEach(() => {
       jest
@@ -273,10 +251,9 @@ describe('PlayerService', () => {
         .mockImplementation((async () => null) as never);
     });
 
-    it('resolves by UUID when the param is a UUID', async () => {
+    it('resolves by numeric id', async () => {
       const player = Object.assign(new PlayerEntity(), {
-        id: VALID_UUID as Uuid,
-        displayId: VALID_DID,
+        id: VALID_NUMERIC_ID,
         name: 'F1',
         currentSkills: {
           physical: {},
@@ -293,52 +270,24 @@ describe('PlayerService', () => {
       });
       (PlayerEntity.findOneBy as jest.Mock).mockResolvedValue(player);
 
-      const result = await service.findOne(VALID_UUID);
+      const result = await service.findOne(String(VALID_NUMERIC_ID));
 
-      expect(PlayerEntity.findOneBy).toHaveBeenCalledWith({ id: VALID_UUID });
-      expect(result.displayId).toBe(VALID_DID);
-    });
-
-    it('resolves by displayId when the param is an 11-digit number', async () => {
-      const player = Object.assign(new PlayerEntity(), {
-        id: VALID_UUID as Uuid,
-        displayId: VALID_DID,
-        name: 'F2',
-        currentSkills: {
-          physical: {},
-          technical: {},
-          mental: {},
-          setPieces: {},
-        },
-        potentialSkills: {
-          physical: {},
-          technical: {},
-          mental: {},
-          setPieces: {},
-        },
-      });
-      (PlayerEntity.findOneBy as jest.Mock).mockResolvedValue(player);
-
-      const result = await service.findOne(VALID_DID);
-
-      expect(PlayerEntity.findOneBy).toHaveBeenCalledWith({
-        displayId: VALID_DID,
-      });
-      expect(result.id).toBe(VALID_UUID);
+      expect(PlayerEntity.findOneBy).toHaveBeenCalledWith({ id: VALID_NUMERIC_ID });
+      expect(result.id).toBe(VALID_NUMERIC_ID);
     });
 
     it('throws NotFoundException for an invalid identifier', async () => {
       await expect(service.findOne('!!!')).rejects.toThrow();
     });
 
-    it('throws NotFoundException when the displayId is unknown', async () => {
+    it('throws NotFoundException when the player is not found', async () => {
       (PlayerEntity.findOneBy as jest.Mock).mockResolvedValue(null);
-      await expect(service.findOne(VALID_DID)).rejects.toThrow();
+      await expect(service.findOne(String(VALID_NUMERIC_ID))).rejects.toThrow();
     });
   });
 
   describe('promote — server-enforced reveal gate (WAVE B1)', () => {
-    const playerId = '11111111-1111-4111-8111-111111111111';
+    const playerId = 100000001;
 
     // Build a real PlayerEntity-shaped instance (via Object.create so
     // the prototype chain carries `save`, which the service calls).
@@ -377,14 +326,14 @@ describe('PlayerService', () => {
 
     it('rejects a non-youth player outright with 400', async () => {
       setup(youth({ isYouth: false }));
-      await expect(service.promote(playerId as Uuid)).rejects.toThrow(
+      await expect(service.promote(playerId)).rejects.toThrow(
         /not a youth player/,
       );
     });
 
     it('rejects an outfield player with 0 revealed skills (10 keys)', async () => {
       setup(youth({ revealedSkills: [] }));
-      await expect(service.promote(playerId as Uuid)).rejects.toThrow(
+      await expect(service.promote(playerId)).rejects.toThrow(
         /not enough skills revealed/i,
       );
     });
@@ -395,7 +344,7 @@ describe('PlayerService', () => {
           revealedSkills: ['pace', 'strength', 'finishing', 'passing'],
         }),
       );
-      await expect(service.promote(playerId as Uuid)).rejects.toThrow(
+      await expect(service.promote(playerId)).rejects.toThrow(
         /not enough skills revealed/i,
       );
     });
@@ -412,7 +361,7 @@ describe('PlayerService', () => {
           ],
         }),
       );
-      const result = await service.promote(playerId as Uuid);
+      const result = await service.promote(playerId);
       expect(result.isYouth).toBe(false);
     });
 
@@ -423,7 +372,7 @@ describe('PlayerService', () => {
           revealedSkills: ['pace', 'strength', 'reflexes', 'handling'],
         }),
       );
-      await expect(service.promote(playerId as Uuid)).rejects.toThrow(
+      await expect(service.promote(playerId)).rejects.toThrow(
         /not enough skills revealed/i,
       );
     });
@@ -441,7 +390,7 @@ describe('PlayerService', () => {
           ],
         }),
       );
-      const result = await service.promote(playerId as Uuid);
+      const result = await service.promote(playerId);
       expect(result.isYouth).toBe(false);
     });
 
@@ -460,7 +409,7 @@ describe('PlayerService', () => {
       });
       setup(p);
 
-      await service.promote(playerId as Uuid);
+      await service.promote(playerId);
 
       expect(p.isYouth).toBe(false);
       expect(p.revealedSkills).toEqual([]);
@@ -490,7 +439,7 @@ describe('PlayerService', () => {
       });
       setup(p);
 
-      await service.releaseYouth(playerId as Uuid);
+      await service.releaseYouth(playerId);
       expect(PlayerEntity.prototype.softRemove).toHaveBeenCalledTimes(1);
     });
 
@@ -503,7 +452,7 @@ describe('PlayerService', () => {
       setup(p);
 
       await expect(
-        service.releaseYouth(playerId as Uuid),
+        service.releaseYouth(playerId),
       ).rejects.toThrow(/only youth players can be released/i);
       expect(PlayerEntity.prototype.softRemove).not.toHaveBeenCalled();
     });
@@ -517,7 +466,7 @@ describe('PlayerService', () => {
         });
 
       await expect(
-        service.releaseYouth(playerId as Uuid),
+        service.releaseYouth(playerId),
       ).rejects.toThrow(/not found/);
     });
   });

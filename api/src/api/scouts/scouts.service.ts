@@ -137,10 +137,6 @@ export class ScoutsService {
     });
     const youthLeagueId = youthTeam?.youthLeagueId ?? null;
 
-    const crypto = require('crypto');
-    const displayId =
-      'x' + crypto.createHash('md5').update(candidate.id).digest('hex').slice(0, 16);
-
     // Recompute PA from the persisted potential-skills vector so the UI
     // badge reflects the candidate's *true* potential instead of a
     // placeholder 50. (See the unified PlayerEntity: potentialAbility
@@ -169,8 +165,6 @@ export class ScoutsService {
     const revealLevel = Math.min(revealed.length, totalKeys);
 
     const youth = this.playerRepo.create({
-      id: candidate.id,
-      displayId,
       teamId: candidate.teamId,
       isGoalkeeper: playerData.isGoalkeeper,
       isYouth: true,
@@ -186,18 +180,18 @@ export class ScoutsService {
       matchMinutes: 0,
       currentWage: 2000,
       potentialAbility,
-      careerStats: {},
+      careerStats: { club: { matches: 0, goals: 0, assists: 0, tackles: 0, yellowCards: 0, redCards: 0 } },
       currentInjuryValue: 0,
       revealLevel,
       revealedSkills: revealed,
       potentialRevealed: playerData.potentialRevealed,
       potentialTier: playerData.potentialTier,
       createdDay: playerData.createdDay ?? currentGameDay(),
-    } as any);
+    } as Partial<PlayerEntity>);
 
-    await this.playerRepo.save(youth as any);
+    await this.playerRepo.save(youth);
     await this.candidateRepo.delete({ id: candidateId });
-    return youth as unknown as PlayerEntity;
+    return youth as PlayerEntity;
   }
 
   /** Skip a candidate → delete it */

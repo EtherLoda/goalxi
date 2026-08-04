@@ -1,4 +1,4 @@
-import { PlayerEventEntity, PlayerEventType, Uuid } from '@goalxi/database';
+import { PlayerEventEntity, PlayerEventType } from '@goalxi/database';
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { plainToInstance } from 'class-transformer';
@@ -14,7 +14,7 @@ export class PlayerEventService {
   ) {}
 
   async findByPlayer(
-    playerId: Uuid,
+    playerId: number,
     season?: number,
   ): Promise<PlayerEventResDto[]> {
     const query = this.eventRepo
@@ -31,7 +31,7 @@ export class PlayerEventService {
   }
 
   async create(dto: CreatePlayerEventDto): Promise<PlayerEventResDto> {
-    const event = this.eventRepo.create(dto as Partial<PlayerEventEntity>);
+    const event = this.eventRepo.create(dto as any);
     const saved = await this.eventRepo.save(event);
     return plainToInstance(PlayerEventResDto, saved);
   }
@@ -39,16 +39,16 @@ export class PlayerEventService {
   async createBatch(
     dtos: CreatePlayerEventDto[],
   ): Promise<PlayerEventResDto[]> {
-    const events = this.eventRepo.create(dtos as Partial<PlayerEventEntity>[]);
+    const events = this.eventRepo.create(dtos as any[]);
     const saved = await this.eventRepo.save(events);
     return saved.map((e) => plainToInstance(PlayerEventResDto, e));
   }
 
   async createIfNotExists(
-    playerId: Uuid,
+    playerId: number,
     eventType: PlayerEventType,
     season: number,
-    matchId?: Uuid,
+    matchId?: string,
   ): Promise<PlayerEventResDto | null> {
     // Check if event already exists for this player/match
     if (matchId) {

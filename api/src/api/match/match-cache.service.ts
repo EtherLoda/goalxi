@@ -12,8 +12,8 @@ interface CachedMatchEvent {
   type: number;
   typeName: string;
   teamId?: string;
-  playerId?: string;
-  relatedPlayerId?: string;
+  playerId?: number;
+  relatedPlayerId?: number;
   data?: Record<string, any>;
   eventScheduledTime?: Date;
   isRevealed: boolean;
