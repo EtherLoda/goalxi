@@ -52,7 +52,7 @@ export const LANES: readonly Lane[] = ['left', 'center', 'right'];
 
 export interface MatchSnapshotPlayer {
   id: number;
-  /** Position key from the engine. May be canonical (CB1) or legacy alias (CB). */
+  /** Position key from the engine. May be canonical (CBL) or legacy alias (CB). */
   p: string;
   n?: string;
   /** Current stamina 0–6 (engine scale; a fresh player = 6, exhausted = 0). */

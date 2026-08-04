@@ -49,7 +49,10 @@ export class PresetService {
     });
     const teamPlayerIds = teamPlayers.map((p) => p.id);
 
-    const validation = LineupValidator.validate(dto.lineup, teamPlayerIds);
+    const validation = LineupValidator.validate(
+      dto.lineup,
+      teamPlayerIds.map(String),
+    );
     if (!validation.valid) {
       throw new BadRequestException(validation.errors.join(', '));
     }
@@ -81,11 +84,13 @@ export class PresetService {
       instructions: dto.instructions || null,
       substitutions: dto.substitutions || null,
       isDefault: dto.isDefault || false,
-    });
+    } as Partial<TacticsPresetEntity>);
 
-    const savedPreset = await this.presetRepository.save(preset);
+    const savedPreset = await this.presetRepository.save(
+      preset as TacticsPresetEntity,
+    );
 
-    return this.mapToResDto(savedPreset);
+    return this.mapToResDto(savedPreset as TacticsPresetEntity);
   }
 
   async update(

@@ -70,8 +70,8 @@ describe('buildCards', () => {
   it('emits a card per pitch slot when only lineup is provided', () => {
     const tactics = mkTactics({
       GK: 4,
-      LB: 5, CB1: 6, CB2: 7, RB: 8,
-      CM1: 9, CM2: 10, CM3: 12,
+      LB: 5, CBL: 6, CB: 7, RB: 8,
+      CML: 9, CM: 10, CMR: 12,
       LW: 13, CF: 1, RW: 14,
     });
     const cards = buildCards(tactics, null, mkRoster([
@@ -82,7 +82,7 @@ describe('buildCards', () => {
     expect(cards).toHaveLength(11);
     // Slot key is the authoritative PitchSlot from the lineup.
     expect(cards.find((c) => c.playerId === 4)?.slotKey).toBe('GK');
-    expect(cards.find((c) => c.playerId === 6)?.slotKey).toBe('CB1');
+    expect(cards.find((c) => c.playerId === 6)?.slotKey).toBe('CBL');
     expect(cards.find((c) => c.playerId === 1)?.slotKey).toBe('CF');
   });
 
@@ -129,14 +129,14 @@ describe('buildCards', () => {
     expect(cards[0].slotKey).toBe('CF');
   });
 
-  it('resolves legacy alias snapshot keys (CB → CB1) into canonical slots', () => {
+  it('resolves legacy alias snapshot keys (CB → CBL) into canonical slots', () => {
     const snapshot = {
       minute: 0,
       h: { ps: [mkSnapshotPlayer(2, 'CB')] }, // legacy alias
       a: { ps: [] },
     } as MatchSnapshot;
     const cards = buildCards(null, snapshot.h.ps, mkRoster([]));
-    expect(cards[0].slotKey).toBe('CB1');
+    expect(cards[0].slotKey).toBe('CBL');
   });
 
   it('emits a fallback slotKey === null for unrecognised snapshot positions', () => {
@@ -192,12 +192,12 @@ describe('buildCards', () => {
         ps: [
           mkSnapshotPlayer(4, 'GK'),
           mkSnapshotPlayer(5, 'LB'),
-          mkSnapshotPlayer(6, 'CB1'),
-          mkSnapshotPlayer(7, 'CB2'),
+          mkSnapshotPlayer(6, 'CBL'),
+          mkSnapshotPlayer(7, 'CB'),
           mkSnapshotPlayer(8, 'RB'),
-          mkSnapshotPlayer(9, 'CM1'),
-          mkSnapshotPlayer(10, 'CM2'),
-          mkSnapshotPlayer(12, 'CM3'),
+          mkSnapshotPlayer(9, 'CML'),
+          mkSnapshotPlayer(10, 'CM'),
+          mkSnapshotPlayer(12, 'CMR'),
           mkSnapshotPlayer(13, 'LW'),
           mkSnapshotPlayer(1, 'CF'),
           mkSnapshotPlayer(14, 'RW'),
@@ -221,16 +221,16 @@ describe('buildCards', () => {
       h: {
         ps: [
           mkSnapshotPlayer(4, 'GK'),
-          mkSnapshotPlayer(100, 'CB'),     // → CB1
-          mkSnapshotPlayer(101, 'DM'),     // → DMF1
+          mkSnapshotPlayer(100, 'CB'),     // → CBL
+          mkSnapshotPlayer(101, 'DM'),     // → DMFL
           mkSnapshotPlayer(11, 'CFR'),
         ],
       },
       a: { ps: [] },
     } as MatchSnapshot;
     const cards = buildCards(null, snapshot.h.ps, mkRoster([]));
-    expect(cards.find((c) => c.playerId === 100)?.slotKey).toBe('CB1');
-    expect(cards.find((c) => c.playerId === 101)?.slotKey).toBe('DMF1');
+    expect(cards.find((c) => c.playerId === 100)?.slotKey).toBe('CBL');
+    expect(cards.find((c) => c.playerId === 101)?.slotKey).toBe('DMFL');
     expect(cards.find((c) => c.playerId === 11)?.slotKey).toBe('CFR');
   });
 });

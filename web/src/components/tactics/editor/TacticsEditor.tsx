@@ -249,7 +249,7 @@ export function TacticsEditor({ matchId, match }: TacticsEditorProps) {
     if (state.lock.isLocked) return;
     dispatch({
       type: 'ADD_EVENT',
-      event: { kind: 'move', minute: 60, playerId: '', toSlot: 'CM1' },
+      event: { kind: 'move', minute: 60, playerId: '', toSlot: 'CML' },
     });
   }, [state.lock.isLocked, dispatch]);
 

@@ -38,7 +38,7 @@ describe('slotToMatchCoords', () => {
     // The headline invariant of the match page: players who play the same
     // tactical line stand on the same x-coordinate so they render in a row
     // on the horizontal pitch. The bug report that motivated this layer
-    // was that LB/CB1/CB2/CB3/RB were saw-toothed (x = 24, 22, 20, 22, 24).
+    // was that LB/CBL/CB/CBR/RB were saw-toothed (x = 24, 22, 20, 22, 24).
 
     it('GK line: GK sits at MATCH_LINE_X.GK on the home side', () => {
       const gk = slotToMatchCoords('GK', 'home');
@@ -46,24 +46,24 @@ describe('slotToMatchCoords', () => {
       expect(gk.y).toBe(50);
     });
 
-    it('defensive line: LB / CB1 / CB2 / CB3 / RB all share x = MATCH_LINE_X.DEF', () => {
-      const line: Array<'LB' | 'CB1' | 'CB2' | 'CB3' | 'RB'> = [
-        'LB', 'CB1', 'CB2', 'CB3', 'RB',
+    it('defensive line: LB / CBL / CB / CBR / RB all share x = MATCH_LINE_X.DEF', () => {
+      const line: Array<'LB' | 'CBL' | 'CB' | 'CBR' | 'RB'> = [
+        'LB', 'CBL', 'CB', 'CBR', 'RB',
       ];
       const xs = line.map((s) => slotToMatchCoords(s, 'home').x);
       expect(new Set(xs)).toEqual(new Set([MATCH_LINE_X.DEF]));
     });
 
-    it('defensive line slots are spread across y (top → bottom: LB, CB1, CB2, CB3, RB)', () => {
-      expect(slotToMatchCoords('LB', 'home').y).toBeLessThan(slotToMatchCoords('CB1', 'home').y);
-      expect(slotToMatchCoords('CB1', 'home').y).toBeLessThan(slotToMatchCoords('CB2', 'home').y);
-      expect(slotToMatchCoords('CB2', 'home').y).toBeLessThan(slotToMatchCoords('CB3', 'home').y);
-      expect(slotToMatchCoords('CB3', 'home').y).toBeLessThan(slotToMatchCoords('RB', 'home').y);
+    it('defensive line slots are spread across y (top → bottom: LB, CBL, CB, CBR, RB)', () => {
+      expect(slotToMatchCoords('LB', 'home').y).toBeLessThan(slotToMatchCoords('CBL', 'home').y);
+      expect(slotToMatchCoords('CBL', 'home').y).toBeLessThan(slotToMatchCoords('CB', 'home').y);
+      expect(slotToMatchCoords('CB', 'home').y).toBeLessThan(slotToMatchCoords('CBR', 'home').y);
+      expect(slotToMatchCoords('CBR', 'home').y).toBeLessThan(slotToMatchCoords('RB', 'home').y);
     });
 
-    it('DM line: LWB / DMF1 / DMF2 / DMF3 / RWB all share x = MATCH_LINE_X.DM', () => {
-      const line: Array<'LWB' | 'DMF1' | 'DMF2' | 'DMF3' | 'RWB'> = [
-        'LWB', 'DMF1', 'DMF2', 'DMF3', 'RWB',
+    it('DM line: LWB / DMFL / DMF / DMFR / RWB all share x = MATCH_LINE_X.DM', () => {
+      const line: Array<'LWB' | 'DMFL' | 'DMF' | 'DMFR' | 'RWB'> = [
+        'LWB', 'DMFL', 'DMF', 'DMFR', 'RWB',
       ];
       const xs = line.map((s) => slotToMatchCoords(s, 'home').x);
       expect(new Set(xs)).toEqual(new Set([MATCH_LINE_X.DM]));
@@ -71,23 +71,23 @@ describe('slotToMatchCoords', () => {
 
     it('DM line: wing-backs sit wider than the central DMs', () => {
       const lwb = slotToMatchCoords('LWB', 'home').y;
-      const dmf1 = slotToMatchCoords('DMF1', 'home').y;
+      const dmf1 = slotToMatchCoords('DMFL', 'home').y;
       const rwb = slotToMatchCoords('RWB', 'home').y;
       expect(lwb).toBeLessThan(dmf1);
       expect(rwb).toBeGreaterThan(dmf1);
     });
 
-    it('CM line: LM / CM1 / CM2 / CM3 / RM all share x = MATCH_LINE_X.CM', () => {
-      const line: Array<'LM' | 'CM1' | 'CM2' | 'CM3' | 'RM'> = [
-        'LM', 'CM1', 'CM2', 'CM3', 'RM',
+    it('CM line: LM / CML / CM / CMR / RM all share x = MATCH_LINE_X.CM', () => {
+      const line: Array<'LM' | 'CML' | 'CM' | 'CMR' | 'RM'> = [
+        'LM', 'CML', 'CM', 'CMR', 'RM',
       ];
       const xs = line.map((s) => slotToMatchCoords(s, 'home').x);
       expect(new Set(xs)).toEqual(new Set([MATCH_LINE_X.CM]));
     });
 
-    it('AM line: LW / CAM1 / CAM2 / CAM3 / RW all share x = MATCH_LINE_X.AM', () => {
-      const line: Array<'LW' | 'CAM1' | 'CAM2' | 'CAM3' | 'RW'> = [
-        'LW', 'CAM1', 'CAM2', 'CAM3', 'RW',
+    it('AM line: LW / CAML / CAM / CAMR / RW all share x = MATCH_LINE_X.AM', () => {
+      const line: Array<'LW' | 'CAML' | 'CAM' | 'CAMR' | 'RW'> = [
+        'LW', 'CAML', 'CAM', 'CAMR', 'RW',
       ];
       const xs = line.map((s) => slotToMatchCoords(s, 'home').x);
       expect(new Set(xs)).toEqual(new Set([MATCH_LINE_X.AM]));
@@ -115,7 +115,7 @@ describe('slotToMatchCoords', () => {
     it('CF is at the front (most forward for home), not between GK and CB', () => {
       const cfX = slotToMatchCoords('CF', 'home').x;
       const gkX = slotToMatchCoords('GK', 'home').x;
-      const cbX = slotToMatchCoords('CB2', 'home').x;
+      const cbX = slotToMatchCoords('CB', 'home').x;
       // CF must be further FORWARD than both GK and CB.
       expect(cfX).toBeGreaterThan(gkX);
       expect(cfX).toBeGreaterThan(cbX);
@@ -243,11 +243,11 @@ describe('slotToMatchCoords', () => {
   });
 
   describe('attacking direction', () => {
-    it('home attackers (CAM1-3, CF, CFL, CFR, LW, RW) sit in the home half, closest to the center circle', () => {
+    it('home attackers (CAML-3, CF, CFL, CFR, LW, RW) sit in the home half, closest to the center circle', () => {
       // In the half-restricted layout, "attacking" doesn't mean crossing
       // into the opponent's half — home's FW line is the most forward
       // home position, just 6 units shy of x=50.
-      const attackers = ['CAM1', 'CAM2', 'CAM3', 'CF', 'CFL', 'CFR', 'LW', 'RW'] as const;
+      const attackers = ['CAML', 'CAM', 'CAMR', 'CF', 'CFL', 'CFR', 'LW', 'RW'] as const;
       for (const s of attackers) {
         const x = slotToMatchCoords(s, 'home').x;
         expect(x).toBeLessThan(50);
@@ -258,8 +258,8 @@ describe('slotToMatchCoords', () => {
       expect(fwX).toBe(Math.max(...homeAttackerXs));
     });
 
-    it('away attackers (CAM1-3, CF, CFL, CFR, LW, RW) sit in the away half, closest to the center circle', () => {
-      const attackers = ['CAM1', 'CAM2', 'CAM3', 'CF', 'CFL', 'CFR', 'LW', 'RW'] as const;
+    it('away attackers (CAML-3, CF, CFL, CFR, LW, RW) sit in the away half, closest to the center circle', () => {
+      const attackers = ['CAML', 'CAM', 'CAMR', 'CF', 'CFL', 'CFR', 'LW', 'RW'] as const;
       for (const s of attackers) {
         const x = slotToMatchCoords(s, 'away').x;
         expect(x).toBeGreaterThan(50);
@@ -388,17 +388,17 @@ describe('normalizePitchLineup', () => {
   it('keeps canonical pitch slots untouched', () => {
     const result = normalizePitchLineup({
       GK: 'p-gk',
-      CB1: 'p-cb-1',
-      CB2: 'p-cb-2',
-      CB3: 'p-cb-3',
-      CM1: 'p-cm-1',
+      CBL: 'p-cb-1',
+      CB: 'p-cb-2',
+      CBR: 'p-cb-3',
+      CML: 'p-cm-1',
       CF: 'p-cf',
     });
     expect(result.pitch.GK).toBe('p-gk');
-    expect(result.pitch.CB1).toBe('p-cb-1');
-    expect(result.pitch.CB2).toBe('p-cb-2');
-    expect(result.pitch.CB3).toBe('p-cb-3');
-    expect(result.pitch.CM1).toBe('p-cm-1');
+    expect(result.pitch.CBL).toBe('p-cb-1');
+    expect(result.pitch.CB).toBe('p-cb-2');
+    expect(result.pitch.CBR).toBe('p-cb-3');
+    expect(result.pitch.CML).toBe('p-cm-1');
     expect(result.pitch.CF).toBe('p-cf');
     expect(result.bench).toEqual({});
   });
@@ -408,27 +408,27 @@ describe('normalizePitchLineup', () => {
     // normalizeLineup is last-write-wins — a single slot can hold only one
     // playerId. We pin that behaviour so a regression here is loud.
     const result = normalizePitchLineup({
-      CB: 'p-cb-1',     // → CB1
-      CD: 'p-cb-2',     // → CB2
-      CDR: 'p-cb-3',    // → CB3
-      CDL: 'p-cb-1b',   // → CB1 (overwrites the earlier CB→CB1 entry)
+      CB: 'p-cb-1',     // → CBL
+      CD: 'p-cb-2',     // → CB
+      CDR: 'p-cb-3',    // → CBR
+      CDL: 'p-cb-1b',   // → CBL (overwrites the earlier CB→CBL entry)
     });
-    expect(result.pitch.CB1).toBe('p-cb-1b');
-    expect(result.pitch.CB2).toBe('p-cb-2');
-    expect(result.pitch.CB3).toBe('p-cb-3');
+    expect(result.pitch.CBL).toBe('p-cb-1b');
+    expect(result.pitch.CB).toBe('p-cb-2');
+    expect(result.pitch.CBR).toBe('p-cb-3');
   });
 
   it('folds CM / CMR / DM aliases onto the central midfield family', () => {
     const result = normalizePitchLineup({
-      CM: 'p-cm',     // → CM1
-      CMR: 'p-cmr',   // → CM3
-      DM: 'p-dm',     // → DMF1
-      DMR: 'p-dmr',   // → DMF3
+      CM: 'p-cm',     // → CML
+      CMR: 'p-cmr',   // → CMR
+      DM: 'p-dm',     // → DMFL
+      DMR: 'p-dmr',   // → DMFR
     });
-    expect(result.pitch.CM1).toBe('p-cm');
-    expect(result.pitch.CM3).toBe('p-cmr');
-    expect(result.pitch.DMF1).toBe('p-dm');
-    expect(result.pitch.DMF3).toBe('p-dmr');
+    expect(result.pitch.CML).toBe('p-cm');
+    expect(result.pitch.CMR).toBe('p-cmr');
+    expect(result.pitch.DMFL).toBe('p-dm');
+    expect(result.pitch.DMFR).toBe('p-dmr');
   });
 
   it('preserves bench slots verbatim', () => {
@@ -447,8 +447,8 @@ describe('normalizePitchLineup', () => {
   it('handles a full 4-3-3 lineup without dropping any slot', () => {
     const lineup = {
       GK: 'g',
-      LB: 'lb', CB1: 'cb1', CB2: 'cb2', RB: 'rb',
-      CM1: 'cm1', CM2: 'cm2', CM3: 'cm3',
+      LB: 'lb', CBL: 'cb1', CB: 'cb2', RB: 'rb',
+      CML: 'cm1', CM: 'cm2', CMR: 'cm3',
       LW: 'lw', CF: 'cf', RW: 'rw',
     };
     const result = normalizePitchLineup(lineup);
@@ -463,8 +463,8 @@ describe('normalizePitchLineup', () => {
   it('a 3-5-2 with wing-backs produces LWB + RWB in pitch slots', () => {
     const lineup = {
       GK: 'g',
-      CB1: 'a', CB2: 'b', CB3: 'c',
-      LWB: 'lw', CM1: 'cm1', CM2: 'cm2', CM3: 'cm3', RWB: 'rw',
+      CBL: 'a', CB: 'b', CBR: 'c',
+      LWB: 'lw', CML: 'cm1', CM: 'cm2', CMR: 'cm3', RWB: 'rw',
       CFL: 'cfl', CFR: 'cfr',
     };
     const result = normalizePitchLineup(lineup);

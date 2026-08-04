@@ -11,13 +11,13 @@ import { Lane, Phase } from '../types/simulation.types';
 // ============================================================================
 //
 // The formation editor (`web/src/components/tactics/types.ts`) stores
-// line-up slots as numbered variants (`CB1`, `CB2`, `CB3`, `CM1`, ...,
-// `DMF1`, `CAM1`, etc.) so it can hold multiple players at the same
+// line-up slots as numbered variants (`CBL`, `CB`, `CBR`, `CML`, ...,
+// `DMFL`, `CAML`, etc.) so it can hold multiple players at the same
 // family on the pitch. The simulator's `POSITION_WEIGHTS` matrix only
 // knows the family-level keys (`CB`, `CM`, `DM`, `CAM`, ...). The
 // mismatch silently zeroes every contribution from any numbered slot
 // — verified against match `bd7bbfeb-...` (Aug 2026) where home's
-// three CBs (slot keys `CB1/2/3`) all read as 0 in every lane/phase
+// three CBs (slot keys `CBL/2/3`) all read as 0 in every lane/phase
 // even though their `defending` skill was ~6–9.
 //
 // This map is the single source of truth for the fold. Adding a new
@@ -27,25 +27,22 @@ import { Lane, Phase } from '../types/simulation.types';
 // silently shipping wrong lane-strength numbers.
 
 const SLOT_KEY_NORMALIZER: Readonly<Record<string, string>> = Object.freeze({
-  // Center backs — number suffix is the player-index inside the
-  // formation; the family weight is the same `CB` table.
-  CB1: 'CB',
-  CB2: 'CB',
-  CB3: 'CB',
-  // Defensive midfielder family. Editor uses `DMF<n>`; the matrix
-  // keys are `DM` / `CDM` (both map to the same weights).
-  DMF1: 'DM',
-  DMF2: 'DM',
-  DMF3: 'DM',
-  // Central midfielder family.
-  CM1: 'CM',
-  CM2: 'CM',
-  CM3: 'CM',
-  // Attacking midfielder family. Editor stores `CAM<n>`; the matrix
-  // accepts both `AM` and `CAM` → same weights.
-  CAM1: 'CAM',
-  CAM2: 'CAM',
-  CAM3: 'CAM',
+  // 3-slot centre-back. The side slots (`CBL`/`CBR`) and the centre
+  // slot (`CB`) all fold to the family `CB` so downstream consumers
+  // keyed by family don't have to special-case left/right.
+  CBL: 'CB',
+  CBR: 'CB',
+  // 3-slot defensive midfielder. `DMFL`/`DMFR` are the side slots,
+  // `DMF` is the centre; all fold to `DMF` (the canonical 3-slot
+  // centre key in the position matrix).
+  DMFL: 'DMF',
+  DMFR: 'DMF',
+  // 3-slot central midfielder.
+  CML: 'CM',
+  CMR: 'CM',
+  // 3-slot attacking midfielder.
+  CAML: 'CAM',
+  CAMR: 'CAM',
 });
 
 /**
@@ -57,13 +54,17 @@ const SLOT_KEY_NORMALIZER: Readonly<Record<string, string>> = Object.freeze({
  * (called O(players) per call site).
  */
 export function normalizePositionKey(slotKey: string): string {
-  // Already a known key — short-circuit. The `in` check covers the
-  // wholesale matrix (CF, LB, RB, LW, RW, LM, RM, AM, AML, AMR, ...) and
-  // all bench keys (`BENCH_*`).
-  if (slotKey in POSITION_WEIGHTS) return slotKey;
+  // Note: do NOT short-circuit on `slotKey in POSITION_WEIGHTS`. The
+  // matrix now also lists numbered editor slots (`CBL`, `CM`,
+  // `DMFL`, `CAMR`, ...) as direct keys, but the test contract (and
+  // downstream consumers keyed by family) require the editor's
+  // numbered keys to be folded to their family (`CB`, `CM`, `DM`,
+  // `CAM`). Look the slot up in the normalizer first; if there's no
+  // mapping, the input is already a family / bench key and we return
+  // it as-is.
   const mapped = SLOT_KEY_NORMALIZER[slotKey];
   if (mapped) return mapped;
-  return slotKey; // unknown — caller emits one warning, returns 0
+  return slotKey; // unknown / already a family key
 }
 
 export class AttributeCalculator {
@@ -136,7 +137,7 @@ export class AttributeCalculator {
     lane: Lane,
     phase: Phase,
   ): number {
-    // Fold editor slot keys (CB1, CM2, DMF1, …) to the canonical
+    // Fold editor slot keys (CBL, CM, DMFL, …) to the canonical
     // family key the weight matrix understands. See SLOT_KEY_NORMALIZER
     // for the full mapping and the rationale.
     const normalizedKey = normalizePositionKey(positionKey);

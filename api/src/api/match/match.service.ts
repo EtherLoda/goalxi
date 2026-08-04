@@ -478,9 +478,11 @@ export class MatchService {
     const teamPlayerIds = teamPlayers.map((p) => p.id);
 
     // Create a map of playerId -> isGoalkeeper for validation
-    const playerRoles = new Map<number, boolean>();
+    // LineupValidator keys by string (lineup slot values come in as strings
+    // from the editor), so stringify the int player ids here.
+    const playerRoles = new Map<string, boolean>();
     teamPlayers.forEach((p) => {
-      playerRoles.set(p.id, p.isGoalkeeper);
+      playerRoles.set(String(p.id), p.isGoalkeeper);
     });
 
     const validation = LineupValidator.validate(

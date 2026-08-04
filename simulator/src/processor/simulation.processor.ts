@@ -264,7 +264,7 @@ export class SimulationProcessor extends WorkerHost {
   }
 
   private findPositionInLineup(
-    lineup: Record<string, number> | Record<string, never> | undefined,
+    lineup: Record<string, string | number> | undefined,
     playerId: number,
   ): string | undefined {
     return Object.keys(lineup).find((key) => lineup[key] === playerId);

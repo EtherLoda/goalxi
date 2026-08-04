@@ -20,22 +20,22 @@
 export type PositionKey =
   // Pitch (18)
   | 'GK'
-  | 'CB1'
-  | 'CB2'
-  | 'CB3'
+  | 'CBL'
+  | 'CB'
+  | 'CBR'
   | 'LB'
   | 'RB'
   | 'LWB'
   | 'RWB'
-  | 'DMF1'
-  | 'DMF2'
-  | 'DMF3'
-  | 'CM1'
-  | 'CM2'
-  | 'CM3'
-  | 'CAM1'
-  | 'CAM2'
-  | 'CAM3'
+  | 'DMFL'
+  | 'DMF'
+  | 'DMFR'
+  | 'CML'
+  | 'CM'
+  | 'CMR'
+  | 'CAML'
+  | 'CAM'
+  | 'CAMR'
   | 'LM'
   | 'RM'
   | 'LW'
@@ -58,21 +58,21 @@ export type BenchSlot = Extract<PositionKey, `BENCH_${string}`>;
 export const PITCH_SLOTS: readonly PitchSlot[] = [
   'GK',
   'LB',
-  'CB1',
-  'CB2',
-  'CB3',
+  'CBL',
+  'CB',
+  'CBR',
   'RB',
   'LWB',
   'RWB',
-  'DMF1',
-  'DMF2',
-  'DMF3',
-  'CM1',
-  'CM2',
-  'CM3',
-  'CAM1',
-  'CAM2',
-  'CAM3',
+  'DMFL',
+  'DMF',
+  'DMFR',
+  'CML',
+  'CM',
+  'CMR',
+  'CAML',
+  'CAM',
+  'CAMR',
   'LM',
   'RM',
   'LW',
@@ -127,25 +127,25 @@ export const PITCH_COORDS: Readonly<Record<PitchSlot, { x: number; y: number }>>
   GK: { x: 50, y: 92 },
   // Back four / five (defenders)
   LB: { x: 12, y: 76 },
-  CB1: { x: 32, y: 78 },
-  CB2: { x: 50, y: 80 },
-  CB3: { x: 68, y: 78 },
+  CBL: { x: 32, y: 78 },
+  CB: { x: 50, y: 80 },
+  CBR: { x: 68, y: 78 },
   RB: { x: 88, y: 76 },
   // Wing-backs (5-defender formations)
   LWB: { x: 8, y: 68 },
   RWB: { x: 92, y: 68 },
   // Defensive midfield
-  DMF1: { x: 32, y: 60 },
-  DMF2: { x: 50, y: 62 },
-  DMF3: { x: 68, y: 60 },
+  DMFL: { x: 32, y: 60 },
+  DMF: { x: 50, y: 62 },
+  DMFR: { x: 68, y: 60 },
   // Central midfield
-  CM1: { x: 32, y: 46 },
-  CM2: { x: 50, y: 44 },
-  CM3: { x: 68, y: 46 },
+  CML: { x: 32, y: 46 },
+  CM: { x: 50, y: 44 },
+  CMR: { x: 68, y: 46 },
   // Attacking midfield
-  CAM1: { x: 32, y: 30 },
-  CAM2: { x: 50, y: 28 },
-  CAM3: { x: 68, y: 30 },
+  CAML: { x: 32, y: 30 },
+  CAM: { x: 50, y: 28 },
+  CAMR: { x: 68, y: 30 },
   // Wide midfield
   LM: { x: 10, y: 44 },
   RM: { x: 90, y: 44 },
@@ -166,21 +166,21 @@ export type PositionZone = 'goalkeeper' | 'defense' | 'midfield' | 'attack' | 'b
 export const PITCH_ZONE: Readonly<Record<PitchSlot, Exclude<PositionZone, 'bench'>>> = {
   GK: 'goalkeeper',
   LB: 'defense',
-  CB1: 'defense',
-  CB2: 'defense',
-  CB3: 'defense',
+  CBL: 'defense',
+  CB: 'defense',
+  CBR: 'defense',
   RB: 'defense',
   LWB: 'defense',
   RWB: 'defense',
-  DMF1: 'midfield',
-  DMF2: 'midfield',
-  DMF3: 'midfield',
-  CM1: 'midfield',
-  CM2: 'midfield',
-  CM3: 'midfield',
-  CAM1: 'midfield',
-  CAM2: 'midfield',
-  CAM3: 'midfield',
+  DMFL: 'midfield',
+  DMF: 'midfield',
+  DMFR: 'midfield',
+  CML: 'midfield',
+  CM: 'midfield',
+  CMR: 'midfield',
+  CAML: 'midfield',
+  CAM: 'midfield',
+  CAMR: 'midfield',
   LM: 'midfield',
   RM: 'midfield',
   LW: 'attack',
@@ -204,22 +204,22 @@ export interface PositionDef {
 
 export const POSITION_DEFS: Readonly<Record<PositionKey, PositionDef>> = {
   GK: { key: 'GK', zone: 'goalkeeper', isPitch: true, labelKey: 'tactics.position.GK' },
-  CB1: { key: 'CB1', zone: 'defense', isPitch: true, labelKey: 'tactics.position.CB1' },
-  CB2: { key: 'CB2', zone: 'defense', isPitch: true, labelKey: 'tactics.position.CB1' },
-  CB3: { key: 'CB3', zone: 'defense', isPitch: true, labelKey: 'tactics.position.CB1' },
+  CBL: { key: 'CBL', zone: 'defense', isPitch: true, labelKey: 'tactics.position.CBL' },
+  CB: { key: 'CB', zone: 'defense', isPitch: true, labelKey: 'tactics.position.CBL' },
+  CBR: { key: 'CBR', zone: 'defense', isPitch: true, labelKey: 'tactics.position.CBL' },
   LB: { key: 'LB', zone: 'defense', isPitch: true, labelKey: 'tactics.position.LB' },
   RB: { key: 'RB', zone: 'defense', isPitch: true, labelKey: 'tactics.position.RB' },
   LWB: { key: 'LWB', zone: 'defense', isPitch: true, labelKey: 'tactics.position.LWB' },
   RWB: { key: 'RWB', zone: 'defense', isPitch: true, labelKey: 'tactics.position.RWB' },
-  DMF1: { key: 'DMF1', zone: 'midfield', isPitch: true, labelKey: 'tactics.position.DMF1' },
-  DMF2: { key: 'DMF2', zone: 'midfield', isPitch: true, labelKey: 'tactics.position.DMF1' },
-  DMF3: { key: 'DMF3', zone: 'midfield', isPitch: true, labelKey: 'tactics.position.DMF1' },
-  CM1: { key: 'CM1', zone: 'midfield', isPitch: true, labelKey: 'tactics.position.CM1' },
-  CM2: { key: 'CM2', zone: 'midfield', isPitch: true, labelKey: 'tactics.position.CM1' },
-  CM3: { key: 'CM3', zone: 'midfield', isPitch: true, labelKey: 'tactics.position.CM1' },
-  CAM1: { key: 'CAM1', zone: 'midfield', isPitch: true, labelKey: 'tactics.position.CAM1' },
-  CAM2: { key: 'CAM2', zone: 'midfield', isPitch: true, labelKey: 'tactics.position.CAM1' },
-  CAM3: { key: 'CAM3', zone: 'midfield', isPitch: true, labelKey: 'tactics.position.CAM1' },
+  DMFL: { key: 'DMFL', zone: 'midfield', isPitch: true, labelKey: 'tactics.position.DMFL' },
+  DMF: { key: 'DMF', zone: 'midfield', isPitch: true, labelKey: 'tactics.position.DMFL' },
+  DMFR: { key: 'DMFR', zone: 'midfield', isPitch: true, labelKey: 'tactics.position.DMFL' },
+  CML: { key: 'CML', zone: 'midfield', isPitch: true, labelKey: 'tactics.position.CML' },
+  CM: { key: 'CM', zone: 'midfield', isPitch: true, labelKey: 'tactics.position.CML' },
+  CMR: { key: 'CMR', zone: 'midfield', isPitch: true, labelKey: 'tactics.position.CML' },
+  CAML: { key: 'CAML', zone: 'midfield', isPitch: true, labelKey: 'tactics.position.CAML' },
+  CAM: { key: 'CAM', zone: 'midfield', isPitch: true, labelKey: 'tactics.position.CAML' },
+  CAMR: { key: 'CAMR', zone: 'midfield', isPitch: true, labelKey: 'tactics.position.CAML' },
   LM: { key: 'LM', zone: 'midfield', isPitch: true, labelKey: 'tactics.position.LM' },
   RM: { key: 'RM', zone: 'midfield', isPitch: true, labelKey: 'tactics.position.RM' },
   LW: { key: 'LW', zone: 'attack', isPitch: true, labelKey: 'tactics.position.LW' },
@@ -249,16 +249,16 @@ export const POSITION_DEFS: Readonly<Record<PositionKey, PositionDef>> = {
  * (defenders - midfielders - attackers).
  */
 export const FORMATION_TEMPLATES = {
-  '4-4-2': ['GK', 'LB', 'CB1', 'CB2', 'RB', 'LM', 'CM1', 'CM2', 'RM', 'CFL', 'CFR'],
-  '4-3-3': ['GK', 'LB', 'CB1', 'CB2', 'RB', 'CM1', 'CM2', 'CM3', 'LW', 'CF', 'RW'],
-  '4-2-3-1': ['GK', 'LB', 'CB1', 'CB2', 'RB', 'DMF1', 'DMF2', 'CAM1', 'CAM2', 'CAM3', 'CF'],
-  '4-1-4-1': ['GK', 'LB', 'CB1', 'CB2', 'RB', 'DMF1', 'LM', 'CM1', 'CM2', 'RM', 'CF'],
-  '4-3-2-1': ['GK', 'LB', 'CB1', 'CB2', 'RB', 'CM1', 'CM2', 'CM3', 'CAM1', 'CAM2', 'CF'],
-  '3-5-2': ['GK', 'CB1', 'CB2', 'CB3', 'LWB', 'CM1', 'CM2', 'CM3', 'RWB', 'CFL', 'CFR'],
-  '3-4-3': ['GK', 'CB1', 'CB2', 'CB3', 'LM', 'CM1', 'CM2', 'RM', 'LW', 'CF', 'RW'],
-  '3-4-2-1': ['GK', 'CB1', 'CB2', 'CB3', 'LM', 'CM1', 'CM2', 'RM', 'CAM1', 'CAM2', 'CF'],
-  '5-3-2': ['GK', 'LWB', 'CB1', 'CB2', 'CB3', 'RWB', 'CM1', 'CM2', 'CM3', 'CFL', 'CFR'],
-  '5-4-1': ['GK', 'LWB', 'CB1', 'CB2', 'CB3', 'RWB', 'LM', 'CM1', 'CM2', 'RM', 'CF'],
+  '4-4-2': ['GK', 'LB', 'CBL', 'CB', 'RB', 'LM', 'CML', 'CM', 'RM', 'CFL', 'CFR'],
+  '4-3-3': ['GK', 'LB', 'CBL', 'CB', 'RB', 'CML', 'CM', 'CMR', 'LW', 'CF', 'RW'],
+  '4-2-3-1': ['GK', 'LB', 'CBL', 'CB', 'RB', 'DMFL', 'DMF', 'CAML', 'CAM', 'CAMR', 'CF'],
+  '4-1-4-1': ['GK', 'LB', 'CBL', 'CB', 'RB', 'DMFL', 'LM', 'CML', 'CM', 'RM', 'CF'],
+  '4-3-2-1': ['GK', 'LB', 'CBL', 'CB', 'RB', 'CML', 'CM', 'CMR', 'CAML', 'CAM', 'CF'],
+  '3-5-2': ['GK', 'CBL', 'CB', 'CBR', 'LWB', 'CML', 'CM', 'CMR', 'RWB', 'CFL', 'CFR'],
+  '3-4-3': ['GK', 'CBL', 'CB', 'CBR', 'LM', 'CML', 'CM', 'RM', 'LW', 'CF', 'RW'],
+  '3-4-2-1': ['GK', 'CBL', 'CB', 'CBR', 'LM', 'CML', 'CM', 'RM', 'CAML', 'CAM', 'CF'],
+  '5-3-2': ['GK', 'LWB', 'CBL', 'CB', 'CBR', 'RWB', 'CML', 'CM', 'CMR', 'CFL', 'CFR'],
+  '5-4-1': ['GK', 'LWB', 'CBL', 'CB', 'CBR', 'RWB', 'LM', 'CML', 'CM', 'RM', 'CF'],
 } as const satisfies Record<string, readonly PitchSlot[]>;
 
 export type FormationKey = keyof typeof FORMATION_TEMPLATES;

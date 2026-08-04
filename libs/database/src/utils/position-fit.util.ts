@@ -47,33 +47,45 @@ export const POSITION_LABELS: Record<string, string> = {
     GK: 'Goalkeeper',
     CF: 'Center Forward',
     ST: 'Striker',
+    // 3-slot centre-forward
     CFL: 'Center Forward (Left)',
     CFR: 'Center Forward (Right)',
+    // Wide/edge forwards (replaces the old edge-CFL/CFR semantics)
+    CF_LW: 'Center Forward (Left Wing)',
+    CF_RW: 'Center Forward (Right Wing)',
     LW: 'Left Wing',
     RW: 'Right Wing',
     AM: 'Attacking Midfielder',
     CAM: 'Central Attacking Mid',
+    // 3-slot attacking mid
+    CAML: 'Attacking Mid (Left)',
+    CAMR: 'Attacking Mid (Right)',
     AML: 'Left Attacking Mid',
     AMR: 'Right Attacking Mid',
     LM: 'Left Midfielder',
     RM: 'Right Midfielder',
     CM: 'Central Midfielder',
-    CML: 'Left Central Mid',
-    CMR: 'Right Central Mid',
+    // 3-slot CM
+    CML: 'Central Mid (Left)',
+    CMR: 'Central Mid (Right)',
     DM: 'Defensive Midfielder',
     CDM: 'Defensive Midfielder',
     DML: 'Left Defensive Mid',
     DMR: 'Right Defensive Mid',
+    // 3-slot DMF
+    DMF: 'Defensive Midfielder',
+    DMFL: 'Defensive Mid (Left)',
+    DMFR: 'Defensive Mid (Right)',
     LB: 'Left Back',
     RB: 'Right Back',
     WB: 'Wing Back',
     LWB: 'Left Wing Back',
     WBR: 'Right Wing Back',
     RWB: 'Right Wing Back',
-    CD: 'Center Defender',
+    // 3-slot CB
     CB: 'Center Back',
-    CDL: 'Center Defender (Left)',
-    CDR: 'Center Defender (Right)',
+    CBL: 'Center Back (Left)',
+    CBR: 'Center Back (Right)',
 };
 
 export const POSITION_KEYS = Object.keys(POSITION_LABELS);
@@ -295,50 +307,6 @@ const CM_WEIGHTS: PositionWeightMatrix = {
         attack: { passing: 4, dribbling: 2 },
         possession: { passing: 6, dribbling: 4, positioning: 2 },
         defense: { defending: 4, positioning: 2 }
-    }
-};
-
-/**
- * CML - Central Midfielder (Left) (偏左中场)
- * Center: 52 + Left: 48 + Right: 0 = 100
- */
-const CML_WEIGHTS: PositionWeightMatrix = {
-    center: {
-        attack: { passing: 8, dribbling: 4, finishing: 4 },
-        possession: { passing: 12, dribbling: 6, positioning: 4, composure: 2 },
-        defense: { defending: 8, positioning: 4, pace: 2, composure: 2 }
-    },
-    left: {
-        attack: { passing: 4 },
-        possession: { passing: 8, dribbling: 4, positioning: 4 },
-        defense: { defending: 12, positioning: 8, pace: 4, strength: 4 }
-    },
-    right: {
-        attack: {},
-        possession: {},
-        defense: {}
-    }
-};
-
-/**
- * CMR - Central Midfielder (Right) (偏右中场)
- * Center: 52 + Right: 48 + Left: 0 = 100
- */
-const CMR_WEIGHTS: PositionWeightMatrix = {
-    center: {
-        attack: { passing: 8, dribbling: 4, finishing: 4 },
-        possession: { passing: 12, dribbling: 6, positioning: 4, composure: 2 },
-        defense: { defending: 8, positioning: 4, pace: 2, composure: 2 }
-    },
-    right: {
-        attack: { passing: 4 },
-        possession: { passing: 8, dribbling: 4, positioning: 4 },
-        defense: { defending: 12, positioning: 8, pace: 4, strength: 4 }
-    },
-    left: {
-        attack: {},
-        possession: {},
-        defense: {}
     }
 };
 
@@ -641,12 +609,15 @@ const GK_WEIGHTS: GKWeightMatrix = {
 export const POSITION_WEIGHTS: PositionWeightsMap = {
     // Forwards
     'CF': CF_WEIGHTS,
-    'CF1': CF_WEIGHTS,
-    'CF2': CF_WEIGHTS,
-    'CF3': CF_WEIGHTS,
+    // 3-slot CF (left/center/right of the centre-forward line, e.g. a 3-striker shape).
+    'CFL': CF_WEIGHTS,
+    'CFR': CF_WEIGHTS,
     'ST': CF_WEIGHTS,
-    'CFL': CFL_WEIGHTS,
-    'CFR': CFR_WEIGHTS,
+    // Wide/edge forwards (renamed from the old `CFL`/`CFR` so the 3-slot
+    // forwards above can take the canonical L/C/R keys). `CF_LW` sits
+    // next to the left touchline, `CF_RW` next to the right.
+    'CF_LW': CFL_WEIGHTS,
+    'CF_RW': CFR_WEIGHTS,
     'LW': LW_WEIGHTS,
     'LW1': LW_WEIGHTS,
     'LW2': LW_WEIGHTS,
@@ -657,9 +628,10 @@ export const POSITION_WEIGHTS: PositionWeightsMap = {
     // Attacking Midfielders
     'AM': AM_WEIGHTS,
     'CAM': AM_WEIGHTS,
-    'CAM1': AM_WEIGHTS,
-    'CAM2': AM_WEIGHTS,
-    'CAM3': AM_WEIGHTS,
+    // 3-slot attacking mid (left/center/right). `CAML`/`CAMR` fold to
+    // the same `AM` weight table; `CAM` is the centre slot.
+    'CAML': AM_WEIGHTS,
+    'CAMR': AM_WEIGHTS,
     'AML': AML_WEIGHTS,
     'AMR': AMR_WEIGHTS,
 
@@ -675,11 +647,13 @@ export const POSITION_WEIGHTS: PositionWeightsMap = {
 
     // Central Midfielders
     'CM': CM_WEIGHTS,
-    'CM1': CM_WEIGHTS,
-    'CM2': CM_WEIGHTS,
-    'CM3': CM_WEIGHTS,
-    'CML': CML_WEIGHTS,
-    'CMR': CMR_WEIGHTS,
+    // 3-slot CM (left/center/right). `CML`/`CMR` fold to the same
+    // `CM` weight table; `CM` is the centre slot. The pre-existing
+    // CML/CMR entries (with their own CM_LR/CMR_RR weight tables)
+    // have been retired — they were never used outside the
+    // position-fit smoke test and would shadow the new 3-slot keys.
+    'CML': CM_WEIGHTS,
+    'CMR': CM_WEIGHTS,
 
     // Defensive Midfielders
     'DM': DM_WEIGHTS,
@@ -689,13 +663,11 @@ export const POSITION_WEIGHTS: PositionWeightsMap = {
     'CDM': DM_WEIGHTS,
     'DML': DML_WEIGHTS,
     'DMR': DMR_WEIGHTS,
-    // `DMF<n>` is the editor's preferred label for the
-    // "defensive midfielder" slot — semantically the same as DM,
-    // just numbered like the other editor slots. Map to the same
-    // DM weights so the engine can compute contributions.
-    'DMF1': DM_WEIGHTS,
-    'DMF2': DM_WEIGHTS,
-    'DMF3': DM_WEIGHTS,
+    // 3-slot defensive midfielder. `DMFL`/`DMFR` are the side slots;
+    // `DMF` is the centre (renamed from the editor's old `DMF`).
+    'DMF': DM_WEIGHTS,
+    'DMFL': DM_WEIGHTS,
+    'DMFR': DM_WEIGHTS,
 
     // Defenders
     'LB': LB_WEIGHTS,
@@ -706,19 +678,14 @@ export const POSITION_WEIGHTS: PositionWeightsMap = {
     'LWB': WBL_WEIGHTS,
     'WBR': WBR_WEIGHTS,
     'RWB': WBR_WEIGHTS,
-    'CD': CB_WEIGHTS,
-    'CD1': CB_WEIGHTS,
-    'CD2': CB_WEIGHTS,
-    'CD3': CB_WEIGHTS,
+    // 3-slot centre-back. `CBL`/`CBR` are the side slots and inherit
+    // the legacy CDL/CDR (centre-defender-left/right) weight tables;
+    // `CB` is the centre slot. The old numbered keys (`CBL`/`CB`/`CBR`,
+    // `CD`/`CD1`/`CD2`/`CD3`) and the `CDL`/`CDR` aliases are retired
+    // and no longer accepted by the lineup editor.
     'CB': CB_WEIGHTS,
-    // Numbered centre-back slots the editor uses when more than 1
-    // CB is on the pitch (3-5-2 / 3-4-3 etc.). All three (and CD1-3)
-    // share the same single CB weight table.
-    'CB1': CB_WEIGHTS,
-    'CB2': CB_WEIGHTS,
-    'CB3': CB_WEIGHTS,
-    'CDL': CBL_WEIGHTS,
-    'CDR': CBR_WEIGHTS,
+    'CBL': CBL_WEIGHTS,
+    'CBR': CBR_WEIGHTS,
 
     // Goalkeeper
     'GK': GK_WEIGHTS,

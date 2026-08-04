@@ -1,6 +1,6 @@
 /**
  * auto-lineup.util.spec.ts — smoke test that the auto-lineup generator emits
- * canonical pitch slot keys (`CB1`, `CM1`, `CFL`, …) rather than the
+ * canonical pitch slot keys (`CBL`, `CML`, `CFL`, …) rather than the
  * short player position codes (`CB`, `CM`, `ST`, …) the legacy generator
  * used to write. The short codes are not accepted by the backend
  * `LineupValidator` or the frontend `PITCH_SLOTS`, so this guards against
@@ -12,11 +12,11 @@ import { PlayerEntity } from '../entities/player.entity';
 
 const VALID_SLOTS = new Set([
     'GK',
-    'CB1', 'CB2', 'CB3',
+    'CBL', 'CB', 'CBR',
     'LB', 'RB', 'LWB', 'RWB',
-    'DMF1', 'DMF2', 'DMF3',
-    'CM1', 'CM2', 'CM3',
-    'CAM1', 'CAM2', 'CAM3',
+    'DMFL', 'DMF', 'DMFR',
+    'CML', 'CM', 'CMR',
+    'CAML', 'CAM', 'CAMR',
     'LM', 'RM',
     'LW', 'RW',
     'CFL', 'CF', 'CFR',

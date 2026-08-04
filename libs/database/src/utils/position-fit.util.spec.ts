@@ -65,7 +65,7 @@ describe('PositionFitUtil', () => {
             expect(calculatePositionFit(attrs, 'UNKNOWN_POS')).toBe(0);
         });
 
-        // Numbered slot keys the editor uses (CB1/CB2/CB3 etc.) must
+        // Numbered slot keys the editor uses (CBL/CB/CBR etc.) must
         // resolve to the same weight table as their family key
         // (CB / CM / CAM / DM). Pre-fix these all returned 0 because
         // POSITION_WEIGHTS only had the un-numbered keys.
@@ -76,19 +76,19 @@ describe('PositionFitUtil', () => {
                 dribbling: 10, defending: 10, gk_reflexes: 0, gk_handling: 0,
             };
             const cbFit = calculatePositionFit(attrs, 'CB');
-            for (const slot of ['CB1', 'CB2', 'CB3', 'CD1', 'CD2', 'CD3']) {
+            for (const slot of ['CBL', 'CB', 'CBR']) {
                 expect(calculatePositionFit(attrs, slot)).toBe(cbFit);
             }
             const cmFit = calculatePositionFit(attrs, 'CM');
-            for (const slot of ['CM1', 'CM2', 'CM3']) {
+            for (const slot of ['CML', 'CM', 'CMR']) {
                 expect(calculatePositionFit(attrs, slot)).toBe(cmFit);
             }
             const camFit = calculatePositionFit(attrs, 'CAM');
-            for (const slot of ['CAM1', 'CAM2', 'CAM3']) {
+            for (const slot of ['CAML', 'CAM', 'CAMR']) {
                 expect(calculatePositionFit(attrs, slot)).toBe(camFit);
             }
             const dmFit = calculatePositionFit(attrs, 'DM');
-            for (const slot of ['DM1', 'DM2', 'DM3', 'DMF1', 'DMF2', 'DMF3']) {
+            for (const slot of ['DM1', 'DM2', 'DM3', 'DMFL', 'DMF', 'DMFR']) {
                 expect(calculatePositionFit(attrs, slot)).toBe(dmFit);
             }
             // The match engine keys too — LW/RW/CF/CDM/CAM (already

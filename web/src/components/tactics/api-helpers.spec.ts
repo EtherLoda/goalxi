@@ -23,8 +23,8 @@ function baseDraft(overrides: Partial<TacticsDraft> = {}): TacticsDraft {
     ...createEmptyDraft(),
     lineup: {
       GK: 'p-gk',
-      LB: 'p-lb', CB1: 'p-cb-1', CB2: 'p-cb-2', RB: 'p-rb',
-      CM1: 'p-cmf-1', CM2: 'p-cmf-2', CM3: 'p-cmf-3',
+      LB: 'p-lb', CBL: 'p-cb-1', CB: 'p-cb-2', RB: 'p-rb',
+      CML: 'p-cmf-1', CM: 'p-cmf-2', CMR: 'p-cmf-3',
       LW: 'p-cf-1', CF: 'p-cf-2', RW: 'p-cf-3',
     },
     bench: { BENCH_CB: 'p-bench-1' },
@@ -44,8 +44,8 @@ function baseDraft(overrides: Partial<TacticsDraft> = {}): TacticsDraft {
 describe('computeFormation', () => {
   it('returns 4-3-3 for a 4-3-3 layout', () => {
     const lineup: TacticsDraft['lineup'] = {
-      GK: 'p-gk', LB: 'a', CB1: 'b', CB2: 'c', RB: 'd',
-      CM1: 'e', CM2: 'f', CM3: 'g',
+      GK: 'p-gk', LB: 'a', CBL: 'b', CB: 'c', RB: 'd',
+      CML: 'e', CM: 'f', CMR: 'g',
       LW: 'h', CF: 'i', RW: 'j',
     };
     expect(computeFormation(lineup)).toBe('4-3-3');
@@ -53,8 +53,8 @@ describe('computeFormation', () => {
 
   it('returns 5-3-2 for a 3-5-2 layout (wing-backs counted as defenders)', () => {
     const lineup: TacticsDraft['lineup'] = {
-      GK: 'p-gk', CB1: 'a', CB2: 'b', CB3: 'c',
-      LWB: 'd', CM1: 'e', CM2: 'f', CM3: 'g', RWB: 'h',
+      GK: 'p-gk', CBL: 'a', CB: 'b', CBR: 'c',
+      LWB: 'd', CML: 'e', CM: 'f', CMR: 'g', RWB: 'h',
       CFL: 'i', CFR: 'j',
     };
     expect(computeFormation(lineup)).toBe('5-3-2');
@@ -65,11 +65,11 @@ describe('computeFormation', () => {
   });
 
   it('GK is not counted in defender tally', () => {
-    // Without GK, 4-3-3 layout (LB, CB1, CB2, CB3, RB) shows 5-3-3.
+    // Without GK, 4-3-3 layout (LB, CBL, CB, CBR, RB) shows 5-3-3.
     // GK is separate from defender count.
     const lineup: TacticsDraft['lineup'] = {
-      LB: 'a', CB1: 'b', CB2: 'c', CB3: 'd', RB: 'e',
-      CM1: 'f', CM2: 'g', CM3: 'h',
+      LB: 'a', CBL: 'b', CB: 'c', CBR: 'd', RB: 'e',
+      CML: 'f', CM: 'g', CMR: 'h',
       LW: 'i', CF: 'j', RW: 'k',
     };
     expect(computeFormation(lineup)).toBe('5-3-3');
@@ -125,11 +125,11 @@ describe('serializeTactics', () => {
 
   it('includes move events in instructions.moves', () => {
     const draft = baseDraft({
-      events: [{ kind: 'move', minute: 70, playerId: 'p-cmf-1', toSlot: 'CAM1' }],
+      events: [{ kind: 'move', minute: 70, playerId: 'p-cmf-1', toSlot: 'CAML' }],
     });
     const result = serializeTactics('m', 't', draft);
     expect(result.instructions.moves).toEqual([
-      { minute: 70, player: 'p-cmf-1', position: 'CAM1' },
+      { minute: 70, player: 'p-cmf-1', position: 'CAML' },
     ]);
   });
 
@@ -264,20 +264,20 @@ describe('normalizeLineup', () => {
   it('passes through canonical slot keys untouched', () => {
     const { pitch, bench } = normalizeLineup({
       GK: 'p-gk',
-      CB1: 'p-cb-1',
-      CB2: 'p-cb-2',
-      CB3: 'p-cb-3',
-      CM1: 'p-cm-1',
-      CM2: 'p-cm-2',
+      CBL: 'p-cb-1',
+      CB: 'p-cb-2',
+      CBR: 'p-cb-3',
+      CML: 'p-cm-1',
+      CM: 'p-cm-2',
       BENCH_GK: 'p-bench-gk',
     });
     expect(pitch).toEqual({
       GK: 'p-gk',
-      CB1: 'p-cb-1',
-      CB2: 'p-cb-2',
-      CB3: 'p-cb-3',
-      CM1: 'p-cm-1',
-      CM2: 'p-cm-2',
+      CBL: 'p-cb-1',
+      CB: 'p-cb-2',
+      CBR: 'p-cb-3',
+      CML: 'p-cm-1',
+      CM: 'p-cm-2',
     });
     expect(bench).toEqual({ BENCH_GK: 'p-bench-gk' });
   });
@@ -290,8 +290,8 @@ describe('normalizeLineup', () => {
       ST: 'p-st',
     });
     expect(pitch.GK).toBe('p-gk');
-    expect(pitch.CB1).toBe('p-cb-1');
-    expect(pitch.CM1).toBe('p-cm-1');
+    expect(pitch.CBL).toBe('p-cb-1');
+    expect(pitch.CML).toBe('p-cm-1');
     expect(pitch.CF).toBe('p-st');
     expect(bench).toEqual({});
   });
@@ -301,8 +301,8 @@ describe('normalizeLineup', () => {
       DM: 'p-dm',
       AM: 'p-am',
     });
-    expect(pitch.DMF1).toBe('p-dm');
-    expect(pitch.CAM1).toBe('p-am');
+    expect(pitch.DMFL).toBe('p-dm');
+    expect(pitch.CAML).toBe('p-am');
   });
 
   it('drops unrecognised slot keys instead of producing invalid slots', () => {
@@ -341,8 +341,8 @@ describe('hydrateTactics — legacy short code aliasing', () => {
     const result = hydrateTactics(server);
     expect(result.lineup).toEqual({
       GK: 'p-gk',
-      CB1: 'p-cb-1',
-      CM1: 'p-cm-1',
+      CBL: 'p-cb-1',
+      CML: 'p-cm-1',
       CF: 'p-st',
     });
   });
@@ -368,7 +368,7 @@ describe('hydrateTactics — legacy short code aliasing', () => {
     expect(result.instructions).not.toBeNull();
     expect(result.instructions!.moves).toEqual([
       { minute: 60, player: 'p-st', position: 'CF' },
-      { minute: 70, player: 'p-cb', position: 'CB1' },
+      { minute: 70, player: 'p-cb', position: 'CBL' },
     ]);
   });
 

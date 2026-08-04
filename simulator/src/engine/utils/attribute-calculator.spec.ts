@@ -3,8 +3,8 @@
  * the contributionRaw pipeline that depends on it.
  *
  * Background: see the SLOT_KEY_NORMALIZER table in
- * `attribute-calculator.ts`. Editor slots like `CB1`, `CM2`, `DMF1`,
- * `CAM3` previously returned 0 in every phase because
+ * `attribute-calculator.ts`. Editor slots like `CBL`, `CM`, `DMFL`,
+ * `CAMR` previously returned 0 in every phase because
  * POSITION_WEIGHTS only knows the family-level keys. Those numbers
  * come from the formation-editor line-up storage and are the only
  * keys the engine ever sees at runtime.
@@ -20,10 +20,10 @@ import type { Player } from '../../types/player.types';
 // Fixtures
 // ============================================================================
 
-const CB_KEYS = ['CB1', 'CB2', 'CB3'] as const;
-const CM_KEYS = ['CM1', 'CM2', 'CM3'] as const;
-const CAM_KEYS = ['CAM1', 'CAM2', 'CAM3'] as const;
-const DMF_KEYS = ['DMF1', 'DMF2', 'DMF3'] as const;
+const CB_KEYS = ['CBL', 'CB', 'CBR'] as const;
+const CM_KEYS = ['CML', 'CM', 'CMR'] as const;
+const CAM_KEYS = ['CAML', 'CAM', 'CAMR'] as const;
+const DMF_KEYS = ['DMFL', 'DMF', 'DMFR'] as const;
 
 /** Build a Player whose right.defense summing comes entirely from
  *  `defending` so the test math is easy to verify by hand. Accepts
@@ -78,15 +78,21 @@ describe('normalizePositionKey', () => {
     expect(normalizePositionKey(key)).toBe('CAM');
   });
 
-  it.each(DMF_KEYS)('folds "%s" → "DM"', (key) => {
-    expect(normalizePositionKey(key)).toBe('DM');
+  it.each(DMF_KEYS)('folds "%s" → "DMF"', (key) => {
+    expect(normalizePositionKey(key)).toBe('DMF');
   });
 
   it('returns canonical keys unchanged', () => {
     for (const key of [
-      'GK', 'CF', 'CFL', 'CFR', 'ST', 'LW', 'RW', 'LM', 'RM',
+      // Family / centre keys — never folded.
+      'GK', 'CF', 'CB', 'CM', 'CAM', 'DMF',
+      // 2-slot / wide keys kept as-is (no normalizer entry for them).
+      'ST', 'LW', 'RW', 'LM', 'RM',
       'LB', 'RB', 'LWB', 'RWB', 'AM', 'AML', 'AMR', 'DM', 'CDM',
-      'DML', 'DMR', 'CML', 'CMR', 'WML', 'WMR', 'CD', 'CB',
+      'DML', 'DMR', 'WML', 'WMR',
+      // Wide/edge forwards (renamed from the old edge-CFL/CFR).
+      'CF_LW', 'CF_RW',
+      // Bench keys.
       'BENCH_GK', 'BENCH_CB',
     ]) {
       expect(normalizePositionKey(key)).toBe(key);
@@ -102,28 +108,28 @@ describe('normalizePositionKey', () => {
 // calculateContributionRaw via calculateAndCacheContribution — effects
 // ============================================================================
 
-describe('calculateAndCacheContribution — numbered slot keys', () => {
+describe('calculateAndCacheContribution — 3-slot slot keys', () => {
   beforeEach(() => {
     AttributeCalculator.clearCache();
     AttributeCalculator.clearUnknownKeyWarnCache();
   });
 
-  it('CB1 contributes to right.defense (16 weight on defending+positioning+pace+strength)', () => {
+  it('CBL contributes to right.defense (16 weight on defending+positioning+pace+strength)', () => {
     const p = mkPlayer({ attributes: { defending: 8, positioning: 7, pace: 6, strength: 5 } });
     // Expected = 8*8 + 7*4 + 6*2 + 5*2 = 64 + 28 + 12 + 10 = 114
     expect(
-      AttributeCalculator.calculateAndCacheContribution(p, 'CB1', 'right', 'defense'),
+      AttributeCalculator.calculateAndCacheContribution(p, 'CBL', 'right', 'defense'),
     ).toBeCloseTo(114, 5);
   });
 
-  it('CB2 / CB3 contribute the same per-player value as CB1 (family-level)', () => {
+  it('CB / CBR contribute the same per-player value as CBL (family-level)', () => {
     // CB_WEIGHTS.right.defense = {defending:8, positioning:4, pace:2, strength:2}.
     // The fixture defaults `pace` and `strength` to 10, so they also
     // contribute — explicitly zero them so the assertion is readable.
     const p = mkPlayer({
       attributes: { defending: 9, positioning: 9, pace: 0, strength: 0 },
     });
-    for (const key of ['CB1', 'CB2', 'CB3']) {
+    for (const key of ['CBL', 'CB', 'CBR']) {
       const score = AttributeCalculator.calculateAndCacheContribution(
         p,
         key,
@@ -135,27 +141,27 @@ describe('calculateAndCacheContribution — numbered slot keys', () => {
     }
   });
 
-  it('CM1 contributes to center.defense (CM weights center.defense = {defending:8, positioning:4, pace:2, composure:2})', () => {
+  it('CML contributes to center.defense (CM weights center.defense = {defending:8, positioning:4, pace:2, composure:2})', () => {
     const p = mkPlayer({ attributes: { defending: 6, positioning: 5, pace: 4, composure: 3 } });
     // 6*8 + 5*4 + 4*2 + 3*2 = 48 + 20 + 8 + 6 = 82
     expect(
-      AttributeCalculator.calculateAndCacheContribution(p, 'CM1', 'center', 'defense'),
+      AttributeCalculator.calculateAndCacheContribution(p, 'CML', 'center', 'defense'),
     ).toBeCloseTo(82, 5);
   });
 
-  it('DMF1 contributes 0 to left.attack (DM weights left.attack = {passing:2} only)', () => {
+  it('DMFL contributes 0 to left.attack (DM weights left.attack = {passing:2} only)', () => {
     const p = mkPlayer({ attributes: { passing: 10, dribbling: 10, finishing: 10 } });
     // left.attack for DM = {passing: 2} → only 10*2 = 20
     expect(
-      AttributeCalculator.calculateAndCacheContribution(p, 'DMF1', 'left', 'attack'),
+      AttributeCalculator.calculateAndCacheContribution(p, 'DMFL', 'left', 'attack'),
     ).toBeCloseTo(20, 5);
   });
 
-  it('CAM1 contributes to center.attack (CAM uses AM weights: {passing:10, dribbling:12, finishing:6, pace:4})', () => {
+  it('CAML contributes to center.attack (CAM uses AM weights: {passing:10, dribbling:12, finishing:6, pace:4})', () => {
     const p = mkPlayer({ attributes: { passing: 8, dribbling: 9, finishing: 7, pace: 6 } });
     // 8*10 + 9*12 + 7*6 + 6*4 = 80 + 108 + 42 + 24 = 254
     expect(
-      AttributeCalculator.calculateAndCacheContribution(p, 'CAM1', 'center', 'attack'),
+      AttributeCalculator.calculateAndCacheContribution(p, 'CAML', 'center', 'attack'),
     ).toBeCloseTo(254, 5);
   });
 
@@ -175,7 +181,7 @@ describe('calculateAndCacheContribution — numbered slot keys', () => {
     for (const lane of ['left', 'center', 'right'] as const) {
       for (const phase of ['attack', 'defense', 'possession'] as const) {
         expect(
-          AttributeCalculator.calculateAndCacheContribution(p, 'CB1', lane, phase),
+          AttributeCalculator.calculateAndCacheContribution(p, 'CBL', lane, phase),
         ).toBe(0);
       }
     }
@@ -195,13 +201,13 @@ describe('calculateAndCacheContribution — numbered slot keys', () => {
     (minor as any).id = 'p-minor';
     const healthyScore = AttributeCalculator.calculateAndCacheContribution(
       healthy,
-      'CB1',
+      'CBL',
       'right',
       'defense',
     );
     const minorScore = AttributeCalculator.calculateAndCacheContribution(
       minor,
-      'CB1',
+      'CBL',
       'right',
       'defense',
     );

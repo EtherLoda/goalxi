@@ -66,12 +66,12 @@ function validLineup(): Partial<TacticsDraft['lineup']> {
   return {
     GK: GK_IDS.alice,
     LB: OUT_IDS.eve,
-    CB1: OUT_IDS.bob,
-    CB2: OUT_IDS.carol,
+    CBL: OUT_IDS.bob,
+    CB: OUT_IDS.carol,
     RB: OUT_IDS.frank,
-    DMF1: OUT_IDS.gina,
-    CM1: OUT_IDS.henry,
-    CM2: OUT_IDS.iris,
+    DMFL: OUT_IDS.gina,
+    CML: OUT_IDS.henry,
+    CM: OUT_IDS.iris,
     RM: OUT_IDS.jack,
     CFL: OUT_IDS.kate,
     CFR: OUT_IDS.liam,
@@ -101,12 +101,12 @@ describe('validateLineup — happy path', () => {
   it('returns isValid=true for a 9-pitch lineup (minimum)', () => {
     const lineup: TacticsDraft['lineup'] = {
       GK: GK_IDS.alice,
-      CB1: OUT_IDS.bob,
-      CB2: OUT_IDS.carol,
-      CB3: OUT_IDS.dave,
-      DMF1: OUT_IDS.gina,
-      CM1: OUT_IDS.henry,
-      CM2: OUT_IDS.iris,
+      CBL: OUT_IDS.bob,
+      CB: OUT_IDS.carol,
+      CBR: OUT_IDS.dave,
+      DMFL: OUT_IDS.gina,
+      CML: OUT_IDS.henry,
+      CM: OUT_IDS.iris,
       CFL: OUT_IDS.kate,
       CFR: OUT_IDS.liam,
     };
@@ -136,11 +136,11 @@ describe('validateLineup — pitch count', () => {
   it('flags too few (8) players with playerCountMin', () => {
     const lineup: TacticsDraft['lineup'] = {
       GK: GK_IDS.alice,
-      CB1: OUT_IDS.bob,
-      CB2: OUT_IDS.carol,
-      CB3: OUT_IDS.dave,
-      CM1: OUT_IDS.henry,
-      CM2: OUT_IDS.iris,
+      CBL: OUT_IDS.bob,
+      CB: OUT_IDS.carol,
+      CBR: OUT_IDS.dave,
+      CML: OUT_IDS.henry,
+      CM: OUT_IDS.iris,
       CFL: OUT_IDS.kate,
       CFR: OUT_IDS.liam,
     };
@@ -185,12 +185,12 @@ describe('validateLineup — GK rules', () => {
   it('flags missing GK with goalkeeperRequired', () => {
     const lineup: TacticsDraft['lineup'] = {
       LB: OUT_IDS.eve,
-      CB1: OUT_IDS.bob,
-      CB2: OUT_IDS.carol,
+      CBL: OUT_IDS.bob,
+      CB: OUT_IDS.carol,
       RB: OUT_IDS.frank,
-      CM1: OUT_IDS.henry,
-      CM2: OUT_IDS.iris,
-      CM3: OUT_IDS.jack,
+      CML: OUT_IDS.henry,
+      CM: OUT_IDS.iris,
+      CMR: OUT_IDS.jack,
       LW: OUT_IDS.kate,
       CF: OUT_IDS.liam,
       RW: OUT_IDS.mia,
@@ -214,12 +214,12 @@ describe('validateLineup — GK rules', () => {
   it('flags goalkeeper in outfield slot with outfieldersNotInGk', () => {
     const lineup: TacticsDraft['lineup'] = {
       ...validLineup(),
-      CB1: GK_IDS.alice, // GK in outfield
+      CBL: GK_IDS.alice, // GK in outfield
     };
     const result = validateLineup(baseCtx({ draft: { ...createEmptyDraft(), lineup } }));
     expect(result.errors).toContainEqual({
       key: 'outfieldersNotInGk',
-      params: { player: 'Alice (GK)', slot: 'CB1' },
+      params: { player: 'Alice (GK)', slot: 'CBL' },
     });
   });
 });
@@ -260,7 +260,7 @@ describe('validateLineup — player membership', () => {
   it('flags player not on team with playerNotInTeam', () => {
     const lineup: TacticsDraft['lineup'] = {
       ...validLineup(),
-      CB1: 'p-stranger',
+      CBL: 'p-stranger',
     };
     const playersById = makePlayersById();
     playersById.set('p-stranger', makePlayer('p-stranger', false, 'Stranger'));
@@ -276,7 +276,7 @@ describe('validateLineup — player membership', () => {
   it('uses playerId as fallback when player not in playersById map', () => {
     const lineup: TacticsDraft['lineup'] = {
       ...validLineup(),
-      CB1: 'p-unknown',
+      CBL: 'p-unknown',
     };
     // 'p-unknown' is NOT in teamPlayerIds → triggers playerNotInTeam with the raw id
     const result = validateLineup(
@@ -300,18 +300,18 @@ describe('validateLineup — duplicate detection', () => {
   it('flags the same player in two pitch slots with duplicatePlayer', () => {
     const lineup: TacticsDraft['lineup'] = {
       ...validLineup(),
-      CB3: OUT_IDS.bob, // duplicate of CB1
+      CBR: OUT_IDS.bob, // duplicate of CBL
     };
     const result = validateLineup(baseCtx({ draft: { ...createEmptyDraft(), lineup } }));
     expect(result.errors).toContainEqual({
       key: 'duplicatePlayer',
-      params: { player: 'Out p-cb-1', slot: 'CB3' },
+      params: { player: 'Out p-cb-1', slot: 'CBR' },
     });
   });
 
   it('does NOT flag pitch/bench duplicates (backend allows)', () => {
     const bench: TacticsDraft['bench'] = {
-      BENCH_CB: OUT_IDS.bob, // also in CB1 on pitch
+      BENCH_CB: OUT_IDS.bob, // also in CBL on pitch
     };
     const result = validateLineup(
       baseCtx({ draft: { ...createEmptyDraft(), lineup: validLineup(), bench } }),
@@ -346,7 +346,7 @@ describe('validateLineup — tactical events', () => {
       ...createEmptyDraft(),
       lineup: validLineup(),
       events: [
-        { kind: 'move', minute: 70, playerId: OUT_IDS.bob, toSlot: 'CB1' },
+        { kind: 'move', minute: 70, playerId: OUT_IDS.bob, toSlot: 'CBL' },
       ],
     };
     const result = validateLineup(baseCtx({ draft }));
@@ -361,7 +361,7 @@ describe('validateLineup — tactical events', () => {
       ...createEmptyDraft(),
       lineup: validLineup(),
       events: [
-        { kind: 'move', minute: 65, playerId: OUT_IDS.henry, toSlot: 'CM3' },
+        { kind: 'move', minute: 65, playerId: OUT_IDS.henry, toSlot: 'CMR' },
       ],
     };
     const result = validateLineup(baseCtx({ draft }));
@@ -464,7 +464,7 @@ describe('countFilled', () => {
   });
 
   it('returns only truthy values', () => {
-    expect(countFilled({ GK: 'a', CB1: 'b', CB2: undefined as unknown as string })).toBe(2);
+    expect(countFilled({ GK: 'a', CBL: 'b', CB: undefined as unknown as string })).toBe(2);
   });
 });
 

@@ -12,7 +12,7 @@
  *      start the moment we queue it).
  *   3. Picks the 11 best players per team (1 GK + top 10 outfield by
  *      average skill) and writes both tactics using the NEW canonical
- *      slot keys (GK/CB1-3/LB/RB/DMF1-3/CM1-3/CAM1-3/LM/RM/LW/RW/
+ *      slot keys (GK/CBL-3/LB/RB/DMFL-3/CML-3/CAML-3/LM/RM/LW/RW/
  *      CFL/CF/CFR) — the same slots the editor + match page read.
  *   4. POSTs `/matches/:id/simulate` against the running API to push a
  *      BullMQ job onto the match-simulation queue.
@@ -165,13 +165,13 @@ function home433Lineup(eleven: Ranked): Record<string, string | null> {
   return {
     GK: gk?.id != null ? String(gk.id) : null,
     LB: outfield[0]?.id != null ? String(outfield[0].id) : null,
-    CB1: outfield[1]?.id != null ? String(outfield[1].id) : null,
-    CB2: outfield[2]?.id != null ? String(outfield[2].id) : null,
-    CB3: outfield[3]?.id != null ? String(outfield[3].id) : null,
+    CBL: outfield[1]?.id != null ? String(outfield[1].id) : null,
+    CB: outfield[2]?.id != null ? String(outfield[2].id) : null,
+    CBR: outfield[3]?.id != null ? String(outfield[3].id) : null,
     RB: outfield[4]?.id != null ? String(outfield[4].id) : null,
-    CM1: outfield[5]?.id != null ? String(outfield[5].id) : null,
-    CM2: outfield[6]?.id != null ? String(outfield[6].id) : null,
-    CM3: outfield[7]?.id != null ? String(outfield[7].id) : null,
+    CML: outfield[5]?.id != null ? String(outfield[5].id) : null,
+    CM: outfield[6]?.id != null ? String(outfield[6].id) : null,
+    CMR: outfield[7]?.id != null ? String(outfield[7].id) : null,
     LW: outfield[8]?.id != null ? String(outfield[8].id) : null,
     CF: outfield[9]?.id != null ? String(outfield[9].id) : null,
   };
@@ -182,14 +182,14 @@ function away4231Lineup(eleven: Ranked): Record<string, string | null> {
   return {
     GK: gk?.id != null ? String(gk.id) : null,
     LB: outfield[0]?.id != null ? String(outfield[0].id) : null,
-    CB1: outfield[1]?.id != null ? String(outfield[1].id) : null,
-    CB2: outfield[2]?.id != null ? String(outfield[2].id) : null,
+    CBL: outfield[1]?.id != null ? String(outfield[1].id) : null,
+    CB: outfield[2]?.id != null ? String(outfield[2].id) : null,
     RB: outfield[3]?.id != null ? String(outfield[3].id) : null,
-    DMF1: outfield[4]?.id != null ? String(outfield[4].id) : null,
-    DMF2: outfield[5]?.id != null ? String(outfield[5].id) : null,
-    CAM1: outfield[6]?.id != null ? String(outfield[6].id) : null,
-    CAM2: outfield[7]?.id != null ? String(outfield[7].id) : null,
-    CAM3: outfield[8]?.id != null ? String(outfield[8].id) : null,
+    DMFL: outfield[4]?.id != null ? String(outfield[4].id) : null,
+    DMF: outfield[5]?.id != null ? String(outfield[5].id) : null,
+    CAML: outfield[6]?.id != null ? String(outfield[6].id) : null,
+    CAM: outfield[7]?.id != null ? String(outfield[7].id) : null,
+    CAMR: outfield[8]?.id != null ? String(outfield[8].id) : null,
     CF: outfield[9]?.id != null ? String(outfield[9].id) : null,
   };
 }

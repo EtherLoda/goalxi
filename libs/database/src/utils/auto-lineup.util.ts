@@ -17,7 +17,7 @@ export interface LineupResult {
  * Standard formation templates.
  *
  * Each entry's `positions` is the **canonical slot-key list** that ends up in
- * the persisted `lineup` map (e.g. `CB1`, `CM1`, `CFL`). These are the only
+ * the persisted `lineup` map (e.g. `CBL`, `CML`, `CFL`). These are the only
  * keys the backend `LineupValidator` and the frontend `PITCH_SLOTS` accept.
  *
  * For position-fit scoring we translate each slot key through
@@ -27,23 +27,23 @@ export interface LineupResult {
  */
 export const FORMATIONS = {
     '4-4-2': {
-        positions: ['LB', 'CB1', 'CB2', 'RB', 'LM', 'CM1', 'CM2', 'RM', 'CFL', 'CFR'],
+        positions: ['LB', 'CBL', 'CB', 'RB', 'LM', 'CML', 'CM', 'RM', 'CFL', 'CFR'],
         label: '4-4-2',
     },
     '4-3-3': {
-        positions: ['LB', 'CB1', 'CB2', 'RB', 'LM', 'CM1', 'CM2', 'RM', 'LW', 'CF', 'RW'],
+        positions: ['LB', 'CBL', 'CB', 'RB', 'LM', 'CML', 'CM', 'RM', 'LW', 'CF', 'RW'],
         label: '4-3-3',
     },
     '4-2-3-1': {
-        positions: ['LB', 'CB1', 'CB2', 'RB', 'DMF1', 'DMF2', 'LW', 'CAM1', 'CAM2', 'CAM3', 'CF'],
+        positions: ['LB', 'CBL', 'CB', 'RB', 'DMFL', 'DMF', 'LW', 'CAML', 'CAM', 'CAMR', 'CF'],
         label: '4-2-3-1',
     },
     '3-5-2': {
-        positions: ['CB1', 'CB2', 'CB3', 'LM', 'CM1', 'CM2', 'CM3', 'RM', 'CFL', 'CFR'],
+        positions: ['CBL', 'CB', 'CBR', 'LM', 'CML', 'CM', 'CMR', 'RM', 'CFL', 'CFR'],
         label: '3-5-2',
     },
     '5-3-2': {
-        positions: ['LWB', 'CB1', 'CB2', 'CB3', 'RWB', 'LM', 'CM1', 'CM2', 'RM', 'CFL', 'CFR'],
+        positions: ['LWB', 'CBL', 'CB', 'CBR', 'RWB', 'LM', 'CML', 'CM', 'RM', 'CFL', 'CFR'],
         label: '5-3-2',
     },
 } as const;
@@ -56,20 +56,20 @@ export type FormationKey = keyof typeof FORMATIONS;
  * greedy lineup assignment.
  */
 const SLOT_TO_FIT_POSITION: Readonly<Record<string, string>> = {
-    CB1: 'CB',
-    CB2: 'CB',
-    CB3: 'CB',
+    CBL: 'CB',
+    CB: 'CB',
+    CBR: 'CB',
     LWB: 'LWB',
     RWB: 'RWB',
-    DMF1: 'DM',
-    DMF2: 'DM',
-    DMF3: 'DM',
-    CM1: 'CM',
-    CM2: 'CM',
-    CM3: 'CM',
-    CAM1: 'AM',
-    CAM2: 'AM',
-    CAM3: 'AM',
+    DMFL: 'DM',
+    DMF: 'DM',
+    DMFR: 'DM',
+    CML: 'CM',
+    CM: 'CM',
+    CMR: 'CM',
+    CAML: 'AM',
+    CAM: 'AM',
+    CAMR: 'AM',
     LM: 'LM',
     RM: 'RM',
     LW: 'LW',

@@ -51,8 +51,13 @@ export class MatchTacticsEntity extends BaseEntity {
      * new `lineupV2` field (number player ids). Code should read `lineupV2`
      * first; this field is kept only as a placeholder so old code that
      * destructures it doesn't crash.
+     *
+     * The shape mirrors `lineupV2` (slot key → int player id) for type
+     * compatibility with editor/seed paths that still write to the legacy
+     * column. Use `Record<string, string | number>` to tolerate any
+     * pre-migration rows the wipe didn't catch.
      */
-    lineup!: Record<string, never>;
+    lineup!: Record<string, string | number>;
 
     @Column({ name: 'lineup_v2', type: 'jsonb', nullable: true })
     lineupV2?: Record<string, number>;
@@ -61,7 +66,7 @@ export class MatchTacticsEntity extends BaseEntity {
     instructions?: Record<string, any>;
 
     @Column({ type: 'jsonb', nullable: true })
-    substitutions?: Array<{ minute: number; out: never; in: never }> | null;
+    substitutions?: Array<{ minute: number; out: string | number; in: string | number }> | null;
 
     @Column({ name: 'substitutions_v2', type: 'jsonb', nullable: true })
     substitutionsV2?: Array<{ minute: number; out: number; in: number }>;

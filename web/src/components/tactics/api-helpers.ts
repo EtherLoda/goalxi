@@ -44,12 +44,12 @@ export interface CreatePresetPayload {
 // ============================================================================
 
 export function computeFormation(lineup: TacticsDraft['lineup']): string {
-  // Defenders: back line only (LB, CB1-3, RB, LWB, RWB). GK is excluded.
-  const defenders = ['LB', 'CB1', 'CB2', 'CB3', 'RB', 'LWB', 'RWB'].filter(
+  // Defenders: back line only (LB, CBL-3, RB, LWB, RWB). GK is excluded.
+  const defenders = ['LB', 'CBL', 'CB', 'CBR', 'RB', 'LWB', 'RWB'].filter(
     (s) => lineup[s as keyof TacticsDraft['lineup']],
   ).length;
-  // Midfielders: DMF1-3, CM1-3, CAM1-3, LM, RM
-  const midfielders = ['DMF1', 'DMF2', 'DMF3', 'CM1', 'CM2', 'CM3', 'CAM1', 'CAM2', 'CAM3', 'LM', 'RM'].filter(
+  // Midfielders: DMFL-3, CML-3, CAML-3, LM, RM
+  const midfielders = ['DMFL', 'DMF', 'DMFR', 'CML', 'CM', 'CMR', 'CAML', 'CAM', 'CAMR', 'LM', 'RM'].filter(
     (s) => lineup[s as keyof TacticsDraft['lineup']],
   ).length;
   // Attackers: LW, RW, CFL, CF, CFR
@@ -166,22 +166,22 @@ export function serializePreset(
  */
 const LEGACY_SLOT_ALIASES: Readonly<Record<string, PitchSlot>> = {
   // Defense
-  CB: 'CB1',
-  CDL: 'CB1',
-  CDR: 'CB3',
-  CD: 'CB2',
+  CB: 'CBL',
+  CDL: 'CBL',
+  CDR: 'CBR',
+  CD: 'CB',
   // Midfield
-  CM: 'CM1',
-  CML: 'CM1',
-  CMR: 'CM3',
-  DM: 'DMF1',
-  DML: 'DMF1',
-  DMR: 'DMF3',
-  CDM: 'DMF2',
-  AM: 'CAM1',
-  AML: 'CAM1',
-  AMR: 'CAM3',
-  CAM: 'CAM2',
+  CM: 'CML',
+  CML: 'CML',
+  CMR: 'CMR',
+  DM: 'DMFL',
+  DML: 'DMFL',
+  DMR: 'DMFR',
+  CDM: 'DMF',
+  AM: 'CAML',
+  AML: 'CAML',
+  AMR: 'CAMR',
+  CAM: 'CAM',
   // Forwards
   ST: 'CF',
   // Wide positions

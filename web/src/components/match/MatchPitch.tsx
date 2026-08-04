@@ -26,7 +26,7 @@
  *   - tempo         → shadow glow on the half-pitch wrapper
  *
  * Markers render at `MATCH_MARKER_SCALE` of the editor's default size,
- * so a 5-player line (LB, CB1, CB2, CB3, RB) at y=12/32/50/68/88 fits
+ * so a 5-player line (LB, CBL, CB, CBR, RB) at y=12/32/50/68/88 fits
  * without overlap on a 16:9 pitch.
  *
  * Data layer (buildCards / snapshot merging) lives in `match-pitch-data.ts`
@@ -126,8 +126,8 @@ const TEMPO_GLOW: Record<'slow' | 'balanced' | 'fast', string> = {
  * Visual scale applied to each player marker on the match page. The
  * editor's `PlayerMarker` is sized for the full pitch (18 individual
  * slots across a 100-wide editor canvas). On the match page, 11 players
- * per team share a single 50-wide half — a 5-player DEF line (LB, CB1,
- * CB2, CB3, RB) at y=12/32/50/68/88 would otherwise overlap vertically
+ * per team share a single 50-wide half — a 5-player DEF line (LB, CBL,
+ * CB, CBR, RB) at y=12/32/50/68/88 would otherwise overlap vertically
  * on a 16:9 pitch. Scaling the marker down to 90% of editor size
  * preserves readability while leaving breathing room.
  *

@@ -23,7 +23,7 @@
  *   - the editor's y axis = attack direction (y=0 = opp goal, y=100 = own goal)
  *   - the match page's x axis = attack direction (x=0 = own goal, x=100 = opp)
  *   - reusing the editor table produces a "saw-tooth" defensive line
- *     (LB x=24, CB1 x=22, CB2 x=20, CB3 x=22, RB x=24) because the editor
+ *     (LB x=24, CBL x=22, CB x=20, CBR x=22, RB x=24) because the editor
  *     spreads CBs across two rows of y; the match page needs them all at
  *     the SAME x.
  *
@@ -87,10 +87,10 @@ export interface MatchDimensionOffsets {
  * line (FW) is the closest to the center circle, 6 units from x=50:
  *
  *   GK    : x = 4   GK
- *   DEF   : x = 12  LB / CB1 / CB2 / CB3 / RB
- *   DM    : x = 20  LWB / DMF1 / DMF2 / DMF3 / RWB
- *   CM    : x = 28  LM / CM1 / CM2 / CM3 / RM
- *   AM    : x = 36  LW / CAM1 / CAM2 / CAM3 / RW
+ *   DEF   : x = 12  LB / CBL / CB / CBR / RB
+ *   DM    : x = 20  LWB / DMFL / DMF / DMFR / RWB
+ *   CM    : x = 28  LM / CML / CM / CMR / RM
+ *   AM    : x = 36  LW / CAML / CAM / CAMR / RW
  *   FW    : x = 44  CFL / CF / CFR
  *
  * y values for a line spread the central slots across the pitch height.
@@ -102,7 +102,7 @@ export interface MatchDimensionOffsets {
  * position: wider than a full-back.
  *
  * Player markers on the match page render at scale ≈ 0.9 of the editor's
- * default size, so a 5-player line (LB, CB1, CB2, CB3, RB) doesn't
+ * default size, so a 5-player line (LB, CBL, CB, CBR, RB) doesn't
  * overlap on a 16:9 pitch — see the scale wrapper in `MatchPitch.tsx`.
  */
 export const MATCH_PITCH_COORDS: Readonly<Record<PitchSlot, MatchPitchPoint>> = {
@@ -113,32 +113,32 @@ export const MATCH_PITCH_COORDS: Readonly<Record<PitchSlot, MatchPitchPoint>> = 
   // touchline positions (LB, RB) anchor the y for every other wide
   // player on the team.
   LB: { x: 12, y: 12 },
-  CB1: { x: 12, y: 32 },
-  CB2: { x: 12, y: 50 },
-  CB3: { x: 12, y: 68 },
+  CBL: { x: 12, y: 32 },
+  CB: { x: 12, y: 50 },
+  CBR: { x: 12, y: 68 },
   RB: { x: 12, y: 88 },
 
   // DM line — wing-backs sit wider than the touchline (y=4/96) and the
   // central DMs stack across the middle.
   LWB: { x: 20, y: 4 },
-  DMF1: { x: 20, y: 32 },
-  DMF2: { x: 20, y: 50 },
-  DMF3: { x: 20, y: 68 },
+  DMFL: { x: 20, y: 32 },
+  DMF: { x: 20, y: 50 },
+  DMFR: { x: 20, y: 68 },
   RWB: { x: 20, y: 96 },
 
   // CM line — wide mids share the touchline y with LB/RB so the
   // touchline reads as a single horizontal rail from back to front.
   LM: { x: 28, y: 12 },
-  CM1: { x: 28, y: 32 },
-  CM2: { x: 28, y: 50 },
-  CM3: { x: 28, y: 68 },
+  CML: { x: 28, y: 32 },
+  CM: { x: 28, y: 50 },
+  CMR: { x: 28, y: 68 },
   RM: { x: 28, y: 88 },
 
   // AM line — wingers share the touchline y with LB/RB and LM/RM.
   LW: { x: 36, y: 12 },
-  CAM1: { x: 36, y: 32 },
-  CAM2: { x: 36, y: 50 },
-  CAM3: { x: 36, y: 68 },
+  CAML: { x: 36, y: 32 },
+  CAM: { x: 36, y: 50 },
+  CAMR: { x: 36, y: 68 },
   RW: { x: 36, y: 88 },
 
   // Forward line — closest to the center circle (x=50), still inside
@@ -276,8 +276,8 @@ export function forfeitScore(
 
 /**
  * Coerce a raw backend `Tactics.lineup` map (slot → playerId) into a
- * canonical shape with legacy aliases folded (CB/CD/CDL/CMR/DMF3 → CB1/
- * CB2/CB1/CM3/DMF3 etc.) and bench slots kept separate.
+ * canonical shape with legacy aliases folded (CB/CD/CDL/CMR/DMFR → CBL/
+ * CB/CBL/CMR/DMFR etc.) and bench slots kept separate.
  *
  * Re-exports `normalizeLineup` from `tactics/api-helpers.ts` so the match
  * page has a single, locally-scoped helper. The behavior is identical:

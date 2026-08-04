@@ -56,14 +56,14 @@ function makeHydratePayload(overrides: Partial<HydratePayload> = {}): HydratePay
   return {
     lineup: {
       GK: 'p-gk',
-      CB1: 'p-cb-1',
-      CB2: 'p-cb-2',
-      CB3: 'p-cb-3',
+      CBL: 'p-cb-1',
+      CB: 'p-cb-2',
+      CBR: 'p-cb-3',
       LB: 'p-lb',
       RB: 'p-rb',
-      CM1: 'p-cmf-1',
-      CM2: 'p-cmf-2',
-      CM3: 'p-cmf-3',
+      CML: 'p-cmf-1',
+      CM: 'p-cmf-2',
+      CMR: 'p-cmf-3',
       CFL: 'p-cf-1',
       CFR: 'p-cf-2',
     },
@@ -95,8 +95,8 @@ describe('reducer — HYDRATE', () => {
   it('separates pitch slots from bench slots', () => {
     const payload = makeHydratePayload({
       lineup: {
-        GK: 'p-gk', CB1: 'p-cb-1', CB2: 'p-cb-2', CB3: 'p-cb-3', LB: 'p-lb', RB: 'p-rb',
-        CM1: 'p-cmf-1', CM2: 'p-cmf-2', CM3: 'p-cmf-3', CFL: 'p-cf-1', CFR: 'p-cf-2',
+        GK: 'p-gk', CBL: 'p-cb-1', CB: 'p-cb-2', CBR: 'p-cb-3', LB: 'p-lb', RB: 'p-rb',
+        CML: 'p-cmf-1', CM: 'p-cmf-2', CMR: 'p-cmf-3', CFL: 'p-cf-1', CFR: 'p-cf-2',
         BENCH_GK: 'p-bench-1',
         BENCH_CB: 'p-bench-2',
       },
@@ -123,13 +123,13 @@ describe('reducer — HYDRATE', () => {
     const payload = makeHydratePayload({
       instructions: {
         moves: [
-          { minute: 50, player: 'p-cmf-1', position: 'CAM1' },
+          { minute: 50, player: 'p-cmf-1', position: 'CAML' },
         ],
       },
     });
     const next = reducer(freshState(), { type: 'HYDRATE', payload });
     expect(next.draft.events).toContainEqual({
-      kind: 'move', minute: 50, playerId: 'p-cmf-1', toSlot: 'CAM1',
+      kind: 'move', minute: 50, playerId: 'p-cmf-1', toSlot: 'CAML',
     });
   });
 
@@ -162,28 +162,28 @@ describe('reducer — ASSIGN_PITCH / ASSIGN_BENCH', () => {
 
   it('removes from source when assigned from another pitch slot', () => {
     let state = freshState();
-    state = reducer(state, { type: 'ASSIGN_PITCH', from: null, to: 'CB1', playerId: 'p-cb-1' });
-    const next = reducer(state, { type: 'ASSIGN_PITCH', from: 'CB1', to: 'CB2', playerId: 'p-cb-1' });
-    expect(next.draft.lineup.CB1).toBeUndefined();
-    expect(next.draft.lineup.CB2).toBe('p-cb-1');
+    state = reducer(state, { type: 'ASSIGN_PITCH', from: null, to: 'CBL', playerId: 'p-cb-1' });
+    const next = reducer(state, { type: 'ASSIGN_PITCH', from: 'CBL', to: 'CB', playerId: 'p-cb-1' });
+    expect(next.draft.lineup.CBL).toBeUndefined();
+    expect(next.draft.lineup.CB).toBe('p-cb-1');
   });
 
   it('removes from bench when assigned from bench', () => {
     let state = freshState();
     state = reducer(state, { type: 'ASSIGN_BENCH', from: null, to: 'BENCH_CB', playerId: 'p-cb-1' });
-    const next = reducer(state, { type: 'ASSIGN_PITCH', from: 'BENCH_CB', to: 'CB1', playerId: 'p-cb-1' });
+    const next = reducer(state, { type: 'ASSIGN_PITCH', from: 'BENCH_CB', to: 'CBL', playerId: 'p-cb-1' });
     expect(next.draft.bench.BENCH_CB).toBeUndefined();
-    expect(next.draft.lineup.CB1).toBe('p-cb-1');
+    expect(next.draft.lineup.CBL).toBe('p-cb-1');
   });
 
   it('clears stale duplicate of the same player elsewhere on the pitch', () => {
     let state = freshState();
-    state = reducer(state, { type: 'ASSIGN_PITCH', from: null, to: 'CB1', playerId: 'p-cb-1' });
-    state = reducer(state, { type: 'ASSIGN_PITCH', from: null, to: 'CB2', playerId: 'p-cb-1' });
-    const next = reducer(state, { type: 'ASSIGN_PITCH', from: 'CB2', to: 'CB3', playerId: 'p-cb-1' });
-    expect(next.draft.lineup.CB1).toBeUndefined();
-    expect(next.draft.lineup.CB2).toBeUndefined();
-    expect(next.draft.lineup.CB3).toBe('p-cb-1');
+    state = reducer(state, { type: 'ASSIGN_PITCH', from: null, to: 'CBL', playerId: 'p-cb-1' });
+    state = reducer(state, { type: 'ASSIGN_PITCH', from: null, to: 'CB', playerId: 'p-cb-1' });
+    const next = reducer(state, { type: 'ASSIGN_PITCH', from: 'CB', to: 'CBR', playerId: 'p-cb-1' });
+    expect(next.draft.lineup.CBL).toBeUndefined();
+    expect(next.draft.lineup.CB).toBeUndefined();
+    expect(next.draft.lineup.CBR).toBe('p-cb-1');
   });
 
   it('clears stale duplicate on bench when moving to bench', () => {
@@ -375,7 +375,7 @@ describe('reducer — APPLY_PRESET', () => {
       name: 'Aggressive',
       isDefault: false,
       formation: '4-3-3',
-      lineup: { GK: 'p-gk', CB1: 'p-cb-1', CB2: 'p-cb-2', CB3: 'p-cb-3', LB: 'p-lb', RB: 'p-rb', CM1: 'p-cmf-1', CM2: 'p-cmf-2', CM3: 'p-cmf-3', LW: 'p-cf-1', RW: 'p-cf-2' },
+      lineup: { GK: 'p-gk', CBL: 'p-cb-1', CB: 'p-cb-2', CBR: 'p-cb-3', LB: 'p-lb', RB: 'p-rb', CML: 'p-cmf-1', CM: 'p-cmf-2', CMR: 'p-cmf-3', LW: 'p-cf-1', RW: 'p-cf-2' },
       substitutions: [{ minute: 60, out: 'p-cmf-1', in: 'p-bench-1' }],
       instructions: null,
     };
@@ -476,8 +476,8 @@ describe('selectFormation', () => {
       ...createEmptyDraft(),
       lineup: {
         GK: 'p-gk',
-        LB: 'p-lb', CB1: 'p-cb-1', CB2: 'p-cb-2', RB: 'p-rb',
-        LM: 'p-lm', CM1: 'p-cmf-1', CM2: 'p-cmf-2', RM: 'p-rm',
+        LB: 'p-lb', CBL: 'p-cb-1', CB: 'p-cb-2', RB: 'p-rb',
+        LM: 'p-lm', CML: 'p-cmf-1', CM: 'p-cmf-2', RM: 'p-rm',
         CFL: 'p-cf-1', CFR: 'p-cf-2',
       },
     };
@@ -493,8 +493,8 @@ describe('selectFormation', () => {
       ...createEmptyDraft(),
       lineup: {
         GK: 'p-gk',
-        CB1: 'a', CB2: 'b', CB3: 'c',
-        LWB: 'd', CM1: 'e', CM2: 'f', CM3: 'g', RWB: 'h',
+        CBL: 'a', CB: 'b', CBR: 'c',
+        LWB: 'd', CML: 'e', CM: 'f', CMR: 'g', RWB: 'h',
         CFL: 'i', CFR: 'j',
       },
     };

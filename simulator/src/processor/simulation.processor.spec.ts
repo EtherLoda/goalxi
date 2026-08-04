@@ -1,4 +1,4 @@
-import { Test, TestingModule } from '@nestjs/testing';
+﻿import { Test, TestingModule } from '@nestjs/testing';
 import { Job } from 'bullmq';
 import { DataSource, Repository } from 'typeorm';
 import { getRepositoryToken } from '@nestjs/typeorm';
@@ -66,18 +66,19 @@ describe('SimulationProcessor', () => {
     matchId: 'match-1',
     teamId: 'team-1',
     formation: '4-4-2',
-    lineup: {
-      GK: 'p1',
-      CD: 'p2',
-      LB: 'p3',
-      RB: 'p4',
-      CM: 'p5',
-      LW: 'p6',
-      RW: 'p7',
-      AM: 'p8',
-      CF: 'p9',
-      CD2: 'p10',
-      CD3: 'p11',
+    lineup: {},
+    lineupV2: {
+      GK: 1,
+      CB: 2,
+      LB: 3,
+      RB: 4,
+      CM: 5,
+      LW: 6,
+      RW: 7,
+      AM: 8,
+      CF: 9,
+      CBR: 10,
+      CBL: 11,
     },
     substitutions: [],
     instructions: {},
@@ -88,18 +89,19 @@ describe('SimulationProcessor', () => {
     matchId: 'match-1',
     teamId: 'team-2',
     formation: '4-3-3',
-    lineup: {
-      GK: 'p12',
-      CD: 'p13',
-      LB: 'p14',
-      RB: 'p15',
-      CM: 'p16',
-      LW: 'p17',
-      RW: 'p18',
-      AM: 'p19',
-      CF: 'p20',
-      CD2: 'p21',
-      CD3: 'p22',
+    lineup: {},
+    lineupV2: {
+      GK: 12,
+      CB: 13,
+      LB: 14,
+      RB: 15,
+      CM: 16,
+      LW: 17,
+      RW: 18,
+      AM: 19,
+      CF: 20,
+      CBR: 21,
+      CBL: 22,
     },
     substitutions: [],
     instructions: {},
@@ -109,7 +111,7 @@ describe('SimulationProcessor', () => {
   const mockAwayTeam = { id: 'team-2', name: 'AwayFC', benchConfig: {} };
 
   const mockPlayers = Array.from({ length: 22 }, (_, i) => ({
-    id: `p${i + 1}`,
+    id: i + 1,
     name: `Player ${i + 1}`,
     currentSkills: {
       pace: 70,
@@ -142,7 +144,7 @@ describe('SimulationProcessor', () => {
       save: jest.fn().mockResolvedValue({}),
       create: jest.fn((entity, data) => data),
       delete: jest.fn().mockResolvedValue({ affected: 0 }),
-      // `manager.query` powers the atomic claim in process() — the default
+      // `manager.query` powers the atomic claim in process() 鈥?the default
       // returns a one-row array so the happy-path tests still pass. Tests
       // that want to simulate a losing claim override this per-test.
       query: jest.fn().mockResolvedValue([{ id: 'match-1' }]),
@@ -383,16 +385,16 @@ describe('SimulationProcessor', () => {
     // even when the DB had all the players.
     it('should not flag known lineup players as missing (Set.has vs `in`)', async () => {
       // Downstream mocks for runSimulation are partial (e.g. manager.findOne),
-      // but the missing-player filter runs BEFORE that — so we only need to
+      // but the missing-player filter runs BEFORE that 鈥?so we only need to
       // observe the logger. Swallow anything else.
       try {
         await processor.process(mockJob);
       } catch {
-        /* ignore — we only care about the warn() calls */
+        /* ignore 鈥?we only care about the warn() calls */
       }
 
       // mockPlayers contains every ID referenced by mockHomeTactics /
-      // mockAwayTactics — none of them should be reported as missing.
+      // mockAwayTactics 鈥?none of them should be reported as missing.
       const missingWarnings = mockLogger.warn.mock.calls.filter(
         (c: unknown[]) =>
           typeof c[0] === 'string' && c[0].includes('missing players'),
@@ -406,7 +408,7 @@ describe('SimulationProcessor', () => {
         if (where?.teamId === 'team-1') {
           return {
             ...mockHomeTactics,
-            lineup: { ...mockHomeTactics.lineup, CD: 'ghost-1', LB: 'ghost-2' },
+            lineupV2: { ...mockHomeTactics.lineupV2, CB: 9999, LB: 9998 },
           } as any;
         }
         if (where?.teamId === 'team-2') return mockAwayTactics as any;
@@ -416,7 +418,7 @@ describe('SimulationProcessor', () => {
       try {
         await processor.process(mockJob);
       } catch {
-        /* ignore — we only care about the warn() calls */
+        /* ignore 鈥?we only care about the warn() calls */
       }
 
       const missingWarnings = mockLogger.warn.mock.calls.filter(
@@ -425,8 +427,8 @@ describe('SimulationProcessor', () => {
       );
       // Exactly one warning, naming both ghost ids.
       expect(missingWarnings).toHaveLength(1);
-      expect(missingWarnings[0][0]).toContain('ghost-1');
-      expect(missingWarnings[0][0]).toContain('ghost-2');
+      expect(missingWarnings[0][0]).toContain('9999');
+      expect(missingWarnings[0][0]).toContain('9998');
       expect(missingWarnings[0][0]).toContain('Home lineup');
     });
 
@@ -434,10 +436,9 @@ describe('SimulationProcessor', () => {
     // loses the atomic claim must bail out BEFORE running the engine. The
     // old guard only checked status=COMPLETED, but the worker never sets
     // that itself, so two workers could both pass the guard and bulk-insert
-    // events for the same match — producing 4× snapshots per minute.
+    // events for the same match 鈥?producing 4脳 snapshots per minute.
     it('skips when another worker already holds the simulation lease', async () => {
-      // Mock the manager.query UPDATE...RETURNING to return zero rows —
-      // that's what the DB returns when another worker already set
+      // Mock the manager.query UPDATE...RETURNING to return zero rows 鈥?      // that's what the DB returns when another worker already set
       // simulation_started_at.
       const txManager = (dataSource.transaction as jest.Mock).mock.calls[0]?.[0];
       // The transaction callback in process() will receive the manager
@@ -474,8 +475,7 @@ describe('SimulationProcessor', () => {
         }
       }
 
-      // The losing worker must skip without invoking the engine —
-      // i.e. no tactics fetch, no player fetch, no event bulk-insert.
+      // The losing worker must skip without invoking the engine 鈥?      // i.e. no tactics fetch, no player fetch, no event bulk-insert.
       expect(tacticsRepository.findOne).not.toHaveBeenCalled();
       expect(playerRepository.find).not.toHaveBeenCalled();
       // And it must log a warning so the duplicate job shows up in logs.
@@ -485,8 +485,7 @@ describe('SimulationProcessor', () => {
           c[0].includes('simulation already in flight'),
       );
       expect(skipWarnings).toHaveLength(1);
-      // The lease-release UPDATE should NOT fire on the skip path —
-      // releasing a lease we never held would clobber another worker's
+      // The lease-release UPDATE should NOT fire on the skip path 鈥?      // releasing a lease we never held would clobber another worker's
       // timestamp and let a third worker squeeze in.
       const releaseCalls = matchRepository.update.mock.calls.filter(
         (c: unknown[]) => {
