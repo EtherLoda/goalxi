@@ -42,13 +42,29 @@ export class MatchTacticsEntity extends BaseEntity {
     formation!: string;
 
     @Column({ type: 'jsonb' })
-    lineup!: Record<string, string>;
+    /**
+     * Position-slot -> player id.
+     *
+     * After the player.id uuid→int migration we cannot reconstruct the
+     * uuid→int mapping for old tactics rows, so this column was wiped and
+     * left empty; users re-save tactics from the editor which populates the
+     * new `lineupV2` field (number player ids). Code should read `lineupV2`
+     * first; this field is kept only as a placeholder so old code that
+     * destructures it doesn't crash.
+     */
+    lineup!: Record<string, never>;
+
+    @Column({ name: 'lineup_v2', type: 'jsonb', nullable: true })
+    lineupV2?: Record<string, number>;
 
     @Column({ type: 'jsonb', nullable: true })
     instructions?: Record<string, any>;
 
     @Column({ type: 'jsonb', nullable: true })
-    substitutions?: Array<{ minute: number; out: string; in: string }>;
+    substitutions?: Array<{ minute: number; out: never; in: never }> | null;
+
+    @Column({ name: 'substitutions_v2', type: 'jsonb', nullable: true })
+    substitutionsV2?: Array<{ minute: number; out: number; in: number }>;
 
     @Column({ type: 'varchar', length: 10, default: 'balanced' })
     tempo!: string;

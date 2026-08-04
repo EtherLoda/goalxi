@@ -10,7 +10,7 @@ describe('MatchEngine', () => {
   let engine: MatchEngine;
 
   // Helper to create mock players
-  const createMockPlayer = (id: string, name: string, ovr: number): Player => ({
+  const createMockPlayer = (id: number, name: string, ovr: number): Player => ({
     id,
     name,
     position: 'CM',
@@ -40,7 +40,7 @@ describe('MatchEngine', () => {
     const players: TacticalPlayer[] = [];
     for (let i = 0; i < 11; i++) {
       players.push({
-        player: createMockPlayer(`${name}-${i}`, `${name} Player ${i}`, avgOvr),
+        player: createMockPlayer(i, `${name} Player ${i}`, avgOvr),
         positionKey: i === 0 ? 'GK' : 'CM',
       });
     }
@@ -294,7 +294,7 @@ describe('MatchEngine', () => {
   describe('Star Rating Calculation', () => {
     it('should show different stars for different OVR levels', () => {
       // Create team with varied OVR players
-      const createPlayer = (id: string, name: string, ovr: number): Player => ({
+      const createPlayer = (id: number, name: string, ovr: number): Player => ({
         id,
         name,
         position: 'CM',
@@ -321,26 +321,26 @@ describe('MatchEngine', () => {
 
       const homeTeam = new Team('HomeFC', [
         {
-          player: createPlayer('p1', 'World Class CM', 18),
+          player: createPlayer(1, 'World Class CM', 18),
           positionKey: 'CM',
         },
         {
-          player: createPlayer('p2', 'Good CM', 14),
+          player: createPlayer(2, 'Good CM', 14),
           positionKey: 'CM',
         },
         {
-          player: createPlayer('p3', 'Average CM', 10),
+          player: createPlayer(3, 'Average CM', 10),
           positionKey: 'CM',
         },
         {
-          player: createPlayer('p4', 'Weak CM', 6),
+          player: createPlayer(4, 'Weak CM', 6),
           positionKey: 'CM',
         },
       ]);
 
       const awayTeam = new Team('AwayFC', [
         {
-          player: createPlayer('p5', 'Away World Class', 18),
+          player: createPlayer(5, 'Away World Class', 18),
           positionKey: 'CM',
         },
       ]);
@@ -379,7 +379,7 @@ describe('MatchEngine', () => {
 
     it('should show different stars for different positions', () => {
       const createPlayer = (
-        id: string,
+        id: number,
         name: string,
         position: string,
         ovr: number,
@@ -411,30 +411,30 @@ describe('MatchEngine', () => {
 
       const homeTeam = new Team('PositionTest', [
         {
-          player: createPlayer('cf', 'CF', 'CF', 15),
+          player: createPlayer(1, 'CF', 'CF', 15),
           positionKey: 'CF',
         },
         {
-          player: createPlayer('cm', 'CM', 'CM', 15),
+          player: createPlayer(2, 'CM', 'CM', 15),
           positionKey: 'CM',
         },
         {
-          player: createPlayer('cb', 'CB', 'CB', 15),
+          player: createPlayer(3, 'CB', 'CB', 15),
           positionKey: 'CB',
         },
         {
-          player: createPlayer('lb', 'LB', 'LB', 15),
+          player: createPlayer(4, 'LB', 'LB', 15),
           positionKey: 'LB',
         },
         {
-          player: createPlayer('gk', 'GK', 'GK', 15),
+          player: createPlayer(5, 'GK', 'GK', 15),
           positionKey: 'GK',
         },
       ]);
 
       const awayTeam = new Team('AwayTeam', [
         {
-          player: createPlayer('away', 'Away', 'CM', 15),
+          player: createPlayer(99, 'Away', 'CM', 15),
           positionKey: 'CM',
         },
       ]);
@@ -455,9 +455,9 @@ describe('MatchEngine', () => {
 
   describe('Tactical Dimensions', () => {
     // Attributes are 0-20 range
-    const createPlayer = (id: string, ovr: number): Player => ({
+    const createPlayer = (id: number, ovr: number): Player => ({
       id,
-      name: id,
+      name: `Player ${id}`,
       position: 'CM',
       exactAge: [25, 0],
       attributes: {
@@ -484,7 +484,7 @@ describe('MatchEngine', () => {
       const players: TacticalPlayer[] = [];
       for (let i = 0; i < 11; i++) {
         players.push({
-          player: createPlayer(`${name}-${i}`, ovr),
+          player: createPlayer(i, ovr),
           positionKey: i === 0 ? 'GK' : 'CM',
         });
       }
@@ -641,9 +641,9 @@ describe('MatchEngine.applyInstructionsForTeam — move & swap plumbing', () => 
   // Full-shape mock player — AttributeCalculator.preCachePlayerContributions
   // (called from Team.movePlayer) reads `attributes.{finishing,pace,…}` so
   // a partial mock triggers TypeError on every move.
-  const mkPlayer = (id: string, pos: string): Player => ({
+  const mkPlayer = (id: number, pos: string): Player => ({
     id,
-    name: id,
+    name: `Player ${id}`,
     position: pos,
     exactAge: [25, 0],
     attributes: {
@@ -668,10 +668,10 @@ describe('MatchEngine.applyInstructionsForTeam — move & swap plumbing', () => 
 
   const mkTeam = () => {
     const players: TacticalPlayer[] = [
-      { player: mkPlayer('A', 'CM'), positionKey: 'CML' },
-      { player: mkPlayer('B', 'GK'), positionKey: 'GK' },
-      { player: mkPlayer('C', 'CM'), positionKey: 'CMC' },
-      { player: mkPlayer('D', 'CF'), positionKey: 'CF' },
+      { player: mkPlayer(1, 'CM'), positionKey: 'CML' },
+      { player: mkPlayer(2, 'GK'), positionKey: 'GK' },
+      { player: mkPlayer(3, 'CM'), positionKey: 'CMC' },
+      { player: mkPlayer(4, 'CF'), positionKey: 'CF' },
     ];
     return new Team('Test', players);
   };
@@ -689,7 +689,7 @@ describe('MatchEngine.applyInstructionsForTeam — move & swap plumbing', () => 
       'cloudy',
     );
     (engine as any).homeInstructions = [
-      { minute: 70, type: 'move', playerId: 'A', newPosition: 'CMR' },
+      { minute: 70, type: 'move', playerId: 1, newPosition: 'CMR' },
     ];
     (engine as any).applyInstructionsForTeam(
       team,
@@ -697,7 +697,7 @@ describe('MatchEngine.applyInstructionsForTeam — move & swap plumbing', () => 
       70,
       'draw',
     );
-    const moved = team.players.find((p: TacticalPlayer) => p.player.id === 'A');
+    const moved = team.players.find((p: TacticalPlayer) => p.player.id === 1);
     expect(moved?.positionKey).toBe('CMR');
   });
 
@@ -714,10 +714,10 @@ describe('MatchEngine.applyInstructionsForTeam — move & swap plumbing', () => 
       'cloudy',
     );
     (engine as any).homeInstructions = [
-      { minute: 60, type: 'move', playerId: 'A', newPosition: 'CMR' },
+      { minute: 60, type: 'move', playerId: 1, newPosition: 'CMR' },
     ];
     for (const status of ['leading', 'draw', 'trailing'] as const) {
-      const p = team.players.find((tp: TacticalPlayer) => tp.player.id === 'A');
+      const p = team.players.find((tp: TacticalPlayer) => tp.player.id === 1);
       if (p) p.positionKey = 'CML';
       (engine as any).applyInstructionsForTeam(
         team,
@@ -726,7 +726,7 @@ describe('MatchEngine.applyInstructionsForTeam — move & swap plumbing', () => 
         status,
       );
       const moved = team.players.find(
-        (tp: TacticalPlayer) => tp.player.id === 'A',
+        (tp: TacticalPlayer) => tp.player.id === 1,
       );
       expect(moved?.positionKey).toBe('CMR');
     }
@@ -748,7 +748,7 @@ describe('MatchEngine.applyInstructionsForTeam — move & swap plumbing', () => 
       {
         minute: 60,
         type: 'move',
-        playerId: 'A',
+        playerId: 1,
         newPosition: 'CMR',
         condition: 'leading',
       },
@@ -759,7 +759,7 @@ describe('MatchEngine.applyInstructionsForTeam — move & swap plumbing', () => 
       60,
       'trailing',
     );
-    const moved = team.players.find((p: TacticalPlayer) => p.player.id === 'A');
+    const moved = team.players.find((p: TacticalPlayer) => p.player.id === 1);
     expect(moved?.positionKey).toBe('CML'); // unchanged — move gated out
   });
 
@@ -779,7 +779,7 @@ describe('MatchEngine.applyInstructionsForTeam — move & swap plumbing', () => 
       {
         minute: 60,
         type: 'move',
-        playerId: 'A',
+        playerId: 1,
         newPosition: 'CMR',
         condition: 'leading',
       },
@@ -790,7 +790,7 @@ describe('MatchEngine.applyInstructionsForTeam — move & swap plumbing', () => 
       60,
       'leading',
     );
-    const moved = team.players.find((p: TacticalPlayer) => p.player.id === 'A');
+    const moved = team.players.find((p: TacticalPlayer) => p.player.id === 1);
     expect(moved?.positionKey).toBe('CMR');
   });
 });
@@ -800,9 +800,9 @@ describe('MatchEngine.applyInstructionsForTeam — move & swap plumbing', () => 
 // ============================================================================
 
 describe('MatchEngine.shouldFire — condition gating', () => {
-  const createMockPlayer = (id: string): Player => ({
+  const createMockPlayer = (id: number): Player => ({
     id,
-    name: id,
+    name: `Player ${id}`,
     position: 'CM',
     exactAge: [25, 0],
     attributes: {
@@ -827,7 +827,7 @@ describe('MatchEngine.shouldFire — condition gating', () => {
 
   const createTeam = (name: string): Team => {
     const players: TacticalPlayer[] = Array.from({ length: 11 }, (_, i) => ({
-      player: createMockPlayer(`${name}-${i}`),
+      player: createMockPlayer(i),
       positionKey: i === 0 ? 'GK' : 'CM',
     }));
     return new Team(name, players);

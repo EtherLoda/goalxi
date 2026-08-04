@@ -85,7 +85,7 @@ export class YouthProgressionProcessor extends WorkerHost {
           where: { coachId: In(coachIds) },
         })
       : [];
-    const assignmentByPlayer = new Map<string, CoachPlayerAssignmentEntity>();
+    const assignmentByPlayer = new Map<number, CoachPlayerAssignmentEntity>();
     for (const a of assignments) {
       assignmentByPlayer.set(a.playerId, a);
     }

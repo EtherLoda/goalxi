@@ -136,13 +136,13 @@ export function generateAutoLineup(
             const bestFit = best ? calculatePositionFit(playerToAttributes(best), 'GK') : -1;
             return fit > bestFit ? p : best;
         }, goalkeepers[0]);
-        lineup['GK'] = gk.id;
-        assignedPlayers.add(gk.id);
+        lineup['GK'] = String(gk.id);
+        assignedPlayers.add(String(gk.id));
     }
 
     // For each formation position, find best unassigned player
     for (const slotKey of formationConfig.positions) {
-        const candidates = outfieldPlayers.filter((p) => !assignedPlayers.has(p.id));
+        const candidates = outfieldPlayers.filter((p) => !assignedPlayers.has(String(p.id)));
         if (candidates.length === 0) break;
 
         // Score each candidate by position fit (translate slot → fit code)
@@ -158,14 +158,14 @@ export function generateAutoLineup(
             }
         }
 
-        lineup[slotKey] = bestPlayer.id;
-        assignedPlayers.add(bestPlayer.id);
+        lineup[slotKey] = String(bestPlayer.id);
+        assignedPlayers.add(String(bestPlayer.id));
     }
 
     // Remaining players go to bench
     const bench = players
-        .filter((p) => !assignedPlayers.has(p.id))
-        .map((p) => p.id);
+        .filter((p) => !assignedPlayers.has(String(p.id)))
+        .map((p) => String(p.id));
 
     return {
         lineup,

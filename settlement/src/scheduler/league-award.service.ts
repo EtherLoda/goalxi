@@ -322,7 +322,7 @@ export class LeagueAwardService {
   }
 
   private async addPrizeToTeam(
-    playerId: string,
+    playerId: number,
     amount: number,
   ): Promise<void> {
     // 查找球员当前所在球队

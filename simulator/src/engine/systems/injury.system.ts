@@ -13,7 +13,7 @@ export interface InjuryResult {
 }
 
 export interface InjuryEventData {
-  playerId: string;
+  playerId: number;
   injuryType: InjuryType;
   severity: InjurySeverity;
   injuryValue: number;

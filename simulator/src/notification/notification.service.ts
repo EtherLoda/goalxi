@@ -27,7 +27,7 @@ export enum NotificationType {
 export interface NotificationData {
   [key: string]: any;
   matchId?: string;
-  playerId?: string;
+  playerId?: string | number;
   playerName?: string;
   skillType?: string;
   homeTeamName?: string;

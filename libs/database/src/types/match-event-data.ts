@@ -13,7 +13,7 @@ export interface ShotEventData {
     quality: number;
     gkRating: number;
     wasBlocked: boolean;
-    blockPlayerId?: string;
+    blockPlayerId?: number;
     isOneOnOne: boolean;
 }
 
@@ -33,7 +33,7 @@ export interface SubstitutionEventData {
     position: string;
     formation: string;
     tacticalReason: 'attacking' | 'defensive' | 'injury' | 'tired' | 'tactical';
-    substitutePlayerId: string;
+    substitutePlayerId: number;
 }
 
 export interface InjuryEventData {
@@ -72,7 +72,7 @@ export interface ForfeitEventData {
 
 export interface LineupEventData {
     players: Array<{
-        playerId: string;
+        playerId: number;
         playerName: string;
         position: string;
         number: number;

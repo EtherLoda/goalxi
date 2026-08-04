@@ -1,4 +1,3 @@
-import { Uuid } from '../types/common.type';
 import { AbstractEntity } from './abstract.entity';
 import { TeamEntity } from './team.entity';
 import {
@@ -87,18 +86,8 @@ export class PlayerEntity extends AbstractEntity {
         Object.assign(this, data);
     }
 
-    @PrimaryGeneratedColumn('uuid', { primaryKeyConstraintName: 'PK_player_id' })
-    id!: Uuid;
-
-    /**
-     * Human-facing 11-digit numeric ID (Hattrick-style). Displayed in URLs
-     * and search; the UUID `id` stays the internal PK.
-     * Stored as bigint in DB, serialized as string in API/JSON to avoid
-     * JavaScript's 53-bit Number precision loss.
-     * Auto-generated on insert from the UUID; not user-editable.
-     */
-    @Column({ name: 'display_id', type: 'bigint', unique: true })
-    displayId: string;
+    @PrimaryGeneratedColumn('increment', { type: 'int', primaryKeyConstraintName: 'PK_player_id' })
+    id!: number;
 
     @Column({ name: 'team_id', type: 'uuid', nullable: true })
     teamId?: string | null;

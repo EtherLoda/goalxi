@@ -9,7 +9,7 @@ import { Player } from '../types/player.types';
 describe('Simulation Statistics', () => {
   // Helper to create mock players
   const createMockPlayer = (
-    id: string,
+    id: number,
     name: string,
     attrValue: number,
   ): Player => ({
@@ -54,7 +54,7 @@ describe('Simulation Statistics', () => {
     ];
     const players: TacticalPlayer[] = positions.map((pos, i) => ({
       player: createMockPlayer(
-        `${name}-${i}`,
+        i,
         `${name} Player ${i}`,
         attrValue,
       ),

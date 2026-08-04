@@ -71,7 +71,7 @@ export class AttributeCalculator {
   private static contributionCache = new Map<string, number>();
 
   // 缓存：playerId -> GK save rating
-  private static gkCache = new Map<string, number>();
+  private static gkCache = new Map<number, number>();
 
   // Dedup warn-set: log each unknown slot key once per process so a
   // 90-min match full of badly-keyed players doesn't emit 90 * 11 logs.
@@ -83,7 +83,7 @@ export class AttributeCalculator {
 
   // 缓存键生成
   private static getCacheKey(
-    playerId: string,
+    playerId: number,
     positionKey: string,
     lane: Lane,
     phase: Phase,
@@ -187,7 +187,7 @@ export class AttributeCalculator {
    * 使用缓存的贡献值（需要在缓存后调用）
    */
   static getCachedContribution(
-    playerId: string,
+    playerId: number,
     positionKey: string,
     lane: Lane,
     phase: Phase,
@@ -230,7 +230,7 @@ export class AttributeCalculator {
   /**
    * 获取缓存的GK评分
    */
-  static getCachedGKSaveRating(playerId: string): number {
+  static getCachedGKSaveRating(playerId: number): number {
     return this.gkCache.get(playerId) ?? 100; // 默认100
   }
 

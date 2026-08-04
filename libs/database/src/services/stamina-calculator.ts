@@ -16,7 +16,7 @@ export const PEAK_AGE = 23;
 export const BASE_DECAY_RATE = 0.05;
 
 export interface StaminaResult {
-    playerId: string;
+    playerId: number;
     staminaBefore: number;
     staminaAfter: number;
     netChange: number;
@@ -75,7 +75,7 @@ export function calculateMaxStamina(age: number): number {
  * 当 trainingEffect = decay 时，刚好维持体能 (netChange = 0)
  */
 export function calculateWeeklyStaminaChange(
-    playerId: string,
+    playerId: number,
     currentStamina: number,
     age: number,
     physicalIntensity: number,

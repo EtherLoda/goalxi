@@ -48,15 +48,15 @@ export class MatchEventEntity extends BaseEntity {
     @JoinColumn({ name: 'team_id' })
     team?: TeamEntity;
 
-    @Column({ name: 'player_id', type: 'uuid', nullable: true })
-    playerId?: string;
+    @Column({ name: 'player_id', type: 'int', nullable: true })
+    playerId?: number;
 
     @ManyToOne(() => PlayerEntity)
     @JoinColumn({ name: 'player_id' })
     player?: PlayerEntity;
 
-    @Column({ name: 'related_player_id', type: 'uuid', nullable: true })
-    relatedPlayerId?: string;
+    @Column({ name: 'related_player_id', type: 'int', nullable: true })
+    relatedPlayerId?: number;
 
     @ManyToOne(() => PlayerEntity)
     @JoinColumn({ name: 'related_player_id' })

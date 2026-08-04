@@ -475,9 +475,13 @@ export class MatchSchedulerService {
     tactics.teamId = teamId;
     tactics.presetId = preset.id;
     tactics.formation = preset.formation;
-    tactics.lineup = preset.lineup;
+    // Legacy `lineup`/`substitutions` columns were emptied by the player.id
+    // uuid→int migration; the new v2 columns hold the int-keyed payload.
+    tactics.lineup = {};
+    tactics.lineupV2 = preset.lineupV2;
     tactics.instructions = preset.instructions;
-    tactics.substitutions = preset.substitutions;
+    tactics.substitutions = null;
+    tactics.substitutionsV2 = preset.substitutionsV2;
     tactics.submittedAt = new Date();
     return tactics;
   }

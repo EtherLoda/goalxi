@@ -13,12 +13,12 @@ import { Column, DeleteDateColumn, Entity, JoinColumn, ManyToOne, OneToMany, One
  * FB = Fullback (covers both LB/RB), W = Winger (covers both LW/RW)
  */
 export interface BenchConfig {
-    goalkeeper: string | null;              // GK 替补
-    centerBack: string | null;              // CD 替补
-    fullback: string | null;                // FB 替补 (合并 LB/RB)
-    winger: string | null;                  // W 替补 (合并 LW/RW)
-    centralMidfield: string | null;         // AM/CM/DM 中场替补
-    forward: string | null;                 // FWD/CF 前锋替补
+    goalkeeper: number | null;              // GK 替补
+    centerBack: number | null;              // CD 替补
+    fullback: number | null;                // FB 替补 (合并 LB/RB)
+    winger: number | null;                  // W 替补 (合并 LW/RW)
+    centralMidfield: number | null;         // AM/CM/DM 中场替补
+    forward: number | null;                 // FWD/CF 前锋替补
 }
 
 @Entity('team')

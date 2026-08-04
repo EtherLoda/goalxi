@@ -34,8 +34,8 @@ export class TransferTransactionEntity extends AbstractEntity {
     @JoinColumn({ name: 'auction_id' })
     auction?: AuctionEntity;
 
-    @Column({ name: 'player_id', type: 'uuid' })
-    playerId!: Uuid;
+    @Column({ name: 'player_id', type: 'int' })
+    playerId!: number;
 
     @ManyToOne(() => PlayerEntity)
     @JoinColumn({ name: 'player_id' })

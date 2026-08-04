@@ -182,8 +182,8 @@ export interface MatchEvent {
     | 'free_kick';
   teamName?: string;
   teamId?: string;
-  playerId?: string;
-  relatedPlayerId?: string; // For assists, second yellow cards, etc.
+  playerId?: number;
+  relatedPlayerId?: number; // For assists, second yellow cards, etc.
   phase?: string;
   lane?: string;
   data?: Record<string, any>;
@@ -201,7 +201,7 @@ export class MatchEngine {
   private freshPossession: boolean = false; // 刚获得球权，第一次进攻享受反击加成
 
   private currentLane: Lane = 'center';
-  private knownPlayerIds: Set<string> = new Set();
+  private knownPlayerIds: Set<number> = new Set();
 
   // 比赛统计
   private matchStats: {
@@ -224,7 +224,7 @@ export class MatchEngine {
 
   // 球员比赛数据统计
   private playerMatchStats: Map<
-    string,
+    number,
     {
       goals: number;
       assists: number;
@@ -239,7 +239,7 @@ export class MatchEngine {
 
   // 球员贡献历史（用于计算平均值）
   private playerContributionHistory: Map<
-    string,
+    number,
     Array<{ minute: number; contribution: number; stars: number }>
   > = new Map();
 
@@ -343,7 +343,7 @@ export class MatchEngine {
 
   // 待记录的帽子戏法列表
   private pendingHatTricks: Array<{
-    playerId: string;
+    playerId: number;
     playerName: string;
     goals: number;
     minute: number;
@@ -354,7 +354,7 @@ export class MatchEngine {
     public awayTeam: Team,
     private homeInstructions: TacticalInstruction[] = [],
     private awayInstructions: TacticalInstruction[] = [],
-    private substitutePlayers: Map<string, TacticalPlayer> = new Map(), // All potential subs mapped by ID
+    private substitutePlayers: Map<number, TacticalPlayer> = new Map(), // All potential subs mapped by ID
     private homeBenchConfig: BenchConfig | null = null,
     private awayBenchConfig: BenchConfig | null = null,
     private weather: string = 'cloudy', // Default weather
@@ -933,7 +933,7 @@ export class MatchEngine {
   /**
    * Find player by ID across all teams
    */
-  private findPlayerById(playerId: string): TacticalPlayer | undefined {
+  private findPlayerById(playerId: number): TacticalPlayer | undefined {
     for (const team of [this.homeTeam, this.awayTeam]) {
       const found = team.players.find(
         (p) => (p.player as Player).id === playerId,
@@ -950,7 +950,7 @@ export class MatchEngine {
    * Get player match stats for all players in the match
    */
   public getPlayerMatchStats(): Array<{
-    playerId: string;
+    playerId: number;
     playerName: string;
     teamName: string;
     position: string;
@@ -963,7 +963,7 @@ export class MatchEngine {
     avgStars: number;
   }> {
     const result: Array<{
-      playerId: string;
+      playerId: number;
       playerName: string;
       teamName: string;
       position: string;
@@ -1106,7 +1106,7 @@ export class MatchEngine {
     laneStrengthAverages: ReturnType<MatchEngine['getLaneStrengthAverages']>;
     matchStats: ReturnType<MatchEngine['getMatchStats']>;
     hatTricks: Array<{
-      playerId: string;
+      playerId: number;
       playerName: string;
       goals: number;
       minute: number;
@@ -1315,7 +1315,7 @@ export class MatchEngine {
     }
   }
 
-  private getPlayerById(team: Team, id: string): Player | undefined {
+  private getPlayerById(team: Team, id: number): Player | undefined {
     return team.players.find((p) => (p.player as Player).id === id)?.player;
   }
 
@@ -2240,7 +2240,7 @@ export class MatchEngine {
       type: eventType,
       teamName: possessor,
       playerId: eventPlayer
-        ? ((eventPlayer.player as Player).id as Uuid)
+        ? (eventPlayer.player as Player).id
         : undefined,
       relatedPlayerId: shot?.assist
         ? (shot.assist.player as Player).id

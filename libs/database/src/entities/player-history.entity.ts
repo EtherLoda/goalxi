@@ -21,8 +21,8 @@ export class PlayerHistoryEntity extends AbstractEntity {
     @PrimaryGeneratedColumn('uuid', { primaryKeyConstraintName: 'PK_player_history_id' })
     id!: Uuid;
 
-    @Column({ name: 'player_id', type: 'uuid' })
-    playerId!: Uuid;
+    @Column({ name: 'player_id', type: 'int' })
+    playerId!: number;
 
     @ManyToOne(() => PlayerEntity, { onDelete: 'CASCADE' })
     @JoinColumn({ name: 'player_id' })

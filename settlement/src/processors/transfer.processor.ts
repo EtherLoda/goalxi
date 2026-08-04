@@ -29,7 +29,7 @@ export interface TransferSettlementJobData {
   type: 'BUYOUT' | 'AUCTION_COMPLETE';
   transactionId: string;
   auctionId: string;
-  playerId: string;
+  playerId: number;
   buyerTeamId: string;
   sellerTeamId: string;
   amount: number;
@@ -201,7 +201,7 @@ export class TransferProcessor extends WorkerHost {
 
         // 4. Update player team
         const player = await playerRepo.findOne({
-          where: { id: playerId as Uuid },
+          where: { id: playerId },
         });
         if (!player) {
           throw new Error(`Player ${playerId} not found`);
@@ -225,7 +225,7 @@ export class TransferProcessor extends WorkerHost {
 
         // 7. Create player event
         const history = manager.create(PlayerEventEntity, {
-          playerId: playerId as Uuid,
+          playerId,
           season,
           date: new Date(),
           eventType: PlayerEventType.TRANSFER,
@@ -240,7 +240,7 @@ export class TransferProcessor extends WorkerHost {
 
         // 8. Create player transaction record
         const playerTx = manager.create(PlayerTransactionEntity, {
-          playerId: playerId as Uuid,
+          playerId,
           fromTeamId: sellerTeamId as Uuid,
           toTeamId: buyerTeamId as Uuid,
           price: amount,
@@ -354,7 +354,7 @@ export class TransferProcessor extends WorkerHost {
       });
 
       // Reset player's onTransfer flag
-      await this.playerRepo.update(playerId as Uuid, {
+      await this.playerRepo.update(playerId, {
         onTransfer: false,
       });
 

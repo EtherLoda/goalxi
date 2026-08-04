@@ -92,7 +92,7 @@ export interface PWICalculationResult {
 }
 
 export interface PlayerRatingResult {
-  playerId: string;
+  playerId: number;
   playerName: string;
   /** 比赛星级 (0.5-5) */
   stars: number;

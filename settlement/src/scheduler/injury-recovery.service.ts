@@ -53,13 +53,15 @@ export class InjuryRecoveryService {
 
     const playersToSave: PlayerEntity[] = [];
     const injuriesToRecover: {
-      playerId: string;
+      playerId: number;
       playerName: string;
       oldValue: number;
     }[] = [];
 
     for (const player of injuredPlayers) {
-      // Skip bot team players - their injuries don't recover automatically
+      // Skip players without a team (free agents) and bot-team players —
+      // their injuries don't recover automatically.
+      if (!player.teamId) continue;
       const team = await this.teamRepository.findOne({
         where: { id: player.teamId as Uuid },
       });
@@ -146,7 +148,7 @@ export class InjuryRecoveryService {
     let recoveredCount = 0;
     for (const { playerId, playerName, oldValue } of injuriesToRecover) {
       const activeInjury = await this.injuryRepository.findOne({
-        where: { playerId: playerId as Uuid, isRecovered: false },
+        where: { playerId, isRecovered: false },
         order: { occurredAt: 'DESC' },
       });
 
@@ -166,7 +168,7 @@ export class InjuryRecoveryService {
 
       // Send recovery notification
       const playerWithTeam = await this.playerRepository.findOne({
-        where: { id: playerId as Uuid },
+        where: { id: playerId },
         relations: ['team'],
       });
       if (playerWithTeam?.team?.userId) {

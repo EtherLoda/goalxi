@@ -264,8 +264,8 @@ export class SimulationProcessor extends WorkerHost {
   }
 
   private findPositionInLineup(
-    lineup: Record<string, string>,
-    playerId: string,
+    lineup: Record<string, number> | Record<string, never> | undefined,
+    playerId: number,
   ): string | undefined {
     return Object.keys(lineup).find((key) => lineup[key] === playerId);
   }
@@ -316,14 +316,18 @@ export class SimulationProcessor extends WorkerHost {
     const awayDoctorLevel = awayDoctors[0]?.level || 0;
 
     // 3. Fetch Players
-    const homeStarterIds = Object.values(homeTactics.lineup).filter(
-      (id) => typeof id === 'string',
+    // After the player id uuid→int migration we read the new
+    // `lineupV2`/`substitutionsV2` (number ids). If v2 is missing the
+    // editor hasn't been re-saved yet — skip silently and let the upstream
+    // caller re-submit tactics.
+    const homeStarterIds = Object.values(homeTactics.lineupV2 ?? {}).filter(
+      (id): id is number => typeof id === 'number',
     );
-    const awayStarterIds = Object.values(awayTactics.lineup).filter(
-      (id) => typeof id === 'string',
+    const awayStarterIds = Object.values(awayTactics.lineupV2 ?? {}).filter(
+      (id): id is number => typeof id === 'number',
     );
-    const homeSubIds = (homeTactics.substitutions || []).map((s) => s.in);
-    const awaySubIds = (awayTactics.substitutions || []).map((s) => s.in);
+    const homeSubIds = (homeTactics.substitutionsV2 ?? []).map((s) => s.in);
+    const awaySubIds = (awayTactics.substitutionsV2 ?? []).map((s) => s.in);
 
     const allPlayerIds = [
       ...homeStarterIds,
@@ -340,15 +344,15 @@ export class SimulationProcessor extends WorkerHost {
       tactics: MatchTacticsEntity,
     ): TacticalInstruction[] => {
       const results: TacticalInstruction[] = [];
-      if (tactics.substitutions) {
-        for (const s of tactics.substitutions) {
+      if (tactics.substitutionsV2) {
+        for (const s of tactics.substitutionsV2) {
           results.push({
             minute: s.minute,
             type: 'swap',
             playerId: s.out,
             newPlayerId: s.in,
             newPosition:
-              this.findPositionInLineup(tactics.lineup, s.out) || 'CF',
+              this.findPositionInLineup(tactics.lineupV2, s.out) || 'CF',
             // Forward the user-selected trigger condition (always /
             // leading / trailing / tied / notLeading / notTrailing).
             // `undefined` means "always" — the engine's shouldFire()
@@ -400,10 +404,10 @@ export class SimulationProcessor extends WorkerHost {
     // kept on the home side for historical reasons.
     const knownPlayerIds = new Set(allPlayers.map((p) => p.id));
     const missingHome = homeStarterIds.filter(
-      (pid) => !knownPlayerIds.has(pid as Uuid),
+      (pid) => !knownPlayerIds.has(pid),
     );
     const missingAway = awayStarterIds.filter(
-      (pid) => !knownPlayerIds.has(pid as Uuid),
+      (pid) => !knownPlayerIds.has(pid),
     );
     if (missingHome.length > 0)
       this.jobLog.warn(
@@ -415,10 +419,10 @@ export class SimulationProcessor extends WorkerHost {
       );
 
     const validHomeIds = homeStarterIds.filter((pid) =>
-      knownPlayerIds.has(pid as Uuid),
+      knownPlayerIds.has(pid),
     );
     const validAwayIds = awayStarterIds.filter((pid) =>
-      knownPlayerIds.has(pid as Uuid),
+      knownPlayerIds.has(pid),
     );
 
     const homeTacticalPlayers: TacticalPlayer[] = validHomeIds.map((pid) => ({
@@ -457,7 +461,7 @@ export class SimulationProcessor extends WorkerHost {
       return;
     }
 
-    const subMap = new Map<string, TacticalPlayer>();
+    const subMap = new Map<number, TacticalPlayer>();
     for (const pid of [...homeSubIds, ...awaySubIds]) {
       const entity = allPlayers.find((p) => p.id === pid);
       if (entity) {
@@ -948,7 +952,7 @@ export class SimulationProcessor extends WorkerHost {
       // Persist injury records in bulk
       const injuryEvents = events.filter((e) => e.type === 'injury');
       const injuryRecords: any[] = [];
-      const injuredPlayerIds: string[] = [];
+      const injuredPlayerIds: number[] = [];
 
       for (const e of injuryEvents) {
         const injuryData = (e.data as any)?.injuryData;
@@ -1026,16 +1030,16 @@ export class SimulationProcessor extends WorkerHost {
     match: MatchEntity,
     events: MatchEvent[],
     allPlayers: PlayerEntity[],
-    playerStatsMap: Map<string, any>,
-    homeStarterIds: string[],
-    awayStarterIds: string[],
+    playerStatsMap: Map<number, any>,
+    homeStarterIds: number[],
+    awayStarterIds: number[],
   ): Promise<void> {
     const { id: matchId, leagueId, season } = match;
     const starterIds = new Set([...homeStarterIds, ...awayStarterIds]);
 
     // Count cards from events (yellow/red)
     const playerCardCounts = new Map<
-      string,
+      number,
       { yellowCards: number; redCards: number }
     >();
 

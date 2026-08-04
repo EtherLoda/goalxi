@@ -23,7 +23,7 @@ import { duelProbability } from './duel';
 const N = 100;
 
 function createMockPlayer(
-  id: string,
+  id: number,
   name: string,
   ovr: number,
   isGK: boolean,
@@ -87,7 +87,7 @@ const FORMATION_442 = [
 function createMockTeam(name: string, avgOvr: number): Team {
   const players: TacticalPlayer[] = FORMATION_442.map((pos, i) => ({
     player: createMockPlayer(
-      `${name}-${i}`,
+      i,
       `${name} Player ${i}`,
       avgOvr,
       pos === 'GK',

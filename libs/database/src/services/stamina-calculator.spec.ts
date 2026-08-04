@@ -125,14 +125,14 @@ describe('StaminaCalculator', () => {
     it('should maintain stamina when training equals decay', () => {
       // This is a theoretical test - in practice the numbers may not balance exactly
       const result = calculateWeeklyStaminaChange(
-        'player-1',
+        1,
         3.0,  // current stamina
         23,   // age
         0.2,  // physicalIntensity (for training effect)
         1.0,  // coachBonus
       );
 
-      expect(result.playerId).toBe('player-1');
+      expect(result.playerId).toBe(1);
       expect(result.staminaBefore).toBe(3.0);
       expect(result.decay).toBeGreaterThan(0);
       expect(result.trainingEffect).toBeGreaterThanOrEqual(0);
@@ -140,7 +140,7 @@ describe('StaminaCalculator', () => {
 
     it('should cap stamina at max', () => {
       const result = calculateWeeklyStaminaChange(
-        'player-1',
+        1,
         5.99, // max stamina
         23,
         0.5,
@@ -152,7 +152,7 @@ describe('StaminaCalculator', () => {
 
     it('should floor stamina at min', () => {
       const result = calculateWeeklyStaminaChange(
-        'player-1',
+        1,
         0.01, // near min stamina
         40,   // old age - high decay
         0,    // no training
@@ -164,7 +164,7 @@ describe('StaminaCalculator', () => {
 
     it('should show positive net change when training > decay', () => {
       const result = calculateWeeklyStaminaChange(
-        'player-1',
+        1,
         3.0,
         23,
         1.0, // max intensity
@@ -179,7 +179,7 @@ describe('StaminaCalculator', () => {
 
     it('should show negative net change when decay > training', () => {
       const result = calculateWeeklyStaminaChange(
-        'player-1',
+        1,
         5.5,  // high stamina
         35,   // old age
         0.05, // very low intensity

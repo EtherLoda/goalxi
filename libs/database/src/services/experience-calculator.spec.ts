@@ -75,7 +75,7 @@ describe('Experience Calculator', () => {
 
     describe('addExperience', () => {
         it('should add experience without level up', () => {
-            const result = addExperience('player1', 0, 0.5);
+            const result = addExperience(1, 0, 0.5);
             expect(result.experienceAfter).toBe(0.5);
             expect(result.levelBefore).toBe(1);
             expect(result.levelAfter).toBe(1);
@@ -84,24 +84,24 @@ describe('Experience Calculator', () => {
 
         it('should level up when enough experience is gained', () => {
             // Start with 0 experience, add enough to level up
-            const result = addExperience('player1', 0, 10);
+            const result = addExperience(1, 0, 10);
             expect(result.levelAfter).toBeGreaterThanOrEqual(2);
         });
 
         it('should handle multiple level ups', () => {
             // Add enough for multiple levels
-            const result = addExperience('player1', 0, 50);
+            const result = addExperience(1, 0, 50);
             expect(result.levelAfter).toBeGreaterThanOrEqual(3);
         });
 
         it('should cap at level 20', () => {
-            const result = addExperience('player1', 0, 1000);
+            const result = addExperience(1, 0, 1000);
             expect(result.levelAfter).toBe(20);
         });
 
         it('should calculate experience remaining after level up', () => {
             // Start with small amount that will level up
-            const result = addExperience('player1', 5, 1);
+            const result = addExperience(1, 5, 1);
             expect(result.levelAfter).toBeGreaterThanOrEqual(result.levelBefore);
         });
     });

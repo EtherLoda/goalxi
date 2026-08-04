@@ -136,7 +136,7 @@ export class TrainingProcessor extends WorkerHost {
     });
 
     // Create a map: playerId -> assignment
-    const playerAssignmentMap = new Map<string, CoachPlayerAssignmentEntity>();
+    const playerAssignmentMap = new Map<number, CoachPlayerAssignmentEntity>();
     for (const assignment of assignments) {
       // Each player should only have one active assignment
       if (!playerAssignmentMap.has(assignment.playerId)) {
@@ -150,7 +150,7 @@ export class TrainingProcessor extends WorkerHost {
     });
 
     // Snapshot old values before processing
-    const playerSnapshots = new Map<string, PlayerSnapshot>();
+    const playerSnapshots = new Map<number, PlayerSnapshot>();
     for (const player of players) {
       const skills: Record<string, number> = {};
       if (player.currentSkills) {

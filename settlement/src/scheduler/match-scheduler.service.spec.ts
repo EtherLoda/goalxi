@@ -122,7 +122,7 @@ describe('MatchSchedulerService', () => {
         matchId,
         teamId,
         formation: '4-3-3',
-        lineup: { GK: 'player-1', LB: 'player-2' },
+        lineup: { GK: 1, LB: 2 },
         submittedAt: new Date(),
       } as unknown as MatchTacticsEntity;
       mockTacticsRepository.findOne.mockResolvedValue(mockTactics);
@@ -142,7 +142,7 @@ describe('MatchSchedulerService', () => {
         teamId,
         isDefault: true,
         formation: '4-4-2',
-        lineup: { GK: 'player-1', CB1: 'player-2', CB2: 'player-3' },
+        lineup: { GK: 1, CB1: 2, CB2: 3 },
         instructions: { style: 'attacking' },
         substitutions: [],
       } as unknown as TacticsPresetEntity;
@@ -179,19 +179,22 @@ describe('MatchSchedulerService', () => {
         id: 'preset-1',
         teamId: 'team-1',
         formation: '3-5-2',
-        lineup: {
-          GK: 'p1',
-          LB: 'p2',
-          CB: 'p3',
-          RB: 'p4',
-          LM: 'p5',
-          CM: 'p6',
-          RM: 'p7',
-          CF1: 'p8',
-          CF2: 'p9',
+        // Legacy uuid columns stay empty; the converter now reads v2.
+        lineup: {},
+        lineupV2: {
+          GK: 1,
+          LB: 2,
+          CB: 3,
+          RB: 4,
+          LM: 5,
+          CM: 6,
+          RM: 7,
+          CF1: 8,
+          CF2: 9,
         },
         instructions: { pressing: 'high' },
-        substitutions: [{ minute: 60, out: 'p5', in: 'p10' }],
+        substitutions: null,
+        substitutionsV2: [{ minute: 60, out: 5, in: 10 }],
       };
       const matchId = 'match-1';
       const teamId = 'team-1';
@@ -206,9 +209,9 @@ describe('MatchSchedulerService', () => {
       expect(result.teamId).toBe(teamId);
       expect(result.presetId).toBe('preset-1');
       expect(result.formation).toBe('3-5-2');
-      expect(result.lineup).toEqual(preset.lineup);
+      expect(result.lineupV2).toEqual(preset.lineupV2);
       expect(result.instructions).toEqual({ pressing: 'high' });
-      expect(result.substitutions).toEqual(preset.substitutions);
+      expect(result.substitutionsV2).toEqual(preset.substitutionsV2);
       expect(result.submittedAt).toBeInstanceOf(Date);
     });
   });

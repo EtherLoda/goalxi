@@ -36,7 +36,7 @@ function mkPlayer(
   } = {},
 ): Player {
   return {
-    id: 'p-test',
+    id: 1,
     name: 'Test Player',
     position: 'CB',
     attributes: {

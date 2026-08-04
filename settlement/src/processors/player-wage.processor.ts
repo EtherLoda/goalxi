@@ -8,12 +8,11 @@ import {
   PlayerEntity,
   PlayerSkills,
   TeamEntity,
-  Uuid,
   calculatePlayerWage,
 } from '@goalxi/database';
 
 interface BirthdayWageJobData {
-  playerId: string;
+  playerId: number;
 }
 
 @Injectable()
@@ -36,9 +35,9 @@ export class PlayerWageProcessor extends WorkerHost {
     }
   }
 
-  private async processBirthdayWageUpdate(playerId: string): Promise<void> {
+  private async processBirthdayWageUpdate(playerId: number): Promise<void> {
     const player = await this.playerRepo.findOne({
-      where: { id: playerId as Uuid },
+      where: { id: playerId },
       relations: ['team'],
     });
     if (!player) {

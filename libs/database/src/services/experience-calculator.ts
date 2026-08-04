@@ -12,7 +12,7 @@
 import { MatchType } from '../entities/match.entity';
 
 export interface ExperienceResult {
-    playerId: string;
+    playerId: number;
     experienceBefore: number;
     experienceAfter: number;
     levelBefore: number;
@@ -75,7 +75,7 @@ export function calculateMatchExperience(
  * Returns the new experience value and level changes
  */
 export function addExperience(
-    playerId: string,
+    playerId: number,
     currentExperience: number,
     experienceToAdd: number,
 ): ExperienceResult {

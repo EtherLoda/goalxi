@@ -30,7 +30,7 @@ export interface SkillGain {
 }
 
 export interface TrainingResult {
-    playerId: string;
+    playerId: number;
     weeklyPoints: number;
     skillsGained: SkillGain[];
     totalPointsSpent: number;
@@ -235,7 +235,7 @@ export function distributeTrainingPoints(
  * Apply specialized training to a player for given weeks
  */
 export function applySpecializedTraining(
-    playerId: string,
+    playerId: number,
     age: number,
     currentSkills: PlayerSkills,
     potentialSkills: PlayerSkills,
@@ -292,7 +292,7 @@ export function applySpecializedTraining(
  * `TrainingUpdateEntity` row.
  */
 export function applyYouthCoachCategoryTraining(
-    playerId: string,
+    playerId: number,
     age: number,
     currentSkills: PlayerSkills,
     potentialSkills: PlayerSkills,

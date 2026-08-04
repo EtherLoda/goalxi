@@ -10,8 +10,8 @@ export class ArchivedPlayerCompetitionStatsEntity extends AbstractEntity {
     @PrimaryGeneratedColumn('uuid')
     id!: Uuid;
 
-    @Column({ name: 'player_id', type: 'uuid' })
-    playerId!: Uuid;
+    @Column({ name: 'player_id', type: 'int' })
+    playerId!: number;
 
     @Column({ name: 'league_id', type: 'uuid' })
     leagueId!: Uuid;

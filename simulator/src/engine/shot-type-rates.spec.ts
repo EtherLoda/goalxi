@@ -9,7 +9,7 @@ import { ShotType } from './types/simulation.types';
  */
 describe('Shot Type Goal Rates', () => {
   const createMockPlayer = (
-    id: string,
+    id: number,
     name: string,
     attrValue: number,
   ): Player => ({
@@ -154,7 +154,7 @@ describe('Shot Type Goal Rates', () => {
     const positions = FORMATIONS[formation] || FORMATIONS['4-3-1-2'];
     const players: TacticalPlayer[] = positions.map((pos, i) => ({
       player: createMockPlayer(
-        `${name}-${i}`,
+        i,
         `${name} Player ${i}`,
         attrValue,
       ),

@@ -35,7 +35,7 @@ describe('YouthProgressionProcessor', () => {
   });
 
   const outfieldYouth = (
-    id: string,
+    id: number,
     teamId: string,
     overrides: Partial<PlayerEntity> = {},
   ): PlayerEntity =>
@@ -58,7 +58,7 @@ describe('YouthProgressionProcessor', () => {
     }) as PlayerEntity;
 
   const gkYouth = (
-    id: string,
+    id: number,
     teamId: string,
     overrides: Partial<PlayerEntity> = {},
   ): PlayerEntity =>
@@ -146,7 +146,7 @@ describe('YouthProgressionProcessor', () => {
   // -------- 1: base growth only --------
 
   it('applies base weekly growth + reveal when no youth coach exists', async () => {
-    const youth = outfieldYouth('y1', 'teamA');
+    const youth = outfieldYouth(1, 'teamA');
     staffRepo.find.mockResolvedValue([]); // no youth coaches
     mockAssignmentRepo.find.mockResolvedValue([]);
     playerRepo.find.mockResolvedValue([youth]);
@@ -169,11 +169,11 @@ describe('YouthProgressionProcessor', () => {
   // -------- 2: coach on physical, outfield youth --------
 
   it('boosts every skill in the coach\'s chosen category', async () => {
-    const youth = outfieldYouth('y1', 'teamA');
+    const youth = outfieldYouth(1, 'teamA');
     const coach = youthCoach('c1', 'teamA', 'physical', StaffLevel.LEVEL_3);
     staffRepo.find.mockResolvedValue([coach]);
     mockAssignmentRepo.find.mockResolvedValue([
-      { coachId: 'c1', playerId: 'y1', trainingCategory: 'physical' } as CoachPlayerAssignmentEntity,
+      { coachId: 'c1', playerId: 1, trainingCategory: 'physical' } as CoachPlayerAssignmentEntity,
     ]);
     playerRepo.find.mockResolvedValue([youth]);
 
@@ -194,11 +194,11 @@ describe('YouthProgressionProcessor', () => {
   // -------- 3: youth coach exists but category not set --------
 
   it('does not crash and skips boost when youth coach has no trainedSkill', async () => {
-    const youth = outfieldYouth('y1', 'teamA');
+    const youth = outfieldYouth(1, 'teamA');
     const coach = youthCoach('c1', 'teamA', null);
     staffRepo.find.mockResolvedValue([coach]);
     mockAssignmentRepo.find.mockResolvedValue([
-      { coachId: 'c1', playerId: 'y1', trainingCategory: null } as unknown as CoachPlayerAssignmentEntity,
+      { coachId: 'c1', playerId: 1, trainingCategory: null } as unknown as CoachPlayerAssignmentEntity,
     ]);
     playerRepo.find.mockResolvedValue([youth]);
 
@@ -212,11 +212,11 @@ describe('YouthProgressionProcessor', () => {
   // -------- 4: switchable category — coach on technical --------
 
   it('honors a switched category without restarting the player', async () => {
-    const youth = outfieldYouth('y1', 'teamA');
+    const youth = outfieldYouth(1, 'teamA');
     const coach = youthCoach('c1', 'teamA', 'technical', StaffLevel.LEVEL_4);
     staffRepo.find.mockResolvedValue([coach]);
     mockAssignmentRepo.find.mockResolvedValue([
-      { coachId: 'c1', playerId: 'y1', trainingCategory: 'technical' } as CoachPlayerAssignmentEntity,
+      { coachId: 'c1', playerId: 1, trainingCategory: 'technical' } as CoachPlayerAssignmentEntity,
     ]);
     playerRepo.find.mockResolvedValue([youth]);
 
@@ -231,11 +231,11 @@ describe('YouthProgressionProcessor', () => {
   // -------- 5: outfield youth + coach on "goalkeeper" --------
 
   it('produces no coach boost for an outfield youth when coach is on goalkeeper', async () => {
-    const youth = outfieldYouth('y1', 'teamA');
+    const youth = outfieldYouth(1, 'teamA');
     const coach = youthCoach('c1', 'teamA', 'goalkeeper', StaffLevel.LEVEL_3);
     staffRepo.find.mockResolvedValue([coach]);
     mockAssignmentRepo.find.mockResolvedValue([
-      { coachId: 'c1', playerId: 'y1', trainingCategory: 'goalkeeper' } as CoachPlayerAssignmentEntity,
+      { coachId: 'c1', playerId: 1, trainingCategory: 'goalkeeper' } as CoachPlayerAssignmentEntity,
     ]);
     playerRepo.find.mockResolvedValue([youth]);
 
@@ -248,11 +248,11 @@ describe('YouthProgressionProcessor', () => {
   // -------- 6: GK youth + coach on goalkeeper --------
 
   it('boosts GK-specific skills for a GK youth when coach is on goalkeeper', async () => {
-    const youth = gkYouth('y1', 'teamA');
+    const youth = gkYouth(1, 'teamA');
     const coach = youthCoach('c1', 'teamA', 'goalkeeper', StaffLevel.LEVEL_3);
     staffRepo.find.mockResolvedValue([coach]);
     mockAssignmentRepo.find.mockResolvedValue([
-      { coachId: 'c1', playerId: 'y1', trainingCategory: 'goalkeeper' } as CoachPlayerAssignmentEntity,
+      { coachId: 'c1', playerId: 1, trainingCategory: 'goalkeeper' } as CoachPlayerAssignmentEntity,
     ]);
     playerRepo.find.mockResolvedValue([youth]);
 
@@ -266,7 +266,7 @@ describe('YouthProgressionProcessor', () => {
   // -------- 7: free-agent youth --------
 
   it('skips free-agent youth (no teamId) without crashing', async () => {
-    const freeAgent = outfieldYouth('y1', null as any);
+    const freeAgent = outfieldYouth(1, null as any);
     staffRepo.find.mockResolvedValue([]);
     mockAssignmentRepo.find.mockResolvedValue([]);
     playerRepo.find.mockResolvedValue([freeAgent]);
@@ -281,7 +281,7 @@ describe('YouthProgressionProcessor', () => {
   // -------- 8: reveal level sync --------
 
   it('keeps revealLevel in sync with revealedSkills.length after every tick', async () => {
-    const youth = outfieldYouth('y1', 'teamA', {
+    const youth = outfieldYouth(1, 'teamA', {
       revealedSkills: [
         'pace', 'strength', 'finishing', 'passing', 'dribbling',
       ],
@@ -299,7 +299,7 @@ describe('YouthProgressionProcessor', () => {
   // -------- 9: 3-player cap is the assignment side, not the processor --------
 
   it('processes all assigned youths in a single tick (3 max is enforced at assignment time)', async () => {
-    const youths = ['a', 'b', 'c'].map((id) => outfieldYouth(id, 'teamA'));
+    const youths = [1, 2, 3].map((id) => outfieldYouth(id, 'teamA'));
     const coach = youthCoach('c1', 'teamA', 'physical', StaffLevel.LEVEL_3);
     staffRepo.find.mockResolvedValue([coach]);
     mockAssignmentRepo.find.mockResolvedValue(
@@ -323,7 +323,7 @@ describe('YouthProgressionProcessor', () => {
   // -------- 10: no save when nothing changed --------
 
   it('skips the DB write when nothing changed (no growth, no reveal, no boost)', async () => {
-    const youth = outfieldYouth('y1', 'teamA', {
+    const youth = outfieldYouth(1, 'teamA', {
       currentSkills: {
         physical: { pace: 18, strength: 18 },
         technical: { finishing: 18, passing: 18, dribbling: 18, defending: 18 },

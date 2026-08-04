@@ -3,7 +3,7 @@ import { AbstractEntity } from './abstract.entity';
 import { TeamEntity } from './team.entity';
 
 export interface PlayerTrainingChange {
-    playerId: string;
+    playerId: number;
     playerName: string;
     changes: {
         field: string;  // 'stamina', 'form', or 'skill:finishing' etc.

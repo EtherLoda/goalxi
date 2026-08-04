@@ -230,7 +230,7 @@ describe('TrainingCalculator', () => {
 
     it('should return 0 weeklyPoints for no assigned coach', () => {
       const result = applySpecializedTraining(
-        'player-1',
+        1,
         20,
         { physical: { pace: 10, strength: 10 }, technical: { finishing: 10, passing: 10, dribbling: 10, defending: 10 }, mental: { positioning: 10, composure: 10 }, setPieces: { freeKicks: 10, penalties: 10 } },
         { physical: { pace: 17, strength: 17 }, technical: { finishing: 17, passing: 17, dribbling: 17, defending: 17 }, mental: { positioning: 17, composure: 17 }, setPieces: { freeKicks: 17, penalties: 17 } },
@@ -245,7 +245,7 @@ describe('TrainingCalculator', () => {
 
     it('should apply training for specified weeks', () => {
       const result = applySpecializedTraining(
-        'player-1',
+        1,
         17,
         { physical: { pace: 10, strength: 10 }, technical: { finishing: 10, passing: 10, dribbling: 10, defending: 10 }, mental: { positioning: 10, composure: 10 }, setPieces: { freeKicks: 10, penalties: 10 } },
         { physical: { pace: 17, strength: 17 }, technical: { finishing: 17, passing: 17, dribbling: 17, defending: 17 }, mental: { positioning: 17, composure: 17 }, setPieces: { freeKicks: 17, penalties: 17 } },
@@ -287,7 +287,7 @@ describe('TrainingCalculator', () => {
     it('returns zeros when no skills match the category for the player type', () => {
       const cur = outfieldCurrent();
       const result = applyYouthCoachCategoryTraining(
-        'p1',
+        1,
         16,
         cur,
         outfieldPotential(),
@@ -306,7 +306,7 @@ describe('TrainingCalculator', () => {
     it('distributes the weekly bonus across every category skill', () => {
       const cur = outfieldCurrent();
       const result = applyYouthCoachCategoryTraining(
-        'p1',
+        1,
         16,
         cur,
         outfieldPotential(),
@@ -330,7 +330,7 @@ describe('TrainingCalculator', () => {
     it('returns the same total spent as the per-skill sum (no double counting)', () => {
       const cur = outfieldCurrent();
       const result = applyYouthCoachCategoryTraining(
-        'p1',
+        1,
         16,
         cur,
         outfieldPotential(),

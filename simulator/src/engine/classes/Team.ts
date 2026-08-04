@@ -24,7 +24,7 @@ const hasAbility = (
 export class Team {
   private snapshot: TeamSnapshot | null = null;
   public playerFitness: Float32Array;
-  private playerToIdx: Map<string, number> = new Map();
+  private playerToIdx: Map<number, number> = new Map();
 
   constructor(
     public name: string,
@@ -46,7 +46,7 @@ export class Team {
   /**
    * Get player energy by player ID
    */
-  getPlayerEnergy(playerId: string): number | undefined {
+  getPlayerEnergy(playerId: number): number | undefined {
     const idx = this.playerToIdx.get(playerId);
     return idx !== undefined ? this.playerFitness[idx] : undefined;
   }
@@ -200,7 +200,7 @@ export class Team {
   /**
    * Marks a player as sent off.
    */
-  sendOffPlayer(playerId: string) {
+  sendOffPlayer(playerId: number) {
     const idx = this.playerToIdx.get(playerId);
     if (idx !== undefined) {
       const p = this.players[idx];
@@ -212,7 +212,7 @@ export class Team {
   /**
    * Performs a substitution.
    */
-  substitutePlayer(outId: string, inTacticalPlayer: TacticalPlayer) {
+  substitutePlayer(outId: number, inTacticalPlayer: TacticalPlayer) {
     const index = this.players.findIndex(
       (p) => (p.player as Player).id === outId,
     );
@@ -249,7 +249,7 @@ export class Team {
   /**
    * Moves a player to a new position.
    */
-  movePlayer(playerId: string, newPosition: string) {
+  movePlayer(playerId: number, newPosition: string) {
     const p = this.players.find((p) => (p.player as Player).id === playerId);
     if (p && !p.isSentOff) {
       p.positionKey = newPosition;

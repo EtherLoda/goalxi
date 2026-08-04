@@ -8,7 +8,7 @@ describe('Attack System', () => {
 
   // Helper to create mock players
   const createMockPlayer = (
-    id: string,
+    id: number,
     name: string,
     attrs: Partial<Player['attributes']> = {},
   ): Player => ({
@@ -39,7 +39,7 @@ describe('Attack System', () => {
   // Helper to create mock team with specific positions
   const createMockTeam = (name: string, positions: string[]): Team => {
     const players: TacticalPlayer[] = positions.map((pos, i) => ({
-      player: createMockPlayer(`${name}-${i}`, `${name} Player ${i}`),
+      player: createMockPlayer(i, `${name} Player ${i}`),
       positionKey: pos,
     }));
     return new Team(name, players);
@@ -151,11 +151,11 @@ describe('Attack System', () => {
   describe('calculateHeaderRating', () => {
     it('should use finishing as primary factor', () => {
       // Use more extreme difference to ensure finishing dominates
-      const weakPlayer = createMockPlayer('p1', 'Weak', {
+      const weakPlayer = createMockPlayer(1, 'Weak', {
         finishing: 30,
         composure: 50,
       });
-      const strongPlayer = createMockPlayer('p2', 'Strong', {
+      const strongPlayer = createMockPlayer(2, 'Strong', {
         finishing: 90,
         composure: 50,
       });
@@ -167,12 +167,12 @@ describe('Attack System', () => {
     });
 
     it('should return reasonable range', () => {
-      const lowPlayer = createMockPlayer('p1', 'Low', {
+      const lowPlayer = createMockPlayer(1, 'Low', {
         strength: 30,
         positioning: 30,
         finishing: 30,
       });
-      const highPlayer = createMockPlayer('p2', 'High', {
+      const highPlayer = createMockPlayer(2, 'High', {
         strength: 90,
         positioning: 90,
         finishing: 90,
@@ -189,13 +189,13 @@ describe('Attack System', () => {
   describe('calculateShootRating', () => {
     it('should use finishing as primary factor', () => {
       // Use more extreme difference to ensure finishing dominates
-      const badFinisher = createMockPlayer('p1', 'BadFinisher', {
+      const badFinisher = createMockPlayer(1, 'BadFinisher', {
         finishing: 30,
         composure: 90,
         positioning: 90,
         strength: 90,
       });
-      const goodFinisher = createMockPlayer('p2', 'GoodFinisher', {
+      const goodFinisher = createMockPlayer(2, 'GoodFinisher', {
         finishing: 90,
         composure: 90,
         positioning: 90,
@@ -211,12 +211,12 @@ describe('Attack System', () => {
 
   describe('calculateOneOnOneRating', () => {
     it('should prioritize finishing and composure', () => {
-      const calmFinisher = createMockPlayer('p1', 'Calm', {
+      const calmFinisher = createMockPlayer(1, 'Calm', {
         finishing: 90,
         composure: 90,
         pace: 30,
       });
-      const nervousDribbler = createMockPlayer('p2', 'Nervous', {
+      const nervousDribbler = createMockPlayer(2, 'Nervous', {
         finishing: 30,
         composure: 30,
         pace: 90,
@@ -233,12 +233,12 @@ describe('Attack System', () => {
 
   describe('calculateLongShotRating', () => {
     it('should return value affected by finishing', () => {
-      const goodShooter = createMockPlayer('p1', 'Good', {
+      const goodShooter = createMockPlayer(1, 'Good', {
         finishing: 90,
         composure: 90,
         strength: 90,
       });
-      const badShooter = createMockPlayer('p2', 'Bad', {
+      const badShooter = createMockPlayer(2, 'Bad', {
         finishing: 30,
         composure: 30,
         strength: 30,
@@ -256,7 +256,7 @@ describe('Attack System', () => {
     });
 
     it('should return lower values due to distance factor', () => {
-      const player = createMockPlayer('p1', 'Test', {
+      const player = createMockPlayer(1, 'Test', {
         finishing: 90,
         composure: 90,
         strength: 90,

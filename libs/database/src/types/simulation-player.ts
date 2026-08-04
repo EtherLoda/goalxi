@@ -81,7 +81,7 @@ export type PlayerAbility =
     | 'fast_start';
 
 export interface SimulationPlayer {
-    id: string;
+    id: number;
     name: string;
     position: string;
     attributes: SimulationPlayerAttributes;

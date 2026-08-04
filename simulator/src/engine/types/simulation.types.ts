@@ -51,8 +51,8 @@ export interface TacticalInstruction {
   minute: number;
   type: 'move' | 'swap' | 'position_swap';
   condition?: EventCondition;
-  playerId?: string; // For MOVE or SWAP-OUT
-  newPlayerId?: string; // For SWAP-IN
+  playerId?: number; // For MOVE or SWAP-OUT
+  newPlayerId?: number; // For SWAP-IN
   newPosition: string;
 }
 

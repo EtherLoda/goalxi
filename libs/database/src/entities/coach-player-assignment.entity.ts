@@ -16,8 +16,8 @@ export class CoachPlayerAssignmentEntity extends AbstractEntity {
     @JoinColumn({ name: 'coach_id' })
     coach?: StaffEntity;
 
-    @Column({ name: 'player_id', type: 'uuid' })
-    playerId!: string;
+    @Column({ name: 'player_id', type: 'int' })
+    playerId!: number;
 
     @ManyToOne(() => PlayerEntity)
     @JoinColumn({ name: 'player_id' })
