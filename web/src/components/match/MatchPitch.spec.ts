@@ -95,8 +95,8 @@ describe('buildCards', () => {
   });
 
   it('falls back to playerId slice when neither roster nor snapshot name is available', () => {
-    const cards = buildCards(mkTactics({ GK: 'no-roster-id' }), null, mkRoster([]));
-    expect(cards[0].name).toBe('no-ros'); // first 6 chars of playerId
+    const cards = buildCards(mkTactics({ GK: 999999 }), null, mkRoster([]));
+    expect(cards[0].name).toBe('999999');
   });
 
   it('snapshot wins when both snapshot and lineup reference the same player', () => {
@@ -129,10 +129,14 @@ describe('buildCards', () => {
     expect(cards[0].slotKey).toBe('CF');
   });
 
-  it('resolves legacy alias snapshot keys (CB → CBL) into canonical slots', () => {
+  it('resolves legacy alias snapshot keys (CDL → CBL) into canonical slots', () => {
+    // Note: 'CB' is now a canonical pitch slot, so the legacy CB→CBL
+    // aliasing is a no-op (CB passes through). The non-canonical codes
+    // 'CDL' / 'CDR' / 'CD' are what the legacy map still folds; we use
+    // CDL here to exercise the alias path.
     const snapshot = {
       minute: 0,
-      h: { ps: [mkSnapshotPlayer(2, 'CB')] }, // legacy alias
+      h: { ps: [mkSnapshotPlayer(2, 'CDL')] }, // legacy alias
       a: { ps: [] },
     } as MatchSnapshot;
     const cards = buildCards(null, snapshot.h.ps, mkRoster([]));
@@ -221,7 +225,7 @@ describe('buildCards', () => {
       h: {
         ps: [
           mkSnapshotPlayer(4, 'GK'),
-          mkSnapshotPlayer(100, 'CB'),     // → CBL
+          mkSnapshotPlayer(100, 'CDL'),    // → CBL
           mkSnapshotPlayer(101, 'DM'),     // → DMFL
           mkSnapshotPlayer(11, 'CFR'),
         ],

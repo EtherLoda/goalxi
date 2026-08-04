@@ -21,22 +21,22 @@ import type { HydratePayload, PresetPayload } from './use-tactics-state';
 export interface SubmitTacticsPayload {
   teamId: string;
   formation: string;
-  lineup: Record<string, string>;
+  lineup: Record<string, number>;
   tempo: 'slow' | 'balanced' | 'fast';
   pitchWidth: 'narrow' | 'balanced' | 'wide';
   defensiveLine: 'low' | 'mid' | 'high';
-  substitutions: Array<{ minute: number; out: string; in: string; condition?: string }>;
-  instructions: { moves: Array<{ minute: number; player: string; position: string; condition?: string }> };
+  substitutions: Array<{ minute: number; out: number; in: number; condition?: string }>;
+  instructions: { moves: Array<{ minute: number; player: number; position: string; condition?: string }> };
   presetId: string | null;
 }
 
 export interface CreatePresetPayload {
   name: string;
   formation: string;
-  lineup: Record<string, string>;
+  lineup: Record<string, number>;
   isDefault: boolean;
-  substitutions: Array<{ minute: number; out: string; in: string; condition?: string }> | null;
-  instructions: { moves: Array<{ minute: number; player: string; position: string; condition?: string }> } | null;
+  substitutions: Array<{ minute: number; out: number; in: number; condition?: string }> | null;
+  instructions: { moves: Array<{ minute: number; player: number; position: string; condition?: string }> } | null;
 }
 
 // ============================================================================
@@ -67,8 +67,8 @@ export function computeFormation(lineup: TacticsDraft['lineup']): string {
  * Flatten pitch + bench into a single `slot → playerId` map for the backend.
  * Strips slot aliases (frontend `CD`/etc) — backend uses canonical keys.
  */
-export function flattenLineup(draft: TacticsDraft): Record<string, string> {
-  const out: Record<string, string> = {};
+export function flattenLineup(draft: TacticsDraft): Record<string, number> {
+  const out: Record<string, number> = {};
   for (const [slot, id] of Object.entries(draft.lineup)) {
     if (id) out[slot] = id;
   }
@@ -92,7 +92,7 @@ function flattenEvents(events: TacticalEvent[]): {
     // `always` is the implicit default — skip it to keep payloads small.
     const cond = e.condition && e.condition !== 'always' ? e.condition : undefined;
     if (e.kind === 'sub') {
-      const entry: { minute: number; out: string; in: string; condition?: string } = {
+      const entry: { minute: number; out: number; in: number; condition?: string } = {
         minute: e.minute,
         out: e.outId,
         in: e.inId,
@@ -100,7 +100,7 @@ function flattenEvents(events: TacticalEvent[]): {
       if (cond) entry.condition = cond;
       substitutions.push(entry);
     } else {
-      const entry: { minute: number; player: string; position: string; condition?: string } = {
+      const entry: { minute: number; player: number; position: string; condition?: string } = {
         minute: e.minute,
         player: e.playerId,
         position: e.toSlot as string,
@@ -253,12 +253,12 @@ export function hydrateTactics(
   tactics:
     | {
         formation: string;
-        lineup: Record<string, string>;
+        lineup: Record<string, number>;
         tempo: 'slow' | 'balanced' | 'fast';
         pitchWidth: 'narrow' | 'balanced' | 'wide';
         defensiveLine: 'low' | 'mid' | 'high';
-        substitutions: Array<{ minute: number; out: string; in: string; condition?: string }> | null;
-        instructions: { moves?: Array<{ minute: number; player: string; position: string; condition?: string }> } | null;
+        substitutions: Array<{ minute: number; out: number; in: number; condition?: string }> | null;
+        instructions: { moves?: Array<{ minute: number; player: number; position: string; condition?: string }> } | null;
         presetId: string | null;
       }
     | null,
@@ -277,18 +277,18 @@ export function hydrateTactics(
   // Flatten normalized pitch + bench into the single slot→playerId map
   // expected by the reducer's HYDRATE action.
   const { pitch, bench } = normalizeLineup(tactics.lineup);
-  const lineup: Record<string, string> = { ...pitch, ...bench };
+  const lineup: Record<string, number> = { ...pitch, ...bench };
 
   // Normalize move instructions (legacy short position codes → canonical).
   // Drop unrecognised slots so the validator doesn't see them; emit `null`
   // when nothing survives (rather than `{ moves: [] }`) so the editor starts
   // from a clean state.
   const rawMoves = tactics.instructions?.moves ?? [];
-  const moves: Array<{ minute: number; player: string; position: string; condition?: string }> = [];
+  const moves: Array<{ minute: number; player: number; position: string; condition?: string }> = [];
   for (const m of rawMoves) {
     const slot = toPositionKey(m.position);
     if (slot) {
-      const entry: { minute: number; player: string; position: string; condition?: string } = {
+      const entry: { minute: number; player: number; position: string; condition?: string } = {
         minute: m.minute,
         player: m.player,
         position: slot,
@@ -318,21 +318,21 @@ export function hydratePreset(preset: {
   name: string;
   isDefault: boolean;
   formation: string;
-  lineup: Record<string, string>;
-  substitutions: Array<{ minute: number; out: string; in: string; condition?: string }> | null;
-  instructions: { moves?: Array<{ minute: number; player: string; position: string; condition?: string }> } | null;
+  lineup: Record<string, number>;
+  substitutions: Array<{ minute: number; out: number; in: number; condition?: string }> | null;
+  instructions: { moves?: Array<{ minute: number; player: number; position: string; condition?: string }> } | null;
 }): PresetPayload {
   // Normalize preset lineups too — old presets saved with short codes
   // would otherwise re-introduce invalidSlot errors when re-applied.
   const { pitch, bench } = normalizeLineup(preset.lineup);
-  const lineup: Record<string, string> = { ...pitch, ...bench };
+  const lineup: Record<string, number> = { ...pitch, ...bench };
 
   const rawMoves = preset.instructions?.moves ?? [];
-  const moves: Array<{ minute: number; player: string; position: string; condition?: string }> = [];
+  const moves: Array<{ minute: number; player: number; position: string; condition?: string }> = [];
   for (const m of rawMoves) {
     const slot = toPositionKey(m.position);
     if (slot) {
-      const entry: { minute: number; player: string; position: string; condition?: string } = {
+      const entry: { minute: number; player: number; position: string; condition?: string } = {
         minute: m.minute,
         player: m.player,
         position: slot,

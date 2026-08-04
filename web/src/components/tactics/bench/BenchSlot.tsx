@@ -8,12 +8,12 @@ import { positionShortLabel } from '../shared/position-legend';
 
 interface BenchSlotProps {
   slot: BenchSlot;
-  playerId: string | null;
+  playerId: number | null;
   player: Player | null;
   isGkSlot: boolean;
   isDragOver: boolean;
   isDragging: boolean;
-  onDrop: (playerId: string) => void;
+  onDrop: (playerId: number) => void;
   onRemove: () => void;
   onDragStart: () => void;
   onDragEnd: () => void;
@@ -43,7 +43,7 @@ export function BenchSlotView({
     e.preventDefault();
     e.stopPropagation();
     const droppedId = e.dataTransfer.getData(DRAG_MIME);
-    if (droppedId) onDrop(droppedId);
+    if (droppedId) onDrop(Number(droppedId));
   };
 
   return (

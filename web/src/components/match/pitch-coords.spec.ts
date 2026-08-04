@@ -1,21 +1,21 @@
-/**
- * pitch-coords.spec.ts — coverage for the match-page pitch coordinate layer.
+﻿/**
+ * pitch-coords.spec.ts 鈥?coverage for the match-page pitch coordinate layer.
  *
  * Three pure functions under test:
- *   - slotToMatchCoords:           MATCH_PITCH_COORDS → home/away coords
- *   - computeMatchDimensionOffsets: defensiveLine/pitchWidth → translateX + scaleY
- *   - normalizePitchLineup:       raw backend lineup → canonical pitch slots + bench
+ *   - slotToMatchCoords:           MATCH_PITCH_COORDS 鈫?home/away coords
+ *   - computeMatchDimensionOffsets: defensiveLine/pitchWidth 鈫?translateX + scaleY
+ *   - normalizePitchLineup:       raw backend lineup 鈫?canonical pitch slots + bench
  *
  * The match page uses a HORIZONTAL side-by-side layout (home left, away right),
  * whereas the TacticsEditor uses a VERTICAL mirror layout. The two layouts
- * MUST NOT share a coords table — the editor's vertical layout spreads CBs
+ * MUST NOT share a coords table 鈥?the editor's vertical layout spreads CBs
  * across two rows so the y-axis (which becomes the x-axis here) saw-tooths
  * between slots. The match page needs every defender on one row, every CM
  * on one row, etc.
  *
- * Side placement is a 180° rotation around (50, 50), NOT a horizontal mirror.
+ * Side placement is a 180掳 rotation around (50, 50), NOT a horizontal mirror.
  * When the away team attacks LEFT, their "left side" must land at the BOTTOM
- * of the screen — mirroring only along the centre line would put away's
+ * of the screen 鈥?mirroring only along the centre line would put away's
  * LW/RB on the same screen-side as home's, which is visually wrong.
  */
 
@@ -34,7 +34,7 @@ import {
 // ============================================================================
 
 describe('slotToMatchCoords', () => {
-  describe('line alignment — same x for every slot in a tactical line', () => {
+  describe('line alignment 鈥?same x for every slot in a tactical line', () => {
     // The headline invariant of the match page: players who play the same
     // tactical line stand on the same x-coordinate so they render in a row
     // on the horizontal pitch. The bug report that motivated this layer
@@ -54,7 +54,7 @@ describe('slotToMatchCoords', () => {
       expect(new Set(xs)).toEqual(new Set([MATCH_LINE_X.DEF]));
     });
 
-    it('defensive line slots are spread across y (top → bottom: LB, CBL, CB, CBR, RB)', () => {
+    it('defensive line slots are spread across y (top 鈫?bottom: LB, CBL, CB, CBR, RB)', () => {
       expect(slotToMatchCoords('LB', 'home').y).toBeLessThan(slotToMatchCoords('CBL', 'home').y);
       expect(slotToMatchCoords('CBL', 'home').y).toBeLessThan(slotToMatchCoords('CB', 'home').y);
       expect(slotToMatchCoords('CB', 'home').y).toBeLessThan(slotToMatchCoords('CBR', 'home').y);
@@ -104,7 +104,7 @@ describe('slotToMatchCoords', () => {
       expect(slotToMatchCoords('CF', 'home').y).toBeLessThan(slotToMatchCoords('CFR', 'home').y);
     });
 
-    it('lines are ordered GK → DEF → DM → CM → AM → FW (each step forward)', () => {
+    it('lines are ordered GK 鈫?DEF 鈫?DM 鈫?CM 鈫?AM 鈫?FW (each step forward)', () => {
       expect(MATCH_LINE_X.GK).toBeLessThan(MATCH_LINE_X.DEF);
       expect(MATCH_LINE_X.DEF).toBeLessThan(MATCH_LINE_X.DM);
       expect(MATCH_LINE_X.DM).toBeLessThan(MATCH_LINE_X.CM);
@@ -125,9 +125,9 @@ describe('slotToMatchCoords', () => {
     });
   });
 
-  describe('180° rotation invariants', () => {
-    it('rotates each slot 180° around the pitch centre (away = 100 - home on both axes)', () => {
-      // For every slot: home coords + away coords are 180° rotations around (50, 50).
+  describe('180掳 rotation invariants', () => {
+    it('rotates each slot 180掳 around the pitch centre (away = 100 - home on both axes)', () => {
+      // For every slot: home coords + away coords are 180掳 rotations around (50, 50).
       // Equivalently, away.x === 100 - home.x AND away.y === 100 - home.y.
       // The y-flip is what makes away's "left" (LW, LB, LM) land at the BOTTOM
       // of the screen when away attacks LEFT.
@@ -162,8 +162,8 @@ describe('slotToMatchCoords', () => {
     });
   });
 
-  describe('half restriction — each team stays in its own half', () => {
-    it('every home slot is inside the home half (x ∈ [0, 50])', () => {
+  describe('half restriction 鈥?each team stays in its own half', () => {
+    it('every home slot is inside the home half (x 鈭?[0, 50])', () => {
       for (const slot of PITCH_SLOTS) {
         const home = slotToMatchCoords(slot, 'home');
         expect(home.x).toBeGreaterThanOrEqual(0);
@@ -171,7 +171,7 @@ describe('slotToMatchCoords', () => {
       }
     });
 
-    it('every away slot is inside the away half (x ∈ [50, 100])', () => {
+    it('every away slot is inside the away half (x 鈭?[50, 100])', () => {
       for (const slot of PITCH_SLOTS) {
         const away = slotToMatchCoords(slot, 'away');
         expect(away.x).toBeGreaterThanOrEqual(50);
@@ -204,7 +204,7 @@ describe('slotToMatchCoords', () => {
       expect(gkAway).toBe(Math.max(...awayXs));
     });
 
-    it('home and away FW lines straddle the halfway line (44 ↔ 56, 12 units apart)', () => {
+    it('home and away FW lines straddle the halfway line (44 鈫?56, 12 units apart)', () => {
       const homeFw = slotToMatchCoords('CF', 'home').x;
       const awayFw = slotToMatchCoords('CF', 'away').x;
       // 12-unit gap leaves room for both trios to render at the scaled
@@ -227,7 +227,7 @@ describe('slotToMatchCoords', () => {
     it('home CF is the most forward home slot, just inside the home half (closest to center circle)', () => {
       const homeCf = slotToMatchCoords('CF', 'home');
       // CF must be inside home's half, and the closest to x=50 of any
-      // home slot. NOT at the opponent's goal — the half-restricted
+      // home slot. NOT at the opponent's goal 鈥?the half-restricted
       // layout stops strikers from crossing the halfway line.
       expect(homeCf.x).toBeLessThan(50);
       const homeXs = PITCH_SLOTS.map((s) => slotToMatchCoords(s, 'home').x);
@@ -245,7 +245,7 @@ describe('slotToMatchCoords', () => {
   describe('attacking direction', () => {
     it('home attackers (CAML-3, CF, CFL, CFR, LW, RW) sit in the home half, closest to the center circle', () => {
       // In the half-restricted layout, "attacking" doesn't mean crossing
-      // into the opponent's half — home's FW line is the most forward
+      // into the opponent's half 鈥?home's FW line is the most forward
       // home position, just 6 units shy of x=50.
       const attackers = ['CAML', 'CAM', 'CAMR', 'CF', 'CFL', 'CFR', 'LW', 'RW'] as const;
       for (const s of attackers) {
@@ -270,7 +270,7 @@ describe('slotToMatchCoords', () => {
     });
   });
 
-  describe('broadcast convention — away "left" lands at the BOTTOM of the screen', () => {
+  describe('broadcast convention 鈥?away "left" lands at the BOTTOM of the screen', () => {
     it('away LB / LM / LW / LWB sit at the BOTTOM (high y) of the screen', () => {
       const leftSlots = ['LB', 'LM', 'LW', 'LWB'] as const;
       for (const s of leftSlots) {
@@ -387,69 +387,71 @@ describe('normalizePitchLineup', () => {
 
   it('keeps canonical pitch slots untouched', () => {
     const result = normalizePitchLineup({
-      GK: 'p-gk',
-      CBL: 'p-cb-1',
-      CB: 'p-cb-2',
-      CBR: 'p-cb-3',
-      CML: 'p-cm-1',
-      CF: 'p-cf',
+      GK: 400_001,
+      CBL: 400_002,
+      CB: 400_003,
+      CBR: 400_004,
+      CML: 400_006,
+      CF: 400_007,
     });
-    expect(result.pitch.GK).toBe('p-gk');
-    expect(result.pitch.CBL).toBe('p-cb-1');
-    expect(result.pitch.CB).toBe('p-cb-2');
-    expect(result.pitch.CBR).toBe('p-cb-3');
-    expect(result.pitch.CML).toBe('p-cm-1');
-    expect(result.pitch.CF).toBe('p-cf');
+    expect(result.pitch.GK).toBe(400_001);
+    expect(result.pitch.CBL).toBe(400_002);
+    expect(result.pitch.CB).toBe(400_003);
+    expect(result.pitch.CBR).toBe(400_004);
+    expect(result.pitch.CML).toBe(400_006);
+    expect(result.pitch.CF).toBe(400_007);
     expect(result.bench).toEqual({});
   });
 
   it('maps legacy aliases to canonical pitch slots (last-write-wins)', () => {
     // Multiple aliases may target the same canonical slot. The existing
-    // normalizeLineup is last-write-wins — a single slot can hold only one
+    // normalizeLineup is last-write-wins 鈥?a single slot can hold only one
     // playerId. We pin that behaviour so a regression here is loud.
     const result = normalizePitchLineup({
-      CB: 'p-cb-1',     // → CBL
-      CD: 'p-cb-2',     // → CB
-      CDR: 'p-cb-3',    // → CBR
-      CDL: 'p-cb-1b',   // → CBL (overwrites the earlier CB→CBL entry)
+      CB: 400_002,     // 鈫?CBL
+      CD: 400_003,     // 鈫?CB
+      CDR: 400_004,    // 鈫?CBR
+      CDL: 400_005,   // 鈫?CBL (overwrites the earlier CB鈫扖BL entry)
     });
-    expect(result.pitch.CBL).toBe('p-cb-1b');
-    expect(result.pitch.CB).toBe('p-cb-2');
-    expect(result.pitch.CBR).toBe('p-cb-3');
+    expect(result.pitch.CBL).toBe(400_005);
+    expect(result.pitch.CB).toBe(400_003);
+    expect(result.pitch.CBR).toBe(400_004);
   });
 
-  it('folds CM / CMR / DM aliases onto the central midfield family', () => {
+  it('folds DM / DMR / CDM aliases onto the central midfield family', () => {
+    // Note: 'CM' is now a canonical pitch slot, so the legacy CM->CML
+    // aliasing is a no-op (CM passes through). 'CD' / 'CDL' / 'CDR' and
+    // 'DM' / 'DMR' / 'CDM' are the non-canonical codes the legacy map
+    // still folds; we cover those here.
     const result = normalizePitchLineup({
-      CM: 'p-cm',     // → CML
-      CMR: 'p-cmr',   // → CMR
-      DM: 'p-dm',     // → DMFL
-      DMR: 'p-dmr',   // → DMFR
+      DM: 400_008,     // -> DMFL
+      DMR: 400_009,    // -> DMFR
+      CDM: 400_010,    // -> DMF
     });
-    expect(result.pitch.CML).toBe('p-cm');
-    expect(result.pitch.CMR).toBe('p-cmr');
-    expect(result.pitch.DMFL).toBe('p-dm');
-    expect(result.pitch.DMFR).toBe('p-dmr');
+    expect(result.pitch.DMFL).toBe(400_008);
+    expect(result.pitch.DMFR).toBe(400_009);
+    expect(result.pitch.DMF).toBe(400_010);
   });
 
   it('preserves bench slots verbatim', () => {
     const result = normalizePitchLineup({
-      GK: 'p-gk',
-      BENCH_GK: 'p-bench-gk',
-      BENCH_CB: 'p-bench-cb',
-      BENCH_FW: 'p-bench-fw',
+      GK: 400_001,
+      BENCH_GK: 400_012,
+      BENCH_CB: 400_013,
+      BENCH_FW: 400_014,
     });
-    expect(result.bench.BENCH_GK).toBe('p-bench-gk');
-    expect(result.bench.BENCH_CB).toBe('p-bench-cb');
-    expect(result.bench.BENCH_FW).toBe('p-bench-fw');
-    expect(result.pitch.GK).toBe('p-gk');
+    expect(result.bench.BENCH_GK).toBe(400_012);
+    expect(result.bench.BENCH_CB).toBe(400_013);
+    expect(result.bench.BENCH_FW).toBe(400_014);
+    expect(result.pitch.GK).toBe(400_001);
   });
 
   it('handles a full 4-3-3 lineup without dropping any slot', () => {
     const lineup = {
-      GK: 'g',
-      LB: 'lb', CBL: 'cb1', CB: 'cb2', RB: 'rb',
-      CML: 'cm1', CM: 'cm2', CMR: 'cm3',
-      LW: 'lw', CF: 'cf', RW: 'rw',
+      GK: 400_030,
+      LB: 400_031, CBL: 400_032, CB: 400_033, RB: 400_034,
+      CML: 400_035, CM: 400_036, CMR: 400_037,
+      LW: 400_038, CF: 400_039, RW: 400_040,
     };
     const result = normalizePitchLineup(lineup);
     // Each pitch slot must resolve to a playerId.
@@ -462,57 +464,57 @@ describe('normalizePitchLineup', () => {
 
   it('a 3-5-2 with wing-backs produces LWB + RWB in pitch slots', () => {
     const lineup = {
-      GK: 'g',
-      CBL: 'a', CB: 'b', CBR: 'c',
-      LWB: 'lw', CML: 'cm1', CM: 'cm2', CMR: 'cm3', RWB: 'rw',
-      CFL: 'cfl', CFR: 'cfr',
+      GK: 400_030,
+      CBL: 400_041, CB: 400_042, CBR: 400_043,
+      LWB: 400_038, CML: 400_035, CM: 400_036, CMR: 400_037, RWB: 400_040,
+      CFL: 400_046, CFR: 400_047,
     };
     const result = normalizePitchLineup(lineup);
-    expect(result.pitch.LWB).toBe('lw');
-    expect(result.pitch.RWB).toBe('rw');
-    expect(result.pitch.CFL).toBe('cfl');
-    expect(result.pitch.CFR).toBe('cfr');
+    expect(result.pitch.LWB).toBe(400_038);
+    expect(result.pitch.RWB).toBe(400_040);
+    expect(result.pitch.CFL).toBe(400_046);
+    expect(result.pitch.CFR).toBe(400_047);
   });
 
   it('drops slots that cannot be mapped (defensive - silent drop)', () => {
     const result = normalizePitchLineup({
-      GK: 'g',
-      UNKNOWN_SLOT: 'p-x',
-      ANOTHER_BAD: 'p-y',
+      GK: 400_030,
+      UNKNOWN_SLOT: 400_015,
+      ANOTHER_BAD: 400_016,
     });
-    expect(result.pitch.GK).toBe('g');
-    // Unknown slots are silently dropped — no keys leak into pitch/bench.
+    expect(result.pitch.GK).toBe(400_030);
+    // Unknown slots are silently dropped 鈥?no keys leak into pitch/bench.
     expect(Object.keys(result.pitch)).toEqual(['GK']);
     expect(Object.keys(result.bench)).toEqual([]);
   });
 
   it('all six bench slot types survive normalization', () => {
     const result = normalizePitchLineup({
-      BENCH_GK: 'b-gk',
-      BENCH_CB: 'b-cb',
-      BENCH_FB: 'b-fb',
-      BENCH_W: 'b-w',
-      BENCH_CM: 'b-cm',
-      BENCH_FW: 'b-fw',
+      BENCH_GK: 400_020,
+      BENCH_CB: 400_021,
+      BENCH_FB: 400_022,
+      BENCH_W: 400_023,
+      BENCH_CM: 400_024,
+      BENCH_FW: 400_025,
     });
     expect(Object.keys(result.bench).sort()).toEqual([...BENCH_SLOTS].sort());
   });
 });
 
 // ============================================================================
-// forfeitScore — mirror of simulator/processor.ts handleRosterForfeit rule.
+// forfeitScore 鈥?mirror of simulator/processor.ts handleRosterForfeit rule.
 // ============================================================================
 
 describe('forfeitScore', () => {
-  it('both teams forfeit → 0-0', () => {
+  it('both teams forfeit 鈫?0-0', () => {
     expect(forfeitScore(true, true)).toEqual({ home: 0, away: 0 });
   });
 
-  it('home forfeit, away intact → 0-3 (away wins)', () => {
+  it('home forfeit, away intact 鈫?0-3 (away wins)', () => {
     expect(forfeitScore(true, false)).toEqual({ home: 0, away: 3 });
   });
 
-  it('away forfeit, home intact → 3-0 (home wins)', () => {
+  it('away forfeit, home intact 鈫?3-0 (home wins)', () => {
     expect(forfeitScore(false, true)).toEqual({ home: 3, away: 0 });
   });
 });

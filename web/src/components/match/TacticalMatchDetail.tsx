@@ -325,7 +325,7 @@ export function TacticalMatchDetail({
           {/* Substitutes */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <BenchStrip
-              bench={homeBench as Record<string, string | null>}
+              bench={homeBench as Record<string, number | null>}
               playersById={homeRosterById}
               isDragging={false}
               onDrop={() => {}}
@@ -334,7 +334,7 @@ export function TacticalMatchDetail({
               onDragEnd={() => {}}
             />
             <BenchStrip
-              bench={awayBench as Record<string, string | null>}
+              bench={awayBench as Record<string, number | null>}
               playersById={awayRosterById}
               isDragging={false}
               onDrop={() => {}}

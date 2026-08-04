@@ -13,8 +13,8 @@ import { useTranslations } from 'next-intl';
 import type { Player } from '@/lib/api';
 
 export interface PlayerSelectProps {
-  value: string;
-  onChange: (id: string) => void;
+  value: number;
+  onChange: (id: number) => void;
   players: Player[];
   placeholder?: string;
   align?: 'left' | 'right';

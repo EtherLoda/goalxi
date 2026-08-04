@@ -172,7 +172,7 @@ export function TacticsEditor({ matchId, match }: TacticsEditorProps) {
   const [isDragging, setIsDragging] = React.useState(false);
   const [draggingFrom, setDraggingFrom] = React.useState<PositionKey | null>(null);
 
-  const handleRosterDragStart = useCallback((playerId: string) => {
+  const handleRosterDragStart = useCallback((playerId: number) => {
     setIsDragging(true);
     setDraggingFrom(null);
   }, []);
@@ -191,7 +191,7 @@ export function TacticsEditor({ matchId, match }: TacticsEditorProps) {
   // Drop handlers
   // ---------------------------------------------------------------------
   const handlePitchDrop = useCallback(
-    (toSlot: PitchSlot, playerId: string, fromSlot: PositionKey | null) => {
+    (toSlot: PitchSlot, playerId: number, fromSlot: PositionKey | null) => {
       if (state.lock.isLocked) return;
       const player = playersById.get(playerId);
       if (!player) return;
@@ -209,7 +209,7 @@ export function TacticsEditor({ matchId, match }: TacticsEditorProps) {
   );
 
   const handleBenchDrop = useCallback(
-    (toSlot: BenchSlot, playerId: string, fromSlot: PositionKey | null) => {
+    (toSlot: BenchSlot, playerId: number, fromSlot: PositionKey | null) => {
       if (state.lock.isLocked) return;
       const player = playersById.get(playerId);
       if (!player) return;
@@ -242,14 +242,14 @@ export function TacticsEditor({ matchId, match }: TacticsEditorProps) {
   // ---------------------------------------------------------------------
   const handleAddSub = useCallback(() => {
     if (state.lock.isLocked) return;
-    dispatch({ type: 'ADD_EVENT', event: { kind: 'sub', minute: 60, outId: '', inId: '' } });
+    dispatch({ type: 'ADD_EVENT', event: { kind: 'sub', minute: 60, outId: 0, inId: 0 } });
   }, [state.lock.isLocked, dispatch]);
 
   const handleAddMove = useCallback(() => {
     if (state.lock.isLocked) return;
     dispatch({
       type: 'ADD_EVENT',
-      event: { kind: 'move', minute: 60, playerId: '', toSlot: 'CML' },
+      event: { kind: 'move', minute: 60, playerId: 0, toSlot: 'CML' },
     });
   }, [state.lock.isLocked, dispatch]);
 
@@ -336,19 +336,19 @@ export function TacticsEditor({ matchId, match }: TacticsEditorProps) {
   }, [state.draft.bench]);
 
   const assignedIds = useMemo(() => {
-    const s = new Set<string>();
-    for (const id of Object.values(state.draft.lineup)) if (id) s.add(id);
-    for (const id of Object.values(state.draft.bench)) if (id) s.add(id);
+    const s = new Set<number>();
+    for (const id of Object.values(state.draft.lineup)) if (id !== null && id !== undefined) s.add(id);
+    for (const id of Object.values(state.draft.bench)) if (id !== null && id !== undefined) s.add(id);
     return s;
   }, [state.draft]);
 
   const starters = useMemo(
-    () => players.filter((p) => state.draft.lineup[p.id as never] || (Object.values(state.draft.lineup).includes(p.id) && !state.draft.bench.BENCH_GK?.includes(p.id))),
-    [players, state.draft.lineup, state.draft.bench],
+    () => players.filter((p) => state.draft.lineup[p.id as never] !== null && state.draft.lineup[p.id as never] !== undefined),
+    [players, state.draft.lineup],
   );
   // simpler: derive from ids in lineup only
-  const starterIds = useMemo(() => new Set(Object.values(state.draft.lineup).filter((v): v is string => Boolean(v))), [state.draft.lineup]);
-  const benchOnlyIds = useMemo(() => new Set(Object.values(state.draft.bench).filter((v): v is string => Boolean(v))), [state.draft.bench]);
+  const starterIds = useMemo(() => new Set(Object.values(state.draft.lineup).filter((v): v is number => v !== null && v !== undefined) as number[]), [state.draft.lineup]);
+  const benchOnlyIds = useMemo(() => new Set(Object.values(state.draft.bench).filter((v): v is number => v !== null && v !== undefined) as number[]), [state.draft.bench]);
   const startersList = useMemo(() => players.filter((p) => starterIds.has(p.id)), [players, starterIds]);
   const benchPlayersList = useMemo(() => players.filter((p) => benchOnlyIds.has(p.id)), [players, benchOnlyIds]);
   const pitchPlayers = startersList;

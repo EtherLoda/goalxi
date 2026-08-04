@@ -38,13 +38,13 @@ export interface UsePlayerDragResult {
 }
 
 export function usePlayerDrag(
-  playerId: string,
+  playerId: number,
   options: UsePlayerDragOptions = {},
 ): UsePlayerDragResult {
   const { onStart, onEnd, dragImageRef, dragImageOffset } = options;
   return {
     onDragStart: (e) => {
-      e.dataTransfer.setData(PLAYER_DRAG_MIME, playerId);
+      e.dataTransfer.setData(PLAYER_DRAG_MIME, String(playerId));
       e.dataTransfer.effectAllowed = 'move';
       // Use the avatar (or whatever `dragImageRef` points to) as the
       // browser's native drag preview instead of the full card.

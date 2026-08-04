@@ -9,12 +9,12 @@ import { PositionSlot } from './PositionSlot';
 
 interface PitchFieldProps {
   lineup: LineupMap;
-  playersById: Map<string, Player>;
+  playersById: Map<number, Player>;
   defensiveLine: DefensiveLineValue;
   pitchWidth: PitchWidthValue;
   tempo: 'slow' | 'balanced' | 'fast';
   isDragging: boolean;
-  onDrop: (toSlot: PitchSlot, playerId: string, fromSlot: PositionKey | null) => void;
+  onDrop: (toSlot: PitchSlot, playerId: number, fromSlot: PositionKey | null) => void;
   onRemove: (slot: PitchSlot) => void;
   onDragStart: (slot: PitchSlot) => void;
   onDragEnd: () => void;
@@ -49,7 +49,7 @@ export function PitchField({
     tempo === 'fast' ? 'shadow-[0_0_60px_rgba(0,228,121,0.25)]' : tempo === 'slow' ? 'shadow-none' : 'shadow-[0_0_30px_rgba(0,228,121,0.12)]';
 
   const handleSlotDrop = useCallback(
-    (slot: PitchSlot) => (playerId: string) => {
+    (slot: PitchSlot) => (playerId: number) => {
       const fromSlot = draggingFromSlot;
       setDragOverSlot(null);
       setDraggingFromSlot(null);
@@ -104,7 +104,7 @@ export function PitchField({
               onDrop={(e) => {
                 e.preventDefault();
                 const droppedId = e.dataTransfer.getData(DRAG_MIME);
-                if (droppedId) handleSlotDrop(slot)(droppedId);
+                if (droppedId) handleSlotDrop(slot)(Number(droppedId));
               }}
             >
               <PositionSlot

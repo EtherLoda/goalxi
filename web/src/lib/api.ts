@@ -111,13 +111,13 @@ type DefensiveLineValue = 'low' | 'mid' | 'high';
 
 interface TacticsSubstitution {
   minute: number;
-  out: string;
-  in: string;
+  out: number;
+  in: number;
 }
 
 interface TacticsMove {
   minute: number;
-  player: string;
+  player: number;
   position: string;
 }
 
@@ -128,7 +128,7 @@ interface TacticsInstructions {
 interface SubmitTacticsPayload {
   teamId: string;
   formation: string;
-  lineup: Record<string, string>;
+  lineup: Record<string, number>;
   tempo: TempoValue;
   pitchWidth: PitchWidthValue;
   defensiveLine: DefensiveLineValue;
@@ -142,7 +142,7 @@ interface Tactics {
   matchId: string;
   teamId: string;
   formation: string;
-  lineup: Record<string, string>;
+  lineup: Record<string, number>;
   tempo: TempoValue;
   pitchWidth: PitchWidthValue;
   defensiveLine: DefensiveLineValue;
@@ -163,7 +163,7 @@ interface Preset {
   name: string;
   isDefault: boolean;
   formation: string;
-  lineup: Record<string, string>;
+  lineup: Record<string, number>;
   substitutions: TacticsSubstitution[] | null;
   instructions: TacticsInstructions | null;
   createdAt: string;
@@ -173,7 +173,7 @@ interface Preset {
 interface CreatePresetPayload {
   name: string;
   formation: string;
-  lineup: Record<string, string>;
+  lineup: Record<string, number>;
   isDefault: boolean;
   substitutions: TacticsSubstitution[] | null;
   instructions: TacticsInstructions | null;

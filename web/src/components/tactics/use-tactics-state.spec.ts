@@ -19,19 +19,39 @@ import type { ValidationContext, ValidatorPlayer } from './lineup-validator';
 // ============================================================================
 // Fixtures
 // ============================================================================
+//
+// Player ids are stable numeric ids (post-UUID-removal). We use a small block
+// (100_xxx) that doesn't collide with the seed data (1xx_xxx).
 
-const TEAM_PLAYER_IDS = new Set<string>([
-  'p-gk', 'p-cb-1', 'p-cb-2', 'p-cb-3', 'p-lb', 'p-rb',
-  'p-cmf-1', 'p-cmf-2', 'p-cmf-3', 'p-lm', 'p-rm',
-  'p-cf-1', 'p-cf-2', 'p-cf-3', 'p-bench-1', 'p-bench-2',
+const ID_GK = 100_001;
+const ID_CB_1 = 100_002;
+const ID_CB_2 = 100_003;
+const ID_CB_3 = 100_004;
+const ID_LB = 100_005;
+const ID_RB = 100_006;
+const ID_CMF_1 = 100_007;
+const ID_CMF_2 = 100_008;
+const ID_CMF_3 = 100_009;
+const ID_LM = 100_010;
+const ID_RM = 100_011;
+const ID_CF_1 = 100_012;
+const ID_CF_2 = 100_013;
+const ID_CF_3 = 100_014;
+const ID_BENCH_1 = 100_015;
+const ID_BENCH_2 = 100_016;
+
+const TEAM_PLAYER_IDS = new Set<number>([
+  ID_GK, ID_CB_1, ID_CB_2, ID_CB_3, ID_LB, ID_RB,
+  ID_CMF_1, ID_CMF_2, ID_CMF_3, ID_LM, ID_RM,
+  ID_CF_1, ID_CF_2, ID_CF_3, ID_BENCH_1, ID_BENCH_2,
 ]);
 
-function makePlayersById(): Map<string, ValidatorPlayer> {
-  const m = new Map<string, ValidatorPlayer>();
-  m.set('p-gk', { id: 'p-gk', isGoalkeeper: true, name: 'GK' });
+function makePlayersById(): Map<number, ValidatorPlayer> {
+  const m = new Map<number, ValidatorPlayer>();
+  m.set(ID_GK, { id: ID_GK, isGoalkeeper: true, name: 'GK' });
   for (const id of TEAM_PLAYER_IDS) {
-    if (id === 'p-gk') continue;
-    m.set(id, { id, isGoalkeeper: false, name: id });
+    if (id === ID_GK) continue;
+    m.set(id, { id, isGoalkeeper: false, name: `p-${id}` });
   }
   return m;
 }
@@ -55,17 +75,17 @@ function freshState(): EditorState {
 function makeHydratePayload(overrides: Partial<HydratePayload> = {}): HydratePayload {
   return {
     lineup: {
-      GK: 'p-gk',
-      CBL: 'p-cb-1',
-      CB: 'p-cb-2',
-      CBR: 'p-cb-3',
-      LB: 'p-lb',
-      RB: 'p-rb',
-      CML: 'p-cmf-1',
-      CM: 'p-cmf-2',
-      CMR: 'p-cmf-3',
-      CFL: 'p-cf-1',
-      CFR: 'p-cf-2',
+      GK: ID_GK,
+      CBL: ID_CB_1,
+      CB: ID_CB_2,
+      CBR: ID_CB_3,
+      LB: ID_LB,
+      RB: ID_RB,
+      CML: ID_CMF_1,
+      CM: ID_CMF_2,
+      CMR: ID_CMF_3,
+      CFL: ID_CF_1,
+      CFR: ID_CF_2,
     },
     tempo: 'balanced',
     pitchWidth: 'balanced',
@@ -85,7 +105,7 @@ describe('reducer — HYDRATE', () => {
   it('populates lineup, tempo, dimensions, and resets isDirty to false', () => {
     const payload = makeHydratePayload();
     const next = reducer(freshState(), { type: 'HYDRATE', payload });
-    expect(next.draft.lineup.GK).toBe('p-gk');
+    expect(next.draft.lineup.GK).toBe(ID_GK);
     expect(next.draft.tempo).toBe('balanced');
     expect(next.draft.pitchWidth).toBe('balanced');
     expect(next.draft.defensiveLine).toBe('mid');
@@ -95,49 +115,49 @@ describe('reducer — HYDRATE', () => {
   it('separates pitch slots from bench slots', () => {
     const payload = makeHydratePayload({
       lineup: {
-        GK: 'p-gk', CBL: 'p-cb-1', CB: 'p-cb-2', CBR: 'p-cb-3', LB: 'p-lb', RB: 'p-rb',
-        CML: 'p-cmf-1', CM: 'p-cmf-2', CMR: 'p-cmf-3', CFL: 'p-cf-1', CFR: 'p-cf-2',
-        BENCH_GK: 'p-bench-1',
-        BENCH_CB: 'p-bench-2',
+        GK: ID_GK, CBL: ID_CB_1, CB: ID_CB_2, CBR: ID_CB_3, LB: ID_LB, RB: ID_RB,
+        CML: ID_CMF_1, CM: ID_CMF_2, CMR: ID_CMF_3, CFL: ID_CF_1, CFR: ID_CF_2,
+        BENCH_GK: ID_BENCH_1,
+        BENCH_CB: ID_BENCH_2,
       },
     });
     const next = reducer(freshState(), { type: 'HYDRATE', payload });
-    expect(next.draft.bench.BENCH_GK).toBe('p-bench-1');
-    expect(next.draft.bench.BENCH_CB).toBe('p-bench-2');
+    expect(next.draft.bench.BENCH_GK).toBe(ID_BENCH_1);
+    expect(next.draft.bench.BENCH_CB).toBe(ID_BENCH_2);
     expect(Object.keys(next.draft.lineup)).not.toContain('BENCH_GK');
   });
 
   it('hydrates substitutions into sub events', () => {
     const payload = makeHydratePayload({
       substitutions: [
-        { minute: 60, out: 'p-cmf-1', in: 'p-bench-1' },
-        { minute: 75, out: 'p-cf-1', in: 'p-cf-3' },
+        { minute: 60, out: ID_CMF_1, in: ID_BENCH_1 },
+        { minute: 75, out: ID_CF_1, in: ID_CF_3 },
       ],
     });
     const next = reducer(freshState(), { type: 'HYDRATE', payload });
     expect(next.draft.events).toHaveLength(2);
-    expect(next.draft.events[0]).toEqual({ kind: 'sub', minute: 60, outId: 'p-cmf-1', inId: 'p-bench-1' });
+    expect(next.draft.events[0]).toEqual({ kind: 'sub', minute: 60, outId: ID_CMF_1, inId: ID_BENCH_1 });
   });
 
   it('hydrates moves from instructions into move events', () => {
     const payload = makeHydratePayload({
       instructions: {
         moves: [
-          { minute: 50, player: 'p-cmf-1', position: 'CAML' },
+          { minute: 50, player: ID_CMF_1, position: 'CAML' },
         ],
       },
     });
     const next = reducer(freshState(), { type: 'HYDRATE', payload });
     expect(next.draft.events).toContainEqual({
-      kind: 'move', minute: 50, playerId: 'p-cmf-1', toSlot: 'CAML',
+      kind: 'move', minute: 50, playerId: ID_CMF_1, toSlot: 'CAML',
     });
   });
 
   it('sorts events by minute ascending', () => {
     const payload = makeHydratePayload({
       substitutions: [
-        { minute: 80, out: 'p-cmf-1', in: 'p-bench-1' },
-        { minute: 30, out: 'p-cf-1', in: 'p-cf-3' },
+        { minute: 80, out: ID_CMF_1, in: ID_BENCH_1 },
+        { minute: 30, out: ID_CF_1, in: ID_CF_3 },
       ],
     });
     const next = reducer(freshState(), { type: 'HYDRATE', payload });
@@ -154,44 +174,44 @@ describe('reducer — ASSIGN_PITCH / ASSIGN_BENCH', () => {
   it('places a player in the target pitch slot', () => {
     const state = freshState();
     const next = reducer(state, {
-      type: 'ASSIGN_PITCH', from: null, to: 'GK', playerId: 'p-gk',
+      type: 'ASSIGN_PITCH', from: null, to: 'GK', playerId: ID_GK,
     });
-    expect(next.draft.lineup.GK).toBe('p-gk');
+    expect(next.draft.lineup.GK).toBe(ID_GK);
     expect(next.draft.isDirty).toBe(true);
   });
 
   it('removes from source when assigned from another pitch slot', () => {
     let state = freshState();
-    state = reducer(state, { type: 'ASSIGN_PITCH', from: null, to: 'CBL', playerId: 'p-cb-1' });
-    const next = reducer(state, { type: 'ASSIGN_PITCH', from: 'CBL', to: 'CB', playerId: 'p-cb-1' });
+    state = reducer(state, { type: 'ASSIGN_PITCH', from: null, to: 'CBL', playerId: ID_CB_1 });
+    const next = reducer(state, { type: 'ASSIGN_PITCH', from: 'CBL', to: 'CB', playerId: ID_CB_1 });
     expect(next.draft.lineup.CBL).toBeUndefined();
-    expect(next.draft.lineup.CB).toBe('p-cb-1');
+    expect(next.draft.lineup.CB).toBe(ID_CB_1);
   });
 
   it('removes from bench when assigned from bench', () => {
     let state = freshState();
-    state = reducer(state, { type: 'ASSIGN_BENCH', from: null, to: 'BENCH_CB', playerId: 'p-cb-1' });
-    const next = reducer(state, { type: 'ASSIGN_PITCH', from: 'BENCH_CB', to: 'CBL', playerId: 'p-cb-1' });
+    state = reducer(state, { type: 'ASSIGN_BENCH', from: null, to: 'BENCH_CB', playerId: ID_CB_1 });
+    const next = reducer(state, { type: 'ASSIGN_PITCH', from: 'BENCH_CB', to: 'CBL', playerId: ID_CB_1 });
     expect(next.draft.bench.BENCH_CB).toBeUndefined();
-    expect(next.draft.lineup.CBL).toBe('p-cb-1');
+    expect(next.draft.lineup.CBL).toBe(ID_CB_1);
   });
 
   it('clears stale duplicate of the same player elsewhere on the pitch', () => {
     let state = freshState();
-    state = reducer(state, { type: 'ASSIGN_PITCH', from: null, to: 'CBL', playerId: 'p-cb-1' });
-    state = reducer(state, { type: 'ASSIGN_PITCH', from: null, to: 'CB', playerId: 'p-cb-1' });
-    const next = reducer(state, { type: 'ASSIGN_PITCH', from: 'CB', to: 'CBR', playerId: 'p-cb-1' });
+    state = reducer(state, { type: 'ASSIGN_PITCH', from: null, to: 'CBL', playerId: ID_CB_1 });
+    state = reducer(state, { type: 'ASSIGN_PITCH', from: null, to: 'CB', playerId: ID_CB_1 });
+    const next = reducer(state, { type: 'ASSIGN_PITCH', from: 'CB', to: 'CBR', playerId: ID_CB_1 });
     expect(next.draft.lineup.CBL).toBeUndefined();
     expect(next.draft.lineup.CB).toBeUndefined();
-    expect(next.draft.lineup.CBR).toBe('p-cb-1');
+    expect(next.draft.lineup.CBR).toBe(ID_CB_1);
   });
 
   it('clears stale duplicate on bench when moving to bench', () => {
     let state = freshState();
-    state = reducer(state, { type: 'ASSIGN_BENCH', from: null, to: 'BENCH_CB', playerId: 'p-cb-1' });
-    const next = reducer(state, { type: 'ASSIGN_BENCH', from: 'BENCH_CB', to: 'BENCH_FB', playerId: 'p-cb-1' });
+    state = reducer(state, { type: 'ASSIGN_BENCH', from: null, to: 'BENCH_CB', playerId: ID_CB_1 });
+    const next = reducer(state, { type: 'ASSIGN_BENCH', from: 'BENCH_CB', to: 'BENCH_FB', playerId: ID_CB_1 });
     expect(next.draft.bench.BENCH_CB).toBeUndefined();
-    expect(next.draft.bench.BENCH_FB).toBe('p-cb-1');
+    expect(next.draft.bench.BENCH_FB).toBe(ID_CB_1);
   });
 });
 
@@ -202,7 +222,7 @@ describe('reducer — ASSIGN_PITCH / ASSIGN_BENCH', () => {
 describe('reducer — REMOVE', () => {
   it('removes a pitch slot assignment and marks dirty', () => {
     let state = freshState();
-    state = reducer(state, { type: 'ASSIGN_PITCH', from: null, to: 'GK', playerId: 'p-gk' });
+    state = reducer(state, { type: 'ASSIGN_PITCH', from: null, to: 'GK', playerId: ID_GK });
     const next = reducer(state, { type: 'REMOVE', slot: 'GK' });
     expect(next.draft.lineup.GK).toBeUndefined();
     expect(next.draft.isDirty).toBe(true);
@@ -210,18 +230,18 @@ describe('reducer — REMOVE', () => {
 
   it('removes a bench slot assignment', () => {
     let state = freshState();
-    state = reducer(state, { type: 'ASSIGN_BENCH', from: null, to: 'BENCH_CB', playerId: 'p-cb-1' });
+    state = reducer(state, { type: 'ASSIGN_BENCH', from: null, to: 'BENCH_CB', playerId: ID_CB_1 });
     const next = reducer(state, { type: 'REMOVE', slot: 'BENCH_CB' });
     expect(next.draft.bench.BENCH_CB).toBeUndefined();
   });
 
   it('does not mutate previous state (immutability)', () => {
     let state = freshState();
-    state = reducer(state, { type: 'ASSIGN_PITCH', from: null, to: 'GK', playerId: 'p-gk' });
+    state = reducer(state, { type: 'ASSIGN_PITCH', from: null, to: 'GK', playerId: ID_GK });
     const before = state;
     reducer(state, { type: 'REMOVE', slot: 'GK' });
     // Original state should be unchanged
-    expect(before.draft.lineup.GK).toBe('p-gk');
+    expect(before.draft.lineup.GK).toBe(ID_GK);
   });
 });
 
@@ -232,8 +252,8 @@ describe('reducer — REMOVE', () => {
 describe('reducer — events', () => {
   it('ADD_EVENT inserts and sorts', () => {
     let state = freshState();
-    state = reducer(state, { type: 'ADD_EVENT', event: { kind: 'sub', minute: 70, outId: 'a', inId: 'b' } });
-    state = reducer(state, { type: 'ADD_EVENT', event: { kind: 'sub', minute: 30, outId: 'c', inId: 'd' } });
+    state = reducer(state, { type: 'ADD_EVENT', event: { kind: 'sub', minute: 70, outId: ID_CB_1, inId: ID_BENCH_1 } });
+    state = reducer(state, { type: 'ADD_EVENT', event: { kind: 'sub', minute: 30, outId: ID_CB_2, inId: ID_BENCH_2 } });
     expect(state.draft.events[0]!.minute).toBe(30);
     expect(state.draft.events[1]!.minute).toBe(70);
     expect(state.draft.isDirty).toBe(true);
@@ -241,14 +261,14 @@ describe('reducer — events', () => {
 
   it('UPDATE_EVENT patches an existing event', () => {
     let state = freshState();
-    state = reducer(state, { type: 'ADD_EVENT', event: { kind: 'sub', minute: 60, outId: 'a', inId: 'b' } });
+    state = reducer(state, { type: 'ADD_EVENT', event: { kind: 'sub', minute: 60, outId: ID_CB_1, inId: ID_BENCH_1 } });
     const next = reducer(state, { type: 'UPDATE_EVENT', index: 0, patch: { minute: 80 } });
     expect(next.draft.events[0]!.minute).toBe(80);
   });
 
   it('REMOVE_EVENT deletes by index', () => {
     let state = freshState();
-    state = reducer(state, { type: 'ADD_EVENT', event: { kind: 'sub', minute: 60, outId: 'a', inId: 'b' } });
+    state = reducer(state, { type: 'ADD_EVENT', event: { kind: 'sub', minute: 60, outId: ID_CB_1, inId: ID_BENCH_1 } });
     const next = reducer(state, { type: 'REMOVE_EVENT', index: 0 });
     expect(next.draft.events).toHaveLength(0);
   });
@@ -375,13 +395,13 @@ describe('reducer — APPLY_PRESET', () => {
       name: 'Aggressive',
       isDefault: false,
       formation: '4-3-3',
-      lineup: { GK: 'p-gk', CBL: 'p-cb-1', CB: 'p-cb-2', CBR: 'p-cb-3', LB: 'p-lb', RB: 'p-rb', CML: 'p-cmf-1', CM: 'p-cmf-2', CMR: 'p-cmf-3', LW: 'p-cf-1', RW: 'p-cf-2' },
-      substitutions: [{ minute: 60, out: 'p-cmf-1', in: 'p-bench-1' }],
+      lineup: { GK: ID_GK, CBL: ID_CB_1, CB: ID_CB_2, CBR: ID_CB_3, LB: ID_LB, RB: ID_RB, CML: ID_CMF_1, CM: ID_CMF_2, CMR: ID_CMF_3, LW: ID_CF_1, RW: ID_CF_2 },
+      substitutions: [{ minute: 60, out: ID_CMF_1, in: ID_BENCH_1 }],
       instructions: null,
     };
     const next = reducer(freshState(), { type: 'APPLY_PRESET', preset });
     expect(next.draft.lineup.CF).toBeUndefined();
-    expect(next.draft.lineup.LW).toBe('p-cf-1');
+    expect(next.draft.lineup.LW).toBe(ID_CF_1);
     expect(next.draft.activePresetId).toBe('preset-A');
     expect(next.draft.isDirty).toBe(false);
     expect(next.draft.events).toHaveLength(1);
@@ -394,7 +414,7 @@ describe('reducer — APPLY_PRESET', () => {
       type: 'APPLY_PRESET',
       preset: {
         id: 'p1', name: 'x', isDefault: false, formation: '4-4-2',
-        lineup: { GK: 'p-gk' },
+        lineup: { GK: ID_GK },
         substitutions: null,
         instructions: null,
       },
@@ -411,7 +431,7 @@ describe('reducer — APPLY_PRESET', () => {
 describe('reducer — REVALIDATE', () => {
   it('updates validation when draft changes', () => {
     let state = freshState();
-    state = reducer(state, { type: 'ASSIGN_PITCH', from: null, to: 'GK', playerId: 'p-gk' });
+    state = reducer(state, { type: 'ASSIGN_PITCH', from: null, to: 'GK', playerId: ID_GK });
     const ctx = makeValidationCtx(state.draft);
     const next = reducer(state, { type: 'REVALIDATE', ctx });
     // 1 player → invalid count, but GK is present
@@ -475,10 +495,10 @@ describe('selectFormation', () => {
     const draft: TacticsDraft = {
       ...createEmptyDraft(),
       lineup: {
-        GK: 'p-gk',
-        LB: 'p-lb', CBL: 'p-cb-1', CB: 'p-cb-2', RB: 'p-rb',
-        LM: 'p-lm', CML: 'p-cmf-1', CM: 'p-cmf-2', RM: 'p-rm',
-        CFL: 'p-cf-1', CFR: 'p-cf-2',
+        GK: ID_GK,
+        LB: ID_LB, CBL: ID_CB_1, CB: ID_CB_2, RB: ID_RB,
+        LM: ID_LM, CML: ID_CMF_1, CM: ID_CMF_2, RM: ID_RM,
+        CFL: ID_CF_1, CFR: ID_CF_2,
       },
     };
     expect(selectFormation(draft)).toBe('4-4-2');
@@ -492,10 +512,10 @@ describe('selectFormation', () => {
     const draft: TacticsDraft = {
       ...createEmptyDraft(),
       lineup: {
-        GK: 'p-gk',
-        CBL: 'a', CB: 'b', CBR: 'c',
-        LWB: 'd', CML: 'e', CM: 'f', CMR: 'g', RWB: 'h',
-        CFL: 'i', CFR: 'j',
+        GK: ID_GK,
+        CBL: ID_CB_1, CB: ID_CB_2, CBR: ID_CB_3,
+        LWB: ID_LB, CML: ID_CMF_1, CM: ID_CMF_2, CMR: ID_CMF_3, RWB: ID_RB,
+        CFL: ID_CF_1, CFR: ID_CF_2,
       },
     };
     expect(selectFormation(draft)).toBe('5-3-2');
@@ -504,7 +524,7 @@ describe('selectFormation', () => {
 
 describe('selectIsGkPlaced', () => {
   it('true when GK assigned', () => {
-    expect(selectIsGkPlaced({ ...createEmptyDraft(), lineup: { GK: 'p-gk' } })).toBe(true);
+    expect(selectIsGkPlaced({ ...createEmptyDraft(), lineup: { GK: ID_GK } })).toBe(true);
   });
 
   it('false when GK missing', () => {
@@ -514,18 +534,18 @@ describe('selectIsGkPlaced', () => {
 
 describe('selectUnassignedPlayerIds', () => {
   it('returns the difference between all players and assigned', () => {
-    const draft: TacticsDraft = { ...createEmptyDraft(), lineup: { GK: 'p-gk' } };
-    const result = selectUnassignedPlayerIds(draft, ['p-gk', 'p-cb-1', 'p-cb-2']);
-    expect(result).toEqual(['p-cb-1', 'p-cb-2']);
+    const draft: TacticsDraft = { ...createEmptyDraft(), lineup: { GK: ID_GK } };
+    const result = selectUnassignedPlayerIds(draft, [ID_GK, ID_CB_1, ID_CB_2]);
+    expect(result).toEqual([ID_CB_1, ID_CB_2]);
   });
 
   it('excludes bench-assigned players too', () => {
     const draft: TacticsDraft = {
       ...createEmptyDraft(),
-      lineup: { GK: 'p-gk' },
-      bench: { BENCH_CB: 'p-cb-1' },
+      lineup: { GK: ID_GK },
+      bench: { BENCH_CB: ID_CB_1 },
     };
-    const result = selectUnassignedPlayerIds(draft, ['p-gk', 'p-cb-1', 'p-cb-2']);
-    expect(result).toEqual(['p-cb-2']);
+    const result = selectUnassignedPlayerIds(draft, [ID_GK, ID_CB_1, ID_CB_2]);
+    expect(result).toEqual([ID_CB_2]);
   });
 });

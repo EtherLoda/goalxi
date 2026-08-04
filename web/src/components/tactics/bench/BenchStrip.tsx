@@ -10,9 +10,9 @@ import { BenchSlotView } from './BenchSlot';
 
 interface BenchStripProps {
   bench: BenchMap;
-  playersById: Map<string, Player>;
+  playersById: Map<number, Player>;
   isDragging: boolean;
-  onDrop: (toSlot: BenchSlot, playerId: string, fromSlot: PositionKey | null) => void;
+  onDrop: (toSlot: BenchSlot, playerId: number, fromSlot: PositionKey | null) => void;
   onRemove: (slot: BenchSlot) => void;
   onDragStart: (slot: BenchSlot) => void;
   onDragEnd: () => void;
@@ -60,7 +60,7 @@ export function BenchStrip({
                 e.preventDefault();
                 const droppedId = e.dataTransfer.getData(DRAG_MIME);
                 if (droppedId) {
-                  onDrop(slot, droppedId, draggingFromSlot);
+                  onDrop(slot, Number(droppedId), draggingFromSlot);
                   setDraggingFromSlot(null);
                   setDragOverSlot(null);
                 }

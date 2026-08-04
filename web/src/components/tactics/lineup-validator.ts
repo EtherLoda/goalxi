@@ -21,7 +21,7 @@ import {
 // ============================================================================
 
 export interface ValidatorPlayer {
-  id: string;
+  id: number;
   isGoalkeeper: boolean;
   name: string;
 }
@@ -32,8 +32,8 @@ export interface ValidatorPlayer {
 
 export interface ValidationContext {
   draft: TacticsDraft;
-  teamPlayerIds: ReadonlySet<string>;
-  playersById: ReadonlyMap<string, ValidatorPlayer>;
+  teamPlayerIds: ReadonlySet<number>;
+  playersById: ReadonlyMap<number, ValidatorPlayer>;
 }
 
 // ============================================================================
@@ -85,11 +85,11 @@ export function validateLineup(ctx: ValidationContext): ValidationResult {
   }
 
   // -- 4. All assigned playerIds must belong to the team
-  const allAssigned: { slot: PositionKey; playerId: string }[] = [];
-  for (const [slot, playerId] of Object.entries(draft.lineup) as [PitchSlot, string | undefined][]) {
+  const allAssigned: { slot: PositionKey; playerId: number }[] = [];
+  for (const [slot, playerId] of Object.entries(draft.lineup) as [PitchSlot, number | undefined][]) {
     if (playerId) allAssigned.push({ slot, playerId });
   }
-  for (const [slot, playerId] of Object.entries(draft.bench) as [BenchSlot, string | undefined][]) {
+  for (const [slot, playerId] of Object.entries(draft.bench) as [BenchSlot, number | undefined][]) {
     if (playerId) allAssigned.push({ slot, playerId });
   }
 
@@ -115,7 +115,7 @@ export function validateLineup(ctx: ValidationContext): ValidationResult {
   }
 
   // -- 6. No outfielders in GK (outfield slots cannot hold a GK)
-  for (const [slot, playerId] of Object.entries(draft.lineup) as [PitchSlot, string | undefined][]) {
+  for (const [slot, playerId] of Object.entries(draft.lineup) as [PitchSlot, number | undefined][]) {
     if (slot === 'GK' || !playerId) continue;
     const player = playersById.get(playerId);
     if (player?.isGoalkeeper) {
@@ -132,7 +132,7 @@ export function validateLineup(ctx: ValidationContext): ValidationResult {
   }
 
   // -- 8. Other bench slots: cannot be a goalkeeper
-  for (const [slot, playerId] of Object.entries(draft.bench) as [BenchSlot, string | undefined][]) {
+  for (const [slot, playerId] of Object.entries(draft.bench) as [BenchSlot, number | undefined][]) {
     if (slot === 'BENCH_GK' || !playerId) continue;
     const player = playersById.get(playerId);
     if (player?.isGoalkeeper) {
@@ -141,8 +141,8 @@ export function validateLineup(ctx: ValidationContext): ValidationResult {
   }
 
   // -- 9. No duplicate players on the pitch (bench duplicates of pitch are allowed)
-  const pitchIds = new Set<string>();
-  for (const [slot, playerId] of Object.entries(draft.lineup) as [PitchSlot, string | undefined][]) {
+  const pitchIds = new Set<number>();
+  for (const [slot, playerId] of Object.entries(draft.lineup) as [PitchSlot, number | undefined][]) {
     if (!playerId) continue;
     if (pitchIds.has(playerId)) {
       const player = playersById.get(playerId);
@@ -193,18 +193,18 @@ export function validateLineup(ctx: ValidationContext): ValidationResult {
 // Helpers (exported for testing and reuse)
 // ============================================================================
 
-export function countFilled(lineup: Partial<Record<PitchSlot, string | null>>): number {
-  return Object.values(lineup).filter((v): v is string => Boolean(v)).length;
+export function countFilled(lineup: Partial<Record<PitchSlot, number | null>>): number {
+  return Object.values(lineup).filter((v): v is number => Boolean(v)).length;
 }
 
 export function findSlotOfPlayer(
   draft: TacticsDraft,
-  playerId: string,
+  playerId: number,
 ): PositionKey | null {
-  for (const [slot, id] of Object.entries(draft.lineup) as [PitchSlot, string | undefined][]) {
+  for (const [slot, id] of Object.entries(draft.lineup) as [PitchSlot, number | undefined][]) {
     if (id === playerId) return slot;
   }
-  for (const [slot, id] of Object.entries(draft.bench) as [BenchSlot, string | undefined][]) {
+  for (const [slot, id] of Object.entries(draft.bench) as [BenchSlot, number | undefined][]) {
     if (id === playerId) return slot;
   }
   return null;

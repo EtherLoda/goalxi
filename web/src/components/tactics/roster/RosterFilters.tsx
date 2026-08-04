@@ -60,7 +60,7 @@ export function RosterFilters({ sort, onSortChange }: RosterFiltersProps) {
 export function filterAndSort(
   players: Player[],
   sort: RosterSortKey,
-  assignedIds: Set<string>,
+  assignedIds: Set<number>,
 ): { available: Player[]; onPitch: Player[] } {
   const sorted = [...players].sort((a, b) => {
     if (sort === 'name') return a.name.localeCompare(b.name);

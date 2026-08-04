@@ -325,15 +325,15 @@ export const EVENT_CONDITIONS: readonly EventCondition[] = [
 export interface SubstitutionEvent {
   readonly kind: 'sub';
   readonly minute: number;
-  readonly outId: string;
-  readonly inId: string;
+  readonly outId: number;
+  readonly inId: number;
   readonly condition?: EventCondition;
 }
 
 export interface MoveEvent {
   readonly kind: 'move';
   readonly minute: number;
-  readonly playerId: string;
+  readonly playerId: number;
   readonly toSlot: PositionKey;
   readonly condition?: EventCondition;
 }
@@ -344,8 +344,8 @@ export type TacticalEvent = SubstitutionEvent | MoveEvent;
 // Draft State
 // ============================================================================
 
-export type LineupMap = Partial<Record<PitchSlot, string | null>>;
-export type BenchMap = Partial<Record<BenchSlot, string | null>>;
+export type LineupMap = Partial<Record<PitchSlot, number | null>>;
+export type BenchMap = Partial<Record<BenchSlot, number | null>>;
 
 export interface TacticsDraft {
   lineup: LineupMap;
@@ -408,8 +408,8 @@ export function sortEventsByMinute(events: TacticalEvent[]): TacticalEvent[] {
 
 /** IDs currently assigned to either pitch or bench. Bench duplicates of pitch are
  *  allowed by the backend, but we surface them as a single set. */
-export function collectAssignedPlayerIds(draft: TacticsDraft): Set<string> {
-  const ids = new Set<string>();
+export function collectAssignedPlayerIds(draft: TacticsDraft): Set<number> {
+  const ids = new Set<number>();
   for (const id of Object.values(draft.lineup)) {
     if (id) ids.add(id);
   }

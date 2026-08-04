@@ -8,7 +8,7 @@ import { PlayerMarker } from './PlayerMarker';
 
 interface PositionSlotProps {
   slot: PitchSlot;
-  playerId: string | null;
+  playerId: number | null;
   player: Player | null;
   isGkSlot: boolean;
   isDragOver: boolean;
@@ -20,7 +20,7 @@ interface PositionSlotProps {
    * unchanged.
    */
   counterScaleX?: number;
-  onDrop: (playerId: string) => void;
+  onDrop: (playerId: number) => void;
   onRemove: () => void;
   onDragStart: () => void;
   onDragEnd: () => void;
@@ -57,7 +57,7 @@ export function PositionSlot({
     e.preventDefault();
     e.stopPropagation();
     const droppedId = e.dataTransfer.getData(DRAG_MIME);
-    if (droppedId) onDrop(droppedId);
+    if (droppedId) onDrop(Number(droppedId));
   };
 
   // Only emit a transform when we actually need to counter-scale — avoids

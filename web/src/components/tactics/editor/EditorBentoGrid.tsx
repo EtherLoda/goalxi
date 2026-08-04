@@ -23,10 +23,10 @@ import type {
 interface EditorBentoGridProps {
   // Pitch
   lineup: LineupMap;
-  bench: Partial<Record<BenchSlot, string | null>>;
-  playersById: Map<string, Player>;
+  bench: Partial<Record<BenchSlot, number | null>>;
+  playersById: Map<number, Player>;
   players: Player[];
-  assignedPlayerIds: Set<string>;
+  assignedPlayerIds: Set<number>;
   // Dimensions
   tempo: TempoValue;
   pitchWidth: PitchWidthValue;
@@ -46,8 +46,8 @@ interface EditorBentoGridProps {
   isDragging: boolean;
   isLocked: boolean;
   // Handlers
-  onPitchDrop: (toSlot: PitchSlot, playerId: string, fromSlot: PositionKey | null) => void;
-  onBenchDrop: (toSlot: BenchSlot, playerId: string, fromSlot: PositionKey | null) => void;
+  onPitchDrop: (toSlot: PitchSlot, playerId: number, fromSlot: PositionKey | null) => void;
+  onBenchDrop: (toSlot: BenchSlot, playerId: number, fromSlot: PositionKey | null) => void;
   onRemovePitch: (slot: PitchSlot) => void;
   onRemoveBench: (slot: BenchSlot) => void;
   onDimensionChange: (key: 'tempo' | 'pitchWidth' | 'defensiveLine', value: string) => void;
@@ -60,7 +60,7 @@ interface EditorBentoGridProps {
   onSavePreset: () => void;
   onDragStart: (slot: PositionKey) => void;
   onDragEnd: () => void;
-  onRosterDragStart: (playerId: string) => void;
+  onRosterDragStart: (playerId: number) => void;
 }
 
 export function EditorBentoGrid(props: EditorBentoGridProps) {

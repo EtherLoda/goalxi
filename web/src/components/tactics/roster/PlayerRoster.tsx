@@ -13,10 +13,10 @@ export type RosterDensity = 'compact' | 'detailed';
 
 interface PlayerRosterProps {
   players: Player[];
-  assignedPlayerIds: Set<string>;
+  assignedPlayerIds: Set<number>;
   density?: RosterDensity;
   onDensityChange?: (density: RosterDensity) => void;
-  onDragStart: (playerId: string) => void;
+  onDragStart: (playerId: number) => void;
   onDragEnd: () => void;
 }
 

@@ -185,7 +185,7 @@ export default function YouthTacticsEditor({
   }, [initialTactics]);
 
   const [formation, setFormation] = useState<string>(initialFormation);
-  const [lineup, setLineup] = useState<Record<string, string>>(() => {
+  const [lineup, setLineup] = useState<Record<string, number>>(() => {
     if (initialTactics) return { ...initialTactics.lineup };
     return {};
   });
@@ -223,7 +223,7 @@ export default function YouthTacticsEditor({
       FORMATIONS[formation].positions.map((p) => p.key),
     );
     setLineup((prev) => {
-      const next: Record<string, string> = {};
+      const next: Record<string, number> = {};
       for (const [k, v] of Object.entries(prev)) {
         if (newKeys.has(k)) next[k] = v;
       }
@@ -233,11 +233,11 @@ export default function YouthTacticsEditor({
 
   const positions = FORMATIONS[formation].positions;
   const filledCount = positions.filter(
-    (p) => lineup[p.key] && lineup[p.key].length > 0,
+    (p) => Boolean(lineup[p.key]),
   ).length;
   const isComplete = filledCount === positions.length;
   const duplicateWarning = useMemo(() => {
-    const seen = new Map<string, number>();
+    const seen = new Map<number, number>();
     for (const id of Object.values(lineup)) {
       if (!id) continue;
       seen.set(id, (seen.get(id) ?? 0) + 1);
@@ -282,7 +282,7 @@ export default function YouthTacticsEditor({
   // Helper: a player's id -> display name, restricted to those in the
   // available roster (so we can offer them in dropdowns).
   const playersById = useMemo(() => {
-    const map = new Map<string, Player>();
+    const map = new Map<number, Player>();
     for (const p of availablePlayers) map.set(p.id, p);
     return map;
   }, [availablePlayers]);
@@ -521,10 +521,10 @@ function PitchGrid({
   disabled,
 }: {
   formation: string;
-  lineup: Record<string, string>;
+  lineup: Record<string, number>;
   positions: Array<{ key: string; label: string }>;
   availablePlayers: Player[];
-  onChange: (key: string, playerId: string) => void;
+  onChange: (key: string, playerId: number) => void;
   disabled: boolean;
 }) {
   const layout = PITCH_LAYOUT[formation] ?? [];
@@ -547,7 +547,7 @@ function PitchGrid({
             {cols.map((c) => {
               const pos = positions.find((p) => p.key === c.key);
               if (!pos) return null;
-              const selected = lineup[c.key] ?? "";
+              const selected = lineup[c.key] ?? 0;
               return (
                 <div
                   key={c.key}
@@ -560,10 +560,10 @@ function PitchGrid({
                   <select
                     disabled={disabled}
                     value={selected}
-                    onChange={(e) => onChange(c.key, e.target.value)}
+                    onChange={(e) => onChange(c.key, Number(e.target.value))}
                     className="w-full bg-[#00251c] border border-white/10 rounded px-2 py-1.5 text-xs text-[#d3f5e8] font-space disabled:opacity-50"
                   >
-                    <option value="">— select —</option>
+                    <option value={0}>— select —</option>
                     {availablePlayers.map((p) => {
                       const isUsedElsewhere =
                         usedIds.has(p.id) && selected !== p.id;

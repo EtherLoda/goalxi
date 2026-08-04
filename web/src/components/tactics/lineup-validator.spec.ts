@@ -13,26 +13,26 @@ import {
 import { createEmptyDraft, type TacticsDraft } from './types';
 
 // ============================================================================
-// Fixtures
+// Fixtures — numeric player ids (post-UUID-removal)
 // ============================================================================
 
-const GK_IDS = { alice: 'p-gk-1' };
+const GK_IDS = { alice: 300_001 };
 const OUT_IDS = {
-  bob: 'p-cb-1',
-  carol: 'p-cb-2',
-  dave: 'p-cb-3',
-  eve: 'p-lb',
-  frank: 'p-rb',
-  gina: 'p-dmf-1',
-  henry: 'p-cm-1',
-  iris: 'p-cm-2',
-  jack: 'p-rm',
-  kate: 'p-cf-1',
-  liam: 'p-cf-2',
-  mia: 'p-cf-3',
+  bob: 300_002,
+  carol: 300_003,
+  dave: 300_004,
+  eve: 300_005,
+  frank: 300_006,
+  gina: 300_007,
+  henry: 300_008,
+  iris: 300_009,
+  jack: 300_010,
+  kate: 300_011,
+  liam: 300_012,
+  mia: 300_013,
 };
 
-const TEAM_IDS = new Set<string>([
+const TEAM_IDS = new Set<number>([
   GK_IDS.alice,
   OUT_IDS.bob,
   OUT_IDS.carol,
@@ -48,15 +48,15 @@ const TEAM_IDS = new Set<string>([
   OUT_IDS.mia,
 ]);
 
-function makePlayer(id: string, isGoalkeeper: boolean, name = id): ValidatorPlayer {
+function makePlayer(id: number, isGoalkeeper: boolean, name = `p-${id}`): ValidatorPlayer {
   return { id, isGoalkeeper, name };
 }
 
-function makePlayersById(): Map<string, ValidatorPlayer> {
-  const map = new Map<string, ValidatorPlayer>();
+function makePlayersById(): Map<number, ValidatorPlayer> {
+  const map = new Map<number, ValidatorPlayer>();
   map.set(GK_IDS.alice, makePlayer(GK_IDS.alice, true, 'Alice (GK)'));
   for (const id of Object.values(OUT_IDS)) {
-    map.set(id, makePlayer(id, false, `Out ${id}`));
+    map.set(id, makePlayer(id, false, `Out p-${id}`));
   }
   return map;
 }
@@ -207,7 +207,7 @@ describe('validateLineup — GK rules', () => {
     const result = validateLineup(baseCtx({ draft: { ...createEmptyDraft(), lineup } }));
     expect(result.errors).toContainEqual({
       key: 'gkOnlyInGk',
-      params: { player: 'Out p-cb-1' },
+      params: { player: `Out p-${OUT_IDS.bob}` },
     });
   });
 
@@ -236,7 +236,7 @@ describe('validateLineup — bench rules', () => {
     const result = validateLineup(baseCtx({ draft: { ...createEmptyDraft(), lineup: validLineup(), bench } }));
     expect(result.errors).toContainEqual({
       key: 'benchGkOnly',
-      params: { player: 'Out p-cb-1' },
+      params: { player: `Out p-${OUT_IDS.bob}` },
     });
   });
 
@@ -260,10 +260,10 @@ describe('validateLineup — player membership', () => {
   it('flags player not on team with playerNotInTeam', () => {
     const lineup: TacticsDraft['lineup'] = {
       ...validLineup(),
-      CBL: 'p-stranger',
+      CBL: 999_001,
     };
     const playersById = makePlayersById();
-    playersById.set('p-stranger', makePlayer('p-stranger', false, 'Stranger'));
+    playersById.set(999_001, makePlayer(999_001, false, 'Stranger'));
     const result = validateLineup(
       baseCtx({ draft: { ...createEmptyDraft(), lineup }, playersById }),
     );
@@ -276,9 +276,9 @@ describe('validateLineup — player membership', () => {
   it('uses playerId as fallback when player not in playersById map', () => {
     const lineup: TacticsDraft['lineup'] = {
       ...validLineup(),
-      CBL: 'p-unknown',
+      CBL: 999_002,
     };
-    // 'p-unknown' is NOT in teamPlayerIds → triggers playerNotInTeam with the raw id
+    // 999_002 is NOT in teamPlayerIds → triggers playerNotInTeam with the raw id
     const result = validateLineup(
       baseCtx({
         draft: { ...createEmptyDraft(), lineup },
@@ -287,7 +287,7 @@ describe('validateLineup — player membership', () => {
     );
     expect(result.errors).toContainEqual({
       key: 'playerNotInTeam',
-      params: { player: 'p-unknown' },
+      params: { player: 999_002 },
     });
   });
 });
@@ -305,7 +305,7 @@ describe('validateLineup — duplicate detection', () => {
     const result = validateLineup(baseCtx({ draft: { ...createEmptyDraft(), lineup } }));
     expect(result.errors).toContainEqual({
       key: 'duplicatePlayer',
-      params: { player: 'Out p-cb-1', slot: 'CBR' },
+      params: { player: `Out p-${OUT_IDS.bob}`, slot: 'CBR' },
     });
   });
 
@@ -331,7 +331,7 @@ describe('validateLineup — tactical events', () => {
       ...createEmptyDraft(),
       lineup: validLineup(),
       events: [
-        { kind: 'move', minute: 60, playerId: 'p-ghost', toSlot: 'CF' },
+        { kind: 'move', minute: 60, playerId: 999_777, toSlot: 'CF' },
       ],
     };
     const result = validateLineup(baseCtx({ draft }));
@@ -403,10 +403,10 @@ describe('validateLineup — tactical events', () => {
     // The starting GK is on pitch. We put a backup GK on the bench.
     const bench: TacticsDraft['bench'] = { BENCH_GK: GK_IDS.alice };
     // We need a second GK player to test sub — synthesize one.
-    const secondGk = 'p-gk-2';
+    const secondGk = 300_999;
     const playersById = makePlayersById();
     playersById.set(secondGk, makePlayer(secondGk, true, 'Bob GK'));
-    const teamPlayerIds = new Set([...TEAM_IDS, secondGk]);
+    const teamPlayerIds = new Set<number>([...TEAM_IDS, secondGk]);
 
     const draft: TacticsDraft = {
       ...createEmptyDraft(),
@@ -464,7 +464,7 @@ describe('countFilled', () => {
   });
 
   it('returns only truthy values', () => {
-    expect(countFilled({ GK: 'a', CBL: 'b', CB: undefined as unknown as string })).toBe(2);
+    expect(countFilled({ GK: 1, CBL: 2, CB: undefined as unknown as number })).toBe(2);
   });
 });
 
@@ -483,6 +483,6 @@ describe('findSlotOfPlayer', () => {
   });
 
   it('returns null when player is not assigned', () => {
-    expect(findSlotOfPlayer(createEmptyDraft(), 'p-nobody')).toBeNull();
+    expect(findSlotOfPlayer(createEmptyDraft(), 999_666)).toBeNull();
   });
 });

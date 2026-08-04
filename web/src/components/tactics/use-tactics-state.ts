@@ -38,12 +38,12 @@ import {
  * `GET /matches/:matchId/tactics` endpoint, slimmed for hydration.
  */
 export interface HydratePayload {
-  lineup: Record<string, string>;        // slot → playerId
+  lineup: Record<string, number>;        // slot → playerId
   tempo: TempoValue;
   pitchWidth: PitchWidthValue;
   defensiveLine: DefensiveLineValue;
-  substitutions: Array<{ minute: number; out: string; in: string; condition?: string }> | null;
-  instructions: { moves?: Array<{ minute: number; player: string; position: string; condition?: string }> } | null;
+  substitutions: Array<{ minute: number; out: number; in: number; condition?: string }> | null;
+  instructions: { moves?: Array<{ minute: number; player: number; position: string; condition?: string }> } | null;
   presetId: string | null;
 }
 
@@ -52,9 +52,9 @@ export interface PresetPayload {
   name: string;
   isDefault: boolean;
   formation: string;
-  lineup: Record<string, string>;
-  substitutions: Array<{ minute: number; out: string; in: string; condition?: string }> | null;
-  instructions: { moves?: Array<{ minute: number; player: string; position: string; condition?: string }> } | null;
+  lineup: Record<string, number>;
+  substitutions: Array<{ minute: number; out: number; in: number; condition?: string }> | null;
+  instructions: { moves?: Array<{ minute: number; player: number; position: string; condition?: string }> } | null;
 }
 
 // ============================================================================
@@ -63,8 +63,8 @@ export interface PresetPayload {
 
 export type Action =
   | { type: 'HYDRATE'; payload: HydratePayload }
-  | { type: 'ASSIGN_PITCH'; from: PositionKey | null; to: PitchSlot; playerId: string }
-  | { type: 'ASSIGN_BENCH'; from: PositionKey | null; to: BenchSlot; playerId: string }
+  | { type: 'ASSIGN_PITCH'; from: PositionKey | null; to: PitchSlot; playerId: number }
+  | { type: 'ASSIGN_BENCH'; from: PositionKey | null; to: BenchSlot; playerId: number }
   | { type: 'REMOVE'; slot: PositionKey }
   | { type: 'ADD_EVENT'; event: TacticalEvent }
   | { type: 'UPDATE_EVENT'; index: number; patch: Partial<TacticalEvent> }
@@ -119,7 +119,7 @@ export function reducer(state: EditorState, action: Action): EditorState {
     case 'HYDRATE': {
       const { payload } = action;
       const lineup: LineupMap = {};
-      const bench: Partial<Record<BenchSlot, string>> = {};
+      const bench: Partial<Record<BenchSlot, number>> = {};
       for (const [slot, playerId] of Object.entries(payload.lineup)) {
         if (slot.startsWith('BENCH_')) {
           bench[slot as BenchSlot] = playerId;
@@ -253,7 +253,7 @@ export function reducer(state: EditorState, action: Action): EditorState {
 
     case 'APPLY_PRESET': {
       const lineup: LineupMap = {};
-      const bench: Partial<Record<BenchSlot, string>> = {};
+      const bench: Partial<Record<BenchSlot, number>> = {};
       for (const [slot, playerId] of Object.entries(action.preset.lineup)) {
         if (slot.startsWith('BENCH_')) {
           bench[slot as BenchSlot] = playerId;
@@ -322,7 +322,7 @@ function movePlayer(
   state: EditorState,
   from: PositionKey | null,
   to: PositionKey,
-  playerId: string,
+  playerId: number,
   destination: Destination,
 ): EditorState {
   const lineup = { ...state.draft.lineup };
@@ -338,10 +338,10 @@ function movePlayer(
   }
 
   // If player was elsewhere on the pitch/bench, clear that too (best-effort dedup)
-  for (const [slot, id] of Object.entries(lineup) as [PitchSlot, string | undefined][]) {
+  for (const [slot, id] of Object.entries(lineup) as [PitchSlot, number | undefined][]) {
     if (id === playerId && slot !== to) delete lineup[slot];
   }
-  for (const [slot, id] of Object.entries(bench) as [BenchSlot, string | undefined][]) {
+  for (const [slot, id] of Object.entries(bench) as [BenchSlot, number | undefined][]) {
     if (id === playerId && slot !== to) delete bench[slot];
   }
 
@@ -394,9 +394,9 @@ export function selectIsGkPlaced(draft: TacticsDraft): boolean {
 
 export function selectUnassignedPlayerIds(
   draft: TacticsDraft,
-  allPlayerIds: readonly string[],
-): string[] {
-  const assigned = new Set<string>();
+  allPlayerIds: readonly number[],
+): number[] {
+  const assigned = new Set<number>();
   for (const id of Object.values(draft.lineup)) if (id) assigned.add(id);
   for (const id of Object.values(draft.bench)) if (id) assigned.add(id);
   return allPlayerIds.filter((id) => !assigned.has(id));

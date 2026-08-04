@@ -112,7 +112,7 @@ export function PlayerMarker({
 
   // Editor / tactics view — original design
   const handleDragStart = (e: React.DragEvent) => {
-    e.dataTransfer.setData(DRAG_MIME, player.id);
+    e.dataTransfer.setData(DRAG_MIME, String(player.id));
     e.dataTransfer.effectAllowed = 'move';
     onDragStart?.(e);
   };

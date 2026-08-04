@@ -58,7 +58,7 @@ export default function TransferTransactionCard({
     .join("")
     .slice(0, 2);
 
-  const skills = player.currentSkills as PlayerSkills;
+  const skills = player.currentSkills as unknown as PlayerSkills;
   const isGK = player.isGoalkeeper;
 
   return (
