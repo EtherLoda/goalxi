@@ -41,7 +41,6 @@ interface SkillData {
 interface PlayerStatsCardProps {
   player: {
     name: string;
-    displayId?: string;
     age: number;
     ageDays?: number;
     stamina: number;
@@ -145,7 +144,6 @@ export default function PlayerStatsCard({
           </div>
           <div className="flex-1 min-w-0">
             <div className="text-xs font-bold text-[#d3f5e8] truncate">{player.name}</div>
-            {player.displayId && <div className="text-[9px] text-[#91b2a6] font-mono">({player.displayId})</div>}
             <div className="text-[9px] text-[#91b2a6]">{player.age}y</div>
           </div>
         </div>

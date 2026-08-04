@@ -283,9 +283,9 @@ export function forfeitScore(
  * page has a single, locally-scoped helper. The behavior is identical:
  * silent drop on unknown keys, bench verbatim, pitch normalized.
  */
-export function normalizePitchLineup(raw: Record<string, string>): {
-  pitch: Partial<Record<PitchSlot, string>>;
-  bench: Partial<Record<BenchSlot, string>>;
+export function normalizePitchLineup(raw: Record<string, number>): {
+  pitch: Partial<Record<PitchSlot, number>>;
+  bench: Partial<Record<BenchSlot, number>>;
 } {
   return normalizeLineup(raw);
 }

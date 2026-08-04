@@ -23,7 +23,7 @@ export default function ClubSettingsPage() {
     const locale = (params.locale as Locale) || "en";
 
     const [team, setTeam] = useState<Team | null>(null);
-    const [players, setPlayers] = useState<{ id: string; name: string }[]>([]);
+    const [players, setPlayers] = useState<{ id: number; name: string }[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
 
@@ -38,7 +38,7 @@ export default function ClubSettingsPage() {
             .then(([teamData, playersData]) => {
                 setTeam(teamData);
                 setPlayers(
-                    (playersData.items ?? []).map((p: { id: string; name: string }) => ({
+                    (playersData.items ?? []).map((p: { id: number; name: string }) => ({
                         id: p.id,
                         name: p.name,
                     })),

@@ -51,7 +51,7 @@ export const LANES: readonly Lane[] = ['left', 'center', 'right'];
 // ============================================================================
 
 export interface MatchSnapshotPlayer {
-  id: string;
+  id: number;
   /** Position key from the engine. May be canonical (CB1) or legacy alias (CB). */
   p: string;
   n?: string;
@@ -110,7 +110,7 @@ export interface MatchSnapshot {
 // ============================================================================
 
 export interface PitchCard {
-  playerId: string;
+  playerId: number;
   /** Authoritative slot key (canonical). null when the slot cannot be resolved. */
   slotKey: PitchSlot | null;
   /** Display name from roster (or snapshot fallback). */
@@ -144,17 +144,17 @@ export interface PitchCard {
 export function buildCards(
   tactics: Tactics | null,
   snapshotPlayers: MatchSnapshotPlayer[] | null,
-  rosterById: Map<string, Player>,
+  rosterById: Map<number, Player>,
 ): PitchCard[] {
   const cards: PitchCard[] = [];
-  const seen = new Set<string>();
+  const seen = new Set<number>();
 
   // Snapshot first — wins on duplicate playerId.
   if (snapshotPlayers) {
     for (const sp of snapshotPlayers) {
       const slotKey = toPitchSlot(sp.p);
       const player = rosterById.get(sp.id) ?? null;
-      const name = sp.n ?? player?.name ?? sp.id.slice(0, 6);
+      const name = sp.n ?? player?.name ?? String(sp.id);
       cards.push({
         playerId: sp.id,
         slotKey,
@@ -177,7 +177,7 @@ export function buildCards(
       cards.push({
         playerId: pid,
         slotKey: slot,
-        name: player?.name ?? pid.slice(0, 6),
+        name: player?.name ?? String(pid),
       });
     }
   }

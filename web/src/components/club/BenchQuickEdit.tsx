@@ -23,10 +23,10 @@ const SLOTS: { key: BenchRole; icon: string }[] = [
 
 interface BenchQuickEditProps {
     teamId: string;
-    bench: Record<BenchRole, string | null>;
+    bench: Record<BenchRole, number | null>;
     /** Lightweight player list for the picker. */
-    players: { id: string; name: string }[];
-    onSaved: (bench: Record<BenchRole, string | null>) => void;
+    players: { id: number; name: string }[];
+    onSaved: (bench: Record<BenchRole, number | null>) => void;
 }
 
 export default function BenchQuickEdit({
@@ -47,7 +47,7 @@ export default function BenchQuickEdit({
             (k) => (draft[k] ?? null) !== (bench[k] ?? null),
         );
 
-    const playerName = (id: string | null | undefined) =>
+    const playerName = (id: number | null | undefined) =>
         id ? players.find((p) => p.id === id)?.name ?? t("unassigned") : t("empty");
 
     const handleSave = async () => {

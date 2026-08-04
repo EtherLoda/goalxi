@@ -93,12 +93,12 @@ interface StadiumConstruction {
 }
 
 interface BenchConfig {
-  goalkeeper: string | null;
-  centerBack: string | null;
-  fullback: string | null;
-  winger: string | null;
-  centralMidfield: string | null;
-  forward: string | null;
+  goalkeeper: number | null;
+  centerBack: number | null;
+  fullback: number | null;
+  winger: number | null;
+  centralMidfield: number | null;
+  forward: number | null;
 }
 
 // ============================================================================
@@ -188,16 +188,15 @@ interface League {
 
 interface PlayerSkills {
   physical: { pace?: number; strength?: number };
-  technical: Record<string, number>;
+  technical: Record<string, string>;
   mental: { composure?: number; positioning?: number };
   setPieces: { freeKicks?: number; penalties?: number };
 }
 
 interface Player {
-  id: string;
+  id: number;
   teamId: string | null;
   name: string;
-  displayId?: string;
   nationality?: string;
   /** [RFC 0001] Replaced by `createdDay`. Kept optional for backward compat. */
   birthday?: string;
@@ -240,7 +239,7 @@ interface Player {
 }
 
 export interface PlayerInjuryStatus {
-  playerId: string;
+  playerId: number;
   playerName: string;
   isInjured: boolean;
   currentInjuryValue: number;
@@ -284,7 +283,7 @@ interface PlayerListResponse {
 
 interface PlayerEvent {
   id: string;
-  playerId: string;
+  playerId: number;
   season: number;
   date: string;
   eventType: string;
@@ -563,6 +562,7 @@ export const api = {
       });
     },
     updateBenchConfig: async (id: string, benchConfig: NonNullable<Team['benchConfig']>): Promise<Team> => {
+      // benchConfig uses number player ids to match the int player.id column.
       return request<Team>(`/teams/${id}/bench-config`, {
         method: 'PATCH',
         body: JSON.stringify({ benchConfig }),
@@ -680,11 +680,11 @@ export const api = {
         meta: response.pagination || response.meta || {},
       };
     },
-    getById: async (id: string): Promise<Player> => {
+    getById: async (id: number): Promise<Player> => {
       return request<Player>(`/players/${id}`);
     },
     /** [RFC 0001] Promotes a youth player to the senior squad. */
-    promote: async (id: string): Promise<Player> => {
+    promote: async (id: number): Promise<Player> => {
       return request<Player>(`/players/${id}/promote`, { method: 'POST' });
     },
     getByTeam: async (teamId: string, detailed?: boolean): Promise<{ items: Player[]; meta: any }> => {
@@ -697,7 +697,7 @@ export const api = {
       }
       return { items: response.data || response.items || [], meta: response.pagination || response.meta || {} };
     },
-    getEvents: async (playerId: string, season?: number): Promise<PlayerEvent[]> => {
+    getEvents: async (playerId: number, season?: number): Promise<PlayerEvent[]> => {
       const params = new URLSearchParams();
       if (season !== undefined) params.append('season', String(season));
       const qs = params.toString();
@@ -718,7 +718,7 @@ export const api = {
     getTeamInjured: async (teamId: string): Promise<PlayerInjuryStatus[]> => {
       return request<PlayerInjuryStatus[]>(`/injuries/team/${teamId}/injured-players`);
     },
-    getPlayerHistory: async (playerId: string): Promise<InjuryHistoryEntry[]> => {
+    getPlayerHistory: async (playerId: number): Promise<InjuryHistoryEntry[]> => {
       return request<InjuryHistoryEntry[]>(`/injuries/player/${playerId}/history`);
     },
     getTeamHistory: async (
@@ -813,7 +813,7 @@ export const api = {
     getAuctions: async (): Promise<TransferAuction[]> => {
       return request<TransferAuction[]>('/transfer/auction');
     },
-    createAuction: async (playerId: string, startPrice: number, buyoutPrice: number, durationHours?: number): Promise<TransferAuction> => {
+    createAuction: async (playerId: number, startPrice: number, buyoutPrice: number, durationHours?: number): Promise<TransferAuction> => {
       const body: Record<string, unknown> = { playerId, startPrice, buyoutPrice };
       if (durationHours !== undefined) {
         body.durationHours = durationHours;
@@ -904,13 +904,13 @@ export const api = {
     getDoctor: async (teamId: string): Promise<TeamDoctor | null> => {
       return request<TeamDoctor | null>(`/staffs/team/${teamId}/doctor`);
     },
-    assignPlayer: async (coachId: string, playerId: string): Promise<CoachAssignment> => {
+    assignPlayer: async (coachId: string, playerId: number): Promise<CoachAssignment> => {
       return request<CoachAssignment>(`/staffs/${coachId}/assign`, {
         method: 'POST',
         body: JSON.stringify({ playerId }),
       });
     },
-    unassignPlayer: async (coachId: string, playerId: string): Promise<{ success: boolean }> => {
+    unassignPlayer: async (coachId: string, playerId: number): Promise<{ success: boolean }> => {
       return request<{ success: boolean }>(`/staffs/${coachId}/unassign`, {
         method: 'POST',
         body: JSON.stringify({ playerId }),
@@ -1008,11 +1008,9 @@ export const api = {
     players: async (q: string, leagueId?: string, limit = 10): Promise<SearchPlayerResult[]> => {
       const params = new URLSearchParams({ limit: String(limit) });
       if (leagueId) params.append('leagueId', leagueId);
-      // Backend supports exact dId lookup (must be exactly 11 digits).
-      // Forward it as `dId` so displayId searches hit the indexed column
-      // instead of a `LIKE '%q%'` against the player name.
-      if (/^\d{11}$/.test(q)) {
-        params.append('dId', q);
+      // Backend supports exact playerId lookup (9 digits).
+      if (/^\d{9}$/.test(q)) {
+        params.append('playerId', q);
       } else {
         params.append('q', q);
       }
@@ -1164,9 +1162,9 @@ export interface YouthPlayer {
   isPromoted: boolean;
   joinedAt: string;
   /** Flattened current skill values (all keys; unrevealed keys also included for fog display). */
-  currentSkills?: Record<string, number>;
+  currentSkills?: Record<string, string>;
   /** Flattened potential skill values. */
-  potentialSkills?: Record<string, number>;
+  potentialSkills?: Record<string, string>;
 }
 
 export interface ScoutCandidate {
@@ -1248,7 +1246,7 @@ export interface YouthMatchEvent {
   typeName: string;
   teamId?: string;
   playerId?: string;
-  relatedPlayerId?: string;
+  relatedPlayerId?: number;
   phase: string;
   lane?: string;
   isHome?: boolean;
@@ -1278,7 +1276,7 @@ interface StaffCostSummary {
 interface CoachAssignment {
   id: string;
   coachId: string;
-  playerId: string;
+  playerId: number;
   playerName: string;
   trainingCategory: string;
   assignedAt: string;
@@ -1293,7 +1291,7 @@ interface TrainingSkill {
 }
 
 interface TrainingPlayer {
-  playerId: string;
+  playerId: number;
   playerName: string;
   assignedCoachId?: string;
   assignedCoachName?: string;
@@ -1314,7 +1312,7 @@ interface TrainingUpdateChange {
 }
 
 interface TrainingUpdatePlayer {
-  playerId: string;
+  playerId: number;
   playerName: string;
   changes: TrainingUpdateChange[];
 }
@@ -1336,9 +1334,8 @@ interface SearchTeamResult {
 }
 
 interface SearchPlayerResult {
-  id: string;
+  id: number;
   name: string;
-  displayId?: string;
   teamId: string | null;
   teamName?: string;
   leagueId?: string;

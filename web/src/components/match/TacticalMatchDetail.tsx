@@ -41,7 +41,7 @@ interface SnapshotData {
     };
     gk: number;
     ps: Array<{
-      id: string;
+      id: number;
       p: string;
       n?: string;
       st: number;
@@ -59,7 +59,7 @@ interface SnapshotData {
     };
     gk: number;
     ps: Array<{
-      id: string;
+      id: number;
       p: string;
       n?: string;
       st: number;
@@ -181,7 +181,7 @@ export function TacticalMatchDetail({
   }, [matchId, homeTeamId, awayTeamId]);
 
   const rosterById = useMemo(() => {
-    const map = new Map<string, Player>();
+    const map = new Map<number, Player>();
     for (const p of homeRoster) map.set(p.id, p);
     for (const p of awayRoster) map.set(p.id, p);
     return map;

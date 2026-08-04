@@ -91,8 +91,10 @@ export default function YouthPlayerDetailPage({
   useEffect(() => {
     let cancelled = false;
     setError(null);
+    const playerId = parseInt(params.id, 10);
+    if (Number.isNaN(playerId)) return;
     api.players
-      .getById(params.id)
+      .getById(playerId)
       .then((data) => {
         if (!cancelled) setPlayer(data);
       })

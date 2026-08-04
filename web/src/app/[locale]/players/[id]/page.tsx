@@ -63,7 +63,7 @@ interface PageProps {
 
 interface PlayerEvent {
   id: string;
-  playerId: string;
+  playerId: number;
   season: number;
   date: string;
   eventType: string;
@@ -200,13 +200,16 @@ export default function PlayerDetailPage({ params }: PageProps) {
   useEffect(() => {
     if (!resolvedParams?.id) return;
 
+    const playerId = parseInt(resolvedParams.id, 10);
+    if (Number.isNaN(playerId)) return;
+
     setIsLoading(true);
     api.players
-      .getById(resolvedParams.id)
+      .getById(playerId)
       .then((data) => {
         setPlayer(data);
         // Fetch player events
-        return api.players.getEvents(resolvedParams.id);
+        return api.players.getEvents(playerId);
       })
       .then((eventData) => {
         setEvents(eventData);
@@ -345,12 +348,6 @@ export default function PlayerDetailPage({ params }: PageProps) {
                       <h1 className="text-4xl font-black font-space tracking-tight leading-none text-[#d3f5e8]">
                         {player.name}
                       </h1>
-                      {player.displayId && (
-                        <div className="flex items-center gap-1 mt-1">
-                          <span className="material-symbols-outlined text-[#91b2a6] text-xs">tag</span>
-                          <span className="text-[14px] font-mono text-[#91b2a6]">{player.displayId}</span>
-                        </div>
-                      )}
                       <div className="flex items-center gap-4 mt-2">
                         <div className="flex items-center gap-2">
                           <span className="material-symbols-outlined text-[#91b2a6] text-sm">calendar_month</span>
@@ -715,7 +712,10 @@ export default function PlayerDetailPage({ params }: PageProps) {
           onSuccess={() => {
             // Refresh player data
             if (resolvedParams?.id) {
-              api.players.getById(resolvedParams.id).then(setPlayer);
+              const playerId = parseInt(resolvedParams.id, 10);
+              if (!Number.isNaN(playerId)) {
+                api.players.getById(playerId).then(setPlayer);
+              }
             }
           }}
         />

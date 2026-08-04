@@ -227,10 +227,10 @@ function toPositionKey(raw: string): PositionKey | null {
  * Exported for unit tests and reuse in the preset hydration path.
  */
 export function normalizeLineup(
-  raw: Record<string, string>,
-): { pitch: Partial<Record<PitchSlot, string>>; bench: Partial<Record<BenchSlot, string>> } {
-  const pitch: Partial<Record<PitchSlot, string>> = {};
-  const bench: Partial<Record<BenchSlot, string>> = {};
+  raw: Record<string, number>,
+): { pitch: Partial<Record<PitchSlot, number>>; bench: Partial<Record<BenchSlot, number>> } {
+  const pitch: Partial<Record<PitchSlot, number>> = {};
+  const bench: Partial<Record<BenchSlot, number>> = {};
   for (const [key, playerId] of Object.entries(raw)) {
     if (!playerId) continue;
     if (key.startsWith('BENCH_')) {

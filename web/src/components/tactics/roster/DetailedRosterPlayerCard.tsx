@@ -86,11 +86,6 @@ export function DetailedRosterPlayerCard({
           <div className="font-headline font-bold text-sm text-[#d3f5e8] truncate">
             {player.name}
           </div>
-          {player.displayId && (
-            <div className="font-mono text-[9px] text-[#91b2a6] truncate">
-              ({player.displayId})
-            </div>
-          )}
           <div className="font-label text-[9px] tracking-widest uppercase text-outline truncate">
             {player.position}
           </div>

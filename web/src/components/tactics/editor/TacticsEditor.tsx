@@ -144,13 +144,13 @@ export function TacticsEditor({ matchId, match }: TacticsEditorProps) {
   // PlayersById + validation context
   // ---------------------------------------------------------------------
   const playersById = useMemo(() => {
-    const m = new Map<string, Player>();
+    const m = new Map<number, Player>();
     for (const p of players) m.set(p.id, p);
     return m;
   }, [players]);
 
   const validatorPlayersById = useMemo(() => {
-    const m = new Map<string, ValidatorPlayer>();
+    const m = new Map<number, ValidatorPlayer>();
     for (const p of players) m.set(p.id, { id: p.id, isGoalkeeper: p.isGoalkeeper, name: p.name });
     return m;
   }, [players]);

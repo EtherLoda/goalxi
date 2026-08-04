@@ -110,7 +110,7 @@ interface HalfPitchProps {
    * playerId against this map; cards whose playerId can't be resolved
    * are silently dropped (mirrors the editor's PitchField behaviour).
    */
-  rosterById: Map<string, Player>;
+  rosterById: Map<number, Player>;
   tempo: 'slow' | 'balanced' | 'fast';
   defensiveLine: 'low' | 'mid' | 'high';
   pitchWidth: 'narrow' | 'balanced' | 'wide';
@@ -234,7 +234,7 @@ export function MatchPitch({
   // buildCards display-name fallback. Snapshot playerIds may reference
   // either team, and we resolve display names against this single map.
   const rosterById = useMemo(() => {
-    const map = new Map<string, Player>();
+    const map = new Map<number, Player>();
     for (const p of homeRoster) map.set(p.id, p);
     for (const p of awayRoster) map.set(p.id, p);
     return map;

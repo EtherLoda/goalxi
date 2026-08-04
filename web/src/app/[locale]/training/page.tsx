@@ -113,10 +113,10 @@ export default function TrainingPage() {
   const [isUpdatingSkill, setIsUpdatingSkill] = useState(false);
 
   // Drag state
-  const [draggedPlayer, setDraggedPlayer] = useState<{ playerId: string; playerName: string; isGoalkeeper: boolean } | null>(null);
+  const [draggedPlayer, setDraggedPlayer] = useState<{ playerId: number; playerName: string; isGoalkeeper: boolean } | null>(null);
 
   // Pending assignments state
-  const [pendingAssignments, setPendingAssignments] = useState<Map<string, Set<string>>>(new Map());
+  const [pendingAssignments, setPendingAssignments] = useState<Map<string, Set<number>>>(new Map());
   const [pendingRemovals, setPendingRemovals] = useState<Set<string>>(new Set()); // Format: "${coachId}-${playerId}"
   const [notification, setNotification] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
   const [latestUpdate, setLatestUpdate] = useState<TrainingUpdate | null>(null);
@@ -128,7 +128,7 @@ export default function TrainingPage() {
   const [currentGame, setCurrentGame] = useState<{ season: number; week: number }>({ season: 1, week: 1 });
 
   // Expanded player card state
-  const [expandedPlayerId, setExpandedPlayerId] = useState<string | null>(null);
+  const [expandedPlayerId, setExpandedPlayerId] = useState<number | null>(null);
 
   // Get max selectable week for a given season
   const getMaxWeekForSeason = (season: number): number => {
@@ -156,10 +156,10 @@ export default function TrainingPage() {
   }, [staminaIntensity]);
 
   // Generate key for pending removal tracking (use :: separator to avoid UUID conflicts)
-  const pendingKey = (coachId: string, playerId: string) => `${coachId}::${playerId}`;
-  const parsePendingKey = (key: string): [string, string] => {
+  const pendingKey = (coachId: string, playerId: number) => `${coachId}::${playerId}`;
+  const parsePendingKey = (key: string): [string, number] => {
     const lastSepIndex = key.lastIndexOf('::');
-    return [key.slice(0, lastSepIndex), key.slice(lastSepIndex + 1)];
+    return [key.slice(0, lastSepIndex), Number(key.slice(lastSepIndex + 1))];
   };
 
   useEffect(() => {
@@ -237,7 +237,7 @@ export default function TrainingPage() {
     }
   };
 
-  const handleAssignPlayer = async (coachId: string, playerId: string) => {
+  const handleAssignPlayer = async (coachId: string, playerId: number) => {
     try {
       await api.staff.assignPlayer(coachId, playerId);
       // Refresh assignments
@@ -253,7 +253,7 @@ export default function TrainingPage() {
     }
   };
 
-  const handleUnassignPlayer = async (coachId: string, playerId: string) => {
+  const handleUnassignPlayer = async (coachId: string, playerId: number) => {
     try {
       await api.staff.unassignPlayer(coachId, playerId);
       // Refresh assignments
@@ -396,7 +396,7 @@ export default function TrainingPage() {
   const fitnessCoach = staffList.find(s => s.role === "fitness_coach");
 
   // Get unassigned players (players not in any assignment, excluding pending additions)
-  const allAssignedPlayerIds = new Set<string>();
+  const allAssignedPlayerIds = new Set<number>();
   assignments.forEach(list => {
     list.forEach(a => allAssignedPlayerIds.add(a.playerId));
   });
@@ -437,7 +437,7 @@ export default function TrainingPage() {
   const canHireMoreCoaches = specializedCoaches.length < MAX_SPECIALIZED_COACHES;
 
   // Drag handlers
-  const handleDragStart = (e: React.DragEvent, player: { playerId: string; playerName: string; isGoalkeeper: boolean }) => {
+  const handleDragStart = (e: React.DragEvent, player: { playerId: number; playerName: string; isGoalkeeper: boolean }) => {
     setDraggedPlayer(player);
     e.dataTransfer.effectAllowed = "move";
   };
@@ -478,7 +478,7 @@ export default function TrainingPage() {
   };
 
   // Handle unassign - may be current or pending
-  const handleUnassign = (coachId: string, playerId: string) => {
+  const handleUnassign = (coachId: string, playerId: number) => {
     const currentAssignments = assignments.get(coachId)?.map(a => a.playerId) || [];
     const isCurrent = currentAssignments.includes(playerId);
     const isPendingAdd = pendingAssignments.get(coachId)?.has(playerId) || false;
@@ -552,10 +552,10 @@ export default function TrainingPage() {
     const pendingAddIds = pendingAssignments.get(coachId) || new Set();
 
     // Filter out removals
-    const toRemove = new Set(
+  const toRemove = new Set<number>(
       Array.from(pendingRemovals)
         .filter(k => k.startsWith(`${coachId}::`))
-        .map(k => parsePendingKey(k)[1])
+        .map(k => parsePendingKey(k)[1]),
     );
 
     // Current players minus pending removals (with isGoalkeeper from trainingPreview)
@@ -573,7 +573,7 @@ export default function TrainingPage() {
         id: `pending-${playerId}`,
         playerId,
         coachId,
-        playerName: preview?.playerName || playerId,
+        playerName: preview?.playerName ?? String(playerId),
         trainingCategory: 'pending',
         assignedAt: new Date().toISOString(),
         isGoalkeeper: preview?.isGoalkeeper || false,
@@ -584,12 +584,12 @@ export default function TrainingPage() {
   };
 
   // Check if a player is pending removal
-  const isPendingRemoval = (coachId: string, playerId: string) => {
+  const isPendingRemoval = (coachId: string, playerId: number) => {
     return pendingRemovals.has(pendingKey(coachId, playerId));
   };
 
   // Check if a player is pending addition
-  const isPendingAddition = (coachId: string, playerId: string) => {
+  const isPendingAddition = (coachId: string, playerId: number) => {
     return pendingAssignments.get(coachId)?.has(playerId) || false;
   };
 

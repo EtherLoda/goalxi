@@ -69,7 +69,6 @@ export function PlayerSelect({
     return players.filter(
       (p) =>
         p.name.toLowerCase().includes(q) ||
-        (p.displayId ?? '').toLowerCase().includes(q) ||
         (p.position ?? '').toLowerCase().includes(q),
     );
   }, [players, query]);
