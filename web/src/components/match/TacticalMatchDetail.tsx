@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useTranslations } from 'next-intl';
 import {
   api,
+  MAX_FORECAST_DAYS,
   type MatchEvent,
   type MatchStatsRes,
   type Player,
@@ -191,12 +192,24 @@ export function TacticalMatchDetail({
   // Pre-match only: predicted weather for the kickoff date. We don't need
   // to fetch this once the match has started (the simulator reveals the
   // actual weather via a `weather_announcement` event).
+  //
+  // Beyond MAX_FORECAST_DAYS we skip the call entirely — typical weather
+  // services only have meaningful predictions for ~7 days. The UI shows
+  // an "out of range" hint in that case.
   const [forecast, setForecast] = useState<WeatherForecastRes | null>(null);
+  const daysUntilMatch = useMemo(() => {
+    if (!match.scheduledAt) return 0;
+    const ms = new Date(match.scheduledAt).getTime() - Date.now();
+    return Math.ceil(ms / (24 * 60 * 60 * 1000));
+  }, [match.scheduledAt]);
+  const isForecastAvailable =
+    isPreMatch && daysUntilMatch > 0 && daysUntilMatch <= MAX_FORECAST_DAYS;
   useEffect(() => {
-    if (!isPreMatch) return;
-    const date = match.scheduledAt
-      ? new Date(match.scheduledAt).toISOString().slice(0, 10)
-      : undefined;
+    if (!isForecastAvailable) {
+      setForecast(null);
+      return;
+    }
+    const date = new Date(match.scheduledAt!).toISOString().slice(0, 10);
     let cancelled = false;
     api.weather
       .getForecast(date)
@@ -205,11 +218,12 @@ export function TacticalMatchDetail({
       })
       .catch(() => {
         // Non-fatal — the UI falls back to a "TBD" label.
+        if (!cancelled) setForecast(null);
       });
     return () => {
       cancelled = true;
     };
-  }, [isPreMatch, match.scheduledAt]);
+  }, [isForecastAvailable, match.scheduledAt]);
 
   useEffect(() => {
     let cancelled = false;
@@ -382,9 +396,12 @@ export function TacticalMatchDetail({
                     {resolvedVenue ?? tLiveChrome('venueTbd') ?? 'Venue TBD'}
                   </span>
                 </div>
-                {/* Predicted weather (the simulator reveals the actual
-                    weather at kickoff; until then we show the public
-                    forecast endpoint's top option with a probability). */}
+                {/* Predicted weather. Priority:
+                    1. match.weather (denormalised by the scheduler/simulator)
+                    2. forecast from the public /weather/forecast endpoint
+                       (only when the match is within MAX_FORECAST_DAYS)
+                    3. "out of range" when the match is too far ahead
+                    4. "decided at kickoff" as a final fallback. */}
                 <div className="flex flex-col gap-1.5">
                   <div className="flex items-center gap-2">
                     <span className="text-base">
@@ -392,18 +409,19 @@ export function TacticalMatchDetail({
                         ? weatherEmoji(match.weather)
                         : forecast?.forecasts?.[0]
                           ? weatherEmoji(forecast.forecasts[0].weather)
-                          : '☀️'}
+                          : '❔'}
                     </span>
                     <span className="font-headline font-bold text-sm text-white/90">
+                      {tLiveChrome('weatherForecastLabel') ?? 'Forecast'}:{' '}
                       {match.weather ? (
-                        // Scheduler already pinned the actual weather —
-                        // show it as a confirmed forecast.
-                        <>
-                          {tLiveChrome('weatherForecastLabel') ?? 'Forecast'}:{' '}
-                          <span className="capitalize">
-                            {String(match.weather).replace('_', ' ')}
-                          </span>
-                        </>
+                        <span className="capitalize">
+                          {String(match.weather).replace('_', ' ')}
+                        </span>
+                      ) : daysUntilMatch > MAX_FORECAST_DAYS ? (
+                        <span className="text-white/60 font-normal">
+                          {tLiveChrome('weatherForecastOutOfRange') ??
+                            `Out of range (>${MAX_FORECAST_DAYS} days)`}
+                        </span>
                       ) : forecast?.forecasts?.[0] ? (
                         <span className="capitalize">
                           {forecast.forecasts[0].weather.replace('_', ' ')}{' '}
@@ -419,8 +437,10 @@ export function TacticalMatchDetail({
                       )}
                     </span>
                   </div>
-                  {/* Alt-forecast chips — show only when we have data */}
-                  {forecast && forecast.forecasts.length > 1 && (
+                  {/* Alt-forecast chips — only when we have real data */}
+                  {forecast &&
+                    forecast.source !== 'out_of_range' &&
+                    forecast.forecasts.length > 1 && (
                     <div className="flex flex-wrap gap-1.5 pl-6">
                       {forecast.forecasts.slice(1).map((f: WeatherForecastEntry) => (
                         <span

@@ -3,7 +3,7 @@ import { getRepositoryToken } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { NotFoundException } from '@nestjs/common';
 import { WeatherEntity, WeatherType } from '@goalxi/database';
-import { WeatherService } from './weather.service';
+import { MAX_FORECAST_DAYS, WeatherService } from './weather.service';
 
 describe('WeatherService', () => {
   let service: WeatherService;
@@ -40,7 +40,10 @@ describe('WeatherService', () => {
       );
     });
 
-    it('returns persisted forecasts shifted +1 day when a row exists', async () => {
+    it('returns the persisted forecast for the requested date (not +1 day)', async () => {
+      // Persisted row at 2026-08-04 carries the forecast for 2026-08-05.
+      // The caller asks for 2026-08-05 directly, so we should read the
+      // 2026-08-04 row and return its forecasts as-is.
       mockRepo.findOne.mockResolvedValue({
         date: '2026-08-04',
         locationId: 'default',
@@ -52,23 +55,26 @@ describe('WeatherService', () => {
         ],
       } as WeatherEntity);
 
-      const result = await service.getForecast('2026-08-04', 'default');
+      const result = await service.getForecast('2026-08-05', 'default');
 
-      expect(result.date).toBe('2026-08-05'); // +1 day target
+      expect(result.date).toBe('2026-08-05'); // the requested target, not +1
       expect(result.locationId).toBe('default');
       expect(result.source).toBe('persisted');
       expect(result.forecasts).toHaveLength(3);
       expect(result.forecasts[0].weather).toBe(WeatherType.SUNNY);
       expect(result.forecasts[0].probability).toBe(55);
+      expect(repo.findOne).toHaveBeenCalledWith({
+        where: { date: '2026-08-04', locationId: 'default' },
+      });
     });
 
     it('falls back to generated forecasts when no row exists', async () => {
       mockRepo.findOne.mockResolvedValue(null);
 
-      const result = await service.getForecast('2026-08-04', 'default');
+      const result = await service.getForecast('2026-08-05', 'default');
 
       expect(result.source).toBe('generated');
-      expect(result.date).toBe('2026-08-05');
+      expect(result.date).toBe('2026-08-05'); // still the requested target
       expect(result.forecasts.length).toBeGreaterThanOrEqual(2);
       expect(result.forecasts.length).toBeLessThanOrEqual(3);
       const total = result.forecasts.reduce((s, f) => s + f.probability, 0);
@@ -83,7 +89,7 @@ describe('WeatherService', () => {
         forecasts: undefined,
       } as WeatherEntity);
 
-      const result = await service.getForecast('2026-08-04', 'default');
+      const result = await service.getForecast('2026-08-05', 'default');
 
       expect(result.source).toBe('generated');
       expect(result.forecasts.length).toBeGreaterThan(0);
@@ -92,12 +98,46 @@ describe('WeatherService', () => {
     it('uses default location when none is provided', async () => {
       mockRepo.findOne.mockResolvedValue(null);
 
-      const result = await service.getForecast('2026-08-04');
+      const result = await service.getForecast('2026-08-05');
 
       expect(result.locationId).toBe('default');
       expect(repo.findOne).toHaveBeenCalledWith({
         where: { date: '2026-08-04', locationId: 'default' },
       });
+    });
+
+    it('returns source=out_of_range when target is beyond MAX_FORECAST_DAYS', async () => {
+      // Build a date MAX_FORECAST_DAYS + 1 ahead of "today" in the test's
+      // own clock so the test is deterministic regardless of when it runs.
+      const today = new Date();
+      today.setUTCHours(0, 0, 0, 0);
+      const farFuture = new Date(today);
+      farFuture.setUTCDate(today.getUTCDate() + MAX_FORECAST_DAYS + 1);
+      const farFutureYmd = farFuture.toISOString().slice(0, 10);
+
+      const result = await service.getForecast(farFutureYmd, 'default');
+
+      expect(result.source).toBe('out_of_range');
+      expect(result.forecasts).toEqual([]);
+      expect(result.date).toBe(farFutureYmd);
+      // We must not even hit the database for out-of-range requests.
+      expect(repo.findOne).not.toHaveBeenCalled();
+    });
+
+    it('still returns a forecast for the day right at the window edge', async () => {
+      // Exactly MAX_FORECAST_DAYS ahead should NOT be out of range (> is
+      // the cutoff, >= is in range).
+      const today = new Date();
+      today.setUTCHours(0, 0, 0, 0);
+      const atEdge = new Date(today);
+      atEdge.setUTCDate(today.getUTCDate() + MAX_FORECAST_DAYS);
+      const atEdgeYmd = atEdge.toISOString().slice(0, 10);
+
+      mockRepo.findOne.mockResolvedValue(null);
+
+      const result = await service.getForecast(atEdgeYmd, 'default');
+
+      expect(result.source).not.toBe('out_of_range');
     });
   });
 
@@ -121,7 +161,9 @@ describe('WeatherService', () => {
         const f = service.generateRandomForecasts();
         for (const entry of f) {
           expect(valid.has(entry.weather)).toBe(true);
-          expect(entry.probability).toBeGreaterThan(0);
+          // Probability can be 0 for the last entry when prior items
+          // consumed all 100; otherwise it's in (0, 100].
+          expect(entry.probability).toBeGreaterThanOrEqual(0);
           expect(entry.probability).toBeLessThanOrEqual(100);
         }
       }

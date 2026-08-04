@@ -24,6 +24,14 @@ const BASE_WEATHER_WEIGHTS: Record<WeatherType, number> = {
 
 const DEFAULT_LOCATION = 'default';
 
+/**
+ * Public-facing forecast window. Anything beyond this returns
+ * `source: 'out_of_range'` with an empty forecast array — we cap at
+ * 3 days because predictions lose confidence quickly and we want to be
+ * honest with the UI rather than shipping made-up forecasts.
+ */
+export const MAX_FORECAST_DAYS = 3;
+
 @Injectable()
 export class WeatherService {
   constructor(
@@ -32,11 +40,17 @@ export class WeatherService {
   ) {}
 
   /**
-   * Returns the weather forecast for the **day after** the requested date
-   * (matching the settlement service's contract: a row dated X holds the
-   * *actual* weather for X and the *forecast* for X+1).
+   * Returns the weather forecast **for** the requested date. The persisted
+   * `weather` table stores tomorrow's prediction on each row (settlement
+   * convention: row dated X has `forecasts` for X+1), so to get the
+   * forecast for `date` we read the row dated `date - 1`.
    *
-   * Falls back to a freshly generated forecast if no row exists yet.
+   * Behaviour:
+   *  - `source: 'persisted'`  → row found with forecasts
+   *  - `source: 'generated'`  → no row, we synthesise from base weights
+   *  - `source: 'out_of_range'` → date is more than `MAX_FORECAST_DAYS`
+   *    ahead of today; `forecasts` is empty and the UI should render
+   *    "out of range" rather than fake a prediction.
    */
   async getForecast(
     date: string,
@@ -46,13 +60,28 @@ export class WeatherService {
       throw new NotFoundException(`Invalid date: ${date}`);
     }
 
+    const today = this.formatDate(new Date());
+    const daysAhead = this.daysBetween(today, date);
+
+    if (daysAhead > MAX_FORECAST_DAYS) {
+      return {
+        date,
+        locationId,
+        forecasts: [],
+        source: 'out_of_range',
+      };
+    }
+
+    // Look up the row that holds the forecast for `date`. The convention is
+    // "row X carries the forecast for X+1", so we read X = date - 1.
+    const previousDate = this.addDays(date, -1);
     const row = await this.weatherRepository.findOne({
-      where: { date, locationId },
+      where: { date: previousDate, locationId },
     });
 
     if (row?.forecasts && row.forecasts.length > 0) {
       return {
-        date: this.addDays(date, 1),
+        date,
         locationId,
         forecasts: row.forecasts,
         source: 'persisted',
@@ -60,7 +89,7 @@ export class WeatherService {
     }
 
     return {
-      date: this.addDays(date, 1),
+      date,
       locationId,
       forecasts: this.generateRandomForecasts(),
       source: 'generated',
@@ -129,5 +158,24 @@ export class WeatherService {
     const d = new Date(date + 'T00:00:00Z');
     d.setUTCDate(d.getUTCDate() + days);
     return d.toISOString().slice(0, 10);
+  }
+
+  private formatDate(date: Date): string {
+    return date.toISOString().slice(0, 10);
+  }
+
+  /** Whole-day diff in UTC, ignoring DST. */
+  private daysBetween(fromYmd: string, toYmd: string): number {
+    const from = Date.UTC(
+      Number(fromYmd.slice(0, 4)),
+      Number(fromYmd.slice(5, 7)) - 1,
+      Number(fromYmd.slice(8, 10)),
+    );
+    const to = Date.UTC(
+      Number(toYmd.slice(0, 4)),
+      Number(toYmd.slice(5, 7)) - 1,
+      Number(toYmd.slice(8, 10)),
+    );
+    return Math.round((to - from) / (24 * 60 * 60 * 1000));
   }
 }

@@ -338,7 +338,8 @@
       "cancelled": "已取消",
       "venueTbd": "球场待定",
       "weatherForecastLabel": "预测天气",
-      "weatherForecastTbd": "开球时揭晓"
+      "weatherForecastTbd": "开球时揭晓",
+      "weatherForecastOutOfRange": "超出预报范围"
     },
     "zone": {
       "title": "区域控制",

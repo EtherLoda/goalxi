@@ -342,7 +342,8 @@
       "cancelled": "Cancelled",
       "venueTbd": "Venue TBD",
       "weatherForecastLabel": "Forecast",
-      "weatherForecastTbd": "Decided at kickoff"
+      "weatherForecastTbd": "Decided at kickoff",
+      "weatherForecastOutOfRange": "Out of forecast range"
     },
     "zone": {
       "title": "Zone Control",

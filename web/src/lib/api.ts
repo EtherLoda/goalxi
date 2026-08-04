@@ -1159,11 +1159,21 @@ export interface WeatherForecastEntry {
 }
 
 export interface WeatherForecastRes {
-  date: string; // YYYY-MM-DD, the forecast target (queried date + 1)
+  /** YYYY-MM-DD, the forecast target (the day the caller asked about). */
+  date: string;
   locationId: string;
   forecasts: WeatherForecastEntry[];
-  source: 'persisted' | 'generated';
+  /**
+   * How the data was produced:
+   *   - `'persisted'`    — from the `weather` table
+   *   - `'generated'`    — synthesised by the service (no row found)
+   *   - `'out_of_range'` — target was too far ahead; `forecasts` is empty
+   */
+  source: 'persisted' | 'generated' | 'out_of_range';
 }
+
+/** Public-facing forecast window. Mirrors `MAX_FORECAST_DAYS` on the API. */
+export const MAX_FORECAST_DAYS = 3;
 
 interface NotificationListResponse {
   items: Notification[];

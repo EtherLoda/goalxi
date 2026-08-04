@@ -12,16 +12,17 @@ export class WeatherForecastEntryResDto {
 /**
  * Public response shape for `GET /weather/forecast`.
  *
- * - `date` is the *forecast target* (i.e. tomorrow of the queried date).
- * - `forecasts` contains 2-3 weighted options.
- * - `source` is either `'persisted'` (came from the weather table) or
- *   `'generated'` (we synthesised it from the base weights because no row
- *   existed yet). Useful for debugging and for the UI to label the
- *   confidence.
+ * - `date` is the *forecast target* (the day the caller asked about).
+ * - `forecasts` contains 2-3 weighted options, or is empty when the
+ *   target date is outside the forecast window.
+ * - `source` discriminates how the data was produced:
+ *     - `'persisted'`   — came from the `weather` table.
+ *     - `'generated'`   — synthesised from base weights (no row found).
+ *     - `'out_of_range'`— target is too far ahead; `forecasts` is empty.
  */
 export class WeatherForecastResDto {
   date!: string;
   locationId!: string;
   forecasts!: WeatherForecastEntryResDto[];
-  source!: 'persisted' | 'generated';
+  source!: 'persisted' | 'generated' | 'out_of_range';
 }
