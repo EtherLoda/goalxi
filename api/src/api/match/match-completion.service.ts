@@ -16,7 +16,7 @@ import {
 import { LOGGER_SERVICE, PinoLoggerService } from '@goalxi/logger';
 import { Inject, Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { In, MoreThanOrEqual, Repository } from 'typeorm';
+import { In, IsNull, MoreThanOrEqual, Repository } from 'typeorm';
 import { FanService } from '../fan/fan.service';
 import { FinanceService } from '../finance/finance.service';
 import { MatchCacheService } from './match-cache.service';
@@ -627,16 +627,17 @@ export class MatchCompletionService {
     const playersToSave: PlayerEntity[] = [];
     const playerIds = botPlayersWithInjuries.map((p) => p.id);
 
-    // Mark all active injuries as recovered
+    // Mark all active injuries as recovered. Active = no recoveredAt
+    // timestamp yet (the legacy `is_recovered` boolean was removed in
+    // 1726000000000-DropInjuryRedundantColumns).
     const activeInjuries = await this.injuryRepository.find({
       where: {
         playerId: In(playerIds as any[]),
-        isRecovered: false,
+        recoveredAt: IsNull(),
       },
     });
 
     for (const injury of activeInjuries) {
-      injury.isRecovered = true;
       injury.recoveredAt = new Date();
     }
 

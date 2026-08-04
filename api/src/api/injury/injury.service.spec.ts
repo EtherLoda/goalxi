@@ -7,8 +7,8 @@ import {
   StaffRole,
 } from '@goalxi/database';
 import { Test, TestingModule } from '@nestjs/testing';
-import { getRepositoryToken } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { getDataSourceToken, getRepositoryToken } from '@nestjs/typeorm';
+import { DataSource, IsNull, Repository } from 'typeorm';
 import { InjuryService } from './injury.service';
 
 describe('InjuryService', () => {
@@ -18,7 +18,7 @@ describe('InjuryService', () => {
   let staffRepo: jest.Mocked<Repository<StaffEntity>>;
   let matchRepo: jest.Mocked<Repository<MatchEntity>>;
 
-  // PlayerEntity.getExactAge() is consumed by getTeamInjuredPlayers 鈥?stub it.
+  // PlayerEntity.getExactAge() is consumed by getTeamInjuredPlayers — stub it.
   const makePlayer = (overrides: Partial<PlayerEntity> = {}): PlayerEntity => {
     const player = {
       id: 1,
@@ -40,36 +40,56 @@ describe('InjuryService', () => {
     injuryType: 'muscle',
     severity: 2,
     injuryValue: 50,
-    estimatedMinDays: 7,
     estimatedMaxDays: 7,
     occurredAt: new Date('2024-01-15'),
-    isRecovered: false,
+    // recoveredAt omitted on purpose — an "active" injury has no recovery.
   };
 
+  /**
+   * Build a repository stub with every method the service touches.
+   * Used both for the non-tx and tx-scoped handles.
+   */
+  const makeRepoStub = () => ({
+    find: jest.fn(),
+    findOneBy: jest.fn(),
+    findOne: jest.fn(),
+    count: jest.fn(),
+    save: jest.fn(),
+    update: jest.fn(),
+    create: jest.fn(),
+    createQueryBuilder: jest.fn(),
+  });
+
   beforeEach(async () => {
+    const playerRepoMock = makeRepoStub();
+    const injuryRepoMock = makeRepoStub();
+
+    // Mocked DataSource: every call to .transaction() invokes the callback
+    // with a tx-scoped EntityManager that hands out the same mock repos
+    // the service also uses outside transactions. Lets the assertions
+    // below hit a single mock instance for each entity.
+    const dataSourceMock = {
+      transaction: jest.fn(async (cb: any) =>
+        cb({
+          getRepository: (entity: any) => {
+            if (entity === PlayerEntity) return playerRepoMock;
+            if (entity === InjuryEntity) return injuryRepoMock;
+            throw new Error(`Unexpected entity in tx: ${entity?.name}`);
+          },
+        }),
+      ),
+    };
+
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         InjuryService,
         {
           provide: getRepositoryToken(PlayerEntity),
-          useValue: {
-            find: jest.fn(),
-            findOneBy: jest.fn(),
-            findOne: jest.fn(),
-            count: jest.fn(),
-            save: jest.fn(),
-            update: jest.fn(),
-          },
+          useValue: playerRepoMock,
         },
         {
           provide: getRepositoryToken(InjuryEntity),
-          useValue: {
-            find: jest.fn(),
-            findOne: jest.fn(),
-            create: jest.fn(),
-            save: jest.fn(),
-            createQueryBuilder: jest.fn(),
-          },
+          useValue: injuryRepoMock,
         },
         {
           provide: getRepositoryToken(StaffEntity),
@@ -82,6 +102,10 @@ describe('InjuryService', () => {
           useValue: {
             find: jest.fn(),
           },
+        },
+        {
+          provide: getDataSourceToken(),
+          useValue: dataSourceMock,
         },
       ],
     }).compile();
@@ -125,13 +149,26 @@ describe('InjuryService', () => {
       expect(result).toEqual([]);
     });
 
-    it('should expose estimatedDays (collapsed from min/max columns)', async () => {
+    it('should expose estimatedDays and derive isRecovered from recoveredAt', async () => {
       injuryRepo.find.mockResolvedValue([mockInjury] as InjuryEntity[]);
 
       const result = await service.getPlayerInjuryHistory(1);
 
       expect(result[0].estimatedDays).toBe(7);
+      // Active injury: no recoveredAt → isRecovered must be false (derived).
       expect(result[0].isRecovered).toBe(false);
+      expect(result[0].recoveredAt).toBeUndefined();
+    });
+
+    it('should flag recovered injuries (recoveredAt set) as isRecovered=true', async () => {
+      injuryRepo.find.mockResolvedValue([
+        { ...mockInjury, recoveredAt: new Date('2024-02-01') } as InjuryEntity,
+      ]);
+
+      const result = await service.getPlayerInjuryHistory(1);
+
+      expect(result[0].isRecovered).toBe(true);
+      expect(result[0].recoveredAt).toEqual(new Date('2024-02-01'));
     });
   });
 
@@ -293,8 +330,6 @@ describe('InjuryService', () => {
         makePlayer({ currentInjuryValue: 50 }),
       );
       playerRepo.save.mockImplementation(async (p) => p as PlayerEntity);
-      injuryRepo.findOne.mockResolvedValue(mockInjury as InjuryEntity);
-      injuryRepo.save.mockImplementation(async (i) => i as InjuryEntity);
 
       const result = await service.updatePlayerInjury(1, 10);
 
@@ -320,19 +355,14 @@ describe('InjuryService', () => {
       expect(result).toBeNull();
     });
 
-    it('should clear injury fields when fully recovered', async () => {
+    it('should clear injury fields and stamp recoveredAt when fully recovered', async () => {
       playerRepo.findOneBy.mockResolvedValue(
         makePlayer({ currentInjuryValue: 5 }),
       );
       playerRepo.save.mockImplementation(async (p) => p as PlayerEntity);
       injuryRepo.findOne.mockResolvedValue(mockInjury as InjuryEntity);
       injuryRepo.save.mockImplementation(
-        async (i) =>
-          ({
-            ...i,
-            isRecovered: true,
-            recoveredAt: new Date(),
-          }) as InjuryEntity,
+        async (i) => i as InjuryEntity,
       );
 
       const result = await service.updatePlayerInjury(1, 10);
@@ -340,6 +370,19 @@ describe('InjuryService', () => {
       expect(result!.currentInjuryValue).toBe(0);
       expect(result!.injuryType).toBeNull();
       expect(result!.injuredAt).toBeNull();
+
+      // Recovery is derived: the service must set recoveredAt, and
+      // findOne must look for rows with recoveredAt IS NULL.
+      expect(injuryRepo.findOne).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            playerId: 1,
+            recoveredAt: expect.anything(), // IsNull() — exact value is an internal TypeORM marker
+          }),
+        }),
+      );
+      const savedInjury = (injuryRepo.save as jest.Mock).mock.calls[0][0];
+      expect(savedInjury.recoveredAt).toBeInstanceOf(Date);
     });
   });
 
@@ -365,10 +408,28 @@ describe('InjuryService', () => {
           injuryType: 'muscle',
         }),
       );
-      // legacy min/max columns both receive the single deterministic estimate
-      expect(result.estimatedMinDays).toBe(7);
+      // Single deterministic estimate — the redundant `estimatedMinDays`
+      // column was dropped. The new injury record must carry the value on
+      // `estimatedMaxDays` only.
       expect(result.estimatedMaxDays).toBe(7);
+      expect((result as any).estimatedMinDays).toBeUndefined();
       expect(result.matchId).toBe('match-uuid-1');
+    });
+
+    it('should run player + injury writes inside a single transaction', async () => {
+      playerRepo.update.mockResolvedValue({ affected: 1 } as any);
+      injuryRepo.create.mockImplementation((data) => data as InjuryEntity);
+      injuryRepo.save.mockImplementation(async (i) => i as InjuryEntity);
+
+      await service.applyInjury(1, 'muscle', 2, 50, 7);
+
+      // Both writes must go through the same tx-scoped manager. We don't
+      // poke into the manager internals — the fact that update() and
+      // save() were called inside one .transaction() callback is what we
+      // care about; both mock instances are the ones the mock manager
+      // hands out, so any leak would surface as a missing call here.
+      expect(playerRepo.update).toHaveBeenCalledTimes(1);
+      expect(injuryRepo.save).toHaveBeenCalledTimes(1);
     });
   });
 

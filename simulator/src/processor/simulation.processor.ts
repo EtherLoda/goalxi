@@ -978,12 +978,12 @@ export class SimulationProcessor extends WorkerHost {
           injuryType: injuryData.injuryType,
           severity: severityInt,
           injuryValue: injuryData.injuryValue,
-          // ±15% fluctuation removed — single deterministic estimate is written to both columns
-          // so legacy NOT NULL min/max columns stay valid.
-          estimatedMinDays: injuryData.estimatedRecoveryDays,
+          // Single deterministic recovery estimate — the redundant
+          // `estimated_min_days` column was dropped (see
+          // 1726000000000-DropInjuryRedundantColumns). Recovery status
+          // is derived from `recoveredAt`, not stored as a boolean.
           estimatedMaxDays: injuryData.estimatedRecoveryDays,
           occurredAt: match.scheduledAt,
-          isRecovered: false,
         });
         injuredPlayerIds.push(injuryData.playerId);
       }

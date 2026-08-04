@@ -7,8 +7,8 @@ import {
   estimateRecoveryDays,
 } from '@goalxi/database';
 import { Injectable } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
-import { In, MoreThanOrEqual, Repository } from 'typeorm';
+import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
+import { DataSource, In, IsNull, MoreThanOrEqual, Repository } from 'typeorm';
 
 export interface InjuryHistoryResDto {
   id: string;
@@ -18,6 +18,10 @@ export interface InjuryHistoryResDto {
   estimatedDays: number;
   occurredAt: Date;
   recoveredAt?: Date;
+  /**
+   * Derived from `recoveredAt` — kept in the DTO for API stability so
+   * existing frontend code keeps working without a DTO migration.
+   */
   isRecovered: boolean;
   matchId?: string | null;
   opponentName?: string | null;
@@ -53,6 +57,8 @@ export class InjuryService {
     private staffRepo: Repository<StaffEntity>,
     @InjectRepository(MatchEntity)
     private matchRepo: Repository<MatchEntity>,
+    @InjectDataSource()
+    private readonly dataSource: DataSource,
   ) {}
 
   /**
@@ -90,7 +96,7 @@ export class InjuryService {
       estimatedDays: injury.estimatedMaxDays,
       occurredAt: injury.occurredAt,
       recoveredAt: injury.recoveredAt ?? undefined,
-      isRecovered: injury.isRecovered,
+      isRecovered: !!injury.recoveredAt,
       matchId: injury.matchId ?? null,
     }));
   }
@@ -184,7 +190,7 @@ export class InjuryService {
         estimatedDays: injury.estimatedMaxDays,
         occurredAt: injury.occurredAt,
         recoveredAt: injury.recoveredAt ?? undefined,
-        isRecovered: injury.isRecovered,
+        isRecovered: !!injury.recoveredAt,
         matchId: injury.matchId ?? null,
         opponentName: opponent ?? null,
       };
@@ -202,47 +208,60 @@ export class InjuryService {
 
   /**
    * Update a player's injury value (called by daily cron job)
+   *
+   * Wrapped in a single transaction so the player-side "currently injured"
+   * cache and the active injury record can never drift apart — previously
+   * these were two independent writes, which let a partial failure leave
+   * the player marked injured with no matching active injury row (or
+   * vice versa).
    */
   async updatePlayerInjury(
     playerId: number,
     recoveryValue: number,
   ): Promise<PlayerEntity | null> {
-    const player = await this.playerRepo.findOneBy({ id: playerId });
-    if (!player || player.currentInjuryValue <= 0) return null;
+    return this.dataSource.transaction(async (manager) => {
+      const playerRepo = manager.getRepository(PlayerEntity);
+      const injuryRepo = manager.getRepository(InjuryEntity);
 
-    const newValue = Math.max(0, player.currentInjuryValue - recoveryValue);
+      const player = await playerRepo.findOneBy({ id: playerId });
+      if (!player || player.currentInjuryValue <= 0) return null;
 
-    // Check if player just recovered
-    const wasInjured = player.currentInjuryValue > 0;
-    const isNowRecovered = newValue === 0;
+      const newValue = Math.max(0, player.currentInjuryValue - recoveryValue);
 
-    player.currentInjuryValue = newValue;
+      // Check if player just recovered
+      const wasInjured = player.currentInjuryValue > 0;
+      const isNowRecovered = newValue === 0;
 
-    if (isNowRecovered && wasInjured) {
-      player.injuryType = null;
-      player.injuredAt = null;
+      player.currentInjuryValue = newValue;
 
-      // Update the injury record
-      const activeInjury = await this.injuryRepo.findOne({
-        where: { playerId, isRecovered: false },
-        order: { occurredAt: 'DESC' },
-      });
+      if (isNowRecovered && wasInjured) {
+        player.injuryType = null;
+        player.injuredAt = null;
 
-      if (activeInjury) {
-        activeInjury.isRecovered = true;
-        activeInjury.recoveredAt = new Date();
-        await this.injuryRepo.save(activeInjury);
+        // Update the active injury record (recovery is derived from
+        // `recoveredAt` being set — no separate boolean flag).
+        const activeInjury = await injuryRepo.findOne({
+          where: { playerId, recoveredAt: IsNull() },
+          order: { occurredAt: 'DESC' },
+        });
+
+        if (activeInjury) {
+          activeInjury.recoveredAt = new Date();
+          await injuryRepo.save(activeInjury);
+        }
       }
-    }
 
-    await this.playerRepo.save(player);
-    return player;
+      return playerRepo.save(player);
+    });
   }
 
   /**
    * Apply injury to a player (called after match simulation).
-   * Accepts a single estimatedDays value; written to both legacy min/max columns
-   * so the InjuryEntity table contract stays backwards-compatible.
+   *
+   * Wrapped in a single transaction so the player-side "currently injured"
+   * cache (currentInjuryValue / injuryType / injuredAt) and the new
+   * injury history row commit atomically — see updatePlayerInjury for
+   * the same rationale.
    */
   async applyInjury(
     playerId: number,
@@ -252,27 +271,31 @@ export class InjuryService {
     estimatedDays: number,
     matchId?: string,
   ): Promise<InjuryEntity> {
-    // Update player
-    await this.playerRepo.update({ id: playerId } as any, {
-      currentInjuryValue: injuryValue,
-      injuryType: injuryType as any,
-      injuredAt: new Date(),
-    });
+    return this.dataSource.transaction(async (manager) => {
+      const playerRepo = manager.getRepository(PlayerEntity);
+      const injuryRepo = manager.getRepository(InjuryEntity);
 
-    // Create injury record
-    const injury = this.injuryRepo.create({
-      playerId,
-      matchId,
-      injuryType: injuryType as any,
-      severity: severity as 1 | 2 | 3,
-      injuryValue,
-      estimatedMinDays: estimatedDays,
-      estimatedMaxDays: estimatedDays,
-      occurredAt: new Date(),
-      isRecovered: false,
-    });
+      // Update player's "currently injured" cache.
+      await playerRepo.update({ id: playerId } as any, {
+        currentInjuryValue: injuryValue,
+        injuryType: injuryType as any,
+        injuredAt: new Date(),
+      });
 
-    return this.injuryRepo.save(injury);
+      // Create injury history record. `estimatedMinDays` and the
+      // `is_recovered` boolean have been removed — see entity comments.
+      const injury = injuryRepo.create({
+        playerId,
+        matchId,
+        injuryType: injuryType as any,
+        severity: severity as 1 | 2 | 3,
+        injuryValue,
+        estimatedMaxDays: estimatedDays,
+        occurredAt: new Date(),
+      });
+
+      return injuryRepo.save(injury);
+    });
   }
 
   /**

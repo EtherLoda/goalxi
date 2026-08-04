@@ -37,9 +37,13 @@ export class InjuryEntity extends AbstractEntity {
     @Column({ name: 'injury_value', type: 'int' })
     injuryValue!: number;
 
-    @Column({ name: 'estimated_min_days', type: 'int' })
-    estimatedMinDays!: number;
-
+    /**
+     * Single deterministic recovery estimate (in days).
+     * Column kept as `estimated_max_days` to minimise DB churn — the
+     * previous `min` column was always written with the same value, so
+     * it carried no extra information. See migration
+     * `1726000000000-DropInjuryRedundantColumns` for the column drop.
+     */
     @Column({ name: 'estimated_max_days', type: 'int' })
     estimatedMaxDays!: number;
 
@@ -49,6 +53,11 @@ export class InjuryEntity extends AbstractEntity {
     @Column({ name: 'recovered_at', type: 'timestamptz', nullable: true })
     recoveredAt?: Date | null;
 
-    @Column({ name: 'is_recovered', type: 'boolean', default: false })
-    isRecovered!: boolean;
+    /**
+     * Derived: an injury is "recovered" iff `recoveredAt` is set.
+     * The previous `is_recovered` boolean column was redundant with this
+     * timestamp and prone to drift; it was removed in migration
+     * `1726000000000-DropInjuryRedundantColumns`. Callers should compute
+     * `!!recoveredAt` instead of reading a stored flag.
+     */
 }

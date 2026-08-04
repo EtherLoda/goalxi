@@ -2,7 +2,7 @@ import { Injectable, Logger, Inject } from '@nestjs/common';
 import { LOGGER_SERVICE, PinoLoggerService } from '@goalxi/logger';
 import { Cron } from '@nestjs/schedule';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, MoreThanOrEqual } from 'typeorm';
+import { Repository, MoreThanOrEqual, IsNull } from 'typeorm';
 import {
   PlayerEntity,
   InjuryEntity,
@@ -148,12 +148,14 @@ export class InjuryRecoveryService {
     let recoveredCount = 0;
     for (const { playerId, playerName, oldValue } of injuriesToRecover) {
       const activeInjury = await this.injuryRepository.findOne({
-        where: { playerId, isRecovered: false },
+        // Recovery is derived from `recoveredAt` — an active injury is
+        // one with no recovery timestamp. The `is_recovered` boolean
+        // was removed in 1726000000000-DropInjuryRedundantColumns.
+        where: { playerId, recoveredAt: IsNull() },
         order: { occurredAt: 'DESC' },
       });
 
       if (activeInjury) {
-        activeInjury.isRecovered = true;
         activeInjury.recoveredAt = new Date();
         await this.injuryRepository.save(activeInjury);
       }
