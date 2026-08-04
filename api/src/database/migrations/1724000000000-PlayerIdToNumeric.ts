@@ -96,7 +96,7 @@ export class PlayerIdToNumeric1724000000000 implements MigrationInterface {
     `);
     if (missing[0].missing > 0) {
       throw new Error(
-        `PlayerIdToNumeric backfill left ${missing[0].missing} player rows without id_new; aborting.`
+        `PlayerIdToNumeric backfill left ${missing[0].missing} player rows without id_new; aborting.`,
       );
     }
 
@@ -141,10 +141,13 @@ export class PlayerIdToNumeric1724000000000 implements MigrationInterface {
       if (!hasTable) continue;
 
       // Get current player_id column type
-      const colInfo = await queryRunner.query(`
+      const colInfo = await queryRunner.query(
+        `
         SELECT data_type FROM information_schema.columns
         WHERE table_name = $1 AND column_name = 'player_id'
-      `, [table]);
+      `,
+        [table],
+      );
 
       if (colInfo.length === 0) continue; // no player_id column
 
@@ -174,7 +177,9 @@ export class PlayerIdToNumeric1724000000000 implements MigrationInterface {
           AND contype = 'f'
         `);
         for (const row of fkConstraints) {
-          await queryRunner.query(`ALTER TABLE "${table}" DROP CONSTRAINT "${row.conname}"`);
+          await queryRunner.query(
+            `ALTER TABLE "${table}" DROP CONSTRAINT "${row.conname}"`,
+          );
         }
 
         await queryRunner.query(`
@@ -224,7 +229,10 @@ export class PlayerIdToNumeric1724000000000 implements MigrationInterface {
           SELECT data_type FROM information_schema.columns
           WHERE table_name = 'archived_player_event' AND column_name = 'related_player_id'
         `);
-        if (archivedRelCol.length > 0 && archivedRelCol[0].data_type === 'uuid') {
+        if (
+          archivedRelCol.length > 0 &&
+          archivedRelCol[0].data_type === 'uuid'
+        ) {
           await queryRunner.query(`
             ALTER TABLE "archived_player_event" ADD COLUMN "related_player_id_new" int
           `);
@@ -292,11 +300,15 @@ export class PlayerIdToNumeric1724000000000 implements MigrationInterface {
         AND contype = 'f'
       `);
       for (const row of fkConstraints) {
-        await queryRunner.query(`ALTER TABLE "${table}" DROP CONSTRAINT "${row.conname}"`);
+        await queryRunner.query(
+          `ALTER TABLE "${table}" DROP CONSTRAINT "${row.conname}"`,
+        );
       }
 
       await queryRunner.query(`ALTER TABLE "${table}" DROP COLUMN "player_id"`);
-      await queryRunner.query(`ALTER TABLE "${table}" RENAME COLUMN "player_id_old" TO "player_id"`);
+      await queryRunner.query(
+        `ALTER TABLE "${table}" RENAME COLUMN "player_id_old" TO "player_id"`,
+      );
 
       await queryRunner.query(`
         ALTER TABLE "${table}"
@@ -314,8 +326,12 @@ export class PlayerIdToNumeric1724000000000 implements MigrationInterface {
             SELECT "id_old"::uuid FROM "player" WHERE "id" = "match_event"."related_player_id"
           )
         `);
-        await queryRunner.query(`ALTER TABLE "match_event" DROP COLUMN "related_player_id"`);
-        await queryRunner.query(`ALTER TABLE "match_event" RENAME COLUMN "related_player_id_old" TO "related_player_id"`);
+        await queryRunner.query(
+          `ALTER TABLE "match_event" DROP COLUMN "related_player_id"`,
+        );
+        await queryRunner.query(
+          `ALTER TABLE "match_event" RENAME COLUMN "related_player_id_old" TO "related_player_id"`,
+        );
       }
 
       if (table === 'archived_player_event') {
@@ -327,37 +343,55 @@ export class PlayerIdToNumeric1724000000000 implements MigrationInterface {
             SELECT "id_old"::uuid FROM "player" WHERE "id" = "archived_player_event"."related_player_id"
           )
         `);
-        await queryRunner.query(`ALTER TABLE "archived_player_event" DROP COLUMN "related_player_id"`);
-        await queryRunner.query(`ALTER TABLE "archived_player_event" RENAME COLUMN "related_player_id_old" TO "related_player_id"`);
+        await queryRunner.query(
+          `ALTER TABLE "archived_player_event" DROP COLUMN "related_player_id"`,
+        );
+        await queryRunner.query(
+          `ALTER TABLE "archived_player_event" RENAME COLUMN "related_player_id_old" TO "related_player_id"`,
+        );
       }
     }
 
     // Restore player table
-    await queryRunner.query(`ALTER TABLE "player" DROP CONSTRAINT "PK_player_id"`);
+    await queryRunner.query(
+      `ALTER TABLE "player" DROP CONSTRAINT "PK_player_id"`,
+    );
     await queryRunner.query(`ALTER TABLE "player" DROP COLUMN "id"`);
-    await queryRunner.query(`ALTER TABLE "player" RENAME COLUMN "id_old" TO "id"`);
+    await queryRunner.query(
+      `ALTER TABLE "player" RENAME COLUMN "id_old" TO "id"`,
+    );
     await queryRunner.query(`
       ALTER TABLE "player" ADD CONSTRAINT "PK_player_id" PRIMARY KEY ("id")
     `);
 
     // team_id back
-    await queryRunner.query(`ALTER TABLE "player" ADD COLUMN "team_id_old" uuid`);
+    await queryRunner.query(
+      `ALTER TABLE "player" ADD COLUMN "team_id_old" uuid`,
+    );
     await queryRunner.query(`
       UPDATE "player" SET "team_id_old" = (
         SELECT "id"::uuid FROM "team" WHERE "id"::int = "player"."team_id"
       )
     `);
     await queryRunner.query(`ALTER TABLE "player" DROP COLUMN "team_id"`);
-    await queryRunner.query(`ALTER TABLE "player" RENAME COLUMN "team_id_old" TO "team_id"`);
+    await queryRunner.query(
+      `ALTER TABLE "player" RENAME COLUMN "team_id_old" TO "team_id"`,
+    );
 
     // youth_league_id back
-    await queryRunner.query(`ALTER TABLE "player" ADD COLUMN "youth_league_id_old" uuid`);
+    await queryRunner.query(
+      `ALTER TABLE "player" ADD COLUMN "youth_league_id_old" uuid`,
+    );
     await queryRunner.query(`
       UPDATE "player" SET "youth_league_id_old" = (
         SELECT "id"::uuid FROM "youth_league" WHERE "id"::int = "player"."youth_league_id"
       )
     `);
-    await queryRunner.query(`ALTER TABLE "player" DROP COLUMN "youth_league_id"`);
-    await queryRunner.query(`ALTER TABLE "player" RENAME COLUMN "youth_league_id_old" TO "youth_league_id"`);
+    await queryRunner.query(
+      `ALTER TABLE "player" DROP COLUMN "youth_league_id"`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE "player" RENAME COLUMN "youth_league_id_old" TO "youth_league_id"`,
+    );
   }
 }

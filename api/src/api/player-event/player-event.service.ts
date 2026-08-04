@@ -1,8 +1,4 @@
-import {
-  PlayerEventEntity,
-  PlayerEventType,
-  Uuid,
-} from '@goalxi/database';
+import { PlayerEventEntity, PlayerEventType, Uuid } from '@goalxi/database';
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { plainToInstance } from 'class-transformer';

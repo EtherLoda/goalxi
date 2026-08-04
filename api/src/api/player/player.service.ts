@@ -1,17 +1,17 @@
 import { OffsetPaginatedDto } from '@/common/dto/offset-pagination/paginated.dto';
 import { paginate } from '@/utils/offset-pagination';
 import {
-  PlayerEntity,
-  PlayerSkills,
-  PROMOTION_REVEAL_THRESHOLD,
   calculatePlayerPWI,
   formatPWI,
   getYouthSkillKeys,
+  PlayerEntity,
+  PlayerSkills,
+  PROMOTION_REVEAL_THRESHOLD,
 } from '@goalxi/database';
 import {
-  Injectable,
   BadRequestException,
   ForbiddenException,
+  Injectable,
   NotFoundException,
 } from '@nestjs/common';
 import assert from 'assert';

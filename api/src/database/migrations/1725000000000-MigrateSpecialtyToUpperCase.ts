@@ -16,9 +16,7 @@ import { MigrationInterface, QueryRunner } from 'typeorm';
  *   UPDATE player SET specialty = CASE specialty … END;
  * (see `down` below for the reverse mapping).
  */
-export class MigrateSpecialtyToUpperCase1725000000000
-  implements MigrationInterface
-{
+export class MigrateSpecialtyToUpperCase1725000000000 implements MigrationInterface {
   name = 'MigrateSpecialtyToUpperCase1725000000000';
 
   public async up(queryRunner: QueryRunner): Promise<void> {

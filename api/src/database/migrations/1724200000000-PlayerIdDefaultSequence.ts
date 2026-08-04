@@ -19,9 +19,7 @@ import { MigrationInterface, QueryRunner } from 'typeorm';
  * Idempotent: bails out when the DEFAULT is already bound (re-runs after
  * a fresh apply are no-ops).
  */
-export class PlayerIdDefaultSequence1724200000000
-  implements MigrationInterface
-{
+export class PlayerIdDefaultSequence1724200000000 implements MigrationInterface {
   name = 'PlayerIdDefaultSequence1724200000000';
 
   public async up(queryRunner: QueryRunner): Promise<void> {

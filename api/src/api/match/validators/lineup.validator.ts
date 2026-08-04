@@ -60,8 +60,9 @@ export class LineupValidator {
     // compare `number[]` against `string[]` in `Array.includes`, which always
     // returned false and rejected every valid lineup as "Some players do
     // not belong to the team".
-    const normalize = (id: string | number | null | undefined): string | null =>
-      id == null ? null : String(id);
+    const normalize = (
+      id: string | number | null | undefined,
+    ): string | null => (id == null ? null : String(id));
 
     // Separate bench slots from pitch slots
     const slots = Object.keys(lineup);

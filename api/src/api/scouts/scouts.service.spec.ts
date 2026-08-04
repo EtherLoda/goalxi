@@ -1,6 +1,3 @@
-import { Test } from '@nestjs/testing';
-import { getRepositoryToken } from '@nestjs/typeorm';
-import { ScoutsService } from './scouts.service';
 import {
   PlayerEntity,
   ScoutCandidateEntity,
@@ -8,6 +5,9 @@ import {
   YouthLeagueEntity,
   YouthTeamEntity,
 } from '@goalxi/database';
+import { Test } from '@nestjs/testing';
+import { getRepositoryToken } from '@nestjs/typeorm';
+import { ScoutsService } from './scouts.service';
 
 describe('ScoutsService.selectCandidate — persistence invariants', () => {
   let service: ScoutsService;
@@ -88,10 +88,16 @@ describe('ScoutsService.selectCandidate — persistence invariants', () => {
     const moduleRef = await Test.createTestingModule({
       providers: [
         ScoutsService,
-        { provide: getRepositoryToken(ScoutCandidateEntity), useValue: candidateRepo },
+        {
+          provide: getRepositoryToken(ScoutCandidateEntity),
+          useValue: candidateRepo,
+        },
         { provide: getRepositoryToken(PlayerEntity), useValue: playerRepo },
         { provide: getRepositoryToken(TeamEntity), useValue: teamRepo },
-        { provide: getRepositoryToken(YouthTeamEntity), useValue: youthTeamRepo },
+        {
+          provide: getRepositoryToken(YouthTeamEntity),
+          useValue: youthTeamRepo,
+        },
         { provide: getRepositoryToken(YouthLeagueEntity), useValue: {} },
       ],
     }).compile();
@@ -127,7 +133,12 @@ describe('ScoutsService.selectCandidate — persistence invariants', () => {
   // badge must reflect the candidate's *true* potential, not a constant.
   it('recomputes potentialAbility from potentialSkills (not the legacy constant 50)', async () => {
     candidateRepo.findOneByOrFail.mockResolvedValue(
-      buildCandidate({ playerData: { ...buildCandidate().playerData, potentialSkills: elitePotential } }),
+      buildCandidate({
+        playerData: {
+          ...buildCandidate().playerData,
+          potentialSkills: elitePotential,
+        },
+      }),
     );
 
     await service.selectCandidate('candidate-1', 'team-A');
@@ -139,7 +150,12 @@ describe('ScoutsService.selectCandidate — persistence invariants', () => {
 
   it('recomputes potentialAbility for low-tier candidates correctly (well below 50)', async () => {
     candidateRepo.findOneByOrFail.mockResolvedValue(
-      buildCandidate({ playerData: { ...buildCandidate().playerData, potentialSkills: lowPotential } }),
+      buildCandidate({
+        playerData: {
+          ...buildCandidate().playerData,
+          potentialSkills: lowPotential,
+        },
+      }),
     );
 
     await service.selectCandidate('candidate-1', 'team-A');
@@ -150,7 +166,12 @@ describe('ScoutsService.selectCandidate — persistence invariants', () => {
 
   it('recomputes potentialAbility for high-tier candidates correctly (well above 50)', async () => {
     candidateRepo.findOneByOrFail.mockResolvedValue(
-      buildCandidate({ playerData: { ...buildCandidate().playerData, potentialSkills: highPotential } }),
+      buildCandidate({
+        playerData: {
+          ...buildCandidate().playerData,
+          potentialSkills: highPotential,
+        },
+      }),
     );
 
     await service.selectCandidate('candidate-1', 'team-A');
@@ -181,9 +202,18 @@ describe('ScoutsService.selectCandidate — persistence invariants', () => {
       ...candidate.playerData,
       // Garbage in: 12 entries (only 10 are valid keys).
       revealedSkills: [
-        'pace', 'strength', 'finishing', 'passing', 'dribbling',
-        'defending', 'positioning', 'composure', 'freeKicks', 'penalties',
-        'nonsense1', 'nonsense2',
+        'pace',
+        'strength',
+        'finishing',
+        'passing',
+        'dribbling',
+        'defending',
+        'positioning',
+        'composure',
+        'freeKicks',
+        'penalties',
+        'nonsense1',
+        'nonsense2',
       ],
     };
     candidateRepo.findOneByOrFail.mockResolvedValue(candidate);

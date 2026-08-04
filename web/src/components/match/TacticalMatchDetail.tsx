@@ -26,7 +26,8 @@ interface TacticalMatchDetailProps {
     awayForfeit?: boolean;
   };
   events: MatchEvent[];
-  stats: MatchStatsRes;
+  /** May be null for matches that haven't started yet (no recorded stats). */
+  stats?: MatchStatsRes | null;
   currentMinute?: number;
 }
 

@@ -9,6 +9,7 @@
     "save": "保存",
     "cancel": "取消",
     "confirm": "确认",
+    "back": "返回",
     "home": "主",
     "away": "客",
     "vs": "vs",
@@ -548,7 +549,22 @@
       "kicker": "联赛",
       "round": "第 {round} / {total} 轮",
       "completed": "{completed} / {total} 已赛",
-      "viewing": "正在查看 {team}"
+      "viewing": "正在查看 {team}",
+      "more": "更多",
+      "menu": {
+        "history": "历史"
+      }
+    },
+    "history": {
+      "title": "联赛历史",
+      "subtitle": "历届赛季的最终积分榜。",
+      "season": "赛季",
+      "champion": "冠军",
+      "runnerUp": "亚军",
+      "topScorer": "最佳射手",
+      "filterSeason": "赛季",
+      "empty": "尚无已完成赛季。",
+      "emptySeason": "S{season} 暂无积分记录。"
     },
     "kpi": {
       "leader": "榜首",

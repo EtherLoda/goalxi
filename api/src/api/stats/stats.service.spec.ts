@@ -141,16 +141,39 @@ describe('StatsService', () => {
       );
     });
 
-    it('should throw NotFoundException if match not completed', async () => {
+    it('should return zeroed stats for a scheduled (not yet started) match', async () => {
       jest.spyOn(matchRepository, 'findOne').mockResolvedValue({
         ...mockMatch,
         status: MatchStatus.SCHEDULED,
       } as any);
       jest.spyOn(eventRepository, 'find').mockResolvedValue([] as any);
 
-      await expect(service.getMatchStats('match-1')).rejects.toThrow(
-        NotFoundException,
-      );
+      const result = await service.getMatchStats('match-1');
+
+      expect(result.matchId).toBe('match-1');
+      expect(result.homeTeamStats).toBeDefined();
+      expect(result.awayTeamStats).toBeDefined();
+      expect(result.homeComputed).toEqual({
+        xG: 0,
+        goals: 0,
+        saves: 0,
+        tackles: 0,
+        interceptions: 0,
+        clearances: 0,
+        passAccuracy: 0,
+      });
+      expect(result.awayComputed).toEqual({
+        xG: 0,
+        goals: 0,
+        saves: 0,
+        tackles: 0,
+        interceptions: 0,
+        clearances: 0,
+        passAccuracy: 0,
+      });
+      // Make sure we didn't touch the DB for stats/events on a not-yet-started match
+      expect(matchStatsRepository.find).not.toHaveBeenCalled();
+      expect(eventRepository.find).not.toHaveBeenCalled();
     });
   });
 

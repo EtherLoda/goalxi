@@ -9,6 +9,7 @@
     "save": "Save",
     "cancel": "Cancel",
     "confirm": "Confirm",
+    "back": "Back",
     "home": "Home",
     "away": "Away",
     "vs": "vs",
@@ -552,7 +553,22 @@
       "kicker": "League",
       "round": "Round {round} of {total}",
       "completed": "{completed} / {total} played",
-      "viewing": "Viewing {team}"
+      "viewing": "Viewing {team}",
+      "more": "More",
+      "menu": {
+        "history": "History"
+      }
+    },
+    "history": {
+      "title": "League History",
+      "subtitle": "Final standings from past seasons.",
+      "season": "Season",
+      "champion": "Champion",
+      "runnerUp": "Runner-up",
+      "topScorer": "Top Scorer",
+      "filterSeason": "Season",
+      "empty": "No completed seasons yet.",
+      "emptySeason": "No standings recorded for season {season}."
     },
     "kpi": {
       "leader": "Leader",

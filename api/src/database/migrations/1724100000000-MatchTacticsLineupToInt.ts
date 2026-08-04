@@ -26,41 +26,41 @@ import { MigrationInterface, QueryRunner } from 'typeorm';
  * Idempotent: safe to re-run.
  */
 export class MatchTacticsLineupToInt1724100000000 implements MigrationInterface {
-    name = 'MatchTacticsLineupToInt1724100000000';
+  name = 'MatchTacticsLineupToInt1724100000000';
 
-    public async up(queryRunner: QueryRunner): Promise<void> {
-        // Add v2 columns. nullable so we don't need a backfill.
-        await queryRunner.query(`
+  public async up(queryRunner: QueryRunner): Promise<void> {
+    // Add v2 columns. nullable so we don't need a backfill.
+    await queryRunner.query(`
             ALTER TABLE "match_tactics"
             ADD COLUMN IF NOT EXISTS "lineup_v2" jsonb
         `);
-        await queryRunner.query(`
+    await queryRunner.query(`
             ALTER TABLE "match_tactics"
             ADD COLUMN IF NOT EXISTS "substitutions_v2" jsonb
         `);
 
-        // Wipe legacy uuid-keyed data. We can't translate it; users will
-        // re-submit their tactics and populate lineup_v2.
-        await queryRunner.query(`
+    // Wipe legacy uuid-keyed data. We can't translate it; users will
+    // re-submit their tactics and populate lineup_v2.
+    await queryRunner.query(`
             UPDATE "match_tactics"
             SET "lineup" = '{}'::jsonb
             WHERE "lineup" IS NOT NULL
               AND "lineup" <> '{}'::jsonb
         `);
-        await queryRunner.query(`
+    await queryRunner.query(`
             UPDATE "match_tactics"
             SET "substitutions" = NULL
             WHERE "substitutions" IS NOT NULL
         `);
-    }
+  }
 
-    public async down(queryRunner: QueryRunner): Promise<void> {
-        // Cannot restore the original uuid-keyed data; this is one-way.
-        await queryRunner.query(
-            `ALTER TABLE "match_tactics" DROP COLUMN IF EXISTS "lineup_v2"`,
-        );
-        await queryRunner.query(
-            `ALTER TABLE "match_tactics" DROP COLUMN IF EXISTS "substitutions_v2"`,
-        );
-    }
+  public async down(queryRunner: QueryRunner): Promise<void> {
+    // Cannot restore the original uuid-keyed data; this is one-way.
+    await queryRunner.query(
+      `ALTER TABLE "match_tactics" DROP COLUMN IF EXISTS "lineup_v2"`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE "match_tactics" DROP COLUMN IF EXISTS "substitutions_v2"`,
+    );
+  }
 }

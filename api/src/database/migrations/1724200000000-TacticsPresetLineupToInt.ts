@@ -29,44 +29,42 @@ import { MigrationInterface, QueryRunner } from 'typeorm';
  *
  * Idempotent: safe to re-run.
  */
-export class TacticsPresetLineupToInt1724200000000
-    implements MigrationInterface
-{
-    name = 'TacticsPresetLineupToInt1724200000000';
+export class TacticsPresetLineupToInt1724200000000 implements MigrationInterface {
+  name = 'TacticsPresetLineupToInt1724200000000';
 
-    public async up(queryRunner: QueryRunner): Promise<void> {
-        // Add v2 columns. nullable so we don't need a backfill.
-        await queryRunner.query(`
+  public async up(queryRunner: QueryRunner): Promise<void> {
+    // Add v2 columns. nullable so we don't need a backfill.
+    await queryRunner.query(`
             ALTER TABLE "tactics_preset"
             ADD COLUMN IF NOT EXISTS "lineup_v2" jsonb
         `);
-        await queryRunner.query(`
+    await queryRunner.query(`
             ALTER TABLE "tactics_preset"
             ADD COLUMN IF NOT EXISTS "substitutions_v2" jsonb
         `);
 
-        // Wipe legacy uuid-keyed data. We can't translate it; users will
-        // re-save their presets to populate lineup_v2.
-        await queryRunner.query(`
+    // Wipe legacy uuid-keyed data. We can't translate it; users will
+    // re-save their presets to populate lineup_v2.
+    await queryRunner.query(`
             UPDATE "tactics_preset"
             SET "lineup" = '{}'::jsonb
             WHERE "lineup" IS NOT NULL
               AND "lineup" <> '{}'::jsonb
         `);
-        await queryRunner.query(`
+    await queryRunner.query(`
             UPDATE "tactics_preset"
             SET "substitutions" = NULL
             WHERE "substitutions" IS NOT NULL
         `);
-    }
+  }
 
-    public async down(queryRunner: QueryRunner): Promise<void> {
-        // Cannot restore the original uuid-keyed data; this is one-way.
-        await queryRunner.query(
-            `ALTER TABLE "tactics_preset" DROP COLUMN IF EXISTS "lineup_v2"`,
-        );
-        await queryRunner.query(
-            `ALTER TABLE "tactics_preset" DROP COLUMN IF EXISTS "substitutions_v2"`,
-        );
-    }
+  public async down(queryRunner: QueryRunner): Promise<void> {
+    // Cannot restore the original uuid-keyed data; this is one-way.
+    await queryRunner.query(
+      `ALTER TABLE "tactics_preset" DROP COLUMN IF EXISTS "lineup_v2"`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE "tactics_preset" DROP COLUMN IF EXISTS "substitutions_v2"`,
+    );
+  }
 }

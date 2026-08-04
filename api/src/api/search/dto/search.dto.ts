@@ -2,13 +2,7 @@ import {
   NumberFieldOptional,
   UUIDFieldOptional,
 } from '@/decorators/field.decorators';
-import {
-  IsOptional,
-  IsString,
-  Matches,
-  MaxLength,
-  MinLength,
-} from 'class-validator';
+import { IsOptional, IsString, MaxLength, MinLength } from 'class-validator';
 
 export class SearchTeamsReqDto {
   @IsString()

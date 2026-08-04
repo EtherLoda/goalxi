@@ -709,8 +709,28 @@ export const api = {
     getById: async (id: string): Promise<League> => {
       return request<League>(`/leagues/${id}`);
     },
-    getStandings: async (leagueId: string): Promise<Standing[]> => {
-      return request<Standing[]>(`/leagues/${leagueId}/standings`);
+    getStandings: async (
+      leagueId: string,
+      params?: { season?: number },
+    ): Promise<Standing[]> => {
+      const qs =
+        params?.season != null
+          ? `?${new URLSearchParams({ season: String(params.season) })}`
+          : '';
+      return request<Standing[]>(`/leagues/${leagueId}/standings${qs}`);
+    },
+    /**
+     * List of past (completed) seasons for which archived standings exist.
+     * Used by the league history page to populate the season filter.
+     *
+     * TODO(api): wire to `GET /leagues/:id/seasons` once the backend
+     * endpoint is available. Returning an empty array keeps the UI in
+     * the "no history yet" state until the endpoint ships.
+     */
+    getPastSeasons: async (_leagueId: string): Promise<{ season: number }[]> => {
+      // The parameter is reserved for the eventual endpoint URL.
+      void _leagueId;
+      return [];
     },
   },
 

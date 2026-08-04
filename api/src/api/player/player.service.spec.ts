@@ -3,7 +3,6 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { CreatePlayerReqDto } from './dto/create-player.req.dto';
 import { UpdatePlayerReqDto } from './dto/update-player.req.dto';
 import { PlayerService } from './player.service';
-import { ForbiddenException } from '@nestjs/common';
 
 describe('PlayerService', () => {
   let service: PlayerService;
@@ -272,7 +271,9 @@ describe('PlayerService', () => {
 
       const result = await service.findOne(String(VALID_NUMERIC_ID));
 
-      expect(PlayerEntity.findOneBy).toHaveBeenCalledWith({ id: VALID_NUMERIC_ID });
+      expect(PlayerEntity.findOneBy).toHaveBeenCalledWith({
+        id: VALID_NUMERIC_ID,
+      });
       expect(result.id).toBe(VALID_NUMERIC_ID);
     });
 
@@ -314,9 +315,7 @@ describe('PlayerService', () => {
     // Each test mocks both the static `findOneByOrFail` (used by
     // PlayerService.promote) and the prototype `save`.
     const setup = (player: PlayerEntity) => {
-      jest
-        .spyOn(PlayerEntity, 'findOneByOrFail')
-        .mockResolvedValue(player);
+      jest.spyOn(PlayerEntity, 'findOneByOrFail').mockResolvedValue(player);
       jest
         .spyOn(PlayerEntity.prototype, 'save')
         .mockImplementation(async function () {
@@ -423,9 +422,7 @@ describe('PlayerService', () => {
     const playerId = 11111;
 
     const setup = (player: PlayerEntity) => {
-      jest
-        .spyOn(PlayerEntity, 'findOneByOrFail')
-        .mockResolvedValue(player);
+      jest.spyOn(PlayerEntity, 'findOneByOrFail').mockResolvedValue(player);
       jest
         .spyOn(PlayerEntity.prototype, 'softRemove')
         .mockResolvedValue(player as any);
@@ -451,23 +448,19 @@ describe('PlayerService', () => {
       });
       setup(p);
 
-      await expect(
-        service.releaseYouth(playerId),
-      ).rejects.toThrow(/only youth players can be released/i);
+      await expect(service.releaseYouth(playerId)).rejects.toThrow(
+        /only youth players can be released/i,
+      );
       expect(PlayerEntity.prototype.softRemove).not.toHaveBeenCalled();
     });
 
     it('surfaces NotFoundException for an unknown id', async () => {
       // findOneByOrFail throws EntityNotFoundError; we forward it.
-      jest
-        .spyOn(PlayerEntity, 'findOneByOrFail')
-        .mockImplementation(() => {
-          throw new Error('not found');
-        });
+      jest.spyOn(PlayerEntity, 'findOneByOrFail').mockImplementation(() => {
+        throw new Error('not found');
+      });
 
-      await expect(
-        service.releaseYouth(playerId),
-      ).rejects.toThrow(/not found/);
+      await expect(service.releaseYouth(playerId)).rejects.toThrow(/not found/);
     });
   });
 });

@@ -142,7 +142,7 @@ function MatchPageContent() {
           awayForfeit: match.awayForfeit,
         }}
         events={restEvents}
-        stats={stats!}
+        stats={stats}
       />
     </div>
   );

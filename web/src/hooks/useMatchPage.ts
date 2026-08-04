@@ -170,22 +170,32 @@ export function useMatchPage({
 
     let cancelled = false;
     (async () => {
-      try {
-        const [matchRes, eventsRes, statsRes] = await Promise.all([
-          api.matches.getById(matchId),
-          api.matches.getEvents(matchId),
-          api.matches.getStats(matchId),
-        ]);
-        if (cancelled) return;
-        setMatch(matchRes);
-        setRestEvents(eventsRes.events);
-        setStats(statsRes);
-        setMode(matchRes.status === 'in_progress' ? 'live' : 'report');
-      } catch (err) {
-        if (!cancelled) setError('Failed to load match data');
-      } finally {
-        if (!cancelled) setIsLoading(false);
+      // Use allSettled so a failure in /events or /stats (e.g. stats 404 for
+      // a scheduled match that hasn't started yet) doesn't kill the whole
+      // page — the user can still see teams, schedule and other basic info.
+      const [matchResult, eventsResult, statsResult] = await Promise.allSettled([
+        api.matches.getById(matchId),
+        api.matches.getEvents(matchId),
+        api.matches.getStats(matchId),
+      ]);
+      if (cancelled) return;
+
+      if (matchResult.status === 'rejected') {
+        setError('Failed to load match data');
+        setIsLoading(false);
+        return;
       }
+
+      const matchRes = matchResult.value;
+      setMatch(matchRes);
+      if (eventsResult.status === 'fulfilled') {
+        setRestEvents(eventsResult.value.events);
+      }
+      if (statsResult.status === 'fulfilled') {
+        setStats(statsResult.value);
+      }
+      setMode(matchRes.status === 'in_progress' ? 'live' : 'report');
+      setIsLoading(false);
     })();
     return () => { cancelled = true; };
   }, [matchId, initialMatch]);

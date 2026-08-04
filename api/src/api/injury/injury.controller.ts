@@ -1,4 +1,11 @@
-import { Controller, Get, Param, ParseIntPipe, ParseUUIDPipe, Query } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Param,
+  ParseIntPipe,
+  ParseUUIDPipe,
+  Query,
+} from '@nestjs/common';
 import {
   InjuryHistoryResDto,
   InjuryService,

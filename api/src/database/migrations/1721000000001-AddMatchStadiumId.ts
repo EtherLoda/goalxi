@@ -23,9 +23,7 @@ export class AddMatchStadiumId1721000000001 implements MigrationInterface {
 
   public async up(queryRunner: QueryRunner): Promise<void> {
     // 1. Add the column (nullable for safe backfill).
-    await queryRunner.query(
-      `ALTER TABLE "match" ADD COLUMN "stadium_id" uuid`,
-    );
+    await queryRunner.query(`ALTER TABLE "match" ADD COLUMN "stadium_id" uuid`);
 
     // 2. Backfill: copy the home team's stadium id where it exists.
     await queryRunner.query(`

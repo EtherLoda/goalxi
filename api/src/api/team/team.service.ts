@@ -29,10 +29,13 @@ import { ListTeamReqDto } from './dto/list-team.req.dto';
 import { TeamResDto } from './dto/team.res.dto';
 import { UpdateTeamReqDto } from './dto/update-team.req.dto';
 
-import { PlayerEntity, YouthLeagueEntity, YouthTeamEntity } from '@goalxi/database';
+import {
+  PlayerEntity,
+  YouthLeagueEntity,
+  YouthTeamEntity,
+} from '@goalxi/database';
 import { PlayerService } from '../player/player.service';
 import { ScoutsService } from '../scouts/scouts.service';
-
 
 @Injectable()
 export class TeamService {

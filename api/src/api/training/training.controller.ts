@@ -6,7 +6,13 @@ import {
   TrainingUpdateEntity,
   Uuid,
 } from '@goalxi/database';
-import { Controller, Get, Param, ParseIntPipe, UseGuards } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Param,
+  ParseIntPipe,
+  UseGuards,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { CurrentUser } from '../../decorators/current-user.decorator';

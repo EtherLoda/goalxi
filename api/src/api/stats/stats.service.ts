@@ -43,13 +43,15 @@ export class StatsService {
       throw new NotFoundException(`Match with ID ${matchId} not found`);
     }
 
+    // For matches that haven't started yet (SCHEDULED / PENDING / etc.) there
+    // are no recorded events or per-team stats. Return a zeroed DTO so the
+    // match page can still render basic info (teams, schedule, score) instead
+    // of failing with a 404. We only treat "match not found" as a real error.
     if (
       match.status !== MatchStatus.COMPLETED &&
       match.status !== MatchStatus.IN_PROGRESS
     ) {
-      throw new NotFoundException(
-        `Stats not available for match with status: ${match.status}`,
-      );
+      return this.buildEmptyMatchStats(matchId);
     }
 
     const [stats, events] = await Promise.all([
@@ -126,6 +128,20 @@ export class StatsService {
       awayTeamStats: awayStatsData,
       homeComputed: computeStats(match.homeTeamId, homeStatsData),
       awayComputed: computeStats(match.awayTeamId, awayStatsData),
+    };
+  }
+
+  /**
+   * Builds a zeroed MatchStatsResDto for matches that haven't started yet.
+   * Lets the match page render basic info (teams, score 0–0) without a 404.
+   */
+  private buildEmptyMatchStats(matchId: string): MatchStatsResDto {
+    return {
+      matchId,
+      homeTeamStats: new MatchTeamStatsEntity(),
+      awayTeamStats: new MatchTeamStatsEntity(),
+      homeComputed: new ComputedTeamStats(),
+      awayComputed: new ComputedTeamStats(),
     };
   }
 

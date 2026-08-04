@@ -1,12 +1,18 @@
 import {
   currentGameDay,
+  PlayerEntity,
   ScoutCandidateEntity,
   TeamEntity,
   Uuid,
-  PlayerEntity,
-  getYouthSkillKeys,
 } from '@goalxi/database';
-import { Controller, ForbiddenException, Get, Param, Post, UseGuards } from '@nestjs/common';
+import {
+  Controller,
+  ForbiddenException,
+  Get,
+  Param,
+  Post,
+  UseGuards,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { CurrentUser } from '../../decorators/current-user.decorator';
@@ -137,8 +143,7 @@ function mapYouthToDto(y: PlayerEntity): YouthPlayerDto {
     // frontend keeps working without an extra DB column.
     potentialTier: derivePotentialTier(y.potentialAbility),
     potentialRevealed: y.potentialRevealed,
-    abilities:
-      (y.currentSkills as any)?.abilities ?? undefined,
+    abilities: (y.currentSkills as any)?.abilities ?? undefined,
     revealLevel: y.revealLevel,
     revealedSkills: y.revealedSkills,
     isPromoted: false,

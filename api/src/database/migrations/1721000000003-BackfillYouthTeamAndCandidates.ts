@@ -20,9 +20,7 @@ import { MigrationInterface, QueryRunner } from 'typeorm';
  * from the cron path. The stub is enough to make the inbox non-empty
  * and trigger any UI that depended on it.
  */
-export class BackfillYouthTeamAndCandidates1721000000003
-  implements MigrationInterface
-{
+export class BackfillYouthTeamAndCandidates1721000000003 implements MigrationInterface {
   name = 'BackfillYouthTeamAndCandidates1721000000003';
 
   public async up(queryRunner: QueryRunner): Promise<void> {
@@ -84,17 +82,29 @@ export class BackfillYouthTeamAndCandidates1721000000003
               isGoalkeeper: i === 0,
               currentSkills: {
                 physical: { pace: 10, strength: 10 },
-                technical: i === 0
-                  ? { reflexes: 10, handling: 10, aerial: 10 }
-                  : { finishing: 10, passing: 10, dribbling: 10, defending: 10 },
+                technical:
+                  i === 0
+                    ? { reflexes: 10, handling: 10, aerial: 10 }
+                    : {
+                        finishing: 10,
+                        passing: 10,
+                        dribbling: 10,
+                        defending: 10,
+                      },
                 mental: { positioning: 10, composure: 10 },
                 setPieces: { freeKicks: 10, penalties: 10 },
               },
               potentialSkills: {
                 physical: { pace: 15, strength: 15 },
-                technical: i === 0
-                  ? { reflexes: 15, handling: 15, aerial: 15 }
-                  : { finishing: 15, passing: 15, dribbling: 15, defending: 15 },
+                technical:
+                  i === 0
+                    ? { reflexes: 15, handling: 15, aerial: 15 }
+                    : {
+                        finishing: 15,
+                        passing: 15,
+                        dribbling: 15,
+                        defending: 15,
+                      },
                 mental: { positioning: 15, composure: 15 },
                 setPieces: { freeKicks: 15, penalties: 15 },
               },

@@ -24,7 +24,8 @@ interface LeftColumnProps {
   lastRoundResults: MatchResult[];
   nextRoundMatches: MatchResult[];
   userTeamId?: string;
-  userTeamColor?: string;
+  /** Locale for the tactics entry href. */
+  locale: string;
 }
 
 export default function LeftColumn({
@@ -33,7 +34,7 @@ export default function LeftColumn({
   lastRoundResults,
   nextRoundMatches,
   userTeamId,
-  userTeamColor,
+  locale,
 }: LeftColumnProps) {
   return (
     <div className="space-y-6">
@@ -42,7 +43,7 @@ export default function LeftColumn({
         lastRoundResults={lastRoundResults}
         nextRoundMatches={nextRoundMatches}
         userTeamId={userTeamId}
-        userTeamColor={userTeamColor}
+        locale={locale}
       />
       <RecentEvents news={news} />
     </div>

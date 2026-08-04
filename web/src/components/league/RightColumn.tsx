@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useTranslations } from "next-intl";
 import { clsx } from "clsx";
 import StandingsTable from "./StandingsTable";
+import { TacticsEntryButton } from "@/components/tactics/shared/TacticsEntryButton";
 import type { Standing, Match } from "@/lib/api";
 
 interface RightColumnProps {
@@ -52,7 +53,7 @@ export default function RightColumn({
     .sort((a, b) => a - b);
 
   return (
-    <div className="glass-panel rounded-2xl overflow-hidden flex flex-col h-[calc(100vh-160px)] border border-white/5">
+    <div className="glass-panel rounded-2xl overflow-hidden flex flex-col self-start border border-white/5">
       {/* Segmented tab control */}
       <div className="px-3 pt-3 shrink-0">
         <div className="glass-panel rounded-full p-1 inline-flex items-center gap-1 w-full">
@@ -81,8 +82,9 @@ export default function RightColumn({
         </div>
       </div>
 
-      {/* Tab Content */}
-      <div className="flex-1 overflow-hidden p-3 pt-2">
+      {/* Tab Content — natural height so the Standings tab is exactly 16 rows tall
+          with no leftover empty space when the league has 16 teams. */}
+      <div className="p-3 pt-2">
         {activeTab === "standings" && (
           <StandingsTable
             standings={standings}
@@ -99,6 +101,7 @@ export default function RightColumn({
             sortedRounds={sortedRounds}
             groupedMatches={groupedMatches}
             userTeamId={userTeamId}
+            locale={locale}
           />
         )}
       </div>
@@ -131,11 +134,13 @@ function FixturesTab({
   sortedRounds,
   groupedMatches,
   userTeamId,
+  locale,
 }: {
   t: ReturnType<typeof useTranslations>;
   sortedRounds: number[];
   groupedMatches: Record<number, Match[]>;
   userTeamId?: string;
+  locale: string;
 }) {
   const tCommon = useTranslations('common');
 
@@ -200,6 +205,16 @@ function FixturesTab({
                   const awayName = match.awayTeam?.name || tCommon('tbd');
                   const isUserHome = userTeamId && match.homeTeam?.id === userTeamId;
                   const isUserAway = userTeamId && match.awayTeam?.id === userTeamId;
+                  const isUserMatch = Boolean(isUserHome || isUserAway);
+                  const tacticsButton = isUpcoming && isUserMatch ? (
+                    <TacticsEntryButton
+                      matchId={match.id}
+                      matchStatus={match.status}
+                      scheduledAt={match.scheduledAt}
+                      variant="icon"
+                      locale={locale}
+                    />
+                  ) : null;
 
                   return (
                     <div
@@ -215,10 +230,8 @@ function FixturesTab({
                         >
                           {homeName}
                         </span>
-                        {isUpcoming && isUserHome && (
-                          <span className="material-symbols-outlined text-sm text-primary">
-                            sports
-                          </span>
+                        {tacticsButton && isUserHome && (
+                          <div className="shrink-0">{tacticsButton}</div>
                         )}
                       </div>
                       <div
@@ -234,10 +247,8 @@ function FixturesTab({
                           : tCommon('vs')}
                       </div>
                       <div className="flex items-center gap-2 flex-1 min-w-0 justify-end">
-                        {isUpcoming && isUserAway && (
-                          <span className="material-symbols-outlined text-sm text-primary">
-                            sports
-                          </span>
+                        {tacticsButton && isUserAway && (
+                          <div className="shrink-0">{tacticsButton}</div>
                         )}
                         <span
                           className={clsx(

@@ -1,7 +1,7 @@
 import {
   StaffEntity,
-  YouthTeamEntity,
   YouthLeagueEntity,
+  YouthTeamEntity,
 } from '@goalxi/database';
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
@@ -15,11 +15,7 @@ import { TeamService } from './team.service';
   imports: [
     PlayerModule,
     ScoutsModule,
-    TypeOrmModule.forFeature([
-      StaffEntity,
-      YouthTeamEntity,
-      YouthLeagueEntity,
-    ]),
+    TypeOrmModule.forFeature([StaffEntity, YouthTeamEntity, YouthLeagueEntity]),
   ],
   controllers: [TeamController],
   providers: [TeamService],

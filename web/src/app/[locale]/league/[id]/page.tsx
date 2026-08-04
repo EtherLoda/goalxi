@@ -199,6 +199,8 @@ function LeaguePageContent() {
             ? standings.find((s) => s.teamId === userTeam.id)!.teamName
             : undefined
         }
+        locale={locale}
+        leagueId={leagueId}
       />
 
       {/* KPI strip */}
@@ -217,7 +219,7 @@ function LeaguePageContent() {
             lastRoundResults={lastRoundResults}
             nextRoundMatches={nextRoundMatches}
             userTeamId={userTeam?.id}
-            userTeamColor={userTeamColor}
+            locale={locale}
           />
         </div>
         <div className="lg:col-span-7">

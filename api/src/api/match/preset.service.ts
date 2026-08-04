@@ -217,11 +217,11 @@ export class PresetService {
     const substitutions =
       preset.substitutionsV2 && preset.substitutionsV2.length > 0
         ? preset.substitutionsV2
-        : (preset.substitutions as Array<{
+        : ((preset.substitutions as Array<{
             minute: number;
             out: number;
             in: number;
-          }> | null) ?? null;
+          }> | null) ?? null);
 
     return {
       id: preset.id,

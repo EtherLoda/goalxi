@@ -646,11 +646,11 @@ export class MatchService {
     const substitutions =
       tactics.substitutionsV2 && tactics.substitutionsV2.length > 0
         ? tactics.substitutionsV2
-        : (tactics.substitutions as Array<{
+        : ((tactics.substitutions as Array<{
             minute: number;
             out: number;
             in: number;
-          }> | null) ?? null;
+          }> | null) ?? null);
 
     return {
       id: tactics.id,

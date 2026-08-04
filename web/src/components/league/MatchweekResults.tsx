@@ -2,6 +2,7 @@
 
 import { useTranslations } from "next-intl";
 import { clsx } from "clsx";
+import { TacticsEntryButton } from "@/components/tactics/shared/TacticsEntryButton";
 
 interface MatchResult {
   id: string;
@@ -22,7 +23,8 @@ interface MatchweekResultsProps {
   lastRoundResults: MatchResult[];
   nextRoundMatches: MatchResult[];
   userTeamId?: string;
-  userTeamColor?: string;
+  /** Locale for the tactics entry href. */
+  locale: string;
 }
 
 function MatchRow({
@@ -31,18 +33,24 @@ function MatchRow({
   showIcon = false,
   isUserHome = false,
   isUserAway = false,
-  userTeamColor = "#00e479",
+  tacticsLocale,
 }: {
   match: MatchResult;
   showScore: boolean;
   showIcon?: boolean;
   isUserHome?: boolean;
   isUserAway?: boolean;
-  userTeamColor?: string;
+  tacticsLocale?: string;
 }) {
   const homeWin = showScore && match.homeScore > match.awayScore;
   const awayWin = showScore && match.awayScore > match.homeScore;
   const draw = showScore && match.homeScore === match.awayScore;
+  const isUserInMatch = isUserHome || isUserAway;
+  const isUpcoming =
+    match.status === "scheduled" || match.status === "tactics_locked";
+  const showTacticsButton = Boolean(
+    showIcon && isUserInMatch && isUpcoming && tacticsLocale && match.scheduledAt,
+  );
 
   return (
     <div className="flex items-center justify-between py-2 px-2.5 rounded-xl hover:bg-white/5 transition-colors group">
@@ -66,13 +74,16 @@ function MatchRow({
         >
           {match.homeTeamShort}
         </span>
-        {showIcon && isUserHome && (
-          <span
-            className="material-symbols-outlined text-sm shrink-0"
-            style={{ color: userTeamColor }}
-          >
-            sports
-          </span>
+        {showTacticsButton && isUserHome && (
+          <div className="shrink-0">
+            <TacticsEntryButton
+              matchId={match.id}
+              matchStatus={match.status!}
+              scheduledAt={match.scheduledAt!}
+              variant="icon"
+              locale={tacticsLocale!}
+            />
+          </div>
         )}
       </div>
 
@@ -94,13 +105,16 @@ function MatchRow({
 
       {/* Away */}
       <div className="flex items-center gap-2 flex-1 min-w-0 justify-end">
-        {showIcon && isUserAway && (
-          <span
-            className="material-symbols-outlined text-sm shrink-0"
-            style={{ color: userTeamColor }}
-          >
-            sports
-          </span>
+        {showTacticsButton && isUserAway && (
+          <div className="shrink-0">
+            <TacticsEntryButton
+              matchId={match.id}
+              matchStatus={match.status!}
+              scheduledAt={match.scheduledAt!}
+              variant="icon"
+              locale={tacticsLocale!}
+            />
+          </div>
         )}
         <span
           className={clsx(
@@ -173,7 +187,7 @@ export default function MatchweekResults({
   lastRoundResults,
   nextRoundMatches,
   userTeamId,
-  userTeamColor = "#00e479",
+  locale,
 }: MatchweekResultsProps) {
   const t = useTranslations();
 
@@ -194,7 +208,7 @@ export default function MatchweekResults({
               showScore={true}
               isUserHome={userTeamId === match.homeTeamId}
               isUserAway={userTeamId === match.awayTeamId}
-              userTeamColor={userTeamColor}
+              tacticsLocale={locale}
             />
           ))
         ) : (
@@ -223,7 +237,7 @@ export default function MatchweekResults({
                 showIcon={true}
                 isUserHome={isUserHome}
                 isUserAway={isUserAway}
-                userTeamColor={userTeamColor}
+                tacticsLocale={locale}
               />
             );
           })

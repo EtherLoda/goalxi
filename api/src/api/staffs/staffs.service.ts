@@ -360,7 +360,7 @@ export class StaffsService {
     // from their role.
     const trainingCategory =
       coach.role === StaffRole.YOUTH_COACH
-        ? coach.trainedSkill ?? null
+        ? (coach.trainedSkill ?? null)
         : getTrainingCategoryForRole(coach.role);
 
     if (!trainingCategory) {

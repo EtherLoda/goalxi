@@ -8,9 +8,7 @@ import { MigrationInterface, QueryRunner } from 'typeorm';
  * pre-existing `youth_league` rows; the new
  * `YouthStructureGenerator` backfills the column right after it runs.
  */
-export class AddYouthLeagueSeniorLink1723200000000
-  implements MigrationInterface
-{
+export class AddYouthLeagueSeniorLink1723200000000 implements MigrationInterface {
   name = 'AddYouthLeagueSeniorLink1723200000000';
 
   public async up(queryRunner: QueryRunner): Promise<void> {

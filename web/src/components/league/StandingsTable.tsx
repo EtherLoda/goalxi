@@ -48,7 +48,7 @@ export default function StandingsTable({
   };
 
   return (
-    <div className="glass-panel rounded-2xl overflow-hidden flex flex-col h-full">
+    <div className="glass-panel rounded-2xl overflow-hidden flex flex-col">
       {/* Header */}
       <div className="px-5 pt-5 pb-4">
         <div className="flex items-center justify-between gap-4 flex-wrap">
@@ -66,8 +66,8 @@ export default function StandingsTable({
         </div>
       </div>
 
-      {/* Table */}
-      <div className="flex-1 overflow-y-auto custom-scrollbar">
+      {/* Table — natural height, no extra space below the last row. */}
+      <div className="overflow-y-auto custom-scrollbar">
         <table className="w-full text-left">
           <thead className="sticky top-0 z-10">
             <tr className="text-[9px] font-label font-black uppercase tracking-[0.2em] text-on-surface-variant/70 border-b border-white/5 bg-surface-container/80 backdrop-blur-md">
@@ -188,21 +188,6 @@ export default function StandingsTable({
             })}
           </tbody>
         </table>
-      </div>
-
-      {/* Footer */}
-      <div className="px-5 py-3 border-t border-white/5 flex justify-between items-center">
-        <span className="font-label text-[9px] font-black uppercase tracking-[0.2em] text-on-surface-variant/70">
-          {t('league.standings.lastUpdated')}
-        </span>
-        <div className="flex gap-2">
-          <button className="px-3 h-8 bg-surface-container-lowest text-[10px] font-headline font-black uppercase tracking-widest rounded-full hover:bg-surface-container-low transition-colors border border-white/5 text-on-surface-variant">
-            {t('league.standings.expand')}
-          </button>
-          <button className="px-4 h-8 bg-primary text-on-primary text-[10px] font-headline font-black uppercase tracking-widest rounded-full hover:bg-primary-fixed transition-colors shadow-[0_0_14px_rgba(0,228,121,0.35)]">
-            {t('league.standings.export')}
-          </button>
-        </div>
       </div>
     </div>
   );

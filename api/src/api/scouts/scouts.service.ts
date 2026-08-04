@@ -180,7 +180,16 @@ export class ScoutsService {
       matchMinutes: 0,
       currentWage: 2000,
       potentialAbility,
-      careerStats: { club: { matches: 0, goals: 0, assists: 0, tackles: 0, yellowCards: 0, redCards: 0 } },
+      careerStats: {
+        club: {
+          matches: 0,
+          goals: 0,
+          assists: 0,
+          tackles: 0,
+          yellowCards: 0,
+          redCards: 0,
+        },
+      },
       currentInjuryValue: 0,
       revealLevel,
       revealedSkills: revealed,

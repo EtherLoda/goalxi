@@ -1,5 +1,4 @@
 import { DefensiveLine, PitchWidth, Tempo } from '../types/tactical-dimensions';
-import { SubstitutionDto } from './substitution.dto';
 
 export class TacticsResDto {
   id!: string;

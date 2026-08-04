@@ -25,7 +25,6 @@ import { TrainingModule } from './training/training.module';
 import { TransferModule } from './transfer/transfer.module';
 import { UserModule } from './user/user.module';
 
-
 @Module({
   imports: [
     UserModule,

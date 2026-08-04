@@ -20,9 +20,7 @@ const GAME_EPOCH_ISO = '1970-01-01T00:00:00Z';
 const GAME_DAYS_PER_YEAR = 112;
 const REAL_DAYS_PER_YEAR = 365.25;
 
-export class ReplaceBirthdayWithCreatedDay1721000000000
-  implements MigrationInterface
-{
+export class ReplaceBirthdayWithCreatedDay1721000000000 implements MigrationInterface {
   name = 'ReplaceBirthdayWithCreatedDay1721000000000';
 
   public async up(queryRunner: QueryRunner): Promise<void> {
@@ -77,9 +75,7 @@ export class ReplaceBirthdayWithCreatedDay1721000000000
 
   public async down(queryRunner: QueryRunner): Promise<void> {
     // Reverse: re-add birthday (date) and backfill from created_day.
-    await queryRunner.query(
-      `ALTER TABLE "player" ADD COLUMN "birthday" date`,
-    );
+    await queryRunner.query(`ALTER TABLE "player" ADD COLUMN "birthday" date`);
     await queryRunner.query(
       `ALTER TABLE "youth_player" ADD COLUMN "birthday" date`,
     );
