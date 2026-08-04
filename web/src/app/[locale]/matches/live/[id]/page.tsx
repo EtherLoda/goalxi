@@ -1,12 +1,13 @@
 'use client';
 
-import { Suspense } from 'react';
-import { useParams } from 'next/navigation';
+import { Suspense, useEffect } from 'react';
+import { useParams, useRouter } from 'next/navigation';
 import { useMatchPage } from '@/hooks/useMatchPage';
 import { MatchLiveView } from '@/components/match/MatchLiveView';
 
 function LiveMatchContent() {
   const params = useParams();
+  const router = useRouter();
   const locale = (params.locale as string) || 'en';
   const matchId = params.id as string;
 
@@ -19,6 +20,7 @@ function LiveMatchContent() {
     homeRoster,
     awayRoster,
     match,
+    isLoading,
     error,
   } = useMatchPage({
     matchId,
@@ -26,7 +28,23 @@ function LiveMatchContent() {
     autoConnect: true,
   });
 
+  // If the user lands on /matches/live/[id] for a match that isn't in
+  // progress (scheduled / completed / cancelled), bounce them to the
+  // report page which has a pre-match card for upcoming fixtures.
+  useEffect(() => {
+    if (isLoading || !match) return;
+    if (match.status !== 'in_progress') {
+      router.replace(`/${locale}/matches/${matchId}`);
+    }
+  }, [isLoading, match, matchId, locale, router]);
+
   const isReconnecting = connectionStatus === 'connecting' && matchState !== null;
+
+  if (!isLoading && match && match.status !== 'in_progress') {
+    // Brief blank state while the redirect runs; MatchLiveView below would
+    // otherwise briefly show a pitch with no data.
+    return <div className="p-6 md:p-8 max-w-[1600px] mx-auto w-full" />;
+  }
 
   return (
     <div className="p-6 md:p-8 max-w-[1600px] mx-auto w-full">

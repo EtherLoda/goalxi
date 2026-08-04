@@ -321,7 +321,14 @@
       "connectionLost": "Connection lost",
       "backToMatches": "Back to Matches",
       "matchInfo": "Match Info",
-      "keyEvents": "Key Events"
+      "keyEvents": "Key Events",
+      "notStartedTitle": "Match not started",
+      "notStartedBody": "Lineups, live stats and the event timeline will appear here once the match kicks off.",
+      "scheduledFor": "Kickoff",
+      "cancelled": "Cancelled",
+      "venueTbd": "Venue TBD",
+      "weatherForecastLabel": "Forecast",
+      "weatherForecastTbd": "Decided at kickoff"
     },
     "zone": {
       "title": "Zone Control",

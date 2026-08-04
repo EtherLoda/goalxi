@@ -24,6 +24,7 @@ import { TeamModule } from './team/team.module';
 import { TrainingModule } from './training/training.module';
 import { TransferModule } from './transfer/transfer.module';
 import { UserModule } from './user/user.module';
+import { WeatherModule } from './weather/weather.module';
 
 @Module({
   imports: [
@@ -51,6 +52,7 @@ import { UserModule } from './user/user.module';
     AnnouncementModule,
     ForumModule,
     ClubAuditModule,
+    WeatherModule,
   ],
 })
 export class ApiModule {}

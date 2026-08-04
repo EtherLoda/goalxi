@@ -317,7 +317,14 @@
       "connectionLost": "连接已断开",
       "backToMatches": "返回比赛列表",
       "matchInfo": "比赛信息",
-      "keyEvents": "关键事件"
+      "keyEvents": "关键事件",
+      "notStartedTitle": "比赛未开始",
+      "notStartedBody": "开球后，这里会显示阵容、实时数据和事件时间线。",
+      "scheduledFor": "开球时间",
+      "cancelled": "已取消",
+      "venueTbd": "球场待定",
+      "weatherForecastLabel": "预测天气",
+      "weatherForecastTbd": "开球时揭晓"
     },
     "zone": {
       "title": "区域控制",

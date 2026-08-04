@@ -140,6 +140,9 @@ function MatchPageContent() {
           scheduledAt: match.scheduledAt,
           homeForfeit: match.homeForfeit,
           awayForfeit: match.awayForfeit,
+          venue: match.venue,
+          weather: match.weather ?? null,
+          attendance: match.attendance ?? null,
         }}
         events={restEvents}
         stats={stats}

@@ -1,0 +1,133 @@
+import { Injectable, NotFoundException } from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
+import {
+  WeatherEntity,
+  WeatherType,
+  WeatherForecast,
+} from '@goalxi/database';
+import { WeatherForecastResDto } from './dto/weather-forecast.res.dto';
+
+/**
+ * Base probability weights (no Markov chain) — used as a fallback when the
+ * caller wants a forecast for a date with no historical weather data.
+ */
+const BASE_WEATHER_WEIGHTS: Record<WeatherType, number> = {
+  [WeatherType.SUNNY]: 25,
+  [WeatherType.CLOUDY]: 30,
+  [WeatherType.RAINY]: 20,
+  [WeatherType.HEAVY_RAIN]: 5,
+  [WeatherType.WINDY]: 10,
+  [WeatherType.FOGGY]: 7,
+  [WeatherType.SNOWY]: 3,
+};
+
+const DEFAULT_LOCATION = 'default';
+
+@Injectable()
+export class WeatherService {
+  constructor(
+    @InjectRepository(WeatherEntity)
+    private readonly weatherRepository: Repository<WeatherEntity>,
+  ) {}
+
+  /**
+   * Returns the weather forecast for the **day after** the requested date
+   * (matching the settlement service's contract: a row dated X holds the
+   * *actual* weather for X and the *forecast* for X+1).
+   *
+   * Falls back to a freshly generated forecast if no row exists yet.
+   */
+  async getForecast(
+    date: string,
+    locationId: string = DEFAULT_LOCATION,
+  ): Promise<WeatherForecastResDto> {
+    if (!this.isValidDate(date)) {
+      throw new NotFoundException(`Invalid date: ${date}`);
+    }
+
+    const row = await this.weatherRepository.findOne({
+      where: { date, locationId },
+    });
+
+    if (row?.forecasts && row.forecasts.length > 0) {
+      return {
+        date: this.addDays(date, 1),
+        locationId,
+        forecasts: row.forecasts,
+        source: 'persisted',
+      };
+    }
+
+    return {
+      date: this.addDays(date, 1),
+      locationId,
+      forecasts: this.generateRandomForecasts(),
+      source: 'generated',
+    };
+  }
+
+  /**
+   * Generates a 2-3 option forecast without persistence. Exposed for unit
+   * tests and for callers that want a deterministic-ish preview.
+   */
+  generateRandomForecasts(): WeatherForecast[] {
+    const forecastCount = Math.random() < 0.5 ? 2 : 3;
+    const weatherTypes = Object.keys(BASE_WEATHER_WEIGHTS) as WeatherType[];
+
+    const weightedList: WeatherType[] = [];
+    for (const weather of weatherTypes) {
+      const weight = BASE_WEATHER_WEIGHTS[weather];
+      for (let i = 0; i < weight; i++) weightedList.push(weather);
+    }
+
+    const selectedWeathers = new Set<WeatherType>();
+    while (selectedWeathers.size < forecastCount) {
+      const idx = Math.floor(Math.random() * weightedList.length);
+      selectedWeathers.add(weightedList[idx]);
+    }
+
+    const selectedArray = Array.from(selectedWeathers);
+    const mainProbability = 40 + Math.floor(Math.random() * 31);
+    let remainingProbability = 100 - mainProbability;
+
+    const mainWeather =
+      selectedArray[Math.floor(Math.random() * selectedArray.length)];
+    const forecasts: WeatherForecast[] = [
+      { weather: mainWeather, probability: mainProbability },
+    ];
+    selectedWeathers.delete(mainWeather);
+
+    const remaining = Array.from(selectedWeathers);
+    for (let i = 0; i < remaining.length; i++) {
+      let prob: number;
+      if (i === remaining.length - 1) {
+        // Last item gets whatever's left, no clamp. Without this the sum
+        // can drift (e.g. 3-option case where the prior non-last item
+        // consumed all remaining probability — clamping to 5 would push
+        // the total above 100).
+        prob = remainingProbability;
+      } else {
+        const random = 10 + Math.floor(Math.random() * 31);
+        prob = Math.max(5, Math.min(random, remainingProbability));
+      }
+      remainingProbability -= prob;
+      forecasts.push({ weather: remaining[i], probability: prob });
+    }
+
+    forecasts.sort((a, b) => b.probability - a.probability);
+    return forecasts;
+  }
+
+  private isValidDate(s: string): boolean {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(s)) return false;
+    const d = new Date(s + 'T00:00:00Z');
+    return !Number.isNaN(d.getTime());
+  }
+
+  private addDays(date: string, days: number): string {
+    const d = new Date(date + 'T00:00:00Z');
+    d.setUTCDate(d.getUTCDate() + days);
+    return d.toISOString().slice(0, 10);
+  }
+}

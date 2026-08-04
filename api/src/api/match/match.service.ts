@@ -218,7 +218,7 @@ export class MatchService {
 
     const match = await this.matchRepository.findOne({
       where: { id },
-      relations: ['homeTeam', 'awayTeam', 'league'],
+      relations: ['homeTeam', 'awayTeam', 'league', 'stadium'],
     });
 
     if (!match) {
@@ -630,6 +630,12 @@ export class MatchService {
       firstHalfInjuryTime: match.firstHalfInjuryTime,
       secondHalfInjuryTime: match.secondHalfInjuryTime,
       hasExtraTime: match.hasExtraTime,
+      // Match-day context — prefer the entity fields so the frontend never
+      // has to dig through `weather_announcement` events. `venue` is only
+      // populated when the caller joined the `stadium` relation.
+      weather: match.weather ?? null,
+      attendance: match.attendance ?? null,
+      venue: match.stadium?.name ?? null,
     };
   }
 

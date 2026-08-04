@@ -330,6 +330,16 @@ interface Match {
    */
   homeForfeit?: boolean;
   awayForfeit?: boolean;
+  /**
+   * Match-day weather. Populated by the match scheduler at tactics-lock
+   * time (so it may exist even for `scheduled` matches that haven't
+   * simulated yet), and is the source of truth for the right-column
+   * info card on the match page.
+   */
+  weather?: WeatherType | null;
+  /** Match-day attendance (home crowd). Only meaningful for completed
+   *  matches; `null` for scheduled / in_progress fixtures. */
+  attendance?: number | null;
 }
 
 interface MatchEvent {
@@ -1041,6 +1051,24 @@ export const api = {
       return request<SearchLeagueResult[]>(`/search/leagues?${params.toString()}`);
     },
   },
+
+  weather: {
+    /**
+     * Public forecast endpoint. `date` is YYYY-MM-DD; if omitted, the
+     * server uses today. The response's `date` is the *forecast target*
+     * (queried date + 1 day) — the same contract the settlement worker
+     * uses to publish rows.
+     */
+    getForecast: async (date?: string, locationId?: string): Promise<WeatherForecastRes> => {
+      const params = new URLSearchParams();
+      if (date) params.append('date', date);
+      if (locationId) params.append('locationId', locationId);
+      const qs = params.toString();
+      return request<WeatherForecastRes>(
+        `/weather/forecast${qs ? `?${qs}` : ''}`,
+      );
+    },
+  },
 };
 
 interface TransferAuction {
@@ -1104,6 +1132,28 @@ interface Notification {
   data: Record<string, any>;
   createdAt: number;
   expiresAt?: number;
+}
+
+/** One option in a weather forecast (2-3 of these sum to 100). */
+export type WeatherType =
+  | 'sunny'
+  | 'cloudy'
+  | 'rainy'
+  | 'heavy_rain'
+  | 'windy'
+  | 'foggy'
+  | 'snowy';
+
+export interface WeatherForecastEntry {
+  weather: WeatherType;
+  probability: number;
+}
+
+export interface WeatherForecastRes {
+  date: string; // YYYY-MM-DD, the forecast target (queried date + 1)
+  locationId: string;
+  forecasts: WeatherForecastEntry[];
+  source: 'persisted' | 'generated';
 }
 
 interface NotificationListResponse {
