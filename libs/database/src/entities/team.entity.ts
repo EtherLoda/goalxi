@@ -114,6 +114,24 @@ export class TeamEntity extends AbstractEntity {
     @Column({ name: 'locked_cash', type: 'integer', default: 0 })
     lockedCash!: number;
 
+    /**
+     * Manual scout draws consumed in the current game-week. Resets
+     * when `scoutWeekIndex` no longer matches `currentWeekIndex()` —
+     * see `ScoutsService.generateOneCandidate`. The auto-cron on
+     * Saturday does not consume this counter; it's purely the manager's
+     * manual draws.
+     */
+    @Column({ name: 'scout_draws_this_week', type: 'int', default: 0 })
+    scoutDrawsThisWeek!: number;
+
+    /**
+     * Game-week index when the draw counter was last reset. Compared
+     * against `currentWeekIndex()` to detect a week rollover and clear
+     * the counter.
+     */
+    @Column({ name: 'scout_week_index', type: 'int', nullable: true })
+    scoutWeekIndex!: number | null;
+
     @DeleteDateColumn({ name: 'deleted_at', type: 'timestamptz', nullable: true })
     deletedAt: Date | null;
 

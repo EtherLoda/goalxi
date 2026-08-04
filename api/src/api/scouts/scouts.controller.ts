@@ -1,5 +1,6 @@
 ﻿import {
   currentGameDay,
+  currentWeekIndex,
   PlayerEntity,
   ScoutCandidateEntity,
   TeamEntity,
@@ -9,6 +10,8 @@ import {
   Controller,
   ForbiddenException,
   Get,
+  HttpException,
+  HttpStatus,
   Param,
   Post,
   UseGuards,
@@ -17,7 +20,6 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { CurrentUser } from '../../decorators/current-user.decorator';
 import { AuthGuard } from '../../guards/auth.guard';
-import { NarrativeSection, buildNarrative } from './scouts.narrative';
 import { ScoutsService } from './scouts.service';
 
 @Controller({ path: 'scouts', version: '1' })
@@ -37,7 +39,7 @@ export class ScoutsController {
     const team = await this.teamRepo.findOneBy({ userId });
     if (!team) return [];
     const candidates = await this.scoutsService.getCandidates(team.id);
-    return candidates.map(mapCandidateToDto);
+    return candidates.map((c) => mapCandidateToDto(c, team));
   }
 
   /**
@@ -59,8 +61,31 @@ export class ScoutsController {
     if (!team) {
       throw new ForbiddenException('You do not own a team');
     }
-    const created = await this.scoutsService.generateThreeCandidates(team.id);
-    return created.map(mapCandidateToDto);
+    let created: ScoutCandidateEntity;
+    try {
+      created = await this.scoutsService.generateOneCandidate(team.id);
+    } catch (err) {
+      // The service throws a plain Error when the weekly cap is
+      // reached. Surface it as a structured 429 so the UI can show
+      // a useful message instead of a generic toast.
+      if (err instanceof Error && err.message.includes('Weekly scout draw cap')) {
+        throw new HttpException(
+          {
+            statusCode: HttpStatus.TOO_MANY_REQUESTS,
+            error: 'Weekly cap reached',
+            message: err.message,
+            weeklyDrawsRemaining: 0,
+            weeklyCap: ScoutsService.WEEKLY_DRAW_CAP,
+          },
+          HttpStatus.TOO_MANY_REQUESTS,
+        );
+      }
+      throw err;
+    }
+    // Re-load team so the post-increment counter is reflected in the
+    // response (the service may have mutated the in-memory copy).
+    const updated = await this.teamRepo.findOneByOrFail({ id: team.id });
+    return [created].map((c) => mapCandidateToDto(c, updated));
   }
 
   /** Select a candidate → add to youth academy */
@@ -97,17 +122,40 @@ export interface ScoutCandidateDto {
   id: string;
   name: string;
   age: number;
+  /**
+   * Day-of-year (0..111) within the candidate's current age. Together
+   * with `age` this drives the "17y 12d" style display used on the
+   * senior player page — same shape, same format.
+   */
+  ageDays: number;
   nationality: string;
   isGoalkeeper: boolean;
   potentialTier?: string;
   potentialRevealed: boolean;
   revealedSkills: RevealedSkillDto[];
   /**
-   * Structured 5-6 line narrative that the web frontend renders into
-   * localized text. Replaces the old `tendencyHint` field — same
-   * tendency, but now one of N sections with the rest of the report.
+   * Full skill vectors in the same nested PlayerSkills shape used by
+   * the senior player page. Surfaced so the scout card can render
+   * every skill as a labelled bar (mirrors the player-page skill
+   * matrix) instead of just the few `revealedSkills` rows.
    */
-  narrativeSections: NarrativeSection[];
+  currentSkills: unknown;
+  potentialSkills: unknown;
+  /**
+   * Specialty codes assigned by the generator (e.g. `FSTRT`, `DRBLE`).
+   * Surfaced so the scout card can show the "特技" chip row, matching
+   * the player page's Specialties display.
+   */
+  abilities?: string[];
+  /**
+   * Manual draws remaining in the current game-week for the team.
+   * The cap is `WEEKLY_DRAW_CAP` (3); the counter resets on the first
+   * draw after a week boundary. Surfaced on every response so the
+   * UI can disable the DRAW button without a separate status call.
+   */
+  weeklyDrawsRemaining: number;
+  /** Maximum manual draws per team per game-week. */
+  weeklyCap: number;
 }
 
 export interface RevealedSkillDto {
@@ -132,7 +180,10 @@ export interface YouthPlayerDto {
   joinedAt: string;
 }
 
-function mapCandidateToDto(c: ScoutCandidateEntity): ScoutCandidateDto {
+function mapCandidateToDto(
+  c: ScoutCandidateEntity,
+  team: TeamEntity,
+): ScoutCandidateDto {
   const { playerData } = c;
 
   const revealed = playerData.revealedSkills.map((key) => ({
@@ -141,18 +192,35 @@ function mapCandidateToDto(c: ScoutCandidateEntity): ScoutCandidateDto {
     potential: extractSkill(playerData.potentialSkills, key),
   }));
 
-  const narrativeSections = buildNarrative(playerData);
+  const { age, ageDays } = calcExactAge(playerData.createdDay);
+
+  // If the team's stored week is stale, treat the counter as 0
+  // without mutating the row — the service does the actual reset on
+  // the next draw. This keeps the DTO honest about what the user
+  // can still spend.
+  const nowWeek = currentWeekIndex();
+  const drawsThisWeek =
+    team.scoutWeekIndex === nowWeek ? team.scoutDrawsThisWeek : 0;
+  const weeklyDrawsRemaining = Math.max(
+    0,
+    ScoutsService.WEEKLY_DRAW_CAP - drawsThisWeek,
+  );
 
   return {
     id: c.id,
     name: playerData.name,
-    age: calcAge(playerData.createdDay),
+    age,
+    ageDays,
     nationality: playerData.nationality,
     isGoalkeeper: playerData.isGoalkeeper,
     potentialTier: playerData.potentialTier,
     potentialRevealed: playerData.potentialRevealed,
     revealedSkills: revealed,
-    narrativeSections,
+    currentSkills: playerData.currentSkills,
+    potentialSkills: playerData.potentialSkills,
+    abilities: playerData.abilities,
+    weeklyDrawsRemaining,
+    weeklyCap: ScoutsService.WEEKLY_DRAW_CAP,
   };
 }
 
@@ -193,6 +261,15 @@ function derivePotentialTier(pa: number): string {
 /** Age derived from `createdDay`: floor((currentGameDay - createdDay) / 112). */
 function calcAge(createdDay: number): number {
   return Math.floor((currentGameDay() - createdDay) / 112);
+}
+
+/** Same divisor as `PlayerEntity.getExactAge()`: total days split into
+ *  full years + remainder days. Drives the "17y 12d" line on the card. */
+function calcExactAge(createdDay: number): { age: number; ageDays: number } {
+  const total = currentGameDay() - createdDay;
+  const age = Math.floor(total / 112);
+  const ageDays = total - age * 112;
+  return { age, ageDays };
 }
 
 function extractSkill(skills: any, key: string): number {

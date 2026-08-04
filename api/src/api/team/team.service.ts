@@ -180,12 +180,14 @@ export class TeamService {
     });
     await this.staffRepo.save(fitnessCoach);
 
-    // [Onboarding] Bind a YouthTeam + seed the first batch of scout
-    // candidates so a new manager doesn't have to wait for the weekly
-    // Saturday cron. Both calls are idempotent.
+    // [Onboarding] Bind a YouthTeam + seed the first scout candidate so
+    // a new manager sees something in the inbox without waiting for the
+    // weekly Saturday cron. The call is idempotent (server enforces the
+    // 7-day expiry window, and the inbox UX pulls one card at a time
+    // on demand thereafter).
     await this.ensureYouthTeamForNewTeam(team);
     try {
-      await this.scoutsService.generateThreeCandidates(team.id);
+      await this.scoutsService.generateOneCandidate(team.id);
     } catch (err) {
       console.warn(
         `[TeamService.create] Failed to seed initial scout candidates for team ${team.id}:`,

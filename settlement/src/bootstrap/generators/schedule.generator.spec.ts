@@ -122,7 +122,80 @@ describe('ScheduleGenerator — WAVE A2 youth fixtures', () => {
 
     expect(seniorBatch.length).toBeGreaterThan(0);
     expect(youthBatch.length).toBeGreaterThan(0);
-    expect(seniorBatch.length).toBe(youthBatch.length); // round-robin symmetry
+    // Senior uses a home-and-away double round-robin (30 games for 16 teams),
+    // youth uses a single round-robin (15 games) so a season fits in
+    // 15 weeks instead of 30. The ratio is therefore exactly 2:1.
+    expect(seniorBatch.length).toBe(youthBatch.length * 2);
+  });
+
+  it('youth fixtures use single round-robin (15 games for 16 teams, weeks 1..15 only)', async () => {
+    const sl = seniorLeague('L1');
+    const seniorTeams = Array.from({ length: 16 }, (_, i) =>
+      seniorTeam(`T${i + 1}`, 'L1'),
+    );
+    leagueRepo.find.mockResolvedValue([sl]);
+    teamRepo.find.mockResolvedValue(seniorTeams);
+
+    const yl = youthLeague('YL1', 'L1');
+    youthLeagueRepo.find.mockResolvedValue([yl]);
+    youthTeamRepo.find.mockResolvedValue(
+      seniorTeams.map((t) => youthTeam(`YT-${t.id}`, t.id, 'YL1')),
+    );
+
+    await gen.generateSeason1Schedule();
+
+    const youthBatch = savedBatches[1];
+    // 16 teams in a single round-robin → C(16,2) = 120 matchups? No:
+    // round-robin with N teams produces N-1 rounds × N/2 = 15 × 8 = 120
+    // matches, but we generate a SINGLE round-robin which is half:
+    // (16 × 15) / 2 = 120. Wait — that's the same as a single round-
+    // robin of 16 teams. Hm. The double round-robin would be 240.
+    // Expected youth count: 120. Senior count: 240.
+    // Let me re-verify: round-robin of N=16 with one leg = 16*15/2 = 120.
+    // Yes — 120 youth matches.
+    expect(youthBatch.length).toBe(120);
+
+    // Weeks should run 1..15 only (no return legs).
+    const weeks = new Set(youthBatch.map((m: any) => m.week));
+    expect(Math.min(...weeks)).toBe(1);
+    expect(Math.max(...weeks)).toBe(15);
+
+    // Every pair of teams should appear exactly once (not twice).
+    const pairs = new Set<string>();
+    for (const m of youthBatch) {
+      const pair = [m.homeTeamId, m.awayTeamId].sort().join('|');
+      pairs.add(pair);
+    }
+    expect(pairs.size).toBe(120); // 120 unique pairings
+  });
+
+  it('senior fixtures still use double round-robin (240 games for 16 teams, weeks 1..30)', async () => {
+    const sl = seniorLeague('L1');
+    const seniorTeams = Array.from({ length: 16 }, (_, i) =>
+      seniorTeam(`T${i + 1}`, 'L1'),
+    );
+    leagueRepo.find.mockResolvedValue([sl]);
+    teamRepo.find.mockResolvedValue(seniorTeams);
+    youthLeagueRepo.find.mockResolvedValue([]);
+
+    await gen.generateSeason1Schedule();
+
+    const seniorBatch = savedBatches[0];
+    // Double round-robin: 16 × 15 = 240 matchups
+    expect(seniorBatch.length).toBe(240);
+    const weeks = new Set(seniorBatch.map((m: any) => m.week));
+    expect(Math.min(...weeks)).toBe(1);
+    expect(Math.max(...weeks)).toBe(30);
+
+    // Every pair should appear twice (home and away).
+    const pairs = new Map<string, number>();
+    for (const m of seniorBatch) {
+      const pair = [m.homeTeamId, m.awayTeamId].sort().join('|');
+      pairs.set(pair, (pairs.get(pair) ?? 0) + 1);
+    }
+    for (const [, count] of pairs) {
+      expect(count).toBe(2);
+    }
   });
 
   it('senior fixtures carry leagueId and youthLeagueId=null', async () => {

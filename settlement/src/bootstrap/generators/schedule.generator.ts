@@ -35,6 +35,15 @@ interface RoundRobinOptions {
    * this is cosmetic for the UI rather than functional).
    */
   minuteOffset?: number;
+  /**
+   * When true, emit only one leg per pairing (single round-robin —
+   * each team plays every other team once). Default is the senior
+   * home-and-away double round-robin. Youth leagues use the single
+   * variant so a 16-team youth league finishes in 15 rounds (120
+   * matchups total) instead of 30, keeping the season tight for
+   * the player-development loop.
+   */
+  singleRound?: boolean;
 }
 
 @Injectable()
@@ -129,11 +138,14 @@ export class ScheduleGenerator {
       // 2-day offset on top of the senior start so a youth match and
       // the corresponding senior match don't open for tactics at the
       // same instant (cosmetic; the sim queue can process them in
-      // parallel regardless).
+      // parallel regardless). Youth leagues use a single round-robin
+      // — a tight 15-round loop fits the player-development cycle
+      // better than the senior 30-round home-and-away grind.
       const matches = this.generateRoundRobin(seniorTeamIds, {
         leagueId: null,
         youthLeagueId: yl.id,
         minuteOffset: 60 * 24 * 2,
+        singleRound: true,
       });
       await this.matchRepo.save(matches);
       total += matches.length;
@@ -149,13 +161,14 @@ export class ScheduleGenerator {
   ): Partial<MatchEntity>[] {
     const matches: Partial<MatchEntity>[] = [];
     const numRounds = teamIds.length - 1;
+    const singleRound = options.singleRound ?? false;
 
     const fixedTeam = teamIds[0];
     const rotatingTeams = teamIds.slice(1);
     const minuteOffset = options.minuteOffset ?? 0;
 
-    // First half (home-and-away: every team hosts once in the first N-1
-    // rounds, then the return legs in rounds N..2N-1).
+    // First leg (or only leg, when `singleRound` is true): every team
+    // hosts once in the first N-1 rounds.
     for (let round = 0; round < numRounds; round++) {
       const matchups = this.generateRoundMatchups(
         fixedTeam,
@@ -180,7 +193,14 @@ export class ScheduleGenerator {
       }
     }
 
-    // Second half (home/away swapped → same pairings, reversed venue).
+    // Second leg (home/away swapped → same pairings, reversed venue).
+    // Skipped for youth leagues — they only need one meeting per
+    // pair to keep the season tight (15 rounds instead of 30 for
+    // 16 teams).
+    if (singleRound) {
+      return matches;
+    }
+
     for (let round = 0; round < numRounds; round++) {
       const matchups = this.generateRoundMatchups(
         fixedTeam,
@@ -250,9 +270,16 @@ export class ScheduleGenerator {
   }
 
   private rotateTeams(teams: string[], round: number): string[] {
+    // Rotate by `round` positions so each round of the round-robin
+    // gets a fresh pairing set. The previous implementation only
+    // rotated by 1 every call, which collapsed the schedule: every
+    // round reused the same 8 matchups, so the "round-robin" was
+    // really just a fixed team pinned against the rotating slot.
     const rotated = [...teams];
-    const last = rotated.pop()!;
-    rotated.unshift(last);
+    for (let i = 0; i < round; i++) {
+      const last = rotated.pop()!;
+      rotated.unshift(last);
+    }
     return rotated;
   }
 }

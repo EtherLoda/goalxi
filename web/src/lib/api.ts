@@ -1250,58 +1250,49 @@ export interface ScoutCandidate {
   id: string;
   name: string;
   age: number;
+  /**
+   * Day-of-year (0..111) within the candidate's current age. Together
+   * with `age` this drives the "17y 12d" style display used on the
+   * senior player page — same shape, same format.
+   */
+  ageDays: number;
   nationality: string;
   isGoalkeeper: boolean;
   potentialTier?: string;
   potentialRevealed: boolean;
   revealedSkills: YouthRevealedSkill[];
   /**
-   * Structured 5-6 line narrative generated server-side. The web
-   * frontend maps each section to a localized string via next-intl
-   * (see `lib/scout-narrative.ts`). Replaces the old free-text
-   * `tendencyHint` field.
+   * Full current / potential skill vectors in the same nested
+   * PlayerSkills shape used by the senior player page. Surfaced so
+   * the scout card can render every skill as a labelled bar
+   * (mirrors the player-page skill matrix) instead of just the few
+   * `revealedSkills` rows.
    */
-  narrativeSections: ScoutNarrativeSection[];
-  /** Server-side expiry timestamp (7 days after generation). */
+  currentSkills: unknown;
+  potentialSkills: unknown;
+  /**
+   * Specialty codes assigned by the generator (e.g. `FSTRT`, `DRBLE`).
+   * Surfaced so the scout card can show the "特技" chip row, matching
+   * the player page's Specialties display. The first entry becomes
+   * the player's `specialty` field on sign.
+   */
+  abilities?: string[];
+  /**
+   * Manual draws remaining in the current game-week for the team.
+   * The cap is `WEEKLY_DRAW_CAP` (3); the counter resets on the
+   * first draw after a week boundary. Surfaced on every response
+   * so the UI can disable the DRAW button without a separate
+   * status call.
+   */
+  weeklyDrawsRemaining: number;
+  /** Maximum manual draws per team per game-week. */
+  weeklyCap: number;
+  /**
+   * Server-side expiry timestamp (7 days after generation). The web
+   * UI no longer surfaces this — the inbox auto-prunes on refresh.
+   */
   expiresAt: string;
 }
-
-/** Server-emitted shape — see api/src/api/scouts/scouts.narrative.ts. */
-export type ScoutNarrativeSection =
-  | { kind: "age"; data: { years: number; days: number }; variant: number }
-  | { kind: "abilities"; data: { list: string[] }; variant: number }
-  | {
-      kind: "skill";
-      data: {
-        skillKey: string;
-        current: number;
-        potential: number;
-        mode: "current" | "potential";
-      };
-      variant: number;
-    }
-  | {
-      kind: "tendency";
-      data: { tendencyKey: "physical" | "technical" | "mental" | "balanced" };
-      variant: number;
-    }
-  | {
-      kind: "physical";
-      data: {
-        profile:
-          | "balanced"
-          | "pace"
-          | "lean-pace"
-          | "strength"
-          | "lean-strength";
-      };
-      variant: number;
-    }
-  | {
-      kind: "ceiling";
-      data: { revealed: boolean; level: number | null };
-      variant: number;
-    };
 
 interface YouthMatchTeamSummary {
   id: string;

@@ -1,16 +1,14 @@
-import type { ScoutNarrativeSection } from "@/lib/api";
-
 /**
- * scout-narrative.ts — structured → displayable for scout reports.
+ * scout-narrative.ts — small bilingual skill-label helpers, kept here
+ * so ScoutCard and any future "show a 1-20 descriptor" UI can share
+ * the same table.
  *
- * The 1-20 skill level descriptors and the per-skill Chinese/English
- * labels are constants here, not i18n keys. They're shared with
- * `app/[locale]/training/page.tsx` (which has the same 1-20 chart in
- * an inline block) — keep the two in sync if you add a new level.
- *
- * Tendency text is the one piece routed through i18n, because the
- * existing `youth.scouts.abilityTendency.{physical,technical,mental,balanced}`
- * keys already carry the right copy in both locales.
+ * The narrative renderer itself was retired when the MVP scout
+ * card stopped rendering prose — every skill is now a labelled bar
+ * and the server's `buildNarrative` output is ignored by the web
+ * frontend. The shared `Locale` type and `SKILL_LEVELS` /
+ * `SKILL_KEY_LABELS` tables stay because they back the player page
+ * descriptors and are easy to reuse later.
  */
 
 export type Locale = "en" | "zh";
@@ -64,16 +62,6 @@ export const SKILL_KEY_LABELS: Record<string, { zh: string; en: string }> = {
   aerial: { zh: "空中", en: "Aerial" },
 };
 
-export type RenderedNarrative = {
-  kind: ScoutNarrativeSection["kind"];
-  icon: string;
-  text: string;
-};
-
-export type NarrativeRenderer = (
-  section: ScoutNarrativeSection,
-) => RenderedNarrative;
-
 /** Look up a 1-20 descriptor, clamped + case-insensitive. */
 export function getSkillLevel(level: number, locale: Locale): string {
   const clamped = Math.max(1, Math.min(20, Math.round(level)));
@@ -89,91 +77,4 @@ export function getSkillKeyLabel(key: string, locale: Locale): string {
     SKILL_KEY_LABELS[key.toUpperCase()];
   if (entry) return entry[locale];
   return key.charAt(0).toUpperCase() + key.slice(1);
-}
-
-/**
- * Build a renderer bound to a next-intl `t` function and a locale.
- * Only the templates (`narrative.age`, `narrative.abilities`,
- * `narrative.skill`) are i18n-driven; the level descriptors and skill
- * labels are constants in this file.
- *
- * Tendency text uses the project's pre-existing
- * `youth.scouts.abilityTendency.*` i18n keys.
- */
-export function makeNarrativeRenderer(
-  t: (key: string, values?: Record<string, string | number>) => string,
-  locale: Locale,
-): NarrativeRenderer {
-  return (section) => {
-    const v = clampVariant(section.variant);
-    switch (section.kind) {
-      case "age": {
-        return {
-          kind: "age",
-          icon: "cake",
-          text: t("narrative.age", {
-            years: section.data.years,
-            days: section.data.days,
-          }),
-        };
-      }
-      case "abilities": {
-        return {
-          kind: "abilities",
-          icon: "auto_awesome",
-          text: t(`narrative.abilities.v${v}`, {
-            list: section.data.list.join(locale === "zh" ? "、" : ", "),
-          }),
-        };
-      }
-      case "skill": {
-        const { mode } = section.data;
-        const value = mode === "potential"
-          ? section.data.potential
-          : section.data.current;
-        return {
-          kind: "skill",
-          icon: "bolt",
-          text: t(`narrative.skill.${mode}.v${v}`, {
-            skill: getSkillKeyLabel(section.data.skillKey, locale),
-            label: getSkillLevel(value, locale),
-          }),
-        };
-      }
-      case "tendency": {
-        return {
-          kind: "tendency",
-          icon: "psychology",
-          text: t(`narrative.tendency.${section.data.tendencyKey}.v${v}`),
-        };
-      }
-      case "physical": {
-        return {
-          kind: "physical",
-          icon: "fitness_center",
-          text: t(`narrative.physical.${section.data.profile}.v${v}`),
-        };
-      }
-      case "ceiling": {
-        return {
-          kind: "ceiling",
-          icon: section.data.revealed ? "trending_up" : "visibility_off",
-          text: section.data.revealed
-            ? t(`narrative.ceiling.revealed.v${v}`, {
-                level: getSkillLevel(section.data.level ?? 0, locale),
-              })
-            : t(`narrative.ceiling.hidden.v${v}`),
-        };
-      }
-    }
-  };
-}
-
-/** Clamp a server-supplied variant into a known-good range. */
-function clampVariant(v: number): number {
-  if (!Number.isFinite(v)) return 0;
-  const i = Math.floor(v);
-  if (i < 0) return 0;
-  if (i > 2) return 2;
-  return i;
 }

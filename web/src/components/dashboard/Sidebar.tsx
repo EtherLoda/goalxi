@@ -61,9 +61,10 @@ export default function Sidebar() {
     },
     {
       titleKey: "academy",
+      // Youth mode is parked for a later iteration — only the
+      // senior scouting inbox is reachable for now. Keep the
+      // `academy` section title so the locale string stays in use.
       items: [
-        { labelKey: "youthSquad", href: `/${locale}/youth/squad?team=${currentTeamId}`, icon: "child_care" },
-        { labelKey: "youthMatches", href: `/${locale}/youth/matches?team=${currentTeamId}`, icon: "sports" },
         { labelKey: "scouting", href: `/${locale}/scouts?team=${currentTeamId}`, icon: "travel_explore" },
       ],
     },

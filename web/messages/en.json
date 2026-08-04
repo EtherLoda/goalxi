@@ -231,6 +231,7 @@
       "expiresIn": "Expires in {hours}h",
       "select": "Sign",
       "skip": "Skip",
+      "selectSuccess": "{name} signed to your senior squad",
       "selectConfirmTitle": "Sign {name}?",
       "selectConfirmBody": "This candidate joins your academy and starts the reveal process (~{weeks} weeks).",
       "nextReport": "Next auto-report: {time}",
@@ -240,92 +241,13 @@
       "back": "Back",
       "deepTitle": "Profile dossier",
       "deepSkillsLabel": "Skill breakdown",
-      "refresh": "Draw 3 new",
+      "refresh": "Draw",
+      "refreshNext": "Draw next",
       "refreshing": "Drawing…",
-      "refreshSuccess": "Drew {count} new candidates",
-      "refreshError": "Failed to draw candidates",
-      "refreshEmpty": "No new candidates were generated. Try again.",
-      "narrative": {
-        "age": "Age {years}y {days}d",
-        "abilities": {
-          "v0": "Carries a clear specialist edge — {list} already reads as a weapon at this level",
-          "v1": "Has the kind of {list} you can build a coaching plan around, very teachable profile",
-          "v2": "Specialty package is loud — {list} stands out the moment you turn the tape on"
-        },
-        "skill": {
-          "current": {
-            "v0": "{skill} is already sitting at {label} — a baseline you can build a side around",
-            "v1": "{skill} holding steady at {label}, no frills, just reliable output week in week out",
-            "v2": "Right now {skill} reads as {label}, and it is not flattering — that is just what he is today"
-          },
-          "potential": {
-            "v0": "{skill} projects to {label} at full maturity, the kind of upside that turns a squad",
-            "v1": "There is a credible path to {label} on {skill} — that is the part of the report that gets you out of your seat",
-            "v2": "Long-term {skill} could land at {label} if the development curve holds, no flash just steady upside"
-          }
-        },
-        "physical": {
-          "balanced": {
-            "v0": "No obvious physical weakness — passes the eye test on first viewing, frame looks built to last",
-            "v1": "Symmetrical build, pace and strength sitting in the same band — coaches love a clean profile like this",
-            "v2": "Body looks balanced end to end, no red flags on the medical, no obvious limits on how he fills out"
-          },
-          "pace": {
-            "v0": "Electric accelerator, the gap opens up the moment he plants his back foot",
-            "v1": "Top-end speed is the headline, defenders back off because they know they cannot live with him in a foot race",
-            "v2": "First three steps are devastating — once he breaks the line, tracking back is the defender's problem"
-          },
-          "lean-pace": {
-            "v0": "Wiry, light on his feet — easy mover, plenty of room still left to add top-end speed",
-            "v1": "Frame is on the lean side right now, but the foot speed is already there — physical maturity will catch up",
-            "v2": "Light, quick, that slippery type who finds pockets of space before defenders register he is gone"
-          },
-          "strength": {
-            "v0": "Powerful build, holds off contact well and bullies off the ball",
-            "v1": "Holds his own in the physical exchanges, wins more than his share of shoulder-to-shoulder duels",
-            "v2": "Built like a man already, not a kid — contact does not bother him, ball retention is a clear strength"
-          },
-          "lean-strength": {
-            "v0": "Sturdy base, frame still thickening — expect a jump once he fills into a men's gym",
-            "v1": "Skeletal frame is solid, the muscle will come — there is a two-year runway on his body composition",
-            "v2": "Looks like he will fill out, hips are narrow and the shoulders will keep growing into senior football"
-          }
-        },
-        "ceiling": {
-          "revealed": {
-            "v0": "Ceiling reads as {level} on our scale — a clear long-term asset if development stays on track",
-            "v1": "We are comfortable pencilling in {level} as the projection, that is where the trend line is heading",
-            "v2": "Top of the range looks like {level}, fits the kind of profile a sporting director wants to back"
-          },
-          "hidden": {
-            "v0": "True ceiling still hidden from us — needs more competitive minutes before we can call it",
-            "v1": "Haven't seen enough of him to call a number, the upside could be anywhere from solid to special",
-            "v2": "Ceiling is the one unknown in this report — the rest of the package is there, time will tell"
-          }
-        },
-        "tendency": {
-          "physical": {
-            "v0": "Built around the body — wins second balls, holds off markers, leans into the physical side of the game",
-            "v1": "Profile is unmistakably physical: pace, power, presence — the kind of player you cannot ignore in the box",
-            "v2": "Everything starts from the athletic base — when he is fit and fresh, he is a level above most of his age group"
-          },
-          "technical": {
-            "v0": "Reads the game on the ball — close control, weight of pass, the type who unlocks a press by himself",
-            "v1": "Technique-first profile, you would back him in tight areas against bigger opponents",
-            "v2": "Plenty of polish on the ball, the kind of touch that makes the players around him better"
-          },
-          "mental": {
-            "v0": "Ahead of his age in the head — positions himself early, does not panic when the game speeds up",
-            "v1": "Reads the next pass before he gets the ball, anticipation is the headline trait",
-            "v2": "Composed beyond his years, takes the right option under pressure — coaches will love working with him"
-          },
-          "balanced": {
-            "v0": "No obvious weakness and no single elite trait — a clean profile to develop either way",
-            "v1": "Rounded type who can be coached in multiple directions, ceiling depends on the staff around him",
-            "v2": "Balanced end to end — there is not a glaring hole in the report, which is rare for a player this age"
-          }
-        }
-      },
+      "refreshSuccess": "Drew a new candidate",
+      "refreshError": "Failed to draw candidate",
+      "refreshEmpty": "No candidate was generated. Try again.",
+      "refreshCapReached": "Weekly cap reached (3/3)",
       "abilityTendency": {
         "physical": "Physical standout",
         "technical": "Technical standout",

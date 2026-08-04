@@ -1,0 +1,40 @@
+import 'reflect-metadata';
+import { config as loadEnv } from 'dotenv';
+import { DataSource } from 'typeorm';
+
+loadEnv({ path: __dirname + '/../.env' });
+
+async function main() {
+  const ds = new DataSource({
+    type: (process.env.DATABASE_TYPE as any) ?? 'postgres',
+    url: process.env.DATABASE_URL,
+    host: process.env.DATABASE_HOST,
+    port: process.env.DATABASE_PORT
+      ? parseInt(process.env.DATABASE_PORT, 10)
+      : 5432,
+    username: process.env.DATABASE_USERNAME,
+    password: process.env.DATABASE_PASSWORD,
+    database: process.env.DATABASE_NAME,
+    ssl: process.env.DATABASE_SSL_ENABLED === 'true',
+    logging: false,
+  });
+
+  await ds.initialize();
+  console.log('connected');
+
+  const before = await ds.query('SELECT COUNT(*)::int AS n FROM scout_candidate');
+  console.log('scout_candidate rows before:', before[0]?.n ?? 0);
+
+  await ds.query('TRUNCATE scout_candidate RESTART IDENTITY CASCADE');
+  console.log('truncated');
+
+  const after = await ds.query('SELECT COUNT(*)::int AS n FROM scout_candidate');
+  console.log('scout_candidate rows after:', after[0]?.n ?? 0);
+
+  await ds.destroy();
+}
+
+main().catch((e) => {
+  console.error(e);
+  process.exit(1);
+});

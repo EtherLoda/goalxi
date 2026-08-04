@@ -1,6 +1,6 @@
 "use client";
 
-import React, { Suspense, useEffect, useMemo, useState } from "react";
+import React, { Suspense, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { api, type ScoutCandidate } from "@/lib/api";
@@ -28,117 +28,143 @@ export default function ScoutsPage() {
 function ScoutsPageInner() {
   const t = useTranslations("youth.scouts");
   const tPos = useTranslations("youth.squad.position");
+  const tCommon = useTranslations("common");
   const search = useSearchParams();
   const { team } = useAuth();
 
   const teamIdFromQuery = search.get("team");
-  // The scouts endpoint is class-level @UseGuards(AuthGuard) so any
-  // authenticated user can read their own team's candidates. If they're
-  // viewing another team the controller still returns their own list, but
-  // we surface that as a "not your team" message for clarity.
   const isOwnTeam = !teamIdFromQuery || teamIdFromQuery === team?.id;
 
-  const [candidates, setCandidates] = useState<ScoutCandidate[] | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [selecting, setSelecting] = useState<ScoutCandidate | null>(null);
-  const [skipped, setSkipped] = useState<Set<string>>(new Set());
-  const [busyId, setBusyId] = useState<string | null>(null);
-  const [refreshing, setRefreshing] = useState(false);
+  // Single-card inbox — the manager evaluates one dossier at a time
+  // and SKIP / SIGN to move on. We track the *current* candidate
+  // here; the list endpoint is used as a hydration step on mount
+  // and after each action (so server-side expiry pruning is
+  // automatically respected).
+  const [current, setCurrent] = useState<ScoutCandidate | null>(null);
+  const [weeklyDrawsRemaining, setWeeklyDrawsRemaining] = useState(0);
+  const [weeklyCap, setWeeklyCap] = useState(3);
+  const [loading, setLoading] = useState(true);
+  const [busy, setBusy] = useState(false);
   const [toast, setToast] = useState<{
     kind: "success" | "error";
     text: string;
   } | null>(null);
 
-  useEffect(() => {
-    let cancelled = false;
-    setError(null);
-    api.scouts
-      .listCandidates()
-      .then((data) => {
-        if (!cancelled) setCandidates(data);
-      })
-      .catch((err) => {
-        if (!cancelled) {
-          setError(err instanceof Error ? err.message : "load failed");
-          setCandidates([]);
-        }
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
-  const visible = useMemo(() => {
-    if (!candidates) return [];
-    return candidates.filter((c) => !skipped.has(c.id));
-  }, [candidates, skipped]);
-
-  const handleSelect = async (c: ScoutCandidate) => {
-    setSelecting(null);
-    setBusyId(c.id);
-    setToast(null);
+  const loadInbox = React.useCallback(async () => {
     try {
-      await api.scouts.selectCandidate(c.id);
-      setCandidates((prev) => (prev ?? []).filter((x) => x.id !== c.id));
-      setToast({
-        kind: "success",
-        text: `${c.name} → ${t("select")} ✓`,
-      });
+      const list = await api.scouts.listCandidates();
+      const head = list[0] ?? null;
+      setCurrent(head);
+      // The list endpoint populates the per-team draw budget on the
+      // head candidate; if the inbox is empty the next draw will
+      // re-sync via refreshCandidates' response.
+      if (head) {
+        setWeeklyDrawsRemaining(head.weeklyDrawsRemaining);
+        setWeeklyCap(head.weeklyCap);
+      }
     } catch (err) {
       setToast({
         kind: "error",
-        text: err instanceof Error ? err.message : "select failed",
+        text: err instanceof Error ? err.message : "load failed",
+      });
+      setCurrent(null);
+    }
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    loadInbox().finally(() => {
+      if (!cancelled) setLoading(false);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [loadInbox]);
+
+  // Draw exactly one new candidate and surface it. Server enforces
+  // the per-team weekly cap (3) — when the cap is hit the request
+  // fails with 429 and the body carries the budget. We surface that
+  // as a clean error toast and leave the button disabled until the
+  // counter resets at the next week boundary.
+  const handleDraw = async () => {
+    if (busy) return;
+    if (weeklyDrawsRemaining <= 0) {
+      setToast({ kind: "error", text: t("refreshCapReached") });
+      return;
+    }
+    setBusy(true);
+    setToast(null);
+    try {
+      const fresh = await api.scouts.refreshCandidates();
+      if (fresh.length === 0) {
+        setToast({ kind: "error", text: t("refreshEmpty") });
+      } else {
+        setCurrent(fresh[0]);
+        setWeeklyDrawsRemaining(fresh[0].weeklyDrawsRemaining);
+        setWeeklyCap(fresh[0].weeklyCap);
+      }
+    } catch (err) {
+      const message =
+        err instanceof Error ? err.message : t("refreshError");
+      // The api client may surface 429 with the JSON body. Fall back
+      // to the generic cap message if we can't extract it cleanly.
+      const isCap =
+        /cap|429|too many/i.test(message) ||
+        (typeof (err as any)?.status === "number" &&
+          (err as any).status === 429);
+      setToast({
+        kind: "error",
+        text: isCap ? t("refreshCapReached") : message,
       });
     } finally {
-      setBusyId(null);
+      setBusy(false);
     }
   };
 
-  const handleSkip = async (c: ScoutCandidate) => {
-    setBusyId(c.id);
+  const handleSkip = async () => {
+    if (!current || busy) return;
+    setBusy(true);
     setToast(null);
     try {
-      await api.scouts.skipCandidate(c.id);
-      setSkipped((prev) => new Set(prev).add(c.id));
+      await api.scouts.skipCandidate(current.id);
+      // After skip the candidate is deleted server-side, so re-pull
+      // the inbox. If there's another candidate waiting, show it;
+      // otherwise the empty state reappears.
+      await loadInbox();
     } catch (err) {
       setToast({
         kind: "error",
         text: err instanceof Error ? err.message : "skip failed",
       });
     } finally {
-      setBusyId(null);
+      setBusy(false);
     }
   };
 
-  // Manually draw a fresh batch of 3 candidates. After the server
-  // creates them, refetch the full list so any candidates the
-  // server has since dropped (expired, race-condition) drop out of
-  // the inbox too — keeps the UI in lockstep with the DB.
-  const handleRefresh = async () => {
-    if (refreshing) return;
-    setRefreshing(true);
+  const handleSign = async () => {
+    if (!current || busy) return;
+    setBusy(true);
     setToast(null);
     try {
-      const fresh = await api.scouts.refreshCandidates();
-      if (fresh.length === 0) {
-        setToast({ kind: "error", text: t("refreshEmpty") });
-        return;
-      }
-      // Re-sync with the server so expired rows fall off and the
-      // new three are included without us having to dedupe by hand.
-      const synced = await api.scouts.listCandidates();
-      setCandidates(synced);
-      setToast({
-        kind: "success",
-        text: t("refreshSuccess", { count: fresh.length }),
-      });
+      await api.scouts.selectCandidate(current.id);
+      // Signing the candidate saturates the per-team weekly draw
+      // counter server-side — the manager's pick for the week is
+      // "spent". Mirror that on the client so the DRAW button
+      // immediately flips to the cap-reached state, even before
+      // `loadInbox` finishes re-pulling the (now-empty) inbox.
+      setWeeklyDrawsRemaining(0);
+      // The selected candidate is gone from the inbox; surface the
+      // next one (or the empty state).
+      await loadInbox();
+      setToast({ kind: "success", text: t("selectSuccess") });
     } catch (err) {
       setToast({
         kind: "error",
-        text: err instanceof Error ? err.message : t("refreshError"),
+        text: err instanceof Error ? err.message : "select failed",
       });
     } finally {
-      setRefreshing(false);
+      setBusy(false);
     }
   };
 
@@ -153,65 +179,65 @@ function ScoutsPageInner() {
         </div>
       )}
 
-      {error && (
-        <div className="bg-error/10 border border-error/30 rounded-xl p-6 text-error text-sm">
-          {error}
+      <div className="flex justify-center">
+        {loading ? (
+          <div className="flex items-center gap-3 py-16 text-sm text-[#91b2a6] font-space">
+            <span className="material-symbols-outlined animate-spin">
+              progress_activity
+            </span>
+            {tCommon("loading")}
+          </div>
+        ) : current ? (
+          <ScoutCard
+            c={current}
+            tPos={tPos}
+            t={t}
+            busy={busy}
+            onSelect={handleSign}
+            onSkip={handleSkip}
+          />
+        ) : (
+          <EmptyState
+            text={t("empty")}
+            refreshLabel={
+              busy
+                ? t("refreshing")
+                : weeklyDrawsRemaining > 0
+                  ? t("refresh")
+                  : t("refreshCapReached")
+            }
+            refreshing={busy}
+            capReached={weeklyDrawsRemaining <= 0}
+            onRefresh={handleDraw}
+          />
+        )}
+      </div>
+
+      {/* Floating draw button when a card is on screen — manager
+          can pull the next dossier without going through skip. */}
+      {current && !loading && (
+        <div className="flex justify-center">
+          <button
+            onClick={handleDraw}
+            disabled={busy || weeklyDrawsRemaining <= 0}
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-[#a1ffc2]/10 border border-[#a1ffc2]/30 text-[#a1ffc2] text-xs font-bold uppercase tracking-wider hover:bg-[#a1ffc2]/20 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {busy ? (
+              <span className="material-symbols-outlined text-[14px] animate-spin">
+                progress_activity
+              </span>
+            ) : (
+              <span className="material-symbols-outlined text-[14px]">
+                refresh
+              </span>
+            )}
+            {busy
+              ? t("refreshing")
+              : weeklyDrawsRemaining > 0
+                ? `${t("refreshNext")} · ${weeklyDrawsRemaining}/${weeklyCap}`
+                : t("refreshCapReached")}
+          </button>
         </div>
-      )}
-
-      {candidates && visible.length === 0 && !error && isOwnTeam && (
-        <EmptyState
-          text={t("empty")}
-          refreshLabel={refreshing ? t("refreshing") : t("refresh")}
-          refreshing={refreshing}
-          onRefresh={handleRefresh}
-        />
-      )}
-
-      {visible.length > 0 && (
-        <>
-          <div className="flex items-center justify-end">
-            <button
-              onClick={handleRefresh}
-              disabled={refreshing}
-              className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-[#a1ffc2]/10 border border-[#a1ffc2]/30 text-[#a1ffc2] text-xs font-bold uppercase tracking-wider hover:bg-[#a1ffc2]/20 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {refreshing ? (
-                <span className="material-symbols-outlined text-[14px] animate-spin">
-                  progress_activity
-                </span>
-              ) : (
-                <span className="material-symbols-outlined text-[14px]">
-                  refresh
-                </span>
-              )}
-              {refreshing ? t("refreshing") : t("refresh")}
-            </button>
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-            {visible.map((c, i) => (
-              <ScoutCard
-                key={c.id}
-                c={c}
-                tPos={tPos}
-                t={t}
-                index={i}
-                busy={busyId === c.id}
-                onSelect={() => setSelecting(c)}
-                onSkip={() => handleSkip(c)}
-              />
-            ))}
-          </div>
-        </>
-      )}
-
-      {selecting && (
-        <ConfirmDialog
-          c={selecting}
-          t={t}
-          onConfirm={() => handleSelect(selecting)}
-          onCancel={() => setSelecting(null)}
-        />
       )}
 
       {toast && (
@@ -228,18 +254,14 @@ function ScoutsPageInner() {
 // ---------- Subcomponents ----------
 
 function Header({ title }: { title: string }) {
-  // The header used to show a "Next auto-report: 3d 16h" countdown,
-  // but with the manual refresh button the wait-time framing felt
-  // wrong — the inbox shouldn't punish first-time visitors. We just
-  // surface the cadence as a small footnote.
   return (
     <header className="flex flex-col gap-1">
       <h1 className="text-3xl font-black font-space text-[#d3f5e8] tracking-tight">
         {title}
       </h1>
       <p className="text-xs text-[#91b2a6] font-space">
-        Auto-refreshes every Saturday at 06:00 UTC. Tap the button below
-        to draw a fresh report on demand.
+        Auto-refreshes every Saturday at 06:00 UTC. Draw a fresh
+        dossier below.
       </p>
     </header>
   );
@@ -249,15 +271,17 @@ function EmptyState({
   text,
   refreshLabel,
   refreshing,
+  capReached,
   onRefresh,
 }: {
   text: string;
   refreshLabel: string;
   refreshing: boolean;
+  capReached: boolean;
   onRefresh: () => void;
 }) {
   return (
-    <div className="bg-[#00251c]/60 rounded-2xl border border-white/5 px-6 py-12 sm:py-16 text-center">
+    <div className="bg-[#00251c]/60 rounded-2xl border border-white/5 px-6 py-12 sm:py-16 text-center w-full max-w-[580px]">
       <span className="material-symbols-outlined text-[#91b2a6] text-5xl">
         travel_explore
       </span>
@@ -266,75 +290,24 @@ function EmptyState({
       </p>
       <button
         onClick={onRefresh}
-        disabled={refreshing}
-        className="mt-6 inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-[#a1ffc2] text-[#001e17] text-sm font-bold uppercase tracking-wider hover:bg-[#b9ffce] transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-[#a1ffc2]/20"
+        disabled={refreshing || capReached}
+        className={
+          capReached
+            ? "mt-6 inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-white/5 text-[#91b2a6] text-sm font-bold uppercase tracking-wider cursor-not-allowed border border-white/10"
+            : "mt-6 inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-[#a1ffc2] text-[#001e17] text-sm font-bold uppercase tracking-wider hover:bg-[#b9ffce] transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-[#a1ffc2]/20"
+        }
       >
         {refreshing ? (
           <span className="material-symbols-outlined text-[16px] animate-spin">
             progress_activity
           </span>
+        ) : capReached ? (
+          <span className="material-symbols-outlined text-[16px]">block</span>
         ) : (
           <span className="material-symbols-outlined text-[16px]">casino</span>
         )}
         {refreshLabel}
       </button>
-    </div>
-  );
-}
-
-function ConfirmDialog({
-  c,
-  t,
-  onConfirm,
-  onCancel,
-}: {
-  c: ScoutCandidate;
-  t: ReturnType<typeof useTranslations>;
-  onConfirm: () => void;
-  onCancel: () => void;
-}) {
-  return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4"
-      onClick={onCancel}
-    >
-      <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" />
-      <div
-        className="relative w-full max-w-sm bg-gradient-to-b from-[#0a1a14] to-[#001e17] rounded-2xl border border-[#2f4e44]/50 shadow-2xl p-6"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="flex items-center gap-3 mb-4">
-          <div className="w-10 h-10 rounded-xl bg-[#a1ffc2]/20 flex items-center justify-center">
-            <span className="material-symbols-outlined text-[#a1ffc2]">
-              person_add
-            </span>
-          </div>
-          <div>
-            <h3 className="text-lg font-black font-space text-[#d3f5e8]">
-              {t("selectConfirmTitle", { name: c.name })}
-            </h3>
-          </div>
-        </div>
-
-        <p className="text-sm text-[#91b2a6] font-space mb-6">
-          {t("selectConfirmBody", { weeks: 10 })}
-        </p>
-
-        <div className="flex items-center gap-3">
-          <button
-            onClick={onCancel}
-            className="flex-1 py-2.5 rounded-lg text-sm font-bold text-[#91b2a6] hover:bg-white/5 transition-colors"
-          >
-            Cancel
-          </button>
-          <button
-            onClick={onConfirm}
-            className="flex-1 py-2.5 rounded-lg bg-[#a1ffc2] text-[#001e17] text-sm font-bold hover:bg-[#b9ffce] transition-colors"
-          >
-            {t("select")}
-          </button>
-        </div>
-      </div>
     </div>
   );
 }

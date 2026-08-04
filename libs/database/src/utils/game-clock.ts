@@ -23,6 +23,8 @@
 export const GAME_EPOCH = new Date('1970-01-01T00:00:00Z');
 
 export const MS_PER_GAME_DAY = 24 * 60 * 60 * 1000;
+export const DAYS_PER_WEEK = 7;
+export const MS_PER_GAME_WEEK = DAYS_PER_WEEK * MS_PER_GAME_DAY;
 
 /**
  * Absolute game-day count from `GAME_EPOCH` to `now` (or the supplied date).
@@ -30,4 +32,25 @@ export const MS_PER_GAME_DAY = 24 * 60 * 60 * 1000;
  */
 export function currentGameDay(now: Date = new Date()): number {
   return Math.floor((now.getTime() - GAME_EPOCH.getTime()) / MS_PER_GAME_DAY);
+}
+
+/**
+ * Week index since epoch — `floor(currentGameDay() / 7)`. Used as the
+ * bucketing key for weekly-reset state (e.g. the scout draw counter
+ * on `TeamEntity`). 0 for the first week after 1970-01-01.
+ */
+export function currentWeekIndex(now: Date = new Date()): number {
+  return Math.floor(currentGameDay(now) / DAYS_PER_WEEK);
+}
+
+/**
+ * Absolute timestamp at the end of the current game-week (i.e. the
+ * instant the next week starts). Used as the candidate TTL so the
+ * inbox auto-prunes at the week boundary rather than after a fixed
+ * 7-day window — keeps "week boundary" semantics consistent across
+ * cron and manual draws.
+ */
+export function endOfCurrentWeek(now: Date = new Date()): Date {
+  const week = currentWeekIndex(now);
+  return new Date(GAME_EPOCH.getTime() + (week + 1) * MS_PER_GAME_WEEK);
 }

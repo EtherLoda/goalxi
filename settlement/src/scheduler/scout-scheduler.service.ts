@@ -10,13 +10,13 @@ import {
   SCOUT_ABILITY_POOL,
   SCOUT_AGE_RANGE,
   SCOUT_CANDIDATES_PER_TEAM,
-  SCOUT_CANDIDATE_TTL_DAYS,
   SCOUT_GOALKEEPER_CHANCE,
   SCOUT_IMPACT_COEFFICIENTS,
   SCOUT_OUTFIELD_POSITIONS,
   SCOUT_POSITION_SKILL_IMPACT,
   SCOUT_REVEALED_SKILL_COUNT,
   TeamEntity,
+  endOfCurrentWeek,
   generateScoutCandidate,
   getRandomNameByNationality,
   getRandomNationality,
@@ -106,8 +106,7 @@ export class ScoutSchedulerService {
               : undefined,
           };
 
-          const expiresAt = new Date();
-          expiresAt.setDate(expiresAt.getDate() + SCOUT_CANDIDATE_TTL_DAYS);
+          const expiresAt = endOfCurrentWeek();
 
           const candidate = this.scoutCandidateRepo.create({
             teamId: team.id,
