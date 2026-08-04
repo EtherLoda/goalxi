@@ -6,22 +6,10 @@ import Link from "next/link";
 import { api, type Player, type TransferAuction } from "@/lib/api";
 import { useTranslations } from "next-intl";
 import { useAuth } from "@/contexts/AuthContext";
+import { SpecialtyIcon } from "@/components/player/SpecialtyIcon";
+import { getSpecialtyLabel } from "@/lib/specialties";
 
 const SKILL_MAX = 20;
-
-const SPECIALTIES: { value: string; label: string; icon: string }[] = [
-  { value: "HEADER", label: "头球专家", icon: "sports_kabaddi" },
-  { value: "LPASS", label: "长传手", icon: "near_me" },
-  { value: "CROSS", label: "传中专家", icon: "swap_vert" },
-  { value: "DRBLE", label: "盘带大师", icon: "cruelty_free" },
-  { value: "LSHT", label: "远射", icon: "my_location" },
-  { value: "CLUCH", label: "关键先生", icon: "emoji_events" },
-  { value: "TACKL", label: "抢断大师", icon: "shield" },
-  { value: "PSAVE", label: "点球门将", icon: "pan_tool" },
-  { value: "CNTR", label: "反击启动", icon: "bolt" },
-  { value: "REBND", label: "补射专家", icon: "replay" },
-  { value: "FSTRT", label: "快发", icon: "timer" },
-];
 
 const EVENT_ICONS: Record<string, string> = {
   TRANSFER: "swap_horiz",
@@ -388,17 +376,12 @@ export default function PlayerDetailPage({ params }: PageProps) {
                       {/* Specialties */}
                       {player.specialty && (
                         <div className="mt-4 flex gap-2">
-                          {(() => {
-                            const specInfo = SPECIALTIES.find((s) => s.value === player.specialty);
-                            return (
-                              <span
-                                className="inline-flex items-center gap-1.5 bg-[#a1ffc2]/10 text-[#a1ffc2] px-3 py-1 rounded-full text-[10px] font-bold font-space border border-[#a1ffc2]/20"
-                              >
-                                <span className="material-symbols-outlined text-sm">{specInfo?.icon || "star"}</span>
-                                {specInfo?.label || player.specialty}
-                              </span>
-                            );
-                          })()}
+                          <span
+                            className="inline-flex items-center gap-1.5 bg-[#a1ffc2]/10 text-[#a1ffc2] px-3 py-1 rounded-full text-[10px] font-bold font-space border border-[#a1ffc2]/20"
+                          >
+                            <SpecialtyIcon code={player.specialty} size="sm" className="text-[#a1ffc2]" />
+                            {getSpecialtyLabel(player.specialty, (resolvedParams?.locale === "en" ? "en" : "zh")) || player.specialty}
+                          </span>
                         </div>
                       )}
                     </div>

@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none" stroke="currentColor" color="#a1ffc2" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-label="盘带大师 Dribble Master">
+  <!-- wavy dribble path -->
+  <path d="M6 50 C14 50 14 30 22 30 S30 50 38 50 S46 30 54 30"/>
+  <!-- ball at the head of the run -->
+  <circle cx="6" cy="50" r="3.5"/>
+  <!-- defender marker the player skips past -->
+  <circle cx="28" cy="50" r="2.5" opacity="0.5"/>
+  <path d="M28 53 L28 60" stroke-width="1.5" opacity="0.5"/>
+</svg>

@@ -12,6 +12,7 @@ import ShortlistPanel from "@/components/transfers/ShortlistPanel";
 import TransferHistoryPanel from "@/components/transfers/TransferHistoryPanel";
 import TransferCard from "@/components/transfers/TransferCard";
 import TransferPlayerCard from "@/components/transfers/TransferPlayerCard";
+import { SpecialtyIcon } from "@/components/player/SpecialtyIcon";
 
 // Mock data for transfers
 const MOCK_TRANSFERS = [
@@ -154,17 +155,17 @@ export default function TransfersPage() {
   const ATTRIBUTES = playerTypeFilter === "gk" ? GK_ATTRIBUTES : OUTFIELD_ATTRIBUTES;
 
   const SPECIALTIES = [
-    { value: "HEADER", label: "头球专家", icon: "sports_kabaddi" },
-    { value: "LPASS", label: "长传手", icon: "near_me" },
-    { value: "CROSS", label: "传中专家", icon: "swap_vert" },
-    { value: "DRBLE", label: "盘带大师", icon: "cruelty_free" },
-    { value: "LSHT", label: "远射", icon: "my_location" },
-    { value: "CLUCH", label: "关键先生", icon: "emoji_events" },
-    { value: "TACKL", label: "抢断大师", icon: "shield" },
-    { value: "PSAVE", label: "点球门将", icon: "pan_tool" },
-    { value: "CNTR", label: "反击启动", icon: "bolt" },
-    { value: "REBND", label: "补射专家", icon: "replay" },
-    { value: "FSTRT", label: "快发", icon: "timer" },
+    { value: "HEADER", label: "头球专家" },
+    { value: "LPASS", label: "长传手" },
+    { value: "CROSS", label: "传中专家" },
+    { value: "DRBLE", label: "盘带大师" },
+    { value: "LSHT", label: "远射" },
+    { value: "CLUCH", label: "关键先生" },
+    { value: "TACKL", label: "抢断大师" },
+    { value: "PSAVE", label: "点球门将" },
+    { value: "CNTR", label: "反击启动" },
+    { value: "REBND", label: "补射专家" },
+    { value: "FSTRT", label: "快发" },
   ];
 
   // Close dropdown when clicking outside
@@ -703,9 +704,11 @@ export default function TransfersPage() {
                       onClick={() => document.getElementById('specialty-dropdown')?.classList.toggle('hidden')}
                     >
                       <div className="flex items-center gap-2">
-                        <span className="material-symbols-outlined text-sm text-[#a1ffc2]">
-                          {selectedSpecialty ? (SPECIALTIES.find(s => s.value === selectedSpecialty)?.icon || 'emoji_events') : 'all_inclusive'}
-                        </span>
+                        <SpecialtyIcon
+                          code={selectedSpecialty || undefined}
+                          size="sm"
+                          className="text-[#a1ffc2]"
+                        />
                         <span className="text-xs font-bold text-[#d3f5e8]">
                           {selectedSpecialty ? SPECIALTIES.find(s => s.value === selectedSpecialty)?.label : t("transfers.filters.any")}
                         </span>
@@ -733,7 +736,7 @@ export default function TransfersPage() {
                             document.getElementById('specialty-dropdown')?.classList.add('hidden');
                           }}
                         >
-                          <span className="material-symbols-outlined text-sm text-[#91b2a6]">{spec.icon}</span>
+                          <SpecialtyIcon code={spec.value} size="sm" className="text-[#91b2a6]" />
                           <span className={`text-xs font-bold ${selectedSpecialty === spec.value ? 'text-[#a1ffc2]' : 'text-[#d3f5e8]'}`}>{spec.label}</span>
                           {selectedSpecialty === spec.value && <span className="material-symbols-outlined text-[#a1ffc2] text-sm ml-auto">check</span>}
                         </button>

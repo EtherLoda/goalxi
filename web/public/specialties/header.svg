@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none" stroke="currentColor" color="#a1ffc2" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-label="头球专家 Header Specialist">
+  <!-- head silhouette (neck + back of head + forehead + nose + mouth + chin) -->
+  <path d="M12 54 L12 30 a11 11 0 0 1 22 0 L30 24 L26 28 L30 32 L23 34 L23 54 Z"/>
+  <!-- ball meeting the forehead -->
+  <circle cx="42" cy="12" r="8"/>
+  <path d="M37 8 L42 12 L47 8" stroke-width="1.5" opacity="0.5"/>
+  <path d="M42 4 L42 20" stroke-width="1.5" opacity="0.5"/>
+</svg>

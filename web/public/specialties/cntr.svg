@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none" stroke="currentColor" color="#a1ffc2" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-label="反击启动 Counter Starter">
+  <!-- lightning bolt -->
+  <path d="M38 4 L16 34 L28 34 L22 60 L46 28 L34 28 L42 4 Z"/>
+  <!-- forward motion lines -->
+  <path d="M52 18 L60 18" stroke-width="1.5" opacity="0.6"/>
+  <path d="M52 32 L60 32" stroke-width="1.5" opacity="0.6"/>
+  <path d="M52 46 L60 46" stroke-width="1.5" opacity="0.6"/>
+</svg>

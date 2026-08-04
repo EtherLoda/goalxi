@@ -11,20 +11,8 @@ import { useGameStore } from "@/stores/gameStore";
 import { RadarChart } from "@/components/player/RadarChart";
 import { InjuryBadge } from "@/components/player/InjuryBadge";
 import { getConditionText } from "@/lib/constants";
-
-const SPECIALTIES: { value: string; label: string; labelEn: string }[] = [
-  { value: "HEADER", label: "头球", labelEn: "Header" },
-  { value: "LPASS", label: "长传", labelEn: "Long Pass" },
-  { value: "CROSS", label: "传中", labelEn: "Cross" },
-  { value: "DRBLE", label: "盘带", labelEn: "Dribble" },
-  { value: "LSHT", label: "远射", labelEn: "Long Shot" },
-  { value: "CLUCH", label: "关键", labelEn: "Clutch" },
-  { value: "TACKL", label: "抢断", labelEn: "Tackle" },
-  { value: "PSAVE", label: "扑点", labelEn: "PK Saver" },
-  { value: "CNTR", label: "反击", labelEn: "Counter" },
-  { value: "REBND", label: "补射", labelEn: "Rebound" },
-  { value: "FSTRT", label: "快开", labelEn: "Fast Start" },
-];
+import { SpecialtyIcon } from "@/components/player/SpecialtyIcon";
+import { getSpecialtyLabel } from "@/lib/specialties";
 
 const EVENT_ICONS: Record<string, string> = {
   TRANSFER: "swap_horiz",
@@ -488,14 +476,10 @@ function SquadPageContent() {
                                       </span>
                                     )}
                                     {player.specialty && (
-                                      (() => {
-                                        const specInfo = SPECIALTIES.find((s) => s.value === player.specialty);
-                                        return specInfo ? (
-                                          <span className="text-[9px] font-bold text-[#a1ffc2] bg-[#a1ffc2]/10 px-1.5 py-0.5 rounded">
-                                            {locale === "zh" ? specInfo.label : specInfo.labelEn}
-                                          </span>
-                                        ) : null;
-                                      })()
+                                      <span className="inline-flex items-center gap-1 text-[9px] font-bold text-[#a1ffc2] bg-[#a1ffc2]/10 px-1.5 py-0.5 rounded">
+                                        <SpecialtyIcon code={player.specialty} size="xs" className="text-[#a1ffc2]" />
+                                        {getSpecialtyLabel(player.specialty, locale === "en" ? "en" : "zh")}
+                                      </span>
                                     )}
                                     <InjuryBadge
                                       player={player}
@@ -615,14 +599,10 @@ function SquadPageContent() {
                               {selectedPlayer.potentialTier?.replace("_", " ") || "REGULAR"}
                             </span> */}
                             {selectedPlayer.specialty && (
-                              (() => {
-                                const specInfo = SPECIALTIES.find((s) => s.value === selectedPlayer.specialty);
-                                return specInfo ? (
-                                  <span className="bg-[#a1ffc2]/10 text-[#a1ffc2] px-3 py-1.5 rounded-full text-xs font-bold font-space border border-[#a1ffc2]/20">
-                                    {locale === "zh" ? specInfo.label : specInfo.labelEn}
-                                  </span>
-                                ) : null;
-                              })()
+                              <span className="inline-flex items-center gap-1.5 bg-[#a1ffc2]/10 text-[#a1ffc2] px-3 py-1.5 rounded-full text-xs font-bold font-space border border-[#a1ffc2]/20">
+                                <SpecialtyIcon code={selectedPlayer.specialty} size="sm" className="text-[#a1ffc2]" />
+                                {getSpecialtyLabel(selectedPlayer.specialty, locale === "en" ? "en" : "zh")}
+                              </span>
                             )}
                           </div>
                         </div>

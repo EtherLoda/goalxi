@@ -1,8 +1,10 @@
 "use client";
 
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import Link from "next/link";
 import { type TransferAuction, type Player } from "@/lib/api";
+import { SpecialtyIcon } from "@/components/player/SpecialtyIcon";
+import { getSpecialtyLabel } from "@/lib/specialties";
 
 interface TransferPlayerCardProps {
   transfer: TransferAuction;
@@ -49,6 +51,7 @@ export default function TransferPlayerCard({
   bidStatus,
 }: TransferPlayerCardProps) {
   const t = useTranslations();
+  const locale = useLocale();
   const player = transfer.player;
   const initials = player.name
     .split(" ")
@@ -159,9 +162,10 @@ export default function TransferPlayerCard({
       {player.specialty && (
         <div className="flex flex-wrap gap-2 mb-5">
           <span
-            className="bg-[#a1ffc2]/10 text-[#a1ffc2] text-[10px] px-3 py-1.5 rounded-lg border border-[#a1ffc2]/20 uppercase tracking-wider"
+            className="inline-flex items-center gap-1.5 bg-[#a1ffc2]/10 text-[#a1ffc2] text-[10px] px-3 py-1.5 rounded-lg border border-[#a1ffc2]/20 uppercase tracking-wider"
           >
-            {player.specialty}
+            <SpecialtyIcon code={player.specialty} size="xs" className="text-[#a1ffc2]" />
+            {getSpecialtyLabel(player.specialty, locale === "en" ? "en" : "zh")}
           </span>
         </div>
       )}

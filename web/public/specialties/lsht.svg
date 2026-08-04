@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none" stroke="currentColor" color="#a1ffc2" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-label="远射专家 Long Shooter">
+  <!-- shooter dot -->
+  <circle cx="8" cy="56" r="3"/>
+  <!-- long shot trajectory -->
+  <path d="M8 56 L42 22"/>
+  <!-- ball impact at goal -->
+  <circle cx="48" cy="16" r="3.5"/>
+  <!-- impact burst -->
+  <path d="M48 6 L48 10 M56 16 L60 16 M48 22 L48 26 M40 16 L36 16"/>
+  <!-- distant goal frame hint -->
+  <path d="M52 8 L60 8 L60 24 L52 24" stroke-width="1.5" opacity="0.4"/>
+</svg>

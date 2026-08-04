@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none" stroke="currentColor" color="#a1ffc2" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-label="补射专家 Rebound Specialist">
+  <!-- first shot -->
+  <circle cx="10" cy="48" r="3.5"/>
+  <path d="M10 48 L24 32"/>
+  <!-- blocked shot indicator (impact burst on the wall) -->
+  <path d="M30 24 L30 44"/>
+  <path d="M30 24 L24 28 M30 24 L36 28" stroke-width="1.5" opacity="0.7"/>
+  <!-- rebound path bouncing off the block -->
+  <path d="M30 30 Q40 18 50 22"/>
+  <!-- second-shot ball, heading into the net -->
+  <circle cx="50" cy="22" r="3.5"/>
+  <path d="M54 22 L60 22" stroke-width="1.5" opacity="0.6"/>
+  <!-- net indicated as a small pocket -->
+  <path d="M58 14 L62 14 L62 26" stroke-width="1.5" opacity="0.6"/>
+  <path d="M58 20 L62 20" stroke-width="1.2" opacity="0.4"/>
+  <!-- ground line -->
+  <path d="M4 60 L60 60" stroke-width="1.5" stroke-dasharray="2 3" opacity="0.4"/>
+</svg>
