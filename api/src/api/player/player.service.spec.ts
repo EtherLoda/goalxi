@@ -420,7 +420,7 @@ describe('PlayerService', () => {
   });
 
   describe('releaseYouth — WAVE B2', () => {
-    const playerId = '11111111-1111-4111-8111-111111111111';
+    const playerId = 11111;
 
     const setup = (player: PlayerEntity) => {
       jest

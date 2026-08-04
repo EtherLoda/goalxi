@@ -1,4 +1,4 @@
-import {
+﻿import {
   AuctionEntity,
   AuctionStatus,
   PlayerEntity,
@@ -177,7 +177,7 @@ describe('AuctionService', () => {
     it('should create an auction successfully', async () => {
       const userId = 'user-1' as any;
       const dto = {
-        playerId: 'player-1',
+        playerId: 1,
         startPrice: 10000,
         buyoutPrice: 50000,
         durationHours: 24,
@@ -201,7 +201,7 @@ describe('AuctionService', () => {
     it('should throw error if user has no team', async () => {
       const userId = 'user-1' as any;
       const dto = {
-        playerId: 'player-1',
+        playerId: 1,
         startPrice: 10000,
         buyoutPrice: 50000,
         durationHours: 24,
@@ -217,7 +217,7 @@ describe('AuctionService', () => {
     it('should throw error if player not found', async () => {
       const userId = 'user-1' as any;
       const dto = {
-        playerId: 'player-1',
+        playerId: 1,
         startPrice: 10000,
         buyoutPrice: 50000,
         durationHours: 24,
@@ -235,7 +235,7 @@ describe('AuctionService', () => {
     it('should throw error if user does not own player', async () => {
       const userId = 'user-1' as any;
       const dto = {
-        playerId: 'player-1',
+        playerId: 1,
         startPrice: 10000,
         buyoutPrice: 50000,
         durationHours: 24,
@@ -255,7 +255,7 @@ describe('AuctionService', () => {
     it('should throw error if player already in auction', async () => {
       const userId = 'user-1' as any;
       const dto = {
-        playerId: 'player-1',
+        playerId: 1,
         startPrice: 10000,
         buyoutPrice: 50000,
         durationHours: 24,
@@ -277,7 +277,7 @@ describe('AuctionService', () => {
     it('should throw error if buyout price <= start price', async () => {
       const userId = 'user-1' as any;
       const dto = {
-        playerId: 'player-1',
+        playerId: 1,
         startPrice: 50000,
         buyoutPrice: 40000,
         durationHours: 24,

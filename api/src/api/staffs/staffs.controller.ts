@@ -12,6 +12,7 @@ import {
   Controller,
   Get,
   Param,
+  ParseIntPipe,
   Patch,
   Post,
   UseGuards,
@@ -156,7 +157,7 @@ export class StaffsController {
   /** Get assignments for a player */
   @Get('player/:playerId/assignments')
   async getPlayerAssignments(
-    @Param('playerId') playerId: string,
+    @Param('playerId', ParseIntPipe) playerId: number,
   ): Promise<AssignmentDto[]> {
     const assignments =
       await this.staffsService.getAssignmentsByPlayer(playerId);
@@ -224,11 +225,11 @@ export interface CostSummaryDto {
 }
 
 export interface AssignPlayerDto {
-  playerId: string;
+  playerId: number;
 }
 
 export interface UnassignPlayerDto {
-  playerId: string;
+  playerId: number;
 }
 
 export interface AssignmentDto {

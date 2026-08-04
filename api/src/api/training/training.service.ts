@@ -49,7 +49,7 @@ export class TrainingService {
           })
         : [];
 
-    const playerAssignmentMap = new Map<string, CoachPlayerAssignmentEntity>();
+    const playerAssignmentMap = new Map<number, CoachPlayerAssignmentEntity>();
     for (const assignment of assignments) {
       if (!playerAssignmentMap.has(assignment.playerId)) {
         playerAssignmentMap.set(assignment.playerId, assignment);
@@ -238,7 +238,7 @@ export interface TrainingSkillDto {
 }
 
 export interface TrainingPreviewDto {
-  playerId: string;
+  playerId: number;
   playerName: string;
   assignedCoachId?: string;
   assignedCoachName?: string;

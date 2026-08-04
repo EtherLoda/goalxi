@@ -1,4 +1,3 @@
-import { Uuid } from '@/common/types/common.type';
 import {
   InjuryEntity,
   MatchEntity,
@@ -25,7 +24,7 @@ export interface InjuryHistoryResDto {
 }
 
 export interface PlayerInjuryStatusResDto {
-  playerId: string;
+  playerId: number;
   playerName: string;
   isInjured: boolean;
   currentInjuryValue: number;
@@ -76,10 +75,10 @@ export class InjuryService {
    * Get a player's injury history
    */
   async getPlayerInjuryHistory(
-    playerId: string,
+    playerId: number,
   ): Promise<InjuryHistoryResDto[]> {
     const injuries = await this.injuryRepo.find({
-      where: { playerId: playerId as Uuid },
+      where: { playerId },
       order: { occurredAt: 'DESC' },
     });
 
@@ -205,10 +204,10 @@ export class InjuryService {
    * Update a player's injury value (called by daily cron job)
    */
   async updatePlayerInjury(
-    playerId: string,
+    playerId: number,
     recoveryValue: number,
   ): Promise<PlayerEntity | null> {
-    const player = await this.playerRepo.findOneBy({ id: playerId as Uuid });
+    const player = await this.playerRepo.findOneBy({ id: playerId });
     if (!player || player.currentInjuryValue <= 0) return null;
 
     const newValue = Math.max(0, player.currentInjuryValue - recoveryValue);
@@ -225,7 +224,7 @@ export class InjuryService {
 
       // Update the injury record
       const activeInjury = await this.injuryRepo.findOne({
-        where: { playerId: playerId as Uuid, isRecovered: false },
+        where: { playerId, isRecovered: false },
         order: { occurredAt: 'DESC' },
       });
 
@@ -246,7 +245,7 @@ export class InjuryService {
    * so the InjuryEntity table contract stays backwards-compatible.
    */
   async applyInjury(
-    playerId: string,
+    playerId: number,
     injuryType: string,
     severity: number,
     injuryValue: number,
@@ -254,7 +253,7 @@ export class InjuryService {
     matchId?: string,
   ): Promise<InjuryEntity> {
     // Update player
-    await this.playerRepo.update(playerId, {
+    await this.playerRepo.update({ id: playerId } as any, {
       currentInjuryValue: injuryValue,
       injuryType: injuryType as any,
       injuredAt: new Date(),

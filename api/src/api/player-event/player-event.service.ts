@@ -1,4 +1,8 @@
-import { PlayerEventEntity, PlayerEventType } from '@goalxi/database';
+import {
+  PlayerEventEntity,
+  PlayerEventType,
+  Uuid,
+} from '@goalxi/database';
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { plainToInstance } from 'class-transformer';
@@ -33,7 +37,10 @@ export class PlayerEventService {
   async create(dto: CreatePlayerEventDto): Promise<PlayerEventResDto> {
     const event = this.eventRepo.create(dto as any);
     const saved = await this.eventRepo.save(event);
-    return plainToInstance(PlayerEventResDto, saved);
+    return plainToInstance(
+      PlayerEventResDto,
+      saved as unknown as PlayerEventEntity,
+    );
   }
 
   async createBatch(
@@ -48,12 +55,12 @@ export class PlayerEventService {
     playerId: number,
     eventType: PlayerEventType,
     season: number,
-    matchId?: string,
+    matchId?: Uuid,
   ): Promise<PlayerEventResDto | null> {
     // Check if event already exists for this player/match
     if (matchId) {
       const existing = await this.eventRepo.findOne({
-        where: { playerId, eventType, matchId },
+        where: { playerId, eventType, matchId: matchId as Uuid },
       });
       if (existing) {
         return plainToInstance(PlayerEventResDto, existing);

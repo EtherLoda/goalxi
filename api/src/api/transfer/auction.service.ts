@@ -122,7 +122,7 @@ export class AuctionService implements OnModuleInit {
         await this.auctionRepo.update(auction.id, {
           status: AuctionStatus.CANCELLED,
         });
-        await this.playerRepo.update(auction.playerId as Uuid, {
+        await this.playerRepo.update(auction.playerId, {
           onTransfer: false,
         });
       }
@@ -344,7 +344,7 @@ export class AuctionService implements OnModuleInit {
     if (!team) throw new NotFoundException('User has no team');
 
     const player = await this.playerRepo.findOneBy({
-      id: dto.playerId as Uuid,
+      id: dto.playerId,
     });
     if (!player) throw new NotFoundException('Player not found');
 
@@ -809,7 +809,7 @@ export class AuctionService implements OnModuleInit {
               `[Auction] finalizeExpiredAuctions no bids auctionId=${auction.id} playerId=${auction.playerId} sellerTeamId=${auction.teamId}`,
             );
             const player = await this.playerRepo.findOne({
-              where: { id: auction.playerId as Uuid },
+              where: { id: auction.playerId },
             });
             if (player) {
               player.onTransfer = false;

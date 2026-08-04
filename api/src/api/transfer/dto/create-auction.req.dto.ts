@@ -1,9 +1,9 @@
-import { NumberField, UUIDField } from '@/decorators/field.decorators';
+import { NumberField } from '@/decorators/field.decorators';
 import { IsOptional, Min } from 'class-validator';
 
 export class CreateAuctionReqDto {
-  @UUIDField()
-  playerId: string;
+  @NumberField()
+  playerId: number;
 
   @NumberField({ min: 1 })
   startPrice: number;

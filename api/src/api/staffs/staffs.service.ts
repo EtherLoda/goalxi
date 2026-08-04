@@ -403,7 +403,7 @@ export class StaffsService {
   }
 
   /** Unassign a player from a coach */
-  async unassignPlayer(coachId: string, playerId: string): Promise<void> {
+  async unassignPlayer(coachId: string, playerId: number): Promise<void> {
     const assignment = await this.assignmentRepo.findOne({
       where: { coachId, playerId },
     });

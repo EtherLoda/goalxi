@@ -1,4 +1,4 @@
-import { Controller, Get, Param, ParseUUIDPipe, Query } from '@nestjs/common';
+import { Controller, Get, Param, ParseIntPipe, ParseUUIDPipe, Query } from '@nestjs/common';
 import {
   InjuryHistoryResDto,
   InjuryService,
@@ -17,7 +17,7 @@ export class InjuryController {
    */
   @Get('player/:id/history')
   async getPlayerInjuryHistory(
-    @Param('id', ParseUUIDPipe) playerId: string,
+    @Param('id', ParseIntPipe) playerId: number,
   ): Promise<InjuryHistoryResDto[]> {
     return this.injuryService.getPlayerInjuryHistory(playerId);
   }

@@ -6,7 +6,7 @@ import {
   TrainingUpdateEntity,
   Uuid,
 } from '@goalxi/database';
-import { Controller, Get, Param, UseGuards } from '@nestjs/common';
+import { Controller, Get, Param, ParseIntPipe, UseGuards } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { CurrentUser } from '../../decorators/current-user.decorator';
@@ -47,11 +47,11 @@ export class TrainingController {
   /** Get training status for a specific player */
   @Get('player/:id')
   async getPlayerTraining(
-    @Param('id') playerId: string,
+    @Param('id', ParseIntPipe) playerId: number,
     @CurrentUser('id') userId: Uuid,
   ): Promise<any> {
     const player = await this.playerRepo.findOne({
-      where: { id: playerId as Uuid },
+      where: { id: playerId },
     });
     if (!player) {
       return null;

@@ -64,6 +64,7 @@ export class ScoutsController {
 // --- DTOs & Mappers ---
 
 export interface ScoutCandidateDto {
+  id: string;
   name: string;
   age: number;
   nationality: string;

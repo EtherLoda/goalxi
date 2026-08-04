@@ -1,4 +1,4 @@
-import { PlayerEventType } from '@goalxi/database';
+import { PlayerEventType, Uuid } from '@goalxi/database';
 
 export class CreatePlayerEventDto {
   playerId!: number;

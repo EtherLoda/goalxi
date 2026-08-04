@@ -1,4 +1,4 @@
-import { Uuid } from '@/common/types/common.type';
+﻿import { Uuid } from '@/common/types/common.type';
 import {
   InjuryEntity,
   MatchEntity,
@@ -18,10 +18,10 @@ describe('InjuryService', () => {
   let staffRepo: jest.Mocked<Repository<StaffEntity>>;
   let matchRepo: jest.Mocked<Repository<MatchEntity>>;
 
-  // PlayerEntity.getExactAge() is consumed by getTeamInjuredPlayers — stub it.
+  // PlayerEntity.getExactAge() is consumed by getTeamInjuredPlayers 鈥?stub it.
   const makePlayer = (overrides: Partial<PlayerEntity> = {}): PlayerEntity => {
     const player = {
-      id: 'player-uuid-1' as Uuid,
+      id: 1,
       name: 'Test Player',
       teamId: 'team-uuid-1' as Uuid,
       currentInjuryValue: 50,
@@ -36,7 +36,7 @@ describe('InjuryService', () => {
 
   const mockInjury: Partial<InjuryEntity> = {
     id: 'injury-uuid-1' as Uuid,
-    playerId: 'player-uuid-1' as Uuid,
+    playerId: 1,
     injuryType: 'muscle',
     severity: 2,
     injuryValue: 50,
@@ -105,10 +105,10 @@ describe('InjuryService', () => {
     it('should return injury history for a player', async () => {
       injuryRepo.find.mockResolvedValue([mockInjury] as InjuryEntity[]);
 
-      const result = await service.getPlayerInjuryHistory('player-uuid-1');
+      const result = await service.getPlayerInjuryHistory(1);
 
       expect(injuryRepo.find).toHaveBeenCalledWith({
-        where: { playerId: 'player-uuid-1' },
+        where: { playerId: 1 },
         order: { occurredAt: 'DESC' },
       });
       expect(result).toHaveLength(1);
@@ -120,7 +120,7 @@ describe('InjuryService', () => {
     it('should return empty array when player has no injury history', async () => {
       injuryRepo.find.mockResolvedValue([]);
 
-      const result = await service.getPlayerInjuryHistory('player-uuid-1');
+      const result = await service.getPlayerInjuryHistory(1);
 
       expect(result).toEqual([]);
     });
@@ -128,7 +128,7 @@ describe('InjuryService', () => {
     it('should expose estimatedDays (collapsed from min/max columns)', async () => {
       injuryRepo.find.mockResolvedValue([mockInjury] as InjuryEntity[]);
 
-      const result = await service.getPlayerInjuryHistory('player-uuid-1');
+      const result = await service.getPlayerInjuryHistory(1);
 
       expect(result[0].estimatedDays).toBe(7);
       expect(result[0].isRecovered).toBe(false);
@@ -149,7 +149,7 @@ describe('InjuryService', () => {
         },
       });
       expect(result).toHaveLength(1);
-      expect(result[0].playerId).toBe('player-uuid-1');
+      expect(result[0].playerId).toBe(1);
       expect(result[0].isInjured).toBe(true);
       expect(result[0].currentInjuryValue).toBe(50);
     });
@@ -296,7 +296,7 @@ describe('InjuryService', () => {
       injuryRepo.findOne.mockResolvedValue(mockInjury as InjuryEntity);
       injuryRepo.save.mockImplementation(async (i) => i as InjuryEntity);
 
-      const result = await service.updatePlayerInjury('player-uuid-1', 10);
+      const result = await service.updatePlayerInjury(1, 10);
 
       expect(result).toBeDefined();
       expect(result!.currentInjuryValue).toBe(40);
@@ -305,7 +305,7 @@ describe('InjuryService', () => {
     it('should return null if player not found', async () => {
       playerRepo.findOneBy.mockResolvedValue(null);
 
-      const result = await service.updatePlayerInjury('unknown-player', 10);
+      const result = await service.updatePlayerInjury(999, 10);
 
       expect(result).toBeNull();
     });
@@ -315,7 +315,7 @@ describe('InjuryService', () => {
         makePlayer({ currentInjuryValue: 0 }),
       );
 
-      const result = await service.updatePlayerInjury('player-uuid-1', 10);
+      const result = await service.updatePlayerInjury(1, 10);
 
       expect(result).toBeNull();
     });
@@ -335,7 +335,7 @@ describe('InjuryService', () => {
           }) as InjuryEntity,
       );
 
-      const result = await service.updatePlayerInjury('player-uuid-1', 10);
+      const result = await service.updatePlayerInjury(1, 10);
 
       expect(result!.currentInjuryValue).toBe(0);
       expect(result!.injuryType).toBeNull();
@@ -350,7 +350,7 @@ describe('InjuryService', () => {
       injuryRepo.save.mockImplementation(async (i) => i as InjuryEntity);
 
       const result = await service.applyInjury(
-        'player-uuid-1',
+        1,
         'muscle',
         2,
         50,
@@ -359,7 +359,7 @@ describe('InjuryService', () => {
       );
 
       expect(playerRepo.update).toHaveBeenCalledWith(
-        'player-uuid-1',
+        { id: 1 },
         expect.objectContaining({
           currentInjuryValue: 50,
           injuryType: 'muscle',

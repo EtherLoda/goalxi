@@ -21,6 +21,20 @@ import { FanService } from '../fan/fan.service';
 import { FinanceService } from '../finance/finance.service';
 import { MatchCacheService } from './match-cache.service';
 
+/**
+ * Coerce a jsonb value (number or string, post-migration) into a player id.
+ * Returns `null` for empty / non-numeric strings so callers can skip the row
+ * instead of polluting Maps with `NaN` keys.
+ */
+function toIntId(raw: string | number | null | undefined): number | null {
+  if (raw === null || raw === undefined) return null;
+  if (typeof raw === 'number') return Number.isFinite(raw) ? raw : null;
+  const trimmed = raw.trim();
+  if (!trimmed) return null;
+  const n = Number(trimmed);
+  return Number.isFinite(n) ? n : null;
+}
+
 @Injectable()
 export class MatchCompletionService {
   constructor(
@@ -180,7 +194,7 @@ export class MatchCompletionService {
     });
 
     const playerStatsUpdate = new Map<
-      string,
+      number,
       {
         goals: number;
         assists: number;
@@ -194,15 +208,19 @@ export class MatchCompletionService {
     const tactics = await this.tacticsRepository.find({ where: { matchId } });
     for (const t of tactics) {
       // Starters
-      for (const playerId of Object.values(t.lineup)) {
-        if (typeof playerId === 'string') {
+      for (const rawId of Object.values(t.lineup)) {
+        const playerId = toIntId(rawId);
+        if (playerId !== null) {
           this.ensurePlayerInMap(playerStatsUpdate, playerId);
         }
       }
       // Substitutes (who were actually called to play, according to tactics)
       if (t.substitutions) {
         for (const sub of t.substitutions) {
-          this.ensurePlayerInMap(playerStatsUpdate, sub.in);
+          const inId = toIntId(sub.in);
+          if (inId !== null) {
+            this.ensurePlayerInMap(playerStatsUpdate, inId);
+          }
         }
       }
     }
@@ -327,9 +345,9 @@ export class MatchCompletionService {
     });
 
     // Build a map of playerId -> minute they were substituted out
-    const substitutedOut = new Map<string, number>();
+    const substitutedOut = new Map<number, number>();
     // Build a map of playerId -> minute they were substituted in
-    const substitutedIn = new Map<string, number>();
+    const substitutedIn = new Map<number, number>();
 
     for (const event of substitutionEvents) {
       if ((event.typeName || '').toLowerCase() === 'substitution') {
@@ -347,14 +365,14 @@ export class MatchCompletionService {
     const tactics = await this.tacticsRepository.find({ where: { matchId } });
 
     // Collect all playerIds and their minutes
-    const playerMinutes: Map<string, { teamId: string; minutes: number }> =
+    const playerMinutes: Map<number, { teamId: string; minutes: number }> =
       new Map();
 
     for (const t of tactics) {
       const teamId = t.teamId;
-      const starterIds = Object.values(t.lineup).filter(
-        (id): id is string => typeof id === 'string',
-      );
+      const starterIds = Object.values(t.lineup)
+        .map((id) => toIntId(id))
+        .filter((id): id is number => id !== null);
 
       // Process starters
       for (const playerId of starterIds) {
@@ -371,14 +389,16 @@ export class MatchCompletionService {
       // Process substitutes who actually came in
       if (t.substitutions) {
         for (const sub of t.substitutions) {
-          const subInMinute = substitutedIn.get(sub.in);
+          const inId = toIntId(sub.in);
+          if (inId === null) continue;
+          const subInMinute = substitutedIn.get(inId);
           if (subInMinute !== undefined) {
             const minutesPlayed = 90 - subInMinute;
-            const existing = playerMinutes.get(sub.in);
+            const existing = playerMinutes.get(inId);
             if (existing) {
               existing.minutes += minutesPlayed;
             } else {
-              playerMinutes.set(sub.in, { teamId, minutes: minutesPlayed });
+              playerMinutes.set(inId, { teamId, minutes: minutesPlayed });
             }
           }
         }
