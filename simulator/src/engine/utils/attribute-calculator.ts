@@ -32,6 +32,18 @@ const SLOT_KEY_NORMALIZER: Readonly<Record<string, string>> = Object.freeze({
   // keyed by family don't have to special-case left/right.
   CBL: 'CB',
   CBR: 'CB',
+  // Legacy centre-defender aliases. `CD`/`CDL`/`CDR` were retired by
+  // the position-fit refactor (see the POSITION_WEIGHTS export map),
+  // but the lineup editor, the convex-regression / simulation-stats
+  // specs, and any saved user team that predates the refactor still
+  // emit these keys. Without this mapping every `CD` player reads as
+  // 0 contribution in every lane/phase — that collapses centre
+  // defence by ~50% and inflates the att/def ratio enough to push
+  // the empirical push-success rate from ~50% to ~85%. Verified in
+  // Aug 2026 (see `engine/debug-push-prob.spec.ts`).
+  CD: 'CB',
+  CDL: 'CB',
+  CDR: 'CB',
   // 3-slot defensive midfielder. `DMFL`/`DMFR` are the side slots,
   // `DMF` is the centre; all fold to `DMF` (the canonical 3-slot
   // centre key in the position matrix).
@@ -40,6 +52,10 @@ const SLOT_KEY_NORMALIZER: Readonly<Record<string, string>> = Object.freeze({
   // 3-slot central midfielder.
   CML: 'CM',
   CMR: 'CM',
+  // Legacy 3-slot CM centre key (lineup editor + some fixtures).
+  // Folds to family `CM` so the engine doesn't drop these players'
+  // contribution to 0.
+  CMC: 'CM',
   // 3-slot attacking midfielder.
   CAML: 'CAM',
   CAMR: 'CAM',
@@ -68,11 +84,16 @@ export function normalizePositionKey(slotKey: string): string {
 }
 
 export class AttributeCalculator {
-  // 缓存：playerId + positionKey + lane + phase -> base contribution (without multiplier)
-  private static contributionCache = new Map<string, number>();
+  // 缓存：用 Player 对象引用做外层 key（不是 playerId），内层用
+  // `${positionKey}:${lane}:${phase}`。原实现用 `${playerId}:${...}`
+  // 做 key，但 spec/测试里两支球队都从 id=0 开始编号，导致 strong
+  // 命中 weak 写进 cache 的值（污染所有 OVR 不对等的实测数据）。
+  // 生产环境数据库里 playerId 唯一不会冲突，但为了让 spec 也能反映
+  // 真实情况，改用 player 引用做 key。
+  private static contributionCache = new Map<Player, Map<string, number>>();
 
-  // 缓存：playerId -> GK save rating
-  private static gkCache = new Map<number, number>();
+  // 缓存：Player -> GK save rating
+  private static gkCache = new Map<Player, number>();
 
   // Dedup warn-set: log each unknown slot key once per process so a
   // 90-min match full of badly-keyed players doesn't emit 90 * 11 logs.
@@ -82,14 +103,13 @@ export class AttributeCalculator {
     this.unknownKeyWarned.clear();
   }
 
-  // 缓存键生成
+  // 缓存键生成(内层 key,不再含 playerId)
   private static getCacheKey(
-    playerId: number,
     positionKey: string,
     lane: Lane,
     phase: Phase,
   ): string {
-    return `${playerId}:${positionKey}:${lane}:${phase}`;
+    return `${positionKey}:${lane}:${phase}`;
   }
 
   /**
@@ -109,12 +129,18 @@ export class AttributeCalculator {
     lane: Lane,
     phase: Phase,
   ): number {
-    const cacheKey = this.getCacheKey(player.id, positionKey, lane, phase);
+    const cacheKey = this.getCacheKey(positionKey, lane, phase);
 
-    // 尝试从缓存获取
-    const cached = this.contributionCache.get(cacheKey);
-    if (cached !== undefined) {
-      return cached;
+    // 尝试从缓存获取(player 引用做外层 key,避免 playerId 冲突)
+    let playerCache = this.contributionCache.get(player);
+    if (playerCache) {
+      const cached = playerCache.get(cacheKey);
+      if (cached !== undefined) {
+        return cached;
+      }
+    } else {
+      playerCache = new Map<string, number>();
+      this.contributionCache.set(player, playerCache);
     }
 
     // 计算并缓存
@@ -124,7 +150,7 @@ export class AttributeCalculator {
       lane,
       phase,
     );
-    this.contributionCache.set(cacheKey, score);
+    playerCache.set(cacheKey, score);
     return score;
   }
 
@@ -188,26 +214,27 @@ export class AttributeCalculator {
    * 使用缓存的贡献值（需要在缓存后调用）
    */
   static getCachedContribution(
-    playerId: number,
+    player: Player,
     positionKey: string,
     lane: Lane,
     phase: Phase,
   ): number {
-    const cacheKey = this.getCacheKey(playerId, positionKey, lane, phase);
-    return this.contributionCache.get(cacheKey) ?? 0;
+    const cacheKey = this.getCacheKey(positionKey, lane, phase);
+    const playerCache = this.contributionCache.get(player);
+    return playerCache?.get(cacheKey) ?? 0;
   }
 
   /**
    * 计算并缓存GK评分
    */
   static calculateAndCacheGKSaveRating(player: Player): number {
-    const cached = this.gkCache.get(player.id);
+    const cached = this.gkCache.get(player);
     if (cached !== undefined) {
       return cached;
     }
 
     const score = this.calculateGKSaveRatingRaw(player);
-    this.gkCache.set(player.id, score);
+    this.gkCache.set(player, score);
     return score;
   }
 
@@ -231,8 +258,8 @@ export class AttributeCalculator {
   /**
    * 获取缓存的GK评分
    */
-  static getCachedGKSaveRating(playerId: number): number {
-    return this.gkCache.get(playerId) ?? 100; // 默认100
+  static getCachedGKSaveRating(player: Player): number {
+    return this.gkCache.get(player) ?? 100; // 默认100
   }
 
   /**
@@ -267,10 +294,13 @@ export class AttributeCalculator {
     phase: Phase,
   ): number {
     // 优先使用缓存
-    const cacheKey = this.getCacheKey(player.id, positionKey, lane, phase);
-    const cached = this.contributionCache.get(cacheKey);
-    if (cached !== undefined) {
-      return cached;
+    const cacheKey = this.getCacheKey(positionKey, lane, phase);
+    const playerCache = this.contributionCache.get(player);
+    if (playerCache) {
+      const cached = playerCache.get(cacheKey);
+      if (cached !== undefined) {
+        return cached;
+      }
     }
     // 计算并缓存
     return this.calculateAndCacheContribution(player, positionKey, lane, phase);
@@ -280,7 +310,7 @@ export class AttributeCalculator {
    * 旧方法：保持向后兼容
    */
   static calculateGKSaveRating(player: Player): number {
-    const cached = this.gkCache.get(player.id);
+    const cached = this.gkCache.get(player);
     if (cached !== undefined) {
       return cached;
     }

@@ -103,18 +103,34 @@ describe('InjurySystem', () => {
       }
     });
 
-    it('should have majority of mild injuries', () => {
-      const mildCount = Array.from({ length: 100 }, () =>
+    // Distribution calibrated 2026-08-05: 20% mild / 70% moderate / 10% severe.
+    // Only mild lets the player keep playing; moderate and severe both force
+    // the player off (sub if available, else send-off / 10 men).
+    it('should have ~20% mild injuries (player can continue)', () => {
+      const mildCount = Array.from({ length: 1000 }, () =>
         InjurySystem.determineSeverity(),
       ).filter((s) => s === 'mild').length;
-      expect(mildCount).toBeGreaterThan(50);
+      // 20% ± 5% over 1000 rolls gives a tight CI around 200
+      expect(mildCount).toBeGreaterThan(150);
+      expect(mildCount).toBeLessThan(250);
     });
 
-    it('should have few severe injuries', () => {
-      const severeCount = Array.from({ length: 100 }, () =>
+    it('should have ~70% moderate injuries (force off the pitch)', () => {
+      const moderateCount = Array.from({ length: 1000 }, () =>
+        InjurySystem.determineSeverity(),
+      ).filter((s) => s === 'moderate').length;
+      // 70% ± 5% over 1000 rolls
+      expect(moderateCount).toBeGreaterThan(650);
+      expect(moderateCount).toBeLessThan(750);
+    });
+
+    it('should have ~10% severe injuries (force off the pitch, longer layoff)', () => {
+      const severeCount = Array.from({ length: 1000 }, () =>
         InjurySystem.determineSeverity(),
       ).filter((s) => s === 'severe').length;
-      expect(severeCount).toBeLessThan(30);
+      // 10% ± 4% over 1000 rolls
+      expect(severeCount).toBeGreaterThan(60);
+      expect(severeCount).toBeLessThan(140);
     });
   });
 

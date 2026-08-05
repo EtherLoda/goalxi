@@ -92,3 +92,11 @@ api/scripts/reset-db.js
 
 # Design files
 stitch_design/**/*
+
+# Generated assets (avatars, kit textures, etc.) — large binaries, regenerated from scripts
+/assets/**/*
+!/.gitkeep
+# Debug spec files (simulator ad-hoc exploration specs; kept locally,
+# not part of CI. Naming convention: src/engine/debug-*.spec.ts)
+**/src/engine/debug-*.spec.ts
+

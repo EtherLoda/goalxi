@@ -112,11 +112,20 @@ export class InjurySystem {
 
   /**
    * Determine injury severity based on random chance.
+   *
+   * Distribution (calibrated 2026-08-05):
+   *   - mild (20%): player can continue playing (knock, shakes it off)
+   *   - moderate (70%): tissue damage, player must leave the pitch
+   *   - severe (10%): serious injury, player must leave the pitch
+   *
+   * "Must leave" means the engine attempts a substitution; if no bench
+   * player is available, the injured player is sent off (team plays
+   * with 10 men for the rest of the match).
    */
   static determineSeverity(): InjurySeverity {
     const roll = Math.random();
-    if (roll < 0.6) return 'mild'; // 60% mild
-    if (roll < 0.9) return 'moderate'; // 30% moderate
+    if (roll < 0.2) return 'mild'; // 20% mild
+    if (roll < 0.9) return 'moderate'; // 70% moderate
     return 'severe'; // 10% severe
   }
 

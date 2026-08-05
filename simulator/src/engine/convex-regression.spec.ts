@@ -20,7 +20,7 @@ import { duelProbability } from './duel';
  *   - 轻微差距：away 胜率略高于 home，不碾压
  */
 
-const N = 100;
+const N = 200;
 
 function createMockPlayer(
   id: number,

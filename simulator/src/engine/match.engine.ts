@@ -578,6 +578,14 @@ export class MatchEngine {
           }
         }
       }
+
+      // 5. 独立 foul event(per-minute 概率触发,模拟真实足球里散落的非 attack
+      // 触发犯规,比如争球犯规、拖延时间、报复性犯规等,不打断 attack sequence)。
+      // 90 分钟 × 12% ≈ 10.8 次/场,加上 keyMoment 入口 30% × 20 回合 ≈ 6 次/场,
+      // 总犯规 ~16-17/场,接近真实足球 20-26。
+      if (t > 0 && t < 90 && Math.random() < 0.12) {
+        this.resolveFoul();
+      }
     }
 
     // FULL_TIME Event - Mark exactly at 90 minutes
@@ -1326,8 +1334,9 @@ export class MatchEngine {
   private simulateKeyMoment() {
     this.changeLane();
 
-    // Step 1: Foul Check (Small random chance)
-    if (Math.random() < 0.1) {
+    // Step 1: Foul Check (提高频率,配合 90 分钟独立 foul event 让总犯规 ~14-16/场,
+    // 接近真实足球 20-26 但不至于过密)
+    if (Math.random() < 0.3) {
       this.resolveFoul();
       return; // Foul interrupts the play
     }
@@ -1350,7 +1359,9 @@ export class MatchEngine {
       'possession',
     );
 
-    // tackle_master: 防守方有抢断专家时中场控制 +8%
+    // tackle_master: 抢断专家(TACKL)增强本队的中场控制 +8% per player
+    // 注:TACKL 是球员的拼抢/抢断能力,放在本队让自己的 control 增强。
+    // (旧实现用对方的 TACKL 给自己加成,语义反了——已修。)
     const homeTackleBonus =
       this.homeTeam.players.filter((p) =>
         hasAbility(p.player as Player, 'TACKL'),
@@ -1360,10 +1371,11 @@ export class MatchEngine {
         hasAbility(p.player as Player, 'TACKL'),
       ).length * 0.08;
 
-    const homeControlWithBonus = homeControl * (1 + awayTackleBonus); // defending team benefits
-    const awayControlWithBonus = awayControl * (1 + homeTackleBonus); // defending team benefits
+    const homeControlWithBonus = homeControl * (1 + homeTackleBonus);
+    const awayControlWithBonus = awayControl * (1 + awayTackleBonus);
 
     // 拼抢：amplification=1.7（中场对抗温和放大，比主推更平）
+    // anchorProbability=0.6(比 push 0.55 略高,让弱队中场被压制更明显)
     // 同时累加 home 视角的预期控球概率——FE 的 Possession Share 面板
     // 读 lc.mpr（=sum(midfieldProbability) / midfieldBattles），不再是
     // ls.pos 的强度比，而是 engine 用 duelProbability 算出来的真实预期。
@@ -1374,7 +1386,7 @@ export class MatchEngine {
         amplification: 1.7,
         baseline: 0.5,
         anchorRatio: 2.0,
-        anchorProbability: 0.8,
+        anchorProbability: 0.6,
       },
     );
     const homeWinsPossession = Math.random() < midfieldProbability;
@@ -1590,15 +1602,17 @@ export class MatchEngine {
       if (!interceptTriggered) {
         // 主推进参数：
         // - amplification=1.5（弱凸性，避免强队推进率过度碾压）
-        // - baseline=0.35（真实足球推进率约 30-40%，旧公式 sigmoid 推出 0.44 偏高）
+        // - baseline=0.55(对等双方 push 成功率 ~50%,真实足球控球方推进到前场
+        //   的概率在 50-60% 区间)
+        // - anchorProbability=0.6(跟 baseline 0.55 拉开,k 不为 0,曲线随 OVR 变化)
         // 同时计算 attacker 视角的预期推进概率（0..1），通过 recordAttackSequence
         // 累加到 laneCounters.pushProbabilitySum，给 FE 的 Push Success Rate 面板
         // 提供模型输出而不是 empirical 命中率。
         const pushDuelOptions = {
           amplification: 1.5,
-          baseline: 0.35,
+          baseline: 0.55,
           anchorRatio: 2.0,
-          anchorProbability: 0.8,
+          anchorProbability: 0.6,
         };
         pushProbability = duelProbability(
           effectiveAttPower,
@@ -1651,7 +1665,7 @@ export class MatchEngine {
           amplification: 2.0,
           baseline: shotConfig.baseline,
           anchorRatio: 2.0,
-          anchorProbability: 0.8,
+          anchorProbability: 0.55,
         });
 
         // 远射：65% 有助攻
@@ -1716,7 +1730,7 @@ export class MatchEngine {
           amplification: 2.0,
           baseline: shotConfig.baseline,
           anchorRatio: 2.0,
-          anchorProbability: 0.8,
+          anchorProbability: 0.55,
         });
 
         // 助攻逻辑（根据射门类型）
@@ -1799,7 +1813,11 @@ export class MatchEngine {
     const p = player.player as Player;
     const roll = Math.random();
 
-    if (roll < 0.1) {
+    // 红黄牌分布(参考真实足球,目标每场黄牌~2,红牌~0.15):
+    //   - 直接红牌(暴力犯规/严重犯规):0.2% (原 10%, 真实 < 1%)
+    //   - 黄牌(可累积两黄变红):18% (原 30%, 真实 8-12%)
+    //   - 普通犯规(无牌,产生定位球):81.8% (原 60%)
+    if (roll < 0.002) {
       // Direct Red Card - player leaves, no substitution (plays with 10 men)
       foulingTeam.sendOffPlayer(p.id);
       player.isSentOff = true;
@@ -1813,7 +1831,7 @@ export class MatchEngine {
         this.time,
         this.getTacticsForTeam(foulingTeam).pitchWidth,
       );
-    } else if (roll < 0.4) {
+    } else if (roll < 0.20) {
       // Yellow Card - check for second yellow
       const currentYellows = player.yellowCards || 0;
       player.yellowCards = currentYellows + 1;
@@ -1871,20 +1889,23 @@ export class MatchEngine {
 
     if (isInPenaltyArea) {
       // In attacking zone - could be penalty or indirect FK
-      // 真实足球禁区犯规判点球率约 5%，这里用 8% 作为综合点球率（含手球、VAR等）
+      // 8% penalty (per-match target ~0.5/场) + 14% indirect FK
+      // (target ~1.0/场) → 剩下 78% 是简单犯规
       if (roll < 0.08) {
         // 8% chance to be a penalty in the box
         this.resolvePenalty(foulingTeam, victimTeam);
-      } else {
-        // 92% chance to be indirect free kick
+      } else if (roll < 0.22) {
+        // 14% chance to be an indirect free kick
         this.resolveIndirectFreeKick(victimTeam, foulingTeam);
       }
+      // 78% chance nothing happens (simple foul)
     } else {
-      // Not in attacking zone - 65% chance to be direct free kick
-      if (roll < 0.65) {
+      // Not in attacking zone - 11% chance to be direct free kick
+      // (target ~1.0/场,大约 7.5 non-center fouls × 11% ≈ 0.83)
+      if (roll < 0.11) {
         this.resolveDirectFreeKick(victimTeam, foulingTeam);
       }
-      // 35% chance nothing happens (simple foul)
+      // 89% chance nothing happens (simple foul)
     }
   }
 
@@ -1960,8 +1981,16 @@ export class MatchEngine {
         },
       });
 
-      // Severe injury: player must leave and be substituted
-      if (injuryResult.severity === 'severe') {
+      // Player must leave the pitch: moderate (tissue damage) and severe
+      // (serious) injuries both force the player off. Only mild lets the
+      // player continue. The engine tries a same-position sub first; if
+      // none is available, the injured player is sent off (10 men) — that
+      // is the realistic outcome of, e.g., using all 3 subs earlier or
+      // the bench having no fit option for that spot.
+      if (
+        injuryResult.severity === 'moderate' ||
+        injuryResult.severity === 'severe'
+      ) {
         const benchConfig =
           team === this.homeTeam ? this.homeBenchConfig : this.awayBenchConfig;
         const subPlayer = this.getSubstituteForPosition(
@@ -2021,8 +2050,22 @@ export class MatchEngine {
             this.playerContributionHistory.set(playerInId, []);
           }
         } else {
-          // No substitute available - player must stay on (heavily limping)
-          // This is a medical emergency situation handled by the referee
+          // No substitute available — player must leave the pitch anyway.
+          // Treat as a forced send-off (team plays the rest with 10 men),
+          // which mirrors real football when a club has used all subs or
+          // has no fit option on the bench for that position.
+          team.sendOffPlayer(player.id);
+          this.events.push({
+            minute: this.time,
+            type: 'red_card',
+            teamName: team.name,
+            playerId: player.id,
+            data: {
+              playerName: player.name,
+              reason: 'injury_no_sub',
+              injuryData: injuryEventData,
+            },
+          });
         }
       }
 
@@ -2258,9 +2301,17 @@ export class MatchEngine {
       );
     }
 
-    // Trigger corner if shot was blocked
-    if (finalResult === 'blocked' && shot?.shooter) {
-      if (Math.random() < 0.87) {
+    // Trigger corner when ball goes out behind the goal line off a defender / keeper.
+    // Both blocked shots and saves can produce a corner:
+    //   - blocked (后卫/防守球员挡出): 高概率 → 角球 (87%)
+    //   - save    (门将扑出):       中概率 → 角球 (28%)
+    // 综合目标 ~1.5 角球/场: block 0.45 × 0.87 + save 4.0 × 0.28 ≈ 1.51
+    // 用户 2026-08-05 决定,之前只看 blocked 太少所以加 save。
+    if (shot?.shooter) {
+      let cornerChance = 0;
+      if (finalResult === 'blocked') cornerChance = 0.87;
+      else if (finalResult === 'save') cornerChance = 0.28;
+      if (cornerChance > 0 && Math.random() < cornerChance) {
         const cornerTeam =
           midfieldBattle.winner === 'home' ? this.homeTeam : this.awayTeam;
         const defendingTeam =
@@ -2297,14 +2348,11 @@ export class MatchEngine {
       }
     }
 
-    // 更新控球统计（每次进攻算一次控球）
-    const possessionTeam =
-      result === 'goal' ||
-      result === 'save' ||
-      result === 'blocked' ||
-      result === 'miss'
-        ? this.possessionTeam.name
-        : this.defendingTeam.name;
+    // 更新控球统计:按 mid 胜方算,跟 push 结果无关
+    // 真实足球控球率反映的是"持球时间"占比,本质上 = mid 胜率(push 失败的
+    // turnover 球权归 mid 败方,跟"mid 胜方持球"是同一件事)。
+    // 之前按 push 结果算会被 push 50% 拉向 50/50,跟真实偏离。
+    const possessionTeam = this.possessionTeam.name;
     if (possessionTeam === this.homeTeam.name) {
       this.matchStats.possessionStats.home++;
     } else {
@@ -2595,7 +2643,7 @@ export class MatchEngine {
       amplification: 1.0,
       baseline,
       anchorRatio: 2.0,
-      anchorProbability: 0.8,
+      anchorProbability: 0.55,
     });
   }
 
@@ -2887,11 +2935,13 @@ export class MatchEngine {
     const attackScore =
       avgFK * 0.7 + (kicker.player as Player).attributes.freeKicks * 0.5;
     const defenseScore = opponentAvgFK * 0.6 + gkRating * 0.2;
+    // baseline 0.10 → 0.20:把现实多次机会合成到游戏一次机会,
+    // 对等双方角球转化率翻倍(用户 2026-08-05 决定)
     const probability = duelProbability(attackScore, defenseScore, {
       amplification: 2.0,
-      baseline: 0.1,
+      baseline: 0.2,
       anchorRatio: 2.0,
-      anchorProbability: 0.8,
+      anchorProbability: 0.55,
     });
     const isGoal = Math.random() < probability;
 
@@ -2942,11 +2992,12 @@ export class MatchEngine {
     const attackScore =
       avgFK * 0.6 + (kicker.player as Player).attributes.freeKicks * 0.6;
     const defenseScore = opponentAvgFK * 0.6 + gkRating * 0.2;
+    // baseline 0.12 → 0.24:合成多次机会 → 一次,转化率翻倍
     const probability = duelProbability(attackScore, defenseScore, {
       amplification: 2.0,
-      baseline: 0.12,
+      baseline: 0.24,
       anchorRatio: 2.0,
-      anchorProbability: 0.8,
+      anchorProbability: 0.55,
     });
 
     const isGoal = Math.random() < probability;
@@ -3005,9 +3056,10 @@ export class MatchEngine {
       (gkP.attributes.composure ?? 10) * 0.4;
     const probability = duelProbability(attackScore, defenseScore, {
       amplification: 2.0,
-      baseline: 0.18,
+      // baseline 0.18 → 0.36:合成多次机会 → 一次,转化率翻倍
+      baseline: 0.36,
       anchorRatio: 2.0,
-      anchorProbability: 0.8,
+      anchorProbability: 0.55,
     });
     const isGoal = Math.random() < probability;
 
@@ -3068,7 +3120,7 @@ export class MatchEngine {
       amplification: 1.0,
       baseline: 0.75,
       anchorRatio: 2.0,
-      anchorProbability: 0.8,
+      anchorProbability: 0.55,
     });
     const isGoal = Math.random() < probability;
 
