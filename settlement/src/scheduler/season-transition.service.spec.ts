@@ -26,6 +26,28 @@ describe('SeasonTransitionService', () => {
   let leagueStandingService: jest.Mocked<LeagueStandingService>;
   let seasonArchiveService: jest.Mocked<SeasonArchiveService>;
 
+  // Pin both `now` and `gameStart` to a known pair so the
+  // shared `currentSeasonWeek(now, gameStart)` helper produces
+  // a deterministic (season, week). Tests cover:
+  //   gameStart 2025-01-01 00:00 UTC, SEASON_LENGTH_WEEKS = 16
+  //   1 game-week = 7 real-days, week is 1-indexed
+  //   week 1: 2025-01-01  (weeksElapsed=0)
+  //   week 5: 2025-01-29  (weeksElapsed=4)
+  //   week 15: 2025-04-09 (weeksElapsed=14)
+  //   week 1 of S2: 2025-04-23 (weeksElapsed=16)
+  const GAME_START_ISO = '2025-01-01T00:00:00.000Z';
+
+  // UTC noon on the test day — any time within the same
+  // date works because `currentSeasonWeek` only cares about
+  // the date delta.
+  const atDay = (isoDay: string) =>
+    new Date(`${isoDay}T12:00:00.000Z`);
+
+  const pinClockTo = (gameStart: Date, now: Date) => {
+    jest.useFakeTimers().setSystemTime(now);
+    (service as { gameStart: Date }).gameStart = gameStart;
+  };
+
   const mockMatchRepository = {
     find: jest.fn(),
     findOne: jest.fn(),
@@ -89,6 +111,8 @@ describe('SeasonTransitionService', () => {
   });
 
   beforeEach(async () => {
+    // Default: no env var, service will compute `now` as gameStart
+    // for the constructor call. Tests override per-case via pinClockTo.
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         SeasonTransitionService,
@@ -131,12 +155,14 @@ describe('SeasonTransitionService', () => {
     jest.clearAllMocks();
   });
 
+  afterEach(() => {
+    jest.useRealTimers();
+  });
+
   describe('checkAndGeneratePlayoffs', () => {
     it('should not trigger playoffs when not week 15', async () => {
-      mockMatchRepository.findOne.mockResolvedValue({
-        season: 1,
-        week: 10,
-      } as MatchEntity);
+      // 2025-01-29 is week 5 of season 1
+      pinClockTo(new Date(GAME_START_ISO), atDay('2025-01-29'));
 
       await service.checkAndGeneratePlayoffs();
 
@@ -146,13 +172,11 @@ describe('SeasonTransitionService', () => {
     });
 
     it('should not trigger playoffs when week 15 matches are not complete', async () => {
-      mockMatchRepository.findOne.mockResolvedValue({
-        season: 1,
-        week: 15,
-      } as MatchEntity);
+      // 2025-04-09 is week 15 of season 1
+      pinClockTo(new Date(GAME_START_ISO), atDay('2025-04-09'));
       mockMatchRepository.count
-        .mockResolvedValueOnce(30)
-        .mockResolvedValueOnce(20); // Total 30, completed 20
+        .mockResolvedValueOnce(30) // total
+        .mockResolvedValueOnce(20); // completed 20/30
 
       await service.checkAndGeneratePlayoffs();
 
@@ -162,11 +186,11 @@ describe('SeasonTransitionService', () => {
     });
 
     it('should trigger playoffs when week 15 is complete', async () => {
-      mockMatchRepository.findOne.mockResolvedValue({
-        season: 1,
-        week: 15,
-      } as MatchEntity);
-      mockMatchRepository.count.mockResolvedValue(30); // All complete
+      // 2025-04-09 is week 15 of season 1
+      pinClockTo(new Date(GAME_START_ISO), atDay('2025-04-09'));
+      mockMatchRepository.count
+        .mockResolvedValueOnce(30) // total
+        .mockResolvedValueOnce(30); // completed 30/30
 
       mockPlayoffService.generateAllPlayoffMatches.mockResolvedValue([]);
 
@@ -180,10 +204,8 @@ describe('SeasonTransitionService', () => {
 
   describe('checkAndProcessSeasonStart', () => {
     it('should not process if not week 0 or week 1', async () => {
-      mockMatchRepository.findOne.mockResolvedValue({
-        season: 1,
-        week: 5,
-      } as MatchEntity);
+      // 2025-01-29 is week 5 of season 1
+      pinClockTo(new Date(GAME_START_ISO), atDay('2025-01-29'));
 
       await service.checkAndProcessSeasonStart();
 
@@ -194,10 +216,8 @@ describe('SeasonTransitionService', () => {
     });
 
     it('should process season transition at week 1', async () => {
-      mockMatchRepository.findOne.mockResolvedValue({
-        season: 1,
-        week: 1,
-      } as MatchEntity);
+      // 2025-01-01 is week 1 of season 1
+      pinClockTo(new Date(GAME_START_ISO), atDay('2025-01-01'));
 
       // Mock empty playoff matches for processAfterPlayoffsComplete
       mockMatchRepository.find.mockResolvedValue([]);
@@ -229,40 +249,11 @@ describe('SeasonTransitionService', () => {
       ).toHaveBeenCalledWith(1);
     });
 
-    it('should process playoffs at week 0 before season transition', async () => {
-      mockMatchRepository.findOne.mockResolvedValue({
-        season: 1,
-        week: 0,
-      } as MatchEntity);
-
-      // Week 16 playoff matches
-      mockMatchRepository.find.mockResolvedValue([
-        createMockMatch({ week: 16, type: MatchType.PLAYOFF }),
-      ] as MatchEntity[]);
-      mockMatchRepository.count.mockResolvedValue(2); // Total playoffs
-      mockMatchRepository.count.mockResolvedValue(2); // Completed playoffs
-
-      mockPromotionService.processAllTiers.mockResolvedValue(undefined);
-      mockPromotionService.swapTeamLeague.mockResolvedValue(undefined);
-      mockSeasonArchiveService.archiveSeason.mockResolvedValue({
-        season: 1,
-        seasonResultCount: 16,
-        playerStatsCount: 100,
-        transactionCount: 200,
-        playerEventCount: 50,
-      });
-      mockLeagueStandingService.initNewSeasonStandings.mockResolvedValue(
-        undefined,
-      );
-      mockSeasonSchedulerService.generateNextSeasonSchedule.mockResolvedValue(
-        [],
-      );
-
-      await service.checkAndProcessSeasonStart();
-
-      expect(mockPromotionService.processAllTiers).toHaveBeenCalled();
-      expect(mockSeasonArchiveService.archiveSeason).toHaveBeenCalled();
-    });
+    // NOTE: the `week === 0` branch inside `checkAndProcessSeasonStart`
+    // is dead code under `currentSeasonWeek` (week is 1-indexed, range 1–16).
+    // It used to be reachable when the source was a DB query that could
+    // return `week: 0` (empty match table fallback) or a row with week=0.
+    // Tracked for plan F (trigger-condition cleanup).
   });
 
   describe('generatePlayoffs', () => {

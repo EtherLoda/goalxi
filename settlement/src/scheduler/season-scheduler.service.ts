@@ -1,9 +1,7 @@
 import { Injectable, Inject } from '@nestjs/common';
 import { LOGGER_SERVICE, PinoLoggerService } from '@goalxi/logger';
-import { Cron } from '@nestjs/schedule';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { GAME_SETTINGS } from '@goalxi/database';
 import { MatchEntity, MatchStatus, MatchType } from '@goalxi/database';
 
 @Injectable()
@@ -11,9 +9,6 @@ export class SeasonSchedulerService {
   private readonly MATCH_DAYS = [3, 6]; // 周三、周六
   private readonly MATCH_HOUR = 13;
   private readonly MATCH_MINUTE = 0;
-
-  private readonly LEAGUE_WEEKS = 15;
-  private readonly PLAYOFF_WEEK = 16;
 
   constructor(
     @Inject(LOGGER_SERVICE)
@@ -278,11 +273,6 @@ export class SeasonSchedulerService {
     const last = rotated.pop()!;
     rotated.unshift(last);
     return rotated;
-  }
-
-  @Cron('0 0 * * 0') // 每周日检查
-  async checkAndGenerateUpcomingMatches() {
-    this.logger.debug('[SeasonScheduler] Checking for upcoming matches...');
   }
 
   async getCurrentSeasonWeek(leagueId: string): Promise<number> {

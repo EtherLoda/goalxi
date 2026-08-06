@@ -3,7 +3,13 @@ import { LOGGER_SERVICE, PinoLoggerService } from '@goalxi/logger';
 import { Cron } from '@nestjs/schedule';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { MatchEntity, MatchStatus, MatchType } from '@goalxi/database';
+import {
+  MatchEntity,
+  MatchStatus,
+  MatchType,
+  currentSeasonWeek,
+  resolveGameStart,
+} from '@goalxi/database';
 import { PromotionRelegationService } from './promotion-relegation.service';
 import { PlayoffService } from './playoff.service';
 import { SeasonSchedulerService } from './season-scheduler.service';
@@ -12,6 +18,19 @@ import { SeasonArchiveService } from '../services/season-archive.service';
 
 @Injectable()
 export class SeasonTransitionService {
+  // Resolved once at construction. Used by both cron handlers
+  // so the trigger conditions (`week === 15`, `week === 0/1`)
+  // see the same value that the rest of the system does
+  // (api, simulator, settlement workers). Previously this
+  // service derived "current week" by querying the latest
+  // match row, which could disagree with the rest of the
+  // system by one full season — see the audit log #B-3.
+  //
+  // Exposed for tests so they can pin both `now` (via
+  // `jest.useFakeTimers`) and `gameStart` to produce the
+  // desired (season, week) pair without a DB.
+  readonly gameStart: Date;
+
   constructor(
     @Inject(LOGGER_SERVICE)
     private readonly logger: PinoLoggerService,
@@ -22,7 +41,9 @@ export class SeasonTransitionService {
     private readonly seasonSchedulerService: SeasonSchedulerService,
     private readonly leagueStandingService: LeagueStandingService,
     private readonly seasonArchiveService: SeasonArchiveService,
-  ) {}
+  ) {
+    this.gameStart = resolveGameStart(process.env.GAME_START_DATE);
+  }
 
   /**
    * 每周一 00:00 检查是否需要生成附加赛
@@ -30,21 +51,21 @@ export class SeasonTransitionService {
    */
   @Cron('0 0 * * 1') // 每周一 00:00
   async checkAndGeneratePlayoffs() {
-    const currentSeasonWeek = await this.getCurrentSeasonAndWeek();
+    const currentSeasonWeek_ = currentSeasonWeek(new Date(), this.gameStart);
 
     this.logger.info(
-      `[SeasonTransition] Checking Season ${currentSeasonWeek.season}, Week ${currentSeasonWeek.week}`,
+      `[SeasonTransition] Checking Season ${currentSeasonWeek_.season}, Week ${currentSeasonWeek_.week}`,
     );
 
     // 检查是否 Week 15 结束
-    if (currentSeasonWeek.week !== 15) {
+    if (currentSeasonWeek_.week !== 15) {
       return;
     }
 
     // 检查 Week 15 所有联赛比赛是否完成
     const week15Complete = await this.areAllWeekMatchesCompleted(
-      currentSeasonWeek.season,
-      currentSeasonWeek.week,
+      currentSeasonWeek_.season,
+      currentSeasonWeek_.week,
     );
 
     if (!week15Complete) {
@@ -54,9 +75,9 @@ export class SeasonTransitionService {
 
     // 生成附加赛
     this.logger.info(
-      `[SeasonTransition] Week 15 complete, generating playoff matches for Season ${currentSeasonWeek.season}...`,
+      `[SeasonTransition] Week 15 complete, generating playoff matches for Season ${currentSeasonWeek_.season}...`,
     );
-    await this.generatePlayoffs(currentSeasonWeek.season);
+    await this.generatePlayoffs(currentSeasonWeek_.season);
   }
 
   /**
@@ -65,18 +86,18 @@ export class SeasonTransitionService {
    */
   @Cron('0 0 * * 2') // 每周二 00:00
   async checkAndProcessSeasonStart() {
-    const currentSeasonWeek = await this.getCurrentSeasonAndWeek();
+    const currentSeasonWeek_ = currentSeasonWeek(new Date(), this.gameStart);
 
     // 只在赛季结束后处理（新赛季第0周或第1周开始时）
     // 如果是第0周说明附加赛刚结束，如果是第1周说明还没处理过
-    if (currentSeasonWeek.week !== 0 && currentSeasonWeek.week !== 1) {
+    if (currentSeasonWeek_.week !== 0 && currentSeasonWeek_.week !== 1) {
       return;
     }
 
     // 检查是否所有 Week 16 附加赛都已完成（如果是第0周）
-    if (currentSeasonWeek.week === 0) {
+    if (currentSeasonWeek_.week === 0) {
       const playoffsComplete = await this.areAllPlayoffsCompleted(
-        currentSeasonWeek.season,
+        currentSeasonWeek_.season,
       );
       if (!playoffsComplete) {
         this.logger.info('[SeasonTransition] Playoff matches not yet complete');
@@ -84,7 +105,7 @@ export class SeasonTransitionService {
       }
     }
 
-    const previousSeason = currentSeasonWeek.season;
+    const previousSeason = currentSeasonWeek_.season;
     const newSeason = previousSeason + 1;
 
     this.logger.info(
@@ -221,25 +242,6 @@ export class SeasonTransitionService {
         );
       }
     }
-  }
-
-  /**
-   * 获取当前赛季和周数
-   */
-  private async getCurrentSeasonAndWeek(): Promise<{
-    season: number;
-    week: number;
-  }> {
-    const latestMatch = await this.matchRepository.findOne({
-      where: { type: MatchType.LEAGUE },
-      order: { scheduledAt: 'DESC' },
-    });
-
-    if (!latestMatch) {
-      return { season: 1, week: 0 };
-    }
-
-    return { season: latestMatch.season, week: latestMatch.week };
   }
 
   /**
