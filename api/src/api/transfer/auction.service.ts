@@ -118,6 +118,14 @@ export class AuctionService implements OnModuleInit {
    * `OnModuleInit` hook also calls this once at boot for an
    * immediate-recovery pass (so the first cron tick doesn't have
    * to wait 5 minutes for a fresh deploy).
+   *
+   * The PENDING / PROCESSING branches used to be silently
+   * skipped (a comment said "will be picked up by settlement
+   * processor when it runs"). That comment was wrong if the
+   * original BullMQ message was lost — Redis flush, manual
+   * queue purge, etc. The row is now re-enqueued, and the
+   * worker's idempotency check (transfer.processor line 126)
+   * keeps a duplicate PENDING enqueue safe.
    */
   @Cron('0 */5 * * * *') // Every 5 minutes
   async recoverStuckSettlingAuctions(): Promise<void> {
@@ -132,6 +140,11 @@ export class AuctionService implements OnModuleInit {
     this.logger.log(
       `Found ${settlingAuctions.length} auctions in SETTLING state`,
     );
+
+    // Same stale window the worker uses (H2 commit). A PROCESSING
+    // row with a fresh claimedAt is being worked on — leave it.
+    const STALE_PROCESSING_MS = 10 * 60 * 1000;
+    const staleCutoff = new Date(Date.now() - STALE_PROCESSING_MS);
 
     for (const auction of settlingAuctions) {
       // Check if there's a transaction for this auction
@@ -165,8 +178,37 @@ export class AuctionService implements OnModuleInit {
         await this.playerRepo.update(auction.playerId, {
           onTransfer: false,
         });
+      } else if (tx.status === TransferTransactionStatus.PENDING) {
+        // PENDING with no live worker — most often the original
+        // BullMQ message was lost. Re-enqueue. The worker's
+        // idempotency check (transfer.processor line 126) makes
+        // a duplicate enqueue safe — it will skip on
+        // COMPLETED and refuse to take over on FAILED.
+        this.logger.warn(
+          `Auction ${auction.id} has PENDING tx ${tx.id} with no live worker, re-enqueuing`,
+        );
+        await this.recreateAndEnqueueSettlement(auction, tx);
+      } else if (tx.status === TransferTransactionStatus.PROCESSING) {
+        // PROCESSING means a worker had claimed the row. If
+        // the claim is still fresh, leave it alone — the
+        // worker is mid-settlement. If the claim is stale,
+        // re-enqueue with the same business jobId; the
+        // worker's CAS takeover (H2 commit) will reclaim
+        // the row and the idempotency check will skip on
+        // COMPLETED.
+        const isStale =
+          !tx.claimedAt || tx.claimedAt < staleCutoff;
+        if (isStale) {
+          this.logger.warn(
+            `Auction ${auction.id} has stale PROCESSING tx ${tx.id} (claimedAt=${tx.claimedAt?.toISOString() ?? 'n/a'}), re-enqueuing`,
+          );
+          await this.recreateAndEnqueueSettlement(auction, tx);
+        } else {
+          this.logger.debug(
+            `Auction ${auction.id} has live PROCESSING tx ${tx.id}, leaving alone`,
+          );
+        }
       }
-      // PENDING/PROCESSING will be picked up by settlement processor when it runs
     }
   }
 
@@ -180,41 +222,23 @@ export class AuctionService implements OnModuleInit {
    */
   private async recreateAndEnqueueSettlement(
     auction: AuctionEntity,
+    existingTransaction?: TransferTransactionEntity,
   ): Promise<void> {
     const type: 'BUYOUT' | 'AUCTION_COMPLETE' = auction.currentBidderId
       ? 'AUCTION_COMPLETE'
       : 'BUYOUT';
-    const amount = auction.currentBidderId
-      ? auction.currentPrice
-      : auction.buyoutPrice;
-    const buyerTeamId = auction.currentBidderId || auction.teamId;
-    const transactionType =
-      type === 'BUYOUT'
-        ? TransferTransactionType.BUYOUT
-        : TransferTransactionType.AUCTION_COMPLETE;
+
+    // If the recovery path is re-enqueuing an existing PENDING
+    // / stale PROCESSING transfer, reuse it. Otherwise (the
+    // "no transaction exists" branch of
+    // recoverStuckSettlingAuctions) create a fresh PENDING row
+    // first so the worker has a real id to look up.
+    const transaction = await this.resolveOrCreateTransaction(
+      auction,
+      existingTransaction,
+    );
+
     const currentSeason = await this.getCurrentSeason();
-
-    // Create the PENDING transaction first so the worker has a
-    // real id to look up. If this throws, the auction is left
-    // in SETTLING and the next onModuleInit will retry.
-    const transaction = await this.dataSource.transaction(async (manager) => {
-      const transferTxRepo = manager.getRepository(TransferTransactionEntity);
-      const tx = transferTxRepo.create({
-        auctionId: auction.id,
-        playerId: auction.playerId,
-        fromTeamId: auction.teamId,
-        toTeamId: buyerTeamId,
-        amount,
-        type: transactionType,
-        status: TransferTransactionStatus.PENDING,
-        season: currentSeason,
-      });
-      return transferTxRepo.save(tx);
-    });
-
-    // Use the shared jobData builder so the two call sites
-    // (this + `enqueueSettlement`) can never drift in what they
-    // hand to the worker.
     const jobData = this.buildSettlementJobData(
       auction,
       transaction.id,
@@ -224,6 +248,45 @@ export class AuctionService implements OnModuleInit {
       jobId: `transfer-settlement-${transaction.id}-${type}`,
       attempts: 3,
       backoff: { type: 'exponential', delay: 1000 },
+    });
+  }
+
+  /**
+   * Either reuse the existing transfer transaction (the
+   * recover path for PENDING / stale-PROCESSING rows) or
+   * create a fresh PENDING row. When creating fresh, the row
+   * is committed inside its own transaction so a half-
+   * finished create (BullMQ enqueue without a backing tx)
+   * can't leave the worker with `transactionId: ''`.
+   */
+  private async resolveOrCreateTransaction(
+    auction: AuctionEntity,
+    existing: TransferTransactionEntity | undefined,
+  ): Promise<TransferTransactionEntity> {
+    if (existing) {
+      return existing;
+    }
+    const type = auction.currentBidderId
+      ? TransferTransactionType.AUCTION_COMPLETE
+      : TransferTransactionType.BUYOUT;
+    const amount = auction.currentBidderId
+      ? auction.currentPrice
+      : auction.buyoutPrice;
+    const buyerTeamId = auction.currentBidderId || auction.teamId;
+    const currentSeason = await this.getCurrentSeason();
+    return this.dataSource.transaction(async (manager) => {
+      const transferTxRepo = manager.getRepository(TransferTransactionEntity);
+      const tx = transferTxRepo.create({
+        auctionId: auction.id,
+        playerId: auction.playerId,
+        fromTeamId: auction.teamId,
+        toTeamId: buyerTeamId,
+        amount,
+        type,
+        status: TransferTransactionStatus.PENDING,
+        season: currentSeason,
+      });
+      return transferTxRepo.save(tx);
     });
   }
 
