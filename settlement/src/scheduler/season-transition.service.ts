@@ -81,28 +81,60 @@ export class SeasonTransitionService {
   }
 
   /**
+   * 每周一 00:00 — Week 16 时执行附加赛结果的升降级互换
+   *
+   * Previously this lived inside `checkAndProcessSeasonStart` and
+   * was guarded by `week === 0`. But `currentSeasonWeek` is
+   * 1-indexed (range 1–16), so `week === 0` was unreachable and
+   * the playoff swap silently never ran. Lifting it into its own
+   * cron fired on `week === 16` makes the swap actually happen —
+   * week 16's matches complete on the weekend, this fires on the
+   * next Monday.
+   */
+  @Cron('0 0 * * 1') // 每周一 00:00
+  async processPlayoffResultsAndSwap() {
+    const currentSeasonWeek_ = currentSeasonWeek(new Date(), this.gameStart);
+
+    if (currentSeasonWeek_.week !== 16) {
+      return;
+    }
+
+    const playoffsComplete = await this.areAllPlayoffsCompleted(
+      currentSeasonWeek_.season,
+    );
+    if (!playoffsComplete) {
+      this.logger.info(
+        '[SeasonTransition] Playoff matches not yet complete, skipping swap',
+      );
+      return;
+    }
+
+    this.logger.info(
+      `[SeasonTransition] Week 16 playoffs complete, processing swap for Season ${currentSeasonWeek_.season}...`,
+    );
+    await this.processAfterPlayoffsComplete(currentSeasonWeek_.season);
+  }
+
+  /**
    * 新赛季第一天（周二 00:00）执行升降级和生成新赛季赛程
    * 在 Week 1 比赛开始前触发
+   *
+   * Note: playoff-result swap happens in the separate
+   * `processPlayoffResultsAndSwap` cron above (week 16), not
+   * here. The `week === 0` guard that used to live here is dead
+   * code under the 1-indexed `currentSeasonWeek` helper and has
+   * been removed.
    */
   @Cron('0 0 * * 2') // 每周二 00:00
   async checkAndProcessSeasonStart() {
     const currentSeasonWeek_ = currentSeasonWeek(new Date(), this.gameStart);
 
-    // 只在赛季结束后处理（新赛季第0周或第1周开始时）
-    // 如果是第0周说明附加赛刚结束，如果是第1周说明还没处理过
-    if (currentSeasonWeek_.week !== 0 && currentSeasonWeek_.week !== 1) {
+    // Trigger only in Week 1 of the new season. (Week 0 is
+    // unreachable under 1-indexed currentSeasonWeek; the previous
+    // dual-week guard was effectively `week === 1` with a dead
+    // sibling branch.)
+    if (currentSeasonWeek_.week !== 1) {
       return;
-    }
-
-    // 检查是否所有 Week 16 附加赛都已完成（如果是第0周）
-    if (currentSeasonWeek_.week === 0) {
-      const playoffsComplete = await this.areAllPlayoffsCompleted(
-        currentSeasonWeek_.season,
-      );
-      if (!playoffsComplete) {
-        this.logger.info('[SeasonTransition] Playoff matches not yet complete');
-        return;
-      }
     }
 
     const previousSeason = currentSeasonWeek_.season;
@@ -119,15 +151,9 @@ export class SeasonTransitionService {
       );
       await this.promotionService.processAllTiers(previousSeason);
 
-      // 2. 处理附加赛结果并执行互换升降级（如果有）
+      // 2. 归档上赛季数据
       this.logger.info(
-        '[SeasonTransition] Step 2: Processing playoff results...',
-      );
-      await this.processAfterPlayoffsComplete(previousSeason);
-
-      // 3. 归档上赛季数据
-      this.logger.info(
-        '[SeasonTransition] Step 3: Archiving previous season data...',
+        '[SeasonTransition] Step 2: Archiving previous season data...',
       );
       const archiveSummary =
         await this.seasonArchiveService.archiveSeason(previousSeason);
@@ -135,15 +161,15 @@ export class SeasonTransitionService {
         `[SeasonTransition] Archived: seasonResults=${archiveSummary.seasonResultCount}, playerStats=${archiveSummary.playerStatsCount}, transactions=${archiveSummary.transactionCount}, playerEvents=${archiveSummary.playerEventCount}`,
       );
 
-      // 4. 初始化新赛季排行榜（根据新的 leagueId）
+      // 3. 初始化新赛季排行榜（根据新的 leagueId）
       this.logger.info(
-        '[SeasonTransition] Step 4: Initializing new season standings...',
+        '[SeasonTransition] Step 3: Initializing new season standings...',
       );
       await this.leagueStandingService.initNewSeasonStandings(newSeason);
 
-      // 5. 生成新赛季赛程
+      // 4. 生成新赛季赛程
       this.logger.info(
-        '[SeasonTransition] Step 5: Generating new season schedule...',
+        '[SeasonTransition] Step 4: Generating new season schedule...',
       );
       await this.seasonSchedulerService.generateNextSeasonSchedule(
         previousSeason,
@@ -184,9 +210,10 @@ export class SeasonTransitionService {
   }
 
   /**
-   * 处理附加赛结果并执行升降级
+   * 处理附加赛结果并执行升降级(由 `processPlayoffResultsAndSwap`
+   * 在 week 16 调用,不再嵌在 season start 流程里)
    */
-  private async processAfterPlayoffsComplete(season: number): Promise<void> {
+  async processAfterPlayoffsComplete(season: number): Promise<void> {
     // 获取所有 Week 16 的附加赛
     const playoffMatches = await this.matchRepository.find({
       where: {

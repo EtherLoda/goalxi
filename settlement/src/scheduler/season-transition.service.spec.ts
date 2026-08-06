@@ -203,7 +203,7 @@ describe('SeasonTransitionService', () => {
   });
 
   describe('checkAndProcessSeasonStart', () => {
-    it('should not process if not week 0 or week 1', async () => {
+    it('should not process if not week 1', async () => {
       // 2025-01-29 is week 5 of season 1
       pinClockTo(new Date(GAME_START_ISO), atDay('2025-01-29'));
 
@@ -218,9 +218,6 @@ describe('SeasonTransitionService', () => {
     it('should process season transition at week 1', async () => {
       // 2025-01-01 is week 1 of season 1
       pinClockTo(new Date(GAME_START_ISO), atDay('2025-01-01'));
-
-      // Mock empty playoff matches for processAfterPlayoffsComplete
-      mockMatchRepository.find.mockResolvedValue([]);
 
       mockPromotionService.processAllTiers.mockResolvedValue(undefined);
       mockSeasonArchiveService.archiveSeason.mockResolvedValue({
@@ -247,13 +244,106 @@ describe('SeasonTransitionService', () => {
       expect(
         mockSeasonSchedulerService.generateNextSeasonSchedule,
       ).toHaveBeenCalledWith(1);
+
+      // The playoff-result swap is no longer invoked from inside
+      // checkAndProcessSeasonStart — it's its own cron fired on
+      // week 16. So no playoff match query is needed here.
+      expect(mockMatchRepository.find).not.toHaveBeenCalled();
     });
 
-    // NOTE: the `week === 0` branch inside `checkAndProcessSeasonStart`
-    // is dead code under `currentSeasonWeek` (week is 1-indexed, range 1–16).
-    // It used to be reachable when the source was a DB query that could
-    // return `week: 0` (empty match table fallback) or a row with week=0.
-    // Tracked for plan F (trigger-condition cleanup).
+    // The previous `week === 0` branch is unreachable under the
+    // 1-indexed currentSeasonWeek helper (range 1–16) and has
+    // been removed. Playoff swap lives in
+    // `processPlayoffResultsAndSwap` (week 16), see below.
+  });
+
+  describe('processPlayoffResultsAndSwap', () => {
+    it('does not run outside week 16', async () => {
+      // 2025-01-29 is week 5 of season 1
+      pinClockTo(new Date(GAME_START_ISO), atDay('2025-01-29'));
+
+      await service.processPlayoffResultsAndSwap();
+
+      // No playoff-completion probe, no swap.
+      expect(mockMatchRepository.count).not.toHaveBeenCalled();
+      expect(mockMatchRepository.find).not.toHaveBeenCalled();
+      expect(
+        mockPromotionService.swapTeamLeague,
+      ).not.toHaveBeenCalled();
+    });
+
+    it('skips when week 16 playoffs are not all complete yet', async () => {
+      // 2025-04-16 is week 16 of season 1
+      pinClockTo(new Date(GAME_START_ISO), atDay('2025-04-16'));
+      // areAllPlayoffsCompleted: total 4, completed 2 → not done
+      mockMatchRepository.count
+        .mockResolvedValueOnce(4) // total playoffs
+        .mockResolvedValueOnce(2); // completed
+
+      await service.processPlayoffResultsAndSwap();
+
+      expect(mockMatchRepository.find).not.toHaveBeenCalled();
+      expect(
+        mockPromotionService.swapTeamLeague,
+      ).not.toHaveBeenCalled();
+    });
+
+    it('runs the swap when all week 16 playoffs are complete', async () => {
+      // 2025-04-16 is week 16 of season 1
+      pinClockTo(new Date(GAME_START_ISO), atDay('2025-04-16'));
+      // areAllPlayoffsCompleted: 2 total, 2 completed → done
+      mockMatchRepository.count
+        .mockResolvedValueOnce(2) // total playoffs
+        .mockResolvedValueOnce(2); // completed
+
+      // The swap iterates week 16 PLAYOFF COMPLETED matches.
+      mockMatchRepository.find.mockResolvedValue([]);
+
+      await service.processPlayoffResultsAndSwap();
+
+      // The single PLAYOFF query was issued; with an empty result,
+      // no swapTeamLeague calls happen.
+      expect(mockMatchRepository.find).toHaveBeenCalledTimes(1);
+      expect(
+        mockPromotionService.swapTeamLeague,
+      ).not.toHaveBeenCalled();
+    });
+
+    it('triggers swapTeamLeague when a lower-league team wins a week-16 playoff', async () => {
+      // 2025-04-16 is week 16 of season 1
+      pinClockTo(new Date(GAME_START_ISO), atDay('2025-04-16'));
+      mockMatchRepository.count
+        .mockResolvedValueOnce(1) // total
+        .mockResolvedValueOnce(1); // completed
+
+      const lowerLeague = { id: 'lower-league-id' } as any;
+      const homeTeam = { id: 'home-team-id', name: 'Upper FC' } as any;
+      const awayTeam = { id: 'away-team-id', name: 'Lower FC' } as any;
+      mockMatchRepository.find.mockResolvedValue([
+        {
+          week: 16,
+          type: MatchType.PLAYOFF,
+          status: MatchStatus.COMPLETED,
+          homeScore: 0,
+          awayScore: 2,
+          lowerLeagueId: lowerLeague.id,
+          homeTeam,
+          awayTeam,
+          league: { id: 'upper-league-id', name: 'Upper League' },
+        } as any,
+      ]);
+      mockPromotionService.swapTeamLeague.mockResolvedValue(undefined);
+
+      await service.processPlayoffResultsAndSwap();
+
+      // The lower team won → the swap fires.
+      expect(mockPromotionService.swapTeamLeague).toHaveBeenCalledWith(
+        homeTeam.id,
+        awayTeam.id,
+        'upper-league-id',
+        lowerLeague.id,
+      );
+    });
   });
 
   describe('generatePlayoffs', () => {
