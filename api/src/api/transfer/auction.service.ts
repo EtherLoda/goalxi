@@ -926,21 +926,29 @@ export class AuctionService implements OnModuleInit {
               );
             });
           } else {
-            // No bids - mark as expired and reset player's onTransfer
+            // No bids - mark as expired and reset player's onTransfer.
+            // Both writes go through the same transaction so a
+            // partial failure can't leave the player off-market
+            // while the auction is still ACTIVE (or vice versa).
             this.logger.log(
               `[Auction] finalizeExpiredAuctions no bids auctionId=${auction.id} playerId=${auction.playerId} sellerTeamId=${auction.teamId}`,
             );
-            const player = await this.playerRepo.findOne({
-              where: { id: auction.playerId },
-            });
-            if (player) {
-              player.onTransfer = false;
-              await this.playerRepo.save(player);
-            }
+            await this.dataSource.transaction(async (manager) => {
+              const txPlayerRepo = manager.getRepository(PlayerEntity);
+              const txAuctionRepo = manager.getRepository(AuctionEntity);
 
-            auction.status = AuctionStatus.EXPIRED;
-            auction.endsAt = now;
-            await this.auctionRepo.save(auction);
+              const player = await txPlayerRepo.findOne({
+                where: { id: auction.playerId },
+              });
+              if (player) {
+                player.onTransfer = false;
+                await txPlayerRepo.save(player);
+              }
+
+              auction.status = AuctionStatus.EXPIRED;
+              auction.endsAt = now;
+              await txAuctionRepo.save(auction);
+            });
           }
 
           // Cleanup Redis data for this auction

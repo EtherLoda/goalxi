@@ -403,34 +403,60 @@ export class TransferProcessor extends WorkerHost {
         `[TransferProcessor] Failed to process transaction ${transactionId}: ${error.message || error}`,
       );
 
-      // Update transaction status to FAILED
+      // Mark the transaction FAILED first — done outside the cleanup
+      // transaction so a row that's FAILED but missing the auction /
+      // player side-effects can still be picked up by the
+      // recoverStuckSettlingAuctions recovery path.
       await this.transferTxRepo.update(transactionId as Uuid, {
         status: TransferTransactionStatus.FAILED,
         failureReason: error.message || 'Unknown error',
       });
 
-      // Cancel the auction
-      await this.auctionRepo.update(auctionId as Uuid, {
-        status: AuctionStatus.CANCELLED,
-      });
+      // Cleanup the surrounding state in a single transaction.
+      // Before this was four independent awaits — a partial
+      // failure (e.g. CANCELLED written, then the player update
+      // or the lockedCash release failed) would leave the
+      // player stuck on `onTransfer = true` until the next
+      // restart, since the api-side recovery only runs on
+      // bootstrap.
+      try {
+        await this.dataSource.transaction(async (manager) => {
+          const txAuctionRepo = manager.getRepository(AuctionEntity);
+          const txPlayerRepo = manager.getRepository(PlayerEntity);
+          const txTeamRepo = manager.getRepository(TeamEntity);
 
-      // Reset player's onTransfer flag
-      await this.playerRepo.update(playerId, {
-        onTransfer: false,
-      });
+          await txAuctionRepo.update(auctionId as Uuid, {
+            status: AuctionStatus.CANCELLED,
+          });
+          await txPlayerRepo.update(playerId, {
+            onTransfer: false,
+          });
 
-      // Release buyer's locked cash if they had a bid (use bidLockAmount, not transfer amount)
-      const auctionForRelease = await this.auctionRepo.findOne({
-        where: { id: auctionId as Uuid },
-      });
-      if (
-        auctionForRelease?.bidLockAmount &&
-        auctionForRelease?.currentBidderId === buyerTeamId
-      ) {
-        await this.teamRepo.decrement(
-          { id: buyerTeamId as Uuid },
-          'lockedCash',
-          auctionForRelease.bidLockAmount,
+          // Release the buyer's locked cash if they were the
+          // current high bidder. Read inside the same tx so we
+          // see the post-CANCELLED auction row consistently.
+          const auctionForRelease = await txAuctionRepo.findOne({
+            where: { id: auctionId as Uuid },
+          });
+          if (
+            auctionForRelease?.bidLockAmount &&
+            auctionForRelease?.currentBidderId === buyerTeamId
+          ) {
+            await txTeamRepo.decrement(
+              { id: buyerTeamId as Uuid },
+              'lockedCash',
+              auctionForRelease.bidLockAmount,
+            );
+          }
+        });
+      } catch (cleanupError) {
+        // The settlement already failed; if the cleanup tx also
+        // failed, log loudly and let the next bootstrap recover
+        // (transferTx is already FAILED, so the recovery path
+        // will see the FAILED state and finish the cleanup).
+        this.jobLog.error(
+          `[TransferProcessor] Cleanup transaction also failed for transaction ${transactionId}: ${cleanupError instanceof Error ? cleanupError.message : String(cleanupError)}`,
+          cleanupError instanceof Error ? cleanupError.stack : undefined,
         );
       }
 
