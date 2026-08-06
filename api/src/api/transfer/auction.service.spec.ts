@@ -151,15 +151,15 @@ describe('AuctionService', () => {
     expect(service).toBeDefined();
   });
 
-  describe('findAllActive', () => {
-    it('should return all active auctions', async () => {
+  describe('findAllInFlight', () => {
+    it('should return all in-flight auctions', async () => {
       const mockAuctions = [
         { id: '1', status: AuctionStatus.ACTIVE },
         { id: '2', status: AuctionStatus.ACTIVE },
       ];
       auctionRepo.find.mockResolvedValue(mockAuctions);
 
-      const result = await service.findAllActive();
+      const result = await service.findAllInFlight();
 
       expect(result).toEqual(mockAuctions);
       expect(auctionRepo.find).toHaveBeenCalledWith({

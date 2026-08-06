@@ -40,9 +40,9 @@ export class TransferController {
 
   // Auction endpoints
   @Get('auction')
-  @ApiOperation({ summary: 'Get all active auctions' })
+  @ApiOperation({ summary: 'Get all in-flight auctions (ACTIVE + SETTLING)' })
   async findAllAuctions(): Promise<AuctionResDto[]> {
-    const auctions = await this.auctionService.findAllActive();
+    const auctions = await this.auctionService.findAllInFlight();
     return auctions.map((a) => plainToInstance(AuctionResDto, a));
   }
 

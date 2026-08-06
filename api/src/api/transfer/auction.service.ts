@@ -212,21 +212,14 @@ export class AuctionService implements OnModuleInit {
       return transferTxRepo.save(tx);
     });
 
-    // Enqueue the settlement job with a business jobId so a BullMQ
-    // re-delivery (or our own recovery path running twice) can't
-    // enqueue duplicates.
-    const jobData: TransferSettlementJobData = {
-      type,
-      transactionId: transaction.id,
-      auctionId: auction.id,
-      playerId: auction.playerId,
-      buyerTeamId,
-      sellerTeamId: auction.teamId,
-      amount,
-      season: currentSeason,
-      timestamp: Date.now(),
-      traceId: this.cls.get<string>('traceId'),
-    };
+    // Use the shared jobData builder so the two call sites
+    // (this + `enqueueSettlement`) can never drift in what they
+    // hand to the worker.
+    const jobData = this.buildSettlementJobData(
+      auction,
+      transaction.id,
+      currentSeason,
+    );
     await this.transferQueue.add('transfer-settlement', jobData, {
       jobId: `transfer-settlement-${transaction.id}-${type}`,
       attempts: 3,
@@ -289,6 +282,40 @@ export class AuctionService implements OnModuleInit {
   }
 
   /**
+   * Build the `TransferSettlementJobData` payload for an
+   * auction. Pure function — no I/O. Centralises the
+   * "BUYOUT vs AUCTION_COMPLETE" branching and the
+   * buyerTeamId / amount derivation so the two call sites
+   * (`enqueueSettlement` and `recreateAndEnqueueSettlement`)
+   * can't drift.
+   */
+  private buildSettlementJobData(
+    auction: AuctionEntity,
+    transactionId: string,
+    currentSeason: number,
+  ): TransferSettlementJobData {
+    const type: 'BUYOUT' | 'AUCTION_COMPLETE' = auction.currentBidderId
+      ? 'AUCTION_COMPLETE'
+      : 'BUYOUT';
+    const amount = auction.currentBidderId
+      ? auction.currentPrice
+      : auction.buyoutPrice;
+    const buyerTeamId = auction.currentBidderId || auction.teamId;
+    return {
+      type,
+      transactionId,
+      auctionId: auction.id,
+      playerId: auction.playerId,
+      buyerTeamId,
+      sellerTeamId: auction.teamId,
+      amount,
+      season: currentSeason,
+      timestamp: Date.now(),
+      traceId: this.cls.get<string>('traceId'),
+    };
+  }
+
+  /**
    * Enqueue a settlement job for an auction.
    *
    * NOTE: this method now requires the caller to have already
@@ -306,39 +333,26 @@ export class AuctionService implements OnModuleInit {
     transactionId: string,
     currentSeason: number,
   ): Promise<void> {
-    const type: 'BUYOUT' | 'AUCTION_COMPLETE' = auction.currentBidderId
-      ? 'AUCTION_COMPLETE'
-      : 'BUYOUT';
-    const amount = auction.currentBidderId
-      ? auction.currentPrice
-      : auction.buyoutPrice;
-    const buyerTeamId = auction.currentBidderId || auction.teamId;
-
-    const jobData: TransferSettlementJobData = {
-      type,
+    const jobData = this.buildSettlementJobData(
+      auction,
       transactionId,
-      auctionId: auction.id,
-      playerId: auction.playerId,
-      buyerTeamId,
-      sellerTeamId: auction.teamId,
-      amount,
-      season: currentSeason,
-      timestamp: Date.now(),
-      traceId: this.cls.get<string>('traceId'),
-    };
-
+      currentSeason,
+    );
     // Business jobId — BullMQ rejects duplicate jobIds, so a
     // re-delivery (or our own recovery path running twice) can't
     // enqueue duplicates of the same settlement.
     await this.transferQueue.add('transfer-settlement', jobData, {
-      jobId: `transfer-settlement-${transactionId}-${type}`,
+      jobId: `transfer-settlement-${transactionId}-${jobData.type}`,
       attempts: 3,
       backoff: { type: 'exponential', delay: 1000 },
     });
   }
 
-  async findAllActive() {
-    // Include both ACTIVE and SETTLING auctions
+  async findAllInFlight() {
+    // ACTIVE = still taking bids; SETTLING = locked, worker
+    // about to (or currently) finalising. Both are "in flight"
+    // and worth showing to a marketplace UI; pure-terminal
+    // rows (SOLD / EXPIRED / CANCELLED) are filtered out.
     const auctions = await this.auctionRepo.find({
       where: [
         { status: AuctionStatus.ACTIVE },
@@ -475,6 +489,12 @@ export class AuctionService implements OnModuleInit {
 
     const team = await this.teamRepo.findOneBy({ userId });
     if (!team) throw new NotFoundException('User has no team');
+    // Bot teams don't actually have a user-driven auction flow;
+    // refuse up front so a misconfigured bot doesn't pollute
+    // the marketplace.
+    if (team.isBot) {
+      throw new BadRequestException('Bot teams cannot list players');
+    }
 
     const player = await this.playerRepo.findOneBy({
       id: dto.playerId,
@@ -843,8 +863,15 @@ export class AuctionService implements OnModuleInit {
   @Cron('0 * * * * *') // Every minute
   async finalizeExpiredAuctions(): Promise<void> {
     const now = new Date();
+    // Cap the per-tick batch so a pathological market state
+    // (tens of thousands of ACTIVE auctions somehow) doesn't
+    // OOM the api process. The next tick picks up where this
+    // one left off because ACTIVE rows that expired but weren't
+    // processed this tick remain ACTIVE on the next minute.
     const expiredAuctions = await this.auctionRepo.find({
       where: { status: AuctionStatus.ACTIVE },
+      order: { expiresAt: 'ASC' },
+      take: 500,
     });
 
     if (expiredAuctions.length === 0) {
