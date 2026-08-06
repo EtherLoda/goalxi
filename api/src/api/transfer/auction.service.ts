@@ -29,7 +29,7 @@ import { Cron } from '@nestjs/schedule';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Queue } from 'bullmq';
 import { ClsService } from 'nestjs-cls';
-import { DataSource, In, MoreThanOrEqual, Repository } from 'typeorm';
+import { DataSource, In, LessThan, MoreThanOrEqual, Repository } from 'typeorm';
 import { AUCTION_CONFIG, calculateMinBidIncrement } from './auction.constants';
 import { CreateAuctionReqDto } from './dto/create-auction.req.dto';
 import { PlaceBidReqDto } from './dto/place-bid.req.dto';
@@ -1013,6 +1013,51 @@ export class AuctionService implements OnModuleInit {
       );
     } finally {
       await this.auctionRedisRepo.releaseSettlementLock(auction.id);
+    }
+  }
+
+  /**
+   * Daily GC: delete terminal auctions (`SOLD` / `EXPIRED` /
+   * `CANCELLED`) older than 30 days. Without this the
+   * `auction` table grows unbounded — every player listing
+   * leaves a permanent tail. The 30-day window is enough
+   * for any user-facing "history" view to still show the
+   * row, and the window is short enough that a year of
+   * active trading doesn't push the table past a few
+   * million rows.
+   *
+   * 30 days is also comfortably past the auction
+   * `recoverStuckSettlingAuctions` window, so a half-
+   * recovered auction that has been SETTLING for weeks
+   * gets caught by the GC rather than left in limbo
+   * forever.
+   */
+  @Cron('0 0 3 * * *') // 3 AM every day
+  async gcTerminalAuctions(): Promise<void> {
+    const cutoff = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+    const terminalStatuses = [
+      AuctionStatus.SOLD,
+      AuctionStatus.EXPIRED,
+      AuctionStatus.CANCELLED,
+    ];
+
+    const before = Date.now();
+    const result = await this.auctionRepo
+      .createQueryBuilder()
+      .delete()
+      .where('status IN (:...statuses)', { statuses: terminalStatuses })
+      .andWhere('created_at < :cutoff', { cutoff })
+      .execute();
+    const affected = (result.affected ?? 0) as number;
+
+    if (affected > 0) {
+      this.logger.log(
+        `[AuctionGC] Deleted ${affected} terminal auction(s) older than 30 days in ${
+          Date.now() - before
+        }ms`,
+      );
+    } else {
+      this.logger.debug('[AuctionGC] No terminal auctions to GC');
     }
   }
 
