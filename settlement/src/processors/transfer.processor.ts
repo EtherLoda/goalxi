@@ -331,7 +331,30 @@ export class TransferProcessor extends WorkerHost {
         });
         await manager.save(playerTx);
 
-        // 9. Release previous bidder's locked cash (if any) - inside transaction
+        // 9. Release the buyer's locked cash on successful
+        // settlement. `lockedCash` represents "cash committed
+        // to an active bid"; once the bid becomes a paid
+        // transfer the lock should come off so the team's
+        // `availableFunds` (balance − lockedCash) reflects
+        // reality.
+        //
+        // The previous version had the comparison inverted
+        // (`currentBidderId !== buyerTeamId`) on the
+        // AUCTION_COMPLETE branch, which was dead code: in an
+        // AUCTION_COMPLETE settlement the buyer IS the
+        // currentBidder (they placed the winning bid, no one
+        // superseded them). The result was that the winner's
+        // `lockedCash` was never decremented after a settled
+        // auction, and over a season their `availableFunds`
+        // drifted ever lower — a team that won 3 auctions
+        // for 100k each would still show 300k of
+        // permanently-locked cash even though the cash had
+        // already been spent via the `buyerFinance.balance
+        // -= amount` debit two steps above.
+        //
+        // The BUYOUT branch below already had the right
+        // comparison (`=== buyerTeamId`) — AUCTION_COMPLETE
+        // is just brought in line.
         if (type === 'AUCTION_COMPLETE') {
           const auction = await auctionRepo.findOne({
             where: { id: auctionId as Uuid },
@@ -339,21 +362,25 @@ export class TransferProcessor extends WorkerHost {
           if (
             auction &&
             auction.bidLockAmount &&
-            auction.currentBidderId &&
-            auction.currentBidderId !== buyerTeamId
+            auction.currentBidderId === buyerTeamId
           ) {
             await teamRepo.decrement(
-              { id: auction.currentBidderId },
+              { id: buyerTeamId as Uuid },
               'lockedCash',
               auction.bidLockAmount,
             );
             this.jobLog.info(
-              `[TransferProcessor] Released ${auction.bidLockAmount} locked cash from previous bidder ${auction.currentBidderId}`,
+              `[TransferProcessor] Released ${auction.bidLockAmount} locked cash from auction winner ${buyerTeamId}`,
             );
           }
         }
 
-        // 10. For BUYOUT, release buyer's own bid lock if exists - inside transaction
+        // 10. For BUYOUT, release buyer's own bid lock (the
+        // L1 fix made buyout increment `lockedCash` and stamp
+        // `auction.bidLockAmount`; this is the matching
+        // release on success). Inside the same tx so a
+        // crash between the balance debit and the lock
+        // release can't strand the team.
         if (type === 'BUYOUT') {
           const auction = await auctionRepo.findOne({
             where: { id: auctionId as Uuid },
