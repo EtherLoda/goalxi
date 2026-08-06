@@ -5,13 +5,10 @@ import { LOGGER_SERVICE, PinoLoggerService } from '@goalxi/logger';
 import { Queue } from 'bullmq';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { MatchEntity, TeamEntity, GAME_SETTINGS } from '@goalxi/database';
+import { MatchEntity, TeamEntity, currentSeasonWeek } from '@goalxi/database';
 
 @Injectable()
 export class FinanceSchedulerService {
-  // Game start date: Season 1, Week 1 begins at this date (UTC)
-  private readonly GAME_START_DATE = new Date('2026-04-06T00:00:00Z');
-
   constructor(
     @Inject(LOGGER_SERVICE)
     private readonly logger: PinoLoggerService,
@@ -24,21 +21,15 @@ export class FinanceSchedulerService {
   ) {}
 
   /**
-   * Get current season and week based on UTC time elapsed since game start
+   * Get current season and week. Delegates to the shared pure
+   * function in @goalxi/database so the value matches what
+   * `api/src/api/staffs/staffs.service.ts` and the training tick
+   * see — three cron handlers that previously each hard-coded
+   * `'2026-04-06'` and could disagree if anyone edited one copy
+   * but not the others.
    */
   private getCurrentSeasonWeek(): { season: number; week: number } {
-    const now = new Date();
-    const msPerWeek = 7 * 24 * 60 * 60 * 1000;
-
-    const weeksElapsed = Math.floor(
-      (now.getTime() - this.GAME_START_DATE.getTime()) / msPerWeek,
-    );
-
-    const season =
-      Math.floor(weeksElapsed / GAME_SETTINGS.SEASON_LENGTH_WEEKS) + 1;
-    const week = (weeksElapsed % GAME_SETTINGS.SEASON_LENGTH_WEEKS) + 1;
-
-    return { season, week };
+    return currentSeasonWeek();
   }
 
   /**

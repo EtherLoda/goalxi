@@ -18,7 +18,7 @@ import {
   calculateAssignedCoachBonus,
   applySpecializedTraining,
   calculateDecay,
-  GAME_SETTINGS,
+  currentSeasonWeek,
 } from '@goalxi/database';
 import {
   NotificationService,
@@ -35,8 +35,6 @@ interface PlayerSnapshot {
 @Injectable()
 @Processor('training-settlement')
 export class TrainingProcessor extends WorkerHost {
-  private readonly GAME_START_DATE = new Date('2026-04-06T00:00:00Z');
-
   constructor(
     @Inject(LOGGER_SERVICE)
     private readonly logger: PinoLoggerService,
@@ -55,16 +53,11 @@ export class TrainingProcessor extends WorkerHost {
     super();
   }
 
+  // Single source of truth for "what season/week is it right now?".
+  // The shared pure function lives in @goalxi/database so api,
+  // settlement and simulator all agree on the answer.
   private getCurrentSeasonWeek(): { season: number; week: number } {
-    const now = new Date();
-    const msPerWeek = 7 * 24 * 60 * 60 * 1000;
-    const weeksElapsed = Math.floor(
-      (now.getTime() - this.GAME_START_DATE.getTime()) / msPerWeek,
-    );
-    const season =
-      Math.floor(weeksElapsed / GAME_SETTINGS.SEASON_LENGTH_WEEKS) + 1;
-    const week = (weeksElapsed % GAME_SETTINGS.SEASON_LENGTH_WEEKS) + 1;
-    return { season, week };
+    return currentSeasonWeek();
   }
 
   async process(job: Job<any, any, string>): Promise<any> {

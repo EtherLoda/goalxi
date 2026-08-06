@@ -1,31 +1,25 @@
-import { GAME_SETTINGS } from '@goalxi/database';
+import { currentSeasonWeek } from '@goalxi/database';
 import { Injectable } from '@nestjs/common';
 
+/**
+ * Resolves the "what season / week is it right now?" question for
+ * the public API.
+ *
+ * Previously this service used a "most recent Wednesday" algorithm
+ * that produced a different answer on the same instant than the
+ * other three sites that computed the same value (training tick,
+ * finance-scheduler, staffs.service). That divergence was the
+ * root cause of #16: a staff renewal would land in season 1 while
+ * the same team's settlement tick for that moment wrote to
+ * season 2.
+ *
+ * Now the service delegates to the shared pure function in
+ * `@goalxi/database`, so every consumer — API, settlement workers,
+ * future simulator hooks — sees the same number.
+ */
 @Injectable()
 export class GameStateService {
-  /**
-   * Get current season and week based on time elapsed since game start.
-   * Game start is the most recent Wednesday (or today if Wednesday).
-   * This ensures reseeding on any day shows Week 1.
-   */
   getCurrentSeasonWeek(): { season: number; week: number } {
-    const now = new Date();
-    const msPerWeek = 7 * 24 * 60 * 60 * 1000;
-
-    // Calculate most recent Wednesday: go back to Sunday of current week, then add 3 days
-    // JavaScript setDate automatically handles month/year boundaries
-    const gameStartDate = new Date(now);
-    gameStartDate.setDate(gameStartDate.getDate() - gameStartDate.getDay() + 3);
-    gameStartDate.setHours(0, 0, 0, 0);
-
-    const weeksElapsed = Math.floor(
-      (now.getTime() - gameStartDate.getTime()) / msPerWeek,
-    );
-
-    const season =
-      Math.floor(weeksElapsed / GAME_SETTINGS.SEASON_LENGTH_WEEKS) + 1;
-    const week = (weeksElapsed % GAME_SETTINGS.SEASON_LENGTH_WEEKS) + 1;
-
-    return { season, week };
+    return currentSeasonWeek();
   }
 }

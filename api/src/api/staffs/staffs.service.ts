@@ -1,7 +1,7 @@
 import {
   CoachPlayerAssignmentEntity,
   FinanceEntity,
-  GAME_SETTINGS,
+  currentSeasonWeek,
   getMaxPlayersForRole,
   getTrainingCategoryForRole,
   isYouthCoachCategory,
@@ -466,20 +466,11 @@ export class StaffsService {
     return { renewed, expired };
   }
 
+  // Single source of truth for season/week. Delegates to the
+  // shared pure function in @goalxi/database so this API and
+  // every settlement cron handler agree on the value.
   private getCurrentSeasonWeek(): { season: number; week: number } {
-    const now = new Date();
-    const msPerWeek = 7 * 24 * 60 * 60 * 1000;
-    const GAME_START_DATE = new Date('2026-04-06T00:00:00Z');
-
-    const weeksElapsed = Math.floor(
-      (now.getTime() - GAME_START_DATE.getTime()) / msPerWeek,
-    );
-
-    const season =
-      Math.floor(weeksElapsed / GAME_SETTINGS.SEASON_LENGTH_WEEKS) + 1;
-    const week = (weeksElapsed % GAME_SETTINGS.SEASON_LENGTH_WEEKS) + 1;
-
-    return { season, week };
+    return currentSeasonWeek();
   }
 
   private generateStaffName(role: StaffRole, level: StaffLevel): string {
