@@ -348,4 +348,108 @@ describe('PromotionRelegationService', () => {
       expect(mockTeamRepository.save).not.toHaveBeenCalled();
     });
   });
+
+  describe('processPlayoffResultsAndExecuteSwaps', () => {
+    it('should not swap when the upper team won (stays in upper league)', async () => {
+      const upperTeam = createMockTeam('upper', 'Upper') as TeamEntity;
+      const lowerTeam = createMockTeam('lower', 'Lower') as TeamEntity;
+      const upperLeague = { id: 'upper-league', name: 'Upper League' } as LeagueEntity;
+      const lowerLeague = { id: 'lower-league', name: 'Lower League' } as LeagueEntity;
+
+      await service.processPlayoffResultsAndExecuteSwaps([
+        {
+          upperTeam,
+          lowerTeam,
+          upperLeague,
+          lowerLeague,
+          upperWon: true,
+        },
+      ]);
+
+      // The only way to keep the upper team in the upper league
+      // when the playoff says "swap" is to do nothing. So no save,
+      // no log noise beyond the stay-in-place info.
+      expect(mockTeamRepository.save).not.toHaveBeenCalled();
+      expect(mockTeamRepository.findOne).not.toHaveBeenCalled();
+    });
+
+    it('should swap leagueIds when the lower team won the playoff', async () => {
+      const upperTeam = createMockTeam('upper', 'Upper FC') as TeamEntity;
+      const lowerTeam = createMockTeam('lower', 'Lower FC') as TeamEntity;
+      const upperLeague = {
+        id: 'upper-league',
+        name: 'Premier',
+      } as LeagueEntity;
+      const lowerLeague = {
+        id: 'lower-league',
+        name: 'Championship',
+      } as LeagueEntity;
+
+      mockTeamRepository.findOne
+        .mockResolvedValueOnce({ ...upperTeam } as TeamEntity)
+        .mockResolvedValueOnce({ ...lowerTeam } as TeamEntity);
+      mockTeamRepository.save.mockResolvedValue({} as TeamEntity);
+
+      await service.processPlayoffResultsAndExecuteSwaps([
+        {
+          upperTeam,
+          lowerTeam,
+          upperLeague,
+          lowerLeague,
+          upperWon: false,
+        },
+      ]);
+
+      // Upper team is relegated to the lower league.
+      expect(mockTeamRepository.save).toHaveBeenCalledWith(
+        expect.objectContaining({
+          id: 'upper',
+          leagueId: 'lower-league',
+        }),
+      );
+      // Lower team is promoted to the upper league.
+      expect(mockTeamRepository.save).toHaveBeenCalledWith(
+        expect.objectContaining({
+          id: 'lower',
+          leagueId: 'upper-league',
+        }),
+      );
+    });
+
+    it('should handle a mix of won and lost playoffs in one batch', async () => {
+      const upperA = createMockTeam('A-upper', 'A Upper') as TeamEntity;
+      const lowerA = createMockTeam('A-lower', 'A Lower') as TeamEntity;
+      const upperB = createMockTeam('B-upper', 'B Upper') as TeamEntity;
+      const lowerB = createMockTeam('B-lower', 'B Lower') as TeamEntity;
+      const leagueA = { id: 'L1', name: 'L1' } as LeagueEntity;
+      const leagueB = { id: 'L2', name: 'L2' } as LeagueEntity;
+
+      // Only the "lower wins" playoff needs team fetches.
+      mockTeamRepository.findOne
+        .mockResolvedValueOnce({ ...upperB } as TeamEntity)
+        .mockResolvedValueOnce({ ...lowerB } as TeamEntity);
+      mockTeamRepository.save.mockResolvedValue({} as TeamEntity);
+
+      await service.processPlayoffResultsAndExecuteSwaps([
+        // A: upper wins → no swap
+        { upperTeam: upperA, lowerTeam: lowerA, upperLeague: leagueA, lowerLeague: leagueB, upperWon: true },
+        // B: lower wins → swap
+        { upperTeam: upperB, lowerTeam: lowerB, upperLeague: leagueA, lowerLeague: leagueB, upperWon: false },
+      ]);
+
+      // Exactly the swap-pair was saved (2 saves).
+      const saved = mockTeamRepository.save.mock.calls.map((c) => c[0]);
+      const savedIds = saved.map((s: TeamEntity) => s.id);
+      expect(savedIds).toEqual(expect.arrayContaining(['B-upper', 'B-lower']));
+      expect(savedIds).not.toContain('A-upper');
+      expect(savedIds).not.toContain('A-lower');
+    });
+
+    it('should be a no-op for an empty playoff list', async () => {
+      await service.processPlayoffResultsAndExecuteSwaps([]);
+
+      expect(mockTeamRepository.save).not.toHaveBeenCalled();
+      expect(mockTeamRepository.findOne).not.toHaveBeenCalled();
+    });
+  });
 });
