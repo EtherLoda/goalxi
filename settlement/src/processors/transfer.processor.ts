@@ -2,7 +2,7 @@ import { Processor, WorkerHost } from '@nestjs/bullmq';
 import { Injectable, Inject } from '@nestjs/common';
 import { LOGGER_SERVICE, PinoLoggerService } from '@goalxi/logger';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, DataSource } from 'typeorm';
+import { In, Repository, DataSource } from 'typeorm';
 import { Job } from 'bullmq';
 import {
   AuctionEntity,
@@ -38,6 +38,14 @@ export interface TransferSettlementJobData {
   /** Inbound X-Request-Id from the api caller; propagates traceId to logs. */
   traceId?: string;
 }
+
+/**
+ * How long a `PROCESSING` claim can sit untouched before a new
+ * worker is allowed to take over. The Redis settlement lock in
+ * the api side has a 5-minute TTL; we use 10 minutes here so a
+ * slow-but-not-dead worker isn't preempted by a fresh one.
+ */
+const STALE_PROCESSING_MS = 10 * 60 * 1000;
 
 @Injectable()
 @Processor('transfer-settlement')
@@ -89,7 +97,21 @@ export class TransferProcessor extends WorkerHost {
     );
 
     try {
-      // Idempotency check
+      // ── Claim (CAS) ────────────────────────────────────────────────
+      // The previous implementation refused to touch any row in
+      // PROCESSING, so a worker that died mid-settlement would
+      // permanently jam the auction. The CAS now does two things:
+      //   1. If the row is PENDING, claim it (move → PROCESSING,
+      //      stamp claimedAt = now).
+      //   2. If the row is already PROCESSING but the existing
+      //      claimedAt is NULL (legacy) or older than
+      //      STALE_PROCESSING_MS, take it over. Otherwise the
+      //      claim is lost (affected = 0) and we throw — same
+      //      "another worker has it" semantics as before, but
+      //      with an escape hatch for crashed workers.
+      const now = new Date();
+      const staleCutoff = new Date(now.getTime() - STALE_PROCESSING_MS);
+
       const existingTx = await this.transferTxRepo.findOne({
         where: { id: transactionId as Uuid },
       });
@@ -108,17 +130,56 @@ export class TransferProcessor extends WorkerHost {
         return;
       }
 
-      if (existingTx.status === TransferTransactionStatus.PROCESSING) {
+      if (existingTx.status === TransferTransactionStatus.FAILED) {
+        // FAILED is terminal — re-running won't fix it (the catch
+        // block already cancelled the auction). Surface as an
+        // error so BullMQ doesn't infinite-retry, but don't take
+        // over.
         this.jobLog.warn(
-          `[TransferProcessor] Transaction ${transactionId} already being processed`,
+          `[TransferProcessor] Transaction ${transactionId} previously FAILED, refusing to take over`,
+        );
+        throw new Error(
+          `Transaction ${transactionId} previously failed: ${existingTx.failureReason ?? 'unknown'}`,
+        );
+      }
+
+      // Decide whether the row is up for grabs. PENDING always is;
+      // PROCESSING only if the claim is stale.
+      const claimable =
+        existingTx.status === TransferTransactionStatus.PENDING ||
+        !existingTx.claimedAt ||
+        existingTx.claimedAt < staleCutoff;
+
+      if (!claimable) {
+        this.jobLog.warn(
+          `[TransferProcessor] Transaction ${transactionId} is being processed by another worker (claimedAt=${existingTx.claimedAt?.toISOString() ?? 'n/a'})`,
         );
         throw new Error(`Transaction ${transactionId} already being processed`);
       }
 
-      // Update transaction status to PROCESSING
-      await this.transferTxRepo.update(transactionId as Uuid, {
-        status: TransferTransactionStatus.PROCESSING,
-      });
+      // Atomic claim: only succeeds if the row is still in a
+      // claimable state. Two workers racing the same row both see
+      // "claimable=true", but only one's UPDATE will land (the other
+      // will see affected=0 and retry / give up).
+      const claim = await this.transferTxRepo.update(
+        {
+          id: transactionId as Uuid,
+          status: In([
+            TransferTransactionStatus.PENDING,
+            TransferTransactionStatus.PROCESSING,
+          ]),
+        },
+        {
+          status: TransferTransactionStatus.PROCESSING,
+          claimedAt: new Date(),
+        },
+      );
+      if (!claim.affected) {
+        this.jobLog.warn(
+          `[TransferProcessor] Transaction ${transactionId} claim lost the CAS race`,
+        );
+        throw new Error(`Transaction ${transactionId} claim lost the CAS race`);
+      }
 
       // Execute settlement in a transaction
       await this.dataSource.transaction(async (manager) => {

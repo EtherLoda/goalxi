@@ -70,6 +70,18 @@ export class TransferTransactionEntity extends AbstractEntity {
     @Column({ name: 'settled_at', type: 'timestamptz', nullable: true })
     settledAt?: Date;
 
+    /**
+     * Timestamp at which a worker last claimed this row (moved it
+     * PENDING → PROCESSING). Used by the worker to detect a stale
+     * PROCESSING claim — a previous worker died mid-settlement and
+     * a new worker should be able to take over without the auction
+     * getting stuck forever. The "stale" window must comfortably
+     * exceed the slowest possible settlement (Redis lock TTL is
+     * 5 minutes, so 10 minutes is a safe margin).
+     */
+    @Column({ name: 'claimed_at', type: 'timestamptz', nullable: true })
+    claimedAt?: Date | null;
+
     @Column({ type: 'integer' })
     season!: number;
 }
