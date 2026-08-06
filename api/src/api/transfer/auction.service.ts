@@ -882,127 +882,137 @@ export class AuctionService implements OnModuleInit {
       `[Auction] finalizeExpiredAuctions scanning ${expiredAuctions.length} active auctions`,
     );
 
-    for (const auction of expiredAuctions) {
-      if (auction.expiresAt <= now) {
-        // Acquire settlement lock to prevent concurrent settlement
-        const lockAcquired = await this.auctionRedisRepo.acquireSettlementLock(
-          auction.id,
-        );
-        if (!lockAcquired) {
-          this.logger.debug(
-            `[Auction] finalizeExpiredAuctions skipped (lock held) auctionId=${auction.id}`,
-          );
-          continue; // Another process is settling this auction
-        }
+    // Bounded parallel pool. Per-auction work is mostly I/O
+    // (Redis lock SET, transferTx find, one dataSource.transaction)
+    // so serialising all 500 in a single tick would leave the
+    // pool idle; fanning out the full batch in one go would
+    // starve the DB connection pool. CONCURRENCY=8 is a
+    // sweet spot: keeps DB pool utilisation reasonable while
+    // still being ~8× faster than serial for an I/O-bound
+    // workload. The work is idempotent (Redis lock + per-
+    // auction tx check), so per-auction failures don't take
+    // down the batch — `allSettled` lets each finalize
+    // succeed / fail independently.
+    const CONCURRENCY = 8;
+    for (let i = 0; i < expiredAuctions.length; i += CONCURRENCY) {
+      const chunk = expiredAuctions.slice(i, i + CONCURRENCY);
+      await Promise.allSettled(
+        chunk
+          .filter((auction) => auction.expiresAt <= now)
+          .map((auction) => this.finalizeOneAuction(auction, now)),
+      );
+    }
+  }
 
-        try {
-          // Check if auction already has a pending/processing transaction (idempotency)
-          const existingTx = await this.transferTxRepo.findOne({
-            where: { auctionId: auction.id },
-            order: { createdAt: 'DESC' },
+  /**
+   * Process a single expired auction end-to-end. Extracted
+   * from the cron body so the parallel pool above can call it
+   * without copy-pasting the lock + idempotency-check +
+   * settlement-or-expire + cleanup pipeline.
+   */
+  private async finalizeOneAuction(
+    auction: AuctionEntity,
+    now: Date,
+  ): Promise<void> {
+    // Acquire settlement lock to prevent concurrent settlement
+    const lockAcquired = await this.auctionRedisRepo.acquireSettlementLock(
+      auction.id,
+    );
+    if (!lockAcquired) {
+      this.logger.debug(
+        `[Auction] finalizeOneAuction skipped (lock held) auctionId=${auction.id}`,
+      );
+      return; // Another process is settling this auction
+    }
+
+    try {
+      // Idempotency: skip if a non-FAILED transferTx already
+      // exists for this auction.
+      const existingTx = await this.transferTxRepo.findOne({
+        where: { auctionId: auction.id },
+        order: { createdAt: 'DESC' },
+      });
+      if (
+        existingTx &&
+        existingTx.status !== TransferTransactionStatus.FAILED
+      ) {
+        this.logger.debug(
+          `[Auction] finalizeOneAuction skipped (existing tx ${existingTx.id}) auctionId=${auction.id}`,
+        );
+        return;
+      }
+
+      // Bid state from Redis for cleanup of per-team bid sets.
+      const redisState = await this.auctionRedisRepo.getAuctionState(
+        auction.id,
+      );
+
+      if (auction.currentBidderId) {
+        this.logger.log(
+          `[Auction] finalizeOneAuction winner found auctionId=${auction.id} playerId=${auction.playerId} winnerTeamId=${auction.currentBidderId} sellerTeamId=${auction.teamId} price=${auction.currentPrice}`,
+        );
+        await this.dataSource.transaction(async (manager) => {
+          const auctionRepo = manager.getRepository(AuctionEntity);
+          const transferTxRepo = manager.getRepository(
+            TransferTransactionEntity,
+          );
+
+          const currentSeason = await this.getCurrentSeason();
+
+          const transaction = manager.create(TransferTransactionEntity, {
+            auctionId: auction.id,
+            playerId: auction.playerId,
+            fromTeamId: auction.teamId,
+            toTeamId: auction.currentBidderId,
+            amount: auction.currentPrice,
+            type: TransferTransactionType.AUCTION_COMPLETE,
+            status: TransferTransactionStatus.PENDING,
+            season: currentSeason,
+          });
+          await manager.save(transaction);
+
+          await auctionRepo.update(auction.id, {
+            status: AuctionStatus.SETTLING,
           });
 
-          if (
-            existingTx &&
-            existingTx.status !== TransferTransactionStatus.FAILED
-          ) {
-            // Already has a transaction that's not failed, skip
-            this.logger.debug(
-              `[Auction] finalizeExpiredAuctions skipped (existing tx ${existingTx.id}) auctionId=${auction.id}`,
-            );
-            continue;
+          await this.enqueueSettlement(
+            auction,
+            transaction.id,
+            currentSeason,
+          );
+        });
+      } else {
+        // No bids - mark as expired and reset player's onTransfer
+        // inside one transaction.
+        this.logger.log(
+          `[Auction] finalizeOneAuction no bids auctionId=${auction.id} playerId=${auction.playerId} sellerTeamId=${auction.teamId}`,
+        );
+        await this.dataSource.transaction(async (manager) => {
+          const txPlayerRepo = manager.getRepository(PlayerEntity);
+          const txAuctionRepo = manager.getRepository(AuctionEntity);
+
+          const player = await txPlayerRepo.findOne({
+            where: { id: auction.playerId },
+          });
+          if (player) {
+            player.onTransfer = false;
+            await txPlayerRepo.save(player);
           }
 
-          // Get bid state from Redis for final cleanup of team bid sets
-          const redisState = await this.auctionRedisRepo.getAuctionState(
-            auction.id,
-          );
-
-          if (auction.currentBidderId) {
-            this.logger.log(
-              `[Auction] finalizeExpiredAuctions winner found auctionId=${auction.id} playerId=${auction.playerId} winnerTeamId=${auction.currentBidderId} sellerTeamId=${auction.teamId} price=${auction.currentPrice}`,
-            );
-            // Has winner - create transaction and enqueue
-            await this.dataSource.transaction(async (manager) => {
-              const auctionRepo = manager.getRepository(AuctionEntity);
-              const transferTxRepo = manager.getRepository(
-                TransferTransactionEntity,
-              );
-
-              // Get current season
-              const currentSeason = await this.getCurrentSeason();
-
-              // Create transfer transaction
-              const transaction = manager.create(TransferTransactionEntity, {
-                auctionId: auction.id,
-                playerId: auction.playerId,
-                fromTeamId: auction.teamId,
-                toTeamId: auction.currentBidderId,
-                amount: auction.currentPrice,
-                type: TransferTransactionType.AUCTION_COMPLETE,
-                status: TransferTransactionStatus.PENDING,
-                season: currentSeason,
-              });
-              await manager.save(transaction);
-
-              // Update auction status
-              await auctionRepo.update(auction.id, {
-                status: AuctionStatus.SETTLING,
-              });
-
-              // Enqueue settlement job. The business jobId prevents a
-              // BullMQ re-delivery (or our own recovery path running
-              // twice) from enqueuing duplicates of the same settlement.
-              await this.enqueueSettlement(
-                auction,
-                transaction.id,
-                currentSeason,
-              );
-            });
-          } else {
-            // No bids - mark as expired and reset player's onTransfer.
-            // Both writes go through the same transaction so a
-            // partial failure can't leave the player off-market
-            // while the auction is still ACTIVE (or vice versa).
-            this.logger.log(
-              `[Auction] finalizeExpiredAuctions no bids auctionId=${auction.id} playerId=${auction.playerId} sellerTeamId=${auction.teamId}`,
-            );
-            await this.dataSource.transaction(async (manager) => {
-              const txPlayerRepo = manager.getRepository(PlayerEntity);
-              const txAuctionRepo = manager.getRepository(AuctionEntity);
-
-              const player = await txPlayerRepo.findOne({
-                where: { id: auction.playerId },
-              });
-              if (player) {
-                player.onTransfer = false;
-                await txPlayerRepo.save(player);
-              }
-
-              auction.status = AuctionStatus.EXPIRED;
-              auction.endsAt = now;
-              await txAuctionRepo.save(auction);
-            });
-          }
-
-          // Cleanup Redis data for this auction — and the per-team
-          // bid sets — in a single pipeline. The previous two-pass
-          // cleanup (cleanupAuction + per-team removeTeamBid loop)
-          // could leave team:{id}:bids containing a stale
-          // auctionId if the first pass succeeded and the loop
-          // was interrupted. Pipeline them so a partial failure
-          // either lands both or rolls both back at the
-          // connection level.
-          const teamIds =
-            redisState?.bidHistory?.map((bid) => bid.teamId) ?? [];
-          await this.auctionRedisRepo.cleanupAuctionWithBids(
-            auction.id,
-            teamIds,
-          );
-        } finally {
-          await this.auctionRedisRepo.releaseSettlementLock(auction.id);
-        }
+          auction.status = AuctionStatus.EXPIRED;
+          auction.endsAt = now;
+          await txAuctionRepo.save(auction);
+        });
       }
+
+      // Pipeline-cleanup auction keys + per-team bid sets.
+      const teamIds = redisState?.bidHistory?.map((bid) => bid.teamId) ?? [];
+      await this.auctionRedisRepo.cleanupAuctionWithBids(
+        auction.id,
+        teamIds,
+      );
+    } finally {
+      await this.auctionRedisRepo.releaseSettlementLock(auction.id);
     }
   }
 
