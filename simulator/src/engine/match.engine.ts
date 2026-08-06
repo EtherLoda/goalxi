@@ -193,6 +193,26 @@ export interface MatchEvent {
 export class MatchEngine {
   private time: number = 0;
   private events: MatchEvent[] = [];
+
+  /**
+   * Engine phase guard. Tracks which segment of the match has
+   * been simulated. Each engine instance is single-use — the
+   * simulator worker creates a fresh MatchEngine per match run,
+   * and the simulate* methods reject out-of-order calls.
+   *
+   * Why a state machine: the old code allowed
+   *   engine.simulateMatch();
+   *   engine.simulateExtraTime();
+   *   engine.simulateExtraTime();   // <- silently appends AGAIN
+   *
+   * The third call would push another batch of ET events onto
+   * `this.events`, which the persistence layer would then
+   * double-insert into `match_event` if the worker retried.
+   * A test in `match.engine.spec.ts` already acknowledged this
+   * as footgun ("might define 'weird' behavior"). The guard
+   * makes the failure mode loud.
+   */
+  private phase: 'idle' | 'match' | 'extra' | 'penalties' = 'idle';
   public homeScore: number = 0;
   public awayScore: number = 0;
 
@@ -448,6 +468,14 @@ export class MatchEngine {
   }
 
   public simulateMatch(): MatchEvent[] {
+    if (this.phase !== 'idle') {
+      throw new Error(
+        `MatchEngine.simulateMatch() called in phase '${this.phase}' — ` +
+          `each engine instance is single-use; create a new MatchEngine to re-simulate`,
+      );
+    }
+    this.phase = 'match';
+
     // 清除属性计算缓存，确保每次模拟从零开始
     AttributeCalculator.clearCache();
 
@@ -605,6 +633,14 @@ export class MatchEngine {
   }
 
   public simulateExtraTime(): MatchEvent[] {
+    if (this.phase !== 'match') {
+      throw new Error(
+        `MatchEngine.simulateExtraTime() called in phase '${this.phase}' — ` +
+          `must call simulateMatch() first`,
+      );
+    }
+    this.phase = 'extra';
+
     // Extra Time Setup (30 mins = ~7 moments)
     const MOMENTS_COUNT = 7;
 
@@ -701,6 +737,14 @@ export class MatchEngine {
   }
 
   public simulatePenaltyShootout(): MatchEvent[] {
+    if (this.phase !== 'extra') {
+      throw new Error(
+        `MatchEngine.simulatePenaltyShootout() called in phase '${this.phase}' — ` +
+          `must call simulateExtraTime() first`,
+      );
+    }
+    this.phase = 'penalties';
+
     let homePKScore = 0;
     let awayPKScore = 0;
     let round = 1;

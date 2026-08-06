@@ -156,15 +156,83 @@ export class AuthService {
     });
   }
 
+  /**
+   * Logout.
+   *
+   * Two state mutations, in this order:
+   *   1. DELETE the session row in Postgres — this is the source
+   *      of truth. The refresh-token path (`refreshToken`) reads
+   *      the session row and checks `session.hash === token.hash`;
+   *      a deleted row means a stolen refresh token can no longer
+   *      mint new access tokens.
+   *   2. Set the Redis blacklist entry for the access token's
+   *      remaining lifetime. This is belt-and-suspenders: the
+   *      `AuthGuard` checks the blacklist on every request, so an
+   *      access token still in a client's Authorization header
+   *      fails the next request even if the JWT itself hasn't
+   *      expired yet.
+   *
+   * The two operations are independent: each catches and logs
+   * its own error so a Redis blip after a successful DB delete
+   * (or vice versa) doesn't leave the user in a half-logged-out
+   * state. The DB delete is the load-bearing one — if it fails
+   * we still throw, because that means the session is still
+   * usable for refresh and the user thinks they're logged out
+   * while they actually aren't. A blacklist failure alone is
+   * safe to swallow (the access token will expire on its own
+   * within `auth.expires`).
+   */
   async logout(userToken: JwtPayloadType): Promise<void> {
     this.logger.log(`[Auth] logout sessionId=${userToken.sessionId}`);
 
-    await this.cacheManager.store.set<boolean>(
-      createCacheKey(CacheKey.SESSION_BLACKLIST, userToken.sessionId),
-      true,
-      userToken.exp * 1000 - Date.now(),
-    );
-    await SessionEntity.delete(userToken.sessionId);
+    // 1) DB delete first (source of truth).
+    try {
+      await SessionEntity.delete(userToken.sessionId);
+    } catch (err) {
+      this.logger.error(
+        `[Auth] logout DB delete failed sessionId=${userToken.sessionId}: ${
+          err instanceof Error ? err.message : String(err)
+        }`,
+        err instanceof Error ? err.stack : undefined,
+      );
+      // Re-throw — leaving the session row means a stolen
+      // refresh token can still mint new access tokens, which
+      // is the exact security failure the user is asking us
+      // to prevent.
+      throw err;
+    }
+
+    // 2) Blacklist the access token for its remaining lifetime.
+    const ttlMs = userToken.exp * 1000 - Date.now();
+    if (ttlMs > 0) {
+      try {
+        await this.cacheManager.store.set<boolean>(
+          createCacheKey(CacheKey.SESSION_BLACKLIST, userToken.sessionId),
+          true,
+          ttlMs,
+        );
+      } catch (err) {
+        // Swallow + log. The access token will expire naturally
+        // on its own within `auth.expires`; a missed blacklist
+        // entry is not a security failure (the DB delete above
+        // already kills the refresh-token path), just a minor
+        // grace period where the access token is technically
+        // still valid until it expires.
+        this.logger.warn(
+          `[Auth] logout blacklist set failed sessionId=${
+            userToken.sessionId
+          } (DB delete succeeded; access token will expire naturally): ${
+            err instanceof Error ? err.message : String(err)
+          }`,
+        );
+      }
+    } else {
+      // Access token already expired by the clock — no need to
+      // burn a Redis write on a zero-TTL entry.
+      this.logger.debug(
+        `[Auth] logout skipped blacklist (access token already expired) sessionId=${userToken.sessionId}`,
+      );
+    }
   }
 
   async refreshToken(dto: RefreshReqDto): Promise<RefreshResDto> {

@@ -12,7 +12,6 @@ import {
   ScoutCandidatePlayerData,
   TeamEntity,
   Uuid,
-  YouthLeagueEntity,
   YouthTeamEntity,
   currentGameDay,
   currentWeekIndex,
@@ -202,8 +201,6 @@ export class ScoutsService {
     private teamRepo: Repository<TeamEntity>,
     @InjectRepository(YouthTeamEntity)
     private youthTeamRepo: Repository<YouthTeamEntity>,
-    @InjectRepository(YouthLeagueEntity)
-    private youthLeagueRepo: Repository<YouthLeagueEntity>,
   ) {}
 
   /** Manual draws allowed per game-week per team. The auto-cron on

@@ -96,24 +96,45 @@ describe('MatchEngine', () => {
 
   it('should simulate extra time and continue generating events', () => {
     engine.simulateMatch();
-    const initialEventsCount = engine.simulateExtraTime().length;
-
-    // simulateMatch resets events, simulateExtraTime appends?
-    // No, simulateExtraTime returns `this.events`.
-    // `simulateMatch` resets `this.events = []`.
-    // `simulateExtraTime` does NOT reset `this.events`, it appends.
-    // Wait, checking code:
-    // `simulateMatch` sets `this.events = []`.
-    // `simulateExtraTime` does NOT set `this.events = []`.
-    // So it should contain both regular and extra time events.
-
-    const allEvents = engine.simulateExtraTime(); // This adds MORE events
-    // Note: calling simulateExtraTime multiple times might define "weird" behavior but for test we call once after match.
+    // Engine now refuses out-of-order or repeat calls (see
+    // `phase` state machine in match.engine). A second
+    // `simulateExtraTime()` would have silently appended more
+    // events to the array, which the persistence layer would
+    // then double-insert into `match_event` on retry. The guard
+    // turns that footgun into an error.
+    const allEvents = engine.simulateExtraTime();
 
     expect(allEvents.length).toBeGreaterThan(0);
     const lastEvent = allEvents[allEvents.length - 1];
     expect(lastEvent.minute).toBeGreaterThan(90);
     expect(lastEvent.minute).toBeLessThanOrEqual(120);
+  });
+
+  it('rejects a second call to simulateExtraTime (no duplicate event append)', () => {
+    engine.simulateMatch();
+    engine.simulateExtraTime();
+    expect(() => engine.simulateExtraTime()).toThrow(
+      /simulateExtraTime.*phase 'extra'/,
+    );
+  });
+
+  it('rejects simulateExtraTime before simulateMatch', () => {
+    expect(() => engine.simulateExtraTime()).toThrow(
+      /simulateExtraTime.*phase 'idle'/,
+    );
+  });
+
+  it('rejects simulatePenaltyShootout before simulateMatch', () => {
+    expect(() => engine.simulatePenaltyShootout()).toThrow(
+      /simulatePenaltyShootout.*phase 'idle'/,
+    );
+  });
+
+  it('rejects a second call to simulateMatch on the same engine', () => {
+    engine.simulateMatch();
+    expect(() => engine.simulateMatch()).toThrow(
+      /simulateMatch.*phase 'match'/,
+    );
   });
 
   it('should apply extra time break recovery', () => {
@@ -619,8 +640,6 @@ describe('MatchEngine', () => {
           tactics,
           tactics,
         );
-
-        expect(() => engine.simulateMatch()).not.toThrow();
 
         const events = engine.simulateMatch();
         expect(events.length).toBeGreaterThan(0);

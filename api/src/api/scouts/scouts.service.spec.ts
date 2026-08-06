@@ -2,7 +2,6 @@ import {
   PlayerEntity,
   ScoutCandidateEntity,
   TeamEntity,
-  YouthLeagueEntity,
   YouthTeamEntity,
 } from '@goalxi/database';
 import { Test } from '@nestjs/testing';
@@ -13,7 +12,10 @@ describe('ScoutsService.selectCandidate — persistence invariants', () => {
   let service: ScoutsService;
   let playerRepo: { create: jest.Mock; save: jest.Mock };
   let candidateRepo: { findOneByOrFail: jest.Mock; delete: jest.Mock };
-  let teamRepo: Record<string, jest.Mock>;
+  let teamRepo: {
+    findOneBy: jest.Mock;
+    save: jest.Mock;
+  };
   let youthTeamRepo: { findOne: jest.Mock };
 
   const baseSkills = {
@@ -80,7 +82,12 @@ describe('ScoutsService.selectCandidate — persistence invariants', () => {
       findOneByOrFail: jest.fn(),
       delete: jest.fn().mockResolvedValue({ affected: 1 }),
     };
-    teamRepo = {};
+    teamRepo = {
+      // No team row by default — the post-sign saturate path guards
+      // on `if (team)`, so a null return keeps that block a no-op.
+      findOneBy: jest.fn().mockResolvedValue(null),
+      save: jest.fn().mockResolvedValue(undefined),
+    };
     youthTeamRepo = {
       findOne: jest.fn().mockResolvedValue(null),
     };
@@ -98,7 +105,6 @@ describe('ScoutsService.selectCandidate — persistence invariants', () => {
           provide: getRepositoryToken(YouthTeamEntity),
           useValue: youthTeamRepo,
         },
-        { provide: getRepositoryToken(YouthLeagueEntity), useValue: {} },
       ],
     }).compile();
 
@@ -260,21 +266,6 @@ describe('ScoutsService.selectCandidate — persistence invariants', () => {
       service.selectCandidate('candidate-1', 'team-B'),
     ).rejects.toThrow(/does not belong to team team-B/);
     expect(playerRepo.save).not.toHaveBeenCalled();
-  });
-
-  it('preserves specialty and youth_league_id from the candidate', async () => {
-    candidateRepo.findOneByOrFail.mockResolvedValue(buildCandidate());
-    youthTeamRepo.findOne.mockResolvedValue({
-      id: 'yt-1',
-      teamId: 'team-A',
-      youthLeagueId: 'league-1',
-    } as YouthTeamEntity);
-
-    await service.selectCandidate('candidate-1', 'team-A');
-
-    const saved = playerRepo.save.mock.calls[0][0];
-    expect(saved.specialty).toBe('LPASS');
-    expect(saved.youthLeagueId).toBe('league-1');
   });
 
   it('deletes the candidate row after a successful save', async () => {

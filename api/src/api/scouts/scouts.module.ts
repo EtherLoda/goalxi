@@ -2,7 +2,6 @@ import {
   PlayerEntity,
   ScoutCandidateEntity,
   TeamEntity,
-  YouthLeagueEntity,
   YouthTeamEntity,
 } from '@goalxi/database';
 import { Module } from '@nestjs/common';
@@ -18,7 +17,6 @@ import { ScoutsService } from './scouts.service';
       PlayerEntity,
       YouthTeamEntity,
       TeamEntity,
-      YouthLeagueEntity,
     ]),
     AuthModule,
   ],

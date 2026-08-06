@@ -29,11 +29,7 @@ import { ListTeamReqDto } from './dto/list-team.req.dto';
 import { TeamResDto } from './dto/team.res.dto';
 import { UpdateTeamReqDto } from './dto/update-team.req.dto';
 
-import {
-  PlayerEntity,
-  YouthLeagueEntity,
-  YouthTeamEntity,
-} from '@goalxi/database';
+import { PlayerEntity } from '@goalxi/database';
 import { PlayerService } from '../player/player.service';
 import { ScoutsService } from '../scouts/scouts.service';
 
@@ -43,10 +39,6 @@ export class TeamService {
     private readonly playerService: PlayerService,
     @InjectRepository(StaffEntity)
     private readonly staffRepo: Repository<StaffEntity>,
-    @InjectRepository(YouthTeamEntity)
-    private readonly youthTeamRepo: Repository<YouthTeamEntity>,
-    @InjectRepository(YouthLeagueEntity)
-    private readonly youthLeagueRepo: Repository<YouthLeagueEntity>,
     private readonly scoutsService: ScoutsService,
   ) {}
 
@@ -180,12 +172,11 @@ export class TeamService {
     });
     await this.staffRepo.save(fitnessCoach);
 
-    // [Onboarding] Bind a YouthTeam + seed the first scout candidate so
-    // a new manager sees something in the inbox without waiting for the
-    // weekly Saturday cron. The call is idempotent (server enforces the
-    // 7-day expiry window, and the inbox UX pulls one card at a time
-    // on demand thereafter).
-    await this.ensureYouthTeamForNewTeam(team);
+    // [Onboarding] Seed the first scout candidate so a new manager
+    // sees something in the inbox without waiting for the weekly
+    // Saturday cron. Best-effort — the call is idempotent (server
+    // enforces the week-end expiry window, and the inbox UX pulls
+    // one card at a time on demand thereafter).
     try {
       await this.scoutsService.generateOneCandidate(team.id);
     } catch (err) {
@@ -196,40 +187,6 @@ export class TeamService {
     }
 
     return this.mapToResDto(team);
-  }
-
-  /**
-   * Idempotent helper: ensure a `YouthTeam` row exists for the given
-   * senior team, bound to a (lazily-created) default youth league.
-   * Inlined here to avoid a circular dep on the deleted youth module.
-   */
-  private async ensureYouthTeamForNewTeam(
-    team: Pick<TeamEntity, 'id' | 'name'>,
-  ): Promise<void> {
-    const existing = await this.youthTeamRepo.findOne({
-      where: { teamId: team.id },
-    });
-    if (existing) return;
-
-    let league = await this.youthLeagueRepo.findOne({
-      where: { name: 'Youth Academy League' },
-    });
-    if (!league) {
-      league = this.youthLeagueRepo.create({
-        name: 'Youth Academy League',
-        parentTier: 1,
-        maxTeams: 9999,
-        status: 'active',
-      });
-      league = await this.youthLeagueRepo.save(league);
-    }
-
-    const youthTeam = this.youthTeamRepo.create({
-      teamId: team.id,
-      youthLeagueId: league.id,
-      name: `${team.name} Youth`,
-    });
-    await this.youthTeamRepo.save(youthTeam);
   }
 
   async update(id: Uuid, reqDto: UpdateTeamReqDto): Promise<TeamResDto> {
