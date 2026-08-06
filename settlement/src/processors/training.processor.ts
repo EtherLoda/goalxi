@@ -159,30 +159,9 @@ export class TrainingProcessor extends WorkerHost {
     const playerSnapshots = new Map<number, PlayerSnapshot>();
     for (const player of players) {
       const skills: Record<string, number> = {};
-      if (player.currentSkills) {
-        // Flatten skills structure
-        const cs = player.currentSkills as any;
-        if (cs.physical) {
-          for (const [k, v] of Object.entries(cs.physical)) {
-            skills[k] = v as number;
-          }
-        }
-        if (cs.technical) {
-          for (const [k, v] of Object.entries(cs.technical)) {
-            skills[k] = v as number;
-          }
-        }
-        if (cs.mental) {
-          for (const [k, v] of Object.entries(cs.mental)) {
-            skills[k] = v as number;
-          }
-        }
-        if (cs.setPieces) {
-          for (const [k, v] of Object.entries(cs.setPieces)) {
-            skills[k] = v as number;
-          }
-        }
-      }
+      this.forEachSkill(player.currentSkills, (key, value) => {
+        skills[key] = value;
+      });
       playerSnapshots.set(player.id, {
         stamina: player.stamina,
         form: player.form,
@@ -294,73 +273,18 @@ export class TrainingProcessor extends WorkerHost {
       }
 
       // Check skills
-      const currentSkills = player.currentSkills as any;
-      if (currentSkills) {
-        // Check physical skills
-        if (currentSkills.physical) {
-          for (const [skill, value] of Object.entries(currentSkills.physical)) {
-            const oldValue = oldSnapshot.skills[skill] ?? 0;
-            const oldFloor = Math.floor(oldValue);
-            const newFloor = Math.floor(value as number);
-            if (oldFloor !== newFloor) {
-              changes.push({
-                field: `skill:${skill}`,
-                oldValue: oldFloor,
-                newValue: newFloor,
-              });
-            }
-          }
+      this.forEachSkill(player.currentSkills, (skill, value) => {
+        const oldValue = oldSnapshot.skills[skill] ?? 0;
+        const oldFloor = Math.floor(oldValue);
+        const newFloor = Math.floor(value);
+        if (oldFloor !== newFloor) {
+          changes.push({
+            field: `skill:${skill}`,
+            oldValue: oldFloor,
+            newValue: newFloor,
+          });
         }
-        // Check technical skills
-        if (currentSkills.technical) {
-          for (const [skill, value] of Object.entries(
-            currentSkills.technical,
-          )) {
-            const oldValue = oldSnapshot.skills[skill] ?? 0;
-            const oldFloor = Math.floor(oldValue);
-            const newFloor = Math.floor(value as number);
-            if (oldFloor !== newFloor) {
-              changes.push({
-                field: `skill:${skill}`,
-                oldValue: oldFloor,
-                newValue: newFloor,
-              });
-            }
-          }
-        }
-        // Check mental skills
-        if (currentSkills.mental) {
-          for (const [skill, value] of Object.entries(currentSkills.mental)) {
-            const oldValue = oldSnapshot.skills[skill] ?? 0;
-            const oldFloor = Math.floor(oldValue);
-            const newFloor = Math.floor(value as number);
-            if (oldFloor !== newFloor) {
-              changes.push({
-                field: `skill:${skill}`,
-                oldValue: oldFloor,
-                newValue: newFloor,
-              });
-            }
-          }
-        }
-        // Check set pieces skills
-        if (currentSkills.setPieces) {
-          for (const [skill, value] of Object.entries(
-            currentSkills.setPieces,
-          )) {
-            const oldValue = oldSnapshot.skills[skill] ?? 0;
-            const oldFloor = Math.floor(oldValue);
-            const newFloor = Math.floor(value as number);
-            if (oldFloor !== newFloor) {
-              changes.push({
-                field: `skill:${skill}`,
-                oldValue: oldFloor,
-                newValue: newFloor,
-              });
-            }
-          }
-        }
-      }
+      });
 
       if (changes.length > 0) {
         playerUpdates.push({
@@ -412,6 +336,29 @@ export class TrainingProcessor extends WorkerHost {
       playersProcessed: players.length,
       playersTrained,
     };
+  }
+
+  /**
+   * Walk every (skill, value) pair across the four skill categories
+   * on a `currentSkills` payload. Used by both the snapshot pass
+   * (flatten into a single record) and the diff pass (compare to
+   * the snapshot and emit a `PlayerTrainingChange`). Centralising
+   * the traversal means adding a fifth category later (or renaming
+   * one) is a one-line change in this method.
+   */
+  private forEachSkill(
+    currentSkills: unknown,
+    fn: (key: string, value: number) => void,
+  ): void {
+    if (!currentSkills) return;
+    const skills = currentSkills as Record<string, Record<string, number> | undefined>;
+    for (const category of ['physical', 'technical', 'mental', 'setPieces'] as const) {
+      const sub = skills[category];
+      if (!sub) continue;
+      for (const [key, value] of Object.entries(sub)) {
+        fn(key, value as number);
+      }
+    }
   }
 
   @OnWorkerEvent('completed')
