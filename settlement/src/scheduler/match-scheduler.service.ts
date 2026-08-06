@@ -123,21 +123,43 @@ export class MatchSchedulerService {
 
           // 只要有一方提交了战术（或使用了默认/自动生成阵容），就不判负
           // 只有双方都没有阵容时才判负
-          match.homeForfeit = !homeTactics;
-          match.awayForfeit = !awayTactics;
-          match.tacticsLocked = true;
-          match.tacticsLockedAt = now;
-          match.status = MatchStatus.TACTICS_LOCKED;
+          const homeForfeit = !homeTactics;
+          const awayForfeit = !awayTactics;
 
           const matchDate = match.scheduledAt.toISOString().split('T')[0];
           const weather = await this.weatherRepository.findOne({
             where: { date: matchDate, locationId: 'default' },
           });
-          if (weather) {
-            match.weather = weather.actualWeather;
-          }
+          // TypeORM `update` ignores `undefined` values in the partial
+          // (the column is left untouched), which is exactly what we
+          // want when no weather row exists for this date.
+          const weatherValue = weather?.actualWeather;
 
-          await this.matchRepository.save(match);
+          // Atomic status-guard update. Without this, two cron ticks
+          // could both pass the SCHEDULED-tacticsLocked-false filter
+          // before either one calls `save`, then both `save` and
+          // both enqueue a simulation job. The second tick's save
+          // also overwrites any fields the worker has already
+          // written back (e.g. simulationStartedAt on retries).
+          // The status-in-WHERE clause makes the update a CAS:
+          // it only succeeds while the row is still SCHEDULED.
+          const updateResult = await this.matchRepository.update(
+            { id: match.id, status: MatchStatus.SCHEDULED },
+            {
+              status: MatchStatus.TACTICS_LOCKED,
+              tacticsLocked: true,
+              tacticsLockedAt: now,
+              homeForfeit,
+              awayForfeit,
+              weather: weatherValue,
+            },
+          );
+          if (!updateResult.affected) {
+            this.logger.debug(
+              `[MatchPreprocessScheduler] Match ${match.id} status changed under us, skipping enqueue`,
+            );
+            continue;
+          }
 
           this.logger.info(
             `[MatchPreprocessScheduler] ✅ Match ${match.id} preprocessed and saved to DB`,
@@ -149,10 +171,10 @@ export class MatchSchedulerService {
             awayTeamId: match.awayTeamId,
             homeTactics: homeTactics || null,
             awayTactics: awayTactics || null,
-            homeForfeit: match.homeForfeit,
-            awayForfeit: match.awayForfeit,
+            homeForfeit,
+            awayForfeit,
             matchType: match.type,
-            weather: match.weather || null,
+            weather: weatherValue,
           };
 
           this.logger.info(
@@ -313,9 +335,21 @@ export class MatchSchedulerService {
 
     for (const match of matches) {
       try {
-        match.status = MatchStatus.IN_PROGRESS;
-        match.startedAt = match.scheduledAt;
-        await this.matchRepository.save(match);
+        // Atomic status-guard update: only flip to IN_PROGRESS while
+        // the row is still TACTICS_LOCKED. Without this guard two
+        // ticks can both grab the same row, both `save` it, and the
+        // second save silently overwrites anything a worker (or the
+        // simulation completion path) has already written back.
+        const updateResult = await this.matchRepository.update(
+          { id: match.id, status: MatchStatus.TACTICS_LOCKED },
+          { status: MatchStatus.IN_PROGRESS, startedAt: match.scheduledAt },
+        );
+        if (!updateResult.affected) {
+          this.logger.debug(
+            `[MatchStartScheduler] Match ${match.id} status changed under us, skipping`,
+          );
+          continue;
+        }
 
         this.logger.info(
           `⚽ Match started: ${match.homeTeam?.name || 'Home'} vs ${match.awayTeam?.name || 'Away'} ` +
@@ -406,10 +440,25 @@ export class MatchSchedulerService {
         }
 
         if (lastEvent.eventScheduledTime <= now) {
-          match.status = MatchStatus.COMPLETED;
-          match.completedAt = lastEvent.eventScheduledTime;
-          match.actualEndTime = lastEvent.eventScheduledTime;
-          await this.matchRepository.save(match);
+          // Atomic status-guard update. `match.status` here is the
+          // value we just read (IN_PROGRESS or TACTICS_LOCKED with
+          // simulationCompletedAt set); including it in the WHERE
+          // makes this a CAS, so a tick racing the same row to
+          // COMPLETED won't double-enqueue the completion job.
+          const updateResult = await this.matchRepository.update(
+            { id: match.id, status: match.status },
+            {
+              status: MatchStatus.COMPLETED,
+              completedAt: lastEvent.eventScheduledTime,
+              actualEndTime: lastEvent.eventScheduledTime,
+            },
+          );
+          if (!updateResult.affected) {
+            this.logger.debug(
+              `[MatchCompletionScheduler] Match ${match.id} status changed under us, skipping completion enqueue`,
+            );
+            continue;
+          }
 
           await this.completionQueue.add(
             'complete-match',

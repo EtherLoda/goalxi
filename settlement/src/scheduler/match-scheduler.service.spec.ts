@@ -35,6 +35,7 @@ describe('MatchSchedulerService', () => {
     find: jest.fn(),
     findOne: jest.fn(),
     save: jest.fn(),
+    update: jest.fn(),
   };
 
   const mockEventRepository = {
@@ -110,6 +111,13 @@ describe('MatchSchedulerService', () => {
     completionQueue = module.get('BullQueue_match-completion');
 
     jest.clearAllMocks();
+    // Default: every status-guarded update succeeds. Individual tests
+    // override per-call when they want to simulate a race (CAS miss).
+    mockMatchRepository.update.mockResolvedValue({
+      affected: 1,
+      raw: [],
+      generatedMaps: [],
+    });
   });
 
   describe('getTeamTactics', () => {
@@ -298,14 +306,46 @@ describe('MatchSchedulerService', () => {
 
       await service.completeMatches();
 
-      expect(matchRepository.save).toHaveBeenCalledWith(
+      // Status-guarded CAS update — WHERE includes the current status
+      // so a concurrent tick that already flipped this row is rejected.
+      expect(matchRepository.update).toHaveBeenCalledWith(
+        { id: match.id, status: MatchStatus.IN_PROGRESS },
         expect.objectContaining({ status: MatchStatus.COMPLETED }),
       );
+      // Entity-level save would race with worker writes; the
+      // status-guard update replaces it.
+      expect(matchRepository.save).not.toHaveBeenCalled();
       expect(completionQueue.add).toHaveBeenCalledWith(
         'complete-match',
         { matchId: match.id },
         expect.objectContaining({ jobId: `complete-${match.id}` }),
       );
+    });
+
+    it('skips completion enqueue when status-guard update reports 0 affected (race)', async () => {
+      // Another tick already flipped this row to COMPLETED between
+      // our `find` and our `update`. The CAS misses, we must not
+      // double-enqueue the completion job (or fight the other tick).
+      const match = buildInProgressMatch({
+        scheduledAt: new Date(Date.now() - 60 * 60 * 1000),
+      });
+      const lastEvent = {
+        id: 'evt-1',
+        matchId: match.id,
+        minute: 95,
+        eventScheduledTime: new Date(Date.now() - 10 * 60 * 1000),
+      } as unknown as MatchEventEntity;
+      matchRepository.find.mockResolvedValue([match]);
+      eventRepository.findOne.mockResolvedValue(lastEvent);
+      matchRepository.update.mockResolvedValueOnce({
+        affected: 0,
+        raw: [],
+        generatedMaps: [],
+      });
+
+      await service.completeMatches();
+
+      expect(completionQueue.add).not.toHaveBeenCalled();
     });
 
     it('leaves IN_PROGRESS alone when last event is still in the future', async () => {
@@ -324,6 +364,145 @@ describe('MatchSchedulerService', () => {
       expect(matchRepository.save).not.toHaveBeenCalled();
       expect(completionQueue.add).not.toHaveBeenCalled();
       expect(simulationQueue.add).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('preprocessMatch — happy path', () => {
+    it('locks SCHEDULED match and enqueues simulation', async () => {
+      const now = Date.now();
+      const scheduled = {
+        id: 'match-scheduled',
+        homeTeamId: 'team-home',
+        awayTeamId: 'team-away',
+        homeTeam: { name: 'Home' } as any,
+        awayTeam: { name: 'Away' } as any,
+        homeForfeit: false,
+        awayForfeit: false,
+        type: MatchType.LEAGUE,
+        weather: null,
+        status: MatchStatus.SCHEDULED,
+        scheduledAt: new Date(now - 5 * 60 * 1000),
+        tacticsLocked: false,
+      } as unknown as MatchEntity;
+
+      matchRepository.find
+        .mockResolvedValueOnce([scheduled]) // preprocess scan
+        .mockResolvedValueOnce([]); // recovery scan (empty)
+
+      const submittedTactics = {
+        id: 't-home',
+        matchId: scheduled.id,
+        teamId: scheduled.homeTeamId,
+        formation: '4-3-3',
+      } as unknown as MatchTacticsEntity;
+      mockTacticsRepository.findOne.mockResolvedValue(submittedTactics);
+      mockPresetRepository.findOne.mockResolvedValue(null);
+      mockWeatherRepository.findOne.mockResolvedValue(null);
+      simulationQueue.add.mockResolvedValue({ id: 'job-1' });
+
+      await service.preprocessMatch();
+
+      // Status-guarded CAS update — WHERE includes SCHEDULED.
+      expect(matchRepository.update).toHaveBeenCalledWith(
+        { id: scheduled.id, status: MatchStatus.SCHEDULED },
+        expect.objectContaining({
+          status: MatchStatus.TACTICS_LOCKED,
+          tacticsLocked: true,
+          homeForfeit: false,
+          awayForfeit: false,
+        }),
+      );
+      // save() would race with worker writes; the status-guard
+      // update replaces it.
+      expect(matchRepository.save).not.toHaveBeenCalled();
+      expect(simulationQueue.add).toHaveBeenCalledWith(
+        'simulate',
+        expect.objectContaining({ matchId: scheduled.id }),
+      );
+    });
+
+    it('skips enqueue when status-guard update reports 0 affected (race)', async () => {
+      const now = Date.now();
+      const scheduled = {
+        id: 'match-scheduled',
+        homeTeamId: 'team-home',
+        awayTeamId: 'team-away',
+        homeTeam: { name: 'Home' } as any,
+        awayTeam: { name: 'Away' } as any,
+        homeForfeit: false,
+        awayForfeit: false,
+        type: MatchType.LEAGUE,
+        weather: null,
+        status: MatchStatus.SCHEDULED,
+        scheduledAt: new Date(now - 5 * 60 * 1000),
+        tacticsLocked: false,
+      } as unknown as MatchEntity;
+
+      matchRepository.find
+        .mockResolvedValueOnce([scheduled])
+        .mockResolvedValueOnce([]);
+      mockTacticsRepository.findOne.mockResolvedValue(null);
+      mockPresetRepository.findOne.mockResolvedValue(null);
+      mockWeatherRepository.findOne.mockResolvedValue(null);
+      // Another tick won the race and flipped status before us.
+      matchRepository.update.mockResolvedValueOnce({
+        affected: 0,
+        raw: [],
+        generatedMaps: [],
+      });
+
+      await service.preprocessMatch();
+
+      expect(simulationQueue.add).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('startMatches — happy path + race', () => {
+    const buildTacticsLocked = (overrides: Partial<MatchEntity> = {}) =>
+      ({
+        id: 'match-locked',
+        homeTeamId: 'team-home',
+        awayTeamId: 'team-away',
+        homeTeam: { name: 'Home' } as any,
+        awayTeam: { name: 'Away' } as any,
+        homeScore: 0,
+        awayScore: 0,
+        type: MatchType.LEAGUE,
+        status: MatchStatus.TACTICS_LOCKED,
+        scheduledAt: new Date(Date.now() - 60 * 1000),
+        ...overrides,
+      }) as unknown as MatchEntity;
+
+    it('flips TACTICS_LOCKED → IN_PROGRESS and sets startedAt', async () => {
+      const match = buildTacticsLocked();
+      matchRepository.find.mockResolvedValue([match]);
+
+      await service.startMatches();
+
+      expect(matchRepository.update).toHaveBeenCalledWith(
+        { id: match.id, status: MatchStatus.TACTICS_LOCKED },
+        expect.objectContaining({
+          status: MatchStatus.IN_PROGRESS,
+          startedAt: match.scheduledAt,
+        }),
+      );
+      expect(matchRepository.save).not.toHaveBeenCalled();
+    });
+
+    it('skips update when status-guard update reports 0 affected (race)', async () => {
+      const match = buildTacticsLocked();
+      matchRepository.find.mockResolvedValue([match]);
+      matchRepository.update.mockResolvedValueOnce({
+        affected: 0,
+        raw: [],
+        generatedMaps: [],
+      });
+
+      await service.startMatches();
+
+      // The CAS lost the race — we did not touch the row, no log
+      // spam beyond the debug-level skip message.
+      expect(matchRepository.update).toHaveBeenCalledTimes(1);
     });
   });
 
