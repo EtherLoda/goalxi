@@ -8,6 +8,7 @@ import {
   AuctionEntity,
   AuctionStatus,
   FinanceEntity,
+  MatchEntity,
   PlayerEntity,
   PlayerEventEntity,
   TeamEntity,
@@ -102,6 +103,15 @@ export class AuctionService implements OnModuleInit {
   /**
    * Find auctions stuck in SETTLING state and re-enqueue their settlement.
    * This handles cases where server crashed after setting SETTLING but before job was processed.
+   *
+   * The "no transaction" branch used to call `enqueueSettlement` with
+   * `transactionId: ''`, which then failed inside `transfer.processor`
+   * (it `findOne` for the empty id, found nothing, and threw). That
+   * throw fed the worker's catch block, which set the auction to
+   * CANCELLED and `player.onTransfer = false` — silently destroying a
+   * legitimately-pending settlement. Now we synchronously create a
+   * PENDING transaction first, so the enqueued job has a real id and
+   * the worker can pick it up normally.
    */
   private async recoverStuckSettlingAuctions(): Promise<void> {
     const settlingAuctions = await this.auctionRepo.find({
@@ -124,11 +134,13 @@ export class AuctionService implements OnModuleInit {
       });
 
       if (!tx) {
-        // No transaction exists - re-enqueue settlement
+        // No transaction exists - we crashed between setting SETTLING
+        // and enqueuing the job. Create the PENDING transaction
+        // synchronously here, then enqueue the job with a real id.
         this.logger.warn(
-          `Auction ${auction.id} has SETTLING but no transaction, re-enqueuing`,
+          `Auction ${auction.id} has SETTLING but no transaction, creating tx and re-enqueuing`,
         );
-        await this.enqueueSettlement(auction);
+        await this.recreateAndEnqueueSettlement(auction);
       } else if (tx.status === TransferTransactionStatus.COMPLETED) {
         // Already completed - just update auction status to SOLD
         this.logger.log(
@@ -149,6 +161,70 @@ export class AuctionService implements OnModuleInit {
       }
       // PENDING/PROCESSING will be picked up by settlement processor when it runs
     }
+  }
+
+  /**
+   * Recovery helper for the "SETTLING but no transaction" branch of
+   * `recoverStuckSettlingAuctions`. Builds a fresh PENDING
+   * `TransferTransactionEntity` for the auction and enqueues a real
+   * settlement job keyed by that transaction's id. Replaces the old
+   * `enqueueSettlement` path that passed `transactionId: ''` and
+   * blew up inside the worker.
+   */
+  private async recreateAndEnqueueSettlement(
+    auction: AuctionEntity,
+  ): Promise<void> {
+    const type: 'BUYOUT' | 'AUCTION_COMPLETE' = auction.currentBidderId
+      ? 'AUCTION_COMPLETE'
+      : 'BUYOUT';
+    const amount = auction.currentBidderId
+      ? auction.currentPrice
+      : auction.buyoutPrice;
+    const buyerTeamId = auction.currentBidderId || auction.teamId;
+    const transactionType =
+      type === 'BUYOUT'
+        ? TransferTransactionType.BUYOUT
+        : TransferTransactionType.AUCTION_COMPLETE;
+    const currentSeason = await this.getCurrentSeason();
+
+    // Create the PENDING transaction first so the worker has a
+    // real id to look up. If this throws, the auction is left
+    // in SETTLING and the next onModuleInit will retry.
+    const transaction = await this.dataSource.transaction(async (manager) => {
+      const transferTxRepo = manager.getRepository(TransferTransactionEntity);
+      const tx = transferTxRepo.create({
+        auctionId: auction.id,
+        playerId: auction.playerId,
+        fromTeamId: auction.teamId,
+        toTeamId: buyerTeamId,
+        amount,
+        type: transactionType,
+        status: TransferTransactionStatus.PENDING,
+        season: currentSeason,
+      });
+      return transferTxRepo.save(tx);
+    });
+
+    // Enqueue the settlement job with a business jobId so a BullMQ
+    // re-delivery (or our own recovery path running twice) can't
+    // enqueue duplicates.
+    const jobData: TransferSettlementJobData = {
+      type,
+      transactionId: transaction.id,
+      auctionId: auction.id,
+      playerId: auction.playerId,
+      buyerTeamId,
+      sellerTeamId: auction.teamId,
+      amount,
+      season: currentSeason,
+      timestamp: Date.now(),
+      traceId: this.cls.get<string>('traceId'),
+    };
+    await this.transferQueue.add('transfer-settlement', jobData, {
+      jobId: `transfer-settlement-${transaction.id}-${type}`,
+      attempts: 3,
+      backoff: { type: 'exponential', delay: 1000 },
+    });
   }
 
   /**
@@ -186,42 +262,71 @@ export class AuctionService implements OnModuleInit {
   }
 
   /**
-   * Enqueue a settlement job for an auction.
+   * Resolve the current season by querying the `match` table for
+   * `MAX(season)`. Falls back to 1 when the table is empty
+   * (fresh database, pre-scheduler).
+   *
+   * Replaces three ad-hoc copies of the same `createQueryBuilder('match', 'match')`
+   * pattern (this was a real bug — passing `'match'` as the
+   * table name let TypeORM generate a valid query only by
+   * coincidence because the entity alias and the table name
+   * happen to be the same string).
    */
-  private async enqueueSettlement(auction: AuctionEntity): Promise<void> {
-    const now = new Date();
-    const type = auction.currentBidderId ? 'AUCTION_COMPLETE' : 'BUYOUT';
+  private async getCurrentSeason(): Promise<number> {
+    const row = await this.dataSource
+      .getRepository(MatchEntity)
+      .createQueryBuilder('m')
+      .select('MAX(m.season)', 'maxSeason')
+      .getRawOne<{ maxSeason: number | null }>();
+    return row?.maxSeason ?? 1;
+  }
+
+  /**
+   * Enqueue a settlement job for an auction.
+   *
+   * NOTE: this method now requires the caller to have already
+   * created the `TransferTransactionEntity` and pass its id via
+   * `transactionId`. The previous version accepted an empty
+   * transactionId and let the worker discover the missing tx,
+   * which then threw and turned the auction into CANCELLED.
+   * `recreateAndEnqueueSettlement` is the new entry point used by
+   * `recoverStuckSettlingAuctions`; `buyout` and
+   * `finalizeExpiredAuctions` create the tx in their own
+   * transactions and then call this with the real id.
+   */
+  private async enqueueSettlement(
+    auction: AuctionEntity,
+    transactionId: string,
+    currentSeason: number,
+  ): Promise<void> {
+    const type: 'BUYOUT' | 'AUCTION_COMPLETE' = auction.currentBidderId
+      ? 'AUCTION_COMPLETE'
+      : 'BUYOUT';
     const amount = auction.currentBidderId
       ? auction.currentPrice
       : auction.buyoutPrice;
     const buyerTeamId = auction.currentBidderId || auction.teamId;
 
-    // Get current season
-    const seasonResult = await this.transferTxRepo.manager
-      .createQueryBuilder('match', 'match')
-      .select('MAX(match.season)', 'maxSeason')
-      .getRawOne();
-    const season = seasonResult?.maxSeason || 1;
-
     const jobData: TransferSettlementJobData = {
       type,
-      transactionId: '', // Will be created in the settlement
+      transactionId,
       auctionId: auction.id,
       playerId: auction.playerId,
       buyerTeamId,
       sellerTeamId: auction.teamId,
       amount,
-      season,
-      timestamp: now.getTime(),
+      season: currentSeason,
+      timestamp: Date.now(),
       traceId: this.cls.get<string>('traceId'),
     };
 
+    // Business jobId — BullMQ rejects duplicate jobIds, so a
+    // re-delivery (or our own recovery path running twice) can't
+    // enqueue duplicates of the same settlement.
     await this.transferQueue.add('transfer-settlement', jobData, {
+      jobId: `transfer-settlement-${transactionId}-${type}`,
       attempts: 3,
-      backoff: {
-        type: 'exponential',
-        delay: 1000,
-      },
+      backoff: { type: 'exponential', delay: 1000 },
     });
   }
 
@@ -654,11 +759,7 @@ export class AuctionService implements OnModuleInit {
       );
 
       // Get current season
-      const seasonResult = await manager
-        .createQueryBuilder('match', 'match')
-        .select('MAX(match.season)', 'maxSeason')
-        .getRawOne();
-      const currentSeason = seasonResult?.maxSeason || 1;
+      const currentSeason = await this.getCurrentSeason();
 
       // Create transfer transaction
       const transaction = manager.create(TransferTransactionEntity, {
@@ -680,26 +781,10 @@ export class AuctionService implements OnModuleInit {
       auction.endsAt = new Date();
       await auctionRepo.save(auction);
 
-      // Enqueue settlement job
-      const jobData: TransferSettlementJobData = {
-        type: 'BUYOUT',
-        transactionId: transaction.id,
-        auctionId: auction.id,
-        playerId: auction.playerId,
-        buyerTeamId: buyerTeam.id,
-        sellerTeamId: auction.teamId,
-        amount: auction.buyoutPrice,
-        season: currentSeason,
-        timestamp: now.getTime(),
-        traceId: this.cls.get<string>('traceId'),
-      };
-      await this.transferQueue.add('transfer-settlement', jobData, {
-        attempts: 3,
-        backoff: {
-          type: 'exponential',
-          delay: 1000,
-        },
-      });
+      // Enqueue settlement job. The business jobId prevents a
+      // BullMQ re-delivery (or our own recovery path running
+      // twice) from enqueuing duplicates of the same settlement.
+      await this.enqueueSettlement(auction, transaction.id, currentSeason);
 
       this.logger.log(
         `[Auction] buyout queued settlement transactionId=${transaction.id} auctionId=${auction.id} buyerTeamId=${buyerTeam.id} sellerTeamId=${auction.teamId} playerId=${auction.playerId} amount=${auction.buyoutPrice}`,
@@ -779,11 +864,7 @@ export class AuctionService implements OnModuleInit {
               );
 
               // Get current season
-              const seasonResult = await manager
-                .createQueryBuilder('match', 'match')
-                .select('MAX(match.season)', 'maxSeason')
-                .getRawOne();
-              const currentSeason = seasonResult?.maxSeason || 1;
+              const currentSeason = await this.getCurrentSeason();
 
               // Create transfer transaction
               const transaction = manager.create(TransferTransactionEntity, {
@@ -803,26 +884,14 @@ export class AuctionService implements OnModuleInit {
                 status: AuctionStatus.SETTLING,
               });
 
-              // Enqueue settlement job
-              const jobData: TransferSettlementJobData = {
-                type: 'AUCTION_COMPLETE',
-                transactionId: transaction.id,
-                auctionId: auction.id,
-                playerId: auction.playerId,
-                buyerTeamId: auction.currentBidderId,
-                sellerTeamId: auction.teamId,
-                amount: auction.currentPrice,
-                season: currentSeason,
-                timestamp: now.getTime(),
-                traceId: this.cls.get<string>('traceId'),
-              };
-              await this.transferQueue.add('transfer-settlement', jobData, {
-                attempts: 3,
-                backoff: {
-                  type: 'exponential',
-                  delay: 1000,
-                },
-              });
+              // Enqueue settlement job. The business jobId prevents a
+              // BullMQ re-delivery (or our own recovery path running
+              // twice) from enqueuing duplicates of the same settlement.
+              await this.enqueueSettlement(
+                auction,
+                transaction.id,
+                currentSeason,
+              );
             });
           } else {
             // No bids - mark as expired and reset player's onTransfer
