@@ -2,11 +2,12 @@ import {
   currentGameDay,
   currentSeasonWeek,
   currentWeekIndex,
-  DEFAULT_GAME_START,
   endOfCurrentWeek,
   GAME_EPOCH,
   MS_PER_GAME_DAY,
   MS_PER_GAME_WEEK,
+  resolveGameStart,
+  startOfUtcDay,
 } from './game-clock';
 import { GAME_SETTINGS } from '../constants/game.constants';
 
@@ -23,7 +24,6 @@ describe('game-clock', () => {
     });
 
     it('returns a large value for a 2026 timestamp', () => {
-      // Sanity check: game-day counts are big positive numbers.
       const v = currentGameDay(new Date('2026-08-06T12:00:00Z'));
       expect(v).toBeGreaterThan(20_000);
     });
@@ -45,79 +45,131 @@ describe('game-clock', () => {
     it('lands on the next week boundary, not on `now`', () => {
       const now = new Date(GAME_EPOCH.getTime() + 2 * MS_PER_GAME_DAY);
       const end = endOfCurrentWeek(now);
-      // 5 days later = week 0 boundary.
       expect(end.getTime()).toBe(GAME_EPOCH.getTime() + MS_PER_GAME_WEEK);
     });
   });
 
+  describe('startOfUtcDay', () => {
+    it('truncates HMS on the same UTC day', () => {
+      const a = new Date('2026-08-06T00:00:00Z');
+      const b = new Date('2026-08-06T23:59:59Z');
+      const c = new Date('2026-08-06T12:34:56Z');
+      const sa = startOfUtcDay(a).getTime();
+      const sb = startOfUtcDay(b).getTime();
+      const sc = startOfUtcDay(c).getTime();
+      expect(sa).toBe(sb);
+      expect(sa).toBe(sc);
+      expect(sa).toBe(new Date('2026-08-06T00:00:00Z').getTime());
+    });
+
+    it('does not mutate the input Date', () => {
+      const original = new Date('2026-08-06T12:34:56Z');
+      const before = original.getTime();
+      startOfUtcDay(original);
+      expect(original.getTime()).toBe(before);
+    });
+  });
+
+  describe('resolveGameStart', () => {
+    it('parses an ISO date string and truncates to UTC midnight', () => {
+      const out = resolveGameStart('2026-08-06');
+      expect(out.toISOString()).toBe('2026-08-06T00:00:00.000Z');
+    });
+
+    it('parses a full ISO datetime and drops the HMS', () => {
+      const out = resolveGameStart('2026-08-06T12:34:56Z');
+      expect(out.toISOString()).toBe('2026-08-06T00:00:00.000Z');
+    });
+
+    it('falls back to today at UTC midnight when env is empty', () => {
+      const out = resolveGameStart('');
+      const now = startOfUtcDay(new Date());
+      expect(out.getTime()).toBe(now.getTime());
+    });
+
+    it('falls back to today when env is missing entirely', () => {
+      const out = resolveGameStart(undefined);
+      const now = startOfUtcDay(new Date());
+      expect(out.getTime()).toBe(now.getTime());
+    });
+
+    it('falls back to today when env is malformed (does not throw)', () => {
+      const out = resolveGameStart('not-a-date');
+      const now = startOfUtcDay(new Date());
+      expect(out.getTime()).toBe(now.getTime());
+    });
+  });
+
   describe('currentSeasonWeek', () => {
+    const seasonLengthWeeks = GAME_SETTINGS.SEASON_LENGTH_WEEKS;
+    const anchor = new Date('2026-04-06T00:00:00Z');
+
     it('returns season 1, week 1 on the very first week after the start', () => {
-      const { season, week } = currentSeasonWeek(
-        new Date(DEFAULT_GAME_START.getTime()),
-      );
+      const { season, week } = currentSeasonWeek(new Date(anchor.getTime()), anchor);
       expect(season).toBe(1);
       expect(week).toBe(1);
     });
 
     it('rolls into week 2 exactly one real-world week later', () => {
       const { season, week } = currentSeasonWeek(
-        new Date(DEFAULT_GAME_START.getTime() + MS_PER_GAME_WEEK),
+        new Date(anchor.getTime() + MS_PER_GAME_WEEK),
+        anchor,
       );
       expect(season).toBe(1);
       expect(week).toBe(2);
     });
 
     it('returns season 2 on the first week of the second season', () => {
-      const seasonLengthWeeks = GAME_SETTINGS.SEASON_LENGTH_WEEKS;
       const { season, week } = currentSeasonWeek(
-        new Date(
-          DEFAULT_GAME_START.getTime() + seasonLengthWeeks * MS_PER_GAME_WEEK,
-        ),
+        new Date(anchor.getTime() + seasonLengthWeeks * MS_PER_GAME_WEEK),
+        anchor,
       );
       expect(season).toBe(2);
       expect(week).toBe(1);
     });
 
     it('returns the final week of a season correctly (no off-by-one)', () => {
-      const seasonLengthWeeks = GAME_SETTINGS.SEASON_LENGTH_WEEKS;
-      // Last week of season 1 = the week *before* season 2 starts.
       const { season, week } = currentSeasonWeek(
         new Date(
-          DEFAULT_GAME_START.getTime() +
-            (seasonLengthWeeks - 1) * MS_PER_GAME_WEEK,
+          anchor.getTime() + (seasonLengthWeeks - 1) * MS_PER_GAME_WEEK,
         ),
+        anchor,
       );
       expect(season).toBe(1);
       expect(week).toBe(seasonLengthWeeks);
     });
 
-    it('handles a custom gameStart (test injection)', () => {
-      // Pretend the game started on a Wednesday 10 weeks ago.
-      const tenWeeksAgoStart = new Date(
-        Date.now() - 10 * MS_PER_GAME_WEEK,
+    it('HMS is ignored — two timestamps on the same day give the same answer', () => {
+      const morning = currentSeasonWeek(
+        new Date('2026-04-06T08:00:00Z'),
+        anchor,
       );
-      const { season, week } = currentSeasonWeek(new Date(), tenWeeksAgoStart);
-      // 10 weeks elapsed, in a 16-week season → still season 1, week 11.
-      expect(season).toBe(1);
-      expect(week).toBe(11);
+      const night = currentSeasonWeek(
+        new Date('2026-04-06T23:59:59Z'),
+        anchor,
+      );
+      expect(morning).toEqual(night);
     });
 
     it('all callers see the same answer for the same instant (regression for #16)', () => {
-      // This is the actual bug we fixed: 4 hard-coded copies of
-      // 2026-04-06 plus GameStateService's "most recent Wednesday"
-      // math produced different season/week on the same input. The
-      // pure function is the single source of truth now; this test
-      // guards against a future regression that re-introduces a
-      // second algorithm.
+      // Bug #16 was: 4 sites hard-coded 2026-04-06, GameStateService
+      // used "most recent Wednesday" — different answers on the
+      // same input. We now route every caller through
+      // currentSeasonWeek + resolveGameStart so a single env var
+      // controls the anchor across api + settlement.
       const now = new Date('2026-08-06T12:00:00Z');
-      const a = currentSeasonWeek(now);
-      const b = currentSeasonWeek(now);
-      const c = currentSeasonWeek(now, new Date(DEFAULT_GAME_START));
+      const a = currentSeasonWeek(now, anchor);
+      const b = currentSeasonWeek(now, anchor);
       expect(a).toEqual(b);
-      expect(a).toEqual(c);
-      // Sanity: on 2026-08-06 anchored to 2026-04-06, we are
-      // exactly 17 weeks in → season 2, week 2.
+      // 17 real weeks after 2026-04-06 → season 2, week 2.
       expect(a).toEqual({ season: 2, week: 2 });
+    });
+
+    it('reuses resolveGameStart in the integration case (env path)', () => {
+      // Simulate what callers do: read the env, resolve, then ask.
+      const now = new Date('2026-08-06T12:00:00Z');
+      const start = resolveGameStart('2026-04-06T00:00:00Z');
+      expect(currentSeasonWeek(now, start)).toEqual({ season: 2, week: 2 });
     });
   });
 });

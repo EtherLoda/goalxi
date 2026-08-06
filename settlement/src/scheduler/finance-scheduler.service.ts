@@ -5,10 +5,20 @@ import { LOGGER_SERVICE, PinoLoggerService } from '@goalxi/logger';
 import { Queue } from 'bullmq';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { MatchEntity, TeamEntity, currentSeasonWeek } from '@goalxi/database';
+import {
+  MatchEntity,
+  TeamEntity,
+  currentSeasonWeek,
+  resolveGameStart,
+} from '@goalxi/database';
 
 @Injectable()
 export class FinanceSchedulerService {
+  // Resolved once at construction; see training.processor for
+  // the same pattern + reason (long-running crons must not
+  // re-read env mid-tick).
+  private readonly gameStart: Date;
+
   constructor(
     @Inject(LOGGER_SERVICE)
     private readonly logger: PinoLoggerService,
@@ -18,7 +28,9 @@ export class FinanceSchedulerService {
     private readonly teamRepo: Repository<TeamEntity>,
     @InjectRepository(MatchEntity)
     private readonly matchRepo: Repository<MatchEntity>,
-  ) {}
+  ) {
+    this.gameStart = resolveGameStart(process.env.GAME_START_DATE);
+  }
 
   /**
    * Get current season and week. Delegates to the shared pure
@@ -29,7 +41,7 @@ export class FinanceSchedulerService {
    * but not the others.
    */
   private getCurrentSeasonWeek(): { season: number; week: number } {
-    return currentSeasonWeek();
+    return currentSeasonWeek(new Date(), this.gameStart);
   }
 
   /**

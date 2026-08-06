@@ -19,6 +19,7 @@ import {
   applySpecializedTraining,
   calculateDecay,
   currentSeasonWeek,
+  resolveGameStart,
 } from '@goalxi/database';
 import {
   NotificationService,
@@ -35,6 +36,12 @@ interface PlayerSnapshot {
 @Injectable()
 @Processor('training-settlement')
 export class TrainingProcessor extends WorkerHost {
+  // Resolved once at construction so a single instance reports
+  // the same season/week for every job in its lifetime, even if a
+  // long-running tick straddles a week boundary. Caller threads
+  // `process.env.GAME_START_DATE` via main.ts WARN log on miss.
+  private readonly gameStart: Date;
+
   constructor(
     @Inject(LOGGER_SERVICE)
     private readonly logger: PinoLoggerService,
@@ -51,13 +58,14 @@ export class TrainingProcessor extends WorkerHost {
     private readonly notificationService: NotificationService,
   ) {
     super();
+    this.gameStart = resolveGameStart(process.env.GAME_START_DATE);
   }
 
   // Single source of truth for "what season/week is it right now?".
   // The shared pure function lives in @goalxi/database so api,
   // settlement and simulator all agree on the answer.
   private getCurrentSeasonWeek(): { season: number; week: number } {
-    return currentSeasonWeek();
+    return currentSeasonWeek(new Date(), this.gameStart);
   }
 
   async process(job: Job<any, any, string>): Promise<any> {

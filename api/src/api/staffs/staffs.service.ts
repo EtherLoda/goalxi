@@ -2,6 +2,7 @@ import {
   CoachPlayerAssignmentEntity,
   FinanceEntity,
   currentSeasonWeek,
+  resolveGameStart,
   getMaxPlayersForRole,
   getTrainingCategoryForRole,
   isYouthCoachCategory,
@@ -48,6 +49,10 @@ export const STAFF_LEVEL_SCORE: Record<StaffLevel, number> = {
 @Injectable()
 export class StaffsService {
   private readonly logger = new Logger(StaffsService.name);
+  // Resolved once at construction. `resolveGameStart` falls back
+  // to today UTC midnight if GAME_START_DATE is missing — main.ts
+  // WARN-logs that case loudly at boot.
+  private readonly gameStart: Date;
 
   constructor(
     @InjectRepository(StaffEntity)
@@ -61,7 +66,9 @@ export class StaffsService {
     @InjectRepository(PlayerEntity)
     private playerRepo: Repository<PlayerEntity>,
     private readonly financeService: FinanceService,
-  ) {}
+  ) {
+    this.gameStart = resolveGameStart(process.env.GAME_START_DATE);
+  }
 
   /** Get all staff for a team */
   async findByTeam(teamId: string): Promise<StaffEntity[]> {
@@ -470,7 +477,7 @@ export class StaffsService {
   // shared pure function in @goalxi/database so this API and
   // every settlement cron handler agree on the value.
   private getCurrentSeasonWeek(): { season: number; week: number } {
-    return currentSeasonWeek();
+    return currentSeasonWeek(new Date(), this.gameStart);
   }
 
   private generateStaffName(role: StaffRole, level: StaffLevel): string {

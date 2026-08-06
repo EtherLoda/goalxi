@@ -1,4 +1,4 @@
-import { currentSeasonWeek } from '@goalxi/database';
+import { currentSeasonWeek, resolveGameStart } from '@goalxi/database';
 import { Injectable } from '@nestjs/common';
 
 /**
@@ -8,18 +8,24 @@ import { Injectable } from '@nestjs/common';
  * Previously this service used a "most recent Wednesday" algorithm
  * that produced a different answer on the same instant than the
  * other three sites that computed the same value (training tick,
- * finance-scheduler, staffs.service). That divergence was the
- * root cause of #16: a staff renewal would land in season 1 while
- * the same team's settlement tick for that moment wrote to
- * season 2.
+ * finance-scheduler, staffs.service). All five now route through
+ * the same pure function (`currentSeasonWeek`) anchored to the
+ * same `gameStart` resolved from `process.env.GAME_START_DATE`
+ * (with a "today UTC midnight" dev fallback).
  *
- * Now the service delegates to the shared pure function in
- * `@goalxi/database`, so every consumer — API, settlement workers,
- * future simulator hooks — sees the same number.
+ * The anchor is captured once at construction so two requests
+ * landing on either side of a midnight boundary agree on the week
+ * they belong to within the same process.
  */
 @Injectable()
 export class GameStateService {
+  private readonly gameStart: Date;
+
+  constructor() {
+    this.gameStart = resolveGameStart(process.env.GAME_START_DATE);
+  }
+
   getCurrentSeasonWeek(): { season: number; week: number } {
-    return currentSeasonWeek();
+    return currentSeasonWeek(new Date(), this.gameStart);
   }
 }

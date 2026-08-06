@@ -1,4 +1,5 @@
 import { LOGGER_SERVICE, PinoLoggerService } from '@goalxi/logger';
+import { resolveGameStart } from '@goalxi/database';
 import {
   ClassSerializerInterceptor,
   HttpStatus,
@@ -30,6 +31,35 @@ async function bootstrap() {
   // eslint-disable-next-line no-console
   console.warn(`[Bootstrap] MODULES_SET=${modulesSet}`);
 
+  // Resolve the season/week anchor at boot and log it. Every
+  // service that needs a season/week reads the same env via
+  // `resolveGameStart`; surfacing the resolved value once here
+  // makes drift between the env value and the actual fallback
+  // obvious in the boot logs.
+  const envValue = process.env.GAME_START_DATE;
+  const gameStart = resolveGameStart(envValue);
+  if (envValue && envValue.trim().length > 0) {
+    const parsed = new Date(envValue);
+    if (isNaN(parsed.getTime())) {
+      // eslint-disable-next-line no-console
+      console.error(
+        `[Bootstrap] GAME_START_DATE='${envValue}' is not a parseable date. ` +
+          `Falling back to today (UTC midnight). Fix the env var so season/week are stable across restarts.`,
+      );
+    } else {
+      // eslint-disable-next-line no-console
+      console.warn(
+        `[Bootstrap] GAME_START_DATE=${envValue} -> ${gameStart.toISOString()}`,
+      );
+    }
+  } else {
+    // eslint-disable-next-line no-console
+    console.warn(
+      `[Bootstrap] GAME_START_DATE is unset. Falling back to today (UTC midnight = ${gameStart.toISOString()}). ` +
+        `Production MUST set GAME_START_DATE=YYYY-MM-DD so a restart does not reset the season.`,
+    );
+  }
+
   const app = await NestFactory.create(AppModule, {
     bufferLogs: true,
   });
@@ -41,6 +71,9 @@ async function bootstrap() {
   const logger = app.get<PinoLoggerService>(LOGGER_SERVICE);
   app.useLogger(logger);
   logger.warn(`[Bootstrap] MODULES_SET=${modulesSet}`);
+  logger.warn(
+    `[Bootstrap] gameStart=${gameStart.toISOString()} (GAME_START_DATE=${envValue ?? '<unset>'})`,
+  );
 
   // Setup security headers
   app.use(helmet());

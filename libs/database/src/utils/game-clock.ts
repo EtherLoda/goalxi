@@ -24,18 +24,6 @@ import { GAME_SETTINGS } from '../constants/game.constants';
  */
 export const GAME_EPOCH = new Date('1970-01-01T00:00:00Z');
 
-/**
- * Anchor for season/week arithmetic. Every consumer that previously
- * hard-coded `'2026-04-06T00:00:00Z'` (4 sites across `api` and
- * `settlement`) now reads this constant. Tests inject a different
- * `gameStart` via the `currentSeasonWeek(now, start)` overload.
- *
- * Treat as immutable post-launch: shifting it rewrites the season
- * every cron / API call writes to, so all in-flight transactions
- * land in the wrong week until the cache catches up.
- */
-export const DEFAULT_GAME_START = new Date('2026-04-06T00:00:00Z');
-
 export const MS_PER_GAME_DAY = 24 * 60 * 60 * 1000;
 export const DAYS_PER_WEEK = 7;
 export const MS_PER_GAME_WEEK = DAYS_PER_WEEK * MS_PER_GAME_DAY;
@@ -70,29 +58,68 @@ export function endOfCurrentWeek(now: Date = new Date()): Date {
 }
 
 /**
+ * Truncate a Date to UTC midnight (00:00:00.000Z). The season/week
+ * grid is day-aligned so two timestamps on the same UTC day produce
+ * the same answer. The clock's HMS component is intentionally
+ * dropped — `12:34:56Z` and `23:59:59Z` on the same day both
+ * resolve to the same `gameStart`.
+ */
+export function startOfUtcDay(d: Date): Date {
+  const out = new Date(d.getTime());
+  out.setUTCHours(0, 0, 0, 0);
+  return out;
+}
+
+/**
+ * Resolve the game start date for this process.
+ *
+ * Sources, in priority order:
+ *   1. `envValue` (i.e. `process.env.GAME_START_DATE` from the caller)
+ *      — accepted as either an ISO date string (`2026-08-06`,
+ *      `2026-08-06T12:34:56Z`) or anything `new Date(...)` can
+ *      parse. Truncated to UTC midnight.
+ *   2. today at UTC midnight (dev fallback).
+ *
+ * Production: set `GAME_START_DATE=YYYY-MM-DD` in the deploy env so
+ * every replica agrees on the anchor and a restart doesn't reset
+ * the season. Without it, an instance restart re-anchors to
+ * "today", which would split data across weeks if a cron tick
+ * straddles the restart.
+ *
+ * `main.ts` (in api + settlement) reads the same env and WARN-logs
+ * loudly when the fallback fires, so the missing-config case is
+ * obvious in the boot logs.
+ */
+export function resolveGameStart(envValue?: string): Date {
+  if (envValue && envValue.trim().length > 0) {
+    const parsed = new Date(envValue);
+    if (!isNaN(parsed.getTime())) {
+      return startOfUtcDay(parsed);
+    }
+    // Malformed env — fall through to the auto fallback. The
+    // WARN log in main.ts will already have flagged this string
+    // as unparseable, so we don't duplicate the noise here.
+  }
+  return startOfUtcDay(new Date());
+}
+
+/**
  * Pure: returns the current season + week (1-indexed) for a given
- * real-world timestamp, anchored to `gameStart` (defaults to
- * `DEFAULT_GAME_START`).
+ * real-world timestamp, anchored to `gameStart`.
  *
- * Replaces 4 previously-divergent implementations:
- *   - `api/src/api/staffs/staffs.service.ts` (was hard-coded 2026-04-06)
- *   - `settlement/src/processors/training.processor.ts` (same)
- *   - `settlement/src/scheduler/finance-scheduler.service.ts` (same)
- *   - `api/src/api/game/game-state.service.ts` (was a different
- *     algorithm — "most recent Wednesday" — that produced a
- *     different season/week from the other three on the same input)
- *
- * The bug the old divergence caused: on the same real-world instant,
- * a staff renewal could write to season 1 while a settlement tick
- * for the same team wrote to season 2. Consolidating to one pure
- * function (and having all callers use it) closes the data split.
+ * Replaces 4 previously-divergent implementations (the consolidation
+ * landed in the same commit; this doc keeps the rationale for future
+ * readers). The 5 callers in production all reach this function via
+ * `resolveGameStart(process.env.GAME_START_DATE)` so a single env
+ * var controls the anchor across api + settlement.
  *
  * `gameStart` is a parameter so tests can pin the clock. In
- * production, leave the default.
+ * production, leave the default and let the caller pass the
+ * resolved value from `resolveGameStart`.
  */
 export function currentSeasonWeek(
   now: Date = new Date(),
-  gameStart: Date = DEFAULT_GAME_START,
+  gameStart: Date = startOfUtcDay(new Date()),
 ): { season: number; week: number } {
   const weeksElapsed = Math.floor(
     (now.getTime() - gameStart.getTime()) / MS_PER_GAME_WEEK,
