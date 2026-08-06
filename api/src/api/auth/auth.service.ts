@@ -237,7 +237,16 @@ export class AuthService {
 
   async refreshToken(dto: RefreshReqDto): Promise<RefreshResDto> {
     const { sessionId, hash } = this.verifyRefreshToken(dto.refreshToken);
-    const session = await SessionEntity.findOneBy({ id: sessionId });
+    // Explicit `select` so a future SessionEntity column addition
+    // (e.g. ip, user-agent, hashed-refresh-token) doesn't silently
+    // leak into the JWT verify path. Today the entity only has
+    // id/userId/hash and the call happens to return all of them,
+    // but the day someone adds a PII column the forgot-to-exclude
+    // case becomes a security incident.
+    const session = await SessionEntity.findOne({
+      where: { id: sessionId },
+      select: ['id', 'userId', 'hash'],
+    });
 
     if (!session || session.hash !== hash) {
       this.logger.warn(`[Auth] refresh failed sessionId=${sessionId}`);

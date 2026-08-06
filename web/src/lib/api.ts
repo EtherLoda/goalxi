@@ -730,17 +730,15 @@ export const api = {
       return request<Standing[]>(`/leagues/${leagueId}/standings${qs}`);
     },
     /**
-     * List of past (completed) seasons for which archived standings exist.
-     * Used by the league history page to populate the season filter.
-     *
-     * TODO(api): wire to `GET /leagues/:id/seasons` once the backend
-     * endpoint is available. Returning an empty array keeps the UI in
-     * the "no history yet" state until the endpoint ships.
+     * List of seasons (past + current) for which a league has at
+     * least one standing row. Returns seasons sorted descending so
+     * the FE can default-select the most recent. Backs the
+     * `LeagueHistory` season filter.
      */
-    getPastSeasons: async (_leagueId: string): Promise<{ season: number }[]> => {
-      // The parameter is reserved for the eventual endpoint URL.
-      void _leagueId;
-      return [];
+    getPastSeasons: async (
+      leagueId: string,
+    ): Promise<{ season: number }[]> => {
+      return request<{ season: number }[]>(`/leagues/${leagueId}/seasons`);
     },
   },
 

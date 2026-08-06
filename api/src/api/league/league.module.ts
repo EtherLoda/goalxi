@@ -1,6 +1,8 @@
 import {
+  ArchivedSeasonResultEntity,
   LeagueEntity,
   LeagueStandingEntity,
+  SeasonResultEntity,
   TeamEntity,
 } from '@goalxi/database';
 import { Module } from '@nestjs/common';
@@ -11,7 +13,13 @@ import { LeagueService } from './league.service';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([LeagueEntity, LeagueStandingEntity, TeamEntity]),
+    TypeOrmModule.forFeature([
+      LeagueEntity,
+      LeagueStandingEntity,
+      SeasonResultEntity,
+      ArchivedSeasonResultEntity,
+      TeamEntity,
+    ]),
   ],
   controllers: [LeagueController],
   providers: [LeagueService, LeagueStructureService],

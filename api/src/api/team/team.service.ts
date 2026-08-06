@@ -19,7 +19,7 @@ import {
   StaffRole,
   TeamEntity,
 } from '@goalxi/database';
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import assert from 'assert';
 import { plainToInstance } from 'class-transformer';
@@ -35,6 +35,8 @@ import { ScoutsService } from '../scouts/scouts.service';
 
 @Injectable()
 export class TeamService {
+  private readonly logger = new Logger(TeamService.name);
+
   constructor(
     private readonly playerService: PlayerService,
     @InjectRepository(StaffEntity)
@@ -180,9 +182,13 @@ export class TeamService {
     try {
       await this.scoutsService.generateOneCandidate(team.id);
     } catch (err) {
-      console.warn(
-        `[TeamService.create] Failed to seed initial scout candidates for team ${team.id}:`,
-        err,
+      // Was `console.warn` — moved to the structured logger so
+      // the line lands in the central pino sink with the same
+      // traceId as the team.create request that triggered it.
+      this.logger.warn(
+        `[TeamService.create] Failed to seed initial scout candidates for team ${team.id}: ${
+          err instanceof Error ? err.message : String(err)
+        }`,
       );
     }
 

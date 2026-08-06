@@ -55,6 +55,19 @@ export class LeagueController {
     return this.leagueService.getStandings(id, season);
   }
 
+  @Public()
+  @Get(':id/seasons')
+  @HttpCode(HttpStatus.OK)
+  // List of seasons (past + current) for which a league has at
+  // least one standing row. Powers the season filter on the
+  // league history page. Returns seasons sorted descending so
+  // the FE's "select latest by default" UX is one line.
+  async getPastSeasons(
+    @Param('id') id: Uuid,
+  ): Promise<{ season: number }[]> {
+    return this.leagueService.getPastSeasons(id);
+  }
+
   @Post()
   @HttpCode(HttpStatus.CREATED)
   async create(@Body() dto: CreateLeagueReqDto): Promise<LeagueResDto> {

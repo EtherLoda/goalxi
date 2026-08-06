@@ -10,12 +10,37 @@ import { UserService } from './user.service';
 describe('UserController', () => {
   let controller: UserController;
   let service: UserService;
-  let userServiceValue: Partial<Record<keyof UserService, jest.Mock>>;
+  let userServiceValue: {
+    findOne: jest.Mock;
+    create: jest.Mock;
+    findAll: jest.Mock;
+    loadMoreUsers: jest.Mock;
+    update: jest.Mock;
+    remove: jest.Mock;
+  };
+
+  const buildRes = (overrides: Partial<UserResDto> = {}): UserResDto => {
+    const dto = new UserResDto();
+    dto.id = '1';
+    dto.username = 'john';
+    dto.email = 'mail@example.com';
+    dto.bio = 'bio';
+    dto.avatar = 'avatar.png';
+    dto.nickname = 'Johnny';
+    dto.supporterLevel = 1;
+    dto.createdAt = new Date();
+    dto.updatedAt = new Date();
+    return Object.assign(dto, overrides);
+  };
 
   beforeAll(async () => {
     userServiceValue = {
       findOne: jest.fn(),
       create: jest.fn(),
+      findAll: jest.fn(),
+      loadMoreUsers: jest.fn(),
+      update: jest.fn(),
+      remove: jest.fn(),
     };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -41,7 +66,17 @@ describe('UserController', () => {
     expect(service).toBeDefined();
   });
 
-  // TODO: write unit tests for getCurrentUser method
+  describe('getCurrentUser', () => {
+    it('returns the current user from the JWT payload', async () => {
+      const res = buildRes({ id: 'me-1' });
+      userServiceValue.findOne.mockReturnValueOnce(res);
+
+      const user = await controller.getCurrentUser('me-1' as Uuid);
+
+      expect(user).toBe(res);
+      expect(userServiceValue.findOne).toHaveBeenCalledWith('me-1');
+    });
+  });
 
   describe('createUser', () => {
     it('should return a user', async () => {
@@ -52,16 +87,7 @@ describe('UserController', () => {
         bio: 'bio',
       } as CreateUserReqDto;
 
-      const userResDto = new UserResDto();
-      userResDto.id = '1';
-      userResDto.username = 'john';
-      userResDto.email = 'mail@example.com';
-      userResDto.bio = 'bio';
-      userResDto.avatar = 'avatar.png';
-      userResDto.nickname = 'Johnny';
-      userResDto.supporterLevel = 1;
-      userResDto.createdAt = new Date();
-      userResDto.updatedAt = new Date();
+      const userResDto = buildRes();
 
       userServiceValue.create.mockReturnValue(userResDto);
       const user = await controller.createUser(createUserReqDto);
@@ -163,21 +189,46 @@ describe('UserController', () => {
     });
   });
 
-  // TODO: write unit tests for findAllUsers method
-  // TODO: write unit tests for loadMoreUsers method
+  describe('findAllUsers', () => {
+    it('forwards the query DTO to the service', async () => {
+      const paginated = {
+        data: [buildRes()],
+        meta: {
+          total: 1,
+          page: 1,
+          limit: 10,
+          totalPages: 1,
+        },
+      } as any;
+      userServiceValue.findAll.mockReturnValueOnce(paginated);
+
+      const reqDto = { page: 1, limit: 10 } as any;
+      const result = await controller.findAllUsers(reqDto);
+
+      expect(result).toBe(paginated);
+      expect(userServiceValue.findAll).toHaveBeenCalledWith(reqDto);
+    });
+  });
+
+  describe('loadMoreUsers', () => {
+    it('forwards the cursor DTO to the service', async () => {
+      const paginated = {
+        data: [buildRes()],
+        meta: { nextCursor: null, hasMore: false },
+      } as any;
+      userServiceValue.loadMoreUsers.mockReturnValueOnce(paginated);
+
+      const reqDto = { cursor: 'abc', limit: 20 } as any;
+      const result = await controller.loadMoreUsers(reqDto);
+
+      expect(result).toBe(paginated);
+      expect(userServiceValue.loadMoreUsers).toHaveBeenCalledWith(reqDto);
+    });
+  });
 
   describe('findUser', () => {
     it('should return a user', async () => {
-      const userResDto = new UserResDto();
-      userResDto.id = '1';
-      userResDto.username = 'john';
-      userResDto.email = 'mail@example.com';
-      userResDto.bio = 'bio';
-      userResDto.avatar = 'avatar.png';
-      userResDto.nickname = 'Johnny';
-      userResDto.supporterLevel = 1;
-      userResDto.createdAt = new Date();
-      userResDto.updatedAt = new Date();
+      const userResDto = buildRes();
 
       userServiceValue.findOne.mockReturnValue(userResDto);
       const user = await controller.findUser('1' as Uuid);
@@ -197,7 +248,27 @@ describe('UserController', () => {
     });
   });
 
-  // TODO: write unit tests for updateUser method
-  // TODO: write unit tests for removeUser method
-  // TODO: write unit tests for changePassword method
+  describe('updateUser', () => {
+    it('forwards the id + dto to the service', async () => {
+      const res = buildRes({ nickname: 'Updated' });
+      userServiceValue.update.mockReturnValueOnce(res);
+
+      const reqDto = { nickname: 'Updated' } as any;
+      const result = await controller.updateUser('u-1' as Uuid, reqDto);
+
+      expect(result).toBe(res);
+      expect(userServiceValue.update).toHaveBeenCalledWith('u-1', reqDto);
+    });
+  });
+
+  describe('removeUser', () => {
+    it('forwards the id to the service', async () => {
+      userServiceValue.remove.mockReturnValueOnce(undefined);
+
+      await controller.removeUser('u-1' as Uuid);
+
+      expect(userServiceValue.remove).toHaveBeenCalledWith('u-1');
+      expect(userServiceValue.remove).toHaveBeenCalledTimes(1);
+    });
+  });
 });

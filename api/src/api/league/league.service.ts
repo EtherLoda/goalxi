@@ -2,9 +2,11 @@ import { OffsetPaginatedDto } from '@/common/dto/offset-pagination/paginated.dto
 import { Uuid } from '@/common/types/common.type';
 import { paginate } from '@/utils/offset-pagination';
 import {
+  ArchivedSeasonResultEntity,
   LeagueEntity,
   LeagueStandingEntity,
   MatchEntity,
+  SeasonResultEntity,
 } from '@goalxi/database';
 import { Injectable, NotFoundException } from '@nestjs/common';
 import assert from 'assert';
@@ -114,18 +116,7 @@ export class LeagueService {
     id: Uuid,
     season: number,
   ): Promise<LeagueStandingResDto[]> {
-    let leagueId = id;
-    if (!this.isUuid(id)) {
-      const name = id
-        .split('-')
-        .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
-        .join(' ');
-      const league = await LeagueEntity.findOne({ where: { name } });
-      if (!league) {
-        throw new NotFoundException(`League "${id}" not found`);
-      }
-      leagueId = league.id;
-    }
+    const leagueId = await this.resolveLeagueId(id);
 
     const standings = await LeagueStandingEntity.find({
       where: { leagueId, season },
@@ -225,5 +216,61 @@ export class LeagueService {
       createdAt: league.createdAt,
       updatedAt: league.updatedAt,
     });
+  }
+
+  /**
+   * List all seasons (past + current) for which a league has at
+   * least one standing. Used by the league history page to
+   * populate the season filter.
+   *
+   * Implementation: union distinct `season` values from
+   * `season_result` (current season, populated while the season
+   * is in progress) and `archived_season_result` (everything
+   * past, written by the season-archive cron at season end).
+   * Deduplicate via Set; sort descending so the most recent
+   * season lands at index 0 — that's what the FE's
+   * "select latest by default" UX expects.
+   */
+  async getPastSeasons(id: Uuid): Promise<{ season: number }[]> {
+    const leagueId = await this.resolveLeagueId(id);
+
+    const [current, archived] = await Promise.all([
+      SeasonResultEntity.find({
+        where: { leagueId },
+        select: ['season'],
+      }),
+      ArchivedSeasonResultEntity.find({
+        where: { leagueId },
+        select: ['season'],
+      }),
+    ]);
+
+    const set = new Set<number>();
+    for (const row of [...current, ...archived]) {
+      set.add(row.season);
+    }
+    return Array.from(set)
+      .sort((a, b) => b - a)
+      .map((season) => ({ season }));
+  }
+
+  /**
+   * Resolve a league identifier that may be either a UUID or a
+   * slug-style name (e.g. `premier-league`). Returns the
+   * canonical UUID used by every other league query.
+   */
+  private async resolveLeagueId(id: Uuid): Promise<string> {
+    if (this.isUuid(id)) {
+      return id;
+    }
+    const name = id
+      .split('-')
+      .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+      .join(' ');
+    const league = await LeagueEntity.findOne({ where: { name } });
+    if (!league) {
+      throw new NotFoundException(`League "${id}" not found`);
+    }
+    return league.id;
   }
 }
