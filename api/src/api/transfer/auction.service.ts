@@ -170,8 +170,24 @@ export class AuctionService implements OnModuleInit {
           status: AuctionStatus.SOLD,
         });
       } else if (tx.status === TransferTransactionStatus.FAILED) {
-        // Failed - reset auction and player
+        // Failed - reset auction, player, AND release the
+        // buyer's lockedCash. The transfer.processor's catch
+        // block also runs a cleanup tx that releases the lock,
+        // but if that cleanup tx itself failed, the lockedCash
+        // is permanently inflated and no other code path would
+        // ever decrement it. The recovery path is the safety
+        // net for "cleanup tx blew up" — re-doing the release
+        // is idempotent (we're working off the auction's
+        // bidLockAmount + currentBidderId, which the cleanup
+        // wouldn't have changed).
         this.logger.log(`Auction ${auction.id} settlement failed, resetting`);
+        if (auction.bidLockAmount && auction.currentBidderId) {
+          await this.teamRepo.decrement(
+            { id: auction.currentBidderId as Uuid },
+            'lockedCash',
+            auction.bidLockAmount,
+          );
+        }
         await this.auctionRepo.update(auction.id, {
           status: AuctionStatus.CANCELLED,
         });
@@ -977,6 +993,23 @@ export class AuctionService implements OnModuleInit {
         );
       }
 
+      // Lock the buyer's `lockedCash` for the buyout amount.
+      // Without this, a buyer can fire two concurrent buyouts
+      // and both pass the available-funds check (the first
+      // buyout doesn't bump `lockedCash`, so the second still
+      // sees the same `availableFunds`). The actual balance
+      // debit happens later in `transfer.processor`; this
+      // `increment` is the "soft" lock that prevents the
+      // over-spend. `transfer.processor`'s BUYOUT branch
+      // decrements by `auction.bidLockAmount` after the
+      // settlement succeeds (or the cleanup tx releases it on
+      // failure).
+      await teamRepo.increment(
+        { id: buyerTeam.id },
+        'lockedCash',
+        auction.buyoutPrice,
+      );
+
       // Get current season
       const currentSeason = await this.getCurrentSeason();
 
@@ -993,7 +1026,7 @@ export class AuctionService implements OnModuleInit {
       });
       await manager.save(transaction);
 
-      // Targeted UPDATE on the four fields the buyout owns. We
+      // Targeted UPDATE on the five fields the buyout owns. We
       // intentionally do NOT set `endsAt` here — that's the
       // `transfer.processor`'s job, when it transitions
       // SETTLING → SOLD. The previous code set `endsAt` in both
@@ -1002,10 +1035,20 @@ export class AuctionService implements OnModuleInit {
       // (buyout trigger vs. settlement complete) and which one
       // a query would see was non-deterministic. Single source
       // of truth: transfer.processor.
+      //
+      // `bidLockAmount` MUST be set here so that:
+      //   1. `transfer.processor`'s BUYOUT branch decrements
+      //      the buyer's lockedCash by the correct amount
+      //      (otherwise it would use the previous bid's
+      //      bidLockAmount, or 0 if there was no bid).
+      //   2. The catch block's cleanup tx (and the recovery
+      //      FAILED branch as a fallback) can release the
+      //      buyer's locked lock by the right amount.
       await auctionRepo.update(auction.id, {
         status: AuctionStatus.SETTLING,
         currentBidderId: buyerTeam.id,
         currentPrice: auction.buyoutPrice,
+        bidLockAmount: auction.buyoutPrice,
       });
 
       // Enqueue settlement job. The business jobId prevents a

@@ -469,14 +469,39 @@ export class TransferProcessor extends WorkerHost {
         `[TransferProcessor] Failed to process transaction ${transactionId}: ${error.message || error}`,
       );
 
-      // Mark the transaction FAILED first — done outside the cleanup
-      // transaction so a row that's FAILED but missing the auction /
-      // player side-effects can still be picked up by the
-      // recoverStuckSettlingAuctions recovery path.
-      await this.transferTxRepo.update(transactionId as Uuid, {
-        status: TransferTransactionStatus.FAILED,
-        failureReason: error.message || 'Unknown error',
-      });
+      // Mark the transaction FAILED via a CAS so we never
+      // clobber a row another worker has already taken to
+      // COMPLETED. The race: our CAS claim lost (we threw
+      // before settling), but a sibling worker that *won* the
+      // CAS has already finished the settlement and stamped
+      // COMPLETED. A naive `update(id, {FAILED})` here would
+      // overwrite COMPLETED → FAILED, lying to the
+      // recoverStuckSettlingAuctions path (which would then
+      // CANCEL the auction that's already SOLD). The CAS
+      // only fires on PENDING / PROCESSING; on a lost race
+      // the other worker's COMPLETED write is the
+      // authoritative truth and we skip both the FAILED
+      // stamp and the cleanup tx (the sibling will/has
+      // already done it).
+      const failResult = await this.transferTxRepo.update(
+        {
+          id: transactionId as Uuid,
+          status: In([
+            TransferTransactionStatus.PENDING,
+            TransferTransactionStatus.PROCESSING,
+          ]),
+        },
+        {
+          status: TransferTransactionStatus.FAILED,
+          failureReason: error.message || 'Unknown error',
+        },
+      );
+      if (!failResult.affected) {
+        this.jobLog.warn(
+          `[TransferProcessor] Transaction ${transactionId} already in terminal state, skipping FAILED + cleanup`,
+        );
+        throw error;
+      }
 
       // Cleanup the surrounding state in a single transaction.
       // Before this was four independent awaits — a partial
