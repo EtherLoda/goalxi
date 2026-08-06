@@ -586,8 +586,19 @@ export class AuctionService implements OnModuleInit {
         .where('finance.teamId = :teamId', { teamId: bidderTeam.id })
         .setLock('pessimistic_write')
         .getOne();
+      // Re-read the bidder team's `lockedCash` under the row's
+      // own pessimistic lock so the available-funds check sees
+      // the freshest value (a sibling bid that just took the
+      // team's money and decremented/re-incremented lockedCash
+      // might still be in flight; the row-level lock makes us
+      // wait for it).
+      const lockedBidderTeam = await teamRepo
+        .createQueryBuilder('team')
+        .where('team.id = :id', { id: bidderTeam.id })
+        .setLock('pessimistic_write')
+        .getOne();
       const availableFunds =
-        (bidderFinance?.balance || 0) - bidderTeam.lockedCash;
+        (bidderFinance?.balance || 0) - (lockedBidderTeam?.lockedCash ?? 0);
       if (availableFunds < dto.amount) {
         throw new BadRequestException(
           `Insufficient funds. Available: ${availableFunds}, Required: ${dto.amount}`,
@@ -603,9 +614,19 @@ export class AuctionService implements OnModuleInit {
         );
       }
 
-      // Lock new bidder's cash
-      bidderTeam.lockedCash += dto.amount;
-      await teamRepo.save(bidderTeam);
+      // Lock new bidder's cash atomically. The old in-memory
+      // `bidderTeam.lockedCash += dto.amount; save(bidderTeam)`
+      // pattern is a read-modify-write race — two concurrent
+      // bids from the same team can both read the same
+      // `lockedCash` value, both increment in memory, and the
+      // second `save` clobbers the first. `increment` goes
+      // straight to a single SQL `lockedCash = lockedCash + :n`
+      // so the writes serialize at the database.
+      await teamRepo.increment(
+        { id: bidderTeam.id },
+        'lockedCash',
+        dto.amount,
+      );
 
       // Write to Redis (bid history and current state)
       const { previousBidder } = await this.auctionRedisRepo.placeBid(
@@ -724,9 +745,20 @@ export class AuctionService implements OnModuleInit {
       if (!buyerFinance) {
         throw new NotFoundException('Buyer finance record not found');
       }
-      if (buyerFinance.balance < auction.buyoutPrice) {
+      // Account for already-locked cash from other concurrent
+      // bids. Without this, a buyer with concurrent active bids
+      // can over-spend their balance. `placeBid` does the same
+      // check (so the two paths behave identically).
+      const lockedBuyerTeam = await teamRepo
+        .createQueryBuilder('team')
+        .where('team.id = :id', { id: buyerTeam.id })
+        .setLock('pessimistic_write')
+        .getOne();
+      const availableFunds =
+        buyerFinance.balance - (lockedBuyerTeam?.lockedCash ?? 0);
+      if (availableFunds < auction.buyoutPrice) {
         throw new BadRequestException(
-          `Insufficient funds. Available: ${buyerFinance.balance}, Required: ${auction.buyoutPrice}`,
+          `Insufficient funds. Available: ${availableFunds}, Required: ${auction.buyoutPrice}`,
         );
       }
 
