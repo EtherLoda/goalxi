@@ -181,7 +181,16 @@ export class TransferProcessor extends WorkerHost {
         throw new Error(`Transaction ${transactionId} claim lost the CAS race`);
       }
 
-      // Execute settlement in a transaction
+      // Execute settlement in a transaction. The settlement
+      // callback captures the values the post-commit
+      // notification fan-out needs (buyer / seller userId,
+      // player name) into a closure-scoped object so we can
+      // fire the notifications outside the transaction.
+      const settledContext: {
+        buyerUserId?: string;
+        sellerUserId?: string;
+        playerName?: string;
+      } = {};
       await this.dataSource.transaction(async (manager) => {
         const auctionRepo = manager.getRepository(AuctionEntity);
         const playerRepo = manager.getRepository(PlayerEntity);
@@ -354,50 +363,96 @@ export class TransferProcessor extends WorkerHost {
           }
         }
 
-        // Create notifications for buyer and seller
-        const buyerTeam = await teamRepo.findOne({
-          where: { id: buyerTeamId as Uuid },
-          relations: ['user'],
-        });
-        const sellerTeam = await teamRepo.findOne({
-          where: { id: sellerTeamId as Uuid },
-          relations: ['user'],
-        });
-
-        if (buyerTeam?.userId) {
-          await this.notificationService.create(
-            buyerTeam.userId,
-            NotificationType.PLAYER_PURCHASED,
-            'notification.playerPurchased',
-            {
-              playerId,
-              playerName: player.name,
-              amount,
-              fromTeamId: sellerTeamId,
-              toTeamId: buyerTeamId,
-            },
-          );
-        }
-
-        if (sellerTeam?.userId) {
-          await this.notificationService.create(
-            sellerTeam.userId,
-            NotificationType.PLAYER_SOLD,
-            'notification.playerSold',
-            {
-              playerId,
-              playerName: player.name,
-              amount,
-              fromTeamId: sellerTeamId,
-              toTeamId: buyerTeamId,
-            },
-          );
-        }
+        // Capture the buyer / seller userIds and the player
+        // name inside the transaction so the notification
+        // fan-out below runs outside the dataSource.transaction.
+        // Notification creation can hit a third-party service
+        // and we don't want it holding the row lock the entire
+        // time.
+        const buyerUserId = (
+          await teamRepo.findOne({
+            where: { id: buyerTeamId as Uuid },
+            select: ['userId'],
+          })
+        )?.userId;
+        const sellerUserId = (
+          await teamRepo.findOne({
+            where: { id: sellerTeamId as Uuid },
+            select: ['userId'],
+          })
+        )?.userId;
+        const playerName = player.name;
 
         this.jobLog.info(
           `[TransferProcessor] Successfully settled ${type}: Player ${playerId} transferred from Team ${sellerTeamId} to Team ${buyerTeamId} for ${amount}`,
         );
+
+        // Publish the post-commit context back to the outer
+        // closure. The transaction itself is still void — TypeORM
+        // commits when the callback returns without throwing.
+        Object.assign(settledContext, {
+          buyerUserId,
+          sellerUserId,
+          playerName,
+        });
       });
+
+      // Notifications fire AFTER the settlement transaction
+      // has committed, so a slow / failing notification
+      // service can't roll back a settled transfer. Both
+      // notifications are best-effort — a failure on either
+      // is logged but does not throw.
+      const {
+        buyerUserId,
+        sellerUserId,
+        playerName,
+      } = settledContext;
+
+      if (buyerUserId) {
+        try {
+          await this.notificationService.create(
+            buyerUserId,
+            NotificationType.PLAYER_PURCHASED,
+            'notification.playerPurchased',
+            {
+              playerId,
+              playerName,
+              amount,
+              fromTeamId: sellerTeamId,
+              toTeamId: buyerTeamId,
+            },
+          );
+        } catch (notifErr) {
+          this.jobLog.warn(
+            `[TransferProcessor] Buyer notification failed for transaction ${transactionId}: ${
+              notifErr instanceof Error ? notifErr.message : String(notifErr)
+            }`,
+          );
+        }
+      }
+
+      if (sellerUserId) {
+        try {
+          await this.notificationService.create(
+            sellerUserId,
+            NotificationType.PLAYER_SOLD,
+            'notification.playerSold',
+            {
+              playerId,
+              playerName,
+              amount,
+              fromTeamId: sellerTeamId,
+              toTeamId: buyerTeamId,
+            },
+          );
+        } catch (notifErr) {
+          this.jobLog.warn(
+            `[TransferProcessor] Seller notification failed for transaction ${transactionId}: ${
+              notifErr instanceof Error ? notifErr.message : String(notifErr)
+            }`,
+          );
+        }
+      }
     } catch (error) {
       this.jobLog.error(
         `[TransferProcessor] Failed to process transaction ${transactionId}: ${error.message || error}`,
