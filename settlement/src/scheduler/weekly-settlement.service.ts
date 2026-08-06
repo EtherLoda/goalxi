@@ -1,11 +1,41 @@
-import { Injectable, Logger, Inject } from '@nestjs/common';
+import { Injectable, Inject } from '@nestjs/common';
 import { LOGGER_SERVICE, PinoLoggerService } from '@goalxi/logger';
 import { Cron } from '@nestjs/schedule';
 import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
+import { currentSeasonWeek, resolveGameStart } from '@goalxi/database';
 
+type SettlementKind = 'training' | 'condition' | 'construction' | 'youth-progression';
+
+/**
+ * Weekly training, condition, stadium construction, and youth
+ * progression settlement cron. Runs every Thursday at 00:00 UTC.
+ *
+ * Each settlement is a single "all teams" BullMQ job that the
+ * respective processor drains. The four jobs are enqueued in
+ * parallel — a Redis blip on one queue should not block the
+ * other three from landing.
+ *
+ * Idempotency contract: every jobId is a business key
+ * (`weekly-${kind}-${season}-${week}`), NOT `Date.now()`. BullMQ
+ * rejects duplicate jobIds at enqueue time, so a Thursday
+ * cron that runs twice (manual retry, deploy restart, clock
+ * skew) queues exactly one job per kind. The processors do not
+ * need to be idempotent on their own; they get to see the job
+ * exactly once.
+ *
+ * Retry: 3 attempts with exponential backoff. A full-team
+ * training tick that fails halfway (e.g. Postgres restart)
+ * retries up to 2 more times before landing in the failed
+ * list. Previously the queue had `attempts: 0` (BullMQ default)
+ * and any error went straight to dead-letter.
+ */
 @Injectable()
 export class WeeklySettlementService {
+  // Resolved once at construction. see game-clock.ts doc for
+  // why a constructor capture is safer than a per-tick read.
+  private readonly gameStart: Date;
+
   constructor(
     @Inject(LOGGER_SERVICE)
     private readonly logger: PinoLoggerService,
@@ -17,74 +47,79 @@ export class WeeklySettlementService {
     private constructionQueue: Queue,
     @InjectQueue('youth-progression-settlement')
     private youthProgressionQueue: Queue,
-  ) {}
+  ) {
+    this.gameStart = resolveGameStart(process.env.GAME_START_DATE);
+  }
 
-  /**
-   * Weekly training, condition, and stadium construction settlement cron.
-   * Runs every Thursday at 00:00. The construction tick decrements
-   * `remaining_weeks` on every queued project and applies capacity changes
-   * to any project that lands on 0 this tick.
-   */
-  @Cron('0 0 0 * * 4') // Every Thursday at 00:00
+  @Cron('0 0 0 * * 4') // Every Thursday at 00:00 UTC
   async processWeeklySettlement() {
+    const { season, week } = currentSeasonWeek(new Date(), this.gameStart);
+
     this.logger.info(
-      '[WeeklySettlement] Starting weekly training, condition, and stadium construction settlement...',
+      `[WeeklySettlement] Starting tick for Season ${season}, Week ${week}`,
     );
 
-    try {
-      // Queue training settlement
-      const trainingJob = await this.trainingQueue.add(
-        'process-all-teams-training',
-        {},
-        {
-          jobId: `training-${Date.now()}`,
-        },
-      );
-      this.logger.info(
-        `[WeeklySettlement] Training settlement job queued! Job ID: ${trainingJob.id}`,
-      );
+    const queues: Array<{ kind: SettlementKind; queue: Queue }> = [
+      { kind: 'training', queue: this.trainingQueue },
+      { kind: 'condition', queue: this.conditionQueue },
+      { kind: 'construction', queue: this.constructionQueue },
+      { kind: 'youth-progression', queue: this.youthProgressionQueue },
+    ];
 
-      // Queue condition settlement
-      const conditionJob = await this.conditionQueue.add(
-        'process-all-teams-condition',
-        {},
-        {
-          jobId: `condition-${Date.now()}`,
-        },
-      );
-      this.logger.info(
-        `[WeeklySettlement] Condition settlement job queued! Job ID: ${conditionJob.id}`,
-      );
+    // Enqueue all four in parallel. Each getSettlementJobId is
+    // the same business key for the same (season, week) so a
+    // double-trigger (manual replay, restart) dedupes
+    // automatically. Each .add returns the existing-job indicator
+    // if the jobId was already taken.
+    const enqueueResults = await Promise.allSettled(
+      queues.map(async ({ kind, queue }) => {
+        const jobId = `weekly-${kind}-${season}-week${week}`;
+        const job = await queue.add(
+          `process-all-${kind}`,
+          { season, week },
+          {
+            jobId,
+            attempts: 3,
+            backoff: { type: 'exponential', delay: 60_000 },
+            removeOnComplete: { age: 7 * 24 * 3600, count: 50 },
+            removeOnFail: { age: 30 * 24 * 3600 },
+          },
+        );
+        return { kind, jobId, jobIdFromQueue: job.id };
+      }),
+    );
 
-      // Queue stadium construction settlement
-      const constructionJob = await this.constructionQueue.add(
-        'process-all-stadium-constructions',
-        {},
-        {
-          jobId: `construction-${Date.now()}`,
-        },
-      );
-      this.logger.info(
-        `[WeeklySettlement] Stadium construction settlement job queued! Job ID: ${constructionJob.id}`,
-      );
+    const succeeded: string[] = [];
+    const failed: { kind: SettlementKind; reason: string }[] = [];
 
-      // Queue youth-progression settlement. Same cadence as the senior
-      // training tick — youth and senior rosters grow in lockstep so
-      // that a youth's `potential` and `current` curves stay meaningful
-      // when a player is promoted mid-season.
-      const youthJob = await this.youthProgressionQueue.add(
-        'process-all-youth-progression',
-        {},
-        { jobId: `youth-progression-${Date.now()}` },
-      );
-      this.logger.info(
-        `[WeeklySettlement] Youth progression job queued! Job ID: ${youthJob.id}`,
-      );
-    } catch (error) {
-      this.logger.error(
-        `[WeeklySettlement] Failed to queue settlement jobs: ${error.message}`,
-        error.stack,
-      );
+    for (let i = 0; i < enqueueResults.length; i++) {
+      const r = enqueueResults[i];
+      const { kind } = queues[i];
+      if (r.status === 'fulfilled') {
+        succeeded.push(kind);
+      } else {
+        const reason =
+          r.reason instanceof Error ? r.reason.message : String(r.reason);
+        failed.push({ kind, reason });
+      }
     }
+
+    if (failed.length === 0) {
+      this.logger.info(
+        `[WeeklySettlement] Queued all 4 settlements for Season ${season}, Week ${week}: ${succeeded.join(', ')}`,
+      );
+      return;
+    }
+
+    // Partial failure is the dangerous case: 3/4 ticks land
+    // but 1/4 silently doesn't. We log a single WARN line
+    // naming the missing kinds so on-call can re-trigger the
+    // missing one manually.
+    this.logger.warn(
+      `[WeeklySettlement] Partial enqueue for Season ${season}, Week ${week}. ` +
+        `Succeeded: [${succeeded.join(', ')}]. ` +
+        `Failed: [${failed.map((f) => `${f.kind} (${f.reason})`).join(', ')}]. ` +
+        `Re-trigger the failed kinds manually.`,
+    );
   }
 }
