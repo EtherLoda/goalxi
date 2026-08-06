@@ -10,6 +10,7 @@ import {
   currentSeasonWeek,
   resolveGameStart,
 } from '@goalxi/database';
+import { IsNull, In } from 'typeorm';
 import { PromotionRelegationService } from './promotion-relegation.service';
 import { PlayoffService } from './playoff.service';
 import { SeasonSchedulerService } from './season-scheduler.service';
@@ -212,27 +213,51 @@ export class SeasonTransitionService {
   /**
    * 处理附加赛结果并执行升降级(由 `processPlayoffResultsAndSwap`
    * 在 week 16 调用,不再嵌在 season start 流程里)
+   *
+   * Idempotency: filters on `playoffSwappedAt IS NULL` and stamps
+   * the column after the swap commits. Re-running the cron (a
+   * duplicate tick, a re-delivered message, a manual re-deploy)
+   * finds 0 candidates and is a no-op. Without this, the second
+   * run would un-swap every promoted/relegated pair because
+   * `swapTeamLeague` is itself not commutative.
    */
   async processAfterPlayoffsComplete(season: number): Promise<void> {
-    // 获取所有 Week 16 的附加赛
+    // Get only playoff matches that haven't been swapped yet. The
+    // `playoffSwappedAt IS NULL` filter is the idempotency latch.
     const playoffMatches = await this.matchRepository.find({
       where: {
         season,
         week: 16,
         type: MatchType.PLAYOFF,
         status: MatchStatus.COMPLETED,
+        playoffSwappedAt: IsNull(),
       },
       relations: ['homeTeam', 'awayTeam', 'league'],
     });
 
     this.logger.info(
-      `[SeasonTransition] Processing ${playoffMatches.length} playoff results`,
+      `[SeasonTransition] Processing ${playoffMatches.length} un-swapped playoff results`,
     );
 
-    // 构建附加赛结果（过滤掉没有 lowerLeagueId 的比赛）
-    const results = playoffMatches
+    if (playoffMatches.length === 0) {
+      return;
+    }
+
+    // Every row we just read came back with `playoffSwappedAt IS NULL`
+    // (the WHERE filter), so they all need the latch stamped at the
+    // end of this call — even if no swap fires (lowerLeagueId is null,
+    // or the home team won). Otherwise the next tick re-reads them
+    // and re-evaluates the same logic.
+    const allMatchIds = playoffMatches.map((m) => m.id);
+
+    // Build swap candidates. Rows with no lowerLeagueId are still
+    // "processed" (and stamped) but don't trigger a swap — they're
+    // e.g. single-tier playoffs or cup ties that aren't actually
+    // promotion/relegation fixtures.
+    const candidates = playoffMatches
       .filter((match) => match.lowerLeagueId != null)
       .map((match) => ({
+        matchId: match.id,
         homeTeam: match.homeTeam!,
         awayTeam: match.awayTeam!,
         homeLeague: match.league!,
@@ -243,8 +268,7 @@ export class SeasonTransitionService {
           match.homeScore > match.awayScore,
       }));
 
-    // 处理升降级
-    for (const result of results) {
+    for (const result of candidates) {
       if (result.homeWon) {
         // 主队赢（上级球队），保持原 leagueId
         this.logger.info(
@@ -269,6 +293,19 @@ export class SeasonTransitionService {
         );
       }
     }
+
+    // Stamp the latch in one batched UPDATE so a re-run of this
+    // method sees the same playoff matches as already-processed
+    // and skips them. Covers every row we read, even if no swap
+    // fired for it.
+    const stampedAt = new Date();
+    await this.matchRepository.update(
+      { id: In(allMatchIds) },
+      { playoffSwappedAt: stampedAt },
+    );
+    this.logger.info(
+      `[SeasonTransition] Stamped playoff_swapped_at on ${allMatchIds.length} match(es)`,
+    );
   }
 
   /**

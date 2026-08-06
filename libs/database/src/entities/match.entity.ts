@@ -143,6 +143,22 @@ export class MatchEntity extends AbstractEntity {
     @Column({ name: 'lower_league_id', type: 'uuid', nullable: true })
     lowerLeagueId?: string | null;
 
+    /**
+     * `processAfterPlayoffsComplete` (settlement's
+     * `SeasonTransitionService.processPlayoffResultsAndSwap` cron)
+     * uses this column as the "already swapped" marker so re-running
+     * the swap is a no-op. Nullable; null means "swap not yet applied",
+     * non-null is the timestamp the swap ran. A swap is a
+     * `swapTeamLeague(upperTeamId, lowerTeamId, …)` call that mutates
+     * `team.leagueId` for both teams — running it twice would un-swap
+     * them. This column makes the operation idempotent across cron
+     * re-runs and across the seasonal transition (the column lives on
+     * the playoff match row, not on the team, so the next season's
+     * playoffs naturally start fresh).
+     */
+    @Column({ name: 'playoff_swapped_at', type: 'timestamptz', nullable: true })
+    playoffSwappedAt?: Date | null;
+
     /** 比赛天气 */
     @Column({ name: 'weather', type: 'varchar', length: 20, nullable: true })
     weather?: WeatherType;

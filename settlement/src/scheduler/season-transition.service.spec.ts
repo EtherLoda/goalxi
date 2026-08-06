@@ -1,6 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { In, Repository } from 'typeorm';
 import { SeasonTransitionService } from './season-transition.service';
 import { PromotionRelegationService } from './promotion-relegation.service';
 import { PlayoffService } from './playoff.service';
@@ -52,6 +52,7 @@ describe('SeasonTransitionService', () => {
     find: jest.fn(),
     findOne: jest.fn(),
     count: jest.fn(),
+    update: jest.fn(),
     manager: {
       getRepository: jest.fn().mockReturnValue({
         findOne: jest
@@ -153,6 +154,13 @@ describe('SeasonTransitionService', () => {
     seasonArchiveService = module.get(SeasonArchiveService);
 
     jest.clearAllMocks();
+    // Default: every matchRepository.update succeeds. Tests that
+    // want to assert on the "stamped the latch" path override per-call.
+    mockMatchRepository.update.mockResolvedValue({
+      affected: 1,
+      raw: [],
+      generatedMaps: [],
+    });
   });
 
   afterEach(() => {
@@ -321,6 +329,7 @@ describe('SeasonTransitionService', () => {
       const awayTeam = { id: 'away-team-id', name: 'Lower FC' } as any;
       mockMatchRepository.find.mockResolvedValue([
         {
+          id: 'playoff-1' as Uuid,
           week: 16,
           type: MatchType.PLAYOFF,
           status: MatchStatus.COMPLETED,
@@ -343,6 +352,149 @@ describe('SeasonTransitionService', () => {
         'upper-league-id',
         lowerLeague.id,
       );
+      // And the latch is stamped so a re-run is a no-op.
+      expect(mockMatchRepository.update).toHaveBeenCalledWith(
+        { id: In(['playoff-1']) },
+        expect.objectContaining({ playoffSwappedAt: expect.any(Date) }),
+      );
+    });
+  });
+
+  describe('processAfterPlayoffsComplete', () => {
+    it('is a no-op when no un-swapped playoff rows exist (idempotent re-run)', async () => {
+      // First call already stamped everything; second call sees an
+      // empty result. Without the latch this is the path that used
+      // to double-swap every promoted/relegated pair.
+      mockMatchRepository.find.mockResolvedValue([]);
+
+      await service.processAfterPlayoffsComplete(1);
+
+      expect(
+        mockPromotionService.swapTeamLeague,
+      ).not.toHaveBeenCalled();
+      // No candidates → no latch-stamp either.
+      expect(mockMatchRepository.update).not.toHaveBeenCalled();
+    });
+
+    it('does not call swapTeamLeague when the home (upper) team won', async () => {
+      mockMatchRepository.find.mockResolvedValue([
+        {
+          id: 'playoff-home-won' as Uuid,
+          week: 16,
+          type: MatchType.PLAYOFF,
+          status: MatchStatus.COMPLETED,
+          homeScore: 3,
+          awayScore: 1,
+          lowerLeagueId: 'lower-league-id' as Uuid,
+          homeTeam: { id: 'home-team-id' as Uuid, name: 'Upper FC' } as any,
+          awayTeam: { id: 'away-team-id' as Uuid, name: 'Lower FC' } as any,
+          league: { id: 'upper-league-id' as Uuid, name: 'Upper League' } as any,
+        } as any,
+      ]);
+
+      await service.processAfterPlayoffsComplete(1);
+
+      // Upper team won → no swap; the team stays put.
+      expect(
+        mockPromotionService.swapTeamLeague,
+      ).not.toHaveBeenCalled();
+      // But the row is still stamped so we don't re-process it
+      // on the next cron tick.
+      expect(mockMatchRepository.update).toHaveBeenCalledTimes(1);
+    });
+
+    it('swaps and stamps when the away (lower) team won', async () => {
+      mockMatchRepository.find.mockResolvedValue([
+        {
+          id: 'playoff-away-won' as Uuid,
+          week: 16,
+          type: MatchType.PLAYOFF,
+          status: MatchStatus.COMPLETED,
+          homeScore: 0,
+          awayScore: 2,
+          lowerLeagueId: 'lower-league-id' as Uuid,
+          homeTeam: { id: 'home-team-id' as Uuid, name: 'Upper FC' } as any,
+          awayTeam: { id: 'away-team-id' as Uuid, name: 'Lower FC' } as any,
+          league: { id: 'upper-league-id' as Uuid, name: 'Upper League' } as any,
+        } as any,
+      ]);
+      mockPromotionService.swapTeamLeague.mockResolvedValue(undefined);
+
+      await service.processAfterPlayoffsComplete(1);
+
+      expect(mockPromotionService.swapTeamLeague).toHaveBeenCalledWith(
+        'home-team-id',
+        'away-team-id',
+        'upper-league-id',
+        'lower-league-id',
+      );
+      expect(mockMatchRepository.update).toHaveBeenCalledTimes(1);
+    });
+
+    it('skips rows with no lowerLeagueId (the candidate filter)', async () => {
+      // A finished playoff that doesn't carry a lowerLeagueId (e.g.
+      // single-tier league, or a cup tie that isn't actually a
+      // promotion/relegation match). It still gets the latch stamp
+      // so the next tick skips it, but no swap is needed.
+      mockMatchRepository.find.mockResolvedValue([
+        {
+          id: 'playoff-no-lower' as Uuid,
+          week: 16,
+          type: MatchType.PLAYOFF,
+          status: MatchStatus.COMPLETED,
+          homeScore: 2,
+          awayScore: 1,
+          lowerLeagueId: null,
+          homeTeam: { id: 'home-team-id' as Uuid, name: 'A' } as any,
+          awayTeam: { id: 'away-team-id' as Uuid, name: 'B' } as any,
+          league: { id: 'L' as Uuid, name: 'L' } as any,
+        } as any,
+      ]);
+
+      await service.processAfterPlayoffsComplete(1);
+
+      expect(
+        mockPromotionService.swapTeamLeague,
+      ).not.toHaveBeenCalled();
+      // Still stamped — we processed the row, just nothing moved.
+      expect(mockMatchRepository.update).toHaveBeenCalledTimes(1);
+    });
+
+    it('batches the latch-stamp into a single update call across many matches', async () => {
+      mockMatchRepository.find.mockResolvedValue([
+        {
+          id: 'p1' as Uuid,
+          week: 16,
+          type: MatchType.PLAYOFF,
+          status: MatchStatus.COMPLETED,
+          homeScore: 3,
+          awayScore: 0,
+          lowerLeagueId: 'lower' as Uuid,
+          homeTeam: { id: 'h1' as Uuid } as any,
+          awayTeam: { id: 'a1' as Uuid } as any,
+          league: { id: 'L' as Uuid } as any,
+        } as any,
+        {
+          id: 'p2' as Uuid,
+          week: 16,
+          type: MatchType.PLAYOFF,
+          status: MatchStatus.COMPLETED,
+          homeScore: 0,
+          awayScore: 4,
+          lowerLeagueId: 'lower' as Uuid,
+          homeTeam: { id: 'h2' as Uuid } as any,
+          awayTeam: { id: 'a2' as Uuid } as any,
+          league: { id: 'L' as Uuid } as any,
+        } as any,
+      ]);
+      mockPromotionService.swapTeamLeague.mockResolvedValue(undefined);
+
+      await service.processAfterPlayoffsComplete(1);
+
+      // One swap (only the away-won row), but a single batched
+      // update stamps both rows.
+      expect(mockPromotionService.swapTeamLeague).toHaveBeenCalledTimes(1);
+      expect(mockMatchRepository.update).toHaveBeenCalledTimes(1);
     });
   });
 
