@@ -1,6 +1,10 @@
 import { JwtPayloadType } from '@/api/auth/types/jwt-payload.type';
 import { CurrentUser } from '@/decorators/current-user.decorator';
+import { Public } from '@/decorators/public.decorator';
+import { Roles } from '@/decorators/roles.decorator';
 import { AuthGuard } from '@/guards/auth.guard';
+import { RolesGuard } from '@/guards/roles.guard';
+import { UserRole } from '@goalxi/database';
 import {
   Body,
   Controller,
@@ -26,8 +30,6 @@ import { UpdatePresetReqDto } from './dto/update-preset.req.dto';
 import { MatchEventService } from './match-event.service';
 import { MatchService } from './match.service';
 import { PresetService } from './preset.service';
-
-import { Public } from '@/decorators/public.decorator';
 
 @Controller({
   path: 'matches',
@@ -79,14 +81,20 @@ export class MatchController {
   }
 
   @Post()
-  // TODO: Add AdminGuard
+  // Admin-only: creating a match affects fixtures and triggers
+  // simulation jobs. Previously `@Public` + a TODO — that meant any
+  // logged-in user could mint a match against any two teams.
+  @Roles(UserRole.ADMIN)
+  @UseGuards(AuthGuard, RolesGuard)
   async createMatch(@Body() dto: CreateMatchReqDto): Promise<MatchResDto> {
     return this.matchService.create(dto);
   }
 
-  @Public()
   @Patch(':id')
-  // TODO: Add AdminGuard
+  // Admin-only: changing scheduledAt / score on an existing match
+  // would let an attacker rewrite history. Was `@Public` before.
+  @Roles(UserRole.ADMIN)
+  @UseGuards(AuthGuard, RolesGuard)
   async updateMatch(
     @Param('id') id: string,
     @Body() dto: UpdateMatchReqDto,
@@ -95,46 +103,55 @@ export class MatchController {
   }
 
   @Delete(':id')
-  // TODO: Add AdminGuard
+  // Admin-only: deleting a non-scheduled match would orphan its events
+  // and the simulator's lock. Was unguarded before.
+  @Roles(UserRole.ADMIN)
+  @UseGuards(AuthGuard, RolesGuard)
   async deleteMatch(@Param('id') id: string): Promise<void> {
     return this.matchService.delete(id);
   }
 
   // ==================== Tactics Endpoints ====================
 
-  @Public()
   @Get(':matchId/tactics')
+  // Authenticated. The service layer filters which side of the
+  // tactics to expose based on team ownership / admin role — see
+  // `MatchService.getTactics`. Was `@Public` + a TODO before.
   async getTactics(
     @Param('matchId') matchId: string,
-    @CurrentUser() user?: JwtPayloadType,
+    @CurrentUser() user: JwtPayloadType,
   ): Promise<{
     homeTactics: TacticsResDto | null;
     awayTactics: TacticsResDto | null;
   }> {
-    return this.matchService.getTactics(matchId, user?.id);
+    return this.matchService.getTactics(matchId, user);
   }
 
-  @Public()
   @Post(':matchId/tactics')
+  // The caller MUST own `dto.teamId`. Admins are also allowed.
+  // Previously `@Public` + commented-out `validateTeamOwnership` —
+  // any logged-in user could submit tactics for any team.
   async submitTactics(
     @Param('matchId') matchId: string,
     @Body() dto: SubmitTacticsReqDto,
-    @CurrentUser() user?: JwtPayloadType,
+    @CurrentUser() user: JwtPayloadType,
   ): Promise<TacticsResDto> {
-    // TODO: Re-enable for production
-    // await this.matchService.validateTeamOwnership(user?.id, dto.teamId);
+    if (user.role !== UserRole.ADMIN) {
+      await this.matchService.validateTeamOwnership(user.id, dto.teamId);
+    }
     return this.matchService.submitTactics(matchId, dto.teamId, dto);
   }
 
-  @Public()
   @Put(':matchId/tactics')
+  // Same ownership rule as POST.
   async updateTactics(
     @Param('matchId') matchId: string,
     @Body() dto: SubmitTacticsReqDto,
-    @CurrentUser() user?: JwtPayloadType,
+    @CurrentUser() user: JwtPayloadType,
   ): Promise<TacticsResDto> {
-    // TODO: Re-enable for production
-    // await this.matchService.validateTeamOwnership(user?.id, dto.teamId);
+    if (user.role !== UserRole.ADMIN) {
+      await this.matchService.validateTeamOwnership(user.id, dto.teamId);
+    }
     return this.matchService.submitTactics(matchId, dto.teamId, dto);
   }
 

@@ -9,6 +9,7 @@ import {
   PlayerEntity,
   TacticsPresetEntity,
   TeamEntity,
+  UserRole,
 } from '@goalxi/database';
 import { InjectQueue } from '@nestjs/bullmq';
 import { CACHE_MANAGER } from '@nestjs/cache-manager';
@@ -24,6 +25,7 @@ import { Queue } from 'bullmq';
 import { Cache } from 'cache-manager';
 import { ClsService } from 'nestjs-cls';
 import { DataSource, In, Repository } from 'typeorm';
+import { JwtPayloadType } from '../auth/types/jwt-payload.type';
 import { CreateMatchReqDto } from './dto/create-match.req.dto';
 import { ListMatchesReqDto } from './dto/list-matches.req.dto';
 import { MatchListResDto } from './dto/match-list.res.dto';
@@ -370,7 +372,7 @@ export class MatchService {
 
   async getTactics(
     matchId: string,
-    userId: string,
+    user: JwtPayloadType,
   ): Promise<{
     homeTactics: TacticsResDto | null;
     awayTactics: TacticsResDto | null;
@@ -384,26 +386,55 @@ export class MatchService {
       throw new NotFoundException(`Match with ID ${matchId} not found`);
     }
 
-    const [homeTactics, awayTactics] = await Promise.all([
-      this.tacticsRepository.findOne({
-        where: { matchId, teamId: match.homeTeamId },
-      }),
-      this.tacticsRepository.findOne({
-        where: { matchId, teamId: match.awayTeamId },
-      }),
-    ]);
+    // RBAC visibility:
+    //   - admins see both sides regardless of match state
+    //   - everyone else only sees the side they own (or nothing if they
+    //     own neither)
+    //   - completed matches are public for non-admins too — once the
+    //     whistle blows, there's no tactical secrecy left
+    const isAdmin = user.role === UserRole.ADMIN;
+    const userId = user.id;
 
-    // If match is completed, return both tactics
-    if (match.status === MatchStatus.COMPLETED) {
+    if (isAdmin || match.status === MatchStatus.COMPLETED) {
+      const [homeTactics, awayTactics] = await Promise.all([
+        this.tacticsRepository.findOne({
+          where: { matchId, teamId: match.homeTeamId },
+        }),
+        this.tacticsRepository.findOne({
+          where: { matchId, teamId: match.awayTeamId },
+        }),
+      ]);
       return {
         homeTactics: homeTactics ? this.mapTacticsToResDto(homeTactics) : null,
         awayTactics: awayTactics ? this.mapTacticsToResDto(awayTactics) : null,
       };
     }
 
-    // Otherwise, only return user's own team tactics
-    // TODO: Implement user-team relationship check
-    // For now, return both (will be fixed when auth is implemented)
+    // Non-admin, non-completed: load the user's owned team ids to
+    // figure out which side (if any) they can see. We do a single
+    // query for both candidate teams rather than two separate lookups.
+    const ownedTeams = await this.teamRepository.find({
+      where: { userId, id: In([match.homeTeamId, match.awayTeamId]) },
+      select: ['id'],
+    });
+    const ownedTeamIds = new Set(ownedTeams.map((t) => t.id as string));
+
+    const canSeeHome = ownedTeamIds.has(match.homeTeamId as string);
+    const canSeeAway = ownedTeamIds.has(match.awayTeamId as string);
+
+    const [homeTactics, awayTactics] = await Promise.all([
+      canSeeHome
+        ? this.tacticsRepository.findOne({
+            where: { matchId, teamId: match.homeTeamId },
+          })
+        : Promise.resolve(null),
+      canSeeAway
+        ? this.tacticsRepository.findOne({
+            where: { matchId, teamId: match.awayTeamId },
+          })
+        : Promise.resolve(null),
+    ]);
+
     return {
       homeTactics: homeTactics ? this.mapTacticsToResDto(homeTactics) : null,
       awayTactics: awayTactics ? this.mapTacticsToResDto(awayTactics) : null,

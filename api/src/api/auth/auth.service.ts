@@ -1,7 +1,7 @@
 import { IEmailJob, IVerifyEmailJob } from '@/common/interfaces/job.interface';
 import { Branded } from '@/common/types/types';
 import { AllConfigType } from '@/config/config.type';
-import { SessionEntity, UserEntity } from '@goalxi/database';
+import { SessionEntity, UserEntity, UserRole } from '@goalxi/database';
 import { LOGGER_SERVICE, PinoLoggerService } from '@goalxi/logger';
 import { InjectQueue } from '@nestjs/bullmq';
 import { CACHE_MANAGER } from '@nestjs/cache-manager';
@@ -66,7 +66,7 @@ export class AuthService {
 
     const user = await this.userRepository.findOne({
       where: { email },
-      select: ['id', 'email', 'password'],
+      select: ['id', 'email', 'password', 'role'],
     });
 
     const isPasswordValid =
@@ -92,10 +92,11 @@ export class AuthService {
       id: user.id,
       sessionId: session.id,
       hash,
+      role: user.role ?? UserRole.USER,
     });
 
     this.logger.log(
-      `[Auth] signIn success userId=${user.id} sessionId=${session.id}`,
+      `[Auth] signIn success userId=${user.id} sessionId=${session.id} role=${user.role ?? UserRole.USER}`,
     );
 
     return plainToInstance(LoginResDto, {
@@ -175,9 +176,13 @@ export class AuthService {
       throw new UnauthorizedException();
     }
 
+    // Pull `role` here (not just `id`) so a promotion that happened
+    // since the access token was issued is picked up on refresh —
+    // otherwise an admin demoted to user would keep admin powers
+    // until their refresh token expired.
     const user = await this.userRepository.findOneOrFail({
       where: { id: session.userId },
-      select: ['id'],
+      select: ['id', 'role'],
     });
 
     const newHash = crypto
@@ -188,13 +193,14 @@ export class AuthService {
     SessionEntity.update(session.id, { hash: newHash });
 
     this.logger.log(
-      `[Auth] refresh success sessionId=${sessionId} userId=${user.id}`,
+      `[Auth] refresh success sessionId=${sessionId} userId=${user.id} role=${user.role ?? UserRole.USER}`,
     );
 
     return await this.createToken({
       id: user.id,
       sessionId: session.id,
       hash: newHash,
+      role: user.role ?? UserRole.USER,
     });
   }
 
@@ -252,6 +258,7 @@ export class AuthService {
     id: string;
     sessionId: string;
     hash: string;
+    role: UserRole;
   }): Promise<Token> {
     const tokenExpiresIn = this.configService.getOrThrow('auth.expires', {
       infer: true,
@@ -262,7 +269,7 @@ export class AuthService {
       await this.jwtService.signAsync(
         {
           id: data.id,
-          role: '', // TODO: add role
+          role: data.role,
           sessionId: data.sessionId,
         },
         {

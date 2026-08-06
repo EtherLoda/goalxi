@@ -53,6 +53,19 @@ export class UserEntity extends AbstractEntity {
   @Column({ name: 'supporter_level', type: 'int', default: 0 })
   supporterLevel: number; // 0 = no, 1 = tier1, 2 = tier2, 3 = tier3
 
+  /**
+   * RBAC role used by `RolesGuard` to gate administrative endpoints
+   * (e.g. match CRUD). Default `user`; flip a row to `admin` via SQL
+   * or `PATCH /auth/users/:id/role` once that endpoint is added.
+   */
+  @Column({
+    name: 'role',
+    type: 'varchar',
+    length: 20,
+    default: 'user',
+  })
+  role: UserRole;
+
   @DeleteDateColumn({
     name: 'deleted_at',
     type: 'timestamptz',
@@ -70,4 +83,14 @@ export class UserEntity extends AbstractEntity {
       this.password = await hashPass(this.password);
     }
   }
+}
+
+/**
+ * RBAC role. Single source of truth shared by `UserEntity.role`,
+ * `JwtPayloadType.role`, and `RolesGuard`. Extend this enum when
+ * adding a new privileged tier (e.g. `MODERATOR` for forum mods).
+ */
+export enum UserRole {
+  USER = 'user',
+  ADMIN = 'admin',
 }

@@ -73,8 +73,29 @@ export class AuctionService implements OnModuleInit {
 
   async onModuleInit() {
     this.logger.log('Running auction recovery on startup...');
-    await this.recoverStuckSettlingAuctions();
-    await this.extendExpiredAuctions();
+    // `OnModuleInit` blocks Nest's bootstrap — if Redis or the DB
+    // blip for a second at startup, the whole API refuses to come
+    // up. Recover and extend are best-effort: log loudly, keep
+    // serving traffic, and let the next cron tick (or the next
+    // bid that touches the affected rows) catch up.
+    try {
+      await this.recoverStuckSettlingAuctions();
+    } catch (err) {
+      this.logger.error(
+        `[AuctionRecovery] recoverStuckSettlingAuctions failed (continuing startup): ${
+          err instanceof Error ? err.message : String(err)
+        }`,
+      );
+    }
+    try {
+      await this.extendExpiredAuctions();
+    } catch (err) {
+      this.logger.error(
+        `[AuctionRecovery] extendExpiredAuctions failed (continuing startup): ${
+          err instanceof Error ? err.message : String(err)
+        }`,
+      );
+    }
     this.logger.log('Auction recovery completed.');
   }
 

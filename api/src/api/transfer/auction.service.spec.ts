@@ -295,4 +295,42 @@ describe('AuctionService', () => {
       );
     });
   });
+
+  describe('onModuleInit (recovery)', () => {
+    // [Security hardening] `onModuleInit` runs in Nest's startup
+    // pipeline — a thrown error would refuse to bring the API up.
+    // The recovery calls are best-effort: the next cron tick or the
+    // next bid on an affected row will pick up the slack.
+    it('should not throw when recoverStuckSettlingAuctions fails', async () => {
+      // Force the SETTLING scan to throw (e.g. Redis/Db blip).
+      // `extendExpiredAuctions` should still run.
+      auctionRepo.find
+        .mockRejectedValueOnce(new Error('redis is down'))
+        .mockResolvedValueOnce([]);
+
+      await expect(service.onModuleInit()).resolves.not.toThrow();
+      // extendExpiredAuctions is gated on the second find() — if
+      // it ran, we should have made it past the failed first one.
+      expect(auctionRepo.find).toHaveBeenCalledTimes(2);
+    });
+
+    it('should not throw when extendExpiredAuctions fails', async () => {
+      // Recovery succeeds (empty SETTLING list), extension throws.
+      auctionRepo.find
+        .mockResolvedValueOnce([])
+        .mockRejectedValueOnce(new Error('redis is down'));
+
+      await expect(service.onModuleInit()).resolves.not.toThrow();
+      expect(auctionRepo.find).toHaveBeenCalledTimes(2);
+    });
+
+    it('should run both recovery steps when the world is healthy', async () => {
+      auctionRepo.find.mockResolvedValue([]);
+
+      await expect(service.onModuleInit()).resolves.not.toThrow();
+      // First call: SETTLING scan (recoverStuckSettlingAuctions)
+      // Second call: expired auctions scan (extendExpiredAuctions)
+      expect(auctionRepo.find).toHaveBeenCalledTimes(2);
+    });
+  });
 });

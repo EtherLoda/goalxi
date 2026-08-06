@@ -17,6 +17,28 @@ import { Server, Socket } from 'socket.io';
 // 比赛开始前5分钟才能看到首发阵容
 const LINEUP_VISIBLE_BEFORE_KICKOFF_MINUTES = 5;
 
+/**
+ * Mirror the HTTP `corsOrigin` value for the Socket.IO gateway.
+ * Reads the same `APP_CORS_ORIGIN` env the REST CORS uses (see
+ * `api/src/config/app.config.ts`); defaults to `true` (allow all)
+ * in dev to match the existing behaviour, but a deploy that sets
+ * `APP_CORS_ORIGIN=https://goalxi.app` now also blocks rogue WS
+ * origins.
+ *
+ * This has to be a module-load-time value because the
+ * `@WebSocketGateway` decorator is evaluated before any
+ * constructor runs. Keep the parsing rules in lockstep with
+ * `app.config.ts` `getCorsOrigin()`.
+ */
+const socketCorsOrigin: string | string[] | boolean = (() => {
+  const raw = process.env.APP_CORS_ORIGIN;
+  if (raw === 'true') return true;
+  if (raw === '*') return '*';
+  if (raw === 'false') return false;
+  if (!raw) return true; // dev default
+  return raw.split(',').map((s) => s.trim());
+})();
+
 interface JoinMatchPayload {
   matchId: string;
 }
@@ -53,7 +75,7 @@ interface MatchStatePayload {
 
 @WebSocketGateway({
   cors: {
-    origin: '*',
+    origin: socketCorsOrigin,
     credentials: true,
   },
   namespace: '/matches',
