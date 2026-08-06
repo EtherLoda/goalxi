@@ -627,7 +627,39 @@ export class AuctionService implements OnModuleInit {
     this.logger.log(
       `[Auction] placeBid start userId=${userId} auctionId=${auctionId} amount=${dto.amount}`,
     );
-    return this.dataSource.transaction(async (manager) => {
+
+    // Compute new expiresAt before the tx so the result is
+    // available for the post-commit Redis update (and stays
+    // inside the snapshot we just locked). The "time extension"
+    // decision is purely a function of `auction.expiresAt` and
+    // `now`, both of which we already have.
+    const computeNewExpiresAt = (currentExpiresAt: Date, now: Date): Date => {
+      const timeLeft = currentExpiresAt.getTime() - now.getTime();
+      const thresholdMs =
+        AUCTION_CONFIG.EXTENSION_THRESHOLD_MINUTES * 60 * 1000;
+      if (timeLeft < thresholdMs) {
+        return new Date(now.getTime() + thresholdMs);
+      }
+      return currentExpiresAt;
+    };
+
+    // Run the Postgres writes inside a tx, then mirror to Redis
+    // after commit. Doing Redis writes inside the tx used to be a
+    // race: if the tx rolled back after a successful Redis write,
+    // the auction row's `currentPrice / currentBidderId /
+    // bidLockAmount` stayed old but Redis had the new state. The
+    // next bid would read the wrong `currentBid` from Redis and
+    // either over-validate the minBid or — worse — release the
+    // wrong team's `lockedCash` (we'd see the previous bidder from
+    // Redis, not from the actual auction row).
+    //
+    // Note: the team-bid set update (`addTeamBid`) and the bid-
+    // history write (`placeBid` on the Redis repo) are still
+    // mirrored here as best-effort post-commit ops. If the
+    // mirror fails, the Postgres state is the source of truth and
+    // `recoverStuckSettlingAuctions` (5-min cron) cleans up
+    // Redis when the auction leaves ACTIVE.
+    const txResult = await this.dataSource.transaction(async (manager) => {
       const auctionRepo = manager.getRepository(AuctionEntity);
       const teamRepo = manager.getRepository(TeamEntity);
       const financeRepo = manager.getRepository(FinanceEntity);
@@ -654,17 +686,24 @@ export class AuctionService implements OnModuleInit {
         throw new BadRequestException('Auction has ended');
       }
 
-      // Get current bid state from Redis
-      const redisState = await this.auctionRedisRepo.getAuctionState(auctionId);
-      const currentBid = redisState?.currentBid || auction.startPrice;
-      const isFirstBid =
-        !redisState?.bidHistory.length && currentBid === auction.startPrice;
-
-      // Calculate minimum bid
+      // Compute the min bid straight off the locked auction
+      // row. Previously this read `redisState.currentBid` —
+      // which can drift from Postgres if a previous bid's Redis
+      // mirror failed. Postgres is the source of truth for
+      // "what's the current high bid", so we use it here too.
+      // `isFirstBid` falls out of "no one has bid yet" =
+      // `auction.currentPrice === startPrice`.
+      const currentBid = auction.currentPrice;
+      const isFirstBid = currentBid === auction.startPrice;
       const minBid = isFirstBid
         ? auction.startPrice
         : currentBid + calculateMinBidIncrement(currentBid);
 
+      // `dto.amount < minBid` rejects below-min bids. `dto.amount
+      // === minBid` is the boundary and passes — "minimum" is
+      // inclusive. This is the documented "Minimum bid is X"
+      // contract used by the UI; flipping to `<=` would reject
+      // the exact-min bid, which is not what callers expect.
       if (dto.amount < minBid) {
         throw new BadRequestException(`Minimum bid is ${minBid}`);
       }
@@ -695,12 +734,19 @@ export class AuctionService implements OnModuleInit {
         );
       }
 
-      // Release previous bidder's locked cash (from Redis state)
-      if (redisState?.currentBidder && redisState.lockAmount) {
+      // Release previous bidder's locked cash. The "previous
+      // bidder" comes from the locked auction row
+      // (`auction.currentBidderId` + `auction.bidLockAmount`),
+      // not from Redis. The previous version used
+      // `redisState.currentBidder` / `lockAmount`, which can
+      // be stale if a previous bid's Redis mirror failed —
+      // we'd then decrement the wrong team's lockedCash and
+      // never decrement the actually-locked team.
+      if (auction.currentBidderId && auction.bidLockAmount) {
         await teamRepo.decrement(
-          { id: redisState.currentBidder as Uuid },
+          { id: auction.currentBidderId as Uuid },
           'lockedCash',
-          redisState.lockAmount,
+          auction.bidLockAmount,
         );
       }
 
@@ -718,53 +764,87 @@ export class AuctionService implements OnModuleInit {
         dto.amount,
       );
 
-      // Write to Redis (bid history and current state)
-      const { previousBidder } = await this.auctionRedisRepo.placeBid(
-        auctionId,
-        bidderTeam.id,
-        dto.amount,
-        auction.expiresAt,
-      );
+      // Compute the post-bid expiresAt. If the new bid lands
+      // inside the extension window, push the deadline out;
+      // otherwise leave the auction's expiresAt alone.
+      const newExpiresAt = computeNewExpiresAt(auction.expiresAt, now);
 
-      // Track team bid for findMyBids query
-      await this.auctionRedisRepo.addTeamBid(
-        auctionId,
-        bidderTeam.id,
-        auction.expiresAt,
-      );
-
-      // Update auction in PostgreSQL (currentPrice, currentBidderId, bidLockAmount)
-      auction.currentPrice = dto.amount;
-      auction.currentBidderId = bidderTeam.id;
-      auction.bidLockAmount = dto.amount;
-
-      // Extend time if needed
-      const timeLeft = auction.expiresAt.getTime() - now.getTime();
-      const thresholdMs =
-        AUCTION_CONFIG.EXTENSION_THRESHOLD_MINUTES * 60 * 1000;
-      if (timeLeft < thresholdMs) {
-        auction.expiresAt = new Date(now.getTime() + thresholdMs);
-        // Update expiresAt in Redis for correct TTL calculation
-        await this.auctionRedisRepo.updateExpiresAt(
-          auctionId,
-          auction.expiresAt,
-        );
-      }
-
-      await auctionRepo.save(auction);
+      // Targeted UPDATE on the four fields the bid actually
+      // owns. `auctionRepo.save(auction)` would issue a full
+      // entity UPDATE and risk clobbering columns a parallel
+      // path (e.g. a recover cron flipping status) might have
+      // touched — even with the row lock here, using `update`
+      // makes the contract obvious ("only these four fields
+      // change on a bid").
+      await auctionRepo.update(auction.id, {
+        currentPrice: dto.amount,
+        currentBidderId: bidderTeam.id,
+        bidLockAmount: dto.amount,
+        expiresAt: newExpiresAt,
+      });
 
       this.logger.log(
-        `[Auction] placeBid success auctionId=${auctionId} bidderTeamId=${bidderTeam.id} playerId=${auction.playerId} newPrice=${dto.amount} lockedAmount=${dto.amount}`,
+        `[Auction] placeBid success auctionId=${auctionId} bidderTeamId=${bidderTeam.id} playerId=${auction.playerId} newPrice=${dto.amount} lockedAmount=${dto.amount} extended=${
+          newExpiresAt !== auction.expiresAt
+        }`,
       );
 
-      // Notify previous bidder that they were outbid
-      if (previousBidder) {
+      // Return the values the post-commit hooks need without
+      // re-querying. `auction` is the locked-row snapshot —
+      // its other fields are still accurate (we just updated
+      // 4 of them and the row lock guarantees no parallel
+      // writer touched the rest).
+      return {
+        auction,
+        newExpiresAt,
+        previousBidderId: auction.currentBidderId,
+        previousLockAmount: auction.bidLockAmount,
+      };
+    });
+
+    // ── Post-commit Redis mirror (best-effort) ────────────────
+    // Failures here don't unwind the Postgres commit — the
+    // bid is real, the buyer's `lockedCash` is up to date, and
+    // `recoverStuckSettlingAuctions` cleans Redis when the
+    // auction leaves ACTIVE. Logging is enough.
+    try {
+      await this.auctionRedisRepo.placeBid(
+        auctionId,
+        txResult.auction.currentBidderId as string,
+        dto.amount,
+        txResult.newExpiresAt,
+      );
+      await this.auctionRedisRepo.addTeamBid(
+        auctionId,
+        txResult.auction.currentBidderId as string,
+        txResult.newExpiresAt,
+      );
+      if (txResult.newExpiresAt !== txResult.auction.expiresAt) {
+        await this.auctionRedisRepo.updateExpiresAt(
+          auctionId,
+          txResult.newExpiresAt,
+        );
+      }
+    } catch (err) {
+      this.logger.error(
+        `[Auction] placeBid post-commit Redis mirror failed (continuing — Postgres is source of truth): ${
+          err instanceof Error ? err.message : String(err)
+        }`,
+      );
+    }
+
+    // Notify previous bidder (best-effort, post-commit). We use
+    // the previousBidderId we captured under the row lock —
+    // that is the team whose lock we just released, not
+    // whatever Redis happens to say.
+    if (txResult.previousBidderId) {
+      try {
         const previousTeam = await this.teamRepo.findOne({
-          where: { id: previousBidder as Uuid },
+          where: { id: txResult.previousBidderId as Uuid },
           relations: ['user'],
         });
         const player = await this.playerRepo.findOne({
-          where: { id: auction.playerId },
+          where: { id: txResult.auction.playerId },
         });
 
         if (previousTeam?.userId && player) {
@@ -774,16 +854,36 @@ export class AuctionService implements OnModuleInit {
             messageKey: 'notification.auctionOutbid',
             data: {
               auctionId,
-              playerId: auction.playerId,
+              playerId: txResult.auction.playerId,
               playerName: player.name,
               amount: dto.amount,
             },
           });
         }
+      } catch (err) {
+        this.logger.error(
+          `[Auction] placeBid outbid notification failed (continuing): ${
+            err instanceof Error ? err.message : String(err)
+          }`,
+        );
       }
+    }
 
-      return { auction, lockedAmount: dto.amount };
-    });
+    // Return a snapshot with the new price for the caller. The
+    // returned `auction` is the locked-row snapshot with the
+    // four updated fields overlaid so the caller's view of
+    // `currentPrice / currentBidderId / bidLockAmount /
+    // expiresAt` matches what we just wrote. `Object.assign` on
+    // the locked snapshot keeps `AuctionEntity`'s prototype
+    // methods intact (a spread would drop them, since
+    // `AuctionEntity` extends `AbstractEntity`).
+    const returned = Object.assign(Object.create(txResult.auction), {
+      currentPrice: dto.amount,
+      currentBidderId: txResult.auction.currentBidderId,
+      bidLockAmount: dto.amount,
+      expiresAt: txResult.newExpiresAt,
+    }) as AuctionEntity;
+    return { auction: returned, lockedAmount: dto.amount };
   }
 
   async buyout(
@@ -798,7 +898,15 @@ export class AuctionService implements OnModuleInit {
     this.logger.log(
       `[Auction] buyout start userId=${userId} auctionId=${auctionId}`,
     );
-    return this.dataSource.transaction(async (manager) => {
+
+    // Same Postgres-then-Redis split as `placeBid`: do all the
+    // Postgres writes inside the tx, then mirror to Redis after
+    // commit. If the tx rolls back, Redis never sees a phantom
+    // buyout; if the post-commit Redis mirror fails, the
+    // settlement is real in Postgres and `recoverStuckSettling-
+    // Auctions` (5-min cron) cleans Redis when the auction
+    // leaves ACTIVE.
+    const result = await this.dataSource.transaction(async (manager) => {
       const auctionRepo = manager.getRepository(AuctionEntity);
       const teamRepo = manager.getRepository(TeamEntity);
       const financeRepo = manager.getRepository(FinanceEntity);
@@ -852,33 +960,22 @@ export class AuctionService implements OnModuleInit {
         );
       }
 
-      // Release previous bidder's lock if exists
-      const redisState = await this.auctionRedisRepo.getAuctionState(auctionId);
+      // Release previous bidder's lock if exists. Use the locked
+      // auction row (`auction.currentBidderId` + `bidLockAmount`)
+      // — same reasoning as `placeBid`: Redis can be stale if a
+      // previous bid's mirror failed, and we'd then decrement
+      // the wrong team's lockedCash.
       if (
-        redisState?.currentBidder &&
-        redisState.currentBidder !== buyerTeam.id
+        auction.currentBidderId &&
+        auction.currentBidderId !== buyerTeam.id &&
+        auction.bidLockAmount
       ) {
         await teamRepo.decrement(
-          { id: redisState.currentBidder as Uuid },
+          { id: auction.currentBidderId as Uuid },
           'lockedCash',
-          redisState.lockAmount,
+          auction.bidLockAmount,
         );
       }
-
-      // Write buyout to Redis
-      await this.auctionRedisRepo.placeBid(
-        auctionId,
-        buyerTeam.id,
-        auction.buyoutPrice,
-        auction.expiresAt,
-      );
-
-      // Track team bid for findMyBids
-      await this.auctionRedisRepo.addTeamBid(
-        auctionId,
-        buyerTeam.id,
-        auction.expiresAt,
-      );
 
       // Get current season
       const currentSeason = await this.getCurrentSeason();
@@ -896,12 +993,20 @@ export class AuctionService implements OnModuleInit {
       });
       await manager.save(transaction);
 
-      // Update auction status
-      auction.status = AuctionStatus.SETTLING;
-      auction.currentBidderId = buyerTeam.id;
-      auction.currentPrice = auction.buyoutPrice;
-      auction.endsAt = new Date();
-      await auctionRepo.save(auction);
+      // Targeted UPDATE on the four fields the buyout owns. We
+      // intentionally do NOT set `endsAt` here — that's the
+      // `transfer.processor`'s job, when it transitions
+      // SETTLING → SOLD. The previous code set `endsAt` in both
+      // buyout and the processor, so the column was being
+      // stamped with two slightly different "end" timestamps
+      // (buyout trigger vs. settlement complete) and which one
+      // a query would see was non-deterministic. Single source
+      // of truth: transfer.processor.
+      await auctionRepo.update(auction.id, {
+        status: AuctionStatus.SETTLING,
+        currentBidderId: buyerTeam.id,
+        currentPrice: auction.buyoutPrice,
+      });
 
       // Enqueue settlement job. The business jobId prevents a
       // BullMQ re-delivery (or our own recovery path running
@@ -912,14 +1017,39 @@ export class AuctionService implements OnModuleInit {
         `[Auction] buyout queued settlement transactionId=${transaction.id} auctionId=${auction.id} buyerTeamId=${buyerTeam.id} sellerTeamId=${auction.teamId} playerId=${auction.playerId} amount=${auction.buyoutPrice}`,
       );
 
-      return {
-        success: true,
-        transactionId: transaction.id,
-        status: 'PROCESSING',
-        message:
-          'Buyout is being processed. Player will be transferred shortly.',
-      };
+      return { auction, transaction, buyerTeamId: buyerTeam.id };
     });
+
+    // ── Post-commit Redis mirror (best-effort) ────────────────
+    // Same rationale as `placeBid`: Postgres is the source of
+    // truth, and the recover cron cleans Redis when the
+    // auction leaves ACTIVE.
+    try {
+      await this.auctionRedisRepo.placeBid(
+        auctionId,
+        result.buyerTeamId,
+        result.auction.buyoutPrice,
+        result.auction.expiresAt,
+      );
+      await this.auctionRedisRepo.addTeamBid(
+        auctionId,
+        result.buyerTeamId,
+        result.auction.expiresAt,
+      );
+    } catch (err) {
+      this.logger.error(
+        `[Auction] buyout post-commit Redis mirror failed (continuing — Postgres is source of truth): ${
+          err instanceof Error ? err.message : String(err)
+        }`,
+      );
+    }
+
+    return {
+      success: true,
+      transactionId: result.transaction.id,
+      status: 'PROCESSING',
+      message: 'Buyout is being processed. Player will be transferred shortly.',
+    };
   }
 
   // Called by cron job to finalize expired auctions

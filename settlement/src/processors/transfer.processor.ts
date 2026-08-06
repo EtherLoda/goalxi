@@ -281,10 +281,21 @@ export class TransferProcessor extends WorkerHost {
         await playerRepo.save(player);
 
         // 5. Update auction status
+        // No `endsAt` here. The column used to be stamped in
+        // both the buyout handler (trigger time) and here
+        // (settlement complete time) — two slightly different
+        // "end" timestamps landing in the same nullable
+        // column, with the column being read back by no
+        // business logic. The buyout handler no longer touches
+        // it (K2 commit); we drop it here too, leaving
+        // `endsAt` as a single-purpose "natural expiry"
+        // timestamp owned by the finalize cron (EXPIRED only).
+        // "When did SOLD actually happen" lives on
+        // `transferTx.settledAt` below, which is the only
+        // column with a real reader (the auction-history API).
         await auctionRepo.update(auctionId as Uuid, {
           status: AuctionStatus.SOLD,
           winnerId: buyerTeamId as Uuid,
-          endsAt: new Date(),
         });
 
         // 6. Complete transfer transaction
