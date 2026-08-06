@@ -10,7 +10,6 @@ import {
   Param,
   Patch,
   Post,
-  Put,
   Query,
 } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
@@ -18,7 +17,6 @@ import { RenameStadiumReqDto } from './dto/rename-stadium.req.dto';
 import {
   AdjustSeatsReqDto,
   BuildStadiumReqDto,
-  ResizeStadiumReqDto,
 } from './dto/stadium.req.dto';
 import { StartConstructionReqDto } from './dto/start-construction.req.dto';
 import { StadiumConstructionService } from './stadium-construction.service';
@@ -81,15 +79,6 @@ export class StadiumController {
     @Body() dto: BuildStadiumReqDto,
   ) {
     return this.stadiumService.build(teamId, dto);
-  }
-
-  @Put()
-  @HttpCode(HttpStatus.OK)
-  async resizeStadium(
-    @Param('teamId') teamId: Uuid,
-    @Body() dto: ResizeStadiumReqDto,
-  ) {
-    return this.stadiumService.resize(teamId, dto);
   }
 
   // §5 Stadium — 增量扩/缩座位(按 delta 符号路由)

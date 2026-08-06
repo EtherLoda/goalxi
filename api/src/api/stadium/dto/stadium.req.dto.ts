@@ -5,11 +5,6 @@ export class BuildStadiumReqDto {
   capacity!: number;
 }
 
-export class ResizeStadiumReqDto {
-  @NumberField({ min: 1000 })
-  capacity!: number;
-}
-
 /**
  * §5 Stadium — 增量扩/缩座位
  * delta > 0 表示扩建(扣费),delta < 0 表示拆除(返还)。

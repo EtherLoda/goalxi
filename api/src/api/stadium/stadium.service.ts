@@ -12,7 +12,7 @@ import { BadRequestException, Inject, Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { FinanceService } from '../finance/finance.service';
-import { BuildStadiumReqDto, ResizeStadiumReqDto } from './dto/stadium.req.dto';
+import { BuildStadiumReqDto } from './dto/stadium.req.dto';
 
 /** 单次扩/缩座位时的最小步长 */
 export const SEAT_ADJUST_STEP = 500;
@@ -397,19 +397,6 @@ export class StadiumService {
     );
 
     return { stadium, cost };
-  }
-
-  /**
-   * 调整球场容量 - 不再支持，请使用新建和拆除
-   * @deprecated Use build() to construct a new stadium
-   */
-  async resize(
-    teamId: string,
-    dto: ResizeStadiumReqDto,
-  ): Promise<{ stadium: StadiumEntity; cost: number }> {
-    throw new BadRequestException(
-      'Stadium resize is no longer supported. Use build() to construct a new stadium.',
-    );
   }
 
   /**

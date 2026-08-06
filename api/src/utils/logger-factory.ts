@@ -58,10 +58,25 @@ function logServiceConfig(logService: string): Options {
 }
 
 function cloudwatchLoggingConfig(): Options {
-  // FIXME: Implement AWS CloudWatch logging configuration
-  return {
-    messageKey: 'message',
-  };
+  // AWS CloudWatch is intentionally NOT implemented. The previous
+  // version returned `{ messageKey: 'message' }` which silently
+  // dropped all logs (the pino config that would actually push to
+  // CloudWatch lives in `pino-cloudwatch` + an AWS SDK transport
+  // — neither is in this project's dependencies). In production
+  // that means "I set APP_LOG_SERVICE=aws_cloudwatch and now my
+  // service runs mute" — a 24-hour blind spot.
+  //
+  // We fail loud instead: emit a one-shot stderr warning, then fall
+  // back to the console transport so the dev/staging experience
+  // still works. To actually wire CloudWatch, add `pino-cloudwatch`
+  // + `@aws-sdk/client-cloudwatch-logs` to api/package.json and
+  // replace this function with a `pino.transport({ target: 'pino-cloudwatch', options: {...} })` call.
+  // eslint-disable-next-line no-console
+  console.error(
+    '[logger-factory] APP_LOG_SERVICE=aws_cloudwatch is requested but not implemented. ' +
+      'Falling back to console transport. Add pino-cloudwatch + @aws-sdk/client-cloudwatch-logs to wire it up.',
+  );
+  return consoleLoggingConfig();
 }
 
 function googleLoggingConfig(): Options {

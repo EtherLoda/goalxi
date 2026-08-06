@@ -186,8 +186,16 @@ export class FinanceService {
   }
 
   /**
-   * Process weekly settlement for a team (non-atomic, each tx commits independently)
-   * @deprecated Use processWeeklySettlementAtomic instead
+   * Process weekly settlement for a team.
+   *
+   * This is the queue-worker entry point: it opens its own transaction
+   * and delegates to `processWeeklySettlementAtomic` so the entire
+   * sponsorship / wage / youth / stadium block is one DB commit.
+   *
+   * For callers already inside a transaction (e.g. another service
+   * that wants weekly settlement to roll back atomically with its
+   * own writes), call `processWeeklySettlementAtomic` directly with
+   * the existing `EntityManager`.
    */
   async processWeeklySettlement(
     teamId: Uuid,
