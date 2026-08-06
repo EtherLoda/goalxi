@@ -37,6 +37,22 @@ export interface TrainingResult {
 }
 
 /**
+ * Minimal coach data the shared weekly-points helper needs. Decoupled
+ * from the `StaffEntity` shape so the helper stays pure and can be
+ * unit-tested without a TypeORM context.
+ *
+ * `trainedSkill` is optional because `StaffEntity.trainedSkill` is
+ * itself optional (TypeORM `nullable: true` produces `string |
+ * undefined`). The helper passes it through to
+ * `applySpecializedTraining` which already accepts both null and
+ * undefined.
+ */
+export interface CoachAssignmentInput {
+    level: number;
+    trainedSkill?: string | null;
+}
+
+/**
  * Calculate fitness coach bonus for stamina recovery
  * Includes head coach + fitness coach bonuses
  */
@@ -99,6 +115,41 @@ export function calculateSpecializedTrainingPoints(
         * ageFactor;
 
     return Math.round(points * 100) / 100;
+}
+
+/**
+ * Sum the weekly training points a player would receive from one or
+ * more coach assignments. Pure — does NOT mutate skills. Used by
+ * both the API preview (`api/training/training.service.ts`) and the
+ * settlement worker (`settlement/processors/training.processor.ts`)
+ * so the number shown to the manager and the number actually applied
+ * can never drift.
+ *
+ * Pass the head coach's level as a plain number (use 0 when the team
+ * has no head coach). `assignments` may be empty — the function then
+ * returns 0.
+ */
+export function computeWeeklyTrainingPoints(
+    age: number,
+    staminaIntensity: number,
+    headCoachLevel: number,
+    assignments: CoachAssignmentInput[],
+): number {
+    let total = 0;
+    for (const a of assignments) {
+        // Same shape as `calculateAssignedCoachBonus` but takes the
+        // head-coach level as a number so this function stays pure.
+        const bonus =
+            1 +
+            (headCoachLevel + a.level) *
+                TRAINING_SETTINGS.COACH_BONUS_PER_LEVEL;
+        total += calculateSpecializedTrainingPoints(
+            age,
+            staminaIntensity,
+            bonus,
+        );
+    }
+    return Math.round(total * 100) / 100;
 }
 
 /**
@@ -277,78 +328,7 @@ export function applySpecializedTraining(
     };
 }
 
-/**
- * Youth-coach training: same bonus math as `applySpecializedTraining`,
- * but the coach picks a *category* (e.g. `physical`) and the bonus is
- * split evenly across every skill in that category instead of dumped
- * onto a single skill.
- *
- * Distribution is per-skill proportional to the per-skill base (so
- * higher-cost skills get a larger share) — the existing
- * `distributeTrainingPoints` already walks the upgrade curve
- * skill-by-skill, so we just call it once per category-skill.
- *
- * Returns a merged `TrainingResult` so callers can write a single
- * `TrainingUpdateEntity` row.
- */
-export function applyYouthCoachCategoryTraining(
-    playerId: number,
-    age: number,
-    currentSkills: PlayerSkills,
-    potentialSkills: PlayerSkills,
-    isGoalkeeper: boolean,
-    staminaIntensity: number,
-    assignedCoachBonus: number,
-    weeksElapsed: number = 1,
-    category: string,
-    categorySkillKeys: string[],
-): TrainingResult {
-    if (categorySkillKeys.length === 0) {
-        return {
-            playerId,
-            weeklyPoints: 0,
-            skillsGained: [],
-            totalPointsSpent: 0,
-        };
-    }
-
-    const weeklyPoints = calculateSpecializedTrainingPoints(
-        age,
-        staminaIntensity,
-        assignedCoachBonus,
-    );
-    if (weeklyPoints === 0) {
-        return {
-            playerId,
-            weeklyPoints: 0,
-            skillsGained: [],
-            totalPointsSpent: 0,
-        };
-    }
-
-    // Even split — `weeklyPoints` is the per-player weekly total, not
-    // per-skill, so the per-skill share is `total / N`.
-    const totalPoints = (weeklyPoints * weeksElapsed) / categorySkillKeys.length;
-
-    const merged: SkillGain[] = [];
-    let totalSpent = 0;
-
-    for (const skill of categorySkillKeys) {
-        const r = distributeTrainingPoints(
-            currentSkills,
-            potentialSkills,
-            totalPoints,
-            isGoalkeeper,
-            skill,
-        );
-        merged.push(...r.gains);
-        totalSpent += r.totalSpent;
-    }
-
-    return {
-        playerId,
-        weeklyPoints,
-        skillsGained: merged,
-        totalPointsSpent: Math.round(totalSpent * 100) / 100,
-    };
-}
+// Note: the historical `applyYouthCoachCategoryTraining` helper was
+// removed together with the YOUTH_COACH staff role. Senior coaches
+// train via `applySpecializedTraining` only — a single skill per week,
+// driven by `StaffEntity.trainedSkill`.

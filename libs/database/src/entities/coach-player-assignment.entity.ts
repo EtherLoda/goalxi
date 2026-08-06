@@ -33,10 +33,10 @@ export class CoachPlayerAssignmentEntity extends AbstractEntity {
 /**
  * Get the training category for a coach role.
  *
- * Senior coach roles each own a fixed category. The YOUTH_COACH role
- * is the exception: its category is selected by the manager and stored
- * on `StaffEntity.trainedSkill` (so it can be switched freely). Callers
- * that need the runtime category for a youth coach should look at
+ * Every senior coach role owns a fixed category. The `trainedSkill`
+ * field on `StaffEntity` narrows the choice *within* that category
+ * (e.g. a `TECHNICAL_COACH` picks one of finishing/passing/dribbling/
+ * defending). Callers that need the runtime skill should look at
  * `staff.trainedSkill` directly, not this helper.
  */
 export function getTrainingCategoryForRole(role: StaffRole): string | null {
@@ -47,10 +47,6 @@ export function getTrainingCategoryForRole(role: StaffRole): string | null {
         [StaffRole.TECHNICAL_COACH]: 'technical',
         [StaffRole.SET_PIECE_COACH]: 'setPieces',
         [StaffRole.GOALKEEPER_COACH]: 'goalkeeper',
-        // Youth coach has no role-fixed category — the manager picks one
-        // at runtime via `staff.trainedSkill`. Return null so callers
-        // know to read it from the staff row instead.
-        [StaffRole.YOUTH_COACH]: null,
         [StaffRole.TEAM_DOCTOR]: 'recovery',
     };
     return map[role] ?? 'technical';

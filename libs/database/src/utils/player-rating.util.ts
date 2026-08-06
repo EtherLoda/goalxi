@@ -54,9 +54,18 @@ const GK_BASE_MULTIPLIER = 1.65;
 // =====================
 // FORM FACTOR
 // =====================
-// Form 3.0 = 1.0, form 5.0 = 1.1, form 1.0 = 0.9
+// Form factor = 0.9 + form × 0.05. Concrete values:
+//   form 1.0 → 0.95   (worst realistic form)
+//   form 2.0 → 1.00
+//   form 3.0 → 1.05   (the design midpoint)
+//   form 4.0 → 1.10
+//   form 5.0 → 1.15   (peak form)
+//
+// (An earlier version of this comment claimed `form 3.0 = 1.0`,
+// but the actual constant produces 1.05 — the constants below are
+// the source of truth.)
 
-const FORM_FACTOR_BASE = 0.9; // form=1.0 时的系数
+const FORM_FACTOR_BASE = 0.9; // form=0 时的系数
 const FORM_FACTOR_PER_POINT = 0.05; // 每点form增加0.05
 
 // =====================

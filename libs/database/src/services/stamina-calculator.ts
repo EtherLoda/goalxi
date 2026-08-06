@@ -10,6 +10,12 @@
  * - netChange = trainingGain - decay
  */
 
+// Persistent-stamina ceiling. The DB column and the weekly tick
+// both clamp at this value so a player can never store 6.0 — the
+// small gap (5.99 vs 6.0) gives the in-match simulator room to
+// recover above the static ceiling during half-time. See
+// simulator/src/engine/classes/Team.ts:updateCondition for the
+// in-match 6.0 cap.
 export const STAMINA_MAX = 5.99;
 export const STAMINA_MIN = 0;
 export const PEAK_AGE = 23;

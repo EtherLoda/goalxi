@@ -124,13 +124,16 @@ The youth flow was consolidated into `player` (RFC 0001, migration `172200000000
 - `YouthStructureGenerator.generate()` (WAVE A1) creates exactly **1 `youth_league` per senior_league** (1:1 by `senior_league_id`) and **1 `youth_team` per senior_team** (1:1 by `team_id`). Idempotent; skipped for teams with no `leagueId`.
 - `ScheduleGenerator.generateSeason1Schedule()` (WAVE A2) generates senior fixtures AND youth fixtures. Youth matches have `leagueId = null` and `youthLeagueId` set. Every match (senior + youth) gets a real `scheduledAt` so the preprocessor's `LessThanOrEqual(lockThreshold)` filter picks them up. Youth matches are offset by **2 days** from the senior schedule so they don't open for tactics at the same instant.
 
-**Youth coach model** (WAVE 0/1b):
-- `StaffEntity.role = StaffRole.YOUTH_COACH` — **exactly one per team** (maxed at the assignment level via `getMaxPlayersForRole`).
-- The chosen category lives on `staff.trainedSkill` (one of `physical` / `technical` / `mental` / `setPieces` / `goalkeeper`). Unlike senior coaches where the role locks the category, a youth coach's category is **switchable** at any time via `PATCH /staffs/:id/trained-skill` (validated by `isYouthCoachCategory`).
-- Up to **3 youth players** can be assigned via the existing `CoachPlayerAssignmentEntity` (`coachId` + `playerId` + `trainingCategory`). Conflicts in the same category auto-unassign the previous coach.
-- `assignPlayer` rejects outfield youths from a coach on `goalkeeper` category (no skills to train) and rejects assignment when `coach.trainedSkill` is not set.
-- Weekly tick: `YouthProgressionProcessor` (queue `youth-progression-settlement`, fired Thursday 00:00 UTC alongside the senior training tick) applies `applyWeeklyGrowth` (base) + `applyYouthCoachCategoryTraining` (category bonus) + `pickNextRevealSkills` (fog reveal). Reveal mechanics run for every youth regardless of assignment.
-- Switchable category makes "this week train physical, next week train mental" the whole game — recruits grow into the role the manager cares about.
+**Youth coach model** — *paused*: the `StaffRole.YOUTH_COACH` enum member, the
+`applyYouthCoachCategoryTraining` helper, and the youth-coach branches in
+`staffs.service.ts` were removed in the YOUTH_COACH-removal batch. The
+Postgres enum value was dropped by migration `1724000000000`. The
+`youth-progression-settlement` worker still runs every Thursday at
+00:00 UTC but only handles `applyWeeklyGrowth` (base growth) and
+`pickNextRevealSkills` (fog reveal) — there is no coach bonus any more.
+Re-introducing the role requires restoring the enum value, the training
+helper, and the validation/assignment branches together; don't peel them
+back apart.
 
 **Promotion gate** (WAVE B1, **server-enforced**):
 - `PlayerService.promote()` flips `is_youth=false` and clears the reveal mask. Throws `ForbiddenException` if `revealedSkills.length < ceil(PROMOTION_REVEAL_THRESHOLD * totalKeys)`. Outfield needs ≥ **5/10** unlocked skills; goalkeeper ≥ **5/9**.
@@ -150,8 +153,7 @@ The youth flow was consolidated into `player` (RFC 0001, migration `172200000000
 **Where to look** when changing anything in this subsystem:
 - `libs/database/src/constants/youth-keys.constants.ts` — `PROMOTION_REVEAL_THRESHOLD`, `YOUTH_PROMOTION_*`.
 - `libs/database/src/services/youth-progression.ts` — pure functions: `applyWeeklyGrowth`, `pickNextRevealSkills`. The settlement worker is the only caller in production today.
-- `libs/database/src/services/training-calculator.ts` — `applyYouthCoachCategoryTraining` distributes a per-player bonus across all skills in a category (even split per skill; respects the existing per-skill upgrade curve).
-- `settlement/src/processors/youth-progression.processor.ts` — BullMQ worker for the weekly tick.
+- `settlement/src/processors/youth-progression.processor.ts` — BullMQ worker for the weekly tick. Now only does base growth + reveal (no coach bonus).
 - `settlement/src/bootstrap/generators/youth-structure.generator.ts` — idempotent 1:1 creator.
 - `api/src/api/scouts/scouts.service.ts` (`selectCandidate`) — player is dropped here with: `position` (from candidate), `potentialAbility` recomputed from `potentialSkills` (NOT a hardcoded 50 anymore), `revealLevel` derived from `revealedSkills.length`.
 

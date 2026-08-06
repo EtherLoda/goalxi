@@ -1,24 +1,14 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { DataSource, Repository } from 'typeorm';
 import { Job } from 'bullmq';
 import { YouthProgressionProcessor } from './youth-progression.processor';
 import { LOGGER_SERVICE } from '@goalxi/logger';
-import {
-  CoachPlayerAssignmentEntity,
-  GKTechnical,
-  OutfieldTechnical,
-  PlayerEntity,
-  StaffEntity,
-  StaffLevel,
-  StaffRole,
-} from '@goalxi/database';
+import { PlayerEntity } from '@goalxi/database';
 
 describe('YouthProgressionProcessor', () => {
   let processor: YouthProgressionProcessor;
   let playerRepo: jest.Mocked<Repository<PlayerEntity>>;
-  let staffRepo: jest.Mocked<Repository<StaffEntity>>;
-  let assignmentRepo: jest.Mocked<Repository<CoachPlayerAssignmentEntity>>;
 
   // ---- fixtures ----
   const outfieldSkills = () => ({
@@ -80,31 +70,21 @@ describe('YouthProgressionProcessor', () => {
       ...overrides,
     }) as PlayerEntity;
 
-  const youthCoach = (
-    id: string,
-    teamId: string,
-    trainedSkill: string | null,
-    level: StaffLevel = StaffLevel.LEVEL_3,
-  ): StaffEntity =>
-    ({
-      id,
-      teamId,
-      role: StaffRole.YOUTH_COACH,
-      isActive: true,
-      trainedSkill,
-      level,
-    }) as StaffEntity;
-
   // ---- mocks ----
   const mockPlayerRepo = {
     find: jest.fn(),
     save: jest.fn().mockImplementation(async (p: any) => p),
   };
-  const mockStaffRepo = {
-    find: jest.fn(),
-  };
-  const mockAssignmentRepo = {
-    find: jest.fn(),
+  // Batched commit wrapper — runs the callback with a fake manager
+  // whose `getRepository(PlayerEntity).save` records the call.
+  const dataSource = {
+    transaction: jest.fn(async (cb: any) => {
+      const txSave = jest.fn((x: any) => x);
+      const txManager = {
+        getRepository: jest.fn().mockReturnValue({ save: txSave }),
+      };
+      return cb(txManager);
+    }),
   };
   const mockLogger = {
     info: jest.fn(),
@@ -113,6 +93,7 @@ describe('YouthProgressionProcessor', () => {
     error: jest.fn(),
   };
 
+
   beforeEach(async () => {
     jest.clearAllMocks();
     mockPlayerRepo.save.mockImplementation(async (p: any) => p);
@@ -120,44 +101,42 @@ describe('YouthProgressionProcessor', () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         // Always-positive RNG so growth always fires.
-        { provide: YouthProgressionProcessor, useFactory: () => new YouthProgressionProcessor(
-          mockLogger as any,
-          mockPlayerRepo as any,
-          mockStaffRepo as any,
-          mockAssignmentRepo as any,
-          () => 1,
-        ) },
+        {
+          provide: YouthProgressionProcessor,
+          useFactory: () =>
+            new YouthProgressionProcessor(
+              mockLogger as any,
+              mockPlayerRepo as any,
+              dataSource as any,
+              () => 1,
+            ),
+        },
         { provide: LOGGER_SERVICE, useValue: mockLogger },
         { provide: getRepositoryToken(PlayerEntity), useValue: mockPlayerRepo },
-        { provide: getRepositoryToken(StaffEntity), useValue: mockStaffRepo },
-        {
-          provide: getRepositoryToken(CoachPlayerAssignmentEntity),
-          useValue: mockAssignmentRepo,
-        },
+        { provide: DataSource, useValue: dataSource },
       ],
     }).compile();
 
     processor = module.get(YouthProgressionProcessor);
     playerRepo = module.get(getRepositoryToken(PlayerEntity));
-    staffRepo = module.get(getRepositoryToken(StaffEntity));
-    assignmentRepo = module.get(getRepositoryToken(CoachPlayerAssignmentEntity));
   });
 
-  // -------- 1: base growth only --------
+  // -------- 1: base growth + reveal only (no coach) --------
 
-  it('applies base weekly growth + reveal when no youth coach exists', async () => {
+  it('applies base weekly growth + reveal with no coach on staff', async () => {
     const youth = outfieldYouth(1, 'teamA');
-    staffRepo.find.mockResolvedValue([]); // no youth coaches
-    mockAssignmentRepo.find.mockResolvedValue([]);
     playerRepo.find.mockResolvedValue([youth]);
 
     const result = await processor.process({} as Job);
 
     expect(result.youthProcessed).toBe(1);
     expect(result.youthGrew).toBe(1);
-    expect(result.youthCoachBoosted).toBe(0);
     expect(result.youthRevealed).toBe(1);
-    expect(playerRepo.save).toHaveBeenCalledTimes(1);
+    // #9: the write now goes through the transaction manager, not
+    // the injected non-tx `playerRepo.save`. The mock DataSource
+    // wrapper invokes the callback with a fake manager whose save
+    // is recorded on `dataSource.transaction` itself.
+    expect(dataSource.transaction).toHaveBeenCalledTimes(1);
 
     // Growth: every skill in currentSkills grew by 0.1 toward potential.
     expect(youth.currentSkills.physical.pace).toBeCloseTo(10.1, 5);
@@ -166,109 +145,10 @@ describe('YouthProgressionProcessor', () => {
     expect(youth.revealLevel).toBe(youth.revealedSkills.length);
   });
 
-  // -------- 2: coach on physical, outfield youth --------
-
-  it('boosts every skill in the coach\'s chosen category', async () => {
-    const youth = outfieldYouth(1, 'teamA');
-    const coach = youthCoach('c1', 'teamA', 'physical', StaffLevel.LEVEL_3);
-    staffRepo.find.mockResolvedValue([coach]);
-    mockAssignmentRepo.find.mockResolvedValue([
-      { coachId: 'c1', playerId: 1, trainingCategory: 'physical' } as CoachPlayerAssignmentEntity,
-    ]);
-    playerRepo.find.mockResolvedValue([youth]);
-
-    await processor.process({} as Job);
-
-    // physical skills: started at 10, base growth 0.1, plus a coach bonus.
-    // The coach bonus is computed by calculateAssignedCoachBonus which
-    // depends on level; level 3 + head coach absent → bonus = 1 + 0.15.
-    // We don't pin the exact decimal, but pace MUST exceed the no-coach
-    // baseline of 10.1.
-    expect(youth.currentSkills.physical.pace).toBeGreaterThan(10.1);
-    expect(youth.currentSkills.physical.strength).toBeGreaterThan(10.1);
-    // non-physical skills should not be boosted (only base growth)
-    expect((youth.currentSkills.technical as OutfieldTechnical).finishing).toBeCloseTo(10.1, 5);
-    expect(youth.currentSkills.mental.positioning).toBeCloseTo(10.1, 5);
-  });
-
-  // -------- 3: youth coach exists but category not set --------
-
-  it('does not crash and skips boost when youth coach has no trainedSkill', async () => {
-    const youth = outfieldYouth(1, 'teamA');
-    const coach = youthCoach('c1', 'teamA', null);
-    staffRepo.find.mockResolvedValue([coach]);
-    mockAssignmentRepo.find.mockResolvedValue([
-      { coachId: 'c1', playerId: 1, trainingCategory: null } as unknown as CoachPlayerAssignmentEntity,
-    ]);
-    playerRepo.find.mockResolvedValue([youth]);
-
-    const result = await processor.process({} as Job);
-
-    expect(result.youthCoachBoosted).toBe(0);
-    // No crash, save still happens (base growth + reveal).
-    expect(playerRepo.save).toHaveBeenCalled();
-  });
-
-  // -------- 4: switchable category — coach on technical --------
-
-  it('honors a switched category without restarting the player', async () => {
-    const youth = outfieldYouth(1, 'teamA');
-    const coach = youthCoach('c1', 'teamA', 'technical', StaffLevel.LEVEL_4);
-    staffRepo.find.mockResolvedValue([coach]);
-    mockAssignmentRepo.find.mockResolvedValue([
-      { coachId: 'c1', playerId: 1, trainingCategory: 'technical' } as CoachPlayerAssignmentEntity,
-    ]);
-    playerRepo.find.mockResolvedValue([youth]);
-
-    await processor.process({} as Job);
-
-    // technical skills should be boosted (narrow the union)
-    expect((youth.currentSkills.technical as OutfieldTechnical).finishing).toBeGreaterThan(10.1);
-    // physical skills should be at the no-bonus baseline
-    expect(youth.currentSkills.physical.pace).toBeCloseTo(10.1, 5);
-  });
-
-  // -------- 5: outfield youth + coach on "goalkeeper" --------
-
-  it('produces no coach boost for an outfield youth when coach is on goalkeeper', async () => {
-    const youth = outfieldYouth(1, 'teamA');
-    const coach = youthCoach('c1', 'teamA', 'goalkeeper', StaffLevel.LEVEL_3);
-    staffRepo.find.mockResolvedValue([coach]);
-    mockAssignmentRepo.find.mockResolvedValue([
-      { coachId: 'c1', playerId: 1, trainingCategory: 'goalkeeper' } as CoachPlayerAssignmentEntity,
-    ]);
-    playerRepo.find.mockResolvedValue([youth]);
-
-    const result = await processor.process({} as Job);
-
-    // No skill keys to boost for an outfield player on the GK category.
-    expect(result.youthCoachBoosted).toBe(0);
-  });
-
-  // -------- 6: GK youth + coach on goalkeeper --------
-
-  it('boosts GK-specific skills for a GK youth when coach is on goalkeeper', async () => {
-    const youth = gkYouth(1, 'teamA');
-    const coach = youthCoach('c1', 'teamA', 'goalkeeper', StaffLevel.LEVEL_3);
-    staffRepo.find.mockResolvedValue([coach]);
-    mockAssignmentRepo.find.mockResolvedValue([
-      { coachId: 'c1', playerId: 1, trainingCategory: 'goalkeeper' } as CoachPlayerAssignmentEntity,
-    ]);
-    playerRepo.find.mockResolvedValue([youth]);
-
-    await processor.process({} as Job);
-
-    expect((youth.currentSkills.technical as GKTechnical).reflexes).toBeGreaterThan(10.1);
-    expect((youth.currentSkills.technical as GKTechnical).handling).toBeGreaterThan(10.1);
-    expect((youth.currentSkills.technical as GKTechnical).aerial).toBeGreaterThan(10.1);
-  });
-
-  // -------- 7: free-agent youth --------
+  // -------- 2: free-agent youth --------
 
   it('skips free-agent youth (no teamId) without crashing', async () => {
     const freeAgent = outfieldYouth(1, null as any);
-    staffRepo.find.mockResolvedValue([]);
-    mockAssignmentRepo.find.mockResolvedValue([]);
     playerRepo.find.mockResolvedValue([freeAgent]);
 
     const result = await processor.process({} as Job);
@@ -278,7 +158,7 @@ describe('YouthProgressionProcessor', () => {
     expect(playerRepo.save).not.toHaveBeenCalled();
   });
 
-  // -------- 8: reveal level sync --------
+  // -------- 3: reveal level sync --------
 
   it('keeps revealLevel in sync with revealedSkills.length after every tick', async () => {
     const youth = outfieldYouth(1, 'teamA', {
@@ -286,8 +166,6 @@ describe('YouthProgressionProcessor', () => {
         'pace', 'strength', 'finishing', 'passing', 'dribbling',
       ],
     });
-    staffRepo.find.mockResolvedValue([]);
-    mockAssignmentRepo.find.mockResolvedValue([]);
     playerRepo.find.mockResolvedValue([youth]);
 
     await processor.process({} as Job);
@@ -296,33 +174,9 @@ describe('YouthProgressionProcessor', () => {
     expect(youth.revealLevel).toBeGreaterThanOrEqual(5);
   });
 
-  // -------- 9: 3-player cap is the assignment side, not the processor --------
+  // -------- 4: no save when nothing changed --------
 
-  it('processes all assigned youths in a single tick (3 max is enforced at assignment time)', async () => {
-    const youths = [1, 2, 3].map((id) => outfieldYouth(id, 'teamA'));
-    const coach = youthCoach('c1', 'teamA', 'physical', StaffLevel.LEVEL_3);
-    staffRepo.find.mockResolvedValue([coach]);
-    mockAssignmentRepo.find.mockResolvedValue(
-      youths.map(
-        (p) =>
-          ({
-            coachId: 'c1',
-            playerId: p.id,
-            trainingCategory: 'physical',
-          }) as unknown as CoachPlayerAssignmentEntity,
-      ),
-    );
-    playerRepo.find.mockResolvedValue(youths);
-
-    const result = await processor.process({} as Job);
-
-    expect(result.youthProcessed).toBe(3);
-    expect(result.youthCoachBoosted).toBe(3);
-  });
-
-  // -------- 10: no save when nothing changed --------
-
-  it('skips the DB write when nothing changed (no growth, no reveal, no boost)', async () => {
+  it('skips the DB write when nothing changed (no growth, no reveal)', async () => {
     const youth = outfieldYouth(1, 'teamA', {
       currentSkills: {
         physical: { pace: 18, strength: 18 },
@@ -336,15 +190,49 @@ describe('YouthProgressionProcessor', () => {
         'positioning', 'composure', 'freeKicks', 'penalties',
       ],
     });
-    staffRepo.find.mockResolvedValue([]); // no coach
-    mockAssignmentRepo.find.mockResolvedValue([]);
     playerRepo.find.mockResolvedValue([youth]);
 
     const result = await processor.process({} as Job);
 
     expect(result.youthGrew).toBe(0);
     expect(result.youthRevealed).toBe(0);
-    expect(result.youthCoachBoosted).toBe(0);
     expect(playerRepo.save).not.toHaveBeenCalled();
+  });
+
+  // -------- 5: GK youth reveal still works --------
+
+  it('processes GK youth through base growth + reveal like outfield', async () => {
+    const youth = gkYouth(1, 'teamA');
+    playerRepo.find.mockResolvedValue([youth]);
+
+    const result = await processor.process({} as Job);
+
+    expect(result.youthGrew).toBe(1);
+    // Narrow the union (the fixture builds a GKTechnical here).
+    const tech = youth.currentSkills.technical as { reflexes: number };
+    expect(tech.reflexes).toBeCloseTo(10.1, 5);
+  });
+
+  // -------- 6: batched commit (regression: #9) --------
+
+  it('writes all dirty players in a single transaction (no per-player autocommit)', async () => {
+    // The pre-fix loop did `await this.playerRepo.save(player)` once
+    // per player, which Postgres treats as an implicit single-row
+    // transaction each time. A failure on player N left players
+    // 1..N-1 committed. The fix moves the whole batch into one
+    // `dataSource.transaction` call. This spec pins the batch shape.
+    const a = outfieldYouth(1, 'teamA');
+    const b = outfieldYouth(2, 'teamA');
+    const c = outfieldYouth(3, 'teamA');
+    playerRepo.find.mockResolvedValue([a, b, c]);
+
+    await processor.process({} as Job);
+
+    // The injected non-tx playerRepo.save should NEVER be called —
+    // everything goes through the transaction manager.
+    expect(mockPlayerRepo.save).not.toHaveBeenCalled();
+    // The DataSource transaction wrapper was invoked exactly once,
+    // not once per player.
+    expect(dataSource.transaction).toHaveBeenCalledTimes(1);
   });
 });

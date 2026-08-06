@@ -86,39 +86,6 @@ export function getSkillCategory(skillKey: string): string | null {
 }
 
 /**
- * List of valid youth-coach categories (the values `trainedSkill` may
- * hold for a YOUTH_COACH staff row). Mirrors `SKILL_CATEGORY_MAP` keys.
- */
-export const YOUTH_COACH_CATEGORIES = Object.keys(
-    SKILL_CATEGORY_MAP,
-) as Array<keyof typeof SKILL_CATEGORY_MAP>;
-
-/** Type guard for youth-coach category strings. */
-export function isYouthCoachCategory(
-    category: string | null | undefined,
-): category is keyof typeof SKILL_CATEGORY_MAP {
-    if (!category) return false;
-    return (YOUTH_COACH_CATEGORIES as readonly string[]).includes(category);
-}
-
-/**
- * Return the skill keys belonging to `category` for the given player
- * type. GK-only keys (`reflexes`/`handling`/`aerial`) are filtered out
- * for outfield players so we never try to write them onto a row that
- * has no such field in its `currentSkills.technical` object.
- */
-export function getCategorySkillKeys(
-    category: string,
-    isGoalkeeper: boolean,
-): string[] {
-    const keys = SKILL_CATEGORY_MAP[category] ?? [];
-    if (isGoalkeeper) return [...keys];
-    return keys.filter(
-        (k) => k !== 'reflexes' && k !== 'handling' && k !== 'aerial',
-    );
-}
-
-/**
  * Get staff role constant name from category name
  */
 export function getCategoryCoachRole(category: string): string {
@@ -147,15 +114,21 @@ export const SKILL_TRAINING_SPEED: Record<string, number> = {
     defending: 0.90,
     dribbling: 1.00,
     passing: 1.10,
-    positioning: 1.25,
     pace: 0.88,
     strength: 0.90,
+    // Mental skills train faster (1.20-1.30) — `positioning` and
+    // `composure` are shared between outfield and GK mental category,
+    // so the same key serves both player types.
+    positioning: 1.25,
     composure: 1.30,
-    // GK skills
-    gk_reflexes: 0.80,
-    gk_handling: 0.85,
-    gk_aerial: 0.82,
-    gk_positioning: 1.00,
+    // GK-only skills — the keys here MUST match the runtime skill
+    // names returned by `getPlayerSkillKeys(true)` and the FIELD_MAP
+    // in `simulation-player.ts`. Earlier this map used a `gk_` prefix
+    // (e.g. `gk_reflexes`) which never matched, so every GK training
+    // silently fell back to the 1.0 default. Keep them prefix-free.
+    reflexes: 0.80,
+    handling: 0.85,
+    aerial: 0.82,
     // Set piece skills (5x speed -选修技能，快速训练）
     freeKicks: 5.0,
     penalties: 5.0,

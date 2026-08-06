@@ -19,7 +19,7 @@ import {
   StaffRole,
   TeamEntity,
 } from '@goalxi/database';
-import { Injectable, Logger } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import assert from 'assert';
 import { plainToInstance } from 'class-transformer';
@@ -214,6 +214,16 @@ export class TeamService {
     if (reqDto.city !== undefined) team.city = reqDto.city ?? null;
     if (reqDto.bio !== undefined) team.bio = reqDto.bio ?? null;
     if (reqDto.staminaTrainingIntensity !== undefined) {
+      // §5.4: at most one training-intensity change per real-world
+      // week. The check is on the server, not just the client
+      // (TrainingSlider.tsx has the matching UI gate) — anything else
+      // is bypassable with a curl. The 7-day window matches the
+      // `WEEK_MS` constant in TrainingSlider so the two stay in sync.
+      assertTrainingIntensityChangeAllowed(
+        team.trainingIntensityLastChangedAt,
+        team.staminaTrainingIntensity,
+        reqDto.staminaTrainingIntensity,
+      );
       team.staminaTrainingIntensity = reqDto.staminaTrainingIntensity;
       // §5.4: reset the weekly change timer on every training intensity update
       team.trainingIntensityLastChangedAt = new Date();
@@ -336,4 +346,38 @@ export class TeamService {
       updatedAt: team.updatedAt,
     });
   }
+}
+
+// ---------- §5.4 weekly-intensity cooldown helper ----------
+
+/** Cooldown window in milliseconds — must match TrainingSlider.tsx WEEK_MS. */
+const TRAINING_INTENSITY_COOLDOWN_MS = 7 * 24 * 60 * 60 * 1000;
+
+/**
+ * Enforce §5.4: training intensity can change at most once per
+ * real-world week. The check is exported as a pure function so it
+ * can be unit-tested without spinning up a full TypeORM context.
+ *
+ * Rules:
+ *   - If `lastChangedAt` is null, the team has never tuned intensity
+ *     before — the very first write goes through.
+ *   - If the new value equals the current value, this is a no-op
+ *     and the cooldown does not apply (so the UI can re-submit
+ *     without the user actually changing anything).
+ *   - Otherwise, the call must land AFTER the cooldown window.
+ */
+export function assertTrainingIntensityChangeAllowed(
+  lastChangedAt: Date | null | undefined,
+  currentValue: number,
+  newValue: number,
+  now: Date = new Date(),
+): void {
+  if (!lastChangedAt) return;
+  if (currentValue === newValue) return;
+  if (now.getTime() - new Date(lastChangedAt).getTime() >= TRAINING_INTENSITY_COOLDOWN_MS) {
+    return;
+  }
+  throw new BadRequestException(
+    'Training intensity can only be changed once per week. Wait until the cooldown ends.',
+  );
 }

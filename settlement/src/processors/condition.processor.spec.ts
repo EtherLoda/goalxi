@@ -167,6 +167,42 @@ describe('ConditionProcessor', () => {
       expect(result.playersProcessed).toBe(0);
     });
 
+    it('resets matchMinutes to 0 for bot-team players without touching their form (regression: #10)', async () => {
+      // Bot squads' form and stamina are deliberately frozen at the
+      // seeded values (see team-generator.service.ts), but the field
+      // still gets incremented by match-completion.service.ts on
+      // every match they play. The processor must zero it back
+      // each tick or the column grows without bound.
+      mockTeamRepo.find.mockResolvedValueOnce([
+        { id: 'bot' as Uuid, isBot: true } as TeamEntity,
+      ]);
+      // The processor re-fetches the team inside `processTeamCondition`
+      // to check `isBot`. Without this mock, the default `findOne`
+      // returns `undefined` and the bot branch is skipped.
+      mockTeamRepo.findOne.mockResolvedValueOnce({
+        id: 'bot' as Uuid,
+        isBot: true,
+      } as TeamEntity);
+      const players = [
+        { id: 1, name: 'A', teamId: 'bot' as Uuid, isYouth: false, form: 50, matchMinutes: 90, currentInjuryValue: 0 } as unknown as PlayerEntity,
+        { id: 2, name: 'B', teamId: 'bot' as Uuid, isYouth: false, form: 60, matchMinutes: 0, currentInjuryValue: 0 } as unknown as PlayerEntity,
+      ];
+      mockPlayerRepo.find.mockResolvedValueOnce(players);
+
+      const result = await processor.process({ id: 'job-bot' } as any);
+
+      // Bot team — form/stamina pipeline skipped, but the
+      // matchMinutes reset still ran.
+      expect(result.playersProcessed).toBe(0);
+      expect(players[0].matchMinutes).toBe(0);
+      // Form is unchanged (the bot path doesn't touch it).
+      expect(players[0].form).toBe(50);
+      // Player B was already 0 — no spurious write.
+      expect(players[1].matchMinutes).toBe(0);
+      // The transaction was opened exactly once (the bot reset path).
+      expect(dataSource.transaction).toHaveBeenCalledTimes(1);
+    });
+
     it('isolates team A from team B (a throw in team A does not roll back team B)', async () => {
       // Team A throws inside processTeamCondition. We expect the
       // processor's outer try/catch to surface the error so the

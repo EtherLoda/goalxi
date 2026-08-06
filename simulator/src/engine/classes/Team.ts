@@ -72,9 +72,12 @@ export class Team {
         current += ConditionSystem.calculateRecovery(player.currentStamina);
       }
 
-      // Cap at start stamina (or 6.0)
+      // In-match cap is 6.0 — the DB-side `STAMINA_MAX` is 5.99
+      // (see libs/database/src/services/stamina-calculator.ts), so a
+      // player at full 5.99 can recover up to 6.0 in one half-time
+      // break. The 1.0 floor keeps the simulator's fitness factor
+      // from going degenerate when a player runs out of gas.
       if (current > 6.0) current = 6.0;
-      // Floor at 1.0
       if (current < 1.0) current = 1.0;
 
       this.playerFitness[i] = current;

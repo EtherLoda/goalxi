@@ -4,15 +4,15 @@ import {
   calculateSpecializedTrainingPoints,
   calculateStaminaGain,
   applySpecializedTraining,
-  applyYouthCoachCategoryTraining,
+  computeWeeklyTrainingPoints,
   distributeTrainingPoints,
   getPlayerSkillKeys,
   getSkillLevel,
   setSkillLevel,
 } from './training-calculator';
+import { getSkillTrainingSpeed } from '../constants/training.constants';
 import { StaffEntity, StaffLevel, StaffRole } from '../entities/staff.entity';
 import {
-  OutfieldTechnical,
   PlayerSkills,
   TrainingCategory,
 } from '../entities/player.entity';
@@ -260,92 +260,119 @@ describe('TrainingCalculator', () => {
     });
   });
 
-  describe('applyYouthCoachCategoryTraining', () => {
-    const outfieldCurrent = (): PlayerSkills => ({
-      physical: { pace: 10, strength: 10 },
-      technical: {
-        finishing: 10,
-        passing: 10,
-        dribbling: 10,
-        defending: 10,
-      } as OutfieldTechnical,
-      mental: { positioning: 10, composure: 10 },
-      setPieces: { freeKicks: 10, penalties: 10 },
-    });
-    const outfieldPotential = (): PlayerSkills => ({
-      physical: { pace: 18, strength: 18 },
-      technical: {
-        finishing: 18,
-        passing: 18,
-        dribbling: 18,
-        defending: 18,
-      } as OutfieldTechnical,
-      mental: { positioning: 18, composure: 18 },
-      setPieces: { freeKicks: 18, penalties: 18 },
+  // The historical `applyYouthCoachCategoryTraining` describe block
+  // was removed together with the YOUTH_COACH staff role. The senior
+  // training path is fully covered by the
+  // `applySpecializedTraining` / `distributeTrainingPoints` blocks
+  // above.
+
+  describe('computeWeeklyTrainingPoints', () => {
+    // Shared helper used by BOTH the API preview and the settlement
+    // worker. The whole point is they call this exact function so
+    // the number shown to the manager can never disagree with the
+    // number actually applied to the player.
+
+    it('returns 0 for an empty assignment list', () => {
+      expect(computeWeeklyTrainingPoints(20, 0.2, 3, [])).toBe(0);
     });
 
-    it('returns zeros when no skills match the category for the player type', () => {
-      const cur = outfieldCurrent();
-      const result = applyYouthCoachCategoryTraining(
-        1,
-        16,
-        cur,
-        outfieldPotential(),
-        false, // outfield
-        0.2,
-        1.5,
-        1,
-        'goalkeeper', // GK-only category, no skills for an outfielder
-        [],
+    it('sums the per-assignment weekly points', () => {
+      // Hand-rolled value: head=3, single coach=3, stamina=0.2, age=20.
+      // The helper must produce the same value as the per-assignment
+      // loop the API preview used to inline.
+      const headLevel = 3;
+      const oneCoach = computeWeeklyTrainingPoints(20, 0.2, headLevel, [
+        { level: 3, trainedSkill: 'pace' },
+      ]);
+      const twoCoaches = computeWeeklyTrainingPoints(20, 0.2, headLevel, [
+        { level: 3, trainedSkill: 'pace' },
+        { level: 4, trainedSkill: 'passing' },
+      ]);
+      // 1 coach < 2 coaches (more coaches always adds bonus points)
+      expect(twoCoaches).toBeGreaterThan(oneCoach);
+      // 2 coaches is exactly the sum of the two individual calls
+      const onlyA = computeWeeklyTrainingPoints(20, 0.2, headLevel, [
+        { level: 3, trainedSkill: 'pace' },
+      ]);
+      const onlyB = computeWeeklyTrainingPoints(20, 0.2, headLevel, [
+        { level: 4, trainedSkill: 'passing' },
+      ]);
+      expect(twoCoaches).toBeCloseTo(onlyA + onlyB, 5);
+    });
+
+    it('applies the head-coach bonus multiplicatively across all assignments', () => {
+      const noHead = computeWeeklyTrainingPoints(20, 0.2, 0, [
+        { level: 3, trainedSkill: 'pace' },
+      ]);
+      const withHead = computeWeeklyTrainingPoints(20, 0.2, 5, [
+        { level: 3, trainedSkill: 'pace' },
+      ]);
+      // Higher head-coach level should raise the per-assignment bonus
+      // and therefore the total weekly points.
+      expect(withHead).toBeGreaterThan(noHead);
+    });
+
+    it('matches the legacy single-assignment preview math', () => {
+      // The helper is a thin refactor of the loop the API preview
+      // used to inline. For one assignment, both must produce the
+      // same number (modulo a final round-to-2dp).
+      const age = 25;
+      const staminaIntensity = 0.3;
+      const headCoachLevel = 4;
+      const assignedCoachLevel = 3;
+      // legacy formula: 1 + (head + assigned) × 0.05
+      const bonus =
+        1 + (headCoachLevel + assignedCoachLevel) * 0.05;
+      const expected = calculateSpecializedTrainingPoints(
+        age,
+        staminaIntensity,
+        bonus,
       );
-      expect(result.weeklyPoints).toBe(0);
-      expect(result.skillsGained).toEqual([]);
-      expect(result.totalPointsSpent).toBe(0);
+      const got = computeWeeklyTrainingPoints(
+        age,
+        staminaIntensity,
+        headCoachLevel,
+        [{ level: assignedCoachLevel, trainedSkill: 'pace' }],
+      );
+      expect(got).toBeCloseTo(expected, 5);
+    });
+  });
+
+  describe('getSkillTrainingSpeed', () => {
+    // Regression: the speed map used to carry GK keys with a `gk_`
+    // prefix (e.g. `gk_reflexes`), which never matched the runtime
+    // skill keys returned by `getPlayerSkillKeys(true)` so every GK
+    // training silently fell back to 1.0. The map now uses the
+    // un-prefixed keys shared with the outfield mental category, and
+    // this block pins the contract so a future rename can't re-introduce
+    // the prefix mismatch.
+    it('returns the designed speed for every GK-only skill', () => {
+      // The three GK-only skills must hit the dedicated multipliers
+      // (0.80/0.85/0.82) — NOT the 1.0 fallback.
+      expect(getSkillTrainingSpeed('reflexes')).toBeCloseTo(0.80, 5);
+      expect(getSkillTrainingSpeed('handling')).toBeCloseTo(0.85, 5);
+      expect(getSkillTrainingSpeed('aerial')).toBeCloseTo(0.82, 5);
     });
 
-    it('distributes the weekly bonus across every category skill', () => {
-      const cur = outfieldCurrent();
-      const result = applyYouthCoachCategoryTraining(
-        1,
-        16,
-        cur,
-        outfieldPotential(),
-        false,
-        0.2,
-        1.5,
-        1,
-        'physical',
-        ['pace', 'strength'],
-      );
-
-      expect(result.weeklyPoints).toBeGreaterThan(0);
-      // Both physical skills must move toward their potential
-      expect(cur.physical.pace).toBeGreaterThan(10);
-      expect(cur.physical.strength).toBeGreaterThan(10);
-      // And no leakage into other categories (narrow the union first).
-      expect((cur.technical as OutfieldTechnical).finishing).toBe(10);
-      expect(cur.mental.positioning).toBe(10);
+    it('returns the designed speed for every outfield skill', () => {
+      expect(getSkillTrainingSpeed('pace')).toBeCloseTo(0.88, 5);
+      expect(getSkillTrainingSpeed('strength')).toBeCloseTo(0.90, 5);
+      expect(getSkillTrainingSpeed('finishing')).toBeCloseTo(0.85, 5);
+      expect(getSkillTrainingSpeed('defending')).toBeCloseTo(0.90, 5);
+      expect(getSkillTrainingSpeed('dribbling')).toBeCloseTo(1.00, 5);
+      expect(getSkillTrainingSpeed('passing')).toBeCloseTo(1.10, 5);
+      // mental skills (shared between GK and outfield)
+      expect(getSkillTrainingSpeed('positioning')).toBeCloseTo(1.25, 5);
+      expect(getSkillTrainingSpeed('composure')).toBeCloseTo(1.30, 5);
     });
 
-    it('returns the same total spent as the per-skill sum (no double counting)', () => {
-      const cur = outfieldCurrent();
-      const result = applyYouthCoachCategoryTraining(
-        1,
-        16,
-        cur,
-        outfieldPotential(),
-        false,
-        0.2,
-        1.5,
-        1,
-        'physical',
-        ['pace', 'strength'],
-      );
-      // totalPointsSpent is rounded to 2dp at the wrapper level; the
-      // underlying per-skill spend should match within rounding.
-      const sum = result.skillsGained.reduce((acc) => acc, 0);
-      expect(result.totalPointsSpent).toBeGreaterThan(0);
-      expect(sum).toBeGreaterThanOrEqual(0);
+    it('boosts set-piece skills by 5x to make them trainable in a season', () => {
+      expect(getSkillTrainingSpeed('freeKicks')).toBe(5.0);
+      expect(getSkillTrainingSpeed('penalties')).toBe(5.0);
+    });
+
+    it('returns 1.0 for unknown skill keys (safe fallback)', () => {
+      expect(getSkillTrainingSpeed('unknown_skill')).toBe(1.0);
     });
   });
 });

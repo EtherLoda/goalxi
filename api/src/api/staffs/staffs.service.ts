@@ -5,7 +5,6 @@ import {
   resolveGameStart,
   getMaxPlayersForRole,
   getTrainingCategoryForRole,
-  isYouthCoachCategory,
   PlayerEntity,
   SKILL_CATEGORY_MAP,
   StaffEntity,
@@ -270,15 +269,12 @@ export class StaffsService {
     return this.staffRepo.save(staff);
   }
 
-  /** Update a coach's trained skill / youth-coach category.
+  /** Update a coach's trained skill.
    *
    * Senior coaches validate `trainedSkill` against the role's fixed
    * category's skill list (e.g. a FITNESS_COACH can pick any of
-   * `['pace', 'strength']`). The YOUTH_COACH role is the exception:
-   * the manager picks a *category* (physical / technical / mental /
-   * setPieces / goalkeeper) and that becomes the value stored in
-   * `trainedSkill`. The category is switchable freely — there is no
-   * per-skill choice for youth coaches. */
+   * `['pace', 'strength']`). The historical YOUTH_COACH role is no
+   * longer hireable, so the category-pick branch was removed. */
   async updateTrainedSkill(
     staffId: string,
     trainedSkill: string | null,
@@ -286,21 +282,12 @@ export class StaffsService {
     const staff = await this.findOne(staffId);
 
     if (trainedSkill) {
-      if (staff.role === StaffRole.YOUTH_COACH) {
-        // Youth coach: trainedSkill holds a CATEGORY, not a skill.
-        if (!isYouthCoachCategory(trainedSkill)) {
-          throw new BadRequestException(
-            `Invalid youth-coach category "${trainedSkill}". Valid categories: ${Object.keys(SKILL_CATEGORY_MAP).join(', ')}`,
-          );
-        }
-      } else {
-        const category = getTrainingCategoryForRole(staff.role);
-        const validSkills = SKILL_CATEGORY_MAP[category] || [];
-        if (!validSkills.includes(trainedSkill)) {
-          throw new BadRequestException(
-            `Invalid trained skill "${trainedSkill}" for role ${staff.role}. Valid skills: ${validSkills.join(', ')}`,
-          );
-        }
+      const category = getTrainingCategoryForRole(staff.role);
+      const validSkills = SKILL_CATEGORY_MAP[category] || [];
+      if (!validSkills.includes(trainedSkill)) {
+        throw new BadRequestException(
+          `Invalid trained skill "${trainedSkill}" for role ${staff.role}. Valid skills: ${validSkills.join(', ')}`,
+        );
       }
     }
 
@@ -310,14 +297,9 @@ export class StaffsService {
 
   /** Assign a player to a coach.
    *
-   * Senior coaches resolve the assignment's `trainingCategory` from
-   * their role (FUNCTIONAL_COACH → `physical`, etc.). Youth coaches
-   * resolve it from `staff.trainedSkill` (the manager's chosen
-   * category), with an additional invariant: every player a youth
-   * coach trains must belong to that category's age group, so an
-   * outfield youth cannot be assigned to a youth coach currently set
-   * to `goalkeeper` (the category-to-skill filter would produce an
-   * empty training target).
+   * Every coach role resolves the assignment's `trainingCategory`
+   * from their own `StaffRole` via `getTrainingCategoryForRole` —
+   * the YOUTH_COACH path is gone.
    */
   async assignPlayer(
     coachId: string,
@@ -362,30 +344,13 @@ export class StaffsService {
       throw new BadRequestException('Player already assigned to this coach');
     }
 
-    // Resolve the training category for this assignment. Youth coaches
-    // get it from their chosen `trainedSkill`; senior coaches get it
-    // from their role.
-    const trainingCategory =
-      coach.role === StaffRole.YOUTH_COACH
-        ? (coach.trainedSkill ?? null)
-        : getTrainingCategoryForRole(coach.role);
+    // Resolve the training category for this assignment. Every role
+    // owns a fixed category now (see `getTrainingCategoryForRole`).
+    const trainingCategory = getTrainingCategoryForRole(coach.role);
 
     if (!trainingCategory) {
       throw new BadRequestException(
-        coach.role === StaffRole.YOUTH_COACH
-          ? 'Youth coach has not picked a training category yet. Set it via PATCH /staffs/:id/trained-skill first.'
-          : `Coach role ${coach.role} has no resolvable training category`,
-      );
-    }
-
-    // Youth coach on `goalkeeper` category: only GK youths are valid.
-    if (
-      coach.role === StaffRole.YOUTH_COACH &&
-      trainingCategory === 'goalkeeper' &&
-      !player.isGoalkeeper
-    ) {
-      throw new BadRequestException(
-        'Youth coach is set to "goalkeeper" category — only goalkeeper youths can be assigned',
+        `Coach role ${coach.role} has no resolvable training category`,
       );
     }
 

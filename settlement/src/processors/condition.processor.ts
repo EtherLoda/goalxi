@@ -76,9 +76,15 @@ export class ConditionProcessor extends WorkerHost {
   private async processTeamCondition(teamId: string): Promise<{
     playersProcessed: number;
   }> {
-    // Skip bot teams - their players don't update form/condition
+    // Bot teams don't run the full form / minutes-accumulation loop
+    // (their players' form and stamina are deliberately frozen at the
+    // values seeded by `team-generator.service.ts`). They DO need a
+    // `matchMinutes = 0` reset each tick, otherwise the field grows
+    // without bound — `match-completion.service.ts` increments it on
+    // every match and nothing else decrements it for bot squads.
     const team = await this.teamRepo.findOne({ where: { id: teamId as Uuid } });
     if (team?.isBot) {
+      await this.resetMatchMinutesForBotTeam(teamId);
       return { playersProcessed: 0 };
     }
 
@@ -139,6 +145,26 @@ export class ConditionProcessor extends WorkerHost {
     });
 
     return { playersProcessed: players.length };
+  }
+
+  /**
+   * Reset `matchMinutes` to 0 for every non-youth player on a bot
+   * team. Bot squads still get `matchMinutes` incremented by
+   * `match-completion.service.ts` on each match they play; without
+   * this reset the field grows without bound across the season.
+   * Skips the form/stamina work because bot player state is meant
+   * to stay frozen at the seeded values.
+   */
+  private async resetMatchMinutesForBotTeam(teamId: string): Promise<void> {
+    const players = await this.playerRepo.find({
+      where: { teamId, isYouth: false },
+    });
+    const dirty = players.filter((p) => p.matchMinutes !== 0);
+    if (dirty.length === 0) return;
+    for (const p of dirty) p.matchMinutes = 0;
+    await this.dataSource.transaction(async (manager) => {
+      await manager.getRepository(PlayerEntity).save(dirty);
+    });
   }
 
   @OnWorkerEvent('completed')

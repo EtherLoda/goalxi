@@ -9,13 +9,12 @@ export enum StaffRole {
     SET_PIECE_COACH = 'set_piece_coach',
     GOALKEEPER_COACH = 'goalkeeper_coach',
     /**
-     * Youth coach — one per team. Unlike the senior roles above (which
-     * fix the training category by role), a youth coach picks a category
-     * at runtime (stored in `StaffEntity.trainedSkill`) and can switch
-     * it freely. The category controls which skill group all assigned
-     * youth players get accelerated growth in.
+     * NOTE: the historical `YOUTH_COACH` role was removed when the
+     * youth subsystem was paused. The corresponding enum value is
+     * dropped from the Postgres `staff_role_enum` by migration
+     * 1724000000000. Do not reintroduce the enum member without
+     * also restoring the downstream training + assignment code.
      */
-    YOUTH_COACH = 'youth_coach',
     TEAM_DOCTOR = 'team_doctor',
 }
 

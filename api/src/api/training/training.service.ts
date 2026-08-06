@@ -1,11 +1,11 @@
 import {
-  calculateAssignedCoachBonus,
-  calculateFitnessCoachBonus,
   calculatePlayerPWI,
-  calculateSpecializedTrainingPoints,
+  computeWeeklyTrainingPoints,
+  CoachAssignmentInput,
   CoachPlayerAssignmentEntity,
   PlayerEntity,
   StaffEntity,
+  StaffRole,
   TrainingUpdateEntity,
 } from '@goalxi/database';
 import { Injectable, Logger } from '@nestjs/common';
@@ -28,7 +28,12 @@ export class TrainingService {
   ) {}
 
   /**
-   * Calculate weekly training preview for all players on a team
+   * Calculate weekly training preview for all players on a team.
+   *
+   * The weekly-points math goes through `computeWeeklyTrainingPoints`
+   * — the SAME pure helper the settlement worker uses — so the number
+   * the manager sees on the training page can never disagree with the
+   * number actually applied to the player in the Thursday tick.
    */
   async getWeeklyTrainingPreview(
     teamId: string,
@@ -38,7 +43,10 @@ export class TrainingService {
       where: { teamId, isActive: true },
     });
 
-    const fitnessBonus = calculateFitnessCoachBonus(staffList);
+    // Head-coach level is read once per call. The shared helper takes
+    // it as a plain number so it stays pure.
+    const headCoachLevel =
+      staffList.find((s) => s.role === StaffRole.HEAD_COACH)?.level ?? 0;
 
     const assignments =
       staffList.length > 0
@@ -49,11 +57,16 @@ export class TrainingService {
           })
         : [];
 
-    const playerAssignmentMap = new Map<number, CoachPlayerAssignmentEntity>();
+    // A player can be assigned to up to one coach PER CATEGORY
+    // (physical/technical/mental/setPieces/goalkeeper). Keep the full
+    // list per player so the weekly-points total reflects every
+    // active coach's bonus. The single-Map fallback below matches
+    // the settlement worker's data shape.
+    const playerAssignments = new Map<number, CoachPlayerAssignmentEntity[]>();
     for (const assignment of assignments) {
-      if (!playerAssignmentMap.has(assignment.playerId)) {
-        playerAssignmentMap.set(assignment.playerId, assignment);
-      }
+      const list = playerAssignments.get(assignment.playerId) ?? [];
+      list.push(assignment);
+      playerAssignments.set(assignment.playerId, list);
     }
 
     const players = await this.playerRepo.find({
@@ -65,29 +78,35 @@ export class TrainingService {
     for (const player of players) {
       if (player.isYouth) continue;
 
-      const assignment = playerAssignmentMap.get(player.id);
-      let weeklyPoints = 0;
-      let assignedCoachId: string | undefined;
-      let assignedCoachName: string | undefined;
-
-      if (assignment) {
+      // Resolve every active coach assigned to this player in one
+      // pass, then hand the slim CoachAssignmentInput[] to the shared
+      // helper. Inactive / fired coaches are silently skipped — they
+      // show up in the assignment table but contribute nothing.
+      const myAssignments = playerAssignments.get(player.id) ?? [];
+      const coachInputs: CoachAssignmentInput[] = [];
+      let firstCoachId: string | undefined;
+      let firstCoachName: string | undefined;
+      for (const assignment of myAssignments) {
         const assignedCoach = staffList.find(
           (s) => s.id === assignment.coachId,
         );
-        if (assignedCoach) {
-          const coachBonus = calculateAssignedCoachBonus(
-            staffList,
-            assignedCoach.level,
-          );
-          weeklyPoints = calculateSpecializedTrainingPoints(
-            player.fractionalAge,
-            staminaIntensity,
-            coachBonus,
-          );
-          assignedCoachId = assignedCoach.id;
-          assignedCoachName = assignedCoach.name;
+        if (!assignedCoach) continue;
+        coachInputs.push({
+          level: assignedCoach.level,
+          trainedSkill: assignedCoach.trainedSkill,
+        });
+        if (!firstCoachId) {
+          firstCoachId = assignedCoach.id;
+          firstCoachName = assignedCoach.name;
         }
       }
+
+      const weeklyPoints = computeWeeklyTrainingPoints(
+        player.fractionalAge,
+        staminaIntensity,
+        headCoachLevel,
+        coachInputs,
+      );
 
       // Build skill breakdown
       const skillBreakdown = this.buildSkillBreakdown(player);
@@ -95,8 +114,8 @@ export class TrainingService {
       previews.push({
         playerId: player.id,
         playerName: player.name,
-        assignedCoachId,
-        assignedCoachName,
+        assignedCoachId: firstCoachId,
+        assignedCoachName: firstCoachName,
         age: player.age,
         stamina: Math.floor(player.stamina),
         condition: Math.floor(player.form),
