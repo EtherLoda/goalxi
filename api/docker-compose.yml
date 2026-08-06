@@ -8,6 +8,18 @@ services:
       dockerfile: Dockerfile
     env_file:
       - .env.docker
+    # `MODULES_SET` controls which slice of the API process boots
+    # — see README "Production deployment" and
+    # `api/src/utils/modules-set.ts`. The `monolith` default
+    # (controllers + cron + workers in one process) is fine for a
+    # single-replica dev deploy. For production:
+    #   * `MODULES_SET=api`         — public HTTP API only
+    #   * `MODULES_SET=background`  — cron + workers (no HTTP); run
+    #                                 alongside the `api` replica
+    # Two `monolith` replicas in production will race on cron and
+    # double-write rows, so never scale `monolith` horizontally.
+    environment:
+      MODULES_SET: ${MODULES_SET:-monolith}
     ports:
       - "3000:3000"
     volumes:

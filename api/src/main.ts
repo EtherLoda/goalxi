@@ -20,6 +20,16 @@ import { AuthGuard } from './guards/auth.guard';
 import setupSwagger from './utils/setup-swagger';
 
 async function bootstrap() {
+  // `MODULES_SET` controls which slice of the app boots — see
+  // `api/src/utils/modules-set.ts`. We echo it BEFORE Nest
+  // constructs the AppModule so a misconfigured deploy (defaulting
+  // to `monolith` when the operator meant `api`) is immediately
+  // visible in the logs, rather than discovered hours later as
+  // duplicated cron runs and double-writes.
+  const modulesSet = process.env.MODULES_SET || 'monolith';
+  // eslint-disable-next-line no-console
+  console.warn(`[Bootstrap] MODULES_SET=${modulesSet}`);
+
   const app = await NestFactory.create(AppModule, {
     bufferLogs: true,
   });
@@ -30,6 +40,7 @@ async function bootstrap() {
   // messages share one transport.
   const logger = app.get<PinoLoggerService>(LOGGER_SERVICE);
   app.useLogger(logger);
+  logger.warn(`[Bootstrap] MODULES_SET=${modulesSet}`);
 
   // Setup security headers
   app.use(helmet());
@@ -43,12 +54,6 @@ async function bootstrap() {
     infer: true,
   });
 
-  // app.enableCors({
-  //   origin: corsOrigin,
-  //   methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',
-  //   allowedHeaders: 'Content-Type, Accept',
-  //   credentials: true,
-  // });
   app.enableCors({
     origin: corsOrigin, // 确保这里的 corsOrigin 是一个数组（见下文）
     methods: 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS', // 建议加上 OPTIONS
@@ -96,5 +101,4 @@ async function bootstrap() {
 
   return app;
 }
-
 void bootstrap();

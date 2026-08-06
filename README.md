@@ -76,6 +76,51 @@ GoalXI is a modern, web-based football manager game where users can manage their
    pnpm start:dev
    ```
 
+### Production deployment (`MODULES_SET`)
+
+The API container can boot in three modes controlled by the
+`MODULES_SET` env var. **It defaults to `monolith`** for dev
+ergonomics — every cron, controller, and worker is mounted in a
+single process. For production you must split them so cron
+handlers don't run twice in parallel (which would double-write
+rows in `training_update`, `transaction`, etc.).
+
+| Mode         | HTTP API | Background cron / workers | Use it for                                   |
+| ------------ | :------: | :-----------------------: | -------------------------------------------- |
+| `monolith`   |    ✅    |             ✅             | local dev only — never ship to prod          |
+| `api`        |    ✅    |             ❌             | the public-facing API container              |
+| `background` |    ❌    |             ✅             | the API container's sidecar / worker process |
+
+> ⚠️ **Don't deploy `monolith` to production.** Two replicas
+> running `monolith` will race on the same cron schedule and
+> produce duplicate `match_simulation` jobs, double-applied
+> `weekly-settlement` ticks, etc. Either run a single
+> `monolith` replica (one-box deploys) or split into `api` +
+> `background`.
+
+The bootstrap log line is your canary — every API process prints
+`[Bootstrap] MODULES_SET=<value>` at startup. Mismatches between
+`docker-compose.yml` and `.env` surface immediately.
+
+Example production stack:
+
+```yaml
+# docker-compose.prod.yml
+services:
+  api:
+    image: goalxi-api
+    environment:
+      MODULES_SET: api          # HTTP only
+  api-worker:
+    image: goalxi-api
+    environment:
+      MODULES_SET: background  # cron + workers, no HTTP
+  simulator:
+    image: goalxi-simulator
+  settlement:
+    image: goalxi-settlement
+```
+
 ## 📖 Documentation
 
 - [Database Schema](api/docs/database-schema.md)

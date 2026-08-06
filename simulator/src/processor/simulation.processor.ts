@@ -7,6 +7,7 @@ import { Repository, DataSource, In, EntityManager } from 'typeorm';
 import {
   MatchEntity,
   MatchEventEntity,
+  MatchEventType,
   MatchTeamStatsEntity,
   MatchStatus,
   MatchTacticsEntity,
@@ -232,7 +233,7 @@ export class SimulationProcessor extends WorkerHost {
 
     // Create injury notifications for both teams
     const injuryEvents = await this.eventRepository.find({
-      where: { matchId: matchId, type: 15 as any }, // 15 = injury event type
+      where: { matchId: matchId, type: MatchEventType.INJURY },
     });
 
     if (injuryEvents.length > 0) {
@@ -1115,33 +1116,39 @@ export class SimulationProcessor extends WorkerHost {
   }
 
   private mapEventType(type: string): number {
-    const mapping: Record<string, number> = {
-      kickoff: 1,
-      goal: 2,
-      shot_on_target: 3,
-      save: 8,
-      miss: 4,
-      turnover: 5,
-      foul: 9,
-      yellow_card: 10,
-      red_card: 11,
-      substitution: 12,
-      half_time: 13,
-      second_half: 23,
-      full_time: 14,
-      injury: 15,
-      offside: 16,
-      corner: 17,
-      free_kick: 18,
-      penalty_goal: 19,
-      penalty_miss: 31,
-      snapshot: 21,
-      tactical_change: 27,
-      weather_announcement: 32,
-      player_introduction: 33,
-      forfeit: 20,
+    // Map the engine's string event types onto the database-side
+    // `MatchEventType` enum. The enum is the single source of truth
+    // — if you renumber a value, this function follows automatically
+    // and no caller needs to chase a magic number. Falls back to
+    // `NEUTRAL_EVENT` for unknown strings (defensive: a new event
+    // type added to the engine should not 5xx the whole match).
+    const mapping: Record<string, MatchEventType> = {
+      kickoff: MatchEventType.KICKOFF,
+      goal: MatchEventType.GOAL,
+      shot_on_target: MatchEventType.SHOT_ON_TARGET,
+      save: MatchEventType.SAVE,
+      miss: MatchEventType.SHOT_OFF_TARGET,
+      turnover: MatchEventType.PASS,
+      foul: MatchEventType.FOUL,
+      yellow_card: MatchEventType.YELLOW_CARD,
+      red_card: MatchEventType.RED_CARD,
+      substitution: MatchEventType.SUBSTITUTION,
+      half_time: MatchEventType.HALF_TIME,
+      second_half: MatchEventType.SECOND_HALF_START,
+      full_time: MatchEventType.FULL_TIME,
+      injury: MatchEventType.INJURY,
+      offside: MatchEventType.OFFSIDE,
+      corner: MatchEventType.CORNER,
+      free_kick: MatchEventType.FREE_KICK,
+      penalty_goal: MatchEventType.PENALTY,
+      penalty_miss: MatchEventType.PENALTY_MISS,
+      snapshot: MatchEventType.SNAPSHOT,
+      tactical_change: MatchEventType.NEUTRAL_EVENT,
+      weather_announcement: MatchEventType.WEATHER_ANNOUNCEMENT,
+      player_introduction: MatchEventType.PLAYER_INTRODUCTION,
+      forfeit: MatchEventType.FORFEIT,
     };
-    return mapping[type] ?? 27;
+    return mapping[type] ?? MatchEventType.NEUTRAL_EVENT;
   }
 
   /** Minimum number of players required in a team's lineup for a match
