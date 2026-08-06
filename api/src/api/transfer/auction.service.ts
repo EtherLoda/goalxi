@@ -112,8 +112,15 @@ export class AuctionService implements OnModuleInit {
    * legitimately-pending settlement. Now we synchronously create a
    * PENDING transaction first, so the enqueued job has a real id and
    * the worker can pick it up normally.
+   *
+   * Runs every 5 minutes via @Cron so a long-running server doesn't
+   * need a restart to clear half-recovered state. The
+   * `OnModuleInit` hook also calls this once at boot for an
+   * immediate-recovery pass (so the first cron tick doesn't have
+   * to wait 5 minutes for a fresh deploy).
    */
-  private async recoverStuckSettlingAuctions(): Promise<void> {
+  @Cron('0 */5 * * * *') // Every 5 minutes
+  async recoverStuckSettlingAuctions(): Promise<void> {
     const settlingAuctions = await this.auctionRepo.find({
       where: { status: AuctionStatus.SETTLING },
     });
@@ -951,15 +958,20 @@ export class AuctionService implements OnModuleInit {
             });
           }
 
-          // Cleanup Redis data for this auction
-          await this.auctionRedisRepo.cleanupAuction(auction.id);
-
-          // Cleanup team bid sets
-          if (redisState?.bidHistory) {
-            for (const bid of redisState.bidHistory) {
-              await this.auctionRedisRepo.removeTeamBid(auction.id, bid.teamId);
-            }
-          }
+          // Cleanup Redis data for this auction — and the per-team
+          // bid sets — in a single pipeline. The previous two-pass
+          // cleanup (cleanupAuction + per-team removeTeamBid loop)
+          // could leave team:{id}:bids containing a stale
+          // auctionId if the first pass succeeded and the loop
+          // was interrupted. Pipeline them so a partial failure
+          // either lands both or rolls both back at the
+          // connection level.
+          const teamIds =
+            redisState?.bidHistory?.map((bid) => bid.teamId) ?? [];
+          await this.auctionRedisRepo.cleanupAuctionWithBids(
+            auction.id,
+            teamIds,
+          );
         } finally {
           await this.auctionRedisRepo.releaseSettlementLock(auction.id);
         }

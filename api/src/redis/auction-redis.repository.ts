@@ -228,6 +228,37 @@ export class AuctionRedisRepository implements OnModuleDestroy {
   }
 
   /**
+   * Pipeline-cleanup: drop the auction's per-auction keys AND
+   * remove the auction id from every team's bid set in a single
+   * round-trip. Replaces the previous pattern where
+   * `cleanupAuction` was called and then a `for (const bid of
+   * bidHistory)` loop did one `SREM` per team — a partial
+   * failure between the two passes left
+   * `team:{teamId}:bids` containing a stale auction id and
+   * showed the (now-ended) auction in `findMyBids` until TTL.
+   */
+  async cleanupAuctionWithBids(
+    auctionId: string,
+    teamIds: string[],
+  ): Promise<void> {
+    const pipeline = this.redis.pipeline();
+    pipeline.del(
+      this.buildKey(auctionId, 'bids'),
+      this.buildKey(auctionId, 'currentBid'),
+      this.buildKey(auctionId, 'bidder'),
+      this.buildKey(auctionId, 'lockAmount'),
+      this.buildKey(auctionId, 'expiresAt'),
+    );
+    for (const teamId of teamIds) {
+      pipeline.srem(`team:${teamId}:bids`, auctionId);
+    }
+    await pipeline.exec();
+    this.logger.debug(
+      `Cleaned up auction ${auctionId} + ${teamIds.length} team bid set(s) in one pipeline`,
+    );
+  }
+
+  /**
    * Acquire a distributed lock for auction settlement
    */
   async acquireSettlementLock(
