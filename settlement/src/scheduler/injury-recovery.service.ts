@@ -2,7 +2,7 @@ import { Injectable, Logger, Inject } from '@nestjs/common';
 import { LOGGER_SERVICE, PinoLoggerService } from '@goalxi/logger';
 import { Cron } from '@nestjs/schedule';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, MoreThanOrEqual, IsNull } from 'typeorm';
+import { Repository, MoreThanOrEqual, IsNull, In } from 'typeorm';
 import {
   PlayerEntity,
   InjuryEntity,
@@ -36,6 +36,15 @@ export class InjuryRecoveryService {
 
   // ===== SCHEDULER: Daily Injury Recovery =====
   // Run at 2 AM every day
+  //
+  // Query budget (independent of N injured / M recovered):
+  //   1. injured players + their team  (was: 1 + N + N)
+  //   2. active team doctors in those teams  (was: N)
+  //   3. active injuries for recovered players  (was: M)
+  //   4. recovered players + their team  (was: M)
+  // Previously each injured player triggered 2 extra queries
+  // (team, then doctor); each recovered player triggered 2 more
+  // (active injury, then player+team for notification).
   @Cron('0 0 2 * * *')
   async processDailyInjuryRecovery() {
     const now = new Date();
@@ -43,13 +52,44 @@ export class InjuryRecoveryService {
       `[InjuryRecovery] Running daily injury recovery at ${now.toISOString()}`,
     );
 
+    // 1. Pull injured players with their team in a single query.
+    // We need `team` to decide bot-skip and to know the userId
+    // for notifications later.
     const injuredPlayers = await this.playerRepository.find({
       where: { currentInjuryValue: MoreThanOrEqual(1) },
+      relations: ['team'],
     });
 
     this.logger.info(
       `[InjuryRecovery] Found ${injuredPlayers.length} player(s) with active injuries`,
     );
+
+    if (injuredPlayers.length === 0) {
+      return;
+    }
+
+    // 2. Collect non-bot team ids so we can pull their doctors
+    // in one query instead of N.
+    const activeTeamIds = new Set<Uuid>();
+    for (const p of injuredPlayers) {
+      if (p.teamId && p.team && !p.team.isBot) {
+        activeTeamIds.add(p.teamId as Uuid);
+      }
+    }
+
+    let doctorByTeam = new Map<Uuid, StaffEntity>();
+    if (activeTeamIds.size > 0) {
+      const doctors = await this.staffRepository.find({
+        where: {
+          teamId: In(Array.from(activeTeamIds)),
+          role: StaffRole.TEAM_DOCTOR,
+          isActive: true,
+        },
+      });
+      for (const d of doctors) {
+        doctorByTeam.set(d.teamId as Uuid, d);
+      }
+    }
 
     const playersToSave: PlayerEntity[] = [];
     const injuriesToRecover: {
@@ -61,14 +101,13 @@ export class InjuryRecoveryService {
     for (const player of injuredPlayers) {
       // Skip players without a team (free agents) and bot-team players —
       // their injuries don't recover automatically.
-      if (!player.teamId) continue;
-      const team = await this.teamRepository.findOne({
-        where: { id: player.teamId as Uuid },
-      });
-      if (team?.isBot) {
-        this.logger.debug(
-          `[InjuryRecovery] Skipping bot player: ${player.name}`,
-        );
+      const team = player.team;
+      if (!team || team.isBot) {
+        if (team?.isBot) {
+          this.logger.debug(
+            `[InjuryRecovery] Skipping bot player: ${player.name}`,
+          );
+        }
         continue;
       }
 
@@ -79,21 +118,12 @@ export class InjuryRecoveryService {
         const [years, days] = player.getExactAge();
         const playerAge = years + days / DAYS_PER_SEASON;
 
-        let doctorLevel = 0;
-        if (player.teamId) {
-          const teamDoctor = await this.staffRepository.findOne({
-            where: {
-              teamId: player.teamId,
-              role: StaffRole.TEAM_DOCTOR,
-              isActive: true,
-            },
-          });
-          if (teamDoctor) {
-            doctorLevel = teamDoctor.level;
-          }
-        }
+        // O(1) lookup from the pre-loaded map. Defaults to 0
+        // (no active doctor) — same fallback as the old code.
+        const teamDoctor = doctorByTeam.get(team.id);
+        const doctorLevel = teamDoctor?.level ?? 0;
 
-        // Deterministic daily recovery �?shared formula (no random fluctuation).
+        // Deterministic daily recovery — shared formula (no random fluctuation).
         const dailyRecovery = calculateDailyRecovery(playerAge, doctorLevel);
 
         const oldValue = player.currentInjuryValue;
@@ -136,7 +166,8 @@ export class InjuryRecoveryService {
       }
     }
 
-    // Batch save all players with updated injury values
+    // 3. Batch-save all dirty players in one shot (replaces N
+    // single-row saves).
     if (playersToSave.length > 0) {
       await this.playerRepository.save(playersToSave);
       this.logger.debug(
@@ -144,38 +175,64 @@ export class InjuryRecoveryService {
       );
     }
 
-    // Process recovered injuries
+    if (injuriesToRecover.length === 0) {
+      this.logger.info(
+        `[InjuryRecovery] Completed. 0 player(s) fully recovered today.`,
+      );
+      return;
+    }
+
+    // 4. Pull all active injuries for the recovered players in
+    // one query (was: one per recovered player).
+    const recoveredPlayerIds = injuriesToRecover.map((r) => r.playerId);
+    const activeInjuries = await this.injuryRepository.find({
+      where: {
+        playerId: In(recoveredPlayerIds),
+        recoveredAt: IsNull(),
+      },
+      order: { occurredAt: 'DESC' },
+    });
+    // Group by playerId; the most recent (DESC order) is the
+    // "active" injury we want to stamp recoveredAt on.
+    const activeInjuryByPlayer = new Map<number, InjuryEntity>();
+    for (const inj of activeInjuries) {
+      if (!activeInjuryByPlayer.has(inj.playerId)) {
+        activeInjuryByPlayer.set(inj.playerId, inj);
+      }
+    }
+    for (const inj of activeInjuries) {
+      inj.recoveredAt = now;
+    }
+    if (activeInjuries.length > 0) {
+      await this.injuryRepository.save(activeInjuries);
+    }
+
+    // 5. Pull the recovered players again, this time with their
+    // team inlined, so notifications can use the userId without
+    // a per-player findOne.
+    const recoveredPlayers = await this.playerRepository.find({
+      where: { id: In(recoveredPlayerIds) },
+      relations: ['team'],
+    });
+    const recoveredPlayerById = new Map<number, PlayerEntity>();
+    for (const p of recoveredPlayers) {
+      recoveredPlayerById.set(p.id, p);
+    }
+
     let recoveredCount = 0;
     for (const { playerId, playerName, oldValue } of injuriesToRecover) {
-      const activeInjury = await this.injuryRepository.findOne({
-        // Recovery is derived from `recoveredAt` — an active injury is
-        // one with no recovery timestamp. The `is_recovered` boolean
-        // was removed in 1726000000000-DropInjuryRedundantColumns.
-        where: { playerId, recoveredAt: IsNull() },
-        order: { occurredAt: 'DESC' },
-      });
-
-      if (activeInjury) {
-        activeInjury.recoveredAt = new Date();
-        await this.injuryRepository.save(activeInjury);
-      }
-
-      // Clear injury fields on the player
-      const player = playersToSave.find((p) => p.id === playerId);
+      const player = recoveredPlayerById.get(playerId);
       if (player) {
         player.injuryType = null;
         player.injuryState = null;
         player.injuredAt = null;
       }
 
-      // Send recovery notification
-      const playerWithTeam = await this.playerRepository.findOne({
-        where: { id: playerId },
-        relations: ['team'],
-      });
-      if (playerWithTeam?.team?.userId) {
+      const activeInjury = activeInjuryByPlayer.get(playerId);
+
+      if (player?.team?.userId) {
         await this.notificationService.create(
-          playerWithTeam.team.userId,
+          player.team.userId,
           NotificationType.PLAYER_RECOVERED,
           'notification.playerRecovered',
           {
@@ -192,10 +249,7 @@ export class InjuryRecoveryService {
       );
     }
 
-    // Save players with cleared injury fields
-    const recoveredPlayers = playersToSave.filter((p) =>
-      injuriesToRecover.some((r) => r.playerId === p.id),
-    );
+    // 6. Save the cleared fields in a single batched UPDATE.
     if (recoveredPlayers.length > 0) {
       await this.playerRepository.save(recoveredPlayers);
     }

@@ -1,8 +1,8 @@
 import { Processor, WorkerHost, OnWorkerEvent } from '@nestjs/bullmq';
 import { Injectable, Logger, Inject } from '@nestjs/common';
 import { LOGGER_SERVICE, PinoLoggerService } from '@goalxi/logger';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { InjectRepository, InjectDataSource } from '@nestjs/typeorm';
+import { DataSource, Repository } from 'typeorm';
 import { Job } from 'bullmq';
 import {
   PlayerEntity,
@@ -29,6 +29,7 @@ export class ConditionProcessor extends WorkerHost {
     private teamRepo: Repository<TeamEntity>,
     @InjectRepository(FanEntity)
     private fanRepo: Repository<FanEntity>,
+    @InjectDataSource() private readonly dataSource: DataSource,
   ) {
     super();
   }
@@ -81,23 +82,28 @@ export class ConditionProcessor extends WorkerHost {
       return { playersProcessed: 0 };
     }
 
-    // Get head coach for the team
+    // Read-only context (head coach, fan, players) stays on the
+    // injected non-tx repos so the transaction window is just the
+    // batched player write. Same per-team isolation rationale as
+    // TrainingProcessor: a bad row on team A must not roll back
+    // team B's already-computed work.
     const headCoach = await this.staffRepo.findOne({
       where: { teamId, role: StaffRole.HEAD_COACH, isActive: true },
     });
     const headCoachLevel = headCoach?.level ?? 3;
 
-    // Get fan emotion for the team
     const fan = await this.fanRepo.findOne({ where: { teamId } });
     const fanEmotion = fan?.fanEmotion ?? 50;
 
-    // Get all players for the team (excluding youth)
     const players = await this.playerRepo.find({
       where: { teamId, isYouth: false },
     });
 
-    let playersProcessed = 0;
+    if (players.length === 0) {
+      return { playersProcessed: 0 };
+    }
 
+    const dirtyPlayers: PlayerEntity[] = [];
     for (const player of players) {
       // Use accumulated match minutes since last condition update
       const minutesPlayed = player.matchMinutes;
@@ -118,16 +124,21 @@ export class ConditionProcessor extends WorkerHost {
       player.form = newForm;
       // Reset match minutes after condition update
       player.matchMinutes = 0;
-      await this.playerRepo.save(player);
+
+      dirtyPlayers.push(player);
 
       this.logger.debug(
         `[ConditionProcessor] Player ${player.name}: form=${newForm.toFixed(2)}, minutes=${minutesPlayed}`,
       );
-
-      playersProcessed++;
     }
 
-    return { playersProcessed };
+    await this.dataSource.transaction(async (manager) => {
+      const txPlayerRepo = manager.getRepository(PlayerEntity);
+      // Single batched UPDATE instead of one save per player.
+      await txPlayerRepo.save(dirtyPlayers);
+    });
+
+    return { playersProcessed: players.length };
   }
 
   @OnWorkerEvent('completed')

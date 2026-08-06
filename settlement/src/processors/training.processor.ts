@@ -1,8 +1,8 @@
 import { Processor, WorkerHost, OnWorkerEvent } from '@nestjs/bullmq';
 import { Injectable, Logger, Inject } from '@nestjs/common';
 import { LOGGER_SERVICE, PinoLoggerService } from '@goalxi/logger';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { InjectRepository, InjectDataSource } from '@nestjs/typeorm';
+import { DataSource, Repository } from 'typeorm';
 import { Job } from 'bullmq';
 import {
   PlayerEntity,
@@ -56,6 +56,7 @@ export class TrainingProcessor extends WorkerHost {
     @InjectRepository(TrainingUpdateEntity)
     private trainingUpdateRepo: Repository<TrainingUpdateEntity>,
     private readonly notificationService: NotificationService,
+    @InjectDataSource() private readonly dataSource: DataSource,
   ) {
     super();
     this.gameStart = resolveGameStart(process.env.GAME_START_DATE);
@@ -118,7 +119,11 @@ export class TrainingProcessor extends WorkerHost {
       return { playersProcessed: 0, playersTrained: 0 };
     }
 
-    // Get all active staff for bonus calculation
+    // Per-team transaction: a bad row on team A must not roll
+    // back team B's already-computed work, and committing each
+    // team in one shot keeps the read snapshot tight. Read-only
+    // queries still go through the injected (non-tx) repos to
+    // avoid holding row locks while we walk N players.
     const staffList = await this.staffRepo.find({
       where: { teamId: team.id, isActive: true },
     });
@@ -188,6 +193,7 @@ export class TrainingProcessor extends WorkerHost {
 
     let playersTrained = 0;
     const { season, week } = this.getCurrentSeasonWeek();
+    const dirtyPlayers: PlayerEntity[] = [];
 
     for (const player of players) {
       // Skip youth players
@@ -237,12 +243,12 @@ export class TrainingProcessor extends WorkerHost {
         }
       }
 
-      // === SAVE RESULTS ===
+      // === COLLECT DIRTY PLAYERS (batched save below) ===
       const weeklyPoints = trainingResult?.weeklyPoints ?? 0;
       const hasTraining = weeklyPoints > 0 || netStaminaChange !== 0;
 
       if (hasTraining) {
-        await this.playerRepo.save(player);
+        dirtyPlayers.push(player);
         playersTrained++;
 
         this.logger.debug(
@@ -365,30 +371,42 @@ export class TrainingProcessor extends WorkerHost {
       }
     }
 
-    // Create or update TrainingUpdateEntity if there are changes
-    if (playerUpdates.length > 0 && team.userId) {
-      const existing = await this.trainingUpdateRepo.findOne({
-        where: { teamId: team.id, season, week },
-      });
-      if (existing) {
-        existing.playerUpdates = playerUpdates;
-        await this.trainingUpdateRepo.save(existing);
-        this.logger.debug(
-          `[TrainingProcessor] Updated training update for team ${team.id} S${season}W${week}: ${playerUpdates.length} players with changes`,
-        );
-      } else {
-        const trainingUpdate = this.trainingUpdateRepo.create({
-          teamId: team.id,
-          season,
-          week,
-          playerUpdates,
-        });
-        await this.trainingUpdateRepo.save(trainingUpdate);
-        this.logger.debug(
-          `[TrainingProcessor] Created training update for team ${team.id} S${season}W${week}: ${playerUpdates.length} players with changes`,
-        );
+    // Commit everything for this team in one transaction. Read
+    // queries above already used the non-tx repos so the tx
+    // window is just the writes.
+    await this.dataSource.transaction(async (manager) => {
+      const txPlayerRepo = manager.getRepository(PlayerEntity);
+      const txTrainingUpdateRepo = manager.getRepository(TrainingUpdateEntity);
+
+      if (dirtyPlayers.length > 0) {
+        // Single batched UPDATE/INSERT instead of one per player.
+        await txPlayerRepo.save(dirtyPlayers);
       }
-    }
+
+      if (playerUpdates.length > 0 && team.userId) {
+        const existing = await txTrainingUpdateRepo.findOne({
+          where: { teamId: team.id, season, week },
+        });
+        if (existing) {
+          existing.playerUpdates = playerUpdates;
+          await txTrainingUpdateRepo.save(existing);
+          this.logger.debug(
+            `[TrainingProcessor] Updated training update for team ${team.id} S${season}W${week}: ${playerUpdates.length} players with changes`,
+          );
+        } else {
+          const trainingUpdate = txTrainingUpdateRepo.create({
+            teamId: team.id,
+            season,
+            week,
+            playerUpdates,
+          });
+          await txTrainingUpdateRepo.save(trainingUpdate);
+          this.logger.debug(
+            `[TrainingProcessor] Created training update for team ${team.id} S${season}W${week}: ${playerUpdates.length} players with changes`,
+          );
+        }
+      }
+    });
 
     return {
       playersProcessed: players.length,
