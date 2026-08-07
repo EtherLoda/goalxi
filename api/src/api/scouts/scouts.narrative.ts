@@ -1,5 +1,4 @@
-import { ScoutCandidatePlayerData } from '@goalxi/database';
-import { currentGameDay } from '@goalxi/database';
+import { currentGameDay, ScoutCandidatePlayerData } from '@goalxi/database';
 
 /**
  * NarrativeSection — structured, frontend-rendered description of a
@@ -85,7 +84,10 @@ const SKILL_MODE_POTENTIAL_GAP = 4;
  *   gap >= threshold → "potential" (room to grow, sell the upside)
  *   gap <  threshold → "current"  (already near ceiling, sell the now)
  */
-function pickSkillMode(current: number, potential: number): 'current' | 'potential' {
+function pickSkillMode(
+  current: number,
+  potential: number,
+): 'current' | 'potential' {
   return potential - current >= SKILL_MODE_POTENTIAL_GAP
     ? 'potential'
     : 'current';
@@ -240,7 +242,11 @@ function buildCeilingData(playerData: ScoutCandidatePlayerData): {
 function extractSkill(skills: unknown, key: string): number {
   if (!skills || typeof skills !== 'object') return 0;
   for (const cat of Object.values(skills as Record<string, unknown>)) {
-    if (cat && typeof cat === 'object' && key in (cat as Record<string, unknown>)) {
+    if (
+      cat &&
+      typeof cat === 'object' &&
+      key in (cat as Record<string, unknown>)
+    ) {
       const v = (cat as Record<string, unknown>)[key];
       if (typeof v === 'number') return v;
     }
@@ -266,8 +272,10 @@ function deriveTendency(skills: unknown): TendencyKey {
   const techEntries = s.technical ? Object.values(s.technical) : [];
   const tech =
     techEntries.length > 0
-      ? techEntries.reduce((sum, v) => sum + (typeof v === 'number' ? v : 0), 0) /
-        techEntries.length
+      ? techEntries.reduce(
+          (sum, v) => sum + (typeof v === 'number' ? v : 0),
+          0,
+        ) / techEntries.length
       : 0;
   const ment = ((s.mental?.positioning ?? 0) + (s.mental?.composure ?? 0)) / 2;
 

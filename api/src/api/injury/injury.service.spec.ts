@@ -5,10 +5,12 @@ import {
   PlayerEntity,
   StaffEntity,
   StaffRole,
+  TeamEntity,
 } from '@goalxi/database';
+import { ForbiddenException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
-import { getDataSourceToken, getRepositoryToken } from '@nestjs/typeorm';
-import { DataSource, IsNull, Repository } from 'typeorm';
+import { getRepositoryToken } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
 import { InjuryService } from './injury.service';
 
 describe('InjuryService', () => {
@@ -17,6 +19,7 @@ describe('InjuryService', () => {
   let injuryRepo: jest.Mocked<Repository<InjuryEntity>>;
   let staffRepo: jest.Mocked<Repository<StaffEntity>>;
   let matchRepo: jest.Mocked<Repository<MatchEntity>>;
+  let teamRepo: jest.Mocked<Repository<TeamEntity>>;
 
   // PlayerEntity.getExactAge() is consumed by getTeamInjuredPlayers — stub it.
   const makePlayer = (overrides: Partial<PlayerEntity> = {}): PlayerEntity => {
@@ -45,40 +48,24 @@ describe('InjuryService', () => {
     // recoveredAt omitted on purpose — an "active" injury has no recovery.
   };
 
-  /**
-   * Build a repository stub with every method the service touches.
-   * Used both for the non-tx and tx-scoped handles.
-   */
-  const makeRepoStub = () => ({
-    find: jest.fn(),
-    findOneBy: jest.fn(),
-    findOne: jest.fn(),
-    count: jest.fn(),
-    save: jest.fn(),
-    update: jest.fn(),
-    create: jest.fn(),
-    createQueryBuilder: jest.fn(),
-  });
-
   beforeEach(async () => {
-    const playerRepoMock = makeRepoStub();
-    const injuryRepoMock = makeRepoStub();
-
-    // Mocked DataSource: every call to .transaction() invokes the callback
-    // with a tx-scoped EntityManager that hands out the same mock repos
-    // the service also uses outside transactions. Lets the assertions
-    // below hit a single mock instance for each entity.
-    const dataSourceMock = {
-      transaction: jest.fn(async (cb: any) =>
-        cb({
-          getRepository: (entity: any) => {
-            if (entity === PlayerEntity) return playerRepoMock;
-            if (entity === InjuryEntity) return injuryRepoMock;
-            throw new Error(`Unexpected entity in tx: ${entity?.name}`);
-          },
-        }),
-      ),
-    };
+    const playerRepoMock = {
+      find: jest.fn(),
+      findOne: jest.fn(),
+    } as unknown as jest.Mocked<Repository<PlayerEntity>>;
+    const injuryRepoMock = {
+      find: jest.fn(),
+      createQueryBuilder: jest.fn(),
+    } as unknown as jest.Mocked<Repository<InjuryEntity>>;
+    const staffRepoMock = {
+      findOne: jest.fn(),
+    } as unknown as jest.Mocked<Repository<StaffEntity>>;
+    const matchRepoMock = {
+      find: jest.fn(),
+    } as unknown as jest.Mocked<Repository<MatchEntity>>;
+    const teamRepoMock = {
+      findOne: jest.fn(),
+    } as unknown as jest.Mocked<Repository<TeamEntity>>;
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -93,19 +80,15 @@ describe('InjuryService', () => {
         },
         {
           provide: getRepositoryToken(StaffEntity),
-          useValue: {
-            findOne: jest.fn(),
-          },
+          useValue: staffRepoMock,
         },
         {
           provide: getRepositoryToken(MatchEntity),
-          useValue: {
-            find: jest.fn(),
-          },
+          useValue: matchRepoMock,
         },
         {
-          provide: getDataSourceToken(),
-          useValue: dataSourceMock,
+          provide: getRepositoryToken(TeamEntity),
+          useValue: teamRepoMock,
         },
       ],
     }).compile();
@@ -115,6 +98,7 @@ describe('InjuryService', () => {
     injuryRepo = module.get(getRepositoryToken(InjuryEntity));
     staffRepo = module.get(getRepositoryToken(StaffEntity));
     matchRepo = module.get(getRepositoryToken(MatchEntity));
+    teamRepo = module.get(getRepositoryToken(TeamEntity));
   });
 
   afterEach(() => {
@@ -311,152 +295,92 @@ describe('InjuryService', () => {
     });
   });
 
-  describe('getPlayersPendingRecovery', () => {
-    it('should return all players with active injuries', async () => {
-      playerRepo.find.mockResolvedValue([makePlayer()]);
+  describe('assertUserOwnsTeam (P1-#4)', () => {
+    it('passes when the user owns the team', async () => {
+      teamRepo.findOne.mockResolvedValue({ id: 'team-uuid-1' } as TeamEntity);
 
-      const result = await service.getPlayersPendingRecovery();
+      await expect(
+        service.assertUserOwnsTeam('user-1' as Uuid, 'team-uuid-1' as Uuid),
+      ).resolves.toBeUndefined();
 
-      expect(playerRepo.find).toHaveBeenCalledWith({
-        where: { currentInjuryValue: expect.any(Object) },
-      });
-      expect(result).toHaveLength(1);
-    });
-  });
-
-  describe('updatePlayerInjury', () => {
-    it('should reduce injury value by recovery amount', async () => {
-      playerRepo.findOneBy.mockResolvedValue(
-        makePlayer({ currentInjuryValue: 50 }),
-      );
-      playerRepo.save.mockImplementation(async (p) => p as PlayerEntity);
-
-      const result = await service.updatePlayerInjury(1, 10);
-
-      expect(result).toBeDefined();
-      expect(result!.currentInjuryValue).toBe(40);
-    });
-
-    it('should return null if player not found', async () => {
-      playerRepo.findOneBy.mockResolvedValue(null);
-
-      const result = await service.updatePlayerInjury(999, 10);
-
-      expect(result).toBeNull();
-    });
-
-    it('should return null if player has no injury', async () => {
-      playerRepo.findOneBy.mockResolvedValue(
-        makePlayer({ currentInjuryValue: 0 }),
-      );
-
-      const result = await service.updatePlayerInjury(1, 10);
-
-      expect(result).toBeNull();
-    });
-
-    it('should clear injury fields and stamp recoveredAt when fully recovered', async () => {
-      playerRepo.findOneBy.mockResolvedValue(
-        makePlayer({ currentInjuryValue: 5 }),
-      );
-      playerRepo.save.mockImplementation(async (p) => p as PlayerEntity);
-      injuryRepo.findOne.mockResolvedValue(mockInjury as InjuryEntity);
-      injuryRepo.save.mockImplementation(
-        async (i) => i as InjuryEntity,
-      );
-
-      const result = await service.updatePlayerInjury(1, 10);
-
-      expect(result!.currentInjuryValue).toBe(0);
-      expect(result!.injuryType).toBeNull();
-      expect(result!.injuredAt).toBeNull();
-
-      // Recovery is derived: the service must set recoveredAt, and
-      // findOne must look for rows with recoveredAt IS NULL.
-      expect(injuryRepo.findOne).toHaveBeenCalledWith(
+      expect(teamRepo.findOne).toHaveBeenCalledWith(
         expect.objectContaining({
           where: expect.objectContaining({
-            playerId: 1,
-            recoveredAt: expect.anything(), // IsNull() — exact value is an internal TypeORM marker
+            id: 'team-uuid-1',
+            userId: 'user-1',
           }),
         }),
       );
-      const savedInjury = (injuryRepo.save as jest.Mock).mock.calls[0][0];
-      expect(savedInjury.recoveredAt).toBeInstanceOf(Date);
+    });
+
+    it('throws ForbiddenException when the team does not exist for the user', async () => {
+      teamRepo.findOne.mockResolvedValue(null);
+
+      await expect(
+        service.assertUserOwnsTeam('user-1' as Uuid, 'team-uuid-1' as Uuid),
+      ).rejects.toThrow(ForbiddenException);
     });
   });
 
-  describe('applyInjury', () => {
-    it('should create injury record with single estimatedDays and update player', async () => {
-      playerRepo.update.mockResolvedValue({ affected: 1 } as any);
-      injuryRepo.create.mockImplementation((data) => data as InjuryEntity);
-      injuryRepo.save.mockImplementation(async (i) => i as InjuryEntity);
+  describe('assertUserOwnsPlayer (P1-#4)', () => {
+    it('passes when the player is on a team owned by the user', async () => {
+      playerRepo.findOne.mockResolvedValue({
+        id: 1,
+        teamId: 'team-uuid-1',
+      } as PlayerEntity);
+      teamRepo.findOne.mockResolvedValue({ id: 'team-uuid-1' } as TeamEntity);
 
-      const result = await service.applyInjury(
-        1,
-        'muscle',
-        2,
-        50,
-        7,
-        'match-uuid-1',
+      await expect(
+        service.assertUserOwnsPlayer('user-1' as Uuid, 1),
+      ).resolves.toBeUndefined();
+
+      expect(playerRepo.findOne).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { id: 1 } }),
       );
-
-      expect(playerRepo.update).toHaveBeenCalledWith(
-        { id: 1 },
+      expect(teamRepo.findOne).toHaveBeenCalledWith(
         expect.objectContaining({
-          currentInjuryValue: 50,
-          injuryType: 'muscle',
+          where: expect.objectContaining({
+            id: 'team-uuid-1',
+            userId: 'user-1',
+          }),
         }),
       );
-      // Single deterministic estimate — the redundant `estimatedMinDays`
-      // column was dropped. The new injury record must carry the value on
-      // `estimatedMaxDays` only.
-      expect(result.estimatedMaxDays).toBe(7);
-      expect((result as any).estimatedMinDays).toBeUndefined();
-      expect(result.matchId).toBe('match-uuid-1');
     });
 
-    it('should run player + injury writes inside a single transaction', async () => {
-      playerRepo.update.mockResolvedValue({ affected: 1 } as any);
-      injuryRepo.create.mockImplementation((data) => data as InjuryEntity);
-      injuryRepo.save.mockImplementation(async (i) => i as InjuryEntity);
+    it('throws ForbiddenException when the player is not found', async () => {
+      playerRepo.findOne.mockResolvedValue(null);
 
-      await service.applyInjury(1, 'muscle', 2, 50, 7);
-
-      // Both writes must go through the same tx-scoped manager. We don't
-      // poke into the manager internals — the fact that update() and
-      // save() were called inside one .transaction() callback is what we
-      // care about; both mock instances are the ones the mock manager
-      // hands out, so any leak would surface as a missing call here.
-      expect(playerRepo.update).toHaveBeenCalledTimes(1);
-      expect(injuryRepo.save).toHaveBeenCalledTimes(1);
-    });
-  });
-
-  describe('getInjuredCountByTeamIds', () => {
-    it('should return injury count for each team', async () => {
-      playerRepo.count.mockResolvedValue(3);
-
-      const result = await service.getInjuredCountByTeamIds([
-        'team-1',
-        'team-2',
-      ]);
-
-      expect(result['team-1']).toBe(3);
-      expect(result['team-2']).toBe(3);
+      await expect(
+        service.assertUserOwnsPlayer('user-1' as Uuid, 1),
+      ).rejects.toThrow(ForbiddenException);
+      // Don't even hit the team lookup — saves a query on the
+      // rejection path.
+      expect(teamRepo.findOne).not.toHaveBeenCalled();
     });
 
-    it('should handle empty team list', async () => {
-      const result = await service.getInjuredCountByTeamIds([]);
-      expect(result).toEqual({});
+    it('throws ForbiddenException when the player is a free agent', async () => {
+      playerRepo.findOne.mockResolvedValue({
+        id: 1,
+        teamId: null,
+      } as unknown as PlayerEntity);
+
+      await expect(
+        service.assertUserOwnsPlayer('user-1' as Uuid, 1),
+      ).rejects.toThrow(ForbiddenException);
+      expect(teamRepo.findOne).not.toHaveBeenCalled();
     });
 
-    it('should return 0 for teams with no injuries', async () => {
-      playerRepo.count.mockResolvedValue(0);
+    it('throws ForbiddenException when the user does not own the player\u0027s team', async () => {
+      playerRepo.findOne.mockResolvedValue({
+        id: 1,
+        teamId: 'team-uuid-1',
+      } as PlayerEntity);
+      // The user lookup returns null → reject.
+      teamRepo.findOne.mockResolvedValue(null);
 
-      const result = await service.getInjuredCountByTeamIds(['team-1']);
-
-      expect(result['team-1']).toBe(0);
+      await expect(
+        service.assertUserOwnsPlayer('user-1' as Uuid, 1),
+      ).rejects.toThrow(ForbiddenException);
     });
   });
 });

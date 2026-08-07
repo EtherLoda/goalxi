@@ -25,6 +25,18 @@ export class Team {
   private snapshot: TeamSnapshot | null = null;
   public playerFitness: Float32Array;
   private playerToIdx: Map<number, number> = new Map();
+  /**
+   * Players who have already been injured during the current
+   * match. The injury system uses this to skip a player that
+   * was already picked for an injury event earlier in the
+   * match — without it, a second `checkAndGenerateInjury`
+   * call could re-injure the same player, stacking injury rows
+   * and confusing the post-match notification flow (P2-#10).
+   *
+   * Per-instance, so a fresh `Team` per match starts with an
+   * empty set.
+   */
+  public injuredThisMatch: Set<number> = new Set();
 
   constructor(
     public name: string,

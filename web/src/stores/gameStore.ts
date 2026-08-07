@@ -6,7 +6,10 @@ interface GameState {
   week: number
   teamId: string
   teamName: string
-  leagueId: string
+  /** `null` is now valid: during onboarding the user's team
+   *  is being claimed asynchronously and `leagueId` may not
+   *  be wired up yet. See `api/src/api/onboarding/`. */
+  leagueId: string | null
   leagueName: string
   viewTeamId: string | null
 
@@ -15,7 +18,7 @@ interface GameState {
   setTeam: (team: {
     teamId: string
     teamName: string
-    leagueId: string
+    leagueId: string | null
     leagueName: string
   }) => void
   setViewTeam: (teamId: string | null) => void

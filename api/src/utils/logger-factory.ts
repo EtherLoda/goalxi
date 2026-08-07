@@ -71,7 +71,7 @@ function cloudwatchLoggingConfig(): Options {
   // still works. To actually wire CloudWatch, add `pino-cloudwatch`
   // + `@aws-sdk/client-cloudwatch-logs` to api/package.json and
   // replace this function with a `pino.transport({ target: 'pino-cloudwatch', options: {...} })` call.
-  // eslint-disable-next-line no-console
+
   console.error(
     '[logger-factory] APP_LOG_SERVICE=aws_cloudwatch is requested but not implemented. ' +
       'Falling back to console transport. Add pino-cloudwatch + @aws-sdk/client-cloudwatch-logs to wire it up.',

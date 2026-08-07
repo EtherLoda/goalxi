@@ -1,8 +1,8 @@
+import { WeatherEntity, WeatherType } from '@goalxi/database';
+import { NotFoundException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { NotFoundException } from '@nestjs/common';
-import { WeatherEntity, WeatherType } from '@goalxi/database';
 import { MAX_FORECAST_DAYS, WeatherService } from './weather.service';
 
 describe('WeatherService', () => {
@@ -25,7 +25,9 @@ describe('WeatherService', () => {
     }).compile();
 
     service = module.get<WeatherService>(WeatherService);
-    repo = module.get<Repository<WeatherEntity>>(getRepositoryToken(WeatherEntity));
+    repo = module.get<Repository<WeatherEntity>>(
+      getRepositoryToken(WeatherEntity),
+    );
     jest.clearAllMocks();
   });
 

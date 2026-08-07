@@ -21,7 +21,7 @@ import {
   MatchPhase,
   MatchLane,
   toSimulationPlayer,
-  InjuryEntity,
+  applyInjuryBatch,
   StaffEntity,
   StaffRole,
   calculateMatchExperience,
@@ -82,8 +82,6 @@ export class SimulationProcessor extends WorkerHost {
     private readonly teamRepository: Repository<TeamEntity>,
     @InjectRepository(PlayerEventEntity)
     private readonly playerEventRepository: Repository<PlayerEventEntity>,
-    @InjectRepository(InjuryEntity)
-    private readonly injuryRepository: Repository<InjuryEntity>,
     @InjectRepository(StaffEntity)
     private readonly staffRepository: Repository<StaffEntity>,
     @InjectRepository(PlayerCompetitionStatsEntity)
@@ -950,78 +948,67 @@ export class SimulationProcessor extends WorkerHost {
         awayStarterIds,
       );
 
-      // Persist injury records in bulk
-      const injuryEvents = events.filter((e) => e.type === 'injury');
-      const injuryRecords: any[] = [];
-      const injuredPlayerIds: number[] = [];
+      // Persist injury records + player-side cache. The bulk
+      // insert + per-player update used to live inline here as a
+      // 90-line block, but the same logic is now in the shared
+      // helper `applyInjuryBatch` (libs/database). The cron uses
+      // the symmetric `applyDailyInjuryRecovery` helper for the
+      // recovery path. The simulator only translates the engine's
+      // string severity to the int column, then hands off.
+      const injuryItems: Array<{
+        playerId: number;
+        matchId: string;
+        injuryType: 'muscle' | 'ligament' | 'joint' | 'head' | 'other';
+        severity: 1 | 2;
+        injuryValue: number;
+        estimatedDays: number;
+        occurredAt: Date;
+      }> = [];
 
-      for (const e of injuryEvents) {
+      // Simulator emits severity as the string union 'mild' | 'severe'
+      // (InjurySystem.InjurySeverity). InjuryEntity.severity is stored
+      // as int (1 | 2) — convert here so the bulk insert doesn't fail
+      // with "invalid input syntax for type integer: 'mild'". Values
+      // outside the union fall back to 2 (severe) so an unexpected
+      // string never crashes the job. The pre-2026-08-06 'moderate'
+      // string is no longer emitted by the simulator, but if it ever
+      // appears in legacy event payloads we map it to 2 (severe) too
+      // — see migration 1729000000000-MergeInjurySeverity for the
+      // matching DB-side remap of historical severity=3 rows.
+      const severityMap: Record<string, 1 | 2> = {
+        mild: 1,
+        severe: 2,
+        // legacy: 'moderate' was 2 in the old 3-tier model, which
+        // lines up with the new "severe" so the value remains
+        // semantically correct. 'unknown' values also default to 2.
+        moderate: 2,
+      };
+
+      for (const e of events) {
+        if (e.type !== 'injury') continue;
         const injuryData = (e.data as any)?.injuryData;
         if (!injuryData?.playerId) continue;
 
-        // Simulator emits severity as the string union
-        // 'mild' | 'moderate' | 'severe' (InjurySystem.InjurySeverity).
-        // InjuryEntity.severity is stored as int (1 | 2 | 3) — convert here
-        // so the bulk insert doesn't fail with "invalid input syntax for
-        // type integer: 'moderate'". Values outside the union fall back to
-        // 1 (mild) so an unexpected string never crashes the job.
-        const severityMap: Record<string, number> = {
-          mild: 1,
-          moderate: 2,
-          severe: 3,
-        };
-        const severityInt =
-          severityMap[injuryData.severity as string] ?? 1;
-
-        injuryRecords.push({
+        injuryItems.push({
           playerId: injuryData.playerId,
           matchId: match.id,
           injuryType: injuryData.injuryType,
-          severity: severityInt,
+          severity: severityMap[injuryData.severity as string] ?? 2,
           injuryValue: injuryData.injuryValue,
           // Single deterministic recovery estimate — the redundant
           // `estimated_min_days` column was dropped (see
           // 1726000000000-DropInjuryRedundantColumns). Recovery status
           // is derived from `recoveredAt`, not stored as a boolean.
-          estimatedMaxDays: injuryData.estimatedRecoveryDays,
+          estimatedDays: injuryData.estimatedRecoveryDays,
+          // Pin the occurredAt to the match's scheduled kickoff so
+          // the injury is recorded in the match's week, not the
+          // wall-clock time of the simulation worker.
           occurredAt: match.scheduledAt,
         });
-        injuredPlayerIds.push(injuryData.playerId);
       }
 
-      if (injuryRecords.length > 0) {
-        await manager
-          .createQueryBuilder()
-          .insert()
-          .into(InjuryEntity)
-          .values(injuryRecords)
-          .execute();
-      }
-
-      // Batch update injured players
-      if (injuredPlayerIds.length > 0) {
-        const now = new Date();
-        for (const player of allPlayers) {
-          if (injuredPlayerIds.includes(player.id)) {
-            const e = events.find(
-              (ev) =>
-                ev.type === 'injury' &&
-                (ev.data as any)?.injuryData?.playerId === player.id,
-            );
-            const injuryData = (e?.data as any)?.injuryData;
-            if (injuryData) {
-              player.currentInjuryValue = injuryData.injuryValue;
-              player.injuryType = injuryData.injuryType;
-              // injuryValue <= 30 is minor (can play at 95%), > 30 is severe (cannot play)
-              player.injuryState =
-                injuryData.injuryValue <= 30 ? 'minor' : 'severe';
-              player.injuredAt = now;
-            }
-          }
-        }
-        await manager.save(
-          allPlayers.filter((p) => injuredPlayerIds.includes(p.id)),
-        );
+      if (injuryItems.length > 0) {
+        await applyInjuryBatch(manager, injuryItems);
       }
     });
   }

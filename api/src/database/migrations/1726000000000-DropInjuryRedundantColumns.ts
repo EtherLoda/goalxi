@@ -16,9 +16,7 @@ import { MigrationInterface, QueryRunner } from 'typeorm';
  * otherwise sit on a missing column and start failing any future
  * `ANALYZE` / `REINDEX`.
  */
-export class DropInjuryRedundantColumns1726000000000
-  implements MigrationInterface
-{
+export class DropInjuryRedundantColumns1726000000000 implements MigrationInterface {
   name = 'DropInjuryRedundantColumns1726000000000';
 
   public async up(queryRunner: QueryRunner): Promise<void> {

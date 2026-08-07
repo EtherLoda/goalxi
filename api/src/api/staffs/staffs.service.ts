@@ -1,11 +1,11 @@
 import {
   CoachPlayerAssignmentEntity,
-  FinanceEntity,
   currentSeasonWeek,
-  resolveGameStart,
+  FinanceEntity,
   getMaxPlayersForRole,
   getTrainingCategoryForRole,
   PlayerEntity,
+  resolveGameStart,
   SKILL_CATEGORY_MAP,
   StaffEntity,
   StaffLevel,

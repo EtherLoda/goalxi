@@ -13,6 +13,61 @@ import {
 } from 'typeorm';
 import { SessionEntity } from './session.entity';
 
+/**
+ * RBAC role. Single source of truth shared by `UserEntity.role`,
+ * `JwtPayloadType.role`, and `RolesGuard`. Extend this enum when
+ * adding a new privileged tier (e.g. `MODERATOR` for forum mods).
+ */
+export enum UserRole {
+  USER = 'user',
+  ADMIN = 'admin',
+}
+
+/**
+ * Onboarding state machine for the "register → claim a BOT team"
+ * flow. The actual claim work runs in the `settlement` microservice
+ * via a BullMQ job (`onboarding-assignment` / `assign-team`),
+ * produced by `AuthService.register` and consumed by
+ * `OnboardingProcessor` in `settlement/src/processors/`.
+ *
+ * Lifecycle:
+ *
+ *   register succeeds
+ *        │
+ *        ▼
+ *   TEAMLESS ──(api emits BullMQ job)──▶ PROCESSING
+ *                                            │
+ *                                  (worker assigns a BOT)
+ *                                            │
+ *                                            ▼
+ *                                          ACTIVE
+ *                                            │
+ *                            (admin reset / team hard-deleted)
+ *                                            ▼
+ *                                         TEAMLESS  (cycle)
+ *
+ * Why an explicit PROCESSING state and not just "stay in TEAMLESS
+ * until ACTIVE":
+ *   - The frontend `AuthContext` polls `/onboarding/state` on every
+ *     navigation; it needs a distinct "work in flight" signal so it
+ *     can render the loading screen instead of either (a) falsely
+ *     telling the user "no team yet, claim one" or (b) skipping the
+ *     onboarding screen entirely.
+ *   - BullMQ retries with `attempts: 3`. PROCESSING is the natural
+ *     observability handle — if a user is stuck in PROCESSING for
+ *     more than a few seconds, the worker is broken.
+ *
+ * `TEAMLESS` covers both "just registered, job not yet picked up"
+ * and "claimed once but lost the team for some reason" — the
+ * assigner is idempotent and will re-claim a fresh BOT if the user
+ * requests it again.
+ */
+export enum UserOnboardingStatus {
+  TEAMLESS = 'teamless',
+  PROCESSING = 'processing',
+  ACTIVE = 'active',
+}
+
 @Entity('user')
 export class UserEntity extends AbstractEntity {
   constructor(data?: Partial<UserEntity>) {
@@ -66,6 +121,25 @@ export class UserEntity extends AbstractEntity {
   })
   role: UserRole;
 
+  /**
+   * Onboarding lifecycle state. Defaults to `TEAMLESS` for every
+   * freshly-registered user; flipped to `ACTIVE` once
+   * `OnboardingService.assignTeamToUser` successfully claims a BOT
+   * team for them.
+   *
+   * `TEAMLESS` is also the fallback if a user logs in but the
+   * `team` lookup returns null (orphan, race, manual SQL fix) — the
+   * auth/AuthContext should redirect them to `/onboarding/select`
+   * instead of the dashboard.
+   */
+  @Column({
+    name: 'onboarding_status',
+    type: 'varchar',
+    length: 20,
+    default: UserOnboardingStatus.TEAMLESS,
+  })
+  onboardingStatus: UserOnboardingStatus;
+
   @DeleteDateColumn({
     name: 'deleted_at',
     type: 'timestamptz',
@@ -83,14 +157,4 @@ export class UserEntity extends AbstractEntity {
       this.password = await hashPass(this.password);
     }
   }
-}
-
-/**
- * RBAC role. Single source of truth shared by `UserEntity.role`,
- * `JwtPayloadType.role`, and `RolesGuard`. Extend this enum when
- * adding a new privileged tier (e.g. `MODERATOR` for forum mods).
- */
-export enum UserRole {
-  USER = 'user',
-  ADMIN = 'admin',
 }

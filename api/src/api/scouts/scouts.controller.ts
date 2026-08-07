@@ -68,7 +68,10 @@ export class ScoutsController {
       // The service throws a plain Error when the weekly cap is
       // reached. Surface it as a structured 429 so the UI can show
       // a useful message instead of a generic toast.
-      if (err instanceof Error && err.message.includes('Weekly scout draw cap')) {
+      if (
+        err instanceof Error &&
+        err.message.includes('Weekly scout draw cap')
+      ) {
         throw new HttpException(
           {
             statusCode: HttpStatus.TOO_MANY_REQUESTS,
@@ -281,5 +284,3 @@ function extractSkill(skills: any, key: string): number {
   }
   return 0;
 }
-
-

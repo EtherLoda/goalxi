@@ -1,3 +1,4 @@
+import { ROLES_KEY } from '@/decorators/roles.decorator';
 import { UserRole } from '@goalxi/database';
 import {
   CanActivate,
@@ -6,7 +7,6 @@ import {
   Injectable,
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
-import { ROLES_KEY } from '@/decorators/roles.decorator';
 
 /**
  * RBAC guard. Reads the role list attached via `@Roles(...)` and

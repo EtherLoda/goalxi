@@ -7,6 +7,7 @@ import { DatabaseConfigService } from './config/database.config';
 import { GlobalExceptionFilter } from './common/global-exception.filter';
 import { TrainingModule } from './training.module';
 import { FanModule } from './fan.module';
+import { OnboardingModule } from './onboarding.module';
 import { PlayerWageModule } from './player-wage.module';
 import { SchedulerModule } from './scheduler/scheduler.module';
 import { TransferModule } from './transfer.module';
@@ -39,6 +40,7 @@ const isDevelopmentFromEnv = () =>
     }),
     TrainingModule,
     FanModule,
+    OnboardingModule,
     PlayerWageModule,
     SchedulerModule,
     TransferModule,

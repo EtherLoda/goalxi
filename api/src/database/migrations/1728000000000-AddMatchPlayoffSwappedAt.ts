@@ -26,9 +26,7 @@ import { MigrationInterface, QueryRunner } from 'typeorm';
  * "not yet swapped", so the column is safe to backfill on a
  * production database that's already past the season-end.
  */
-export class AddMatchPlayoffSwappedAt1728000000000
-  implements MigrationInterface
-{
+export class AddMatchPlayoffSwappedAt1728000000000 implements MigrationInterface {
   name = 'AddMatchPlayoffSwappedAt1728000000000';
 
   public async up(queryRunner: QueryRunner): Promise<void> {

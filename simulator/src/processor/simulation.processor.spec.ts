@@ -160,6 +160,31 @@ describe('SimulationProcessor', () => {
         values: jest.fn().mockReturnThis(),
         execute: jest.fn().mockResolvedValue({ identifiers: [] }),
       })),
+      // `applyInjuryBatch` (called inside the persist transaction)
+      // resolves its repos through `manager.getRepository`. The empty-
+      // events path (most happy-path tests) never calls these, but the
+      // P2-#8 ghost-injury guard runs `injuryRepo.find` even for a
+      // 0-event batch — wait, no, it only runs the find when items
+      // are non-empty. Most happy-path tests still pass without find
+      // being a function. We add a `find` stub returning [] so any
+      // future batch case has a safe default.
+      getRepository: jest.fn((entity: unknown) => {
+        if (entity === InjuryEntity) {
+          return {
+            save: jest.fn(),
+            create: jest.fn((d: unknown) => d),
+            find: jest.fn().mockResolvedValue([]),
+          };
+        }
+        if (entity === PlayerEntity) {
+          return {
+            save: jest.fn(),
+            create: jest.fn((d: unknown) => d),
+            update: jest.fn(),
+          };
+        }
+        return {};
+      }),
     };
 
     const module: TestingModule = await Test.createTestingModule({

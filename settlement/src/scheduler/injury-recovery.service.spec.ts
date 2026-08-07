@@ -1,12 +1,15 @@
 ﻿import { Test, TestingModule } from '@nestjs/testing';
-import { getRepositoryToken } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
-import { InjuryRecoveryService } from './injury-recovery.service';
+import { getDataSourceToken, getRepositoryToken } from '@nestjs/typeorm';
+import { DataSource, Repository } from 'typeorm';
+import {
+  InjuryRecoveryService,
+  _resetInjuryRecoveryDedupForTests,
+} from './injury-recovery.service';
 import { LOGGER_SERVICE_PROVIDER } from '../test-utils/test-logger';
 import {
   PlayerEntity,
-  InjuryEntity,
   StaffEntity,
+  InjuryEntity,
   TeamEntity,
   StaffRole,
   Uuid,
@@ -16,13 +19,43 @@ import { NotificationService } from '../notification/notification.service';
 describe('InjuryRecoveryService', () => {
   let service: InjuryRecoveryService;
   let playerRepo: jest.Mocked<Repository<PlayerEntity>>;
-  let injuryRepo: jest.Mocked<Repository<InjuryEntity>>;
   let staffRepo: jest.Mocked<Repository<StaffEntity>>;
+  let dataSource: jest.Mocked<DataSource>;
   let notificationService: { create: jest.Mock };
 
-  const mockPlayerRepo = { find: jest.fn(), save: jest.fn() };
-  const mockInjuryRepo = { find: jest.fn(), save: jest.fn() };
-  const mockStaffRepo = { find: jest.fn() };
+  // The shared helper `applyDailyInjuryRecovery` lives in
+  // `@goalxi/database` and runs inside the DataSource mock's
+  // transaction callback. The spec wires the DataSource mock so
+  // the callback receives a manager backed by the same mock repos
+  // — i.e. the helper's writes hit our assertions, not a real DB.
+  const playerRepoMock = { find: jest.fn(), save: jest.fn() };
+  const staffRepoMock = { find: jest.fn() };
+  const dataSourceMock = {
+    transaction: jest.fn(async (cb: any) =>
+      cb({
+        getRepository: (entity: any) => {
+          if (entity === PlayerEntity) return playerRepoMock;
+          if (entity === StaffEntity) return staffRepoMock;
+          if (entity === InjuryEntity) {
+            // The shared recovery helper looks up the active
+            // injury rows for fully-recovered players. The mock
+            // returns an empty list so the helper falls through
+            // the "no recoveries" branch — the spec focuses on
+            // the cron's orchestration, not the helper's
+            // active-injury logic.
+            return {
+              find: jest.fn().mockResolvedValue([]),
+              save: jest.fn(),
+            };
+          }
+          // The helper also uses the player repo to batch-save
+          // the dirty players (partial-recovery decrements +
+          // cleared fields for fully-recovered players).
+          throw new Error(`Unexpected entity in tx: ${entity?.name}`);
+        },
+      }),
+    ),
+  };
   const mockNotificationService = { create: jest.fn() };
 
   const buildPlayer = (
@@ -37,8 +70,9 @@ describe('InjuryRecoveryService', () => {
       injuryState: 'major',
       injuredAt: new Date(),
       fractionalAge: 0,
-      // The `getExactAge` helper used by the service is a method on
-      // the entity 鈥?give it a stub that returns a small age.
+      // The `getExactAge` helper used by the shared recovery
+      // formula is a method on the entity — give it a stub that
+      // returns a small age.
       getExactAge: () => [24, 30] as [number, number],
       team: {
         id: 'team-1' as Uuid,
@@ -54,34 +88,36 @@ describe('InjuryRecoveryService', () => {
       providers: [
         InjuryRecoveryService,
         LOGGER_SERVICE_PROVIDER,
-        { provide: getRepositoryToken(PlayerEntity), useValue: mockPlayerRepo },
-        { provide: getRepositoryToken(InjuryEntity), useValue: mockInjuryRepo },
-        { provide: getRepositoryToken(StaffEntity), useValue: mockStaffRepo },
-        { provide: getRepositoryToken(TeamEntity), useValue: {} },
+        { provide: getDataSourceToken(), useValue: dataSourceMock },
+        { provide: getRepositoryToken(PlayerEntity), useValue: playerRepoMock },
+        { provide: getRepositoryToken(StaffEntity), useValue: staffRepoMock },
         { provide: NotificationService, useValue: mockNotificationService },
       ],
     }).compile();
 
     service = module.get<InjuryRecoveryService>(InjuryRecoveryService);
     playerRepo = module.get(getRepositoryToken(PlayerEntity));
-    injuryRepo = module.get(getRepositoryToken(InjuryEntity));
     staffRepo = module.get(getRepositoryToken(StaffEntity));
+    dataSource = module.get(getDataSourceToken());
     notificationService = mockNotificationService;
 
+    // The dedup timestamp is module-scoped, so it leaks across
+    // tests. Reset before each test so a previous successful run
+    // doesn't suppress the next one.
+    _resetInjuryRecoveryDedupForTests();
     jest.clearAllMocks();
   });
 
   describe('processDailyInjuryRecovery', () => {
     it('returns early after one query when there are no injured players', async () => {
-      mockPlayerRepo.find.mockResolvedValueOnce([]);
+      playerRepo.find.mockResolvedValueOnce([]);
 
       await service.processDailyInjuryRecovery();
 
       // Single query for injured players; nothing else.
-      expect(mockPlayerRepo.find).toHaveBeenCalledTimes(1);
-      expect(mockStaffRepo.find).not.toHaveBeenCalled();
-      expect(mockInjuryRepo.find).not.toHaveBeenCalled();
-      expect(mockPlayerRepo.save).not.toHaveBeenCalled();
+      expect(playerRepo.find).toHaveBeenCalledTimes(1);
+      expect(staffRepo.find).not.toHaveBeenCalled();
+      expect(dataSource.transaction).not.toHaveBeenCalled();
       expect(notificationService.create).not.toHaveBeenCalled();
     });
 
@@ -96,84 +132,76 @@ describe('InjuryRecoveryService', () => {
           userId: null,
         } as unknown as TeamEntity,
       });
-      mockPlayerRepo.find.mockResolvedValueOnce([botPlayer]);
+      playerRepo.find.mockResolvedValueOnce([botPlayer]);
 
       await service.processDailyInjuryRecovery();
 
       // The bot player was filtered out, so no doctor fetch, no save.
-      expect(mockStaffRepo.find).not.toHaveBeenCalled();
-      expect(mockPlayerRepo.save).not.toHaveBeenCalled();
-    });
-
-    it('decrements currentInjuryValue for a non-bot player and saves them in a single batched call', async () => {
-      const player = buildPlayer({ id: 10, currentInjuryValue: 50 });
-      mockPlayerRepo.find.mockResolvedValueOnce([player]);
-      mockStaffRepo.find.mockResolvedValueOnce([
-        { teamId: 'team-1' as Uuid, level: 2 } as unknown as StaffEntity,
-      ]);
-
-      await service.processDailyInjuryRecovery();
-
-      // The player's injury was decremented (deterministic formula
-      // in @goalxi/database 鈥?exact value not asserted, just that
-      // the value moved).
-      expect(player.currentInjuryValue).toBeLessThan(50);
-      // Doctor lookup used the pre-built map, not a per-player find.
-      expect(mockStaffRepo.find).toHaveBeenCalledTimes(1);
-      // All dirty players saved in one batch.
-      expect(mockPlayerRepo.save).toHaveBeenCalledTimes(1);
-      expect(mockPlayerRepo.save).toHaveBeenCalledWith([player]);
-      // No recoveries 鈫?no second save, no notification, no injuryRepo work.
-      expect(mockInjuryRepo.find).not.toHaveBeenCalled();
+      expect(staffRepo.find).not.toHaveBeenCalled();
+      expect(dataSource.transaction).not.toHaveBeenCalled();
       expect(notificationService.create).not.toHaveBeenCalled();
     });
 
-    it('on full recovery, stamps recoveredAt, clears injury fields, and notifies the team manager', async () => {
+    it('opens a single transaction and sends notifications for each fully-recovered player', async () => {
+      // Player with currentInjuryValue = 1: one recovery tick
+      // (age 24.27, no doctor → daily ~7.5) drops them to 0, so the
+      // helper reports them in `recoveries`. We don't pin the exact
+      // helper output — just that the cron routes the result
+      // through to `notificationService.create`.
       const player = buildPlayer({ id: 20, currentInjuryValue: 1 });
-      // After one recovery tick the value drops to 0 鈫?"fully recovered".
-      mockPlayerRepo.find
-        .mockResolvedValueOnce([player]) // 1: injured + team
-        .mockResolvedValueOnce([player]); // 2: recovered + team (for notification)
-      mockStaffRepo.find.mockResolvedValueOnce([
-        { teamId: 'team-1' as Uuid, level: 0 } as unknown as StaffEntity,
+      playerRepo.find.mockResolvedValueOnce([player]);
+      staffRepo.find.mockResolvedValueOnce([
+        { teamId: 'team-1' as Uuid, role: StaffRole.TEAM_DOCTOR, level: 0 } as unknown as StaffEntity,
       ]);
-
-      const activeInjury = {
-        playerId: 20,
-        injuryType: 'muscle',
-        occurredAt: new Date(),
-        recoveredAt: null,
-      } as InjuryEntity;
-      mockInjuryRepo.find.mockResolvedValueOnce([activeInjury]);
-      mockInjuryRepo.save.mockResolvedValueOnce([activeInjury]);
-      mockPlayerRepo.save.mockResolvedValueOnce(undefined);
 
       await service.processDailyInjuryRecovery();
 
-      // The injury was stamped.
-      expect(activeInjury.recoveredAt).toBeInstanceOf(Date);
-      expect(mockInjuryRepo.save).toHaveBeenCalledWith([activeInjury]);
-
-      // The player record had its injury fields cleared.
-      expect(player.injuryType).toBeNull();
-      expect(player.injuryState).toBeNull();
-      expect(player.injuredAt).toBeNull();
-
-      // Two saves: the daily decrement batch, then the recovery-clear batch.
-      expect(mockPlayerRepo.save).toHaveBeenCalledTimes(2);
-
-      // Notification went out to the team's userId.
+      // The single transaction was opened with the player inputs.
+      expect(dataSource.transaction).toHaveBeenCalledTimes(1);
+      // The notification went out to the team's userId. The exact
+      // payload comes from the shared helper; the cron just relays.
       expect(notificationService.create).toHaveBeenCalledTimes(1);
       expect(notificationService.create).toHaveBeenCalledWith(
         'user-1',
         'PLAYER_RECOVERED',
         'notification.playerRecovered',
-        expect.objectContaining({ playerId: 20, injuryType: 'muscle' }),
+        expect.objectContaining({ playerId: 20 }),
       );
     });
 
-    it('runs a fixed 4-query budget regardless of injured/recovered counts', async () => {
-      // 3 injured, 2 of which fully recover.
+    it('does not open a transaction when no eligible player remains after bot filter', async () => {
+      // Mix of bot + no-team players. The doctor map has to be
+      // built (we know that, because... actually the cron should
+      // skip the doctor query too if no eligible team remains).
+      // Today: doctor query runs as long as the team is non-bot,
+      // but with all players filtered, the transaction is never
+      // opened. This pins the current behavior.
+      const botPlayer = buildPlayer({
+        id: 30,
+        teamId: 'bot-team' as Uuid,
+        team: {
+          id: 'bot-team' as Uuid,
+          name: 'Bot FC',
+          isBot: true,
+          userId: null,
+        } as unknown as TeamEntity,
+      });
+      playerRepo.find.mockResolvedValueOnce([botPlayer]);
+
+      await service.processDailyInjuryRecovery();
+
+      // Bot-only → no doctor fetch (activeTeamIds is empty).
+      expect(staffRepo.find).not.toHaveBeenCalled();
+      // No eligible players → no transaction at all.
+      expect(dataSource.transaction).not.toHaveBeenCalled();
+      expect(notificationService.create).not.toHaveBeenCalled();
+    });
+
+    it('runs a fixed 3-query budget + 1 transaction regardless of injured/recovered counts', async () => {
+      // 3 injured, all non-bot. The shared helper will mark 0
+      // (currentInjuryValue = 1, drops to 0 in one tick) and 1
+      // (currentInjuryValue = 1, same) as recovered; the middle
+      // player (currentInjuryValue = 30) is a partial recovery.
       const players = [
         buildPlayer({ id: 1, currentInjuryValue: 1, teamId: 't1' as Uuid }),
         buildPlayer({
@@ -184,37 +212,48 @@ describe('InjuryRecoveryService', () => {
         }),
         buildPlayer({ id: 3, currentInjuryValue: 1, teamId: 't2' as Uuid }),
       ];
-      mockPlayerRepo.find
-        .mockResolvedValueOnce(players) // 1: injured + team
-        .mockResolvedValueOnce(players.filter((p) => p.currentInjuryValue === 1)); // 2: recovered + team
+      playerRepo.find.mockResolvedValueOnce(players);
 
-      mockStaffRepo.find.mockResolvedValueOnce([
+      staffRepo.find.mockResolvedValueOnce([
         { teamId: 't1' as Uuid, role: StaffRole.TEAM_DOCTOR, level: 1 } as any,
         { teamId: 't2' as Uuid, role: StaffRole.TEAM_DOCTOR, level: 1 } as any,
       ]);
 
-      const activeInjuries = [
-        { playerId: 1, injuryType: 'muscle', recoveredAt: null } as InjuryEntity,
-        { playerId: 3, injuryType: 'ligament', recoveredAt: null } as InjuryEntity,
-      ];
-      mockInjuryRepo.find.mockResolvedValueOnce(activeInjuries);
-      mockInjuryRepo.save.mockResolvedValueOnce(activeInjuries);
-      mockPlayerRepo.save.mockResolvedValue(undefined);
-
       await service.processDailyInjuryRecovery();
 
-      // The 4-query budget: injured + doctors + active injuries + recovered.
-      expect(mockPlayerRepo.find).toHaveBeenCalledTimes(2);
-      expect(mockStaffRepo.find).toHaveBeenCalledTimes(1);
-      expect(mockInjuryRepo.find).toHaveBeenCalledTimes(1);
-      // Plus the 2 playerRepo.save (decrement batch + clear batch).
-      expect(mockPlayerRepo.save).toHaveBeenCalledTimes(2);
-      // Two notifications (one per recovered player with a team userId).
-      expect(notificationService.create).toHaveBeenCalledTimes(2);
+      // 3-query budget: injured + doctors + (1 transaction for the
+      // shared helper, which does its own internal queries).
+      expect(playerRepo.find).toHaveBeenCalledTimes(1);
+      expect(staffRepo.find).toHaveBeenCalledTimes(1);
+      expect(dataSource.transaction).toHaveBeenCalledTimes(1);
+    });
+
+    it('skips a second tick within the 23h dedup window (P2-#6)', async () => {
+      // First tick: runs normally, no skip.
+      const player = buildPlayer({ id: 50, currentInjuryValue: 30 });
+      playerRepo.find.mockResolvedValueOnce([player]);
+      staffRepo.find.mockResolvedValueOnce([
+        { teamId: 'team-1' as Uuid, level: 0 } as unknown as StaffEntity,
+      ]);
+
+      await service.processDailyInjuryRecovery();
+      expect(dataSource.transaction).toHaveBeenCalledTimes(1);
+      expect(playerRepo.find).toHaveBeenCalledTimes(1);
+
+      // Second tick immediately after: skipped because the
+      // dedup timestamp is fresh. No new queries, no transaction.
+      // (We do NOT mock `playerRepo.find` here — the assertion
+      // is that the dedup check short-circuits before any DB hit,
+      // so a follow-up `find` call would have nothing to consume.)
+      await service.processDailyInjuryRecovery();
+
+      // Still 1 from the first tick; the second tick made 0 calls.
+      expect(playerRepo.find).toHaveBeenCalledTimes(1);
+      expect(staffRepo.find).toHaveBeenCalledTimes(1);
+      expect(dataSource.transaction).toHaveBeenCalledTimes(1);
     });
   });
 });
-
 
 
 

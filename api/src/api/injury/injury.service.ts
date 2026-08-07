@@ -1,14 +1,17 @@
 import {
+  GAME_SETTINGS,
   InjuryEntity,
   MatchEntity,
   PlayerEntity,
   StaffEntity,
   StaffRole,
+  TeamEntity,
+  Uuid,
   estimateRecoveryDays,
 } from '@goalxi/database';
-import { Injectable } from '@nestjs/common';
-import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
-import { DataSource, In, IsNull, MoreThanOrEqual, Repository } from 'typeorm';
+import { ForbiddenException, Injectable } from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
+import { In, MoreThanOrEqual, Repository } from 'typeorm';
 
 export interface InjuryHistoryResDto {
   id: string;
@@ -46,6 +49,15 @@ export interface TeamInjuryHistoryQuery {
   days?: number;
 }
 
+/**
+ * Read-side API surface for the Medical Room.
+ *
+ * The write paths (apply injuries, recover players) live in
+ * `libs/database/src/services/injury-recovery-calculator.ts` as
+ * `applyInjuryBatch` and `applyDailyInjuryRecovery`. The simulator
+ * and the daily-recovery cron call those helpers directly so the
+ * service stays a thin read-side wrapper (2026-08-06 P0-#2).
+ */
 @Injectable()
 export class InjuryService {
   constructor(
@@ -57,8 +69,8 @@ export class InjuryService {
     private staffRepo: Repository<StaffEntity>,
     @InjectRepository(MatchEntity)
     private matchRepo: Repository<MatchEntity>,
-    @InjectDataSource()
-    private readonly dataSource: DataSource,
+    @InjectRepository(TeamEntity)
+    private teamRepo: Repository<TeamEntity>,
   ) {}
 
   /**
@@ -75,6 +87,42 @@ export class InjuryService {
       },
     });
     return doctor?.level ?? 0;
+  }
+
+  /**
+   * Assert that the user owns the given team. Throws
+   * `ForbiddenException` otherwise.
+   *
+   * Shared across the read-side endpoints in this controller
+   * (and any future write path that should be team-scoped).
+   * Mirrors `MatchService.validateTeamOwnership` — kept here
+   * to avoid a cross-module import from the medical module.
+   */
+  async assertUserOwnsTeam(userId: Uuid, teamId: Uuid): Promise<void> {
+    const team = await this.teamRepo.findOne({
+      where: { id: teamId as Uuid, userId },
+    });
+    if (!team) {
+      throw new ForbiddenException('User does not own this team');
+    }
+  }
+
+  /**
+   * Assert that the user owns the team the given player
+   * currently belongs to. Players without a team (free
+   * agents) are rejected — there's no team to authorize against.
+   */
+  async assertUserOwnsPlayer(userId: Uuid, playerId: number): Promise<void> {
+    const player = await this.playerRepo.findOne({
+      where: { id: playerId },
+      select: { id: true, teamId: true },
+    });
+    if (!player || !player.teamId) {
+      throw new ForbiddenException(
+        'Player is not on a team owned by this user',
+      );
+    }
+    await this.assertUserOwnsTeam(userId, player.teamId as Uuid);
   }
 
   /**
@@ -118,7 +166,9 @@ export class InjuryService {
 
     return players.map((player) => {
       const [years, days] = player.getExactAge();
-      const playerAge = years + days / 112; // DAYS_PER_SEASON
+      // Use `GAME_SETTINGS.DAYS_PER_YEAR` (the same value, just
+      // routed through the single source of truth). P1-#5.
+      const playerAge = years + days / GAME_SETTINGS.DAYS_PER_YEAR;
 
       const estimated = estimateRecoveryDays(
         player.currentInjuryValue,
@@ -171,7 +221,7 @@ export class InjuryService {
       .map((i) => i.matchId)
       .filter((id): id is string => !!id);
     const matches = matchIds.length
-      ? await this.matchRepo.find({ where: { id: In(matchIds) as any } })
+      ? await this.matchRepo.find({ where: { id: In(matchIds) } })
       : [];
     const matchById = new Map(matches.map((m) => [m.id, m]));
 
@@ -195,124 +245,5 @@ export class InjuryService {
         opponentName: opponent ?? null,
       };
     });
-  }
-
-  /**
-   * Get all players with injuries that are pending recovery (for cron job)
-   */
-  async getPlayersPendingRecovery(): Promise<PlayerEntity[]> {
-    return this.playerRepo.find({
-      where: { currentInjuryValue: MoreThanOrEqual(1) },
-    });
-  }
-
-  /**
-   * Update a player's injury value (called by daily cron job)
-   *
-   * Wrapped in a single transaction so the player-side "currently injured"
-   * cache and the active injury record can never drift apart — previously
-   * these were two independent writes, which let a partial failure leave
-   * the player marked injured with no matching active injury row (or
-   * vice versa).
-   */
-  async updatePlayerInjury(
-    playerId: number,
-    recoveryValue: number,
-  ): Promise<PlayerEntity | null> {
-    return this.dataSource.transaction(async (manager) => {
-      const playerRepo = manager.getRepository(PlayerEntity);
-      const injuryRepo = manager.getRepository(InjuryEntity);
-
-      const player = await playerRepo.findOneBy({ id: playerId });
-      if (!player || player.currentInjuryValue <= 0) return null;
-
-      const newValue = Math.max(0, player.currentInjuryValue - recoveryValue);
-
-      // Check if player just recovered
-      const wasInjured = player.currentInjuryValue > 0;
-      const isNowRecovered = newValue === 0;
-
-      player.currentInjuryValue = newValue;
-
-      if (isNowRecovered && wasInjured) {
-        player.injuryType = null;
-        player.injuredAt = null;
-
-        // Update the active injury record (recovery is derived from
-        // `recoveredAt` being set — no separate boolean flag).
-        const activeInjury = await injuryRepo.findOne({
-          where: { playerId, recoveredAt: IsNull() },
-          order: { occurredAt: 'DESC' },
-        });
-
-        if (activeInjury) {
-          activeInjury.recoveredAt = new Date();
-          await injuryRepo.save(activeInjury);
-        }
-      }
-
-      return playerRepo.save(player);
-    });
-  }
-
-  /**
-   * Apply injury to a player (called after match simulation).
-   *
-   * Wrapped in a single transaction so the player-side "currently injured"
-   * cache (currentInjuryValue / injuryType / injuredAt) and the new
-   * injury history row commit atomically — see updatePlayerInjury for
-   * the same rationale.
-   */
-  async applyInjury(
-    playerId: number,
-    injuryType: string,
-    severity: number,
-    injuryValue: number,
-    estimatedDays: number,
-    matchId?: string,
-  ): Promise<InjuryEntity> {
-    return this.dataSource.transaction(async (manager) => {
-      const playerRepo = manager.getRepository(PlayerEntity);
-      const injuryRepo = manager.getRepository(InjuryEntity);
-
-      // Update player's "currently injured" cache.
-      await playerRepo.update({ id: playerId } as any, {
-        currentInjuryValue: injuryValue,
-        injuryType: injuryType as any,
-        injuredAt: new Date(),
-      });
-
-      // Create injury history record. `estimatedMinDays` and the
-      // `is_recovered` boolean have been removed — see entity comments.
-      const injury = injuryRepo.create({
-        playerId,
-        matchId,
-        injuryType: injuryType as any,
-        severity: severity as 1 | 2 | 3,
-        injuryValue,
-        estimatedMaxDays: estimatedDays,
-        occurredAt: new Date(),
-      });
-
-      return injuryRepo.save(injury);
-    });
-  }
-
-  /**
-   * Get injured players count by team IDs
-   */
-  async getInjuredCountByTeamIds(
-    teamIds: string[],
-  ): Promise<Record<string, number>> {
-    const result: Record<string, number> = {};
-
-    for (const teamId of teamIds) {
-      const count = await this.playerRepo.count({
-        where: { teamId, currentInjuryValue: MoreThanOrEqual(1) },
-      });
-      result[teamId] = count;
-    }
-
-    return result;
   }
 }

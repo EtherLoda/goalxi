@@ -2,6 +2,20 @@
   "langSwitcher": {
     "switchLang": "切换语言"
   },
+  "onboarding": {
+    "title": "正在准备你的俱乐部",
+    "subtitle": "董事会正在审阅可用的俱乐部，马上为你指派一家。",
+    "footnote": "刷新页面或点「查看状态」来获取最新进度。",
+    "checkStatus": "查看状态",
+    "checking": "查询中…",
+    "retry": "重新分配",
+    "retrying": "正在重新入队…",
+    "status": {
+      "teamless": "正在寻找空缺",
+      "processing": "正在分配球队",
+      "active": "一切就绪"
+    }
+  },
   "common": {
     "loading": "加载中...",
     "error": "出错了",

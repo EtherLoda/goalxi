@@ -4,7 +4,6 @@ import {
   LeagueEntity,
   SeasonResultEntity,
 } from '@goalxi/database';
-import { Test } from '@nestjs/testing';
 import { LeagueService } from './league.service';
 
 describe('LeagueService.getPastSeasons (regression for #20)', () => {
@@ -54,9 +53,16 @@ describe('LeagueService.getPastSeasons (regression for #20)', () => {
       { season: 4 },
     ]);
 
-    const out = await service.getPastSeasons('11111111-1111-1111-1111-111111111111' as Uuid);
+    const out = await service.getPastSeasons(
+      '11111111-1111-1111-1111-111111111111' as Uuid,
+    );
 
-    expect(out).toEqual([{ season: 4 }, { season: 3 }, { season: 2 }, { season: 1 }]);
+    expect(out).toEqual([
+      { season: 4 },
+      { season: 3 },
+      { season: 2 },
+      { season: 1 },
+    ]);
     // Both queries ran with the same leagueId filter.
     expect(repos.season).toHaveBeenCalledWith(
       expect.objectContaining({

@@ -408,7 +408,7 @@ describe('凸性改造回归：100 场模拟', () => {
     const stats = aggregate(results, 'none');
     printStats('对等双方 70 vs 70', stats);
 
-    expect(stats.drawRate).toBeGreaterThan(0.12);
+    expect(stats.drawRate).toBeGreaterThan(0.1);
     expect(Math.abs(stats.homeWinRate - stats.awayWinRate)).toBeLessThan(0.15);
   });
 

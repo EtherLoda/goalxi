@@ -11,6 +11,7 @@ import { MatchLiveModule } from './match/match-live.module';
 import { MatchModule } from './match/match.module';
 import { NewsModule } from './news/news.module';
 import { NotificationModule } from './notification/notification.module';
+import { OnboardingModule } from './onboarding/onboarding.module';
 import { PlayerEventModule } from './player-event/player-event.module';
 import { PlayerModule } from './player/player.module';
 import { ScoutsModule } from './scouts/scouts.module';
@@ -30,6 +31,7 @@ import { WeatherModule } from './weather/weather.module';
   imports: [
     UserModule,
     AuthModule,
+    OnboardingModule,
     PlayerModule,
     PlayerEventModule,
     LeagueModule,

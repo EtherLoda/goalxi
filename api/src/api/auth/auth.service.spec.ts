@@ -7,6 +7,7 @@ import { JwtService } from '@nestjs/jwt';
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
+import { OnboardingService } from '../onboarding/onboarding.service';
 import { AuthService } from './auth.service';
 
 describe('AuthService', () => {
@@ -91,6 +92,20 @@ describe('AuthService', () => {
           provide: CACHE_MANAGER,
           useValue: cacheManager,
         },
+        {
+          // Mock for the onboarding queue producer —
+          // `AuthService.register` now enqueues an
+          // `assign-team` job instead of doing the work
+          // synchronously. The spec doesn't care whether the
+          // job was actually enqueued (we have a separate
+          // OnboardingService spec for that), it just needs
+          // the dependency to resolve.
+          provide: OnboardingService,
+          useValue: {
+            enqueueAssignTeam: jest.fn().mockResolvedValue(undefined),
+            getOnboardingState: jest.fn(),
+          },
+        },
       ],
     }).compile();
 
@@ -166,9 +181,7 @@ describe('AuthService', () => {
     });
 
     it('does NOT throw when the blacklist write fails (DB delete already succeeded)', async () => {
-      cacheManager.store.set.mockRejectedValueOnce(
-        new Error('redis is down'),
-      );
+      cacheManager.store.set.mockRejectedValueOnce(new Error('redis is down'));
 
       await expect(
         service.logout({
@@ -198,7 +211,9 @@ describe('AuthService', () => {
       expect(sessionDeleteSpy).toHaveBeenCalledWith('sess-1');
       expect(cacheManager.store.set).not.toHaveBeenCalled();
       expect(logger.debug).toHaveBeenCalledWith(
-        expect.stringContaining('skipped blacklist (access token already expired)'),
+        expect.stringContaining(
+          'skipped blacklist (access token already expired)',
+        ),
       );
     });
 

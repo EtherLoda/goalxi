@@ -9,6 +9,32 @@ interface LoginResponse {
 
 interface RegisterResponse {
   userId: string;
+  /** Onboarding state at the moment the register call returned. The
+   *  freshly-created user is almost always `teamless`; the claim
+   *  worker is running asynchronously and the frontend polls
+   *  `/onboarding/state` until it flips to `active`. */
+  status: 'teamless' | 'processing' | 'active';
+  /** Always `null` in the register response — the claim is async.
+   *  Surfaced in the DTO so the register response shape matches
+   *  the post-claim `/onboarding/state` shape, simplifying the
+   *  frontend reducer. */
+  team: OnboardingTeamSummary | null;
+}
+
+interface OnboardingTeamSummary {
+  id: string;
+  name: string;
+  shortCode: string;
+  leagueId: string | null;
+  isBot: boolean;
+  eloRating: number;
+  botLevel: number;
+}
+
+interface OnboardingState {
+  status: 'teamless' | 'processing' | 'active';
+  hasTeam: boolean;
+  team: OnboardingTeamSummary | null;
 }
 
 interface User {
@@ -532,6 +558,28 @@ export const api = {
       });
       setToken(data.accessToken);
       return data;
+    },
+  },
+
+  /**
+   * Onboarding endpoints. The register flow kicks off the team
+   * claim asynchronously (see `AuthService.register`), so after
+   * `auth.register` returns the frontend should poll `getState()`
+   * until `status === 'active'` and `hasTeam === true`, then
+   * route the user to `/dashboard`.
+   *
+   * `claim()` is a manual retry — useful if the user has been
+   * stuck in PROCESSING for too long (e.g. the settlement worker
+   * was down during register).
+   */
+  onboarding: {
+    getState: async (): Promise<OnboardingState> => {
+      return request<OnboardingState>('/onboarding/state');
+    },
+    claim: async (): Promise<{ enqueued: true }> => {
+      return request<{ enqueued: true }>('/onboarding/claim', {
+        method: 'POST',
+      });
     },
   },
 
@@ -1477,6 +1525,8 @@ export type {
   RecentHomeMatch,
   StadiumConstruction,
   LoginResponse,
+  OnboardingTeamSummary,
+  OnboardingState,
   League,
   Standing,
   Match,

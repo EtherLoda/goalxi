@@ -30,7 +30,10 @@ export default function RegisterPage() {
     setError(null);
 
     try {
-      // Register via API
+      // Register via API. The backend creates the user, queues
+      // the verification email, and enqueues an async
+      // `assign-team` job — then immediately returns. We do not
+      // wait for the team here.
       const res = await fetch("http://localhost:3000/api/v1/auth/email/register", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -42,7 +45,11 @@ export default function RegisterPage() {
         throw new Error(data.message || "Registration failed");
       }
 
-      // Auto login after register
+      // Auto login after register. The `login` call in
+      // AuthContext fetches the user and the team — but on a
+      // freshly-registered user the team is still being
+      // claimed asynchronously, so it routes the user to
+      // `/onboarding/select` instead of `/dashboard`.
       await login(email, password);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Registration failed");

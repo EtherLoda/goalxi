@@ -1,60 +1,113 @@
-import { Injectable, Logger, Inject } from '@nestjs/common';
+import { Injectable, Inject } from '@nestjs/common';
 import { LOGGER_SERVICE, PinoLoggerService } from '@goalxi/logger';
 import { Cron } from '@nestjs/schedule';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, MoreThanOrEqual, IsNull, In } from 'typeorm';
+import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
+import { DataSource, In, MoreThanOrEqual, Repository } from 'typeorm';
 import {
   PlayerEntity,
-  InjuryEntity,
   StaffEntity,
   StaffRole,
-  TeamEntity,
   Uuid,
-  calculateDailyRecovery,
-  estimateRecoveryDays,
+  applyDailyInjuryRecovery,
 } from '@goalxi/database';
 import {
   NotificationService,
   NotificationType,
 } from '../notification/notification.service';
 
+/**
+ * Daily injury-recovery cron. Originally scheduled for 2 AM
+ * every day, but a missed 2 AM (server down, deployment
+ * window, etc.) silently skipped that day's recovery and
+ * left players with stale injury values until the next day.
+ * Now runs HOURLY and dedupes via a module-scoped
+ * `lastRecoveryRunAt` timestamp: the first tick inside a 23h
+ * window runs the recovery; subsequent ticks within the same
+ * window early-return. A process restart clears the
+ * timestamp, so a freshly-started process after a missed
+ * tick will catch up on its next hourly slot (P2-#6 in the
+ * injury-chain review).
+ *
+ * Orchestration only:
+ *   1. Find injured players + their team (1 query).
+ *   2. Filter out bot teams, build a doctorByTeam map (1 query).
+ *   3. Delegate the actual write to
+ *      `applyDailyInjuryRecovery(...)` in
+ *      `libs/database/src/services/injury-recovery-calculator.ts`.
+ *      That helper does the daily decrement, the recovery-clear,
+ *      the active-injury `recoveredAt` stamp, and the batched
+ *      player save — all in one transaction.
+ *   4. Send PLAYER_RECOVERED notifications.
+ *
+ * The write path used to live inline here (P0-#2 had it duplicated
+ * with `injuryService.updatePlayerInjury`); both implementations
+ * drifted once already. The shared helper in `libs/database` is now
+ * the only canonical contract, called by the cron and by the
+ * simulator's match-completion path.
+ */
+
+/**
+ * Minimum gap between two successful recovery runs. Anything
+ * shorter is a redundant tick (e.g. the hourly cron firing on
+ * the same day as a manual recovery run). 23h gives a 1h
+ * safety margin across DST transitions.
+ */
+const RECOVERY_MIN_GAP_MS = 23 * 60 * 60 * 1000;
+
+/** Last successful run timestamp (module-scoped — survives
+ *  across cron ticks in the same process, resets on restart). */
+let lastRecoveryRunAt: Date | null = null;
+
+/**
+ * Test-only helper. Resets the dedup timestamp so a test can
+ * re-run `processDailyInjuryRecovery` without waiting 23h.
+ * Not exported through the Nest module — the spec imports the
+ * source file directly to access this internal.
+ */
+export function _resetInjuryRecoveryDedupForTests(): void {
+  lastRecoveryRunAt = null;
+}
+
 @Injectable()
 export class InjuryRecoveryService {
   constructor(
     @Inject(LOGGER_SERVICE)
     private readonly logger: PinoLoggerService,
+    @InjectDataSource()
+    private readonly dataSource: DataSource,
     @InjectRepository(PlayerEntity)
     private playerRepository: Repository<PlayerEntity>,
-    @InjectRepository(InjuryEntity)
-    private injuryRepository: Repository<InjuryEntity>,
     @InjectRepository(StaffEntity)
     private staffRepository: Repository<StaffEntity>,
-    @InjectRepository(TeamEntity)
-    private teamRepository: Repository<TeamEntity>,
     private readonly notificationService: NotificationService,
   ) {}
 
-  // ===== SCHEDULER: Daily Injury Recovery =====
-  // Run at 2 AM every day
-  //
-  // Query budget (independent of N injured / M recovered):
-  //   1. injured players + their team  (was: 1 + N + N)
-  //   2. active team doctors in those teams  (was: N)
-  //   3. active injuries for recovered players  (was: M)
-  //   4. recovered players + their team  (was: M)
-  // Previously each injured player triggered 2 extra queries
-  // (team, then doctor); each recovered player triggered 2 more
-  // (active injury, then player+team for notification).
-  @Cron('0 0 2 * * *')
+  @Cron('0 30 * * * *')
   async processDailyInjuryRecovery() {
     const now = new Date();
+
+    // Dedup: a successful recovery already ran within the
+    // 23h safety window. This is the only check that keeps
+    // the hourly cron from double-decrementing the same day.
+    // On a process restart the timestamp resets to null, so
+    // the next tick after a missed 2 AM still catches up.
+    if (
+      lastRecoveryRunAt !== null &&
+      now.getTime() - lastRecoveryRunAt.getTime() < RECOVERY_MIN_GAP_MS
+    ) {
+      this.logger.debug(
+        `[InjuryRecovery] Skipping — last successful run was at ${lastRecoveryRunAt.toISOString()}`,
+      );
+      return;
+    }
+
     this.logger.info(
       `[InjuryRecovery] Running daily injury recovery at ${now.toISOString()}`,
     );
 
     // 1. Pull injured players with their team in a single query.
-    // We need `team` to decide bot-skip and to know the userId
-    // for notifications later.
+    // We need `team` to filter bot teams and to capture `team.userId`
+    // for the notification step.
     const injuredPlayers = await this.playerRepository.find({
       where: { currentInjuryValue: MoreThanOrEqual(1) },
       relations: ['team'],
@@ -68,16 +121,25 @@ export class InjuryRecoveryService {
       return;
     }
 
-    // 2. Collect non-bot team ids so we can pull their doctors
-    // in one query instead of N.
+    // 2. Filter non-bot players and build the doctorByTeam map
+    // (single doctor find covers all teams — was: N per team).
+    const eligiblePlayers: PlayerEntity[] = [];
     const activeTeamIds = new Set<Uuid>();
     for (const p of injuredPlayers) {
-      if (p.teamId && p.team && !p.team.isBot) {
-        activeTeamIds.add(p.teamId as Uuid);
+      const team = p.team;
+      if (!team || team.isBot) {
+        if (team?.isBot) {
+          this.logger.debug(
+            `[InjuryRecovery] Skipping bot player: ${p.name}`,
+          );
+        }
+        continue;
       }
+      eligiblePlayers.push(p);
+      activeTeamIds.add(p.teamId as Uuid);
     }
 
-    let doctorByTeam = new Map<Uuid, StaffEntity>();
+    const doctorLevelByTeam = new Map<Uuid, number>();
     if (activeTeamIds.size > 0) {
       const doctors = await this.staffRepository.find({
         where: {
@@ -87,175 +149,75 @@ export class InjuryRecoveryService {
         },
       });
       for (const d of doctors) {
-        doctorByTeam.set(d.teamId as Uuid, d);
+        doctorLevelByTeam.set(d.teamId as Uuid, d.level ?? 0);
       }
     }
 
-    const playersToSave: PlayerEntity[] = [];
-    const injuriesToRecover: {
-      playerId: number;
-      playerName: string;
-      oldValue: number;
-    }[] = [];
-
-    for (const player of injuredPlayers) {
-      // Skip players without a team (free agents) and bot-team players —
-      // their injuries don't recover automatically.
-      const team = player.team;
-      if (!team || team.isBot) {
-        if (team?.isBot) {
-          this.logger.debug(
-            `[InjuryRecovery] Skipping bot player: ${player.name}`,
-          );
-        }
-        continue;
-      }
-
-      try {
-        // Calculate fractional age: years + days / DAYS_PER_SEASON
-        // A season has 16 weeks × 7 days = 112 days
-        const DAYS_PER_SEASON = 112;
-        const [years, days] = player.getExactAge();
-        const playerAge = years + days / DAYS_PER_SEASON;
-
-        // O(1) lookup from the pre-loaded map. Defaults to 0
-        // (no active doctor) — same fallback as the old code.
-        const teamDoctor = doctorByTeam.get(team.id);
-        const doctorLevel = teamDoctor?.level ?? 0;
-
-        // Deterministic daily recovery — shared formula (no random fluctuation).
-        const dailyRecovery = calculateDailyRecovery(playerAge, doctorLevel);
-
-        const oldValue = player.currentInjuryValue;
-        const newValue = Math.max(0, oldValue - dailyRecovery);
-
-        // Estimate remaining recovery days based on the same deterministic formula.
-        const estimatedDays = estimateRecoveryDays(
-          newValue,
-          playerAge,
-          doctorLevel,
-        );
-
-        // If estimated recovery time <= 7 days, set to minor injury (can play with 95% ability)
-        if (newValue > 0 && newValue <= 30 && estimatedDays <= 7) {
-          player.injuryState = 'minor';
-          this.logger.debug(
-            `[InjuryRecovery] Player ${player.name}: ${oldValue} -> ${newValue} (minor injury, ~${estimatedDays} days)`,
-          );
-        }
-
-        player.currentInjuryValue = newValue;
-        playersToSave.push(player);
-
-        if (newValue === 0 && oldValue > 0) {
-          injuriesToRecover.push({
-            playerId: player.id,
-            playerName: player.name,
-            oldValue,
-          });
-        } else {
-          this.logger.debug(
-            `[InjuryRecovery] Player ${player.name}: ${oldValue} -> ${newValue} (daily recovery: ${dailyRecovery})`,
-          );
-        }
-      } catch (error) {
-        this.logger.error(
-          `[InjuryRecovery] Error processing injury recovery for player ${player.id}:`,
-          error,
-        );
-      }
-    }
-
-    // 3. Batch-save all dirty players in one shot (replaces N
-    // single-row saves).
-    if (playersToSave.length > 0) {
-      await this.playerRepository.save(playersToSave);
-      this.logger.debug(
-        `[InjuryRecovery] Batch saved ${playersToSave.length} players`,
-      );
-    }
-
-    if (injuriesToRecover.length === 0) {
+    if (eligiblePlayers.length === 0) {
       this.logger.info(
         `[InjuryRecovery] Completed. 0 player(s) fully recovered today.`,
       );
       return;
     }
 
-    // 4. Pull all active injuries for the recovered players in
-    // one query (was: one per recovered player).
-    const recoveredPlayerIds = injuriesToRecover.map((r) => r.playerId);
-    const activeInjuries = await this.injuryRepository.find({
-      where: {
-        playerId: In(recoveredPlayerIds),
-        recoveredAt: IsNull(),
-      },
-      order: { occurredAt: 'DESC' },
-    });
-    // Group by playerId; the most recent (DESC order) is the
-    // "active" injury we want to stamp recoveredAt on.
-    const activeInjuryByPlayer = new Map<number, InjuryEntity>();
-    for (const inj of activeInjuries) {
-      if (!activeInjuryByPlayer.has(inj.playerId)) {
-        activeInjuryByPlayer.set(inj.playerId, inj);
-      }
-    }
-    for (const inj of activeInjuries) {
-      inj.recoveredAt = now;
-    }
-    if (activeInjuries.length > 0) {
-      await this.injuryRepository.save(activeInjuries);
-    }
-
-    // 5. Pull the recovered players again, this time with their
-    // team inlined, so notifications can use the userId without
-    // a per-player findOne.
-    const recoveredPlayers = await this.playerRepository.find({
-      where: { id: In(recoveredPlayerIds) },
-      relations: ['team'],
-    });
-    const recoveredPlayerById = new Map<number, PlayerEntity>();
-    for (const p of recoveredPlayers) {
-      recoveredPlayerById.set(p.id, p);
+    // 3. Delegate to the shared helper. The helper runs in its own
+    // transaction (via `dataSource.transaction`) and returns the
+    // list of fully-recovered players for the notification step.
+    let recoveries: Array<{
+      playerId: number;
+      playerName: string;
+      injuryType: string | undefined;
+      userId: string | null;
+    }> = [];
+    try {
+      recoveries = await this.dataSource.transaction(async (manager) => {
+        return applyDailyInjuryRecovery(
+          manager,
+          eligiblePlayers.map((player) => ({
+            player,
+            doctorLevel: doctorLevelByTeam.get(player.team!.id) ?? 0,
+          })),
+          now,
+        );
+      });
+    } catch (error) {
+      this.logger.error(
+        `[InjuryRecovery] Daily tick failed:`,
+        error,
+      );
+      throw error;
     }
 
+    // 4. Notify each recovered player's team manager.
     let recoveredCount = 0;
-    for (const { playerId, playerName, oldValue } of injuriesToRecover) {
-      const player = recoveredPlayerById.get(playerId);
-      if (player) {
-        player.injuryType = null;
-        player.injuryState = null;
-        player.injuredAt = null;
-      }
-
-      const activeInjury = activeInjuryByPlayer.get(playerId);
-
-      if (player?.team?.userId) {
+    for (const r of recoveries) {
+      if (r.userId) {
         await this.notificationService.create(
-          player.team.userId,
+          r.userId,
           NotificationType.PLAYER_RECOVERED,
           'notification.playerRecovered',
           {
-            playerId,
-            playerName,
-            injuryType: activeInjury?.injuryType,
+            playerId: r.playerId,
+            playerName: r.playerName,
+            injuryType: r.injuryType,
           },
         );
       }
 
       recoveredCount++;
       this.logger.info(
-        `[InjuryRecovery] Player ${playerName} (${playerId}) has fully recovered! (injuryValue: ${oldValue} -> 0)`,
+        `[InjuryRecovery] Player ${r.playerName} (${r.playerId}) has fully recovered!`,
       );
-    }
-
-    // 6. Save the cleared fields in a single batched UPDATE.
-    if (recoveredPlayers.length > 0) {
-      await this.playerRepository.save(recoveredPlayers);
     }
 
     this.logger.info(
       `[InjuryRecovery] Completed. ${recoveredCount} player(s) fully recovered today.`,
     );
+
+    // Stamp the dedup timestamp AFTER the recovery helper
+    // commits. If the transaction threw, `lastRecoveryRunAt`
+    // stays unchanged and the next tick retries. Successful
+    // runs block the next 23h from running again.
+    lastRecoveryRunAt = now;
   }
 }

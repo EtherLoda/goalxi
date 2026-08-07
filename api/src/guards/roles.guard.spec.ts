@@ -1,8 +1,8 @@
+import { ROLES_KEY } from '@/decorators/roles.decorator';
 import { UserRole } from '@goalxi/database';
 import { ExecutionContext, ForbiddenException } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { Test, TestingModule } from '@nestjs/testing';
-import { ROLES_KEY } from '@/decorators/roles.decorator';
 import { RolesGuard } from './roles.guard';
 
 describe('RolesGuard', () => {

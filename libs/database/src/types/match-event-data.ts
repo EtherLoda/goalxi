@@ -39,7 +39,13 @@ export interface SubstitutionEventData {
 export interface InjuryEventData {
     injuryType: string;
     bodyPart: string;
-    severity: 'mild' | 'moderate' | 'severe';
+    /**
+     * Post-2026-08-06 collapse: only `mild` | `severe` exist. The old
+     * `moderate` string maps to `severe` for legacy event payloads
+     * (see migration 1729000000000-MergeInjurySeverity for the DB-side
+     * remap of historical severity=3 rows).
+     */
+    severity: 'mild' | 'severe';
     treatmentSeconds: number;
     missedGames: number;
     recoveryDays: number;

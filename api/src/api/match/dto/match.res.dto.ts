@@ -51,4 +51,3 @@ export class MatchResDto {
    */
   venue?: string | null;
 }
-

@@ -1960,13 +1960,26 @@ export class MatchEngine {
     team: Team,
     actionType: 'tackle' | 'sprint' | 'jump' | 'collision' | 'other',
   ): void {
-    // Get a random player from the team
-    const playerIdx = (Math.random() * team.players.length) | 0;
-    const tacticalPlayer = team.players[playerIdx];
+    // Filter the candidate pool: skip sent-off players (out of
+    // the game) AND players already injured earlier in this match
+    // (P2-#10 — without this, the same player could be picked
+    // twice and stack two injury events in one match). If the
+    // entire team is filtered out, the call is a no-op.
+    const candidates = team.players.filter(
+      (p) => !p.isSentOff && !team.injuredThisMatch.has(p.player.id),
+    );
+    if (candidates.length === 0) return;
+
+    const tacticalPlayer =
+      candidates[(Math.random() * candidates.length) | 0];
     if (!tacticalPlayer) return;
 
     const player = tacticalPlayer.player as Player;
     if (!player) return;
+
+    // Mark this player as already injured so later
+    // `checkAndGenerateInjury` calls in the same match skip them.
+    team.injuredThisMatch.add(player.id);
 
     // Get player age (use a default if not available)
     const playerAge = (player as any).age || 25;
@@ -2009,7 +2022,6 @@ export class MatchEngine {
         severity: injuryResult.severity,
         injuryValue: injuryResult.injuryValue,
         estimatedRecoveryDays: injuryResult.estimatedDays ?? 1,
-        treatmentTime: InjurySystem.getTreatmentTime(injuryResult.severity),
       };
 
       // Push injury event
@@ -2025,16 +2037,14 @@ export class MatchEngine {
         },
       });
 
-      // Player must leave the pitch: moderate (tissue damage) and severe
-      // (serious) injuries both force the player off. Only mild lets the
-      // player continue. The engine tries a same-position sub first; if
-      // none is available, the injured player is sent off (10 men) — that
-      // is the realistic outcome of, e.g., using all 3 subs earlier or
-      // the bench having no fit option for that spot.
-      if (
-        injuryResult.severity === 'moderate' ||
-        injuryResult.severity === 'severe'
-      ) {
+      // Player must leave the pitch: only `mild` lets the player
+      // continue. `severe` (which absorbed the old `moderate` tier on
+      // 2026-08-06) forces the player off. The engine tries a
+      // same-position sub first; if none is available, the injured
+      // player is sent off (10 men) — that is the realistic outcome
+      // of, e.g., using all 3 subs earlier or the bench having no fit
+      // option for that spot.
+      if (injuryResult.severity === 'severe') {
         const benchConfig =
           team === this.homeTeam ? this.homeBenchConfig : this.awayBenchConfig;
         const subPlayer = this.getSubstituteForPosition(

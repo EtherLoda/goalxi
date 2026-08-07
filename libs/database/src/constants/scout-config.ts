@@ -121,3 +121,22 @@ export const SCOUT_ABILITY_CHANCE = 0.3;
 export const SCOUT_AGE_RANGE: [number, number] = [15, 16];
 export const SCOUT_CANDIDATES_PER_TEAM = 3;
 export const SCOUT_CANDIDATE_TTL_DAYS = 7;
+
+/**
+ * Senior scouting mode — produces 17–18 year-old candidates who
+ * slot straight into the senior squad. Distinct from the youth
+ * academy flow (`SCOUT_AGE_RANGE` = [15, 16], lands as
+ * `isYouth=true`) which is reserved for the upcoming Youth Mode.
+ *
+ * `SCOUT_SENIOR_*` constants live in `@goalxi/database` rather
+ * than in the API service so the settlement worker's
+ * `OnboardingProcessor` can produce the same shape when seeding
+ * the first scout candidate for a freshly-claimed BOT team.
+ */
+export const SCOUT_SENIOR_AGE_RANGE: [number, number] = [17, 18];
+export const SCOUT_SENIOR_CURRENT_MIN = 2;
+export const SCOUT_SENIOR_CURRENT_MAX = 9;
+export const SCOUT_SENIOR_POTENTIAL_MIN = 8;
+export const SCOUT_SENIOR_POTENTIAL_MAX = 20;
+export const SCOUT_SENIOR_GAUSSIAN_MEAN = 13;
+export const SCOUT_SENIOR_GAUSSIAN_STDDEV = 2.5;

@@ -2,7 +2,6 @@ import {
   PlayerEntity,
   SCOUT_ABILITY_CHANCE,
   SCOUT_ABILITY_POOL,
-  SCOUT_AGE_RANGE,
   SCOUT_GOALKEEPER_CHANCE,
   SCOUT_IMPACT_COEFFICIENTS,
   SCOUT_OUTFIELD_POSITIONS,
@@ -22,10 +21,7 @@ import {
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { LessThan, MoreThanOrEqual, Repository } from 'typeorm';
-import {
-  getRandomNameByNationality,
-  getRandomNationality,
-} from '../../constants/name-database';
+import { getRandomNameByNationality } from '../../constants/name-database';
 import { calculatePotentialAbility } from '../../utils/player-generator';
 
 /** Default nationality when the team has none set — fall back to CN. */
@@ -132,8 +128,12 @@ function generatePlayerData(team: TeamEntity) {
   });
   // The generator hands back its own internal records; we have to
   // project the same structure for the clamp pass.
-  const current = flattenSkills(raw.currentSkills as unknown as Record<string, unknown>);
-  const potential = flattenSkills(raw.potentialSkills as unknown as Record<string, unknown>);
+  const current = flattenSkills(
+    raw.currentSkills as unknown as Record<string, unknown>,
+  );
+  const potential = flattenSkills(
+    raw.potentialSkills as unknown as Record<string, unknown>,
+  );
   applySeniorSkillCaps(current, potential);
   return {
     ...raw,
@@ -143,7 +143,9 @@ function generatePlayerData(team: TeamEntity) {
 }
 
 /** Pull every skill value (paced, strength, finishing, …) into a flat map. */
-function flattenSkills(skills: Record<string, unknown>): Record<string, number> {
+function flattenSkills(
+  skills: Record<string, unknown>,
+): Record<string, number> {
   const out: Record<string, number> = {};
   for (const cat of Object.values(skills)) {
     if (!cat || typeof cat !== 'object') continue;
@@ -223,9 +225,7 @@ export class ScoutsService {
    *  The candidate's `expiresAt` is set to the end of the current
    *  game-week, so the inbox auto-prunes at the week boundary rather
    *  than after a fixed 7-day window. */
-  async generateOneCandidate(
-    teamId: Uuid,
-  ): Promise<ScoutCandidateEntity> {
+  async generateOneCandidate(teamId: Uuid): Promise<ScoutCandidateEntity> {
     // [D2] Pin the candidate's nationality to the team's own. The team
     // may be missing (e.g. orphaned cron run) — fall back to CN so the
     // generation still succeeds.
@@ -256,7 +256,8 @@ export class ScoutsService {
     // [D1] Generation now goes through the shared utility, so scheduler
     // and API produce a consistent shape (revealedSkills/joinedAt included).
     const playerData = generatePlayerData(
-      team ?? ({ id: teamId, nationality: DEFAULT_TEAM_NATIONALITY } as TeamEntity),
+      team ??
+        ({ id: teamId, nationality: DEFAULT_TEAM_NATIONALITY } as TeamEntity),
     );
     const candidate = this.candidateRepo.create({
       teamId,

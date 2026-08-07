@@ -1,5 +1,5 @@
-import { Controller, Get, Query } from '@nestjs/common';
 import { Public } from '@/decorators/public.decorator';
+import { Controller, Get, Query } from '@nestjs/common';
 import { WeatherForecastReqDto } from './dto/weather-forecast.req.dto';
 import { WeatherForecastResDto } from './dto/weather-forecast.res.dto';
 import { WeatherService } from './weather.service';

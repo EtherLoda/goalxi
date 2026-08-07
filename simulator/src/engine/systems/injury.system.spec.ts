@@ -96,16 +96,17 @@ describe('InjurySystem', () => {
   });
 
   describe('determineSeverity', () => {
-    it('should always return mild, moderate, or severe', () => {
+    it('should always return mild or severe', () => {
       for (let i = 0; i < 100; i++) {
         const severity = InjurySystem.determineSeverity();
-        expect(['mild', 'moderate', 'severe']).toContain(severity);
+        expect(['mild', 'severe']).toContain(severity);
       }
     });
 
-    // Distribution calibrated 2026-08-05: 20% mild / 70% moderate / 10% severe.
-    // Only mild lets the player keep playing; moderate and severe both force
-    // the player off (sub if available, else send-off / 10 men).
+    // Distribution calibrated 2026-08-06 (post-collapse):
+    // 20% mild / 80% severe. The old `moderate` tier was folded into
+    // `severe` because both forced the player off the pitch; only the
+    // recovery length differs, and that is now driven by `injuryValue`.
     it('should have ~20% mild injuries (player can continue)', () => {
       const mildCount = Array.from({ length: 1000 }, () =>
         InjurySystem.determineSeverity(),
@@ -115,22 +116,13 @@ describe('InjurySystem', () => {
       expect(mildCount).toBeLessThan(250);
     });
 
-    it('should have ~70% moderate injuries (force off the pitch)', () => {
-      const moderateCount = Array.from({ length: 1000 }, () =>
-        InjurySystem.determineSeverity(),
-      ).filter((s) => s === 'moderate').length;
-      // 70% ± 5% over 1000 rolls
-      expect(moderateCount).toBeGreaterThan(650);
-      expect(moderateCount).toBeLessThan(750);
-    });
-
-    it('should have ~10% severe injuries (force off the pitch, longer layoff)', () => {
+    it('should have ~80% severe injuries (force off the pitch)', () => {
       const severeCount = Array.from({ length: 1000 }, () =>
         InjurySystem.determineSeverity(),
       ).filter((s) => s === 'severe').length;
-      // 10% ± 4% over 1000 rolls
-      expect(severeCount).toBeGreaterThan(60);
-      expect(severeCount).toBeLessThan(140);
+      // 80% ± 5% over 1000 rolls
+      expect(severeCount).toBeGreaterThan(750);
+      expect(severeCount).toBeLessThan(850);
     });
   });
 
@@ -178,10 +170,71 @@ describe('InjurySystem', () => {
       const result = InjurySystem.generateInjury('tackle', 25, 4, true);
 
       // Since tackle -> muscle, severity is random but based on mocked Math.random = 0
-      // With Math.random = 0, severity will be 'mild' (since roll < 0.6)
-      // Muscle mild: 20-40
-      expect(result.injuryValue).toBeGreaterThanOrEqual(20);
-      expect(result.injuryValue).toBeLessThanOrEqual(40);
+      // With Math.random = 0, severity will be 'mild' (since roll < 0.2)
+      // Muscle mild: 15-30 (post-2026-08-06 alignment, see INJURY_VALUES).
+      expect(result.injuryValue).toBeGreaterThanOrEqual(15);
+      expect(result.injuryValue).toBeLessThanOrEqual(30);
+    });
+
+    it('mild severity always lands in the "minor / playable" band (P1-#2 alignment)', () => {
+      // The simulator's "mild" outcome means the player can keep
+      // playing; the player-side `injuryState` is derived from
+      // `injuryValue <= INJURY_MINOR_VALUE_THRESHOLD (30)` at
+      // write time. If a mild injury ever produced a value > 30
+      // the two semantics would contradict (engine says "stay
+      // on the pitch", DB says "must sit out"). Pin the
+      // invariant: every mild value must be ≤ 30, across all
+      // injury types. Forces 1000 rolls per type to expose the
+      // upper bound.
+      const actions: Array<'tackle' | 'sprint' | 'jump' | 'collision' | 'other'> = [
+        'tackle', 'sprint', 'jump', 'collision', 'other',
+      ];
+      for (const action of actions) {
+        for (let i = 0; i < 1000; i++) {
+          // Math.random() = 0 forces `severity = 'mild'` via
+          // the SEVERITY_MILD_THRESHOLD (= 0.2) branch.
+          jest.spyOn(Math, 'random').mockReturnValue(0);
+          const result = InjurySystem.generateInjury(action, 25, 4, true);
+          expect(result.severity).toBe('mild');
+          expect(result.injuryValue).toBeLessThanOrEqual(30);
+          jest.restoreAllMocks();
+        }
+      }
+    });
+
+    it('severe severity always lands in the "severe / must sit out" band', () => {
+      // The flip side of the alignment test: severe outcomes
+      // must always push the value past the minor threshold so
+      // the player is correctly marked `injuryState = 'severe'`.
+      // `generateInjury` calls `Math.random()` three times (the
+      // `willInjure` gate, the severity roll, the value roll)
+      // — we hand each one a deterministic value via
+      // `mockReturnValueOnce` so the run produces a 'severe'
+      // injury deterministically.
+      const actions: Array<'tackle' | 'sprint' | 'jump' | 'collision' | 'other'> = [
+        'tackle', 'sprint', 'jump', 'collision', 'other',
+      ];
+      for (const action of actions) {
+        for (let i = 0; i < 200; i++) {
+          jest.spyOn(Math, 'random')
+            // 1st call: pass the `> chance` gate (tackle chance
+            //    is 0.02, so any value ≤ 0.02 works).
+            .mockReturnValueOnce(0)
+            // 2nd call: severity roll — 0.5 lands in the
+            //    'severe' branch (>= SEVERITY_MILD_THRESHOLD = 0.2).
+            .mockReturnValueOnce(0.5)
+            // 3rd call: value roll — 0.99 picks the upper end
+            //    of the severe range, where the gap to the
+            //    minor threshold is widest.
+            .mockReturnValueOnce(0.99);
+
+          const result = InjurySystem.generateInjury(action, 25, 4, true);
+          expect(result.willInjure).toBe(true);
+          expect(result.severity).toBe('severe');
+          expect(result.injuryValue).toBeGreaterThan(30);
+          jest.restoreAllMocks();
+        }
+      }
     });
 
     it('should calculate recovery days based on injury value', () => {
@@ -195,20 +248,6 @@ describe('InjurySystem', () => {
 
     afterEach(() => {
       jest.restoreAllMocks();
-    });
-  });
-
-  describe('getTreatmentTime', () => {
-    it('should return 30 seconds for mild injury', () => {
-      expect(InjurySystem.getTreatmentTime('mild')).toBe(30);
-    });
-
-    it('should return 90 seconds for moderate injury', () => {
-      expect(InjurySystem.getTreatmentTime('moderate')).toBe(90);
-    });
-
-    it('should return 180 seconds for severe injury', () => {
-      expect(InjurySystem.getTreatmentTime('severe')).toBe(180);
     });
   });
 

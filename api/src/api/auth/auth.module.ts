@@ -4,6 +4,7 @@ import { BullModule } from '@nestjs/bullmq';
 import { Module } from '@nestjs/common';
 import { JwtModule } from '@nestjs/jwt';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { OnboardingModule } from '../onboarding/onboarding.module';
 import { UserModule } from '../user/user.module';
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
@@ -11,6 +12,7 @@ import { AuthService } from './auth.service';
 @Module({
   imports: [
     UserModule,
+    OnboardingModule,
     TypeOrmModule.forFeature([UserEntity]),
     JwtModule.register({}),
     BullModule.registerQueue({

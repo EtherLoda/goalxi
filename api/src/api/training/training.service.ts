@@ -1,8 +1,8 @@
 import {
   calculatePlayerPWI,
-  computeWeeklyTrainingPoints,
   CoachAssignmentInput,
   CoachPlayerAssignmentEntity,
+  computeWeeklyTrainingPoints,
   PlayerEntity,
   StaffEntity,
   StaffRole,

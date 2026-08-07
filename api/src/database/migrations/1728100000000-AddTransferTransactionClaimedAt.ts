@@ -23,9 +23,7 @@ import { MigrationInterface, QueryRunner } from 'typeorm';
  * takes over — same as the recovery semantics, no production
  * intervention needed.
  */
-export class AddTransferTransactionClaimedAt1728100000000
-  implements MigrationInterface
-{
+export class AddTransferTransactionClaimedAt1728100000000 implements MigrationInterface {
   name = 'AddTransferTransactionClaimedAt1728100000000';
 
   public async up(queryRunner: QueryRunner): Promise<void> {

@@ -32,7 +32,14 @@ export class InjuryEntity extends AbstractEntity {
     injuryType!: 'muscle' | 'ligament' | 'joint' | 'head' | 'other';
 
     @Column({ name: 'severity', type: 'int' })
-    severity!: 1 | 2 | 3;
+    /**
+     * Post-2026-08-06 collapse: 1 = mild, 2 = severe. The old 3-tier
+     * model used 1 = mild, 2 = moderate, 3 = severe. Historical rows
+     * with `severity = 3` are remapped to `2` in migration
+     * 1729000000000-MergeInjurySeverity so a single value carries the
+     * same meaning across the whole table.
+     */
+    severity!: 1 | 2;
 
     @Column({ name: 'injury_value', type: 'int' })
     injuryValue!: number;

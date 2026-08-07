@@ -56,6 +56,8 @@ export * from './services/stamina-calculator';
 export * from './services/experience-calculator';
 export * from './services/injury-recovery-calculator';
 export * from './services/scout-generator';
+export * from './services/senior-scout-generator';
+export * from './services/onboarding-assigner';
 export * from './services/youth-progression';
 export * from './types/match-event-data';
 export * from './types/simulation-player';

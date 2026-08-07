@@ -1,7 +1,12 @@
 import { IEmailJob, IVerifyEmailJob } from '@/common/interfaces/job.interface';
 import { Branded } from '@/common/types/types';
 import { AllConfigType } from '@/config/config.type';
-import { SessionEntity, UserEntity, UserRole } from '@goalxi/database';
+import {
+  SessionEntity,
+  UserEntity,
+  UserOnboardingStatus,
+  UserRole,
+} from '@goalxi/database';
 import { LOGGER_SERVICE, PinoLoggerService } from '@goalxi/logger';
 import { InjectQueue } from '@nestjs/bullmq';
 import { CACHE_MANAGER } from '@nestjs/cache-manager';
@@ -22,6 +27,7 @@ import { JobName, QueueName } from '../../constants/job.constant';
 import { ValidationException } from '../../exceptions/validation.exception';
 import { createCacheKey } from '../../utils/cache.util';
 import { verifyPassword } from '../../utils/password.util';
+import { OnboardingService } from '../onboarding/onboarding.service';
 import { LoginReqDto } from './dto/login.req.dto';
 import { LoginResDto } from './dto/login.res.dto';
 import { RefreshReqDto } from './dto/refresh.req.dto';
@@ -53,6 +59,7 @@ export class AuthService {
     private readonly emailQueue: Queue<IEmailJob, any, string>,
     @Inject(CACHE_MANAGER)
     private readonly cacheManager: Cache,
+    private readonly onboardingService: OnboardingService,
   ) {}
 
   /**
@@ -149,10 +156,40 @@ export class AuthService {
       { attempts: 3, backoff: { type: 'exponential', delay: 60000 } },
     );
 
+    // Kick off the team-claim worker. The job lands in the
+    // `onboarding-assignment` queue, picked up by the
+    // settlement microservice, which runs the league-pick
+    // algorithm and the BOT-claim transaction. By the time
+    // the user lands on `/dashboard` (or the `/onboarding`
+    // loading screen) the worker is most likely already done.
+    //
+    // We intentionally do NOT wait for the worker here. The
+    // register path is the hot path; making the user wait
+    // for a synchronous claim would couple the API SLA to
+    // settlement throughput. Instead, the response carries
+    // `status: 'teamless'` + `team: null` and the frontend
+    // polls `GET /onboarding/state` until it sees ACTIVE.
+    //
+    // A failure to enqueue (Redis blip) is logged but does
+    // NOT roll back the user — the user can always hit
+    // `POST /onboarding/claim` to re-enqueue manually.
+    try {
+      await this.onboardingService.enqueueAssignTeam(user.id);
+    } catch (err) {
+      this.logger.error(
+        `[Auth] register failed to enqueue onboarding job userId=${user.id}: ${
+          err instanceof Error ? err.message : String(err)
+        }`,
+        err instanceof Error ? err.stack : undefined,
+      );
+    }
+
     this.logger.log(`[Auth] register success userId=${user.id}`);
 
     return plainToInstance(RegisterResDto, {
       userId: user.id,
+      status: UserOnboardingStatus.TEAMLESS,
+      team: null,
     });
   }
 

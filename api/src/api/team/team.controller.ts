@@ -81,22 +81,27 @@ export class TeamController {
     return this.teamService.delete(id);
   }
 
-  @Public()
-  @Get('available')
-  @HttpCode(HttpStatus.OK)
-  async listAvailableBotTeams(
-    @Query('leagueId') leagueId?: string,
-  ): Promise<TeamResDto[]> {
-    return this.teamService.listAvailableBotTeams(leagueId);
-  }
+  // GET /teams/available has been removed.
+  //
+  // The onboarding flow is now "register → wait for the worker
+  // → land on dashboard" — there is no user-facing "browse
+  // available BOT teams" page. The matching
+  // `TeamService.listAvailableBotTeams` method is kept as a
+  // building block for future admin tooling but no HTTP route
+  // is wired to it.
 
-  @Public()
-  @Post(':id/apply')
-  @HttpCode(HttpStatus.OK)
-  async applyForTakeover(
-    @Param('id') id: Uuid,
-    @Body() body: { userId: Uuid },
-  ): Promise<{ success: boolean; message: string }> {
-    return this.teamService.applyForTakeover(id, body.userId);
-  }
+  // POST /teams/:id/apply has been removed.
+  //
+  // The endpoint used to be @Public() and took a `userId` in the
+  // body — which let any unauthenticated caller "gift" a BOT
+  // team to any user. The replacement is the auth-gated
+  // `POST /onboarding/claim` (see `api/src/api/onboarding/`)
+  // which kicks off the same claim work asynchronously and
+  // uses the JWT identity, not a body field, to decide who
+  // gets the team.
+  //
+  // The `TeamService.applyForTakeover` method has been kept
+  // (commented out where it lives) for now in case a future
+  // admin tool needs an explicit takeover — but no HTTP route
+  // is wired to it. Add it back deliberately if you do.
 }

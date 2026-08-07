@@ -254,9 +254,19 @@ export class TeamService {
   }
 
   /**
-   * List BOT teams available for takeover (only lowest tier leagues)
+   * (Removed from HTTP surface) List BOT teams available for
+   * takeover. Kept here as a private helper for future admin
+   * tooling; the onboarding flow no longer exposes this list
+   * to end users.
+   *
+   * If you re-introduce a route for this, route it through
+   * AuthGuard + RolesGuard(ADMIN) and consider whether the
+   * `lowestTier`-only filter still makes sense (the new
+   * algorithm fills ANY league up to 50% before round-robin).
    */
-  async listAvailableBotTeams(leagueId?: string): Promise<TeamResDto[]> {
+  private async listAvailableBotTeams(
+    leagueId?: string,
+  ): Promise<TeamResDto[]> {
     // Find the maximum tier (lowest league level)
     const maxTierResult = await LeagueEntity.createQueryBuilder('league')
       .select('MAX(league.tier)', 'maxTier')
@@ -278,51 +288,23 @@ export class TeamService {
   }
 
   /**
-   * Apply to take over a BOT team (must be in lowest tier league)
+   * (Removed) Apply to take over a BOT team.
+   *
+   * The HTTP route `POST /teams/:id/apply` was @Public() and
+   * took a `userId` in the body — a deliberate "any caller can
+   * gift a BOT to any user" hole. The replacement is
+   * `POST /onboarding/claim` (see
+   * `api/src/api/onboarding/`), which is auth-gated, runs
+   * asynchronously, and uses the JWT identity.
+   *
+   * If a future admin tool ever needs an explicit synchronous
+   * takeover, re-introduce it with `@UseGuards(AuthGuard)` and
+   * a `RolesGuard` check for `UserRole.ADMIN`. The mechanism
+   * underneath should be `OnboardingAssigner.claim(dataSource,
+   * userId)` from `@goalxi/database`, not a hand-rolled
+   * assignment like the old body of this method — that is
+   * why no replacement is left here.
    */
-  async applyForTakeover(
-    teamId: string,
-    userId: Uuid,
-  ): Promise<{ success: boolean; message: string }> {
-    const team = await TeamEntity.findOneByOrFail({ id: teamId as Uuid });
-
-    if (!team.isBot) {
-      throw new ValidationException(ErrorCode.E001, 'Team is not a BOT team');
-    }
-
-    // Verify team is in the lowest tier league
-    const maxTierResult = await LeagueEntity.createQueryBuilder('league')
-      .select('MAX(league.tier)', 'maxTier')
-      .getRawOne();
-    const lowestTier = maxTierResult?.maxTier || 4;
-
-    const league = await LeagueEntity.findOneByOrFail({
-      id: team.leagueId as Uuid,
-    });
-    if (league.tier !== lowestTier) {
-      throw new ValidationException(
-        ErrorCode.E001,
-        'Only BOT teams in the lowest tier league can be taken over',
-      );
-    }
-
-    // Check if user already has a team
-    const existingTeam = await TeamEntity.findOneBy({ userId });
-    if (existingTeam) {
-      throw new ValidationException(ErrorCode.E001, 'User already has a team');
-    }
-
-    // For now, auto-approve (manager takes over BOT team directly)
-    // In the future, this could be an application/approval process
-    team.userId = userId;
-    team.isBot = false;
-    await team.save();
-
-    return {
-      success: true,
-      message: `Successfully took over team ${team.name}`,
-    };
-  }
 
   private mapToResDto(team: TeamEntity): TeamResDto {
     return plainToInstance(TeamResDto, {
@@ -374,7 +356,10 @@ export function assertTrainingIntensityChangeAllowed(
 ): void {
   if (!lastChangedAt) return;
   if (currentValue === newValue) return;
-  if (now.getTime() - new Date(lastChangedAt).getTime() >= TRAINING_INTENSITY_COOLDOWN_MS) {
+  if (
+    now.getTime() - new Date(lastChangedAt).getTime() >=
+    TRAINING_INTENSITY_COOLDOWN_MS
+  ) {
     return;
   }
   throw new BadRequestException(

@@ -62,9 +62,7 @@ export class LeagueController {
   // least one standing row. Powers the season filter on the
   // league history page. Returns seasons sorted descending so
   // the FE's "select latest by default" UX is one line.
-  async getPastSeasons(
-    @Param('id') id: Uuid,
-  ): Promise<{ season: number }[]> {
+  async getPastSeasons(@Param('id') id: Uuid): Promise<{ season: number }[]> {
     return this.leagueService.getPastSeasons(id);
   }
 

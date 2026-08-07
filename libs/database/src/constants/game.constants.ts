@@ -24,4 +24,26 @@ export const GAME_SETTINGS = {
     MATCH_EXTRA_TIME_FIRST_HALF_MINUTES: 15,
     MATCH_EXTRA_TIME_SECOND_HALF_MINUTES: 15,
     MATCH_EXTRA_TIME_BREAK_MINUTES: 5,
+
+    /**
+     * Injury value threshold for the player-side `injuryState` flag.
+     *
+     * - `currentInjuryValue <= INJURY_MINOR_VALUE_THRESHOLD` →
+     *   `injuryState = 'minor'` (player can keep playing at 95%
+     *   ability per `calculateInjuryPenalty` in
+     *   `libs/database/src/types/simulation-player.ts`).
+     * - `currentInjuryValue >  INJURY_MINOR_VALUE_THRESHOLD` →
+     *   `injuryState = 'severe'` (cannot play).
+     *
+     * Calibrated 2026-08-05 to align with the simulator's mild
+     * injury value range (20-55) — most mild injuries land in the
+     * "minor / playable" bucket, but a few cross the threshold
+     * (e.g. head/ligament mild at the upper end) and get treated
+     * as severe. The cutoff value is checked from TWO call sites
+     * (simulator on write, recovery cron on daily tick) — see
+     * `injury-recovery.service.ts` and `simulation.processor.ts`.
+     * If you change this value, update the migration comment in
+     * `1726000000000-DropInjuryRedundantColumns` for context.
+     */
+    INJURY_MINOR_VALUE_THRESHOLD: 30,
 };

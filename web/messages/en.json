@@ -22,6 +22,20 @@
     "loginRequired": "Please log in to continue",
     "sessionExpired": "Session expired, please log in again"
   },
+  "onboarding": {
+    "title": "Preparing your club",
+    "subtitle": "The board is reviewing available clubs and will assign you one in a moment.",
+    "footnote": "Refresh this page or tap check status to see updates.",
+    "checkStatus": "Check status",
+    "checking": "Checking…",
+    "retry": "Retry assignment",
+    "retrying": "Re-enqueuing…",
+    "status": {
+      "teamless": "Looking for an opening",
+      "processing": "Assigning your team",
+      "active": "All set"
+    }
+  },
   "search": {
     "title": "Search",
     "placeholder": "Search teams, players, leagues...",

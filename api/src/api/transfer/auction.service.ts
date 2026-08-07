@@ -29,7 +29,7 @@ import { Cron } from '@nestjs/schedule';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Queue } from 'bullmq';
 import { ClsService } from 'nestjs-cls';
-import { DataSource, In, LessThan, MoreThanOrEqual, Repository } from 'typeorm';
+import { DataSource, In, MoreThanOrEqual, Repository } from 'typeorm';
 import { AUCTION_CONFIG, calculateMinBidIncrement } from './auction.constants';
 import { CreateAuctionReqDto } from './dto/create-auction.req.dto';
 import { PlaceBidReqDto } from './dto/place-bid.req.dto';
@@ -212,8 +212,7 @@ export class AuctionService implements OnModuleInit {
         // worker's CAS takeover (H2 commit) will reclaim
         // the row and the idempotency check will skip on
         // COMPLETED.
-        const isStale =
-          !tx.claimedAt || tx.claimedAt < staleCutoff;
+        const isStale = !tx.claimedAt || tx.claimedAt < staleCutoff;
         if (isStale) {
           this.logger.warn(
             `Auction ${auction.id} has stale PROCESSING tx ${tx.id} (claimedAt=${tx.claimedAt?.toISOString() ?? 'n/a'}), re-enqueuing`,
@@ -774,11 +773,7 @@ export class AuctionService implements OnModuleInit {
       // second `save` clobbers the first. `increment` goes
       // straight to a single SQL `lockedCash = lockedCash + :n`
       // so the writes serialize at the database.
-      await teamRepo.increment(
-        { id: bidderTeam.id },
-        'lockedCash',
-        dto.amount,
-      );
+      await teamRepo.increment({ id: bidderTeam.id }, 'lockedCash', dto.amount);
 
       // Compute the post-bid expiresAt. If the new bid lands
       // inside the extension window, push the deadline out;
@@ -1211,11 +1206,7 @@ export class AuctionService implements OnModuleInit {
             status: AuctionStatus.SETTLING,
           });
 
-          await this.enqueueSettlement(
-            auction,
-            transaction.id,
-            currentSeason,
-          );
+          await this.enqueueSettlement(auction, transaction.id, currentSeason);
         });
       } else {
         // No bids - mark as expired and reset player's onTransfer
@@ -1243,10 +1234,7 @@ export class AuctionService implements OnModuleInit {
 
       // Pipeline-cleanup auction keys + per-team bid sets.
       const teamIds = redisState?.bidHistory?.map((bid) => bid.teamId) ?? [];
-      await this.auctionRedisRepo.cleanupAuctionWithBids(
-        auction.id,
-        teamIds,
-      );
+      await this.auctionRedisRepo.cleanupAuctionWithBids(auction.id, teamIds);
     } finally {
       await this.auctionRedisRepo.releaseSettlementLock(auction.id);
     }

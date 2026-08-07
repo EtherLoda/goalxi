@@ -157,6 +157,60 @@ back apart.
 - `settlement/src/bootstrap/generators/youth-structure.generator.ts` — idempotent 1:1 creator.
 - `api/src/api/scouts/scouts.service.ts` (`selectCandidate`) — player is dropped here with: `position` (from candidate), `potentialAbility` recomputed from `potentialSkills` (NOT a hardcoded 50 anymore), `revealLevel` derived from `revealedSkills.length`.
 
+### Onboarding pipeline (manager register → claim a BOT team)
+
+Replaces the old `POST /teams/:id/apply` flow which was `@Public()` and took a `userId` in the body — a deliberate "any caller can gift a BOT to any user" hole. The new pipeline is auth-gated, asynchronous, and uses the JWT identity to decide ownership.
+
+**State machine** (in `UserEntity.onboardingStatus`):
+
+```
+TEAMLESS ──(api enqueues job)──▶ PROCESSING ──(worker claims)──▶ ACTIVE
+   ▲                                                                  │
+   └──────────── (admin reset / team hard-deleted) ──────────────────┘
+```
+
+- `TEAMLESS` is the default for every freshly-registered user.
+- `PROCESSING` is the "work in flight" signal the polling UI relies on; it is **not** a default state.
+- `ACTIVE` means the user owns a non-BOT team row.
+
+**Allocation policy** (`PHASE1_FILL_THRESHOLD = 0.5` in `libs/database/src/services/onboarding-assigner.ts`):
+
+1. **Phase 1** — among leagues with a player ratio below 50%, pick the one with the lowest ratio. Tie-break by tier ASC + tierDivision ASC. Within the chosen league, claim the **lowest-ELO** BOT, tie-break by createdAt ASC.
+2. **Phase 2** — once every league is past 50%, fall back to round-robin: pick the league with the most remaining BOTs (most capacity), claim the lowest-ELO BOT inside it.
+3. **No BOT is re-created** to backfill a claimed slot. The design is "BOTs retire as players arrive" — `league.maxTeams` is informational only and the live `team` count for a league will gradually shrink.
+
+**Pipeline**:
+
+| Step | Where | What |
+|---|---|---|
+| Register | `api/src/api/auth/auth.service.ts` → `register()` | Creates user, queues verification email, enqueues `assign-team` BullMQ job, returns immediately with `status: 'teamless'` |
+| Poll | `GET /onboarding/state` (auth) | Returns `{ status, hasTeam, team }` — frontend polls this on every navigation |
+| Retry | `POST /onboarding/claim` (auth) | Manually re-enqueues the job if user is stuck in PROCESSING |
+| Worker | `settlement/src/processors/onboarding.processor.ts` | Consumes the job, calls `OnboardingAssigner.claim` (transactional claim + status flip), seeds the first scout candidate via `seedSeniorScoutCandidate` |
+
+**Where to look** when changing anything in this subsystem:
+
+- `libs/database/src/services/onboarding-assigner.ts` — pure assigner (`claim`, `markProcessing`, error types). Shared by API read-side and settlement write-side.
+- `libs/database/src/services/senior-scout-generator.ts` — pure scout seed (`generateSeniorScoutCandidate`, `seedSeniorScoutCandidate`). Both the API and the onboarding worker use it.
+- `api/src/api/onboarding/onboarding.service.ts` — read-side (`getOnboardingState`) and enqueue helper (`enqueueAssignTeam`).
+- `api/src/api/onboarding/onboarding.controller.ts` — `GET /onboarding/state` + `POST /onboarding/claim`.
+- `api/src/api/auth/auth.service.ts` (`register`) — single source of the "register → enqueue" handoff.
+- `api/src/constants/job.constant.ts` — `QueueName.ONBOARDING = 'onboarding-assignment'` and `QueuePrefix.ONBOARDING = 'onboarding'`.
+- `settlement/src/processors/onboarding.processor.ts` — worker; classifies errors (`OnboardingNoBotAvailableError` → `UnrecoverableError`, `OnboardingClaimRaceError` → retry).
+- `settlement/src/onboarding.module.ts` — wires the queue to the processor.
+- `web/src/app/[locale]/onboarding/select/page.tsx` — the loading screen the user sits on while the worker runs.
+- `web/src/contexts/AuthContext.tsx` — reads `/onboarding/state` on every navigation; if `hasTeam=false`, bounces the user to `/onboarding/select`.
+
+**Idempotency**:
+
+- The assigner is idempotent: if the user already owns a non-BOT team, `claim` returns the existing team with `reused: true` and does NOT touch any row. This is what makes the manual retry endpoint safe.
+- The BullMQ jobId is `assign-team:${userId}`. A re-enqueue while a job is already in flight is a no-op (see `OnboardingService.enqueueAssignTeam`'s `getJob` dedup check).
+- The user's `markProcessing` UPDATE is filtered to `onboardingStatus != 'active'`, so a worker that picks up a job for an already-ACTIVE user (e.g. a job from a manual retry) does NOT bounce them back to PROCESSING.
+
+**Concurrency**:
+
+- The whole claim runs inside a `dataSource.transaction` and the BOT pick uses `pessimistic_write`. Two concurrent registrations cannot both pass the `isBot=true` check; the second waits for the first to commit, then sees `userId !== null` and throws `OnboardingClaimRaceError`, which BullMQ retries with `attempts: 3, backoff: { type: 'exponential', delay: 1500 }`.
+
 ## Code Style
 
 - TypeScript strict mode

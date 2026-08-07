@@ -1,11 +1,7 @@
+import { WeatherEntity, WeatherForecast, WeatherType } from '@goalxi/database';
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import {
-  WeatherEntity,
-  WeatherType,
-  WeatherForecast,
-} from '@goalxi/database';
 import { WeatherForecastResDto } from './dto/weather-forecast.res.dto';
 
 /**
