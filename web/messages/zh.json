@@ -14,6 +14,14 @@
       "teamless": "正在寻找空缺",
       "processing": "正在分配球队",
       "active": "一切就绪"
+    },
+    "nameStep": {
+      "title": "为俱乐部命名",
+      "subtitle": "董事会已指派你执教 {teamName}。可以现在改名，也可以保留原名。",
+      "placeholder": "俱乐部名称",
+      "save": "确认命名",
+      "saving": "保存中…",
+      "skip": "保持原名"
     }
   },
   "common": {

@@ -3,6 +3,7 @@ import {
   Body,
   Controller,
   Delete,
+  ForbiddenException,
   Get,
   HttpCode,
   HttpStatus,
@@ -18,6 +19,7 @@ import { TeamResDto } from './dto/team.res.dto';
 import { UpdateTeamReqDto } from './dto/update-team.req.dto';
 import { TeamService } from './team.service';
 
+import { CurrentUser } from '@/decorators/current-user.decorator';
 import { Public } from '@/decorators/public.decorator';
 import { BenchConfig } from '@goalxi/database';
 
@@ -57,12 +59,45 @@ export class TeamController {
     return this.teamService.create(dto);
   }
 
+  /**
+   * Update the team owned by the current user. Resolves the team
+   * from the JWT (`CurrentUser('id')`) so the frontend doesn't
+   * have to know its own teamId.
+   *
+   * Used by the post-onboarding "name your club" step and (later)
+   * by the team settings page. Accepts the same `UpdateTeamReqDto`
+   * as the admin `/teams/:id` route so adding new editable fields
+   * (city, jersey colors, logo, ...) doesn't require a new
+   * endpoint.
+   */
+  @Patch('me')
+  @HttpCode(HttpStatus.OK)
+  async updateMyTeam(
+    @CurrentUser('id') userId: Uuid,
+    @Body() dto: UpdateTeamReqDto,
+  ): Promise<TeamResDto> {
+    return this.teamService.updateByUserId(userId, dto);
+  }
+
   @Patch(':id')
   @HttpCode(HttpStatus.OK)
   async update(
     @Param('id') id: Uuid,
     @Body() dto: UpdateTeamReqDto,
+    @CurrentUser('id') userId: Uuid,
   ): Promise<TeamResDto> {
+    // Ownership check: a team can only be updated by its own
+    // manager. The previous version of this handler accepted
+    // any authenticated caller's request, which is the same
+    // "any user can rename any team" hole that landed the
+    // old `POST /teams/:id/apply`. Keep the path alive for
+    // future admin tooling (add a RolesGuard(ADMIN) bypass
+    // if you re-introduce that), but the plain authenticated
+    // path is now owner-only.
+    const owned = await this.teamService.isOwnedBy(id, userId);
+    if (!owned) {
+      throw new ForbiddenException('You can only update your own team');
+    }
     return this.teamService.update(id, dto);
   }
 

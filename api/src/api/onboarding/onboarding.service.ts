@@ -1,6 +1,7 @@
 import { QueueName } from '@/constants/job.constant';
 import { ValidationException } from '@/exceptions/validation.exception';
 import {
+  ONBOARDING_PENDING_NAME,
   TeamEntity,
   UserEntity,
   UserOnboardingStatus,
@@ -83,6 +84,14 @@ export class OnboardingService {
         return {
           status: UserOnboardingStatus.ACTIVE,
           hasTeam: true,
+          // `needsName` is the rename-step gate. It is true
+          // exactly when the assigner just stamped the team
+          // with the `ONBOARDING_PENDING_NAME` sentinel and
+          // the manager hasn't filled in a real name yet. The
+          // select page uses this to render the "name your
+          // club" form on the first visit only — see
+          // `OnboardingStateResDto` for the contract.
+          needsName: team.name === ONBOARDING_PENDING_NAME,
           team: {
             id: team.id,
             name: team.name,
@@ -105,6 +114,10 @@ export class OnboardingService {
     return {
       status: user.onboardingStatus,
       hasTeam: false,
+      // No team → no rename gate to surface. Frontend should
+      // never reach the form path in this branch — the select
+      // page only reads `needsName` after confirming `hasTeam`.
+      needsName: false,
       team: null,
     };
   }

@@ -4,6 +4,14 @@ import {
   UserEntity,
   UserOnboardingStatus,
   Uuid,
+  ONBOARDING_PENDING_NAME,
+  scrubManagerSpecificData,
+  generateTeamSquad,
+  generateTeamStaff,
+  generateTeamFinance,
+  generateTeamFan,
+  generateTeamStadium,
+  seedSeniorScoutCandidate,
 } from '../index';
 import { DataSource, EntityManager } from 'typeorm';
 
@@ -113,8 +121,8 @@ export class OnboardingAssigner {
       return { team: existing, reused: true };
     }
 
-    // The pick + claim + user-status-flip all run inside ONE
-    // transaction. Two reasons:
+    // The pick + claim + scrub + regenerate + user-status-flip
+    // all run inside ONE transaction. Two reasons:
     //
     //  1. `pessimistic_write` requires a transaction in
     //     TypeORM/Postgres. Calling `setLock` outside a tx
@@ -122,6 +130,11 @@ export class OnboardingAssigner {
     //  2. We want the pick and the claim to observe a
     //     consistent snapshot — the league ratio we read at
     //     pick time must match the BOT count at claim time.
+    //  3. The scrub + squad-regen work needs to be atomic
+    //     with the claim itself: a crash mid-scrub would
+    //     leave the new manager with a half-cleared BOT
+    //     roster, and a crash mid-regen would leave a team
+    //     with zero players. Both are unacceptable mid-season.
     return dataSource.transaction(async (manager) => {
       const target = await this.pickAndLockInTransaction(manager);
       if (!target) {
@@ -156,16 +169,65 @@ export class OnboardingAssigner {
         );
       }
 
+      // Step 1 — flip the team row from BOT to user-owned.
+      // `teamId` is preserved (the new manager inherits the
+      // BOT's `teamId`, league, jersey colors, etc.) so season
+      // rows like `match` / `match_event` / `league_standing`
+      // stay correctly linked. The name is overwritten with
+      // the `ONBOARDING_PENDING_NAME` sentinel so the
+      // frontend's `/onboarding/select` page knows to render
+      // the "name your club" form on this manager's FIRST
+      // visit only — see the comment on that constant in
+      // `team-onboarding-generator.ts` for the full rationale.
       fresh.userId = userId;
       fresh.isBot = false;
       // botLevel was a BOT-specific knob; reset to the player
       // default so any future read doesn't see a stale 5.
       fresh.botLevel = 5;
+      fresh.name = ONBOARDING_PENDING_NAME;
       await manager.save(fresh);
 
-      // Flip onboarding status in the same transaction so a
-      // crash between the two writes can't leave the user
-      // owning a team but still flagged TEAMLESS.
+      // Step 2 — wipe every manager-controlled row off the
+      // team. Players are soft-deleted (so `match_event`'s
+      // CASCADE FKs stay valid for season-history queries);
+      // the rest are hard-deleted because nothing historical
+      // references them. See `team-onboarding-generator.ts`
+      // for the per-table rationale.
+      await scrubManagerSpecificData(manager, fresh.id);
+
+      // Step 3 — generate the new manager's starter squad
+      // (18 fresh players, random skills, random names pinned
+      // to the team's nationality), the default coaching staff
+      // (head coach + fitness coach), the starting financial
+      // balance, the zero-fan base, and the starter stadium.
+      // All happen inside this same transaction so a rollback
+      // restores the BOT state and the league ratio stays
+      // consistent. See `team-onboarding-generator.ts` for
+      // the seed values (`ONBOARDING_STARTING_BALANCE` etc.).
+      await generateTeamSquad(manager, fresh.id, fresh.nationality);
+      await generateTeamStaff(manager, fresh.id, fresh.nationality);
+      await generateTeamFinance(manager, fresh.id);
+      await generateTeamFan(manager, fresh.id);
+      await generateTeamStadium(manager, fresh.id);
+
+      // Step 4 — seed one scout candidate so the new manager
+      // has something to look at in the inbox without waiting
+      // for the Saturday cron. Best-effort: if generation
+      // throws, the claim still succeeds (the manager can
+      // still hit "draw" on day 1 — the per-week cap is the
+      // gate, not the seed).
+      try {
+        await seedSeniorScoutCandidate(manager, fresh.id, fresh.nationality);
+      } catch {
+        // Swallow — the claim is the load-bearing write. The
+        // settlement processor's existing warn-level log
+        // covers the failure; we just don't want a bad
+        // random roll to bounce the user back to TEAMLESS.
+      }
+
+      // Step 5 — flip onboarding status in the same
+      // transaction so a crash between the writes can't leave
+      // the user owning a team but still flagged TEAMLESS.
       await manager
         .createQueryBuilder()
         .update(UserEntity)

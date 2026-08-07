@@ -6,7 +6,7 @@ import {
 } from '@/decorators/field.decorators';
 
 export class UpdateTeamReqDto {
-  @StringFieldOptional()
+  @StringFieldOptional({ minLength: 2, maxLength: 50 })
   name?: string;
 
   @StringFieldOptional({ minLength: 2, maxLength: 2 })

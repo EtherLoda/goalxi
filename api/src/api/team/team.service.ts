@@ -105,6 +105,55 @@ export class TeamService {
     return team ? this.mapToResDto(team) : null;
   }
 
+  /**
+   * Cheap ownership probe — used by the controller to gate
+   * `PATCH /teams/:id` so a logged-in user can no longer rename
+   * another manager's team. We deliberately do not hydrate the
+   * full team row here; the controller follows up with
+   * `update(id, ...)` which loads it again. A two-query
+   * ownership check + update is fine for an endpoint that
+   * fires at most once per onboarding flow.
+   */
+  async isOwnedBy(teamId: Uuid, userId: Uuid): Promise<boolean> {
+    assert(teamId, 'teamId is required');
+    assert(userId, 'userId is required');
+    const team = await TeamEntity.findOne({
+      where: { id: teamId },
+      select: { id: true, userId: true },
+    });
+    return team?.userId === userId;
+  }
+
+  /**
+   * Update the team owned by the given user. Resolves the
+   * teamId from `userId` so the caller (typically the
+   * post-onboarding "name your club" form) doesn't have to
+   * know its own teamId.
+   *
+   * Throws ValidationException(E001) if the user has no team
+   * yet — should never happen for a manager who has finished
+   * the onboarding flow, but a defensive 404 keeps the API
+   * honest if a future migration splits the user/team row
+   * creation.
+   */
+  async updateByUserId(
+    userId: Uuid,
+    reqDto: UpdateTeamReqDto,
+  ): Promise<TeamResDto> {
+    assert(userId, 'userId is required');
+    const team = await TeamEntity.findOne({
+      where: { userId },
+      select: { id: true },
+    });
+    if (!team) {
+      throw new ValidationException(
+        ErrorCode.E002,
+        'User does not own a team yet',
+      );
+    }
+    return this.update(team.id, reqDto);
+  }
+
   async create(reqDto: CreateTeamReqDto): Promise<TeamResDto> {
     // Check if user already has a team (one-to-one relationship)
     const existingTeam = await TeamEntity.findOneBy({ userId: reqDto.userId });

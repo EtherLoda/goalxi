@@ -94,6 +94,31 @@ function makeFakeDataSource(args: FakeArgs): FakeHandle {
 
   const manager: any = {
     save: jest.fn(async (t: TeamEntity) => t),
+    delete: jest.fn().mockResolvedValue({ affected: 0 }),
+    // The fresh-claim path issues raw `manager.query` for every
+    // DELETE in `scrubManagerSpecificData` (workaround for
+    // TypeORM 0.3.x's DeleteQueryBuilder `subQuery` bug). Stub
+    // it as a no-op so the pick-algorithm tests don't have to
+    // care about the scrub side-effects.
+    query: jest.fn().mockResolvedValue({ rowCount: 0, rows: [] }),
+    create: jest.fn((_Entity: unknown, data: unknown) => ({
+      id: 'mock-row-id',
+      ...((data as object) ?? {}),
+    })),
+    // Stubs for the side-channels the claim transaction now
+    // reaches into after the in-place update: the scrub helper
+    // (which issues `manager.delete(...)` per table) and the
+    // squad/staff/scout generators (which call
+    // `manager.create(...)` + `manager.save(...)` and
+    // `manager.getRepository(ScoutCandidateEntity).create/save`).
+    // We don't assert on these in the existing pick-algorithm
+    // tests, so a no-op stub is enough — keeping the test
+    // surface focused on the league-pick logic, with a separate
+    // spec covering the full fresh-claim path.
+    getRepository: jest.fn().mockReturnValue({
+      create: jest.fn((data: unknown) => data),
+      save: jest.fn().mockResolvedValue({ id: 'mock-scout-id' }),
+    }),
     transaction: jest.fn(
       async (cb: (m: unknown) => unknown) => cb(manager),
     ),

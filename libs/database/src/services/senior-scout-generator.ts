@@ -19,7 +19,7 @@ import {
   ScoutCandidatePlayerData,
   TeamEntity,
 } from '../index';
-import { DataSource } from 'typeorm';
+import { DataSource, EntityManager } from 'typeorm';
 import { currentWeekIndex, endOfCurrentWeek } from '../utils/game-clock';
 import { generateScoutCandidate, GeneratedScoutCandidate } from './scout-generator';
 import { getRandomNameByNationality } from '../constants/name-database';
@@ -126,8 +126,17 @@ export function generateSeniorScoutCandidate(
  * the onboarding seed deliberately skips the cap so the new
  * manager always has at least one candidate to look at).
  */
+/**
+ * Accepts either a `DataSource` (top-level call site) or an
+ * `EntityManager` (inside an open transaction — the path the
+ * onboarding claim takes so the seed rides the same atomic
+ * unit as the team-claim + scrub + squad-gen work). When
+ * given a `DataSource` we use its top-level manager; the
+ * caller is responsible for not racing the seed against a
+ * concurrent transaction.
+ */
 export async function seedSeniorScoutCandidate(
-  dataSource: DataSource,
+  source: DataSource | EntityManager,
   teamId: string,
   teamNationality: string | null,
   random: () => number = Math.random,
@@ -136,7 +145,8 @@ export async function seedSeniorScoutCandidate(
   const playerData = generateSeniorScoutCandidate(teamShim, random);
   const expiresAt = endOfCurrentWeek();
 
-  const repo = dataSource.manager.getRepository(ScoutCandidateEntity);
+  const manager = 'manager' in source ? source.manager : source;
+  const repo = manager.getRepository(ScoutCandidateEntity);
   const candidate = repo.create({
     teamId,
     playerData: {

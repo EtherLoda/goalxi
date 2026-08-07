@@ -47,11 +47,19 @@ const securityHeaders = [
     key: "Content-Security-Policy",
     value: [
       "default-src 'self'",
-      // Next.js dev needs 'unsafe-eval' for HMR. In production the
-      // dev server is gone and the bundle is static, so dropping
-      // this is safe (and we keep it static so a deploy with
-      // NODE_ENV=production can't accidentally pull it in).
-      "script-src 'self' 'unsafe-inline'",
+      // `unsafe-eval` is only needed in development:
+      //   - Next.js dev server uses eval() for HMR / source maps
+      //   - React 19 dev mode uses eval() to reconstruct component
+      //     callstacks from the prod-style minified runtime
+      // In production the bundle is static and the dev server is
+      // gone, so eval() is never called. Leaving it allowed in prod
+      // would be a real XSS risk (eval + injected JSON = arbitrary
+      // code execution), so we gate it on NODE_ENV. Next sets
+      // NODE_ENV=development for `next dev` and =production for
+      // `next build` / `next start`, so this is safe to read here.
+      `script-src 'self' 'unsafe-inline'${
+        process.env.NODE_ENV === "development" ? " 'unsafe-eval'" : ""
+      }`,
       "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
       "font-src 'self' data: https://fonts.gstatic.com",
       "img-src 'self' data: blob:",

@@ -8,8 +8,6 @@ import {
   OnboardingAssigner,
   OnboardingClaimRaceError,
   OnboardingNoBotAvailableError,
-  seedSeniorScoutCandidate,
-  TeamEntity,
   Uuid,
 } from '@goalxi/database';
 
@@ -104,47 +102,30 @@ export class OnboardingProcessor extends WorkerHost {
     // already happened.
     await OnboardingAssigner.markProcessing(this.dataSource, userId as Uuid);
 
-    // Step 2 — pick + claim.
+    // Step 2 — pick + claim + scrub + squad/staff/scout regen.
+    // The assigner runs the whole sequence in a single
+    // transaction; the worker just awaits the result. See
+    // `OnboardingAssigner.claim` for the per-step rationale.
     const { team, reused } = await OnboardingAssigner.claim(
       this.dataSource,
       userId as Uuid,
     );
 
-    // Step 3 — seed the first scout candidate. Skipped on the
-    // reused path because the team already had a prior
-    // onboarding run (and may already have a populated inbox).
-    // Skipped on any error — never block a successful claim
-    // on a soft convenience.
-    let scoutSeeded = false;
-    if (!reused) {
-      try {
-        const teamRow = await this.dataSource.manager
-          .getRepository(TeamEntity)
-          .findOneByOrFail({ id: team.id });
-        await seedSeniorScoutCandidate(
-          this.dataSource,
-          team.id,
-          teamRow.nationality ?? null,
-        );
-        scoutSeeded = true;
-      } catch (err) {
-        this.logger.warn(
-          `[Onboarding] initial scout seed failed userId=${userId} teamId=${team.id}: ${
-            err instanceof Error ? err.message : String(err)
-          }`,
-        );
-      }
-    }
-
     const result: OnboardingAssignmentResult = {
       userId,
       teamId: team.id,
       reused,
-      scoutSeeded,
+      // Scout seed now lives inside the assigner's transaction
+      // (it rides the same atomic unit as the claim + scrub +
+      // squad regen), so we no longer have a separate
+      // `scoutSeeded` boolean. Kept in the result shape as
+      // a derived `reused`-flipped flag so existing log
+      // consumers / dashboards keep parsing the line.
+      scoutSeeded: !reused,
       durationMs: Date.now() - start,
     };
     this.logger.log(
-      `[Onboarding] success userId=${userId} teamId=${team.id} reused=${reused} scoutSeeded=${scoutSeeded} durationMs=${result.durationMs}`,
+      `[Onboarding] success userId=${userId} teamId=${team.id} reused=${reused} scoutSeeded=${result.scoutSeeded} durationMs=${result.durationMs}`,
     );
     return result;
   }

@@ -34,6 +34,18 @@ interface OnboardingTeamSummary {
 interface OnboardingState {
   status: 'teamless' | 'processing' | 'active';
   hasTeam: boolean;
+  /**
+   * `true` exactly when the user has a team AND that team's
+   * name still matches the `ONBOARDING_PENDING_NAME`
+   * sentinel the assigner stamps right after picking a BOT.
+   * The `/onboarding/select` page renders the "name your
+   * club" form only while this is true; once the user picks a
+   * real name (or skips), it flips to false and the page
+   * routes them straight to `/dashboard` on every subsequent
+   * visit. The sentinel value itself is intentionally NOT
+   * exposed to the frontend — only the boolean decision.
+   */
+  needsName: boolean;
   team: OnboardingTeamSummary | null;
 }
 
@@ -615,6 +627,34 @@ export const api = {
       >,
     ): Promise<Team> => {
       return request<Team>(`/teams/${id}`, {
+        method: 'PATCH',
+        body: JSON.stringify(data),
+      });
+    },
+    /**
+     * Update the team owned by the current user. Resolves the
+     * teamId server-side from the JWT so the caller doesn't
+     * need to know it. Used by the post-onboarding "name your
+     * club" step and (later) by the team settings page.
+     */
+    updateMine: async (
+      data: Partial<
+        Pick<
+          Team,
+          | 'name'
+          | 'nationality'
+          | 'logoUrl'
+          | 'jerseyColorPrimary'
+          | 'jerseyColorSecondary'
+          | 'jerseyColorTertiary'
+          | 'foundedYear'
+          | 'city'
+          | 'bio'
+          | 'staminaTrainingIntensity'
+        >
+      >,
+    ): Promise<Team> => {
+      return request<Team>(`/teams/me`, {
         method: 'PATCH',
         body: JSON.stringify(data),
       });

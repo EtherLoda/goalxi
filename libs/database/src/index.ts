@@ -58,6 +58,7 @@ export * from './services/injury-recovery-calculator';
 export * from './services/scout-generator';
 export * from './services/senior-scout-generator';
 export * from './services/onboarding-assigner';
+export * from './services/team-onboarding-generator';
 export * from './services/youth-progression';
 export * from './types/match-event-data';
 export * from './types/simulation-player';
