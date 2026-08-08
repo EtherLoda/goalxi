@@ -118,9 +118,28 @@ export class FanService {
 
   /**
    * 获取入场人数
-   * 主队球迷按 20% 基础转化率进场,客队球迷按 8% 基础转化率进场,
+   * 主队球迷按"动态转化率"进场,客队球迷按 8% 固定转化率进场,
    * 都按当前情绪 (0-100) 折算到场率,再叠加 ±5% 随机波动,
    * 总入场不超过球场容量。无中立球迷来源(历史上曾经讨论过,已删除)。
+   *
+   * 主队转化率从固定 0.2 改成 `0.5 - 0.3 * ratio`,其中
+   * `ratio = clamp(homeFans / homeCap, 0, 1)`:
+   *   - ratio=0  (球迷远低于 cap,小球队/新球队) → 50% 主场转化
+   *   - ratio=1  (球迷已到 cap,顶级俱乐部)       → 20% (原值)
+   *
+   * 设计意图:小球队的核心支持者本来就少,这些人几乎全来现场(50%);
+   * 大球队 30 万球迷中路人粉占大头,只有 20% 真的买票进场 — 这跟
+   * 现实 L4 (英甲) 上座率 50%、L1 (英超) 上座率 95% 的差距是吻合的
+   * (因为 L1 球场更大、票价更贵,实际到场人数看起来满但相对 fan base
+   * 比例更低)。`ratio=1` 时回到原 0.2,保证对成熟生态零影响。
+   *
+   * 客队转化率 0.08 不动 — 客队球迷来看客场要旅行,本就更挑剔,
+   * 不应该跟主队一样享"小球队红利"。
+   *
+   * `homeCap` 是必传参数(由调用方从 `getFanCap(tier)` 取),
+   * 故意不提供 fallback:把"用什么 cap"的责任放在唯一调用方
+   * `match-completion.service.ts`,避免 service 自己硬编码
+   * 默认值导致行为漂移。
    */
   calculateAttendance(
     homeFans: number,
@@ -128,16 +147,20 @@ export class FanService {
     homeMorale: number,
     awayMorale: number,
     capacity: number,
+    homeCap: number,
   ): number {
-    // 主队球迷进场 (20%基础)
-    const homeRate = 0.6 + (homeMorale / 100) * 0.4;
-    const homeFansAttendance = Math.floor(homeFans * 0.2 * homeRate);
+    // 主队转化率:小球队核心粉全来,大球队恢复原 0.2
+    const ratio = Math.min(Math.max(homeFans / homeCap, 0), 1);
+    const homeConv = 0.5 - 0.3 * ratio;
 
-    // 客队球迷进场 (8%基础)
+    const homeRate = 0.6 + (homeMorale / 100) * 0.4;
+    const homeFansAttendance = Math.floor(homeFans * homeConv * homeRate);
+
+    // 客队球迷进场 (8%固定,客队球迷不会享小球队红利)
     const awayRate = 0.6 + (awayMorale / 100) * 0.4;
     const awayFansAttendance = Math.floor(awayFans * 0.08 * awayRate);
 
-    // 计算总入场（无中立球迷）
+    // 计算总入场(无中立球迷)
     const totalAttendance = homeFansAttendance + awayFansAttendance;
 
     // 添加随机波动 +/- 5%

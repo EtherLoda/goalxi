@@ -48,13 +48,22 @@ export const ONBOARDING_PLAYER_AGE_MAX = 30;
 export const ONBOARDING_STARTING_BALANCE = 500_000;
 
 /**
- * Starting fan base for a new manager. Zero — the new club is
- * a blank slate; fans trickle in through the weekly
- * fan-settlement tick (`fan.processor.ts`) as the team plays
- * matches and the emotion field moves. This matches the intent
- * of "新球队 fan 从 0 开始" in the design discussion.
+ * Starting fan base for a new manager. 10k — not zero. The
+ * ticket-revenue formula (`fans * 0.2 * morale_rate`) and the
+ * sponsorship formula (`base * 2 * sqrt(fans/10000)`) both
+ * scale off `totalFans`, so a 0-fan start means W1 income is
+ * 0 across the board and the team bleeds out before fan
+ * growth can kick in. 10k is the smallest base that gives
+ * the L4 sponsor baseline a 1.0× multiplier (so the new
+ * manager's first week's sponsorship = 80k, not 0) and a
+ * 1600-attendance opener (≈35k ticket revenue). The new
+ * club isn't a tabula rasa — every fresh team in real life
+ * inherits a city and a few thousand regulars, and the
+ * 0-fan design was over-correcting for "neutral fans don't
+ * exist" (a separate code concern, see
+ * `fan.service.ts:calculateAttendance`).
  */
-export const ONBOARDING_STARTING_FANS = 0;
+export const ONBOARDING_STARTING_FANS = 10_000;
 
 /**
  * Starting stadium capacity for a new manager. 10k seats —
@@ -233,9 +242,10 @@ function calculatePotentialAbility(
  * BOT made.
  *
  * `finance` / `fan` / `stadium` are wiped because the new
- * manager starts on a clean budget (500k), zero fans, and a
- * fresh 10k-seat stadium — see the matching
- * `generateTeamFinance` / `generateTeamFan` /
+ * manager starts on a clean budget (500k), a 10k-fan
+ * baseline (see `ONBOARDING_STARTING_FANS` for why zero
+ * is death), and a fresh 10k-seat stadium — see the
+ * matching `generateTeamFinance` / `generateTeamFan` /
  * `generateTeamStadium` helpers below for the seeds. Wiping
  * the inherited rows is required because each table has a
  * `OneToOne`-style unique relationship with `team` (the
@@ -487,8 +497,9 @@ export async function generateTeamFinance(
 
 /**
  * Create a fresh `fan` row with `ONBOARDING_STARTING_FANS`
- * (currently 0) and a neutral fan emotion (50/100 — "观望"
- * tier). The pre-scrub inherited row is wiped for the same
+ * (10k — see the constant's doc for why zero is death)
+ * and a neutral fan emotion (50/100 — "观望" tier).
+ * The pre-scrub inherited row is wiped for the same
  * OneToOne conflict reason as `generateTeamFinance`.
  *
  * `recentForm` is left as the default empty string — the new

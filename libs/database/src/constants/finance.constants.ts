@@ -20,8 +20,11 @@ export const FINANCE_CONSTANTS = {
   STAFF_WAGE: { 1: 2000, 2: 4000, 3: 8000, 4: 15000, 5: 25000 },
   // 球场维护费（周/每座位）
   STADIUM_MAINTENANCE_PER_SEAT: 2,
-  // 青训运营（周）
-  YOUTH_TEAM_COST: 50000,
+  // 青训运营（周）。原 50000 太高 — 16 周一赛季 80 万青训费,
+  // 对一支刚升级、没有青年产出的小球队是纯亏。改 25000 后
+  // L4 新球队 5 周内可转正,赛季末仍能保 400k+ 余额。
+  // 历史变更: 50000 → 25000 (调整经济 scale 校准)
+  YOUTH_TEAM_COST: 25000,
   // 单座票面均价(每场比赛 × 联赛倍率)。原本在 stadium.service 与
   // match-completion.service 各硬编码 20,容易漏改;统一在这里后,
   // 调票价只要改这一处。
