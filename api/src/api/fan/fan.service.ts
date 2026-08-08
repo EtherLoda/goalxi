@@ -1,4 +1,4 @@
-import { FAN_HIDDEN_CAP, FanEntity } from '@goalxi/database';
+import { FanEntity } from '@goalxi/database';
 import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
@@ -42,38 +42,35 @@ export class FanService {
   }
 
   /**
-   * 计算周球迷变化
-   * growth = 1000 × (1 - ratio²) × (0.2 + 0.8 × emotionFactor)
-   * - 情绪越好增长越快
-   * - 接近天花板时增长放缓
-   * - 情绪差时少增长，接近天花板时可能负增长
-   */
-  calculateWeeklyFanChange(
-    currentFans: number,
-    cap: number,
-    morale: number,
-  ): number {
-    const ratio = currentFans / cap;
-    const ceilingFactor = 1 - ratio * ratio;
-    const emotionFactor = morale / 100;
-    const growth = Math.floor(
-      1000 * ceilingFactor * (0.2 + 0.8 * emotionFactor),
-    );
-    return growth;
-  }
-
-  /**
-   * 计算情绪变化（基于预期 vs 实际）
-   * @param diff actualPoints - expectedPoints (约 -3 到 +3)
+   * 计算情绪变化(基于实际 vs 预期)
+   *
+   * `diff` is `actualPoints - expectedPoints` (range ~ −3 to +3,
+   * the ELO-expected delta for a 3-point game). Each result branch
+   * intentionally keeps the swing narrow: a single match should
+   * move emotion by single-digit points, not by a third of the
+   * 0-100 range. The ±20 swing for promotion / relegation
+   * (`applyPromotionReward` / `applyRelegationReward`) is the
+   * "big event" counterpart.
+   *
+   * Branches:
+   *   - W: `+2` floor on a win, scaled by how unexpected it was
+   *   - D: pure linear in `diff`, no floor
+   *   - L: ceiling at 0, scaled by how unexpected the loss was
+   *
+   * @param diff actualPoints - expectedPoints (≈ −3 to +3)
    * @param result W/D/L
    */
   calculateMoraleChange(diff: number, result: 'W' | 'D' | 'L'): number {
     if (result === 'W') {
-      return Math.round(diff * 8.3 + 5); // 赢: +5 ~ +30
+      // Win: +2 base, +4 per +diff point. Range ~ +2 … +14.
+      return Math.round(2 + Math.max(0, diff) * 4);
     } else if (result === 'D') {
-      return Math.round(diff * 5); // 平: 无基础奖励
+      // Draw: symmetric around 0, no floor. Range ~ −8 … +8.
+      return Math.round(diff * 2.5);
     } else {
-      return Math.round(diff * 10); // 输: -30 ~ 0 (无基础奖励)
+      // Loss: cap at 0, scaled by how bad the surprise was.
+      // Range ~ 0 … −12.
+      return Math.round(Math.min(0, diff) * 4);
     }
   }
 
@@ -83,56 +80,6 @@ export class FanService {
   getExpectedPoints(myElo: number, opponentElo: number): number {
     const expectedWinProb = 1 / (1 + Math.pow(10, (opponentElo - myElo) / 400));
     return expectedWinProb * 3; // 0-3 分
-  }
-
-  /**
-   * 获取球迷情绪档次 (0-4)
-   */
-  getEmotionTier(fanEmotion: number): number {
-    return Math.min(4, Math.floor(fanEmotion / 20));
-  }
-
-  /**
-   * 更新球迷记录（周更新）
-   */
-  async weeklyUpdate(
-    teamId: string,
-    tier: number,
-    promotion: boolean,
-    relegation: boolean,
-  ): Promise<FanEntity> {
-    const fan = await this.fanRepository.findOne({ where: { teamId } });
-    if (!fan) {
-      return this.create(teamId);
-    }
-
-    const cap = FAN_HIDDEN_CAP[tier as keyof typeof FAN_HIDDEN_CAP] || 100_000;
-
-    // 处理升级/降级
-    if (promotion) {
-      fan.totalFans = Math.floor(fan.totalFans * 1.1);
-      fan.recentForm = '';
-      fan.fanEmotion = Math.min(100, fan.fanEmotion + 20);
-    } else if (relegation) {
-      fan.totalFans = Math.floor(fan.totalFans * 0.9);
-      fan.recentForm = '';
-      fan.fanEmotion = Math.max(0, fan.fanEmotion - 20);
-    }
-
-    // 计算周变化
-    const change = this.calculateWeeklyFanChange(
-      fan.totalFans,
-      cap,
-      fan.fanEmotion,
-    );
-    fan.totalFans = Math.max(1000, fan.totalFans + change);
-
-    await this.fanRepository.save(fan);
-    this.logger.debug(
-      `Fan weekly update for team ${teamId}: ${change >= 0 ? '+' : ''}${change}, total: ${fan.totalFans}`,
-    );
-
-    return fan;
   }
 
   /**
@@ -171,8 +118,9 @@ export class FanService {
 
   /**
    * 获取入场人数
-   * S曲线中立球迷 + 主客队球迷进场
-   * 总入场 = min(capacity, 中立球迷 + 主队球迷 + 客队球迷)
+   * 主队球迷按 20% 基础转化率进场,客队球迷按 8% 基础转化率进场,
+   * 都按当前情绪 (0-100) 折算到场率,再叠加 ±5% 随机波动,
+   * 总入场不超过球场容量。无中立球迷来源(历史上曾经讨论过,已删除)。
    */
   calculateAttendance(
     homeFans: number,

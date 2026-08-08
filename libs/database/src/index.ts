@@ -57,6 +57,7 @@ export * from './services/experience-calculator';
 export * from './services/injury-recovery-calculator';
 export * from './services/scout-generator';
 export * from './services/senior-scout-generator';
+export * from './services/fan-rewards';
 export * from './services/onboarding-assigner';
 export * from './services/team-onboarding-generator';
 export * from './services/youth-progression';

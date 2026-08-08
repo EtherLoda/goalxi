@@ -249,6 +249,41 @@ export function generateWeatherAnnouncementEvent(
 }
 
 /**
+ * Generate attendance announcement event
+ *
+ * Surfaced as a separate neutral event (rather than a piggyback on
+ * `weather_announcement`) so the FE can:
+ *   - render crowd size independently of the weather line
+ *   - still show weather when the upstream scheduler forgot to set
+ *     `match.attendance` (e.g. older rows) without losing the
+ *     weather context
+ *   - extend the crowd panel later (breakdown by home/away, capacity
+ *     fill rate) without bloating the weather event's data shape
+ *
+ * `attendance` is the final pre-computed number from
+ * `fanService.calculateAttendance` and already accounts for capacity
+ * cap + the ±5% fluctuation. The engine treats it as read-only.
+ */
+export function generateAttendanceAnnouncementEvent(
+  minute: number,
+  attendance: number,
+  homeTeam: string,
+  awayTeam: string,
+): any {
+  return {
+    type: 'attendance_announcement',
+    minute,
+    second: 0,
+    teamId: undefined, // Neutral event
+    data: {
+      attendance,
+      homeTeam,
+      awayTeam,
+    },
+  };
+}
+
+/**
  * Generate player introduction event (both teams lineup)
  */
 export function generatePlayerIntroductionEvent(

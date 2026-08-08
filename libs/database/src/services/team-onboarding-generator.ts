@@ -49,10 +49,10 @@ export const ONBOARDING_STARTING_BALANCE = 500_000;
 
 /**
  * Starting fan base for a new manager. Zero — the new club is
- * a blank slate; fans trickle in through the fan-growth curve
- * (see `fan.entity.ts` FAN_BASE_GROWTH etc.) as the team
- * plays matches and wins games. This matches the intent of
- * "新球队 fan 从 0 开始" in the design discussion.
+ * a blank slate; fans trickle in through the weekly
+ * fan-settlement tick (`fan.processor.ts`) as the team plays
+ * matches and the emotion field moves. This matches the intent
+ * of "新球队 fan 从 0 开始" in the design discussion.
  */
 export const ONBOARDING_STARTING_FANS = 0;
 

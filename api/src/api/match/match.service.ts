@@ -662,8 +662,11 @@ export class MatchService {
       secondHalfInjuryTime: match.secondHalfInjuryTime,
       hasExtraTime: match.hasExtraTime,
       // Match-day context — prefer the entity fields so the frontend never
-      // has to dig through `weather_announcement` events. `venue` is only
-      // populated when the caller joined the `stadium` relation.
+      // has to dig through events. `venue` is only populated when the
+      // caller joined the `stadium` relation. Post-RFC split, weather and
+      // attendance are separate events; the simulator still emits both
+      // for completeness but the FE should prefer these denormalised
+      // columns when present.
       weather: match.weather ?? null,
       attendance: match.attendance ?? null,
       venue: match.stadium?.name ?? null,

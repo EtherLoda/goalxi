@@ -7,7 +7,7 @@ import { WeeklySettlementService } from './weekly-settlement.service';
 /**
  * Unit-level regression for the weekly-settlement idempotency
  * contract. We don't boot a full Nest container here — the
- * service is a thin coordinator over four queue refs, so a
+ * service is a thin coordinator over five queue refs, so a
  * TestingModule with the queues mocked is enough.
  */
 describe('WeeklySettlementService', () => {
@@ -17,6 +17,7 @@ describe('WeeklySettlementService', () => {
     condition: { add: jest.Mock };
     construction: { add: jest.Mock };
     youth: { add: jest.Mock };
+    fan: { add: jest.Mock };
   };
   let logger: {
     info: jest.Mock;
@@ -31,6 +32,7 @@ describe('WeeklySettlementService', () => {
       condition: { add: jest.fn().mockResolvedValue({ id: 'condition-job' }) },
       construction: { add: jest.fn().mockResolvedValue({ id: 'construction-job' }) },
       youth: { add: jest.fn().mockResolvedValue({ id: 'youth-job' }) },
+      fan: { add: jest.fn().mockResolvedValue({ id: 'fan-job' }) },
     };
     logger = {
       info: jest.fn(),
@@ -52,6 +54,7 @@ describe('WeeklySettlementService', () => {
           provide: getQueueToken('youth-progression-settlement'),
           useValue: queues.youth,
         },
+        { provide: getQueueToken('fan-settlement'), useValue: queues.fan },
       ],
     }).compile();
     return moduleRef.get(WeeklySettlementService);
@@ -74,7 +77,7 @@ describe('WeeklySettlementService', () => {
     expect(trainingCall[2].jobId).not.toMatch(/^\d{10,}$/);
   });
 
-  it('enqueues all four settlements in one tick', async () => {
+  it('enqueues all five settlements in one tick', async () => {
     service = await buildService();
 
     await service.processWeeklySettlement();
@@ -83,9 +86,10 @@ describe('WeeklySettlementService', () => {
     expect(queues.condition.add).toHaveBeenCalledTimes(1);
     expect(queues.construction.add).toHaveBeenCalledTimes(1);
     expect(queues.youth.add).toHaveBeenCalledTimes(1);
+    expect(queues.fan.add).toHaveBeenCalledTimes(1);
   });
 
-  it('all four jobIds are unique within the tick (BullMQ dedup per-queue only)', async () => {
+  it('all five jobIds are unique within the tick (BullMQ dedup per-queue only)', async () => {
     service = await buildService();
 
     await service.processWeeklySettlement();
@@ -95,8 +99,9 @@ describe('WeeklySettlementService', () => {
       queues.condition.add.mock.calls[0][2].jobId,
       queues.construction.add.mock.calls[0][2].jobId,
       queues.youth.add.mock.calls[0][2].jobId,
+      queues.fan.add.mock.calls[0][2].jobId,
     ];
-    expect(new Set(ids).size).toBe(4);
+    expect(new Set(ids).size).toBe(5);
   });
 
   it('sets attempts + backoff so transient failures retry', async () => {
@@ -109,10 +114,10 @@ describe('WeeklySettlementService', () => {
     expect(opts.backoff).toEqual({ type: 'exponential', delay: 60_000 });
   });
 
-  it('does not crash when one of the four enqueues fails — the others still land', async () => {
+  it('does not crash when one of the five enqueues fails — the others still land', async () => {
     service = await buildService();
 
-    // Make the condition queue throw; the other three should
+    // Make the condition queue throw; the other four should
     // still record `add` calls and the service should log a
     // single WARN line naming the missing kind.
     queues.condition.add.mockRejectedValueOnce(
@@ -124,6 +129,7 @@ describe('WeeklySettlementService', () => {
     expect(queues.training.add).toHaveBeenCalledTimes(1);
     expect(queues.construction.add).toHaveBeenCalledTimes(1);
     expect(queues.youth.add).toHaveBeenCalledTimes(1);
+    expect(queues.fan.add).toHaveBeenCalledTimes(1);
     expect(queues.condition.add).toHaveBeenCalledTimes(1);
 
     const warnCalls = logger.warn.mock.calls.map((c) => String(c[0]));
@@ -135,7 +141,7 @@ describe('WeeklySettlementService', () => {
     ).toBe(true);
   });
 
-  it('does not log WARN on the happy path (all 4 succeed)', async () => {
+  it('does not log WARN on the happy path (all 5 succeed)', async () => {
     service = await buildService();
     await service.processWeeklySettlement();
 

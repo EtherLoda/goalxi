@@ -7,6 +7,9 @@ import {
   LeagueStandingEntity,
   TeamEntity,
   SeasonResultEntity,
+  FanEntity,
+  applyPromotionReward,
+  applyRelegationReward,
 } from '@goalxi/database';
 
 export interface PlayoffMatchResult {
@@ -41,6 +44,8 @@ export class PromotionRelegationService {
     private readonly teamRepository: Repository<TeamEntity>,
     @InjectRepository(SeasonResultEntity)
     private readonly seasonResultRepository: Repository<SeasonResultEntity>,
+    @InjectRepository(FanEntity)
+    private readonly fanRepository: Repository<FanEntity>,
   ) {}
 
   /**
@@ -201,7 +206,22 @@ export class PromotionRelegationService {
   }
 
   /**
-   * 互换球队 leagueId（或只升级/只降级）
+   * Swap two teams' `leagueId` (or only one when the other is null).
+   *
+   * Naming is per the *origin* league tier, not the destination:
+   *   - `upperTeamId` is the team **leaving** the upper league →
+   *     its new leagueId is `lowerLeagueId` → this is a **relegation**
+   *   - `lowerTeamId` is the team **leaving** the lower league →
+   *     its new leagueId is `upperLeagueId` → this is a **promotion**
+   * Either side may be `null` for a one-direction move
+   * (direct promote / direct relegate in `processLeagueTier`).
+   *
+   * Also applies the tier-step fan reward (fans ±10%, emotion ±20,
+   * recentForm cleared) via `applyPromotionReward` /
+   * `applyRelegationReward` for each side that actually moves. The
+   * reward lives here (not in the per-side helpers) so that every
+   * `leagueId` mutation funnels through this method, including the
+   * playoff-swap path in `SeasonTransitionService`.
    */
   async swapTeamLeague(
     upperTeamId: string,
@@ -209,16 +229,17 @@ export class PromotionRelegationService {
     upperLeagueId: string,
     lowerLeagueId: string,
   ): Promise<void> {
-    // 升级球队
+    // `upperTeamId` is the relegated team (moves to lower league).
     const upperTeam = await this.teamRepository.findOne({
       where: { id: upperTeamId as any },
     });
     if (upperTeam) {
       upperTeam.leagueId = lowerLeagueId;
       await this.teamRepository.save(upperTeam);
+      await this.applyFanRewardForTierChange(upperTeamId, 'relegate');
     }
 
-    // 降级球队（如果有）
+    // `lowerTeamId` (if present) is the promoted team (moves to upper league).
     if (lowerTeamId) {
       const lowerTeam = await this.teamRepository.findOne({
         where: { id: lowerTeamId as any },
@@ -226,7 +247,48 @@ export class PromotionRelegationService {
       if (lowerTeam) {
         lowerTeam.leagueId = upperLeagueId;
         await this.teamRepository.save(lowerTeam);
+        await this.applyFanRewardForTierChange(lowerTeamId, 'promote');
       }
+    }
+  }
+
+  /**
+   * Apply the tier-change fan reward to a single team. No-op if the
+   * team has no `FanEntity` row yet (a fresh team that has never
+   * played — the next `updateAfterMatch` call will lazily create
+   * one, and the weekly tick covers it from there).
+   *
+   * Errors here are logged but never thrown: a fan-reward failure
+   * should not abort the league-swap, which is the more important
+   * structural change. The next weekly fan tick will reconcile any
+   * drift between the actual tier and the fan state.
+   */
+  private async applyFanRewardForTierChange(
+    teamId: string,
+    direction: 'promote' | 'relegate',
+  ): Promise<void> {
+    const fan = await this.fanRepository.findOne({ where: { teamId } });
+    if (!fan) {
+      this.logger.debug(
+        `[PromotionRelegation] no FanEntity for team ${teamId}, skipping ${direction} reward`,
+      );
+      return;
+    }
+    try {
+      if (direction === 'promote') {
+        applyPromotionReward(fan);
+      } else {
+        applyRelegationReward(fan);
+      }
+      await this.fanRepository.save(fan);
+      this.logger.info(
+        `[PromotionRelegation] ${direction} reward applied to team ${teamId}: ` +
+          `totalFans=${fan.totalFans}, fanEmotion=${fan.fanEmotion}`,
+      );
+    } catch (error) {
+      this.logger.warn(
+        `[PromotionRelegation] failed to apply ${direction} reward for team ${teamId}: ${(error as Error).message}`,
+      );
     }
   }
 

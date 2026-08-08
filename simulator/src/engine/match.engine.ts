@@ -18,6 +18,7 @@ import { LoggerService } from '@nestjs/common';
 import { resolveDuel as resolveDuelPure, duelProbability } from './duel';
 import {
   generateWeatherAnnouncementEvent,
+  generateAttendanceAnnouncementEvent,
   generatePlayerIntroductionEvent,
 } from './event.generator';
 import {
@@ -381,6 +382,13 @@ export class MatchEngine {
     private homeTactics: TacticsConfig = DEFAULT_TACTICS,
     private awayTactics: TacticsConfig = DEFAULT_TACTICS,
     private logger?: LoggerService, // Optional Nest logger — passed from SimulationProcessor
+    // Pre-computed crowd size from `match.attendance`. Sourced from the
+    // pre-sim scheduler and emitted as an `attendance_announcement`
+    // event at minute 0. Kept at the tail of the parameter list so the
+    // legacy positional call sites in the spec (which never set
+    // `attendance`) continue to compile — the field defaults to 0 and
+    // the FE treats 0 as "no crowd context".
+    private attendance: number = 0,
   ) {
     this.possessionTeam = homeTeam;
     this.defendingTeam = awayTeam;
@@ -501,6 +509,21 @@ export class MatchEngine {
       generateWeatherAnnouncementEvent(
         0,
         this.weather,
+        this.homeTeam.name,
+        this.awayTeam.name,
+      ),
+    );
+
+    // Attendance Announcement Event — separate neutral event so the FE
+    // can render the crowd line independently of the weather one. The
+    // value is read-only here; the upstream scheduler is responsible
+    // for writing `match.attendance` before kicking off the engine.
+    // A value of 0 (no upstream data) is preserved as-is so legacy
+    // matches and tests still produce a syntactically valid event.
+    this.events.push(
+      generateAttendanceAnnouncementEvent(
+        0,
+        this.attendance,
         this.homeTeam.name,
         this.awayTeam.name,
       ),

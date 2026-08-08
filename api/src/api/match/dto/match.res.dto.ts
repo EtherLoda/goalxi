@@ -38,10 +38,12 @@ export class MatchResDto {
   awayTacticsSet?: boolean;
 
   // Match-day context. Populated by the scheduler at tactics-lock time
-  // (`match.weather`) and by the simulator at completion
-  // (`match.attendance`); denormalised onto the entity so the frontend
-  // never has to dig through `weather_announcement` events to render the
-  // right-column info card.
+  // (`match.weather`) and by the pre-sim scheduler
+  // (`match.attendance`); the simulator then emits them as separate
+  // `weather_announcement` and `attendance_announcement` events at
+  // minute 0. Both columns are denormalised onto the entity so the
+  // FE never has to dig through events to render the right-column
+  // info card.
   weather?: WeatherType | null;
   attendance?: number | null;
   /**

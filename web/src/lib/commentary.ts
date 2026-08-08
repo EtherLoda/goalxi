@@ -56,6 +56,7 @@ export const EVENT_TYPE_ALIAS = new Map<string, string>([
   ['TACTICAL_CHANGE', 'TACTICAL_CHANGE'],
   ['FREE_KICK', 'FREE_KICK'],
   ['WEATHER_ANNOUNCEMENT', 'WEATHER_ANNOUNCEMENT'],
+  ['ATTENDANCE_ANNOUNCEMENT', 'ATTENDANCE_ANNOUNCEMENT'],
   ['PLAYER_INTRODUCTION', 'PLAYER_INTRODUCTION'],
   ['FORFEIT', 'FORFEIT'],
 ]);
@@ -536,20 +537,34 @@ export function formatWeatherAnnouncementCommentary(
 
   // Strip `commentary.` prefix when callers (see getTemplate) are scoped to
   // the `commentary` namespace via `useTranslations('commentary')`.
-  const baseLine = t(`weather.${weather.toLowerCase()}`);
+  return t(`weather.${weather.toLowerCase()}`);
+}
 
-  // Attendance piggybacks on the weather event — there is no separate
-  // crowd-announcement event type. The simulator's forfeit path also
-  // emits this field; normal matches populate it via the pre-sim
-  // scheduler. Render as a single trailing line so both messages read
-  // as "match preview" context.
+/**
+ * Format the dedicated attendance-announcement event (post-RFC split).
+ *
+ * Pre-split, attendance piggybacked on `weather_announcement.data` and
+ * the formatter rendered "weather + crowd" on a single trailing line.
+ * After the split, attendance is its own event so weather stays
+ * independent and the crowd line can carry extra context (e.g. fill
+ * rate) without bloating the weather event.
+ *
+ * Zero / missing attendance is treated as "no crowd context" and the
+ * formatter emits an empty string — the FE already gates visibility
+ * on the number being present, so emitting empty here keeps the
+ * pre-match preview card clean for legacy rows that never had
+ * `match.attendance` populated.
+ */
+export function formatAttendanceAnnouncementCommentary(
+  event: MatchEvent,
+  t: TranslationFunction,
+): string {
+  const data = event.data as any;
   const attendance = typeof data?.attendance === 'number' ? data.attendance : null;
-  if (attendance && attendance > 0) {
-    const crowdTemplate = t('attendance.line');
-    const crowdLine = interpolate(crowdTemplate, { count: formatNumber(attendance) });
-    return `${baseLine} ${crowdLine}`;
+  if (!attendance || attendance <= 0) {
+    return '';
   }
-  return baseLine;
+  return interpolate(t('attendance.line'), { count: formatNumber(attendance) });
 }
 
 function formatNumber(n: number): string {
@@ -698,6 +713,8 @@ export function formatEventCommentary(
       return formatPenaltyMissCommentary(event, homeTeamName, awayTeamName, t);
     case 'WEATHER_ANNOUNCEMENT':
       return formatWeatherAnnouncementCommentary(event, t);
+    case 'ATTENDANCE_ANNOUNCEMENT':
+      return formatAttendanceAnnouncementCommentary(event, t);
     case 'PLAYER_INTRODUCTION':
       return formatPlayerIntroductionCommentary(event, t);
     case 'HALF_TIME':

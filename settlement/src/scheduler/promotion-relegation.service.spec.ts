@@ -7,6 +7,7 @@ import {
   LeagueStandingEntity,
   TeamEntity,
   SeasonResultEntity,
+  FanEntity,
   Uuid,
 } from '@goalxi/database';
 import { LOGGER_SERVICE_PROVIDER } from '../test-utils/test-logger';
@@ -17,6 +18,7 @@ describe('PromotionRelegationService', () => {
   let standingRepository: jest.Mocked<Repository<LeagueStandingEntity>>;
   let teamRepository: jest.Mocked<Repository<TeamEntity>>;
   let seasonResultRepository: jest.Mocked<Repository<SeasonResultEntity>>;
+  let fanRepository: jest.Mocked<Repository<FanEntity>>;
 
   const mockLeagueRepository = {
     find: jest.fn(),
@@ -36,6 +38,11 @@ describe('PromotionRelegationService', () => {
   const mockSeasonResultRepository = {
     findOne: jest.fn(),
     create: jest.fn(),
+    save: jest.fn(),
+  };
+
+  const mockFanRepository = {
+    findOne: jest.fn(),
     save: jest.fn(),
   };
 
@@ -110,6 +117,10 @@ describe('PromotionRelegationService', () => {
           provide: getRepositoryToken(SeasonResultEntity),
           useValue: mockSeasonResultRepository,
         },
+        {
+          provide: getRepositoryToken(FanEntity),
+          useValue: mockFanRepository,
+        },
       ],
     }).compile();
 
@@ -120,9 +131,15 @@ describe('PromotionRelegationService', () => {
     standingRepository = module.get(getRepositoryToken(LeagueStandingEntity));
     teamRepository = module.get(getRepositoryToken(TeamEntity));
     seasonResultRepository = module.get(getRepositoryToken(SeasonResultEntity));
+    fanRepository = module.get(getRepositoryToken(FanEntity));
 
     // Reset all mocks
     jest.clearAllMocks();
+
+    // Default: no fan row exists. swapTeamLeague should treat that
+    // as "skip reward" — same as production. Individual tests that
+    // want to exercise the reward path override this.
+    mockFanRepository.findOne.mockResolvedValue(null);
   });
 
   describe('processAllTiers', () => {
@@ -257,6 +274,118 @@ describe('PromotionRelegationService', () => {
           leagueId: 'lower-league-id',
         }),
       );
+    });
+
+    it('applies the relegation reward to the upper team when it has a FanEntity', async () => {
+      // The `upperTeamId` argument is the *relegated* team (moves to
+      // the lower league). The fan reward path should fire for them.
+      const upperTeam = createMockTeam(
+        'relegated-team-id',
+        'Relegated FC',
+      ) as TeamEntity;
+      const fan = {
+        teamId: 'relegated-team-id',
+        totalFans: 10_000,
+        fanEmotion: 50,
+        recentForm: 'WWDLL',
+      } as FanEntity;
+
+      mockTeamRepository.findOne.mockResolvedValue(upperTeam);
+      mockTeamRepository.save.mockResolvedValue({} as TeamEntity);
+      mockFanRepository.findOne.mockResolvedValue(fan);
+      mockFanRepository.save.mockResolvedValue(fan);
+
+      await service.swapTeamLeague(
+        'relegated-team-id',
+        null,
+        'upper-league-id',
+        'lower-league-id',
+      );
+
+      // Relegation: -10% fans, -20 emotion, recentForm cleared.
+      expect(fan.totalFans).toBe(9_000);
+      expect(fan.fanEmotion).toBe(30);
+      expect(fan.recentForm).toBe('');
+      expect(mockFanRepository.save).toHaveBeenCalledWith(fan);
+    });
+
+    it('applies the promotion reward to the lower team when both teams swap', async () => {
+      // The `lowerTeamId` argument is the *promoted* team (moves to
+      // the upper league). The fan reward path should fire for them
+      // while the upper team gets the relegation reward.
+      const upperTeam = createMockTeam(
+        'relegated-team-id',
+        'Relegated FC',
+      ) as TeamEntity;
+      const lowerTeam = createMockTeam(
+        'promoted-team-id',
+        'Promoted FC',
+      ) as TeamEntity;
+      const upperFan = {
+        teamId: 'relegated-team-id',
+        totalFans: 20_000,
+        fanEmotion: 80,
+        recentForm: 'LLDLW',
+      } as FanEntity;
+      const lowerFan = {
+        teamId: 'promoted-team-id',
+        totalFans: 5_000,
+        fanEmotion: 60,
+        recentForm: 'WWWWW',
+      } as FanEntity;
+
+      mockTeamRepository.findOne
+        .mockResolvedValueOnce(upperTeam)
+        .mockResolvedValueOnce(lowerTeam);
+      mockTeamRepository.save.mockResolvedValue({} as TeamEntity);
+      mockFanRepository.findOne
+        .mockResolvedValueOnce(upperFan)
+        .mockResolvedValueOnce(lowerFan);
+      mockFanRepository.save.mockResolvedValue({} as FanEntity);
+
+      await service.swapTeamLeague(
+        'relegated-team-id',
+        'promoted-team-id',
+        'upper-league-id',
+        'lower-league-id',
+      );
+
+      // Relegated team: -10% / -20 / cleared
+      expect(upperFan.totalFans).toBe(18_000);
+      expect(upperFan.fanEmotion).toBe(60);
+      // Promoted team: +10% / +20 / cleared
+      expect(lowerFan.totalFans).toBe(5_500);
+      expect(lowerFan.fanEmotion).toBe(80);
+      expect(upperFan.recentForm).toBe('');
+      expect(lowerFan.recentForm).toBe('');
+
+      // Both fan rows are persisted.
+      expect(mockFanRepository.save).toHaveBeenCalledTimes(2);
+    });
+
+    it('skips the fan reward when the team has no FanEntity row (no throw, no log noise beyond debug)', async () => {
+      // The default `mockFanRepository.findOne.mockResolvedValue(null)`
+      // in beforeEach already covers this — we just assert the team
+      // save still happens and the fan repo is left alone.
+      const upperTeam = createMockTeam(
+        'relegated-team-id',
+        'Relegated FC',
+      ) as TeamEntity;
+
+      mockTeamRepository.findOne.mockResolvedValue(upperTeam);
+      mockTeamRepository.save.mockResolvedValue({} as TeamEntity);
+
+      await service.swapTeamLeague(
+        'relegated-team-id',
+        null,
+        'upper-league-id',
+        'lower-league-id',
+      );
+
+      // Team save happened.
+      expect(mockTeamRepository.save).toHaveBeenCalledTimes(1);
+      // Fan save was NOT attempted (findOne returned null).
+      expect(mockFanRepository.save).not.toHaveBeenCalled();
     });
   });
 

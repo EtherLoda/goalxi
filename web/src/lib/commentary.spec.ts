@@ -255,10 +255,33 @@ describe('formatEventCommentary dispatch', () => {
     expect(weatherText).toBe('Sunny skies over the stadium');
   });
 
-  it('appends attendance as a trailing line when weather event carries a count', () => {
-    // Forfeit path piggybacks on the weather_announcement event's data
-    // to surface crowd size (there is no separate crowd-announcement
-    // event type). Verify both lines render together.
+  it('appends attendance as a trailing line when the dedicated attendance event carries a count', () => {
+    // Post-RFC split: weather_announcement renders only the weather
+    // line; the dedicated attendance_announcement event emits the
+    // crowd line. Verify the new event routes through the right arm.
+    const t = jest.fn((key: string) => {
+      if (key === 'attendance.line') return '{count} fans in attendance.';
+      return key;
+    });
+    const text = formatEventCommentary(
+      baseEvent({
+        type: 'attendance_announcement',
+        typeName: 'attendance_announcement',
+        minute: 0,
+        data: { attendance: 25000 },
+      }),
+      'A',
+      'B',
+      t,
+    );
+    expect(text).toBe('25,000 fans in attendance.');
+    expect(t).toHaveBeenCalledWith('attendance.line');
+  });
+
+  it('renders weather independently of attendance (post-split)', () => {
+    // The weather arm no longer reads the (legacy) attendance field.
+    // Confirming that an attendance value on weather_announcement.data
+    // does NOT leak into the weather line.
     const t = jest.fn((key: string) => {
       if (key === 'weather.cloudy') return 'Overcast skies';
       if (key === 'attendance.line') return '{count} fans in attendance.';
@@ -275,34 +298,54 @@ describe('formatEventCommentary dispatch', () => {
       'B',
       t,
     );
-    expect(text).toBe('Overcast skies 25,000 fans in attendance.');
-    // Both i18n keys must have been consulted.
+    expect(text).toBe('Overcast skies');
     expect(t).toHaveBeenCalledWith('weather.cloudy');
-    expect(t).toHaveBeenCalledWith('attendance.line');
+    // Attendance i18n key is NOT consulted from the weather arm anymore.
+    expect(t).not.toHaveBeenCalledWith('attendance.line');
   });
 
   it('omits attendance when count is 0 or missing', () => {
-    // Pre-sim matches may have attendance=0 (not yet computed) or the
-    // field absent. Don't render "0 fans in attendance." noise.
+    // The dedicated attendance event may carry 0 (legacy row) or the
+    // field may be absent. Don't render "0 fans in attendance." noise.
     const t = jest.fn((key: string) => {
-      if (key === 'weather.rainy') return 'Rain falling';
-      if (key === 'weather.sunny') return 'Sunny skies';
+      if (key === 'attendance.line') return '{count} fans in attendance.';
       return key;
     });
     const textZero = formatEventCommentary(
       baseEvent({
-        type: 'weather_announcement',
-        typeName: 'weather_announcement',
+        type: 'attendance_announcement',
+        typeName: 'attendance_announcement',
         minute: 0,
-        data: { weather: 'Rainy', weatherKey: 'rainy', attendance: 0 },
+        data: { attendance: 0 },
       }),
       'A',
       'B',
       t,
     );
-    expect(textZero).toBe('Rain falling');
+    expect(textZero).toBe('');
 
     const textMissing = formatEventCommentary(
+      baseEvent({
+        type: 'attendance_announcement',
+        typeName: 'attendance_announcement',
+        minute: 0,
+        data: {},
+      }),
+      'A',
+      'B',
+      t,
+    );
+    expect(textMissing).toBe('');
+  });
+
+  it('weather event with no attendance field renders the weather line cleanly', () => {
+    // Post-split, the weather arm is the sole source of weather text.
+    // Attendance piggyback fields are ignored here.
+    const t = jest.fn((key: string) => {
+      if (key === 'weather.sunny') return 'Sunny skies';
+      return key;
+    });
+    const text = formatEventCommentary(
       baseEvent({
         type: 'weather_announcement',
         typeName: 'weather_announcement',
@@ -313,7 +356,7 @@ describe('formatEventCommentary dispatch', () => {
       'B',
       t,
     );
-    expect(textMissing).toBe('Sunny skies');
+    expect(text).toBe('Sunny skies');
   });
 
   it('default branch formats unknown events as "Title At Minute\'"', () => {

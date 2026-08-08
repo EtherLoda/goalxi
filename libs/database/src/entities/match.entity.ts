@@ -163,7 +163,12 @@ export class MatchEntity extends AbstractEntity {
     @Column({ name: 'weather', type: 'varchar', length: 20, nullable: true })
     weather?: WeatherType;
 
-    /** 上座人数(主场比赛)。在比赛结算时由赛事引擎填入,用于场馆页面统计。 */
+    /** 上座人数(主场比赛)。由 `MatchCompletionService.calculateStadiumRevenue`
+     *  在比赛结算时算好并回写;同一次结算会再发出 `attendance_announcement`
+     *  事件给前端做行内展示。该列是 Stadium 页面计算赛季平均上座率、
+     *  `MatchEngine` 启动时读取并向 minute-0 注入观众数的单一来源。
+     *  历史迁移(`AddMatchAttendance1719200000000`) 之前的旧比赛该列
+     *  为 null,前端走 `DEFAULT_FILL_RATE = 0.7` 兜底。 */
     @Column({ name: 'attendance', type: 'int', nullable: true })
     attendance?: number | null;
 

@@ -22,6 +22,10 @@ export const FINANCE_CONSTANTS = {
   STADIUM_MAINTENANCE_PER_SEAT: 2,
   // 青训运营（周）
   YOUTH_TEAM_COST: 50000,
+  // 单座票面均价(每场比赛 × 联赛倍率)。原本在 stadium.service 与
+  // match-completion.service 各硬编码 20,容易漏改;统一在这里后,
+  // 调票价只要改这一处。
+  TICKET_PRICE: 20,
 } as const;
 
 /**

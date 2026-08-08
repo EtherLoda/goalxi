@@ -1,6 +1,12 @@
 /**
- * Extract weather + attendance from the first WEATHER_ANNOUNCEMENT event,
- * and key events (goals, cards, substitutions) from all matching events.
+ * Extract weather from the first WEATHER_ANNOUNCEMENT event, attendance
+ * from the ATTENDANCE_ANNOUNCEMENT event, and key events (goals,
+ * cards, substitutions) from all matching events.
+ *
+ * Attendance is its own event type now (post-RFC split). Older matches
+ * pre-dating the split had `attendance` piggybacked on
+ * `weather_announcement.data`; we keep the old branch as a fallback so
+ * legacy rows still render.
  */
 
 'use client';
@@ -32,6 +38,19 @@ export function extractSidebarData(events: MatchEvent[]): MatchSidebarData {
       if (!weather) {
         weather = (ev.data?.weather as string) ?? (ev.data?.weatherKey as string) ?? null;
       }
+      // Legacy fallback: pre-split rows carried attendance inside
+      // weather_announcement.data. Only honour the field when it is a
+      // non-zero number — zeros were the default when no scheduler had
+      // populated `match.attendance`, and they would otherwise mask the
+      // real value from the dedicated event below.
+      if (
+        attendance === null &&
+        typeof ev.data?.attendance === 'number' &&
+        (ev.data.attendance as number) > 0
+      ) {
+        attendance = ev.data.attendance as number;
+      }
+    } else if (type === 'attendance_announcement') {
       if (attendance === null && typeof ev.data?.attendance === 'number') {
         attendance = ev.data.attendance as number;
       }

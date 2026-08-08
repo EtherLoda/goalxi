@@ -136,6 +136,19 @@ function extractSidebarData(events: MatchEvent[]) {
       if (!weather) {
         weather = (ev.data?.weather as string) ?? (ev.data?.weatherKey as string) ?? null;
       }
+      // Legacy fallback: pre-split rows carried attendance inside
+      // weather_announcement.data. Skip zero values — they were the
+      // default when no scheduler had populated `match.attendance`,
+      // and they would mask the real number coming from the dedicated
+      // event below.
+      if (
+        attendance === null &&
+        typeof ev.data?.attendance === 'number' &&
+        (ev.data.attendance as number) > 0
+      ) {
+        attendance = ev.data.attendance as number;
+      }
+    } else if (type === 'attendance_announcement') {
       if (attendance === null && typeof ev.data?.attendance === 'number') {
         attendance = ev.data.attendance as number;
       }

@@ -10,13 +10,19 @@ import { Column, Entity, PrimaryGeneratedColumn } from 'typeorm';
  * - recentForm: 最近5场结果 (如 "WWDLL")
  */
 
-/** 球迷隐藏上限 = 基准值100,000 × 联赛票价倍率 */
+/**
+ * Per-tier hidden cap on `FanEntity.totalFans`. The fan cap grows with
+ * league tier (mirroring the ticket multiplier — bigger clubs can
+ * plausibly support more supporters). Keys 1–4 are the four active
+ * league tiers; any tier > 4 falls through to the `FAN_CAP_BASE`
+ * default of 100k in `getFanCap` below, so we don't bother encoding
+ * `5: 100_000` here.
+ */
 export const FAN_HIDDEN_CAP = {
     1: 300_000,   // L1: 基准10万 × 2.0 = 30万
     2: 200_000,   // L2: 基准10万 × 1.6 = 16万 → 20万（四舍五入）
     3: 150_000,   // L3: 基准10万 × 1.3 = 13万 → 15万（四舍五入）
     4: 110_000,   // L4: 基准10万 × 1.1 = 11万
-    5: 100_000,   // L5+: 基准10万 × 1.0 = 10万
 } as const;
 
 /** 球迷情绪档次名称 */
@@ -27,15 +33,6 @@ export const FAN_EMOTION_TIER_NAMES = {
     3: { en: 'Building', zh: '升温' },
     4: { en: 'On Fire', zh: '狂热' },
 } as const;
-
-/** 基础周增长 */
-export const FAN_BASE_GROWTH = 2500;
-
-/** 基础周流失 */
-export const FAN_BASE_LOSS = 50;
-
-/** 上限压力曲线指数 */
-export const FAN_CAP_SMOOTHING = 2;
 
 /** 联赛票价系数 */
 export const TICKET_PRICE_MULTIPLIER = {
@@ -53,10 +50,14 @@ export function getTicketMultiplier(tier: number): number {
 /** 球迷天花板基准值 */
 export const FAN_CAP_BASE = 100_000;
 
-/** 获取球迷天花板（超过L4的都返回基准值） */
+/**
+ * Get the per-tier fan cap. Tiers 1–4 use the explicit
+ * `FAN_HIDDEN_CAP` table; anything higher falls through to
+ * `FAN_CAP_BASE` (100k) so a future L5+ tier doesn't have to ship
+ * a constants update before it works.
+ */
 export function getFanCap(tier: number): number {
-    const multiplier = getTicketMultiplier(tier);
-    return Math.round(FAN_CAP_BASE * multiplier);
+    return FAN_HIDDEN_CAP[tier as keyof typeof FAN_HIDDEN_CAP] ?? FAN_CAP_BASE;
 }
 
 @Entity('fan')

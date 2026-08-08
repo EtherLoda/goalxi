@@ -1,5 +1,6 @@
 import {
   FanEntity,
+  FINANCE_CONSTANTS,
   InjuryEntity,
   LeagueStandingEntity,
   MatchEntity,
@@ -550,7 +551,11 @@ export class MatchCompletionService {
     const homeMorale = homeFan.fanEmotion;
     const awayMorale = awayFan?.fanEmotion || 50;
 
-    // Calculate attendance
+    // Calculate attendance. The result is the single source of truth
+    // for both the per-match revenue transaction AND the denormalised
+    // `match.attendance` column consumed by the Stadium page's
+    // season-average and the simulator's pre-sim emission
+    // (see MatchEngine / `attendance_announcement` event).
     const totalAttendance = this.fanService.calculateAttendance(
       homeFans,
       awayFans,
@@ -559,8 +564,35 @@ export class MatchCompletionService {
       homeStadium.capacity,
     );
 
+    // Persist the attendance figure onto the match row FIRST. The
+    // finance transaction below is a separate dataSource.transaction
+    // (see FinanceService.processTransaction) — we intentionally do not
+    // widen that transaction to cover this save because the two writes
+    // are independently safe to retry:
+    //   - This save is idempotent: re-running the same inputs produces
+    //     the same `totalAttendance` (the ±5% fluctuation is the only
+    //     source of non-determinism, and overwriting with a new draw is
+    //     acceptable for a stat column).
+    //   - The cache guard `isMatchProcessed` in `completeMatch` means a
+    //     duplicate job is short-circuited at the entry; we only get
+    //     here once per (match, attempt) pair.
+    //   - If the finance transaction below fails, the thrown error
+    //     bubbles up and BullMQ retries the job; on the next attempt
+    //     the attendance is recomputed and overwritten with a fresh
+    //     draw, so we never persist a stale number paired with a
+    //     newer revenue record.
+    match.attendance = totalAttendance;
+    await this.matchRepository.save(match);
+
     // Calculate revenue
-    const baseTicketPrice = 20;
+    // `FINANCE_CONSTANTS.TICKET_PRICE` is the single source of truth
+    // shared with `stadium.service.getSummary` (preview number) and
+    // any other call site that needs the per-seat price. The
+    // league-tier multiplier (`TICKET_PRICE_MULTIPLIER`) is *not*
+    // applied on the Stadium page because there we want the
+    // worst-case baseline; it's only applied here where the actual
+    // income for the *home team's* league tier matters.
+    const baseTicketPrice = FINANCE_CONSTANTS.TICKET_PRICE;
     const tierMultiplier =
       TICKET_PRICE_MULTIPLIER[tier as keyof typeof TICKET_PRICE_MULTIPLIER] ||
       1.0;

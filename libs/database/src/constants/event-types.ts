@@ -34,6 +34,18 @@ export enum MatchEventType {
     PENALTY_MISS = 31,
     WEATHER_ANNOUNCEMENT = 32,
     PLAYER_INTRODUCTION = 33,
+    /**
+     * Match-day crowd size announcement. Emitted at minute 0 right
+     * after `WEATHER_ANNOUNCEMENT` so the FE can render the "X fans
+     * in attendance" line as part of the match preview. The
+     * simulator pre-computes the value from `match.attendance`
+     * (populated upstream by the pre-simulation scheduler); the
+     * engine itself never queries the DB.
+     *
+     * The forfeit path emits this with the same field shape so
+     * `extractSidebarData` only needs to know one type.
+     */
+    ATTENDANCE_ANNOUNCEMENT = 34,
 }
 
 export enum MatchPhase {

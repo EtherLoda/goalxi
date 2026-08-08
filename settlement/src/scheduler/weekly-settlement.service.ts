@@ -5,16 +5,17 @@ import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
 import { currentSeasonWeek, resolveGameStart } from '@goalxi/database';
 
-type SettlementKind = 'training' | 'condition' | 'construction' | 'youth-progression';
+type SettlementKind = 'training' | 'condition' | 'construction' | 'youth-progression' | 'fan';
 
 /**
- * Weekly training, condition, stadium construction, and youth
- * progression settlement cron. Runs every Thursday at 00:00 UTC.
+ * Weekly training, condition, stadium construction, youth
+ * progression, and fan settlement cron. Runs every Thursday at
+ * 00:00 UTC.
  *
  * Each settlement is a single "all teams" BullMQ job that the
- * respective processor drains. The four jobs are enqueued in
+ * respective processor drains. The five jobs are enqueued in
  * parallel — a Redis blip on one queue should not block the
- * other three from landing.
+ * other four from landing.
  *
  * Idempotency contract: every jobId is a business key
  * (`weekly-${kind}-${season}-${week}`), NOT `Date.now()`. BullMQ
@@ -47,6 +48,8 @@ export class WeeklySettlementService {
     private constructionQueue: Queue,
     @InjectQueue('youth-progression-settlement')
     private youthProgressionQueue: Queue,
+    @InjectQueue('fan-settlement')
+    private fanQueue: Queue,
   ) {
     this.gameStart = resolveGameStart(process.env.GAME_START_DATE);
   }
@@ -64,6 +67,7 @@ export class WeeklySettlementService {
       { kind: 'condition', queue: this.conditionQueue },
       { kind: 'construction', queue: this.constructionQueue },
       { kind: 'youth-progression', queue: this.youthProgressionQueue },
+      { kind: 'fan', queue: this.fanQueue },
     ];
 
     // Enqueue all four in parallel. Each getSettlementJobId is
@@ -106,13 +110,13 @@ export class WeeklySettlementService {
 
     if (failed.length === 0) {
       this.logger.info(
-        `[WeeklySettlement] Queued all 4 settlements for Season ${season}, Week ${week}: ${succeeded.join(', ')}`,
+        `[WeeklySettlement] Queued all 5 settlements for Season ${season}, Week ${week}: ${succeeded.join(', ')}`,
       );
       return;
     }
 
-    // Partial failure is the dangerous case: 3/4 ticks land
-    // but 1/4 silently doesn't. We log a single WARN line
+    // Partial failure is the dangerous case: 4/5 ticks land
+    // but 1/5 silently doesn't. We log a single WARN line
     // naming the missing kinds so on-call can re-trigger the
     // missing one manually.
     this.logger.warn(

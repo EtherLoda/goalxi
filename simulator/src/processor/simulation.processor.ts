@@ -511,6 +511,11 @@ export class SimulationProcessor extends WorkerHost {
       homeTacticsConfig,
       awayTacticsConfig,
       this.jobLog,
+      // Pre-computed crowd size; the engine treats it as read-only
+      // and emits an `attendance_announcement` event from it. Falls
+      // back to 0 when the upstream scheduler hasn't populated the
+      // column yet (legacy rows / pre-RFC matches).
+      match.attendance ?? 0,
     );
 
     // 5. Run Match (wrapped in try/catch to ensure transaction rollback on error)
@@ -1133,6 +1138,7 @@ export class SimulationProcessor extends WorkerHost {
       tactical_change: MatchEventType.NEUTRAL_EVENT,
       weather_announcement: MatchEventType.WEATHER_ANNOUNCEMENT,
       player_introduction: MatchEventType.PLAYER_INTRODUCTION,
+      attendance_announcement: MatchEventType.ATTENDANCE_ANNOUNCEMENT,
       forfeit: MatchEventType.FORFEIT,
     };
     return mapping[type] ?? MatchEventType.NEUTRAL_EVENT;
@@ -1195,10 +1201,18 @@ export class SimulationProcessor extends WorkerHost {
             .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
             .join(' '),
           weatherKey: weather,
-          // Attendance piggybacks on the weather event since neither
-          // path emits a dedicated crowd-announcement event type. The
-          // commentary formatter reads this field to render "X fans in
-          // attendance" alongside the weather line.
+          homeTeam: homeName,
+          awayTeam: awayName,
+        },
+        eventScheduledTime: start,
+      },
+      {
+        minute: 0,
+        type: 'attendance_announcement',
+        // Crowd size lives on its own event now so the FE renders
+        // the attendance line independently of weather. Matches the
+        // normal-path engine emission for one-to-one parity.
+        data: {
           attendance,
           homeTeam: homeName,
           awayTeam: awayName,
