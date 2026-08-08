@@ -4,7 +4,7 @@ import {
   UserEntity,
   UserOnboardingStatus,
   Uuid,
-  ONBOARDING_PENDING_NAME,
+  DEFAULT_TEAM_NAME,
   scrubManagerSpecificData,
   generateTeamSquad,
   generateTeamStaff,
@@ -37,6 +37,14 @@ export interface OnboardingClaimResult {
   /** True when a fresh claim was made; false when an existing
    *  ownership was reused (idempotency). */
   reused: boolean;
+  /**
+   * The team name the user picked at registration (or the
+   * default fallback if they didn't supply one). Surfaced
+   * for log observability; the assignment writes it to
+   * `team.name` so the user immediately sees a club name
+   * they recognize, with no separate "rename" step required.
+   */
+  appliedName: string;
 }
 
 interface LeagueBotStats {
@@ -94,11 +102,27 @@ export class OnboardingAssigner {
    * happens on a fresh, un-bootstrapped DB — the seed script
    * always creates the full league pyramid before any user can
    * register.
+   *
+   * `teamName` is the user-supplied club name from the
+   * registration form. The previous design wrote a sentinel
+   * placeholder to `team.name` and routed the user through a
+   * separate `/onboarding/select` "name your club" step; that
+   * was a UX wart (the form re-appeared on every login and
+   * required the user to type a name they'd already typed at
+   * register). Folding the rename into the claim itself means
+   * the user provides the name once at register, the worker
+   * stamps it directly onto the new team, and the user lands
+   * on `/dashboard` with a club name they recognize. Empty /
+   * missing input falls back to `DEFAULT_TEAM_NAME` so the
+   * API still works for tests and headless scripted flows.
    */
   static async claim(
     dataSource: DataSource,
     userId: Uuid,
+    teamName?: string | null,
   ): Promise<OnboardingClaimResult> {
+    const appliedName = (teamName?.trim() || '').slice(0, 50) || DEFAULT_TEAM_NAME;
+
     // Idempotency: reuse an existing ownership without touching it.
     // Done outside the transaction to keep the hot path cheap.
     const existing = await dataSource.manager
@@ -118,7 +142,7 @@ export class OnboardingAssigner {
         .set({ onboardingStatus: UserOnboardingStatus.ACTIVE })
         .where('id = :id', { id: userId })
         .execute();
-      return { team: existing, reused: true };
+      return { team: existing, reused: true, appliedName: existing.name };
     }
 
     // The pick + claim + scrub + regenerate + user-status-flip
@@ -174,17 +198,17 @@ export class OnboardingAssigner {
       // BOT's `teamId`, league, jersey colors, etc.) so season
       // rows like `match` / `match_event` / `league_standing`
       // stay correctly linked. The name is overwritten with
-      // the `ONBOARDING_PENDING_NAME` sentinel so the
-      // frontend's `/onboarding/select` page knows to render
-      // the "name your club" form on this manager's FIRST
-      // visit only — see the comment on that constant in
-      // `team-onboarding-generator.ts` for the full rationale.
+      // the user-supplied club name from the register form
+      // (or `DEFAULT_TEAM_NAME` if the API caller didn't
+      // supply one), so the user lands on `/dashboard` with a
+      // club name they recognize — no separate rename step
+      // required.
       fresh.userId = userId;
       fresh.isBot = false;
       // botLevel was a BOT-specific knob; reset to the player
       // default so any future read doesn't see a stale 5.
       fresh.botLevel = 5;
-      fresh.name = ONBOARDING_PENDING_NAME;
+      fresh.name = appliedName;
       await manager.save(fresh);
 
       // Step 2 — wipe every manager-controlled row off the
@@ -235,7 +259,7 @@ export class OnboardingAssigner {
         .where('id = :id', { id: userId })
         .execute();
 
-      return { team: fresh, reused: false };
+      return { team: fresh, reused: false, appliedName };
     });
   }
 

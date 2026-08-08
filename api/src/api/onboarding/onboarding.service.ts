@@ -1,7 +1,6 @@
 import { QueueName } from '@/constants/job.constant';
 import { ValidationException } from '@/exceptions/validation.exception';
 import {
-  ONBOARDING_PENDING_NAME,
   TeamEntity,
   UserEntity,
   UserOnboardingStatus,
@@ -25,8 +24,9 @@ import { OnboardingStateResDto } from './dto/onboarding-state.res.dto';
  * welcome message) can roll out without a queue flush.
  */
 export interface AssignTeamJobPayload {
-  v: 1;
+  v: 1 | 2;
   userId: string;
+  teamName?: string | null;
 }
 
 /**
@@ -84,14 +84,6 @@ export class OnboardingService {
         return {
           status: UserOnboardingStatus.ACTIVE,
           hasTeam: true,
-          // `needsName` is the rename-step gate. It is true
-          // exactly when the assigner just stamped the team
-          // with the `ONBOARDING_PENDING_NAME` sentinel and
-          // the manager hasn't filled in a real name yet. The
-          // select page uses this to render the "name your
-          // club" form on the first visit only — see
-          // `OnboardingStateResDto` for the contract.
-          needsName: team.name === ONBOARDING_PENDING_NAME,
           team: {
             id: team.id,
             name: team.name,
@@ -114,10 +106,6 @@ export class OnboardingService {
     return {
       status: user.onboardingStatus,
       hasTeam: false,
-      // No team → no rename gate to surface. Frontend should
-      // never reach the form path in this branch — the select
-      // page only reads `needsName` after confirming `hasTeam`.
-      needsName: false,
       team: null,
     };
   }
@@ -134,6 +122,12 @@ export class OnboardingService {
    * the worker itself is idempotent (see
    * `OnboardingAssigner.claim`'s existing-team short-circuit).
    *
+   * `teamName` is the user-supplied club name from the
+   * register form. The assigner writes it directly to
+   * `team.name`; pass `null` / `undefined` to use the
+   * `DEFAULT_TEAM_NAME` fallback (legacy `POST /onboarding/claim`
+   * callers don't have a name to forward).
+   *
    * Why `assign-team-{userId}` and not `assign-team:{userId}`?
    * BullMQ 5.x's `Job.validateOptions` rejects custom job
    * ids that contain `:` (see `bullmq/classes/job.js`'s
@@ -145,7 +139,7 @@ export class OnboardingService {
    * passes `validateOptions` cleanly. See
    * `api/scripts/_add-test.cjs` for the reproducer.
    */
-  async enqueueAssignTeam(userId: string): Promise<void> {
+  async enqueueAssignTeam(userId: string, teamName?: string | null): Promise<void> {
     // We deliberately do NOT pass a custom `jobId` to
     // `Queue.add`. The previous version used
     // `assign-team-{userId}` as a dedup key, but that collided
@@ -158,9 +152,13 @@ export class OnboardingService {
     // is a brand-new run, and the worker's
     // `OnboardingAssigner.claim` is already idempotent (it
     // short-circuits if the user already owns a team).
+    //
+    // Bumped to `v: 2` to carry `teamName` to the worker.
+    // Legacy v1 jobs (no field) are accepted by the worker
+    // and fall back to the default name.
     await this.onboardingQueue.add(
       'assign-team',
-      { v: 1, userId },
+      { v: 2, userId, teamName: teamName ?? null },
       {
         attempts: 3,
         backoff: { type: 'exponential', delay: 1500 },
@@ -172,7 +170,7 @@ export class OnboardingService {
       },
     );
     this.logger.log(
-      `[Onboarding] enqueueAssignTeam userId=${userId} (fresh job id per add)`,
+      `[Onboarding] enqueueAssignTeam userId=${userId} teamName=${teamName ?? '<default>'} (fresh job id per add)`,
     );
   }
 }

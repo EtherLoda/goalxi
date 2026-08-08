@@ -13,6 +13,7 @@ export default function RegisterPage() {
   const params = useParams();
   const [username, setUsername] = useState("");
   const [email, setEmail] = useState("");
+  const [teamName, setTeamName] = useState("");
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -26,18 +27,28 @@ export default function RegisterPage() {
       setError("Passwords do not match");
       return;
     }
+    if (teamName.trim().length < 2 || teamName.trim().length > 50) {
+      // Mirror the backend's `UpdateTeamReqDto.name` budget
+      // (2..50). The user sees the failure inline rather than
+      // waiting for the server to bounce it.
+      setError("Team name must be 2–50 characters");
+      return;
+    }
     setIsLoading(true);
     setError(null);
 
     try {
       // Register via API. The backend creates the user, queues
       // the verification email, and enqueues an async
-      // `assign-team` job — then immediately returns. We do not
-      // wait for the team here.
+      // `assign-team` job carrying `teamName` — the
+      // settlement worker stamps that name directly onto the
+      // new team row during claim, so the user lands on
+      // `/dashboard` with a club name they recognize. We do
+      // not wait for the team here.
       const res = await fetch("http://localhost:3000/api/v1/auth/email/register", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ username, email, password }),
+        body: JSON.stringify({ username, email, password, teamName: teamName.trim() }),
       });
 
       if (!res.ok) {
@@ -133,6 +144,25 @@ export default function RegisterPage() {
                 onChange={(e) => setPassword(e.target.value)}
                 className="w-full bg-surface-container-lowest border border-white/10 rounded-xl px-4 py-3 font-body text-sm text-on-surface placeholder:text-on-surface-variant/40 focus:border-primary focus:outline-none transition-colors"
                 placeholder="••••••••"
+                required
+              />
+            </div>
+
+            {/* Team Name — rides the assign-team job so the new
+                club has a real name the moment the user lands
+                on the dashboard. Required, 2-50 chars. */}
+            <div>
+              <label className="block font-label text-xs font-bold uppercase tracking-widest text-on-surface-variant mb-2">
+                {t("auth.register.teamName")}
+              </label>
+              <input
+                type="text"
+                value={teamName}
+                onChange={(e) => setTeamName(e.target.value)}
+                minLength={2}
+                maxLength={50}
+                className="w-full bg-surface-container-lowest border border-white/10 rounded-xl px-4 py-3 font-body text-sm text-on-surface placeholder:text-on-surface-variant/40 focus:border-primary focus:outline-none transition-colors"
+                placeholder="My Club FC"
                 required
               />
             </div>

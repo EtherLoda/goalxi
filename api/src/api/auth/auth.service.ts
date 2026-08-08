@@ -172,9 +172,12 @@ export class AuthService {
     //
     // A failure to enqueue (Redis blip) is logged but does
     // NOT roll back the user — the user can always hit
-    // `POST /onboarding/claim` to re-enqueue manually.
+    // `POST /onboarding/claim` to re-enqueue manually. The
+    // user-supplied `teamName` rides the job payload so the
+    // claim can stamp it directly onto the new team — no
+    // separate "name your club" step on `/onboarding/select`.
     try {
-      await this.onboardingService.enqueueAssignTeam(user.id);
+      await this.onboardingService.enqueueAssignTeam(user.id, dto.teamName);
     } catch (err) {
       this.logger.error(
         `[Auth] register failed to enqueue onboarding job userId=${user.id}: ${

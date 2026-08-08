@@ -22,14 +22,18 @@ import {
  * coupling". If you change one, change both.
  */
 export interface AssignTeamJobPayload {
-  v: 1;
+  v: 1 | 2;
   userId: string;
+  teamName?: string | null;
 }
 
 export interface OnboardingAssignmentResult {
   userId: string;
   teamId: string | null;
   reused: boolean;
+  /** Kept in the result shape as a derived `reused`-flipped
+   *  flag so existing log consumers / dashboards keep
+   *  parsing the line. */
   scoutSeeded: boolean;
   durationMs: number;
 }
@@ -82,7 +86,11 @@ export class OnboardingProcessor extends WorkerHost {
   ): Promise<OnboardingAssignmentResult> {
     const start = Date.now();
     const payload = job.data;
-    if (!payload || payload.v !== 1 || !payload.userId) {
+    // Accept both v1 (legacy) and v2 (current) payloads. v1
+    // jobs don't carry `teamName`; the assigner falls back
+    // to `DEFAULT_TEAM_NAME` so we don't have to drain the
+    // queue after the bump.
+    if (!payload || (payload.v !== 1 && payload.v !== 2) || !payload.userId) {
       // Malformed payload — refuse to retry, this won't fix
       // itself and the producer is the only place that can
       // emit this shape.
@@ -91,9 +99,9 @@ export class OnboardingProcessor extends WorkerHost {
       );
     }
 
-    const { userId } = payload;
+    const { userId, teamName } = payload;
     this.logger.log(
-      `[Onboarding] processing assign-team userId=${userId} jobId=${job.id} attempt=${job.attemptsMade + 1}`,
+      `[Onboarding] processing assign-team userId=${userId} teamName=${teamName ?? '<default>'} jobId=${job.id} attempt=${job.attemptsMade + 1}`,
     );
 
     // Step 1 — flip the user to PROCESSING so the polling
@@ -106,9 +114,10 @@ export class OnboardingProcessor extends WorkerHost {
     // The assigner runs the whole sequence in a single
     // transaction; the worker just awaits the result. See
     // `OnboardingAssigner.claim` for the per-step rationale.
-    const { team, reused } = await OnboardingAssigner.claim(
+    const { team, reused, appliedName } = await OnboardingAssigner.claim(
       this.dataSource,
       userId as Uuid,
+      teamName ?? null,
     );
 
     const result: OnboardingAssignmentResult = {
@@ -125,7 +134,7 @@ export class OnboardingProcessor extends WorkerHost {
       durationMs: Date.now() - start,
     };
     this.logger.log(
-      `[Onboarding] success userId=${userId} teamId=${team.id} reused=${reused} scoutSeeded=${result.scoutSeeded} durationMs=${result.durationMs}`,
+      `[Onboarding] success userId=${userId} teamId=${team.id} reused=${reused} scoutSeeded=${result.scoutSeeded} appliedName="${appliedName}" durationMs=${result.durationMs}`,
     );
     return result;
   }

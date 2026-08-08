@@ -35,17 +35,13 @@ interface OnboardingState {
   status: 'teamless' | 'processing' | 'active';
   hasTeam: boolean;
   /**
-   * `true` exactly when the user has a team AND that team's
-   * name still matches the `ONBOARDING_PENDING_NAME`
-   * sentinel the assigner stamps right after picking a BOT.
-   * The `/onboarding/select` page renders the "name your
-   * club" form only while this is true; once the user picks a
-   * real name (or skips), it flips to false and the page
-   * routes them straight to `/dashboard` on every subsequent
-   * visit. The sentinel value itself is intentionally NOT
-   * exposed to the frontend — only the boolean decision.
+   * The team the user owns. The settlement worker stamps the
+   * user-supplied club name from the register form directly
+   * onto the new team row — there is no separate
+   * "needsName" / "rename your club" step anymore. Once
+   * `hasTeam` flips to true the `/onboarding/select` page
+   * routes the user straight to `/dashboard`.
    */
-  needsName: boolean;
   team: OnboardingTeamSummary | null;
 }
 
@@ -547,11 +543,19 @@ export const api = {
     register: async (
       username: string,
       email: string,
-      password: string
+      password: string,
+      teamName: string,
     ): Promise<RegisterResponse> => {
+      // `teamName` rides the BullMQ job payload directly; the
+      // settlement worker stamps it onto the new team row
+      // during claim, so by the time the user lands on
+      // `/dashboard` the club already has the name they
+      // typed at register. The backend falls back to
+      // `DEFAULT_TEAM_NAME` if missing, but the form makes
+      // the field required so a real client always sends it.
       return request<RegisterResponse>('/auth/email/register', {
         method: 'POST',
-        body: JSON.stringify({ username, email, password }),
+        body: JSON.stringify({ username, email, password, teamName }),
       });
     },
 

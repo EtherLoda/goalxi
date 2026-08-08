@@ -34,14 +34,6 @@
       "teamless": "Looking for an opening",
       "processing": "Assigning your team",
       "active": "All set"
-    },
-    "nameStep": {
-      "title": "Name your club",
-      "subtitle": "The board appointed you manager of {teamName}. You can rename it now or keep the placeholder.",
-      "placeholder": "Club name",
-      "save": "Confirm name",
-      "saving": "Saving…",
-      "skip": "Keep current name"
     }
   },
   "search": {
@@ -120,6 +112,7 @@
       "subtitle": "Start your managerial journey",
       "username": "Username",
       "email": "Email",
+      "teamName": "Club Name",
       "password": "Password",
       "confirmPassword": "Confirm Password",
       "submit": "Create Account",

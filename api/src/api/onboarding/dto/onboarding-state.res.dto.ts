@@ -46,17 +46,11 @@ export class OnboardingTeamSummaryDto {
  * frontend to see both pieces so it can render a sensible
  * message.
  *
- * `needsName` is the rename-step gate: it is `true` only when
- * `hasTeam=true` AND the team's `name` still matches the
- * `ONBOARDING_PENDING_NAME` sentinel written by
- * `OnboardingAssigner.claim` immediately after picking a BOT.
- * The `/onboarding/select` page uses this flag to decide
- * whether to render the "name your club" form or route the
- * returning manager straight to `/dashboard`. Deriving the
- * flag server-side (rather than sending the sentinel and
- * letting the frontend compare) means the frontend never has
- * to know the sentinel value, and the contract stays stable
- * even if the sentinel format changes.
+ * The earlier "needs name" flag is gone: the user provides the
+ * club name in the register form and the settlement worker
+ * stamps it directly onto the new team — no separate rename
+ * step is needed (and the `/onboarding/select` page simply
+ * routes the user to `/dashboard` once `hasTeam` is true).
  */
 export class OnboardingStateResDto {
   @Expose()
@@ -68,7 +62,4 @@ export class OnboardingStateResDto {
   @Expose()
   @Type(() => OnboardingTeamSummaryDto)
   team!: OnboardingTeamSummaryDto | null;
-
-  @Expose()
-  needsName!: boolean;
 }

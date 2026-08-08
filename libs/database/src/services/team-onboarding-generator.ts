@@ -74,25 +74,13 @@ export const ONBOARDING_STARTING_STADIUM_CAPACITY = 10_000;
 const DEFAULT_TEAM_NATIONALITY = 'CN';
 
 /**
- * Sentinel team name the onboarding claim writes to `team.name`
- * immediately after picking a BOT. The frontend's
- * `/onboarding/select` page compares the live `team.name`
- * against this constant — if it still matches, the new manager
- * hasn't renamed the club yet, so we render the "name your
- * club" form; if it doesn't, the manager already named the
- * team on a previous visit, and we route them straight to
- * `/dashboard`.
- *
- * The double-underscore + lowercase + underscore form is
- * deliberately ugly so a curious user typing it back as their
- * own team name is implausible (and even if they do, the worst
- * outcome is the rename form shows up on the next login — not
- * a hard error). No schema change required, no flag column.
- *
- * Single source of truth — both `OnboardingAssigner.claim`
- * and the select page import this from `@goalxi/database`.
+ * Default club name used when the registration form is
+ * submitted without a `teamName` (or with whitespace only).
+ * Pure safety net for tests and headless scripted flows — the
+ * frontend register form makes the field required, so this
+ * string should never surface for a real manager.
  */
-export const ONBOARDING_PENDING_NAME = '__pending_manager_name__';
+export const DEFAULT_TEAM_NAME = 'New Club';
 
 /**
  * Random-skill matrix for a fresh player. Mirrors the api-side

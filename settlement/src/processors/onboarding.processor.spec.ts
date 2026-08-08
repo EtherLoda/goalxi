@@ -78,7 +78,7 @@ describe('OnboardingProcessor', () => {
       .mockResolvedValue();
 
     const result = await processor.process(
-      makeJob({ v: 1, userId: 'u-1' }),
+      makeJob({ v: 2, userId: 'u-1' }),
     );
 
     expect(markSpy).toHaveBeenCalledWith(dataSource, 'u-1');
@@ -103,7 +103,7 @@ describe('OnboardingProcessor', () => {
       );
 
     await expect(
-      processor.process(makeJob({ v: 1, userId: 'u-1' })),
+      processor.process(makeJob({ v: 2, userId: 'u-1' })),
     ).rejects.toBeInstanceOf(OnboardingNoBotAvailableError);
   });
 });
