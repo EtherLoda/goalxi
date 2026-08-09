@@ -426,12 +426,19 @@ export class SimulationProcessor extends WorkerHost {
 
     const homeTacticalPlayers: TacticalPlayer[] = validHomeIds.map((pid) => ({
       player: toSimulationPlayer(allPlayers.find((p) => p.id === pid)),
-      positionKey: this.findPositionInLineup(homeTactics.lineup, pid) ?? 'ST',
+      // Read the int-keyed v2 column. The legacy `lineup` jsonb was wiped
+      // by the `MatchTacticsLineupToInt` migration and stays `{}`, so
+      // any read against it would silently fall through to the 'ST'
+      // fallback and stack all 11 starters on the same pitch slot
+      // (rendered as a single CF marker on the match page).
+      positionKey: this.findPositionInLineup(homeTactics.lineupV2, pid) ?? 'ST',
     }));
 
     const awayTacticalPlayers: TacticalPlayer[] = validAwayIds.map((pid) => ({
       player: toSimulationPlayer(allPlayers.find((p) => p.id === pid)),
-      positionKey: this.findPositionInLineup(awayTactics.lineup, pid) ?? 'ST',
+      // Same v2-only read for the away side — see homeTacticalPlayers
+      // comment above.
+      positionKey: this.findPositionInLineup(awayTactics.lineupV2, pid) ?? 'ST',
     }));
 
     // Roster gate: any team below the minimum field size forfeits the match.

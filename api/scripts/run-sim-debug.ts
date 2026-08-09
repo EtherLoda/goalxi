@@ -48,6 +48,9 @@ import { AppDataSource } from '../src/database/data-source';
 const DEV_MATCH_ID =
   process.env.DEV_MATCH_ID ?? 'd7b7a708-edc9-4afa-8638-0bdf295cb105';
 const API_BASE = process.env.API_BASE ?? 'http://localhost:3000/api/v1';
+const API_TOKEN = process.env.API_TOKEN; // optional; required only for
+// authenticated endpoints (PATCH /matches/:id, POST /matches/:id/tactics).
+// `POST /matches/:id/simulate` and `GET /matches/:id` are @Public().
 const POLL_INTERVAL_MS = 2000;
 const POLL_TIMEOUT_MS = 5 * 60 * 1000; // 5 minutes
 
@@ -57,10 +60,21 @@ const POLL_TIMEOUT_MS = 5 * 60 * 1000; // 5 minutes
 // ============================================================================
 
 async function fetchJson<T>(url: string, init: RequestInit = {}): Promise<T> {
-  const res = await fetch(url, {
-    ...init,
-    headers: { 'Content-Type': 'application/json', ...(init.headers ?? {}) },
-  });
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+    ...((init.headers as Record<string, string> | undefined) ?? {}),
+  };
+  if (API_TOKEN && !('Authorization' in headers)) {
+    headers['Authorization'] = `Bearer ${API_TOKEN}`;
+  }
+  const method = (init.method ?? 'GET').toString();
+  console.log(`   → ${method} ${url}`);
+  if (headers['Authorization']) {
+    console.log(`     Authorization: Bearer ${headers['Authorization'].slice(7, 27)}…`);
+  } else {
+    console.log('     (no Authorization header)');
+  }
+  const res = await fetch(url, { ...init, headers });
   if (!res.ok) {
     const body = await res.text();
     throw new Error(`${url} → ${res.status}: ${body}`);
