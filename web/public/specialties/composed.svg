@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none" aria-label="泰山 Composed">
+  <path d="M32 4 L60 24 L50 56 L14 56 L4 24 Z" fill="currentColor" fill-opacity="0.15" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>
+  <!-- 主峰 -->
+  <path d="M14 50 L26 28 L32 36 L40 18 L50 50 Z" fill="currentColor" fill-opacity="0.4" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>
+  <!-- 副峰轮廓线 -->
+  <path d="M40 18 L46 32" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" opacity="0.5"/>
+  <!-- 山顶雪盖 -->
+  <path d="M36 24 L40 18 L44 24 L42 26 L40 24 L38 26 Z" fill="currentColor" fill-opacity="0.6"/>
+  <!-- 地平线 -->
+  <path d="M10 50 L54 50" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" opacity="0.4"/>
+  <!-- 太阳（稳定） -->
+  <circle cx="14" cy="22" r="2" fill="currentColor" opacity="0.6"/>
+</svg>

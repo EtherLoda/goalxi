@@ -9,9 +9,8 @@ import { WeatherEntity, WeatherType } from '@goalxi/database';
  */
 const BASE_WEATHER_WEIGHTS: Record<WeatherType, number> = {
   [WeatherType.SUNNY]: 25,
-  [WeatherType.CLOUDY]: 30,
+  [WeatherType.CLOUDY]: 35,
   [WeatherType.RAINY]: 20,
-  [WeatherType.HEAVY_RAIN]: 5,
   [WeatherType.WINDY]: 10,
   [WeatherType.FOGGY]: 7,
   [WeatherType.SNOWY]: 3,

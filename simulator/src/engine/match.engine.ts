@@ -12,8 +12,32 @@ import {
 import { AttributeCalculator } from './utils/attribute-calculator';
 import { ConditionSystem } from './systems/condition.system';
 import { InjurySystem, InjuryEventData } from './systems/injury.system';
-import { Player, PlayerAbility } from '../types/player.types';
+import { Player } from '../types/player.types';
 import { BenchConfig, calculatePositionFit, Uuid } from '@goalxi/database';
+import {
+  attackLaneMultiplier,
+  commandDefenseMultiplier,
+  defenseLaneMultiplier,
+  foulRateMultiplier,
+  getEventMultiplier,
+  gkSaveMultiplier,
+  injuryChanceMultiplier,
+  lateGameMentalMultiplier,
+  midfieldControlMultiplier,
+  pushDefenseMultiplier,
+  pushOffenseMultiplier,
+  selectAssistWeight,
+  selectAttackTypeWeight,
+  selectShooterCounterWeight,
+  selectShooterReboundWeight,
+  selectShooterWeight,
+  selectShotTypeWeight,
+  shotHeaderMultiplier,
+  shotLongMultiplier,
+  shotOneOnOneMultiplier,
+  shotReboundMultiplier,
+  shotNormalMultiplier,
+} from './systems/specialty.system';
 import { LoggerService } from '@nestjs/common';
 import { resolveDuel as resolveDuelPure, duelProbability } from './duel';
 import {
@@ -35,15 +59,30 @@ import {
 } from './tactics/tactics-presets';
 
 // ---------- Ability Helper ----------
-const hasAbility = (
-  player: Player | undefined,
-  ability: PlayerAbility,
-): boolean => {
-  return (
-    Array.isArray(player?.attributes?.abilities) &&
-    player.attributes.abilities.includes(ability)
-  );
-};
+// The v1 `hasAbility(player, 'XXX')` helper has been removed. All
+// v2 specialty lookups go through `getEventMultiplier` and the
+// named helpers in `./systems/specialty.system` — see
+// `docs/specialty-v2-design.md` for the event-keyed hook table.
+
+/**
+ * Find the largest specialty multiplier on the team for a given event.
+ * Used for "team-wide" effects where the v1 implementation was
+ * "sum of per-player bonuses" — v2 picks the best one and applies it
+ * once. Returns 1.0 when no player on the team has a relevant
+ * specialty (the common case for ~50% of teams).
+ */
+function teamMaxEventMultiplier(
+  team: Team,
+  event: Parameters<typeof getEventMultiplier>[1],
+): number {
+  let max = 1.0;
+  for (const p of team.players) {
+    if (p.isSentOff) continue;
+    const w = getEventMultiplier(p.player as Player, event);
+    if (w > max) max = w;
+  }
+  return max;
+}
 
 // 三条路的进攻方式分布配置（平均值 ≈ 1.0）
 // 索引顺序: 0=传中, 1=短传, 2=直塞, 3=突破, 4=远射
@@ -51,7 +90,6 @@ const WEATHER_ATTACK_WEIGHTS: Record<string, number[]> = {
   sunny: [1.05, 0.95, 1.0, 1.1, 1.1],
   cloudy: [1.0, 1.0, 1.0, 1.0, 1.0],
   rainy: [0.9, 0.95, 0.85, 1.15, 0.8],
-  heavy_rain: [0.7, 0.8, 0.7, 1.2, 0.6],
   windy: [1.2, 0.95, 1.0, 1.0, 1.25],
   foggy: [0.9, 0.9, 0.6, 1.05, 0.7],
   snowy: [1.15, 0.9, 0.8, 0.9, 0.75],
@@ -807,10 +845,9 @@ export class MatchEngine {
         gPlayer.experience,
       );
 
-      // penalty_saver: 扑点球时扑救率 +10%
-      if (hasAbility(gPlayer, 'PSAVE')) {
-        gMultiplier *= 1.1;
-      }
+      // v2 SAVING_MASTER — multiplies the penalty-save multiplier
+      // (1.0 baseline, so 1.10 / 1.07 / 1.143 for Silver/Bronze/Gold).
+      gMultiplier *= gkSaveMultiplier(gPlayer);
 
       const kickerScore = getPenaltyScore(kPlayer, kMultiplier, false);
       const keeperScore = getPenaltyScore(gPlayer, gMultiplier, true);
@@ -1426,20 +1463,16 @@ export class MatchEngine {
       'possession',
     );
 
-    // tackle_master: 抢断专家(TACKL)增强本队的中场控制 +8% per player
-    // 注:TACKL 是球员的拼抢/抢断能力,放在本队让自己的 control 增强。
-    // (旧实现用对方的 TACKL 给自己加成,语义反了——已修。)
-    const homeTackleBonus =
-      this.homeTeam.players.filter((p) =>
-        hasAbility(p.player as Player, 'TACKL'),
-      ).length * 0.08;
-    const awayTackleBonus =
-      this.awayTeam.players.filter((p) =>
-        hasAbility(p.player as Player, 'TACKL'),
-      ).length * 0.08;
+    // v2 TACKLER — team's midfield control is boosted by the best
+    // TACKLER on the team. Replaces the v1 "0.08 per TACKL player"
+    // additive model with a single multiplicative team bonus; the
+    // strength of that bonus is governed by the highest-tier
+    // TACKLER on the pitch (1.0 / 1.20 / 1.40 for Bronze/Silver/Gold).
+    const homeTackleBonus = teamMaxEventMultiplier(this.homeTeam, 'midfield_control');
+    const awayTackleBonus = teamMaxEventMultiplier(this.awayTeam, 'midfield_control');
 
-    const homeControlWithBonus = homeControl * (1 + homeTackleBonus);
-    const awayControlWithBonus = awayControl * (1 + awayTackleBonus);
+    const homeControlWithBonus = homeControl * homeTackleBonus;
+    const awayControlWithBonus = awayControl * awayTackleBonus;
 
     // 拼抢：amplification=1.7（中场对抗温和放大，比主推更平）
     // anchorProbability=0.6(比 push 0.55 略高,让弱队中场被压制更明显)
@@ -1479,14 +1512,20 @@ export class MatchEngine {
       'defense',
     );
 
-    // counter_starter: 防守抢断后反击时，每个反击专家 +5%
-    // 只有刚获得球权（freshPossession=true）时才触发
+    // v2 SPEEDSTER — counter attack boost. Replaces the v1
+    // "0.05 per CNTR player" additive model with a single
+    // team-max multiplier (1.0 / 1.20 / 1.40 for B/S/G). The
+    // engine's selectShooter also weights SPEEDSTERs more heavily
+    // during counter phases — see `selectShooter(..., { phase: 'counter' })`.
     if (this.freshPossession) {
-      const counterStarterCount = this.possessionTeam.players.filter((p) =>
-        hasAbility(p.player as Player, 'CNTR'),
-      ).length;
-      if (counterStarterCount > 0) {
-        attPower *= 1 + 0.05 * counterStarterCount;
+      const counterBonus = teamMaxEventMultiplier(
+        this.possessionTeam,
+        'select_shooter_counter',
+      );
+      // counterBonus is 1.0 when no SPEEDSTER; otherwise the team
+      // gets a multiplicative boost on the counter attack.
+      if (counterBonus > 1.0) {
+        attPower *= counterBonus;
       }
       this.freshPossession = false; // 重置标志
     }
@@ -1505,7 +1544,9 @@ export class MatchEngine {
     let effectiveAttPower: number;
     let effectiveDefPower: number;
     if (attackType !== AttackType.LONG_SHOT) {
-      preSelectedShooter = this.selectShooter(this.possessionTeam);
+      preSelectedShooter = this.selectShooter(this.possessionTeam, {
+        phase: this.freshPossession ? 'counter' : 'normal',
+      });
       // 预先选取传球者，以便检查 ability 对 push 的加成
       const passAssistType =
         attackType === AttackType.CROSS ? 'CROSS' : 'OTHER';
@@ -1519,48 +1560,45 @@ export class MatchEngine {
       const attackConfig = ATTACK_TYPE_CONFIG[attackType];
       let effectiveAttPower = attPower;
 
-      // long_passer: 直塞进攻时进攻贡献 +6%
-      if (
-        attackType === AttackType.THROUGH_PASS &&
-        hasAbility(passerPlayer, 'LPASS')
-      ) {
-        effectiveAttPower *= 1.06;
-      }
-      // cross_specialist: 传中进攻时进攻贡献 +8%
-      if (
-        attackType === AttackType.CROSS &&
-        hasAbility(passerPlayer, 'CROSS')
-      ) {
-        effectiveAttPower *= 1.08;
-      }
-      // dribble_master: 突破进攻时进攻贡献 +6%
-      if (
-        attackType === AttackType.DRIBBLE &&
-        hasAbility(passerPlayer, 'DRBLE')
-      ) {
-        effectiveAttPower *= 1.06;
-      }
-
-      // header_specialist: 进攻方头球专家加成（传中进攻时）
-      // 每个有头球专家的进攻球员提供+5%加成，可叠加
-      if (attackType === AttackType.CROSS) {
-        const attackerHeaderCount = this.possessionTeam.players.filter((p) =>
-          hasAbility(p.player as Player, 'HEADER'),
-        ).length;
-        if (attackerHeaderCount > 0) {
-          effectiveAttPower *= 1 + 0.05 * attackerHeaderCount;
+      // v2 pass-type specialty hooks — replace the v1 LPASS/CROSS/DRBLE
+      // scatter with `pushOffenseMultiplier` applied to the passer.
+      // The bonus only fires for the matching attack type, so a
+      // PLAYMAKER Silver (1.10) only boosts THROUGH_PASS, a
+      // CROSSER Silver (1.12) only boosts CROSS, etc.
+      if (passerPlayer) {
+        if (attackType === AttackType.THROUGH_PASS) {
+          effectiveAttPower *= pushOffenseMultiplier(passerPlayer);
+        } else if (attackType === AttackType.CROSS) {
+          effectiveAttPower *= pushOffenseMultiplier(passerPlayer);
+        } else if (attackType === AttackType.DRIBBLE) {
+          effectiveAttPower *= pushOffenseMultiplier(passerPlayer);
         }
       }
 
-      // header_specialist: 防守方头球解围加成（传中进攻时）
-      // 每个有头球专家的球员提供+8%加成，可叠加
+      // v2 AERIAL_THREAT (formerly HEADER): team gets a multiplicative
+      // boost on CROSS attacks. We pick the best AERIAL_THREAT on each
+      // team (1.0 / 1.10 / 1.40) instead of v1's stacking per-player
+      // count — see §2.1 in the design doc.
+      if (attackType === AttackType.CROSS) {
+        const attackerHeaderBonus = teamMaxEventMultiplier(
+          this.possessionTeam,
+          'shot_header',
+        );
+        if (attackerHeaderBonus > 1.0) {
+          effectiveAttPower *= attackerHeaderBonus;
+        }
+      }
+
+      // v2 AERIAL_THREAT on the defending side — boosts defPower
+      // during CROSS attacks. Same team-max pattern as the attacker.
       let effectiveDefPower = defPower;
       if (attackType === AttackType.CROSS) {
-        const defenderHeaderCount = this.defendingTeam.players.filter((p) =>
-          hasAbility(p.player as Player, 'HEADER'),
-        ).length;
-        if (defenderHeaderCount > 0) {
-          effectiveDefPower *= 1 + 0.08 * defenderHeaderCount;
+        const defenderHeaderBonus = teamMaxEventMultiplier(
+          this.defendingTeam,
+          'shot_header',
+        );
+        if (defenderHeaderBonus > 1.0) {
+          effectiveDefPower *= defenderHeaderBonus;
         }
       }
 
@@ -1648,13 +1686,19 @@ export class MatchEngine {
         }
       }
 
-      // 反击加成：刚获得球权时（反击），进攻贡献提升
+      // v2 SPEEDSTER counter attack boost (second application — this
+      // path runs after the pre-passing-block freshPossession check
+      // on line ~1500 above; v2 re-applies it here for the same
+      // reason v1 did: the second block guards the pushDuel
+      // computation specifically). The team-max pattern means the
+      // boost is the same on both application points.
       if (!interceptTriggered && this.freshPossession) {
-        const counterStarterCount = this.possessionTeam.players.filter((p) =>
-          hasAbility(p.player as Player, 'CNTR'),
-        ).length;
-        if (counterStarterCount > 0) {
-          effectiveAttPower *= 1 + 0.05 * counterStarterCount;
+        const counterBonus = teamMaxEventMultiplier(
+          this.possessionTeam,
+          'select_shooter_counter',
+        );
+        if (counterBonus > 1.0) {
+          effectiveAttPower *= counterBonus;
         }
       }
 
@@ -1719,9 +1763,13 @@ export class MatchEngine {
         shotType = ShotType.LONG_SHOT;
         finalShootRating = this.calculateLongShotRating(player);
         // long_shooter: 远射评分 +10%
-        if (hasAbility(player, 'LSHT')) {
-          finalShootRating *= 1.1;
-        }
+        // v2: no active "long shot" specialty (LONG_SHOT is deprecated
+        // → mapped to COMPOSED). The shotLongMultiplier hook is in
+        // the table but no specialty currently has an entry for it,
+        // so this is a no-op baseline call kept for forward-compat
+        // (a future "LONG_SHOT v3" could populate it without touching
+        // this line).
+        finalShootRating *= shotLongMultiplier(player);
 
         const gk = this.defendingTeam.getGoalkeeper();
         gkRating = gk ? this.defendingTeam.getSnapshot()?.gkRating || 100 : 100;
@@ -1752,7 +1800,10 @@ export class MatchEngine {
       // 如果是反击（interceptTriggered），进攻方已换，需要重新选射手
       // 否则复用预选的射手
       if (interceptTriggered) {
-        shooter = this.selectShooter(this.possessionTeam);
+        shooter = this.selectShooter(this.possessionTeam, {
+          phase: this.freshPossession ? 'counter' : 'normal',
+          shotType: shotType,
+        });
       } else {
         shooter = preSelectedShooter;
       }
@@ -1772,10 +1823,11 @@ export class MatchEngine {
             break;
           case ShotType.REBOUND:
             finalShootRating = this.calculateShootRating(player);
-            // rebound_specialist: 补射评分 +10%
-            if (hasAbility(player, 'REBND')) {
-              finalShootRating *= 1.1;
-            }
+            // v2: rebound bonuses are now handled by POACHER's
+            // `select_shooter_rebound` weight at shooter-selection
+            // time. The shoot-rating multiplier is 1.0 unless a future
+            // specialty populates the `shot_rebound` event row.
+            finalShootRating *= shotReboundMultiplier(player);
             break;
           case ShotType.NORMAL:
             finalShootRating = this.calculateShootRating(player);
@@ -2437,9 +2489,53 @@ export class MatchEngine {
     }
   }
 
-  private selectShooter(team: Team): TacticalPlayer {
+  private selectShooter(
+    team: Team,
+    options: { phase?: 'counter' | 'normal'; shotType?: ShotType } = {},
+  ): TacticalPlayer {
     const candidates = team.players.filter((p) => !p.isSentOff);
     const len = candidates.length;
+    if (len === 0) {
+      // Defensive fallback — should be unreachable because
+      // every team has at least 11 players on the pitch, but
+      // TypeScript needs the early return for the noUncheckedIndexedAccess.
+      return candidates[0];
+    }
+
+    // v2 specialty weight — applied AFTER the position-bucket pick so
+    // the bucket's "CF 40% / W 20% / AM 15% / other 25%" distribution
+    // is preserved, but within a bucket the picker favors specialty
+    // holders. See `selectShooterWeight` for the underlying values.
+    const phase = options.phase ?? 'normal';
+    const shotType = options.shotType;
+    const pickInBucket = (bucket: TacticalPlayer[]): TacticalPlayer => {
+      // Weighted pick: each candidate's weight is
+      //   baseWeight (= 1.0) × specialtyMultiplier(event)
+      // The multiplier is the engine's central source of truth.
+      const weights: number[] = bucket.map((p) => {
+        const player = p.player as Player;
+        let w = 1.0;
+        if (shotType === ShotType.REBOUND) {
+          w *= selectShooterReboundWeight(player);
+        } else {
+          w *= selectShooterWeight(player);
+        }
+        if (phase === 'counter') {
+          w *= selectShooterCounterWeight(player);
+        }
+        return w;
+      });
+      const totalWeight = weights.reduce((a, b) => a + b, 0);
+      if (totalWeight <= 0) {
+        return bucket[(Math.random() * bucket.length) | 0];
+      }
+      let r = Math.random() * totalWeight;
+      for (let i = 0; i < bucket.length; i++) {
+        r -= weights[i];
+        if (r <= 0) return bucket[i];
+      }
+      return bucket[bucket.length - 1]; // numeric drift fallback
+    };
 
     // 射手权重：CF 40% | W 20% | AM 15% | 其他 25%
     const rand = Math.random();
@@ -2447,25 +2543,25 @@ export class MatchEngine {
     // 优先 CF（40%）
     const cfs = candidates.filter((p) => p.positionKey.includes('CF'));
     if (cfs.length > 0 && rand < 0.4) {
-      return cfs[(Math.random() * cfs.length) | 0];
+      return pickInBucket(cfs);
     }
 
     // 其次 W（20%）
     const ws = candidates.filter((p) => p.positionKey.includes('W'));
     if (ws.length > 0 && rand < 0.6) {
       // 0.40 + 0.20
-      return ws[(Math.random() * ws.length) | 0];
+      return pickInBucket(ws);
     }
 
     // 再次 AM（15%）
     const ams = candidates.filter((p) => p.positionKey.includes('AM'));
     if (ams.length > 0 && rand < 0.75) {
       // 0.60 + 0.15
-      return ams[(Math.random() * ams.length) | 0];
+      return pickInBucket(ams);
     }
 
     // 其他位置随机（剩余 25%）
-    return candidates[(Math.random() * len) | 0];
+    return pickInBucket(candidates);
   }
 
   /**
@@ -2645,8 +2741,11 @@ export class MatchEngine {
       (attrs.finishing ?? 10) * 5 +
       (attrs.composure ?? 10) * 3 +
       (attrs.positioning ?? 10) * 2;
-    // header_specialist: 头球射门评分 +8%
-    return hasAbility(player, 'HEADER') ? raw * 1.08 : raw;
+    // v2 AERIAL_THREAT (1.0 / 1.10 / 1.40) + PHYSICAL_BEAST (same) on header.
+    // Both contribute via the same `shot_header` event; team-max
+    // semantics are handled at the snapshot/cross-attack level
+    // (where multiple AERIAL_THREATs would otherwise stack).
+    return raw * shotHeaderMultiplier(player);
   }
 
   /**
@@ -3189,10 +3288,12 @@ export class MatchEngine {
       (gkP.attributes.gk_reflexes ?? 10) * 0.8 +
       (gkP.attributes.gk_handling ?? 10) * 0.6 +
       (gkP.attributes.composure ?? 10) * 0.4;
-    // penalty_saver: 扑点球时扑救率 +10%
-    if (hasAbility(gkP, 'PSAVE')) {
-      defenseScore *= 1.1;
-    }
+    // v2 SAVING_MASTER — penalty save boost (replaces v1 PSAVE +10%).
+    // The kicker's penalty composure boost (COMPOSED) lives in the
+    // kickerP.attributes.composure term above; the system doesn't
+    // add a multiplier there because penalties are already
+    // composure-gated by the base formula.
+    defenseScore *= gkSaveMultiplier(gkP);
     const probability = duelProbability(attackScore, defenseScore, {
       amplification: 1.0,
       baseline: 0.75,

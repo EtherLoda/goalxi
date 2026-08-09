@@ -5,8 +5,14 @@ import { useTranslations } from "next-intl";
 import { useEffect, useState, Suspense } from "react";
 import { useParams, useSearchParams } from "next/navigation";
 import { useAuth } from "@/contexts/AuthContext";
-import { api, type Standing, type Match, type Notification, type Team } from "@/lib/api";
+import { api, type Standing, type Match, type Notification, type Team, type Fan } from "@/lib/api";
 import { useGameStore } from "@/stores/gameStore";
+import {
+  getFanEmotionTier,
+  FAN_EMOTION_TIER_NAMES,
+  FAN_EMOTION_TIER_ICON,
+  FAN_EMOTION_TIER_ACCENT,
+} from "@/lib/fan-constants";
 
 // Mock announcements for System Announcements panel
 const MOCK_ANNOUNCEMENTS = [
@@ -57,6 +63,7 @@ function DashboardPageContent() {
   const [upcomingMatch, setUpcomingMatch] = useState<Match | null>(null);
   const [recentMatches, setRecentMatches] = useState<Match[]>([]);
   const [teamNotifications, setTeamNotifications] = useState<Notification[]>([]);
+  const [fanData, setFanData] = useState<Fan | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   // Fetch viewed team info when teamId changes
@@ -84,8 +91,9 @@ function DashboardPageContent() {
       api.matches.getByTeam(currentTeam.id, { status: "scheduled" }),
       api.matches.getByTeam(currentTeam.id, { status: "completed", season: 1 }),
       api.notifications.getNotifications(1, 50).catch(() => ({ items: [] })),
+      api.fans.getByTeam(currentTeam.id).catch(() => null),
     ])
-      .then(([standingsData, upcomingData, recentData, notificationsData]) => {
+      .then(([standingsData, upcomingData, recentData, notificationsData, fan]) => {
         setStandings(standingsData);
         // Sort by round to get the actual next match (same logic as League page)
         const sortedUpcoming = [...(upcomingData?.data || [])].sort((a, b) => {
@@ -102,6 +110,8 @@ function DashboardPageContent() {
         setRecentMatches(recent);
         // Set team notifications (personal notifications)
         setTeamNotifications(notificationsData?.items || []);
+        // Fan record (raw — the card displays the exact count, no cap)
+        setFanData(fan);
       })
       .catch(console.error)
       .finally(() => setIsLoading(false));
@@ -193,8 +203,8 @@ function DashboardPageContent() {
 
   return (
     <div className="p-6 space-y-6 max-w-7xl mx-auto w-full">
-          {/* Hero Grid: Next Match */}
-          <section className="grid grid-cols-1 xl:grid-cols-3 gap-6">
+          {/* Hero Grid: Next Match + Squad Status + Fan & Mood */}
+          <section className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
             {/* Next Match Card */}
             <div className="xl:col-span-2 glass-panel rounded-2xl overflow-hidden p-8 relative">
               <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-transparent to-transparent" />
@@ -358,6 +368,12 @@ function DashboardPageContent() {
                 </div>
               </div>
             </div>
+
+            {/* Fan & Mood */}
+            <FanMoodCard
+              fan={fanData}
+              locale={typeof params.locale === 'string' ? params.locale : 'en'}
+            />
           </section>
 
           {/* Second Grid */}
@@ -482,6 +498,133 @@ function DashboardPageContent() {
             </div>
           </section>
         </div>
+  );
+}
+
+/**
+ * Fan & Mood panel — shows the exact fan count (no K/M abbrev, no
+ * cap), the fan mood as one of 10 text-only "temperature" tiers
+ * (no gauge bar, no 0-100 number — the tier name IS the value), a
+ * 10-dot thermometer for at-a-glance position, and the recent form
+ * chip row. Mirrors the visual language of the Squad Status card so
+ * the two read as a paired "team health" column.
+ */
+function FanMoodCard({
+  fan,
+  locale,
+}: {
+  fan: Fan | null;
+  locale: string;
+}) {
+  const t = useTranslations();
+  const totalFans = fan?.totalFans ?? 0;
+  const emotion = fan?.fanEmotion ?? 0;
+  const recentForm = fan?.recentForm ?? '';
+  const tier = getFanEmotionTier(emotion);
+  const tierName = FAN_EMOTION_TIER_NAMES[tier][locale === 'zh' ? 'zh' : 'en'];
+  const tierIcon = FAN_EMOTION_TIER_ICON[tier];
+  const accent = FAN_EMOTION_TIER_ACCENT[tier];
+
+  return (
+    <div className="glass-panel rounded-2xl p-6 flex flex-col justify-between">
+      <div>
+        <div className="flex items-center justify-between mb-6">
+          <h3 className="font-headline font-black text-xs uppercase tracking-[0.2em] text-primary flex items-center gap-2">
+            <span className="material-symbols-outlined text-base" style={{ fontVariationSettings: "'FILL' 1" }}>
+              groups
+            </span>
+            {t('dashboard.fanMood')}
+          </h3>
+          {fan ? (
+            <span
+              className={`font-label text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded-md border ${accent.chip}`}
+            >
+              Tier {tier}/10
+            </span>
+          ) : null}
+        </div>
+
+        {/* Exact fan count — no K/M abbrev, no cap, just the raw number. */}
+        <div className="flex items-baseline gap-2">
+          <span className="font-headline text-4xl font-black text-on-surface tracking-tighter">
+            {totalFans.toLocaleString()}
+          </span>
+          <span className="font-label text-[10px] font-black text-on-surface-variant uppercase tracking-widest">
+            {t('dashboard.fans')}
+          </span>
+        </div>
+
+        {/* Mood: text-only, 10 tiers. No gauge, no 0-100 number. */}
+        <div className="mt-5 space-y-3">
+          <p className="font-label text-[9px] uppercase tracking-[0.2em] text-primary font-black">
+            {t('dashboard.fanMoodTier')}
+          </p>
+          <div className={`flex items-center gap-3 ${accent.text}`}>
+            <span
+              className="material-symbols-outlined text-4xl"
+              style={{ fontVariationSettings: "'FILL' 1" }}
+            >
+              {tierIcon}
+            </span>
+            <span className="font-headline text-4xl font-black tracking-tighter leading-none">
+              {tierName}
+            </span>
+          </div>
+          <p className="font-body text-xs text-on-surface-variant">
+            {t('dashboard.moodDesc', { tier: tierName })}
+          </p>
+          {/* 10-dot thermometer: cold (left) → blazing (right). Each
+              filled dot is a tier passed; the current tier is the
+              accent colour, future tiers are dim. */}
+          <div
+            className="flex items-center gap-1"
+            aria-label={`Fan mood tier ${tier} of 10`}
+          >
+            {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((i) => (
+              <div
+                key={i}
+                className={`h-1.5 flex-1 rounded-full transition-colors ${
+                  i <= tier ? accent.dot : 'bg-white/10'
+                }`}
+                style={i > tier ? { opacity: 0.35 } : undefined}
+              />
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* Recent form chip row — mirrors Squad Status visual */}
+      <div className="space-y-3 mt-5">
+        <p className="font-label text-[9px] uppercase tracking-[0.2em] text-primary font-black">
+          {t('dashboard.recentForm')}
+        </p>
+        <div className="flex gap-2">
+          {recentForm.length > 0 ? (
+            recentForm.split('').map((r, i) => {
+              const upper = r.toUpperCase();
+              const isWin = upper === 'W';
+              const isLoss = upper === 'L';
+              return (
+                <div
+                  key={i}
+                  className={`w-9 h-9 rounded-lg flex items-center justify-center font-headline font-black text-xs border ${
+                    isWin
+                      ? 'bg-primary text-on-primary border-primary shadow-[0_0_12px_rgba(0,228,121,0.3)]'
+                      : isLoss
+                      ? 'bg-error/10 text-error border-error/20'
+                      : 'bg-white/5 text-on-surface-variant border-white/10'
+                  }`}
+                >
+                  {upper}
+                </div>
+              );
+            })
+          ) : (
+            <div className="text-on-surface-variant text-sm">—</div>
+          )}
+        </div>
+      </div>
+    </div>
   );
 }
 

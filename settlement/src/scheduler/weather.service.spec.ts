@@ -323,14 +323,13 @@ describe('WeatherService', () => {
       expect(WeatherType.SUNNY).toBe('sunny');
       expect(WeatherType.CLOUDY).toBe('cloudy');
       expect(WeatherType.RAINY).toBe('rainy');
-      expect(WeatherType.HEAVY_RAIN).toBe('heavy_rain');
       expect(WeatherType.WINDY).toBe('windy');
       expect(WeatherType.FOGGY).toBe('foggy');
       expect(WeatherType.SNOWY).toBe('snowy');
     });
 
-    it('should have 7 weather types', () => {
-      expect(Object.keys(WeatherType)).toHaveLength(7);
+    it('should have 6 weather types', () => {
+      expect(Object.keys(WeatherType)).toHaveLength(6);
     });
   });
 });

@@ -105,6 +105,20 @@ function makeFakeDataSource(args: FakeArgs): FakeHandle {
       id: 'mock-row-id',
       ...((data as object) ?? {}),
     })),
+    // The claim path now goes through the shared
+    // `createTeam` helper, which calls
+    // `manager.findOne(TeamEntity, { where: { id } })`
+    // for the `existingTeamId` branch. Return the picked
+    // team so the in-place ownership flip has a row to
+    // mutate; null when the test wants the "not found"
+    // error path.
+    findOne: jest.fn().mockImplementation((_Entity: unknown, opts: any) => {
+      // Reuse the pickedTeam passed in via args. Tests
+      // that don't set one (the no-bot error path) will
+      // never hit this branch because the claim throws
+      // before reaching createTeam.
+      return Promise.resolve(args.pickedTeam ?? null);
+    }),
     // Stubs for the side-channels the claim transaction now
     // reaches into after the in-place update: the scrub helper
     // (which issues `manager.delete(...)` per table) and the

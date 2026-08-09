@@ -6,20 +6,10 @@ import {
 } from '../types/simulation.types';
 import { AttributeCalculator } from '../utils/attribute-calculator';
 import { ConditionSystem } from '../systems/condition.system';
-import { Player, PlayerAbility } from '../../types/player.types';
+import { Player } from '../../types/player.types';
 import { PitchWidth } from '../types/tactics-config';
 import { WIDTH_MODIFIERS } from '../tactics/tactics-presets';
-
-// Ability helper
-const hasAbility = (
-  player: Player | undefined,
-  ability: PlayerAbility,
-): boolean => {
-  return (
-    Array.isArray(player?.attributes?.abilities) &&
-    player.attributes.abilities.includes(ability)
-  );
-};
+import { attackLaneMultiplier, commandDefenseMultiplier, defenseLaneMultiplier, gkSaveMultiplier, lateGameMentalMultiplier } from '../systems/specialty.system';
 
 export class Team {
   private snapshot: TeamSnapshot | null = null;
@@ -124,14 +114,19 @@ export class Team {
         player.experience,
       );
 
-      // clutch_player: 最后15分钟所有评分 +5%
-      if (minute >= 75 && hasAbility(player, 'CLUCH')) {
-        multiplier *= 1.05;
+      // v2 COMPOSED — late-game (minute >= 80) composure boost. The
+      // hook value is < 1.0 because it's a "lower is better" event
+      // (fewer mistakes). 1.0 baseline at Bronze, 0.80 at Silver, 0.745
+      // at Gold (most reduction = most composure).
+      if (minute >= 80) {
+        multiplier *= lateGameMentalMultiplier(player);
       }
-      // fast_start: 开局15分钟所有评分 +5%
-      if (minute <= 15 && minute > 0 && hasAbility(player, 'FSTRT')) {
-        multiplier *= 1.05;
-      }
+      // v2 SPEEDSTER / first-light boost (formerly FSTRT) is folded
+      // into the snapshot's per-lane strength via the pace
+      // contribution hook. We don't add an early-minute multiplier
+      // here because (a) it's already in the snapshot, and
+      // (b) COMPOSED's late-game branch is the only "minute-gated"
+      // hook in v2.
 
       // 使用calculateAndCacheContribution，自动缓存
       for (const lane of lanes) {
@@ -154,8 +149,8 @@ export class Team {
           'possession',
         );
 
-        laneStrengths[lane].attack += att * multiplier;
-        laneStrengths[lane].defense += def * multiplier;
+        laneStrengths[lane].attack += att * multiplier * attackLaneMultiplier(player);
+        laneStrengths[lane].defense += def * multiplier * defenseLaneMultiplier(player);
         laneStrengths[lane].possession += poss * multiplier;
       }
     }
@@ -166,6 +161,21 @@ export class Team {
     for (const lane of lanes) {
       laneStrengths[lane].attack *= widthMults[lane];
       laneStrengths[lane].defense *= widthMults[lane];
+    }
+
+    // v2 SWEEPER_KEEPER aura — boosts the whole team's defense lane
+    // strength. The GK's own commandDefenseMultiplier is applied
+    // here (the GK isn't in the players[] loop above because we
+    // skip GK contributions to lane strength). 1.0 / 1.05 / 1.07
+    // for B/S/G.
+    const sweeperGk = this.getGoalkeeper();
+    if (sweeperGk && !sweeperGk.isSentOff) {
+      const cmdMult = commandDefenseMultiplier(sweeperGk.player as Player);
+      if (cmdMult > 1.0) {
+        for (const lane of lanes) {
+          laneStrengths[lane].defense *= cmdMult;
+        }
+      }
     }
 
     // Round all lane strengths
@@ -203,7 +213,13 @@ export class Team {
 
       const rawRating =
         AttributeCalculator.calculateAndCacheGKSaveRating(player);
-      gkRating = parseFloat((rawRating * multiplier).toFixed(2));
+      // v2 SAVING_MASTER — multiplies the GK's save rating. 1.0 / 1.10 /
+      // 1.40 for B/S/G. Applied at the snapshot level (rather than
+      // inside calculateAndCacheGKSaveRating) so the raw rating stays
+      // in the cache untransformed, which keeps the AttributeCalculator
+      // pure and testable.
+      const specialtyMult = gkSaveMultiplier(player);
+      gkRating = parseFloat((rawRating * multiplier * specialtyMult).toFixed(2));
     }
 
     this.snapshot = {

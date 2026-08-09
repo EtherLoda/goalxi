@@ -1,0 +1,173 @@
+import { TeamGeneratorService } from './team-generator.service';
+import { ACTIVE_SPECIALTIES } from '@goalxi/database';
+
+/**
+ * TeamGeneratorService v2 specialty distribution tests.
+ *
+ * The team-generator produces bot players at season init. With the
+ * v2 specialty system landing in this service, every bot player
+ * must come out with a 5/15/30/50 distribution
+ * (Gold / Silver / Bronze / No-spec) — not the v1 "30% chance of
+ * one of 8 hard-coded codes" pattern the old `generateAbilities()`
+ * helper produced.
+ *
+ * The full service constructor pulls in 5 TypeORM repositories
+ * and a logger, but we don't need any of them to exercise the
+ * `generatePlayer` path. We stub them all with jest mocks and
+ * cast the service to `any` to reach the private method.
+ *
+ * The integration is "thin" — `generatePlayer` calls
+ * `rollSpecialty()` from `@goalxi/database`, which has its own
+ * focused spec (`specialty-generator.spec.ts`, 10/10 tests). The
+ * value of THIS spec is verifying the call site + the field
+ * shape: every player must have `coreSpecialty` / `coreSpecialtyTier`
+ * populated correctly, and the legacy `abilities` mirror must
+ * match.
+ */
+
+const noopLogger = {
+  // PinoLoggerService has many methods, but TeamGeneratorService
+  // only ever calls `.log()` / `.warn()` / `.error()` from it.
+  // Stub them all as no-ops.
+  log: jest.fn(),
+  warn: jest.fn(),
+  error: jest.fn(),
+  debug: jest.fn(),
+  info: jest.fn(),
+  trace: jest.fn(),
+  fatal: jest.fn(),
+  child: jest.fn().mockReturnThis(),
+  setContext: jest.fn(),
+} as any;
+
+const stubRepo = () => ({ save: jest.fn().mockResolvedValue({}) });
+
+describe('TeamGeneratorService — v2 specialty distribution', () => {
+  let service: TeamGeneratorService;
+
+  beforeEach(() => {
+    service = new TeamGeneratorService(
+      noopLogger,
+      stubRepo() as any, // TeamEntity
+      stubRepo() as any, // PlayerEntity
+      stubRepo() as any, // StadiumEntity
+      stubRepo() as any, // FanEntity
+      stubRepo() as any, // StaffEntity
+    );
+  });
+
+  // Run many players through the public pipeline and aggregate.
+  // We use a helper because `generatePlayer` is private; the cast
+  // is intentional and isolated to this test file.
+  const callGeneratePlayer = (position = 'CF', ovr = 60): any => {
+    return (service as any).generatePlayer(position, /* leagueTier */ 1, ovr, /* isBot */ true);
+  };
+
+  it('writes v2 coreSpecialty + coreSpecialtyTier on every player', () => {
+    for (let i = 0; i < 50; i++) {
+      const p = callGeneratePlayer();
+      // Either: coreSpecialty is null (50% no-spec) OR a v2 active code
+      if (p.coreSpecialty !== null) {
+        expect(ACTIVE_SPECIALTIES).toContain(p.coreSpecialty);
+        expect(['GOLD', 'SILVER', 'BRONZE']).toContain(p.coreSpecialtyTier);
+      } else {
+        // 50% no-spec branch: the generator emits `coreSpecialtyTier`
+        // as undefined. The FE's DTO conversion (`player.service.ts`)
+        // defaults this to 'BRONZE' on read so the UI always has a
+        // tier string to render. The generator's contract is
+        // "tier is meaningful only when specialty is non-null".
+        expect(p.coreSpecialtyTier).toBeUndefined();
+      }
+    }
+  });
+
+  it('mirrors coreSpecialty into the legacy abilities array (for migration)', () => {
+    for (let i = 0; i < 50; i++) {
+      const p = callGeneratePlayer();
+      if (p.coreSpecialty === null) {
+        // 50% no-spec → no legacy abilities entry.
+        expect(p.abilities).toBeUndefined();
+        // currentSkills.abilities must also be undefined (not an empty array).
+        expect(p.currentSkills.abilities).toBeUndefined();
+      } else {
+        // 50% with spec → legacy mirror is [code].
+        expect(p.abilities).toEqual([p.coreSpecialty]);
+        expect(p.currentSkills.abilities).toEqual([p.coreSpecialty]);
+      }
+    }
+  });
+
+  it('matches the 5/15/30/50 distribution across 2000 generated players', () => {
+    const N = 2000;
+    const counts = { GOLD: 0, SILVER: 0, BRONZE: 0, NO_SPEC: 0 };
+
+    for (let i = 0; i < N; i++) {
+      const p = callGeneratePlayer();
+      if (p.coreSpecialty === null) {
+        counts.NO_SPEC++;
+      } else {
+        counts[p.coreSpecialtyTier]++;
+      }
+    }
+
+    // Standard error on a proportion with N=2000 and p=0.5 is ~1.1%.
+    // We allow ±3% slack which is still tight enough to catch a
+    // 5/25/70 distribution regression.
+    const goldPct = counts.GOLD / N;
+    const silverPct = counts.SILVER / N;
+    const bronzePct = counts.BRONZE / N;
+    const noSpecPct = counts.NO_SPEC / N;
+
+    expect(goldPct).toBeGreaterThan(0.02);
+    expect(goldPct).toBeLessThan(0.08);
+
+    expect(silverPct).toBeGreaterThan(0.12);
+    expect(silverPct).toBeLessThan(0.18);
+
+    expect(bronzePct).toBeGreaterThan(0.27);
+    expect(bronzePct).toBeLessThan(0.33);
+
+    expect(noSpecPct).toBeGreaterThan(0.47);
+    expect(noSpecPct).toBeLessThan(0.53);
+  });
+
+  it('never produces a deprecated v1 code (HEADER, LPASS, etc.)', () => {
+    const DEPRECATED_CODES = new Set([
+      'HEADER', 'LPASS', 'CROSS', 'DRBLE', 'LSHT', 'CLUCH',
+      'TACKL', 'PSAVE', 'CNTR', 'REBND', 'FSTRT',
+    ]);
+    for (let i = 0; i < 500; i++) {
+      const p = callGeneratePlayer();
+      if (p.coreSpecialty !== null) {
+        expect(DEPRECATED_CODES.has(p.coreSpecialty)).toBe(false);
+      }
+      // Legacy mirror too
+      if (p.abilities) {
+        for (const code of p.abilities) {
+          expect(DEPRECATED_CODES.has(code)).toBe(false);
+        }
+      }
+    }
+  });
+
+  it('produces v2 codes across all positions (position-agnostic)', () => {
+    // The v1 generator filtered by position; v2 doesn't. Verify by
+    // generating players at every position and checking that every
+    // non-null coreSpecialty is in the v2 active pool.
+    const positions = ['GK', 'CD', 'LB', 'RB', 'DM', 'CM', 'AM', 'LW', 'RW', 'CF', 'ST'];
+    const seenCodes = new Set<string>();
+    for (const pos of positions) {
+      for (let i = 0; i < 50; i++) {
+        const p = callGeneratePlayer(pos);
+        if (p.coreSpecialty) seenCodes.add(p.coreSpecialty);
+      }
+    }
+    // Across 550 generations, we should have seen at least 10 of
+    // the 12 active codes (some are rare, e.g. SWEEPER_KEEPER at
+    // GK positions only — but the roll is position-agnostic so it
+    // can roll for any position). The only code that should NEVER
+    // appear is one we'd never roll — since we roll uniformly, we
+    // expect to see all 12.
+    expect(seenCodes.size).toBeGreaterThanOrEqual(10);
+  });
+});

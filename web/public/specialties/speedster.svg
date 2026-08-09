@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none" aria-label="闪电疾锋 Speedster">
+  <path d="M32 4 L60 24 L50 56 L14 56 L4 24 Z" fill="currentColor" fill-opacity="0.15" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>
+  <!-- 闪电主体 -->
+  <path d="M36 12 L22 34 L30 34 L24 52 L42 28 L34 28 L40 12 Z" fill="currentColor" fill-opacity="0.5" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>
+  <!-- 速度线 -->
+  <path d="M14 18 L20 18" stroke="currentColor" stroke-width="2" stroke-linecap="round" opacity="0.6"/>
+  <path d="M12 26 L18 26" stroke="currentColor" stroke-width="2" stroke-linecap="round" opacity="0.5"/>
+  <path d="M14 46 L20 46" stroke="currentColor" stroke-width="2" stroke-linecap="round" opacity="0.6"/>
+  <path d="M44 50 L50 50" stroke="currentColor" stroke-width="2" stroke-linecap="round" opacity="0.6"/>
+</svg>

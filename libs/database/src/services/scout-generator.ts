@@ -1,5 +1,6 @@
 import { currentGameDay } from '../utils/game-clock';
 import { PlayerAbility, ScoutCandidatePlayerData } from '../index';
+import { rollSpecialty } from './specialty-generator';
 
 /**
  * Probability of a candidate falling into each potential tier. Sum should be 1.0.
@@ -165,8 +166,22 @@ export function generateScoutCandidate(
   const revealedCount = options.revealedSkillCount ?? 4;
   const revealedSkills = pickRevealedSkills(keys, revealedCount, rand);
 
-  const abilities =
-    rand() < options.abilityChance ? [pick(options.abilityPool, rand)] : undefined;
+  // v2 specialty — single roll decides (a) whether the candidate has
+  // any specialty (50% No) and (b) which code + tier. Tier is
+  // independent of attributes (random 5/15/30 distribution). The
+  // old `abilityPool` / `abilityChance` options are kept in the
+  // interface for backwards compat with existing callers but are no
+  // longer consulted at generation time.
+  const specialtyRoll = rollSpecialty(rand);
+  const coreSpecialty = specialtyRoll?.code ?? null;
+  const coreSpecialtyTier = specialtyRoll?.tier;
+
+  // Legacy v1 single-ability shape — kept for the migration window.
+  // Mirrors `coreSpecialty` when present. New callers should read
+  // `coreSpecialty` instead.
+  const abilities = coreSpecialty
+    ? ([coreSpecialty] as unknown as PlayerAbility[])
+    : undefined;
 
   // 30% chance that potential tier is revealed
   const potentialRevealed = rand() < 0.3;
@@ -185,6 +200,8 @@ export function generateScoutCandidate(
     position,
     currentSkills: currentSkills as ScoutCandidatePlayerData['currentSkills'],
     potentialSkills: potentialSkills as ScoutCandidatePlayerData['potentialSkills'],
+    coreSpecialty,
+    coreSpecialtyTier,
     abilities,
     potentialTier: targetTier,
     potentialRevealed,

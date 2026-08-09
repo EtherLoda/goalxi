@@ -171,17 +171,34 @@ describe('scout-generator', () => {
     }
   });
 
-  it('respects abilityChance — 0 → no abilities, 1 → always one', () => {
-    for (let i = 0; i < 20; i++) {
-      const c = generateScoutCandidate(baseOptions({ abilityChance: 0, random: seeded(i) }));
-      expect(c.abilities).toBeUndefined();
+  it('v2 specialty: ~50% of candidates have no coreSpecialty, rest have a v2 active code', () => {
+    // v2 generator ignores the legacy `abilityChance` option — the
+    // 5/15/30/50 distribution lives in `rollSpecialty()`. We assert
+    // the shape: every candidate has a `coreSpecialty` (string|null)
+    // and a tier string, and a matching `abilities` legacy field
+    // (or undefined) that mirrors `coreSpecialty`.
+    let nullCount = 0;
+    for (let i = 0; i < 200; i++) {
+      const c = generateScoutCandidate(
+        baseOptions({ abilityChance: 0, random: seeded(i) }),
+      );
+      // coreSpecialty is always set (string or null), never undefined
+      // — distinguishes "the generator didn't write it" from "roll said no".
+      expect(c.coreSpecialty !== undefined).toBe(true);
+      if (c.coreSpecialty === null) {
+        nullCount++;
+        expect(c.abilities).toBeUndefined();
+      } else {
+        // Active v2 codes only — never a v1 PlayerAbility like HEADER.
+        expect(ABILITY_POOL).not.toContain(c.coreSpecialty as PlayerAbility);
+        expect(['GOLD', 'SILVER', 'BRONZE']).toContain(c.coreSpecialtyTier);
+        // legacy mirror
+        expect(c.abilities).toEqual([c.coreSpecialty as unknown as PlayerAbility]);
+      }
     }
-    for (let i = 0; i < 20; i++) {
-      const c = generateScoutCandidate(baseOptions({ abilityChance: 1, random: seeded(i) }));
-      expect(c.abilities).toBeDefined();
-      expect(c.abilities?.length).toBe(1);
-      expect(ABILITY_POOL).toContain(c.abilities![0]);
-    }
+    // 200 samples at 50% no-spec → expect ~100, allow ±20% slack.
+    expect(nullCount).toBeGreaterThan(80);
+    expect(nullCount).toBeLessThan(120);
   });
 
   it('matches the configured tier distribution over many samples', () => {

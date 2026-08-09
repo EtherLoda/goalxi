@@ -359,7 +359,14 @@ export class PlayerService {
       pwi: pwiResult.pwi,
       pwiDisplay: formatPWI(pwiResult.pwi),
       onTransfer: player.onTransfer,
+      // Legacy v1 specialty — kept for the migration window. New
+      // callers should read `coreSpecialty` + `coreSpecialtyTier`
+      // instead. The P7 migration script overwrites `specialty`
+      // with the v2 code (matching `coreSpecialty`).
       specialty: player.specialty,
+      // v2 — primary path.
+      coreSpecialty: player.coreSpecialty ?? null,
+      coreSpecialtyTier: player.coreSpecialtyTier ?? 'BRONZE',
       currentSkills: player.currentSkills,
       potentialSkills: player.potentialSkills,
       potentialAbility: player.potentialAbility,

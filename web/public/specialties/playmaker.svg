@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none" aria-label="组织核心 Playmaker">
+  <path d="M32 4 L60 24 L50 56 L14 56 L4 24 Z" fill="currentColor" fill-opacity="0.15" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>
+  <!-- 中心足球 -->
+  <circle cx="32" cy="32" r="7" fill="currentColor" fill-opacity="0.4" stroke="currentColor" stroke-width="2"/>
+  <!-- 四向箭头（向四个队友传球） -->
+  <path d="M32 22 L32 14 M29 17 L32 14 L35 17" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M32 42 L32 50 M29 47 L32 50 L35 47" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M22 32 L14 32 M17 29 L14 32 L17 35" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M42 32 L50 32 M47 29 L50 32 L47 35" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+  <!-- 中心点 -->
+  <circle cx="32" cy="32" r="2" fill="currentColor"/>
+</svg>

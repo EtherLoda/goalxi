@@ -8,6 +8,7 @@ import {
   OnboardingAssigner,
   OnboardingClaimRaceError,
   OnboardingNoBotAvailableError,
+  TeamEntity,
   Uuid,
 } from '@goalxi/database';
 
@@ -104,21 +105,72 @@ export class OnboardingProcessor extends WorkerHost {
       `[Onboarding] processing assign-team userId=${userId} teamName=${teamName ?? '<default>'} jobId=${job.id} attempt=${job.attemptsMade + 1}`,
     );
 
-    // Step 1 — flip the user to PROCESSING so the polling
-    // endpoint reflects "work in flight". Idempotent; the
-    // assigner won't move them out of ACTIVE even if it
-    // already happened.
-    await OnboardingAssigner.markProcessing(this.dataSource, userId as Uuid);
+    let team: TeamEntity;
+    let reused: boolean;
+    let appliedName: string;
+    try {
+      // Step 1 — flip the user to PROCESSING so the polling
+      // endpoint reflects "work in flight". Idempotent; the
+      // assigner won't move them out of ACTIVE even if it
+      // already happened.
+      await OnboardingAssigner.markProcessing(this.dataSource, userId as Uuid);
 
-    // Step 2 — pick + claim + scrub + squad/staff/scout regen.
-    // The assigner runs the whole sequence in a single
-    // transaction; the worker just awaits the result. See
-    // `OnboardingAssigner.claim` for the per-step rationale.
-    const { team, reused, appliedName } = await OnboardingAssigner.claim(
-      this.dataSource,
-      userId as Uuid,
-      teamName ?? null,
-    );
+      // Step 2 — pick + claim + scrub + squad/staff/scout regen.
+      // The assigner runs the whole sequence in a single
+      // transaction; the worker just awaits the result. See
+      // `OnboardingAssigner.claim` for the per-step rationale.
+      //
+      // We pass `teamName` only when the caller supplied one —
+      // the assigner falls back to `DEFAULT_TEAM_NAME` for
+      // undefined, and the worker's own contract is "if the
+      // producer wants a name, it's in the payload; otherwise
+      // we don't pretend". This keeps the call shape
+      // observable for tests (2-arg call when no teamName).
+      const claim = teamName
+        ? await OnboardingAssigner.claim(
+            this.dataSource,
+            userId as Uuid,
+            teamName,
+          )
+        : await OnboardingAssigner.claim(this.dataSource, userId as Uuid);
+      team = claim.team;
+      reused = claim.reused;
+      appliedName = claim.appliedName;
+    } catch (err) {
+      // Error classification:
+      //  - `OnboardingNoBotAvailableError` — bootstrap
+      //    incomplete, no point retrying. Surface verbatim so
+      //    BullMQ classifies it as a regular failure (the
+      //    queue's attempts/backoff is intentional for this
+      //    case: it gives bootstrap time to land on a
+      //    follow-up tick).
+      //  - `OnboardingClaimRaceError` — another worker
+      //    grabbed the BOT between pick and claim. Re-throw
+      //    so BullMQ retries with the queue's exponential
+      //    backoff (see queue config).
+      //  - Anything else (malformed mocks, transient DB blips
+      //    that escaped the assigner's retries, type errors
+      //    from a half-built test stub, etc.) — wrap as
+      //    UnrecoverableError. The assigner is the
+      //    load-bearing piece; if it raised something
+      //    unrecognised we don't want BullMQ hammering it
+      //    forever.
+      if (
+        err instanceof UnrecoverableError ||
+        err instanceof OnboardingNoBotAvailableError ||
+        err instanceof OnboardingClaimRaceError
+      ) {
+        throw err;
+      }
+      const e = err as Error;
+      this.logger.error(
+        `[Onboarding] unexpected error userId=${userId}: ${e.message}`,
+        e.stack,
+      );
+      throw new UnrecoverableError(
+        `[Onboarding] unexpected error: ${e.message}`,
+      );
+    }
 
     const result: OnboardingAssignmentResult = {
       userId,

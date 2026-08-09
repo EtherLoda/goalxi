@@ -10,7 +10,6 @@ export enum WeatherType {
     SUNNY = 'sunny',
     CLOUDY = 'cloudy',
     RAINY = 'rainy',
-    HEAVY_RAIN = 'heavy_rain',
     WINDY = 'windy',
     FOGGY = 'foggy',
     SNOWY = 'snowy',

@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none" aria-label="出击门将 Sweeper Keeper">
+  <path d="M32 4 L60 24 L50 56 L14 56 L4 24 Z" fill="currentColor" fill-opacity="0.15" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>
+  <!-- 守门员身体剪影（弯腰出击姿态） -->
+  <circle cx="20" cy="20" r="5" fill="currentColor" fill-opacity="0.5" stroke="currentColor" stroke-width="2"/>
+  <!-- 躯干（前倾） -->
+  <path d="M16 26 Q20 24, 24 26 L30 36 L36 42" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round"/>
+  <!-- 出击脚（大步伐） -->
+  <path d="M30 36 L44 38 L50 32" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" fill="none"/>
+  <!-- 守门员手套（张开放大） -->
+  <path d="M48 26 L54 22 M48 30 L56 28 M48 34 L54 34" stroke="currentColor" stroke-width="2" stroke-linecap="round" opacity="0.6"/>
+  <!-- 扑向足球的动线 -->
+  <path d="M52 18 L48 26" stroke="currentColor" stroke-width="2" stroke-linecap="round" opacity="0.5"/>
+</svg>

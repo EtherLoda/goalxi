@@ -475,10 +475,26 @@ function SquadPageContent() {
                                         sell
                                       </span>
                                     )}
-                                    {player.specialty && (
-                                      <span className="inline-flex items-center gap-1 text-[9px] font-bold text-[#a1ffc2] bg-[#a1ffc2]/10 px-1.5 py-0.5 rounded">
-                                        <SpecialtyIcon code={player.specialty} size="xs" className="text-[#a1ffc2]" />
-                                        {getSpecialtyLabel(player.specialty, locale === "en" ? "en" : "zh")}
+                                    {player.coreSpecialty ? (
+                                      <span
+                                        className={`inline-flex items-center gap-1 text-[9px] font-bold px-1.5 py-0.5 rounded ${
+                                          player.coreSpecialtyTier === 'GOLD'
+                                            ? 'text-amber-300 bg-amber-300/10 border border-amber-300/30'
+                                            : player.coreSpecialtyTier === 'SILVER'
+                                            ? 'text-slate-300 bg-slate-300/10 border border-slate-300/30'
+                                            : 'text-stone-400 bg-stone-400/10 border border-stone-400/30'
+                                        }`}
+                                      >
+                                        <SpecialtyIcon
+                                          code={player.coreSpecialty}
+                                          tier={player.coreSpecialtyTier}
+                                          size="xs"
+                                        />
+                                        {getSpecialtyLabel(player.coreSpecialty, locale === "en" ? "en" : "zh")}
+                                      </span>
+                                    ) : (
+                                      <span className="inline-flex items-center gap-1 text-[9px] font-bold text-stone-500 bg-stone-500/10 px-1.5 py-0.5 rounded border border-stone-500/20">
+                                        — 无特技
                                       </span>
                                     )}
                                     <InjuryBadge
@@ -598,10 +614,29 @@ function SquadPageContent() {
                             {/* <span className="bg-[#3e6a00]/30 text-[#abf853] px-3 py-1.5 rounded-full text-xs font-bold font-space border border-[#abf853]/20">
                               {selectedPlayer.potentialTier?.replace("_", " ") || "REGULAR"}
                             </span> */}
-                            {selectedPlayer.specialty && (
-                              <span className="inline-flex items-center gap-1.5 bg-[#a1ffc2]/10 text-[#a1ffc2] px-3 py-1.5 rounded-full text-xs font-bold font-space border border-[#a1ffc2]/20">
-                                <SpecialtyIcon code={selectedPlayer.specialty} size="sm" className="text-[#a1ffc2]" />
-                                {getSpecialtyLabel(selectedPlayer.specialty, locale === "en" ? "en" : "zh")}
+                            {selectedPlayer.coreSpecialty ? (
+                              <span
+                                className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold font-space border ${
+                                  selectedPlayer.coreSpecialtyTier === 'GOLD'
+                                    ? 'bg-amber-300/10 text-amber-300 border-amber-300/30'
+                                    : selectedPlayer.coreSpecialtyTier === 'SILVER'
+                                    ? 'bg-slate-300/10 text-slate-300 border-slate-300/30'
+                                    : 'bg-stone-400/10 text-stone-400 border-stone-400/30'
+                                }`}
+                              >
+                                <SpecialtyIcon
+                                  code={selectedPlayer.coreSpecialty}
+                                  tier={selectedPlayer.coreSpecialtyTier}
+                                  size="sm"
+                                />
+                                {getSpecialtyLabel(selectedPlayer.coreSpecialty, locale === "en" ? "en" : "zh")}
+                                {selectedPlayer.coreSpecialtyTier && (
+                                  <span className="opacity-60 ml-0.5">· {selectedPlayer.coreSpecialtyTier}</span>
+                                )}
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center gap-1.5 bg-stone-500/10 text-stone-500 px-3 py-1.5 rounded-full text-xs font-bold font-space border border-stone-500/20">
+                                — 无特技
                               </span>
                             )}
                           </div>

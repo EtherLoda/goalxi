@@ -2,6 +2,7 @@ import { Entity, Column, PrimaryGeneratedColumn } from 'typeorm';
 import { AbstractEntity } from './abstract.entity';
 import { PlayerAbility } from '../types/simulation-player';
 import { PlayerSkills } from './player.entity';
+import { SpecialtyTier } from '../constants/specialty-codes';
 
 export interface ScoutCandidatePlayerData {
     name: string;
@@ -12,6 +13,11 @@ export interface ScoutCandidatePlayerData {
     position?: string;
     currentSkills: PlayerSkills;
     potentialSkills: PlayerSkills;
+    /** v2 core specialty (preferred over `abilities` for new code). */
+    coreSpecialty?: string | null;
+    coreSpecialtyTier?: SpecialtyTier;
+    /** Legacy v1 single-ability list. Mirrors `coreSpecialty` for the
+     * migration window; new callers should read `coreSpecialty`. */
     abilities?: PlayerAbility[];
     potentialTier?: string;
     potentialRevealed: boolean;

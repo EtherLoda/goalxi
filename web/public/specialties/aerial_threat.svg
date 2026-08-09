@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none" aria-label="空霸 Aerial Threat">
+  <!-- 五边形外壳 -->
+  <path d="M32 4 L60 24 L50 56 L14 56 L4 24 Z" fill="currentColor" fill-opacity="0.15" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>
+
+  <!-- 头顶足球（带经典五边形花纹） -->
+  <circle cx="32" cy="18" r="7" fill="none" stroke="currentColor" stroke-width="2.5"/>
+  <path d="M32 13 L36 16 L34 21 L30 21 L28 16 Z" fill="currentColor" fill-opacity="0.45" stroke="currentColor" stroke-width="1" stroke-linejoin="round"/>
+  <path d="M32 13 L32 21 M28 16 L34 21" stroke="currentColor" stroke-width="1" opacity="0.5"/>
+
+  <!-- 顶球冲击波（球和头之间放射状） -->
+  <path d="M22 26 L26 30" stroke="currentColor" stroke-width="2" stroke-linecap="round" opacity="0.7"/>
+  <path d="M42 26 L38 30" stroke="currentColor" stroke-width="2" stroke-linecap="round" opacity="0.7"/>
+  <path d="M18 22 L22 26" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" opacity="0.45"/>
+  <path d="M46 22 L42 26" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" opacity="0.45"/>
+
+  <!-- 球员头部（实心剪影） -->
+  <circle cx="32" cy="42" r="7" fill="currentColor"/>
+
+  <!-- 球员躯干（实心剪影 - 肩到身体） -->
+  <path d="M22 56 L22 51 Q22 49, 24 49 L40 49 Q42 49, 42 51 L42 56 Z" fill="currentColor"/>
+
+  <!-- 跳起上扬动线（头部两侧） -->
+  <path d="M14 38 L20 40" stroke="currentColor" stroke-width="2" stroke-linecap="round" opacity="0.6"/>
+  <path d="M50 38 L44 40" stroke="currentColor" stroke-width="2" stroke-linecap="round" opacity="0.6"/>
+  <path d="M12 30 L18 34" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" opacity="0.4"/>
+  <path d="M52 30 L46 34" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" opacity="0.4"/>
+</svg>

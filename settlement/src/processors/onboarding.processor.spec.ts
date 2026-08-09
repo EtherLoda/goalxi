@@ -72,6 +72,7 @@ describe('OnboardingProcessor', () => {
       .mockResolvedValue({
         team: { id: 'team-1' } as TeamEntity,
         reused: false,
+        appliedName: 'Test Club',
       });
     const markSpy = jest
       .spyOn(OnboardingAssigner, 'markProcessing')

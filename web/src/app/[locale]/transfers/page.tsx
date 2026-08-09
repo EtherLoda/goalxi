@@ -154,18 +154,23 @@ export default function TransfersPage() {
 
   const ATTRIBUTES = playerTypeFilter === "gk" ? GK_ATTRIBUTES : OUTFIELD_ATTRIBUTES;
 
+  // v2 specialty filter list — uses the 12 active codes, all of
+  // which have pentagon SVG icons under `/specialties/`. The legacy
+  // v1 codes (HEADER/LPASS/...) are no longer in the filter because
+  // they're deprecated and never produced by the new generator.
   const SPECIALTIES = [
-    { value: "HEADER", label: "头球专家" },
-    { value: "LPASS", label: "长传手" },
-    { value: "CROSS", label: "传中专家" },
-    { value: "DRBLE", label: "盘带大师" },
-    { value: "LSHT", label: "远射" },
-    { value: "CLUCH", label: "关键先生" },
-    { value: "TACKL", label: "抢断大师" },
-    { value: "PSAVE", label: "点球门将" },
-    { value: "CNTR", label: "反击启动" },
-    { value: "REBND", label: "补射专家" },
-    { value: "FSTRT", label: "快发" },
+    { value: "AERIAL_THREAT",  label: "空霸" },
+    { value: "DRIBBLER",       label: "盘带大师" },
+    { value: "PLAYMAKER",      label: "组织核心" },
+    { value: "TACKLER",        label: "抢断专家" },
+    { value: "WALL",           label: "铁壁" },
+    { value: "SPEEDSTER",      label: "闪电疾锋" },
+    { value: "CROSSER",        label: "传中狂魔" },
+    { value: "POACHER",        label: "禁区之狐" },
+    { value: "COMPOSED",       label: "泰山" },
+    { value: "PHYSICAL_BEAST", label: "铁人" },
+    { value: "SAVING_MASTER",  label: "扑救专家" },
+    { value: "SWEEPER_KEEPER", label: "出击门将" },
   ];
 
   // Close dropdown when clicking outside
@@ -264,10 +269,11 @@ export default function TransfersPage() {
     if (ageEnabled && (t.player.age < ageRange.min || t.player.age > ageRange.max)) {
       return false;
     }
-    // Specialty filter
+    // Specialty filter — v2: `coreSpecialty` is a single string
+    // (50% of players have null coreSpecialty), not an array.
+    // Compare directly against the filter selection.
     if (specialtyEnabled && selectedSpecialty) {
-      const playerSpecialties = (t.player as any).specialties || [];
-      if (!playerSpecialties.includes(selectedSpecialty)) {
+      if ((t.player as any).coreSpecialty !== selectedSpecialty) {
         return false;
       }
     }

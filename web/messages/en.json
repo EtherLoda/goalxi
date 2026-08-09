@@ -135,6 +135,10 @@
     "home": "Home",
     "away": "Away",
     "setTactics": "Set Tactics",
+    "fanMood": "Fan & Mood",
+    "fans": "Fans",
+    "fanMoodTier": "Fan Mood",
+    "moodDesc": "Supporters are {tier}",
     "nav": {
       "overview": "Overview",
       "dashboard": "Dashboard",
@@ -917,7 +921,6 @@
       "sunny": "Perfect football weather! Clear skies and sunshine greet the players today.",
       "cloudy": "Overcast conditions today — clouds blanket the stadium but play continues undeterred.",
       "rainy": "Rain is falling at the stadium! The ball will be slippery — expect some messy passages of play.",
-      "heavy_rain": "It's tipping down! Heavy rain making conditions extremely difficult out there.",
       "windy": "A blustery day! Strong winds could affect passing and shooting accuracy.",
       "foggy": "Thick fog rolling in! Visibility is reduced — both teams need to adapt.",
       "snowy": "Snow is falling at the stadium! A winter wonderland but challenging for the players."

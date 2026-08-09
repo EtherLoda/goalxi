@@ -31,6 +31,15 @@ describe('PlayerWageSchedulerService (regression for #A — jobId dedup)', () =>
     queue = { add: jest.fn().mockResolvedValue({ id: 'job' }) };
     playerRepo = { createQueryBuilder: jest.fn() };
     logger = { info: jest.fn(), warn: jest.fn(), error: jest.fn() };
+    // Pin the wall clock to the anchored NOW so the service's
+    // computeTodayGameDay() resolves to TODAY_GAME_DAY. Without
+    // this, gameDay would drift to whatever real day the test
+    // runs on and break the jobId suffix assertion.
+    jest.spyOn(Date, 'now').mockReturnValue(NOW.getTime());
+  });
+
+  afterEach(() => {
+    jest.restoreAllMocks();
   });
 
   const buildService = async (): Promise<PlayerWageSchedulerService> => {

@@ -139,17 +139,34 @@ export default function TransferTransactionCard({
         </div>
       </div>
 
-      {/* Specialties */}
-      {player.specialty && (
-        <div className="flex flex-wrap gap-2 mb-5">
+      {/* Specialties — v2 with tier */}
+      <div className="flex flex-wrap gap-2 mb-5">
+        {player.coreSpecialty ? (
           <span
-            className="inline-flex items-center gap-1.5 bg-[#a1ffc2]/10 text-[#a1ffc2] text-[10px] px-3 py-1.5 rounded-lg border border-[#a1ffc2]/20 uppercase tracking-wider"
+            className={`inline-flex items-center gap-1.5 text-[10px] px-3 py-1.5 rounded-lg border uppercase tracking-wider ${
+              player.coreSpecialtyTier === 'GOLD'
+                ? 'bg-amber-300/10 text-amber-300 border-amber-300/30'
+                : player.coreSpecialtyTier === 'SILVER'
+                ? 'bg-slate-300/10 text-slate-300 border-slate-300/30'
+                : 'bg-stone-400/10 text-stone-400 border-stone-400/30'
+            }`}
           >
-            <SpecialtyIcon code={player.specialty} size="xs" className="text-[#a1ffc2]" />
-            {getSpecialtyLabel(player.specialty, locale === "en" ? "en" : "zh")}
+            <SpecialtyIcon
+              code={player.coreSpecialty}
+              tier={player.coreSpecialtyTier}
+              size="xs"
+            />
+            {getSpecialtyLabel(player.coreSpecialty, locale === "en" ? "en" : "zh")}
+            {player.coreSpecialtyTier && (
+              <span className="opacity-60 ml-0.5">· {player.coreSpecialtyTier}</span>
+            )}
           </span>
-        </div>
-      )}
+        ) : (
+          <span className="inline-flex items-center gap-1.5 bg-stone-500/10 text-stone-500 text-[10px] px-3 py-1.5 rounded-lg border border-stone-500/20 uppercase tracking-wider">
+            — 无特技
+          </span>
+        )}
+      </div>
 
       {/* Skills - Compact Grid */}
       <div className="grid grid-cols-4 gap-4">

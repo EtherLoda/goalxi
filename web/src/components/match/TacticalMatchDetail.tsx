@@ -115,7 +115,7 @@ function getLatestSnapshot(events: MatchEvent[]): MatchSnapshot | null {
 /** Maps a weather type to the emoji shown in the pre-match card. */
 function weatherEmoji(w: WeatherType | string): string {
   const key = w.toLowerCase();
-  if (key.includes('heavy_rain') || key.includes('storm')) return '⛈️';
+  if (key.includes('storm')) return '⛈️';
   if (key.includes('rain')) return '🌧️';
   if (key.includes('snow')) return '❄️';
   if (key.includes('fog')) return '🌫️';

@@ -373,17 +373,36 @@ export default function PlayerDetailPage({ params }: PageProps) {
                         )}
                       </div>
 
-                      {/* Specialties */}
-                      {player.specialty && (
-                        <div className="mt-4 flex gap-2">
+                      {/* Specialties — v2 with tier badge */}
+                      <div className="mt-4 flex flex-wrap gap-2">
+                        {player.coreSpecialty ? (
                           <span
-                            className="inline-flex items-center gap-1.5 bg-[#a1ffc2]/10 text-[#a1ffc2] px-3 py-1 rounded-full text-[10px] font-bold font-space border border-[#a1ffc2]/20"
+                            className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-bold font-space border ${
+                              player.coreSpecialtyTier === 'GOLD'
+                                ? 'bg-amber-300/10 text-amber-300 border-amber-300/30'
+                                : player.coreSpecialtyTier === 'SILVER'
+                                ? 'bg-slate-300/10 text-slate-300 border-slate-300/30'
+                                : 'bg-stone-400/10 text-stone-400 border-stone-400/30'
+                            }`}
                           >
-                            <SpecialtyIcon code={player.specialty} size="sm" className="text-[#a1ffc2]" />
-                            {getSpecialtyLabel(player.specialty, (resolvedParams?.locale === "en" ? "en" : "zh")) || player.specialty}
+                            <SpecialtyIcon
+                              code={player.coreSpecialty}
+                              tier={player.coreSpecialtyTier}
+                              size="sm"
+                            />
+                            {getSpecialtyLabel(
+                              player.coreSpecialty,
+                              resolvedParams?.locale === "en" ? "en" : "zh",
+                            ) || player.coreSpecialty}
+                            <span className="opacity-60 ml-0.5">· {player.coreSpecialtyTier}</span>
                           </span>
-                        </div>
-                      )}
+                        ) : (
+                          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-bold font-space border bg-stone-500/10 text-stone-500 border-stone-500/20">
+                            —
+                            <span className="opacity-60">无特技</span>
+                          </span>
+                        )}
+                      </div>
                     </div>
                   </div>
 

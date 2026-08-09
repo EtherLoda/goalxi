@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none" aria-label="抢断专家 Tackler">
+  <path d="M32 4 L60 24 L50 56 L14 56 L4 24 Z" fill="currentColor" fill-opacity="0.15" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>
+  <!-- 球鞋轮廓 + 鞋钉 -->
+  <path d="M14 46 L20 38 Q22 36, 26 36 L36 36 Q40 36, 42 34 L46 32 L48 36 L46 42 Q44 46, 38 48 L20 48 Q14 48, 14 46 Z" fill="currentColor" fill-opacity="0.4" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>
+  <!-- 鞋钉 -->
+  <path d="M22 50 L22 52 M28 50 L28 52 M34 50 L34 52 M40 50 L40 52" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+  <!-- 铲球动作线（鞋前方向） -->
+  <path d="M48 32 L54 28 M50 32 L54 28" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" opacity="0.7"/>
+  <path d="M48 38 L52 38" stroke="currentColor" stroke-width="2" stroke-linecap="round" opacity="0.5"/>
+</svg>

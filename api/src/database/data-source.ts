@@ -83,6 +83,16 @@ export const AppDataSource = new DataSource({
     '../libs/database/src/migrations/**/!(*.spec).{ts,js}',
   ],
   migrationsTableName: 'migrations',
+  // Run each migration in its own transaction (TypeORM's pre-0.3
+  // default). With `all` (the 0.3 default), every pending migration
+  // is wrapped in a single transaction — which breaks the
+  // `ALTER TYPE ... ADD VALUE` -> `UPDATE ... WHERE role = '<new>'`
+  // chain on Postgres 12+. PG refuses to "use" a newly added
+  // enum value in the same transaction it was added in (error
+  // 55P04 "unsafe use of new value"). `each` is the only mode
+  // that makes the enum-add + enum-use sequence safe across
+  // consecutive migrations.
+  migrationsTransactionMode: 'each',
   poolSize: process.env.DATABASE_MAX_CONNECTIONS
     ? parseInt(process.env.DATABASE_MAX_CONNECTIONS, 10)
     : 100,

@@ -15,14 +15,12 @@ import {
   TeamEntity,
   UserEntity,
   Uuid,
+  createTeam,
 } from '@goalxi/database';
-import { calculatePlayerWage } from '@goalxi/database/src/constants/finance.constants';
 import 'reflect-metadata';
 import { Repository } from 'typeorm';
 import { v4 as uuidv4 } from 'uuid';
-import { getRandomNameByNationality } from '../src/constants/name-database';
 import { AppDataSource } from '../src/database/data-source';
-import { generatePlayerData } from '../src/utils/player-generator';
 
 /**
  * Seed Main - Season 1 Starting Point (Apr 6, 2026)
@@ -488,167 +486,36 @@ async function createLeaguePyramid() {
     ovrRange: { min: number; max: number },
     isBot: boolean,
   ) {
-    // Finance
-    let finance = await financeRepo.findOne({ where: { teamId: team.id } });
-    if (!finance) {
-      finance = new FinanceEntity({
-        teamId: team.id,
-        balance: isBot ? 5000000 : 500000,
-      });
-      await financeRepo.save(finance);
-    }
-
-    // Stadium — upsert to ensure every team has a 10 000-seat stadium
-    const existingStadium = await stadiumRepo.findOne({
-      where: { teamId: team.id },
-    });
-    if (existingStadium) {
-      existingStadium.capacity = 10000;
-      existingStadium.isBuilt = true;
-      await stadiumRepo.save(existingStadium);
-    } else {
-      await stadiumRepo.save(
-        stadiumRepo.create({
-          teamId: team.id,
-          capacity: 10000,
-          isBuilt: true,
-        }),
-      );
-    }
-
-    // Fan
-    let fan = await fanRepo.findOne({ where: { teamId: team.id } });
-    if (!fan) {
-      fan = new FanEntity({
-        teamId: team.id,
-        totalFans: isBot ? 10000 : 100000,
-        fanEmotion: 70,
-        recentForm: '',
-      });
-      await fanRepo.save(fan);
-    }
-
-    // Standing
-    let standing = await standingRepo.findOne({
-      where: { leagueId: team.leagueId, teamId: team.id, season: SEASON },
-    });
-    if (!standing) {
-      standing = standingRepo.create({
-        leagueId: team.leagueId,
-        teamId: team.id,
-        season: SEASON,
-        position: 0,
-        played: 0,
-        points: 0,
-        wins: 0,
-        draws: 0,
-        losses: 0,
-        goalsFor: 0,
-        goalsAgainst: 0,
-        goalDifference: 0,
-        recentForm: '',
-      });
-      await standingRepo.save(standing);
-    }
-
-    // Create players
+    // Idempotent — skip if players already exist. The shared
+    // `createTeam` would otherwise wipe + regenerate.
     const existingPlayers = await playerRepo.count({
       where: { teamId: team.id },
     });
-    if (existingPlayers > 0) return; // Already has players
+    if (existingPlayers > 0) return;
 
-    const players: PlayerEntity[] = [];
-
-    for (let p = 0; p < TEAM_ROSTER_SIZE; p++) {
-      const isGK = p < GK_COUNT;
-      const nationality = randomElement([
-        'CN',
-        'GB',
-        'ES',
-        'BR',
-        'IT',
-        'DE',
-        'FR',
-      ]);
-      const { firstName, lastName } = getRandomNameByNationality(nationality);
-
-      // Game age 20-32 for competitive players
-      const gameAge = randomInt(20, 32);
-
-      // Generate player using new generator
-      const playerData = generatePlayerData({
-        isGoalkeeper: isGK,
-        nationality,
-        firstName,
-        lastName,
-        age: gameAge,
-      });
-
-      // Calculate wage based on current skills
-      const tech = playerData.currentSkills.technical as unknown as Record<
-        string,
-        number
-      >;
-      const phys = playerData.currentSkills.physical as unknown as Record<
-        string,
-        number
-      >;
-      const ment = playerData.currentSkills.mental as unknown as Record<
-        string,
-        number
-      >;
-      let skillValues: number[], skillKeys: string[];
-      if (isGK) {
-        skillValues = [
-          tech.reflexes,
-          tech.handling,
-          tech.aerial,
-          ment.positioning,
-        ];
-        skillKeys = ['gk_reflexes', 'gk_handling', 'gk_aerial', 'positioning'];
-      } else {
-        skillValues = [
-          phys.pace,
-          phys.strength,
-          tech.finishing,
-          tech.passing,
-          tech.dribbling,
-          tech.defending,
-          ment.positioning,
-          ment.composure,
-        ];
-        skillKeys = [
-          'pace',
-          'strength',
-          'finishing',
-          'passing',
-          'dribbling',
-          'defending',
-          'positioning',
-          'composure',
-        ];
-      }
-      const currentWage = calculatePlayerWage(skillValues, skillKeys);
-
-      const player = new PlayerEntity({
-        name: playerData.name,
-        teamId: team.id,
-        isGoalkeeper: isGK,
-        createdDay: playerData.createdDay,
-        isYouth: false,
-        potentialAbility: playerData.potentialAbility,
-        currentSkills: playerData.currentSkills as any,
-        potentialSkills: playerData.potentialSkills as any,
-        experience: randomFloat(isBot ? 5 : 10, isBot ? 15 : 20),
-        form: randomFloat(3.5, 5.0),
-        stamina: randomFloat(4.0, 5.0),
-        onTransfer: false,
-        currentWage,
-      });
-      players.push(player);
-    }
-
-    await playerRepo.save(players);
+    // Delegate to the shared `@goalxi/database` `createTeam`.
+    // It writes the squad (16 players, 25-40 OVR, v2
+    // specialty), staff, finance, fan, stadium, and a
+    // `league_standing` row — all the things this function
+    // used to do by hand. The team row's `id` is preserved
+    // (we pass `existingTeamId`) so any historical FKs
+    // (match, match_event, league_standing) stay valid.
+    //
+    // The custom fields on `team` (jersey colors, logo,
+    // shortCode) are NOT touched — the shared function's
+    // `upsertTeam` only mutates ownership + name + nationality.
+    await createTeam(AppDataSource.manager, {
+      leagueId: team.leagueId as Uuid,
+      name: team.name,
+      nationality: team.nationality ?? 'CN',
+      isBot,
+      userId: team.userId ?? 'system',
+      existingTeamId: team.id,
+      ovrMin: ovrRange.min,
+      ovrMax: ovrRange.max,
+      botLevel: isBot ? 5 : undefined,
+      season: SEASON,
+    });
   }
 
   async function createBotTeams(

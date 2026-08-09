@@ -1,6 +1,6 @@
 // ============== 球员技能键常量 ==============
 
-import { currentGameDay } from '@goalxi/database';
+import { currentGameDay, rollSpecialty, SpecialtyTier } from '@goalxi/database';
 
 /** 外场球员技能键 (10个) */
 export const OUTFIELD_SKILL_KEYS = [
@@ -48,6 +48,19 @@ export interface GeneratedPlayerData {
   potentialSkills: PlayerSkills;
   potentialAbility: number;
   potentialTier: PlayerTier;
+  /**
+   * v2 core specialty — null for the 50% of players who have no
+   * specialty. Replaces the legacy v1 `abilities` field. See
+   * `docs/specialty-v2-design.md` §1.2 for the 5/15/30/50 roll.
+   */
+  coreSpecialty?: string | null;
+  coreSpecialtyTier?: SpecialtyTier;
+  /**
+   * Legacy v1 single-ability list. Kept in the generated shape so
+   * downstream callers that haven't migrated yet still see the old
+   * field; the migration script (P7) overwrites this with the
+   * mapped active code. Once the FE is fully on v2 we can drop this.
+   */
   abilities?: string[];
 }
 
@@ -304,17 +317,12 @@ function randomBirthdayForAge(age: number): Date {
 }
 
 /**
- * 青训球员可能获得的特技
+ * v2 specialty generation now lives in `@goalxi/database`'s
+ * `rollSpecialty()` (5/15/30/50 distribution, position-agnostic,
+ * 12 active codes). The old v1 `YOUTH_ABILITIES` pool is gone — the
+ * migration script (P7) handles mapping old v1 codes to v2 codes
+ * one time only, then this entry-point always uses the v2 path.
  */
-const YOUTH_ABILITIES = [
-  'FSTRT',
-  'TACKL',
-  'LPASS',
-  'CROSS',
-  'DRBLE',
-  'HEADER',
-  'LSHT',
-] as const;
 
 /**
  * 生成球员数据（公共函数）
@@ -431,10 +439,17 @@ export function generatePlayerData(options?: {
   };
 
   // 30% chance of having an ability
-  const abilities =
-    Math.random() < 0.3
-      ? [pickRandom(YOUTH_ABILITIES as unknown as string[])]
-      : undefined;
+  // v2 specialty — single roll decides (a) whether the player has
+  // any specialty at all (50% No) and (b) which code + tier. Tier is
+  // independent of attributes (random 5/15/30 distribution).
+  const specialtyRoll = rollSpecialty();
+  const coreSpecialty = specialtyRoll?.code ?? null;
+  const coreSpecialtyTier = specialtyRoll?.tier;
+
+  // Legacy v1 single-ability — kept for backwards compat so the
+  // migration script can map old rows. Once the FE is fully on v2
+  // this can be dropped.
+  const abilities = coreSpecialty ? [coreSpecialty] : undefined;
 
   // 名字
   const nationality = options?.nationality ?? 'England';
@@ -456,6 +471,8 @@ export function generatePlayerData(options?: {
     potentialSkills,
     potentialAbility,
     potentialTier,
+    coreSpecialty,
+    coreSpecialtyTier,
     abilities,
   };
 }

@@ -179,6 +179,32 @@ export class PlayerEntity extends AbstractEntity {
     @Column({ name: 'on_transfer', default: false })
     onTransfer!: boolean;
 
+    /**
+     * Core specialty v2 — primary "tag" that defines a player's identity
+     * on the pitch. NULL means the player has no specialty (50% of
+     * generated players under the 5/15/30/50 distribution).
+     *
+     * See `docs/specialty-v2-design.md` for the full list of 12 active
+     * + 8 deprecated codes and how each maps to engine hooks.
+     */
+    @Column({ name: 'core_specialty', type: 'varchar', length: 32, nullable: true })
+    coreSpecialty?: string | null;
+
+    /**
+     * Tier for the core specialty (GOLD / SILVER / BRONZE). Only
+     * meaningful when `coreSpecialty` is NOT NULL — but kept NOT NULL
+     * with a BRONZE default so read paths don't have to coalesce.
+     *
+     * Tier is **independent of player attributes** (random distribution
+     * at generation time, not derived from primary-attribute value).
+     */
+    @Column({ name: 'core_specialty_tier', type: 'varchar', length: 8, default: 'BRONZE' })
+    coreSpecialtyTier?: 'GOLD' | 'SILVER' | 'BRONZE';
+
+    // Legacy single-specialty field — kept for backwards compat with
+    // existing UI code paths and the in-flight migration. Once
+    // `migrate-specialty-v2.ts` has run + the FE has been updated, this
+    // column can be dropped in a follow-up migration.
     @Column({ name: 'specialty', type: 'varchar', length: 50, nullable: true })
     specialty?: string | null;
 

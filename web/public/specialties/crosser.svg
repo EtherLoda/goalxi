@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none" aria-label="传中狂魔 Crosser">
+  <path d="M32 4 L60 24 L50 56 L14 56 L4 24 Z" fill="currentColor" fill-opacity="0.15" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>
+  <!-- 起点：球门角旗（左下） -->
+  <path d="M14 50 L14 44 M14 50 L20 50" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+  <!-- 起点足球 -->
+  <circle cx="20" cy="46" r="5" fill="currentColor" fill-opacity="0.4" stroke="currentColor" stroke-width="2"/>
+  <!-- 传中弧线 -->
+  <path d="M24 42 Q38 16, 48 22" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" fill="none"/>
+  <!-- 终点箭头（指向禁区） -->
+  <path d="M44 18 L48 22 L44 24" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+  <!-- 终点头球目标 -->
+  <circle cx="48" cy="22" r="3" fill="currentColor"/>
+</svg>

@@ -99,20 +99,40 @@ export function ScoutCard({
         </div>
       </div>
 
-      {/* Specialties — one chip per ability, matching the player
-          page's "Specialties" row. Only render when the candidate
-          actually has abilities assigned (SCOUT_ABILITY_CHANCE
-          gates this on the server). */}
-      {c.abilities && c.abilities.length > 0 && (
-        <div className={styles.specialties}>
-          {c.abilities.map((code) => (
-            <span key={code} className={styles.specialtyChip}>
-              <SpecialtyIcon code={code} size="xs" className="text-[#a1ffc2]" />
-              {getSpecialtyLabel(code, locale) || code}
-            </span>
-          ))}
-        </div>
-      )}
+      {/* Specialties — v2 with tier badge. 50% of candidates have
+          no specialty (NULL `coreSpecialty`); we render a neutral
+          "—" chip for them so the layout doesn't shift. Otherwise
+          the chip color reflects the tier (Gold / Silver / Bronze). */}
+      <div className={styles.specialties}>
+        {c.coreSpecialty ? (
+          <span
+            className={`${styles.specialtyChip} ${
+              c.coreSpecialtyTier === 'GOLD'
+                ? 'text-amber-300 border-amber-300/30 bg-amber-300/10'
+                : c.coreSpecialtyTier === 'SILVER'
+                ? 'text-slate-300 border-slate-300/30 bg-slate-300/10'
+                : 'text-stone-400 border-stone-400/30 bg-stone-400/10'
+            }`}
+          >
+            <SpecialtyIcon
+              code={c.coreSpecialty}
+              tier={c.coreSpecialtyTier}
+              size="xs"
+            />
+            {getSpecialtyLabel(c.coreSpecialty, locale) || c.coreSpecialty}
+            {c.coreSpecialtyTier && (
+              <span className="opacity-60 ml-0.5">· {c.coreSpecialtyTier}</span>
+            )}
+          </span>
+        ) : (
+          <span
+            className={`${styles.specialtyChip} text-stone-500 border-stone-500/20 bg-stone-500/10`}
+          >
+            —
+            <span className="opacity-60">无特技</span>
+          </span>
+        )}
+      </div>
 
       {/* Skills matrix — 2 columns, same composition as the player
           page's "Attributes" tab so the card and the player profile

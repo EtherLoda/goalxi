@@ -106,7 +106,13 @@ export class ScoutSchedulerService {
               : undefined,
           };
 
-          const expiresAt = endOfCurrentWeek();
+          // TTL is SCOUT_CANDIDATE_TTL_DAYS from "now", not the
+          // epoch-aligned endOfCurrentWeek() — those can drift
+          // (e.g. Sunday the boundary is 3-4 days away, which
+          // makes candidates expire before the next cron tick).
+          const expiresAt = new Date(
+            Date.now() + SCOUT_CANDIDATE_TTL_DAYS * 24 * 60 * 60 * 1000,
+          );
 
           const candidate = this.scoutCandidateRepo.create({
             teamId: team.id,

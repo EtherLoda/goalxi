@@ -6,7 +6,6 @@ const WEATHER_ATTACK_WEIGHTS: Record<string, number[]> = {
   sunny: [1.05, 0.95, 1.0, 1.1, 1.1],
   cloudy: [1.0, 1.0, 1.0, 1.0, 1.0],
   rainy: [0.9, 0.95, 0.85, 1.15, 0.8],
-  heavy_rain: [0.7, 0.8, 0.7, 1.2, 0.6],
   windy: [1.2, 0.95, 1.0, 1.0, 1.25],
   foggy: [0.9, 0.9, 0.6, 1.05, 0.7],
   snowy: [1.15, 0.9, 0.8, 0.9, 0.75],
@@ -21,7 +20,6 @@ describe('Weather Attack Weights', () => {
     'sunny',
     'cloudy',
     'rainy',
-    'heavy_rain',
     'windy',
     'foggy',
     'snowy',
@@ -29,8 +27,8 @@ describe('Weather Attack Weights', () => {
   const attackTypeCount = 5;
 
   describe('WEATHER_ATTACK_WEIGHTS matrix structure', () => {
-    it('should have weights for all 7 weather types', () => {
-      expect(Object.keys(WEATHER_ATTACK_WEIGHTS)).toHaveLength(7);
+    it('should have weights for all 6 weather types', () => {
+      expect(Object.keys(WEATHER_ATTACK_WEIGHTS)).toHaveLength(6);
     });
 
     it('should have 5 attack type weights per weather', () => {
@@ -72,7 +70,6 @@ describe('Weather Attack Weights', () => {
         sunny: 1.04,
         cloudy: 1.0,
         rainy: 0.93,
-        heavy_rain: 0.8,
         windy: 1.08,
         foggy: 0.83,
         snowy: 0.9,
@@ -98,12 +95,6 @@ describe('Weather Attack Weights', () => {
       expect(weights[0]).toBeLessThan(1.0); // CROSS
       expect(weights[4]).toBeLessThan(1.0); // LONG_SHOT
       expect(weights[3]).toBeGreaterThan(1.0); // DRIBBLE should increase
-    });
-
-    it('heavy_rain should most heavily reduce LONG_SHOT', () => {
-      const weights = WEATHER_ATTACK_WEIGHTS['heavy_rain'];
-      expect(weights[4]).toBe(0.6); // Lowest of all
-      expect(weights[3]).toBe(1.2); // DRIBBLE highest
     });
 
     it('windy should boost CROSS and LONG_SHOT (wind advantage)', () => {
@@ -186,26 +177,6 @@ describe('Weather Attack Weights', () => {
       expect(windyNormalized[0]).toBeGreaterThan(cloudyNormalized[0]);
     });
 
-    it('heavy_rain should decrease LONG_SHOT proportion compared to cloudy', () => {
-      const distribution = ATTACK_TYPE_DISTRIBUTION[0];
-
-      // Heavy rain weights: [0.70, 0.80, 0.70, 1.20, 0.60]
-      // Weighted: [10.5, 24, 10.5, 36, 6] = 87
-      const heavyRainWeighted = distribution.map(
-        (base, i) => base * WEATHER_ATTACK_WEIGHTS['heavy_rain'][i],
-      );
-      const heavyRainSum = heavyRainWeighted.reduce((a, b) => a + b, 0);
-      const heavyRainNormalized = heavyRainWeighted.map(
-        (w) => (w / heavyRainSum) * 100,
-      );
-
-      // Cloudy (neutral) weights - all 1.0, normalized: [15, 30, 15, 30, 10]
-      // Heavy rain normalized: [12.1, 27.6, 12.1, 41.4, 6.9]
-      // LONG_SHOT (index 4): cloudy = 10%, heavy_rain = 6.9%
-
-      expect(heavyRainNormalized[4]).toBeLessThan(10); // Should be less than cloudy's 10%
-    });
-
     it('foggy should significantly reduce THROUGH_PASS proportion', () => {
       const distribution = ATTACK_TYPE_DISTRIBUTION[0];
 
@@ -252,7 +223,6 @@ describe('WeatherType enum values', () => {
     expect('sunny').toBe('sunny');
     expect('cloudy').toBe('cloudy');
     expect('rainy').toBe('rainy');
-    expect('heavy_rain').toBe('heavy_rain');
     expect('windy').toBe('windy');
     expect('foggy').toBe('foggy');
     expect('snowy').toBe('snowy');

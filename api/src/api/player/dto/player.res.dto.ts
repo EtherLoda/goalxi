@@ -70,6 +70,21 @@ export class PlayerPublicResDto {
   @Expose()
   specialty?: string | null;
 
+  /**
+   * v2 core specialty — primary path. The 50% of players who have no
+   * specialty (5/15/30/50 distribution) get `coreSpecialty = null`
+   * and `coreSpecialtyTier = 'BRONZE'` (the tier is meaningless
+   * without a code, but we always emit it so the FE can render the
+   * tier badge unconditionally).
+   */
+  @StringFieldOptional()
+  @Expose()
+  coreSpecialty?: string | null;
+
+  @StringFieldOptional()
+  @Expose()
+  coreSpecialtyTier?: 'GOLD' | 'SILVER' | 'BRONZE';
+
   @NumberField({ int: true })
   @Expose()
   potentialAbility: number;

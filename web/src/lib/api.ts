@@ -72,6 +72,14 @@ interface Team {
   benchConfig?: BenchConfig | null;
 }
 
+interface Fan {
+  id: string;
+  teamId: string;
+  totalFans: number;
+  fanEmotion: number; // 0-100
+  recentForm: string; // last 5 results, e.g. "WWDLL"
+}
+
 interface StadiumSummary {
   teamId: string;
   name: string;
@@ -264,7 +272,12 @@ interface Player {
   form: number;
   stamina: number;
   currentWage: number;
+  /** Legacy v1 single-specialty (deprecated; use coreSpecialty). */
   specialty?: string;
+  /** v2 core specialty code. NULL = no specialty (50% of players). */
+  coreSpecialty?: string | null;
+  /** v2 tier; meaningless if coreSpecialty is NULL but always set. */
+  coreSpecialtyTier?: 'GOLD' | 'SILVER' | 'BRONZE';
   // Injury surface — populated by the Medical module.
   currentInjuryValue?: number;
   injuryType?: 'muscle' | 'ligament' | 'joint' | 'head' | 'other' | null;
@@ -669,6 +682,17 @@ export const api = {
         method: 'PATCH',
         body: JSON.stringify({ benchConfig }),
       });
+    },
+  },
+
+  fans: {
+    /**
+     * Per-team fan record. `null` if the team has no fan row yet
+     * (a freshly seeded team may not have a fan record until a match
+     * completes). Matches the backend FanEntity shape.
+     */
+    getByTeam: async (teamId: string): Promise<Fan | null> => {
+      return request<Fan | null>(`/teams/${teamId}/fans`);
     },
   },
 
@@ -1238,7 +1262,6 @@ export type WeatherType =
   | 'sunny'
   | 'cloudy'
   | 'rainy'
-  | 'heavy_rain'
   | 'windy'
   | 'foggy'
   | 'snowy';
@@ -1371,10 +1394,17 @@ export interface ScoutCandidate {
   currentSkills: unknown;
   potentialSkills: unknown;
   /**
-   * Specialty codes assigned by the generator (e.g. `FSTRT`, `DRBLE`).
-   * Surfaced so the scout card can show the "特技" chip row, matching
-   * the player page's Specialties display. The first entry becomes
-   * the player's `specialty` field on sign.
+   * v2 core specialty (preferred over `abilities` for new code).
+   * 50% of candidates have `coreSpecialty === null` (the no-spec
+   * branch of the 5/15/30/50 distribution) — the ScoutCard renders
+   * a neutral "—" chip in that case.
+   */
+  coreSpecialty?: string | null;
+  coreSpecialtyTier?: 'GOLD' | 'SILVER' | 'BRONZE';
+  /**
+   * Legacy v1 single-ability list. Kept for the migration window;
+   * mirrors `coreSpecialty` when present. New code should read
+   * `coreSpecialty` + `coreSpecialtyTier` instead.
    */
   abilities?: string[];
   /**
@@ -1599,6 +1629,7 @@ export type {
   ComputedStats,
   MatchStatsRes,
   MatchEventsResponse,
+  Fan,
   // Tactics
   BenchConfig,
   TempoValue,

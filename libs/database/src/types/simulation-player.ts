@@ -64,7 +64,19 @@ export interface SimulationPlayerAttributes {
     gk_reflexes?: number;
     gk_handling?: number;
     gk_aerial?: number;
-    abilities?: PlayerAbility[];
+    abilities?: PlayerAbility[];  // legacy v1 single-ability list (deprecated, see coreSpecialty)
+    /**
+     * v2 core specialty code. Replaces the v1 `abilities` array for
+     * engine-hook lookups. NULL = no specialty.
+     *
+     * Note: we type as `string` here (not the ActiveCoreSpecialty
+     * union) because the engine package depends on `@goalxi/database`
+     * but we want to avoid a circular import with the constants file
+     * where the union lives. The simulator does a runtime check via
+     * `isActiveSpecialty()` before applying tier multipliers.
+     */
+    coreSpecialty?: string | null;
+    coreSpecialtyTier?: 'GOLD' | 'SILVER' | 'BRONZE';
 }
 
 export type PlayerAbility =
@@ -151,6 +163,13 @@ export function toSimulationPlayer(entity: PlayerEntity): SimulationPlayer {
         attributes.abilities = rawAbilities;
     }
 
+    // v2 core specialty — primary path. Legacy `abilities` array is
+    // kept above for backwards compat but new code should read this.
+    if (entity.coreSpecialty != null) {
+        attributes.coreSpecialty = entity.coreSpecialty;
+        attributes.coreSpecialtyTier = entity.coreSpecialtyTier ?? 'BRONZE';
+    }
+
     return {
         id: entity.id,
         name: entity.name,
@@ -199,6 +218,12 @@ export function toSimulationYouthPlayer(entity: PlayerEntity): SimulationPlayer 
     const rawAbilities = (skills as any)?.abilities;
     if (Array.isArray(rawAbilities)) {
         attributes.abilities = rawAbilities;
+    }
+
+    // v2 core specialty (same as toSimulationPlayer)
+    if (entity.coreSpecialty != null) {
+        attributes.coreSpecialty = entity.coreSpecialty;
+        attributes.coreSpecialtyTier = entity.coreSpecialtyTier ?? 'BRONZE';
     }
 
     // Youth players use defaults for stamina/form/experience

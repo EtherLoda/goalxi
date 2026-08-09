@@ -12,9 +12,13 @@ import { PlayerEntity } from '@goalxi/database';
  * a player's game-birthday. Aligned to UTC midnight so a job
  * queued at 00:00 UTC and a job queued at 23:59 UTC the
  * previous day both agree on which day index we're on.
+ *
+ * Reads `Date.now()` rather than constructing `new Date()` so
+ * tests can pin the clock via `jest.spyOn(Date, 'now')`
+ * without monkey-patching the Date constructor.
  */
-const computeTodayGameDay = (now: Date = new Date()): number => {
-  return Math.floor((now.getTime() - Date.UTC(1970, 0, 1)) / 86_400_000);
+const computeTodayGameDay = (nowMs: number = Date.now()): number => {
+  return Math.floor((nowMs - Date.UTC(1970, 0, 1)) / 86_400_000);
 };
 
 @Injectable()
