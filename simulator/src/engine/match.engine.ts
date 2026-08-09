@@ -3137,10 +3137,11 @@ export class MatchEngine {
       },
     });
 
-    if (isGoal) {
-      if (attackingTeam === this.homeTeam) this.homeScore++;
-      else this.awayScore++;
-    }
+    // Score is updated by the main minute loop (it scans newEvents for
+    // type === 'goal'). Do NOT increment homeScore/awayScore here —
+    // doing both was double-counting set-piece goals (e.g. 5 goal events
+    // but match.awayScore = 7 because corners and free kicks scored
+    // twice each).
 
     // Update stats (use team name as ID for now, should use teamId)
     const teamId = attackingTeam.name; // TODO: Use actual team ID
@@ -3194,10 +3195,10 @@ export class MatchEngine {
       },
     });
 
-    if (isGoal) {
-      if (attackingTeam === this.homeTeam) this.homeScore++;
-      else this.awayScore++;
-    }
+    // Score is updated by the main minute loop (it scans newEvents for
+    // type === 'goal'). Do NOT increment homeScore/awayScore here —
+    // doing both was double-counting set-piece goals (see handleCorner
+    // comment for the original bug write-up).
 
     // Update stats
     const teamId = attackingTeam.name;
@@ -3253,10 +3254,10 @@ export class MatchEngine {
       },
     });
 
-    if (isGoal) {
-      if (attackingTeam === this.homeTeam) this.homeScore++;
-      else this.awayScore++;
-    }
+    // Score is updated by the main minute loop (it scans newEvents for
+    // type === 'goal'). Do NOT increment homeScore/awayScore here —
+    // doing both was double-counting set-piece goals (see handleCorner
+    // comment for the original bug write-up).
 
     // Update stats
     const teamId = attackingTeam.name;
@@ -3316,10 +3317,10 @@ export class MatchEngine {
       },
     });
 
-    if (isGoal) {
-      if (attackingTeam === this.homeTeam) this.homeScore++;
-      else this.awayScore++;
-    }
+    // Score is updated by the main minute loop (it scans newEvents for
+    // type === 'goal'). Do NOT increment homeScore/awayScore here —
+    // doing both was double-counting set-piece goals (see handleCorner
+    // comment for the original bug write-up).
 
     // Update stats
     const teamId = attackingTeam.name;

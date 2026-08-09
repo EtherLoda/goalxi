@@ -336,6 +336,7 @@
       "title": "直播比赛",
       "commentary": "实时解说",
       "liveTag": "直播中",
+      "replayTag": "已结束",
       "waiting": "等待事件…",
       "home": "主队",
       "away": "客队",
@@ -358,7 +359,25 @@
       "venueTbd": "球场待定",
       "weatherForecastLabel": "预测天气",
       "weatherForecastTbd": "开球时揭晓",
-      "weatherForecastOutOfRange": "超出预报范围"
+      "weatherForecastOutOfRange": "超出预报范围",
+      "watching": "关注中 · {minute}'",
+      "goalTitle": "进球",
+      "assist": "助攻",
+      "goalProbability": "转化",
+      "attackScore": "进攻",
+      "defenseScore": "防守",
+      "redCard": "红牌",
+      "secondYellow": "两黄变红",
+      "substitution": "换人",
+      "period": {
+        "kickoff": "开球！",
+        "secondHalf": "下半场",
+        "halfTime": "中场休息",
+        "fullTime": "全场结束",
+        "extraTime": "加时赛",
+        "penalties": "点球大战",
+        "forfeit": "弃权"
+      }
     },
     "zone": {
       "title": "区域控制",

@@ -13,10 +13,10 @@ import {
   type WeatherForecastRes,
   type WeatherType,
 } from '@/lib/api';
-import { formatEventCommentary } from '@/lib/commentary';
 import { MatchPitch, type MatchSnapshot } from './MatchPitch';
 import { MatchTimeline } from './MatchTimeline';
 import { buildCards } from './match-pitch-data';
+import { LiveCommentary } from './LiveCommentary';
 import { extractSnapshots } from './snapshot-stats';
 import { BenchStrip } from '../tactics/bench/BenchStrip';
 import { normalizePitchLineup } from './pitch-coords';
@@ -180,7 +180,6 @@ export function TacticalMatchDetail({
   const [statsMode, setStatsMode] = useState(false);
   const homeTeamId = match.homeTeam?.id;
   const awayTeamId = match.awayTeam?.id;
-  const tCommentary = useTranslations('commentary');
   const tLiveChrome = useTranslations('matches.live');
   const tChip = useTranslations('matches.bento.pitchChip');
 
@@ -310,16 +309,16 @@ export function TacticalMatchDetail({
       <header className="glass-panel rounded-2xl px-6 py-3 flex items-center justify-between relative overflow-hidden shrink-0">
         <div className="absolute inset-0 bg-linear-to-r from-primary/5 via-transparent to-secondary/5 pointer-events-none" />
 
-        <div className="flex items-center gap-4 z-10 flex-1">
-          <div className="text-right grow">
-            <div className="font-headline font-bold text-lg tracking-tight text-white uppercase">
+        <div className="flex items-center gap-4 z-10 flex-1 min-w-0">
+          <div className="text-right grow min-w-0">
+            <div className="font-headline font-bold text-sm md:text-lg tracking-tight text-white uppercase truncate">
               {homeName}
             </div>
             <div className="text-[9px] font-label uppercase tracking-widest text-primary/60">
               Home
             </div>
           </div>
-          <div className="relative">
+          <div className="relative shrink-0">
             <div className="absolute inset-0 bg-primary/10 blur-xl rounded-full" />
             <div className="w-10 h-10 rounded-full bg-surface-container flex items-center justify-center relative z-10 border border-primary/20">
               <span className="text-primary font-black text-xs">{homeName.charAt(0)}</span>
@@ -327,9 +326,9 @@ export function TacticalMatchDetail({
           </div>
         </div>
 
-        <div className="flex flex-col items-center z-10 px-6">
-          <div className="flex items-center gap-4">
-            <span className="text-5xl font-headline font-black tracking-tighter text-white drop-shadow-[0_0_15px_rgba(255,255,255,0.15)]">
+        <div className="flex flex-col items-center z-10 px-3 md:px-6 shrink-0">
+          <div className="flex items-center gap-2 md:gap-4">
+            <span className="text-4xl md:text-5xl font-headline font-black tracking-tighter text-white drop-shadow-[0_0_15px_rgba(255,255,255,0.15)] tabular-nums">
               {match.homeScore ?? 0}
             </span>
             <div className="flex flex-col items-center gap-0.5">
@@ -346,21 +345,21 @@ export function TacticalMatchDetail({
                 </span>
               )}
             </div>
-            <span className="text-5xl font-headline font-black tracking-tighter text-white drop-shadow-[0_0_15px_rgba(255,255,255,0.15)]">
+            <span className="text-4xl md:text-5xl font-headline font-black tracking-tighter text-white drop-shadow-[0_0_15px_rgba(255,255,255,0.15)] tabular-nums">
               {match.awayScore ?? 0}
             </span>
           </div>
         </div>
 
-        <div className="flex items-center gap-4 z-10 flex-1 justify-end">
-          <div className="relative">
+        <div className="flex items-center gap-4 z-10 flex-1 justify-end min-w-0">
+          <div className="relative shrink-0">
             <div className="absolute inset-0 bg-secondary/10 blur-xl rounded-full" />
             <div className="w-10 h-10 rounded-full bg-surface-container flex items-center justify-center relative z-10 border border-secondary/20">
               <span className="text-secondary font-black text-xs">{awayName.charAt(0)}</span>
             </div>
           </div>
-          <div className="text-left grow">
-            <div className="font-headline font-bold text-lg tracking-tight text-white uppercase">
+          <div className="text-left grow min-w-0">
+            <div className="font-headline font-bold text-sm md:text-lg tracking-tight text-white uppercase truncate">
               {awayName}
             </div>
             <div className="text-[9px] font-label uppercase tracking-widest text-secondary/60">
@@ -513,8 +512,12 @@ export function TacticalMatchDetail({
 
           {/* Grid: left=pitch+sub+commentary, right=matchinfo+keyevents */}
           <div className="grid grid-cols-1 lg:grid-cols-[1fr_280px] gap-4 items-start">
-            {/* LEFT — pitch + sub + commentary */}
-            <div className="flex flex-col gap-4">
+            {/* LEFT — pitch + sub + commentary. min-w-0 lets the flex column
+                accept a constrained width — without it grid children with
+                intrinsic content width (LiveCommentary's ticker, goal
+                spotlight 3-col grid, bubble feeds) push past the 1fr
+                track and overflow the page on narrow viewports. */}
+            <div className="flex flex-col gap-4 min-w-0">
               {/* Pitch */}
               <div className="space-y-3">
                 <div className="flex justify-end mb-2">
@@ -574,55 +577,21 @@ export function TacticalMatchDetail({
                 />
               </div>
 
-              {/* Commentary */}
-              <div className="glass-panel rounded-2xl px-5 py-3">
-                <div className="flex items-center justify-between mb-2 pb-2 border-b border-primary/5">
-                  <h3 className="font-headline font-bold text-[10px] uppercase tracking-widest text-primary/80 flex items-center gap-2">
-                    <span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
-                    {tLiveChrome('commentary')}
-                  </h3>
-                  <span className="text-[9px] font-label text-outline uppercase tracking-widest">
-                    {events.length} events
-                  </span>
-                </div>
-                <div className="max-h-40 overflow-y-auto space-y-2 pr-2">
-                  {events.slice().reverse().map((event, idx) => {
-                    const type = (event.typeName || event.type || '').toUpperCase();
-                    const text = formatEventCommentary(event, homeName, awayName, tCommentary);
-                    if (!text) return null;
-                    const isLatest = idx === 0;
-
-                    const neutralTypes = ['HALF_TIME', 'FULL_TIME', 'KICKOFF', 'SECOND_HALF_START', 'EXTRA_TIME_START', 'PENALTY_START', 'WEATHER_ANNOUNCEMENT', 'PLAYER_INTRODUCTION', 'MATCH_START'];
-                    const isNeutral = neutralTypes.includes(type) || type === 'SNAPSHOT';
-                    const isHomeEvent = event.isHome === true && !isNeutral;
-                    const isAwayEvent = event.isHome === false && !isNeutral;
-
-                    const textColor = isLatest
-                      ? 'text-white font-medium'
-                      : isHomeEvent
-                        ? 'text-primary'
-                        : isAwayEvent
-                          ? 'text-secondary'
-                          : 'text-on-surface-variant';
-                    const minuteBg = isHomeEvent
-                      ? 'bg-primary text-on-primary'
-                      : isAwayEvent
-                        ? 'bg-secondary text-on-secondary'
-                        : 'bg-surface-container text-on-surface-variant';
-
-                    return (
-                      <div key={event.id || idx} className="flex items-start gap-2">
-                        <span className={`font-black font-headline text-xs px-1.5 py-0.5 rounded w-7 text-center shrink-0 ${minuteBg}`}>
-                          {event.minute}&apos;
-                        </span>
-                        <p className={`text-xs leading-relaxed ${textColor}`}>
-                          {text}
-                        </p>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
+              {/* Commentary — same component the live page uses, in 'replay'
+                  mode so the header shows "FT" instead of "LIVE" and the
+                  dot stops pulsing. The match is over; we're scrubbing
+                  history. */}
+              <LiveCommentary
+                events={events}
+                currentMinute={90}
+                homeTeamName={homeName}
+                awayTeamName={awayName}
+                homeTeamId={match.homeTeam?.id ?? null}
+                awayTeamId={match.awayTeam?.id ?? null}
+                homeScore={match.homeScore ?? 0}
+                awayScore={match.awayScore ?? 0}
+                mode="replay"
+              />
             </div>
 
             {/* RIGHT — Match Info + Key Events + Lane Stats, fixed heights */}

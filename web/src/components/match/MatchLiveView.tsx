@@ -262,6 +262,10 @@ export function MatchLiveView({
         currentMinute={currentMinute}
         homeTeamName={homeTeamName}
         awayTeamName={awayTeamName}
+        homeTeamId={match?.homeTeam?.id ?? null}
+        awayTeamId={match?.awayTeam?.id ?? null}
+        homeScore={matchState?.homeScore ?? 0}
+        awayScore={matchState?.awayScore ?? 0}
       />
     </div>
   );

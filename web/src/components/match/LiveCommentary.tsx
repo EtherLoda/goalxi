@@ -1,107 +1,193 @@
+/**
+ * LiveCommentary — full-bleed live event panel.
+ *
+ * Three vertically stacked sections:
+ *   1. TickerStrip           — horizontal marquee of all events
+ *   2. GoalSpotlight         — centre-stage card for the latest big event
+ *   3. Event feed (single)   — chronologically ordered list, all left-aligned.
+ *                              Home / away / neutral events are interleaved
+ *                              by time and distinguished only by colour
+ *                              (primary / secondary / muted), so the feed
+ *                              reads top-to-bottom as a transcript.
+ *
+ * Big events (goal / red card / sub / period transitions) deliberately
+ * only render in the spotlight; the feed is reserved for the lower-impact
+ * events (shots, misses, fouls, corners, saves, kicks, meta). This stops
+ * the feed from duplicating what the spotlight already shows.
+ */
 'use client';
 
+import React, { useMemo } from 'react';
 import { useTranslations } from 'next-intl';
 import type { MatchEvent } from '@/lib/api';
-import { canonicalEventType, formatEventCommentary } from '@/lib/commentary';
+import { canonicalEventType } from '@/lib/commentary';
+import { isSpotlightEvent } from './commentary-icons';
+import { TickerStrip } from './ticker-strip';
+import { GoalSpotlight } from './goal-spotlight';
+import { EventBubble } from './event-bubble';
 
-interface LiveCommentaryProps {
+export interface LiveCommentaryProps {
   events: MatchEvent[];
   currentMinute: number;
   homeTeamName: string;
   awayTeamName: string;
+  /**
+   * The home/away team ids. Required to colour each event correctly —
+   * the simulator only sends `teamId` on each event (no `isHome` flag),
+   * so without these every team-attributed event defaults to the away
+   * colour. Optional for backwards-compat; when missing, the bubble
+   * falls back to the old (broken) behaviour.
+   */
+  homeTeamId?: string | null;
+  awayTeamId?: string | null;
+  homeColor?: string | null;
+  awayColor?: string | null;
+  homeScore: number;
+  awayScore: number;
+  /**
+   * - 'live' (default): a match in progress. Header shows a pulsing red
+   *   "LIVE" tag with the current minute.
+   * - 'replay': a completed match played back. Header shows a non-pulsing
+   *   "FT" tag — the panel is the same component but the chrome makes it
+   *   clear the user is scrubbing history, not watching live action.
+   */
+  mode?: 'live' | 'replay';
 }
 
-function EventIcon({ type }: { type: string }) {
-  const t = type.toUpperCase();
-  if (t === 'GOAL') return <span className="text-primary text-sm">⚽</span>;
-  if (t === 'YELLOW_CARD' || t === 'SECOND_YELLOW') return <span className="text-yellow-400 text-sm">🟨</span>;
-  if (t === 'RED_CARD') return <span className="text-red-400 text-sm">🟥</span>;
-  if (t === 'SUBSTITUTION') return <span className="text-blue-400 text-sm">🔄</span>;
-  if (t === 'INJURY') return <span className="text-orange-400 text-sm">🏥</span>;
-  if (t === 'PENALTY' || t === 'PENALTY_MISS') return <span className="text-purple-400 text-sm">🎯</span>;
-  if (t === 'VAR_DECISION') return <span className="text-cyan-400 text-sm">📺</span>;
-  if (t === 'WEATHER_ANNOUNCEMENT') return <span className="text-blue-300 text-sm">🌤️</span>;
-  if (t === 'PLAYER_INTRODUCTION') return <span className="text-green-400 text-sm">👥</span>;
-  if (t === 'HALF_TIME' || t === 'FULL_TIME') return <span className="text-on-surface-variant text-sm">⏹</span>;
-  if (t === 'KICKOFF' || t === 'SECOND_HALF_START') return <span className="text-on-surface-variant text-sm">▶</span>;
-  return <span className="text-on-surface-variant text-sm">•</span>;
-}
-
-export function LiveCommentary({ events, currentMinute, homeTeamName, awayTeamName }: LiveCommentaryProps) {
-  // Two hooks, two scopes — the `commentary` scope feeds
-  // formatEventCommentary (which passes fully-qualified `commentary.X.tpl_N`
-  // keys via getTemplate), and `matches.live` covers this component's
-  // chrome (header text, "Waiting for events…"). Using a bare
-  // `useTranslations()` for either side made next-intl@4 return literal
-  // dotted keys as the rendered text.
-  const t = useTranslations('commentary');
+export function LiveCommentary({
+  events,
+  currentMinute,
+  homeTeamName,
+  awayTeamName,
+  homeTeamId,
+  awayTeamId,
+  homeColor,
+  awayColor,
+  homeScore,
+  awayScore,
+  mode = 'live',
+}: LiveCommentaryProps) {
   const tChrome = useTranslations('matches.live');
 
-  // Sort: newest first (higher minute = newer)
-  const sorted = [...events].sort((a, b) => b.minute - a.minute);
+  // 1. Find the most recent spotlight-worthy event.
+  const spotlightEvent = useMemo<MatchEvent | null>(() => {
+    for (let i = 0; i < events.length; i++) {
+      const e = events[i];
+      const type = canonicalEventType(e.typeName ?? e.type);
+      if (isSpotlightEvent(type)) return e;
+    }
+    return null;
+  }, [events]);
 
-  // Filter out SNAPSHOT — resolve the type via the same alias map the
-  // formatter uses, so simulator strings that the formatter normalizes
-  // (e.g. raw `match_start` -> canonical `KICKOFF`) are filtered consistently.
-  const filtered = sorted.filter(
-    (e) => canonicalEventType(e.typeName ?? e.type) !== 'SNAPSHOT',
+  // 2. Build the feed: drop only SNAPSHOT events. Goals, subs and
+  //    cards used to be redirected to the spotlight card so the feed
+  //    didn't double up; per design feedback the user wants every
+  //    non-snapshot event in the chronological feed, so we keep
+  //    them all here. The spotlight is now hidden (not deleted) so
+  //    the DOM still has it for re-enable later.
+  const feedEvents = useMemo(
+    () =>
+      events.filter((e) => {
+        const type = canonicalEventType(e.typeName ?? e.type);
+        if (type === 'SNAPSHOT') return false;
+        return true;
+      }),
+    [events],
+  );
+
+  // 3. Single chronologically-ordered feed. Side is no longer encoded by
+  //    left/right placement — the chat-column split has been retired so
+  //    every event sits in the same column from the left, and the
+  //    home/away/neutral distinction is colour-only (see EventBubble).
+  //    Sorted newest-first so the most recent action is at the top, like
+  //    a real-time match feed.
+  const sortedFeed = useMemo(
+    () =>
+      [...feedEvents].sort(
+        (a, b) => b.minute - a.minute || (b.second ?? 0) - (a.second ?? 0),
+      ),
+    [feedEvents],
   );
 
   return (
-    <div className="rounded-DEFAULT border border-surface-container-high bg-surface-container-low overflow-hidden">
-      {/* Header */}
-      <div className="flex items-center justify-between px-4 py-3 border-b border-surface-container-high">
-        <h3 className="font-headline font-bold text-xs uppercase tracking-widest text-primary flex items-center gap-1.5">
-          <span className="w-2 h-2 rounded-full bg-primary animate-pulse" />
+    <div className="space-y-3">
+      {/* Header row */}
+      <div className="flex items-center justify-between">
+        <h3 className="font-headline font-black text-xs uppercase tracking-widest text-primary flex items-center gap-1.5">
+          <span
+            className={`w-2 h-2 rounded-full ${
+              mode === 'live'
+                ? 'bg-error animate-pulse'
+                : 'bg-on-surface-variant/50'
+            }`}
+          />
           {tChrome('commentary')}
         </h3>
         <div className="flex items-center gap-1.5">
-          <span className="font-mono font-black text-sm text-primary">
+          <span className="font-mono font-black text-sm tabular-nums text-primary">
             {currentMinute}&apos;
           </span>
-          <span className="text-[9px] font-bold uppercase tracking-widest text-error/80 font-headline animate-pulse">
-            {tChrome('liveTag')}
-          </span>
+          {mode === 'live' ? (
+            <span className="text-[9px] font-bold uppercase tracking-widest text-error/80 font-headline animate-pulse">
+              {tChrome('liveTag')}
+            </span>
+          ) : (
+            <span className="text-[9px] font-bold uppercase tracking-widest text-on-surface-variant/70 font-headline">
+              {tChrome('replayTag')}
+            </span>
+          )}
         </div>
       </div>
 
-      {/* Event List */}
-      <div className="max-h-90 overflow-y-auto px-4 py-3 space-y-1">
-        {filtered.length === 0 ? (
-          <div className="text-center py-8 text-on-surface-variant text-sm font-headline">
-            {tChrome('waiting')}
-          </div>
-        ) : (
-          filtered.map((event, idx) => {
-            const type = canonicalEventType(event.typeName ?? event.type);
-            const isLatest = idx === 0;
-            const text = formatEventCommentary(event, homeTeamName, awayTeamName, t);
-            if (!text) return null;
+      {/* 1. Ticker — horizontal marquee of all events */}
+      <TickerStrip
+        events={events}
+        homeTeamName={homeTeamName}
+        awayTeamName={awayTeamName}
+      />
 
-            return (
-              <div
-                key={event.id || `${event.minute}-${idx}`}
-                className={`flex items-start gap-3 px-3 py-2.5 rounded-xl transition-all ${
-                  isLatest
-                    ? 'bg-surface-container border border-primary/20'
-                    : 'hover:bg-surface-container'
-                }`}
-              >
-                <div className="shrink-0 mt-0.5">
-                  <EventIcon type={type} />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className={`text-xs leading-relaxed ${isLatest ? 'text-on-surface font-medium' : 'text-on-surface-variant'}`}>
-                    {text}
-                  </p>
-                </div>
-                <span className={`shrink-0 font-mono font-black text-[11px] ${isLatest ? 'text-primary' : 'text-on-surface-variant'}`}>
-                  {event.minute}&apos;
-                </span>
-              </div>
-            );
-          })
-        )}
+      {/* 2. Spotlight — hidden per design feedback (the feed now shows
+             goals / subs / cards inline so the user gets a single
+             chronological transcript). Kept in the tree (not removed)
+             so we can re-enable it by deleting the `hidden` class
+             without re-deriving the layout. */}
+      <div hidden>
+        <GoalSpotlight
+          event={spotlightEvent}
+          homeTeamName={homeTeamName}
+          awayTeamName={awayTeamName}
+          homeScore={homeScore}
+          awayScore={awayScore}
+          homeColor={homeColor}
+          awayColor={awayColor}
+          currentMinute={currentMinute}
+        />
+      </div>
+
+      {/* 3. Feed — single left-aligned chronological column. Home / away /
+             neutral events are interleaved by time; side is conveyed by
+             colour (primary / secondary / muted) on the EventBubble. */}
+      <div className="rounded-2xl border border-surface-container-high bg-surface-container-lowest/40 overflow-hidden">
+        <div className="max-h-[480px] overflow-y-auto px-3 py-2">
+          {sortedFeed.length === 0 ? (
+            <p className="text-center text-on-surface-variant text-xs py-6 font-headline uppercase tracking-widest">
+              {tChrome('waiting')}
+            </p>
+          ) : (
+            sortedFeed.map((e) => (
+              <EventBubble
+                key={e.id ?? `${e.minute}-${e.second ?? 0}`}
+                event={e}
+                homeTeamName={homeTeamName}
+                awayTeamName={awayTeamName}
+                homeTeamId={homeTeamId}
+                awayTeamId={awayTeamId}
+                homeColor={homeColor}
+                awayColor={awayColor}
+              />
+            ))
+          )}
+        </div>
       </div>
     </div>
   );
