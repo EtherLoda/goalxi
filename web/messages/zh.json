@@ -440,6 +440,33 @@
       },
       "commentary": {
         "title": "实时解说"
+      },
+      "statsResult": {
+        "title": "数据总结",
+        "vs": "VS",
+        "lane": {
+          "left": "左路",
+          "center": "中路",
+          "right": "右路"
+        },
+        "metric": {
+          "atk": "进攻",
+          "def": "防守",
+          "poss": "控球"
+        },
+        "winner": {
+          "home": "← 主场",
+          "away": "客场 →"
+        },
+        "footer": {
+          "poss": "控球",
+          "shots": "射门",
+          "percent": "%"
+        }
+      },
+      "substitutes": {
+        "title": "替补席",
+        "used": "已用: {count}"
       }
     }
   },

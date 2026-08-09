@@ -177,7 +177,7 @@ export const EventBubble: React.FC<EventBubbleProps> = ({
             {React.createElement(Icon, { size: 13 })}
           </span>
           <div className="flex-1 min-w-0">
-            <p className="text-xs leading-snug text-on-surface">{text}</p>
+            <p className="text-[13px] leading-snug text-on-surface">{text}</p>
             {statValue && (
               <p className="mt-0.5 text-[10px] font-mono text-on-surface-variant/80">
                 {statMatch![1]} = {statValue}

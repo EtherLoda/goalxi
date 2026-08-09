@@ -444,6 +444,33 @@
       },
       "commentary": {
         "title": "Live Commentary"
+      },
+      "statsResult": {
+        "title": "Stats Result",
+        "vs": "VS",
+        "lane": {
+          "left": "Left Wing",
+          "center": "Center",
+          "right": "Right Wing"
+        },
+        "metric": {
+          "atk": "ATK",
+          "def": "DEF",
+          "poss": "POS"
+        },
+        "winner": {
+          "home": "← HOME",
+          "away": "AWAY →"
+        },
+        "footer": {
+          "poss": "Poss",
+          "shots": "Shots",
+          "percent": "%"
+        }
+      },
+      "substitutes": {
+        "title": "Substitutes",
+        "used": "Used: {count}"
       }
     }
   },

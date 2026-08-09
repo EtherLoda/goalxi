@@ -132,6 +132,17 @@ export function MatchLiveView({
     () => Math.max(0, snapshots.length - 1),
   );
 
+  // String-keyed roster map for MatchPitchSidebar → MatchKeyEvents.
+  // MatchEvent.playerId is a string but Player.id is a number, so we
+  // stringify at lookup time. Without this, the key events panel
+  // can't resolve player names from the events.
+  const rosterByIdForKeys = useMemo(() => {
+    const map = new Map<string, { name: string }>();
+    for (const p of homeRoster) map.set(String(p.id), { name: p.name });
+    for (const p of awayRoster) map.set(String(p.id), { name: p.name });
+    return map;
+  }, [homeRoster, awayRoster]);
+
   // Auto-snap to the latest snapshot as new events arrive, unless the user
   // is actively scrubbing through history.
   useEffect(() => {
@@ -252,6 +263,9 @@ export function MatchLiveView({
             events={visibleEvents}
             currentMinute={currentMinute}
             stadium={match?.venue ?? undefined}
+            homeTeamId={match?.homeTeam?.id ?? null}
+            awayTeamId={match?.awayTeam?.id ?? null}
+            rosterById={rosterByIdForKeys}
           />
         </div>
       </div>

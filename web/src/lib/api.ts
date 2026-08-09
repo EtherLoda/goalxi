@@ -409,7 +409,7 @@ interface MatchTeamStats {
   id: string;
   matchId: string;
   teamId: string;
-  possession: number;
+  possession: number | null;
   shots: number;
   shotsOnTarget: number;
   corners: number;
@@ -419,7 +419,13 @@ interface MatchTeamStats {
   redCards: number;
   passes: number;
   score: number;
-  possessionPercentage?: number;
+  /**
+   * Possession as a 0-100 percentage (e.g. "46.67"). Backend serialises
+   * this as a string to preserve the 2-decimal precision — keep the
+   * type permissive (`string | number`) so the page doesn't crash on
+   * historical rows where the value may already be a number.
+   */
+  possessionPercentage?: string | number;
   passesCompleted?: number;
   passesAttempted?: number;
   freeKicks?: number;

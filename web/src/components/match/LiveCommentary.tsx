@@ -95,16 +95,16 @@ export function LiveCommentary({
     [events],
   );
 
-  // 3. Single chronologically-ordered feed. Side is no longer encoded by
-  //    left/right placement — the chat-column split has been retired so
-  //    every event sits in the same column from the left, and the
+  // 3. Chronological feed. Side is no longer encoded by left/right
+  //    placement — the chat-column split has been retired so every
+  //    event sits in the same column from the left, and the
   //    home/away/neutral distinction is colour-only (see EventBubble).
-  //    Sorted newest-first so the most recent action is at the top, like
-  //    a real-time match feed.
+  //    Sorted oldest-first so the feed reads top-to-bottom as a real
+  //    match transcript: kickoff at the top, full-time at the bottom.
   const sortedFeed = useMemo(
     () =>
       [...feedEvents].sort(
-        (a, b) => b.minute - a.minute || (b.second ?? 0) - (a.second ?? 0),
+        (a, b) => a.minute - b.minute || (a.second ?? 0) - (b.second ?? 0),
       ),
     [feedEvents],
   );

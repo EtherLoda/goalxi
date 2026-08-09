@@ -130,9 +130,15 @@ export interface PitchCard {
 /**
  * Build the rendered card list for one team.
  *
- * Resolution priority:
- *   1. Snapshot players — carry mid-game stamina / star rating.
- *   2. Lineup slots — fill any slot the snapshot didn't cover.
+ * Authoritative source priority:
+ *   1. Snapshot players — when the engine has emitted a snapshot
+ *      (every 5 minutes, plus minute 0 / 45 / 46 / 90), it is the
+ *      ground truth for who is on the pitch *right now*. This
+ *      includes post-substitution state (the new player is in `ps`)
+ *      and post-red-card state (the sent-off player is excluded).
+ *   2. Lineup slots — only when no snapshot is available yet
+ *      (pre-match / first paint, before the engine emits the
+ *      minute-0 snapshot). We render the user-submitted starting XI.
  *
  * Position key resolution:
  *   - Snapshot.p is canonical OR legacy (`CB`/`CDL`/etc.). `toPitchSlot`
@@ -140,6 +146,20 @@ export interface PitchCard {
  *   - If we cannot resolve the key, the player is rendered at the
  *     center of their half as a fallback (slotKey === null), so the
  *     match report still surfaces them rather than silently dropping.
+ *
+ * Why no lineup backfill when a snapshot is present:
+ *   - A red-carded player is excluded from the snapshot's `ps` (the
+ *     engine sets `isSentOff` and `mapPlayerStates` filters them out).
+ *   - A subbed-out player is replaced in the snapshot's `ps` by
+ *     the incoming substitute.
+ *   - The original `tactics.lineup` still contains the OLD player IDs
+ *     at those slots. Backfilling from it would resurrect the
+ *     sent-off / subbed-out player onto the pitch, contradicting
+ *     the snapshot. The earlier version of this function did exactly
+ *     that — the FE kept showing David Klein (red card, no sub) on
+ *     the pitch for the rest of the match even though the snapshot
+ *     correctly excluded him. See `match-pitch-data.spec.ts` for
+ *     the regression tests.
  */
 export function buildCards(
   tactics: Tactics | null,
@@ -147,10 +167,11 @@ export function buildCards(
   rosterById: Map<number, Player>,
 ): PitchCard[] {
   const cards: PitchCard[] = [];
-  const seen = new Set<number>();
 
-  // Snapshot first — wins on duplicate playerId.
-  if (snapshotPlayers) {
+  // Snapshot wins when present. We deliberately do NOT fall back to
+  // the lineup once a snapshot exists — the snapshot is the live
+  // ground truth (post-sub, post-red-card, etc.).
+  if (snapshotPlayers && snapshotPlayers.length > 0) {
     for (const sp of snapshotPlayers) {
       const slotKey = toPitchSlot(sp.p);
       const player = rosterById.get(sp.id) ?? null;
@@ -163,16 +184,16 @@ export function buildCards(
         starRating: sp.sr,
         isSubstitute: sp.em !== undefined && sp.em > 0,
       });
-      seen.add(sp.id);
     }
+    return cards;
   }
 
-  // Lineup backfill — only emit cards for players not already covered.
+  // Pre-match / no snapshot yet — render the user-submitted lineup.
   if (tactics?.lineup) {
     const { pitch } = normalizeLineup(tactics.lineup);
     for (const slot of PITCH_SLOTS) {
       const pid = pitch[slot];
-      if (!pid || seen.has(pid)) continue;
+      if (!pid) continue;
       const player = rosterById.get(pid) ?? null;
       cards.push({
         playerId: pid,

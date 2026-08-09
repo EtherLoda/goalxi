@@ -74,6 +74,16 @@ interface MatchPitchSidebarProps {
   stadium?: string;
   /** Attendance number (from match.attendance). */
   attendance?: number;
+  /**
+   * Home / away team ids. The simulator payload only ships `teamId`
+   * on each event (no `isHome` flag), so the key events panel
+   * compares `event.teamId` to these to attribute the side. Without
+   * them, every team-attributed event defaults to the away color.
+   */
+  homeTeamId?: string | null;
+  awayTeamId?: string | null;
+  /** Roster map for name resolution (forwarded to MatchKeyEvents). */
+  rosterById?: Map<string, { name: string }>;
 }
 
 export function MatchPitchSidebar({
@@ -81,6 +91,9 @@ export function MatchPitchSidebar({
   currentMinute,
   stadium,
   attendance,
+  homeTeamId,
+  awayTeamId,
+  rosterById,
 }: MatchPitchSidebarProps) {
   const t = useTranslations('matches.live');
 
@@ -121,76 +134,18 @@ export function MatchPitchSidebar({
 
       {/* Key Events */}
       {keyEvents.length > 0 && (
-        <div className="glass-panel rounded-2xl p-4 flex flex-col max-h-48 overflow-y-auto">
+        <div className="glass-panel rounded-2xl p-4 flex flex-col max-h-56 overflow-y-auto">
           <h3 className="font-headline font-bold text-[10px] uppercase tracking-widest text-primary/80 mb-3 flex items-center gap-2 shrink-0">
             <span className="material-symbols-outlined text-base">history</span>
             {t('keyEvents') ?? 'Key Events'}
           </h3>
-          <div className="flex flex-col gap-1.5 min-h-0">
-            {keyEvents.slice().reverse().map((ev) => {
-              const type = (ev.typeName ?? ev.type ?? '').toLowerCase();
-              const isHome = ev.isHome ?? true;
-              const icon =
-                type === 'goal' || type === 'own_goal' ? '⚽'
-                : type === 'red_card' || type === 'second_yellow' ? '🟥'
-                : type === 'yellow_card' ? '🟨'
-                : '🔄';
-
-              const playerName = ev.data?.playerName as string | undefined
-                ?? ev.playerId?.slice(0, 8)
-                ?? '?';
-              const sublabel =
-                type === 'substitution'
-                  ? `↔ ${(ev.data?.playerOut as string) ?? '?'}`
-                  : type === 'own_goal'
-                    ? 'OG'
-                    : type === 'second_yellow'
-                      ? '2nd Y'
-                      : type === 'red_card'
-                        ? 'RED'
-                        : type === 'yellow_card'
-                          ? 'YELLOW'
-                          : undefined;
-
-              return (
-                <div
-                  key={ev.id}
-                  className="flex items-center gap-2 py-1.5 border-b border-primary/5 last:border-0"
-                >
-                  {/* Minute */}
-                  <span
-                    className={`font-headline font-black tabular-nums text-[10px] min-w-[28px] shrink-0 ${
-                      ev.minute === currentMinute ? 'text-primary' : 'text-white/40'
-                    }`}
-                  >
-                    {ev.minute}&apos;
-                  </span>
-
-                  {/* Team indicator dot */}
-                  <span
-                    className={`w-1.5 h-1.5 rounded-full shrink-0 ${
-                      isHome ? 'bg-primary' : 'bg-secondary'
-                    }`}
-                  />
-
-                  {/* Icon */}
-                  <span className="text-[10px] shrink-0">{icon}</span>
-
-                  {/* Player */}
-                  <span className="text-[11px] font-headline font-bold text-white/80 truncate flex-1">
-                    {playerName}
-                  </span>
-
-                  {/* Sublabel */}
-                  {sublabel && (
-                    <span className="text-[9px] font-label text-white/30 uppercase tracking-wide shrink-0">
-                      {sublabel}
-                    </span>
-                  )}
-                </div>
-              );
-            })}
-          </div>
+          <MatchKeyEvents
+            events={keyEvents}
+            rosterById={rosterById ?? new Map()}
+            currentMinute={currentMinute}
+            homeTeamId={homeTeamId}
+            awayTeamId={awayTeamId}
+          />
         </div>
       )}
     </div>

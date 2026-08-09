@@ -154,21 +154,110 @@ describe('buildCards', () => {
     expect(cards[0].slotKey).toBeNull();
   });
 
-  it('lineup backfill: lineup slots not covered by snapshot still render', () => {
+  it('does NOT backfill from lineup when a snapshot is present (regression: red card / sub)', () => {
+    // The pitch must reflect mid-game reality. Two scenarios that
+    // broke before the fix:
+    //
+    //   1. Red card: the sent-off player is excluded from snapshot.ps
+    //      by the engine. The original `tactics.lineup` still has
+    //      them. We must NOT resurrect them onto the pitch.
+    //   2. Substitution: the subbed-out player is replaced in
+    //      snapshot.ps by the incoming substitute. The original
+    //      `tactics.lineup` still has the OLD player. We must NOT
+    //      bring the old player back to their old slot.
+    //
+    // Both cases were broken by a "snapshot first, then lineup
+    // backfill" loop in an earlier version of buildCards.
     const roster = mkRoster([4, 1]);
     const tactics = mkTactics({ GK: 4, CF: 1 });
-    // Snapshot only knows about the GK — the CF should come from lineup.
+    // Snapshot only knows about the GK — the CF slot is empty in
+    // the snapshot (because the CF was subbed off / sent off).
     const snapshot = {
-      minute: 0,
+      minute: 10,
       h: { ps: [mkSnapshotPlayer(4, 'GK', { sr: 70 })] },
       a: { ps: [] },
     } as MatchSnapshot;
     const cards = buildCards(tactics, snapshot.h.ps, roster);
-    expect(cards).toHaveLength(2);
-    const gkCard = cards.find((c) => c.playerId === 4);
-    const cfCard = cards.find((c) => c.playerId === 1);
-    expect(gkCard?.starRating).toBe(70);
-    expect(cfCard?.starRating).toBeUndefined();
+    // Just the GK — the CF player from the lineup is NOT pulled back in.
+    expect(cards).toHaveLength(1);
+    expect(cards[0].playerId).toBe(4);
+  });
+
+  it('post-red-card: snapshot.ps with 10 players + 11-player lineup → 10 cards only', () => {
+    // Real scenario from match b6fab106: David Klein red-carded at
+    // minute 8 (no bench sub available — plays with 10 men). The
+    // minute-10 snapshot excludes him from h.ps. The lineup still
+    // has him. The pitch must show 10 players, not 11.
+    const roster = mkRoster([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]);
+    const tactics = mkTactics({
+      GK: 1, LB: 2, CBL: 3, CB: 4, RB: 5,
+      CML: 6, CM: 7, CMR: 8,
+      LW: 9, CF: 10, RW: 11,
+    });
+    // The 10-player snapshot — player 6 (David Klein) is gone.
+    const snapshot = {
+      minute: 10,
+      h: {
+        ps: [
+          mkSnapshotPlayer(1, 'GK'),
+          mkSnapshotPlayer(2, 'LB'),
+          mkSnapshotPlayer(3, 'CBL'),
+          mkSnapshotPlayer(4, 'CB'),
+          mkSnapshotPlayer(5, 'RB'),
+          // 6 missing — sent off
+          mkSnapshotPlayer(7, 'CM'),
+          mkSnapshotPlayer(8, 'CMR'),
+          mkSnapshotPlayer(9, 'LW'),
+          mkSnapshotPlayer(10, 'CF'),
+          mkSnapshotPlayer(11, 'RW'),
+        ],
+      },
+      a: { ps: [] },
+    } as MatchSnapshot;
+    const cards = buildCards(tactics, snapshot.h.ps, roster);
+    expect(cards).toHaveLength(10);
+    expect(cards.map((c) => c.playerId)).not.toContain(6);
+  });
+
+  it('post-substitution: snapshot.ps has the new sub, lineup has the old player → only the new sub renders', () => {
+    // The classic sub case: at minute 25, the engine replaces
+    // player 6 with player 99 in team.players (and in the next
+    // snapshot's ps array). The lineup still has player 6 at CML.
+    // The pitch must show player 99, not player 6.
+    const roster = mkRoster([1, 2, 3, 4, 5, 99, 7, 8, 9, 10, 11]);
+    const tactics = mkTactics({
+      GK: 1, LB: 2, CBL: 3, CB: 4, RB: 5,
+      CML: 6, // <-- still 6 in the (stale) lineup
+      CM: 7, CMR: 8,
+      LW: 9, CF: 10, RW: 11,
+    });
+    // Snapshot at minute 25 — player 6 has been replaced by 99.
+    const snapshot = {
+      minute: 25,
+      h: {
+        ps: [
+          mkSnapshotPlayer(1, 'GK'),
+          mkSnapshotPlayer(2, 'LB'),
+          mkSnapshotPlayer(3, 'CBL'),
+          mkSnapshotPlayer(4, 'CB'),
+          mkSnapshotPlayer(5, 'RB'),
+          mkSnapshotPlayer(99, 'CML', { n: 'Bench Hero', em: 22 }),
+          mkSnapshotPlayer(7, 'CM'),
+          mkSnapshotPlayer(8, 'CMR'),
+          mkSnapshotPlayer(9, 'LW'),
+          mkSnapshotPlayer(10, 'CF'),
+          mkSnapshotPlayer(11, 'RW'),
+        ],
+      },
+      a: { ps: [] },
+    } as MatchSnapshot;
+    const cards = buildCards(tactics, snapshot.h.ps, roster);
+    expect(cards).toHaveLength(11);
+    const ids = cards.map((c) => c.playerId);
+    expect(ids).toContain(99);
+    expect(ids).not.toContain(6);
+    const sub = cards.find((c) => c.playerId === 99);
+    expect(sub?.isSubstitute).toBe(true);
   });
 
   it('returns no lineup cards for slots whose player was already seen via snapshot', () => {

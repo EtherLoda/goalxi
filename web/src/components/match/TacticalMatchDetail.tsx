@@ -18,10 +18,12 @@ import { MatchTimeline } from './MatchTimeline';
 import { buildCards } from './match-pitch-data';
 import { LiveCommentary } from './LiveCommentary';
 import { extractSnapshots } from './snapshot-stats';
-import { BenchStrip } from '../tactics/bench/BenchStrip';
 import { normalizePitchLineup } from './pitch-coords';
 import { toPitchSlot } from '../tactics/api-helpers';
 import { MatchInfoPanel } from './MatchInfoPanel';
+import { MatchKeyEvents } from './MatchKeyEvents';
+import { MatchSubstitutes } from './MatchSubstitutes';
+import { StatsResult } from './StatsResult';
 
 interface TacticalMatchDetailProps {
   matchId: string;
@@ -271,6 +273,16 @@ export function TacticalMatchDetail({
     const map = new Map<number, Player>();
     for (const p of homeRoster) map.set(p.id, p);
     for (const p of awayRoster) map.set(p.id, p);
+    return map;
+  }, [homeRoster, awayRoster]);
+
+  // String-keyed roster map for the MatchKeyEvents panel. MatchKeyEvents
+  // (and MatchEvent.playerId) work in string keys, but Player.id is a
+  // number — convert at lookup time so the two stay in sync.
+  const rosterByIdForKeys = useMemo(() => {
+    const map = new Map<string, { name: string }>();
+    for (const p of homeRoster) map.set(String(p.id), { name: p.name });
+    for (const p of awayRoster) map.set(String(p.id), { name: p.name });
     return map;
   }, [homeRoster, awayRoster]);
 
@@ -555,27 +567,21 @@ export function TacticalMatchDetail({
                 />
               </div>
 
-              {/* Substitutes */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <BenchStrip
-                  bench={homeBench as Record<string, number | null>}
-                  playersById={homeRosterById}
-                  isDragging={false}
-                  onDrop={() => {}}
-                  onRemove={() => {}}
-                  onDragStart={() => {}}
-                  onDragEnd={() => {}}
-                />
-                <BenchStrip
-                  bench={awayBench as Record<string, number | null>}
-                  playersById={awayRosterById}
-                  isDragging={false}
-                  onDrop={() => {}}
-                  onRemove={() => {}}
-                  onDragStart={() => {}}
-                  onDragEnd={() => {}}
-                />
-              </div>
+              {/* Substitutes — read-only match-report view (planned
+                  bench slots + actual subs from the event log). The
+                  tactics page still uses the drag-and-drop BenchStrip;
+                  here we show settled state, no interaction. */}
+              <MatchSubstitutes
+                homeTeamName={homeName}
+                awayTeamName={awayName}
+                homeBench={homeBench}
+                awayBench={awayBench}
+                homeRosterById={homeRosterById}
+                awayRosterById={awayRosterById}
+                events={events}
+                homeTeamId={homeTeamId}
+                awayTeamId={awayTeamId}
+              />
 
               {/* Commentary — same component the live page uses, in 'replay'
                   mode so the header shows "FT" instead of "LIVE" and the
@@ -594,10 +600,15 @@ export function TacticalMatchDetail({
               />
             </div>
 
-            {/* RIGHT — Match Info + Key Events + Lane Stats, fixed heights */}
-            <div className="flex flex-col gap-3 h-[540px]">
-              {/* Match Info */}
-              <div className="glass-panel rounded-2xl p-4 h-32 shrink-0">
+            {/* RIGHT — Match Info + Key Events + Lane Stats.
+                No fixed height — letting the column grow with its content
+                (LaneBreakdown alone is ~480px; the previous h-[540px] was
+                squeezing Key Events down to ~0px and hiding all events). */}
+            <div className="flex flex-col gap-3">
+              {/* Match Info — auto-size: now has up to 3 tiles
+                  (venue / weather / attendance) and a fixed h-32 was
+                  overflowing. */}
+              <div className="glass-panel rounded-2xl p-4 shrink-0">
                 <h3 className="font-headline font-bold text-[10px] uppercase tracking-widest text-primary/80 mb-3 flex items-center gap-2">
                   <span className="material-symbols-outlined text-base">stadium</span>
                   {tLiveChrome('matchInfo') ?? 'Match Info'}
@@ -609,185 +620,44 @@ export function TacticalMatchDetail({
                 />
               </div>
 
-              {/* Key Events */}
-              <div className="flex-1 glass-panel rounded-2xl p-4 flex flex-col min-h-0">
+              {/* Key Events — uses the same MatchKeyEvents component as
+                  the live view so home/away attribution, minute-badge
+                  tinting and player name resolution stay in sync.
+                  Bounded height: enough room for ~8 events, scrollable
+                  past that. Previously the right column was h-[540px] and
+                  LaneBreakdown consumed ~480px, squeezing this panel to
+                  ~0px — hence "no events visible". */}
+              <div className="glass-panel rounded-2xl p-4 flex flex-col min-h-[200px] max-h-[420px]">
                 <h3 className="font-headline font-bold text-[10px] uppercase tracking-widest text-primary/80 mb-3 flex items-center gap-2 shrink-0">
                   <span className="material-symbols-outlined text-base">history</span>
                   {tLiveChrome('keyEvents') ?? 'Key Events'}
                 </h3>
                 <div className="flex-1 min-h-0 overflow-y-auto">
-                  <div className="flex flex-col gap-1.5">
-                    {keyEvents.slice().reverse().map((ev) => {
-                      const type = (ev.typeName ?? ev.type ?? '').toLowerCase();
-                      const isHome = ev.isHome ?? true;
-                      const icon =
-                        type === 'goal' || type === 'own_goal' ? '⚽'
-                        : type === 'red_card' || type === 'second_yellow' ? '🟥'
-                        : type === 'yellow_card' ? '🟨'
-                        : '🔄';
-
-                      const playerName = (ev.data?.playerName as string | undefined)
-                        ?? ev.playerId?.slice(0, 8)
-                        ?? '?';
-                      const sublabel =
-                        type === 'substitution'
-                          ? `↔ ${(ev.data?.playerOut as string) ?? '?'}`
-                          : type === 'own_goal'
-                            ? 'OG'
-                            : type === 'second_yellow'
-                              ? '2nd Y'
-                              : type === 'red_card'
-                                ? 'RED'
-                                : type === 'yellow_card'
-                                  ? 'YELLOW'
-                                  : undefined;
-
-                      return (
-                        <div key={ev.id} className="flex items-center gap-2 py-1.5 border-b border-primary/5 last:border-0">
-                          <span className={`font-headline font-black tabular-nums text-[10px] min-w-[28px] shrink-0 ${
-                            ev.minute === currentMinute ? 'text-primary' : 'text-white/40'
-                          }`}>
-                            {ev.minute}&apos;
-                          </span>
-                          <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${isHome ? 'bg-primary' : 'bg-secondary'}`} />
-                          <span className="text-[10px] shrink-0">{icon}</span>
-                          <span className="text-[11px] font-headline font-bold text-white/80 truncate flex-1">
-                            {playerName}
-                          </span>
-                          {sublabel && (
-                            <span className="text-[9px] font-label text-white/30 uppercase tracking-wide shrink-0">
-                              {sublabel}
-                            </span>
-                          )}
-                        </div>
-                      );
-                    })}
-                    {keyEvents.length === 0 && (
-                      <p className="text-[10px] text-white/30 font-headline italic">
-                        {tLiveChrome('waiting') ?? 'Waiting for events…'}
-                      </p>
-                    )}
-                  </div>
+                  <MatchKeyEvents
+                    events={keyEvents}
+                    rosterById={rosterByIdForKeys}
+                    currentMinute={currentMinute}
+                    homeTeamId={homeTeamId ?? null}
+                    awayTeamId={awayTeamId ?? null}
+                  />
                 </div>
               </div>
 
               {/* Lane Stats Summary */}
-              <div className="glass-panel rounded-2xl p-4 shrink-0">
-                <h3 className="font-headline font-bold text-[10px] uppercase tracking-widest text-primary/80 mb-3 flex items-center gap-2">
-                  <span className="material-symbols-outlined text-base">analytics</span>
-                  Lane Breakdown
-                </h3>
-            {/* 9-row grid: 3 lanes × 3 metrics (ATK / DEF / POSS) */}
-            <div className="space-y-px">
-              {/* Sub-header: metric labels */}
-              <div className="flex items-center gap-1 text-[7px] font-label text-outline uppercase mb-1">
-                <span className="w-6 text-center">Lane</span>
-                <span className="flex-1 text-center text-primary">Home</span>
-                <span className="flex-1 text-center text-secondary">Away</span>
-              </div>
-
-              {/* ATK section */}
-              {(
-                [
-                  { lane: 'L', key: 'left' as const },
-                  { lane: 'C', key: 'center' as const },
-                  { lane: 'R', key: 'right' as const },
-                ] as { lane: string; key: 'left' | 'center' | 'right' }[]
-              ).map(({ lane, key }) => {
-                const homeAtt = Math.round(stats?.homeTeamStats?.laneStrengthAverages?.[key]?.attack ?? 0);
-                const awayAtt = Math.round(stats?.awayTeamStats?.laneStrengthAverages?.[key]?.attack ?? 0);
-                const totalAtt = homeAtt + awayAtt;
-                const homePct = totalAtt > 0 ? Math.round((homeAtt / totalAtt) * 100) : 50;
-                return (
-                  <div key={`atk-${key}`} className="flex items-center gap-1 text-[9px]">
-                    <span className="w-6 text-center font-label text-white/40">{lane}</span>
-                    <div className="flex-1 flex items-center gap-1">
-                      <span className="font-headline font-bold text-primary w-5 text-right text-[9px]">{homeAtt}</span>
-                      <div className="flex-1 h-1 bg-surface-container rounded-full overflow-hidden">
-                        <div className="h-full bg-primary rounded-full" style={{ width: `${homePct}%` }} />
-                      </div>
-                    </div>
-                    <div className="flex-1 flex items-center gap-1">
-                      <div className="flex-1 h-1 bg-surface-container rounded-full overflow-hidden">
-                        <div className="ml-auto h-full bg-secondary rounded-full" style={{ width: `${100 - homePct}%` }} />
-                      </div>
-                      <span className="font-headline font-bold text-secondary w-5 text-left text-[9px]">{awayAtt}</span>
-                    </div>
-                  </div>
-                );
-              })}
-
-              {/* DEF section */}
-              {(
-                [
-                  { lane: 'L', key: 'left' as const },
-                  { lane: 'C', key: 'center' as const },
-                  { lane: 'R', key: 'right' as const },
-                ] as { lane: string; key: 'left' | 'center' | 'right' }[]
-              ).map(({ lane, key }) => {
-                const homeDef = Math.round(stats?.homeTeamStats?.laneStrengthAverages?.[key]?.defense ?? 0);
-                const awayDef = Math.round(stats?.awayTeamStats?.laneStrengthAverages?.[key]?.defense ?? 0);
-                const totalDef = homeDef + awayDef;
-                const homePct = totalDef > 0 ? Math.round((homeDef / totalDef) * 100) : 50;
-                return (
-                  <div key={`def-${key}`} className="flex items-center gap-1 text-[9px]">
-                    <span className="w-6 text-center font-label text-white/40">{lane}</span>
-                    <div className="flex-1 flex items-center gap-1">
-                      <span className="font-headline font-bold text-primary w-5 text-right text-[9px]">{homeDef}</span>
-                      <div className="flex-1 h-1 bg-surface-container rounded-full overflow-hidden">
-                        <div className="h-full bg-primary rounded-full" style={{ width: `${homePct}%` }} />
-                      </div>
-                    </div>
-                    <div className="flex-1 flex items-center gap-1">
-                      <div className="flex-1 h-1 bg-surface-container rounded-full overflow-hidden">
-                        <div className="ml-auto h-full bg-secondary rounded-full" style={{ width: `${100 - homePct}%` }} />
-                      </div>
-                      <span className="font-headline font-bold text-secondary w-5 text-left text-[9px]">{awayDef}</span>
-                    </div>
-                  </div>
-                );
-              })}
-
-              {/* POSS section */}
-              {(
-                [
-                  { lane: 'L', key: 'left' as const },
-                  { lane: 'C', key: 'center' as const },
-                  { lane: 'R', key: 'right' as const },
-                ] as { lane: string; key: 'left' | 'center' | 'right' }[]
-              ).map(({ lane, key }) => {
-                const homePoss = Math.round(stats?.homeTeamStats?.laneStrengthAverages?.[key]?.possession ?? 0);
-                const awayPoss = Math.round(stats?.awayTeamStats?.laneStrengthAverages?.[key]?.possession ?? 0);
-                const totalPoss = homePoss + awayPoss;
-                const homePct = totalPoss > 0 ? Math.round((homePoss / totalPoss) * 100) : 50;
-                return (
-                  <div key={`poss-${key}`} className="flex items-center gap-1 text-[9px]">
-                    <span className="w-6 text-center font-label text-white/40">{lane}</span>
-                    <div className="flex-1 flex items-center gap-1">
-                      <span className="font-headline font-bold text-primary w-5 text-right text-[9px]">{homePoss}</span>
-                      <div className="flex-1 h-1 bg-surface-container rounded-full overflow-hidden">
-                        <div className="h-full bg-primary rounded-full" style={{ width: `${homePct}%` }} />
-                      </div>
-                    </div>
-                    <div className="flex-1 flex items-center gap-1">
-                      <div className="flex-1 h-1 bg-surface-container rounded-full overflow-hidden">
-                        <div className="ml-auto h-full bg-secondary rounded-full" style={{ width: `${100 - homePct}%` }} />
-                      </div>
-                      <span className="font-headline font-bold text-secondary w-5 text-left text-[9px]">{awayPoss}</span>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-
-            {/* Summary */}
-            <div className="mt-2 pt-2 border-t border-primary/10 flex justify-between text-[9px] font-label text-outline uppercase">
-              <span className="text-primary">Poss: {stats?.homeTeamStats?.possession ?? 0}%</span>
-              <span className="text-secondary">Shots: {stats?.homeTeamStats?.shots ?? 0} – {stats?.awayTeamStats?.shots ?? 0}</span>
+              {stats?.homeTeamStats?.laneStrengthAverages && stats?.awayTeamStats?.laneStrengthAverages && (
+                <StatsResult
+                  homeLaneStrength={stats.homeTeamStats.laneStrengthAverages}
+                  awayLaneStrength={stats.awayTeamStats.laneStrengthAverages}
+                  homeTeamName={homeName}
+                  awayTeamName={awayName}
+                  homePossessionPct={stats.homeTeamStats.possessionPercentage}
+                  awayPossessionPct={stats.awayTeamStats.possessionPercentage}
+                  homeShots={stats.homeTeamStats.shots}
+                  awayShots={stats.awayTeamStats.shots}
+                />
+              )}
             </div>
           </div>
-        </div>
-      </div>
         </>
       )}
     </div>
