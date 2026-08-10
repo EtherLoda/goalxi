@@ -1,6 +1,9 @@
 import { Uuid } from '@/common/types/common.type';
 import { CurrentUser } from '@/decorators/current-user.decorator';
+import { Roles } from '@/decorators/roles.decorator';
 import { AuthGuard } from '@/guards/auth.guard';
+import { RolesGuard } from '@/guards/roles.guard';
+import { UserRole } from '@goalxi/database';
 import {
   Body,
   Controller,
@@ -68,6 +71,8 @@ export class NotificationController {
 
   // 全局通知接口（仅管理员/系统使用）
   @Post('global')
+  @UseGuards(RolesGuard)
+  @Roles(UserRole.ADMIN)
   async createGlobalBroadcast(
     @Body()
     body: {
