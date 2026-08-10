@@ -70,7 +70,11 @@ export class RedisAuctionClient implements OnApplicationShutdown {
           host: configService.getOrThrow('redis.host', { infer: true }),
           port: configService.getOrThrow('redis.port', { infer: true }),
           password: configService.getOrThrow('redis.password', { infer: true }),
-          tls: configService.get('redis.tlsEnabled', { infer: true }),
+          // P2-#30: align with the other redis.* fields — getOrThrow.
+          // P2-#31: also forward the DB number so dev/staging/prod
+          // can share a Redis instance without colliding on keys.
+          tls: configService.getOrThrow('redis.tlsEnabled', { infer: true }),
+          db: configService.getOrThrow('redis.db', { infer: true }),
           // 保留 lazyConnect 行为，依赖 service 第一次命令触发 connect；
           // 如果你之后在启动时需要主动校验连通性，去掉这行并在 main.ts
           // 调一次 client.ping()。

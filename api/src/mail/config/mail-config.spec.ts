@@ -18,12 +18,16 @@ describe('MailConfig', () => {
     process.env.MAIL_HOST = 'smtp.example.com';
     process.env.MAIL_PORT = '465';
     process.env.MAIL_USER = 'user@example.com';
-    process.env.MAIL_PASS = 'password';
+    // P2-#24: was `MAIL_PASS` (typo) — the config loader reads
+    // `MAIL_PASSWORD` so the old test was asserting on `undefined`
+    // against an expected value of 'password'. Renamed.
+    process.env.MAIL_PASSWORD = 'password';
     process.env.MAIL_IGNORE_TLS = 'false';
     process.env.MAIL_SECURE = 'false';
     process.env.MAIL_REQUIRE_TLS = 'false';
     process.env.MAIL_DEFAULT_EMAIL = 'default@example.com';
     process.env.MAIL_DEFAULT_NAME = 'Default Name';
+    process.env.MAIL_LOGGER_ENABLED = 'true';
 
     const config = await mailConfig();
 
@@ -36,6 +40,8 @@ describe('MailConfig', () => {
     expect(config.requireTLS).toBe(false);
     expect(config.defaultEmail).toBe('default@example.com');
     expect(config.defaultName).toBe('Default Name');
+    // P2-#25
+    expect(config.loggerEnabled).toBe(true);
   });
 
   describe('host', () => {
@@ -181,6 +187,20 @@ describe('MailConfig', () => {
     it('should throw an error if MAIL_DEFAULT_NAME is not set', async () => {
       delete process.env.MAIL_DEFAULT_NAME;
       await expect(async () => await mailConfig()).rejects.toThrow(Error);
+    });
+  });
+
+  describe('loggerEnabled (P2-#25)', () => {
+    it('defaults to false when MAIL_LOGGER_ENABLED is not set', async () => {
+      delete process.env.MAIL_LOGGER_ENABLED;
+      const config = await mailConfig();
+      expect(config.loggerEnabled).toBe(false);
+    });
+
+    it('returns true when MAIL_LOGGER_ENABLED=true', async () => {
+      process.env.MAIL_LOGGER_ENABLED = 'true';
+      const config = await mailConfig();
+      expect(config.loggerEnabled).toBe(true);
     });
   });
 });

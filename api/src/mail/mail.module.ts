@@ -4,6 +4,7 @@ import { HandlebarsAdapter } from '@nestjs-modules/mailer/dist/adapters/handleba
 import { Global, Module } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { join } from 'path';
+import MailerCustomLogger from '@/utils/mailer-custom-logger';
 import { MailService } from './mail.service';
 
 @Global()
@@ -20,6 +21,14 @@ import { MailService } from './mail.service';
         // 535 5.7.x. Skipping the key entirely is the supported
         // way to say "no auth, just opportunistic STARTTLS".
         const auth = user && pass ? { user, pass } : undefined;
+        // P2-#25: route nodemailer through MailerCustomLogger when
+        // MAIL_LOGGER_ENABLED=true so SMTP traffic shows up under
+        // the NestJS logger. Default false to keep prod logs
+        // readable; the class itself is always wired so it can be
+        // toggled without a code change.
+        const loggerEnabled = config.get('mail.loggerEnabled', {
+          infer: true,
+        });
 
         return {
           transport: {
@@ -28,11 +37,7 @@ import { MailService } from './mail.service';
             ignoreTLS: config.get('mail.ignoreTLS', { infer: true }),
             requireTLS: config.get('mail.requireTLS', { infer: true }),
             secure: config.get('mail.secure', { infer: true }),
-            // false = silent nodemailer. Flip to
-            // MailerCustomLogger.getInstance() (in utils/) if you
-            // want a NestJS-logger-backed trace through the SMTP
-            // conversation.
-            logger: false,
+            logger: loggerEnabled ? MailerCustomLogger.getInstance() : false,
             ...(auth ? { auth } : {}),
           },
           defaults: {

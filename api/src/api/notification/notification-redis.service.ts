@@ -1,46 +1,71 @@
-import { Inject, Injectable, OnModuleDestroy } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
+import { Inject, Injectable } from '@nestjs/common';
 import { v4 as uuidv4 } from 'uuid';
+import { NotificationMessageKey } from './notification-message-key';
 
 // Notification data type - flexible object for notification payloads
 export type NotificationData = Record<string, any>;
 
+/**
+ * Catalogue of all supported notification types.
+ *
+ * Implemented = there is at least one producer that calls
+ * `notificationRedis.create()` with this value (grep for
+ * `NotificationType\.` in `api/src/api` to find them).
+ *
+ * Reserved = enum value exists for forward-compatibility, but no
+ * producer wires it up yet. The web i18n bundle may or may not
+ * have a matching `notification.*` key. A reserved type is
+ * perfectly fine to send over the wire — the renderer will fall
+ * back to the raw key if a translation is missing — but the
+ * receiving player will be confused.
+ *
+ * Reorganising this list is a non-breaking change (it only adds
+ * new string values, never renames or removes).
+ */
 export enum NotificationType {
-  // Match notifications
+  // ---- Implemented ----
+  // Transfer: emitted by `AuctionService.placeBid` when a
+  // previous bidder gets out-bid.
+  AUCTION_OUTBID = 'AUCTION_OUTBID',
+
+  // ---- Reserved (no producer yet) ----
+  // Match
   MATCH_RESULT_WIN = 'MATCH_RESULT_WIN',
   MATCH_RESULT_LOSS = 'MATCH_RESULT_LOSS',
   MATCH_RESULT_DRAW = 'MATCH_RESULT_DRAW',
 
-  // Player notifications
+  // Player
   PLAYER_SKILL_IMPROVED = 'PLAYER_SKILL_IMPROVED',
   PLAYER_SKILL_DECREASED = 'PLAYER_SKILL_DECREASED',
   PLAYER_INJURED = 'PLAYER_INJURED',
   PLAYER_RECOVERED = 'PLAYER_RECOVERED',
 
-  // Transfer notifications
+  // Transfer (additional)
   PLAYER_PURCHASED = 'PLAYER_PURCHASED',
   PLAYER_SOLD = 'PLAYER_SOLD',
-  AUCTION_OUTBID = 'AUCTION_OUTBID',
   AUCTION_WON = 'AUCTION_WON',
   AUCTION_LOST = 'AUCTION_LOST',
 
-  // League notifications
+  // League
   LEAGUE_POSITION_CHANGED = 'LEAGUE_POSITION_CHANGED',
   SEASON_STARTED = 'SEASON_STARTED',
   SEASON_ENDED = 'SEASON_ENDED',
 
-  // System notifications
+  // System
   TEAM_INVITATION = 'TEAM_INVITATION',
   SYSTEM_MESSAGE = 'SYSTEM_MESSAGE',
 
-  // Stadium notifications
+  // Stadium
   STADIUM_CONSTRUCTION_COMPLETED = 'STADIUM_CONSTRUCTION_COMPLETED',
 }
 
 export interface CreateNotificationParams {
   userId: string;
   type: NotificationType;
-  messageKey: string;
+  // P2-#22: typed message key. The literal union gives autocomplete
+  // on producer side; `(string & {})` in the union keeps admins free
+  // to pass novel keys via the global-broadcast endpoint.
+  messageKey: NotificationMessageKey;
   data: NotificationData;
   timestamp?: number;
 }
@@ -48,7 +73,7 @@ export interface CreateNotificationParams {
 export interface Notification {
   id: string;
   type: NotificationType;
-  messageKey: string;
+  messageKey: NotificationMessageKey;
   data: NotificationData;
   createdAt: number;
 }
@@ -110,11 +135,8 @@ return 1
 `;
 
 @Injectable()
-export class NotificationRedisService implements OnModuleDestroy {
-  constructor(
-    @Inject('REDIS_AUCTION_CLIENT') private readonly redis: any,
-    private readonly config: ConfigService,
-  ) {}
+export class NotificationRedisService {
+  constructor(@Inject('REDIS_AUCTION_CLIENT') private readonly redis: any) {}
 
   private getInboxKey(userId: string): string {
     return `${INBOX_KEY_PREFIX}${userId}`;
@@ -172,7 +194,7 @@ export class NotificationRedisService implements OnModuleDestroy {
    */
   async createGlobalBroadcast(
     type: NotificationType,
-    messageKey: string,
+    messageKey: NotificationMessageKey,
     data: NotificationData,
   ): Promise<string> {
     const id = uuidv4();
@@ -401,10 +423,5 @@ export class NotificationRedisService implements OnModuleDestroy {
       beforeTimestamp,
     );
     return removed;
-  }
-
-  onModuleDestroy() {
-    // Redis 连接由 RedisModule 管理（新增 OnApplicationShutdown 会 quit()），
-    // 这里不重复关闭。
   }
 }

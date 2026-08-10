@@ -4,7 +4,6 @@
  * Service-level pinning only. The controller's markAllRead-routing
  * (when ids is empty) is covered by the controller spec further down.
  */
-import { ConfigService } from '@nestjs/config';
 import { NotificationRedisService } from './notification-redis.service';
 
 type AnyMock = jest.Mock;
@@ -60,7 +59,7 @@ describe('NotificationRedisService', () => {
 
   beforeEach(() => {
     redis = buildRedisMock();
-    service = new NotificationRedisService(redis as any, {} as ConfigService);
+    service = new NotificationRedisService(redis as any);
   });
 
   describe('create (inbox put)', () => {

@@ -46,6 +46,10 @@ class EnvironmentVariablesValidator {
 
   @IsString()
   MAIL_DEFAULT_NAME: string;
+
+  @IsBoolean()
+  @IsOptional()
+  MAIL_LOGGER_ENABLED: boolean;
 }
 
 export default registerAs<MailConfig>('mail', () => {
@@ -62,5 +66,9 @@ export default registerAs<MailConfig>('mail', () => {
     requireTLS: process.env.MAIL_REQUIRE_TLS === 'true',
     defaultEmail: process.env.MAIL_DEFAULT_EMAIL,
     defaultName: process.env.MAIL_DEFAULT_NAME,
+    // P2-#25: default to false so we don't spam prod logs; flip
+    // on in dev with MAIL_LOGGER_ENABLED=true to see the raw
+    // SMTP traffic via the NestJS logger.
+    loggerEnabled: process.env.MAIL_LOGGER_ENABLED === 'true',
   };
 });
