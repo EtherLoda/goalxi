@@ -11,6 +11,7 @@ import {
   Matches,
   Max,
   Min,
+  ValidateIf,
 } from 'class-validator';
 import process from 'node:process';
 import validateConfig from '../utils/validate-config';
@@ -58,6 +59,14 @@ class EnvironmentVariablesValidator {
   // validation and pino silently falls back to `info` — which is the
   // opposite of what the operator asked for, and very confusing to
   // debug from OpenObserve queries.
+  //
+  // The `ValidateIf` guard makes the `IsIn` check skip when the env
+  // var is an empty string — a deliberately-empty value should be
+  // treated like "not set" and fall through to the `|| 'warn'`
+  // default below, not rejected as an invalid enum value. This
+  // matches the same fallback semantics the other optional fields
+  // already use.
+  @ValidateIf((o) => o.APP_LOG_LEVEL != null && o.APP_LOG_LEVEL !== '')
   @IsIn(['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent'])
   @IsOptional()
   APP_LOG_LEVEL: string;

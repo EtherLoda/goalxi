@@ -3,6 +3,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { Cron } from '@nestjs/schedule';
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, IsNull, LessThanOrEqual, Repository } from 'typeorm';
+import { MatchCacheService } from './match-cache.service';
 import { MatchLiveGateway } from './match-live.gateway';
 
 // 比赛开始前5分钟可见首发阵容
@@ -18,6 +19,7 @@ export class MatchLiveScheduler {
     @InjectRepository(MatchEntity)
     private matchRepository: Repository<MatchEntity>,
     private matchLiveGateway: MatchLiveGateway,
+    private matchCacheService: MatchCacheService,
   ) {}
 
   // Run every 5 seconds to check for events that need to be revealed
@@ -69,6 +71,15 @@ export class MatchLiveScheduler {
         { id: In(eventIds) },
         { isRevealed: true },
       );
+      // Invalidate the per-match event cache so the next `getMatchEvents`
+      // (REST or gateway `getVisibleEvents`) re-reads from the DB and
+      // picks up the newly-revealed events. Without this, the cache's
+      // 24h TTL would keep the stale `isRevealed=false` payload
+      // serving until process restart or explicit manual invalidation,
+      // and live clients would never see the new event until then.
+      for (const matchId of byMatch.keys()) {
+        await this.matchCacheService.invalidateMatchCache(matchId);
+      }
     }
   }
 

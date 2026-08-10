@@ -212,9 +212,3 @@ export function eventIcon(type: CanonicalType) {
   if (PERIOD_VARIANTS.has(t)) return PeriodMarkerIcon;
   return KickoffIcon;
 }
-
-/** True when the event deserves the centre-stage spotlight card. */
-export function isSpotlightEvent(type: string): boolean {
-  const t = type.toUpperCase();
-  return t === 'GOAL' || t === 'SUBSTITUTION' || CARD_RED_VARIANTS.has(t) || PERIOD_VARIANTS.has(t);
-}

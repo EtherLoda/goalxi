@@ -30,6 +30,7 @@ import { useTranslations } from 'next-intl';
 import type { MatchEvent } from '@/lib/api';
 import { canonicalEventType, formatEventCommentary } from '@/lib/commentary';
 import { eventIcon } from './commentary-icons';
+import { resolveSide } from './match-event-side';
 
 export interface EventBubbleProps {
   event: MatchEvent;
@@ -64,31 +65,22 @@ export const EventBubble: React.FC<EventBubbleProps> = ({
   const t = useTranslations('commentary');
   const type = canonicalEventType(event.typeName ?? event.type);
 
-  // Note: we intentionally do NOT filter `isSpotlightEvent(type)` here
-  // anymore — the user wants every non-snapshot event in the
-  // chronological feed (goals, red cards, subs, period transitions
-  // all included). The goal-spotlight card is hidden via `hidden` in
-  // LiveCommentary but the icon mapping is still useful here for
-  // visual consistency.
+  // Note: every non-snapshot event is rendered in the chronological
+  // feed (goals, red cards, subs, period transitions all included).
+  // The previous "spotlight" filtering + dedicated spotlight card was
+  // removed in D5 — the EventBubble is the single rendering path.
   const Icon = eventIcon(type);
   const text = formatEventCommentary(event, homeTeamName, awayTeamName, t) ?? '';
   if (!text) return null;
 
-  // Side derivation. The simulator's gateway payload only ships
-  // `teamId` on each event — there is no `isHome` boolean. Trust
-  // `isHome` if it's there, otherwise compare `event.teamId` against
-  // the match's home/away ids. Falling back to "false" silently
-  // misreads home events as away (which is exactly what the old
-  // `event.isHome ?? false` line did).
-  const isHome =
-    event.isHome === true ||
-    (event.isHome == null && homeTeamId != null && event.teamId === homeTeamId);
-  const isAway =
-    !isHome &&
-    (event.isHome === false ||
-      (event.isHome == null && awayTeamId != null && event.teamId === awayTeamId) ||
-      (event.isHome == null && event.teamId != null));
-  const isNeutral = !isHome && !isAway;
+  // Side derivation — shared rule with `MatchKeyEvents` via
+  // `match-event-side.ts`. See that file for the full precedence order
+  // and the rationale for the 'neutral' default (the old ternary
+  // chain silently lied about meta events like KICKOFF).
+  const side = resolveSide(event, homeTeamId, awayTeamId);
+  const isHome = side === 'home';
+  const isAway = side === 'away';
+  const isNeutral = side === 'neutral';
 
   // Tones. Home / away / neutral each get their own colour identity so
   // a single left-aligned column of events still reads as a transcript

@@ -21,9 +21,7 @@ import React, { useMemo } from 'react';
 import { useTranslations } from 'next-intl';
 import type { MatchEvent } from '@/lib/api';
 import { canonicalEventType } from '@/lib/commentary';
-import { isSpotlightEvent } from './commentary-icons';
 import { TickerStrip } from './ticker-strip';
-import { GoalSpotlight } from './goal-spotlight';
 import { EventBubble } from './event-bubble';
 
 export interface LiveCommentaryProps {
@@ -69,22 +67,13 @@ export function LiveCommentary({
 }: LiveCommentaryProps) {
   const tChrome = useTranslations('matches.live');
 
-  // 1. Find the most recent spotlight-worthy event.
-  const spotlightEvent = useMemo<MatchEvent | null>(() => {
-    for (let i = 0; i < events.length; i++) {
-      const e = events[i];
-      const type = canonicalEventType(e.typeName ?? e.type);
-      if (isSpotlightEvent(type)) return e;
-    }
-    return null;
-  }, [events]);
-
-  // 2. Build the feed: drop only SNAPSHOT events. Goals, subs and
-  //    cards used to be redirected to the spotlight card so the feed
-  //    didn't double up; per design feedback the user wants every
-  //    non-snapshot event in the chronological feed, so we keep
-  //    them all here. The spotlight is now hidden (not deleted) so
-  //    the DOM still has it for re-enable later.
+  // 1. Build the feed: drop only SNAPSHOT events. Goals, subs and
+  //    cards used to be redirected to a separate "spotlight" card so
+  //    the feed didn't double up; per design feedback the user wants
+  //    every non-snapshot event in the chronological feed, so we
+  //    keep them all here. The spotlight component was deleted with
+  //    D5 (it was being mounted into a `<div hidden>` no-op) so the
+  //    feed is the single source of truth.
   const feedEvents = useMemo(
     () =>
       events.filter((e) => {
@@ -146,25 +135,7 @@ export function LiveCommentary({
         awayTeamName={awayTeamName}
       />
 
-      {/* 2. Spotlight — hidden per design feedback (the feed now shows
-             goals / subs / cards inline so the user gets a single
-             chronological transcript). Kept in the tree (not removed)
-             so we can re-enable it by deleting the `hidden` class
-             without re-deriving the layout. */}
-      <div hidden>
-        <GoalSpotlight
-          event={spotlightEvent}
-          homeTeamName={homeTeamName}
-          awayTeamName={awayTeamName}
-          homeScore={homeScore}
-          awayScore={awayScore}
-          homeColor={homeColor}
-          awayColor={awayColor}
-          currentMinute={currentMinute}
-        />
-      </div>
-
-      {/* 3. Feed — single left-aligned chronological column. Home / away /
+      {/* 2. Feed — single left-aligned chronological column. Home / away /
              neutral events are interleaved by time; side is conveyed by
              colour (primary / secondary / muted) on the EventBubble. */}
       <div className="rounded-2xl border border-surface-container-high bg-surface-container-lowest/40 overflow-hidden">

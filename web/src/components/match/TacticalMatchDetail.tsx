@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { useTranslations } from 'next-intl';
+import { useTranslations, useLocale } from 'next-intl';
 import {
   api,
   MAX_FORECAST_DAYS,
@@ -26,6 +26,7 @@ import { MatchKeyEvents } from './MatchKeyEvents';
 import { MatchSubstitutes } from './MatchSubstitutes';
 import { StatsResult } from './StatsResult';
 import { extractSidebarData } from './match-sidebar-data';
+import { MatchScoreHero } from './bento/MatchScoreHero';
 
 interface TacticalMatchDetailProps {
   matchId: string;
@@ -55,7 +56,7 @@ interface TacticalMatchDetailProps {
   currentMinute?: number;
 }
 
-interface SnapshotData {
+interface SnapshotData_dead {
   h: {
     n?: string;
     ls: { left: any; center: any; right: any };
@@ -94,28 +95,6 @@ interface SnapshotData {
   };
 }
 
-function getLatestSnapshot(events: MatchEvent[]): MatchSnapshot | null {
-  const snapshots = events.filter(
-    (e) => (e.typeName || e.type || '').toUpperCase() === 'SNAPSHOT'
-  );
-  if (snapshots.length === 0) return null;
-
-  const latest = snapshots.reduce((prev, curr) => {
-    const prevMinute = (prev as any).minute ?? 0;
-    const currMinute = (curr as any).minute ?? 0;
-    return currMinute > prevMinute ? curr : prev;
-  });
-
-  const data = (latest as any).data as SnapshotData | undefined;
-  if (!data) return null;
-
-  return {
-    minute: latest.minute ?? 0,
-    h: { ls: data.h?.ls, lc: data.h?.lc, gk: data.h?.gk, ps: data.h?.ps ?? [] },
-    a: { ls: data.a?.ls, lc: data.a?.lc, gk: data.a?.gk, ps: data.a?.ps ?? [] },
-  };
-}
-
 /** Maps a weather type to the emoji shown in the pre-match card. */
 function weatherEmoji(w: WeatherType | string): string {
   const key = w.toLowerCase();
@@ -144,6 +123,7 @@ function getReportCurrentMinute(events: MatchEvent[]): number {
   return Math.max(90, max);
 }
 
+
 export function TacticalMatchDetail({
   matchId,
   match,
@@ -151,6 +131,7 @@ export function TacticalMatchDetail({
   stats,
   currentMinute = 90,
 }: TacticalMatchDetailProps) {
+  const locale = useLocale();
   const homeName = match.homeTeam?.name || 'Home';
   const awayName = match.awayTeam?.name || 'Away';
   const isLive = match.status === MATCH_STATUS.IN_PROGRESS;
@@ -173,9 +154,12 @@ export function TacticalMatchDetail({
   const tLiveChrome = useTranslations('matches.live');
   const tChip = useTranslations('matches.bento.pitchChip');
 
-  const snapshot = getLatestSnapshot(events);
-
   const allSnapshots = useMemo(() => extractSnapshots(events), [events]);
+  // B9: was `getLatestSnapshot(events)`, a hand-rolled sibling of
+  // `extractSnapshots` that re-walked the event list and re-shaped
+  // the data into a near-identical `MatchSnapshot`. Same source,
+  // same output — collapsed to a single line.
+  const snapshot = allSnapshots[allSnapshots.length - 1] ?? null;
   const [activeSnapshotIndex, setActiveSnapshotIndex] = useState<number>(
     () => Math.max(0, allSnapshots.length - 1),
   );
@@ -305,69 +289,25 @@ export function TacticalMatchDetail({
 
   return (
     <div className="h-full flex flex-col gap-4">
-      {/* Floating Score Header */}
-      <header className="glass-panel rounded-2xl px-6 py-3 flex items-center justify-between relative overflow-hidden shrink-0">
-        <div className="absolute inset-0 bg-linear-to-r from-primary/5 via-transparent to-secondary/5 pointer-events-none" />
-
-        <div className="flex items-center gap-4 z-10 flex-1 min-w-0">
-          <div className="text-right grow min-w-0">
-            <div className="font-headline font-bold text-sm md:text-lg tracking-tight text-white uppercase truncate">
-              {homeName}
-            </div>
-            <div className="text-[9px] font-label uppercase tracking-widest text-primary/60">
-              Home
-            </div>
-          </div>
-          <div className="relative shrink-0">
-            <div className="absolute inset-0 bg-primary/10 blur-xl rounded-full" />
-            <div className="w-10 h-10 rounded-full bg-surface-container flex items-center justify-center relative z-10 border border-primary/20">
-              <span className="text-primary font-black text-xs">{homeName.charAt(0)}</span>
-            </div>
-          </div>
-        </div>
-
-        <div className="flex flex-col items-center z-10 px-3 md:px-6 shrink-0">
-          <div className="flex items-center gap-2 md:gap-4">
-            <span className="text-4xl md:text-5xl font-headline font-black tracking-tighter text-white drop-shadow-[0_0_15px_rgba(255,255,255,0.15)] tabular-nums">
-              {match.homeScore ?? 0}
-            </span>
-            <div className="flex flex-col items-center gap-0.5">
-              {isLive && (
-                <div className="bg-primary/10 border border-primary/20 px-2 py-0.5 rounded-full">
-                  <span className="text-primary font-headline font-bold text-[10px] tracking-widest animate-pulse">
-                    {currentMinute}&apos;
-                  </span>
-                </div>
-              )}
-              {isLive && (
-                <span className="text-[9px] font-label text-outline uppercase tracking-widest">
-                  Live
-                </span>
-              )}
-            </div>
-            <span className="text-4xl md:text-5xl font-headline font-black tracking-tighter text-white drop-shadow-[0_0_15px_rgba(255,255,255,0.15)] tabular-nums">
-              {match.awayScore ?? 0}
-            </span>
-          </div>
-        </div>
-
-        <div className="flex items-center gap-4 z-10 flex-1 justify-end min-w-0">
-          <div className="relative shrink-0">
-            <div className="absolute inset-0 bg-secondary/10 blur-xl rounded-full" />
-            <div className="w-10 h-10 rounded-full bg-surface-container flex items-center justify-center relative z-10 border border-secondary/20">
-              <span className="text-secondary font-black text-xs">{awayName.charAt(0)}</span>
-            </div>
-          </div>
-          <div className="text-left grow min-w-0">
-            <div className="font-headline font-bold text-sm md:text-lg tracking-tight text-white uppercase truncate">
-              {awayName}
-            </div>
-            <div className="text-[9px] font-label uppercase tracking-widest text-secondary/60">
-              Away
-            </div>
-          </div>
-        </div>
-      </header>
+      {/* Score Hero — D4 fix: was a hand-rolled `glass-panel` header with its
+          own "Home"/"Away" labels and a separate circular avatar per side.
+          The live page already uses `MatchScoreHero` (bento), so the
+          unified /matches/[id] page had two completely different header
+          implementations that the user saw swap out as `mode` flipped
+          from 'live' to 'report'. Now both modes render the same hero
+          (`isConnected={false}` here, the live wrapper passes its own
+          socket state). */}
+      <MatchScoreHero
+        locale={locale}
+        matchId={matchId}
+        homeTeamName={homeName}
+        awayTeamName={awayName}
+        homeScore={match.homeScore ?? 0}
+        awayScore={match.awayScore ?? 0}
+        currentMinute={currentMinute}
+        isComplete={isCompleted}
+        isConnected={false}
+      />
 
       {/* Pre-match: no events, snapshots or stats yet. Show the empty pitch
           (no players — they haven't taken the field) plus a slim right column

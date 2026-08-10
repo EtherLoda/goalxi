@@ -99,6 +99,14 @@ export function MatchLiveView({
   useEffect(() => {
     if (!autoRedirectOnEnd) return;
     if (matchState?.isComplete && !matchEnded) {
+      // Sync the local `matchEnded` flag with the external `matchState`
+      // (driven by the socket's `match_end` event in useMatchPage). The
+      // flag is what makes the overlay visible and gates the redirect
+      // timer; setting it here is the natural place because the effect
+      // is the boundary where external state (matchState) becomes
+      // local UI state. Disabling the in-effect lint per the same
+      // pattern used in `useCountUp` (hooks/useCountUp.ts).
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setMatchEnded(true);
       redirectTimer.current = setTimeout(() => {
         router.push(`/${locale}/matches/${matchId}`);

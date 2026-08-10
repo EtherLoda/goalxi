@@ -12,6 +12,7 @@
 import React from 'react';
 import { clsx } from 'clsx';
 import type { MatchEvent } from '@/lib/api';
+import { resolveSide, type EventSide } from './match-event-side';
 
 interface MatchKeyEventsProps {
   events: MatchEvent[];
@@ -34,6 +35,8 @@ type EventEntry = {
   icon: string;
   label: string;
   sublabel?: string;
+  /** Always 'home' or 'away' — neutral events (KICKOFF, etc.) aren't goals/cards/subs so
+   *  they never reach this list, so the union is tighter than `EventSide`. */
   side: 'home' | 'away';
 };
 
@@ -49,19 +52,13 @@ function extractKeyEvents(
 
   for (const ev of events) {
     const type = ev.typeName?.toLowerCase() ?? '';
-    // Same derivation rule as the EventBubble on the commentary feed
-    // — trust `isHome` if present, otherwise compare `event.teamId`
-    // against the home/away ids. Without this, all team-attributed
-    // events default to away and the left/right attribution is wrong.
-    const isHome =
-      ev.isHome === true ||
-      (ev.isHome == null && homeTeamId != null && ev.teamId === homeTeamId);
-    const isAway =
-      !isHome &&
-      (ev.isHome === false ||
-        (ev.isHome == null && awayTeamId != null && ev.teamId === awayTeamId) ||
-        (ev.isHome == null && ev.teamId != null));
-    const side: 'home' | 'away' = isHome ? 'home' : isAway ? 'away' : 'home';
+    // Side derivation lives in `resolveSide` (see match-event-side.ts) so
+    // the same rule is shared with the commentary feed's `EventBubble`.
+    // Neutral events can't be GOAL / CARD / SUB so we never reach the
+    // entries.push with `side: 'neutral'` below, but we narrow the type
+    // here anyway to keep the row tinting strict.
+    const resolved: EventSide = resolveSide(ev, homeTeamId, awayTeamId);
+    const side: 'home' | 'away' = resolved === 'away' ? 'away' : 'home';
 
     if (GOAL_TYPES.includes(type)) {
       const scorer = ev.data?.playerName ?? ev.playerId?.slice(0, 6) ?? '?';
