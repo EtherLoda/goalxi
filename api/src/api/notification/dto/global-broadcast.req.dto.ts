@@ -23,7 +23,6 @@ export class GlobalBroadcastReqDto {
 
   @IsString()
   @MaxLength(128)
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   messageKey!: (typeof KNOWN_NOTIFICATION_MESSAGE_KEYS)[number] | (string & {});
 
   @IsObject()

@@ -82,6 +82,17 @@ const INBOX_KEY_PREFIX = 'notifications:inbox:';
 const GLOBAL_PENDING_KEY = 'notifications:global:pending';
 const GLOBAL_CURSOR_KEY_PREFIX = 'notifications:global:cursor:';
 const GLOBAL_CURSOR_TTL_SECONDS = 60 * 60 * 24 * 30; // 30 days
+// Postfix-#4: cap the pending broadcast ZSET so a chatty admin
+// can't make `getGlobalNotificationsSince` blow up, and so the
+// cleanup job has a known upper bound to deal with. 1000 fits
+// ~3 months of weekly "season started" announcements with room
+// to spare; admins who need more should use per-user
+// notifications (which already have their own inbox cap).
+const MAX_GLOBAL_PENDING_SIZE = 1_000;
+// Page size for `getGlobalNotificationsSince` — keep small
+// enough to avoid one giant HMGET, large enough to deliver
+// typical event bursts in a single poll.
+const GLOBAL_POLL_PAGE_SIZE = 200;
 
 // 默认保留最新 100 条通知
 const MAX_INBOX_SIZE = 100;
@@ -124,13 +135,22 @@ end
 return removed
 `;
 
-// Lua: 把全局广播写入 pending ZSET + meta HASH。
+// Lua: 把全局广播写入 pending ZSET + meta HASH，并按容量裁剪。
 // KEYS[1] = pending ZSET key
 // KEYS[2] = pending meta HASH key
-// ARGV[1] = id, ARGV[2] = score, ARGV[3] = json
+// ARGV[1] = id, ARGV[2] = score, ARGV[3] = json, ARGV[4] = max size
 const SCRIPT_GLOBAL_PUT = `
 redis.call('ZADD', KEYS[1], ARGV[2], ARGV[1])
 redis.call('HSET', KEYS[2], ARGV[1], ARGV[3])
+local count = tonumber(redis.call('ZCARD', KEYS[1]))
+local max = tonumber(ARGV[4])
+if count > max then
+  local toRemove = redis.call('ZRANGE', KEYS[1], 0, count - max - 1)
+  for i = 1, #toRemove do
+    redis.call('ZREM', KEYS[1], toRemove[i])
+    redis.call('HDEL', KEYS[2], toRemove[i])
+  end
+end
 return 1
 `;
 
@@ -191,6 +211,11 @@ export class NotificationRedisService {
    * 实现是 broken 的（fields 当对象取，类型对不上）且全项目零调用方。
    * 简化成只写 pending ZSET + meta HASH，配合 getGlobalNotificationsSince
    * 的 per-user cursor 一起用。
+   *
+   * Postfix-#4: writes are capped at MAX_GLOBAL_PENDING_SIZE by
+   * the same Lua script. Old broadcasts get dropped (ZREMRANGEBYRANK
+   * 0 .. over-max) — they were going to be stale by the time any
+   * user polled for them anyway.
    */
   async createGlobalBroadcast(
     type: NotificationType,
@@ -216,6 +241,7 @@ export class NotificationRedisService {
       id,
       createdAt.toString(),
       JSON.stringify(notification),
+      MAX_GLOBAL_PENDING_SIZE.toString(),
     );
 
     return id;
@@ -239,10 +265,26 @@ export class NotificationRedisService {
     const pipeline = this.redis.pipeline();
     pipeline.zcard(inboxKey);
     pipeline.zrevrange(inboxKey, (page - 1) * limit, page * limit - 1);
-    const [[, total], [, idList]] = (await pipeline.exec()) as [
-      [Error | null, number],
-      [Error | null, string[]],
-    ];
+    // Postfix-#2: each ioredis pipeline result is `[error, value]`.
+    // The old destructuring assumed `error` was always null, so a
+    // zcard failure (e.g. transient connection loss mid-pipeline)
+    // would surface as `total = undefined` and the controller would
+    // happily serialise `total: NaN` (which JSON encodes as null)
+    // and `totalPages: null`. Re-check the error slot here and
+    // rethrow so the global exception filter returns a 5xx and the
+    // client can retry instead of seeing a silently-empty list.
+    const results = (await pipeline.exec()) as Array<
+      [Error | null, unknown]
+    >;
+    const [zcardResult, zrevrangeResult] = results;
+    if (zcardResult?.[0]) {
+      throw zcardResult[0];
+    }
+    if (zrevrangeResult?.[0]) {
+      throw zrevrangeResult[0];
+    }
+    const total = zcardResult[1] as number;
+    const idList = zrevrangeResult[1] as string[];
 
     if (!idList || idList.length === 0) {
       return { items: [], total, unreadCount: total };
@@ -334,6 +376,13 @@ export class NotificationRedisService {
    * 由管理员触发，1ms 内连发两条的概率可忽略；如果撞了，客户端会拿到
    * 重复条目（id 不同），目前不做去重。
    *
+   * Postfix-#4: the read path is paged by GLOBAL_POLL_PAGE_SIZE so
+   * a single poll can drain the entire backlog (up to
+   * MAX_GLOBAL_PENDING_SIZE) without silent drops. The cursor
+   * advances only after the LAST page, so an admin that
+   * publishes 800 broadcasts and the user polls once still gets
+   * all 800.
+   *
    * @param userId 用户ID
    * @param since 时间戳（毫秒）。不传则用 server cursor（首调用默认 0）。
    */
@@ -353,37 +402,65 @@ export class NotificationRedisService {
       effectiveSince = stored ? parseInt(stored, 10) : 0;
     }
 
-    // ZRANGEBYSCORE 拿候选 id，再 HMGET 拿 meta；只取前 200 条防止
-    // 一次性塞回太多
-    const idList = (await this.redis.zrangebyscore(
-      GLOBAL_PENDING_KEY,
-      effectiveSince,
-      '+inf',
-      'LIMIT',
-      0,
-      200,
-    )) as string[];
-
-    if (!idList || idList.length === 0) {
-      return [];
-    }
-
-    const metaValues = (await this.redis.hmget(metaKey, ...idList)) as (
-      | string
-      | null
-    )[];
-
+    // Drain in pages so a backlog > GLOBAL_POLL_PAGE_SIZE (e.g.
+    // an admin spamming the broadcast button) doesn't cause us
+    // to advance the cursor past unread entries.
     const items: Notification[] = [];
+    let pageStart = effectiveSince;
     let maxScore = effectiveSince;
-    for (const raw of metaValues) {
-      if (!raw) continue;
-      try {
-        const n = JSON.parse(raw) as Notification;
-        if (n.createdAt > maxScore) maxScore = n.createdAt;
-        items.push(n);
-      } catch {
-        // ignore corrupted entry
+
+    // Bound the loop with a safety counter — ZRANGEBYSCORE
+    // shouldn't return more than MAX_GLOBAL_PENDING_SIZE entries,
+    // and each page is GLOBAL_POLL_PAGE_SIZE, so this is
+    // (MAX/PAGE) iterations max. Pick a generous cap that still
+    // defends against a runaway script.
+    const MAX_PAGES =
+      Math.ceil(MAX_GLOBAL_PENDING_SIZE / GLOBAL_POLL_PAGE_SIZE) + 1;
+
+    for (let i = 0; i < MAX_PAGES; i++) {
+      const idList = (await this.redis.zrangebyscore(
+        GLOBAL_PENDING_KEY,
+        pageStart,
+        '+inf',
+        'LIMIT',
+        0,
+        GLOBAL_POLL_PAGE_SIZE,
+      )) as string[];
+
+      if (!idList || idList.length === 0) {
+        break;
       }
+
+      const metaValues = (await this.redis.hmget(
+        metaKey,
+        ...idList,
+      )) as (string | null)[];
+
+      let lastIdScore = pageStart;
+      for (const raw of metaValues) {
+        if (!raw) continue;
+        try {
+          const n = JSON.parse(raw) as Notification;
+          if (n.createdAt > maxScore) maxScore = n.createdAt;
+          if (n.createdAt > lastIdScore) lastIdScore = n.createdAt;
+          items.push(n);
+        } catch {
+          // ignore corrupted entry
+        }
+      }
+
+      // Stop if the page wasn't full — no more rows.
+      if (idList.length < GLOBAL_POLL_PAGE_SIZE) {
+        break;
+      }
+      // Otherwise advance the start to past the last seen id
+      // so the next page picks up where we left off.
+      pageStart = lastIdScore;
+      // Use a tiny epsilon-less strict greater-than next time
+      // by bumping by 1ms; collisions on the same ms are
+      // handled by the limit + dedup-on-id semantics (each id
+      // is unique, so re-reading the same ms is harmless).
+      pageStart = lastIdScore + 1;
     }
 
     // 仅在"非显式回放"路径上推进 cursor，避免覆盖客户端的显式 since

@@ -164,6 +164,38 @@ describe('NotificationRedisService', () => {
       expect(result.items).toHaveLength(2);
       expect(result.items.map((i) => i.id)).toEqual(['id-a', 'id-c']);
     });
+
+    it('Postfix-#2: rethrows when zcard fails inside the pipeline', async () => {
+      // The pipeline mock needs to return an error in the first slot.
+      // We rebuild it locally so we can control the result shape.
+      const error = new Error('ECONNRESET');
+      (redis.pipeline as AnyMock).mockImplementationOnce(() => ({
+        zcard: jest.fn().mockReturnThis(),
+        zrevrange: jest.fn().mockReturnThis(),
+        exec: jest.fn().mockResolvedValueOnce([
+          [error, undefined],
+          [null, []],
+        ]),
+      }));
+      await expect(service.getInbox('user-1', 1, 20)).rejects.toThrow(
+        'ECONNRESET',
+      );
+    });
+
+    it('Postfix-#2: rethrows when zrevrange fails inside the pipeline', async () => {
+      const error = new Error('READONLY');
+      (redis.pipeline as AnyMock).mockImplementationOnce(() => ({
+        zcard: jest.fn().mockReturnThis(),
+        zrevrange: jest.fn().mockReturnThis(),
+        exec: jest.fn().mockResolvedValueOnce([
+          [null, 0],
+          [error, undefined],
+        ]),
+      }));
+      await expect(service.getInbox('user-1', 1, 20)).rejects.toThrow(
+        'READONLY',
+      );
+    });
   });
 
   describe('markAllAsRead', () => {
@@ -190,8 +222,10 @@ describe('NotificationRedisService', () => {
       const call = redis.eval.mock.calls[0];
       expect(call[0]).toContain('ZADD');
       expect(call[0]).toContain('HSET');
+      expect(call[0]).toContain('ZREM'); // Postfix-#4: trim script
       expect(call[2]).toBe('notifications:global:pending');
       expect(call[3]).toBe('notifications:global:pending:meta');
+      expect(call[call.length - 1]).toBe('1000'); // MAX_GLOBAL_PENDING_SIZE
       expect(redis.xadd).not.toHaveBeenCalled();
     });
   });
@@ -232,6 +266,49 @@ describe('NotificationRedisService', () => {
       await service.getGlobalNotificationsSince('user-1', 999);
 
       expect(redis.set).not.toHaveBeenCalled();
+    });
+
+    it('Postfix-#4: drains multiple pages when the backlog exceeds the page size', async () => {
+      // Simulate 350 broadcasts split across two pages (200 + 150).
+      // Before the fix, the cursor would have been advanced past
+      // the first 200 and the remaining 150 would be lost.
+      redis.get.mockResolvedValueOnce(null);
+      redis.zrangebyscore
+        .mockResolvedValueOnce(
+          Array.from({ length: 200 }, (_, i) => `id-${i}`),
+        )
+        .mockResolvedValueOnce(
+          Array.from({ length: 150 }, (_, i) => `id-${i + 200}`),
+        )
+        .mockResolvedValueOnce([]); // safety terminator
+      redis.hmget
+        .mockResolvedValueOnce(
+          Array.from(
+            { length: 200 },
+            (_, i) => JSON.stringify({ id: `id-${i}`, createdAt: 1000 + i }),
+          ),
+        )
+        .mockResolvedValueOnce(
+          Array.from(
+            { length: 150 },
+            (_, i) =>
+              JSON.stringify({ id: `id-${i + 200}`, createdAt: 2000 + i }),
+          ),
+        );
+
+      const items = await service.getGlobalNotificationsSince('user-1', 0);
+
+      expect(items).toHaveLength(350);
+      // cursor advances to the max score (200 + 149 = 2149)
+      expect(redis.set).toHaveBeenCalledWith(
+        'notifications:global:cursor:user-1',
+        '2149',
+        'EX',
+        expect.any(Number),
+      );
+      // exactly 2 pages fetched (second page returns 150 < 200 so
+      // the loop short-circuits without a terminator poll)
+      expect(redis.zrangebyscore).toHaveBeenCalledTimes(2);
     });
   });
 
