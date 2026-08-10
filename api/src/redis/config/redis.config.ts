@@ -30,6 +30,15 @@ class EnvironmentVariablesValidator {
   @IsBoolean()
   @IsOptional()
   REDIS_TLS_ENABLED: boolean;
+
+  @IsInt()
+  @Min(0)
+  @Max(15)
+  @IsOptional()
+  // P2-#31: logical Redis DB number. Single-instance Redis caps
+  // at 16 DBs (0-15) by default. Cluster has no DB concept — this
+  // value is ignored on cluster setups.
+  REDIS_DB: number;
 }
 
 export default registerAs<RedisConfig>('redis', () => {
@@ -41,5 +50,6 @@ export default registerAs<RedisConfig>('redis', () => {
     port: process.env.REDIS_PORT ? parseInt(process.env.REDIS_PORT, 10) : 6379,
     password: process.env.REDIS_PASSWORD,
     tlsEnabled: process.env.REDIS_TLS_ENABLED === 'true',
+    db: process.env.REDIS_DB ? parseInt(process.env.REDIS_DB, 10) : 0,
   };
 });
