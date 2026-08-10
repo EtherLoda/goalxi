@@ -27,6 +27,15 @@ export enum QueuePrefix {
    * verification entries.
    */
   ONBOARDING = 'onboarding',
+  /**
+   * P1-#16: email delivery got promoted out of `auth` because it
+   * is not an auth concern — it happens to *verify* an email, but
+   * the same queue will eventually carry password reset,
+   * match-result, season-start notifications, etc. Naming it after
+   * the domain it serves (notification) rather than the first
+   * caller (auth) keeps the keyspace honest.
+   */
+  NOTIFICATION = 'notification',
 }
 
 export enum JobName {

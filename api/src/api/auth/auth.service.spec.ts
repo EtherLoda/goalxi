@@ -1,6 +1,6 @@
+import { EmailQueueService } from '@/background/queues/email-queue/email-queue.service';
 import { SessionEntity, UserEntity } from '@goalxi/database';
 import { LOGGER_SERVICE } from '@goalxi/logger';
-import { getQueueToken } from '@nestjs/bullmq';
 import { CACHE_MANAGER } from '@nestjs/cache-manager';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
@@ -83,9 +83,13 @@ describe('AuthService', () => {
           useValue: userRepositoryValue,
         },
         {
-          provide: getQueueToken('email'),
+          // P1-#13: AuthService now enqueues via the typed
+          // EmailQueueService instead of injecting the raw queue.
+          // The spec only needs a stub — the email flow itself
+          // has its own spec.
+          provide: EmailQueueService,
           useValue: {
-            add: jest.fn(),
+            addEmailVerification: jest.fn().mockResolvedValue(undefined),
           },
         },
         {

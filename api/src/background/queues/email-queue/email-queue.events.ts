@@ -6,7 +6,20 @@ import {
 } from '@nestjs/bullmq';
 import { Logger } from '@nestjs/common';
 
-@QueueEventsListener(QueueName.EMAIL, { blockingTimeout: 300000 })
+/**
+ * Queue-level event listener for the email queue.
+ *
+ * P1-#15: the previous version of this file had three additional
+ * @OnQueueEvent handlers commented out, and a duplicate "active"
+ * handler that was already covered by EmailProcessor's
+ * @OnWorkerEvent. The dead branches made it look like the queue
+ * events were wired when they weren't. We keep only the two
+ * handlers that are actually distinct from the worker-side
+ * ones — "added" and "waiting" — which are useful for
+ * observability (you can see the queue is being fed) without
+ * doubling up on completion/failure logs.
+ */
+@QueueEventsListener(QueueName.EMAIL, { blockingTimeout: 300_000 })
 export class EmailQueueEvents extends QueueEventsHost {
   private readonly logger = new Logger(EmailQueueEvents.name);
 
@@ -21,25 +34,4 @@ export class EmailQueueEvents extends QueueEventsHost {
   onWaiting(job: { jobId: string; prev?: string }) {
     this.logger.debug(`Job ${job.jobId} is waiting`);
   }
-
-  // @OnQueueEvent('active')
-  // onActive(job: { jobId: string; prev?: string }) {
-  //   this.logger.debug(
-  //     `Job ${job.jobId} is now active; previous status was ${job.prev}`,
-  //   );
-  // }
-
-  // @OnQueueEvent('completed')
-  // onCompleted(job: { jobId: string; returnvalue: string }) {
-  //   this.logger.debug(
-  //     `Job ${job.jobId} has been completed with result: ${job.returnvalue}`,
-  //   );
-  // }
-
-  // @OnQueueEvent('failed')
-  // onFailed(job: { jobId: string; failedReason: string; prev?: string }) {
-  //   this.logger.error(
-  //     `Job ${job.jobId} has failed with reason: ${job.failedReason}; previous status was ${job.prev}`,
-  //   );
-  // }
 }

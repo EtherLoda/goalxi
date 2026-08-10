@@ -1,15 +1,8 @@
 /**
- * P0-audit regression specs for NotificationRedisService.
+ * Regression specs for NotificationRedisService.
  *
- * The service was refactored from a 3-step "ZADD + ZCARD + ZREMRANGEBYRANK"
- * non-atomic flow into Lua-backed "ZSET + HASH" atomic writes. These specs
- * pin the new contract:
- *   - `create` uses EVAL (not raw zadd / zcard / zremrangebyrank)
- *   - `markAsRead` uses EVAL (not raw zrange + JSON.parse)
- *   - `getGlobalNotificationsSince` advances the per-user cursor only when
- *     called without an explicit `since` (so explicit re-fetch is read-only)
- *   - `createGlobalBroadcast` no longer touches Redis Streams
- *   - `markAllAsRead` clears both the ZSET and the meta HASH
+ * Service-level pinning only. The controller's markAllRead-routing
+ * (when ids is empty) is covered by the controller spec further down.
  */
 import { ConfigService } from '@nestjs/config';
 import { NotificationRedisService } from './notification-redis.service';
@@ -61,16 +54,13 @@ const buildRedisMock = () => {
   };
 };
 
-describe('NotificationRedisService (P0 audit regression)', () => {
+describe('NotificationRedisService', () => {
   let service: NotificationRedisService;
   let redis: ReturnType<typeof buildRedisMock>;
 
   beforeEach(() => {
     redis = buildRedisMock();
-    service = new NotificationRedisService(
-      redis as any,
-      {} as ConfigService,
-    );
+    service = new NotificationRedisService(redis as any, {} as ConfigService);
   });
 
   describe('create (inbox put)', () => {
@@ -83,7 +73,6 @@ describe('NotificationRedisService (P0 audit regression)', () => {
       });
 
       expect(redis.eval).toHaveBeenCalledTimes(1);
-      // script reference + 2 keys + 4 args
       const call = redis.eval.mock.calls[0];
       expect(call[0]).toContain('ZADD');
       expect(call[0]).toContain('HSET');
@@ -91,11 +80,26 @@ describe('NotificationRedisService (P0 audit regression)', () => {
       expect(call[1]).toBe(2); // numKeys
       expect(call[2]).toBe('notifications:inbox:user-1');
       expect(call[3]).toBe('notifications:inbox:user-1:meta');
-      // last arg = max size
-      expect(call[call.length - 1]).toBe('100');
+      expect(call[call.length - 1]).toBe('100'); // max size
 
       expect(redis.zadd).not.toHaveBeenCalled();
       expect(redis.zremrangebyrank).not.toHaveBeenCalled();
+    });
+
+    it('does not include expiresAt in the stored payload (P1-#11)', async () => {
+      await service.create({
+        userId: 'user-1',
+        type: 'AUCTION_OUTBID' as any,
+        messageKey: 'notification.auctionOutbid',
+        data: {},
+      });
+      const call = redis.eval.mock.calls[0];
+      const jsonArg = call[call.length - 2]; // second to last = json
+      const parsed = JSON.parse(jsonArg);
+      expect(parsed.expiresAt).toBeUndefined();
+      expect(Object.keys(parsed).sort()).toEqual(
+        ['createdAt', 'data', 'id', 'messageKey', 'type'],
+      );
     });
   });
 
@@ -148,6 +152,19 @@ describe('NotificationRedisService (P0 audit regression)', () => {
       expect(result.total).toBe(5);
       expect(result.unreadCount).toBe(5);
     });
+
+    it('skips corrupted meta entries without throwing', async () => {
+      redis.hmget.mockResolvedValueOnce([
+        JSON.stringify({ id: 'id-a', createdAt: 1 }),
+        '{not-json',
+        null,
+        JSON.stringify({ id: 'id-c', createdAt: 3 }),
+      ]);
+
+      const result = await service.getInbox('user-1', 1, 10);
+      expect(result.items).toHaveLength(2);
+      expect(result.items.map((i) => i.id)).toEqual(['id-a', 'id-c']);
+    });
   });
 
   describe('markAllAsRead', () => {
@@ -176,7 +193,6 @@ describe('NotificationRedisService (P0 audit regression)', () => {
       expect(call[0]).toContain('HSET');
       expect(call[2]).toBe('notifications:global:pending');
       expect(call[3]).toBe('notifications:global:pending:meta');
-      // xadd is dead — it was the source of the broken readGlobalStream.
       expect(redis.xadd).not.toHaveBeenCalled();
     });
   });
@@ -190,9 +206,7 @@ describe('NotificationRedisService (P0 audit regression)', () => {
     });
 
     it('advances server cursor when called without an explicit since', async () => {
-      // user has no prior cursor
       redis.get.mockResolvedValueOnce(null);
-      // two pending notifications
       redis.zrangebyscore.mockResolvedValueOnce(['id-a', 'id-b']);
       redis.hmget.mockResolvedValueOnce([
         JSON.stringify({ id: 'id-a', createdAt: 1000 }),
@@ -202,7 +216,6 @@ describe('NotificationRedisService (P0 audit regression)', () => {
       const items = await service.getGlobalNotificationsSince('user-1', 0);
 
       expect(items).toHaveLength(2);
-      // cursor should be advanced to the max createdAt we returned
       expect(redis.set).toHaveBeenCalledWith(
         'notifications:global:cursor:user-1',
         '1500',
@@ -219,15 +232,12 @@ describe('NotificationRedisService (P0 audit regression)', () => {
 
       await service.getGlobalNotificationsSince('user-1', 999);
 
-      // explicit-since path = read-only on the cursor
       expect(redis.set).not.toHaveBeenCalled();
     });
   });
 
   describe('readGlobalStream (removed dead code)', () => {
     it('is no longer exposed on the service', () => {
-      // The method was a no-op consumer of a non-existent xread contract
-      // and had zero callers. Removed in P0-#2.
       expect((service as any).readGlobalStream).toBeUndefined();
     });
   });
