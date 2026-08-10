@@ -12,6 +12,15 @@ async function bootstrap() {
   const logger = app.get<PinoLoggerService>(LOGGER_SERVICE);
   app.useLogger(logger);
 
+  // The global exception filter is registered as an `APP_FILTER` provider
+  // in `AppModule` — `INestApplicationContext` (which we get from
+  // `createApplicationContext`) doesn't expose `useGlobalFilters`,
+  // so the provider-token route is the only option for a context-only
+  // app. Any unhandled error from BullMQ workers, @Cron handlers, or
+  // module init hooks lands in pino-roll with a stack — instead of
+  // silently terminating the process. See
+  // `simulator/src/common/global-exception.filter.ts`.
+
   logger.warn('Simulator service started');
 }
 bootstrap();

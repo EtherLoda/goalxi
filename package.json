@@ -3,7 +3,11 @@
     "version": "0.0.0",
     "private": true,
     "scripts": {
-        "dev": "concurrently -n api,sim,web -c blue,green,yellow \"pnpm -F goalxi-api start:dev\" \"pnpm -F simulator start:dev\" \"pnpm -F web dev\"",
+        "dev": "concurrently -n api,sim,settle,web -c blue,green,magenta,yellow --kill-others-on-fail \"pnpm -F goalxi-api start:dev\" \"pnpm -F simulator start:dev\" \"pnpm -F settlement start:dev\" \"pnpm -F web dev\"",
+        "dev:api": "pnpm -F goalxi-api start:dev",
+        "dev:sim": "pnpm -F simulator start:dev",
+        "dev:settle": "pnpm -F settlement start:dev",
+        "dev:web": "pnpm -F web dev",
         "build": "pnpm -r run build"
     },
     "devDependencies": {

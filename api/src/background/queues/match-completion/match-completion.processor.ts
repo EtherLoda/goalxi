@@ -34,13 +34,28 @@ export class MatchCompletionProcessor extends WorkerHost {
     }
   }
 
+  // `OnWorkerEvent` handlers run on the worker, not per-job, so they
+  // share `this` across concurrent job lifecycle events. We deliberately
+  // log through the injected `logger` here, NOT `this.jobLog`:
+  //   - `this.jobLog` is set/overwritten at the top of every `process()`
+  //     and would race — by the time the worker fires 'completed' for
+  //     job A, another process() may have already overwritten the field
+  //     for job B, silently misattributing job A's completion to B.
+  //   - The process() catch block already records the error with full
+  //     traceId and stack, so the worker's 'failed' hook only needs to
+  //     surface the job id (BullMQ's own bookkeeping) — it does not
+  //     have to re-attach the trace context.
+
   @OnWorkerEvent('completed')
   onCompleted(job: Job) {
-    this.jobLog?.debug(`Match completion job ${job.id} completed.`);
+    this.logger.info(`Match completion job ${job.id} completed.`);
   }
 
   @OnWorkerEvent('failed')
   onFailed(job: Job, err: Error) {
-    this.jobLog?.error(`Match completion job ${job.id} failed: ${err.message}`);
+    this.logger.error(
+      `Match completion job ${job.id} failed: ${err.message}`,
+      err.stack,
+    );
   }
 }

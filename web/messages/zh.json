@@ -412,6 +412,11 @@
       "score": {
         "title": "比赛比分"
       },
+      "report": {
+        "title": "比赛报告",
+        "round": "第 {round} 轮 · 赛季 {season}",
+        "back": "返回比赛列表"
+      },
       "snapshot": {
         "title": "区域强度",
         "possession": "控球率",

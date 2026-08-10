@@ -14,6 +14,7 @@ import {
   lanePossessionShare,
   computePushRate,
   shouldCommitScrubber,
+  resolveAutoSnapIndex,
 } from './snapshot-stats';
 import type {
   MatchSnapshot,
@@ -341,5 +342,30 @@ describe('shouldCommitScrubber', () => {
 
   it('boundary case: dragging to the very last snapshot commits', () => {
     expect(shouldCommitScrubber(17, 5)).toBe(17);
+  });
+});
+
+// ============================================================================
+// resolveAutoSnapIndex — B1 scrubber lock
+// ============================================================================
+
+describe('resolveAutoSnapIndex', () => {
+  it('returns null while the user is mid-drag (do not yank the playhead)', () => {
+    // Regression for B1: before this helper the live page forcibly re-set
+    // activeIndex on every new snapshot, so a user scrubbing back to
+    // minute 60 lost their place the moment a new snapshot arrived.
+    expect(resolveAutoSnapIndex(10, true)).toBeNull();
+    expect(resolveAutoSnapIndex(0, true)).toBeNull();
+  });
+
+  it('snaps to the latest snapshot when the user is not scrubbing', () => {
+    expect(resolveAutoSnapIndex(10, false)).toBe(9);
+    expect(resolveAutoSnapIndex(1, false)).toBe(0);
+  });
+
+  it('clamps the empty-snapshots edge case to 0 (not -1)', () => {
+    // The parent then re-clamps via `safeActiveIndex`, but returning a
+    // non-negative value here keeps the math from ever going negative.
+    expect(resolveAutoSnapIndex(0, false)).toBe(0);
   });
 });

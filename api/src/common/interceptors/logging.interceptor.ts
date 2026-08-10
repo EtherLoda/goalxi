@@ -58,7 +58,12 @@ export class LoggingInterceptor implements NestInterceptor {
           // the exception filter hasn't run yet; fall back to 500.
           const status =
             res.statusCode && res.statusCode !== 200 ? res.statusCode : 500;
-          this.logger.error(
+          // Log at `warn` (not `error`) and without the stack: the global
+          // exception filter will emit the full error+stack seconds later.
+          // Logging at `error` here would produce a duplicate error line
+          // per failed request, both with the same stack — noisy in
+          // OpenObserve and prone to skewing error-rate alerts.
+          this.logger.warn(
             `[Http] ${method} ${url} handler=${handlerName} userId=${userId ?? '-'} status=${status} durationMs=${durationMs} error=${err.message}`,
           );
         },

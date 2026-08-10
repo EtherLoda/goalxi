@@ -416,6 +416,11 @@
       "score": {
         "title": "Match Score"
       },
+      "report": {
+        "title": "Match Report",
+        "round": "Round {round} · Season {season}",
+        "back": "Back to Matches"
+      },
       "snapshot": {
         "title": "Zone Strengths",
         "possession": "Possession Share",

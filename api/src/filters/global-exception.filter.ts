@@ -57,8 +57,10 @@ export class GlobalExceptionFilter implements ExceptionFilter {
       error.statusCode !== HttpStatus.UNAUTHORIZED &&
       error.statusCode !== HttpStatus.NOT_FOUND
     ) {
+      // `exception.stack` is a string — safe to serialize. We deliberately
+      // do NOT attach the raw exception object: JSON.stringify on an Error
+      // can blow up on circular refs and leaks internals to the client.
       error.stack = exception.stack;
-      error.trace = exception;
 
       this.logger.debug(error);
     }
@@ -87,7 +89,7 @@ export class GlobalExceptionFilter implements ExceptionFilter {
       details: this.extractValidationErrorDetails(r.message),
     };
 
-    this.logger.debug(exception);
+    this.logger.warn(exception);
 
     return errorRes;
   }
@@ -115,7 +117,7 @@ export class GlobalExceptionFilter implements ExceptionFilter {
         this.i18n.t(r.errorCode as unknown as keyof I18nTranslations),
     };
 
-    this.logger.debug(exception);
+    this.logger.warn(exception);
 
     return errorRes;
   }
@@ -134,12 +136,17 @@ export class GlobalExceptionFilter implements ExceptionFilter {
       message: exception.message,
     };
 
-    // Don't log 404s and 401s as errors - they're normal API responses
-    if (
+    // 5xx → error (server fault, must be visible).
+    // 4xx (except 401/404, which are routine) → warn (client fault, useful
+    // to spot misconfigured clients but not actionable as server bugs).
+    // 401/404 → silent (normal API traffic).
+    if (statusCode >= HttpStatus.INTERNAL_SERVER_ERROR) {
+      this.logger.error(exception);
+    } else if (
       statusCode !== HttpStatus.UNAUTHORIZED &&
       statusCode !== HttpStatus.NOT_FOUND
     ) {
-      this.logger.debug(exception);
+      this.logger.warn(exception);
     }
 
     return errorRes;
@@ -192,7 +199,7 @@ export class GlobalExceptionFilter implements ExceptionFilter {
       message: this.i18n.t('common.error.entity_not_found'),
     } as unknown as ErrorDto;
 
-    this.logger.debug(error);
+    this.logger.warn(error);
 
     return errorRes;
   }

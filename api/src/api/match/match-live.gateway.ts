@@ -174,7 +174,10 @@ export class MatchLiveGateway
         `Client ${client.id} joined match ${matchId} (${events.length} events visible)`,
       );
     } catch (error) {
-      this.logger.error(`Failed to load match ${matchId}: ${error.message}`);
+      this.logger.error(
+        `Failed to load match ${matchId}: ${error.message}`,
+        error instanceof Error ? error.stack : undefined,
+      );
       client.emit('error', { message: 'Match not found' });
     }
   }

@@ -62,6 +62,22 @@ export interface MatchTimelineProps {
   activeIndex: number;
   /** Called when the user settles on a new snapshot. */
   onChange: (index: number) => void;
+  /**
+   * Fires when the user starts a drag (pointerdown on the track).
+   * Parent uses this to suspend auto-snap-to-latest while the user is
+   * actively scrubbing — without it, an incoming snapshot during a drag
+   * yanks the playhead back to the latest tick (B1).
+   *
+   * Optional: live report pages that don't auto-snap can ignore it.
+   */
+  onScrubStart?: () => void;
+  /**
+   * Fires when the drag ends (pointerup / pointercancel). Parent
+   * re-arms auto-snap. Marking a single marker click as "scrubbing"
+   * would over-lock the timeline (see B1 in the review), so this
+   * callback is intentionally restricted to true drag interactions.
+   */
+  onScrubEnd?: () => void;
 }
 
 // ============================================================================
@@ -124,6 +140,8 @@ export function MatchTimeline({
   currentMinute,
   activeIndex,
   onChange,
+  onScrubStart,
+  onScrubEnd,
 }: MatchTimelineProps) {
   const t = useTranslations('matches.timeline');
 
@@ -194,12 +212,16 @@ export function MatchTimeline({
     if (snapshots.length === 0) return;
     e.currentTarget.setPointerCapture(e.pointerId);
     setDraftMinute(pointerToMinute(e.clientX));
+    onScrubStart?.();
   };
   const handlePointerMove = (e: PointerEvent<HTMLDivElement>) => {
     if (draftMinute === null) return;
     setDraftMinute(pointerToMinute(e.clientX));
   };
-  const handlePointerUp = () => commitDraft();
+  const handlePointerUp = () => {
+    commitDraft();
+    onScrubEnd?.();
+  };
 
   // Click on a marker / tick — commit to that minute's nearest snapshot.
   // We compute the click directly off the marker's minute, bypassing the

@@ -174,3 +174,32 @@ export function shouldCommitScrubber(
   if (draftIndex === activeIndex) return null;
   return draftIndex;
 }
+
+// ============================================================================
+// resolveAutoSnapIndex
+// ============================================================================
+
+/**
+ * Decide whether the live page's auto-snap-to-latest effect should
+ * commit a new `activeIndex` after a snapshot list change. Pure so
+ * the scrubber lock (B1) has a covering spec without jsdom + RTL.
+ *
+ * Rules:
+ *   - User is mid-drag (`isUserScrubbing === true`) → do not touch
+ *     `activeIndex`; the user picked a minute and the playhead must
+ *     stay there even if new snapshots arrive during the drag.
+ *   - Otherwise → commit the latest snapshot index (`length - 1`),
+ *     clamped to 0 for the empty-snapshots edge case so the parent's
+ *     `safeActiveIndex` math always has a non-negative input.
+ *
+ * Returns `null` to signal "do not update" (the caller can `if (next
+ * !== null) setActiveSnapshotIndex(next)`). Returns the new index
+ * otherwise.
+ */
+export function resolveAutoSnapIndex(
+  totalSnapshots: number,
+  isUserScrubbing: boolean,
+): number | null {
+  if (isUserScrubbing) return null;
+  return Math.max(0, totalSnapshots - 1);
+}

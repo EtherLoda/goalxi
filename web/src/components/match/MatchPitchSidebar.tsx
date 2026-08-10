@@ -1,12 +1,9 @@
 /**
- * Extract weather from the first WEATHER_ANNOUNCEMENT event, attendance
- * from the ATTENDANCE_ANNOUNCEMENT event, and key events (goals,
- * cards, substitutions) from all matching events.
+ * MatchPitchSidebar — right-rail container for the live match page.
  *
- * Attendance is its own event type now (post-RFC split). Older matches
- * pre-dating the split had `attendance` piggybacked on
- * `weather_announcement.data`; we keep the old branch as a fallback so
- * legacy rows still render.
+ * Delegates event-derivation to `match-sidebar-data` so the rule for
+ * "what counts as a key event / where do we get weather from" lives
+ * in one place (shared with `TacticalMatchDetail`).
  */
 
 'use client';
@@ -14,54 +11,12 @@
 import React from 'react';
 import { useTranslations } from 'next-intl';
 import type { MatchEvent } from '@/lib/api';
+import { extractSidebarData, type MatchSidebarData } from './match-sidebar-data';
 import { MatchInfoPanel } from './MatchInfoPanel';
 import { MatchKeyEvents } from './MatchKeyEvents';
 
-// ── Data extraction ────────────────────────────────────────────────────────────
-
-export interface MatchSidebarData {
-  weather: string | null;
-  attendance: number | null;
-  keyEvents: MatchEvent[];
-}
-
-export function extractSidebarData(events: MatchEvent[]): MatchSidebarData {
-  let weather: string | null = null;
-  let attendance: number | null = null;
-  const keyEvents: MatchEvent[] = [];
-
-  const KEY_TYPES = new Set(['goal', 'own_goal', 'yellow_card', 'second_yellow', 'red_card', 'substitution']);
-
-  for (const ev of events) {
-    const type = ev.typeName?.toLowerCase() ?? '';
-    if (type === 'weather_announcement') {
-      if (!weather) {
-        weather = (ev.data?.weather as string) ?? (ev.data?.weatherKey as string) ?? null;
-      }
-      // Legacy fallback: pre-split rows carried attendance inside
-      // weather_announcement.data. Only honour the field when it is a
-      // non-zero number — zeros were the default when no scheduler had
-      // populated `match.attendance`, and they would otherwise mask the
-      // real value from the dedicated event below.
-      if (
-        attendance === null &&
-        typeof ev.data?.attendance === 'number' &&
-        (ev.data.attendance as number) > 0
-      ) {
-        attendance = ev.data.attendance as number;
-      }
-    } else if (type === 'attendance_announcement') {
-      if (attendance === null && typeof ev.data?.attendance === 'number') {
-        attendance = ev.data.attendance as number;
-      }
-    }
-    if (KEY_TYPES.has(type)) {
-      keyEvents.push(ev);
-    }
-  }
-
-  return { weather, attendance, keyEvents };
-}
+export type { MatchSidebarData } from './match-sidebar-data';
+export { extractSidebarData } from './match-sidebar-data';
 
 // ── Sidebar component ─────────────────────────────────────────────────────────
 

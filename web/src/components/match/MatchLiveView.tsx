@@ -24,7 +24,7 @@ import { MatchPitch } from './MatchPitch';
 import { MatchTimeline } from './MatchTimeline';
 import { MatchScoreHero } from './bento/MatchScoreHero';
 import { MatchPitchSidebar } from './MatchPitchSidebar';
-import { extractSnapshots } from './snapshot-stats';
+import { extractSnapshots, resolveAutoSnapIndex } from './snapshot-stats';
 
 const MATCH_END_REDIRECT_DELAY_MS = 2500;
 
@@ -118,12 +118,18 @@ export function MatchLiveView({
   const isConnected = connectionStatus === 'connected';
 
   // Map WS events → API format and filter to visible minute window.
+  // Before `matchState` arrives (WS not yet round-tripped) currentMinute
+  // is 0, which would silently drop every historical event. Until the
+  // server tells us the real minute, render everything we have — once
+  // matchState lands the filter snaps to the authoritative minute.
   const visibleEvents = useMemo(
-    () =>
-      wsEvents
-        .filter((e) => e.minute <= currentMinute)
-        .map(mapWsEventToApiEvent),
-    [wsEvents, currentMinute],
+    () => {
+      const cap = matchState ? currentMinute : Infinity;
+      return wsEvents
+        .filter((e) => e.minute <= cap)
+        .map(mapWsEventToApiEvent);
+    },
+    [wsEvents, currentMinute, matchState],
   );
 
   // Snapshots drive the scrubber. Default to latest snapshot.
@@ -143,10 +149,19 @@ export function MatchLiveView({
     return map;
   }, [homeRoster, awayRoster]);
 
-  // Auto-snap to the latest snapshot as new events arrive, unless the user
-  // is actively scrubbing through history.
+  // Auto-snap to the latest snapshot as new events arrive — but only when
+  // the user is NOT actively dragging the scrubber. The ref is set by
+  // MatchTimeline's `onScrubStart` / `onScrubEnd` callbacks so the
+  // timeline can yank the playhead back to "latest" while the user
+  // drags back to inspect an earlier minute. We deliberately do NOT
+  // subscribe to this ref in the effect deps — ref changes don't
+  // trigger re-runs anyway, and depending on it would re-run on every
+  // pointer move.
+  const isUserScrubbingRef = useRef(false);
+
   useEffect(() => {
-    setActiveSnapshotIndex((idx) => Math.max(0, snapshots.length - 1));
+    const next = resolveAutoSnapIndex(snapshots.length, isUserScrubbingRef.current);
+    if (next !== null) setActiveSnapshotIndex(next);
   }, [snapshots.length]);
 
   // ── Connection error state ─────────────────────────────────────────────────
@@ -217,6 +232,12 @@ export function MatchLiveView({
         currentMinute={currentMinute}
         activeIndex={activeSnapshotIndex}
         onChange={setActiveSnapshotIndex}
+        onScrubStart={() => {
+          isUserScrubbingRef.current = true;
+        }}
+        onScrubEnd={() => {
+          isUserScrubbingRef.current = false;
+        }}
       />
 
       {/* Custom grid: pitch takes 3/4, sidebar takes 1/4 */}

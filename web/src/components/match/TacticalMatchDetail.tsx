@@ -24,6 +24,7 @@ import { MatchInfoPanel } from './MatchInfoPanel';
 import { MatchKeyEvents } from './MatchKeyEvents';
 import { MatchSubstitutes } from './MatchSubstitutes';
 import { StatsResult } from './StatsResult';
+import { extractSidebarData } from './match-sidebar-data';
 
 interface TacticalMatchDetailProps {
   matchId: string;
@@ -126,41 +127,20 @@ function weatherEmoji(w: WeatherType | string): string {
   return '☀️';
 }
 
-function extractSidebarData(events: MatchEvent[]) {
-  let weather: string | null = null;
-  let attendance: number | null = null;
-  const keyEvents: MatchEvent[] = [];
-  const KEY_TYPES = new Set(['goal', 'own_goal', 'yellow_card', 'second_yellow', 'red_card', 'substitution']);
-
-  for (const ev of events) {
-    const type = ev.typeName?.toLowerCase() ?? '';
-    if (type === 'weather_announcement') {
-      if (!weather) {
-        weather = (ev.data?.weather as string) ?? (ev.data?.weatherKey as string) ?? null;
-      }
-      // Legacy fallback: pre-split rows carried attendance inside
-      // weather_announcement.data. Skip zero values — they were the
-      // default when no scheduler had populated `match.attendance`,
-      // and they would mask the real number coming from the dedicated
-      // event below.
-      if (
-        attendance === null &&
-        typeof ev.data?.attendance === 'number' &&
-        (ev.data.attendance as number) > 0
-      ) {
-        attendance = ev.data.attendance as number;
-      }
-    } else if (type === 'attendance_announcement') {
-      if (attendance === null && typeof ev.data?.attendance === 'number') {
-        attendance = ev.data.attendance as number;
-      }
-    }
-    if (KEY_TYPES.has(type)) {
-      keyEvents.push(ev);
-    }
+/**
+ * Derive the minute shown in the report-mode chrome (timeline + commentary
+ * header + score chip). Earlier this was hard-coded to 90, which broke
+ * forfeit / cancelled / extra-time matches (timeline 100% full, scrubber
+ * a no-op) and the report UI lied about how long the match actually ran.
+ * Now: 90 baseline, lifted to whatever the latest event recorded so the
+ * reader can scrub back into the closing minutes of a 120-minute cup tie.
+ */
+function getReportCurrentMinute(events: MatchEvent[]): number {
+  let max = 0;
+  for (const e of events) {
+    if (e.minute > max) max = e.minute;
   }
-
-  return { weather, attendance, keyEvents };
+  return Math.max(90, max);
 }
 
 export function TacticalMatchDetail({
@@ -179,6 +159,13 @@ export function TacticalMatchDetail({
   // to just the score header and a small pre-match card.
   const isCompleted = match.status === 'completed';
   const isPreMatch = !isLive && !isCompleted;
+  // Derive the minute the report-mode chrome should show. See
+  // `getReportCurrentMinute` for the rationale (was hard-coded 90;
+  // broke forfeit/extra-time cases).
+  const reportCurrentMinute = useMemo(
+    () => currentMinute ?? getReportCurrentMinute(events),
+    [currentMinute, events],
+  );
   const [statsMode, setStatsMode] = useState(false);
   const homeTeamId = match.homeTeam?.id;
   const awayTeamId = match.awayTeam?.id;
@@ -517,7 +504,7 @@ export function TacticalMatchDetail({
           <MatchTimeline
             events={events}
             snapshots={allSnapshots}
-            currentMinute={currentMinute}
+            currentMinute={reportCurrentMinute}
             activeIndex={activeSnapshotIndex}
             onChange={setActiveSnapshotIndex}
           />
@@ -589,7 +576,7 @@ export function TacticalMatchDetail({
                   history. */}
               <LiveCommentary
                 events={events}
-                currentMinute={90}
+                currentMinute={reportCurrentMinute}
                 homeTeamName={homeName}
                 awayTeamName={awayName}
                 homeTeamId={match.homeTeam?.id ?? null}

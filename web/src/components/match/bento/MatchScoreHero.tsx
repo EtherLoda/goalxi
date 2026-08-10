@@ -144,7 +144,7 @@ export function MatchScoreHero({
             {isConnected
               ? t('liveTag')
               : isReconnecting
-                ? 'Reconnecting...'
+                ? t('reconnecting')
                 : t('connecting')}
           </span>
         )}

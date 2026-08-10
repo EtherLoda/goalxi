@@ -55,6 +55,15 @@ export function matchEventKey(event: WsMatchEvent): string {
   return `${event.type}-${event.minute}-${event.playerId ?? ''}-${event.teamId ?? ''}`;
 }
 
+/**
+ * Coarse-grained sort key (seconds since kickoff). Used when one side
+ * has `eventScheduledTime` and the other doesn't — keeps the relative
+ * order meaningful instead of falling back to whole-minute comparison.
+ */
+function wsEventOrderKey(e: WsMatchEvent): number {
+  return e.minute * 60 + (e.second ?? 0);
+}
+
 /** Merge + dedupe + sort events. Exported for unit testing. */
 export function mergeAndSortMatchEvents(
   existing: WsMatchEvent[],
@@ -64,10 +73,19 @@ export function mergeAndSortMatchEvents(
   for (const e of existing) map.set(matchEventKey(e), e);
   for (const e of incoming) map.set(matchEventKey(e), e);
   return Array.from(map.values()).sort((a, b) => {
-    if (a.eventScheduledTime && b.eventScheduledTime) {
-      return a.eventScheduledTime - b.eventScheduledTime;
-    }
-    return a.minute - b.minute;
+    const at = a.eventScheduledTime;
+    const bt = b.eventScheduledTime;
+    // Both have scheduled time → sub-second precision wins.
+    if (at != null && bt != null) return at - bt;
+    // One has, one doesn't — use the scheduled time of the one that
+    // does as the absolute anchor and compare with the other's
+    // coarse key. Without this branch the comparator would fall back
+    // to `a.minute - b.minute` (whole-minute granularity) and the
+    // side with `eventScheduledTime` would be misordered against the
+    // side without it.
+    if (at != null) return at - wsEventOrderKey(b) * 1000;
+    if (bt != null) return wsEventOrderKey(a) * 1000 - bt;
+    return wsEventOrderKey(a) - wsEventOrderKey(b);
   });
 }
 

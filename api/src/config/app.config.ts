@@ -3,6 +3,7 @@ import { registerAs } from '@nestjs/config';
 import {
   IsBoolean,
   IsEnum,
+  IsIn,
   IsInt,
   IsOptional,
   IsString,
@@ -52,7 +53,12 @@ class EnvironmentVariablesValidator {
   @IsOptional()
   APP_FALLBACK_LANGUAGE: string;
 
-  @IsString()
+  // Pino's recognized levels (matches `LevelWithSilent` in libs/logger).
+  // Without this enum, a typo like `APP_LOG_LEVEL=warnn` slips through
+  // validation and pino silently falls back to `info` — which is the
+  // opposite of what the operator asked for, and very confusing to
+  // debug from OpenObserve queries.
+  @IsIn(['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent'])
   @IsOptional()
   APP_LOG_LEVEL: string;
 

@@ -38,7 +38,10 @@ export class MatchCacheService {
       }
       return null;
     } catch (error) {
-      this.logger.error(`Error reading match events cache: ${error.message}`);
+      this.logger.error(
+        `Error reading match events cache: ${error.message}`,
+        error instanceof Error ? error.stack : undefined,
+      );
       return null;
     }
   }
@@ -81,7 +84,10 @@ export class MatchCacheService {
       await this.cacheManager.del(key);
       this.logger.debug(`Invalidated cache for match ${matchId}`);
     } catch (error) {
-      this.logger.error(`Error invalidating match cache: ${error.message}`);
+      this.logger.error(
+        `Error invalidating match cache: ${error.message}`,
+        error instanceof Error ? error.stack : undefined,
+      );
     }
   }
 
@@ -93,6 +99,7 @@ export class MatchCacheService {
     } catch (error) {
       this.logger.error(
         `Error checking match processed status: ${error.message}`,
+        error instanceof Error ? error.stack : undefined,
       );
       return false;
     }
@@ -105,6 +112,7 @@ export class MatchCacheService {
     } catch (error) {
       this.logger.error(
         `Error setting match processed status: ${error.message}`,
+        error instanceof Error ? error.stack : undefined,
       );
     }
   }

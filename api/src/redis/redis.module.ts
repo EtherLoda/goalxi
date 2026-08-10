@@ -40,7 +40,10 @@ export class RedisAuctionClient implements OnApplicationShutdown {
     @Inject('REDIS_AUCTION_CLIENT_RAW') public readonly client: Redis,
   ) {
     this.client.on('error', (err) => {
-      this.logger.error(`Redis client error: ${err.message}`);
+      this.logger.error(
+        `Redis client error: ${err.message}`,
+        err instanceof Error ? err.stack : undefined,
+      );
     });
     this.client.on('reconnecting', (delayMs: number) => {
       this.logger.warn(`Redis reconnecting in ${delayMs}ms`);
@@ -57,6 +60,7 @@ export class RedisAuctionClient implements OnApplicationShutdown {
     } catch (err) {
       this.logger.error(
         `Redis quit failed: ${err instanceof Error ? err.message : String(err)}`,
+        err instanceof Error ? err.stack : undefined,
       );
     }
   }

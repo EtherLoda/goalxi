@@ -3,6 +3,7 @@
 import { useEffect, useState, Suspense } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
+import { useTranslations } from 'next-intl';
 import { api } from '@/lib/api';
 import { useMatchPage } from '@/hooks/useMatchPage';
 import { MatchLiveView } from '@/components/match/MatchLiveView';
@@ -13,6 +14,7 @@ function MatchPageContent() {
   const params = useParams();
   const locale = (params.locale as string) || 'en';
   const matchId = params.id as string;
+  const tBento = useTranslations('matches.bento.report');
 
   const [now, setNow] = useState(() => Date.now());
 
@@ -103,15 +105,16 @@ function MatchPageContent() {
           <Link
             href={`/${locale}/matches`}
             className="flex items-center justify-center w-10 h-10 bg-surface-container-low border border-outline-variant/30 text-on-surface-variant rounded-DEFAULT hover:bg-surface-container-high hover:text-on-surface transition-all"
+            aria-label={tBento('back')}
           >
             <span className="material-symbols-outlined text-[18px]">arrow_back</span>
           </Link>
           <div>
             <h1 className="font-headline text-2xl md:text-3xl font-black tracking-tight text-on-surface uppercase italic">
-              Match Report
+              {tBento('title')}
             </h1>
             <p className="text-sm text-on-surface-variant font-headline">
-              {match.leagueId ? `Round ${match.round || '?'} • Season ${match.season}` : ''}
+              {match.leagueId ? tBento('round', { round: match.round ?? '?', season: match.season }) : ''}
             </p>
           </div>
         </div>

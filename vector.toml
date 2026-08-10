@@ -1,57 +1,65 @@
 # GoalXI Log Collection Configuration
 # Vector collects logs from all services and forwards to OpenObserve
+#
+# Each pino output line is already a JSON object (NDJSON), so we let the
+# `file` source decode JSON directly. The `parse_logs` transform then only
+# has to (a) translate pino's integer `level` to a string, (b) convert
+# pino's millisecond `time` to an ISO `timestamp`, and (c) re-tag the row
+# with a `service` field so the OpenObserve queries in LOGGING.md
+# (`{service="api"} level="error"`) work as written.
+#
+# Historical note: an earlier version of this file assumed pino's `msg`
+# field held a JSON string and called `parse_json(.message)` on it, which
+# silently failed for every line — OpenObserve ended up with empty rows.
+# See the project log-system review for the writeup.
 
 [sources.api_logs]
 type = "file"
 include = ["/app/logs/api/*.log"]
 read_from = "beginning"
+decoding.codec = "json"
 
 [sources.settlement_logs]
 type = "file"
 include = ["/app/logs/settlement/*.log"]
 read_from = "beginning"
+decoding.codec = "json"
 
 [sources.simulator_logs]
 type = "file"
 include = ["/app/logs/simulator/*.log"]
 read_from = "beginning"
+decoding.codec = "json"
 
-[sources.web_logs]
-type = "file"
-include = ["/app/logs/web/*.log"]
-read_from = "beginning"
-
-# Transforms - Parse JSON and add service tag
+# Transforms - Normalize pino fields into OpenObserve-friendly shape
 [transforms.parse_logs]
 type = "remap"
-inputs = ["api_logs", "settlement_logs", "simulator_logs", "web_logs"]
+inputs = ["api_logs", "settlement_logs", "simulator_logs"]
 source = """
-# Safely parse JSON from message field, keep original if parsing fails
-if exists(.message) && is_string(.message) {
-    parsed = parse_json(.message) ?? {}
-    . = merge!(., parsed)
-}
+# pino level (int) -> string. Pino's documented numeric levels:
+#   10 trace, 20 debug, 30 info, 40 warn, 50 error, 60 fatal
+.level = if .level == 10 { "trace" }
+  else if .level == 20 { "debug" }
+  else if .level == 30 { "info" }
+  else if .level == 40 { "warn" }
+  else if .level == 50 { "error" }
+  else if .level == 60 { "fatal" }
+  else { "info" }
 
-# Remove the raw message field after parsing
-del(.message)
-
-# Convert Pino's millisecond timestamp to proper timestamp
+# Convert pino's millisecond timestamp to a proper timestamp
 if exists(.time) {
     .timestamp = from_unix_timestamp!(to_int!(.time), unit: "milliseconds")
     del(.time)
 }
 
-# Tag by file path (only if .file exists and is string)
-if exists(.file) && is_string(.file) {
-    if contains(string!(.file), "api") {
-        .service = "api"
-    } else if contains(string!(.file), "settlement") {
-        .service = "settlement"
-    } else if contains(string!(.file), "simulator") {
-        .service = "simulator"
-    } else if contains(string!(.file), "web") {
-        .service = "web"
-    }
+# Pino's `name` binding IS the service tag (api/simulator/settlement),
+# set by `@goalxi/logger` via `pino({ name: options.service })`. Re-tag
+# it as `service` for the LOGGING.md query syntax and drop the original.
+if exists(.name) {
+    .service = string!(.name)
+    del(.name)
+} else {
+    .service = "unknown"
 }
 """
 

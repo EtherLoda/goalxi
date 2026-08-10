@@ -1,7 +1,8 @@
 import { IEmailJob, IVerifyEmailJob } from '@/common/interfaces/job.interface';
 import { JobName, QueueName } from '@/constants/job.constant';
+import { LOGGER_SERVICE, PinoLoggerService } from '@goalxi/logger';
 import { OnWorkerEvent, Processor, WorkerHost } from '@nestjs/bullmq';
-import { Logger } from '@nestjs/common';
+import { Inject } from '@nestjs/common';
 import { Job } from 'bullmq';
 import { EmailQueueService } from './email-queue.service';
 
@@ -52,9 +53,11 @@ const FAILED_JOB_KEEP_COUNT = 1_000;
   },
 })
 export class EmailProcessor extends WorkerHost {
-  private readonly logger = new Logger(EmailProcessor.name);
-
-  constructor(private readonly emailQueueService: EmailQueueService) {
+  constructor(
+    @Inject(LOGGER_SERVICE)
+    private readonly logger: PinoLoggerService,
+    private readonly emailQueueService: EmailQueueService,
+  ) {
     super();
   }
 
@@ -76,32 +79,39 @@ export class EmailProcessor extends WorkerHost {
     }
   }
 
+  // `OnWorkerEvent` handlers run on the worker, not per-job, so they
+  // share `this` across concurrent job lifecycle events. The worker's
+  // own logger is fine here — these events are worker-level signals
+  // (BullMQ bookkeeping), not job-level diagnostics, so we don't
+  // bother with `child({ traceId })` and avoid the race that bit us
+  // in match-completion / finance-settlement.
+
   @OnWorkerEvent('active')
   async onActive(job: Job) {
-    this.logger.debug(`Job ${job.id} is now active`);
+    this.logger.info(`Email job ${job.id} is now active`);
   }
 
   @OnWorkerEvent('progress')
   async onProgress(job: Job) {
-    this.logger.debug(`Job ${job.id} is ${job.progress}% complete`);
+    this.logger.info(`Email job ${job.id} is ${job.progress}% complete`);
   }
 
   @OnWorkerEvent('completed')
   async onCompleted(job: Job) {
-    this.logger.debug(`Job ${job.id} has been completed`);
+    this.logger.info(`Email job ${job.id} has been completed`);
   }
 
   @OnWorkerEvent('failed')
-  async onFailed(job: Job) {
+  async onFailed(job: Job, err: Error) {
     this.logger.error(
-      `Job ${job.id} has failed with reason: ${job.failedReason}`,
+      `Email job ${job.id} has failed with reason: ${job.failedReason}`,
+      err.stack ?? job.stacktrace?.join('\n'),
     );
-    this.logger.error(job.stacktrace);
   }
 
   @OnWorkerEvent('stalled')
   async onStalled(job: Job) {
-    this.logger.error(`Job ${job.id} has been stalled`);
+    this.logger.error(`Email job ${job.id} has been stalled`);
   }
 
   @OnWorkerEvent('error')
@@ -111,6 +121,7 @@ export class EmailProcessor extends WorkerHost {
   async onError(error: Error) {
     this.logger.error(
       `Email worker error: ${error instanceof Error ? error.message : String(error)}`,
+      error instanceof Error ? error.stack : undefined,
     );
   }
 }

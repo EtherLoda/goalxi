@@ -12,7 +12,6 @@ services:
       - ./logs:/app/logs/api:ro
       - ../settlement/logs:/app/logs/settlement:ro
       - ../simulator/logs:/app/logs/simulator:ro
-      - ../web/logs:/app/logs/web:ro
       - ./vector.toml:/etc/vector/vector.toml:ro
     depends_on:
       openobserve:

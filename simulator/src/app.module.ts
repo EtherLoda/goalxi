@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { BullModule } from '@nestjs/bullmq';
+import { APP_FILTER } from '@nestjs/core';
 import { LoggerModule as SharedLoggerModule } from '@goalxi/logger';
 import {
   UserEntity,
@@ -33,6 +34,7 @@ import {
 } from '@goalxi/database';
 import { SimulationProcessor } from './processor/simulation.processor';
 import { NotificationModule } from './notification/notification.module';
+import { GlobalExceptionFilter } from './common/global-exception.filter';
 
 const isDevelopmentFromEnv = () =>
   (process.env.NODE_ENV || 'development') === 'development';
@@ -135,6 +137,12 @@ const entities = [
       maxFiles: 7,
     }),
   ],
-  providers: [SimulationProcessor],
+  providers: [
+    SimulationProcessor,
+    // `INestApplicationContext` doesn't expose `useGlobalFilters`, so the
+    // global filter has to be wired via the `APP_FILTER` provider token.
+    // See `simulator/src/common/global-exception.filter.ts`.
+    { provide: APP_FILTER, useClass: GlobalExceptionFilter },
+  ],
 })
 export class AppModule {}

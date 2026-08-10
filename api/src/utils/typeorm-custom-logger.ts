@@ -39,7 +39,7 @@ class TypeOrmCustomLogger implements TypeOrmLogger {
    * Logs query that is failed.
    */
   logQueryError(
-    error: string,
+    error: string | Error,
     query: string,
     parameters?: any[],
     queryRunner?: QueryRunner,
@@ -53,8 +53,13 @@ class TypeOrmCustomLogger implements TypeOrmLogger {
       (parameters && parameters.length
         ? ' -- PARAMETERS: ' + this.stringifyParams(parameters)
         : '');
-    this.logger.error(`query failed: ${sql}`);
-    this.logger.error(`error:`, error);
+    // The `error` arg is the driver error (TypeORM's QueryFailedError or
+    // a string). Pass `error.stack` as the second arg so the underlying
+    // pino logger stores it under the structured `err.stack` field,
+    // which the previous version silently dropped (it dumped the whole
+    // object into the human-readable msg instead).
+    const stack = error instanceof Error ? error.stack : undefined;
+    this.logger.error(`query failed: ${sql}`, stack);
   }
 
   /**

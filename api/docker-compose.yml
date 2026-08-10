@@ -76,8 +76,6 @@ services:
       - .env.docker
     ports:
       - "8000:8000"
-    volumes:
-      - ../web/logs:/app/logs/web
     depends_on:
       - goalxi-api
     networks:
@@ -148,7 +146,6 @@ services:
       - ./logs:/app/logs/api:ro
       - ../settlement/logs:/app/logs/settlement:ro
       - ../simulator/logs:/app/logs/simulator:ro
-      - ../web/logs:/app/logs/web:ro
       - ../vector.toml:/etc/vector/vector.toml:ro
     command: ["--config", "/etc/vector/vector.toml"] # 必须加这一行
     depends_on:
