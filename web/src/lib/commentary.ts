@@ -564,7 +564,15 @@ export function formatAttendanceAnnouncementCommentary(
   if (!attendance || attendance <= 0) {
     return '';
   }
-  return interpolate(t('attendance.line'), { count: formatNumber(attendance) });
+  // Pass the placeholder value to `t` directly rather than running
+  // it through our custom `interpolate`. next-intl 3+ validates the
+  // params at call time — if a translation key contains `{count}` and
+  // we don't pass `count`, it logs a FORMATTING_ERROR in dev (and
+  // drops the placeholder in prod), which is exactly what was
+  // happening here. The other formatters in this file already follow
+  // this `t(key, params)` pattern; this one had a custom interpolate
+  // that bypassed the check.
+  return t('attendance.line', { count: formatNumber(attendance) });
 }
 
 function formatNumber(n: number): string {
