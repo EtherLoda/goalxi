@@ -286,6 +286,14 @@ export function formatSaveCommentary(
  * if available, else `preSelectedShooter` from simulateKeyMoment). Falls
  * back to the nested `data.sequence.attackPush.attackingPlayer` for older
  * events that predate the engine fix.
+ *
+ * The tackler (defender credited with the stop) is read from
+ * `data.sequence.attackPush.defendingPlayer` and exposed to the
+ * template as `{tackler}`. Older rows that predate the change have
+ * no such field — in that case we force `tpl_0` (the template
+ * variant that doesn't reference `{tackler}`) so the rendered
+ * string doesn't have a dangling placeholder. New events with a
+ * tackler still pick between `tpl_0` and `tpl_1` via djb2.
  */
 export function formatTurnoverCommentary(
   event: MatchEvent,
@@ -302,10 +310,27 @@ export function formatTurnoverCommentary(
     data?.attackingPlayer ??
     data?.playerName;
 
-  const templateIdx = templateIndexFor(event) % 2;
+  const tackler: string | undefined =
+    data?.sequence?.attackPush?.defendingPlayer ??
+    data?.defendingPlayer ??
+    data?.tacklerName;
+
+  // When no tackler is known (legacy rows), force the template variant
+  // that doesn't reference {tackler} so we don't leak the literal
+  // placeholder into the UI. `tpl_0` is the no-tackler variant in both
+  // locales — see web/messages/{en,zh}.json commentary.turnover.
+  const hasTackler = Boolean(tackler);
+  const baseIdx = templateIndexFor(event) % 2;
+  const templateIdx = hasTackler ? baseIdx : 0;
+
   return interpolate(
-    getTemplate(t, 'commentary.turnover', templateIdx, { team: teamName, player: player ?? '' }),
-    { team: teamName, player: player ?? '' },
+    getTemplate(
+      t,
+      'commentary.turnover',
+      templateIdx,
+      { team: teamName, player: player ?? '', tackler: tackler ?? '' },
+    ),
+    { team: teamName, player: player ?? '', tackler: tackler ?? '' },
   );
 }
 

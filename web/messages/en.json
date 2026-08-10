@@ -896,7 +896,7 @@
     },
     "turnover": {
       "tpl_0": "Turnover at {team} — possession lost in the middle of the park.",
-      "tpl_1": "{team} give the ball away cheaply. {player} tried to force the pass."
+      "tpl_1": "{tackler} steps in sharply to dispossess {player} — {team} give the ball away cheaply."
     },
     "free_kick": {
       "tpl_0": "Free kick to {team} — {player} lines it up.",

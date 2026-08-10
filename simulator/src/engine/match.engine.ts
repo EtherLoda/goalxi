@@ -279,6 +279,14 @@ export class MatchEngine {
       }
     >;
     possessionStats: { home: number; away: number };
+    /**
+     * Total fouls committed per team, counted once per `resolveFoul`
+     * call regardless of card outcome (yellow / red / plain). Plain
+     * fouls no longer emit a `foul` event (see `resolveFoul`), so this
+     * counter is the only way the team-level foul count survives into
+     * the persisted `MatchTeamStatsEntity.fouls` column.
+     */
+    foulStats: { home: number; away: number };
   };
 
   // 球员比赛数据统计
@@ -453,6 +461,7 @@ export class MatchEngine {
       attackTypeStats: {},
       shotTypeStats: {},
       possessionStats: { home: 0, away: 0 },
+      foulStats: { home: 0, away: 0 },
     };
 
     // 初始化攻击类型统计（只使用字符串键）
@@ -1002,6 +1011,11 @@ export class MatchEngine {
               ).toFixed(1) + '%'
             : '0%',
       },
+      // Per-team foul count. Counts every foul call regardless of
+      // card outcome. The processor reads this to populate
+      // `MatchTeamStatsEntity.fouls` now that plain fouls no longer
+      // emit a `foul` event.
+      foulStats: { ...this.matchStats.foulStats },
       summary: {
         totalAttacks,
         totalShots,
@@ -1423,6 +1437,15 @@ export class MatchEngine {
           data: ins,
         });
         team.updateSnapshot(this.time, this.getTacticsForTeam(team).pitchWidth); // Immediate re-calculation
+        // Emit a snapshot event only for player swaps — `move` /
+        // `position_swap` are re-shuffles, not lineup changes, and
+        // don't carry the kind of "this is a moment to land on"
+        // signal the user asked for. We still keep the pre-existing
+        // updateSnapshot above for downstream consumers that read
+        // team state directly.
+        if (ins.type === 'swap') {
+          this.generateSnapshotEvent(this.time);
+        }
       }
     }
   }
@@ -1883,6 +1906,22 @@ export class MatchEngine {
     // would have no playerId).
     const attacker: TacticalPlayer | null = shooter ?? preSelectedShooter;
 
+    // Pick a defender from the defending side so turnover / blocked / save
+    // events can credit the player who stopped the attack. Simplified
+    // uniform-random over non-sent-off players on the defending team —
+    // matches the existing `tackles` counter attribution below and is
+    // good enough for narrative purposes until a real duel-based
+    // assignment is wired in. (The v1 model attributed a tackle only
+    // on `defense_stopped`; we extend the same pick to every push/shot
+    // outcome so the FE can show "X was dispossessed by Y" on turnover.)
+    const activeDefenders = this.defendingTeam.players.filter(
+      (p) => !p.isSentOff,
+    );
+    const defender: TacticalPlayer | null =
+      activeDefenders.length > 0
+        ? activeDefenders[(Math.random() * activeDefenders.length) | 0]
+        : null;
+
     this.recordAttackSequence({
       lane: this.currentLane,
       attackType: attackType,
@@ -1901,6 +1940,7 @@ export class MatchEngine {
         defensePower: defPower,
         success: pushSuccess,
         attackingPlayer: attacker,
+        defendingPlayer: defender,
         // attacker-perspective probability (0..1) — accumulated into
         // laneCounters.pushProbabilitySum for the FE's Push Success Rate
         // panel. Distinct from `success` (the sampled boolean) so the
@@ -1929,6 +1969,16 @@ export class MatchEngine {
     const player = foulingTeam.players[playerIdx];
     if (!player || player.isSentOff) return;
 
+    // Bump the per-team foul counter. Counts every foul call regardless
+    // of card outcome — the team-level stat fans compare. Plain fouls
+    // no longer emit a `foul` event (see the else branch below), so this
+    // is the only path that updates `MatchTeamStatsEntity.fouls`.
+    if (foulingTeam === this.homeTeam) {
+      this.matchStats.foulStats.home += 1;
+    } else {
+      this.matchStats.foulStats.away += 1;
+    }
+
     const p = player.player as Player;
     const roll = Math.random();
 
@@ -1950,6 +2000,10 @@ export class MatchEngine {
         this.time,
         this.getTacticsForTeam(foulingTeam).pitchWidth,
       );
+      // Emit a snapshot event so the FE timeline can land on the
+      // post-red-card lineup (10 men) instead of a stale 5-min
+      // snapshot taken before the dismissal.
+      this.generateSnapshotEvent(this.time);
     } else if (roll < 0.20) {
       // Yellow Card - check for second yellow
       const currentYellows = player.yellowCards || 0;
@@ -1968,6 +2022,8 @@ export class MatchEngine {
           this.time,
           this.getTacticsForTeam(foulingTeam).pitchWidth,
         );
+        // See direct-red-card branch above for rationale.
+        this.generateSnapshotEvent(this.time);
       } else {
         // First yellow - also determine set piece
         this.events.push({
@@ -1980,14 +2036,16 @@ export class MatchEngine {
         this.resolveSetPieceFromFoul(foulingTeam, victimTeam);
       }
     } else {
-      // Just a foul - trigger set piece
-      this.events.push({
-        minute: this.time,
-        type: 'foul',
-        teamName: foulingTeam.name,
-        playerId: p.id,
-      });
-      // Trigger set piece
+      // Plain foul — no card, no event emitted. The match-level foul
+      // count is still tracked via `matchStats.foulStats` (see
+      // `getMatchStats` and the processor's `calculateStats`), and
+      // set pieces / injury checks below still run. We deliberately
+      // don't push a 'foul' event here because:
+      //   1. at ~12/min * 90min * 81.8% ≈ 8.8 events/team, they
+      //      dominate the commentary feed with low-information rows;
+      //   2. the foul *count* is what fans actually want to compare
+      //      (cards are already their own event), and that's preserved
+      //      on the team stats.
       this.resolveSetPieceFromFoul(foulingTeam, victimTeam);
     }
 
@@ -2160,6 +2218,11 @@ export class MatchEngine {
               injuryData: injuryEventData,
             },
           });
+          // Emit a snapshot event so the FE timeline can land on the
+          // post-sub lineup (injured player out, sub in). Same
+          // rationale as the explicit `substitution` branch in
+          // `applyInstructionsForTeam`.
+          this.generateSnapshotEvent(this.time);
 
           // Update match stats for player coming in
           const inStats = this.playerMatchStats.get(playerInId);
@@ -2182,7 +2245,7 @@ export class MatchEngine {
           // No substitute available — player must leave the pitch anyway.
           // Treat as a forced send-off (team plays the rest with 10 men),
           // which mirrors real football when a club has used all subs or
-          // has no fit option on the bench for that position.
+          // has no fit option on that position.
           team.sendOffPlayer(player.id);
           this.events.push({
             minute: this.time,
@@ -2195,6 +2258,8 @@ export class MatchEngine {
               injuryData: injuryEventData,
             },
           });
+          // See injury-with-sub branch below for rationale.
+          this.generateSnapshotEvent(this.time);
         }
       }
 
@@ -2219,6 +2284,12 @@ export class MatchEngine {
       defensePower: number;
       success: boolean;
       attackingPlayer: TacticalPlayer | null;
+      /** Defender credited with stopping the attack. Currently a
+       *  uniform-random pick from the defending side (see
+       *  `simulateKeyMoment`); reused for the `tackles` counter and
+       *  surfaced on the event so turnover / blocked / save entries
+       *  can name the player who made the play. */
+      defendingPlayer: TacticalPlayer | null;
       /** Attacker-perspective expected push success probability (0..1)
        *  from `duelProbability(attPower, defPower, ...)`. 0 when the
        *  sequence skipped the push phase (e.g. intercept-then-shoot). */
@@ -2329,6 +2400,12 @@ export class MatchEngine {
           attackingPlayer: attackPush.attackingPlayer
             ? (attackPush.attackingPlayer.player as Player).name
             : undefined,
+          // Name of the defender credited with stopping the play (the
+          // tackler on turnovers, the blocker on blocked shots, etc.).
+          // Used by the FE `turnover` commentary template as `{tackler}`.
+          defendingPlayer: attackPush.defendingPlayer
+            ? (attackPush.defendingPlayer.player as Player).name
+            : undefined,
           defendingTeam: defender,
           attackPower: parseFloat(attackPush.attackPower.toFixed(2)),
           defensePower: parseFloat(attackPush.defensePower.toFixed(2)),
@@ -2384,19 +2461,15 @@ export class MatchEngine {
       }
     }
 
-    // Track tackles: defense_stopped means defensive player made a tackle
-    if (finalResult === 'defense_stopped') {
-      // Attributing tackle to defender (simplified: use random defender)
-      const defendingTeam =
-        midfieldBattle.winner === 'home' ? this.awayTeam : this.homeTeam;
-      const defenderIdx = (Math.random() * defendingTeam.players.length) | 0;
-      const defender = defendingTeam.players[defenderIdx];
-      if (defender) {
-        const defenderId = (defender.player as Player).id;
-        const stats = this.playerMatchStats.get(defenderId);
-        if (stats) {
-          stats.tackles++;
-        }
+    // Track tackles: defense_stopped means defensive player made a tackle.
+    // We re-use the defender already picked in `simulateKeyMoment`
+    // (`attackPush.defendingPlayer`) so the tackle counter and the
+    // event's named tackler line up.
+    if (finalResult === 'defense_stopped' && attackPush.defendingPlayer) {
+      const defenderId = (attackPush.defendingPlayer.player as Player).id;
+      const stats = this.playerMatchStats.get(defenderId);
+      if (stats) {
+        stats.tackles++;
       }
     }
 
@@ -2414,13 +2487,26 @@ export class MatchEngine {
       playerId: eventPlayer
         ? (eventPlayer.player as Player).id
         : undefined,
+      // `relatedPlayerId` carries the assist for shot outcomes, OR the
+      // tackler for turnover. The two share one slot because the FE
+      // comment template only ever reads one of them at a time (it
+      // branches on `eventType` first).
       relatedPlayerId: shot?.assist
         ? (shot.assist.player as Player).id
-        : undefined,
+        : eventType === 'turnover' && attackPush.defendingPlayer
+          ? (attackPush.defendingPlayer.player as Player).id
+          : undefined,
       data: eventData,
     });
 
     if (eventType === 'goal') {
+      // Emit a snapshot event right after the goal so the FE timeline
+      // can land on the post-goal lineup / state instead of a stale
+      // 5-min snapshot taken before the goal was scored. Without
+      // this, clicking the goal marker snaps to the prior 5-min
+      // snapshot and the score / lineup read as if nothing
+      // happened.
+      this.generateSnapshotEvent(this.time);
       this.logger?.debug(
         `[MatchEngine] goal minute=${this.time} scorer=${
           shot?.shooter ? (shot.shooter.player as Player).name : 'unknown'
@@ -3137,6 +3223,13 @@ export class MatchEngine {
       },
     });
 
+    // Corner-driven goal also triggers a snapshot (the open-play
+    // goal emit in `recordAttackSequence` doesn't cover set-piece
+    // goals). See that block for the FE rationale.
+    if (isGoal) {
+      this.generateSnapshotEvent(this.time);
+    }
+
     // Score is updated by the main minute loop (it scans newEvents for
     // type === 'goal'). Do NOT increment homeScore/awayScore here —
     // doing both was double-counting set-piece goals (e.g. 5 goal events
@@ -3194,6 +3287,11 @@ export class MatchEngine {
         result: isGoal ? 'goal' : 'save',
       },
     });
+
+    // See the corner-driven goal branch above for the rationale.
+    if (isGoal) {
+      this.generateSnapshotEvent(this.time);
+    }
 
     // Score is updated by the main minute loop (it scans newEvents for
     // type === 'goal'). Do NOT increment homeScore/awayScore here —
@@ -3253,6 +3351,11 @@ export class MatchEngine {
         result: isGoal ? 'goal' : 'save',
       },
     });
+
+    // See the corner-driven goal branch above for the rationale.
+    if (isGoal) {
+      this.generateSnapshotEvent(this.time);
+    }
 
     // Score is updated by the main minute loop (it scans newEvents for
     // type === 'goal'). Do NOT increment homeScore/awayScore here —
@@ -3316,6 +3419,11 @@ export class MatchEngine {
         result: isGoal ? 'goal' : 'save',
       },
     });
+
+    // See the corner-driven goal branch above for the rationale.
+    if (isGoal) {
+      this.generateSnapshotEvent(this.time);
+    }
 
     // Score is updated by the main minute loop (it scans newEvents for
     // type === 'goal'). Do NOT increment homeScore/awayScore here —

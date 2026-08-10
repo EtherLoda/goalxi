@@ -892,7 +892,7 @@
     },
     "turnover": {
       "tpl_0": "{team} 在中场丢失球权，被对手反抢。",
-      "tpl_1": "{team} 传球失误，{player} 试图强行出球但被断下。"
+      "tpl_1": "{team} 传球失误，{player} 试图强行出球，被 {tackler} 干净利落地断下。"
     },
     "free_kick": {
       "tpl_0": "{team} 获得任意球，{player} 主罚。",

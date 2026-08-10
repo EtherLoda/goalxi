@@ -816,6 +816,13 @@ export class SimulationProcessor extends WorkerHost {
 
       // Save Stats with Lane Strength Averages
       const laneStrengthAverages = matchReport.laneStrengthAverages;
+      // Foul count is no longer derivable from `events` because plain
+      // fouls (the ~82% majority) stopped emitting a `foul` event —
+      // see `MatchEngine.resolveFoul`. The engine now tracks the count
+      // internally on `matchStats.foulStats` and surfaces it on the
+      // match report; read from there so the persisted
+      // `MatchTeamStatsEntity.fouls` stays accurate.
+      const foulStats = matchReport.matchStats.foulStats;
       const calculateStats = (teamName: string, teamId: string) => {
         const goals = events.filter(
           (e) => e.type === 'goal' && e.teamName === teamName,
@@ -854,9 +861,14 @@ export class SimulationProcessor extends WorkerHost {
           corners: events.filter(
             (e) => e.type === 'corner' && e.teamName === teamName,
           ).length,
-          fouls: events.filter(
-            (e) => e.type === 'foul' && e.teamName === teamName,
-          ).length,
+          // Read from the engine's running counter (see comment above
+          // `calculateStats`); events no longer carry a `foul` row.
+          fouls:
+            teamName === match.homeTeam.name
+              ? foulStats.home
+              : teamName === match.awayTeam.name
+                ? foulStats.away
+                : 0,
           yellowCards: events.filter(
             (e) => e.type === 'yellow_card' && e.teamName === teamName,
           ).length,

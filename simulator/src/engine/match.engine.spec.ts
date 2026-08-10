@@ -3,6 +3,7 @@ import { Team } from './classes/Team';
 import { TacticalPlayer } from './types/simulation.types';
 import { Player } from '../types/player.types';
 import { MatchEvent } from './match.engine';
+import { BenchConfig } from '@goalxi/database';
 
 describe('MatchEngine', () => {
   let homeTeam: Team;
@@ -238,6 +239,208 @@ describe('MatchEngine', () => {
       0,
     );
     expect(homeTotalAtt + awayTotalAtt).toBeGreaterThan(0);
+  });
+
+  describe('event-driven snapshot emission (goal / red_card / sub / injury)', () => {
+    // Spec: when any of {goal, red_card, substitution} happens, the
+    // engine emits a follow-up `snapshot` event at the same minute so
+    // the FE timeline can land on the post-event lineup / state.
+    //
+    // We test this by running the engine a small number of times and
+    // asserting that every goal / red_card / substitution row has at
+    // least one snapshot row at the same minute. We don't pin exact
+    // counts because the event distribution is stochastic; the
+    // "≥ expected" bound keeps the test resilient to RNG drift.
+    //
+    // Why a loop: a single match may legitimately produce zero
+    // goals / red_cards / subs (low-quality sim run), which would
+    // make the test trivially pass with no signal. 30 runs makes
+    // the odds of seeing each event type overwhelmingly high while
+    // keeping the suite under a second.
+
+    const RUNS = 30;
+
+    /**
+     * Build a `MatchEngine` with a planned swap at minute 60 so the
+     * substitution path always fires. The base mock team has 11
+     * players and no bench / no tactical instructions, which means
+     * `applyInstructionsForTeam` has nothing to do and the only way
+     * to produce a `substitution` event is the injury path (which
+     * is gated by chance + bench config). Without this helper the
+     * SUBSTITUTION test loops 30 times and sees zero subs, so the
+     * `expect(sawSub).toBe(true)` line trips even when the engine
+     * behaviour is correct.
+     */
+    function buildEngineWithPlannedSub(): MatchEngine {
+      // 5 substitutes covering one per bench position group. The
+      // planned swap targets the CM slot, so #15 (CM) is the one
+      // that actually gets subbed in; the others are there so the
+      // `BenchConfig` shape is complete and the engine doesn't
+      // crash on lookup for the other position groups.
+      const subSpecs: Array<{ id: number; position: string; slot: keyof BenchConfig }> = [
+        { id: 11, position: 'GK', slot: 'goalkeeper' },
+        { id: 12, position: 'CD', slot: 'centerBack' },
+        { id: 13, position: 'FB', slot: 'fullback' },
+        { id: 14, position: 'W', slot: 'winger' },
+        { id: 15, position: 'CM', slot: 'centralMidfield' },
+      ];
+      const homeSubs: TacticalPlayer[] = subSpecs.map(
+        ({ id, position }) => ({
+          player: createMockPlayer(id, `Home Sub ${id}`, 70),
+          positionKey: position,
+        }),
+      );
+      const homeWithSubs = new Team('HomeFC', [
+        ...homeTeam.players,
+        ...homeSubs,
+      ]);
+
+      const homeBenchConfig: BenchConfig = {
+        goalkeeper: 11,
+        centerBack: 12,
+        fullback: 13,
+        winger: 14,
+        centralMidfield: 15,
+        forward: null,
+      };
+
+      const substitutePlayers = new Map<number, TacticalPlayer>();
+      for (const p of homeSubs) {
+        substitutePlayers.set((p.player as Player).id, p);
+      }
+
+      // The base mock has 1 GK + 10 CM, so id=5 is a CM. Swap
+      // them out for sub #15 (also CM) at minute 60. `condition`
+      // left as `always` so the test isn't sensitive to score
+      // state — the swap should fire regardless of who is leading.
+      const homeInstructions = [
+        {
+          minute: 60,
+          type: 'swap' as const,
+          playerId: 5,
+          newPlayerId: 15,
+          newPosition: 'CM',
+          condition: 'always' as const,
+        },
+      ];
+
+      return new MatchEngine(
+        homeWithSubs,
+        awayTeam,
+        homeInstructions,
+        [],
+        substitutePlayers,
+        homeBenchConfig,
+        null,
+      );
+    }
+
+    function collectEvents(useSub: boolean): MatchEvent[] {
+      // Fresh engine per iteration to avoid the `phase` state machine
+      // throwing on a second `simulateMatch()` call.
+      const testEngine = useSub
+        ? buildEngineWithPlannedSub()
+        : new MatchEngine(homeTeam, awayTeam);
+      return testEngine.simulateMatch();
+    }
+
+    function snapshotsAt(events: MatchEvent[], minute: number): number {
+      return events.filter(
+        (e) => e.type === 'snapshot' && e.minute === minute,
+      ).length;
+    }
+
+    it('every GOAL is followed by a snapshot at the same minute', () => {
+      let sawGoal = false;
+      for (let i = 0; i < RUNS; i++) {
+        const events = collectEvents(false);
+        const goals = events.filter((e) => e.type === 'goal');
+        for (const g of goals) {
+          sawGoal = true;
+          // A goal at minute M should produce at least one snapshot
+          // at the same minute M. The 5-minute cadence also covers
+          // some of them; this is the explicit event-driven emit the
+          // user asked for (so every goal, open-play or set-piece,
+          // can be landed on via the timeline).
+          expect(snapshotsAt(events, g.minute)).toBeGreaterThanOrEqual(1);
+        }
+      }
+      // We expect a goal across 30 sims; if not, RNG is in a very
+      // odd spot and the assertion above is meaningless.
+      expect(sawGoal).toBe(true);
+    });
+
+    it('every RED_CARD is followed by a snapshot at the same minute', () => {
+      let sawRed = false;
+      for (let i = 0; i < RUNS; i++) {
+        const events = collectEvents(false);
+        const reds = events.filter((e) => e.type === 'red_card');
+        for (const r of reds) {
+          sawRed = true;
+          expect(snapshotsAt(events, r.minute)).toBeGreaterThanOrEqual(1);
+        }
+      }
+      expect(sawRed).toBe(true);
+    });
+
+    it('every SUBSTITUTION is followed by a snapshot at the same minute', () => {
+      let sawSub = false;
+      for (let i = 0; i < RUNS; i++) {
+        // Use the planned-sub engine so the swap at minute 60
+        // always fires — without it, RNG alone can't be relied on
+        // to produce a sub within 30 sims of an 11-player team with
+        // no bench config.
+        const events = collectEvents(true);
+        // `substitution` covers both player swaps (manual) and
+        // injury-forced subs; both should fire a snapshot.
+        const subs = events.filter((e) => e.type === 'substitution');
+        for (const s of subs) {
+          sawSub = true;
+          expect(snapshotsAt(events, s.minute)).toBeGreaterThanOrEqual(1);
+        }
+      }
+      expect(sawSub).toBe(true);
+    });
+
+    it('event-driven snapshot count is roughly (#goals + #red_cards + #subs) extra', () => {
+      // The total snapshot count is:
+      //   cadence snapshots (every 5 min + 45/46/90 ≈ 21) +
+      //   one extra per goal / red_card / substitution.
+      // We can't pin the exact cadence number across RNG, but we
+      // can assert the delta between (snapshots) and (events that
+      // DON'T drive a snapshot) is at least the count of those
+      // events. The lower bound catches a regression where the
+      // follow-up emit silently stops working.
+      //
+      // We use the planned-sub engine here too so the substitution
+      // driver count is deterministic (= 1 per run). Otherwise the
+      // test only sees the stochastic goal / red_card path and the
+      // "drivers vs extras" comparison becomes too noisy.
+      let extras = 0;
+      for (let i = 0; i < RUNS; i++) {
+        const events = collectEvents(true);
+        const snapshots = events.filter((e) => e.type === 'snapshot');
+        const drivers = events.filter(
+          (e) =>
+            e.type === 'goal' ||
+            e.type === 'red_card' ||
+            e.type === 'substitution',
+        ).length;
+        // Cadence at minute 0/45/46/90/5/10/.../85 = 21 snapshots
+        // for a 90-min match. Anything above that should be at
+        // least the driver count (it can be more if the cadence
+        // tick happens to land on the same minute as a driver).
+        const cadenceFloor = 21;
+        const observedExtras = snapshots.length - cadenceFloor;
+        extras += Math.max(0, drivers - observedExtras);
+      }
+      // Sum of (drivers - observedExtras) across RUNS should be
+      // small; large numbers mean the follow-up snapshot is missing
+      // for many events. We allow some slack for cadence-snapshot
+      // overlap (a driver on minute 5 doesn't add a new snapshot
+      // because one is already emitted at minute 5).
+      expect(extras).toBeLessThanOrEqual(RUNS);
+    });
   });
 
   describe('Player Match Stats', () => {
