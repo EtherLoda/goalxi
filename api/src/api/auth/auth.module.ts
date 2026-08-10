@@ -1,6 +1,4 @@
-import { QueueName, QueuePrefix } from '@/constants/job.constant';
 import { UserEntity } from '@goalxi/database';
-import { BullModule } from '@nestjs/bullmq';
 import { Module } from '@nestjs/common';
 import { JwtModule } from '@nestjs/jwt';
 import { TypeOrmModule } from '@nestjs/typeorm';
@@ -15,15 +13,12 @@ import { AuthService } from './auth.service';
     OnboardingModule,
     TypeOrmModule.forFeature([UserEntity]),
     JwtModule.register({}),
-    BullModule.registerQueue({
-      name: QueueName.EMAIL,
-      prefix: QueuePrefix.AUTH,
-      streams: {
-        events: {
-          maxLen: 1000,
-        },
-      },
-    }),
+    // EmailQueueModule is @Global() (loaded by BackgroundModule),
+    // so the typed EmailQueueService is available here without
+    // an explicit import. The old `BullModule.registerQueue` block
+    // was removed in P1-#16: it registered the same queue with
+    // a *different* prefix (auth:), which would have split our
+    // own jobs across two Redis keyspaces.
   ],
   controllers: [AuthController],
   providers: [AuthService],

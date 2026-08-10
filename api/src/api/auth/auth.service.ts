@@ -1,6 +1,6 @@
-import { IEmailJob, IVerifyEmailJob } from '@/common/interfaces/job.interface';
 import { Branded } from '@/common/types/types';
 import { AllConfigType } from '@/config/config.type';
+import { EmailQueueService } from '@/background/queues/email-queue/email-queue.service';
 import {
   SessionEntity,
   UserEntity,
@@ -8,14 +8,12 @@ import {
   UserRole,
 } from '@goalxi/database';
 import { LOGGER_SERVICE, PinoLoggerService } from '@goalxi/logger';
-import { InjectQueue } from '@nestjs/bullmq';
 import { CACHE_MANAGER } from '@nestjs/cache-manager';
 import { Inject, Injectable, UnauthorizedException } from '@nestjs/common';
 import { randomStringGenerator } from '@nestjs/common/utils/random-string-generator.util';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Queue } from 'bullmq';
 import { Cache } from 'cache-manager';
 import { plainToInstance } from 'class-transformer';
 import crypto from 'crypto';
@@ -23,7 +21,6 @@ import ms from 'ms';
 import { Repository } from 'typeorm';
 import { CacheKey } from '../../constants/cache.constant';
 import { ErrorCode } from '../../constants/error-code.constant';
-import { JobName, QueueName } from '../../constants/job.constant';
 import { ValidationException } from '../../exceptions/validation.exception';
 import { createCacheKey } from '../../utils/cache.util';
 import { verifyPassword } from '../../utils/password.util';
@@ -55,8 +52,12 @@ export class AuthService {
     private readonly jwtService: JwtService,
     @InjectRepository(UserEntity)
     private readonly userRepository: Repository<UserEntity>,
-    @InjectQueue(QueueName.EMAIL)
-    private readonly emailQueue: Queue<IEmailJob, any, string>,
+    // P1-#13: enqueue through the typed EmailQueueService instead
+    // of injecting the raw BullMQ Queue. The service owns the
+    // job-name, payload shape, and retry/backoff policy in one
+    // place, so adding a new email job type is a single-file
+    // change.
+    private readonly emailQueueService: EmailQueueService,
     @Inject(CACHE_MANAGER)
     private readonly cacheManager: Cache,
     private readonly onboardingService: OnboardingService,
@@ -147,14 +148,7 @@ export class AuthService {
       token,
       ms(tokenExpiresIn),
     );
-    await this.emailQueue.add(
-      JobName.EMAIL_VERIFICATION,
-      {
-        email: dto.email,
-        token,
-      } as IVerifyEmailJob,
-      { attempts: 3, backoff: { type: 'exponential', delay: 60000 } },
-    );
+    await this.emailQueueService.addEmailVerification(dto.email, token);
 
     // Kick off the team-claim worker. The job lands in the
     // `onboarding-assignment` queue, picked up by the

@@ -5,24 +5,42 @@ import { Logger } from '@nestjs/common';
 import { Job } from 'bullmq';
 import { EmailQueueService } from './email-queue.service';
 
+// P1-#16: pulled out of the @Processor decorator so they can be
+// reviewed/changed in one place. These are tuned for a single
+// SMTP host that doesn't appreciate parallel connections; raise
+// them if/when the queue is split into a real marketing stream.
+const WORKER_CONCURRENCY = 1;
+const STALLED_INTERVAL_MS = 5 * 60_000;
+const DRAIN_DELAY_MS = 300;
+// 1 job per 150ms = ~6.6 jobs/sec upper bound. Picked so we stay
+// well under most SMTP providers' free-tier rate limits.
+const RATE_LIMIT_MAX = 1;
+const RATE_LIMIT_DURATION_MS = 150;
+// Keep the most recent 100 completed jobs in Redis for 1 day.
+// Anything older we don't need to introspect.
+const COMPLETED_JOB_TTL_SECONDS = 86_400;
+const COMPLETED_JOB_KEEP_COUNT = 100;
+
 @Processor(QueueName.EMAIL, {
-  concurrency: 1,
-  drainDelay: 300,
-  stalledInterval: 300000,
+  concurrency: WORKER_CONCURRENCY,
+  drainDelay: DRAIN_DELAY_MS,
+  stalledInterval: STALLED_INTERVAL_MS,
   removeOnComplete: {
-    age: 86400,
-    count: 100,
+    age: COMPLETED_JOB_TTL_SECONDS,
+    count: COMPLETED_JOB_KEEP_COUNT,
   },
   limiter: {
-    max: 1,
-    duration: 150,
+    max: RATE_LIMIT_MAX,
+    duration: RATE_LIMIT_DURATION_MS,
   },
 })
 export class EmailProcessor extends WorkerHost {
   private readonly logger = new Logger(EmailProcessor.name);
+
   constructor(private readonly emailQueueService: EmailQueueService) {
     super();
   }
+
   async process(
     job: Job<IEmailJob, any, string>,
     _token?: string,
@@ -70,7 +88,12 @@ export class EmailProcessor extends WorkerHost {
   }
 
   @OnWorkerEvent('error')
-  async onError(job: Job, error: Error) {
-    this.logger.error(`Job ${job.id} has failed with error: ${error.message}`);
+  // P2-#31: was `onError(job: Job, error: Error)` — wrong signature
+  // (BullMQ passes only the error). Kept single-arg, dropped the
+  // `job` parameter the old comment claimed we needed.
+  async onError(error: Error) {
+    this.logger.error(
+      `Email worker error: ${error instanceof Error ? error.message : String(error)}`,
+    );
   }
 }

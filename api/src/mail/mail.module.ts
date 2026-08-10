@@ -10,30 +10,48 @@ import { MailService } from './mail.service';
 @Module({
   imports: [
     MailerModule.forRootAsync({
-      useFactory: async (config: ConfigService<AllConfigType>) => ({
-        transport: {
-          host: config.get('mail.host', { infer: true }),
-          port: config.get('mail.port', { infer: true }),
-          ignoreTLS: config.get('mail.ignoreTLS', { infer: true }),
-          requireTLS: config.get('mail.requireTLS', { infer: true }),
-          secure: config.get('mail.secure', { infer: true }),
-          logger: false, // false: disable logger, to enable set true or MailerCustomLogger.getInstance() (custom logger using NestJS Logger)
-          auth: {
-            user: config.get('mail.user', { infer: true }),
-            pass: config.get('mail.password', { infer: true }),
+      useFactory: (config: ConfigService<AllConfigType>) => {
+        const user = config.get('mail.user', { infer: true });
+        const pass = config.get('mail.password', { infer: true });
+        // P1-#17: only attach `auth` when both user AND password
+        // are configured. nodemailer treats a present-but-empty
+        // auth object as "use AUTH with empty creds" which most
+        // SMTP servers (Gmail/Outlook/etc.) reject with a confusing
+        // 535 5.7.x. Skipping the key entirely is the supported
+        // way to say "no auth, just opportunistic STARTTLS".
+        const auth = user && pass ? { user, pass } : undefined;
+
+        return {
+          transport: {
+            host: config.get('mail.host', { infer: true }),
+            port: config.get('mail.port', { infer: true }),
+            ignoreTLS: config.get('mail.ignoreTLS', { infer: true }),
+            requireTLS: config.get('mail.requireTLS', { infer: true }),
+            secure: config.get('mail.secure', { infer: true }),
+            // false = silent nodemailer. Flip to
+            // MailerCustomLogger.getInstance() (in utils/) if you
+            // want a NestJS-logger-backed trace through the SMTP
+            // conversation.
+            logger: false,
+            ...(auth ? { auth } : {}),
           },
-        },
-        defaults: {
-          from: `"${config.get('mail.defaultName', { infer: true })}" <${config.get('mail.defaultEmail', { infer: true })}>`,
-        },
-        template: {
-          dir: join(__dirname, 'templates'),
-          adapter: new HandlebarsAdapter(),
-          options: {
-            strict: true,
+          defaults: {
+            from: `"${config.get('mail.defaultName', { infer: true })}" <${config.get('mail.defaultEmail', { infer: true })}>`,
           },
-        },
-      }),
+          template: {
+            // nest-cli.json ships `**/*.hbs` as a build asset, so
+            // this directory is also present under `dist/mail/templates`
+            // after `pnpm build`. Do NOT use `process.cwd()` here —
+            // it breaks when the API is started from a different
+            // directory.
+            dir: join(__dirname, 'templates'),
+            adapter: new HandlebarsAdapter(),
+            options: {
+              strict: true,
+            },
+          },
+        };
+      },
       inject: [ConfigService],
     }),
   ],

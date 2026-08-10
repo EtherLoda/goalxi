@@ -42,7 +42,6 @@ export interface CreateNotificationParams {
   type: NotificationType;
   messageKey: string;
   data: NotificationData;
-  expiresAt?: Date;
   timestamp?: number;
 }
 
@@ -52,7 +51,6 @@ export interface Notification {
   messageKey: string;
   data: NotificationData;
   createdAt: number;
-  expiresAt?: number;
 }
 
 const INBOX_KEY_PREFIX = 'notifications:inbox:';
@@ -134,7 +132,7 @@ export class NotificationRedisService implements OnModuleDestroy {
    * 创建个人通知
    */
   async create(params: CreateNotificationParams): Promise<Notification> {
-    const { userId, type, messageKey, data, expiresAt, timestamp } = params;
+    const { userId, type, messageKey, data, timestamp } = params;
     const id = uuidv4();
     const createdAt = timestamp || Date.now();
 
@@ -144,7 +142,6 @@ export class NotificationRedisService implements OnModuleDestroy {
       messageKey,
       data,
       createdAt,
-      expiresAt: expiresAt?.getTime(),
     };
 
     // 走 Lua 脚本：ZSET + HASH 双写 + 容量裁剪 原子完成。
