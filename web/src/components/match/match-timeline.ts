@@ -29,12 +29,14 @@ import { canonicalEventType } from '@/lib/commentary';
 // ============================================================================
 
 /**
- * The five event types we render as colored markers on the timeline.
- * Everything else (shots, corners, fouls, injuries, half-time, etc.)
- * falls back to the neutral snapshot ticks. We deliberately keep this
- * list small so the bar doesn't devolve into a crowded hairball when a
- * match has 30+ shots. Goals / subs / cards are the only moments the
- * reader genuinely wants to land on.
+ * The six event types we render as colored markers on the timeline.
+ * Everything else (shots, corners, fouls, half-time, etc.) falls
+ * back to the neutral snapshot ticks. We deliberately keep this list
+ * small so the bar doesn't devolve into a crowded hairball when a
+ * match has 30+ shots. Goals / subs / cards / injuries are the only
+ * moments the reader genuinely wants to land on — INJURY is here
+ * so a player going down (a frequent match-defining event) is
+ * visible at a glance, not buried in the commentary feed.
  */
 export const TIMELINE_EVENT_TYPES = [
   'GOAL',
@@ -42,6 +44,7 @@ export const TIMELINE_EVENT_TYPES = [
   'YELLOW_CARD',
   'SECOND_YELLOW',
   'RED_CARD',
+  'INJURY',
 ] as const;
 
 export type TimelineEventType = (typeof TIMELINE_EVENT_TYPES)[number];
@@ -55,6 +58,14 @@ export interface TimelineMarker {
   teamId?: string;
   /** Whether the event belongs to the home side (set when known). */
   isHome?: boolean;
+  /**
+   * Denormalised player name from the event payload. Optional
+   * because legacy / pre-RFC events may not have it. The renderer
+   * uses it for the `title` attribute so hovering a marker shows
+   * who the event was about, without forcing the reader to click
+   * through to the pitch view.
+   */
+  playerName?: string;
   /** Stable id for React keys — event id when present, else a hash. */
   key: string;
 }
@@ -89,6 +100,11 @@ export function extractTimelineMarkers(events: MatchEvent[]): TimelineMarker[] {
       minute,
       teamId: e.teamId,
       isHome: e.isHome,
+      // Pull `playerName` from the event's data payload — same source
+      // `formatInjuryCommentary` and the GOAL/SUBSTITUTION formatters
+      // use, so a hover tooltip on the marker will agree with the
+      // text the commentary feed shows for the same event.
+      playerName: (e.data as { playerName?: string } | undefined)?.playerName,
       key: e.id ?? dedupeKey,
     });
   }

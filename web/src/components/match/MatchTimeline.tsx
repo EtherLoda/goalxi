@@ -128,6 +128,16 @@ const EVENT_VISUAL: Record<
     bgClass: 'bg-red-500',
     labelClass: 'text-white',
   },
+  INJURY: {
+    // Material Symbols has a `medical_services` icon, but using the
+    // same emoji-as-glyph convention as the other markers (🟨/🟥)
+    // keeps the visual weight consistent and survives icon-font
+    // load failures. The red cross-on-white reads at any size.
+    glyph: '🚑',
+    ringClass: 'ring-rose-500/50',
+    bgClass: 'bg-rose-500',
+    labelClass: 'text-white',
+  },
 };
 
 // ============================================================================
@@ -509,7 +519,21 @@ function EventMarker({
         e.stopPropagation();
         onClick();
       }}
-      aria-label={`${marker.type} at ${marker.minute}'`}
+      // Tooltip: when the event payload carries a player name
+      // (goals / subs / injuries do; legacy / pre-RFC events may
+      // not), surface it on hover so a reader can tell the three
+      // ⚽ markers apart without click-through. Falls back to the
+      // type label so the title is never blank.
+      title={
+        marker.playerName
+          ? `${marker.playerName} — ${marker.type} ${marker.minute}'`
+          : `${marker.type} at ${marker.minute}'`
+      }
+      aria-label={
+        marker.playerName
+          ? `${marker.playerName} — ${marker.type} at ${marker.minute}'`
+          : `${marker.type} at ${marker.minute}'`
+      }
       className={`absolute ${topOffset} -translate-x-1/2 w-5 h-5 rounded-full ring-2 ${visual.ringClass} ${visual.bgClass} flex items-center justify-center pointer-events-auto cursor-pointer hover:scale-125 hover:ring-4 transition-all shadow-md`}
       style={{ left: `${percent}%` }}
       data-testid={`timeline-marker-${marker.type.toLowerCase()}`}

@@ -57,24 +57,73 @@ describe('extractTimelineMarkers', () => {
     expect(extractTimelineMarkers(events)).toEqual([]);
   });
 
-  it('keeps goals / subs / yellow / red cards, ignores other types', () => {
+  it('keeps goals / subs / yellow / red cards / injuries, ignores other types', () => {
     const events: MatchEvent[] = [
       mkEvent({ type: 'GOAL', minute: 12, isHome: true, teamId: 'home' }),
       mkEvent({ type: 'SUBSTITUTION', minute: 55, isHome: false, teamId: 'away' }),
       mkEvent({ type: 'YELLOW_CARD', minute: 30, isHome: true, teamId: 'home' }),
       mkEvent({ type: 'RED_CARD', minute: 70, isHome: false, teamId: 'away' }),
       mkEvent({ type: 'CORNER', minute: 18 }),
-      mkEvent({ type: 'INJURY', minute: 40 }),
+      mkEvent({
+        type: 'INJURY',
+        typeName: 'injury',
+        minute: 40,
+        isHome: true,
+        teamId: 'home',
+        data: { playerName: 'David Klein' },
+      }),
       mkEvent({ type: 'SNAPSHOT', minute: 25 }),
     ];
     const markers = extractTimelineMarkers(events);
     expect(markers.map((m) => m.type)).toEqual([
       'GOAL',
       'YELLOW_CARD',
+      'INJURY',
       'SUBSTITUTION',
       'RED_CARD',
     ]);
-    expect(markers.map((m) => m.minute)).toEqual([12, 30, 55, 70]);
+    expect(markers.map((m) => m.minute)).toEqual([12, 30, 40, 55, 70]);
+  });
+
+  it('extracts playerName from event.data so markers can show hover tooltips', () => {
+    // Regression for the "three ⚽ markers all look the same" UX
+    // bug: without pulling playerName from data, the marker only
+    // knows the type and minute, and a reader can't tell which
+    // goal was which without clicking through.
+    const events: MatchEvent[] = [
+      mkEvent({
+        type: 'GOAL',
+        minute: 12,
+        isHome: true,
+        teamId: 'home',
+        data: { playerName: 'Alice' },
+      }),
+      mkEvent({
+        type: 'GOAL',
+        minute: 45,
+        isHome: true,
+        teamId: 'home',
+        data: { playerName: 'Bob' },
+      }),
+      mkEvent({
+        type: 'INJURY',
+        typeName: 'injury',
+        minute: 60,
+        isHome: false,
+        teamId: 'away',
+        data: { playerName: 'Charlie' },
+      }),
+    ];
+    const markers = extractTimelineMarkers(events);
+    expect(markers.map((m) => m.playerName)).toEqual(['Alice', 'Bob', 'Charlie']);
+  });
+
+  it('omits playerName when the event payload lacks it (legacy / pre-RFC rows)', () => {
+    const events: MatchEvent[] = [
+      mkEvent({ type: 'GOAL', minute: 12, isHome: true, teamId: 'home' }),
+    ];
+    const markers = extractTimelineMarkers(events);
+    expect(markers[0].playerName).toBeUndefined();
   });
 
   it('dedupes events that share (type, minute, teamId)', () => {
@@ -232,13 +281,14 @@ describe('closestSnapshotIndex', () => {
 // ============================================================================
 
 describe('TIMELINE_EVENT_TYPES', () => {
-  it('contains exactly the five event types we render as markers', () => {
+  it('contains exactly the six event types we render as markers', () => {
     expect(Array.from(TIMELINE_EVENT_TYPES)).toEqual([
       'GOAL',
       'SUBSTITUTION',
       'YELLOW_CARD',
       'SECOND_YELLOW',
       'RED_CARD',
+      'INJURY',
     ]);
   });
 });

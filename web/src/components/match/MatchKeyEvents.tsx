@@ -48,6 +48,13 @@ function extractKeyEvents(
   const GOAL_TYPES = ['goal', 'own_goal'];
   const CARD_TYPES = ['yellow_card', 'second_yellow', 'red_card'];
   const SUB_TYPES = ['substitution'];
+  // Player going down is a match-defining moment (forces a sub,
+  // shapes possession, etc.) so it deserves a row here alongside
+  // goals / cards / subs. Was previously missing from the sidebar
+  // even though `formatInjuryCommentary` already produced the text
+  // for the commentary feed — leaving the right rail out of sync
+  // with the centre column.
+  const INJURY_TYPES = ['injury'];
   const entries: EventEntry[] = [];
 
   for (const ev of events) {
@@ -90,6 +97,21 @@ function extractKeyEvents(
         icon: '⇄',
         label: playerIn,
         sublabel: `↔ ${playerOut}`,
+        side,
+      });
+    } else if (INJURY_TYPES.includes(type)) {
+      const player = ev.data?.playerName ?? ev.playerId?.slice(0, 6) ?? '?';
+      // `severity` comes through as a number from the simulator; the
+      // existing InjuryBadge component handles the "minor"/"severe"
+      // bucketing. We just surface a short label here.
+      const severity = ev.data?.severity;
+      const sublabel =
+        severity === 'minor' || severity === 'severe' ? severity : undefined;
+      entries.push({
+        minute: ev.minute,
+        icon: '🚑',
+        label: player,
+        sublabel,
         side,
       });
     }
