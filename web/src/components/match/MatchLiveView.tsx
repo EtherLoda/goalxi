@@ -248,8 +248,14 @@ export function MatchLiveView({
         }}
       />
 
-      {/* Custom grid: pitch takes 3/4, sidebar takes 1/4 */}
-      <div className="grid grid-cols-1 lg:grid-cols-[4fr_1fr] gap-4 items-start">
+      {/* Custom grid: pitch takes 1fr, sidebar fixed at 280px.
+          D4+ follow-up: the live page used `4fr_1fr` (sidebar was a
+          thin strip) while the report page used `1fr_280px`. With the
+          score hero unified, the grid proportion was the last visual
+          tell-tale of which mode the page was in — switching between
+          `mode='live'` and `mode='report'` now keeps the layout
+          identical. */}
+      <div className="grid grid-cols-1 lg:grid-cols-[1fr_280px] gap-4 items-start">
         {/* LEFT — pitch + stats toggle */}
         <div className="space-y-3">
           {/* Stats toggle */}
