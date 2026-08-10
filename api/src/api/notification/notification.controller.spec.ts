@@ -3,20 +3,15 @@
  *
  * Focuses on the routing decisions, not on Redis (covered in the
  * service spec):
- *   - `markRead` with ids �?service.markAsRead
- *   - `markRead` with empty body �?service.markAllAsRead (the P1-#7 fix)
+ *   - `markRead` with ids → service.markAsRead
+ *   - `markRead` with empty body → service.markAllAsRead (the P1-#7 fix)
  *   - `createGlobalBroadcast` is RBAC-gated via the RolesGuard
  *     composition; we don't unit-test the guard itself, just that
  *     the controller wires it up.
  */
-import { CurrentUser } from '@/decorators/current-user.decorator';
-import { Roles } from '@/decorators/roles.decorator';
 import { AuthService } from '@/api/auth/auth.service';
-import { AuthGuard } from '@/guards/auth.guard';
-import { RolesGuard } from '@/guards/roles.guard';
+import { Roles } from '@/decorators/roles.decorator';
 import { UserRole } from '@goalxi/database';
-import { ExecutionContext } from '@nestjs/common';
-import { Reflector } from '@nestjs/core';
 import { Test, TestingModule } from '@nestjs/testing';
 import { NotificationController } from './notification.controller';
 import {
@@ -40,7 +35,6 @@ describe('NotificationController', () => {
       | 'getGlobalNotificationsSince'
     >
   >;
-  let reflector: jest.Mocked<Reflector>;
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
@@ -65,18 +59,11 @@ describe('NotificationController', () => {
           provide: AuthService,
           useValue: { verifyAccessToken: jest.fn() },
         },
-        {
-          provide: Reflector,
-          useValue: {
-            getAllAndOverride: jest.fn().mockReturnValue(undefined),
-          },
-        },
       ],
     }).compile();
 
     controller = module.get(NotificationController);
     service = module.get(NotificationRedisService);
-    reflector = module.get(Reflector);
   });
 
   describe('markRead (P1-#7: empty body = mark all)', () => {

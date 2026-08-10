@@ -34,7 +34,9 @@ export class RedisAuctionClient implements OnApplicationShutdown {
   private readonly logger = new Logger(RedisAuctionClient.name);
 
   constructor(
-    configService: ConfigService,
+    // Postfix-#5: dropped the dead `ConfigService` dep — the raw
+    // client factory has already consumed the config. The wrapper
+    // just owns lifecycle + event logging.
     @Inject('REDIS_AUCTION_CLIENT_RAW') public readonly client: Redis,
   ) {
     this.client.on('error', (err) => {

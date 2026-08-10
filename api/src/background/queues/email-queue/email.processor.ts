@@ -20,6 +20,16 @@ const RATE_LIMIT_DURATION_MS = 150;
 // Anything older we don't need to introspect.
 const COMPLETED_JOB_TTL_SECONDS = 86_400;
 const COMPLETED_JOB_KEEP_COUNT = 100;
+// Postfix-#3: BullMQ's default `removeOnFail` is undefined, so
+// every failed email (e.g. hard-bounce 550 from the recipient
+// domain) stayed in Redis forever. With 3 retry attempts the
+// per-bounce footprint is small, but a single misconfigured
+// recipient list (or a temporary sender-domain block) can pile
+// up thousands of failed entries per day. Cap them at 7 days /
+// 1000 entries; older ones get dropped, the cap keeps the set
+// inspectable for ops.
+const FAILED_JOB_TTL_SECONDS = 7 * 86_400;
+const FAILED_JOB_KEEP_COUNT = 1_000;
 
 @Processor(QueueName.EMAIL, {
   concurrency: WORKER_CONCURRENCY,
@@ -28,6 +38,13 @@ const COMPLETED_JOB_KEEP_COUNT = 100;
   removeOnComplete: {
     age: COMPLETED_JOB_TTL_SECONDS,
     count: COMPLETED_JOB_KEEP_COUNT,
+  },
+  // NestJS-BullMQ renames the raw BullMQ `removeOnFailed` to
+  // `removeOnFail` in its decorator options; verified against
+  // onboarding.service.ts which uses the same spelling.
+  removeOnFail: {
+    age: FAILED_JOB_TTL_SECONDS,
+    count: FAILED_JOB_KEEP_COUNT,
   },
   limiter: {
     max: RATE_LIMIT_MAX,

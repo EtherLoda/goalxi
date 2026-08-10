@@ -2,6 +2,15 @@ import { Logger } from '@nestjs/common';
 import { LoggerLevel, Logger as NodeMailerLogger } from 'nodemailer/lib/shared';
 
 class MailerCustomLogger implements NodeMailerLogger {
+  /**
+   * Postfix-#7: despite the `getInstance` name this returns a
+   * fresh instance every call. The intent is to give mailer's
+   * useFactory a one-liner; the name is misleading. Kept for
+   * now because it's referenced by name from `mail.module.ts`
+   * and renaming is a wider change than this audit. Adding a
+   * JSDoc warning so the next reader doesn't think this is a
+   * singleton.
+   */
   static getInstance(logLevels?: LoggerLevel[]): MailerCustomLogger {
     const logger = new Logger(MailerCustomLogger.name);
     return new MailerCustomLogger(logger, logLevels);

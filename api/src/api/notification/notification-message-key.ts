@@ -23,10 +23,17 @@ export type NotificationMessageKey =
   // Personal inbox — currently emitted
   | 'notification.auctionOutbid'
 
-  // Personal inbox — reserved (see NotificationType comments)
-  | 'notification.matchResultWin'
-  | 'notification.matchResultLoss'
-  | 'notification.matchResultDraw'
+  // Personal inbox — reserved (see NotificationType comments).
+  // NB: the `matchResult_*` keys are the exact strings the web
+  // bundle ships (camelCase + underscore to disambiguate the
+  // win/loss/draw variant — the renderer keys off the suffix).
+  // Postfix-#1: an earlier version of this union had
+  // `matchResultWin` etc. (camelCase) which did not match the
+  // web bundle's `matchResult_win` and would have rendered as
+  // raw fallback keys if a producer ever wired up the type.
+  | 'notification.matchResult_win'
+  | 'notification.matchResult_loss'
+  | 'notification.matchResult_draw'
   | 'notification.playerSkillImproved'
   | 'notification.playerSkillDecreased'
   | 'notification.playerInjured'
@@ -50,9 +57,9 @@ export type NotificationMessageKey =
 
 export const KNOWN_NOTIFICATION_MESSAGE_KEYS: readonly NotificationMessageKey[] = [
   'notification.auctionOutbid',
-  'notification.matchResultWin',
-  'notification.matchResultLoss',
-  'notification.matchResultDraw',
+  'notification.matchResult_win',
+  'notification.matchResult_loss',
+  'notification.matchResult_draw',
   'notification.playerSkillImproved',
   'notification.playerSkillDecreased',
   'notification.playerInjured',
