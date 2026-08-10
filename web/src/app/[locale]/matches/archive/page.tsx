@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useParams } from "next/navigation";
 import { useTranslations } from "next-intl";
-import { api, type Match } from "@/lib/api";
+import { api, MATCH_STATUS, type Match } from "@/lib/api";
 import Link from "next/link";
 import { clsx } from "clsx";
 import { FormChipStrip, type FormResult } from "@/components/match/FormChipStrip";
@@ -51,7 +51,7 @@ export default function ArchivedMatchesPage() {
       setIsLoading(true);
       try {
         const completedData = await api.matches.getByTeam(team.id, {
-          status: "completed",
+          status: MATCH_STATUS.COMPLETED,
           season: selectedSeason,
         });
 

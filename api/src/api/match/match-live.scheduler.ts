@@ -2,7 +2,7 @@ import { MatchEntity, MatchEventEntity, MatchStatus } from '@goalxi/database';
 import { Injectable, Logger } from '@nestjs/common';
 import { Cron } from '@nestjs/schedule';
 import { InjectRepository } from '@nestjs/typeorm';
-import { In, LessThanOrEqual, Repository } from 'typeorm';
+import { In, IsNull, LessThanOrEqual, Repository } from 'typeorm';
 import { MatchLiveGateway } from './match-live.gateway';
 
 // 比赛开始前5分钟可见首发阵容
@@ -80,11 +80,17 @@ export class MatchLiveScheduler {
       now.getTime() + LINEUP_VISIBLE_BEFORE_KICKOFF_MINUTES * 60 * 1000,
     );
 
-    // Find matches that are about to start (within 5 min)
+    // Find matches that are about to start (within 5 min) AND have not
+    // already had their lineup broadcast. The `lineup_broadcast_at IS NULL`
+    // filter is the load-bearing one for B5: without it, this 30s cron
+    // tick would re-broadcast the same lineup every 30s for the entire
+    // 5-minute pre-kickoff window, and every subscribed client would
+    // overwrite its in-memory `lineup` state on each tick.
     const upcomingMatches = await this.matchRepository.find({
       where: {
         status: MatchStatus.TACTICS_LOCKED,
         scheduledAt: LessThanOrEqual(lineupCutoff),
+        lineupBroadcastAt: IsNull(),
       },
       relations: ['homeTeam', 'awayTeam'],
     });
@@ -128,6 +134,17 @@ export class MatchLiveScheduler {
             })),
           });
 
+          // Mark broadcast before we exit so a re-tick within the window
+          // (or a parallel scheduler instance) can't double-send. Doing
+          // this *after* the broadcast is intentional: a crash mid-broadcast
+          // would just mean a future re-attempt finds the row still
+          // null and re-broadcasts once, which the client already
+          // treats as idempotent (same key tuple dedupes in the hook).
+          await this.matchRepository.update(
+            { id: match.id },
+            { lineupBroadcastAt: new Date() },
+          );
+
           this.logger.debug(
             `[MatchLive] Broadcasted lineup for match ${match.id} (${minutesBeforeKickoff.toFixed(1)} min before kickoff)`,
           );
@@ -145,13 +162,22 @@ export class MatchLiveScheduler {
   async processMatchCompletions() {
     const now = new Date();
 
-    // Find matches that have ended (status = COMPLETED or simulation completed but not yet processing)
+    // Find matches that have ended but have NOT yet had their `match_end`
+    // event broadcast. The `match_end_broadcast_at IS NULL` filter is the
+    // load-bearing one for B4: without it, this 10s cron tick would
+    // re-broadcast `match_end` for every `COMPLETED` match forever (the
+    // status is permanent), and the client `useMatchPage` hook would
+    // re-run `setMode('report')` + reset `matchState` on every tick.
+    // The IN_PROGRESS branch handles the in-flight race where a match
+    // hits its `actualEndTime` between two ticks; with the marker set
+    // after the broadcast, only the first tick can win the broadcast.
     const completedMatches = await this.matchRepository.find({
       where: [
-        { status: MatchStatus.COMPLETED },
+        { status: MatchStatus.COMPLETED, matchEndBroadcastAt: IsNull() },
         {
           status: MatchStatus.IN_PROGRESS,
           actualEndTime: LessThanOrEqual(now),
+          matchEndBroadcastAt: IsNull(),
         },
       ],
       relations: ['homeTeam', 'awayTeam'],
@@ -165,6 +191,14 @@ export class MatchLiveScheduler {
           match.homeScore || 0,
           match.awayScore || 0,
           true,
+        );
+
+        // Mark broadcast. Same rationale as the lineup branch above:
+        // doing this *after* the broadcast means a crash mid-broadcast
+        // gets a clean retry on the next tick (the row stays null).
+        await this.matchRepository.update(
+          { id: match.id },
+          { matchEndBroadcastAt: new Date() },
         );
 
         this.logger.debug(`[MatchLive] Broadcasted match end for ${match.id}`);

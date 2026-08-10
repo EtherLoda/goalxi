@@ -5,6 +5,7 @@ import { useTranslations } from 'next-intl';
 import {
   api,
   MAX_FORECAST_DAYS,
+  MATCH_STATUS,
   type MatchEvent,
   type MatchStatsRes,
   type Player,
@@ -152,12 +153,12 @@ export function TacticalMatchDetail({
 }: TacticalMatchDetailProps) {
   const homeName = match.homeTeam?.name || 'Home';
   const awayName = match.awayTeam?.name || 'Away';
-  const isLive = match.status === 'in_progress';
+  const isLive = match.status === MATCH_STATUS.IN_PROGRESS;
   // Matches that haven't started yet (SCHEDULED, PENDING, etc.) have no
   // events, no snapshots and no per-team stats. Showing the pitch / bench
   // / commentary / lane stats would be misleading, so we collapse the page
   // to just the score header and a small pre-match card.
-  const isCompleted = match.status === 'completed';
+  const isCompleted = match.status === MATCH_STATUS.COMPLETED;
   const isPreMatch = !isLive && !isCompleted;
   // Derive the minute the report-mode chrome should show. See
   // `getReportCurrentMinute` for the rationale (was hard-coded 90;
@@ -478,7 +479,7 @@ export function TacticalMatchDetail({
                     </span>
                   </div>
                 )}
-                {match.status === 'cancelled' && (
+                {match.status === MATCH_STATUS.CANCELLED && (
                   <p className="text-[10px] font-label text-error uppercase tracking-widest mt-1">
                     {tLiveChrome('cancelled') ?? 'Cancelled'}
                   </p>

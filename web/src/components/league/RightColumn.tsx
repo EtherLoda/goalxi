@@ -5,7 +5,7 @@ import { useTranslations } from "next-intl";
 import { clsx } from "clsx";
 import StandingsTable from "./StandingsTable";
 import { TacticsEntryButton } from "@/components/tactics/shared/TacticsEntryButton";
-import type { Standing, Match } from "@/lib/api";
+import { MATCH_STATUS, type Standing, type Match } from "@/lib/api";
 
 interface RightColumnProps {
   standings: Standing[];
@@ -169,9 +169,9 @@ function FixturesTab({
       <div className="space-y-3 pb-2">
         {sortedRounds.map((round) => {
           const matches = groupedMatches[round];
-          const hasCompleted = matches.some((m) => m.status === "completed");
+          const hasCompleted = matches.some((m) => m.status === MATCH_STATUS.COMPLETED);
           const hasUpcoming = matches.some(
-            (m) => m.status === "scheduled" || m.status === "tactics_locked",
+            (m) => m.status === MATCH_STATUS.SCHEDULED || m.status === MATCH_STATUS.TACTICS_LOCKED,
           );
 
           return (
@@ -199,8 +199,8 @@ function FixturesTab({
 
               <div className="space-y-1">
                 {matches.map((match) => {
-                  const isMatchCompleted = match.status === "completed";
-                  const isUpcoming = match.status === "scheduled" || match.status === "tactics_locked";
+                  const isMatchCompleted = match.status === MATCH_STATUS.COMPLETED;
+                  const isUpcoming = match.status === MATCH_STATUS.SCHEDULED || match.status === MATCH_STATUS.TACTICS_LOCKED;
                   const homeName = match.homeTeam?.name || tCommon('tbd');
                   const awayName = match.awayTeam?.name || tCommon('tbd');
                   const isUserHome = userTeamId && match.homeTeam?.id === userTeamId;

@@ -4,7 +4,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useParams, useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
-import { api, type Match } from "@/lib/api";
+import { api, MATCH_STATUS, type Match } from "@/lib/api";
 import { useAuth } from "@/contexts/AuthContext";
 
 type TabKey = "upcoming" | "thisWeek" | "completed";
@@ -50,7 +50,7 @@ export default function YouthMatchesPage() {
       const ts = new Date(m.scheduledAt).getTime();
       if (tab === "upcoming")
         return (
-          (m.status === "scheduled" || m.status === "tactics_locked") &&
+          (m.status === MATCH_STATUS.SCHEDULED || m.status === MATCH_STATUS.TACTICS_LOCKED) &&
           ts >= now - 7 * 24 * 60 * 60 * 1000 // include in-progress + recent
         );
       if (tab === "thisWeek") {
@@ -58,7 +58,7 @@ export default function YouthMatchesPage() {
         const weekAhead = now + 7 * 24 * 60 * 60 * 1000;
         return ts >= weekAgo && ts <= weekAhead;
       }
-      return m.status === "completed" || m.status === "cancelled";
+      return m.status === MATCH_STATUS.COMPLETED || m.status === MATCH_STATUS.CANCELLED;
     });
   }, [all, tab]);
 
@@ -140,8 +140,8 @@ function MatchRow({
 }) {
   const home = m.homeTeam?.name ?? "?";
   const away = m.awayTeam?.name ?? "?";
-  const finished = m.status === "completed" || m.status === "cancelled";
-  const cancelled = m.status === "cancelled";
+  const finished = m.status === MATCH_STATUS.COMPLETED || m.status === MATCH_STATUS.CANCELLED;
+  const cancelled = m.status === MATCH_STATUS.CANCELLED;
 
   return (
     <Link
@@ -185,12 +185,12 @@ function MatchRow({
           ) : (
             <span
               className={
-                m.status === "tactics_locked"
+                m.status === MATCH_STATUS.TACTICS_LOCKED
                   ? "text-[10px] uppercase tracking-wider font-bold text-[#fbbf24] px-2 py-0.5 rounded bg-[#fbbf24]/10"
                   : "text-[10px] uppercase tracking-wider font-bold text-[#91b2a6] px-2 py-0.5 rounded bg-[#91b2a6]/10"
               }
             >
-              {m.status === "tactics_locked" ? "Locked" : "Scheduled"}
+              {m.status === MATCH_STATUS.TACTICS_LOCKED ? "Locked" : "Scheduled"}
             </span>
           )}
           <span className="material-symbols-outlined text-[#91b2a6] text-lg">

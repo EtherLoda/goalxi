@@ -5,7 +5,7 @@ import { useTranslations } from "next-intl";
 import { useEffect, useState, Suspense } from "react";
 import { useParams, useSearchParams } from "next/navigation";
 import { useAuth } from "@/contexts/AuthContext";
-import { api, type Standing, type Match, type Notification, type Team, type Fan } from "@/lib/api";
+import { api, MATCH_STATUS, type Standing, type Match, type Notification, type Team, type Fan } from "@/lib/api";
 import { useGameStore } from "@/stores/gameStore";
 import {
   getFanEmotionTier,
@@ -88,8 +88,8 @@ function DashboardPageContent() {
 
     Promise.all([
       api.leagues.getStandings(currentTeam.leagueId),
-      api.matches.getByTeam(currentTeam.id, { status: "scheduled" }),
-      api.matches.getByTeam(currentTeam.id, { status: "completed", season: 1 }),
+      api.matches.getByTeam(currentTeam.id, { status: MATCH_STATUS.SCHEDULED }),
+      api.matches.getByTeam(currentTeam.id, { status: MATCH_STATUS.COMPLETED, season: 1 }),
       api.notifications.getNotifications(1, 50).catch(() => ({ items: [] })),
       api.fans.getByTeam(currentTeam.id).catch(() => null),
     ])

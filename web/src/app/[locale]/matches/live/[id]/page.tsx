@@ -4,6 +4,7 @@ import { Suspense, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useMatchPage } from '@/hooks/useMatchPage';
 import { MatchLiveView } from '@/components/match/MatchLiveView';
+import { MATCH_STATUS } from '@/lib/api';
 
 function LiveMatchContent() {
   const params = useParams();
@@ -33,14 +34,14 @@ function LiveMatchContent() {
   // report page which has a pre-match card for upcoming fixtures.
   useEffect(() => {
     if (isLoading || !match) return;
-    if (match.status !== 'in_progress') {
+    if (match.status !== MATCH_STATUS.IN_PROGRESS) {
       router.replace(`/${locale}/matches/${matchId}`);
     }
   }, [isLoading, match, matchId, locale, router]);
 
   const isReconnecting = connectionStatus === 'connecting' && matchState !== null;
 
-  if (!isLoading && match && match.status !== 'in_progress') {
+  if (!isLoading && match && match.status !== MATCH_STATUS.IN_PROGRESS) {
     // Brief blank state while the redirect runs; MatchLiveView below would
     // otherwise briefly show a pitch with no data.
     return <div className="p-6 md:p-8 max-w-[1600px] mx-auto w-full" />;

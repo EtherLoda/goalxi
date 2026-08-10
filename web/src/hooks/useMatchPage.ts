@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { io, Socket } from 'socket.io-client';
-import { api, type Match, type MatchEvent, type MatchStatsRes, type Player, type Tactics } from '@/lib/api';
+import { api, MATCH_STATUS, type Match, type MatchEvent, type MatchStatsRes, type Player, type Tactics } from '@/lib/api';
 
 /**
  * WebSocket-side MatchEvent shape (same as the REST type minus `second`).
@@ -159,7 +159,7 @@ export function useMatchPage({
   initialMatch = null,
 }: UseMatchPageOptions): UseMatchPageReturn {
   const [mode, setMode] = useState<MatchPageMode>(
-    initialMatch?.status === 'in_progress' ? 'live' : 'report',
+    initialMatch?.status === MATCH_STATUS.IN_PROGRESS ? 'live' : 'report',
   );
 
   // ── REST data (always populated) ──────────────────────────────────────────
@@ -212,7 +212,7 @@ export function useMatchPage({
       if (statsResult.status === 'fulfilled') {
         setStats(statsResult.value);
       }
-      setMode(matchRes.status === 'in_progress' ? 'live' : 'report');
+      setMode(matchRes.status === MATCH_STATUS.IN_PROGRESS ? 'live' : 'report');
       setIsLoading(false);
     })();
     return () => { cancelled = true; };

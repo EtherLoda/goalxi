@@ -347,6 +347,30 @@ interface MatchTeam {
   logo: string | null;
 }
 
+/**
+ * Match status enum mirrored from `@goalxi/database`'s `MatchStatus`.
+ * Kept in the web layer (rather than imported from the database package)
+ * because the web bundle should not pull in server-side entity types.
+ *
+ * IMPORTANT: keep this in lockstep with `libs/database/src/entities/match.entity.ts`.
+ * A drift here is a silent runtime bug — `match.status === MATCH_STATUS.COMPLETED`
+ * would always be false and the report page would render the pre-match
+ * card instead of the post-match chrome (the B10 hazard from the live /
+ * report page review). The TypeScript type below means TS will flag any
+ * `match.status === 'complete'` typo on the spot, but it can't catch a
+ * drift between this file and the database enum — keep them in sync by
+ * hand.
+ */
+export const MATCH_STATUS = {
+  SCHEDULED: 'scheduled',
+  TACTICS_LOCKED: 'tactics_locked',
+  IN_PROGRESS: 'in_progress',
+  COMPLETED: 'completed',
+  CANCELLED: 'cancelled',
+} as const;
+
+export type MatchStatus = (typeof MATCH_STATUS)[keyof typeof MATCH_STATUS];
+
 interface Match {
   id: string;
   homeTeamId: string;
@@ -355,7 +379,7 @@ interface Match {
   awayTeam: MatchTeam;
   homeScore: number | null;
   awayScore: number | null;
-  status: string;
+  status: MatchStatus;
   scheduledAt: string;
   round?: number;
   leagueId: string;
@@ -890,7 +914,7 @@ export const api = {
       return request<Match>(`/matches/${matchId}`);
     },
     getByTeam: async (teamId: string, filters?: {
-      status?: string;
+      status?: MatchStatus;
       week?: number;
       season?: number;
       leagueId?: string;
@@ -903,7 +927,7 @@ export const api = {
       return request<MatchListResponse>(`/matches?${params.toString()}`);
     },
     getByLeague: async (leagueId: string, filters?: {
-      status?: string;
+      status?: MatchStatus;
       week?: number;
       round?: number;
       season?: number;
@@ -1444,12 +1468,7 @@ export interface YouthMatch {
   awayYouthTeamId: string;
   homeScore: number | null;
   awayScore: number | null;
-  status:
-    | 'scheduled'
-    | 'tactics_locked'
-    | 'in_progress'
-    | 'completed'
-    | 'cancelled';
+  status: MatchStatus;
   scheduledAt: string;
   tacticsLocked: boolean;
   homeForfeit: boolean;

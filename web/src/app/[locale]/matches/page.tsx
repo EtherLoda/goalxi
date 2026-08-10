@@ -4,7 +4,7 @@ import { useEffect, useState, Suspense } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useParams, useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
-import { api, type Match, type Team } from "@/lib/api";
+import { api, MATCH_STATUS, type Match, type Team } from "@/lib/api";
 import Link from "next/link";
 import { clsx } from "clsx";
 import { useGameStore } from "@/stores/gameStore";
@@ -76,9 +76,9 @@ function MatchesPageContent() {
       setIsLoading(true);
       try {
         const [completedData, upcomingData, liveData, leagueData] = await Promise.all([
-          api.matches.getByTeam(currentTeam.id, { status: "completed" }),
-          api.matches.getByTeam(currentTeam.id, { status: "scheduled" }),
-          api.matches.getByTeam(currentTeam.id, { status: "in_progress" }),
+          api.matches.getByTeam(currentTeam.id, { status: MATCH_STATUS.COMPLETED }),
+          api.matches.getByTeam(currentTeam.id, { status: MATCH_STATUS.SCHEDULED }),
+          api.matches.getByTeam(currentTeam.id, { status: MATCH_STATUS.IN_PROGRESS }),
           api.leagues.getById(currentTeam.leagueId),
         ]);
 

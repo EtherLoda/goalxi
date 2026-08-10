@@ -6,6 +6,7 @@ import { useParams, useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
 import {
   api,
+  MATCH_STATUS,
   type Match,
   type MatchEvent,
   type Player,
@@ -138,7 +139,7 @@ export default function YouthMatchDetailPage({
   // the read-only tactics view.
   const showEditor =
     match != null &&
-    (match.status === "scheduled" || match.status === "tactics_locked") &&
+    (match.status === MATCH_STATUS.SCHEDULED || match.status === MATCH_STATUS.TACTICS_LOCKED) &&
     new Date(match.scheduledAt).getTime() > Date.now();
   const myTactics = userSide === "home" ? homeTactics : awayTactics;
 
@@ -163,8 +164,8 @@ export default function YouthMatchDetailPage({
   const home = match.homeTeam?.name ?? "?";
   const away = match.awayTeam?.name ?? "?";
   const finished =
-    match.status === "completed" || match.status === "cancelled";
-  const cancelled = match.status === "cancelled";
+    match.status === MATCH_STATUS.COMPLETED || match.status === MATCH_STATUS.CANCELLED;
+  const cancelled = match.status === MATCH_STATUS.CANCELLED;
 
   return (
     <div className="px-8 py-6 space-y-6">
@@ -204,9 +205,9 @@ export default function YouthMatchDetailPage({
               className={
                 finished
                   ? "text-[10px] uppercase tracking-wider font-bold text-[#91b2a6] mt-1"
-                  : match.status === "in_progress"
+                  : match.status === MATCH_STATUS.IN_PROGRESS
                     ? "text-[10px] uppercase tracking-wider font-bold text-[#ef4444] mt-1 animate-pulse"
-                    : match.status === "tactics_locked"
+                    : match.status === MATCH_STATUS.TACTICS_LOCKED
                       ? "text-[10px] uppercase tracking-wider font-bold text-[#fbbf24] mt-1"
                       : "text-[10px] uppercase tracking-wider font-bold text-[#a1ffc2] mt-1"
               }

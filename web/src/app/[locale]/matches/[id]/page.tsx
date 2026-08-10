@@ -4,7 +4,7 @@ import { useEffect, useState, Suspense } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import { useTranslations } from 'next-intl';
-import { api } from '@/lib/api';
+import { api, MATCH_STATUS } from '@/lib/api';
 import { useMatchPage } from '@/hooks/useMatchPage';
 import { MatchLiveView } from '@/components/match/MatchLiveView';
 import { TacticalMatchDetail } from '@/components/match/TacticalMatchDetail';
@@ -120,7 +120,7 @@ function MatchPageContent() {
         </div>
 
         {/* Tactics entry — only for scheduled (or in-lock-window) matches */}
-        {match.status !== 'in_progress' && match.status !== 'completed' && match.status !== 'cancelled' && (
+        {match.status !== MATCH_STATUS.IN_PROGRESS && match.status !== MATCH_STATUS.COMPLETED && match.status !== MATCH_STATUS.CANCELLED && (
           <TacticsEntryButton
             matchId={match.id}
             matchStatus={match.status}

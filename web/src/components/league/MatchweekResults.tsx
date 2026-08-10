@@ -3,6 +3,7 @@
 import { useTranslations } from "next-intl";
 import { clsx } from "clsx";
 import { TacticsEntryButton } from "@/components/tactics/shared/TacticsEntryButton";
+import { MATCH_STATUS } from "@/lib/api";
 
 interface MatchResult {
   id: string;
@@ -47,7 +48,7 @@ function MatchRow({
   const draw = showScore && match.homeScore === match.awayScore;
   const isUserInMatch = isUserHome || isUserAway;
   const isUpcoming =
-    match.status === "scheduled" || match.status === "tactics_locked";
+    match.status === MATCH_STATUS.SCHEDULED || match.status === MATCH_STATUS.TACTICS_LOCKED;
   const showTacticsButton = Boolean(
     showIcon && isUserInMatch && isUpcoming && tacticsLocale && match.scheduledAt,
   );

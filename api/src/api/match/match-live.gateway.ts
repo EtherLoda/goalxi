@@ -1,8 +1,17 @@
 import { AuthService } from '@/api/auth/auth.service';
 import { MatchEventService } from '@/api/match/match-event.service';
 import { MatchService } from '@/api/match/match.service';
-import { MatchStatus } from '@goalxi/database';
+import { MatchEventEntity, MatchStatus } from '@goalxi/database';
 import { Inject, Logger, forwardRef } from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
+import {
+  DEFAULT_RATE_LIMIT_CONFIG,
+  evaluateConnection,
+  evaluateDisconnect,
+  type IpRateState,
+  type RateLimitConfig,
+} from './match-live-rate-limit';
 import {
   ConnectedSocket,
   MessageBody,
@@ -92,6 +101,11 @@ export class MatchLiveGateway
   private socketMatchMap = new Map<string, string>();
   // Track sockets per match for broadcasting
   private matchSocketsMap = new Map<string, Set<string>>();
+  // S2: per-IP connection rate + active-socket cap. Pure logic lives
+  // in `match-live-rate-limit.ts`; this map is the mutable per-process
+  // state. In-memory only — see file header for the multi-instance note.
+  private ipRateState = new Map<string, IpRateState>();
+  private readonly rateLimitConfig: RateLimitConfig = DEFAULT_RATE_LIMIT_CONFIG;
 
   constructor(
     private readonly authService: AuthService,
@@ -99,9 +113,32 @@ export class MatchLiveGateway
     private readonly matchEventService: MatchEventService,
     @Inject(forwardRef(() => MatchService))
     private readonly matchService: MatchService,
+    @InjectRepository(MatchEventEntity)
+    private readonly eventRepository: Repository<MatchEventEntity>,
   ) {}
 
   async handleConnection(client: Socket) {
+    // S2: per-IP rate limit BEFORE any auth work. An attacker opening
+    // thousands of connections should be rejected before we touch the
+    // DB or run JWT verify on every one of them.
+    const ip = this.getClientIp(client);
+    const verdict = evaluateConnection(
+      this.ipRateState.get(ip),
+      Date.now(),
+      this.rateLimitConfig,
+    );
+    if (verdict.accept === false) {
+      this.logger.warn(
+        `[MatchLive] Rejecting connection from ${ip}: ${verdict.reason}`,
+      );
+      // `disconnect(true)` tears down the socket without going through
+      // the disconnect handler, so we don't need to also decrement the
+      // active-socket counter (it was never incremented).
+      client.disconnect(true);
+      return;
+    }
+    this.ipRateState.set(ip, verdict.next);
+
     try {
       // Extract token from handshake
       const token = this.extractToken(client);
@@ -136,7 +173,32 @@ export class MatchLiveGateway
       }
       this.socketMatchMap.delete(client.id);
     }
+
+    // S2: decrement the per-IP active-socket counter. Wrapped in a
+    // try/finally so a missing map entry (e.g. connection was rejected
+    // before increment) doesn't throw — `evaluateDisconnect` already
+    // floors the count at 0, so the map entry is safe to keep.
+    const ip = this.getClientIp(client);
+    const state = this.ipRateState.get(ip);
+    if (state) {
+      this.ipRateState.set(ip, evaluateDisconnect(state));
+    }
+
     this.logger.debug(`Client ${client.id} disconnected`);
+  }
+
+  /**
+   * Best-effort client IP extraction. Socket.io's `handshake.address`
+   * is the address the socket connected from (post-proxy hop), so for
+   * deployments behind nginx/cloudflare this still returns the
+   * load-balancer IP unless the proxy is configured to forward
+   * `X-Forwarded-For` via `client.request.headers['x-forwarded-for']`.
+   * We deliberately do NOT trust `X-Forwarded-For` here without
+   * knowing the proxy chain — accepting a spoofed header would let
+   * an attacker bypass the rate limit by setting an arbitrary IP.
+   */
+  private getClientIp(client: Socket): string {
+    return client.handshake.address ?? 'unknown';
   }
 
   @SubscribeMessage('join_match')
@@ -264,25 +326,36 @@ export class MatchLiveGateway
 
   private async getMatchState(matchId: string): Promise<MatchStatePayload> {
     const match = await this.matchService.findOne(matchId);
-    const now = new Date();
-    const kickoffTime = new Date(match.scheduledAt);
 
-    // Calculate current minute based on real elapsed time
-    let currentMinute = 0;
-    if (match.status === MatchStatus.IN_PROGRESS && now >= kickoffTime) {
-      const elapsedMs = now.getTime() - kickoffTime.getTime();
-      const elapsedMinutes = Math.floor(elapsedMs / (60 * 1000));
+    // Derive currentMinute from the event stream, NOT from wall-clock.
+    // S1 fix: the previous implementation computed `elapsed = now - kickoff`
+    // and clamped to a 45/60/90 heuristic, which drifted from the actual
+    // match timeline in two real cases:
+    //   - paused matches: the sim stops emitting events but wall-clock
+    //     keeps ticking, so the client thought the match was 60+ minutes
+    //     in when it had only reached, say, 30'.
+    //   - scheduler lag: if `processRevealableEvents` is a few seconds
+    //     behind, the wall-clock minute jumps past the latest event
+    //     and the client's `MatchLiveView` `visibleEvents` filter
+    //     (`minute <= currentMinute`) drops in-flight events.
+    // Pulling max revealed minute gives one source of truth that's
+    // shared with the scheduler's `broadcastScoreUpdate` (which already
+    // uses the same approach at `match-live.scheduler.ts:226-228`).
+    const latestEvent = await this.eventRepository.findOne({
+      where: { matchId, isRevealed: true },
+      order: { minute: 'DESC' },
+    });
+    const eventMinute = latestEvent?.minute ?? 0;
 
-      if (elapsedMinutes <= 45) {
-        currentMinute = elapsedMinutes;
-      } else if (elapsedMinutes <= 60) {
-        currentMinute = 45; // Halftime
-      } else {
-        currentMinute = Math.min(elapsedMinutes - 15, 90);
-      }
-    } else if (match.status === MatchStatus.COMPLETED) {
-      currentMinute = 90;
-    }
+    // For COMPLETED matches we surface a "FT" minute of at least 90 even
+    // if no event crossed the 90' line (e.g. abandoned matches, or
+    // simulator ran fewer minutes). Extra time (>90) is preserved
+    // verbatim — it reflects reality, and the report page's
+    // `getReportCurrentMinute` does the same `Math.max(90, max)` clamp.
+    const currentMinute =
+      match.status === MatchStatus.COMPLETED
+        ? Math.max(90, eventMinute)
+        : eventMinute;
 
     return {
       matchId: match.id,
@@ -325,21 +398,28 @@ export class MatchLiveGateway
   }
 
   private extractToken(client: Socket): string | null {
-    // Try Authorization header first
+    // Two accepted sources, in order:
+    //   1. `Authorization: Bearer <token>` header (the standard path
+    //      when the client is server-side or a native app)
+    //   2. `auth.token` / `query.token` (the socket.io convention for
+    //      browser clients that can't set custom headers on the
+    //      WebSocket upgrade request)
+    //
+    // S7: the previous version also had a dead branch that returned
+    // the raw `authHeader` value when it was a non-empty string but
+    // didn't start with `Bearer `. That was a footgun — any garbage
+    // header would be passed to `verifyAccessToken` and either be
+    // rejected loudly or, worse, succeed in some upstream bug. We now
+    // only return strings that look like a real Bearer token, and the
+    // well-typed `auth.token` / `query.token` path as a fallback.
     const authHeader = client.handshake.headers.authorization;
-    if (authHeader?.startsWith('Bearer ')) {
+    if (typeof authHeader === 'string' && authHeader.startsWith('Bearer ')) {
       return authHeader.substring(7);
     }
 
-    // Try token in handshake query
-    const token = client.handshake.auth?.token || client.handshake.query?.token;
-    if (typeof token === 'string') {
+    const token = client.handshake.auth?.token ?? client.handshake.query?.token;
+    if (typeof token === 'string' && token.length > 0) {
       return token;
-    }
-
-    // Try token from handshake headers
-    if (typeof authHeader === 'string') {
-      return authHeader;
     }
 
     return null;

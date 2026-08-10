@@ -118,6 +118,27 @@ export class MatchEntity extends AbstractEntity {
     @Column({ name: 'completed_at', type: 'timestamp', nullable: true })
     completedAt?: Date;
 
+    /**
+     * [B5] Set by `MatchLiveScheduler.processLineupBroadcasts` right after
+     * the lineup is emitted to subscribed clients. The scheduler filters
+     * `WHERE lineup_broadcast_at IS NULL` to avoid re-broadcasting the
+     * same lineup every 30s for the full 5-minute pre-kickoff window.
+     * Nullable so existing rows are treated as "not yet broadcast".
+     */
+    @Column({ name: 'lineup_broadcast_at', type: 'timestamptz', nullable: true })
+    lineupBroadcastAt?: Date | null;
+
+    /**
+     * [B4] Set by `MatchLiveScheduler.processMatchCompletions` right
+     * after the match_end event is emitted. The scheduler filters
+     * `WHERE match_end_broadcast_at IS NULL` so a `COMPLETED` match is
+     * only broadcast once per its lifetime (and an `IN_PROGRESS` race
+     * where two cron ticks see the same `actualEndTime` collapse to a
+     * single broadcast via the row-level UPDATE).
+     */
+    @Column({ name: 'match_end_broadcast_at', type: 'timestamptz', nullable: true })
+    matchEndBroadcastAt?: Date | null;
+
     @Column({ name: 'first_half_injury_time', type: 'int', nullable: true })
     firstHalfInjuryTime?: number;
 

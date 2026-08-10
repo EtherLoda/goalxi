@@ -8,7 +8,7 @@ import LeagueHeader from "@/components/league/LeagueHeader";
 import LeagueKpiStrip from "@/components/league/LeagueKpiStrip";
 import { useAuth } from "@/contexts/AuthContext";
 import { useGameStore } from "@/stores/gameStore";
-import { api, type Standing, type Match, type LeagueNewsItem } from "@/lib/api";
+import { api, MATCH_STATUS, type Standing, type Match, type LeagueNewsItem } from "@/lib/api";
 
 interface MatchResult {
   id: string;
@@ -117,7 +117,7 @@ function LeaguePageContent() {
         setAllMatches(matches);
 
         const completedMatches = matches
-          .filter((m: Match) => m.status === 'completed')
+          .filter((m: Match) => m.status === MATCH_STATUS.COMPLETED)
           .sort((a: Match, b: Match) => {
             const roundA = a.round ?? a.week * 2;
             const roundB = b.round ?? b.week * 2;
@@ -129,7 +129,7 @@ function LeaguePageContent() {
           : 0;
 
         const scheduledMatches = matches
-          .filter((m: Match) => m.status === 'scheduled' || m.status === 'tactics_locked')
+          .filter((m: Match) => m.status === MATCH_STATUS.SCHEDULED || m.status === MATCH_STATUS.TACTICS_LOCKED)
           .sort((a: Match, b: Match) => {
             const roundA = a.round ?? a.week * 2;
             const roundB = b.round ?? b.week * 2;

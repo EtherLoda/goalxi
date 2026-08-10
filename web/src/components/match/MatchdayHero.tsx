@@ -3,7 +3,7 @@
 import { clsx } from 'clsx';
 import Link from 'next/link';
 import { useTranslations } from 'next-intl';
-import type { Match, Team } from '@/lib/api';
+import { MATCH_STATUS, type Match, type Team } from '@/lib/api';
 import { TacticsEntryButton } from '@/components/tactics/shared/TacticsEntryButton';
 
 interface MatchdayHeroProps {
@@ -44,7 +44,7 @@ export function MatchdayHero({
     return null;
   }
 
-  const isLive = pick.status === 'in_progress';
+  const isLive = pick.status === MATCH_STATUS.IN_PROGRESS;
   const isHome = pick.homeTeamId === currentTeam?.id;
   const teamColor = currentTeam?.jerseyColorPrimary || '#00E479';
 
@@ -174,7 +174,7 @@ export function MatchdayHero({
 
             {/* Score / VS */}
             <div className="flex flex-col items-center gap-2 min-w-[180px]">
-              {isLive || pick.status === 'completed' ? (
+              {isLive || pick.status === MATCH_STATUS.COMPLETED ? (
                 <div className="flex items-center gap-5">
                   <span
                     className="font-headline text-5xl md:text-6xl font-black text-on-surface tracking-tighter"
@@ -206,7 +206,7 @@ export function MatchdayHero({
                 </div>
               )}
               <span className="font-label text-[9px] font-black uppercase tracking-[0.25em] text-on-surface-variant/60">
-                {isLive ? t('inProgress') : pick.status === 'completed' ? t('fullTime') : t('kickOff')}
+                {isLive ? t('inProgress') : pick.status === MATCH_STATUS.COMPLETED ? t('fullTime') : t('kickOff')}
               </span>
             </div>
 
