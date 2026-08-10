@@ -405,7 +405,8 @@
         "goal": "进球",
         "substitution": "换人",
         "yellow_card": "黄牌",
-        "red_card": "红牌"
+        "red_card": "红牌",
+        "injury": "受伤"
       }
     },
     "bento": {

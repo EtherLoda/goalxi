@@ -409,7 +409,8 @@
         "goal": "Goal",
         "substitution": "Substitution",
         "yellow_card": "Yellow card",
-        "red_card": "Red card"
+        "red_card": "Red card",
+        "injury": "Injury"
       }
     },
     "bento": {
