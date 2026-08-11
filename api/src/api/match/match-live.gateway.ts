@@ -4,24 +4,24 @@ import { MatchService } from '@/api/match/match.service';
 import { MatchEventEntity, MatchStatus } from '@goalxi/database';
 import { Inject, Logger, forwardRef } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
-import {
-  DEFAULT_RATE_LIMIT_CONFIG,
-  evaluateConnection,
-  evaluateDisconnect,
-  type IpRateState,
-  type RateLimitConfig,
-} from './match-live-rate-limit';
 import {
   ConnectedSocket,
   MessageBody,
   OnGatewayConnection,
   OnGatewayDisconnect,
+  OnGatewayInit,
   SubscribeMessage,
   WebSocketGateway,
   WebSocketServer,
 } from '@nestjs/websockets';
 import { Server, Socket } from 'socket.io';
+import { Repository } from 'typeorm';
+import {
+  type RateLimitConfig,
+  type RateLimiter,
+  DEFAULT_RATE_LIMIT_CONFIG,
+} from './match-live-rate-limit';
+import { MatchLiveRedisAdapter } from './match-live-redis.adapter';
 
 // 比赛开始前5分钟才能看到首发阵容
 const LINEUP_VISIBLE_BEFORE_KICKOFF_MINUTES = 5;
@@ -90,7 +90,7 @@ interface MatchStatePayload {
   namespace: '/matches',
 })
 export class MatchLiveGateway
-  implements OnGatewayConnection, OnGatewayDisconnect
+  implements OnGatewayConnection, OnGatewayDisconnect, OnGatewayInit
 {
   @WebSocketServer()
   server: Server;
@@ -101,10 +101,12 @@ export class MatchLiveGateway
   private socketMatchMap = new Map<string, string>();
   // Track sockets per match for broadcasting
   private matchSocketsMap = new Map<string, Set<string>>();
-  // S2: per-IP connection rate + active-socket cap. Pure logic lives
-  // in `match-live-rate-limit.ts`; this map is the mutable per-process
-  // state. In-memory only — see file header for the multi-instance note.
-  private ipRateState = new Map<string, IpRateState>();
+  // S2: per-IP connection rate + active-socket cap. The pure rules
+  // live in `match-live-rate-limit.ts`; the backend is injected via
+  // the `MATCH_LIVE_RATE_LIMITER` token (in-memory in dev/CI, Redis
+  // in production). The interface is the seam — gateway code never
+  // touches a `Map` or `Redis` directly.
+  private readonly rateLimiter: RateLimiter;
   private readonly rateLimitConfig: RateLimitConfig = DEFAULT_RATE_LIMIT_CONFIG;
 
   constructor(
@@ -115,18 +117,32 @@ export class MatchLiveGateway
     private readonly matchService: MatchService,
     @InjectRepository(MatchEventEntity)
     private readonly eventRepository: Repository<MatchEventEntity>,
-  ) {}
+    @Inject('MATCH_LIVE_RATE_LIMITER') rateLimiter: RateLimiter,
+    private readonly redisAdapter: MatchLiveRedisAdapter,
+  ) {
+    this.rateLimiter = rateLimiter;
+  }
+
+  /**
+   * Called by NestJS after the underlying socket.io `Server` is built.
+   * This is the only hook where the gateway can replace `server.adapter`
+   * with the Redis-backed one — before this point the server is still
+   * using the default in-memory adapter, and once any client has
+   * joined a room the adapter is effectively frozen. Idempotent so a
+   * hot-reload (`nest start --watch`) won't double-attach.
+   */
+  afterInit(server: Server): void {
+    this.redisAdapter.attachToServer(server);
+  }
 
   async handleConnection(client: Socket) {
     // S2: per-IP rate limit BEFORE any auth work. An attacker opening
     // thousands of connections should be rejected before we touch the
-    // DB or run JWT verify on every one of them.
+    // DB or run JWT verify on every one of them. The decision now goes
+    // through the injected `RateLimiter` (in-memory or Redis); the
+    // gateway itself never reads or writes the underlying state.
     const ip = this.getClientIp(client);
-    const verdict = evaluateConnection(
-      this.ipRateState.get(ip),
-      Date.now(),
-      this.rateLimitConfig,
-    );
+    const verdict = await this.rateLimiter.tryConnect(ip);
     if (verdict.accept === false) {
       this.logger.warn(
         `[MatchLive] Rejecting connection from ${ip}: ${verdict.reason}`,
@@ -137,7 +153,6 @@ export class MatchLiveGateway
       client.disconnect(true);
       return;
     }
-    this.ipRateState.set(ip, verdict.next);
 
     try {
       // Extract token from handshake
@@ -160,7 +175,7 @@ export class MatchLiveGateway
     }
   }
 
-  handleDisconnect(client: Socket) {
+  async handleDisconnect(client: Socket) {
     const matchId = this.socketMatchMap.get(client.id);
     if (matchId) {
       // Remove from match's socket set
@@ -174,15 +189,13 @@ export class MatchLiveGateway
       this.socketMatchMap.delete(client.id);
     }
 
-    // S2: decrement the per-IP active-socket counter. Wrapped in a
-    // try/finally so a missing map entry (e.g. connection was rejected
-    // before increment) doesn't throw — `evaluateDisconnect` already
-    // floors the count at 0, so the map entry is safe to keep.
+    // S2: decrement the per-IP active-socket counter. Goes through
+    // the same injected `RateLimiter` so the in-memory and Redis
+    // backends both see the disconnect. The backend is responsible
+    // for flooring at 0 (RedisRateLimiter's `decr` + clamp; the
+    // in-memory backend via `evaluateDisconnect`).
     const ip = this.getClientIp(client);
-    const state = this.ipRateState.get(ip);
-    if (state) {
-      this.ipRateState.set(ip, evaluateDisconnect(state));
-    }
+    await this.rateLimiter.noteDisconnect(ip);
 
     this.logger.debug(`Client ${client.id} disconnected`);
   }

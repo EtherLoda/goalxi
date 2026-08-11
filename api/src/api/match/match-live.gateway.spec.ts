@@ -1,11 +1,13 @@
+import { AuthService } from '@/api/auth/auth.service';
 import { MatchEventEntity, MatchStatus } from '@goalxi/database';
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { AuthService } from '@/api/auth/auth.service';
 import { MatchEventService } from './match-event.service';
-import { MatchService } from './match.service';
+import { MatchLiveRedisAdapter } from './match-live-redis.adapter';
 import { MatchLiveGateway } from './match-live.gateway';
+import { MATCH_LIVE_RATE_LIMITER } from './match-live.module';
+import { MatchService } from './match.service';
 
 /**
  * S1 regression spec — the live gateway's `getMatchState` used to
@@ -39,6 +41,12 @@ describe('MatchLiveGateway — getMatchState currentMinute (S1)', () => {
     }) as any;
 
   beforeEach(async () => {
+    // Stash the env-var escape hatch so the spec doesn't accidentally
+    // try to talk to a real Redis during `attachToServer`. The
+    // adapter service is mocked at the spec level below; this just
+    // keeps the test hermetic on machines that happen to have one
+    // running.
+    process.env.MATCH_LIVE_INFRA_DISABLED = 'true';
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         MatchLiveGateway,
@@ -58,11 +66,30 @@ describe('MatchLiveGateway — getMatchState currentMinute (S1)', () => {
           provide: getRepositoryToken(MatchEventEntity),
           useValue: { findOne: jest.fn() },
         },
+        {
+          // Stub adapter so `afterInit` doesn't try to attach a real
+          // Redis-backed adapter. The `MATCH_LIVE_RATE_LIMITER` token
+          // gets a fresh in-memory limiter (no Redis).
+          provide: MatchLiveRedisAdapter,
+          useValue: {
+            attachToServer: jest.fn(),
+            getRateLimitClient: jest.fn().mockReturnValue(null),
+          },
+        },
+        {
+          provide: MATCH_LIVE_RATE_LIMITER,
+          useValue: {
+            tryConnect: jest.fn().mockResolvedValue({ accept: true }),
+            noteDisconnect: jest.fn().mockResolvedValue(undefined),
+          },
+        },
       ],
     }).compile();
 
     gateway = module.get<MatchLiveGateway>(MatchLiveGateway);
-    matchService = module.get<MatchService>(MatchService) as jest.Mocked<MatchService>;
+    matchService = module.get<MatchService>(
+      MatchService,
+    ) as jest.Mocked<MatchService>;
     eventRepository = module.get<Repository<MatchEventEntity>>(
       getRepositoryToken(MatchEventEntity),
     ) as jest.Mocked<Repository<MatchEventEntity>>;
@@ -73,8 +100,9 @@ describe('MatchLiveGateway — getMatchState currentMinute (S1)', () => {
   // mock for join_match. Cast is fine; this is the only way to assert
   // currentMinute without a full E2E.
   const getState = (matchId: string) =>
-    (gateway as unknown as { getMatchState: (id: string) => Promise<unknown> })
-      .getMatchState(matchId);
+    (
+      gateway as unknown as { getMatchState: (id: string) => Promise<unknown> }
+    ).getMatchState(matchId);
 
   it('returns 0 for a SCHEDULED match with no events (kickoff not reached)', async () => {
     matchService.findOne.mockResolvedValue(mkMatch(MatchStatus.SCHEDULED));
@@ -116,7 +144,9 @@ describe('MatchLiveGateway — getMatchState currentMinute (S1)', () => {
   it('clamps COMPLETED to 90 even when no event crossed 90 (abandoned / short sim)', async () => {
     // A 60' abandoned match still shows "FT 90'" in the report.
     matchService.findOne.mockResolvedValue(mkMatch(MatchStatus.COMPLETED));
-    eventRepository.findOne.mockResolvedValue({ minute: 60 } as MatchEventEntity);
+    eventRepository.findOne.mockResolvedValue({
+      minute: 60,
+    } as MatchEventEntity);
 
     const state = (await getState('match-1')) as { currentMinute: number };
     expect(state.currentMinute).toBe(90);
@@ -126,7 +156,9 @@ describe('MatchLiveGateway — getMatchState currentMinute (S1)', () => {
     // 120-minute cup tie: the timeline must show the real 118' (or
     // whatever the last event was), not be silently clamped.
     matchService.findOne.mockResolvedValue(mkMatch(MatchStatus.COMPLETED));
-    eventRepository.findOne.mockResolvedValue({ minute: 118 } as MatchEventEntity);
+    eventRepository.findOne.mockResolvedValue({
+      minute: 118,
+    } as MatchEventEntity);
 
     const state = (await getState('match-1')) as { currentMinute: number };
     expect(state.currentMinute).toBe(118);
@@ -134,7 +166,9 @@ describe('MatchLiveGateway — getMatchState currentMinute (S1)', () => {
 
   it('sets isComplete to true for COMPLETED matches', async () => {
     matchService.findOne.mockResolvedValue(mkMatch(MatchStatus.COMPLETED));
-    eventRepository.findOne.mockResolvedValue({ minute: 90 } as MatchEventEntity);
+    eventRepository.findOne.mockResolvedValue({
+      minute: 90,
+    } as MatchEventEntity);
 
     const state = (await getState('match-1')) as { isComplete: boolean };
     expect(state.isComplete).toBe(true);
