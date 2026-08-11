@@ -464,8 +464,23 @@ describe('Attack System', () => {
       let lowWin = 0;
       let highWin = 0;
 
-      // Use k=2.0 for clearer difference: ratio=2 vs ratio=3
-      for (let i = 0; i < 1000; i++) {
+      // Use k=2.0 for clearer difference: ratio=2 vs ratio=3.
+      //
+      // Bumped N from 1_000 → 10_000 to lock the strict `>` at
+      // >99.9% pass rate. Theory (from `duel.ts:resolveDuelPure`
+      // with the engine's anchor defaults):
+      //   P(100/50, k=2, offset=0) ≈ 0.55
+      //   P(150/50, k=2, offset=0) ≈ 0.579
+      //   diff mean = 29 / 1000
+      // At N=1_000 the binomial SE on the diff is ~22, so the
+      // binomial noise is comparable to the effect size — strict
+      // `>` is only ~90% reliable, which is the ~10% flake this
+      // spec kept producing in CI. At N=10_000 the SE drops to ~7
+      // and P(diff > 0) ≈ 99.999%, stable enough to keep the
+      // direction assertion that actually tests the right thing.
+      // 10k resolveDuel calls run in <100ms (sigmoid + Math.random
+      // only), so the spec time budget is fine.
+      for (let i = 0; i < 10_000; i++) {
         if ((engine as any).resolveDuel(100, 50, 2.0, 0)) lowWin++;
         if ((engine as any).resolveDuel(150, 50, 2.0, 0)) highWin++;
       }
