@@ -7,9 +7,9 @@
  * list. React rendering lives in `MatchPitch.tsx`.
  */
 
-import type { Player, Tactics } from '@/lib/api';
-import { PITCH_SLOTS, type PitchSlot } from '../tactics/types';
-import { toPitchSlot, normalizeLineup } from '../tactics/api-helpers';
+import type { Player, Tactics } from "@/lib/api";
+import { PITCH_SLOTS, type PitchSlot } from "../tactics/types";
+import { toPitchSlot, normalizeLineup } from "../tactics/api-helpers";
 
 // ============================================================================
 // Lane shape (mirrors libs/database `SnapshotLaneStrengths` /
@@ -17,11 +17,14 @@ import { toPitchSlot, normalizeLineup } from '../tactics/api-helpers';
 // without reaching into @goalxi/database).
 // ============================================================================
 
-export type Lane = 'left' | 'center' | 'right';
+export type Lane = "left" | "center" | "right";
 
 /**
  * Per-snapshot lane strength for one team. Numbers are 1-decimal floats
- * emitted by the simulator's `formatLanes` helper.
+ * on the 0–10 display magnitude, emitted by the simulator's
+ * `formatLanes` helper. The simulator used to emit raw 0–1000 values
+ * and the FE divided by 100; that fold is now done at the engine
+ * boundary so this type is the canonical display value.
  */
 export interface SnapshotLaneStrengths {
   left: { atk: number; def: number; pos: number };
@@ -44,7 +47,7 @@ export interface SnapshotLaneCounters {
   right: { att: number; ps_: number; pr: number; mpr: number };
 }
 
-export const LANES: readonly Lane[] = ['left', 'center', 'right'];
+export const LANES: readonly Lane[] = ["left", "center", "right"];
 
 // ============================================================================
 // Snapshot shape (matches what TacticalMatchDetail extracts from events)

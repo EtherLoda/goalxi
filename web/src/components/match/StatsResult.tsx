@@ -25,11 +25,11 @@
  * Adding a new locale = add the namespace; no component change.
  */
 
-'use client';
+"use client";
 
-import React from 'react';
-import { useTranslations } from 'next-intl';
-import { clsx } from 'clsx';
+import React from "react";
+import { useTranslations } from "next-intl";
+import { clsx } from "clsx";
 
 export interface LaneStrength {
   attack: number;
@@ -60,28 +60,30 @@ export interface StatsResultProps {
   awayShots?: number;
 }
 
-const HOME_FALLBACK = '#00e479';
-const AWAY_FALLBACK = '#ffdb9d';
+const HOME_FALLBACK = "#00e479";
+const AWAY_FALLBACK = "#ffdb9d";
 
 const LANES = [
-  { key: 'left' as const, i18nKey: 'left', sub: 'L', icon: 'south_west' },
-  { key: 'center' as const, i18nKey: 'center', sub: 'C', icon: 'swap_vert' },
-  { key: 'right' as const, i18nKey: 'right', sub: 'R', icon: 'south_east' },
+  { key: "left" as const, i18nKey: "left", sub: "L", icon: "south_west" },
+  { key: "center" as const, i18nKey: "center", sub: "C", icon: "swap_vert" },
+  { key: "right" as const, i18nKey: "right", sub: "R", icon: "south_east" },
 ];
 
 const METRICS = [
-  { key: 'attack' as const, i18nKey: 'atk' },
-  { key: 'defense' as const, i18nKey: 'def' },
-  { key: 'possession' as const, i18nKey: 'poss' },
+  { key: "attack" as const, i18nKey: "atk" },
+  { key: "defense" as const, i18nKey: "def" },
+  { key: "possession" as const, i18nKey: "poss" },
 ];
 
 /**
- * Convert a raw engine strength (e.g. 880) to the human-readable
- * magnitude the rest of the UI shows (8.8). One decimal place — the
- * second digit never carries information and just adds visual noise.
+ * Format an already-scaled lane strength (the engine now emits values
+ * in the 0–10 display magnitude directly — see
+ * `simulator/src/engine/match.engine.ts` `formatLanes` and
+ * `getLaneStrengthAverages`). One decimal place — the second digit
+ * never carries information and just adds visual noise.
  */
-function scaleStrength(raw: number): number {
-  return Math.round((raw / 100) * 10) / 10;
+function formatStrength(raw: number): string {
+  return raw.toFixed(1);
 }
 
 export function StatsResult({
@@ -96,14 +98,14 @@ export function StatsResult({
   homeShots,
   awayShots,
 }: StatsResultProps) {
-  const t = useTranslations('matches.bento.statsResult');
+  const t = useTranslations("matches.bento.statsResult");
 
   return (
     <div className="glass-panel rounded-2xl p-4 shrink-0">
       {/* Header */}
       <h3 className="font-headline font-bold text-[10px] uppercase tracking-widest text-primary/80 mb-3 flex items-center gap-2">
         <span className="material-symbols-outlined text-base">analytics</span>
-        {t('title')}
+        {t("title")}
       </h3>
 
       {/* Team header strip — color swatches + names on each side */}
@@ -113,11 +115,16 @@ export function StatsResult({
             className="w-2.5 h-2.5 rounded-full shrink-0 ring-2 ring-white/10"
             style={{ backgroundColor: homeColor }}
           />
-          <span className="font-bold uppercase tracking-wider truncate" style={{ color: homeColor }}>
+          <span
+            className="font-bold uppercase tracking-wider truncate"
+            style={{ color: homeColor }}
+          >
             {homeTeamName}
           </span>
         </div>
-        <span className="text-[9px] font-label text-on-surface-variant/40 px-1">{t('vs')}</span>
+        <span className="text-[9px] font-label text-on-surface-variant/40 px-1">
+          {t("vs")}
+        </span>
         <div className="flex items-center gap-1.5 min-w-0 justify-end">
           <span
             className="font-bold uppercase tracking-wider truncate"
@@ -139,8 +146,12 @@ export function StatsResult({
           const away = awayLaneStrength[lane.key];
           const homeTotal = home.attack + home.defense + home.possession;
           const awayTotal = away.attack + away.defense + away.possession;
-          const winner: 'home' | 'away' | 'draw' =
-            homeTotal > awayTotal ? 'home' : homeTotal < awayTotal ? 'away' : 'draw';
+          const winner: "home" | "away" | "draw" =
+            homeTotal > awayTotal
+              ? "home"
+              : homeTotal < awayTotal
+                ? "away"
+                : "draw";
 
           return (
             <div
@@ -156,15 +167,17 @@ export function StatsResult({
                   <span className="font-headline font-black text-[10px] uppercase tracking-wider text-on-surface">
                     {t(`lane.${lane.i18nKey}`)}
                   </span>
-                  <span className="font-mono text-[9px] text-on-surface-variant/50">· {lane.sub}</span>
+                  <span className="font-mono text-[9px] text-on-surface-variant/50">
+                    · {lane.sub}
+                  </span>
                 </div>
-                {winner !== 'draw' && (
+                {winner !== "draw" && (
                   <span
                     className={clsx(
-                      'text-[8px] font-headline font-black uppercase tracking-widest px-1.5 py-0.5 rounded',
-                      winner === 'home'
-                        ? 'bg-primary/20 text-primary'
-                        : 'bg-secondary/20 text-secondary',
+                      "text-[8px] font-headline font-black uppercase tracking-widest px-1.5 py-0.5 rounded",
+                      winner === "home"
+                        ? "bg-primary/20 text-primary"
+                        : "bg-secondary/20 text-secondary",
                     )}
                   >
                     {t(`winner.${winner}`)}
@@ -180,8 +193,8 @@ export function StatsResult({
                   close in magnitude (e.g. 5.4 vs 7.7). */}
               <div className="px-2.5 py-2 space-y-1.5">
                 {METRICS.map((metric) => {
-                  const homeVal = scaleStrength(home[metric.key]);
-                  const awayVal = scaleStrength(away[metric.key]);
+                  const homeVal = formatStrength(home[metric.key]);
+                  const awayVal = formatStrength(away[metric.key]);
                   return (
                     <div
                       key={metric.key}
@@ -194,14 +207,16 @@ export function StatsResult({
                         className="font-headline font-black tabular-nums text-[12px] text-right"
                         style={{ color: homeColor }}
                       >
-                        {homeVal.toFixed(1)}
+                        {homeVal}
                       </span>
-                      <span className="text-on-surface-variant/30 text-[10px] text-center select-none">–</span>
+                      <span className="text-on-surface-variant/30 text-[10px] text-center select-none">
+                        –
+                      </span>
                       <span
                         className="font-headline font-black tabular-nums text-[12px] text-left"
                         style={{ color: awayColor }}
                       >
-                        {awayVal.toFixed(1)}
+                        {awayVal}
                       </span>
                     </div>
                   );
@@ -219,7 +234,9 @@ export function StatsResult({
         <div className="mt-3 pt-2.5 border-t border-on-surface/10 flex items-center justify-between text-[9px] font-label uppercase tracking-widest">
           {homePossessionPct !== undefined && (
             <div className="flex items-center gap-1.5">
-              <span className="text-on-surface-variant/60 font-bold">{t('footer.poss')}</span>
+              <span className="text-on-surface-variant/60 font-bold">
+                {t("footer.poss")}
+              </span>
               <span
                 className="font-headline font-black tabular-nums text-[11px]"
                 style={{ color: homeColor }}
@@ -233,12 +250,16 @@ export function StatsResult({
               >
                 {awayPossessionPct}
               </span>
-              <span className="text-on-surface-variant/60 font-bold">{t('footer.percent')}</span>
+              <span className="text-on-surface-variant/60 font-bold">
+                {t("footer.percent")}
+              </span>
             </div>
           )}
           {homeShots !== undefined && (
             <div className="flex items-center gap-1.5">
-              <span className="text-on-surface-variant/60 font-bold">{t('footer.shots')}</span>
+              <span className="text-on-surface-variant/60 font-bold">
+                {t("footer.shots")}
+              </span>
               <span
                 className="font-headline font-black tabular-nums text-[11px]"
                 style={{ color: homeColor }}

@@ -33,20 +33,20 @@
  * numbers — stays in lockstep when the snapshot scrubs.
  */
 
-'use client';
+"use client";
 
-import { useTranslations } from 'next-intl';
-import { LANES, type Lane, type MatchSnapshot } from './match-pitch-data';
+import { useTranslations } from "next-intl";
+import { LANES, type Lane, type MatchSnapshot } from "./match-pitch-data";
 
-type Phase = 'atk' | 'pos' | 'def';
-const PHASES: Phase[] = ['atk', 'pos', 'def'];
+type Phase = "atk" | "pos" | "def";
+const PHASES: Phase[] = ["atk", "pos", "def"];
 
 // Phase row labels. Reuse `matches.zone.{atk,poss,def}` from the
 // existing zone-panel i18n keys — no need to invent duplicates.
-const PHASE_LABEL_KEY: Record<Phase, 'atk' | 'poss' | 'def'> = {
-  atk: 'atk',
-  pos: 'poss',
-  def: 'def',
+const PHASE_LABEL_KEY: Record<Phase, "atk" | "poss" | "def"> = {
+  atk: "atk",
+  pos: "poss",
+  def: "def",
 };
 
 interface PitchStatsOverlayProps {
@@ -54,7 +54,7 @@ interface PitchStatsOverlayProps {
 }
 
 export function PitchStatsOverlay({ snapshot }: PitchStatsOverlayProps) {
-  const t = useTranslations('matches.bento.pitchStats');
+  const t = useTranslations("matches.bento.pitchStats");
 
   return (
     <div
@@ -95,7 +95,7 @@ function PhaseRow({
   phase: Phase;
   snapshot: MatchSnapshot;
 }) {
-  const tZone = useTranslations('matches.zone');
+  const tZone = useTranslations("matches.zone");
   return (
     <>
       <div
@@ -105,7 +105,12 @@ function PhaseRow({
         {tZone(PHASE_LABEL_KEY[phase])}
       </div>
       {LANES.map((lane) => (
-        <ZoneCell key={`${phase}-${lane}`} phase={phase} lane={lane} snapshot={snapshot} />
+        <ZoneCell
+          key={`${phase}-${lane}`}
+          phase={phase}
+          lane={lane}
+          snapshot={snapshot}
+        />
       ))}
     </>
   );
@@ -124,12 +129,14 @@ function ZoneCell({
   lane: Lane;
   snapshot: MatchSnapshot;
 }) {
-  // Engine raw values, scaled by 100 for display (880 → 8.8).
+  // Engine emits values already on the 0–10 display magnitude (see
+  // `formatLanes` in `simulator/src/engine/match.engine.ts`); the FE
+  // is a thin renderer and never has to rescale.
   const home = snapshot.h.ls?.[lane]?.[phase] ?? 0;
   const away = snapshot.a.ls?.[lane]?.[phase] ?? 0;
   const total = home + away;
-  const homeDisplay = (home / 100).toFixed(1);
-  const awayDisplay = (away / 100).toFixed(1);
+  const homeDisplay = home.toFixed(1);
+  const awayDisplay = away.toFixed(1);
 
   // Phase-specific ratio. ATK/POS/DEF all show the same form:
   // home's share of total. Side whose total is 0 → 50/50 muted

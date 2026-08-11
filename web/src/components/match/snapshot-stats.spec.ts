@@ -8,20 +8,20 @@
  * `simulator/src/engine/match.engine.ts:2805` for the engine side.
  */
 
-import type { MatchEvent } from '@/lib/api';
+import type { MatchEvent } from "@/lib/api";
 import {
   extractSnapshots,
   lanePossessionShare,
   computePushRate,
   shouldCommitScrubber,
   resolveAutoSnapIndex,
-} from './snapshot-stats';
+} from "./snapshot-stats";
 import type {
   MatchSnapshot,
   MatchSnapshotSide,
   SnapshotLaneStrengths,
   SnapshotLaneCounters,
-} from './match-pitch-data';
+} from "./match-pitch-data";
 
 // ============================================================================
 // Fixtures
@@ -62,11 +62,11 @@ function mkSnapshotEvent(
 ): MatchEvent {
   return {
     id: `snap-${minute}`,
-    matchId: 'm-1',
+    matchId: "m-1",
     minute,
     second: 0,
-    type: 'SNAPSHOT',
-    typeName: 'SNAPSHOT',
+    type: "SNAPSHOT",
+    typeName: "SNAPSHOT",
     data: {
       h: { ls: homeLs, lc: homeLc, gk: 80, ps: [] },
       a: { ls: awayLs, lc: awayLc, gk: 80, ps: [] },
@@ -78,33 +78,57 @@ function mkSnapshotEvent(
 // extractSnapshots
 // ============================================================================
 
-describe('extractSnapshots', () => {
-  it('returns [] when there are no SNAPSHOT events', () => {
+describe("extractSnapshots", () => {
+  it("returns [] when there are no SNAPSHOT events", () => {
     const events: MatchEvent[] = [
-      { id: '1', matchId: 'm-1', minute: 5, type: 'GOAL', typeName: 'GOAL' } as unknown as MatchEvent,
+      {
+        id: "1",
+        matchId: "m-1",
+        minute: 5,
+        type: "GOAL",
+        typeName: "GOAL",
+      } as unknown as MatchEvent,
     ];
     expect(extractSnapshots(events)).toEqual([]);
   });
 
-  it('returns snapshots in chronological order, ignoring non-snapshot events', () => {
+  it("returns snapshots in chronological order, ignoring non-snapshot events", () => {
     const events = [
-      mkSnapshotEvent(15, mkLs(50), mkLc(2, 0.5, 0.6), mkLs(50), mkLc(1, 0.5, 0.4)),
-      { id: 'g', matchId: 'm-1', minute: 12, type: 'GOAL', typeName: 'GOAL' } as unknown as MatchEvent,
+      mkSnapshotEvent(
+        15,
+        mkLs(50),
+        mkLc(2, 0.5, 0.6),
+        mkLs(50),
+        mkLc(1, 0.5, 0.4),
+      ),
+      {
+        id: "g",
+        matchId: "m-1",
+        minute: 12,
+        type: "GOAL",
+        typeName: "GOAL",
+      } as unknown as MatchEvent,
       mkSnapshotEvent(5, mkLs(40), mkLc(0, 0, 0), mkLs(40), mkLc(0, 0, 0)),
-      mkSnapshotEvent(35, mkLs(60), mkLc(4, 0.7, 0.55), mkLs(40), mkLc(3, 0.4, 0.45)),
+      mkSnapshotEvent(
+        35,
+        mkLs(60),
+        mkLc(4, 0.7, 0.55),
+        mkLs(40),
+        mkLc(3, 0.4, 0.45),
+      ),
     ];
     const out = extractSnapshots(events);
     expect(out.map((s) => s.minute)).toEqual([5, 15, 35]);
   });
 
-  it('handles typeName === type fallback (older event shapes)', () => {
+  it("handles typeName === type fallback (older event shapes)", () => {
     // Some server responses carry only `type` and no `typeName`. Both
     // forms must yield the same snapshot.
     const legacy = {
-      id: 'snap',
-      matchId: 'm-1',
+      id: "snap",
+      matchId: "m-1",
       minute: 30,
-      type: 'snapshot',
+      type: "snapshot",
       data: {
         h: { ls: mkLs(50), lc: mkLc(1, 0.6, 0.55), gk: 80, ps: [] },
         a: { ls: mkLs(40), lc: mkLc(1, 0.4, 0.45), gk: 80, ps: [] },
@@ -113,19 +137,19 @@ describe('extractSnapshots', () => {
     expect(extractSnapshots([legacy])).toHaveLength(1);
   });
 
-  it('skips snapshot events whose data has no home/away payload', () => {
+  it("skips snapshot events whose data has no home/away payload", () => {
     const incomplete = {
-      id: 'snap',
-      matchId: 'm-1',
+      id: "snap",
+      matchId: "m-1",
       minute: 30,
-      type: 'SNAPSHOT',
-      typeName: 'SNAPSHOT',
+      type: "SNAPSHOT",
+      typeName: "SNAPSHOT",
       data: { h: { ls: mkLs(50), lc: mkLc(0, 0, 0), gk: 80, ps: [] } },
     } as unknown as MatchEvent;
     expect(extractSnapshots([incomplete])).toEqual([]);
   });
 
-  it('does not mutate the input events array', () => {
+  it("does not mutate the input events array", () => {
     const events = [
       mkSnapshotEvent(35, mkLs(50), mkLc(0, 0, 0), mkLs(50), mkLc(0, 0, 0)),
       mkSnapshotEvent(5, mkLs(50), mkLc(0, 0, 0), mkLs(50), mkLc(0, 0, 0)),
@@ -140,91 +164,131 @@ describe('extractSnapshots', () => {
 // lanePossessionShare
 // ============================================================================
 
-describe('lanePossessionShare', () => {
+describe("lanePossessionShare", () => {
   // Possession share is derived from each team's lane possession
   // STRENGTH (`ls.pos`), not from observed wins (`lc.midfieldBattles`)
   // or expected midfield probability (`lc.mpr`). Reason: strengths
   // always have data; the battle-derived fields collapse to 0/0 or
   // 1.0/0 depending on RNG.
+  //
+  // Fixture magnitudes mirror the 0–10 display values the simulator
+  // emits (see `formatLanes` in `simulator/src/engine/match.engine.ts`).
+  // The formula is scale-invariant so any 1× / 100× / 1000× multiple
+  // of the same set would give the same result; using 6/4 etc. keeps
+  // the spec consistent with what a real snapshot looks like.
   const home = mkLsPhased({
-    left:   { atk: 600, def: 400, pos: 600 },
-    center: { atk: 700, def: 500, pos: 700 },
-    right:  { atk: 500, def: 600, pos: 500 },
+    left: { atk: 6, def: 4, pos: 6 },
+    center: { atk: 7, def: 5, pos: 7 },
+    right: { atk: 5, def: 6, pos: 5 },
   });
   const away = mkLsPhased({
-    left:   { atk: 400, def: 600, pos: 400 },
-    center: { atk: 500, def: 700, pos: 500 },
-    right:  { atk: 600, def: 500, pos: 600 },
+    left: { atk: 4, def: 6, pos: 4 },
+    center: { atk: 5, def: 7, pos: 5 },
+    right: { atk: 6, def: 5, pos: 6 },
   });
 
   it("returns home's strength-based possession share (sums to 1.0 with the away call)", () => {
-    // left: 600 / (600 + 400) = 0.6
-    expect(lanePossessionShare({ ls: home, ps: [] } as MatchSnapshotSide, { ls: away, ps: [] } as MatchSnapshotSide, 'left')).toBeCloseTo(0.6, 5);
-    // center: 700 / (700 + 500) ≈ 0.5833
-    expect(lanePossessionShare({ ls: home, ps: [] } as MatchSnapshotSide, { ls: away, ps: [] } as MatchSnapshotSide, 'center')).toBeCloseTo(0.5833, 4);
-    // right: 500 / (500 + 600) ≈ 0.4545
-    expect(lanePossessionShare({ ls: home, ps: [] } as MatchSnapshotSide, { ls: away, ps: [] } as MatchSnapshotSide, 'right')).toBeCloseTo(0.4545, 4);
+    // left: 6 / (6 + 4) = 0.6
+    expect(
+      lanePossessionShare(
+        { ls: home, ps: [] } as MatchSnapshotSide,
+        { ls: away, ps: [] } as MatchSnapshotSide,
+        "left",
+      ),
+    ).toBeCloseTo(0.6, 5);
+    // center: 7 / (7 + 5) ≈ 0.5833
+    expect(
+      lanePossessionShare(
+        { ls: home, ps: [] } as MatchSnapshotSide,
+        { ls: away, ps: [] } as MatchSnapshotSide,
+        "center",
+      ),
+    ).toBeCloseTo(0.5833, 4);
+    // right: 5 / (5 + 6) ≈ 0.4545
+    expect(
+      lanePossessionShare(
+        { ls: home, ps: [] } as MatchSnapshotSide,
+        { ls: away, ps: [] } as MatchSnapshotSide,
+        "right",
+      ),
+    ).toBeCloseTo(0.4545, 4);
   });
 
-  it('symmetric: homeShare + awayShare === 1', () => {
-    for (const lane of ['left', 'center', 'right'] as const) {
-      const h = lanePossessionShare({ ls: home, ps: [] } as MatchSnapshotSide, { ls: away, ps: [] } as MatchSnapshotSide, lane);
-      const a = lanePossessionShare({ ls: away, ps: [] } as MatchSnapshotSide, { ls: home, ps: [] } as MatchSnapshotSide, lane);
+  it("symmetric: homeShare + awayShare === 1", () => {
+    for (const lane of ["left", "center", "right"] as const) {
+      const h = lanePossessionShare(
+        { ls: home, ps: [] } as MatchSnapshotSide,
+        { ls: away, ps: [] } as MatchSnapshotSide,
+        lane,
+      );
+      const a = lanePossessionShare(
+        { ls: away, ps: [] } as MatchSnapshotSide,
+        { ls: home, ps: [] } as MatchSnapshotSide,
+        lane,
+      );
       expect(h).not.toBeNull();
       expect(a).not.toBeNull();
       expect((h as number) + (a as number)).toBeCloseTo(1, 5);
     }
   });
 
-  it('returns 0.5 when both sides have 0 pos strength (defensive fallback)', () => {
+  it("returns 0.5 when both sides have 0 pos strength (defensive fallback)", () => {
     const empty = mkLsPhased({
-      left:   { atk: 0, def: 0, pos: 0 },
+      left: { atk: 0, def: 0, pos: 0 },
       center: { atk: 0, def: 0, pos: 0 },
-      right:  { atk: 0, def: 0, pos: 0 },
+      right: { atk: 0, def: 0, pos: 0 },
     });
     expect(
       lanePossessionShare(
         { ls: empty, ps: [] } as MatchSnapshotSide,
         { ls: empty, ps: [] } as MatchSnapshotSide,
-        'center',
+        "center",
       ),
     ).toBe(0.5);
   });
 
-  it('returns null when either side is missing `ls` entirely (legacy snapshots)', () => {
+  it("returns null when either side is missing `ls` entirely (legacy snapshots)", () => {
     const homeNoLs = { ls: undefined, ps: [] } as unknown as MatchSnapshotSide;
     expect(
-      lanePossessionShare(homeNoLs, { ls: away, ps: [] } as MatchSnapshotSide, 'left'),
+      lanePossessionShare(
+        homeNoLs,
+        { ls: away, ps: [] } as MatchSnapshotSide,
+        "left",
+      ),
     ).toBeNull();
   });
 
-  it('returns null when away side has ls missing (legacy snapshots)', () => {
+  it("returns null when away side has ls missing (legacy snapshots)", () => {
     const awayNoLs = { ls: undefined, ps: [] } as unknown as MatchSnapshotSide;
     expect(
-      lanePossessionShare({ ls: home, ps: [] } as MatchSnapshotSide, awayNoLs, 'center'),
+      lanePossessionShare(
+        { ls: home, ps: [] } as MatchSnapshotSide,
+        awayNoLs,
+        "center",
+      ),
     ).toBeNull();
   });
 
-  it('returns a plausible share even when one side has 0 attempts in this lane (no 0/100 collapse)', () => {
+  it("returns a plausible share even when one side has 0 attempts in this lane (no 0/100 collapse)", () => {
     // Reproduces the production bug: a side that never attacks in a
     // lane should still get a plausible share based on team strength,
     // not a degenerate 100/0 from the formula's divide-by-zero path.
     const homeNoRight = mkLsPhased({
-      left:   { atk: 600, def: 400, pos: 600 },
-      center: { atk: 700, def: 500, pos: 700 },
-      right:  { atk: 500, def: 600, pos: 0 }, // pos=0 for "no data"
+      left: { atk: 6, def: 4, pos: 6 },
+      center: { atk: 7, def: 5, pos: 7 },
+      right: { atk: 5, def: 6, pos: 0 }, // pos=0 for "no data"
     });
     const awayNoRight = mkLsPhased({
-      left:   { atk: 400, def: 600, pos: 400 },
-      center: { atk: 500, def: 700, pos: 500 },
-      right:  { atk: 600, def: 500, pos: 0 },
+      left: { atk: 4, def: 6, pos: 4 },
+      center: { atk: 5, def: 7, pos: 5 },
+      right: { atk: 6, def: 5, pos: 0 },
     });
     // Both pos=0 → defensive 0.5 fallback (NEVER 1.0/0.0)
     expect(
       lanePossessionShare(
         { ls: homeNoRight, ps: [] } as MatchSnapshotSide,
         { ls: awayNoRight, ps: [] } as MatchSnapshotSide,
-        'right',
+        "right",
       ),
     ).toBe(0.5);
   });
@@ -234,10 +298,15 @@ describe('lanePossessionShare', () => {
 // computePushRate
 // ============================================================================
 
-describe('computePushRate', () => {
-  // Real scenario: home atk=600 in left lane, away def=400.
+describe("computePushRate", () => {
+  // Fixture magnitudes mirror the 0–10 display values the simulator
+  // emits (see `formatLanes` in `simulator/src/engine/match.engine.ts`).
+  // The formula is scale-invariant: atk=6 / (atk=6 + def=4) = 0.6
+  // gives the same result as 600 / (600 + 400) = 0.6.
+  //
+  // Real scenario: home atk=6 in left lane, away def=4.
   // Formula: home.ls.left.atk / (home.ls.left.atk + away.ls.left.def)
-  //         = 600 / (600 + 400) = 0.6.
+  //         = 6 / (6 + 4) = 0.6.
   // Note: `oppDef` is the OPPONENT's `ls[lane].def`, not their atk —
   // a push fails against the defender's defense strength, not their
   // attack strength.
@@ -245,39 +314,39 @@ describe('computePushRate', () => {
     minute: 30,
     h: {
       ls: mkLsPhased({
-        left:   { atk: 600, def: 400, pos: 600 },
-        center: { atk: 400, def: 600, pos: 600 },
-        right:  { atk: 500, def: 500, pos: 500 },
+        left: { atk: 6, def: 4, pos: 6 },
+        center: { atk: 4, def: 6, pos: 6 },
+        right: { atk: 5, def: 5, pos: 5 },
       }),
       ps: [],
     },
     a: {
       ls: mkLsPhased({
-        // Home atk=600 vs away def=400 → 0.6 home push success.
-        left:   { atk: 400, def: 400, pos: 400 },
-        // Home atk=400 vs away def=600 → 0.4 home push success.
-        center: { atk: 600, def: 600, pos: 500 },
-        // Both sides atk=def=500 → 0.5 (balanced).
-        right:  { atk: 500, def: 500, pos: 500 },
+        // Home atk=6 vs away def=4 → 0.6 home push success.
+        left: { atk: 4, def: 4, pos: 4 },
+        // Home atk=4 vs away def=6 → 0.4 home push success.
+        center: { atk: 6, def: 6, pos: 5 },
+        // Both sides atk=def=5 → 0.5 (balanced).
+        right: { atk: 5, def: 5, pos: 5 },
       }),
       ps: [],
     },
   };
 
-  it('returns home atk / (home atk + away def) — strength-based prediction', () => {
-    // home pushes in `left`: home.atk=600 vs away.def=400 → 600/1000=0.6
-    expect(computePushRate(snap, 'left', 'h')).toBeCloseTo(0.6, 5);
-    // home pushes in `center`: home.atk=400 vs away.def=600 → 400/1000=0.4
-    expect(computePushRate(snap, 'center', 'h')).toBeCloseTo(0.4, 5);
-    // away pushes in `left`: away.atk=400 vs home.def=400 → 400/800=0.5
-    expect(computePushRate(snap, 'left', 'a')).toBeCloseTo(0.5, 5);
-    // away pushes in `center`: away.atk=600 vs home.def=600 → 600/1200=0.5
-    expect(computePushRate(snap, 'center', 'a')).toBeCloseTo(0.5, 5);
+  it("returns home atk / (home atk + away def) — strength-based prediction", () => {
+    // home pushes in `left`: home.atk=6 vs away.def=4 → 6/10=0.6
+    expect(computePushRate(snap, "left", "h")).toBeCloseTo(0.6, 5);
+    // home pushes in `center`: home.atk=4 vs away.def=6 → 4/10=0.4
+    expect(computePushRate(snap, "center", "h")).toBeCloseTo(0.4, 5);
+    // away pushes in `left`: away.atk=4 vs home.def=4 → 4/8=0.5
+    expect(computePushRate(snap, "left", "a")).toBeCloseTo(0.5, 5);
+    // away pushes in `center`: away.atk=6 vs home.def=6 → 6/12=0.5
+    expect(computePushRate(snap, "center", "a")).toBeCloseTo(0.5, 5);
   });
 
-  it('returns 0.5 when both sides are perfectly balanced (atk === def)', () => {
-    expect(computePushRate(snap, 'right', 'h')).toBeCloseTo(0.5, 5);
-    expect(computePushRate(snap, 'right', 'a')).toBeCloseTo(0.5, 5);
+  it("returns 0.5 when both sides are perfectly balanced (atk === def)", () => {
+    expect(computePushRate(snap, "right", "h")).toBeCloseTo(0.5, 5);
+    expect(computePushRate(snap, "right", "a")).toBeCloseTo(0.5, 5);
   });
 
   it('returns a plausible rate even when one side never attacked in this lane (no "—" bug)', () => {
@@ -288,34 +357,34 @@ describe('computePushRate', () => {
       minute: 30,
       h: {
         ls: mkLsPhased({
-          left:   { atk: 600, def: 400, pos: 600 },
-          center: { atk: 400, def: 600, pos: 600 },
-          right:  { atk: 500, def: 500, pos: 500 },
+          left: { atk: 6, def: 4, pos: 6 },
+          center: { atk: 4, def: 6, pos: 6 },
+          right: { atk: 5, def: 5, pos: 5 },
         }),
         ps: [],
       },
       a: {
         ls: mkLsPhased({
-          left:   { atk: 400, def: 600, pos: 400 },
-          center: { atk: 600, def: 400, pos: 500 },
-          right:  { atk: 0,   def: 500, pos: 500 },
+          left: { atk: 4, def: 6, pos: 4 },
+          center: { atk: 6, def: 4, pos: 5 },
+          right: { atk: 0, def: 5, pos: 5 },
         }),
         ps: [],
       },
     };
-    // away right: 0 / (0 + 500) = 0 (legitimately low — never attacks)
-    expect(computePushRate(scenario, 'right', 'a')).toBeCloseTo(0, 5);
-    // home right stays balanced: 500/1000 = 0.5
-    expect(computePushRate(scenario, 'right', 'h')).toBeCloseTo(0.5, 5);
+    // away right: 0 / (0 + 5) = 0 (legitimately low — never attacks)
+    expect(computePushRate(scenario, "right", "a")).toBeCloseTo(0, 5);
+    // home right stays balanced: 5/10 = 0.5
+    expect(computePushRate(scenario, "right", "h")).toBeCloseTo(0.5, 5);
   });
 
-  it('returns null when ls is missing on either side (legacy snapshots)', () => {
+  it("returns null when ls is missing on either side (legacy snapshots)", () => {
     const legacy: MatchSnapshot = {
       minute: 0,
       h: { ls: undefined, ps: [] } as unknown as MatchSnapshotSide,
       a: { ls: mkLs(50), ps: [] } as MatchSnapshotSide,
     };
-    expect(computePushRate(legacy, 'left', 'h')).toBeNull();
+    expect(computePushRate(legacy, "left", "h")).toBeNull();
   });
 });
 
@@ -323,24 +392,24 @@ describe('computePushRate', () => {
 // shouldCommitScrubber
 // ============================================================================
 
-describe('shouldCommitScrubber', () => {
-  it('returns null when no draft is in flight (mouseup without prior change)', () => {
+describe("shouldCommitScrubber", () => {
+  it("returns null when no draft is in flight (mouseup without prior change)", () => {
     // Native browser fires mouseup on the input even if the value
     // didn't change. The commit must skip in that case.
     expect(shouldCommitScrubber(null, 5)).toBeNull();
   });
 
-  it('returns null when the draft equals the active index (no-op click)', () => {
+  it("returns null when the draft equals the active index (no-op click)", () => {
     // User drags to the same tick and releases — no commit, no re-render.
     expect(shouldCommitScrubber(3, 3)).toBeNull();
   });
 
-  it('returns the draft index when it differs from active (real drag/click)', () => {
+  it("returns the draft index when it differs from active (real drag/click)", () => {
     expect(shouldCommitScrubber(5, 3)).toBe(5);
     expect(shouldCommitScrubber(0, 7)).toBe(0);
   });
 
-  it('boundary case: dragging to the very last snapshot commits', () => {
+  it("boundary case: dragging to the very last snapshot commits", () => {
     expect(shouldCommitScrubber(17, 5)).toBe(17);
   });
 });
@@ -349,8 +418,8 @@ describe('shouldCommitScrubber', () => {
 // resolveAutoSnapIndex — B1 scrubber lock
 // ============================================================================
 
-describe('resolveAutoSnapIndex', () => {
-  it('returns null while the user is mid-drag (do not yank the playhead)', () => {
+describe("resolveAutoSnapIndex", () => {
+  it("returns null while the user is mid-drag (do not yank the playhead)", () => {
     // Regression for B1: before this helper the live page forcibly re-set
     // activeIndex on every new snapshot, so a user scrubbing back to
     // minute 60 lost their place the moment a new snapshot arrived.
@@ -358,12 +427,12 @@ describe('resolveAutoSnapIndex', () => {
     expect(resolveAutoSnapIndex(0, true)).toBeNull();
   });
 
-  it('snaps to the latest snapshot when the user is not scrubbing', () => {
+  it("snaps to the latest snapshot when the user is not scrubbing", () => {
     expect(resolveAutoSnapIndex(10, false)).toBe(9);
     expect(resolveAutoSnapIndex(1, false)).toBe(0);
   });
 
-  it('clamps the empty-snapshots edge case to 0 (not -1)', () => {
+  it("clamps the empty-snapshots edge case to 0 (not -1)", () => {
     // The parent then re-clamps via `safeActiveIndex`, but returning a
     // non-negative value here keeps the math from ever going negative.
     expect(resolveAutoSnapIndex(0, false)).toBe(0);

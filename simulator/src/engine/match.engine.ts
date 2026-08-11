@@ -1193,21 +1193,30 @@ export class MatchEngine {
       }
 
       const count = history.length;
+      // Same `/100` fold as `formatLanes` above (see header on that
+      // helper). Keeping both emit sites on the same 0–10 magnitude
+      // means the FE never has to do display math on these numbers.
       return {
         left: {
-          attack: parseFloat((totals.left.attack / count).toFixed(2)),
-          defense: parseFloat((totals.left.defense / count).toFixed(2)),
-          possession: parseFloat((totals.left.possession / count).toFixed(2)),
+          attack: parseFloat((totals.left.attack / count / 100).toFixed(2)),
+          defense: parseFloat((totals.left.defense / count / 100).toFixed(2)),
+          possession: parseFloat(
+            (totals.left.possession / count / 100).toFixed(2),
+          ),
         },
         center: {
-          attack: parseFloat((totals.center.attack / count).toFixed(2)),
-          defense: parseFloat((totals.center.defense / count).toFixed(2)),
-          possession: parseFloat((totals.center.possession / count).toFixed(2)),
+          attack: parseFloat((totals.center.attack / count / 100).toFixed(2)),
+          defense: parseFloat((totals.center.defense / count / 100).toFixed(2)),
+          possession: parseFloat(
+            (totals.center.possession / count / 100).toFixed(2),
+          ),
         },
         right: {
-          attack: parseFloat((totals.right.attack / count).toFixed(2)),
-          defense: parseFloat((totals.right.defense / count).toFixed(2)),
-          possession: parseFloat((totals.right.possession / count).toFixed(2)),
+          attack: parseFloat((totals.right.attack / count / 100).toFixed(2)),
+          defense: parseFloat((totals.right.defense / count / 100).toFixed(2)),
+          possession: parseFloat(
+            (totals.right.possession / count / 100).toFixed(2),
+          ),
         },
       };
     };
@@ -1491,8 +1500,14 @@ export class MatchEngine {
     // additive model with a single multiplicative team bonus; the
     // strength of that bonus is governed by the highest-tier
     // TACKLER on the pitch (1.0 / 1.20 / 1.40 for Bronze/Silver/Gold).
-    const homeTackleBonus = teamMaxEventMultiplier(this.homeTeam, 'midfield_control');
-    const awayTackleBonus = teamMaxEventMultiplier(this.awayTeam, 'midfield_control');
+    const homeTackleBonus = teamMaxEventMultiplier(
+      this.homeTeam,
+      'midfield_control',
+    );
+    const awayTackleBonus = teamMaxEventMultiplier(
+      this.awayTeam,
+      'midfield_control',
+    );
 
     const homeControlWithBonus = homeControl * homeTackleBonus;
     const awayControlWithBonus = awayControl * awayTackleBonus;
@@ -2004,7 +2019,7 @@ export class MatchEngine {
       // post-red-card lineup (10 men) instead of a stale 5-min
       // snapshot taken before the dismissal.
       this.generateSnapshotEvent(this.time);
-    } else if (roll < 0.20) {
+    } else if (roll < 0.2) {
       // Yellow Card - check for second yellow
       const currentYellows = player.yellowCards || 0;
       player.yellowCards = currentYellows + 1;
@@ -2103,8 +2118,7 @@ export class MatchEngine {
     );
     if (candidates.length === 0) return;
 
-    const tacticalPlayer =
-      candidates[(Math.random() * candidates.length) | 0];
+    const tacticalPlayer = candidates[(Math.random() * candidates.length) | 0];
     if (!tacticalPlayer) return;
 
     const player = tacticalPlayer.player as Player;
@@ -2484,9 +2498,7 @@ export class MatchEngine {
       minute: this.time,
       type: eventType,
       teamName: possessor,
-      playerId: eventPlayer
-        ? (eventPlayer.player as Player).id
-        : undefined,
+      playerId: eventPlayer ? (eventPlayer.player as Player).id : undefined,
       // `relatedPlayerId` carries the assist for shot outcomes, OR the
       // tackler for turnover. The two share one slot because the FE
       // comment template only ever reads one of them at a time (it
@@ -3106,10 +3118,19 @@ export class MatchEngine {
       if (!ls) return null;
       const res: any = {};
       for (const [lane, phases] of Object.entries(ls)) {
+        // The internal `Team.updateSnapshot()` accumulator produces
+        // values in a 0–1000 magnitude (each player's
+        // `att*multiplier*attackLaneMultiplier` summed across 11
+        // starters). The FE previously divided by 100 at two
+        // display sites to make the numbers UI-readable (880 → 8.8).
+        // Folding that `/100` into the engine means the SNAPSHOT
+        // payload already carries the display magnitude, so the FE
+        // becomes a thin renderer. Divide-then-round is correct: a
+        // raw 880.55 → 8.8055 → "8.8" (1-decimal as before).
         res[lane] = {
-          atk: parseFloat(((phases as any).attack || 0).toFixed(1)),
-          def: parseFloat(((phases as any).defense || 0).toFixed(1)),
-          pos: parseFloat(((phases as any).possession || 0).toFixed(1)),
+          atk: parseFloat((((phases as any).attack || 0) / 100).toFixed(1)),
+          def: parseFloat((((phases as any).defense || 0) / 100).toFixed(1)),
+          pos: parseFloat((((phases as any).possession || 0) / 100).toFixed(1)),
         };
       }
       return res;
