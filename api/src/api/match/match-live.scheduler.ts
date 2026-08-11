@@ -9,6 +9,18 @@ import { MatchLiveGateway } from './match-live.gateway';
 // 比赛开始前5分钟可见首发阵容
 const LINEUP_VISIBLE_BEFORE_KICKOFF_MINUTES = 5;
 
+/**
+ * Aggregated per-match cumulative score + current minute for the
+ * `processRevealableEvents` tick. Sourced from a single `GROUP BY matchId`
+ * query so the scheduler can broadcast the *cumulative* score (not the
+ * batch-delta), which is what the client expects.
+ */
+interface CumulativeMatchStats {
+  homeScore: number;
+  awayScore: number;
+  currentMinute: number;
+}
+
 @Injectable()
 export class MatchLiveScheduler {
   private readonly logger = new Logger(MatchLiveScheduler.name);
@@ -27,13 +39,17 @@ export class MatchLiveScheduler {
   async processRevealableEvents() {
     const now = new Date();
 
-    // Find events that are ready to be revealed (eventScheduledTime has passed)
+    // Find events that are ready to be revealed (eventScheduledTime has passed).
+    // No `relations` — the only thing this tick does with the rows is forward
+    // them as `match_events` payloads to the gateway, which never reads the
+    // joined `match` / `team` / `player` columns. Dropping the three joins
+    // cuts a measurable chunk of work on hot sim-weekend nights when the
+    // per-tick batch is 100s of rows across many matches.
     const eventsToReveal = await this.eventRepository.find({
       where: {
         isRevealed: false,
         eventScheduledTime: LessThanOrEqual(now),
       },
-      relations: ['match', 'team', 'player'],
     });
 
     if (eventsToReveal.length === 0) {
@@ -53,10 +69,29 @@ export class MatchLiveScheduler {
       byMatch.get(event.matchId)!.push(event);
     }
 
+    // Aggregate per-match cumulative goal count + max minute in a single
+    // GROUP BY query. This is the load-bearing fix for the score-update
+    // bug: the old code computed the score from `events` (i.e. the *batch
+    // delta*), so on the second goal the broadcast would say 1-0 and
+    // overwrite the client-side 2-0 the prior tick had set. The client
+    // hook (`useMatchPage` → `setMatchState`) overwrites `homeScore`/
+    // `awayScore` verbatim, so any batch-delta broadcast would visibly
+    // rewind the scoreline as more goals landed. Pulling the cumulative
+    // count from the DB once per match per tick keeps the contract
+    // monotonic by construction.
+    const cumulativeByMatch = await this.getCumulativeMatchStats(
+      Array.from(byMatch.keys()),
+    );
+
     // Process each match
     for (const [matchId, events] of byMatch.entries()) {
       try {
-        await this.processMatchEvents(matchId, events);
+        const stats: CumulativeMatchStats = cumulativeByMatch.get(matchId) ?? {
+          homeScore: 0,
+          awayScore: 0,
+          currentMinute: 0,
+        };
+        await this.processMatchEvents(matchId, events, stats);
       } catch (error) {
         this.logger.error(
           `[MatchLive] Error processing match ${matchId}: ${error.message}`,
@@ -224,32 +259,12 @@ export class MatchLiveScheduler {
   private async processMatchEvents(
     matchId: string,
     events: MatchEventEntity[],
+    cumulative: CumulativeMatchStats,
   ) {
-    // Calculate current score from events
-    let homeScore = 0;
-    let awayScore = 0;
-    let currentMinute = 0;
-
-    const match = events[0]?.match;
-    if (!match) return;
-
-    for (const event of events) {
-      // Track current minute (max minute seen)
-      if (event.minute > currentMinute) {
-        currentMinute = event.minute;
-      }
-
-      // Count goals
-      if (event.typeName === 'goal' || event.typeName === 'penalty_goal') {
-        if (event.isHome) {
-          homeScore++;
-        } else {
-          awayScore++;
-        }
-      }
-    }
-
-    // Broadcast events
+    // Broadcast the freshly-revealed events to the room. Score / minute
+    // come from the *cumulative* GROUP BY result so the value broadcast
+    // is monotonic with the previous tick — see the load-bearing comment
+    // on `getCumulativeMatchStats` above.
     const eventPayloads = events.map((e) => ({
       type: e.typeName || String(e.type),
       matchId: e.matchId,
@@ -266,17 +281,70 @@ export class MatchLiveScheduler {
     this.matchLiveGateway.broadcastEvents(matchId, eventPayloads);
 
     // If score changed, broadcast score update
-    if (homeScore > 0 || awayScore > 0) {
+    if (cumulative.homeScore > 0 || cumulative.awayScore > 0) {
       this.matchLiveGateway.broadcastScoreUpdate(
         matchId,
-        homeScore,
-        awayScore,
-        currentMinute,
+        cumulative.homeScore,
+        cumulative.awayScore,
+        cumulative.currentMinute,
       );
     }
 
     this.logger.debug(
-      `[MatchLive] Broadcasted ${events.length} events for match ${matchId} (${homeScore}-${awayScore} at ${currentMinute}')`,
+      `[MatchLive] Broadcasted ${events.length} events for match ${matchId} (${cumulative.homeScore}-${cumulative.awayScore} at ${cumulative.currentMinute}')`,
     );
+  }
+
+  /**
+   * One row per matchId, summarizing all *currently revealed* goal
+   * events for that match plus the max minute seen. Drives the
+   * cumulative score broadcast so the client never sees a rewind.
+   *
+   * One aggregate query for the whole tick (not N queries) — N matches
+   * with revealed goals produces one `GROUP BY match_id` round-trip
+   * which PostgreSQL executes against the existing
+   * `(matchId, phase, minute)` composite index.
+   *
+   * Returns an empty Map if `matchIds` is empty so the caller can stay
+   * linear without a guard.
+   */
+  private async getCumulativeMatchStats(
+    matchIds: string[],
+  ): Promise<Map<string, CumulativeMatchStats>> {
+    const result = new Map<string, CumulativeMatchStats>();
+    if (matchIds.length === 0) {
+      return result;
+    }
+
+    const rows = await this.eventRepository
+      .createQueryBuilder('e')
+      .select('e.matchId', 'matchId')
+      .addSelect(
+        `COUNT(*) FILTER (WHERE e.typeName IN ('goal', 'penalty_goal') AND e.isHome = true)`,
+        'homeGoals',
+      )
+      .addSelect(
+        `COUNT(*) FILTER (WHERE e.typeName IN ('goal', 'penalty_goal') AND e.isHome = false)`,
+        'awayGoals',
+      )
+      .addSelect('COALESCE(MAX(e.minute), 0)', 'maxMinute')
+      .where('e.isRevealed = :revealed', { revealed: true })
+      .andWhere('e.matchId IN (:...matchIds)', { matchIds })
+      .groupBy('e.matchId')
+      .getRawMany<{
+        matchId: string;
+        homeGoals: string;
+        awayGoals: string;
+        maxMinute: string;
+      }>();
+
+    for (const r of rows) {
+      result.set(r.matchId, {
+        homeScore: Number(r.homeGoals) || 0,
+        awayScore: Number(r.awayGoals) || 0,
+        currentMinute: Number(r.maxMinute) || 0,
+      });
+    }
+    return result;
   }
 }
