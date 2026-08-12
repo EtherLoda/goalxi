@@ -140,6 +140,29 @@ export class UserEntity extends AbstractEntity {
   })
   onboardingStatus: UserOnboardingStatus;
 
+  /**
+   * Locale the user registered from. Captured at the register
+   * page from `params.locale` (the `en` / `zh` segment of the
+   * URL) so we can route them back to the right language after
+   * every subsequent login — see `AuthContext.login` and the
+   * `register.page.tsx` field that ships this value. The
+   * default `'en'` covers pre-migration rows and the rare
+   * case where a script-driven register omits the field;
+   * `'en'` is also next-intl's `defaultLocale` so the two
+   * never disagree.
+   *
+   * `varchar(8)` is sized for the locale codes we support
+   * today (`en`, `zh`); bump the column in a follow-up
+   * migration if a longer code (e.g. `pt-BR`) lands.
+   */
+  @Column({
+    name: 'preferred_language',
+    type: 'varchar',
+    length: 8,
+    default: 'en',
+  })
+  preferredLanguage: string;
+
   @DeleteDateColumn({
     name: 'deleted_at',
     type: 'timestamptz',

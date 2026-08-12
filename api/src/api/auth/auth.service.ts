@@ -131,6 +131,15 @@ export class AuthService {
       username: dto.username,
       email: dto.email,
       password: dto.password,
+      // `preferredLanguage` is the locale the user registered
+      // from (web register page reads it from the `[locale]`
+      // URL segment). Captured here so subsequent logins can
+      // route the user back to the right language without
+      // them having to flip the navbar switcher every time.
+      // Falls back to the column default (`'en'`) for the
+      // rare case the client omits the field — see
+      // `UserEntity.preferredLanguage` for the contract.
+      preferredLanguage: dto.preferredLanguage,
     });
 
     await user.save();

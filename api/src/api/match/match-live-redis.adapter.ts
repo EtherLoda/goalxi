@@ -63,6 +63,18 @@ export class MatchLiveRedisAdapter implements OnApplicationShutdown {
    * Idempotent: a second call is a no-op so the gateway can call this
    * from `afterInit` without worrying about double-attach (e.g.
    * hot-reload during `nest start --watch`).
+   *
+   * `server` is actually a `Namespace` instance, not the root
+   * `Server` — `@WebSocketGateway({ namespace: '/matches' })`
+   * makes NestJS inject the namespace-scoped server. socket.io
+   * 4.8 distinguishes the two: `Server.adapter(adapter)` is a
+   * setter method (index.d.ts:255), while `Namespace.adapter` is
+   * a plain property (namespace.d.ts:81). Calling `.adapter(...)`
+   * on a Namespace blows up with `server.adapter is not a
+   * function`, so we reach through to the root via
+   * `namespace.server` (namespace.d.ts:83) and set the adapter
+   * there — that one switch makes every namespace in this
+   * server use the Redis-backed adapter.
    */
   attachToServer(server: Server): void {
     if (this.attached) {
@@ -80,10 +92,12 @@ export class MatchLiveRedisAdapter implements OnApplicationShutdown {
     this.pubClient = this.createClient(config);
     this.subClient = this.createClient(config);
 
-    // @socket.io/redis-adapter factory returns a per-namespace
-    // adapter constructor; assigning it to `server.adapter` makes
-    // socket.io use it for every namespace under this server.
-    server.adapter(
+    // `namespace.server` is the root `Server` — the only place
+    // `adapter(adapter)` works as a setter. Falling back to the
+    // raw `server` arg keeps single-namespace deployments
+    // working even if the property lookup is missing.
+    const rootServer = (server as unknown as { server: Server }).server ?? server;
+    rootServer.adapter(
       createAdapter(this.pubClient, this.subClient, {
         key: 'match-live',
         requestsTimeout: 5_000,

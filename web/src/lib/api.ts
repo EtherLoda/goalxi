@@ -52,6 +52,16 @@ interface User {
   nickname: string;
   bio: string | null;
   supporterLevel: number;
+  /**
+   * Locale the user registered from. The web `AuthContext` reads
+   * this from `/users/me` and routes the user to
+   * `/${preferredLanguage}/dashboard` on every login — so a
+   * user who registered under `/zh` lands on `/zh/dashboard`
+   * forever, even if they happen to hit the login page from
+   * `/en`. Server defaults to `'en'`; client treats anything
+   * outside `routing.locales` as `'en'`.
+   */
+  preferredLanguage?: string;
 }
 
 interface Team {

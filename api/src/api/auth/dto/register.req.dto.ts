@@ -30,4 +30,17 @@ export class RegisterReqDto {
    */
   @StringField({ minLength: 2, maxLength: 50, required: false })
   teamName?: string;
+
+  /**
+   * Locale the user is registering from. The web register
+   * page reads this from the `[locale]` URL segment and
+   * ships it so we can route the user back to the right
+   * language after every subsequent login. Defaults to
+   * `'en'` server-side; the `en`/`zh` constraint matches
+   * `UserEntity.preferredLanguage` (varchar(8)) and
+   * next-intl's `routing.locales`. Optional so headless
+   * scripts / tests can omit it.
+   */
+  @StringField({ minLength: 2, maxLength: 8, required: false })
+  preferredLanguage?: string;
 }

@@ -45,10 +45,25 @@ export default function RegisterPage() {
       // new team row during claim, so the user lands on
       // `/dashboard` with a club name they recognize. We do
       // not wait for the team here.
+      //
+      // `preferredLanguage` rides the payload so the backend
+      // can persist it on the user row — every subsequent
+      // login (regardless of which locale URL they hit) routes
+      // the user back here. We read it from `params.locale`
+      // (the `[locale]` URL segment) rather than the i18n
+      // runtime because we want the value at the moment of
+      // submit, not whatever the current `useLocale()` thinks
+      // (which can drift if the user manually switched).
       const res = await fetch("http://localhost:3000/api/v1/auth/email/register", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ username, email, password, teamName: teamName.trim() }),
+        body: JSON.stringify({
+          username,
+          email,
+          password,
+          teamName: teamName.trim(),
+          preferredLanguage: locale,
+        }),
       });
 
       if (!res.ok) {

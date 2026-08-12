@@ -17,34 +17,56 @@
 type = "file"
 include = ["/app/logs/api/*.log"]
 read_from = "beginning"
-decoding.codec = "json"
+# NOTE: Vector 0.46+ removed per-source JSON decoding — `encoding` now
+# only accepts `charset`. The `parse_logs` remap transform below
+# does `parse_json!(.message)` on each raw line instead.
 
 [sources.settlement_logs]
 type = "file"
 include = ["/app/logs/settlement/*.log"]
 read_from = "beginning"
-decoding.codec = "json"
+# NOTE: Vector 0.46+ removed per-source JSON decoding — `encoding` now
+# only accepts `charset`. The `parse_logs` remap transform below
+# does `parse_json!(.message)` on each raw line instead.
 
 [sources.simulator_logs]
 type = "file"
 include = ["/app/logs/simulator/*.log"]
 read_from = "beginning"
-decoding.codec = "json"
+# NOTE: Vector 0.46+ removed per-source JSON decoding — `encoding` now
+# only accepts `charset`. The `parse_logs` remap transform below
+# does `parse_json!(.message)` on each raw line instead.
 
 # Transforms - Normalize pino fields into OpenObserve-friendly shape
 [transforms.parse_logs]
 type = "remap"
 inputs = ["api_logs", "settlement_logs", "simulator_logs"]
 source = """
+# Vector's `file` source delivers each line as a raw string in
+# `.message` (the `decoding`/per-source codec config was removed in
+# Vector 0.46+). Parse it back into a structured object and merge the
+# fields into the current event so the rest of the pipeline sees the
+# same shape it used to get from `decoding.codec = "json"`.
+merge!(., object!(parse_json!(.message)))
+
 # pino level (int) -> string. Pino's documented numeric levels:
 #   10 trace, 20 debug, 30 info, 40 warn, 50 error, 60 fatal
-.level = if .level == 10 { "trace" }
-  else if .level == 20 { "debug" }
-  else if .level == 30 { "info" }
-  else if .level == 40 { "warn" }
-  else if .level == 50 { "error" }
-  else if .level == 60 { "fatal" }
-  else { "info" }
+# (VRL bundled with Vector latest-alpine only parses `if/else` as a
+# single expression — both `if/else if/else` chains on the RHS of an
+# assignment and non-literal array indices are rejected, so nest the
+# branches. Verbose, but each `if/else` is a self-contained value
+# expression and parses cleanly.)
+.level = if .level == 10 { "trace" } else {
+  if .level == 20 { "debug" } else {
+    if .level == 30 { "info" } else {
+      if .level == 40 { "warn" } else {
+        if .level == 50 { "error" } else {
+          if .level == 60 { "fatal" } else { "info" }
+        }
+      }
+    }
+  }
+}
 
 # Convert pino's millisecond timestamp to a proper timestamp
 if exists(.time) {
