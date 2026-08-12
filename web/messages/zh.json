@@ -773,6 +773,13 @@
     "record_broken": "创造新纪录",
     "contract_renewal": "续约"
   },
+  "specialty": {
+    "tier": {
+      "GOLD": "金",
+      "SILVER": "银",
+      "BRONZE": "铜"
+    }
+  },
   "training": {
     "title": "训练场",
     "subtitle": "为球员分配教练进行专项训练。",

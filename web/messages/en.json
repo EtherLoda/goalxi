@@ -777,6 +777,13 @@
     "record_broken": "New record set",
     "contract_renewal": "Contract renewed"
   },
+  "specialty": {
+    "tier": {
+      "GOLD": "Gold",
+      "SILVER": "Silver",
+      "BRONZE": "Bronze"
+    }
+  },
   "training": {
     "title": "Training Ground",
     "subtitle": "Assign players to coaches for specialized training.",

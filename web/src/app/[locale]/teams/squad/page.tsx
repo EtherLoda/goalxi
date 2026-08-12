@@ -391,8 +391,8 @@ function SquadPageContent() {
             <div className="flex-1" />
 
             {/* Left Column: Formation-Based Player List */}
-            <div className="w-[480px] max-w-[35%] shrink-0 flex flex-col gap-4 overflow-hidden">
-              <div className="bg-[#001e17] rounded-xl flex flex-col overflow-hidden h-full">
+            <div className="w-[480px] max-w-[35%] shrink-0 flex flex-col gap-4">
+              <div className="bg-[#001e17] rounded-xl flex flex-col h-full">
                 {/* List Header */}
                 <div className="px-4 py-3 border-b border-[#2f4e44]/10">
                   <div className="flex items-center justify-between">
@@ -442,101 +442,124 @@ function SquadPageContent() {
                             <div
                               key={player.id}
                               onClick={() => setSelectedPlayer(player)}
-                              className={`mx-3 mb-2 px-4 py-3.5 rounded-xl cursor-pointer transition-all ${
+                              className={`group relative mx-3 mb-2 rounded-xl cursor-pointer transition-all duration-200 ease-out border-l-2 ${
                                 isSelected
-                                  ? "bg-[#002c22] border-l-2 border-[#a1ffc2]"
-                                  : "hover:bg-[#00251c]/50"
+                                  ? "bg-[#002c22] border-[#a1ffc2] shadow-[inset_0_0_24px_rgba(161,255,194,0.10)]"
+                                  : "bg-transparent border-transparent hover:bg-[#00251c]/70 hover:border-[#a1ffc2]/40 hover:shadow-[inset_0_0_18px_rgba(161,255,194,0.06)]"
                               }`}
                             >
-                              <div className="flex items-center gap-4">
-                                {/* Avatar Circle */}
-                                <div
-                                  className={`w-12 h-12 rounded-full flex items-center justify-center font-bold text-sm shrink-0 transition-colors ${
-                                    isSelected
-                                      ? "bg-[#a1ffc2]/20 text-[#a1ffc2]"
-                                      : "bg-[#00251c] text-[#91b2a6]"
-                                  }`}
-                                >
-                                  {initials}
-                                </div>
-
-                                {/* Player Info */}
-                                <div className="flex-1 min-w-0">
-                                  <div className="flex items-center gap-2 mb-1.5">
-                                    <Link
-                                      href={`/${locale}/players/${player.id}`}
-                                      onClick={(e) => e.stopPropagation()}
-                                      className="text-sm font-bold text-[#d3f5e8] truncate hover:text-[#a1ffc2] transition-colors"
-                                    >
-                                      {player.name}
-                                    </Link>
-                                    {player.onTransfer && (
-                                      <span className="material-symbols-outlined text-[#a1ffc2] text-xs" title={t("squad.transfer.listed")}>
-                                        sell
-                                      </span>
-                                    )}
-                                    {player.coreSpecialty ? (
-                                      <span
-                                        className={`inline-flex items-center gap-1 text-[9px] font-bold px-1.5 py-0.5 rounded ${
-                                          player.coreSpecialtyTier === 'GOLD'
-                                            ? 'text-amber-300 bg-amber-300/10 border border-amber-300/30'
-                                            : player.coreSpecialtyTier === 'SILVER'
-                                            ? 'text-slate-300 bg-slate-300/10 border border-slate-300/30'
-                                            : 'text-stone-400 bg-stone-400/10 border border-stone-400/30'
-                                        }`}
-                                      >
-                                        <SpecialtyIcon
-                                          code={player.coreSpecialty}
-                                          tier={player.coreSpecialtyTier}
-                                          size="xs"
-                                        />
-                                        {getSpecialtyLabel(player.coreSpecialty, locale === "en" ? "en" : "zh")}
-                                      </span>
-                                    ) : (
-                                      <span className="inline-flex items-center gap-1 text-[9px] font-bold text-stone-500 bg-stone-500/10 px-1.5 py-0.5 rounded border border-stone-500/20">
-                                        — 无特技
-                                      </span>
-                                    )}
-                                    <InjuryBadge
-                                      player={player}
-                                      estimatedDays={Math.ceil(
-                                        (player.currentInjuryValue ?? 0) / 8,
-                                      )}
-                                    />
+                              {/* Subtle hover sheen — slides in from the left */}
+                              <div
+                                className={`absolute inset-y-0 left-0 w-1 transition-all duration-200 ease-out ${
+                                  isSelected
+                                    ? "bg-gradient-to-r from-[#a1ffc2]/40 to-transparent opacity-100"
+                                    : "opacity-0 group-hover:opacity-100 bg-gradient-to-r from-[#a1ffc2]/30 to-transparent"
+                                }`}
+                              />
+                              <div className="relative px-4 py-3.5">
+                                <div className="flex items-center gap-4">
+                                  {/* Avatar Circle */}
+                                  <div
+                                    className={`w-12 h-12 rounded-full flex items-center justify-center font-bold text-sm shrink-0 transition-all duration-200 ${
+                                      isSelected
+                                        ? "bg-[#a1ffc2]/20 text-[#a1ffc2] scale-105 ring-2 ring-[#a1ffc2]/30"
+                                        : "bg-[#00251c] text-[#91b2a6] group-hover:bg-[#003328] group-hover:text-[#d3f5e8]"
+                                    }`}
+                                  >
+                                    {initials}
                                   </div>
-                                  <div className="flex items-center gap-4 text-xs font-space">
-                                    <span>
-                                      <span className="text-[#4a7a6a]">{locale === "zh" ? "体能" : "Stamina"} </span>
-                                      <span className={`font-bold ${
-                                        player.stamina >= 4 ? "text-[#a1ffc2]" :
-                                        player.stamina >= 2 ? "text-[#abf853]" :
-                                        "text-red-400"
-                                      }`}>
-                                        {getConditionText(player.stamina, locale).text}
+
+                                  {/* Player Info */}
+                                  <div className="flex-1 min-w-0">
+                                    <div className="flex items-center gap-2">
+                                      <Link
+                                        href={`/${locale}/players/${player.id}`}
+                                        onClick={(e) => e.stopPropagation()}
+                                        className="text-sm font-bold text-[#d3f5e8] truncate hover:text-[#a1ffc2] transition-colors"
+                                      >
+                                        {player.name}
+                                      </Link>
+                                      {player.onTransfer && (
+                                        <span
+                                          className="material-symbols-outlined text-[#a1ffc2] text-xs"
+                                          title={t("squad.transfer.listed")}
+                                        >
+                                          sell
+                                        </span>
+                                      )}
+                                      {player.coreSpecialty ? (
+                                        <span
+                                          className={`inline-flex items-center gap-1.5 text-[10px] font-bold ${
+                                            player.coreSpecialtyTier === 'GOLD'
+                                              ? 'text-amber-300'
+                                              : player.coreSpecialtyTier === 'SILVER'
+                                              ? 'text-slate-300'
+                                              : 'text-stone-400'
+                                          }`}
+                                        >
+                                          <SpecialtyIcon
+                                            code={player.coreSpecialty}
+                                            tier={player.coreSpecialtyTier}
+                                            size="lg"
+                                          />
+                                          <span className="max-w-0 group-hover:max-w-[140px] opacity-0 group-hover:opacity-100 ml-0 group-hover:ml-0.5 overflow-hidden transition-all duration-200 ease-out whitespace-nowrap">
+                                            {getSpecialtyLabel(player.coreSpecialty, locale === "en" ? "en" : "zh")}
+                                          </span>
+                                        </span>
+                                      ) : null}
+                                      <InjuryBadge
+                                        player={player}
+                                        estimatedDays={Math.ceil(
+                                          (player.currentInjuryValue ?? 0) / 8,
+                                        )}
+                                      />
+                                    </div>
+
+                                    {/* Stats row — always visible */}
+                                    <div className="grid grid-cols-5 gap-4 text-xs font-space mt-1.5">
+                                      <span className="truncate">
+                                        <span className="text-[#4a7a6a]">{locale === "zh" ? "体能" : "STA"} </span>
+                                        <span
+                                          className={`font-bold ${
+                                            player.stamina >= 4
+                                              ? "text-[#a1ffc2]"
+                                              : player.stamina >= 2
+                                              ? "text-[#abf853]"
+                                              : "text-red-400"
+                                          }`}
+                                        >
+                                          {getConditionText(player.stamina, locale).text}
+                                        </span>
                                       </span>
-                                    </span>
-                                    <span>
-                                      <span className="text-[#4a7a6a]">{locale === "zh" ? "状态" : "Form"} </span>
-                                      <span className={`font-bold ${
-                                        player.form >= 4 ? "text-[#a1ffc2]" :
-                                        player.form >= 2 ? "text-[#abf853]" :
-                                        "text-red-400"
-                                      }`}>
-                                        {getConditionText(player.form, locale).text}
+                                      <span className="truncate">
+                                        <span className="text-[#4a7a6a]">{locale === "zh" ? "状态" : "FOR"} </span>
+                                        <span
+                                          className={`font-bold ${
+                                            player.form >= 4
+                                              ? "text-[#a1ffc2]"
+                                              : player.form >= 2
+                                              ? "text-[#abf853]"
+                                              : "text-red-400"
+                                          }`}
+                                        >
+                                          {getConditionText(player.form, locale).text}
+                                        </span>
                                       </span>
-                                    </span>
-                                    <span>
-                                      <span className="text-[#4a7a6a]">AGE </span>
-                                      <span className="font-bold text-[#d3f5e8]">{player.age}</span>
-                                    </span>
-                                    <span>
-                                      <span className="text-[#4a7a6a]">EXP </span>
-                                      <span className="font-bold text-[#d3f5e8]">{player.experience || 0}</span>
-                                    </span>
-                                    <span>
-                                      <span className="text-[#4a7a6a]">PWI </span>
-                                      <span className="font-bold text-[#a1ffc2]">{player.pwi?.toLocaleString() || "0"}</span>
-                                    </span>
+                                      <span className="truncate">
+                                        <span className="text-[#4a7a6a]">AGE </span>
+                                        <span className="font-bold text-[#d3f5e8]">{player.age}</span>
+                                      </span>
+                                      <span className="truncate">
+                                        <span className="text-[#4a7a6a]">EXP </span>
+                                        <span className="font-bold text-[#d3f5e8]">{player.experience || 0}</span>
+                                      </span>
+                                      <span className="truncate">
+                                        <span className="text-[#4a7a6a]">PWI </span>
+                                        <span className="font-bold text-[#a1ffc2]">
+                                          {player.pwi?.toLocaleString() || "0"}
+                                        </span>
+                                      </span>
+                                    </div>
                                   </div>
                                 </div>
                               </div>
@@ -554,8 +577,8 @@ function SquadPageContent() {
             <div className="w-6 shrink-0" />
 
             {/* Right Column: Player Profile Detail */}
-            <div className="w-[800px] max-w-[65%] shrink-0 flex flex-col gap-6 overflow-hidden">
-              <div className="bg-[#001e17] rounded-xl h-full flex flex-col overflow-hidden relative">
+            <div className="w-[800px] max-w-[65%] shrink-0 flex flex-col gap-6">
+              <div className="bg-[#001e17] rounded-xl h-full flex flex-col relative">
                 {/* Glass Background */}
                 <div className="absolute inset-0 bg-gradient-to-br from-[#a1ffc2]/3 via-transparent to-transparent pointer-events-none" />
 
@@ -582,11 +605,30 @@ function SquadPageContent() {
 
                         {/* Player Info */}
                         <div className="flex-1 min-w-0 pt-4">
-                          <Link href={`/${locale}/players/${selectedPlayer.id}`}>
-                            <h2 className="text-4xl font-black font-space tracking-tight leading-none text-[#d3f5e8] hover:text-[#a1ffc2] transition-colors">
-                              {selectedPlayer.name}
-                            </h2>
-                          </Link>
+                          <div className="flex items-center gap-3">
+                            <Link href={`/${locale}/players/${selectedPlayer.id}`}>
+                              <h2 className="text-4xl font-black font-space tracking-tight leading-none text-[#d3f5e8] hover:text-[#a1ffc2] transition-colors">
+                                {selectedPlayer.name}
+                              </h2>
+                            </Link>
+                            {selectedPlayer.coreSpecialty && (
+                              <span
+                                className={`inline-flex items-center ${
+                                  selectedPlayer.coreSpecialtyTier === "GOLD"
+                                    ? "text-amber-300"
+                                    : selectedPlayer.coreSpecialtyTier === "SILVER"
+                                      ? "text-slate-300"
+                                      : "text-stone-400"
+                                }`}
+                              >
+                                <SpecialtyIcon
+                                  code={selectedPlayer.coreSpecialty}
+                                  tier={selectedPlayer.coreSpecialtyTier}
+                                  size="xl"
+                                />
+                              </span>
+                            )}
+                          </div>
 
                           <div className="flex items-center gap-6 mt-4 text-sm font-space">
                             <div className="flex items-center gap-2">
@@ -607,38 +649,6 @@ function SquadPageContent() {
                                 £{(selectedPlayer.currentWage || 0).toLocaleString()}/w
                               </span>
                             </div>
-                          </div>
-
-                          {/* Potential Tier & Specialty */}
-                          <div className="flex items-center gap-3 mt-4">
-                            {/* <span className="bg-[#3e6a00]/30 text-[#abf853] px-3 py-1.5 rounded-full text-xs font-bold font-space border border-[#abf853]/20">
-                              {selectedPlayer.potentialTier?.replace("_", " ") || "REGULAR"}
-                            </span> */}
-                            {selectedPlayer.coreSpecialty ? (
-                              <span
-                                className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold font-space border ${
-                                  selectedPlayer.coreSpecialtyTier === 'GOLD'
-                                    ? 'bg-amber-300/10 text-amber-300 border-amber-300/30'
-                                    : selectedPlayer.coreSpecialtyTier === 'SILVER'
-                                    ? 'bg-slate-300/10 text-slate-300 border-slate-300/30'
-                                    : 'bg-stone-400/10 text-stone-400 border-stone-400/30'
-                                }`}
-                              >
-                                <SpecialtyIcon
-                                  code={selectedPlayer.coreSpecialty}
-                                  tier={selectedPlayer.coreSpecialtyTier}
-                                  size="sm"
-                                />
-                                {getSpecialtyLabel(selectedPlayer.coreSpecialty, locale === "en" ? "en" : "zh")}
-                                {selectedPlayer.coreSpecialtyTier && (
-                                  <span className="opacity-60 ml-0.5">· {selectedPlayer.coreSpecialtyTier}</span>
-                                )}
-                              </span>
-                            ) : (
-                              <span className="inline-flex items-center gap-1.5 bg-stone-500/10 text-stone-500 px-3 py-1.5 rounded-full text-xs font-bold font-space border border-stone-500/20">
-                                — 无特技
-                              </span>
-                            )}
                           </div>
                         </div>
 
