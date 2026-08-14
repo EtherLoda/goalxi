@@ -878,23 +878,80 @@
       "quality_great": "Stunning goal from {player}!",
       "quality_good": "A composed finish from {player}!",
       "quality_chance": "He made it look so easy!",
-      "quality_opportunity": "Took it well under pressure!"
+      "quality_opportunity": "Took it well under pressure!",
+      "center_with_assist": {
+        "tpl_0": "GOAL! {pusher} drives through the middle, finds {assist} who slides a pass to {shooter} — {shooter} {quality} past the keeper!",
+        "tpl_1": "{pusher} orchestrates through the middle, {assist} threads a needle through the defense, and {shooter} {quality} into the net! {tackler} never stood a chance.",
+        "tpl_2": "Textbook central build-up! {pusher} picks up the ball at the edge of the box, exchanges a one-two with {assist} that splits the defense, and {shooter} {quality} low into the bottom corner! {tackler} slides in too late to stop it.",
+        "tpl_3": "Watch {pusher} at the heart of this move — he drops deep to collect, fakes a switch to the wing, then whips a through-ball into the path of {shooter}! {shooter} rounds the keeper and {quality} into the empty net! {tackler} and the entire back four are left flat-footed as the {team} bench erupts!"
+      },
+      "center_no_assist": {
+        "tpl_0": "GOAL! {shooter} beats two men through the middle and {quality} past the keeper!",
+        "tpl_1": "{pusher} picks up the ball centrally, beats two defenders on his own, and {quality} into the net! {tackler} caught ball-watching.",
+        "tpl_2": "{pusher} decides to take on the entire midfield himself — he skips past two challenges, drives into the box, and {shooter} {quality} low past the keeper! {tackler} slides in too late. Solo run, solo goal!",
+        "tpl_3": "Watch {pusher} at the edge of the area — he drops a shoulder to send {tackler} the wrong way, then drives past the second defender into the box! Rather than squaring to a teammate, {shooter} {quality} into the top corner! {tackler} can only stand and watch. A moment of pure individual brilliance that brings the stadium to its feet!"
+      },
+      "left_with_assist": {
+        "tpl_0": "GOAL! {pusher} drives down the left, crosses to {shooter} who volleys home!",
+        "tpl_1": "{pusher} shifts past {tackler} on the left and centers for {shooter}, who {quality} from close range!",
+        "tpl_2": "{pusher} receives from {assist} on the left flank, fakes out {tackler} with a stepover, then delivers a curling cross! {shooter} ghosts in at the far post and {quality} header into the net!",
+        "tpl_3": "Watch {pusher} on the left touchline — he picks up {assist}'s pass, kills it dead, then sends {tackler} the wrong way with a body feint! The cross that follows is inch-perfect, curling away from the keeper, and {shooter} arrives unmarked to {quality} into the roof of the net! The left flank has been {team}'s weapon all match and this is the payoff!"
+      },
+      "left_no_assist": {
+        "tpl_0": "{pusher} carries all the way down the left, cuts inside, and {quality} into the far corner!",
+        "tpl_1": "{pusher} receives on the left, beats {tackler} one-on-one, and {quality} curls it into the top corner!",
+        "tpl_2": "{pusher} uses raw pace to burn past {tackler} down the left, drives into the box, and {shooter} {quality} low past the keeper! {tackler} slides in too late.",
+        "tpl_3": "Watch {pusher} on the left touchline — he holds off {tackler}'s challenge with his body, then shifts his weight to send the defender sliding past! Into the box now, and rather than squaring to the unmarked runner, {shooter} {quality} a curler into the top corner! {tackler} can only watch. A winger's goal — pure individual brilliance!"
+      },
+      "right_with_assist": {
+        "tpl_0": "GOAL! {pusher} drives down the right, crosses, and {shooter} heads it in!",
+        "tpl_1": "{pusher} combines with {assist} on the right, crosses low, and {shooter} {quality} at the near post!",
+        "tpl_2": "{pusher} receives from {assist} on the right, fakes out {tackler}, and whips a low cross into the six-yard box! {shooter} arrives unmarked and {quality} into the net!",
+        "tpl_3": "Watch {pusher} on the right — he takes {assist}'s pass in stride, sells {tackler} a dummy with a shoulder drop, then fires a low, hard cross along the six-yard line! {shooter} arrives a step ahead of his marker and {quality} a first-time finish! The right channel is alive for {team}!"
+      },
+      "right_no_assist": {
+        "tpl_0": "{pusher} carries down the right, cuts inside, and {quality} into the bottom corner!",
+        "tpl_1": "{pusher} receives on the right, beats {tackler} one-on-one, and {quality} curls it past the keeper!",
+        "tpl_2": "{pusher} uses pace to burn past {tackler} down the right, drives into the box, and {shooter} {quality} low past the keeper!",
+        "tpl_3": "Watch {pusher} on the right touchline — he leaves {tackler} on the floor with a stepover, drives into the box, and {shooter} {quality} a curler into the top corner! A winger's solo run, finished in style!"
+      },
+      "long_shot": {
+        "tpl_0": "WHAT A STRIKE! {shooter} lets fly from 30 yards and the ball swerves into the top corner!",
+        "tpl_1": "{shooter} picks up the ball 30 yards from goal and hammers a screamer into the top corner! {tackler} had no chance.",
+        "tpl_2": "Watch {shooter} at the edge of the D — he feints a pass to the wing, then unleashes a dipping, swerving right-footer! {tackler} scrambles across but the ball dips under the bar and into the net!",
+        "tpl_3": "Sensational! {shooter} collects from {pusher} at the top of the D, takes one touch to set himself, and curls a swerving left-footer that bends away from {tackler}'s despairing dive! The ball clips the underside of the bar and bounces down — goal-line technology confirms it. The stadium erupts!"
+      },
+      "penalty": {
+        "tpl_0": "Penalty scored! {shooter} sends the keeper the wrong way and {quality} into the corner!",
+        "tpl_1": "{shooter} steps up to the spot, stutters in the run-up, and {quality} into the bottom corner! Ice cold.",
+        "tpl_2": "Watch {shooter} at the spot — he waits for the keeper to commit, then dinks the panenka down the middle! {tackler} dives the wrong way and can only watch the ball ripple the net. Nerve of steel.",
+        "tpl_3": "Huge moment! {shooter} places the ball, takes a long, slow run-up to unsettle {tackler}, then side-foots a perfect penalty into the bottom corner! The keeper guessed right but couldn't get there. {team} take the lead!"
+      }
     },
     "shot_on_target": {
       "tpl_0": "{player} fires one in — the keeper pulls off a superb save!",
       "tpl_1": "{player} unleashes a fierce drive, but the keeper is equal to it!",
       "tpl_2": "The keeper shows great reflexes to palm away {player}'s effort!",
-      "tpl_3": "{player} forces the keeper into action with a powerful shot!"
+      "tpl_3": "{player} forces the keeper into action with a powerful shot!",
+      "long_shot": {
+        "tpl_0": "{shooter} lets fly from distance — the keeper tips it over the bar!",
+        "tpl_1": "Watch {shooter} at the top of the D — a dipping, swerving effort, but the keeper reads it and tips it wide!"
+      }
     },
     "shot_off_target": {
       "tpl_0": "So close! {player}'s shot drifts just wide of the post!",
       "tpl_1": "{player} couldn't keep it down — over the bar!",
-      "tpl_2": " agony for {player}! The ball clips the post and goes out!"
+      "tpl_2": " agony for {player}! The ball clips the post and goes out!",
+      "long_shot": {
+        "tpl_0": "{shooter} tries his luck from 30 yards but drags it just wide!",
+        "tpl_1": "Watch {shooter} let fly from distance — the keeper watches it whistle past the post!"
+      }
     },
     "save": {
       "tpl_0": "World-class save! The keeper bails out his team!",
       "tpl_1": "Absolutely brilliant stop! The keeper is unbeatable today!",
-      "tpl_2": "Can you believe that? An incredible double save!"
+      "tpl_2": "Can you believe that? An incredible double save!",
+      "tpl_3": "Watch {shooter} fire this one in — {team}'s keeper palms it over the bar! World-class reflexes and the home crowd goes wild."
     },
     "foul": {
       "tpl_0": "{team} with a heavy challenge — the referee blows his whistle!",
@@ -903,11 +960,15 @@
     },
     "turnover": {
       "tpl_0": "Turnover at {team} — possession lost in the middle of the park.",
-      "tpl_1": "{tackler} steps in sharply to dispossess {player} — {team} give the ball away cheaply."
+      "tpl_1": "{tackler} steps in sharply to dispossess {player} — {team} give the ball away cheaply.",
+      "tpl_2": "{pusher} tries to play through the middle but {tackler} reads it perfectly! Ball poked away, and {tacklerTeam} are off — they're launching a quick counter before {team} can reset!",
+      "tpl_3": "This could be a turning point! {pusher} receives in the center circle and tries to turn past {tackler}, but the defender anticipates perfectly and pokes the ball through! {tacklerTeam} are already breaking at pace — {tackler} is storming into the {team} half. The turnover has turned into a 3-v-2 before the back four can recover!"
     },
     "free_kick": {
       "tpl_0": "Free kick to {team} — {player} lines it up.",
-      "tpl_1": "{team} win a set piece. {player} stands over the ball."
+      "tpl_1": "{team} win a set piece. {player} stands over the ball.",
+      "tpl_2": "{foulingTeam} give away a free kick in a dangerous area! {player} stands over the ball, and {team}'s big men are lining up in the box — the tension is palpable!",
+      "tpl_3": "Dangerous free kick for {team} after a clumsy challenge by {foulingTeam}! {player} places the ball down, the wall is set, and {team} have sent three runners into the box to peel off markers. One swing of the boot could change this game!"
     },
     "offside": {
       "tpl_0": "The assistant's flag goes up — {team} caught offside.",
@@ -915,7 +976,9 @@
     },
     "corner": {
       "tpl_0": "{team} earns a corner kick. Let's see what they can create here.",
-      "tpl_1": "{team} with a corner — the big men are queuing up in the box!"
+      "tpl_1": "{team} with a corner — the big men are queuing up in the box!",
+      "tpl_2": "{team} win a corner on the {lane}! {player} stands over the ball, six players are crammed into the box, and the defenders are jostling for position. This could be a set-piece chance!",
+      "tpl_3": "Corner for {team} on the {lane}! {player} is sizing up the delivery while the box fills up — at least six players from both sides are battling for position. {tackler} has his arms wrapped around his man. A goal here would be devastating!"
     },
     "yellow_card": {
       "tpl_0": "Yellow card! The referee shows a warning to {player}{reason}.",
@@ -945,11 +1008,15 @@
     },
     "penalty": {
       "tpl_0": "PENALTY! The referee points to the spot — what a chance for {team}!",
-      "tpl_1": "{team} wins a penalty! The entire stadium holds its breath!"
+      "tpl_1": "{team} wins a penalty! The entire stadium holds its breath!",
+      "tpl_2": "PENALTY! {foulingTeam}'s {fouler} brings down the attacker in the box! The referee points to the spot and {team} have a chance from 12 yards!",
+      "tpl_3": "Crucial moment! {foulingTeam}'s {fouler} clatters into the {team} attacker in the area and the referee has no hesitation — penalty! {team} players mob the kicker, {foulingTeam} look devastated. The kicker places the ball on the spot as the stadium goes quiet."
     },
     "penalty_miss": {
       "tpl_0": "Oh no! The penalty is missed! {player} couldn't handle the pressure.",
-      "tpl_1": "How did that miss? {player} blazes it over from the spot!"
+      "tpl_1": "How did that miss? {player} blazes it over from the spot!",
+      "tpl_2": "Saved! {player} steps up for {team} but {tackler} guesses right and palms it away! A huge let-off for {team}'s opponents.",
+      "tpl_3": "Watch {player} at the spot for {team} — he stutters in the run-up but {tackler} doesn't bite! The keeper dives the right way and pushes it wide! {player} falls to his knees, {team} have blown a huge chance. The visiting end goes absolutely wild!"
     },
     "half_time": {
       "tpl_0": "Half-time whistle! {homeTeam} {homeScore} : {awayScore} {awayTeam} — players head to the dressing room."
