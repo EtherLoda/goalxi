@@ -926,6 +926,24 @@
         "tpl_1": "{shooter} steps up to the spot, stutters in the run-up, and {quality} into the bottom corner! Ice cold.",
         "tpl_2": "Watch {shooter} at the spot — he waits for the keeper to commit, then dinks the panenka down the middle! {tackler} dives the wrong way and can only watch the ball ripple the net. Nerve of steel.",
         "tpl_3": "Huge moment! {shooter} places the ball, takes a long, slow run-up to unsettle {tackler}, then side-foots a perfect penalty into the bottom corner! The keeper guessed right but couldn't get there. {team} take the lead!"
+      },
+      "header": {
+        "tpl_0": "GOAL! {pusher} swings a cross into the box, {shooter} rises highest and powers a header past the keeper!",
+        "tpl_1": "Header, goal! {shooter} meets {pusher}'s delivery from the {lane} and {quality} into the net!",
+        "tpl_2": "Brilliant from {shooter}! {pusher} whips it in from the {lane}, {shooter} times the jump and nods it home!",
+        "tpl_3": "The cross comes in from {pusher} on the {lane} — {shooter} peels off his marker, climbs above the defender, and crashes a header past the keeper! {tackler} never had a chance. Textbook centre-forward's goal."
+      },
+      "one_on_one": {
+        "tpl_0": "GOAL! Through ball from {pusher} splits the defence and {shooter} is clean through — he slots it past the keeper!",
+        "tpl_1": "One-on-one, goal! {shooter} keeps his head and {quality} past the onrushing keeper!",
+        "tpl_2": "Brilliant pass from {pusher} and {shooter} races through! He holds his nerve and tucks it into the far corner!",
+        "tpl_3": "Counter-attack and {shooter} is away! He rounds the keeper... no, slots it under him with a delicate chip! {tackler} gets a hand to it but can't stop the ball rolling into the net!"
+      },
+      "rebound": {
+        "tpl_0": "GOAL! The initial effort is blocked but {shooter} reacts quickest and pokes home the rebound!",
+        "tpl_1": "Rebound goal! {shooter} stays alert in the box and taps in after the keeper parries!",
+        "tpl_2": "The shot is saved, the keeper spills it — {shooter} is there to smash the rebound into the roof of the net!",
+        "tpl_3": "Chaos in the box! The initial effort is blocked, the ball loops back to {shooter} who volleys it into the empty net! {tackler} can only watch. Poacher's instinct."
       }
     },
     "shot_on_target": {
@@ -936,6 +954,24 @@
       "long_shot": {
         "tpl_0": "{shooter} lets fly from distance — the keeper tips it over the bar!",
         "tpl_1": "Watch {shooter} at the top of the D — a dipping, swerving effort, but the keeper reads it and tips it wide!"
+      },
+      "header": {
+        "tpl_0": "{pusher} swings it in from the {lane}, {shooter} meets it with his head — but the keeper tips it over!",
+        "tpl_1": "Powerful header from {shooter} but the keeper makes a sharp save and palms it away!",
+        "tpl_2": "Free header for {shooter} in the box — the keeper reacts brilliantly to keep it out!",
+        "tpl_3": "The cross from {pusher} finds {shooter} free in the box, his header is goal-bound but {tackler} somehow claws it off the line!"
+      },
+      "one_on_one": {
+        "tpl_0": "One-on-one and the keeper saves! {shooter} tries to slot it past but {tackler} stands tall!",
+        "tpl_1": "{shooter} is through on goal but the keeper rushes out and smothers the shot!",
+        "tpl_2": "Clean through on goal, {shooter} tries to round the keeper but {tackler} stays big and blocks it with his legs!",
+        "tpl_3": "Brilliant pass sends {shooter} clean through! He shoots low but {tackler} gets down well and saves with his foot!"
+      },
+      "rebound": {
+        "tpl_0": "The initial shot is saved but the rebound falls to {shooter} — the keeper gets up quickly to block the follow-up!",
+        "tpl_1": "Two saves in one move! The keeper parries, {shooter} tries to convert the rebound but the keeper recovers brilliantly!",
+        "tpl_2": "Saved first time, blocked second time — {shooter} just can't get it past the keeper from the rebound!",
+        "tpl_3": "The shot comes in, the keeper parries, the rebound falls to {shooter} in the six-yard box — but {tackler} reacts faster and smothers it before he can shoot!"
       }
     },
     "shot_off_target": {
@@ -945,6 +981,24 @@
       "long_shot": {
         "tpl_0": "{shooter} tries his luck from 30 yards but drags it just wide!",
         "tpl_1": "Watch {shooter} let fly from distance — the keeper watches it whistle past the post!"
+      },
+      "header": {
+        "tpl_0": "{pusher} whips a cross in, {shooter} rises to meet it but heads over the bar!",
+        "tpl_1": "Free header for {shooter} from {pusher}'s cross — but he puts it over the bar!",
+        "tpl_2": "The cross from {pusher} is perfect, {shooter} gets above his marker but nods it wide!",
+        "tpl_3": "{shooter} meets the cross cleanly but the header is just over the bar — agonising."
+      },
+      "one_on_one": {
+        "tpl_0": "One-on-one and {shooter} drags it wide! Big miss!",
+        "tpl_1": "Clean through, {shooter} tries to place it but pulls it past the post!",
+        "tpl_2": "Through ball, {shooter} is in on goal — he lifts it over the keeper but it's just over the bar!",
+        "tpl_3": "{shooter} is clean through, tries to round the keeper but over-runs it — ball goes out for a goal kick. Should have scored."
+      },
+      "rebound": {
+        "tpl_0": "The rebound falls to {shooter} in the box but he blazes it over from close range!",
+        "tpl_1": "Saved! {shooter} tries to convert the rebound but scoops it over the bar!",
+        "tpl_2": "The ball breaks kindly to {shooter} in the six-yard box but he miscues and sends it wide!",
+        "tpl_3": "Parried by the keeper, falls to {shooter} — but the angle is tight and he drags the rebound wide. Big let-off."
       }
     },
     "save": {
