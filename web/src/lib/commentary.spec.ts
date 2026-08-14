@@ -612,7 +612,13 @@ describe('formatEventCommentary dispatch', () => {
       expect(text).toContain('BASE Saka');
     });
 
-    it('goal picks the long_shot sub-section when shotType is long-range shot', () => {
+    it('goal picks the long_shot sub-section when shotType is LONG_SHOT', () => {
+      // The engine serializes `shotType` via `ShotType[shot.shotType]`
+      // (simulator/src/engine/match.engine.ts:2827), so the wire
+      // value is the UPPERCASE enum key (e.g. 'LONG_SHOT'), NOT the
+      // i18n display string ('long-range shot'). The pre-fix test
+      // used the i18n string and only passed because the formatter
+      // was incorrectly comparing against it.
       const t = jest.fn((key: string) => {
         if (key === 'goal.long_shot.tpl_0') return 'LONG_SHOT {shooter}';
         if (key === 'goal.center_no_assist.tpl_0')
@@ -631,7 +637,7 @@ describe('formatEventCommentary dispatch', () => {
               attackPush: { attackingPlayer: 'Pedri' },
               shot: {
                 shooter: 'Saka',
-                shotType: 'long-range shot',
+                shotType: 'LONG_SHOT',
                 shootRating: 80,
               },
             },
@@ -642,6 +648,204 @@ describe('formatEventCommentary dispatch', () => {
         t,
       );
       expect(text).toBe('LONG_SHOT Saka');
+    });
+
+    it('goal picks the header sub-section when shotType is HEADER', () => {
+      // Headers get a different narrative ("meets the cross at the
+      // far post" vs "slots past the keeper") so a dedicated sub-
+      // section makes sense. Falls back to base on missing tpl.
+      //
+      // Mock returns the same marker for ANY tpl_N of the sub-section
+      // (substring match) so the test stays stable regardless of
+      // which tpl the djb2 hash lands on.
+      const t = jest.fn((key: string) => {
+        if (key.startsWith('goal.header.tpl_')) return 'HEADER {shooter}';
+        if (key.startsWith('goal.center_no_assist.tpl_')) return 'wrong-fallback';
+        return key;
+      });
+      const text = formatEventCommentary(
+        baseEvent({
+          type: 'goal',
+          typeName: 'goal',
+          minute: 22,
+          isHome: true,
+          data: {
+            lane: 'center',
+            sequence: {
+              attackPush: { attackingPlayer: 'Pedri' },
+              shot: {
+                shooter: 'Saka',
+                shotType: 'HEADER',
+                shootRating: 80,
+              },
+            },
+          },
+        }),
+        'Barca',
+        'PSG',
+        t,
+      );
+      expect(text).toBe('HEADER Saka');
+    });
+
+    it('goal picks the one_on_one sub-section when shotType is ONE_ON_ONE', () => {
+      const t = jest.fn((key: string) => {
+        if (key.startsWith('goal.one_on_one.tpl_')) return 'ONE_ON_ONE {shooter}';
+        if (key.startsWith('goal.center_with_assist.tpl_'))
+          return 'wrong-assist-fallback';
+        return key;
+      });
+      const text = formatEventCommentary(
+        baseEvent({
+          type: 'goal',
+          typeName: 'goal',
+          minute: 41,
+          isHome: true,
+          data: {
+            lane: 'center',
+            sequence: {
+              attackPush: { attackingPlayer: 'Pedri' },
+              shot: {
+                shooter: 'Saka',
+                assist: 'Pedri',
+                shotType: 'ONE_ON_ONE',
+                shootRating: 80,
+              },
+            },
+          },
+        }),
+        'Barca',
+        'PSG',
+        t,
+      );
+      expect(text).toBe('ONE_ON_ONE Saka');
+    });
+
+    it('goal picks the rebound sub-section when shotType is REBOUND', () => {
+      // Rebound goals get their own narrative ("reacts quickest to the
+      // loose ball in the box") so the read distinguishes a
+      // poacher's tap-in from a build-up finish.
+      const t = jest.fn((key: string) => {
+        if (key.startsWith('goal.rebound.tpl_')) return 'REBOUND {shooter}';
+        if (key.startsWith('goal.center_no_assist.tpl_')) return 'wrong-fallback';
+        return key;
+      });
+      const text = formatEventCommentary(
+        baseEvent({
+          type: 'goal',
+          typeName: 'goal',
+          minute: 67,
+          isHome: true,
+          data: {
+            lane: 'center',
+            sequence: {
+              attackPush: { attackingPlayer: 'Pedri' },
+              shot: {
+                shooter: 'Saka',
+                shotType: 'REBOUND',
+                shootRating: 80,
+              },
+            },
+          },
+        }),
+        'Barca',
+        'PSG',
+        t,
+      );
+      expect(text).toBe('REBOUND Saka');
+    });
+
+    it('goal falls back to lane × assist for NORMAL shots (no goal.normal sub-section)', () => {
+      // NORMAL shots reuse the lane × assist templates — adding a
+      // `goal.normal` sub-section would just duplicate the lane keys
+      // since NORMAL center+assist reads exactly like the existing
+      // `goal.center_with_assist.tpl_N` set.
+      const t = jest.fn((key: string) => {
+        if (key.startsWith('goal.center_with_assist.tpl_')) return 'NORMAL {shooter}';
+        return key;
+      });
+      const text = formatEventCommentary(
+        baseEvent({
+          type: 'goal',
+          typeName: 'goal',
+          minute: 50,
+          isHome: true,
+          data: {
+            lane: 'center',
+            sequence: {
+              attackPush: { attackingPlayer: 'Pedri' },
+              shot: {
+                shooter: 'Saka',
+                assist: 'Pedri',
+                shotType: 'NORMAL',
+                shootRating: 80,
+              },
+            },
+          },
+        }),
+        'Barca',
+        'PSG',
+        t,
+      );
+      expect(text).toBe('NORMAL Saka');
+    });
+
+    it('shot_on_target splits by shotType (header / one_on_one / rebound / long_shot)', () => {
+      // The save formatter picks a sub-section for every shotType
+      // (not just LONG_SHOT). The pre-fix code only branched on
+      // isLongShot, which left header / rebound / one-on-one saves
+      // rendering with the generic "diving save" template.
+      for (const st of ['HEADER', 'ONE_ON_ONE', 'REBOUND', 'LONG_SHOT']) {
+        const t = jest.fn((key: string) => {
+          if (key.startsWith(`shot_on_target.${st.toLowerCase()}.tpl_`))
+            return `${st} {shooter}`;
+          return key;
+        });
+        const text = formatEventCommentary(
+          baseEvent({
+            type: 'save',
+            typeName: 'save',
+            minute: 30,
+            isHome: true,
+            data: {
+              sequence: {
+                shot: { shooter: 'Saka', shotType: st, shootRating: 80 },
+              },
+            },
+          }),
+          'Barca',
+          'PSG',
+          t,
+        );
+        expect(text).toBe(`${st} Saka`);
+      }
+    });
+
+    it('shot_off_target splits by shotType (header / one_on_one / rebound / long_shot)', () => {
+      for (const st of ['HEADER', 'ONE_ON_ONE', 'REBOUND', 'LONG_SHOT']) {
+        const t = jest.fn((key: string) => {
+          if (key.startsWith(`shot_off_target.${st.toLowerCase()}.tpl_`))
+            return `${st} {shooter}`;
+          return key;
+        });
+        const text = formatEventCommentary(
+          baseEvent({
+            type: 'miss',
+            typeName: 'miss',
+            minute: 30,
+            isHome: true,
+            data: {
+              sequence: {
+                shot: { shooter: 'Saka', shotType: st, shootRating: 60 },
+              },
+            },
+          }),
+          'Barca',
+          'PSG',
+          t,
+        );
+        expect(text).toBe(`${st} Saka`);
+      }
     });
 
     it('goal picks the penalty sub-section for penalty events', () => {

@@ -232,7 +232,43 @@ function getShotType(data: any): string {
 }
 
 function isLongShot(data: any): boolean {
-  return getShotType(data) === 'long-range shot';
+  // `shotType` is the ShotType enum key serialized via
+  // `ShotType[shot.shotType]` (see simulator/src/engine/match.engine.ts:2827),
+  // so the wire value is the UPPERCASE enum name like `'LONG_SHOT'`.
+  // The pre-fix code compared against the i18n display string
+  // `'long-range shot'`, which never matches the wire value —
+  // the section branch was dead in production.
+  return getShotType(data) === 'LONG_SHOT';
+}
+
+function isHeader(data: any): boolean {
+  return getShotType(data) === 'HEADER';
+}
+
+function isOneOnOne(data: any): boolean {
+  return getShotType(data) === 'ONE_ON_ONE';
+}
+
+function isRebound(data: any): boolean {
+  return getShotType(data) === 'REBOUND';
+}
+
+function isNormalShot(data: any): boolean {
+  return getShotType(data) === 'NORMAL';
+}
+
+/**
+ * Resolve a shotType discriminator to the narrative sub-section key suffix
+ * the i18n file uses. Returns empty string when no shotType is set (caller
+ * falls through to lane × assist or the base section).
+ */
+function getShotTypeSection(data: any): string {
+  if (isHeader(data)) return 'header';
+  if (isOneOnOne(data)) return 'one_on_one';
+  if (isRebound(data)) return 'rebound';
+  if (isLongShot(data)) return 'long_shot';
+  if (isNormalShot(data)) return 'normal';
+  return '';
 }
 
 function isPenaltyEvent(event: MatchEvent): boolean {
@@ -265,9 +301,13 @@ export function formatGoalCommentary(
 
   // Pick the narrative sub-section. Priority order:
   //   1. penalty (distinct event type with its own dramaturgy)
-  //   2. long_shot (no real "push" so the carry → pass → shot
-  //      narrative doesn't fit; render a solo "rip from distance" arc)
-  //   3. lane × assist split for the open-play cases
+  //   2. shotType (header / one_on_one / rebound / long_shot) —
+  //      these redefine the action ("head home", "slot past keeper",
+  //      "react to the loose ball", "rip from distance"), so they
+  //      take priority over lane/assist
+  //   3. lane × assist split for open-play NORMAL shots (the carry →
+  //      pass → shot arc fits; differentiate by which wing and whether
+  //      an assist was named)
   //
   // Each sub-section carries 4 templates (tpl_0..tpl_3) varying in
   // length from "2-sentence update" to "5-6 sentence commentator
@@ -275,12 +315,19 @@ export function formatGoalCommentary(
   let section = 'goal';
   if (isPenaltyEvent(event)) {
     section = 'goal.penalty';
-  } else if (isLongShot(data)) {
-    section = 'goal.long_shot';
-  } else if (hasAssist(data)) {
-    section = `goal.${getLaneKey(data?.lane)}_with_assist`;
   } else {
-    section = `goal.${getLaneKey(data?.lane)}_no_assist`;
+    const shotSection = getShotTypeSection(data);
+    if (shotSection === 'header' || shotSection === 'one_on_one'
+        || shotSection === 'rebound' || shotSection === 'long_shot') {
+      // NORMAL falls through to lane × assist (those open-play
+      // templates already cover a NORMAL shot well — adding a
+      // `goal.normal` section would just duplicate the lane keys).
+      section = `goal.${shotSection}`;
+    } else if (hasAssist(data)) {
+      section = `goal.${getLaneKey(data?.lane)}_with_assist`;
+    } else {
+      section = `goal.${getLaneKey(data?.lane)}_no_assist`;
+    }
   }
 
   const templateIdx = templateIndexFor(event) % 4;
@@ -332,11 +379,13 @@ export function formatShotOnTargetCommentary(
   const isHome = event.isHome ?? true;
   const teamName = isHome ? homeTeamName : awayTeamName;
 
-  // Long shots that the keeper saves get their own section — the
-  // "rip from distance" framing is different from a normal
-  // "build-up → save" sequence. Falls back to base on missing tpl.
-  const section = isLongShot(data)
-    ? 'shot_on_target.long_shot'
+  // Shots that the keeper saves split by shotType — a diving save on
+  // a header reads differently from a parry on a long-range drive or
+  // a smother on a one-on-one. Falls back to the base section if
+  // the sub-section is missing.
+  const shotSection = getShotTypeSection(data);
+  const section = shotSection
+    ? `shot_on_target.${shotSection}`
     : 'shot_on_target';
 
   const templateIdx = templateIndexFor(event) % 4;
@@ -383,11 +432,12 @@ export function formatShotOffTargetCommentary(
   const isHome = event.isHome ?? true;
   const teamName = isHome ? homeTeamName : awayTeamName;
 
-  // Long shots that miss get their own dramatic arc ("rip from
-  // distance, sails wide") vs the normal "build-up → wide shot"
-  // sequence. Same fallback rule as the save formatter.
-  const section = isLongShot(data)
-    ? 'shot_off_target.long_shot'
+  // Misses also split by shotType — a headed effort sailing over the
+  // bar reads differently from a long-range drive pulled wide.
+  // Same fallback rule as the save formatter.
+  const shotSection = getShotTypeSection(data);
+  const section = shotSection
+    ? `shot_off_target.${shotSection}`
     : 'shot_off_target';
 
   const templateIdx = templateIndexFor(event) % 4;
