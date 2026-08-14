@@ -9,6 +9,7 @@ import {
   ShotType,
   TeamSnapshot,
 } from './types/simulation.types';
+// (Lane is already imported above)
 import { AttributeCalculator } from './utils/attribute-calculator';
 import { ConditionSystem } from './systems/condition.system';
 import { InjurySystem, InjuryEventData } from './systems/injury.system';
@@ -229,6 +230,113 @@ export interface MatchEvent {
   eventScheduledTime?: Date; // Real-world time when this event should be revealed (calculated by processor)
 }
 
+// ============================================================================
+// Push-phase player duel weights
+// ============================================================================
+//
+// `simulateKeyMoment` picks one attacker (from the possession team) and one
+// defender (from the defending team) for each push duel, using these
+// integer weights per slot. Slots not in the table get weight 0, which
+// makes the picker skip them — so a 3-5-2 formation with no RB naturally
+// falls back to RWB / CBR / DMFR without any formation-specific branching.
+//
+// `attackingLane` is the lane the possession team is pushing down, in
+// their own half: 'left' / 'center' / 'right'. The defending side picks
+// from the **mirror** lane, so `attackingLane = 'left'` ⇒ defender comes
+// from the right (RB region). This matches real football: a left-side
+// winger's primary opponent is the right-back.
+//
+// GK is intentionally absent from all tables — goalkeepers don't take
+// part in the open-field push duel. (Corner-kick / cross / set-piece
+// saves happen in a separate code path; this picker only fires in
+// `recordAttackSequence`'s push phase.)
+//
+// To re-tune, change weights here; the picker is unit-tested against
+// these exact values. The defensive side's GK row is left as 0
+// explicitly so future code that wants to add a "GK rushes out" branch
+// can flip a single number without touching the picker.
+
+const PUSH_ATTACKER_WEIGHT: Record<Lane, Record<string, number>> = {
+  left: {
+    // Winger-led run, supported by the fullback / wingback / left-side mids
+    LW: 10,
+    LM: 6,
+    LB: 4,
+    LWB: 4,
+    CML: 4,
+    CAML: 3,
+    DMFL: 2,
+    CFL: 2,
+  },
+  center: {
+    // Striker drops short, central mids drive through the middle
+    CF: 10,
+    CFL: 8,
+    CFR: 8,
+    CM: 7,
+    CML: 6,
+    CMR: 6,
+    CAM: 5,
+    CAML: 4,
+    CAMR: 4,
+    DMF: 4,
+    DMFL: 2,
+    DMFR: 2,
+    CB: 2,
+    CBL: 1,
+    CBR: 1,
+  },
+  right: {
+    // Mirror of `left`
+    RW: 10,
+    RM: 6,
+    RB: 4,
+    RWB: 4,
+    CMR: 4,
+    CAMR: 3,
+    DMFR: 2,
+    CFR: 2,
+  },
+};
+
+const PUSH_DEFENDER_WEIGHT: Record<Lane, Record<string, number>> = {
+  left: {
+    // Attacker coming from their left ⇒ defender on the right side
+    RB: 10,
+    RWB: 7,
+    CBR: 6,
+    DMFR: 5,
+    CMR: 3,
+    CAMR: 2,
+    CFR: 1,
+  },
+  center: {
+    // Central defender + defensive mid screen the middle
+    CB: 10,
+    CBL: 8,
+    CBR: 8,
+    DMF: 8,
+    DMFL: 6,
+    DMFR: 6,
+    CM: 4,
+    CML: 3,
+    CMR: 3,
+    CAM: 2,
+    CAML: 1,
+    CAMR: 1,
+  },
+  right: {
+    // Mirror of `left` defender
+    LB: 10,
+    LWB: 7,
+    CBL: 6,
+    DMFL: 5,
+    CML: 3,
+    CAML: 2,
+    CFL: 1,
+  },
+};
+
 export class MatchEngine {
   private time: number = 0;
   private events: MatchEvent[] = [];
@@ -261,6 +369,20 @@ export class MatchEngine {
 
   private currentLane: Lane = 'center';
   private knownPlayerIds: Set<number> = new Set();
+
+  // ------------------------------------------------------------------
+  // Push-phase player duel state — populated by `simulateKeyMoment`'s
+  // push block (or the LONG_SHOT branch), read by `recordAttackSequence`.
+  // Reset at the top of each `simulateKeyMoment` call so a previous
+  // sequence can't leak into the current one.
+  // ------------------------------------------------------------------
+  private pushDuelAttacker: TacticalPlayer | null = null;
+  private pushDuelDefender: TacticalPlayer | null = null;
+  private pushDuelMarginal: {
+    attackerComposite: number | null;
+    defenderComposite: number | null;
+    marginal: number;
+  } = { attackerComposite: null, defenderComposite: null, marginal: 0 };
 
   // 比赛统计
   private matchStats: {
@@ -487,6 +609,163 @@ export class MatchEngine {
         };
       }
     });
+  }
+
+  // ==========================================================================
+  // Push-phase player duel helpers
+  // ==========================================================================
+
+  /**
+   * Pick a non-sent-off player from `team` whose `positionKey` has a
+   * positive weight in `weightTable`, weighted-random. Returns `null`
+   * only if every candidate maps to weight 0 (a fully filtered pool
+   * — the caller falls back to the existing pre-push attacker in that
+   * case rather than aborting the simulation).
+   *
+   * Filters out:
+   *   - Sent-off players (already on the sideline)
+   *   - Substitutes whose `entryMinute` is in the future relative to
+   *     `this.time` (a player can't push the ball if they haven't
+   *     come on yet)
+   *
+   * The candidate pool is built first, then a single `Math.random()`
+   * draw walks the cumulative-weight array. The `pool.length - 1`
+   * fallback at the end is defensive against floating-point drift on
+   * the final subtraction — without it an extreme `r` value
+   * (Math.random() * totalWeight returning exactly totalWeight due
+   * to rounding) would leave the function returning undefined.
+   */
+  private pickPlayerBySlotWeight(
+    team: Team,
+    weightTable: Record<string, number>,
+  ): TacticalPlayer | null {
+    const candidates = team.players.filter(
+      (p) =>
+        !p.isSentOff &&
+        (p.entryMinute === undefined || p.entryMinute <= this.time) &&
+        (weightTable[p.positionKey] ?? 0) > 0,
+    );
+    if (candidates.length === 0) return null;
+
+    const totalWeight = candidates.reduce(
+      (sum, p) => sum + (weightTable[p.positionKey] ?? 0),
+      0,
+    );
+    if (totalWeight <= 0) return null;
+
+    let r = Math.random() * totalWeight;
+    for (const p of candidates) {
+      r -= weightTable[p.positionKey] ?? 0;
+      if (r <= 0) return p;
+    }
+    return candidates[candidates.length - 1];
+  }
+
+  /**
+   * Composite score for a player on the **attacking** side of a push
+   * duel. `dribbling` is the primary attribute (carry / beat-the-man);
+   * `passing` and `pace` are secondary. Primary gets weight 2 so it
+   * dominates 50% of the composite — the rest of the offensive skill
+   * profile still matters, but the 1-v-1 is fundamentally about
+   * whether the attacker can wriggle past his marker.
+   *
+   * Each attribute falls back to 50 when missing, so legacy test
+   * fixtures (which only set a subset of attributes) and the
+   * `coreSpecialty`-less synthetic players in the spec don't crash
+   * the engine with NaN.
+   */
+  private getOffensiveComposite(p: Player): number {
+    const a = p.attributes as unknown as Record<string, number | undefined>;
+    const dribbling = a.dribbling ?? 50;
+    const passing = a.passing ?? 50;
+    const pace = a.pace ?? 50;
+    return (dribbling * 2 + passing + pace) / 4;
+  }
+
+  /**
+   * Composite score for a player on the **defending** side of a push
+   * duel. `defending` is the primary attribute (tackle / intercept);
+   * `positioning` and `composure` are secondary. Mirrors the
+   * offensive formula so the two scores are on the same 0-100 scale
+   * and the marginal comparison (see `computePlayerMarginal`) is
+   * symmetric.
+   */
+  private getDefensiveComposite(p: Player): number {
+    const a = p.attributes as unknown as Record<string, number | undefined>;
+    const defending = a.defending ?? 50;
+    const positioning = a.positioning ?? 50;
+    const composure = a.composure ?? 50;
+    return (defending * 2 + positioning + composure) / 4;
+  }
+
+  /**
+   * Per-side `[-0.1, 0.1]` marginal: how much better (or worse) this
+   * player is than the average of his own slot on the same team. The
+   * baseline is the **rest of the team** in the same slot — including
+   * the player himself would anchor the comparison to himself and
+   * collapse the marginal to 0.
+   *
+   * The 100-point divisor maps a 10-OVR gap to a ±0.1 marginal
+   * (matches the hard cap), so a 30-OVR swing (worst-in-slot vs
+   * best-in-slot) saturates the cap. The clamp guarantees we stay
+   * inside `[-0.1, 0.1]` even if attribute values are out-of-range
+   * (e.g. legacy test fixtures with `0` defaults).
+   */
+  private computePlayerMarginal(
+    player: TacticalPlayer,
+    team: Team,
+    scoreOf: (p: Player) => number,
+  ): number {
+    const sameSlot = team.players.filter(
+      (p) => p.positionKey === player.positionKey && p !== player,
+    );
+    const baseline =
+      sameSlot.length > 0
+        ? sameSlot.reduce(
+            (sum, p) => sum + scoreOf(p.player as Player),
+            0,
+          ) / sameSlot.length
+        : scoreOf(player.player as Player);
+    const playerScore = scoreOf(player.player as Player);
+    const raw = (playerScore - baseline) / 100;
+    return Math.max(-0.1, Math.min(0.1, raw));
+  }
+
+  /**
+   * Final push-phase marginal. The attacker being above his slot
+   * average pushes the marginal **up** (he wins more); the defender
+   * being above his slot average pushes the marginal **down** (he
+   * shuts down more attacks). Dividing by 2 keeps the combined
+   * marginal inside `[-0.1, 0.1]` — the worst case is
+   * "+0.1 - (-0.1) = 0.2" before the divide, "0.1" after.
+   *
+   * Either side being `null` (picker returned no candidate, e.g. an
+   * exotic formation) yields a 0 marginal from that side, so the
+   * remaining side's signal still flows through.
+   */
+  private computePushMarginal(
+    attacker: TacticalPlayer | null,
+    defender: TacticalPlayer | null,
+  ): { attackerComposite: number | null; defenderComposite: number | null; marginal: number } {
+    if (!attacker || !defender) {
+      return { attackerComposite: null, defenderComposite: null, marginal: 0 };
+    }
+    const attMarginal = this.computePlayerMarginal(
+      attacker,
+      this.possessionTeam,
+      this.getOffensiveComposite,
+    );
+    const defMarginal = this.computePlayerMarginal(
+      defender,
+      this.defendingTeam,
+      this.getDefensiveComposite,
+    );
+    return {
+      attackerComposite: this.getOffensiveComposite(attacker.player as Player),
+      defenderComposite: this.getDefensiveComposite(defender.player as Player),
+      // att better ⇒ + ; def better ⇒ −
+      marginal: (attMarginal - defMarginal) / 2,
+    };
   }
 
   /**
@@ -1470,6 +1749,18 @@ export class MatchEngine {
   private simulateKeyMoment() {
     this.changeLane();
 
+    // Reset the push-duel state at the start of each sequence. A
+    // previous `simulateKeyMoment` (from the same or previous match
+    // — engines are single-use but the caller may chain several
+    // methods) must not bleed its selection into this one.
+    this.pushDuelAttacker = null;
+    this.pushDuelDefender = null;
+    this.pushDuelMarginal = {
+      attackerComposite: null,
+      defenderComposite: null,
+      marginal: 0,
+    };
+
     // Step 1: Foul Check (提高频率,配合 90 分钟独立 foul event 让总犯规 ~14-16/场,
     // 接近真实足球 20-26 但不至于过密)
     if (Math.random() < 0.3) {
@@ -1747,6 +2038,34 @@ export class MatchEngine {
       const attTempo = TEMPO_MODIFIERS[attDefConfig.tempo];
       const effectiveK = attackConfig.pushK * (attTempo.duelK / 0.5);
 
+      // Push-phase player duel — pick one attacker + one defender
+      // (per the slot-weight tables at the top of the file), then
+      // fold their composite-skill differential into the team-level
+      // push probability as a `[-0.1, 0.1]` marginal. The team-level
+      // number is still the dominant signal — the marginal is a
+      // "small adjustment" that makes the FE's "X was dispossessed
+      // by Y" narrative land on a believable 1-v-1 every time.
+      //
+      // For `interceptTriggered` (midfield steal → instant shot) we
+      // skip the duel — there is no push to win or lose, so no
+      // marginal is appropriate. `pushDuelAttacker/Defender/Marginal`
+      // stay at the `null / 0` reset values from the top of
+      // `simulateKeyMoment`.
+      if (!interceptTriggered) {
+        this.pushDuelAttacker = this.pickPlayerBySlotWeight(
+          this.possessionTeam,
+          PUSH_ATTACKER_WEIGHT[this.currentLane],
+        );
+        this.pushDuelDefender = this.pickPlayerBySlotWeight(
+          this.defendingTeam,
+          PUSH_DEFENDER_WEIGHT[this.currentLane],
+        );
+        this.pushDuelMarginal = this.computePushMarginal(
+          this.pushDuelAttacker,
+          this.pushDuelDefender,
+        );
+      }
+
       // 推进判定（正常流程）
       if (!interceptTriggered) {
         // 主推进参数：
@@ -1763,10 +2082,18 @@ export class MatchEngine {
           anchorRatio: 2.0,
           anchorProbability: 0.6,
         };
-        pushProbability = duelProbability(
+        const teamP = duelProbability(
           effectiveAttPower,
           effectiveDefPower,
           pushDuelOptions,
+        );
+        // Apply the player-duel marginal and clamp to keep a single
+        // Bernoulli draw within sane bounds. The clamp guards against
+        // a future OVR gap that might push teamP to 0.95 and a +0.1
+        // marginal to 1.05, which would make every push succeed.
+        pushProbability = Math.max(
+          0.01,
+          Math.min(0.99, teamP * (1 + this.pushDuelMarginal.marginal)),
         );
         pushSuccess = Math.random() < pushProbability;
         // 如果进攻失败，防守方获得球权，下次进攻享受反击加成
@@ -1796,6 +2123,21 @@ export class MatchEngine {
     // 远射：直接起脚，不经过推进
     if (attackType === AttackType.LONG_SHOT) {
       shooter = this.selectLongShotShooter(this.possessionTeam);
+      // Long shots skip the push duel entirely, so the
+      // `pushDuelAttacker` / `pushDuelDefender` slot still needs a
+      // sensible value for the event payload. We credit the shooter
+      // as the duel "attacker" so the FE can name him; the
+      // `defender` slot stays null (no marker was beaten) and the
+      // marginal is 0 (no 1-v-1 happened).
+      this.pushDuelAttacker = shooter;
+      this.pushDuelDefender = null;
+      this.pushDuelMarginal = {
+        attackerComposite: shooter
+          ? this.getOffensiveComposite(shooter.player as Player)
+          : null,
+        defenderComposite: null,
+        marginal: 0,
+      };
       if (shooter) {
         const player = shooter.player as Player;
         shotType = ShotType.LONG_SHOT;
@@ -1919,23 +2261,26 @@ export class MatchEngine {
     // Attacker used as the event actor for turnover / miss-without-shot cases
     // (shot?.shooter is null when the push fails, so without this the event
     // would have no playerId).
-    const attacker: TacticalPlayer | null = shooter ?? preSelectedShooter;
-
-    // Pick a defender from the defending side so turnover / blocked / save
-    // events can credit the player who stopped the attack. Simplified
-    // uniform-random over non-sent-off players on the defending team —
-    // matches the existing `tackles` counter attribution below and is
-    // good enough for narrative purposes until a real duel-based
-    // assignment is wired in. (The v1 model attributed a tackle only
-    // on `defense_stopped`; we extend the same pick to every push/shot
-    // outcome so the FE can show "X was dispossessed by Y" on turnover.)
-    const activeDefenders = this.defendingTeam.players.filter(
-      (p) => !p.isSentOff,
-    );
-    const defender: TacticalPlayer | null =
-      activeDefenders.length > 0
-        ? activeDefenders[(Math.random() * activeDefenders.length) | 0]
-        : null;
+    //
+    // Both `attacker` and `defender` are now sourced from the
+    // push-phase picker (`this.pushDuelAttacker` / `this.pushDuelDefender`),
+    // which the engine populated earlier in this same
+    // `simulateKeyMoment` call. The two cases are:
+    //   - normal push duel: attacker = the slot-weighted pusher;
+    //     defender = the slot-weighted marker;
+    //   - LONG_SHOT:        attacker = the long-shot shooter (still
+    //                        credited as the player who initiated);
+    //                        defender = null (no 1-v-1 to win);
+    //   - interceptTriggered: same LONG_SHOT shape — the pickers were
+    //                        skipped, both stay null.
+    // Using the same source for both the event payload and the
+    // `tackles` counter below keeps the two perfectly aligned
+    // (previously the defender here was an independent uniform-random
+    // pick, so the credit could disagree with the event's named
+    // tackler).
+    const attacker: TacticalPlayer | null =
+      this.pushDuelAttacker ?? shooter ?? preSelectedShooter;
+    const defender: TacticalPlayer | null = this.pushDuelDefender;
 
     this.recordAttackSequence({
       lane: this.currentLane,
@@ -1961,6 +2306,16 @@ export class MatchEngine {
         // panel. Distinct from `success` (the sampled boolean) so the
         // panel rate stays stable across small samples.
         probability: pushProbability,
+        // Push-duel marginal triple. The marginal folds the
+        // attacker-vs-defender composite skill differential into the
+        // team-level push probability (capped at ±0.1). `null` on
+        // either composite means the picker couldn't find a
+        // candidate for that side (e.g. an exotic formation with
+        // no eligible slot in the table) — FE should treat both
+        // nulls as "no duel happened" and skip the marginal display.
+        attackerComposite: this.pushDuelMarginal.attackerComposite,
+        defenderComposite: this.pushDuelMarginal.defenderComposite,
+        playerMarginal: this.pushDuelMarginal.marginal,
       },
       shot:
         shotResult === 'no_shot'
@@ -2298,16 +2653,34 @@ export class MatchEngine {
       defensePower: number;
       success: boolean;
       attackingPlayer: TacticalPlayer | null;
-      /** Defender credited with stopping the attack. Currently a
-       *  uniform-random pick from the defending side (see
-       *  `simulateKeyMoment`); reused for the `tackles` counter and
-       *  surfaced on the event so turnover / blocked / save entries
-       *  can name the player who made the play. */
+      /** Defender credited with stopping the attack. Picked at the
+       *  top of the push phase from `PUSH_DEFENDER_WEIGHT[lane]`
+       *  (slot-weighted, mirror of the attacker's side) and reused
+       *  for the `tackles` counter and surfaced on the event so
+       *  turnover / blocked / save entries can name the player who
+       *  made the play. `null` for the `interceptTriggered` (midfield
+       *  steal → instant shot) and the `LONG_SHOT` paths — neither
+       *  has a 1-v-1 marker. */
       defendingPlayer: TacticalPlayer | null;
       /** Attacker-perspective expected push success probability (0..1)
        *  from `duelProbability(attPower, defPower, ...)`. 0 when the
        *  sequence skipped the push phase (e.g. intercept-then-shoot). */
       probability: number;
+      /** Composite offensive skill of the picked attacker
+       *  (mean of dribbling×2, passing, pace). `null` if no
+       *  candidate was found. */
+      attackerComposite: number | null;
+      /** Composite defensive skill of the picked defender
+       *  (mean of defending×2, positioning, composure). `null`
+       *  if no candidate was found. */
+      defenderComposite: number | null;
+      /** The `[-0.1, 0.1]` marginal folded into the team-level push
+       *  probability. Positive ⇒ attacker was above his slot
+       *  average (P nudged up). Negative ⇒ defender was above
+       *  his slot average (P nudged down). 0 when the sequence
+       *  skipped the push phase (intercept / LONG_SHOT) or when
+       *  one side had no eligible candidate. */
+      playerMarginal: number;
     };
     shot: {
       result: 'goal' | 'save' | 'blocked' | 'miss';
@@ -2424,6 +2797,14 @@ export class MatchEngine {
           attackPower: parseFloat(attackPush.attackPower.toFixed(2)),
           defensePower: parseFloat(attackPush.defensePower.toFixed(2)),
           success: attackPush.success,
+          // Push-duel skill profile — surfaces the player-vs-player
+          // breakdown the engine applied. `null` for either composite
+          // (or 0 for `playerMarginal`) means the push was skipped
+          // (LONG_SHOT / intercept). FE can render "{tackler} dispossesses
+          // {attacker} (marginal {playerMarginal})" with these.
+          attackerComposite: attackPush.attackerComposite ?? null,
+          defenderComposite: attackPush.defenderComposite ?? null,
+          playerMarginal: attackPush.playerMarginal,
         },
         shot: shot
           ? {

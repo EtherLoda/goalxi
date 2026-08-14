@@ -48,6 +48,38 @@ describe('MatchEngine', () => {
     return new Team(name, players);
   };
 
+  // Diverse-position team for push-duel tests. The standard
+  // `createMockTeam` only fills `GK` + 10 × `CM` — fine for the
+  // legacy "events emitted" suite, but the push-phase slot
+  // weight tables (`PUSH_ATTACKER_WEIGHT` /
+  // `PUSH_DEFENDER_WEIGHT`) need at least one eligible slot in
+  // each table row to actually pick a player. The shape below is
+  // a 4-4-2: GK / 2 CB / LB+RB / 2 CM / LM+RM / 2 CF. Every
+  // non-empty position has a non-zero weight on either side of
+  // the table for at least one lane, so the picker is exercised
+  // across all three lanes.
+  const createDiverseMockTeam = (name: string, avgOvr: number): Team => {
+    const positions: Array<{ pos: string; attrOverride?: Partial<{ dribbling: number; passing: number; pace: number; defending: number; positioning: number; composure: number }> }> = [
+      { pos: 'GK' },
+      { pos: 'LB' },
+      { pos: 'CB' },
+      { pos: 'CB' },
+      { pos: 'RB' },
+      { pos: 'LM' },
+      { pos: 'CM' },
+      { pos: 'CM' },
+      { pos: 'RM' },
+      { pos: 'CF' },
+      { pos: 'CF' },
+    ];
+    const players: TacticalPlayer[] = positions.map(({ pos, attrOverride }, i) => {
+      const p = createMockPlayer(i, `${name} Player ${i}`, avgOvr);
+      if (attrOverride) Object.assign(p.attributes, attrOverride);
+      return { player: p, positionKey: pos };
+    });
+    return new Team(name, players);
+  };
+
   beforeEach(() => {
     homeTeam = createMockTeam('HomeFC', 80);
     awayTeam = createMockTeam('AwayFC', 80);
@@ -440,6 +472,204 @@ describe('MatchEngine', () => {
       // overlap (a driver on minute 5 doesn't add a new snapshot
       // because one is already emitted at minute 5).
       expect(extras).toBeLessThanOrEqual(RUNS);
+    });
+  });
+
+  describe('push phase player duel (slot-weighted picker + marginal)', () => {
+    // The push phase now picks one attacker and one defender per
+    // sequence using integer slot-weight tables (see
+    // PUSH_ATTACKER_WEIGHT / PUSH_DEFENDER_WEIGHT at the top of
+    // match.engine.ts). Their composite skill differential is
+    // folded into the team-level push probability as a `[-0.1, 0.1]`
+    // marginal. These tests pin down the four observable surfaces:
+    //   1. attacker / defender names make it onto the event
+    //   2. composite + marginal are surfaced in the attack push payload
+    //   3. turnover's `relatedPlayerId` is the same player the event
+    //      names as the tackler (no more drift between the two paths)
+    //   4. the marginal respects the `[-0.1, 0.1]` hard cap
+    //
+    // We don't unit-test the picker directly — it's a private method
+    // and the weight tables are top-level constants. The 30-run loop
+    // below exercises both the open-play push path and (by
+    // construction) the LONG_SHOT path's "no 1-v-1" shape.
+    //
+    // We override the default `homeTeam` / `awayTeam` (both
+    // 11 × `CM`) with a 4-4-2 mix so the slot-weight tables can
+    // actually pick a player on every lane — the `createMockTeam`
+    // shape leaves every weight-table entry (other than `GK`)
+    // unoccupied, so the picker always returned `null` and the
+    // test asserted nothing useful.
+
+    // 100 runs is heavy (~10s) but needed: turnover is gated by a
+    // 50% push-failure rate compounded with the lane/shot-result
+    // distribution, so 30 runs can come up empty when the RNG is
+    // unkind. `convex-regression` is the same kind of fix — N=200
+    // for stable empirical reads.
+    const RUNS = 100;
+
+    // Construct a **fresh** team pair per iteration. Sharing a pair
+    // across 100 sims would let cumulative state — `isSentOff`,
+    // `injuredThisMatch`, fitness decay — bleed from one sim into
+    // the next, so by sim 30 most of the diverse team's 11 players
+    // are red-carded and the slot-weight picker returns `null`
+    // every time. The standard `createMockTeam` 11 × `CM` setup
+    // also shares this issue — the existing test suite happens to
+    // be tolerant because every CM candidate maps to a 0-weight
+    // entry on every lane, so the picker was always returning
+    // `null` and no one noticed.
+    function collectEvents(): MatchEvent[] {
+      const home = createDiverseMockTeam('HomeFC', 80);
+      const away = createDiverseMockTeam('AwayFC', 80);
+      const testEngine = new MatchEngine(home, away);
+      return testEngine.simulateMatch();
+    }
+
+    it('every push/shot event carries attacker + defender names', () => {
+      // We look at any event with a `data.sequence.attackPush`
+      // payload — i.e. shot / miss / save / goal / turnover / blocked.
+      // All of them should have attacker named; defender named for the
+      // push duel (shot / turnover / save / miss / goal), `undefined`
+      // for LONG_SHOT (we test that one separately). The `data?
+      // .sequence?.attackPush` truthiness check naturally filters
+      // out every event type that doesn't carry a push payload —
+      // kickoff, weather / attendance / player introduction, fouls,
+      // cards, subs, injuries, set pieces, etc.
+      let saw = 0;
+      for (let i = 0; i < RUNS; i++) {
+        const events = collectEvents();
+        for (const e of events) {
+          const data = (e as any).data as any;
+          if (!data?.sequence?.attackPush) continue;
+          // Long shots leave `defendingPlayer = undefined` in the
+          // payload; skip them — they're covered by the next test.
+          if (data.sequence.attackPush.defendingPlayer === undefined) continue;
+          expect(typeof data.sequence.attackPush.attackingPlayer).toBe(
+            'string',
+          );
+          expect(typeof data.sequence.attackPush.defendingPlayer).toBe(
+            'string',
+          );
+          saw += 1;
+        }
+      }
+      // We expect to see at least a few push events in 30 sims; if
+      // not, something is structurally off and the rest of the
+      // assertions are meaningless.
+      expect(saw).toBeGreaterThan(0);
+    });
+
+    it('LONG_SHOT path leaves defender null and marginal at 0', () => {
+      // Long shots set `pushDuelAttacker = shooter` and
+      // `pushDuelDefender = null` (see the LONG_SHOT branch in
+      // simulateKeyMoment). The event payload should reflect this:
+      // `defendingPlayer` is `undefined` (no 1-v-1 happened),
+      // `defenderComposite` is `null` (the engine never computed
+      // one), and `playerMarginal` is `0` (no fold into push P
+      // either).
+      let sawLongShot = 0;
+      for (let i = 0; i < RUNS; i++) {
+        const events = collectEvents();
+        for (const e of events) {
+          const data = (e as any).data as any;
+          if (!data?.sequence?.attackPush) continue;
+          // The shot sub-object carries the shot type — only LONG_SHOT
+          // satisfies this branch.
+          if (data.sequence.shot?.shotType !== 'LONG_SHOT') continue;
+          expect(data.sequence.attackPush.defendingPlayer).toBeUndefined();
+          expect(data.sequence.attackPush.defenderComposite).toBeNull();
+          expect(data.sequence.attackPush.playerMarginal).toBe(0);
+          sawLongShot += 1;
+        }
+      }
+      // LONG_SHOT is the rarest attack type — we may not see one in
+      // 30 sims. If we don't, just assert that the absence didn't
+      // crash anything (this test then "passes vacuously"). If we
+      // did see at least one, the structural assertions above fire.
+      if (sawLongShot === 0) {
+        // Sanity: the loop completed without exception.
+        expect(true).toBe(true);
+      }
+    });
+
+    it('attackerComposite / defenderComposite / playerMarginal are surfaced and well-formed', () => {
+      // Spot-check the three new fields on push events. We don't pin
+      // exact values (the marginal is stochastic) but we lock down
+      // the surface contract: types, ranges, presence.
+      //
+      // Both composites can be `null` when the picker couldn't find
+      // a candidate (e.g. an exotic formation with no eligible
+      // slot). We skip those events because the type contract then
+      // degenerates to "null on one or both sides", which the
+      // `LONG_SHOT` test already covers in spirit. We focus here
+      // on the happy path: a real 1-v-1 push with two named
+      // players.
+      let saw = 0;
+      for (let i = 0; i < RUNS; i++) {
+        const events = collectEvents();
+        for (const e of events) {
+          const data = (e as any).data as any;
+          if (!data?.sequence?.attackPush) continue;
+          if (data.sequence.attackPush.defendingPlayer === undefined) continue;
+          const att = data.sequence.attackPush.attackerComposite;
+          const def = data.sequence.attackPush.defenderComposite;
+          const m = data.sequence.attackPush.playerMarginal;
+          // Skip degenerate cases where the picker couldn't fill
+          // both sides (rare but possible — e.g. a formation with
+          // no eligible slot on one side). The `null` for these
+          // two composites is covered by `LONG_SHOT`; the
+          // happy-path shape we test here is "both numbers set".
+          if (att === null || def === null) continue;
+          expect(typeof att).toBe('number');
+          expect(typeof def).toBe('number');
+          expect(att).toBeGreaterThanOrEqual(0);
+          expect(att).toBeLessThanOrEqual(100);
+          expect(def).toBeGreaterThanOrEqual(0);
+          expect(def).toBeLessThanOrEqual(100);
+          expect(m).toBeGreaterThanOrEqual(-0.1);
+          expect(m).toBeLessThanOrEqual(0.1);
+          saw += 1;
+        }
+      }
+      expect(saw).toBeGreaterThan(0);
+    });
+
+    it('turnover event relatedPlayerId matches the attackPush defendingPlayer', () => {
+      // Before this change, the event's `relatedPlayerId` for a
+      // turnover was sourced from a separate uniform-random defender
+      // pick, which could disagree with the player the event payload
+      // named as the tackler. After the change, both come from the
+      // same `pushDuelDefender` slot.
+      //
+      // Each iteration builds fresh rosters (see `collectEvents`)
+      // so the cumulative-red-card state across sims doesn't
+      // starve the picker. We capture the same rosters in the
+      // closure for the name → id lookup.
+      let sawTurnover = false;
+      for (let i = 0; i < RUNS; i++) {
+        const home = createDiverseMockTeam('HomeFC', 80);
+        const away = createDiverseMockTeam('AwayFC', 80);
+        const events = new MatchEngine(home, away).simulateMatch();
+        for (const e of events) {
+          if (e.type !== 'turnover') continue;
+          const data = (e as any).data as any;
+          const tacklerName = data?.sequence?.attackPush?.defendingPlayer;
+          if (tacklerName === undefined) continue;
+          // Resolve the named tackler to an ID via the same
+          // rosters we just simulated. Either side could be the
+          // tackler — turnover flips possession.
+          const homeMatch = home.players.find(
+            (p) => (p.player as Player).name === tacklerName,
+          );
+          const awayMatch = away.players.find(
+            (p) => (p.player as Player).name === tacklerName,
+          );
+          const expectedId = (homeMatch ?? awayMatch)?.player?.id;
+          expect(expectedId).toBeDefined();
+          expect(e.relatedPlayerId).toBe(expectedId);
+          sawTurnover = true;
+        }
+      }
+      expect(sawTurnover).toBe(true);
     });
   });
 

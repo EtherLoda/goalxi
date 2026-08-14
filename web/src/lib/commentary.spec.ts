@@ -259,10 +259,30 @@ describe('formatEventCommentary dispatch', () => {
     // Post-RFC split: weather_announcement renders only the weather
     // line; the dedicated attendance_announcement event emits the
     // crowd line. Verify the new event routes through the right arm.
-    const t = jest.fn((key: string) => {
-      if (key === 'attendance.line') return '{count} fans in attendance.';
-      return key;
-    });
+    //
+    // The mock `t` now accepts a second `params` argument and runs
+    // the same `{key}` placeholder substitution that next-intl does
+    // in production. Without that, the test was asserting against
+    // a stale mock that returned the template verbatim and ignored
+    // the `count` param the formatter passed in — masking the very
+    // bug the test was supposed to catch.
+    const t = jest.fn(
+      (key: string, params?: Record<string, string | number>) => {
+        if (key === 'attendance.line') {
+          let result = '{count} fans in attendance.';
+          if (params) {
+            for (const [k, v] of Object.entries(params)) {
+              result = result.replace(
+                new RegExp(`\\{${k}\\}`, 'g'),
+                String(v),
+              );
+            }
+          }
+          return result;
+        }
+        return key;
+      },
+    );
     const text = formatEventCommentary(
       baseEvent({
         type: 'attendance_announcement',
@@ -275,7 +295,7 @@ describe('formatEventCommentary dispatch', () => {
       t,
     );
     expect(text).toBe('25,000 fans in attendance.');
-    expect(t).toHaveBeenCalledWith('attendance.line');
+    expect(t).toHaveBeenCalledWith('attendance.line', { count: '25,000' });
   });
 
   it('renders weather independently of attendance (post-split)', () => {
