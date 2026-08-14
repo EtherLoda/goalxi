@@ -176,6 +176,83 @@ function getReasonText(reason: string | undefined): string {
   return ` (${reason})`;
 }
 
+// ============================================================================
+// Narrative-template helpers (push / shot narrative picker)
+// ============================================================================
+//
+// Push / shot / turnover formatters now want a multi-sentence, commentator-
+// style rendering that names the players on both sides of the play:
+//   - pusher  (attackPush.attackingPlayer) — the player who carried the ball
+//   - tackler (attackPush.defendingPlayer) — the defender who stopped it
+//   - shooter (shot.shooter)              — the player who took the shot
+//   - assist  (shot.assist)               — the player who set it up
+//
+// The engine populates these fields for every open-play push (see
+// simulator match.engine.ts). For LONG_SHOT the defender slot is
+// intentionally empty; for turnovers there's no shot. The helpers
+// below centralize the null-handling so each formatter stays short.
+
+/** Lane key normalized to the enum the engine uses ('left' | 'center' | 'right').
+ *  Falls back to 'center' for legacy rows without a lane. */
+function getLaneKey(lane: string | undefined): 'left' | 'center' | 'right' {
+  if (lane === 'left' || lane === 'right') return lane;
+  return 'center';
+}
+
+function getPusherName(data: any): string {
+  return (
+    data?.sequence?.attackPush?.attackingPlayer ??
+    data?.attackingPlayer ??
+    data?.playerName ??
+    ''
+  );
+}
+
+function getTacklerName(data: any): string {
+  return (
+    data?.sequence?.attackPush?.defendingPlayer ??
+    data?.defendingPlayer ??
+    data?.tacklerName ??
+    ''
+  );
+}
+
+function getShooterName(data: any): string {
+  // `data.sequence.shot.shooter` is the structured name; `data.playerName`
+  // is the denormalized fallback the processor also writes.
+  return data?.sequence?.shot?.shooter ?? data?.playerName ?? '';
+}
+
+function getAssistName(data: any): string {
+  return data?.sequence?.shot?.assist ?? '';
+}
+
+function getShotType(data: any): string {
+  return data?.sequence?.shot?.shotType ?? '';
+}
+
+function isLongShot(data: any): boolean {
+  return getShotType(data) === 'long-range shot';
+}
+
+function isPenaltyEvent(event: MatchEvent): boolean {
+  // Check the raw type BEFORE the alias collapses PENALTY_GOAL→GOAL,
+  // so a shootout `penalty_goal` event still routes to the penalty
+  // sub-section. Also check `data.setPieceType` because the in-game
+  // penalty path emits `type: 'goal'` with `data.setPieceType: 'penalty'`
+  // (see simulator/src/engine/match.engine.ts:3826-3834).
+  const rawType = (event.typeName ?? event.type ?? '').toLowerCase();
+  if (rawType === 'penalty_goal' || rawType === 'penalty' || rawType === 'penalty_miss') {
+    return true;
+  }
+  const data = event.data as any;
+  return data?.setPieceType === 'penalty';
+}
+
+function hasAssist(data: any): boolean {
+  return Boolean(getAssistName(data));
+}
+
 export function formatGoalCommentary(
   event: MatchEvent,
   homeTeamName: string,
@@ -183,28 +260,64 @@ export function formatGoalCommentary(
   t: TranslationFunction,
 ): string {
   const data = event.data as any;
-  const templateIdx = templateIndexFor(event) % 4;
   const isHome = event.isHome ?? true;
   const teamName = isHome ? homeTeamName : awayTeamName;
 
-  const player = data?.sequence?.shot?.shooter || data?.playerName || 'Unknown Player';
-  const lane = data?.lane;
-  const shotType = data?.sequence?.shot?.shotType;
-  const shootRating = data?.sequence?.shot?.shootRating || 0;
+  // Pick the narrative sub-section. Priority order:
+  //   1. penalty (distinct event type with its own dramaturgy)
+  //   2. long_shot (no real "push" so the carry → pass → shot
+  //      narrative doesn't fit; render a solo "rip from distance" arc)
+  //   3. lane × assist split for the open-play cases
+  //
+  // Each sub-section carries 4 templates (tpl_0..tpl_3) varying in
+  // length from "2-sentence update" to "5-6 sentence commentator
+  // build-up". djb2 picks one so per-event variation stays stable.
+  let section = 'goal';
+  if (isPenaltyEvent(event)) {
+    section = 'goal.penalty';
+  } else if (isLongShot(data)) {
+    section = 'goal.long_shot';
+  } else if (hasAssist(data)) {
+    section = `goal.${getLaneKey(data?.lane)}_with_assist`;
+  } else {
+    section = `goal.${getLaneKey(data?.lane)}_no_assist`;
+  }
 
-  const quality = getQualityText(t, shootRating, player);
-  const laneDesc = getLaneText(t, lane);
-  const shotTypeDesc = getShotTypeText(t, shotType);
+  const templateIdx = templateIndexFor(event) % 4;
+  const shooter = getShooterName(data) || 'Unknown Player';
+  const pusher = getPusherName(data);
+  const tackler = getTacklerName(data);
+  const assist = getAssistName(data);
+  const shootRating = data?.sequence?.shot?.shootRating || 0;
+  const quality = getQualityText(t, shootRating, shooter);
 
   const params: Record<string, string | number> = {
-    player,
+    player: shooter,
+    shooter,
+    pusher: pusher || shooter,
+    tackler: tackler || 'the defender',
+    assist: assist || 'a teammate',
     team: teamName,
     quality,
-    lane: laneDesc,
-    shotType: shotTypeDesc,
+    lane: getLaneText(t, data?.lane),
+    shotType: getShotTypeText(t, getShotType(data)),
   };
 
-  const template = getTemplate(t, 'commentary.goal', templateIdx, params);
+  // Fall back to the base `goal.tpl_*` set if the chosen sub-section
+  // is missing (e.g. older translations that don't have the lane /
+  // long_shot / penalty split). next-intl returns the literal key
+  // when the path is missing — we detect that and reroute.
+  //
+  // `getTemplate` strips the `commentary.` prefix before looking
+  // up, then appends `.tpl_${idx}` itself — so the returned
+  // string when the key is missing is `<section>.tpl_<idx>`
+  // (no `commentary.` prefix). Compare against that stripped form.
+  const sectionKey = `commentary.${section}`;
+  const expectedStripped = `${section}.tpl_${templateIdx}`;
+  let template = getTemplate(t, sectionKey, templateIdx, params);
+  if (template === expectedStripped) {
+    template = getTemplate(t, 'commentary.goal', templateIdx, params);
+  }
 
   return interpolate(template, params);
 }
@@ -216,30 +329,46 @@ export function formatShotOnTargetCommentary(
   t: TranslationFunction,
 ): string {
   const data = event.data as any;
-  const templateIdx = templateIndexFor(event) % 4;
   const isHome = event.isHome ?? true;
   const teamName = isHome ? homeTeamName : awayTeamName;
 
-  const player = data?.sequence?.shot?.shooter || data?.playerName || 'Unknown Player';
-  const lane = data?.lane;
-  const shotType = data?.sequence?.shot?.shotType;
-  const shootRating = data?.sequence?.shot?.shootRating || 0;
+  // Long shots that the keeper saves get their own section — the
+  // "rip from distance" framing is different from a normal
+  // "build-up → save" sequence. Falls back to base on missing tpl.
+  const section = isLongShot(data)
+    ? 'shot_on_target.long_shot'
+    : 'shot_on_target';
 
-  const quality = shootRating >= 80 ? t('goal.quality_chance')
-               : shootRating >= 60 ? t('goal.quality_opportunity')
-               : '';
-  const laneDesc = lane ? `${getLaneText(t, lane)} ` : '';
-  const shotTypeDesc = shotType ? ` (${getShotTypeText(t, shotType)})` : '';
+  const templateIdx = templateIndexFor(event) % 4;
+  const shooter = getShooterName(data) || 'Unknown Player';
+  const pusher = getPusherName(data);
+  const tackler = getTacklerName(data);
+  const assist = getAssistName(data);
+  const shootRating = data?.sequence?.shot?.shootRating || 0;
+  const quality = shootRating >= 80
+    ? t('goal.quality_chance')
+    : shootRating >= 60
+      ? t('goal.quality_opportunity')
+      : '';
 
   const params: Record<string, string | number> = {
-    player,
+    player: shooter,
+    shooter,
+    pusher: pusher || shooter,
+    tackler: tackler || 'the defender',
+    assist: assist || 'a teammate',
     team: teamName,
     quality,
-    lane: laneDesc,
-    shotType: shotTypeDesc,
+    lane: getLaneText(t, data?.lane),
+    shotType: getShotTypeText(t, getShotType(data)),
   };
 
-  const template = getTemplate(t, 'commentary.shot_on_target', templateIdx, params);
+  const sectionKey = `commentary.${section}`;
+  const expectedStripped = `${section}.tpl_${templateIdx}`;
+  let template = getTemplate(t, sectionKey, templateIdx, params);
+  if (template === expectedStripped) {
+    template = getTemplate(t, 'commentary.shot_on_target', templateIdx, params);
+  }
 
   return interpolate(template, params);
 }
@@ -251,21 +380,39 @@ export function formatShotOffTargetCommentary(
   t: TranslationFunction,
 ): string {
   const data = event.data as any;
-  const templateIdx = templateIndexFor(event) % 3;
   const isHome = event.isHome ?? true;
   const teamName = isHome ? homeTeamName : awayTeamName;
 
-  const player = data?.sequence?.shot?.shooter || data?.playerName || 'Unknown Player';
-  const lane = data?.lane;
-  const laneDesc = lane ? `${getLaneText(t, lane)} ` : '';
+  // Long shots that miss get their own dramatic arc ("rip from
+  // distance, sails wide") vs the normal "build-up → wide shot"
+  // sequence. Same fallback rule as the save formatter.
+  const section = isLongShot(data)
+    ? 'shot_off_target.long_shot'
+    : 'shot_off_target';
+
+  const templateIdx = templateIndexFor(event) % 4;
+  const shooter = getShooterName(data) || 'Unknown Player';
+  const pusher = getPusherName(data);
+  const tackler = getTacklerName(data);
+  const assist = getAssistName(data);
 
   const params: Record<string, string | number> = {
-    player,
+    player: shooter,
+    shooter,
+    pusher: pusher || shooter,
+    tackler: tackler || 'the defender',
+    assist: assist || 'a teammate',
     team: teamName,
-    lane: laneDesc,
+    lane: getLaneText(t, data?.lane),
+    shotType: getShotTypeText(t, getShotType(data)),
   };
 
-  const template = getTemplate(t, 'commentary.shot_off_target', templateIdx, params);
+  const sectionKey = `commentary.${section}`;
+  const expectedStripped = `${section}.tpl_${templateIdx}`;
+  let template = getTemplate(t, sectionKey, templateIdx, params);
+  if (template === expectedStripped) {
+    template = getTemplate(t, 'commentary.shot_off_target', templateIdx, params);
+  }
 
   return interpolate(template, params);
 }
@@ -276,8 +423,33 @@ export function formatSaveCommentary(
   awayTeamName: string,
   t: TranslationFunction,
 ): string {
-  const templateIdx = templateIndexFor(event) % 3;
-  return getTemplate(t, 'commentary.save', templateIdx);
+  const data = event.data as any;
+  const isHome = event.isHome ?? true;
+  // Save event is attributed to the GK's team. We expose that team's
+  // name to the template so the narrative can name the keeper's
+  // side (e.g. "the {team} keeper" instead of just "the keeper").
+  const teamName = isHome ? awayTeamName : homeTeamName;
+
+  const templateIdx = templateIndexFor(event) % 4;
+  const shooter = getShooterName(data) || 'the attacker';
+  const pusher = getPusherName(data) || shooter;
+  const assist = getAssistName(data);
+  const tackler = getTacklerName(data);
+
+  const params: Record<string, string | number> = {
+    shooter,
+    pusher,
+    assist: assist || 'a teammate',
+    tackler: tackler || 'a defender',
+    team: teamName,
+    lane: getLaneText(t, data?.lane),
+    shotType: getShotTypeText(t, getShotType(data)),
+  };
+
+  return interpolate(
+    getTemplate(t, 'commentary.save', templateIdx, params),
+    params,
+  );
 }
 
 /**
@@ -292,8 +464,18 @@ export function formatSaveCommentary(
  * template as `{tackler}`. Older rows that predate the change have
  * no such field — in that case we force `tpl_0` (the template
  * variant that doesn't reference `{tackler}`) so the rendered
- * string doesn't have a dangling placeholder. New events with a
- * tackler still pick between `tpl_0` and `tpl_1` via djb2.
+ * string doesn't have a dangling placeholder.
+ *
+ * The engine sets `freshPossession = true` after every turnover, so
+ * the *very next* `simulateKeyMoment` iteration runs a counter-
+ * attack for the side that just won the ball. That counter-attack
+ * doesn't get its own event row (it's just the next normal attack
+ * sequence), so the user only sees it through the commentary feed
+ * if the turnover template *itself* acknowledges the imminent
+ * danger. `tpl_3` is the dedicated "counter-attack incoming"
+ * variant; the djb2 pick includes it whenever a tackler is known.
+ * Older rows without a tackler stay on tpl_0 / tpl_1, which don't
+ * mention the counter.
  */
 export function formatTurnoverCommentary(
   event: MatchEvent,
@@ -304,6 +486,11 @@ export function formatTurnoverCommentary(
   const data = event.data as any;
   const isHome = event.isHome ?? true;
   const teamName = isHome ? homeTeamName : awayTeamName;
+
+  // The defender's team is the one that just won the ball, so it's
+  // the "new attacker" — surface it for templates that name the
+  // counter side ("{tacklerTeam} launch a quick break").
+  const tacklerTeam = isHome ? awayTeamName : homeTeamName;
 
   const player: string | undefined =
     data?.sequence?.attackPush?.attackingPlayer ??
@@ -317,20 +504,27 @@ export function formatTurnoverCommentary(
 
   // When no tackler is known (legacy rows), force the template variant
   // that doesn't reference {tackler} so we don't leak the literal
-  // placeholder into the UI. `tpl_0` is the no-tackler variant in both
-  // locales — see web/messages/{en,zh}.json commentary.turnover.
+  // placeholder into the UI. We use `tpl_0` because it's the variant
+  // historically written without `{tackler}` — the new `tpl_2` /
+  // `tpl_3` counter-attack variants DO reference `{tackler}` and
+  // would leave a dangling `{tackler} ` string for legacy rows.
   const hasTackler = Boolean(tackler);
-  const baseIdx = templateIndexFor(event) % 2;
+  const baseIdx = templateIndexFor(event) % 4;
   const templateIdx = hasTackler ? baseIdx : 0;
 
   return interpolate(
-    getTemplate(
-      t,
-      'commentary.turnover',
-      templateIdx,
-      { team: teamName, player: player ?? '', tackler: tackler ?? '' },
-    ),
-    { team: teamName, player: player ?? '', tackler: tackler ?? '' },
+    getTemplate(t, 'commentary.turnover', templateIdx, {
+      team: teamName,
+      tacklerTeam,
+      player: player ?? '',
+      tackler: tackler ?? '',
+    }),
+    {
+      team: teamName,
+      tacklerTeam,
+      player: player ?? '',
+      tackler: tackler ?? '',
+    },
   );
 }
 
@@ -348,12 +542,23 @@ export function formatFreeKickCommentary(
   const data = event.data as any;
   const isHome = event.isHome ?? true;
   const teamName = isHome ? homeTeamName : awayTeamName;
+  // The fouling team is the one that *conceded* the kick — it's the
+  // opposite of the team taking the set piece. Free-kick tpl can
+  // reference `foulingTeam` if it wants a "X was pulled down in
+  // the box, Y stands over the ball" feel.
+  const foulingTeam = isHome ? awayTeamName : homeTeamName;
   const player: string | undefined = data?.playerName ?? data?.kicker;
+  const setPieceType = data?.setPieceType;
 
-  const templateIdx = templateIndexFor(event) % 2;
+  const templateIdx = templateIndexFor(event) % 4;
   return interpolate(
-    getTemplate(t, 'commentary.free_kick', templateIdx, { team: teamName, player: player ?? '' }),
-    { team: teamName, player: player ?? '' },
+    getTemplate(t, 'commentary.free_kick', templateIdx, {
+      team: teamName,
+      foulingTeam,
+      player: player ?? '',
+      setPieceType: setPieceType ?? '',
+    }),
+    { team: teamName, foulingTeam, player: player ?? '', setPieceType: setPieceType ?? '' },
   );
 }
 
@@ -401,13 +606,20 @@ export function formatCornerCommentary(
   awayTeamName: string,
   t: TranslationFunction,
 ): string {
-  const templateIdx = templateIndexFor(event) % 2;
+  const templateIdx = templateIndexFor(event) % 4;
   const isHome = event.isHome ?? true;
   const teamName = isHome ? homeTeamName : awayTeamName;
+  const lane = (event.data as any)?.lane as string | undefined;
+  const data = event.data as any;
+  const tackler = getTacklerName(data);
 
   return interpolate(
-    getTemplate(t, 'commentary.corner', templateIdx, { team: teamName }),
-    { team: teamName },
+    getTemplate(t, 'commentary.corner', templateIdx, {
+      team: teamName,
+      lane: getLaneText(t, lane),
+      tackler: tackler || 'a defender',
+    }),
+    { team: teamName, lane: getLaneText(t, lane), tackler: tackler || 'a defender' },
   );
 }
 
@@ -527,13 +739,23 @@ export function formatPenaltyCommentary(
   awayTeamName: string,
   t: TranslationFunction,
 ): string {
-  const templateIdx = templateIndexFor(event) % 2;
+  const templateIdx = templateIndexFor(event) % 4;
   const isHome = event.isHome ?? true;
   const teamName = isHome ? homeTeamName : awayTeamName;
+  const data = event.data as any;
+  // Set-piece conversion: a foul in the box by a defender produced
+  // the kick. Surface the defender's name + team so the template
+  // can write "X brought down Y in the area — penalty".
+  const foulingTeam = isHome ? awayTeamName : homeTeamName;
+  const fouler = data?.foulerName ?? data?.fouledPlayerName ?? '';
 
   return interpolate(
-    getTemplate(t, 'commentary.penalty', templateIdx, { team: teamName }),
-    { team: teamName },
+    getTemplate(t, 'commentary.penalty', templateIdx, {
+      team: teamName,
+      foulingTeam,
+      fouler,
+    }),
+    { team: teamName, foulingTeam, fouler },
   );
 }
 
@@ -544,12 +766,19 @@ export function formatPenaltyMissCommentary(
   t: TranslationFunction,
 ): string {
   const data = event.data as any;
-  const templateIdx = templateIndexFor(event) % 2;
+  const isHome = event.isHome ?? true;
+  const teamName = isHome ? homeTeamName : awayTeamName;
+  const templateIdx = templateIndexFor(event) % 4;
   const player = data?.playerName || 'Unknown Player';
+  const tackler = getTacklerName(data);
 
   return interpolate(
-    getTemplate(t, 'commentary.penalty_miss', templateIdx, { player }),
-    { player },
+    getTemplate(t, 'commentary.penalty_miss', templateIdx, {
+      team: teamName,
+      player,
+      tackler: tackler || 'the keeper',
+    }),
+    { team: teamName, player, tackler: tackler || 'the keeper' },
   );
 }
 

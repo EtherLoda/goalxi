@@ -524,6 +524,185 @@ describe('formatEventCommentary dispatch', () => {
       expect(text).toContain('Barca');
     });
   });
+
+  // ============================================================================
+  // Narrative-template picker (lane × assist × shotType sub-sections)
+  // ============================================================================
+  // The narrative rewrite introduced sub-sectioned template keys
+  // (`goal.center_with_assist.tpl_0`, `shot_on_target.long_shot.tpl_0`,
+  // etc.) and a fallback to the base `goal.tpl_*` / `shot_*_target.tpl_*`
+  // set when the sub-section is missing. These tests pin down the
+  // picker behavior so a future refactor doesn't accidentally lose
+  // the lane / assist / shotType distinction or leave a dangling
+  // `{pusher}` / `{tackler}` placeholder in the rendered text.
+
+  describe('narrative-template sub-section picker', () => {
+    it('goal picks the center_with_assist sub-section when an assist is present', () => {
+      // The mock returns distinct strings for each sub-section so we
+      // can assert the formatter picked the right key (rather than
+      // asserting on prose text, which would be brittle).
+      const t = jest.fn((key: string) => {
+        if (key === 'goal.center_with_assist.tpl_0')
+          return '{pusher}→{assist}→{shooter}';
+        if (key === 'goal.left_with_assist.tpl_0')
+          return 'wrong-left';
+        if (key === 'goal.center_no_assist.tpl_0') return 'wrong-no-assist';
+        return key;
+      });
+      const text = formatEventCommentary(
+        baseEvent({
+          type: 'goal',
+          typeName: 'goal',
+          minute: 12,
+          isHome: true,
+          data: {
+            lane: 'center',
+            sequence: {
+              attackPush: {
+                attackingPlayer: 'Pedri',
+                defendingPlayer: 'Vitinha',
+              },
+              shot: {
+                shooter: 'Saka',
+                assist: 'Pedri',
+                shotType: 'normal',
+                shootRating: 80,
+              },
+            },
+          },
+        }),
+        'Barca',
+        'PSG',
+        t,
+      );
+      // Substring check (rather than `toBe`) so the djb2-driven
+      // template-index switch is still free to land on tpl_0/1/2/3.
+      expect(text).toMatch(/Pedri→Pedri→Saka/);
+    });
+
+    it('goal falls back to base goal.tpl_* when the lane sub-section is missing', () => {
+      // Older translations may not have the lane×assist split. The
+      // picker should detect the missing key (mock returns the
+      // literal key when unknown) and reroute to the base
+      // `goal.tpl_*` set.
+      const t = jest.fn((key: string) => {
+        // Only the base goal.tpl_* exists; every lane sub-section
+        // returns the literal key, signalling "missing".
+        if (key === 'goal.tpl_0') return 'BASE {shooter}';
+        return key;
+      });
+      const text = formatEventCommentary(
+        baseEvent({
+          type: 'goal',
+          typeName: 'goal',
+          minute: 12,
+          isHome: true,
+          data: {
+            lane: 'left',
+            sequence: {
+              attackPush: { attackingPlayer: 'Pedri' },
+              shot: { shooter: 'Saka', shotType: 'normal', shootRating: 80 },
+            },
+          },
+        }),
+        'Barca',
+        'PSG',
+        t,
+      );
+      expect(text).toContain('BASE Saka');
+    });
+
+    it('goal picks the long_shot sub-section when shotType is long-range shot', () => {
+      const t = jest.fn((key: string) => {
+        if (key === 'goal.long_shot.tpl_0') return 'LONG_SHOT {shooter}';
+        if (key === 'goal.center_no_assist.tpl_0')
+          return 'wrong-short-shot';
+        return key;
+      });
+      const text = formatEventCommentary(
+        baseEvent({
+          type: 'goal',
+          typeName: 'goal',
+          minute: 12,
+          isHome: true,
+          data: {
+            lane: 'center',
+            sequence: {
+              attackPush: { attackingPlayer: 'Pedri' },
+              shot: {
+                shooter: 'Saka',
+                shotType: 'long-range shot',
+                shootRating: 80,
+              },
+            },
+          },
+        }),
+        'Barca',
+        'PSG',
+        t,
+      );
+      expect(text).toBe('LONG_SHOT Saka');
+    });
+
+    it('goal picks the penalty sub-section for penalty events', () => {
+      const t = jest.fn((key: string) => {
+        if (key === 'goal.penalty.tpl_0') return 'PENALTY {shooter}';
+        return key;
+      });
+      const text = formatEventCommentary(
+        baseEvent({
+          type: 'penalty_goal',
+          typeName: 'penalty_goal',
+          minute: 12,
+          isHome: true,
+          data: {
+            sequence: {
+              shot: { shooter: 'Saka', shotType: 'normal', shootRating: 80 },
+            },
+          },
+        }),
+        'Barca',
+        'PSG',
+        t,
+      );
+      expect(text).toBe('PENALTY Saka');
+    });
+
+    it('turnover renders the tpl_3 counter-attack variant when tpl_3 is selected by djb2', () => {
+      // Phase 1 of the narrative rewrite added `tpl_2` / `tpl_3`
+      // turnover variants that mention the imminent counter-attack.
+      // This test pins the new tpl down — the djb2 pick happens to
+      // land on tpl_3 for the given event id (`evt-turnover-fast-break`),
+      // so we get a deterministic check. If this id changes, recompute
+      // djb2('evt-turnover-fast-break') mod 4 and pick another id that
+      // still maps to 3.
+      const t = jest.fn((key: string) => {
+        if (key === 'turnover.tpl_3') return 'COUNTER {tacklerTeam}';
+        return key;
+      });
+      const text = formatEventCommentary(
+        baseEvent({
+          id: 'evt-turnover-fast-break',
+          type: 'turnover',
+          typeName: 'turnover',
+          minute: 33,
+          isHome: false,
+          data: {
+            sequence: {
+              attackPush: {
+                attackingPlayer: 'Pedri',
+                defendingPlayer: 'Vitinha',
+              },
+            },
+          },
+        }),
+        'Barca',
+        'PSG',
+        t,
+      );
+      expect(text).toBe('COUNTER Barca');
+    });
+  });
 });
 
 // ============================================================================
