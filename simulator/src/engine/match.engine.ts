@@ -2096,8 +2096,23 @@ export class MatchEngine {
           Math.min(0.99, teamP * (1 + this.pushDuelMarginal.marginal)),
         );
         pushSuccess = Math.random() < pushProbability;
-        // 如果进攻失败，防守方获得球权，下次进攻享受反击加成
+        // 如果进攻失败，防守方获得球权并发动反击。
+        // Mirror the `interceptTriggered` path below: swap
+        // `possessionTeam` / `defendingTeam` so the upcoming
+        // counter-attack sees the right "new attacker" / "new
+        // defender" pair. Without this swap, `freshPossession =
+        // true` would still fire on the next `simulateKeyMoment`
+        // (the flag is read at line ~1849 to apply a counter-attack
+        // boost), but the boost would land on whichever side
+        // happened to win the *next* midfield duel — i.e. it
+        // would be applied to the wrong team about half the time.
+        // Swapping here keeps the possession flag and the team
+        // identity in lockstep, so the counter-attack bonus
+        // correctly rewards the side that actually won the ball.
         if (!pushSuccess) {
+          const temp = this.possessionTeam;
+          this.possessionTeam = this.defendingTeam;
+          this.defendingTeam = temp;
           this.freshPossession = true;
         } else {
           // 推进成功：进攻方冲刺过人受伤检核
