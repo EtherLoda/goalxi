@@ -639,24 +639,36 @@ export class MatchEngine {
     team: Team,
     weightTable: Record<string, number>,
   ): TacticalPlayer | null {
-    const candidates = team.players.filter(
-      (p) =>
-        !p.isSentOff &&
-        (p.entryMinute === undefined || p.entryMinute <= this.time) &&
-        (weightTable[p.positionKey] ?? 0) > 0,
-    );
+    // Single-pass weighted pick. The legacy code did three
+    // separate walks of the team:
+    //   1. `filter` (eligibility + lookup #1 of weightTable[pos])
+    //   2. `reduce` (lookup #2 of weightTable[pos])
+    //   3. `for` loop (lookup #3 of weightTable[pos])
+    // Each call cost 3N lookups + 2 array allocations. Here we do
+    // it in one pass: filter into `candidates`, then walk
+    // `candidates` once to compute totalWeight and once more to
+    // pick. The weight is cached on a parallel array so the
+    // `weightTable` lookup fires exactly once per player.
+    const candidates: TacticalPlayer[] = [];
+    const weights: number[] = [];
+    for (const p of team.players) {
+      if (p.isSentOff) continue;
+      if (p.entryMinute !== undefined && p.entryMinute > this.time) continue;
+      const w = weightTable[p.positionKey] ?? 0;
+      if (w <= 0) continue;
+      candidates.push(p);
+      weights.push(w);
+    }
     if (candidates.length === 0) return null;
 
-    const totalWeight = candidates.reduce(
-      (sum, p) => sum + (weightTable[p.positionKey] ?? 0),
-      0,
-    );
+    let totalWeight = 0;
+    for (let i = 0; i < weights.length; i++) totalWeight += weights[i];
     if (totalWeight <= 0) return null;
 
     let r = Math.random() * totalWeight;
-    for (const p of candidates) {
-      r -= weightTable[p.positionKey] ?? 0;
-      if (r <= 0) return p;
+    for (let i = 0; i < candidates.length; i++) {
+      r -= weights[i];
+      if (r <= 0) return candidates[i];
     }
     return candidates[candidates.length - 1];
   }
@@ -715,20 +727,32 @@ export class MatchEngine {
     player: TacticalPlayer,
     team: Team,
     scoreOf: (p: Player) => number,
-  ): number {
-    const sameSlot = team.players.filter(
-      (p) => p.positionKey === player.positionKey && p !== player,
-    );
-    const baseline =
-      sameSlot.length > 0
-        ? sameSlot.reduce(
-            (sum, p) => sum + scoreOf(p.player as Player),
-            0,
-          ) / sameSlot.length
-        : scoreOf(player.player as Player);
+  ): { marginal: number; playerComposite: number } {
+    // Scan the team once for same-slot peers instead of allocating
+    // a filtered array. We need the average composite of the
+    // player's own slot — excluding the player himself (otherwise
+    // the baseline anchors to himself and the marginal collapses
+    // to 0).
+    let baselineSum = 0;
+    let baselineCount = 0;
+    for (const p of team.players) {
+      if (p === player) continue;
+      if (p.positionKey !== player.positionKey) continue;
+      baselineSum += scoreOf(p.player as Player);
+      baselineCount++;
+    }
     const playerScore = scoreOf(player.player as Player);
+    const baseline =
+      baselineCount > 0 ? baselineSum / baselineCount : playerScore;
     const raw = (playerScore - baseline) / 100;
-    return Math.max(-0.1, Math.min(0.1, raw));
+    return {
+      marginal: Math.max(-0.1, Math.min(0.1, raw)),
+      // Surface the player's own composite so the caller (push
+      // marginal) can reuse it without recomputing
+      // `getOffensiveComposite(attacker.player)` /
+      // `getDefensiveComposite(defender.player)` a second time.
+      playerComposite: playerScore,
+    };
   }
 
   /**
@@ -750,21 +774,25 @@ export class MatchEngine {
     if (!attacker || !defender) {
       return { attackerComposite: null, defenderComposite: null, marginal: 0 };
     }
-    const attMarginal = this.computePlayerMarginal(
+    const att = this.computePlayerMarginal(
       attacker,
       this.possessionTeam,
       this.getOffensiveComposite,
     );
-    const defMarginal = this.computePlayerMarginal(
+    const def = this.computePlayerMarginal(
       defender,
       this.defendingTeam,
       this.getDefensiveComposite,
     );
     return {
-      attackerComposite: this.getOffensiveComposite(attacker.player as Player),
-      defenderComposite: this.getDefensiveComposite(defender.player as Player),
+      // Reuse the composites computed inside `computePlayerMarginal`
+      // — saves one `getOffensiveComposite` + one
+      // `getDefensiveComposite` call per push (each composes
+      // 3 attribute lookups + 4 arithmetic ops).
+      attackerComposite: att.playerComposite,
+      defenderComposite: def.playerComposite,
       // att better ⇒ + ; def better ⇒ −
-      marginal: (attMarginal - defMarginal) / 2,
+      marginal: (att.marginal - def.marginal) / 2,
     };
   }
 
@@ -1761,6 +1789,29 @@ export class MatchEngine {
       marginal: 0,
     };
 
+    // Per-keyMoment cache for `teamMaxEventMultiplier`. The helper
+    // walks all ~11 players + does Map/Record lookups for each,
+    // and `simulateKeyMoment` invokes it 2-6 times per sequence
+    // with a stable `(team, event)` pair (specialty, lane, and
+    // possession are read-only inside this scope; the only
+    // mutation that could invalidate is a red card, but
+    // `resolveFoul` runs at the very top of the function and
+    // early-returns, so `isSentOff` is stable across the rest of
+    // the call). Memoizing the result avoids the redundant walk
+    // on every call.
+    const specialtyMaxCache = new Map<string, number>();
+    const teamMaxEventCached = (
+      team: Team,
+      event: Parameters<typeof getEventMultiplier>[1],
+    ): number => {
+      const key = `${team.name}|${event}`;
+      const hit = specialtyMaxCache.get(key);
+      if (hit !== undefined) return hit;
+      const v = teamMaxEventMultiplier(team, event);
+      specialtyMaxCache.set(key, v);
+      return v;
+    };
+
     // Step 1: Foul Check (提高频率,配合 90 分钟独立 foul event 让总犯规 ~14-16/场,
     // 接近真实足球 20-26 但不至于过密)
     if (Math.random() < 0.3) {
@@ -1791,11 +1842,11 @@ export class MatchEngine {
     // additive model with a single multiplicative team bonus; the
     // strength of that bonus is governed by the highest-tier
     // TACKLER on the pitch (1.0 / 1.20 / 1.40 for Bronze/Silver/Gold).
-    const homeTackleBonus = teamMaxEventMultiplier(
+    const homeTackleBonus = teamMaxEventCached(
       this.homeTeam,
       'midfield_control',
     );
-    const awayTackleBonus = teamMaxEventMultiplier(
+    const awayTackleBonus = teamMaxEventCached(
       this.awayTeam,
       'midfield_control',
     );
@@ -1847,7 +1898,7 @@ export class MatchEngine {
     // engine's selectShooter also weights SPEEDSTERs more heavily
     // during counter phases — see `selectShooter(..., { phase: 'counter' })`.
     if (this.freshPossession) {
-      const counterBonus = teamMaxEventMultiplier(
+      const counterBonus = teamMaxEventCached(
         this.possessionTeam,
         'select_shooter_counter',
       );
@@ -1909,7 +1960,7 @@ export class MatchEngine {
       // team (1.0 / 1.10 / 1.40) instead of v1's stacking per-player
       // count — see §2.1 in the design doc.
       if (attackType === AttackType.CROSS) {
-        const attackerHeaderBonus = teamMaxEventMultiplier(
+        const attackerHeaderBonus = teamMaxEventCached(
           this.possessionTeam,
           'shot_header',
         );
@@ -1922,7 +1973,7 @@ export class MatchEngine {
       // during CROSS attacks. Same team-max pattern as the attacker.
       let effectiveDefPower = defPower;
       if (attackType === AttackType.CROSS) {
-        const defenderHeaderBonus = teamMaxEventMultiplier(
+        const defenderHeaderBonus = teamMaxEventCached(
           this.defendingTeam,
           'shot_header',
         );
@@ -2022,7 +2073,7 @@ export class MatchEngine {
       // computation specifically). The team-max pattern means the
       // boost is the same on both application points.
       if (!interceptTriggered && this.freshPossession) {
-        const counterBonus = teamMaxEventMultiplier(
+        const counterBonus = teamMaxEventCached(
           this.possessionTeam,
           'select_shooter_counter',
         );
@@ -2497,19 +2548,30 @@ export class MatchEngine {
     team: Team,
     actionType: 'tackle' | 'sprint' | 'jump' | 'collision' | 'other',
   ): void {
-    // Filter the candidate pool: skip sent-off players (out of
-    // the game) AND players already injured earlier in this match
-    // (P2-#10 — without this, the same player could be picked
-    // twice and stack two injury events in one match). If the
-    // entire team is filtered out, the call is a no-op.
-    const candidates = team.players.filter(
-      (p) => !p.isSentOff && !team.injuredThisMatch.has(p.player.id),
-    );
-    if (candidates.length === 0) return;
+    // Pick the candidate pool in a single for-loop (no filter
+    // allocation). We skip sent-off players (out of the game) AND
+    // players already injured earlier in this match (P2-#10 —
+    // without this, the same player could be picked twice and
+    // stack two injury events in one match). If the entire team
+    // is filtered out, the call is a no-op.
+    let candidateIdx = -1;
+    let candidateCount = 0;
+    for (let i = 0; i < team.players.length; i++) {
+      const p = team.players[i];
+      if (p.isSentOff) continue;
+      if (team.injuredThisMatch.has(p.player.id)) continue;
+      // Reservoir-style random pick: each eligible player is
+      // equally likely to end up as `candidateIdx` after the
+      // loop, equivalent to `candidates[(Math.random() * candidates.length) | 0]`
+      // but with zero array allocation.
+      if (Math.random() * (candidateCount + 1) < 1) {
+        candidateIdx = i;
+      }
+      candidateCount++;
+    }
+    if (candidateIdx === -1) return;
 
-    const tacticalPlayer = candidates[(Math.random() * candidates.length) | 0];
-    if (!tacticalPlayer) return;
-
+    const tacticalPlayer = team.players[candidateIdx];
     const player = tacticalPlayer.player as Player;
     if (!player) return;
 
@@ -3006,13 +3068,36 @@ export class MatchEngine {
     team: Team,
     options: { phase?: 'counter' | 'normal'; shotType?: ShotType } = {},
   ): TacticalPlayer {
-    const candidates = team.players.filter((p) => !p.isSentOff);
-    const len = candidates.length;
+    // Single-pass position bucketing. The legacy code did four
+    // `Array.filter` passes (candidates / cfs / ws / ams) which
+    // allocated four arrays per call. With ~25-30 `selectShooter`
+    // calls per match, that's ~100-120 throwaway arrays / match
+    // churning the young-generation GC. This single loop writes
+    // straight into the four target buckets.
+    const cfs: TacticalPlayer[] = [];
+    const ws: TacticalPlayer[] = [];
+    const ams: TacticalPlayer[] = [];
+    const all: TacticalPlayer[] = [];
+    for (const p of team.players) {
+      if (p.isSentOff) continue;
+      all.push(p);
+      const k = p.positionKey;
+      // The bucket predicates are mutually exclusive at the
+      // position-key level for any well-formed 4-4-2 (CF / LM/RM
+      // / AM* / CM* / etc. share no common prefixes), so the
+      // if/else chain below matches the old `filter` semantics
+      // exactly. Exotic position keys fall through to `all`.
+      if (k.includes('CF')) cfs.push(p);
+      else if (k.includes('W')) ws.push(p);
+      else if (k.includes('AM')) ams.push(p);
+    }
+    const len = all.length;
     if (len === 0) {
       // Defensive fallback — should be unreachable because
       // every team has at least 11 players on the pitch, but
-      // TypeScript needs the early return for the noUncheckedIndexedAccess.
-      return candidates[0];
+      // TypeScript needs the early return for the
+      // noUncheckedIndexedAccess.
+      return all[0];
     }
 
     // v2 specialty weight — applied AFTER the position-bucket pick so
@@ -3025,7 +3110,12 @@ export class MatchEngine {
       // Weighted pick: each candidate's weight is
       //   baseWeight (= 1.0) × specialtyMultiplier(event)
       // The multiplier is the engine's central source of truth.
-      const weights: number[] = bucket.map((p) => {
+      // Single-pass weight+total: avoid the legacy
+      // `bucket.map().reduce()` double walk.
+      let totalWeight = 0;
+      const weights = new Array<number>(bucket.length);
+      for (let i = 0; i < bucket.length; i++) {
+        const p = bucket[i];
         const player = p.player as Player;
         let w = 1.0;
         if (shotType === ShotType.REBOUND) {
@@ -3036,9 +3126,9 @@ export class MatchEngine {
         if (phase === 'counter') {
           w *= selectShooterCounterWeight(player);
         }
-        return w;
-      });
-      const totalWeight = weights.reduce((a, b) => a + b, 0);
+        weights[i] = w;
+        totalWeight += w;
+      }
       if (totalWeight <= 0) {
         return bucket[(Math.random() * bucket.length) | 0];
       }
@@ -3054,27 +3144,25 @@ export class MatchEngine {
     const rand = Math.random();
 
     // 优先 CF（40%）
-    const cfs = candidates.filter((p) => p.positionKey.includes('CF'));
     if (cfs.length > 0 && rand < 0.4) {
       return pickInBucket(cfs);
     }
 
     // 其次 W（20%）
-    const ws = candidates.filter((p) => p.positionKey.includes('W'));
     if (ws.length > 0 && rand < 0.6) {
       // 0.40 + 0.20
       return pickInBucket(ws);
     }
 
     // 再次 AM（15%）
-    const ams = candidates.filter((p) => p.positionKey.includes('AM'));
     if (ams.length > 0 && rand < 0.75) {
       // 0.60 + 0.15
       return pickInBucket(ams);
     }
 
-    // 其他位置随机（剩余 25%）
-    return pickInBucket(candidates);
+    // 其他位置随机（剩余 25%）— pick from the full bucket so a
+    // CFs/Ws/AMs player can still be picked in this branch.
+    return pickInBucket(all);
   }
 
   /**
@@ -3082,42 +3170,60 @@ export class MatchEngine {
    * AM(45%) > W(25%) > CM(20%) > 其他(10%)
    */
   private selectLongShotShooter(team: Team): TacticalPlayer {
-    const candidates = team.players.filter(
-      (p) => !p.isSentOff && !p.positionKey.includes('GK'),
-    );
+    // Single-pass bucketing (was 4 filter allocations). `outfield`
+    // mirrors the legacy "no sent off, no GK" candidates pool;
+    // `ams` / `ws` / `cms` are the position-bucket picks; `others`
+    // is what falls through.
+    const outfield: TacticalPlayer[] = [];
+    const ams: TacticalPlayer[] = [];
+    const ws: TacticalPlayer[] = [];
+    const cms: TacticalPlayer[] = [];
+    const others: TacticalPlayer[] = [];
+    for (const p of team.players) {
+      if (p.isSentOff) continue;
+      if (p.positionKey.includes('GK')) continue;
+      outfield.push(p);
+      const k = p.positionKey;
+      if (k.includes('AM')) ams.push(p);
+      else if (k.includes('W')) ws.push(p);
+      else if (k.includes('CM')) cms.push(p);
+      else others.push(p);
+    }
+    if (outfield.length === 0) {
+      // Should never happen — team has at least 11 players and
+      // only 1 is GK. Fall through to a uniform-random pick on
+      // whatever non-sent-off players are left.
+      const fallback: TacticalPlayer[] = [];
+      for (const p of team.players) {
+        if (!p.isSentOff) fallback.push(p);
+      }
+      if (fallback.length === 0) return team.players[0];
+      return fallback[(Math.random() * fallback.length) | 0];
+    }
 
     // 优先级1：AM（45%）
-    const ams = candidates.filter((p) => p.positionKey.includes('AM'));
     if (ams.length > 0 && Math.random() < 0.45) {
       return ams[(Math.random() * ams.length) | 0];
     }
 
     // 优先级2：W（25%，在剩余55%中）
-    const ws = candidates.filter((p) => p.positionKey.includes('W'));
     if (ws.length > 0 && Math.random() < 0.4545) {
       // 0.25 / 0.55
       return ws[(Math.random() * ws.length) | 0];
     }
 
     // 优先级3：CM（20%，在剩余30%中）
-    const cms = candidates.filter((p) => p.positionKey.includes('CM'));
     if (cms.length > 0 && Math.random() < 0.6667) {
       // 0.20 / 0.30
       return cms[(Math.random() * cms.length) | 0];
     }
 
     // 优先级4：其他位置（剩余10%）
-    const others = candidates.filter(
-      (p) =>
-        !p.positionKey.includes('AM') &&
-        !p.positionKey.includes('W') &&
-        !p.positionKey.includes('CM'),
-    );
     if (others.length > 0) {
       return others[(Math.random() * others.length) | 0];
     }
 
-    return candidates[(Math.random() * candidates.length) | 0];
+    return outfield[(Math.random() * outfield.length) | 0];
   }
 
   private selectAssist(
@@ -3125,24 +3231,45 @@ export class MatchEngine {
     shooter: TacticalPlayer,
     attackType: 'CROSS' | 'OTHER' = 'OTHER',
   ): TacticalPlayer | null {
-    // Get all players except the shooter and GK
-    const candidates = team.players.filter(
-      (p) => !p.isSentOff && p !== shooter && !p.positionKey.includes('GK'),
-    );
+    // Single-pass bucketing (was 3 filter allocations: candidates /
+    // widePlayers / preferredAssisters). Build all three buckets in
+    // one loop. `widePlayers` and `preferredAssisters` are
+    // *disjoint* (the wide predicates use LB/RB/WBL/WBR/LW/RW; the
+    // preferred predicates use AM/CM/W), so the bucket predicates
+    // below are mutually exclusive at the position-key level and
+    // cover the same set as the legacy filters.
+    const candidates: TacticalPlayer[] = [];
+    const widePlayers: TacticalPlayer[] = [];
+    const preferredAssisters: TacticalPlayer[] = [];
+    for (const p of team.players) {
+      if (p.isSentOff) continue;
+      if (p === shooter) continue;
+      if (p.positionKey.includes('GK')) continue;
+      candidates.push(p);
+      const k = p.positionKey;
+      if (
+        k.includes('LB') ||
+        k.includes('RB') ||
+        k.includes('WBL') ||
+        k.includes('WBR') ||
+        k.includes('LW') ||
+        k.includes('RW')
+      ) {
+        widePlayers.push(p);
+      }
+      if (
+        k.includes('AM') ||
+        k.includes('CM') ||
+        k.includes('W')
+      ) {
+        preferredAssisters.push(p);
+      }
+    }
 
     if (candidates.length === 0) return null;
 
     // For CROSS (传中), the assister must be a wide player
     if (attackType === 'CROSS') {
-      const widePlayers = candidates.filter(
-        (p) =>
-          p.positionKey.includes('LB') ||
-          p.positionKey.includes('RB') ||
-          p.positionKey.includes('WBL') ||
-          p.positionKey.includes('WBR') ||
-          p.positionKey.includes('LW') ||
-          p.positionKey.includes('RW'),
-      );
       if (widePlayers.length > 0) {
         return widePlayers[(Math.random() * widePlayers.length) | 0];
       }
@@ -3151,13 +3278,6 @@ export class MatchEngine {
     }
 
     // For other attack types, prioritize midfielders and wingers
-    const preferredAssisters = candidates.filter(
-      (p) =>
-        p.positionKey.includes('AM') ||
-        p.positionKey.includes('CM') ||
-        p.positionKey.includes('W'),
-    );
-
     if (preferredAssisters.length > 0 && Math.random() < 0.7) {
       return preferredAssisters[
         (Math.random() * preferredAssisters.length) | 0
