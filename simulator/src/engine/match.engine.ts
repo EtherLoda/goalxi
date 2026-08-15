@@ -2134,6 +2134,11 @@ export class MatchEngine {
     let finalShootRating = 0;
     let gkRating = 0;
     let shotType: ShotType = ShotType.NORMAL;
+    // shotVariance is set inside the `if (shooter)` block but read
+    // outside it (in the wire payload). Hoisted so the post-scope
+    // payload writer can see it. Stays 0 when there's no shooter,
+    // in which case the wire payload is `shot: null` anyway.
+    let shotVariance = 0;
 
     // 远射：直接起脚，不经过推进
     if (attackType === AttackType.LONG_SHOT) {
@@ -2231,8 +2236,13 @@ export class MatchEngine {
             finalShootRating = this.calculateShootRating(player);
         }
 
-        // 随机波动因子
-        finalShootRating *= 0.6 + Math.random() * 0.5;
+        // 随机波动因子 — 这个 random 同时驱动两件事:
+        //   1. finalShootRating 的噪声,决定 goal 概率 (玩家真实"准头")
+        //   2. shotQuality 0-100 评分,描述"这脚本身怎么样"
+        // 必须用同一个 random draw,这样 wire 上看到的 shotQuality 跟
+        // 实际决定是否进球的扰动是同一次,UI 跟 game logic 自洽。
+        shotVariance = Math.random();
+        finalShootRating *= 0.6 + shotVariance * 0.5;
 
         const gk = this.defendingTeam.getGoalkeeper();
         gkRating = gk ? this.defendingTeam.getSnapshot()?.gkRating || 100 : 100;
@@ -2340,7 +2350,16 @@ export class MatchEngine {
               shotType: shotType,
               shooter: shooter,
               assist: assistPlayer,
-              shootRating: finalShootRating,
+              // shotQuality is the per-shot perturbation on a 0-100
+              // scale (derived from the same noise the goal-probability
+              // duel saw). It is NOT the same as finalShootRating,
+              // which is the player-skill-dominated 0-300+ input to
+              // duel.ts. The pre-fix wire value `shootRating` carried
+              // finalShootRating, which made the FE quality thresholds
+              // (>= 60 / >= 80) trigger on virtually every real shot
+              // and made the EventBubble show numbers like 160 that
+              // read like player attributes, not shot quality.
+              shotQuality: Math.round(shotVariance * 100),
               gkRating: gkRating,
             },
     });
@@ -2702,7 +2721,7 @@ export class MatchEngine {
       shotType: ShotType;
       shooter: TacticalPlayer | null;
       assist: TacticalPlayer | null;
-      shootRating: number;
+      shotQuality: number;
       gkRating: number;
     } | null;
   }) {
@@ -2833,7 +2852,7 @@ export class MatchEngine {
                 : null,
               assist: shot.assist ? (shot.assist.player as Player).name : null,
               assistId: shot.assist ? (shot.assist.player as Player).id : null,
-              shootRating: parseFloat(shot.shootRating.toFixed(2)),
+              shotQuality: shot.shotQuality,
               gkRating: parseFloat(shot.gkRating.toFixed(2)),
             }
           : null,

@@ -81,7 +81,7 @@ export class StatsService {
 
       const xG = teamEvents.filter(isShotEvent).reduce((sum, e) => {
         const data = e.data as any;
-        return sum + (data?.quality ?? data?.sequence?.shootRating ?? 0);
+        return sum + (data?.quality ?? data?.sequence?.shotQuality ?? 0);
       }, 0);
 
       const goals = teamEvents.filter(

@@ -51,7 +51,7 @@ export interface EventBubbleProps {
   awayColor?: string | null;
 }
 
-const STAT_RE = /(shootRating|gkRating|attackScore|defenseScore|probability)=([\d.]+)/;
+const STAT_RE = /(shotQuality|gkRating|attackScore|defenseScore|probability)=([\d.]+)/;
 
 export const EventBubble: React.FC<EventBubbleProps> = ({
   event,

@@ -148,11 +148,16 @@ function getTemplate(
 // even for the {excellent} branch that doesn't use it (no-op there).
 function getQualityText(
   t: TranslationFunction,
-  shootRating: number,
+  shotQuality: number,
   player: string,
 ): string {
-  if (shootRating >= 80) return t('goal.quality_excellent', { player });
-  if (shootRating >= 60) return t('goal.quality_great', { player });
+  // Thresholds (60/80) read shotQuality on its native 0-100 scale —
+  // the per-shot noise perturbation, NOT the player's finalShootRating
+  // (which is 0-300+). The pre-fix code used the same 60/80 gates on
+  // a 0-300 value, so virtually every real shot hit `quality_excellent`
+  // and the tier system was effectively dead.
+  if (shotQuality >= 80) return t('goal.quality_excellent', { player });
+  if (shotQuality >= 60) return t('goal.quality_great', { player });
   return t('goal.quality_good', { player });
 }
 
@@ -335,8 +340,8 @@ export function formatGoalCommentary(
   const pusher = getPusherName(data);
   const tackler = getTacklerName(data);
   const assist = getAssistName(data);
-  const shootRating = data?.sequence?.shot?.shootRating || 0;
-  const quality = getQualityText(t, shootRating, shooter);
+  const shotQuality = data?.sequence?.shot?.shotQuality || 0;
+  const quality = getQualityText(t, shotQuality, shooter);
 
   const params: Record<string, string | number> = {
     player: shooter,
@@ -393,10 +398,10 @@ export function formatShotOnTargetCommentary(
   const pusher = getPusherName(data);
   const tackler = getTacklerName(data);
   const assist = getAssistName(data);
-  const shootRating = data?.sequence?.shot?.shootRating || 0;
-  const quality = shootRating >= 80
+  const shotQuality = data?.sequence?.shot?.shotQuality || 0;
+  const quality = shotQuality >= 80
     ? t('goal.quality_chance')
-    : shootRating >= 60
+    : shotQuality >= 60
       ? t('goal.quality_opportunity')
       : '';
 
