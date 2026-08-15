@@ -144,7 +144,7 @@ describe('SimulationProcessor', () => {
       save: jest.fn().mockResolvedValue({}),
       create: jest.fn((entity, data) => data),
       delete: jest.fn().mockResolvedValue({ affected: 0 }),
-      // `manager.query` powers the atomic claim in process() 鈥?the default
+      // `manager.query` powers the atomic claim in process() — the default
       // returns a one-row array so the happy-path tests still pass. Tests
       // that want to simulate a losing claim override this per-test.
       query: jest.fn().mockResolvedValue([{ id: 'match-1' }]),
@@ -152,6 +152,12 @@ describe('SimulationProcessor', () => {
       // stats paths inside runSimulation. Default to null so those branches
       // fall back to "create new row" without a 500.
       findOne: jest.fn().mockResolvedValue(null),
+      // `manager.find` powers the batched competition-stats lookup
+      // (`find({ where: { playerId: In([...]) } })`). Default to
+      // an empty array so the path falls through to "all players
+      // need a new row" — matches the legacy 22× findOne default
+      // of "no existing row, create one" without 500-ing.
+      find: jest.fn().mockResolvedValue([]),
       createQueryBuilder: jest.fn(() => ({
         where: jest.fn().mockReturnThis(),
         getMany: jest.fn().mockResolvedValue(mockPlayers),
