@@ -109,4 +109,52 @@ export class ConditionSystem {
 
     return Math.round(fitnessFactor * 1000) / 1000;
   }
+
+  /**
+   * Combined multiplier + fitness factor in a single call.
+   *
+   * `generateSnapshotEvent.mapPlayerStates` was previously calling
+   * `getFitnessFactor` and `calculateMultiplier` back-to-back, which
+   * recomputed the same `consumed / buffer / exp(-F_LAMBDA *
+   * overdraftRatio)` block twice per player per snapshot (~22 × 18
+   * = 400 calls per match). This variant computes the fitness
+   * factor once, then folds it into the multiplier so both come
+   * out of a single branch. Wire-format unchanged.
+   */
+  static getMultiplierWithFitnessFactor(
+    currentFit: number,
+    startFit: number,
+    status: number,
+    exp: number,
+  ): { multiplier: number; fitnessFactor: number } {
+    // 1. Experience Factor (Hyperbolic) — same formula as
+    //    `calculateMultiplier`.
+    const expFactor = 1 + (this.E_LIMIT_BONUS * exp) / (exp + this.E_GROWTH_K);
+
+    // 2. Status/Form Factor (Sigmoid) — same formula as
+    //    `calculateMultiplier`.
+    const sDiff = status - this.S_MID;
+    const statusFactor =
+      sDiff === 0
+        ? 0.95
+        : this.S_MIN + this.S_RANGE / (1 + Math.exp(-this.S_K * sDiff));
+
+    // 3. Fitness Factor (Exponential Decay) — once, shared
+    //    between the returned `fitnessFactor` and the multiplier.
+    let fitnessFactor = 1.0;
+    const consumed = startFit - currentFit;
+    const buffer = startFit * this.F_R_FREE;
+    if (consumed > buffer) {
+      const overdraftRatio = (consumed - buffer) / startFit;
+      fitnessFactor = Math.exp(-this.F_LAMBDA * overdraftRatio);
+    }
+
+    const multiplier = Math.round(
+      fitnessFactor * statusFactor * expFactor * 1000,
+    ) / 1000;
+    return {
+      multiplier,
+      fitnessFactor: Math.round(fitnessFactor * 1000) / 1000,
+    };
+  }
 }

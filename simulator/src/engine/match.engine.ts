@@ -173,25 +173,23 @@ const POSITION_TO_BENCH_KEY: Record<string, keyof BenchConfig> = {
 // 0, 0.5, 1, ..., 19.5, 20) so the snapshot's  field carries a
 // smooth, evenly-spaced 0-20 number end-to-end. The FE just reads
 // and displays - no rescaling.
-const STAR_THRESHOLDS: { threshold: number; power: number }[] = (() => {
-  // 40 rungs, each 0.5 apart, covering contribution 0..100 in 2.5
-  // steps. Linear: contribution 0 -> power 0; contribution 100 ->
-  // power 20. Even 0.5-step spacing so the ladder feels smooth.
-  const rungs: { threshold: number; power: number }[] = [];
-  for (let i = 0; i <= 40; i++) {
-    rungs.push({ threshold: i * 2.5, power: i * 0.5 });
-  }
-  return rungs;
-})();
-
+//
+// The threshold ladder is a linear mapping: rung `i` has
+// `threshold = i * 2.5` and `power = i * 0.5`. So
+// `contributionToStars(c)` is just `floor(c / 2.5) * 0.5`, with
+// the index clamped to [0, 40] so out-of-range inputs still
+// produce a valid 0–20 power rating (matches the legacy
+// `Math.min(20, stars)` cap). No table needed at runtime — the
+// legacy `STAR_THRESHOLDS` array allocated 41 objects at module
+// load just to feed a 41-iteration linear scan inside
+// `generateSnapshotEvent`, which fired ~22 times per snapshot ×
+// ~18 snapshots = ~400 times per match. The closed form runs
+// the same math in O(1) with no allocation.
 function contributionToStars(contribution: number): number {
-  // Last rung whose threshold is <= contribution wins; defensive
-  // cap at 20 for bad input.
-  let stars = 0;
-  for (const { threshold, power } of STAR_THRESHOLDS) {
-    if (contribution >= threshold) stars = power;
-  }
-  return Math.min(20, stars);
+  const i = Math.floor(contribution / 2.5);
+  if (i <= 0) return 0;
+  if (i >= 40) return 20;
+  return i * 0.5;
 }
 
 export interface MatchEvent {
@@ -841,6 +839,36 @@ export class MatchEngine {
     // 清除属性计算缓存，确保每次模拟从零开始
     AttributeCalculator.clearCache();
 
+    // Pre-cache per-player contributions for both lineups so the
+    // first `updateSnapshot` (minute 0) and every later one hit the
+    // `contributionCache` instead of triggering a `calculateContributionRaw`
+    // per dimension on each read. Without this, the first snapshot
+    // does 22 players × 9 (lane, phase) combinations = 198 cache-miss
+    // computations; with it, the loop body is pure Map lookups. Late
+    // substitutions / position swaps also call
+    // `preCachePlayerContributions` on their own, so this only
+    // needs to cover the starting XI + bench.
+    for (const tp of this.homeTeam.players) {
+      AttributeCalculator.preCachePlayerContributions(
+        tp.player as Player,
+        tp.positionKey,
+      );
+    }
+    for (const tp of this.awayTeam.players) {
+      AttributeCalculator.preCachePlayerContributions(
+        tp.player as Player,
+        tp.positionKey,
+      );
+    }
+    // Bench substitutes (positionKey = 'SUB' on entry — `preCache`
+    // gracefully no-ops for unknown keys since
+    // `normalizePositionKey('SUB')` returns 'SUB' which isn't in
+    // POSITION_WEIGHTS, but we still want them cached at their
+    // eventual position). Defer to `substitutePlayer` (which
+    // pre-caches under the new position when a sub actually comes
+    // on) — bench players on entry have no contribution to compute
+    // yet.
+
     this.events = [];
     this.time = 0;
     this.freshPossession = false;
@@ -1178,7 +1206,7 @@ export class MatchEngine {
       const hKicker = homeKickers[(round - 1) % homeKickers.length];
       const hGoal = resolvePenalty(hKicker, awayGK);
       if (hGoal) homePKScore++;
-      this.recordPenaltyEvent(hKicker, hGoal, homePKScore, awayPKScore);
+      this.recordPenaltyEvent(hKicker, hGoal, homePKScore, awayPKScore, this.homeTeam);
 
       // Check if decided
       if (this.isShootoutDecided(homePKScore, awayPKScore, 5, round, true))
@@ -1188,7 +1216,7 @@ export class MatchEngine {
       const aKicker = awayKickers[(round - 1) % awayKickers.length];
       const aGoal = resolvePenalty(aKicker, homeGK);
       if (aGoal) awayPKScore++;
-      this.recordPenaltyEvent(aKicker, aGoal, homePKScore, awayPKScore);
+      this.recordPenaltyEvent(aKicker, aGoal, homePKScore, awayPKScore, this.awayTeam);
 
       // Check if decided
       if (this.isShootoutDecided(homePKScore, awayPKScore, 5, round, false))
@@ -1206,10 +1234,10 @@ export class MatchEngine {
         const aGoal = resolvePenalty(aKicker, homeGK);
 
         if (hGoal) homePKScore++;
-        this.recordPenaltyEvent(hKicker, hGoal, homePKScore, awayPKScore);
+        this.recordPenaltyEvent(hKicker, hGoal, homePKScore, awayPKScore, this.homeTeam);
 
         if (aGoal) awayPKScore++;
-        this.recordPenaltyEvent(aKicker, aGoal, homePKScore, awayPKScore);
+        this.recordPenaltyEvent(aKicker, aGoal, homePKScore, awayPKScore, this.awayTeam);
 
         if (hGoal !== aGoal) break; // Decided
         round++;
@@ -1588,17 +1616,19 @@ export class MatchEngine {
     goal: boolean,
     hScore: number,
     aScore: number,
+    team: Team,
   ) {
+    // `team` is the kicker's team (passed by the caller — the
+    // shootout loop already knows which side is kicking). Was
+    // previously derived by `this.homeTeam.players.some(...)` on
+    // every call, which is an 11-element linear scan per kick
+    // (up to ~20 kicks per shootout — small absolute cost, but
+    // zero reason to keep it).
     const p = kicker.player as Player;
-    const kickerTeam = this.homeTeam.players.some(
-      (tp) => (tp.player as Player).id === p.id,
-    )
-      ? this.homeTeam.name
-      : this.awayTeam.name;
     this.events.push({
       minute: 120,
       type: goal ? 'penalty_goal' : 'penalty_miss',
-      teamName: kickerTeam,
+      teamName: team.name,
       playerId: p.id,
       data: { homeScore: hScore, awayScore: aScore },
     });
@@ -1658,10 +1688,19 @@ export class MatchEngine {
     minute: number,
     scoreStatus: ScoreStatus,
   ) {
-    const pending = instructions.filter(
-      (ins) =>
-        ins.minute === minute && this.shouldFire(ins.condition, scoreStatus),
-    );
+    // Walk the team's instructions directly (was an `Array.filter`
+    // allocation). 90 minutes × 2 teams = 180 calls per match, so
+    // even with 0-5 instructions per team the throwaway array
+    // churned the GC. For-loop walks in place — `pending` is only
+    // referenced inside this function so there's no behavior
+    // change.
+    const pending: TacticalInstruction[] = [];
+    for (let i = 0; i < instructions.length; i++) {
+      const ins = instructions[i];
+      if (ins.minute !== minute) continue;
+      if (!this.shouldFire(ins.condition, scoreStatus)) continue;
+      pending.push(ins);
+    }
 
     for (const ins of pending) {
       let success = false;
@@ -3306,26 +3345,36 @@ export class MatchEngine {
     const weatherWeights =
       WEATHER_ATTACK_WEIGHTS[this.weather] || WEATHER_ATTACK_WEIGHTS['cloudy'];
 
-    // Apply both tempo and weather weights
-    const weightedDistribution = distribution.map(
-      (base, i) => base * weatherWeights[i] * tempoWeights[AttackType[i]],
-    );
+    // Fold all three passes (weight × tempo × weather → sum →
+    // normalize → cumulative draw) into one. Legacy allocated
+    // two intermediate 5-element arrays and walked the
+    // distribution 3 times (`.map` + `.reduce` + final draw
+    // loop). Distribution is always 5 elements (AttackType enum),
+    // so unrolling is both readable and allocation-free.
+    const w0 = distribution[0] * weatherWeights[0] * tempoWeights[AttackType[0]];
+    const w1 = distribution[1] * weatherWeights[1] * tempoWeights[AttackType[1]];
+    const w2 = distribution[2] * weatherWeights[2] * tempoWeights[AttackType[2]];
+    const w3 = distribution[3] * weatherWeights[3] * tempoWeights[AttackType[3]];
+    const w4 = distribution[4] * weatherWeights[4] * tempoWeights[AttackType[4]];
 
-    // 归一化（保持总和为100）
-    const sum = weightedDistribution.reduce((a, b) => a + b, 0);
-    const normalized = weightedDistribution.map((w) => (w / sum) * 100);
-
+    const sum = w0 + w1 + w2 + w3 + w4;
+    // 归一化（保持总和为100）— equivalent to the legacy
+    // `(w / sum) * 100`. Pre-multiply the 100/sum into each weight
+    // so the draw loop just walks the cumulative sum.
+    const scale = 100 / sum;
     const rand = Math.random() * 100;
-    let cumulative = 0;
+    let cumulative = w0 * scale;
+    if (rand < cumulative) return AttackType.CROSS;
+    cumulative += w1 * scale;
+    if (rand < cumulative) return AttackType.SHORT_PASS;
+    cumulative += w2 * scale;
+    if (rand < cumulative) return AttackType.THROUGH_PASS;
+    cumulative += w3 * scale;
+    if (rand < cumulative) return AttackType.DRIBBLE;
+    cumulative += w4 * scale;
+    if (rand < cumulative) return AttackType.LONG_SHOT;
 
-    for (let i = 0; i < normalized.length; i++) {
-      cumulative += normalized[i];
-      if (rand < cumulative) {
-        return i as AttackType;
-      }
-    }
-
-    return AttackType.SHORT_PASS; // Fallback
+    return AttackType.SHORT_PASS; // Fallback (numeric drift)
   }
 
   /**
@@ -3458,15 +3507,15 @@ export class MatchEngine {
 
   private changeLane() {
     // Lane is determined neutrally — opportunities appear regardless of which team will get possession.
-    // Base distribution: left=29, center=42, right=29
-    const base = [29, 42, 29];
-    const sum = base.reduce((a, b) => a + b, 0);
-    const normalized = base.map((w) => (w / sum) * 100);
-
+    // Base distribution: left=29, center=42, right=29. Hard-coded
+    // values (sum = 100) so the normalization and cumulative draw
+    // are constant-time arithmetic with no array allocation. Called
+    // once per `simulateKeyMoment` (~20×/match).
     const rand = Math.random() * 100;
-    if (rand < normalized[0]) {
+    if (rand < 29) {
       this.currentLane = 'left';
-    } else if (rand < normalized[0] + normalized[1]) {
+    } else if (rand < 71) {
+      // 29 + 42 = 71
       this.currentLane = 'center';
     } else {
       this.currentLane = 'right';
@@ -3499,16 +3548,19 @@ export class MatchEngine {
 
         const player = tacticalPlayer.player as Player;
         const fitness = team.playerFitness[i];
-        const fitnessFactor = ConditionSystem.getFitnessFactor(
-          fitness,
-          player.currentStamina,
-        );
-        const multiplier = ConditionSystem.calculateMultiplier(
-          fitness,
-          player.currentStamina,
-          player.form,
-          player.experience,
-        );
+        // Compute multiplier + fitnessFactor together — the legacy
+        // pair of `getFitnessFactor` + `calculateMultiplier` re-ran
+        // the same `consumed / buffer / exp(-F_LAMBDA *
+        // overdraftRatio)` branch twice per player per snapshot
+        // (~22 × 18 = ~400 calls / match). The combined method folds
+        // the fitness factor into the multiplier in a single pass.
+        const { multiplier, fitnessFactor } =
+          ConditionSystem.getMultiplierWithFitnessFactor(
+            fitness,
+            player.currentStamina,
+            player.form,
+            player.experience,
+          );
 
         const lAtk = AttributeCalculator.calculateContribution(
           player,
