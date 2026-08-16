@@ -123,6 +123,20 @@ export class Team {
       // keeping it out of the lane loop preserves the "decision
       // quality" scope from the spec.
 
+      // HOIST: `attackLaneMultiplier` / `defenseLaneMultiplier` are
+      // pure functions of `player.coreSpecialty` + `coreSpecialtyTier`
+      // — both are player attributes that don't change during a
+      // match. The legacy code recomputed them 3× per lane × 2
+      // (att/def) = 6 times per player per snapshot (2376 calls /
+      // match on an 11-vs-11 line-up × 18 snapshots), each doing 5
+      // Map.gets + a Math.pow tier scaling. Hoisting them out of
+      // the lane loop reduces that to 2 calls per player per
+      // snapshot (792 calls / match — a 67% reduction) with no
+      // behavior change. See
+      // `docs/specialty-v2-design.md` for the v2 hook design.
+      const attLaneMult = attackLaneMultiplier(player);
+      const defLaneMult = defenseLaneMultiplier(player);
+
       // 使用calculateAndCacheContribution，自动缓存
       for (const lane of lanes) {
         const att = AttributeCalculator.calculateAndCacheContribution(
@@ -144,8 +158,8 @@ export class Team {
           'possession',
         );
 
-        laneStrengths[lane].attack += att * multiplier * attackLaneMultiplier(player);
-        laneStrengths[lane].defense += def * multiplier * defenseLaneMultiplier(player);
+        laneStrengths[lane].attack += att * multiplier * attLaneMult;
+        laneStrengths[lane].defense += def * multiplier * defLaneMult;
         laneStrengths[lane].possession += poss * multiplier;
       }
     }
