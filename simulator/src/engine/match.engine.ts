@@ -1,4 +1,4 @@
-import { Team } from './classes/Team';
+﻿import { Team } from './classes/Team';
 import {
   Lane,
   TacticalPlayer,
@@ -1458,10 +1458,9 @@ export class MatchEngine {
               0,
             );
             const totalStars = history.reduce((sum, h) => sum + h.stars, 0);
-            avgContribution = parseFloat(
-              (totalContribution / history.length).toFixed(1),
-            );
-            avgStars = parseFloat((totalStars / history.length).toFixed(2));
+            avgContribution =
+              Math.round((totalContribution / history.length) * 10) / 10;
+            avgStars = Math.round(((totalStars / history.length)) * 100) / 100;
           }
 
           result.push({
@@ -1533,25 +1532,22 @@ export class MatchEngine {
       // means the FE never has to do display math on these numbers.
       return {
         left: {
-          attack: parseFloat((totals.left.attack / count / 100).toFixed(2)),
-          defense: parseFloat((totals.left.defense / count / 100).toFixed(2)),
-          possession: parseFloat(
-            (totals.left.possession / count / 100).toFixed(2),
-          ),
+          attack: Math.round(((totals.left.attack / count / 100)) * 100) / 100,
+          defense: Math.round(((totals.left.defense / count / 100)) * 100) / 100,
+          possession:
+            Math.round((totals.left.possession / count / 100) * 100) / 100,
         },
         center: {
-          attack: parseFloat((totals.center.attack / count / 100).toFixed(2)),
-          defense: parseFloat((totals.center.defense / count / 100).toFixed(2)),
-          possession: parseFloat(
-            (totals.center.possession / count / 100).toFixed(2),
-          ),
+          attack: Math.round(((totals.center.attack / count / 100)) * 100) / 100,
+          defense: Math.round(((totals.center.defense / count / 100)) * 100) / 100,
+          possession:
+            Math.round((totals.center.possession / count / 100) * 100) / 100,
         },
         right: {
-          attack: parseFloat((totals.right.attack / count / 100).toFixed(2)),
-          defense: parseFloat((totals.right.defense / count / 100).toFixed(2)),
-          possession: parseFloat(
-            (totals.right.possession / count / 100).toFixed(2),
-          ),
+          attack: Math.round(((totals.right.attack / count / 100)) * 100) / 100,
+          defense: Math.round(((totals.right.defense / count / 100)) * 100) / 100,
+          possession:
+            Math.round((totals.right.possession / count / 100) * 100) / 100,
         },
       };
     };
@@ -2910,8 +2906,8 @@ export class MatchEngine {
         midfieldBattle: {
           homeTeam: this.homeTeam.name,
           awayTeam: this.awayTeam.name,
-          homeStrength: parseFloat(midfieldBattle.homeStrength.toFixed(2)),
-          awayStrength: parseFloat(midfieldBattle.awayStrength.toFixed(2)),
+          homeStrength: Math.round((midfieldBattle.homeStrength) * 100) / 100,
+          awayStrength: Math.round((midfieldBattle.awayStrength) * 100) / 100,
           winner:
             midfieldBattle.winner === 'home'
               ? this.homeTeam.name
@@ -2929,8 +2925,8 @@ export class MatchEngine {
             ? (attackPush.defendingPlayer.player as Player).name
             : undefined,
           defendingTeam: defender,
-          attackPower: parseFloat(attackPush.attackPower.toFixed(2)),
-          defensePower: parseFloat(attackPush.defensePower.toFixed(2)),
+          attackPower: Math.round((attackPush.attackPower) * 100) / 100,
+          defensePower: Math.round((attackPush.defensePower) * 100) / 100,
           success: attackPush.success,
           // Push-duel skill profile — surfaces the player-vs-player
           // breakdown the engine applied. `null` for either composite
@@ -2954,7 +2950,7 @@ export class MatchEngine {
               assist: shot.assist ? (shot.assist.player as Player).name : null,
               assistId: shot.assist ? (shot.assist.player as Player).id : null,
               shotQuality: shot.shotQuality,
-              gkRating: parseFloat(shot.gkRating.toFixed(2)),
+              gkRating: Math.round((shot.gkRating) * 100) / 100,
             }
           : null,
       },
@@ -3672,10 +3668,10 @@ export class MatchEngine {
         const state: any = {
           id: player.id,
           p: tacticalPlayer.positionKey,
-          st: parseFloat(fitness.toFixed(1)),
+          st: Math.round((fitness) * 10) / 10,
           f: player.form,
-          ff: parseFloat(fitnessFactor.toFixed(3)),
-          pc: parseFloat(normalizedContribution.toFixed(1)), // Normalized to 0-100 scale
+          ff: Math.round((fitnessFactor) * 1000) / 1000,
+          pc: Math.round((normalizedContribution) * 10) / 10, // Normalized to 0-100 scale
           // Power rating 0–20 in 2-point steps (0.5-step × 4 = the
           // 5-star max → 20 mapping). Emitted directly on the
           // 0–20 scale so the FE just reads and displays.
@@ -3715,9 +3711,9 @@ export class MatchEngine {
         // becomes a thin renderer. Divide-then-round is correct: a
         // raw 880.55 → 8.8055 → "8.8" (1-decimal as before).
         res[lane] = {
-          atk: parseFloat((((phases as any).attack || 0) / 100).toFixed(1)),
-          def: parseFloat((((phases as any).defense || 0) / 100).toFixed(1)),
-          pos: parseFloat((((phases as any).possession || 0) / 100).toFixed(1)),
+          atk: Math.round(((((phases as any).attack || 0) / 100)) * 10) / 10,
+          def: Math.round(((((phases as any).defense || 0) / 100)) * 10) / 10,
+          pos: Math.round(((((phases as any).possession || 0) / 100)) * 10) / 10,
         };
       }
       return res;
@@ -3768,14 +3764,14 @@ export class MatchEngine {
           n: time === 0 ? this.homeTeam.name : undefined,
           ls: formatLanes(homeSnapshot?.laneStrengths),
           lc: formatCounters(this.laneCounters.home),
-          gk: parseFloat((homeSnapshot?.gkRating || 0).toFixed(1)),
+          gk: Math.round(((homeSnapshot?.gkRating || 0)) * 10) / 10,
           ps: mapPlayerStates(this.homeTeam, time === 0),
         },
         a: {
           n: time === 0 ? this.awayTeam.name : undefined,
           ls: formatLanes(awaySnapshot?.laneStrengths),
           lc: formatCounters(this.laneCounters.away),
-          gk: parseFloat((awaySnapshot?.gkRating || 0).toFixed(1)),
+          gk: Math.round(((awaySnapshot?.gkRating || 0)) * 10) / 10,
           ps: mapPlayerStates(this.awayTeam, time === 0),
         },
       },
@@ -3824,9 +3820,9 @@ export class MatchEngine {
       playerId: kickerPlayer.id,
       data: {
         setPieceType: 'corner',
-        attackScore: parseFloat(attackScore.toFixed(2)),
-        defenseScore: parseFloat(defenseScore.toFixed(2)),
-        probability: parseFloat(probability.toFixed(2)),
+        attackScore: Math.round((attackScore) * 100) / 100,
+        defenseScore: Math.round((defenseScore) * 100) / 100,
+        probability: Math.round((probability) * 100) / 100,
         result: isGoal ? 'goal' : 'save',
       },
     });
@@ -3889,9 +3885,9 @@ export class MatchEngine {
       playerId: kickerPlayer.id,
       data: {
         setPieceType: 'indirect_free_kick',
-        attackScore: parseFloat(attackScore.toFixed(2)),
-        defenseScore: parseFloat(defenseScore.toFixed(2)),
-        probability: parseFloat(probability.toFixed(2)),
+        attackScore: Math.round((attackScore) * 100) / 100,
+        defenseScore: Math.round((defenseScore) * 100) / 100,
+        probability: Math.round((probability) * 100) / 100,
         result: isGoal ? 'goal' : 'save',
       },
     });
@@ -3953,9 +3949,9 @@ export class MatchEngine {
       playerId: kickerP.id,
       data: {
         setPieceType: 'direct_free_kick',
-        attackScore: parseFloat(attackScore.toFixed(2)),
-        defenseScore: parseFloat(defenseScore.toFixed(2)),
-        probability: parseFloat(probability.toFixed(2)),
+        attackScore: Math.round((attackScore) * 100) / 100,
+        defenseScore: Math.round((defenseScore) * 100) / 100,
+        probability: Math.round((probability) * 100) / 100,
         result: isGoal ? 'goal' : 'save',
       },
     });
@@ -4021,9 +4017,9 @@ export class MatchEngine {
       playerId: kickerP.id,
       data: {
         setPieceType: 'penalty',
-        attackScore: parseFloat(attackScore.toFixed(2)),
-        defenseScore: parseFloat(defenseScore.toFixed(2)),
-        probability: parseFloat(probability.toFixed(2)),
+        attackScore: Math.round((attackScore) * 100) / 100,
+        defenseScore: Math.round((defenseScore) * 100) / 100,
+        probability: Math.round((probability) * 100) / 100,
         result: isGoal ? 'goal' : 'save',
       },
     });

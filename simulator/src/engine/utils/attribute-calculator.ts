@@ -198,16 +198,26 @@ export class AttributeCalculator {
     const injuryPenalty = (player as any).injuryPenalty ?? 1.0;
 
     let totalScore = 0;
-    for (const [attrName, weight] of Object.entries(phaseWeights)) {
+    // `for...in` walks own-enumerable keys without allocating a
+    // `[key, value]` pair per iteration (the legacy
+    // `Object.entries(phaseWeights)` allocated ~10 pairs per
+    // call, × 22 players × 9 (lane, phase) = ~2000 pair
+    // allocations per match — all on the first-call cache-miss
+    // path that `simulateMatch` now pre-runs upfront via
+    // `preCachePlayerContributions`). `weight` is looked up by
+    // key each iteration, which V8 can usually inline since the
+    // shape of `phaseWeights` is a stable `Record<string, number>`.
+    for (const attrName in phaseWeights) {
+      const weight = (phaseWeights as Record<string, unknown>)[attrName];
       if (typeof weight !== 'number') continue;
       if (attrName === 'abilities') continue; // not a numeric attribute
 
-      const attributeName = attrName as keyof PlayerAttributes;
-      const attrValue = (player.attributes[attributeName] as number) ?? 0;
+      const attrValue =
+        (player.attributes[attrName as keyof PlayerAttributes] as number) ?? 0;
       totalScore += attrValue * weight * injuryPenalty;
     }
 
-    return parseFloat(totalScore.toFixed(2));
+    return Math.round(totalScore * 100) / 100;
   }
 
   /**

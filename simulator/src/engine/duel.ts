@@ -48,31 +48,57 @@ export function duelProbability(
   valB: number,
   options: DuelOptions = {},
 ): number {
-  const {
-    amplification = 2.0,
-    baseline = 0.5,
-    anchorRatio = 2.0,
-    anchorProbability = 0.8,
-  } = options;
+  // k 反推：保证 P(anchorRatio) = anchorProbability 且 P(1) = baseline
+  // 即 k · ln(anchorRatio)^a + logit(baseline) = logit(anchorProbability)
+  //   k · ln(anchorRatio)^a = logit(anchorProbability) − logit(baseline)
+  // k 仅依赖 options,不依赖 valA/valB。整个 match 内的所有
+  // `duelProbability` 调用只会落在 ~6-8 个不同的 options 组合
+  // (midfield / push / 5 种 shot / corner),用 string-key
+  // cache 把 4 个 Math 常量 (anchorLogR / anchorV / baselineShift
+  // / anchorZ → k) 算一次,后续命中后这 4 行都是 0 cost。
+  // 60-80 calls/match × ~200ns/4-Math-op 节省 ≈ 10-15µs/match。
+  // cache 容量上限受引擎 options 字面量集合约束(~8 个 entry),
+  // 不会无界增长。
+  const key =
+    `${options.amplification ?? 2}|${options.baseline ?? 0.5}|` +
+    `${options.anchorRatio ?? 2}|${options.anchorProbability ?? 0.8}`;
+  let coeff = duelCoeffCache.get(key);
+  if (coeff === undefined) {
+    const amp = options.amplification ?? 2.0;
+    const baseline = options.baseline ?? 0.5;
+    const anchorRatio = options.anchorRatio ?? 2.0;
+    const anchorProbability = options.anchorProbability ?? 0.8;
+    const anchorLogR = Math.log(anchorRatio);
+    const anchorV = Math.pow(anchorLogR, amp);
+    const baselineShift = Math.log(baseline / (1 - baseline));
+    const anchorZ = Math.log(anchorProbability / (1 - anchorProbability));
+    const k = (anchorZ - baselineShift) / anchorV;
+    coeff = { amp, baselineShift, k };
+    duelCoeffCache.set(key, coeff);
+  }
 
   const safeA = Math.max(valA, 1e-3);
   const safeB = Math.max(valB, 1e-3);
 
-  // k 反推：保证 P(anchorRatio) = anchorProbability 且 P(1) = baseline
-  // 即 k · ln(anchorRatio)^a + logit(baseline) = logit(anchorProbability)
-  //   k · ln(anchorRatio)^a = logit(anchorProbability) − logit(baseline)
-  const anchorLogR = Math.log(anchorRatio);
-  const anchorV = Math.pow(anchorLogR, amplification);
-  const baselineShift = Math.log(baseline / (1 - baseline));
-  const anchorZ = Math.log(anchorProbability / (1 - anchorProbability));
-  const k = (anchorZ - baselineShift) / anchorV;
-
   const logR = Math.log(safeA / safeB);
-  const v = Math.sign(logR) * Math.pow(Math.abs(logR), amplification);
-  const z = k * v + baselineShift;
+  const v = Math.sign(logR) * Math.pow(Math.abs(logR), coeff.amp);
+  const z = coeff.k * v + coeff.baselineShift;
 
   return 1 / (1 + Math.exp(-z));
 }
+
+/**
+ * Per-options coefficient cache. Holds the four Math
+ * constants that `duelProbability` derives from `options` but
+ * not from `valA`/`valB`. Keys are the four option values
+ * joined with `|` (cheap, distinct, and the only call sites
+ * pass a small fixed set of literals so the cache is bounded
+ * by the engine's option domain).
+ */
+const duelCoeffCache = new Map<
+  string,
+  { amp: number; baselineShift: number; k: number }
+>();
 
 /**
  * 根据 duelProbability 决定布尔结果。封装 RNG 便于测试时注入确定性随机源。
