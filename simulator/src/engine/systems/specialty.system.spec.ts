@@ -178,6 +178,9 @@ describe('per-event × per-specialty multipliers (Silver tier)', () => {
     // foul_rate (values < 1.0)
     { event: 'foul_rate', specialty: 'TACKLER', expected: 0.80 },
     { event: 'foul_rate', specialty: 'DRIBBLER', expected: 0.90 },
+    // COMPOSED halves the foul rate (per `docs/specialty-v2-design.md
+    // §2.9 action point 4`). Wired in MatchEngine.resolveFoul.
+    { event: 'foul_rate', specialty: 'COMPOSED', expected: 0.50 },
 
     // injury_chance
     { event: 'injury_chance', specialty: 'PHYSICAL_BEAST', expected: 0.90 },
@@ -278,6 +281,8 @@ describe('named convenience getters', () => {
 
   it('foulRateMultiplier / injuryChanceMultiplier / lateGameMentalMultiplier / commandDefenseMultiplier', () => {
     expect(foulRateMultiplier(playerWith('TACKLER', 'SILVER'))).toBe(0.80);
+    expect(foulRateMultiplier(playerWith('DRIBBLER', 'SILVER'))).toBe(0.90);
+    expect(foulRateMultiplier(playerWith('COMPOSED', 'SILVER'))).toBe(0.50);
     expect(injuryChanceMultiplier(playerWith('PHYSICAL_BEAST', 'SILVER'))).toBe(0.90);
     expect(lateGameMentalMultiplier(playerWith('COMPOSED', 'SILVER'))).toBe(1.0);
     expect(commandDefenseMultiplier(playerWith('SWEEPER_KEEPER', 'SILVER'))).toBe(1.05);

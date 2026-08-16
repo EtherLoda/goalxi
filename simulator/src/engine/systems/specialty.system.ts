@@ -156,6 +156,16 @@ const BASE_EFFECTS: Partial<Record<SpecialtyEvent, Partial<Record<ActiveCoreSpec
   foul_rate: {
     TACKLER: 0.80,          // 1 - 0.20 = 0.80 (less likely to foul)
     DRIBBLER: 0.90,         // 1 - 0.10 = 0.90 (slightly less likely)
+    // COMPOSED (泰山) — the "composure" specialty. COMPOSED
+    // players rarely lash out: their foul rate is cut in half
+    // (0.5 Silver, ~0.42 Gold, ~0.61 Bronze via applyTierMultiplier).
+    // Wired into MatchEngine.resolveFoul as a player-skip: when
+    // a COMPOSED player is selected to be the fouler, the
+    // engine rolls `Math.random() < foulRateMultiplier`; on a
+    // miss the entire resolveFoul call is a no-op (no team
+    // foul counter bump, no card distribution, no set piece).
+    // See docs/specialty-v2-design.md §2.9 action point 4.
+    COMPOSED: 0.50,         // 1 - 0.50 = 0.50 (half as likely to foul)
   },
   injury_chance: {
     PHYSICAL_BEAST: 0.90,   // 1 - 0.10 = 0.90 (more robust)

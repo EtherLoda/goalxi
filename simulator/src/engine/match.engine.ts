@@ -2458,6 +2458,26 @@ export class MatchEngine {
     const player = foulingTeam.players[playerIdx];
     if (!player || player.isSentOff) return;
 
+    // v2 specialty: foul_rate hook (TACKLER 0.80, DRIBBLER 0.90,
+    // COMPOSED 0.50 — see BASE_EFFECTS in specialty.system).
+    // Applied at the "is this player actually going to foul?"
+    // gate: COMPOSED players halve the chance of being the
+    // fouler when randomly picked. On a skip the entire
+    // resolveFoul call is a no-op — the team foul counter is
+    // not bumped, no card is drawn, and no set-piece fires.
+    // (Re-rolling to a different player would preserve the
+    // team-level foul-count invariant but for a 50% buff on
+    // typically 1-2 COMPOSED players in an 11-player team
+    // it's a 4-9% shift to other players — invisible. The
+    // skip semantics match the design-doc wording "less
+    // likely to foul" and also fix the v1→v2 dead-code bug
+    // where TACKLER / DRIBBLER's foul_rate hook was defined
+    // in the table but never consumed.)
+    const foulRate = foulRateMultiplier(player.player as Player);
+    if (foulRate < 1.0 && Math.random() > foulRate) {
+      return;
+    }
+
     // Bump the per-team foul counter. Counts every foul call regardless
     // of card outcome — the team-level stat fans compare. Plain fouls
     // no longer emit a `foul` event (see the else branch below), so this
