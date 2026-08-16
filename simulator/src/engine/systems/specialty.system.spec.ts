@@ -183,8 +183,10 @@ describe('per-event × per-specialty multipliers (Silver tier)', () => {
     { event: 'injury_chance', specialty: 'PHYSICAL_BEAST', expected: 0.90 },
     { event: 'injury_chance', specialty: 'AERIAL_THREAT', expected: 0.80 },
 
-    // late_game_mental
-    { event: 'late_game_mental', specialty: 'COMPOSED', expected: 0.80 },
+    // late_game_mental (COMPOSED placeholder — no consumer
+    // yet, see specialty.system.ts and §2.9 of the v2 design
+    // doc). Value 1.0 so the helper returns no-op for now.
+    { event: 'late_game_mental', specialty: 'COMPOSED', expected: 1.0 },
 
     // command_defense
     { event: 'command_defense', specialty: 'SWEEPER_KEEPER', expected: 1.05 },
@@ -277,7 +279,7 @@ describe('named convenience getters', () => {
   it('foulRateMultiplier / injuryChanceMultiplier / lateGameMentalMultiplier / commandDefenseMultiplier', () => {
     expect(foulRateMultiplier(playerWith('TACKLER', 'SILVER'))).toBe(0.80);
     expect(injuryChanceMultiplier(playerWith('PHYSICAL_BEAST', 'SILVER'))).toBe(0.90);
-    expect(lateGameMentalMultiplier(playerWith('COMPOSED', 'SILVER'))).toBe(0.80);
+    expect(lateGameMentalMultiplier(playerWith('COMPOSED', 'SILVER'))).toBe(1.0);
     expect(commandDefenseMultiplier(playerWith('SWEEPER_KEEPER', 'SILVER'))).toBe(1.05);
   });
 });

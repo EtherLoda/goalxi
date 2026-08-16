@@ -23,7 +23,6 @@ import {
   getEventMultiplier,
   gkSaveMultiplier,
   injuryChanceMultiplier,
-  lateGameMentalMultiplier,
   midfieldControlMultiplier,
   pushDefenseMultiplier,
   pushOffenseMultiplier,

@@ -9,7 +9,7 @@ import { ConditionSystem } from '../systems/condition.system';
 import { Player } from '../../types/player.types';
 import { PitchWidth } from '../types/tactics-config';
 import { WIDTH_MODIFIERS } from '../tactics/tactics-presets';
-import { attackLaneMultiplier, commandDefenseMultiplier, defenseLaneMultiplier, gkSaveMultiplier, lateGameMentalMultiplier } from '../systems/specialty.system';
+import { attackLaneMultiplier, commandDefenseMultiplier, defenseLaneMultiplier, gkSaveMultiplier } from '../systems/specialty.system';
 
 export class Team {
   private snapshot: TeamSnapshot | null = null;
@@ -114,19 +114,14 @@ export class Team {
         player.experience,
       );
 
-      // v2 COMPOSED — late-game (minute >= 80) composure boost. The
-      // hook value is < 1.0 because it's a "lower is better" event
-      // (fewer mistakes). 1.0 baseline at Bronze, 0.80 at Silver, 0.745
-      // at Gold (most reduction = most composure).
-      if (minute >= 80) {
-        multiplier *= lateGameMentalMultiplier(player);
-      }
       // v2 SPEEDSTER / first-light boost (formerly FSTRT) is folded
       // into the snapshot's per-lane strength via the pace
       // contribution hook. We don't add an early-minute multiplier
       // here because (a) it's already in the snapshot, and
-      // (b) COMPOSED's late-game branch is the only "minute-gated"
-      // hook in v2.
+      // (b) the COMPOSED late-game branch is a *shoot-rating* buff
+      // (see simulateKeyMoment), not a lane-strength multiplier —
+      // keeping it out of the lane loop preserves the "decision
+      // quality" scope from the spec.
 
       // 使用calculateAndCacheContribution，自动缓存
       for (const lane of lanes) {
