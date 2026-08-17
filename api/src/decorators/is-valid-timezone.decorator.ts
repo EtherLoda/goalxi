@@ -22,8 +22,17 @@ import {
 @ValidatorConstraint({ name: 'isValidTimezone', async: false })
 class IsValidTimezoneConstraint implements ValidatorConstraintInterface {
   validate(value: unknown): boolean {
-    if (typeof value !== 'string' || value.length === 0) return false;
-    if (value.length > 64) return false;
+    // The decorator is implicitly optional — a PATCH body
+    // that only updates `preferredLanguage` (or any other
+    // field) doesn't need to also send `timezone`, and
+    // failing validation on an absent field would 422 the
+    // request. We treat `undefined` and `null` as "no value
+    // supplied" and pass. The DTO field is also optional
+    // (`timezone?`), so the property just stays unset on
+    // the entity.
+    if (value === undefined || value === null) return true;
+    if (typeof value !== 'string') return false;
+    if (value.length === 0 || value.length > 64) return false;
     try {
       // Throws RangeError if `value` is not a known IANA zone.
       new Intl.DateTimeFormat('en-US', { timeZone: value });
