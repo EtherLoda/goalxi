@@ -15,6 +15,7 @@ import {
   SystemConfigEntity,
   ScoutCandidateEntity,
   TacticsPresetEntity,
+  AnnouncementEntity,
 } from '@goalxi/database';
 import { BootstrapService } from './bootstrap.service';
 import { UserGenerator } from './generators/user.generator';
@@ -22,6 +23,9 @@ import { LeagueGenerator } from './generators/league.generator';
 import { TeamGenerator } from './generators/team.generator';
 import { ScheduleGenerator } from './generators/schedule.generator';
 import { WeatherGenerator } from './generators/weather.generator';
+import { TacticsPresetGenerator } from './generators/tactics-preset.generator';
+import { ScoutSeedGenerator } from './generators/scout-seed.generator';
+import { AnnouncementGenerator } from './generators/announcement.generator';
 
 /**
  * Wires the auto-recover `BootstrapService` + the
@@ -48,6 +52,7 @@ import { WeatherGenerator } from './generators/weather.generator';
       SystemConfigEntity,
       ScoutCandidateEntity,
       TacticsPresetEntity,
+      AnnouncementEntity,
     ]),
   ],
   providers: [
@@ -57,7 +62,20 @@ import { WeatherGenerator } from './generators/weather.generator';
     TeamGenerator,
     ScheduleGenerator,
     WeatherGenerator,
+    TacticsPresetGenerator,
+    ScoutSeedGenerator,
+    AnnouncementGenerator,
   ],
-  exports: [BootstrapService, UserGenerator, LeagueGenerator, TeamGenerator, ScheduleGenerator, WeatherGenerator],
+  exports: [
+    BootstrapService,
+    UserGenerator,
+    LeagueGenerator,
+    TeamGenerator,
+    ScheduleGenerator,
+    WeatherGenerator,
+    TacticsPresetGenerator,
+    ScoutSeedGenerator,
+    AnnouncementGenerator,
+  ],
 })
 export class BootstrapModule {}

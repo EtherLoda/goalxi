@@ -42,6 +42,12 @@ import {
 } from '@goalxi/database';
 import { TypeOrmModuleOptions } from '@nestjs/typeorm';
 
+// TeamGenerator and TacticsPresetGenerator + scout seed
+// need the stadium / preset / scout-candidate / announcement
+// repos. The full entity list below mirrors
+// `DatabaseConfigService` in this folder.
+
+
 /**
  * Plain-object Postgres config used by the standalone
  * `scripts/init.ts` CLI. Mirrors

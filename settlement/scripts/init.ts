@@ -39,8 +39,12 @@ import {
   UserEntity,
   PlayerEntity,
   StaffEntity,
+  StadiumEntity,
   TeamEntity,
   WeatherEntity,
+  ScoutCandidateEntity,
+  TacticsPresetEntity,
+  AnnouncementEntity,
   startOfUtcDay,
   resolveGameStart,
 } from '@goalxi/database';
@@ -52,6 +56,9 @@ import { LeagueGenerator } from '../src/bootstrap/generators/league.generator';
 import { TeamGenerator } from '../src/bootstrap/generators/team.generator';
 import { ScheduleGenerator } from '../src/bootstrap/generators/schedule.generator';
 import { WeatherGenerator } from '../src/bootstrap/generators/weather.generator';
+import { TacticsPresetGenerator } from '../src/bootstrap/generators/tactics-preset.generator';
+import { ScoutSeedGenerator } from '../src/bootstrap/generators/scout-seed.generator';
+import { AnnouncementGenerator } from '../src/bootstrap/generators/announcement.generator';
 
 function printHelp(): void {
   // eslint-disable-next-line no-console
@@ -209,6 +216,7 @@ async function main(): Promise<number> {
       ds.getRepository(TeamEntity),
       ds.getRepository(PlayerEntity),
       ds.getRepository(StaffEntity),
+      ds.getRepository(StadiumEntity),
       ds.getRepository(LeagueEntity),
       ds,
     );
@@ -222,6 +230,21 @@ async function main(): Promise<number> {
       consoleLogger as any,
       ds.getRepository(WeatherEntity),
     );
+    const presetGen = new TacticsPresetGenerator(
+      consoleLogger as any,
+      ds.getRepository(TacticsPresetEntity),
+      ds.getRepository(TeamEntity),
+      ds.getRepository(PlayerEntity),
+    );
+    const scoutGen = new ScoutSeedGenerator(
+      consoleLogger as any,
+      ds.getRepository(TeamEntity),
+      ds.getRepository(ScoutCandidateEntity),
+    );
+    const announcementGen = new AnnouncementGenerator(
+      consoleLogger as any,
+      ds.getRepository(AnnouncementEntity),
+    );
 
     const svc = new InitService(
       consoleLogger as any,
@@ -231,6 +254,9 @@ async function main(): Promise<number> {
       teamGen,
       scheduleGen,
       weatherGen,
+      presetGen,
+      scoutGen,
+      announcementGen,
     );
 
     const options: InitOptions = {

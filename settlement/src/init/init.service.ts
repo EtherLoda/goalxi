@@ -13,6 +13,9 @@ import { LeagueGenerator } from '../bootstrap/generators/league.generator';
 import { TeamGenerator } from '../bootstrap/generators/team.generator';
 import { ScheduleGenerator } from '../bootstrap/generators/schedule.generator';
 import { WeatherGenerator } from '../bootstrap/generators/weather.generator';
+import { TacticsPresetGenerator } from '../bootstrap/generators/tactics-preset.generator';
+import { ScoutSeedGenerator } from '../bootstrap/generators/scout-seed.generator';
+import { AnnouncementGenerator } from '../bootstrap/generators/announcement.generator';
 import { InitOptions } from './init.types';
 
 /**
@@ -68,6 +71,9 @@ export class InitService {
     private readonly teamGenerator: TeamGenerator,
     private readonly scheduleGenerator: ScheduleGenerator,
     private readonly weatherGenerator: WeatherGenerator,
+    private readonly tacticsPresetGenerator: TacticsPresetGenerator,
+    private readonly scoutSeedGenerator: ScoutSeedGenerator,
+    private readonly announcementGenerator: AnnouncementGenerator,
   ) {}
 
   /**
@@ -108,34 +114,43 @@ export class InitService {
     await this.leagueGenerator.generatePyramid({ small: options.small });
     this.logger.info('[Init] leagues ensured');
 
-    // 5. teams
+    // 5. teams (includes the post-enrichment pass for
+    //    city, foundedYear, jerseyTertiary, eloRating,
+    //    bio, and stadium.name).
     await this.teamGenerator.generateAllTeams(botUserId, {
       small: options.small,
     });
     this.logger.info('[Init] teams ensured');
 
-    // 6. presets — implemented in the content commit
-    //    (`TacticsPresetGenerator`). For Commit 1 the call
-    //    is a no-op stub so the pipeline can be wired
-    //    end-to-end before the per-team writes land.
-    //    see: `init.presets.step` for the call site.
-    await this.ensurePresets();
+    // 6. presets — one default `tactics_preset` per
+    //    team with a random formation so the match
+    //    scheduler's preprocessor has a fallback for
+    //    BOT teams that have never had a manager submit
+    //    per-match tactics.
+    await this.tacticsPresetGenerator.generate();
+    this.logger.info('[Init] tactics presets ensured');
 
-    // 7. scout seeds — see comment in step 6; implemented
-    //    in the content commit.
-    await this.ensureScoutSeeds();
+    // 7. scout seeds — one senior-mode candidate per
+    //    team so a freshly-claimed team has a card in
+    //    the inbox on day 1 (the weekly cron only runs
+    //    Saturdays).
+    await this.scoutSeedGenerator.generate();
+    this.logger.info('[Init] scout seeds ensured');
 
-    // 8. schedule
+    // 8. schedule — senior only; first match = next
+    //    Monday 00:00 UTC after `initDate`.
     await this.scheduleGenerator.generateSeason1Schedule(options.initDate);
     this.logger.info('[Init] schedule ensured');
 
-    // 9. weather
+    // 9. weather — 7-day rolling forecast from
+    //    `initDate`'s day.
     await this.weatherGenerator.generateInitialWeather(options.initDate);
     this.logger.info('[Init] weather ensured');
 
-    // 10. announcements — see comment in step 6;
-    //     implemented in the content commit.
-    await this.ensureAnnouncements(options.initDate);
+    // 10. announcements — pinned season-1 banner
+    //     shown to every fresh registration.
+    await this.announcementGenerator.generate(options.initDate);
+    this.logger.info('[Init] announcements ensured');
 
     // summary
     const summary = await this.summarize();
@@ -172,21 +187,6 @@ export class InitService {
       [SYSTEM_CONFIG_INIT_DATE_KEY, iso],
     );
     this.logger.info(`[Init] system_config.init_date = ${iso}`);
-  }
-
-  private async ensurePresets(): Promise<void> {
-    // Implemented in the content commit. Kept as a private
-    // method so the call site in `run()` is stable across
-    // commits — the CLI summary works the moment the real
-    // implementation lands.
-  }
-
-  private async ensureScoutSeeds(): Promise<void> {
-    // Implemented in the content commit.
-  }
-
-  private async ensureAnnouncements(_initDate: Date): Promise<void> {
-    // Implemented in the content commit.
   }
 
   private async wipeAllData(): Promise<{ tables: number }> {

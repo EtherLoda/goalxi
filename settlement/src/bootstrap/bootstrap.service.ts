@@ -4,11 +4,13 @@ import { DataSource } from 'typeorm';
 import { LeagueGenerator } from './generators/league.generator';
 import { ScheduleGenerator } from './generators/schedule.generator';
 import { WeatherGenerator } from './generators/weather.generator';
+import { TacticsPresetGenerator } from './generators/tactics-preset.generator';
+import { ScoutSeedGenerator } from './generators/scout-seed.generator';
+import { AnnouncementGenerator } from './generators/announcement.generator';
 import {
   SYSTEM_CONFIG_INIT_DATE_KEY,
   SystemConfigEntity,
   resolveInitDate,
-  startOfUtcDay,
 } from '@goalxi/database';
 
 /**
@@ -45,8 +47,12 @@ export class BootstrapService implements OnModuleInit {
     private readonly logger: PinoLoggerService,
     private readonly dataSource: DataSource,
     private readonly leagueGenerator: LeagueGenerator,
+    private readonly teamGenerator: import('./generators/team.generator').TeamGenerator,
     private readonly scheduleGenerator: ScheduleGenerator,
     private readonly weatherGenerator: WeatherGenerator,
+    private readonly tacticsPresetGenerator: TacticsPresetGenerator,
+    private readonly scoutSeedGenerator: ScoutSeedGenerator,
+    private readonly announcementGenerator: AnnouncementGenerator,
   ) {}
 
   async onModuleInit() {
@@ -80,8 +86,15 @@ export class BootstrapService implements OnModuleInit {
     // when its data is already present. Re-running is safe.
     const start = Date.now();
     await this.leagueGenerator.generatePyramid();
+    // Skip teamGenerator on auto-bootstrap — team
+    // creation is an init-only concern. A new team
+    // gets created by the onboarding claim flow, not
+    // here.
     await this.scheduleGenerator.generateSeason1Schedule(initDate);
     await this.weatherGenerator.generateInitialWeather(initDate);
+    await this.tacticsPresetGenerator.generate();
+    await this.scoutSeedGenerator.generate();
+    await this.announcementGenerator.generate(initDate);
     this.logger.info(
       `[Bootstrap] gap-fill complete in ${Date.now() - start}ms (no-op if all data already present)`,
     );

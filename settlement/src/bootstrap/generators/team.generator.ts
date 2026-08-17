@@ -7,6 +7,7 @@ import {
   PlayerEntity,
   StaffEntity,
   LeagueEntity,
+  StadiumEntity,
   createTeam,
   generateUniqueShortCode,
 } from '@goalxi/database';
@@ -114,6 +115,8 @@ export class TeamGenerator {
     private playerRepo: Repository<PlayerEntity>,
     @InjectRepository(StaffEntity)
     private staffRepo: Repository<StaffEntity>,
+    @InjectRepository(StadiumEntity)
+    private stadiumRepo: Repository<StadiumEntity>,
     @InjectRepository(LeagueEntity)
     private leagueRepo: Repository<LeagueEntity>,
     private readonly dataSource: DataSource,
@@ -150,7 +153,109 @@ export class TeamGenerator {
       }
     }
 
-    this.logger.info(`[TeamGenerator] Created ${teamCount} teams`);
+    this.logger.info(
+      `[TeamGenerator] Created ${teamCount} teams; running post-enrichment (city, foundedYear, jerseyTertiary, eloRating, bio, stadium.name)`,
+    );
+    await this.enrichAllTeams();
+  }
+
+  /**
+   * Post-pass: fill in the cosmetic columns the
+   * shared `createTeam` helper intentionally leaves
+   * at their defaults. Touching this from
+   * `createTeam` directly would pull the
+   * city/elo logic into a function that the
+   * onboarding path also uses; keeping it here
+   * means the enrichment is an init-only concern
+   * (a freshly-claimed BOT gets a manager-set
+   * `city` + `bio` later, not via this path).
+   *
+   * Runs as a single batched UPDATE for
+   * `team`/`stadium` rather than N round-trips.
+   */
+  private async enrichAllTeams(): Promise<void> {
+    const teams = await this.teamRepo.find();
+    if (teams.length === 0) {
+      return;
+    }
+
+    // Pre-fetch every stadium in one shot.
+    const stadiumRows = await this.stadiumRepo.find();
+    const stadiumByTeam = new Map(
+      stadiumRows.map((s) => [s.teamId, s]),
+    );
+
+    let enriched = 0;
+    for (const team of teams) {
+      const city = this.extractCity(team.name) ?? '中国';
+      const foundedYear = randomInt(1950, 2010);
+      const jerseyTertiary = this.randomJerseyTertiary();
+      // ELO from team OVR: a 50-OVR team is the
+      // "average" 1500; +1 OVR ≈ +20 ELO. Tight
+      // range keeps every matchday predictable
+      // for the engine (no runaway favourites).
+      const eloRating = 1500 + Math.round((team.botLevel - 5) * 20);
+      const bio = `${team.name} 是位于${city}的球队，成立于 ${foundedYear} 年。`;
+
+      // Build the partial update so we only touch
+      // the enrichment columns. `city`, `foundedYear`,
+      // `jerseyColorTertiary`, `eloRating`, and
+      // `bio` are all nullable / have defaults so
+      // this is a safe additive change.
+      await this.teamRepo.update(team.id, {
+        city,
+        foundedYear,
+        jerseyColorTertiary: jerseyTertiary,
+        eloRating,
+        bio,
+      });
+
+      const stadium = stadiumByTeam.get(team.id);
+      if (stadium) {
+        await this.stadiumRepo.update(stadium.id, {
+          name: `${city}体育中心`,
+        });
+      }
+
+      enriched++;
+    }
+    this.logger.info(
+      `[TeamGenerator] post-enriched ${enriched} team(s)`,
+    );
+  }
+
+  /**
+   * Parse the city prefix from a team name like
+   * "北京FC" → "北京". Falls back to the first
+   * run of 2-3 Han characters; "上海United" → "上海",
+   * "北京Athletic" → "北京". If nothing looks like a
+   * city, returns null and the caller defaults to
+   * "中国".
+   */
+  private extractCity(teamName: string): string | null {
+    // First 2 or 3 Chinese characters at the start
+    // of the name form the city. The non-Chinese
+    // suffix (FC / United / Club / City / Athletic)
+    // always follows; we strip from the first
+    // non-Chinese char.
+    const m = teamName.match(/^([\u4e00-\u9fff]{2,3})/);
+    return m ? m[1] : null;
+  }
+
+  private randomJerseyTertiary(): string {
+    // Tertiary color is the "trim" — a darker
+    // accent than the primary. Pulled from a small
+    // neutral palette so every team gets a
+    // visually-coordinated kit.
+    const palette = [
+      '#1A1A1A',
+      '#0F0F0F',
+      '#2C2C2C',
+      '#3D2B1F',
+      '#1F3D2B',
+      '#1F2B3D',
+    ];
+    return palette[Math.floor(Math.random() * palette.length)];
   }
 
   private generateTeamName(tier: number, index: number): string {
@@ -209,4 +314,14 @@ export class TeamGenerator {
       season: 1,
     });
   }
+}
+
+/**
+ * Inclusive random integer in [min, max]. Mirrors the
+ * helper in `team-onboarding-generator.ts` so the
+ * post-enrichment pass has no dependency on the
+ * `@goalxi/database` package for a one-liner.
+ */
+function randomInt(min: number, max: number): number {
+  return Math.floor(Math.random() * (max - min + 1)) + min;
 }
