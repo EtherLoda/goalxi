@@ -1,5 +1,5 @@
 import {
-  computeFirstMatchAt,
+  computeSeasonWeekOneMonday,
   SYSTEM_CONFIG_INIT_DATE_KEY,
   resolveInitDate,
 } from './init-date-resolver';
@@ -7,19 +7,19 @@ import { SystemConfigEntity } from '../entities/system-config.entity';
 import { startOfUtcDay } from '../utils/game-clock';
 
 describe('init-date-resolver', () => {
-  describe('computeFirstMatchAt', () => {
+  describe('computeSeasonWeekOneMonday', () => {
     it('lands on next-week Monday when init is mid-week', () => {
-      // Wed 2026-09-09 → next-week Mon is Mon 2026-09-14 (5 + 7 = 12 days out)
+      // Wed 2026-09-09 → next Mon is Mon 2026-09-14 (5 days out)
       const init = new Date('2026-09-09T00:00:00Z');
-      expect(computeFirstMatchAt(init).toISOString()).toBe(
+      expect(computeSeasonWeekOneMonday(init).toISOString()).toBe(
         '2026-09-14T00:00:00.000Z',
       );
     });
 
     it('still pushes a full week when init is itself a Monday', () => {
-      // Mon 2026-09-07 → next Mon is Mon 2026-09-14 (0 + 7 = 7 days out)
+      // Mon 2026-09-07 → next Mon is Mon 2026-09-14 (7 days out)
       const init = new Date('2026-09-07T00:00:00Z');
-      expect(computeFirstMatchAt(init).toISOString()).toBe(
+      expect(computeSeasonWeekOneMonday(init).toISOString()).toBe(
         '2026-09-14T00:00:00.000Z',
       );
     });
@@ -27,14 +27,14 @@ describe('init-date-resolver', () => {
     it('lands on next-upcoming Monday when init is a Sunday', () => {
       // Sun 2026-09-13 → next Mon is Mon 2026-09-14 (1 day out)
       const init = new Date('2026-09-13T00:00:00Z');
-      expect(computeFirstMatchAt(init).toISOString()).toBe(
+      expect(computeSeasonWeekOneMonday(init).toISOString()).toBe(
         '2026-09-14T00:00:00.000Z',
       );
     });
 
     it('returns 00:00:00.000Z on the result', () => {
       const init = new Date('2026-09-09T13:45:30Z');
-      const out = computeFirstMatchAt(init);
+      const out = computeSeasonWeekOneMonday(init);
       expect(out.getUTCHours()).toBe(0);
       expect(out.getUTCMinutes()).toBe(0);
       expect(out.getUTCSeconds()).toBe(0);

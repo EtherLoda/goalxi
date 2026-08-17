@@ -5,7 +5,7 @@ import { Repository } from 'typeorm';
 import {
   AnnouncementEntity,
   AnnouncementType,
-  computeFirstMatchAt,
+  computeSeasonWeekOneMonday,
 } from '@goalxi/database';
 
 /**
@@ -36,7 +36,13 @@ export class AnnouncementGenerator {
   ) {}
 
   async generate(initDate: Date): Promise<void> {
-    const firstMatch = computeFirstMatchAt(initDate);
+    const weekOneMonday = computeSeasonWeekOneMonday(initDate);
+    // First match lands on Wednesday of that week
+    // (anchor + 2 days). Show the Wed date in the
+    // banner so a manager knows when to log in.
+    const firstMatch = new Date(
+      weekOneMonday.getTime() + 2 * 24 * 60 * 60 * 1000,
+    );
     const firstMatchDateStr = firstMatch.toISOString().split('T')[0];
 
     const existing = await this.announcementRepo.findOne({
@@ -57,7 +63,8 @@ export class AnnouncementGenerator {
       content: [
         '欢迎来到 GoalXI!',
         '',
-        `第一场比赛将于 ${firstMatchDateStr} 00:00 UTC 准时开赛。`,
+        `第一场比赛将于 ${firstMatchDateStr} 13:00 UTC 准时开赛。`,
+        '赛季第一周起点为周一 00:00 UTC,每周三和周六各有一场比赛,均为 13:00 UTC 开球。',
         '',
         '您可以现在选择一支 BOT 球队开始您的执教生涯。',
         '赛程、天气、青训(暂停)、转会市场均已就绪。',

@@ -110,4 +110,34 @@ describe('ScheduleGenerator — senior-only', () => {
       expect.stringContaining('only 1 teams'),
     );
   });
+
+  it('schedules round 0 on Wed 13:00 UTC and round 1 on Sat 13:00 UTC of week 1', async () => {
+    // Wed 2026-09-09 init → week-1 Monday is 2026-09-14.
+    //   round 0 → Wed 2026-09-16 13:00 UTC
+    //   round 1 → Sat 2026-09-19 13:00 UTC
+    const { gen, matchRepo, leagueRepo, teamRepo } = build();
+    matchRepo.count.mockResolvedValue(0);
+    leagueRepo.find.mockResolvedValue([seniorLeague('L-1')]);
+    const teams: TeamEntity[] = [];
+    for (let i = 0; i < 4; i++) {
+      // 4 teams → 3 rounds per leg, 6 matches per leg,
+      // 12 matches total. Enough to cover rounds 0-3
+      // without paying for the full 16-team pyramid.
+      teams.push(seniorTeam(`T${i}`, 'L-1'));
+    }
+    teamRepo.find.mockResolvedValue(teams);
+    matchRepo.save.mockResolvedValue([]);
+
+    await gen.generateSeason1Schedule(new Date('2026-09-09T00:00:00Z'));
+
+    const saved: Partial<MatchEntity>[] = matchRepo.save.mock.calls[0][0];
+    const wed = saved.find((m) => m.round === 1)!;
+    const sat = saved.find((m) => m.round === 2)!;
+    expect(new Date(wed.scheduledAt!).toISOString()).toBe(
+      '2026-09-16T13:00:00.000Z',
+    );
+    expect(new Date(sat.scheduledAt!).toISOString()).toBe(
+      '2026-09-19T13:00:00.000Z',
+    );
+  });
 });

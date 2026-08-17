@@ -51,27 +51,35 @@ export async function resolveInitDate(
 
 /**
  * Pure helper: given a calendar day, compute the
- * "season 1 first kickoff" instant.
+ * "season 1 week 1" anchor.
  *
- * Rule (per the design): the first match of the season
- * is **the next upcoming Monday** at 00:00:00 UTC. So:
+ * Rule (per the design): the season enters its first
+ * week at the **next upcoming Monday at 00:00:00 UTC**.
+ * So:
  *   - Mon 2026-09-07 → Mon 2026-09-14 (+7 days)
  *   - Tue 2026-09-08 → Mon 2026-09-14 (+6 days)
  *   - Wed 2026-09-09 → Mon 2026-09-14 (+5 days)
  *   - Sun 2026-09-13 → Mon 2026-09-14 (+1 day)
  *
- * The Chinese-spec phrasing "下周周一 0 点" reads as
- * "the next Monday at 00:00" — always the very next
- * Monday on or after the init date, not the one *after*
- * next. This gives a manager a 1-7 day buffer to claim
- * a team and submit tactics depending on when they run
- * the init.
+ * This Monday is the **week boundary**, NOT a match
+ * time. The schedule generator then places matches on
+ * Wednesday 20:00 UTC and Saturday 15:00 UTC of each
+ * week (the historical `seed-main` cadence — 2
+ * fixtures × 15 weeks = 30 rounds for a 16-team
+ * league). Keeping matchday cadence the same and
+ * changing only the *week anchor* preserves every
+ * downstream consumer (match preprocessor, weekly
+ * settlement, news cron) that already keys off
+ * "this week's Wed/Sat".
  *
- * The returned Date is in UTC; callers in `MatchEntity`
- * schedule the rest of the round-robin off this anchor
- * (1 round per week, 7-day spacing).
+ * Chinese-spec phrasing: "下周周一 0 点" — the
+ * Monday of the next calendar week, at 00:00 UTC.
+ * For a Sun init the next-day Monday IS the
+ * "next week" (the current week is just ending);
+ * for a Mon init we always push +7 so the
+ * "current" Monday isn't doubled up.
  */
-export function computeFirstMatchAt(initDate: Date): Date {
+export function computeSeasonWeekOneMonday(initDate: Date): Date {
   const day = startOfUtcDay(initDate);
   // 0 = Sunday, 1 = Monday, ... 6 = Saturday in JS getDay()
   const dayOfWeek = day.getUTCDay();
