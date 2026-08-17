@@ -129,28 +129,41 @@ const SHOT_TYPE_CONFIG: Record<ShotType, { baseline: number }> = {
 
 /**
  * Map position keys to bench config keys
- * FB = Fullback (covers LB/RB/WBL/WBR)
+ * FB = Fullback (covers LB/RB/WBL/WBR/LWB/RWB)
  * W = Winger (covers LW/RW/LM/RM)
  * CM = Central Midfield (covers AM/CM/DM all left/center/right variants)
  */
 const POSITION_TO_BENCH_KEY: Record<string, keyof BenchConfig> = {
   // Goalkeeper
   GK: 'goalkeeper',
-  // Center Back (3 positions)
+  // Center Back (3-slot family)
+  CBL: 'centerBack',
+  CB: 'centerBack',
+  CBR: 'centerBack',
+  // Legacy CD/CDL/CDR aliases — kept for historical data;
+  // `attribute-calculator`'s SLOT_KEY_NORMALIZER folds them to
+  // `CB` upstream, so this row is defence-in-depth only.
   CDL: 'centerBack',
   CD: 'centerBack',
   CDR: 'centerBack',
-  // Fullback (4 positions: LB, RB, WBL, WBR)
+  // Fullback family (LB/RB/WBL/WBR/LWB/RWB).
+  // `LWB`/`RWB` are the modern 1-slot wing-back names; `WBL`/`WBR`
+  // are the legacy 3-slot left/right variants — both fold to the
+  // same fullback bucket.
   LB: 'fullback',
   RB: 'fullback',
   WBL: 'fullback',
   WBR: 'fullback',
+  LWB: 'fullback',
+  RWB: 'fullback',
   // Winger (4 positions: LW, RW, LM, RM)
   LW: 'winger',
   RW: 'winger',
   LM: 'winger',
   RM: 'winger',
-  // Central Midfield (9 positions: AM/CM/DM x left/center/right)
+  // Central Midfield — 3-slot AM/CM/DM families (9 keys).
+  // The legacy 3-slot CAM/CAML/CAMR and DMF/DMFL/DMFR/CDM keys are
+  // kept here for symmetry; the normalizer folds them upstream.
   AML: 'centralMidfield',
   AM: 'centralMidfield',
   AMR: 'centralMidfield',
@@ -160,6 +173,13 @@ const POSITION_TO_BENCH_KEY: Record<string, keyof BenchConfig> = {
   DML: 'centralMidfield',
   DM: 'centralMidfield',
   DMR: 'centralMidfield',
+  CAML: 'centralMidfield',
+  CAM: 'centralMidfield',
+  CAMR: 'centralMidfield',
+  DMF: 'centralMidfield',
+  DMFL: 'centralMidfield',
+  DMFR: 'centralMidfield',
+  CDM: 'centralMidfield',
   // Forward (3 positions)
   CFL: 'forward',
   CF: 'forward',

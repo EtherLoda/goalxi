@@ -31,8 +31,11 @@ export const YOUTH_POSITION_ALIASES: Readonly<Record<string, string>> = Object.f
     LAM: 'AML',
     CAM: 'AM',
     RAM: 'AMR',
-    // Forward family
-    ST: 'CF',
+    // Forward family. `ST` is intentionally absent — it's a senior
+    // 1-slot alias that already folds to `CF` via POSITION_WEIGHTS
+    // (see `position-fit.util.ts`'s export map), and `normalizePositionKey`
+    // must NOT touch it because engine specs assert the
+    // 'returns canonical keys unchanged' contract for `ST`.
     LST: 'CFL',
     RST: 'CFR',
 });

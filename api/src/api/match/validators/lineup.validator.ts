@@ -1,50 +1,43 @@
+import {
+  BENCH_KEYS,
+  POSITION_KEYS,
+} from '@goalxi/database';
+
+/**
+ * Legacy slot keys the engine's `SLOT_KEY_NORMALIZER` accepts.
+ *
+ * The web client still emits some of these (the `PositionKey` FE
+ * union has not yet been updated to the new 25-slot canonical set;
+ * see commit 3 of the position-key unification plan). Until then,
+ * the BE validator must accept the legacy keys at the wire
+ * boundary and rely on the engine's own normalizer to fold them
+ * into the canonical form before the engine consumes them.
+ */
+const LEGACY_SLOT_KEYS = [
+  'ST',
+  'CD', 'CDL', 'CDR',
+  'CAM', 'CAML', 'CAMR',
+  'CDM', 'DMF', 'DMFL', 'DMFR',
+  'WBL', 'WBR',
+  'LM1', 'LM2', 'RM1', 'RM2',
+  'LW1', 'LW2', 'RW1', 'RW2',
+  'LB1', 'RB1', 'DM1', 'DM2', 'DM3',
+  'CF_LW', 'CF_RW',
+] as const;
+
 export class LineupValidator {
-  private static readonly VALID_SLOTS = [
-    // Goalkeeper (1)
-    'GK',
-    // Defense (7)
-    'CBL',
-    'CB',
-    'CBR',
-    'LB',
-    'RB',
-    'LWB',
-    'RWB',
-    // Midfield (11)
-    'DMFL',
-    'DMF',
-    'DMFR',
-    'CML',
-    'CM',
-    'CMR',
-    'CAML',
-    'CAM',
-    'CAMR',
-    'LM',
-    'RM',
-    // Attack (5)
-    'LW',
-    'RW',
-    'CFL',
-    'CF',
-    'CFR',
-    // Bench slots (6)
-    'BENCH_GK',
-    'BENCH_CB',
-    'BENCH_FB',
-    'BENCH_W',
-    'BENCH_CM',
-    'BENCH_FW',
+  // Accepts every slot the engine recognises as canonical (25 pitch
+  // + 6 bench from `position-keys.constants.ts`) PLUS the legacy
+  // alias family the FE client still emits. Adding a new slot key
+  // to the constants tuple automatically widens this validator's
+  // accepted set.
+  private static readonly VALID_SLOTS: readonly string[] = [
+    ...POSITION_KEYS,
+    ...BENCH_KEYS,
+    ...LEGACY_SLOT_KEYS,
   ];
 
-  private static readonly BENCH_SLOTS = [
-    'BENCH_GK',
-    'BENCH_CB',
-    'BENCH_FB',
-    'BENCH_W',
-    'BENCH_CM',
-    'BENCH_FW',
-  ];
+  private static readonly BENCH_SLOTS: readonly string[] = [...BENCH_KEYS];
 
   static validate(
     lineup: Record<string, string | number>,

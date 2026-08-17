@@ -41,10 +41,18 @@ export const TEAM_OUTFIELD_COUNT = 14;
  */
 export const TEAM_POSITION_DISTRIBUTION: Record<string, number> = {
   GK: 2,
-  CD: 2,
+  // Squad-distribution key: was 'CD' (legacy 1-slot centre-defender),
+  // renamed to the 3-slot centre-back key. `attribute-calculator`'s
+  // `SLOT_KEY_NORMALIZER` already folded `CD` to `CB`, so this is a
+  // pure source-cleanup that drops a normalisation hop at runtime.
+  CB: 2,
   LB: 1,
   RB: 1,
   CM: 4,
+  // `DM` and `AM` are now the 3-slot centre keys (renamed from the
+  // 1-slot names in commit 2). The squad weight (1 each) is the
+  // squad share, not a per-slot weight — generator still picks one
+  // player per slot from the available `positionArchetype` table.
   DM: 1,
   AM: 1,
   LW: 1,

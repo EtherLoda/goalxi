@@ -87,7 +87,19 @@ export const POSITION_LABELS: Record<string, string> = {
     CBR: 'Center Back (Right)',
 };
 
-export const POSITION_KEYS = Object.keys(POSITION_LABELS);
+export {
+  POSITION_KEYS,
+  BENCH_KEYS,
+  ALL_POSITION_KEYS,
+  PositionKey,
+  BenchKey,
+  AllPositionKey,
+  isPitchKey,
+  isBenchKey,
+  isAllPositionKey,
+} from '../constants/position-keys.constants';
+
+import { POSITION_KEYS as CANONICAL_KEYS_FOR_FIT_REPORT } from '../constants/position-keys.constants';
 
 // ==========================================
 // Position Weight Matrices
@@ -783,7 +795,7 @@ export function getPositionFitReport(
 ): PositionFitResult[] {
     const results: PositionFitResult[] = [];
 
-    for (const position of POSITION_KEYS) {
+    for (const position of CANONICAL_KEYS_FOR_FIT_REPORT) {
         const fit = calculatePositionFit(attrs, position);
         results.push({
             position,

@@ -52,6 +52,7 @@ export * from './constants/scout-config';
 export * from './constants/youth-keys.constants';
 export * from './constants/name-database';
 export * from './constants/specialty-codes';
+export * from './constants/youth-position-aliases';
 export * from './services/training-calculator';
 export * from './services/condition-calculator';
 export * from './services/stamina-calculator';

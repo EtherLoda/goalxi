@@ -30,6 +30,7 @@ import {
 } from '@goalxi/database';
 import { MatchEngine, MatchEvent } from '../engine/match.engine';
 import { Team } from '../engine/classes/Team';
+import { normalizePositionKey } from '../engine/utils/attribute-calculator';
 import {
   EventCondition,
   TacticalInstruction,
@@ -431,14 +432,25 @@ export class SimulationProcessor extends WorkerHost {
       // any read against it would silently fall through to the 'ST'
       // fallback and stack all 11 starters on the same pitch slot
       // (rendered as a single CF marker on the match page).
-      positionKey: this.findPositionInLineup(homeTactics.lineupV2, pid) ?? 'ST',
+      //
+      // The `normalizePositionKey` wrap folds youth-editor keys
+      // (LCB/RCB/LCM/RCM/CDM1/CDM2/LAM/RAM/CAM/ST/LST/RST) and the
+      // legacy CAM/CAML/CAMR/CDM/DMF/DMFL/DMFR family into the
+      // senior canonical 25-slot set, so downstream consumers
+      // (POSITION_TO_BENCH_KEY, POSITION_WEIGHTS, getSubstituteForPosition)
+      // never see a key they don't recognise.
+      positionKey: normalizePositionKey(
+        this.findPositionInLineup(homeTactics.lineupV2, pid) ?? 'ST',
+      ),
     }));
 
     const awayTacticalPlayers: TacticalPlayer[] = validAwayIds.map((pid) => ({
       player: toSimulationPlayer(allPlayers.find((p) => p.id === pid)),
       // Same v2-only read for the away side — see homeTacticalPlayers
       // comment above.
-      positionKey: this.findPositionInLineup(awayTactics.lineupV2, pid) ?? 'ST',
+      positionKey: normalizePositionKey(
+        this.findPositionInLineup(awayTactics.lineupV2, pid) ?? 'ST',
+      ),
     }));
 
     // Roster gate: any team below the minimum field size forfeits the match.

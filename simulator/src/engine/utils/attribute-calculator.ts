@@ -2,6 +2,7 @@ import {
   POSITION_WEIGHTS,
   PositionWeightMatrix,
   GKWeightMatrix,
+  normalizeYouthPositionKey,
 } from '@goalxi/database';
 import { Player, PlayerAttributes } from '../../types/player.types';
 import { Lane, Phase } from '../types/simulation.types';
@@ -87,9 +88,17 @@ export function normalizePositionKey(slotKey: string): string {
   // `CAM`). Look the slot up in the normalizer first; if there's no
   // mapping, the input is already a family / bench key and we return
   // it as-is.
-  const mapped = SLOT_KEY_NORMALIZER[slotKey];
+  //
+  // Youth-editor keys (LCB/RCB/LCM/RCM/CDM1/CDM2/LAM/RAM/CAM/
+  // ST/LST/RST) are folded FIRST, so a youth `LCB` becomes `CBL`
+  // which then folds via `SLOT_KEY_NORMALIZER` to `CB`. This is the
+  // single engine entry point — every downstream consumer
+  // (TacticalPlayer.positionKey, POSITION_TO_BENCH_KEY,
+  // POSITION_WEIGHTS) can assume a senior canonical key.
+  const youthFolded = normalizeYouthPositionKey(slotKey);
+  const mapped = SLOT_KEY_NORMALIZER[youthFolded];
   if (mapped) return mapped;
-  return slotKey; // unknown / already a family key
+  return youthFolded; // unknown / already a family key
 }
 
 export class AttributeCalculator {
