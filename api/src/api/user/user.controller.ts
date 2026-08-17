@@ -87,6 +87,44 @@ export class UserController {
     return await this.userService.findOne(id);
   }
 
+  // `me` routes (the only literal-segment routes under
+  // `/users/`) MUST be registered BEFORE the `/:id` variants.
+  // NestJS matches routes in declaration order, and the `:id`
+  // route's `ParseUUIDPipe` will throw on the literal string
+  // `"me"` (the user's selection of `/users/me` would 400 with
+  // "Validation failed (uuid is expected)"). See commit 27e721b
+  // for the bug this prevents re-introducing.
+
+  /**
+   * Owner-only profile update. Resolves the user id from the JWT so
+   * the FE never has to (and can't) send a target id. Accepts the
+   * same `UpdateMyProfileReqDto` shape regardless of which field
+   * the user is editing — the service ignores any property not on
+   * the allowlist.
+   */
+  @Patch('me')
+  @ApiAuth({ type: UserResDto, summary: 'Update my profile' })
+  async updateMyProfile(
+    @CurrentUser('id') userId: Uuid,
+    @Body() dto: UpdateMyProfileReqDto,
+  ): Promise<UserResDto> {
+    return this.userService.updateMe(userId, dto);
+  }
+
+  @ApiAuth()
+  @Post('me/change-password')
+  @HttpCode(HttpStatus.OK)
+  async changePassword(
+    @CurrentUser() payload: { id: Uuid; sessionId: Uuid },
+    @Body() dto: ChangePasswordReqDto,
+  ): Promise<void> {
+    // The JWT payload carries both the user id and the session id;
+    // the service uses the latter to keep the *current* session
+    // alive while killing every other one (see comment on
+    // `UserService.changePassword`).
+    await this.userService.changePassword(payload.id, payload.sessionId, dto);
+  }
+
   @Patch(':id')
   @ApiAuth({ type: UserResDto, summary: 'Update user' })
   @ApiParam({ name: 'id', type: 'String' })
@@ -105,35 +143,5 @@ export class UserController {
   @ApiParam({ name: 'id', type: 'String' })
   removeUser(@Param('id', ParseUUIDPipe) id: Uuid) {
     return this.userService.remove(id);
-  }
-
-  @ApiAuth()
-  @Post('me/change-password')
-  @HttpCode(HttpStatus.OK)
-  async changePassword(
-    @CurrentUser() payload: { id: Uuid; sessionId: Uuid },
-    @Body() dto: ChangePasswordReqDto,
-  ): Promise<void> {
-    // The JWT payload carries both the user id and the session id;
-    // the service uses the latter to keep the *current* session
-    // alive while killing every other one (see comment on
-    // `UserService.changePassword`).
-    await this.userService.changePassword(payload.id, payload.sessionId, dto);
-  }
-
-  /**
-   * Owner-only profile update. Resolves the user id from the JWT so
-   * the FE never has to (and can't) send a target id. Accepts the
-   * same `UpdateMyProfileReqDto` shape regardless of which field
-   * the user is editing — the service ignores any property not on
-   * the allowlist.
-   */
-  @Patch('me')
-  @ApiAuth({ type: UserResDto, summary: 'Update my profile' })
-  async updateMyProfile(
-    @CurrentUser('id') userId: Uuid,
-    @Body() dto: UpdateMyProfileReqDto,
-  ): Promise<UserResDto> {
-    return this.userService.updateMe(userId, dto);
   }
 }

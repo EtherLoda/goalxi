@@ -1,4 +1,5 @@
 import { Uuid } from '@/common/types/common.type';
+import { METHOD_METADATA, PATH_METADATA } from '@nestjs/common/constants';
 import { Test, TestingModule } from '@nestjs/testing';
 import { plainToInstance } from 'class-transformer';
 import { validate } from 'class-validator';
@@ -318,6 +319,52 @@ describe('UserController', () => {
         dto,
       );
       expect(userServiceValue.changePassword).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  /**
+   * Route-ordering regression. NestJS matches routes in the
+   * order they're declared on the controller. If a `me` route
+   * (literal segment) is registered after a `:id` route, the
+   * `:id` variant wins and `ParseUUIDPipe` throws on the
+   * literal string `"me"`. The Settings page reproduces this as
+   * "Validation failed (uuid is expected)" whenever the user
+   * tries to switch language or timezone.
+   *
+   * We assert the source order by reflecting on the controller
+   * prototype and reading the method-level `PATH_METADATA` /
+   * `METHOD_METADATA` that NestJS's route decorators store. The
+   * declared order in `UserController.prototype` is the same
+   * order NestJS will register the routes at boot.
+   */
+  describe('route declaration order', () => {
+    it('declares the literal `me` routes BEFORE the `:id` variants', () => {
+      const methods = Object.getOwnPropertyNames(UserController.prototype)
+        .filter((name) => name !== 'constructor')
+        .map((name) => {
+          const fn = (UserController.prototype as unknown as Record<string, Function>)[name];
+          return {
+            name,
+            path: Reflect.getMetadata(PATH_METADATA, fn) as string | undefined,
+            method: Reflect.getMetadata(METHOD_METADATA, fn) as string | undefined,
+          };
+        })
+        .filter((m) => m.path !== undefined);
+
+      // The first `:id` route we register sets the "everything
+      // after this is UUID-bound" line. Every `me` route that
+      // shows up AFTER that line is broken. We don't pin specific
+      // indices (those shift with refactors) — we just check
+      // that all `me`-bearing routes appear before any `:id`
+      // route.
+      const timeline = methods.map((m) => `${m.method} ${m.path}`);
+      const firstIdIndex = timeline.findIndex((entry) => /:id/.test(entry));
+      const meAfterId = timeline
+        .slice(firstIdIndex + 1)
+        .filter((entry) => /\/me(\/|$)/.test(entry));
+
+      expect(firstIdIndex).toBeGreaterThanOrEqual(0);
+      expect(meAfterId).toEqual([]);
     });
   });
 });
