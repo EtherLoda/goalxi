@@ -16,6 +16,16 @@ const BASE_WEATHER_WEIGHTS: Record<WeatherType, number> = {
   [WeatherType.SNOWY]: 3,
 };
 
+/**
+ * How many days of forecast to seed during init. Sized to
+ * cover the first matchday weekend + a 4-day buffer so the
+ * match scheduler always finds a `weather` row when
+ * preprocessing a Week 1 fixture. The settlement's daily
+ * cron (`WeatherScheduler`) extends this rolling window
+ * indefinitely after init.
+ */
+const FORECAST_DAYS = 7;
+
 @Injectable()
 export class WeatherGenerator {
   private readonly DEFAULT_LOCATION = 'default';
@@ -46,31 +56,53 @@ export class WeatherGenerator {
   }
 
   /**
-   * 生成第一天的天气（后续由 WeatherScheduler 每日生成）
+   * Seed a 7-day rolling forecast starting at `initDate`'s
+   * calendar day. Idempotent — rows whose (date, location)
+   * already exists are skipped, so re-running init (or
+   * the daily cron, which calls a similar upsert) doesn't
+   * stomp on existing data.
+   *
+   * `initDate` is the date the init script was anchored
+   * to. The forecast covers that day + 6 days forward, so
+   * the first senior matchday (next-Monday 00:00 UTC) is
+   * always inside the window.
    */
-  async generateInitialWeather(): Promise<void> {
-    const today = this.formatDate(new Date());
+  async generateInitialWeather(initDate: Date): Promise<void> {
+    const start = new Date(
+      Date.UTC(
+        initDate.getUTCFullYear(),
+        initDate.getUTCMonth(),
+        initDate.getUTCDate(),
+        0,
+        0,
+        0,
+        0,
+      ),
+    );
 
-    const existing = await this.weatherRepository.findOne({
-      where: { date: today, locationId: this.DEFAULT_LOCATION },
-    });
-
-    if (existing) {
-      this.logger.info(
-        `[WeatherGenerator] Weather for ${today} already exists, skipping`,
-      );
-      return;
+    let created = 0;
+    let skipped = 0;
+    for (let i = 0; i < FORECAST_DAYS; i++) {
+      const d = new Date(start.getTime() + i * 24 * 60 * 60 * 1000);
+      const dateStr = this.formatDate(d);
+      const existing = await this.weatherRepository.findOne({
+        where: { date: dateStr, locationId: this.DEFAULT_LOCATION },
+      });
+      if (existing) {
+        skipped++;
+        continue;
+      }
+      const weather = this.weatherRepository.create({
+        date: dateStr,
+        locationId: this.DEFAULT_LOCATION,
+        actualWeather: this.selectRandomWeather(),
+      });
+      await this.weatherRepository.save(weather);
+      created++;
     }
 
-    const weather = this.weatherRepository.create({
-      date: today,
-      locationId: this.DEFAULT_LOCATION,
-      actualWeather: this.selectRandomWeather(),
-    });
-
-    await this.weatherRepository.save(weather);
     this.logger.info(
-      `[WeatherGenerator] Generated initial weather for ${today}`,
+      `[WeatherGenerator] Forecast window: created=${created}, skipped=${skipped}, days=${FORECAST_DAYS}`,
     );
   }
 

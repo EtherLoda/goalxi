@@ -1,64 +1,89 @@
-import { Injectable, Logger, OnModuleInit, Inject } from '@nestjs/common';
+import { Injectable, OnModuleInit, Inject } from '@nestjs/common';
 import { LOGGER_SERVICE, PinoLoggerService } from '@goalxi/logger';
-import { UserGenerator } from './generators/user.generator';
+import { DataSource } from 'typeorm';
 import { LeagueGenerator } from './generators/league.generator';
-import { TeamGenerator } from './generators/team.generator';
 import { ScheduleGenerator } from './generators/schedule.generator';
 import { WeatherGenerator } from './generators/weather.generator';
-import { YouthStructureGenerator } from './generators/youth-structure.generator';
+import {
+  SYSTEM_CONFIG_INIT_DATE_KEY,
+  SystemConfigEntity,
+  resolveInitDate,
+  startOfUtcDay,
+} from '@goalxi/database';
 
+/**
+ * Settlement-side auto-recover. Runs on every `onModuleInit`
+ * and does one of two things:
+ *
+ *   1. **Already initialized** (`system_config.init_date`
+ *      exists): gap-fill only. Each individual generator
+ *      is itself idempotent (it skips if its data is
+ *      present), so a freshly-deployed settlement that
+ *      boots against an existing init will quietly fill
+ *      in any rows that the init script missed (e.g. a
+ *      new tactics_preset column added after init).
+ *
+ *   2. **Not initialized** (no `init_date` row): log a
+ *      loud warning pointing the operator at
+ *      `pnpm init:run --init-date=YYYY-MM-DD`. We do
+ *      NOT auto-create — the user explicitly required
+ *      the init date as a CLI argument, so falling
+ *      back to "today" silently would be a footgun.
+ *      The init script is also the only path that
+ *      knows the season anchor; auto-creating here
+ *      would put the season start in the past and
+ *      break the preprocessor's `LessThanOrEqual`
+ *      filter for the first matchday.
+ *
+ * The full init flow (including the wipe path) lives in
+ * `InitService` — see `scripts/init.ts` for the CLI.
+ */
 @Injectable()
 export class BootstrapService implements OnModuleInit {
   constructor(
     @Inject(LOGGER_SERVICE)
     private readonly logger: PinoLoggerService,
-
-    private userGenerator: UserGenerator,
-    private leagueGenerator: LeagueGenerator,
-    private teamGenerator: TeamGenerator,
-    private scheduleGenerator: ScheduleGenerator,
-    private weatherGenerator: WeatherGenerator,
-    private youthStructureGenerator: YouthStructureGenerator,
+    private readonly dataSource: DataSource,
+    private readonly leagueGenerator: LeagueGenerator,
+    private readonly scheduleGenerator: ScheduleGenerator,
+    private readonly weatherGenerator: WeatherGenerator,
   ) {}
 
   async onModuleInit() {
-    const alreadyInitialized =
-      await this.leagueGenerator.isAlreadyInitialized();
-    if (alreadyInitialized) {
-      this.logger.info('[Bootstrap] Already initialized, skipping');
+    const initDateRow = await this.dataSource.getRepository(
+      SystemConfigEntity,
+    ).findOne({ where: { key: SYSTEM_CONFIG_INIT_DATE_KEY } });
+
+    if (!initDateRow) {
+      this.logger.warn(
+        '[Bootstrap] No system_config.init_date found — the DB has ' +
+          'never been initialized. Run `pnpm --filter settlement ' +
+          'init:run --init-date=YYYY-MM-DD` to set up. ' +
+          'Auto-bootstrap is disabled by design; the init script is ' +
+          'the only place that knows the season anchor.',
+      );
       return;
     }
 
-    this.logger.info('[Bootstrap] Starting game initialization...');
+    this.logger.info(
+      `[Bootstrap] init_date=${initDateRow.value} — running gap-fill`,
+    );
+
+    // Re-resolve the init date from the DB so the schedule
+    // generator's first-match anchor matches what init wrote.
+    const initDate = await resolveInitDate(
+      this.dataSource.manager,
+      process.env.GAME_START_DATE,
+    );
+
+    // Gap-fill: each generator is idempotent and skips
+    // when its data is already present. Re-running is safe.
     const start = Date.now();
-
-    // 1. Create system users
-    const { botUserId } = await this.userGenerator.ensureSystemUsers();
-    this.logger.info('[Bootstrap] Users created');
-
-    // 2. Create league pyramid
     await this.leagueGenerator.generatePyramid();
-    this.logger.info('[Bootstrap] Leagues created');
-
-    // 3. Create teams with players, staff, and facilities
-    await this.teamGenerator.generateAllTeams(botUserId);
-    this.logger.info('[Bootstrap] Teams created');
-
-    // 4. Create youth_league + youth_team (1:1 with senior pyramid).
-    //    MUST run before the schedule generator so A2 can pair fixtures.
-    await this.youthStructureGenerator.generate();
-    this.logger.info('[Bootstrap] Youth structure created');
-
-    // 5. Generate Season 1 schedule (week 1-16). Will also produce
-    //    youth matches per the schedule generator's WAVE A2 hook.
-    await this.scheduleGenerator.generateSeason1Schedule();
-    this.logger.info('[Bootstrap] Schedule created');
-
-    // 6. Generate initial weather (settlement cron handles subsequent days)
-    await this.weatherGenerator.generateInitialWeather();
-    this.logger.info('[Bootstrap] Initial weather created');
-
-    const elapsedMs = Date.now() - start;
-    this.logger.info(`[Bootstrap] Initialization complete in ${elapsedMs}ms`);
+    await this.scheduleGenerator.generateSeason1Schedule(initDate);
+    await this.weatherGenerator.generateInitialWeather(initDate);
+    this.logger.info(
+      `[Bootstrap] gap-fill complete in ${Date.now() - start}ms (no-op if all data already present)`,
+    );
   }
 }

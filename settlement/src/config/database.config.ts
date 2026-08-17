@@ -26,6 +26,7 @@ import {
   YouthLeagueEntity,
   YouthTeamEntity,
   ScoutCandidateEntity,
+  SystemConfigEntity,
   WeatherEntity,
   SessionEntity,
   TransferTransactionEntity,
@@ -96,6 +97,7 @@ export class DatabaseConfigService implements TypeOrmOptionsFactory {
         ForumThreadEntity,
         ForumPostEntity,
         ForumReactionEntity,
+        SystemConfigEntity,
       ],
       synchronize: process.env.DATABASE_SYNCHRONIZE === 'true',
     };

@@ -91,6 +91,16 @@ const L2_CITIES = [
 
 const SUFFIXES = ['FC', 'United', 'Club', 'City', 'Athletic'];
 
+/**
+ * Options bag for `generateAllTeams`. `small: true` matches
+ * the `LeagueGenerator` small-pyramid mode (1 L1 + 1 L2 =
+ * 32 teams). Default is the full 1+4+16+64 league × 16
+ * team = 1360 teams pyramid.
+ */
+export interface GenerateAllTeamsOptions {
+  small?: boolean;
+}
+
 @Injectable()
 export class TeamGenerator {
   private cityIndex = 0;
@@ -109,7 +119,10 @@ export class TeamGenerator {
     private readonly dataSource: DataSource,
   ) {}
 
-  async generateAllTeams(botUserId: string): Promise<void> {
+  async generateAllTeams(
+    botUserId: string,
+    options: GenerateAllTeamsOptions = {},
+  ): Promise<void> {
     const count = await this.teamRepo.count();
     if (count > 0) {
       this.logger.info(
@@ -123,9 +136,13 @@ export class TeamGenerator {
       `[TeamGenerator] Generating teams for ${leagues.length} leagues...`,
     );
 
-    let teamCount = 0;
+    // Small mode: only the first 2 leagues (L1 + L2 div 1)
+    // get teams. The rest are left empty so the schedule
+    // generator's "needs 4+ teams" guard skips them.
+    const targetLeagues = options.small ? leagues.slice(0, 2) : leagues;
 
-    for (const league of leagues) {
+    let teamCount = 0;
+    for (const league of targetLeagues) {
       for (let i = 0; i < league.maxTeams; i++) {
         const teamName = this.generateTeamName(league.tier, teamCount);
         await this.createBotTeam(league, teamName, botUserId);

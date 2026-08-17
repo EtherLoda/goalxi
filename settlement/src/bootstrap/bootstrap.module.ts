@@ -12,8 +12,9 @@ import {
   MatchEntity,
   WeatherEntity,
   LeagueStandingEntity,
-  YouthLeagueEntity,
-  YouthTeamEntity,
+  SystemConfigEntity,
+  ScoutCandidateEntity,
+  TacticsPresetEntity,
 } from '@goalxi/database';
 import { BootstrapService } from './bootstrap.service';
 import { UserGenerator } from './generators/user.generator';
@@ -21,8 +22,15 @@ import { LeagueGenerator } from './generators/league.generator';
 import { TeamGenerator } from './generators/team.generator';
 import { ScheduleGenerator } from './generators/schedule.generator';
 import { WeatherGenerator } from './generators/weather.generator';
-import { YouthStructureGenerator } from './generators/youth-structure.generator';
 
+/**
+ * Wires the auto-recover `BootstrapService` + the
+ * individual generators it orchestrates. The youth-league
+ * / youth-team generators that the historical bootstrap
+ * ran are intentionally omitted — the youth pipeline was
+ * retired and the new init (`InitService`) only generates
+ * senior rows.
+ */
 @Module({
   imports: [
     TypeOrmModule.forFeature([
@@ -37,8 +45,9 @@ import { YouthStructureGenerator } from './generators/youth-structure.generator'
       MatchEntity,
       WeatherEntity,
       LeagueStandingEntity,
-      YouthLeagueEntity,
-      YouthTeamEntity,
+      SystemConfigEntity,
+      ScoutCandidateEntity,
+      TacticsPresetEntity,
     ]),
   ],
   providers: [
@@ -48,8 +57,7 @@ import { YouthStructureGenerator } from './generators/youth-structure.generator'
     TeamGenerator,
     ScheduleGenerator,
     WeatherGenerator,
-    YouthStructureGenerator,
   ],
-  exports: [BootstrapService],
+  exports: [BootstrapService, UserGenerator, LeagueGenerator, TeamGenerator, ScheduleGenerator, WeatherGenerator],
 })
 export class BootstrapModule {}
