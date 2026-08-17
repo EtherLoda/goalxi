@@ -402,12 +402,20 @@ export class TrainingProcessor extends WorkerHost {
     fn: (key: string, value: number) => void,
   ): void {
     if (!currentSkills) return;
-    const skills = currentSkills as Record<string, Record<string, number> | undefined>;
-    for (const category of ['physical', 'technical', 'mental', 'setPieces'] as const) {
+    const skills = currentSkills as Record<
+      string,
+      Record<string, number> | undefined
+    >;
+    for (const category of [
+      'physical',
+      'technical',
+      'mental',
+      'setPieces',
+    ] as const) {
       const sub = skills[category];
       if (!sub) continue;
       for (const [key, value] of Object.entries(sub)) {
-        fn(key, value as number);
+        fn(key, value);
       }
     }
   }

@@ -30,7 +30,9 @@ describe('WeeklySettlementService', () => {
     queues = {
       training: { add: jest.fn().mockResolvedValue({ id: 'training-job' }) },
       condition: { add: jest.fn().mockResolvedValue({ id: 'condition-job' }) },
-      construction: { add: jest.fn().mockResolvedValue({ id: 'construction-job' }) },
+      construction: {
+        add: jest.fn().mockResolvedValue({ id: 'construction-job' }),
+      },
       youth: { add: jest.fn().mockResolvedValue({ id: 'youth-job' }) },
       fan: { add: jest.fn().mockResolvedValue({ id: 'fan-job' }) },
     };
@@ -47,9 +49,18 @@ describe('WeeklySettlementService', () => {
       providers: [
         WeeklySettlementService,
         { provide: LOGGER_SERVICE, useValue: logger },
-        { provide: getQueueToken('training-settlement'), useValue: queues.training },
-        { provide: getQueueToken('condition-settlement'), useValue: queues.condition },
-        { provide: getQueueToken('construction-settlement'), useValue: queues.construction },
+        {
+          provide: getQueueToken('training-settlement'),
+          useValue: queues.training,
+        },
+        {
+          provide: getQueueToken('condition-settlement'),
+          useValue: queues.condition,
+        },
+        {
+          provide: getQueueToken('construction-settlement'),
+          useValue: queues.construction,
+        },
         {
           provide: getQueueToken('youth-progression-settlement'),
           useValue: queues.youth,
@@ -120,9 +131,7 @@ describe('WeeklySettlementService', () => {
     // Make the condition queue throw; the other four should
     // still record `add` calls and the service should log a
     // single WARN line naming the missing kind.
-    queues.condition.add.mockRejectedValueOnce(
-      new Error('redis is down'),
-    );
+    queues.condition.add.mockRejectedValueOnce(new Error('redis is down'));
 
     await service.processWeeklySettlement();
 
@@ -133,12 +142,10 @@ describe('WeeklySettlementService', () => {
     expect(queues.condition.add).toHaveBeenCalledTimes(1);
 
     const warnCalls = logger.warn.mock.calls.map((c) => String(c[0]));
-    expect(
-      warnCalls.some((line) => line.includes('Partial enqueue')),
-    ).toBe(true);
-    expect(
-      warnCalls.some((line) => line.includes('condition')),
-    ).toBe(true);
+    expect(warnCalls.some((line) => line.includes('Partial enqueue'))).toBe(
+      true,
+    );
+    expect(warnCalls.some((line) => line.includes('condition'))).toBe(true);
   });
 
   it('does not log WARN on the happy path (all 5 succeed)', async () => {

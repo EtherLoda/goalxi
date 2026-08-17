@@ -18,10 +18,10 @@ describe('YouthStructureGenerator', () => {
   let youthTeamRepo: jest.Mocked<Repository<YouthTeamEntity>>;
 
   const league = (id: string, name: string, tier = 2): LeagueEntity =>
-    ({ id, name, tier, tierDivision: 1, maxTeams: 16 } as LeagueEntity);
+    ({ id, name, tier, tierDivision: 1, maxTeams: 16 }) as LeagueEntity;
 
   const team = (id: string, leagueId: string | null): TeamEntity =>
-    ({ id, name: `Team ${id}`, leagueId } as TeamEntity);
+    ({ id, name: `Team ${id}`, leagueId }) as TeamEntity;
 
   const mockLeagueRepo = {
     find: jest.fn(),
@@ -29,7 +29,9 @@ describe('YouthStructureGenerator', () => {
   const mockYouthLeagueRepo = {
     findOne: jest.fn(),
     create: jest.fn().mockImplementation((d) => d),
-    save: jest.fn().mockImplementation(async (d) => ({ id: `yl-${d.name}`, ...d })),
+    save: jest
+      .fn()
+      .mockImplementation(async (d) => ({ id: `yl-${d.name}`, ...d })),
   };
   const mockTeamRepo = {
     find: jest.fn(),
@@ -37,7 +39,9 @@ describe('YouthStructureGenerator', () => {
   const mockYouthTeamRepo = {
     findOne: jest.fn(),
     create: jest.fn().mockImplementation((d) => d),
-    save: jest.fn().mockImplementation(async (d) => ({ id: `yt-${d.teamId}`, ...d })),
+    save: jest
+      .fn()
+      .mockImplementation(async (d) => ({ id: `yt-${d.teamId}`, ...d })),
   };
   const mockLogger = {
     info: jest.fn(),
@@ -62,9 +66,15 @@ describe('YouthStructureGenerator', () => {
         YouthStructureGenerator,
         { provide: LOGGER_SERVICE, useValue: mockLogger },
         { provide: getRepositoryToken(LeagueEntity), useValue: mockLeagueRepo },
-        { provide: getRepositoryToken(YouthLeagueEntity), useValue: mockYouthLeagueRepo },
+        {
+          provide: getRepositoryToken(YouthLeagueEntity),
+          useValue: mockYouthLeagueRepo,
+        },
         { provide: getRepositoryToken(TeamEntity), useValue: mockTeamRepo },
-        { provide: getRepositoryToken(YouthTeamEntity), useValue: mockYouthTeamRepo },
+        {
+          provide: getRepositoryToken(YouthTeamEntity),
+          useValue: mockYouthTeamRepo,
+        },
       ],
     }).compile();
 
@@ -201,7 +211,7 @@ describe('YouthStructureGenerator', () => {
     // First call: nothing exists. Second call: same queries return the
     // just-saved rows.
     let savedLeague: YouthLeagueEntity | null = null;
-    let savedTeams: YouthTeamEntity[] = [];
+    const savedTeams: YouthTeamEntity[] = [];
 
     mockYouthLeagueRepo.findOne.mockImplementation(async () => savedLeague);
     mockYouthLeagueRepo.save.mockImplementation(async (d: any) => {

@@ -482,8 +482,14 @@ describe('PromotionRelegationService', () => {
     it('should not swap when the upper team won (stays in upper league)', async () => {
       const upperTeam = createMockTeam('upper', 'Upper') as TeamEntity;
       const lowerTeam = createMockTeam('lower', 'Lower') as TeamEntity;
-      const upperLeague = { id: 'upper-league', name: 'Upper League' } as LeagueEntity;
-      const lowerLeague = { id: 'lower-league', name: 'Lower League' } as LeagueEntity;
+      const upperLeague = {
+        id: 'upper-league',
+        name: 'Upper League',
+      } as LeagueEntity;
+      const lowerLeague = {
+        id: 'lower-league',
+        name: 'Lower League',
+      } as LeagueEntity;
 
       await service.processPlayoffResultsAndExecuteSwaps([
         {
@@ -561,9 +567,21 @@ describe('PromotionRelegationService', () => {
 
       await service.processPlayoffResultsAndExecuteSwaps([
         // A: upper wins → no swap
-        { upperTeam: upperA, lowerTeam: lowerA, upperLeague: leagueA, lowerLeague: leagueB, upperWon: true },
+        {
+          upperTeam: upperA,
+          lowerTeam: lowerA,
+          upperLeague: leagueA,
+          lowerLeague: leagueB,
+          upperWon: true,
+        },
         // B: lower wins → swap
-        { upperTeam: upperB, lowerTeam: lowerB, upperLeague: leagueA, lowerLeague: leagueB, upperWon: false },
+        {
+          upperTeam: upperB,
+          lowerTeam: lowerB,
+          upperLeague: leagueA,
+          lowerLeague: leagueB,
+          upperWon: false,
+        },
       ]);
 
       // Exactly the swap-pair was saved (2 saves).

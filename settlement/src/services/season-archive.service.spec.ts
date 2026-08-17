@@ -25,10 +25,18 @@ describe('SeasonArchiveService', () => {
   let transactionRepo: jest.Mocked<Repository<TransactionEntity>>;
   let playerEventRepo: jest.Mocked<Repository<PlayerEventEntity>>;
   let standingRepo: jest.Mocked<Repository<LeagueStandingEntity>>;
-  let archivedSeasonResultRepo: jest.Mocked<Repository<ArchivedSeasonResultEntity>>;
-  let archivedPlayerStatsRepo: jest.Mocked<Repository<ArchivedPlayerCompetitionStatsEntity>>;
-  let archivedTransactionRepo: jest.Mocked<Repository<ArchivedTransactionEntity>>;
-  let archivedPlayerEventRepo: jest.Mocked<Repository<ArchivedPlayerEventEntity>>;
+  let archivedSeasonResultRepo: jest.Mocked<
+    Repository<ArchivedSeasonResultEntity>
+  >;
+  let archivedPlayerStatsRepo: jest.Mocked<
+    Repository<ArchivedPlayerCompetitionStatsEntity>
+  >;
+  let archivedTransactionRepo: jest.Mocked<
+    Repository<ArchivedTransactionEntity>
+  >;
+  let archivedPlayerEventRepo: jest.Mocked<
+    Repository<ArchivedPlayerEventEntity>
+  >;
 
   const mockPlayerStatsRepo = { find: jest.fn() };
   const mockTransactionRepo = { find: jest.fn() };
@@ -48,26 +56,60 @@ describe('SeasonArchiveService', () => {
       providers: [
         SeasonArchiveService,
         LOGGER_SERVICE_PROVIDER,
-        { provide: getRepositoryToken(PlayerCompetitionStatsEntity), useValue: mockPlayerStatsRepo },
-        { provide: getRepositoryToken(TransactionEntity), useValue: mockTransactionRepo },
-        { provide: getRepositoryToken(PlayerEventEntity), useValue: mockPlayerEventRepo },
-        { provide: getRepositoryToken(LeagueStandingEntity), useValue: mockStandingRepo },
-        { provide: getRepositoryToken(ArchivedSeasonResultEntity), useValue: mockArchivedSeasonResultRepo },
-        { provide: getRepositoryToken(ArchivedPlayerCompetitionStatsEntity), useValue: mockArchivedPlayerStatsRepo },
-        { provide: getRepositoryToken(ArchivedTransactionEntity), useValue: mockArchivedTransactionRepo },
-        { provide: getRepositoryToken(ArchivedPlayerEventEntity), useValue: mockArchivedPlayerEventRepo },
+        {
+          provide: getRepositoryToken(PlayerCompetitionStatsEntity),
+          useValue: mockPlayerStatsRepo,
+        },
+        {
+          provide: getRepositoryToken(TransactionEntity),
+          useValue: mockTransactionRepo,
+        },
+        {
+          provide: getRepositoryToken(PlayerEventEntity),
+          useValue: mockPlayerEventRepo,
+        },
+        {
+          provide: getRepositoryToken(LeagueStandingEntity),
+          useValue: mockStandingRepo,
+        },
+        {
+          provide: getRepositoryToken(ArchivedSeasonResultEntity),
+          useValue: mockArchivedSeasonResultRepo,
+        },
+        {
+          provide: getRepositoryToken(ArchivedPlayerCompetitionStatsEntity),
+          useValue: mockArchivedPlayerStatsRepo,
+        },
+        {
+          provide: getRepositoryToken(ArchivedTransactionEntity),
+          useValue: mockArchivedTransactionRepo,
+        },
+        {
+          provide: getRepositoryToken(ArchivedPlayerEventEntity),
+          useValue: mockArchivedPlayerEventRepo,
+        },
       ],
     }).compile();
 
     service = module.get<SeasonArchiveService>(SeasonArchiveService);
-    playerStatsRepo = module.get(getRepositoryToken(PlayerCompetitionStatsEntity));
+    playerStatsRepo = module.get(
+      getRepositoryToken(PlayerCompetitionStatsEntity),
+    );
     transactionRepo = module.get(getRepositoryToken(TransactionEntity));
     playerEventRepo = module.get(getRepositoryToken(PlayerEventEntity));
     standingRepo = module.get(getRepositoryToken(LeagueStandingEntity));
-    archivedSeasonResultRepo = module.get(getRepositoryToken(ArchivedSeasonResultEntity));
-    archivedPlayerStatsRepo = module.get(getRepositoryToken(ArchivedPlayerCompetitionStatsEntity));
-    archivedTransactionRepo = module.get(getRepositoryToken(ArchivedTransactionEntity));
-    archivedPlayerEventRepo = module.get(getRepositoryToken(ArchivedPlayerEventEntity));
+    archivedSeasonResultRepo = module.get(
+      getRepositoryToken(ArchivedSeasonResultEntity),
+    );
+    archivedPlayerStatsRepo = module.get(
+      getRepositoryToken(ArchivedPlayerCompetitionStatsEntity),
+    );
+    archivedTransactionRepo = module.get(
+      getRepositoryToken(ArchivedTransactionEntity),
+    );
+    archivedPlayerEventRepo = module.get(
+      getRepositoryToken(ArchivedPlayerEventEntity),
+    );
 
     jest.clearAllMocks();
     mockArchivedSeasonResultRepo.create.mockImplementation(identity);
@@ -123,13 +165,42 @@ describe('SeasonArchiveService', () => {
       ] as any);
 
       mockPlayerStatsRepo.find.mockResolvedValue([
-        { playerId: 1, leagueId: 'L-1' as Uuid, season: 1, goals: 20, assists: 5, tackles: 30, yellowCards: 2, redCards: 0, starts: 30, substituteAppearances: 0, appearances: 30 } as any,
+        {
+          playerId: 1,
+          leagueId: 'L-1' as Uuid,
+          season: 1,
+          goals: 20,
+          assists: 5,
+          tackles: 30,
+          yellowCards: 2,
+          redCards: 0,
+          starts: 30,
+          substituteAppearances: 0,
+          appearances: 30,
+        } as any,
       ]);
       mockTransactionRepo.find.mockResolvedValue([
-        { teamId: 't-1' as Uuid, season: 1, amount: 1_000_000, type: TransactionType.PRIZE_MONEY, description: '1st', relatedId: null } as any,
+        {
+          teamId: 't-1' as Uuid,
+          season: 1,
+          amount: 1_000_000,
+          type: TransactionType.PRIZE_MONEY,
+          description: '1st',
+          relatedId: null,
+        } as any,
       ]);
       mockPlayerEventRepo.find.mockResolvedValue([
-        { playerId: 1, season: 1, date: new Date(), eventType: PlayerEventType.GOLDEN_BOOT, icon: 'emoji_events', titleKey: 'k', matchId: null, titleData: null, details: {} } as any,
+        {
+          playerId: 1,
+          season: 1,
+          date: new Date(),
+          eventType: PlayerEventType.GOLDEN_BOOT,
+          icon: 'emoji_events',
+          titleKey: 'k',
+          matchId: null,
+          titleData: null,
+          details: {},
+        } as any,
       ]);
 
       const summary = await service.archiveSeason(1);

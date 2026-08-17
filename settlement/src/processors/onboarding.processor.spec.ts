@@ -67,20 +67,16 @@ describe('OnboardingProcessor', () => {
 
   it('returns a result shape with teamId / reused / durationMs on success', async () => {
     const { processor, dataSource } = makeProcessor();
-    const claimSpy = jest
-      .spyOn(OnboardingAssigner, 'claim')
-      .mockResolvedValue({
-        team: { id: 'team-1' } as TeamEntity,
-        reused: false,
-        appliedName: 'Test Club',
-      });
+    const claimSpy = jest.spyOn(OnboardingAssigner, 'claim').mockResolvedValue({
+      team: { id: 'team-1' } as TeamEntity,
+      reused: false,
+      appliedName: 'Test Club',
+    });
     const markSpy = jest
       .spyOn(OnboardingAssigner, 'markProcessing')
       .mockResolvedValue();
 
-    const result = await processor.process(
-      makeJob({ v: 2, userId: 'u-1' }),
-    );
+    const result = await processor.process(makeJob({ v: 2, userId: 'u-1' }));
 
     expect(markSpy).toHaveBeenCalledWith(dataSource, 'u-1');
     expect(claimSpy).toHaveBeenCalledWith(dataSource, 'u-1');
@@ -94,14 +90,10 @@ describe('OnboardingProcessor', () => {
 
   it('surfaces "no BOT available" as UnrecoverableError so BullMQ stops retrying', async () => {
     const { processor } = makeProcessor();
-    jest
-      .spyOn(OnboardingAssigner, 'markProcessing')
-      .mockResolvedValue();
+    jest.spyOn(OnboardingAssigner, 'markProcessing').mockResolvedValue();
     jest
       .spyOn(OnboardingAssigner, 'claim')
-      .mockRejectedValue(
-        new OnboardingNoBotAvailableError('no BOT available'),
-      );
+      .mockRejectedValue(new OnboardingNoBotAvailableError('no BOT available'));
 
     await expect(
       processor.process(makeJob({ v: 2, userId: 'u-1' })),

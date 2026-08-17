@@ -57,7 +57,10 @@ describe('ScoutSchedulerService', () => {
         ScoutSchedulerService,
         { provide: LOGGER_SERVICE, useValue: mockLogger },
         { provide: getRepositoryToken(TeamEntity), useValue: mockTeamRepo },
-        { provide: getRepositoryToken(ScoutCandidateEntity), useValue: mockScoutRepo },
+        {
+          provide: getRepositoryToken(ScoutCandidateEntity),
+          useValue: mockScoutRepo,
+        },
       ],
     }).compile();
 
@@ -96,9 +99,7 @@ describe('ScoutSchedulerService', () => {
     expect(scoutRepo.create).toHaveBeenCalledTimes(
       SCOUT_CANDIDATES_PER_TEAM * 2,
     );
-    expect(scoutRepo.save).toHaveBeenCalledTimes(
-      SCOUT_CANDIDATES_PER_TEAM * 2,
-    );
+    expect(scoutRepo.save).toHaveBeenCalledTimes(SCOUT_CANDIDATES_PER_TEAM * 2);
   });
 
   // Regression test for the original "Pending Migration" bug.
@@ -155,10 +156,8 @@ describe('ScoutSchedulerService', () => {
 
     for (const call of createCalls) {
       const ttlMs = call.expiresAt.getTime() - before;
-      const expectedMin =
-        (SCOUT_CANDIDATE_TTL_DAYS - 1) * 24 * 60 * 60 * 1000;
-      const expectedMax =
-        (SCOUT_CANDIDATE_TTL_DAYS + 1) * 24 * 60 * 60 * 1000;
+      const expectedMin = (SCOUT_CANDIDATE_TTL_DAYS - 1) * 24 * 60 * 60 * 1000;
+      const expectedMax = (SCOUT_CANDIDATE_TTL_DAYS + 1) * 24 * 60 * 60 * 1000;
       expect(ttlMs).toBeGreaterThanOrEqual(expectedMin);
       expect(ttlMs).toBeLessThanOrEqual(expectedMax + (after - before));
     }

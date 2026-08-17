@@ -40,8 +40,7 @@ describe('SeasonTransitionService', () => {
   // UTC noon on the test day — any time within the same
   // date works because `currentSeasonWeek` only cares about
   // the date delta.
-  const atDay = (isoDay: string) =>
-    new Date(`${isoDay}T12:00:00.000Z`);
+  const atDay = (isoDay: string) => new Date(`${isoDay}T12:00:00.000Z`);
 
   const pinClockTo = (gameStart: Date, now: Date) => {
     jest.useFakeTimers().setSystemTime(now);
@@ -275,9 +274,7 @@ describe('SeasonTransitionService', () => {
       // No playoff-completion probe, no swap.
       expect(mockMatchRepository.count).not.toHaveBeenCalled();
       expect(mockMatchRepository.find).not.toHaveBeenCalled();
-      expect(
-        mockPromotionService.swapTeamLeague,
-      ).not.toHaveBeenCalled();
+      expect(mockPromotionService.swapTeamLeague).not.toHaveBeenCalled();
     });
 
     it('skips when week 16 playoffs are not all complete yet', async () => {
@@ -291,9 +288,7 @@ describe('SeasonTransitionService', () => {
       await service.processPlayoffResultsAndSwap();
 
       expect(mockMatchRepository.find).not.toHaveBeenCalled();
-      expect(
-        mockPromotionService.swapTeamLeague,
-      ).not.toHaveBeenCalled();
+      expect(mockPromotionService.swapTeamLeague).not.toHaveBeenCalled();
     });
 
     it('runs the swap when all week 16 playoffs are complete', async () => {
@@ -312,9 +307,7 @@ describe('SeasonTransitionService', () => {
       // The single PLAYOFF query was issued; with an empty result,
       // no swapTeamLeague calls happen.
       expect(mockMatchRepository.find).toHaveBeenCalledTimes(1);
-      expect(
-        mockPromotionService.swapTeamLeague,
-      ).not.toHaveBeenCalled();
+      expect(mockPromotionService.swapTeamLeague).not.toHaveBeenCalled();
     });
 
     it('triggers swapTeamLeague when a lower-league team wins a week-16 playoff', async () => {
@@ -369,9 +362,7 @@ describe('SeasonTransitionService', () => {
 
       await service.processAfterPlayoffsComplete(1);
 
-      expect(
-        mockPromotionService.swapTeamLeague,
-      ).not.toHaveBeenCalled();
+      expect(mockPromotionService.swapTeamLeague).not.toHaveBeenCalled();
       // No candidates → no latch-stamp either.
       expect(mockMatchRepository.update).not.toHaveBeenCalled();
     });
@@ -388,16 +379,17 @@ describe('SeasonTransitionService', () => {
           lowerLeagueId: 'lower-league-id' as Uuid,
           homeTeam: { id: 'home-team-id' as Uuid, name: 'Upper FC' } as any,
           awayTeam: { id: 'away-team-id' as Uuid, name: 'Lower FC' } as any,
-          league: { id: 'upper-league-id' as Uuid, name: 'Upper League' } as any,
+          league: {
+            id: 'upper-league-id' as Uuid,
+            name: 'Upper League',
+          } as any,
         } as any,
       ]);
 
       await service.processAfterPlayoffsComplete(1);
 
       // Upper team won → no swap; the team stays put.
-      expect(
-        mockPromotionService.swapTeamLeague,
-      ).not.toHaveBeenCalled();
+      expect(mockPromotionService.swapTeamLeague).not.toHaveBeenCalled();
       // But the row is still stamped so we don't re-process it
       // on the next cron tick.
       expect(mockMatchRepository.update).toHaveBeenCalledTimes(1);
@@ -415,7 +407,10 @@ describe('SeasonTransitionService', () => {
           lowerLeagueId: 'lower-league-id' as Uuid,
           homeTeam: { id: 'home-team-id' as Uuid, name: 'Upper FC' } as any,
           awayTeam: { id: 'away-team-id' as Uuid, name: 'Lower FC' } as any,
-          league: { id: 'upper-league-id' as Uuid, name: 'Upper League' } as any,
+          league: {
+            id: 'upper-league-id' as Uuid,
+            name: 'Upper League',
+          } as any,
         } as any,
       ]);
       mockPromotionService.swapTeamLeague.mockResolvedValue(undefined);
@@ -453,9 +448,7 @@ describe('SeasonTransitionService', () => {
 
       await service.processAfterPlayoffsComplete(1);
 
-      expect(
-        mockPromotionService.swapTeamLeague,
-      ).not.toHaveBeenCalled();
+      expect(mockPromotionService.swapTeamLeague).not.toHaveBeenCalled();
       // Still stamped — we processed the row, just nothing moved.
       expect(mockMatchRepository.update).toHaveBeenCalledTimes(1);
     });

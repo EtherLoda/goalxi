@@ -22,10 +22,10 @@ describe('ScheduleGenerator — WAVE A2 youth fixtures', () => {
   let youthTeamRepo: { find: jest.Mock };
 
   const seniorLeague = (id: string, name = 'Pro Div 1'): LeagueEntity =>
-    ({ id, name, tier: 2, tierDivision: 1, maxTeams: 16 } as LeagueEntity);
+    ({ id, name, tier: 2, tierDivision: 1, maxTeams: 16 }) as LeagueEntity;
 
   const seniorTeam = (id: string, leagueId: string): TeamEntity =>
-    ({ id, name: `Team ${id}`, leagueId } as TeamEntity);
+    ({ id, name: `Team ${id}`, leagueId }) as TeamEntity;
 
   const youthLeague = (
     id: string,
@@ -37,15 +37,19 @@ describe('ScheduleGenerator — WAVE A2 youth fixtures', () => {
       name,
       parentTier: 2,
       seniorLeagueId: seniorId,
-    } as YouthLeagueEntity);
+    }) as YouthLeagueEntity;
 
-  const youthTeam = (ytId: string, seniorTeamId: string, ylId: string): YouthTeamEntity =>
+  const youthTeam = (
+    ytId: string,
+    seniorTeamId: string,
+    ylId: string,
+  ): YouthTeamEntity =>
     ({
       id: ytId,
       teamId: seniorTeamId,
       youthLeagueId: ylId,
       name: `Team ${seniorTeamId} 青年队`,
-    } as YouthTeamEntity);
+    }) as YouthTeamEntity;
 
   const mockLogger = {
     info: jest.fn(),
@@ -238,8 +242,24 @@ describe('ScheduleGenerator — WAVE A2 youth fixtures', () => {
       expect(m.leagueId).toBeNull();
       expect(m.youthLeagueId).toBe('YL1');
       // youth match uses senior team ids (since youth_team.teamId = senior team id)
-      expect(['T1', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'T8', 'T9', 'T10', 'T11', 'T12', 'T13', 'T14', 'T15', 'T16'])
-        .toContain(m.homeTeamId);
+      expect([
+        'T1',
+        'T2',
+        'T3',
+        'T4',
+        'T5',
+        'T6',
+        'T7',
+        'T8',
+        'T9',
+        'T10',
+        'T11',
+        'T12',
+        'T13',
+        'T14',
+        'T15',
+        'T16',
+      ]).toContain(m.homeTeamId);
     }
   });
 
@@ -387,7 +407,8 @@ describe('ScheduleGenerator — WAVE A2 youth fixtures', () => {
     const youthWeek1 = youthBatch.find((m: any) => m.week === 1);
     expect(seniorWeek1).toBeDefined();
     expect(youthWeek1).toBeDefined();
-    const diffMs = youthWeek1.scheduledAt.getTime() - seniorWeek1.scheduledAt.getTime();
+    const diffMs =
+      youthWeek1.scheduledAt.getTime() - seniorWeek1.scheduledAt.getTime();
     // 2 days ± 60s tolerance for "now"-clamping logic
     expect(diffMs).toBeGreaterThanOrEqual(2 * 24 * 60 * 60 * 1000 - 60_000);
     expect(diffMs).toBeLessThanOrEqual(2 * 24 * 60 * 60 * 1000 + 60_000);

@@ -19,7 +19,11 @@ describe('TrainingProcessor', () => {
   let playerRepo: jest.Mocked<Repository<PlayerEntity>>;
   let assignmentRepo: jest.Mocked<Repository<CoachPlayerAssignmentEntity>>;
   let trainingUpdateRepo: jest.Mocked<Repository<TrainingUpdateEntity>>;
-  let dataSource: { transaction: jest.Mock; _txSave: jest.Mock; _txCreate: jest.Mock };
+  let dataSource: {
+    transaction: jest.Mock;
+    _txSave: jest.Mock;
+    _txCreate: jest.Mock;
+  };
 
   const mockTeamRepo = { find: jest.fn() };
   const mockStaffRepo = { find: jest.fn() };
@@ -108,7 +112,9 @@ describe('TrainingProcessor', () => {
     teamRepo = module.get(getRepositoryToken(TeamEntity));
     staffRepo = module.get(getRepositoryToken(StaffEntity));
     playerRepo = module.get(getRepositoryToken(PlayerEntity));
-    assignmentRepo = module.get(getRepositoryToken(CoachPlayerAssignmentEntity));
+    assignmentRepo = module.get(
+      getRepositoryToken(CoachPlayerAssignmentEntity),
+    );
     trainingUpdateRepo = module.get(getRepositoryToken(TrainingUpdateEntity));
 
     jest.clearAllMocks();
@@ -128,7 +134,12 @@ describe('TrainingProcessor', () => {
       const team = buildTeam();
       mockTeamRepo.find.mockResolvedValueOnce([team]);
       mockStaffRepo.find.mockResolvedValueOnce([
-        { id: 99, teamId: team.id, isActive: true, level: 3 } as unknown as StaffEntity,
+        {
+          id: 99,
+          teamId: team.id,
+          isActive: true,
+          level: 3,
+        } as unknown as StaffEntity,
       ]);
       const players = [
         buildPlayer({ id: 1, name: 'A' }),
@@ -170,9 +181,7 @@ describe('TrainingProcessor', () => {
       const team = buildTeam({ userId: null });
       mockTeamRepo.find.mockResolvedValueOnce([team]);
       mockStaffRepo.find.mockResolvedValueOnce([]);
-      mockPlayerRepo.find.mockResolvedValueOnce([
-        buildPlayer({ id: 1 }),
-      ]);
+      mockPlayerRepo.find.mockResolvedValueOnce([buildPlayer({ id: 1 })]);
 
       await processor.process({ id: 'job-3' } as any);
 
@@ -214,8 +223,20 @@ describe('TrainingProcessor', () => {
       mockTeamRepo.find.mockResolvedValueOnce([team]);
       mockStaffRepo.find.mockResolvedValueOnce([
         // two active coaches, one for `physical` and one for `technical`
-        { id: 'coach-phys', teamId: team.id, isActive: true, level: 4, trainedSkill: 'pace' } as unknown as StaffEntity,
-        { id: 'coach-tech', teamId: team.id, isActive: true, level: 4, trainedSkill: 'passing' } as unknown as StaffEntity,
+        {
+          id: 'coach-phys',
+          teamId: team.id,
+          isActive: true,
+          level: 4,
+          trainedSkill: 'pace',
+        } as unknown as StaffEntity,
+        {
+          id: 'coach-tech',
+          teamId: team.id,
+          isActive: true,
+          level: 4,
+          trainedSkill: 'passing',
+        } as unknown as StaffEntity,
       ]);
       // both coaches are assigned to the same player, in different
       // training categories. The old code would drop the second row.
@@ -246,7 +267,12 @@ describe('TrainingProcessor', () => {
         },
         potentialSkills: {
           physical: { pace: 17, strength: 17 },
-          technical: { finishing: 17, passing: 17, dribbling: 17, defending: 17 },
+          technical: {
+            finishing: 17,
+            passing: 17,
+            dribbling: 17,
+            defending: 17,
+          },
           mental: { positioning: 17, composure: 17 },
           setPieces: { freeKicks: 17, penalties: 17 },
         },
@@ -259,7 +285,9 @@ describe('TrainingProcessor', () => {
       // only the first assignment honoured, `passing` would stay at
       // its starting value (8) and only `pace` would grow.
       expect(player.currentSkills.physical.pace).toBeGreaterThan(8);
-      expect((player.currentSkills.technical as any).passing).toBeGreaterThan(8);
+      expect((player.currentSkills.technical as any).passing).toBeGreaterThan(
+        8,
+      );
     });
 
     // #4 (dirty check based on rounded stamina) is covered by code
@@ -280,10 +308,21 @@ describe('TrainingProcessor', () => {
       const team = buildTeam();
       mockTeamRepo.find.mockResolvedValueOnce([team]);
       mockStaffRepo.find.mockResolvedValueOnce([
-        { id: 'c1', teamId: team.id, isActive: true, level: 4, trainedSkill: 'pace' } as unknown as StaffEntity,
+        {
+          id: 'c1',
+          teamId: team.id,
+          isActive: true,
+          level: 4,
+          trainedSkill: 'pace',
+        } as unknown as StaffEntity,
       ]);
       mockAssignmentRepo.find.mockResolvedValueOnce([
-        { id: 'a1', coachId: 'c1', playerId: 1, trainingCategory: 'physical' } as unknown as CoachPlayerAssignmentEntity,
+        {
+          id: 'a1',
+          coachId: 'c1',
+          playerId: 1,
+          trainingCategory: 'physical',
+        } as unknown as CoachPlayerAssignmentEntity,
       ]);
       const player = buildPlayer({
         id: 1,
@@ -297,7 +336,12 @@ describe('TrainingProcessor', () => {
         },
         potentialSkills: {
           physical: { pace: 17, strength: 17 },
-          technical: { finishing: 17, passing: 17, dribbling: 17, defending: 17 },
+          technical: {
+            finishing: 17,
+            passing: 17,
+            dribbling: 17,
+            defending: 17,
+          },
           mental: { positioning: 17, composure: 17 },
           setPieces: { freeKicks: 17, penalties: 17 },
         },
@@ -319,10 +363,21 @@ describe('TrainingProcessor', () => {
       const team = buildTeam();
       mockTeamRepo.find.mockResolvedValueOnce([team]);
       mockStaffRepo.find.mockResolvedValueOnce([
-        { id: 'c1', teamId: team.id, isActive: true, level: 4, trainedSkill: 'pace' } as unknown as StaffEntity,
+        {
+          id: 'c1',
+          teamId: team.id,
+          isActive: true,
+          level: 4,
+          trainedSkill: 'pace',
+        } as unknown as StaffEntity,
       ]);
       mockAssignmentRepo.find.mockResolvedValueOnce([
-        { id: 'a1', coachId: 'c1', playerId: 1, trainingCategory: 'physical' } as unknown as CoachPlayerAssignmentEntity,
+        {
+          id: 'a1',
+          coachId: 'c1',
+          playerId: 1,
+          trainingCategory: 'physical',
+        } as unknown as CoachPlayerAssignmentEntity,
       ]);
       const player = buildPlayer({
         id: 1,
@@ -336,7 +391,12 @@ describe('TrainingProcessor', () => {
         },
         potentialSkills: {
           physical: { pace: 17, strength: 17 },
-          technical: { finishing: 17, passing: 17, dribbling: 17, defending: 17 },
+          technical: {
+            finishing: 17,
+            passing: 17,
+            dribbling: 17,
+            defending: 17,
+          },
           mental: { positioning: 17, composure: 17 },
           setPieces: { freeKicks: 17, penalties: 17 },
         },
@@ -358,11 +418,27 @@ describe('TrainingProcessor', () => {
       mockTeamRepo.find.mockResolvedValueOnce([team]);
       // Only ONE of the two assigned coaches is currently active.
       mockStaffRepo.find.mockResolvedValueOnce([
-        { id: 'coach-active', teamId: team.id, isActive: true, level: 3, trainedSkill: 'pace' } as unknown as StaffEntity,
+        {
+          id: 'coach-active',
+          teamId: team.id,
+          isActive: true,
+          level: 3,
+          trainedSkill: 'pace',
+        } as unknown as StaffEntity,
       ]);
       mockAssignmentRepo.find.mockResolvedValueOnce([
-        { id: 'a1', coachId: 'coach-active', playerId: 1, trainingCategory: 'physical' } as unknown as CoachPlayerAssignmentEntity,
-        { id: 'a2', coachId: 'coach-fired', playerId: 1, trainingCategory: 'technical' } as unknown as CoachPlayerAssignmentEntity,
+        {
+          id: 'a1',
+          coachId: 'coach-active',
+          playerId: 1,
+          trainingCategory: 'physical',
+        } as unknown as CoachPlayerAssignmentEntity,
+        {
+          id: 'a2',
+          coachId: 'coach-fired',
+          playerId: 1,
+          trainingCategory: 'technical',
+        } as unknown as CoachPlayerAssignmentEntity,
       ]);
       const player = buildPlayer({
         id: 1,
@@ -375,7 +451,12 @@ describe('TrainingProcessor', () => {
         },
         potentialSkills: {
           physical: { pace: 17, strength: 17 },
-          technical: { finishing: 17, passing: 17, dribbling: 17, defending: 17 },
+          technical: {
+            finishing: 17,
+            passing: 17,
+            dribbling: 17,
+            defending: 17,
+          },
           mental: { positioning: 17, composure: 17 },
           setPieces: { freeKicks: 17, penalties: 17 },
         },

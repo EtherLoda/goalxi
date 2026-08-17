@@ -5,7 +5,12 @@ import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
 import { currentSeasonWeek, resolveGameStart } from '@goalxi/database';
 
-type SettlementKind = 'training' | 'condition' | 'construction' | 'youth-progression' | 'fan';
+type SettlementKind =
+  | 'training'
+  | 'condition'
+  | 'construction'
+  | 'youth-progression'
+  | 'fan';
 
 /**
  * Weekly training, condition, stadium construction, youth

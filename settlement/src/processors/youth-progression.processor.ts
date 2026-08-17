@@ -141,9 +141,7 @@ export class YouthProgressionProcessor extends WorkerHost {
 
   @OnWorkerEvent('completed')
   onCompleted(job: Job) {
-    this.logger.debug(
-      `Youth progression settlement job ${job.id} completed`,
-    );
+    this.logger.debug(`Youth progression settlement job ${job.id} completed`);
   }
 
   @OnWorkerEvent('failed')

@@ -184,8 +184,24 @@ describe('ConditionProcessor', () => {
         isBot: true,
       } as TeamEntity);
       const players = [
-        { id: 1, name: 'A', teamId: 'bot' as Uuid, isYouth: false, form: 50, matchMinutes: 90, currentInjuryValue: 0 } as unknown as PlayerEntity,
-        { id: 2, name: 'B', teamId: 'bot' as Uuid, isYouth: false, form: 60, matchMinutes: 0, currentInjuryValue: 0 } as unknown as PlayerEntity,
+        {
+          id: 1,
+          name: 'A',
+          teamId: 'bot' as Uuid,
+          isYouth: false,
+          form: 50,
+          matchMinutes: 90,
+          currentInjuryValue: 0,
+        } as unknown as PlayerEntity,
+        {
+          id: 2,
+          name: 'B',
+          teamId: 'bot' as Uuid,
+          isYouth: false,
+          form: 60,
+          matchMinutes: 0,
+          currentInjuryValue: 0,
+        } as unknown as PlayerEntity,
       ];
       mockPlayerRepo.find.mockResolvedValueOnce(players);
 

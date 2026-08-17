@@ -68,7 +68,9 @@ export class PlayerWageSchedulerService {
       // ago they were created.
       const playersWithBirthday = await this.playerRepo
         .createQueryBuilder('player')
-        .where('MOD(:today - player.created_day, 112) = 0', { today: todayGameDay })
+        .where('MOD(:today - player.created_day, 112) = 0', {
+          today: todayGameDay,
+        })
         .andWhere('player.is_youth = false') // Only adult players
         .getMany();
 

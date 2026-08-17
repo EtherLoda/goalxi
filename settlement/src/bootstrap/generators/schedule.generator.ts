@@ -240,10 +240,11 @@ export class ScheduleGenerator {
     // If SEASON_1_START is in the past, push the first match out by
     // SCHEDULE_LEAD_MINUTES so the preprocessor doesn't fire it
     // immediately on bootstrap.
-    const lead = Math.max(0, start.getTime() - now.getTime()) >
+    const lead =
+      Math.max(0, start.getTime() - now.getTime()) >
       SCHEDULE_LEAD_MINUTES * 60_000
-      ? 0
-      : SCHEDULE_LEAD_MINUTES * 60_000;
+        ? 0
+        : SCHEDULE_LEAD_MINUTES * 60_000;
     const kickoff = new Date(
       Math.max(start.getTime(), now.getTime() + lead) +
         round * ROUND_INTERVAL_DAYS * 24 * 60 * 60 * 1000 +

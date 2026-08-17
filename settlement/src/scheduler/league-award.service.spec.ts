@@ -30,7 +30,11 @@ describe('LeagueAwardService', () => {
   let transactionRepo: jest.Mocked<Repository<TransactionEntity>>;
 
   const mockStatsRepo = { findOne: jest.fn() };
-  const mockPlayerEventRepo = { findOne: jest.fn(), create: jest.fn(), save: jest.fn() };
+  const mockPlayerEventRepo = {
+    findOne: jest.fn(),
+    create: jest.fn(),
+    save: jest.fn(),
+  };
   const mockStandingRepo = { find: jest.fn(), findOne: jest.fn() };
   const mockPlayerRepo = { find: jest.fn(), findOne: jest.fn() };
   const mockTeamRepo = { findOne: jest.fn() };
@@ -54,15 +58,30 @@ describe('LeagueAwardService', () => {
       providers: [
         LeagueAwardService,
         LOGGER_SERVICE_PROVIDER,
-        { provide: getRepositoryToken(PlayerCompetitionStatsEntity), useValue: mockStatsRepo },
-        { provide: getRepositoryToken(PlayerEventEntity), useValue: mockPlayerEventRepo },
-        { provide: getRepositoryToken(LeagueStandingEntity), useValue: mockStandingRepo },
+        {
+          provide: getRepositoryToken(PlayerCompetitionStatsEntity),
+          useValue: mockStatsRepo,
+        },
+        {
+          provide: getRepositoryToken(PlayerEventEntity),
+          useValue: mockPlayerEventRepo,
+        },
+        {
+          provide: getRepositoryToken(LeagueStandingEntity),
+          useValue: mockStandingRepo,
+        },
         { provide: getRepositoryToken(PlayerEntity), useValue: mockPlayerRepo },
         { provide: getRepositoryToken(TeamEntity), useValue: mockTeamRepo },
-        { provide: getRepositoryToken(FinanceEntity), useValue: mockFinanceRepo },
+        {
+          provide: getRepositoryToken(FinanceEntity),
+          useValue: mockFinanceRepo,
+        },
         { provide: getRepositoryToken(MatchEntity), useValue: mockMatchRepo },
         { provide: getRepositoryToken(LeagueEntity), useValue: mockLeagueRepo },
-        { provide: getRepositoryToken(TransactionEntity), useValue: mockTransactionRepo },
+        {
+          provide: getRepositoryToken(TransactionEntity),
+          useValue: mockTransactionRepo,
+        },
       ],
     }).compile();
 
@@ -83,7 +102,7 @@ describe('LeagueAwardService', () => {
   describe('processSeasonAwards', () => {
     it('skips the league when a CHAMPIONSHIP_TITLE event already exists (idempotent re-run)', async () => {
       // Manager says we have one league.
-      (mockMatchRepo.manager.createQueryBuilder as jest.Mock).mockReturnValue({
+      mockMatchRepo.manager.createQueryBuilder.mockReturnValue({
         select: jest.fn().mockReturnThis(),
         getRawMany: jest.fn().mockResolvedValue([{ leagueId: 'league-1' }]),
       });
@@ -103,7 +122,7 @@ describe('LeagueAwardService', () => {
 
     it('awards champion title, golden boot, assists leader, tackles leader, and prize money', async () => {
       // ── Setup: 1 league with 8 standings (1-8) for prize money. ───────
-      (mockMatchRepo.manager.createQueryBuilder as jest.Mock).mockReturnValue({
+      mockMatchRepo.manager.createQueryBuilder.mockReturnValue({
         select: jest.fn().mockReturnThis(),
         getRawMany: jest.fn().mockResolvedValue([{ leagueId: 'league-1' }]),
       });
@@ -116,7 +135,10 @@ describe('LeagueAwardService', () => {
         leagueId: 'league-1' as Uuid,
         teamId: (i === 0 ? championTeamId : `team-${i + 1}`) as Uuid,
         position: i + 1,
-        team: { id: (i === 0 ? championTeamId : `team-${i + 1}`) as Uuid, name: `T${i + 1}` } as TeamEntity,
+        team: {
+          id: (i === 0 ? championTeamId : `team-${i + 1}`) as Uuid,
+          name: `T${i + 1}`,
+        } as TeamEntity,
       }));
       mockStandingRepo.find.mockResolvedValue(standings as any);
       // awardChampion looks up the position-1 standing to find the champion.
@@ -127,7 +149,7 @@ describe('LeagueAwardService', () => {
         { id: 1, teamId: championTeamId } as unknown as PlayerEntity,
         { id: 2, teamId: championTeamId } as unknown as PlayerEntity,
       ]);
-      mockPlayerEventRepo.create.mockImplementation((p) => p as any);
+      mockPlayerEventRepo.create.mockImplementation((p) => p);
       mockPlayerEventRepo.save.mockResolvedValue({} as any);
 
       // League lookup for prize tier.
@@ -137,10 +159,10 @@ describe('LeagueAwardService', () => {
         tier: 1,
       } as LeagueEntity);
       mockFinanceRepo.findOne.mockResolvedValue({
-        teamId: championTeamId as Uuid,
+        teamId: championTeamId,
         balance: 1_000_000,
       } as FinanceEntity);
-      mockTransactionRepo.create.mockImplementation((t) => t as any);
+      mockTransactionRepo.create.mockImplementation((t) => t);
       mockTransactionRepo.save.mockResolvedValue({} as any);
       mockFinanceRepo.save.mockResolvedValue({} as any);
 
@@ -197,7 +219,7 @@ describe('LeagueAwardService', () => {
 
     it('skips a leader award when the top stat row has zero', async () => {
       // Single league.
-      (mockMatchRepo.manager.createQueryBuilder as jest.Mock).mockReturnValue({
+      mockMatchRepo.manager.createQueryBuilder.mockReturnValue({
         select: jest.fn().mockReturnThis(),
         getRawMany: jest.fn().mockResolvedValue([{ leagueId: 'league-1' }]),
       });
@@ -212,7 +234,11 @@ describe('LeagueAwardService', () => {
       mockPlayerRepo.find.mockResolvedValue([] as any);
 
       // No top scorers, no top assisters, no top tacklers.
-      mockStatsRepo.findOne.mockResolvedValue({ goals: 0, assists: 0, tackles: 0 } as any);
+      mockStatsRepo.findOne.mockResolvedValue({
+        goals: 0,
+        assists: 0,
+        tackles: 0,
+      } as any);
 
       await service.processSeasonAwards(1);
 

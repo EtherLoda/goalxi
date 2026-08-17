@@ -58,9 +58,7 @@ describe('InjuryRecoveryService', () => {
   };
   const mockNotificationService = { create: jest.fn() };
 
-  const buildPlayer = (
-    overrides: Partial<PlayerEntity> = {},
-  ): PlayerEntity =>
+  const buildPlayer = (overrides: Partial<PlayerEntity> = {}): PlayerEntity =>
     ({
       id: 1,
       name: 'Player',
@@ -151,7 +149,11 @@ describe('InjuryRecoveryService', () => {
       const player = buildPlayer({ id: 20, currentInjuryValue: 1 });
       playerRepo.find.mockResolvedValueOnce([player]);
       staffRepo.find.mockResolvedValueOnce([
-        { teamId: 'team-1' as Uuid, role: StaffRole.TEAM_DOCTOR, level: 0 } as unknown as StaffEntity,
+        {
+          teamId: 'team-1' as Uuid,
+          role: StaffRole.TEAM_DOCTOR,
+          level: 0,
+        } as unknown as StaffEntity,
       ]);
 
       await service.processDailyInjuryRecovery();
@@ -208,7 +210,12 @@ describe('InjuryRecoveryService', () => {
           id: 2,
           currentInjuryValue: 30,
           teamId: 't1' as Uuid,
-          team: { id: 't1' as Uuid, name: 'T1', isBot: false, userId: 'u1' as Uuid } as unknown as TeamEntity,
+          team: {
+            id: 't1' as Uuid,
+            name: 'T1',
+            isBot: false,
+            userId: 'u1' as Uuid,
+          } as unknown as TeamEntity,
         }),
         buildPlayer({ id: 3, currentInjuryValue: 1, teamId: 't2' as Uuid }),
       ];
@@ -254,6 +261,3 @@ describe('InjuryRecoveryService', () => {
     });
   });
 });
-
-
-

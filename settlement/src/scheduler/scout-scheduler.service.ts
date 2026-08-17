@@ -59,7 +59,9 @@ export class ScoutSchedulerService {
           where: {
             teamId: team.id,
             expiresAt: LessThanOrEqual(
-              new Date(Date.now() + SCOUT_CANDIDATE_TTL_DAYS * 24 * 60 * 60 * 1000),
+              new Date(
+                Date.now() + SCOUT_CANDIDATE_TTL_DAYS * 24 * 60 * 60 * 1000,
+              ),
             ),
           },
         });

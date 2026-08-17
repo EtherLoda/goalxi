@@ -23,7 +23,11 @@ describe('LeagueAdminService', () => {
   let youthTeamRepo: jest.Mocked<Repository<YouthTeamEntity>>;
   let dataSource: { getRepository: jest.Mock };
 
-  const mockLeagueRepo = { findOne: jest.fn(), create: jest.fn(), save: jest.fn() };
+  const mockLeagueRepo = {
+    findOne: jest.fn(),
+    create: jest.fn(),
+    save: jest.fn(),
+  };
   const mockStandingRepo = {
     findOne: jest.fn(),
     count: jest.fn(),
@@ -32,7 +36,11 @@ describe('LeagueAdminService', () => {
     delete: jest.fn(),
   };
   const mockTeamRepo = { findOne: jest.fn(), save: jest.fn() };
-  const mockYouthLeagueRepo = { findOne: jest.fn(), create: jest.fn(), save: jest.fn() };
+  const mockYouthLeagueRepo = {
+    findOne: jest.fn(),
+    create: jest.fn(),
+    save: jest.fn(),
+  };
   const mockYouthTeamRepo = { create: jest.fn(), save: jest.fn() };
 
   const matchRepoForInfo = {
@@ -53,10 +61,19 @@ describe('LeagueAdminService', () => {
         LeagueAdminService,
         LOGGER_SERVICE_PROVIDER,
         { provide: getRepositoryToken(LeagueEntity), useValue: mockLeagueRepo },
-        { provide: getRepositoryToken(LeagueStandingEntity), useValue: mockStandingRepo },
+        {
+          provide: getRepositoryToken(LeagueStandingEntity),
+          useValue: mockStandingRepo,
+        },
         { provide: getRepositoryToken(TeamEntity), useValue: mockTeamRepo },
-        { provide: getRepositoryToken(YouthLeagueEntity), useValue: mockYouthLeagueRepo },
-        { provide: getRepositoryToken(YouthTeamEntity), useValue: mockYouthTeamRepo },
+        {
+          provide: getRepositoryToken(YouthLeagueEntity),
+          useValue: mockYouthLeagueRepo,
+        },
+        {
+          provide: getRepositoryToken(YouthTeamEntity),
+          useValue: mockYouthTeamRepo,
+        },
         { provide: DataSource, useValue: dataSourceMock },
       ],
     }).compile();
@@ -97,7 +114,9 @@ describe('LeagueAdminService', () => {
     });
 
     it('rejects duplicate league names', async () => {
-      mockLeagueRepo.findOne.mockResolvedValue({ id: 'existing' } as LeagueEntity);
+      mockLeagueRepo.findOne.mockResolvedValue({
+        id: 'existing',
+      } as LeagueEntity);
 
       await expect(service.createLeague('Duplicate', 1, 1)).rejects.toThrow(
         BadRequestException,
@@ -111,7 +130,11 @@ describe('LeagueAdminService', () => {
       mockTeamRepo.findOne.mockResolvedValue(null);
 
       await expect(
-        service.addTeamToLeague('missing-team' as Uuid, 'any-league' as Uuid, 1),
+        service.addTeamToLeague(
+          'missing-team' as Uuid,
+          'any-league' as Uuid,
+          1,
+        ),
       ).rejects.toThrow(BadRequestException);
     });
 
@@ -134,7 +157,10 @@ describe('LeagueAdminService', () => {
     });
 
     it('rejects when the team is already in the league this season', async () => {
-      mockTeamRepo.findOne.mockResolvedValue({ id: 't' as Uuid, name: 'T' } as TeamEntity);
+      mockTeamRepo.findOne.mockResolvedValue({
+        id: 't' as Uuid,
+        name: 'T',
+      } as TeamEntity);
       mockLeagueRepo.findOne.mockResolvedValue({
         id: 'l' as Uuid,
         name: 'L',
@@ -142,7 +168,10 @@ describe('LeagueAdminService', () => {
         maxTeams: 16,
       } as LeagueEntity);
       mockStandingRepo.count.mockResolvedValue(5);
-      mockStandingRepo.findOne.mockResolvedValue({ teamId: 't', leagueId: 'l' } as any);
+      mockStandingRepo.findOne.mockResolvedValue({
+        teamId: 't',
+        leagueId: 'l',
+      } as any);
 
       await expect(
         service.addTeamToLeague('t' as Uuid, 'l' as Uuid, 1),
@@ -170,7 +199,9 @@ describe('LeagueAdminService', () => {
         parentTier: 2,
         name: 'L Youth League',
       } as unknown as YouthLeagueEntity);
-      mockYouthTeamRepo.save.mockResolvedValue({} as unknown as YouthTeamEntity);
+      mockYouthTeamRepo.save.mockResolvedValue(
+        {} as unknown as YouthTeamEntity,
+      );
 
       await service.addTeamToLeague('t' as Uuid, 'l' as Uuid, 3);
 
@@ -255,9 +286,7 @@ describe('LeagueAdminService', () => {
         id: 'l' as Uuid,
         name: 'L',
       } as LeagueEntity);
-      matchRepoForInfo.count
-        .mockResolvedValueOnce(0)
-        .mockResolvedValueOnce(0);
+      matchRepoForInfo.count.mockResolvedValueOnce(0).mockResolvedValueOnce(0);
       matchRepoForInfo.findOne.mockResolvedValue(null);
 
       const info = await service.getLeagueSeasonInfo('l' as Uuid, 1);

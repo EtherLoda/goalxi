@@ -440,11 +440,7 @@ export class TransferProcessor extends WorkerHost {
       // service can't roll back a settled transfer. Both
       // notifications are best-effort — a failure on either
       // is logged but does not throw.
-      const {
-        buyerUserId,
-        sellerUserId,
-        playerName,
-      } = settledContext;
+      const { buyerUserId, sellerUserId, playerName } = settledContext;
 
       if (buyerUserId) {
         try {

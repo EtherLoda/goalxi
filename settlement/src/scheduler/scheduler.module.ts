@@ -8,12 +8,8 @@ import {
   MatchEventEntity,
   PlayerEntity,
   InjuryEntity,
-  
   YouthLeagueEntity,
   YouthTeamEntity,
-  
-
-
   TeamEntity,
   ScoutCandidateEntity,
   StaffEntity,
@@ -93,10 +89,10 @@ import { NotificationModule } from '../notification/notification.module';
       MatchEventEntity,
       PlayerEntity,
       InjuryEntity,
-      
+
       YouthLeagueEntity,
       YouthTeamEntity,
-      
+
       TeamEntity,
       ScoutCandidateEntity,
       StaffEntity,

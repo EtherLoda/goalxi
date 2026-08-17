@@ -129,9 +129,7 @@ export class InjuryRecoveryService {
       const team = p.team;
       if (!team || team.isBot) {
         if (team?.isBot) {
-          this.logger.debug(
-            `[InjuryRecovery] Skipping bot player: ${p.name}`,
-          );
+          this.logger.debug(`[InjuryRecovery] Skipping bot player: ${p.name}`);
         }
         continue;
       }
@@ -181,10 +179,7 @@ export class InjuryRecoveryService {
         );
       });
     } catch (error) {
-      this.logger.error(
-        `[InjuryRecovery] Daily tick failed:`,
-        error,
-      );
+      this.logger.error(`[InjuryRecovery] Daily tick failed:`, error);
       throw error;
     }
 

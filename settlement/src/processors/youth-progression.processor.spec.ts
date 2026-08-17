@@ -93,7 +93,6 @@ describe('YouthProgressionProcessor', () => {
     error: jest.fn(),
   };
 
-
   beforeEach(async () => {
     jest.clearAllMocks();
     mockPlayerRepo.save.mockImplementation(async (p: any) => p);
@@ -162,9 +161,7 @@ describe('YouthProgressionProcessor', () => {
 
   it('keeps revealLevel in sync with revealedSkills.length after every tick', async () => {
     const youth = outfieldYouth(1, 'teamA', {
-      revealedSkills: [
-        'pace', 'strength', 'finishing', 'passing', 'dribbling',
-      ],
+      revealedSkills: ['pace', 'strength', 'finishing', 'passing', 'dribbling'],
     });
     playerRepo.find.mockResolvedValue([youth]);
 
@@ -186,8 +183,16 @@ describe('YouthProgressionProcessor', () => {
       },
       // All skills already revealed → no new reveal.
       revealedSkills: [
-        'pace', 'strength', 'finishing', 'passing', 'dribbling', 'defending',
-        'positioning', 'composure', 'freeKicks', 'penalties',
+        'pace',
+        'strength',
+        'finishing',
+        'passing',
+        'dribbling',
+        'defending',
+        'positioning',
+        'composure',
+        'freeKicks',
+        'penalties',
       ],
     });
     playerRepo.find.mockResolvedValue([youth]);

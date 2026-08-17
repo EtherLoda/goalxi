@@ -101,9 +101,7 @@ describe('PlayerWageSchedulerService (regression for #A — jobId dedup)', () =>
     // distinct so a stale queued job can't resurrect.
     const yesterday = TODAY_GAME_DAY - 1;
     const today = TODAY_GAME_DAY;
-    expect(`birthday-wage-1-${yesterday}`).not.toBe(
-      `birthday-wage-1-${today}`,
-    );
+    expect(`birthday-wage-1-${yesterday}`).not.toBe(`birthday-wage-1-${today}`);
   });
 
   it('attaches attempts + backoff so a transient DB blip retries', async () => {
@@ -126,16 +124,14 @@ describe('PlayerWageSchedulerService (regression for #A — jobId dedup)', () =>
     queue.add.mockRejectedValueOnce(new Error('redis is down'));
     service = await buildService();
 
-    await expect(
-      service.processBirthdayWageUpdates(),
-    ).resolves.toBeUndefined();
+    await expect(service.processBirthdayWageUpdates()).resolves.toBeUndefined();
 
     // Partial enqueue (1/1 fail) is reported at WARN, not
     // ERROR — the next tick will retry naturally.
     const warnCalls = logger.warn.mock.calls.map((c) => String(c[0]));
-    expect(
-      warnCalls.some((line) => line.includes('Partial enqueue')),
-    ).toBe(true);
+    expect(warnCalls.some((line) => line.includes('Partial enqueue'))).toBe(
+      true,
+    );
   });
 
   it('does not crash when the player query itself throws', async () => {
@@ -146,9 +142,7 @@ describe('PlayerWageSchedulerService (regression for #A — jobId dedup)', () =>
     });
     service = await buildService();
 
-    await expect(
-      service.processBirthdayWageUpdates(),
-    ).resolves.toBeUndefined();
+    await expect(service.processBirthdayWageUpdates()).resolves.toBeUndefined();
 
     expect(logger.error).toHaveBeenCalled();
     expect(queue.add).not.toHaveBeenCalled();
