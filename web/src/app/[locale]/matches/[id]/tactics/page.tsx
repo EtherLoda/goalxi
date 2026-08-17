@@ -99,10 +99,19 @@ function TacticsLoading() {
   );
 }
 
-export default function TacticsEditorPage() {
+function TacticsEditorPage() {
   return (
     <Suspense fallback={<TacticsLoading />}>
       <TacticsEditorContent />
     </Suspense>
   );
 }
+
+export default function TacticsEditorPageWrapper() {
+  return (
+    <Suspense fallback={null}>
+      <TacticsEditorPage />
+    </Suspense>
+  );
+}
+

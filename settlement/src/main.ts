@@ -52,6 +52,6 @@ async function bootstrap() {
   app.useGlobalFilters(app.get(GlobalExceptionFilter));
 
   logger.warn('Settlement service started');
-  await app.listen(process.env.PORT ?? 3000);
+  await app.listen(process.env.PORT ?? 3001);
 }
 bootstrap();

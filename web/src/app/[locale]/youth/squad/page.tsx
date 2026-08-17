@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useMemo, useState } from "react";
+import React, { Suspense,  useEffect, useMemo, useState  } from "react";
 import Link from "next/link";
 import { useParams, useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
@@ -51,7 +51,7 @@ const POTENTIAL_TIER_COLOR: Record<string, string> = {
 
 type ViewMode = "table" | "cards";
 
-export default function YouthSquadPage() {
+function YouthSquadPage() {
   const t = useTranslations("youth.squad");
   const tPos = useTranslations("youth.squad.position");
   const tPot = useTranslations("youth.squad.potentialLabel");
@@ -571,5 +571,13 @@ function Toast({
       </span>
       {text}
     </div>
+  );
+}
+
+export default function YouthSquadPageWrapper() {
+  return (
+    <Suspense fallback={null}>
+      <YouthSquadPage />
+    </Suspense>
   );
 }

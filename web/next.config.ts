@@ -63,13 +63,30 @@ const securityHeaders = [
       "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
       "font-src 'self' data: https://fonts.gstatic.com",
       "img-src 'self' data: blob:",
-      // `connect-src` opens for the API base URL (HTTP + WS) plus
-      // Next's HMR endpoints in dev. Override at build time via
-      // `NEXT_PUBLIC_API_URL=https://api.goalxi.app` to lock this
-      // to your prod origin.
-      `connect-src 'self' ${
-        process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3000"
-      } ws://localhost:3000 wss://*`,
+      // `connect-src` opens for the API origin (HTTP + WS) so every
+      // sub-path under `/api/v1/...` is reachable regardless of what
+      // `NEXT_PUBLIC_API_URL` includes. We strip the path component
+      // because CSP source lists only do path-prefix match when the
+      // entry ends in `/`; an entry like `http://localhost:3000/api/v1`
+      // would only allow that exact URL and block every sub-path.
+      // The WS origin is derived from the same URL so production
+      // (`https://api.goalxi.app`) gets `wss://api.goalxi.app`
+      // instead of the hard-coded `ws://localhost:3000` dev default.
+      // Override at build time via
+      // `NEXT_PUBLIC_API_URL=https://api.goalxi.app`.
+      (() => {
+        const raw = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3000";
+        let apiOrigin = "http://localhost:3000";
+        let wsOrigin = "ws://localhost:3000";
+        try {
+          const u = new URL(raw);
+          apiOrigin = u.origin;
+          wsOrigin = `${u.protocol === "https:" ? "wss" : "ws"}://${u.host}`;
+        } catch {
+          /* keep dev defaults */
+        }
+        return `connect-src 'self' ${apiOrigin} ${wsOrigin} wss://*`;
+      })(),
       "frame-ancestors 'none'",
       "base-uri 'self'",
       "form-action 'self'",

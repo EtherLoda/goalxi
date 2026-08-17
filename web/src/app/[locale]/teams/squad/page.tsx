@@ -1070,7 +1070,7 @@ function SkillRow({ label, current, potential, color = "#a1ffc2" }: { label: str
   );
 }
 
-export default function SquadPage() {
+function SquadPage() {
   return (
     <Suspense fallback={<SquadPageLoading />}>
       <SquadPageContent />
@@ -1087,3 +1087,12 @@ function SquadPageLoading() {
     </div>
   );
 }
+
+export default function SquadPageWrapper() {
+  return (
+    <Suspense fallback={null}>
+      <SquadPage />
+    </Suspense>
+  );
+}
+

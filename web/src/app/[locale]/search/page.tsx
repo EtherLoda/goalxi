@@ -272,10 +272,19 @@ function SearchPageContent() {
   );
 }
 
-export default function SearchPage() {
+function SearchPage() {
   return (
     <Suspense fallback={<div className="min-h-screen bg-surface" />}>
       <SearchPageContent />
     </Suspense>
   );
 }
+
+export default function SearchPageWrapper() {
+  return (
+    <Suspense fallback={null}>
+      <SearchPage />
+    </Suspense>
+  );
+}
+

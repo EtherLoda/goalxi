@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useMemo, useState } from "react";
+import React, { Suspense, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useParams, useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
@@ -9,7 +9,12 @@ import { useAuth } from "@/contexts/AuthContext";
 
 type TabKey = "upcoming" | "thisWeek" | "completed";
 
-export default function YouthMatchesPage() {
+// Next.js 16 prerender requires `useSearchParams` to be wrapped in a
+// Suspense boundary at the page boundary. Inner component does the
+// real work; the default export is a thin wrapper that satisfies
+// the build-time check while keeping the inner component fully
+// client-side (it still calls other client-only hooks like useAuth).
+function YouthMatchesPage() {
   const t = useTranslations("youth.matches");
   const tTabs = useTranslations("youth.matches.tabs");
   const params = useParams();
@@ -124,6 +129,14 @@ export default function YouthMatchesPage() {
         </div>
       )}
     </div>
+  );
+}
+
+export default function YouthMatchesPageWrapper() {
+  return (
+    <Suspense fallback={null}>
+      <YouthMatchesPage />
+    </Suspense>
   );
 }
 

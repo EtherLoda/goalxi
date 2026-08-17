@@ -50,7 +50,7 @@ function matchToResult(match: Match): MatchResult {
   };
 }
 
-export default function LeaguePage() {
+function LeaguePage() {
   return (
     <Suspense fallback={<LeaguePageLoading />}>
       <LeaguePageContent />
@@ -242,5 +242,13 @@ function LeaguePageLoading() {
         progress_activity
       </span>
     </div>
+  );
+}
+
+export default function LeaguePageWrapper() {
+  return (
+    <Suspense fallback={null}>
+      <LeaguePage />
+    </Suspense>
   );
 }

@@ -628,7 +628,7 @@ function FanMoodCard({
   );
 }
 
-export default function DashboardPage() {
+function DashboardPage() {
   return (
     <Suspense fallback={<DashboardPageLoading />}>
       <DashboardPageContent />
@@ -649,3 +649,12 @@ function DashboardPageLoading() {
     </div>
   );
 }
+
+export default function DashboardPageWrapper() {
+  return (
+    <Suspense fallback={null}>
+      <DashboardPage />
+    </Suspense>
+  );
+}
+

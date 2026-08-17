@@ -7,7 +7,7 @@ import { api, type ScoutCandidate } from "@/lib/api";
 import { useAuth } from "@/contexts/AuthContext";
 import { ScoutCard } from "@/components/youth/ScoutCard";
 
-export default function ScoutsPage() {
+function ScoutsPage() {
   // useSearchParams() forces a CSR bailout; Next 16 requires it to
   // live behind a <Suspense> boundary so the static shell can render
   // independently. The fallback matches the page chrome so the swap
@@ -340,3 +340,12 @@ function Toast({
     </div>
   );
 }
+
+export default function ScoutsPageWrapper() {
+  return (
+    <Suspense fallback={null}>
+      <ScoutsPage />
+    </Suspense>
+  );
+}
+

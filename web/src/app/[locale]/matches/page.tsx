@@ -412,7 +412,7 @@ function MatchesPageContent() {
   );
 }
 
-export default function MatchesPage() {
+function MatchesPage() {
   return (
     <Suspense fallback={<MatchesPageLoading />}>
       <MatchesPageContent />
@@ -442,5 +442,13 @@ function MatchesPageLoading() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function MatchesPageWrapper() {
+  return (
+    <Suspense fallback={null}>
+      <MatchesPage />
+    </Suspense>
   );
 }

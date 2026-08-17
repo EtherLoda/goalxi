@@ -7,7 +7,7 @@ import { clsx } from "clsx";
 import { api, type League, type Standing } from "@/lib/api";
 import StandingsTable from "@/components/league/StandingsTable";
 
-export default function LeagueHistoryPage() {
+function LeagueHistoryPage() {
   return (
     <Suspense fallback={<LeagueHistoryLoading />}>
       <LeagueHistoryContent />
@@ -259,3 +259,12 @@ function LeagueHistoryLoading() {
     </div>
   );
 }
+
+export default function LeagueHistoryPageWrapper() {
+  return (
+    <Suspense fallback={null}>
+      <LeagueHistoryPage />
+    </Suspense>
+  );
+}
+

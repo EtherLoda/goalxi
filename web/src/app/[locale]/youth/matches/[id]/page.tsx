@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { Suspense,  useEffect, useState  } from "react";
 import Link from "next/link";
 import { useParams, useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
@@ -55,7 +55,7 @@ const EVENT_COLOR: Record<string, string> = {
   penalty_miss: "text-[#ef4444] bg-[#ef4444]/10",
 };
 
-export default function YouthMatchDetailPage({
+function YouthMatchDetailPage({
   params,
 }: {
   params: { id: string };
@@ -383,5 +383,21 @@ function EventRow({
         <p className="text-[10px] text-[#91b2a6]">{sideName}</p>
       </div>
     </li>
+  );
+}
+
+// `params` is forwarded from the dynamic-route segment so the inner
+// page can call `useParams()` lazily inside Suspense. Next.js 16
+// requires the client hooks to sit behind a Suspense boundary at the
+// page boundary, which is what this wrapper provides.
+export default function YouthMatchDetailPageWrapper({
+  params,
+}: {
+  params: { id: string };
+}) {
+  return (
+    <Suspense fallback={null}>
+      <YouthMatchDetailPage params={params} />
+    </Suspense>
   );
 }

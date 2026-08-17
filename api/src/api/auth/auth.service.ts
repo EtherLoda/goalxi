@@ -157,7 +157,21 @@ export class AuthService {
       token,
       ms(tokenExpiresIn),
     );
-    await this.emailQueueService.addEmailVerification(dto.email, token);
+    // Local-dev opt-out: set `MAIL_ENABLED=false` in api/.env to
+    // skip enqueuing the verification email entirely. The token
+    // is still cached so a future "send anyway" call from
+    // AuthService.resendVerification can pick it up. Production
+    // defaults to enabled — only the dev box flips this off
+    // (typically because MailHog / a real SMTP relay isn't
+    // running, and the user doesn't need email verification to
+    // log in locally).
+    if (process.env.MAIL_ENABLED !== 'false') {
+      await this.emailQueueService.addEmailVerification(dto.email, token);
+    } else {
+      this.logger.log(
+        `[Auth] register skipped email verification email=${dto.email} (MAIL_ENABLED=false)`,
+      );
+    }
 
     // Kick off the team-claim worker. The job lands in the
     // `onboarding-assignment` queue, picked up by the
