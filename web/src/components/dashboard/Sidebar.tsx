@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname } from "next/navigation";
 import { clsx } from "clsx";
 import { useAuth } from "@/contexts/AuthContext";
 import { useParams } from "next/navigation";
@@ -15,7 +15,6 @@ type Locale = "en" | "zh";
 export default function Sidebar() {
   const t = useTranslations("dashboard.nav");
   const pathname = usePathname();
-  const router = useRouter();
   const params = useParams();
   const { user, team, logout } = useAuth();
   const { viewTeamId, setViewTeam, clearViewTeam } = useGameStore();
@@ -69,12 +68,6 @@ export default function Sidebar() {
       ],
     },
   ];
-
-  const switchLocale = (nextLocale: Locale) => {
-    const currentLocale = pathname.split("/")[1];
-    const newPath = pathname.replace(`/${currentLocale}`, `/${nextLocale}`);
-    router.push(newPath);
-  };
 
   return (
     <aside className="fixed left-0 top-0 h-screen w-64 bg-surface-container-low border-r border-white/5 flex flex-col z-40">
@@ -178,34 +171,6 @@ export default function Sidebar() {
 
       {/* Bottom */}
       <div className="p-4 border-t border-white/5 space-y-3">
-        {/* Language Switcher */}
-        <div className="flex gap-1">
-          <button
-            onClick={() => switchLocale("en")}
-            disabled={locale === "en"}
-            className={clsx(
-              "flex-1 py-1.5 text-xs font-headline font-bold uppercase tracking-widest rounded-md border transition-all",
-              locale === "en"
-                ? "bg-primary text-on-primary border-primary"
-                : "bg-surface-container-low text-on-surface-variant border-white/10 hover:border-primary hover:text-primary"
-            )}
-          >
-            EN
-          </button>
-          <button
-            onClick={() => switchLocale("zh")}
-            disabled={locale === "zh"}
-            className={clsx(
-              "flex-1 py-1.5 text-xs font-headline font-bold uppercase tracking-widest rounded-md border transition-all",
-              locale === "zh"
-                ? "bg-primary text-on-primary border-primary"
-                : "bg-surface-container-low text-on-surface-variant border-white/10 hover:border-primary hover:text-primary"
-            )}
-          >
-            中文
-          </button>
-        </div>
-
         <div className="flex gap-3">
           <button className="flex-1 flex items-center justify-center py-2 rounded-lg text-on-surface-variant hover:text-primary hover:bg-white/5 transition-all">
             <span className="material-symbols-outlined text-lg">settings</span>
