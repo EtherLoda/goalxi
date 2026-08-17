@@ -12,7 +12,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { In, Repository } from 'typeorm';
+import { Repository } from 'typeorm';
 import { MatchCacheService } from './match-cache.service';
 
 export interface MatchEventsResponse {
@@ -156,7 +156,15 @@ export class MatchEventService {
       }
     }
 
-    // Filter events by eventScheduledTime (only show events that should have happened by now)
+    // Filter events by eventScheduledTime (only show events that should have happened by now).
+    // We deliberately do NOT branch on `isRevealed` here — the
+    // scheduler's `processRevealableEvents` is the single writer of
+    // that flag, and the visible-window contract is "event time has
+    // passed", not "scheduler has ticked this event". Letting the
+    // REST handler mutate `isRevealed` was a layer violation that
+    // caused cache-invalidate storms + a write-write race with the
+    // scheduler (the previous version did this UPDATE inline; see
+    // the removed block below).
     const visibleEvents = events.filter((e) => {
       // If match is completed, show all events
       if (match.status === MatchStatus.COMPLETED) {
@@ -171,21 +179,6 @@ export class MatchEventService {
       // Fallback for events without eventScheduledTime (old data)
       return e.minute <= currentMinute;
     });
-
-    // Mark events as revealed if their time has passed
-    const eventsToUpdate = events.filter(
-      (e) =>
-        e.eventScheduledTime && e.eventScheduledTime <= now && !e.isRevealed,
-    );
-
-    if (eventsToUpdate.length > 0) {
-      await this.eventRepository.update(
-        { id: In(eventsToUpdate.map((e) => e.id)) },
-        { isRevealed: true },
-      );
-      // Invalidate cache since we updated event revealed status
-      await this.matchCacheService.invalidateMatchCache(matchId);
-    }
 
     // Calculate current score from visible events
     const currentScore = this.calculateScoreFromEvents(visibleEvents, match);

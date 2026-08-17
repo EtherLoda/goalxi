@@ -55,6 +55,10 @@ describe('MatchEventService', () => {
           provide: getRepositoryToken(MatchEventEntity),
           useValue: {
             find: jest.fn(),
+            // Stubbed as a mock so the B8 spec can assert the read
+            // path does NOT call `update` (the previous version did
+            // — see header on `getMatchEvents`).
+            update: jest.fn(),
           },
         },
         {
@@ -75,6 +79,10 @@ describe('MatchEventService', () => {
             getMatchEvents: jest.fn().mockResolvedValue(null), // Cache miss by default
             cacheMatchEvents: jest.fn(),
             invalidateMatch: jest.fn(),
+            // Real method name on the service. B8 spec asserts the
+            // REST read path does NOT call this — only the scheduler
+            // should invalidate the event cache.
+            invalidateMatchCache: jest.fn(),
           },
         },
       ],
@@ -203,6 +211,42 @@ describe('MatchEventService', () => {
 
       expect(result.stats).toBeNull();
       expect(result.isComplete).toBe(false);
+    });
+
+    // B8 regression: the previous `getMatchEvents` implementation
+    // also flipped `isRevealed = true` on the returned events and
+    // invalidated the cache. That was a layer violation — only
+    // `MatchLiveScheduler.processRevealableEvents` should own that
+    // flag — and it caused cache-invalidate storms (REST joins on
+    // hot matches would each force a cache wipe) and a write-write
+    // race with the scheduler. Pin the new contract: the REST
+    // handler is now strictly read-only on `isRevealed`.
+    it('does NOT mutate isRevealed or invalidate the event cache (scheduler owns the write path)', async () => {
+      matchRepository.findOne.mockResolvedValue(mockMatch as any);
+      teamRepository.find.mockResolvedValue([
+        { id: 'team-1', userId: 'user-1' } as any,
+      ]);
+      eventRepository.find.mockResolvedValue([
+        {
+          id: 'e1',
+          matchId: 'match-1',
+          minute: 12,
+          type: 2,
+          typeName: 'goal',
+          teamId: 'team-1',
+          eventScheduledTime: new Date(Date.now() - 60_000),
+          isRevealed: false, // not yet picked up by the scheduler
+        },
+      ] as any);
+
+      await service.getMatchEvents('match-1', 'user-1');
+
+      // The visibleEvents filter (eventScheduledTime <= now) still
+      // returns the event in the response — visibility is decoupled
+      // from isRevealed on the read path. See the header comment on
+      // `getMatchEvents` for the rationale.
+      expect(eventRepository.update).not.toHaveBeenCalled();
+      expect(matchCacheService.invalidateMatchCache).not.toHaveBeenCalled();
     });
   });
 });

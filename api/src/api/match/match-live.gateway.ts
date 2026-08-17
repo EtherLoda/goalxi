@@ -227,6 +227,38 @@ export class MatchLiveGateway
       await this.leaveMatch(client, previousMatchId);
     }
 
+    // Subscribe-ability check before joining the room. Done in one
+    // pass with the match fetch so we don't pay for a second
+    // `matchService.findOne` (the previous split into a separate
+    // `canSubscribeMatch` + `getMatchState` was a latent N+1 — one
+    // query per join, scaling linearly with concurrent joins on a
+    // hot match).
+    //
+    // We also bail before `client.join(...)` so a rejected socket
+    // never appears in any room — keeps the per-room socket set
+    // (`matchSocketsMap`) honest.
+    let match: Awaited<ReturnType<typeof this.matchService.findOne>>;
+    try {
+      match = await this.matchService.findOne(matchId);
+    } catch (error) {
+      // `findOne` throws `NotFoundException` for unknown matchId; we
+      // don't want to leak that into the error_msg payload because
+      // it lets an attacker probe matchId existence. Treat any fetch
+      // failure as "not allowed" with a generic message.
+      this.logger.warn(
+        `[MatchLive] join_match: match ${matchId} lookup failed: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+      );
+      client.emit('error_msg', { message: 'Match not available' });
+      return;
+    }
+
+    if (!this.canSubscribeMatch(match)) {
+      client.emit('error_msg', { message: 'Match not available' });
+      return;
+    }
+
     // Join new match room
     await client.join(`match:${matchId}`);
     this.socketMatchMap.set(client.id, matchId);
@@ -236,9 +268,10 @@ export class MatchLiveGateway
     }
     this.matchSocketsMap.get(matchId)!.add(client.id);
 
-    // Get match current state
+    // Get match current state. Pass the already-fetched match in to
+    // skip a second DB roundtrip (the N+1 fix referenced above).
     try {
-      const matchState = await this.getMatchState(matchId);
+      const matchState = await this.getMatchState(match);
       const events = await this.getVisibleEvents(matchId);
 
       // Send initial state to client
@@ -250,10 +283,15 @@ export class MatchLiveGateway
       );
     } catch (error) {
       this.logger.error(
-        `Failed to load match ${matchId}: ${error.message}`,
+        `[MatchLive] Failed to load match ${matchId}: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
         error instanceof Error ? error.stack : undefined,
       );
-      client.emit('error', { message: 'Match not found' });
+      // We already joined the room above so the client can see
+      // future events; the initial-state failure path is best
+      // surfaced to the user as a generic load error.
+      client.emit('error_msg', { message: 'Failed to load match state' });
     }
   }
 
@@ -337,8 +375,10 @@ export class MatchLiveGateway
     });
   }
 
-  private async getMatchState(matchId: string): Promise<MatchStatePayload> {
-    const match = await this.matchService.findOne(matchId);
+  private async getMatchState(
+    match: NonNullable<Awaited<ReturnType<typeof this.matchService.findOne>>>,
+  ): Promise<MatchStatePayload> {
+    const matchId = match.id;
 
     // Derive currentMinute from the event stream, NOT from wall-clock.
     // S1 fix: the previous implementation computed `elapsed = now - kickoff`
@@ -354,11 +394,23 @@ export class MatchLiveGateway
     // Pulling max revealed minute gives one source of truth that's
     // shared with the scheduler's `broadcastScoreUpdate` (which already
     // uses the same approach at `match-live.scheduler.ts:226-228`).
-    const latestEvent = await this.eventRepository.findOne({
-      where: { matchId, isRevealed: true },
-      order: { minute: 'DESC' },
-    });
-    const eventMinute = latestEvent?.minute ?? 0;
+    //
+    // N+1 fix: collapse the previous `findOne({ where: {matchId,
+    // isRevealed:true}, order:{minute:'DESC'} })` (which returned
+    // a full entity row) into a single `SELECT MAX(minute)`. The
+    // `isRevealed = true` filter does not match the partial index
+    // (which covers `is_revealed = false`), but on a per-match
+    // matchEvent table a `WHERE matchId = ?` lookup is already
+    // index-scoped via `(matchId, eventScheduledTime)`, so the
+    // aggregate is fast in practice. The bigger win is that the
+    // query now never returns a full row we don't need.
+    const agg = await this.eventRepository
+      .createQueryBuilder('e')
+      .select('MAX(e.minute)', 'maxMinute')
+      .where('e.matchId = :matchId', { matchId })
+      .andWhere('e.isRevealed = :revealed', { revealed: true })
+      .getRawOne<{ maxMinute: string | null }>();
+    const eventMinute = agg?.maxMinute ? Number(agg.maxMinute) : 0;
 
     // For COMPLETED matches we surface a "FT" minute of at least 90 even
     // if no event crossed the 90' line (e.g. abandoned matches, or
@@ -438,13 +490,16 @@ export class MatchLiveGateway
     return null;
   }
 
-  // Check if match is subscribeable (within lineup window or in progress)
-  async canSubscribeMatch(matchId: string): Promise<boolean> {
-    const match = await this.matchService.findOne(matchId);
-    const now = new Date();
-    const kickoffTime = new Date(match.scheduledAt);
-    const minutesBeforeKickoff =
-      (kickoffTime.getTime() - now.getTime()) / (60 * 1000);
+  // Check if match is subscribeable (within lineup window or in progress).
+  // Pure — takes the already-fetched match row to avoid a redundant
+  // `matchService.findOne` (the caller — `handleJoinMatch` — needs the
+  // match anyway for the state payload).
+  canSubscribeMatch(
+    match: NonNullable<Awaited<ReturnType<typeof this.matchService.findOne>>>,
+  ): boolean {
+    const now = Date.now();
+    const kickoffMs = new Date(match.scheduledAt).getTime();
+    const minutesBeforeKickoff = (kickoffMs - now) / (60 * 1000);
 
     // Can subscribe if:
     // 1. Match is in progress

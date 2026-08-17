@@ -147,7 +147,12 @@ export function useMatchLive({
       setError(`Connection error: ${err.message}`);
     });
 
-    newSocket.on('error', (data: { message: string }) => {
+    // Server-sent error message (e.g. join_match rejected because the
+    // match is not available). We use the custom `error_msg` event
+    // because socket.io reserves the bare `error` name for transport
+    // events — emitting `client.emit('error', ...)` from the server
+    // would never reach a `socket.on('error', ...)` listener here.
+    newSocket.on('error_msg', (data: { message: string }) => {
       setError(data.message);
     });
 
