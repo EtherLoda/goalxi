@@ -63,9 +63,7 @@ export class TacticsPresetGenerator {
   async generate(): Promise<void> {
     const teams = await this.teamRepo.find();
     if (teams.length === 0) {
-      this.logger.info(
-        '[TacticsPresetGenerator] no teams, skipping',
-      );
+      this.logger.info('[TacticsPresetGenerator] no teams, skipping');
       return;
     }
 

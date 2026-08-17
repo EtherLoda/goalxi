@@ -40,13 +40,12 @@ import {
   ArchivedSeasonResultEntity,
   ArchivedTransactionEntity,
 } from '@goalxi/database';
-import { TypeOrmModuleOptions } from '@nestjs/typeorm';
+import { DataSourceOptions } from 'typeorm';
 
 // TeamGenerator and TacticsPresetGenerator + scout seed
 // need the stadium / preset / scout-candidate / announcement
 // repos. The full entity list below mirrors
 // `DatabaseConfigService` in this folder.
-
 
 /**
  * Plain-object Postgres config used by the standalone
@@ -61,7 +60,7 @@ import { TypeOrmModuleOptions } from '@nestjs/typeorm';
  * `pnpm init:run` Just Works on a fresh checkout.
  */
 export class DatabaseOptions {
-  static build(): TypeOrmModuleOptions {
+  static build(): DataSourceOptions {
     return {
       type: 'postgres',
       host: process.env.DATABASE_HOST ?? 'localhost',

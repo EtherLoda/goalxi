@@ -35,9 +35,7 @@ export class LeagueGenerator {
     return count > 0;
   }
 
-  async generatePyramid(
-    options: GeneratePyramidOptions = {},
-  ): Promise<void> {
+  async generatePyramid(options: GeneratePyramidOptions = {}): Promise<void> {
     if (await this.isAlreadyInitialized()) {
       this.logger.info('[LeagueGenerator] Leagues already exist, skipping');
       return;

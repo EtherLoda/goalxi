@@ -25,8 +25,7 @@ import {
  */
 @Injectable()
 export class AnnouncementGenerator {
-  private static readonly TITLE =
-    'GoalXI 赛季 1 正式开幕';
+  private static readonly TITLE = 'GoalXI 赛季 1 正式开幕';
 
   constructor(
     @Inject(LOGGER_SERVICE)

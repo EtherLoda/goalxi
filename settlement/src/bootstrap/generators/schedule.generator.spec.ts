@@ -1,10 +1,6 @@
 import { ScheduleGenerator } from './schedule.generator';
 import { LOGGER_SERVICE } from '@goalxi/logger';
-import {
-  LeagueEntity,
-  MatchEntity,
-  TeamEntity,
-} from '@goalxi/database';
+import { LeagueEntity, MatchEntity, TeamEntity } from '@goalxi/database';
 
 /**
  * Spec for the senior-only schedule generator. Replaces
@@ -28,7 +24,13 @@ describe('ScheduleGenerator — senior-only', () => {
   };
 
   const seniorLeague = (id: string): LeagueEntity =>
-    ({ id, name: 'Pro Div 1', tier: 2, tierDivision: 1, maxTeams: 16 }) as LeagueEntity;
+    ({
+      id,
+      name: 'Pro Div 1',
+      tier: 2,
+      tierDivision: 1,
+      maxTeams: 16,
+    }) as LeagueEntity;
 
   const seniorTeam = (id: string, leagueId: string): TeamEntity =>
     ({ id, name: `Team ${id}`, leagueId }) as TeamEntity;

@@ -31,6 +31,7 @@
 
 import { parseArgs } from 'util';
 import { DataSource } from 'typeorm';
+import { PinoLoggerService } from '@goalxi/logger';
 import {
   SystemConfigEntity,
   SYSTEM_CONFIG_INIT_DATE_KEY,
@@ -61,7 +62,6 @@ import { ScoutSeedGenerator } from '../src/bootstrap/generators/scout-seed.gener
 import { AnnouncementGenerator } from '../src/bootstrap/generators/announcement.generator';
 
 function printHelp(): void {
-  // eslint-disable-next-line no-console
   console.log(
     [
       'Init CLI — one-shot database initialization.',
@@ -90,7 +90,11 @@ interface CliArgs {
   help: boolean;
 }
 
-function parseCli(argv: readonly string[]): CliArgs {
+function parseCli(): CliArgs {
+  // `parseArgs` reads from `process.argv` directly;
+  // no argv parameter needed (this is the single CLI
+  // entry point — the function is private to the
+  // module so testability isn't a concern).
   const { values } = parseArgs({
     options: {
       'init-date': { type: 'string' },
@@ -103,7 +107,7 @@ function parseCli(argv: readonly string[]): CliArgs {
     strict: true,
   });
   return {
-    initDate: values['init-date'] as string | undefined,
+    initDate: values['init-date'],
     force: Boolean(values.force),
     wipeOnly: Boolean(values['wipe-only']),
     small: Boolean(values.small),
@@ -145,17 +149,41 @@ async function hasExistingInit(dataSource: DataSource): Promise<boolean> {
 // Plain console-logging shim matching the
 // `PinoLoggerService` shape the InitService expects.
 // The CLI runs outside the Nest DI container so we
-// can't pull the real logger; a 1-line `info` shim is
+// can't pull the real logger; a 4-method shim is
 // enough for the init flow's debug output.
 const consoleLogger = {
   info: (m: string) => console.log(m),
   warn: (m: string) => console.warn(m),
   error: (m: string) => console.error(m),
-  debug: (_m: string) => undefined,
+  debug: () => undefined,
 };
 
+/**
+ * Type alias for the logger shape every generator's
+ * constructor wants. Aliased so the `asLogger<T>`
+ * helper has a single concrete target — we don't
+ * need to import `PinoLoggerService` 9 times in the
+ * generator block.
+ */
+type LOGGER_TYPE = PinoLoggerService;
+
+/**
+ * The generator constructors want `@Inject(LOGGER_SERVICE)
+ * logger: PinoLoggerService` (a class with 10+
+ * methods). The CLI's 4-method shim is structurally a
+ * subset but TS can't see that. One `as unknown as T`
+ * hop at this single helper is cleaner than 10
+ * per-call-site eslint-disable comments — the
+ * alternative is making every generator accept a
+ * `MinimalLogger` interface, which is a much bigger
+ * refactor for no runtime benefit.
+ */
+function asLogger<T>(logger: typeof consoleLogger): T {
+  return logger as unknown as T;
+}
+
 async function main(): Promise<number> {
-  const args = parseCli(process.argv.slice(2));
+  const args = parseCli();
   if (args.help) {
     printHelp();
     return 0;
@@ -163,7 +191,6 @@ async function main(): Promise<number> {
 
   const initDate = resolveInitDate(args.initDate);
   if (!args.wipeOnly && !initDate) {
-    // eslint-disable-next-line no-console
     console.error(
       '[init] --init-date is required (YYYY-MM-DD). ' +
         'Use --wipe-only if you only want to drop data.',
@@ -177,20 +204,18 @@ async function main(): Promise<number> {
   const resolvedInitDate =
     initDate ?? resolveGameStart(process.env.GAME_START_DATE);
 
-  // eslint-disable-next-line no-console
   console.log(
     `[init] connecting to ${process.env.DATABASE_HOST ?? 'localhost'}:${process.env.DATABASE_PORT ?? '5432'}/${process.env.DATABASE_NAME ?? '<db>'}...`,
   );
-  const dataSource = new DataSource(DatabaseOptions.build() as any);
+  const dataSource = new DataSource(DatabaseOptions.build());
   await dataSource.initialize();
-  // eslint-disable-next-line no-console
+
   console.log('[init] connected');
 
   try {
     if (!args.force && !args.wipeOnly) {
       const already = await hasExistingInit(dataSource);
       if (already) {
-        // eslint-disable-next-line no-console
         console.error(
           '[init] DB already initialized. Re-run with --force to wipe + rebuild.',
         );
@@ -204,15 +229,15 @@ async function main(): Promise<number> {
     // its repository + the console logger.
     const ds = dataSource;
     const userGen = new UserGenerator(
-      consoleLogger as any,
+      asLogger<LOGGER_TYPE>(consoleLogger),
       ds.getRepository(UserEntity),
     );
     const leagueGen = new LeagueGenerator(
-      consoleLogger as any,
+      asLogger<LOGGER_TYPE>(consoleLogger),
       ds.getRepository(LeagueEntity),
     );
     const teamGen = new TeamGenerator(
-      consoleLogger as any,
+      asLogger<LOGGER_TYPE>(consoleLogger),
       ds.getRepository(TeamEntity),
       ds.getRepository(PlayerEntity),
       ds.getRepository(StaffEntity),
@@ -221,33 +246,33 @@ async function main(): Promise<number> {
       ds,
     );
     const scheduleGen = new ScheduleGenerator(
-      consoleLogger as any,
+      asLogger<LOGGER_TYPE>(consoleLogger),
       ds.getRepository(MatchEntity),
       ds.getRepository(LeagueEntity),
       ds.getRepository(TeamEntity),
     );
     const weatherGen = new WeatherGenerator(
-      consoleLogger as any,
+      asLogger<LOGGER_TYPE>(consoleLogger),
       ds.getRepository(WeatherEntity),
     );
     const presetGen = new TacticsPresetGenerator(
-      consoleLogger as any,
+      asLogger<LOGGER_TYPE>(consoleLogger),
       ds.getRepository(TacticsPresetEntity),
       ds.getRepository(TeamEntity),
       ds.getRepository(PlayerEntity),
     );
     const scoutGen = new ScoutSeedGenerator(
-      consoleLogger as any,
+      asLogger<LOGGER_TYPE>(consoleLogger),
       ds.getRepository(TeamEntity),
       ds.getRepository(ScoutCandidateEntity),
     );
     const announcementGen = new AnnouncementGenerator(
-      consoleLogger as any,
+      asLogger<LOGGER_TYPE>(consoleLogger),
       ds.getRepository(AnnouncementEntity),
     );
 
     const svc = new InitService(
-      consoleLogger as any,
+      asLogger<LOGGER_TYPE>(consoleLogger),
       ds,
       userGen,
       leagueGen,
@@ -266,7 +291,7 @@ async function main(): Promise<number> {
       small: args.small,
     };
     const result = await svc.run(options);
-    // eslint-disable-next-line no-console
+
     console.log(
       `[init] ✅ done in ${result.elapsedMs}ms` +
         (result.leagues !== undefined
@@ -275,7 +300,6 @@ async function main(): Promise<number> {
     );
     return 0;
   } catch (err) {
-    // eslint-disable-next-line no-console
     console.error('[init] ❌ failed:', err);
     return 2;
   } finally {
@@ -286,7 +310,6 @@ async function main(): Promise<number> {
 main().then(
   (code) => process.exit(code),
   (err) => {
-    // eslint-disable-next-line no-console
     console.error('[init] ❌ uncaught:', err);
     process.exit(2);
   },

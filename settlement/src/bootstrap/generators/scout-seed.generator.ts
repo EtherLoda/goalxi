@@ -8,7 +8,6 @@ import {
   endOfCurrentWeek,
   seedSeniorScoutCandidate,
 } from '@goalxi/database';
-import { EntityManager } from 'typeorm';
 
 /**
  * Seed one senior-mode scout candidate per team. The
@@ -79,7 +78,7 @@ export class ScoutSeedGenerator {
     for (const team of toSeed) {
       try {
         await seedSeniorScoutCandidate(
-          this.scoutRepo.manager as EntityManager,
+          this.scoutRepo.manager,
           team.id,
           team.nationality ?? 'CN',
         );

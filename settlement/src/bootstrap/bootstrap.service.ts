@@ -47,7 +47,6 @@ export class BootstrapService implements OnModuleInit {
     private readonly logger: PinoLoggerService,
     private readonly dataSource: DataSource,
     private readonly leagueGenerator: LeagueGenerator,
-    private readonly teamGenerator: import('./generators/team.generator').TeamGenerator,
     private readonly scheduleGenerator: ScheduleGenerator,
     private readonly weatherGenerator: WeatherGenerator,
     private readonly tacticsPresetGenerator: TacticsPresetGenerator,
@@ -56,9 +55,9 @@ export class BootstrapService implements OnModuleInit {
   ) {}
 
   async onModuleInit() {
-    const initDateRow = await this.dataSource.getRepository(
-      SystemConfigEntity,
-    ).findOne({ where: { key: SYSTEM_CONFIG_INIT_DATE_KEY } });
+    const initDateRow = await this.dataSource
+      .getRepository(SystemConfigEntity)
+      .findOne({ where: { key: SYSTEM_CONFIG_INIT_DATE_KEY } });
 
     if (!initDateRow) {
       this.logger.warn(

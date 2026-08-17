@@ -1,10 +1,9 @@
-import { Injectable, Inject, Logger } from '@nestjs/common';
+import { Injectable, Inject } from '@nestjs/common';
 import { LOGGER_SERVICE, PinoLoggerService } from '@goalxi/logger';
 import { DataSource } from 'typeorm';
 import {
   LeagueEntity,
   SYSTEM_CONFIG_INIT_DATE_KEY,
-  SystemConfigEntity,
   TeamEntity,
   startOfUtcDay,
 } from '@goalxi/database';
@@ -60,8 +59,6 @@ import { InitOptions } from './init.types';
  */
 @Injectable()
 export class InitService {
-  private readonly nestLogger = new Logger(InitService.name);
-
   constructor(
     @Inject(LOGGER_SERVICE)
     private readonly logger: PinoLoggerService,
@@ -173,7 +170,6 @@ export class InitService {
   private async writeInitDate(initDate: Date): Promise<void> {
     const day = startOfUtcDay(initDate);
     const iso = day.toISOString().split('T')[0];
-    const repo = this.dataSource.getRepository(SystemConfigEntity);
     // Upsert via the unique PK on `key`. We do this with a
     // raw query so the no-op (value unchanged) path doesn't
     // bump `updated_at` and pretend the init was redone.
@@ -264,11 +260,6 @@ export class InitService {
         .getCount(),
     ]);
     return { leagues, teams, matches };
-  }
-
-  // Exposed for tests / debug only.
-  protected getUsers(): Promise<{ systemUserId: string; botUserId: string }> {
-    return this.userGenerator.ensureSystemUsers();
   }
 }
 

@@ -181,9 +181,7 @@ export class TeamGenerator {
 
     // Pre-fetch every stadium in one shot.
     const stadiumRows = await this.stadiumRepo.find();
-    const stadiumByTeam = new Map(
-      stadiumRows.map((s) => [s.teamId, s]),
-    );
+    const stadiumByTeam = new Map(stadiumRows.map((s) => [s.teamId, s]));
 
     let enriched = 0;
     for (const team of teams) {
@@ -219,9 +217,7 @@ export class TeamGenerator {
 
       enriched++;
     }
-    this.logger.info(
-      `[TeamGenerator] post-enriched ${enriched} team(s)`,
-    );
+    this.logger.info(`[TeamGenerator] post-enriched ${enriched} team(s)`);
   }
 
   /**
