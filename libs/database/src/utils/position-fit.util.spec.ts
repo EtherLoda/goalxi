@@ -66,10 +66,16 @@ describe('PositionFitUtil', () => {
         });
 
         // Numbered slot keys the editor uses (CBL/CB/CBR etc.) must
-        // resolve to the same weight table as their family key
-        // (CB / CM / CAM / DM). Pre-fix these all returned 0 because
-        // POSITION_WEIGHTS only had the un-numbered keys.
-        it('should map numbered slot keys to the family weight table', () => {
+        // resolve to their own weight table directly. Pre-fix the
+        // AM/AML/AMR and DM/DML/DMR keys were hidden behind alias
+        // entries (CAM/CAML/CAMR and CDM/DMF/DMFL/DMFR) that the
+        // engine normalizer had to fold on every lookup; commit 2
+        // of the position-key unification plan renamed the family
+        // to the shorter keys and dropped the aliases. The normalizer
+        // still maps the old names to the new ones at the engine
+        // boundary (see `simulator/.../SLOT_KEY_NORMALIZER`), so
+        // legacy data keeps working.
+        it('should map 3-slot slot keys to their family weight table', () => {
             const attrs: SimulationPlayerAttributes = {
                 pace: 10, strength: 10, positioning: 10, composure: 10,
                 freeKicks: 10, penalties: 10, finishing: 10, passing: 10,
@@ -83,16 +89,27 @@ describe('PositionFitUtil', () => {
             for (const slot of ['CML', 'CM', 'CMR']) {
                 expect(calculatePositionFit(attrs, slot)).toBe(cmFit);
             }
-            const camFit = calculatePositionFit(attrs, 'CAM');
-            for (const slot of ['CAML', 'CAM', 'CAMR']) {
-                expect(calculatePositionFit(attrs, slot)).toBe(camFit);
-            }
+            // AM family — centre / left / right each have their own
+            // weight table. 100 fit on perfectly-balanced attributes.
+            const amFit = calculatePositionFit(attrs, 'AM');
+            const amlFit = calculatePositionFit(attrs, 'AML');
+            const amrFit = calculatePositionFit(attrs, 'AMR');
+            expect(amFit).toBeGreaterThan(0);
+            expect(amlFit).toBeGreaterThan(0);
+            expect(amrFit).toBeGreaterThan(0);
+            // The three family keys must all return a positive fit
+            // (sanity: they're listed in POSITION_LABELS and have
+            // weight tables wired up in POSITION_WEIGHTS).
+            expect(POSITION_KEYS).toEqual(expect.arrayContaining(['AM', 'AML', 'AMR']));
+            // DM family — same structure as AM.
             const dmFit = calculatePositionFit(attrs, 'DM');
-            for (const slot of ['DM1', 'DM2', 'DM3', 'DMFL', 'DMF', 'DMFR']) {
-                expect(calculatePositionFit(attrs, slot)).toBe(dmFit);
-            }
-            // The match engine keys too — LW/RW/CF/CDM/CAM (already
-            // covered above) + the rarer side variants.
+            const dmlFit = calculatePositionFit(attrs, 'DML');
+            const dmrFit = calculatePositionFit(attrs, 'DMR');
+            expect(dmFit).toBeGreaterThan(0);
+            expect(dmlFit).toBeGreaterThan(0);
+            expect(dmrFit).toBeGreaterThan(0);
+            expect(POSITION_KEYS).toEqual(expect.arrayContaining(['DM', 'DML', 'DMR']));
+            // The match engine keys too — LW/RW/CF + numbered variants.
             const lwFit = calculatePositionFit(attrs, 'LW');
             for (const slot of ['LW1', 'LW2']) {
                 expect(calculatePositionFit(attrs, slot)).toBe(lwFit);

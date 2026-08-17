@@ -55,12 +55,13 @@ export const POSITION_LABELS: Record<string, string> = {
     CF_RW: 'Center Forward (Right Wing)',
     LW: 'Left Wing',
     RW: 'Right Wing',
-    AM: 'Attacking Midfielder',
-    CAM: 'Central Attacking Mid',
-    // 3-slot attacking mid
-    CAML: 'Attacking Mid (Left)',
-    CAMR: 'Attacking Mid (Right)',
+    // Attacking midfielder. The 3-slot family (AML/AM/AMR) covers
+    // both the legacy `AM`/`AML`/`AMR` 1-slot names and the previously
+    // separate `CAM`/`CAML`/`CAMR` 3-slot family. The two used the same
+    // weight tables (see POSITION_WEIGHTS below); the rename to AM/AML/AMR
+    // keeps one name per slot key and drops the alias entries.
     AML: 'Left Attacking Mid',
+    AM: 'Attacking Midfielder',
     AMR: 'Right Attacking Mid',
     LM: 'Left Midfielder',
     RM: 'Right Midfielder',
@@ -68,14 +69,12 @@ export const POSITION_LABELS: Record<string, string> = {
     // 3-slot CM
     CML: 'Central Mid (Left)',
     CMR: 'Central Mid (Right)',
-    DM: 'Defensive Midfielder',
-    CDM: 'Defensive Midfielder',
+    // Defensive midfielder. The 3-slot family (DML/DM/DMR) likewise
+    // supersedes the legacy `DM`/`DML`/`DMR` 1-slot names AND the
+    // `CDM`/`DMF`/`DMFL`/`DMFR` 3-slot family — see POSITION_WEIGHTS.
     DML: 'Left Defensive Mid',
+    DM: 'Defensive Midfielder',
     DMR: 'Right Defensive Mid',
-    // 3-slot DMF
-    DMF: 'Defensive Midfielder',
-    DMFL: 'Defensive Mid (Left)',
-    DMFR: 'Defensive Mid (Right)',
     LB: 'Left Back',
     RB: 'Right Back',
     WB: 'Wing Back',
@@ -626,12 +625,12 @@ export const POSITION_WEIGHTS: PositionWeightsMap = {
     'RW2': RW_WEIGHTS,
 
     // Attacking Midfielders
+    // The 3-slot family AM/AML/AMR uses three separate weight tables
+    // (centre 56+22+22, left 56+40+4, right 56+4+40). The previously
+    // separate CAM/CAML/CAMR family folded to the SAME tables, so the
+    // rename to AM/AML/AMR drops those alias entries — `SLOT_KEY_NORMALIZER`
+    // keeps the old names working at the engine boundary.
     'AM': AM_WEIGHTS,
-    'CAM': AM_WEIGHTS,
-    // 3-slot attacking mid (left/center/right). `CAML`/`CAMR` fold to
-    // the same `AM` weight table; `CAM` is the centre slot.
-    'CAML': AM_WEIGHTS,
-    'CAMR': AM_WEIGHTS,
     'AML': AML_WEIGHTS,
     'AMR': AMR_WEIGHTS,
 
@@ -656,18 +655,17 @@ export const POSITION_WEIGHTS: PositionWeightsMap = {
     'CMR': CM_WEIGHTS,
 
     // Defensive Midfielders
+    // The 3-slot family DM/DML/DMR uses three separate weight tables
+    // (centre 52+24+24, left 52+48+0, right 52+0+48). Same story as
+    // AM above: CDM/DMF/DMFL/DMFR were alias entries that folded to
+    // these tables, removed when the family collapsed to the shorter
+    // DM/DML/DMR names. `SLOT_KEY_NORMALIZER` retains compatibility.
     'DM': DM_WEIGHTS,
     'DM1': DM_WEIGHTS,
     'DM2': DM_WEIGHTS,
     'DM3': DM_WEIGHTS,
-    'CDM': DM_WEIGHTS,
     'DML': DML_WEIGHTS,
     'DMR': DMR_WEIGHTS,
-    // 3-slot defensive midfielder. `DMFL`/`DMFR` are the side slots;
-    // `DMF` is the centre (renamed from the editor's old `DMF`).
-    'DMF': DM_WEIGHTS,
-    'DMFL': DM_WEIGHTS,
-    'DMFR': DM_WEIGHTS,
 
     // Defenders
     'LB': LB_WEIGHTS,

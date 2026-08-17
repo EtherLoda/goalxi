@@ -22,8 +22,8 @@ import type { Player } from '../../types/player.types';
 
 const CB_KEYS = ['CBL', 'CB', 'CBR'] as const;
 const CM_KEYS = ['CML', 'CM', 'CMR'] as const;
-const CAM_KEYS = ['CAML', 'CAM', 'CAMR'] as const;
-const DMF_KEYS = ['DMFL', 'DMF', 'DMFR'] as const;
+const AM_KEYS = ['AML', 'AM', 'AMR'] as const;
+const DM_KEYS = ['DML', 'DM', 'DMR'] as const;
 
 /** Build a Player whose right.defense summing comes entirely from
  *  `defending` so the test math is easy to verify by hand. Accepts
@@ -74,22 +74,36 @@ describe('normalizePositionKey', () => {
     expect(normalizePositionKey(key)).toBe('CM');
   });
 
-  it.each(CAM_KEYS)('folds "%s" → "CAM"', (key) => {
-    expect(normalizePositionKey(key)).toBe('CAM');
+  it.each(AM_KEYS)('folds "%s" → "AM" (or its own centre/left/right key)', (key) => {
+    // The AM family uses three different weight tables: centre (AM),
+    // left (AML), right (AMR). `normalizePositionKey` returns whichever
+    // 3-slot slot key the input is part of; see the table below.
+    const expected: Record<string, string> = {
+      AML: 'AML',
+      AM: 'AM',
+      AMR: 'AMR',
+    };
+    expect(normalizePositionKey(key)).toBe(expected[key]);
   });
 
-  it.each(DMF_KEYS)('folds "%s" → "DMF"', (key) => {
-    expect(normalizePositionKey(key)).toBe('DMF');
+  it.each(DM_KEYS)('folds "%s" → "DM" (or its own centre/left/right key)', (key) => {
+    const expected: Record<string, string> = {
+      DML: 'DML',
+      DM: 'DM',
+      DMR: 'DMR',
+    };
+    expect(normalizePositionKey(key)).toBe(expected[key]);
   });
 
   it('returns canonical keys unchanged', () => {
     for (const key of [
       // Family / centre keys — never folded.
-      'GK', 'CF', 'CB', 'CM', 'CAM', 'DMF',
+      'GK', 'CF', 'CB', 'CM', 'AM', 'DM',
       // 2-slot / wide keys kept as-is (no normalizer entry for them).
       'ST', 'LW', 'RW', 'LM', 'RM',
-      'LB', 'RB', 'LWB', 'RWB', 'AM', 'AML', 'AMR', 'DM', 'CDM',
-      'DML', 'DMR', 'WML', 'WMR',
+      'LB', 'RB', 'LWB', 'RWB',
+      'AML', 'AMR', 'DML', 'DMR',
+      'WML', 'WMR',
       // Wide/edge forwards (renamed from the old edge-CFL/CFR).
       'CF_LW', 'CF_RW',
       // Bench keys.
@@ -149,17 +163,22 @@ describe('calculateAndCacheContribution — 3-slot slot keys', () => {
     ).toBeCloseTo(82, 5);
   });
 
-  it('DMFL contributes 0 to left.attack (DM weights left.attack = {passing:2} only)', () => {
+  it('DMFL contributes via DML weights (DML left.attack = {passing:4} only)', () => {
     const p = mkPlayer({ attributes: { passing: 10, dribbling: 10, finishing: 10 } });
-    // left.attack for DM = {passing: 2} → only 10*2 = 20
+    // After commit 2 of the position-key unification, DMFL folds to
+    // DML (not the old DMF → DM). DML left.attack = {passing: 4}
+    // → 10*4 = 40. The fixture's dribbling/finishing don't apply.
     expect(
       AttributeCalculator.calculateAndCacheContribution(p, 'DMFL', 'left', 'attack'),
-    ).toBeCloseTo(20, 5);
+    ).toBeCloseTo(40, 5);
   });
 
-  it('CAML contributes to center.attack (CAM uses AM weights: {passing:10, dribbling:12, finishing:6, pace:4})', () => {
+  it('CAML contributes via AML weights (AML center.attack = {passing:10, dribbling:12, finishing:6, pace:4})', () => {
     const p = mkPlayer({ attributes: { passing: 8, dribbling: 9, finishing: 7, pace: 6 } });
-    // 8*10 + 9*12 + 7*6 + 6*4 = 80 + 108 + 42 + 24 = 254
+    // After commit 2, CAML folds to AML (the new left slot key).
+    // AML's center segment inherits the AM centre weight: same numbers
+    // as before, 254 — so this case is a regression test for the
+    // fold correctness, not a number change.
     expect(
       AttributeCalculator.calculateAndCacheContribution(p, 'CAML', 'center', 'attack'),
     ).toBeCloseTo(254, 5);

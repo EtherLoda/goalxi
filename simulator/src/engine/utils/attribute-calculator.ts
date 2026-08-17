@@ -44,21 +44,30 @@ const SLOT_KEY_NORMALIZER: Readonly<Record<string, string>> = Object.freeze({
   CD: 'CB',
   CDL: 'CB',
   CDR: 'CB',
-  // 3-slot defensive midfielder. `DMFL`/`DMFR` are the side slots,
-  // `DMF` is the centre; all fold to `DMF` (the canonical 3-slot
-  // centre key in the position matrix).
-  DMFL: 'DMF',
-  DMFR: 'DMF',
-  // 3-slot central midfielder.
+  // 3-slot central midfielder. The centre is `CM`; `CML`/`CMR` fold
+  // to the family. `CMC` is a legacy alias the lineup editor and
+  // some specs still emit.
   CML: 'CM',
   CMR: 'CM',
-  // Legacy 3-slot CM centre key (lineup editor + some fixtures).
-  // Folds to family `CM` so the engine doesn't drop these players'
-  // contribution to 0.
   CMC: 'CM',
-  // 3-slot attacking midfielder.
-  CAML: 'CAM',
-  CAMR: 'CAM',
+  // 3-slot attacking midfielder. The canonical family is now
+  // `AML` / `AM` / `AMR` (renamed from `CAML` / `CAM` / `CAMR`).
+  // The old `CAM*` keys still appear in saved tactics rows, in
+  // the convex-regression spec, and in any team that pre-dates the
+  // position-fit refactor, so we keep this mapping. `CAM` itself
+  // folds to the new `AM` centre key.
+  CAML: 'AML',
+  CAM: 'AM',
+  CAMR: 'AMR',
+  // 3-slot defensive midfielder. Canonical family is now
+  // `DML` / `DM` / `DMR` (renamed from `DMFL` / `DMF` / `DMFR`
+  // and absorbing the separate `CDM` 1-slot alias). Old keys all
+  // fold into the new family so historical tactics rows keep
+  // working at the engine boundary.
+  DMF: 'DM',
+  DMFL: 'DML',
+  DMFR: 'DMR',
+  CDM: 'DM',
 });
 
 /**
