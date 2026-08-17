@@ -42,15 +42,7 @@ This document provides an overview of all database migrations in the GoalXI proj
   - Changes birthday column data type
   - Ensures proper date handling
 
-### 6. **RemovePlayerPosition** (1733150000000)
-
-- **File**: `1733150000000-RemovePlayerPosition.ts`
-- **Purpose**: Removes old player position field
-- **Changes**:
-  - Removes deprecated position column
-  - Part of position system refactoring
-
-### 7. **CreateMatchTables** (1733230000000)
+### 6. **CreateMatchTables** (1733230000000)
 
 - **File**: `1733230000000-CreateMatchTables.ts`
 - **Purpose**: Creates match-related tables
@@ -83,6 +75,30 @@ This document provides an overview of all database migrations in the GoalXI proj
   - Makes `ends_at` nullable (actual closing time)
   - Migrates existing auction data
   - Enables proper auction extension logic
+
+### 11. **ExtendPlayerPositionLength** (1733000000000)
+
+- **File**: `1733000000000-ExtendPlayerPositionLength.ts`
+- **Purpose**: Widen `player.position` from `varchar(8)` to `varchar(16)`
+  so the column can hold the bench-bucket identifiers (`BENCH_GK`,
+  `BENCH_CB`, `BENCH_FB`, `BENCH_W`, `BENCH_CM`, `BENCH_FW` are 9
+  characters each — the longest canonical key in
+  `position-keys.constants.ts`).
+- **Changes**:
+  - `ALTER COLUMN position TYPE varchar(16)` — no data backfill
+    needed; the column is nullable and the existing rows are
+    mostly NULL (see the file header in
+    `1733000000000-ExtendPlayerPositionLength.ts`).
+- **Reversible**: `down()` narrows back to `varchar(8)`. Any
+  rows written under the new length that exceed 8 chars (bench
+  names) would be truncated on the way down, matching the
+  pre-migration failure mode.
+- **Note**: this entry was previously listed as "RemovePlayerPosition"
+  (file `1733150000000-RemovePlayerPosition.ts`) in an earlier
+  version of this README; that file was never created. The
+  position column was *not* removed — it was kept and widened
+  here. Future plans for column removal, if any, should land as
+  a separate migration with its own data backfill.
 
 ## Running Migrations
 
