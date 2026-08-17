@@ -7,11 +7,7 @@ import { ValidationException } from '@/exceptions/validation.exception';
 import { buildPaginator } from '@/utils/cursor-pagination';
 import { paginate } from '@/utils/offset-pagination';
 import { hashPassword, verifyPassword } from '@/utils/password.util';
-import {
-  SessionEntity,
-  TeamEntity,
-  UserEntity,
-} from '@goalxi/database';
+import { SessionEntity, TeamEntity, UserEntity } from '@goalxi/database';
 import { Injectable, Logger, UnauthorizedException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import assert from 'assert';
@@ -211,7 +207,7 @@ export class UserService {
     });
     this.logger.log(
       `[UserService.changePassword] userId=${userId} rotated, other_sessions_deleted=${
-        (killed.affected ?? 0)
+        killed.affected ?? 0
       }`,
     );
   }

@@ -342,11 +342,15 @@ describe('UserController', () => {
       const methods = Object.getOwnPropertyNames(UserController.prototype)
         .filter((name) => name !== 'constructor')
         .map((name) => {
-          const fn = (UserController.prototype as unknown as Record<string, Function>)[name];
+          const fn = (
+            UserController.prototype as unknown as Record<string, Function>
+          )[name];
           return {
             name,
             path: Reflect.getMetadata(PATH_METADATA, fn) as string | undefined,
-            method: Reflect.getMetadata(METHOD_METADATA, fn) as string | undefined,
+            method: Reflect.getMetadata(METHOD_METADATA, fn) as
+              | string
+              | undefined,
           };
         })
         .filter((m) => m.path !== undefined);

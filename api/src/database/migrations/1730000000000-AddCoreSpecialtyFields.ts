@@ -51,7 +51,11 @@ export class AddCoreSpecialtyFields1730000000000 implements MigrationInterface {
 
   public async down(queryRunner: QueryRunner): Promise<void> {
     await queryRunner.query(`DROP INDEX IF EXISTS "IDX_player_core_specialty"`);
-    await queryRunner.query(`ALTER TABLE "player" DROP COLUMN IF EXISTS "core_specialty_tier"`);
-    await queryRunner.query(`ALTER TABLE "player" DROP COLUMN IF EXISTS "core_specialty"`);
+    await queryRunner.query(
+      `ALTER TABLE "player" DROP COLUMN IF EXISTS "core_specialty_tier"`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE "player" DROP COLUMN IF EXISTS "core_specialty"`,
+    );
   }
 }

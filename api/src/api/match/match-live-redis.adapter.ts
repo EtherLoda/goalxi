@@ -96,7 +96,8 @@ export class MatchLiveRedisAdapter implements OnApplicationShutdown {
     // `adapter(adapter)` works as a setter. Falling back to the
     // raw `server` arg keeps single-namespace deployments
     // working even if the property lookup is missing.
-    const rootServer = (server as unknown as { server: Server }).server ?? server;
+    const rootServer =
+      (server as unknown as { server: Server }).server ?? server;
     rootServer.adapter(
       createAdapter(this.pubClient, this.subClient, {
         key: 'match-live',

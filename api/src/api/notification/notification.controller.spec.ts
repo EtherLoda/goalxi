@@ -13,11 +13,11 @@ import { AuthService } from '@/api/auth/auth.service';
 import { Roles } from '@/decorators/roles.decorator';
 import { UserRole } from '@goalxi/database';
 import { Test, TestingModule } from '@nestjs/testing';
-import { NotificationController } from './notification.controller';
 import {
   NotificationRedisService,
   NotificationType,
 } from './notification-redis.service';
+import { NotificationController } from './notification.controller';
 
 const USER_ID = '00000000-0000-4000-8000-000000000001' as any;
 
@@ -69,7 +69,9 @@ describe('NotificationController', () => {
   describe('markRead (P1-#7: empty body = mark all)', () => {
     it('routes to markAsRead when ids is provided', async () => {
       service.markAsRead.mockResolvedValueOnce(3);
-      const result = await controller.markRead(USER_ID, { ids: ['a', 'b', 'c'] });
+      const result = await controller.markRead(USER_ID, {
+        ids: ['a', 'b', 'c'],
+      });
       expect(result).toEqual({ markedCount: 3 });
       expect(service.markAsRead).toHaveBeenCalledWith(USER_ID, ['a', 'b', 'c']);
       expect(service.markAllAsRead).not.toHaveBeenCalled();
@@ -132,7 +134,9 @@ describe('NotificationController', () => {
       // and @Roles(ADMIN) metadata. We don't re-derive the exact
       // decorator implementation here; the end-to-end test lives
       // in roles.guard.spec.ts. This just makes the intent explicit.
-      expect(NotificationController.prototype.createGlobalBroadcast).toBeDefined();
+      expect(
+        NotificationController.prototype.createGlobalBroadcast,
+      ).toBeDefined();
     });
 
     it('forwards a typed payload to the service', async () => {

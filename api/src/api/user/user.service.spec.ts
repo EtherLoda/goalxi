@@ -46,7 +46,10 @@ describe('UserService.changePassword', () => {
     userRepo.findOneByOrFail.mockResolvedValueOnce(buildUser());
     (verifyPassword as jest.Mock).mockResolvedValueOnce(false);
 
-    const dto = { currentPassword: 'wrong', newPassword: 'newpw123' } as ChangePasswordReqDto;
+    const dto = {
+      currentPassword: 'wrong',
+      newPassword: 'newpw123',
+    } as ChangePasswordReqDto;
 
     await expect(
       service.changePassword('u-1' as any, 's-current' as any, dto),

@@ -1,10 +1,10 @@
 import { AllConfigType } from '@/config/config.type';
+import MailerCustomLogger from '@/utils/mailer-custom-logger';
 import { MailerModule } from '@nestjs-modules/mailer';
 import { HandlebarsAdapter } from '@nestjs-modules/mailer/dist/adapters/handlebars.adapter';
 import { Global, Module } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { join } from 'path';
-import MailerCustomLogger from '@/utils/mailer-custom-logger';
 import { MailService } from './mail.service';
 
 @Global()

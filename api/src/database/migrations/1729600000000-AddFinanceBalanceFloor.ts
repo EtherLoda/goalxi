@@ -26,9 +26,7 @@ import { MigrationInterface, QueryRunner } from 'typeorm';
  * finance_balance_floor` without scanning the
  * information_schema for the auto-generated name.
  */
-export class AddFinanceBalanceFloor1729600000000
-  implements MigrationInterface
-{
+export class AddFinanceBalanceFloor1729600000000 implements MigrationInterface {
   name = 'AddFinanceBalanceFloor1729600000000';
 
   public async up(queryRunner: QueryRunner): Promise<void> {

@@ -139,7 +139,10 @@ export class OnboardingService {
    * passes `validateOptions` cleanly. See
    * `api/scripts/_add-test.cjs` for the reproducer.
    */
-  async enqueueAssignTeam(userId: string, teamName?: string | null): Promise<void> {
+  async enqueueAssignTeam(
+    userId: string,
+    teamName?: string | null,
+  ): Promise<void> {
     // We deliberately do NOT pass a custom `jobId` to
     // `Queue.add`. The previous version used
     // `assign-team-{userId}` as a dedup key, but that collided

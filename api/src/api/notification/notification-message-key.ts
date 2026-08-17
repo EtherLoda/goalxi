@@ -55,23 +55,24 @@ export type NotificationMessageKey =
   // the web bundle.
   | (string & {});
 
-export const KNOWN_NOTIFICATION_MESSAGE_KEYS: readonly NotificationMessageKey[] = [
-  'notification.auctionOutbid',
-  'notification.matchResult_win',
-  'notification.matchResult_loss',
-  'notification.matchResult_draw',
-  'notification.playerSkillImproved',
-  'notification.playerSkillDecreased',
-  'notification.playerInjured',
-  'notification.playerRecovered',
-  'notification.playerPurchased',
-  'notification.playerSold',
-  'notification.auctionWon',
-  'notification.auctionLost',
-  'notification.leaguePositionChanged',
-  'notification.seasonStarted',
-  'notification.seasonEnded',
-  'notification.teamInvitation',
-  'notification.systemMessage',
-  'notification.stadiumConstructionCompleted',
-] as const;
+export const KNOWN_NOTIFICATION_MESSAGE_KEYS: readonly NotificationMessageKey[] =
+  [
+    'notification.auctionOutbid',
+    'notification.matchResult_win',
+    'notification.matchResult_loss',
+    'notification.matchResult_draw',
+    'notification.playerSkillImproved',
+    'notification.playerSkillDecreased',
+    'notification.playerInjured',
+    'notification.playerRecovered',
+    'notification.playerPurchased',
+    'notification.playerSold',
+    'notification.auctionWon',
+    'notification.auctionLost',
+    'notification.leaguePositionChanged',
+    'notification.seasonStarted',
+    'notification.seasonEnded',
+    'notification.teamInvitation',
+    'notification.systemMessage',
+    'notification.stadiumConstructionCompleted',
+  ] as const;

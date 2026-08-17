@@ -41,11 +41,7 @@ export class NotificationController {
   ) {
     const page = query.page ?? 1;
     const limit = query.limit ?? 20;
-    const result = await this.notificationService.getInbox(
-      userId,
-      page,
-      limit,
-    );
+    const result = await this.notificationService.getInbox(userId, page, limit);
     return {
       items: result.items,
       meta: {
@@ -77,10 +73,7 @@ export class NotificationController {
    */
   @Post('read')
   @HttpCode(HttpStatus.OK)
-  async markRead(
-    @CurrentUser('id') userId: Uuid,
-    @Body() dto: MarkReadReqDto,
-  ) {
+  async markRead(@CurrentUser('id') userId: Uuid, @Body() dto: MarkReadReqDto) {
     const ids = dto.ids ?? [];
     const markedCount =
       ids.length === 0

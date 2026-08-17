@@ -96,9 +96,13 @@ describe('NotificationRedisService', () => {
       const jsonArg = call[call.length - 2]; // second to last = json
       const parsed = JSON.parse(jsonArg);
       expect(parsed.expiresAt).toBeUndefined();
-      expect(Object.keys(parsed).sort()).toEqual(
-        ['createdAt', 'data', 'id', 'messageKey', 'type'],
-      );
+      expect(Object.keys(parsed).sort()).toEqual([
+        'createdAt',
+        'data',
+        'id',
+        'messageKey',
+        'type',
+      ]);
     });
   });
 
@@ -274,25 +278,20 @@ describe('NotificationRedisService', () => {
       // the first 200 and the remaining 150 would be lost.
       redis.get.mockResolvedValueOnce(null);
       redis.zrangebyscore
-        .mockResolvedValueOnce(
-          Array.from({ length: 200 }, (_, i) => `id-${i}`),
-        )
+        .mockResolvedValueOnce(Array.from({ length: 200 }, (_, i) => `id-${i}`))
         .mockResolvedValueOnce(
           Array.from({ length: 150 }, (_, i) => `id-${i + 200}`),
         )
         .mockResolvedValueOnce([]); // safety terminator
       redis.hmget
         .mockResolvedValueOnce(
-          Array.from(
-            { length: 200 },
-            (_, i) => JSON.stringify({ id: `id-${i}`, createdAt: 1000 + i }),
+          Array.from({ length: 200 }, (_, i) =>
+            JSON.stringify({ id: `id-${i}`, createdAt: 1000 + i }),
           ),
         )
         .mockResolvedValueOnce(
-          Array.from(
-            { length: 150 },
-            (_, i) =>
-              JSON.stringify({ id: `id-${i + 200}`, createdAt: 2000 + i }),
+          Array.from({ length: 150 }, (_, i) =>
+            JSON.stringify({ id: `id-${i + 200}`, createdAt: 2000 + i }),
           ),
         );
 

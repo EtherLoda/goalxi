@@ -31,9 +31,7 @@ import { MigrationInterface, QueryRunner } from 'typeorm';
  * broadcast", so the columns are safe to backfill on a production
  * database that already has completed matches in the table.
  */
-export class AddMatchBroadcastTimestamps1728200000000
-  implements MigrationInterface
-{
+export class AddMatchBroadcastTimestamps1728200000000 implements MigrationInterface {
   name = 'AddMatchBroadcastTimestamps1728200000000';
 
   public async up(queryRunner: QueryRunner): Promise<void> {

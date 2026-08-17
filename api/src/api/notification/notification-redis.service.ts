@@ -273,9 +273,7 @@ export class NotificationRedisService {
     // and `totalPages: null`. Re-check the error slot here and
     // rethrow so the global exception filter returns a 5xx and the
     // client can retry instead of seeing a silently-empty list.
-    const results = (await pipeline.exec()) as Array<
-      [Error | null, unknown]
-    >;
+    const results = (await pipeline.exec()) as Array<[Error | null, unknown]>;
     const [zcardResult, zrevrangeResult] = results;
     if (zcardResult?.[0]) {
       throw zcardResult[0];
@@ -291,10 +289,10 @@ export class NotificationRedisService {
     }
 
     // 一次性 HGET 全部详情，避开之前 zrange(0,-1) + JSON.parse 比 ID 的 O(N) 浪费
-    const metaValues = (await this.redis.hmget(
-      metaKey,
-      ...idList,
-    )) as (string | null)[];
+    const metaValues = (await this.redis.hmget(metaKey, ...idList)) as (
+      | string
+      | null
+    )[];
 
     const items: Notification[] = [];
     for (const raw of metaValues) {
@@ -431,10 +429,10 @@ export class NotificationRedisService {
         break;
       }
 
-      const metaValues = (await this.redis.hmget(
-        metaKey,
-        ...idList,
-      )) as (string | null)[];
+      const metaValues = (await this.redis.hmget(metaKey, ...idList)) as (
+        | string
+        | null
+      )[];
 
       let lastIdScore = pageStart;
       for (const raw of metaValues) {

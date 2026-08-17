@@ -1,6 +1,6 @@
 import {
-  StringFieldOptional,
   EnumFieldOptional,
+  StringFieldOptional,
 } from '@/decorators/field.decorators';
 import { IsValidTimezone } from '@/decorators/is-valid-timezone.decorator';
 

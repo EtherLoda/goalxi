@@ -1,4 +1,10 @@
-import { IsEnum, IsObject, IsOptional, IsString, MaxLength } from 'class-validator';
+import {
+  IsEnum,
+  IsObject,
+  IsOptional,
+  IsString,
+  MaxLength,
+} from 'class-validator';
 import { KNOWN_NOTIFICATION_MESSAGE_KEYS } from '../notification-message-key';
 import { NotificationType } from '../notification-redis.service';
 

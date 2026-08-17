@@ -1,6 +1,6 @@
+import { EmailQueueService } from '@/background/queues/email-queue/email-queue.service';
 import { Branded } from '@/common/types/types';
 import { AllConfigType } from '@/config/config.type';
-import { EmailQueueService } from '@/background/queues/email-queue/email-queue.service';
 import {
   SessionEntity,
   UserEntity,
