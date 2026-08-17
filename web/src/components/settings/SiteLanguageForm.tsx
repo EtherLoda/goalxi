@@ -1,39 +1,54 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useTransition } from "react";
 import { useTranslations } from "next-intl";
-import { useRouter, usePathname } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import { api, type User } from "@/lib/api";
 import { useAuth } from "@/contexts/AuthContext";
 import { routing } from "@/i18n/routing";
+import { useRouter, usePathname } from "@/i18n/navigation";
 
 interface SiteLanguageFormProps {
     user: User;
 }
 
 /**
- * Pick the UI language. The change is two-step:
- *   1. `router.push` to the new locale segment FIRST so the UI
- *      flips immediately (no flash of "save → reload → 404" while
- *      the PATCH is in flight).
- *   2. PATCH `/users/me` with the new `preferredLanguage` so the
- *      server-side copy is in sync for the next session.
- *   3. Sync the in-memory `AuthContext` user via `refreshUser`
- *      so the rest of the app reads the new value without a
- *      full reload.
+ * Pick the UI language. Three moves, no flicker:
  *
- * If the PATCH fails, we roll the URL back to the previous
- * locale and surface the error inline. We do NOT re-throw —
- * the user has already seen the UI change and is mid-action;
- * the rollback is a defensive measure, not a panic.
+ *   1. Wrap the navigation in `startTransition` so React keeps
+ *      the current tree visible while the new locale's
+ *      message bundle is being prepared. Without this, the
+ *      URL flip immediately unmounts the current tree and
+ *      the user sees a brief blank/loading state - the
+ *      "flash" the original implementation produced.
+ *   2. `router.replace` (not `push`) with the next-intl
+ *      locale-aware router. This:
+ *        - avoids polluting the history stack with one entry
+ *          per language click,
+ *        - keeps the same `pathname` + `query` so we don't
+ *          have to hand-build the new URL and risk a bug
+ *          around the locale segment.
+ *   3. PATCH `/users/me` in the background. If the call
+ *      fails we ROLL BACK both the URL (in another
+ *      `startTransition`) and the local pick, so the
+ *      server's view of the world stays the source of truth.
  */
 export default function SiteLanguageForm({ user }: SiteLanguageFormProps) {
     const t = useTranslations("settings.site.language");
     const router = useRouter();
+    // NOTE: `usePathname` from `next-intl/navigation` returns the
+    // path *without* the locale prefix (e.g. `/settings/site`),
+    // which is what `router.replace` wants. The `useSearchParams`
+    // hook still comes from `next/navigation` - that one is
+    // locale-agnostic.
     const pathname = usePathname();
+    const searchParams = useSearchParams();
     const { refreshUser } = useAuth();
+    const [isPending, startTransition] = useTransition();
 
-    const [value, setValue] = useState(user.preferredLanguage ?? routing.defaultLocale);
+    const [value, setValue] = useState(
+        user.preferredLanguage ?? routing.defaultLocale,
+    );
     const [isSaving, setIsSaving] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [saved, setSaved] = useState(false);
@@ -41,6 +56,14 @@ export default function SiteLanguageForm({ user }: SiteLanguageFormProps) {
     useEffect(() => {
         setValue(user.preferredLanguage ?? routing.defaultLocale);
     }, [user.preferredLanguage]);
+
+    /**
+     * The "button is doing something" signal - either the URL
+     * transition is in flight, or the PATCH is still in flight.
+     * Drives both the disabled state and the "switching..."
+     * microcopy under the active button.
+     */
+    const busy = isPending || isSaving;
 
     const supported = routing.locales as readonly string[];
     const handleChange = async (next: string) => {
@@ -52,52 +75,37 @@ export default function SiteLanguageForm({ user }: SiteLanguageFormProps) {
         setValue(next);
         setIsSaving(true);
 
-        // 1. Flip the URL first so the UI re-renders in the new locale
-        //    immediately. We swap just the leading segment; the rest
-        //    of the path is preserved so the user stays on the
-        //    settings page.
-        const swapLocale = (() => {
-            if (!pathname) return null;
-            const segments = pathname.split("/");
-            if (segments.length > 1 && supported.includes(segments[1])) {
-                segments[1] = next;
-                return segments.join("/") || "/";
-            }
-            // Pathname didn't start with a locale segment (shouldn't
-            // happen, but be defensive) — push to a clean settings
-            // page in the new locale.
-            return `/${next}/settings/site`;
-        })();
+        // `useSearchParams()` returns `ReadonlyURLSearchParams | null`;
+        // flatten to a plain object so next-intl's router can rebuild
+        // the query string on the new URL.
+        const query = Object.fromEntries(searchParams?.entries() ?? []);
 
-        if (swapLocale) router.push(swapLocale);
+        // Wrap the navigation in `startTransition` so React keeps
+        // the current page visible while the new locale is being
+        // prepared. This is the fix for the flicker.
+        startTransition(() => {
+            router.replace({ pathname, query }, { locale: next });
+        });
 
         try {
-            // 2. Persist the choice server-side.
             await api.users.updateMe({
                 preferredLanguage: next as 'en' | 'zh',
             });
-            // 3. Refresh the in-memory user so other surfaces
-            //    (e.g. AuthContext's auto-redirect logic) see the
-            //    new value.
             await refreshUser?.();
             setSaved(true);
             setTimeout(() => setSaved(false), 3000);
         } catch (err: unknown) {
-            // Roll back both the URL and the in-memory pick so the
-            // next render matches the server's view.
+            // Roll the URL back to the previous locale so the
+            // visible URL matches the server's view of the world.
             setValue(previous);
-            if (swapLocale) {
-                const rollback = (() => {
-                    const segs = pathname?.split("/") ?? [];
-                    if (segs.length > 1 && supported.includes(segs[1])) {
-                        segs[1] = previous;
-                        return segs.join("/") || "/";
-                    }
-                    return `/${previous}/settings/site`;
-                })();
-                router.push(rollback);
-            }
-            setError(err instanceof Error ? err.message : "Failed to switch language");
+            startTransition(() => {
+                router.replace({ pathname, query }, { locale: previous });
+            });
+            setError(
+                err instanceof Error
+                    ? err.message
+                    : "Failed to switch language",
+            );
         } finally {
             setIsSaving(false);
         }
@@ -114,7 +122,7 @@ export default function SiteLanguageForm({ user }: SiteLanguageFormProps) {
                             key={code}
                             type="button"
                             onClick={() => handleChange(code)}
-                            disabled={isSaving}
+                            disabled={busy}
                             aria-pressed={isActive}
                             className={`px-4 py-3 rounded-xl border text-left transition-colors disabled:opacity-60 ${
                                 isActive
@@ -143,7 +151,7 @@ export default function SiteLanguageForm({ user }: SiteLanguageFormProps) {
                                     </span>
                                 )}
                             </div>
-                            {isActive && isSaving && (
+                            {isActive && busy && (
                                 <p className="mt-2 text-[10px] text-on-surface-variant">
                                     {t("switching")}
                                 </p>
