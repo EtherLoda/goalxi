@@ -16,6 +16,7 @@ import {
   PlayerTransactionEntity,
   SeasonResultEntity,
   SessionEntity,
+  SystemConfigEntity,
   StadiumConstructionEntity,
   StadiumEntity,
   StaffEntity,
@@ -72,6 +73,7 @@ export const AppDataSource = new DataSource({
     ForumPostEntity,
     ForumReactionEntity,
     WeatherEntity,
+    SystemConfigEntity,
   ],
   // Exclude `*.spec.ts` / `*.spec.js` so Jest tripwire specs that live next
   // to migrations (see 1722000000000-UnifyYouthIntoPlayer.spec.ts) are not
