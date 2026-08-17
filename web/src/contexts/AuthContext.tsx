@@ -20,6 +20,17 @@ interface AuthContextType {
   isAuthenticated: boolean;
   login: (email: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
+  /**
+   * Re-fetch `/users/me` and swap the result into context. Use
+   * after a settings form that mutates the user (profile, locale,
+   * timezone, etc.) so the rest of the app reads the new value
+   * without a full reload.
+   *
+   * Returns the fresh `User`, or `null` if the request failed
+   * (which also logs the user out, matching the boot path's
+   * behaviour on a 401).
+   */
+  refreshUser: () => Promise<User | null>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -130,6 +141,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
         useGameStore.getState().setSeason(gameState.season);
         useGameStore.getState().setWeek(gameState.week);
+        // Mirror the server-side `user.timezone` into the global
+        // store so every `formatDatetime` call (see
+        // `web/src/lib/format-datetime.ts`) picks it up without
+        // having to plumb the value through. A failed `setTimezone`
+        // would have no observable effect — the helper falls back
+        // to `'UTC'` — so we don't bother wrapping in try/catch.
+        if (userData.timezone) {
+          useGameStore.getState().setTimezone(userData.timezone);
+        }
 
         if (onboardingState.hasTeam && onboardingState.team) {
           // Promote the onboarding summary to the full Team
@@ -180,6 +200,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       .me()
       .then((userData) => {
         setUser(userData);
+        if (userData.timezone) {
+          useGameStore.getState().setTimezone(userData.timezone);
+        }
         return Promise.all([api.onboarding.getState(), api.game.getCurrent()]);
       })
       .then(([onboardingState, gameState]) => {
@@ -272,6 +295,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, [user, pathname, router]);
 
+  const refreshUser = useCallback(async (): Promise<User | null> => {
+    try {
+      const userData = await api.users.me();
+      setUser(userData);
+      if (userData.timezone) {
+        useGameStore.getState().setTimezone(userData.timezone);
+      }
+      return userData;
+    } catch (err) {
+      console.error('Failed to refresh user:', err);
+      // If the refresh failed with 401, the session is gone
+      // (e.g. another tab was killed by `changePassword`).
+      // Trigger the same flow the boot path uses.
+      await logout();
+      return null;
+    }
+  }, [logout]);
+
   const login = async (email: string, password: string) => {
     const { userId } = await api.auth.login(email, password);
     // Read the fresh user/onboarding from the return value —
@@ -308,6 +349,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         isAuthenticated: !!user,
         login,
         logout,
+        refreshUser,
       }}
     >
       {children}

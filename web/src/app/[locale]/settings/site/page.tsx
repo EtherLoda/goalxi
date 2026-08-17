@@ -1,14 +1,35 @@
 "use client";
 
 import { useTranslations } from "next-intl";
+import { useAuth } from "@/contexts/AuthContext";
+import SiteLanguageForm from "@/components/settings/SiteLanguageForm";
+import SiteTimezoneForm from "@/components/settings/SiteTimezoneForm";
 
-/**
- * Site Settings landing page. The full implementation (language + timezone
- * forms) lands in commit 2 — this stub is enough for the nav wiring +
- * i18n smoke test in commit 1.
- */
 export default function SiteSettingsPage() {
     const t = useTranslations("settings.site.page");
+    const tSections = useTranslations("settings.site.page.sections");
+    const tLanguage = useTranslations("settings.site.language");
+    const tTimezone = useTranslations("settings.site.timezone");
+    const { user, isLoading } = useAuth();
+
+    if (isLoading) {
+        return (
+            <div className="flex items-center justify-center min-h-[40vh]">
+                <div className="font-headline text-sm font-bold uppercase tracking-widest text-on-surface-variant animate-pulse">
+                    …
+                </div>
+            </div>
+        );
+    }
+    if (!user) {
+        return (
+            <div className="flex items-center justify-center min-h-[40vh]">
+                <div className="font-headline text-sm font-bold uppercase tracking-widest text-error">
+                    Login required
+                </div>
+            </div>
+        );
+    }
 
     return (
         <>
@@ -25,8 +46,32 @@ export default function SiteSettingsPage() {
                 </p>
             </header>
 
-            <section className="bg-surface-container-low rounded-xl p-6 border border-outline-variant/10">
-                <p className="font-body text-sm text-on-surface-variant">{t("comingSoon")}</p>
+            <section>
+                <h2 className="font-headline text-sm font-bold text-on-surface-variant uppercase tracking-widest mb-3">
+                    {tSections("language")}
+                </h2>
+                <div className="space-y-2 mb-4">
+                    <h3 className="font-headline text-lg font-bold text-on-surface">
+                        {tLanguage("title")}
+                    </h3>
+                </div>
+                <div className="bg-surface-container-low rounded-xl p-6 border border-outline-variant/10">
+                    <SiteLanguageForm user={user} />
+                </div>
+            </section>
+
+            <section>
+                <h2 className="font-headline text-sm font-bold text-on-surface-variant uppercase tracking-widest mb-3">
+                    {tSections("timezone")}
+                </h2>
+                <div className="space-y-2 mb-4">
+                    <h3 className="font-headline text-lg font-bold text-on-surface">
+                        {tTimezone("title")}
+                    </h3>
+                </div>
+                <div className="bg-surface-container-low rounded-xl p-6 border border-outline-variant/10">
+                    <SiteTimezoneForm user={user} />
+                </div>
             </section>
         </>
     );

@@ -1577,7 +1577,48 @@
         "eyebrow": "用户",
         "title": "用户设置",
         "subtitle": "管理个人资料、头像和密码。",
-        "comingSoon": "个人资料编辑和修改密码将在下一版本上线。"
+        "comingSoon": "个人资料编辑和修改密码将在下一版本上线。",
+        "sections": {
+          "profile": "资料",
+          "security": "安全"
+        }
+      },
+      "profile": {
+        "title": "资料",
+        "subtitle": "昵称、头像和个人简介。",
+        "nickname": "昵称",
+        "nicknameHint": "2-50 字符,显示在论坛和比赛中。",
+        "avatar": "头像 URL",
+        "avatarHint": "仅支持 HTTPS,推荐使用可信 CDN (如 cdn.goalxi.com)。",
+        "avatarInvalid": "头像 URL 必须是有效的 HTTPS 链接。",
+        "bio": "个人简介",
+        "bioHint": "最多 {max} 字符(已用 {current})",
+        "bioTooLong": "简介过长。",
+        "saved": "已保存。",
+        "saving": "保存中...",
+        "save": "保存"
+      },
+      "security": {
+        "title": "安全",
+        "subtitle": "修改密码,其他设备会被强制登出。",
+        "changePassword": "修改密码",
+        "lastChanged": "上次修改:{date}",
+        "lastChangedUnknown": "上次修改:未知"
+      },
+      "passwordDialog": {
+        "title": "修改密码",
+        "subtitle": "输入当前密码,然后选择新密码(至少 8 个字符)。",
+        "current": "当前密码",
+        "new": "新密码",
+        "confirm": "确认新密码",
+        "currentRequired": "请输入当前密码。",
+        "tooShort": "新密码至少 8 个字符。",
+        "mismatch": "两次输入的新密码不一致。",
+        "wrongCurrent": "当前密码错误。",
+        "submit": "修改密码",
+        "submitting": "修改中...",
+        "cancel": "取消",
+        "success": "密码已修改,其他设备已登出。"
       }
     },
     "site": {
@@ -1585,7 +1626,28 @@
         "eyebrow": "站点",
         "title": "站点设置",
         "subtitle": "本应用的语言和时区偏好。",
-        "comingSoon": "语言和时区控件将在下一版本上线。"
+        "comingSoon": "语言和时区控件将在下一版本上线。",
+        "sections": {
+          "language": "语言",
+          "timezone": "时区"
+        }
+      },
+      "language": {
+        "title": "语言",
+        "subtitle": "全站使用的翻译语言。",
+        "en": "English",
+        "zh": "中文",
+        "saved": "已保存。",
+        "saving": "保存中...",
+        "switching": "切换语言中..."
+      },
+      "timezone": {
+        "title": "时区",
+        "subtitle": "时间按此时区显示。服务器端事件仍按 UTC 跑。",
+        "detect": "从浏览器自动检测",
+        "currentPreview": "当前时间:{time}",
+        "saved": "已保存。",
+        "saving": "保存中..."
       }
     }
   }

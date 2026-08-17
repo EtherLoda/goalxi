@@ -1580,7 +1580,48 @@
         "eyebrow": "User",
         "title": "User Settings",
         "subtitle": "Manage your profile, avatar, and password.",
-        "comingSoon": "Profile editing and password change will land in the next release."
+        "comingSoon": "Profile editing and password change will land in the next release.",
+        "sections": {
+          "profile": "Profile",
+          "security": "Security"
+        }
+      },
+      "profile": {
+        "title": "Profile",
+        "subtitle": "Your display name, avatar, and bio.",
+        "nickname": "Nickname",
+        "nicknameHint": "2-50 characters. Shown in the forum and match chatter.",
+        "avatar": "Avatar URL",
+        "avatarHint": "HTTPS only. Use a trusted CDN (e.g. cdn.goalxi.com).",
+        "avatarInvalid": "Avatar URL must be a valid HTTPS link.",
+        "bio": "Bio",
+        "bioHint": "Up to {max} characters. ({current} used)",
+        "bioTooLong": "Bio too long.",
+        "saved": "Saved.",
+        "saving": "Saving...",
+        "save": "Save"
+      },
+      "security": {
+        "title": "Security",
+        "subtitle": "Change your password. Other devices will be signed out.",
+        "changePassword": "Change password",
+        "lastChanged": "Last changed: {date}",
+        "lastChangedUnknown": "Last changed: unknown"
+      },
+      "passwordDialog": {
+        "title": "Change password",
+        "subtitle": "Enter your current password, then pick a new one (8+ characters).",
+        "current": "Current password",
+        "new": "New password",
+        "confirm": "Confirm new password",
+        "currentRequired": "Current password is required.",
+        "tooShort": "New password must be at least 8 characters.",
+        "mismatch": "Passwords do not match.",
+        "wrongCurrent": "Current password is incorrect.",
+        "submit": "Change password",
+        "submitting": "Changing...",
+        "cancel": "Cancel",
+        "success": "Password changed. Other devices have been signed out."
       }
     },
     "site": {
@@ -1588,7 +1629,28 @@
         "eyebrow": "Site",
         "title": "Site Settings",
         "subtitle": "Language and timezone preferences for this app.",
-        "comingSoon": "Language and timezone controls will land in the next release."
+        "comingSoon": "Language and timezone controls will land in the next release.",
+        "sections": {
+          "language": "Language",
+          "timezone": "Timezone"
+        }
+      },
+      "language": {
+        "title": "Language",
+        "subtitle": "The translation used across the app.",
+        "en": "English",
+        "zh": "中文 (Chinese)",
+        "saved": "Saved.",
+        "saving": "Saving...",
+        "switching": "Switching language..."
+      },
+      "timezone": {
+        "title": "Timezone",
+        "subtitle": "Times are shown in this zone. Server-side events still run in UTC.",
+        "detect": "Detect from browser",
+        "currentPreview": "Current time: {time}",
+        "saved": "Saved.",
+        "saving": "Saving..."
       }
     }
   }

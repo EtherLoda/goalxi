@@ -12,6 +12,16 @@ interface GameState {
   leagueId: string | null
   leagueName: string
   viewTeamId: string | null
+  /**
+   * IANA timezone string used by every `Intl.DateTimeFormat`
+   * call on the client (see `web/src/lib/format-datetime.ts`).
+   * Mirrors `UserEntity.timezone`; the `AuthContext` syncs this
+   * on every `/users/me` response and `SiteTimezoneForm`
+   * writes a new value back through `api.users.updateMe`.
+   * Defaults to `'UTC'` so the very first render — before
+   * `AuthContext` has hydrated — never crashes the formatter.
+   */
+  timezone: string
 
   setWeek: (week: number) => void
   setSeason: (season: number) => void
@@ -23,6 +33,7 @@ interface GameState {
   }) => void
   setViewTeam: (teamId: string | null) => void
   clearViewTeam: () => void
+  setTimezone: (timezone: string) => void
   clear: () => void
 }
 
@@ -36,6 +47,7 @@ export const useGameStore = create<GameState>()(
       leagueId: '',
       leagueName: '',
       viewTeamId: null,
+      timezone: 'UTC',
 
       setWeek: (week) => set({ week }),
       setSeason: (season) => set({ season }),
@@ -48,6 +60,7 @@ export const useGameStore = create<GameState>()(
         }),
       setViewTeam: (teamId) => set({ viewTeamId: teamId }),
       clearViewTeam: () => set({ viewTeamId: null }),
+      setTimezone: (timezone) => set({ timezone }),
       clear: () =>
         set({
           season: 1,
@@ -57,6 +70,7 @@ export const useGameStore = create<GameState>()(
           leagueId: '',
           leagueName: '',
           viewTeamId: null,
+          timezone: 'UTC',
         }),
     }),
     {

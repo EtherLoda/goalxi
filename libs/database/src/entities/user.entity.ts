@@ -163,6 +163,24 @@ export class UserEntity extends AbstractEntity {
   })
   preferredLanguage: string;
 
+  /**
+   * IANA timezone string (e.g. `'Asia/Shanghai'`, `'America/New_York'`).
+   * Used by the web client to format dates via
+   * `Intl.DateTimeFormat({ timeZone })` — see
+   * `web/src/lib/format-datetime.ts`. Server-side rendering is
+   * NOT affected: scheduled matches, email templates, and cron
+   * jobs all stay in UTC. See migration
+   * `1787000000000-AddUserTimezone` for the column shape and the
+   * rationale behind the `'UTC'` default.
+   */
+  @Column({
+    name: 'timezone',
+    type: 'varchar',
+    length: 64,
+    default: 'UTC',
+  })
+  timezone: string;
+
   @DeleteDateColumn({
     name: 'deleted_at',
     type: 'timestamptz',

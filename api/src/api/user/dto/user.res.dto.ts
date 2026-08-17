@@ -63,6 +63,16 @@ export class UserResDto {
   @Expose()
   preferredLanguage: string;
 
+  /**
+   * IANA timezone (e.g. `'Asia/Shanghai'`). The web client uses
+   * this to format dates via `Intl.DateTimeFormat({ timeZone })`
+   * — see `web/src/lib/format-datetime.ts`. The server never
+   * uses this value to drive its own timestamps.
+   */
+  @StringField()
+  @Expose()
+  timezone: string;
+
   @ClassField(() => Date)
   @Expose()
   createdAt: Date;

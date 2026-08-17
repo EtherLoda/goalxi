@@ -17,6 +17,8 @@ describe('UserController', () => {
     loadMoreUsers: jest.Mock;
     update: jest.Mock;
     remove: jest.Mock;
+    updateMe: jest.Mock;
+    changePassword: jest.Mock;
   };
 
   const buildRes = (overrides: Partial<UserResDto> = {}): UserResDto => {
@@ -28,6 +30,8 @@ describe('UserController', () => {
     dto.avatar = 'avatar.png';
     dto.nickname = 'Johnny';
     dto.supporterLevel = 1;
+    dto.preferredLanguage = 'en';
+    dto.timezone = 'UTC';
     dto.createdAt = new Date();
     dto.updatedAt = new Date();
     return Object.assign(dto, overrides);
@@ -41,6 +45,8 @@ describe('UserController', () => {
       loadMoreUsers: jest.fn(),
       update: jest.fn(),
       remove: jest.fn(),
+      updateMe: jest.fn(),
+      changePassword: jest.fn(),
     };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -269,6 +275,49 @@ describe('UserController', () => {
 
       expect(userServiceValue.remove).toHaveBeenCalledWith('u-1');
       expect(userServiceValue.remove).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe('updateMyProfile', () => {
+    it('resolves the user id from the JWT payload (no caller-supplied id)', async () => {
+      const res = buildRes({ timezone: 'Asia/Shanghai' });
+      userServiceValue.updateMe.mockReturnValueOnce(res);
+
+      const reqDto = { timezone: 'Asia/Shanghai' } as any;
+      const result = await controller.updateMyProfile('u-1' as Uuid, reqDto);
+
+      expect(result).toBe(res);
+      expect(userServiceValue.updateMe).toHaveBeenCalledWith('u-1', reqDto);
+      expect(userServiceValue.updateMe).toHaveBeenCalledTimes(1);
+    });
+
+    it('forwards an empty body to the service unchanged', async () => {
+      const res = buildRes();
+      userServiceValue.updateMe.mockReturnValueOnce(res);
+
+      const result = await controller.updateMyProfile('u-1' as Uuid, {} as any);
+
+      expect(result).toBe(res);
+      expect(userServiceValue.updateMe).toHaveBeenCalledWith('u-1', {});
+    });
+  });
+
+  describe('changePassword', () => {
+    it('forwards (userId, sessionId, dto) so the service can keep the current session alive', async () => {
+      userServiceValue.changePassword.mockReturnValueOnce(undefined);
+
+      const dto = { currentPassword: 'old', newPassword: 'newpass123' } as any;
+      await controller.changePassword(
+        { id: 'u-1' as Uuid, sessionId: 's-current' as Uuid },
+        dto,
+      );
+
+      expect(userServiceValue.changePassword).toHaveBeenCalledWith(
+        'u-1',
+        's-current',
+        dto,
+      );
+      expect(userServiceValue.changePassword).toHaveBeenCalledTimes(1);
     });
   });
 });

@@ -51,6 +51,7 @@ interface User {
   email: string;
   nickname: string;
   bio: string | null;
+  avatar: string;
   supporterLevel: number;
   /**
    * Locale the user registered from. The web `AuthContext` reads
@@ -62,6 +63,30 @@ interface User {
    * outside `routing.locales` as `'en'`.
    */
   preferredLanguage?: string;
+  /**
+   * IANA timezone (e.g. `'Asia/Shanghai'`). The web client reads
+   * this from `/users/me` and feeds it to every
+   * `Intl.DateTimeFormat({ timeZone })` call via
+   * `web/src/lib/format-datetime.ts`. Server defaults to
+   * `'UTC'`; the `SiteTimezoneForm` auto-detects the browser
+   * value on first visit and writes it back via
+   * `PATCH /users/me`.
+   */
+  timezone: string;
+}
+
+/**
+ * Payload accepted by `PATCH /users/me`. All fields are optional —
+ * the server only writes the ones present. Fields outside this
+ * shape (e.g. `role`, `supporterLevel`, `password`) are silently
+ * ignored at the DTO layer; see `UpdateMyProfileReqDto`.
+ */
+interface UpdateMyProfilePayload {
+  nickname?: string;
+  bio?: string | null;
+  avatar?: string | null;
+  preferredLanguage?: 'en' | 'zh';
+  timezone?: string;
 }
 
 interface Team {
@@ -655,6 +680,35 @@ export const api = {
   users: {
     me: async (): Promise<User> => {
       return request<User>('/users/me');
+    },
+    /**
+     * Owner-only profile update. The server resolves the user id
+     * from the JWT, so callers never send a target id and cannot
+     * impersonate someone else. Returns the freshly-written
+     * `User` so callers can swap it into `AuthContext` without a
+     * second round-trip.
+     */
+    updateMe: async (data: UpdateMyProfilePayload): Promise<User> => {
+      return request<User>('/users/me', {
+        method: 'PATCH',
+        body: JSON.stringify(data),
+      });
+    },
+    /**
+     * Rotate the current user's password. Other-device sessions
+     * are killed server-side; the current session stays alive
+     * (see `UserService.changePassword`). Returns `void` because
+     * the caller usually follows up with a navigation, not a
+     * refetch.
+     */
+    changePassword: async (data: {
+      currentPassword: string;
+      newPassword: string;
+    }): Promise<void> => {
+      await request<void>('/users/me/change-password', {
+        method: 'POST',
+        body: JSON.stringify(data),
+      });
     },
   },
 

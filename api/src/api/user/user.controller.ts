@@ -8,6 +8,7 @@ import {
   Controller,
   Delete,
   Get,
+  HttpCode,
   HttpStatus,
   Param,
   ParseUUIDPipe,
@@ -16,9 +17,11 @@ import {
   Query,
 } from '@nestjs/common';
 import { ApiParam, ApiTags } from '@nestjs/swagger';
+import { ChangePasswordReqDto } from './dto/change-password.req.dto';
 import { CreateUserReqDto } from './dto/create-user.req.dto';
 import { ListUserReqDto } from './dto/list-user.req.dto';
 import { LoadMoreUsersReqDto } from './dto/load-more-users.req.dto';
+import { UpdateMyProfileReqDto } from './dto/update-my-profile.req.dto';
 import { UpdateUserReqDto } from './dto/update-user.req.dto';
 import { UserResDto } from './dto/user.res.dto';
 import { UserService } from './user.service';
@@ -106,7 +109,31 @@ export class UserController {
 
   @ApiAuth()
   @Post('me/change-password')
-  async changePassword() {
-    return 'change-password';
+  @HttpCode(HttpStatus.OK)
+  async changePassword(
+    @CurrentUser() payload: { id: Uuid; sessionId: Uuid },
+    @Body() dto: ChangePasswordReqDto,
+  ): Promise<void> {
+    // The JWT payload carries both the user id and the session id;
+    // the service uses the latter to keep the *current* session
+    // alive while killing every other one (see comment on
+    // `UserService.changePassword`).
+    await this.userService.changePassword(payload.id, payload.sessionId, dto);
+  }
+
+  /**
+   * Owner-only profile update. Resolves the user id from the JWT so
+   * the FE never has to (and can't) send a target id. Accepts the
+   * same `UpdateMyProfileReqDto` shape regardless of which field
+   * the user is editing — the service ignores any property not on
+   * the allowlist.
+   */
+  @Patch('me')
+  @ApiAuth({ type: UserResDto, summary: 'Update my profile' })
+  async updateMyProfile(
+    @CurrentUser('id') userId: Uuid,
+    @Body() dto: UpdateMyProfileReqDto,
+  ): Promise<UserResDto> {
+    return this.userService.updateMe(userId, dto);
   }
 }
