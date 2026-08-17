@@ -1,9 +1,9 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
 import { api, type Team } from "@/lib/api";
-import { contrastRatio } from "@/lib/color-contrast";
+import JerseyColorPicker from "@/components/settings/JerseyColorPicker";
 
 interface ClubInfoFormProps {
     team: Team;
@@ -17,6 +17,9 @@ interface FormState {
     foundedYear: string; // string for input, parsed to number on submit
     city: string;
     bio: string;
+    jerseyColorPrimary: string;
+    jerseyColorSecondary: string;
+    jerseyColorTertiary: string;
 }
 
 const NATIONALITIES = [
@@ -37,55 +40,55 @@ const NATIONALITIES = [
 const MAX_BIO = 2000;
 const MIN_YEAR = 1850;
 const MAX_YEAR = new Date().getFullYear();
+const HEX_RE = /^#[0-9A-F]{6}$/i;
 
-export default function ClubInfoForm({ team, onSaved }: ClubInfoFormProps) {
-    const t = useTranslations("club.settings");
-    const tCommon = useTranslations();
-
-    const [state, setState] = useState<FormState>({
+function stateFromTeam(team: Team): FormState {
+    return {
         name: team.name,
         nationality: team.nationality ?? "GB",
         logoUrl: team.logoUrl ?? "",
         foundedYear: team.foundedYear != null ? String(team.foundedYear) : "",
         city: team.city ?? "",
         bio: team.bio ?? "",
-    });
+        jerseyColorPrimary: team.jerseyColorPrimary ?? "#FF0000",
+        jerseyColorSecondary: team.jerseyColorSecondary ?? "#FFFFFF",
+        jerseyColorTertiary: team.jerseyColorTertiary ?? "#000000",
+    };
+}
+
+export default function ClubInfoForm({ team, onSaved }: ClubInfoFormProps) {
+    const t = useTranslations("settings.team.fields");
+    const tCommon = useTranslations();
+
+    const [state, setState] = useState<FormState>(() => stateFromTeam(team));
     const [isSaving, setIsSaving] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [success, setSuccess] = useState(false);
 
     // Reset when team prop changes
     useEffect(() => {
-        setState({
-            name: team.name,
-            nationality: team.nationality ?? "GB",
-            logoUrl: team.logoUrl ?? "",
-            foundedYear: team.foundedYear != null ? String(team.foundedYear) : "",
-            city: team.city ?? "",
-            bio: team.bio ?? "",
-        });
+        setState(stateFromTeam(team));
     }, [team]);
 
-    const jerseyContrast = useMemo(() => {
-        if (!team.jerseyColorPrimary || !team.jerseyColorSecondary) return null;
-        return contrastRatio(team.jerseyColorPrimary, team.jerseyColorSecondary);
-    }, [team.jerseyColorPrimary, team.jerseyColorSecondary]);
-
-    const logoUrlValid = useMemo(() => {
+    const logoUrlValid = (() => {
         if (!state.logoUrl) return true;
         try {
-            const u = new URL(state.logoUrl);
-            return u.protocol === "https:";
+            return new URL(state.logoUrl).protocol === "https:";
         } catch {
             return false;
         }
-    }, [state.logoUrl]);
+    })();
 
-    const foundedYearValid = useMemo(() => {
+    const foundedYearValid = (() => {
         if (!state.foundedYear) return true;
         const n = Number(state.foundedYear);
         return Number.isInteger(n) && n >= MIN_YEAR && n <= MAX_YEAR;
-    }, [state.foundedYear]);
+    })();
+
+    const jerseyColorsValid =
+        HEX_RE.test(state.jerseyColorPrimary) &&
+        HEX_RE.test(state.jerseyColorSecondary) &&
+        HEX_RE.test(state.jerseyColorTertiary);
 
     const bioValid = state.bio.length <= MAX_BIO;
 
@@ -94,6 +97,7 @@ export default function ClubInfoForm({ team, onSaved }: ClubInfoFormProps) {
         state.name.length <= 32 &&
         logoUrlValid &&
         foundedYearValid &&
+        jerseyColorsValid &&
         bioValid &&
         !isSaving;
 
@@ -110,6 +114,9 @@ export default function ClubInfoForm({ team, onSaved }: ClubInfoFormProps) {
                 foundedYear: state.foundedYear ? Number(state.foundedYear) : null,
                 city: state.city || null,
                 bio: state.bio || null,
+                jerseyColorPrimary: state.jerseyColorPrimary,
+                jerseyColorSecondary: state.jerseyColorSecondary,
+                jerseyColorTertiary: state.jerseyColorTertiary,
             });
             setSuccess(true);
             onSaved?.(updated);
@@ -206,6 +213,22 @@ export default function ClubInfoForm({ team, onSaved }: ClubInfoFormProps) {
                 </Field>
             </div>
 
+            {/* Jersey colors — picker owns its own contrast check. */}
+            <JerseyColorPicker
+                primary={state.jerseyColorPrimary}
+                secondary={state.jerseyColorSecondary}
+                tertiary={state.jerseyColorTertiary}
+                onChange={(c) =>
+                    setState((s) => ({
+                        ...s,
+                        jerseyColorPrimary: c.primary,
+                        jerseyColorSecondary: c.secondary,
+                        jerseyColorTertiary: c.tertiary,
+                    }))
+                }
+                disabled={isSaving}
+            />
+
             {/* Bio */}
             <Field
                 label={t("bio")}
@@ -220,13 +243,6 @@ export default function ClubInfoForm({ team, onSaved }: ClubInfoFormProps) {
                     className={`${inputClass} resize-y`}
                 />
             </Field>
-
-            {/* Jersey contrast warning (read-only info) */}
-            {jerseyContrast != null && jerseyContrast < 3 && (
-                <div className="px-4 py-3 rounded-lg border border-amber-400/30 bg-amber-400/10 text-amber-200 text-sm">
-                    {t("jerseyContrastWarning", { ratio: jerseyContrast.toFixed(2) })}
-                </div>
-            )}
 
             {/* Error / success */}
             {error && (

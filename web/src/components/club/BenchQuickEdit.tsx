@@ -35,7 +35,7 @@ export default function BenchQuickEdit({
     players,
     onSaved,
 }: BenchQuickEditProps) {
-    const t = useTranslations("club.bench");
+    const t = useTranslations("settings.team.bench");
     const tCommon = useTranslations();
     const [draft, setDraft] = useState(bench);
     const [openSlot, setOpenSlot] = useState<BenchRole | null>(null);

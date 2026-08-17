@@ -26,7 +26,7 @@ const ICONS: Record<string, string> = {
 };
 
 export default function AuditTimeline({ teamId }: { teamId: string }) {
-    const t = useTranslations("club.audit");
+    const t = useTranslations("settings.team.audit");
     const tCommon = useTranslations();
     const [entries, setEntries] = useState<AuditEntry[] | null>(null);
     const [error, setError] = useState<string | null>(null);

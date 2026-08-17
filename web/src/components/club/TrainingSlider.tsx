@@ -22,7 +22,7 @@ export default function TrainingSlider({
     lastChangedAt,
     onSaved,
 }: TrainingSliderProps) {
-    const t = useTranslations("club.training");
+    const t = useTranslations("settings.team.training");
     const tCommon = useTranslations();
     const [pending, setPending] = useState(false);
     const [error, setError] = useState<string | null>(null);

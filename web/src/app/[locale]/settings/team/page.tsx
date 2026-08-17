@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
-import { useParams } from "next/navigation";
 import { useAuth } from "@/contexts/AuthContext";
 import { api, type Team } from "@/lib/api";
 import { useCurrentTeamId } from "@/stores/gameStore";
@@ -12,15 +11,11 @@ import BenchQuickEdit from "@/components/club/BenchQuickEdit";
 import ClubInfoForm from "@/components/club/ClubInfoForm";
 import TrainingSlider from "@/components/club/TrainingSlider";
 
-type Locale = "en" | "zh";
-
-export default function ClubSettingsPage() {
-    const t = useTranslations("club.settingsPage");
+export default function TeamSettingsPage() {
+    const t = useTranslations("settings.team.page");
     const tCommon = useTranslations();
-    const params = useParams();
     const { user, isLoading: authLoading } = useAuth();
     const currentTeamId = useCurrentTeamId();
-    const locale = (params.locale as Locale) || "en";
 
     const [team, setTeam] = useState<Team | null>(null);
     const [players, setPlayers] = useState<{ id: number; name: string }[]>([]);
@@ -52,7 +47,7 @@ export default function ClubSettingsPage() {
 
     if (authLoading) {
         return (
-            <div className="flex items-center justify-center min-h-[60vh]">
+            <div className="flex items-center justify-center min-h-[40vh]">
                 <div className="font-headline text-sm font-bold uppercase tracking-widest text-on-surface-variant animate-pulse">
                     {tCommon("common.loading")}
                 </div>
@@ -61,7 +56,7 @@ export default function ClubSettingsPage() {
     }
     if (!user || !currentTeamId) {
         return (
-            <div className="flex items-center justify-center min-h-[60vh]">
+            <div className="flex items-center justify-center min-h-[40vh]">
                 <div className="font-headline text-sm font-bold uppercase tracking-widest text-error">
                     {tCommon("auth.loginRequired")}
                 </div>
@@ -70,7 +65,7 @@ export default function ClubSettingsPage() {
     }
 
     return (
-        <div className="px-6 py-8 lg:px-10 lg:py-10 max-w-5xl mx-auto space-y-8">
+        <>
             <header>
                 <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.3em] text-primary/70 mb-3">
                     <span className="material-symbols-outlined text-base">settings</span>
@@ -157,6 +152,6 @@ export default function ClubSettingsPage() {
                     </section>
                 </>
             )}
-        </div>
+        </>
     );
 }

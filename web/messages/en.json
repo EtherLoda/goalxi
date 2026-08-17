@@ -19,8 +19,27 @@
     "match": "{count, plural, =0 {no matches} one {# match} other {# matches}}"
   },
   "auth": {
-    "loginRequired": "Please log in to continue",
-    "sessionExpired": "Session expired, please log in again"
+    "login": {
+      "title": "Welcome Back",
+      "subtitle": "Sign in to your manager account",
+      "email": "Email",
+      "password": "Password",
+      "rememberMe": "Remember me",
+      "forgotPassword": "Forgot password?",
+      "submit": "Sign In",
+      "noAccount": "Don't have an account?"
+    },
+    "register": {
+      "title": "Create Account",
+      "subtitle": "Start your managerial journey",
+      "username": "Username",
+      "email": "Email",
+      "teamName": "Club Name",
+      "password": "Password",
+      "confirmPassword": "Confirm Password",
+      "submit": "Create Account",
+      "hasAccount": "Already have an account?"
+    }
   },
   "onboarding": {
     "title": "Preparing your club",
@@ -95,29 +114,6 @@
     "terms": "Terms of Service",
     "cookies": "Cookie Settings",
     "contact": "Contact Support"
-  },
-  "auth": {
-    "login": {
-      "title": "Welcome Back",
-      "subtitle": "Sign in to your manager account",
-      "email": "Email",
-      "password": "Password",
-      "rememberMe": "Remember me",
-      "forgotPassword": "Forgot password?",
-      "submit": "Sign In",
-      "noAccount": "Don't have an account?"
-    },
-    "register": {
-      "title": "Create Account",
-      "subtitle": "Start your managerial journey",
-      "username": "Username",
-      "email": "Email",
-      "teamName": "Club Name",
-      "password": "Password",
-      "confirmPassword": "Confirm Password",
-      "submit": "Create Account",
-      "hasAccount": "Already have an account?"
-    }
   },
   "dashboard": {
     "title": "Dashboard",
@@ -821,7 +817,6 @@
     "weeklySalary": "Weekly Salary",
     "hiring": "Hiring...",
     "hire": "Hire",
-    "cancel": "Cancel",
     "confirmFire": "Confirm Fire",
     "firing": "Firing...",
     "fireCoachConfirm": "Are you sure you want to fire this coach? Players under this coach will become unassigned.",
@@ -1184,9 +1179,24 @@
     },
     "dimensions": {
       "title": "Tactical Style",
-      "tempo": { "label": "Tempo", "slow": "Slow", "balanced": "Balanced", "fast": "Fast" },
-      "pitchWidth": { "label": "Pitch Width", "narrow": "Narrow", "balanced": "Balanced", "wide": "Wide" },
-      "defensiveLine": { "label": "Defensive Line", "low": "Low", "mid": "Mid", "high": "High" }
+      "tempo": {
+        "label": "Tempo",
+        "slow": "Slow",
+        "balanced": "Balanced",
+        "fast": "Fast"
+      },
+      "pitchWidth": {
+        "label": "Pitch Width",
+        "narrow": "Narrow",
+        "balanced": "Balanced",
+        "wide": "Wide"
+      },
+      "defensiveLine": {
+        "label": "Defensive Line",
+        "low": "Low",
+        "mid": "Mid",
+        "high": "High"
+      }
     },
     "events": {
       "title": "Tactical Changes",
@@ -1285,13 +1295,6 @@
     }
   },
   "club": {
-    "nav": {
-      "aria": "Club sections",
-      "overview": "Overview",
-      "stadium": "Stadium",
-      "settings": "Settings",
-      "medical": "Medical"
-    },
     "overview": {
       "eyebrow": "My Club",
       "fallbackName": "Your Club",
@@ -1307,35 +1310,6 @@
         "founded": "Founded",
         "empty": "Edit your club details in Settings to add city and founding year."
       }
-    },
-    "settingsPage": {
-      "eyebrow": "Settings",
-      "title": "Club Settings",
-      "subtitle": "Manage identity, training, and bench configuration.",
-      "sections": {
-        "info": "Identity",
-        "training": "Training",
-        "bench": "Bench",
-        "audit": "History"
-      }
-    },
-    "settings": {
-      "name": "Club Name",
-      "nationality": "Country",
-      "logoUrl": "Logo URL",
-      "logoUrlHint": "HTTPS only. Use a trusted CDN (e.g. cdn.goalxi.com).",
-      "logoUrlInvalid": "Logo URL must be a valid HTTPS link.",
-      "foundedYear": "Founded Year",
-      "foundedYearHint": "Between {min} and {max}.",
-      "foundedYearInvalid": "Year must be a whole number in range.",
-      "city": "City",
-      "bio": "Club Bio",
-      "bioHint": "Up to {max} characters. ({current} used)",
-      "bioTooLong": "Bio too long.",
-      "jerseyContrastWarning": "Primary and secondary jersey contrast is only {ratio}:1 — guests may struggle to tell teams apart on screen.",
-      "saved": "Saved.",
-      "saving": "Saving...",
-      "save": "Save"
     },
     "stadium": {
       "none": "No stadium built yet. Build one to start earning matchday revenue.",
@@ -1427,33 +1401,6 @@
         "minHint": "Min {min} seats",
         "maxHint": "Max {max} seats"
       }
-    },
-    "training": {
-      "title": "Stamina Training",
-      "subtitle": "Weekly fraction of recovery spent on stamina training.",
-      "step": "Step: {pct}%",
-      "highWarn": "Above 50% increases injury risk. Use with caution.",
-      "weeklyLimit": "You can only change this once per week."
-    },
-    "bench": {
-      "title": "Bench",
-      "subtitle": "Quick assignment of substitute players.",
-      "hint": "Tap a slot to choose a player. Full tactics editor lives in the Squad page.",
-      "slots": {
-        "goalkeeper": "Goalkeeper",
-        "centerBack": "Center Back",
-        "fullback": "Fullback",
-        "winger": "Winger",
-        "centralMidfield": "Central Midfield",
-        "forward": "Forward"
-      },
-      "empty": "Empty",
-      "unassigned": "Unassigned"
-    },
-    "audit": {
-      "title": "Recent Activity",
-      "subtitle": "Stadium builds, demolitions, and renames. Backed by the finance ledger.",
-      "empty": "No club activity yet."
     }
   },
   "medical": {
@@ -1557,5 +1504,92 @@
     "threadCount_other": "{count, plural, one {# thread} other {# threads}}",
     "replyCount_one": "{count, plural, one {# reply} other {# replies}}",
     "replyCount_other": "{count, plural, one {# reply} other {# replies}}"
+  },
+  "settings": {
+    "team": {
+      "page": {
+        "eyebrow": "Settings",
+        "title": "Club Settings",
+        "subtitle": "Manage identity, training, and bench configuration.",
+        "sections": {
+          "info": "Identity",
+          "training": "Training",
+          "bench": "Bench",
+          "audit": "History"
+        }
+      },
+      "fields": {
+        "name": "Club Name",
+        "nationality": "Country",
+        "logoUrl": "Logo URL",
+        "logoUrlHint": "HTTPS only. Use a trusted CDN (e.g. cdn.goalxi.com).",
+        "logoUrlInvalid": "Logo URL must be a valid HTTPS link.",
+        "foundedYear": "Founded Year",
+        "foundedYearHint": "Between {min} and {max}.",
+        "foundedYearInvalid": "Year must be a whole number in range.",
+        "city": "City",
+        "bio": "Club Bio",
+        "bioHint": "Up to {max} characters. ({current} used)",
+        "bioTooLong": "Bio too long.",
+        "jerseyContrastWarning": "Primary and secondary jersey contrast is only {ratio}:1 — guests may struggle to tell teams apart on screen.",
+        "saved": "Saved.",
+        "saving": "Saving...",
+        "save": "Save",
+        "jerseyColors": "Jersey Colors",
+        "jerseyColorPrimary": "Primary",
+        "jerseyColorSecondary": "Secondary",
+        "jerseyColorTertiary": "Tertiary",
+        "jerseyPreview": "Preview"
+      },
+      "training": {
+        "title": "Stamina Training",
+        "subtitle": "Weekly fraction of recovery spent on stamina training.",
+        "step": "Step: {pct}%",
+        "highWarn": "Above 50% increases injury risk. Use with caution.",
+        "weeklyLimit": "You can only change this once per week."
+      },
+      "bench": {
+        "title": "Bench",
+        "subtitle": "Quick assignment of substitute players.",
+        "hint": "Tap a slot to choose a player. Full tactics editor lives in the Squad page.",
+        "slots": {
+          "goalkeeper": "Goalkeeper",
+          "centerBack": "Center Back",
+          "fullback": "Fullback",
+          "winger": "Winger",
+          "centralMidfield": "Central Midfield",
+          "forward": "Forward"
+        },
+        "empty": "Empty",
+        "unassigned": "Unassigned"
+      },
+      "audit": {
+        "title": "Recent Activity",
+        "subtitle": "Stadium builds, demolitions, and renames. Backed by the finance ledger.",
+        "empty": "No club activity yet."
+      }
+    },
+    "nav": {
+      "label": "Settings sections",
+      "team": "Team",
+      "user": "User",
+      "site": "Site"
+    },
+    "user": {
+      "page": {
+        "eyebrow": "User",
+        "title": "User Settings",
+        "subtitle": "Manage your profile, avatar, and password.",
+        "comingSoon": "Profile editing and password change will land in the next release."
+      }
+    },
+    "site": {
+      "page": {
+        "eyebrow": "Site",
+        "title": "Site Settings",
+        "subtitle": "Language and timezone preferences for this app.",
+        "comingSoon": "Language and timezone controls will land in the next release."
+      }
+    }
   }
 }

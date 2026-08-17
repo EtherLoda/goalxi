@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { api } from "@/lib/api";
 import { useParams, usePathname, useRouter, useSearchParams } from "next/navigation";
@@ -15,6 +15,74 @@ interface GameState {
 
 interface GlobalHeaderProps {
   locale: string;
+}
+
+const SETTINGS_SECTIONS = [
+  { slug: "team", icon: "shield" },
+  { slug: "user", icon: "account_circle" },
+  { slug: "site", icon: "public" },
+] as const;
+
+function SettingsMenu({ locale }: { locale: string }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  // Click-outside / Escape close. The native dialog element would do this
+  // for free, but it brings focus-trap semantics we don't need for a tiny
+  // popover, and a11y-wise the popover is still keyboard-navigable
+  // (Escape → blur, Tab cycles through the 3 links).
+  useEffect(() => {
+    if (!open) return;
+    const onPointer = (e: PointerEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) {
+        setOpen(false);
+      }
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setOpen(false);
+    };
+    document.addEventListener("pointerdown", onPointer);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("pointerdown", onPointer);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [open]);
+
+  return (
+    <div ref={ref} className="relative">
+      <button
+        type="button"
+        aria-haspopup="menu"
+        aria-expanded={open}
+        aria-label="Settings"
+        title="Settings"
+        onClick={() => setOpen((v) => !v)}
+        className="w-9 h-9 rounded-full flex items-center justify-center text-on-surface-variant hover:text-primary hover:bg-white/5 transition-colors"
+      >
+        <span className="material-symbols-outlined">settings</span>
+      </button>
+      {open && (
+        <div
+          role="menu"
+          className="absolute right-0 top-full mt-2 w-56 rounded-xl border border-white/10 bg-surface/95 backdrop-blur-2xl shadow-2xl py-1.5 z-50"
+        >
+          {SETTINGS_SECTIONS.map((s) => (
+            <Link
+              key={s.slug}
+              role="menuitem"
+              href={`/${locale}/settings/${s.slug}`}
+              onClick={() => setOpen(false)}
+              className="flex items-center gap-3 px-3 py-2 font-headline text-xs font-bold uppercase tracking-widest text-on-surface-variant hover:text-on-surface hover:bg-white/5 transition-colors"
+            >
+              <span className="material-symbols-outlined text-base">{s.icon}</span>
+              <span>{s.slug}</span>
+            </Link>
+          ))}
+        </div>
+      )}
+    </div>
+  );
 }
 
 export default function GlobalHeader({ locale }: GlobalHeaderProps) {
@@ -167,15 +235,9 @@ export default function GlobalHeader({ locale }: GlobalHeaderProps) {
           <span className="absolute top-1 right-1 w-2 h-2 rounded-full bg-primary" />
         </button>
 
-        {/* Settings icon */}
-        <Link
-          href={`/${locale}/club/settings`}
-          aria-label={team ? "Club Settings" : "Settings"}
-          title="Club Settings"
-          className="w-9 h-9 rounded-full flex items-center justify-center text-on-surface-variant hover:text-primary hover:bg-white/5 transition-colors"
-        >
-          <span className="material-symbols-outlined">settings</span>
-        </Link>
+        {/* Settings menu — opens a popover with Team / User / Site entries.
+            Direct deep-link is still available via /:locale/settings/<slug>. */}
+        <SettingsMenu locale={locale} />
 
         {/* Search icon */}
         <Link

@@ -817,7 +817,6 @@
     "weeklySalary": "周薪",
     "hiring": "签约中...",
     "hire": "签约",
-    "cancel": "取消",
     "confirmFire": "确认解约",
     "firing": "解约中...",
     "fireCoachConfirm": "确定要解约该教练吗？教练名下的球员将被移至未分配状态。",
@@ -1177,9 +1176,24 @@
     },
     "dimensions": {
       "title": "战术风格",
-      "tempo": { "label": "节奏", "slow": "慢", "balanced": "均衡", "fast": "快" },
-      "pitchWidth": { "label": "球场宽度", "narrow": "窄", "balanced": "均衡", "wide": "宽" },
-      "defensiveLine": { "label": "防线高度", "low": "低", "mid": "中", "high": "高" }
+      "tempo": {
+        "label": "节奏",
+        "slow": "慢",
+        "balanced": "均衡",
+        "fast": "快"
+      },
+      "pitchWidth": {
+        "label": "球场宽度",
+        "narrow": "窄",
+        "balanced": "均衡",
+        "wide": "宽"
+      },
+      "defensiveLine": {
+        "label": "防线高度",
+        "low": "低",
+        "mid": "中",
+        "high": "高"
+      }
     },
     "events": {
       "title": "战术变化",
@@ -1278,13 +1292,6 @@
     }
   },
   "club": {
-    "nav": {
-      "aria": "俱乐部分区",
-      "overview": "总览",
-      "stadium": "球场",
-      "settings": "设置",
-      "medical": "医务室"
-    },
     "overview": {
       "eyebrow": "我的俱乐部",
       "fallbackName": "你的俱乐部",
@@ -1300,35 +1307,6 @@
         "founded": "成立年份",
         "empty": "前往设置页补充城市和成立年份。"
       }
-    },
-    "settingsPage": {
-      "eyebrow": "设置",
-      "title": "俱乐部设置",
-      "subtitle": "管理身份、训练和替补席。",
-      "sections": {
-        "info": "身份",
-        "training": "训练",
-        "bench": "替补席",
-        "audit": "历史"
-      }
-    },
-    "settings": {
-      "name": "俱乐部名称",
-      "nationality": "国家",
-      "logoUrl": "队徽 URL",
-      "logoUrlHint": "仅支持 HTTPS,推荐使用可信 CDN (如 cdn.goalxi.com)。",
-      "logoUrlInvalid": "队徽 URL 必须是有效的 HTTPS 链接。",
-      "foundedYear": "成立年份",
-      "foundedYearHint": "范围 {min} - {max}。",
-      "foundedYearInvalid": "年份必须是范围内的整数。",
-      "city": "城市",
-      "bio": "俱乐部简介",
-      "bioHint": "最多 {max} 字符 (已用 {current})",
-      "bioTooLong": "简介过长。",
-      "jerseyContrastWarning": "主客场球衣对比度仅 {ratio}:1 — 观众可能难以分辨。",
-      "saved": "已保存。",
-      "saving": "保存中...",
-      "save": "保存"
     },
     "stadium": {
       "none": "尚未建造球场。先建一座,比赛日才有收入。",
@@ -1420,33 +1398,6 @@
         "minHint": "最少 {min} 座",
         "maxHint": "最多 {max} 座"
       }
-    },
-    "training": {
-      "title": "体能训练",
-      "subtitle": "每周用于恢复的体能训练比例。",
-      "step": "步长:{pct}%",
-      "highWarn": "超过 50% 会增加伤病率,请谨慎使用。",
-      "weeklyLimit": "每周最多修改 1 次。"
-    },
-    "bench": {
-      "title": "替补席",
-      "subtitle": "快速分配替补球员。",
-      "hint": "点击槽位选择球员。完整战术编辑在阵容页。",
-      "slots": {
-        "goalkeeper": "门将",
-        "centerBack": "中后卫",
-        "fullback": "边后卫",
-        "winger": "边锋",
-        "centralMidfield": "中场",
-        "forward": "前锋"
-      },
-      "empty": "空",
-      "unassigned": "未分配"
-    },
-    "audit": {
-      "title": "最近活动",
-      "subtitle": "球场建造、拆除和重命名。数据来自财务账本。",
-      "empty": "暂无活动记录。"
     }
   },
   "medical": {
@@ -1550,5 +1501,92 @@
     "threadCount_other": "{count, plural, other {# 个帖子}}",
     "replyCount_one": "{count, plural, other {# 条回复}}",
     "replyCount_other": "{count, plural, other {# 条回复}}"
+  },
+  "settings": {
+    "team": {
+      "page": {
+        "eyebrow": "设置",
+        "title": "俱乐部设置",
+        "subtitle": "管理身份、训练和替补席。",
+        "sections": {
+          "info": "身份",
+          "training": "训练",
+          "bench": "替补席",
+          "audit": "历史"
+        }
+      },
+      "fields": {
+        "name": "俱乐部名称",
+        "nationality": "国家",
+        "logoUrl": "队徽 URL",
+        "logoUrlHint": "仅支持 HTTPS,推荐使用可信 CDN (如 cdn.goalxi.com)。",
+        "logoUrlInvalid": "队徽 URL 必须是有效的 HTTPS 链接。",
+        "foundedYear": "成立年份",
+        "foundedYearHint": "范围 {min} - {max}。",
+        "foundedYearInvalid": "年份必须是范围内的整数。",
+        "city": "城市",
+        "bio": "俱乐部简介",
+        "bioHint": "最多 {max} 字符 (已用 {current})",
+        "bioTooLong": "简介过长。",
+        "jerseyContrastWarning": "主客场球衣对比度仅 {ratio}:1 — 观众可能难以分辨。",
+        "saved": "已保存。",
+        "saving": "保存中...",
+        "save": "保存",
+        "jerseyColors": "球衣配色",
+        "jerseyColorPrimary": "主色",
+        "jerseyColorSecondary": "客色",
+        "jerseyColorTertiary": "第三色",
+        "jerseyPreview": "预览"
+      },
+      "training": {
+        "title": "体能训练",
+        "subtitle": "每周用于恢复的体能训练比例。",
+        "step": "步长:{pct}%",
+        "highWarn": "超过 50% 会增加伤病率,请谨慎使用。",
+        "weeklyLimit": "每周最多修改 1 次。"
+      },
+      "bench": {
+        "title": "替补席",
+        "subtitle": "快速分配替补球员。",
+        "hint": "点击槽位选择球员。完整战术编辑在阵容页。",
+        "slots": {
+          "goalkeeper": "门将",
+          "centerBack": "中后卫",
+          "fullback": "边后卫",
+          "winger": "边锋",
+          "centralMidfield": "中场",
+          "forward": "前锋"
+        },
+        "empty": "空",
+        "unassigned": "未分配"
+      },
+      "audit": {
+        "title": "最近活动",
+        "subtitle": "球场建造、拆除和重命名。数据来自财务账本。",
+        "empty": "暂无活动记录。"
+      }
+    },
+    "nav": {
+      "label": "设置分区",
+      "team": "球队",
+      "user": "用户",
+      "site": "站点"
+    },
+    "user": {
+      "page": {
+        "eyebrow": "用户",
+        "title": "用户设置",
+        "subtitle": "管理个人资料、头像和密码。",
+        "comingSoon": "个人资料编辑和修改密码将在下一版本上线。"
+      }
+    },
+    "site": {
+      "page": {
+        "eyebrow": "站点",
+        "title": "站点设置",
+        "subtitle": "本应用的语言和时区偏好。",
+        "comingSoon": "语言和时区控件将在下一版本上线。"
+      }
+    }
   }
 }
