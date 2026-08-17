@@ -20,13 +20,14 @@ import {
   TeamEntity,
 } from '@goalxi/database';
 import { BadRequestException, Injectable, Logger } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
+import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
 import assert from 'assert';
 import { plainToInstance } from 'class-transformer';
-import { Repository } from 'typeorm';
+import { DataSource, In, Repository } from 'typeorm';
 import { CreateTeamReqDto } from './dto/create-team.req.dto';
 import { ListTeamReqDto } from './dto/list-team.req.dto';
 import { TeamResDto } from './dto/team.res.dto';
+import { BenchConfigBodyDto } from './dto/update-bench-config.req.dto';
 import { UpdateTeamReqDto } from './dto/update-team.req.dto';
 
 import { PlayerEntity } from '@goalxi/database';
@@ -42,6 +43,8 @@ export class TeamService {
     @InjectRepository(StaffEntity)
     private readonly staffRepo: Repository<StaffEntity>,
     private readonly scoutsService: ScoutsService,
+    @InjectDataSource()
+    private readonly dataSource: DataSource,
   ) {}
 
   async findMany(
@@ -291,17 +294,107 @@ export class TeamService {
     return this.mapToResDto(team);
   }
 
+  /**
+   * Replace the team's bench configuration (6 substitution slots).
+   *
+   * Previously this method was a naked JSON write — any authenticated
+   * caller could `PATCH /teams/:id/bench-config` with an arbitrary
+   * body (`{"centerBack": 99999999}`) and the value would land in
+   * `team.bench_config` without any check. The DTO at the controller
+   * boundary now blocks malformed shapes (422), and this method
+   * adds the cross-table validations:
+   *
+   *   1. Every non-null playerId must belong to the team (`teamId`
+   *      matches the URL id). The lookup is a single `IN (...)` query
+   *      rather than N round-trips, so a 6-slot bench still costs one
+   *      read.
+   *   2. The `goalkeeper` slot must reference a player with
+   *      `is_goalkeeper = true`. This is the only positional product
+   *      rule (a player can play any outfield slot, but a GK slot
+   *      can only be filled by a real GK).
+   *
+   * Both checks run inside a `dataSource.transaction` together with
+   * the save, so a bad payload rolls back the whole write rather than
+   * leaving a half-updated row.
+   *
+   * Slot semantics for the engine (`POSITION_TO_BENCH_KEY` in
+   * `simulator/src/engine/match.engine.ts:136`) are unchanged: the 6
+   * keys here (`goalkeeper` / `centerBack` / `fullback` / `winger` /
+   * `centralMidfield` / `forward`) are the same 6 logical buckets the
+   * engine already understands.
+   */
   async updateBenchConfig(
     id: Uuid,
-    benchConfig: BenchConfig,
+    benchConfigBody: BenchConfigBodyDto,
   ): Promise<TeamResDto> {
     assert(id, 'id is required');
-    const team = await TeamEntity.findOneByOrFail({ id });
 
-    team.benchConfig = benchConfig;
-    await team.save();
+    // Normalize the wire DTO (`number | null | undefined`) to the
+    // entity's `BenchConfig` shape (`number | null`). The entity
+    // interface does not allow `undefined`, so the transaction body
+    // works with a clean, fully-typed value.
+    const benchConfig: BenchConfig = {
+      goalkeeper: benchConfigBody.goalkeeper ?? null,
+      centerBack: benchConfigBody.centerBack ?? null,
+      fullback: benchConfigBody.fullback ?? null,
+      winger: benchConfigBody.winger ?? null,
+      centralMidfield: benchConfigBody.centralMidfield ?? null,
+      forward: benchConfigBody.forward ?? null,
+    };
 
-    return this.mapToResDto(team);
+    return this.dataSource.transaction(async (manager) => {
+      const teamRepo = manager.getRepository(TeamEntity);
+      const playerRepo = manager.getRepository(PlayerEntity);
+
+      const team = await teamRepo.findOneByOrFail({ id });
+
+      // Collect all non-null playerIds to validate in a single query.
+      const candidateIds = [
+        benchConfig.goalkeeper,
+        benchConfig.centerBack,
+        benchConfig.fullback,
+        benchConfig.winger,
+        benchConfig.centralMidfield,
+        benchConfig.forward,
+      ].filter((pid): pid is number => pid !== null);
+
+      if (candidateIds.length > 0) {
+        const squadPlayers = await playerRepo.find({
+          where: { id: In(candidateIds) },
+          select: { id: true, teamId: true, isGoalkeeper: true },
+        });
+
+        const squadById = new Map(squadPlayers.map((p) => [p.id, p]));
+
+        // (1) Squad membership — every playerId must belong to THIS team.
+        for (const pid of candidateIds) {
+          const player = squadById.get(pid);
+          if (!player) {
+            throw new BadRequestException(`Player ${pid} does not exist`);
+          }
+          if (player.teamId !== id) {
+            throw new BadRequestException(
+              `Player ${pid} does not belong to team ${id}`,
+            );
+          }
+        }
+
+        // (2) GK slot — only a real goalkeeper can fill it.
+        if (benchConfig.goalkeeper !== null) {
+          const gk = squadById.get(benchConfig.goalkeeper);
+          if (!gk?.isGoalkeeper) {
+            throw new BadRequestException(
+              `Player ${benchConfig.goalkeeper} is not a goalkeeper and cannot fill the goalkeeper bench slot`,
+            );
+          }
+        }
+      }
+
+      team.benchConfig = benchConfig;
+      await teamRepo.save(team);
+
+      return this.mapToResDto(team);
+    });
   }
 
   async delete(id: Uuid): Promise<void> {

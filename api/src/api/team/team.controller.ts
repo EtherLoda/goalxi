@@ -16,12 +16,12 @@ import { ApiTags } from '@nestjs/swagger';
 import { CreateTeamReqDto } from './dto/create-team.req.dto';
 import { ListTeamReqDto } from './dto/list-team.req.dto';
 import { TeamResDto } from './dto/team.res.dto';
+import { UpdateBenchConfigReqDto } from './dto/update-bench-config.req.dto';
 import { UpdateTeamReqDto } from './dto/update-team.req.dto';
 import { TeamService } from './team.service';
 
 import { CurrentUser } from '@/decorators/current-user.decorator';
 import { Public } from '@/decorators/public.decorator';
-import { BenchConfig } from '@goalxi/database';
 
 @ApiTags('Team')
 @Controller({
@@ -105,9 +105,9 @@ export class TeamController {
   @HttpCode(HttpStatus.OK)
   async updateBenchConfig(
     @Param('id') id: Uuid,
-    @Body() body: { benchConfig: BenchConfig },
+    @Body() dto: UpdateBenchConfigReqDto,
   ): Promise<TeamResDto> {
-    return this.teamService.updateBenchConfig(id, body.benchConfig);
+    return this.teamService.updateBenchConfig(id, dto.benchConfig);
   }
 
   @Delete(':id')
