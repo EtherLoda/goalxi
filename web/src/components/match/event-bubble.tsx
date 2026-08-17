@@ -28,7 +28,7 @@
 import React from 'react';
 import { useTranslations } from 'next-intl';
 import type { MatchEvent } from '@/lib/api';
-import { canonicalEventType, formatEventCommentary } from '@/lib/commentary';
+import { canonicalEventType, formatEventCommentary, getShotQualityLabel } from '@/lib/commentary';
 import { eventIcon } from './commentary-icons';
 import { resolveSide } from './match-event-side';
 
@@ -50,8 +50,6 @@ export interface EventBubbleProps {
   homeColor?: string | null;
   awayColor?: string | null;
 }
-
-const STAT_RE = /(shotQuality|gkRating|attackScore|defenseScore|probability)=([\d.]+)/;
 
 export const EventBubble: React.FC<EventBubbleProps> = ({
   event,
@@ -125,8 +123,16 @@ export const EventBubble: React.FC<EventBubbleProps> = ({
     ? 'text-secondary'
     : 'text-on-surface-variant';
 
-  const statMatch = text.match(STAT_RE);
-  const statValue = statMatch ? statMatch[2] : null;
+  // Stat line: read shotQuality straight from the structured event
+  // payload, then map to a tier label. Pre-fix code tried to scrape
+  // 'shotQuality=NN' substrings out of the rendered narrative text
+  // (see the old STAT_RE), but no i18n template ever emitted that
+  // literal, so the stat line was dead in production. The narrative
+  // already has its own `{quality}` slot for prose; the stat line is
+  // a separate UI surface for an at-a-glance shot descriptor.
+  const shotQuality = (event?.data as any)?.sequence?.shot?.shotQuality;
+  const statLabel =
+    typeof shotQuality === 'number' ? getShotQualityLabel(t, shotQuality) : '';
 
   // Layout: every event is the same shape — a 4px team bar, a fixed-
   // width minute column (with a coloured dot), then a 1fr content
@@ -170,9 +176,9 @@ export const EventBubble: React.FC<EventBubbleProps> = ({
           </span>
           <div className="flex-1 min-w-0">
             <p className="text-[13px] leading-snug text-on-surface">{text}</p>
-            {statValue && (
+            {statLabel && (
               <p className="mt-0.5 text-[10px] font-mono text-on-surface-variant/80">
-                {statMatch![1]} = {statValue}
+                shotQuality: {statLabel}
               </p>
             )}
           </div>

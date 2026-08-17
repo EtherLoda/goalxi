@@ -161,6 +161,34 @@ function getQualityText(
   return t('goal.quality_good', { player });
 }
 
+/**
+ * Map a 0-100 shotQuality to a tier label. Used by the EventBubble stat
+ * line (and any future UI surface that needs a human-readable shot
+ * descriptor). Five tiers:
+ *
+ *   ≥90  top-drawer  — screamer / world-class
+ *   ≥75  quality     — clean strike
+ *   ≥50  decent      — standard
+ *   ≥25  tame        — soft / weak
+ *    0+  wayward     — terrible
+ *
+ * Complements getQualityText (which feeds the narrative `{quality}`
+ * slot with a 3-tier gradient — excellent / great / good) by giving
+ * UI surfaces a more discriminating label since they're not
+ * constrained to a sentence-shaped template.
+ */
+export function getShotQualityLabel(
+  t: TranslationFunction,
+  shotQuality: number | null | undefined,
+): string {
+  if (shotQuality == null) return '';
+  if (shotQuality >= 90) return t('shotQuality.tier_top');
+  if (shotQuality >= 75) return t('shotQuality.tier_quality');
+  if (shotQuality >= 50) return t('shotQuality.tier_decent');
+  if (shotQuality >= 25) return t('shotQuality.tier_tame');
+  return t('shotQuality.tier_wayward');
+}
+
 function getLaneText(t: TranslationFunction, lane: string | undefined): string {
   if (!lane) return '';
   return t(`lane.${lane.toLowerCase()}`);

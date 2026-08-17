@@ -1,10 +1,10 @@
 /**
- * commentary.spec.ts â€?unit tests for the live-event type alias map and the
+ * commentary.spec.ts ï¿½?unit tests for the live-event type alias map and the
  * `formatEventCommentary` dispatcher.
  *
- * Target: â‰?85% statement + branch coverage on commentary.ts.
+ * Target: ï¿½?85% statement + branch coverage on commentary.ts.
  *
- * Pattern: mirror of `match-lock.spec.ts` â€?pure function tests, no DOM.
+ * Pattern: mirror of `match-lock.spec.ts` ï¿½?pure function tests, no DOM.
  * The `t()` translation function is mocked to capture i18n key lookups so
  * specs assert on the keys the formatter dispatches to, not the (locale-
  * dependent) translated strings. This also means the test exercises the
@@ -19,7 +19,7 @@ import {
 } from './commentary';
 import type { MatchEvent } from './api';
 
-/** Mock `t` that returns the requested key verbatim â€?the spec asserts on keys. */
+/** Mock `t` that returns the requested key verbatim ï¿½?the spec asserts on keys. */
 function makeT(): jest.Mock<string, [string]> {
   return jest.fn((key: string) => key);
 }
@@ -59,7 +59,7 @@ describe('canonicalEventType', () => {
   it('resolves every entry in EVENT_TYPE_ALIAS to its mapped value', () => {
     for (const [raw, expected] of EVENT_TYPE_ALIAS) {
       expect(canonicalEventType(raw)).toBe(expected);
-      // Case-insensitive â€?simulator emits lowercase but the map must
+      // Case-insensitive ï¿½?simulator emits lowercase but the map must
       // still answer for any-cased input.
       expect(canonicalEventType(raw.toUpperCase())).toBe(expected);
     }
@@ -105,7 +105,7 @@ describe('formatEventCommentary dispatch', () => {
     const t = jest.fn((key: string) => {
       if (key.startsWith('goal.tpl_')) {
         // Include `{quality}` so we can assert it was substituted.
-        return 'GOAL_TPL:{player} scored for {team} â€?{quality}!';
+        return 'GOAL_TPL:{player} scored for {team} ï¿½?{quality}!';
       }
       if (key === 'goal.quality_excellent') return 'brilliant';
       if (key === 'goal.quality_great') return 'great';
@@ -150,7 +150,7 @@ describe('formatEventCommentary dispatch', () => {
   // string is fully resolved before being dropped into the goal template.
   it('GOAL with shotQuality < 60 does not crash on the {player} placeholder (quality_good branch)', () => {
     // Real next-intl substitutes `{var}` from the params before returning,
-    // so the test mock has to do the same â€?otherwise the inner `{player}`
+    // so the test mock has to do the same ï¿½?otherwise the inner `{player}`
     // in the quality string would leak through and the outer template's
     // interpolate() can't recurse into the substituted value.
     const t = jest.fn((key: string, params?: Record<string, string | number>) => {
@@ -176,7 +176,7 @@ describe('formatEventCommentary dispatch', () => {
             shot: {
               shooter: 'Saka',
               shotType: 'normal',
-              // 50 â€?falls into the quality_good branch (the one that
+              // 50 ï¿½?falls into the quality_good branch (the one that
               // crashed in production with FORMATTING_ERROR).
               shotQuality: 50,
             },
@@ -189,7 +189,7 @@ describe('formatEventCommentary dispatch', () => {
       t,
     );
 
-    // {player} should already be resolved inside the quality string â€?    // the template's {quality} placeholder then receives the rendered
+    // {player} should already be resolved inside the quality string ï¿½?    // the template's {quality} placeholder then receives the rendered
     // text, NOT a raw "{player}" token.
     expect(text).toContain('Saka');
     expect(text).toContain('good from Saka');
@@ -222,7 +222,7 @@ describe('formatEventCommentary dispatch', () => {
 
   it('PENALTY_GOAL is treated as a GOAL (penalty shootout scores count)', () => {
     const t = jest.fn((key: string) => {
-      // Accept any tpl_N for the goal arm â€?the hash picks among 4
+      // Accept any tpl_N for the goal arm ï¿½?the hash picks among 4
       // templates and we don't want the test tied to a specific hash.
       if (key.startsWith('goal.tpl_')) return 'GOAL_DISPATCH';
       return key;
@@ -234,7 +234,7 @@ describe('formatEventCommentary dispatch', () => {
       t,
     );
     expect(text).toBe('GOAL_DISPATCH');
-    // The PENALTY_GOAL arm should NOT be hit â€?the alias routes it to GOAL.
+    // The PENALTY_GOAL arm should NOT be hit ï¿½?the alias routes it to GOAL.
     expect(t).not.toHaveBeenCalledWith(expect.stringMatching(/^penalty\./));
   });
 
@@ -263,7 +263,7 @@ describe('formatEventCommentary dispatch', () => {
     // the same `{key}` placeholder substitution that next-intl does
     // in production. Without that, the test was asserting against
     // a stale mock that returned the template verbatim and ignored
-    // the `count` param the formatter passed in â€?masking the very
+    // the `count` param the formatter passed in ï¿½?masking the very
     // bug the test was supposed to catch.
     const t = jest.fn(
       (key: string, params?: Record<string, string | number>) => {
@@ -403,7 +403,7 @@ describe('formatEventCommentary dispatch', () => {
     it('renders tpl_1 with {tackler} when the simulator sets a defending player', () => {
       const t = jest.fn((key: string) => {
         if (key === 'turnover.tpl_1') {
-          return '{tackler} steps in on {player} â€?{team} lose it cheaply.';
+          return '{tackler} steps in on {player} ï¿½?{team} lose it cheaply.';
         }
         // Fall back to tpl_0 too, so we can assert it was NOT picked.
         if (key === 'turnover.tpl_0') {
@@ -432,14 +432,14 @@ describe('formatEventCommentary dispatch', () => {
         t,
       );
 
-      // djb2 of the event id may pick tpl_0 OR tpl_1 â€?but because the
+      // djb2 of the event id may pick tpl_0 OR tpl_1 ï¿½?but because the
       // tackler is present we want tpl_1 to be the rendered form. The
       // test below only asserts the tackler is interpolated; if djb2
       // happened to pick tpl_0, that's still correct (no tackler
       // placeholder leaks). Run it twice with two distinct ids to
       // cover both branches.
       if (text.startsWith('Vitinha')) {
-        expect(text).toBe('Vitinha steps in on Pedri â€?Barca lose it cheaply.');
+        expect(text).toBe('Vitinha steps in on Pedri ï¿½?Barca lose it cheaply.');
       } else {
         // tpl_0 was picked; the rendered form must not contain a
         // literal `{tackler}` placeholder.
@@ -449,14 +449,14 @@ describe('formatEventCommentary dispatch', () => {
     });
 
     it('forces tpl_0 and never leaks {tackler} when the payload has no defending player', () => {
-      // Pre-engine-fix rows have no defendingPlayer in the data â€?      // either tpl_0 or tpl_1 would be picked by djb2, but the
+      // Pre-engine-fix rows have no defendingPlayer in the data ï¿½?      // either tpl_0 or tpl_1 would be picked by djb2, but the
       // formatter must force tpl_0 to keep the rendered text clean.
       const t = jest.fn((key: string) => {
         if (key === 'turnover.tpl_0') {
-          return 'Turnover at {team} â€?possession lost in the middle of the park.';
+          return 'Turnover at {team} ï¿½?possession lost in the middle of the park.';
         }
         if (key === 'turnover.tpl_1') {
-          return '{tackler} dispossesses {player} â€?{team} lose it cheaply.';
+          return '{tackler} dispossesses {player} ï¿½?{team} lose it cheaply.';
         }
         return key;
       });
@@ -471,7 +471,7 @@ describe('formatEventCommentary dispatch', () => {
             sequence: {
               attackPush: {
                 attackingPlayer: 'Pedri',
-                // defendingPlayer omitted â€?legacy row
+                // defendingPlayer omitted ï¿½?legacy row
               },
             },
           },
@@ -482,7 +482,7 @@ describe('formatEventCommentary dispatch', () => {
       );
 
       expect(text).toBe(
-        'Turnover at PSG â€?possession lost in the middle of the park.',
+        'Turnover at PSG ï¿½?possession lost in the middle of the park.',
       );
       expect(text).not.toMatch(/\{tackler\}/);
       // Defensive: tpl_1 must NOT have been consulted.
@@ -494,7 +494,7 @@ describe('formatEventCommentary dispatch', () => {
       // Some old rows may not have data.sequence.attackPush at all.
       const t = jest.fn((key: string) => {
         if (key === 'turnover.tpl_0') {
-          return '{team} lose it â€?{player} was sloppy.';
+          return '{team} lose it ï¿½?{player} was sloppy.';
         }
         if (key === 'turnover.tpl_1') {
           return '{tackler} pounces on {player}.';
@@ -508,14 +508,14 @@ describe('formatEventCommentary dispatch', () => {
           typeName: 'turnover',
           minute: 50,
           isHome: true,
-          // No `data` at all â€?pure legacy.
+          // No `data` at all ï¿½?pure legacy.
         }),
         'Barca',
         'PSG',
         t,
       );
 
-      // No tackler path â†?tpl_0 forced. The {player} slot stays
+      // No tackler path ï¿½?tpl_0 forced. The {player} slot stays
       // empty when there's no attackingPlayer in the data; we only
       // assert no {tackler} leaks and the render doesn't 5xx.
       expect(text).not.toMatch(/\{tackler\}/);
@@ -754,7 +754,7 @@ describe('formatEventCommentary dispatch', () => {
     });
 
     it('goal falls back to lane Ã— assist for NORMAL shots (no goal.normal sub-section)', () => {
-      // NORMAL shots reuse the lane Ã— assist templates â€?adding a
+      // NORMAL shots reuse the lane Ã— assist templates ï¿½?adding a
       // `goal.normal` sub-section would just duplicate the lane keys
       // since NORMAL center+assist reads exactly like the existing
       // `goal.center_with_assist.tpl_N` set.
@@ -873,7 +873,7 @@ describe('formatEventCommentary dispatch', () => {
     it('turnover renders the tpl_3 counter-attack variant when tpl_3 is selected by djb2', () => {
       // Phase 1 of the narrative rewrite added `tpl_2` / `tpl_3`
       // turnover variants that mention the imminent counter-attack.
-      // This test pins the new tpl down â€?the djb2 pick happens to
+      // This test pins the new tpl down ï¿½?the djb2 pick happens to
       // land on tpl_3 for the given event id (`evt-turnover-fast-break`),
       // so we get a deterministic check. If this id changes, recompute
       // djb2('evt-turnover-fast-break') mod 4 and pick another id that
@@ -908,6 +908,44 @@ describe('formatEventCommentary dispatch', () => {
 });
 
 // ============================================================================
+// shotQuality tier label
+// ============================================================================
+
+describe('getShotQualityLabel maps 0-100 to 5 tier strings', () => {
+  // Re-import lazily so the describe block sits with its peers but
+  // doesn't shadow the top-level import we already do for the rest
+  // of the spec.
+  // eslint-disable-next-line @typescript-eslint/no-var-requires
+  const { getShotQualityLabel } = require('./commentary');
+
+  // Mock t() that returns the i18n key verbatim â€” we only care that
+  // the right key path is picked for each tier boundary.
+  const tKey = (key: string) => key;
+
+  const cases: Array<[number, string]> = [
+    [100, 'shotQuality.tier_top'],
+    [90, 'shotQuality.tier_top'],
+    [89, 'shotQuality.tier_quality'],
+    [75, 'shotQuality.tier_quality'],
+    [74, 'shotQuality.tier_decent'],
+    [50, 'shotQuality.tier_decent'],
+    [49, 'shotQuality.tier_tame'],
+    [25, 'shotQuality.tier_tame'],
+    [24, 'shotQuality.tier_wayward'],
+    [0, 'shotQuality.tier_wayward'],
+  ];
+
+  it.each(cases)('shotQuality=%i â†’ %s', (value, expected) => {
+    expect(getShotQualityLabel(tKey, value)).toBe(expected);
+  });
+
+  it('returns empty string for null / undefined', () => {
+    expect(getShotQualityLabel(tKey, null)).toBe('');
+    expect(getShotQualityLabel(tKey, undefined)).toBe('');
+  });
+});
+
+// ============================================================================
 // Template variation
 // ============================================================================
 
@@ -915,7 +953,7 @@ describe('commentary tpl_* variation is per-event deterministic', () => {
   it('different event ids produce different template indices (most of the time)', () => {
     // Hit commentary.goal.tpl_* 20 times with distinct ids; expect at
     // least 2 distinct indices, otherwise the hash collapsed everything
-    // â€?which would mean we're back to the pre-fix `index = 1` behavior.
+    // ï¿½?which would mean we're back to the pre-fix `index = 1` behavior.
     const tplIdxSeen = new Set<number>();
     for (let i = 0; i < 20; i++) {
       const evt = baseEvent({
@@ -940,7 +978,7 @@ describe('commentary tpl_* variation is per-event deterministic', () => {
     const seen = new Set<number>();
     for (let i = 0; i < 20; i++) {
       const evt = baseEvent({
-        // no `id` â€?exercises the fallback key.
+        // no `id` ï¿½?exercises the fallback key.
         id: '',
         type: 'goal',
         typeName: 'goal',
@@ -1033,7 +1071,7 @@ describe('formatEventCommentary period events', () => {
   // Regression: next-intl@4 throws FORMATTING_ERROR when `t()` is called
   // with a template that has `{var}` placeholders but no params object.
   // getTemplate() must always forward the interpolation params, otherwise
-  // period templates (full_time, half_time, forfeit, â€? surface as the
+  // period templates (full_time, half_time, forfeit, ï¿½? surface as the
   // literal `commentary.full_time.tpl_2` string in the UI.
   it('getTemplate forwards interpolation params so next-intl does not throw', () => {
     const t = jest.fn((key: string, params?: Record<string, string | number>) => {
@@ -1058,7 +1096,7 @@ describe('formatEventCommentary period events', () => {
     );
     expect(text).toContain('Winners');
     expect(text).toContain('3-1');
-    // Param object MUST include winner + scores â€?guards against a future
+    // Param object MUST include winner + scores ï¿½?guards against a future
     // refactor that drops them silently.
     expect(t).toHaveBeenCalledWith(
       expect.stringMatching(/^full_time\.tpl_\d+$/),

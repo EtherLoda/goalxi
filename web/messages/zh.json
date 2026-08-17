@@ -1115,6 +1115,13 @@
       "normal": "射门",
       "long_shot": "远射",
       "rebound": "补射"
+    },
+    "shotQuality": {
+      "tier_top": "世界级",
+      "tier_quality": "高质量",
+      "tier_decent": "中规中矩",
+      "tier_tame": "软弱",
+      "tier_wayward": "偏靶"
     }
   },
   "tactics": {

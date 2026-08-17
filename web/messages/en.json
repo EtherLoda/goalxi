@@ -1122,6 +1122,13 @@
       "normal": "shot",
       "long_shot": "long-range shot",
       "rebound": "rebound"
+    },
+    "shotQuality": {
+      "tier_top": "top-drawer",
+      "tier_quality": "quality",
+      "tier_decent": "decent",
+      "tier_tame": "tame",
+      "tier_wayward": "wayward"
     }
   },
   "tactics": {
