@@ -6,52 +6,6 @@ describe('UpdateTeamReqDto — §5.1 字段校验', () => {
   const toDto = (data: Record<string, unknown>) =>
     plainToInstance(UpdateTeamReqDto, data);
 
-  describe('city', () => {
-    it('should accept valid city name', async () => {
-      const dto = toDto({ city: 'Manchester' });
-      const errors = await validate(dto);
-      const cityErrors = errors.filter((e) => e.property === 'city');
-      expect(cityErrors).toHaveLength(0);
-    });
-
-    it('should reject city longer than 64 chars', async () => {
-      const dto = toDto({ city: 'A'.repeat(65) });
-      const errors = await validate(dto);
-      const cityErrors = errors.filter((e) => e.property === 'city');
-      expect(cityErrors.length).toBeGreaterThan(0);
-    });
-
-    it('should accept null city (optional)', async () => {
-      const dto = toDto({ city: null });
-      const errors = await validate(dto);
-      const cityErrors = errors.filter((e) => e.property === 'city');
-      expect(cityErrors).toHaveLength(0);
-    });
-  });
-
-  describe('foundedYear', () => {
-    it('should accept year 1850-present', async () => {
-      const dto = toDto({ foundedYear: 1899 });
-      const errors = await validate(dto);
-      const errs = errors.filter((e) => e.property === 'foundedYear');
-      expect(errs).toHaveLength(0);
-    });
-
-    it('should reject year < 1850', async () => {
-      const dto = toDto({ foundedYear: 1700 });
-      const errors = await validate(dto);
-      const errs = errors.filter((e) => e.property === 'foundedYear');
-      expect(errs.length).toBeGreaterThan(0);
-    });
-
-    it('should reject non-integer year', async () => {
-      const dto = toDto({ foundedYear: 1899.5 });
-      const errors = await validate(dto);
-      const errs = errors.filter((e) => e.property === 'foundedYear');
-      expect(errs.length).toBeGreaterThan(0);
-    });
-  });
-
   describe('jerseyColorTertiary', () => {
     it('should accept valid hex color #RRGGBB', async () => {
       const dto = toDto({ jerseyColorTertiary: '#000000' });
@@ -106,4 +60,22 @@ describe('UpdateTeamReqDto — §5.1 字段校验', () => {
       expect(errors).toHaveLength(0);
     });
   });
+
+  describe('registration-locked fields are absent from the DTO', () => {
+    // `nationality`, `city`, and `foundedYear` are set at team
+    // creation (or, for manager-owned teams, at the onboarding-
+    // claim moment) and must never be edited afterwards. The
+    // DTO is the contract: if a future change re-introduces any
+    // of these as editable properties, this test will start
+    // reporting a present-where-expect-absent failure, and the
+    // reviewer is forced to think about whether the lockdown
+    // policy is being lifted deliberately.
+    it('the DTO has no nationality, city, or foundedYear keys', () => {
+      const dto = toDto({});
+      expect(dto).not.toHaveProperty('nationality');
+      expect(dto).not.toHaveProperty('city');
+      expect(dto).not.toHaveProperty('foundedYear');
+    });
+  });
 });
+

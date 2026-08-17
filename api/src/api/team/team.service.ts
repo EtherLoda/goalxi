@@ -180,7 +180,11 @@ export class TeamService {
       jerseyColorPrimary: reqDto.jerseyColorPrimary || '#FF0000',
       jerseyColorSecondary: reqDto.jerseyColorSecondary || '#FFFFFF',
       jerseyColorTertiary: reqDto.jerseyColorTertiary || '#000000',
-      foundedYear: reqDto.foundedYear ?? null,
+      // `foundedYear` is registration-locked: stamped to the
+      // current year for every fresh team so a fresh row never
+      // lands in the DB as null. The PATCH endpoint refuses
+      // subsequent edits - see `UpdateTeamReqDto` for the rationale.
+      foundedYear: reqDto.foundedYear ?? new Date().getFullYear(),
       city: reqDto.city ?? null,
       bio: reqDto.bio ?? null,
     });
@@ -249,7 +253,6 @@ export class TeamService {
     const team = await TeamEntity.findOneByOrFail({ id });
 
     if (reqDto.name) team.name = reqDto.name;
-    if (reqDto.nationality !== undefined) team.nationality = reqDto.nationality;
     if (reqDto.leagueId !== undefined) team.leagueId = reqDto.leagueId || null;
     if (reqDto.logoUrl !== undefined) team.logoUrl = reqDto.logoUrl;
     if (reqDto.jerseyColorPrimary)
@@ -258,10 +261,15 @@ export class TeamService {
       team.jerseyColorSecondary = reqDto.jerseyColorSecondary;
     if (reqDto.jerseyColorTertiary)
       team.jerseyColorTertiary = reqDto.jerseyColorTertiary;
-    if (reqDto.foundedYear !== undefined)
-      team.foundedYear = reqDto.foundedYear ?? null;
-    if (reqDto.city !== undefined) team.city = reqDto.city ?? null;
     if (reqDto.bio !== undefined) team.bio = reqDto.bio ?? null;
+    // `nationality`, `city`, and `foundedYear` are deliberately
+    // NOT written here. They are set at team creation (or, for
+    // manager-owned teams, at the onboarding-claim moment) and
+    // must never change afterwards. See `UpdateTeamReqDto` for
+    // the lock-down rationale; the DTO has been stripped of
+    // those fields as well, but the service is the second
+    // line of defence in case a future refactor puts the
+    // fields back into the DTO.
     if (reqDto.staminaTrainingIntensity !== undefined) {
       // §5.4: at most one training-intensity change per real-world
       // week. The check is on the server, not just the client

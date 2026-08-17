@@ -30,11 +30,11 @@ interface ConstructionDialogProps {
 /**
  * Drag-to-adjust dialog that queues a new stadium construction project.
  *
- * The slider is a native `<input type="range">` (matching the project's
- * `TrainingSlider.tsx` pattern) so it inherits native touch / keyboard /
- * a11y behaviour and supports drag-without-jumping. Bounds come from the
- * shared `stadium-construction.constants.ts` so server validation never
- * rejects what the UI just accepted.
+ * The slider is a native `<input type="range">` so it inherits
+ * native touch / keyboard / a11y behaviour and supports drag-
+ * without-jumping. Bounds come from the shared
+ * `stadium-construction.constants.ts` so server validation
+ * never rejects what the UI just accepted.
  *
  * Live preview block (cost / refund / weeks / capacity before → after)
  * gives the manager instant feedback while dragging. Submit posts to the

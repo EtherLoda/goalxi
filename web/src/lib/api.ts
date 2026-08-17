@@ -725,13 +725,10 @@ export const api = {
         Pick<
           Team,
           | 'name'
-          | 'nationality'
           | 'logoUrl'
           | 'jerseyColorPrimary'
           | 'jerseyColorSecondary'
           | 'jerseyColorTertiary'
-          | 'foundedYear'
-          | 'city'
           | 'bio'
           | 'staminaTrainingIntensity'
         >
@@ -746,20 +743,20 @@ export const api = {
      * Update the team owned by the current user. Resolves the
      * teamId server-side from the JWT so the caller doesn't
      * need to know it. Used by the post-onboarding "name your
-     * club" step and (later) by the team settings page.
+     * club" step and the team settings page.
+     *
+     * `nationality`, `city`, and `foundedYear` are deliberately
+     * not in the type — they're set at registration and locked.
      */
     updateMine: async (
       data: Partial<
         Pick<
           Team,
           | 'name'
-          | 'nationality'
           | 'logoUrl'
           | 'jerseyColorPrimary'
           | 'jerseyColorSecondary'
           | 'jerseyColorTertiary'
-          | 'foundedYear'
-          | 'city'
           | 'bio'
           | 'staminaTrainingIntensity'
         >

@@ -6,10 +6,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { api, type Team } from "@/lib/api";
 import { useCurrentTeamId } from "@/stores/gameStore";
 
-import AuditTimeline from "@/components/club/AuditTimeline";
-import BenchQuickEdit from "@/components/club/BenchQuickEdit";
 import ClubInfoForm from "@/components/club/ClubInfoForm";
-import TrainingSlider from "@/components/club/TrainingSlider";
 
 export default function TeamSettingsPage() {
     const t = useTranslations("settings.team.page");
@@ -18,7 +15,6 @@ export default function TeamSettingsPage() {
     const currentTeamId = useCurrentTeamId();
 
     const [team, setTeam] = useState<Team | null>(null);
-    const [players, setPlayers] = useState<{ id: number; name: string }[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
 
@@ -26,19 +22,9 @@ export default function TeamSettingsPage() {
         if (!currentTeamId) return;
         setIsLoading(true);
         setError(null);
-        Promise.all([
-            api.teams.getById(currentTeamId).catch(() => null),
-            api.players.getByTeam(currentTeamId).catch(() => ({ items: [], meta: {} })),
-        ])
-            .then(([teamData, playersData]) => {
-                setTeam(teamData);
-                setPlayers(
-                    (playersData.items ?? []).map((p: { id: number; name: string }) => ({
-                        id: p.id,
-                        name: p.name,
-                    })),
-                );
-            })
+        api.teams
+            .getById(currentTeamId)
+            .then(setTeam)
             .catch((err: unknown) => {
                 setError(err instanceof Error ? err.message : tCommon("common.error"));
             })
@@ -88,69 +74,16 @@ export default function TeamSettingsPage() {
             {isLoading || !team ? (
                 <div className="space-y-4">
                     <div className="h-40 rounded-xl bg-surface-container/30 animate-pulse" />
-                    <div className="h-40 rounded-xl bg-surface-container/30 animate-pulse" />
                 </div>
             ) : (
-                <>
-                    <section>
-                        <h2 className="font-headline text-sm font-bold text-on-surface-variant uppercase tracking-widest mb-3">
-                            {t("sections.info")}
-                        </h2>
-                        <div className="bg-surface-container-low rounded-xl p-6 border border-outline-variant/10">
-                            <ClubInfoForm team={team} onSaved={setTeam} />
-                        </div>
-                    </section>
-
-                    <section>
-                        <h2 className="font-headline text-sm font-bold text-on-surface-variant uppercase tracking-widest mb-3">
-                            {t("sections.training")}
-                        </h2>
-                        <TrainingSlider
-                            teamId={currentTeamId}
-                            value={team.staminaTrainingIntensity ?? 0.1}
-                            lastChangedAt={team.trainingIntensityLastChangedAt}
-                            onSaved={(v) =>
-                                setTeam((t) =>
-                                    t
-                                        ? {
-                                              ...t,
-                                              staminaTrainingIntensity: v,
-                                              trainingIntensityLastChangedAt: new Date().toISOString(),
-                                          }
-                                        : t,
-                                )
-                            }
-                        />
-                    </section>
-
-                    <section>
-                        <h2 className="font-headline text-sm font-bold text-on-surface-variant uppercase tracking-widest mb-3">
-                            {t("sections.bench")}
-                        </h2>
-                        <BenchQuickEdit
-                            teamId={currentTeamId}
-                            bench={
-                                team.benchConfig ?? {
-                                    goalkeeper: null,
-                                    centerBack: null,
-                                    fullback: null,
-                                    winger: null,
-                                    centralMidfield: null,
-                                    forward: null,
-                                }
-                            }
-                            players={players}
-                            onSaved={(b) => setTeam((t) => (t ? { ...t, benchConfig: b } : t))}
-                        />
-                    </section>
-
-                    <section>
-                        <h2 className="font-headline text-sm font-bold text-on-surface-variant uppercase tracking-widest mb-3">
-                            {t("sections.audit")}
-                        </h2>
-                        <AuditTimeline teamId={currentTeamId} />
-                    </section>
-                </>
+                <section>
+                    <h2 className="font-headline text-sm font-bold text-on-surface-variant uppercase tracking-widest mb-3">
+                        {t("sections.info")}
+                    </h2>
+                    <div className="bg-surface-container-low rounded-xl p-6 border border-outline-variant/10">
+                        <ClubInfoForm team={team} onSaved={setTeam} />
+                    </div>
+                </section>
             )}
         </>
     );

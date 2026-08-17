@@ -12,17 +12,14 @@ interface ClubInfoFormProps {
 
 interface FormState {
     name: string;
-    nationality: string;
     logoUrl: string;
-    foundedYear: string; // string for input, parsed to number on submit
-    city: string;
     bio: string;
     jerseyColorPrimary: string;
     jerseyColorSecondary: string;
     jerseyColorTertiary: string;
 }
 
-const NATIONALITIES = [
+const NATIONALITIES: Array<{ code: string; label: string }> = [
     { code: "GB", label: "England" },
     { code: "ES", label: "Spain" },
     { code: "DE", label: "Germany" },
@@ -38,17 +35,12 @@ const NATIONALITIES = [
 ];
 
 const MAX_BIO = 2000;
-const MIN_YEAR = 1850;
-const MAX_YEAR = new Date().getFullYear();
 const HEX_RE = /^#[0-9A-F]{6}$/i;
 
 function stateFromTeam(team: Team): FormState {
     return {
         name: team.name,
-        nationality: team.nationality ?? "GB",
         logoUrl: team.logoUrl ?? "",
-        foundedYear: team.foundedYear != null ? String(team.foundedYear) : "",
-        city: team.city ?? "",
         bio: team.bio ?? "",
         jerseyColorPrimary: team.jerseyColorPrimary ?? "#FF0000",
         jerseyColorSecondary: team.jerseyColorSecondary ?? "#FFFFFF",
@@ -56,8 +48,14 @@ function stateFromTeam(team: Team): FormState {
     };
 }
 
+function nationalityLabel(code: string | null | undefined): string {
+    if (!code) return "—";
+    return NATIONALITIES.find((n) => n.code === code)?.label ?? code;
+}
+
 export default function ClubInfoForm({ team, onSaved }: ClubInfoFormProps) {
     const t = useTranslations("settings.team.fields");
+    const tLocked = useTranslations("settings.team.lockedFields");
     const tCommon = useTranslations();
 
     const [state, setState] = useState<FormState>(() => stateFromTeam(team));
@@ -79,12 +77,6 @@ export default function ClubInfoForm({ team, onSaved }: ClubInfoFormProps) {
         }
     })();
 
-    const foundedYearValid = (() => {
-        if (!state.foundedYear) return true;
-        const n = Number(state.foundedYear);
-        return Number.isInteger(n) && n >= MIN_YEAR && n <= MAX_YEAR;
-    })();
-
     const jerseyColorsValid =
         HEX_RE.test(state.jerseyColorPrimary) &&
         HEX_RE.test(state.jerseyColorSecondary) &&
@@ -96,7 +88,6 @@ export default function ClubInfoForm({ team, onSaved }: ClubInfoFormProps) {
         state.name.length >= 2 &&
         state.name.length <= 32 &&
         logoUrlValid &&
-        foundedYearValid &&
         jerseyColorsValid &&
         bioValid &&
         !isSaving;
@@ -107,12 +98,13 @@ export default function ClubInfoForm({ team, onSaved }: ClubInfoFormProps) {
         setSuccess(false);
         setIsSaving(true);
         try {
+            // Only the editable subset is sent. `nationality`,
+            // `city`, and `foundedYear` are deliberately not in
+            // the type — they were stamped at registration and
+            // are read-only here.
             const updated = await api.teams.update(team.id, {
                 name: state.name,
-                nationality: state.nationality,
                 logoUrl: state.logoUrl || undefined,
-                foundedYear: state.foundedYear ? Number(state.foundedYear) : null,
-                city: state.city || null,
                 bio: state.bio || null,
                 jerseyColorPrimary: state.jerseyColorPrimary,
                 jerseyColorSecondary: state.jerseyColorSecondary,
@@ -130,35 +122,20 @@ export default function ClubInfoForm({ team, onSaved }: ClubInfoFormProps) {
 
     return (
         <form onSubmit={handleSubmit} className="space-y-6">
-            {/* Name + Nationality */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <Field label={t("name")} required>
-                    <input
-                        type="text"
-                        value={state.name}
-                        onChange={(e) => setState((s) => ({ ...s, name: e.target.value }))}
-                        minLength={2}
-                        maxLength={32}
-                        required
-                        className={inputClass}
-                    />
-                </Field>
-                <Field label={t("nationality")}>
-                    <select
-                        value={state.nationality}
-                        onChange={(e) => setState((s) => ({ ...s, nationality: e.target.value }))}
-                        className={inputClass}
-                    >
-                        {NATIONALITIES.map((n) => (
-                            <option key={n.code} value={n.code}>
-                                {n.label}
-                            </option>
-                        ))}
-                    </select>
-                </Field>
-            </div>
+            {/* Name — editable */}
+            <Field label={t("name")} required>
+                <input
+                    type="text"
+                    value={state.name}
+                    onChange={(e) => setState((s) => ({ ...s, name: e.target.value }))}
+                    minLength={2}
+                    maxLength={32}
+                    required
+                    className={inputClass}
+                />
+            </Field>
 
-            {/* Logo */}
+            {/* Logo — editable */}
             <Field
                 label={t("logoUrl")}
                 hint={state.logoUrl && !logoUrlValid ? t("logoUrlInvalid") : t("logoUrlHint")}
@@ -185,33 +162,37 @@ export default function ClubInfoForm({ team, onSaved }: ClubInfoFormProps) {
                 )}
             </Field>
 
-            {/* Founded year + City */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <Field
-                    label={t("foundedYear")}
-                    hint={t("foundedYearHint", { min: MIN_YEAR, max: MAX_YEAR })}
-                    error={!foundedYearValid ? t("foundedYearInvalid") : null}
-                >
-                    <input
-                        type="number"
-                        value={state.foundedYear}
-                        onChange={(e) => setState((s) => ({ ...s, foundedYear: e.target.value }))}
-                        min={MIN_YEAR}
-                        max={MAX_YEAR}
-                        step={1}
-                        className={inputClass}
+            {/* Locked identity: nationality / city / founded year.
+                These were set at registration and never editable
+                afterwards. The form renders them as read-only so
+                the user knows what they are without being tempted
+                to try to change them. */}
+            <section className="rounded-lg border border-outline-variant/20 bg-surface-container/40 p-4 space-y-3">
+                <p className="font-label text-[10px] font-black uppercase tracking-widest text-on-surface-variant">
+                    {tLocked("sectionLabel")}
+                </p>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <LockedField
+                        label={t("nationality")}
+                        value={nationalityLabel(team.nationality)}
                     />
-                </Field>
-                <Field label={t("city")}>
-                    <input
-                        type="text"
-                        value={state.city}
-                        onChange={(e) => setState((s) => ({ ...s, city: e.target.value }))}
-                        maxLength={64}
-                        className={inputClass}
+                    <LockedField
+                        label={t("city")}
+                        value={team.city ?? "—"}
                     />
-                </Field>
-            </div>
+                    <LockedField
+                        label={t("foundedYear")}
+                        value={
+                            team.foundedYear != null
+                                ? String(team.foundedYear)
+                                : "—"
+                        }
+                    />
+                </div>
+                <p className="text-xs text-on-surface-variant">
+                    {tLocked("hint")}
+                </p>
+            </section>
 
             {/* Jersey colors — picker owns its own contrast check. */}
             <JerseyColorPicker
@@ -229,7 +210,7 @@ export default function ClubInfoForm({ team, onSaved }: ClubInfoFormProps) {
                 disabled={isSaving}
             />
 
-            {/* Bio */}
+            {/* Bio — editable */}
             <Field
                 label={t("bio")}
                 hint={t("bioHint", { max: MAX_BIO, current: state.bio.length })}
@@ -298,6 +279,24 @@ function Field({
             ) : hint ? (
                 <p className="mt-1 text-xs text-on-surface-variant">{hint}</p>
             ) : null}
+        </div>
+    );
+}
+
+/**
+ * Read-only display for a registration-locked field. Stays
+ * inside the form layout (so the user can see *what* the
+ * locked values are) but offers no input.
+ */
+function LockedField({ label, value }: { label: string; value: string }) {
+    return (
+        <div>
+            <p className="block font-label text-[10px] font-black uppercase tracking-widest text-on-surface-variant mb-1.5">
+                {label}
+            </p>
+            <p className="w-full px-3 py-2.5 bg-surface-container/60 border border-outline-variant/10 rounded-lg font-body text-sm text-on-surface-variant">
+                {value}
+            </p>
         </div>
     );
 }

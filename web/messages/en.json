@@ -1512,10 +1512,7 @@
         "title": "Club Settings",
         "subtitle": "Manage identity, training, and bench configuration.",
         "sections": {
-          "info": "Identity",
-          "training": "Training",
-          "bench": "Bench",
-          "audit": "History"
+          "info": "Identity"
         }
       },
       "fields": {
@@ -1541,32 +1538,9 @@
         "jerseyColorTertiary": "Tertiary",
         "jerseyPreview": "Preview"
       },
-      "training": {
-        "title": "Stamina Training",
-        "subtitle": "Weekly fraction of recovery spent on stamina training.",
-        "step": "Step: {pct}%",
-        "highWarn": "Above 50% increases injury risk. Use with caution.",
-        "weeklyLimit": "You can only change this once per week."
-      },
-      "bench": {
-        "title": "Bench",
-        "subtitle": "Quick assignment of substitute players.",
-        "hint": "Tap a slot to choose a player. Full tactics editor lives in the Squad page.",
-        "slots": {
-          "goalkeeper": "Goalkeeper",
-          "centerBack": "Center Back",
-          "fullback": "Fullback",
-          "winger": "Winger",
-          "centralMidfield": "Central Midfield",
-          "forward": "Forward"
-        },
-        "empty": "Empty",
-        "unassigned": "Unassigned"
-      },
-      "audit": {
-        "title": "Recent Activity",
-        "subtitle": "Stadium builds, demolitions, and renames. Backed by the finance ledger.",
-        "empty": "No club activity yet."
+      "lockedFields": {
+        "sectionLabel": "Set at registration",
+        "hint": "Country, city, and founding year are set when you claim your team and cannot be changed afterwards."
       }
     },
     "nav": {

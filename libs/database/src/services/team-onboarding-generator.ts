@@ -344,6 +344,15 @@ async function upsertTeam(
     nationality: params.nationality,
     shortCode: params.shortCode,
     benchConfig: null,
+    // `foundedYear` is registration-locked: stamp the current
+    // year for every fresh team so a row never lands as null.
+    // The PATCH surface refuses subsequent edits (see
+    // `api/src/api/team/dto/update-team.req.dto.ts`). For the
+    // update path above (the onboarding claim of an existing
+    // BOT), we intentionally leave the existing `foundedYear`
+    // alone — the BOT was "founded" at game init, the manager
+    // is just the new owner.
+    foundedYear: new Date().getFullYear(),
   });
   return manager.save(row);
 }
