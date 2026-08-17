@@ -61,8 +61,20 @@ export class FinanceSchedulerService {
       `[FinanceScheduler] Current game state: Season ${season}, Week ${week}`,
     );
 
-    // Get all teams
-    const teams = await this.teamRepo.find();
+    // Get all non-bot teams. BOT teams (isBot=true) are skipped:
+    //   - they have no owner, no economic decisions, and their
+    //     players' wages are already skipped in player-wage.processor
+    //     so any finance settlement writes zero-output rows into
+    //     FinanceEntity / TransactionEntity;
+    //   - the row count grows unboundedly without this filter
+    //     (≈70% of teams in the pyramid are BOT, ~1000+ jobs/week);
+    //   - on onboarding claim, a freshly-claimed BOT inherits
+    //     ghost sponsorship income in FinanceEntity.balance.
+    // Filtering here (not in the processor) also means a future
+    // change cannot quietly start emitting finance activity for
+    // BOT teams — they would need to be added back to the queue
+    // explicitly.
+    const teams = await this.teamRepo.find({ where: { isBot: false } });
 
     let successCount = 0;
     let failCount = 0;
