@@ -1327,89 +1327,104 @@ export class MatchEngine {
     this.awayTeam.updateSnapshot(90, this.awayTactics.pitchWidth);
     this.generateSnapshotEvent(90);
 
-    // Pre-calculate moment times for ET (approx 7 moments)
-    const momentTimes = new Set<number>();
-    for (let i = 0; i < MOMENTS_COUNT; i++) {
-      let nextTime =
-        (90 +
-          ((i * 30) / MOMENTS_COUNT + (Math.random() * 30) / MOMENTS_COUNT)) |
-        0;
-      if (nextTime <= 90) nextTime = 91;
-      if (nextTime > 120) nextTime = 120;
-      momentTimes.add(nextTime);
-    }
+    // [RFC injury-time-2026] ET follows the same phased structure as
+    // regular time: each ET half bakes its own moment set, runs
+    // its 15 regulation minutes, then plays its 0-5 stoppage
+    // minutes. The legacy code baked 7 moments across 91-120 and
+    // never split the kickoffs into separate half loops, so the
+    // second-half kickoff had to be retroactively emitted at t=106
+    // — same anti-pattern as the regular second-half kickoff at
+    // t=46. With the new structure, each half is its own clean
+    // phase with the kickoff pushed *before* the per-minute loop.
 
-    for (let t = 91; t <= 120; t++) {
-      this.time = t;
-
-      // Extra Time Period Kickoffs
-      if (t === 91) {
-        this.events.push({
-          minute: 90,
-          type: 'kickoff',
-          data: {
-            period: 'extra_time',
-            homeScore: this.homeScore,
-            awayScore: this.awayScore,
-          },
-        });
-      }
-      if (t === 106) {
-        this.events.push({
-          minute: 105,
-          type: 'kickoff',
-          data: {
-            period: 'extra_time_second_half',
-            homeScore: this.homeScore,
-            awayScore: this.awayScore,
-          },
-        });
-      }
-
-      // 1. Process Tactical Instructions
-      this.processTacticalInstructions(t);
-
-      // 2. Update Condition
-      const isPeriodStart = t === 91 || t === 106;
-      this.homeTeam.updateCondition(1, isPeriodStart);
-      this.awayTeam.updateCondition(1, isPeriodStart);
-
-      // 3. Snapshot (95, 100, 105, 110, 115, 120)
-      const isSnapshotMinute = t % 5 === 0 || t === 105 || t === 120;
-      if (isSnapshotMinute) {
-        this.homeTeam.updateSnapshot(t, this.homeTactics.pitchWidth);
-        this.awayTeam.updateSnapshot(t, this.awayTactics.pitchWidth);
-        this.generateSnapshotEvent(t);
-      }
-
-      // 4. Key Moments
-      if (momentTimes.has(t)) {
-        const initialEventCount = this.events.length;
-        this.simulateKeyMoment();
-
-        // Update Score
-        const newEvents = this.events.slice(initialEventCount);
-        for (const event of newEvents) {
-          if (event.type === 'goal') {
-            if (event.teamName === this.homeTeam.name) this.homeScore++;
-            else this.awayScore++;
-          }
-        }
-      }
-    }
-
-    // FULL_TIME Event for Extra Time - Mark exactly at 120 minutes
+    // ET 1st half: kickoff, then 91-105.
     this.events.push({
-      minute: 120,
-      type: 'full_time',
+      minute: 90,
+      type: 'kickoff',
       data: {
+        period: 'extra_time',
         homeScore: this.homeScore,
         awayScore: this.awayScore,
       },
     });
 
-    // Finalize player minutes played
-    this.finalizePlayerMinutes(120);
+    this.resetHalfStats();
+    this.currentMomentTimes = this.bakeMomentTimes(MOMENTS_COUNT, 91, 105);
+    for (let t = 91; t <= 105; t++) {
+      this.simulateMinute(t, 'extra_time_first_half', false);
+    }
+
+    // ET 1st-half injury time.
+    this.extraTimeFirstHalfInjury = MatchEngine.computeInjuryTime(
+      this.halfStats,
+    );
+    this.currentMomentTimes = null;
+    for (let i = 1; i <= this.extraTimeFirstHalfInjury; i++) {
+      this.simulateMinute(105 + i, 'extra_time_first_half_injury', true);
+    }
+
+    // ET 2nd-half kickoff — pushed between the two halves so
+    // the wire order is "1H whistle → 2H kickoff → 2H play".
+    this.events.push({
+      minute: 105 + this.extraTimeFirstHalfInjury,
+      type: 'half_time',
+      data: {
+        period: 'extra_time_half_time',
+        homeScore: this.homeScore,
+        awayScore: this.awayScore,
+        injuryTime: this.extraTimeFirstHalfInjury,
+      },
+    });
+    this.events.push({
+      minute: 105,
+      type: 'kickoff',
+      data: {
+        period: 'extra_time_second_half',
+        homeScore: this.homeScore,
+        awayScore: this.awayScore,
+      },
+    });
+
+    // ET 2nd half: 106-120.
+    this.resetHalfStats();
+    this.currentMomentTimes = this.bakeMomentTimes(MOMENTS_COUNT, 106, 120);
+    for (let t = 106; t <= 120; t++) {
+      this.simulateMinute(t, 'extra_time_second_half', false);
+    }
+
+    // ET 2nd-half injury time.
+    this.extraTimeSecondHalfInjury = MatchEngine.computeInjuryTime(
+      this.halfStats,
+    );
+    this.currentMomentTimes = null;
+    for (let i = 1; i <= this.extraTimeSecondHalfInjury; i++) {
+      this.simulateMinute(120 + i, 'extra_time_second_half_injury', true);
+    }
+
+    // FULL_TIME Event for ET — `minute` carries the stoppage-inclusive
+    // clock and `injuryTime` is the sum of both ET halves' stoppage.
+    // `simulatePenaltyShootout` (when invoked after) emits a *second*
+    // `full_time` event at minute 120 with `isPenalty: true` to mark
+    // the shootout result; we deliberately keep that behavior so the
+    // FE's "match ended in penalties" path still triggers.
+    this.events.push({
+      minute: 120 + this.extraTimeSecondHalfInjury,
+      type: 'full_time',
+      data: {
+        homeScore: this.homeScore,
+        awayScore: this.awayScore,
+        injuryTime:
+          this.extraTimeFirstHalfInjury + this.extraTimeSecondHalfInjury,
+      },
+    });
+
+    // Finalize player minutes played — accounts for both ET halves'
+    // stoppage. Note: if `simulatePenaltyShootout` runs after this,
+    // it does not touch player minutes (penalty kicks aren't "play
+    // time" for the purposes of `minutesPlayed`).
+    this.finalizePlayerMinutes(120 + this.extraTimeSecondHalfInjury);
+
+    this.currentMomentTimes = null;
 
     return this.events;
   }

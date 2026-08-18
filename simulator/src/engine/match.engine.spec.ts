@@ -140,7 +140,10 @@ describe('MatchEngine', () => {
     expect(allEvents.length).toBeGreaterThan(0);
     const lastEvent = allEvents[allEvents.length - 1];
     expect(lastEvent.minute).toBeGreaterThan(90);
-    expect(lastEvent.minute).toBeLessThanOrEqual(120);
+    // [RFC injury-time-2026] ET now ends at 120 + ET 2nd-half
+    // stoppage (0-5). Upper bound widened from 120 to 125 to
+    // accommodate a full 5-min injury time at the end of ET.
+    expect(lastEvent.minute).toBeLessThanOrEqual(125);
   });
 
   it('rejects a second call to simulateExtraTime (no duplicate event append)', () => {
