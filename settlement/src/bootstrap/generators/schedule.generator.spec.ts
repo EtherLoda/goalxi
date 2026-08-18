@@ -113,10 +113,13 @@ describe('ScheduleGenerator — senior-only', () => {
     );
   });
 
-  it('schedules round 0 on Wed 13:00 UTC and round 1 on Sat 13:00 UTC of week 1', async () => {
+  it('schedules round 0 on Wed 06:00 UTC and round 1 on Sat 06:00 UTC of week 1', async () => {
     // Wed 2026-09-09 init → week-1 Monday is 2026-09-14.
-    //   round 0 → Wed 2026-09-16 13:00 UTC
-    //   round 1 → Sat 2026-09-19 13:00 UTC
+    //   round 0 → Wed 2026-09-16 06:00 UTC
+    //   round 1 → Sat 2026-09-19 06:00 UTC
+    // (kickoff hour pulled from GAME_SETTINGS.MATCH_KICKOFF_HOUR_UTC
+    // — was 13:00 UTC before 2026-08-18, changed to 06:00 UTC to
+    // share one window with cup matches.)
     const { gen, matchRepo, leagueRepo, teamRepo } = build();
     matchRepo.count.mockResolvedValue(0);
     leagueRepo.find.mockResolvedValue([seniorLeague('L-1')]);
@@ -136,10 +139,10 @@ describe('ScheduleGenerator — senior-only', () => {
     const wed = saved.find((m) => m.round === 1)!;
     const sat = saved.find((m) => m.round === 2)!;
     expect(new Date(wed.scheduledAt!).toISOString()).toBe(
-      '2026-09-16T13:00:00.000Z',
+      '2026-09-16T06:00:00.000Z',
     );
     expect(new Date(sat.scheduledAt!).toISOString()).toBe(
-      '2026-09-19T13:00:00.000Z',
+      '2026-09-19T06:00:00.000Z',
     );
   });
 });

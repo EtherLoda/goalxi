@@ -8,17 +8,19 @@ import {
   MatchType,
   LeagueEntity,
   TeamEntity,
+  GAME_SETTINGS,
   computeSeasonWeekOneMonday,
 } from '@goalxi/database';
 
 /**
  * Matchday cadence — 2 fixtures per week, both at
- * 13:00 UTC. 13:00 UTC = 21:00 in China time, the
- * game audience's evening slot. The user
- * explicitly normalized the historical Wed/Sat
- * mismatch (20:00 / 15:00) to a single 13:00 UTC
- * kickoff so the broadcast windows line up
- * regardless of which day the round lands on.
+ * `GAME_SETTINGS.MATCH_KICKOFF_HOUR_UTC` (currently
+ * 6:00 UTC = 14:00 in China time, the game
+ * audience's afternoon slot).  Originally 13:00 UTC
+ * (= 21:00 China evening); changed 2026-08-18 to
+ * 6:00 UTC so league AND cup share one kickoff hour
+ * and the broadcast window lines up globally. Cup
+ * scheduler MUST read the same constant.
  *
  * For a 16-team league that's 15 weeks × 2 = 30
  * rounds. The week anchor is the Monday computed
@@ -26,13 +28,12 @@ import {
  * 00:00 UTC after `initDate`); the round clock
  * steps off that anchor in 7-day increments.
  *
- *   round 0 → Wed of week 1, 13:00 UTC
- *   round 1 → Sat of week 1, 13:00 UTC
- *   round 2 → Wed of week 2, 13:00 UTC
- *   round 3 → Sat of week 2, 13:00 UTC
+ *   round 0 → Wed of week 1, MATCH_KICKOFF_HOUR_UTC
+ *   round 1 → Sat of week 1, MATCH_KICKOFF_HOUR_UTC
+ *   round 2 → Wed of week 2, MATCH_KICKOFF_HOUR_UTC
+ *   round 3 → Sat of week 2, MATCH_KICKOFF_HOUR_UTC
  *   ...
  */
-const KICKOFF_HOUR_UTC = 13;
 
 /**
  * Senior round-robin options.
@@ -73,7 +74,8 @@ export class ScheduleGenerator {
    * `pnpm init:run --init-date=...` on. The week-1 anchor
    * is computed via `computeSeasonWeekOneMonday`
    * (next-Monday 00:00 UTC); the first kickoff is the
-   * Wednesday 13:00 UTC of that week.
+   * Wednesday at `GAME_SETTINGS.MATCH_KICKOFF_HOUR_UTC`
+   * UTC of that week.
    *
    * 30 rounds per league (16 teams × double round-robin) ×
    * 85 leagues = 20,400 matches for the full pyramid.
@@ -216,14 +218,16 @@ export class ScheduleGenerator {
 
   /**
    * Convert a round index (0-indexed) to a kickoff
-   * instant. Round 0 = Wed 13:00 UTC of week 1
-   * (anchor + 2 days). Round 1 = Sat 13:00 UTC of
-   * week 1 (anchor + 5 days). Round 2 = Wed 13:00
-   * UTC of week 2 (anchor + 9 days). Etc.
+   * instant. Round 0 = Wed MATCH_KICKOFF_HOUR_UTC of
+   * week 1 (anchor + 2 days). Round 1 = Sat
+   * MATCH_KICKOFF_HOUR_UTC of week 1 (anchor + 5
+   * days). Round 2 = Wed MATCH_KICKOFF_HOUR_UTC of
+   * week 2 (anchor + 9 days). Etc.
    *
    * Even rounds → Wednesday.
    * Odd rounds  → Saturday.
-   * Both at 13:00 UTC (= 21:00 in China time).
+   * Both at GAME_SETTINGS.MATCH_KICKOFF_HOUR_UTC
+   * (= 6:00 UTC = 14:00 in China time as of 2026-08-18).
    *
    * The `week` field on the match row (`week = round
    * + 1`) stays 1-indexed and is the human-readable
@@ -239,7 +243,7 @@ export class ScheduleGenerator {
     const out = new Date(
       weekOneMonday.getTime() + (week * 7 + dayOffset) * 24 * 60 * 60 * 1000,
     );
-    out.setUTCHours(KICKOFF_HOUR_UTC, 0, 0, 0);
+    out.setUTCHours(GAME_SETTINGS.MATCH_KICKOFF_HOUR_UTC, 0, 0, 0);
     return out;
   }
 

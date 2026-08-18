@@ -13,6 +13,18 @@ export const GAME_SETTINGS = {
     MATCH_TACTICS_DEADLINE_MINUTES: 10,  // Tactics lock 10 minutes before match
     MATCH_POLLING_INTERVAL_MINUTES: 5,
 
+    /**
+     * Kickoff hour (UTC) for every senior match — both league
+     * (Wed + Sat cadence) and cup (Tue + Thu cadence). 6:00 UTC
+     * = 14:00 in China time, the game audience's afternoon slot.
+     * Originally 13:00 UTC (= 21:00 China evening); changed to
+     * 6:00 UTC on 2026-08-18 to give global audiences a more
+     * balanced window (Europe morning, Asia afternoon, US
+     * late-evening). Cup scheduler MUST import this same value
+     * to stay aligned with the league cadence.
+     */
+    MATCH_KICKOFF_HOUR_UTC: 6,
+
     // Match Duration
     MATCH_FIRST_HALF_MINUTES: 45,
     MATCH_SECOND_HALF_MINUTES: 45,

@@ -5,6 +5,7 @@ import { Repository } from 'typeorm';
 import {
   AnnouncementEntity,
   AnnouncementType,
+  GAME_SETTINGS,
   computeSeasonWeekOneMonday,
 } from '@goalxi/database';
 
@@ -62,8 +63,8 @@ export class AnnouncementGenerator {
       content: [
         '欢迎来到 GoalXI!',
         '',
-        `第一场比赛将于 ${firstMatchDateStr} 13:00 UTC 准时开赛。`,
-        '赛季第一周起点为周一 00:00 UTC,每周三和周六各有一场比赛,均为 13:00 UTC 开球。',
+        `第一场比赛将于 ${firstMatchDateStr} ${GAME_SETTINGS.MATCH_KICKOFF_HOUR_UTC}:00 UTC 准时开赛。`,
+        `赛季第一周起点为周一 00:00 UTC,每周三和周六各有一场比赛,均为 ${GAME_SETTINGS.MATCH_KICKOFF_HOUR_UTC}:00 UTC 开球。`,
         '',
         '您可以现在选择一支 BOT 球队开始您的执教生涯。',
         '赛程、天气、青训(暂停)、转会市场均已就绪。',
