@@ -71,14 +71,48 @@ describe('game-clock', () => {
   });
 
   describe('resolveGameStart', () => {
-    it('parses an ISO date string and truncates to UTC midnight', () => {
-      const out = resolveGameStart('2026-08-06');
-      expect(out.toISOString()).toBe('2026-08-06T00:00:00.000Z');
+    // 2026-08-03 is a Monday (verified against the test runner's
+    // system clock). The 2026-08-06 / 2026-08-04 / 2026-08-02
+    // values used below are deliberately picked to land on
+    // Thursday / Tuesday / Sunday so the Monday-guard tests
+    // exercise every day-of-week except the success path.
+
+    it('parses an ISO date string on a Monday and truncates to UTC midnight', () => {
+      const out = resolveGameStart('2026-08-03');
+      expect(out.toISOString()).toBe('2026-08-03T00:00:00.000Z');
     });
 
-    it('parses a full ISO datetime and drops the HMS', () => {
-      const out = resolveGameStart('2026-08-06T12:34:56Z');
-      expect(out.toISOString()).toBe('2026-08-06T00:00:00.000Z');
+    it('parses a full ISO datetime on a Monday and drops the HMS', () => {
+      const out = resolveGameStart('2026-08-03T12:34:56Z');
+      expect(out.toISOString()).toBe('2026-08-03T00:00:00.000Z');
+    });
+
+    it('throws on a non-Monday date string (regression for week-grid drift)', () => {
+      // 2026-08-06 is a Thursday. Without the guard, the season
+      // grid anchored on a Thursday drifts by 3 days from the
+      // schedule generator's Monday-aligned weekOneMonday, so
+      // `currentSeasonWeek() === 15` fires on the wrong Monday
+      // and the FE's "Week X" labels stop lining up with the
+      // server's season phase.
+      expect(() => resolveGameStart('2026-08-06')).toThrow(
+        /GAME_START_DATE=2026-08-06.*must be a Monday/,
+      );
+    });
+
+    it('throws on a non-Monday day regardless of HMS', () => {
+      // 2026-08-04 is a Tuesday; the HMS portion is irrelevant
+      // because the result is truncated to UTC midnight before
+      // the day-of-week check.
+      expect(() => resolveGameStart('2026-08-04T23:59:59Z')).toThrow(
+        /must be a Monday/,
+      );
+    });
+
+    it('the error message names the offending weekday for fast triage', () => {
+      // 2026-08-02 is a Sunday.
+      expect(() => resolveGameStart('2026-08-02')).toThrow(
+        /which is a Sunday/,
+      );
     });
 
     it('falls back to today at UTC midnight when env is empty', () => {

@@ -77,14 +77,40 @@ export function startOfUtcDay(d: Date): Date {
  *   1. `envValue` (i.e. `process.env.GAME_START_DATE` from the caller)
  *      — accepted as either an ISO date string (`2026-08-06`,
  *      `2026-08-06T12:34:56Z`) or anything `new Date(...)` can
- *      parse. Truncated to UTC midnight.
- *   2. today at UTC midnight (dev fallback).
+ *      parse. Truncated to UTC midnight. Must be a Monday —
+ *      see the validation below.
+ *   2. today at UTC midnight (dev fallback, no validation).
  *
  * Production: set `GAME_START_DATE=YYYY-MM-DD` in the deploy env so
  * every replica agrees on the anchor and a restart doesn't reset
  * the season. Without it, an instance restart re-anchors to
  * "today", which would split data across weeks if a cron tick
  * straddles the restart.
+ *
+ * ## Why the env path must be a Monday
+ *
+ * The schedule generator stamps `match.week` 1-15 via
+ * `ScheduleGenerator.weekFromScheduledAt(scheduledAt, weekOneMonday)`
+ * — and `weekOneMonday` is *always* the next Monday after the
+ * bootstrap `initDate` (see `computeSeasonWeekOneMonday`). The
+ * season-transition crons key on `currentSeasonWeek()` returning
+ * `week === 15` (playoff trigger) and `week === 16` (swap), which
+ * derives `(now - gameStart) / 7 days`.
+ *
+ * If `gameStart` is a non-Monday (e.g. Wednesday), the two views
+ * disagree by `(gameStart.getUTCDay() - 1)` days: the schedule
+ * shows "Week 14" matches while the cron at the following Monday
+ * already sees `week === 15` (or vice versa). The playoff trigger
+ * then fires on the wrong Monday, the season rolls over early or
+ * late, and the FE's "Week X" labels stop lining up with the
+ * server's phase of the season.
+ *
+ * Pinning `gameStart` to Monday keeps the two views in lockstep —
+ * the same 7-day grid that the schedule uses, no off-by-N drift.
+ *
+ * The dev fallback does NOT enforce this (any-day is convenient
+ * for poking at a running stack); the comment above the fallback
+ * return documents the trade-off.
  *
  * `main.ts` (in api + settlement) reads the same env and WARN-logs
  * loudly when the fallback fires, so the missing-config case is
@@ -94,7 +120,19 @@ export function resolveGameStart(envValue?: string): Date {
   if (envValue && envValue.trim().length > 0) {
     const parsed = new Date(envValue);
     if (!isNaN(parsed.getTime())) {
-      return startOfUtcDay(parsed);
+      const result = startOfUtcDay(parsed);
+      // getUTCDay(): 0 = Sun, 1 = Mon, ..., 6 = Sat. We need 1.
+      // Throwing here fails fast at boot — the alternative is a
+      // silently-wrong week-grid alignment that only surfaces weeks
+      // later when the playoff trigger fires on the wrong Monday.
+      if (result.getUTCDay() !== 1) {
+        throw new Error(
+          `GAME_START_DATE=${envValue} resolves to ${result.toISOString()} ` +
+            `which is a ${DAY_NAMES[result.getUTCDay()]} — must be a Monday. ` +
+            `Pick the previous or next Monday and re-deploy.`,
+        );
+      }
+      return result;
     }
     // Malformed env — fall through to the auto fallback. The
     // WARN log in main.ts will already have flagged this string
@@ -102,6 +140,16 @@ export function resolveGameStart(envValue?: string): Date {
   }
   return startOfUtcDay(new Date());
 }
+
+const DAY_NAMES = [
+  'Sunday',
+  'Monday',
+  'Tuesday',
+  'Wednesday',
+  'Thursday',
+  'Friday',
+  'Saturday',
+] as const;
 
 /**
  * Pure: returns the current season + week (1-indexed) for a given

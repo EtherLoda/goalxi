@@ -57,9 +57,13 @@ describe('init-date-resolver', () => {
     });
 
     it('falls back to env when the row is missing', async () => {
+      // 2026-01-05 is a Monday — required by `resolveGameStart`'s
+      // day-of-week guard (see game-clock.ts: `getUTCDay() !== 1`).
+      // The pre-guard version of this test used '2026-01-01'
+      // (Thursday); that input now throws.
       const manager = { findOne: jest.fn().mockResolvedValue(null) } as any;
-      const out = await resolveInitDate(manager, '2026-01-01');
-      expect(out).toEqual(startOfUtcDay(new Date('2026-01-01')));
+      const out = await resolveInitDate(manager, '2026-01-05');
+      expect(out).toEqual(startOfUtcDay(new Date('2026-01-05')));
     });
 
     it('falls back to env (today) when both row and env are missing', async () => {
