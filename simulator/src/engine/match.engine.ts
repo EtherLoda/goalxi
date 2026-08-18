@@ -1016,30 +1016,36 @@ export class MatchEngine {
         this.generateSnapshotEvent(t);
       }
 
-      // 4. Key Moments
-      if (momentTimes.has(t)) {
-        const initialEventCount = this.events.length;
-        this.simulateKeyMoment();
-
-        // Update Score Tracker immediately from new events
-        const newEvents = this.events.slice(initialEventCount);
-        for (const event of newEvents) {
-          if (event.type === 'goal') {
-            if (event.teamName === this.homeTeam.name) this.homeScore++;
-            else this.awayScore++;
-          }
-        }
-      }
-
-      // 5. 独立 foul event(per-minute 概率触发,模拟真实足球里散落的非 attack
-      // 触发犯规,比如争球犯规、拖延时间、报复性犯规等,不打断 attack sequence)。
+      // 4. Key Moments + 5. 独立 foul event
+      // (per-minute 概率触发,模拟真实足球里散落的非 attack 触发犯规,
+      // 比如争球犯规、拖延时间、报复性犯规等,不打断 attack sequence)。
       // 90 分钟 × 12% ≈ 10.8 次/场,加上 keyMoment 入口 30% × 20 回合 ≈ 6 次/场,
       // 总犯规 ~16-17/场,接近真实足球 20-26。
+      //
+      // [Bug fix 2026-08-18] Both the key-moment and the per-minute foul
+      // can emit a goal event (open-play inside `simulateKeyMoment`,
+      // set-piece after a foul). The score scan used to live inside the
+      // `if (momentTimes.has(t))` block only, so set-piece goals from the
+      // per-minute foul trigger landed in `match_event` but never
+      // incremented `homeScore` / `awayScore` — leaving
+      // `half_time` / `full_time` data fields, the match row, and
+      // `match_team_stats.currentScore` out of sync with the event log.
+      // Move the scan to minute level so every goal event this minute
+      // gets counted exactly once, regardless of which path emitted it.
+      const startOfMinute = this.events.length;
+      if (momentTimes.has(t)) {
+        this.simulateKeyMoment();
+      }
       if (t > 0 && t < 90 && Math.random() < 0.12) {
         this.resolveFoul();
       }
+      for (const event of this.events.slice(startOfMinute)) {
+        if (event.type === 'goal') {
+          if (event.teamName === this.homeTeam.name) this.homeScore++;
+          else this.awayScore++;
+        }
+      }
     }
-
     // FULL_TIME Event - Mark exactly at 90 minutes
     this.events.push({
       minute: 90,
