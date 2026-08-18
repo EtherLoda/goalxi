@@ -79,7 +79,32 @@ export class PromotionRelegationService {
   }
 
   /**
-   * 处理单个联赛的升降级（直接升级/降级，不含附加赛）
+   * Process the direct (non-playoff) promotion/relegation
+   * swaps for a single league. The swap pattern is fixed
+   * by the pyramid shape:
+   *
+   *   - The league's #1 swaps with the upper tier's
+   *     `(maxTeams - relegationSlots) + tierDivision`,
+   *     i.e. the upper tier's #13-#16 entry that maps to
+   *     this league's `tierDivision` (1..4 for L2 → L1's
+   *     #13-#16). This is the only "auto" promotion: 1
+   *     team up, 1 team down, no playoff.
+   *   - The league's #(maxTeams - 3)..#maxTeams (4 teams)
+   *     each swap with the *same-position* #1 of one of
+   *     the league's child leagues. Index-based pairing:
+   *     #13 ↔ child[0].#1, #14 ↔ child[1].#1, etc.
+   *     This produces 4 simultaneous direct relegations
+   *     paired with 4 simultaneous direct promotions
+   *     from the next tier.
+   *
+   * L1 (top tier) and L4 (bottom tier) are boundary
+   * cases: L1 has no upper league so its #1 stays put;
+   * L4 has no children so its bottom 4 stay put. Both
+   * boundaries preserve the per-tier swap balance: L1
+   * still moves 4 teams out (its #13-#16 to L2 children)
+   * and accepts 4 teams in (L2's #1s); L4 still moves
+   * 4 teams out (its #1s up to L3) and accepts 4 teams
+   * in (L3's bottom 4). Net change at every tier = 0.
    */
   async processLeaguePromotions(
     league: LeagueEntity,
@@ -99,34 +124,144 @@ export class PromotionRelegationService {
     }
 
     const maxTeams = league.maxTeams || 16;
-    const promotionSlots = league.promotionSlots || 1;
     const relegationSlots = league.relegationSlots || 4;
+    const relegationStart = maxTeams - relegationSlots + 1; // 13 by default
 
-    // Direct promotion: top positions
-    for (let i = 0; i < promotionSlots; i++) {
-      const standing = standings[i];
-      if (standing) {
-        await this.promoteTeam(
-          standing.team,
+    // === 直升: #1 ↔ 上一层 #(relegationStart + tierDivision - 1) ===
+    // For L1 (tier=1) the upper-league lookup returns null;
+    // L1's #1 has nowhere to go up, so it's a no-op.
+    const upperLeague = await this.getUpperLeague(league);
+    if (upperLeague) {
+      const upperMaxTeams = upperLeague.maxTeams || 16;
+      const upperRelegationSlots = upperLeague.relegationSlots || 4;
+      const upperRelegationStart = upperMaxTeams - upperRelegationSlots + 1;
+      // Map: this league's tierDivision (1..4) → upper's
+      // (relegationStart..relegationStart+3). For L2-D1
+      // (tierDivision=1) we pair with upper #13; L2-D2
+      // → upper #14; L2-D3 → #15; L2-D4 → #16. The
+      // `tierDivision - 1` index is bounded to the upper
+      // tier's relegation zone — if a future league has
+      // more than 4 children per upper the extra ones
+      // would slot into the next upper tier instead
+      // (and the pyramid shape would have to be reshaped).
+      const upperRelegationPos =
+        upperRelegationStart + ((league.tierDivision - 1) % upperRelegationSlots);
+
+      const ourChampion = standings.find((s) => s.position === 1);
+      const upperRelegated = await this.standingRepository.findOne({
+        where: {
+          leagueId: upperLeague.id,
+          season,
+          position: upperRelegationPos,
+        },
+      });
+
+      if (ourChampion && upperRelegated && upperRelegated.team) {
+        // 1:1 swap: upper team's `leagueId` becomes this
+        // league's id (relegation), our champion's
+        // `leagueId` becomes the upper league's id
+        // (promotion). The `swapTeamLeague` helper
+        // already applies the per-team fan reward
+        // (±10% / ±20 emotion / cleared `recentForm`).
+        await this.swapTeamLeague(
+          upperRelegated.team.id,
+          ourChampion.team.id,
+          upperLeague.id,
+          league.id,
+        );
+        await this.saveSeasonResult(
+          ourChampion.team,
           league,
           season,
-          standing.position,
+          1,
+          true,
+          false,
+        );
+        await this.saveSeasonResult(
+          upperRelegated.team,
+          upperLeague,
+          season,
+          upperRelegationPos,
+          false,
+          true,
+        );
+        this.logger.info(
+          `↑ ${ourChampion.team.name} promoted from ${league.name} #1 to ${upperLeague.name} #${upperRelegationPos}; ` +
+            `${upperRelegated.team.name} relegated to ${league.name}`,
+        );
+      } else {
+        this.logger.warn(
+          `[PromotionRelegation] Missing #1 for ${league.name} or missing #${upperRelegationPos} for ${upperLeague.name} — promotion skipped`,
         );
       }
+    } else {
+      this.logger.info(
+        `${league.name} is at top tier, no direct promotion`,
+      );
     }
 
-    // Direct relegation: bottom positions
-    const relegationStart = maxTeams - relegationSlots + 1;
-    for (let pos = relegationStart; pos <= maxTeams; pos++) {
-      const standing = standings.find((s) => s.position === pos);
-      if (standing) {
-        await this.relegateTeam(
-          standing.team,
-          league,
-          season,
-          standing.position,
+    // === 直降: #13..#16 ↔ 下一层 children[0..3].#1 ===
+    // For L4 (bottom tier) the child-league lookup
+    // returns an empty array; L4's bottom 4 stay put.
+    const childLeagues = await this.leagueRepository.find({
+      where: { parentLeagueId: league.id },
+      order: { tierDivision: 'ASC' },
+    });
+
+    if (childLeagues.length > 0) {
+      // Pair our bottom-4 with each child league's #1
+      // in tierDivision order. If we have more children
+      // than relegation slots (shouldn't happen with
+      // the current 1:4 pyramid shape but the guard is
+      // cheap), the extras are silently dropped.
+      for (let i = 0; i < relegationSlots && i < childLeagues.length; i++) {
+        const relegationPos = relegationStart + i; // 13, 14, 15, 16
+        const childLeague = childLeagues[i];
+
+        const ourRelegated = standings.find(
+          (s) => s.position === relegationPos,
         );
+        const childChampion = await this.standingRepository.findOne({
+          where: { leagueId: childLeague.id, season, position: 1 },
+        });
+
+        if (ourRelegated && ourRelegated.team && childChampion && childChampion.team) {
+          await this.swapTeamLeague(
+            ourRelegated.team.id,
+            childChampion.team.id,
+            league.id,
+            childLeague.id,
+          );
+          await this.saveSeasonResult(
+            ourRelegated.team,
+            league,
+            season,
+            relegationPos,
+            false,
+            true,
+          );
+          await this.saveSeasonResult(
+            childChampion.team,
+            childLeague,
+            season,
+            1,
+            true,
+            false,
+          );
+          this.logger.info(
+            `↓ ${ourRelegated.team.name} relegated from ${league.name} #${relegationPos} to ${childLeague.name} #1; ` +
+              `${childChampion.team.name} promoted to ${league.name}`,
+          );
+        } else {
+          this.logger.warn(
+            `[PromotionRelegation] Missing #${relegationPos} for ${league.name} or missing #1 for ${childLeague.name} — relegation slot ${i + 1} skipped`,
+          );
+        }
       }
+    } else {
+      this.logger.info(
+        `${league.name} is at bottom tier, no direct relegation`,
+      );
     }
   }
 

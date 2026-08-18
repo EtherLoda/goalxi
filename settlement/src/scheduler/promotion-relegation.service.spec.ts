@@ -391,22 +391,39 @@ describe('PromotionRelegationService', () => {
 
   describe('processLeaguePromotions', () => {
     it('should promote team at position 1', async () => {
+      // This is a tier-2 league (TIER2_LEAGUE_L1) — promotion
+      // means #1 swaps with the upper tier's #13 (the
+      // tierDivision=1 mapping).
+      const ourChampionStanding = {
+        teamId: 'team-1',
+        position: 1,
+        team: createMockTeam('team-1', 'First Place'),
+      };
       mockStandingRepository.find.mockResolvedValue([
-        {
-          teamId: 'team-1',
-          position: 1,
-          team: createMockTeam('team-1', 'First Place'),
-        },
+        ourChampionStanding,
       ] as any);
 
-      mockLeagueRepository.findOne.mockResolvedValue({
-        ...TIER2_LEAGUE_L1,
-        tier: 2,
-      } as LeagueEntity);
-
-      mockTeamRepository.findOne.mockResolvedValue(
-        createMockTeam('team-1', 'First Place') as TeamEntity,
+      // First findOne: getUpperLeague({tier: 1, tierDivision: 1}) → TIER1.
+      // Second findOne: child leagues (parentLeagueId: TIER2_LEAGUE_L1.id) → [].
+      mockLeagueRepository.findOne.mockResolvedValueOnce(
+        TIER1_LEAGUE as LeagueEntity,
       );
+      mockLeagueRepository.find.mockResolvedValueOnce([] as any);
+
+      // standingRepository.findOne: upper's #13 standing (the team that
+      // gets swapped down into TIER2_LEAGUE_L1).
+      mockStandingRepository.findOne.mockResolvedValueOnce({
+        teamId: 'upper-13',
+        position: 13,
+        team: createMockTeam('upper-13', 'Upper 13th'),
+      } as any);
+
+      // swapTeamLeague does two team lookups (upper side then lower side)
+      // and two saves. saveSeasonResult is called twice (one for the
+      // promoted, one for the relegated) — each does a findOne first.
+      mockTeamRepository.findOne
+        .mockResolvedValueOnce(createMockTeam('upper-13', 'Upper 13th'))
+        .mockResolvedValueOnce(createMockTeam('team-1', 'First Place'));
       mockTeamRepository.save.mockResolvedValue({} as TeamEntity);
       mockSeasonResultRepository.findOne.mockResolvedValue(null);
       mockSeasonResultRepository.create.mockReturnValue(
