@@ -1062,19 +1062,24 @@
       "tpl_3": "看 {team} 的这次点球主罚——{player} 站在十二码点前，他用缓慢的助跑节奏试图扰乱 {tackler} 的判断，但在起脚的最后一刻他的支撑脚出现了一丝犹豫！皮球虽然骗过了 {tackler} 的扑救方向，却稍稍偏出球门立柱！{tackler} 跪在地上双手指天感谢上苍，{team} 的 {player} 则双手抱头跪在点球点前，{team} 错失了一次可能改变比赛结果的绝佳机会！"
     },
     "half_time": {
-      "tpl_0": "半场哨响。{homeTeam} {homeScore} : {awayScore} {awayTeam}，球员们进入更衣室稍作休息。"
+      "tpl_0": "半场结束！{homeTeam} 和 {awayTeam} 战成 {homeScore}-{awayScore}，下半场一切皆有可能！",
+      "tpl_1": "半场结束！{homeTeam} 暂时 {homeScore}-{awayScore} 领先 {awayTeam}，上半场表现稳健，下半场值得期待。",
+      "tpl_2": "半场结束！{homeTeam} {homeScore}-{awayScore} 落后于 {awayTeam}，下半场需要扭转局面。"
     },
     "full_time": {
-      "tpl_0": "全场比赛结束！最终比分定格在 {homeTeam} {homeScore} : {awayScore} {awayTeam}，{winner} 拿到了宝贵的胜利！",
-      "tpl_1": "终场哨响！{homeTeam} 对阵 {awayTeam}，比分 {homeScore} : {awayScore}。恭喜 {winner} 赢下比赛！",
-      "tpl_2": "全场比赛结束，{winner} 凭借出色的发挥笑到了最后！",
-      "draw": "两队鏖战90分钟，最终握手言和！"
+      "tpl_0": "全场比赛结束！{homeTeam} {homeScore}-{awayScore} 力克 {awayTeam}，拿到宝贵的三分！",
+      "tpl_1": "全场比赛结束！{homeTeam} 表现强势，{homeScore}-{awayScore} 大胜 {awayTeam}。恭喜主队！",
+      "tpl_2": "全场比赛结束！{awayTeam} {homeScore}-{awayScore} 险胜 {homeTeam}，主队球迷心碎。",
+      "tpl_3": "全场比赛结束！{awayTeam} {homeScore}-{awayScore} 横扫 {homeTeam}，主队经历了一个难熬的下午。",
+      "tpl_4": "全场比赛结束！{homeTeam} {homeScore}-{awayScore} 战平 {awayTeam}，双方各取一分。"
     },
     "kickoff": {
       "tpl_0": "随着主裁判的一声哨响，比赛正式开始！"
     },
     "second_half_start": {
-      "tpl_0": "双方易边再战，下半场比赛正式开启。"
+      "tpl_0": "下半场开始！比分仍是 {homeScore}-{awayScore}，悬念还在，下半场值得期待。",
+      "tpl_1": "下半场开始！{homeTeam} 暂时 {homeScore}-{awayScore} 领先 {awayTeam}，客队能否扳平？",
+      "tpl_2": "下半场开始！{homeTeam} {homeScore}-{awayScore} 落后于 {awayTeam}，主队需要一场反扑。"
     },
     "extra_time_start": {
       "tpl_0": "常规时间不分胜负，加时赛的考验开始了！"

@@ -933,6 +933,78 @@ export function formatPlayerIntroductionCommentary(
   );
 }
 
+// ---------------------------------------------------------------------------
+// Score-aware template picker for period events (half-time, second-half
+// kickoff, full-time). The legacy formatter used a hash-based index
+// (`templateIndexFor(event) % 3`) which gave stable but random variation —
+// `0-3` and `1-0` at the break read the same generic "Half-time! 0-3, players
+// to the dressing room" line, with no sense of whether the home side is in
+// trouble or cruising. The buckets below split the score space into a small
+// number of narratively distinct cases so the FE can read
+//   - tied / level       — "all to play for"
+//   - one side ahead     — "in control" / "work to do"
+//   - blowout (|diff|≥3)  — "a mountain to climb" / "dominant display"
+// and pick the matching template.
+//
+// Why 3 buckets for HT/2HS and 5 for FT: half-time and second-half kickoff
+// only need a coarse "tied / leader / trailer" split — the score is in
+// motion, no need to dramatize yet. Full-time is the headline event; we
+// split close wins/losses from blowouts so the FE can congratulate more
+// emphatically when the margin is decisive, and commiserate more when it's
+// a heavy defeat.
+// ---------------------------------------------------------------------------
+function halfTimeSituation(
+  homeScore: number,
+  awayScore: number,
+): 'tied' | 'home_lead' | 'away_lead' {
+  if (homeScore > awayScore) return 'home_lead';
+  if (homeScore < awayScore) return 'away_lead';
+  return 'tied';
+}
+
+// Maps the half-time buckets to a tpl_N index in
+// `commentary.half_time` (and the same shape for
+// `commentary.second_half_start`). 0=tied, 1=home_lead, 2=away_lead.
+const HALF_TIME_TEMPLATE_INDEX: Record<
+  ReturnType<typeof halfTimeSituation>,
+  number
+> = {
+  tied: 0,
+  home_lead: 1,
+  away_lead: 2,
+};
+
+function fullTimeSituation(
+  homeScore: number,
+  awayScore: number,
+):
+  | 'tied'
+  | 'home_close'
+  | 'home_blowout'
+  | 'away_close'
+  | 'away_blowout' {
+  if (homeScore === awayScore) return 'tied';
+  const diff = Math.abs(homeScore - awayScore);
+  const blowout = diff >= 3;
+  if (homeScore > awayScore) return blowout ? 'home_blowout' : 'home_close';
+  return blowout ? 'away_blowout' : 'away_close';
+}
+
+// Maps the 5 full-time buckets to tpl_N. 0..3 are the four win
+// variants (home_close, home_blowout, away_close, away_blowout);
+// 4 is the draw. The order is stable so the FE test can pin a
+// specific bucket by walking the (homeScore, awayScore) matrix.
+const FULL_TIME_TEMPLATE_INDEX: Record<
+  ReturnType<typeof fullTimeSituation>,
+  number
+> = {
+  home_close: 0,
+  home_blowout: 1,
+  away_close: 2,
+  away_blowout: 3,
+  tied: 4,
+};
+
 export function formatPeriodCommentary(
   event: MatchEvent,
   homeTeamName: string,
@@ -949,12 +1021,19 @@ export function formatPeriodCommentary(
   else if (type === 'EXTRA_TIME_START') section = 'commentary.extra_time_start';
   else if (type === 'PENALTY_START') section = 'commentary.penalty_start';
 
-  // Handle half_time with score
+  // Half-time whistle: pick a template based on the running score
+  // situation. We always interpolate the score regardless of which
+  // template the FE picks, so every variant can include the
+  // scoreline in its own wording.
   if (type === 'HALF_TIME') {
     const homeScore = data?.homeScore ?? 0;
     const awayScore = data?.awayScore ?? 0;
+    const idx =
+      HALF_TIME_TEMPLATE_INDEX[
+        halfTimeSituation(homeScore, awayScore)
+      ];
     return interpolate(
-      getTemplate(t, section, 0, {
+      getTemplate(t, section, idx, {
         homeTeam: homeTeamName,
         awayTeam: awayTeamName,
         homeScore,
@@ -964,32 +1043,56 @@ export function formatPeriodCommentary(
     );
   }
 
-  // Handle full_time with score and winner
+  // Second-half kickoff: same 3-bucket situation picker as half-time
+  // (using the 1H score that's already on the event data). The
+  // template is more forward-looking — "next 45" / "comeback
+  // needed" — but the score math is identical.
+  if (type === 'SECOND_HALF_START') {
+    const homeScore = data?.homeScore ?? 0;
+    const awayScore = data?.awayScore ?? 0;
+    const idx =
+      HALF_TIME_TEMPLATE_INDEX[
+        halfTimeSituation(homeScore, awayScore)
+      ];
+    return interpolate(
+      getTemplate(t, section, idx, {
+        homeTeam: homeTeamName,
+        awayTeam: awayTeamName,
+        homeScore,
+        awayScore,
+      }),
+      { homeTeam: homeTeamName, awayTeam: awayTeamName, homeScore, awayScore },
+    );
+  }
+
+  // Full-time: 5-bucket picker keyed on the final score. The
+  // legacy code passed `winner` as an interpolation variable
+  // because the old templates said "{winner} claims all three
+  // points" — with score-aware templates the winner is implicit
+  // (each bucket's template is already winner-specific), so we
+  // drop the variable. The i18n keys still accept {homeTeam},
+  // {awayTeam}, {homeScore}, {awayScore} as before.
   if (type === 'FULL_TIME') {
     const homeScore = data?.homeScore ?? 0;
     const awayScore = data?.awayScore ?? 0;
-    const templateIdx = templateIndexFor(event) % 3;
-
-    let winner: string;
-    if (homeScore > awayScore) {
-      winner = homeTeamName;
-    } else if (awayScore > homeScore) {
-      winner = awayTeamName;
-    } else {
-      winner = t('full_time.draw');
-    }
+    const idx =
+      FULL_TIME_TEMPLATE_INDEX[
+        fullTimeSituation(homeScore, awayScore)
+      ];
 
     const params = {
       homeTeam: homeTeamName,
       awayTeam: awayTeamName,
       homeScore,
       awayScore,
-      winner,
     };
-    return interpolate(getTemplate(t, section, templateIdx, params), params);
+    return interpolate(getTemplate(t, section, idx, params), params);
   }
 
-  // Simple period events without score
+  // Simple period events without score (KICKOFF at minute 0,
+  // EXTRA_TIME_START, PENALTY_START). The 2H kickoff is handled
+  // above under SECOND_HALF_START; this branch is for the ones
+  // that have no score yet (or no score dependence).
   return getTemplate(t, section, 0);
 }
 

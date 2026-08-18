@@ -202,6 +202,10 @@ describe('formatEventCommentary dispatch', () => {
     // Pre-fix the second-half kickoff was unreachable because the canonical
     // key was `SECOND_HALF_START` but the simulator emits `second_half`.
     // canonicalEventType aliases it; this test would have failed before.
+    //
+    // The new score-aware second-half kickoff passes 0-0 (no
+    // 1H score on the event data) → tied bucket → tpl_0. The
+    // mock just returns the template for tpl_0.
     const t = jest.fn((key: string) => {
       if (key === 'second_half_start.tpl_0') {
         return 'SECOND_HALF_BEGINS';
@@ -217,7 +221,16 @@ describe('formatEventCommentary dispatch', () => {
     );
 
     expect(text).toBe('SECOND_HALF_BEGINS');
-    expect(t).toHaveBeenCalledWith('second_half_start.tpl_0');
+    // The formatter now passes interpolation params (homeTeam,
+    // awayTeam, homeScore, awayScore) so the score-aware tpl_N
+    // can include the running score in its wording.
+    expect(t).toHaveBeenCalledWith(
+      'second_half_start.tpl_0',
+      expect.objectContaining({
+        homeTeam: 'A',
+        awayTeam: 'B',
+      }),
+    );
   });
 
   it('PENALTY_GOAL is treated as a GOAL (penalty shootout scores count)', () => {
@@ -1022,64 +1035,158 @@ describe('commentary tpl_* variation is per-event deterministic', () => {
 // ============================================================================
 
 describe('formatEventCommentary period events', () => {
-  it('FULL_TIME resolves winner via tpl_* variation', () => {
-    const t = jest.fn((key: string) => {
-      if (key === 'full_time.tpl_0') return 'FT_TPL_0:{homeTeam} {homeScore}-{awayScore} {awayTeam} winner={winner}';
-      if (key === 'full_time.tpl_1') return 'FT_TPL_1';
-      if (key === 'full_time.tpl_2') return 'FT_TPL_2';
-      if (key === 'full_time.draw') return 'draw';
-      return key;
-    });
-    const text = formatEventCommentary(
-      baseEvent({
-        type: 'full_time',
-        typeName: 'full_time',
-        minute: 90,
-        data: { homeScore: 2, awayScore: 1 },
-      }),
-      'Arsenal',
-      'Chelsea',
-      t,
-    );
-    expect(text).toContain('Arsenal');
-    expect(text).toContain('Chelsea');
-    expect(text).toContain('2-1');
-    expect(text).not.toBe('');
+  // Score-aware template picker (5 buckets for full-time,
+  // 3 buckets for half-time and second-half-start). The
+  // formatter passes the right tpl_N based on the running
+  // score, so a 0-3 blowout reads a different template from
+  // a 1-1 stalemate. The tests below pin each bucket.
+
+  describe('full_time picks the right tpl_N for the score situation', () => {
+    // tpl_N map (kept in lockstep with FULL_TIME_TEMPLATE_INDEX
+    // in commentary.ts):
+    //   0 = home_close     (home wins, |diff| < 3)
+    //   1 = home_blowout    (home wins, |diff| >= 3)
+    //   2 = away_close     (away wins, |diff| < 3)
+    //   3 = away_blowout    (away wins, |diff| >= 3)
+    //   4 = tied
+    const cases: Array<{
+      label: string;
+      homeScore: number;
+      awayScore: number;
+      expectedTpl: number;
+    }> = [
+      { label: 'home win 1-0 → home_close → tpl_0', homeScore: 1, awayScore: 0, expectedTpl: 0 },
+      { label: 'home win 2-1 → home_close → tpl_0', homeScore: 2, awayScore: 1, expectedTpl: 0 },
+      { label: 'home win 3-0 → home_blowout → tpl_1', homeScore: 3, awayScore: 0, expectedTpl: 1 },
+      { label: 'home win 5-2 → home_blowout → tpl_1', homeScore: 5, awayScore: 2, expectedTpl: 1 },
+      { label: 'away win 0-1 → away_close → tpl_2', homeScore: 0, awayScore: 1, expectedTpl: 2 },
+      { label: 'away win 1-2 → away_close → tpl_2', homeScore: 1, awayScore: 2, expectedTpl: 2 },
+      { label: 'away win 0-3 → away_blowout → tpl_3', homeScore: 0, awayScore: 3, expectedTpl: 3 },
+      { label: 'away win 1-5 → away_blowout → tpl_3', homeScore: 1, awayScore: 5, expectedTpl: 3 },
+      { label: 'tied 0-0 → tpl_4', homeScore: 0, awayScore: 0, expectedTpl: 4 },
+      { label: 'tied 2-2 → tpl_4', homeScore: 2, awayScore: 2, expectedTpl: 4 },
+      // Boundary: 2-goal diff still counts as "close".
+      { label: 'home win 3-1 → home_close (2-goal diff) → tpl_0', homeScore: 3, awayScore: 1, expectedTpl: 0 },
+      { label: 'away win 1-3 → away_close (2-goal diff) → tpl_2', homeScore: 1, awayScore: 3, expectedTpl: 2 },
+    ];
+
+    for (const c of cases) {
+      it(c.label, () => {
+        const t = jest.fn((key: string) => {
+          if (key === `full_time.tpl_${c.expectedTpl}`) {
+            return `FT_TPL_${c.expectedTpl}:${c.homeScore}-${c.awayScore}`;
+          }
+          return `UNEXPECTED:${key}`;
+        });
+        const text = formatEventCommentary(
+          baseEvent({
+            type: 'full_time',
+            typeName: 'full_time',
+            minute: 90,
+            data: { homeScore: c.homeScore, awayScore: c.awayScore },
+          }),
+          'Home',
+          'Away',
+          t,
+        );
+        expect(text).toBe(`FT_TPL_${c.expectedTpl}:${c.homeScore}-${c.awayScore}`);
+      });
+    }
   });
 
-  it('HALF_TIME interpolates half-time score', () => {
-    const t = jest.fn((key: string) => {
-      if (key === 'half_time.tpl_0') {
-        return 'HT:{homeTeam} {homeScore}-{awayScore} {awayTeam}';
-      }
-      return key;
-    });
-    const text = formatEventCommentary(
-      baseEvent({
-        type: 'half_time',
-        typeName: 'half_time',
-        minute: 45,
-        data: { homeScore: 1, awayScore: 0 },
-      }),
-      'A',
-      'B',
-      t,
-    );
-    expect(text).toContain('A 1-0 B');
+  describe('half_time picks the right tpl_N for the score situation', () => {
+    // 3 buckets: tied (0) / home_lead (1) / away_lead (2).
+    const cases: Array<{
+      label: string;
+      homeScore: number;
+      awayScore: number;
+      expectedTpl: number;
+    }> = [
+      { label: '0-0 → tied → tpl_0', homeScore: 0, awayScore: 0, expectedTpl: 0 },
+      { label: '1-1 → tied → tpl_0', homeScore: 1, awayScore: 1, expectedTpl: 0 },
+      { label: '2-0 → home_lead → tpl_1', homeScore: 2, awayScore: 0, expectedTpl: 1 },
+      { label: '3-1 → home_lead → tpl_1', homeScore: 3, awayScore: 1, expectedTpl: 1 },
+      { label: '0-2 → away_lead → tpl_2', homeScore: 0, awayScore: 2, expectedTpl: 2 },
+      { label: '0-3 → away_lead → tpl_2', homeScore: 0, awayScore: 3, expectedTpl: 2 },
+    ];
+
+    for (const c of cases) {
+      it(c.label, () => {
+        const t = jest.fn((key: string) => {
+          if (key === `half_time.tpl_${c.expectedTpl}`) {
+            return `HT_TPL_${c.expectedTpl}:${c.homeScore}-${c.awayScore}`;
+          }
+          return `UNEXPECTED:${key}`;
+        });
+        const text = formatEventCommentary(
+          baseEvent({
+            type: 'half_time',
+            typeName: 'half_time',
+            minute: 45,
+            data: { homeScore: c.homeScore, awayScore: c.awayScore },
+          }),
+          'A',
+          'B',
+          t,
+        );
+        expect(text).toBe(`HT_TPL_${c.expectedTpl}:${c.homeScore}-${c.awayScore}`);
+      });
+    }
   });
 
-  // Regression: next-intl@4 throws FORMATTING_ERROR when `t()` is called
-  // with a template that has `{var}` placeholders but no params object.
-  // getTemplate() must always forward the interpolation params, otherwise
-  // period templates (full_time, half_time, forfeit, �? surface as the
-  // literal `commentary.full_time.tpl_2` string in the UI.
-  it('getTemplate forwards interpolation params so next-intl does not throw', () => {
+  describe('second_half_start picks the right tpl_N for the 1H score', () => {
+    // The 2H kickoff carries the 1H score in data — the same
+    // 3-bucket picker as half-time applies, just with
+    // forward-looking wording ("comeback needed" / "extend
+    // the lead" / "all to play for").
+    const cases: Array<{
+      label: string;
+      homeScore: number;
+      awayScore: number;
+      expectedTpl: number;
+    }> = [
+      { label: '1-1 at the break → tpl_0', homeScore: 1, awayScore: 1, expectedTpl: 0 },
+      { label: '2-0 at the break → tpl_1', homeScore: 2, awayScore: 0, expectedTpl: 1 },
+      { label: '0-2 at the break → tpl_2', homeScore: 0, awayScore: 2, expectedTpl: 2 },
+    ];
+
+    for (const c of cases) {
+      it(c.label, () => {
+        const t = jest.fn((key: string) => {
+          if (key === `second_half_start.tpl_${c.expectedTpl}`) {
+            return `2H_TPL_${c.expectedTpl}:${c.homeScore}-${c.awayScore}`;
+          }
+          return `UNEXPECTED:${key}`;
+        });
+        const text = formatEventCommentary(
+          baseEvent({
+            type: 'second_half',
+            typeName: 'second_half',
+            minute: 46,
+            data: { homeScore: c.homeScore, awayScore: c.awayScore },
+          }),
+          'A',
+          'B',
+          t,
+        );
+        // The 2H kickoff is emitted with type 'second_half' from
+        // the engine; canonicalEventType maps it to
+        // SECOND_HALF_START and the formatter picks tpl_N.
+        expect(text).toBe(`2H_TPL_${c.expectedTpl}:${c.homeScore}-${c.awayScore}`);
+      });
+    }
+  });
+
+  it('FULL_TIME forwards interpolation params (homeScore / awayScore) so next-intl does not throw', () => {
+    // Regression: next-intl@4 throws FORMATTING_ERROR when `t()` is called
+    // with a template that has `{var}` placeholders but no params object.
+    // getTemplate() must always forward the interpolation params, otherwise
+    // the period template surfaces as the literal `commentary.full_time.tpl_2`
+    // string in the UI.
     const t = jest.fn((key: string, params?: Record<string, string | number>) => {
-      // Real next-intl would interpolate via ICU MessageFormat; mimic that
-      // for any tpl_N in the full_time family so the test is hash-stable.
       if (key.startsWith('full_time.tpl_') && params) {
         const n = key.slice('full_time.tpl_'.length);
-        return `FT_TPL_${n}:${params.winner} (${params.homeScore}-${params.awayScore})`;
+        return `FT_TPL_${n}:${params.homeScore}-${params.awayScore}`;
       }
       return key;
     });
@@ -1094,13 +1201,20 @@ describe('formatEventCommentary period events', () => {
       'Losers',
       t,
     );
-    expect(text).toContain('Winners');
     expect(text).toContain('3-1');
-    // Param object MUST include winner + scores �?guards against a future
-    // refactor that drops them silently.
+    // The full-time buckets are score-aware, so the params object
+    // MUST include both scores (and team names) — guards against
+    // a future refactor that drops them silently. The legacy
+    // `winner` variable is no longer in the params (the new
+    // templates are bucket-specific so the winner is implicit).
     expect(t).toHaveBeenCalledWith(
       expect.stringMatching(/^full_time\.tpl_\d+$/),
-      expect.objectContaining({ winner: 'Winners', homeScore: 3, awayScore: 1 }),
+      expect.objectContaining({
+        homeTeam: 'Winners',
+        awayTeam: 'Losers',
+        homeScore: 3,
+        awayScore: 1,
+      }),
     );
   });
 });

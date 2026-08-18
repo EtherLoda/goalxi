@@ -1065,19 +1065,24 @@
       "tpl_3": "Watch {player} at the spot for {team} — he stutters in the run-up but {tackler} doesn't bite! The keeper dives the right way and pushes it wide! {player} falls to his knees, {team} have blown a huge chance. The visiting end goes absolutely wild!"
     },
     "half_time": {
-      "tpl_0": "Half-time whistle! {homeTeam} {homeScore} : {awayScore} {awayTeam} — players head to the dressing room."
+      "tpl_0": "Half-time! All square at {homeScore}-{awayScore} between {homeTeam} and {awayTeam} — all to play for in the second 45.",
+      "tpl_1": "Half-time! {homeTeam} lead {homeScore}-{awayScore} against {awayTeam} — a solid first-half performance to build on.",
+      "tpl_2": "Half-time! {homeTeam} trail {homeScore}-{awayScore} to {awayTeam} — work to do if they're to get back into this."
     },
     "full_time": {
-      "tpl_0": "Full-time! The final score: {homeTeam} {homeScore} : {awayScore} {awayTeam} — {winner} claims all three points!",
-      "tpl_1": "That's it! {homeTeam} vs {awayTeam} ends {homeScore} : {awayScore}. Congratulations to {winner}!",
-      "tpl_2": "Final whistle! {winner} shows why they're champions with a dominant display!",
-      "draw": "It's a draw after 90 minutes — both teams share the spoils!"
+      "tpl_0": "Full-time! {homeTeam} edge it {homeScore}-{awayScore} over {awayTeam} — three points in the bag!",
+      "tpl_1": "Full-time! A dominant display from {homeTeam} — {homeScore}-{awayScore} over {awayTeam}. Congratulations!",
+      "tpl_2": "Full-time! {awayTeam} snatch it {homeScore}-{awayScore} against {homeTeam} — heartbreak for the home fans.",
+      "tpl_3": "Full-time! {awayTeam} run out {homeScore}-{awayScore} winners at {homeTeam}'s expense. A day to forget for the hosts.",
+      "tpl_4": "Full-time! It's all square — {homeTeam} {homeScore}-{awayScore} {awayTeam}. A point apiece."
     },
     "kickoff": {
       "tpl_0": "And we're off! The referee blows the whistle and we're underway!"
     },
     "second_half_start": {
-      "tpl_0": "Second half kicks off! Let's see what the next 45 minutes bring."
+      "tpl_0": "Second half kicks off! Still level at {homeScore}-{awayScore} — the next 45 should be lively.",
+      "tpl_1": "Second half underway. {homeTeam} hold a {homeScore}-{awayScore} lead over {awayTeam} — can the visitors respond?",
+      "tpl_2": "Second half underway. {homeTeam} trail {homeScore}-{awayScore} to {awayTeam} — a comeback is needed."
     },
     "extra_time_start": {
       "tpl_0": "Thirty more minutes to decide this. Extra time begins!"
