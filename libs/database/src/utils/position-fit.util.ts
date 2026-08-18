@@ -603,13 +603,34 @@ const WBR_WEIGHTS: PositionWeightMatrix = {
 
 /**
  * GK - Goalkeeper (守门员)
- * reflexes + handling + positioning + composure + pace + strength + passing + dribbling = 100
+ *
+ * Coefficient vector is now shared with the engine's
+ * `calculateGKSaveRatingRaw` and the set-piece
+ * `getGoalkeeperSetPieceRating` (all three live in
+ * `constants/gk-rating.constants.ts`). Previously the
+ * position-fit table used a *different* 5 / 3 / 2 vector with
+ * only 3 attributes — that was the source of the
+ * 'position-fit recommends a GK the engine rates 72%' bug.
+ *
+ * The 4 / 2.5 / 1.5 / 1 / 1 vector with all 5 attributes
+ * produces a 0-100 fit where:
+ *   - a player with all 5 attributes at the engine max (20)
+ *     scores 100 (perfect fit)
+ *   - a player with all 5 attributes at 0 scores 0
+ *
+ * `calculatePositionFit` below normalises the weighted sum
+ * by `totalWeight × 20`, so the per-attribute weight shape
+ * maps 1-to-1 onto the engine's `gkRawRating` shape.
  */
+import { GK_RATING_COEFFICIENTS } from '../constants/gk-rating.constants';
+
 const GK_WEIGHTS: GKWeightMatrix = {
     saveRating: {
-        gk_reflexes: 5,
-        gk_handling: 3,
-        positioning: 2,
+        gk_reflexes: GK_RATING_COEFFICIENTS.gk_reflexes,
+        gk_handling: GK_RATING_COEFFICIENTS.gk_handling,
+        positioning: GK_RATING_COEFFICIENTS.positioning,
+        gk_aerial: GK_RATING_COEFFICIENTS.gk_aerial,
+        composure: GK_RATING_COEFFICIENTS.composure,
     }
 };
 

@@ -5,6 +5,7 @@ import {
   TeamSnapshot,
 } from '../types/simulation.types';
 import { AttributeCalculator } from '../utils/attribute-calculator';
+import { gkSetPieceRating } from '@goalxi/database';
 import { ConditionSystem } from '../systems/condition.system';
 import { Player } from '../../types/player.types';
 import { PitchWidth } from '../types/tactics-config';
@@ -404,21 +405,29 @@ export class Team {
   }
 
   /**
-   * Get goalkeeper's set-piece defense rating
+   * Goalkeeper's set-piece defense rating.
+   *
+   * Returns 0-20 (the same magnitude as the `freeKicks`
+   * attribute). This is the rating the corner / indirect
+   * FK / direct FK / penalty formulas multiply by 0.2 to
+   * build the defender sum — see `match.engine.ts:resolveCorner`
+   * and the set-piece callsites for the formula.
+   *
+   * The historical implementation used `(... ) / 9`, which
+   * put the rating in the 1-22 range and made the GK look
+   * arbitrarily weaker on set pieces than the engine-side
+   * `getSnapshot().gkRating` would suggest. The /10 divisor
+   * here gives a clean 0-20 range — the design intent of
+   * 'GK is a 20% factor on set pieces' is now visible in
+   * the math (max-skill GK contributes `20 × 0.2 = 4`
+   * against the attacker's free-kick sum which lands at
+   * ~12 at max skill).
    */
   getGoalkeeperSetPieceRating(): number {
     const gk = this.getGoalkeeper();
     if (!gk) return 10;
 
     const player = gk.player as Player;
-    const attrs = player.attributes;
-    return (
-      ((attrs.gk_reflexes ?? 10) * 4 +
-        (attrs.gk_handling ?? 10) * 2.5 +
-        (attrs.positioning ?? 10) * 1.5 +
-        (attrs.gk_aerial ?? 10) * 1 +
-        (attrs.composure ?? 10) * 1) /
-      9
-    );
+    return gkSetPieceRating(player.attributes);
   }
 }

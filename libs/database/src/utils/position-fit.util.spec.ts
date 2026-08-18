@@ -13,7 +13,14 @@ describe('PositionFitUtil', () => {
             const perfectAttrs: SimulationPlayerAttributes = {
                 pace: 20, strength: 20, positioning: 20, composure: 20,
                 freeKicks: 20, penalties: 20, finishing: 20, passing: 20,
-                dribbling: 20, defending: 20, gk_reflexes: 20, gk_handling: 20,
+                dribbling: 20, defending: 20,
+                gk_reflexes: 20, gk_handling: 20,
+                // gk_aerial and gk_composure (the latter maps to
+                // the `composure` key in the engine) are part of
+                // the GK_WEIGHTS coefficient vector now (commit 5
+                // of the position-key unification plan). A
+                // "perfect" GK has them maxed too.
+                gk_aerial: 20,
             };
             // A perfect player should get ~100 at their natural position
             expect(calculatePositionFit(perfectAttrs, 'LW')).toBe(100);

@@ -3,6 +3,7 @@ import {
   PositionWeightMatrix,
   GKWeightMatrix,
   normalizeYouthPositionKey,
+  gkRawRating,
 } from '@goalxi/database';
 import { Player, PlayerAttributes } from '../../types/player.types';
 import { Lane, Phase } from '../types/simulation.types';
@@ -267,19 +268,22 @@ export class AttributeCalculator {
   }
 
   /**
-   * 原始GK评分计算（不缓存）
-   * GK_save_rating = reflexes * 4 + handling * 2.5 + positioning * 1.5 + aerial * 1 + composure * 1
+   * Raw GK save rating, 0-200. Shares the coefficient vector
+   * with the position-fit `GK_WEIGHTS` table and the
+   * set-piece `getGoalkeeperSetPieceRating` (all three now
+   * go through `gkRawRating` in
+   * `libs/database/src/constants/gk-rating.constants.ts`).
+   *
+   * Output range: 5 attributes × coefficient sum 10 × max
+   * skill 20 = 200. With all 5 attributes at the engine
+   * default of 10 the rating is exactly 100, which is the
+   * 'default gkRating' the engine falls back to when a team
+   * has no goalkeeper (see `match.engine.ts:2280, 2353`).
    */
   private static calculateGKSaveRatingRaw(player: Player): number {
     const attrs = player.attributes;
     const injuryPenalty = (player as any).injuryPenalty ?? 1.0;
-    const raw =
-      ((attrs.gk_reflexes ?? 10) * 4 +
-        (attrs.gk_handling ?? 10) * 2.5 +
-        (attrs.positioning ?? 10) * 1.5 +
-        (attrs.gk_aerial ?? 10) * 1 +
-        (attrs.composure ?? 10) * 1) *
-      injuryPenalty;
+    const raw = gkRawRating(attrs) * injuryPenalty;
     return parseFloat((raw * 1.0).toFixed(2));
   }
 
