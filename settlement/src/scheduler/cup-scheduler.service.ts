@@ -202,11 +202,23 @@ export class CupSchedulerService {
         this.matchRepo.create({
           leagueId: null, // cup matches don't belong to a league
           season: cup.season,
-          // `week` is 1-indexed in the league schedule. For cup
-          // matches we set week=0 as a sentinel for "not a
-          // league matchweek" — the FE/queries that filter by
-          // week>0 will skip cup rows. The cup round number is
-          // carried in `round` (0..N-1).
+          // `week=0` is the explicit "non-league" sentinel. The
+          // league `ScheduleGenerator` derives `week` from
+          // `scheduledAt` via `weekFromScheduledAt` (always
+          // returns ≥1); we OVERRIDE that to 0 here because:
+          //   1. The cup has no league-week concept — a cup
+          //      round spans Tuesday, which doesn't align with
+          //      the Mon-Sun league week.
+          //   2. The season-transition cron gates on
+          //      `week === 15` (the league's last match week).
+          //      A cup match with `week=15` (e.g. scheduled
+          //      during that calendar week) would falsely fire
+          //      the playoff trigger.
+          //   3. The FE/queries that filter `week > 0` skip cup
+          //      rows by design — cup is identified by
+          //      `type='CUP' AND leagueId IS NULL`, not by
+          //      week.
+          // The cup round number is carried in `round` (0..N-1).
           week: 0,
           round: round.roundNumber,
           homeTeamId: homeSlot.homeTeamId as Uuid,

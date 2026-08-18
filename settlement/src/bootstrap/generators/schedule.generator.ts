@@ -138,6 +138,27 @@ export class ScheduleGenerator {
     return total;
   }
 
+  /**
+   * Derive the 1-indexed schedule week from a match's
+   * actual kickoff instant. The week is calendar-aligned
+   * (Mon 00:00 UTC to next Mon 00:00 UTC) and anchored on
+   * `weekOneMonday`. Computing the week from `scheduledAt`
+   * rather than from the round index means a rescheduled
+   * match (weather delay, admin push, makeup game) keeps
+   * the same physical week as its new kickoff time — so
+   * the FE's "Week X" label and the playoff cron gate
+   * (`SeasonTransitionService.checkAndGeneratePlayoffs`
+   * firing on `week === 15`) both stay correct without
+   * needing a separate `recomputeWeekForMatch` step.
+   *
+   * Returns a 1-indexed integer; never 0.
+   */
+  weekFromScheduledAt(scheduledAt: Date, weekOneMonday: Date): number {
+    const MS_PER_WEEK = 7 * 24 * 60 * 60 * 1000;
+    const delta = scheduledAt.getTime() - weekOneMonday.getTime();
+    return Math.floor(delta / MS_PER_WEEK) + 1;
+  }
+
   // ---------- shared round-robin ----------
 
   /**
@@ -183,18 +204,24 @@ export class ScheduleGenerator {
       );
 
       for (const { home, away } of matchups) {
+        const scheduledAt = this.matchStart(round, options.weekOneMonday);
         matches.push({
           leagueId: options.leagueId,
           youthLeagueId: null,
           season: options.season,
-          // `week` is the 1-indexed schedule week, not the
-          // round number. Each week holds 2 rounds (Wed +
-          // Sat), so weeks 1..15 span 30 rounds. The
-          // season-transition cron (SeasonTransitionService
-          // .checkAndGeneratePlayoffs) keys on `week === 15`
-          // to decide the playoff trigger, so this field
-          // MUST stay aligned with that 1-15 range.
-          week: Math.floor(round / 2) + 1,
+          // `week` is derived from `scheduledAt`, NOT from
+          // the round index. Computing it via
+          // `weekFromScheduledAt` keeps the field aligned
+          // with the actual calendar week even when a
+          // match is rescheduled. The previous
+          // `Math.floor(round / 2) + 1` happened to match
+          // the calendar week under the original schedule
+          // but broke the moment any match was moved
+          // (weather delay, makeup game, admin push).
+          // Season-transition cron keys on `week === 15`
+          // to fire the playoff trigger, so the alignment
+          // is load-bearing.
+          week: this.weekFromScheduledAt(scheduledAt, options.weekOneMonday),
           // `round` is the round within the week (1 = Wed,
           // 2 = Sat). Previously this column held the
           // absolute round number (1..30) which collapsed
@@ -210,7 +237,7 @@ export class ScheduleGenerator {
           tacticsLocked: false,
           homeForfeit: false,
           awayForfeit: false,
-          scheduledAt: this.matchStart(round, options.weekOneMonday),
+          scheduledAt,
         });
       }
     }
@@ -229,11 +256,17 @@ export class ScheduleGenerator {
       );
 
       for (const { home, away } of matchups) {
+        const scheduledAt = this.matchStart(
+          numRounds + round,
+          options.weekOneMonday,
+        );
         matches.push({
           leagueId: options.leagueId,
           youthLeagueId: null,
           season: options.season,
-          week: Math.floor((numRounds + round) / 2) + 1,
+          // Same `weekFromScheduledAt` derivation as the
+          // first leg — see comment there for rationale.
+          week: this.weekFromScheduledAt(scheduledAt, options.weekOneMonday),
           round: ((numRounds + round) % 2) + 1,
           homeTeamId: away,
           awayTeamId: home,
@@ -242,10 +275,7 @@ export class ScheduleGenerator {
           tacticsLocked: false,
           homeForfeit: false,
           awayForfeit: false,
-          scheduledAt: this.matchStart(
-            numRounds + round,
-            options.weekOneMonday,
-          ),
+          scheduledAt,
         });
       }
     }
