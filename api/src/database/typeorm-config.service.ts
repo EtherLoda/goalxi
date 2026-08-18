@@ -1,6 +1,10 @@
 import TypeOrmCustomLogger from '@/utils/typeorm-custom-logger';
 import {
   AuctionEntity,
+  CupBracketSlotEntity,
+  CupEntity,
+  CupEntryEntity,
+  CupRoundEntity,
   FinanceEntity,
   ForumCategoryEntity,
   ForumPostEntity,
@@ -74,6 +78,10 @@ export class TypeOrmConfigService implements TypeOrmOptionsFactory {
         ForumThreadEntity,
         ForumPostEntity,
         ForumReactionEntity,
+        CupEntity,
+        CupRoundEntity,
+        CupEntryEntity,
+        CupBracketSlotEntity,
       ],
       // Exclude `*.spec.ts` / `*.spec.js` so Jest tripwire specs that
       // live next to migrations (see 1722000000000-UnifyYouthIntoPlayer

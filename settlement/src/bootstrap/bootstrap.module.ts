@@ -16,6 +16,10 @@ import {
   ScoutCandidateEntity,
   TacticsPresetEntity,
   AnnouncementEntity,
+  CupEntity,
+  CupRoundEntity,
+  CupEntryEntity,
+  CupBracketSlotEntity,
 } from '@goalxi/database';
 import { BootstrapService } from './bootstrap.service';
 import { UserGenerator } from './generators/user.generator';
@@ -26,6 +30,7 @@ import { WeatherGenerator } from './generators/weather.generator';
 import { TacticsPresetGenerator } from './generators/tactics-preset.generator';
 import { ScoutSeedGenerator } from './generators/scout-seed.generator';
 import { AnnouncementGenerator } from './generators/announcement.generator';
+import { CupGenerator } from './generators/cup.generator';
 
 /**
  * Wires the auto-recover `BootstrapService` + the
@@ -53,6 +58,10 @@ import { AnnouncementGenerator } from './generators/announcement.generator';
       ScoutCandidateEntity,
       TacticsPresetEntity,
       AnnouncementEntity,
+      CupEntity,
+      CupRoundEntity,
+      CupEntryEntity,
+      CupBracketSlotEntity,
     ]),
   ],
   providers: [
@@ -65,6 +74,7 @@ import { AnnouncementGenerator } from './generators/announcement.generator';
     TacticsPresetGenerator,
     ScoutSeedGenerator,
     AnnouncementGenerator,
+    CupGenerator,
   ],
   exports: [
     BootstrapService,
@@ -76,6 +86,7 @@ import { AnnouncementGenerator } from './generators/announcement.generator';
     TacticsPresetGenerator,
     ScoutSeedGenerator,
     AnnouncementGenerator,
+    CupGenerator,
   ],
 })
 export class BootstrapModule {}

@@ -7,6 +7,7 @@ import { WeatherGenerator } from './generators/weather.generator';
 import { TacticsPresetGenerator } from './generators/tactics-preset.generator';
 import { ScoutSeedGenerator } from './generators/scout-seed.generator';
 import { AnnouncementGenerator } from './generators/announcement.generator';
+import { CupGenerator } from './generators/cup.generator';
 import {
   SYSTEM_CONFIG_INIT_DATE_KEY,
   SystemConfigEntity,
@@ -52,6 +53,7 @@ export class BootstrapService implements OnModuleInit {
     private readonly tacticsPresetGenerator: TacticsPresetGenerator,
     private readonly scoutSeedGenerator: ScoutSeedGenerator,
     private readonly announcementGenerator: AnnouncementGenerator,
+    private readonly cupGenerator: CupGenerator,
   ) {}
 
   async onModuleInit() {
@@ -94,6 +96,11 @@ export class BootstrapService implements OnModuleInit {
     await this.tacticsPresetGenerator.generate();
     await this.scoutSeedGenerator.generate();
     await this.announcementGenerator.generate(initDate);
+    // Cup is generated for the CURRENT season — same number
+    // the schedule generator uses. For season 2+ the
+    // season-transition cron will call this with the new
+    // season number (TBD; MVP is season 1 only).
+    await this.cupGenerator.generateCupForSeason(1);
     this.logger.info(
       `[Bootstrap] gap-fill complete in ${Date.now() - start}ms (no-op if all data already present)`,
     );
