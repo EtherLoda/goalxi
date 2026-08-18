@@ -380,6 +380,201 @@ export class MatchEngine {
   public homeScore: number = 0;
   public awayScore: number = 0;
 
+  /**
+   * Per-half injury time actually simulated. Populated by
+   * `simulateMatch()` and `simulateExtraTime()` after each
+   * half's stoppage calculation. The processor reads these
+   * instead of rolling its own 1-5 random — the engine is now
+   * the single source of truth for "how much stoppage was
+   * played in this match".
+   *
+   * Range: 0-5 inclusive (user-specified minimum is 0 — a
+   * clean half can still end on the dot of 45/90/105/120).
+   */
+  public firstHalfInjuryTime: number = 0;
+  public secondHalfInjuryTime: number = 0;
+  public extraTimeFirstHalfInjury: number = 0;
+  public extraTimeSecondHalfInjury: number = 0;
+
+  /**
+   * Per-half stoppage-causing event counters. Reset by
+   * `resetHalfStats()` at the top of each half (regular
+   * 1st/2nd, ET 1st/2nd) and read by `computeInjuryTime()`
+   * to derive the stoppage minutes. Counters are bumped from
+   * the actual event-emit paths (`resolveFoul`,
+   * `checkAndGenerateInjury`) so the same value can be used
+   * both for stats and for the calculation.
+   */
+  private halfStats: {
+    fouls: number;
+    yellowCards: number;
+    redCards: number;
+    injuries: number;
+  } = { fouls: 0, yellowCards: 0, redCards: 0, injuries: 0 };
+
+  /**
+   * Which in-game period the current minute belongs to. Set
+   * by `simulateMinute()` so the per-half wrap-up code can
+   * emit the right `period` field on events pushed after
+   * `simulateKeyMoment` / `resolveFoul` (e.g. the half-time
+   * event itself carries `period: 'half_time'`).
+   *
+   * The `injury` variants are used for minutes 45+1..45+N
+   * (first-half stoppage) and 90+1..90+M (second-half
+   * stoppage) so the FE can render them as a distinct band
+   * on the match timeline.
+   */
+  private currentPeriod:
+    | 'first_half'
+    | 'first_half_injury'
+    | 'second_half'
+    | 'second_half_injury'
+    | 'extra_time_first_half'
+    | 'extra_time_first_half_injury'
+    | 'extra_time_second_half'
+    | 'extra_time_second_half_injury' = 'first_half';
+
+  /**
+   * Pre-baked set of "key moment" minutes for the half being
+   * simulated. `simulateMatch()` / `simulateExtraTime()` set
+   * this before each half's minute loop, then clear it after
+   * the half ends so the per-minute helper can look it up
+   * without juggling local closures. `null` means "no key
+   * moments this minute" — used during injury time, where
+   * we suppress attacks entirely.
+   */
+  private currentMomentTimes: Set<number> | null = null;
+
+  /**
+   * Compute stoppage minutes for the just-finished half.
+   *
+   * Per design (2026-08-18, simpler formula requested by
+   * `Sw1Ng`): each significant stoppage-causing event adds a
+   * fixed weight, then the total is capped at 5. There is no
+   * floor — a half with zero injuries/cards/fouls ends on
+   * the dot of 45/90/105/120. Weights are tuned to real
+   * football practice:
+   *
+   *   - 1 injury   ≈ 1 min  (a serious injury needs treatment)
+   *   - 1 red card ≈ 1 min  (dismissal + paperwork)
+   *   - 2 yellows  ≈ 1 min  (a 2nd-yellow dismissal)
+   *   - 6 fouls    ≈ 1 min  (the average foul "costs" ~10s)
+   *
+   * Why `Math.floor(fouls/6)` and not a linear weight: foul
+   * volume is high (~15/half) and we don't want every
+   * mediocre foul to bloat stoppage. The integer division
+   * keeps the per-foul contribution to a sixth and rounds
+   * down so 5 fouls still gives 0 — matching the "lots of
+   * fouls but no real stoppages" feel of a typical half.
+   */
+  private static computeInjuryTime(s: {
+    fouls: number;
+    yellowCards: number;
+    redCards: number;
+    injuries: number;
+  }): number {
+    const total =
+      s.injuries +
+      s.redCards +
+      Math.floor(s.yellowCards / 2) +
+      Math.floor(s.fouls / 6);
+    return Math.min(5, total);
+  }
+
+  private resetHalfStats(): void {
+    this.halfStats = {
+      fouls: 0,
+      yellowCards: 0,
+      redCards: 0,
+      injuries: 0,
+    };
+  }
+
+  // ---------------------------------------------------------------------------
+  // Per-minute simulation body. Pulled out of the previous inline loop so all
+  // four halves (1H, 2H, ET1, ET2) and their four injury-time stretches can
+  // share the same code path. `period` and `isInjuryTime` are plumbed into
+  // every event the helpers (`simulateKeyMoment`, `resolveFoul`,
+  // `checkAndGenerateInjury`) push so the wire format carries a meaningful
+  // `period` for FE rendering, not just a "phase === 'match'" boolean.
+  // ---------------------------------------------------------------------------
+  private simulateMinute(
+    t: number,
+    period:
+      | 'first_half'
+      | 'first_half_injury'
+      | 'second_half'
+      | 'second_half_injury'
+      | 'extra_time_first_half'
+      | 'extra_time_first_half_injury'
+      | 'extra_time_second_half'
+      | 'extra_time_second_half_injury',
+    isInjuryTime: boolean,
+  ): void {
+    this.time = t;
+    this.currentPeriod = period;
+
+    // 1. Process tactical instructions (no-op for the wrapping half-end
+    //    transition minutes, but harmless to call).
+    this.processTacticalInstructions(t);
+
+    // 2. Update condition (stamina decay & recovery). Treat the first
+    //    minute of a new regulation/ET half as a "period start" so the
+    //    break-recovery kicks in (15min HT, 5min ET break).
+    const isPeriodStart =
+      (period === 'second_half' && t === 46) ||
+      (period === 'extra_time_second_half' && t === 106);
+    this.homeTeam.updateCondition(1, isPeriodStart);
+    this.awayTeam.updateCondition(1, isPeriodStart);
+
+    // 3. Generate snapshot on the legacy cadence. We keep the existing
+    //    special-cased minutes (45/46/90 for regulation, 105/120 for ET)
+    //    so downstream snapshot consumers don't see a new pattern.
+    const isSnapshotMinute =
+      t % 5 === 0 ||
+      t === 45 ||
+      t === 46 ||
+      t === 90 ||
+      t === 91 ||
+      t === 105 ||
+      t === 106 ||
+      t === 120;
+    if (isSnapshotMinute) {
+      this.homeTeam.updateSnapshot(t, this.homeTactics.pitchWidth);
+      this.awayTeam.updateSnapshot(t, this.awayTactics.pitchWidth);
+      this.generateSnapshotEvent(t);
+    }
+
+    // 4. Key moments — only on the engine's pre-baked `momentTimes` set,
+    //    and **never** during injury time. Real football's stoppage is
+    //    a couple of minutes of set pieces + cards; burning a 5-minute
+    //    attack sequence on `simulateKeyMoment` would flood the event
+    //    log with fabricated drama.
+    const momentTimes = this.currentMomentTimes;
+    if (momentTimes && momentTimes.has(t)) {
+      const startOfMinute = this.events.length;
+      this.simulateKeyMoment();
+      for (const event of this.events.slice(startOfMinute)) {
+        if (event.type === 'goal') {
+          if (event.teamName === this.homeTeam.name) this.homeScore++;
+          else this.awayScore++;
+        }
+      }
+    }
+
+    // 5. Per-minute independent foul. Real football: ~10-15 fouls per
+    //    team per 90. We retain 12% per minute for regulation halves
+    //    (12% × 45 ≈ 5.4/team/half — 11/team/match including the
+    //    second half). For injury time we cut to 4% (1-2 fouls over
+    //    0-5 stoppage minutes) to match real pacing: referees wind
+    //    down, players don't want to risk another card, and the
+    //    "foul to waste time" trope lives in extra time, not stoppage.
+    const foulProb = isInjuryTime ? 0.04 : 0.12;
+    if (t > 0 && Math.random() < foulProb) {
+      this.resolveFoul();
+    }
+  }
+
   private possessionTeam: Team;
   private defendingTeam: Team;
   private freshPossession: boolean = false; // 刚获得球权，第一次进攻享受反击加成
@@ -974,92 +1169,145 @@ export class MatchEngine {
     this.homeScore = 0;
     this.awayScore = 0;
 
-    for (let t = 1; t <= 90; t++) {
-      this.time = t;
+    // [RFC injury-time-2026] Per-half phased loop. Replaces the
+    // legacy single `for (let t = 1; t <= 90; t++)` that emitted
+    // `half_time` retroactively at t=46 and never simulated any
+    // stoppage. The new structure is:
+    //
+    //   1. First half           1..45
+    //   2. First-half injury    46..45+N
+    //   3. <half_time whistle>
+    //   4. Second half          46..90
+    //   5. Second-half injury   91..90+M
+    //   6. <full_time whistle>
+    //
+    // Each phase runs the same `simulateMinute` body — only the
+    // `period` label, the moment-time set, and the per-minute
+    // foul probability change. `currentMomentTimes` is set on
+    // each regulation half and cleared during injury time so
+    // no fabricated key-moment attacks land in stoppage.
+    // ---------------------------------------------------------------------
 
-      // Half Time Event at start of second half
-      if (t === 46) {
-        this.events.push({
-          minute: 45,
-          type: 'half_time',
-          data: {
-            period: 'half_time',
-            homeScore: this.homeScore,
-            awayScore: this.awayScore,
-          },
-        });
-
-        this.events.push({
-          minute: 46,
-          type: 'second_half',
-          data: {
-            period: 'second_half',
-            homeScore: this.homeScore,
-            awayScore: this.awayScore,
-          },
-        });
-      }
-
-      // 1. Process Tactical Instructions
-      this.processTacticalInstructions(t);
-
-      // 2. Update Condition (Stamina Decay & Recovery)
-      const isHTStart = t === 46;
-      this.homeTeam.updateCondition(1, isHTStart);
-      this.awayTeam.updateCondition(1, isHTStart);
-
-      // 3. Generate Snapshot (Every 5 mins, 45, 46, 90)
-      const isSnapshotMinute = t % 5 === 0 || t === 45 || t === 46 || t === 90;
-      if (isSnapshotMinute) {
-        this.homeTeam.updateSnapshot(t, this.homeTactics.pitchWidth);
-        this.awayTeam.updateSnapshot(t, this.awayTactics.pitchWidth);
-        this.generateSnapshotEvent(t);
-      }
-
-      // 4. Key Moments + 5. 独立 foul event
-      // (per-minute 概率触发,模拟真实足球里散落的非 attack 触发犯规,
-      // 比如争球犯规、拖延时间、报复性犯规等,不打断 attack sequence)。
-      // 90 分钟 × 12% ≈ 10.8 次/场,加上 keyMoment 入口 30% × 20 回合 ≈ 6 次/场,
-      // 总犯规 ~16-17/场,接近真实足球 20-26。
-      //
-      // [Bug fix 2026-08-18] Both the key-moment and the per-minute foul
-      // can emit a goal event (open-play inside `simulateKeyMoment`,
-      // set-piece after a foul). The score scan used to live inside the
-      // `if (momentTimes.has(t))` block only, so set-piece goals from the
-      // per-minute foul trigger landed in `match_event` but never
-      // incremented `homeScore` / `awayScore` — leaving
-      // `half_time` / `full_time` data fields, the match row, and
-      // `match_team_stats.currentScore` out of sync with the event log.
-      // Move the scan to minute level so every goal event this minute
-      // gets counted exactly once, regardless of which path emitted it.
-      const startOfMinute = this.events.length;
-      if (momentTimes.has(t)) {
-        this.simulateKeyMoment();
-      }
-      if (t > 0 && t < 90 && Math.random() < 0.12) {
-        this.resolveFoul();
-      }
-      for (const event of this.events.slice(startOfMinute)) {
-        if (event.type === 'goal') {
-          if (event.teamName === this.homeTeam.name) this.homeScore++;
-          else this.awayScore++;
-        }
-      }
+    // First half — pre-bake 20 key moments across 1-90 (the
+    // legacy "evenly distributed" schedule). We keep the
+    // 1-90 range here so that the moment density is the same
+    // regardless of how much injury time each half ends up
+    // with; the second half will get its own 1-90 set so the
+    // two halves feel symmetric.
+    this.resetHalfStats();
+    this.currentMomentTimes = this.bakeMomentTimes(MOMENTS_COUNT, 1, 90);
+    for (let t = 1; t <= 45; t++) {
+      this.simulateMinute(t, 'first_half', false);
     }
-    // FULL_TIME Event - Mark exactly at 90 minutes
+
+    // First-half injury time. Compute the stoppage from the
+    // half's accumulated foul/card/injury counts, then loop
+    // 45+1..45+N with no key moments and a dampened foul
+    // probability. `momentTimes` is cleared so the helper
+    // short-circuits the `simulateKeyMoment` branch.
+    this.firstHalfInjuryTime = MatchEngine.computeInjuryTime(this.halfStats);
+    this.currentMomentTimes = null;
+    for (let i = 1; i <= this.firstHalfInjuryTime; i++) {
+      this.simulateMinute(45 + i, 'first_half_injury', true);
+    }
+
+    // Half-time whistle. The `minute` field reflects the
+    // actual in-game clock at the moment the ref blows
+    // (i.e. 45 + N, not always 45), and `injuryTime` is
+    // surfaced in the data so the FE / processor can read
+    // the stoppage without re-running `computeInjuryTime`.
     this.events.push({
-      minute: 90,
-      type: 'full_time',
+      minute: 45 + this.firstHalfInjuryTime,
+      type: 'half_time',
       data: {
+        period: 'half_time',
+        homeScore: this.homeScore,
+        awayScore: this.awayScore,
+        injuryTime: this.firstHalfInjuryTime,
+      },
+    });
+
+    // Second-half kickoff. We preserve the legacy wire shape
+    // (`type: 'second_half'`, `minute: 46`, `data.period:
+    // 'second_half'`) so downstream consumers keyed on
+    // `type === 'second_half'` keep working. This is emitted
+    // *after* the injury-time loop, so it lands at minute 46
+    // even if N > 0 — a 1-minute "kickoff after extra time"
+    // gap is realistic (ref signals players back, second-half
+    // begins on the dot of 46).
+    this.events.push({
+      minute: 46,
+      type: 'second_half',
+      data: {
+        period: 'second_half',
         homeScore: this.homeScore,
         awayScore: this.awayScore,
       },
     });
 
-    // Finalize player minutes played
-    this.finalizePlayerMinutes(90);
+    // Second half — fresh counter set, same shape.
+    this.resetHalfStats();
+    this.currentMomentTimes = this.bakeMomentTimes(MOMENTS_COUNT, 1, 90);
+    for (let t = 46; t <= 90; t++) {
+      this.simulateMinute(t, 'second_half', false);
+    }
+
+    // Second-half injury time.
+    this.secondHalfInjuryTime = MatchEngine.computeInjuryTime(this.halfStats);
+    this.currentMomentTimes = null;
+    for (let i = 1; i <= this.secondHalfInjuryTime; i++) {
+      this.simulateMinute(90 + i, 'second_half_injury', true);
+    }
+
+    // FULL_TIME Event — the `minute` field follows the same
+    // convention as `half_time` (actual stoppage-inclusive
+    // clock), and `injuryTime` is included for symmetry so a
+    // future FE can render "FT, +M stoppage" without reaching
+    // back into `MatchEntity.firstHalfInjuryTime`.
+    this.events.push({
+      minute: 90 + this.secondHalfInjuryTime,
+      type: 'full_time',
+      data: {
+        homeScore: this.homeScore,
+        awayScore: this.awayScore,
+        injuryTime: this.secondHalfInjuryTime,
+      },
+    });
+
+    // Finalize player minutes played — accounts for the stoppage
+    // stretches so a player who came on at minute 60 gets 30+N
+    // minutes played when N=secondHalfInjuryTime.
+    this.finalizePlayerMinutes(90 + this.secondHalfInjuryTime);
+
+    // Clear the per-half moment set so a subsequent call to
+    // `simulateExtraTime()` (which sets its own) doesn't see
+    // stale minutes.
+    this.currentMomentTimes = null;
 
     return this.events;
+  }
+
+  /**
+   * Pre-bake a "key moment" minute set. The legacy engine
+   * baked ~20 evenly-jittered moments across 1-90 (or ~7
+   * across 90-120 for ET) to keep the per-minute attack
+   * density roughly constant. We pull this out of
+   * `simulateMatch` / `simulateExtraTime` so both halves
+   * can call it without duplicating the loop. The output
+   * is clamped to `[minMinute, maxMinute]` — the ET path
+   * uses [91, 120], the regular path uses [1, 90].
+   */
+  private bakeMomentTimes(count: number, minMinute: number, maxMinute: number): Set<number> {
+    const span = maxMinute - minMinute + 1;
+    const result = new Set<number>();
+    for (let i = 0; i < count; i++) {
+      let nextTime =
+        (minMinute - 1 + ((i * span) / count + (Math.random() * span) / count)) | 0;
+      if (nextTime < minMinute) nextTime = minMinute;
+      if (nextTime > maxMinute) nextTime = maxMinute;
+      result.add(nextTime);
+    }
+    return result;
   }
 
   public simulateExtraTime(): MatchEvent[] {
@@ -2513,6 +2761,11 @@ export class MatchEngine {
     } else {
       this.matchStats.foulStats.away += 1;
     }
+    // [RFC injury-time-2026] Also bump the per-half stoppage counter.
+    // Every foul call — yellow, red, or plain — adds to the half's
+    // stoppage calculation, since plain fouls still consume referee
+    // time (set-piece restart + measurement).
+    this.halfStats.fouls += 1;
 
     const p = player.player as Player;
     const roll = Math.random();
@@ -2531,6 +2784,7 @@ export class MatchEngine {
         teamName: foulingTeam.name,
         playerId: p.id,
       });
+      this.halfStats.redCards += 1;
       foulingTeam.updateSnapshot(
         this.time,
         this.getTacticsForTeam(foulingTeam).pitchWidth,
@@ -2553,6 +2807,7 @@ export class MatchEngine {
           teamName: foulingTeam.name,
           playerId: p.id,
         });
+        this.halfStats.redCards += 1;
         foulingTeam.updateSnapshot(
           this.time,
           this.getTacticsForTeam(foulingTeam).pitchWidth,
@@ -2567,6 +2822,7 @@ export class MatchEngine {
           teamName: foulingTeam.name,
           playerId: p.id,
         });
+        this.halfStats.yellowCards += 1;
         // Trigger set piece
         this.resolveSetPieceFromFoul(foulingTeam, victimTeam);
       }
@@ -2714,6 +2970,12 @@ export class MatchEngine {
           estimatedRecoveryDays: injuryResult.estimatedDays ?? 1,
         },
       });
+      // [RFC injury-time-2026] Bump the per-half stoppage counter.
+      // Every injury that forces a treatment + (usually) a sub
+      // adds ~1 min to the half's stoppage. `mild` injuries
+      // that don't take the player off also count, since the
+      // ref still pauses play briefly.
+      this.halfStats.injuries += 1;
 
       // Player must leave the pitch: only `mild` lets the player
       // continue. `severe` (which absorbed the old `moderate` tier on

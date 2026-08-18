@@ -673,6 +673,127 @@ describe('MatchEngine', () => {
     });
   });
 
+  describe('injury-time stoppage (RFC injury-time-2026)', () => {
+    // The engine now:
+    //   1. Runs the regulation half (1-45 for 1H, 46-90 for 2H).
+    //   2. Counts per-half fouls / yellows / reds / injuries.
+    //   3. Calls `computeInjuryTime` to derive 0-5 stoppage minutes.
+    //   4. Runs the stoppage minutes with no key moments and a
+    //      dampened (4%) per-minute foul probability.
+    //   5. Emits the half_time / full_time whistle at the
+    //      stoppage-inclusive in-game minute, with the
+    //      `injuryTime` value surfaced in the data payload.
+    //
+    // These specs pin the wire shape (event types, minute labels,
+    // data.injuryTime, exposed engine fields). The formula itself
+    // is a `MatchEngine.computeInjuryTime` unit spec below.
+
+    it('exposes firstHalfInjuryTime / secondHalfInjuryTime on the engine after simulateMatch', () => {
+      engine.simulateMatch();
+      expect(engine.firstHalfInjuryTime).toBeGreaterThanOrEqual(0);
+      expect(engine.firstHalfInjuryTime).toBeLessThanOrEqual(5);
+      expect(engine.secondHalfInjuryTime).toBeGreaterThanOrEqual(0);
+      expect(engine.secondHalfInjuryTime).toBeLessThanOrEqual(5);
+    });
+
+    it('emits half_time at minute (45 + firstHalfInjuryTime) with injuryTime in data', () => {
+      engine.simulateMatch();
+      const events = (engine as any).events as MatchEvent[];
+      const halfTimeEvent = events.find((e) => e.type === 'half_time');
+      expect(halfTimeEvent).toBeDefined();
+      expect(halfTimeEvent!.minute).toBe(45 + engine.firstHalfInjuryTime);
+      expect(halfTimeEvent!.data?.injuryTime).toBe(
+        engine.firstHalfInjuryTime,
+      );
+      expect(halfTimeEvent!.data?.period).toBe('half_time');
+    });
+
+    it('emits full_time at minute (90 + secondHalfInjuryTime) with injuryTime in data', () => {
+      engine.simulateMatch();
+      const events = (engine as any).events as MatchEvent[];
+      const fullTimeEvent = events.find((e) => e.type === 'full_time');
+      expect(fullTimeEvent).toBeDefined();
+      expect(fullTimeEvent!.minute).toBe(90 + engine.secondHalfInjuryTime);
+      expect(fullTimeEvent!.data?.injuryTime).toBe(
+        engine.secondHalfInjuryTime,
+      );
+    });
+
+    it('plays the computed injury minutes when stoppage > 0 (events land in the stoppage window)', () => {
+      // Run a small batch and look for a match with non-zero 1H
+      // stoppage so we can assert that events with minute in the
+      // 46..(45+N) window actually exist. With ~12% fouls/min and
+      // 1-3 injuries typical for an 80-OVR match, ~30-50% of runs
+      // produce N > 0. We bound the retry to keep CI deterministic
+      // without adding a long timeout.
+      //
+      // We include `minute === 45 + N` in the window because for
+      // N=1 the only stoppage event is the snapshot at minute 46
+      // (the open interval (45, 46) has no integers). Excluding
+      // the half_time whistle itself keeps the test about
+      // "minutes were simulated", not "boundary events exist".
+      let found = false;
+      for (let i = 0; i < 20 && !found; i++) {
+        const trial = new MatchEngine(homeTeam, awayTeam);
+        trial.simulateMatch();
+        if (trial.firstHalfInjuryTime > 0) {
+          const events = (trial as any).events as MatchEvent[];
+          const stoppageEvents = events.filter(
+            (e) =>
+              e.minute > 45 &&
+              e.minute <= 45 + trial.firstHalfInjuryTime &&
+              e.type !== 'half_time',
+          );
+          // Engine always emits at least the 46th-minute snapshot
+          // when N>=1, so we should see ≥ 1 event in the window.
+          expect(stoppageEvents.length).toBeGreaterThan(0);
+          found = true;
+        }
+      }
+      // If we never saw N > 0 in 20 runs the test still passes —
+      // it just means the random distribution favored clean halves.
+      // The other 3 specs above cover the 0-stoppage case.
+    });
+
+    it('computeInjuryTime caps at 5 and floors at 0 across synthetic stat sets', () => {
+      // Pin a few representative cases so a future refactor can't
+      // silently change the formula. The formula is:
+      //   min(5, injuries + reds + floor(yellows/2) + floor(fouls/6))
+      const calc = (s: {
+        fouls: number;
+        yellowCards: number;
+        redCards: number;
+        injuries: number;
+      }) =>
+        (MatchEngine as any)['computeInjuryTime'](s) as number;
+
+      // Empty half → 0 (the user-requested minimum).
+      expect(calc({ fouls: 0, yellowCards: 0, redCards: 0, injuries: 0 })).toBe(
+        0,
+      );
+      // One injury alone → 1.
+      expect(calc({ fouls: 0, yellowCards: 0, redCards: 0, injuries: 1 })).toBe(
+        1,
+      );
+      // Six fouls (no cards, no injuries) → 1 (the floor(fouls/6) term).
+      expect(calc({ fouls: 6, yellowCards: 0, redCards: 0, injuries: 0 })).toBe(
+        1,
+      );
+      // Five fouls (under the threshold) → 0.
+      expect(calc({ fouls: 5, yellowCards: 0, redCards: 0, injuries: 0 })).toBe(
+        0,
+      );
+      // Two yellows (1 + 1 from floor(2/2)) → 1.
+      expect(calc({ fouls: 0, yellowCards: 2, redCards: 0, injuries: 0 })).toBe(
+        1,
+      );
+      // Wild half (2 inj + 1 red + 4 yellows + 18 fouls = 8) → cap 5.
+      expect(
+        calc({ fouls: 18, yellowCards: 4, redCards: 1, injuries: 2 }),
+      ).toBe(5);
+    });
+  });
+
   describe('Player Match Stats', () => {
     it('should track player stats after match simulation', () => {
       engine.simulateMatch();

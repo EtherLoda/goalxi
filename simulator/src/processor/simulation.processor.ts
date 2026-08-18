@@ -552,21 +552,15 @@ export class SimulationProcessor extends WorkerHost {
       throw err;
     }
 
-    // Generate injury time (1-5 minutes for each half)
-    const firstHalfInjuryTime =
-      Math.floor(
-        Math.random() *
-          (GAME_SETTINGS.MATCH_INJURY_TIME_MAX -
-            GAME_SETTINGS.MATCH_INJURY_TIME_MIN +
-            1),
-      ) + GAME_SETTINGS.MATCH_INJURY_TIME_MIN;
-    const secondHalfInjuryTime =
-      Math.floor(
-        Math.random() *
-          (GAME_SETTINGS.MATCH_INJURY_TIME_MAX -
-            GAME_SETTINGS.MATCH_INJURY_TIME_MIN +
-            1),
-      ) + GAME_SETTINGS.MATCH_INJURY_TIME_MIN;
+    // [RFC injury-time-2026] Read the per-half stoppage the engine
+    // actually simulated (computed from fouls/cards/injuries). The
+    // engine is now the single source of truth — we no longer roll
+    // our own 1-5 random and pretend the engine played it. The
+    // `match.*InjuryTime` fields get written here so the post-match
+    // summary card and `MatchEntity` carry the same value the
+    // event-log timestamps below assume.
+    const firstHalfInjuryTime = engine.firstHalfInjuryTime;
+    const secondHalfInjuryTime = engine.secondHalfInjuryTime;
 
     match.firstHalfInjuryTime = firstHalfInjuryTime;
     match.secondHalfInjuryTime = secondHalfInjuryTime;
@@ -587,21 +581,11 @@ export class SimulationProcessor extends WorkerHost {
       }
       match.hasExtraTime = true;
 
-      // Generate ET injury time
-      const etFirstHalfInjury =
-        Math.floor(
-          Math.random() *
-            (GAME_SETTINGS.MATCH_INJURY_TIME_MAX -
-              GAME_SETTINGS.MATCH_INJURY_TIME_MIN +
-              1),
-        ) + GAME_SETTINGS.MATCH_INJURY_TIME_MIN;
-      const etSecondHalfInjury =
-        Math.floor(
-          Math.random() *
-            (GAME_SETTINGS.MATCH_INJURY_TIME_MAX -
-              GAME_SETTINGS.MATCH_INJURY_TIME_MIN +
-              1),
-        ) + GAME_SETTINGS.MATCH_INJURY_TIME_MIN;
+      // [RFC injury-time-2026] Same source-of-truth shift for ET:
+      // the engine computed the stoppage from ET's own fouls/cards
+      // counts and stored them on `engine.*Injury`.
+      const etFirstHalfInjury = engine.extraTimeFirstHalfInjury;
+      const etSecondHalfInjury = engine.extraTimeSecondHalfInjury;
       match.extraTimeFirstHalfInjury = etFirstHalfInjury;
       match.extraTimeSecondHalfInjury = etSecondHalfInjury;
 
@@ -635,6 +619,18 @@ export class SimulationProcessor extends WorkerHost {
         `  1st half injury time: ${firstHalfInjuryTime}min, 2nd half injury time: ${secondHalfInjuryTime}min`,
     );
 
+    // [RFC injury-time-2026] The engine now simulates injury time
+    // per half, so the event-log can have:
+    //   - First half events at minutes 46..(45+N1)
+    //   - Half-time event at minute (45+N1)
+    //   - Second half events at minutes 46..90
+    //   - Second half injury at minutes 91..(90+M)
+    //   - Full-time event at minute (90+M)
+    // We track the per-half end-minute here so the timeline math
+    // below doesn't need to recompute it for every event. ET
+    // injury time is added in a follow-up commit.
+    const firstHalfEndMinute = 45 + firstHalfInjuryTime;
+
     for (const event of events) {
       const eventMinute = event.minute;
       let realWorldOffset = 0; // Will calculate based on event minute
@@ -667,6 +663,14 @@ export class SimulationProcessor extends WorkerHost {
         eventMinute === 105 &&
         event.type === 'kickoff' &&
         event.data?.period === 'extra_time_second_half';
+
+      // [RFC injury-time-2026] Half-time whistle: the engine emits
+      // this at minute (45 + N1). It lands BEFORE the halftime break,
+      // so the real time is just the in-game minute (no break
+      // offset added). ET injury time is added in a follow-up commit
+      // and the same check will also cover the ET half-time whistle
+      // at minute (105 + N2).
+      const isHalfTimeWhistle = event.type === 'half_time';
 
       if (eventMinute < 45) {
         // First half: direct mapping (minutes 0-44)
@@ -716,6 +720,37 @@ export class SimulationProcessor extends WorkerHost {
             GAME_SETTINGS.MATCH_EXTRA_TIME_BREAK_MINUTES * 60 * 1000 +
             (eventMinute - 105) * 60 * 1000;
         }
+      } else {
+        // [RFC injury-time-2026] Second-half injury time without ET
+        // (91..90+M). Real time = eventMinute + 15 HT. The
+        // `full_time` whistle also lands here at minute 90+M.
+        realWorldOffset =
+          eventMinute * 60 * 1000 +
+          GAME_SETTINGS.MATCH_HALF_TIME_MINUTES * 60 * 1000;
+      }
+
+      // [RFC injury-time-2026] First-half-injury window
+      // (46..45+N1): the events here are pushed AFTER
+      // `simulateMinute` and BEFORE the `half_time` whistle, so
+      // their `eventMinute` is in [46, 50]. They sit in the first
+      // half (before the HT break) and should map to real time =
+      // `eventMinute` — the same direct mapping as minutes 0-44
+      // uses. Without this override, they would fall into the
+      // `eventMinute <= 90` arm and get +15 HT added (placing a
+      // 46th-minute injury-time event at T+61 instead of T+46).
+      if (isHalfTimeWhistle) {
+        // Half-time whistle at minute 45+N1: real time = in-game
+        // minute (whistle blows at that clock, before HT break).
+        realWorldOffset = eventMinute * 60 * 1000;
+      } else if (
+        !match.hasExtraTime &&
+        eventMinute > 45 &&
+        eventMinute < firstHalfEndMinute
+      ) {
+        // First-half injury-time events (46..45+N1-1). These
+        // minutes happen before the half-time whistle, so no
+        // HT-break offset should be added.
+        realWorldOffset = eventMinute * 60 * 1000;
       }
 
       // Create event scheduled time in UTC
