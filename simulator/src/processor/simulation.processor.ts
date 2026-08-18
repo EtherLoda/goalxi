@@ -66,6 +66,194 @@ export class SimulationProcessor extends WorkerHost {
    *  signatures. */
   private jobLog!: PinoLoggerService;
 
+  /**
+   * Compute the real-world offset (ms from `match.scheduledAt`) for an
+   * event, given the engine's actual stoppage times and the match's
+   * ET flag.
+   *
+   * The math has to thread the cumulative stoppage through the break
+   * boundary correctly:
+   *
+   *   - 1H regulation (0..45 min label)        → 0..45 real min
+   *   - 1H injury    (46..45+N1 min label)     → 46..(45+N1) real min
+   *   - 1H whistle   (45+N1 min label)         → (45+N1) real min
+   *   - HT break                                  15 min, CONSTANT
+   *   - 2H kickoff  (46 min label)             → 60 real min
+   *   - 2H regulation (47..90 min label)       → 62..105 real min
+   *   - 2H injury    (91..(90+M) min label)    → 106..(105+M) real min
+   *   - 2H whistle  ((90+M) min label)         → (105+M) real min
+   *
+   *   - ET kickoff  (90 min label)             → 105 real min
+   *   - ET 1H regulation (91..105)             → 106..120 real min
+   *   - ET 1H injury (106..(105+N2))           → 121..(120+N2) real min
+   *   - ET 1H whistle ((105+N2) min label)     → (120+N2) real min
+   *   - ET break                                   5 min, CONSTANT
+   *   - ET 2H kickoff (105 min label)          → (125+N2) real min
+   *   - ET 2H regulation (106..120)            → (126+N2)..(140+N2) real min
+   *   - ET 2H injury (121..(120+M2))           → (141+N2)..(140+N2+M2) real min
+   *   - ET FT whistle ((120+M2) min label)     → (140+N2+M2) real min
+   *
+   * The pre-2H break (`HT = 15 min`) and the pre-ET-2H break
+   * (`ET_BREAK = 5 min`) are CONSTANT — real football doesn't extend
+   * them based on how much injury time was added. The breaks therefore
+   * don't depend on N1 or N2.
+   *
+   * What DOES cascade is the *elapsed real time* before the next
+   * phase. The 1H injury (N1) sits BEFORE the HT break, so it does
+   * NOT shift any 2H event — the 2H kickoff is always at real 60
+   * (45 + 15 HT) regardless of N1. The ET 1H injury (N2), however,
+   * sits BEFORE the ET break, so it DOES shift every ET 2H event
+   * (kickoff + regulation + injury + FT) by +N2 real minutes. This
+   * is the subtle invariant the previous version got wrong: the
+   * "ET 2H" arms computed real time as if N2 = 0, putting the FT
+   * whistle `15 + N2` minutes too early in any match with ET 1H
+   * stoppage.
+   *
+   * Pure / static so the verification spec can call it directly
+   * without spinning up a Nest container or a BullMQ worker.
+   */
+  static computeEventRealTimeMs(
+    event: MatchEvent,
+    phase:
+      | 'pre_1h'
+      | 'post_1h'
+      | 'pre_et1'
+      | 'post_et1',
+    ctx: {
+      hasExtraTime: boolean;
+      firstHalfInjuryTime: number;
+      secondHalfInjuryTime: number;
+      extraTimeFirstHalfInjury: number;
+      extraTimeSecondHalfInjury: number;
+    },
+  ): number {
+    const eventMinute = event.minute;
+    const eventType = event.type;
+    const dataPeriod = event.data?.period;
+
+    // Type predicates on the wire shape the engine emits. Centralized
+    // here so the if/else chain reads against named conditions.
+    const isSecondHalfKickoff =
+      eventMinute === 46 &&
+      eventType === 'second_half' &&
+      dataPeriod === 'second_half';
+    const isExtraTimeKickoff =
+      eventMinute === 90 &&
+      eventType === 'kickoff' &&
+      dataPeriod === 'extra_time';
+    const isExtraTimeSecondHalfKickoff =
+      eventMinute === 105 &&
+      eventType === 'kickoff' &&
+      dataPeriod === 'extra_time_second_half';
+    const isHalfTimeWhistle = eventType === 'half_time';
+    const isFullTimeWhistle = eventType === 'full_time';
+
+    const HT = GAME_SETTINGS.MATCH_HALF_TIME_MINUTES;
+    const ET_BREAK = GAME_SETTINGS.MATCH_EXTRA_TIME_BREAK_MINUTES;
+    const N1 = ctx.firstHalfInjuryTime;
+    const M = ctx.secondHalfInjuryTime;
+    const N2 = ctx.extraTimeFirstHalfInjury;
+    const M2 = ctx.extraTimeSecondHalfInjury;
+
+    const MIN = 60 * 1000;
+
+    // Pre-boundary clock-end minutes (used by the override block
+    // below the if/else). Computed once instead of per-branch to
+    // keep the if/else body linear.
+    const firstHalfEndMinute = 45 + N1;
+    const etFirstHalfEndMinute = 105 + N2;
+
+    let realWorldOffset = 0;
+
+    if (phase === 'pre_1h') {
+      if (eventMinute < 45) {
+        // 1H regulation (0..44): direct mapping, no break.
+        realWorldOffset = eventMinute * MIN;
+      } else if (eventMinute === 45 && !isSecondHalfKickoff) {
+        // 1H minute-45 event (no injury). Anything at exactly
+        // 45 min before the whistle lands here; the whistle is
+        // handled by the isHalfTimeWhistle override below.
+        realWorldOffset = 45 * MIN;
+      } else if (isSecondHalfKickoff) {
+        // 2H kickoff: 45 min play + 15 min HT = 60 min real.
+        realWorldOffset = (45 + HT) * MIN;
+      } else {
+        // 1H injury-time event (46..45+N1-1). These minutes
+        // happen before the half-time whistle, so no HT-break
+        // offset should be added.
+        realWorldOffset = eventMinute * MIN;
+      }
+    } else if (phase === 'post_1h') {
+      if (isSecondHalfKickoff) {
+        // 2H kickoff (defensive — engine emits this in
+        // post_1h phase, but the value matches pre_1h).
+        realWorldOffset = (45 + HT) * MIN;
+      } else if (eventMinute <= 90) {
+        // 2H regulation (46..90): minute + HT. Note N1 does
+        // not shift this — the HT break is constant.
+        realWorldOffset = (eventMinute + HT) * MIN;
+      } else {
+        // 2H injury (91..(90+M)) and the 2H full-time
+        // whistle (at minute 90+M). Same formula.
+        realWorldOffset = (eventMinute + HT) * MIN;
+      }
+    } else if (phase === 'pre_et1') {
+      if (isExtraTimeKickoff) {
+        // ET kickoff: 90 min 2H play + 15 HT = 105 min real.
+        realWorldOffset = (90 + HT) * MIN;
+      } else if (eventMinute < 105) {
+        // ET 1H regulation (91..104): 2H end (105) +
+        // (eventMinute - 90) ET minutes.
+        realWorldOffset = (90 + HT + (eventMinute - 90)) * MIN;
+      } else {
+        // ET 1H injury-time event (106..105+N2-1). Same
+        // formula as ET 1H regulation — before the ET
+        // half-time whistle, no ET-break offset.
+        realWorldOffset =
+          (90 + HT + (eventMinute - 90)) * MIN;
+      }
+    } else {
+      // phase === 'post_et1'
+      if (isExtraTimeSecondHalfKickoff) {
+        // ET 2H kickoff: 2H end (105) + ET 1H (15) + ET 1H
+        // injury (N2) + ET break (5). N2 is the load-bearing
+        // term — pre-fix the processor dropped it and put the
+        // kickoff `N2` minutes too early whenever ET 1H had
+        // any stoppage.
+        realWorldOffset =
+          (90 + HT + 15 + N2 + ET_BREAK) * MIN;
+      } else if (eventMinute <= 120) {
+        // ET 2H regulation (106..120).
+        realWorldOffset =
+          (90 + HT + 15 + N2 + ET_BREAK + (eventMinute - 105)) * MIN;
+      } else {
+        // ET 2H injury (121..(120+M2)) and the ET full-time
+        // whistle at (120+M2). Same formula.
+        realWorldOffset =
+          (90 + HT + 15 + N2 + ET_BREAK + (eventMinute - 105)) * MIN;
+      }
+    }
+
+    // Overrides for half-time whistle events. The whistle blows
+    // at a specific in-game minute, BEFORE the subsequent break,
+    // so the break's time hasn't elapsed yet. The exact value
+    // depends on which whistle:
+    //
+    //   - 1H whistle at minute (45+N1): the 15-min HT is
+    //     *after* this event, so real time = in-game minute.
+    //   - ET 1H whistle at minute (105+N2): the 15-min HT is
+    //     *before* this event (it elapsed between 1H end and
+    //     ET start), so real time = in-game minute + 15.
+    if (isHalfTimeWhistle) {
+      const isEt1Whistle = dataPeriod === 'extra_time_half_time';
+      realWorldOffset = isEt1Whistle
+        ? (eventMinute + HT) * MIN
+        : eventMinute * MIN;
+    }
+
+    return realWorldOffset;
+  }
+
   constructor(
     @Inject(LOGGER_SERVICE)
     private readonly logger: PinoLoggerService,
@@ -627,172 +815,120 @@ export class SimulationProcessor extends WorkerHost {
     //   - Second half injury at minutes 91..(90+M)
     //   - Full-time event at minute (90+M)
     // and the symmetric ET case (91..105, 105+N2, 106..120, 121..(120+M2)).
-    // We track the per-half end-minute here so the timeline math
-    // below doesn't need to recompute it for every event.
-    const firstHalfEndMinute = 45 + firstHalfInjuryTime;
-    const etFirstHalfEndMinute = 105 + (engine.extraTimeFirstHalfInjury || 0);
-
+    // The actual real-time math is in
+    // `SimulationProcessor.computeEventRealTimeMs` (a pure static
+    // method we can unit-test without spinning up Nest).
+    // Track which half the current event belongs to. The engine
+    // emits events in array order — first 1H (including 1H
+    // injury), then a `half_time` whistle, then 2H (including
+    // 2H injury), then a `full_time` whistle. For ET matches
+    // the cycle repeats: ET 1H, ET 1H injury, ET `half_time`,
+    // ET 2H, ET 2H injury, ET `full_time`. The `inGamePhase`
+    // we pass to `computeEventRealTimeMs` mirrors this — the
+    // current in-game phase flips each time we see a `half_time`
+    // or `full_time` whistle (or, for ET, each new kickoff
+    // variant).
+    //
+    // Why state instead of inferring from `eventMinute` alone:
+    // 1H injury (minute 46..50) and 2H regulation (minute 46..90)
+    // share the same minute range, and ET 1H injury (106..110)
+    // shares the same range as ET 2H regulation (106..120). The
+    // function can't disambiguate from the event alone — it
+    // needs to know which "phase" the current event falls in.
+    let inGamePhase:
+      | 'pre_1h'
+      | 'post_1h'
+      | 'pre_et1'
+      | 'post_et1' = 'pre_1h';
     for (const event of events) {
-      const eventMinute = event.minute;
-      let realWorldOffset = 0; // Will calculate based on event minute
-
-      /**
-       * Timeline breakdown:
-       * Minutes 0-45: First half (0 to 45 real-world minutes)
-       * Minute 45 (second half kickoff): Halftime break (revealed at T+60, after 15min break)
-       * Minutes 46-90: Second half starts at T+60 (T+45 + 15min break)
-       * Minute 90+: Match ends when last event scheduled
-       *
-       * Note: Game minutes don't include halftime break
-       * Event at minute 46 happens at real-world T+60 (45min play + 15min break)
-       */
-
-      // Special case: Second half kickoff. The engine emits this as
-      // `{ minute: 46, type: 'second_half', data: { period: 'second_half' } }`
-      // — the in-game minute label is 46 (the first minute of the
-      // second half), but the event itself marks the boundary where
-      // the second half *begins* — i.e. real time 60 (45 + 15 HT).
-      //
-      // Pre-fix this check was:
-      //   `eventMinute === 45 && type === 'kickoff' && period === 'second_half'`
-      // which matched NOTHING — the engine never emits a `kickoff`
-      // event with `period === 'second_half'` (kickoffs use period
-      // 'first_half' / 'extra_time' / 'extra_time_second_half'). So
-      // the second_half event silently fell through to the
-      // `eventMinute <= 90` arm and got 46 + 15 = 61 min, 1 minute
-      // late. The new check matches the actual wire shape.
-      const isSecondHalfKickoff =
-        eventMinute === 46 &&
-        event.type === 'second_half' &&
-        event.data?.period === 'second_half';
-
-      // Special case: Extra time kickoff at minute 90
-      const isExtraTimeKickoff =
-        eventMinute === 90 &&
+      // Phase transitions: a `half_time` event marks the end of
+      // the current regulation half; a `full_time` event ends
+      // the current match (or ET).
+      if (event.type === 'half_time') {
+        const realWorldOffset = SimulationProcessor.computeEventRealTimeMs(
+          event,
+          inGamePhase,
+          {
+            hasExtraTime: match.hasExtraTime,
+            firstHalfInjuryTime,
+            secondHalfInjuryTime,
+            extraTimeFirstHalfInjury: engine.extraTimeFirstHalfInjury || 0,
+            extraTimeSecondHalfInjury: engine.extraTimeSecondHalfInjury || 0,
+          },
+        );
+        event.eventScheduledTime = new Date(
+          matchStartTimeUTC.getTime() + realWorldOffset,
+        );
+        // Advance to the next phase: post-1H or post-ET-1H
+        // (depending on whether we were in the 1H half or
+        // the ET 1H half).
+        inGamePhase = inGamePhase === 'pre_1h' ? 'post_1h' : 'post_et1';
+        continue;
+      }
+      if (event.type === 'full_time') {
+        const realWorldOffset = SimulationProcessor.computeEventRealTimeMs(
+          event,
+          inGamePhase,
+          {
+            hasExtraTime: match.hasExtraTime,
+            firstHalfInjuryTime,
+            secondHalfInjuryTime,
+            extraTimeFirstHalfInjury: engine.extraTimeFirstHalfInjury || 0,
+            extraTimeSecondHalfInjury: engine.extraTimeSecondHalfInjury || 0,
+          },
+        );
+        event.eventScheduledTime = new Date(
+          matchStartTimeUTC.getTime() + realWorldOffset,
+        );
+        // `full_time` ends the match. For non-ET, that's after
+        // `post_1h`; for ET, after `post_et1`. Nothing comes
+        // after a `full_time` in the same match (the penalty
+        // shootout emits its own `full_time` at the end with
+        // `isPenalty: true`, and the for-loop processes that
+        // too — we keep the phase but the result is the same
+        // because the function is keyed on the current
+        // `inGamePhase`).
+        continue;
+      }
+      // For the ET transition: when the engine emits the
+      // `kickoff` event with `data.period === 'extra_time'`,
+      // we're entering ET 1H. The `eventMinute === 90` for
+      // that event, and the function returns the ET kickoff
+      // real time. After processing it, advance to `pre_et1`.
+      if (
         event.type === 'kickoff' &&
-        event.data?.period === 'extra_time';
-
-      // Special case: Extra time second half kickoff at minute 105
-      const isExtraTimeSecondHalfKickoff =
-        eventMinute === 105 &&
-        event.type === 'kickoff' &&
-        event.data?.period === 'extra_time_second_half';
-
-      // [RFC injury-time-2026] Half-time whistle: the engine emits
-      // this at minute (45 + N1) for regulation and (105 + N2) for
-      // ET1. Both land BEFORE the halftime / ET-break, so the real
-      // time is just the in-game minute (no break offset added).
-      const isHalfTimeWhistle = event.type === 'half_time';
-      // Full-time whistle: minute (90 + M) for regulation and
-      // (120 + M2) for ET. Both land at real time = in-game minute +
-      // any preceding breaks (HT for regulation, HT + ET break for
-      // ET) — handled by the same `eventMinute <= 90` / `match.hasExtraTime`
-      // arms below, so no special case needed here.
-
-      if (eventMinute < 45) {
-        // First half: direct mapping (minutes 0-44)
-        realWorldOffset = eventMinute * 60 * 1000;
-      } else if (eventMinute === 45 && !isSecondHalfKickoff) {
-        // First half minute 45 events (goals, fouls, etc. at 45')
-        realWorldOffset = 45 * 60 * 1000;
-      } else if (isSecondHalfKickoff) {
-        // Second half kickoff: happens after 15-minute break
-        // Real time = 45min play + 15min break = 60 minutes
-        realWorldOffset =
-          45 * 60 * 1000 + GAME_SETTINGS.MATCH_HALF_TIME_MINUTES * 60 * 1000;
-      } else if (eventMinute <= 90) {
-        // Second half (minutes 46-90): add 15-minute halftime break
-        realWorldOffset =
-          eventMinute * 60 * 1000 +
-          GAME_SETTINGS.MATCH_HALF_TIME_MINUTES * 60 * 1000;
-      } else if (match.hasExtraTime) {
-        // Extra time kickoff events and regular ET events
-        if (isExtraTimeKickoff) {
-          // Extra time kickoff: happens immediately after regular time ends
-          // Real time = 90min play + 15min HT = 105 minutes
-          realWorldOffset =
-            90 * 60 * 1000 + GAME_SETTINGS.MATCH_HALF_TIME_MINUTES * 60 * 1000;
-        } else if (eventMinute < 105) {
-          // ET first half (91-104): regular events
-          // Real time = 90min play + 15min HT + (eventMinute - 90) ET minutes
-          realWorldOffset =
-            90 * 60 * 1000 +
-            GAME_SETTINGS.MATCH_HALF_TIME_MINUTES * 60 * 1000 +
-            (eventMinute - 90) * 60 * 1000;
-        } else if (isExtraTimeSecondHalfKickoff) {
-          // ET second half kickoff: happens after 5-minute ET break
-          // Real time = 90min play + 15min HT + 15min ET1st + 5min ET break
-          realWorldOffset =
-            90 * 60 * 1000 +
-            GAME_SETTINGS.MATCH_HALF_TIME_MINUTES * 60 * 1000 +
-            15 * 60 * 1000 + // ET first half
-            GAME_SETTINGS.MATCH_EXTRA_TIME_BREAK_MINUTES * 60 * 1000;
-        } else if (eventMinute <= 120) {
-          // ET second half (106-120): regular events
-          // Real time = 90min play + 15min HT + 15min ET1st + 5min ET break + (eventMinute - 105) ET2nd minutes
-          realWorldOffset =
-            90 * 60 * 1000 +
-            GAME_SETTINGS.MATCH_HALF_TIME_MINUTES * 60 * 1000 +
-            15 * 60 * 1000 + // ET first half
-            GAME_SETTINGS.MATCH_EXTRA_TIME_BREAK_MINUTES * 60 * 1000 +
-            (eventMinute - 105) * 60 * 1000;
-        } else {
-          // [RFC injury-time-2026] ET second-half injury time
-          // (121..120+M2). Real time = 90 + 15 HT + 15 ET1 + 5 ET
-          // break + (eventMinute - 120) ET2-injury minutes.
-          // The `full_time` whistle for ET also lands here at
-          // minute 120+M2.
-          realWorldOffset =
-            90 * 60 * 1000 +
-            GAME_SETTINGS.MATCH_HALF_TIME_MINUTES * 60 * 1000 +
-            15 * 60 * 1000 + // ET first half
-            GAME_SETTINGS.MATCH_EXTRA_TIME_BREAK_MINUTES * 60 * 1000 +
-            (eventMinute - 120) * 60 * 1000;
-        }
-      } else {
-        // [RFC injury-time-2026] Second-half injury time without ET
-        // (91..90+M). Real time = eventMinute + 15 HT. The
-        // `full_time` whistle also lands here at minute 90+M.
-        realWorldOffset =
-          eventMinute * 60 * 1000 +
-          GAME_SETTINGS.MATCH_HALF_TIME_MINUTES * 60 * 1000;
+        event.data?.period === 'extra_time' &&
+        inGamePhase === 'post_1h'
+      ) {
+        const realWorldOffset = SimulationProcessor.computeEventRealTimeMs(
+          event,
+          inGamePhase,
+          {
+            hasExtraTime: match.hasExtraTime,
+            firstHalfInjuryTime,
+            secondHalfInjuryTime,
+            extraTimeFirstHalfInjury: engine.extraTimeFirstHalfInjury || 0,
+            extraTimeSecondHalfInjury: engine.extraTimeSecondHalfInjury || 0,
+          },
+        );
+        event.eventScheduledTime = new Date(
+          matchStartTimeUTC.getTime() + realWorldOffset,
+        );
+        inGamePhase = 'pre_et1';
+        continue;
       }
 
-      // [RFC injury-time-2026] First-half-injury window
-      // (46..45+N1) and ET1-injury window (106..105+N2): the events
-      // here are pushed AFTER `simulateMinute` and BEFORE the
-      // `half_time` whistle, so their `eventMinute` is in [46, 50]
-      // (or [106, 110] for ET1). They sit in the first half
-      // (before the HT break) and should map to real time =
-      // `eventMinute` — the same direct mapping as minutes 0-44
-      // uses. Without this override, they would fall into the
-      // `eventMinute <= 90` arm and get +15 HT added (placing a
-      // 46th-minute injury-time event at T+61 instead of T+46).
-      if (isHalfTimeWhistle) {
-        // Half-time whistle at minute 45+N1 (or 105+N2 for ET):
-        // real time = in-game minute (whistle blows at that clock).
-        realWorldOffset = eventMinute * 60 * 1000;
-      } else if (
-        !match.hasExtraTime &&
-        eventMinute > 45 &&
-        eventMinute < firstHalfEndMinute
-      ) {
-        // First-half injury-time events (46..45+N1-1). These
-        // minutes happen before the half-time whistle, so no
-        // HT-break offset should be added.
-        realWorldOffset = eventMinute * 60 * 1000;
-      } else if (
-        match.hasExtraTime &&
-        eventMinute > 105 &&
-        eventMinute < etFirstHalfEndMinute
-      ) {
-        // ET1 injury-time events (106..105+N2-1). Same idea:
-        // before the ET half-time whistle, no ET-break offset.
-        realWorldOffset =
-          90 * 60 * 1000 +
-          GAME_SETTINGS.MATCH_HALF_TIME_MINUTES * 60 * 1000 +
-          (eventMinute - 90) * 60 * 1000;
-      }
+      const realWorldOffset = SimulationProcessor.computeEventRealTimeMs(
+        event,
+        inGamePhase,
+        {
+          hasExtraTime: match.hasExtraTime,
+          firstHalfInjuryTime,
+          secondHalfInjuryTime,
+          extraTimeFirstHalfInjury: engine.extraTimeFirstHalfInjury || 0,
+          extraTimeSecondHalfInjury: engine.extraTimeSecondHalfInjury || 0,
+        },
+      );
 
       // Create event scheduled time in UTC
       event.eventScheduledTime = new Date(
