@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { AnnouncementModule } from './announcement/announcement.module';
 import { AuthModule } from './auth/auth.module';
+import { CupModule } from './cup/cup.module';
 import { FanModule } from './fan/fan.module';
 import { FinanceModule } from './finance/finance.module';
 import { ForumModule } from './forum/forum.module';
@@ -55,6 +56,7 @@ import { WeatherModule } from './weather/weather.module';
     ForumModule,
     ClubAuditModule,
     WeatherModule,
+    CupModule,
   ],
 })
 export class ApiModule {}
