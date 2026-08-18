@@ -25,6 +25,16 @@ describe('MatchSchedulerService', () => {
 
   const mockTacticsRepository = {
     findOne: jest.fn(),
+    // `getTeamTactics` persists a default-preset-derived row via
+    // `save` so the sim worker doesn't throw "Tactics missing" on
+    // BOT-vs-BOT matches (see match-scheduler.service.ts:415 and
+    // the [Bug fix 2026-08-18] note in the same method). The
+    // mock previously had no `save` so the "fall back to default
+    // preset" test crashed with `this.tacticsRepository.save is
+    // not a function`. Real TypeORM `save` returns the persisted
+    // entity; we mirror that so the caller can read the id /
+    // submittedAt it just stamped.
+    save: jest.fn(async (tactics) => tactics),
   };
 
   const mockPresetRepository = {
@@ -182,7 +192,7 @@ describe('MatchSchedulerService', () => {
   });
 
   describe('presetToMatchTactics', () => {
-    it('should correctly convert preset to match tactics', () => {
+    it('should correctly convert preset to match tactics', async () => {
       const preset: Partial<TacticsPresetEntity> = {
         id: 'preset-1',
         teamId: 'team-1',
@@ -207,7 +217,7 @@ describe('MatchSchedulerService', () => {
       const matchId = 'match-1';
       const teamId = 'team-1';
 
-      const result = service['presetToMatchTactics'](
+      const result = await service['presetToMatchTactics'](
         preset as TacticsPresetEntity,
         matchId,
         teamId,
