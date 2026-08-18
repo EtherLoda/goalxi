@@ -797,6 +797,78 @@ describe('MatchEngine', () => {
     });
   });
 
+  describe('second_half kickoff wire shape (regression for processor 1-min drift)', () => {
+    // The processor's `isSecondHalfKickoff` predicate in
+    // `simulation.processor.ts` keys on:
+    //   minute === 46 && type === 'second_half' && data.period === 'second_half'
+    // to map the second-half kickoff to real time 60 (45 + 15 HT).
+    // If the engine ever changes this wire shape the processor
+    // silently regresses to the `eventMinute <= 90` arm (61 min
+    // instead of 60). Pin the shape so a future refactor can't
+    // break the contract without a test failure here.
+    it('emits second_half kickoff at minute 46 with data.period === "second_half"', () => {
+      engine.simulateMatch();
+      const events = (engine as any).events as MatchEvent[];
+      const secondHalfKickoff = events.find(
+        (e) => e.type === 'second_half',
+      );
+      expect(secondHalfKickoff).toBeDefined();
+      expect(secondHalfKickoff!.minute).toBe(46);
+      expect(secondHalfKickoff!.data?.period).toBe('second_half');
+    });
+  });
+
+  describe('second yellow → red card dismissal', () => {
+    // Pre-fix the 2nd-yellow branch in `resolveFoul` called
+    // `foulingTeam.sendOffPlayer(p.id)` but forgot
+    // `player.isSentOff = true` (the direct-red-card branch
+    // correctly sets both). The result: `player.isSentOff` stayed
+    // `false` after a 2nd-yellow dismissal, so the player could
+    // still be picked for subsequent fouls, injuries, or the
+    // penalty shootout kicker filter, and `getPlayerEnergy` /
+    // `pushDuelAttacker` pickers never excluded them.
+    //
+    // The fix is the one-line `player.isSentOff = true` in the
+    // 2nd-yellow branch. We drive the branch deterministically by
+    // mocking `Math.random` to: (a) select the home team,
+    // (b) bypass the foulRateMultiplier gate, (c) pick the
+    // 2nd-yellow player index, (d) land the roll in the yellow
+    // range.
+    it('sets player.isSentOff = true on a 2nd-yellow dismissal', () => {
+      const targetIdx = 1; // non-GK home player
+      const target = homeTeam.players[targetIdx];
+      // `yellowCards` lives on the `TacticalPlayer` wrapper
+      // (`simulation.types.ts:64`), not on the inner `Player`
+      // object. Pre-seed 1 yellow so the next yellow is the 2nd.
+      target.yellowCards = 1;
+
+      // Mock Math.random in a fixed sequence for `resolveFoul`:
+      //   1. foulingTeam pick: < 0.5 → home
+      //   2. playerIdx pick: targetIdx / 11 → 1
+      //   3. roll: 0.1 → in the yellow range (0.002..0.2)
+      const seq = [0.1, targetIdx / 11, 0.1];
+      let i = 0;
+      const spy = jest
+        .spyOn(Math, 'random')
+        .mockImplementation(() => seq[i++ % seq.length]);
+
+      try {
+        (engine as any).resolveFoul();
+
+        // The target player should now be sent off.
+        expect(target.isSentOff).toBe(true);
+        // Sanity: a red_card event was emitted for this player.
+        const events = (engine as any).events as MatchEvent[];
+        const redCard = events.find(
+          (e) => e.type === 'red_card' && e.playerId === target.player.id,
+        );
+        expect(redCard).toBeDefined();
+      } finally {
+        spy.mockRestore();
+      }
+    });
+  });
+
   describe('Player Match Stats', () => {
     it('should track player stats after match simulation', () => {
       engine.simulateMatch();

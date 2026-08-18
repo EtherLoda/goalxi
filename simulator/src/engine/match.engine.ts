@@ -2816,6 +2816,7 @@ export class MatchEngine {
       if (currentYellows >= 1) {
         // Second yellow = red card - player leaves, no substitution (plays with 10 men)
         foulingTeam.sendOffPlayer(p.id);
+        player.isSentOff = true;
         this.events.push({
           minute: this.time,
           type: 'red_card',

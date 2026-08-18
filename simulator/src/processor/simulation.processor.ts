@@ -647,10 +647,23 @@ export class SimulationProcessor extends WorkerHost {
        * Event at minute 46 happens at real-world T+60 (45min play + 15min break)
        */
 
-      // Special case: Second half kickoff at minute 45 (but type is 'kickoff' for second half)
+      // Special case: Second half kickoff. The engine emits this as
+      // `{ minute: 46, type: 'second_half', data: { period: 'second_half' } }`
+      // — the in-game minute label is 46 (the first minute of the
+      // second half), but the event itself marks the boundary where
+      // the second half *begins* — i.e. real time 60 (45 + 15 HT).
+      //
+      // Pre-fix this check was:
+      //   `eventMinute === 45 && type === 'kickoff' && period === 'second_half'`
+      // which matched NOTHING — the engine never emits a `kickoff`
+      // event with `period === 'second_half'` (kickoffs use period
+      // 'first_half' / 'extra_time' / 'extra_time_second_half'). So
+      // the second_half event silently fell through to the
+      // `eventMinute <= 90` arm and got 46 + 15 = 61 min, 1 minute
+      // late. The new check matches the actual wire shape.
       const isSecondHalfKickoff =
-        eventMinute === 45 &&
-        event.type === 'kickoff' &&
+        eventMinute === 46 &&
+        event.type === 'second_half' &&
         event.data?.period === 'second_half';
 
       // Special case: Extra time kickoff at minute 90
