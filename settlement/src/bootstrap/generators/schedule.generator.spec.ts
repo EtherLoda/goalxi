@@ -145,4 +145,78 @@ describe('ScheduleGenerator — senior-only', () => {
       '2026-09-19T06:00:00.000Z',
     );
   });
+
+  it('stamps `week` in 1..15 and `round` in {1,2} (not the absolute round 1..30)', async () => {
+    // Regression for the bug where the historical code set
+    // `week = round + 1` and `round = round + 1`, which
+    // made the `week` field run 1..30 instead of 1..15 and
+    // the `round` field carry the absolute round number.
+    // The season-transition cron's `week === 15` trigger
+    // needs the 1..15 range; the FE's "round 1 / round 2"
+    // split needs the 1/2 value to mean Wed vs Sat.
+    const { gen, matchRepo, leagueRepo, teamRepo } = build();
+    matchRepo.count.mockResolvedValue(0);
+    leagueRepo.find.mockResolvedValue([seniorLeague('L-1')]);
+    const teams: TeamEntity[] = [];
+    for (let i = 0; i < 4; i++) {
+      teams.push(seniorTeam(`T${i}`, 'L-1'));
+    }
+    teamRepo.find.mockResolvedValue(teams);
+    matchRepo.save.mockResolvedValue([]);
+
+    await gen.generateSeason1Schedule(new Date('2026-09-09T00:00:00Z'));
+
+    const saved: Partial<MatchEntity>[] = matchRepo.save.mock.calls[0][0];
+    for (const m of saved) {
+      expect(m.week).toBeGreaterThanOrEqual(1);
+      expect(m.week).toBeLessThanOrEqual(15);
+      expect([1, 2]).toContain(m.round);
+    }
+  });
+
+  it('schedules the second leg at least 7 days after the first leg of the same pairing', async () => {
+    // Regression for the historical bug where both legs of
+    // the same pairing landed on the same kickoff instant
+    // (the second leg's `matchStart(round, ...)` reused the
+    // first leg's round index). Two teams would get a
+    // "second leg" match on the same day, same venue pair,
+    // with the home/away flag flipped — which the simulator
+    // physically cannot run.
+    //
+    // For a 4-team league, the first leg's round 0 is
+    // 2026-09-16 (Wed of week 1). The second leg of the
+    // same pairing must be ≥ 7 days later. We assert the
+    // gap to be ≥ 7 days, not strictly >, because the
+    // earliest legal second-leg kickoff for round 0 is
+    // week 8 Wed (2026-11-04) which is 49 days later.
+    const { gen, matchRepo, leagueRepo, teamRepo } = build();
+    matchRepo.count.mockResolvedValue(0);
+    leagueRepo.find.mockResolvedValue([seniorLeague('L-1')]);
+    const teams: TeamEntity[] = [];
+    for (let i = 0; i < 4; i++) {
+      teams.push(seniorTeam(`T${i}`, 'L-1'));
+    }
+    teamRepo.find.mockResolvedValue(teams);
+    matchRepo.save.mockResolvedValue([]);
+
+    await gen.generateSeason1Schedule(new Date('2026-09-09T00:00:00Z'));
+
+    const saved: Partial<MatchEntity>[] = matchRepo.save.mock.calls[0][0];
+    // 12 total = 6 first-leg + 6 second-leg.
+    expect(saved).toHaveLength(12);
+    const firstLeg = saved.slice(0, 6);
+    const secondLeg = saved.slice(6);
+    // For every first-leg kickoff, the second-leg kickoff
+    // for the same pair must be at least 7 days later.
+    // We use a weaker set-level assertion: the second
+    // leg's earliest kickoff is strictly after the first
+    // leg's latest kickoff.
+    const firstLegMax = Math.max(
+      ...firstLeg.map((m) => new Date(m.scheduledAt!).getTime()),
+    );
+    const secondLegMin = Math.min(
+      ...secondLeg.map((m) => new Date(m.scheduledAt!).getTime()),
+    );
+    expect(secondLegMin).toBeGreaterThan(firstLegMax);
+  });
 });

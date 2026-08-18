@@ -1,12 +1,14 @@
-import { Injectable, Logger, Inject } from '@nestjs/common';
+import { Injectable, Inject } from '@nestjs/common';
 import { LOGGER_SERVICE, PinoLoggerService } from '@goalxi/logger';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import {
+  GAME_SETTINGS,
+  LeagueEntity,
+  LeagueStandingEntity,
   MatchEntity,
   MatchStatus,
   MatchType,
-  LeagueStandingEntity,
 } from '@goalxi/database';
 
 export interface PlayoffMatchInfo {
@@ -21,83 +23,60 @@ export interface PlayoffMatchInfo {
 
 @Injectable()
 export class PlayoffService {
-  private readonly PLAYOFF_HOUR = 20;
-  private readonly PLAYOFF_MINUTE = 0;
-
   constructor(
     @Inject(LOGGER_SERVICE)
     private readonly logger: PinoLoggerService,
     @InjectRepository(MatchEntity)
     private readonly matchRepository: Repository<MatchEntity>,
+    @InjectRepository(LeagueEntity)
+    private readonly leagueRepository: Repository<LeagueEntity>,
     @InjectRepository(LeagueStandingEntity)
     private readonly standingRepository: Repository<LeagueStandingEntity>,
   ) {}
 
   /**
-   * 为所有级别联赛生成附加赛
-   * @param season 当前赛季
-   * @returns 生成的附加赛信息数组
+   * Generate the promotion/relegation playoff fixtures for
+   * every senior league in the pyramid.
+   *
+   * For each league whose tier < MAX_TIER, we pair the
+   * upper league's positions 9-12 with the lower tier's
+   * corresponding #2 teams. The pairing is index-based
+   * (upper #9 ↔ lower league[0] #2, upper #10 ↔ lower
+   * league[1] #2, etc.) which assumes the lower tier's
+   * leagues are returned in `parentLeagueId` order. With
+   * the `parentLeagueId` filter, each upper league only
+   * sees its own child lower-tier leagues (e.g. L2-D1
+   * only sees L3-D1..D4), which is what the index-based
+   * pairing was implicitly designed for — the historical
+   * `where('league.tier = :tier', ...)` filter pulled
+   * every lower-tier league across the entire tier, so
+   * the same lower team's #2 ended up in 4 different
+   * playoff rows (one per upper-league division) and the
+   * `playoffSwappedAt` latch on
+   * `SeasonTransitionService.processAfterPlayoffsComplete`
+   * could only act on the first swap.
    */
   async generateAllPlayoffMatches(season: number): Promise<PlayoffMatchInfo[]> {
     const allMatches: PlayoffMatchInfo[] = [];
     const playoffDate = this.getNextPlayoffDate();
 
-    // 获取所有联赛
-    const leagues = await this.matchRepository.manager
-      .createQueryBuilder(MatchEntity, 'match')
-      .select('DISTINCT match.leagueId', 'leagueId')
-      .innerJoin('match.league', 'league')
-      .getRawMany();
+    // Walk the pyramid top-down so each league's playoff
+    // batch is computed exactly once. Using the
+    // `LeagueEntity` repository (not
+    // `matchRepository.manager.createQueryBuilder(...)`,
+    // which is a code smell — we're querying a different
+    // entity than the one we started from).
+    const leagues = await this.leagueRepository.find({
+      where: { tier: 1 },
+      order: { tier: 'ASC' },
+    });
 
-    for (const { leagueId } of leagues) {
-      const leagueMatches = await this.matchRepository.manager
-        .createQueryBuilder(MatchEntity, 'match')
-        .innerJoinAndSelect('match.league', 'league')
-        .where('match.leagueId = :leagueId', { leagueId })
-        .andWhere('match.season = :season', { season })
-        .getOne();
-
-      if (!leagueMatches?.league) continue;
-
-      const league = leagueMatches.league;
-      const tier = league.tier;
-
-      // 获取上级联赛
-      const upperLeague = await this.matchRepository.manager
-        .createQueryBuilder(MatchEntity, 'match')
-        .innerJoinAndSelect('match.league', 'league')
-        .where('league.tier = :tier', { tier: tier - 1 })
-        .andWhere('league.tierDivision = :tierDivision', {
-          tierDivision: league.tierDivision,
-        })
-        .getOne();
-
-      if (!upperLeague?.league) {
-        this.logger.debug(
-          `No upper league for Tier ${tier}, Division ${league.tierDivision}, skipping playoffs`,
-        );
-        continue;
-      }
-
-      // 获取下级联赛（如果有的话）
-      const lowerLeagues = await this.matchRepository.manager
-        .createQueryBuilder(MatchEntity, 'match')
-        .innerJoinAndSelect('match.league', 'league')
-        .where('league.tier = :tier', { tier: tier + 1 })
-        .getMany();
-
-      const validLowerLeagues = lowerLeagues
-        .map((m) => m.league)
-        .filter((l): l is NonNullable<typeof l> => l !== undefined);
-
-      // 生成本联赛的附加赛（第9-12名 vs 下级联赛第2名）
-      const playoffMatches = await this.generateLeaguePlayoffs(
-        league,
-        validLowerLeagues,
+    for (const topLeague of leagues) {
+      const playoffMatches = await this.generatePyramidLevelPlayoffs(
+        topLeague,
         season,
         playoffDate,
       );
-
       allMatches.push(...playoffMatches);
     }
 
@@ -111,11 +90,54 @@ export class PlayoffService {
   }
 
   /**
-   * 为单个联赛生成附加赛（第9-12名 vs 下级对应联赛第2名）
+   * Recursively descend the pyramid from `upperLeague`,
+   * generating playoff matches at every tier boundary.
+   * The recursion stops at MAX_TIER (the bottom of the
+   * pyramid, no children).
+   */
+  private async generatePyramidLevelPlayoffs(
+    upperLeague: LeagueEntity,
+    season: number,
+    playoffDate: Date,
+  ): Promise<PlayoffMatchInfo[]> {
+    const children = await this.leagueRepository.find({
+      where: { parentLeagueId: upperLeague.id },
+      order: { tierDivision: 'ASC' },
+    });
+
+    if (children.length === 0) {
+      return [];
+    }
+
+    const matches = await this.generateLeaguePlayoffs(
+      upperLeague,
+      children,
+      season,
+      playoffDate,
+    );
+
+    // Recurse one level down — each child league also
+    // has its own children to play off against.
+    for (const child of children) {
+      const childMatches = await this.generatePyramidLevelPlayoffs(
+        child,
+        season,
+        playoffDate,
+      );
+      matches.push(...childMatches);
+    }
+
+    return matches;
+  }
+
+  /**
+   * For a single upper league, generate the playoff
+   * matches pairing its positions 9-12 with each child
+   * league's #2 team (1:1, index-based).
    */
   private async generateLeaguePlayoffs(
-    upperLeague: any,
-    lowerLeagues: any[],
+    upperLeague: LeagueEntity,
+    lowerLeagues: LeagueEntity[],
     season: number,
     playoffDate: Date,
   ): Promise<PlayoffMatchInfo[]> {
@@ -130,7 +152,6 @@ export class PlayoffService {
     const playoffStart = maxTeams - playoffSlots - relegationSlots + 1;
     const playoffEnd = maxTeams - relegationSlots;
 
-    // 获取上级联赛参加附加赛的球队
     const upperStandings = await this.standingRepository.find({
       where: { leagueId: upperLeague.id, season },
       relations: ['team'],
@@ -141,7 +162,6 @@ export class PlayoffService {
       (s) => s.position >= playoffStart && s.position <= playoffEnd,
     );
 
-    // 获取下级各联赛第2名的球队
     for (
       let i = 0;
       i < playoffPositions.length && i < lowerLeagues.length;
@@ -162,7 +182,6 @@ export class PlayoffService {
         continue;
       }
 
-      // 上级联赛第9-12名主场，下级联赛第2名客场
       matches.push({
         homeTeamId: upperStanding.teamId,
         awayTeamId: lowerStanding.teamId,
@@ -208,16 +227,30 @@ export class PlayoffService {
   }
 
   /**
-   * 获取下一个周三晚上8点
+   * Next Wednesday at `GAME_SETTINGS.MATCH_KICKOFF_HOUR_UTC`
+   * (currently 6:00 UTC = 14:00 China time). The historical
+   * implementation used `setHours(20, ...)` in the
+   * *server's local timezone*, which didn't match the
+   * regular-season kickoff hour or the rest of the
+   * cron layer that anchors on UTC.
    */
   private getNextPlayoffDate(): Date {
     const now = new Date();
-    const dayOfWeek = now.getDay();
-    // 周三 = 3
-    const daysUntilWednesday = (3 - dayOfWeek + 7) % 7 || 7;
+    const dayOfWeek = now.getUTCDay();
+    // 周三 = 3 (UTC).
+    const rawDaysToWed = (3 - dayOfWeek + 7) % 7;
+    // 0 means today is Wednesday — push to next Wednesday
+    // so the playoff always lands on a future date even if
+    // the cron fires on a Wednesday.
+    const daysUntilWednesday = rawDaysToWed === 0 ? 7 : rawDaysToWed;
     const nextWednesday = new Date(now);
-    nextWednesday.setDate(now.getDate() + daysUntilWednesday);
-    nextWednesday.setHours(this.PLAYOFF_HOUR, this.PLAYOFF_MINUTE, 0, 0);
+    nextWednesday.setUTCDate(now.getUTCDate() + daysUntilWednesday);
+    nextWednesday.setUTCHours(
+      GAME_SETTINGS.MATCH_KICKOFF_HOUR_UTC,
+      0,
+      0,
+      0,
+    );
     return nextWednesday;
   }
 }
