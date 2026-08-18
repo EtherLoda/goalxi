@@ -1,4 +1,5 @@
 import {
+  CupBracketSlotEntity,
   MatchEntity,
   MatchEventEntity,
   MatchTacticsEntity,
@@ -64,6 +65,16 @@ describe('MatchService', () => {
     save: jest.fn(),
   };
 
+  // CupBracketSlotRepository is only touched by `findOne` when
+  // `match.type === MatchType.CUP`. Most tests exercise the
+  // create / submitTactics / validateTeamOwnership paths which
+  // never reach the slot lookup, so the default is `jest.fn()`
+  // that returns null. Tests that exercise the cup-match path
+  // (see below) override the per-test return value.
+  const mockCupSlotRepository = {
+    findOne: jest.fn().mockResolvedValue(null),
+  };
+
   const mockDataSource = {
     transaction: jest.fn((callback) =>
       callback({
@@ -104,6 +115,10 @@ describe('MatchService', () => {
         {
           provide: getRepositoryToken(MatchTeamStatsEntity),
           useValue: mockStatsRepository,
+        },
+        {
+          provide: getRepositoryToken(CupBracketSlotEntity),
+          useValue: mockCupSlotRepository,
         },
         {
           provide: DataSource,

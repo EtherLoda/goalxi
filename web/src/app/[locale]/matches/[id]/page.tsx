@@ -114,10 +114,32 @@ function MatchPageContent() {
               {tBento('title')}
             </h1>
             <p className="text-sm text-on-surface-variant font-headline">
-              {match.leagueId ? tBento('round', { round: match.round ?? '?', season: match.season }) : ''}
+              {match.leagueId
+                ? tBento('round', { round: match.round ?? '?', season: match.season })
+                : match.cupRound !== null && match.cupRound !== undefined
+                  ? `${tBento('cupRound', { round: match.cupRound + 1 })} · ${tBento('cupSeason', { season: match.season })}`
+                  : ''}
             </p>
           </div>
         </div>
+        {/* "View bracket" link — only for cup matches. The
+            cupId+cupRound are populated by GET /matches/:id (the
+            list endpoint omits them). The link lands on the cup
+            bracket page with a hash anchor that scrolls the
+            relevant round into view. */}
+        {match.type === 'cup' && match.cupId && (
+          <Link
+            href={`/${locale}/cup/${match.cupId}${match.cupRound !== null && match.cupRound !== undefined ? `#round-${match.cupRound}` : ''}`}
+            className="inline-flex items-center gap-2 h-10 px-4 rounded-full glass-panel border border-amber-500/30 hover:border-amber-500/60 hover:shadow-[0_0_18px_rgba(251,191,36,0.15)] transition-all"
+          >
+            <span className="material-symbols-outlined text-[18px] text-amber-300">
+              workspace_premium
+            </span>
+            <span className="font-label text-[10px] font-black uppercase tracking-widest text-amber-300">
+              {tBento('viewBracket')}
+            </span>
+          </Link>
+        )}
 
         {/* Tactics entry — only for scheduled (or in-lock-window) matches */}
         {match.status !== MATCH_STATUS.IN_PROGRESS && match.status !== MATCH_STATUS.COMPLETED && match.status !== MATCH_STATUS.CANCELLED && (

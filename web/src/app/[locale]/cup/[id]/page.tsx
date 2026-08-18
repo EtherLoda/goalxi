@@ -10,6 +10,7 @@ export default function CupDetailPage() {
   const t = useTranslations("cup");
   const params = useParams<{ locale: string; id: string }>();
   const cupId = params?.id as string;
+  const locale = (params?.locale as string) || "en";
   const [cup, setCup] = useState<CupRef | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -67,7 +68,7 @@ export default function CupDetailPage() {
         )}
       </div>
 
-      <CupBracket cupId={cupId} />
+      <CupBracket cupId={cupId} locale={locale} />
     </div>
   );
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useParams } from "next/navigation";
 import { useTranslations } from "next-intl";
@@ -8,6 +8,7 @@ import { api, MATCH_STATUS, type Match } from "@/lib/api";
 import Link from "next/link";
 import { clsx } from "clsx";
 import { FormChipStrip, type FormResult } from "@/components/match/FormChipStrip";
+import MatchTypeBadge from "@/components/match/MatchTypeBadge";
 
 interface MatchWithResult extends Match {
   result?: "W" | "D" | "L" | null;
@@ -21,6 +22,7 @@ export default function ArchivedMatchesPage() {
   const t = useTranslations('matches.archivePage');
   const tSections = useTranslations('matches.sections');
   const tVerdict = useTranslations('matches.verdict');
+  const tFilter = useTranslations('matches.filter');
   const tCommon = useTranslations('common');
 
   const [currentSeason, setCurrentSeason] = useState<number>(1);
@@ -28,6 +30,19 @@ export default function ArchivedMatchesPage() {
   const [seasons, setSeasons] = useState<number[]>([1]);
   const [matches, setMatches] = useState<MatchWithResult[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  /**
+   * Type filter for the match log. `null` = show all (default).
+   * The KPI strip + form chips stay unfiltered (season totals
+   * span both types) — only the row list is narrowed.
+   */
+  const [typeFilter, setTypeFilter] = useState<"all" | "league" | "cup">(
+    "all",
+  );
+
+  const filteredMatches = useMemo(() => {
+    if (typeFilter === "all") return matches;
+    return matches.filter((m) => m.type === typeFilter);
+  }, [matches, typeFilter]);
 
   useEffect(() => {
     api.game
@@ -215,15 +230,40 @@ export default function ArchivedMatchesPage() {
 
       {/* Matches List */}
       <section>
-        <h2 className="font-headline text-xs font-black uppercase tracking-[0.25em] text-primary flex items-center gap-2 px-1 mb-3">
-          <span className="material-symbols-outlined text-base">history</span>
-          {tSections('matchLog')}
+        <div className="flex items-center gap-2 px-1 mb-3">
+          <h2 className="font-headline text-xs font-black uppercase tracking-[0.25em] text-primary flex items-center gap-2">
+            <span className="material-symbols-outlined text-base">history</span>
+            {tSections('matchLog')}
+          </h2>
           {!isLoading && (
             <span className="ml-auto text-on-surface-variant/60 font-label text-[10px]">
               {t('entries', { count: stats.total })}
             </span>
           )}
-        </h2>
+        </div>
+        {/* Type filter tabs. Client-side filter — single fetch, two
+            display views. The KPI strip + form chips above are
+            type-agnostic, so the filter only narrows the match log
+            below. */}
+        <div className="flex gap-1 px-1 mb-3">
+          {(["all", "league", "cup"] as const).map((f) => {
+            const active = typeFilter === f;
+            return (
+              <button
+                key={f}
+                onClick={() => setTypeFilter(f)}
+                className={clsx(
+                  "px-2.5 py-1 rounded-md font-label text-[10px] font-black uppercase tracking-widest border transition-colors",
+                  active
+                    ? "bg-primary/10 border-primary/40 text-primary"
+                    : "bg-surface-container/30 border-outline-variant/10 text-on-surface-variant hover:text-on-surface hover:border-outline-variant/30",
+                )}
+              >
+                {tFilter(f)}
+              </button>
+            );
+          })}
+        </div>
 
         {isLoading ? (
           <div className="space-y-2">
@@ -234,7 +274,7 @@ export default function ArchivedMatchesPage() {
               />
             ))}
           </div>
-        ) : matches.length === 0 ? (
+        ) : filteredMatches.length === 0 ? (
           <div className="glass-panel rounded-2xl p-12 text-center">
             <span className="material-symbols-outlined text-6xl text-on-surface-variant/30 mb-4 block">
               event_busy
@@ -250,7 +290,7 @@ export default function ArchivedMatchesPage() {
           </div>
         ) : (
           <div className="space-y-2">
-            {matches.map((match) => {
+            {filteredMatches.map((match) => {
               const userScore = match.isUserHome
                 ? match.homeScore
                 : match.awayScore;
@@ -283,6 +323,10 @@ export default function ArchivedMatchesPage() {
                   {/* Middle: date + teams + meta */}
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 text-[10px] font-label uppercase tracking-widest text-on-surface-variant mb-0.5">
+                      <MatchTypeBadge
+                        type={match.type}
+                        cupRound={match.cupRound ?? null}
+                      />
                       <span className="material-symbols-outlined text-[12px]">stadium</span>
                       <span>{formatDate(match.scheduledAt)}</span>
                       <span className="text-on-surface-variant/40">•</span>
@@ -296,7 +340,7 @@ export default function ArchivedMatchesPage() {
                       >
                         {isHomeMatch(match) ? 'H' : 'A'}
                       </span>
-                      {match.round && (
+                      {match.round && match.type !== 'cup' && (
                         <>
                           <span className="text-on-surface-variant/40">•</span>
                           <span>{tCommon('round', { round: match.round })}</span>

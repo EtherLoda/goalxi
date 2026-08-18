@@ -323,6 +323,23 @@
       "noMatchScheduled": "暂无比赛",
       "formEmpty": "暂无比赛"
     },
+    "filter": {
+      "all": "全部",
+      "league": "联赛",
+      "cup": "杯赛"
+    },
+    "matchType": {
+      "league": "联赛",
+      "cup": "杯赛",
+      "tournament": "锦标赛",
+      "playoff": "附加赛",
+      "friendly": "友谊赛",
+      "national": "国家队",
+      "match": "比赛"
+    },
+    "detail": {
+      "viewBracket": "查看对阵树"
+    },
     "sections": {
       "recentResults": "近期战果",
       "upcomingFixtures": "未来赛程",
@@ -466,6 +483,9 @@
       "report": {
         "title": "比赛报告",
         "round": "第 {round} 轮 · 赛季 {season}",
+        "cupRound": "杯赛第 {round} 轮",
+        "cupSeason": "第 {season} 赛季",
+        "viewBracket": "查看对阵树",
         "back": "返回比赛列表"
       },
       "snapshot": {

@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useTranslations } from 'next-intl';
 import type { Match, Team } from '@/lib/api';
 import { TacticsEntryButton } from '@/components/tactics/shared/TacticsEntryButton';
+import MatchTypeBadge from '@/components/match/MatchTypeBadge';
 
 interface FixtureTicketProps {
   match: Match;
@@ -82,6 +83,11 @@ export function FixtureTicket({
         className="flex-1 min-w-0 px-4 py-3 flex flex-col justify-center gap-1 hover:bg-white/2 transition-colors"
       >
         <div className="flex items-center gap-2 text-[10px] font-label uppercase tracking-widest text-on-surface-variant">
+          <MatchTypeBadge
+            type={match.type}
+            cupRound={match.cupRound ?? null}
+            className="mr-0.5"
+          />
           <span
             className="px-1.5 py-0.5 rounded font-black"
             style={{ backgroundColor: `${teamColor}1a`, color: teamColor }}
@@ -91,14 +97,23 @@ export function FixtureTicket({
           <span className="text-on-surface-variant/60">
             {date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}
           </span>
-          {match.round ? (
+          {match.round && match.type !== 'cup' ? (
             <>
               <span className="text-on-surface-variant/40">•</span>
               <span>{tCommon('round', { round: match.round })}</span>
             </>
           ) : null}
           <span className="text-on-surface-variant/40">•</span>
-          <span className="truncate">{leagueName || t('match')}</span>
+          {/* For cup matches the leagueName is empty; the type badge
+              already says "Cup R0", so just leave the slot blank
+              instead of falling back to a misleading "match". */}
+          <span className="truncate">
+            {match.type === 'cup'
+              ? (match.cupRound !== undefined && match.cupRound !== null
+                  ? tCommon('round', { round: match.cupRound + 1 })
+                  : '')
+              : (leagueName || t('match'))}
+          </span>
         </div>
         <div className="font-headline text-base font-bold text-on-surface truncate">
           <span className="text-on-surface-variant/60 font-medium">

@@ -6,6 +6,9 @@ import MatchCard from "./MatchCard";
 
 interface RoundListProps {
   round: CupRound;
+  /** Locale string used for the click-through match-detail link
+   *  inside each MatchCard. Defaults to "en" if not passed. */
+  locale?: string;
 }
 
 /**
@@ -14,7 +17,7 @@ interface RoundListProps {
  * rely on the column count to keep cards compact. No tree
  * rendering here — by design.
  */
-export default function RoundList({ round }: RoundListProps) {
+export default function RoundList({ round, locale = "en" }: RoundListProps) {
   const t = useTranslations("cup.match");
   const matches = round.matches;
 
@@ -36,6 +39,7 @@ export default function RoundList({ round }: RoundListProps) {
           key={m.matchId ?? `bye-${i}`}
           match={m}
           roundScheduledAt={round.scheduledAt}
+          locale={locale}
         />
       ))}
     </div>

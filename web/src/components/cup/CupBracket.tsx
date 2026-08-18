@@ -9,6 +9,10 @@ import RoundTree from "./RoundTree";
 
 interface CupBracketProps {
   cupId: string;
+  /** Locale string used to build the click-through match-detail
+   *  links inside each MatchCard / TreeMatchCard. Defaults to
+   *  "en" if not passed. */
+  locale?: string;
 }
 
 /**
@@ -25,7 +29,7 @@ function treeStartRound(totalRounds: number): number {
   return Math.max(0, totalRounds - 4);
 }
 
-export default function CupBracket({ cupId }: CupBracketProps) {
+export default function CupBracket({ cupId, locale = "en" }: CupBracketProps) {
   const t = useTranslations("cup");
   const [bracket, setBracket] = useState<CupBracketData | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -115,9 +119,9 @@ export default function CupBracket({ cupId }: CupBracketProps) {
       </div>
 
       {isTreeRound ? (
-        <RoundTree rounds={treeRounds} />
+        <RoundTree rounds={treeRounds} locale={locale} />
       ) : selectedRoundData ? (
-        <RoundList round={selectedRoundData} />
+        <RoundList round={selectedRoundData} locale={locale} />
       ) : null}
     </div>
   );

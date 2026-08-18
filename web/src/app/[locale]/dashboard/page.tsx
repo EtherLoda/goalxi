@@ -95,12 +95,19 @@ function DashboardPageContent() {
     ])
       .then(([standingsData, upcomingData, recentData, notificationsData, fan]) => {
         setStandings(standingsData);
-        // Sort by round to get the actual next match (same logic as League page)
-        const sortedUpcoming = [...(upcomingData?.data || [])].sort((a, b) => {
-          const roundA = a.round ?? a.week * 2;
-          const roundB = b.round ?? b.week * 2;
-          return roundA - roundB;
-        });
+        // Sort by `scheduledAt` to find the actual next match. The
+        // old `round ?? week*2` sort put every cup match (which
+        // has `round=0..N-1` AND `week=0`) at the front of the
+        // queue regardless of when it actually kicks off — so
+        // the dashboard's "Next match" hero could show a cup
+        // tie from two weeks ago while ignoring tomorrow's
+        // league fixture. `scheduledAt` is the only field that
+        // orders correctly across types.
+        const sortedUpcoming = [...(upcomingData?.data || [])].sort(
+          (a, b) =>
+            new Date(a.scheduledAt).getTime() -
+            new Date(b.scheduledAt).getTime(),
+        );
         const upcoming = sortedUpcoming[0] || null;
         setUpcomingMatch(upcoming);
         // Get last 5 completed matches for form

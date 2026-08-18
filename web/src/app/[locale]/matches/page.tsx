@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, Suspense } from "react";
+import { useEffect, useMemo, useState, Suspense } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useParams, useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
@@ -11,6 +11,7 @@ import { useGameStore } from "@/stores/gameStore";
 import { MatchdayHero } from "@/components/match/MatchdayHero";
 import { FixtureTicket } from "@/components/match/FixtureTicket";
 import { FormChipStrip, type FormResult } from "@/components/match/FormChipStrip";
+import MatchTypeBadge from "@/components/match/MatchTypeBadge";
 
 interface MatchWithResult extends Match {
   result?: "W" | "D" | "L" | null;
@@ -61,6 +62,14 @@ function MatchesPageContent() {
   const [showAllUpcoming, setShowAllUpcoming] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [leagueName, setLeagueName] = useState<string>("");
+  /**
+   * Type filter for the matches list. `null` = show all (default).
+   * `cup` / `league` filter the upcoming and recent rows. The
+   * server already returns all types for the team; this is a
+   * client-side filter so the request is identical regardless of
+   * the active tab (one fetch, two display views).
+   */
+  const [typeFilter, setTypeFilter] = useState<"all" | "league" | "cup">("all");
   // Live `now` so the tactics entry button can re-render the lock countdown
   const [now, setNow] = useState<number>(Date.now());
 
@@ -88,7 +97,10 @@ function MatchesPageContent() {
         const oneMonthAgo = now - ONE_MONTH_MS;
         const oneMonthLater = now + ONE_MONTH_MS;
 
-        // Process completed matches and filter to last month
+        // Process completed matches and filter to last month.
+        // No type filter here — the "recent results" rail is a
+        // dense at-a-glance summary, and the form chip strip
+        // already shows the W/D/L shape regardless of type.
         const processedRecent = (completedData?.data || [])
           .filter((m: Match) => new Date(m.scheduledAt).getTime() >= oneMonthAgo)
           .sort((a: Match, b: Match) => new Date(b.scheduledAt).getTime() - new Date(a.scheduledAt).getTime())
@@ -139,6 +151,22 @@ function MatchesPageContent() {
 
     fetchMatches();
   }, [currentTeam?.id, currentTeam?.leagueId]);
+
+  /**
+   * Apply the active type filter to the upcoming list. The
+   * "all" tab is a no-op (returns the same array). The "league"
+   * / "cup" tabs hide the other type's rows. The recent-results
+   * rail stays unfiltered (see the comment in the fetch effect).
+   */
+  const filteredUpcoming = useMemo(() => {
+    if (typeFilter === "all") return upcomingMatches;
+    return upcomingMatches.filter((m) => m.type === typeFilter);
+  }, [upcomingMatches, typeFilter]);
+
+  const filteredAllUpcoming = useMemo(() => {
+    if (typeFilter === "all") return allUpcomingMatches;
+    return allUpcomingMatches.filter((m) => m.type === typeFilter);
+  }, [allUpcomingMatches, typeFilter]);
 
   const formatDate = (dateStr: string) => {
     const date = new Date(dateStr);
@@ -317,9 +345,13 @@ function MatchesPageContent() {
                     >
                       {match.result ?? '—'}
                     </div>
-                    {/* Middle: date + teams */}
+                    {/* Middle: date + teams + type chip */}
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 text-[10px] font-label uppercase tracking-widest text-on-surface-variant mb-0.5">
+                        <MatchTypeBadge
+                          type={match.type}
+                          cupRound={match.cupRound ?? null}
+                        />
                         <span>{formatDate(match.scheduledAt)}</span>
                         <span className="text-on-surface-variant/40">•</span>
                         <span
@@ -361,13 +393,15 @@ function MatchesPageContent() {
 
         {/* Upcoming Fixtures — stadium "departure board" */}
         <div className="lg:col-span-7 flex flex-col gap-3">
-          <h2 className="font-headline text-xs font-black uppercase tracking-[0.25em] text-primary flex items-center gap-2 px-1">
-            <span className="material-symbols-outlined text-base">event</span>
-            {t('sections.upcomingFixtures')}
-            {allUpcomingMatches.length > upcomingMatches.length && (
+          <div className="flex items-center justify-between gap-2 px-1">
+            <h2 className="font-headline text-xs font-black uppercase tracking-[0.25em] text-primary flex items-center gap-2">
+              <span className="material-symbols-outlined text-base">event</span>
+              {t('sections.upcomingFixtures')}
+            </h2>
+            {filteredAllUpcoming.length > filteredUpcoming.length && (
               <button
                 onClick={() => setShowAllUpcoming(!showAllUpcoming)}
-                className="ml-auto flex items-center gap-1 text-[10px] font-label font-black uppercase tracking-widest text-on-surface-variant hover:text-primary transition-colors"
+                className="flex items-center gap-1 text-[10px] font-label font-black uppercase tracking-widest text-on-surface-variant hover:text-primary transition-colors"
               >
                 {showAllUpcoming ? (
                   <>
@@ -376,15 +410,37 @@ function MatchesPageContent() {
                   </>
                 ) : (
                   <>
-                    {t('showAll', { count: allUpcomingMatches.length })}
+                    {t('showAll', { count: filteredAllUpcoming.length })}
                     <span className="material-symbols-outlined text-base">expand_more</span>
                   </>
                 )}
               </button>
             )}
-          </h2>
+          </div>
+          {/* Type filter tabs. Client-side filter — the API
+              already returns all types; this just narrows the
+              display without an extra round-trip. */}
+          <div className="flex gap-1 px-1">
+            {(["all", "league", "cup"] as const).map((f) => {
+              const active = typeFilter === f;
+              return (
+                <button
+                  key={f}
+                  onClick={() => setTypeFilter(f)}
+                  className={clsx(
+                    "px-2.5 py-1 rounded-md font-label text-[10px] font-black uppercase tracking-widest border transition-colors",
+                    active
+                      ? "bg-primary/10 border-primary/40 text-primary"
+                      : "bg-surface-container/30 border-outline-variant/10 text-on-surface-variant hover:text-on-surface hover:border-outline-variant/30",
+                  )}
+                >
+                  {t("filter." + f)}
+                </button>
+              );
+            })}
+          </div>
 
-          {upcomingMatches.length === 0 ? (
+          {filteredUpcoming.length === 0 ? (
             <div className="glass-panel rounded-2xl p-10 text-center">
               <span className="material-symbols-outlined text-5xl text-on-surface-variant/30 mb-2 block">
                 event_busy
@@ -393,7 +449,7 @@ function MatchesPageContent() {
             </div>
           ) : (
             <div className="space-y-2">
-              {(showAllUpcoming ? allUpcomingMatches : upcomingMatches).map((match) => (
+              {(showAllUpcoming ? filteredAllUpcoming : filteredUpcoming).map((match) => (
                 <FixtureTicket
                   key={match.id}
                   match={match}

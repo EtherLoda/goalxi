@@ -1,6 +1,7 @@
 "use client";
 
 import { useTranslations } from "next-intl";
+import Link from "next/link";
 import type { CupMatch } from "@/lib/cup-api";
 
 interface RoundTreeProps {
@@ -16,6 +17,9 @@ interface RoundTreeProps {
     roundName: string;
     matches: CupMatch[];
   }>;
+  /** Locale string for the click-through match-detail link inside
+   *  each tree card. Defaults to "en" if not passed. */
+  locale?: string;
 }
 
 /**
@@ -35,7 +39,7 @@ interface RoundTreeProps {
  * teams that play. The result: a match in round 0 spans 16 rows
  * (no offset), round 1 spans 8 rows, etc. — the classic bracket.
  */
-export default function RoundTree({ rounds }: RoundTreeProps) {
+export default function RoundTree({ rounds, locale = "en" }: RoundTreeProps) {
   if (rounds.length === 0) return null;
 
   // Deepest round determines the row count. The first (leftmost)
@@ -65,6 +69,7 @@ export default function RoundTree({ rounds }: RoundTreeProps) {
               matchSpan={matchSpan}
               totalRounds={rounds.length}
               isLast={roundIdx === rounds.length - 1}
+              locale={locale}
             />
           );
         })}
@@ -79,6 +84,7 @@ interface RoundColumnProps {
   matchSpan: number;
   totalRounds: number;
   isLast: boolean;
+  locale: string;
 }
 
 function RoundColumn({
@@ -86,6 +92,7 @@ function RoundColumn({
   roundIdx,
   matchSpan,
   isLast,
+  locale,
 }: RoundColumnProps) {
   const t = useTranslations("cup");
   return (
@@ -115,7 +122,7 @@ function RoundColumn({
             }}
             className="px-1 py-1"
           >
-            <TreeMatchCard match={m} isBye={isBye} />
+            <TreeMatchCard match={m} isBye={isBye} locale={locale} />
           </div>
         );
       })}
@@ -176,9 +183,11 @@ function ConnectorColumn({ matchSpan }: { matchSpan: number }) {
 function TreeMatchCard({
   match,
   isBye,
+  locale = "en",
 }: {
   match: CupMatch;
   isBye: boolean;
+  locale?: string;
 }) {
   const t = useTranslations("cup.match");
   const winnerId = match.winnerTeamId;
@@ -200,7 +209,10 @@ function TreeMatchCard({
   }
 
   return (
-    <div className="h-full flex flex-col justify-center">
+    <Link
+      href={`/${locale}/matches/${match.matchId}`}
+      className="h-full flex flex-col justify-center block hover:brightness-110 transition-all"
+    >
       <div className="glass-panel rounded-lg border border-outline-variant/10 overflow-hidden">
         <TeamLine
           name={match.homeTeam?.name ?? t("tbd")}
@@ -214,7 +226,7 @@ function TreeMatchCard({
           isLoser={hasResult && winnerId !== null && winnerId !== match.awayTeam?.id}
         />
       </div>
-    </div>
+    </Link>
   );
 }
 

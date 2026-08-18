@@ -52,4 +52,22 @@ export class MatchResDto {
    * that don't join the stadium row.
    */
   venue?: string | null;
+
+  /**
+   * Cup context, populated by `MatchService.findOne` only when
+   * `type === 'cup'` (single-match fetch). `null` for league matches
+   * and for list responses (the FE doesn't need it to render the
+   * matches list / archive / type-filter — the type badge is enough
+   * there). The bracket page reads cupId from the URL, not from the
+   * match entity.
+   *
+   * The `cupId` is resolved via a single
+   * `CupBracketSlotEntity.findOne({ where: { matchId: id } })` —
+   * both slot perspectives of a match share the same `matchId`, so
+   * one row is enough. If a cup match has no slot row (shouldn't
+   * happen in normal flow) the fields stay `null` and the FE
+   * hides the "View bracket" link.
+   */
+  cupId?: string | null;
+  cupRound?: number | null;
 }

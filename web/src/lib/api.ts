@@ -428,6 +428,14 @@ interface Match {
   /** [RFC 0001] Youth league id when type === youth_league. */
   youthLeagueId?: string | null;
   /**
+   * Cup context, populated by `GET /matches/:id` only when
+   * `type === 'cup'`. `null` for league matches and for list
+   * responses. The FE uses this to render the "View bracket"
+   * link on the cup match detail page.
+   */
+  cupId?: string | null;
+  cupRound?: number | null;
+  /**
    * Forfeit flags — set when the match never simulated (e.g. one team
    * showed up below the min-player threshold). Simulator emits no
    * SNAPSHOT events for forfeit matches, so the match page must check
@@ -979,12 +987,14 @@ export const api = {
       week?: number;
       season?: number;
       leagueId?: string;
+      type?: string;
     }): Promise<MatchListResponse> => {
       const params = new URLSearchParams({ teamId });
       if (filters?.status) params.append('status', filters.status);
       if (filters?.week) params.append('week', String(filters.week));
       if (filters?.season) params.append('season', String(filters.season));
       if (filters?.leagueId) params.append('leagueId', filters.leagueId);
+      if (filters?.type) params.append('type', filters.type);
       return request<MatchListResponse>(`/matches?${params.toString()}`);
     },
     getByLeague: async (leagueId: string, filters?: {
@@ -992,12 +1002,14 @@ export const api = {
       week?: number;
       round?: number;
       season?: number;
+      type?: string;
     }): Promise<MatchListResponse> => {
       const params = new URLSearchParams({ leagueId });
       if (filters?.status) params.append('status', filters.status);
       if (filters?.week) params.append('week', String(filters.week));
       if (filters?.round !== undefined) params.append('round', String(filters.round));
       if (filters?.season) params.append('season', String(filters.season));
+      if (filters?.type) params.append('type', filters.type);
       params.append('limit', '500');
       return request<MatchListResponse>(`/matches?${params.toString()}`);
     },

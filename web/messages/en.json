@@ -323,6 +323,23 @@
       "noMatchScheduled": "No match scheduled",
       "formEmpty": "No matches yet"
     },
+    "filter": {
+      "all": "All",
+      "league": "League",
+      "cup": "Cup"
+    },
+    "matchType": {
+      "league": "League",
+      "cup": "Cup",
+      "tournament": "Tournament",
+      "playoff": "Playoff",
+      "friendly": "Friendly",
+      "national": "National",
+      "match": "Match"
+    },
+    "detail": {
+      "viewBracket": "View bracket"
+    },
     "sections": {
       "recentResults": "Recent Results",
       "upcomingFixtures": "Upcoming Fixtures",
@@ -466,6 +483,9 @@
       "report": {
         "title": "Match Report",
         "round": "Round {round} · Season {season}",
+        "cupRound": "Cup Round {round}",
+        "cupSeason": "Season {season}",
+        "viewBracket": "View bracket",
         "back": "Back to Matches"
       },
       "snapshot": {

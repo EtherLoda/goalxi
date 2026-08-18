@@ -1,11 +1,13 @@
 import {
   GAME_SETTINGS,
+  CupBracketSlotEntity,
   LeagueEntity,
   MatchEntity,
   MatchEventEntity,
   MatchStatus,
   MatchTacticsEntity,
   MatchTeamStatsEntity,
+  MatchType,
   PlayerEntity,
   TacticsPresetEntity,
   TeamEntity,
@@ -52,6 +54,8 @@ export class MatchService {
     private readonly eventRepository: Repository<MatchEventEntity>,
     @InjectRepository(MatchTeamStatsEntity)
     private readonly statsRepository: Repository<MatchTeamStatsEntity>,
+    @InjectRepository(CupBracketSlotEntity)
+    private readonly cupSlotRepository: Repository<CupBracketSlotEntity>,
     @Inject(CACHE_MANAGER) private cacheManager: Cache,
     private readonly dataSource: DataSource,
     private readonly cls: ClsService,
@@ -136,7 +140,7 @@ export class MatchService {
       .take(limit)
       .getManyAndCount();
 
-    const dtos = matches.map((match) => this.mapToResDto(match));
+    const dtos = matches.map((match) => this.mapToResDto(match, { cupId: null, cupRound: null }));
 
     const matchIds = matches.map((m) => m.id);
     if (matchIds.length > 0) {
@@ -227,7 +231,23 @@ export class MatchService {
       throw new NotFoundException(`Match with ID ${id} not found`);
     }
 
-    const result = this.mapToResDto(match);
+    // For cup matches, resolve the bracket context (cupId + round)
+    // via a single slot lookup. The two perspectives of a match
+    // share the same `matchId`, so one row is enough. We only do
+    // this on the single-match fetch (findOne) — list responses
+    // don't need it because the FE filter just keys off `type`.
+    let cupId: string | null = null;
+    let cupRound: number | null = null;
+    if (match.type === MatchType.CUP) {
+      const slot = await this.cupSlotRepository.findOne({
+        where: { matchId: id as any },
+        select: ['cupId', 'roundNumber'],
+      });
+      cupId = slot?.cupId ?? null;
+      cupRound = slot?.roundNumber ?? null;
+    }
+
+    const result = this.mapToResDto(match, { cupId, cupRound });
 
     // Cache completed matches for 1 hour, others for 1 minute
     const ttl = match.status === MatchStatus.COMPLETED ? 3600000 : 60000;
@@ -629,7 +649,13 @@ export class MatchService {
     return true;
   }
 
-  private mapToResDto(match: MatchEntity): MatchResDto {
+  private mapToResDto(
+    match: MatchEntity,
+    cupContext: { cupId: string | null; cupRound: number | null } = {
+      cupId: null,
+      cupRound: null,
+    },
+  ): MatchResDto {
     return {
       id: match.id,
       leagueId: match.leagueId,
@@ -670,6 +696,11 @@ export class MatchService {
       weather: match.weather ?? null,
       attendance: match.attendance ?? null,
       venue: match.stadium?.name ?? null,
+      // Cup context — only set for single-match fetches (see findOne
+      // above). List responses always pass `null` for both because
+      // the FE matches/archive/type-filter don't need them.
+      cupId: cupContext.cupId,
+      cupRound: cupContext.cupRound,
     };
   }
 
