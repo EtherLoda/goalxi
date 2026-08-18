@@ -311,8 +311,25 @@ export class MatchSchedulerService {
    * Scheduler 2: 比赛时间到达时标记为进行中
    * - 查找状态为 TACTICS_LOCKED 且到达比赛时间的比赛
    * - 将状态更新为 IN_PROGRESS
+   *
+   * Why 1 minute (not 30s / 5s):
+   *  - All match kickoff times are deterministic and stored
+   *    in `scheduledAt` at schedule-creation time. A 1m
+   *    scan is enough to flip a match to IN_PROGRESS within
+   *    60s of its kickoff — no user-visible latency.
+   *  - 1m tolerates `scheduledAt` being edited at runtime
+   *    (reschedules, weather delays) without a separate
+   *    wake-up. A fixed "0 6 * * 3,6" cron would miss them.
+   *  - Matches the cadence of `preprocessMatch` and
+   *    `completeMatches` so the three deterministic
+   *    schedulers are all in lockstep (one wake-up,
+   *    three checks). The recovery scan inside
+   *    `preprocessMatch` covers the only "as fast as
+   *    possible" case (stuck TACTICS_LOCKED).
+   *  - CAS on match.status makes this idempotent; a
+   *    slower tick is latency, not correctness.
    */
-  @Cron('*/30 * * * * *') // Every 30 seconds
+  @Cron('0 * * * * *') // Every minute
   async startMatches() {
     this.logger.debug('[MatchStartScheduler] Checking for matches to start');
 

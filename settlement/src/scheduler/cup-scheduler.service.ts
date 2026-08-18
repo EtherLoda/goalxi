@@ -72,14 +72,29 @@ export class CupSchedulerService {
   ) {}
 
   /**
-   * Cron every 5s. Matches the cadence of the league's
-   * `MatchPreprocessScheduler` (also every 5s) so the two
-   * never drift more than a few seconds apart — important
-   * because a cup match scheduled at 06:00 UTC and a league
-   * match scheduled at 13:00 UTC are picked up in the same
-   * tick window by their respective schedulers.
+   * Cron every minute on the second `:00`. The query is a
+   * `SELECT ... WHERE status=pending AND scheduledAt<=now`,
+   * so a tighter cadence is pure overhead. 1 minute is the
+   * same cadence the league `MatchPreprocessScheduler` uses
+   * — picked deliberately so cup and league picks happen
+   * within the same wall-clock second.
+   *
+   * Why 1m and not 5s/30s:
+   *  - All match kickoff times are deterministic and known
+   *    in advance (`scheduledAt` is set at cup creation).
+   *    A 1m scan can never miss a kickoff (worst case: the
+   *    kickoff is at 06:00:00 and the tick fires at 06:00:30
+   *    — the round still flips within 30s of the deadline).
+   *  - 1m is the smallest cadence that still tolerates
+   *    `scheduledAt` being edited at runtime (rescheduled
+   *    rounds, makeup games) without needing a separate
+   *    wake-up mechanism. A fixed "0 6 * * 2" cron would
+   *    miss any rescheduling.
+   *  - CAS on round.status guarantees the work is done at
+   *    most once regardless of cadence, so a slower tick
+   *    is purely a latency tradeoff, not a correctness one.
    */
-  @Cron('*/5 * * * * *')
+  @Cron('0 * * * * *')
   async scheduleDueCupRounds(): Promise<void> {
     const now = new Date();
     // PENDING rounds whose scheduledAt is in the past. We
