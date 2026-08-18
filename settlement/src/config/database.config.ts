@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { TypeOrmOptionsFactory, TypeOrmModuleOptions } from '@nestjs/typeorm';
 import {
+  AnnouncementEntity,
   PlayerEntity,
   TeamEntity,
   UserEntity,
@@ -60,6 +61,7 @@ export class DatabaseConfigService implements TypeOrmOptionsFactory {
       }),
       database: this.configService.getOrThrow('DATABASE_NAME', { infer: true }),
       entities: [
+        AnnouncementEntity,
         PlayerEntity,
         TeamEntity,
         UserEntity,

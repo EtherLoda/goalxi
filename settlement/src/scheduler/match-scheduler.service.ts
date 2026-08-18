@@ -512,13 +512,13 @@ export class MatchSchedulerService {
   }
 
   /**
-   * 将战术预设转换为比赛战术实体
+   * 将战术预设转换为比赛战术实体并持久化
    */
-  private presetToMatchTactics(
+  private async presetToMatchTactics(
     preset: TacticsPresetEntity,
     matchId: string,
     teamId: string,
-  ): MatchTacticsEntity {
+  ): Promise<MatchTacticsEntity> {
     const tactics = new MatchTacticsEntity();
     tactics.matchId = matchId;
     tactics.teamId = teamId;
@@ -532,6 +532,13 @@ export class MatchSchedulerService {
     tactics.substitutions = null;
     tactics.substitutionsV2 = preset.substitutionsV2;
     tactics.submittedAt = new Date();
-    return tactics;
+    // [Bug fix 2026-08-18] Originally this method only constructed the
+    // entity in memory and returned it; the preprocessor's "fall back to
+    // default preset" path therefore never persisted the row. The sim
+    // worker reads `match_tactics` from the DB and threw "Tactics
+    // missing" for every match where both teams relied on the fallback
+    // (i.e. all BOT-vs-BOT matches in the very first week). Save here
+    // so the row is actually written.
+    return this.tacticsRepository.save(tactics);
   }
 }
