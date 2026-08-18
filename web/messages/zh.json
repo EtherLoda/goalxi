@@ -151,7 +151,52 @@
       "settings": "俱乐部设置",
       "youthSquad": "青训球队",
       "youthMatches": "青训比赛",
-      "viewingMyTeam": "返回我的球队"
+      "viewingMyTeam": "返回我的球队",
+      "cup": "杯赛"
+    }
+  },
+  "cup": {
+    "title": "全国杯",
+    "subtitle": "贯穿整个金字塔的淘汰赛。",
+    "loading": "正在加载杯赛...",
+    "loadError": "杯赛数据加载失败,请重试。",
+    "list": {
+      "title": "杯赛赛事",
+      "empty": "暂无杯赛。",
+      "matches": "{count, plural, other {# 场}}",
+      "rounds": "{count} 轮"
+    },
+    "status": {
+      "pending": "未开始",
+      "in_progress": "进行中",
+      "completed": "已结束"
+    },
+    "round": {
+      "tab": "第 {number} 轮",
+      "kind": {
+        "qualifying": "资格赛",
+        "proper": "正赛",
+        "knockout": "淘汰赛",
+        "final": "决赛"
+      }
+    },
+    "match": {
+      "scheduled": "待开赛",
+      "live": "进行中",
+      "completed": "完赛",
+      "bye": "轮空晋级",
+      "tbd": "待定",
+      "kickoff": "开球时间: {time}",
+      "winner": "胜者: {name}"
+    },
+    "champion": {
+      "title": "冠军",
+      "subtitle": "第 {season} 赛季冠军",
+      "yet": "尚未产生 — 决赛未踢"
+    },
+    "roundView": {
+      "list": "列表视图",
+      "tree": "对阵树"
     }
   },
   "youth": {

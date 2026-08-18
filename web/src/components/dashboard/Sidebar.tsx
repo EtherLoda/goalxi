@@ -46,6 +46,7 @@ export default function Sidebar() {
         { labelKey: "matches", href: `/${locale}/matches?team=${currentTeamId}`, icon: "calendar_month" },
         { labelKey: "tactics", href: `/${locale}/matches?team=${currentTeamId}`, icon: "strategy" },
         { labelKey: "league", href: displayTeam?.leagueId ? `/${locale}/league/${displayTeam.leagueId}?team=${currentTeamId}` : "#", icon: "emoji_events" },
+        { labelKey: "cup", href: `/${locale}/cup`, icon: "workspace_premium" },
       ],
     },
     {

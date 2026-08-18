@@ -151,7 +151,52 @@
       "settings": "Settings",
       "youthSquad": "Youth Squad",
       "youthMatches": "Youth Matches",
-      "viewingMyTeam": "View My Team"
+      "viewingMyTeam": "View My Team",
+    "cup": "Cup"
+    }
+  },
+  "cup": {
+    "title": "National Cup",
+    "subtitle": "The knockout tournament spanning the entire pyramid.",
+    "loading": "Loading cup...",
+    "loadError": "Failed to load cup data. Please try again.",
+    "list": {
+      "title": "Cup Competitions",
+      "empty": "No cups scheduled yet.",
+      "matches": "{count, plural, one {# match} other {# matches}}",
+      "rounds": "{count} rounds"
+    },
+    "status": {
+      "pending": "Scheduled",
+      "in_progress": "In Progress",
+      "completed": "Completed"
+    },
+    "round": {
+      "tab": "Round {number}",
+      "kind": {
+        "qualifying": "Qualifying",
+        "proper": "Proper Round",
+        "knockout": "Knockout",
+        "final": "Final"
+      }
+    },
+    "match": {
+      "scheduled": "Scheduled",
+      "live": "Live",
+      "completed": "FT",
+      "bye": "Bye",
+      "tbd": "TBD",
+      "kickoff": "Kickoff: {time}",
+      "winner": "Winner: {name}"
+    },
+    "champion": {
+      "title": "Champion",
+      "subtitle": "Season {season} Winner",
+      "yet": "TBD — Final not played"
+    },
+    "roundView": {
+      "list": "List View",
+      "tree": "Tree View"
     }
   },
   "youth": {
