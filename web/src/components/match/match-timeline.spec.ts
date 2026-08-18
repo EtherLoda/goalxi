@@ -11,6 +11,7 @@ import type { MatchSnapshot } from './match-pitch-data';
 import {
   TIMELINE_EVENT_TYPES,
   closestSnapshotIndex,
+  extractInjuryWindows,
   extractTimelineMarkers,
   minuteToPercent,
   timelineEnd,
@@ -180,6 +181,190 @@ describe('extractTimelineMarkers', () => {
     const before = events.map((e) => e.minute);
     extractTimelineMarkers(events);
     expect(events.map((e) => e.minute)).toEqual(before);
+  });
+});
+
+// ============================================================================
+// extractInjuryWindows
+// ============================================================================
+
+describe('extractInjuryWindows', () => {
+  it('returns [] for empty input', () => {
+    expect(extractInjuryWindows([])).toEqual([]);
+  });
+
+  it('returns [] when no whistle events carry injuryTime', () => {
+    // A regulation match with no stoppage time → no bands.
+    const events: MatchEvent[] = [
+      mkEvent({
+        type: 'half_time',
+        typeName: 'half_time',
+        minute: 45,
+        data: { period: 'half_time', homeScore: 0, awayScore: 0 },
+      }),
+      mkEvent({
+        type: 'full_time',
+        typeName: 'full_time',
+        minute: 90,
+        data: { homeScore: 1, awayScore: 1 },
+      }),
+    ];
+    expect(extractInjuryWindows(events)).toEqual([]);
+  });
+
+  it('detects 1H stoppage from half_time (period: half_time)', () => {
+    const events: MatchEvent[] = [
+      mkEvent({
+        type: 'half_time',
+        typeName: 'half_time',
+        minute: 48,
+        data: { period: 'half_time', injuryTime: 3, homeScore: 0, awayScore: 0 },
+      }),
+    ];
+    expect(extractInjuryWindows(events)).toEqual([
+      { startMinute: 45, endMinute: 48, addedMinutes: 3, label: '1H' },
+    ]);
+  });
+
+  it('detects 2H stoppage from full_time at minute 90 (filtered from ET full_time by minute < 120)', () => {
+    const events: MatchEvent[] = [
+      mkEvent({
+        type: 'full_time',
+        typeName: 'full_time',
+        minute: 93,
+        data: { injuryTime: 3, homeScore: 2, awayScore: 1 },
+      }),
+    ];
+    expect(extractInjuryWindows(events)).toEqual([
+      { startMinute: 90, endMinute: 93, addedMinutes: 3, label: '2H' },
+    ]);
+  });
+
+  it('detects ET 1H stoppage from half_time (period: extra_time_half_time)', () => {
+    const events: MatchEvent[] = [
+      mkEvent({
+        type: 'half_time',
+        typeName: 'half_time',
+        minute: 108,
+        data: {
+          period: 'extra_time_half_time',
+          injuryTime: 3,
+          homeScore: 1,
+          awayScore: 1,
+        },
+      }),
+    ];
+    expect(extractInjuryWindows(events)).toEqual([
+      { startMinute: 105, endMinute: 108, addedMinutes: 3, label: 'ET1H' },
+    ]);
+  });
+
+  it('derives ET 2H stoppage from the ET full_time (minute 120+) minus the ET 1H half_time contribution', () => {
+    // The engine writes `data.injuryTime: N2 + M2` on the ET
+    // `full_time` event. We split that back into M2 for the
+    // timeline band by subtracting the ET 1H stoppage (read
+    // from the ET `half_time` event with the matching
+    // `period: 'extra_time_half_time'`).
+    const events: MatchEvent[] = [
+      mkEvent({
+        type: 'half_time',
+        typeName: 'half_time',
+        minute: 107,
+        data: {
+          period: 'extra_time_half_time',
+          injuryTime: 2,
+          homeScore: 1,
+          awayScore: 1,
+        },
+      }),
+      mkEvent({
+        type: 'full_time',
+        typeName: 'full_time',
+        minute: 123,
+        data: { injuryTime: 5, homeScore: 2, awayScore: 1 }, // 2 (ET1H) + 3 (ET2H)
+      }),
+    ];
+    expect(extractInjuryWindows(events)).toEqual([
+      { startMinute: 105, endMinute: 107, addedMinutes: 2, label: 'ET1H' },
+      { startMinute: 120, endMinute: 123, addedMinutes: 3, label: 'ET2H' },
+    ]);
+  });
+
+  it('emits the full 4 windows in a stoppage-heavy match', () => {
+    const events: MatchEvent[] = [
+      mkEvent({
+        type: 'half_time',
+        typeName: 'half_time',
+        minute: 47,
+        data: { period: 'half_time', injuryTime: 2 },
+      }),
+      mkEvent({
+        type: 'full_time',
+        typeName: 'full_time',
+        minute: 94,
+        data: { injuryTime: 4 },
+      }),
+      mkEvent({
+        type: 'half_time',
+        typeName: 'half_time',
+        minute: 107,
+        data: { period: 'extra_time_half_time', injuryTime: 2 },
+      }),
+      mkEvent({
+        type: 'full_time',
+        typeName: 'full_time',
+        minute: 121,
+        data: { injuryTime: 3 }, // 2 (ET1H) + 1 (ET2H)
+      }),
+    ];
+    expect(extractInjuryWindows(events)).toEqual([
+      { startMinute: 45, endMinute: 47, addedMinutes: 2, label: '1H' },
+      { startMinute: 90, endMinute: 94, addedMinutes: 4, label: '2H' },
+      { startMinute: 105, endMinute: 107, addedMinutes: 2, label: 'ET1H' },
+      { startMinute: 120, endMinute: 121, addedMinutes: 1, label: 'ET2H' },
+    ]);
+  });
+
+  it('ignores half_time / full_time events with non-numeric or missing injuryTime', () => {
+    const events: MatchEvent[] = [
+      mkEvent({
+        type: 'half_time',
+        typeName: 'half_time',
+        minute: 45,
+        data: { period: 'half_time' /* no injuryTime */ },
+      }),
+      mkEvent({
+        type: 'full_time',
+        typeName: 'full_time',
+        minute: 90,
+        data: { injuryTime: '3' as unknown as number /* wrong type */ },
+      }),
+    ];
+    expect(extractInjuryWindows(events)).toEqual([]);
+  });
+
+  it('does not emit an ET 2H window when the ET 1H stoppage equals the ET full_time stoppage (M2 = 0)', () => {
+    // No ET 2H stoppage → no band for it. Without this guard
+    // we'd render a zero-width band on top of the full-time
+    // tick, which is a visual no-op but still pollutes the
+    // marker testid namespace.
+    const events: MatchEvent[] = [
+      mkEvent({
+        type: 'half_time',
+        typeName: 'half_time',
+        minute: 108,
+        data: { period: 'extra_time_half_time', injuryTime: 3 },
+      }),
+      mkEvent({
+        type: 'full_time',
+        typeName: 'full_time',
+        minute: 120,
+        data: { injuryTime: 3 }, // = ET1H, no ET2H
+      }),
+    ];
+    expect(extractInjuryWindows(events)).toEqual([
+      { startMinute: 105, endMinute: 108, addedMinutes: 3, label: 'ET1H' },
+    ]);
   });
 });
 

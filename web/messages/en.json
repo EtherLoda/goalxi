@@ -398,6 +398,14 @@
       "snapLabel": "snap {index}/{total} · {minute}'",
       "ariaLabel": "Match timeline",
       "fullTimeTick": "{minute}'",
+      "injuryTimePlus": "+{minutes}",
+      "injuryBandTitle": "{half} stoppage: +{minutes} minutes",
+      "injuryHalf": {
+        "1H": "1st half",
+        "2H": "2nd half",
+        "ET1H": "ET 1st half",
+        "ET2H": "ET 2nd half"
+      },
       "legend": {
         "goal": "Goal",
         "substitution": "Substitution",

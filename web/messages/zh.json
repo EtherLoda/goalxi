@@ -398,6 +398,14 @@
       "snapLabel": "快照 {index}/{total} · {minute}'",
       "ariaLabel": "比赛时间轴",
       "fullTimeTick": "{minute}'",
+      "injuryTimePlus": "+{minutes}",
+      "injuryBandTitle": "{half}补时：+{minutes} 分钟",
+      "injuryHalf": {
+        "1H": "上半场",
+        "2H": "下半场",
+        "ET1H": "加时上半场",
+        "ET2H": "加时下半场"
+      },
       "legend": {
         "goal": "进球",
         "substitution": "换人",

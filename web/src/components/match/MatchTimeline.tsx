@@ -32,7 +32,7 @@
 
 'use client';
 
-import { useCallback, useRef, useState, type MouseEvent, type PointerEvent } from 'react';
+import { useCallback, useMemo, useRef, useState, type MouseEvent, type PointerEvent } from 'react';
 import { useTranslations } from 'next-intl';
 import type { MatchEvent } from '@/lib/api';
 import { shouldCommitScrubber } from './snapshot-stats';
@@ -40,7 +40,9 @@ import {
   TIMELINE_EVENT_TYPES,
   type TimelineEventType,
   type TimelineMarker,
+  type InjuryWindow,
   closestSnapshotIndex,
+  extractInjuryWindows,
   extractTimelineMarkers,
   minuteToPercent,
   timelineEnd,
@@ -160,6 +162,13 @@ export function MatchTimeline({
   // memoizing keeps the dedupe / sort from re-running on unrelated
   // re-renders (e.g. when `currentMinute` ticks by 1).
   const markers = useMemoMarkers(events);
+
+  // Stoppage-time windows (1H / 2H / ET 1H / ET 2H). Memoized
+  // alongside `markers` so both recompute on the same event-list
+  // changes. Used to render the amber-tinted band + "+N" label
+  // so a reader can see the stoppage window as a distinct region
+  // of the timeline.
+  const injuryWindows = useMemoInjuryWindows(events);
 
   // endMinute — total length of the bar. Default 90, grows to fit the
   // latest event up to 120. Memoized on (events, currentMinute).
@@ -290,6 +299,19 @@ export function MatchTimeline({
           className="relative h-3 rounded-full bg-surface-container-high cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
           data-testid="match-timeline-track"
         >
+          {/* Injury-time bands — amber-tinted strip behind the fill
+              that visually distinguishes the stoppage window from
+              the regulation half. Renders BEFORE the fill so the
+              progress overlay sits on top (a filled band on a
+              still-empty window looks like the match is paused,
+              which it isn't). */}
+          {injuryWindows.map((w) => (
+            <InjuryBand
+              key={`injury-${w.label}-${w.startMinute}`}
+              window={w}
+              endMinute={endMinute}
+            />
+          ))}
           {/* Fill — primary gradient from 0 to currentMinute */}
           <div
             className="absolute inset-y-0 left-0 rounded-full bg-gradient-to-r from-primary/70 via-primary to-primary/90 shadow-[0_0_8px_rgba(0,228,121,0.35)] transition-[width] duration-300 ease-out"
@@ -589,15 +611,61 @@ function Legend() {
 }
 
 // ============================================================================
+// InjuryBand — amber-tinted strip marking a stoppage-time window.
+// ============================================================================
+
+function InjuryBand({
+  window: w,
+  endMinute,
+}: {
+  window: InjuryWindow;
+  endMinute: number;
+}) {
+  const t = useTranslations('matches.timeline');
+  // The band stretches from the regulation boundary to the
+  // whistle minute. We anchor it as `left: X%; width: Y%` so it
+  // grows naturally with the timeline.
+  const left = minuteToPercent(w.startMinute, endMinute) * 100;
+  const right = minuteToPercent(w.endMinute, endMinute) * 100;
+  const width = Math.max(0, right - left);
+  return (
+    <div
+      className="absolute inset-y-0 rounded-sm bg-amber-500/15 dark:bg-amber-400/15 pointer-events-none"
+      style={{ left: `${left}%`, width: `${width}%` }}
+      data-testid={`timeline-injury-band-${w.label.toLowerCase()}`}
+      aria-hidden="true"
+    >
+      {/* "+N" label — sits centered in the band, just below the
+          track. Only rendered when the band is wide enough to
+          fit the text; otherwise the visual cue is enough and
+          the label would overlap the next groove. */}
+      {width > 4 && (
+        <span
+          className="absolute left-1/2 top-full mt-0.5 -translate-x-1/2 font-mono font-bold text-[8px] tabular-nums text-amber-700 dark:text-amber-300 leading-none"
+          title={t('injuryBandTitle', {
+            half: t(`injuryHalf.${w.label}`),
+            minutes: w.addedMinutes,
+          })}
+        >
+          {t('injuryTimePlus', { minutes: w.addedMinutes })}
+        </span>
+      )}
+    </div>
+  );
+}
+
+// ============================================================================
 // Local memoized helpers (kept in this file because they only matter
 // for MatchTimeline; promote to a shared module if other components
 // start consuming the same derivations).
 // ============================================================================
 
-import { useMemo } from 'react';
-
 function useMemoMarkers(events: MatchEvent[]): TimelineMarker[] {
   return useMemo(() => extractTimelineMarkers(events), [events]);
+}
+
+function useMemoInjuryWindows(events: MatchEvent[]): InjuryWindow[] {
+  return useMemo(() => extractInjuryWindows(events), [events]);
 }
 
 function useMemoEnd(events: MatchEvent[], currentMinute: number): number {

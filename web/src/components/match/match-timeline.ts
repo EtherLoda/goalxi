@@ -149,6 +149,146 @@ export function minuteToPercent(minute: number, end: number): number {
 }
 
 // ============================================================================
+// extractInjuryWindows
+// ============================================================================
+
+/**
+ * Visual marker for a stoppage-time window. The timeline surfaces
+ * these as a tinted band stretching from the regulation-half
+ * boundary (e.g. 45) to the actual whistle minute (e.g. 48), so
+ * the reader can see at a glance "this 3-minute gap is added time,
+ * not a slow regulation half". Without the band, a 0-3 half
+ * score reads as "the match was slow" rather than "3 minutes of
+ * injury time were played".
+ *
+ * Driven by the `data.injuryTime` field the engine writes on the
+ * `half_time` / `full_time` events. We only emit a window for
+ * `addedMinutes > 0` — a clean half has no band.
+ */
+export interface InjuryWindow {
+  /** Regulation-half end. 45 (1H), 90 (2H), 105 (ET 1H), 120 (ET 2H). */
+  startMinute: number;
+  /**
+   * Actual whistle minute. `startMinute + addedMinutes`. Matches
+   * the `minute` field on the corresponding `half_time` /
+   * `full_time` event.
+   */
+  endMinute: number;
+  /** The number of added stoppage minutes (the "+N" value). */
+  addedMinutes: number;
+  /**
+   * Compact half-name for the aria / debug. `1H` is the regular
+   * first half, `2H` the second half, `ET1H` / `ET2H` are the
+   * extra-time halves.
+   */
+  label: '1H' | '2H' | 'ET1H' | 'ET2H';
+}
+
+/**
+ * Walk `events` and return the 0-4 stoppage windows in
+ * chronological order. Each window corresponds to a whistle
+ * (half-time, full-time, or ET 1H half-time) whose `data.injuryTime`
+ * is > 0. ET 2H is derived by subtracting ET 1H's stoppage from
+ * the ET full-time's combined `data.injuryTime` value (the engine
+ * writes the sum on the ET `full_time` event, so we split it
+ * back out here).
+ *
+ * Pure / defensive: returns [] for empty input, ignores
+ * `half_time` / `full_time` events with non-numeric or
+ * `injuryTime: 0` data, and never throws on missing fields.
+ */
+export function extractInjuryWindows(events: MatchEvent[]): InjuryWindow[] {
+  const out: InjuryWindow[] = [];
+
+  const firstHalfHt = events.find(
+    (e) =>
+      e.type === 'half_time' &&
+      (e.data as { period?: string } | undefined)?.period === 'half_time',
+  );
+  if (firstHalfHt) {
+    const n1 = (firstHalfHt.data as { injuryTime?: number } | undefined)
+      ?.injuryTime;
+    if (typeof n1 === 'number' && n1 > 0) {
+      out.push({
+        startMinute: 45,
+        endMinute: 45 + n1,
+        addedMinutes: n1,
+        label: '1H',
+      });
+    }
+  }
+
+  // 2H injury: the first `full_time` event is the regulation
+  // 90+M whistle. The ET `full_time` (at 120+M2) is filtered out
+  // by the `e.minute < 120` check below. (For a non-ET match
+  // the engine emits exactly one `full_time` at minute 90+M.)
+  const regFt = events.find(
+    (e) => e.type === 'full_time' && e.minute < 120,
+  );
+  if (regFt) {
+    const m = (regFt.data as { injuryTime?: number } | undefined)
+      ?.injuryTime;
+    if (typeof m === 'number' && m > 0) {
+      out.push({
+        startMinute: 90,
+        endMinute: 90 + m,
+        addedMinutes: m,
+        label: '2H',
+      });
+    }
+  }
+
+  // ET 1H injury: the `half_time` with `period:
+  // 'extra_time_half_time'` (the engine emits this between
+  // ET 1H and ET 2H, with `data.injuryTime = N2`).
+  const et1Ht = events.find(
+    (e) =>
+      e.type === 'half_time' &&
+      (e.data as { period?: string } | undefined)?.period ===
+        'extra_time_half_time',
+  );
+  if (et1Ht) {
+    const n2 = (et1Ht.data as { injuryTime?: number } | undefined)
+      ?.injuryTime;
+    if (typeof n2 === 'number' && n2 > 0) {
+      out.push({
+        startMinute: 105,
+        endMinute: 105 + n2,
+        addedMinutes: n2,
+        label: 'ET1H',
+      });
+    }
+  }
+
+  // ET 2H injury: derived from the ET `full_time` (at
+  // 120+M2) whose `data.injuryTime` is the sum `N2 + M2`. We
+  // subtract the ET 1H contribution (already captured above
+  // when the ET 1H `half_time` was present) to isolate M2.
+  const etFt = events.find(
+    (e) => e.type === 'full_time' && e.minute >= 120,
+  );
+  if (etFt) {
+    const total = (etFt.data as { injuryTime?: number } | undefined)
+      ?.injuryTime;
+    if (typeof total === 'number' && total > 0) {
+      const n2 = (et1Ht?.data as { injuryTime?: number } | undefined)
+        ?.injuryTime ?? 0;
+      const m2 = total - n2;
+      if (m2 > 0) {
+        out.push({
+          startMinute: 120,
+          endMinute: 120 + m2,
+          addedMinutes: m2,
+          label: 'ET2H',
+        });
+      }
+    }
+  }
+
+  return out;
+}
+
+// ============================================================================
 // closestSnapshotIndex
 // ============================================================================
 
