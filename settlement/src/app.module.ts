@@ -14,6 +14,7 @@ import { TransferModule } from './transfer.module';
 import { BootstrapModule } from './bootstrap/bootstrap.module';
 import { StadiumConstructionModule } from './stadium-construction.module';
 import { YouthProgressionModule } from './youth-progression.module';
+import { CupModule } from './cup.module';
 
 const isDevelopmentFromEnv = () =>
   (process.env.NODE_ENV || 'development') === 'development';
@@ -47,6 +48,7 @@ const isDevelopmentFromEnv = () =>
     BootstrapModule,
     StadiumConstructionModule,
     YouthProgressionModule,
+    CupModule,
     SharedLoggerModule.forRoot({
       level:
         (process.env.APP_LOG_LEVEL as

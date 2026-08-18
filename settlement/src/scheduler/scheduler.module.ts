@@ -28,6 +28,9 @@ import {
   ArchivedPlayerCompetitionStatsEntity,
   ArchivedTransactionEntity,
   ArchivedPlayerEventEntity,
+  CupEntity,
+  CupRoundEntity,
+  CupBracketSlotEntity,
 } from '@goalxi/database';
 import { LeagueAwardService } from './league-award.service';
 import { WeatherSchedulerService } from './weather-scheduler.service';
@@ -35,6 +38,7 @@ import { WeatherService } from './weather.service';
 import { InjuryRecoveryService } from './injury-recovery.service';
 import { WeeklySettlementService } from './weekly-settlement.service';
 import { MatchSchedulerService } from './match-scheduler.service';
+import { CupSchedulerService } from './cup-scheduler.service';
 
 import { SeasonSchedulerService } from './season-scheduler.service';
 
@@ -111,6 +115,9 @@ import { NotificationModule } from '../notification/notification.module';
       ArchivedPlayerCompetitionStatsEntity,
       ArchivedTransactionEntity,
       ArchivedPlayerEventEntity,
+      CupEntity,
+      CupRoundEntity,
+      CupBracketSlotEntity,
     ]),
     NotificationModule,
   ],
@@ -121,6 +128,7 @@ import { NotificationModule } from '../notification/notification.module';
     InjuryRecoveryService,
     WeeklySettlementService,
     MatchSchedulerService,
+    CupSchedulerService,
 
     SeasonSchedulerService,
 
@@ -142,6 +150,7 @@ import { NotificationModule } from '../notification/notification.module';
     InjuryRecoveryService,
     WeeklySettlementService,
     MatchSchedulerService,
+    CupSchedulerService,
 
     SeasonSchedulerService,
 

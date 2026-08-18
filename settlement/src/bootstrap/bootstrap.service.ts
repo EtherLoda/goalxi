@@ -100,7 +100,10 @@ export class BootstrapService implements OnModuleInit {
     // the schedule generator uses. For season 2+ the
     // season-transition cron will call this with the new
     // season number (TBD; MVP is season 1 only).
-    await this.cupGenerator.generateCupForSeason(1);
+    // Pass `initDate` so the cup rounds get concrete
+    // `scheduledAt` values anchored to the same season-1
+    // week-1 Monday the league schedule uses.
+    await this.cupGenerator.generateCupForSeason(1, initDate);
     this.logger.info(
       `[Bootstrap] gap-fill complete in ${Date.now() - start}ms (no-op if all data already present)`,
     );

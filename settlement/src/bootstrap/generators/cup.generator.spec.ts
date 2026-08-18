@@ -297,4 +297,41 @@ describe('CupGenerator — bootstrap', () => {
     expect(byes[0].awayTeamId).toBeNull();
     expect(byes[0].winnerTeamId).toBe('t1-0'); // bye resolves immediately
   });
+
+  it('sets round.scheduledAt when initDate is provided (anchored to GAME_SETTINGS.MATCH_KICKOFF_HOUR_UTC)', async () => {
+    const mocks = build();
+    stubPyramid(mocks);
+    // Use a known date — Wednesday 2026-09-09. Cup rounds anchor
+    // 1 week, 2 weeks, etc. AFTER this date, all at 6:00 UTC.
+    const initDate = new Date('2026-09-09T00:00:00Z');
+
+    await mocks.gen.generateCupForSeason(1, initDate);
+
+    const rounds = mocks.roundRepo.save.mock.calls[0][0] as any[];
+    // 2-tier cup (L1+L2) → 5 rounds (R0..R4), R4 = Final.
+    // R0 → initDate + 7 days = 2026-09-16 06:00 UTC
+    expect(new Date(rounds[0].scheduledAt).toISOString()).toBe(
+      '2026-09-16T06:00:00.000Z',
+    );
+    // R3 → initDate + 4*7 days = 2026-10-07 06:00 UTC
+    expect(new Date(rounds[3].scheduledAt).toISOString()).toBe(
+      '2026-10-07T06:00:00.000Z',
+    );
+    // Last round (R4 = Final) → initDate + 5*7 = 2026-10-14
+    expect(new Date(rounds[rounds.length - 1].scheduledAt).toISOString()).toBe(
+      '2026-10-14T06:00:00.000Z',
+    );
+  });
+
+  it('leaves round.scheduledAt as null when initDate is omitted (CupScheduler back-fills on first tick)', async () => {
+    const mocks = build();
+    stubPyramid(mocks);
+
+    await mocks.gen.generateCupForSeason(1);
+
+    const rounds = mocks.roundRepo.save.mock.calls[0][0] as any[];
+    for (const r of rounds) {
+      expect(r.scheduledAt).toBeNull();
+    }
+  });
 });

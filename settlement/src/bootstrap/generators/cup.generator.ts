@@ -11,6 +11,7 @@ import {
   CupRoundStatus,
   CupStatus,
   CupTierInput,
+  GAME_SETTINGS,
   LeagueEntity,
   TeamEntity,
   calculateEntryRounds,
@@ -65,11 +66,16 @@ export class CupGenerator {
 
   /**
    * Generate the National Cup for `season`. No-op if a cup with
-   * `(season, NATIONAL)` already exists. The `initDate` is unused
-   * for now — the cup's first round kicks off on a date computed
-   * by the cup scheduler (Phase 3), not from the init date.
+   * `(season, NATIONAL)` already exists. The `initDate` (when
+   * provided) is used as the season anchor — round 0 of the cup
+   * kicks off on `initDate + 1 week` at `GAME_SETTINGS.MATCH_KICKOFF_HOUR_UTC`,
+   * round 1 on `initDate + 2 weeks`, and so on. The init date
+   * is optional so the auto-recover `BootstrapService` can
+   * still call this without it — in that case round 0's
+   * scheduledAt is left NULL and the `CupSchedulerService`
+   * back-fills it on the first tick that finds the round.
    */
-  async generateCupForSeason(season: number): Promise<void> {
+  async generateCupForSeason(season: number, initDate?: Date): Promise<void> {
     const existing = await this.cupRepo.findOne({
       where: { season, type: 'NATIONAL' },
     });
@@ -121,7 +127,7 @@ export class CupGenerator {
     //    "qualifying" or "proper" depending on whether the round
     //    is past the last entry round; the last two rounds are
     //    "knockout" + "final".
-    const rounds = await this.createRounds(cup.id, structure);
+    const rounds = await this.createRounds(cup.id, structure, initDate);
     this.logger.info(
       `[CupGenerator] Created ${rounds.length} cup_round rows`,
     );
@@ -191,6 +197,7 @@ export class CupGenerator {
   private async createRounds(
     cupId: string,
     structure: ReturnType<typeof calculateEntryRounds>,
+    initDate?: Date,
   ): Promise<CupRoundEntity[]> {
     const lastEntryRound = Math.max(
       ...structure.entries.map((e) => e.entryRound),
@@ -206,6 +213,31 @@ export class CupGenerator {
       } else {
         kind = CupRoundKind.QUALIFYING;
       }
+      // Each round kicks off 1 week after the previous one.
+      // The first round (R0) is `initDate + 7 days` so it lands
+      // a full week after the league's first matchday — gives
+      // the user a clean "this is the cup weekend" feeling.
+      // `scheduledAt` is set at GAME_SETTINGS.MATCH_KICKOFF_HOUR_UTC
+      // (= 6:00 UTC = 14:00 China time) so the cup uses the
+      // same kickoff hour as the league (shared constant — see
+      // commit 96bc4b5).
+      let scheduledAt: Date | null = null;
+      if (initDate) {
+        const startOfUtcDay = (d: Date) =>
+          new Date(
+            Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()),
+          );
+        const base = startOfUtcDay(initDate);
+        scheduledAt = new Date(
+          base.getTime() + (r + 1) * 7 * 24 * 60 * 60 * 1000,
+        );
+        scheduledAt.setUTCHours(
+          GAME_SETTINGS.MATCH_KICKOFF_HOUR_UTC,
+          0,
+          0,
+          0,
+        );
+      }
       rows.push(
         this.roundRepo.create({
           cupId,
@@ -215,7 +247,7 @@ export class CupGenerator {
           status: CupRoundStatus.PENDING,
           slotCount: 0,
           tacticsDeadline: null,
-          scheduledAt: null,
+          scheduledAt,
         }),
       );
     }
