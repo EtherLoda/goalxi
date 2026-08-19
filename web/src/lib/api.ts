@@ -264,10 +264,10 @@ interface League {
 }
 
 interface PlayerSkills {
-  physical: { pace?: number; strength?: number };
-  technical: Record<string, string>;
-  mental: { composure?: number; positioning?: number };
-  setPieces: { freeKicks?: number; penalties?: number };
+  physical: Record<string, number>;
+  technical: Record<string, number>;
+  mental: Record<string, number>;
+  setPieces: Record<string, number>;
 }
 
 interface Player {

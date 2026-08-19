@@ -1,7 +1,7 @@
 "use client";
 
 import { useTranslations, useLocale } from "next-intl";
-import { useEffect, useState, useCallback, useRef } from "react";
+import { useEffect, useState, useCallback, useRef, useMemo } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import { useAuth } from "@/contexts/AuthContext";
@@ -46,7 +46,10 @@ export default function TransfersPage() {
   // every selection change would re-fetch the entire market.
   const hasAutoSelectedRef = useRef(false);
 
-  const OUTFIELD_ATTRIBUTES = [
+  // useMemo on t() — t is stable in next-intl, but using useMemo
+  // documents that these arrays only change when the i18n function
+  // does (i.e. never) and avoids re-allocating on every render.
+  const OUTFIELD_ATTRIBUTES = useMemo(() => [
     { value: "pace", label: t("squad.skills.pace"), icon: "directions_run" },
     { value: "strength", label: t("squad.skills.strength"), icon: "fitness_center" },
     { value: "finishing", label: t("squad.skills.finishing"), icon: "sports_soccer" },
@@ -57,9 +60,9 @@ export default function TransfersPage() {
     { value: "positioning", label: t("squad.skills.positioning"), icon: "place_item" },
     { value: "freeKicks", label: t("squad.skills.freeKicks"), icon: "sports" },
     { value: "penalties", label: t("squad.skills.penalties"), icon: "flag" },
-  ];
+  ], [t]);
 
-  const GK_ATTRIBUTES = [
+  const GK_ATTRIBUTES = useMemo(() => [
     { value: "reflexes", label: t("squad.skills.reflexes"), icon: "pan_tool" },
     { value: "handling", label: t("squad.skills.handling"), icon: "back_hand" },
     { value: "aerial", label: t("squad.skills.aerial"), icon: "sports" },
@@ -69,7 +72,7 @@ export default function TransfersPage() {
     { value: "composure", label: t("squad.skills.composure"), icon: "psychology" },
     { value: "freeKicks", label: t("squad.skills.freeKicks"), icon: "sports" },
     { value: "penalties", label: t("squad.skills.penalties"), icon: "flag" },
-  ];
+  ], [t]);
 
   const ATTRIBUTES = playerTypeFilter === "gk" ? GK_ATTRIBUTES : OUTFIELD_ATTRIBUTES;
 
@@ -77,7 +80,7 @@ export default function TransfersPage() {
   // which have pentagon SVG icons under `/specialties/`. The legacy
   // v1 codes (HEADER/LPASS/...) are no longer in the filter because
   // they're deprecated and never produced by the new generator.
-  const SPECIALTIES = [
+  const SPECIALTIES = useMemo(() => [
     { value: "AERIAL_THREAT",  label: t("transfers.specialties.AERIAL_THREAT") },
     { value: "DRIBBLER",       label: t("transfers.specialties.DRIBBLER") },
     { value: "PLAYMAKER",      label: t("transfers.specialties.PLAYMAKER") },
@@ -90,7 +93,7 @@ export default function TransfersPage() {
     { value: "PHYSICAL_BEAST", label: t("transfers.specialties.PHYSICAL_BEAST") },
     { value: "SAVING_MASTER",  label: t("transfers.specialties.SAVING_MASTER") },
     { value: "SWEEPER_KEEPER", label: t("transfers.specialties.SWEEPER_KEEPER") },
-  ];
+  ], [t]);
 
   const EXPIRED_LABEL = t("transfers.expired");
 
@@ -138,14 +141,16 @@ export default function TransfersPage() {
   };
 
   const getAttributeValue = (player: TransferPlayer, attr: string): number => {
-    const skill = player.currentSkills as any;
     if (attr === "age") return player.age;
     if (attr === "overall") return player.overall;
-    if (skill.physical?.[attr]) return skill.physical[attr];
-    if (skill.technical?.[attr]) return skill.technical[attr];
-    if (skill.mental?.[attr]) return skill.mental[attr];
-    if (skill.setPieces?.[attr]) return skill.setPieces[attr];
-    return 0;
+    const skill = player.currentSkills;
+    return (
+      skill.physical?.[attr] ??
+      skill.technical?.[attr] ??
+      skill.mental?.[attr] ??
+      skill.setPieces?.[attr] ??
+      0
+    );
   };
 
   // Fetch transfers data. `selectedTransfer` is intentionally NOT in
@@ -191,7 +196,7 @@ export default function TransfersPage() {
     return () => controller.abort();
   }, [fetchTransfers]);
 
-  const filteredTransfers = transfers.filter((t) => {
+  const filteredTransfers = useMemo(() => transfers.filter((t) => {
     // Attribute filters
     for (const filter of attributeFilters) {
       const attrValue = getAttributeValue(t.player, filter.attribute);
@@ -207,12 +212,12 @@ export default function TransfersPage() {
     // (50% of players have null coreSpecialty), not an array.
     // Compare directly against the filter selection.
     if (specialtyEnabled && selectedSpecialty) {
-      if ((t.player as any).coreSpecialty !== selectedSpecialty) {
+      if (t.player.coreSpecialty !== selectedSpecialty) {
         return false;
       }
     }
     return true;
-  });
+  }), [transfers, attributeFilters, ageEnabled, ageRange, specialtyEnabled, selectedSpecialty]);
 
   const formatCurrency = (value: number) => {
     return `${t("common.currencySymbol")}${value.toLocaleString()}`;
