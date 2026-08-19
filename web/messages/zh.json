@@ -586,9 +586,14 @@
       "onTransferDesc": "该球员目前在转会市场上挂牌",
       "listPlayer": "挂牌球员",
       "listButton": "上架到转会市场",
+      "listing": "上架中...",
       "modalSubtitle": "设置拍卖条款",
       "startPrice": "起始价格",
       "buyoutPrice": "买断价格"
+    },
+    "states": {
+      "playerNotFound": "未找到该球员",
+      "backToSquad": "返回球队"
     },
     "radar": {
       "current": "当前",
@@ -597,7 +602,7 @@
   },
   "transfers": {
     "title": "转会市场",
-    "scoutedCandidates": "球探候选",
+    "scoutedCandidates": "球员挂牌",
     "showingProfiles": "显示 {count} 名符合条件的高潜力球员。",
     "filters": {
       "scoutingFilters": "球探筛选",
@@ -674,13 +679,22 @@
     "bidHistory": "竞价历史",
     "buyout": {
       "directBuyout": "直接买断",
+      "buyNow": "买断",
       "confirmTitle": "确认买断",
-      "confirmMessage": "你确定要以 {price} 买断 {playerName} 吗？",
+      "confirmMessage": "确定以 {price} 买断 {playerName} 吗？",
       "cancel": "取消",
       "confirm": "确认买断",
       "buyoutSuccess": "买断成功！",
       "buyoutFailed": "买断失败",
       "insufficientFunds": "余额不足 — 当前预算 {budget}，买断价 {price}。"
+    },
+    "placeholder": {
+      "enterOffer": "输入出价"
+    },
+    "status": {
+      "goalkeeper": "门将",
+      "onTransfer": "挂牌中",
+      "youth": "青年队"
     },
     "submitting": "提交中...",
     "expired": "已过期",
