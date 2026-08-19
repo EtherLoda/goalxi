@@ -5,26 +5,22 @@ import { useTranslations } from 'next-intl';
 import type {
   DefensiveLineValue,
   PitchWidthValue,
-  TempoValue,
 } from '../types';
 import { GlassPanel } from '../shared/GlassPanel';
 import { KickerLabel } from '../shared/KickerLabel';
 import { DimensionSegmented, type DimensionOption } from './DimensionSegmented';
 
 interface DimensionsPanelProps {
-  tempo: TempoValue;
   pitchWidth: PitchWidthValue;
   defensiveLine: DefensiveLineValue;
-  onChange: (key: 'tempo' | 'pitchWidth' | 'defensiveLine', value: string) => void;
+  onChange: (key: 'pitchWidth' | 'defensiveLine', value: string) => void;
   disabled: boolean;
 }
 
-const TEMPO_OPTIONS: DimensionOption[] = [
-  { value: 'slow', labelKey: 'tempo.slow', iconName: 'slow_motion_video' },
-  { value: 'balanced', labelKey: 'tempo.balanced', iconName: 'balance' },
-  { value: 'fast', labelKey: 'tempo.fast', iconName: 'speed' },
-];
-
+// Tempo is wired in the engine but intentionally not exposed in the
+// UI yet — the design needs more calibration before players pick it.
+// See `tactics-presets.ts` for the data shape; the editor keeps the
+// field on every draft for API compatibility.
 const WIDTH_OPTIONS: DimensionOption[] = [
   { value: 'narrow', labelKey: 'pitchWidth.narrow', iconName: 'compress' },
   { value: 'balanced', labelKey: 'pitchWidth.balanced', iconName: 'open_in_full' },
@@ -37,7 +33,7 @@ const LINE_OPTIONS: DimensionOption[] = [
   { value: 'high', labelKey: 'defensiveLine.high', iconName: 'north' },
 ];
 
-export function DimensionsPanel({ tempo, pitchWidth, defensiveLine, onChange, disabled }: DimensionsPanelProps) {
+export function DimensionsPanel({ pitchWidth, defensiveLine, onChange, disabled }: DimensionsPanelProps) {
   const t = useTranslations('tactics.dimensions');
   return (
     <GlassPanel size="md">
@@ -46,14 +42,6 @@ export function DimensionsPanel({ tempo, pitchWidth, defensiveLine, onChange, di
         <KickerLabel>{t('title')}</KickerLabel>
       </div>
       <div className="space-y-3">
-        <DimensionSegmented
-          label={t('tempo.label')}
-          iconName="speed"
-          value={tempo}
-          options={TEMPO_OPTIONS}
-          onChange={(v) => onChange('tempo', v)}
-          disabled={disabled}
-        />
         <DimensionSegmented
           label={t('pitchWidth.label')}
           iconName="open_in_full"

@@ -50,7 +50,7 @@ interface EditorBentoGridProps {
   onBenchDrop: (toSlot: BenchSlot, playerId: number, fromSlot: PositionKey | null) => void;
   onRemovePitch: (slot: PitchSlot) => void;
   onRemoveBench: (slot: BenchSlot) => void;
-  onDimensionChange: (key: 'tempo' | 'pitchWidth' | 'defensiveLine', value: string) => void;
+  onDimensionChange: (key: 'pitchWidth' | 'defensiveLine', value: string) => void;
   onAddSub: () => void;
   onAddMove: () => void;
   onUpdateEvent: (index: number, patch: Partial<TacticalEvent>) => void;
@@ -83,7 +83,6 @@ export function EditorBentoGrid(props: EditorBentoGridProps) {
       {/* Left — tactical controls (stacked, scrollable at lg+) */}
       <div className="flex flex-col gap-3 order-2 lg:order-1 lg:max-h-[calc(100vh-220px)] lg:overflow-y-auto lg:pr-1">
         <DimensionsPanel
-          tempo={tempo}
           pitchWidth={pitchWidth}
           defensiveLine={defensiveLine}
           onChange={onDimensionChange}

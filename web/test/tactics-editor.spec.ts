@@ -40,7 +40,7 @@ testWithMatch.describe('Tactics Editor', () => {
     expect(critical).toEqual([]);
   });
 
-  testWithMatch('DIMENSIONS - tempo segmented control toggles between values', async ({ page, testMatchId }) => {
+  testWithMatch('DIMENSIONS - pitchWidth segmented control toggles between values', async ({ page, testMatchId }) => {
     if (testMatchId === 'test-match-placeholder') {
       testWithMatch.skip();
       return;
@@ -49,14 +49,14 @@ testWithMatch.describe('Tactics Editor', () => {
     await page.goto(`/en/matches/${testMatchId}/tactics`);
     await page.waitForLoadState('networkidle');
 
-    const fast = page.locator('[data-testid="dimension-fast"]');
+    const wide = page.locator('[data-testid="dimension-wide"]');
     const balanced = page.locator('[data-testid="dimension-balanced"]');
-    await expect(fast).toBeVisible();
+    await expect(wide).toBeVisible();
     await expect(balanced).toBeVisible();
 
-    // Click fast
-    await fast.click();
-    await expect(fast).toHaveClass(/bg-primary/);
+    // Click wide
+    await wide.click();
+    await expect(wide).toHaveClass(/bg-primary/);
   });
 
   testWithMatch('SUBMIT_DISABLED - submit button is disabled when lineup is empty', async ({ page, testMatchId }) => {

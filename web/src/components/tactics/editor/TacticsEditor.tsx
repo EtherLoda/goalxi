@@ -167,6 +167,30 @@ export function TacticsEditor({ matchId, match }: TacticsEditorProps) {
   }, [state.draft, teamPlayerIds, validatorPlayersById, dispatch]);
 
   // ---------------------------------------------------------------------
+  // Validation → toast. The inline error banner above the pitch was
+  // a debug-style block; the proper UX is to surface issues as a
+  // toast. We only fire a toast for an error key we haven't
+  // already announced in this session, so the user doesn't get
+  // re-blasted on every re-render of the same bad lineup.
+  // ---------------------------------------------------------------------
+  const seenErrorKeysRef = useRef<Set<string>>(new Set());
+  useEffect(() => {
+    const currentKeys = new Set(state.validation.errors.map((e) => e.key));
+    const newKeys = [...currentKeys].filter((k) => !seenErrorKeysRef.current.has(k));
+    for (const key of newKeys.slice(0, 3)) {
+      const err = state.validation.errors.find((e) => e.key === key);
+      if (err) {
+        showToast(
+          'warning',
+          t(`validation.${err.key}` as never, err.params as never),
+          '',
+        );
+      }
+    }
+    seenErrorKeysRef.current = currentKeys;
+  }, [state.validation.errors, t]);
+
+  // ---------------------------------------------------------------------
   // Drag tracking
   // ---------------------------------------------------------------------
   const [isDragging, setIsDragging] = React.useState(false);
@@ -382,18 +406,6 @@ export function TacticsEditor({ matchId, match }: TacticsEditorProps) {
         canSubmit={state.validation.isValid && !state.lock.isLocked}
         onSubmit={handleSubmit}
       />
-      {state.validation.errors.length > 0 && !state.validation.isValid && (
-        <div className="glass-panel rounded-2xl p-3 border border-error/30 bg-error/10 flex items-center gap-2">
-          <span className="material-symbols-outlined text-error">warning</span>
-          <ul className="flex-1 space-y-0.5">
-            {state.validation.errors.slice(0, 3).map((e, idx) => (
-              <li key={idx} className="font-label text-[10px] tracking-widest uppercase text-error">
-                {t(`validation.${e.key}` as never, e.params as never)}
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
       <EditorBentoGrid
         lineup={state.draft.lineup}
         bench={benchMap}
