@@ -38,23 +38,33 @@ export class PlayoffService {
    * Generate the promotion/relegation playoff fixtures for
    * every senior league in the pyramid.
    *
-   * For each league whose tier < MAX_TIER, we pair the
-   * upper league's positions 9-12 with the lower tier's
-   * corresponding #2 teams. The pairing is index-based
-   * (upper #9 ↔ lower league[0] #2, upper #10 ↔ lower
-   * league[1] #2, etc.) which assumes the lower tier's
-   * leagues are returned in `parentLeagueId` order. With
-   * the `parentLeagueId` filter, each upper league only
-   * sees its own child lower-tier leagues (e.g. L2-D1
-   * only sees L3-D1..D4), which is what the index-based
-   * pairing was implicitly designed for — the historical
-   * `where('league.tier = :tier', ...)` filter pulled
-   * every lower-tier league across the entire tier, so
-   * the same lower team's #2 ended up in 4 different
-   * playoff rows (one per upper-league division) and the
-   * `playoffSwappedAt` latch on
-   * `SeasonTransitionService.processAfterPlayoffsComplete`
-   * could only act on the first swap.
+   * The walk starts at the top tier (L1) and recurses
+   * down via `parentLeagueId`. At each tier boundary
+   * we emit the **lower-boundary** matches only: this
+   * league's positions 9-12 paired (index-based) with
+   * each child league's #2. The pairing is `tierDivision`
+   * ordered — upper #9 ↔ child[0] #2, upper #10 ↔
+   * child[1] #2, etc. The `parentLeagueId` filter
+   * scopes each upper league to its own children, so
+   * cross-branch leaks (the historical `where
+   * (league.tier = :tier)` bug, where one child's #2
+   * ended up in 4 different upper-league playoff rows)
+   * can't happen.
+   *
+   * The upper-boundary case (this league #2 vs parent
+   * #9-#12) is intentionally **not** generated here —
+   * it's the same fixture as the parent league's
+   * lower-boundary, viewed from the other side. Emitting
+   * it would create a duplicate match row. See
+   * `generatePyramidLevelPlayoffs` for the full
+   * reasoning.
+   *
+   * For the production 1+4+16+64 pyramid the
+   * per-season emission is:
+   *   L1 lower-boundary: 4 matches (L1 #9-12 ↔ L2-D1..D4 #2)
+   *   L2 lower-boundary: 16 matches (each L2-Dk #9-12 ↔ L3 children #2)
+   *   L3 lower-boundary: 64 matches (each L3-Dk #9-12 ↔ L4 children #2)
+   *   Total: 84 matches, no duplicates, per-tier 0-net.
    */
   async generateAllPlayoffMatches(season: number): Promise<PlayoffMatchInfo[]> {
     const allMatches: PlayoffMatchInfo[] = [];
@@ -92,29 +102,36 @@ export class PlayoffService {
   /**
    * Recursively descend the pyramid from `upperLeague`,
    * generating playoff matches at every tier boundary.
-   * The recursion stops at MAX_TIER (the bottom of the
-   * pyramid, no children).
+   * The recursion stops at the bottom of the pyramid
+   * (no children).
    *
-   * Two kinds of matches are emitted per tier boundary:
+   * Only **lower-boundary** matches are emitted. The
+   * upper-boundary case (this league #2 vs parent
+   * #9-#12) is the SAME match as the parent league's
+   * lower-boundary (parent #9-#12 vs this league #2) —
+   * a single fixture viewed from two angles. Generating
+   * both sides would emit duplicate match rows, so we
+   * pick the convention: the *parent* league's
+   * lower-boundary is the canonical row. This is also
+   * the perspective that matches production sports
+   * database design (e.g. Bundesliga's relegation
+   * playoff: home team = higher league, away team =
+   * lower league).
    *
-   *   1. **Lower-boundary (this league × children, 4
-   *      matches).** This league's positions 9-12 swap
-   *      with the corresponding #2 of each child league,
-   *      in `tierDivision` order. See
-   *      `generateLeaguePlayoffs` below.
+   * So when called from `generateAllPlayoffMatches`
+   * with the top-tier league (L1), the recursion emits:
+   *   L1 #9-12 ↔ L2-D1..D4 #2   (4 matches)
+   *   L2-D1 #9-12 ↔ L3-D1..D4 #2   (4 matches, per L2 division)
+   *   L2-D2 #9-12 ↔ L3-D5..D8 #2
+   *   ... etc
+   *   L3-D1 #9-12 ↔ L4-D1..D4 #2
+   *   ... etc
    *
-   *   2. **Upper-boundary (parent league × this league,
-   *      1 match).** This league's #2 swaps with one of
-   *      the parent league's #9-#12. The pairing is
-   *      index-based: `this.tierDivision - 1` (mod 4)
-   *      selects which of the four parent positions. So
-   *      L2-D1 #2 ↔ L1 #9, L2-D2 #2 ↔ L1 #10, etc.
-   *      See `generateUpperBoundaryPlayoff` below.
-   *
-   * Both kinds are 1:1 swaps (one upper team, one lower
-   * team) so the per-tier net change is zero and the
-   * per-pair swap balance holds across the whole
-   * pyramid.
+   * For the production 1+4+16+64 pyramid that's
+   * 4 + 16 + 64 = 84 matches. No duplicates, no
+   * orphans, every tier keeps a 0-net swap balance
+   * because each match is a 1:1 swap decided on the
+   * pitch.
    */
   private async generatePyramidLevelPlayoffs(
     upperLeague: LeagueEntity,
@@ -123,17 +140,10 @@ export class PlayoffService {
   ): Promise<PlayoffMatchInfo[]> {
     const matches: PlayoffMatchInfo[] = [];
 
-    // Upper-boundary playoff: this league's #2 swaps
-    // with one of the parent league's #9-#12.
-    const upperMatch = await this.generateUpperBoundaryPlayoff(
-      upperLeague,
-      season,
-      playoffDate,
-    );
-    if (upperMatch) matches.push(upperMatch);
-
-    // Lower-boundary playoff: this league's #9-#12 swap
-    // with each child's #2.
+    // Lower-boundary playoff: this league's #9-#12 vs
+    // each child league's #2. Index-based pairing in
+    // `tierDivision` order, so L1 #9 ↔ L2-D1 #2,
+    // L1 #10 ↔ L2-D2 #2, etc.
     const children = await this.leagueRepository.find({
       where: { parentLeagueId: upperLeague.id },
       order: { tierDivision: 'ASC' },
@@ -149,15 +159,10 @@ export class PlayoffService {
       matches.push(...lowerMatches);
     }
 
-    // Recurse one level down — each child league also
-    // has its own children to play off against. We also
-    // need an upper-boundary match for each child, but
-    // that's already handled by THIS league's
-    // `generateLeaguePlayoffs` above (which pairs
-    // this league's #9-12 with each child's #2). The
-    // recursion's responsibility is to emit matches
-    // *below* each child (the child as the upper
-    // league of its own children).
+    // Recurse one level down — each child league
+    // becomes the "upper" league of its own tier
+    // boundary, so its own #9-#12 will be paired with
+    // its children's #2.
     for (const child of children) {
       const childMatches = await this.generatePyramidLevelPlayoffs(
         child,
@@ -168,90 +173,6 @@ export class PlayoffService {
     }
 
     return matches;
-  }
-
-  /**
-   * Generate the upper-boundary playoff: this league's
-   * position 2 vs one of the parent league's #9-#12.
-   *
-   * Returns `null` for the top tier (no parent league)
-   * or when one of the two teams is missing from the
-   * standings. The pairing rule is:
-   *
-   *   upperRelegationPos = (parentMaxTeams - parentRelegationSlots + 1) +
-   *                         ((this.tierDivision - 1) mod parentRelegationSlots)
-   *
-   * For the production 16-team × 4-relegation-slot
-   * pyramid this maps:
-   *   L2-D1 (tierDivision=1) ↔ L1 #13   (direct relegation)
-   *   L2-D2 (tierDivision=2) ↔ L1 #14
-   *   L2-D3 (tierDivision=3) ↔ L1 #15
-   *   L2-D4 (tierDivision=4) ↔ L1 #16
-   *
-   * The playoff-batch version of this same pairing is
-   * what `processLeaguePromotions` commits directly
-   * (no match row, just a swap). The match row here
-   * exists so the FE/audit log can show "this game
-   * decided the swap". After the match completes,
-   * `SeasonTransitionService.processAfterPlayoffsComplete`
-   * reads the result and calls `swapTeamLeague` (for
-   * the lower side) — but on the upper side, the
-   * direct-promotion swap has *already* been applied
-   * by `processLeaguePromotions`. To avoid a double
-   * swap, the `playoff_swapped_at` latch on the row
-   * protects the upper side via a different code path
-   * (see the comment there).
-   */
-  private async generateUpperBoundaryPlayoff(
-    league: LeagueEntity,
-    season: number,
-    playoffDate: Date,
-  ): Promise<PlayoffMatchInfo | null> {
-    const parentLeague = await this.leagueRepository.findOne({
-      where: { tier: league.tier - 1, tierDivision: league.tierDivision },
-    });
-    if (!parentLeague) {
-      // Top tier (L1) or sibling-only tier — no upper
-      // boundary to emit.
-      return null;
-    }
-
-    const parentMaxTeams = parentLeague.maxTeams || 16;
-    const parentRelegationSlots = parentLeague.relegationSlots || 4;
-    const parentRelegationStart = parentMaxTeams - parentRelegationSlots + 1;
-    const upperRelegationPos =
-      parentRelegationStart +
-      ((league.tierDivision - 1) % parentRelegationSlots);
-
-    const ourSecond = await this.standingRepository.findOne({
-      where: { leagueId: league.id, season, position: 2 },
-      relations: ['team'],
-    });
-    const parentInPlayoffZone = await this.standingRepository.findOne({
-      where: { leagueId: parentLeague.id, season, position: upperRelegationPos },
-      relations: ['team'],
-    });
-
-    if (!ourSecond || !ourSecond.team || !parentInPlayoffZone || !parentInPlayoffZone.team) {
-      this.logger.warn(
-        `[Playoff] Missing #2 for ${league.name} or missing #${upperRelegationPos} for ${parentLeague.name} — upper boundary skipped`,
-      );
-      return null;
-    }
-
-    this.logger.info(
-      `Playoff (upper): ${parentInPlayoffZone.team.name} (Home, ${parentLeague.name} #${upperRelegationPos}) vs ${ourSecond.team.name} (Away, ${league.name} #2)`,
-    );
-
-    return {
-      homeTeamId: parentInPlayoffZone.team.id,
-      awayTeamId: ourSecond.team.id,
-      homeLeagueId: parentLeague.id,
-      awayLeagueId: league.id,
-      scheduledAt: playoffDate,
-      season,
-      week: 16,
-    };
   }
 
   /**

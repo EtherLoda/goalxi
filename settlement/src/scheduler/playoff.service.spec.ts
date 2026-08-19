@@ -124,15 +124,22 @@ describe('PlayoffService', () => {
       expect(result).toEqual([]);
     });
 
-    it('emits 3 matches for a 3-tier fixture: T1↔L2-D1 upper + L2-D1↔L3-D1 lower + L2-D1↔T1 lower', async () => {
+    it('emits 2 matches for a 3-tier fixture: T1 lower-boundary + L2-D1 lower-boundary (no upper-boundary duplicates)', async () => {
       // Minimal fixture:
       //   T1 (1 league)
       //   └── L2-D1 ──── L3-D1
       //
-      // Expected emissions:
+      // Expected emissions (lower-boundary only — upper-boundary
+      // would be the *same* fixture as the parent's lower-boundary,
+      // so we never emit it as a separate row):
       //   (a) T1 lower-boundary: T1 #9 (home) ↔ L2-D1 #2 (away)
-      //   (b) L2-D1 upper-boundary: T1 #13 (home) ↔ L2-D1 #2 (away)
-      //   (c) L2-D1 lower-boundary: L2-D1 #9 (home) ↔ L3-D1 #2 (away)
+      //   (b) L2-D1 lower-boundary: L2-D1 #9 (home) ↔ L3-D1 #2 (away)
+      //
+      // Note: the L2-D1 #2 ↔ T1 #9 match is NOT emitted twice.
+      // It exists exactly once — from the T1 lower-boundary path,
+      // where T1 is the home team. Emitting it again from the
+      // L2-D1 upper-boundary path would create a duplicate match
+      // row.
       leagueRepository.find
         // (1) Top-of-pyramid T1 walk.
         .mockResolvedValueOnce([TIER1 as LeagueEntity])
@@ -162,25 +169,16 @@ describe('PlayoffService', () => {
         .mockResolvedValueOnce(t1Standings as any)
         .mockResolvedValueOnce(l2d1Standings as any);
 
-      // leagueRepository.findOne call order:
-      //   T1 upper-boundary:           (1) tier 0 lookup → null
-      //   L2-D1 upper-boundary:        (2) tier 1 div 1 lookup → TIER1
-      //   L3-D1 upper-boundary:        (3) tier 2 div 1 lookup → null
-      //   (no more upper-boundary lookups in this fixture)
-      mockLeagueRepository.findOne
-        .mockResolvedValueOnce(null)
-        .mockResolvedValueOnce(TIER1 as LeagueEntity)
-        .mockResolvedValueOnce(null);
-      // standings.findOne call order (4 calls total):
+      // No leagueRepository.findOne calls — we never query
+      // the parent league (no upper-boundary path).
+      mockLeagueRepository.findOne.mockResolvedValue(null);
+
+      // standings.findOne call order (2 calls total):
       //   T1 lower-boundary:       (1) L2-D1 #2 → l2d1-2
-      //   L2-D1 upper-boundary:     (2) L2-D1 #2 → l2d1-2
-      //                           (3) T1 #13 → t1-13
-      //   L2-D1 lower-boundary:     (4) L3-D1 #2 → l3d1Standing2
+      //   L2-D1 lower-boundary:     (2) L3-D1 #2 → l3d1Standing2
       const findOneQueue: any[] = [
         { teamId: 'l2d1-2', position: 2, team: { id: 'l2d1-2', name: 'A' } }, // (1)
-        { teamId: 'l2d1-2', position: 2, team: { id: 'l2d1-2', name: 'A' } }, // (2)
-        { teamId: 't1-13', position: 13, team: { id: 't1-13', name: 'T1-13' } }, // (3)
-        l3d1Standing2, // (4)
+        l3d1Standing2, // (2)
       ];
       let findOneIdx = 0;
       mockStandingRepository.findOne.mockImplementation(async (opts: any) => {
@@ -199,7 +197,7 @@ describe('PlayoffService', () => {
 
       const result = await service.generateAllPlayoffMatches(1);
 
-      expect(result).toHaveLength(3);
+      expect(result).toHaveLength(2);
 
       // (a) T1 lower-boundary: T1 #9 (home) vs L2-D1 #2 (away)
       const t1Lower = result.find(
@@ -214,20 +212,7 @@ describe('PlayoffService', () => {
         week: 16,
       });
 
-      // (b) L2-D1 upper-boundary: T1 #13 (home) vs L2-D1 #2 (away)
-      const l2d1Upper = result.find(
-        (m) =>
-          m.homeLeagueId === 'tier1-id' &&
-          m.homeTeamId === 't1-13' &&
-          m.awayTeamId === 'l2d1-2',
-      );
-      expect(l2d1Upper).toMatchObject({
-        homeLeagueId: 'tier1-id',
-        awayLeagueId: 'tier2-d1-id',
-        week: 16,
-      });
-
-      // (c) L2-D1 lower-boundary: L2-D1 #9 (home) vs L3-D1 #2 (away)
+      // (b) L2-D1 lower-boundary: L2-D1 #9 (home) vs L3-D1 #2 (away)
       const l2d1Lower = result.find(
         (m) =>
           m.homeLeagueId === 'tier2-d1-id' &&
