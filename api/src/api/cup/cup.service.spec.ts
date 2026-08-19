@@ -74,7 +74,8 @@ describe('CupService', () => {
   });
 
   describe('findBracket', () => {
-    // A standard cup mock with createdAt/updatedAt populated â€?    // several bracket tests below need a real cup to round-trip
+    // A standard cup mock with createdAt/updatedAt populated
+    // several bracket tests below need a real cup to round-trip
     // through `toResDto`, which calls `cup.createdAt.toISOString()`.
     const buildCup = (): CupEntity =>
       ({

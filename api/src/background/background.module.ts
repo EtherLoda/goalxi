@@ -7,7 +7,13 @@ import { Module } from '@nestjs/common';
 //     transparent alias re-exporting this. It only existed to
 //     avoid the namesake; the alias was deleted and the import
 //     is now direct. See #9 in the audit log.
-import { SchedulerModule as SettlementSchedulerModule } from 'settlement/scheduler/scheduler.module';
+// [Fix 2026-08-19] swc (NestJS dev compiler, see api/nest-cli.json
+// `"builder": "swc"`) does not honour the `settlement/*` path alias
+// in api/tsconfig.json — tsc resolves it fine but swc emits
+// `TS2307: Cannot find module 'settlement/scheduler/scheduler.module'`
+// and the process exits with code 4294967295 (-1). Direct relative
+// import works in both tsc and swc.
+import { SchedulerModule as SettlementSchedulerModule } from '../../../settlement/dist/src/scheduler/scheduler.module';
 import { EmailQueueModule } from './queues/email-queue/email-queue.module';
 import { FinanceSettlementModule } from './queues/finance-settlement/finance-settlement.module';
 import { MatchCompletionModule } from './queues/match-completion/match-completion.module';

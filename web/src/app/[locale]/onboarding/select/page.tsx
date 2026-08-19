@@ -5,6 +5,7 @@ import { useRouter, useParams } from "next/navigation";
 import { useTranslations } from "next-intl";
 import Link from "next/link";
 import { api, type OnboardingState } from "@/lib/api";
+import { useAuth } from "@/contexts/AuthContext";
 
 /**
  * "We are waiting on the worker" loading screen. The actual
@@ -38,6 +39,7 @@ export default function OnboardingSelectPage() {
   const router = useRouter();
   const params = useParams();
   const t = useTranslations();
+  const { refreshOnboarding } = useAuth();
   const [state, setState] = useState<OnboardingState | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -51,8 +53,23 @@ export default function OnboardingSelectPage() {
       setState(data);
       setError(null);
       if (data.hasTeam && data.team) {
-        // Worker finished — route the user to the dashboard.
-        // The team already has the user-supplied club name
+        // Worker finished — push the fresh state into
+        // AuthContext BEFORE we route away. The pathname
+        // guard in `AuthProvider` reads `onboarding.hasTeam`
+        // from the boot-time snapshot (which is still
+        // `false` for a freshly-registered user); without
+        // this sync it would see the stale value and bounce
+        // us straight back here in a flicker loop until the
+        // user gives up and refreshes the tab.
+        const synced = await refreshOnboarding();
+        if (!synced) {
+          // Transient failure — let the user retry rather
+          // than push to a dashboard that hasn't been
+          // hydrated with the team context yet.
+          setError('Failed to sync team state. Please try again.');
+          return;
+        }
+        // Team already has the user-supplied club name
         // (stamped by the assigner during claim), so there's
         // nothing left for this page to do.
         router.push(`/${locale}/dashboard?team=${data.team.id}`);
@@ -62,7 +79,7 @@ export default function OnboardingSelectPage() {
         err instanceof Error ? err.message : 'Failed to check onboarding state',
       );
     }
-  }, [router, locale]);
+  }, [router, locale, refreshOnboarding]);
 
   useEffect(() => {
     // Single fetch on mount. This is the "user refreshed the

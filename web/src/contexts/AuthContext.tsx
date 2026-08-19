@@ -31,6 +31,21 @@ interface AuthContextType {
    * behaviour on a 401).
    */
   refreshUser: () => Promise<User | null>;
+  /**
+   * Re-fetch `/onboarding/state` and swap the result into
+   * context. Use this when a page (e.g. `/onboarding/select`)
+   * has just learned that the worker's claim finished and
+   * needs to push the user to `/dashboard`. Without this the
+   * pathname guard in this provider still sees the boot-time
+   * snapshot (`hasTeam=false`) and bounces the user back to
+   * `/onboarding/select` in a flicker loop.
+   *
+   * Returns the fresh `OnboardingState`, or `null` on failure
+   * (caller is responsible for surfacing a retry UI — this
+   * helper does not log the user out, since onboarding-state
+   * errors are usually transient and recoverable).
+   */
+  refreshOnboarding: () => Promise<OnboardingState | null>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -102,6 +117,74 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [router]);
 
   /**
+   * Apply a fresh `OnboardingState` snapshot to React + Zustand
+   * in one place. Centralising this matters because three call
+   * sites all need to do the same trio — and getting one of
+   * them out of sync is exactly the bug that caused the
+   * post-registration flicker (see `refreshOnboarding` below).
+   *
+   * When `hasTeam` flips to `true` we promote the onboarding
+   * summary into the full `Team` shape the rest of the app
+   * reads from `useAuth().team` / `useGameStore.teamId`.
+   * Fields we don't have at the onboarding endpoint
+   * (`jerseyColorPrimary`, etc.) default to safe empty values
+   * — pages that care about them refetch via `api.teams.getById`.
+   */
+  const applyOnboardingState = useCallback(
+    (onboardingState: OnboardingState) => {
+      setOnboarding(onboardingState);
+      if (onboardingState.hasTeam && onboardingState.team) {
+        setTeam({
+          id: onboardingState.team.id,
+          name: onboardingState.team.name,
+          leagueId: onboardingState.team.leagueId ?? '',
+          isBot: onboardingState.team.isBot,
+          jerseyColorPrimary: '#FF0000',
+          jerseyColorSecondary: '#FFFFFF',
+        });
+        useGameStore.getState().setTeam({
+          teamId: onboardingState.team.id,
+          teamName: onboardingState.team.name,
+          leagueId: onboardingState.team.leagueId,
+          leagueName: '',
+        });
+      } else {
+        setTeam(null);
+      }
+    },
+    [],
+  );
+
+  /**
+   * Re-fetch `/onboarding/state` and apply it. Designed for
+   * the `/onboarding/select` page: the user lands there with
+   * a stale `onboarding.hasTeam=false` (set at register time),
+   * waits for the worker, then tries to `router.push('/dashboard')`.
+   * Without this refresh the pathname guard below sees the
+   * stale `false` and bounces them straight back to
+   * `/onboarding/select` — repeat until the user gives up
+   * and refreshes the tab (which triggers the boot path and
+   * finally hydrates the fresh state).
+   *
+   * On failure we return `null` and let the caller surface a
+   * retry — we deliberately do NOT call `logout()` here, the
+   * way `fetchUserAndOnboarding` does, because a transient
+   * onboarding-state failure is usually just a 5xx from the
+   * settlement worker and the user can recover by clicking
+   * "Check status" again.
+   */
+  const refreshOnboarding = useCallback(async (): Promise<OnboardingState | null> => {
+    try {
+      const onboardingState = await api.onboarding.getState();
+      applyOnboardingState(onboardingState);
+      return onboardingState;
+    } catch (error) {
+      console.error('Failed to refresh onboarding state:', error);
+      return null;
+    }
+  }, [applyOnboardingState]);
+
+  /**
    * After a successful login (or page refresh) we need to:
    *   1. Know who the user is.
    *   2. Know their team.
@@ -137,7 +220,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         ]);
 
         setUser(userData);
-        setOnboarding(onboardingState);
+        applyOnboardingState(onboardingState);
 
         useGameStore.getState().setSeason(gameState.season);
         useGameStore.getState().setWeek(gameState.week);
@@ -151,30 +234,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           useGameStore.getState().setTimezone(userData.timezone);
         }
 
-        if (onboardingState.hasTeam && onboardingState.team) {
-          // Promote the onboarding summary to the full Team
-          // shape the rest of the app reads from
-          // `useGameStore.teamId`. Fields we don't have at this
-          // point default to sensible empty values — pages
-          // that care about them refetch via `api.teams.getById`.
-          setTeam({
-            id: onboardingState.team.id,
-            name: onboardingState.team.name,
-            leagueId: onboardingState.team.leagueId ?? '',
-            isBot: onboardingState.team.isBot,
-            jerseyColorPrimary: '#FF0000',
-            jerseyColorSecondary: '#FFFFFF',
-          });
-          useGameStore.getState().setTeam({
-            teamId: onboardingState.team.id,
-            teamName: onboardingState.team.name,
-            leagueId: onboardingState.team.leagueId,
-            leagueName: '',
-          });
-        } else {
-          setTeam(null);
-        }
-
         return { userData, onboardingState };
       } catch (error) {
         console.error('Failed to fetch user/onboarding:', error);
@@ -182,7 +241,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return null;
       }
     },
-    [logout],
+    [logout, applyOnboardingState],
   );
 
   useEffect(() => {
@@ -192,10 +251,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return;
     }
 
-    // Boot path: hydrate from localStorage. We still poll the
-    // onboarding endpoint on every page navigation (see the
-    // pathname effect below) — this is the first chance to
-    // bounce a freshly-registered user to /onboarding/select.
+    // Boot path: hydrate from localStorage. The pathname guard
+    // below only reads the cached `onboarding` state, so a
+    // freshly-registered user lands here first and gets their
+    // teamless status into context. After the worker finishes,
+    // `refreshOnboarding` (called from `/onboarding/select`)
+    // is the only way the guard learns `hasTeam` flipped —
+    // we deliberately don't poll from this provider because
+    // that would double the requests the polling page already
+    // makes.
     api.users
       .me()
       .then((userData) => {
@@ -206,25 +270,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return Promise.all([api.onboarding.getState(), api.game.getCurrent()]);
       })
       .then(([onboardingState, gameState]) => {
-        setOnboarding(onboardingState);
+        applyOnboardingState(onboardingState);
         useGameStore.getState().setSeason(gameState.season);
         useGameStore.getState().setWeek(gameState.week);
-        if (onboardingState.hasTeam && onboardingState.team) {
-          setTeam({
-            id: onboardingState.team.id,
-            name: onboardingState.team.name,
-            leagueId: onboardingState.team.leagueId ?? '',
-            isBot: onboardingState.team.isBot,
-            jerseyColorPrimary: '#FF0000',
-            jerseyColorSecondary: '#FFFFFF',
-          });
-          useGameStore.getState().setTeam({
-            teamId: onboardingState.team.id,
-            teamName: onboardingState.team.name,
-            leagueId: onboardingState.team.leagueId,
-            leagueName: '',
-          });
-        }
       })
       .catch(() => {
         localStorage.removeItem('goalxi_token');
@@ -236,7 +284,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       .finally(() => {
         setIsLoading(false);
       });
-  }, []);
+    // `applyOnboardingState` is a stable useCallback (empty
+    // deps) so the effect still only runs once on mount.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [applyOnboardingState]);
 
   /**
    * Page-level guard. On every navigation we re-check the
@@ -350,6 +401,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         login,
         logout,
         refreshUser,
+        refreshOnboarding,
       }}
     >
       {children}

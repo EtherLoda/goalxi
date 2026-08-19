@@ -1,4 +1,5 @@
 import {
+  CupBracketSlotEntity,
   FanEntity,
   InjuryEntity,
   LeagueEntity,
@@ -44,6 +45,7 @@ import { PresetService } from './preset.service';
       LeagueEntity,
       MatchEventEntity,
       MatchTeamStatsEntity,
+      CupBracketSlotEntity,
       StadiumEntity,
       FanEntity,
       LeagueStandingEntity,
