@@ -679,7 +679,8 @@
       "cancel": "Cancel",
       "confirm": "Confirm Buyout",
       "buyoutSuccess": "Buyout successful!",
-      "buyoutFailed": "Buyout failed"
+      "buyoutFailed": "Buyout failed",
+      "insufficientFunds": "Insufficient funds — your budget is {budget}, but this buyout costs {price}."
     },
     "submitting": "Submitting...",
     "expired": "Expired",

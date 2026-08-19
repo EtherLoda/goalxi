@@ -1,7 +1,7 @@
 "use client";
 
-import { useTranslations } from "next-intl";
-import { useEffect, useState, useCallback } from "react";
+import { useTranslations, useLocale } from "next-intl";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import { useAuth } from "@/contexts/AuthContext";
@@ -15,8 +15,8 @@ type TransferPlayer = Player;
 
 export default function TransfersPage() {
   const t = useTranslations();
+  const locale = useLocale();
   const params = useParams();
-  const locale = params.locale as string;
   const { user, team } = useAuth();
   const [transfers, setTransfers] = useState<TransferAuction[]>([]);
   const [selectedTransfer, setSelectedTransfer] = useState<TransferAuction | null>(null);
@@ -35,10 +35,16 @@ export default function TransfersPage() {
   const [ageEnabled, setAgeEnabled] = useState(false);
   const [ageRange, setAgeRange] = useState({ min: 20, max: 25 });
   const [specialtyEnabled, setSpecialtyEnabled] = useState(false);
+  const [showSpecialtyDropdown, setShowSpecialtyDropdown] = useState(false);
   const [selectedSpecialty, setSelectedSpecialty] = useState("");
   const [playerTypeFilter, setPlayerTypeFilter] = useState<"outfield" | "gk">("outfield");
-  const [activeTab, setActiveTab] = useState<"market" | "shortlist" | "history">("market");
-  const [historyTransactions, setHistoryTransactions] = useState<any[]>([]);
+
+  // Auto-select the first auction exactly once. A ref (not state) is
+  // the right tool here because the rule is "select-once-per-mount",
+  // not "select when the list becomes non-empty" — without the ref
+  // we'd need `selectedTransfer` in `fetchTransfers`'s deps, and
+  // every selection change would re-fetch the entire market.
+  const hasAutoSelectedRef = useRef(false);
 
   const OUTFIELD_ATTRIBUTES = [
     { value: "pace", label: t("squad.skills.pace"), icon: "directions_run" },
@@ -88,7 +94,9 @@ export default function TransfersPage() {
 
   const EXPIRED_LABEL = t("transfers.expired");
 
-  // Close dropdown when clicking outside
+  // Close dropdown when clicking outside. Both dropdowns now live
+  // in React state — we no longer reach into the DOM to toggle
+  // `.hidden`, which was an SSR/hydration landmine.
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
       const target = e.target as HTMLElement;
@@ -96,7 +104,7 @@ export default function TransfersPage() {
         setShowAddFilterDropdown(false);
       }
       if (!target.closest('#specialty-dropdown') && !target.closest('.specialty-trigger')) {
-        document.getElementById('specialty-dropdown')?.classList.add('hidden');
+        setShowSpecialtyDropdown(false);
       }
     };
     document.addEventListener('click', handleClickOutside);
@@ -140,36 +148,47 @@ export default function TransfersPage() {
     return 0;
   };
 
-  // Fetch transfers data
-  const fetchTransfers = useCallback(async () => {
-    setIsLoading(true);
-    setError(null);
-    try {
-      const [auctionsData, teamData] = await Promise.all([
-        api.transfers.getAuctions(),
-        team ? api.teams.getByUser(user!.id) : null,
-      ]);
-      setTransfers(auctionsData);
-      if (teamData) {
-        // @ts-ignore - backend may have budget field
-        setBudget(teamData.budget || null);
+  // Fetch transfers data. `selectedTransfer` is intentionally NOT in
+  // the deps — including it would re-fetch the entire market on
+  // every card click. Auto-select is gated by `hasAutoSelectedRef`
+  // so the "pick the first auction" rule fires exactly once per
+  // mount instead of every time the user changes their selection.
+  const fetchTransfers = useCallback(
+    async (signal?: AbortSignal) => {
+      setIsLoading(true);
+      setError(null);
+      try {
+        const [auctionsData, teamData] = await Promise.all([
+          api.transfers.getAuctions({ signal }),
+          user && team ? api.teams.getByUser(user.id, { signal }) : null,
+        ]);
+        setTransfers(auctionsData);
+        if (teamData) {
+          // @ts-expect-error - backend may have budget field
+          setBudget(teamData.budget || null);
+        }
+        if (auctionsData.length > 0 && !hasAutoSelectedRef.current) {
+          hasAutoSelectedRef.current = true;
+          setSelectedTransfer(auctionsData[0]);
+        }
+        return auctionsData;
+      } catch (err) {
+        // AbortError fires when the effect cleans up; not a real
+        // failure, don't toast it.
+        if (err instanceof DOMException && err.name === "AbortError") return [];
+        setError(err instanceof Error ? err.message : t("transfers.error.failedToLoad"));
+        return [];
+      } finally {
+        setIsLoading(false);
       }
-      // Select first transfer if available
-      if (auctionsData.length > 0 && !selectedTransfer) {
-        setSelectedTransfer(auctionsData[0]);
-      }
-      return auctionsData;
-    } catch (err) {
-      setError(err instanceof Error ? err.message : t("transfers.error.failedToLoad"));
-      console.error("Failed to fetch transfers:", err);
-      return [];
-    } finally {
-      setIsLoading(false);
-    }
-  }, [user, team, selectedTransfer, t]);
+    },
+    [user, team, t],
+  );
 
   useEffect(() => {
-    fetchTransfers();
+    const controller = new AbortController();
+    fetchTransfers(controller.signal);
+    return () => controller.abort();
   }, [fetchTransfers]);
 
   const filteredTransfers = transfers.filter((t) => {
@@ -227,7 +246,7 @@ export default function TransfersPage() {
     const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
 
     if (hours >= 24) {
-      return date.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' });
+      return date.toLocaleDateString(locale, { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" });
     }
     if (hours >= 1) {
       return `${hours}h ago`;
@@ -622,7 +641,7 @@ export default function TransfersPage() {
                   <div className="relative">
                     <button
                       className="specialty-trigger w-full flex items-center justify-between bg-[#002c22] border border-[#2f4e44]/30 rounded-xl py-2.5 px-3 text-left hover:border-[#a1ffc2]/30 transition-colors"
-                      onClick={() => document.getElementById('specialty-dropdown')?.classList.toggle('hidden')}
+                      onClick={() => setShowSpecialtyDropdown((v) => !v)}
                     >
                       <div className="flex items-center gap-2">
                         <SpecialtyIcon
@@ -636,12 +655,15 @@ export default function TransfersPage() {
                       </div>
                       <span className="material-symbols-outlined text-[#91b2a6] text-xl">expand_more</span>
                     </button>
-                    <div id="specialty-dropdown" className="hidden absolute z-50 mt-2 w-full bg-[#001711] border border-[#2f4e44]/30 rounded-xl overflow-hidden shadow-xl shadow-black/50 max-h-48 overflow-y-auto">
+                    <div
+                      id="specialty-dropdown"
+                      className={`${showSpecialtyDropdown ? "" : "hidden"} absolute z-50 mt-2 w-full bg-[#001711] border border-[#2f4e44]/30 rounded-xl overflow-hidden shadow-xl shadow-black/50 max-h-48 overflow-y-auto`}
+                    >
                       <button
                         className={`w-full flex items-center gap-3 px-4 py-3 hover:bg-[#002c22] transition-colors ${!selectedSpecialty ? 'bg-[#002c22]' : ''}`}
                         onClick={() => {
                           setSelectedSpecialty("");
-                          document.getElementById('specialty-dropdown')?.classList.add('hidden');
+                          setShowSpecialtyDropdown(false);
                         }}
                       >
                         <span className="material-symbols-outlined text-sm text-[#91b2a6]">all_inclusive</span>
@@ -654,7 +676,7 @@ export default function TransfersPage() {
                           className={`w-full flex items-center gap-3 px-4 py-3 hover:bg-[#002c22] transition-colors ${selectedSpecialty === spec.value ? 'bg-[#002c22]' : ''}`}
                           onClick={() => {
                             setSelectedSpecialty(spec.value);
-                            document.getElementById('specialty-dropdown')?.classList.add('hidden');
+                            setShowSpecialtyDropdown(false);
                           }}
                         >
                           <SpecialtyIcon code={spec.value} size="sm" className="text-[#91b2a6]" />
@@ -693,7 +715,7 @@ export default function TransfersPage() {
                 <p className="text-[#d3f5e8] font-bold mb-2">{t("transfers.error.failedToLoad")}</p>
                 <p className="text-[#91b2a6] text-sm mb-4">{error}</p>
                 <button
-                  onClick={fetchTransfers}
+                  onClick={() => fetchTransfers()}
                   className="px-4 py-2 bg-[#002c22] text-[#a1ffc2] font-bold text-xs rounded-xl hover:bg-[#003328] transition-colors"
                 >
                   {t("transfers.error.retry")}
@@ -917,8 +939,15 @@ export default function TransfersPage() {
                           className="w-full bg-[#002c22] border border-[#2f4e44]/30 rounded-xl py-3 pl-8 pr-4 text-sm font-bold text-[#d3f5e8] focus:ring-1 focus:ring-[#a1ffc2] focus:border-[#a1ffc2] transition-all placeholder:text-[#91b2a6]/40"
                           placeholder={t("transfers.detail.offerPlaceholder")}
                           type="text"
+                          inputMode="numeric"
                           value={formatBidAmountInput(bidAmount)}
-                          onChange={(e) => setBidAmount(e.target.value.replace(/,/g, '').replace(/[^0-9]/g, ''))}
+                          onChange={(e) => {
+                            // Strip non-digits; cap at 9 digits (max
+                            // 999,999,999) so a paste of "1e100" or
+                            // similar can't blow up the parser.
+                            const digits = e.target.value.replace(/[^0-9]/g, '').slice(0, 9);
+                            setBidAmount(digits);
+                          }}
                         />
                       </div>
                     </div>
@@ -955,7 +984,13 @@ export default function TransfersPage() {
         </div>
 
       {/* Buyout Confirmation Modal */}
-      {showBuyoutConfirm && selectedTransfer && (
+      {showBuyoutConfirm && selectedTransfer && (() => {
+        // Pre-flight client check against the cached budget. The
+        // server is still the source of truth and will 400 anyway,
+        // but disabling the confirm button + showing the delta
+        // prevents the "click then read 400" UX.
+        const canAfford = budget == null || budget >= selectedTransfer.buyoutPrice;
+        return (
         <div className="fixed inset-0 z-[150] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
           <div className="bg-[#001e17]/90 backdrop-blur-xl rounded-2xl overflow-hidden shadow-2xl border border-[#a1ffc2]/20 w-full max-w-md">
             <div className="p-8 text-center">
@@ -966,6 +1001,14 @@ export default function TransfersPage() {
               <p className="text-[#91b2a6] text-sm mb-6">
                 {t("transfers.buyout.confirmMessage", { playerName: selectedTransfer.player.name, price: formatCurrency(selectedTransfer.buyoutPrice) })}
               </p>
+              {!canAfford && (
+                <p className="text-red-400 text-sm font-semibold mb-4">
+                  {t("transfers.buyout.insufficientFunds", {
+                    budget: formatCurrency(budget ?? 0),
+                    price: formatCurrency(selectedTransfer.buyoutPrice),
+                  })}
+                </p>
+              )}
               <div className="flex gap-4">
                 <button
                   className="flex-1 py-3 bg-[#002c22] text-[#d3f5e8] font-bold rounded-xl hover:bg-[#003328] transition-all uppercase tracking-widest text-xs"
@@ -974,7 +1017,8 @@ export default function TransfersPage() {
                   {t("transfers.buyout.cancel")}
                 </button>
                 <button
-                  className="flex-1 py-3 bg-[#ef4444] text-white font-bold rounded-xl hover:bg-red-600 transition-all uppercase tracking-widest text-xs"
+                  disabled={!canAfford}
+                  className="flex-1 py-3 bg-[#ef4444] text-white font-bold rounded-xl hover:bg-red-600 transition-all uppercase tracking-widest text-xs disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-[#ef4444]"
                   onClick={async () => {
                     try {
                       await api.transfers.buyout(selectedTransfer.id);
@@ -994,7 +1038,8 @@ export default function TransfersPage() {
             </div>
           </div>
         </div>
-      )}
+        );
+      })()}
 
       {/* Bid History Full Modal */}
       {showBidHistoryModal && selectedTransfer && (

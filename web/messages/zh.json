@@ -679,7 +679,8 @@
       "cancel": "取消",
       "confirm": "确认买断",
       "buyoutSuccess": "买断成功！",
-      "buyoutFailed": "买断失败"
+      "buyoutFailed": "买断失败",
+      "insufficientFunds": "余额不足 — 当前预算 {budget}，买断价 {price}。"
     },
     "submitting": "提交中...",
     "expired": "已过期",
