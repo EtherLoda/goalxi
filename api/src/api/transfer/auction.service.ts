@@ -24,6 +24,7 @@ import {
   Injectable,
   NotFoundException,
   OnModuleInit,
+  ServiceUnavailableException,
 } from '@nestjs/common';
 import { Cron } from '@nestjs/schedule';
 import { InjectRepository } from '@nestjs/typeorm';
@@ -906,6 +907,13 @@ export class AuctionService implements OnModuleInit {
     status: string;
     message: string;
   }> {
+    // Buyout is a v2 mechanic. The data column + listing flow are
+    // preserved, but the buyout endpoint itself is gated off until
+    // the UI is re-introduced. See AUCTION_CONFIG.BUYOUT_ENABLED.
+    if (!AUCTION_CONFIG.BUYOUT_ENABLED) {
+      throw new ServiceUnavailableException('Buyout is currently disabled');
+    }
+
     this.logger.log(
       `[Auction] buyout start userId=${userId} auctionId=${auctionId}`,
     );

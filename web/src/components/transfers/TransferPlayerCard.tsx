@@ -5,6 +5,9 @@ import Link from "next/link";
 import { type TransferAuction, type Player } from "@/lib/api";
 import { SpecialtyIcon } from "@/components/player/SpecialtyIcon";
 import { getSpecialtyLabel } from "@/lib/specialties";
+import { useGameStore } from "@/stores/gameStore";
+import { useAuth } from "@/contexts/AuthContext";
+import { useRouter } from "next/navigation";
 
 interface TransferPlayerCardProps {
   transfer: TransferAuction;
@@ -61,6 +64,9 @@ export default function TransferPlayerCard({
 }: TransferPlayerCardProps) {
   const t = useTranslations();
   const locale = useLocale();
+  const router = useRouter();
+  const { team: userTeam } = useAuth();
+  const { setViewTeam } = useGameStore();
   const player = transfer.player;
   const initials = player.name
     .split(" ")
@@ -69,8 +75,20 @@ export default function TransferPlayerCard({
     .slice(0, 2);
   const timeLeft = formatTimeRemaining(transfer.expiresAt);
   const isExpired = timeLeft === t("transfers.expired");
-  const skills = player.currentSkills as any;
+  const skills = player.currentSkills;
+  const potential = player.potentialSkills;
   const isGK = player.isGoalkeeper;
+
+  // Mirror the league standings table behavior: clicking another
+  // team's row switches the global `viewTeam` and navigates to the
+  // dashboard in that team's context. Keeps the navbar/sidebar
+  // consistent with the rest of the app when scouting a target.
+  // (StandingsTable.tsx:32-36 has the canonical version.)
+  const handleTeamClick = (clickedTeamId: string) => {
+    const isOwnTeam = clickedTeamId === userTeam?.id;
+    setViewTeam(isOwnTeam ? (userTeam?.id ?? null) : clickedTeamId);
+    router.push(`/${locale}/dashboard?team=${clickedTeamId}`);
+  };
 
   return (
     <div
@@ -107,7 +125,17 @@ export default function TransferPlayerCard({
           </div>
           <p className="text-sm text-[#91b2a6]">
             {t("common.ageFormat", { y: player.age, d: player.ageDays })} ·{" "}
-            {player.teamName || transfer.team.name} · {t("common.currencySymbol")}
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                handleTeamClick(transfer.team.id);
+              }}
+              className="text-[#91b2a6] hover:text-[#a1ffc2] transition-colors cursor-pointer"
+            >
+              {player.teamName || transfer.team.name}
+            </button>{" "}
+            · {t("common.currencySymbol")}
             {(player.currentWage || 0).toLocaleString()}{t("common.perWeek")}
           </p>
         </div>
@@ -154,14 +182,6 @@ export default function TransferPlayerCard({
                 : "text-[#d3f5e8]"
             }`}>
               {formatCurrency(transfer.currentPrice)}
-            </p>
-          </div>
-          <div className="text-center">
-            <p className="text-[10px] text-[#91b2a6] uppercase tracking-wider mb-1">
-              {t("transfers.detail.buyout")}
-            </p>
-            <p className="font-bold text-xl text-[#91b2a6]">
-              {formatCurrency(transfer.buyoutPrice)}
             </p>
           </div>
         </div>
@@ -212,19 +232,19 @@ export default function TransferPlayerCard({
                 {renderSkillBar(
                   t("squad.skills.reflexes"),
                   skills?.technical?.reflexes || 0,
-                  20,
+                  potential?.technical?.reflexes || 0,
                   "text-[#a1ffc2]",
                 )}
                 {renderSkillBar(
                   t("squad.skills.handling"),
                   skills?.technical?.handling || 0,
-                  20,
+                  potential?.technical?.handling || 0,
                   "text-[#a1ffc2]",
                 )}
                 {renderSkillBar(
                   t("squad.skills.aerial"),
                   skills?.technical?.aerial || 0,
-                  20,
+                  potential?.technical?.aerial || 0,
                   "text-[#a1ffc2]",
                 )}
               </>
@@ -233,25 +253,25 @@ export default function TransferPlayerCard({
                 {renderSkillBar(
                   t("squad.skills.finishing"),
                   skills?.technical?.finishing || 0,
-                  20,
+                  potential?.technical?.finishing || 0,
                   "text-[#a1ffc2]",
                 )}
                 {renderSkillBar(
                   t("squad.skills.passing"),
                   skills?.technical?.passing || 0,
-                  20,
+                  potential?.technical?.passing || 0,
                   "text-[#a1ffc2]",
                 )}
                 {renderSkillBar(
                   t("squad.skills.dribbling"),
                   skills?.technical?.dribbling || 0,
-                  20,
+                  potential?.technical?.dribbling || 0,
                   "text-[#a1ffc2]",
                 )}
                 {renderSkillBar(
                   t("squad.skills.defending"),
                   skills?.technical?.defending || 0,
-                  20,
+                  potential?.technical?.defending || 0,
                   "text-[#a1ffc2]",
                 )}
               </>
@@ -271,13 +291,13 @@ export default function TransferPlayerCard({
             {renderSkillBar(
               t("squad.skills.pace"),
               skills?.physical?.pace || 0,
-              20,
+              potential?.physical?.pace || 0,
               "text-[#60a5fa]",
             )}
             {renderSkillBar(
               t("squad.skills.strength"),
               skills?.physical?.strength || 0,
-              20,
+              potential?.physical?.strength || 0,
               "text-[#60a5fa]",
             )}
           </div>
@@ -295,13 +315,13 @@ export default function TransferPlayerCard({
             {renderSkillBar(
               t("squad.skills.composure"),
               skills?.mental?.composure || 0,
-              20,
+              potential?.mental?.composure || 0,
               "text-[#abf853]",
             )}
             {renderSkillBar(
               t("squad.skills.positioning"),
               skills?.mental?.positioning || 0,
-              20,
+              potential?.mental?.positioning || 0,
               "text-[#abf853]",
             )}
           </div>
@@ -319,13 +339,13 @@ export default function TransferPlayerCard({
             {renderSkillBar(
               t("squad.skills.freeKicks"),
               skills?.setPieces?.freeKicks || 0,
-              20,
+              potential?.setPieces?.freeKicks || 0,
               "text-[#f59e0b]",
             )}
             {renderSkillBar(
               t("squad.skills.penalties"),
               skills?.setPieces?.penalties || 0,
-              20,
+              potential?.setPieces?.penalties || 0,
               "text-[#f59e0b]",
             )}
           </div>

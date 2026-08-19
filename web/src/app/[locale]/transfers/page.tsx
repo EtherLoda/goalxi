@@ -23,9 +23,7 @@ export default function TransfersPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [bidAmount, setBidAmount] = useState("");
-  const [budget, setBudget] = useState<number | null>(null);
   const [isSubmittingBid, setIsSubmittingBid] = useState(false);
-  const [showBuyoutConfirm, setShowBuyoutConfirm] = useState(false);
   const [showBidHistoryModal, setShowBidHistoryModal] = useState(false);
   const [notification, setNotification] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
 
@@ -163,15 +161,8 @@ export default function TransfersPage() {
       setIsLoading(true);
       setError(null);
       try {
-        const [auctionsData, teamData] = await Promise.all([
-          api.transfers.getAuctions({ signal }),
-          user && team ? api.teams.getByUser(user.id, { signal }) : null,
-        ]);
+        const auctionsData = await api.transfers.getAuctions({ signal });
         setTransfers(auctionsData);
-        if (teamData) {
-          // @ts-expect-error - backend may have budget field
-          setBudget(teamData.budget || null);
-        }
         if (auctionsData.length > 0 && !hasAutoSelectedRef.current) {
           hasAutoSelectedRef.current = true;
           setSelectedTransfer(auctionsData[0]);
@@ -806,21 +797,11 @@ export default function TransfersPage() {
                     </div>
                   </div>
 
-                  {/* Pricing & Actions */}
-                  <div className="grid grid-cols-2 gap-4 mb-6">
+                  {/* Pricing */}
+                  <div className="mb-6">
                     <div className="bg-[#002c22] p-4 rounded-2xl border border-[#2f4e44]/10">
                       <p className="text-[10px] text-[#91b2a6] uppercase tracking-widest mb-1">{t("transfers.detail.currentPrice")}</p>
                       <p className="text-2xl font-bold text-[#a1ffc2] truncate">{formatCurrency(selectedTransfer.currentPrice)}</p>
-                    </div>
-                    <div className="bg-[#002c22] p-4 rounded-2xl border border-[#2f4e44]/10">
-                      <p className="text-[10px] text-[#91b2a6] uppercase tracking-widest mb-1">{t("transfers.detail.buyout")}</p>
-                      <p className="text-xl font-bold text-[#d3f5e8] mb-2 truncate">{formatCurrency(selectedTransfer.buyoutPrice)}</p>
-                      <button
-                        onClick={() => setShowBuyoutConfirm(true)}
-                        className="w-full py-2 bg-[#a1ffc2] text-[#00110c] font-bold text-[10px] rounded-lg uppercase tracking-widest hover:brightness-110 transition-all"
-                      >
-                        {t("transfers.buyout.directBuyout")}
-                      </button>
                     </div>
                   </div>
 
@@ -994,64 +975,6 @@ export default function TransfersPage() {
             )}
           </aside>
         </div>
-
-      {/* Buyout Confirmation Modal */}
-      {showBuyoutConfirm && selectedTransfer && (() => {
-        // Pre-flight client check against the cached budget. The
-        // server is still the source of truth and will 400 anyway,
-        // but disabling the confirm button + showing the delta
-        // prevents the "click then read 400" UX.
-        const canAfford = budget == null || budget >= selectedTransfer.buyoutPrice;
-        return (
-        <div className="fixed inset-0 z-[150] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
-          <div className="bg-[#001e17]/90 backdrop-blur-xl rounded-2xl overflow-hidden shadow-2xl border border-[#a1ffc2]/20 w-full max-w-md">
-            <div className="p-8 text-center">
-              <div className="w-16 h-16 rounded-full bg-[#002c22] flex items-center justify-center mx-auto mb-4">
-                <span className="material-symbols-outlined text-3xl text-[#a1ffc2]">warning</span>
-              </div>
-              <h3 className="text-xl font-bold text-[#d3f5e8] mb-2">{t("transfers.buyout.confirmTitle")}</h3>
-              <p className="text-[#91b2a6] text-sm mb-6">
-                {t("transfers.buyout.confirmMessage", { playerName: selectedTransfer.player.name, price: formatCurrency(selectedTransfer.buyoutPrice) })}
-              </p>
-              {!canAfford && (
-                <p className="text-red-400 text-sm font-semibold mb-4">
-                  {t("transfers.buyout.insufficientFunds", {
-                    budget: formatCurrency(budget ?? 0),
-                    price: formatCurrency(selectedTransfer.buyoutPrice),
-                  })}
-                </p>
-              )}
-              <div className="flex gap-4">
-                <button
-                  className="flex-1 py-3 bg-[#002c22] text-[#d3f5e8] font-bold rounded-xl hover:bg-[#003328] transition-all uppercase tracking-widest text-xs"
-                  onClick={() => setShowBuyoutConfirm(false)}
-                >
-                  {t("transfers.buyout.cancel")}
-                </button>
-                <button
-                  disabled={!canAfford}
-                  className="flex-1 py-3 bg-[#ef4444] text-white font-bold rounded-xl hover:bg-red-600 transition-all uppercase tracking-widest text-xs disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-[#ef4444]"
-                  onClick={async () => {
-                    try {
-                      await api.transfers.buyout(selectedTransfer.id);
-                      setNotification({ type: 'success', message: `${selectedTransfer.player.name} ${t("transfers.buyout.buyoutSuccess")}` });
-                      setShowBuyoutConfirm(false);
-                      const freshData = await fetchTransfers();
-                      const updated = freshData.find(t => t.id === selectedTransfer.id);
-                      if (updated) setSelectedTransfer(updated);
-                    } catch (error) {
-                      setNotification({ type: 'error', message: error instanceof Error ? error.message : t("transfers.buyout.buyoutFailed") });
-                    }
-                  }}
-                >
-                  {t("transfers.buyout.confirm")}
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-        );
-      })()}
 
       {/* Bid History Full Modal */}
       {showBidHistoryModal && selectedTransfer && (

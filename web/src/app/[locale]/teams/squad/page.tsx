@@ -62,17 +62,15 @@ interface ListPlayerModalProps {
 function ListPlayerModal({ player, onClose, onSuccess }: ListPlayerModalProps) {
   const t = useTranslations();
   const [startPrice, setStartPrice] = useState<string>("");
-  const [buyoutPrice, setBuyoutPrice] = useState<string>("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const start = parseInt(startPrice, 10);
-    const buyout = parseInt(buyoutPrice, 10);
 
-    if (isNaN(start) || isNaN(buyout)) {
-      setError("Please enter valid prices");
+    if (isNaN(start) || start <= 0) {
+      setError("Please enter a valid starting price");
       return;
     }
 
@@ -80,6 +78,10 @@ function ListPlayerModal({ player, onClose, onSuccess }: ListPlayerModalProps) {
     setError(null);
 
     try {
+      // Buyout is a hidden v2 mechanic — auto-derive as 2× start.
+      // See `players/[id]/page.tsx` ListPlayerModal for the matching
+      // note; the backend DTO still requires a numeric value.
+      const buyout = start * 2;
       await api.transfers.createAuction(player.id, start, buyout);
       onSuccess();
       onClose();
@@ -142,38 +144,20 @@ function ListPlayerModal({ player, onClose, onSuccess }: ListPlayerModalProps) {
         </div>
 
         <form onSubmit={handleSubmit} className="px-6 pb-6 space-y-4">
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="block text-[10px] font-bold uppercase tracking-wider text-[#91b2a6] mb-1.5">
-                {t("squad.transfer.startPrice")}
-              </label>
-              <div className="relative">
-                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[#91b2a6] text-sm font-space">€</span>
-                <input
-                  type="number"
-                  value={startPrice}
-                  onChange={(e) => setStartPrice(e.target.value)}
-                  placeholder="0"
-                  min={0}
-                  className="w-full bg-[#001a12] border border-[#2f4e44]/40 rounded-lg pl-7 pr-3 py-2.5 text-[#d3f5e8] font-space text-sm placeholder:text-[#4a7a6a] focus:outline-none focus:border-[#a1ffc2]/60 transition-colors"
-                />
-              </div>
-            </div>
-            <div>
-              <label className="block text-[10px] font-bold uppercase tracking-wider text-[#91b2a6] mb-1.5">
-                {t("squad.transfer.buyoutPrice")}
-              </label>
-              <div className="relative">
-                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[#91b2a6] text-sm font-space">€</span>
-                <input
-                  type="number"
-                  value={buyoutPrice}
-                  onChange={(e) => setBuyoutPrice(e.target.value)}
-                  placeholder="0"
-                  min={0}
-                  className="w-full bg-[#001a12] border border-[#2f4e44]/40 rounded-lg pl-7 pr-3 py-2.5 text-[#d3f5e8] font-space text-sm placeholder:text-[#4a7a6a] focus:outline-none focus:border-[#a1ffc2]/60 transition-colors"
-                />
-              </div>
+          <div>
+            <label className="block text-[10px] font-bold uppercase tracking-wider text-[#91b2a6] mb-1.5">
+              {t("squad.transfer.startPrice")}
+            </label>
+            <div className="relative">
+              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[#91b2a6] text-sm font-space">€</span>
+              <input
+                type="number"
+                value={startPrice}
+                onChange={(e) => setStartPrice(e.target.value)}
+                placeholder="0"
+                min={0}
+                className="w-full bg-[#001a12] border border-[#2f4e44]/40 rounded-lg pl-7 pr-3 py-2.5 text-[#d3f5e8] font-space text-sm placeholder:text-[#4a7a6a] focus:outline-none focus:border-[#a1ffc2]/60 transition-colors"
+              />
             </div>
           </div>
 

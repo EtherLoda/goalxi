@@ -5,6 +5,12 @@ export const AUCTION_CONFIG = {
   ),
   EXTENSION_MINUTES: 3,
   EXTENSION_THRESHOLD_MINUTES: 3,
+  // Buyout is a v2 mechanic: the data column (`auction.buyoutPrice`)
+  // and the listing flow are preserved so future work can re-enable
+  // it without a schema migration, but the `POST .../buyout` endpoint
+  // is gated off until then. Flip this back to `true` (or read from
+  // an env var) when the buyout UI is ready.
+  BUYOUT_ENABLED: false,
 } as const;
 
 /**

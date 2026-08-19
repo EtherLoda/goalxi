@@ -71,17 +71,15 @@ interface ListPlayerModalProps {
 function ListPlayerModal({ player, onClose, onSuccess }: ListPlayerModalProps) {
   const t = useTranslations();
   const [startPrice, setStartPrice] = useState("");
-  const [buyoutPrice, setBuyoutPrice] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const start = parseInt(startPrice, 10);
-    const buyout = parseInt(buyoutPrice, 10);
 
-    if (isNaN(start) || isNaN(buyout)) {
-      setError("Please enter valid prices");
+    if (isNaN(start) || start <= 0) {
+      setError("Please enter a valid starting price");
       return;
     }
 
@@ -89,6 +87,12 @@ function ListPlayerModal({ player, onClose, onSuccess }: ListPlayerModalProps) {
     setError(null);
 
     try {
+      // Buyout is a hidden v2 mechanic — the backend DTO still
+      // requires a numeric value, so we auto-derive it as 2× the
+      // start price (the standard FM "release clause" markup). When
+      // v2 re-enables the UI, swap this back to a user-controlled
+      // input and re-translate `squad.transfer.buyoutPrice`.
+      const buyout = start * 2;
       await api.transfers.createAuction(player.id, start, buyout);
       onSuccess();
       onClose();
@@ -164,42 +168,22 @@ function ListPlayerModal({ player, onClose, onSuccess }: ListPlayerModalProps) {
         </div>
 
         <form onSubmit={handleSubmit} className="px-6 pb-6 space-y-4">
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="block text-[10px] font-bold uppercase tracking-wider text-[#91b2a6] mb-1.5">
-                {t("squad.transfer.startPrice")}
-              </label>
-              <div className="relative">
-                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[#91b2a6] text-sm font-space">
-                  £
-                </span>
-                <input
-                  type="number"
-                  value={startPrice}
-                  onChange={(e) => setStartPrice(e.target.value)}
-                  placeholder="0"
-                  min={0}
-                  className="w-full bg-[#001a12] border border-[#2f4e44]/40 rounded-lg pl-7 pr-3 py-2.5 text-[#d3f5e8] font-space text-sm placeholder:text-[#4a7a6a] focus:outline-none focus:border-[#a1ffc2]/60 transition-colors"
-                />
-              </div>
-            </div>
-            <div>
-              <label className="block text-[10px] font-bold uppercase tracking-wider text-[#91b2a6] mb-1.5">
-                {t("squad.transfer.buyoutPrice")}
-              </label>
-              <div className="relative">
-                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[#91b2a6] text-sm font-space">
-                  £
-                </span>
-                <input
-                  type="number"
-                  value={buyoutPrice}
-                  onChange={(e) => setBuyoutPrice(e.target.value)}
-                  placeholder="0"
-                  min={0}
-                  className="w-full bg-[#001a12] border border-[#2f4e44]/40 rounded-lg pl-7 pr-3 py-2.5 text-[#d3f5e8] font-space text-sm placeholder:text-[#4a7a6a] focus:outline-none focus:border-[#a1ffc2]/60 transition-colors"
-                />
-              </div>
+          <div>
+            <label className="block text-[10px] font-bold uppercase tracking-wider text-[#91b2a6] mb-1.5">
+              {t("squad.transfer.startPrice")}
+            </label>
+            <div className="relative">
+              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[#91b2a6] text-sm font-space">
+                £
+              </span>
+              <input
+                type="number"
+                value={startPrice}
+                onChange={(e) => setStartPrice(e.target.value)}
+                placeholder="0"
+                min={0}
+                className="w-full bg-[#001a12] border border-[#2f4e44]/40 rounded-lg pl-7 pr-3 py-2.5 text-[#d3f5e8] font-space text-sm placeholder:text-[#4a7a6a] focus:outline-none focus:border-[#a1ffc2]/60 transition-colors"
+              />
             </div>
           </div>
 
@@ -235,7 +219,6 @@ export default function PlayerDetailPage({ params }: PageProps) {
   const [auction, setAuction] = useState<TransferAuction | null>(null);
   const [bidAmount, setBidAmount] = useState("");
   const [isSubmittingBid, setIsSubmittingBid] = useState(false);
-  const [showBuyoutConfirm, setShowBuyoutConfirm] = useState(false);
 
   useEffect(() => {
     params.then(setResolvedParams);
@@ -582,8 +565,8 @@ export default function PlayerDetailPage({ params }: PageProps) {
                     </div>
                   </div>
 
-                  {/* Pricing & Actions */}
-                  <div className="grid grid-cols-2 gap-4 mb-4">
+                  {/* Pricing */}
+                  <div className="mb-4">
                     <div className="bg-[#002c22] p-4 rounded-2xl border border-[#2f4e44]/10">
                       <p className="text-[10px] text-[#91b2a6] uppercase tracking-widest mb-1">
                         {tt("detail.currentPrice")}
@@ -591,22 +574,6 @@ export default function PlayerDetailPage({ params }: PageProps) {
                       <p className="text-2xl font-bold text-[#a1ffc2] truncate">
                         {formatCurrency(auction.currentPrice)}
                       </p>
-                    </div>
-                    <div className="bg-[#002c22] p-4 rounded-2xl border border-[#2f4e44]/10">
-                      <p className="text-[10px] text-[#91b2a6] uppercase tracking-widest mb-1">
-                        {tt("detail.buyout")}
-                      </p>
-                      <p className="text-xl font-bold text-[#d3f5e8] mb-2 truncate">
-                        {formatCurrency(auction.buyoutPrice)}
-                      </p>
-                      {team && auction.team?.id !== team.id && (
-                        <button
-                          onClick={() => setShowBuyoutConfirm(true)}
-                          className="w-full py-2 bg-[#a1ffc2] text-[#00110c] font-bold text-[10px] rounded-lg uppercase tracking-widest hover:brightness-110 transition-all"
-                        >
-                          {tt("buyout.buyNow")}
-                        </button>
-                      )}
                     </div>
                   </div>
 
@@ -987,53 +954,6 @@ export default function PlayerDetailPage({ params }: PageProps) {
             }
           }}
         />
-      )}
-
-      {/* Buyout Confirmation Modal */}
-      {showBuyoutConfirm && auction && player && (
-        <div className="fixed inset-0 z-[150] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
-          <div className="bg-[#001e17]/90 backdrop-blur-xl rounded-2xl overflow-hidden shadow-2xl border border-[#a1ffc2]/20 w-full max-w-md">
-            <div className="p-8 text-center">
-              <div className="w-16 h-16 rounded-full bg-[#002c22] flex items-center justify-center mx-auto mb-4">
-                <span className="material-symbols-outlined text-3xl text-[#a1ffc2]">
-                  warning
-                </span>
-              </div>
-              <h3 className="text-xl font-bold text-[#d3f5e8] mb-2">
-                {tt("buyout.confirmTitle")}
-              </h3>
-              <p className="text-[#91b2a6] text-sm mb-6">
-                {tt("buyout.confirmMessage", { playerName: player.name, price: formatCurrency(auction.buyoutPrice) })}
-              </p>
-              <div className="flex gap-4">
-                <button
-                  className="flex-1 py-3 bg-[#002c22] text-[#d3f5e8] font-bold rounded-xl hover:bg-[#003328] transition-all uppercase tracking-widest text-xs"
-                  onClick={() => setShowBuyoutConfirm(false)}
-                >
-                  {tt("buyout.cancel")}
-                </button>
-                <button
-                  className="flex-1 py-3 bg-[#ef4444] text-white font-bold rounded-xl hover:bg-red-600 transition-all uppercase tracking-widest text-xs"
-                  onClick={async () => {
-                    try {
-                      await api.transfers.buyout(auction.id);
-                      setShowBuyoutConfirm(false);
-                      const auctions = await api.transfers.getAuctions();
-                      const found = auctions.find(
-                        (a) => a.player.id === player.id,
-                      );
-                      setAuction(found || null);
-                    } catch (err) {
-                      console.error("Buyout failed:", err);
-                    }
-                  }}
-                >
-                  Confirm
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
       )}
     </div>
   );
