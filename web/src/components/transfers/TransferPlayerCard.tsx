@@ -17,6 +17,15 @@ interface TransferPlayerCardProps {
 
 const SKILL_MAX = 20;
 
+// Skill-bar colors must match the player detail page
+// (web/src/app/[locale]/players/[id]/page.tsx) and the transfer
+// market right-side detail panel
+// (web/src/app/[locale]/transfers/page.tsx):
+//   - technical / GK  = #a1ffc2
+//   - physical        = #60a5fa
+//   - mental          = #abf853
+//   - set pieces      = #f59e0b
+// If you change one here, change all three.
 function renderSkillBar(
   label: string,
   current: number,
@@ -59,7 +68,7 @@ export default function TransferPlayerCard({
     .join("")
     .slice(0, 2);
   const timeLeft = formatTimeRemaining(transfer.expiresAt);
-  const isExpired = timeLeft === "Expired";
+  const isExpired = timeLeft === t("transfers.expired");
   const skills = player.currentSkills as any;
   const isGK = player.isGoalkeeper;
 
@@ -137,7 +146,7 @@ export default function TransferPlayerCard({
         <div className="flex items-center gap-8">
           <div className="text-center">
             <p className="text-[10px] text-[#91b2a6] uppercase tracking-wider mb-1">
-              Current Price
+              {t("transfers.detail.currentPrice")}
             </p>
             <p className={`font-bold text-xl ${
               bidStatus === "leading" || bidStatus === "won"
@@ -149,7 +158,7 @@ export default function TransferPlayerCard({
           </div>
           <div className="text-center">
             <p className="text-[10px] text-[#91b2a6] uppercase tracking-wider mb-1">
-              Buyout
+              {t("transfers.detail.buyout")}
             </p>
             <p className="font-bold text-xl text-[#91b2a6]">
               {formatCurrency(transfer.buyoutPrice)}
@@ -182,7 +191,7 @@ export default function TransferPlayerCard({
           </span>
         ) : (
           <span className="inline-flex items-center gap-1.5 bg-stone-500/10 text-stone-500 text-[10px] px-3 py-1.5 rounded-lg border border-stone-500/20 uppercase tracking-wider">
-            — 无特技
+            {t("transfers.specialty.none")}
           </span>
         )}
       </div>
@@ -253,7 +262,7 @@ export default function TransferPlayerCard({
         {/* Physical */}
         <div>
           <div className="flex items-center gap-2 mb-3">
-            <div className="w-1.5 h-4 bg-[#abf853] rounded-full" />
+            <div className="w-1.5 h-4 bg-[#60a5fa] rounded-full" />
             <h3 className="text-xs font-black tracking-widest uppercase text-[#91b2a6]">
               {t("transfers.detail.physical")}
             </h3>
@@ -263,13 +272,13 @@ export default function TransferPlayerCard({
               t("squad.skills.pace"),
               skills?.physical?.pace || 0,
               20,
-              "text-[#abf853]",
+              "text-[#60a5fa]",
             )}
             {renderSkillBar(
               t("squad.skills.strength"),
               skills?.physical?.strength || 0,
               20,
-              "text-[#abf853]",
+              "text-[#60a5fa]",
             )}
           </div>
         </div>
@@ -277,7 +286,7 @@ export default function TransferPlayerCard({
         {/* Mental */}
         <div>
           <div className="flex items-center gap-2 mb-3">
-            <div className="w-1.5 h-4 bg-[#f59e0b] rounded-full" />
+            <div className="w-1.5 h-4 bg-[#abf853] rounded-full" />
             <h3 className="text-xs font-black tracking-widest uppercase text-[#91b2a6]">
               {t("transfers.detail.mental")}
             </h3>
@@ -287,13 +296,13 @@ export default function TransferPlayerCard({
               t("squad.skills.composure"),
               skills?.mental?.composure || 0,
               20,
-              "text-[#f59e0b]",
+              "text-[#abf853]",
             )}
             {renderSkillBar(
               t("squad.skills.positioning"),
               skills?.mental?.positioning || 0,
               20,
-              "text-[#f59e0b]",
+              "text-[#abf853]",
             )}
           </div>
         </div>
@@ -301,7 +310,7 @@ export default function TransferPlayerCard({
         {/* Set Pieces */}
         <div>
           <div className="flex items-center gap-2 mb-3">
-            <div className="w-1.5 h-4 bg-[#ec4899] rounded-full" />
+            <div className="w-1.5 h-4 bg-[#f59e0b] rounded-full" />
             <h3 className="text-xs font-black tracking-widest uppercase text-[#91b2a6]">
               {t("squad.skills.setPieces")}
             </h3>
@@ -311,13 +320,13 @@ export default function TransferPlayerCard({
               t("squad.skills.freeKicks"),
               skills?.setPieces?.freeKicks || 0,
               20,
-              "text-[#ec4899]",
+              "text-[#f59e0b]",
             )}
             {renderSkillBar(
               t("squad.skills.penalties"),
               skills?.setPieces?.penalties || 0,
               20,
-              "text-[#ec4899]",
+              "text-[#f59e0b]",
             )}
           </div>
         </div>

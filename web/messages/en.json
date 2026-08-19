@@ -715,7 +715,8 @@
       "COMPOSED": "Composed",
       "PHYSICAL_BEAST": "Physical Beast",
       "SAVING_MASTER": "Saving Master",
-      "SWEEPER_KEEPER": "Sweeper Keeper"
+      "SWEEPER_KEEPER": "Sweeper Keeper",
+      "none": "— No specialty"
     },
     "notifications": {
       "offerSubmitted": "Offer submitted: {amount} for {player}",

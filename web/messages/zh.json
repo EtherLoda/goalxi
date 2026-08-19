@@ -715,7 +715,8 @@
       "COMPOSED": "泰山",
       "PHYSICAL_BEAST": "铁人",
       "SAVING_MASTER": "扑救专家",
-      "SWEEPER_KEEPER": "出击门将"
+      "SWEEPER_KEEPER": "出击门将",
+      "none": "— 无特技"
     },
     "notifications": {
       "offerSubmitted": "已提交报价：{amount}，目标 {player}",
