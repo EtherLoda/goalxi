@@ -118,6 +118,13 @@ export class DatabaseConfigService implements TypeOrmOptionsFactory {
         SystemConfigEntity,
       ],
       synchronize: process.env.DATABASE_SYNCHRONIZE === 'true',
+      // Mirror the API service: 20×3s covers standard RDS failovers
+      // (30-60s) without crashing the BullMQ worker mid-job. The
+      // settlement process is a long-lived background runner — a
+      // hard crash loses every in-flight retry queue, while a
+      // bounded retry just delays the first poll.
+      retryAttempts: 20,
+      retryDelay: 3000,
     };
   }
 }

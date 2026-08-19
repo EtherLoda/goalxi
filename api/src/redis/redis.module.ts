@@ -86,8 +86,12 @@ export class RedisAuctionClient implements OnApplicationShutdown {
           // 调一次 client.ping()。
           lazyConnect: true,
           // 无限重试 + 指数退避封顶 5s。给一个永远返回正数的函数即可。
+          // Base 200ms (was 50ms) — first 1-2 minutes were spammy on
+          // hard outages. 200→400→800→1600→3200→5000 still recovers
+          // quickly on blips but stops flooding logs when Redis is
+          // truly down.
           retryStrategy: (times: number) => {
-            return Math.min(50 * Math.pow(2, times - 1), 5000);
+            return Math.min(200 * Math.pow(2, times - 1), 5000);
           },
           // 只在 READONLY（failover 后）时重连，其它错误不掩盖。
           reconnectOnError: (err: Error) => {

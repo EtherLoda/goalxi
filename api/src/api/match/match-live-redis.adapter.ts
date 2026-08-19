@@ -206,9 +206,11 @@ export class MatchLiveRedisAdapter implements OnApplicationShutdown {
       lazyConnect: true,
       // Same exponential-backoff-with-cap policy as the auction
       // client (Postfix-#4 in redis.module.ts) so a Redis blip
-      // doesn't permanently take the live feed down.
+      // doesn't permanently take the live feed down. Base 200ms
+      // (was 50ms) keeps the early-attempt log noise in check when
+      // Redis is fully down rather than briefly flaky.
       retryStrategy: (times: number) =>
-        Math.min(50 * Math.pow(2, times - 1), 5_000),
+        Math.min(200 * Math.pow(2, times - 1), 5_000),
       reconnectOnError: (err: Error) =>
         err.message.includes('READONLY') ? 2 : false,
       maxRetriesPerRequest: 3,

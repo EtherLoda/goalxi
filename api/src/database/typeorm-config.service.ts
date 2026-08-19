@@ -55,6 +55,14 @@ export class TypeOrmConfigService implements TypeOrmOptionsFactory {
           ? ['error', 'warn', 'query', 'schema']
           : ['error', 'warn'],
       ),
+      // Connection resilience: TypeORM's defaults are 10 attempts ×
+      // 3s = a 30s blast, then the process dies. That window is too
+      // narrow for routine RDS failovers (typically 30-60s) and
+      // guarantees a hard crash on every blip. 20×3s = 60s covers
+      // standard primary swaps; K8s startupProbe / readinessProbe
+      // hold traffic during the window so the retry isn't user-facing.
+      retryAttempts: 20,
+      retryDelay: 3000,
       entities: [
         __dirname + '/../**/*.entity{.ts,.js}',
         UserEntity,
