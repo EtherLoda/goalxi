@@ -14,7 +14,9 @@
     "round": "Round {round}",
     "tbd": "TBD",
     "match": "{count, plural, =0 {no matches} one {# match} other {# matches}}",
-    "ageFormat": "{y}y {d}d"
+    "ageFormat": "{y}y {d}d",
+    "currencySymbol": "£",
+    "perWeek": "/w"
   },
   "auth": {
     "login": {

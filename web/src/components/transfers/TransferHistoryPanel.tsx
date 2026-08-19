@@ -83,7 +83,7 @@ export default function TransferHistoryPanel({ team, initialTransactions }: Tran
   });
 
   const formatCurrency = (value: number) => {
-    return `€${value.toLocaleString()}`;
+    return `${t("common.currencySymbol")}${value.toLocaleString()}`;
   };
 
   const formatDate = (dateStr: string | Date | undefined) => {

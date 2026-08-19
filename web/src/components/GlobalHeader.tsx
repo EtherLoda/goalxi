@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
+import { useTranslations } from "next-intl";
 import { useAuth } from "@/contexts/AuthContext";
 import { api } from "@/lib/api";
 import { useParams, usePathname, useRouter, useSearchParams } from "next/navigation";
@@ -86,6 +87,7 @@ function SettingsMenu({ locale }: { locale: string }) {
 }
 
 export default function GlobalHeader({ locale }: GlobalHeaderProps) {
+  const t = useTranslations();
   const { team } = useAuth();
   const params = useParams();
   const pathname = usePathname();
@@ -179,7 +181,7 @@ export default function GlobalHeader({ locale }: GlobalHeaderProps) {
                 : "text-on-surface-variant border-transparent hover:text-primary hover:border-primary/50"
             }`}
           >
-            Market
+            {t("transfers.nav.market")}
           </Link>
           <Link
             href={`/${locale}/transfers/shortlist`}
@@ -189,7 +191,7 @@ export default function GlobalHeader({ locale }: GlobalHeaderProps) {
                 : "text-on-surface-variant border-transparent hover:text-primary hover:border-primary/50"
             }`}
           >
-            Shortlist
+            {t("transfers.nav.shortlist")}
           </Link>
           <Link
             href={`/${locale}/transfers/history`}
@@ -199,7 +201,7 @@ export default function GlobalHeader({ locale }: GlobalHeaderProps) {
                 : "text-on-surface-variant border-transparent hover:text-primary hover:border-primary/50"
             }`}
           >
-            History
+            {t("transfers.nav.history")}
           </Link>
         </nav>
       )}

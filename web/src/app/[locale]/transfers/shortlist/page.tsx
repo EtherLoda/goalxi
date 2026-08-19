@@ -66,7 +66,7 @@ export default function ShortlistPage() {
     fetchData();
   }, [fetchData]);
 
-  const formatCurrency = (value: number) => `€${value.toLocaleString()}`;
+  const formatCurrency = (value: number) => `${t("common.currencySymbol")}${value.toLocaleString()}`;
 
   const formatTimeRemaining = (expiresAt: string) => {
     const now = new Date();

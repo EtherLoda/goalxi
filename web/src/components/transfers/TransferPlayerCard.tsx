@@ -98,8 +98,8 @@ export default function TransferPlayerCard({
           </div>
           <p className="text-sm text-[#91b2a6]">
             {t("common.ageFormat", { y: player.age, d: player.ageDays })} ·{" "}
-            {player.teamName || transfer.team.name} · £
-            {(player.currentWage || 0).toLocaleString()}/w
+            {player.teamName || transfer.team.name} · {t("common.currencySymbol")}
+            {(player.currentWage || 0).toLocaleString()}{t("common.perWeek")}
           </p>
         </div>
         <div className="flex items-center gap-6">

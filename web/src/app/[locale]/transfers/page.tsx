@@ -196,7 +196,7 @@ export default function TransfersPage() {
   });
 
   const formatCurrency = (value: number) => {
-    return `£${value.toLocaleString()}`;
+    return `${t("common.currencySymbol")}${value.toLocaleString()}`;
   };
 
   const formatTimeRemaining = (expiresAt: string) => {
@@ -767,7 +767,7 @@ export default function TransfersPage() {
                         <h3 className="text-3xl font-bold text-white tracking-tighter hover:text-[#a1ffc2] transition-colors">{selectedTransfer.player.name}</h3>
                       </Link>
                       <p className="text-[#91b2a6] text-xs">
-                        {t("common.ageFormat", { y: selectedTransfer.player.age, d: selectedTransfer.player.ageDays })} · {selectedTransfer.player.teamName || selectedTransfer.team.name} · £{(selectedTransfer.player.currentWage || 0).toLocaleString()}/w
+                        {t("common.ageFormat", { y: selectedTransfer.player.age, d: selectedTransfer.player.ageDays })} · {selectedTransfer.player.teamName || selectedTransfer.team.name} · {t("common.currencySymbol")}{(selectedTransfer.player.currentWage || 0).toLocaleString()}{t("common.perWeek")}
                       </p>
                     </div>
                   </div>
@@ -912,7 +912,7 @@ export default function TransfersPage() {
                         {t("transfers.detail.offerPrice")}
                       </label>
                       <div className="relative">
-                        <span className="absolute left-4 top-1/2 -translate-y-1/2 text-[#a1ffc2] font-bold text-sm">£</span>
+                        <span className="absolute left-4 top-1/2 -translate-y-1/2 text-[#a1ffc2] font-bold text-sm">{t("common.currencySymbol")}</span>
                         <input
                           className="w-full bg-[#002c22] border border-[#2f4e44]/30 rounded-xl py-3 pl-8 pr-4 text-sm font-bold text-[#d3f5e8] focus:ring-1 focus:ring-[#a1ffc2] focus:border-[#a1ffc2] transition-all placeholder:text-[#91b2a6]/40"
                           placeholder={t("transfers.detail.offerPlaceholder")}
@@ -931,7 +931,7 @@ export default function TransfersPage() {
                         setIsSubmittingBid(true);
                         try {
                           await api.transfers.placeBid(selectedTransfer.id, amount);
-                          setNotification({ type: 'success', message: t("transfers.notifications.offerSubmitted", { amount: `£${amount.toLocaleString()}`, player: selectedTransfer.player.name }) });
+                          setNotification({ type: 'success', message: t("transfers.notifications.offerSubmitted", { amount: `${t("common.currencySymbol")}${amount.toLocaleString()}`, player: selectedTransfer.player.name }) });
                           setBidAmount("");
                           const freshData = await fetchTransfers();
                           const updated = freshData.find(t => t.id === selectedTransfer.id);
