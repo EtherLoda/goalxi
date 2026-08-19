@@ -1,4 +1,4 @@
-import { hashPassword, verifyPassword } from '@/utils/password.util';
+import { verifyPassword } from '@/utils/password.util';
 import { SessionEntity, UserEntity } from '@goalxi/database';
 import { UnauthorizedException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
@@ -7,13 +7,22 @@ import { ChangePasswordReqDto } from './dto/change-password.req.dto';
 import { UserService } from './user.service';
 
 jest.mock('@/utils/password.util', () => ({
-  hashPassword: jest.fn(async (s: string) => `hashed:${s}`),
+  // The service used to pre-hash here. After the
+  // `isDirty('password')` guard landed on
+  // `UserEntity.@BeforeUpdate`, pre-hashing would race the hook
+  // and produce `argon2(argon2(plain))` — locked the user out
+  // on the next login. The plaintext is now assigned directly
+  // and the entity hook is the single source of hashing.
+  hashPassword: jest.fn(),
   verifyPassword: jest.fn(async () => true),
 }));
 
 describe('UserService.changePassword', () => {
   let service: UserService;
   let userRepo: { findOneByOrFail: jest.Mock; save: jest.Mock };
+  const { hashPassword } = jest.requireMock('@/utils/password.util') as {
+    hashPassword: jest.Mock;
+  };
 
   const buildUser = (overrides: Partial<UserEntity> = {}) => {
     const u = new UserEntity();
@@ -58,7 +67,7 @@ describe('UserService.changePassword', () => {
     expect(userRepo.save).not.toHaveBeenCalled();
   });
 
-  it('hashes the new password, persists it, and keeps the current session alive', async () => {
+  it('assigns plaintext, lets the entity hook hash, and keeps the current session alive', async () => {
     const user = buildUser();
     userRepo.findOneByOrFail.mockResolvedValueOnce(user);
     (verifyPassword as jest.Mock).mockResolvedValueOnce(true);
@@ -77,9 +86,11 @@ describe('UserService.changePassword', () => {
     // 1. verified the current password
     expect(verifyPassword).toHaveBeenCalledWith('oldpw', 'hashed:oldpw');
 
-    // 2. hashed and persisted the new password
-    expect(hashPassword).toHaveBeenCalledWith('newpw123');
-    expect(user.password).toBe('hashed:newpw123');
+    // 2. plaintext assigned, NO pre-hash on the service side
+    //    (the entity hook is what hashes; covered separately by
+    //    libs/database/src/entities/user.entity.spec.ts).
+    expect(user.password).toBe('newpw123');
+    expect(hashPassword).not.toHaveBeenCalled();
     expect(userRepo.save).toHaveBeenCalledWith(user);
 
     // 3. deleted every other session, kept the current one

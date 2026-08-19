@@ -24,7 +24,7 @@ import { CacheKey } from '../../constants/cache.constant';
 import { ErrorCode } from '../../constants/error-code.constant';
 import { ValidationException } from '../../exceptions/validation.exception';
 import { createCacheKey } from '../../utils/cache.util';
-import { verifyPassword } from '../../utils/password.util';
+import { hashPassword, verifyPassword } from '../../utils/password.util';
 import { OnboardingService } from '../onboarding/onboarding.service';
 import { ForgotPasswordReqDto } from './dto/forgot-password.req.dto';
 import { ForgotPasswordResDto } from './dto/forgot-password.res.dto';
@@ -562,9 +562,7 @@ export class AuthService {
    *      stolen access/refresh token on any device is dead.
    *      Returns 204; the user re-authenticates on the FE.
    */
-  async resetPassword(
-    dto: ResetPasswordReqDto,
-  ): Promise<void> {
+  async resetPassword(dto: ResetPasswordReqDto): Promise<void> {
     const { token, newPassword } = dto;
     const { id, hash } = this.verifyForgotToken(token);
 
@@ -579,12 +577,16 @@ export class AuthService {
     const user = await this.userRepository.findOneOrFail({
       where: { id: id as Uuid },
     });
-    user.password = newPassword;
+    // Pre-hash the plaintext. `UserEntity` only has `@BeforeInsert`
+    // — there is no `@BeforeUpdate` hook — so a plaintext
+    // assignment here would store the literal password in the DB
+    // and silently break the next login. The service layer is
+    // the single source of "plaintext → argon2id" for updates
+    // (mirrors `UserService.changePassword`).
+    user.password = await hashPassword(newPassword);
     await user.save();
 
-    await this.cacheManager.del(
-      createCacheKey(CacheKey.PASSWORD_RESET, id),
-    );
+    await this.cacheManager.del(createCacheKey(CacheKey.PASSWORD_RESET, id));
     // Force-logout every device. The user has to sign in
     // again on every browser / app where they were logged in.
     // This is intentional: a successful password reset is
@@ -594,9 +596,7 @@ export class AuthService {
     this.logger.log(`[Auth] resetPassword success userId=${id}`);
   }
 
-  private verifyForgotToken(
-    token: string,
-  ): { id: string; hash: string } {
+  private verifyForgotToken(token: string): { id: string; hash: string } {
     try {
       const payload = this.jwtService.verify<{ id: string; hash: string }>(
         token,

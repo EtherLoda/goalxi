@@ -10,6 +10,16 @@ import { Repository } from 'typeorm';
 import { OnboardingService } from '../onboarding/onboarding.service';
 import { AuthService } from './auth.service';
 
+jest.mock('@/utils/password.util', () => ({
+  // `resetPassword` now pre-hashes the plaintext (the
+  // `@BeforeUpdate` hook was removed from `UserEntity` to stop
+  // the PATCH /users/me double-hash regression). The mock
+  // mirrors the shape used in `user.service.spec.ts` so the
+  // assertion can reason about a deterministic value.
+  hashPassword: jest.fn(async (s: string) => `hashed:${s}`),
+  verifyPassword: jest.fn(async () => true),
+}));
+
 describe('AuthService', () => {
   let service: AuthService;
   let configServiceValue: Partial<Record<keyof ConfigService, jest.Mock>>;
@@ -386,9 +396,13 @@ describe('AuthService', () => {
         newPassword: 'newPass!1',
       });
 
-      // 1. Plaintext assigned; @BeforeUpdate hashPassword hook
-      //    is what actually hashes (not the spec's concern).
-      expect(entity.password).toBe('newPass!1');
+      // 1. Plaintext is pre-hashed here (the service, not the
+      //    entity hook) and the resulting argon2-shaped string is
+      //    what `save()` actually writes. The pre-hash lives in
+      //    the service to keep the contract uniform with
+      //    `UserService.changePassword` and to keep the entity
+      //    free of the @BeforeUpdate double-hash bug.
+      expect(entity.password).toBe('hashed:newPass!1');
       expect(entity.save).toHaveBeenCalledTimes(1);
       // 2. Token cache cleared — no more live copies.
       expect(cacheManager.del).toHaveBeenCalledWith(

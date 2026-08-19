@@ -191,8 +191,25 @@ export class UserEntity extends AbstractEntity {
   @OneToMany(() => SessionEntity, (session) => session.user)
   sessions?: SessionEntity[];
 
+  /**
+   * Hash the plaintext password before persisting.
+   *
+   * Only fires on `@BeforeInsert`. There is intentionally NO
+   * `@BeforeUpdate` hook: a previously loaded argon2 hash sitting
+   * in `this.password` would be re-hashed on every UPDATE,
+   * producing `argon2(argon2(plain))` and silently locking the
+   * user out on the next login. That was the bug
+   * (regression: `PATCH /users/me` for a language flip, a
+   * timezone change, a bio update, or an admin `updateUser`
+   * call all triggered it).
+   *
+   * Callers that want to rotate the password on an existing row
+   * (`UserService.changePassword`,
+   * `AuthService.resetPassword`) must hash the plaintext
+   * themselves via `@/utils/password.util` *before* assigning
+   * and saving — see the comments at those call sites.
+   */
   @BeforeInsert()
-  @BeforeUpdate()
   async hashPassword() {
     if (this.password) {
       this.password = await hashPass(this.password);
