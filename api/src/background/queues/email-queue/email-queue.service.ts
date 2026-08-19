@@ -1,4 +1,7 @@
-import { IVerifyEmailJob } from '@/common/interfaces/job.interface';
+import {
+  IForgotPasswordJob,
+  IVerifyEmailJob,
+} from '@/common/interfaces/job.interface';
 import { JobName, QueueName } from '@/constants/job.constant';
 import { MailService } from '@/mail/mail.service';
 import { InjectQueue } from '@nestjs/bullmq';
@@ -47,6 +50,27 @@ export class EmailQueueService {
   }
 
   /**
+   * Producer-side: enqueue a password-reset email. Same retry /
+   * backoff profile as the verification email — both go through
+   * the same SMTP relay so the queue's rate limiter caps them
+   * together.
+   */
+  async addPasswordResetEmail(
+    userId: string,
+    email: string,
+    token: string,
+  ): Promise<void> {
+    await this.queue.add(
+      JobName.EMAIL_PASSWORD_RESET,
+      { userId, email, token } satisfies IForgotPasswordJob,
+      {
+        attempts: 3,
+        backoff: { type: 'exponential', delay: 60_000 },
+      },
+    );
+  }
+
+  /**
    * Consumer-side: process a deserialised verification job.
    * Kept on this service (rather than inlined into the processor)
    * so the processor stays a tiny switch and the actual side
@@ -55,5 +79,16 @@ export class EmailQueueService {
   async sendEmailVerification(data: IVerifyEmailJob): Promise<void> {
     this.logger.debug(`Sending email verification to ${data.email}`);
     await this.mailService.sendEmailVerification(data.email, data.token);
+  }
+
+  /**
+   * Consumer-side: process a deserialised password-reset job.
+   * Same pattern as `sendEmailVerification` — keep the
+   * side-effect on the service so the processor stays a tiny
+   * switch and the actual call has a unit-testable surface.
+   */
+  async sendPasswordResetEmail(data: IForgotPasswordJob): Promise<void> {
+    this.logger.debug(`Sending password reset email to ${data.email}`);
+    await this.mailService.sendPasswordReset(data.email, data.token);
   }
 }

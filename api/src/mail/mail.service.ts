@@ -24,4 +24,28 @@ export class MailService {
       },
     });
   }
+
+  /**
+   * Password reset email. The URL points at the FE reset page
+   * (`/[locale]/auth/reset-password?token=...`), not the API
+   * directly — the FE page is what calls
+   * `POST /auth/verify/forgot-password` to validate the token
+   * and then `POST /auth/reset-password` to commit the change.
+   * Going through the FE means the user sees the "set a new
+   * password" form, not a raw JSON response.
+   */
+  async sendPasswordReset(email: string, token: string) {
+    const appUrl = this.configService.get('app.url', { infer: true });
+    const url = `${appUrl}/auth/reset-password?token=${token}`;
+
+    await this.mailerService.sendMail({
+      to: email,
+      subject: 'Reset your GoalXI password',
+      template: 'password-reset',
+      context: {
+        email,
+        url,
+      },
+    });
+  }
 }

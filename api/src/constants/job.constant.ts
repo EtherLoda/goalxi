@@ -40,4 +40,11 @@ export enum QueuePrefix {
 
 export enum JobName {
   EMAIL_VERIFICATION = 'email-verification',
+  /**
+   * Password-reset email. Shares the same `QueueName.EMAIL`
+   * queue as verification (and future notification emails) so
+   * the existing worker, rate limiter, and retry policy are
+   * reused — see `email.processor.ts` for the switch.
+   */
+  EMAIL_PASSWORD_RESET = 'email-password-reset',
 }

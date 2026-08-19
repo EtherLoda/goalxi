@@ -5,7 +5,10 @@
  * producer-side enqueue API (used by AuthService) and the
  * consumer-side dispatch (used by EmailProcessor).
  */
-import { IVerifyEmailJob } from '@/common/interfaces/job.interface';
+import {
+  IForgotPasswordJob,
+  IVerifyEmailJob,
+} from '@/common/interfaces/job.interface';
 import { JobName, QueueName } from '@/constants/job.constant';
 import { MailService } from '@/mail/mail.service';
 import { getQueueToken } from '@nestjs/bullmq';
@@ -14,11 +17,17 @@ import { EmailQueueService } from './email-queue.service';
 
 describe('EmailQueueService', () => {
   let service: EmailQueueService;
-  let mailService: { sendEmailVerification: jest.Mock };
+  let mailService: {
+    sendEmailVerification: jest.Mock;
+    sendPasswordReset: jest.Mock;
+  };
   let queue: { add: jest.Mock };
 
   beforeEach(async () => {
-    mailService = { sendEmailVerification: jest.fn() };
+    mailService = {
+      sendEmailVerification: jest.fn(),
+      sendPasswordReset: jest.fn(),
+    };
     queue = { add: jest.fn().mockResolvedValue({ id: 'job-1' }) };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -68,6 +77,45 @@ describe('EmailQueueService', () => {
       expect(mailService.sendEmailVerification).toHaveBeenCalledWith(
         'a@b.com',
         'tok',
+      );
+    });
+  });
+
+  describe('addPasswordResetEmail (producer side)', () => {
+    it('enqueues an EMAIL_PASSWORD_RESET job with the typed payload (userId, email, token)', async () => {
+      await service.addPasswordResetEmail('user-1', 'a@b.com', 'reset-tok');
+      expect(queue.add).toHaveBeenCalledWith(
+        JobName.EMAIL_PASSWORD_RESET,
+        { userId: 'user-1', email: 'a@b.com', token: 'reset-tok' },
+        expect.objectContaining({
+          attempts: 3,
+          backoff: expect.objectContaining({ type: 'exponential' }),
+        }),
+      );
+    });
+
+    it('uses the same retry policy as addEmailVerification', async () => {
+      // The verification and reset emails share the same SMTP
+      // relay, so the rate limiter on the queue caps them
+      // together — the retry policy must be identical too.
+      await service.addPasswordResetEmail('u', 'a@b.com', 't');
+      const opts = queue.add.mock.calls[0][2];
+      expect(opts.attempts).toBe(3);
+      expect(opts.backoff.delay).toBe(60_000);
+    });
+  });
+
+  describe('sendPasswordResetEmail (consumer side)', () => {
+    it('forwards the deserialised payload to MailService', async () => {
+      const payload = {
+        userId: 'user-1',
+        email: 'a@b.com',
+        token: 'reset-tok',
+      } as IForgotPasswordJob;
+      await service.sendPasswordResetEmail(payload);
+      expect(mailService.sendPasswordReset).toHaveBeenCalledWith(
+        'a@b.com',
+        'reset-tok',
       );
     });
   });

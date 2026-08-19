@@ -6,6 +6,7 @@ import {
   UserEntity,
   UserOnboardingStatus,
   UserRole,
+  Uuid,
 } from '@goalxi/database';
 import { LOGGER_SERVICE, PinoLoggerService } from '@goalxi/logger';
 import { CACHE_MANAGER } from '@nestjs/cache-manager';
@@ -25,12 +26,17 @@ import { ValidationException } from '../../exceptions/validation.exception';
 import { createCacheKey } from '../../utils/cache.util';
 import { verifyPassword } from '../../utils/password.util';
 import { OnboardingService } from '../onboarding/onboarding.service';
+import { ForgotPasswordReqDto } from './dto/forgot-password.req.dto';
+import { ForgotPasswordResDto } from './dto/forgot-password.res.dto';
 import { LoginReqDto } from './dto/login.req.dto';
 import { LoginResDto } from './dto/login.res.dto';
 import { RefreshReqDto } from './dto/refresh.req.dto';
 import { RefreshResDto } from './dto/refresh.res.dto';
 import { RegisterReqDto } from './dto/register.req.dto';
 import { RegisterResDto } from './dto/register.res.dto';
+import { ResetPasswordReqDto } from './dto/reset-password.req.dto';
+import { VerifyForgotPasswordReqDto } from './dto/verify-forgot-password.req.dto';
+import { VerifyForgotPasswordResDto } from './dto/verify-forgot-password.res.dto';
 import { JwtPayloadType } from './types/jwt-payload.type';
 import { JwtRefreshPayloadType } from './types/jwt-refresh-payload.type';
 
@@ -386,6 +392,224 @@ export class AuthService {
         }),
       },
     );
+  }
+
+  /**
+   * Mint a forgot-password JWT carrying a random `hash`. The
+   * hash is also stored in cache (`CacheKey.PASSWORD_RESET`),
+   * so the token is only "live" while BOTH the JWT signature
+   * is valid AND the cache still holds the same hash. That
+   * gives us cheap revocation: after a successful reset we
+   * `cacheManager.del` and every outstanding copy of the
+   * token is dead, even if its JWT hasn't expired yet.
+   *
+   * Same shape as the email-verification JWT (id-only payload)
+   * plus a `hash` field. Using `forgotSecret` (NOT
+   * `confirmEmailSecret`) so a leaked verification token
+   * cannot be used to reset the password and vice versa.
+   */
+  private async createForgotPasswordToken(data: {
+    id: string;
+    hash: string;
+  }): Promise<string> {
+    return await this.jwtService.signAsync(
+      { id: data.id, hash: data.hash },
+      {
+        secret: this.configService.getOrThrow('auth.forgotSecret', {
+          infer: true,
+        }),
+        expiresIn: this.configService.getOrThrow('auth.forgotExpires', {
+          infer: true,
+        }),
+      },
+    );
+  }
+
+  /**
+   * "I forgot my password" — kick off the reset flow.
+   *
+   * Always returns success regardless of whether the email
+   * matches a row. Enumerating registered emails by timing
+   * / response is already a low-cost attack, and a 200/404
+   * split makes it trivial; a uniform 200 is the standard
+   * mitigation. The log line is the only place the existence
+   * of the row is recorded.
+   *
+   * When the user does exist we:
+   *   1. Mint a JWT carrying a random `hash`.
+   *   2. Cache the hash so the token can be revoked by
+   *      `cacheManager.del` (used by `resetPassword` after
+   *      a successful change).
+   *   3. Enqueue a password-reset email through the same
+   *      `EmailQueueService` the verification email uses.
+   *
+   * Dev opt-out: when `MAIL_ENABLED=false` the email is
+   * skipped (matches `register`'s policy) and the freshly
+   * minted token is echoed back in `devToken` so the FE can
+   * complete the flow without a working SMTP relay. In
+   * production the field is always undefined.
+   */
+  async forgotPassword(
+    dto: ForgotPasswordReqDto,
+  ): Promise<ForgotPasswordResDto> {
+    const { email } = dto;
+    this.logger.log(`[Auth] forgotPassword request email=${email}`);
+
+    const user = await this.userRepository.findOne({
+      where: { email },
+      select: ['id', 'email'],
+    });
+
+    if (!user) {
+      // Intentionally indistinguishable from the success case
+      // — see the doc-block above.
+      this.logger.warn(
+        `[Auth] forgotPassword no-op (email not found) email=${email}`,
+      );
+      return plainToInstance(ForgotPasswordResDto, {
+        message: 'If the email exists, a reset link has been sent.',
+      });
+    }
+
+    const hash = crypto
+      .createHash('sha256')
+      .update(randomStringGenerator())
+      .digest('hex');
+    const token = await this.createForgotPasswordToken({
+      id: user.id,
+      hash,
+    });
+    const tokenExpiresIn = this.configService.getOrThrow('auth.forgotExpires', {
+      infer: true,
+    });
+    await this.cacheManager.set(
+      createCacheKey(CacheKey.PASSWORD_RESET, user.id),
+      hash,
+      ms(tokenExpiresIn),
+    );
+
+    if (process.env.MAIL_ENABLED !== 'false') {
+      try {
+        await this.emailQueueService.addPasswordResetEmail(
+          user.id,
+          user.email,
+          token,
+        );
+      } catch (err) {
+        // Mirror `register`: enqueue failures are logged but
+        // not surfaced to the user. The cache entry still
+        // grants them a 7-day window to retry, and the
+        // FE-facing message is intentionally non-leaky.
+        this.logger.error(
+          `[Auth] forgotPassword enqueue failed userId=${user.id}: ${
+            err instanceof Error ? err.message : String(err)
+          }`,
+          err instanceof Error ? err.stack : undefined,
+        );
+      }
+    } else {
+      this.logger.log(
+        `[Auth] forgotPassword skipped email enqueue (MAIL_ENABLED=false) userId=${user.id}`,
+      );
+    }
+
+    return plainToInstance(ForgotPasswordResDto, {
+      message: 'If the email exists, a reset link has been sent.',
+      devToken: process.env.MAIL_ENABLED === 'false' ? token : undefined,
+    });
+  }
+
+  /**
+   * Verify a forgot-password token without mutating anything.
+   * The FE calls this as soon as the user lands on
+   * `/auth/reset-password?token=...` so an invalid / expired
+   * / already-redeemed token shows an error before the user
+   * types a new password.
+   */
+  async verifyForgotPassword(
+    dto: VerifyForgotPasswordReqDto,
+  ): Promise<VerifyForgotPasswordResDto> {
+    const { id, hash } = this.verifyForgotToken(dto.token);
+
+    // The cache is the second factor: even if the JWT is
+    // still within its 7-day window, a successful reset
+    // already cleared the hash entry, so an old token is
+    // dead the moment the new password is committed.
+    const cached = await this.cacheManager.store.get<string>(
+      createCacheKey(CacheKey.PASSWORD_RESET, id),
+    );
+    if (!cached || cached !== hash) {
+      this.logger.warn(`[Auth] verifyForgotPassword rejected userId=${id}`);
+      throw new UnauthorizedException('Invalid or expired reset token');
+    }
+
+    return plainToInstance(VerifyForgotPasswordResDto, { userId: id });
+  }
+
+  /**
+   * Commit the new password. Order of operations:
+   *   1. Verify JWT + cache (same as `verifyForgotPassword`).
+   *   2. Load the user; assign `password` to the plaintext
+   *      so `@BeforeUpdate` (`UserEntity.hashPassword`) hashes
+   *      it via argon2id.
+   *   3. `save()` — entity-level save triggers the hash
+   *      hook. `UserEntity.hashPassword` is the single source
+   *      of "plaintext → argon2id" truth, used by both register
+   *      and reset.
+   *   4. `cacheManager.del` to revoke any other outstanding
+   *      copy of this reset token.
+   *   5. Delete every `SessionEntity` row for the user so a
+   *      stolen access/refresh token on any device is dead.
+   *      Returns 204; the user re-authenticates on the FE.
+   */
+  async resetPassword(
+    dto: ResetPasswordReqDto,
+  ): Promise<void> {
+    const { token, newPassword } = dto;
+    const { id, hash } = this.verifyForgotToken(token);
+
+    const cached = await this.cacheManager.store.get<string>(
+      createCacheKey(CacheKey.PASSWORD_RESET, id),
+    );
+    if (!cached || cached !== hash) {
+      this.logger.warn(`[Auth] resetPassword rejected userId=${id}`);
+      throw new UnauthorizedException('Invalid or expired reset token');
+    }
+
+    const user = await this.userRepository.findOneOrFail({
+      where: { id: id as Uuid },
+    });
+    user.password = newPassword;
+    await user.save();
+
+    await this.cacheManager.del(
+      createCacheKey(CacheKey.PASSWORD_RESET, id),
+    );
+    // Force-logout every device. The user has to sign in
+    // again on every browser / app where they were logged in.
+    // This is intentional: a successful password reset is
+    // also a "I might have been compromised" event.
+    await SessionEntity.delete({ userId: id as Uuid });
+
+    this.logger.log(`[Auth] resetPassword success userId=${id}`);
+  }
+
+  private verifyForgotToken(
+    token: string,
+  ): { id: string; hash: string } {
+    try {
+      const payload = this.jwtService.verify<{ id: string; hash: string }>(
+        token,
+        {
+          secret: this.configService.getOrThrow('auth.forgotSecret', {
+            infer: true,
+          }),
+        },
+      );
+      return { id: payload.id, hash: payload.hash };
+    } catch {
+      throw new UnauthorizedException('Invalid or expired reset token');
+    }
   }
 
   private async createToken(data: {

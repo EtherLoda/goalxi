@@ -1,4 +1,8 @@
-import { IEmailJob, IVerifyEmailJob } from '@/common/interfaces/job.interface';
+import {
+  IEmailJob,
+  IForgotPasswordJob,
+  IVerifyEmailJob,
+} from '@/common/interfaces/job.interface';
 import { JobName, QueueName } from '@/constants/job.constant';
 import { LOGGER_SERVICE, PinoLoggerService } from '@goalxi/logger';
 import { OnWorkerEvent, Processor, WorkerHost } from '@nestjs/bullmq';
@@ -73,6 +77,10 @@ export class EmailProcessor extends WorkerHost {
       case JobName.EMAIL_VERIFICATION:
         return await this.emailQueueService.sendEmailVerification(
           job.data as unknown as IVerifyEmailJob,
+        );
+      case JobName.EMAIL_PASSWORD_RESET:
+        return await this.emailQueueService.sendPasswordResetEmail(
+          job.data as unknown as IForgotPasswordJob,
         );
       default:
         throw new Error(`Unknown job name: ${job.name}`);

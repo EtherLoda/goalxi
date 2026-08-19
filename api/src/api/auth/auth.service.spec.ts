@@ -19,6 +19,7 @@ describe('AuthService', () => {
   >;
   let cacheManager: {
     set: jest.Mock;
+    del: jest.Mock;
     store: { set: jest.Mock; get: jest.Mock };
   };
   let logger: {
@@ -35,20 +36,36 @@ describe('AuthService', () => {
 
   beforeAll(async () => {
     configServiceValue = {
-      get: jest.fn(),
+      // `getOrThrow` falls through to `get` and throws on
+      // undefined. `auth.*Expires` keys are ms-format strings
+      // that get fed to `ms(...)` — returning the same
+      // `'test-secret'` for those would parse to `undefined`
+      // and break any code that writes to cache with a TTL.
+      // The router below splits the two: secrets vs durations.
+      get: jest.fn().mockImplementation((key: string) => {
+        if (key.endsWith('Expires')) return '1d';
+        return 'test-secret';
+      }),
+      getOrThrow: jest.fn().mockImplementation((key: string) => {
+        if (key.endsWith('Expires')) return '1d';
+        return 'test-secret';
+      }),
     };
 
     jwtServiceValue = {
       sign: jest.fn(),
+      signAsync: jest.fn(),
       verify: jest.fn(),
     };
 
     userRepositoryValue = {
       findOne: jest.fn(),
+      findOneOrFail: jest.fn(),
     };
 
     cacheManager = {
       set: jest.fn(),
+      del: jest.fn().mockResolvedValue(undefined),
       store: {
         set: jest.fn().mockResolvedValue(undefined),
         get: jest.fn(),
@@ -86,10 +103,12 @@ describe('AuthService', () => {
           // P1-#13: AuthService now enqueues via the typed
           // EmailQueueService instead of injecting the raw queue.
           // The spec only needs a stub — the email flow itself
-          // has its own spec.
+          // has its own spec. `addPasswordResetEmail` was added
+          // alongside the forgot/verify/reset endpoints.
           provide: EmailQueueService,
           useValue: {
             addEmailVerification: jest.fn().mockResolvedValue(undefined),
+            addPasswordResetEmail: jest.fn().mockResolvedValue(undefined),
           },
         },
         {
@@ -240,6 +259,151 @@ describe('AuthService', () => {
       // Allow a 5s window for test execution time vs the captured
       // `Date.now()` inside the service.
       expect(Math.abs(passedTtl - ttlMs)).toBeLessThan(5_000);
+    });
+  });
+
+  describe('forgotPassword / verifyForgotPassword / resetPassword', () => {
+    // The forgot/verify/reset flow shares one cached `hash`
+    // per user. We model "the same token survives both verify
+    // and reset" by feeding the same `{id, hash}` pair through
+    // `jwtService.verify` for both calls. The service then
+    // checks that the cached hash matches.
+
+    const user = { id: 'user-1', email: 'a@b.com' };
+    const forgotHash = 'forgot-hash-abc';
+
+    beforeEach(() => {
+      // `signAsync` is called by `createForgotPasswordToken`.
+      // Return a stable token — the test doesn't decode it, it
+      // mocks `jwtService.verify` to return whatever payload
+      // the spec needs.
+      jwtServiceValue.signAsync.mockResolvedValue('signed.jwt.token');
+      jwtServiceValue.verify.mockReturnValue({
+        id: user.id,
+        hash: forgotHash,
+      });
+      cacheManager.store.get.mockResolvedValue(forgotHash);
+    });
+
+    it('forgotPassword: enqueues a reset email and caches the hash when the user exists', async () => {
+      userRepositoryValue.findOne.mockResolvedValueOnce(user);
+
+      const res = await service.forgotPassword({ email: user.email });
+
+      expect(userRepositoryValue.findOne).toHaveBeenCalledWith({
+        where: { email: user.email },
+        select: ['id', 'email'],
+      });
+      // The hash written to cache is whatever the service
+      // generated via crypto.createHash — we don't pin the
+      // exact value, just verify it landed in the right key
+      // with a numeric TTL. Pinning the value would force
+      // the spec to copy the service's hash recipe, which
+      // doesn't add coverage.
+      expect(cacheManager.set).toHaveBeenCalledWith(
+        expect.stringContaining('auth:token:user-1:password'),
+        expect.stringMatching(/^[a-f0-9]{64}$/),
+        expect.any(Number),
+      );
+      expect(res).toEqual({
+        message: expect.any(String),
+        devToken: undefined,
+      });
+    });
+
+    it('forgotPassword: returns a uniform success response when the user does not exist (no enumeration)', async () => {
+      userRepositoryValue.findOne.mockResolvedValueOnce(null);
+
+      const res = await service.forgotPassword({ email: 'nope@nowhere.io' });
+
+      // No cache write, no enqueue.
+      expect(cacheManager.set).not.toHaveBeenCalled();
+      expect(res).toEqual({
+        message: expect.any(String),
+        devToken: undefined,
+      });
+      expect(logger.warn).toHaveBeenCalledWith(
+        expect.stringContaining('forgotPassword no-op'),
+      );
+    });
+
+    it('forgotPassword: in dev (MAIL_ENABLED=false) echoes the token so the FE can complete the flow', async () => {
+      const prev = process.env.MAIL_ENABLED;
+      process.env.MAIL_ENABLED = 'false';
+      try {
+        userRepositoryValue.findOne.mockResolvedValueOnce(user);
+        const res = await service.forgotPassword({ email: user.email });
+        expect(res.devToken).toBe('signed.jwt.token');
+      } finally {
+        if (prev === undefined) {
+          delete process.env.MAIL_ENABLED;
+        } else {
+          process.env.MAIL_ENABLED = prev;
+        }
+      }
+    });
+
+    it('verifyForgotPassword: returns the userId when JWT + cache match', async () => {
+      const res = await service.verifyForgotPassword({
+        token: 'valid.token',
+      });
+      expect(res).toEqual({ userId: 'user-1' });
+    });
+
+    it('verifyForgotPassword: 401 when the cache hash is missing (token already redeemed or expired)', async () => {
+      cacheManager.store.get.mockResolvedValueOnce(null);
+      await expect(
+        service.verifyForgotPassword({ token: 'stale.token' }),
+      ).rejects.toMatchObject({ status: 401 });
+    });
+
+    it('verifyForgotPassword: 401 when the cache hash differs from the token hash', async () => {
+      cacheManager.store.get.mockResolvedValueOnce('different-hash');
+      await expect(
+        service.verifyForgotPassword({ token: 'tampered.token' }),
+      ).rejects.toMatchObject({ status: 401 });
+    });
+
+    it('verifyForgotPassword: 401 when the JWT is unparseable', async () => {
+      jwtServiceValue.verify.mockImplementationOnce(() => {
+        throw new Error('jwt malformed');
+      });
+      await expect(
+        service.verifyForgotPassword({ token: 'garbage' }),
+      ).rejects.toMatchObject({ status: 401 });
+    });
+
+    it('resetPassword: updates the password, revokes the token, and force-logs-out all sessions', async () => {
+      const entity = {
+        id: user.id,
+        password: '',
+        save: jest.fn().mockResolvedValue(undefined),
+      };
+      userRepositoryValue.findOneOrFail.mockResolvedValueOnce(entity);
+
+      await service.resetPassword({
+        token: 'valid.token',
+        newPassword: 'newPass!1',
+      });
+
+      // 1. Plaintext assigned; @BeforeUpdate hashPassword hook
+      //    is what actually hashes (not the spec's concern).
+      expect(entity.password).toBe('newPass!1');
+      expect(entity.save).toHaveBeenCalledTimes(1);
+      // 2. Token cache cleared — no more live copies.
+      expect(cacheManager.del).toHaveBeenCalledWith(
+        expect.stringContaining('auth:token:user-1:password'),
+      );
+      // 3. Every session row for the user is dropped — same
+      //    `SessionEntity.delete` mock used by `logout`.
+      expect(sessionDeleteSpy).toHaveBeenCalledWith({ userId: user.id });
+    });
+
+    it('resetPassword: 401 when the cache hash is missing', async () => {
+      cacheManager.store.get.mockResolvedValueOnce(null);
+      await expect(
+        service.resetPassword({ token: 'x', newPassword: 'newPass!1' }),
+      ).rejects.toMatchObject({ status: 401 });
     });
   });
 });
