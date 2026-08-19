@@ -3,6 +3,8 @@ import { getMessages, setRequestLocale } from "next-intl/server";
 import { notFound } from "next/navigation";
 import { locales, type Locale } from "../../i18n";
 import AppShell from "@/components/AppShell";
+import { AuthProvider } from "@/contexts/AuthContext";
+import { TeamViewProvider } from "@/contexts/TeamViewContext";
 
 export function generateStaticParams() {
   return locales.map((locale) => ({ locale }));
@@ -24,11 +26,19 @@ export default async function LocaleLayout({
   }
 
   setRequestLocale(locale);
-  const messages = await getMessages();
+  // Pass `locale` explicitly so the React `cache()` inside `getConfig`
+  // keys on the resolved locale. Without it, both the (now-removed)
+  // root layout and this layout would hit the same `undefined`-keyed
+  // cache entry, returning the wrong messages file.
+  const messages = await getMessages({ locale });
 
   return (
-    <NextIntlClientProvider messages={messages}>
-      <AppShell locale={locale}>{children}</AppShell>
+    <NextIntlClientProvider locale={locale} messages={messages}>
+      <AuthProvider>
+        <TeamViewProvider>
+          <AppShell locale={locale}>{children}</AppShell>
+        </TeamViewProvider>
+      </AuthProvider>
     </NextIntlClientProvider>
   );
 }

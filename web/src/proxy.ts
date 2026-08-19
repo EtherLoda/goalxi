@@ -1,18 +1,26 @@
-import createMiddleware from "next-intl/middleware";
-import { NextResponse } from "next/server";
-import type { NextRequest } from "next/server";
-import { routing } from "./i18n/routing";
+import { NextResponse } from 'next/server';
+import type { NextRequest } from 'next/server';
 
-const intlMiddleware = createMiddleware(routing);
+export function proxy(request: NextRequest) {
+  const pathname = request.nextUrl.pathname;
 
-export default function middleware(request: NextRequest) {
-  // Skip next-intl redirect for static assets
-  if (request.nextUrl.pathname.startsWith("/_next/")) {
+  // If pathname already has a locale prefix, pass through
+  if (pathname.startsWith('/en') || pathname.startsWith('/zh')) {
     return NextResponse.next();
   }
-  return intlMiddleware(request);
+
+  // Root "/" → redirect to /en
+  if (pathname === '/') {
+    return NextResponse.redirect(new URL('/en', request.url));
+  }
+
+  // Unmatched routes (e.g. /auth/login without locale) → add /en
+  return NextResponse.redirect(new URL(`/en${pathname}`, request.url));
 }
 
 export const config = {
-  matcher: ["/((?!api|_next/static|_next/image|favicon.ico|.*\\..*).*)"],
+  matcher: [
+    // Skip internal Next.js paths
+    '/((?!_next|api|favicon.ico).*)',
+  ],
 };

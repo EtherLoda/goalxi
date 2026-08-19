@@ -2,10 +2,15 @@
 
 import Link from "next/link";
 import { useTranslations, useLocale } from "next-intl";
+import { useRouter, usePathname } from "@/i18n/navigation";
 
 export default function Home() {
   const t = useTranslations();
   const locale = useLocale();
+  const router = useRouter();
+  const pathname = usePathname();
+
+  const otherLocale = locale === "en" ? "zh" : "en";
 
   // English: split every 2 words for 2-line display
   // Chinese: keep as single line
@@ -39,10 +44,10 @@ export default function Home() {
         </nav>
         {/* Auth — right */}
         <div className="flex items-center gap-4 ml-auto shrink-0">
-          <Link href="/auth/login" className="font-headline font-bold text-xs uppercase tracking-widest px-5 py-2 text-primary border border-primary/30 hover:bg-primary/10 transition-all">
+          <Link href={`/${locale}/auth/login`} className="font-headline font-bold text-xs uppercase tracking-widest px-5 py-2 text-primary border border-primary/30 hover:bg-primary/10 transition-all">
             {t("nav.login")}
           </Link>
-          <Link href="/auth/register" className="font-headline font-bold text-xs uppercase tracking-widest px-5 py-2 bg-primary text-on-primary hover:opacity-90 transition-all">
+          <Link href={`/${locale}/auth/register`} className="font-headline font-bold text-xs uppercase tracking-widest px-5 py-2 bg-primary text-on-primary hover:opacity-90 transition-all">
             {t("nav.signUp")}
           </Link>
         </div>
@@ -68,7 +73,7 @@ export default function Home() {
               {t("hero.subtitle")}
             </p>
             <Link
-              href="/auth/register"
+              href={`/${locale}/auth/register`}
               className="group relative inline-block px-10 py-5 bg-primary text-on-primary font-headline font-bold text-xl tracking-tighter overflow-hidden hover:opacity-90 transition-all"
             >
               <span className="relative z-10">{t("hero.cta")}</span>
