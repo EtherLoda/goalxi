@@ -6,17 +6,17 @@ import {
   TacticsConfig,
 } from '../types/tactics-config';
 
-// PitchWidth → lane strength modifiers
+// PitchWidth → lane strength modifiers (attack / defense / possession all share)
 // Flanks have 58% natural probability vs center's 42% (ratio ≈ 1.38).
-// NARROW: center ×1.12 (moderate boost), flanks ×0.9 (weaker)
-// WIDE: center ×0.9 (weaker), flanks ×1.07 (moderate boost)
+// NARROW: center ×1.10 (moderate boost), flanks ×0.9 (weaker)
+// WIDE: center ×0.87 (weaker), flanks ×1.07 (moderate boost)
 export const WIDTH_MODIFIERS: Record<
   PitchWidth,
   { left: number; center: number; right: number }
 > = {
-  [PitchWidth.NARROW]: { left: 0.9, center: 1.12, right: 0.9 },
+  [PitchWidth.NARROW]: { left: 0.9, center: 1.1, right: 0.9 },
   [PitchWidth.BALANCED]: { left: 1.0, center: 1.0, right: 1.0 },
-  [PitchWidth.WIDE]: { left: 1.07, center: 0.9, right: 1.07 },
+  [PitchWidth.WIDE]: { left: 1.07, center: 0.87, right: 1.07 },
 };
 
 // DefensiveLine → offside probability + attack/defense multiplier
@@ -28,8 +28,8 @@ export const DEFENSIVE_LINE_MODIFIERS: Record<
 > = {
   [DefensiveLine.LOW]: {
     offsideProb: 0.01,
-    attackMult: 0.9,
-    defenseMult: 1.15,
+    attackMult: 0.92,
+    defenseMult: 1.11,
   },
   [DefensiveLine.MID]: {
     offsideProb: 0.04,
@@ -38,8 +38,8 @@ export const DEFENSIVE_LINE_MODIFIERS: Record<
   },
   [DefensiveLine.HIGH]: {
     offsideProb: 0.15,
-    attackMult: 1.1,
-    defenseMult: 0.9,
+    attackMult: 1.08,
+    defenseMult: 0.89,
   },
 };
 

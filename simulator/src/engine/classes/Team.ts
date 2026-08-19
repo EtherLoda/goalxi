@@ -165,12 +165,13 @@ export class Team {
       }
     }
 
-    // Apply pitch width modifiers to attack and defense (not possession)
+    // Apply pitch width modifiers to attack, defense, and possession
     // NARROW: concentrate through center; WIDE: spread to flanks
     const widthMults = WIDTH_MODIFIERS[pitchWidth ?? PitchWidth.BALANCED];
     for (const lane of lanes) {
       laneStrengths[lane].attack *= widthMults[lane];
       laneStrengths[lane].defense *= widthMults[lane];
+      laneStrengths[lane].possession *= widthMults[lane];
     }
 
     // v2 SWEEPER_KEEPER aura — boosts the whole team's defense lane

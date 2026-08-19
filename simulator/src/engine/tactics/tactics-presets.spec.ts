@@ -13,8 +13,8 @@ describe('Tactics Presets', () => {
       expect(mods.center).toBeGreaterThan(1.0); // Center strengthened
       expect(mods.left).toBeLessThan(1.0); // Flanks weakened
       expect(mods.right).toBeLessThan(1.0); // Flanks weakened
-      // NARROW: center ×1.12, flanks ×0.9
-      expect(mods.center).toBeCloseTo(1.12, 2);
+      // NARROW: center ×1.10, flanks ×0.9
+      expect(mods.center).toBeCloseTo(1.10, 2);
       expect(mods.left).toBeCloseTo(0.9, 2);
       expect(mods.right).toBeCloseTo(0.9, 2);
     });
@@ -31,15 +31,15 @@ describe('Tactics Presets', () => {
       expect(mods.left).toBeGreaterThan(1.0); // Flanks strengthened
       expect(mods.right).toBeGreaterThan(1.0); // Flanks strengthened
       expect(mods.center).toBeLessThan(1.0); // Center weakened
-      // WIDE: flanks ×1.07, center ×0.9
+      // WIDE: flanks ×1.07, center ×0.87
       expect(mods.left).toBeCloseTo(1.07, 2);
-      expect(mods.center).toBeCloseTo(0.9, 2);
+      expect(mods.center).toBeCloseTo(0.87, 2);
       expect(mods.right).toBeCloseTo(1.07, 2);
     });
 
     it('NARROW center boost should exceed WIDE flank boost to compensate for natural 58/42 asymmetry', () => {
       // Center natural probability is 42, flanks are 58
-      // NARROW center boost is 12%, WIDE flank boost is 7%
+      // NARROW center boost is 10%, WIDE flank boost is 7%
       // This means NARROW is more effective at concentrating through center
       const narrowCenter = WIDTH_MODIFIERS[PitchWidth.NARROW].center;
       const wideFlank = WIDTH_MODIFIERS[PitchWidth.WIDE].left;
@@ -66,8 +66,8 @@ describe('Tactics Presets', () => {
       expect(mods.offsideProb).toBeCloseTo(0.01, 2);
       expect(mods.attackMult).toBeLessThan(1.0);
       expect(mods.defenseMult).toBeGreaterThan(1.0);
-      expect(mods.attackMult).toBeCloseTo(0.9, 1);
-      expect(mods.defenseMult).toBeCloseTo(1.15, 2);
+      expect(mods.attackMult).toBeCloseTo(0.92, 2);
+      expect(mods.defenseMult).toBeCloseTo(1.11, 2);
     });
 
     it('should have MID with baseline values', () => {
@@ -82,8 +82,8 @@ describe('Tactics Presets', () => {
       expect(mods.offsideProb).toBeCloseTo(0.15, 2);
       expect(mods.attackMult).toBeGreaterThan(1.0);
       expect(mods.defenseMult).toBeLessThan(1.0);
-      expect(mods.attackMult).toBeCloseTo(1.1, 1);
-      expect(mods.defenseMult).toBeCloseTo(0.9, 1);
+      expect(mods.attackMult).toBeCloseTo(1.08, 2);
+      expect(mods.defenseMult).toBeCloseTo(0.89, 2);
     });
 
     it('should have all required properties for each line', () => {

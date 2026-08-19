@@ -692,12 +692,12 @@
   <tr>
     <td><span class="badge badge-yellow">attackMult</span></td>
     <td lang="zh">防线高度（进攻方）</td><td lang="en">Defensive Line (attacker)</td>
-    <td>attPower × 0.9/1.0/1.1</td>
+    <td>attPower × 0.92/1.0/1.08</td>
   </tr>
   <tr>
     <td><span class="badge badge-yellow">defenseMult</span></td>
     <td lang="zh">防线高度（防守方）</td><td lang="en">Defensive Line (defender)</td>
-    <td>defPower × 0.9/1.0/1.15</td>
+    <td>defPower × 1.11/1.0/0.89</td>
   </tr>
   <tr>
     <td><span class="badge badge-purple">duelK</span></td>
@@ -1049,7 +1049,7 @@ defenseScore = GKref × 0.8 + GKhand × 0.6 + GKcomp × 0.4
   <!-- NARROW row -->
   <div class="lane-label"><span lang="zh">NARROW</span><span lang="en">NARROW</span></div>
   <div class="cell side-weaken">×0.90</div>
-  <div class="cell center-boost">×1.12</div>
+  <div class="cell center-boost">×1.10</div>
   <div class="cell side-weaken">×0.90</div>
 
   <!-- BALANCED row -->
@@ -1061,7 +1061,7 @@ defenseScore = GKref × 0.8 + GKhand × 0.6 + GKcomp × 0.4
   <!-- WIDE row -->
   <div class="lane-label"><span lang="zh">WIDE</span><span lang="en">WIDE</span></div>
   <div class="cell side-boost">×1.07</div>
-  <div class="cell center-weaken">×0.90</div>
+  <div class="cell center-weaken">×0.87</div>
   <div class="cell side-boost">×1.07</div>
 </div>
 
@@ -1071,8 +1071,8 @@ defenseScore = GKref × 0.8 + GKhand × 0.6 + GKcomp × 0.4
   <span><span style="color:var(--red);">●</span> <span lang="zh">削弱</span><span lang="en">Weakened</span></span>
 </div>
 
-<p lang="zh">边路天然概率（58%）高于中路（42%），所以 WIDE 边路只加强 7%（×1.07）而 NARROW 中路加强 12%（×1.12）。NARROW 中路 strength 是 WIDE 的 1.12/0.9≈1.24×（+24%），WIDE 边路是 NARROW 的 1.07/0.9≈1.19×（+19%）。</p>
-<p lang="en">Since flanks have 58% vs center's 42%, WIDE flank boost is only +7% (×1.07) while NARROW center boost is +12% (×1.12). NARROW center strength is 1.12/0.9≈1.24× WIDE's (+24%); WIDE flanks are 1.07/0.9≈1.19× NARROW's (+19%).</p>
+<p lang="zh">边路天然概率（58%）高于中路（42%），所以 WIDE 边路只加强 7%（×1.07）而 NARROW 中路加强 10%（×1.10）。NARROW 中路 strength 是 WIDE 的 1.10/0.87≈1.26×（+26%），WIDE 边路是 NARROW 的 1.07/0.9≈1.19×（+19%）。</p>
+<p lang="en">Since flanks have 58% vs center's 42%, WIDE flank boost is only +7% (×1.07) while NARROW center boost is +10% (×1.10). NARROW center strength is 1.10/0.87≈1.26× WIDE's (+26%); WIDE flanks are 1.07/0.9≈1.19× NARROW's (+19%).</p>
 
 <h3>7.3 Defensive Line (防线高度)</h3>
 <p lang="zh">控制防线的高度位置。影响越位概率（未来）和攻守强度加成。</p>
@@ -1081,11 +1081,11 @@ defenseScore = GKref × 0.8 + GKhand × 0.6 + GKcomp × 0.4
 <div class="tactic-diagram">
   <div class="tactic-option">
     <div class="name" style="color:var(--cyan);">🔽 LOW</div>
-    <div class="effect">offsideProb=0.01 · atkMult=0.9 · defMult=1.15</div>
+    <div class="effect">offsideProb=0.01 · atkMult=0.92 · defMult=1.11</div>
     <div style="margin-top:8px; font-size:12px; text-align:left;">
       <div><span class="badge badge-green">+</span> <span lang="zh">低位蹲守，几乎不造越位</span><span lang="en">Deep block, rarely caught offside</span></div>
-      <div><span class="badge badge-green">+</span> <span lang="zh">防守 +15%</span><span lang="en">Defense +15%</span></div>
-      <div><span class="badge badge-red">−</span> <span lang="zh">进攻 −10%</span><span lang="en">Attack −10%</span></div>
+      <div><span class="badge badge-green">+</span> <span lang="zh">防守 +11%</span><span lang="en">Defense +11%</span></div>
+      <div><span class="badge badge-red">−</span> <span lang="zh">进攻 −8%</span><span lang="en">Attack −8%</span></div>
       <div><span class="badge badge-red">−</span> <span lang="zh">被 FAST 节奏克制（直接打身后）</span><span lang="en">Vulnerable to FAST tempo (direct play beats low block)</span></div>
     </div>
   </div>
@@ -1098,11 +1098,11 @@ defenseScore = GKref × 0.8 + GKhand × 0.6 + GKcomp × 0.4
   </div>
   <div class="tactic-option">
     <div class="name" style="color:var(--red);">🔼 HIGH</div>
-    <div class="effect">offsideProb=0.15 · atkMult=1.1 · defMult=0.9</div>
+    <div class="effect">offsideProb=0.15 · atkMult=1.08 · defMult=0.89</div>
     <div style="margin-top:8px; font-size:12px; text-align:left;">
-      <div><span class="badge badge-green">+</span> <span lang="zh">进攻 +10%</span><span lang="en">Attack +10%</span></div>
+      <div><span class="badge badge-green">+</span> <span lang="zh">进攻 +8%</span><span lang="en">Attack +8%</span></div>
       <div><span class="badge badge-green">+</span> <span lang="zh">克制 SLOW 节奏（高位压迫，断球快）</span><span lang="en">Good vs SLOW tempo (press high, win ball back quickly)</span></div>
-      <div><span class="badge badge-red">−</span> <span lang="zh">防守 −10%</span><span lang="en">Defense −10%</span></div>
+      <div><span class="badge badge-red">−</span> <span lang="zh">防守 −11%</span><span lang="en">Defense −11%</span></div>
       <div><span class="badge badge-red">−</span> <span lang="zh">越位陷阱：每次关键时刻 15% 概率</span><span lang="en">Offside trap: 15% chance per key moment</span></div>
       <div><span class="badge badge-red">−</span> <span lang="zh">被直接打法（LONG_SHOT/THROUGH）克制</span><span lang="en">Vulnerable to direct play (LONG_SHOT, THROUGH)</span></div>
     </div>
@@ -1157,8 +1157,8 @@ defenseScore = GKref × 0.8 + GKhand × 0.6 + GKcomp × 0.4
   <span lang="zh">球场宽度 vs 球场宽度（同路对抗）</span>
   <span lang="en">Pitch Width vs Pitch Width (Same Lane Contest)</span>
 </h4>
-<p lang="zh" style="font-size:12px; color:var(--text-muted);">因为边路天然概率（58%）高于中路（42%），所以 WIDE 边路只加强 7%（×1.07）而 NARROW 中路加强 12%（×1.12）。与 BALANCED 对比：NARROW 中路 vs BALANCED 中路 = 1.12/1.0=+12%，NARROW 边路 vs BALANCED 边路 = 0.9/1.0=−10%；WIDE 中路 vs BALANCED 中路 = 0.9/1.0=−10%，WIDE 边路 vs BALANCED 边路 = 1.07/1.0=+7%。</p>
-<p lang="en" style="font-size:12px; color:var(--text-muted);">Since flanks have 58% vs center's 42%, WIDE flank boost is only +7% (×1.07) while NARROW center boost is +12% (×1.12). vs BALANCED: NARROW center vs BALANCED center = 1.12/1.0=+12%, NARROW flanks vs BALANCED flanks = 0.9/1.0=−10%; WIDE center vs BALANCED center = 0.9/1.0=−10%, WIDE flanks vs BALANCED flanks = 1.07/1.0=+7%.</p>
+<p lang="zh" style="font-size:12px; color:var(--text-muted);">因为边路天然概率（58%）高于中路（42%），所以 WIDE 边路只加强 7%（×1.07）而 NARROW 中路加强 10%（×1.10）。与 BALANCED 对比：NARROW 中路 vs BALANCED 中路 = 1.10/1.0=+10%，NARROW 边路 vs BALANCED 边路 = 0.9/1.0=−10%；WIDE 中路 vs BALANCED 中路 = 0.87/1.0=−13%，WIDE 边路 vs BALANCED 边路 = 1.07/1.0=+7%。</p>
+<p lang="en" style="font-size:12px; color:var(--text-muted);">Since flanks have 58% vs center's 42%, WIDE flank boost is only +7% (×1.07) while NARROW center boost is +10% (×1.10). vs BALANCED: NARROW center vs BALANCED center = 1.10/1.0=+10%, NARROW flanks vs BALANCED flanks = 0.9/1.0=−10%; WIDE center vs BALANCED center = 0.87/1.0=−13%, WIDE flanks vs BALANCED flanks = 1.07/1.0=+7%.</p>
 
 <table>
   <tr>
@@ -1193,14 +1193,14 @@ defenseScore = GKref × 0.8 + GKhand × 0.6 + GKcomp × 0.4
   <tr>
     <td><span class="badge" style="background:var(--cyan); color:#000;">NARROW</span></td>
     <td><span class="badge" style="background:var(--red);">WIDE</span></td>
-    <td lang="zh">中路 +24%（1.12/0.9），边路 −19%（0.9/1.07）。</td>
-    <td lang="en">Center +24% (1.12/0.9), flanks −19% (0.9/1.07).</td>
+    <td lang="zh">中路 +26%（1.10/0.87），边路 −16%（0.9/1.07）。</td>
+    <td lang="en">Center +26% (1.10/0.87), flanks −16% (0.9/1.07).</td>
   </tr>
   <tr>
     <td><span class="badge" style="background:var(--red);">WIDE</span></td>
     <td><span class="badge" style="background:var(--cyan); color:#000;">NARROW</span></td>
-    <td lang="zh">边路 +19%（1.07/0.9），中路 −24%（0.9/1.12）。</td>
-    <td lang="en">Flanks +19% (1.07/0.9), center −24% (0.9/1.12).</td>
+    <td lang="zh">边路 +19%（1.07/0.9），中路 −21%（0.87/1.10）。</td>
+    <td lang="en">Flanks +19% (1.07/0.9), center −21% (0.87/1.10).</td>
   </tr>
 </table>
 
