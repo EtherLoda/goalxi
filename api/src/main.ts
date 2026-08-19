@@ -18,6 +18,8 @@ import { AppModule } from './app.module';
 import { type AllConfigType } from './config/config.type';
 import { GlobalExceptionFilter } from './filters/global-exception.filter';
 import { AuthGuard } from './guards/auth.guard';
+import { HealthStateService } from './health/health-state.service';
+import { ReadinessGuard } from './health/readiness.guard';
 import setupSwagger from './utils/setup-swagger';
 
 async function bootstrap() {
@@ -107,7 +109,13 @@ async function bootstrap() {
     type: VersioningType.URI,
   });
 
-  app.useGlobalGuards(new AuthGuard(reflector, app.get(AuthService)));
+  // Order matters: ReadinessGuard runs first so a DB outage short-circuits
+  // with 503 before AuthGuard tries to query the session table and queues
+  // every request behind the connection-pool timeout.
+  app.useGlobalGuards(
+    new ReadinessGuard(app.get(HealthStateService), reflector),
+    new AuthGuard(reflector, app.get(AuthService)),
+  );
   app.useGlobalFilters(new GlobalExceptionFilter(configService));
   app.useGlobalPipes(
     new ValidationPipe({

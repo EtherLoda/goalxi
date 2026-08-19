@@ -58,6 +58,9 @@
       "@/guards/*": [
         "src/guards/*"
       ],
+      "@/health/*": [
+        "src/health/*"
+      ],
       "@/interceptors/*": [
         "src/interceptors/*"
       ],

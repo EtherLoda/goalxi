@@ -6,6 +6,7 @@ import { AllConfigType } from '@/config/config.type';
 import { Environment } from '@/constants/app.constant';
 import databaseConfig from '@/database/config/database.config';
 import { TypeOrmConfigService } from '@/database/typeorm-config.service';
+import { HealthModule } from '@/health/health.module';
 import mailConfig from '@/mail/config/mail.config';
 import { MailModule } from '@/mail/mail.module';
 import redisConfig from '@/redis/config/redis.config';
@@ -185,6 +186,7 @@ function generateModulesSet(): ModuleMetadata['imports'] {
         cacheModule,
         clsModule,
         dbModule,
+        HealthModule,
         i18nModule,
         loggerModule,
         sharedLoggerModule,
@@ -199,6 +201,7 @@ function generateModulesSet(): ModuleMetadata['imports'] {
         cacheModule,
         clsModule,
         dbModule,
+        HealthModule,
         i18nModule,
         loggerModule,
         sharedLoggerModule,
@@ -213,6 +216,7 @@ function generateModulesSet(): ModuleMetadata['imports'] {
         cacheModule,
         clsModule,
         dbModule,
+        HealthModule,
         i18nModule,
         loggerModule,
         sharedLoggerModule,

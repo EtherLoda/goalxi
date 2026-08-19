@@ -26,6 +26,7 @@
     "^@/filters(.*)$": "<rootDir>/filters$1",
     "^@/generated(.*)$": "<rootDir>/generated$1",
     "^@/guards(.*)$": "<rootDir>/guards$1",
+    "^@/health(.*)$": "<rootDir>/health$1",
     "^@/interceptors(.*)$": "<rootDir>/interceptors$1",
     "^@/libs(.*)$": "<rootDir>/libs$1",
     "^@/mail(.*)$": "<rootDir>/mail$1",
