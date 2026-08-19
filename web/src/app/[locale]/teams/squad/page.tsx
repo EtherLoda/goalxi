@@ -49,8 +49,8 @@ const EVENT_COLORS: Record<string, string> = {
 };
 
 const POSITION_GROUPS = [
-  { key: "GK", label: "Goalkeeper", labelZh: "门将" },
-  { key: "OUT", label: "Outfield", labelZh: "外场" },
+  { key: "GK" },
+  { key: "OUT" },
 ];
 
 interface ListPlayerModalProps {
@@ -106,7 +106,7 @@ function ListPlayerModal({ player, onClose, onSuccess }: ListPlayerModalProps) {
                   {t("squad.transfer.listPlayer")}
                 </h3>
                 <p className="text-[10px] text-[#91b2a6] font-space uppercase tracking-wider">
-                  Set your auction terms
+                  {t("squad.transfer.modalSubtitle")}
                 </p>
               </div>
             </div>
@@ -298,24 +298,9 @@ function SquadPageContent() {
     const potential = player.potentialSkills || current;
 
 
-    // Radar chart label translations
-    const labelMap: Record<string, { zh: string; en: string }> = {
-      pace: { zh: '速度', en: 'Pace' },
-      strength: { zh: '力量', en: 'Strength' },
-      reflexes: { zh: '反应', en: 'Reflexes' },
-      handling: { zh: '扑救', en: 'Handling' },
-      aerial: { zh: '空中', en: 'Aerial' },
-      positioning: { zh: '跑位', en: 'Positioning' },
-      composure: { zh: '冷静', en: 'Composure' },
-      freeKicks: { zh: '任意球', en: 'FK' },
-      penalties: { zh: '点球', en: 'PEN' },
-      finishing: { zh: '射门', en: 'Finish' },
-      passing: { zh: '传球', en: 'Pass' },
-      dribbling: { zh: '盘带', en: 'Dribble' },
-      defending: { zh: '防守', en: 'Defend' },
-    };
-
-    const getLabel = (key: string) => labelMap[key]?.[locale === 'zh' ? 'zh' : 'en'] || key;
+    // Radar chart labels come from the `squad.skills.*` i18n keys — single
+    // source of truth shared with the SkillRow labels below.
+    const getLabel = (key: string) => t(`squad.skills.${key}`);
 
     if (player.isGoalkeeper) {
       const gkLabels = ["pace", "strength", "reflexes", "handling", "aerial", "positioning", "freeKicks", "penalties"];
@@ -391,7 +376,7 @@ function SquadPageContent() {
             <div className="flex-1" />
 
             {/* Left Column: Formation-Based Player List */}
-            <div className="w-[480px] max-w-[35%] shrink-0 flex flex-col gap-4">
+            <div className="w-[580px] max-w-[43%] shrink-0 flex flex-col gap-4">
               <div className="bg-[#001e17] rounded-xl flex flex-col h-full">
                 {/* List Header */}
                 <div className="px-4 py-3 border-b border-[#2f4e44]/10">
@@ -422,7 +407,7 @@ function SquadPageContent() {
                             group.key === "GK" ? "bg-[#fbbf24]" : "bg-[#a1ffc2]"
                           }`} />
                           <span className="text-[10px] font-bold font-space uppercase tracking-widest text-[#91b2a6]">
-                            {locale === "zh" ? group.labelZh : group.label}
+                            {t(group.key === "GK" ? "squad.gk" : "squad.field")}
                           </span>
                           <span className="text-[10px] text-[#4a7a6a] font-space">
                             ({groupPlayers.length})
@@ -518,7 +503,7 @@ function SquadPageContent() {
                                     {/* Stats row — always visible */}
                                     <div className="grid grid-cols-5 gap-4 text-xs font-space mt-1.5">
                                       <span className="truncate">
-                                        <span className="text-[#4a7a6a]">{locale === "zh" ? "体能" : "STA"} </span>
+                                        <span className="text-[#4a7a6a] uppercase">{t("squad.stamina")} </span>
                                         <span
                                           className={`font-bold ${
                                             player.stamina >= 4
@@ -532,7 +517,7 @@ function SquadPageContent() {
                                         </span>
                                       </span>
                                       <span className="truncate">
-                                        <span className="text-[#4a7a6a]">{locale === "zh" ? "状态" : "FOR"} </span>
+                                        <span className="text-[#4a7a6a] uppercase">{t("squad.form")} </span>
                                         <span
                                           className={`font-bold ${
                                             player.form >= 4
@@ -546,11 +531,13 @@ function SquadPageContent() {
                                         </span>
                                       </span>
                                       <span className="truncate">
-                                        <span className="text-[#4a7a6a]">AGE </span>
-                                        <span className="font-bold text-[#d3f5e8]">{player.age}</span>
+                                        <span className="text-[#4a7a6a] uppercase">{t("squad.age")} </span>
+                                        <span className="font-bold text-[#d3f5e8]">
+                                          {t("common.ageFormat", { y: player.age, d: player.ageDays })}
+                                        </span>
                                       </span>
                                       <span className="truncate">
-                                        <span className="text-[#4a7a6a]">EXP </span>
+                                        <span className="text-[#4a7a6a] uppercase">{t("squad.exp")} </span>
                                         <span className="font-bold text-[#d3f5e8]">{player.experience || 0}</span>
                                       </span>
                                       <span className="truncate">
@@ -577,7 +564,7 @@ function SquadPageContent() {
             <div className="w-6 shrink-0" />
 
             {/* Right Column: Player Profile Detail */}
-            <div className="w-[800px] max-w-[65%] shrink-0 flex flex-col gap-6">
+            <div className="w-[700px] max-w-[57%] shrink-0 flex flex-col gap-6">
               <div className="bg-[#001e17] rounded-xl h-full flex flex-col relative">
                 {/* Glass Background */}
                 <div className="absolute inset-0 bg-gradient-to-br from-[#a1ffc2]/3 via-transparent to-transparent pointer-events-none" />
@@ -634,13 +621,16 @@ function SquadPageContent() {
                             <div className="flex items-center gap-2">
                               <span className="material-symbols-outlined text-[#91b2a6]">calendar_month</span>
                               <span className="text-[#91b2a6]">
-                                {locale === "zh" ? "年龄" : "Age"} <span className="font-bold text-[#d3f5e8]">{selectedPlayer.age}</span>
+                                {t("squad.age")}{" "}
+                                <span className="font-bold text-[#d3f5e8]">
+                                  {t("common.ageFormat", { y: selectedPlayer.age, d: selectedPlayer.ageDays })}
+                                </span>
                               </span>
                             </div>
                             <div className="flex items-center gap-2">
                               <span className="material-symbols-outlined text-[#91b2a6]">military_tech</span>
                               <span className="text-[#91b2a6]">
-                                EXP <span className="font-bold text-[#d3f5e8]">{selectedPlayer.experience || 0}</span>
+                                {t("squad.exp")} <span className="font-bold text-[#d3f5e8]">{selectedPlayer.experience || 0}</span>
                               </span>
                             </div>
                             <div className="flex items-center gap-2">
@@ -737,11 +727,11 @@ function SquadPageContent() {
                             <div className="flex items-center gap-4 mt-3">
                               <div className="flex items-center gap-1.5">
                                 <div className="w-3 h-3 rounded-full bg-[#a1ffc2]" />
-                                <span className="text-[9px] font-bold font-space text-[#91b2a6] uppercase">Current</span>
+                                <span className="text-[9px] font-bold font-space text-[#91b2a6] uppercase">{t("squad.radar.current")}</span>
                               </div>
                               <div className="flex items-center gap-1.5">
                                 <div className="w-3 h-3 rounded-full bg-[#2f4e44]" />
-                                <span className="text-[9px] font-bold font-space text-[#91b2a6] uppercase">Potential</span>
+                                <span className="text-[9px] font-bold font-space text-[#91b2a6] uppercase">{t("squad.radar.potential")}</span>
                               </div>
                             </div>
                           </div>
@@ -760,12 +750,12 @@ function SquadPageContent() {
                                   </div>
                                   <div className="grid grid-cols-2 gap-x-6 gap-y-2">
                                     {[
-                                      { key: "pace", label: "Pace" },
-                                      { key: "strength", label: "Strength" },
+                                      { key: "pace" },
+                                      { key: "strength" },
                                     ].map((skill) => (
                                       <SkillRow
                                         key={skill.key}
-                                        label={skill.label}
+                                        labelKey={skill.key}
                                         current={selectedPlayer.currentSkills.physical?.[skill.key as keyof typeof selectedPlayer.currentSkills.physical] || 0}
                                         potential={selectedPlayer.potentialSkills?.physical?.[skill.key as keyof typeof selectedPlayer.potentialSkills.physical] || 0}
                                         color="#60a5fa"
@@ -783,13 +773,13 @@ function SquadPageContent() {
                                   </div>
                                   <div className="grid grid-cols-2 gap-x-6 gap-y-2">
                                     {[
-                                      { key: "reflexes", label: "Reflexes" },
-                                      { key: "handling", label: "Handling" },
-                                      { key: "aerial", label: "Aerial" },
+                                      { key: "reflexes" },
+                                      { key: "handling" },
+                                      { key: "aerial" },
                                     ].map((skill) => (
                                       <SkillRow
                                         key={skill.key}
-                                        label={skill.label}
+                                        labelKey={skill.key}
                                         current={(selectedPlayer.currentSkills.technical as any)?.[skill.key] || 0}
                                         potential={(selectedPlayer.potentialSkills?.technical as any)?.[skill.key] || 0}
                                         color="#a1ffc2"
@@ -807,12 +797,12 @@ function SquadPageContent() {
                                   </div>
                                   <div className="grid grid-cols-2 gap-x-6 gap-y-2">
                                     {[
-                                      { key: "positioning", label: "Positioning" },
-                                      { key: "composure", label: "Composure" },
+                                      { key: "positioning" },
+                                      { key: "composure" },
                                     ].map((skill) => (
                                       <SkillRow
                                         key={skill.key}
-                                        label={skill.label}
+                                        labelKey={skill.key}
                                         current={selectedPlayer.currentSkills.mental?.[skill.key as keyof typeof selectedPlayer.currentSkills.mental] || 0}
                                         potential={selectedPlayer.potentialSkills?.mental?.[skill.key as keyof typeof selectedPlayer.potentialSkills.mental] || 0}
                                         color="#abf853"
@@ -830,12 +820,12 @@ function SquadPageContent() {
                                   </div>
                                   <div className="grid grid-cols-2 gap-x-6 gap-y-2">
                                     {[
-                                      { key: "freeKicks", label: "Free Kicks" },
-                                      { key: "penalties", label: "Penalties" },
+                                      { key: "freeKicks" },
+                                      { key: "penalties" },
                                     ].map((skill) => (
                                       <SkillRow
                                         key={skill.key}
-                                        label={skill.label}
+                                        labelKey={skill.key}
                                         current={selectedPlayer.currentSkills.setPieces?.[skill.key as keyof typeof selectedPlayer.currentSkills.setPieces] || 0}
                                         potential={selectedPlayer.potentialSkills?.setPieces?.[skill.key as keyof typeof selectedPlayer.potentialSkills.setPieces] || 0}
                                         color="#f59e0b"
@@ -856,12 +846,12 @@ function SquadPageContent() {
                                   </div>
                                   <div className="grid grid-cols-2 gap-x-6 gap-y-2">
                                     {[
-                                      { key: "pace", label: "Pace" },
-                                      { key: "strength", label: "Strength" },
+                                      { key: "pace" },
+                                      { key: "strength" },
                                     ].map((skill) => (
                                       <SkillRow
                                         key={skill.key}
-                                        label={skill.label}
+                                        labelKey={skill.key}
                                         current={selectedPlayer.currentSkills.physical?.[skill.key as keyof typeof selectedPlayer.currentSkills.physical] || 0}
                                         potential={selectedPlayer.potentialSkills?.physical?.[skill.key as keyof typeof selectedPlayer.potentialSkills.physical] || 0}
                                         color="#60a5fa"
@@ -879,14 +869,14 @@ function SquadPageContent() {
                                   </div>
                                   <div className="grid grid-cols-2 gap-x-6 gap-y-2">
                                     {[
-                                      { key: "finishing", label: "Finishing" },
-                                      { key: "passing", label: "Passing" },
-                                      { key: "dribbling", label: "Dribbling" },
-                                      { key: "defending", label: "Defending" },
+                                      { key: "finishing" },
+                                      { key: "passing" },
+                                      { key: "dribbling" },
+                                      { key: "defending" },
                                     ].map((skill) => (
                                       <SkillRow
                                         key={skill.key}
-                                        label={skill.label}
+                                        labelKey={skill.key}
                                         current={(selectedPlayer.currentSkills.technical as any)?.[skill.key] || 0}
                                         potential={(selectedPlayer.potentialSkills?.technical as any)?.[skill.key] || 0}
                                       />
@@ -903,12 +893,12 @@ function SquadPageContent() {
                                   </div>
                                   <div className="grid grid-cols-2 gap-x-6 gap-y-2">
                                     {[
-                                      { key: "positioning", label: "Positioning" },
-                                      { key: "composure", label: "Composure" },
+                                      { key: "positioning" },
+                                      { key: "composure" },
                                     ].map((skill) => (
                                       <SkillRow
                                         key={skill.key}
-                                        label={skill.label}
+                                        labelKey={skill.key}
                                         current={selectedPlayer.currentSkills.mental?.[skill.key as keyof typeof selectedPlayer.currentSkills.mental] || 0}
                                         potential={selectedPlayer.potentialSkills?.mental?.[skill.key as keyof typeof selectedPlayer.potentialSkills.mental] || 0}
                                         color="#abf853"
@@ -926,12 +916,12 @@ function SquadPageContent() {
                                   </div>
                                   <div className="grid grid-cols-2 gap-x-6 gap-y-2">
                                     {[
-                                      { key: "freeKicks", label: "Free Kicks" },
-                                      { key: "penalties", label: "Penalties" },
+                                      { key: "freeKicks" },
+                                      { key: "penalties" },
                                     ].map((skill) => (
                                       <SkillRow
                                         key={skill.key}
-                                        label={skill.label}
+                                        labelKey={skill.key}
                                         current={selectedPlayer.currentSkills.setPieces?.[skill.key as keyof typeof selectedPlayer.currentSkills.setPieces] || 0}
                                         potential={selectedPlayer.potentialSkills?.setPieces?.[skill.key as keyof typeof selectedPlayer.potentialSkills.setPieces] || 0}
                                         color="#f59e0b"
@@ -1039,7 +1029,8 @@ function SquadPageContent() {
   );
 }
 
-function SkillRow({ label, current, potential, color = "#a1ffc2" }: { label: string; current: number; potential: number; color?: string }) {
+function SkillRow({ labelKey, current, potential, color = "#a1ffc2" }: { labelKey: string; current: number; potential: number; color?: string }) {
+  const t = useTranslations();
   const currentPercent = (current / 20) * 100;
   const potentialPercent = (potential / 20) * 100;
   const isMaxed = current >= potential;
@@ -1048,7 +1039,7 @@ function SkillRow({ label, current, potential, color = "#a1ffc2" }: { label: str
   return (
     <div className="space-y-1">
       <div className="flex justify-between items-center">
-        <span className="text-[10px] font-bold uppercase tracking-wider text-[#91b2a6]">{label}</span>
+        <span className="text-[10px] font-bold uppercase tracking-wider text-[#91b2a6]">{t(`squad.skills.${labelKey}`)}</span>
         <span className={`text-[10px] font-black font-space ${isMaxed ? "text-[#a1ffc2]" : "text-[#d3f5e8]"}`}>
           {current}
           {!isMaxed && <span className="text-[#4a7a6a]">/{potential}</span>}

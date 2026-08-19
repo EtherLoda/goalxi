@@ -329,9 +329,12 @@ function AgeCell({
   p: Player;
   t: ReturnType<typeof useTranslations>;
 }) {
+  // Localised `25y 142d` / `25岁142天` from `common.ageFormat` — single
+  // source of truth shared with the senior player profile and the
+  // transfer cards so the manager reads identical age strings everywhere.
   return (
     <span className="text-xs text-[#d3f5e8] tabular-nums">
-      {p.age}
+      {t("common.ageFormat", { y: p.age, d: p.ageDays })}
       <span className="text-[10px] text-[#91b2a6] ml-1">
         ({p.revealLevel})
       </span>

@@ -27,7 +27,8 @@
     "at": "@",
     "round": "第 {round} 轮",
     "tbd": "待定",
-    "match": "{count} 场比赛"
+    "match": "{count} 场比赛",
+    "ageFormat": "{y}岁{d}天"
   },
   "search": {
     "title": "搜索",
@@ -547,32 +548,20 @@
     }
   },
   "squad": {
-    "title": "球队阵容",
     "squad": "球队",
-    "all": "全部",
     "gk": "门将",
-    "field": "场上",
+    "field": "外场",
     "players": "球员",
-    "overall": "总评",
-    "ovr": "总评",
     "age": "年龄",
     "stamina": "体能",
     "form": "状态",
     "potential": "潜力",
     "exp": "经验",
     "selectPlayer": "选择一个球员查看详情",
-    "status": {
-      "matchReady": "比赛就绪",
-      "fatigued": "疲劳",
-      "lowEnergy": "体能不足"
-    },
     "skills": {
-      "physical": "身体",
       "physicalAttributes": "身体属性",
-      "technical": "技术",
       "technicalSkills": "技术能力",
       "goalkeeperSkills": "门将技能",
-      "mental": "心理",
       "mentalProfile": "心理属性",
       "setPieces": "定位球",
       "pace": "速度",
@@ -589,20 +578,19 @@
       "freeKicks": "任意球",
       "penalties": "点球"
     },
-    "position": {
-      "gk": "门将",
-      "str": "前锋",
-      "mid": "中场",
-      "out": "后卫"
-    },
     "transfer": {
       "listed": "挂牌中",
       "onTransfer": "转会市场中",
       "onTransferDesc": "该球员目前在转会市场上挂牌",
       "listPlayer": "挂牌球员",
       "listButton": "上架到转会市场",
+      "modalSubtitle": "设置拍卖条款",
       "startPrice": "起始价格",
       "buyoutPrice": "买断价格"
+    },
+    "radar": {
+      "current": "当前",
+      "potential": "潜力"
     }
   },
   "transfers": {

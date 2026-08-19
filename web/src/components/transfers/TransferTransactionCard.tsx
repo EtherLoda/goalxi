@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useLocale } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import { type TransferTransaction } from "@/lib/api";
 import { SpecialtyIcon } from "@/components/player/SpecialtyIcon";
 import { getSpecialtyLabel } from "@/lib/specialties";
@@ -51,6 +51,7 @@ export default function TransferTransactionCard({
   status = "success",
 }: TransferTransactionCardProps) {
   const locale = useLocale();
+  const t = useTranslations();
   const player = transaction.player;
   const initials = player.name
     .split(" ")
@@ -84,7 +85,7 @@ export default function TransferTransactionCard({
             )}
           </div>
           <p className="text-sm text-[#91b2a6]">
-            {player.age}岁{player.ageDays ? `${player.ageDays}天` : ""}
+            {t("common.ageFormat", { y: player.age, d: player.ageDays })}
           </p>
         </div>
         <div className="flex items-center gap-6">

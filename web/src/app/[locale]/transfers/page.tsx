@@ -852,7 +852,7 @@ export default function TransfersPage() {
                         <h3 className="text-3xl font-bold text-white tracking-tighter hover:text-[#a1ffc2] transition-colors">{selectedTransfer.player.name}</h3>
                       </Link>
                       <p className="text-[#91b2a6] text-xs">
-                        {selectedTransfer.player.age}岁{selectedTransfer.player.ageDays || 0}天 · {selectedTransfer.player.teamName || selectedTransfer.team.name} · £{(selectedTransfer.player.currentWage || 0).toLocaleString()}/w
+                        {t("common.ageFormat", { y: selectedTransfer.player.age, d: selectedTransfer.player.ageDays })} · {selectedTransfer.player.teamName || selectedTransfer.team.name} · £{(selectedTransfer.player.currentWage || 0).toLocaleString()}/w
                       </p>
                     </div>
                   </div>

@@ -447,7 +447,7 @@ export default function PlayerDetailPage({ params }: PageProps) {
                           calendar_month
                         </span>
                         <span className="text-xs font-bold uppercase tracking-widest text-[#91b2a6]">
-                          {player.age}y {player.ageDays}d
+                          {t("common.ageFormat", { y: player.age, d: player.ageDays })}
                         </span>
                       </div>
                       <div className="flex items-center gap-2">

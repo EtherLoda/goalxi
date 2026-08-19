@@ -59,12 +59,13 @@ export function ScoutCard({
   // uses (squad.skills.*), so we bind a fresh translator to that
   // namespace — keeps the strings in one place.
   const tSkills = useTranslations("squad");
+  // Age format is the same ICU string the senior profile uses — both
+  // surfaces read `25y 142d` / `25岁142天` identically.
+  const tCommon = useTranslations();
   const locale = (useLocale() === "en" ? "en" : "zh") as "zh" | "en";
 
   const initials = getInitials(c.name);
-  // Same "17y 12d" format as the senior player page header — manager
-  // expects the dossier and the profile card to read identically.
-  const ageText = `${c.age}y ${c.ageDays}d`;
+  const ageText = tCommon("common.ageFormat", { y: c.age, d: c.ageDays });
   const leftCol = buildColumn(c, tSkills, false);
   const rightCol = buildColumn(c, tSkills, true);
   const groupTitle = (key: "physical" | "technical" | "mental" | "setPieces") =>

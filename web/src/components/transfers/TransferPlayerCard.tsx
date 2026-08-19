@@ -97,7 +97,7 @@ export default function TransferPlayerCard({
             </span>
           </div>
           <p className="text-sm text-[#91b2a6]">
-            {player.age}岁{player.ageDays || 0}天 ·{" "}
+            {t("common.ageFormat", { y: player.age, d: player.ageDays })} ·{" "}
             {player.teamName || transfer.team.name} · £
             {(player.currentWage || 0).toLocaleString()}/w
           </p>
