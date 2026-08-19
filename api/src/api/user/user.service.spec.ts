@@ -1,4 +1,4 @@
-import { verifyPassword } from '@/utils/password.util';
+import { hashPassword, verifyPassword } from '@/utils/password.util';
 import { SessionEntity, UserEntity } from '@goalxi/database';
 import { UnauthorizedException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
@@ -7,13 +7,14 @@ import { ChangePasswordReqDto } from './dto/change-password.req.dto';
 import { UserService } from './user.service';
 
 jest.mock('@/utils/password.util', () => ({
-  // The service used to pre-hash here. After the
-  // `isDirty('password')` guard landed on
-  // `UserEntity.@BeforeUpdate`, pre-hashing would race the hook
-  // and produce `argon2(argon2(plain))` — locked the user out
-  // on the next login. The plaintext is now assigned directly
-  // and the entity hook is the single source of hashing.
-  hashPassword: jest.fn(),
+  // Pre-hash on the service side. After the `@BeforeUpdate` hook
+  // was removed from `UserEntity.hashPassword` (it was re-hashing
+  // the loaded hash on every PATCH /users/me and silently locking
+  // users out), there's no longer a hook to do the hash for us on
+  // the UPDATE path. Pre-hashing here means `save()` writes a
+  // single argon2 blob — no double-hash, no plaintext leak.
+  // Mirrors `AuthService.resetPassword`.
+  hashPassword: jest.fn(async (s: string) => `hashed:${s}`),
   verifyPassword: jest.fn(async () => true),
 }));
 
@@ -67,7 +68,7 @@ describe('UserService.changePassword', () => {
     expect(userRepo.save).not.toHaveBeenCalled();
   });
 
-  it('assigns plaintext, lets the entity hook hash, and keeps the current session alive', async () => {
+  it('pre-hashes the new password, persists it, and keeps the current session alive', async () => {
     const user = buildUser();
     userRepo.findOneByOrFail.mockResolvedValueOnce(user);
     (verifyPassword as jest.Mock).mockResolvedValueOnce(true);
@@ -86,11 +87,13 @@ describe('UserService.changePassword', () => {
     // 1. verified the current password
     expect(verifyPassword).toHaveBeenCalledWith('oldpw', 'hashed:oldpw');
 
-    // 2. plaintext assigned, NO pre-hash on the service side
-    //    (the entity hook is what hashes; covered separately by
-    //    libs/database/src/entities/user.entity.spec.ts).
-    expect(user.password).toBe('newpw123');
-    expect(hashPassword).not.toHaveBeenCalled();
+    // 2. pre-hashed the plaintext on the service side, then
+    //    saved. `UserEntity` no longer has a `@BeforeUpdate`
+    //    hook to do the hashing for us, so this is the single
+    //    source of "plaintext → argon2id" on the UPDATE path.
+    //    (Register / create still go through `@BeforeInsert`.)
+    expect(hashPassword).toHaveBeenCalledWith('newpw123');
+    expect(user.password).toBe('hashed:newpw123');
     expect(userRepo.save).toHaveBeenCalledWith(user);
 
     // 3. deleted every other session, kept the current one

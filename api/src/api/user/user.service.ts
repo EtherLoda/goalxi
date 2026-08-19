@@ -6,7 +6,7 @@ import { ErrorCode } from '@/constants/error-code.constant';
 import { ValidationException } from '@/exceptions/validation.exception';
 import { buildPaginator } from '@/utils/cursor-pagination';
 import { paginate } from '@/utils/offset-pagination';
-import { verifyPassword } from '@/utils/password.util';
+import { hashPassword, verifyPassword } from '@/utils/password.util';
 import { SessionEntity, TeamEntity, UserEntity } from '@goalxi/database';
 import { Injectable, Logger, UnauthorizedException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
@@ -190,12 +190,15 @@ export class UserService {
       throw new UnauthorizedException('Current password is incorrect');
     }
 
-    // Assign plaintext and let `UserEntity.@BeforeUpdate`
-    // (guarded by `isDirty('password')`) hash it via argon2id.
-    // Pre-hashing here would race the hook and produce a
-    // double-hash (`argon2(argon2(plain))`), which the next
-    // login's `verifyPassword` would reject.
-    user.password = dto.newPassword;
+    // Pre-hash the plaintext on the service side. `UserEntity`
+    // has only `@BeforeInsert` (no `@BeforeUpdate` — that hook
+    // was removed because it double-hashed the loaded hash on
+    // every PATCH /users/me and silently locked users out).
+    // Without the pre-hash here the plaintext would be stored
+    // verbatim on the next `save()` and the next login's
+    // `verifyPassword` would reject the literal string as an
+    // invalid argon2 blob. Mirrors `AuthService.resetPassword`.
+    user.password = await hashPassword(dto.newPassword);
     await this.userRepository.save(user);
 
     // Belt-and-braces: also kill the current session's own hash. The
