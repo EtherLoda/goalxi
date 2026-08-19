@@ -289,6 +289,13 @@ export default function TransfersPage() {
 
   const SKILL_MAX = 20;
 
+  // Skill-bar colors must match the player detail page
+  // (web/src/app/[locale]/players/[id]/page.tsx):
+  //   - technical / GK  = #a1ffc2
+  //   - physical        = #60a5fa
+  //   - mental          = #abf853
+  //   - set pieces      = #f59e0b
+  // If you change one here, change the other too.
   const renderSkillBar = (label: string, current: number, potential: number, colorClass: string) => {
     const percentage = (current / SKILL_MAX) * 100;
     return (

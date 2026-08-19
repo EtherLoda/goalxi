@@ -210,7 +210,7 @@ function ListPlayerModal({ player, onClose, onSuccess }: ListPlayerModalProps) {
             disabled={isSubmitting}
             className="w-full py-3 rounded-xl bg-[#a1ffc2] text-[#001a12] font-bold text-sm hover:bg-[#8ee6b8] disabled:opacity-50 transition-colors"
           >
-            {isSubmitting ? "Listing..." : t("squad.transfer.listButton")}
+            {isSubmitting ? t("squad.transfer.listing") : t("squad.transfer.listButton")}
           </button>
         </form>
       </div>
@@ -220,6 +220,8 @@ function ListPlayerModal({ player, onClose, onSuccess }: ListPlayerModalProps) {
 
 export default function PlayerDetailPage({ params }: PageProps) {
   const t = useTranslations("squad");
+  const tt = useTranslations("transfers");
+  const tc = useTranslations("common");
   const te = useTranslations("player_events");
   const { user, team } = useAuth();
   const [player, setPlayer] = useState<Player | null>(null);
@@ -298,7 +300,7 @@ export default function PlayerDetailPage({ params }: PageProps) {
     const now = new Date().getTime();
     const expires = new Date(expiresAt).getTime();
     const diff = expires - now;
-    if (diff <= 0) return "Expired";
+    if (diff <= 0) return tt("expired");
     const days = Math.floor(diff / (1000 * 60 * 60 * 24));
     const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
     if (days > 0) return `${days}d ${hours}h`;
@@ -447,7 +449,7 @@ export default function PlayerDetailPage({ params }: PageProps) {
                           calendar_month
                         </span>
                         <span className="text-xs font-bold uppercase tracking-widest text-[#91b2a6]">
-                          {t("common.ageFormat", { y: player.age, d: player.ageDays })}
+                          {tc("ageFormat", { y: player.age, d: player.ageDays })}
                         </span>
                       </div>
                       <div className="flex items-center gap-2">
@@ -475,17 +477,17 @@ export default function PlayerDetailPage({ params }: PageProps) {
                       )}
                       {player.isGoalkeeper && (
                         <span className="bg-[#0066ff]/20 text-[#60a5fa] px-3 py-1 rounded-full text-[10px] font-bold font-space">
-                          GOALKEEPER
+                          {tt("status.goalkeeper")}
                         </span>
                       )}
                       {player.onTransfer && (
                         <span className="bg-[#a1ffc2]/20 text-[#a1ffc2] px-3 py-1 rounded-full text-[10px] font-bold font-space">
-                          ON TRANSFER
+                          {tt("status.onTransfer")}
                         </span>
                       )}
                       {player.isYouth && (
                         <span className="bg-[#f59e0b]/20 text-[#f59e0b] px-3 py-1 rounded-full text-[10px] font-bold font-space">
-                          YOUTH
+                          {tt("status.youth")}
                         </span>
                       )}
                     </div>
@@ -566,7 +568,7 @@ export default function PlayerDetailPage({ params }: PageProps) {
                     </div>
                     <div
                       className={`px-3 py-1.5 rounded-lg flex items-center gap-2 ${
-                        formatTimeRemaining(auction.expiresAt) === "Expired"
+                        formatTimeRemaining(auction.expiresAt) === tt("expired")
                           ? "bg-red-500/80"
                           : "bg-[#002c22]/80 backdrop-blur-md"
                       }`}
@@ -584,7 +586,7 @@ export default function PlayerDetailPage({ params }: PageProps) {
                   <div className="grid grid-cols-2 gap-4 mb-4">
                     <div className="bg-[#002c22] p-4 rounded-2xl border border-[#2f4e44]/10">
                       <p className="text-[10px] text-[#91b2a6] uppercase tracking-widest mb-1">
-                        Current Price
+                        {tt("detail.currentPrice")}
                       </p>
                       <p className="text-2xl font-bold text-[#a1ffc2] truncate">
                         {formatCurrency(auction.currentPrice)}
@@ -592,7 +594,7 @@ export default function PlayerDetailPage({ params }: PageProps) {
                     </div>
                     <div className="bg-[#002c22] p-4 rounded-2xl border border-[#2f4e44]/10">
                       <p className="text-[10px] text-[#91b2a6] uppercase tracking-widest mb-1">
-                        Buyout
+                        {tt("detail.buyout")}
                       </p>
                       <p className="text-xl font-bold text-[#d3f5e8] mb-2 truncate">
                         {formatCurrency(auction.buyoutPrice)}
@@ -602,7 +604,7 @@ export default function PlayerDetailPage({ params }: PageProps) {
                           onClick={() => setShowBuyoutConfirm(true)}
                           className="w-full py-2 bg-[#a1ffc2] text-[#00110c] font-bold text-[10px] rounded-lg uppercase tracking-widest hover:brightness-110 transition-all"
                         >
-                          Buy
+                          {tt("buyout.buyNow")}
                         </button>
                       )}
                     </div>
@@ -658,15 +660,15 @@ export default function PlayerDetailPage({ params }: PageProps) {
                       <div className="flex gap-3 items-center">
                         <div className="flex-1 relative">
                           <label className="absolute -top-2 left-3 px-1 bg-[#001e17] text-[8px] text-[#00ec90] font-bold uppercase tracking-widest z-10">
-                            Offer Price
+                            {tt("detail.offerPrice")}
                           </label>
                           <div className="relative">
                             <span className="absolute left-4 top-1/2 -translate-y-1/2 text-[#a1ffc2] font-bold text-sm">
-                              £
+                              {tc("currencySymbol")}
                             </span>
                             <input
                               className="w-full bg-[#002c22] border border-[#2f4e44]/30 rounded-xl py-3 pl-8 pr-4 text-sm font-bold text-[#d3f5e8] focus:ring-1 focus:ring-[#a1ffc2] focus:border-[#a1ffc2] transition-all placeholder:text-[#91b2a6]/40"
-                              placeholder="Enter offer"
+                              placeholder={tt("placeholder.enterOffer")}
                               type="text"
                               value={formatBidAmountInput(bidAmount)}
                               onChange={(e) =>
@@ -709,7 +711,7 @@ export default function PlayerDetailPage({ params }: PageProps) {
                           <span className="material-symbols-outlined text-sm">
                             payments
                           </span>
-                          Make Offer
+                          {tt("detail.makeOffer")}
                         </button>
                       </div>
                     </div>
@@ -939,7 +941,7 @@ export default function PlayerDetailPage({ params }: PageProps) {
         ) : (
           <div className="w-full max-w-[700px] mx-auto text-center">
             <p className="text-[#91b2a6] text-lg">
-              {t("playerNotFound") || "Player not found"}
+              {t("states.playerNotFound")}
             </p>
             <Link
               href={`/${resolvedParams?.locale}/teams/squad`}
@@ -948,7 +950,7 @@ export default function PlayerDetailPage({ params }: PageProps) {
               <span className="material-symbols-outlined text-lg">
                 arrow_back
               </span>
-              {t("backToSquad") || "Back to Squad"}
+              {t("states.backToSquad")}
             </Link>
           </div>
         )}
@@ -998,23 +1000,17 @@ export default function PlayerDetailPage({ params }: PageProps) {
                 </span>
               </div>
               <h3 className="text-xl font-bold text-[#d3f5e8] mb-2">
-                Confirm Buyout
+                {tt("buyout.confirmTitle")}
               </h3>
               <p className="text-[#91b2a6] text-sm mb-6">
-                Buy out{" "}
-                <span className="text-[#d3f5e8] font-bold">{player.name}</span>{" "}
-                for{" "}
-                <span className="text-[#a1ffc2] font-bold">
-                  {formatCurrency(auction.buyoutPrice)}
-                </span>
-                ?
+                {tt("buyout.confirmMessage", { playerName: player.name, price: formatCurrency(auction.buyoutPrice) })}
               </p>
               <div className="flex gap-4">
                 <button
                   className="flex-1 py-3 bg-[#002c22] text-[#d3f5e8] font-bold rounded-xl hover:bg-[#003328] transition-all uppercase tracking-widest text-xs"
                   onClick={() => setShowBuyoutConfirm(false)}
                 >
-                  Cancel
+                  {tt("buyout.cancel")}
                 </button>
                 <button
                   className="flex-1 py-3 bg-[#ef4444] text-white font-bold rounded-xl hover:bg-red-600 transition-all uppercase tracking-widest text-xs"
