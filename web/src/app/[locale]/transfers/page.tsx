@@ -41,28 +41,28 @@ export default function TransfersPage() {
   const [historyTransactions, setHistoryTransactions] = useState<any[]>([]);
 
   const OUTFIELD_ATTRIBUTES = [
-    { value: "pace", label: "Pace", icon: "directions_run" },
-    { value: "strength", label: "Strength", icon: "fitness_center" },
-    { value: "finishing", label: "Finishing", icon: "sports_soccer" },
-    { value: "dribbling", label: "Dribbling", icon: "sports_basketball" },
-    { value: "passing", label: "Passing", icon: "swap_horiz" },
-    { value: "defending", label: "Defending", icon: "shield" },
-    { value: "composure", label: "Composure", icon: "psychology" },
-    { value: "positioning", label: "Positioning", icon: "place_item" },
-    { value: "freeKicks", label: "Free Kicks", icon: "sports" },
-    { value: "penalties", label: "Penalties", icon: "flag" },
+    { value: "pace", label: t("squad.skills.pace"), icon: "directions_run" },
+    { value: "strength", label: t("squad.skills.strength"), icon: "fitness_center" },
+    { value: "finishing", label: t("squad.skills.finishing"), icon: "sports_soccer" },
+    { value: "dribbling", label: t("squad.skills.dribbling"), icon: "sports_basketball" },
+    { value: "passing", label: t("squad.skills.passing"), icon: "swap_horiz" },
+    { value: "defending", label: t("squad.skills.defending"), icon: "shield" },
+    { value: "composure", label: t("squad.skills.composure"), icon: "psychology" },
+    { value: "positioning", label: t("squad.skills.positioning"), icon: "place_item" },
+    { value: "freeKicks", label: t("squad.skills.freeKicks"), icon: "sports" },
+    { value: "penalties", label: t("squad.skills.penalties"), icon: "flag" },
   ];
 
   const GK_ATTRIBUTES = [
-    { value: "reflexes", label: "Reflexes", icon: "pan_tool" },
-    { value: "handling", label: "Handling", icon: "back_hand" },
-    { value: "aerial", label: "Aerial", icon: "sports" },
-    { value: "pace", label: "Pace", icon: "directions_run" },
-    { value: "strength", label: "Strength", icon: "fitness_center" },
-    { value: "positioning", label: "Positioning", icon: "place_item" },
-    { value: "composure", label: "Composure", icon: "psychology" },
-    { value: "freeKicks", label: "Free Kicks", icon: "sports" },
-    { value: "penalties", label: "Penalties", icon: "flag" },
+    { value: "reflexes", label: t("squad.skills.reflexes"), icon: "pan_tool" },
+    { value: "handling", label: t("squad.skills.handling"), icon: "back_hand" },
+    { value: "aerial", label: t("squad.skills.aerial"), icon: "sports" },
+    { value: "pace", label: t("squad.skills.pace"), icon: "directions_run" },
+    { value: "strength", label: t("squad.skills.strength"), icon: "fitness_center" },
+    { value: "positioning", label: t("squad.skills.positioning"), icon: "place_item" },
+    { value: "composure", label: t("squad.skills.composure"), icon: "psychology" },
+    { value: "freeKicks", label: t("squad.skills.freeKicks"), icon: "sports" },
+    { value: "penalties", label: t("squad.skills.penalties"), icon: "flag" },
   ];
 
   const ATTRIBUTES = playerTypeFilter === "gk" ? GK_ATTRIBUTES : OUTFIELD_ATTRIBUTES;
@@ -72,19 +72,21 @@ export default function TransfersPage() {
   // v1 codes (HEADER/LPASS/...) are no longer in the filter because
   // they're deprecated and never produced by the new generator.
   const SPECIALTIES = [
-    { value: "AERIAL_THREAT",  label: "空霸" },
-    { value: "DRIBBLER",       label: "盘带大师" },
-    { value: "PLAYMAKER",      label: "组织核心" },
-    { value: "TACKLER",        label: "抢断专家" },
-    { value: "WALL",           label: "铁壁" },
-    { value: "SPEEDSTER",      label: "闪电疾锋" },
-    { value: "CROSSER",        label: "传中狂魔" },
-    { value: "POACHER",        label: "禁区之狐" },
-    { value: "COMPOSED",       label: "泰山" },
-    { value: "PHYSICAL_BEAST", label: "铁人" },
-    { value: "SAVING_MASTER",  label: "扑救专家" },
-    { value: "SWEEPER_KEEPER", label: "出击门将" },
+    { value: "AERIAL_THREAT",  label: t("transfers.specialties.AERIAL_THREAT") },
+    { value: "DRIBBLER",       label: t("transfers.specialties.DRIBBLER") },
+    { value: "PLAYMAKER",      label: t("transfers.specialties.PLAYMAKER") },
+    { value: "TACKLER",        label: t("transfers.specialties.TACKLER") },
+    { value: "WALL",           label: t("transfers.specialties.WALL") },
+    { value: "SPEEDSTER",      label: t("transfers.specialties.SPEEDSTER") },
+    { value: "CROSSER",        label: t("transfers.specialties.CROSSER") },
+    { value: "POACHER",        label: t("transfers.specialties.POACHER") },
+    { value: "COMPOSED",       label: t("transfers.specialties.COMPOSED") },
+    { value: "PHYSICAL_BEAST", label: t("transfers.specialties.PHYSICAL_BEAST") },
+    { value: "SAVING_MASTER",  label: t("transfers.specialties.SAVING_MASTER") },
+    { value: "SWEEPER_KEEPER", label: t("transfers.specialties.SWEEPER_KEEPER") },
   ];
+
+  const EXPIRED_LABEL = t("transfers.expired");
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -158,13 +160,13 @@ export default function TransfersPage() {
       }
       return auctionsData;
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to load transfers");
+      setError(err instanceof Error ? err.message : t("transfers.error.failedToLoad"));
       console.error("Failed to fetch transfers:", err);
       return [];
     } finally {
       setIsLoading(false);
     }
-  }, [user, team, selectedTransfer]);
+  }, [user, team, selectedTransfer, t]);
 
   useEffect(() => {
     fetchTransfers();
@@ -202,7 +204,7 @@ export default function TransfersPage() {
     const expires = new Date(expiresAt);
     const diff = expires.getTime() - now.getTime();
 
-    if (diff <= 0) return "Expired";
+    if (diff <= 0) return EXPIRED_LABEL;
 
     const hours = Math.floor(diff / (1000 * 60 * 60));
     const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
@@ -378,7 +380,7 @@ export default function TransfersPage() {
                       : "text-[#91b2a6] hover:text-[#d3f5e8]"
                   }`}
                 >
-                  Outfield
+                  {t("transfers.playerType.outfield")}
                 </button>
                 <button
                   onClick={() => {
@@ -391,7 +393,7 @@ export default function TransfersPage() {
                       : "text-[#91b2a6] hover:text-[#d3f5e8]"
                   }`}
                 >
-                  Goalkeeper
+                  {t("transfers.playerType.goalkeeper")}
                 </button>
               </div>
 
@@ -753,7 +755,7 @@ export default function TransfersPage() {
                     <div className="w-full h-full bg-gradient-to-br from-[#a1ffc2]/20 to-[#00251c]" />
                     <div className="absolute inset-0 bg-gradient-to-t from-[#00251c] via-transparent to-black/20" />
                     <div className={`absolute top-4 right-4 px-3 py-1.5 rounded-lg flex items-center gap-2 ${
-                      formatTimeRemaining(selectedTransfer.expiresAt) === "Expired"
+                      formatTimeRemaining(selectedTransfer.expiresAt) === EXPIRED_LABEL
                         ? "bg-red-500/80"
                         : "bg-[#00251c]/80 backdrop-blur-md"
                     }`}>
@@ -875,7 +877,7 @@ export default function TransfersPage() {
                                 onClick={() => setShowBidHistoryModal(true)}
                                 className="text-[10px] text-[#91b2a6] hover:text-[#a1ffc2] transition-colors flex items-center gap-1"
                               >
-                                <span>more</span>
+                                <span>{t("transfers.more")}</span>
                                 <span className="material-symbols-outlined text-sm">navigate_next</span>
                               </button>
                             )}
@@ -888,7 +890,7 @@ export default function TransfersPage() {
                                     <span className="text-[9px] font-bold text-[#a1ffc2]">{(bid.teamName || '?').charAt(0)}</span>
                                   </div>
                                   <div>
-                                    <p className="text-[11px] font-semibold text-[#d3f5e8]">{bid.teamName || 'Unknown'}</p>
+                                    <p className="text-[11px] font-semibold text-[#d3f5e8]">{bid.teamName || t("transfers.notifications.unknown")}</p>
                                     <p className="text-[9px] text-[#91b2a6]">{formatBidTime(bid.timestamp)}</p>
                                   </div>
                                 </div>
@@ -929,13 +931,13 @@ export default function TransfersPage() {
                         setIsSubmittingBid(true);
                         try {
                           await api.transfers.placeBid(selectedTransfer.id, amount);
-                          setNotification({ type: 'success', message: `Offer submitted: £${amount.toLocaleString()} for ${selectedTransfer.player.name}` });
+                          setNotification({ type: 'success', message: t("transfers.notifications.offerSubmitted", { amount: `£${amount.toLocaleString()}`, player: selectedTransfer.player.name }) });
                           setBidAmount("");
                           const freshData = await fetchTransfers();
                           const updated = freshData.find(t => t.id === selectedTransfer.id);
                           if (updated) setSelectedTransfer(updated);
                         } catch (error) {
-                          setNotification({ type: 'error', message: error instanceof Error ? error.message : "Failed to submit offer" });
+                          setNotification({ type: 'error', message: error instanceof Error ? error.message : t("transfers.notifications.offerFailed") });
                         } finally {
                           setIsSubmittingBid(false);
                         }
@@ -1019,7 +1021,7 @@ export default function TransfersPage() {
                         <span className="text-[10px] font-bold text-[#a1ffc2]">{(bid.teamName || '?').charAt(0)}</span>
                       </div>
                       <div>
-                        <p className="text-[12px] font-semibold text-[#d3f5e8]">{bid.teamName || 'Unknown'}</p>
+                        <p className="text-[12px] font-semibold text-[#d3f5e8]">{bid.teamName || t("transfers.notifications.unknown")}</p>
                         <p className="text-[10px] text-[#91b2a6]">{formatBidTime(bid.timestamp)}</p>
                       </div>
                     </div>

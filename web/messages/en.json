@@ -679,14 +679,92 @@
       "buyoutSuccess": "Buyout successful!",
       "buyoutFailed": "Buyout failed"
     },
-    "submitting": "Submitting..."
+    "submitting": "Submitting...",
+    "expired": "Expired",
+    "more": "more",
+    "playerType": {
+      "outfield": "Outfield",
+      "goalkeeper": "Goalkeeper"
+    },
+    "specialties": {
+      "AERIAL_THREAT": "Aerial Threat",
+      "DRIBBLER": "Dribbler",
+      "PLAYMAKER": "Playmaker",
+      "TACKLER": "Tackler",
+      "WALL": "Wall",
+      "SPEEDSTER": "Speedster",
+      "CROSSER": "Crosser",
+      "POACHER": "Poacher",
+      "COMPOSED": "Composed",
+      "PHYSICAL_BEAST": "Physical Beast",
+      "SAVING_MASTER": "Saving Master",
+      "SWEEPER_KEEPER": "Sweeper Keeper"
+    },
+    "notifications": {
+      "offerSubmitted": "Offer submitted: {amount} for {player}",
+      "offerFailed": "Failed to submit offer",
+      "unknown": "Unknown"
+    }
   },
   "shortlist": {
     "title": "My Transfer Shortlist",
-    "myBids": "My Bids",
-    "myListings": "My Listings",
-    "myPurchases": "Purchases",
-    "mySales": "Sales"
+    "subtitle": "Transfer Shortlist",
+    "yourClub": "Your Club",
+    "tabs": {
+      "buying": "Buying",
+      "selling": "Selling"
+    },
+    "activeBids": "Active Bids ({count})",
+    "noBids": "No active bids",
+    "currentBid": "Current Bid",
+    "highest": "Highest",
+    "outbid": "Outbid",
+    "purchases": "Purchases ({count})",
+    "noPurchases": "No purchases yet",
+    "from": "From {team}",
+    "activeListings": "Active Listings ({count})",
+    "noListings": "No active listings",
+    "bidsCount": "{count} bids",
+    "ends": "Ends {time}",
+    "sales": "Sales ({count})",
+    "noSales": "No sales yet",
+    "to": "To {team}",
+    "season": "S{season}",
+    "expired": "Expired",
+    "failedToLoad": "Failed to load data",
+    "history": {
+      "title": "Transfer History",
+      "recentArrivals": "Recent Arrivals",
+      "signed": "SIGNED",
+      "transferFee": "Transfer Fee",
+      "from": "From {team}",
+      "unknown": "UNKNOWN",
+      "unknownPlayer": "Unknown Player",
+      "transactionLog": "Transaction Log",
+      "filterAll": "All",
+      "filterInbound": "Inbound",
+      "filterOutbound": "Outbound",
+      "allSeasons": "All Seasons",
+      "seasonOption": "Season {n}",
+      "loading": "Loading...",
+      "noTransactions": "No transactions found.",
+      "tableSeason": "Season",
+      "tableDate": "Date",
+      "tablePlayer": "Player",
+      "tableType": "Type",
+      "tableClub": "Club",
+      "tableFee": "Fee",
+      "tableStatus": "Status",
+      "completed": "Completed",
+      "inbound": "Inbound",
+      "outbound": "Outbound",
+      "age": "Age: {age}",
+      "showing": "Showing {count} of {total} transactions",
+      "prev": "Prev",
+      "next": "Next",
+      "page": "Page {page} of {total}",
+      "failedToLoad": "Failed to fetch history"
+    }
   },
   "league": {
     "tabs": {

@@ -3,15 +3,17 @@
 import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
+import { useTranslations } from "next-intl";
 import { useAuth } from "@/contexts/AuthContext";
 import { api, type MyBid, type TransferAuction, type TransferTransaction } from "@/lib/api";
 
 type TabType = "buying" | "selling";
 
 export default function ShortlistPage() {
-  const { user, team } = useAuth();
+  const t = useTranslations();
+  const { team } = useAuth();
   const params = useParams();
-  const locale = params.locale as string;
+  const localeParam = params.locale as string;
   const [activeTab, setActiveTab] = useState<TabType>("buying");
   type EnrichedBid = MyBid & { highestBid: number; isHighestBidder: boolean; competitorBid?: number; competitorTeam?: string };
   const [bids, setBids] = useState<EnrichedBid[]>([]);
@@ -19,12 +21,10 @@ export default function ShortlistPage() {
   const [purchases, setPurchases] = useState<TransferTransaction[]>([]);
   const [sales, setSales] = useState<TransferTransaction[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
 
   const fetchData = useCallback(async () => {
     if (!team) return;
     setIsLoading(true);
-    setError(null);
     try {
       const [bidsData, listingsData, purchasesData, salesData] = await Promise.all([
         api.transfers.getMyBids(),
@@ -56,12 +56,11 @@ export default function ShortlistPage() {
       setPurchases(purchasesData.items);
       setSales(salesData.items);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to load data");
-      console.error("Failed to fetch shortlist data:", err);
+      console.error(t("shortlist.failedToLoad"), err);
     } finally {
       setIsLoading(false);
     }
-  }, [team]);
+  }, [team, t]);
 
   useEffect(() => {
     fetchData();
@@ -73,7 +72,7 @@ export default function ShortlistPage() {
     const now = new Date();
     const expires = new Date(expiresAt);
     const diff = expires.getTime() - now.getTime();
-    if (diff <= 0) return "Expired";
+    if (diff <= 0) return t("shortlist.expired");
     const hours = Math.floor(diff / (1000 * 60 * 60));
     const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
     if (hours >= 48) {
@@ -82,16 +81,6 @@ export default function ShortlistPage() {
     }
     if (hours >= 24) return `${Math.floor(hours / 24)}d ${hours % 24}h`;
     return `${hours}H ${minutes}M`;
-  };
-
-  const formatDate = (dateStr: string) => {
-    const date = new Date(dateStr);
-    return date.toLocaleDateString("en-GB", {
-      day: "2-digit",
-      month: "short",
-      hour: "2-digit",
-      minute: "2-digit",
-    });
   };
 
   const getActiveBids = () => bids.filter((b) => b.status === "ACTIVE");
@@ -104,10 +93,10 @@ export default function ShortlistPage() {
           <div className="flex justify-between items-center">
             <div>
               <h1 className="text-2xl font-black text-[#00FF9C] tracking-tighter uppercase">
-                {team?.name || "Your Club"}
+                {team?.name || t("shortlist.yourClub")}
               </h1>
               <p className="text-[10px] uppercase tracking-[0.3em] text-[#91b2a6] font-bold mt-1">
-                Transfer Shortlist
+                {t("shortlist.subtitle")}
               </p>
             </div>
           </div>
@@ -122,7 +111,7 @@ export default function ShortlistPage() {
                   : "text-[#91b2a6] hover:text-[#d3f5e8]"
               }`}
             >
-              Buying
+              {t("shortlist.tabs.buying")}
             </button>
             <button
               onClick={() => setActiveTab("selling")}
@@ -132,7 +121,7 @@ export default function ShortlistPage() {
                   : "text-[#91b2a6] hover:text-[#d3f5e8]"
               }`}
             >
-              Selling
+              {t("shortlist.tabs.selling")}
             </button>
           </div>
         </div>
@@ -146,7 +135,7 @@ export default function ShortlistPage() {
             <section>
               <div className="flex items-center justify-between mb-4">
                 <h2 className="text-xs uppercase tracking-[0.2em] text-[#91b2a6] font-bold">
-                  Active Bids ({getActiveBids().length})
+                  {t("shortlist.activeBids", { count: getActiveBids().length })}
                 </h2>
               </div>
               {isLoading ? (
@@ -157,7 +146,7 @@ export default function ShortlistPage() {
                 </div>
               ) : getActiveBids().length === 0 ? (
                 <div className="text-center py-12 text-[#91b2a6] text-sm">
-                  No active bids
+                  {t("shortlist.noBids")}
                 </div>
               ) : (
                 <div className="space-y-3">
@@ -172,7 +161,7 @@ export default function ShortlistPage() {
                         </div>
                         <div>
                           <Link
-                            href={`/${locale}/players/${bid.player.id}`}
+                            href={`/${localeParam}/players/${bid.player.id}`}
                             className="text-sm font-bold text-[#d3f5e8] hover:text-[#a1ffc2] transition-colors"
                           >
                             {bid.player.name}
@@ -184,7 +173,7 @@ export default function ShortlistPage() {
                       </div>
                       <div className="flex items-center gap-6">
                         <div className="text-right">
-                          <p className="text-xs text-[#91b2a6] mb-1">Current Bid</p>
+                          <p className="text-xs text-[#91b2a6] mb-1">{t("shortlist.currentBid")}</p>
                           <p className="text-lg font-bold text-[#d3f5e8]">
                             {formatCurrency(bid.currentPrice)}
                           </p>
@@ -197,7 +186,7 @@ export default function ShortlistPage() {
                                 : "bg-[#ff716c]/10 text-[#ff716c] border border-[#ff716c]/20"
                             }`}
                           >
-                            {bid.isHighestBidder ? "Highest" : "Outbid"}
+                            {bid.isHighestBidder ? t("shortlist.highest") : t("shortlist.outbid")}
                           </span>
                         </div>
                       </div>
@@ -210,10 +199,10 @@ export default function ShortlistPage() {
             {/* Purchases */}
             <section>
               <h2 className="text-xs uppercase tracking-[0.2em] text-[#91b2a6] font-bold mb-4">
-                Purchases ({purchases.length})
+                {t("shortlist.purchases", { count: purchases.length })}
               </h2>
               {purchases.length === 0 ? (
-                <div className="text-center py-8 text-[#91b2a6] text-sm">No purchases yet</div>
+                <div className="text-center py-8 text-[#91b2a6] text-sm">{t("shortlist.noPurchases")}</div>
               ) : (
                 <div className="space-y-3">
                   {purchases.map((tx) => (
@@ -227,13 +216,13 @@ export default function ShortlistPage() {
                         </div>
                         <div>
                           <Link
-                            href={`/${locale}/players/${tx.player.id}`}
+                            href={`/${localeParam}/players/${tx.player.id}`}
                             className="text-sm font-bold text-[#d3f5e8] hover:text-[#a1ffc2] transition-colors"
                           >
                             {tx.player.name}
                           </Link>
                           <p className="text-[10px] text-[#91b2a6]">
-                            {tx.player.age}y • {tx.player.position} • From {tx.fromTeam?.name}
+                            {tx.player.age}y • {tx.player.position} • {t("shortlist.from", { team: tx.fromTeam?.name || "" })}
                           </p>
                         </div>
                       </div>
@@ -241,7 +230,7 @@ export default function ShortlistPage() {
                         <p className="text-lg font-bold text-[#a1ffc2]">
                           {formatCurrency(tx.amount)}
                         </p>
-                        <p className="text-[10px] text-[#91b2a6]">S{tx.season}</p>
+                        <p className="text-[10px] text-[#91b2a6]">{t("shortlist.season", { season: tx.season })}</p>
                       </div>
                     </div>
                   ))}
@@ -254,7 +243,7 @@ export default function ShortlistPage() {
             {/* Active Listings */}
             <section>
               <h2 className="text-xs uppercase tracking-[0.2em] text-[#91b2a6] font-bold mb-4">
-                Active Listings ({listings.length})
+                {t("shortlist.activeListings", { count: listings.length })}
               </h2>
               {isLoading ? (
                 <div className="space-y-3">
@@ -264,7 +253,7 @@ export default function ShortlistPage() {
                 </div>
               ) : listings.length === 0 ? (
                 <div className="text-center py-12 text-[#91b2a6] text-sm">
-                  No active listings
+                  {t("shortlist.noListings")}
                 </div>
               ) : (
                 <div className="space-y-3">
@@ -279,7 +268,7 @@ export default function ShortlistPage() {
                         </div>
                         <div>
                           <Link
-                            href={`/${locale}/players/${listing.player.id}`}
+                            href={`/${localeParam}/players/${listing.player.id}`}
                             className="text-sm font-bold text-[#d3f5e8] hover:text-[#a1ffc2] transition-colors"
                           >
                             {listing.player.name}
@@ -291,17 +280,17 @@ export default function ShortlistPage() {
                       </div>
                       <div className="flex items-center gap-6">
                         <div className="text-right">
-                          <p className="text-xs text-[#91b2a6] mb-1">Current Bid</p>
+                          <p className="text-xs text-[#91b2a6] mb-1">{t("shortlist.currentBid")}</p>
                           <p className="text-lg font-bold text-[#a1ffc2]">
                             {formatCurrency(listing.currentPrice)}
                           </p>
                         </div>
                         <div className="text-right">
                           <p className="text-[10px] text-[#91b2a6]">
-                            {listing.bidHistory.length} bids
+                            {t("shortlist.bidsCount", { count: listing.bidHistory.length })}
                           </p>
                           <p className="text-[10px] text-[#91b2a6]">
-                            Ends {formatTimeRemaining(listing.expiresAt)}
+                            {t("shortlist.ends", { time: formatTimeRemaining(listing.expiresAt) })}
                           </p>
                         </div>
                       </div>
@@ -314,10 +303,10 @@ export default function ShortlistPage() {
             {/* Sales */}
             <section>
               <h2 className="text-xs uppercase tracking-[0.2em] text-[#91b2a6] font-bold mb-4">
-                Sales ({sales.length})
+                {t("shortlist.sales", { count: sales.length })}
               </h2>
               {sales.length === 0 ? (
-                <div className="text-center py-8 text-[#91b2a6] text-sm">No sales yet</div>
+                <div className="text-center py-8 text-[#91b2a6] text-sm">{t("shortlist.noSales")}</div>
               ) : (
                 <div className="space-y-3">
                   {sales.map((tx) => (
@@ -331,13 +320,13 @@ export default function ShortlistPage() {
                         </div>
                         <div>
                           <Link
-                            href={`/${locale}/players/${tx.player.id}`}
+                            href={`/${localeParam}/players/${tx.player.id}`}
                             className="text-sm font-bold text-[#d3f5e8] hover:text-[#a1ffc2] transition-colors"
                           >
                             {tx.player.name}
                           </Link>
                           <p className="text-[10px] text-[#91b2a6]">
-                            {tx.player.age}y • {tx.player.position} • To {tx.toTeam?.name}
+                            {tx.player.age}y • {tx.player.position} • {t("shortlist.to", { team: tx.toTeam?.name || "" })}
                           </p>
                         </div>
                       </div>
@@ -345,7 +334,7 @@ export default function ShortlistPage() {
                         <p className="text-lg font-bold text-[#d3f5e8]">
                           {formatCurrency(tx.amount)}
                         </p>
-                        <p className="text-[10px] text-[#91b2a6]">S{tx.season}</p>
+                        <p className="text-[10px] text-[#91b2a6]">{t("shortlist.season", { season: tx.season })}</p>
                       </div>
                     </div>
                   ))}

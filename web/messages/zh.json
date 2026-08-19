@@ -679,14 +679,92 @@
       "buyoutSuccess": "买断成功！",
       "buyoutFailed": "买断失败"
     },
-    "submitting": "提交中..."
+    "submitting": "提交中...",
+    "expired": "已过期",
+    "more": "更多",
+    "playerType": {
+      "outfield": "外场",
+      "goalkeeper": "门将"
+    },
+    "specialties": {
+      "AERIAL_THREAT": "空霸",
+      "DRIBBLER": "盘带大师",
+      "PLAYMAKER": "组织核心",
+      "TACKLER": "抢断专家",
+      "WALL": "铁壁",
+      "SPEEDSTER": "闪电疾锋",
+      "CROSSER": "传中狂魔",
+      "POACHER": "禁区之狐",
+      "COMPOSED": "泰山",
+      "PHYSICAL_BEAST": "铁人",
+      "SAVING_MASTER": "扑救专家",
+      "SWEEPER_KEEPER": "出击门将"
+    },
+    "notifications": {
+      "offerSubmitted": "已提交报价：{amount}，目标 {player}",
+      "offerFailed": "提交报价失败",
+      "unknown": "未知"
+    }
   },
   "shortlist": {
     "title": "我的转会清单",
-    "myBids": "我的出价",
-    "myListings": "挂牌中",
-    "myPurchases": "今日买入",
-    "mySales": "今日出售"
+    "subtitle": "转会清单",
+    "yourClub": "你的俱乐部",
+    "tabs": {
+      "buying": "求购中",
+      "selling": "挂牌中"
+    },
+    "activeBids": "进行中的出价（{count}）",
+    "noBids": "暂无进行中的出价",
+    "currentBid": "当前出价",
+    "highest": "领先",
+    "outbid": "已被超越",
+    "purchases": "已购入（{count}）",
+    "noPurchases": "暂无购入记录",
+    "from": "来自 {team}",
+    "activeListings": "挂牌中（{count}）",
+    "noListings": "暂无挂牌",
+    "bidsCount": "{count} 次出价",
+    "ends": "{time} 结束",
+    "sales": "已售出（{count}）",
+    "noSales": "暂无售出记录",
+    "to": "售至 {team}",
+    "season": "第 {season} 赛季",
+    "expired": "已过期",
+    "failedToLoad": "加载数据失败",
+    "history": {
+      "title": "转会历史",
+      "recentArrivals": "近期加盟",
+      "signed": "已签约",
+      "transferFee": "转会费",
+      "from": "来自 {team}",
+      "unknown": "未知",
+      "unknownPlayer": "未知球员",
+      "transactionLog": "交易记录",
+      "filterAll": "全部",
+      "filterInbound": "买入",
+      "filterOutbound": "卖出",
+      "allSeasons": "所有赛季",
+      "seasonOption": "第 {n} 赛季",
+      "loading": "加载中...",
+      "noTransactions": "暂无交易记录。",
+      "tableSeason": "赛季",
+      "tableDate": "日期",
+      "tablePlayer": "球员",
+      "tableType": "类型",
+      "tableClub": "俱乐部",
+      "tableFee": "费用",
+      "tableStatus": "状态",
+      "completed": "已完成",
+      "inbound": "买入",
+      "outbound": "卖出",
+      "age": "年龄：{age}",
+      "showing": "显示 {count} / {total} 条记录",
+      "prev": "上一页",
+      "next": "下一页",
+      "page": "第 {page} / {total} 页",
+      "failedToLoad": "加载历史记录失败"
+    }
   },
   "league": {
     "tabs": {
