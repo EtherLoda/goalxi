@@ -1,6 +1,6 @@
 import {
-  GAME_SETTINGS,
   CupBracketSlotEntity,
+  GAME_SETTINGS,
   LeagueEntity,
   MatchEntity,
   MatchEventEntity,
@@ -140,7 +140,9 @@ export class MatchService {
       .take(limit)
       .getManyAndCount();
 
-    const dtos = matches.map((match) => this.mapToResDto(match, { cupId: null, cupRound: null }));
+    const dtos = matches.map((match) =>
+      this.mapToResDto(match, { cupId: null, cupRound: null }),
+    );
 
     const matchIds = matches.map((m) => m.id);
     if (matchIds.length > 0) {

@@ -1,7 +1,15 @@
-import { Controller, Get, HttpCode, HttpStatus, Param, ParseIntPipe, Query } from '@nestjs/common';
-import { ApiTags } from '@nestjs/swagger';
 import { Uuid } from '@/common/types/common.type';
 import { Public } from '@/decorators/public.decorator';
+import {
+  Controller,
+  Get,
+  HttpCode,
+  HttpStatus,
+  Param,
+  ParseIntPipe,
+  Query,
+} from '@nestjs/common';
+import { ApiTags } from '@nestjs/swagger';
 import { CupService } from './cup.service';
 import { CupBracketResDto } from './dto/cup-bracket.res.dto';
 import { CupResDto } from './dto/cup.res.dto';

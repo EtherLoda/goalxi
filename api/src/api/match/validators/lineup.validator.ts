@@ -1,7 +1,4 @@
-import {
-  BENCH_KEYS,
-  POSITION_KEYS,
-} from '@goalxi/database';
+import { BENCH_KEYS, POSITION_KEYS } from '@goalxi/database';
 
 /**
  * Legacy slot keys the engine's `SLOT_KEY_NORMALIZER` accepts.
@@ -15,14 +12,33 @@ import {
  */
 const LEGACY_SLOT_KEYS = [
   'ST',
-  'CD', 'CDL', 'CDR',
-  'CAM', 'CAML', 'CAMR',
-  'CDM', 'DMF', 'DMFL', 'DMFR',
-  'WBL', 'WBR',
-  'LM1', 'LM2', 'RM1', 'RM2',
-  'LW1', 'LW2', 'RW1', 'RW2',
-  'LB1', 'RB1', 'DM1', 'DM2', 'DM3',
-  'CF_LW', 'CF_RW',
+  'CD',
+  'CDL',
+  'CDR',
+  'CAM',
+  'CAML',
+  'CAMR',
+  'CDM',
+  'DMF',
+  'DMFL',
+  'DMFR',
+  'WBL',
+  'WBR',
+  'LM1',
+  'LM2',
+  'RM1',
+  'RM2',
+  'LW1',
+  'LW2',
+  'RW1',
+  'RW2',
+  'LB1',
+  'RB1',
+  'DM1',
+  'DM2',
+  'DM3',
+  'CF_LW',
+  'CF_RW',
 ] as const;
 
 export class LineupValidator {

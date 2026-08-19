@@ -1,6 +1,3 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
-import { In, Repository } from 'typeorm';
 import {
   CupBracketSlotEntity,
   CupEntity,
@@ -8,6 +5,9 @@ import {
   TeamEntity,
   type Uuid,
 } from '@goalxi/database';
+import { Injectable, NotFoundException } from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
+import { In, Repository } from 'typeorm';
 import { CupBracketResDto } from './dto/cup-bracket.res.dto';
 import { CupMatchResDto, CupRoundResDto } from './dto/cup-round.res.dto';
 import { CupResDto } from './dto/cup.res.dto';
@@ -39,10 +39,9 @@ export class CupService {
   ) {}
 
   async findMany(req: ListCupReqDto): Promise<CupResDto[]> {
-    const qb = this.cupRepo.createQueryBuilder('cup').orderBy(
-      'cup.season',
-      'DESC',
-    );
+    const qb = this.cupRepo
+      .createQueryBuilder('cup')
+      .orderBy('cup.season', 'DESC');
     if (req.season !== undefined) {
       qb.andWhere('cup.season = :season', { season: req.season });
     }
@@ -142,9 +141,7 @@ export class CupService {
       // share the same matchId. We pick the home perspective
       // for the primary record and skip the away slot.
       if (homeSlot.matchId && homeSlot.id !== awaySlot.id) {
-        matches.push(
-          this.slotToMatchDto(homeSlot, awaySlot, teamById, false),
-        );
+        matches.push(this.slotToMatchDto(homeSlot, awaySlot, teamById, false));
         // Skip the away slot on the next iteration.
         i++;
         continue;
@@ -162,17 +159,11 @@ export class CupService {
     isBye: boolean,
   ): CupMatchResDto {
     const home = slot.homeTeamId ? teamById.get(slot.homeTeamId) : null;
-    const away = partner?.awayTeamId
-      ? teamById.get(partner.awayTeamId)
-      : null;
+    const away = partner?.awayTeamId ? teamById.get(partner.awayTeamId) : null;
     return {
       matchId: slot.matchId ?? null,
-      homeTeam: home
-        ? { id: home.id, name: home.name, tier: 0 }
-        : null,
-      awayTeam: away
-        ? { id: away.id, name: away.name, tier: 0 }
-        : null,
+      homeTeam: home ? { id: home.id, name: home.name, tier: 0 } : null,
+      awayTeam: away ? { id: away.id, name: away.name, tier: 0 } : null,
       // The winner is the same in both slot perspectives
       // (the progress worker stamps both), so reading from
       // the primary slot is fine.

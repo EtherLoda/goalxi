@@ -1,6 +1,6 @@
 import { Expose, Type } from 'class-transformer';
-import { CupResDto } from './cup.res.dto';
 import { CupRoundResDto } from './cup-round.res.dto';
+import { CupResDto } from './cup.res.dto';
 
 /**
  * Full cup bracket — the response shape for

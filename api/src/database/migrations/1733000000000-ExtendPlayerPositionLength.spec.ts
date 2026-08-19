@@ -71,6 +71,8 @@ describe('1733000000000-ExtendPlayerPositionLength', () => {
   it('down() mirrors the table name (no typo)', () => {
     // A typo like `players` would silently succeed (the table
     // doesn't exist) and leave the real column at 16 forever.
-    expect(codeOnly(downSql)).toMatch(/ALTER\s+TABLE\s+"?player"?\s+ALTER\s+COLUMN\s+"?position"?/i);
+    expect(codeOnly(downSql)).toMatch(
+      /ALTER\s+TABLE\s+"?player"?\s+ALTER\s+COLUMN\s+"?position"?/i,
+    );
   });
 });

@@ -1,6 +1,3 @@
-import { CupService } from './cup.service';
-import { Test } from '@nestjs/testing';
-import { getRepositoryToken } from '@nestjs/typeorm';
 import {
   CupBracketSlotEntity,
   CupEntity,
@@ -9,6 +6,9 @@ import {
   type Uuid,
 } from '@goalxi/database';
 import { NotFoundException } from '@nestjs/common';
+import { Test } from '@nestjs/testing';
+import { getRepositoryToken } from '@nestjs/typeorm';
+import { CupService } from './cup.service';
 
 /**
  * Smoke spec for the cup API service. The interesting logic
@@ -41,7 +41,10 @@ describe('CupService', () => {
         CupService,
         { provide: getRepositoryToken(CupEntity), useValue: cupRepo },
         { provide: getRepositoryToken(CupRoundEntity), useValue: roundRepo },
-        { provide: getRepositoryToken(CupBracketSlotEntity), useValue: slotRepo },
+        {
+          provide: getRepositoryToken(CupBracketSlotEntity),
+          useValue: slotRepo,
+        },
         { provide: getRepositoryToken(TeamEntity), useValue: teamRepo },
       ],
     }).compile();
@@ -51,7 +54,9 @@ describe('CupService', () => {
   describe('findOne', () => {
     it('throws NotFoundException when the cup is missing', async () => {
       cupRepo.findOne.mockResolvedValue(null);
-      await expect(service.findOne('missing' as Uuid)).rejects.toThrow(NotFoundException);
+      await expect(service.findOne('missing' as Uuid)).rejects.toThrow(
+        NotFoundException,
+      );
     });
 
     it('returns the cup when found', async () => {
@@ -88,7 +93,7 @@ describe('CupService', () => {
         prizePool: '0',
         createdAt: new Date('2026-09-01T00:00:00Z'),
         updatedAt: new Date('2026-09-01T00:00:00Z'),
-      } as CupEntity);
+      }) as CupEntity;
 
     it('returns the cup + 0 rounds when the cup has no rounds yet', async () => {
       const cup = buildCup();
@@ -170,10 +175,54 @@ describe('CupService', () => {
       } as CupRoundEntity;
       // 4 slots = 2 matches. Each match has 2 perspective slots.
       const slots = [
-        { id: 's0' as Uuid, cupId: 'cup-1' as Uuid, roundId: 'round-1' as Uuid, roundNumber: 0, slotIndex: 0, homeTeamId: 'tA' as Uuid, awayTeamId: null, matchId: 'm1' as Uuid, winnerTeamId: null, isBye: false } as CupBracketSlotEntity,
-        { id: 's1' as Uuid, cupId: 'cup-1' as Uuid, roundId: 'round-1' as Uuid, roundNumber: 0, slotIndex: 1, homeTeamId: null, awayTeamId: 'tB' as Uuid, matchId: 'm1' as Uuid, winnerTeamId: null, isBye: false } as CupBracketSlotEntity,
-        { id: 's2' as Uuid, cupId: 'cup-1' as Uuid, roundId: 'round-1' as Uuid, roundNumber: 0, slotIndex: 2, homeTeamId: 'tC' as Uuid, awayTeamId: null, matchId: 'm2' as Uuid, winnerTeamId: null, isBye: false } as CupBracketSlotEntity,
-        { id: 's3' as Uuid, cupId: 'cup-1' as Uuid, roundId: 'round-1' as Uuid, roundNumber: 0, slotIndex: 3, homeTeamId: null, awayTeamId: 'tD' as Uuid, matchId: 'm2' as Uuid, winnerTeamId: null, isBye: false } as CupBracketSlotEntity,
+        {
+          id: 's0' as Uuid,
+          cupId: 'cup-1' as Uuid,
+          roundId: 'round-1' as Uuid,
+          roundNumber: 0,
+          slotIndex: 0,
+          homeTeamId: 'tA' as Uuid,
+          awayTeamId: null,
+          matchId: 'm1' as Uuid,
+          winnerTeamId: null,
+          isBye: false,
+        } as CupBracketSlotEntity,
+        {
+          id: 's1' as Uuid,
+          cupId: 'cup-1' as Uuid,
+          roundId: 'round-1' as Uuid,
+          roundNumber: 0,
+          slotIndex: 1,
+          homeTeamId: null,
+          awayTeamId: 'tB' as Uuid,
+          matchId: 'm1' as Uuid,
+          winnerTeamId: null,
+          isBye: false,
+        } as CupBracketSlotEntity,
+        {
+          id: 's2' as Uuid,
+          cupId: 'cup-1' as Uuid,
+          roundId: 'round-1' as Uuid,
+          roundNumber: 0,
+          slotIndex: 2,
+          homeTeamId: 'tC' as Uuid,
+          awayTeamId: null,
+          matchId: 'm2' as Uuid,
+          winnerTeamId: null,
+          isBye: false,
+        } as CupBracketSlotEntity,
+        {
+          id: 's3' as Uuid,
+          cupId: 'cup-1' as Uuid,
+          roundId: 'round-1' as Uuid,
+          roundNumber: 0,
+          slotIndex: 3,
+          homeTeamId: null,
+          awayTeamId: 'tD' as Uuid,
+          matchId: 'm2' as Uuid,
+          winnerTeamId: null,
+          isBye: false,
+        } as CupBracketSlotEntity,
       ];
       const teams = [
         { id: 'tA' as Uuid, name: 'TA' } as TeamEntity,

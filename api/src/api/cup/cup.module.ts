@@ -1,11 +1,11 @@
-import { Module } from '@nestjs/common';
-import { TypeOrmModule } from '@nestjs/typeorm';
 import {
+  CupBracketSlotEntity,
   CupEntity,
   CupRoundEntity,
-  CupBracketSlotEntity,
   TeamEntity,
 } from '@goalxi/database';
+import { Module } from '@nestjs/common';
+import { TypeOrmModule } from '@nestjs/typeorm';
 import { CupController } from './cup.controller';
 import { CupService } from './cup.service';
 
