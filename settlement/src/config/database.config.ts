@@ -3,6 +3,10 @@ import { ConfigService } from '@nestjs/config';
 import { TypeOrmOptionsFactory, TypeOrmModuleOptions } from '@nestjs/typeorm';
 import {
   AnnouncementEntity,
+  CupBracketSlotEntity,
+  CupEntity,
+  CupEntryEntity,
+  CupRoundEntity,
   PlayerEntity,
   TeamEntity,
   UserEntity,
@@ -62,6 +66,18 @@ export class DatabaseConfigService implements TypeOrmOptionsFactory {
       database: this.configService.getOrThrow('DATABASE_NAME', { infer: true }),
       entities: [
         AnnouncementEntity,
+        CupEntity,
+        // Cup*Entity trio: registered here so every submodule
+        // that does `TypeOrmModule.forFeature([CupRoundEntity])`
+        // / `CupBracketSlotEntity` / `CupEntryEntity` finds the
+        // metadata. Without this entry the DI returns a working
+        // Repository<T> but the first `repo.find()` throws
+        // `No metadata for "XxxEntity" was found.` The cup
+        // scheduler ticks every minute, so the error logs once
+        // a minute until the missing entries are added below.
+        CupRoundEntity,
+        CupBracketSlotEntity,
+        CupEntryEntity,
         PlayerEntity,
         TeamEntity,
         UserEntity,
