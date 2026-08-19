@@ -724,8 +724,8 @@ export const api = {
     getById: async (id: string): Promise<Team> => {
       return request<Team>(`/teams/${id}`);
     },
-    getByUser: async (userId: string): Promise<Team> => {
-      return request<Team>(`/teams/user/${userId}`);
+    getByUser: async (userId: string, options?: { signal?: AbortSignal }): Promise<Team> => {
+      return request<Team>(`/teams/user/${userId}`, options ? { signal: options.signal } : undefined);
     },
     update: async (
       id: string,
@@ -1057,8 +1057,8 @@ export const api = {
   },
 
   transfers: {
-    getAuctions: async (): Promise<TransferAuction[]> => {
-      return request<TransferAuction[]>('/transfer/auction');
+    getAuctions: async (options?: { signal?: AbortSignal }): Promise<TransferAuction[]> => {
+      return request<TransferAuction[]>('/transfer/auction', options ? { signal: options.signal } : undefined);
     },
     createAuction: async (playerId: number, startPrice: number, buyoutPrice: number, durationHours?: number): Promise<TransferAuction> => {
       const body: Record<string, unknown> = { playerId, startPrice, buyoutPrice };
@@ -1070,14 +1070,14 @@ export const api = {
         body: JSON.stringify(body),
       });
     },
-    placeBid: async (auctionId: string, amount: number): Promise<TransferAuction> => {
-      return request<TransferAuction>(`/transfer/auction/${auctionId}/bid`, {
+    placeBid: async (auctionId: string, amount: number): Promise<PlaceBidResponse> => {
+      return request<PlaceBidResponse>(`/transfer/auction/${auctionId}/bid`, {
         method: 'POST',
         body: JSON.stringify({ amount }),
       });
     },
-    buyout: async (auctionId: string): Promise<TransferAuction> => {
-      return request<TransferAuction>(`/transfer/auction/${auctionId}/buyout`, {
+    buyout: async (auctionId: string): Promise<BuyoutResponse> => {
+      return request<BuyoutResponse>(`/transfer/auction/${auctionId}/buyout`, {
         method: 'POST',
       });
     },
@@ -1316,6 +1316,25 @@ interface TransferAuction {
 interface MyBid extends TransferAuction {
   isLeading: boolean;
   isOutbid: boolean;
+}
+
+/** Server: `POST /transfer/auction/:id/bid` returns the updated auction
+ *  PLUS the just-locked cash amount. The lock amount is the delta
+ *  vs the previous lock — useful for UI to show "you've locked £X
+ *  in active bids" without a second round-trip. */
+interface PlaceBidResponse extends TransferAuction {
+  lockedAmount: number;
+}
+
+/** Server: `POST /transfer/auction/:id/buyout` is the only
+ *  transfer endpoint whose response shape is NOT the auction —
+ *  it returns the async settlement job's handle so the UI can
+ *  poll / show a queue position. */
+interface BuyoutResponse {
+  success: boolean;
+  transactionId: string;
+  status: string;
+  message: string;
 }
 
 interface TransferTransaction {
@@ -1705,6 +1724,8 @@ export type {
   Player,
   TransferAuction,
   MyBid,
+  PlaceBidResponse,
+  BuyoutResponse,
   TransferTransaction,
   BidRecord,
   FinanceTransaction,
