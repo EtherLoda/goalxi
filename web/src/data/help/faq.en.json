@@ -1,5 +1,5 @@
 {
-  "version": 3,
+  "version": 4,
   "locale": "en",
   "lastUpdated": "2026-08-20",
   "module": "player",
@@ -342,6 +342,25 @@
         { "label": "Squad page", "href": "/teams/squad" }
       ],
       "followUp": ["condition-form-injury", "outfield-skills-meaning"]
+    },
+    {
+      "id": "player-event-types",
+      "intent": "player_events",
+      "tags": ["events", "achievement", "milestone", "history"],
+      "questions": [
+        "what types of events are in player history",
+        "what does TRANSFER HAT_TRICK INJURY mean",
+        "full list of player achievement events",
+        "how to read event history",
+        "how many event types exist on a player timeline"
+      ],
+      "keywords": ["TRANSFER", "HAT_TRICK", "INJURY", "DEBUT", "CHAMPIONSHIP_TITLE", "GOLDEN_BOOT", "ASSISTS_LEADER", "TACKLES_LEADER", "MAN_OF_THE_MATCH", "YOUTH_PROMOTION", "LEAGUE_DEBUT", "CAPTAIN_DEBUT", "RECORD_BROKEN", "CONTRACT_RENEWAL", "event", "achievement", "milestone"],
+      "answer": "The player detail page's \"event history\" area has **14 event types**, grouped into 4 categories:\n\n---\n\n**Transfer / contract (2)**\n| Event | Trigger | Meaning |\n|---|---|---|\n| **TRANSFER** | Player moves to another team (buy / sell / free) | Permanent transfer record |\n| **CONTRACT_RENEWAL** | Player extends contract with the team | Contract extended |\n\n---\n\n**Achievement (5)**\n| Event | Trigger | Meaning |\n|---|---|---|\n| **CHAMPIONSHIP_TITLE** | The player's team wins the league | Historic team moment |\n| **GOLDEN_BOOT** | Top scorer of the season | Top-tier finisher badge |\n| **ASSISTS_LEADER** | Top assist maker of the season | Top-tier creator badge |\n| **TACKLES_LEADER** | Top tackler of the season | Top-tier defender badge |\n| **MAN_OF_THE_MATCH** | Best player in a single match | Single-match award |\n\n---\n\n**Career milestone (4)**\n| Event | Trigger | Meaning |\n|---|---|---|\n| **DEBUT** | First appearance for the team (any competition) | Career first match |\n| **LEAGUE_DEBUT** | First league appearance for the team | League first match (recorded separately) |\n| **CAPTAIN_DEBUT** | First match as captain | First game wearing the armband |\n| **RECORD_BROKEN** | Breaks a club or league record | History-making moment |\n\n---\n\n**Special (3)**\n| Event | Trigger | Meaning |\n|---|---|---|\n| **HAT_TRICK** | 3+ goals in a single match | Hat trick |\n| **YOUTH_PROMOTION** | Youth player promoted to senior squad | Promoted from youth to first team (ties into the youth module) |\n| **INJURY** | Player gets injured | Injury record (pair with the condition-form-injury entry) |\n\n---\n\n**How to read event history**:\n- The player detail page has an **Events** tab / timeline area\n- Listed in **reverse chronological order** (newest at the top)\n- Each event shows: **event type + date + short description** (e.g. `HAT_TRICK · 2026-08-15 · 3 goals`)\n- Different events have different color icons: **gold = achievement** (CHAMPIONSHIP_TITLE / GOLDEN_BOOT / HAT_TRICK), **red = injury** (INJURY), **green = promotion** (YOUTH_PROMOTION), **blue = transfer / contract** (TRANSFER / CONTRACT_RENEWAL), **purple = milestone** (RECORD_BROKEN / DEBUT etc.)\n\n---\n\n**Practical use — how event history tells you a player's value**:\n- **Quality**: density of **gold achievements** (HAT_TRICK / CHAMPIONSHIP_TITLE / RECORD_BROKEN / GOLDEN_BOOT) — more = worth more\n- **Durability**: frequency of **INJURY** — frequent = injury-prone, sign with caution\n- **Loyalty**: count of **CONTRACT_RENEWAL** — many = core / senior player\n- **Path**: **DEBUT** + **YOUTH_PROMOTION** dates — youth promotion = homegrown, usually higher PWI ceiling\n- **Big-game ability**: frequency of **MAN_OF_THE_MATCH** — high = clutch player\n\n> These are all 14 types shown in the player detail page's \"event history\" area. Click a player → detail page → Events tab for the full timeline.",
+      "links": [
+        { "label": "View player detail (with event history)", "href": "/players/{playerId}" },
+        { "label": "View youth player detail", "href": "/youth/players/{playerId}" }
+      ],
+      "followUp": ["condition-form-injury", "outfield-skills-meaning", "release-list-player"]
     }
   ]
 }

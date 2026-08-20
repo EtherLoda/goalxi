@@ -1,5 +1,5 @@
 {
-  "version": 3,
+  "version": 4,
   "locale": "zh",
   "lastUpdated": "2026-08-20",
   "module": "player",
@@ -342,6 +342,25 @@
         { "label": "球队阵容", "href": "/teams/squad" }
       ],
       "followUp": ["condition-form-injury", "outfield-skills-meaning"]
+    },
+    {
+      "id": "player-event-types",
+      "intent": "player_events",
+      "tags": ["事件", "成就", "里程碑", "历史"],
+      "questions": [
+        "球员事件历史都有哪些类型",
+        "TRANSFER HAT_TRICK INJURY 啥意思",
+        "球员成就事件全解",
+        "事件历史怎么读",
+        "球员时间轴有几种"
+      ],
+      "keywords": ["TRANSFER", "HAT_TRICK", "INJURY", "DEBUT", "CHAMPIONSHIP_TITLE", "GOLDEN_BOOT", "ASSISTS_LEADER", "TACKLES_LEADER", "MAN_OF_THE_MATCH", "YOUTH_PROMOTION", "LEAGUE_DEBUT", "CAPTAIN_DEBUT", "RECORD_BROKEN", "CONTRACT_RENEWAL", "事件", "成就", "里程碑"],
+      "answer": "球员详情页的\"事件历史\"区域有 **14 种事件类型**,分 4 大类:\n\n---\n\n**转会/合同类(2 项)**\n| 事件 | 触发时机 | 含义 |\n|---|---|---|\n| **TRANSFER** | 球员转会给另一支球队(买/卖/自由身) | 永久转会记录 |\n| **CONTRACT_RENEWAL** | 球员跟球队续约 | 延长合同 |\n\n---\n\n**成就类(5 项)**\n| 事件 | 触发时机 | 含义 |\n|---|---|---|\n| **CHAMPIONSHIP_TITLE** | 所在球队赢得联赛冠军 | 队史性时刻 |\n| **GOLDEN_BOOT** | 赛季最佳射手(进球最多) | 顶级终结者标志 |\n| **ASSISTS_LEADER** | 赛季助攻王 | 顶级组织者标志 |\n| **TACKLES_LEADER** | 赛季抢断王 | 顶级防守者标志 |\n| **MAN_OF_THE_MATCH** | 单场比赛 MVP | 凭单场表现拿到 |\n\n---\n\n**生涯里程碑(4 项)**\n| 事件 | 触发时机 | 含义 |\n|---|---|---|\n| **DEBUT** | 首次代表球队出场(任何比赛) | 职业生涯第一场 |\n| **LEAGUE_DEBUT** | 首次代表球队在联赛出场 | 联赛首秀(独立记录) |\n| **CAPTAIN_DEBUT** | 首次以队长身份出场 | 戴上队长袖标的第一场 |\n| **RECORD_BROKEN** | 打破俱乐部或联赛纪录 | 创造历史的时刻 |\n\n---\n\n**特殊事件(3 项)**\n| 事件 | 触发时机 | 含义 |\n|---|---|---|\n| **HAT_TRICK** | 单场比赛进 3 球或以上 | 帽子戏法 |\n| **YOUTH_PROMOTION** | 青训球员升入一队 | 从青训晋升一队(青训模块联动) |\n| **INJURY** | 球员受伤 | 伤病记录(配合 `condition-form-injury` 看) |\n\n---\n\n**怎么看事件历史**:\n- 球员详情页有 **Events** 标签 / 时间轴区域\n- 按**时间倒序**排列(最新的在最上面)\n- 每条事件显示:**事件类型 + 时间 + 简短描述**(例:`HAT_TRICK · 2026-08-15 · 3 球`)\n- 不同事件有不同颜色图标:**金色 = 成就**(CHAMPIONSHIP_TITLE / GOLDEN_BOOT / HAT_TRICK),**红色 = 伤病**(INJURY),**绿色 = 晋升**(YOUTH_PROMOTION),**蓝色 = 转会/合同**(TRANSFER / CONTRACT_RENEWAL),**紫色 = 里程碑**(RECORD_BROKEN / DEBUT 等)\n\n---\n\n**实战意义(怎么用事件历史判断球员价值)**:\n- **判断\"含金量\"**:看 HAT_TRICK / CHAMPIONSHIP_TITLE / RECORD_BROKEN / GOLDEN_BOOT 这些**金色成就事件**的密度 —— 越多越值钱\n- **判断稳定性**:看 **INJURY** 频率 —— 伤病记录多 = 玻璃人,慎买\n- **判断忠诚度**:看 **CONTRACT_RENEWAL** 次数 —— 多 = 球队核心/老臣\n- **判断成长路径**:看 **DEBUT** + **YOUTH_PROMOTION** 时间 —— 青训晋升 = 球队自己人,通常 PWI 上限高\n- **判断单场能力**:看 **MAN_OF_THE_MATCH** 频率 —— 多 = 大场面球员\n\n> 这是球员详情页\"事件历史\"区域显示的所有 14 种类型。点球员头像 → 详情页 → Events 区域看完整时间轴。",
+      "links": [
+        { "label": "查看球员详情(含事件历史)", "href": "/players/{playerId}" },
+        { "label": "查看青训球员详情", "href": "/youth/players/{playerId}" }
+      ],
+      "followUp": ["condition-form-injury", "outfield-skills-meaning", "release-list-player"]
     }
   ]
 }
