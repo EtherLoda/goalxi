@@ -38,6 +38,7 @@ import { MatchLiveScheduler } from './match-live.scheduler';
 describe('MatchLiveScheduler — processRevealableEvents (B6/B7)', () => {
   let scheduler: MatchLiveScheduler;
   let eventRepository: jest.Mocked<Repository<MatchEventEntity>>;
+  let matchRepository: jest.Mocked<Repository<MatchEntity>>;
   let matchLiveGateway: jest.Mocked<MatchLiveGateway>;
   let matchCacheService: jest.Mocked<MatchCacheService>;
 
@@ -56,6 +57,21 @@ describe('MatchLiveScheduler — processRevealableEvents (B6/B7)', () => {
       playerId: overrides.playerId ?? null,
       isRevealed: overrides.isRevealed ?? false,
     }) as MatchEventEntity;
+
+  // Build a minimal `MatchEntity` carrying the timing fields the
+  // scheduler reads. `scheduledAt` defaults to "now - 30 minutes"
+  // so tests using the wall-clock minute derivation land in a
+  // sensible 1H regulation band without per-test wiring.
+  const mkMatch = (overrides: Partial<MatchEntity> = {}) =>
+    ({
+      id: overrides.id ?? 'match-1',
+      scheduledAt: overrides.scheduledAt ?? new Date(Date.now() - 30 * 60_000),
+      firstHalfInjuryTime: overrides.firstHalfInjuryTime ?? 0,
+      secondHalfInjuryTime: overrides.secondHalfInjuryTime ?? 0,
+      hasExtraTime: overrides.hasExtraTime ?? false,
+      extraTimeFirstHalfInjury: overrides.extraTimeFirstHalfInjury ?? 0,
+      extraTimeSecondHalfInjury: overrides.extraTimeSecondHalfInjury ?? 0,
+    }) as MatchEntity;
 
   /**
    * Build a query builder mock that resolves `getRawMany()` to the
@@ -88,12 +104,16 @@ describe('MatchLiveScheduler — processRevealableEvents (B6/B7)', () => {
           },
         },
         {
-          // matchRepository is injected but not exercised by
-          // processRevealableEvents. Keep the token available so the
-          // module compiles; the lineup / completions branches
-          // exercise it but are out of scope for this spec.
+          // matchRepository is exercised by the new wall-clock
+          // currentMinute path — the scheduler fetches the match
+          // entity once per tick to read `scheduledAt` + the per-
+          // half injury times. Tests below mock `find` to return
+          // a `mkMatch()` row for whichever matchId they're driving.
           provide: getRepositoryToken(MatchEntity),
-          useValue: { find: jest.fn(), update: jest.fn() },
+          useValue: {
+            find: jest.fn().mockResolvedValue([]),
+            update: jest.fn(),
+          },
         },
         {
           provide: MatchLiveGateway,
@@ -115,6 +135,9 @@ describe('MatchLiveScheduler — processRevealableEvents (B6/B7)', () => {
     eventRepository = module.get<Repository<MatchEventEntity>>(
       getRepositoryToken(MatchEventEntity),
     ) as jest.Mocked<Repository<MatchEventEntity>>;
+    matchRepository = module.get<Repository<MatchEntity>>(
+      getRepositoryToken(MatchEntity),
+    ) as jest.Mocked<Repository<MatchEntity>>;
     matchLiveGateway = module.get<MatchLiveGateway>(
       MatchLiveGateway,
     ) as jest.Mocked<MatchLiveGateway>;
@@ -139,9 +162,13 @@ describe('MatchLiveScheduler — processRevealableEvents (B6/B7)', () => {
     ]);
     eventRepository.createQueryBuilder.mockReturnValue(
       mockAggregateQuery([
-        { matchId: 'match-1', homeGoals: '1', awayGoals: '0', maxMinute: '12' },
+        { matchId: 'match-1', homeGoals: '1', awayGoals: '0' },
       ]),
     );
+    // Wall-clock minute: kickoff was 30 min ago, no injury, no ET →
+    // currentMinute = 30. The event's `minute: 12` is the in-game
+    // minute at which the goal happened, not the wall-clock now.
+    matchRepository.find.mockResolvedValue([mkMatch()]);
 
     await scheduler.processRevealableEvents();
 
@@ -152,7 +179,7 @@ describe('MatchLiveScheduler — processRevealableEvents (B6/B7)', () => {
       'match-1',
       1,
       0,
-      12,
+      30,
     );
   });
 
@@ -172,9 +199,11 @@ describe('MatchLiveScheduler — processRevealableEvents (B6/B7)', () => {
     ]);
     eventRepository.createQueryBuilder.mockReturnValue(
       mockAggregateQuery([
-        { matchId: 'match-1', homeGoals: '2', awayGoals: '0', maxMinute: '47' },
+        { matchId: 'match-1', homeGoals: '2', awayGoals: '0' },
       ]),
     );
+    // Same 30-min-into-1H match as the prior test.
+    matchRepository.find.mockResolvedValue([mkMatch()]);
 
     await scheduler.processRevealableEvents();
 
@@ -182,7 +211,7 @@ describe('MatchLiveScheduler — processRevealableEvents (B6/B7)', () => {
       'match-1',
       2,
       0,
-      47,
+      30,
     );
   });
 
@@ -203,9 +232,10 @@ describe('MatchLiveScheduler — processRevealableEvents (B6/B7)', () => {
     ]);
     eventRepository.createQueryBuilder.mockReturnValue(
       mockAggregateQuery([
-        { matchId: 'match-1', homeGoals: '2', awayGoals: '1', maxMinute: '78' },
+        { matchId: 'match-1', homeGoals: '2', awayGoals: '1' },
       ]),
     );
+    matchRepository.find.mockResolvedValue([mkMatch()]);
 
     await scheduler.processRevealableEvents();
 
@@ -213,7 +243,7 @@ describe('MatchLiveScheduler — processRevealableEvents (B6/B7)', () => {
       'match-1',
       2,
       1,
-      78,
+      30,
     );
   });
 
@@ -232,9 +262,10 @@ describe('MatchLiveScheduler — processRevealableEvents (B6/B7)', () => {
     ]);
     eventRepository.createQueryBuilder.mockReturnValue(
       mockAggregateQuery([
-        { matchId: 'match-1', homeGoals: '1', awayGoals: '0', maxMinute: '90' },
+        { matchId: 'match-1', homeGoals: '1', awayGoals: '0' },
       ]),
     );
+    matchRepository.find.mockResolvedValue([mkMatch()]);
 
     await scheduler.processRevealableEvents();
 
@@ -242,13 +273,16 @@ describe('MatchLiveScheduler — processRevealableEvents (B6/B7)', () => {
       'match-1',
       1,
       0,
-      90,
+      30,
     );
   });
 
-  it('skips broadcastScoreUpdate when cumulative score is 0-0 even if non-goal events land', async () => {
-    // A tick that only reveals a yellow card / substitution must
-    // NOT spam the gateway with a redundant `0-0` score_update.
+  it('broadcasts score_update every tick with the wall-clock minute, even for non-goal events', async () => {
+    // The previous gate `if (cumulative.homeScore > 0 || ...)` used to
+    // suppress score_update for 0-0 / non-goal ticks. The new clock
+    // contract is "broadcast every tick so the on-screen minute keeps
+    // advancing"; the broadcast is still idempotent because
+    // homeScore / awayScore are DB-cumulative (never decrease).
     eventRepository.find.mockResolvedValue([
       mkEvent({
         id: 'y1',
@@ -259,15 +293,20 @@ describe('MatchLiveScheduler — processRevealableEvents (B6/B7)', () => {
       }),
     ]);
     eventRepository.createQueryBuilder.mockReturnValue(
-      mockAggregateQuery([
-        { matchId: 'match-1', homeGoals: '0', awayGoals: '0', maxMinute: '22' },
-      ]),
+      mockAggregateQuery([{ matchId: 'match-1', homeGoals: '0', awayGoals: '0' }]),
     );
+    matchRepository.find.mockResolvedValue([mkMatch()]);
 
     await scheduler.processRevealableEvents();
 
     expect(matchLiveGateway.broadcastEvents).toHaveBeenCalledTimes(1);
-    expect(matchLiveGateway.broadcastScoreUpdate).not.toHaveBeenCalled();
+    expect(matchLiveGateway.broadcastScoreUpdate).toHaveBeenCalledTimes(1);
+    expect(matchLiveGateway.broadcastScoreUpdate).toHaveBeenCalledWith(
+      'match-1',
+      0,
+      0,
+      30, // wall-clock minute derived from kickoff − 30 min
+    );
   });
 
   it('returns early without any DB call when there are no pending events', async () => {
@@ -278,6 +317,7 @@ describe('MatchLiveScheduler — processRevealableEvents (B6/B7)', () => {
     await scheduler.processRevealableEvents();
 
     expect(eventRepository.createQueryBuilder).not.toHaveBeenCalled();
+    expect(matchRepository.find).not.toHaveBeenCalled();
     expect(matchLiveGateway.broadcastEvents).not.toHaveBeenCalled();
     expect(matchLiveGateway.broadcastScoreUpdate).not.toHaveBeenCalled();
     expect(eventRepository.update).not.toHaveBeenCalled();
@@ -313,10 +353,9 @@ describe('MatchLiveScheduler — processRevealableEvents (B6/B7)', () => {
       }),
     ]);
     eventRepository.createQueryBuilder.mockReturnValue(
-      mockAggregateQuery([
-        { matchId: 'match-1', homeGoals: '1', awayGoals: '0', maxMinute: '12' },
-      ]),
+      mockAggregateQuery([{ matchId: 'match-1', homeGoals: '1', awayGoals: '0' }]),
     );
+    matchRepository.find.mockResolvedValue([mkMatch()]);
 
     await scheduler.processRevealableEvents();
 
@@ -351,10 +390,15 @@ describe('MatchLiveScheduler — processRevealableEvents (B6/B7)', () => {
     ]);
     eventRepository.createQueryBuilder.mockReturnValue(
       mockAggregateQuery([
-        { matchId: 'match-A', homeGoals: '1', awayGoals: '0', maxMinute: '5' },
-        { matchId: 'match-B', homeGoals: '0', awayGoals: '1', maxMinute: '30' },
+        { matchId: 'match-A', homeGoals: '1', awayGoals: '0' },
+        { matchId: 'match-B', homeGoals: '0', awayGoals: '1' },
       ]),
     );
+    // Both matches at the same wall-clock position (30 min in).
+    matchRepository.find.mockResolvedValue([
+      mkMatch({ id: 'match-A' }),
+      mkMatch({ id: 'match-B' }),
+    ]);
 
     await scheduler.processRevealableEvents();
 
@@ -369,7 +413,7 @@ describe('MatchLiveScheduler — processRevealableEvents (B6/B7)', () => {
       'match-A',
       1,
       0,
-      5,
+      30,
     );
     expect(matchLiveGateway.broadcastScoreUpdate).toHaveBeenCalledWith(
       'match-B',

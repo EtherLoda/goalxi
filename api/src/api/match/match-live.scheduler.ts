@@ -4,21 +4,25 @@ import { Cron } from '@nestjs/schedule';
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, IsNull, LessThanOrEqual, Repository } from 'typeorm';
 import { MatchCacheService } from './match-cache.service';
+import { computeCurrentInGameMinute } from './match-current-minute';
 import { MatchLiveGateway } from './match-live.gateway';
 
 // 比赛开始前5分钟可见首发阵容
 const LINEUP_VISIBLE_BEFORE_KICKOFF_MINUTES = 5;
 
 /**
- * Aggregated per-match cumulative score + current minute for the
- * `processRevealableEvents` tick. Sourced from a single `GROUP BY matchId`
- * query so the scheduler can broadcast the *cumulative* score (not the
- * batch-delta), which is what the client expects.
+ * Aggregated per-match cumulative score for the `processRevealableEvents`
+ * tick. Sourced from a single `GROUP BY matchId` query so the scheduler
+ * can broadcast the *cumulative* score (not the batch-delta), which is
+ * what the client expects. `currentMinute` used to live here too but
+ * has been moved to `computeCurrentInGameMinute` (wall-clock anchored
+ * to the sim's published `eventScheduledTime` mapping) — see
+ * `match-current-minute.ts`.
  */
 interface CumulativeMatchStats {
   homeScore: number;
   awayScore: number;
-  currentMinute: number;
+  maxMinute: number;
 }
 
 @Injectable()
@@ -83,15 +87,42 @@ export class MatchLiveScheduler {
       Array.from(byMatch.keys()),
     );
 
+    // Fetch the match timing fields for each match we're about to
+    // broadcast for. We need `scheduledAt` + per-half injury times
+    // to compute the wall-clock-anchored `currentMinute` — see
+    // `match-current-minute.ts` for the formula. One IN-list query
+    // here is cheaper than N point lookups inside the loop.
+    const matchIds = Array.from(byMatch.keys());
+    const matchEntities = await this.matchRepository.find({
+      where: { id: In(matchIds) },
+      select: [
+        'id',
+        'scheduledAt',
+        'firstHalfInjuryTime',
+        'secondHalfInjuryTime',
+        'hasExtraTime',
+        'extraTimeFirstHalfInjury',
+        'extraTimeSecondHalfInjury',
+      ],
+    });
+    const matchById = new Map(matchEntities.map((m) => [m.id, m]));
+
     // Process each match
     for (const [matchId, events] of byMatch.entries()) {
       try {
         const stats: CumulativeMatchStats = cumulativeByMatch.get(matchId) ?? {
           homeScore: 0,
           awayScore: 0,
-          currentMinute: 0,
+          maxMinute: 0,
         };
-        await this.processMatchEvents(matchId, events, stats);
+        const match = matchById.get(matchId);
+        if (!match) {
+          this.logger.warn(
+            `[MatchLive] Skipping ${matchId}: match row missing in DB`,
+          );
+          continue;
+        }
+        await this.processMatchEvents(match, events, stats);
       } catch (error) {
         this.logger.error(
           `[MatchLive] Error processing match ${matchId}: ${error.message}`,
@@ -257,10 +288,12 @@ export class MatchLiveScheduler {
   }
 
   private async processMatchEvents(
-    matchId: string,
+    match: MatchEntity,
     events: MatchEventEntity[],
     cumulative: CumulativeMatchStats,
   ) {
+    const matchId = match.id;
+
     // Broadcast the freshly-revealed events to the room. Score / minute
     // come from the *cumulative* GROUP BY result so the value broadcast
     // is monotonic with the previous tick — see the load-bearing comment
@@ -280,18 +313,28 @@ export class MatchLiveScheduler {
 
     this.matchLiveGateway.broadcastEvents(matchId, eventPayloads);
 
-    // If score changed, broadcast score update
-    if (cumulative.homeScore > 0 || cumulative.awayScore > 0) {
-      this.matchLiveGateway.broadcastScoreUpdate(
-        matchId,
-        cumulative.homeScore,
-        cumulative.awayScore,
-        cumulative.currentMinute,
-      );
-    }
+    // The current minute is anchored to wall-clock, not to the
+    // event stream. The sim publishes per-event `eventScheduledTime`
+    // values that already encode the half-time break + per-half
+    // injury time; we invert that mapping here so the on-screen
+    // minute keeps advancing in the gaps between event reveals
+    // (e.g. 91..93 during 2H injury time used to be stuck at 90
+    // because MAX(minute) of the reveal-sparse injury band only
+    // ticked forward one event at a time). The broadcast is
+    // safe to send every tick: homeScore / awayScore come from
+    // the DB (cumulative, never decreases), so the client's
+    // `setMatchState` overwrite is idempotent. Only the
+    // currentMinute changes monotonically per tick.
+    const currentMinute = computeCurrentInGameMinute(match);
+    this.matchLiveGateway.broadcastScoreUpdate(
+      matchId,
+      cumulative.homeScore,
+      cumulative.awayScore,
+      currentMinute,
+    );
 
     this.logger.debug(
-      `[MatchLive] Broadcasted ${events.length} events for match ${matchId} (${cumulative.homeScore}-${cumulative.awayScore} at ${cumulative.currentMinute}')`,
+      `[MatchLive] Broadcasted ${events.length} events for match ${matchId} (${cumulative.homeScore}-${cumulative.awayScore} at ${currentMinute}')`,
     );
   }
 
@@ -316,6 +359,9 @@ export class MatchLiveScheduler {
       return result;
     }
 
+    // We only pull goal counts here — `currentMinute` is now derived
+    // from wall-clock via `computeCurrentInGameMinute` in the per-match
+    // broadcast path, so the `MAX(minute)` column was dropped.
     const rows = await this.eventRepository
       .createQueryBuilder('e')
       .select('e.matchId', 'matchId')
@@ -327,7 +373,6 @@ export class MatchLiveScheduler {
         `COUNT(*) FILTER (WHERE e.typeName IN ('goal', 'penalty_goal') AND e.isHome = false)`,
         'awayGoals',
       )
-      .addSelect('COALESCE(MAX(e.minute), 0)', 'maxMinute')
       .where('e.isRevealed = :revealed', { revealed: true })
       .andWhere('e.matchId IN (:...matchIds)', { matchIds })
       .groupBy('e.matchId')
@@ -335,14 +380,13 @@ export class MatchLiveScheduler {
         matchId: string;
         homeGoals: string;
         awayGoals: string;
-        maxMinute: string;
       }>();
 
     for (const r of rows) {
       result.set(r.matchId, {
         homeScore: Number(r.homeGoals) || 0,
         awayScore: Number(r.awayGoals) || 0,
-        currentMinute: Number(r.maxMinute) || 0,
+        maxMinute: 0,
       });
     }
     return result;

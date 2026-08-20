@@ -1,6 +1,7 @@
 import { AuthService } from '@/api/auth/auth.service';
 import { MatchEventService } from '@/api/match/match-event.service';
 import { MatchService } from '@/api/match/match.service';
+import { computeCurrentInGameMinute } from '@/api/match/match-current-minute';
 import { MatchEventEntity, MatchStatus } from '@goalxi/database';
 import { Inject, Logger, forwardRef } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
@@ -380,47 +381,37 @@ export class MatchLiveGateway
   ): Promise<MatchStatePayload> {
     const matchId = match.id;
 
-    // Derive currentMinute from the event stream, NOT from wall-clock.
-    // S1 fix: the previous implementation computed `elapsed = now - kickoff`
-    // and clamped to a 45/60/90 heuristic, which drifted from the actual
-    // match timeline in two real cases:
-    //   - paused matches: the sim stops emitting events but wall-clock
-    //     keeps ticking, so the client thought the match was 60+ minutes
-    //     in when it had only reached, say, 30'.
-    //   - scheduler lag: if `processRevealableEvents` is a few seconds
-    //     behind, the wall-clock minute jumps past the latest event
-    //     and the client's `MatchLiveView` `visibleEvents` filter
-    //     (`minute <= currentMinute`) drops in-flight events.
-    // Pulling max revealed minute gives one source of truth that's
-    // shared with the scheduler's `broadcastScoreUpdate` (which already
-    // uses the same approach at `match-live.scheduler.ts:226-228`).
+    // Derive currentMinute from the sim's published timing anchors
+    // (`match.scheduledAt` + per-half injury times), NOT from the
+    // event stream. The sim already published a per-event
+    // `eventScheduledTime` that maps in-game minute to a real-world
+    // instant relative to kickoff, encoding the half-time break
+    // and injury time (see `match-current-minute.ts`). Inverting
+    // that mapping gives a wall-clock-anchored minute that keeps
+    // advancing in the gaps between event reveals — the previous
+    // MAX(minute) approach got stuck at the last revealed event's
+    // minute whenever the preprocessor went a few seconds without
+    // revealing anything (e.g. 90' during 2H injury time, where
+    // events at 91..93 were revealed one tick at a time).
     //
-    // N+1 fix: collapse the previous `findOne({ where: {matchId,
-    // isRevealed:true}, order:{minute:'DESC'} })` (which returned
-    // a full entity row) into a single `SELECT MAX(minute)`. The
-    // `isRevealed = true` filter does not match the partial index
-    // (which covers `is_revealed = false`), but on a per-match
-    // matchEvent table a `WHERE matchId = ?` lookup is already
-    // index-scoped via `(matchId, eventScheduledTime)`, so the
-    // aggregate is fast in practice. The bigger win is that the
-    // query now never returns a full row we don't need.
-    const agg = await this.eventRepository
-      .createQueryBuilder('e')
-      .select('MAX(e.minute)', 'maxMinute')
-      .where('e.matchId = :matchId', { matchId })
-      .andWhere('e.isRevealed = :revealed', { revealed: true })
-      .getRawOne<{ maxMinute: string | null }>();
-    const eventMinute = agg?.maxMinute ? Number(agg.maxMinute) : 0;
-
-    // For COMPLETED matches we surface a "FT" minute of at least 90 even
-    // if no event crossed the 90' line (e.g. abandoned matches, or
-    // simulator ran fewer minutes). Extra time (>90) is preserved
-    // verbatim — it reflects reality, and the report page's
-    // `getReportCurrentMinute` does the same `Math.max(90, max)` clamp.
-    const currentMinute =
-      match.status === MatchStatus.COMPLETED
-        ? Math.max(90, eventMinute)
-        : eventMinute;
+    // For COMPLETED matches we keep the previous behaviour: surface
+    // a "FT" minute of at least 90, and preserve any >90 (extra
+    // time) verbatim. `computeCurrentInGameMinute` already returns
+    // the post-FT minute for a long-finished match, so we only need
+    // the floor for the abandoned/short-simulated edge case.
+    let currentMinute: number;
+    if (match.status === MatchStatus.COMPLETED) {
+      const agg = await this.eventRepository
+        .createQueryBuilder('e')
+        .select('MAX(e.minute)', 'maxMinute')
+        .where('e.matchId = :matchId', { matchId })
+        .andWhere('e.isRevealed = :revealed', { revealed: true })
+        .getRawOne<{ maxMinute: string | null }>();
+      const eventMinute = agg?.maxMinute ? Number(agg.maxMinute) : 0;
+      currentMinute = Math.max(90, eventMinute);
+    } else {
+      currentMinute = computeCurrentInGameMinute(match);
+    }
 
     return {
       matchId: match.id,

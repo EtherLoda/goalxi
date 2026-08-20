@@ -10,18 +10,17 @@ import { MATCH_LIVE_RATE_LIMITER } from './match-live.module';
 import { MatchService } from './match.service';
 
 /**
- * S1 regression spec — the live gateway's `getMatchState` used to
- * compute `currentMinute` from `now - kickoff` with a 45/60/90 heuristic.
- * That drifted from the real match timeline in two real cases:
- *   - paused matches (sim stops emitting events but wall-clock ticks)
- *   - scheduler lag (events behind by a few seconds)
- *
- * The fix pulls `max(revealed event.minute)` from the event stream
- * instead, with a `Math.max(90, ...)` clamp for COMPLETED matches.
- * These tests pin the new contract so a future refactor doesn't
- * silently regress to wall-clock.
+ * Live-clock derivation spec — the live gateway's `getMatchState`
+ * now derives `currentMinute` from wall-clock (`now - kickoff`)
+ * inverted through the sim's published timing anchors (1H end at
+ * 45+N1 min, 2H end at 105+N2 min, etc.) — see
+ * `match-current-minute.ts`. The previous `MAX(revealed event.minute)`
+ * approach got stuck between event reveals, which was the load-
+ * bearing user-visible bug ("live page shows 90' for the whole
+ * 2H injury band while 91' / 92' / 93' events trickle in one at
+ * a time"). These tests pin the new contract.
  */
-describe('MatchLiveGateway — getMatchState currentMinute (S1)', () => {
+describe('MatchLiveGateway — getMatchState currentMinute (wall-clock)', () => {
   let gateway: MatchLiveGateway;
   let matchService: jest.Mocked<MatchService>;
   let eventRepository: jest.Mocked<Repository<MatchEventEntity>>;
@@ -47,6 +46,9 @@ describe('MatchLiveGateway — getMatchState currentMinute (S1)', () => {
   };
 
   // Build a minimal match row; only the fields `getMatchState` reads.
+  // `firstHalfInjuryTime` and `secondHalfInjuryTime` default to 0 so
+  // the wall-clock minute derivation lands in the 1H / 2H regulation
+  // bands without per-test wiring.
   const mkMatch = (status: MatchStatus, scheduledAt = new Date()) =>
     ({
       id: 'match-1',
@@ -56,6 +58,11 @@ describe('MatchLiveGateway — getMatchState currentMinute (S1)', () => {
       scheduledAt,
       homeScore: 2,
       awayScore: 1,
+      firstHalfInjuryTime: 0,
+      secondHalfInjuryTime: 0,
+      hasExtraTime: false,
+      extraTimeFirstHalfInjury: 0,
+      extraTimeSecondHalfInjury: 0,
       homeTeam: { id: 'team-1', name: 'Home', logoUrl: null },
       awayTeam: { id: 'team-2', name: 'Away', logoUrl: null },
     }) as any;
@@ -143,31 +150,40 @@ describe('MatchLiveGateway — getMatchState currentMinute (S1)', () => {
     expect(state.currentMinute).toBe(0);
   });
 
-  it('uses max revealed event minute for an IN_PROGRESS match (no wall-clock fallback)', async () => {
-    // The whole point of S1: even if `now - kickoff` would say "75'"
-    // (e.g. server is 75 wall-clock minutes past scheduledAt), if the
-    // sim only emitted up to minute 40 (paused / lag), we must report 40.
+  it('derives currentMinute from wall-clock for an IN_PROGRESS match (event stream is no longer authoritative)', async () => {
+    // The new contract: even if the preprocessor hasn't yet revealed
+    // the events up to the current wall-clock minute, the on-screen
+    // clock must already show the minute corresponding to
+    // `now - kickoff`. This is the load-bearing fix for "live page
+    // stuck at 90' during 2H injury" — the previous
+    // MAX(revealed minute) approach returned 90 even after the
+    // preprocessor had been ticking for 5+ minutes.
     const match = mkMatch(
       MatchStatus.IN_PROGRESS,
-      new Date(Date.now() - 75 * 60 * 1000),
+      new Date(Date.now() - 30 * 60 * 1000),
     );
-    mockMaxMinute(40);
-
+    // No eventRepository call expected for the wall-clock path —
+    // the gateway does the minute math inline.
     const state = (await getState(match)) as { currentMinute: number };
-    expect(state.currentMinute).toBe(40);
+    expect(state.currentMinute).toBe(30);
   });
 
-  it('reports 0 for an IN_PROGRESS match whose first event has not been revealed yet (kickoff window)', async () => {
-    // kickoff event hasn't been revealed (the 5s scheduler tick hasn't
-    // run yet, or kickoff eventScheduledTime is still in the future).
-    // Pre-S1 this used to show wall-clock elapsed minutes — confusing
-    // because the timeline is genuinely empty.
+  it('shows the wall-clock minute even at T=0 (kickoff instant)', async () => {
+    // `scheduledAt === now` is the kickoff instant. The minute is
+    // still 0 (the kickoff minute itself), not 1.
+    const match = mkMatch(MatchStatus.IN_PROGRESS, new Date());
+    const state = (await getState(match)) as { currentMinute: number };
+    expect(state.currentMinute).toBe(0);
+  });
+
+  it('reports 0 strictly before kickoff (clock shows pre-kickoff)', async () => {
+    // `scheduledAt` is 5 seconds in the future. Wall-clock is
+    // negative, the function clamps to 0 so the live page doesn't
+    // surface a "-1'" before the kickoff event is revealed.
     const match = mkMatch(
       MatchStatus.IN_PROGRESS,
-      new Date(Date.now() - 60 * 1000),
+      new Date(Date.now() + 5_000),
     );
-    mockMaxMinute(null);
-
     const state = (await getState(match)) as { currentMinute: number };
     expect(state.currentMinute).toBe(0);
   });
