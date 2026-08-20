@@ -13,6 +13,7 @@ import { InjuryBadge } from "@/components/player/InjuryBadge";
 import { getConditionText } from "@/lib/constants";
 import { SpecialtyIcon } from "@/components/player/SpecialtyIcon";
 import { getSpecialtyLabel } from "@/lib/specialties";
+import { ExperienceTierLabel } from "@/components/ExperienceTierLabel";
 
 const EVENT_ICONS: Record<string, string> = {
   TRANSFER: "swap_horiz",
@@ -522,7 +523,7 @@ function SquadPageContent() {
                                       </span>
                                       <span className="truncate">
                                         <span className="text-[#4a7a6a] uppercase">{t("squad.exp")} </span>
-                                        <span className="font-bold text-[#d3f5e8]">{player.experience || 0}</span>
+                                        <ExperienceTierLabel value={player.experience} className="font-bold text-[#d3f5e8]" />
                                       </span>
                                       <span className="truncate">
                                         <span className="text-[#4a7a6a]">PWI </span>
@@ -614,7 +615,7 @@ function SquadPageContent() {
                             <div className="flex items-center gap-2">
                               <span className="material-symbols-outlined text-[#91b2a6]">military_tech</span>
                               <span className="text-[#91b2a6]">
-                                {t("squad.exp")} <span className="font-bold text-[#d3f5e8]">{selectedPlayer.experience || 0}</span>
+                                {t("squad.exp")} <ExperienceTierLabel value={selectedPlayer.experience} className="font-bold text-[#d3f5e8]" />
                               </span>
                             </div>
                             <div className="flex items-center gap-2">
