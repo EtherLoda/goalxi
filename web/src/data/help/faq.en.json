@@ -1,5 +1,5 @@
 {
-  "version": 5,
+  "version": 6,
   "locale": "en",
   "lastUpdated": "2026-08-20",
   "module": "player",
@@ -380,6 +380,25 @@
         { "label": "View player detail (see EXP)", "href": "/players/{playerId}" }
       ],
       "followUp": ["pwi-vs-overall", "condition-form-injury", "player-event-types"]
+    },
+    {
+      "id": "comparing-two-players",
+      "intent": "player_comparison",
+      "tags": ["comparison", "transfer", "selection", "decision"],
+      "questions": [
+        "how to compare two players",
+        "how to pick a transfer",
+        "which of two players is better",
+        "what to compare between players",
+        "what dimensions to look at when scouting"
+      ],
+      "keywords": ["compare", "comparison", "select", "transfer", "scout", "PWI", "potential", "decision"],
+      "answer": "**How to compare two players** (universal framework for transfer / selection / squad-picking decisions)\n\n---\n\n## Big rule: **same position only**\n\n- Comparing a W to a CB by PWI is meaningless — **position weights differ**; the same 16 is headline for a W and middling for a CB\n- Cross-position PWI / skill comparison = **meaningless**\n- Headline-skill comparison only works **within the same position** (see the per-position `skill-priority-*` entries)\n\n---\n\n## 11 comparison dimensions (by importance, high → low)\n\n| # | Dimension | How to read | Decision weight |\n|---|---|---|---|\n| 1 | **PWI / overall** | Current composite score | Headline metric (same position only) |\n| 2 | **Headline skills 2-3** | The position's top 2-3 priority skills (see `skill-priority-*`) | Decides if the player is usable |\n| 3 | **Potential (potentialTier)** | 5-band label (LOW < REGULAR < HIGH_PRO < ELITE < LEGEND) | Long-term value |\n| 4 | **currentSkills vs potentialSkills gap** | Radar: solid vs dashed line | How much more they can grow |\n| 5 | **form** | 3.0 baseline / 5.0 peak / 1.0 low | This-match performance |\n| 6 | **experience (EXP)** | Accumulated value (level 1-20 internal) | Veteran bonus / long-term stability |\n| 7 | **Injury state** | `severe` out / `minor` reduced / `null` healthy | Immediate availability |\n| 8 | **Specialties** | GOLD > SILVER > BRONZE, matches your tactics? | Tactical fit |\n| 9 | **age** | **No aging mechanic** today, but matters for long-term planning | Long-term investment |\n| 10 | **On-transfer status** | Listed = for sale (seller may be in a hurry) | Negotiation room |\n| 11 | **Price** | Auction price vs value-for-money | Final call |\n\n**By decision scenario**:\n- **Short-term (this season, chasing titles)**: dimensions 1 / 2 / 5 / 7 are critical\n- **Long-term (2-3 season plan)**: dimensions 1 / 2 / 3 / 4 / 9 are critical\n- **Key positions (GK)**: dimensions 1 / 2 / 6 are critical (veteran bonus matters, see `experience-meaning`)\n\n---\n\n## Practical flow (quick decision version)\n\n### Step 1: Same position + PWI\n- Difference **> 5** = significant, can usually decide\n- Difference **< 2** = negligible, keep looking at dimensions below\n\n### Step 2: Headline skills (2-3 items)\n- Find the position's top priority skills (see `skill-priority-*` entries)\n- Example: **W**'s headlines are **pace / dribbling** (see `skill-priority-w`)\n- Example: **GK**'s headlines are **reflexes / handling** (see `skill-priority-gk`)\n- Example: **CB**'s headline is **defending** (see `skill-priority-cb`)\n- **Difference in 2+ of the 2-3 headlines = decision is clear**\n\n### Step 3: Potential (long-term value)\n- Same potential tier → compare currentSkills vs potentialSkills gap (radar solid vs dashed)\n- 1-2 tier gap → compare the 5 headline skills, see which fits your tactics better\n- LEGEND vs LOW on headline skills similar → LEGEND always wins (still has room to grow)\n\n### Step 4: Injury + form (immediate availability)\n- **Severe injury** → can't use them this match, even after buying\n- **Minor injury** → reduced ability, sign with caution\n- **Form very low (< 1.5)** → short-term gamble, may rebound\n- **Form very high (> 4.5)** → short-term steal, but may revert to baseline next few matches\n\n### Step 5: Specialties (tactical fit)\n- A specialty that matches your formation / tactics = **bonus** (e.g. your 4-3-3 needs a TACKLER CB, a TACKLER GOLD CB on the market = perfect fit)\n- Mismatched = neutral (doesn't affect on-pitch performance, but may be wasted if you switch tactics later)\n\n### Step 6: Price + status\n- Auction price vs player PWI / potential, value-for-money check\n- High-exp veterans usually command a premium (justified, veteran bonus is real)\n- On-transfer status = for sale, **hurried seller may cut price** (more negotiation room)\n\n---\n\n## Common mistakes (avoid these)\n\n❌ **Cross-position PWI / skill comparison**: meaningless, position weights differ\n❌ **PWI-only without position check**: a 18-PWI W in a CB slot = disaster, the position matters\n❌ **Ignoring the currentSkills vs potentialSkills gap**: high potential **does not** mean they will grow, look at the gap\n❌ **Underestimating the veteran bonus**: experienced players are **significantly more reliable** on penalties and long-term consistency (see `experience-meaning`)\n❌ **Chasing the perfect player**: LEGEND + max skills + healthy + young = **does not exist** in practice, optimize for value\n❌ **Ignoring form swings**: when form < 1.5 you can buy cheap, but check whether the dip is from an injury recovery (then it may climb back)\n\n---\n\n## Links to other entries\n\n- **Headline skills / priority** → see the per-position `skill-priority-*` entries (W / CB / CM-DM-AM / CF / GK)\n- **Position comparison** → see `w-vs-wm` / `wbl-vs-lb` / `am-vs-cm` / `dm-vs-cdm` / `cfl-cfr-vs-cf`\n- **What is PWI** → see `pwi-vs-overall`\n- **What is experience** → see `experience-meaning`\n- **How to read injury** → see `condition-form-injury`\n- **How to read event history** → see `player-event-types`\n- **How to list a player for sale** → see `release-list-player`",
+      "links": [
+        { "label": "View player detail", "href": "/players/{playerId}" },
+        { "label": "Transfer market", "href": "/transfers" }
+      ],
+      "followUp": ["pwi-vs-overall", "skill-priority-w", "skill-priority-cb", "experience-meaning", "condition-form-injury"]
     }
   ]
 }
