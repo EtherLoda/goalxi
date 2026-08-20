@@ -585,15 +585,25 @@ export function formatTurnoverCommentary(
     data?.defendingPlayer ??
     data?.tacklerName;
 
-  // When no tackler is known (legacy rows), force the template variant
-  // that doesn't reference {tackler} so we don't leak the literal
-  // placeholder into the UI. We use `tpl_0` because it's the variant
-  // historically written without `{tackler}` — the new `tpl_2` /
-  // `tpl_3` counter-attack variants DO reference `{tackler}` and
-  // would leave a dangling `{tackler} ` string for legacy rows.
+  // For turnover, the pusher and the player are the same person:
+  // the attacking player who lost the ball. Templates reference them
+  // under both names depending on the variant — tpl_1 says "{player}",
+  // tpl_2 / tpl_3 say "{pusher}" — so we pass both, aliased to the
+  // same value.
+  const pusher = player;
+
+  // When either the tackler or the pusher is missing (legacy rows),
+  // force the template variant that doesn't reference them so we don't
+  // leak the literal placeholder into the UI. We use `tpl_0` because
+  // it's the only variant that references only `{team}`:
+  //   tpl_0 → {team}
+  //   tpl_1 → {team}, {player}, {tackler}
+  //   tpl_2 → {team}, {tacklerTeam}, {pusher}, {tackler}
+  //   tpl_3 → {team}, {tacklerTeam}, {pusher}, {tackler}
   const hasTackler = Boolean(tackler);
+  const hasPusher = Boolean(pusher);
   const baseIdx = templateIndexFor(event) % 4;
-  const templateIdx = hasTackler ? baseIdx : 0;
+  const templateIdx = hasTackler && hasPusher ? baseIdx : 0;
 
   return interpolate(
     getTemplate(t, 'commentary.turnover', templateIdx, {
@@ -601,12 +611,14 @@ export function formatTurnoverCommentary(
       tacklerTeam,
       player: player ?? '',
       tackler: tackler ?? '',
+      pusher: pusher ?? '',
     }),
     {
       team: teamName,
       tacklerTeam,
       player: player ?? '',
       tackler: tackler ?? '',
+      pusher: pusher ?? '',
     },
   );
 }
