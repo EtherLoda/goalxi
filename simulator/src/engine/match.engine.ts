@@ -550,28 +550,47 @@ export class MatchEngine {
     //    a couple of minutes of set pieces + cards; burning a 5-minute
     //    attack sequence on `simulateKeyMoment` would flood the event
     //    log with fabricated drama.
+    //
+    // 5. Per-minute independent foul (step 5 below). Real football:
+    //    ~10-15 fouls per team per 90. We retain 12% per minute for
+    //    regulation halves, 4% in injury time.
+    //
+    // [Bug fix 2026-08-19] Both step 4 (open-play goals inside
+    // `simulateKeyMoment`) and step 5 (set-piece goals from
+    // `resolveFoul` → `resolveSetPieceFromFoul` → `resolvePenalty` /
+    // `resolveIndirectFreeKick` / `resolveDirectFreeKick` / `resolveCorner`)
+    // can push a goal event in the same minute. The score scan must
+    // cover BOTH paths, not just step 4 — otherwise set-piece goals
+    // land in `match_event` but never increment `homeScore` /
+    // `awayScore`, so `half_time` / `full_time` data, the match row,
+    // and `match_team_stats.currentScore` all diverge from the event
+    // log. The first version of this fix lived in the previous
+    // `simulateMatch` minute loop (commit 30099d5); it got accidentally
+    // re-inlined inside the `if (momentTimes.has(t))` block when
+    // `simulateMinute` was extracted in 603b5b2. Putting the scan
+    // back at the minute level is the same idea, just adapted to
+    // the helper-method shape.
     const momentTimes = this.currentMomentTimes;
+    const startOfMinute = this.events.length;
     if (momentTimes && momentTimes.has(t)) {
-      const startOfMinute = this.events.length;
       this.simulateKeyMoment();
-      for (const event of this.events.slice(startOfMinute)) {
-        if (event.type === 'goal') {
-          if (event.teamName === this.homeTeam.name) this.homeScore++;
-          else this.awayScore++;
-        }
-      }
     }
 
-    // 5. Per-minute independent foul. Real football: ~10-15 fouls per
-    //    team per 90. We retain 12% per minute for regulation halves
-    //    (12% × 45 ≈ 5.4/team/half — 11/team/match including the
-    //    second half). For injury time we cut to 4% (1-2 fouls over
-    //    0-5 stoppage minutes) to match real pacing: referees wind
-    //    down, players don't want to risk another card, and the
-    //    "foul to waste time" trope lives in extra time, not stoppage.
+    // Per-minute independent foul. Damped in injury time.
     const foulProb = isInjuryTime ? 0.04 : 0.12;
     if (t > 0 && Math.random() < foulProb) {
       this.resolveFoul();
+    }
+
+    // One canonical score scan per minute. Count every goal event
+    // pushed during this minute — open-play from the key-moment path
+    // AND set-piece from the foul path. Exactly once per goal,
+    // regardless of which entry point emitted it.
+    for (const event of this.events.slice(startOfMinute)) {
+      if (event.type === 'goal') {
+        if (event.teamName === this.homeTeam.name) this.homeScore++;
+        else this.awayScore++;
+      }
     }
   }
 

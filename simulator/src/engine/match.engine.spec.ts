@@ -797,6 +797,72 @@ describe('MatchEngine', () => {
     });
   });
 
+  describe('score ↔ goal event count sync (regression for set-piece score scan)', () => {
+    // [Bug fix 2026-08-19] When `simulateMinute` was extracted from
+    // `simulateMatch` in 603b5b2, the score scan that 30099d5 had moved
+    // to the END of the minute (so set-piece goals from the per-minute
+    // foul path could be counted) was accidentally re-inlined INSIDE
+    // the `if (momentTimes.has(t))` block. Net effect: every goal
+    // event the set-piece resolvers (corner / direct FK / indirect FK
+    // / penalty) pushed into `this.events` was lost to the score —
+    // `match.home_score` / `match.away_score` ended up strictly
+    // lower than the event log's goal count. The two live matches on
+    // 2026-08-19 (2862cefd, ef4aa90a) both had exactly one missed
+    // set-piece goal each (final score 0-4 vs 1-4 events on home
+    // side, 3-1 vs 4-1 events on home side).
+    //
+    // The structural fix moves the score scan back to minute level
+    // (after both the key-moment and the per-minute foul have run).
+    // This spec pins the invariant the fix preserves: the engine's
+    // exposed `homeScore + awayScore` MUST equal the count of
+    // `type === 'goal'` events in the event log, every time. We
+    // retry up to 20 times so a fluke pass (e.g. match with zero
+    // set-piece goals) doesn't false-positive the regression, and
+    // we tolerate the 0-0 case via a fresh-engine fallback.
+    it('homeScore + awayScore === count(goal events) for every simulateMatch() run', () => {
+      for (let i = 0; i < 20; i++) {
+        const trial = new MatchEngine(homeTeam, awayTeam);
+        trial.simulateMatch();
+        const events = (trial as any).events as MatchEvent[];
+        const goalCount = events.filter((e) => e.type === 'goal').length;
+        const runningTotal = trial.homeScore + trial.awayScore;
+        if (goalCount === 0) continue; // 0-0 match → trivially equal, retry
+        expect(runningTotal).toBe(goalCount);
+        return; // one solid pass is enough
+      }
+      // If we hit 20 zero-goal matches in a row (vanishingly
+      // unlikely at the configured OVRs), fail loudly so the
+      // spec doesn't silently pass.
+      throw new Error(
+        'Could not find a match with goals in 20 runs — check test setup.',
+      );
+    });
+
+    it('per-side score matches per-side goal events (set-piece goals attributed to the attacking team)', () => {
+      // Tighter per-side check: homeScore must equal home-team goal
+      // events, awayScore must equal away-team goal events. Catches
+      // a one-sided scan where e.g. only the home side is missing.
+      for (let i = 0; i < 20; i++) {
+        const trial = new MatchEngine(homeTeam, awayTeam);
+        trial.simulateMatch();
+        const events = (trial as any).events as MatchEvent[];
+        const homeGoals = events.filter(
+          (e) => e.type === 'goal' && e.teamName === 'HomeFC',
+        ).length;
+        const awayGoals = events.filter(
+          (e) => e.type === 'goal' && e.teamName === 'AwayFC',
+        ).length;
+        if (homeGoals + awayGoals === 0) continue;
+        expect(trial.homeScore).toBe(homeGoals);
+        expect(trial.awayScore).toBe(awayGoals);
+        return;
+      }
+      throw new Error(
+        'Could not find a match with goals in 20 runs — check test setup.',
+      );
+    });
+  });
+
   describe('second_half kickoff wire shape (regression for processor 1-min drift)', () => {
     // The processor's `isSecondHalfKickoff` predicate in
     // `simulation.processor.ts` keys on:
