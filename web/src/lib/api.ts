@@ -464,7 +464,14 @@ interface MatchEvent {
   type: string;
   typeName: string;
   teamId?: string;
-  playerId?: string;
+  /**
+   * Numeric player id (matches the `int` column on `match_event.player_id`).
+   * The previous `string` typing lied to consumers; the simulator's
+   * `MatchEventEntity.playerId` is `number`, so any client code that treats
+   * it as a string (e.g. `.slice()`) will throw the moment a real
+   * substitution / goal lands. Use `String(playerId)` before string ops.
+   */
+  playerId?: number;
   data?: any;
   description?: string;
   eventType?: string;
