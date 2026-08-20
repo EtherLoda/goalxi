@@ -1,5 +1,5 @@
 {
-  "version": 4,
+  "version": 5,
   "locale": "en",
   "lastUpdated": "2026-08-20",
   "module": "player",
@@ -361,6 +361,25 @@
         { "label": "View youth player detail", "href": "/youth/players/{playerId}" }
       ],
       "followUp": ["condition-form-injury", "outfield-skills-meaning", "release-list-player"]
+    },
+    {
+      "id": "experience-meaning",
+      "intent": "player_experience",
+      "tags": ["experience", "EXP", "growth", "veteran"],
+      "questions": [
+        "what is experience",
+        "what is EXP",
+        "how do players level up",
+        "why are veterans better at penalties",
+        "how does experience grow",
+        "do national team games grow experience faster"
+      ],
+      "keywords": ["experience", "EXP", "level", "growth", "veteran", "penalty"],
+      "answer": "**Experience (EXP)** = a player's **long-term accumulated match value**, the long-term counterpart of `form` (short-term). **Higher number = more \"seasoned\" the player is**.\n\n---\n\n**Basic rules**:\n- After every match, players who appeared get experience based on their performance\n- Experience **only goes up** — injury / bad form / rest don't drain it\n- Experience is **automatically converted to a level (1-20)**; higher level means stronger **veteran bonus** (especially on penalties)\n- Max level is 20; once full, extra exp overflows without further level-up\n\n---\n\n**How experience grows (per match type)**:\n\n| Match type | EXP multiplier | Note |\n|---|---|---|\n| **National team** | **5.0x** | **Fastest growth** — one match = 5 league matches of exp |\n| **Playoff** | 2.0x | 2× league |\n| **League / Cup** | 1.0x (baseline) | Standard |\n| **Friendly** | **0.1x** | Almost no growth |\n| **Tournament** | 0 | No exp credited |\n\n**Minutes played also matter**: **play 90 minutes = full base exp for that match**; play 45 minutes = half; sub on for 10 minutes = almost nothing.\n\n---\n\n**The \"veteran bonus\" by level**:\n- Engine uses experience in `calculatePenaltyMultiplier` and `getMultiplierWithFitnessFactor`\n- **Engine comment**: `\"Penalty specific multiplier: Ignores stamina, high experience bonus.\"` — **veterans are more reliable on penalties**, not affected by fatigue\n- Long-term play: high-experience players are more consistent (similar to form but for the long haul)\n- Short-term play is still form-driven; experience is the **long-term trend**\n\n---\n\n**How to see experience**:\n- The player detail page / player card / squad page board all show an **EXP** badge with the **raw number**\n- The level (1-20) is **not separately shown to players**, but the engine uses it to compute bonuses\n- The radar / skill panel **does not** show experience (exp is meta-data, not an on-pitch skill)\n\n---\n\n**Practical tips**:\n- Want to grow exp fast → **play your players in national team matches** (5x rate)\n- Friendly and tournament matches are basically \"free play\" (almost no exp), but useful for tuning form and testing lineups\n- Young players with low PWI shouldn't be sold just for that — **exp keeps growing**, and a high-exp veteran with a slightly lower PWI still has the veteran bonus\n- Veterans (high exp) take **penalties far more reliably** than youngsters — pick the experienced player for the decisive spot kick\n- Higher levels cost more exp to reach (the upgrade cost grows fast in the later levels); you need **long-term playing time + high-quality matches** to climb\n\n> Note: experience **only grows from matches**, not from training. Youth players promoted with little playing time will have low experience.\n\n---\n\n**Relationship to other concepts**:\n- vs **form**: form is **short-term state** (1-2 week drift), experience is **long-term accumulation**. Both affect PWI display, but **long-term performance** leans on experience, **single-match performance** leans on form\n- vs **PWI**: PWI is the **composite rating** = current skills + experience + form, all factored in. Experience is one **input factor** (multiplier)\n- vs **currentSkills**: skills are **ability**, experience is **seasoning**. High skills + low exp = talented but raw; average skills + max exp = stable but capped",
+      "links": [
+        { "label": "View player detail (see EXP)", "href": "/players/{playerId}" }
+      ],
+      "followUp": ["pwi-vs-overall", "condition-form-injury", "player-event-types"]
     }
   ]
 }
