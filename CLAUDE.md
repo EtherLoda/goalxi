@@ -211,6 +211,48 @@ TEAMLESS ──(api enqueues job)──▶ PROCESSING ──(worker claims)─�
 
 - The whole claim runs inside a `dataSource.transaction` and the BOT pick uses `pessimistic_write`. Two concurrent registrations cannot both pass the `isBot=true` check; the second waits for the first to commit, then sees `userId !== null` and throws `OnboardingClaimRaceError`, which BullMQ retries with `attempts: 3, backoff: { type: 'exponential', delay: 1500 }`.
 
+## Player-facing help: no engine internals
+
+When building any **player-facing** content (the in-app help assistant, FAQ entries, tutorial copy, support responses, marketing copy), **never reveal engine internals** like position-weight coefficients, PWI formula details, injury-penalty coefficients, or specialty multipliers. Players only need to know "which skills are key/important" — not the specific weights.
+
+**Drop from player-facing copy**:
+- Per-position weight numbers (e.g. `pace: 16, dribbling: 12` from the LW weight matrix)
+- The full PWI formula `(weightedSum / 30) ^ 2.2 × 100 × potentialFactor × formFactor`
+- The GK save formula `reflexes×4 + handling×2.5 + ...`
+- Lane-weight percentages (`64% on the left lane`)
+- Exact skill thresholds (`≥ 14`, `≥ 12`)
+- Specialty tier multipliers (`+15-25%`, `+8-15%`, `+3-8%`)
+- Injury-penalty coefficients (`0.95`, `0`)
+- Specific overall-number ranges for tiers (`5-6 档 overall`)
+
+**Keep in player-facing copy**:
+- Tier label names (LOW / REGULAR / HIGH_PRO / ELITE / LEGEND) — these are product UI badges, not engine internals
+- Relative qualitative comparisons ("WBL 比 LB 进攻属性高很多")
+- Priority labels (极重要 / 重要 / 次要 / 辅助)
+- Position names + role descriptions
+- Formation codes (`4-3-3`, `3-5-2` — player-facing knowledge)
+- Practical gameplay tips (qualitative)
+- Game pacing (e.g. "1-2 game days for the first bid")
+
+**Where it applies**:
+- `web/src/data/help/*.json` — the help KB (zh + en per module)
+- Any future in-app help assistant
+- Forum announcements, support replies, marketing copy
+
+**Anchor**: `web/src/data/help/faq.zh.json` + `faq.en.json` — v3 player module (21 entries). v1 leaked the full engine weight matrix, v2 added the `noInternalNumbers: true` schema flag, v3 added the `noSilentOmission: true` flag (see next section). Loader can lint both flags at runtime.
+
+## Player-facing help: no silent omission
+
+When writing any **comparison** or **priority** entry in the help KB, **cover all relevant skills completely** — never silently drop a skill. If a skill is "low impact" for the position, say so explicitly; don't just skip it.
+
+Concretely:
+- **Outfield positions** must list all **10** outfield skills (pace, strength, finishing, passing, dribbling, defending, positioning, composure, freeKicks, penalties) — each one either at a tier or in the "almost no impact" bucket with a one-line reason
+- **GK** must list all **9** GK skills (reflexes, handling, aerial, pace, strength, positioning, composure, freeKicks, penalties) — same rule
+- A comparison entry that covers only "the ones that differ" and skips the rest is **broken** even if the differences are correct — players reading it can't tell whether the missing skills are "equal" or "irrelevant"
+- For the "almost no impact" tier, the one-line reason is mandatory (e.g. "W doesn't need positioning" vs "freeKicks are position-independent" — both are "low" but for different reasons)
+
+The KB schema carries a top-level `noSilentOmission: true` flag so the loader / runtime can lint that every comparison/priority entry explicitly accounts for all 10/9 skills.
+
 ## Code Style
 
 - TypeScript strict mode
