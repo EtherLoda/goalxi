@@ -1,0 +1,347 @@
+{
+  "version": 3,
+  "locale": "zh",
+  "lastUpdated": "2026-08-20",
+  "module": "player",
+  "noInternalNumbers": true,
+  "noSilentOmission": true,
+  "moduleNote": "球员模块 — 球员自身概念、技能、位置、体能/状态/伤病、操作。不含青训(单独模块)。本文件遵循两条 player-facing 规则:(1) 不透露引擎权重/公式/系数/阈值,只用定性优先级描述;(2) 对比和优先级条目必须覆盖全部 10/9 项技能,不能隐式跳过 — 跳过的项目必须显式归到「几乎不影响」档并说明原因。",
+  "entries": [
+    {
+      "id": "pwi-vs-overall",
+      "intent": "player_scoring",
+      "tags": ["评分", "PWI", "overall"],
+      "questions": [
+        "PWI 是什么",
+        "PWI 跟 overall 啥区别",
+        "球员综合分是啥",
+        "PWI 怎么算",
+        "球员评分怎么算的"
+      ],
+      "keywords": ["PWI", "overall", "评分", "综合", "worth", "rating"],
+      "answer": "PWI = Player Worth Index = 球员综合评分,数字越大能力越强。\n\n在 GoalXI 里 **PWI 跟 overall 是同一个数** — 接口同时返回 `pwi` 和 `overall` 两个字段,值完全相等。`pwiDisplay` 是 UI 展示用的四舍五入版本。\n\nPWI 由**三个因素**综合决定:\n- **当前技能(主导)** — 技能面板上的 10 项数值越高,PWI 越高\n- **潜力(放大因子)** — 同样技能下,潜力越高的球员 PWI 上限越高\n- **状态(微调)** — 状态好(form 高)时 PWI 显示略高;状态差时略低\n\nPWI 越高**不代表场上表现一定好** —— 还要看球员在哪个位置(位置权重)和战术搭配。两个 PWI 相同的球员,放在不同位置踢,实际表现可能差很多。",
+      "links": [
+        { "label": "查看球队阵容评分", "href": "/teams/squad" }
+      ],
+      "followUp": ["current-vs-potential-skills", "potential-tier-meaning"]
+    },
+    {
+      "id": "current-vs-potential-skills",
+      "intent": "player_growth",
+      "tags": ["技能", "成长", "雷达图"],
+      "questions": [
+        "currentSkills 跟 potentialSkills 啥区别",
+        "雷达图两条线是啥意思",
+        "球员成长上限怎么看",
+        "潜力线虚线是啥"
+      ],
+      "keywords": ["currentSkills", "potentialSkills", "潜力", "成长", "radar", "上限"],
+      "answer": "每名球员有 2 套技能数据:\n\n- **currentSkills**(当前,雷达图**实线**)— 现在场上的真实能力,所有 PWI 计算都基于它\n- **potentialSkills**(潜力,雷达图**虚线**)— 这名球员**能成长到的上限**\n\n两者的差距 = 剩余成长空间:\n- **senior 球员**:通常已经很接近(基本长完了)\n- **youth 球员**:差距大(还在成长中,具体涨幅随时间动态变化)\n\n技能涨到潜力后基本不再增长。PWI 反映的是当前能力,不直接体现潜力。\n\n> 跟 youth 相关的 reveal/promote 机制见青训模块(后续)。",
+      "links": [
+        { "label": "球员详情页", "href": "/players/{playerId}" },
+        { "label": "青训球员详情页", "href": "/youth/players/{playerId}" }
+      ],
+      "followUp": ["pwi-vs-overall", "potential-tier-meaning"]
+    },
+    {
+      "id": "outfield-skills-meaning",
+      "intent": "player_skills",
+      "tags": ["技能", "outfield", "面板"],
+      "questions": [
+        "outfield 球员技能面板 10 项都啥意思",
+        "球员每个技能影响什么",
+        "雷达图 10 项技能含义",
+        "非门将球员技能全解"
+      ],
+      "keywords": ["outfield", "技能", "skill", "10项", "面板"],
+      "answer": "outfield 球员技能面板 **10 项**,分 4 个维度:\n\n**physical(身体)**\n- **pace**(速度)— 推进、追防线身后、抢回身位\n- **strength**(力量)— 对抗、头球、扛人\n\n**technical(技术)**\n- **finishing**(射门)— 终结、禁区打门\n- **passing**(传球)— 直塞、长传、传中\n- **dribbling**(盘带)— 1v1 摆脱、过人\n- **defending**(防守)— 抢断、卡位、铲断\n\n**mental(心理)**\n- **positioning**(跑位)— 站位、协防、前插抢点\n- **composure**(冷静)— 单刀处理、压力下不失误\n\n**setPieces(定位球)**\n- **freeKicks**(任意球)— 直接任意球主罚\n- **penalties**(点球)— 点球主罚\n\n数值范围 0-20,默认 10。各项对场上表现的贡献**随位置不同** —— 见各位置技能优先级条目。",
+      "links": [
+        { "label": "球员详情页", "href": "/players/{playerId}" }
+      ],
+      "followUp": ["gk-skills-vs-outfield", "skill-dimensions-note", "skill-priority-w", "skill-priority-cb"]
+    },
+    {
+      "id": "gk-skills-vs-outfield",
+      "intent": "player_skills",
+      "tags": ["技能", "GK", "门将"],
+      "questions": [
+        "GK 技能面板跟 outfield 区别",
+        "门将技能 9 项是啥",
+        "GK reflexes handling aerial 啥意思",
+        "为什么 GK 没有 finishing"
+      ],
+      "keywords": ["GK", "reflexes", "handling", "aerial", "门将", "扑救"],
+      "answer": "GK 技能面板 **9 项**(比 outfield 少 1 项),分 4 个维度:\n\n**physical**(同 outfield):pace、strength\n**technical**(GK 专属,3 项):reflexes(反应)、handling(接球)、aerial(高空摘取)\n**mental**(同 outfield):positioning、composure\n**setPieces**(同 outfield):freeKicks、penalties\n\nGK 不需要 outfield 的 finishing/passing/dribbling/defending 那 4 项(没意义),换成 reflexes/handling/aerial 3 项。\n\n**GK 的评分逻辑跟 outfield 完全不同** —— 引擎为 GK 单独计算,主要看 reflexes 和 handling 两项,跟位置权重无关。雷达图上 reflexes/handling 高的 GK,基本都是好 GK(pace/strength 在 GK 评分里几乎不影响)。",
+      "links": [
+        { "label": "球员详情页", "href": "/players/{playerId}" }
+      ],
+      "followUp": ["outfield-skills-meaning", "skill-priority-gk"]
+    },
+    {
+      "id": "skill-dimensions-note",
+      "intent": "player_skills",
+      "tags": ["技能", "分组"],
+      "questions": [
+        "physical technical mental setPieces 怎么分组",
+        "技能 4 个维度区别",
+        "球员技能怎么分类"
+      ],
+      "keywords": ["physical", "technical", "mental", "setPieces", "维度", "分组"],
+      "answer": "10/9 项技能按 4 个**功能维度**分组(只是 UI 组织,不影响 PWI 算分):\n\n- **physical**(身体素质)— pace、strength\n- **technical**(技术能力)— GK:reflexes/handling/aerial;outfield:finishing/passing/dribbling/defending\n- **mental**(心理素质)— positioning、composure\n- **setPieces**(定位球)— freeKicks、penalties\n\n雷达图和技能列表用这 4 个分组展示。**引擎算分时按位置权重合并,不按维度分**。",
+      "links": [],
+      "followUp": ["outfield-skills-meaning", "gk-skills-vs-outfield"]
+    },
+    {
+      "id": "potential-tier-meaning",
+      "intent": "player_potential",
+      "tags": ["潜力", "tier", "潜力档"],
+      "questions": [
+        "potentialTier 5 档分别啥水平",
+        "LOW REGULAR HIGH_PRO ELITE LEGEND 区别",
+        "球员潜力档怎么判断",
+        "值不值得练怎么看"
+      ],
+      "keywords": ["potentialTier", "LOW", "REGULAR", "HIGH_PRO", "ELITE", "LEGEND", "潜力档"],
+      "answer": "`potentialTier` 5 档 = 球员**潜力档位**标签(5 种色码),从弱到强:\n\n- **LOW**(灰)— 潜力低,练到顶也基本是替补水平\n- **REGULAR**(绿)— 主力水平,练满够用,性价比高\n- **HIGH_PRO**(金)— 高潜,练满是顶级球员,中游队核心\n- **ELITE**(粉)— 精英,练满是强队主力\n- **LEGEND**(紫)— 传奇,练满接近满值,稀缺(主要来自 youth promote 或 transfer 抢到)\n\n> ⚠️ tier 标签是生成器随机分配的,**不直接等于** potentialSkills 的数值。判断\"值不值得练\"看 **potentialSkills 跟 currentSkills 的差距**更准(雷达图虚线 vs 实线)。\n\nyouth 球员的 tier 标签被雾化(`revealLevel` 控制),要 reveal 一定数量技能才能看到。",
+      "links": [
+        { "label": "球员详情页", "href": "/players/{playerId}" }
+      ],
+      "followUp": ["current-vs-potential-skills", "pwi-vs-overall"]
+    },
+    {
+      "id": "position-keys-glossary",
+      "intent": "player_positions",
+      "tags": ["位置", "缩写", "字典"],
+      "questions": [
+        "球员位置缩写全解",
+        "CD CDL CDR LB RB WBL WBR LM RM LW RW AM CM DM CFL CFR CF 啥意思",
+        "所有位置代号含义",
+        "3-slot 跟 1-slot 位置区别"
+      ],
+      "keywords": ["position", "位置", "缩写", "key", "glossary", "字典"],
+      "answer": "GoalXI 位置缩写完整对照(按进攻 → 防守顺序):\n\n**前锋(forward)**\n- `CF` 中锋;`CFL`/`CFR` 左/右中锋;`ST` 中锋(别名)\n\n**边锋(winger,W)**\n- `LW`/`RW` 左/右边锋(纯边锋,前场球员)\n- `LM`/`RM` 实际映射到 `WML`/`WMR`(中场线上的边路,见 W vs WM 条目)\n\n**中场(centralMidfield,CM)**\n- `AM`/`AML`/`AMR` 攻击中场(前腰,中/左/右);`CM`/`CML`/`CMR` 中前卫(中/左/右);`DM`/`DML`/`DMR` 防守中场(中/左/右)\n- 别名:`CAM`/`CDM`/`DMF`/`DMFL`/`DMFR` 等历史命名,引擎自动归并\n\n**后卫(centerBack / fullback)**\n- `CB`/`CBL`/`CBR` 中后卫(中/左/右);`LB`/`RB` 左/右后卫\n- `WBL`/`WBR` 翼卫(左/右,边路攻防更激进);`LWB`/`RWB` 现代 1-slot 翼卫命名\n- 别名:`CD`/`CDL`/`CDR` 历史中后卫,引擎自动归并到 CB\n\n**门将**\n- `GK` 守门员(单独 1-slot)\n\n**3-slot vs 1-slot**:`CBL`/`CB`/`CBR` 是 3-slot 一组(对应一个家族 `CB`);`LW`/`LW1`/`LW2` 也是 3-slot 同一家族。引擎看家族名,具体 slot 在阵型编辑器里选。",
+      "links": [
+        { "label": "阵型编辑器", "href": "/matches/{matchId}/tactics" }
+      ],
+      "followUp": ["w-vs-wm", "wbl-vs-lb", "cd-cdl-cdr-vs-cb", "am-vs-cm", "dm-vs-cdm", "cfl-cfr-vs-cf"]
+    },
+    {
+      "id": "w-vs-wm",
+      "intent": "player_positions",
+      "tags": ["位置对比", "W", "WM", "边锋", "边中场"],
+      "questions": [
+        "W 跟 WM 啥区别",
+        "边锋跟边中场区别",
+        "LW/RW 跟 LM/RM 区别",
+        "winger 跟 wide midfielder"
+      ],
+      "keywords": ["W", "WM", "winger", "wide midfielder", "边锋", "边中场", "LW", "RW", "LM", "RM"],
+      "answer": "**W(Winger,边锋)** = `LW`/`RW` — **前场球员**,位置靠前\n- 主要任务:突破、传中、内切射门\n- 位置:最前线的左右两翼\n- 引擎主要看 **pace** 和 **dribbling**(决定 W 能不能用),finishing 是加分项\n- 大部分活动在自己边路,几乎不参与中路\n\n**WM(Wide Midfielder,边中场)** = `LM`/`RM`(引擎里实际是 `WML`/`WMR`)— **中场球员**,位置更深\n- 主要任务:中场组织、协助边路防守、给边锋输送\n- 位置:中场线的左右两翼\n- 引擎同样看 pace 和 dribbling,但 **defending 和 positioning 也有要求**(WM 要参与防守)\n\n**完整 10 项技能对比**:\n| 技能 | 边锋 W(LW/RW) | 边中场 WM(LM/RM) | 谁高 |\n|---|---|---|---|\n| **pace** | **极高** | 高 | 边锋高 |\n| **strength** | 中等 | 中等 | 一样 |\n| **finishing** | 中等 | 较低 | 边锋高 |\n| **passing** | 中等 | 中等 | 一样 |\n| **dribbling** | **极高** | 高 | 边锋高 |\n| **defending** | 极低 | 中等 | **边中场高** |\n| **positioning** | 较低 | 中等 | **边中场高** |\n| **composure** | 中等 | 中等 | 一样 |\n| **freeKicks** | - | - | 跟位置无关 |\n| **penalties** | - | - | 跟位置无关 |\n\n**核心规律**:\n- **3 项边锋高**(pace/dribbling/finishing)—— 进攻维度,W 必须 W 级别\n- **2 项边中场高**(defending/positioning)—— 防守/站位维度,WM 要参与防守所以必须会\n- **3 项一样**(passing/strength/composure)—— 边路球员共同基础\n- **2 项跟位置无关**(freeKicks/penalties)—— 主罚技术,看个人\n\n**核心区别一句话**:**W 是纯进攻(几乎不防守),WM 是半攻半守(要回追)**。W 上去不回,WM 上去要回。\n\n**实战建议**:\n- 反击流 / 需要爆点选 W(LW/RW)\n- 控球流 / 需要边路拿球组织选 WM(LM/RM)\n- W 不能承担防守 → 必须有 LM/RM 或 DM 在后面擦屁股(如果是 WM 自己就兼顾了)",
+      "links": [
+        { "label": "阵型编辑器", "href": "/matches/{matchId}/tactics" }
+      ],
+      "followUp": ["position-keys-glossary", "skill-priority-w"]
+    },
+    {
+      "id": "wbl-vs-lb",
+      "intent": "player_positions",
+      "tags": ["位置对比", "WBL", "LB", "翼卫", "边后卫"],
+      "questions": [
+        "WBL 跟 LB 区别",
+        "WBR 跟 RB 区别",
+        "翼卫跟普通边后卫区别",
+        "Wing back vs Fullback"
+      ],
+      "keywords": ["WBL", "WBR", "LB", "RB", "wing back", "fullback", "翼卫", "边后卫"],
+      "answer": "**LB/RB(Fullback,边后卫)** — 传统边后卫,位置相对靠后\n- 主盯防对方边锋、协防,**有限插上**\n- 引擎主要看 defending、positioning(防守为主),进攻权重低\n- 边路推进要求一般\n\n**WBL/WBR(Wing Back,翼卫)** — 现代翼卫,**3 中卫阵型或边路进攻型 4 后卫阵型**里出现\n- 大幅插上,基本等于\"**半个 W**\"\n- 引擎对进攻技能(pace、dribbling、finishing)要求**明显比 LB 高**\n- 上去后身后空档大,**需要 CB 帮擦屁股**,或者中卫出球能力要够\n\n**完整 10 项技能对比**:\n| 技能 | 边后卫(LB/RB) | 边翼卫(WBL/WBR) | 谁高 |\n|---|---|---|---|\n| **pace** | 中等 | **高** | 边翼卫高 |\n| **strength** | 中等 | 中等 | 一样 |\n| **finishing** | 低 | 中等 | 边翼卫高 |\n| **passing** | 高 | 高 | 一样 |\n| **dribbling** | 中等 | **高** | 边翼卫高 |\n| **defending** | **高** | 中等 | **边后卫高** |\n| **positioning** | **高** | 中等 | **边后卫高** |\n| **composure** | 中等 | 中等 | 一样 |\n| **freeKicks** | - | - | 跟位置无关 |\n| **penalties** | - | - | 跟位置无关 |\n\n**核心规律**:\n- **3 项边翼卫高**(pace/dribbling/finishing)—— 进攻维度,WBL 必须有 W 级别身体\n- **2 项边后卫高**(defending/positioning)—— 防守维度,WBL 进攻投入多了,防守贡献自然少一点\n- **3 项一样**(passing/strength/composure)—— 边路球员共同基础,两个位置都要有\n- **2 项跟位置无关**(freeKicks/penalties)—— 主罚技术,看个人\n\n**关键洞察**:**WBL 不是 LB 的\"升级版\",是\"角色转换\"** —— 用进攻技能换防守技能。defending/positioning 弱一点没关系,反正有 CB cover;**但不能太低**,太低就回防时站不住,这是 WBL 最常见的死法。\n\n**实战建议**:\n- 4 后卫传统阵型(442/433/451)→ LB/RB\n- 3 中卫 / 352 / 3412 / 343 这类需要边路输出的阵型 → WBL/WBR\n- 找 WBL:不只进攻三件套(pace/dribbling/finishing)要够,defending/positioning 也要过基本线,否则\"上去回不来\"\n\n> `LWB`/`RWB` 是 WBL/WBR 的现代 1-slot 别名,引擎里同义。",
+      "links": [],
+      "followUp": ["position-keys-glossary", "skill-priority-cb"]
+    },
+    {
+      "id": "cd-cdl-cdr-vs-cb",
+      "intent": "player_positions",
+      "tags": ["位置对比", "CD", "CB", "中后卫"],
+      "questions": [
+        "CD CDL CDR 跟 CB 区别",
+        "CD 跟 CB 是一回事吗",
+        "老球员 CD 位置还在用吗"
+      ],
+      "keywords": ["CD", "CDL", "CDR", "CB", "中后卫", "center back"],
+      "answer": "**没有区别**。`CD`/`CDL`/`CDR` 是历史命名,`CB`/`CBL`/`CBR` 是当前命名。\n\n引擎自动归并到 `CB` 家族:\n- `CD` → `CB`\n- `CDL` → `CB`\n- `CDR` → `CB`\n\n所以:\n- 数据库里**老球员**可能 `position` 字段还是 `CD`,显示和算分都是 `CB` 行为\n- 阵型编辑器**只接受** `CB`/`CBL`/`CBR`\n- 历史战术表 / 老数据里还会出现 `CD*`,引擎自动兼容\n\n> 这是个**纯粹的命名清理** —— `CD` = Centre Defender(英式),`CB` = Center Back(现代通用)。GoalXI 2026 推进改名,老数据保留兼容。\n\n如果你在 UI 上看到 `CD` 标签,说明是老数据,直接当 `CB` 用就行。",
+      "links": [],
+      "followUp": ["position-keys-glossary", "skill-priority-cb"]
+    },
+    {
+      "id": "am-vs-cm",
+      "intent": "player_positions",
+      "tags": ["位置对比", "AM", "CM", "前腰", "中前卫"],
+      "questions": [
+        "AM 跟 CM 区别",
+        "什么时候用 AM",
+        "前腰跟中前卫区别",
+        "CAM 跟 CM 一样吗"
+      ],
+      "keywords": ["AM", "CM", "AML", "CML", "前腰", "中前卫", "attacking midfielder"],
+      "answer": "**CM(Central Midfielder,中前卫)** — 中场平衡点\n- 攻防两端都有,主要任务是**出球 + 协防**\n- 引擎看 passing、defending、dribbling 三项平衡\n\n**AM(Attacking Midfielder,前腰)** — 前场组织核心\n- 主要任务是**最后一传 + 制造机会**,可以前插射门\n- 引擎主要看 **passing + dribbling**,defending 要求**极低**(AM 几乎不防守)\n\n**完整 10 项技能对比**:\n| 技能 | 中前卫 CM | 前腰 AM | 谁高 |\n|---|---|---|---|\n| **pace** | 中等 | 中等 | 一样 |\n| **strength** | 中等 | 较低 | CM 高 |\n| **finishing** | 较低 | 中等 | **AM 高** |\n| **passing** | **高** | **高** | 一样(都靠出球吃饭) |\n| **dribbling** | 中等 | **高** | **AM 高** |\n| **defending** | 中等 | **极低** | **CM 高**(AM 几乎不防) |\n| **positioning** | 中等 | 中等 | 一样 |\n| **composure** | 中等 | 中等 | 一样 |\n| **freeKicks** | - | - | 跟位置无关 |\n| **penalties** | - | - | 跟位置无关 |\n\n**核心规律**:\n- **3 项 AM 高**(finishing/dribbling/+ 跟 passing 一样高)—— AM 偏进攻创造\n- **2 项 CM 高**(defending/strength)—— CM 是中场屏障,攻防兼修\n- **4 项一样**(pace/passing/positioning/composure)—— 中场球员共同基础\n- **2 项跟位置无关**(freeKicks/penalties)\n\n**核心区别一句话**:**AM 是\"半个 W\"(几乎不防守),CM 是\"全能中场\"(攻防兼修)**。AM 上去不回,CM 上去要回。\n\n**实战建议**:\n- 4-3-3 / 4-2-3-1(双 DM + 1 AM)/ 4-4-2 之类平衡阵型 → CM\n- 4-2-3-1 单前腰 / 4-1-2-1-2 diamond / 3-4-1-2 进攻阵型 → AM\n- AM 球员**不能承担防守**,必须有 DM 在后面擦屁股\n\n> `CAM` 是历史命名,引擎自动归并到 `AM`。",
+      "links": [],
+      "followUp": ["position-keys-glossary", "dm-vs-cdm", "skill-priority-cm-dm-am"]
+    },
+    {
+      "id": "dm-vs-cdm",
+      "intent": "player_positions",
+      "tags": ["位置对比", "DM", "CDM", "防守中场"],
+      "questions": [
+        "DM 跟 CDM 区别",
+        "CDM 是啥缩写",
+        "为什么 DM 在中场后",
+        "防守中场位置"
+      ],
+      "keywords": ["DM", "CDM", "防守中场", "defensive midfielder", "DML", "DMR"],
+      "answer": "**没有功能区别**。`CDM` 是 `DM` 的历史命名。\n\n引擎自动归并到 `DM` 家族:\n- `CDM` → `DM`\n- `DMF` → `DM`\n- `DMFL` → `DML`\n- `DMFR` → `DMR`\n\n所以 `CDM` = `DM` = Defensive Midfielder = 防守中场。\n\n**DM 完整 10 项技能要求**:\n| 技能 | DM 重要度 | 说明 |\n|---|---|---|\n| **pace** | 中等 | 追防需要速度,但不是头牌 |\n| **strength** | **高** | 身体对抗、卡位是 DM 基本功 |\n| **finishing** | **极低** | 几乎不参与进攻,不要求 |\n| **passing** | **高** | 拦截 → 出球,是 DM 第二个核心 |\n| **dribbling** | 中等 | 偶尔要带球过中场 |\n| **defending** | **极高** | 头牌技能,拦截+抢断第一关 |\n| **positioning** | **极高** | 站位保护后防线,跟 defending 并列头牌 |\n| **composure** | 中等 | 冷静不失误 |\n| **freeKicks** | - | 跟位置无关 |\n| **penalties** | - | 跟位置无关 |\n\n**核心规律**:\n- **2 项极高**:defending / positioning —— DM 头牌\n- **2 项高**:strength / passing —— DM 次要\n- **3 项中等**:pace / dribbling / composure —— 中场球员共同基础\n- **1 项极低**:finishing —— 几乎不参与进攻\n- **2 项无关**:freeKicks / penalties\n\n**DM 的定位**:中场最后一道屏障,在中后卫前面。**拦截 + 出球**是核心,组织/终结不是 DM 的事。\n\n**实战建议**:\n- **单后腰**:必须配出球型 DM(passing 够用,defending + positioning 都要极强)\n- **双后腰**:一个纯防守 DM + 一个 CM,互补\n- AM 前腰在前面 → 必须有 DM 在后面擦屁股(AM 几乎不防守)",
+      "links": [],
+      "followUp": ["position-keys-glossary", "am-vs-cm", "skill-priority-cm-dm-am"]
+    },
+    {
+      "id": "cfl-cfr-vs-cf",
+      "intent": "player_positions",
+      "tags": ["位置对比", "CF", "CFL", "CFR", "中锋"],
+      "questions": [
+        "CFL CFR CF 区别",
+        "左中锋右中锋区别",
+        "3 名前锋怎么排",
+        "前锋位置细分"
+      ],
+      "keywords": ["CF", "CFL", "CFR", "ST", "中锋", "center forward"],
+      "answer": "**CF(Center Forward,中锋)** — 单箭头阵型的 9 号\n- 中路居中,主要任务是**进球**\n\n**CFL(Center Forward Left,左中锋)** / **CFR(Center Forward Right,右中锋)**\n- 3-striker 阵型(如 **3-4-3**)里用\n- 跟 CF 共享定位,只是偏左/偏右,跟对应边路有更多配合\n- CFL 在左半区活动多,CFR 在右半区活动多\n\n**CF / CFL / CFR 三者完整 10 项技能要求**(基础一样,只是活动区不同):\n| 技能 | CF | CFL | CFR | 谁高 |\n|---|---|---|---|---|\n| **pace** | **高** | **高** | **高** | 一样 |\n| **strength** | **高** | **高** | **高** | 一样 |\n| **finishing** | **极高** | **极高** | **极高** | 一样(都是终结者) |\n| **passing** | 较低 | 中等 | 中等 | CFL/CFR 略高(跟边路配合) |\n| **dribbling** | 中等 | 中等 | 中等 | 一样 |\n| **defending** | 极低 | 极低 | 极低 | 一样(前锋几乎不防守) |\n| **positioning** | **极高** | **极高** | **极高** | 一样(抢点跑位核心) |\n| **composure** | **高** | **高** | **高** | 一样(单刀处理) |\n| **freeKicks** | - | - | - | 跟位置无关 |\n| **penalties** | - | - | - | 跟位置无关 |\n\n**核心规律**:\n- **3 项极高/高(头牌)**:finishing / positioning / pace / strength / composure —— CF 的核心五件套\n- **1 项中等**:dribbling —— 偶尔过人用,不是头牌\n- **1 项较低**:passing(CF)/ 中等(CFL/CFR)—— CF 几乎不组织,CFL/CFR 跟边路有配合\n- **1 项极低**:defending —— 前锋几乎不防守\n- **2 项无关**:freeKicks / penalties\n\n**三者差异**:\n- **CF**:中路居中,纯终结者\n- **CFL**:中路偏左,跟 LW 有配合,passing 略好\n- **CFR**:中路偏右,跟 RW 有配合,passing 略好\n\n**实战建议**:\n- 单中锋(4-3-3 / 4-4-2 双前锋)→ CF\n- 三前锋(3-4-3)→ CFL + CF + CFR 三人组\n- 双前锋(4-4-2 / 4-1-2-1-2 diamond 顶)→ CF + CF(2 个 CF 不分左右)或 CF + AM\n\n> `ST`(Striker)是 `CF` 的别名,引擎同义。\n> 注意 `CFL`/`CFR` **不是** LW/RW,边锋有自己的 W 家族。",
+      "links": [],
+      "followUp": ["position-keys-glossary", "skill-priority-cf"]
+    },
+    {
+      "id": "skill-priority-w",
+      "intent": "player_skill_priority",
+      "tags": ["技能优先级", "W", "边锋", "LW", "RW"],
+      "questions": [
+        "W 球员技能优先级",
+        "LW RW 应该练啥技能",
+        "边锋哪些技能重要",
+        "winger 技能排名"
+      ],
+      "keywords": ["W", "LW", "RW", "winger", "边锋", "技能优先级", "priority"],
+      "answer": "W 球员(=`LW`/`RW`)全部 10 项技能分级,按场上影响力:\n\n**极重要 2 项**(决定 W 能不能用)\n1. **pace** — 边锋第一生命。反击追防线身后、抢回身位、推进全靠速度\n2. **dribbling** — 1v1 突破、过人下底/内切的核心。W 不带球等于废\n\n**重要 2 项**(并列)\n3. **passing** — 传中质量、配合边路/中路的分球\n3. **finishing** — 内切打门、抢点补射\n\n**次要 1 项**\n5. **strength** — 身体对抗、扛住对方边后卫\n\n**几乎不影响 5 项**\n6. **defending** — 边锋几乎不参与防守(除非临时回追)\n7. **positioning** — 边锋跑位主要由 dribbling 决定,positioning 用得少\n8. **composure** — 边锋很少单刀面对门将(传中或内切交给队友终结)\n9. **freeKicks** — 跟位置无关,任意球看个人技术\n10. **penalties** — 跟位置无关,点球看个人技术\n\n**实战建议**:\n- 找 W:**pace 和 dribbling 是硬门槛**,其他可以低\n- 练 W:每 +1 pace 或 +1 dribbling 比其他技能都值\n- 替代判断:如果一个 W 的 dribbling 明显低于中等水平,基本废了\n- 不需要追 defending/positioning/composure —— 加了也几乎不影响",
+      "links": [],
+      "followUp": ["outfield-skills-meaning", "w-vs-wm", "skill-priority-cf", "skill-priority-cm-dm-am"]
+    },
+    {
+      "id": "skill-priority-cb",
+      "intent": "player_skill_priority",
+      "tags": ["技能优先级", "CB", "中后卫"],
+      "questions": [
+        "CB 技能优先级",
+        "中后卫应该练啥技能",
+        "center back 哪些技能重要",
+        "CD 球员技能排名"
+      ],
+      "keywords": ["CB", "CD", "center back", "中后卫", "技能优先级", "priority"],
+      "answer": "CB 球员(=`CB`/`CBL`/`CBR`)全部 10 项技能分级,按场上影响力:\n\n**极重要 1 项**\n1. **defending** — 抢断、卡位、铲断。CB 第一生命,没有之一\n\n**重要 3 项**\n2. **passing** — 出球能力。**现代中卫要能拿球出球**,这个权重很高\n3. **positioning** — 站位、协防\n4. **strength** — 身体对抗、头球\n\n**次要 1 项**\n5. **pace** — 应对反击(现代中卫要求越来越高)\n\n**几乎不影响 5 项**\n6. **dribbling** — 中卫很少带球过中场,不是头牌\n7. **finishing** — 中卫几乎不参与进攻终结\n8. **composure** — 中卫很少单刀面对门将,composure 用得少\n9. **freeKicks** — 跟位置无关,任意球看个人技术\n10. **penalties** — 跟位置无关,点球看个人技术\n\n**实战建议**:\n- 找 CB:defending 一定要够,strength 够扛对方中锋,positioning 不要低\n- 练 CB:每 +1 defending 是最值的\n- **现代 CB 别光堆 defending**,passing 也要够(出球能力,被高位逼抢时才不失误)\n- 不需要追 finishing/dribbling —— 加了也几乎不影响",
+      "links": [],
+      "followUp": ["outfield-skills-meaning", "cd-cdl-cdr-vs-cb"]
+    },
+    {
+      "id": "skill-priority-cm-dm-am",
+      "intent": "player_skill_priority",
+      "tags": ["技能优先级", "CM", "DM", "AM", "中场"],
+      "questions": [
+        "CM 技能优先级",
+        "DM 技能优先级",
+        "AM 技能优先级",
+        "中场球员应该练啥",
+        "中前卫防守中场前腰区别"
+      ],
+      "keywords": ["CM", "DM", "AM", "中场", "技能优先级", "priority", "central midfielder", "defensive midfielder", "attacking midfielder"],
+      "answer": "中场 3 个位置全部 10 项技能分级,按场上影响力(高 → 低):\n\n---\n\n**CM(中前卫)**:出球 + 防守平衡\n- **头牌**:**passing**(出球组织)+ **defending**(协防)\n- **次要**:**dribbling**(推进、摆脱)+ **positioning**(站位)\n- **辅助**:**composure**(冷静)+ **strength**(对抗)+ **pace**(中等)\n- **几乎不影响**:finishing(偶尔插上,不是头牌)+ freeKicks/penalties(跟位置无关)\n\n---\n\n**DM(防守中场)**:防守 + 出球\n- **头牌**:**defending**(拦截、抢断)+ **positioning**(站位、保护后防线)\n- **次要**:**passing**(出球、防守转进攻)+ **strength**(对抗)\n- **辅助**:**composure**(冷静)+ pace(中等)+ dribbling(中等)\n- **几乎不影响**:finishing(几乎不参与进攻)+ freeKicks/penalties(跟位置无关)\n\n---\n\n**AM(前腰)**:盘带 + 直塞\n- **头牌**:**passing**(直塞、最后一传)+ **dribbling**(前场摆脱、制造机会)\n- **次要**:**finishing**(前插射门)+ **pace**(推进)\n- **辅助**:composure(中等)+ positioning(中等)+ strength(较低)\n- **几乎不影响**:defending(AM 几乎不防)+ freeKicks/penalties(跟位置无关)\n\n---\n\n**三位置横向对比**:\n| 技能 | CM | DM | AM | 关键差异 |\n|---|---|---|---|---|\n| **pace** | 中等 | 中等 | 中等 | 三者差不多 |\n| **strength** | 中等 | 中等 | 较低 | AM 偏瘦,DM/CM 抗对抗 |\n| **finishing** | 较低 | **极低** | 中等 | AM > CM > DM |\n| **passing** | **高** | 中等 | **高** | CM/AM 主出球,DM 次之 |\n| **dribbling** | 中等 | 中等 | **高** | AM 头牌,CM/DM 一般 |\n| **defending** | 中等 | **高** | **极低** | DM 头牌,AM 几乎不防 |\n| **positioning** | 中等 | **高** | 中等 | DM 头牌(站位保护) |\n| **composure** | 中等 | 中等 | 中等 | 三者差不多 |\n| **freeKicks** | - | - | - | 跟位置无关 |\n| **penalties** | - | - | - | 跟位置无关 |\n\n**核心差异**:\n- **CM 头牌**:passing + defending —— 全能中场\n- **DM 头牌**:defending + positioning —— 屏障型\n- **AM 头牌**:passing + dribbling —— 创造型\n\n**实战建议**:\n- 找 CM:passing 高、defending 不要低、dribbling 够用\n- 找 DM:**defending 一定要强**、positioning 够用、passing 够出球(单后腰要求更高)\n- 找 AM:**dribbling 和 passing 都必须强**,finishing 也要有\n- 练中场:CM/AM 优先 +dribbling 和 +passing,DM 优先 +defending",
+      "links": [],
+      "followUp": ["am-vs-cm", "dm-vs-cdm", "outfield-skills-meaning"]
+    },
+    {
+      "id": "skill-priority-cf",
+      "intent": "player_skill_priority",
+      "tags": ["技能优先级", "CF", "中锋"],
+      "questions": [
+        "CF 技能优先级",
+        "中锋应该练啥技能",
+        "前锋哪些技能重要",
+        "center forward 技能排名"
+      ],
+      "keywords": ["CF", "ST", "中锋", "center forward", "技能优先级", "priority"],
+      "answer": "CF 球员(=`CF`/`CFL`/`CFR`/`ST`)全部 10 项技能分级,按场上影响力:\n\n**极重要 1 项**\n1. **finishing** — 进球。CF 第一生命,没有它不会射门\n\n**重要 3 项**\n2. **positioning** — 跑位、抢点、反越位。无球跑动决定 CF 能不能拿到球\n3. **strength** — 背身拿球、头球、扛中后卫\n4. **composure** — 冷静处理单刀、不紧张打飞\n\n**次要 2 项**(并列)\n5. **pace** — 反越位、追身后球\n5. **dribbling** — 摆脱防守后打门\n\n**几乎不影响 4 项**\n7. **passing** — CF 出球能力弱,组织交给 AM,CF 只管终结\n8. **defending** — 前锋几乎不参与防守\n9. **freeKicks** — 跟位置无关,任意球看个人技术\n10. **penalties** — 跟位置无关,点球看个人技术\n\n**实战建议**:\n- 找 CF:**finishing 是硬门槛**\n- 练 CF:每 +1 finishing 是最值的\n- 替代判断:如果一个 CF 的 finishing 明显低于中等水平,基本废了(被门将扑+打飞)\n- **注意**:CF 的出球能力**弱**,组织交给 AM,CF 只管终结\n- 不需要追 passing/defending —— 加了也几乎不影响",
+      "links": [],
+      "followUp": ["outfield-skills-meaning", "cfl-cfr-vs-cf"]
+    },
+    {
+      "id": "skill-priority-gk",
+      "intent": "player_skill_priority",
+      "tags": ["技能优先级", "GK", "门将"],
+      "questions": [
+        "GK 技能优先级",
+        "门将应该练啥技能",
+        "goalkeeper 哪些技能重要",
+        "GK reflexes handling positioning 重要性"
+      ],
+      "keywords": ["GK", "reflexes", "handling", "positioning", "aerial", "composure", "门将", "goalkeeper", "技能优先级"],
+      "answer": "GK 球员全部 9 项技能分级,按场上影响力:\n\n**极重要 2 项**(决定 GK 能不能用)\n1. **reflexes**(反应)— 扑救反应。GK 第一生命,近距离射门扑不扑得到全看这个\n2. **handling**(接球)— 接稳球。摘高空球、低平球接住不脱手\n\n**重要 1 项**\n3. **positioning**(站位)— 站位、封角度、站对位置扑救难度降低\n\n**次要 2 项**(并列)\n4. **aerial**(高空)— 高空球摘取\n4. **composure**(冷静)— 冷静不脱手\n\n**几乎不影响 4 项**\n6. **pace** — GK 不需要追球过半场,几乎不影响\n7. **strength** — GK 不需要扛中锋,几乎不影响\n8. **freeKicks** — 跟位置无关,任意球看个人技术\n9. **penalties** — 跟位置无关,点球看个人技术\n\n**对比 outfield 球员**:\n- GK **不看 pace/strength**(虽然有这两个字段,实际算分时不参与 GK 评分)\n- GK 看的是 reflexes/handling/aerial 三项专属 + positioning/composure\n- 雷达图上看 reflexes/handling 高的 GK,基本就是好 GK —— **pace/strength 在 GK 这里几乎没用**\n\n**实战建议**:\n- 找 GK:reflexes 和 handling 是硬门槛\n- 练 GK:每 +1 reflexes 是最值的,+1 handling 次之\n- 替代判断:一个 GK reflexes 明显低于中等,扑救必废;handling 明显低,摘高空必脱手\n- 不需要追 pace/strength —— 加了也几乎不影响",
+      "links": [],
+      "followUp": ["gk-skills-vs-outfield", "outfield-skills-meaning"]
+    },
+    {
+      "id": "specialties-meaning",
+      "intent": "player_specialty",
+      "tags": ["特性", "specialty", "GOLD", "SILVER", "BRONZE"],
+      "questions": [
+        "Specialties 12 种都啥效果",
+        "GOlD SILVER BRONZE tier 区别",
+        "球员特性啥意思",
+        "怎么判断哪个特性最强"
+      ],
+      "keywords": ["specialty", "特性", "AERIAL_THREAT", "DRIBBLER", "PLAYMAKER", "TACKLER", "WALL", "SPEEDSTER", "CROSSER", "POACHER", "COMPOSED", "PHYSICAL_BEAST", "SAVING_MASTER", "SWEEPER_KEEPER"],
+      "answer": "**Specialties(球员特性)** = 球员的\"身份标签\",影响特定比赛事件。\n\n**12 个 active 特性**(每个都有引擎钩子):\n| 特性 | 适合位置 | 触发事件 |\n|---|---|---|\n| AERIAL_THREAT(空霸) | CB/CF | 头球、争顶 |\n| DRIBBLER(过人王) | W/AM | 1v1 过人 |\n| PLAYMAKER(组织者) | AM/CM | 直塞、最后一传 |\n| TACKLER(抢断王) | CB/DM | 抢断、铲断 |\n| WALL(铁墙) | CB/DM | 防守封堵 |\n| SPEEDSTER(快马) | W | 反击推进 |\n| CROSSER(传中王) | W/LB | 边路传中 |\n| POACHER(机会主义) | CF | 抢点、捡漏 |\n| COMPOSED(冷静) | CF/AM | 单刀处理 |\n| PHYSICAL_BEAST(野兽) | CB/CF | 身体对抗 |\n| SAVING_MASTER(扑救大师) | GK | 关键扑救 |\n| SWEEPER_KEEPER(出击型门将) | GK | 出击封堵 |\n\n**Tier(等级)**:\n- **GOLD(金)** — 顶级,触发时引擎加成最大\n- **SILVER(银)** — 中档,加成中等\n- **BRONZE(铜)** — 基础,加成最小\n\n**关键点**:\n- 只有 **~50%** 的球员有特性(另一半无)\n- Tier **跟球员属性无关** — 是生成时随机定的,不是 derived\n- **每个事件只取球队最强的那个特性**,不叠加。一个球队多个 POACHER 也只算最强的\n- 特性能在转会市场(过滤条件)、球探评估里看\n\n> 旧版 v1 特性(HEADER/LPASS/...)已 deprecated,新生成球员不会出。",
+      "links": [
+        { "label": "转会市场(可按特性过滤)", "href": "/transfers" }
+      ],
+      "followUp": ["outfield-skills-meaning", "gk-skills-vs-outfield"]
+    },
+    {
+      "id": "condition-form-injury",
+      "intent": "player_condition",
+      "tags": ["体能", "状态", "伤病"],
+      "questions": [
+        "球员体能状态伤病怎么影响比赛",
+        "condition 跟 form 啥区别",
+        "球员受伤怎么恢复",
+        "stamina 跟 form 区别"
+      ],
+      "keywords": ["condition", "stamina", "form", "injury", "体能", "状态", "伤病"],
+      "answer": "3 个不同概念,影响比赛的方式不一样:\n\n---\n\n**stamina(体能)** — 球员**当前比赛**的体力值\n- 比赛中持续消耗(跑动、对抗、扑救都耗)\n- 影响**当前比赛**的贡献(体力低时表现下降)\n- 通过换人、节间休息恢复\n- 比赛时显示在球员卡的体力条\n\n---\n\n**form(状态)** — 球员**当前一段时期**的竞技状态\n- 影响 PWI 公式(form 高 → PWI 显示略高;form 低 → PWI 显示略低)\n- 通过最近比赛表现、训练动态变化\n- 雷达图/卡片上显示的\"状态箭头\"(↑/→/↓)\n\n---\n\n**injury(伤病)** — 球员**当前**的伤病状态\n- `severe` 重伤(不能上场)/ `minor` 轻伤(可上场但能力下降)/ `null` 健康\n- 伤病类型:muscle(肌肉)/ ligament(韧带)/ joint(关节)/ head(头部)/ other\n- 严重程度决定恢复时间(轻伤几天,重伤几周)\n- 比赛事件也会触发新伤病(铲断受伤、过度使用等)\n\n---\n\n**三者关系**:\n- `stamina` 是**比赛内**的,`form` 是**跨比赛**的,`injury` 是**状态机**\n- 球员进伤病名单 → 倒计时恢复 → 状态清空才能上场\n\n> 球员的累计比赛分钟数也会影响 form 走向,长时间不打比赛 form 会下降。",
+      "links": [
+        { "label": "球员详情页(看当前状态)", "href": "/players/{playerId}" }
+      ],
+      "followUp": ["outfield-skills-meaning", "pwi-vs-overall"]
+    },
+    {
+      "id": "release-list-player",
+      "intent": "player_action",
+      "tags": ["操作", "释放", "挂牌"],
+      "questions": [
+        "怎么释放球员",
+        "怎么挂牌出售球员",
+        "起拍价 buyout 怎么定",
+        "卖球员流程"
+      ],
+      "keywords": ["release", "list", "挂牌", "释放", "起拍价", "buyout", "卖球员"],
+      "answer": "两种操作,完全不同:\n\n---\n\n**释放球员(Release)**\n- 软删除,**youth 球员专用**\n- 走 `POST /players/:id/release`,球员记录**保留**(可以查事件历史),但 `deletedAt` 字段被填上\n- **senior 球员不能 release**(接口会返回错误) — 设计上防止 UI 手误把一队主力释放了\n- senior 想要\"清出队\",走挂牌出售或合同到期\n\n---\n\n**挂牌出售(List Player)**\n- 走 `POST /transfers/auctions`(在 squad 页面点球员 → \"List Player\" 按钮)\n- 需要填:\n  - **startPrice(起拍价)** — 你愿意接受的最低成交价(欧元)\n  - **buyout(买断价)** — 隐藏字段,当前自动 = startPrice × 2(v2 mechanic 还没暴露给玩家)\n- 挂牌后球员 `onTransfer = true`,其他球队可以出价\n- 拍卖在 transfer market 公开(其他球队 AI 会来竞价)\n- 成交后球员转到对方球队,你拿钱\n- 不成交(流拍)可以重新挂牌或撤牌\n\n---\n\n**操作路径**(web):\n```\n球队 → Squad(阵容)→ 选球员 → \"List Player\" → 填起拍价 → 提交\n```\n\n**实战建议**:\n- 起拍价:看你想快速脱手(起拍价低)还是等大鱼(起拍价高,可能要等)\n- 释放:只用于 **youth 不想要的** 或 **青训失败品**;senior 永远不要走 release\n- 拍卖时间:挂牌后等 1-2 个游戏日没人出价是正常的",
+      "links": [
+        { "label": "球队阵容", "href": "/teams/squad" }
+      ],
+      "followUp": ["condition-form-injury", "outfield-skills-meaning"]
+    }
+  ]
+}
