@@ -5,7 +5,7 @@
   "module": "player",
   "noInternalNumbers": true,
   "noSilentOmission": true,
-  "moduleNote": "Player module — player concepts, skills, positions, condition/form/injury, actions. Excludes youth (separate module). Follows two player-facing rules: (1) no engine weights/formulas/coefficients/thresholds leaked, only qualitative priorities; (2) comparison and priority entries must cover ALL 10/9 skills — skipped skills must be explicitly bucketed into \"almost no impact\" with a reason, never silently omitted.",
+  "moduleNote": "Player module — player concepts, skills, positions, condition/form/injury, actions. Excludes youth (separate module). Follows two player-facing rules: (1) no engine weights/formulas/coefficients/thresholds leaked, only qualitative priorities — BUT game-mechanics numbers that a player can verify by playing (match-type EXP multipliers, level cap, etc.) are fine to expose; (2) comparison and priority entries must cover ALL 10/9 skills — skipped skills must be explicitly bucketed into \"almost no impact\" with a reason, never silently omitted.",
   "entries": [
     {
       "id": "pwi-vs-overall",

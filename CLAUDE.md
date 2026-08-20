@@ -233,6 +233,15 @@ When building any **player-facing** content (the in-app help assistant, FAQ entr
 - Formation codes (`4-3-3`, `3-5-2` — player-facing knowledge)
 - Practical gameplay tips (qualitative)
 - Game pacing (e.g. "1-2 game days for the first bid")
+- **Game-mechanics numbers** that a player can observe by playing — match-type EXP multipliers (`5x` national team, `1x` league, `0.1x` friendly, `0` tournament), level cap (`max 20`), the 5-tier color band labels, etc. The line: if reading engine source is required to know it, it's an internal; if the player can verify it by playing, it's a game fact and can be exposed.
+
+**What is NOT a game-mechanics number** (still off-limits even if asked):
+- PWI formula internals (e.g. the `2.2` exponent, the `1.0-2.5×` potentialFactor range)
+- Position-weight coefficients (e.g. `LW left/attack = pace:16, dribbling:12`)
+- Lane-weight percentages (e.g. `64% on the left lane`)
+- Injury-penalty coefficients (`0.95` minor, `0` severe)
+- Specialty tier multipliers (`+15-25%` GOLD, etc.)
+- Any explicit weighted-sum formula or sigmoid curve in player-facing copy
 
 **Where it applies**:
 - `web/src/data/help/*.json` — the help KB (zh + en per module)
