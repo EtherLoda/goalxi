@@ -5,8 +5,12 @@
  * Experience gained from matches:
  * - experienceGain = baseXP × (minutes / 90)
  *
- * Experience upgrade cost (sigmoid):
- * - cost = 5 + 25 / (1 + e^(-0.6 × (level - 8)))
+ * Level progression (linear cost, no cap):
+ * - Level starts at 0 with 0 experience.
+ * - cost(L) = 10 + 2L  →  XP needed to go from L to L+1
+ *   L0→1: 10,  L1→2: 12,  L2→3: 14,  L3→4: 16,  ...
+ * - Cumulative XP at L(N) = N² + 9N  (L0: 0, L1: 10, L2: 22, L3: 36, L5: 70, L10: 190, ...)
+ * - No level cap — players keep gaining levels forever.
  */
 
 import { MatchType } from '../entities/match.entity';
@@ -30,23 +34,30 @@ export const MATCH_EXPERIENCE_CONFIG: Record<MatchType, number> = {
     [MatchType.PLAYOFF]: 2.0,
 };
 
+/** Base XP cost for the first level-up (L0 → L1). */
+export const EXPERIENCE_BASE_COST = 10;
+/** Marginal XP cost per level — arithmetic-progression step. */
+export const EXPERIENCE_STEP_COST = 2;
+
 /**
- * Calculate experience upgrade cost for given level
- * Uses sigmoid curve: cost = 4 + 60 / (1 + e^(-0.3 × (level - 11)))
+ * Calculate experience upgrade cost for given level.
+ * Returns the XP needed to advance from currentLevel to currentLevel + 1.
+ *
+ * Linear curve: cost(L) = BASE + STEP × L
  */
 export function getExperienceUpgradeCost(currentLevel: number): number {
-    return 4 + 60 / (1 + Math.exp(-0.3 * (currentLevel - 11)));
+    return EXPERIENCE_BASE_COST + EXPERIENCE_STEP_COST * currentLevel;
 }
 
 /**
- * Get player level from experience
- * Level starts at 1, calculated from total accumulated experience
+ * Get player level from cumulative experience.
+ * Level starts at 0 with 0 experience. No upper cap.
  */
 export function getExperienceLevel(totalExperience: number): number {
-    let level = 1;
+    let level = 0;
     let remaining = totalExperience;
 
-    while (level < 20) {
+    while (true) {
         const cost = getExperienceUpgradeCost(level);
         if (remaining < cost) {
             break;
@@ -71,8 +82,9 @@ export function calculateMatchExperience(
 }
 
 /**
- * Add experience to player and handle level up
- * Returns the new experience value and level changes
+ * Add experience to player and handle level ups.
+ * Returns the new experience value (residual after deducting level-up costs)
+ * and the before/after levels. No level cap.
  */
 export function addExperience(
     playerId: number,
@@ -83,8 +95,7 @@ export function addExperience(
     let experienceAfter = currentExperience + experienceToAdd;
     let levelAfter = levelBefore;
 
-    // Handle level ups (max level 20)
-    while (levelAfter < 20) {
+    while (true) {
         const cost = getExperienceUpgradeCost(levelAfter);
         if (experienceAfter < cost) {
             break;
@@ -93,15 +104,10 @@ export function addExperience(
         levelAfter++;
     }
 
-    // Clamp to max level
-    if (levelAfter >= 20) {
-        experienceAfter = Math.min(experienceAfter, currentExperience);
-    }
-
     return {
         playerId,
         experienceBefore: currentExperience,
-        experienceAfter: experienceAfter,
+        experienceAfter,
         levelBefore,
         levelAfter,
         experienceGained: experienceToAdd,

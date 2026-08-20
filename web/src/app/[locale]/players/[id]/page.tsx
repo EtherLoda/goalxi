@@ -8,6 +8,7 @@ import { useTranslations } from "next-intl";
 import { useAuth } from "@/contexts/AuthContext";
 import { SpecialtyIcon } from "@/components/player/SpecialtyIcon";
 import { getSpecialtyLabel } from "@/lib/specialties";
+import { ExperienceTierLabel } from "@/components/ExperienceTierLabel";
 
 const SKILL_MAX = 20;
 
@@ -440,7 +441,7 @@ export default function PlayerDetailPage({ params }: PageProps) {
                           military_tech
                         </span>
                         <span className="text-xs font-bold uppercase tracking-widest text-[#91b2a6]">
-                          {t("exp")} {player.experience}
+                          {t("exp")} <ExperienceTierLabel value={player.experience} className="text-[#d3f5e8]" />
                         </span>
                       </div>
                       <div className="flex items-center gap-2">

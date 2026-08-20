@@ -9,43 +9,61 @@ import { MatchType } from '../entities/match.entity';
 
 describe('Experience Calculator', () => {
     describe('getExperienceUpgradeCost', () => {
-        it('should return ~6.8 for level 1', () => {
-            const cost = getExperienceUpgradeCost(1);
-            expect(cost).toBeCloseTo(6.8, 0);
+        it('should return 10 for level 0 (XP needed to reach L1)', () => {
+            expect(getExperienceUpgradeCost(0)).toBe(10);
         });
 
-        it('should return ~12.5 for level 5', () => {
-            const cost = getExperienceUpgradeCost(5);
-            expect(cost).toBeCloseTo(12.5, 1);
+        it('should return 20 for level 5 (XP needed to reach L6)', () => {
+            expect(getExperienceUpgradeCost(5)).toBe(20);
         });
 
-        it('should return ~29.5 for level 10', () => {
-            const cost = getExperienceUpgradeCost(10);
-            expect(cost).toBeCloseTo(29.5, 1);
+        it('should return 30 for level 10 (XP needed to reach L11)', () => {
+            expect(getExperienceUpgradeCost(10)).toBe(30);
         });
 
-        it('should return ~50.1 for level 15', () => {
-            const cost = getExperienceUpgradeCost(15);
-            expect(cost).toBeCloseTo(50.1, 1);
+        it('should return 40 for level 15 (XP needed to reach L16)', () => {
+            expect(getExperienceUpgradeCost(15)).toBe(40);
+        });
+
+        it('should follow the linear cost formula cost(L) = 10 + 2L', () => {
+            expect(getExperienceUpgradeCost(20)).toBe(50);
+            expect(getExperienceUpgradeCost(50)).toBe(110);
         });
     });
 
     describe('getExperienceLevel', () => {
-        it('should return level 1 for 0 experience', () => {
-            expect(getExperienceLevel(0)).toBe(1);
+        it('should return level 0 for 0 experience (level starts at 0)', () => {
+            expect(getExperienceLevel(0)).toBe(0);
         });
 
-        it('should return level 1 for 4 experience', () => {
-            expect(getExperienceLevel(4)).toBe(1);
+        it('should return level 0 for 9 experience (one XP short of L1)', () => {
+            expect(getExperienceLevel(9)).toBe(0);
         });
 
-        it('should return level 2 for 7 experience (6.85 needed for level 2)', () => {
-            expect(getExperienceLevel(7)).toBe(2);
+        it('should return level 1 for 10 experience', () => {
+            expect(getExperienceLevel(10)).toBe(1);
         });
 
-        it('should handle level 20 cap', () => {
-            // Very high experience should still return 20
-            expect(getExperienceLevel(1000)).toBe(20);
+        it('should return level 1 for 21 experience (one short of L2 at 22)', () => {
+            expect(getExperienceLevel(21)).toBe(1);
+        });
+
+        it('should return level 2 for 22 experience (L0:10 + L1:12)', () => {
+            expect(getExperienceLevel(22)).toBe(2);
+        });
+
+        it('should return level 5 for 70 experience (cumulative: 10+12+14+16+18)', () => {
+            expect(getExperienceLevel(70)).toBe(5);
+        });
+
+        it('should have no level cap (1000 XP → L27, 28 remaining)', () => {
+            expect(getExperienceLevel(1000)).toBe(27);
+        });
+
+        it('should support very high levels (100k XP → L311)', () => {
+            // sum(10+2k, k=0..N-1) = N^2 + 9N
+            // N=311: 311*320 = 99520,  N=312: 312*321 = 100152 (overflows 100k)
+            expect(getExperienceLevel(100000)).toBe(311);
         });
     });
 
@@ -74,34 +92,40 @@ describe('Experience Calculator', () => {
     });
 
     describe('addExperience', () => {
-        it('should add experience without level up', () => {
+        it('should add experience without level up (sub-L1 threshold)', () => {
             const result = addExperience(1, 0, 0.5);
             expect(result.experienceAfter).toBe(0.5);
-            expect(result.levelBefore).toBe(1);
-            expect(result.levelAfter).toBe(1);
+            expect(result.levelBefore).toBe(0);
+            expect(result.levelAfter).toBe(0);
             expect(result.experienceGained).toBe(0.5);
         });
 
-        it('should level up when enough experience is gained', () => {
-            // Start with 0 experience, add enough to level up
+        it('should level up to L1 with exactly 10 XP from 0', () => {
             const result = addExperience(1, 0, 10);
-            expect(result.levelAfter).toBeGreaterThanOrEqual(2);
+            expect(result.levelBefore).toBe(0);
+            expect(result.levelAfter).toBe(1);
+            expect(result.experienceAfter).toBe(0);
         });
 
-        it('should handle multiple level ups', () => {
-            // Add enough for multiple levels
+        it('should level up multiple times (50 XP from 0 → L3, 14 remaining)', () => {
+            // 10 + 12 + 14 = 36 spent, 50 - 36 = 14 remaining, level = 3
             const result = addExperience(1, 0, 50);
-            expect(result.levelAfter).toBeGreaterThanOrEqual(3);
+            expect(result.levelAfter).toBe(3);
+            expect(result.experienceAfter).toBe(14);
         });
 
-        it('should cap at level 20', () => {
+        it('should not cap at any level (1000 XP → L27, 28 remaining)', () => {
             const result = addExperience(1, 0, 1000);
-            expect(result.levelAfter).toBe(20);
+            expect(result.levelAfter).toBe(27);
+            expect(result.experienceAfter).toBe(28);
         });
 
-        it('should calculate experience remaining after level up', () => {
-            // Start with small amount that will level up
+        it('should preserve monotonicity of level (never decreases)', () => {
+            // Start with 5 XP (L0), add 1 (still L0, total 6)
             const result = addExperience(1, 5, 1);
+            expect(result.levelBefore).toBe(0);
+            expect(result.levelAfter).toBe(0);
+            expect(result.experienceAfter).toBe(6);
             expect(result.levelAfter).toBeGreaterThanOrEqual(result.levelBefore);
         });
     });

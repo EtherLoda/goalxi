@@ -2,6 +2,7 @@
 
 import { useTranslations } from "next-intl";
 import { CATEGORY_COLORS, SKILL_CATEGORIES, SKILL_MAX, formatSkillLabel, getCategoryName } from "./skill-display";
+import { ExperienceTierLabel } from "../ExperienceTierLabel";
 
 interface SkillBarProps {
   label: string;
@@ -163,7 +164,7 @@ export default function PlayerStatsCard({
             <span className="text-[7px] text-[#91b2a6]">{locale === "zh" ? "状态" : "FRM"}</span>
           </div>
           <div className="flex flex-col items-center">
-            <span className="text-sm font-black text-[#d3f5e8]">{player.experience}</span>
+            <ExperienceTierLabel value={player.experience} className="text-sm font-black text-[#d3f5e8]" />
             <span className="text-[7px] text-[#91b2a6]">EXP</span>
           </div>
         </div>
@@ -219,7 +220,7 @@ export default function PlayerStatsCard({
           </span>
         </div>
         <div className="bg-[#00251c] rounded-xl p-2 flex flex-col items-center justify-center border border-[#2f4e44]/10">
-          <div className="text-lg font-black text-[#d3f5e8]">{player.experience}</div>
+          <ExperienceTierLabel value={player.experience} className="text-lg font-black text-[#d3f5e8]" />
           <span className="text-[8px] font-bold uppercase tracking-widest text-[#91b2a6]">EXP</span>
         </div>
       </div>

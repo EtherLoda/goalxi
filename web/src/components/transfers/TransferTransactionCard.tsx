@@ -5,6 +5,7 @@ import { useLocale, useTranslations } from "next-intl";
 import { type TransferTransaction } from "@/lib/api";
 import { SpecialtyIcon } from "@/components/player/SpecialtyIcon";
 import { getSpecialtyLabel } from "@/lib/specialties";
+import { ExperienceTierLabel } from "@/components/ExperienceTierLabel";
 
 interface PlayerSkills {
   physical: { pace?: number; strength?: number };
@@ -111,7 +112,7 @@ export default function TransferTransactionCard({
             <p className="text-[10px] text-[#91b2a6] uppercase tracking-wider mb-1">
               Exp
             </p>
-            <p className="font-bold text-lg text-[#d3f5e8]">{player.experience || 0}</p>
+            <ExperienceTierLabel value={player.experience} className="font-bold text-lg text-[#d3f5e8]" />
           </div>
         </div>
         <div className="flex items-center gap-6">

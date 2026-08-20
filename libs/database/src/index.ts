@@ -62,6 +62,7 @@ export * from './services/training-calculator';
 export * from './services/condition-calculator';
 export * from './services/stamina-calculator';
 export * from './services/experience-calculator';
+export * from './services/skill-tier';
 export * from './services/injury-recovery-calculator';
 export * from './services/scout-generator';
 export * from './services/senior-scout-generator';

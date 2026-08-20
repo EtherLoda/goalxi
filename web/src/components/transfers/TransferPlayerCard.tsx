@@ -5,6 +5,7 @@ import Link from "next/link";
 import { type TransferAuction, type Player } from "@/lib/api";
 import { SpecialtyIcon } from "@/components/player/SpecialtyIcon";
 import { getSpecialtyLabel } from "@/lib/specialties";
+import { ExperienceTierLabel } from "@/components/ExperienceTierLabel";
 import { useGameStore } from "@/stores/gameStore";
 import { useAuth } from "@/contexts/AuthContext";
 import { useRouter } from "next/navigation";
@@ -167,7 +168,7 @@ export default function TransferPlayerCard({
               {t("squad.exp")}
             </p>
             <p className="font-bold text-lg text-[#d3f5e8]">
-              {player.experience || 0}
+              <ExperienceTierLabel value={player.experience} />
             </p>
           </div>
         </div>

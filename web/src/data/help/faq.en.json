@@ -1,0 +1,407 @@
+{
+  "version": 7,
+  "locale": "en",
+  "lastUpdated": "2026-08-20",
+  "module": "player",
+  "noInternalNumbers": true,
+  "noSilentOmission": true,
+  "moduleNote": "Player module — player concepts, skills, positions, condition/form/injury, actions. Excludes youth (separate module). Follows two player-facing rules: (1) no engine weights/formulas/coefficients/thresholds leaked, only qualitative priorities — BUT game-mechanics numbers that a player can verify by playing (match-type EXP multipliers, level cap, etc.) are fine to expose; (2) comparison and priority entries must cover ALL 10/9 skills — skipped skills must be explicitly bucketed into \"almost no impact\" with a reason, never silently omitted.",
+  "entries": [
+    {
+      "id": "pwi-vs-overall",
+      "intent": "player_scoring",
+      "tags": ["rating", "PWI", "overall"],
+      "questions": [
+        "what is PWI",
+        "PWI vs overall",
+        "what is the player composite rating",
+        "how is PWI calculated",
+        "how is player rating calculated"
+      ],
+      "keywords": ["PWI", "overall", "rating", "composite", "worth", "score"],
+      "answer": "PWI = Player Worth Index = the composite player rating. Higher number = stronger player.\n\nIn GoalXI, **PWI and overall are the same number** — the API returns both `pwi` and `overall` fields with identical values. `pwiDisplay` is the UI-rounded version for display.\n\nPWI is driven by **three factors**:\n- **Current skills (primary)** — higher values on the 10-skill panel → higher PWI\n- **Potential (amplifier)** — same skills, a higher-potential player has a higher PWI ceiling\n- **Form (fine-tune)** — good form nudges PWI up; bad form nudges it down\n\nHigher PWI **doesn't guarantee better on-pitch performance** — position weight (where the player is lined up) and tactics also matter. Two players with the same PWI can perform very differently in different positions.",
+      "links": [
+        { "label": "View squad ratings", "href": "/teams/squad" }
+      ],
+      "followUp": ["current-vs-potential-skills", "potential-tier-meaning"]
+    },
+    {
+      "id": "current-vs-potential-skills",
+      "intent": "player_growth",
+      "tags": ["skills", "growth", "radar"],
+      "questions": [
+        "currentSkills vs potentialSkills",
+        "what do the two radar lines mean",
+        "how to read a player growth ceiling",
+        "what is the dashed radar line"
+      ],
+      "keywords": ["currentSkills", "potentialSkills", "potential", "growth", "radar", "ceiling"],
+      "answer": "Every player has two skill data sets:\n\n- **currentSkills** (current, **solid** radar line) — the player's real ability right now; all PWI calculations use this\n- **potentialSkills** (ceiling, **dashed** radar line) — the upper bound the player **can grow into**\n\nThe gap between the two = remaining growth headroom:\n- **senior players**: usually very close together (mostly grown)\n- **youth players**: large gap (still growing; specific drift is dynamic over time)\n\nSkills basically stop rising once they hit potential. PWI reflects current ability, not potential directly.\n\n> Youth reveal/promote mechanics live in the youth module (later).",
+      "links": [
+        { "label": "Player detail page", "href": "/players/{playerId}" },
+        { "label": "Youth player detail page", "href": "/youth/players/{playerId}" }
+      ],
+      "followUp": ["pwi-vs-overall", "potential-tier-meaning"]
+    },
+    {
+      "id": "outfield-skills-meaning",
+      "intent": "player_skills",
+      "tags": ["skills", "outfield", "panel"],
+      "questions": [
+        "what do the 10 outfield skill panel items mean",
+        "what does each player skill affect",
+        "10 radar skills meaning",
+        "non-goalkeeper skill list"
+      ],
+      "keywords": ["outfield", "skills", "skill", "10", "panel", "attributes"],
+      "answer": "Outfield players have a **10-skill** panel grouped into 4 dimensions:\n\n**physical**\n- **pace** — sprint speed, recovery runs, getting in behind\n- **strength** — physical duels, headers, holding off opponents\n\n**technical**\n- **finishing** — goalscoring, shots in the box\n- **passing** — through balls, long balls, crosses\n- **dribbling** — 1v1 beat, take-on\n- **defending** — tackles, interceptions, blocks\n\n**mental**\n- **positioning** — off-the-ball movement, defensive shape, runs into the box\n- **composure** — calm finishing under pressure, no panic errors\n\n**setPieces**\n- **freeKicks** — direct free-kick taker quality\n- **penalties** — penalty taker quality\n\nSkill values range 0-20, default 10. Each skill's on-pitch contribution **varies by position** — see the per-position skill priority entries.",
+      "links": [
+        { "label": "Player detail page", "href": "/players/{playerId}" }
+      ],
+      "followUp": ["gk-skills-vs-outfield", "skill-dimensions-note", "skill-priority-w", "skill-priority-cb"]
+    },
+    {
+      "id": "gk-skills-vs-outfield",
+      "intent": "player_skills",
+      "tags": ["skills", "GK", "goalkeeper"],
+      "questions": [
+        "GK skill panel vs outfield",
+        "what are the 9 goalkeeper skills",
+        "what do GK reflexes handling aerial mean",
+        "why does GK have no finishing"
+      ],
+      "keywords": ["GK", "reflexes", "handling", "aerial", "goalkeeper", "save"],
+      "answer": "The GK skill panel has **9 items** (one fewer than outfield), grouped into 4 dimensions:\n\n**physical** (same as outfield): pace, strength\n**technical** (GK-specific, 3 items): reflexes, handling, aerial\n**mental** (same as outfield): positioning, composure\n**setPieces** (same as outfield): freeKicks, penalties\n\nGKs don't get the outfield's finishing/passing/dribbling/defending (no point) — replaced by the 3 GK-specific technical skills.\n\n**GKs are scored on a completely different formula than outfield** — the engine uses a dedicated GK calculation that focuses on **reflexes** and **handling**, with no position-weight influence. A high reflexes/handling radar means a good GK; pace/strength barely affect GK rating.",
+      "links": [
+        { "label": "Player detail page", "href": "/players/{playerId}" }
+      ],
+      "followUp": ["outfield-skills-meaning", "skill-priority-gk"]
+    },
+    {
+      "id": "skill-dimensions-note",
+      "intent": "player_skills",
+      "tags": ["skills", "grouping"],
+      "questions": [
+        "how are physical technical mental setPieces grouped",
+        "what are the 4 skill dimensions",
+        "how are player skills categorized"
+      ],
+      "keywords": ["physical", "technical", "mental", "setPieces", "dimension", "grouping"],
+      "answer": "The 10/9 skills are grouped into 4 **functional dimensions** (purely UI organization; doesn't affect PWI math):\n\n- **physical** — pace, strength\n- **technical** — GK: reflexes/handling/aerial; outfield: finishing/passing/dribbling/defending\n- **mental** — positioning, composure\n- **setPieces** — freeKicks, penalties\n\nThe radar chart and skill list use these 4 groups for display. **The engine merges by position-weight, not by dimension.**",
+      "links": [],
+      "followUp": ["outfield-skills-meaning", "gk-skills-vs-outfield"]
+    },
+    {
+      "id": "potential-tier-meaning",
+      "intent": "player_potential",
+      "tags": ["potential", "tier"],
+      "questions": [
+        "what are the 5 potentialTier levels",
+        "difference between LOW REGULAR HIGH_PRO ELITE LEGEND",
+        "how to judge a player's potential tier",
+        "how to know if a player is worth training"
+      ],
+      "keywords": ["potentialTier", "LOW", "REGULAR", "HIGH_PRO", "ELITE", "LEGEND", "potential tier"],
+      "answer": "`potentialTier` is the **5-band potential label** for a player, with 5 color codes (weak → strong):\n\n- **LOW** (grey) — low potential; maxes out as a bench / rotation option\n- **REGULAR** (green) — first-team starter level; maxes out as a solid contributor, high cost/performance\n- **HIGH_PRO** (gold) — high potential; maxes out as a top player, mid-table team core\n- **ELITE** (pink) — elite; maxes out as a strong-team starter\n- **LEGEND** (purple) — legendary; maxes out near the ceiling, rare (mostly from youth promotion or transfer wins)\n\n> ⚠️ The tier label is assigned randomly by the generator and is **not directly equal to** the `potentialSkills` numbers. To judge \"is this player worth training\" look at the **gap between potentialSkills and currentSkills** more reliably (dashed vs solid radar).\n\nYouth player tier labels are gated by `revealLevel` (fog-of-war) — you need to reveal enough skills to see them.",
+      "links": [
+        { "label": "Player detail page", "href": "/players/{playerId}" }
+      ],
+      "followUp": ["current-vs-potential-skills", "pwi-vs-overall"]
+    },
+    {
+      "id": "position-keys-glossary",
+      "intent": "player_positions",
+      "tags": ["position", "abbreviation", "glossary"],
+      "questions": [
+        "full glossary of player position abbreviations",
+        "what do CD CDL CDR LB RB WBL WBR LM RM LW RW AM CM DM CFL CFR CF mean",
+        "all position codes meaning",
+        "difference between 3-slot and 1-slot positions"
+      ],
+      "keywords": ["position", "abbreviation", "key", "glossary", "code"],
+      "answer": "Full GoalXI position abbreviation reference (attack → defense order):\n\n**Forward**\n- `CF` center forward; `CFL`/`CFR` left/right center forward; `ST` center forward (alias)\n\n**Winger (W)**\n- `LW`/`RW` left/right winger (pure winger, plays in attack line)\n- `LM`/`RM` actually maps to `WML`/`WMR` (wide midfielder, plays in midfield line — see W vs WM entry)\n\n**Midfield (centralMidfield, CM)**\n- `AM`/`AML`/`AMR` attacking midfielder (C/L/R); `CM`/`CML`/`CMR` central midfielder (C/L/R); `DM`/`DML`/`DMR` defensive midfielder (C/L/R)\n- Aliases: `CAM`/`CDM`/`DMF`/`DMFL`/`DMFR` etc — historical names, engine folds automatically\n\n**Defense (centerBack / fullback)**\n- `CB`/`CBL`/`CBR` center back (C/L/R); `LB`/`RB` left/right back\n- `WBL`/`WBR` wing back (L/R, more aggressive); `LWB`/`RWB` modern 1-slot wing back names\n- Aliases: `CD`/`CDL`/`CDR` historical center-back names, engine folds to `CB`\n\n**Goalkeeper**\n- `GK` goalkeeper (single 1-slot)\n\n**3-slot vs 1-slot**: `CBL`/`CB`/`CBR` are a 3-slot group (one `CB` family); `LW`/`LW1`/`LW2` are a 3-slot group too. The engine works on the family name; the specific slot is chosen in the formation editor.",
+      "links": [
+        { "label": "Formation editor", "href": "/matches/{matchId}/tactics" }
+      ],
+      "followUp": ["w-vs-wm", "wbl-vs-lb", "cd-cdl-cdr-vs-cb", "am-vs-cm", "dm-vs-cdm", "cfl-cfr-vs-cf"]
+    },
+    {
+      "id": "w-vs-wm",
+      "intent": "player_positions",
+      "tags": ["position comparison", "W", "WM", "winger", "wide midfielder"],
+      "questions": [
+        "W vs WM difference",
+        "winger vs wide midfielder",
+        "LW/RW vs LM/RM difference",
+        "winger vs wide midfielder"
+      ],
+      "keywords": ["W", "WM", "winger", "wide midfielder", "LW", "RW", "LM", "RM", "side"],
+      "answer": "**W (Winger, side attacker)** = `LW`/`RW` — **forward-line player**, sits high\n- Main jobs: beat the fullback, cross, cut inside to shoot\n- Position: furthest forward on each flank\n- Engine focuses on **pace** and **dribbling** (these decide if a W is usable), with finishing as a bonus\n- Operates mostly on their own flank; barely any central involvement\n\n**WM (Wide Midfielder)** = `LM`/`RM` (engine actually uses `WML`/`WMR`) — **midfield-line player**, sits deeper\n- Main jobs: midfield circulation, support the fullback, supply the winger\n- Position: out wide on the midfield line\n- Engine also looks at pace and dribbling, but **defending and positioning are required** (WMs must defend)\n\n**Full 10-skill comparison**:\n| Skill | Winger W (LW/RW) | Wide Midfielder WM (LM/RM) | Who's higher |\n|---|---|---|---|\n| **pace** | **Very high** | High | Winger |\n| **strength** | Medium | Medium | Same |\n| **finishing** | Medium | Lower | Winger |\n| **passing** | Medium | Medium | Same |\n| **dribbling** | **Very high** | High | Winger |\n| **defending** | Very low | Medium | **Wide midfielder** |\n| **positioning** | Lower | Medium | **Wide midfielder** |\n| **composure** | Medium | Medium | Same |\n| **freeKicks** | - | - | Position-independent |\n| **penalties** | - | - | Position-independent |\n\n**Pattern**:\n- **3 skills higher for W** (pace/dribbling/finishing) — attacking axis, W needs W-level body\n- **2 skills higher for WM** (defending/positioning) — defensive/positioning axis, WM must defend\n- **3 skills same** (passing/strength/composure) — common base for side players\n- **2 skills position-independent** (freeKicks/penalties) — set-piece taker quality is personal\n\n**One-liner**: **W is pure attack (almost no defending), WM is half-and-half (must track back)**. W goes up and doesn't come back; WM goes up and comes back.\n\n**Practical tip**:\n- Counter-attacking or needing a match-winner → W (LW/RW)\n- Possession-based or needing wide circulation → WM (LM/RM)\n- W cannot defend → must have an LM/RM or DM shielding behind (a WM covers both)",
+      "links": [
+        { "label": "Formation editor", "href": "/matches/{matchId}/tactics" }
+      ],
+      "followUp": ["position-keys-glossary", "skill-priority-w"]
+    },
+    {
+      "id": "wbl-vs-lb",
+      "intent": "player_positions",
+      "tags": ["position comparison", "WBL", "LB", "wing back", "fullback"],
+      "questions": [
+        "WBL vs LB difference",
+        "WBR vs RB difference",
+        "wing back vs fullback",
+        "Wing back vs Fullback"
+      ],
+      "keywords": ["WBL", "WBR", "LB", "RB", "wing back", "fullback", "side back"],
+      "answer": "**LB/RB (Fullback)** — traditional side back, sits relatively deep\n- Main jobs: contain the opposing winger, cover, **limited overlaps**\n- Engine focuses on **defending and positioning** (defense-first), with low attacking weight\n- Lateral push demand: modest\n\n**WBL/WBR (Wing Back)** — modern wing back, used in **3-CB shapes or attack-heavy 4-back shapes**\n- Bombs forward, basically **\"half a W\"**\n- Engine demands **significantly higher** attacking skills (pace, dribbling, finishing) than LB\n- Leaves big space behind; **a CB has to cover, or the center back must be good enough on the ball to step up**\n\n**Full 10-skill comparison**:\n| Skill | Fullback (LB/RB) | Wing Back (WBL/WBR) | Who's higher |\n|---|---|---|---|\n| **pace** | Medium | **High** | Wing back |\n| **strength** | Medium | Medium | Same |\n| **finishing** | Low | Medium | Wing back |\n| **passing** | High | High | Same |\n| **dribbling** | Medium | **High** | Wing back |\n| **defending** | **High** | Medium | **Fullback** |\n| **positioning** | **High** | Medium | **Fullback** |\n| **composure** | Medium | Medium | Same |\n| **freeKicks** | - | - | Position-independent |\n| **penalties** | - | - | Position-independent |\n\n**Pattern**:\n- **3 skills higher for WBL** (pace/dribbling/finishing) — attacking axis, WBL needs W-level body\n- **2 skills higher for LB** (defending/positioning) — defensive axis, WBL spends more on attack\n- **3 skills same** (passing/strength/composure) — common base for both side roles\n- **2 skills position-independent** (freeKicks/penalties) — set-piece taker quality is personal\n\n**Key insight**: WBL is **not an upgraded LB**, it's a **role swap** — you trade defensive skills for attacking skills. defending/positioning being a bit lower is fine because the CB covers, **but they can't be too low** or WBL will be stranded in no-man's-land when they need to track back — the most common way a WBL dies.\n\n**Practical tip**:\n- 4-back traditional shape (442/433/451) → LB/RB\n- 3-CB / 352 / 3412 / 343-class shapes that need wide attacking → WBL/WBR\n- Signing a WBL: not just the attacking trio (pace/dribbling/finishing), **defending/positioning also need a base level** or they \"go up but never come back\"\n\n> `LWB`/`RWB` is the modern 1-slot alias for WBL/WBR, same meaning in the engine.",
+      "links": [],
+      "followUp": ["position-keys-glossary", "skill-priority-cb"]
+    },
+    {
+      "id": "cd-cdl-cdr-vs-cb",
+      "intent": "player_positions",
+      "tags": ["position comparison", "CD", "CB", "center back"],
+      "questions": [
+        "CD CDL CDR vs CB difference",
+        "is CD the same as CB",
+        "are old CD position players still in use"
+      ],
+      "keywords": ["CD", "CDL", "CDR", "CB", "center back", "centre defender"],
+      "answer": "**No difference**. `CD`/`CDL`/`CDR` is the historical name, `CB`/`CBL`/`CBR` is the current name.\n\nThe engine folds them all into the `CB` family:\n- `CD` → `CB`\n- `CDL` → `CB`\n- `CDR` → `CB`\n\nSo:\n- **Older player rows** in the database may still have `position = 'CD'`; they render and score as `CB`\n- The **formation editor only accepts** `CB`/`CBL`/`CBR`\n- Historical tactics rows / old data may still emit `CD*`; engine auto-compat\n\n> This is a **pure naming cleanup** — `CD` = Centre Defender (British), `CB` = Center Back (modern global). GoalXI rolled the rename forward in 2026; old data keeps compat.\n\nIf you see a `CD` label in the UI, it's old data — treat it as `CB`.",
+      "links": [],
+      "followUp": ["position-keys-glossary", "skill-priority-cb"]
+    },
+    {
+      "id": "am-vs-cm",
+      "intent": "player_positions",
+      "tags": ["position comparison", "AM", "CM", "attacking midfielder"],
+      "questions": [
+        "AM vs CM difference",
+        "when to use AM",
+        "attacking midfielder vs central midfielder",
+        "is CAM the same as CM"
+      ],
+      "keywords": ["AM", "CM", "AML", "CML", "attacking midfielder", "central midfielder", "10", "8"],
+      "answer": "**CM (Central Midfielder)** — midfield balance point\n- Both ends of the pitch, primary job is **circulation + cover**\n- Engine looks for a balance of passing, defending, and dribbling\n\n**AM (Attacking Midfielder)** — forward-line creator\n- Primary job is **final ball + chance creation**; can shoot but it's not the main role\n- Engine focuses on **passing + dribbling**; defending demand is **extremely low** (AMs barely defend)\n\n**Full 10-skill comparison**:\n| Skill | Central Midfielder CM | Attacking Midfielder AM | Who's higher |\n|---|---|---|---|\n| **pace** | Medium | Medium | Same |\n| **strength** | Medium | Lower | CM |\n| **finishing** | Lower | Medium | **AM** |\n| **passing** | **High** | **High** | Same (both live on passing) |\n| **dribbling** | Medium | **High** | **AM** |\n| **defending** | Medium | **Very low** | **CM** (AM barely defends) |\n| **positioning** | Medium | Medium | Same |\n| **composure** | Medium | Medium | Same |\n| **freeKicks** | - | - | Position-independent |\n| **penalties** | - | - | Position-independent |\n\n**Pattern**:\n- **3 skills higher for AM** (finishing/dribbling, + passing tied at high) — AM is attack-creator\n- **2 skills higher for CM** (defending/strength) — CM is midfield shield, both attack and defend\n- **4 skills same** (pace/passing/positioning/composure) — common midfielder base\n- **2 skills position-independent** (freeKicks/penalties)\n\n**One-liner**: **AM is \"half a W\" (barely defends), CM is \"all-round midfielder\" (both ends)**. AM goes up and doesn't come back; CM goes up and comes back.\n\n**Practical tip**:\n- 4-3-3 / 4-2-3-1 (double DM + 1 AM) / 4-4-2-style balanced shapes → CM\n- 4-2-3-1 single AM / 4-1-2-1-2 diamond / 3-4-1-2 attack shapes → AM\n- AM cannot defend; **a DM must shield behind**\n\n> `CAM` is the historical name; engine folds to `AM`.",
+      "links": [],
+      "followUp": ["position-keys-glossary", "dm-vs-cdm", "skill-priority-cm-dm-am"]
+    },
+    {
+      "id": "dm-vs-cdm",
+      "intent": "player_positions",
+      "tags": ["position comparison", "DM", "CDM", "defensive midfielder"],
+      "questions": [
+        "DM vs CDM difference",
+        "what does CDM stand for",
+        "why does DM sit behind the midfield",
+        "defensive midfielder position"
+      ],
+      "keywords": ["DM", "CDM", "defensive midfielder", "DML", "DMR", "6"],
+      "answer": "**No functional difference**. `CDM` is the historical name for `DM`.\n\nThe engine folds them all into the `DM` family:\n- `CDM` → `DM`\n- `DMF` → `DM`\n- `DMFL` → `DML`\n- `DMFR` → `DMR`\n\nSo `CDM` = `DM` = Defensive Midfielder.\n\n**Full 10-skill breakdown for DM**:\n| Skill | DM importance | Note |\n|---|---|---|\n| **pace** | Medium | Need speed to track back, not the headline |\n| **strength** | **High** | Physical duels and screening are DM basics |\n| **finishing** | **Very low** | Almost never attacks, no requirement |\n| **passing** | **High** | Intercept → distribute is DM's second core |\n| **dribbling** | Medium | Occasionally carries the ball through midfield |\n| **defending** | **Very high** | Headline skill, intercept + tackle first line |\n| **positioning** | **Very high** | Shape the back line, tied with defending as headline |\n| **composure** | Medium | Calm under pressure, no panic |\n| **freeKicks** | - | Position-independent |\n| **penalties** | - | Position-independent |\n\n**Pattern**:\n- **2 skills very high**: defending / positioning — DM's headline duo\n- **2 skills high**: strength / passing — DM's second tier\n- **3 skills medium**: pace / dribbling / composure — common midfielder base\n- **1 skill very low**: finishing — almost never attacks\n- **2 skills position-independent**: freeKicks / penalties\n\n**DM's role**: last line in front of the center backs. **Intercept + circulate** is the core; create and finish are not DM's job.\n\n**Practical tip**:\n- **Single DM** (alone in the pivot): must be ball-playing (passing is enough; **defending + positioning both need to be very strong**)\n- **Double pivot**: pair one pure defensive DM + one CM, complementary\n- If you play an AM in front → DM is mandatory behind (AM barely defends)",
+      "links": [],
+      "followUp": ["position-keys-glossary", "am-vs-cm", "skill-priority-cm-dm-am"]
+    },
+    {
+      "id": "cfl-cfr-vs-cf",
+      "intent": "player_positions",
+      "tags": ["position comparison", "CF", "CFL", "CFR", "center forward"],
+      "questions": [
+        "CFL CFR CF difference",
+        "left center forward vs right center forward",
+        "how to line up 3 strikers",
+        "forward position splits"
+      ],
+      "keywords": ["CF", "CFL", "CFR", "ST", "center forward", "9"],
+      "answer": "**CF (Center Forward)** — the lone 9 in a single-striker shape\n- Central, primary job is scoring\n\n**CFL (Center Forward Left)** / **CFR (Center Forward Right)**\n- Used in 3-striker shapes (e.g. **3-4-3**)\n- Same role as CF, just biased left / right, with more link-up play on the corresponding flank\n- CFL operates mostly in the left half; CFR mostly in the right half\n\n**Full 10-skill breakdown for CF / CFL / CFR** (base is the same; only the active zone differs):\n| Skill | CF | CFL | CFR | Who's higher |\n|---|---|---|---|---|\n| **pace** | **High** | **High** | **High** | Same |\n| **strength** | **High** | **High** | **High** | Same |\n| **finishing** | **Very high** | **Very high** | **Very high** | Same (all are finishers) |\n| **passing** | Lower | Medium | Medium | CFL/CFR slightly higher (flank link-up) |\n| **dribbling** | Medium | Medium | Medium | Same |\n| **defending** | Very low | Very low | Very low | Same (forwards barely defend) |\n| **positioning** | **Very high** | **Very high** | **Very high** | Same (tapping runs are core) |\n| **composure** | **High** | **High** | **High** | Same (1v1 finishing) |\n| **freeKicks** | - | - | - | Position-independent |\n| **penalties** | - | - | - | Position-independent |\n\n**Pattern**:\n- **5 skills at very high / high (headline)**: finishing / positioning / pace / strength / composure — CF's core 5\n- **1 skill medium**: dribbling — occasionally, not headline\n- **1 skill lower (CF) / medium (CFL/CFR)**: passing — CF barely distributes; CFL/CFR link up with the flank\n- **1 skill very low**: defending — forwards barely defend\n- **2 skills position-independent**: freeKicks / penalties\n\n**Differences between the three**:\n- **CF**: central, pure finisher\n- **CFL**: center-left, links with LW, slightly better passing\n- **CFR**: center-right, links with RW, slightly better passing\n\n**Practical tip**:\n- Single striker (4-3-3 / 4-4-2 strike pair) → CF\n- 3-striker (3-4-3) → CFL + CF + CFR trio\n- Strike pair (4-4-2 / 4-1-2-1-2 diamond top) → CF + CF (two CFs, no L/R) or CF + AM\n\n> `ST` (Striker) is an alias for `CF`, same in the engine.\n> Note: `CFL`/`CFR` are **not** LW/RW — wingers are their own W family.",
+      "links": [],
+      "followUp": ["position-keys-glossary", "skill-priority-cf"]
+    },
+    {
+      "id": "skill-priority-w",
+      "intent": "player_skill_priority",
+      "tags": ["skill priority", "W", "winger", "LW", "RW"],
+      "questions": [
+        "W player skill priority",
+        "what should LW RW train",
+        "what skills matter for wingers",
+        "winger skill ranking"
+      ],
+      "keywords": ["W", "LW", "RW", "winger", "skill priority", "priority", "wing"],
+      "answer": "W player (`LW`/`RW`) full 10-skill breakdown, by on-pitch impact:\n\n**Critical 2** (decide if a W is usable)\n1. **pace** — the winger's lifeline. Counters, getting in behind, recovery runs all need speed\n2. **dribbling** — 1v1 take-on, going wide / cutting inside. A W who can't dribble is useless\n\n**Important 2** (tied)\n3. **passing** — cross quality, linking with the fullback / striker\n3. **finishing** — cutting inside to shoot, tap-ins\n\n**Support 1**\n5. **strength** — physical duels, holding off the opposing fullback\n\n**Almost no impact 5**\n6. **defending** — W barely defends (only emergency recovery)\n7. **positioning** — W's movement is driven by dribbling, positioning matters less\n8. **composure** — W rarely finishes 1v1 (crosses or cuts inside for teammates)\n9. **freeKicks** — position-independent, set-piece taker quality is personal\n10. **penalties** — position-independent, set-piece taker quality is personal\n\n**Practical tip**:\n- Signing: **pace and dribbling are the bar**; other skills can be lower\n- Training: +1 pace or +1 dribbling is worth more than +1 anything else\n- Rule of thumb: if a W's dribbling is clearly below average, they're effectively useless\n- Don't bother chasing defending/positioning/composure — they barely register for a W",
+      "links": [],
+      "followUp": ["outfield-skills-meaning", "w-vs-wm", "skill-priority-cf", "skill-priority-cm-dm-am"]
+    },
+    {
+      "id": "skill-priority-cb",
+      "intent": "player_skill_priority",
+      "tags": ["skill priority", "CB", "center back"],
+      "questions": [
+        "CB skill priority",
+        "what should a center back train",
+        "what skills matter for center backs",
+        "CD player skill ranking"
+      ],
+      "keywords": ["CB", "CD", "center back", "skill priority", "priority"],
+      "answer": "CB player (`CB`/`CBL`/`CBR`) full 10-skill breakdown, by on-pitch impact:\n\n**Critical 1**\n1. **defending** — tackles, blocks, interceptions, aerial duels. The single most important CB stat\n\n**Important 3**\n2. **passing** — build-out from the back. **Modern CBs need to play out from the back**, this is heavily weighted\n3. **positioning** — reading the game, covering, shifting across\n4. **strength** — physical duels, headers, holding off the opposing CF\n\n**Support 1**\n5. **pace** — recovery against counters; modern CB requirements keep climbing\n\n**Almost no impact 5**\n6. **dribbling** — CBs rarely carry the ball past midfield, not headline\n7. **finishing** — CBs barely join the attack for finishes\n8. **composure** — CBs rarely face 1v1 with the keeper, composure barely registers\n9. **freeKicks** — position-independent, set-piece taker quality is personal\n10. **penalties** — position-independent, set-piece taker quality is personal\n\n**Practical tip**:\n- Signing: defending must be there; strength holds up aerially; positioning shouldn't be low\n- Training: +1 defending is the best stat to raise\n- **Don't neglect passing on a modern CB** — high press will expose a CB who can't play out\n- Don't bother chasing finishing/dribbling — they barely register for a CB",
+      "links": [],
+      "followUp": ["outfield-skills-meaning", "cd-cdl-cdr-vs-cb"]
+    },
+    {
+      "id": "skill-priority-cm-dm-am",
+      "intent": "player_skill_priority",
+      "tags": ["skill priority", "CM", "DM", "AM", "midfield"],
+      "questions": [
+        "CM skill priority",
+        "DM skill priority",
+        "AM skill priority",
+        "what should midfielders train",
+        "central midfielder defensive midfielder attacking midfielder"
+      ],
+      "keywords": ["CM", "DM", "AM", "midfield", "skill priority", "priority", "central midfielder", "defensive midfielder", "attacking midfielder"],
+      "answer": "All three midfield positions, full 10-skill breakdown, by on-pitch impact (high → low):\n\n---\n\n**CM (Central Midfielder)**: passing + defense, balanced\n- **Headline**: **passing** (circulation) + **defending** (cover)\n- **Secondary**: **dribbling** (progression, beating the press) + **positioning** (shape)\n- **Support**: **composure** (calm under pressure) + **strength** (duels) + **pace** (medium)\n- **Almost no impact**: **finishing** (occasional late runs, not headline) + **freeKicks/penalties** (position-independent)\n\n---\n\n**DM (Defensive Midfielder)**: defense + passing\n- **Headline**: **defending** (tackles, interceptions, first line in front of the defense) + **positioning** (shape, screening)\n- **Secondary**: **passing** (distribution, defense-to-attack) + **strength** (physical duels)\n- **Support**: **composure** (calm) + **pace** (medium) + **dribbling** (medium)\n- **Almost no impact**: **finishing** (almost never attacks) + **freeKicks/penalties** (position-independent)\n\n---\n\n**AM (Attacking Midfielder)**: dribbling + final pass\n- **Headline**: **passing** (through balls, final pass) + **dribbling** (beating markers, creating)\n- **Secondary**: **finishing** (arriving late to score) + **pace** (progression)\n- **Support**: **composure** (medium) + **positioning** (medium) + **strength** (lower)\n- **Almost no impact**: **defending** (AM barely defends) + **freeKicks/penalties** (position-independent)\n\n---\n\n**Three-position side-by-side comparison**:\n| Skill | CM | DM | AM | Key difference |\n|---|---|---|---|---|\n| **pace** | Medium | Medium | Medium | All similar |\n| **strength** | Medium | Medium | Lower | AM is lighter, DM/CM hold up better |\n| **finishing** | Lower | **Very low** | Medium | AM > CM > DM |\n| **passing** | **High** | Medium | **High** | CM/AM feed the team, DM less so |\n| **dribbling** | Medium | Medium | **High** | AM headline, CM/DM average |\n| **defending** | Medium | **High** | **Very low** | DM headline, AM barely defends |\n| **positioning** | Medium | **High** | Medium | DM headline (shape the back line) |\n| **composure** | Medium | Medium | Medium | All similar |\n| **freeKicks** | - | - | - | Position-independent |\n| **penalties** | - | - | - | Position-independent |\n\n**Core differences**:\n- **CM headline**: passing + defending — all-round midfielder\n- **DM headline**: defending + positioning — shield type\n- **AM headline**: passing + dribbling — creator type\n\n**Practical tip**:\n- Signing CM: high passing, decent defending, decent dribbling\n- Signing DM: **defending must be strong**, positioning must be there, passing enough to build (single pivot demands more)\n- Signing AM: **dribbling and passing must both be strong**, with some finishing\n- Training: CM/AM → dribbling + passing first; DM → defending first",
+      "links": [],
+      "followUp": ["am-vs-cm", "dm-vs-cdm", "outfield-skills-meaning"]
+    },
+    {
+      "id": "skill-priority-cf",
+      "intent": "player_skill_priority",
+      "tags": ["skill priority", "CF", "center forward"],
+      "questions": [
+        "CF skill priority",
+        "what should a center forward train",
+        "what skills matter for strikers",
+        "center forward skill ranking"
+      ],
+      "keywords": ["CF", "ST", "center forward", "skill priority", "priority", "striker", "9"],
+      "answer": "CF player (`CF`/`CFL`/`CFR`/`ST`) full 10-skill breakdown, by on-pitch impact:\n\n**Critical 1**\n1. **finishing** — goalscoring. The CF's reason to exist. No finishing = no goals\n\n**Important 3**\n2. **positioning** — runs, tap-ins, beating the offside trap. Off-the-ball movement decides if a CF even gets the ball\n3. **strength** — hold-up play, headers, wrestling with CBs\n4. **composure** — calm 1-on-1s with the keeper, don't panic and sky it\n\n**Support 2** (tied)\n5. **pace** — counter runs, getting in behind\n5. **dribbling** — beating the defender before shooting\n\n**Almost no impact 4**\n7. **passing** — CF distribution is weak; let the AM create, CF just finishes\n8. **defending** — forwards barely defend\n9. **freeKicks** — position-independent, set-piece taker quality is personal\n10. **penalties** — position-independent, set-piece taker quality is personal\n\n**Practical tip**:\n- Signing: **finishing is the bar**\n- Training: +1 finishing is the single best stat to raise\n- Rule of thumb: if a CF's finishing is clearly below average, they're effectively useless (saved by keeper + skied shots)\n- **Note**: CF distribution is **weak** — let the AM create, CF just finishes\n- Don't bother chasing passing/defending — they barely register for a CF",
+      "links": [],
+      "followUp": ["outfield-skills-meaning", "cfl-cfr-vs-cf"]
+    },
+    {
+      "id": "skill-priority-gk",
+      "intent": "player_skill_priority",
+      "tags": ["skill priority", "GK", "goalkeeper"],
+      "questions": [
+        "GK skill priority",
+        "what should a goalkeeper train",
+        "what skills matter for goalkeepers",
+        "GK reflexes handling positioning importance"
+      ],
+      "keywords": ["GK", "reflexes", "handling", "positioning", "aerial", "composure", "goalkeeper", "skill priority"],
+      "answer": "GK player full 9-skill breakdown, by on-pitch impact:\n\n**Critical 2** (decide if a GK is usable)\n1. **reflexes** — save reaction. The single most important GK stat; close-range shots saved or not\n2. **handling** — catching cleanly. High balls claimed, low shots held not parried\n\n**Important 1**\n3. **positioning** — shape, narrowing angles, being in the right place reduces the save difficulty\n\n**Support 2** (tied)\n4. **aerial** — high-ball claiming\n4. **composure** — calm, no fumbles\n\n**Almost no impact 4**\n6. **pace** — GK doesn't need to chase balls past midfield, barely registers\n7. **strength** — GK doesn't need to wrestle strikers, barely registers\n8. **freeKicks** — position-independent, set-piece taker quality is personal\n9. **penalties** — position-independent, set-piece taker quality is personal\n\n**Comparison vs outfield players**:\n- GK **ignores pace/strength** (those fields exist but don't enter GK save rating)\n- GK cares about the 3 GK-specific technical skills (reflexes/handling/aerial) + positioning + composure\n- A high reflexes/handling radar means a good GK; **pace/strength on a GK are basically irrelevant** — don't read a high radar and assume a good GK\n\n**Practical tip**:\n- Signing: reflexes and handling are the bar\n- Training: +1 reflexes is the most valuable; +1 handling second\n- Rule of thumb: a GK with reflexes clearly below average will be beaten constantly; handling clearly below average will fumble high balls\n- Don't bother chasing pace/strength — they barely register for a GK",
+      "links": [],
+      "followUp": ["gk-skills-vs-outfield", "outfield-skills-meaning"]
+    },
+    {
+      "id": "specialties-meaning",
+      "intent": "player_specialty",
+      "tags": ["specialty", "GOLD", "SILVER", "BRONZE"],
+      "questions": [
+        "what do the 12 specialties do",
+        "difference between GOLD SILVER BRONZE tier",
+        "what do player specialties mean",
+        "which specialty is the strongest"
+      ],
+      "keywords": ["specialty", "specialties", "AERIAL_THREAT", "DRIBBLER", "PLAYMAKER", "TACKLER", "WALL", "SPEEDSTER", "CROSSER", "POACHER", "COMPOSED", "PHYSICAL_BEAST", "SAVING_MASTER", "SWEEPER_KEEPER"],
+      "answer": "**Specialties** = the player's \"identity tag\", an engine multiplier on specific match events.\n\n**12 active specialties** (each has an engine hook):\n| Specialty | Best for position | Triggered event |\n|---|---|---|\n| AERIAL_THREAT | CB/CF | Headers, aerial duels |\n| DRIBBLER | W/AM | 1v1 take-on |\n| PLAYMAKER | AM/CM | Through balls, final pass |\n| TACKLER | CB/DM | Tackles, interceptions |\n| WALL | CB/DM | Defensive blocks |\n| SPEEDSTER | W | Counter runs |\n| CROSSER | W/LB | Wide crosses |\n| POACHER | CF | Tap-ins, rebounds |\n| COMPOSED | CF/AM | One-on-one finishing |\n| PHYSICAL_BEAST | CB/CF | Physical duels |\n| SAVING_MASTER | GK | Key saves |\n| SWEEPER_KEEPER | GK | Sweeping / rushing out |\n\n**Tier**:\n- **GOLD** — top tier, largest engine bonus when triggered\n- **SILVER** — mid tier, medium bonus\n- **BRONZE** — basic tier, smallest bonus\n\n**Key points**:\n- Only **~50%** of players have a specialty (the other half have none)\n- Tier is **independent of player attributes** — it's rolled at generation time, not derived\n- **Per event, only the team's strongest specialty is applied**, no stacking. So multiple POACHERs in one team only count the strongest one\n- Specialties show up in the transfer market filters and scout reports\n\n> Legacy v1 specialties (HEADER/LPASS/...) are deprecated; new-gen players don't roll them.",
+      "links": [
+        { "label": "Transfer market (filter by specialty)", "href": "/transfers" }
+      ],
+      "followUp": ["outfield-skills-meaning", "gk-skills-vs-outfield"]
+    },
+    {
+      "id": "condition-form-injury",
+      "intent": "player_condition",
+      "tags": ["stamina", "form", "injury"],
+      "questions": [
+        "how do player stamina form injury affect matches",
+        "condition vs form difference",
+        "how do injuries recover",
+        "stamina vs form difference"
+      ],
+      "keywords": ["condition", "stamina", "form", "injury", "fitness", "tired"],
+      "answer": "Three different concepts, each affects matches differently:\n\n---\n\n**stamina** — the player's **current-match** fitness\n- Drains continuously during a match (running, duels, saves all cost)\n- Affects **this match's** contribution (low stamina = below-par performance)\n- Recovers via substitutions and halftime rest\n- Shown as the fitness bar on the player card during a match\n\n---\n\n**form** — the player's **recent** competitive state\n- Affects PWI display (good form → PWI reads slightly higher; bad form → slightly lower)\n- Drifts based on recent match results and training\n- Shown as the form arrow (↑/→/↓) on the radar / card\n\n---\n\n**injury** — the player's **current** injury state\n- `severe` (out — can't play) / `minor` (playable but reduced) / `null` (healthy)\n- Type: muscle / ligament / joint / head / other\n- Severity drives recovery time (minor = days, severe = weeks)\n- New injuries can trigger from in-match events (tackles, overuse, etc.)\n\n---\n\n**How they relate**:\n- `stamina` is **in-match**, `form` is **between matches**, `injury` is **a state machine**\n- Player enters injury list → countdown to recovery → state clears to play again\n\n> Cumulative match minutes also influences form drift; long stretches without playing → form drops.",
+      "links": [
+        { "label": "Player detail page (see current state)", "href": "/players/{playerId}" }
+      ],
+      "followUp": ["outfield-skills-meaning", "pwi-vs-overall"]
+    },
+    {
+      "id": "release-list-player",
+      "intent": "player_action",
+      "tags": ["action", "release", "list"],
+      "questions": [
+        "how to release a player",
+        "how to list a player for sale",
+        "how to set startPrice and buyout",
+        "player sale flow"
+      ],
+      "keywords": ["release", "list", "startPrice", "buyout", "sell", "auction"],
+      "answer": "Two different operations, completely separate flows:\n\n---\n\n**Release**\n- Soft delete, **youth players only**\n- `POST /players/:id/release`; the player row is **kept** (event history is preserved), but `deletedAt` is filled in\n- **Senior players cannot be released** (the API returns an error) — by design, prevents a UI typo from dumping a first-team starter\n- To clear a senior from the squad, use List-for-sale or wait out the contract\n\n---\n\n**List Player**\n- `POST /transfers/auctions` (in the squad page, click a player → \"List Player\" button)\n- Fields required:\n  - **startPrice** — the lowest sale price you'll accept (€)\n  - **buyout** — hidden field; **currently auto = startPrice × 2** (the v2 mechanic isn't exposed to players yet)\n- After listing, the player's `onTransfer = true`; other teams can bid\n- The auction is public in the transfer market (other team AIs will bid)\n- Sold → player transfers to the buyer team, you get the money\n- Unsold (no bid) → re-list or delist\n\n---\n\n**Web flow**:\n```\nTeam → Squad → pick player → \"List Player\" → fill startPrice → submit\n```\n\n**Practical tip**:\n- startPrice: low if you want a quick sale, high if you're waiting for a big fish (could be a long wait)\n- Release: only for **youth players you don't want** or **youth-development failures**; never release a senior\n- Auction timeline: 1-2 game days with no bids after listing is normal",
+      "links": [
+        { "label": "Squad page", "href": "/teams/squad" }
+      ],
+      "followUp": ["condition-form-injury", "outfield-skills-meaning"]
+    },
+    {
+      "id": "player-event-types",
+      "intent": "player_events",
+      "tags": ["events", "achievement", "milestone", "history"],
+      "questions": [
+        "what types of events are in player history",
+        "what does TRANSFER HAT_TRICK INJURY mean",
+        "full list of player achievement events",
+        "how to read event history",
+        "how many event types exist on a player timeline"
+      ],
+      "keywords": ["TRANSFER", "HAT_TRICK", "INJURY", "DEBUT", "CHAMPIONSHIP_TITLE", "GOLDEN_BOOT", "ASSISTS_LEADER", "TACKLES_LEADER", "MAN_OF_THE_MATCH", "YOUTH_PROMOTION", "LEAGUE_DEBUT", "CAPTAIN_DEBUT", "RECORD_BROKEN", "CONTRACT_RENEWAL", "event", "achievement", "milestone"],
+      "answer": "The player detail page's \"event history\" area has **14 event types**, grouped into 4 categories:\n\n---\n\n**Transfer / contract (2)**\n| Event | Trigger | Meaning |\n|---|---|---|\n| **TRANSFER** | Player moves to another team (buy / sell / free) | Permanent transfer record |\n| **CONTRACT_RENEWAL** | Player extends contract with the team | Contract extended |\n\n---\n\n**Achievement (5)**\n| Event | Trigger | Meaning |\n|---|---|---|\n| **CHAMPIONSHIP_TITLE** | The player's team wins the league | Historic team moment |\n| **GOLDEN_BOOT** | Top scorer of the season | Top-tier finisher badge |\n| **ASSISTS_LEADER** | Top assist maker of the season | Top-tier creator badge |\n| **TACKLES_LEADER** | Top tackler of the season | Top-tier defender badge |\n| **MAN_OF_THE_MATCH** | Best player in a single match | Single-match award |\n\n---\n\n**Career milestone (4)**\n| Event | Trigger | Meaning |\n|---|---|---|\n| **DEBUT** | First appearance for the team (any competition) | Career first match |\n| **LEAGUE_DEBUT** | First league appearance for the team | League first match (recorded separately) |\n| **CAPTAIN_DEBUT** | First match as captain | First game wearing the armband |\n| **RECORD_BROKEN** | Breaks a club or league record | History-making moment |\n\n---\n\n**Special (3)**\n| Event | Trigger | Meaning |\n|---|---|---|\n| **HAT_TRICK** | 3+ goals in a single match | Hat trick |\n| **YOUTH_PROMOTION** | Youth player promoted to senior squad | Promoted from youth to first team (ties into the youth module) |\n| **INJURY** | Player gets injured | Injury record (pair with the condition-form-injury entry) |\n\n---\n\n**How to read event history**:\n- The player detail page has an **Events** tab / timeline area\n- Listed in **reverse chronological order** (newest at the top)\n- Each event shows: **event type + date + short description** (e.g. `HAT_TRICK · 2026-08-15 · 3 goals`)\n- Different events have different color icons: **gold = achievement** (CHAMPIONSHIP_TITLE / GOLDEN_BOOT / HAT_TRICK), **red = injury** (INJURY), **green = promotion** (YOUTH_PROMOTION), **blue = transfer / contract** (TRANSFER / CONTRACT_RENEWAL), **purple = milestone** (RECORD_BROKEN / DEBUT etc.)\n\n---\n\n**Practical use — how event history tells you a player's value**:\n- **Quality**: density of **gold achievements** (HAT_TRICK / CHAMPIONSHIP_TITLE / RECORD_BROKEN / GOLDEN_BOOT) — more = worth more\n- **Durability**: frequency of **INJURY** — frequent = injury-prone, sign with caution\n- **Loyalty**: count of **CONTRACT_RENEWAL** — many = core / senior player\n- **Path**: **DEBUT** + **YOUTH_PROMOTION** dates — youth promotion = homegrown, usually higher PWI ceiling\n- **Big-game ability**: frequency of **MAN_OF_THE_MATCH** — high = clutch player\n\n> These are all 14 types shown in the player detail page's \"event history\" area. Click a player → detail page → Events tab for the full timeline.",
+      "links": [
+        { "label": "View player detail (with event history)", "href": "/players/{playerId}" },
+        { "label": "View youth player detail", "href": "/youth/players/{playerId}" }
+      ],
+      "followUp": ["condition-form-injury", "outfield-skills-meaning", "release-list-player"]
+    },
+    {
+      "id": "experience-meaning",
+      "intent": "player_experience",
+      "tags": ["experience", "EXP", "growth", "veteran", "level", "tier"],
+      "questions": [
+        "what is experience",
+        "what is EXP",
+        "how do players level up",
+        "why are veterans better at penalties",
+        "how does experience grow",
+        "do national team games grow experience faster",
+        "what are the L0 L1 L5 L10 tiers",
+        "what is the 21-tier label system",
+        "is there an experience cap"
+      ],
+      "keywords": ["experience", "经验", "EXP", "level", "等级", "growth", "老将", "penalty", "tier", "L0", "L5", "L10", "label", "tag", "Beyond Compare", "None", "化境", "无", "21-tier"],
+      "answer": "**Experience (EXP)** = a player's **long-term accumulated match value** (raw XP, float), the long-term counterpart of `form` (short-term). **Higher number = more \"seasoned\" the player is**.\n\n---\n\n**Basic rules**:\n- After every match, players who appeared get experience based on their performance\n- Experience **only goes up** — injury / bad form / rest don't drain it\n- New players start at **0.0 XP** (level 0, tier \"None\")\n- **No level cap** — experience and level keep growing forever\n- UI displays a **21-tier label (L0-L20)**, not raw XP — **hover to see the raw XP**\n\n---\n\n**How experience grows (per match type — same as before)**:\n\n| Match type | EXP multiplier | Note |\n|---|---|---|\n| **National team** | **5.0x** | **Fastest growth** — one match = 5 league matches of exp |\n| **Playoff** | 2.0x | 2× league |\n| **League / Cup** | 1.0x (baseline) | Standard |\n| **Friendly** | **0.1x** | Almost no growth |\n| **Tournament** | 0 | No exp credited |\n\n**Minutes played also matter**: **play 90 minutes = full base exp for that match**; play 45 minutes = half; sub on for 10 minutes = almost nothing.\n\n---\n\n**Level-up cost (linear, no longer sigmoid)**:\n- Going from level L to L+1 costs **10 + 2L** XP\n- The cost increases by 2 XP per level — **not steep** (compared to the old sigmoid curve, late levels are now gentler)\n- Cumulative XP needed to reach level N = **N² + 9N** (from L0 to L(N))\n\n---\n\n**Cumulative XP lookup table**:\n| Level | Cumulative XP | Tier label |\n|---|---|---|\n| **L0** | 0 | None |\n| **L1** | 10 | Terrible |\n| **L2** | 22 | Poor |\n| **L3** | 36 | Mediocre |\n| **L4** | 52 | Average |\n| **L5** | 70 | Competent |\n| **L6** | 90 | Satisfactory |\n| **L7** | 112 | Good |\n| **L8** | 136 | Excellent |\n| **L9** | 162 | Formidable |\n| **L10** | 190 | Outstanding |\n| **L11** | 220 | Superb |\n| **L12** | 252 | Apex |\n| **L13** | 286 | Superior |\n| **L14** | 322 | World-Class |\n| **L15** | 360 | Magnificent |\n| **L16** | 400 | Exceptional |\n| **L17** | 442 | Peerless |\n| **L18** | 486 | Unmatched |\n| **L19** | 532 | Transcendent |\n| **L20** | 580 | Beyond Compare |\n\n> **What happens past L20?** The level keeps growing (L21, L22, …) but the **tier label caps at L20 (\"Beyond Compare\")** — players above L20 all look like \"Beyond Compare\" in the UI, while raw XP keeps climbing and the engine still gives the veteran bonus.\n\n---\n\n**Full 21-tier label list** (shared by skills and experience):\n\n| L | English | 中文 |\n|---|---|---|\n| L0 | None | 无 |\n| L1 | Terrible | 糟糕 |\n| L2 | Poor | 差劲 |\n| L3 | Mediocre | 平庸 |\n| L4 | Average | 一般 |\n| L5 | Competent | 合格 |\n| L6 | Satisfactory | 差强人意 |\n| L7 | Good | 良好 |\n| L8 | Excellent | 优秀 |\n| L9 | Formidable | 强大 |\n| L10 | Outstanding | 杰出 |\n| L11 | Superb | 精湛 |\n| L12 | Apex | 顶尖 |\n| L13 | Superior | 卓越 |\n| L14 | World-Class | 超一流 |\n| L15 | Magnificent | 卓绝 |\n| L16 | Exceptional | 出类拔萃 |\n| L17 | Peerless | 举世无双 |\n| L18 | Unmatched | 登峰造极 |\n| L19 | Transcendent | 空前绝后 |\n| L20 | Beyond Compare | 化境 |\n\n> **These 21 labels are not just for experience** — the **10 skills on the skill panel (0-20 numeric) use the same label set** (e.g. pace 18 = L18 Unmatched; GK reflexes 14 = L14 World-Class). The radar chart also displays each skill with its tier label.\n\n---\n\n**UI display**:\n- Player card / detail page / squad board show the **tier label** in the EXP area (e.g. `L9 Formidable`)\n- **Hover** shows raw XP (e.g. `162 XP`)\n- The internal level (0+) keeps growing, but the **tier label caps at L20** (everything above is \"Beyond Compare\")\n- The 10 skill bars on the radar also use the same 21-tier label set\n\n---\n\n**Veteran bonus / how the engine uses experience**:\n- The engine uses the **raw XP** (not the tier label) for multipliers\n- `calculatePenaltyMultiplier` and `getMultiplierWithFitnessFactor` both read raw XP\n- **Engine comment**: `\"Penalty specific multiplier: Ignores stamina, high experience bonus.\"` — **veterans are more reliable on penalties**, not affected by fatigue\n- Long-term play: high-experience players are more consistent (similar to form but for the long haul)\n- Short-term play is still form-driven; experience is the **long-term trend**\n\n---\n\n**Practical tips**:\n- Want to grow exp fast → **play your players in national team matches** (5x rate)\n- Friendly and tournament matches are basically \"free play\" (almost no exp), but useful for tuning form and testing lineups\n- Young players with low PWI shouldn't be sold just for that — **exp keeps growing**, and past L20 raw XP still keeps climbing with the veteran bonus\n- Veterans (high exp) take **penalties far more reliably** than youngsters — pick the experienced player for the decisive spot kick\n- Level-up cost is **gentler** than the old sigmoid curve — late levels are reachable, long-term investment has more payoff\n- To eyeball a player's \"seasoning\": **read the tier label** (L5 Competent vs L15 Magnificent = completely different level); **read raw XP** to distinguish among the L20+ cluster\n\n> Note: experience **only grows from matches**, not from training. Youth players promoted with little playing time will have low experience.\n\n---\n\n**Relationship to other concepts**:\n- vs **form**: form is **short-term state** (1-2 week drift), experience is **long-term accumulation**. Both affect PWI display, but **long-term performance** leans on experience, **single-match performance** leans on form\n- vs **PWI**: PWI is the **composite rating** = current skills + experience + form, all factored in. Experience is one **input factor** (multiplier)\n- vs **tier label**: the **tier label is only the display form** of experience; the engine uses raw XP for math, not the label\n- vs **skill tier**: the **10 skills on the skill panel use the same 21-tier labels** (skill 0-20 maps directly, no accumulation, no leveling) — don't confuse \"skill tier\" (ability) with \"experience tier\" (career record)",
+      "links": [
+        { "label": "View player detail (see EXP tier)", "href": "/players/{playerId}" }
+      ],
+      "followUp": ["pwi-vs-overall", "condition-form-injury", "player-event-types", "outfield-skills-meaning"]
+    },
+    {
+      "id": "comparing-two-players",
+      "intent": "player_comparison",
+      "tags": ["comparison", "transfer", "selection", "decision"],
+      "questions": [
+        "how to compare two players",
+        "how to pick a transfer",
+        "which of two players is better",
+        "what to compare between players",
+        "what dimensions to look at when scouting"
+      ],
+      "keywords": ["compare", "comparison", "select", "transfer", "scout", "PWI", "potential", "decision"],
+      "answer": "**How to compare two players** (universal framework for transfer / selection / squad-picking decisions)\n\n---\n\n## Big rule: **same position only**\n\n- Comparing a W to a CB by PWI is meaningless — **position weights differ**; the same 16 is headline for a W and middling for a CB\n- Cross-position PWI / skill comparison = **meaningless**\n- Headline-skill comparison only works **within the same position** (see the per-position `skill-priority-*` entries)\n\n---\n\n## 11 comparison dimensions (by importance, high → low)\n\n| # | Dimension | How to read | Decision weight |\n|---|---|---|---|\n| 1 | **PWI / overall** | Current composite score | Headline metric (same position only) |\n| 2 | **Headline skills 2-3** | The position's top 2-3 priority skills (see `skill-priority-*`) | Decides if the player is usable |\n| 3 | **Potential (potentialTier)** | 5-band label (LOW < REGULAR < HIGH_PRO < ELITE < LEGEND) | Long-term value |\n| 4 | **currentSkills vs potentialSkills gap** | Radar: solid vs dashed line | How much more they can grow |\n| 5 | **form** | 3.0 baseline / 5.0 peak / 1.0 low | This-match performance |\n| 6 | **experience (EXP)** | Cumulative raw XP (level 0+, no cap, UI shows L0-L20 tier label, everything past L20 displays as 「Beyond Compare」) | Veteran bonus / long-term stability |\n| 7 | **Injury state** | `severe` out / `minor` reduced / `null` healthy | Immediate availability |\n| 8 | **Specialties** | GOLD > SILVER > BRONZE, matches your tactics? | Tactical fit |\n| 9 | **age** | **No aging mechanic** today, but matters for long-term planning | Long-term investment |\n| 10 | **On-transfer status** | Listed = for sale (seller may be in a hurry) | Negotiation room |\n| 11 | **Price** | Auction price vs value-for-money | Final call |\n\n**By decision scenario**:\n- **Short-term (this season, chasing titles)**: dimensions 1 / 2 / 5 / 7 are critical\n- **Long-term (2-3 season plan)**: dimensions 1 / 2 / 3 / 4 / 9 are critical\n- **Key positions (GK)**: dimensions 1 / 2 / 6 are critical (veteran bonus matters, see `experience-meaning`)\n\n---\n\n## Practical flow (quick decision version)\n\n### Step 1: Same position + PWI\n- Difference **> 5** = significant, can usually decide\n- Difference **< 2** = negligible, keep looking at dimensions below\n\n### Step 2: Headline skills (2-3 items)\n- Find the position's top priority skills (see `skill-priority-*` entries)\n- Example: **W**'s headlines are **pace / dribbling** (see `skill-priority-w`)\n- Example: **GK**'s headlines are **reflexes / handling** (see `skill-priority-gk`)\n- Example: **CB**'s headline is **defending** (see `skill-priority-cb`)\n- **Difference in 2+ of the 2-3 headlines = decision is clear**\n\n### Step 3: Potential (long-term value)\n- Same potential tier → compare currentSkills vs potentialSkills gap (radar solid vs dashed)\n- 1-2 tier gap → compare the 5 headline skills, see which fits your tactics better\n- LEGEND vs LOW on headline skills similar → LEGEND always wins (still has room to grow)\n\n### Step 4: Injury + form (immediate availability)\n- **Severe injury** → can't use them this match, even after buying\n- **Minor injury** → reduced ability, sign with caution\n- **Form very low (< 1.5)** → short-term gamble, may rebound\n- **Form very high (> 4.5)** → short-term steal, but may revert to baseline next few matches\n\n### Step 5: Specialties (tactical fit)\n- A specialty that matches your formation / tactics = **bonus** (e.g. your 4-3-3 needs a TACKLER CB, a TACKLER GOLD CB on the market = perfect fit)\n- Mismatched = neutral (doesn't affect on-pitch performance, but may be wasted if you switch tactics later)\n\n### Step 6: Price + status\n- Auction price vs player PWI / potential, value-for-money check\n- High-exp veterans usually command a premium (justified, veteran bonus is real)\n- On-transfer status = for sale, **hurried seller may cut price** (more negotiation room)\n\n---\n\n## Common mistakes (avoid these)\n\n❌ **Cross-position PWI / skill comparison**: meaningless, position weights differ\n❌ **PWI-only without position check**: a 18-PWI W in a CB slot = disaster, the position matters\n❌ **Ignoring the currentSkills vs potentialSkills gap**: high potential **does not** mean they will grow, look at the gap\n❌ **Underestimating the veteran bonus**: experienced players are **significantly more reliable** on penalties and long-term consistency (see `experience-meaning`)\n❌ **Chasing the perfect player**: LEGEND + max skills + healthy + young = **does not exist** in practice, optimize for value\n❌ **Ignoring form swings**: when form < 1.5 you can buy cheap, but check whether the dip is from an injury recovery (then it may climb back)\n\n---\n\n## Links to other entries\n\n- **Headline skills / priority** → see the per-position `skill-priority-*` entries (W / CB / CM-DM-AM / CF / GK)\n- **Position comparison** → see `w-vs-wm` / `wbl-vs-lb` / `am-vs-cm` / `dm-vs-cdm` / `cfl-cfr-vs-cf`\n- **What is PWI** → see `pwi-vs-overall`\n- **What is experience** → see `experience-meaning`\n- **How to read injury** → see `condition-form-injury`\n- **How to read event history** → see `player-event-types`\n- **How to list a player for sale** → see `release-list-player`",
+      "links": [
+        { "label": "View player detail", "href": "/players/{playerId}" },
+        { "label": "Transfer market", "href": "/transfers" }
+      ],
+      "followUp": ["pwi-vs-overall", "skill-priority-w", "skill-priority-cb", "experience-meaning", "condition-form-injury"]
+    }
+  ]
+}
