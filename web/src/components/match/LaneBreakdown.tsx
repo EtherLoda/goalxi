@@ -16,7 +16,13 @@
 'use client';
 
 import React from 'react';
+import { useLocale } from 'next-intl';
 import { clsx } from 'clsx';
+import {
+  LANE_STRENGTH_TIER_COLOR_HEX,
+  laneStrengthTier,
+  laneStrengthTierColor,
+} from '@/lib/strength-tier';
 
 export interface LaneStrength {
   attack: number;
@@ -74,6 +80,27 @@ export function LaneBreakdown({
   homeShots,
   awayShots,
 }: LaneBreakdownProps) {
+  // Locale flows from next-intl. Cast to the SKILL_TIERS
+  // locale union ('zh' | 'en') — the app only registers
+  // those two.
+  const locale = useLocale() as 'zh' | 'en';
+
+  // Display helper for the sub-line: lane strength is a 0-20
+  // float, the sub-line shows the rounded integer with a `+`
+  // suffix for the half-step (>= 0.5). The primary text on
+  // the tile is the SKILL_TIERS label (see below); this
+  // helper is the secondary `7` / `7+` / `8` line the
+  // user keeps below the tier name. We hide the 1-decimal
+  // value entirely — the user said "不显示具体数字 7.7" so
+  // the tile reads as `7` / `7+` / `8`, not `7.0` / `7.7` /
+  // `8.0`. The raw float is still the bar-width source, so
+  // the visual ratio is unchanged.
+  const compact = (v: number): string => {
+    if (!Number.isFinite(v)) return '0';
+    const clamped = Math.max(0, Math.min(20, v));
+    const base = Math.floor(clamped);
+    return clamped - base >= 0.5 ? `${base}+` : `${base}`;
+  };
   return (
     <div className="glass-panel rounded-2xl p-4 shrink-0">
       {/* Header */}
@@ -151,11 +178,35 @@ export function LaneBreakdown({
               {/* Metric rows */}
               <div className="px-2.5 py-2 space-y-1.5">
                 {METRICS.map((metric) => {
-                  const homeVal = Math.round(home[metric.key]);
-                  const awayVal = Math.round(away[metric.key]);
-                  // Use the max of the two so the longer bar fills
-                  // its half. (50% of the total width caps either side
-                  // so they always meet in the middle.)
+                  // Two-line display per side:
+                  //   primary  -> SKILL_TIERS name + `+`
+                  //                (`良好+`, `优秀`, `良好`).
+                  //                Driven by `laneStrengthTier`
+                  //                so the i18n labels match the
+                  //                experience tier table.
+                  //   sub-line -> rounded integer + `+`
+                  //                (`7`, `7+`, `8`). NO 1-decimal
+                  //                precision — the user said
+                  //                "不显示具体数字 7.7".
+                  // The raw 0-20 float still drives the bar
+                  // width.
+                  const homeVal = home[metric.key];
+                  const awayVal = away[metric.key];
+                  const homeTier = laneStrengthTier(homeVal, locale);
+                  const awayTier = laneStrengthTier(awayVal, locale);
+                  const homeCol =
+                    LANE_STRENGTH_TIER_COLOR_HEX[
+                      laneStrengthTierColor(homeVal)
+                    ];
+                  const awayCol =
+                    LANE_STRENGTH_TIER_COLOR_HEX[
+                      laneStrengthTierColor(awayVal)
+                    ];
+                  // Bar width on the raw float (1-decimal
+                  // precision is fine for the visual ratio).
+                  // Use the max of the two so the longer bar
+                  // fills its half (50% of the total width caps
+                  // either side so they always meet in the middle).
                   const peak = Math.max(homeVal, awayVal, 1);
                   const homePct = (homeVal / peak) * 50;
                   const awayPct = (awayVal / peak) * 50;
@@ -169,44 +220,56 @@ export function LaneBreakdown({
                         {metric.short}
                       </span>
 
-                      {/* Home: value + bar (left → right) */}
+                      {/* Home: tier label + integer sub-line + bar */}
                       <div className="flex items-center gap-1 min-w-0">
-                        <span
-                          className="font-mono font-black tabular-nums text-[10px] w-7 text-right shrink-0"
-                          style={{ color: homeColor }}
-                        >
-                          {homeVal}
-                        </span>
+                        <div className="flex flex-col items-end shrink-0 w-[60px]">
+                          <span
+                            className="font-headline font-bold text-[11px] leading-tight"
+                            style={{ color: homeCol }}
+                            title={`Lane strength ${homeVal.toFixed(1)} / 20`}
+                          >
+                            {homeTier.labelWithPlus}
+                          </span>
+                          <span className="font-mono tabular-nums text-[8px] text-on-surface-variant/40 leading-none">
+                            {compact(homeVal)}
+                          </span>
+                        </div>
                         <div className="flex-1 h-1.5 bg-surface-container-high/40 rounded-full overflow-hidden">
                           <div
                             className="h-full rounded-full"
                             style={{
                               width: `${homePct}%`,
-                              backgroundColor: homeColor,
+                              backgroundColor: homeCol,
                               opacity: 0.9,
                             }}
                           />
                         </div>
                       </div>
 
-                      {/* Away: bar (right → left) + value */}
+                      {/* Away: bar + tier label + integer sub-line */}
                       <div className="flex items-center gap-1 min-w-0">
                         <div className="flex-1 h-1.5 bg-surface-container-high/40 rounded-full overflow-hidden flex justify-end">
                           <div
                             className="h-full rounded-full"
                             style={{
                               width: `${awayPct}%`,
-                              backgroundColor: awayColor,
+                              backgroundColor: awayCol,
                               opacity: 0.9,
                             }}
                           />
                         </div>
-                        <span
-                          className="font-mono font-black tabular-nums text-[10px] w-7 text-left shrink-0"
-                          style={{ color: awayColor }}
-                        >
-                          {awayVal}
-                        </span>
+                        <div className="flex flex-col items-start shrink-0 w-[60px]">
+                          <span
+                            className="font-headline font-bold text-[11px] leading-tight"
+                            style={{ color: awayCol }}
+                            title={`Lane strength ${awayVal.toFixed(1)} / 20`}
+                          >
+                            {awayTier.labelWithPlus}
+                          </span>
+                          <span className="font-mono tabular-nums text-[8px] text-on-surface-variant/40 leading-none">
+                            {compact(awayVal)}
+                          </span>
+                        </div>
                       </div>
                     </div>
                   );
