@@ -70,6 +70,7 @@ export * from './services/fan-rewards';
 export * from './services/onboarding-assigner';
 export * from './services/team-onboarding-generator';
 export * from './services/youth-progression';
+export * from './services/player-decline';
 export * from './services/specialty-generator';
 export * from './services/init-date-resolver';
 export * from './services/cup-calculator';
