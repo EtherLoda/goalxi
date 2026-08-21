@@ -67,7 +67,16 @@ export function extractSidebarData(events: MatchEvent[]): MatchSidebarData {
         attendance = ev.data.attendance as number;
       }
     } else if (type === 'attendance_announcement') {
-      if (attendance === null && typeof ev.data?.attendance === 'number') {
+      // Symmetric with the `weather_announcement` branch above: only
+      // adopt a non-zero number. A 0 value means "the preprocessor
+      // never computed attendance for this match" (no built stadium,
+      // no fan row, etc.) and we want the FE to render the absence
+      // (no tile) rather than a misleading "Attendance 0".
+      if (
+        attendance === null &&
+        typeof ev.data?.attendance === 'number' &&
+        (ev.data.attendance as number) > 0
+      ) {
         attendance = ev.data.attendance as number;
       }
     }

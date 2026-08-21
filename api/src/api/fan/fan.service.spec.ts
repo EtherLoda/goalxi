@@ -1,4 +1,4 @@
-import { FanEntity } from '@goalxi/database';
+import { calculateMatchAttendance, FanEntity } from '@goalxi/database';
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
@@ -44,13 +44,13 @@ describe('FanService', () => {
     it('should return 0 for zero fans with random fluctuation', () => {
       // With 0 home and 0 away fans, total attendance is 0
       // Even with +/- 5% fluctuation, 0 * anything = 0
-      const attendance = service.calculateAttendance(
+      const attendance = calculateMatchAttendance(
         0,
         0,
         50,
         50,
         capacity,
-        l4Cap,
+        4, // L4 cap = 110_000 (ratio uses FAN_HIDDEN_CAP[4])
       );
       expect(attendance).toBe(0);
     });
@@ -61,13 +61,13 @@ describe('FanService', () => {
       // homeRate = 0.6 + (50/100) * 0.4 = 0.8
       // home = 1000 * 0.497 * 0.8 = 397.6 → 397
       // total = 397 (no away fans)
-      const attendance = service.calculateAttendance(
+      const attendance = calculateMatchAttendance(
         1000,
         0,
         50,
         50,
         capacity,
-        l4Cap,
+        4, // L4 cap = 110_000 (ratio uses FAN_HIDDEN_CAP[4])
       );
       // With fluctuation 0.95 ~ 1.05, result is 377 ~ 417
       expect(attendance).toBeGreaterThanOrEqual(377);
@@ -80,33 +80,33 @@ describe('FanService', () => {
       // home = 100000 * 0.227 * 1.0 = 22727
       // away = 100000 * 0.08 * 1.0 = 8000
       // total = 30727 — well past capacity 10000
-      const attendance = service.calculateAttendance(
+      const attendance = calculateMatchAttendance(
         100_000,
         100_000,
         100,
         100,
         capacity,
-        l4Cap,
+        4, // L4 cap = 110_000 (ratio uses FAN_HIDDEN_CAP[4])
       );
       expect(attendance).toBe(capacity);
     });
 
     it('should consider home morale in home fan attendance', () => {
-      const lowMorale = service.calculateAttendance(
+      const lowMorale = calculateMatchAttendance(
         10_000,
         0,
         20,
         50,
         capacity,
-        l4Cap,
+        4, // L4 cap = 110_000 (ratio uses FAN_HIDDEN_CAP[4])
       );
-      const highMorale = service.calculateAttendance(
+      const highMorale = calculateMatchAttendance(
         10_000,
         0,
         100,
         50,
         capacity,
-        l4Cap,
+        4, // L4 cap = 110_000 (ratio uses FAN_HIDDEN_CAP[4])
       );
 
       // High morale should result in more attendance
@@ -114,21 +114,21 @@ describe('FanService', () => {
     });
 
     it('should consider away morale in away fan attendance', () => {
-      const lowMorale = service.calculateAttendance(
+      const lowMorale = calculateMatchAttendance(
         0,
         10_000,
         50,
         20,
         capacity,
-        l4Cap,
+        4, // L4 cap = 110_000 (ratio uses FAN_HIDDEN_CAP[4])
       );
-      const highMorale = service.calculateAttendance(
+      const highMorale = calculateMatchAttendance(
         0,
         10_000,
         50,
         100,
         capacity,
-        l4Cap,
+        4, // L4 cap = 110_000 (ratio uses FAN_HIDDEN_CAP[4])
       );
 
       // High morale should result in more attendance
@@ -140,13 +140,13 @@ describe('FanService', () => {
       // homeConv = 0.5 - 0.3 * 0.0909 ≈ 0.4727
       // homeRate = 0.6 + 0.5 * 0.4 = 0.8
       // home = floor(10000 * 0.4727 * 0.8) = 3781
-      const attendance = service.calculateAttendance(
+      const attendance = calculateMatchAttendance(
         10_000,
         0,
         50,
         50,
         capacity,
-        l4Cap,
+        4, // L4 cap = 110_000 (ratio uses FAN_HIDDEN_CAP[4])
       );
       // With fluctuation 0.95 ~ 1.05: floor(3781 * 0.95) ~ floor(3781 * 1.05)
       // = 3592 ~ 3970
@@ -158,13 +158,13 @@ describe('FanService', () => {
       // away conversion is fixed at 0.08 (small-club bonus does NOT
       // apply to travelling supporters), independent of homeCap.
       // away = 10000 * 0.08 * 0.8 = 640
-      const attendance = service.calculateAttendance(
+      const attendance = calculateMatchAttendance(
         0,
         10_000,
         50,
         50,
         capacity,
-        l4Cap,
+        4, // L4 cap = 110_000 (ratio uses FAN_HIDDEN_CAP[4])
       );
       // With fluctuation 0.95 ~ 1.05: 608 ~ 672
       expect(attendance).toBeGreaterThanOrEqual(608);
@@ -175,13 +175,13 @@ describe('FanService', () => {
       // home = 10000 * 0.473 * 0.8 = 3782  (dynamic homeConv)
       // away = 5000  * 0.08  * 0.8 = 320   (fixed awayConv)
       // total = 4102
-      const attendance = service.calculateAttendance(
+      const attendance = calculateMatchAttendance(
         10_000,
         5_000,
         50,
         50,
         capacity,
-        l4Cap,
+        4, // L4 cap = 110_000 (ratio uses FAN_HIDDEN_CAP[4])
       );
       // With fluctuation 0.95 ~ 1.05: 3897 ~ 4307
       expect(attendance).toBeGreaterThanOrEqual(3897);
@@ -199,7 +199,7 @@ describe('FanService', () => {
       // homeRate = 0.8
       // home = 500 * 0.499 * 0.8 = 199.6 → 199
       // Expected ~ 189-209 after ±5% fluctuation
-      const attendance = service.calculateAttendance(
+      const attendance = calculateMatchAttendance(
         500,
         0,
         50,
@@ -214,7 +214,7 @@ describe('FanService', () => {
     it('home conversion rate is ~35% when ratio=0.5 (mid-tier club)', () => {
       // 50k fans, cap 100k, ratio = 0.5, homeConv = 0.35
       // home = 50000 * 0.35 * 0.8 = 14000 → capped at capacity 10000
-      const attendance = service.calculateAttendance(
+      const attendance = calculateMatchAttendance(
         50_000,
         0,
         50,
@@ -225,7 +225,7 @@ describe('FanService', () => {
       // Hits the capacity ceiling — formula gives 14000 but min() clamps.
       expect(attendance).toBe(capacity);
       // Re-run with a stadium big enough to NOT cap, to actually see 14000
-      const uncapped = service.calculateAttendance(
+      const uncapped = calculateMatchAttendance(
         50_000,
         0,
         50,
@@ -241,7 +241,7 @@ describe('FanService', () => {
     it('home conversion rate is 20% (back-compat floor) when ratio=1 (saturated)', () => {
       // 100k fans, cap 100k, ratio = 1, homeConv = 0.2
       // home = 100000 * 0.2 * 0.8 = 16000 → capped at capacity 10000
-      const attendance = service.calculateAttendance(
+      const attendance = calculateMatchAttendance(
         100_000,
         0,
         50,
@@ -252,7 +252,7 @@ describe('FanService', () => {
       expect(attendance).toBe(capacity);
       // Uncapped: 16000 * 0.95 ~ 1.05 = 15200 ~ 16800 — exactly the
       // pre-change back-compat range (this is the regression pin).
-      const uncapped = service.calculateAttendance(
+      const uncapped = calculateMatchAttendance(
         100_000,
         0,
         50,
@@ -273,7 +273,7 @@ describe('FanService', () => {
       // and asserting the result is identical (within the ±5%
       // fluctuation band) to a third call with homeCap=1 (which
       // forces ratio=1, i.e. no home conversion bonus).
-      const underL4 = service.calculateAttendance(
+      const underL4 = calculateMatchAttendance(
         0,
         10_000,
         50,
@@ -281,7 +281,7 @@ describe('FanService', () => {
         capacity,
         110_000, // L4 cap
       );
-      const underL1 = service.calculateAttendance(
+      const underL1 = calculateMatchAttendance(
         0,
         10_000,
         50,
@@ -289,7 +289,7 @@ describe('FanService', () => {
         capacity,
         300_000, // L1 cap, very different from L4
       );
-      const underExtreme = service.calculateAttendance(
+      const underExtreme = calculateMatchAttendance(
         0,
         10_000,
         50,

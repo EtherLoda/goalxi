@@ -5,10 +5,13 @@ import { Queue } from 'bullmq';
 import { MatchSchedulerService } from './match-scheduler.service';
 import { LOGGER_SERVICE } from '@goalxi/logger';
 import {
+  FanEntity,
+  LeagueEntity,
   MatchEntity,
   MatchTacticsEntity,
   MatchEventEntity,
   MatchStatus,
+  StadiumEntity,
   WeatherEntity,
   TacticsPresetEntity,
   MatchType,
@@ -54,6 +57,21 @@ describe('MatchSchedulerService', () => {
 
   const mockWeatherRepository = {
     findOne: jest.fn(),
+  };
+
+  // Attendance precompute (Bug 4: live page reads Attendance 0).
+  // Default `null` stubs mimic the no-stadium / no-fan path so the
+  // column is left undefined and existing test assertions on the
+  // CAS update payload are unaffected. Tests that want a non-zero
+  // attendance can override these mocks individually.
+  const mockStadiumRepository = {
+    findOne: jest.fn().mockResolvedValue(null),
+  };
+  const mockFanRepository = {
+    findOne: jest.fn().mockResolvedValue(null),
+  };
+  const mockLeagueRepository = {
+    findOne: jest.fn().mockResolvedValue(null),
   };
 
   const mockSimulationQueue = {
@@ -108,6 +126,18 @@ describe('MatchSchedulerService', () => {
         {
           provide: getRepositoryToken(WeatherEntity),
           useValue: mockWeatherRepository,
+        },
+        {
+          provide: getRepositoryToken(StadiumEntity),
+          useValue: mockStadiumRepository,
+        },
+        {
+          provide: getRepositoryToken(FanEntity),
+          useValue: mockFanRepository,
+        },
+        {
+          provide: getRepositoryToken(LeagueEntity),
+          useValue: mockLeagueRepository,
         },
       ],
     }).compile();

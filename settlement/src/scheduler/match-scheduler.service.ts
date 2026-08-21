@@ -6,12 +6,17 @@ import { Queue } from 'bullmq';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, LessThan, LessThanOrEqual, IsNull, Not } from 'typeorm';
 import {
+  calculateMatchAttendance,
+  FanEntity,
+  LeagueEntity,
   MatchEntity,
-  MatchTacticsEntity,
-  MatchEventEntity,
   MatchStatus,
-  WeatherEntity,
+  MatchTacticsEntity,
+  Uuid,
+  MatchEventEntity,
+  StadiumEntity,
   TacticsPresetEntity,
+  WeatherEntity,
   GAME_SETTINGS,
 } from '@goalxi/database';
 
@@ -56,6 +61,16 @@ export class MatchSchedulerService {
     private weatherRepository: Repository<WeatherEntity>,
     @InjectRepository(TacticsPresetEntity)
     private presetRepository: Repository<TacticsPresetEntity>,
+    // For Bug 4: precompute the home-side attendance at preprocess
+    // time so the simulator can pick it up before the live page
+    // emits the first `attendance_announcement` event. See the
+    // comment in `preprocessMatch` below.
+    @InjectRepository(StadiumEntity)
+    private stadiumRepository: Repository<StadiumEntity>,
+    @InjectRepository(FanEntity)
+    private fanRepository: Repository<FanEntity>,
+    @InjectRepository(LeagueEntity)
+    private leagueRepository: Repository<LeagueEntity>,
   ) {}
 
   /**
@@ -135,6 +150,22 @@ export class MatchSchedulerService {
           // want when no weather row exists for this date.
           const weatherValue = weather?.actualWeather;
 
+          // Precompute attendance (Bug 4: "Attendance 0" on the live
+          // page). Fetches the same three rows the API completion
+          // service reads — home stadium + both fan rows — and runs
+          // the shared `calculateMatchAttendance` pure function so
+          // the value written here is byte-equal to the value the
+          // completion service would write 90 minutes later. When
+          // any required row is missing (unbuilt stadium, no fan
+          // row, league not found) we leave the column null — same
+          // gate the completion service uses. The CAS update below
+          // (TypeORM ignores `undefined`) won't overwrite a non-null
+          // existing value either, so re-running the tick after the
+          // simulator already pre-baked a different value is a no-op.
+          const attendanceValue = await this.computeAttendanceForPreprocess(
+            match,
+          );
+
           // Atomic status-guard update. Without this, two cron ticks
           // could both pass the SCHEDULED-tacticsLocked-false filter
           // before either one calls `save`, then both `save` and
@@ -152,6 +183,7 @@ export class MatchSchedulerService {
               homeForfeit,
               awayForfeit,
               weather: weatherValue,
+              attendance: attendanceValue,
             },
           );
           if (!updateResult.affected) {
@@ -209,6 +241,56 @@ export class MatchSchedulerService {
     await this.recoverStuckTacticsLockedMatches(now);
   }
 
+
+  /**
+   * Compute the match attendance for a match that has not yet been
+   * simulated. Returns `undefined` (so the column stays null) when
+   * any required row is missing — the same gate the API completion
+   * service uses, so the FE's "no venue / no fans" rendering kicks
+   * in for both first-half and post-completion views.
+   *
+   * Lives in the settlement scheduler because the preprocess tick
+   * is where `match.attendance` gets baked into the row; the API
+   * service re-derives the same number at completion time and
+   * overwrites this column with a fresh draw (the +/- 5% per-match
+   * fluctuation is the only source of non-determinism, and
+   * overwriting is acceptable for a stat column — see the
+   * `calculateStadiumRevenue` docstring).
+   */
+  private async computeAttendanceForPreprocess(
+    match: MatchEntity,
+  ): Promise<number | undefined> {
+    const [homeStadium, homeFan, awayFan, league] = await Promise.all([
+      this.stadiumRepository.findOne({
+        where: { teamId: match.homeTeamId },
+      }),
+      this.fanRepository.findOne({
+        where: { teamId: match.homeTeamId },
+      }),
+      this.fanRepository.findOne({
+        where: { teamId: match.awayTeamId },
+      }),
+      match.leagueId
+        ? this.leagueRepository.findOne({
+          where: { id: match.leagueId as Uuid },
+        })
+        : Promise.resolve(null),
+    ]);
+
+    // Mirrors `api/src/api/match/match-completion.service.ts:545`.
+    if (!homeStadium?.isBuilt || !homeFan) {
+      return undefined;
+    }
+
+    return calculateMatchAttendance(
+      homeFan.totalFans,
+      awayFan?.totalFans ?? 0,
+      homeFan.fanEmotion,
+      awayFan?.fanEmotion ?? 50,
+      homeStadium.capacity,
+      league?.tier ?? 4,
+    );
+  }
   /**
    * Find matches stuck in TACTICS_LOCKED whose scheduledAt is already past
    * the grace period, and re-enqueue their simulation job.

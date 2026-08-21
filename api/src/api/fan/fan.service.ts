@@ -141,33 +141,11 @@ export class FanService {
    * `match-completion.service.ts`,避免 service 自己硬编码
    * 默认值导致行为漂移。
    */
-  calculateAttendance(
-    homeFans: number,
-    awayFans: number,
-    homeMorale: number,
-    awayMorale: number,
-    capacity: number,
-    homeCap: number,
-  ): number {
-    // 主队转化率:小球队核心粉全来,大球队恢复原 0.2
-    const ratio = Math.min(Math.max(homeFans / homeCap, 0), 1);
-    const homeConv = 0.5 - 0.3 * ratio;
-
-    const homeRate = 0.6 + (homeMorale / 100) * 0.4;
-    const homeFansAttendance = Math.floor(homeFans * homeConv * homeRate);
-
-    // 客队球迷进场 (8%固定,客队球迷不会享小球队红利)
-    const awayRate = 0.6 + (awayMorale / 100) * 0.4;
-    const awayFansAttendance = Math.floor(awayFans * 0.08 * awayRate);
-
-    // 计算总入场(无中立球迷)
-    const totalAttendance = homeFansAttendance + awayFansAttendance;
-
-    // 添加随机波动 +/- 5%
-    const fluctuation = 0.95 + Math.random() * 0.1; // 0.95 ~ 1.05
-    const finalAttendance = Math.floor(totalAttendance * fluctuation);
-
-    // 总入场不超过容量
-    return Math.min(capacity, finalAttendance);
-  }
+  // Attendance math lives in `@goalxi/database`'s
+  // `calculateMatchAttendance` (see `services/attendance-calculator.ts`).
+  // Both the API (here's the completion service that used to call
+  // this class method) and the settlement scheduler's preprocess tick
+  // (`match-scheduler.service.ts:preprocessMatch`) invoke the same
+  // pure function so the value written to `match.attendance` at
+  // preprocess time matches the value re-derived at completion time.
 }

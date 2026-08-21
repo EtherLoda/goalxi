@@ -1,7 +1,7 @@
 import {
+  calculateMatchAttendance,
   FanEntity,
   FINANCE_CONSTANTS,
-  getFanCap,
   InjuryEntity,
   LeagueStandingEntity,
   MatchEntity,
@@ -557,17 +557,13 @@ export class MatchCompletionService {
     // `match.attendance` column consumed by the Stadium page's
     // season-average and the simulator's pre-sim emission
     // (see MatchEngine / `attendance_announcement` event).
-    const totalAttendance = this.fanService.calculateAttendance(
+    const totalAttendance = calculateMatchAttendance(
       homeFans,
       awayFans,
       homeMorale,
       awayMorale,
       homeStadium.capacity,
-      // Pass the home team's tier-specific fan cap so the
-      // "small club core fans show up" bonus kicks in for
-      // teams still under saturation. See FanService
-      // JSDoc for the full derivation.
-      getFanCap(tier),
+      tier,
     );
 
     // Persist the attendance figure onto the match row FIRST. The
