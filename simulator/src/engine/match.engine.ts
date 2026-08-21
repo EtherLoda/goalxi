@@ -1,4 +1,4 @@
-﻿import { Team } from './classes/Team';
+import { Team } from './classes/Team';
 import {
   Lane,
   TacticalPlayer,
@@ -1147,7 +1147,11 @@ export class MatchEngine {
     // Player Introduction Event
     const getPlayerInfo = (p: TacticalPlayer) => ({
       name: (p.player as Player).name,
-      position: p.positionKey,
+      // Canonical slot the editor stored (e.g. `CBL` not `CB`) so a
+      // future FE blurb that renders "GK / CM" sees the same shape
+      // the snapshot's `p` field emits. Falls back to the family
+      // key for sub entrants who just swapped on.
+      position: p.lineupSlotKey ?? p.positionKey,
     });
 
     // Get starting 11 (players with entryMinute === 0 or undefined)
@@ -4009,7 +4013,13 @@ export class MatchEngine {
 
         const state: any = {
           id: player.id,
-          p: tacticalPlayer.positionKey,
+          // Emit the canonical slot key the editor stored (`CBL`,
+          // `CMR`, ...) so the FE renders 3 distinct markers for a
+          // 3-CB team. Falls back to the family-folded `positionKey`
+          // for sub entrants who just swapped on (no `lineupSlotKey`
+          // of their own — the swap path keeps the out-player's
+          // `positionKey` on the in-player until the next snapshot).
+          p: tacticalPlayer.lineupSlotKey ?? tacticalPlayer.positionKey,
           st: Math.round((fitness) * 10) / 10,
           f: player.form,
           ff: Math.round((fitnessFactor) * 1000) / 1000,

@@ -508,12 +508,32 @@ export class SimulationProcessor extends WorkerHost {
     // `lineupV2`/`substitutionsV2` (number ids). If v2 is missing the
     // editor hasn't been re-saved yet — skip silently and let the upstream
     // caller re-submit tactics.
-    const homeStarterIds = Object.values(homeTactics.lineupV2 ?? {}).filter(
-      (id): id is number => typeof id === 'number',
-    );
-    const awayStarterIds = Object.values(awayTactics.lineupV2 ?? {}).filter(
-      (id): id is number => typeof id === 'number',
-    );
+    //
+    // `lineupV2` carries BOTH pitch slots (11 keys, e.g. `CBL`, `GK`,
+    // `LW`) and bench slots (`BENCH_GK`, `BENCH_CB`, ...). The engine
+    // treats both as starters unless we filter the `BENCH_*` keys
+    // here, which inflates the per-team count to 16-17 and the
+    // `player_introduction` commentary template ("双方球员就位！{n}
+    // vs {m} 名球员") reads e.g. "13 vs 12" instead of "11 vs 11"
+    // whenever one team fields a 12-striker formation (4-3-3 /
+    // 4-2-3-1 / 5-3-2) and the other fields an 11-striker (4-4-2 /
+    // 3-5-2). The bench players are added back via `substitutionsV2`
+    // below — they enter the pitch through the swap path, not
+    // through the initial roster.
+    const pitchLineupIds = (
+      lineup: Record<string, number> | null | undefined,
+    ): number[] => {
+      if (!lineup) return [];
+      const out: number[] = [];
+      for (const [slot, id] of Object.entries(lineup)) {
+        if (slot.startsWith('BENCH_')) continue;
+        if (typeof id !== 'number') continue;
+        out.push(id);
+      }
+      return out;
+    };
+    const homeStarterIds = pitchLineupIds(homeTactics.lineupV2);
+    const awayStarterIds = pitchLineupIds(awayTactics.lineupV2);
     const homeSubIds = (homeTactics.substitutionsV2 ?? []).map((s) => s.in);
     const awaySubIds = (awayTactics.substitutionsV2 ?? []).map((s) => s.in);
 
@@ -613,33 +633,45 @@ export class SimulationProcessor extends WorkerHost {
       knownPlayerIds.has(pid),
     );
 
-    const homeTacticalPlayers: TacticalPlayer[] = validHomeIds.map((pid) => ({
-      player: toSimulationPlayer(allPlayers.find((p) => p.id === pid)),
-      // Read the int-keyed v2 column. The legacy `lineup` jsonb was wiped
-      // by the `MatchTacticsLineupToInt` migration and stays `{}`, so
-      // any read against it would silently fall through to the 'ST'
-      // fallback and stack all 11 starters on the same pitch slot
-      // (rendered as a single CF marker on the match page).
-      //
-      // The `normalizePositionKey` wrap folds youth-editor keys
-      // (LCB/RCB/LCM/RCM/CDM1/CDM2/LAM/RAM/CAM/ST/LST/RST) and the
-      // legacy CAM/CAML/CAMR/CDM/DMF/DMFL/DMFR family into the
-      // senior canonical 25-slot set, so downstream consumers
-      // (POSITION_TO_BENCH_KEY, POSITION_WEIGHTS, getSubstituteForPosition)
-      // never see a key they don't recognise.
-      positionKey: normalizePositionKey(
-        this.findPositionInLineup(homeTactics.lineupV2, pid) ?? 'ST',
-      ),
-    }));
+    // Read the editor's slot key first (canonical, e.g. `CBL` / `CMR`),
+    // then split it into two fields:
+    //   - `positionKey`  — family-folded (`CB` / `CM`) the engine's
+    //     POSITION_WEIGHTS matrix and swap math consumes.
+    //   - `lineupSlotKey` — the original canonical key, round-tripped
+    //     back to the FE in the snapshot's `p` field. Without this,
+    //     the FE's `toPitchSlot` alias map (`CB -> CBL`, `CM -> CML`)
+    //     collapses every CB / CM / CF family to a single marker
+    //     coordinate, so a 3-CB team visually stacks all 3 players
+    //     on the same `CBL` dot. The original `p` was already a family
+    //     key (Bug 3: "CBC / CMC overlap"); carrying the canonical key
+    //     through fixes that without touching engine internals.
+    const slotKeyFor = (
+      lineup: Record<string, number> | null | undefined,
+      pid: number,
+    ): string => this.findPositionInLineup(lineup, pid) ?? 'ST';
 
-    const awayTacticalPlayers: TacticalPlayer[] = validAwayIds.map((pid) => ({
-      player: toSimulationPlayer(allPlayers.find((p) => p.id === pid)),
-      // Same v2-only read for the away side — see homeTacticalPlayers
-      // comment above.
-      positionKey: normalizePositionKey(
-        this.findPositionInLineup(awayTactics.lineupV2, pid) ?? 'ST',
-      ),
-    }));
+    const homeTacticalPlayers: TacticalPlayer[] = validHomeIds.map((pid) => {
+      const slotKey = slotKeyFor(homeTactics.lineupV2, pid);
+      return {
+        player: toSimulationPlayer(allPlayers.find((p) => p.id === pid)),
+        // Family-folded for the engine (POSITION_WEIGHTS keyed by family).
+        positionKey: normalizePositionKey(slotKey),
+        // Canonical round-trip for the FE so each of the 3 CBs lands
+        // on its own slot. Survives sub / swap / position_swap because
+        // the engine never mutates this field — the family key
+        // (`positionKey`) is what the swap path reassigns.
+        lineupSlotKey: slotKey,
+      };
+    });
+
+    const awayTacticalPlayers: TacticalPlayer[] = validAwayIds.map((pid) => {
+      const slotKey = slotKeyFor(awayTactics.lineupV2, pid);
+      return {
+        player: toSimulationPlayer(allPlayers.find((p) => p.id === pid)),
+        positionKey: normalizePositionKey(slotKey),
+        lineupSlotKey: slotKey,
+      };
+    });
 
     // Roster gate: any team below the minimum field size forfeits the match.
     // Without this guard the engine runs with empty arrays and emits ~20 fake

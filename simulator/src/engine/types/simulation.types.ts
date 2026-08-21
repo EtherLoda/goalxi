@@ -59,6 +59,19 @@ export interface TacticalInstruction {
 export interface TacticalPlayer {
   player: any;
   positionKey: string;
+  /**
+   * Authoritative slot key the editor stored the player at (e.g. `CBL`,
+   * `CBR`, `CML`, `CMR`). `positionKey` above is the *family-folded*
+   * key (`CB`, `CM`) the engine's `POSITION_WEIGHTS` matrix reads;
+   * the engine keeps using the family key for weight lookups and
+   * swap math, while this field round-trips back to the FE so each
+   * of the 3 CBs / 3 CMs / 3 CFs lands on its own distinct slot
+   * (CBL / CB / CBR) instead of every CB collapsing to the
+   * `LEGACY_SLOT_ALIASES` `CB -> CBL` line. See
+   * `simulation.processor.ts` for the wiring (set once at pitch,
+   * never mutated — survives swap / sub / position_swap).
+   */
+  lineupSlotKey?: string;
   entryMinute?: number;
   isSentOff?: boolean;
   yellowCards?: number;
