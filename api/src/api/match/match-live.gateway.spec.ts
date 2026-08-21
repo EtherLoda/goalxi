@@ -25,21 +25,40 @@ describe('MatchLiveGateway — getMatchState currentMinute (wall-clock)', () => 
   let matchService: jest.Mocked<MatchService>;
   let eventRepository: jest.Mocked<Repository<MatchEventEntity>>;
 
-  // Helper to mock the eventRepository's createQueryBuilder for the
-  // `SELECT MAX(minute) ... WHERE isRevealed = true` query the
-  // gateway now uses. The previous `findOne({order: {minute: DESC}})`
-  // shape was replaced with this aggregate so the gateway never
-  // pulls a full entity row it doesn't need.
-  const mockMaxMinute = (maxMinute: number | null) => {
+  // mockAggregate is the canonical helper (formerly mockMaxMinute). the eventRepository's createQueryBuilder for the
+  // aggregate query the gateway now uses:
+  //   `SELECT MAX(minute),
+  //           COUNT(*) FILTER (goal+isHome=true),
+  //           COUNT(*) FILTER (goal+isHome=false)
+  //    FROM event WHERE matchId = ? AND isRevealed = true`
+  // All three come back in one row-trip — the homeScore/awayScore pair
+  // was added when the live page "score = 2-2 at kickoff" bug was
+  // fixed (read pre-baked `match.homeScore/awayScore` instead of the
+  // cumulative-revealed count). The previous findOne({order:{minute:
+  // DESC}}) shape was replaced with this aggregate so the gateway
+  // never pulls a full entity row it doesn't need.
+  //
+  // Optional homeGoals/awayGoals default to 0 — most tests don't care
+  // about score, only the minute clamp for COMPLETED matches.
+  const mockAggregate = (
+    maxMinute: number | null,
+    homeGoals = 0,
+    awayGoals = 0,
+  ) => {
     const qb: any = {
       select: jest.fn().mockReturnThis(),
+      addSelect: jest.fn().mockReturnThis(),
       where: jest.fn().mockReturnThis(),
       andWhere: jest.fn().mockReturnThis(),
-      getRawOne: jest
-        .fn()
-        .mockResolvedValue(
-          maxMinute === null ? null : { maxMinute: String(maxMinute) },
-        ),
+      getRawOne: jest.fn().mockResolvedValue(
+        maxMinute === null
+          ? null
+          : {
+              maxMinute: String(maxMinute),
+              homeGoals: String(homeGoals),
+              awayGoals: String(awayGoals),
+            },
+      ),
     };
     eventRepository.createQueryBuilder.mockReturnValue(qb);
     return qb;
@@ -93,7 +112,7 @@ describe('MatchLiveGateway — getMatchState currentMinute (wall-clock)', () => 
           // createQueryBuilder is the only read path the gateway
           // uses for currentMinute now; findOne stays in the mock
           // for forward-compat but the new code path doesn't touch
-          // it. The `mockMaxMinute` helper above drives this for
+          // it. The `mockAggregate` helper above drives this for
           // each test.
           provide: getRepositoryToken(MatchEventEntity),
           useValue: {
@@ -144,7 +163,7 @@ describe('MatchLiveGateway — getMatchState currentMinute (wall-clock)', () => 
 
   it('returns 0 for a SCHEDULED match with no events (kickoff not reached)', async () => {
     const match = mkMatch(MatchStatus.SCHEDULED);
-    mockMaxMinute(null);
+    mockAggregate(null);
 
     const state = (await getState(match)) as { currentMinute: number };
     expect(state.currentMinute).toBe(0);
@@ -162,8 +181,11 @@ describe('MatchLiveGateway — getMatchState currentMinute (wall-clock)', () => 
       MatchStatus.IN_PROGRESS,
       new Date(Date.now() - 30 * 60 * 1000),
     );
-    // No eventRepository call expected for the wall-clock path —
-    // the gateway does the minute math inline.
+    // The gateway now hits the event repository on the IN_PROGRESS
+    // path too — for the cumulative-revealed score on match_state.
+    // The minute itself is still wall-clock anchored. Empty aggregate
+    // is fine here: the test asserts on currentMinute, not on score.
+    mockAggregate(null);
     const state = (await getState(match)) as { currentMinute: number };
     expect(state.currentMinute).toBe(30);
   });
@@ -172,6 +194,7 @@ describe('MatchLiveGateway — getMatchState currentMinute (wall-clock)', () => 
     // `scheduledAt === now` is the kickoff instant. The minute is
     // still 0 (the kickoff minute itself), not 1.
     const match = mkMatch(MatchStatus.IN_PROGRESS, new Date());
+    mockAggregate(null);
     const state = (await getState(match)) as { currentMinute: number };
     expect(state.currentMinute).toBe(0);
   });
@@ -184,6 +207,7 @@ describe('MatchLiveGateway — getMatchState currentMinute (wall-clock)', () => 
       MatchStatus.IN_PROGRESS,
       new Date(Date.now() + 5_000),
     );
+    mockAggregate(null);
     const state = (await getState(match)) as { currentMinute: number };
     expect(state.currentMinute).toBe(0);
   });
@@ -191,7 +215,7 @@ describe('MatchLiveGateway — getMatchState currentMinute (wall-clock)', () => 
   it('clamps COMPLETED to 90 even when no event crossed 90 (abandoned / short sim)', async () => {
     // A 60' abandoned match still shows "FT 90'" in the report.
     const match = mkMatch(MatchStatus.COMPLETED);
-    mockMaxMinute(60);
+    mockAggregate(60);
 
     const state = (await getState(match)) as { currentMinute: number };
     expect(state.currentMinute).toBe(90);
@@ -201,7 +225,7 @@ describe('MatchLiveGateway — getMatchState currentMinute (wall-clock)', () => 
     // 120-minute cup tie: the timeline must show the real 118' (or
     // whatever the last event was), not be silently clamped.
     const match = mkMatch(MatchStatus.COMPLETED);
-    mockMaxMinute(118);
+    mockAggregate(118);
 
     const state = (await getState(match)) as { currentMinute: number };
     expect(state.currentMinute).toBe(118);
@@ -209,10 +233,93 @@ describe('MatchLiveGateway — getMatchState currentMinute (wall-clock)', () => 
 
   it('sets isComplete to true for COMPLETED matches', async () => {
     const match = mkMatch(MatchStatus.COMPLETED);
-    mockMaxMinute(90);
+    mockAggregate(90);
 
     const state = (await getState(match)) as { isComplete: boolean };
     expect(state.isComplete).toBe(true);
+  });
+  // ── Score: IN_PROGRESS reads the cumulative-revealed count, NOT
+  // the pre-baked `match.homeScore` / `match.awayScore` columns.
+  // The columns are populated by the simulator at sim-completion
+  // time with the *final* scoreline; reading them on join_match
+  // showed the live page "2-2" the instant it connected, before
+  // any goal events were revealed.
+
+  it('returns 0-0 on an IN_PROGRESS join_match when no events are revealed yet (regression: live page reads final scoreline at kickoff)', async () => {
+    // The pre-baked columns are 2-1 (sim finished, score = 2-1).
+    // The aggregate is null (no events have been revealed yet — the
+    // scheduler is going to reveal minute 0 events on its next tick,
+    // but at join_match time the live page must NOT see 2-1).
+    const match = mkMatch(
+      MatchStatus.IN_PROGRESS,
+      new Date(Date.now() - 5 * 60 * 1000),
+    );
+    mockAggregate(null);
+
+    const state = (await getState(match)) as {
+      homeScore: number;
+      awayScore: number;
+      currentMinute: number;
+    };
+    expect(state.homeScore).toBe(0);
+    expect(state.awayScore).toBe(0);
+    // The minute itself is still wall-clock anchored.
+    expect(state.currentMinute).toBe(5);
+  });
+
+  it('returns the cumulative-revealed score on IN_PROGRESS join_match (not the pre-baked column)', async () => {
+    // Pre-baked columns are 2-1 (engine final); the aggregate has
+    // 1 home + 0 away (the minute-5 goal was the only one revealed
+    // so far). The live page must show 1-0, not 2-1.
+    const match = mkMatch(
+      MatchStatus.IN_PROGRESS,
+      new Date(Date.now() - 5 * 60 * 1000),
+    );
+    mockAggregate(5, 1, 0);
+
+    const state = (await getState(match)) as {
+      homeScore: number;
+      awayScore: number;
+    };
+    expect(state.homeScore).toBe(1);
+    expect(state.awayScore).toBe(0);
+  });
+
+  it('counts away goals and penalty_goal on the same cumulative aggregate', async () => {
+    // Same shape as the scheduler's GROUP BY — penalty_goal shares the
+    // bucket with goal so the FE's alias map works.
+    const match = mkMatch(
+      MatchStatus.IN_PROGRESS,
+      new Date(Date.now() - 78 * 60 * 1000),
+    );
+    mockAggregate(78, 2, 3);
+
+    const state = (await getState(match)) as {
+      homeScore: number;
+      awayScore: number;
+    };
+    expect(state.homeScore).toBe(2);
+    expect(state.awayScore).toBe(3);
+  });
+
+  it('returns the same cumulative score for COMPLETED matches (pre-baked == aggregate when everything is revealed)', async () => {
+    // For COMPLETED, the sim has run all 90 minutes and the
+    // scheduler has flipped isRevealed on every event. The
+    // aggregate's count is therefore guaranteed to equal the
+    // pre-baked column — switching the read source should be
+    // invisible to the client. Pin it so a future refactor can't
+    // quietly diverge the two.
+    const match = mkMatch(MatchStatus.COMPLETED);
+    mockAggregate(90, 2, 1);
+
+    const state = (await getState(match)) as {
+      homeScore: number;
+      awayScore: number;
+      currentMinute: number;
+    };
+    expect(state.homeScore).toBe(2);
+    expect(state.awayScore).toBe(1);
+    expect(state.currentMinute).toBe(90);
   });
 });
 
@@ -357,9 +464,10 @@ describe('MatchLiveGateway — handleJoinMatch (B8)', () => {
 
     const qb: any = {
       select: jest.fn().mockReturnThis(),
+      addSelect: jest.fn().mockReturnThis(),
       where: jest.fn().mockReturnThis(),
       andWhere: jest.fn().mockReturnThis(),
-      getRawOne: jest.fn().mockResolvedValue({ maxMinute: '12' }),
+      getRawOne: jest.fn().mockResolvedValue({ maxMinute: '12', homeGoals: '0', awayGoals: '0' }),
     };
     eventRepository.createQueryBuilder.mockReturnValue(qb);
     matchEventService.getMatchEvents.mockResolvedValue({

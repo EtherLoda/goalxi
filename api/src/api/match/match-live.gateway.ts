@@ -399,14 +399,73 @@ export class MatchLiveGateway
     // time) verbatim. `computeCurrentInGameMinute` already returns
     // the post-FT minute for a long-finished match, so we only need
     // the floor for the abandoned/short-simulated edge case.
+    // Single aggregate per match — MAX(minute) for the COMPLETED
+    // "last event crossed 90'?" clamp, plus two FILTER'd COUNTs for
+    // the cumulative score. One row-trip beats two: the wall-clock
+    // path for currentMinute is purely CPU, so the only DB hit here
+    // is this aggregate.
+    //
+    // homeScore/awayScore are *cumulative revealed* counts, not the
+    // pre-baked `match.homeScore`/`match.awayScore` columns. The
+    // latter are written by the simulator at sim-completion time
+    // with the *final* scoreline (see `simulation.processor.ts:1001`
+    // — `match.homeScore = engine.homeScore`), which means an
+    // IN_PROGRESS match has a pre-filled "2-2" sitting on the row
+    // from the moment the sim finished, several minutes before the
+    // goals are actually revealed to the client. Reading that
+    // column for the initial `match_state` payload showed the final
+    // scoreline on the live page the instant the WS connected — the
+    // load-bearing "live page reads 2-2 at kickoff" bug.
+    //
+    // The aggregate is monotonic by construction (FILTER is per-row,
+    // GROUP-less, so the totals never decrease as more events flip
+    // isRevealed), so it's safe as the canonical score for both
+    // IN_PROGRESS (partial reveal) and COMPLETED (all events
+    // revealed, total == final scoreline). For COMPLETED the two
+    // values are guaranteed equal so the choice is invisible to
+    // the client; for IN_PROGRESS the aggregate stays at 0-0 until
+    // the first goal event flips `isRevealed = true`.
+    const agg = await this.eventRepository
+      .createQueryBuilder('e')
+      .select('MAX(e.minute)', 'maxMinute')
+      .addSelect(
+        `COUNT(*) FILTER (WHERE e.typeName IN ('goal', 'penalty_goal') AND e.isHome = true)`,
+        'homeGoals',
+      )
+      .addSelect(
+        `COUNT(*) FILTER (WHERE e.typeName IN ('goal', 'penalty_goal') AND e.isHome = false)`,
+        'awayGoals',
+      )
+      .where('e.matchId = :matchId', { matchId })
+      .andWhere('e.isRevealed = :revealed', { revealed: true })
+      .getRawOne<{
+        maxMinute: string | null;
+        homeGoals: string;
+        awayGoals: string;
+      }>();
+    const homeScore = Number(agg?.homeGoals ?? 0);
+    const awayScore = Number(agg?.awayGoals ?? 0);
+
+    // Derive currentMinute from the sim's published timing anchors
+    // (`match.scheduledAt` + per-half injury times), NOT from the
+    // event stream. The sim already published a per-event
+    // `eventScheduledTime` that maps in-game minute to a real-world
+    // instant relative to kickoff, encoding the half-time break
+    // and injury time (see `match-current-minute.ts`). Inverting
+    // that mapping gives a wall-clock-anchored minute that keeps
+    // advancing in the gaps between event reveals — the previous
+    // MAX(minute) approach got stuck at the last revealed event's
+    // minute whenever the preprocessor went a few seconds without
+    // revealing anything (e.g. 90' during 2H injury time, where
+    // events at 91..93 were revealed one tick at a time).
+    //
+    // For COMPLETED matches we keep the previous behaviour: surface
+    // a "FT" minute of at least 90, and preserve any >90 (extra
+    // time) verbatim. The MAX(e.minute) above is the post-FT
+    // minute for a long-finished match, so we only need the floor
+    // for the abandoned/short-simulated edge case.
     let currentMinute: number;
     if (match.status === MatchStatus.COMPLETED) {
-      const agg = await this.eventRepository
-        .createQueryBuilder('e')
-        .select('MAX(e.minute)', 'maxMinute')
-        .where('e.matchId = :matchId', { matchId })
-        .andWhere('e.isRevealed = :revealed', { revealed: true })
-        .getRawOne<{ maxMinute: string | null }>();
       const eventMinute = agg?.maxMinute ? Number(agg.maxMinute) : 0;
       currentMinute = Math.max(90, eventMinute);
     } else {
@@ -425,8 +484,8 @@ export class MatchLiveGateway
         name: match.awayTeam!.name,
         logo: (match.awayTeam as any)?.logoUrl || null,
       },
-      homeScore: match.homeScore || 0,
-      awayScore: match.awayScore || 0,
+      homeScore,
+      awayScore,
       currentMinute,
       status: match.status,
       scheduledAt: match.scheduledAt.toISOString(),
