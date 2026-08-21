@@ -40,7 +40,10 @@ describe('CupProgressProcessor — closeout CAS paths', () => {
     // freshly-constructed mocks separately makes the assertions
     // look at a different object than the one the processor calls.
     const matchRepo = { findOne: jest.fn() };
-    const cupRepo = { findOne: jest.fn(), update: jest.fn().mockResolvedValue({ affected: 1 }) };
+    const cupRepo = {
+      findOne: jest.fn(),
+      update: jest.fn().mockResolvedValue({ affected: 1 }),
+    };
     const roundRepo = {
       findOne: jest.fn(),
       update: jest.fn(),
@@ -72,33 +75,37 @@ describe('CupProgressProcessor — closeout CAS paths', () => {
   // Build a fake `Job` and a completed cup match + slot pair.
   // The job name must be 'complete-match' — the processor
   // ignores other names sharing the queue.
-  const buildMatch = (overrides: Partial<MatchEntity> = {}): MatchEntity => ({
-    id: 'match-1' as Uuid,
-    homeTeamId: 'team-A' as Uuid,
-    awayTeamId: 'team-B' as Uuid,
-    homeScore: 2,
-    awayScore: 1,
-    type: MatchType.CUP,
-    status: MatchStatus.COMPLETED,
-    round: 0,
-    season: 1,
-    ...overrides,
-  } as MatchEntity);
+  const buildMatch = (overrides: Partial<MatchEntity> = {}): MatchEntity =>
+    ({
+      id: 'match-1' as Uuid,
+      homeTeamId: 'team-A' as Uuid,
+      awayTeamId: 'team-B' as Uuid,
+      homeScore: 2,
+      awayScore: 1,
+      type: MatchType.CUP,
+      status: MatchStatus.COMPLETED,
+      round: 0,
+      season: 1,
+      ...overrides,
+    }) as MatchEntity;
 
-  const buildSlot = (overrides: Partial<CupBracketSlotEntity>): CupBracketSlotEntity => ({
-    id: 'slot-x' as Uuid,
-    cupId: 'cup-1' as Uuid,
-    roundId: 'round-1' as Uuid,
-    roundNumber: 0,
-    slotIndex: 0,
-    homeTeamId: null,
-    awayTeamId: null,
-    matchId: null,
-    winnerTeamId: null,
-    sourceSlotId: null,
-    isBye: false,
-    ...overrides,
-  } as CupBracketSlotEntity);
+  const buildSlot = (
+    overrides: Partial<CupBracketSlotEntity>,
+  ): CupBracketSlotEntity =>
+    ({
+      id: 'slot-x' as Uuid,
+      cupId: 'cup-1' as Uuid,
+      roundId: 'round-1' as Uuid,
+      roundNumber: 0,
+      slotIndex: 0,
+      homeTeamId: null,
+      awayTeamId: null,
+      matchId: null,
+      winnerTeamId: null,
+      sourceSlotId: null,
+      isBye: false,
+      ...overrides,
+    }) as CupBracketSlotEntity;
 
   beforeEach(() => {
     mockLogger.info.mockClear();
@@ -161,8 +168,10 @@ describe('CupProgressProcessor — closeout CAS paths', () => {
     // the SET clause's winnerTeamId).
     const slotUpdateCalls = mocks.slotRepo.update.mock.calls;
     expect(slotUpdateCalls).toHaveLength(2);
-    const slotUpdateIds = slotUpdateCalls.map((c) => (c[0] as any).id);
-    expect(slotUpdateIds).toEqual(expect.arrayContaining(['slot-home', 'slot-away']));
+    const slotUpdateIds = slotUpdateCalls.map((c) => c[0].id);
+    expect(slotUpdateIds).toEqual(
+      expect.arrayContaining(['slot-home', 'slot-away']),
+    );
     for (const call of slotUpdateCalls) {
       expect(call[1]).toEqual({ winnerTeamId: 'team-A' });
     }
@@ -227,7 +236,7 @@ describe('CupProgressProcessor — closeout CAS paths', () => {
     // Only the second slot gets a write — the first is pre-filled.
     const slotUpdateCalls = mocks.slotRepo.update.mock.calls;
     expect(slotUpdateCalls).toHaveLength(1);
-    expect((slotUpdateCalls[0][0] as any).id).toBe('slot-away');
+    expect(slotUpdateCalls[0][0].id).toBe('slot-away');
   });
 
   it('closes out the round when all slots have winners (CAS wins)', async () => {
@@ -298,9 +307,7 @@ describe('CupProgressProcessor — closeout CAS paths', () => {
     mocks.slotRepo.find.mockResolvedValueOnce([homeSlot, awaySlot]);
     mocks.roundRepo.findOne.mockResolvedValueOnce(round);
     // counts: 2 total, 2 winners
-    mocks.slotRepo.count
-      .mockResolvedValueOnce(2)
-      .mockResolvedValueOnce(2);
+    mocks.slotRepo.count.mockResolvedValueOnce(2).mockResolvedValueOnce(2);
     // CAS miss — another tick won the closeout
     mocks.roundRepo.update.mockResolvedValueOnce({ affected: 0 });
 

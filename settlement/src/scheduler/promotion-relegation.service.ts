@@ -145,7 +145,8 @@ export class PromotionRelegationService {
       // would slot into the next upper tier instead
       // (and the pyramid shape would have to be reshaped).
       const upperRelegationPos =
-        upperRelegationStart + ((league.tierDivision - 1) % upperRelegationSlots);
+        upperRelegationStart +
+        ((league.tierDivision - 1) % upperRelegationSlots);
 
       const ourChampion = standings.find((s) => s.position === 1);
       const upperRelegated = await this.standingRepository.findOne({
@@ -195,9 +196,7 @@ export class PromotionRelegationService {
         );
       }
     } else {
-      this.logger.info(
-        `${league.name} is at top tier, no direct promotion`,
-      );
+      this.logger.info(`${league.name} is at top tier, no direct promotion`);
     }
 
     // === 直降: #13..#16 ↔ 下一层 children[0..3].#1 ===
@@ -225,7 +224,12 @@ export class PromotionRelegationService {
           where: { leagueId: childLeague.id, season, position: 1 },
         });
 
-        if (ourRelegated && ourRelegated.team && childChampion && childChampion.team) {
+        if (
+          ourRelegated &&
+          ourRelegated.team &&
+          childChampion &&
+          childChampion.team
+        ) {
           await this.swapTeamLeague(
             ourRelegated.team.id,
             childChampion.team.id,

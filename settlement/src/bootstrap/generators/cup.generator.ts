@@ -128,9 +128,7 @@ export class CupGenerator {
     //    is past the last entry round; the last two rounds are
     //    "knockout" + "final".
     const rounds = await this.createRounds(cup.id, structure, initDate);
-    this.logger.info(
-      `[CupGenerator] Created ${rounds.length} cup_round rows`,
-    );
+    this.logger.info(`[CupGenerator] Created ${rounds.length} cup_round rows`);
 
     // 4. Create one cup_entry row per team, with seed_rank assigned
     //    within tier by ELO (descending = top seed = seedRank 1).
@@ -148,9 +146,7 @@ export class CupGenerator {
       r0Round,
       entriesByTeamId,
     );
-    this.logger.info(
-      `[CupGenerator] Created ${r0Slots} round-0 bracket slots`,
-    );
+    this.logger.info(`[CupGenerator] Created ${r0Slots} round-0 bracket slots`);
 
     this.logger.info(
       `[CupGenerator] National Cup season ${season} generation complete`,
@@ -231,12 +227,7 @@ export class CupGenerator {
         scheduledAt = new Date(
           base.getTime() + (r + 1) * 7 * 24 * 60 * 60 * 1000,
         );
-        scheduledAt.setUTCHours(
-          GAME_SETTINGS.MATCH_KICKOFF_HOUR_UTC,
-          0,
-          0,
-          0,
-        );
+        scheduledAt.setUTCHours(GAME_SETTINGS.MATCH_KICKOFF_HOUR_UTC, 0, 0, 0);
       }
       rows.push(
         this.roundRepo.create({

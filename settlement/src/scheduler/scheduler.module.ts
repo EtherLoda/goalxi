@@ -49,6 +49,7 @@ import { TeamGeneratorService } from './team-generator.service';
 import { ScoutSchedulerService } from './scout-scheduler.service';
 import { FinanceSchedulerService } from './finance-scheduler.service';
 import { PlayerWageSchedulerService } from './player-wage-scheduler.service';
+import { SeniorDeclineSchedulerService } from './senior-decline-scheduler.service';
 import { LeagueStandingService } from './league-standing.service';
 import { SeasonTransitionService } from './season-transition.service';
 import { SeasonArchiveService } from '../services/season-archive.service';
@@ -83,6 +84,9 @@ import { NotificationModule } from '../notification/notification.module';
     }),
     BullModule.registerQueue({
       name: 'youth-progression-settlement',
+    }),
+    BullModule.registerQueue({
+      name: 'senior-decline-settlement',
     }),
     BullModule.registerQueue({
       name: 'fan-settlement',
@@ -139,6 +143,7 @@ import { NotificationModule } from '../notification/notification.module';
     ScoutSchedulerService,
     FinanceSchedulerService,
     PlayerWageSchedulerService,
+    SeniorDeclineSchedulerService,
     LeagueStandingService,
     SeasonTransitionService,
     SeasonArchiveService,
@@ -161,6 +166,7 @@ import { NotificationModule } from '../notification/notification.module';
     ScoutSchedulerService,
     FinanceSchedulerService,
     PlayerWageSchedulerService,
+    SeniorDeclineSchedulerService,
     LeagueStandingService,
     SeasonTransitionService,
     SeasonArchiveService,

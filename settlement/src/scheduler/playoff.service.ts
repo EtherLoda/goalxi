@@ -290,12 +290,7 @@ export class PlayoffService {
     const daysUntilWednesday = rawDaysToWed === 0 ? 7 : rawDaysToWed;
     const nextWednesday = new Date(now);
     nextWednesday.setUTCDate(now.getUTCDate() + daysUntilWednesday);
-    nextWednesday.setUTCHours(
-      GAME_SETTINGS.MATCH_KICKOFF_HOUR_UTC,
-      0,
-      0,
-      0,
-    );
+    nextWednesday.setUTCHours(GAME_SETTINGS.MATCH_KICKOFF_HOUR_UTC, 0, 0, 0);
     return nextWednesday;
   }
 }

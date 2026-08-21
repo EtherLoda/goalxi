@@ -182,9 +182,10 @@ describe('PlayoffService', () => {
       ];
       let findOneIdx = 0;
       mockStandingRepository.findOne.mockImplementation(async (opts: any) => {
-        const ret = findOneIdx < findOneQueue.length
-          ? findOneQueue[findOneIdx++]
-          : undefined;
+        const ret =
+          findOneIdx < findOneQueue.length
+            ? findOneQueue[findOneIdx++]
+            : undefined;
         return ret;
       });
 

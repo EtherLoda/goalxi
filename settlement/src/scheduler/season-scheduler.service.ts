@@ -153,12 +153,7 @@ export class SeasonSchedulerService {
 
     const nextSeasonStart = new Date(now);
     nextSeasonStart.setUTCDate(now.getUTCDate() + daysToWednesday + 7);
-    nextSeasonStart.setUTCHours(
-      GAME_SETTINGS.MATCH_KICKOFF_HOUR_UTC,
-      0,
-      0,
-      0,
-    );
+    nextSeasonStart.setUTCHours(GAME_SETTINGS.MATCH_KICKOFF_HOUR_UTC, 0, 0, 0);
 
     return nextSeasonStart;
   }
@@ -185,10 +180,7 @@ export class SeasonSchedulerService {
     const rotatingTeams = teamIds.slice(1);
 
     const firstLegDates = this.calculateFirstLegDates(startDate, numRounds);
-    const secondLegDates = this.calculateSecondLegDates(
-      startDate,
-      numRounds,
-    );
+    const secondLegDates = this.calculateSecondLegDates(startDate, numRounds);
 
     // First leg — every team hosts once across weeks
     // 1..⌈N/2⌉. Two rounds per week (Wed + Sat).
@@ -199,7 +191,8 @@ export class SeasonSchedulerService {
       );
       for (let i = 0; i < roundMatchups.length; i++) {
         const { home, away } = roundMatchups[i];
-        const scheduledAt = firstLegDates[round * 2 + i] ?? firstLegDates[round * 2];
+        const scheduledAt =
+          firstLegDates[round * 2 + i] ?? firstLegDates[round * 2];
         matches.push({
           leagueId,
           homeTeamId: home,
@@ -257,10 +250,7 @@ export class SeasonSchedulerService {
    * after `startDate`. All at
    * `GAME_SETTINGS.MATCH_KICKOFF_HOUR_UTC` UTC.
    */
-  private calculateFirstLegDates(
-    startDate: Date,
-    numRounds: number,
-  ): Date[] {
+  private calculateFirstLegDates(startDate: Date, numRounds: number): Date[] {
     const dates: Date[] = [];
     // Walk forward to the first Wednesday at or after
     // startDate (UTC).
@@ -290,10 +280,7 @@ export class SeasonSchedulerService {
    * implementation reused `firstLegDates[round * 2..]`
    * and produced same-day duplicates.
    */
-  private calculateSecondLegDates(
-    startDate: Date,
-    numRounds: number,
-  ): Date[] {
+  private calculateSecondLegDates(startDate: Date, numRounds: number): Date[] {
     const offsetMs = numRounds * 7 * 24 * 60 * 60 * 1000;
     const firstLeg = this.calculateFirstLegDates(startDate, numRounds);
     return firstLeg.map((d) => new Date(d.getTime() + offsetMs));

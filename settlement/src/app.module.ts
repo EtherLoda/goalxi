@@ -14,6 +14,7 @@ import { TransferModule } from './transfer.module';
 import { BootstrapModule } from './bootstrap/bootstrap.module';
 import { StadiumConstructionModule } from './stadium-construction.module';
 import { YouthProgressionModule } from './youth-progression.module';
+import { SeniorDeclineModule } from './senior-decline.module';
 import { CupModule } from './cup.module';
 
 const isDevelopmentFromEnv = () =>
@@ -48,6 +49,7 @@ const isDevelopmentFromEnv = () =>
     BootstrapModule,
     StadiumConstructionModule,
     YouthProgressionModule,
+    SeniorDeclineModule,
     CupModule,
     SharedLoggerModule.forRoot({
       level:

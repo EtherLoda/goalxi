@@ -129,9 +129,7 @@ export class CupProgressProcessor extends WorkerHost {
   private async handleCompletedMatch(matchId: Uuid): Promise<void> {
     const match = await this.matchRepo.findOne({ where: { id: matchId } });
     if (!match) {
-      this.logger.warn(
-        `[CupProgress] matchId=${matchId} not found, skipping`,
-      );
+      this.logger.warn(`[CupProgress] matchId=${matchId} not found, skipping`);
       return;
     }
     if (match.type !== MatchType.CUP) {

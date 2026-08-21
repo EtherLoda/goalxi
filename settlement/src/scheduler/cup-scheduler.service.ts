@@ -221,8 +221,8 @@ export class CupSchedulerService {
           // The cup round number is carried in `round` (0..N-1).
           week: 0,
           round: round.roundNumber,
-          homeTeamId: homeSlot.homeTeamId as Uuid,
-          awayTeamId: awaySlot.awayTeamId as Uuid,
+          homeTeamId: homeSlot.homeTeamId,
+          awayTeamId: awaySlot.awayTeamId,
           status: MatchStatus.SCHEDULED,
           type: MatchType.CUP,
           tacticsLocked: false,
@@ -233,14 +233,8 @@ export class CupSchedulerService {
       );
       // Stamp the matchId on BOTH slots so the progress worker
       // can find them later via `matchId = match.id`.
-      await this.slotRepo.update(
-        { id: homeSlot.id },
-        { matchId: match.id },
-      );
-      await this.slotRepo.update(
-        { id: awaySlot.id },
-        { matchId: match.id },
-      );
+      await this.slotRepo.update({ id: homeSlot.id }, { matchId: match.id });
+      await this.slotRepo.update({ id: awaySlot.id }, { matchId: match.id });
       matchesCreated++;
     }
 

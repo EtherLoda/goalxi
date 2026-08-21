@@ -104,11 +104,15 @@ describe('CupGenerator — bootstrap', () => {
    * in the per-tier queries.
    */
   const teamsFor = (tier: number, count: number): TeamEntity[] =>
-    Array.from({ length: count }, (_, i) => ({
-      id: `t${tier}-${i}`,
-      leagueId: `L${tier}`,
-      eloRating: 2000 - i * 10, // descending ELO
-    } as unknown as TeamEntity));
+    Array.from(
+      { length: count },
+      (_, i) =>
+        ({
+          id: `t${tier}-${i}`,
+          leagueId: `L${tier}`,
+          eloRating: 2000 - i * 10, // descending ELO
+        }) as unknown as TeamEntity,
+    );
 
   function stubPyramid(mocks: ReturnType<typeof build>) {
     // 2 tiers: L1 (16 teams, 1 league) + L2 (8 teams, 1 league).
@@ -123,7 +127,7 @@ describe('CupGenerator — bootstrap', () => {
     // Simpler: have getCount return a number and getMany return teams
     // keyed by the WHERE clause. Since the generator runs the queries
     // in series (count-then-fetch), the test can use a counter.
-    let callIndex = 0;
+    const callIndex = 0;
     const countsByTier = new Map<number, number>([
       [1, 16],
       [2, 8],
