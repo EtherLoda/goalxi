@@ -861,7 +861,6 @@ export default function PlayerDetailPage({ params }: PageProps) {
               <div className="px-6 pb-6 border-t border-[#2f4e44]/20">
                 <PlayerSeasonStatsCard
                   playerId={parseInt(resolvedParams?.id ?? "0", 10)}
-                  locale={resolvedParams?.locale ?? "en"}
                 />
               </div>
 

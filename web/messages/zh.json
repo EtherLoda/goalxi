@@ -926,6 +926,32 @@
     "record_broken": "创造新纪录",
     "contract_renewal": "续约"
   },
+  "player_stats": {
+    "title": "数据 \u00b7 赛季表现",
+    "seasonsPlayed": "个赛季",
+    "seasonsPlayedPlural": "个赛季",
+    "kpiGoals": "进球",
+    "kpiAssists": "助攻",
+    "kpiTackles": "抢断",
+    "kpiApps": "出场",
+    "colSeason": "赛季",
+    "colComp": "赛事",
+    "colTeam": "球队",
+    "colApp": "出场",
+    "colG": "进球",
+    "colA": "助攻",
+    "colSsub": "首发(替)",
+    "startsLabel": "首发",
+    "asSubLabel": "替补",
+    "yellowCardDot": "黄",
+    "redCardDot": "红",
+    "cupLabel": "杯赛",
+    "emptyTitle": "暂无数据",
+    "emptyBody": "球员完成比赛后，这里会显示进球、助攻等累计数据。",
+    "errorTitle": "加载失败",
+    "retry": "重试",
+    "networkError": "网络错误"
+  },
   "specialty": {
     "tier": {
       "GOLD": "金",

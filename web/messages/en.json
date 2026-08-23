@@ -926,6 +926,32 @@
     "record_broken": "New record set",
     "contract_renewal": "Contract renewed"
   },
+  "player_stats": {
+    "title": "STATS \u00b7 SEASONAL PERFORMANCE",
+    "seasonsPlayed": "season",
+    "seasonsPlayedPlural": "seasons",
+    "kpiGoals": "GOALS",
+    "kpiAssists": "ASSISTS",
+    "kpiTackles": "TACKLES",
+    "kpiApps": "APPS",
+    "colSeason": "SEASON",
+    "colComp": "COMP",
+    "colTeam": "TEAM",
+    "colApp": "APP",
+    "colG": "G",
+    "colA": "A",
+    "colSsub": "S(SUB)",
+    "startsLabel": "starts",
+    "asSubLabel": "as sub",
+    "yellowCardDot": "Y",
+    "redCardDot": "R",
+    "cupLabel": "Cup",
+    "emptyTitle": "No stats yet",
+    "emptyBody": "Stats will appear after the player completes a match.",
+    "errorTitle": "Couldn't load stats",
+    "retry": "Retry",
+    "networkError": "Network error"
+  },
   "specialty": {
     "tier": {
       "GOLD": "Gold",
