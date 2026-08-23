@@ -147,21 +147,34 @@ export class LeagueStructureService {
 
   /**
    * 计算排名并更新 position 字段
+   *
+   * Sorts by the COMPUTED goal-difference expression (not the
+   * `goal_difference` column, which is never maintained by
+   * the update path). Mirrors the SQL in
+   * LeagueService.getStandings and
+   * MatchCompletionService.recalculateLeaguePositions so the
+   * three places stay in lockstep.
    */
   async updateStandingsPositions(
     leagueId: string,
     season: number,
   ): Promise<void> {
-    const standings = await this.standingRepository.find({
-      where: { leagueId: leagueId as Uuid, season },
-      order: { points: 'DESC', goalDifference: 'DESC', goalsFor: 'DESC' },
-    });
+    const standings = await this.standingRepository
+      .createQueryBuilder('s')
+      .where('s.leagueId = :leagueId', { leagueId: leagueId as Uuid })
+      .andWhere('s.season = :season', { season })
+      .orderBy('s.points', 'DESC')
+      .addOrderBy('s.goalsFor - s.goalsAgainst', 'DESC')
+      .addOrderBy('s.goalsFor', 'DESC')
+      .getMany();
 
     for (let i = 0; i < standings.length; i++) {
       standings[i].position = i + 1;
     }
 
-    await this.standingRepository.save(standings);
+    if (standings.length > 0) {
+      await this.standingRepository.save(standings);
+    }
   }
 
   /**

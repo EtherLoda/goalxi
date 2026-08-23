@@ -132,6 +132,23 @@ export class MatchCompletionService {
       return;
     }
 
+    // [Fix 2026-08-23] League standings are scoped to a single
+    // league. Cup / youth / friendly / national-team matches
+    // have null leagueId (cup-scheduler.service.ts and the
+    // youth match generator both stamp `leagueId: null`).
+    // Without this guard, the getOrCreateStanding path below
+    // created a phantom `league_standing` row with
+    // `leagueId = null` for every non-league match, polluting
+    // the table with dead rows the FE never queries. ELO,
+    // fan/revenue, and player stats are NOT gated here —
+    // they apply to every match type.
+    if (!leagueId) {
+      this.logger.debug(
+        `Skipping league_standings update for non-league match ${match.id} (type=${match.type})`,
+      );
+      return;
+    }
+
     const [homeStanding, awayStanding] = await Promise.all([
       this.getOrCreateStanding(leagueId, homeTeamId, season),
       this.getOrCreateStanding(leagueId, awayTeamId, season),
@@ -170,6 +187,42 @@ export class MatchCompletionService {
     }
 
     await this.standingRepository.save([homeStanding, awayStanding]);
+
+    // Re-derive positions for the whole league in the same
+    // critical section as the per-team update so direct
+    // DB readers (e.g. season-archive.service.ts which copies
+    // `standing.position` into `SeasonResult.finalPosition`)
+    // see a real number rather than the entity default of 0.
+    // See the league.service.ts getStandings docstring for
+    // why the GD sort is a computed expression in the SQL
+    // rather than the `goal_difference` column.
+    await this.recalculateLeaguePositions(leagueId, season);
+  }
+
+  /**
+   * Renumber positions 1..N for every team in the league
+   * so direct DB readers see a consistent rank. Sort key is
+   * points > (goalsFor - goalsAgainst) > goalsFor, matching
+   * the in-memory sort in LeagueService.getStandings.
+   */
+  private async recalculateLeaguePositions(
+    leagueId: string,
+    season: number,
+  ): Promise<void> {
+    const rows = await this.standingRepository
+      .createQueryBuilder('s')
+      .where('s.leagueId = :leagueId', { leagueId })
+      .andWhere('s.season = :season', { season })
+      .orderBy('s.points', 'DESC')
+      .addOrderBy('s.goalsFor - s.goalsAgainst', 'DESC')
+      .addOrderBy('s.goalsFor', 'DESC')
+      .getMany();
+    for (let i = 0; i < rows.length; i++) {
+      rows[i].position = i + 1;
+    }
+    if (rows.length > 0) {
+      await this.standingRepository.save(rows);
+    }
   }
 
   private async getOrCreateStanding(
