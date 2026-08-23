@@ -7,6 +7,7 @@ import { api, type Player, type TransferAuction } from "@/lib/api";
 import { useTranslations } from "next-intl";
 import { useAuth } from "@/contexts/AuthContext";
 import { SpecialtyIcon } from "@/components/player/SpecialtyIcon";
+import { PlayerSeasonStatsCard } from "@/components/player/PlayerSeasonStatsCard";
 import { getSpecialtyLabel } from "@/lib/specialties";
 import { ExperienceTierLabel } from "@/components/ExperienceTierLabel";
 
@@ -847,6 +848,21 @@ export default function PlayerDetailPage({ params }: PageProps) {
                     </div>
                   </div>
                 </div>
+              </div>
+
+              {/* Season Stats Section — career totals + every (league, season) row from
+                  `GET /stats/player/:id/seasons`. The data is keyed by
+                  (player, league, season) and the simulator writes it inside
+                  its atomic simulation transaction; this card just reads it.
+                  Rendered as a separate card so the page's "career numbers"
+                  visual block sits apart from the skill bars (which are
+                  about attributes, not what the player has done on the
+                  pitch). */}
+              <div className="px-6 pb-6 border-t border-[#2f4e44]/20">
+                <PlayerSeasonStatsCard
+                  playerId={parseInt(resolvedParams?.id ?? "0", 10)}
+                  locale={resolvedParams?.locale ?? "en"}
+                />
               </div>
 
               {/* Player Events Section */}

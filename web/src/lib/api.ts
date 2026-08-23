@@ -376,6 +376,50 @@ interface PlayerEvent {
   details?: any;
 }
 
+/**
+ * One row per (league, season) the player has competition stats for.
+ * `leagueId` / `leagueName` are nullable because cup / youth matches
+ * have null leagueId (see migration 1736000000000). The FE labels
+ * null-league rows as "Cup" / "Youth" depending on the project's
+ * competition structure.
+ */
+export interface PlayerSeasonStatsEntry {
+  leagueId: string | null;
+  leagueName: string | null;
+  season: number;
+  teamId: string;
+  teamName: string;
+  goals: number;
+  assists: number;
+  tackles: number;
+  yellowCards: number;
+  redCards: number;
+  appearances: number;
+  starts: number;
+  substituteAppearances: number;
+}
+
+export interface PlayerCareerStats {
+  goals: number;
+  assists: number;
+  tackles: number;
+  yellowCards: number;
+  redCards: number;
+  appearances: number;
+  starts: number;
+  substituteAppearances: number;
+  /** Count of distinct (league, season) rows - a player who played in
+   * two leagues in the same season counts as 2. */
+  seasonsPlayed: number;
+}
+
+export interface PlayerSeasonStats {
+  playerId: number;
+  playerName: string;
+  seasons: PlayerSeasonStatsEntry[];
+  career: PlayerCareerStats;
+}
+
 interface MatchTeam {
   id: string;
   name: string;
@@ -934,6 +978,14 @@ export const api = {
       if (season !== undefined) params.append('season', String(season));
       const qs = params.toString();
       return request<PlayerEvent[]>(`/player-events/player/${playerId}${qs ? `?${qs}` : ''}`);
+    },
+    /**
+     * Career totals + per-(league, season) breakdown for one player.
+     * Returns a 404 if the player doesn't exist. Cup / youth rows
+     * surface with leagueId=null (see PlayerSeasonStatsEntry doc).
+     */
+    getSeasonStats: async (playerId: number): Promise<PlayerSeasonStats> => {
+      return request<PlayerSeasonStats>(`/stats/player/${playerId}/seasons`);
     },
   },
 

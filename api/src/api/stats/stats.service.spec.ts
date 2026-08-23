@@ -1,4 +1,5 @@
 import {
+  LeagueEntity,
   MatchEntity,
   MatchEventEntity,
   MatchStatus,
@@ -15,6 +16,7 @@ import { StatsService } from './stats.service';
 
 describe('StatsService', () => {
   let service: StatsService;
+  let module: TestingModule; // hoisted so nested describes can use module.get
   let matchRepository: Repository<MatchEntity>;
   let matchStatsRepository: Repository<MatchTeamStatsEntity>;
   let teamRepository: Repository<TeamEntity>;
@@ -53,7 +55,7 @@ describe('StatsService', () => {
   ];
 
   beforeEach(async () => {
-    const module: TestingModule = await Test.createTestingModule({
+    module = await Test.createTestingModule({
       providers: [
         StatsService,
         {
@@ -79,6 +81,13 @@ describe('StatsService', () => {
           provide: getRepositoryToken(TeamEntity),
           useValue: {
             findOne: jest.fn(),
+            find: jest.fn(),
+          },
+        },
+        {
+          provide: getRepositoryToken(LeagueEntity),
+          useValue: {
+            find: jest.fn(),
           },
         },
         {
@@ -90,6 +99,7 @@ describe('StatsService', () => {
         {
           provide: getRepositoryToken(PlayerEntity),
           useValue: {
+            findOne: jest.fn(),
             find: jest.fn(),
           },
         },
@@ -221,6 +231,210 @@ describe('StatsService', () => {
       await expect(service.getTeamSeasonStats('invalid', 1)).rejects.toThrow(
         NotFoundException,
       );
+    });
+  });
+
+
+
+  describe('getPlayerSeasonStats', () => {
+    const playerId = 42;
+    const playerIdStr = "42";
+
+    const getLeagueRepo = () =>
+      module.get<Repository<LeagueEntity>>(getRepositoryToken(LeagueEntity));
+    const getPlayerRepo = () =>
+      module.get<Repository<PlayerEntity>>(getRepositoryToken(PlayerEntity));
+    const getCompStatsRepo = () =>
+      module.get<Repository<PlayerCompetitionStatsEntity>>(
+        getRepositoryToken(PlayerCompetitionStatsEntity),
+      );
+
+    it("throws NotFoundException for a non-numeric id", async () => {
+      await expect(
+        service.getPlayerSeasonStats("not-a-number"),
+      ).rejects.toThrow(NotFoundException);
+    });
+
+    it("throws NotFoundException when the player does not exist", async () => {
+      jest.spyOn(getPlayerRepo(), "findOne").mockResolvedValue(null as any);
+      await expect(service.getPlayerSeasonStats(playerIdStr)).rejects.toThrow(
+        NotFoundException,
+      );
+    });
+
+    it("returns career totals + per-season rows sorted DESC by season", async () => {
+      // Two league rows for season 2, one league row for season 1.
+      // The career totals are the sum of all three.
+      jest.spyOn(getPlayerRepo(), "findOne").mockResolvedValue({
+        id: playerId,
+        name: "Alice",
+        teamId: "team-1", // current team - the FE labels every
+        // per-season row with this teamId because the stats
+        // table doesn't track per-season team membership.
+      } as any);
+      // Single-row lookup for the current team (the bulk `find`
+      // call that the old fanout used is gone - the service now
+      // resolves one teamId at a time).
+      jest.spyOn(teamRepository, "findOne").mockResolvedValue({
+        id: "team-1",
+        name: "United",
+      } as any);
+      jest.spyOn(getCompStatsRepo(), "find").mockResolvedValue([
+        {
+          playerId,
+          teamId: "team-1",
+          leagueId: "league-1",
+          season: 2,
+          goals: 5,
+          assists: 3,
+          tackles: 7,
+          yellowCards: 2,
+          redCards: 0,
+          starts: 10,
+          appearances: 12,
+          substituteAppearances: 2,
+        },
+        {
+          playerId,
+          teamId: "team-2",
+          leagueId: "league-2",
+          season: 2,
+          goals: 1,
+          assists: 2,
+          tackles: 1,
+          yellowCards: 0,
+          redCards: 1,
+          starts: 5,
+          appearances: 8,
+          substituteAppearances: 3,
+        },
+        {
+          playerId,
+          teamId: "team-1",
+          leagueId: "league-1",
+          season: 1,
+          goals: 2,
+          assists: 0,
+          tackles: 3,
+          yellowCards: 1,
+          redCards: 0,
+          starts: 4,
+          appearances: 4,
+          substituteAppearances: 0,
+        },
+      ] as any);
+      jest.spyOn(teamRepository, "find").mockResolvedValue([
+        { id: "team-1", name: "United" },
+        { id: "team-2", name: "City" },
+      ] as any);
+      jest.spyOn(getLeagueRepo(), "find").mockResolvedValue([
+        { id: "league-1", name: "Premier" },
+        { id: "league-2", name: "Championship" },
+      ] as any);
+
+      const out = await service.getPlayerSeasonStats(playerIdStr);
+
+      expect(out.playerId).toBe(playerId);
+      expect(out.playerName).toBe("Alice");
+      // Sorted by season DESC: season-2 rows first, then season-1.
+      expect(out.seasons.map((s) => s.season)).toEqual([2, 2, 1]);
+      // Team + league names are resolved (no N+1 fanout in the FE).
+      expect(out.seasons[0]).toMatchObject({
+        teamName: "United",
+        leagueName: "Premier",
+        season: 2,
+        goals: 5,
+        assists: 3,
+        tackles: 7,
+        starts: 10,
+        appearances: 12,
+        substituteAppearances: 2,
+        yellowCards: 2,
+        redCards: 0,
+      });
+      // Career totals are the sum across every row (one per
+      // (league, season)).
+      expect(out.career).toEqual({
+        goals: 8, // 5 + 1 + 2
+        assists: 5, // 3 + 2 + 0
+        tackles: 11, // 7 + 1 + 3
+        yellowCards: 3, // 2 + 0 + 1
+        redCards: 1, // 0 + 1 + 0
+        appearances: 24, // 12 + 8 + 4
+        starts: 19, // 10 + 5 + 4
+        substituteAppearances: 5, // 2 + 3 + 0
+        seasonsPlayed: 3,
+      });
+    });
+
+    it("surfaces cup / youth rows with leagueId = null and skips the league repo query", async () => {
+      // Migration 1736000000000 made league_id nullable so cup /
+      // youth matches land here. The FE renders leagueName=null
+      // as "Cup" / "Youth" - the DTO leaves the label choice to
+      // the client because a single project can have both a Cup
+      // competition and Youth leagues (different seasonKey shape).
+      jest.spyOn(getPlayerRepo(), "findOne").mockResolvedValue({
+        id: playerId,
+        name: "Bob",
+      } as any);
+      jest.spyOn(getCompStatsRepo(), "find").mockResolvedValue([
+        {
+          playerId,
+          teamId: "team-1",
+          leagueId: null, // cup match
+          season: 1,
+          goals: 3,
+          assists: 1,
+          tackles: 2,
+          yellowCards: 0,
+          redCards: 0,
+          starts: 4,
+          appearances: 4,
+          substituteAppearances: 0,
+        },
+      ] as any);
+      jest.spyOn(teamRepository, "find").mockResolvedValue([
+        { id: "team-1", name: "United" },
+      ] as any);
+      // No league ids to look up - the league repo should not be
+      // queried at all (avoids needless round trip for cup rows).
+      const leagueFindSpy = jest
+        .spyOn(getLeagueRepo(), "find")
+        .mockResolvedValue([] as any);
+
+      const out = await service.getPlayerSeasonStats(playerIdStr);
+
+      expect(out.seasons).toHaveLength(1);
+      expect(out.seasons[0].leagueId).toBeNull();
+      expect(out.seasons[0].leagueName).toBeNull();
+      expect(out.career.goals).toBe(3);
+      expect(leagueFindSpy).not.toHaveBeenCalled();
+    });
+
+    it("returns zeroed career + empty seasons when the player has no stats yet", async () => {
+      jest.spyOn(getPlayerRepo(), "findOne").mockResolvedValue({
+        id: playerId,
+        name: "Carol",
+      } as any);
+      jest.spyOn(getCompStatsRepo(), "find").mockResolvedValue([] as any);
+      jest.spyOn(teamRepository, "find").mockResolvedValue([] as any);
+      jest.spyOn(getLeagueRepo(), "find").mockResolvedValue([] as any);
+
+      const out = await service.getPlayerSeasonStats(playerIdStr);
+
+      expect(out.playerId).toBe(playerId);
+      expect(out.seasons).toEqual([]);
+      expect(out.career).toEqual({
+        goals: 0,
+        assists: 0,
+        tackles: 0,
+        yellowCards: 0,
+        redCards: 0,
+        appearances: 0,
+        starts: 0,
+        substituteAppearances: 0,
+        seasonsPlayed: 0,
+      });
     });
   });
 });

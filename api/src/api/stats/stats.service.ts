@@ -1,4 +1,5 @@
 import {
+  LeagueEntity,
   MatchEntity,
   MatchEventEntity,
   MatchStatus,
@@ -6,6 +7,7 @@ import {
   PlayerCompetitionStatsEntity,
   PlayerEntity,
   TeamEntity,
+  Uuid,
 } from '@goalxi/database';
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
@@ -15,6 +17,11 @@ import {
   LeaderboardResDto,
 } from './dto/leaderboard.res.dto';
 import { ComputedTeamStats, MatchStatsResDto } from './dto/match-stats.res.dto';
+import {
+  PlayerCareerStatsDto,
+  PlayerSeasonStatsEntryDto,
+  PlayerSeasonStatsResDto,
+} from './dto/player-season-stats.res.dto';
 import { TeamStatsResDto } from './dto/team-stats.res.dto';
 
 @Injectable()
@@ -28,6 +35,8 @@ export class StatsService {
     private readonly matchStatsRepository: Repository<MatchTeamStatsEntity>,
     @InjectRepository(TeamEntity)
     private readonly teamRepository: Repository<TeamEntity>,
+    @InjectRepository(LeagueEntity)
+    private readonly leagueRepository: Repository<LeagueEntity>,
     @InjectRepository(PlayerCompetitionStatsEntity)
     private readonly competitionStatsRepo: Repository<PlayerCompetitionStatsEntity>,
     @InjectRepository(PlayerEntity)
@@ -301,4 +310,136 @@ export class StatsService {
       starts: stats.starts,
     };
   }
+
+  /**
+   * Career + per-season competition stats for a single player.
+   *
+   * The data source is `PlayerCompetitionStatsEntity`, which the
+   * simulator writes inside its atomic transaction and the
+   * match-completion service never touches (the per-season, per-
+   * competition split is the single source of truth for these
+   * numbers). The DTO intentionally surfaces `leagueId = null` rows
+   * (cup / youth) so the FE can label them rather than drop them.
+   *
+   * Returned `seasons` is sorted by season DESC, then by league id
+   * ASC for stability within a season. The FE renders this in a
+   * table; ordering at the API level keeps the table deterministic
+   * across page reloads without the FE having to re-sort.
+   */
+  async getPlayerSeasonStats(
+    playerId: string,
+  ): Promise<PlayerSeasonStatsResDto> {
+    const numericId = Number(playerId);
+    if (!Number.isFinite(numericId)) {
+      throw new NotFoundException(`Invalid player id: ${playerId}`);
+    }
+
+    const player = await this.playerRepo.findOne({
+      where: { id: numericId as any },
+    });
+    if (!player) {
+      throw new NotFoundException(`Player ${playerId} not found`);
+    }
+
+    // 1. Pull every (league, season) row for this player.
+    const rows = await this.competitionStatsRepo.find({
+      where: { playerId: numericId as any },
+      order: { season: 'DESC', leagueId: 'ASC' },
+    });
+
+    // 2. Resolve league names in one shot (avoid N+1 fanout).
+    //
+    // The competition-stats table doesn't carry a `team_id`
+    // column (each row is keyed by player + (league, season) and
+    // a player can change teams mid-career). The FE labels every
+    // row with the player's CURRENT team — good enough for the
+    // MVP stats card. Adding a per-row `team_id` would require a
+    // migration + simulator change; deferred until the per-season
+    // team-tracking is productised (likely tied to the transfer
+    // history feature, not the stats card).
+    const leagueIds = Array.from(
+      new Set(
+        rows
+          .map((r) => r.leagueId)
+          .filter((id): id is Uuid => !!id),
+      ),
+    );
+    const [leagues, currentTeam] = await Promise.all([
+      leagueIds.length
+        ? this.leagueRepository.find({
+            where: { id: In(leagueIds) },
+            select: ['id', 'name'],
+          })
+        : Promise.resolve([] as LeagueEntity[]),
+      player.teamId
+        ? this.teamRepository.findOne({
+            where: { id: player.teamId as any },
+            select: ['id', 'name'],
+          })
+        : Promise.resolve(null),
+    ]);
+    const leagueById = new Map(leagues.map((l) => [l.id, l.name]));
+    const teamId = (player.teamId as string | null) ?? '';
+    const teamName = currentTeam?.name ?? 'Unknown';
+
+    // 3. Project rows to DTO entries.
+    const seasons: PlayerSeasonStatsEntryDto[] = rows.map((r) => ({
+      leagueId: r.leagueId ?? null,
+      leagueName: r.leagueId ? (leagueById.get(r.leagueId) ?? null) : null,
+      season: r.season,
+      teamId,
+      teamName,
+      goals: r.goals,
+      assists: r.assists,
+      tackles: r.tackles,
+      yellowCards: r.yellowCards,
+      redCards: r.redCards,
+      appearances: r.appearances,
+      starts: r.starts,
+      substituteAppearances: r.substituteAppearances,
+    }));
+
+    // 4. Aggregate career totals across every row. Sums are safe to
+    //    compute by `reduce` — PlayerCompetitionStatsEntity is the
+    //    single write-side (simulator), and each row corresponds to a
+    //    distinct (league, season) so there's no double-count.
+    const career: PlayerCareerStatsDto = rows.reduce(
+      (acc, r) => ({
+        goals: acc.goals + r.goals,
+        assists: acc.assists + r.assists,
+        tackles: acc.tackles + r.tackles,
+        yellowCards: acc.yellowCards + r.yellowCards,
+        redCards: acc.redCards + r.redCards,
+        appearances: acc.appearances + r.appearances,
+        starts: acc.starts + r.starts,
+        substituteAppearances:
+          acc.substituteAppearances + r.substituteAppearances,
+        seasonsPlayed: acc.seasonsPlayed,
+      }),
+      {
+        goals: 0,
+        assists: 0,
+        tackles: 0,
+        yellowCards: 0,
+        redCards: 0,
+        appearances: 0,
+        starts: 0,
+        substituteAppearances: 0,
+        seasonsPlayed: 0,
+      },
+    );
+    // `seasonsPlayed` is the count of distinct (league, season) rows,
+    // not the number of seasons — a player who played in two leagues
+    // in the same season counts as 2. That matches the granularity
+    // of the data on the table.
+    career.seasonsPlayed = rows.length;
+
+    return {
+      playerId: numericId,
+      playerName: player.name,
+      seasons,
+      career,
+    };
+  }
+
 }

@@ -9,6 +9,7 @@ import {
 import { AuthGuard } from '../../guards/auth.guard';
 import { LeaderboardResDto } from './dto/leaderboard.res.dto';
 import { MatchStatsResDto } from './dto/match-stats.res.dto';
+import { PlayerSeasonStatsResDto } from './dto/player-season-stats.res.dto';
 import { TeamStatsResDto } from './dto/team-stats.res.dto';
 import { StatsService } from './stats.service';
 
@@ -69,5 +70,17 @@ export class StatsController {
       leagueId,
       season,
     );
+  }
+
+  // Career + every (league, season) row for a single player. The
+  // single-season /stats/player/:id/competition route above is
+  // kept for the FE's smaller per-season widgets; this one is the
+  // full breakdown for the player page's stats card.
+  @Public()
+  @Get('player/:playerId/seasons')
+  async getPlayerSeasonStats(
+    @Param('playerId') playerId: string,
+  ): Promise<PlayerSeasonStatsResDto> {
+    return this.statsService.getPlayerSeasonStats(playerId);
   }
 }
