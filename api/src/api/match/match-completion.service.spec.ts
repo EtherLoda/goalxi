@@ -437,4 +437,52 @@ describe('MatchCompletionService data-flow review', () => {
       expect(standingRepository.save).not.toHaveBeenCalled();
     });
   });
+
+  describe('careerStats single-writer invariant', () => {
+    // The bug: the simulator (simulation.processor.ts player-loop
+    // block) and this service both wrote
+    // careerStats.club.{matches,goals,assists,yellowCards,redCards}.
+    // The simulator is the single source of truth - it has engine
+    // data (playerMatchStats) and runs earlier in the same match
+    // lifecycle, inside its own transaction. This service writing
+    // a second time meant every career counter doubled after each
+    // match. See the comment block at the top of completeMatch
+    // for the full rationale.
+    //
+    // These tests pin the invariant at the source level so a
+    // future contributor cannot reintroduce the double-count
+    // without breaking the build. A behavioural test cannot catch
+    // the bug: any single call to completeMatch would just see
+    // the simulator's write, and the cache-sentinel does not
+    // protect against the simulator's pre-existing write.
+    it('does not declare updatePlayerStats (the double-write method is gone)', () => {
+      expect((service as any).updatePlayerStats).toBeUndefined();
+    });
+
+    it('does not declare ensurePlayerInMap (helper for the deleted method)', () => {
+      expect((service as any).ensurePlayerInMap).toBeUndefined();
+    });
+
+    it('source: no careerStats.club.<stat> writes in this file', () => {
+      // Tripwire: if anyone re-adds a += to any of these fields
+      // inside match-completion.service.ts, fail the build. The
+      // simulator is the canonical writer.
+      const fs = require('fs');
+      const path = require('path');
+      const src = fs.readFileSync(
+        path.join(__dirname, 'match-completion.service.ts'),
+        'utf8',
+      );
+      const banned = [
+        'careerStats.club.matches',
+        'careerStats.club.goals',
+        'careerStats.club.assists',
+        'careerStats.club.yellowCards',
+        'careerStats.club.redCards',
+      ];
+      for (const term of banned) {
+        expect(src).not.toContain(term);
+      }
+    });
+  });
 });

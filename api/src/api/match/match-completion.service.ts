@@ -97,8 +97,13 @@ export class MatchCompletionService {
     // 2. Update League Standings
     await this.updateLeagueStandings(match);
 
-    // 3. Update Player Stats
-    await this.updatePlayerStats(matchId);
+    // 3. Player careerStats (matches / goals / assists / yellows / reds)
+    //    are written by the SIMULATOR, not here. The simulator runs
+    //    earlier in the same match lifecycle and already wrote the
+    //    correct values inside its simulation transaction. Writing
+    //    them a second time was the root cause of every career
+    //    counter doubling after each match (see the player-loop
+    //    block in simulation.processor.ts for the canonical path).
 
     // 3.5. Add match minutes to players for condition/form calculation
     await this.addMatchMinutes(matchId);
@@ -249,156 +254,6 @@ export class MatchCompletionService {
     }
 
     return standing;
-  }
-
-  private async updatePlayerStats(matchId: string): Promise<void> {
-    const events = await this.eventRepository.find({
-      where: { matchId },
-      select: ['id', 'typeName', 'playerId', 'relatedPlayerId'],
-    });
-
-    const playerStatsUpdate = new Map<
-      number,
-      {
-        goals: number;
-        assists: number;
-        yellowCards: number;
-        redCards: number;
-        appearances: number;
-      }
-    >();
-
-    // 1. Initialise appearances from Lineups
-    const tactics = await this.tacticsRepository.find({ where: { matchId } });
-    for (const t of tactics) {
-      // Starters. Read the int-keyed v2 column — the legacy `t.lineup`
-      // jsonb was emptied by migration 1724000000000-PlayerIdToNumeric
-      // (per MatchTacticsEntity docstring) so a raw `t.lineup` read returns
-      // []. Without v2, starters never make it into playerStatsUpdate and
-      // their `careerStats.club.matches` is never incremented here.
-      for (const rawId of Object.values(t.lineupV2 ?? {})) {
-        const playerId = toIntId(rawId);
-        if (playerId !== null) {
-          this.ensurePlayerInMap(playerStatsUpdate, playerId);
-        }
-      }
-      // Substitutes who actually came in (per the int-keyed v2 column).
-      // `substitutionsV2` is `Array<{ minute, out, in }>` with int ids.
-      for (const sub of t.substitutionsV2 ?? []) {
-        const inId = toIntId(sub.in);
-        if (inId !== null) {
-          this.ensurePlayerInMap(playerStatsUpdate, inId);
-        }
-      }
-    }
-
-    // 2. Add stats from events
-    for (const event of events) {
-      const type = (event.typeName || '').toLowerCase();
-
-      // Handle main player in the event
-      if (event.playerId) {
-        this.ensurePlayerInMap(playerStatsUpdate, event.playerId);
-        const stats = playerStatsUpdate.get(event.playerId)!;
-
-        if (type === 'goal' || type === 'penalty_goal') {
-          stats.goals += 1;
-        } else if (type === 'yellow_card') {
-          stats.yellowCards += 1;
-        } else if (type === 'red_card') {
-          stats.redCards += 1;
-        } else if (type === 'substitution') {
-          // Mark sub IN player as appeared
-          stats.appearances = 1;
-          // Mark sub OUT player as also appeared (they played until this minute)
-          const subData = (event as any).data;
-          if (subData?.playerId) {
-            this.ensurePlayerInMap(playerStatsUpdate, subData.playerId);
-            playerStatsUpdate.get(subData.playerId)!.appearances = 1;
-          }
-        }
-      }
-
-      // Handle assisting player (stored in relatedPlayerId for goal events)
-      if (
-        event.relatedPlayerId &&
-        (type === 'goal' || type === 'penalty_goal')
-      ) {
-        this.ensurePlayerInMap(playerStatsUpdate, event.relatedPlayerId);
-        const assistStats = playerStatsUpdate.get(event.relatedPlayerId)!;
-        assistStats.assists += 1;
-      }
-
-      // Backward compatibility for data.assistPlayerId — removed; assist info is now in relatedPlayerId (handled above)
-    }
-
-    // What about players who played but didn't have events?
-    // In Step 4/8, we should ideally fetch the tactics and mark everyone as played.
-    // Let's postpone full "appearance" tracking until tactics are fully integrated here,
-    // or just rely on events that mention players for now.
-    // Actually, the MatchSimulationProcessor has access to homeSimPlayers and awaySimPlayers.
-    // Maybe we should pass that info? No, MatchCompletionService is a separate job.
-
-    // 3. Batch update players to avoid memory issues
-    const playerIds = Array.from(playerStatsUpdate.keys());
-    if (playerIds.length === 0) return;
-
-    const players = await this.playerRepository.find({
-      where: { id: In(playerIds as any[]) },
-    });
-
-    const playersToUpdate: PlayerEntity[] = [];
-
-    for (const player of players) {
-      const stats = playerStatsUpdate.get(player.id);
-      if (stats) {
-        if (!player.careerStats)
-          player.careerStats = {
-            club: {
-              matches: 0,
-              goals: 0,
-              assists: 0,
-              tackles: 0,
-              yellowCards: 0,
-              redCards: 0,
-            },
-          };
-        if (!player.careerStats.club)
-          player.careerStats.club = {
-            matches: 0,
-            goals: 0,
-            assists: 0,
-            tackles: 0,
-            yellowCards: 0,
-            redCards: 0,
-          };
-
-        player.careerStats.club.matches += 1; // Mark as played
-        player.careerStats.club.goals += stats.goals;
-        player.careerStats.club.assists += stats.assists;
-        player.careerStats.club.yellowCards += stats.yellowCards;
-        player.careerStats.club.redCards += stats.redCards;
-
-        playersToUpdate.push(player);
-      }
-    }
-
-    // Batch save all players
-    if (playersToUpdate.length > 0) {
-      await this.playerRepository.save(playersToUpdate);
-    }
-  }
-
-  private ensurePlayerInMap(map: Map<number, any>, playerId: number) {
-    if (!map.has(playerId)) {
-      map.set(playerId, {
-        goals: 0,
-        assists: 0,
-        yellowCards: 0,
-        redCards: 0,
-        appearances: 1,
-      });
-    }
   }
 
   /**
