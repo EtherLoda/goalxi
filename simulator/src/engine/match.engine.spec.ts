@@ -933,6 +933,82 @@ describe('MatchEngine', () => {
         spy.mockRestore();
       }
     });
+
+    it('red-carded player gets minutes up to the dismissal minute, not the full match', () => {
+      // Regression spec for the engine-side red-card minutes bug.
+      // Before the fix, `finalizePlayerMinutes` blindly assigned
+      // `stats.minutesPlayed = finalMinute` to any starter with
+      // `appearances > 0 && minutesPlayed === 0`. A starter sent
+      // off on minute 30 (no substitution follows - engine plays
+      // the rest with 10 men) had no `outStats.minutesPlayed +=`
+      // write at the sub path, so the condition held and they were
+      // credited the full 90 minutes. Two downstream bugs:
+      //   1. PlayerCompetitionStatsEntity.minutes (the season-
+      //      level aggregate, written by simulation.processor.ts
+      //      from `engine.getPlayerMatchStats().minutesPlayed`)
+      //      was inflated by 60 minutes per dismissed starter
+      //   2. starts/sub classification in
+      //      `updatePlayerCompetitionStats` uses
+      //      `stats.minutesPlayed >= 45` as the start threshold,
+      //      so a 30-min red-carded starter was counted as a
+      //      full-match start
+      // The fix re-derives the send-off minute from the event
+      // stream and caps `stats.minutesPlayed` at the dismissal
+      // minute.
+      //
+      // This spec drives a direct red card via the existing
+      // `resolveFoul` mock (the only way to make a red card
+      // deterministic), then calls `finalizePlayerMinutes`
+      // and asserts the dismissed player's minutes are capped.
+      const targetIdx = 1; // non-GK home player
+      const target = homeTeam.players[targetIdx];
+      const targetId = target.player.id;
+
+      // Mock Math.random to land in the direct-red-card branch
+      // of resolveFoul. Same pattern as the 2nd-yellow spec above.
+      // resolveFoul's random calls, in order:
+      //   1. team pick: 0.1 (< 0.5 -> home)
+      //   2. player pick: (targetIdx + 0.5) / 11
+      //      -> (1 + 0.5) / 11 = 0.136, * 11 = 1.5, | 0 = 1
+      //      (player 0 is the GK, which we don't want to
+      //      send off here because the engine's red-card
+      //      branch handles outfield the same way but the
+      //      GK accounting is the more complex path)
+      //   3. main roll: 0.001 (< 0.002 -> direct red branch)
+      // The (CM) player at home index 1 has no specialty, so
+      // foulRateMultiplier returns 1.0 and the foulRate gate
+      // at resolveFoul line 2839 is short-circuited (no 4th
+      // random call).
+      const seq = [0.1, (targetIdx + 0.5) / 11, 0.001];
+      let i = 0;
+      const spy = jest.spyOn(Math, 'random').mockImplementation(() => {
+        return seq[i++ % seq.length];
+      });
+
+      try {
+        (engine as any).resolveFoul();
+        const events = (engine as any).events as MatchEvent[];
+        const redCard = events.find(
+          (e) => e.type === 'red_card' && e.playerId === targetId,
+        );
+        expect(redCard).toBeDefined();
+        if (!redCard) return;
+        const redCardMinute = redCard.minute;
+
+        // Drive finalizePlayerMinutes with a fixed finalMinute
+        // so the assertion is deterministic regardless of the
+        // engine's stoppage-time calculation.
+        const FIXED_FINAL_MINUTE = 95;
+        (engine as any).finalizePlayerMinutes(FIXED_FINAL_MINUTE);
+        const stats = (engine as any).playerMatchStats.get(targetId);
+        // Post-fix: minutes are capped at the dismissal minute.
+        // Pre-fix: minutes were FIXED_FINAL_MINUTE.
+        expect(stats.minutesPlayed).toBe(redCardMinute);
+        expect(stats.minutesPlayed).toBeLessThan(FIXED_FINAL_MINUTE);
+      } finally {
+        spy.mockRestore();
+      }
+    });
   });
 
   describe('Player Match Stats', () => {

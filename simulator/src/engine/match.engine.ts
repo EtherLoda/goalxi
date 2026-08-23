@@ -1680,6 +1680,28 @@ export class MatchEngine {
    * Finalize minutes played for all players at end of match
    */
   private finalizePlayerMinutes(finalMinute: number) {
+    // Build a playerId -> send-off-minute map from the event
+    // stream. The engine emits a `red_card` event at the
+    // dismissal minute (match.engine.ts:2814-2855 - covers
+    // both direct reds and second-yellow reds) but
+    // `sendOffPlayer` doesn't store the minute on the player
+    // object. Re-derive here so a red-carded player gets
+    // credited up to the dismissal minute, not the full 90.
+    // The pre-fix behaviour was a starter with red card, no
+    // sub event, gets credited with the full 90 minutes
+    // which broke starts/sub classification (a 30-min
+    // red-carded starter was counted as a full-match start)
+    // and skewed the season-level minutes aggregate in
+    // PlayerCompetitionStatsEntity.
+    const sentOffMinute = new Map<number, number>();
+    for (const e of this.events) {
+      if (e.type === 'red_card' && e.playerId) {
+        // A player can only be sent off once per match, so a
+        // plain `set` is correct (no need to min with prior value).
+        sentOffMinute.set(e.playerId, e.minute);
+      }
+    }
+
     // Update all players who were on the field
     for (const [playerId, stats] of this.playerMatchStats.entries()) {
       if (stats.appearances > 0 && stats.minutesPlayed === 0) {
@@ -1688,18 +1710,45 @@ export class MatchEngine {
         const player = this.findPlayerById(playerId);
         if (player) {
           const entryMinute = player.entryMinute || 0;
-          stats.minutesPlayed = finalMinute - entryMinute;
+          // If the player was sent off, cap at the
+          // dismissal minute (otherwise they get full 90
+          // even though they left the pitch at minute 30).
+          const exitMinute = sentOffMinute.has(playerId)
+            ? sentOffMinute.get(playerId)!
+            : finalMinute;
+          stats.minutesPlayed = exitMinute - entryMinute;
         }
       }
     }
 
-    // Update starting players who played full match
+    // Update starting players who played full match.
+    // We must SKIP any starter who was sent off (minute 0
+    // red card, no sub event) because the earlier loop
+    // above already credited them up to the dismissal
+    // minute. Without the explicit !sentOffMinute.has
+    // check, the second loop would re-set their
+    // minutesPlayed to finalMinute (90) and silently
+    // overwrite the dismissal-minute cap. The check is on
+    // sentOffMinute (not on stats.minutesPlayed) because
+    // for a starter sent off at minute 0 the entryMinute-
+    // aware loop sets minutesPlayed to 0 - 0 = 0 which
+    // still satisfies the outer minutesPlayed === 0 guard
+    // - so we'd re-enter this branch and clobber the 0
+    // with 90. (The pre-fix code did exactly that, see the
+    // test this fix unblocks.)
     for (const team of [this.homeTeam, this.awayTeam]) {
       for (const tp of team.players) {
         const playerId = (tp.player as Player).id;
         const stats = this.playerMatchStats.get(playerId);
-        if (stats && stats.appearances > 0 && stats.minutesPlayed === 0) {
-          // Starting player who went the full 90/120
+        if (
+          stats &&
+          stats.appearances > 0 &&
+          stats.minutesPlayed === 0 &&
+          !sentOffMinute.has(playerId)
+        ) {
+          // True full-match starter (no sub, no send-off):
+          // credit the full finalMinute (90+injury, or
+          // 120+ET injury).
           stats.minutesPlayed = finalMinute;
         }
       }
