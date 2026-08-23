@@ -1084,7 +1084,13 @@ describe('MatchEngine', () => {
       expect(average?.avgStars).toBeGreaterThan(weak?.avgStars ?? 0);
 
       // World class should be 16+ power rating
-      expect(worldClass?.avgStars).toBeGreaterThanOrEqual(16);
+      // Threshold lowered from 16 -> 15 after the exp-factor formula change
+// (K=6, cap=0.21 -> K=100, base=0.03, cap=0.25). The test players only
+// have 10 XP (L1), so the L1 exp bonus dropped from +13% to +5%; World
+// Class avgStars fell from ~16+ to 15.29. Real regression check, not
+// a tautology. The other thresholds (Average 6-14, Weak 2-8) still
+// hold because the spread is dominated by skill differences, not exp.
+expect(worldClass?.avgStars).toBeGreaterThanOrEqual(15);
       // Average should be 6–14 power rating
       expect(average?.avgStars).toBeGreaterThanOrEqual(6);
       expect(average?.avgStars).toBeLessThan(14);
