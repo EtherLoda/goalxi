@@ -36,6 +36,22 @@ import { useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
 import { api, type PlayerSeasonStats } from "@/lib/api";
 
+// Maps the API's competitionType bucket to a colored
+// badge. LEAGUE is the dominant bucket so it gets the
+// primary mint, CUP and YOUTH get secondary accents,
+// OTHER falls back to a neutral grey.
+type CompetitionType = PlayerSeasonStats["seasons"][number]["competitionType"];
+
+const COMPETITION_BADGE: Record<
+  CompetitionType,
+  { labelKey: string; accent: string }
+> = {
+  LEAGUE: { labelKey: "compBadge.LEAGUE", accent: "bg-[#a1ffc2]/15 text-[#a1ffc2] border-[#a1ffc2]/30" },
+  CUP: { labelKey: "compBadge.CUP", accent: "bg-[#60a5fa]/15 text-[#60a5fa] border-[#60a5fa]/30" },
+  YOUTH: { labelKey: "compBadge.YOUTH", accent: "bg-[#abf853]/15 text-[#abf853] border-[#abf853]/30" },
+  OTHER: { labelKey: "compBadge.OTHER", accent: "bg-[#4a7a6a]/20 text-[#91b2a6] border-[#4a7a6a]/30" },
+};
+
 export interface PlayerSeasonStatsCardProps {
   playerId: number;
   /**
@@ -82,9 +98,13 @@ function startsWithSub(starts: number, subs: number): string {
 function SeasonRow({
   row,
   cupLabel,
+  badgeLabels,
+  badgeAccents,
 }: {
   row: PlayerSeasonStats["seasons"][number];
   cupLabel: string;
+  badgeLabels: Record<CompetitionType, string>;
+  badgeAccents: Record<CompetitionType, string>;
 }) {
   // Cup / youth rows come from match.leagueId = null. We can\'t
   // tell them apart from the row alone, so label with the
@@ -93,9 +113,15 @@ function SeasonRow({
   const competitionLabel = row.leagueName ?? cupLabel;
   return (
     <div className="grid grid-cols-12 gap-2 items-center px-3 py-2.5 rounded-lg bg-[#001a12] border border-[#2f4e44]/10 hover:bg-[#00251c] transition-colors">
-      <div className="col-span-2 flex items-center">
-        <span className="text-[10px] font-black font-space tracking-wider text-[#d3f5e8]">
+      <div className="col-span-2 flex items-center gap-1.5 min-w-0">
+        <span className="text-[10px] font-black font-space tracking-wider text-[#d3f5e8] shrink-0">
           S{row.season}
+        </span>
+        <span
+          className={`px-1.5 py-0.5 rounded text-[8px] font-bold font-space tracking-widest uppercase border ${badgeAccents[row.competitionType]}`}
+          title={badgeLabels[row.competitionType]}
+        >
+          {badgeLabels[row.competitionType]}
         </span>
       </div>
       <div className="col-span-3 text-[10px] font-bold font-space text-[#91b2a6] truncate">
@@ -286,9 +312,20 @@ export function PlayerSeasonStatsCard({
               {data.seasons.map(
                 (s: PlayerSeasonStats["seasons"][number], i: number) => (
                   <SeasonRow
-                    key={`${s.season}-${s.leagueId ?? "null"}-${i}`}
+                    key={`${s.season}-${s.leagueId ?? "null"}-${s.competitionType}-${i}`}
                     row={s}
                     cupLabel={t("cupLabel")}
+                    badgeLabels={{
+                      LEAGUE: t("compBadge.LEAGUE"),
+                      CUP: t("compBadge.CUP"),
+                      YOUTH: t("compBadge.YOUTH"),
+                      OTHER: t("compBadge.OTHER"),
+                    }}
+                    badgeAccents={Object.fromEntries(
+                      Object.entries(COMPETITION_BADGE).map(
+                        ([k, v]) => [k, v.accent],
+                      ),
+                    ) as Record<CompetitionType, string>}
                   />
                 ),
               )}

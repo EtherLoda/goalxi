@@ -6,8 +6,11 @@ import { Expose, Type } from 'class-transformer';
  * `leagueId` and `leagueName` are nullable because cup / youth matches
  * stamp `match.leagueId = null` (we made `PlayerCompetitionStatsEntity`
  * nullable in migration 1736000000000) — a player can have stats
- * from non-league competitions too. The FE should label those rows
- * "Cup" / "Youth" rather than drop them.
+ * from non-league competitions too. The `competitionType` field
+ * below is the explicit discriminator (added by migration
+ * 1737000000000) that the FE should use to render a
+ * league/cup/youth split without inferring it from the
+ * null-state of leagueId.
  */
 export class PlayerSeasonStatsEntryDto {
   @Expose()
@@ -15,6 +18,12 @@ export class PlayerSeasonStatsEntryDto {
 
   @Expose()
   leagueName!: string | null;
+
+  // Explicit league/cup/youth/other bucket. See
+ // `CompetitionType` in `@goalxi/database`. The string values
+ // are uppercase to match the column default in the DB.
+  @Expose()
+  competitionType!: 'LEAGUE' | 'CUP' | 'YOUTH' | 'OTHER';
 
   @Expose()
   season!: number;

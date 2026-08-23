@@ -946,6 +946,12 @@
     "yellowCardDot": "黄",
     "redCardDot": "红",
     "cupLabel": "杯赛",
+    "compBadge": {
+      "LEAGUE": "联赛",
+      "CUP": "杯赛",
+      "YOUTH": "青年",
+      "OTHER": "其他"
+    },
     "emptyTitle": "暂无数据",
     "emptyBody": "球员完成比赛后，这里会显示进球、助攻等累计数据。",
     "errorTitle": "加载失败",

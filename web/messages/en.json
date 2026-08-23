@@ -946,6 +946,12 @@
     "yellowCardDot": "Y",
     "redCardDot": "R",
     "cupLabel": "Cup",
+    "compBadge": {
+      "LEAGUE": "League",
+      "CUP": "Cup",
+      "YOUTH": "Youth",
+      "OTHER": "Other"
+    },
     "emptyTitle": "No stats yet",
     "emptyBody": "Stats will appear after the player completes a match.",
     "errorTitle": "Couldn't load stats",

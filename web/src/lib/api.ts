@@ -386,6 +386,12 @@ interface PlayerEvent {
 export interface PlayerSeasonStatsEntry {
   leagueId: string | null;
   leagueName: string | null;
+  // Explicit league/cup/youth/other discriminator. The
+  // API returns it explicitly so the FE never has to
+  // infer the bucket from the null-state of `leagueId`.
+  // See migration 1737000000000 in api/src/database
+  // /migrations and `CompetitionType` in `@goalxi/database`.
+  competitionType: "LEAGUE" | "CUP" | "YOUTH" | "OTHER";
   season: number;
   teamId: string;
   teamName: string;

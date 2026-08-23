@@ -1,6 +1,7 @@
 import { AbstractEntity } from './abstract.entity';
 import { Uuid } from '../types/common.type';
 import { Column, Entity, Index, PrimaryGeneratedColumn } from 'typeorm';
+import { type CompetitionType } from '../constants/competition-type';
 
 @Entity('archived_player_competition_stats')
 @Index(['playerId', 'season'])
@@ -23,6 +24,21 @@ export class ArchivedPlayerCompetitionStatsEntity extends AbstractEntity {
 
     @Column({ type: 'int' })
     season!: number;
+
+    // [Fix 2026-08-23] Mirror of player_competition_stats.
+    // competition_type so the archive can preserve the
+    // league/cup/youth split at season end. See the live
+    // entity for the full rationale.
+    @Column({
+      name: 'competition_type',
+      type: 'varchar',
+      length: 20,
+      // Default at the column level. The DB-level CHECK
+      // constraint in migration 1737000000000 keeps the
+      // value in {LEAGUE, CUP, YOUTH, OTHER}.
+      default: () => "'LEAGUE'",
+    })
+    competitionType!: CompetitionType;
 
     @Column({ type: 'int', default: 0 })
     goals!: number;

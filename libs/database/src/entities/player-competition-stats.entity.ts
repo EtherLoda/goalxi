@@ -1,6 +1,7 @@
 import { AbstractEntity } from './abstract.entity';
 import { Uuid } from '../types/common.type';
 import { Column, Entity, Index, PrimaryGeneratedColumn } from 'typeorm';
+import { type CompetitionType } from '../constants/competition-type';
 
 @Entity('player_competition_stats')
 @Index(['leagueId', 'season', 'goals'])
@@ -27,6 +28,28 @@ export class PlayerCompetitionStatsEntity extends AbstractEntity {
 
   @Column({ type: 'int' })
   season!: number;
+
+  // [Fix 2026-08-23] Explicit competition-bucket discriminator.
+  // The previous nullable-leagueId migration (1736000000000)
+  // let cup / youth / friendly / national-team matches share the
+  // table, but the only way to tell them apart was `leagueId IS
+  // NULL` - an inference that conflates every non-league
+  // competition. This column is set by the simulator's
+  // `updatePlayerCompetitionStats` (using
+  // `competitionTypeForMatch()` from
+  // `constants/competition-type`) so the FE can render a
+  // league/cup/youth split without inferring it from the
+  // null-state of the leagueId column.
+  @Column({
+    name: 'competition_type',
+    type: 'varchar',
+    length: 20,
+    // Default at the column level. The DB-level CHECK
+    // constraint in migration 1737000000000 keeps the
+    // value in {LEAGUE, CUP, YOUTH, OTHER}.
+    default: () => "'LEAGUE'",
+  })
+  competitionType!: CompetitionType;
 
   @Column({ type: 'int', default: 0 })
   goals!: number;

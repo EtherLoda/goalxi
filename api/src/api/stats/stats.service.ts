@@ -8,6 +8,7 @@ import {
   PlayerEntity,
   TeamEntity,
   Uuid,
+  type CompetitionType,
 } from '@goalxi/database';
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
@@ -386,6 +387,11 @@ export class StatsService {
     const seasons: PlayerSeasonStatsEntryDto[] = rows.map((r) => ({
       leagueId: r.leagueId ?? null,
       leagueName: r.leagueId ? (leagueById.get(r.leagueId) ?? null) : null,
+      // Forward the competitionType the simulator wrote on
+      // insert. Defaults to 'LEAGUE' for rows that pre-date
+      // the migration; the migration backfilled 'CUP' for
+      // any null-leagueId rows that existed at apply time.
+      competitionType: (r.competitionType ?? 'LEAGUE') as CompetitionType,
       season: r.season,
       teamId,
       teamName,

@@ -49,6 +49,7 @@ export * from './utils/game-clock';
 export * from './types/common.type';
 export * from './constants/finance.constants';
 export * from './constants/game.constants';
+export * from './constants/competition-type';
 export * from './constants/event-types';
 export * from './constants/training.constants';
 export * from './constants/stadium-construction.constants';

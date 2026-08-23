@@ -27,6 +27,7 @@ import {
   calculateMatchExperience,
   addExperience,
   Uuid,
+  competitionTypeForMatch,
 } from '@goalxi/database';
 import { MatchEngine, MatchEvent } from '../engine/match.engine';
 import { Team } from '../engine/classes/Team';
@@ -1365,6 +1366,13 @@ export class SimulationProcessor extends WorkerHost {
   ): Promise<void> {
     const { id: matchId, leagueId, season } = match;
     const starterIds = new Set([...homeStarterIds, ...awayStarterIds]);
+    // Bucket the row once per match (youth/cup/league/other) so
+    // each per-player create picks up the same discriminator.
+    // `competitionTypeForMatch` consults `match.youthLeagueId`
+    // first, then `match.type`, so youth matches don't get
+    // mis-labelled as senior league just because the
+    // scheduler writes `match.type = 'league'` for them.
+    const competitionType = competitionTypeForMatch(match);
 
     // Count cards from events (yellow/red)
     const playerCardCounts = new Map<
@@ -1443,6 +1451,10 @@ export class SimulationProcessor extends WorkerHost {
           playerId: player.id,
           leagueId: leagueId as any,
           season,
+          // Discriminator for the league/cup/youth split. The
+          // migration backfills existing rows; from now on the
+          // simulator owns the value.
+          competitionType,
           goals: 0,
           assists: 0,
           tackles: 0,

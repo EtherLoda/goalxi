@@ -284,6 +284,7 @@ describe('StatsService', () => {
           playerId,
           teamId: "team-1",
           leagueId: "league-1",
+          competitionType: "LEAGUE",
           season: 2,
           goals: 5,
           assists: 3,
@@ -298,6 +299,7 @@ describe('StatsService', () => {
           playerId,
           teamId: "team-2",
           leagueId: "league-2",
+          competitionType: "LEAGUE",
           season: 2,
           goals: 1,
           assists: 2,
@@ -312,6 +314,7 @@ describe('StatsService', () => {
           playerId,
           teamId: "team-1",
           leagueId: "league-1",
+          competitionType: "LEAGUE",
           season: 1,
           goals: 2,
           assists: 0,
@@ -382,6 +385,7 @@ describe('StatsService', () => {
           playerId,
           teamId: "team-1",
           leagueId: null, // cup match
+          competitionType: "CUP",
           season: 1,
           goals: 3,
           assists: 1,
@@ -407,6 +411,10 @@ describe('StatsService', () => {
       expect(out.seasons).toHaveLength(1);
       expect(out.seasons[0].leagueId).toBeNull();
       expect(out.seasons[0].leagueName).toBeNull();
+      // The competition-type discriminator rides along
+      // with the row — cup rows surface as CUP, not
+      // LEAGUE fallback. See migration 1737000000000.
+      expect(out.seasons[0].competitionType).toBe("CUP");
       expect(out.career.goals).toBe(3);
       expect(leagueFindSpy).not.toHaveBeenCalled();
     });
