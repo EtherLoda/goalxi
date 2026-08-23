@@ -363,6 +363,84 @@ describe('MatchCompletionService data-flow review', () => {
 
       expect(standingRepository.findOne).toHaveBeenCalledTimes(2);
     });
+
+    it('maintains league_standing.goalDifference so the season-archive pipeline sees real numbers', async () => {
+      // [Fix 2026-08-23] season-archive.service.ts:111 copies
+      // standing.goalDifference straight into archived_season_result.
+      // goalDifference. The pre-fix code never wrote the column, so
+      // every team's end-of-season history was a 0 even when their
+      // real GD was e.g. +24. The write here is the DB-side single
+      // source of truth for the archive pipeline; the DTO path in
+      // league.service.ts getStandings still recomputes in memory.
+      const leagueMatch = {
+        id: 'match-gd-1',
+        type: 'league',
+        leagueId: 'league-uuid',
+        season: 1,
+        homeTeamId: 'team-home',
+        awayTeamId: 'team-away',
+        homeScore: 3,
+        awayScore: 1,
+        status: MatchStatus.COMPLETED,
+      } as unknown as MatchEntity;
+
+      // Start each side with non-zero goals so we can confirm
+      // goalDifference is RE-DERIVED (= GF - GA) rather than += .
+      // A team at goalsFor=5, goalsAgainst=3 with a 3-1 win should
+      // land at GD = 8 - 4 = 4, not 5 - 3 + (3 - 1) = 4 either
+      // way here, so the meaningful check is the negative side:
+      // away team: 4 - 9 = -5 (NOT -5 - 2 = -7 if the field had
+      // been naively += homeScore - awayScore on the away row).
+      standingRepository.findOne.mockResolvedValueOnce(
+        makeStanding({ teamId: 'team-home', goalsFor: 5, goalsAgainst: 3, goalDifference: 0 }),
+      );
+      standingRepository.findOne.mockResolvedValueOnce(
+        makeStanding({ teamId: 'team-away', goalsFor: 4, goalsAgainst: 9, goalDifference: 0 }),
+      );
+      const qb = {
+        where: jest.fn().mockReturnThis(),
+        andWhere: jest.fn().mockReturnThis(),
+        orderBy: jest.fn().mockReturnThis(),
+        addOrderBy: jest.fn().mockReturnThis(),
+        getMany: jest.fn().mockResolvedValue([]),
+      };
+      standingRepository.createQueryBuilder.mockReturnValue(qb as any);
+      standingRepository.save.mockResolvedValue([] as any);
+
+      await (service as any).updateLeagueStandings(leagueMatch);
+
+      const perTeamRows = standingRepository.save.mock.calls[0][0] as any[];
+      const homeRow = perTeamRows.find((r: any) => r.teamId === 'team-home');
+      const awayRow = perTeamRows.find((r: any) => r.teamId === 'team-away');
+      // home: GF 5 + 3 = 8, GA 3 + 1 = 4 -> GD = +4
+      expect(homeRow.goalDifference).toBe(4);
+      // away: GF 4 + 1 = 5, GA 9 + 3 = 12 -> GD = -7
+      expect(awayRow.goalDifference).toBe(-7);
+      // The standalone 0-0 case (drawn match, GD must NOT drift):
+      // exercise a second time with both scores 0 to confirm
+      // the write path doesn't leave stale GD on a draw.
+      jest.clearAllMocks();
+      standingRepository.findOne.mockResolvedValueOnce(
+        makeStanding({ teamId: 'team-home', goalsFor: 8, goalsAgainst: 4 }),
+      );
+      standingRepository.findOne.mockResolvedValueOnce(
+        makeStanding({ teamId: 'team-away', goalsFor: 5, goalsAgainst: 12 }),
+      );
+      const qb2 = {
+        where: jest.fn().mockReturnThis(),
+        andWhere: jest.fn().mockReturnThis(),
+        orderBy: jest.fn().mockReturnThis(),
+        addOrderBy: jest.fn().mockReturnThis(),
+        getMany: jest.fn().mockResolvedValue([]),
+      };
+      standingRepository.createQueryBuilder.mockReturnValue(qb2 as any);
+      standingRepository.save.mockResolvedValue([] as any);
+      const draw = { ...leagueMatch, id: 'match-gd-2', homeScore: 0, awayScore: 0 } as unknown as MatchEntity;
+      await (service as any).updateLeagueStandings(draw);
+      const drawRows = standingRepository.save.mock.calls[0][0] as any[];
+      expect(drawRows.find((r: any) => r.teamId === 'team-home').goalDifference).toBe(4);
+      expect(drawRows.find((r: any) => r.teamId === 'team-away').goalDifference).toBe(-7);
+    });
   });
 
   describe("recalculateLeaguePositions", () => {

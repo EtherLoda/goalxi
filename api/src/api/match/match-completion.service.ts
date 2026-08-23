@@ -171,6 +171,18 @@ export class MatchCompletionService {
     awayStanding.goalsFor += awayScore;
     awayStanding.goalsAgainst += homeScore;
 
+    // [Fix 2026-08-23] Maintain goalDifference on the row.
+    //   season-archive.service.ts copies this column straight into
+    //   archived_season_result.goalDifference at season end, so a
+    //   stale 0 here would silently corrupt every team's end-of-
+    //   season history. The DTO path (league.service.ts getStandings)
+    //   recomputes the value in memory from goalsFor/goalsAgainst, so
+    //   this write is the DB-side single source of truth for the
+    //   archive pipeline. See the comment in recalculateLeaguePositions
+    //   for why the SQL sort key is still the computed expression.
+    homeStanding.goalDifference = homeStanding.goalsFor - homeStanding.goalsAgainst;
+    awayStanding.goalDifference = awayStanding.goalsFor - awayStanding.goalsAgainst;
+
     // [Fix 2026-08-23] `played` was never incremented anywhere, so
     // every team's row in `league_standing` showed 0 even after wins
     // were recorded. The DTO exposes it to the FE so the scoreboard
