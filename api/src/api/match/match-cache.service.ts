@@ -97,11 +97,22 @@ export class MatchCacheService {
       const processed = await this.cacheManager.get(key);
       return !!processed;
     } catch (error) {
+      // [Fix 2026-08-23] Fail-CLOSED on cache errors. The previous
+      // behaviour (`return false` on error) made the dedup check
+      // fail-open: any transient Redis blip during a match completion
+      // caused the service to re-run on an already-processed match
+      // and double-count every player's goals/assists/yellow/red
+      // cards. Skipping a match that's actually NOT processed
+      // (worst case here) is recoverable by a manual re-enqueue
+      // once Redis is back; double-counting requires a DB cleanup
+      // pass to undo. We pick the recoverable failure mode.
       this.logger.error(
-        `Error checking match processed status: ${error.message}`,
-        error instanceof Error ? error.stack : undefined,
+        `[isMatchProcessed] cache error for matchId=${matchId} \u2014 ` +
+          `failing CLOSED (assuming already processed) to prevent ` +
+          `double-counting. error=${(error as Error).message}`,
+        error instanceof Error ? (error as Error).stack : undefined,
       );
-      return false;
+      return true;
     }
   }
 
