@@ -13,8 +13,13 @@ export class ArchivedPlayerCompetitionStatsEntity extends AbstractEntity {
     @Column({ name: 'player_id', type: 'int' })
     playerId!: number;
 
-    @Column({ name: 'league_id', type: 'uuid' })
-    leagueId!: Uuid;
+    // [Fix 2026-08-23] Mirrors player_competition_stats.league_id becoming
+    // nullable so the season-archive service (which copies rows from the
+    // live table to this archive at season end) doesn't blow up on cup/
+    // youth rows that have leagueId = null. Same PG UNIQUE-nulls-distinct
+    // semantics apply.
+    @Column({ name: 'league_id', type: 'uuid', nullable: true })
+    leagueId?: Uuid | null;
 
     @Column({ type: 'int' })
     season!: number;

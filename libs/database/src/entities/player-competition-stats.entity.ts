@@ -13,8 +13,17 @@ export class PlayerCompetitionStatsEntity extends AbstractEntity {
   @Column({ name: 'player_id', type: 'int' })
   playerId!: number;
 
-  @Column({ name: 'league_id', type: 'uuid' })
-  leagueId!: Uuid;
+  // [Fix 2026-08-23] nullable: cup matches (cup-scheduler.service.ts stamps
+  // leagueId = null) and youth matches (match.youthLeagueId instead) hit
+  // the simulator's updatePlayerCompetitionStats with a null leagueId.
+  // The previous NOT NULL column caused the bulk insert to fail and the
+  // entire simulator transaction (events + match_team_stats + hat-trick
+  // PlayerEvent + career stats) rolled back, silently losing the match.
+  // PostgreSQL UNIQUE constraints treat NULLs as distinct so a player
+  // playing both league and cup in the same season gets two rows: one
+  // with leagueId=<X> and one with leagueId=null, which is what we want.
+  @Column({ name: 'league_id', type: 'uuid', nullable: true })
+  leagueId?: Uuid | null;
 
   @Column({ type: 'int' })
   season!: number;

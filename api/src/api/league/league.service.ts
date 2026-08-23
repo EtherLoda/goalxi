@@ -118,14 +118,26 @@ export class LeagueService {
   ): Promise<LeagueStandingResDto[]> {
     const leagueId = await this.resolveLeagueId(id);
 
-    const standings = await LeagueStandingEntity.find({
-      where: { leagueId, season },
-      relations: ['team'],
-      order: {
-        points: 'DESC',
-        goalsFor: 'DESC',
-      },
-    });
+    // Sort by Points -> Goal Difference -> Goals For in the DB so
+    // the FE receives rows already in rank order. The previous
+    // `find({ order: { points, goalsFor } })` skipped GD, so two
+    // teams with equal points but different GDs came back in DB
+    // insertion order, forcing a wasteful in-memory re-sort and
+    // a second pass to renumber positions. The `goalDifference`
+    // column on the entity exists but isn't maintained by the
+    // update path (match-completion.service.ts updateLeagueStandings
+    // only writes goalsFor / goalsAgainst), so we compute GD
+    // inline. TypeORM 0.3's addOrderBy doesn't quote expressions
+    // containing arithmetic, so the generated SQL is the raw
+    // `s.goalsFor - s.goalsAgainst` PG expects.
+    const standings = await LeagueStandingEntity.createQueryBuilder('s')
+      .leftJoinAndSelect('s.team', 'team')
+      .where('s.leagueId = :leagueId', { leagueId })
+      .andWhere('s.season = :season', { season })
+      .orderBy('s.points', 'DESC')
+      .addOrderBy('s.goalsFor - s.goalsAgainst', 'DESC')
+      .addOrderBy('s.goalsFor', 'DESC')
+      .getMany();
 
     // Get completed matches to calculate recentForm dynamically
     const completedMatches = await MatchEntity.find({
@@ -172,27 +184,22 @@ export class LeagueService {
       teamRecentMatches[standing.teamId] = matches;
     }
 
-    // Calculate goal difference and sort fully in memory to be correct
+    // The SQL already returns standings in rank order, so the only
+    // work left is to compute GD for the DTO (the column exists on
+    // the entity but isn't maintained by the update path) and to
+    // renumber positions 1..N from the result index. No in-memory
+    // sort needed — the DB did it.
     const result = standings.map((s) => {
-      const gd = s.goalsFor - s.goalsAgainst;
       const recentMatches = teamRecentMatches[s.teamId] || [];
       return {
         ...s,
-        goalDifference: gd,
+        goalDifference: s.goalsFor - s.goalsAgainst,
         teamName: s.team?.name || 'Unknown',
         recentMatches,
       };
     });
 
-    // Sort by Points -> GD -> GF
-    result.sort((a, b) => {
-      if (a.points !== b.points) return b.points - a.points;
-      if (a.goalDifference !== b.goalDifference)
-        return b.goalDifference - a.goalDifference;
-      return b.goalsFor - a.goalsFor;
-    });
-
-    // Re-number positions after sort
+    // Re-number positions to match the (now DB-sorted) rank order.
     result.forEach((item, index) => {
       item.position = index + 1;
     });

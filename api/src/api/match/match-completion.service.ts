@@ -145,6 +145,15 @@ export class MatchCompletionService {
     awayStanding.goalsFor += awayScore;
     awayStanding.goalsAgainst += homeScore;
 
+    // [Fix 2026-08-23] `played` was never incremented anywhere, so
+    // every team's row in `league_standing` showed 0 even after wins
+    // were recorded. The DTO exposes it to the FE so the scoreboard
+    // looked broken. Increment unconditionally — the win/draw/loss
+    // branch below is just for points/W/D/L bookkeeping, not for
+    // participation.
+    homeStanding.played += 1;
+    awayStanding.played += 1;
+
     if (homeScore > awayScore) {
       homeStanding.wins += 1;
       homeStanding.points += 3;
@@ -209,20 +218,23 @@ export class MatchCompletionService {
     // 1. Initialise appearances from Lineups
     const tactics = await this.tacticsRepository.find({ where: { matchId } });
     for (const t of tactics) {
-      // Starters
-      for (const rawId of Object.values(t.lineup)) {
+      // Starters. Read the int-keyed v2 column — the legacy `t.lineup`
+      // jsonb was emptied by migration 1724000000000-PlayerIdToNumeric
+      // (per MatchTacticsEntity docstring) so a raw `t.lineup` read returns
+      // []. Without v2, starters never make it into playerStatsUpdate and
+      // their `careerStats.club.matches` is never incremented here.
+      for (const rawId of Object.values(t.lineupV2 ?? {})) {
         const playerId = toIntId(rawId);
         if (playerId !== null) {
           this.ensurePlayerInMap(playerStatsUpdate, playerId);
         }
       }
-      // Substitutes (who were actually called to play, according to tactics)
-      if (t.substitutions) {
-        for (const sub of t.substitutions) {
-          const inId = toIntId(sub.in);
-          if (inId !== null) {
-            this.ensurePlayerInMap(playerStatsUpdate, inId);
-          }
+      // Substitutes who actually came in (per the int-keyed v2 column).
+      // `substitutionsV2` is `Array<{ minute, out, in }>` with int ids.
+      for (const sub of t.substitutionsV2 ?? []) {
+        const inId = toIntId(sub.in);
+        if (inId !== null) {
+          this.ensurePlayerInMap(playerStatsUpdate, inId);
         }
       }
     }
@@ -372,7 +384,9 @@ export class MatchCompletionService {
 
     for (const t of tactics) {
       const teamId = t.teamId;
-      const starterIds = Object.values(t.lineup)
+      // See the comment in updatePlayerStats: read v2, not the legacy
+      // jsonb that was wiped by the player.id uuid->int migration.
+      const starterIds = Object.values(t.lineupV2 ?? {})
         .map((id) => toIntId(id))
         .filter((id): id is number => id !== null);
 
@@ -388,20 +402,18 @@ export class MatchCompletionService {
         }
       }
 
-      // Process substitutes who actually came in
-      if (t.substitutions) {
-        for (const sub of t.substitutions) {
-          const inId = toIntId(sub.in);
-          if (inId === null) continue;
-          const subInMinute = substitutedIn.get(inId);
-          if (subInMinute !== undefined) {
-            const minutesPlayed = 90 - subInMinute;
-            const existing = playerMinutes.get(inId);
-            if (existing) {
-              existing.minutes += minutesPlayed;
-            } else {
-              playerMinutes.set(inId, { teamId, minutes: minutesPlayed });
-            }
+      // Process substitutes who actually came in (int-keyed v2 column).
+      for (const sub of t.substitutionsV2 ?? []) {
+        const inId = toIntId(sub.in);
+        if (inId === null) continue;
+        const subInMinute = substitutedIn.get(inId);
+        if (subInMinute !== undefined) {
+          const minutesPlayed = 90 - subInMinute;
+          const existing = playerMinutes.get(inId);
+          if (existing) {
+            existing.minutes += minutesPlayed;
+          } else {
+            playerMinutes.set(inId, { teamId, minutes: minutesPlayed });
           }
         }
       }
