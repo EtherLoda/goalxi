@@ -649,6 +649,8 @@ export class MatchEngine {
       goals: number;
       assists: number;
       tackles: number; // 抢断成功次数
+      shots: number; // 射门尝试次数 (goal/miss/save/blocked)
+      saves: number; // 门将扑救次数
       appearances: number; // 出场次数（用于判断是否上场）
       minutesPlayed: number;
       contributionSum: number; // 累计贡献值（用于计算平均值）
@@ -800,6 +802,8 @@ export class MatchEngine {
         goals: 0,
         assists: 0,
         tackles: 0,
+        shots: 0,
+        saves: 0,
         appearances: 1, // Starting players have 1 appearance
         minutesPlayed: 0,
         contributionSum: 0,
@@ -1729,6 +1733,8 @@ export class MatchEngine {
     goals: number;
     assists: number;
     tackles: number;
+    shots: number;
+    saves: number;
     appearances: number;
     minutesPlayed: number;
     avgContribution: number;
@@ -1742,6 +1748,8 @@ export class MatchEngine {
       goals: number;
       assists: number;
       tackles: number;
+      shots: number;
+      saves: number;
       appearances: number;
       minutesPlayed: number;
       avgContribution: number;
@@ -1758,6 +1766,8 @@ export class MatchEngine {
           (stats.goals > 0 ||
             stats.assists > 0 ||
             stats.tackles > 0 ||
+            stats.shots > 0 ||
+            stats.saves > 0 ||
             stats.minutesPlayed > 0)
         ) {
           // Calculate averages from history
@@ -1782,6 +1792,8 @@ export class MatchEngine {
             goals: stats.goals,
             assists: stats.assists,
             tackles: stats.tackles,
+            shots: stats.shots,
+            saves: stats.saves,
             appearances: stats.appearances,
             minutesPlayed: stats.minutesPlayed,
             avgContribution,
@@ -2044,6 +2056,8 @@ export class MatchEngine {
               goals: 0,
               assists: 0,
               tackles: 0,
+              shots: 0,
+              saves: 0,
               appearances: 1,
               minutesPlayed: 0,
               contributionSum: 0,
@@ -3079,6 +3093,8 @@ export class MatchEngine {
               goals: 0,
               assists: 0,
               tackles: 0,
+              shots: 0,
+              saves: 0,
               appearances: 1,
               minutesPlayed: 0,
               contributionSum: 0,
@@ -3190,11 +3206,11 @@ export class MatchEngine {
     }
 
     // Determine overall result
-    let finalResult: 'goal' | 'save' | 'blocked' | 'miss' | 'defense_stopped';
+    let ffinalResult: 'goal' | 'save' | 'blocked' | 'miss' | 'defense_stopped';
     let eventType: MatchEvent['type'];
 
     if (shot) {
-      finalResult = shot.result;
+      ffinalResult = shot.result;
       eventType =
         shot.result === 'goal'
           ? 'goal'
@@ -3202,10 +3218,10 @@ export class MatchEngine {
             ? 'save'
             : 'miss';
     } else if (attackPush.success) {
-      finalResult = 'blocked';
+      ffinalResult = 'blocked';
       eventType = 'miss';
     } else {
-      finalResult = 'defense_stopped';
+      ffinalResult = 'defense_stopped';
       eventType = 'turnover';
     }
 
@@ -3236,11 +3252,11 @@ export class MatchEngine {
 
     const scoreAfterEvent = {
       home:
-        finalResult === 'goal' && midfieldBattle.winner === 'home'
+        ffinalResult === 'goal' && midfieldBattle.winner === 'home'
           ? this.homeScore + 1
           : this.homeScore,
       away:
-        finalResult === 'goal' && midfieldBattle.winner === 'away'
+        ffinalResult === 'goal' && midfieldBattle.winner === 'away'
           ? this.awayScore + 1
           : this.awayScore,
     };
@@ -3301,8 +3317,8 @@ export class MatchEngine {
           : null,
       },
       lane: lane,
-      finalResult: finalResult,
-      scoreAfterEvent: finalResult === 'goal' ? scoreAfterEvent : undefined,
+      ffinalResult: ffinalResult,
+      scoreAfterEvent: ffinalResult === 'goal' ? scoreAfterEvent : undefined,
     };
 
     // Track player stats: goals and assists
@@ -3311,7 +3327,7 @@ export class MatchEngine {
       const shooterName = (shot.shooter.player as Player).name;
       const stats = this.playerMatchStats.get(shooterId);
       if (stats) {
-        if (finalResult === 'goal') {
+        if (ffinalResult === 'goal') {
           stats.goals++;
           // Check for hat-trick (3 goals)
           if (stats.goals === 3) {
@@ -3333,11 +3349,47 @@ export class MatchEngine {
       }
     }
 
+    // Track player shots + GK saves (per-player, not team-level).
+    // shots counts every shot attempt by the shooter (goal,
+    // miss, save by GK, block by defender); saves counts only
+    // save outcomes and credits the defending team's GK.
+    // Penalty shootout kicks (penalty_goal / penalty_miss at
+    // minute=120) are NOT counted - they're a separate stat
+    // from open-play shots and handleShot doesn't run for
+    // them (they go through  resolvePenaltyShootout instead).
+    if (shot) {
+      // Shooter side: every shot attempt counts as 1 shot.
+      // The engine's  finalResult for a shot outcome is one
+      // of {goal, miss, save, blocked} - all four are shot
+      // attempts. defense_stopped is a non-shot turnover
+      // and is intentionally excluded.
+      if (shot.shooter) {
+        const shooterStats = this.playerMatchStats.get(
+          (shot.shooter.player as Player).id,
+        );
+        if (shooterStats) shooterStats.shots++;
+      }
+      // GK side: only save outcomes credit the defending
+      // team's GK. defendingTeam.getGoalkeeper() resolves
+      // to whoever is between the posts this minute (which
+      // can change if the starter was sent off and a
+      // outfield player had to fill in).
+      if (ffinalResult === 'save') {
+        const gk = this.defendingTeam.getGoalkeeper();
+        if (gk) {
+          const gkStats = this.playerMatchStats.get(
+            (gk.player as Player).id,
+          );
+          if (gkStats) gkStats.saves++;
+        }
+      }
+    }
+
     // Track tackles: defense_stopped means defensive player made a tackle.
     // We re-use the defender already picked in `simulateKeyMoment`
     // (`attackPush.defendingPlayer`) so the tackle counter and the
     // event's named tackler line up.
-    if (finalResult === 'defense_stopped' && attackPush.defendingPlayer) {
+    if (ffinalResult === 'defense_stopped' && attackPush.defendingPlayer) {
       const defenderId = (attackPush.defendingPlayer.player as Player).id;
       const stats = this.playerMatchStats.get(defenderId);
       if (stats) {
@@ -3394,8 +3446,8 @@ export class MatchEngine {
     // 用户 2026-08-05 决定,之前只看 blocked 太少所以加 save。
     if (shot?.shooter) {
       let cornerChance = 0;
-      if (finalResult === 'blocked') cornerChance = 0.87;
-      else if (finalResult === 'save') cornerChance = 0.28;
+      if (ffinalResult === 'blocked') cornerChance = 0.87;
+      else if (ffinalResult === 'save') cornerChance = 0.28;
       if (cornerChance > 0 && Math.random() < cornerChance) {
         const cornerTeam =
           midfieldBattle.winner === 'home' ? this.homeTeam : this.awayTeam;
@@ -3406,7 +3458,7 @@ export class MatchEngine {
     }
 
     // 更新统计数据
-    this.updateStats(attackType, shot, finalResult);
+    this.updateStats(attackType, shot, ffinalResult);
   }
 
   /**

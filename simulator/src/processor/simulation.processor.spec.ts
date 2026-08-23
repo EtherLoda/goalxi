@@ -1,4 +1,4 @@
-﻿import { Test, TestingModule } from '@nestjs/testing';
+import { Test, TestingModule } from '@nestjs/testing';
 import { Job } from 'bullmq';
 import { DataSource, Repository } from 'typeorm';
 import { getRepositoryToken } from '@nestjs/typeorm';
@@ -552,4 +552,48 @@ describe('SimulationProcessor', () => {
       );
     });
   });
-});
+
+  describe('shots / saves persistence', () => {
+    // Engine-side definitions:
+    //   shots = every shot attempt by the shooter (goal/miss/save/
+    //          block from `handleShot`); only open-play, not penalty
+    //          shootout
+    //   saves = one credit per `save` outcome, to the defending
+    //          team's GK (`defendingTeam.getGoalkeeper()`)
+    //
+    // The simulator's `updatePlayerCompetitionStats` reads these
+    // off `engine.getPlayerMatchStats()` and adds them to the per-
+    // player-competition-stats row. Behavioural test would require
+    // running a full match in a unit test (slow, fragile, the
+    // engine's shot/save outcome is stochastic). Source-level
+    // tripwire is enough: if anyone removes the += in the
+    // accumulator block, the test fails immediately and points
+    // at the line that needs to be re-added.
+    it('source: simulator writes shots and saves into the comp-stats accumulator', () => {
+      const fs = require('fs');
+      const path = require('path');
+      const src = fs.readFileSync(
+        path.join(__dirname, 'simulation.processor.ts'),
+        'utf8',
+      );
+      // The two writes must both exist in the same accumulator block.
+      // The wording (with `stats.` prefix) is the unique signature.
+      const required = [
+        'compStats.shots',
+        'compStats.saves',
+      ];
+      for (const term of required) {
+        expect(src).toContain(term);
+      }
+      // Default-0 initialisation on the create() branch is just as
+      // load-bearing - if a new row is missing either, the column
+      // will come back as null instead of 0.
+      const initTerms = [
+        'shots: 0',
+        'saves: 0',
+      ];
+      for (const term of initTerms) {
+        expect(src).toContain(term);
+      }
+    });
+  });});

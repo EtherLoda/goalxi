@@ -1463,6 +1463,8 @@ export class SimulationProcessor extends WorkerHost {
           starts: 0,
           substituteAppearances: 0,
           appearances: 0,
+          shots: 0,
+          saves: 0,
         });
       }
 
@@ -1470,6 +1472,8 @@ export class SimulationProcessor extends WorkerHost {
       compStats.goals += stats.goals || 0;
       compStats.assists += stats.assists || 0;
       compStats.tackles += stats.tackles || 0;
+      compStats.shots += stats.shots || 0;
+      compStats.saves += stats.saves || 0;
       compStats.yellowCards += cardCounts.yellowCards;
       compStats.redCards += cardCounts.redCards;
       compStats.appearances += 1;

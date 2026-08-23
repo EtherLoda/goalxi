@@ -49,6 +49,20 @@ export class ArchivedPlayerCompetitionStatsEntity extends AbstractEntity {
     @Column({ type: 'int', default: 0 })
     tackles!: number;
 
+    // Mirror of player_competition_stats.shots. The
+    // season-archive service copies every row verbatim from
+    // the live table at season end, so this column is
+    // populated by the same path that populates the live
+    // one. See the live entity for the engine definition.
+    @Column({ type: 'int', default: 0 })
+    shots!: number;
+
+    // Mirror of player_competition_stats.saves. Same
+    // population path as shots (live -> archive at end of
+    // season).
+    @Column({ type: 'int', default: 0 })
+    saves!: number;
+
     @Column({ name: 'yellow_cards', type: 'int', default: 0 })
     yellowCards!: number;
 

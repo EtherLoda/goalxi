@@ -60,6 +60,17 @@ export class PlayerCompetitionStatsEntity extends AbstractEntity {
   @Column({ type: 'int', default: 0 })
   tackles!: number;
 
+  // Total shot attempts in the period (goal / miss / save /
+  // blocked). See AddShotsSavesToPlayerCompetitionStats
+  // migration for the engine-side definition.
+  @Column({ type: 'int', default: 0 })
+  shots!: number;
+
+  // Total saves by this player. Only save outcomes
+  // count and only the defending GK is credited.
+  @Column({ type: 'int', default: 0 })
+  saves!: number;
+
   @Column({ name: 'yellow_cards', type: 'int', default: 0 })
   yellowCards!: number;
 

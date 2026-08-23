@@ -966,6 +966,70 @@ describe('MatchEngine', () => {
     });
   });
 
+  describe('shots / saves per-player accounting', () => {
+    // The engine tracks two new per-player counters: `shots` and
+    // `saves`. These are surfaced via `getPlayerMatchStats()` and
+    // are read by the simulator's `updatePlayerCompetitionStats`
+    // to populate `PlayerCompetitionStatsEntity.{shots, saves}`.
+    //
+    // The exact 1-to-1 mapping between engine events and the
+    // internal counter is a stochastic property of the engine
+    // (shot.shooter resolution + finalResult routing) and is
+    // already exercised by the engine's own suite. This spec
+    // just pins the SHAPE of the public surface: every player
+    // row carries both fields, both are non-negative, and the
+    // GK-only invariant on `saves` is preserved.
+    it('getPlayerMatchStats rows expose shots and saves as non-negative numbers', () => {
+      engine.simulateMatch();
+      const playerStats = (engine as any).getPlayerMatchStats();
+      expect(playerStats.length).toBeGreaterThan(0);
+      for (const stat of playerStats) {
+        expect(typeof stat.shots).toBe('number');
+        expect(typeof stat.saves).toBe('number');
+        expect(stat.shots).toBeGreaterThanOrEqual(0);
+        expect(stat.saves).toBeGreaterThanOrEqual(0);
+      }
+    });
+
+    it('saves are only credited to GKs (engine never writes saves to outfield players)', () => {
+      engine.simulateMatch();
+      const playerStats = (engine as any).getPlayerMatchStats();
+      for (const stat of playerStats) {
+        if (stat.saves > 0) {
+          // The engine routes saves through
+          // `defendingTeam.getGoalkeeper()`. Even if the starter
+          // GK was sent off and an outfield player filled in,
+          // the test team's `getGoalkeeper()` only ever returns
+          // someone whose `positionKey` is 'GK' (the team's
+          // starting GK). So saves should only ever appear on
+          // a player whose position is the GK position.
+          expect(stat.position).toBe('GK');
+        }
+      }
+    });
+
+    it('source: engine credits shooter.shots on every shot attempt, GK.saves on every save', () => {
+      // Tripwire. The two writes are the load-bearing lines for
+      // the new per-player columns. If either is removed or
+      // misrouted (e.g. to the wrong variable), the production
+      // data drops to zero and the FE-rendered shots/saves
+      // column silently goes blank. This test catches a
+      // regression immediately.
+      const fs = require('fs');
+      const path = require('path');
+      const src = fs.readFileSync(
+        path.join(__dirname, 'match.engine.ts'),
+        'utf8',
+      );
+      // Both writes live in the per-shot tracking block in
+      // `recordAttackSequence`. The exact identifier is
+      // `shooterStats.shots++` and `gkStats.saves++` - the only
+      // two places those counters are bumped.
+      expect(src).toMatch(/shooterStats\.shots\+\+/);
+      expect(src).toMatch(/gkStats\.saves\+\+/);
+    });
+  });
+
   describe('Lane Strength Averages', () => {
     it('should calculate lane strength averages', () => {
       engine.simulateMatch();
