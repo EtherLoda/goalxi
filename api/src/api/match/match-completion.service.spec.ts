@@ -184,7 +184,6 @@ describe('MatchCompletionService data-flow review', () => {
       goalsFor: 0,
       goalsAgainst: 0,
       goalDifference: 0,
-      recentForm: "",
       createdAt: new Date(),
       updatedAt: new Date(),
       ...over,

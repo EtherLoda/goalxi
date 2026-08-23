@@ -125,7 +125,6 @@ export class LeagueAdminService {
       goalsFor: 0,
       goalsAgainst: 0,
       goalDifference: 0,
-      recentForm: '',
     });
     await this.standingRepository.save(standing);
 

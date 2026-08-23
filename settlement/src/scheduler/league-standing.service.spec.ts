@@ -69,7 +69,6 @@ describe('LeagueStandingService', () => {
     goalsFor: 20 + Math.floor(Math.random() * 20),
     goalsAgainst: 15 + Math.floor(Math.random() * 15),
     goalDifference: 5,
-    recentForm: 'WWDLW',
     team: { id: teamId as Uuid, name: `Team ${teamId}` } as any,
     league: TIER1_LEAGUE as LeagueEntity,
   });

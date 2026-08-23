@@ -343,7 +343,6 @@ async function generateTeams(ds: DataSource): Promise<void> {
           goalsFor: 0,
           goalsAgainst: 0,
           goalDifference: 0,
-          recentForm: '',
         }),
       );
     }
@@ -719,16 +718,6 @@ async function updateStandings(
       homeStanding.points += 1;
       awayStanding.points += 1;
     }
-
-    homeStanding.recentForm = (homeStanding.recentForm + 'W').slice(-5);
-    awayStanding.recentForm = (
-      awayStanding.recentForm +
-      (match.homeScore! > match.awayScore!
-        ? 'L'
-        : match.homeScore! < match.awayScore!
-          ? 'W'
-          : 'D')
-    ).slice(-5);
 
     await standingRepo.save([homeStanding, awayStanding]);
   }

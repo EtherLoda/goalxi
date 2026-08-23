@@ -63,8 +63,4 @@ export class LeagueStandingEntity extends AbstractEntity {
     /** 净胜球 */
     @Column({ name: 'goal_difference', default: 0 })
     goalDifference: number;
-
-    /** 最近5场结果 (如 "WWDLW") */
-    @Column({ name: 'recent_form', type: 'varchar', length: 10, default: '' })
-    recentForm: string;
 }
