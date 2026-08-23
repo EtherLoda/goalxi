@@ -581,6 +581,7 @@ describe('SimulationProcessor', () => {
       const required = [
         'compStats.shots',
         'compStats.saves',
+        'compStats.minutes',
       ];
       for (const term of required) {
         expect(src).toContain(term);
@@ -591,9 +592,40 @@ describe('SimulationProcessor', () => {
       const initTerms = [
         'shots: 0',
         'saves: 0',
+        'minutes: 0',
       ];
       for (const term of initTerms) {
         expect(src).toContain(term);
       }
+    });
+
+
+    it('source: minutes is summed from stats.minutesPlayed (not from PlayerEntity.matchMinutes)', () => {
+      // Two minutes sources exist:
+      //   - engine's playerMatchStats.minutesPlayed (correct:
+      //     credits stoppage, red-card, sub-out minutes via
+      //     finalizePlayerMinutes)
+      //   - API-side PlayerEntity.matchMinutes (the heuristic
+      //     in match-completion.service.ts addMatchMinutes - has
+      //     known bugs the other commits fixed for red card /
+      //     stoppage time, but the engine still gets it wrong
+      //     in ffinalizePlayerMinutes too - so the engine
+      //     number is the best of the two, not the API one)
+      // The simulator must use the engine's number. The exact
+      // identifier is stats.minutesPlayed (the engine's field
+      // on the per-player stat row). Any switch to the API
+      // side (player.matchMinutes) would silently double-count
+      // (the API runs after the simulator and increments the
+      // same column a second time per match, defeating the
+      // careerStats single-writer pattern).
+      const fs = require('fs');
+      const path = require('path');
+      const src = fs.readFileSync(
+        path.join(__dirname, 'simulation.processor.ts'),
+        'utf8',
+      );
+      expect(src).toMatch(/stats\.minutesPlayed/);
+      // Belt-and-braces: explicitly forbid the API-side source.
+      expect(src).not.toMatch(/player\.matchMinutes/);
     });
   });});

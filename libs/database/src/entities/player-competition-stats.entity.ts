@@ -85,4 +85,18 @@ export class PlayerCompetitionStatsEntity extends AbstractEntity {
 
   @Column({ type: 'int', default: 0 })
   appearances!: number;
+
+  // Total minutes played in the period (running total,
+  // non-resetting across matches). Distinct from
+  // PlayerEntity.matchMinutes which the settlement's
+  // condition.processor zeroes out after every form /
+  // stamina tick. This column is the season-level
+  // aggregate and survives the zeroing. The engine's
+  // inalizePlayerMinutes is the source - it credits
+  // sub-out and red-card minutes correctly, unlike the
+  // API-side ddMatchMinutes heuristic which still has
+  // the engine bugs (stops at 90 / 120 even with stoppage,
+  // treats red cards as 90 minutes).
+  @Column({ type: 'int', default: 0 })
+  minutes!: number;
 }

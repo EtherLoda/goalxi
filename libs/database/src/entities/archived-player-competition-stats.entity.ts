@@ -78,6 +78,13 @@ export class ArchivedPlayerCompetitionStatsEntity extends AbstractEntity {
     @Column({ type: 'int', default: 0 })
     appearances!: number;
 
+    // Mirror of player_competition_stats.minutes. See the
+    // live entity for the rationale (running total,
+    // non-resetting across the season, source = engine's
+    // finalizePlayerMinutes).
+    @Column({ type: 'int', default: 0 })
+    minutes!: number;
+
     @Column({ name: 'archived_at', type: 'timestamptz', default: () => 'CURRENT_TIMESTAMP' })
     archivedAt!: Date;
 }
