@@ -106,7 +106,11 @@ export class MatchCompletionService {
     //    block in simulation.processor.ts for the canonical path).
 
     // 3.5. Add match minutes to players for condition/form calculation
-    await this.addMatchMinutes(matchId);
+    //     Pass the match entity so we can read firstHalfInjuryTime /
+    //     secondHalfInjuryTime / hasExtraTime / extraTime*Injury and credit
+    //     stoppage time (without it, a player who sees out the 90+3
+    //     gets 90 minutes instead of 93).
+    await this.addMatchMinutes(match);
 
     // 4. Update ELO ratings
     await this.updateEloRatings(match);
@@ -257,22 +261,67 @@ export class MatchCompletionService {
   }
 
   /**
-   * Add match minutes to players for condition/form calculation
-   * Accumulates minutes played since last condition update
+   * Add match minutes to players for condition/form calculation.
+   * Accumulates minutes played since last condition update.
+   *
+   * For each player we compute minutes as (exit minute) - (entry minute).
+   * The exit minute is whichever fires first:
+   *   1. substitution off (a sub event for this player)
+   *   2. red card (a red_card event for this player; engine emits
+   *      these on direct reds AND on second yellows - see
+   *      match.engine.ts:2814-2855)
+   *   3. full-time, including stoppage time
+   *
+   * The previous implementation had two bugs that this version fixes:
+   *   - A starter with a straight red card (no sub event) was
+   *     credited with the full 90 minutes because the heuristic
+   *     `subOutMinute ?? 90` had no fallback for the send-off
+   *     case. With stoppage time this was off by
+   *     `90 + secondHalfInjuryTime - redCardMinute` minutes for
+   *     every dismissed starter.
+   *   - Stoppage time was dropped entirely: a player who saw out
+   *     the 90+3 was credited 90 minutes, not 93. ET matches were
+   *     off by even more - a 120+2 ET match counted as 120.
+   *
+   * The fix reads firstHalfInjuryTime / secondHalfInjuryTime /
+   * extraTimeSecondHalfInjury off the MatchEntity (populated by
+   * the simulator's RFC injury-time-2026 work) and uses the
+   * engine-derived finalMinute (90 + 2H injury, or 120 + ET 2H
+   * injury when hasExtraTime is true) as the full-time fallback.
+   *
+   * Note: a substitution off and a red card are mutually
+   * exclusive for a given player (a subbed-off player is no
+   * longer on the pitch to receive a card), so a plain `??`
+   * chain is correct here - we never need
+   * `Math.min(subOutMinute, sentOffMinute)`.
    */
-  private async addMatchMinutes(matchId: string): Promise<void> {
-    // Get substitution events to determine actual playing time
-    const substitutionEvents = await this.eventRepository.find({
+  private async addMatchMinutes(match: MatchEntity): Promise<void> {
+    const matchId = match.id;
+    // Engine-derived final minute: 90 + second-half injury for a
+    // regulation match, 120 + extra-time 2H injury for ET. Falls
+    // back to 90 / 120 if the simulator didn't write the field
+    // (legacy rows / pre-RFC matches).
+    const finalMinute = match.hasExtraTime
+      ? 120 + (match.extraTimeSecondHalfInjury ?? 0)
+      : 90 + (match.secondHalfInjuryTime ?? 0);
+
+    const events = await this.eventRepository.find({
       where: { matchId },
     });
 
-    // Build a map of playerId -> minute they were substituted out
+    // playerId -> minute they left the pitch
+    //   subOut: explicit substitution (the `playerId` field on a
+    //     substitution event is the player coming OFF)
+    //   sentOff: red_card event; covers both direct reds and
+    //     second-yellow reds (the engine emits a single
+    //     type='red_card' event for either case)
     const substitutedOut = new Map<number, number>();
-    // Build a map of playerId -> minute they were substituted in
     const substitutedIn = new Map<number, number>();
+    const sentOff = new Map<number, number>();
 
-    for (const event of substitutionEvents) {
-      if ((event.typeName || '').toLowerCase() === 'substitution') {
+    for (const event of events) {
+      const type = (event.typeName || '').toLowerCase();
+      if (type === 'substitution') {
         const data = event.data as any;
         if (data?.playerId) {
           substitutedOut.set(data.playerId, event.minute);
@@ -280,54 +329,65 @@ export class MatchCompletionService {
         if (data?.substitutedPlayerId) {
           substitutedIn.set(data.substitutedPlayerId, event.minute);
         }
+      } else if (type === 'red_card') {
+        if (event.playerId) {
+          sentOff.set(event.playerId, event.minute);
+        }
       }
     }
 
-    // Get tactics to find starters
     const tactics = await this.tacticsRepository.find({ where: { matchId } });
 
-    // Collect all playerIds and their minutes
-    const playerMinutes: Map<number, { teamId: string; minutes: number }> =
-      new Map();
+    // Per-team rollup of (playerId -> { teamId, minutesPlayed }).
+    // The same player shouldn't appear on both sides, but we keep
+    // the existing `existing.minutes += ...` shape in case a
+    // shared youth / national-team match ever surfaces them on
+    // both rosters (defensive).
+    const playerMinutes = new Map<
+      number,
+      { teamId: string; minutes: number }
+    >();
+
+    const record = (playerId: number, teamId: string, minutes: number) => {
+      if (minutes <= 0) return;
+      const existing = playerMinutes.get(playerId);
+      if (existing) {
+        existing.minutes += minutes;
+      } else {
+        playerMinutes.set(playerId, { teamId, minutes });
+      }
+    };
 
     for (const t of tactics) {
       const teamId = t.teamId;
-      // See the comment in updatePlayerStats: read v2, not the legacy
-      // jsonb that was wiped by the player.id uuid->int migration.
+      // Read the int-keyed v2 columns - the legacy `lineup` /
+      // `substitutions` jsonb were wiped by the player.id
+      // uuid->int migration (MatchTacticsEntity docstring).
       const starterIds = Object.values(t.lineupV2 ?? {})
         .map((id) => toIntId(id))
         .filter((id): id is number => id !== null);
 
-      // Process starters
       for (const playerId of starterIds) {
-        const subOutMinute = substitutedOut.get(playerId);
-        const minutesPlayed = subOutMinute ?? 90;
-        const existing = playerMinutes.get(playerId);
-        if (existing) {
-          existing.minutes += minutesPlayed;
-        } else {
-          playerMinutes.set(playerId, { teamId, minutes: minutesPlayed });
-        }
+        const exitMinute =
+          substitutedOut.get(playerId) ??
+          sentOff.get(playerId) ??
+          finalMinute;
+        record(playerId, teamId, exitMinute);
       }
 
-      // Process substitutes who actually came in (int-keyed v2 column).
       for (const sub of t.substitutionsV2 ?? []) {
         const inId = toIntId(sub.in);
         if (inId === null) continue;
         const subInMinute = substitutedIn.get(inId);
-        if (subInMinute !== undefined) {
-          const minutesPlayed = 90 - subInMinute;
-          const existing = playerMinutes.get(inId);
-          if (existing) {
-            existing.minutes += minutesPlayed;
-          } else {
-            playerMinutes.set(inId, { teamId, minutes: minutesPlayed });
-          }
-        }
+        if (subInMinute === undefined) continue;
+        const exitMinute =
+          substitutedOut.get(inId) ??
+          sentOff.get(inId) ??
+          finalMinute;
+        record(inId, teamId, exitMinute - subInMinute);
       }
     }
 
-    // Update each player's matchMinutes
     for (const [playerId, data] of playerMinutes) {
       await this.playerRepository.increment(
         { id: playerId as any },
@@ -337,7 +397,7 @@ export class MatchCompletionService {
     }
 
     this.logger.debug(
-      `[MatchCompletion] Added match minutes for ${playerMinutes.size} players in match ${matchId}`,
+      `[MatchCompletion] Added match minutes for ${playerMinutes.size} players in match ${matchId} (finalMinute=${finalMinute})`,
     );
   }
 

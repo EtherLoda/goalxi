@@ -106,7 +106,7 @@ describe('MatchCompletionService data-flow review', () => {
         },
         {
           provide: getRepositoryToken(PlayerEntity),
-          useValue: { find: jest.fn(), findOne: jest.fn(), save: jest.fn() },
+          useValue: { find: jest.fn(), findOne: jest.fn(), save: jest.fn(), increment: jest.fn() },
         },
         {
           provide: getRepositoryToken(MatchEventEntity),
@@ -483,6 +483,185 @@ describe('MatchCompletionService data-flow review', () => {
       for (const term of banned) {
         expect(src).not.toContain(term);
       }
+    });
+  });
+  describe('addMatchMinutes (red card + stoppage time)', () => {
+    // Regression specs for two bugs the old heuristic had:
+    //   1. A starter with a straight red card on minute 30 got
+    //      90 minutes because `subOutMinute ?? 90` had no
+    //      send-off fallback. Now exit = subOut ?? sentOff ?? finalMinute.
+    //   2. Stoppage time was dropped entirely: a 90+3 match
+    //      counted as 90, a 120+2 ET match counted as 120.
+    //      Now finalMinute = 90 + secondHalfInjuryTime (or
+    //      120 + extraTimeSecondHalfInjury when hasExtraTime).
+
+    // Helper: read the (where, column, value) triples every
+    // `playerRepository.increment` call saw, in order, so each
+    // spec can assert "starter id 1 got N minutes" without
+    // caring about call counts.
+    const collectIncrements = () => {
+      const calls = playerRepository.increment.mock.calls;
+      return calls.map((c) => ({
+        id: (c[0] as any).id,
+        column: c[1] as string,
+        value: c[2] as number,
+      }));
+    };
+
+    // Set up: 11 home starters, no subs, no events, a 90+3 match.
+    // The pre-fix code would have credited each starter 90
+    // minutes; the post-fix code credits 93 (= 90 + 3).
+    const setupBasicMatch = (
+      matchOverrides: Partial<MatchEntity> = {},
+      eventOverrides: Partial<MatchEventEntity>[] = [],
+      tacticOverrides: Partial<MatchTacticsEntity>[] = [],
+    ) => {
+      eventRepository.find.mockResolvedValue(eventOverrides as any);
+      tacticsRepository.find.mockResolvedValue(tacticOverrides as any);
+      playerRepository.increment.mockResolvedValue(undefined as any);
+      return matchOverrides;
+    };
+
+    it('credits stoppage time to a starter who plays the full match', async () => {
+      // 90 + 3 stoppage, no subs, no red. finalMinute = 93.
+      const match = {
+        id: 'm1',
+        hasExtraTime: false,
+        secondHalfInjuryTime: 3,
+      } as unknown as MatchEntity;
+      const tactic = {
+        teamId: 'team-home',
+        lineupV2: { GK: 1, LB: 2, RB: 3, CD1: 4, CD2: 5, LM: 6, RM: 7, CM1: 8, CM2: 9, ST1: 10, ST2: 11 },
+        substitutionsV2: [],
+      } as unknown as MatchTacticsEntity;
+      setupBasicMatch({}, [], [tactic]);
+
+      await (service as any).addMatchMinutes(match);
+
+      // 11 starters, each with 93 minutes.
+      const incs = collectIncrements();
+      expect(incs).toHaveLength(11);
+      for (const inc of incs) {
+        expect(inc.column).toBe('matchMinutes');
+        expect(inc.value).toBe(93);
+      }
+    });
+
+    it('credits stoppage time on a sub who comes in and plays the rest', async () => {
+      // Sub in at 60, plays to 90+5 = 95. Expected: 35 minutes.
+      const match = {
+        id: 'm2',
+        hasExtraTime: false,
+        secondHalfInjuryTime: 5,
+      } as unknown as MatchEntity;
+      const tactic = {
+        teamId: 'team-home',
+        lineupV2: { GK: 1, LB: 2, RB: 3, CD1: 4, CD2: 5, LM: 6, RM: 7, CM1: 8, CM2: 9, ST1: 10, ST2: 11 },
+        substitutionsV2: [{ minute: 60, out: 10, in: 20 }],
+      } as unknown as MatchTacticsEntity;
+      const events = [
+        {
+          typeName: 'substitution',
+          minute: 60,
+          playerId: 10,
+          data: { playerId: 10, substitutedPlayerId: 20 },
+        },
+      ] as unknown as MatchEventEntity[];
+      setupBasicMatch({}, events, [tactic]);
+
+      await (service as any).addMatchMinutes(match);
+
+      const incs = collectIncrements();
+      // 11 starters + 1 sub in
+      expect(incs).toHaveLength(12);
+      // Starter 10 was subbed out at 60 -> 60 minutes (NOT 95;
+      // the sub is what changes the lineup, not stoppage).
+      const starter10 = incs.find((i) => i.id === 10);
+      expect(starter10?.value).toBe(60);
+      // Sub 20 came in at 60, plays to 95 -> 35 minutes.
+      const sub20 = incs.find((i) => i.id === 20);
+      expect(sub20?.value).toBe(35);
+    });
+
+    it('credits only up to the red-card minute when a starter is sent off (regression)', async () => {
+      // Direct red card on minute 30, no substitution follows
+      // (engine plays the rest with 10 men). Pre-fix this
+      // starter got 90 minutes. Post-fix: 30.
+      const match = {
+        id: 'm3',
+        hasExtraTime: false,
+        secondHalfInjuryTime: 4,
+      } as unknown as MatchEntity;
+      const tactic = {
+        teamId: 'team-home',
+        lineupV2: { GK: 1, LB: 2, RB: 3, CD1: 4, CD2: 5, LM: 6, RM: 7, CM1: 8, CM2: 9, ST1: 10, ST2: 11 },
+        substitutionsV2: [],
+      } as unknown as MatchTacticsEntity;
+      const events = [
+        {
+          typeName: 'red_card',
+          minute: 30,
+          playerId: 8,
+          data: {},
+        },
+      ] as unknown as MatchEventEntity[];
+      setupBasicMatch({}, events, [tactic]);
+
+      await (service as any).addMatchMinutes(match);
+
+      const incs = collectIncrements();
+      const cm1 = incs.find((i) => i.id === 8);
+      expect(cm1?.value).toBe(30);
+      // Other 10 starters still got 90 + 4 = 94.
+      const otherStarters = incs.filter((i) => i.id !== 8);
+      for (const inc of otherStarters) {
+        expect(inc.value).toBe(94);
+      }
+    });
+
+    it('credits stoppage time on an ET match (120 + injury, not 120)', async () => {
+      // ET match, 2 minutes of stoppage in the second ET half.
+      // finalMinute = 120 + 2 = 122. Pre-fix: 120.
+      const match = {
+        id: 'm4',
+        hasExtraTime: true,
+        extraTimeSecondHalfInjury: 2,
+        secondHalfInjuryTime: 3,
+      } as unknown as MatchEntity;
+      const tactic = {
+        teamId: 'team-home',
+        lineupV2: { GK: 1, LB: 2, RB: 3, CD1: 4, CD2: 5, LM: 6, RM: 7, CM1: 8, CM2: 9, ST1: 10, ST2: 11 },
+        substitutionsV2: [],
+      } as unknown as MatchTacticsEntity;
+      setupBasicMatch({}, [], [tactic]);
+
+      await (service as any).addMatchMinutes(match);
+
+      const incs = collectIncrements();
+      for (const inc of incs) {
+        expect(inc.value).toBe(122);
+      }
+    });
+
+    it('uses 90 / 120 as the fallback when injury time is missing (pre-RFC matches)', async () => {
+      // hasExtraTime=false, secondHalfInjuryTime undefined.
+      // Should still credit 90, not NaN, not 0.
+      const match = {
+        id: 'm5',
+        hasExtraTime: false,
+        secondHalfInjuryTime: undefined,
+      } as unknown as MatchEntity;
+      const tactic = {
+        teamId: 'team-home',
+        lineupV2: { GK: 1 },
+        substitutionsV2: [],
+      } as unknown as MatchTacticsEntity;
+      setupBasicMatch({}, [], [tactic]);
+
+      await (service as any).addMatchMinutes(match);
+
+      const incs = collectIncrements();
+      expect(incs[0].value).toBe(90);
     });
   });
 });
