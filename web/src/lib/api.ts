@@ -543,6 +543,24 @@ interface MatchEvent {
    * `@/lib/specialty-bonus` to render "+14% 效果" instead.
    */
   specialtyContributions?: SpecialtyContribution[];
+  /**
+   * RFC 0002 — Two-Axis Event Coding. The new
+   * (eventClassId, outcomeId, outcomeCode) tuple. Optional
+   * because rows from before Phase 2 only have the legacy
+   * `typeName` string. Readers MUST fall back to `typeName`
+   * when these are null/undefined.
+   *
+   * - `eventClassId`: SMALLINT into `event_class_def` (1-17 used)
+   * - `outcomeId`:    SMALLINT into `event_outcome_def` (1-28 used);
+   *                   null when the class has no outcome (KICKOFF,
+   *                   OWN_GOAL, etc.) or when the engine didn't
+   *                   determine one
+   * - `outcomeCode`:  stable string ('GOAL', 'SAVE', 'YELLOW', ...);
+   *                   null when `outcomeId` is null
+   */
+  eventClassId?: number | null;
+  outcomeId?: number | null;
+  outcomeCode?: string | null;
 }
 
 /**

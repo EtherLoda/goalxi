@@ -34,22 +34,62 @@ export type EventEntry = {
   side: 'home' | 'away';
 };
 
+/**
+ * RFC 0002 — Two-Axis Event Coding. Classify an event into the
+ * key-event categories the sidebar cares about. Prefers the
+ * new (eventClassId, outcomeId) tuple when present; falls
+ * back to the legacy `typeName` string for rows from before
+ * Phase 2 shipped.
+ *
+ * The class ids and outcome ids come from
+ * `libs/database/src/constants/event-two-axis.ts` — keep
+ * them in sync.
+ */
+type EventCategory = 'goal' | 'card' | 'substitution' | 'injury' | null;
+
+function classifyEvent(ev: MatchEvent): EventCategory {
+  // Class+outcome path (Phase 2+ rows).
+  if (ev.eventClassId != null) {
+    // GOAL: class SHOT(3) + outcome GOAL(1), OR class OWN_GOAL(11)
+    if (
+      (ev.eventClassId === 3 && ev.outcomeId === 1) ||
+      ev.eventClassId === 11
+    ) {
+      return 'goal';
+    }
+    // CARD: class FOUL(4) + outcome YELLOW(6) / SECOND_YELLOW(7) / RED(8)
+    if (
+      ev.eventClassId === 4 &&
+      (ev.outcomeId === 6 || ev.outcomeId === 7 || ev.outcomeId === 8)
+    ) {
+      return 'card';
+    }
+    // SUBSTITUTION: class SUBSTITUTION(8)
+    if (ev.eventClassId === 8) return 'substitution';
+    // INJURY: class INJURY(9)
+    if (ev.eventClassId === 9) return 'injury';
+  }
+  // Legacy typeName fallback (Phase 1 / pre-Phase 2 rows).
+  const type = ev.typeName?.toLowerCase() ?? '';
+  if (type === 'goal' || type === 'own_goal') return 'goal';
+  if (
+    type === 'yellow_card' ||
+    type === 'second_yellow' ||
+    type === 'red_card'
+  ) {
+    return 'card';
+  }
+  if (type === 'substitution') return 'substitution';
+  if (type === 'injury') return 'injury';
+  return null;
+}
+
 export function extractKeyEvents(
   events: MatchEvent[],
   rosterById: Map<string, { name: string }>,
   homeTeamId?: string | null,
   awayTeamId?: string | null,
 ): EventEntry[] {
-  const GOAL_TYPES = ['goal', 'own_goal'];
-  const CARD_TYPES = ['yellow_card', 'second_yellow', 'red_card'];
-  const SUB_TYPES = ['substitution'];
-  // Player going down is a match-defining moment (forces a sub,
-  // shapes possession, etc.) so it deserves a row here alongside
-  // goals / cards / subs. Was previously missing from the sidebar
-  // even though `formatInjuryCommentary` already produced the text
-  // for the commentary feed — leaving the right rail out of sync
-  // with the centre column.
-  const INJURY_TYPES = ['injury'];
   const entries: EventEntry[] = [];
 
   // Resolve a player's display name from the event payload + roster map.
@@ -69,7 +109,6 @@ export function extractKeyEvents(
   };
 
   for (const ev of events) {
-    const type = ev.typeName?.toLowerCase() ?? '';
     // Side derivation lives in `resolveSide` (see match-event-side.ts) so
     // the same rule is shared with the commentary feed's `EventBubble`.
     // Neutral events can't be GOAL / CARD / SUB so we never reach the
@@ -98,24 +137,41 @@ export function extractKeyEvents(
         })()
       : undefined;
 
-    if (GOAL_TYPES.includes(type)) {
+    // RFC 0002 — Two-Axis Event Coding. `classifyEvent` prefers
+    // the new (eventClassId, outcomeId) tuple and falls back to
+    // typeName for legacy rows. The specific kind within a
+    // category (own goal vs goal, red card vs yellow) is still
+    // derived from `typeName` because the new tuple's
+    // outcomeId-→kind mapping isn't exhaustive enough yet (e.g.
+    // distinguishing own goal from regular goal would require
+    // a separate outcome id). The tuple gives us the category,
+    // typeName gives us the sub-kind — both are stable for the
+    // 1-week Phase 2 soak.
+    const category = classifyEvent(ev);
+    const typeName = ev.typeName?.toLowerCase() ?? '';
+
+    if (category === 'goal') {
       const scorer = resolveName(ev, 'playerName');
       const assist = ev.data?.assistName;
       entries.push({
         minute: ev.minute,
         icon: '⚽',
         label: scorer + (assist ? `  ·  A: ${assist}` : ''),
-        sublabel: type === 'own_goal' ? 'OG' : undefined,
+        sublabel: typeName === 'own_goal' ? 'OG' : undefined,
         specialtyChip,
         side,
       });
-    } else if (CARD_TYPES.includes(type)) {
+    } else if (category === 'card') {
       const player = resolveName(ev, 'playerName');
       const cardType =
-        type === 'second_yellow' ? '2nd Yellow' : type === 'red_card' ? 'Red' : 'Yellow';
+        typeName === 'second_yellow'
+          ? '2nd Yellow'
+          : typeName === 'red_card'
+            ? 'Red'
+            : 'Yellow';
       entries.push({
         minute: ev.minute,
-        icon: type === 'red_card' ? '🟥' : '🟨',
+        icon: typeName === 'red_card' ? '🟥' : '🟨',
         label: player,
         sublabel: cardType,
         // Cards don't surface specialty chips in v1 (a TACKLER
@@ -125,7 +181,7 @@ export function extractKeyEvents(
         // undefined chips.
         side,
       });
-    } else if (SUB_TYPES.includes(type)) {
+    } else if (category === 'substitution') {
       const playerIn = resolveName(ev, 'substitutePlayerName');
       const playerOut = ev.data?.playerOut ?? '?';
       entries.push({
@@ -135,7 +191,7 @@ export function extractKeyEvents(
         sublabel: `↔ ${playerOut}`,
         side,
       });
-    } else if (INJURY_TYPES.includes(type)) {
+    } else if (category === 'injury') {
       const player = resolveName(ev, 'playerName');
       // `severity` comes through as a number from the simulator; the
       // existing InjuryBadge component handles the "minor"/"severe"

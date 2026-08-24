@@ -243,3 +243,190 @@ describe('MatchKeyEvents · specialty attribution chip (RFC 0003)', () => {
     expect(result[0].specialtyChip).toBeUndefined();
   });
 });
+
+/**
+ * RFC 0002 — Two-Axis Event Coding. `extractKeyEvents` now
+ * classifies via the new (eventClassId, outcomeId) tuple first
+ * and falls back to `typeName` for legacy rows. These tests
+ * pin the dual-read contract.
+ */
+describe('MatchKeyEvents · two-axis event classification (RFC 0002)', () => {
+  it('classifies a SHOT+GOAL tuple (Phase 2 row) as a goal entry', () => {
+    const result = extractKeyEvents(
+      [
+        ev({
+          // eventClassId=3 (SHOT), outcomeId=1 (GOAL) is the
+          // canonical "shot that scored" path.
+          eventClassId: 3,
+          outcomeId: 1,
+          outcomeCode: 'GOAL',
+          typeName: 'goal', // legacy column still present
+          minute: 42,
+          teamId: home,
+          data: { playerName: '李雷' },
+        }),
+      ],
+      roster,
+      home,
+      away,
+    );
+    expect(result).toHaveLength(1);
+    expect(result[0].icon).toBe('⚽');
+    expect(result[0].label).toContain('李雷');
+  });
+
+  it('classifies an OWN_GOAL tuple (class=11) as a goal entry with OG sublabel', () => {
+    const result = extractKeyEvents(
+      [
+        ev({
+          eventClassId: 11, // OWN_GOAL class
+          outcomeId: null,  // OWN_GOAL has no outcome
+          outcomeCode: null,
+          typeName: 'own_goal',
+          minute: 50,
+          teamId: home,
+          data: { playerName: '李雷' },
+        }),
+      ],
+      roster,
+      home,
+      away,
+    );
+    expect(result).toHaveLength(1);
+    expect(result[0].sublabel).toBe('OG');
+  });
+
+  it('classifies FOUL+YELLOW/SECOND_YELLOW/RED tuple as a card entry', () => {
+    for (const [outcomeId, expectedCard] of [
+      [6, 'Yellow'],
+      [7, '2nd Yellow'],
+      [8, 'Red'],
+    ] as const) {
+      const result = extractKeyEvents(
+        [
+          ev({
+            eventClassId: 4, // FOUL class
+            outcomeId,
+            outcomeCode: expectedCard === '2nd Yellow' ? 'SECOND_YELLOW' : expectedCard === 'Red' ? 'RED' : 'YELLOW',
+            typeName:
+              expectedCard === '2nd Yellow'
+                ? 'second_yellow'
+                : expectedCard === 'Red'
+                  ? 'red_card'
+                  : 'yellow_card',
+            minute: 60,
+            teamId: home,
+            data: { playerName: '李雷' },
+          }),
+        ],
+        roster,
+        home,
+        away,
+      );
+      expect(result).toHaveLength(1);
+      expect(result[0].icon).toBe(expectedCard === 'Red' ? '🟥' : '🟨');
+      expect(result[0].sublabel).toBe(expectedCard);
+    }
+  });
+
+  it('classifies SUBSTITUTION tuple (class=8) as a sub entry', () => {
+    const result = extractKeyEvents(
+      [
+        ev({
+          eventClassId: 8,
+          outcomeId: 14, // TACTICAL
+          outcomeCode: 'TACTICAL',
+          typeName: 'substitution',
+          minute: 70,
+          teamId: home,
+          data: { substitutePlayerName: '韩梅梅', playerOut: '李雷' },
+        }),
+      ],
+      roster,
+      home,
+      away,
+    );
+    expect(result).toHaveLength(1);
+    expect(result[0].icon).toBe('⇄');
+    expect(result[0].label).toBe('韩梅梅');
+    expect(result[0].sublabel).toBe('↔ 李雷');
+  });
+
+  it('classifies INJURY tuple (class=9) as an injury entry', () => {
+    const result = extractKeyEvents(
+      [
+        ev({
+          eventClassId: 9,
+          outcomeId: null,
+          outcomeCode: null,
+          typeName: 'injury',
+          minute: 80,
+          teamId: home,
+          data: { playerName: '李雷', severity: 'severe' },
+        }),
+      ],
+      roster,
+      home,
+      away,
+    );
+    expect(result).toHaveLength(1);
+    expect(result[0].icon).toBe('🚑');
+    expect(result[0].sublabel).toBe('severe');
+  });
+
+  it('falls back to typeName for legacy rows (Phase 1 / pre-Phase 2)', () => {
+    // The legacy read-path: a row with no classId/outcomeId
+    // but a recognized typeName. Must still classify correctly.
+    const result = extractKeyEvents(
+      [
+        ev({
+          // No eventClassId / outcomeId — legacy row
+          typeName: 'goal',
+          minute: 23,
+          teamId: home,
+          data: { playerName: '李雷' },
+        }),
+        ev({
+          typeName: 'yellow_card',
+          minute: 30,
+          teamId: home,
+          data: { playerName: '李雷' },
+        }),
+        ev({
+          typeName: 'substitution',
+          minute: 50,
+          teamId: home,
+          data: { substitutePlayerName: '韩梅梅', playerOut: '李雷' },
+        }),
+        ev({
+          typeName: 'injury',
+          minute: 60,
+          teamId: home,
+          data: { playerName: '李雷', severity: 'minor' },
+        }),
+      ],
+      roster,
+      home,
+      away,
+    );
+    expect(result).toHaveLength(4);
+    expect(result.map((e) => e.icon)).toEqual(['⚽', '🟨', '⇄', '🚑']);
+  });
+
+  it('skips non-key events (KICKOFF, PERIOD, SNAPSHOT, etc.)', () => {
+    // Even with the new tuple, non-key classes must not produce
+    // a row. classId 1 (KICKOFF), 2 (PERIOD), 17 (SNAPSHOT)
+    // all return null from classifyEvent.
+    const result = extractKeyEvents(
+      [
+        ev({ eventClassId: 1,  typeName: 'kickoff',                 minute: 0,  teamId: home }),
+        ev({ eventClassId: 2,  typeName: 'half_time',               minute: 45, teamId: home }),
+        ev({ eventClassId: 17, typeName: 'snapshot',                minute: 5,  teamId: home }),
+      ],
+      roster,
+      home,
+      away,
+    );
+    expect(result).toEqual([]);
+  });
+});
