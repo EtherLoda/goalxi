@@ -6,12 +6,29 @@
  */
 import type { MatchEvent } from '@/lib/api';
 import { resolveSide, type EventSide } from './match-event-side';
+import { formatSpecialtyBonus } from '@/lib/specialty-bonus';
+import { getSpecialtyLabel } from '@/lib/specialties';
 
 export type EventEntry = {
   minute: number;
   icon: string;
   label: string;
   sublabel?: string;
+  /**
+   * RFC 0003 — Specialty Attribution. When the event had a
+   * specialty effect (e.g. an AERIAL_THREAT player's header
+   * goal), the chip carries the player-facing copy: the
+   * specialty display name (e.g. "空霸") + the formatted
+   * percent bonus (e.g. "+14% 效果"). The chip is rendered by
+   * `MatchKeyEvents` next to the player name. `undefined`
+   * for the ~90% of events with no specialty effect.
+   */
+  specialtyChip?: {
+    code: string;
+    label: string;
+    bonusText: string;
+    tier: 'GOLD' | 'SILVER' | 'BRONZE';
+  };
   /** Always 'home' or 'away' — neutral events (KICKOFF, etc.) aren't goals/cards/subs so
    *  they never reach this list, so the union is tighter than `EventSide`. */
   side: 'home' | 'away';
@@ -61,6 +78,26 @@ export function extractKeyEvents(
     const resolved: EventSide = resolveSide(ev, homeTeamId, awayTeamId);
     const side: 'home' | 'away' = resolved === 'away' ? 'away' : 'home';
 
+    // RFC 0003 — pick the headline (primary) specialty chip for
+    // this event, if any. D8: at most one primary per event; the
+    // engine guarantees index 0 in `specialtyContributions` is
+    // it. If there's no contribution array or it's empty, the
+    // chip stays undefined and no UI surface is shown.
+    const primary = ev.specialtyContributions?.find((c) => c.isPrimary);
+    const specialtyChip = primary
+      ? (() => {
+          const bonus = formatSpecialtyBonus(primary.multiplier);
+          if (!bonus) return undefined; // mult was 1.0 somehow
+          const label = getSpecialtyLabel(primary.specialtyCode, 'zh') ?? primary.specialtyCode;
+          return {
+            code: primary.specialtyCode,
+            label,
+            bonusText: bonus,
+            tier: primary.tier,
+          };
+        })()
+      : undefined;
+
     if (GOAL_TYPES.includes(type)) {
       const scorer = resolveName(ev, 'playerName');
       const assist = ev.data?.assistName;
@@ -69,6 +106,7 @@ export function extractKeyEvents(
         icon: '⚽',
         label: scorer + (assist ? `  ·  A: ${assist}` : ''),
         sublabel: type === 'own_goal' ? 'OG' : undefined,
+        specialtyChip,
         side,
       });
     } else if (CARD_TYPES.includes(type)) {
@@ -80,6 +118,11 @@ export function extractKeyEvents(
         icon: type === 'red_card' ? '🟥' : '🟨',
         label: player,
         sublabel: cardType,
+        // Cards don't surface specialty chips in v1 (a TACKLER
+        // fouling is the most common case but the engine doesn't
+        // record `foul_rate` reductions per RFC 0003 §4.2). The
+        // field is left undefined — `MatchKeyEvents` skips
+        // undefined chips.
         side,
       });
     } else if (SUB_TYPES.includes(type)) {

@@ -1,4 +1,12 @@
 import type { MatchEvent } from './api';
+// RFC 0003 — Specialty Attribution. The goal commentary prepends
+// a "空霸发威！+14% 效果！" tag when the engine's primary
+// contribution is set. `getSpecialtyLabel` resolves the
+// specialty code to a localized display name; `formatSpecialtyBonus`
+// converts the tier-scaled multiplier to a player-facing percent
+// string (the FE MUST NOT show the raw decimal per D9).
+import { formatSpecialtyBonus } from './specialty-bonus';
+import { getSpecialtyLabel } from './specialties';
 
 type TranslationFunction = (key: string, params?: Record<string, string | number>) => string;
 
@@ -397,6 +405,32 @@ export function formatGoalCommentary(
   let template = getTemplate(t, sectionKey, templateIdx, params);
   if (template === expectedStripped) {
     template = getTemplate(t, 'commentary.goal', templateIdx, params);
+  }
+
+  // RFC 0003 — Specialty Attribution. If a primary specialty
+  // fired on this event, prepend a specialty tag (e.g. "空霸
+  // 发威！") to the comment. The tag uses the localized
+  // specialty display name from `getSpecialtyLabel` and the
+  // player-facing percent bonus from `formatSpecialtyBonus`.
+  //
+  // We PREPEND rather than REPLACE so the rest of the
+  // narrative still reads naturally ("空霸发威！李雷 头球
+  // 破门！"). Picked over a separate `goal.specialty.{CODE}`
+  // section because:
+  //   1. avoids 4 templates × 12 specialties = 48 new i18n
+  //      strings to maintain
+  //   2. keeps the base section templates as the source of
+  //      truth for the action ("header" / "long shot" / ...)
+  //   3. lets the player see both the specialty effect AND
+  //      the action narrative, instead of one or the other
+  const primary = event.specialtyContributions?.find((c) => c.isPrimary);
+  if (primary) {
+    const specialtyName = getSpecialtyLabel(primary.specialtyCode, 'zh') ?? primary.specialtyCode;
+    const bonus = formatSpecialtyBonus(primary.multiplier, 'zh');
+    const tag = bonus
+      ? `${specialtyName}发威！${bonus} ！`
+      : `${specialtyName}发威！`;
+    return tag + interpolate(template, params);
   }
 
   return interpolate(template, params);

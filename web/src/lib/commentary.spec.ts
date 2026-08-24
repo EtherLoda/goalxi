@@ -1376,3 +1376,154 @@ describe('formatEventCommentary period events', () => {
     );
   });
 });
+
+// ============================================================================
+// RFC 0003 — Specialty Attribution. The goal commentary prepends
+// a "空霸发威！+14% 效果！" tag when the engine's primary
+// contribution is set. These specs pin the contract:
+//   1. Tag is prepended (not appended) so the action narrative
+//      still reads naturally
+//   2. The tag uses the localized specialty name + the
+//      player-facing percent bonus
+//   3. No tag for events without a primary contribution
+//   4. No tag for non-goal events (the tag is only wired in
+//      `formatGoalCommentary` for now)
+// ============================================================================
+
+describe('commentary specialty tag (RFC 0003)', () => {
+  function goalEvent(overrides: Partial<MatchEvent> = {}): MatchEvent {
+    return baseEvent({
+      type: 'goal',
+      typeName: 'goal',
+      minute: 23,
+      data: {
+        playerName: 'Saka',
+        sequence: {
+          shot: {
+            shooter: 'Saka',
+            result: 'goal',
+            shotType: 'header',
+          },
+        },
+        lane: 'left',
+        assistName: 'Odegaard',
+      },
+      ...overrides,
+    });
+  }
+
+  function goalT(opts: { withSpecialty?: boolean } = {}): jest.Mock<string, [string]> {
+    return jest.fn((key: string) => {
+      if (key.startsWith('goal.header.tpl_')) {
+        return 'GOAL_TPL:{shooter} heads home for {team}!';
+      }
+      if (key.startsWith('goal.tpl_')) {
+        return 'GOAL_TPL_FALLBACK:{shooter} scored for {team}!';
+      }
+      if (key === 'goal.quality_excellent') return 'brilliant';
+      if (key === 'goal.quality_great') return 'great';
+      if (key === 'goal.quality_good') return 'good';
+      if (key === 'lane.left') return 'left side';
+      if (key === 'shotType.header') return 'header';
+      if (key === 'specialty.AERIAL_THREAT') return '空霸';
+      if (key === 'specialty.SAVING_MASTER') return '扑救专家';
+      return key;
+    });
+  }
+
+  it('prepends a specialty tag when a primary contribution is present', () => {
+    const event = goalEvent({
+      specialtyContributions: [
+        {
+          playerId: 1,
+          specialtyCode: 'AERIAL_THREAT',
+          tier: 'GOLD',
+          effectKey: 'shot_header',
+          multiplier: 1.143,
+          role: 'shooter',
+          isPrimary: true,
+        },
+      ],
+    });
+    const text = formatEventCommentary(event, 'Home', 'Away', goalT());
+    // The tag is the localized name + the bonus + an exclamation.
+    // 1.143 → +14% 效果 (rounded).
+    expect(text).toMatch(/^空霸发威！\+14% 效果 ！/);
+  });
+
+  it('the action narrative still follows the tag (both rendered)', () => {
+    const event = goalEvent({
+      specialtyContributions: [
+        {
+          playerId: 1,
+          specialtyCode: 'AERIAL_THREAT',
+          tier: 'GOLD',
+          effectKey: 'shot_header',
+          multiplier: 1.143,
+          role: 'shooter',
+          isPrimary: true,
+        },
+      ],
+    });
+    const text = formatEventCommentary(event, 'Home', 'Away', goalT());
+    // The prepended tag must NOT replace the base template —
+    // both should appear in the output.
+    expect(text).toContain('Saka');
+    expect(text).toContain('Home');
+    expect(text).toMatch(/^空霸发威/);
+  });
+
+  it('does NOT prepend a tag when there is no specialty contribution', () => {
+    const text = formatEventCommentary(goalEvent(), 'Home', 'Away', goalT());
+    expect(text).not.toContain('空霸');
+    expect(text).not.toContain('发威');
+  });
+
+  it('does NOT prepend a tag when the contribution is non-primary only', () => {
+    // Engine contract: a goal has the shooter as primary. If
+    // somehow only a non-primary entry is present (defensive
+    // case for future schema drift), the tag must not appear
+    // — only primary contributions drive the FE surface.
+    const event = goalEvent({
+      specialtyContributions: [
+        {
+          playerId: 2,
+          specialtyCode: 'SAVING_MASTER',
+          tier: 'SILVER',
+          effectKey: 'gk_save',
+          multiplier: 1.1,
+          role: 'gk',
+          isPrimary: false,
+        },
+      ],
+    });
+    const text = formatEventCommentary(event, 'Home', 'Away', goalT());
+    expect(text).not.toContain('扑救专家');
+    expect(text).not.toContain('发威');
+  });
+
+  it('does NOT prepend a tag for non-goal events (not wired yet)', () => {
+    // Cards / saves / fouls don't have the specialty tag
+    // wired in RFC 0003 v1. Pin the contract so a future
+    // contributor can't quietly add it to all event types.
+    const saveEvent = baseEvent({
+      type: 'save',
+      typeName: 'save',
+      minute: 30,
+      data: { playerName: 'Raya' },
+      specialtyContributions: [
+        {
+          playerId: 1,
+          specialtyCode: 'SAVING_MASTER',
+          tier: 'GOLD',
+          effectKey: 'gk_save',
+          multiplier: 1.143,
+          role: 'gk',
+          isPrimary: true,
+        },
+      ],
+    });
+    const text = formatEventCommentary(saveEvent, 'Home', 'Away', goalT());
+    expect(text).not.toContain('扑救专家');
+  });
+});

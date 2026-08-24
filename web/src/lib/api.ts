@@ -527,6 +527,38 @@ interface MatchEvent {
   eventType?: string;
   eventData?: any;
   isHome?: boolean;
+  /**
+   * RFC 0003 — Specialty Attribution. Per-event list of which
+   * player specialties actually moved a multiplier on this event.
+   * Missing or `[]` for the ~90% of events that have no specialty
+   * effect. The engine guarantees at most one entry has
+   * `isPrimary: true` (D8) and that primary entries come first
+   * (index 0) so the FE can just read `events[0]` for the headline
+   * attribution.
+   *
+   * The `multiplier` field is the tier-scaled final value
+   * (e.g. 1.143 for Gold 1.10). **Player-facing code must never
+   * display this decimal directly** (D9) — use the
+   * `formatSpecialtyBonus` helper from
+   * `@/lib/specialty-bonus` to render "+14% 效果" instead.
+   */
+  specialtyContributions?: SpecialtyContribution[];
+}
+
+/**
+ * Mirrors `SpecialtyContribution` in
+ * `libs/database/src/types/match-event-data.ts`. Kept in sync
+ * manually because `web/` doesn't import from `@goalxi/database`
+ * for types — it goes through the wire format.
+ */
+interface SpecialtyContribution {
+  playerId: number;
+  specialtyCode: string;
+  tier: 'GOLD' | 'SILVER' | 'BRONZE';
+  effectKey: string;
+  multiplier: number;
+  role: string;
+  isPrimary: boolean;
 }
 
 interface MatchTeamStats {

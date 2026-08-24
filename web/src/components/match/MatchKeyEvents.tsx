@@ -118,9 +118,32 @@ export function MatchKeyEvents({
                 >
                   {entry.label}
                 </p>
-                {entry.sublabel && (
-                  <p className="font-label text-[8px] text-white/40 uppercase tracking-wider truncate leading-tight mt-0.5">
+                {(entry.sublabel || entry.specialtyChip) && (
+                  <p className="font-label text-[8px] text-white/40 uppercase tracking-wider truncate leading-tight mt-0.5 flex items-center gap-1">
                     {entry.sublabel}
+                    {entry.specialtyChip && (
+                      // RFC 0003 — Specialty chip. Tier-tinted
+                      // glyph + the localized bonus text
+                      // ("+14% 效果"). Picked tier color matches
+                      // `SpecialtyIcon.tsx`'s `TIER_TEXT` map so
+                      // the chip reads as the same specialty
+                      // chip the user sees on the player card.
+                      <span
+                        className={clsx(
+                          'inline-flex items-center gap-0.5 px-1 rounded-sm border',
+                          entry.specialtyChip.tier === 'GOLD' &&
+                            'text-amber-300 border-amber-300/30 bg-amber-300/10',
+                          entry.specialtyChip.tier === 'SILVER' &&
+                            'text-slate-300 border-slate-300/30 bg-slate-300/10',
+                          entry.specialtyChip.tier === 'BRONZE' &&
+                            'text-stone-400 border-stone-400/30 bg-stone-400/10',
+                        )}
+                        title={`${entry.specialtyChip.label} (${entry.specialtyChip.tier})`}
+                      >
+                        <span className="text-[7px]">{entry.specialtyChip.label}</span>
+                        <span className="text-[8px] font-mono font-bold">{entry.specialtyChip.bonusText}</span>
+                      </span>
+                    )}
                   </p>
                 )}
               </div>

@@ -115,3 +115,131 @@ describe('MatchKeyEvents · resolveName fallback (regression)', () => {
     ).not.toThrow();
   });
 });
+
+/**
+ * RFC 0003 — Specialty Attribution chip rendering. The
+ * `extractKeyEvents` helper attaches a `specialtyChip` to
+ * the event entry when the engine recorded a `primary`
+ * contribution. These tests pin the chip contract so a
+ * future refactor can't silently drop it.
+ */
+describe('MatchKeyEvents · specialty attribution chip (RFC 0003)', () => {
+  it('attaches a chip for a goal with a primary AERIAL_THREAT header', () => {
+    const result = extractKeyEvents(
+      [
+        ev({
+          typeName: 'goal',
+          minute: 23,
+          teamId: home,
+          playerId: 101,
+          data: { playerName: '李雷', assistName: '韩梅梅' },
+          specialtyContributions: [
+            {
+              playerId: 101,
+              specialtyCode: 'AERIAL_THREAT',
+              tier: 'GOLD',
+              effectKey: 'shot_header',
+              multiplier: 1.143,
+              role: 'shooter',
+              isPrimary: true,
+            },
+          ],
+        }),
+      ],
+      roster,
+      home,
+      away,
+    );
+    expect(result[0].specialtyChip).toBeDefined();
+    expect(result[0].specialtyChip!.code).toBe('AERIAL_THREAT');
+    expect(result[0].specialtyChip!.tier).toBe('GOLD');
+    // 1.143 → +14% (rounded). The exact copy lives in
+    // `formatSpecialtyBonus` (covered by its own spec); this
+    // test pins the wiring, not the format.
+    expect(result[0].specialtyChip!.bonusText).toBe('+14% 效果');
+  });
+
+  it('does NOT attach a chip when the only contribution is non-primary', () => {
+    // A save by a SAVING_MASTER GK — primary lives on the
+    // shooter side. But the goal event's primary is the
+    // shooter. This case models a "GK got credited but
+    // shooter is still primary" mismatch (defensive — engine
+    // shouldn't produce this, but the FE must not crash).
+    const result = extractKeyEvents(
+      [
+        ev({
+          typeName: 'goal',
+          minute: 23,
+          teamId: home,
+          data: { playerName: '李雷' },
+          specialtyContributions: [
+            {
+              playerId: 202,
+              specialtyCode: 'SAVING_MASTER',
+              tier: 'SILVER',
+              effectKey: 'gk_save',
+              multiplier: 1.1,
+              role: 'gk',
+              isPrimary: false,
+            },
+          ],
+        }),
+      ],
+      roster,
+      home,
+      away,
+    );
+    expect(result[0].specialtyChip).toBeUndefined();
+  });
+
+  it('does NOT attach a chip when the contribution multiplier is 1.0 (defensive)', () => {
+    // The engine never records 1.0 multipliers, but a stale
+    // wire payload from a future schema drift could. The
+    // helper must not produce a "+0% 效果" chip.
+    const result = extractKeyEvents(
+      [
+        ev({
+          typeName: 'goal',
+          minute: 23,
+          teamId: home,
+          data: { playerName: '李雷' },
+          specialtyContributions: [
+            {
+              playerId: 101,
+              specialtyCode: 'AERIAL_THREAT',
+              tier: 'BRONZE',
+              effectKey: 'shot_header',
+              multiplier: 1.0,
+              role: 'shooter',
+              isPrimary: true,
+            },
+          ],
+        }),
+      ],
+      roster,
+      home,
+      away,
+    );
+    expect(result[0].specialtyChip).toBeUndefined();
+  });
+
+  it('does NOT attach a chip for events without specialtyContributions', () => {
+    // The 90% case: most events have no contribution array.
+    // The field is undefined on the event, so the chip is
+    // undefined on the entry.
+    const result = extractKeyEvents(
+      [
+        ev({
+          typeName: 'goal',
+          minute: 23,
+          teamId: home,
+          data: { playerName: '李雷' },
+        }),
+      ],
+      roster,
+      home,
+      away,
+    );
+    expect(result[0].specialtyChip).toBeUndefined();
+  });
+});
