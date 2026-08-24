@@ -6,11 +6,21 @@
  * single source of truth for the *identifiers*; the engine package
  * imports the constants and the generator from here.
  *
- * Two pools:
- *   - `ACTIVE_SPECIALTIES` (12): the generator rolls from this pool. New
- *     players are never given a deprecated code.
+ * Three pools:
+ *   - `OUTFIELD_SPECIALTIES` (10): active codes rollable by outfield
+ *     players only. CB / W / AM / etc. never roll a GK code.
+ *   - `GK_SPECIALTIES` (2): active codes rollable by goalkeepers only.
+ *     GK never rolls an outfield code.
  *   - `DEPRECATED_SPECIALTIES` (8): kept for legacy data and the
  *     `migrate-specialty-v2.ts` script. UI renders these as "已弃用".
+ *     Generator never produces them.
+ *
+ * `ACTIVE_SPECIALTIES` is kept as the union of the two active
+ * sub-pools for backwards compat with code that hasn't switched to
+ * the position-aware path. New generator code must call
+ * `getActivePool(isGoalkeeper)` instead of indexing `ACTIVE_SPECIALTIES`
+ * directly — direct indexing silently bypasses the GK/outfield
+ * separation. See `specialty-generator.ts` for the roll path.
  *
  * Tier distribution is **decoupled from player attributes** — see
  * `specialty-generator.ts` for the 5/15/30/50 random roll. This file
@@ -18,11 +28,10 @@
  */
 
 // ────────────────────────────────────────────────────────────────────
-// Active pool (12 codes)
+// Active pool — outfield (10 codes)
 // ────────────────────────────────────────────────────────────────────
 
-export const ACTIVE_SPECIALTIES = [
-  // Outfield (10)
+export const OUTFIELD_SPECIALTIES = [
   'AERIAL_THREAT',
   'DRIBBLER',
   'PLAYMAKER',
@@ -33,9 +42,29 @@ export const ACTIVE_SPECIALTIES = [
   'POACHER',
   'COMPOSED',
   'PHYSICAL_BEAST',
-  // GK (2)
+] as const;
+
+export type OutfieldCoreSpecialty = (typeof OUTFIELD_SPECIALTIES)[number];
+
+// ────────────────────────────────────────────────────────────────────
+// Active pool — GK (2 codes)
+// ────────────────────────────────────────────────────────────────────
+
+export const GK_SPECIALTIES = [
   'SAVING_MASTER',
   'SWEEPER_KEEPER',
+] as const;
+
+export type GoalkeeperCoreSpecialty = (typeof GK_SPECIALTIES)[number];
+
+// ────────────────────────────────────────────────────────────────────
+// Active pool — combined (kept for legacy callers; new code should
+// route through `getActivePool(isGoalkeeper)` instead).
+// ────────────────────────────────────────────────────────────────────
+
+export const ACTIVE_SPECIALTIES = [
+  ...OUTFIELD_SPECIALTIES,
+  ...GK_SPECIALTIES,
 ] as const;
 
 export type ActiveCoreSpecialty = (typeof ACTIVE_SPECIALTIES)[number];
@@ -62,7 +91,23 @@ export type CoreSpecialtyCode = ActiveCoreSpecialty | DeprecatedCoreSpecialty;
 
 // Runtime sets for O(1) membership checks
 export const ACTIVE_SPECIALTY_SET: ReadonlySet<string> = new Set(ACTIVE_SPECIALTIES);
+export const OUTFIELD_SPECIALTY_SET: ReadonlySet<string> = new Set(OUTFIELD_SPECIALTIES);
+export const GK_SPECIALTY_SET: ReadonlySet<string> = new Set(GK_SPECIALTIES);
 export const DEPRECATED_SPECIALTY_SET: ReadonlySet<string> = new Set(DEPRECATED_SPECIALTIES);
+
+/**
+ * Return the active specialty pool a player of the given type is
+ * allowed to roll from. This is the only sanctioned entry point for
+ * generator code — direct `ACTIVE_SPECIALTIES[...]` indexing
+ * silently bypasses the GK/outfield separation and is the regression
+ * we're guarding against. The `readonly` return type stops callers
+ * from mutating the underlying arrays.
+ */
+export function getActivePool(
+  isGoalkeeper: boolean,
+): readonly ActiveCoreSpecialty[] {
+  return isGoalkeeper ? GK_SPECIALTIES : OUTFIELD_SPECIALTIES;
+}
 
 /**
  * Type guards. Use these instead of `ACTIVE_SPECIALTY_SET.has(code)`

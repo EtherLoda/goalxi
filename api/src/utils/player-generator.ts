@@ -442,7 +442,9 @@ export function generatePlayerData(options?: {
   // v2 specialty — single roll decides (a) whether the player has
   // any specialty at all (50% No) and (b) which code + tier. Tier is
   // independent of attributes (random 5/15/30 distribution).
-  const specialtyRoll = rollSpecialty();
+  // v2.4+ is position-aware: GK rolls from the 2-code GK pool,
+  // outfield from the 10-code outfield pool (disjoint).
+  const specialtyRoll = rollSpecialty(undefined, isGoalkeeper);
   const coreSpecialty = specialtyRoll?.code ?? null;
   const coreSpecialtyTier = specialtyRoll?.tier;
 

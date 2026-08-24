@@ -509,11 +509,11 @@ export async function generateTeamSquad(
       today - age * daysPerYear - daysAliveInYear;
 
     // v2 specialty — single roll decides both presence and
-    // tier. Position is intentionally NOT consulted: v2 is
-    // position-agnostic so the same code can roll for a CB
-    // or a ST with equal probability. The engine applies
-    // effects only when relevant events fire.
-    const specialtyRoll = rollSpecialty();
+    // tier. v2.4+ is position-aware: GK rolls from the 2-code
+    // GK pool, outfield rolls from the 10-code outfield pool.
+    // The two pools are disjoint so a GK can never get an
+    // outfield buff (or vice versa).
+    const specialtyRoll = rollSpecialty(undefined, isGoalkeeper);
     const coreSpecialty = specialtyRoll?.code ?? null;
     const coreSpecialtyTier = specialtyRoll?.tier;
     const abilities = coreSpecialty ? [coreSpecialty] : undefined;

@@ -171,8 +171,10 @@ export function generateScoutCandidate(
   // independent of attributes (random 5/15/30 distribution). The
   // old `abilityPool` / `abilityChance` options are kept in the
   // interface for backwards compat with existing callers but are no
-  // longer consulted at generation time.
-  const specialtyRoll = rollSpecialty(rand);
+  // longer consulted at generation time. v2.4+ is position-aware:
+  // GK candidates roll from the 2-code GK pool, outfield from the
+  // 10-code outfield pool — the two are disjoint.
+  const specialtyRoll = rollSpecialty(rand, isGoalkeeper);
   const coreSpecialty = specialtyRoll?.code ?? null;
   const coreSpecialtyTier = specialtyRoll?.tier;
 
