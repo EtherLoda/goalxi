@@ -1,7 +1,6 @@
 import {
   MatchEntity,
   MatchEventEntity,
-  MatchEventType,
   MatchStatus,
   MatchTeamStatsEntity,
   TeamEntity,
@@ -135,7 +134,8 @@ export class MatchEventService {
           'matchId',
           'minute',
           'second',
-          'type',
+          // RFC 0002 Phase 3 — the legacy `type` int column
+          // is dropped. `typeName` (the wire format) is kept.
           'typeName',
           'teamId',
           'playerId',
@@ -144,14 +144,9 @@ export class MatchEventService {
           'lane',
           'isHome',
           'data',
-          // RFC 0002 — Two-Axis Event Coding (Phase 2: read path).
-          // Read the new (classId, outcomeId, outcomeCode) tuple
-          // alongside the legacy columns. The fallback chain in
-          // `calculateScoreFromEvents` (and any future reader
-          // here) prefers the new tuple when present, falls
-          // back to `typeName` for older rows. Both are selected
-          // for the duration of the 1-week Phase 2 soak; the
-          // legacy columns drop in Phase 3.
+          // RFC 0002 — Two-Axis Event Coding. The new tuple
+          // is the single source of truth for the event
+          // classification.
           'eventClassId',
           'outcomeId',
           'outcomeCode',
@@ -247,27 +242,22 @@ export class MatchEventService {
     let awayScore = 0;
 
     for (const event of events) {
-      // RFC 0002 — Two-Axis Event Coding. Prefer the new
-      // (classId, outcomeId) tuple when present (Phase 2+
-      // rows); fall back to the legacy `type` int for the
-      // 1-week soak window. The transition is transparent:
-      // a row with `eventClassId=3 && outcomeId=1` (SHOT + GOAL)
-      // and a row with `type=MatchEventType.GOAL` both
-      // count as a goal.
+      // RFC 0002 Phase 3 — the legacy `type` int column is
+      // dropped. A goal is now exclusively identified by the
+      // (eventClassId=3, outcomeId=1) tuple (SHOT class + GOAL
+      // outcome). The pre-Phase 3 dual-read is gone; the
+      // new tuple is the single source of truth.
       //
-      // We do NOT count `MatchEventType.OWN_GOAL` / class=11
-      // toward the team score. The engine doesn't currently
-      // emit OWN_GOAL events (the enum value is dead — see
-      // RFC 0002 §4.2 "Note on dead enum entries"), and the
-      // pre-RFC 0002 code only counted `type === GOAL`. If
-      // a future phase re-introduces own goals, the right
-      // home for the "credit the OTHER team" logic is here
-      // (the engine is the wrong layer — it doesn't know
-      // about real-football attribution conventions).
-      const isGoalByNew =
-        event.eventClassId === 3 && event.outcomeId === 1; // SHOT + GOAL
-      const isGoalByLegacy = event.type === MatchEventType.GOAL;
-      const isGoal = isGoalByNew || isGoalByLegacy;
+      // We do NOT count class=11 (OWN_GOAL) toward the team
+      // score. The engine doesn't currently emit OWN_GOAL
+      // events (the enum value is dead — see RFC 0002 §4.2
+      // "Note on dead enum entries"). If a future phase
+      // re-introduces own goals, the right home for the
+      // "credit the OTHER team" logic is here (the engine
+      // is the wrong layer — it doesn't know about real-
+      // football attribution conventions).
+      const isGoal =
+        event.eventClassId === 3 && event.outcomeId === 1;
       if (!isGoal) continue;
       if (event.teamId === match.homeTeamId) {
         homeScore++;

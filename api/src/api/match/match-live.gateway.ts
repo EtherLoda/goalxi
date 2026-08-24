@@ -533,7 +533,12 @@ export class MatchLiveGateway
     const response = await this.matchEventService.getMatchEvents(matchId);
 
     return response.events.map((e) => ({
-      type: e.typeName || String(e.type),
+      // RFC 0002 Phase 3 — `e.type` (int) is gone. The wire
+      // format is the `typeName` string (lower_snake, e.g.
+      // 'goal' / 'yellow_card' / 'turnover'). The FE
+      // uses this string directly in commentary templates
+      // and EVENT_COLOR / EVENT_ICON lookups.
+      type: e.typeName,
       matchId: e.matchId,
       minute: e.minute,
       teamId: e.teamId,

@@ -7,7 +7,6 @@ import { Repository, DataSource, In, EntityManager } from 'typeorm';
 import {
   MatchEntity,
   MatchEventEntity,
-  MatchEventType,
   MatchTeamStatsEntity,
   MatchStatus,
   MatchTacticsEntity,
@@ -20,6 +19,10 @@ import {
   GAME_SETTINGS,
   MatchPhase,
   MatchLane,
+  // RFC 0002 — Two-Axis Event Coding class ids. INJURY=9,
+  // used in the injury-event query below (the legacy
+  // MatchEventType.INJURY int is gone in Phase 3).
+  EventClassId,
   toSimulationPlayer,
   applyInjuryBatch,
   StaffEntity,
@@ -31,8 +34,8 @@ import {
   // RFC 0002 — Two-Axis Event Coding. The processor uses the
   // hot-path TS mirror (`getEventTwoAxis`) to look up the
   // (classId, outcomeId, outcomeCode) tuple for each event's
-  // `type` string and writes them as siblings of the legacy
-  // `type` int. See `libs/database/src/constants/event-two-axis.ts`.
+  // `type` string. See
+  // `libs/database/src/constants/event-two-axis.ts`.
   getEventTwoAxis,
 } from '@goalxi/database';
 import { MatchEngine, MatchEvent } from '../engine/match.engine';
@@ -427,7 +430,11 @@ export class SimulationProcessor extends WorkerHost {
 
     // Create injury notifications for both teams
     const injuryEvents = await this.eventRepository.find({
-      where: { matchId: matchId, type: MatchEventType.INJURY },
+      // RFC 0002 Phase 3 — `type: MatchEventType.INJURY` (the
+      // legacy int) is gone. The INJURY class id is 9
+      // (see `event_class_def` in the migration 1788000000001
+      // seed data). The two-axis tuple is the single source.
+      where: { matchId: matchId, eventClassId: 9 as EventClassId },
     });
 
     if (injuryEvents.length > 0) {
@@ -1064,7 +1071,20 @@ export class SimulationProcessor extends WorkerHost {
               matchId: match.id,
               minute: e.minute,
               second: 0,
-              type: this.mapEventType(e.type),
+              // RFC 0002 Phase 3 — the legacy `type` int column is
+              // DROPPED. The single source of truth for the event
+              // classification is the (eventClassId, outcomeId,
+              // outcomeCode) tuple below, derived from `e.type`
+              // (the engine's lower_snake string) via
+              // `getEventTwoAxis`.
+              //
+              // The `typeName` column is KEPT (1:1 mirror of
+              // `e.type`) because the wire format is context-
+              // sensitive in ways the tuple can't capture
+              // (PERIOD+END can be 'half_time' or 'full_time';
+              // SHOT+MISS can be 'miss' or 'turnover'). The FE
+              // uses `e.typeName` directly in commentary
+              // templates and EVENT_COLOR / EVENT_ICON lookups.
               typeName: e.type,
               teamId:
                 e.teamName === match.homeTeam.name
@@ -1087,14 +1107,9 @@ export class SimulationProcessor extends WorkerHost {
               // skill fog (PlayerEntity.revealedSkills) is a separate
               // concern handled at the API/DTO layer.
               isRevealed: true,
-              // RFC 0002 — Two-Axis Event Coding (Phase 2: dual-write).
-              // The 3 new columns sit alongside the legacy `type` int
-              // + `typeName` string for the 1-week Phase 2 soak. The
-              // lookup is O(1) via `getEventTwoAxis` (TS map mirror of
-              // the SQL backfill function — kept in sync by unit spec).
-              // Future strings without a mapping (defensive null tuple)
-              // get NULL classId/outcomeId/outcomeCode and stay
-              // readable via the legacy columns.
+              // RFC 0002 — Two-Axis Event Coding. The lookup is O(1)
+              // via `getEventTwoAxis` (TS map mirror of the SQL
+              // backfill function — kept in sync by unit spec).
               eventClassId: getEventTwoAxis(e.type).classId,
               outcomeId: getEventTwoAxis(e.type).outcomeId,
               outcomeCode: getEventTwoAxis(e.type).outcomeCode,
@@ -1519,42 +1534,12 @@ export class SimulationProcessor extends WorkerHost {
     }
   }
 
-  private mapEventType(type: string): number {
-    // Map the engine's string event types onto the database-side
-    // `MatchEventType` enum. The enum is the single source of truth
-    // — if you renumber a value, this function follows automatically
-    // and no caller needs to chase a magic number. Falls back to
-    // `NEUTRAL_EVENT` for unknown strings (defensive: a new event
-    // type added to the engine should not 5xx the whole match).
-    const mapping: Record<string, MatchEventType> = {
-      kickoff: MatchEventType.KICKOFF,
-      goal: MatchEventType.GOAL,
-      shot_on_target: MatchEventType.SHOT_ON_TARGET,
-      save: MatchEventType.SAVE,
-      miss: MatchEventType.SHOT_OFF_TARGET,
-      turnover: MatchEventType.PASS,
-      foul: MatchEventType.FOUL,
-      yellow_card: MatchEventType.YELLOW_CARD,
-      red_card: MatchEventType.RED_CARD,
-      substitution: MatchEventType.SUBSTITUTION,
-      half_time: MatchEventType.HALF_TIME,
-      second_half: MatchEventType.SECOND_HALF_START,
-      full_time: MatchEventType.FULL_TIME,
-      injury: MatchEventType.INJURY,
-      offside: MatchEventType.OFFSIDE,
-      corner: MatchEventType.CORNER,
-      free_kick: MatchEventType.FREE_KICK,
-      penalty_goal: MatchEventType.PENALTY,
-      penalty_miss: MatchEventType.PENALTY_MISS,
-      snapshot: MatchEventType.SNAPSHOT,
-      tactical_change: MatchEventType.NEUTRAL_EVENT,
-      weather_announcement: MatchEventType.WEATHER_ANNOUNCEMENT,
-      player_introduction: MatchEventType.PLAYER_INTRODUCTION,
-      attendance_announcement: MatchEventType.ATTENDANCE_ANNOUNCEMENT,
-      forfeit: MatchEventType.FORFEIT,
-    };
-    return mapping[type] ?? MatchEventType.NEUTRAL_EVENT;
-  }
+  // RFC 0002 Phase 3 — `mapEventType` removed. The legacy
+  // `type` int column is dropped, so there's no need to map
+  // engine strings to MatchEventType enum values. The
+  // `getEventTwoAxis(e.type)` helper (used in the bulk
+  // insert above) is now the single translation layer from
+  // the engine's lower_snake string to the DB tuple.
 
   /** Minimum number of players required in a team's lineup for a match
    *  to be played. Below this, the team forfeits (3-0 walkover, or 0-0
@@ -1673,8 +1658,11 @@ export class SimulationProcessor extends WorkerHost {
             matchId: match.id,
             minute: e.minute,
             second: 0,
-            type: this.mapEventType(e.type),
-            typeName: e.type,
+            // RFC 0002 Phase 3 — same dual-write as the main
+            // bulk-insert path. The forfeit event's `e.type` is
+            // always 'forfeit' (or 'full_time' / 'match_start'),
+            // all of which have entries in the EVENT_TWO_AXIS
+            // mapping.
             teamId: null,
             playerId: null,
             relatedPlayerId: null,
@@ -1684,6 +1672,13 @@ export class SimulationProcessor extends WorkerHost {
             data: e.data ?? {},
             eventScheduledTime: e.eventScheduledTime,
             isRevealed: true,
+            // RFC 0002 Phase 3 — same as the main bulk-insert
+            // path. The legacy `type` int is gone; `typeName`
+            // stays as the wire format.
+            typeName: e.type,
+            eventClassId: getEventTwoAxis(e.type).classId,
+            outcomeId: getEventTwoAxis(e.type).outcomeId,
+            outcomeCode: getEventTwoAxis(e.type).outcomeCode,
           })),
         )
         .execute();

@@ -152,18 +152,24 @@ describe('1788000000001-CreateEventClassOutcomeDefs migration (RFC 0002 P1)', ()
       expect(source).toMatch(/SELECT "match_event_backfill_class_outcome"\(NULL\)/);
     });
 
-    it('does NOT map dead enum types (PASS/TACKLE/INTERCEPTION/CLEARANCE/OFFSIDE/...)', () => {
-      // These 11 enum values exist in `MatchEventType` but are
+    it('does NOT map dead enum types (TACKLE/INTERCEPTION/CLEARANCE/OFFSIDE/...)', () => {
+      // These 7 enum values exist in `MatchEventType` but are
       // not emitted by the live engine (the `EventGenerator`
       // class that COULD emit them has zero callers). The
       // backfill must NOT have a CASE branch for them, so a
       // future contributor doesn't accidentally re-introduce
       // dead enum support. Phase 3 drops them with the `type`
       // column.
+      //
+      // Note: type=5 (PASS) WAS here in v1 of this spec, but
+      // the engine DOES emit `'turnover'` (which the processor
+      // maps to type=5). The 2026-08-24 fix removed 5 from
+      // the dead list and added a proper `WHEN 5 THEN 3`
+      // (SHOT class) + `WHEN 5 THEN 4` (MISS outcome) row.
       const funcSection = source.match(
         /CREATE OR REPLACE FUNCTION[\s\S]*?LANGUAGE plpgsql/,
       )?.[0] ?? '';
-      for (const deadType of [5, 6, 7, 16, 27, 26, 28]) {
+      for (const deadType of [6, 7, 16, 27, 26, 28]) {
         // The `event_class_id` branch must NOT have this dead
         // type. We use a negative lookahead: no `WHEN <N> THEN`
         // for this N in the function body. (Penalty row type
@@ -171,6 +177,22 @@ describe('1788000000001-CreateEventClassOutcomeDefs migration (RFC 0002 P1)', ()
         const re = new RegExp(`WHEN ${deadType}\\s+THEN`);
         expect(funcSection).not.toMatch(re);
       }
+    });
+
+    it('maps PASS (type=5) to class SHOT (3) + outcome MISS (4) — turnover fix 2026-08-24', () => {
+      // The engine emits `'turnover'` for failed attack pushes
+      // (which the processor maps to MatchEventType.PASS=5).
+      // The Phase 3 NOT NULL constraint forced this fix: a
+      // pre-check found 3,899 legacy rows with type=5 and
+      // NULL event_class_id (because the v1 backfill wrongly
+      // left PASS as a dead enum). The fix routes them to
+      // SHOT(3)+MISS(4) per the TS mirror in
+      // `EVENT_TWO_AXIS.turnover`.
+      const funcSection = source.match(
+        /CREATE OR REPLACE FUNCTION[\s\S]*?LANGUAGE plpgsql/,
+      )?.[0] ?? '';
+      expect(funcSection).toMatch(/WHEN 5\s+THEN 3/);  // event_class_id = SHOT
+      expect(funcSection).toMatch(/WHEN 5\s+THEN 4/);  // outcome_id = MISS
     });
 
     it('maps GOAL (type=2) to class SHOT (3) + outcome GOAL (1)', () => {

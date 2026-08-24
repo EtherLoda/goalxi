@@ -93,7 +93,7 @@ export const EVENT_TWO_AXIS: Readonly<Record<string, EventTwoAxis>> = Object.fre
     shot_on_target:          { classId:  3, outcomeId: null, outcomeCode: null },
     shot_off_target:         { classId:  3, outcomeId:  4, outcomeCode: 'MISS' },
     save:                    { classId:  3, outcomeId:  2, outcomeCode: 'SAVE' },
-    turnover:                { classId:  3, outcomeId:  4, outcomeCode: 'MISS' },  // 'turnover' = missed pass
+    turnover:                { classId:  3, outcomeId:  4, outcomeCode: 'MISS' },  // 'turnover' = failed attack push (int=5 PASS)
 
     // ============== Foul / card ==============
     // D2: FOUL class covers all card events. The outcome

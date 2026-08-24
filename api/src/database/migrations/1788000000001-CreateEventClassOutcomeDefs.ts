@@ -300,8 +300,8 @@ export class CreateEventClassOutcomeDefs1788000000001
     // on the same row is a no-op because the WHERE clause
     // filters out rows that already have event_class_id set.
     //
-    // Only the 19 actively-emitted enum values are mapped here.
-    // The 11 dead enum values (PASS=5, TACKLE=6, INTERCEPTION=7,
+    // Only the 20 actively-emitted enum values are mapped here.
+    // The 10 dead enum values (TACKLE=6, INTERCEPTION=7,
     // CLEARANCE=28, OFFSIDE=16, NEUTRAL_EVENT=27, DIRECT_FREE_KICK=181,
     // CELEBRATION=26, VAR_DECISION=30, OWN_GOAL=29, SECOND_YELLOW=101)
     // are NOT in the CASE — they exist in the enum but no live
@@ -312,6 +312,19 @@ export class CreateEventClassOutcomeDefs1788000000001
     // "Note on dead enum entries" for the Phase 3 cleanup
     // plan (drop enum type entirely when the `type` int
     // column is dropped).
+    //
+    // Important: `type=5` (PASS) is NOT dead. The engine emits
+    // `'turnover'` for failed attack pushes (the simulator's
+    // emit site for the attack-push fail case), and the
+    // processor's `mapEventType` translates that string to
+    // `MatchEventType.PASS=5`. So `type=5` rows ARE live
+    // data; we just need to give them a real class. Per the
+    // TS `EVENT_TWO_AXIS` mirror
+    // (libs/database/src/constants/event-two-axis.ts),
+    // `turnover` maps to class=SHOT(3) + outcome=MISS(4).
+    // Fixed 2026-08-24 after the Phase 3 migration's
+    // pre-check caught 3,899 legacy rows with NULL
+    // event_class_id that should have been SHOT+MISS.
 
     await queryRunner.query(`
       CREATE OR REPLACE FUNCTION "match_event_backfill_class_outcome"(
@@ -336,6 +349,7 @@ export class CreateEventClassOutcomeDefs1788000000001
             WHEN 2   THEN 3
             WHEN 3   THEN 3
             WHEN 4   THEN 3
+            WHEN 5   THEN 3
             WHEN 8   THEN 3
             WHEN 9   THEN 4
             WHEN 10  THEN 4
@@ -369,6 +383,7 @@ export class CreateEventClassOutcomeDefs1788000000001
             WHEN 2   THEN 1
             WHEN 3   THEN NULL
             WHEN 4   THEN 4
+            WHEN 5   THEN 4
             WHEN 8   THEN 2
             WHEN 9   THEN 5
             WHEN 10  THEN 6

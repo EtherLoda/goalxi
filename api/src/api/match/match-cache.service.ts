@@ -9,7 +9,9 @@ interface CachedMatchEvent {
   matchId: string;
   minute: number;
   second: number;
-  type: number;
+  // RFC 0002 Phase 3 — the legacy `type` int is dropped.
+  // The wire format `typeName` (lower_snake) is the only
+  // event-class string on the wire.
   typeName: string;
   teamId?: string;
   playerId?: number;
@@ -18,6 +20,16 @@ interface CachedMatchEvent {
   eventScheduledTime?: Date;
   isRevealed: boolean;
   createdAt: Date;
+  // RFC 0003 — specialty attribution array (denormalized
+  // from `specialtyContributions` so the cache hit doesn't
+  // have to re-decode the JSONB). `null` = no specialty
+  // fired on this event (the 90% case).
+  specialtyContributions: import('@goalxi/database').SpecialtyContribution[] | null;
+  // RFC 0002 — the new two-axis tuple. Same null contract
+  // as the entity columns.
+  eventClassId: number | null;
+  outcomeId: number | null;
+  outcomeCode: string | null;
 }
 
 @Injectable()
@@ -58,7 +70,6 @@ export class MatchCacheService {
         matchId: e.matchId,
         minute: e.minute,
         second: e.second,
-        type: e.type,
         typeName: e.typeName,
         teamId: e.teamId,
         playerId: e.playerId,
@@ -67,6 +78,16 @@ export class MatchCacheService {
         eventScheduledTime: e.eventScheduledTime,
         isRevealed: e.isRevealed,
         createdAt: e.createdAt,
+        // RFC 0003 — specialty attribution array (denormalized
+        // from `specialtyContributions` so the cache hit doesn't
+        // have to re-decode the JSONB). `null` = no specialty
+        // fired on this event (the 90% case).
+        specialtyContributions: e.specialtyContributions,
+        // RFC 0002 — the new two-axis tuple. Same null contract
+        // as the entity columns.
+        eventClassId: e.eventClassId,
+        outcomeId: e.outcomeId,
+        outcomeCode: e.outcomeCode,
       }));
       await this.cacheManager.set(key, plainEvents, this.CACHE_TTL);
       this.logger.debug(`Cached ${events.length} events for match ${matchId}`);

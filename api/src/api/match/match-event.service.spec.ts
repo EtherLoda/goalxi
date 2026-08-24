@@ -136,8 +136,11 @@ describe('MatchEventService', () => {
           matchId: 'match-1',
           minute: 10,
           second: 30,
-          type: 2, // GOAL
-          typeName: 'GOAL',
+          // RFC 0002 Phase 3 — the legacy `type` int is gone.
+          // A goal is now SHOT(3) + GOAL(1) via the new tuple.
+          typeName: 'goal',
+          eventClassId: 3,
+          outcomeId: 1,
           teamId: 'team-1',
         },
         {
@@ -180,10 +183,13 @@ describe('MatchEventService', () => {
       ]);
 
       const mockEvents = [
-        { type: 2, teamId: 'team-1', minute: 10, second: 0 }, // Home goal
-        { type: 2, teamId: 'team-2', minute: 20, second: 0 }, // Away goal
-        { type: 2, teamId: 'team-1', minute: 30, second: 0 }, // Home goal
-        { type: 3, teamId: 'team-1', minute: 40, second: 0 }, // Shot (not a goal)
+        // RFC 0002 Phase 3 — the legacy `type` int is gone.
+        // Goals are identified by the (classId=3, outcomeId=1)
+        // tuple only.
+        { eventClassId: 3, outcomeId: 1, teamId: 'team-1', minute: 10, second: 0 }, // Home goal
+        { eventClassId: 3, outcomeId: 1, teamId: 'team-2', minute: 20, second: 0 }, // Away goal
+        { eventClassId: 3, outcomeId: 1, teamId: 'team-1', minute: 30, second: 0 }, // Home goal
+        { eventClassId: 3, outcomeId: 2, teamId: 'team-1', minute: 40, second: 0 }, // Save (not a goal)
       ];
 
       eventRepository.find.mockResolvedValue(mockEvents as any);
@@ -239,19 +245,24 @@ describe('MatchEventService', () => {
       expect(result.currentScore).toEqual({ home: 1, away: 1 });
     });
 
-    it('RFC 0002: legacy rows (no classId) still count via type int', async () => {
-      // No new-tuple fields set. Only the legacy `type=2`
-      // (MatchEventType.GOAL) decides. Pin the dual-read
-      // contract: a row missing the new tuple must still
-      // classify correctly during the 1-week soak.
+    it('RFC 0002 Phase 3: ONLY the new tuple counts goals (legacy `type` int is gone)', async () => {
+      // A row with NO classId/outcomeId (no new tuple fields
+      // at all) does NOT count, even if it would have been a
+      // goal in the old schema. This is the Phase 3 contract:
+      // the new tuple is the single source of truth.
       matchRepository.findOne.mockResolvedValue(mockMatch as any);
       teamRepository.find.mockResolvedValue([
         { id: 'team-1', userId: 'user-1' } as any,
       ]);
 
       const mockEvents = [
-        { type: 2, teamId: 'team-1', minute: 10, second: 0 }, // legacy home goal
-        { type: 3, teamId: 'team-2', minute: 20, second: 0 }, // legacy SHOT_ON_TARGET — not a goal
+        // Row with all fields null/missing — the new code
+        // path requires eventClassId=3 + outcomeId=1 to
+        // count a goal. A bare-bones row that would have
+        // been a `type=2` goal in the legacy schema no
+        // longer counts.
+        { eventClassId: null, outcomeId: null, teamId: 'team-1', minute: 10, second: 0 },
+        { eventClassId: 3, outcomeId: 2, teamId: 'team-2', minute: 20, second: 0 }, // Save (not a goal)
       ];
 
       eventRepository.find.mockResolvedValue(mockEvents as any);
@@ -259,7 +270,7 @@ describe('MatchEventService', () => {
 
       const result = await service.getMatchEvents('match-1', 'user-1');
 
-      expect(result.currentScore).toEqual({ home: 1, away: 0 });
+      expect(result.currentScore).toEqual({ home: 0, away: 0 });
     });
 
     it('RFC 0002: OWN_GOAL events do NOT count toward team score (engine does not emit them)', () => {

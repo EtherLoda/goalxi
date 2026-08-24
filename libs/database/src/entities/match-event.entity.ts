@@ -11,13 +11,19 @@ import {
 import { MatchEntity } from './match.entity';
 import { TeamEntity } from './team.entity';
 import { PlayerEntity } from './player.entity';
-import { MatchEventType, MatchPhase, MatchLane } from '../constants/event-types';
+// RFC 0002 Phase 3 — `MatchEventType` (the legacy int enum)
+// is no longer used as a DB column (it was the source of
+// the dropped `type` int). The enum constant still exists
+// in `event-types.ts` for backwards-compat with any
+// straggler test code, but no production code references
+// it anymore.
+import { MatchPhase, MatchLane } from '../constants/event-types';
 import { MatchEventData, SpecialtyContribution } from '../types/match-event-data';
 
 @Entity('match_event')
 @Index(['matchId', 'phase', 'minute'])
 @Index(['matchId', 'eventScheduledTime'])
-@Index(['playerId', 'type'])
+@Index(['playerId', 'eventClassId'])
 export class MatchEventEntity extends BaseEntity {
     @PrimaryGeneratedColumn('uuid')
     id!: string;
@@ -35,10 +41,23 @@ export class MatchEventEntity extends BaseEntity {
     @Column({ type: 'int', default: 0 })
     second!: number;
 
-    @Column({ type: 'int', enum: MatchEventType })
-    type!: MatchEventType;
-
-    @Column({ type: 'varchar', length: 100, name: 'type_name' })
+    // RFC 0002 Phase 3 — the legacy `type` int column is
+    // DROPPED. The `typeName` string STAYS — it is the
+    // wire format the FE relies on (commentary templates,
+    // EVENT_COLOR / EVENT_ICON lookups, timeline, 8+ other
+    // call sites — see `web/src/components/match/`). The
+    // wire string is context-sensitive (PERIOD+END can be
+    // 'half_time' or 'full_time'; SHOT+MISS can be 'miss'
+    // or 'turnover') and can't be reconstructed from the
+    // tuple. Phase 3 keeps the string column as the
+    // 1:1 mirror of the engine's `e.type` field.
+    //
+    // The two-axis tuple below is the *authoritative*
+    // source for stats queries; `typeName` is the wire
+    // format. Both are written together by the engine's
+    // processor; both come from the engine's `e.type`
+    // string. They MUST stay in sync.
+    @Column({ type: 'varchar', length: 64, name: 'type_name' })
     typeName!: string;
 
     @Column({ name: 'team_id', type: 'uuid', nullable: true })

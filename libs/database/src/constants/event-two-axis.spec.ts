@@ -34,16 +34,22 @@ describe('EVENT_TWO_AXIS (RFC 0002 P2)', () => {
             }
         });
 
-        it('does NOT contain the 9 dead enum types', () => {
-            // 5=PASS, 6=TACKLE, 7=INTERCEPTION, 28=CLEARANCE,
+        it('does NOT contain the 8 dead enum types', () => {
+            // 6=TACKLE, 7=INTERCEPTION, 28=CLEARANCE,
             // 16=OFFSIDE, 27=NEUTRAL_EVENT, 26=CELEBRATION,
             // 29=OWN_GOAL, 30=VAR_DECISION. A future contributor
             // must NOT add these — the engine doesn't emit them
             // and adding rows here would mean dead enum types
             // sneak into the bulk insert.
+            // Note: `'turnover'` IS in the map (maps to int=5 / PASS)
+            // because the engine does emit it for failed attack
+            // pushes. The `'pass'` key would be a different
+            // concept (a successful pass event) which the engine
+            // does not emit — keep it out.
             for (const dead of [
-                'pass', 'tackle', 'interception', 'clearance', 'offside',
+                'tackle', 'interception', 'clearance', 'offside',
                 'neutral_event', 'celebration', 'own_goal', 'var_decision',
+                'pass',
             ]) {
                 expect(EVENT_TWO_AXIS).not.toHaveProperty(dead);
             }
@@ -65,6 +71,18 @@ describe('EVENT_TWO_AXIS (RFC 0002 P2)', () => {
         it('goal maps to class SHOT (3) + outcome GOAL (1)', () => {
             expect(getEventTwoAxis('goal')).toEqual({
                 classId: 3, outcomeId: 1, outcomeCode: 'GOAL',
+            });
+        });
+
+        it('turnover maps to class SHOT (3) + outcome MISS (4) — fixed 2026-08-24', () => {
+            // `'turnover'` is emitted by the engine at
+            // match.engine.ts:3366 for failed attack pushes.
+            // The processor maps it to MatchEventType.PASS=5
+            // in the DB. The TS mirror here treats it as a
+            // SHOT class with MISS outcome — same as
+            // shot_off_target.
+            expect(getEventTwoAxis('turnover')).toEqual({
+                classId: 3, outcomeId: 4, outcomeCode: 'MISS',
             });
         });
 

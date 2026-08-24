@@ -299,7 +299,10 @@ export class MatchLiveScheduler {
     // is monotonic with the previous tick — see the load-bearing comment
     // on `getCumulativeMatchStats` above.
     const eventPayloads = events.map((e) => ({
-      type: e.typeName || String(e.type),
+      // RFC 0002 Phase 3 — the legacy `type` int is gone.
+      // The wire format is `typeName` (the lower_snake
+      // string the engine emits).
+      type: e.typeName,
       matchId: e.matchId,
       minute: e.minute,
       teamId: e.teamId,
