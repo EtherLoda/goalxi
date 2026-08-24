@@ -73,7 +73,6 @@ export type SpecialtyEvent =
   | 'select_shot_type'      // weight in selectShotType (e.g. favor HEADER on CROSS)
   | 'foul_rate'             // multiplier on foul chance (lower = better)
   | 'injury_chance'         // multiplier on injury chance (lower = better)
-  | 'late_game_mental'      // placeholder for a future "decision quality" hook — no consumer yet (v2.0 nerf removed 2026-08-17)
   | 'command_defense'       // multiplier on team defense lane strength (GK aura)
   ;
 
@@ -184,20 +183,6 @@ const BASE_EFFECTS: Partial<Record<SpecialtyEvent, Partial<Record<ActiveCoreSpec
     AERIAL_THREAT: 0.80,    // 1 - 0.20 = 0.80 (jump events specifically;
                             //  the simulator applies this only when
                             //  actionType === 'jump')
-  },
-  late_game_mental: {
-    // v2.0 was a 0.80 lane-strength nerf in Team.updateSnapshot
-    // (formula: × (1 - 0.20 × TIER_MULT[tier]) per the design
-    // doc). That landed in the wrong place — the design scope
-    // was "decision quality" but the engine has no decision
-    // layer, so the nerf bled into attack/defense/possession
-    // lane strength for every COMPOSED player in the last 10
-    // minutes. Removed 2026-08-17. The action point is left
-    // here as a placeholder for a future "decision-quality"
-    // hook (see docs/specialty-v2-design.md §2.9 action point
-    // 2). Until a real consumer exists, the helper
-    // `lateGameMentalMultiplier` returns 1.0 for everyone.
-    COMPOSED: 1.0,          // placeholder — no consumer yet
   },
   command_defense: {
     SWEEPER_KEEPER: 1.05,   // 全队 defense lane 加成
@@ -484,10 +469,6 @@ export const injuryChanceMultiplier = (
   }
   return getEventMultiplier(player, 'injury_chance');
 };
-
-/** Multiplier on a player's composure-related decision quality in minute >= 80. */
-export const lateGameMentalMultiplier = (player: Player): number =>
-  getEventMultiplier(player, 'late_game_mental');
 
 /** Team-wide defense lane multiplier for the goalkeeper's aura effect. */
 export const commandDefenseMultiplier = (player: Player): number =>

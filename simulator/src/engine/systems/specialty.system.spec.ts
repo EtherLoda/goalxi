@@ -11,7 +11,6 @@ import {
   getEventMultiplier,
   gkSaveMultiplier,
   injuryChanceMultiplier,
-  lateGameMentalMultiplier,
   midfieldControlMultiplier,
   pushDefenseMultiplier,
   pushOffenseMultiplier,
@@ -192,11 +191,6 @@ describe('per-event × per-specialty multipliers (Silver tier)', () => {
     { event: 'injury_chance', specialty: 'PHYSICAL_BEAST', expected: 0.90 },
     { event: 'injury_chance', specialty: 'AERIAL_THREAT', expected: 0.80 },
 
-    // late_game_mental (COMPOSED placeholder — no consumer
-    // yet, see specialty.system.ts and §2.9 of the v2 design
-    // doc). Value 1.0 so the helper returns no-op for now.
-    { event: 'late_game_mental', specialty: 'COMPOSED', expected: 1.0 },
-
     // command_defense
     { event: 'command_defense', specialty: 'SWEEPER_KEEPER', expected: 1.05 },
   ];
@@ -302,7 +296,6 @@ describe('named convenience getters', () => {
     // the gate lives in the helper and not the BASE_EFFECTS table.
     expect(injuryChanceMultiplier(playerWith('AERIAL_THREAT', 'SILVER'))).toBe(1.0);
     expect(injuryChanceMultiplier(playerWith('AERIAL_THREAT', 'SILVER'), 'jump')).toBe(0.80);
-    expect(lateGameMentalMultiplier(playerWith('COMPOSED', 'SILVER'))).toBe(1.0);
     expect(commandDefenseMultiplier(playerWith('SWEEPER_KEEPER', 'SILVER'))).toBe(1.05);
   });
 });
@@ -719,9 +712,10 @@ describe('teamProductEventMultiplier (strength class)', () => {
 // event, the test fails with a clear "dead hook" message.
 //
 // Forward-compat escape hatch: events with no BASE_EFFECTS row at
-// all (e.g. `late_game_mental`, which is reserved for a future
-// decision-quality hook) are not checked — the table is the source
-// of truth, not the type union.
+// all are not checked — the table is the source of truth, not the
+// type union. The previous `late_game_mental` placeholder lived
+// here as a v2.5+ cleanup-era artefact; it's been removed (see
+// commit log), so the escape-hatch list is now empty.
 // ────────────────────────────────────────────────────────────────────
 
 import * as fs from 'fs';
@@ -809,7 +803,6 @@ describe('specialty hook wire-up tripwire (source-level)', () => {
     select_shot_type: 'selectShotTypeWeight',
     foul_rate: 'foulRateMultiplier',
     injury_chance: 'injuryChanceMultiplier',
-    late_game_mental: 'lateGameMentalMultiplier',
     command_defense: 'commandDefenseMultiplier',
   };
 
@@ -826,7 +819,7 @@ describe('specialty hook wire-up tripwire (source-level)', () => {
   // skips these so the design doc's "leave it in the table" intent
   // is preserved; updating this list requires a SPEC doc change in
   // the same commit.
-  const RESERVED_PLACEHOLDERS = new Set<string>(['late_game_mental']);
+  const RESERVED_PLACEHOLDERS = new Set<string>();
   const liveEvents = eventsWithHooks.filter(
     (e) => !RESERVED_PLACEHOLDERS.has(e),
   );
