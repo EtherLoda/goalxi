@@ -33,10 +33,10 @@ const ev = (overrides: Partial<MatchEvent> & { typeName: string; minute: number;
 
 describe('MatchKeyEvents · resolveName fallback (regression)', () => {
   it('substitution event resolves the incoming player from the roster via String(playerId)', () => {
-    // This is the exact shape that crashed live at 22:28: typeName='substitution',
-    // numeric playerId, no `playerIn` / `substitutePlayerName` in data.
+    // RFC 0002 Phase 3 — the new tuple is the single source
+    // of truth. SUBSTITUTION is class 8.
     const result = extractKeyEvents(
-      [ev({ typeName: 'substitution', minute: 46, teamId: home, playerId: 202, data: { playerOut: '李雷' } })],
+      [ev({ eventClassId: 8, typeName: 'substitution', minute: 46, teamId: home, playerId: 202, data: { playerOut: '李雷' } })],
       roster,
       home,
       away,
@@ -49,7 +49,7 @@ describe('MatchKeyEvents · resolveName fallback (regression)', () => {
 
   it('goal event with no data payload falls back to the roster name', () => {
     const result = extractKeyEvents(
-      [ev({ typeName: 'goal', minute: 12, teamId: home, playerId: 101 })],
+      [ev({ eventClassId: 3, outcomeId: 1, typeName: 'goal', minute: 12, teamId: home, playerId: 101 })],
       roster,
       home,
       away,
@@ -60,7 +60,7 @@ describe('MatchKeyEvents · resolveName fallback (regression)', () => {
 
   it('yellow card event falls back to the roster name when data.playerName is missing', () => {
     const result = extractKeyEvents(
-      [ev({ typeName: 'yellow_card', minute: 30, teamId: away, playerId: 303 })],
+      [ev({ eventClassId: 4, outcomeId: 6, typeName: 'yellow_card', minute: 30, teamId: away, playerId: 303 })],
       roster,
       home,
       away,
@@ -71,7 +71,7 @@ describe('MatchKeyEvents · resolveName fallback (regression)', () => {
 
   it('injury event falls back to the roster name', () => {
     const result = extractKeyEvents(
-      [ev({ typeName: 'injury', minute: 70, teamId: home, playerId: 101 })],
+      [ev({ eventClassId: 9, typeName: 'injury', minute: 70, teamId: home, playerId: 101 })],
       roster,
       home,
       away,
@@ -83,7 +83,7 @@ describe('MatchKeyEvents · resolveName fallback (regression)', () => {
   it('prefers data.playerName over the roster lookup', () => {
     // If the simulator already supplied a name (e.g. transliterated), keep it.
     const result = extractKeyEvents(
-      [ev({ typeName: 'goal', minute: 5, teamId: home, playerId: 101, data: { playerName: 'Han Meimei' } })],
+      [ev({ eventClassId: 3, outcomeId: 1, typeName: 'goal', minute: 5, teamId: home, playerId: 101, data: { playerName: 'Han Meimei' } })],
       roster,
       home,
       away,
@@ -95,7 +95,7 @@ describe('MatchKeyEvents · resolveName fallback (regression)', () => {
     // Defensive ceiling: a stale roster, a brand-new sign-up, or an event
     // pointing to a player we don't track locally should not crash.
     const result = extractKeyEvents(
-      [ev({ typeName: 'substitution', minute: 80, teamId: home, playerId: 99999, data: { playerOut: '?' } })],
+      [ev({ eventClassId: 8, typeName: 'substitution', minute: 80, teamId: home, playerId: 99999, data: { playerOut: '?' } })],
       roster,
       home,
       away,
@@ -107,7 +107,7 @@ describe('MatchKeyEvents · resolveName fallback (regression)', () => {
   it('does not throw when playerId is undefined (no slice, no toString, no crash)', () => {
     expect(() =>
       extractKeyEvents(
-        [ev({ typeName: 'goal', minute: 1, teamId: home, data: { playerName: 'TBD' } })],
+        [ev({ eventClassId: 3, outcomeId: 1, typeName: 'goal', minute: 1, teamId: home, data: { playerName: 'TBD' } })],
         roster,
         home,
         away,
@@ -128,6 +128,11 @@ describe('MatchKeyEvents · specialty attribution chip (RFC 0003)', () => {
     const result = extractKeyEvents(
       [
         ev({
+          // RFC 0002 Phase 3 — the new tuple is the source of
+          // truth. Without eventClassId=3 the event doesn't
+          // classify as a goal at all.
+          eventClassId: 3,
+          outcomeId: 1,
           typeName: 'goal',
           minute: 23,
           teamId: home,
@@ -168,6 +173,8 @@ describe('MatchKeyEvents · specialty attribution chip (RFC 0003)', () => {
     const result = extractKeyEvents(
       [
         ev({
+          eventClassId: 3,
+          outcomeId: 1,
           typeName: 'goal',
           minute: 23,
           teamId: home,
@@ -199,6 +206,8 @@ describe('MatchKeyEvents · specialty attribution chip (RFC 0003)', () => {
     const result = extractKeyEvents(
       [
         ev({
+          eventClassId: 3,
+          outcomeId: 1,
           typeName: 'goal',
           minute: 23,
           teamId: home,
@@ -230,6 +239,8 @@ describe('MatchKeyEvents · specialty attribution chip (RFC 0003)', () => {
     const result = extractKeyEvents(
       [
         ev({
+          eventClassId: 3,
+          outcomeId: 1,
           typeName: 'goal',
           minute: 23,
           teamId: home,
@@ -375,8 +386,12 @@ describe('MatchKeyEvents · two-axis event classification (RFC 0002)', () => {
   });
 
   it('falls back to typeName for legacy rows (Phase 1 / pre-Phase 2)', () => {
-    // The legacy read-path: a row with no classId/outcomeId
-    // but a recognized typeName. Must still classify correctly.
+    // RFC 0002 Phase 3 — the typeName fallback is GONE.
+    // Without the new tuple, rows don't classify. This test
+    // now pins the Phase 3 contract: legacy rows without
+    // the tuple are unclassified. (In production, every
+    // row has the tuple thanks to the Phase 1 backfill +
+    // Phase 2 engine writes.)
     const result = extractKeyEvents(
       [
         ev({
@@ -409,8 +424,9 @@ describe('MatchKeyEvents · two-axis event classification (RFC 0002)', () => {
       home,
       away,
     );
-    expect(result).toHaveLength(4);
-    expect(result.map((e) => e.icon)).toEqual(['⚽', '🟨', '⇄', '🚑']);
+    // All 4 events have only typeName (no tuple), so none
+    // classify. The list is empty.
+    expect(result).toEqual([]);
   });
 
   it('skips non-key events (KICKOFF, PERIOD, SNAPSHOT, etc.)', () => {

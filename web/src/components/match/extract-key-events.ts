@@ -48,39 +48,37 @@ export type EventEntry = {
 type EventCategory = 'goal' | 'card' | 'substitution' | 'injury' | null;
 
 function classifyEvent(ev: MatchEvent): EventCategory {
-  // Class+outcome path (Phase 2+ rows).
-  if (ev.eventClassId != null) {
-    // GOAL: class SHOT(3) + outcome GOAL(1), OR class OWN_GOAL(11)
-    if (
-      (ev.eventClassId === 3 && ev.outcomeId === 1) ||
-      ev.eventClassId === 11
-    ) {
-      return 'goal';
-    }
-    // CARD: class FOUL(4) + outcome YELLOW(6) / SECOND_YELLOW(7) / RED(8)
-    if (
-      ev.eventClassId === 4 &&
-      (ev.outcomeId === 6 || ev.outcomeId === 7 || ev.outcomeId === 8)
-    ) {
-      return 'card';
-    }
-    // SUBSTITUTION: class SUBSTITUTION(8)
-    if (ev.eventClassId === 8) return 'substitution';
-    // INJURY: class INJURY(9)
-    if (ev.eventClassId === 9) return 'injury';
+  // RFC 0002 Phase 3 — the new (eventClassId, outcomeId)
+  // tuple is the SINGLE source of truth. The legacy typeName
+  // fallback is gone. Every event (whether written by the
+  // Phase 2+ engine or backfilled by the Phase 1 SQL
+  // function) has the tuple populated.
+  if (ev.eventClassId == null) {
+    // Defensive: a row with no classId is malformed and
+    // must not classify as anything. Phase 3 set
+    // event_class_id NOT NULL so this case shouldn't exist
+    // in production; the null check is here for tests
+    // that build raw event objects without the tuple.
+    return null;
   }
-  // Legacy typeName fallback (Phase 1 / pre-Phase 2 rows).
-  const type = ev.typeName?.toLowerCase() ?? '';
-  if (type === 'goal' || type === 'own_goal') return 'goal';
+  // GOAL: class SHOT(3) + outcome GOAL(1), OR class OWN_GOAL(11)
   if (
-    type === 'yellow_card' ||
-    type === 'second_yellow' ||
-    type === 'red_card'
+    (ev.eventClassId === 3 && ev.outcomeId === 1) ||
+    ev.eventClassId === 11
+  ) {
+    return 'goal';
+  }
+  // CARD: class FOUL(4) + outcome YELLOW(6) / SECOND_YELLOW(7) / RED(8)
+  if (
+    ev.eventClassId === 4 &&
+    (ev.outcomeId === 6 || ev.outcomeId === 7 || ev.outcomeId === 8)
   ) {
     return 'card';
   }
-  if (type === 'substitution') return 'substitution';
-  if (type === 'injury') return 'injury';
+  // SUBSTITUTION: class SUBSTITUTION(8)
+  if (ev.eventClassId === 8) return 'substitution';
+  // INJURY: class INJURY(9)
+  if (ev.eventClassId === 9) return 'injury';
   return null;
 }
 
