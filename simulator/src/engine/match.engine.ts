@@ -42,7 +42,15 @@ import {
   teamProductEventMultiplier,
   teamSampledEventMultiplier,
 } from './systems/specialty.system';
+// RFC 0003 — Specialty Attribution. The recorder is created per
+// event-resolution call (resolveShot / resolvePenalty / etc.) and
+// passed only to the leaf-multiplier call sites that are part of
+// that specific event's math. Lane-strength and selection
+// paths stay recorder-free so they don't pollute the DB with
+// "every player on the team triggered something" noise.
+import { SpecialtyAttributionRecorder } from './systems/specialty.attribution';
 import { LoggerService } from '@nestjs/common';
+import { SpecialtyContribution } from '@goalxi/database';
 import { resolveDuel as resolveDuelPure, duelProbability } from './duel';
 import {
   generateWeatherAnnouncementEvent,
@@ -2615,6 +2623,22 @@ export class MatchEngine {
     // in which case the wire payload is `shot: null` anyway.
     let shotVariance = 0;
 
+    // RFC 0003 — Specialty Attribution. The recorder captures
+    // every specialty hook that fires during this single
+    // `simulateKeyMoment` call (one shot attempt). It's
+    // passed to the rating helpers (`calculateHeaderRating` /
+    // `calculateShootRating` / `calculateLongShotRating`) and
+    // also pushed to inline when a specialty fires outside the
+    // helpers (the rebound-multiplier + the GK save side).
+    // The recorder is then handed to `recordAttackSequence`
+    // which attaches the snapshot to the emitted event.
+    //
+    // Skipped for the reduction-class hooks (`foul_rate` /
+    // `injury_chance`) because those try to PREVENT the event
+    // — recording them on the event they "failed to prevent"
+    // would be misleading ("COMPOSED 发威" on a foul).
+    const specialtyRecorder = new SpecialtyAttributionRecorder();
+
     // 远射：直接起脚，不经过推进
     if (attackType === AttackType.LONG_SHOT) {
       shooter = this.selectLongShotShooter(this.possessionTeam);
@@ -2636,15 +2660,14 @@ export class MatchEngine {
       if (shooter) {
         const player = shooter.player as Player;
         shotType = ShotType.LONG_SHOT;
-        finalShootRating = this.calculateLongShotRating(player);
-        // long_shooter: 远射评分 +10%
-        // v2: no active "long shot" specialty (LONG_SHOT is deprecated
-        // → mapped to COMPOSED). The shotLongMultiplier hook is in
-        // the table but no specialty currently has an entry for it,
-        // so this is a no-op baseline call kept for forward-compat
-        // (a future "LONG_SHOT v3" could populate it without touching
-        // this line).
-        finalShootRating *= shotLongMultiplier(player);
+        // RFC 0003 — pass the recorder so the long-shot specialty
+        // hook (currently empty in v2, forward-compat for v3) gets
+        // attributed if it ever fires.
+        finalShootRating = this.calculateLongShotRating(player, specialtyRecorder);
+        // The old inline `shotLongMultiplier` call moved into
+        // `calculateLongShotRating` so the recorder can see the
+        // multiplier. The line above is the single source of
+        // truth for the long-shot specialty path now.
 
         const gk = this.defendingTeam.getGoalkeeper();
         gkRating = gk ? this.defendingTeam.getSnapshot()?.gkRating || 100 : 100;
@@ -2690,26 +2713,47 @@ export class MatchEngine {
         // 根据射门类型计算评分
         switch (shotType) {
           case ShotType.HEADER:
-            finalShootRating = this.calculateHeaderRating(player);
+            // RFC 0003 — AERIAL_THREAT's `shot_header` hook is
+            // recorded inside the helper. The shooter is the
+            // primary contributor.
+            finalShootRating = this.calculateHeaderRating(player, specialtyRecorder);
             // 头球争顶受伤检核
             this.checkAndGenerateInjury(this.possessionTeam, 'jump');
             break;
           case ShotType.ONE_ON_ONE:
+            // 1v1 has no shoot-rating specialty hook in v2
+            // (the GK side is covered by SAVING_MASTER's
+            // `gk_save`). The shooter-side contribution gets
+            // attached if/when the v3 table adds one.
             finalShootRating = this.calculateOneOnOneRating(player);
             break;
           case ShotType.REBOUND:
-            finalShootRating = this.calculateShootRating(player);
+            // RFC 0003 — `shot_normal` (PHYSICAL_BEAST) is the
+            // active hook for REBOUND shots in v2.6+. The
+            // `shot_rebound` hook is reserved for POACHER's
+            // future entry.
+            finalShootRating = this.calculateShootRating(player, specialtyRecorder);
             // v2: rebound bonuses are now handled by POACHER's
             // `select_shooter_rebound` weight at shooter-selection
             // time. The shoot-rating multiplier is 1.0 unless a future
             // specialty populates the `shot_rebound` event row.
-            finalShootRating *= shotReboundMultiplier(player);
+            const reboundMult = shotReboundMultiplier(player);
+            // RFC 0003 — record the rebound hook fire so a
+            // future POACHER v3 entry is automatically surfaced
+            // without touching the call site again.
+            specialtyRecorder?.record(player, 'shot_rebound', 'shooter', false, reboundMult);
+            finalShootRating *= reboundMult;
             break;
           case ShotType.NORMAL:
-            finalShootRating = this.calculateShootRating(player);
+            // RFC 0003 — `shot_normal` is PHYSICAL_BEAST's
+            // home; record fires when the player has that
+            // specialty. Non-PHYSICAL_BEAST players are a
+            // 1.0 multiplier that the recorder early-returns
+            // on (no array allocation, no DB write).
+            finalShootRating = this.calculateShootRating(player, specialtyRecorder);
             break;
           default:
-            finalShootRating = this.calculateShootRating(player);
+            finalShootRating = this.calculateShootRating(player, specialtyRecorder);
         }
 
         // 随机波动因子 — 这个 random 同时驱动两件事:
@@ -2752,6 +2796,20 @@ export class MatchEngine {
           shotResult = 'blocked';
         } else {
           shotResult = isGoal ? 'goal' : 'save';
+        }
+
+        // RFC 0003 — record the GK's `gk_save` hook on a save
+        // outcome. The shooter is already recorded above via
+        // `calculateHeaderRating` / `calculateShootRating` etc.
+        // so this is the *defender's side* of the same play.
+        // GK is not primary here — the primary is the shooter
+        // on a goal, the GK on a save. We resolve primary
+        // ownership in `recordAttackSequence` based on the
+        // final `shotResult`.
+        if (shotResult === 'save' && gk) {
+          const gkPlayer = gk.player as Player;
+          const saveMult = gkSaveMultiplier(gkPlayer);
+          specialtyRecorder.record(gkPlayer, 'gk_save', 'gk', false, saveMult);
         }
       } else {
         shotResult = 'blocked';
@@ -2838,6 +2896,11 @@ export class MatchEngine {
               shotQuality: Math.round(shotVariance * 100),
               gkRating: gkRating,
             },
+      // RFC 0003 — hand the recorder to the emit path. Empty
+      // when no specialty fired (~90% of events); the snapshot
+      // is `undefined` in that case so the field is omitted
+      // from the wire payload entirely.
+      specialtyRecorder,
     });
   }
 
@@ -3255,8 +3318,14 @@ export class MatchEngine {
       shotQuality: number;
       gkRating: number;
     } | null;
+    /** RFC 0003 — Specialty Attribution. Per-sequence
+     *  recorder. The snapshot is taken just before the event is
+     *  pushed to `this.events`; primary ownership is resolved
+     *  here based on the final shot outcome (D8: "the person
+     *  who triggered the outcome is primary"). */
+    specialtyRecorder?: SpecialtyAttributionRecorder;
   }) {
-    const { lane, attackType, midfieldBattle, attackPush, shot } = sequence;
+    const { lane, attackType, midfieldBattle, attackPush, shot, specialtyRecorder } = sequence;
 
     // Running lane counters for the FE snapshot panel. The `winner` of the
     // midfield battle is the attacking team for this sequence — increment
@@ -3491,6 +3560,14 @@ export class MatchEngine {
           ? (attackPush.defendingPlayer.player as Player).id
           : undefined,
       data: eventData,
+      // RFC 0003 — Specialty Attribution. The recorder returns
+      // `undefined` when no hook fired; we forward that as
+      // `undefined` so the field is omitted from the wire
+      // payload entirely (cleaner than `specialtyContributions:
+      // []` and aligns with the partial-index `WHERE NOT NULL`
+      // contract). The snapshot is post-processed below to
+      // resolve `isPrimary` based on the outcome.
+      ...this.resolveSpecialtyAttribution(specialtyRecorder, eventType, shot),
     });
 
     if (eventType === 'goal') {
@@ -3964,8 +4041,14 @@ export class MatchEngine {
    * 计算头球评分
    * 头球靠位置争顶和空中能力：finishing×5 + composure×3 + positioning×2
    * header_specialist: 头球射门评分 +8%
+   *
+   * RFC 0003 — `recorder` is optional. When passed, the
+   * AERIAL_THREAT hook fire is captured for FE surfacing.
    */
-  private calculateHeaderRating(player: Player): number {
+  private calculateHeaderRating(
+    player: Player,
+    recorder?: SpecialtyAttributionRecorder,
+  ): number {
     const attrs = player.attributes;
     const raw =
       (attrs.finishing ?? 10) * 5 +
@@ -3977,7 +4060,14 @@ export class MatchEngine {
     // semantic fits body contact in the box, not aerial duels.
     // Team-max (now `teamSampledEventMultiplier`) handles
     // multiple AERIAL_THREATs in the cross-attack snapshot path.
-    return raw * shotHeaderMultiplier(player);
+    const mult = shotHeaderMultiplier(player);
+    // RFC 0003: record the hook fire. `isPrimary` is resolved
+    // later in `recordAttackSequence` once the shot outcome is
+    // known (shooter is primary on a goal, GK is primary on a
+    // save). Recording as non-primary here keeps the helper
+    // simple.
+    recorder?.record(player, 'shot_header', 'shooter', false, mult);
+    return raw * mult;
   }
 
   /**
@@ -3993,17 +4083,30 @@ export class MatchEngine {
    * the "野兽" semantic — body contact in the box — matches a
    * NORMAL shot rather than a header). PHYSICAL_BEAST Silver
    * on a NORMAL shot: raw × 1.10.
+   *
+   * RFC 0003 — `recorder` is optional. When passed, the
+   * PHYSICAL_BEAST hook fire is captured for FE surfacing.
    */
-  private calculateShootRating(player: Player): number {
+  private calculateShootRating(
+    player: Player,
+    recorder?: SpecialtyAttributionRecorder,
+  ): number {
     const attrs = player.attributes;
     const raw = (attrs.finishing ?? 10) * 7 + (attrs.composure ?? 10) * 3;
-    return raw * shotNormalMultiplier(player);
+    const mult = shotNormalMultiplier(player);
+    recorder?.record(player, 'shot_normal', 'shooter', false, mult);
+    return raw * mult;
   }
 
   /**
    * 计算单刀球评分
    * 单刀 1v1 面对门将：终结能力最重要，冷静次之
    * finishing×8 + composure×2 + dribbling×1
+   *
+   * No specialty multiplier applies (the `shot_one_on_one` hook
+   * is intentionally empty in the v2 BASE_EFFECTS table — the
+   * GK side is handled by SAVING_MASTER's `gk_save`). No
+   * `recorder` param needed.
    */
   private calculateOneOnOneRating(player: Player): number {
     const attrs = player.attributes;
@@ -4018,8 +4121,17 @@ export class MatchEngine {
    * 计算远射评分
    * 远射靠终结和力量：finishing×7 + composure×3 × 距离因子
    * 距离因子（18-30米）会显著降低评分
+   *
+   * RFC 0003 — `recorder` is optional. The `shot_long` hook is
+   * currently empty (no active specialty targets long shots — see
+   * `specialty.system.ts:111-114`); the recorder wiring is in
+   * place so a future specialty only needs to populate the
+   * table, not touch this call site.
    */
-  private calculateLongShotRating(player: Player): number {
+  private calculateLongShotRating(
+    player: Player,
+    recorder?: SpecialtyAttributionRecorder,
+  ): number {
     const attrs = player.attributes;
 
     // 基础评分
@@ -4032,7 +4144,9 @@ export class MatchEngine {
     const distance = minDistance + Math.random() * (maxDistance - minDistance);
     const distanceFactor = 1 - (distance - minDistance) / 50;
 
-    return baseRating * distanceFactor;
+    const mult = shotLongMultiplier(player);
+    recorder?.record(player, 'shot_long', 'shooter', false, mult);
+    return baseRating * distanceFactor * mult;
   }
 
   private resolveDuel(
@@ -4506,12 +4620,22 @@ export class MatchEngine {
     // BASE_EFFECTS row was never added and this call site didn't
     // exist; v2.0 was effectively promising a buff that was
     // silently a no-op. Same wiring as `resolvePenalty` below.
+    // RFC 0003 — Specialty Attribution. Direct FK also has
+    // both sides potentially firing (COMPOSED on the kicker,
+    // SAVING_MASTER on the GK).
+    const fkRecorder = new SpecialtyAttributionRecorder();
     const fkShotMult = shotFkMultiplier(kickerP);
+    fkRecorder.record(kickerP, 'shot_fk', 'shooter', false, fkShotMult);
     const fkAttackScore = attackScore * fkShotMult;
     const defenseScore =
       (gkP.attributes.gk_reflexes ?? 10) * 0.6 +
       (gkP.attributes.gk_handling ?? 10) * 0.4 +
       (gkP.attributes.composure ?? 10) * 0.4;
+    // RFC 0003 — note we don't currently apply a `gkSaveMultiplier`
+    // to the FK defense score (unlike `resolvePenalty` above). The
+    // base formula already has the GK hand/reflex terms folded in.
+    // If a future spec adds a SAVING_MASTER on FK, this is the
+    // single line to wire.
     const probability = duelProbability(fkAttackScore, defenseScore, {
       amplification: 2.0,
       // baseline 0.18 → 0.36:合成多次机会 → 一次,转化率翻倍
@@ -4535,6 +4659,12 @@ export class MatchEngine {
         probability: Math.round((probability) * 100) / 100,
         result: isGoal ? 'goal' : 'save',
       },
+      // RFC 0003 — Specialty Attribution.
+      ...this.resolveSpecialtyAttribution(
+        fkRecorder,
+        isGoal ? 'goal' : 'free_kick',
+        { shooter: kicker },
+      ),
     });
 
     // See the corner-driven goal branch above for the rationale.
@@ -4570,6 +4700,11 @@ export class MatchEngine {
     const kickerP = kicker.player as Player;
     const gkP = gk.player as Player;
 
+    // RFC 0003 — Specialty Attribution. Penalty is a 1v1 with
+    // both sides' specialties potentially firing (COMPOSED on
+    // the kicker, SAVING_MASTER on the GK).
+    const penaltyRecorder = new SpecialtyAttributionRecorder();
+
     const attackScore =
       (kickerP.attributes.penalties ?? 10) * 1.2 +
       (kickerP.attributes.composure ?? 10) * 0.5;
@@ -4585,6 +4720,9 @@ export class MatchEngine {
     // computation so the buff is independent of how the base score
     // happened to be assembled.
     const penaltyShotMult = shotPenaltyMultiplier(kickerP);
+    // RFC 0003 — record the COMPOSED `shot_penalty` hook fire
+    // (non-primary; primary is resolved below based on outcome).
+    penaltyRecorder.record(kickerP, 'shot_penalty', 'shooter', false, penaltyShotMult);
     const finalAttackScore = attackScore * penaltyShotMult;
     let defenseScore =
       (gkP.attributes.gk_reflexes ?? 10) * 0.8 +
@@ -4595,7 +4733,10 @@ export class MatchEngine {
     // kickerP.attributes.composure term above; the system doesn't
     // add a multiplier there because penalties are already
     // composure-gated by the base formula.
-    defenseScore *= gkSaveMultiplier(gkP);
+    const gkSaveMult = gkSaveMultiplier(gkP);
+    // RFC 0003 — record the SAVING_MASTER `gk_save` hook fire.
+    penaltyRecorder.record(gkP, 'gk_save', 'gk', false, gkSaveMult);
+    defenseScore *= gkSaveMult;
     const probability = duelProbability(finalAttackScore, defenseScore, {
       amplification: 1.0,
       baseline: 0.75,
@@ -4618,6 +4759,15 @@ export class MatchEngine {
         probability: Math.round((probability) * 100) / 100,
         result: isGoal ? 'goal' : 'save',
       },
+      // RFC 0003 — Specialty Attribution. `eventType` is
+      // 'goal' on success (shooter primary) and 'penalty_miss'
+      // on miss (no primary — the kicker "missed" and the GK
+      // "saved" but neither gets a clean attribution).
+      ...this.resolveSpecialtyAttribution(
+        penaltyRecorder,
+        isGoal ? 'goal' : 'penalty_miss',
+        { shooter: kicker },
+      ),
     });
 
     // See the corner-driven goal branch above for the rationale.
@@ -4633,6 +4783,68 @@ export class MatchEngine {
     // Update stats
     const teamId = attackingTeam.name;
     this.updateSetPieceStats(teamId, 'penalty');
+  }
+
+  // ==================== SPECIALTY ATTRIBUTION (RFC 0003) ====================
+
+  /**
+   * Resolve the `isPrimary` flag for the per-event
+   * `specialtyContributions` array. D8: "the person who triggered
+   * the outcome is primary". The leaf-multiplier helpers all
+   * record with `isPrimary: false`; this method promotes the
+   * right entry based on the final shot outcome.
+   *
+   * Returns an empty object spread when there's nothing to
+   * attach, so the field is omitted from the wire payload
+   * entirely (no `specialtyContributions: []` noise on the
+   * 90% of events with no effect).
+   *
+   *   goal   → shooter is primary
+   *   save   → gk is primary
+   *   miss / blocked / turnover / no_shot → no primary
+   *            (both sides tried, neither "won" the attribution
+   *             in a player-meaningful way — the FE shows
+   *             non-primary entries as secondary).
+   */
+  private resolveSpecialtyAttribution(
+    recorder: SpecialtyAttributionRecorder | undefined,
+    eventType: string,
+    shot: { shooter: TacticalPlayer | null } | null,
+  ): { specialtyContributions?: SpecialtyContribution[] } {
+    if (!recorder) return {};
+    const raw = recorder.snapshot();
+    if (!raw) return {};
+    // D8: promote one entry to primary based on outcome.
+    let primaryRole: 'shooter' | 'gk' | null = null;
+    if (eventType === 'goal') primaryRole = 'shooter';
+    else if (eventType === 'save') primaryRole = 'gk';
+    if (primaryRole === null) {
+      // No primary for this event class; return the array as-is
+      // (all entries are isPrimary: false).
+      return { specialtyContributions: raw };
+    }
+    // Find the primary entry. Most events have exactly one
+    // entry with the target role; if multiple (rare, e.g. a
+    // cross-attack where the same shooter fires both
+    // `shot_header` and a forward `shot_normal`), promote the
+    // first and demote the rest by copying.
+    const firstPrimaryIdx = raw.findIndex((c) => c.role === primaryRole);
+    const promoted: SpecialtyContribution[] = raw.map((c, i) => {
+      if (c.role !== primaryRole) return c;
+      // First matching role becomes primary; the rest are
+      // explicitly demoted to keep the contract tight
+      // (at-most-one primary per event).
+      return { ...c, isPrimary: i === firstPrimaryIdx };
+    });
+    // Re-sort so primary is first (the recorder's snapshot
+    // already does this when `isPrimary: true` is set, but
+    // we just patched flags so the order is stale).
+    promoted.sort((a, b) => {
+      if (a.isPrimary && !b.isPrimary) return -1;
+      if (!a.isPrimary && b.isPrimary) return 1;
+      return 0;
+    });
+    return { specialtyContributions: promoted };
   }
 
   // ==================== SET PIECE STATS ====================

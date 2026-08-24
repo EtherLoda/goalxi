@@ -144,6 +144,13 @@ export class MatchEventService {
           'lane',
           'isHome',
           'data',
+          // RFC 0003 — specialty attribution array. Not in the
+          // `select: false` set so it rides on every read. The
+          // primarySpecialtyCode/Tier generated columns are NOT
+          // selected here because the FE derives them from the
+          // array's first element if needed; we save the column
+          // round-trip.
+          'specialtyContributions',
           'eventScheduledTime',
           'isRevealed',
           'createdAt',

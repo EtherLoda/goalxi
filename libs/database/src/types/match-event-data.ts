@@ -180,3 +180,72 @@ export type MatchEventData =
     | LineupEventData
     | VarEventData
     | Record<string, never>;
+
+/**
+ * Per-event specialty contribution record. One row in the JSONB
+ * `specialty_contributions` array on `match_event` for every
+ * specialty that actually moved the multiplier (i.e. ≠ 1.0) during
+ * this event's resolution.
+ *
+ * RFC 0003 — see `docs/rfcs/0003-specialty-attribution.md`. The
+ * 23 leaf multipliers in `simulator/.../systems/specialty.system.ts`
+ * are the only writers; everything else is a read.
+ *
+ * `effectKey` is the canonical `SpecialtyEvent` string
+ * ('shot_header' | 'gk_save' | ...). The FE uses it to know which
+ * hook fired (e.g. to render "Aerial Threat +14% on header shots"
+ * rather than just "+14%").
+ *
+ * `role` is the player's role in this specific event
+ * ('shooter' for the person who took the shot, 'gk' for the keeper
+ * who saved, etc.). Distinct from `effectKey` because one player
+ * can have multiple effects (a SHOOTER might fire `shot_header`
+ * AND `shot_one_on_one` on the same play).
+ *
+ * `isPrimary` is true for at most one entry per event — the
+ * person who triggered the event's headline outcome
+ * (D8="triggering person is primary"). Engine-side guarantee:
+ * exactly 0 or 1 primary per event.
+ *
+ * `multiplier` is the tier-scaled final value (1.143 for Gold
+ * 1.10, 0.85 for Silver 0.80, etc.). **Player-facing FE must
+ * never display the raw decimal** (D9) — use the
+ * `formatSpecialtyBonus` helper in `web/src/lib/specialty-bonus.ts`
+ * to render "+14% 效果" / "+14% boost" instead.
+ */
+export interface SpecialtyContribution {
+    playerId: number;
+    /** `ActiveCoreSpecialty` string, e.g. 'AERIAL_THREAT' | 'DRIBBLER'. */
+    specialtyCode: string;
+    /** 'GOLD' | 'SILVER' | 'BRONZE' */
+    tier: 'GOLD' | 'SILVER' | 'BRONZE';
+    /** `SpecialtyEvent` key — the leaf hook that fired. */
+    effectKey: string;
+    /**
+     * Tier-scaled final multiplier. ALWAYS > 0. Stored as a
+     * number in JSONB; values typically 0.5..1.5. Never displayed
+     * to players.
+     */
+    multiplier: number;
+    /**
+     * The player's role in this event. Distinct from `effectKey`
+     * because one player can hold multiple roles/hooks in a single
+     * event (rare but possible — e.g. a SAVING_MASTER GK whose
+     * SWEEPER_KEEPER aura also fired on the same play).
+     */
+    role:
+        | 'shooter'
+        | 'assister'
+        | 'gk'
+        | 'defender'
+        | 'tackler'
+        | 'fouled'
+        | 'fouler'
+        | 'attacker'
+        | 'midfielder'
+        | 'attacker_lane'
+        | 'defender_lane'
+        | 'generic';
+    /** Engine guarantee: ≤1 primary per event. */
+    isPrimary: boolean;
+}

@@ -69,6 +69,24 @@ interface MatchEventPayload {
    *  simulator. Frontend should treat this as the source of truth — falling back
    *  to `teamId` comparisons only when the backend omits it. */
   isHome?: boolean;
+  /**
+   * RFC 0003 — Specialty Attribution. Per-event list of which
+   * player specialties actually moved a multiplier. Missing for
+   * events with no specialty effect (~90% of all events). The FE
+   * surfaces the entry with `isPrimary: true` for headline
+   * attribution. `multiplier` is the tier-scaled final value —
+   * FE must use the `formatSpecialtyBonus` helper, never display
+   * the raw decimal.
+   */
+  specialtyContributions?: Array<{
+    playerId: number;
+    specialtyCode: string;
+    tier: 'GOLD' | 'SILVER' | 'BRONZE';
+    effectKey: string;
+    multiplier: number;
+    role: string;
+    isPrimary: boolean;
+  }>;
 }
 
 interface MatchStatePayload {
@@ -509,6 +527,11 @@ export class MatchLiveGateway
       eventScheduledTime: e.eventScheduledTime?.getTime(),
       id: e.id,
       isHome: e.isHome ?? undefined,
+      // RFC 0003 — pass the attribution array through verbatim. The
+      // engine-side `SpecialtyAttributionRecorder` (see
+      // `simulator/.../systems/specialty.attribution.ts`) is the only
+      // writer; readers just forward the array.
+      specialtyContributions: e.specialtyContributions,
     }));
   }
 
