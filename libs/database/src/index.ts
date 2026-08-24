@@ -8,6 +8,9 @@ export * from './entities/match-tactics.entity';
 export * from './entities/tactics-preset.entity';
 export * from './entities/match-event.entity';
 export * from './entities/match-team-stats.entity';
+// RFC 0002 — Two-Axis Event Coding. Dictionary tables.
+export * from './entities/event-class-def.entity';
+export * from './entities/event-outcome-def.entity';
 export * from './entities/season-result.entity';
 export * from './entities/archived-season-result.entity';
 export * from './entities/archived-player-competition-stats.entity';

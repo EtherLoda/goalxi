@@ -116,6 +116,74 @@ export class MatchEventEntity extends BaseEntity {
     @Column({ type: 'varchar', length: 8, nullable: true, select: false })
     primarySpecialtyTier?: string | null;
 
+    // =============================================================
+    // RFC 0002 — Two-Axis Event Coding (Phase 1: additive only)
+    // =============================================================
+    // See `docs/rfcs/0002-event-two-axis.md`. The legacy `type`
+    // int + `typeName` string columns above are KEPT for the
+    // 1-week Phase 1 soak period. Phase 2 reads through the
+    // new columns; Phase 3 drops the old ones.
+    //
+    // All three columns are nullable: a row with no mapping
+    // (legacy debug events PASS/TACKLE/INTERCEPTION/CLEARANCE/
+    // OFFSIDE) keeps event_class_id NULL and the engine still
+    // finds it via `type` / `typeName`.
+
+    /**
+     * Stable SMALLINT id into `event_class_def`. NULL when the
+     * legacy `type` has no class mapping (see RFC 0002 §4.2
+     * "Note").
+     */
+    @Column({ name: 'event_class_id', type: 'smallint', nullable: true })
+    eventClassId?: number | null;
+
+    /**
+     * Stable SMALLINT id into `event_outcome_def`. NULL when
+     * the class has no outcome (KICKOFF, OWN_GOAL, etc.) or
+     * when the backfill couldn't determine the outcome from
+     * the legacy `type` alone (e.g. SHOT_ON_TARGET is
+     * ambiguous — was it a goal or a save?).
+     */
+    @Column({ name: 'outcome_id', type: 'smallint', nullable: true })
+    outcomeId?: number | null;
+
+    /**
+     * Denormalized stable string from `event_outcome_def.code`.
+     * Same value as `event_outcome_def[outcomeId].code`. Kept
+     * inline so the FE doesn't need a join to render
+     * "GOAL" / "SAVE" / etc.
+     */
+    @Column({ name: 'outcome_code', type: 'varchar', length: 32, nullable: true })
+    outcomeCode?: string | null;
+
+    // RFC 0002 — 4 generated outcome columns. D2 = FOUL merges
+    // CARD, so the 4 wide-format columns cover SHOT, FOUL,
+    // CORNER, FREE_KICK. Other classes fall through to NULL.
+    // These are STORED (not VIRTUAL) for consistency with the
+    // RFC 0003 generated columns and to leave room for a
+    // future index without a re-migration.
+    //
+    // Each column mirrors the generated-column shape declared
+    // in migration 1788000000001; keep the CASE expression in
+    // sync. (TypeORM doesn't auto-generate them — the SQL
+    // migration owns the truth.)
+
+    /** Outcome code when event_class_id = SHOT (3). NULL otherwise. */
+    @Column({ name: 'shot_outcome', type: 'varchar', length: 16, nullable: true, select: false })
+    shotOutcome?: string | null;
+
+    /** Outcome code when event_class_id = FOUL (4). NULL otherwise. */
+    @Column({ name: 'foul_outcome', type: 'varchar', length: 16, nullable: true, select: false })
+    foulOutcome?: string | null;
+
+    /** Outcome code when event_class_id = CORNER (6). NULL otherwise. */
+    @Column({ name: 'corner_outcome', type: 'varchar', length: 16, nullable: true, select: false })
+    cornerOutcome?: string | null;
+
+    /** Outcome code when event_class_id = FREE_KICK (5). NULL otherwise. */
+    @Column({ name: 'free_kick_outcome', type: 'varchar', length: 16, nullable: true, select: false })
+    freeKickOutcome?: string | null;
+
     // Generated Columns — read-only in application, PostgreSQL auto-maintains
     // These columns are derived from the JSONB data field and enable indexed queries
     @Column({ type: 'varchar', length: 32, nullable: true, select: false })

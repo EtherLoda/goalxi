@@ -1,5 +1,7 @@
 import {
   CupBracketSlotEntity,
+  EventClassDefEntity,
+  EventOutcomeDefEntity,
   FanEntity,
   InjuryEntity,
   LeagueEntity,
@@ -20,6 +22,8 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { AuthModule } from '../auth/auth.module';
 import { FanModule } from '../fan/fan.module';
 import { FinanceModule } from '../finance/finance.module';
+import { EventClassDefController, EventOutcomeDefController } from './event-definitions.controller';
+import { EventDefinitionsService } from './event-definitions.service';
 import { MatchCacheService } from './match-cache.service';
 import { MatchCompletionService } from './match-completion.service';
 import { MatchEventService } from './match-event.service';
@@ -50,15 +54,23 @@ import { PresetService } from './preset.service';
       FanEntity,
       LeagueStandingEntity,
       InjuryEntity,
+      // RFC 0002 — Two-Axis Event Coding dictionary tables.
+      EventClassDefEntity,
+      EventOutcomeDefEntity,
     ]),
   ],
-  controllers: [MatchController],
+  controllers: [
+    MatchController,
+    EventClassDefController,
+    EventOutcomeDefController,
+  ],
   providers: [
     MatchService,
     PresetService,
     MatchEventService,
     MatchCacheService,
     MatchCompletionService,
+    EventDefinitionsService,
   ],
   exports: [
     MatchService,
@@ -66,6 +78,7 @@ import { PresetService } from './preset.service';
     PresetService,
     MatchCacheService,
     MatchCompletionService,
+    EventDefinitionsService,
   ],
 })
 export class MatchModule {}
