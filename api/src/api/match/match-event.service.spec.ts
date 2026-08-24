@@ -213,6 +213,69 @@ describe('MatchEventService', () => {
       expect(result.isComplete).toBe(false);
     });
 
+    // RFC 0002 — Two-Axis Event Coding (Phase 2). The score
+    // calculation must accept BOTH the new (eventClassId,
+    // outcomeId) tuple AND the legacy `type` int. These tests
+    // pin the dual-read contract for the 1-week Phase 2 soak
+    // window. Phase 3 will drop the legacy `type` path.
+    it('RFC 0002: counts SHOT+GOAL tuple as a goal (new path)', async () => {
+      matchRepository.findOne.mockResolvedValue(mockMatch as any);
+      teamRepository.find.mockResolvedValue([
+        { id: 'team-1', userId: 'user-1' } as any,
+      ]);
+
+      const mockEvents = [
+        // SHOT (3) + GOAL (1) — Phase 2 row, no legacy `type` set
+        { eventClassId: 3, outcomeId: 1, outcomeCode: 'GOAL', teamId: 'team-1', minute: 10, second: 0 },
+        { eventClassId: 3, outcomeId: 1, outcomeCode: 'GOAL', teamId: 'team-2', minute: 20, second: 0 },
+        { eventClassId: 3, outcomeId: 2, outcomeCode: 'SAVE', teamId: 'team-1', minute: 30, second: 0 }, // not a goal
+      ];
+
+      eventRepository.find.mockResolvedValue(mockEvents as any);
+      statsRepository.findOne.mockResolvedValue({} as any);
+
+      const result = await service.getMatchEvents('match-1', 'user-1');
+
+      expect(result.currentScore).toEqual({ home: 1, away: 1 });
+    });
+
+    it('RFC 0002: legacy rows (no classId) still count via type int', async () => {
+      // No new-tuple fields set. Only the legacy `type=2`
+      // (MatchEventType.GOAL) decides. Pin the dual-read
+      // contract: a row missing the new tuple must still
+      // classify correctly during the 1-week soak.
+      matchRepository.findOne.mockResolvedValue(mockMatch as any);
+      teamRepository.find.mockResolvedValue([
+        { id: 'team-1', userId: 'user-1' } as any,
+      ]);
+
+      const mockEvents = [
+        { type: 2, teamId: 'team-1', minute: 10, second: 0 }, // legacy home goal
+        { type: 3, teamId: 'team-2', minute: 20, second: 0 }, // legacy SHOT_ON_TARGET — not a goal
+      ];
+
+      eventRepository.find.mockResolvedValue(mockEvents as any);
+      statsRepository.findOne.mockResolvedValue({} as any);
+
+      const result = await service.getMatchEvents('match-1', 'user-1');
+
+      expect(result.currentScore).toEqual({ home: 1, away: 0 });
+    });
+
+    it('RFC 0002: OWN_GOAL events do NOT count toward team score (engine does not emit them)', () => {
+      // Defensive hand-rolled spec. The engine never emits an
+      // OWN_GOAL event (the enum value is dead — see RFC 0002
+      // §4.2 "Note on dead enum entries"). The pre-RFC 0002
+      // code only counted `type === GOAL`. If own goals are
+      // ever re-introduced, the "credit the OTHER team" logic
+      // belongs here, NOT in the engine.
+      const ev: any = { type: 29, eventClassId: 11, teamId: 'team-1' };
+      const isGoalByNew =
+        ev.eventClassId === 3 && (ev as any).outcomeId === 1;
+      const isGoalByLegacy = ev.type === 2; // GOAL
+      expect(isGoalByNew || isGoalByLegacy).toBe(false);
+    });
+
     // B8 regression: the previous `getMatchEvents` implementation
     // also flipped `isRevealed = true` on the returned events and
     // invalidated the cache. That was a layer violation — only

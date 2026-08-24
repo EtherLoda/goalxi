@@ -514,3 +514,27 @@ describe('MatchLiveGateway — handleJoinMatch (B8)', () => {
     );
   });
 });
+
+// RFC 0002 — Two-Axis Event Coding (Phase 2). The gateway
+// payload must include the new (eventClassId, outcomeId,
+// outcomeCode) tuple alongside the legacy `typeName` for
+// the 1-week Phase 2 soak. A source-level tripwire is
+// enough — the gateway is a thin shim over the entity, and
+// a future refactor that drops the dual-write would break
+// the FE live feed's two-axis classification.
+describe('MatchLiveGateway — RFC 0002 two-axis event payload', () => {
+  it('source: payload includes eventClassId/outcomeId/outcomeCode from the entity', () => {
+    const fs = require('fs');
+    const path = require('path');
+    const src = fs.readFileSync(
+      path.join(__dirname, 'match-live.gateway.ts'),
+      'utf8',
+    );
+    // The unique signature of the RFC 0002 dual-write: three
+    // `e.<field>` reads in the `response.events.map(...)` block,
+    // with the new tuple mapped to the wire payload.
+    expect(src).toMatch(/eventClassId:\s*e\.eventClassId/);
+    expect(src).toMatch(/outcomeId:\s*e\.outcomeId/);
+    expect(src).toMatch(/outcomeCode:\s*e\.outcomeCode/);
+  });
+});

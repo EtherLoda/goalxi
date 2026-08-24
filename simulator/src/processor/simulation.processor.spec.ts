@@ -600,6 +600,47 @@ describe('SimulationProcessor', () => {
     });
 
 
+    it('RFC 0002: source — bulk insert writes the (classId, outcomeId, outcomeCode) tuple alongside the legacy type int', () => {
+      // The processor is the SINGLE hot path that converts
+      // engine-emitted `e.type` strings into DB rows. RFC 0002
+      // Phase 2 dual-writes: the new 3 columns (eventClassId,
+      // outcomeId, outcomeCode) sit alongside the legacy
+      // `type` int + `typeName` string for the 1-week soak.
+      // A future refactor that drops the dual-write would
+      // break the Phase 2 contract. The tripwire below
+      // confirms all 3 keys exist in the same `values(...)`
+      // map.
+      const fs = require('fs');
+      const path = require('path');
+      const src = fs.readFileSync(
+        path.join(__dirname, 'simulation.processor.ts'),
+        'utf8',
+      );
+      // The wording (with `e.type` argument) is the unique
+      // signature of the RFC 0002 mapping call. Three keys
+      // must appear in the bulk-insert values block.
+      expect(src).toMatch(/eventClassId:\s*getEventTwoAxis\(e\.type\)\.classId/);
+      expect(src).toMatch(/outcomeId:\s*getEventTwoAxis\(e\.type\)\.outcomeId/);
+      expect(src).toMatch(/outcomeCode:\s*getEventTwoAxis\(e\.type\)\.outcomeCode/);
+    });
+
+    it('RFC 0002: source — getEventTwoAxis is imported from @goalxi/database', () => {
+      // The hot-path TS mirror lives at
+      // `libs/database/src/constants/event-two-axis.ts`. The
+      // processor must import `getEventTwoAxis` from
+      // `@goalxi/database` (not from a local path), so the
+      // DB package's barrel export is the single source.
+      const fs = require('fs');
+      const path = require('path');
+      const src = fs.readFileSync(
+        path.join(__dirname, 'simulation.processor.ts'),
+        'utf8',
+      );
+      expect(src).toMatch(
+        /import\s*\{[^}]*\bgetEventTwoAxis\b[^}]*\}\s*from\s*['"]@goalxi\/database['"]/,
+      );
+    });
+
     it('source: minutes is summed from stats.minutesPlayed (not from PlayerEntity.matchMinutes)', () => {
       // Two minutes sources exist:
       //   - engine's playerMatchStats.minutesPlayed (correct:

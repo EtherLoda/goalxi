@@ -28,6 +28,12 @@ import {
   addExperience,
   Uuid,
   competitionTypeForMatch,
+  // RFC 0002 — Two-Axis Event Coding. The processor uses the
+  // hot-path TS mirror (`getEventTwoAxis`) to look up the
+  // (classId, outcomeId, outcomeCode) tuple for each event's
+  // `type` string and writes them as siblings of the legacy
+  // `type` int. See `libs/database/src/constants/event-two-axis.ts`.
+  getEventTwoAxis,
 } from '@goalxi/database';
 import { MatchEngine, MatchEvent } from '../engine/match.engine';
 import { Team } from '../engine/classes/Team';
@@ -1081,6 +1087,17 @@ export class SimulationProcessor extends WorkerHost {
               // skill fog (PlayerEntity.revealedSkills) is a separate
               // concern handled at the API/DTO layer.
               isRevealed: true,
+              // RFC 0002 — Two-Axis Event Coding (Phase 2: dual-write).
+              // The 3 new columns sit alongside the legacy `type` int
+              // + `typeName` string for the 1-week Phase 2 soak. The
+              // lookup is O(1) via `getEventTwoAxis` (TS map mirror of
+              // the SQL backfill function — kept in sync by unit spec).
+              // Future strings without a mapping (defensive null tuple)
+              // get NULL classId/outcomeId/outcomeCode and stay
+              // readable via the legacy columns.
+              eventClassId: getEventTwoAxis(e.type).classId,
+              outcomeId: getEventTwoAxis(e.type).outcomeId,
+              outcomeCode: getEventTwoAxis(e.type).outcomeCode,
             } as any;
           }),
         )

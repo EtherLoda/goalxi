@@ -60,6 +60,9 @@ export * from './constants/scout-config';
 export * from './constants/youth-keys.constants';
 export * from './constants/name-database';
 export * from './constants/specialty-codes';
+// RFC 0002 — Two-Axis Event Coding. The hot-path mirror of
+// the SQL `match_event_backfill_class_outcome` function.
+export * from './constants/event-two-axis';
 export * from './constants/youth-position-aliases';
 export * from './constants/gk-rating.constants';
 export * from './services/training-calculator';

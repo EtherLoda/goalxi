@@ -87,6 +87,22 @@ interface MatchEventPayload {
     role: string;
     isPrimary: boolean;
   }>;
+  /**
+   * RFC 0002 — Two-Axis Event Coding (Phase 2). The new
+   * (eventClassId, outcomeId, outcomeCode) tuple. Omitted when
+   * the row was inserted before Phase 2 shipped (legacy
+   * read-path) — the FE falls back to `typeName` (the
+   * lower_snake string in `type`) for those rows.
+   *
+   * - `eventClassId`: stable SMALLINT into `event_class_def` (1-17 used)
+   * - `outcomeId`:    stable SMALLINT into `event_outcome_def` (1-28 used)
+   *                   (null when the class has no outcome, e.g. KICKOFF)
+   * - `outcomeCode`:  denormalized stable string ('GOAL', 'SAVE', ...)
+   *                   (null when outcomeId is null)
+   */
+  eventClassId?: number | null;
+  outcomeId?: number | null;
+  outcomeCode?: string | null;
 }
 
 interface MatchStatePayload {
@@ -532,6 +548,13 @@ export class MatchLiveGateway
       // `simulator/.../systems/specialty.attribution.ts`) is the only
       // writer; readers just forward the array.
       specialtyContributions: e.specialtyContributions,
+      // RFC 0002 — Two-Axis Event Coding. Forward the new tuple
+      // alongside the legacy `type` string. The FE picks which
+      // to read; both stay in the wire for the 1-week Phase 2
+      // soak period.
+      eventClassId: e.eventClassId ?? null,
+      outcomeId: e.outcomeId ?? null,
+      outcomeCode: e.outcomeCode ?? null,
     }));
   }
 
