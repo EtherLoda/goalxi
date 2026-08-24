@@ -214,6 +214,20 @@ export class CreateEventClassOutcomeDefs1788000000001
     //   class FOUL=4     → foul_outcome
     //   class CORNER=6   → corner_outcome
     //   class FREE_KICK=5 → free_kick_outcome
+    //
+    // Implementation note: STORED generated columns in PG
+    // cannot contain subqueries. The original v1 of this
+    // migration tried `(SELECT code FROM event_outcome_def
+    // WHERE id = match_event.outcome_id)` which failed with
+    // "cannot use subquery in column generation expression".
+    // The fix is to derive directly from the row's own
+    // `outcome_code` column (which is denormalized at write
+    // time by the engine's processor). Consistency between
+    // `outcome_id` and `outcome_code` is the engine's
+    // responsibility (via `getEventTwoAxis` in
+    // `libs/database/src/constants/event-two-axis.ts`); the
+    // generated columns just surface the right slice.
+    //
     // STORED 是因为 PG 禁止在 VIRTUAL generated column 上建索引
     // (虽然这 4 列本身没被索引, 但留出未来空间且零额外成本)
 
@@ -222,7 +236,7 @@ export class CreateEventClassOutcomeDefs1788000000001
       ADD COLUMN IF NOT EXISTS "shot_outcome" VARCHAR(16)
       GENERATED ALWAYS AS (
         CASE WHEN "event_class_id" = 3
-             THEN (SELECT "code" FROM "event_outcome_def" WHERE "id" = "match_event"."outcome_id")
+             THEN "outcome_code"
              ELSE NULL END
       ) STORED
     `);
@@ -232,7 +246,7 @@ export class CreateEventClassOutcomeDefs1788000000001
       ADD COLUMN IF NOT EXISTS "foul_outcome" VARCHAR(16)
       GENERATED ALWAYS AS (
         CASE WHEN "event_class_id" = 4
-             THEN (SELECT "code" FROM "event_outcome_def" WHERE "id" = "match_event"."outcome_id")
+             THEN "outcome_code"
              ELSE NULL END
       ) STORED
     `);
@@ -242,7 +256,7 @@ export class CreateEventClassOutcomeDefs1788000000001
       ADD COLUMN IF NOT EXISTS "corner_outcome" VARCHAR(16)
       GENERATED ALWAYS AS (
         CASE WHEN "event_class_id" = 6
-             THEN (SELECT "code" FROM "event_outcome_def" WHERE "id" = "match_event"."outcome_id")
+             THEN "outcome_code"
              ELSE NULL END
       ) STORED
     `);
@@ -252,7 +266,7 @@ export class CreateEventClassOutcomeDefs1788000000001
       ADD COLUMN IF NOT EXISTS "free_kick_outcome" VARCHAR(16)
       GENERATED ALWAYS AS (
         CASE WHEN "event_class_id" = 5
-             THEN (SELECT "code" FROM "event_outcome_def" WHERE "id" = "match_event"."outcome_id")
+             THEN "outcome_code"
              ELSE NULL END
       ) STORED
     `);
