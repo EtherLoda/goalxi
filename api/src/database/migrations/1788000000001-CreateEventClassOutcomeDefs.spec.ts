@@ -152,19 +152,24 @@ describe('1788000000001-CreateEventClassOutcomeDefs migration (RFC 0002 P1)', ()
       expect(source).toMatch(/SELECT "match_event_backfill_class_outcome"\(NULL\)/);
     });
 
-    it('maps 5 legacy types to NULL (no class for PASS/TACKLE/INTERCEPTION/CLEARANCE/OFFSIDE)', () => {
-      // These 5 will get NULL class_id, leaving them readable
-      // only via the legacy `type` int + `typeName` string
-      // columns. Phase 2 will decide whether to add classes.
-      // We pin the mapping so a future contributor doesn't
-      // accidentally assign them to a wrong class.
+    it('does NOT map dead enum types (PASS/TACKLE/INTERCEPTION/CLEARANCE/OFFSIDE/...)', () => {
+      // These 11 enum values exist in `MatchEventType` but are
+      // not emitted by the live engine (the `EventGenerator`
+      // class that COULD emit them has zero callers). The
+      // backfill must NOT have a CASE branch for them, so a
+      // future contributor doesn't accidentally re-introduce
+      // dead enum support. Phase 3 drops them with the `type`
+      // column.
       const funcSection = source.match(
         /CREATE OR REPLACE FUNCTION[\s\S]*?LANGUAGE plpgsql/,
       )?.[0] ?? '';
-      for (const legacyType of [5, 6, 7, 16, 28]) {
-        // The CASE branch for that type should map to NULL.
-        const re = new RegExp(`WHEN ${legacyType}\\s+THEN NULL`);
-        expect(funcSection).toMatch(re);
+      for (const deadType of [5, 6, 7, 16, 27, 26, 28]) {
+        // The `event_class_id` branch must NOT have this dead
+        // type. We use a negative lookahead: no `WHEN <N> THEN`
+        // for this N in the function body. (Penalty row type
+        // 31 is NOT dead — it's emitted via `penalty_miss`.)
+        const re = new RegExp(`WHEN ${deadType}\\s+THEN`);
+        expect(funcSection).not.toMatch(re);
       }
     });
 

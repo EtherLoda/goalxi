@@ -286,10 +286,18 @@ export class CreateEventClassOutcomeDefs1788000000001
     // on the same row is a no-op because the WHERE clause
     // filters out rows that already have event_class_id set.
     //
-    // 5 legacy types (PASS=5, TACKLE=6, INTERCEPTION=7,
-    // CLEARANCE=28, OFFSIDE=16) have no class mapping — the
-    // backfill leaves their event_class_id NULL. Phase 2 will
-    // decide whether to add classes for them.
+    // Only the 19 actively-emitted enum values are mapped here.
+    // The 11 dead enum values (PASS=5, TACKLE=6, INTERCEPTION=7,
+    // CLEARANCE=28, OFFSIDE=16, NEUTRAL_EVENT=27, DIRECT_FREE_KICK=181,
+    // CELEBRATION=26, VAR_DECISION=30, OWN_GOAL=29, SECOND_YELLOW=101)
+    // are NOT in the CASE — they exist in the enum but no live
+    // engine path emits them (verified by searching for the
+    // `type: '...'` literal across the simulator's emit sites).
+    // Their rows, if any exist (they shouldn't outside of test
+    // data), keep event_class_id NULL. See RFC 0002 §4.2
+    // "Note on dead enum entries" for the Phase 3 cleanup
+    // plan (drop enum type entirely when the `type` int
+    // column is dropped).
 
     await queryRunner.query(`
       CREATE OR REPLACE FUNCTION "match_event_backfill_class_outcome"(
@@ -306,22 +314,16 @@ export class CreateEventClassOutcomeDefs1788000000001
             WHEN 2   THEN 3
             WHEN 3   THEN 3
             WHEN 4   THEN 3
-            WHEN 5   THEN NULL
-            WHEN 6   THEN NULL
-            WHEN 7   THEN NULL
             WHEN 8   THEN 3
             WHEN 9   THEN 4
             WHEN 10  THEN 4
-            WHEN 101 THEN 4
             WHEN 11  THEN 4
             WHEN 12  THEN 8
             WHEN 13  THEN 2
             WHEN 14  THEN 2
             WHEN 15  THEN 9
-            WHEN 16  THEN NULL
             WHEN 17  THEN 6
             WHEN 18  THEN 5
-            WHEN 181 THEN 5
             WHEN 19  THEN 7
             WHEN 20  THEN 16
             WHEN 21  THEN 17
@@ -329,15 +331,16 @@ export class CreateEventClassOutcomeDefs1788000000001
             WHEN 23  THEN 2
             WHEN 24  THEN 2
             WHEN 25  THEN 2
-            WHEN 26  THEN 12
-            WHEN 27  THEN NULL
-            WHEN 28  THEN NULL
             WHEN 29  THEN 11
             WHEN 30  THEN 10
             WHEN 31  THEN 7
             WHEN 32  THEN 14
             WHEN 33  THEN 13
             WHEN 34  THEN 15
+            -- Legacy hack: SECOND_YELLOW=101 and DIRECT_FREE_KICK=181
+            -- share the parent event id. They DO exist in test data.
+            WHEN 101 THEN 4
+            WHEN 181 THEN 5
             ELSE NULL
           END,
           "outcome_id" = CASE "type"
@@ -347,11 +350,9 @@ export class CreateEventClassOutcomeDefs1788000000001
             WHEN 8   THEN 2
             WHEN 9   THEN 5
             WHEN 10  THEN 6
-            WHEN 101 THEN 7
             WHEN 11  THEN 8
             WHEN 17  THEN 11
             WHEN 18  THEN 11
-            WHEN 181 THEN 12
             WHEN 19  THEN 1
             WHEN 20  THEN 28
             WHEN 22  THEN 26
@@ -359,6 +360,9 @@ export class CreateEventClassOutcomeDefs1788000000001
             WHEN 24  THEN 26
             WHEN 25  THEN 26
             WHEN 31  THEN 4
+            -- Legacy hack
+            WHEN 101 THEN 7
+            WHEN 181 THEN 12
             ELSE NULL
           END,
           "outcome_code" = CASE

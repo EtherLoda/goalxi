@@ -133,7 +133,44 @@ CREATE TABLE event_outcome_def (
 | 27 | END | F | F |
 | 28 | FORFEIT | F | T |
 
-> **Note**: 引擎里没 emit 的 PASS / TACKLE / INTERCEPTION / CLEARANCE / OFFSIDE 这 5 个 debug event **不映射到 class**。它们继续用旧 `typeName` 字符串，Phase 1 的 backfill function 对这 5 个 type 留 NULL class_id。Phase 2 改造 engine 时如果发现这 5 个还有意义再加 class，否则永久保留为 legacy。
+> **Note on dead enum entries** (added 2026-08-24 after the user
+> pushed back on the original "5 legacy types" wording):
+>
+> 11 values in the `MatchEventType` enum are **not emitted by the
+> live engine** (verified by grepping `type: '...'` literals
+> across `match.engine.ts` and `event.generator.ts` emit sites).
+> They're leftover from a v1/v2 design phase; the `EventGenerator`
+> class that COULD emit most of them has zero callers in the
+> current code.
+>
+> Dead enum values:
+>
+> | id | code | last referenced from |
+> |---|---|---|
+> | 5 | PASS | `EventGenerator` only (dead) |
+> | 6 | TACKLE | `EventGenerator` only (dead) |
+> | 7 | INTERCEPTION | `EventGenerator` only (dead) |
+> | 28 | CLEARANCE | `EventGenerator` only (dead) |
+> | 16 | OFFSIDE | `EventGenerator` only (dead) |
+> | 27 | NEUTRAL_EVENT | `simulation.processor` fallback for unknown strings |
+> | 26 | CELEBRATION | `MatchEventType.CELEBRATION` (no emit) |
+> | 29 | OWN_GOAL | `MatchEventType.OWN_GOAL` (no emit) |
+> | 30 | VAR_DECISION | `MatchEventType.VAR_DECISION` (no emit) |
+> | 181 | DIRECT_FREE_KICK | legacy hack: shares `FREE_KICK=18` event id |
+> | 101 | SECOND_YELLOW | legacy hack: shares `YELLOW_CARD=10` event id |
+>
+> The backfill function in this RFC **does not** have CASE
+> branches for the first 7. Rows with those types (if any
+> exist outside test data — they shouldn't) get
+> `event_class_id = NULL` and stay readable via the legacy
+> `type` int + `typeName` string columns.
+>
+> **Phase 3 cleanup** (when the legacy `type` int column is
+> dropped): drop the entire `match_event_type` enum type
+> (`ALTER TYPE ... RENAME TO` + recreate) and remove the
+> 11 dead entries from `MatchEventType` at the same time.
+> PG doesn't support `DROP VALUE` on enums, so the only
+> clean path is rename + recreate.
 
 ### 4.3 实体表加列
 
