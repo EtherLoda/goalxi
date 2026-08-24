@@ -58,7 +58,7 @@ export class AddCompetitionTypeToPlayerStats1737000000000
         FROM information_schema.columns
        WHERE table_name = $1
          AND column_name = 'competition_type'
-    `);
+    `, [table]);
     if (hasColumn.length > 0) {
       return; // already added
     }
