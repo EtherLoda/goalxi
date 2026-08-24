@@ -339,9 +339,33 @@ export const selectShotTypeWeight = (player: Player): number =>
 export const foulRateMultiplier = (player: Player): number =>
   getEventMultiplier(player, 'foul_rate');
 
-/** Multiplier on the player's injury chance (lower = more robust). */
-export const injuryChanceMultiplier = (player: Player): number =>
-  getEventMultiplier(player, 'injury_chance');
+/**
+ * Multiplier on the player's injury chance (lower = more robust).
+ *
+ * AERIAL_THREAT's injury reduction is jump-only — see
+ * `docs/specialty-v2-design.md` §2.1 Hook 3. PHYSICAL_BEAST applies
+ * on any actionType. The gate lives in this helper (not in the
+ * `BASE_EFFECTS` table) so the table itself can stay
+ * actionType-agnostic and the engine can pass the current action
+ * through unchanged. If `actionType` is omitted the helper defaults
+ * to "non-jump", which is the safe fallback for any caller that
+ * doesn't know the action type — the AERIAL_THREAT bonus is the
+ * only thing that gate affects, and it gets 1.0 in that case.
+ */
+export const injuryChanceMultiplier = (
+  player: Player,
+  actionType?: 'tackle' | 'sprint' | 'jump' | 'collision' | 'other',
+): number => {
+  const code = player?.attributes?.coreSpecialty;
+  if (
+    actionType !== 'jump' &&
+    isActiveSpecialty(code) &&
+    code === 'AERIAL_THREAT'
+  ) {
+    return 1.0;
+  }
+  return getEventMultiplier(player, 'injury_chance');
+};
 
 /** Multiplier on a player's composure-related decision quality in minute >= 80. */
 export const lateGameMentalMultiplier = (player: Player): number =>

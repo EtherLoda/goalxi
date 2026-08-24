@@ -93,6 +93,12 @@ export class InjurySystem {
    * @param isHomeMatch - Whether the match is at home
    * @param doctorLevel - Team doctor level (0 = no doctor)
    * @param injuryState - Player's current injury state ('minor' increases risk)
+   * @param injuryMult - v2 specialty multiplier on injury chance. 1.0
+   *   by default; < 1.0 for robust specialties (PHYSICAL_BEAST 0.86-0.93
+   *   B/S/G, AERIAL_THREAT on jump 0.72-0.86 B/S/G). Engine call sites
+   *   compute this from `injuryChanceMultiplier(player)` and pass it in
+   *   so `InjurySystem` stays specialty-agnostic. Defaults to 1.0 so the
+   *   existing spec suite (which never passes it) still passes.
    */
   static calculateInjuryChance(
     baseChance: number,
@@ -101,6 +107,7 @@ export class InjurySystem {
     isHomeMatch: boolean = true,
     doctorLevel: number = 0,
     injuryState?: 'minor' | 'severe' | null,
+    injuryMult: number = 1.0,
   ): number {
     let chance = baseChance;
 
@@ -129,6 +136,13 @@ export class InjurySystem {
     if (doctorLevel > 0) {
       chance *= 1 - 0.1 * doctorLevel;
     }
+
+    // v2 specialty robustness — applied last so the multiplier
+    // composes with every other modifier rather than being
+    // double-discounted. < 1.0 for PHYSICAL_BEAST (any actionType) and
+    // AERIAL_THREAT (when actionType === 'jump', gated by the engine
+    // call site — InjurySystem stays specialty-agnostic).
+    chance *= injuryMult;
 
     return chance;
   }
@@ -179,6 +193,9 @@ export class InjurySystem {
    *   receiving the result plus the inputs that produced it. Used by the
    *   match engine to log injury events without coupling InjurySystem to a
    *   specific logger.
+   * @param injuryMult v2 specialty multiplier on the final injury
+   *   chance (see `calculateInjuryChance` for semantics). Defaults to
+   *   1.0 so existing call sites stay unchanged.
    */
   static generateInjury(
     actionType: 'tackle' | 'sprint' | 'jump' | 'collision' | 'other',
@@ -187,6 +204,7 @@ export class InjurySystem {
     isHomeMatch: boolean = true,
     doctorLevel: number = 0,
     injuryState?: 'minor' | 'severe' | null,
+    injuryMult: number = 1.0,
     onInjury?: (
       result: InjuryResult,
       ctx: {
@@ -212,6 +230,7 @@ export class InjurySystem {
       isHomeMatch,
       doctorLevel,
       injuryState,
+      injuryMult,
     );
 
     if (Math.random() > chance) {

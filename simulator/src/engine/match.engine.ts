@@ -2391,6 +2391,21 @@ export class MatchEngine {
         }
       }
 
+      // v2 TACKLER (1.0 / 1.105 / 1.15 / 1.21) + WALL (1.0 / 1.126 /
+      // 1.18 / 1.252) on the defending side — boosts defPower during
+      // the push duel. Applies to all attack types (not just CROSS)
+      // because a TACKLER's tackle chance matters whenever the
+      // defender is contesting the push. Same team-max pattern as
+      // AERIAL_THREAT — teamMaxEventCached picks the best holder
+      // across the back line, so multiple defenders don't stack.
+      const defenderPushBonus = teamMaxEventCached(
+        this.defendingTeam,
+        'push_defense',
+      );
+      if (defenderPushBonus > 1.0) {
+        effectiveDefPower *= defenderPushBonus;
+      }
+
       // ==========================================
       // 战术维度加成：防线高度 → 攻守强度修正
       // ==========================================
@@ -3030,6 +3045,12 @@ export class MatchEngine {
       | null;
 
     // Generate injury
+    // v2 PHYSICAL_BEAST (any actionType) + AERIAL_THREAT (jump only) —
+    // both reduce injury chance via the `injury_chance` event. The
+    // helper internally gates AERIAL_THREAT on jump, so passing
+    // `actionType` through is enough — no need to inspect the
+    // player's specialty code here.
+    const injuryMult = injuryChanceMultiplier(player, actionType);
     const injuryResult = InjurySystem.generateInjury(
       actionType,
       playerAge,
@@ -3037,6 +3058,7 @@ export class MatchEngine {
       team === this.homeTeam,
       team.doctorLevel,
       playerInjuryState,
+      injuryMult,
       this.logger
         ? (result, ctx) => {
             this.logger?.debug(
@@ -3750,10 +3772,36 @@ export class MatchEngine {
 
     if (candidates.length === 0) return null;
 
+    // Per-bucket weighted pick. v2 PLAYMAKER (1.0 / 1.175 / 1.25 /
+    // 1.35 for no-spec / B / S / G) and v2 CROSSER (1.0 / 1.14 / 1.20
+    // / 1.28) bias the assister pick inside whichever bucket we
+    // landed in. Specialty holders become likelier without changing
+    // the bucket-level position distribution. Falls back to uniform
+    // random when the bucket has no specialty holder (the common case
+    // for ~50% of teams).
+    const pickWeighted = (bucket: TacticalPlayer[]): TacticalPlayer => {
+      const weights: number[] = new Array(bucket.length);
+      let total = 0;
+      for (let i = 0; i < bucket.length; i++) {
+        const w = selectAssistWeight(bucket[i].player as Player);
+        weights[i] = w;
+        total += w;
+      }
+      if (total <= 0) {
+        return bucket[(Math.random() * bucket.length) | 0];
+      }
+      let r = Math.random() * total;
+      for (let i = 0; i < bucket.length; i++) {
+        r -= weights[i];
+        if (r <= 0) return bucket[i];
+      }
+      return bucket[bucket.length - 1];
+    };
+
     // For CROSS (传中), the assister must be a wide player
     if (attackType === 'CROSS') {
       if (widePlayers.length > 0) {
-        return widePlayers[(Math.random() * widePlayers.length) | 0];
+        return pickWeighted(widePlayers);
       }
       // Fallback: no wide player available, no assist
       return null;
@@ -3761,12 +3809,10 @@ export class MatchEngine {
 
     // For other attack types, prioritize midfielders and wingers
     if (preferredAssisters.length > 0 && Math.random() < 0.7) {
-      return preferredAssisters[
-        (Math.random() * preferredAssisters.length) | 0
-      ];
+      return pickWeighted(preferredAssisters);
     }
 
-    return candidates[(Math.random() * candidates.length) | 0];
+    return pickWeighted(candidates);
   }
 
   /**
@@ -3797,7 +3843,21 @@ export class MatchEngine {
     const w0 = distribution[0] * weatherWeights[0] * tempoWeights[AttackType[0]];
     const w1 = distribution[1] * weatherWeights[1] * tempoWeights[AttackType[1]];
     const w2 = distribution[2] * weatherWeights[2] * tempoWeights[AttackType[2]];
-    const w3 = distribution[3] * weatherWeights[3] * tempoWeights[AttackType[3]];
+    // v2 DRIBBLER — when a DRIBBLER is on the pitch, the team is more
+    // likely to pick DRIBBLE. The bonus is multiplicative on the
+    // DRIBBLE bucket only (1.0 = no DRIBBLER, 1.14/1.20/1.28 for
+    // B/S/G). Anchored on the team-max so multiple DRIBBLERs do not
+    // stack — same `teamMaxEventMultiplier` pattern the engine uses
+    // for TACKLER / SWEEPER_KEEPER elsewhere.
+    const dribbleBonus = teamMaxEventMultiplier(
+      this.possessionTeam,
+      'select_attack_type',
+    );
+    const w3 =
+      distribution[3] *
+      weatherWeights[3] *
+      tempoWeights[AttackType[3]] *
+      (dribbleBonus > 1.0 ? dribbleBonus : 1.0);
     const w4 = distribution[4] * weatherWeights[4] * tempoWeights[AttackType[4]];
 
     const sum = w0 + w1 + w2 + w3 + w4;
@@ -3829,11 +3889,32 @@ export class MatchEngine {
     const rand = Math.random() * 100;
 
     switch (attackType) {
-      case AttackType.CROSS:
+      case AttackType.CROSS: {
         // 传中：头球 50%，抽射 30%，补射 20%
-        if (rand < 50) return ShotType.HEADER;
-        if (rand < 80) return ShotType.NORMAL;
+        // v2 CROSSER — when a CROSSER is on the pitch, the team is
+        // more likely to pick HEADER off a cross (the "CROSSER picks
+        // the cross → header target" mental model). Team-max bonus
+        // 1.0 / 1.14 / 1.20 / 1.28 (no-spec / Bronze / Silver / Gold).
+        // Renormalize the three cross-shot weights so the
+        // distribution still sums to 100% — otherwise a Gold CROSSER
+        // would push HEADER past 64% and break the 30/20 split.
+        const headerBase = 50;
+        const normalBase = 30;
+        const reboundBase = 20;
+        const crossBonus = teamMaxEventMultiplier(
+          this.possessionTeam,
+          'select_shot_type',
+        );
+        const headerW = headerBase * (crossBonus > 1.0 ? crossBonus : 1.0);
+        const normalW = normalBase;
+        const reboundW = reboundBase;
+        const sum = headerW + normalW + reboundW;
+        const headerP = (headerW / sum) * 100;
+        const normalP = headerP + (normalW / sum) * 100;
+        if (rand < headerP) return ShotType.HEADER;
+        if (rand < normalP) return ShotType.NORMAL;
         return ShotType.REBOUND;
+      }
 
       case AttackType.SHORT_PASS:
         // 短传配合：抽射 80%，补射 20%
