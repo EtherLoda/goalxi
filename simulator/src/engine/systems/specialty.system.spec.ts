@@ -284,7 +284,202 @@ describe('named convenience getters', () => {
     expect(foulRateMultiplier(playerWith('DRIBBLER', 'SILVER'))).toBe(0.90);
     expect(foulRateMultiplier(playerWith('COMPOSED', 'SILVER'))).toBe(0.50);
     expect(injuryChanceMultiplier(playerWith('PHYSICAL_BEAST', 'SILVER'))).toBe(0.90);
+    // AERIAL_THREAT injury reduction is jump-gated — without
+    // actionType='jump' the helper returns 1.0 (no effect). Verifies
+    // the gate lives in the helper and not the BASE_EFFECTS table.
+    expect(injuryChanceMultiplier(playerWith('AERIAL_THREAT', 'SILVER'))).toBe(1.0);
+    expect(injuryChanceMultiplier(playerWith('AERIAL_THREAT', 'SILVER'), 'jump')).toBe(0.80);
     expect(lateGameMentalMultiplier(playerWith('COMPOSED', 'SILVER'))).toBe(1.0);
     expect(commandDefenseMultiplier(playerWith('SWEEPER_KEEPER', 'SILVER'))).toBe(1.05);
   });
+});
+
+// ────────────────────────────────────────────────────────────────────
+// Source-level tripwire — every SpecialtyEvent that has a row in
+// `BASE_EFFECTS` must be consumed somewhere in the simulator. This
+// guards the v1 → v2 dead-helper failure mode where the spec table
+// was refactored, the `BASE_EFFECTS` row was added, but the engine
+// never actually started calling the helper. We detect that at test
+// time so a future contributor can't reintroduce a "designed but
+// never wired" specialty event.
+//
+// Implementation: load `BASE_EFFECTS` and `SpecialtyEvent` as text
+// from the source files (rather than importing the internal table,
+// which is intentionally not exported), then for each event with a
+// non-empty row, scan every `.ts` file under `simulator/src/engine/`
+// (skipping this spec file and `specialty.system.ts` itself, which
+// are the only places that legitimately reference every event as a
+// string). If a hook row is defined but no engine call site uses the
+// event, the test fails with a clear "dead hook" message.
+//
+// Forward-compat escape hatch: events with no BASE_EFFECTS row at
+// all (e.g. `late_game_mental`, which is reserved for a future
+// decision-quality hook) are not checked — the table is the source
+// of truth, not the type union.
+// ────────────────────────────────────────────────────────────────────
+
+import * as fs from 'fs';
+import * as path from 'path';
+
+describe('specialty hook wire-up tripwire (source-level)', () => {
+  const repoRoot = path.resolve(__dirname, '../../../..');
+  const specialtySystemPath = path.join(
+    repoRoot,
+    'simulator/src/engine/systems/specialty.system.ts',
+  );
+  const specPath = __filename;
+
+  function readSource(file: string): string {
+    return fs.readFileSync(file, 'utf8');
+  }
+
+  // Recursive .ts scan under `simulator/src/engine/`. Returns a map
+  // from absolute path → file contents. Excludes this spec file and
+  // the system file under test (which legitimately lists every event
+  // as a string in the `BASE_EFFECTS` table and the named helpers).
+  function collectEngineSources(): Map<string, string> {
+    const root = path.join(repoRoot, 'simulator/src/engine');
+    const out = new Map<string, string>();
+    const walk = (dir: string) => {
+      for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+        const full = path.join(dir, entry.name);
+        if (entry.isDirectory()) {
+          walk(full);
+        } else if (entry.isFile() && full.endsWith('.ts')) {
+          if (full === specPath) continue;
+          if (full === specialtySystemPath) continue;
+          out.set(full, readSource(full));
+        }
+      }
+    };
+    walk(root);
+    return out;
+  }
+
+  // Extract every event name that has a non-empty `BASE_EFFECTS` row.
+  // We parse the table from source rather than importing it because
+  // `BASE_EFFECTS` is intentionally not exported (it's a private
+  // implementation detail of `getEventMultiplier`).
+  function extractEventsWithHooks(systemSrc: string): string[] {
+    const re = /^\s*([a-z_]+):\s*\{[\s\S]*?\b[A-Z_]+:\s*[0-9.]+/gm;
+    const out: string[] = [];
+    let m: RegExpExecArray | null;
+    while ((m = re.exec(systemSrc)) !== null) {
+      out.push(m[1]);
+    }
+    return out;
+  }
+
+  // Map every event key to the named helper that consumes it.
+  // Engine call sites use the named helper (e.g. `attackLaneMultiplier`),
+  // and the helper internally calls `getEventMultiplier(player, 'attack_lane')`
+  // — the string literal only lives inside `specialty.system.ts` itself.
+  // Without this map, the tripwire would false-positive every event
+  // that goes through a named helper (which is most of them).
+  //
+  // Convention: snake_case event → camelCase + (Multiplier | Weight).
+  // `select_*` events use the `Weight` suffix; everything else uses
+  // `Multiplier`. Keep this in sync with `specialty.system.ts`.
+  const eventToHelper: Record<string, string> = {
+    attack_lane: 'attackLaneMultiplier',
+    defense_lane: 'defenseLaneMultiplier',
+    shot_header: 'shotHeaderMultiplier',
+    shot_long: 'shotLongMultiplier',
+    shot_rebound: 'shotReboundMultiplier',
+    shot_one_on_one: 'shotOneOnOneMultiplier',
+    shot_normal: 'shotNormalMultiplier',
+    gk_save: 'gkSaveMultiplier',
+    push_offense: 'pushOffenseMultiplier',
+    push_defense: 'pushDefenseMultiplier',
+    midfield_control: 'midfieldControlMultiplier',
+    select_shooter: 'selectShooterWeight',
+    select_shooter_rebound: 'selectShooterReboundWeight',
+    select_shooter_counter: 'selectShooterCounterWeight',
+    select_assist: 'selectAssistWeight',
+    select_attack_type: 'selectAttackTypeWeight',
+    select_shot_type: 'selectShotTypeWeight',
+    foul_rate: 'foulRateMultiplier',
+    injury_chance: 'injuryChanceMultiplier',
+    late_game_mental: 'lateGameMentalMultiplier',
+    command_defense: 'commandDefenseMultiplier',
+  };
+
+  const systemSrc = readSource(specialtySystemPath);
+  const eventsWithHooks = extractEventsWithHooks(systemSrc);
+  const engineSources = collectEngineSources();
+
+  // Events that the spec explicitly reserves as a placeholder until
+  // a real engine consumer exists. The BASE_EFFECTS row stays as a
+  // no-op (1.0) so future contributors can populate it without
+  // touching the engine call site map. See
+  // `docs/specialty-v2-design.md` §2.9 for the COMPOSED late-game
+  // hook, which is the only entry in this list today. The tripwire
+  // skips these so the design doc's "leave it in the table" intent
+  // is preserved; updating this list requires a SPEC doc change in
+  // the same commit.
+  const RESERVED_PLACEHOLDERS = new Set<string>(['late_game_mental']);
+  const liveEvents = eventsWithHooks.filter(
+    (e) => !RESERVED_PLACEHOLDERS.has(e),
+  );
+
+  it('BASE_EFFECTS exposes at least the design-doc events', () => {
+    // Defensive — if the parser above breaks, this fails loudly
+    // instead of silently allowing the next test to pass.
+    expect(eventsWithHooks.length).toBeGreaterThan(10);
+  });
+
+  it('event→helper map covers every BASE_EFFECTS row', () => {
+    // If a new event is added to BASE_EFFECTS without updating the
+    // map, the tripwire falls back to string-literal-only search and
+    // would false-positive. This test forces the contributor to
+    // update the map alongside the table.
+    const missing = liveEvents.filter((event) => !(event in eventToHelper));
+    expect(missing).toEqual([]);
+  });
+
+  it.each(liveEvents)(
+    'specialty event "%s" is consumed by at least one engine file',
+    (event) => {
+      // A hook is "consumed" if EITHER:
+      //   (a) the literal `'event_name'` appears in an engine file
+      //       (caller is using `getEventMultiplier` directly, or
+      //       `teamMaxEventMultiplier` with the event as a string), OR
+      //   (b) the named helper for this event is called from an
+      //       engine file.
+      // Both are equivalent ways of consuming the hook — most callers
+      // use the named helper. The string-literal fallback handles
+      // the `teamMaxEventMultiplier` / `teamMaxEventCached` path used
+      // by `Team.updateSnapshot` and `match.engine.ts` for several
+      // hooks.
+      const stringHits: string[] = [];
+      const helperName = eventToHelper[event];
+      const helperNeedle = helperName ? `${helperName}(` : null;
+      const helperHits: string[] = [];
+      for (const [file, src] of engineSources) {
+        const rel = path.relative(repoRoot, file);
+        if (src.includes(`'${event}'`)) {
+          stringHits.push(rel);
+        }
+        if (helperNeedle && src.includes(helperNeedle)) {
+          helperHits.push(rel);
+        }
+      }
+      const matchingFiles = Array.from(
+        new Set([...stringHits, ...helperHits]),
+      );
+      expect({
+        event,
+        helper: helperName,
+        stringLiteralHits: stringHits,
+        helperCallHits: helperHits,
+        matchingFiles,
+        searchedFiles: engineSources.size,
+        message: `specialty event '${event}' has a BASE_EFFECTS row but no engine file consumes it (no '${event}' literal and no ${helperName ?? '(no named helper)'}() call) — likely a dead hook`,
+      }).toEqual(
+        expect.objectContaining({
+          matchingFiles: expect.arrayContaining([expect.any(String)]),
+        }),
+      );
+    },
+  );
 });
