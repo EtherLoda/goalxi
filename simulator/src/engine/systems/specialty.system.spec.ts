@@ -517,42 +517,27 @@ describe('teamSampledEventMultiplier (decision class)', () => {
     expect(teamSampledEventMultiplier(players, 'midfield_control')).toBe(1.0);
   });
 
-  it('v2.5 depth bonus: 2 × Silver = 1.20 × 1.025 = 1.230', () => {
-    // Two Silver TACKLERs. max = 1.20, N = 2, depth = 0.025 × 1
-    // = 0.025. result = 1.20 × (1 + 0.025) = 1.230. This is the
-    // core "广撒网有奖励" test — 2 × Silver (1.230) is strictly
+  it('v2.5 depth bonus: 2 × Silver = 1.20 × 1.05 = 1.260', () => {
+    // Two Silver TACKLERs. max = 1.20, N = 2, depth = 0.05 × 1
+    // = 0.05. result = 1.20 × 1.05 = 1.260. This is the core
+    // "广撒网有奖励" test — 2 × Silver (1.260) is strictly
     // better than 1 × Silver (1.20), so the lineup choice has
     // mechanical meaning.
     const players = lineup(
       ['TACKLER', 'SILVER'],
       ['TACKLER', 'SILVER'],
     );
-    expect(teamSampledEventMultiplier(players, 'midfield_control')).toBeCloseTo(1.230, 5);
-  });
-
-  it('v2.5 depth bonus: 3 × Silver = 1.20 × 1.050 = 1.260 (no cap)', () => {
-    // 3 Silver TACKLERs. depth = 0.025 × 2 = 0.05, max = 1.20,
-    // result = 1.20 × 1.05 = 1.260. Note this is the core
-    // "all-same-tier 退化" test that the v2.4 weighted-pick
-    // formula failed (it returned 1.20 here); the v2.5 depth-bonus
-    // formula returns 1.260.
-    const players = lineup(
-      ['TACKLER', 'SILVER'],
-      ['TACKLER', 'SILVER'],
-      ['TACKLER', 'SILVER'],
-    );
     expect(teamSampledEventMultiplier(players, 'midfield_control')).toBeCloseTo(1.260, 5);
   });
 
-  it('v2.5 depth bonus: 5 × Silver = 1.20 × 1.10 = 1.320 (no cap, known trade-off)', () => {
-    // 5 Silver TACKLERs. depth = 0.025 × 4 = 0.10, max = 1.20,
-    // result = 1.20 × 1.10 = 1.320. The "no cap" state is intentional
-    // (per user request 2026-08-24); the test pins 1.32 as the
-    // current behavior. A future cap will change this number and
-    // the test should be updated accordingly.
+  it('v2.5 depth bonus: 3 × Silver = 1.20 × 1.10 = 1.320 (no cap, known trade-off)', () => {
+    // 3 Silver TACKLERs. depth = 0.05 × 2 = 0.10, max = 1.20,
+    // result = 1.20 × 1.10 = 1.320. This is **above 1 × Gold
+    // (1.291)** — a 3-deep Silver lineup strictly outperforms a
+    // single Gold holder. The "no cap, depth > tier" state is
+    // intentional (per user request 2026-08-24) and is the
+    // price paid for the "广撒网真实有奖励" goal.
     const players = lineup(
-      ['TACKLER', 'SILVER'],
-      ['TACKLER', 'SILVER'],
       ['TACKLER', 'SILVER'],
       ['TACKLER', 'SILVER'],
       ['TACKLER', 'SILVER'],
@@ -560,21 +545,36 @@ describe('teamSampledEventMultiplier (decision class)', () => {
     expect(teamSampledEventMultiplier(players, 'midfield_control')).toBeCloseTo(1.320, 5);
   });
 
-  it('mixed tier: 1 Gold + 1 Silver = 1.291 × 1.025 = 1.323 (depth wins over tier max)', () => {
+  it('v2.5 depth bonus: 5 × Silver = 1.20 × 1.20 = 1.440 (no cap, depth > Gold by 11.5%)', () => {
+    // 5 Silver TACKLERs. depth = 0.05 × 4 = 0.20, max = 1.20,
+    // result = 1.20 × 1.20 = 1.440. This is 11.5% above
+    // 1 × Gold (1.291). The trade-off is explicitly accepted;
+    // a future cap is the natural follow-up if balance drifts.
+    const players = lineup(
+      ['TACKLER', 'SILVER'],
+      ['TACKLER', 'SILVER'],
+      ['TACKLER', 'SILVER'],
+      ['TACKLER', 'SILVER'],
+      ['TACKLER', 'SILVER'],
+    );
+    expect(teamSampledEventMultiplier(players, 'midfield_control')).toBeCloseTo(1.440, 5);
+  });
+
+  it('mixed tier: 1 Gold + 1 Silver = 1.291 × 1.05 = 1.355 (depth wins over tier max)', () => {
     // The depth bonus applies on top of the best single holder's
     // per-player multiplier, regardless of tier mix. With 2
-    // eligible holders the depth factor is 1.025, so the result
-    // is `max(Gold=1.291, Silver=1.20) × 1.025` = 1.323. This
-    // is 2.5% better than 1 × Gold alone — a 2-holder lineup is
-    // a small but real upgrade.
+    // eligible holders the depth factor is 1.05, so the result
+    // is `max(Gold=1.291, Silver=1.20) × 1.05` = 1.355. This
+    // is 5% better than 1 × Gold alone — a 2-holder lineup is
+    // a real upgrade.
     const players = lineup(
       ['TACKLER', 'GOLD'],
       ['TACKLER', 'SILVER'],
     );
-    expect(teamSampledEventMultiplier(players, 'midfield_control')).toBeCloseTo(1.323, 3);
+    expect(teamSampledEventMultiplier(players, 'midfield_control')).toBeCloseTo(1.355, 3);
   });
 
-  it('mixed tier: 1 Gold + 1 Bronze = 1.291 × 1.025 = 1.323 (Bronze contributes to depth, not to max)', () => {
+  it('mixed tier: 1 Gold + 1 Bronze = 1.291 × 1.05 = 1.355 (Bronze contributes to depth, not to max)', () => {
     // The Bronze holder is included in the eligible-count (its
     // multiplier is 0.86×^0.7 ≈ 1.136, not 1.0), so it counts
     // toward the depth-bonus factor even though `max` is still
@@ -586,7 +586,7 @@ describe('teamSampledEventMultiplier (decision class)', () => {
       ['TACKLER', 'GOLD'],
       ['TACKLER', 'BRONZE'],
     );
-    expect(teamSampledEventMultiplier(players, 'midfield_control')).toBeCloseTo(1.323, 3);
+    expect(teamSampledEventMultiplier(players, 'midfield_control')).toBeCloseTo(1.355, 3);
   });
 
   it('is deterministic for a given (players, event) pair', () => {

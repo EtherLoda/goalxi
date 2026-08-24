@@ -518,36 +518,40 @@ export interface TeamScopedPlayer {
  *
  *   result = max(per-holder multipliers) × (1 + DEPTH_BONUS × (N − 1))
  *
- * where `DEPTH_BONUS = 0.025` and `N` is the count of eligible
+ * where `DEPTH_BONUS = 0.05` and `N` is the count of eligible
  * holders (players whose per-player multiplier is ≠ 1.0, excluding
  * sent-off). The depth bonus is a relative percentage of `max` —
- * a 5-Silver lineup earns `max × 1.10 = 1.32`, not a flat `1.20 +
- * 0.10 = 1.30` — so the curve scales with the tier of the best
+ * a 5-Silver lineup earns `max × 1.20 = 1.44`, not a flat `1.20 +
+ * 0.20 = 1.40` — so the curve scales with the tier of the best
  * holder on the pitch. **No cap is applied** (per user request
  * 2026-08-24): see "Known trade-offs" below.
  *
  * Worked examples (TACKLER on `midfield_control`, 1.20 Silver /
  * 1.40 Gold / 0.86 Bronze per BASE_EFFECTS, tier-scaled):
  *
- *   1 × Gold        → 1.291 × 1.000 = 1.291
- *   1 × Silver      → 1.200 × 1.000 = 1.200
- *   2 × Silver      → 1.200 × 1.025 = 1.230
- *   3 × Silver      → 1.200 × 1.050 = 1.260
- *   5 × Silver      → 1.200 × 1.100 = 1.320
- *   1 × Gold + 1 × Silver → 1.291 × 1.025 = 1.323
- *   1 × Gold + 1 × Bronze → 1.291 × 1.025 = 1.323
- *   0 holders       → 1.0
+ *   1 × Gold          → 1.291 × 1.000 = 1.291
+ *   1 × Silver        → 1.200 × 1.000 = 1.200
+ *   2 × Silver        → 1.200 × 1.050 = 1.260
+ *   3 × Silver        → 1.200 × 1.100 = 1.320
+ *   4 × Silver        → 1.200 × 1.150 = 1.380
+ *   5 × Silver        → 1.200 × 1.200 = 1.440
+ *   1 × Gold + 1 × Silver  → 1.291 × 1.050 = 1.355
+ *   1 × Gold + 1 × Bronze  → 1.291 × 1.050 = 1.355
+ *   0 holders         → 1.0
  *
  * **Known trade-off (no cap, by user request 2026-08-24)**:
- *   5 × Silver (1.32) ≈ 1 × Gold (1.291) — a deep Silver lineup
- *   roughly matches a single Gold holder. Per the v2.0 design doc,
- *   Gold is the top tier and should strictly dominate Silver; this
- *   helper currently does not enforce that. If a future balance
- *   pass decides to cap the depth bonus, the natural place is a
- *   single multiplicative cap in the formula above — e.g.
- *   `min(max × (1 + DEPTH_BONUS × (N - 1)), CAP)` where `CAP`
- *   defaults to 1.50. **Do not** add the cap in this commit; the
- *   "no cap" state is intentional and the cap is left as a follow-up.
+ *   3 × Silver (1.32) > 1 × Gold (1.291) — a 3-deep Silver
+ *   lineup already exceeds a single Gold holder. Per the v2.0
+ *   design doc, Gold is the top tier and should strictly dominate
+ *   Silver; this helper currently does not enforce that. The
+ *   user picked `DEPTH_BONUS = 0.05` deliberately (vs. the more
+ *   conservative 0.025) so the "广撒网" path has meaningful
+ *   payoff, accepting that depth > tier at the high end. If a
+ *   future balance pass decides to cap the depth bonus, the
+ *   natural place is a single multiplicative cap in the formula
+ *   above — e.g. `min(max × (1 + DEPTH_BONUS × (N - 1)), CAP)`
+ *   where `CAP` defaults to 1.50. **Do not** add the cap in this
+ *   commit; the "no cap" state is intentional.
  *
  * Why not the v2.4 weighted-random pick? It degenerated to "max"
  * under all-same-tier lineups (3 × Silver always returned 1.20, same
@@ -585,11 +589,11 @@ export function teamSampledEventMultiplier(
   if (eligible.length === 0) return 1.0;
 
   // v2.5 depth bonus: a small per-holder reward on top of max.
-  // `DEPTH_BONUS` is 2.5% of `max` per additional holder. The
+  // `DEPTH_BONUS` is 5% of `max` per additional holder. The
   // multiplier is `max × (1 + DEPTH_BONUS × (N - 1))` — no cap
   // (see the docstring above for the rationale and the known
-  // "5 Silver ≈ 1 Gold" trade-off).
-  const DEPTH_BONUS = 0.025;
+  // "3 Silver > 1 Gold" trade-off).
+  const DEPTH_BONUS = 0.05;
   const depthMultiplier = 1 + DEPTH_BONUS * (eligible.length - 1);
   return maxMult * depthMultiplier;
 }
