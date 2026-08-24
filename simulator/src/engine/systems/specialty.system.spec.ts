@@ -18,10 +18,13 @@ import {
   selectAssistWeight,
   selectAttackTypeWeight,
   selectShooterCounterWeight,
+  selectShooterCrossHeaderWeight,
   selectShooterReboundWeight,
   selectShooterWeight,
   selectShotTypeWeight,
+  shotFkMultiplier,
   shotHeaderMultiplier,
+  shotPenaltyMultiplier,
   teamProductEventMultiplier,
   teamSampledEventMultiplier,
 } from './specialty.system';
@@ -258,7 +261,14 @@ describe('named convenience getters', () => {
   it('push* helpers map to push_offense / push_defense', () => {
     const dribbler = playerWith('DRIBBLER', 'SILVER');
     const wall = playerWith('WALL', 'SILVER');
-    expect(pushOffenseMultiplier(dribbler)).toBe(1.15);
+    // v2.5: DRIBBLER is now attackType-gated. The "1.15 only on
+    // DRIBBLE" semantic means the helper returns 1.0 when called
+    // without an attackType arg (the safe default — see the
+    // `pushOffenseMultiplier (v2.5 attackType-gated)` describe
+    // block below for the full table). Pass `'DRIBBLE'` to
+    // recover the v2.0 behavior.
+    expect(pushOffenseMultiplier(dribbler, 'DRIBBLE')).toBe(1.15);
+    expect(pushOffenseMultiplier(dribbler)).toBe(1.0);
     expect(pushDefenseMultiplier(wall)).toBe(1.18);
   });
 
@@ -294,6 +304,157 @@ describe('named convenience getters', () => {
     expect(injuryChanceMultiplier(playerWith('AERIAL_THREAT', 'SILVER'), 'jump')).toBe(0.80);
     expect(lateGameMentalMultiplier(playerWith('COMPOSED', 'SILVER'))).toBe(1.0);
     expect(commandDefenseMultiplier(playerWith('SWEEPER_KEEPER', 'SILVER'))).toBe(1.05);
+  });
+});
+
+// ────────────────────────────────────────────────────────────────────
+// v2.5 set-piece + cross-shot hooks — the BASE_EFFECTS rows the
+// design doc has promised since v2.0 but the engine never
+// consumed until now.
+// ────────────────────────────────────────────────────────────────────
+
+describe('shotPenaltyMultiplier / shotFkMultiplier (v2.5 wired)', () => {
+  it('shotPenaltyMultiplier: COMPOSED Silver = 1.15 (Gold 1.216, Bronze 1.103)', () => {
+    // The numbers below are the v2 design doc §2.9 Hook 1 values
+    // applied through the same `applyTierMultiplier(1.15, tier)`
+    // formula used by every other hook. They're documented in the
+    // test as much as in the helper because the BASE_EFFECTS row
+    // was added in v2.5 to repair a "designed but never wired"
+    // failure from the v2.0 spec.
+    expect(shotPenaltyMultiplier(playerWith('COMPOSED', 'SILVER'))).toBe(1.15);
+    // Tier scaling is `base ^ TIER_MULT[tier]`. 1.15^1.4 ≈ 1.2161.
+    expect(shotPenaltyMultiplier(playerWith('COMPOSED', 'GOLD'))).toBeCloseTo(1.216, 3);
+    // 1.15^0.7 ≈ 1.1027.
+    expect(shotPenaltyMultiplier(playerWith('COMPOSED', 'BRONZE'))).toBeCloseTo(1.103, 3);
+  });
+
+  it('shotPenaltyMultiplier: 1.0 for non-COMPOSED players (any tier)', () => {
+    // The helper should return 1.0 for every non-COMPOSED
+    // specialty, including deprecated codes and no-spec — no
+    // other specialty is in BASE_EFFECTS.shot_penalty. If a
+    // future contributor adds another row (e.g. "POACHER shoot
+    // rating on penalties" — which would be weird), the test
+    // below would need to be updated.
+    expect(shotPenaltyMultiplier(playerWith('AERIAL_THREAT', 'SILVER'))).toBe(1.0);
+    expect(shotPenaltyMultiplier(playerWith(null, 'BRONZE'))).toBe(1.0);
+  });
+
+  it('shotFkMultiplier: COMPOSED Silver = 1.10 (Gold 1.143, Bronze 1.069)', () => {
+    // v2 design doc §2.9 Hook 3 — "直接任意球 shoot rating +10%".
+    // Numbers are applied through the same `applyTierMultiplier`
+    // pipeline as the rest of the system.
+    expect(shotFkMultiplier(playerWith('COMPOSED', 'SILVER'))).toBe(1.10);
+    // 1.10^1.4 ≈ 1.1427.
+    expect(shotFkMultiplier(playerWith('COMPOSED', 'GOLD'))).toBeCloseTo(1.143, 3);
+    // 1.10^0.7 ≈ 1.0690.
+    expect(shotFkMultiplier(playerWith('COMPOSED', 'BRONZE'))).toBeCloseTo(1.069, 3);
+  });
+
+  it('shotFkMultiplier: 1.0 for non-COMPOSED players', () => {
+    expect(shotFkMultiplier(playerWith('DRIBBLER', 'SILVER'))).toBe(1.0);
+    expect(shotFkMultiplier(playerWith(null, 'GOLD'))).toBe(1.0);
+  });
+});
+
+describe('selectShooterCrossHeaderWeight (v2.5 wired)', () => {
+  it('AERIAL_THREAT Silver = 1.20, Gold ≈ 1.291, Bronze ≈ 1.136', () => {
+    // v2 design doc §2.1 Hook 2 — "传中 → AERIAL_THREAT 优先被
+    // 选为 shooter". Silver base 1.20, applied through the
+    // standard tier-scaling pipeline:
+    //   Silver: 1.20^1.0 = 1.20
+    //   Gold:   1.20^1.4 ≈ 1.2908
+    //   Bronze: 1.20^0.7 ≈ 1.1361
+    expect(selectShooterCrossHeaderWeight(playerWith('AERIAL_THREAT', 'SILVER'))).toBe(1.20);
+    expect(selectShooterCrossHeaderWeight(playerWith('AERIAL_THREAT', 'GOLD'))).toBeCloseTo(1.291, 3);
+    expect(selectShooterCrossHeaderWeight(playerWith('AERIAL_THREAT', 'BRONZE'))).toBeCloseTo(1.136, 3);
+  });
+
+  it('returns 1.0 for non-AERIAL_THREAT players', () => {
+    // The hook is AERIAL_THREAT-only. POACHER (1.25) is on
+    // `select_shooter` and `select_shooter_rebound`, not this
+    // event — see BASE_EFFECTS. The tripwire guards against a
+    // future contributor adding the wrong key.
+    expect(selectShooterCrossHeaderWeight(playerWith('POACHER', 'SILVER'))).toBe(1.0);
+    expect(selectShooterCrossHeaderWeight(playerWith('PHYSICAL_BEAST', 'GOLD'))).toBe(1.0);
+    expect(selectShooterCrossHeaderWeight(playerWith(null, 'BRONZE'))).toBe(1.0);
+  });
+});
+
+describe('pushOffenseMultiplier (v2.5 attackType-gated)', () => {
+  it('PLAYMAKER (1.10) fires on all 4 pass types', () => {
+    // v2.5: SHORT_PASS is now in scope (was the v2.0 miss that
+    // left 80% of NORMAL shots without the PLAYMAKER buff).
+    const passTypes: Array<'CROSS' | 'SHORT_PASS' | 'THROUGH_PASS' | 'DRIBBLE'> = [
+      'CROSS',
+      'SHORT_PASS',
+      'THROUGH_PASS',
+      'DRIBBLE',
+    ];
+    for (const at of passTypes) {
+      expect(pushOffenseMultiplier(playerWith('PLAYMAKER', 'SILVER'), at)).toBe(1.10);
+    }
+  });
+
+  it('DRIBBLER (1.15) fires only on DRIBBLE', () => {
+    // DRIBBLER's "1v1 take-on" semantic only applies on a
+    // DRIBBLE attackType. On CROSS / SHORT_PASS / THROUGH_PASS
+    // the helper returns 1.0 (no buff).
+    expect(pushOffenseMultiplier(playerWith('DRIBBLER', 'SILVER'), 'DRIBBLE')).toBe(1.15);
+    expect(pushOffenseMultiplier(playerWith('DRIBBLER', 'SILVER'), 'CROSS')).toBe(1.0);
+    expect(pushOffenseMultiplier(playerWith('DRIBBLER', 'SILVER'), 'SHORT_PASS')).toBe(1.0);
+    expect(pushOffenseMultiplier(playerWith('DRIBBLER', 'SILVER'), 'THROUGH_PASS')).toBe(1.0);
+  });
+
+  it('CROSSER (1.12) fires only on CROSS', () => {
+    // CROSSER's "wide delivery" semantic only applies on a
+    // CROSS attackType. On other pass types the helper returns
+    // 1.0.
+    expect(pushOffenseMultiplier(playerWith('CROSSER', 'SILVER'), 'CROSS')).toBe(1.12);
+    expect(pushOffenseMultiplier(playerWith('CROSSER', 'SILVER'), 'SHORT_PASS')).toBe(1.0);
+    expect(pushOffenseMultiplier(playerWith('CROSSER', 'SILVER'), 'THROUGH_PASS')).toBe(1.0);
+    expect(pushOffenseMultiplier(playerWith('CROSSER', 'SILVER'), 'DRIBBLE')).toBe(1.0);
+  });
+
+  it('PHYSICAL_BEAST (1.15) fires on any pushDuel attackType', () => {
+    // "身体对抗" semantic applies regardless of pass type —
+    // it's a body contact event, not a delivery-specific one.
+    // Without the attackType arg, the helper still applies the
+    // PHYSICAL_BEAST buff (gating only affects DRIBBLER / CROSSER).
+    const anyType: Array<'CROSS' | 'SHORT_PASS' | 'THROUGH_PASS' | 'DRIBBLE' | 'LONG_SHOT'> = [
+      'CROSS',
+      'SHORT_PASS',
+      'THROUGH_PASS',
+      'DRIBBLE',
+      'LONG_SHOT',
+    ];
+    for (const at of anyType) {
+      expect(pushOffenseMultiplier(playerWith('PHYSICAL_BEAST', 'SILVER'), at)).toBe(1.15);
+    }
+    // And without an attackType arg, the PHYSICAL_BEAST buff
+    // also fires (gating only affects DRIBBLER / CROSSER).
+    expect(pushOffenseMultiplier(playerWith('PHYSICAL_BEAST', 'SILVER'))).toBe(1.15);
+  });
+
+  it('without attackType, DRIBBLER / CROSSER fall back to 1.0 (safe default)', () => {
+    // The engine always passes attackType, but a future caller
+    // that doesn't know it should get a 1.0 (no buff) for
+    // DRIBBLER / CROSSER — those are the two entries where the
+    // attackType matters. PLAYMAKER / PHYSICAL_BEAST still
+    // apply because they don't gate on attackType.
+    expect(pushOffenseMultiplier(playerWith('DRIBBLER', 'SILVER'))).toBe(1.0);
+    expect(pushOffenseMultiplier(playerWith('CROSSER', 'SILVER'))).toBe(1.0);
+    expect(pushOffenseMultiplier(playerWith('PLAYMAKER', 'SILVER'))).toBe(1.10);
+    expect(pushOffenseMultiplier(playerWith('PHYSICAL_BEAST', 'SILVER'))).toBe(1.15);
+  });
+
+  it('composes multiplicatively for a hypothetical multi-specialty player', () => {
+    // v2.4+ locks each player to a single core specialty, so
+    // this scenario is impossible in production. The test
+    // exists to pin the multiplicative composition rule —
+    // a future "secondary specialty" feature (SPEC §8 #4)
+    // would reuse this semantic.
+    const noSpec = playerWith(null, 'SILVER');
+    expect(pushOffenseMultiplier(noSpec, 'DRIBBLE')).toBe(1.0);
   });
 });
 
@@ -614,6 +775,8 @@ describe('specialty hook wire-up tripwire (source-level)', () => {
     shot_rebound: 'shotReboundMultiplier',
     shot_one_on_one: 'shotOneOnOneMultiplier',
     shot_normal: 'shotNormalMultiplier',
+    shot_penalty: 'shotPenaltyMultiplier',
+    shot_fk: 'shotFkMultiplier',
     gk_save: 'gkSaveMultiplier',
     push_offense: 'pushOffenseMultiplier',
     push_defense: 'pushDefenseMultiplier',
@@ -621,6 +784,7 @@ describe('specialty hook wire-up tripwire (source-level)', () => {
     select_shooter: 'selectShooterWeight',
     select_shooter_rebound: 'selectShooterReboundWeight',
     select_shooter_counter: 'selectShooterCounterWeight',
+    select_shooter_cross_header: 'selectShooterCrossHeaderWeight',
     select_assist: 'selectAssistWeight',
     select_attack_type: 'selectAttackTypeWeight',
     select_shot_type: 'selectShotTypeWeight',

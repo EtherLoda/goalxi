@@ -58,6 +58,8 @@ export type SpecialtyEvent =
   | 'shot_rebound'          // multiplier on raw rebound shoot rating
   | 'shot_one_on_one'       // multiplier on 1v1 shoot rating
   | 'shot_normal'           // multiplier on normal shoot rating
+  | 'shot_penalty'          // multiplier on penalty shoot rating (COMPOSED)
+  | 'shot_fk'               // multiplier on direct free-kick shoot rating (COMPOSED)
   | 'gk_save'               // multiplier on gkSaveRating
   | 'push_offense'          // multiplier on pushDuel attPower
   | 'push_defense'          // multiplier on pushDuel defPower
@@ -65,6 +67,7 @@ export type SpecialtyEvent =
   | 'select_shooter'        // weight in selectShooter
   | 'select_shooter_rebound'// weight in selectShooter when shotType === REBOUND
   | 'select_shooter_counter'// weight in selectShooter during a counter phase
+  | 'select_shooter_cross_header' // weight in selectShooter on CROSS attacks (AERIAL_THREAT picks header target)
   | 'select_assist'         // weight in selectAssist
   | 'select_attack_type'    // weight in selectAttackType (e.g. favor DRIBBLE)
   | 'select_shot_type'      // weight in selectShotType (e.g. favor HEADER on CROSS)
@@ -123,9 +126,10 @@ const BASE_EFFECTS: Partial<Record<SpecialtyEvent, Partial<Record<ActiveCoreSpec
     SAVING_MASTER: 1.10,   // 扑救 + 反应 + 1v1 全部折成 gkRating
   },
   push_offense: {
-    DRIBBLER: 1.15,         // 1v1 过人
-    PLAYMAKER: 1.10,        // 传球精度
-    CROSSER: 1.12,          // 传中精度
+    DRIBBLER: 1.15,         // 1v1 过人 (only fires on DRIBBLE attackType)
+    PLAYMAKER: 1.10,        // 传球精度 (all pass types)
+    CROSSER: 1.12,          // 传中精度 (only fires on CROSS attackType)
+    PHYSICAL_BEAST: 1.15,   // 身体对抗 (any pushDuel — the gate is in `pushOffenseMultiplier`)
   },
   push_defense: {
     TACKLER: 1.15,          // 铲断
@@ -142,6 +146,14 @@ const BASE_EFFECTS: Partial<Record<SpecialtyEvent, Partial<Record<ActiveCoreSpec
   },
   select_shooter_counter: {
     SPEEDSTER: 1.20,        // 反击时优先
+  },
+  select_shooter_cross_header: {
+    // v2.5+: AERIAL_THREAT gets a 1.20 weight bump (Silver) when the
+    // attackType is CROSS — the "传中 → 空霸头球" mental model.
+    // Previously this hook was in the design doc but never wired
+    // (selectShooter only keyed on shotType / phase). See
+    // `selectShooter` in match.engine.ts for the call site.
+    AERIAL_THREAT: 1.20,
   },
   select_assist: {
     PLAYMAKER: 1.25,        // 优先被选为助攻者
@@ -189,6 +201,18 @@ const BASE_EFFECTS: Partial<Record<SpecialtyEvent, Partial<Record<ActiveCoreSpec
   },
   command_defense: {
     SWEEPER_KEEPER: 1.05,   // 全队 defense lane 加成
+  },
+  // v2.5: COMPOSED set-piece hooks (v2.0 promised them but the
+  // BASE_EFFECTS rows were never added — they were effectively
+  // dead code that `resolvePenalty` and `resolveDirectFreeKick`
+  // never consumed). The numeric values match the v2 design doc
+  // §2.9 Hook 1 (penalty shoot rating) and Hook 3 (direct free
+  // kick shoot rating).
+  shot_penalty: {
+    COMPOSED: 1.15,
+  },
+  shot_fk: {
+    COMPOSED: 1.10,
   },
 };
 
@@ -279,6 +303,25 @@ export const defenseLaneMultiplier = (player: Player): number =>
 export const shotHeaderMultiplier = (player: Player): number =>
   getEventMultiplier(player, 'shot_header');
 
+/**
+ * Multiplier on the kicker's shoot rating during a penalty.
+ * v2.5+: COMPOSED's "冷静 in the clutch" buff was promised in
+ * the v2.0 design doc (§2.9 Hook 1) but the BASE_EFFECTS row was
+ * never added and `resolvePenalty` never called `getEventMultiplier`.
+ * Wired in v2.5 — Silver base 1.15 (Gold 1.21, Bronze 1.105).
+ */
+export const shotPenaltyMultiplier = (player: Player): number =>
+  getEventMultiplier(player, 'shot_penalty');
+
+/**
+ * Multiplier on the kicker's shoot rating during a direct free
+ * kick. v2.5+: same story as `shotPenaltyMultiplier` — v2 design
+ * doc §2.9 Hook 3 promised it, v2.0 implementation never wired it.
+ * Silver base 1.10 (Gold 1.14, Bronze 1.07).
+ */
+export const shotFkMultiplier = (player: Player): number =>
+  getEventMultiplier(player, 'shot_fk');
+
 /** Multiplier applied to a long-shot's raw shoot rating. */
 export const shotLongMultiplier = (player: Player): number =>
   getEventMultiplier(player, 'shot_long');
@@ -299,9 +342,72 @@ export const shotNormalMultiplier = (player: Player): number =>
 export const gkSaveMultiplier = (player: Player): number =>
   getEventMultiplier(player, 'gk_save');
 
-/** Multiplier on the attacking side of a pushDuel. */
-export const pushOffenseMultiplier = (player: Player): number =>
-  getEventMultiplier(player, 'push_offense');
+/**
+ * Multiplier on the attacking side of a pushDuel.
+ *
+ * The `attackType` parameter gates which specialties apply. The
+ * `BASE_EFFECTS.push_offense` table is shared across all attack
+ * types, but the engine only wants certain entries to fire on
+ * certain types — the gate lives in this helper so the table
+ * itself stays attackType-agnostic:
+ *
+ *   DRIBBLER (1.15)     → only on DRIBBLE   (1v1 take-on is the design)
+ *   PLAYMAKER (1.10)    → on any pass type (covers THROUGH_PASS / SHORT_PASS / CROSS)
+ *   CROSSER (1.12)      → only on CROSS    (wide delivery is the design)
+ *   PHYSICAL_BEAST (1.15) → on any pushDuel (the "身体对抗" semantic
+ *                            applies regardless of pass type — it's
+ *                            a body contact event, not a delivery one)
+ *
+ * Without `attackType` the helper returns 1.0 for DRIBBLER /
+ * CROSSER (the gated pair) and the actual base for PLAYMAKER /
+ * PHYSICAL_BEAST. This is a safe default for any caller that
+ * doesn't know the attack type — but the engine knows, so it
+ * always passes the type through.
+ *
+ * v2.5: PLAYMAKER is now also applied to SHORT_PASS (previously
+ * the engine only called this helper on THROUGH_PASS / CROSS /
+ * DRIBBLE, which left SHORT_PASS — the most common pass type —
+ * without any buff). The new call-site is a single
+ * `pushOffenseMultiplier(passerPlayer, attackType)` that covers
+ * all four pass types.
+ *
+ * The `attackType` parameter is a string-literal union rather than
+ * a numeric enum so this helper stays free of imports from
+ * `simulation.types.ts` (the specialty system is also a
+ * candidate for `libs/database` extraction). The `AttackType[number]`
+ * mapping is `string` at runtime in the engine, so a string-literal
+ * comparison works as long as the engine passes the same names
+ * (`'CROSS'`, `'SHORT_PASS'`, etc.) — verified by the
+ * `pushOffenseMultiplier accepts AttackType names` test.
+ */
+export type PushOffenseAttackType =
+  | 'CROSS'
+  | 'SHORT_PASS'
+  | 'THROUGH_PASS'
+  | 'DRIBBLE'
+  | 'LONG_SHOT';
+
+export const pushOffenseMultiplier = (
+  player: Player,
+  attackType?: PushOffenseAttackType,
+): number => {
+  const code = player?.attributes?.coreSpecialty;
+  // DRIBBLER's buff is "1v1 dribble", so it only fires on DRIBBLE.
+  // CROSSER's buff is "wide delivery", so it only fires on CROSS.
+  // When `attackType` is undefined the safe default is "no buff"
+  // for these gated entries — a caller that doesn't know the
+  // attack type shouldn't accidentally get the DRIBBLE / CROSS
+  // bonus on the wrong attack type. PLAYMAKER (any pass) and
+  // PHYSICAL_BEAST (any pushDuel) don't gate, so they apply
+  // regardless of `attackType`.
+  if (code === 'DRIBBLER' && attackType !== 'DRIBBLE') {
+    return 1.0;
+  }
+  if (code === 'CROSSER' && attackType !== 'CROSS') {
+    return 1.0;
+  }
+  return getEventMultiplier(player, 'push_offense');
+};
 
 /** Multiplier on the defending side of a pushDuel. */
 export const pushDefenseMultiplier = (player: Player): number =>
@@ -314,6 +420,18 @@ export const midfieldControlMultiplier = (player: Player): number =>
 /** Weight in selectShooter (normal phase). */
 export const selectShooterWeight = (player: Player): number =>
   getEventMultiplier(player, 'select_shooter');
+
+/**
+ * Weight in selectShooter on a CROSS attack. v2.5+: AERIAL_THREAT
+ * gets a 1.20 weight bump (Silver) when the attack is a cross, so
+ * the "传中 → 空霸头球" mental model is wired end-to-end. The
+ * v2.0 design doc (§2.1 Hook 2) promised this, but the engine's
+ * `selectShooter` keyed only on `shotType` and `phase` — the
+ * attackType signal was ignored. Now `selectShooter` accepts an
+ * `attackType` option and applies this weight when it's CROSS.
+ */
+export const selectShooterCrossHeaderWeight = (player: Player): number =>
+  getEventMultiplier(player, 'select_shooter_cross_header');
 
 /** Weight in selectShooter when the shot type is REBOUND. */
 export const selectShooterReboundWeight = (player: Player): number =>

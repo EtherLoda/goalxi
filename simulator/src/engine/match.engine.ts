@@ -28,11 +28,14 @@ import {
   selectAssistWeight,
   selectAttackTypeWeight,
   selectShooterCounterWeight,
+  selectShooterCrossHeaderWeight,
   selectShooterReboundWeight,
   selectShooterWeight,
   selectShotTypeWeight,
+  shotFkMultiplier,
   shotHeaderMultiplier,
   shotLongMultiplier,
+  shotPenaltyMultiplier,
   shotOneOnOneMultiplier,
   shotReboundMultiplier,
   shotNormalMultiplier,
@@ -2319,6 +2322,7 @@ export class MatchEngine {
     if (attackType !== AttackType.LONG_SHOT) {
       preSelectedShooter = this.selectShooter(this.possessionTeam, {
         phase: this.freshPossession ? 'counter' : 'normal',
+        attackType,
       });
       // 预先选取传球者，以便检查 ability 对 push 的加成
       const passAssistType =
@@ -2333,19 +2337,24 @@ export class MatchEngine {
       const attackConfig = ATTACK_TYPE_CONFIG[attackType];
       let effectiveAttPower = attPower;
 
-      // v2 pass-type specialty hooks — replace the v1 LPASS/CROSS/DRBLE
-      // scatter with `pushOffenseMultiplier` applied to the passer.
-      // The bonus only fires for the matching attack type, so a
-      // PLAYMAKER Silver (1.10) only boosts THROUGH_PASS, a
-      // CROSSER Silver (1.12) only boosts CROSS, etc.
+      // v2.5 pass-type specialty hooks — single call with attackType.
+      // Replaces the v2.0 three-branch `if` chain that missed
+      // SHORT_PASS (the most common pass type, ~80% of NORMAL
+      // shots end up short-pass-built). Now:
+      //   DRIBBLER (1.15) fires only on DRIBBLE
+      //   PLAYMAKER (1.10) fires on any pass type (THROUGH_PASS /
+      //                     SHORT_PASS / CROSS)
+      //   CROSSER (1.12) fires only on CROSS
+      //   PHYSICAL_BEAST (1.15) fires on any pushDuel (body contact
+      //                        semantic, not delivery-specific)
+      // The gate lives in `pushOffenseMultiplier`; the engine
+      // always passes `attackType` so DRIBBLER / CROSSER don't
+      // accidentally fire on wrong attack types.
       if (passerPlayer) {
-        if (attackType === AttackType.THROUGH_PASS) {
-          effectiveAttPower *= pushOffenseMultiplier(passerPlayer);
-        } else if (attackType === AttackType.CROSS) {
-          effectiveAttPower *= pushOffenseMultiplier(passerPlayer);
-        } else if (attackType === AttackType.DRIBBLE) {
-          effectiveAttPower *= pushOffenseMultiplier(passerPlayer);
-        }
+        effectiveAttPower *= pushOffenseMultiplier(
+          passerPlayer,
+          AttackType[attackType] as Parameters<typeof pushOffenseMultiplier>[1],
+        );
       }
 
       // v2 AERIAL_THREAT (formerly HEADER): team gets a multiplicative
@@ -2669,6 +2678,7 @@ export class MatchEngine {
         shooter = this.selectShooter(this.possessionTeam, {
           phase: this.freshPossession ? 'counter' : 'normal',
           shotType: shotType,
+          attackType,
         });
       } else {
         shooter = preSelectedShooter;
@@ -3561,7 +3571,11 @@ export class MatchEngine {
 
   private selectShooter(
     team: Team,
-    options: { phase?: 'counter' | 'normal'; shotType?: ShotType } = {},
+    options: {
+      phase?: 'counter' | 'normal';
+      shotType?: ShotType;
+      attackType?: AttackType;
+    } = {},
   ): TacticalPlayer {
     // Single-pass position bucketing. The legacy code did four
     // `Array.filter` passes (candidates / cfs / ws / ams) which
@@ -3601,6 +3615,15 @@ export class MatchEngine {
     // holders. See `selectShooterWeight` for the underlying values.
     const phase = options.phase ?? 'normal';
     const shotType = options.shotType;
+    // v2.5: AERIAL_THREAT gets a 1.20 weight bump (Silver) when the
+    // attackType is CROSS — the "传中 → 空霸头球" mental model
+    // that the v2.0 design doc §2.1 Hook 2 promised but the
+    // v2.0 selectShooter never wired (it only keyed on shotType
+    // and phase). Default `undefined` means "not on a cross" so
+    // callers that don't pass attackType see no behavior change.
+    const attackType = options.attackType;
+    const isCrossAttack =
+      attackType !== undefined && attackType === AttackType.CROSS;
     const pickInBucket = (bucket: TacticalPlayer[]): TacticalPlayer => {
       // Weighted pick: each candidate's weight is
       //   baseWeight (= 1.0) × specialtyMultiplier(event)
@@ -3620,6 +3643,15 @@ export class MatchEngine {
         }
         if (phase === 'counter') {
           w *= selectShooterCounterWeight(player);
+        }
+        if (isCrossAttack) {
+          // v2.5: AERIAL_THREAT weight bump on CROSS attacks.
+          // Multiplicative with the per-player × phase weights
+          // above so a 3-way AERIAL+POACHER+SPEEDSTER Silver
+          // combo on a cross (very rare) would be 1.20 × 1.25 ×
+          // 1.20 = 1.80. The base weight of 1.0 for non-holders
+          // is preserved.
+          w *= selectShooterCrossHeaderWeight(player);
         }
         weights[i] = w;
         totalWeight += w;
@@ -4455,11 +4487,19 @@ export class MatchEngine {
     const attackScore =
       (kickerP.attributes.freeKicks ?? 10) * 1.0 +
       (kickerP.attributes.composure ?? 10) * 0.5;
+    // v2.5: COMPOSED "冷静 in the clutch" buff on direct free
+    // kicks. Silver base 1.10 (Gold 1.14, Bronze 1.07) — see
+    // `docs/specialty-v2-design.md` §2.9 Hook 3. Previously the
+    // BASE_EFFECTS row was never added and this call site didn't
+    // exist; v2.0 was effectively promising a buff that was
+    // silently a no-op. Same wiring as `resolvePenalty` below.
+    const fkShotMult = shotFkMultiplier(kickerP);
+    const fkAttackScore = attackScore * fkShotMult;
     const defenseScore =
       (gkP.attributes.gk_reflexes ?? 10) * 0.6 +
       (gkP.attributes.gk_handling ?? 10) * 0.4 +
       (gkP.attributes.composure ?? 10) * 0.4;
-    const probability = duelProbability(attackScore, defenseScore, {
+    const probability = duelProbability(fkAttackScore, defenseScore, {
       amplification: 2.0,
       // baseline 0.18 → 0.36:合成多次机会 → 一次,转化率翻倍
       baseline: 0.36,
@@ -4475,7 +4515,9 @@ export class MatchEngine {
       playerId: kickerP.id,
       data: {
         setPieceType: 'direct_free_kick',
-        attackScore: Math.round((attackScore) * 100) / 100,
+        // v2.5: report the post-COMPOSED multiplier attack score so
+        // a debug replay shows the actual number that fed the duel.
+        attackScore: Math.round((fkAttackScore) * 100) / 100,
         defenseScore: Math.round((defenseScore) * 100) / 100,
         probability: Math.round((probability) * 100) / 100,
         result: isGoal ? 'goal' : 'save',
@@ -4518,6 +4560,19 @@ export class MatchEngine {
     const attackScore =
       (kickerP.attributes.penalties ?? 10) * 1.2 +
       (kickerP.attributes.composure ?? 10) * 0.5;
+    // v2.5: COMPOSED "冷静 in the clutch" buff on penalties.
+    // Silver base 1.15 (Gold 1.21, Bronze 1.105) — see
+    // `docs/specialty-v2-design.md` §2.9 Hook 1. Previously the
+    // BASE_EFFECTS row was never added and this call site ignored
+    // the specialty; v2.0 was effectively promising a buff that
+    // was silently a no-op. The pre-v2.5 comment ("composure-gated
+    // by the base formula") was wrong — composure feeds the base
+    // score, but COMPOSED the *specialty* is what should be applied
+    // multiplicatively on top. Apply at the end of the attacker
+    // computation so the buff is independent of how the base score
+    // happened to be assembled.
+    const penaltyShotMult = shotPenaltyMultiplier(kickerP);
+    const finalAttackScore = attackScore * penaltyShotMult;
     let defenseScore =
       (gkP.attributes.gk_reflexes ?? 10) * 0.8 +
       (gkP.attributes.gk_handling ?? 10) * 0.6 +
@@ -4528,7 +4583,7 @@ export class MatchEngine {
     // add a multiplier there because penalties are already
     // composure-gated by the base formula.
     defenseScore *= gkSaveMultiplier(gkP);
-    const probability = duelProbability(attackScore, defenseScore, {
+    const probability = duelProbability(finalAttackScore, defenseScore, {
       amplification: 1.0,
       baseline: 0.75,
       anchorRatio: 2.0,
@@ -4543,7 +4598,9 @@ export class MatchEngine {
       playerId: kickerP.id,
       data: {
         setPieceType: 'penalty',
-        attackScore: Math.round((attackScore) * 100) / 100,
+        // v2.5: report the post-COMPOSED multiplier attack score so
+        // a debug replay shows the actual number that fed the duel.
+        attackScore: Math.round((finalAttackScore) * 100) / 100,
         defenseScore: Math.round((defenseScore) * 100) / 100,
         probability: Math.round((probability) * 100) / 100,
         result: isGoal ? 'goal' : 'save',
