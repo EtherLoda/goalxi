@@ -17,7 +17,6 @@ import { Player } from '../types/player.types';
 import { BenchConfig, calculatePositionFit, Uuid } from '@goalxi/database';
 import {
   attackLaneMultiplier,
-  commandDefenseMultiplier,
   defenseLaneMultiplier,
   foulRateMultiplier,
   getEventMultiplier,
@@ -37,6 +36,8 @@ import {
   shotOneOnOneMultiplier,
   shotReboundMultiplier,
   shotNormalMultiplier,
+  teamProductEventMultiplier,
+  teamSampledEventMultiplier,
 } from './systems/specialty.system';
 import { LoggerService } from '@nestjs/common';
 import { resolveDuel as resolveDuelPure, duelProbability } from './duel';
@@ -64,25 +65,13 @@ import {
 // named helpers in `./systems/specialty.system` — see
 // `docs/specialty-v2-design.md` for the event-keyed hook table.
 
-/**
- * Find the largest specialty multiplier on the team for a given event.
- * Used for "team-wide" effects where the v1 implementation was
- * "sum of per-player bonuses" — v2 picks the best one and applies it
- * once. Returns 1.0 when no player on the team has a relevant
- * specialty (the common case for ~50% of teams).
- */
-function teamMaxEventMultiplier(
-  team: Team,
-  event: Parameters<typeof getEventMultiplier>[1],
-): number {
-  let max = 1.0;
-  for (const p of team.players) {
-    if (p.isSentOff) continue;
-    const w = getEventMultiplier(p.player as Player, event);
-    if (w > max) max = w;
-  }
-  return max;
-}
+// Team-level team-max-style helper was replaced in v2.4 by two
+// decision/strength-class helpers in `specialty.system.ts`:
+//   - `teamSampledEventMultiplier` (decision class: weighted pick 1)
+//   - `teamProductEventMultiplier` (strength class: capped product)
+// The previous `teamMaxEventMultiplier` (max-of-per-player) and
+// `teamMaxEventCached` (per-keyMoment memoized wrapper) are gone;
+// their call sites have been migrated to the new helpers above.
 
 // 三条路的进攻方式分布配置（平均值 ≈ 1.0）
 // 索引顺序: 0=传中, 1=短传, 2=直塞, 3=突破, 4=远射
@@ -2198,28 +2187,17 @@ export class MatchEngine {
       marginal: 0,
     };
 
-    // Per-keyMoment cache for `teamMaxEventMultiplier`. The helper
-    // walks all ~11 players + does Map/Record lookups for each,
-    // and `simulateKeyMoment` invokes it 2-6 times per sequence
-    // with a stable `(team, event)` pair (specialty, lane, and
-    // possession are read-only inside this scope; the only
-    // mutation that could invalidate is a red card, but
-    // `resolveFoul` runs at the very top of the function and
-    // early-returns, so `isSentOff` is stable across the rest of
-    // the call). Memoizing the result avoids the redundant walk
-    // on every call.
-    const specialtyMaxCache = new Map<string, number>();
-    const teamMaxEventCached = (
-      team: Team,
-      event: Parameters<typeof getEventMultiplier>[1],
-    ): number => {
-      const key = `${team.name}|${event}`;
-      const hit = specialtyMaxCache.get(key);
-      if (hit !== undefined) return hit;
-      const v = teamMaxEventMultiplier(team, event);
-      specialtyMaxCache.set(key, v);
-      return v;
-    };
+    // The previous `teamMaxEventCached` memoization wrapper was used
+    // by the v2.0 team-max single-pick helper. The new decision-class
+    // helper `teamSampledEventMultiplier` (in `specialty.system.ts`)
+    // consumes a random draw on every call, so it can't share a
+    // cache the same way — caching would make the engine
+    // deterministic and break the weighted-pick semantics. We
+    // accept the per-call O(N) walk over ~11 players as the
+    // steady-state cost. The strength-class
+    // `teamProductEventMultiplier` is already deterministic per
+    // (players, event) and could be memoized here if profiling
+    // shows it matters; for now it's a per-call walk too.
 
     // Step 1: Foul Check (提高频率,配合 90 分钟独立 foul event 让总犯规 ~14-16/场,
     // 接近真实足球 20-26 但不至于过密)
@@ -2246,17 +2224,21 @@ export class MatchEngine {
       'possession',
     );
 
-    // v2 TACKLER — team's midfield control is boosted by the best
-    // TACKLER on the team. Replaces the v1 "0.08 per TACKL player"
-    // additive model with a single multiplicative team bonus; the
-    // strength of that bonus is governed by the highest-tier
-    // TACKLER on the pitch (1.0 / 1.20 / 1.40 for Bronze/Silver/Gold).
-    const homeTackleBonus = teamMaxEventCached(
-      this.homeTeam,
+    // v2 TACKLER — team's midfield control is boosted by a
+    // decision-class team multiplier. Picks one TACKLER on the pitch
+    // weighted by their per-player multiplier (1.0 / 1.20 / 1.40
+    // for Bronze/Silver/Gold). Replaces the v1 "0.08 per TACKL
+    // player" additive model and the v2.0 team-max single-pick
+    // model. The weighted pick gives lineup diversity real
+    // numerical meaning — a Gold + Silver mix produces a different
+    // number from a Gold-only lineup, even though both have a "best
+    // TACKLER on the pitch" candidate.
+    const homeTackleBonus = teamSampledEventMultiplier(
+      this.homeTeam.players,
       'midfield_control',
     );
-    const awayTackleBonus = teamMaxEventCached(
-      this.awayTeam,
+    const awayTackleBonus = teamSampledEventMultiplier(
+      this.awayTeam.players,
       'midfield_control',
     );
 
@@ -2301,14 +2283,16 @@ export class MatchEngine {
       'defense',
     );
 
-    // v2 SPEEDSTER — counter attack boost. Replaces the v1
-    // "0.05 per CNTR player" additive model with a single
-    // team-max multiplier (1.0 / 1.20 / 1.40 for B/S/G). The
-    // engine's selectShooter also weights SPEEDSTERs more heavily
-    // during counter phases — see `selectShooter(..., { phase: 'counter' })`.
+    // v2 SPEEDSTER — counter attack boost. Decision-class — pick
+    // one SPEEDSTER weighted by per-player multiplier (1.0 / 1.14 /
+    // 1.20 / 1.28 for no-spec / B / S / G). Replaces the v1 "0.05
+    // per CNTR player" additive model and the v2.0 team-max single
+    // pick. The engine's selectShooter also weights SPEEDSTERs
+    // more heavily during counter phases — see
+    // `selectShooter(..., { phase: 'counter' })`.
     if (this.freshPossession) {
-      const counterBonus = teamMaxEventCached(
-        this.possessionTeam,
+      const counterBonus = teamSampledEventMultiplier(
+        this.possessionTeam.players,
         'select_shooter_counter',
       );
       // counterBonus is 1.0 when no SPEEDSTER; otherwise the team
@@ -2365,12 +2349,15 @@ export class MatchEngine {
       }
 
       // v2 AERIAL_THREAT (formerly HEADER): team gets a multiplicative
-      // boost on CROSS attacks. We pick the best AERIAL_THREAT on each
-      // team (1.0 / 1.10 / 1.40) instead of v1's stacking per-player
-      // count — see §2.1 in the design doc.
+      // boost on CROSS attacks. Decision-class — pick one AERIAL_THREAT
+      // (or PHYSICAL_BEAST, which shares the shot_header hook row)
+      // weighted by their per-player multiplier (1.0 / 1.10 / 1.40).
+      // Replaces v2.0 team-max single pick so lineup diversity (Gold +
+      // Silver mix vs Gold-only) has a different outcome. See
+      // §2.1 + §2.10 in the design doc.
       if (attackType === AttackType.CROSS) {
-        const attackerHeaderBonus = teamMaxEventCached(
-          this.possessionTeam,
+        const attackerHeaderBonus = teamSampledEventMultiplier(
+          this.possessionTeam.players,
           'shot_header',
         );
         if (attackerHeaderBonus > 1.0) {
@@ -2379,11 +2366,12 @@ export class MatchEngine {
       }
 
       // v2 AERIAL_THREAT on the defending side — boosts defPower
-      // during CROSS attacks. Same team-max pattern as the attacker.
+      // during CROSS attacks. Same decision-class pattern as the
+      // attacker side.
       let effectiveDefPower = defPower;
       if (attackType === AttackType.CROSS) {
-        const defenderHeaderBonus = teamMaxEventCached(
-          this.defendingTeam,
+        const defenderHeaderBonus = teamSampledEventMultiplier(
+          this.defendingTeam.players,
           'shot_header',
         );
         if (defenderHeaderBonus > 1.0) {
@@ -2393,14 +2381,16 @@ export class MatchEngine {
 
       // v2 TACKLER (1.0 / 1.105 / 1.15 / 1.21) + WALL (1.0 / 1.126 /
       // 1.18 / 1.252) on the defending side — boosts defPower during
-      // the push duel. Applies to all attack types (not just CROSS)
-      // because a TACKLER's tackle chance matters whenever the
-      // defender is contesting the push. Same team-max pattern as
-      // AERIAL_THREAT — teamMaxEventCached picks the best holder
-      // across the back line, so multiple defenders don't stack.
-      const defenderPushBonus = teamMaxEventCached(
-        this.defendingTeam,
+      // the push duel. Strength-class — every eligible defender
+      // contributes multiplicatively, capped at 1.80 so a deep
+      // defender lineup doesn't over-scale (5+ TACKLERs would
+      // otherwise push defPower past 2.0). Applies to all attack
+      // types (not just CROSS) because a TACKLER's tackle chance
+      // matters whenever the defender is contesting the push.
+      const defenderPushBonus = teamProductEventMultiplier(
+        this.defendingTeam.players,
         'push_defense',
+        /* cap */ 1.80,
       );
       if (defenderPushBonus > 1.0) {
         effectiveDefPower *= defenderPushBonus;
@@ -2492,13 +2482,14 @@ export class MatchEngine {
 
       // v2 SPEEDSTER counter attack boost (second application — this
       // path runs after the pre-passing-block freshPossession check
-      // on line ~1500 above; v2 re-applies it here for the same
-      // reason v1 did: the second block guards the pushDuel
-      // computation specifically). The team-max pattern means the
-      // boost is the same on both application points.
+      // above; v2 re-applies it here for the same reason v1 did:
+      // the second block guards the pushDuel computation
+      // specifically). The decision-class helper means the boost is
+      // deterministic per call (modulo the random draw) and
+      // identical-shape on both application points.
       if (!interceptTriggered && this.freshPossession) {
-        const counterBonus = teamMaxEventCached(
-          this.possessionTeam,
+        const counterBonus = teamSampledEventMultiplier(
+          this.possessionTeam.players,
           'select_shooter_counter',
         );
         if (counterBonus > 1.0) {
@@ -3843,14 +3834,14 @@ export class MatchEngine {
     const w0 = distribution[0] * weatherWeights[0] * tempoWeights[AttackType[0]];
     const w1 = distribution[1] * weatherWeights[1] * tempoWeights[AttackType[1]];
     const w2 = distribution[2] * weatherWeights[2] * tempoWeights[AttackType[2]];
-    // v2 DRIBBLER — when a DRIBBLER is on the pitch, the team is more
-    // likely to pick DRIBBLE. The bonus is multiplicative on the
-    // DRIBBLE bucket only (1.0 = no DRIBBLER, 1.14/1.20/1.28 for
-    // B/S/G). Anchored on the team-max so multiple DRIBBLERs do not
-    // stack — same `teamMaxEventMultiplier` pattern the engine uses
-    // for TACKLER / SWEEPER_KEEPER elsewhere.
-    const dribbleBonus = teamMaxEventMultiplier(
-      this.possessionTeam,
+    // v2 DRIBBLER — when a DRIBBLER is on the pitch, the team is
+    // more likely to pick DRIBBLE. Decision-class — pick one
+    // DRIBBLER weighted by per-player multiplier (1.0 / 1.14 / 1.20
+    // / 1.28 for no-spec / B / S / G). Replaces the v2.0 team-max
+    // single pick so lineup diversity (Gold + Silver mix vs
+    // Gold-only) has a different outcome.
+    const dribbleBonus = teamSampledEventMultiplier(
+      this.possessionTeam.players,
       'select_attack_type',
     );
     const w3 =
@@ -3893,16 +3884,17 @@ export class MatchEngine {
         // 传中：头球 50%，抽射 30%，补射 20%
         // v2 CROSSER — when a CROSSER is on the pitch, the team is
         // more likely to pick HEADER off a cross (the "CROSSER picks
-        // the cross → header target" mental model). Team-max bonus
-        // 1.0 / 1.14 / 1.20 / 1.28 (no-spec / Bronze / Silver / Gold).
+        // the cross → header target" mental model). Decision-class
+        // — pick one CROSSER weighted by per-player multiplier
+        // (1.0 / 1.14 / 1.20 / 1.28 for no-spec / B / S / G).
         // Renormalize the three cross-shot weights so the
         // distribution still sums to 100% — otherwise a Gold CROSSER
         // would push HEADER past 64% and break the 30/20 split.
         const headerBase = 50;
         const normalBase = 30;
         const reboundBase = 20;
-        const crossBonus = teamMaxEventMultiplier(
-          this.possessionTeam,
+        const crossBonus = teamSampledEventMultiplier(
+          this.possessionTeam.players,
           'select_shot_type',
         );
         const headerW = headerBase * (crossBonus > 1.0 ? crossBonus : 1.0);

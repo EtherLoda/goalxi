@@ -10,7 +10,7 @@ import { ConditionSystem } from '../systems/condition.system';
 import { Player } from '../../types/player.types';
 import { PitchWidth } from '../types/tactics-config';
 import { WIDTH_MODIFIERS } from '../tactics/tactics-presets';
-import { attackLaneMultiplier, commandDefenseMultiplier, defenseLaneMultiplier, gkSaveMultiplier } from '../systems/specialty.system';
+import { attackLaneMultiplier, defenseLaneMultiplier, gkSaveMultiplier, teamProductEventMultiplier } from '../systems/specialty.system';
 
 export class Team {
   private snapshot: TeamSnapshot | null = null;
@@ -175,17 +175,23 @@ export class Team {
     }
 
     // v2 SWEEPER_KEEPER aura — boosts the whole team's defense lane
-    // strength. The GK's own commandDefenseMultiplier is applied
-    // here (the GK isn't in the players[] loop above because we
-    // skip GK contributions to lane strength). 1.0 / 1.05 / 1.07
-    // for B/S/G.
-    const sweeperGk = this.getGoalkeeper();
-    if (sweeperGk && !sweeperGk.isSentOff) {
-      const cmdMult = commandDefenseMultiplier(sweeperGk.player as Player);
-      if (cmdMult > 1.0) {
-        for (const lane of lanes) {
-          laneStrengths[lane].defense *= cmdMult;
-        }
+    // strength. Strength-class team multiplier — every SWEEPER_KEEPER
+    // on the pitch contributes multiplicatively, capped at 1.20
+    // (a single Gold SWEEPER_KEEPER is 1.07; two GKs on the pitch
+    // isn't possible so the cap is generous). After the v2.4
+    // position-aware split, SWEEPER_KEEPER only rolls for GK
+    // candidates, so the practical effect is identical to "the
+    // starting GK's commandDefenseMultiplier" — but going through
+    // the team helper means the SWEEPER_KEEPER hook stays in the
+    // same shape as the other strength-class hooks (push_defense).
+    const cmdMult = teamProductEventMultiplier(
+      this.players,
+      'command_defense',
+      /* cap */ 1.20,
+    );
+    if (cmdMult > 1.0) {
+      for (const lane of lanes) {
+        laneStrengths[lane].defense *= cmdMult;
       }
     }
 

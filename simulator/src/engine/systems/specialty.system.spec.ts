@@ -2,6 +2,7 @@ import { Player } from '../../types/player.types';
 import {
   ActiveCoreSpecialty,
   SpecialtyEvent,
+  TeamScopedPlayer,
   applyTierMultiplier,
   attackLaneMultiplier,
   commandDefenseMultiplier,
@@ -21,6 +22,8 @@ import {
   selectShooterWeight,
   selectShotTypeWeight,
   shotHeaderMultiplier,
+  teamProductEventMultiplier,
+  teamSampledEventMultiplier,
 } from './specialty.system';
 
 // Minimal player fixture factory — the system only reads
@@ -295,6 +298,229 @@ describe('named convenience getters', () => {
 });
 
 // ────────────────────────────────────────────────────────────────────
+// Team-level helpers (v2.4 split: decision vs strength class)
+// ────────────────────────────────────────────────────────────────────
+
+describe('teamSampledEventMultiplier (decision class)', () => {
+  // Build a `players` array from a list of (code, tier) pairs.
+  // All players default to `isSentOff = false` (eligible); the
+  // sent-off cases are tested explicitly below.
+  function lineup(
+    ...specs: Array<[string | null, 'GOLD' | 'SILVER' | 'BRONZE']>
+  ): TeamScopedPlayer[] {
+    return specs.map(([code, tier]) => ({
+      player: playerWith(code, tier),
+    }));
+  }
+
+  it('returns 1.0 when no player has a relevant specialty', () => {
+    const players = lineup(
+      ['AERIAL_THREAT', 'SILVER'], // irrelevant for `midfield_control`
+    );
+    expect(teamSampledEventMultiplier(players, 'midfield_control')).toBe(1.0);
+  });
+
+  it('returns 1.0 for an empty lineup', () => {
+    expect(teamSampledEventMultiplier([], 'midfield_control')).toBe(1.0);
+  });
+
+  it('single holder returns that holder\'s per-player multiplier', () => {
+    // TACKLER Silver on midfield_control = 1.20
+    const players = lineup(['TACKLER', 'SILVER']);
+    expect(teamSampledEventMultiplier(players, 'midfield_control')).toBe(1.20);
+  });
+
+  it('single Gold holder returns 1.20^1.4 ≈ 1.291 (the Gold tier-scaled value)', () => {
+    // TACKLER's `midfield_control` base is 1.20 (Silver value).
+    // `applyTierMultiplier(1.20, 'GOLD')` = 1.20^1.4 ≈ 1.291 — NOT
+    // 1.40. The "Gold ≈ 1.40" number in the player-facing design doc
+    // is a rounded back-of-envelope description, not the exact
+    // tier-scaled value. This test pins the real number.
+    const players = lineup(['TACKLER', 'GOLD']);
+    expect(teamSampledEventMultiplier(players, 'midfield_control')).toBeCloseTo(1.2908, 3);
+  });
+
+  it('a sent-off holder is excluded from the eligible set', () => {
+    // Only the sent-off player holds the specialty → eligible set is
+    // empty → 1.0. Verifies `isSentOff` is honored, not just looked
+    // up on the underlying `player` object.
+    const players: TeamScopedPlayer[] = [
+      {
+        player: playerWith('TACKLER', 'SILVER'),
+        isSentOff: true,
+      },
+    ];
+    expect(teamSampledEventMultiplier(players, 'midfield_control')).toBe(1.0);
+  });
+
+  it('weighted pick: Gold is picked 1.291/(1.291+1.20) ≈ 51.8% of the time', () => {
+    // 1 Gold + 1 Silver holder, 10k random draws. The Gold holder
+    // is 1.291 / (1.291 + 1.20) = 51.83% of picks, so the empirical
+    // Gold rate should land in [49%, 55%]. Tighter bound than the
+    // older max-style tests because the math is straightforward.
+    const players = lineup(
+      ['TACKLER', 'GOLD'],
+      ['TACKLER', 'SILVER'],
+    );
+    // Compute the Gold tier-scaled value the same way the helper
+    // does so we can identify "Gold was picked" from the return.
+    const goldMult = 1.20; // base
+    const goldScaled = Math.pow(goldMult, 1.4); // tier = 1.4
+    let goldPicks = 0;
+    const N = 10_000;
+    // Use a deterministic LCG so the test is reproducible.
+    let s = 0xdeadbeef >>> 0;
+    for (let i = 0; i < N; i++) {
+      s = (s + 0x6d2b79f5) >>> 0;
+      let t = s;
+      t = Math.imul(t ^ (t >>> 15), t | 1);
+      t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+      const rand = ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+      const picked = teamSampledEventMultiplier(players, 'midfield_control', () => rand);
+      if (Math.abs(picked - goldScaled) < 1e-6) goldPicks++;
+    }
+    const goldRate = goldPicks / N;
+    // Expected ~0.518, ±0.03 leaves a comfortable margin for the 10k
+    // sample stddev (~0.5%).
+    expect(goldRate).toBeGreaterThan(0.49);
+    expect(goldRate).toBeLessThan(0.55);
+  });
+
+  it('multiple identical holders: the pick is uniform among them (same value every time)', () => {
+    // 3 Silver TACKLERs → the pick returns 1.20 every draw because
+    // every eligible holder has the same multiplier. The test
+    // verifies the weighted-pick math degrades to "any one" when
+    // weights are equal.
+    const players = lineup(
+      ['TACKLER', 'SILVER'],
+      ['TACKLER', 'SILVER'],
+      ['TACKLER', 'SILVER'],
+    );
+    for (let i = 0; i < 50; i++) {
+      expect(
+        teamSampledEventMultiplier(players, 'midfield_control'),
+      ).toBe(1.20);
+    }
+  });
+
+  it('Gold + Bronze expected value ≈ 1.21 (less than Gold alone, more than Bronze alone)', () => {
+    // This is the property that distinguishes the new helper from
+    // team-max: a Gold + Bronze mix has expected (1.291 + 1.136) /
+    // 2 ≈ 1.21, but team-max would have given 1.291 always. The
+    // expected value sits between the two extremes, which is what
+    // makes lineup diversity matter as a strategic choice.
+    const players = lineup(
+      ['TACKLER', 'GOLD'],
+      ['TACKLER', 'BRONZE'],
+    );
+    let total = 0;
+    const N = 5_000;
+    for (let i = 0; i < N; i++) {
+      total += teamSampledEventMultiplier(players, 'midfield_control');
+    }
+    const avg = total / N;
+    // Expected ~1.214, ±0.02 leaves a comfortable margin.
+    expect(avg).toBeGreaterThan(1.19);
+    expect(avg).toBeLessThan(1.24);
+  });
+});
+
+describe('teamProductEventMultiplier (strength class)', () => {
+  function lineup(
+    ...specs: Array<[string | null, 'GOLD' | 'SILVER' | 'BRONZE']>
+  ): TeamScopedPlayer[] {
+    return specs.map(([code, tier]) => ({
+      player: playerWith(code, tier),
+    }));
+  }
+
+  it('returns 1.0 when no player has a relevant specialty', () => {
+    const players = lineup(['AERIAL_THREAT', 'SILVER']);
+    expect(teamProductEventMultiplier(players, 'push_defense')).toBe(1.0);
+  });
+
+  it('returns 1.0 for an empty lineup', () => {
+    expect(teamProductEventMultiplier([], 'push_defense')).toBe(1.0);
+  });
+
+  it('single Silver holder returns 1.15 (TACKLER push_defense Silver base)', () => {
+    // TACKLER's `push_defense` Silver base is 1.15 (NOT 1.20 —
+    // `midfield_control` is 1.20). The two hooks have different
+    // per-event bases.
+    const players = lineup(['TACKLER', 'SILVER']);
+    expect(teamProductEventMultiplier(players, 'push_defense', 1.80)).toBe(1.15);
+  });
+
+  it('two Silver holders: product = 1.15 × 1.15 = 1.3225', () => {
+    const players = lineup(
+      ['TACKLER', 'SILVER'],
+      ['TACKLER', 'SILVER'],
+    );
+    expect(teamProductEventMultiplier(players, 'push_defense', 1.80)).toBeCloseTo(1.3225, 4);
+  });
+
+  it('three Silver holders: product = 1.15³ ≈ 1.5209 (under the 1.80 cap)', () => {
+    const players = lineup(
+      ['TACKLER', 'SILVER'],
+      ['TACKLER', 'SILVER'],
+      ['TACKLER', 'SILVER'],
+    );
+    expect(teamProductEventMultiplier(players, 'push_defense', 1.80)).toBeCloseTo(1.5209, 4);
+  });
+
+  it('five Silver holders: cap engaged at 1.80', () => {
+    // 1.15^5 ≈ 2.011, above the default cap of 1.80. The helper
+    // must return exactly 1.80, not the raw product. This is the
+    // property that prevents deep TACKLER lineups from blowing up
+    // the defending side.
+    const players = lineup(
+      ['TACKLER', 'SILVER'],
+      ['TACKLER', 'SILVER'],
+      ['TACKLER', 'SILVER'],
+      ['TACKLER', 'SILVER'],
+      ['TACKLER', 'SILVER'],
+    );
+    expect(teamProductEventMultiplier(players, 'push_defense', 1.80)).toBe(1.80);
+  });
+
+  it('mixed WALL Silver + TACKLER Silver: both contribute to the product', () => {
+    // WALL Silver 1.18 × TACKLER Silver 1.15 = 1.357. The two
+    // entries are independent rows in BASE_EFFECTS.push_defense,
+    // so both holders add their own multiplier.
+    const players = lineup(
+      ['WALL', 'SILVER'],
+      ['TACKLER', 'SILVER'],
+    );
+    expect(teamProductEventMultiplier(players, 'push_defense', 1.80)).toBeCloseTo(1.18 * 1.15, 5);
+  });
+
+  it('a sent-off holder is excluded from the product', () => {
+    const players: TeamScopedPlayer[] = [
+      {
+        player: playerWith('TACKLER', 'SILVER'),
+        isSentOff: true,
+      },
+      {
+        player: playerWith('TACKLER', 'SILVER'),
+      },
+    ];
+    // Only the non-sent-off holder counts; the sent-off one is skipped.
+    expect(teamProductEventMultiplier(players, 'push_defense', 1.80)).toBe(1.15);
+  });
+
+  it('cap of 1.0 disables the cap (returns the raw product)', () => {
+    // A cap of 1.0 is treated as "no cap" because the helper only
+    // applies the cap when `cap > 1.0`. This lets callers pass
+    // 1.0 to opt out of capping if they want the raw product.
+    const players = lineup(
+      ['TACKLER', 'SILVER'],
+      ['TACKLER', 'SILVER'],
+    );
+    expect(teamProductEventMultiplier(players, 'push_defense', 1.0)).toBeCloseTo(1.3225, 4);
+  });
+});
+
+// ────────────────────────────────────────────────────────────────────
 // Source-level tripwire — every SpecialtyEvent that has a row in
 // `BASE_EFFECTS` must be consumed somewhere in the simulator. This
 // guards the v1 → v2 dead-helper failure mode where the spec table
@@ -442,15 +668,16 @@ describe('specialty hook wire-up tripwire (source-level)', () => {
     (event) => {
       // A hook is "consumed" if EITHER:
       //   (a) the literal `'event_name'` appears in an engine file
-      //       (caller is using `getEventMultiplier` directly, or
-      //       `teamMaxEventMultiplier` with the event as a string), OR
+      //       (caller is using `getEventMultiplier` directly, or one
+      //       of the team-level helpers — `teamSampledEventMultiplier`
+      //       / `teamProductEventMultiplier` — with the event as a
+      //       string), OR
       //   (b) the named helper for this event is called from an
       //       engine file.
       // Both are equivalent ways of consuming the hook — most callers
       // use the named helper. The string-literal fallback handles
-      // the `teamMaxEventMultiplier` / `teamMaxEventCached` path used
-      // by `Team.updateSnapshot` and `match.engine.ts` for several
-      // hooks.
+      // the team-level helper paths used by `Team.updateSnapshot` and
+      // `match.engine.ts` for several hooks.
       const stringHits: string[] = [];
       const helperName = eventToHelper[event];
       const helperNeedle = helperName ? `${helperName}(` : null;
