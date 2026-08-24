@@ -137,10 +137,20 @@ describe('per-event × per-specialty multipliers (Silver tier)', () => {
   type Cell = { event: SpecialtyEvent; specialty: ActiveCoreSpecialty; expected: number };
 
   const cells: Cell[] = [
-    // shot_header: AERIAL_THREAT and PHYSICAL_BEAST both at 1.10
+    // shot_header: AERIAL_THREAT only (v2.6). PHYSICAL_BEAST
+    // moved to `shot_normal` to keep the "野兽" semantic aligned
+    // with body contact in the box rather than aerial duels.
     { event: 'shot_header', specialty: 'AERIAL_THREAT', expected: 1.10 },
-    { event: 'shot_header', specialty: 'PHYSICAL_BEAST', expected: 1.10 },
+    { event: 'shot_header', specialty: 'PHYSICAL_BEAST', expected: 1.0 },
     { event: 'shot_header', specialty: 'POACHER', expected: 1.0 }, // not defined for shot_header
+
+    // shot_normal: PHYSICAL_BEAST only (v2.6, moved from shot_header).
+    // Wired in `calculateShootRating` — also fixes a long-standing
+    // dead hook (`shotNormalMultiplier` was defined but never
+    // consumed before this commit).
+    { event: 'shot_normal', specialty: 'PHYSICAL_BEAST', expected: 1.10 },
+    { event: 'shot_normal', specialty: 'AERIAL_THREAT', expected: 1.0 }, // not defined for shot_normal
+    { event: 'shot_normal', specialty: 'POACHER', expected: 1.0 },
 
     // gk_save: SAVING_MASTER only
     { event: 'gk_save', specialty: 'SAVING_MASTER', expected: 1.10 },

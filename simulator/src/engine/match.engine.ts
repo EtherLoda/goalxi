@@ -3971,20 +3971,33 @@ export class MatchEngine {
       (attrs.finishing ?? 10) * 5 +
       (attrs.composure ?? 10) * 3 +
       (attrs.positioning ?? 10) * 2;
-    // v2 AERIAL_THREAT (1.0 / 1.10 / 1.40) + PHYSICAL_BEAST (same) on header.
-    // Both contribute via the same `shot_header` event; team-max
-    // semantics are handled at the snapshot/cross-attack level
-    // (where multiple AERIAL_THREATs would otherwise stack).
+    // v2.6: PHYSICAL_BEAST moved off `shot_header` (repositioned
+    // to `shot_normal` in `calculateShootRating` — see below).
+    // The header shot hook is now AERIAL_THREAT-only; "野兽"
+    // semantic fits body contact in the box, not aerial duels.
+    // Team-max (now `teamSampledEventMultiplier`) handles
+    // multiple AERIAL_THREATs in the cross-attack snapshot path.
     return raw * shotHeaderMultiplier(player);
   }
 
   /**
    * 计算抽射评分（禁区内常规射门）
    * 抽射靠终结和冷静：finishing×7 + composure×3
+   *
+   * v2.6: PHYSICAL_BEAST (1.10 base) wired here. Previously
+   * `shotNormalMultiplier` was a forward-compat helper defined but
+   * never consumed at any call site — see commit de96c3f for the
+   * tripwire fix that surfaced this dead hook. v2.6 fixes it as
+   * part of the AERIAL_THREAT vs PHYSICAL_BEAST differentiation
+   * (PHYSICAL_BEAST moves from `shot_header` to `shot_normal` so
+   * the "野兽" semantic — body contact in the box — matches a
+   * NORMAL shot rather than a header). PHYSICAL_BEAST Silver
+   * on a NORMAL shot: raw × 1.10.
    */
   private calculateShootRating(player: Player): number {
     const attrs = player.attributes;
-    return (attrs.finishing ?? 10) * 7 + (attrs.composure ?? 10) * 3;
+    const raw = (attrs.finishing ?? 10) * 7 + (attrs.composure ?? 10) * 3;
+    return raw * shotNormalMultiplier(player);
   }
 
   /**

@@ -102,8 +102,11 @@ const BASE_EFFECTS: Partial<Record<SpecialtyEvent, Partial<Record<ActiveCoreSpec
     SWEEPER_KEEPER: 1.05,  // 指挥防线（GK aura）
   },
   shot_header: {
-    AERIAL_THREAT: 1.10,    // 头球射门
-    PHYSICAL_BEAST: 1.10,   // 身体 + 头球
+    // v2.6: PHYSICAL_BEAST moved from here to `shot_normal`.
+    // "野兽" 名字暗示身体野蛮,头球不是其强项;头球专精留给
+    // AERIAL_THREAT(空霸)。野兽的强项改成禁区抽射(NORMAL shot)
+    // — CF 在禁区里扛住后卫射门。数值不变(1.10),hook 移位。
+    AERIAL_THREAT: 1.10,    // 头球射门 (头球专精)
   },
   shot_long: {
     // (no outfield specialty directly affects long shots in v2.3;
@@ -118,8 +121,11 @@ const BASE_EFFECTS: Partial<Record<SpecialtyEvent, Partial<Record<ActiveCoreSpec
     //  covers the GK side of the 1v1)
   },
   shot_normal: {
-    // (no specialty directly boosts normal shots; specialty influence
-    //  is via the attacker being more likely to be selected)
+    // v2.6: PHYSICAL_BEAST moved from `shot_header` here. CF 在
+    // 禁区扛住后卫的"野兽"心智 — NORMAL shot 是 80% 射门
+    // 类型,触发频率高(每场 5-15 次),平衡 head-ball buff 移走的
+    // 损失。1.10 base,B/S/G tier-scaling 后 1.103/1.10/1.154。
+    PHYSICAL_BEAST: 1.10,
   },
   gk_save: {
     SAVING_MASTER: 1.10,   // 扑救 + 反应 + 1v1 全部折成 gkRating
