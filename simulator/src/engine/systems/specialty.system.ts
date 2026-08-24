@@ -510,78 +510,88 @@ export interface TeamScopedPlayer {
 }
 
 /**
- * **Decision-class** team multiplier: pick one eligible player
- * weighted by their per-player multiplier on the event, return that
- * player's multiplier. The weighted pick gives the lineup real
- * composition meaning — a 2-tier mix produces a *different* number
- * from a single elite tier alone, even though both are "best
- * holder on the pitch" candidates.
+ * **Decision-class** team multiplier: the best single holder's
+ * per-player multiplier, plus a per-holder depth bonus that
+ * scales with the number of eligible holders on the pitch.
+ *
+ * Formula (v2.5+):
+ *
+ *   result = max(per-holder multipliers) × (1 + DEPTH_BONUS × (N − 1))
+ *
+ * where `DEPTH_BONUS = 0.025` and `N` is the count of eligible
+ * holders (players whose per-player multiplier is ≠ 1.0, excluding
+ * sent-off). The depth bonus is a relative percentage of `max` —
+ * a 5-Silver lineup earns `max × 1.10 = 1.32`, not a flat `1.20 +
+ * 0.10 = 1.30` — so the curve scales with the tier of the best
+ * holder on the pitch. **No cap is applied** (per user request
+ * 2026-08-24): see "Known trade-offs" below.
  *
  * Worked examples (TACKLER on `midfield_control`, 1.20 Silver /
- * 1.40 Gold / 0.86 Bronze per BASE_EFFECTS):
+ * 1.40 Gold / 0.86 Bronze per BASE_EFFECTS, tier-scaled):
  *
- *   1 × Gold        → 1.40 (always)
- *   1 × Silver      → 1.20 (always)
- *   1 × Bronze      → 0.86 (always)
- *   1 × Gold + 1 × Silver → 0.5 × 1.40 + 0.5 × 1.20 = 1.30 (expected)
- *   2 × Silver      → 1.20 (random pick of 1, identical distribution)
- *   3 × Silver      → 1.20 (random pick of 1, identical distribution)
- *   0 holders       → 1.0 (no effect, no random draw)
+ *   1 × Gold        → 1.291 × 1.000 = 1.291
+ *   1 × Silver      → 1.200 × 1.000 = 1.200
+ *   2 × Silver      → 1.200 × 1.025 = 1.230
+ *   3 × Silver      → 1.200 × 1.050 = 1.260
+ *   5 × Silver      → 1.200 × 1.100 = 1.320
+ *   1 × Gold + 1 × Silver → 1.291 × 1.025 = 1.323
+ *   1 × Gold + 1 × Bronze → 1.291 × 1.025 = 1.323
+ *   0 holders       → 1.0
  *
- * Compare with the previous `teamMaxEventMultiplier` semantics:
- *   1 × Gold + 1 × Silver → 1.40 (always picked max)
- *   3 × Silver      → 1.20 (same as random)
- * The new helper is **not strictly stronger** in either direction —
- * for a Gold + Silver lineup, random pick gives 1.30 expected (less
- * than the old max of 1.40), but for a Gold + Bronze lineup, random
- * gives 1.13 expected (more than the old max of 1.40? no, 0.86 + 1.40
- * averaged by 50% = 1.13, less than max). The semantic shift is
- * "lineup diversity now matters as much as tier max".
+ * **Known trade-off (no cap, by user request 2026-08-24)**:
+ *   5 × Silver (1.32) ≈ 1 × Gold (1.291) — a deep Silver lineup
+ *   roughly matches a single Gold holder. Per the v2.0 design doc,
+ *   Gold is the top tier and should strictly dominate Silver; this
+ *   helper currently does not enforce that. If a future balance
+ *   pass decides to cap the depth bonus, the natural place is a
+ *   single multiplicative cap in the formula above — e.g.
+ *   `min(max × (1 + DEPTH_BONUS × (N - 1)), CAP)` where `CAP`
+ *   defaults to 1.50. **Do not** add the cap in this commit; the
+ *   "no cap" state is intentional and the cap is left as a follow-up.
  *
- * Note: this helper does NOT consult a cache. The previous
- * `teamMaxEventCached` memoized the result across calls within a
- * single `simulateKeyMoment` invocation. The new helper is
- * deterministic per call (the random draw is the only nondeterminism)
- * so call sites that want determinism should pass a seeded `rand`.
- * Match-level cache loss is acceptable because the new helper is
- * O(N) over ~11 players — same cost as the max scan it replaces.
+ * Why not the v2.4 weighted-random pick? It degenerated to "max"
+ * under all-same-tier lineups (3 × Silver always returned 1.20, same
+ * as 1 × Silver), which defeated the user's "广撒网 should matter"
+ * goal. The v2.5 max + depth-bonus formula gives every additional
+ * holder a small but real bonus, so a 3-Silver lineup actually
+ * feels different from a 1-Silver lineup.
+ *
+ * The `rand` parameter is preserved for backwards compatibility
+ * with the v2.4 signature but is no longer consulted — the helper
+ * is now deterministic per `(players, event)`. Engine call sites
+ * don't pass it; the existing spec test that did is updated below.
  */
 export function teamSampledEventMultiplier(
   players: readonly TeamScopedPlayer[],
   event: SpecialtyEvent,
-  rand: () => number = Math.random,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  rand?: () => number,
 ): number {
   // Build the eligible holder set in a single pass — no allocation
-  // beyond the local array (the input array is the only allocation
-  // and the caller passes `team.players` directly). The skip rules
-  // mirror `getEventMultiplier`: only players whose multiplier is
-  // ≠ 1.0 contribute, otherwise 1.0 is returned unchanged.
-  const eligible: { weight: number; mult: number }[] = [];
+  // beyond the local array. Skip rules mirror `getEventMultiplier`:
+  // only players whose per-player multiplier is ≠ 1.0 contribute,
+  // otherwise 1.0 is returned unchanged. The random-weighted pick
+  // from v2.4 was removed because it degenerated to "max" under
+  // all-same-tier lineups.
+  const eligible: { mult: number }[] = [];
+  let maxMult = 1.0;
   for (const p of players) {
     if (p.isSentOff) continue;
     const mult = getEventMultiplier(p.player, event);
     if (mult === 1.0) continue;
-    eligible.push({ weight: mult, mult });
+    eligible.push({ mult });
+    if (mult > maxMult) maxMult = mult;
   }
   if (eligible.length === 0) return 1.0;
 
-  // Weighted pick by per-player multiplier. Using the multiplier
-  // itself as the weight (rather than e.g. tier) means a Gold
-  // holder is 1.4× more likely to be picked than a Silver holder,
-  // matching the "this holder contributes more" intuition. A
-  // single-holder lineup is a degenerate case where the pick is
-  // forced and the multiplier is returned unchanged.
-  const totalWeight = eligible.reduce((s, e) => s + e.weight, 0);
-  let r = rand() * totalWeight;
-  for (const e of eligible) {
-    r -= e.weight;
-    if (r <= 0) return e.mult;
-  }
-  // Float drift fallback — the only way to reach here is if the
-  // accumulated subtraction under-shot by < 1 ULP. Returning the
-  // last holder's multiplier preserves the weighted-pick semantics
-  // (its weight was subtracted last in the loop above).
-  return eligible[eligible.length - 1].mult;
+  // v2.5 depth bonus: a small per-holder reward on top of max.
+  // `DEPTH_BONUS` is 2.5% of `max` per additional holder. The
+  // multiplier is `max × (1 + DEPTH_BONUS × (N - 1))` — no cap
+  // (see the docstring above for the rationale and the known
+  // "5 Silver ≈ 1 Gold" trade-off).
+  const DEPTH_BONUS = 0.025;
+  const depthMultiplier = 1 + DEPTH_BONUS * (eligible.length - 1);
+  return maxMult * depthMultiplier;
 }
 
 /**
