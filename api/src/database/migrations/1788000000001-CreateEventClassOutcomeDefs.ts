@@ -322,6 +322,14 @@ export class CreateEventClassOutcomeDefs1788000000001
       DECLARE
         "v_count" integer;
       BEGIN
+        -- Pass 1: event_class_id + outcome_id from the legacy type
+        -- int. We do NOT touch outcome_code in the same UPDATE
+        -- because PG's UPDATE doesn't guarantee the right side of
+        -- a multi-column SET sees the new values of the left side
+        -- — the CASE on outcome_id would read the pre-update NULL
+        -- and produce NULL outcome_code for every row. Splitting
+        -- into two UPDATEs is the cleanest fix; the second sees
+        -- the now-populated outcome_id.
         UPDATE "match_event" SET
           "event_class_id" = CASE "type"
             WHEN 1   THEN 1
@@ -378,25 +386,24 @@ export class CreateEventClassOutcomeDefs1788000000001
             WHEN 101 THEN 7
             WHEN 181 THEN 12
             ELSE NULL
-          END,
-          "outcome_code" = CASE
-            WHEN "outcome_id" = 1  THEN 'GOAL'
-            WHEN "outcome_id" = 2  THEN 'SAVE'
-            WHEN "outcome_id" = 3  THEN 'BLOCKED'
-            WHEN "outcome_id" = 4  THEN 'MISS'
-            WHEN "outcome_id" = 5  THEN 'WARNING'
-            WHEN "outcome_id" = 6  THEN 'YELLOW'
-            WHEN "outcome_id" = 7  THEN 'SECOND_YELLOW'
-            WHEN "outcome_id" = 8  THEN 'RED'
-            WHEN "outcome_id" = 11 THEN 'TAKEN'
-            WHEN "outcome_id" = 12 THEN 'DIRECT_GOAL'
-            WHEN "outcome_id" = 26 THEN 'START'
-            WHEN "outcome_id" = 28 THEN 'FORFEIT'
-            ELSE NULL
           END
         WHERE ("p_match_id" IS NULL OR "match_id" = "p_match_id")
           AND "event_class_id" IS NULL;
         GET DIAGNOSTICS "v_count" = ROW_COUNT;
+
+        -- Pass 2: outcome_code derived from the now-populated
+        -- outcome_id. Joins event_outcome_def via subquery to
+        -- keep the code authoritative (the dict table is the
+        -- source of truth for code ↔ id mapping).
+        UPDATE "match_event" m
+        SET "outcome_code" = (
+          SELECT "code" FROM "event_outcome_def"
+          WHERE "id" = m."outcome_id"
+        )
+        WHERE ("p_match_id" IS NULL OR m."match_id" = "p_match_id")
+          AND m."outcome_id" IS NOT NULL
+          AND m."outcome_code" IS NULL;
+
         RETURN "v_count";
       END;
       $$ LANGUAGE plpgsql
