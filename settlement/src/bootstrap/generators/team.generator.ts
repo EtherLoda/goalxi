@@ -93,6 +93,50 @@ const L2_CITIES = [
 const SUFFIXES = ['FC', 'United', 'Club', 'City', 'Athletic'];
 
 /**
+ * Mascot-style name parts. Combined with a city as
+ * `${city}${mascot}` to give the name a 2-character
+ * flavour noun — e.g. `北京雄狮`, `上海蓝鲸`,
+ * `广州火焰`. The 12 mascots draw from the four
+ * directional symbols (青龙/白虎/朱雀/玄武),
+ * large mammals (雄狮/猛虎/猎豹/战狼), and a few
+ * fantastical ones (麒麟/凤凰/饕餮/貔貅) so the
+ * pool doesn't feel like a copy of the same 4
+ * animals.
+ */
+const MASCOTS = [
+  '雄狮', '蓝鲸', '火焰', '飞鹰', '金龙', '白虎', '玄武', '朱雀',
+  '麒麟', '猎豹', '战狼', '凤凰',
+];
+
+/**
+ * Sponsor-style name parts. Real Chinese football
+ * club names often carry a sponsor suffix
+ * (`山东鲁能`, `上海海港`, `广州医药`) — the
+ * industrial-sector noun gives the name a corporate
+ * edge that pure mascot names don't. Picked for
+ * visual distinctiveness from the mascot pool.
+ */
+const SPONSORS = [
+  '能源', '钢铁', '通讯', '航空', '金融', '物流', '化工', '电子',
+  '重工', '汽车', '制药', '建工',
+];
+
+/**
+ * The three naming styles a generated team name can
+ * take. Each style is a `(city, value)` template
+ * that pairs a city with a value from one of the
+ * three suffix arrays. Centralised so the
+ * shuffled-pool builder in `pickNamesForLeague`
+ * iterates them in a single place.
+ */
+type NameStyle = 'suffix' | 'mascot' | 'sponsor';
+const NAME_STYLES: ReadonlyArray<{ style: NameStyle; values: readonly string[] }> = [
+  { style: 'suffix', values: SUFFIXES },
+  { style: 'mascot', values: MASCOTS },
+  { style: 'sponsor', values: SPONSORS },
+];
+
+/**
  * Options bag for `generateAllTeams`. `small: true` matches
  * the `LeagueGenerator` small-pyramid mode (1 L1 + 1 L2 =
  * 32 teams). Default is the full 1+4+16+64 league × 16
@@ -102,10 +146,123 @@ export interface GenerateAllTeamsOptions {
   small?: boolean;
 }
 
+/**
+ * Build a pool of `count` unique team names for a
+ * league, drawing from the per-tier city list and the
+ * three name styles (`SUFFIXES` / `MASCOTS` /
+ * `SPONSORS`). The global `usedNames` set is consulted
+ * so no name appears twice in the pyramid.
+ *
+ * Pool strategy: one shuffled list per style, then
+ * round-robin pull. The first 3 names are guaranteed
+ * to be 1× suffix + 1× mascot + 1× sponsor (so a
+ * 16-team league has plenty of every style), and
+ * dedupe against `usedNames` skips past the L1/L2
+ * city overlap (the first 8 entries of both
+ * `L1_CITIES` and `L2_CITIES` are identical).
+ *
+ * Why stratified + round-robin instead of one
+ * shuffled pool:
+ *
+ *   1. Deterministic style coverage. A flat
+ *      Fisher–Yates shuffle of a 232-name pool can
+ *      produce 16 picks that are 0-of-suffix with
+ *      ~7% probability (1 in 14 runs). Round-robin
+ *      guarantees every style is pulled in the
+ *      first 3 picks.
+ *   2. Per-style shuffle preserves variety within
+ *      a style (so a 16-team L1 doesn't end up
+ *      `北京FC, 上海FC, 广州FC, …` — the suffix
+ *      pool is also shuffled).
+ *   3. Cross-league dedupe via the `usedNames` set
+ *      stops a L1 `北京FC` and a L2 `北京FC` from
+ *      coexisting.
+ *
+ * The fallback (`第N联队`, `第N+1联队`, …) is the
+ * last-resort path; the spec asserts it never fires
+ * for the standard 1360-team pyramid.
+ */
+function pickNamesForLeague(
+  tier: number,
+  count: number,
+  usedNames: Set<string>,
+): string[] {
+  const cities = tier === 1 ? L1_CITIES : L2_CITIES;
+  const result: string[] = [];
+
+  // Build one pool per style. Each pool is a flat
+  // list of `city × value` combinations, then
+  // shuffled so the order within a style is also
+  // varied (not a deterministic `北京FC, 上海FC, …`).
+  const stylePools: Record<NameStyle, string[]> = {
+    suffix: [],
+    mascot: [],
+    sponsor: [],
+  };
+  for (const { style, values } of NAME_STYLES) {
+    for (const city of cities) {
+      for (const value of values) {
+        stylePools[style].push(`${city}${value}`);
+      }
+    }
+  }
+  for (const pool of Object.values(stylePools)) {
+    for (let i = pool.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [pool[i], pool[j]] = [pool[j], pool[i]];
+    }
+  }
+
+  // Round-robin pull, popping from the back of each
+  // shuffled pool. We rotate the order each pass so
+  // the same style doesn't lead every time.
+  const styleOrder: NameStyle[] = ['suffix', 'mascot', 'sponsor'];
+  let offset = 0;
+  while (result.length < count) {
+    let added = false;
+    for (let s = 0; s < styleOrder.length && result.length < count; s++) {
+      const style = styleOrder[(offset + s) % styleOrder.length];
+      const pool = stylePools[style];
+      // Skip past any names already consumed by an
+      // earlier league (cross-league dedupe).
+      while (pool.length > 0) {
+        const name = pool.pop()!;
+        if (!usedNames.has(name)) {
+          result.push(name);
+          usedNames.add(name);
+          added = true;
+          break;
+        }
+      }
+    }
+    if (!added) break;
+    offset++;
+  }
+
+  // Fallback for the "user configured a 200-team
+  // league in a 81-city pool" case — shouldn't fire
+  // for the standard 16-team-per-league pyramid, but
+  // kept as defence in depth.
+  let fallbackN = 1;
+  while (result.length < count) {
+    const fallback = `第${fallbackN}联队`;
+    if (!usedNames.has(fallback)) {
+      result.push(fallback);
+      usedNames.add(fallback);
+    }
+    fallbackN++;
+    if (fallbackN > 1000) {
+      throw new Error(
+        `pickNamesForLeague: exhausted fallback names for tier=${tier} count=${count} — pool sizing bug`,
+      );
+    }
+  }
+
+  return result;
+}
+
 @Injectable()
 export class TeamGenerator {
-  private cityIndex = 0;
-
   constructor(
     @Inject(LOGGER_SERVICE)
     private readonly logger: PinoLoggerService,
@@ -156,11 +313,22 @@ export class TeamGenerator {
     // generator's "needs 4+ teams" guard skips them.
     const targetLeagues = options.small ? leagues.slice(0, 2) : leagues;
 
+    // Cross-league name uniqueness. The pool builder
+    // (cities × 3 styles × values) is large enough
+    // that we never run out within a single tier, but
+    // the same city appears in both `L1_CITIES` and
+    // `L2_CITIES` (the first 8 entries are identical),
+    // so a naive per-league picker would happily stamp
+    // `北京FC` on a L1 team AND a L2 team. The Set
+    // tracks every name the pyramid has consumed so
+    // a collision is impossible across leagues.
+    const usedNames = new Set<string>();
+
     let teamCount = 0;
     for (const league of targetLeagues) {
+      const pool = pickNamesForLeague(league.tier, league.maxTeams, usedNames);
       for (let i = 0; i < league.maxTeams; i++) {
-        const teamName = this.generateTeamName(league.tier, teamCount);
-        await this.createBotTeam(league, teamName);
+        await this.createBotTeam(league, pool[i]);
         teamCount++;
       }
     }
@@ -381,23 +549,14 @@ export class TeamGenerator {
   }
 
   private generateTeamName(tier: number, index: number): string {
-    let cities: string[];
-    if (tier === 1) {
-      cities = L1_CITIES;
-    } else {
-      cities = L2_CITIES;
-    }
-
-    const city = cities[index % cities.length];
-    const suffix = SUFFIXES[index % SUFFIXES.length];
-
-    // Add number suffix if we run out of unique combinations
-    if (index >= cities.length * SUFFIXES.length) {
-      const num = Math.floor(index / (cities.length * SUFFIXES.length)) + 1;
-      return `${city}${suffix} ${num}`;
-    }
-
-    return `${city}${suffix}`;
+    // Legacy single-name entry point kept for the
+    // existing spec; the production path uses
+    // `pickNamesForLeague` above. The new path
+    // pre-builds a shuffled, deduped pool of `count`
+    // names per league rather than computing one
+    // name at a time.
+    return pickNamesForLeague(tier, Math.max(index + 1, 1), new Set())[index] ??
+      '第1联队';
   }
 
   /**

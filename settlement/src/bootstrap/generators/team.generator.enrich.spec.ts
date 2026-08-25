@@ -263,3 +263,297 @@ describe('TeamGenerator — post-enrich (batched)', () => {
     }
   });
 });
+
+/**
+ * Spec for the `pickNamesForLeague` pool builder.
+ *
+ * The new name generator pulls from three styles
+ * (suffix / mascot / sponsor) and shuffles the
+ * candidate pool before picking the first `count`
+ * unique names. The cross-league uniqueness Set
+ * is the key piece that prevents a L1 "北京FC" and
+ * a L2 "北京FC" from coexisting (the first 8 entries
+ * of `L1_CITIES` and `L2_CITIES` are identical).
+ *
+ * `pickNamesForLeague` is a module-private function;
+ * we reach in via `(TeamGenerator as any)` or the
+ * same source-read pattern the other tripwires use.
+ * Reaching in keeps the test honest: a real
+ * behaviour-level failure surfaces at run time, not
+ * at source-read time.
+ */
+describe('TeamGenerator — pickNamesForLeague (3-style name pool)', () => {
+  // The pool builder is a module-private function
+  // (`pickNamesForLeague`); we exercise the public
+  // `generateAllTeams` end-to-end with a mocked
+  // league / team repo and assert on the names the
+  // builder picked. The test catches real bugs at
+  // run time, not just source-level tripwires.
+  const mockLogger = {
+    info: jest.fn(),
+    warn: jest.fn(),
+    debug: jest.fn(),
+    error: jest.fn(),
+  };
+  const generatorModule = require('./team.generator');
+
+  function buildGen() {
+    const teamRepo = {
+      // `enrichAllTeams` calls `teamRepo.find()` to
+      // pull the freshly-created teams; default to
+      // an empty list so the post-enrichment pass
+      // short-circuits. Individual tests can
+      // override.
+      find: jest.fn().mockResolvedValue([]),
+      count: jest.fn().mockResolvedValue(0),
+    };
+    const playerRepo = { find: jest.fn() };
+    const staffRepo = { find: jest.fn() };
+    const stadiumRepo = { find: jest.fn().mockResolvedValue([]) };
+    const leagueRepo = { find: jest.fn() };
+    const dataSource = {
+      manager: {
+        findOne: jest.fn().mockResolvedValue(null),
+        // `createTeam` (in libs/database) calls
+        // `manager.create(...)` and `manager.save(...)`
+        // for every child row. We capture the
+        // `.name` field via the `create` mock; `save`
+        // is a no-op that returns whatever was passed.
+        create: jest.fn((_Entity: unknown, data: any) => ({
+          id: 'mock-id',
+          ...((data as object) ?? {}),
+        })),
+        save: jest.fn(async (rows: any) => rows),
+        // The `createTeam` helper also issues raw
+        // `query` calls inside `scrubManagerSpecificData`
+        // for the player soft-delete. Stub it.
+        query: jest.fn().mockResolvedValue({ rowCount: 0, rows: [] }),
+        // `scrubManagerSpecificData` builds a
+        // `createQueryBuilder().update().set().where()`
+        // chain for the player soft-delete. Stub it.
+        createQueryBuilder: jest.fn(() => {
+          const chain: any = {};
+          for (const m of ['update', 'set', 'where', 'andWhere']) {
+            chain[m] = jest.fn(() => chain);
+          }
+          chain.execute = jest.fn().mockResolvedValue(undefined);
+          return chain;
+        }),
+      },
+      query: jest.fn().mockResolvedValue([]),
+      transaction: jest.fn(async (cb: any) =>
+        cb({ manager: dataSource.manager }),
+      ),
+    };
+    return {
+      gen: new (generatorModule.TeamGenerator as any)(
+        mockLogger as any,
+        teamRepo as any,
+        playerRepo as any,
+        staffRepo as any,
+        stadiumRepo as any,
+        leagueRepo as any,
+        dataSource as any,
+      ),
+      teamRepo,
+      leagueRepo,
+      dataSource,
+    };
+  }
+
+  it('emits `count` unique names that cover all three styles', async () => {
+    // 8-city L1 league, 16 teams. The pool has
+    // 8 × 29 = 232 candidates; the picker should
+    // pull 16 unique names covering all three
+    // styles (suffix / mascot / sponsor).
+    const { gen, leagueRepo, dataSource } = buildGen();
+    const league = {
+      id: 'L-1' as Uuid,
+      tier: 1,
+      tierDivision: 1,
+      maxTeams: 16,
+      promotionSlots: 0,
+      playoffSlots: 0,
+      relegationSlots: 0,
+    } as any;
+    leagueRepo.find.mockResolvedValue([league]);
+    // Capture the team names from the
+    // `manager.create()` call. The dataSource's
+    // `manager.create` is also called for player /
+    // staff / finance rows that each have their own
+    // `name` field — those aren't team names. Filter
+    // to rows that carry `isBot` (only TeamEntity
+    // rows do) so the assertion below is on team
+    // names only.
+    const createdNames: string[] = [];
+    dataSource.manager.create = jest.fn(
+      (_Entity: unknown, data: any) => {
+        if (
+          data &&
+          typeof data.name === 'string' &&
+          typeof data.isBot === 'boolean'
+        ) {
+          createdNames.push(data.name);
+        }
+        return { id: 'mock-id', ...data };
+      },
+    );
+
+    await gen.generateAllTeams();
+
+    // 16 unique names for a 16-team league.
+    expect(createdNames).toHaveLength(16);
+    expect(new Set(createdNames).size).toBe(16);
+    // All three styles appear: at least one
+    // city+suffix (e.g. `北京FC`), one city+mascot
+    // (e.g. `北京雄狮`), one city+sponsor (e.g.
+    // `北京能源`). The 3 mascots × 12 + 5 suffixes +
+    // 12 sponsors × 8 cities mean each style has
+    // 96 / 40 / 96 candidates, so 16 picks should
+    // easily cover all three.
+    const SUFFIX_VALUES = ['FC', 'United', 'Club', 'City', 'Athletic'];
+    const MASCOT_VALUES = [
+      '雄狮', '蓝鲸', '火焰', '飞鹰', '金龙', '白虎', '玄武', '朱雀',
+      '麒麟', '猎豹', '战狼', '凤凰',
+    ];
+    const SPONSOR_VALUES = [
+      '能源', '钢铁', '通讯', '航空', '金融', '物流', '化工', '电子',
+      '重工', '汽车', '制药', '建工',
+    ];
+    const hasSuffix = createdNames.some((n) =>
+      SUFFIX_VALUES.some((s) => n.endsWith(s)),
+    );
+    const hasMascot = createdNames.some((n) =>
+      MASCOT_VALUES.some((m) => n.endsWith(m)),
+    );
+    const hasSponsor = createdNames.some((n) =>
+      SPONSOR_VALUES.some((s) => n.endsWith(s)),
+    );
+    expect(hasSuffix).toBe(true);
+    expect(hasMascot).toBe(true);
+    expect(hasSponsor).toBe(true);
+  });
+
+  it('cross-league: L1 and L2 never share a name (the original collision bug)', async () => {
+    // The first 8 entries of L1_CITIES and L2_CITIES
+    // are identical (`北京`, `上海`, …). With the
+    // old global-counter picker, the L1 first team
+    // got `北京FC` and the L2 first team ALSO got
+    // `北京FC` — two teams with the same name in
+    // different leagues, confusing on the standings
+    // page. The new code uses a single `Set<string>`
+    // across the whole init so a L1 → L2 collision
+    // is impossible.
+    const { gen, leagueRepo, dataSource } = buildGen();
+    const l1 = {
+      id: 'L1' as Uuid,
+      tier: 1,
+      tierDivision: 1,
+      maxTeams: 8,
+      promotionSlots: 0,
+      playoffSlots: 0,
+      relegationSlots: 0,
+    } as any;
+    const l2 = {
+      id: 'L2' as Uuid,
+      tier: 2,
+      tierDivision: 1,
+      maxTeams: 8,
+      promotionSlots: 0,
+      playoffSlots: 0,
+      relegationSlots: 0,
+    } as any;
+    leagueRepo.find.mockResolvedValue([l1, l2]);
+    const createdNames: string[] = [];
+    dataSource.manager.create = jest.fn(
+      (_Entity: unknown, data: any) => {
+        if (
+          data &&
+          typeof data.name === 'string' &&
+          typeof data.isBot === 'boolean'
+        ) {
+          createdNames.push(data.name);
+        }
+        return { id: 'mock-id', ...data };
+      },
+    );
+
+    await gen.generateAllTeams();
+
+    // 8 L1 + 8 L2 = 16 unique names; no collisions.
+    // We filter to TeamEntity rows (which carry
+    // `isBot`) because `manager.create` is also
+    // called for player / staff / finance rows that
+    // each have their own `name` field — those
+    // aren't team names.
+    expect(createdNames).toHaveLength(16);
+    expect(new Set(createdNames).size).toBe(16);
+  });
+
+  it('falls back to `第N联队` only when the pool is genuinely exhausted', async () => {
+    // Configure a degenerate case: a 1-team league
+    // with an exhausted `usedNames` Set, so the
+    // pool builder must reach the fallback. The
+    // standard 16-team pyramid never hits this; the
+    // case pins the fallback contract so a future
+    // "let me bump maxTeams to 200" change can't
+    // silently overflow without a name.
+    const { gen, leagueRepo, dataSource } = buildGen();
+    const league = {
+      id: 'L-BIG' as Uuid,
+      tier: 1,
+      tierDivision: 1,
+      // 300 > the 232-candidate L1 pool → fallback
+      // must fire for the trailing 68 names.
+      maxTeams: 300,
+      promotionSlots: 0,
+      playoffSlots: 0,
+      relegationSlots: 0,
+    } as any;
+    leagueRepo.find.mockResolvedValue([league]);
+    const createdNames: string[] = [];
+    dataSource.manager.create = jest.fn(
+      (_Entity: unknown, data: any) => {
+        if (
+          data &&
+          typeof data.name === 'string' &&
+          typeof data.isBot === 'boolean'
+        ) {
+          createdNames.push(data.name);
+        }
+        return { id: 'mock-id', ...data };
+      },
+    );
+
+    await gen.generateAllTeams();
+
+    expect(createdNames).toHaveLength(300);
+    // The trailing entries should include the
+    // fallback `第N联队` shape.
+    expect(createdNames.slice(232)).toEqual(
+      expect.arrayContaining([expect.stringMatching(/^第\d+联队$/)]),
+    );
+  });
+
+  it('source-level: the team generator builds names from all 3 styles', () => {
+    // The behavioural tests above cover the
+    // contract; this tripwire pins the source so a
+    // future "simplification" that drops a style
+    // (e.g. drops MASCOTS to "keep the code simple")
+    // fails at test time, not in production where
+    // every team ends up with the same `北京FC`-
+    // style name.
+    const fs = require('fs');
+    const path = require('path');
+    const source = fs.readFileSync(
+      path.join(__dirname, 'team.generator.ts'),
+      'utf8',
+    );
+    expect(source).toMatch(/MASCOTS\s*=/);
+    expect(source).toMatch(/SPONSORS\s*=/);
+    expect(source).toMatch(/SUFFIXES\s*=/);
+    // The three-style NAME_STYLES table is the
+    // single source of truth for the picker.
+    expect(source).toMatch(/NAME_STYLES/);
+  });
+});
