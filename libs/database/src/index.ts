@@ -47,6 +47,7 @@ export * from './utils/password.util';
 export * from './utils/position-fit.util';
 export * from './utils/player-rating.util';
 export * from './utils/auto-lineup.util';
+export * from './utils/player-id.util';
 export * from './utils/short-code.util';
 export * from './utils/game-clock';
 export * from './types/common.type';
