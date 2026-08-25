@@ -28,9 +28,13 @@ function evt(overrides: Partial<MatchEvent>): MatchEvent {
 
 describe('matchEventKey', () => {
   it('uses (type, minute, playerId, teamId) tuple', () => {
+    // MatchEvent.playerId is `number` (mirrors the DB int column),
+    // so the test fixture uses numeric ids. The dedupe key
+    // `matchEventKey` stringifies via template literal so a number
+    // serialises the same way a same-valued string would.
     expect(
-      matchEventKey(evt({ type: 'goal', minute: 23, playerId: 'p1', teamId: 't1' })),
-    ).toBe('goal-23-p1-t1');
+      matchEventKey(evt({ type: 'goal', minute: 23, playerId: 1, teamId: 't1' })),
+    ).toBe('goal-23-1-t1');
   });
 
   it('substitutes empty strings for missing playerId/teamId', () => {
@@ -40,8 +44,8 @@ describe('matchEventKey', () => {
   });
 
   it('collides when (type, minute, playerId, teamId) are equal — last write wins', () => {
-    const a = evt({ id: 'a', type: 'goal', minute: 10, playerId: 'p1', teamId: 't1' });
-    const b = evt({ id: 'b', type: 'goal', minute: 10, playerId: 'p1', teamId: 't1' });
+    const a = evt({ id: 'a', type: 'goal', minute: 10, playerId: 1, teamId: 't1' });
+    const b = evt({ id: 'b', type: 'goal', minute: 10, playerId: 1, teamId: 't1' });
     expect(matchEventKey(a)).toBe(matchEventKey(b));
   });
 });
@@ -88,7 +92,7 @@ describe('mergeAndSortMatchEvents', () => {
         evt({
           type: 'goal',
           minute: 30,
-          playerId: 'p1',
+          playerId: 1,
           eventScheduledTime: 200,
         }),
       ],
@@ -96,13 +100,13 @@ describe('mergeAndSortMatchEvents', () => {
         evt({
           type: 'goal',
           minute: 30,
-          playerId: 'p2',
+          playerId: 2,
           eventScheduledTime: 100,
         }),
         evt({
           type: 'goal',
           minute: 30,
-          playerId: 'p3',
+          playerId: 3,
           eventScheduledTime: 300,
         }),
       ],

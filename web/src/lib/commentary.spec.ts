@@ -1149,12 +1149,17 @@ describe('commentary tpl_* variation is per-event deterministic', () => {
     const seen = new Set<number>();
     for (let i = 0; i < 20; i++) {
       const evt = baseEvent({
-        // no `id` �?exercises the fallback key.
+        // no `id` — exercises the fallback key.
         id: '',
         type: 'goal',
         typeName: 'goal',
         minute: 10 + (i % 5), // varies by minute
-        playerId: `player-${i}`,
+        // MatchEvent.playerId is `number` (DB int column). The exact
+        // value is irrelevant for variation — the formatter hashes
+        // the composite key, and 20 distinct playerIds + 5 distinct
+        // minutes give 100 distinct keys, far more than the ≥2
+        // distinct tpl_* indices this test asserts.
+        playerId: i,
         data: { playerName: 'X', sequence: { shot: { shooter: 'X' } } },
       });
       const t = jest.fn((key: string) => {

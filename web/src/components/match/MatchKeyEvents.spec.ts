@@ -31,10 +31,10 @@ const roster = new Map<string, { name: string }>([
 const ev = (overrides: Partial<MatchEvent> & { typeName: string; minute: number; teamId?: string; playerId?: number; data?: Record<string, unknown> }): MatchEvent => ({
   id: 'e',
   matchId: 'm',
-  minute: 0,
+  // The override type requires `minute` and `typeName`, so they're
+  // always supplied by the test — no dead defaults below.
   second: 0,
   type: '0',
-  typeName: '',
   ...overrides,
 });
 

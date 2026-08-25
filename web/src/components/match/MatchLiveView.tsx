@@ -28,19 +28,31 @@ import { extractSnapshots, resolveAutoSnapIndex } from './snapshot-stats';
 
 const MATCH_END_REDIRECT_DELAY_MS = 2500;
 
-/** Map a WebSocket event to the REST API MatchEvent shape. */
+/** Map a WebSocket event to the REST API MatchEvent shape.
+ *
+ * The WS gateway serialises `playerId` as a JSON string (e.g. `"42"`),
+ * but the REST DTO + the DB column it mirrors are both `int`, so
+ * `ApiMatchEvent.playerId` is `number | undefined`. Coerce here at
+ * the transport boundary so the rest of the FE can rely on the
+ * `String(playerId)`-friendly numeric shape and the key-events panel's
+ * `rosterById.get(String(playerId))` lookup stays type-correct. A
+ * missing / non-numeric payload is treated as "no player on the
+ * event" and forwarded as `undefined` — the same contract the REST
+ * path uses.
+ */
 function mapWsEventToApiEvent(wsEvent: WsMatchEvent) {
+  const rawPlayerId = wsEvent.playerId;
   return {
     id:
       wsEvent.id ??
-      `${wsEvent.type}-${wsEvent.minute}-${wsEvent.playerId || ''}-${wsEvent.teamId || ''}`,
+      `${wsEvent.type}-${wsEvent.minute}-${rawPlayerId || ''}-${wsEvent.teamId || ''}`,
     matchId: wsEvent.matchId,
     minute: wsEvent.minute,
     second: wsEvent.second ?? 0,
     type: wsEvent.type,
     typeName: wsEvent.typeName ?? wsEvent.type,
     teamId: wsEvent.teamId,
-    playerId: wsEvent.playerId,
+    playerId: rawPlayerId != null ? Number(rawPlayerId) : undefined,
     data: wsEvent.data,
     isHome: wsEvent.isHome,
   };

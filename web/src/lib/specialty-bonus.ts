@@ -42,18 +42,25 @@ const COPY: Record<SpecialtyBonusLocale, { boost: string; reduce: string }> = {
 /**
  * Format a single contribution as a player-facing percent string.
  * Returns `null` when there's nothing to display (multiplier is
- * 1.0 or undefined), so the caller can short-circuit the chip
- * entirely. This keeps the "no effect → no chip" contract tight
- * at every call site.
+ * 1.0, undefined, or null), so the caller can short-circuit the
+ * chip entirely. This keeps the "no effect → no chip" contract
+ * tight at every call site.
+ *
+ * `null` and `undefined` both resolve to "no effect" — a stale
+ * roster, a backfilled row with a missing contribution, or a
+ * future schema drift shouldn't crash the sidebar. NaN / Infinity
+ * (defensive — shouldn't come from the engine) also resolve to
+ * `null` so the formatter never produces "−NaN% 效果降低".
  */
 export function formatSpecialtyBonus(
-    multiplier: number | undefined,
+    multiplier: number | null | undefined,
     locale: SpecialtyBonusLocale = 'zh',
 ): string | null {
-    // `Number.isFinite` rejects null / undefined / NaN / Infinity
-    // in one check. Without this, NaN slipped through and
-    // produced "−NaN% 效果降低" (the unit test caught it).
-    if (!Number.isFinite(multiplier)) return null;
+    // `multiplier == null` narrows to `number` for TS — without it,
+    // `Number.isFinite` (typed `unknown → boolean`) doesn't tighten
+    // the type and the `(multiplier - 1) * 100` line below flags
+    // `multiplier` as possibly undefined.
+    if (multiplier == null || !Number.isFinite(multiplier)) return null;
     if (multiplier === 1.0) return null;
     const pct = Math.round((multiplier - 1) * 100);
     if (pct === 0) return null; // tiny rounding case (1.005 → 1)
