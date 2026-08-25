@@ -238,6 +238,39 @@ describe('ScheduleGenerator — senior-only', () => {
     expect(secondLegMin).toBeGreaterThan(firstLegMax);
   });
 
+  it('handles an odd-team league (5 teams): each round has floor(N/2) matchups, one team sits out', async () => {
+    // The standard pyramid uses 16-team leagues, so
+    // the odd-team path is defensive. Pin the
+    // contract: a 5-team league produces
+    // floor(5/2) = 2 matchups per round (NOT
+    // ceil(5/2) = 3), and the rightmost team in the
+    // rotated list sits out. The docstring on
+    // `generateRoundMatchups` claims this — the
+    // spec makes the claim auditable.
+    const { gen, matchRepo, leagueRepo, teamRepo } = build();
+    matchRepo.count.mockResolvedValue(0);
+    leagueRepo.find.mockResolvedValue([seniorLeague('L-1')]);
+    const teams: TeamEntity[] = [];
+    for (let i = 0; i < 5; i++) {
+      teams.push(seniorTeam(`T${i}`, 'L-1'));
+    }
+    teamRepo.find.mockResolvedValue(teams);
+    matchRepo.save.mockResolvedValue([]);
+
+    await gen.generateSeason1Schedule(new Date('2026-09-09T00:00:00Z'));
+
+    const saved: Partial<MatchEntity>[] = matchRepo.save.mock.calls[0][0];
+    // 5 teams × (5-1) = 4 rounds per leg ×
+    // floor(5/2) = 2 matchups per round × 2 legs
+    // = 16 matches total.
+    expect(saved).toHaveLength(16);
+    // Every match is a real matchup (no null teams).
+    for (const m of saved) {
+      expect(m.homeTeamId).toBeTruthy();
+      expect(m.awayTeamId).toBeTruthy();
+    }
+  });
+
   /**
    * Regression for the historical bug where the schedule
    * generator wrote match rows without `stadiumId`,

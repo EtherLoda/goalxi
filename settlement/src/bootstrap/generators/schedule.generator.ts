@@ -191,7 +191,18 @@ export class ScheduleGenerator {
    * firing on `week === 15`) both stay correct without
    * needing a separate `recomputeWeekForMatch` step.
    *
-   * Returns a 1-indexed integer; never 0.
+   * Returns a 1-indexed integer; never 0. (Cup matches
+   * explicitly stamp `week=0` to bypass this — see
+   * `CupSchedulerService.materializeRound`'s comment on
+   * the `week=0` sentinel.)
+   *
+   * Public (not `private`) because any code that needs
+   * to recompute a league-week from a (rescheduled)
+   * timestamp — match reschedule handlers, replay tools,
+   * analytics jobs that join match events to schedule
+   * weeks — is a legitimate caller. The function is
+   * pure (no side effects) and the contract is
+   * stable (1-indexed, never 0 for a league match).
    */
   weekFromScheduledAt(scheduledAt: Date, weekOneMonday: Date): number {
     const MS_PER_WEEK = 7 * 24 * 60 * 60 * 1000;
@@ -387,6 +398,34 @@ export class ScheduleGenerator {
     return out;
   }
 
+  /**
+   * Build the per-round matchup list for the circle
+   * method. `fixedTeam` (always `teamIds[0]`) plays
+   * `rotatingTeams[0]`; the rest of the round pairs
+   * the outer + inner positions of the rotated list.
+   *
+   * Yields `floor(N/2)` matchups per round where
+   * `N = 1 + rotatingTeams.length` is the total team
+   * count:
+   *
+   *   - `N` even (the standard case, e.g. 16 / 8 / 6
+   *     team leagues): every team plays once per
+   *     round, no byes. `floor(N/2) = N/2` matchups.
+   *   - `N` odd (e.g. 7 / 5 / 3 team leagues):
+   *     `floor(N/2)` matchups, so the rightmost team
+   *     in the rotated list sits out the round
+   *     (gets a "bye"). The `generateAllTeams` /
+   *     `teamGenerator` upstream should not produce
+   *     odd-`maxTeams` leagues for a 16-team
+   *     pyramid, but the algorithm degrades safely
+   *     if it ever does.
+   *
+   * League size < 4 is caught by the caller
+   * (`generateSeniorFixtures` skips leagues with
+   * `teamIds.length < 4`), so the degenerate 1- or
+   * 2-team case (where the bye logic would be
+   * ambiguous) never reaches here.
+   */
   private generateRoundMatchups(
     fixedTeam: string,
     rotatingTeams: string[],
