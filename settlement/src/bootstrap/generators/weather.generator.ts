@@ -106,10 +106,21 @@ export class WeatherGenerator {
     );
   }
 
+  /**
+   * Format a `Date` as `YYYY-MM-DD`. The dates above are
+   * constructed in UTC (`Date.UTC(year, month, day, 0, 0, 0, 0)`),
+   * so the formatter must also be UTC-anchored — using local
+   * `getFullYear()` / `getMonth()` / `getDate()` was a silent
+   * timezone bug: in `UTC-12` (Baker Island, no DST) midnight
+   * UTC is noon local on the *previous* calendar day, so the
+   * resulting YYYY-MM-DD string was off by one day and the
+   * row's date didn't match what every other code path (which
+   * uses `Date.toISOString().slice(0, 10)` on the same instant)
+   * expected. In `UTC+8` (CN) the bug didn't fire because
+   * midnight UTC = 08:00 local = same day, but the code was
+   * wrong by design.
+   */
   private formatDate(date: Date): string {
-    const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    const day = String(date.getDate()).padStart(2, '0');
-    return `${year}-${month}-${day}`;
+    return date.toISOString().slice(0, 10);
   }
 }
