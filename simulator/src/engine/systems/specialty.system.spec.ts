@@ -167,19 +167,22 @@ describe('per-event × per-specialty multipliers (Silver tier)', () => {
     { event: 'shot_one_on_one', specialty: 'SPEEDSTER', expected: 1.10 },
     { event: 'shot_one_on_one', specialty: 'DRIBBLER', expected: 1.0 },
 
-    // shot_long: SPEEDSTER only (v2.8). 1.05 base — 远射心智
-    // 体现 "速度型球员在反击时尝试远射" 的频率加成。触发
-    // 频率低 (0-2 次/场), 系数保守。
-    { event: 'shot_long', specialty: 'SPEEDSTER', expected: 1.05 },
+    // shot_long: empty (v2.8.1). SPEEDSTER 移出 — 远射心智
+    // 跟 pace 无关 (公式是 finishing×7 + composure×3 × 距离
+    // 因子)。SPEEDSTER 改走 attack_lane 1.10 (lane 推进) +
+    // shot_one_on_one 1.10 (速度单刀) 两条 speed-aligned 路径。
+    { event: 'shot_long', specialty: 'SPEEDSTER', expected: 1.0 }, // v2.8.1: 移出
     { event: 'shot_long', specialty: 'POACHER', expected: 1.0 },
 
     // gk_save: SAVING_MASTER only
     { event: 'gk_save', specialty: 'SAVING_MASTER', expected: 1.10 },
     { event: 'gk_save', specialty: 'SWEEPER_KEEPER', expected: 1.0 },
 
-    // attack_lane: SPEEDSTER and POACHER
+    // attack_lane: SPEEDSTER only (v2.8.1). POACHER 移出 —
+    // positioning 心智是禁区嗅觉,不是 lane 推进力。POACHER
+    // 现在全 hook 在 shot_* (rebond/normal/one_on_one)。
     { event: 'attack_lane', specialty: 'SPEEDSTER', expected: 1.10 },
-    { event: 'attack_lane', specialty: 'POACHER', expected: 1.10 },
+    { event: 'attack_lane', specialty: 'POACHER', expected: 1.0 }, // v2.8.1: 移出
     { event: 'attack_lane', specialty: 'WALL', expected: 1.0 },
 
     // defense_lane: WALL, SWEEPER_KEEPER

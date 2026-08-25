@@ -87,8 +87,12 @@ export type SpecialtyEvent =
  */
 const BASE_EFFECTS: Partial<Record<SpecialtyEvent, Partial<Record<ActiveCoreSpecialty, number>>>> = {
   attack_lane: {
+    // v2.8.1: POACHER 移出 — positioning 心智是"禁区嗅觉",不是
+    // "lane 推进力",后者更适合 WINGER / WINGBACK / AM 持 pace 或
+    // dribbling 高的球员。POACHER 现在全部 hook 集中在 shot_*
+    // (shot_rebound 1.15 + shot_normal 1.05 + shot_one_on_one
+    // 1.08),心智对齐禁区嗅觉。
     SPEEDSTER: 1.10,       // pace 推力
-    POACHER: 1.10,          // positioning 嗅觉
   },
   defense_lane: {
     WALL: 1.10,             // 站位硬
@@ -109,12 +113,12 @@ const BASE_EFFECTS: Partial<Record<SpecialtyEvent, Partial<Record<ActiveCoreSpec
     CROSSER: 1.05,
   },
   shot_long: {
-    // v2.8: SPEEDSTER 远射威胁。v2.7 删了 select_shooter_counter
-    // 1.20 + counter attPower 1.20 后,SPEEDSTER 失去"反击时
-    // 远射" 的 hook,这里补在 long-shot shoot rating 侧 — 选上
-    // 的远射球员如果是 SPEEDSTER,long rating 乘 1.05。触发
-    // 频率低 (0-2 次/场),系数保守不破坏平衡。
-    SPEEDSTER: 1.05,
+    // v2.8.1: SPEEDSTER 移出 — 远射评分公式是
+    // `finishing × 7 + composure × 3 × 距离因子`,跟 pace 完全
+    // 无关,远射心智属于 finishing 高的球员,不是速度型。
+    // SPEEDSTER 现在 2 hook: attack_lane 1.10 (lane 推进,
+    // pace 推力) + shot_one_on_one 1.10 (速度冲刺后单刀),
+    // 全是 speed 心智对齐的钩子。
   },
   shot_rebound: {
     // v2.8: POACHER 补射嗅觉。v2.7 删了 select_shooter_rebound

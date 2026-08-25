@@ -1,0 +1,609 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>GoalXI 特技效果总览 (v2.8)</title>
+<style>
+  :root {
+    --bg: #0f172a;
+    --panel: #1e293b;
+    --panel-2: #273449;
+    --line: #334155;
+    --text: #e2e8f0;
+    --muted: #94a3b8;
+    --accent: #38bdf8;
+    --gold: #fbbf24;
+    --silver: #cbd5e1;
+    --bronze: #d97706;
+    --ok: #34d399;
+    --warn: #fb923c;
+    --danger: #f87171;
+    --code-bg: #0b1220;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; background: var(--bg); color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC",
+      "Microsoft YaHei", "Hiragino Sans GB", sans-serif; line-height: 1.55; }
+  header {
+    padding: 48px 32px 32px; border-bottom: 1px solid var(--line);
+    background: linear-gradient(180deg, #1e293b 0%, #0f172a 100%);
+  }
+  header h1 { margin: 0 0 8px; font-size: 32px; letter-spacing: 0.5px; }
+  header .sub { color: var(--muted); font-size: 15px; }
+  header .meta {
+    margin-top: 16px; display: flex; gap: 16px; flex-wrap: wrap; font-size: 13px;
+    color: var(--muted);
+  }
+  header .meta b { color: var(--accent); font-weight: 600; }
+  main { max-width: 1280px; margin: 0 auto; padding: 32px; }
+  section.legend {
+    background: var(--panel); border: 1px solid var(--line);
+    border-radius: 12px; padding: 24px 28px; margin-bottom: 32px;
+  }
+  section.legend h2 { margin: 0 0 12px; font-size: 18px; color: var(--accent); }
+  section.legend ul { margin: 0; padding-left: 20px; color: var(--muted); }
+  section.legend li { margin-bottom: 6px; }
+  section.legend code { background: var(--code-bg); padding: 2px 6px;
+    border-radius: 4px; font-size: 13px; color: var(--text); }
+  .tier-table { margin-top: 16px; border-collapse: collapse; font-size: 14px; }
+  .tier-table th, .tier-table td {
+    padding: 6px 16px; text-align: center; border: 1px solid var(--line);
+  }
+  .tier-table th { background: var(--panel-2); color: var(--muted); font-weight: 600; }
+  .tier-gold { color: var(--gold); font-weight: 600; }
+  .tier-silver { color: var(--silver); font-weight: 600; }
+  .tier-bronze { color: var(--bronze); font-weight: 600; }
+
+  .grid {
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(360px, 1fr));
+    gap: 20px;
+  }
+  .card {
+    background: var(--panel); border: 1px solid var(--line);
+    border-radius: 12px; padding: 20px 22px; display: flex; flex-direction: column;
+    transition: transform 0.15s, border-color 0.15s;
+  }
+  .card:hover { transform: translateY(-2px); border-color: var(--accent); }
+  .card .name {
+    font-size: 19px; font-weight: 700; display: flex; align-items: center;
+    justify-content: space-between; gap: 8px;
+  }
+  .card .name .icon {
+    width: 36px; height: 36px; border-radius: 8px; display: inline-flex;
+    align-items: center; justify-content: center; font-size: 20px;
+    background: var(--panel-2);
+  }
+  .card .name-en { color: var(--muted); font-size: 12px; font-weight: 400;
+    font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace; }
+  .card .attr { color: var(--muted); font-size: 13px; margin-top: 4px; }
+  .card .attr b { color: var(--accent); font-weight: 600; }
+  .card .summary {
+    margin-top: 12px; padding: 10px 12px; background: var(--code-bg);
+    border-radius: 6px; font-size: 14px; line-height: 1.5;
+  }
+
+  .hooks-title {
+    margin-top: 16px; font-size: 13px; color: var(--muted);
+    text-transform: uppercase; letter-spacing: 0.5px; font-weight: 600;
+  }
+  .hook {
+    display: flex; align-items: flex-start; gap: 10px; padding: 8px 0;
+    border-top: 1px dashed var(--line); font-size: 14px;
+  }
+  .hook:first-of-type { border-top: none; }
+  .hook .mult {
+    font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace;
+    background: var(--code-bg); border: 1px solid var(--line);
+    border-radius: 4px; padding: 2px 8px; font-size: 13px; min-width: 64px;
+    text-align: center; flex-shrink: 0; white-space: nowrap;
+  }
+  .hook .mult.boost { color: var(--ok); border-color: var(--ok); }
+  .hook .mult.nerf { color: var(--warn); border-color: var(--warn); }
+  .hook .text { flex: 1; }
+  .hook .text .key {
+    font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace;
+    color: var(--accent); font-size: 12px; font-weight: 600;
+  }
+  .hook .text .desc { color: var(--muted); font-size: 13px; margin-top: 2px; }
+  .hook .text .tier {
+    color: var(--muted); font-size: 12px; margin-top: 4px;
+  }
+  .hook .text .tier b { color: var(--text); }
+
+  .badge {
+    display: inline-block; padding: 2px 8px; border-radius: 4px;
+    font-size: 11px; font-weight: 600; letter-spacing: 0.3px;
+    background: var(--panel-2); color: var(--muted);
+  }
+  .badge.nerfed { background: #7c2d12; color: #fed7aa; }
+  .badge.gk { background: #155e75; color: #a5f3fc; }
+  .badge.outfield { background: #1e3a8a; color: #bfdbfe; }
+  .badge.boost-v28 { background: #064e3b; color: #6ee7b7; }
+
+  .empty { color: var(--muted); font-size: 13px; font-style: italic; }
+  .footnote {
+    margin-top: 32px; padding: 20px 24px; background: var(--panel);
+    border-left: 3px solid var(--accent); border-radius: 4px;
+    color: var(--muted); font-size: 14px;
+  }
+  .footnote b { color: var(--text); }
+  .footnote ul { margin: 8px 0; padding-left: 20px; }
+  footer {
+    text-align: center; padding: 32px; color: var(--muted); font-size: 13px;
+    border-top: 1px solid var(--line); margin-top: 48px;
+  }
+  footer code { background: var(--code-bg); padding: 2px 6px; border-radius: 3px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>GoalXI 特技效果总览</h1>
+  <div class="sub">v2.8 · 12 个 active 特技 · 所有引擎 hook + tier 缩放 + 触发条件</div>
+  <div class="meta">
+    <span>数据源: <b>simulator/src/engine/systems/specialty.system.ts</b> · commit <b>6e008a3</b></span>
+    <span>分支: <b>main</b></span>
+    <span>生成时间: <b>2026-08-25</b></span>
+  </div>
+</header>
+
+<main>
+  <section class="legend">
+    <h2>阅读须知</h2>
+    <ul>
+      <li><b>引擎原则 (v2.7+):</b> 引擎不再"特挑"特技球员参与事件。所有选人环节是 attribute 评估，特技只对被选中的球员生效 — 你可以理解为"如果一个 AERIAL_THREAT 球员被选为头球射门者，他有 1.10× 头球加成；不是引擎故意找他来头球"。</li>
+      <li><b>系数缩放:</b> 所有 base 系数（&gt; 1 的"加成"和 &lt; 1 的"减免"）都走同一公式 <code>base ^ TIER_MULT[tier]</code> — Gold 强、Silver 中、Bronze 弱。</li>
+      <li><b>决策类 (TACKLER midfield_control):</b> 选最高 + 每个 holder +5% depth bonus（无上限） — 3 个 Silver TACKLER 累计 = 1.32×，1 Gold = 1.29×。</li>
+      <li><b>强度类 (TACKLER/WALL push_defense):</b> 所有 holder 系数相乘，cap 1.80 — 3 个 Silver 就触顶。</li>
+      <li><b>v2.8 找补:</b> v2.7 让 POACHER / SPEEDSTER / AERIAL_THREAT / PLAYMAKER / CROSSER / DRIBBLER 6 个特技失去"被特挑"加权，v2.8 在"被选中后效果侧"补回 — 凡带 <span class="badge boost-v28">v2.8 找补</span> 标签的都是这一轮新加的。</li>
+    </ul>
+
+    <table class="tier-table">
+      <thead>
+        <tr><th>系数</th><th>Bronze (×0.7)</th><th>Silver (×1.0)</th><th>Gold (×1.4)</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>1.05</td><td>1.035</td><td>1.050</td><td>1.071</td></tr>
+        <tr><td>1.08</td><td>1.055</td><td>1.080</td><td>1.114</td></tr>
+        <tr><td>1.10</td><td>1.069</td><td>1.100</td><td>1.143</td></tr>
+        <tr><td>1.12</td><td>1.082</td><td>1.120</td><td>1.171</td></tr>
+        <tr><td>1.15</td><td>1.103</td><td>1.150</td><td>1.218</td></tr>
+        <tr><td>1.18</td><td>1.123</td><td>1.180</td><td>1.262</td></tr>
+        <tr><td>0.80 (减免)</td><td>0.852</td><td>0.800</td><td>0.746</td></tr>
+        <tr><td>0.50 (减免)</td><td>0.616</td><td>0.500</td><td>0.379</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <div class="grid">
+    <!-- 1. AERIAL_THREAT -->
+    <div class="card">
+      <div class="name">
+        <span>空霸 <span class="name-en">AERIAL_THREAT</span></span>
+        <span class="icon">⬆️</span>
+      </div>
+      <div class="attr">核心属性: <b>strength</b> · 出没位置: CF, CB</div>
+      <div class="summary">争顶型中后卫 / 头球型前锋。头球射门 +10%，起跳受伤 -20%。</div>
+      <div class="hooks-title">基础效果 (BASE_EFFECTS)</div>
+      <div class="hook">
+        <span class="mult boost">× 1.10</span>
+        <div class="text">
+          <div class="key">shot_header</div>
+          <div class="desc">头球射门评分加成。<b>触发:</b> 球员执行 ShotType.HEADER 射门。频率约 3-8 次/场。</div>
+          <div class="tier">Gold 1.143 · Silver 1.100 · Bronze 1.069</div>
+        </div>
+      </div>
+      <div class="hook">
+        <span class="mult nerf">× 0.80</span>
+        <div class="text">
+          <div class="key">injury_chance <span class="badge">jump only</span></div>
+          <div class="desc">起跳动作（争顶）受伤概率 -20%。<b>触发:</b> 头球争顶时的 jump actionType。其他动作不享受。</div>
+          <div class="tier">Gold 0.746 · Silver 0.800 · Bronze 0.852</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 2. DRIBBLER -->
+    <div class="card">
+      <div class="name">
+        <span>盘带大师 <span class="name-en">DRIBBLER</span></span>
+        <span class="icon">⚡</span>
+      </div>
+      <div class="attr">核心属性: <b>dribbling</b> · 出没位置: W, AM</div>
+      <div class="summary">1v1 过人专精。盘带 push 阶段 +15%，犯规率 -10%。仅在 DRIBBLE 攻击类型生效。</div>
+      <div class="hooks-title">基础效果 (BASE_EFFECTS)</div>
+      <div class="hook">
+        <span class="mult boost">× 1.15</span>
+        <div class="text">
+          <div class="key">push_offense <span class="badge">DRIBBLE only</span></div>
+          <div class="desc">盘带 push 对抗 attPower +15%。<b>触发:</b> 球员参与 pushDuel 且 attackType=DRIBBLE。其他 pass type 不享受。</div>
+          <div class="tier">Gold 1.218 · Silver 1.150 · Bronze 1.103</div>
+        </div>
+      </div>
+      <div class="hook">
+        <span class="mult nerf">× 0.90</span>
+        <div class="text">
+          <div class="key">foul_rate</div>
+          <div class="desc">犯规率 -10%。<b>触发:</b> 该球员被选为犯规者时，<code>MatchEngine.resolveFoul</code> 跳过 10%。</div>
+          <div class="tier">Gold 0.879 · Silver 0.900 · Bronze 0.928</div>
+        </div>
+      </div>
+      <div class="footnote" style="margin: 12px 0 0; padding: 8px 12px;">
+        <b>v2.7 削弱:</b> 失去 <code>selectAttackType</code> 1.20 加权（不再让引擎倾向选 DRIBBLE 攻击）。<br>
+        <b>v2.8 评估:</b> <code>push_offense</code> 1.15 是核心收益，触发频率取决于战术是否选 DRIBBLE — 在控球战术中表现强劲，防守反击战术中收益有限。<span class="badge boost-v28">影响较小</span>
+      </div>
+    </div>
+
+    <!-- 3. PLAYMAKER -->
+    <div class="card">
+      <div class="name">
+        <span>组织核心 <span class="name-en">PLAYMAKER</span></span>
+        <span class="icon">🎯</span>
+      </div>
+      <div class="attr">核心属性: <b>passing</b> · 出没位置: CM, AM</div>
+      <div class="summary">传球大师。所有传球 push 阶段 +10%；直塞球 (THROUGH_PASS) 进一步 +18%。</div>
+      <div class="hooks-title">基础效果 (BASE_EFFECTS)</div>
+      <div class="hook">
+        <span class="mult boost">× 1.10</span>
+        <div class="text">
+          <div class="key">push_offense <span class="badge">any pass</span></div>
+          <div class="desc">传球 push 对抗 attPower +10%。<b>触发:</b> 球员作为传球者参与 pushDuel。SHORT_PASS / CROSS / DRIBBLE 都生效。</div>
+          <div class="tier">Gold 1.143 · Silver 1.100 · Bronze 1.069</div>
+        </div>
+      </div>
+      <div class="hook">
+        <span class="mult boost">× 1.18</span>
+        <div class="text">
+          <div class="key">push_offense <span class="badge boost-v28">v2.8 直塞 +</span> <span class="badge">THROUGH_PASS</span></div>
+          <div class="desc">直塞穿透力 +18%（比 1.10 base 强 7.3%）。<b>触发:</b> 球员作为传球者且 attackType=THROUGH_PASS。这是 v2.7 删除 select_assist 1.25 后的主补偿 — 不影响选人侧，但直塞更有穿透力。</div>
+          <div class="tier">Gold 1.180 · Silver 1.180 · Bronze 1.180 <span style="color: var(--muted);">（固定值，不随 tier 缩放）</span></div>
+        </div>
+      </div>
+      <div class="footnote" style="margin: 12px 0 0; padding: 8px 12px;">
+        <b>v2.7 削弱:</b> 失去 <code>select_assist</code> 1.25（不再让引擎特挑 PLAYMAKER 当助攻者）。<br>
+        <b>v2.8 找补:</b> THROUGH_PASS 1.18 helper 内部 attackType-tier 缩放 — 兑现 design doc §2.2 显式留口。<span class="badge boost-v28">v2.8 找补</span>
+      </div>
+    </div>
+
+    <!-- 4. TACKLER -->
+    <div class="card">
+      <div class="name">
+        <span>抢断机器 <span class="name-en">TACKLER</span></span>
+        <span class="icon">🦵</span>
+      </div>
+      <div class="attr">核心属性: <b>defending</b> · 出没位置: CM, CB, DM</div>
+      <div class="summary">防守端全能。铲断、拦截、压制犯规一应俱全。广撒网型 — 多名 TACKLER 累计收益显著。</div>
+      <div class="hooks-title">基础效果 (BASE_EFFECTS)</div>
+      <div class="hook">
+        <span class="mult boost">× 1.15</span>
+        <div class="text">
+          <div class="key">push_defense</div>
+          <div class="desc">铲断 push 对抗 defPower +15%。<b>触发:</b> 球员参与 pushDuel 防守端。</div>
+          <div class="tier">Gold 1.218 · Silver 1.150 · Bronze 1.103</div>
+        </div>
+      </div>
+      <div class="hook">
+        <span class="mult boost">× 1.20</span>
+        <div class="text">
+          <div class="key">midfield_control</div>
+          <div class="desc">中场拼抢控制 +20%。<b>触发:</b> 球员参与 midfieldDuel。</div>
+          <div class="tier">Gold 1.276 · Silver 1.200 · Bronze 1.132</div>
+        </div>
+      </div>
+      <div class="hook">
+        <span class="mult nerf">× 0.80</span>
+        <div class="text">
+          <div class="key">foul_rate</div>
+          <div class="desc">犯规率 -20%。铲断干净的回报。</div>
+          <div class="tier">Gold 0.746 · Silver 0.800 · Bronze 0.852</div>
+        </div>
+      </div>
+      <div class="hooks-title">队伍级效果 (TEAM-LEVEL)</div>
+      <div class="hook">
+        <span class="mult boost">max × (1 + 0.05·(N-1))</span>
+        <div class="text">
+          <div class="key">teamSampledEventMultiplier('midfield_control') <span class="badge">决策类</span></div>
+          <div class="desc">场上 N 个 TACKLER 共享中场控制：取最高单兵系数 × (1 + 5% × (N-1))。<b>无上限</b>（v2.5+ 用户选择 no cap）。<br>
+          例子: 1 Silver = 1.20× · 3 Silver = 1.32× · 5 Silver = 1.44× · 1 Gold = 1.29× · 1 Gold + 5 Silver = 1.61×</div>
+        </div>
+      </div>
+      <div class="hook">
+        <span class="mult boost">∏ (cap 1.80)</span>
+        <div class="text">
+          <div class="key">teamProductEventMultiplier('push_defense') <span class="badge">强度类</span></div>
+          <div class="desc">场上 TACKLER/WALL 的 push_defense 系数相乘，封顶 1.80。<br>
+          例子: 3 Silver TACKLER = 1.73× · 4 Silver = 1.80×（触顶）</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 5. WALL -->
+    <div class="card">
+      <div class="name">
+        <span>铁墙 <span class="name-en">WALL</span></span>
+        <span class="icon">🧱</span>
+      </div>
+      <div class="attr">核心属性: <b>defending</b> · 出没位置: CB</div>
+      <div class="summary">1v1 站位专精。1v1 防守 push 阶段 +18%（高于 TACKLER），全队 defense lane 站位 +10%。</div>
+      <div class="hooks-title">基础效果 (BASE_EFFECTS)</div>
+      <div class="hook">
+        <span class="mult boost">× 1.10</span>
+        <div class="text">
+          <div class="key">defense_lane</div>
+          <div class="desc">个人防守 lane 站位 +10%。</div>
+          <div class="tier">Gold 1.143 · Silver 1.100 · Bronze 1.069</div>
+        </div>
+      </div>
+      <div class="hook">
+        <span class="mult boost">× 1.18</span>
+        <div class="text">
+          <div class="key">push_defense</div>
+          <div class="desc">1v1 防守 push 对抗 defPower +18%（比 TACKLER 1.15 更强 — WALL 心智是"站死位置不跟人"，TACKLER 心智是"上抢铲断"）。</div>
+          <div class="tier">Gold 1.256 · Silver 1.180 · Bronze 1.123</div>
+        </div>
+      </div>
+      <div class="hook">
+        <span class="mult boost">× 1.05</span>
+        <div class="text">
+          <div class="key">command_defense <span class="badge">全队 aura</span></div>
+          <div class="desc">全队 defense lane 站位 +5%（不是只对自己）。叠加在 SWEEPER_KEEPER 的 command_defense 之上 — 门将指挥 + 中卫站位 = 防守 tier。</div>
+          <div class="tier">Gold 1.071 · Silver 1.050 · Bronze 1.035</div>
+        </div>
+      </div>
+      <div class="hooks-title">队伍级效果 (TEAM-LEVEL)</div>
+      <div class="hook">
+        <span class="mult boost">∏ (cap 1.80)</span>
+        <div class="text">
+          <div class="key">teamProductEventMultiplier('push_defense') <span class="badge">强度类</span></div>
+          <div class="desc">与 TACKLER 共享：场上 TACKLER + WALL 的 push_defense 系数相乘，封顶 1.80。混搭示例: 1 Silver WALL (1.18) + 1 Silver TACKLER (1.15) = 1.36×。</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 6. SPEEDSTER -->
+    <div class="card">
+      <div class="name">
+        <span>快马 <span class="name-en">SPEEDSTER</span></span>
+        <span class="icon">💨</span>
+      </div>
+      <div class="attr">核心属性: <b>pace</b> · 出没位置: W, CF</div>
+      <div class="summary">速度型反击终结。反击推进 +10%，单刀 1v1 +10%。v2.8.1 移出远射心智（远射跟 pace 无关）。</div>
+      <div class="hooks-title">基础效果 (BASE_EFFECTS)</div>
+      <div class="hook">
+        <span class="mult boost">× 1.10</span>
+        <div class="text">
+          <div class="key">attack_lane</div>
+          <div class="desc">进攻 lane 推进 +10%（速度推力）。<b>触发:</b> 球员参与 attack lane 推进。</div>
+          <div class="tier">Gold 1.143 · Silver 1.100 · Bronze 1.069</div>
+        </div>
+      </div>
+      <div class="hook">
+        <span class="mult boost">× 1.10</span>
+        <div class="text">
+          <div class="key">shot_one_on_one <span class="badge boost-v28">v2.8 找补</span></div>
+          <div class="desc">单刀 1v1 射门 +10%。<b>触发:</b> 球员执行 ShotType.ONE_ON_ONE 射门。速度冲刺后单刀的兑现。</div>
+          <div class="tier">Gold 1.143 · Silver 1.100 · Bronze 1.069</div>
+        </div>
+      </div>
+      <div class="footnote" style="margin: 12px 0 0; padding: 8px 12px;">
+        <b>v2.7 削弱:</b> 失去 <code>select_shooter_counter</code> 1.20（不再让引擎特挑 SPEEDSTER 在反击时射门）+ counter 阶段 attPower 1.20× boost。<br>
+        <b>v2.8 找补:</b> shot_one_on_one 1.10 <span class="badge boost-v28">v2.8 找补</span><br>
+        <b>v2.8.1 移出:</b> shot_long 1.05 — 远射评分公式 (finishing×7 + composure×3 × 距离因子) 跟 pace 无关, 心智错配。<br>
+        <b>vs POACHER:</b> SPEEDSTER = pace 推力 + 速度单刀; POACHER = 补射 + 抽射 + 1v1 终结。两特技心智清晰区分。
+      </div>
+    </div>
+
+    <!-- 7. CROSSER -->
+    <div class="card">
+      <div class="name">
+        <span>传中专家 <span class="name-en">CROSSER</span></span>
+        <span class="icon">📐</span>
+      </div>
+      <div class="attr">核心属性: <b>passing</b> · 出没位置: W（边路）</div>
+      <div class="summary">边路传中大师。传中 push 阶段 +12%，传中后前插头球 +5%。仅在 CROSS 攻击类型生效。</div>
+      <div class="hooks-title">基础效果 (BASE_EFFECTS)</div>
+      <div class="hook">
+        <span class="mult boost">× 1.12</span>
+        <div class="text">
+          <div class="key">push_offense <span class="badge">CROSS only</span></div>
+          <div class="desc">传中 push 对抗 attPower +12%。<b>触发:</b> 球员作为传球者且 attackType=CROSS。其他 pass type 不享受（与 DRIBBLER 互斥的 attackType gate）。</div>
+          <div class="tier">Gold 1.171 · Silver 1.120 · Bronze 1.082</div>
+        </div>
+      </div>
+      <div class="hook">
+        <span class="mult boost">× 1.05</span>
+        <div class="text">
+          <div class="key">shot_header <span class="badge boost-v28">v2.8 找补</span></div>
+          <div class="desc">传中后前插头球 +5%。<b>触发:</b> 球员执行 ShotType.HEADER 射门。频率约 3-8 次/场。v2.7 删了 select_shot_type 1.20（cross 后偏 header）后补回 — 1.05 弱于 AERIAL_THREAT 1.10，反映 CROSSER 头球是"前插"而非"专精"。</div>
+          <div class="tier">Gold 1.071 · Silver 1.050 · Bronze 1.035</div>
+        </div>
+      </div>
+      <div class="footnote" style="margin: 12px 0 0; padding: 8px 12px;">
+        <b>v2.7 削弱:</b> 失去 <code>select_assist</code> 1.20（不再让引擎特挑 CROSSER 传中）+ <code>select_shot_type</code> 1.20（不再让传中后偏 HEADER）。<br>
+        <b>v2.8 找补:</b> shot_header 1.05 <span class="badge boost-v28">v2.8 找补</span>
+      </div>
+    </div>
+
+    <!-- 8. POACHER -->
+    <div class="card">
+      <div class="name">
+        <span>禁区之狐 <span class="name-en">POACHER</span></span>
+        <span class="icon">🦊</span>
+      </div>
+      <div class="attr">核心属性: <b>positioning</b> · 出没位置: CF</div>
+      <div class="summary">禁区嗅觉型前锋。补射 +15%（最关键），抽射 +5%，单刀 1v1 +8%。v2.8.1 移出 attack_lane（lane 推进跟 positioning 无关）。</div>
+      <div class="hooks-title">基础效果 (BASE_EFFECTS)</div>
+      <div class="hook">
+        <span class="mult boost">× 1.15</span>
+        <div class="text">
+          <div class="key">shot_rebound <span class="badge boost-v28">v2.8 找补</span></div>
+          <div class="desc"><b>补射评分 +15%（POACHER 最关键的 hook）</b>。<b>触发:</b> 球员执行 ShotType.REBOUND 射门。频率约 1-3 次/场。v2.7 删了 select_shooter_rebound 1.25 后补回 — POACHER 区别于 SPEEDSTER 的核心。</div>
+          <div class="tier">Gold 1.218 · Silver 1.150 · Bronze 1.103</div>
+        </div>
+      </div>
+      <div class="hook">
+        <span class="mult boost">× 1.05</span>
+        <div class="text">
+          <div class="key">shot_normal <span class="badge boost-v28">v2.8 找补</span></div>
+          <div class="desc">普通射门评分 +5%。<b>触发:</b> 球员执行 ShotType.NORMAL 射门。频率约 5-15 次/场。1.05 弱于 PHYSICAL_BEAST 1.10，反映 POACHER 的抽射是"嗅觉+把握"而非"野兽身体"。</div>
+          <div class="tier">Gold 1.071 · Silver 1.050 · Bronze 1.035</div>
+        </div>
+      </div>
+      <div class="hook">
+        <span class="mult boost">× 1.08</span>
+        <div class="text">
+          <div class="key">shot_one_on_one <span class="badge boost-v28">v2.8 找补</span></div>
+          <div class="desc">单刀 1v1 +8%。<b>触发:</b> 球员执行 ShotType.ONE_ON_ONE。1v1 终结，冷静决断 — 弱于 SPEEDSTER 1.10（速度优势在 1v1 突破时更直接）。</div>
+          <div class="tier">Gold 1.114 · Silver 1.080 · Bronze 1.055</div>
+        </div>
+      </div>
+      <div class="footnote" style="margin: 12px 0 0; padding: 8px 12px;">
+        <b>v2.7 削弱:</b> 失去 <code>select_shooter</code> 1.25 + <code>select_shooter_rebound</code> 1.25 — v2.7 之前 POACHER 在 BASE_EFFECTS 里只剩 attack_lane 1.10，跟 SPEEDSTER 完全等价（设计缺陷）。<br>
+        <b>v2.8 找补:</b> shot_rebound 1.15 + shot_normal 1.05 + shot_one_on_one 1.08 = 3 个 shot_* hook，全是"禁区嗅觉"心智。<br>
+        <b>v2.8.1 移出:</b> attack_lane 1.10 — lane 推进跟 positioning 心智错配，POACHER 是"在禁区嗅觉"不是"在 lane 推进"。<span class="badge boost-v28">v2.8 找补聚焦</span>
+      </div>
+    </div>
+
+    <!-- 9. COMPOSED -->
+    <div class="card">
+      <div class="name">
+        <span>泰山 <span class="name-en">COMPOSED</span></span>
+        <span class="icon">🗿</span>
+      </div>
+      <div class="attr">核心属性: <b>composure</b> · 出没位置: CM, CB, GK</div>
+      <div class="summary">冷静型核心。犯规率减半，点球射门 +15%，直接任意球 +10%。弱队核心 / 关键球专家。</div>
+      <div class="hooks-title">基础效果 (BASE_EFFECTS)</div>
+      <div class="hook">
+        <span class="mult nerf">× 0.50</span>
+        <div class="text">
+          <div class="key">foul_rate</div>
+          <div class="desc"><b>犯规率减半</b>（最强的减益类 hook）。<b>触发:</b> 该球员被选为犯规者时，<code>MatchEngine.resolveFoul</code> 整体跳过 50%（犯规不计入、不出牌、没有 set piece）。</div>
+          <div class="tier">Gold 0.379 · Silver 0.500 · Bronze 0.616</div>
+        </div>
+      </div>
+      <div class="hook">
+        <span class="mult boost">× 1.15</span>
+        <div class="text">
+          <div class="key">shot_penalty <span class="badge">v2.5 wired</span></div>
+          <div class="desc">点球射门评分 +15%。<b>触发:</b> 球员主罚点球。</div>
+          <div class="tier">Gold 1.218 · Silver 1.150 · Bronze 1.103</div>
+        </div>
+      </div>
+      <div class="hook">
+        <span class="mult boost">× 1.10</span>
+        <div class="text">
+          <div class="key">shot_fk <span class="badge">v2.5 wired</span></div>
+          <div class="desc">直接任意球射门评分 +10%。<b>触发:</b> 球员主罚直接任意球。</div>
+          <div class="tier">Gold 1.143 · Silver 1.100 · Bronze 1.069</div>
+        </div>
+      </div>
+      <div class="footnote" style="margin: 12px 0 0; padding: 8px 12px;">
+        <b>v2.5 wired:</b> shot_penalty 和 shot_fk 是 v2.5 之前 SPEC 承诺但 engine 没接的 dead hook，commit de96c3f 修上。<br>
+        <b>v2.7 影响:</b> COMPOSED 不在 6 个 nerf 列表里 — COMPOSED 之前是 foul_rate 单 hook，v2.5 之后有 3 hook，v2.7 没影响。
+      </div>
+    </div>
+
+    <!-- 10. PHYSICAL_BEAST -->
+    <div class="card">
+      <div class="name">
+        <span>野兽 <span class="name-en">PHYSICAL_BEAST</span></span>
+        <span class="icon">💪</span>
+      </div>
+      <div class="attr">核心属性: <b>strength</b> · 出没位置: CF, CB, ST</div>
+      <div class="summary">身体流。禁区抽射 +10%，任何 push 对抗 +15%，受伤 -10%。v2.6 从 shot_header 移到 shot_normal — "野兽"心智是"扛住后卫射门"而非"头球"。</div>
+      <div class="hooks-title">基础效果 (BASE_EFFECTS)</div>
+      <div class="hook">
+        <span class="mult boost">× 1.10</span>
+        <div class="text">
+          <div class="key">shot_normal <span class="badge">v2.6 移位</span></div>
+          <div class="desc">普通射门评分 +10%。<b>触发:</b> 球员执行 ShotType.NORMAL 射门。频率约 5-15 次/场。v2.6 从 shot_header 移过来 — "扛住后卫禁区抽射"是野兽心智，"头球专精"留给 AERIAL_THREAT。</div>
+          <div class="tier">Gold 1.143 · Silver 1.100 · Bronze 1.069</div>
+        </div>
+      </div>
+      <div class="hook">
+        <span class="mult boost">× 1.15</span>
+        <div class="text">
+          <div class="key">push_offense <span class="badge">any pushDuel</span></div>
+          <div class="desc">身体对抗 +15%。<b>触发:</b> 球员参与 pushDuel（任意 attackType）。野兽的"身体野蛮"在所有 push 阶段生效，不 gate。</div>
+          <div class="tier">Gold 1.218 · Silver 1.150 · Bronze 1.103</div>
+        </div>
+      </div>
+      <div class="hook">
+        <span class="mult nerf">× 0.90</span>
+        <div class="text">
+          <div class="key">injury_chance <span class="badge">any action</span></div>
+          <div class="desc">受伤率 -10%。比 AERIAL_THREAT 的 0.80 弱（jump only），但野兽的"抗伤"是任何动作都生效。</div>
+          <div class="tier">Gold 0.879 · Silver 0.900 · Bronze 0.928</div>
+        </div>
+      </div>
+      <div class="footnote" style="margin: 12px 0 0; padding: 8px 12px;">
+        <b>v2.6 移位:</b> 之前 shot_header 1.10 → 现在 shot_normal 1.10，心智修正（野兽不头球专精）。数字平衡没破。<br>
+        <b>v2.7 影响:</b> 不在 6 个 nerf 列表里 — v2.6 之后 v2.7 仍保留 push_offense + injury_chance 2 个 hook，v2.5+ 还补了 pushDuel 胜率（v2.0 spec 承诺但 v0.0 没接）。
+      </div>
+    </div>
+
+    <!-- 11. SAVING_MASTER -->
+    <div class="card">
+      <div class="name">
+        <span>门神 <span class="name-en">SAVING_MASTER</span></span>
+        <span class="icon">🧤</span>
+      </div>
+      <div class="attr">核心属性: <b>gk_reflexes</b> · 出没位置: GK</div>
+      <div class="summary">门将扑救专精。所有扑救评分 +10%，涵盖反应、1v1、普通扑救。</div>
+      <div class="hooks-title">基础效果 (BASE_EFFECTS)</div>
+      <div class="hook">
+        <span class="mult boost">× 1.10</span>
+        <div class="text">
+          <div class="key">gk_save</div>
+          <div class="desc">所有扑救评分 +10%（扑救 + 反应 + 1v1 全部折成 gkRating 走同一个 hook）。</div>
+          <div class="tier">Gold 1.143 · Silver 1.100 · Bronze 1.069</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 12. SWEEPER_KEEPER -->
+    <div class="card">
+      <div class="name">
+        <span>清道夫门将 <span class="name-en">SWEEPER_KEEPER</span></span>
+        <span class="icon">🛡️</span>
+      </div>
+      <div class="attr">核心属性: <b>positioning</b> · 出没位置: GK</div>
+      <div class="summary">指挥型门将。个人 defense lane +5%，全队 defense lane 站位 +5%（与 WALL 叠加）。</div>
+      <div class="hooks-title">基础效果 (BASE_EFFECTS)</div>
+      <div class="hook">
+        <span class="mult boost">× 1.05</span>
+        <div class="text">
+          <div class="key">defense_lane</div>
+          <div class="desc">个人防守 lane 站位 +5%（指挥型门将的站位优势）。</div>
+          <div class="tier">Gold 1.071 · Silver 1.050 · Bronze 1.035</div>
+        </div>
+      </div>
+      <div class="hook">
+        <span class="mult boost">× 1.05</span>
+        <div class="text">
+          <div class="key">command_defense <span class="badge">全队 aura</span></div>
+          <div class="desc">全队 defense lane 站位 +5%。与 WALL 的 command_defense 叠加 — SWEEPER_KEEPER 出球 + WALL 站位 = 防守 tier 1.05 × 1.10 = 1.155（线性相乘）。</div>
+          <div class="tier">Gold 1.071 · Silver 1.050 · Bronze 1.035</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="footnote">
+    <b>如何读懂这张表</b>
+    <ul>
+      <li>每个 hook 触发条件都明确写出（哪些 event、哪些 shot type、哪些 pass type），不是泛泛说"对射门有加成"。</li>
+      <li><span class="badge boost-v28">v2.8 找补</span> = v2.7 削弱后 v2.8 新加的 hook，对应 commit <code>6e008a3</code>。</li>
+      <li><span class="badge">v2.5 wired</span> / <span class="badge">v2.6 移位</span> = 之前 commit 接上的或移位的 hook（不是 v2.8 这次的，但属于近期 history）。</li>
+      <li>tier 数字（Gold/Silver/Bronze）都是实际生效值（已经走 <code>applyTierMultiplier(base, tier)</code>），不是 base 系数。tier 概率: Gold 5% / Silver 15% / Bronze 30% / No Spec 50%。</li>
+      <li>coef &lt; 1 的（如 foul_rate 0.50）走同一公式但含义翻转：tier 越高，减免越多 — Gold COMPOSED 实际犯规率仅 37.9%。</li>
+      <li>数据全部从 <code>simulator/src/engine/systems/specialty.system.ts</code> 提取，与 commit <code>6e008a3</code> 同步。修改 specialty 后请同步更新本页。</li>
+    </ul>
+  </div>
+</main>
+
+<footer>
+  Generated by <b>Mavis</b> · 2026-08-25 · commit <code>6e008a3</code> · branch <code>main</code>
+</footer>
+</body>
+</html>
