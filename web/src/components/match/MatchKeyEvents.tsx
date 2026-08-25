@@ -110,7 +110,13 @@ export function MatchKeyEvents({
                 sits on the panel's own background rather than a
                 tinted block). */}
             <div className="flex-1 min-w-0 flex items-center gap-1.5 px-1.5 py-1">
-              <span className="text-[11px] leading-none shrink-0">{entry.icon}</span>
+              {/* D-style SVG icon (replaces the previous emoji). The
+                  component carries its own palette; the size prop is
+                  locked to 14 to match the ticker-strip so the two
+                  surfaces read at the same visual weight. */}
+              <span className="shrink-0 inline-flex">
+                <entry.icon size={14} />
+              </span>
               <div className="flex-1 min-w-0">
                 <p
                   className="font-headline font-bold text-[10px] text-white/90 truncate leading-tight"

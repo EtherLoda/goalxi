@@ -1,6 +1,15 @@
 /**
  * Jest configuration for web/ unit tests.
  * Only tests pure functions (no React DOM, no jsdom).
+ *
+ * `.tsx` is intentionally allowed in `moduleFileExtensions` and the
+ * transform so pure `.ts` helpers (e.g. `extract-key-events.ts`) can
+ * import React component *identities* from a sibling `.tsx` file and
+ * tests can assert `toBe(GoalCenterIcon)`. The spec files themselves
+ * are still `.ts` (no JSX) and the test environment stays `node`
+ * (no jsdom), so this doesn't widen the door to rendering tests —
+ * it just lets the module graph cross the .ts / .tsx boundary for
+ * type-level comparisons.
  */
 import type { Config } from 'jest';
 
@@ -9,7 +18,7 @@ const config: Config = {
   testEnvironment: 'node',
   testRegex: '.*\\.spec\\.ts$',
   transform: {
-    '^.+\\.ts$': [
+    '^.+\\.tsx?$': [
       'ts-jest',
       {
         tsconfig: {
@@ -27,7 +36,7 @@ const config: Config = {
       },
     ],
   },
-  moduleFileExtensions: ['ts', 'js', 'json'],
+  moduleFileExtensions: ['ts', 'tsx', 'js', 'json'],
   collectCoverageFrom: ['**/*.(t|j)s', '!**/*.spec.(t|j)s', '!**/*.d.ts'],
   coverageDirectory: '../../coverage/web',
   coverageReporters: ['text', 'lcov', 'html'],

@@ -3,15 +3,35 @@
  * it can be unit-tested under the current Jest setup, which is
  * deliberately scoped to pure functions and doesn't transform `.tsx`
  * (see `web/jest.config.ts`).
+ *
+ * `icon` is a React.FC component (not a string glyph) so the sidebar
+ * can render the D-style chunky SVG set from `commentary-icons.tsx`
+ * instead of the previous emoji set. The component is a value, not a
+ * rendered element, so the helper stays test-friendly: assertions
+ * compare component identity (`toBe(GoalCenterIcon)`), not rendered
+ * markup.
  */
 import type { MatchEvent } from '@/lib/api';
 import { resolveSide, type EventSide } from './match-event-side';
 import { formatSpecialtyBonus } from '@/lib/specialty-bonus';
 import { getSpecialtyLabel } from '@/lib/specialties';
+import {
+  GoalCenterIcon,
+  YellowCardIcon,
+  RedCardIcon,
+  SubstitutionIcon,
+  InjuryIcon,
+  type CommentaryIconProps,
+} from './commentary-icons';
 
 export type EventEntry = {
   minute: number;
-  icon: string;
+  /**
+   * D-style SVG icon component. The sidebar renders it with
+   * `<entry.icon size={14} />`. Always one of the goal/card/sub/injury
+   * family — the helper never returns a non-key event.
+   */
+  icon: React.FC<CommentaryIconProps>;
   label: string;
   sublabel?: string;
   /**
@@ -153,7 +173,11 @@ export function extractKeyEvents(
       const assist = ev.data?.assistName;
       entries.push({
         minute: ev.minute,
-        icon: '⚽',
+        // D-style: buckyball + green ▲. The engine doesn't yet emit a
+        // ball-side / zone hint on goal events, so the centre variant
+        // is the safe default. When/if it does, swap to the L/R
+        // variant from `commentary-icons` (no helper change needed).
+        icon: GoalCenterIcon,
         label: scorer + (assist ? `  ·  A: ${assist}` : ''),
         sublabel: typeName === 'own_goal' ? 'OG' : undefined,
         specialtyChip,
@@ -169,7 +193,12 @@ export function extractKeyEvents(
             : 'Yellow';
       entries.push({
         minute: ev.minute,
-        icon: typeName === 'red_card' ? '🟥' : '🟨',
+        // D-style chunky card glyphs: YellowCardIcon (yellow rect +
+        // navy outline + dark stripe) / RedCardIcon (same shape, red
+        // fill). The two-second-yellow case is rendered as a red card
+        // in the live match (the player walks) so we map it to the
+        // red glyph, not a yellow-on-yellow.
+        icon: typeName === 'red_card' || typeName === 'second_yellow' ? RedCardIcon : YellowCardIcon,
         label: player,
         sublabel: cardType,
         // Cards don't surface specialty chips in v1 (a TACKLER
@@ -184,7 +213,10 @@ export function extractKeyEvents(
       const playerOut = ev.data?.playerOut ?? '?';
       entries.push({
         minute: ev.minute,
-        icon: '⇄',
+        // D-style: red ← (out) on the left + green → (in) on the
+        // right, horizontal. Larger silhouette than the v1 ⇄ emoji
+        // so the row reads as a sub at a glance.
+        icon: SubstitutionIcon,
         label: playerIn,
         sublabel: `↔ ${playerOut}`,
         side,
@@ -199,7 +231,11 @@ export function extractKeyEvents(
         severity === 'minor' || severity === 'severe' ? severity : undefined;
       entries.push({
         minute: ev.minute,
-        icon: '🚑',
+        // D-style: red rounded box with white cross. Replaces the 🚑
+        // emoji so the row reads as medical attention (the cross
+        // icon is the international medical symbol, not an
+        // ambulance).
+        icon: InjuryIcon,
         label: player,
         sublabel,
         side,

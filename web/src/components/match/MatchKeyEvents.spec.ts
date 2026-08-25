@@ -12,6 +12,13 @@
  */
 import type { MatchEvent } from '@/lib/api';
 import { extractKeyEvents } from './extract-key-events';
+import {
+  GoalCenterIcon,
+  YellowCardIcon,
+  RedCardIcon,
+  SubstitutionIcon,
+  InjuryIcon,
+} from './commentary-icons';
 
 const home = '11111111-1111-1111-1111-111111111111';
 const away = '22222222-2222-2222-2222-222222222222';
@@ -42,7 +49,7 @@ describe('MatchKeyEvents · resolveName fallback (regression)', () => {
       away,
     );
     expect(result).toHaveLength(1);
-    expect(result[0].icon).toBe('⇄');
+    expect(result[0].icon).toBe(SubstitutionIcon);
     expect(result[0].label).toBe('韩梅梅'); // resolved via roster, NOT ev.playerId?.slice
     expect(result[0].sublabel).toBe('↔ 李雷');
   });
@@ -77,7 +84,7 @@ describe('MatchKeyEvents · resolveName fallback (regression)', () => {
       away,
     );
     expect(result[0].label).toBe('李雷');
-    expect(result[0].icon).toBe('🚑');
+    expect(result[0].icon).toBe(InjuryIcon);
   });
 
   it('prefers data.playerName over the roster lookup', () => {
@@ -282,7 +289,7 @@ describe('MatchKeyEvents · two-axis event classification (RFC 0002)', () => {
       away,
     );
     expect(result).toHaveLength(1);
-    expect(result[0].icon).toBe('⚽');
+    expect(result[0].icon).toBe(GoalCenterIcon);
     expect(result[0].label).toContain('李雷');
   });
 
@@ -335,7 +342,9 @@ describe('MatchKeyEvents · two-axis event classification (RFC 0002)', () => {
         away,
       );
       expect(result).toHaveLength(1);
-      expect(result[0].icon).toBe(expectedCard === 'Red' ? '🟥' : '🟨');
+      // D-style: SECOND_YELLOW is rendered as the red card glyph
+      // (the player walks); only the sublabel distinguishes them.
+      expect(result[0].icon).toBe(expectedCard === 'Yellow' ? YellowCardIcon : RedCardIcon);
       expect(result[0].sublabel).toBe(expectedCard);
     }
   });
@@ -358,7 +367,7 @@ describe('MatchKeyEvents · two-axis event classification (RFC 0002)', () => {
       away,
     );
     expect(result).toHaveLength(1);
-    expect(result[0].icon).toBe('⇄');
+    expect(result[0].icon).toBe(SubstitutionIcon);
     expect(result[0].label).toBe('韩梅梅');
     expect(result[0].sublabel).toBe('↔ 李雷');
   });
@@ -381,7 +390,7 @@ describe('MatchKeyEvents · two-axis event classification (RFC 0002)', () => {
       away,
     );
     expect(result).toHaveLength(1);
-    expect(result[0].icon).toBe('🚑');
+    expect(result[0].icon).toBe(InjuryIcon);
     expect(result[0].sublabel).toBe('severe');
   });
 
