@@ -13,6 +13,7 @@ import {
   TeamEntity,
   TICKET_PRICE_MULTIPLIER,
   TransactionType,
+  tryParsePlayerId,
   Uuid,
 } from '@goalxi/database';
 import { LOGGER_SERVICE, PinoLoggerService } from '@goalxi/logger';
@@ -22,20 +23,6 @@ import { In, IsNull, MoreThanOrEqual, Repository } from 'typeorm';
 import { FanService } from '../fan/fan.service';
 import { FinanceService } from '../finance/finance.service';
 import { MatchCacheService } from './match-cache.service';
-
-/**
- * Coerce a jsonb value (number or string, post-migration) into a player id.
- * Returns `null` for empty / non-numeric strings so callers can skip the row
- * instead of polluting Maps with `NaN` keys.
- */
-function toIntId(raw: string | number | null | undefined): number | null {
-  if (raw === null || raw === undefined) return null;
-  if (typeof raw === 'number') return Number.isFinite(raw) ? raw : null;
-  const trimmed = raw.trim();
-  if (!trimmed) return null;
-  const n = Number(trimmed);
-  return Number.isFinite(n) ? n : null;
-}
 
 @Injectable()
 export class MatchCompletionService {
@@ -376,7 +363,7 @@ export class MatchCompletionService {
       // `substitutions` jsonb were wiped by the player.id
       // uuid->int migration (MatchTacticsEntity docstring).
       const starterIds = Object.values(t.lineupV2 ?? {})
-        .map((id) => toIntId(id))
+        .map((id) => tryParsePlayerId(id))
         .filter((id): id is number => id !== null);
 
       for (const playerId of starterIds) {
@@ -388,7 +375,7 @@ export class MatchCompletionService {
       }
 
       for (const sub of t.substitutionsV2 ?? []) {
-        const inId = toIntId(sub.in);
+        const inId = tryParsePlayerId(sub.in);
         if (inId === null) continue;
         const subInMinute = substitutedIn.get(inId);
         if (subInMinute === undefined) continue;

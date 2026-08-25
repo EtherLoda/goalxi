@@ -9,6 +9,7 @@ import {
   TacticsPresetEntity,
   TeamEntity,
   generateAutoLineup,
+  parsePlayerId,
 } from '@goalxi/database';
 
 /**
@@ -123,14 +124,21 @@ export class TacticsPresetGenerator {
     // column that the live engine reads. The legacy
     // `lineup` column is left empty (the player.id
     // uuid→int migration already wiped it).
+    //
+    // The old code used the lenient `Number(...) + isFinite + ?? 0`
+    // pattern, which silently stamped 0 into a slot for a legacy
+    // UUID (Number→NaN) and silently accepted 123 for the
+    // malformed shape "123abc" (Number→123). Either path makes
+    // the engine point a pitch slot at the wrong player without
+    // any visible error. `parsePlayerId` requires a pure-digit
+    // string and throws on anything else, so a regression in
+    // the id source (e.g. someone re-introducing a UUID
+    // somewhere) surfaces here instead of in a live match
+    // report a week later.
     const { lineup } = generateAutoLineup(players, formation);
     const lineupV2: Record<string, number> = {};
     for (const [slot, id] of Object.entries(lineup)) {
-      // `id` is a stringified player id (uuid or
-      // numeric depending on migration state); we try
-      // numeric first, fall back to the raw string.
-      const asNum = Number(id);
-      lineupV2[slot] = Number.isFinite(asNum) ? asNum : 0;
+      lineupV2[slot] = parsePlayerId(id);
     }
 
     return this.presetRepo.create({

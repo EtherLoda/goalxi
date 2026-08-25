@@ -122,5 +122,56 @@ describe('TacticsPresetGenerator', () => {
     );
     // Lineup v2 is non-empty (auto-lineup filled it).
     expect(Object.keys(p.lineupV2).length).toBeGreaterThan(0);
+    // Every value must be a positive int (the new strict
+    // parsePlayerId contract). The old `Number(id) + ?? 0`
+    // pattern would silently stamp 0 here, so any 0 / negative
+    // / NaN value in the saved lineup fails this assertion and
+    // surfaces the bug at test time instead of in a live match
+    // report a week later.
+    for (const v of Object.values(p.lineupV2)) {
+      expect(Number.isInteger(v)).toBe(true);
+      expect(v).toBeGreaterThan(0);
+    }
+  });
+
+  /**
+   * Source-level tripwires. The historical lenient
+   * `Number(id) + isFinite + ?? 0` pattern was the root cause
+   * of the UUID→0 bug. The behavioural test above catches
+   * the symptom; these tripwires catch the source pattern
+   * re-appearing so a future contributor (or a copy-paste
+   * from another file) can't silently regress.
+   *
+   * We strip line comments before matching so a future
+   * docstring rewrite describing the bug doesn't trip the
+   * test on its own prose. The tripwire targets the CODE
+   * surface, not the documentation.
+   */
+  describe('source-level tripwires (no silent UUID→0 fallback)', () => {
+    const fs = require('fs');
+    const path = require('path');
+    const raw = fs.readFileSync(
+      path.join(__dirname, 'tactics-preset.generator.ts'),
+      'utf8',
+    );
+    // Strip // line comments and /* … */ block comments so
+    // the regex only sees code.
+    const code = raw
+      .replace(/\/\*[\s\S]*?\*\//g, '')
+      .replace(/\/\/.*$/gm, '');
+
+    it('does not use the lenient Number() + isFinite + ?? 0 pattern', () => {
+      // Number(...) on a stringified id, isFinite as the gate,
+      // ?? 0 as the fallback — any one of them coming back is
+      // a regression. The `parsePlayerId` import below is the
+      // replacement and is asserted separately.
+      expect(code).not.toMatch(/Number\s*\(/);
+      expect(code).not.toMatch(/isFinite/);
+      expect(code).not.toMatch(/\?\?\s*0/);
+    });
+
+    it('uses parsePlayerId (the strict util) instead', () => {
+      expect(raw).toMatch(/parsePlayerId/);
+    });
   });
 });
