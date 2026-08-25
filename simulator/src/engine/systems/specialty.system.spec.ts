@@ -14,15 +14,9 @@ import {
   midfieldControlMultiplier,
   pushDefenseMultiplier,
   pushOffenseMultiplier,
-  selectAssistWeight,
-  selectAttackTypeWeight,
-  selectShooterCounterWeight,
-  selectShooterCrossHeaderWeight,
-  selectShooterReboundWeight,
-  selectShooterWeight,
-  selectShotTypeWeight,
   shotFkMultiplier,
   shotHeaderMultiplier,
+  shotNormalMultiplier,
   shotPenaltyMultiplier,
   teamProductEventMultiplier,
   teamSampledEventMultiplier,
@@ -177,18 +171,13 @@ describe('per-event × per-specialty multipliers (Silver tier)', () => {
     // midfield_control
     { event: 'midfield_control', specialty: 'TACKLER', expected: 1.20 },
 
-    // select_shooter
-    { event: 'select_shooter', specialty: 'POACHER', expected: 1.25 },
-    { event: 'select_shooter_rebound', specialty: 'POACHER', expected: 1.25 },
-    { event: 'select_shooter_counter', specialty: 'SPEEDSTER', expected: 1.20 },
-
-    // select_assist
-    { event: 'select_assist', specialty: 'PLAYMAKER', expected: 1.25 },
-    { event: 'select_assist', specialty: 'CROSSER', expected: 1.20 },
-
-    // select_attack_type / select_shot_type
-    { event: 'select_attack_type', specialty: 'DRIBBLER', expected: 1.20 },
-    { event: 'select_shot_type', specialty: 'CROSSER', expected: 1.20 },
+    // v2.7: 7 select_* events removed (POACHER shooter pick,
+    // PLAYMAKER assist pick, AERIAL_THREAT CROSS header pick,
+    // etc.). Engine no longer reads specialty to weight
+    // shooter/assister/attack-type/shot-type picks. The
+    // specialty effects are now *passive* multipliers on the
+    // picked player only (shotHeaderMultiplier /
+    // shotNormalMultiplier / etc.).
 
     // foul_rate (values < 1.0)
     { event: 'foul_rate', specialty: 'TACKLER', expected: 0.80 },
@@ -281,22 +270,15 @@ describe('named convenience getters', () => {
     expect(midfieldControlMultiplier(p)).toBe(1.20);
   });
 
-  it('select* helpers all return distinct values for distinct specialties', () => {
-    const poacher = playerWith('POACHER', 'SILVER');
-    const speedster = playerWith('SPEEDSTER', 'SILVER');
-    expect(selectShooterWeight(poacher)).toBe(1.25);
-    expect(selectShooterReboundWeight(poacher)).toBe(1.25);
-    expect(selectShooterCounterWeight(speedster)).toBe(1.20);
-  });
+  // v2.7: 7 `select*` weight helpers removed (deleted from
+  // specialty.system.ts along with their events). They used to
+  // *steer the pick* toward specialty holders (POACHER for
+  // shooter pick, PLAYMAKER for assist pick, etc.) which violated
+  // the user-facing "一视同仁" principle. The engine now picks
+  // uniformly within position buckets; specialty effects are
+  // *passive* multipliers on the picked player only.
 
-  it('select* weight helpers for PLAYMAKER / CROSSER', () => {
-    expect(selectAssistWeight(playerWith('PLAYMAKER', 'SILVER'))).toBe(1.25);
-    expect(selectAssistWeight(playerWith('CROSSER', 'SILVER'))).toBe(1.20);
-    expect(selectAttackTypeWeight(playerWith('DRIBBLER', 'SILVER'))).toBe(1.20);
-    expect(selectShotTypeWeight(playerWith('CROSSER', 'SILVER'))).toBe(1.20);
-  });
-
-  it('foulRateMultiplier / injuryChanceMultiplier / lateGameMentalMultiplier / commandDefenseMultiplier', () => {
+  it('foulRateMultiplier / injuryChanceMultiplier / commandDefenseMultiplier', () => {
     expect(foulRateMultiplier(playerWith('TACKLER', 'SILVER'))).toBe(0.80);
     expect(foulRateMultiplier(playerWith('DRIBBLER', 'SILVER'))).toBe(0.90);
     expect(foulRateMultiplier(playerWith('COMPOSED', 'SILVER'))).toBe(0.50);
@@ -356,30 +338,6 @@ describe('shotPenaltyMultiplier / shotFkMultiplier (v2.5 wired)', () => {
   it('shotFkMultiplier: 1.0 for non-COMPOSED players', () => {
     expect(shotFkMultiplier(playerWith('DRIBBLER', 'SILVER'))).toBe(1.0);
     expect(shotFkMultiplier(playerWith(null, 'GOLD'))).toBe(1.0);
-  });
-});
-
-describe('selectShooterCrossHeaderWeight (v2.5 wired)', () => {
-  it('AERIAL_THREAT Silver = 1.20, Gold ≈ 1.291, Bronze ≈ 1.136', () => {
-    // v2 design doc §2.1 Hook 2 — "传中 → AERIAL_THREAT 优先被
-    // 选为 shooter". Silver base 1.20, applied through the
-    // standard tier-scaling pipeline:
-    //   Silver: 1.20^1.0 = 1.20
-    //   Gold:   1.20^1.4 ≈ 1.2908
-    //   Bronze: 1.20^0.7 ≈ 1.1361
-    expect(selectShooterCrossHeaderWeight(playerWith('AERIAL_THREAT', 'SILVER'))).toBe(1.20);
-    expect(selectShooterCrossHeaderWeight(playerWith('AERIAL_THREAT', 'GOLD'))).toBeCloseTo(1.291, 3);
-    expect(selectShooterCrossHeaderWeight(playerWith('AERIAL_THREAT', 'BRONZE'))).toBeCloseTo(1.136, 3);
-  });
-
-  it('returns 1.0 for non-AERIAL_THREAT players', () => {
-    // The hook is AERIAL_THREAT-only. POACHER (1.25) is on
-    // `select_shooter` and `select_shooter_rebound`, not this
-    // event — see BASE_EFFECTS. The tripwire guards against a
-    // future contributor adding the wrong key.
-    expect(selectShooterCrossHeaderWeight(playerWith('POACHER', 'SILVER'))).toBe(1.0);
-    expect(selectShooterCrossHeaderWeight(playerWith('PHYSICAL_BEAST', 'GOLD'))).toBe(1.0);
-    expect(selectShooterCrossHeaderWeight(playerWith(null, 'BRONZE'))).toBe(1.0);
   });
 });
 
@@ -804,13 +762,6 @@ describe('specialty hook wire-up tripwire (source-level)', () => {
     push_offense: 'pushOffenseMultiplier',
     push_defense: 'pushDefenseMultiplier',
     midfield_control: 'midfieldControlMultiplier',
-    select_shooter: 'selectShooterWeight',
-    select_shooter_rebound: 'selectShooterReboundWeight',
-    select_shooter_counter: 'selectShooterCounterWeight',
-    select_shooter_cross_header: 'selectShooterCrossHeaderWeight',
-    select_assist: 'selectAssistWeight',
-    select_attack_type: 'selectAttackTypeWeight',
-    select_shot_type: 'selectShotTypeWeight',
     foul_rate: 'foulRateMultiplier',
     injury_chance: 'injuryChanceMultiplier',
     command_defense: 'commandDefenseMultiplier',

@@ -64,13 +64,6 @@ export type SpecialtyEvent =
   | 'push_offense'          // multiplier on pushDuel attPower
   | 'push_defense'          // multiplier on pushDuel defPower
   | 'midfield_control'      // multiplier on midfieldDuel control
-  | 'select_shooter'        // weight in selectShooter
-  | 'select_shooter_rebound'// weight in selectShooter when shotType === REBOUND
-  | 'select_shooter_counter'// weight in selectShooter during a counter phase
-  | 'select_shooter_cross_header' // weight in selectShooter on CROSS attacks (AERIAL_THREAT picks header target)
-  | 'select_assist'         // weight in selectAssist
-  | 'select_attack_type'    // weight in selectAttackType (e.g. favor DRIBBLE)
-  | 'select_shot_type'      // weight in selectShotType (e.g. favor HEADER on CROSS)
   | 'foul_rate'             // multiplier on foul chance (lower = better)
   | 'injury_chance'         // multiplier on injury chance (lower = better)
   | 'command_defense'       // multiplier on team defense lane strength (GK aura)
@@ -142,33 +135,6 @@ const BASE_EFFECTS: Partial<Record<SpecialtyEvent, Partial<Record<ActiveCoreSpec
   },
   midfield_control: {
     TACKLER: 1.20,          // 拦截
-  },
-  select_shooter: {
-    POACHER: 1.25,          // 优先被选为射手
-  },
-  select_shooter_rebound: {
-    POACHER: 1.25,          // 补射时优先
-  },
-  select_shooter_counter: {
-    SPEEDSTER: 1.20,        // 反击时优先
-  },
-  select_shooter_cross_header: {
-    // v2.5+: AERIAL_THREAT gets a 1.20 weight bump (Silver) when the
-    // attackType is CROSS — the "传中 → 空霸头球" mental model.
-    // Previously this hook was in the design doc but never wired
-    // (selectShooter only keyed on shotType / phase). See
-    // `selectShooter` in match.engine.ts for the call site.
-    AERIAL_THREAT: 1.20,
-  },
-  select_assist: {
-    PLAYMAKER: 1.25,        // 优先被选为助攻者
-    CROSSER: 1.20,          // 传中时优先
-  },
-  select_attack_type: {
-    DRIBBLER: 1.20,         // 倾向选 DRIBBLE
-  },
-  select_shot_type: {
-    CROSSER: 1.20,          // CROSS 后倾向 HEADER
   },
   foul_rate: {
     TACKLER: 0.80,          // 1 - 0.20 = 0.80 (less likely to foul)
@@ -408,41 +374,31 @@ export const pushDefenseMultiplier = (player: Player): number =>
 export const midfieldControlMultiplier = (player: Player): number =>
   getEventMultiplier(player, 'midfield_control');
 
-/** Weight in selectShooter (normal phase). */
-export const selectShooterWeight = (player: Player): number =>
-  getEventMultiplier(player, 'select_shooter');
-
 /**
- * Weight in selectShooter on a CROSS attack. v2.5+: AERIAL_THREAT
- * gets a 1.20 weight bump (Silver) when the attack is a cross, so
- * the "传中 → 空霸头球" mental model is wired end-to-end. The
- * v2.0 design doc (§2.1 Hook 2) promised this, but the engine's
- * `selectShooter` keyed only on `shotType` and `phase` — the
- * attackType signal was ignored. Now `selectShooter` accepts an
- * `attackType` option and applies this weight when it's CROSS.
+ * v2.7: 7 specialty-weighted select* helpers were removed.
+ * Previously they were consumed by `selectShooter`, `selectAssist`,
+ * `selectAttackType`, and `selectShotType` to *steer the pick*
+ * toward specialty holders (POACHER for the shooter pick, PLAYMAKER
+ * for the assist pick, AERIAL_THREAT for CROSS header target,
+ * etc.). That violated the user-facing principle "一视同仁 — the
+ * engine shouldn't deliberately find specialty holders to
+ * participate in events" (2026-08-25). The engine now picks
+ * uniformly within position buckets and applies specialty effects
+ * purely as *passive* multipliers on the picked player. POACHER /
+ * AERIAL_THREAT / SPEEDSTER / PLAYMAKER / CROSSER / DRIBBLER all
+ * still get picked "more often" in practice because their players
+ * tend to have higher base attributes at those positions — the
+ * natural attribute edge, not engine steering.
+ *
+ * Removed helpers and their events (kept here for git archaeology):
+ *   - `selectShooterWeight`        (event: `select_shooter`)
+ *   - `selectShooterReboundWeight` (event: `select_shooter_rebound`)
+ *   - `selectShooterCounterWeight` (event: `select_shooter_counter`)
+ *   - `selectShooterCrossHeaderWeight` (event: `select_shooter_cross_header`)
+ *   - `selectAssistWeight`         (event: `select_assist`)
+ *   - `selectAttackTypeWeight`     (event: `select_attack_type`)
+ *   - `selectShotTypeWeight`       (event: `select_shot_type`)
  */
-export const selectShooterCrossHeaderWeight = (player: Player): number =>
-  getEventMultiplier(player, 'select_shooter_cross_header');
-
-/** Weight in selectShooter when the shot type is REBOUND. */
-export const selectShooterReboundWeight = (player: Player): number =>
-  getEventMultiplier(player, 'select_shooter_rebound');
-
-/** Weight in selectShooter when the possession is freshly won (counter). */
-export const selectShooterCounterWeight = (player: Player): number =>
-  getEventMultiplier(player, 'select_shooter_counter');
-
-/** Weight in selectAssist. */
-export const selectAssistWeight = (player: Player): number =>
-  getEventMultiplier(player, 'select_assist');
-
-/** Weight in selectAttackType — favors DRIBBLE if the team has DRIBBLER. */
-export const selectAttackTypeWeight = (player: Player): number =>
-  getEventMultiplier(player, 'select_attack_type');
-
-/** Weight in selectShotType — favors HEADER after a CROSS. */
-export const selectShotTypeWeight = (player: Player): number =>
-  getEventMultiplier(player, 'select_shot_type');
 
 /** Multiplier on the player's foul rate (lower = better citizen). */
 export const foulRateMultiplier = (player: Player): number =>

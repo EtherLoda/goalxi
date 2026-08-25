@@ -25,13 +25,6 @@ import {
   midfieldControlMultiplier,
   pushDefenseMultiplier,
   pushOffenseMultiplier,
-  selectAssistWeight,
-  selectAttackTypeWeight,
-  selectShooterCounterWeight,
-  selectShooterCrossHeaderWeight,
-  selectShooterReboundWeight,
-  selectShooterWeight,
-  selectShotTypeWeight,
   shotFkMultiplier,
   shotHeaderMultiplier,
   shotLongMultiplier,
@@ -2297,20 +2290,17 @@ export class MatchEngine {
     // v2 SPEEDSTER — counter attack boost. Decision-class — pick
     // one SPEEDSTER weighted by per-player multiplier (1.0 / 1.14 /
     // 1.20 / 1.28 for no-spec / B / S / G). Replaces the v1 "0.05
-    // per CNTR player" additive model and the v2.0 team-max single
-    // pick. The engine's selectShooter also weights SPEEDSTERs
-    // more heavily during counter phases — see
-    // `selectShooter(..., { phase: 'counter' })`.
+    // v2.7: SPEEDSTER's counter-attack boost no longer reads
+    // `select_shooter_counter` (event removed). The hook is now
+    // a *passive* attPower multiplier applied to SPEEDSTER
+    // holders; the engine does not steer the pick toward
+    // SPEEDSTERs on counter phases. SPEEDSTER FW still gets
+    // picked more often on counters because their pace
+    // attribute is high — the natural attribute edge, not
+    // engine steering.
     if (this.freshPossession) {
-      const counterBonus = teamSampledEventMultiplier(
-        this.possessionTeam.players,
-        'select_shooter_counter',
-      );
-      // counterBonus is 1.0 when no SPEEDSTER; otherwise the team
-      // gets a multiplicative boost on the counter attack.
-      if (counterBonus > 1.0) {
-        attPower *= counterBonus;
-      }
+      // No specialty multiplier on attPower here; counterBonus
+      // would have been 1.0 without SPEEDSTER holders anyway.
       this.freshPossession = false; // 重置标志
     }
 
@@ -2497,21 +2487,15 @@ export class MatchEngine {
         }
       }
 
-      // v2 SPEEDSTER counter attack boost (second application — this
-      // path runs after the pre-passing-block freshPossession check
-      // above; v2 re-applies it here for the same reason v1 did:
-      // the second block guards the pushDuel computation
-      // specifically). The decision-class helper means the boost is
-      // deterministic per call (modulo the random draw) and
-      // identical-shape on both application points.
+      // v2.7: SPEEDSTER counter-attack boost no longer reads
+      // `select_shooter_counter` (event removed). See the
+      // earlier freshPossession block in this function for the
+      // v2.7 rationale. Counter attacks no longer get a
+      // specialty-driven attPower bump; SPEEDSTER holders'
+      // passive pacE_attack_lane (1.10 base) is the only
+      // counter-phase specialty effect.
       if (!interceptTriggered && this.freshPossession) {
-        const counterBonus = teamSampledEventMultiplier(
-          this.possessionTeam.players,
-          'select_shooter_counter',
-        );
-        if (counterBonus > 1.0) {
-          effectiveAttPower *= counterBonus;
-        }
+        // No-op: counterBonus removed in v2.7.
       }
 
       // ==========================================
@@ -3686,62 +3670,36 @@ export class MatchEngine {
       return all[0];
     }
 
-    // v2 specialty weight — applied AFTER the position-bucket pick so
-    // the bucket's "CF 40% / W 20% / AM 15% / other 25%" distribution
-    // is preserved, but within a bucket the picker favors specialty
-    // holders. See `selectShooterWeight` for the underlying values.
+    // v2.7: selectShooter no longer reads `player.coreSpecialty` to
+    // weight the pick. Picker is uniform-within-bucket: the
+    // position-bucket distribution (CF 40% / W 20% / AM 15% /
+    // other 25%) is preserved, but **within** a bucket every
+    // eligible player is equally likely to be picked.
+    //
+    // Specialty effects on shot selection are now purely
+    // *passive*: the picked shooter's `shotHeaderMultiplier`
+    // (AERIAL_THREAT) / `shotNormalMultiplier` (PHYSICAL_BEAST)
+    // / `shotPenaltyMultiplier` (COMPOSED) etc. apply to the
+    // shoot rating if (and only if) the picked player happens
+    // to carry the specialty. The engine does not steer the
+    // pick toward specialty holders. A POACHER FW still gets
+    // picked more often than a non-POACHER FW because POACHER
+    // players tend to have higher positioning / finishing
+    // attributes — that natural attribute edge is what the
+    // user wants to preserve (per "一视同仁 — engine shouldn't
+    // *deliberately* find specialty holders" 2026-08-25).
     const phase = options.phase ?? 'normal';
     const shotType = options.shotType;
-    // v2.5: AERIAL_THREAT gets a 1.20 weight bump (Silver) when the
-    // attackType is CROSS — the "传中 → 空霸头球" mental model
-    // that the v2.0 design doc §2.1 Hook 2 promised but the
-    // v2.0 selectShooter never wired (it only keyed on shotType
-    // and phase). Default `undefined` means "not on a cross" so
-    // callers that don't pass attackType see no behavior change.
+    // v2.5 attackType option kept for downstream use (none right
+    // now) but no longer reads it to weight the pick.
     const attackType = options.attackType;
-    const isCrossAttack =
-      attackType !== undefined && attackType === AttackType.CROSS;
+    void attackType; // explicitly unused since v2.7
     const pickInBucket = (bucket: TacticalPlayer[]): TacticalPlayer => {
-      // Weighted pick: each candidate's weight is
-      //   baseWeight (= 1.0) × specialtyMultiplier(event)
-      // The multiplier is the engine's central source of truth.
-      // Single-pass weight+total: avoid the legacy
-      // `bucket.map().reduce()` double walk.
-      let totalWeight = 0;
-      const weights = new Array<number>(bucket.length);
-      for (let i = 0; i < bucket.length; i++) {
-        const p = bucket[i];
-        const player = p.player as Player;
-        let w = 1.0;
-        if (shotType === ShotType.REBOUND) {
-          w *= selectShooterReboundWeight(player);
-        } else {
-          w *= selectShooterWeight(player);
-        }
-        if (phase === 'counter') {
-          w *= selectShooterCounterWeight(player);
-        }
-        if (isCrossAttack) {
-          // v2.5: AERIAL_THREAT weight bump on CROSS attacks.
-          // Multiplicative with the per-player × phase weights
-          // above so a 3-way AERIAL+POACHER+SPEEDSTER Silver
-          // combo on a cross (very rare) would be 1.20 × 1.25 ×
-          // 1.20 = 1.80. The base weight of 1.0 for non-holders
-          // is preserved.
-          w *= selectShooterCrossHeaderWeight(player);
-        }
-        weights[i] = w;
-        totalWeight += w;
-      }
-      if (totalWeight <= 0) {
-        return bucket[(Math.random() * bucket.length) | 0];
-      }
-      let r = Math.random() * totalWeight;
-      for (let i = 0; i < bucket.length; i++) {
-        r -= weights[i];
-        if (r <= 0) return bucket[i];
-      }
-      return bucket[bucket.length - 1]; // numeric drift fallback
+      // v2.7: uniform-within-bucket pick. Every eligible (non-
+      // sent-off) player has equal probability regardless of
+      // `coreSpecialty`. Replaces the v2.0-v2.6 weighted-pick
+      // (which read 4 specialty keys to bias the pick).
+      return bucket[(Math.random() * bucket.length) | 0];
     };
 
     // 射手权重：CF 40% | W 20% | AM 15% | 其他 25%
@@ -3879,29 +3837,19 @@ export class MatchEngine {
     // the bucket-level position distribution. Falls back to uniform
     // random when the bucket has no specialty holder (the common case
     // for ~50% of teams).
-    const pickWeighted = (bucket: TacticalPlayer[]): TacticalPlayer => {
-      const weights: number[] = new Array(bucket.length);
-      let total = 0;
-      for (let i = 0; i < bucket.length; i++) {
-        const w = selectAssistWeight(bucket[i].player as Player);
-        weights[i] = w;
-        total += w;
-      }
-      if (total <= 0) {
-        return bucket[(Math.random() * bucket.length) | 0];
-      }
-      let r = Math.random() * total;
-      for (let i = 0; i < bucket.length; i++) {
-        r -= weights[i];
-        if (r <= 0) return bucket[i];
-      }
-      return bucket[bucket.length - 1];
-    };
+    // v2.7: uniform-within-bucket pick — no specialty weighting.
+    // Replaces the v2.0-v2.6 weighted pick which read
+    // `selectAssistWeight` to bias the pick toward PLAYMAKER /
+    // CROSSER holders. Now the assister is any eligible player
+    // in the bucket (CROSS → wide players; OTHER → preferred
+    // midfielders/wingers; final fallback → full candidates).
+    const pickFromBucket = (bucket: TacticalPlayer[]): TacticalPlayer =>
+      bucket[(Math.random() * bucket.length) | 0];
 
     // For CROSS (传中), the assister must be a wide player
     if (attackType === 'CROSS') {
       if (widePlayers.length > 0) {
-        return pickWeighted(widePlayers);
+        return pickFromBucket(widePlayers);
       }
       // Fallback: no wide player available, no assist
       return null;
@@ -3909,10 +3857,10 @@ export class MatchEngine {
 
     // For other attack types, prioritize midfielders and wingers
     if (preferredAssisters.length > 0 && Math.random() < 0.7) {
-      return pickWeighted(preferredAssisters);
+      return pickFromBucket(preferredAssisters);
     }
 
-    return pickWeighted(candidates);
+    return pickFromBucket(candidates);
   }
 
   /**
@@ -3943,21 +3891,18 @@ export class MatchEngine {
     const w0 = distribution[0] * weatherWeights[0] * tempoWeights[AttackType[0]];
     const w1 = distribution[1] * weatherWeights[1] * tempoWeights[AttackType[1]];
     const w2 = distribution[2] * weatherWeights[2] * tempoWeights[AttackType[2]];
-    // v2 DRIBBLER — when a DRIBBLER is on the pitch, the team is
-    // more likely to pick DRIBBLE. Decision-class — pick one
-    // DRIBBLER weighted by per-player multiplier (1.0 / 1.14 / 1.20
-    // / 1.28 for no-spec / B / S / G). Replaces the v2.0 team-max
-    // single pick so lineup diversity (Gold + Silver mix vs
-    // Gold-only) has a different outcome.
-    const dribbleBonus = teamSampledEventMultiplier(
-      this.possessionTeam.players,
-      'select_attack_type',
-    );
-    const w3 =
-      distribution[3] *
-      weatherWeights[3] *
-      tempoWeights[AttackType[3]] *
-      (dribbleBonus > 1.0 ? dribbleBonus : 1.0);
+    // v2.7: DRIBBLER no longer biases the attack type toward
+    // DRIBBLE. `selectAttackType` now reads only the lane
+    // distribution × weather × tempo; the `select_attack_type`
+    // event is unused and the corresponding `teamSampledEventMultiplier`
+    // call is removed. The team can still end up running a DRIBBLE
+    // attack type by chance (the bucket weight is preserved); the
+    // specialty is no longer *looking for* DRIBBLER holders to
+    // make that happen. The DRIBBLER specialty's per-passer pushDuel
+    // buff (1.15 on DRIBBLE) is unaffected — that's a passive
+    // multiplier on a player who *happens* to be in the run, not
+    // a steering of the pick itself.
+    const w3 = distribution[3] * weatherWeights[3] * tempoWeights[AttackType[3]];
     const w4 = distribution[4] * weatherWeights[4] * tempoWeights[AttackType[4]];
 
     const sum = w0 + w1 + w2 + w3 + w4;
@@ -3991,27 +3936,15 @@ export class MatchEngine {
     switch (attackType) {
       case AttackType.CROSS: {
         // 传中：头球 50%，抽射 30%，补射 20%
-        // v2 CROSSER — when a CROSSER is on the pitch, the team is
-        // more likely to pick HEADER off a cross (the "CROSSER picks
-        // the cross → header target" mental model). Decision-class
-        // — pick one CROSSER weighted by per-player multiplier
-        // (1.0 / 1.14 / 1.20 / 1.28 for no-spec / B / S / G).
-        // Renormalize the three cross-shot weights so the
-        // distribution still sums to 100% — otherwise a Gold CROSSER
-        // would push HEADER past 64% and break the 30/20 split.
-        const headerBase = 50;
-        const normalBase = 30;
-        const reboundBase = 20;
-        const crossBonus = teamSampledEventMultiplier(
-          this.possessionTeam.players,
-          'select_shot_type',
-        );
-        const headerW = headerBase * (crossBonus > 1.0 ? crossBonus : 1.0);
-        const normalW = normalBase;
-        const reboundW = reboundBase;
-        const sum = headerW + normalW + reboundW;
-        const headerP = (headerW / sum) * 100;
-        const normalP = headerP + (normalW / sum) * 100;
+        // v2.7: CROSSER no longer biases HEADER chance on CROSS.
+        // The shot-type distribution is fixed (50/30/20) and only
+        // a *passive* `shotHeaderMultiplier` on the picked shooter
+        // applies (e.g. if the picked player happens to be
+        // AERIAL_THREAT, the header shoot rating is × 1.10). The
+        // engine no longer steers toward HEADER shots when a
+        // CROSSER is on the pitch.
+        const headerP = 50;
+        const normalP = 80;
         if (rand < headerP) return ShotType.HEADER;
         if (rand < normalP) return ShotType.NORMAL;
         return ShotType.REBOUND;
