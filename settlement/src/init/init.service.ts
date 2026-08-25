@@ -224,14 +224,43 @@ export class InitService {
     // RESTART IDENTITY resets any serial PKs so a fresh
     // init has monotonic ids again.
     //
-    // We explicitly list every game table so we don't
-    // accidentally truncate something we shouldn't
+    // We explicitly list every game-state table so we
+    // don't accidentally truncate something we shouldn't
     // (e.g. `migrations`).
+    //
+    // Two categories of tables are INTENTIONALLY omitted:
+    //
+    //   1. Dictionary / reference data seeded by migrations
+    //      and shared across all environments (dev / staging
+    //      / prod) with stable, hand-assigned ids:
+    //        - `event_class_def`       (RFC 0002, SMALLINT PKs)
+    //        - `event_outcome_def`     (RFC 0002, SMALLINT PKs)
+    //      Truncating them would force a reseed from the
+    //      migration on every --force init and risk id drift
+    //      between environments.
+    //
+    //   2. Append-only audit tables that must outlive init
+    //      so historical traceability isn't lost on rebuild:
+    //        - `player_history`
+    //      The historical player-event log is informational
+    //      only and a future "reset all game state" path
+    //      should explicitly opt in to clearing it.
+    //
+    // Both omissions are documented here so a future
+    // contributor doesn't "fix" the omission by adding them
+    // back without understanding the consequences. The
+    // source-level tripwire spec in `init.service.spec.ts`
+    // pins this list so a drift on either side (missing
+    // table or wrongly-added table) fails the test.
     const tables = [
       'match_event',
       'match_tactics',
       'match_team_stats',
       'match',
+      'cup_bracket_slot',
+      'cup_entry',
+      'cup_round',
+      'cup',
       'tactics_preset',
       'staff',
       'season_result',
