@@ -471,4 +471,81 @@ describe('createTeam — OVR range', () => {
       expect(p.potentialAbility).toBeLessThan(80);
     }
   });
+
+  /**
+   * Regression for the post-init design where bot
+   * teams have NO owning user. The historical
+   * implementation had a fake `bot_manager` user
+   * whose id was stamped on every bot team, but bot
+   * teams shouldn't have a user account behind them
+   * — the simulator / cron runs them and only the
+   * onboarding claim flow flips the team to a real
+   * owning user.
+   *
+   * `CreateTeamParams.userId` is now `string | null`
+   * (the entity column was already nullable); this
+   * test pins the "null is accepted and lands on the
+   * team row" path so a future type tightening can't
+   * silently re-break the design.
+   */
+  it('accepts userId: null and writes it onto the team row (bot teams have no owner)', async () => {
+    const manager = noopEntityManager();
+    const result = await createTeam(manager, {
+      leagueId: sampleLeague.id,
+      name: 'Bot Without Owner',
+      nationality: 'CN',
+      isBot: true,
+      // The whole point of this spec: null is a valid
+      // userId, the team row reflects it, and the
+      // entity contract (`team.userId: string | null`)
+      // is honoured end-to-end.
+      userId: null,
+      botLevel: 5,
+    });
+    // `createTeam` returns a `CreatedTeam` (team +
+    // players + staff), not the team row directly.
+    expect(result.team.userId).toBeNull();
+  });
+
+  /**
+   * Source-level tripwire. The pre-init design had a
+   * `bot_manager` user that was the fake owner of
+   * every bot team. Dropping that design is a one-way
+   * door — re-introducing it would silently make every
+   * bot team owned by a hard-coded system user, which
+   * is exactly the bug the type change
+   * (`string | null`) was meant to retire.
+   *
+   * This tripwire pins the new contract: the entity
+   * file must keep `userId` as a nullable column, and
+   * the `CreateTeamParams` interface must keep it as
+   * `string | null`. A refactor that "simplifies" the
+   * type back to `string` fails the build.
+   */
+  it('source-level: team.userId is nullable and CreateTeamParams.userId is string | null', () => {
+    const fs = require('fs');
+    const path = require('path');
+    const teamEntity = fs.readFileSync(
+      path.join(__dirname, '..', 'entities', 'team.entity.ts'),
+      'utf8',
+    );
+    // Team entity: `userId: string | null` (the column
+    // contract). Strip comments so a docstring that
+    // describes the nullable shape doesn't trip the
+    // test on its own prose.
+    const teamCode = teamEntity
+      .replace(/\/\*[\s\S]*?\*\//g, '')
+      .replace(/\/\/.*$/gm, '');
+    expect(teamCode).toMatch(/userId\s*:\s*string\s*\|\s*null/);
+    // CreateTeamParams: `userId: string | null` (the
+    // helper API contract).
+    const helperSource = fs.readFileSync(
+      path.join(__dirname, 'team-onboarding-generator.ts'),
+      'utf8',
+    );
+    const helperCode = helperSource
+      .replace(/\/\*[\s\S]*?\*\//g, '')
+      .replace(/\/\/.*$/gm, '');
+    expect(helperCode).toMatch(/userId\s*:\s*string\s*\|\s*null/);
+  });
 });

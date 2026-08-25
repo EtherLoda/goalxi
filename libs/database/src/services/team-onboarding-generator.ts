@@ -179,9 +179,15 @@ export interface CreateTeamParams {
    *  Drives: `isBot` flag, `botLevel`, starting balance,
    *  starting fans. */
   isBot: boolean;
-  /** The owning user id. For BOT teams this is the system
-   *  bot user; for managers this is the new owner's id. */
-  userId: string;
+  /** The owning user id. For BOT teams this is `null` — bot
+   *  teams are not owned by anyone (the design pre-init had
+   *  a fake `bot_manager` user as the owner, which we dropped
+   *  because bot teams shouldn't have a user account behind
+   *  them). For manager-owned teams (onboarding claim,
+   *  scheduler spawn, `seed-main.ts`) this is the manager's
+   *  user id. Nullable so the entity's `userId: string | null`
+   *  contract is honoured. */
+  userId: string | null;
   /**
    * When set, update the existing team row instead of
    * inserting. Used by onboarding so the `team.id` is
