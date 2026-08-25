@@ -34,6 +34,7 @@ import {
   shotNormalMultiplier,
   teamProductEventMultiplier,
   teamSampledEventMultiplier,
+  defensiveHeaderMultiplier,
 } from './systems/specialty.system';
 // RFC 0003 — Specialty Attribution. The recorder is created per
 // event-resolution call (resolveShot / resolvePenalty / etc.) and
@@ -2362,6 +2363,12 @@ export class MatchEngine {
       // Replaces v2.0 team-max single pick so lineup diversity (Gold +
       // Silver mix vs Gold-only) has a different outcome. See
       // §2.1 + §2.10 in the design doc.
+      //
+      // v2.8.1 explicit: only possessionTeam (攻方) AERIAL_THREAT
+      // holders count here — defendingTeam 球员 (守方) 不参与
+      // attackerHeaderBonus 聚合。守方有自己的 defenderHeaderBonus
+      // 段 (下方)。两个聚合独立, 不混合。
+      // No cap (v2.5+ 决策类 design intent) — 5 Silver = 1.44 / 1 Gold + 5 Silver = 1.61。
       if (attackType === AttackType.CROSS) {
         const attackerHeaderBonus = teamSampledEventMultiplier(
           this.possessionTeam.players,
@@ -2375,6 +2382,11 @@ export class MatchEngine {
       // v2 AERIAL_THREAT on the defending side — boosts defPower
       // during CROSS attacks. Same decision-class pattern as the
       // attacker side.
+      //
+      // v2.8.1 explicit: only defendingTeam (守方) AERIAL_THREAT
+      // holders count here — possessionTeam (攻方) 球员 不参与
+      // defenderHeaderBonus 聚合。两个聚合独立, 不混合。
+      // No cap (decision class) — 5 Silver = 1.44。
       let effectiveDefPower = defPower;
       if (attackType === AttackType.CROSS) {
         const defenderHeaderBonus = teamSampledEventMultiplier(
@@ -2701,6 +2713,41 @@ export class MatchEngine {
             // recorded inside the helper. The shooter is the
             // primary contributor.
             finalShootRating = this.calculateHeaderRating(player, specialtyRecorder);
+            // v2.8.1: 守方 AERIAL_THREAT debuff — 守方场上
+            // AERIAL_THREAT 球员越多, 对手 HEADER 射门评分越低。
+            // Product class, no cap (per user 2026-08-25) — 多个
+            // AERIAL_THREAT 累加: 1 Silver 0.90 / 2 Silver 0.81 /
+            // 3 Silver 0.729 / 4 Silver 0.656 / 5 Silver 0.59 /
+            // 1 Gold + 5 Silver 0.509。default cap 1.80 (buff
+            // ceiling) 对 debuff < 1.0 不生效 (cap > 1.0 && product
+            // > cap 条件 product < 1.0 不成立, 返回 product 自由
+            // 乘)。
+            //
+            // 只算 defendingTeam (守方) AERIAL_THREAT — possessionTeam
+            // 攻方球员不参与 debuff 聚合。
+            const defendingHeaderDeBuff = teamProductEventMultiplier(
+              this.defendingTeam.players,
+              'defensive_header',
+            );
+            if (defendingHeaderDeBuff < 1.0) {
+              // RFC 0003 — record the debuff on the first
+              // AERIAL_THREAT holder we find (any defender that
+              // contributed to the product). If none, the helper
+              // would have returned 1.0 so we don't reach here.
+              const aerialHolder = this.defendingTeam.players.find(
+                (p) => defensiveHeaderMultiplier(p.player) < 1.0,
+              );
+              if (aerialHolder && specialtyRecorder) {
+                specialtyRecorder.record(
+                  aerialHolder.player,
+                  'defensive_header',
+                  'defender',
+                  false,
+                  defendingHeaderDeBuff,
+                );
+              }
+              finalShootRating *= defendingHeaderDeBuff;
+            }
             // 头球争顶受伤检核
             this.checkAndGenerateInjury(this.possessionTeam, 'jump');
             break;

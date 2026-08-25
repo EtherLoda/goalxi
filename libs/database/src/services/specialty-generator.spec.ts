@@ -63,11 +63,12 @@ describe('rollSpecialty', () => {
     expect(bronzePct).toBeLessThan(0.615);
   });
 
-  it('tier distribution holds in the GK pool (2 codes, 5/15/30/50)', () => {
-    // Same distribution as outfield — the 5/15/30/50 split is a
-    // property of the "has a spec" + tier decision and is independent
-    // of how many codes are in the pool. A 2-code pool is fine
-    // because the tier roll happens BEFORE the code roll.
+  it('tier distribution holds in the GK pool (2 codes, 1/3/6/90 — v2.8.1)', () => {
+    // v2.8.1: GK 走 GOALKEEPER_TIER_DISTRIBUTION (1/3/6/90),
+    // 不是 outfield 的 TIER_DISTRIBUTION (5/15/30/50). 只有 10%
+    // GK 有特技 (vs outfield 50%), 守门员是场上最稀缺位置,
+    // GK with spec 应该像 "discovery"。条件化 tier ratio
+    // (Gold 10% / Silver 30% / Bronze 60% of "has spec") 不变。
     const counts = { GOLD: 0, SILVER: 0, BRONZE: 0 };
     const N = 100_000;
     for (let i = 0; i < N; i++) {
@@ -78,15 +79,34 @@ describe('rollSpecialty', () => {
     const goldPct = counts.GOLD / total;
     const silverPct = counts.SILVER / total;
     const bronzePct = counts.BRONZE / total;
-    // Same ±1.5% tolerance as the outfield test. The GK pool
-    // exercises the same code-roll path, just over 2 codes instead
-    // of 10, so the tier distribution must still hold.
+    // ±1.5% tolerance. The conditional ratio is the same as
+    // outfield (5/15/30 → 10/30/60).
     expect(goldPct).toBeGreaterThan(0.085);
     expect(goldPct).toBeLessThan(0.115);
     expect(silverPct).toBeGreaterThan(0.285);
     expect(silverPct).toBeLessThan(0.315);
     expect(bronzePct).toBeGreaterThan(0.585);
     expect(bronzePct).toBeLessThan(0.615);
+  });
+
+  it('v2.8.1: GK has-spec rate is 10% (vs outfield 50%)', () => {
+    // User 2026-08-25 request: GK specialty is 5× rarer. outfield
+    // 50% have spec, GK only 10%. ±0.5% tolerance with N=100k.
+    let outfieldHasSpec = 0;
+    let gkHasSpec = 0;
+    const N = 100_000;
+    for (let i = 0; i < N; i++) {
+      if (rollSpecialty(seeded(i + 2001), false) !== null) outfieldHasSpec++;
+      if (rollSpecialty(seeded(i + 3001), true) !== null) gkHasSpec++;
+    }
+    const outfieldRate = outfieldHasSpec / N;
+    const gkRate = gkHasSpec / N;
+    // outfield ~50% (TIER_DISTRIBUTION.NO_SPEC = 50)
+    expect(outfieldRate).toBeGreaterThan(0.495);
+    expect(outfieldRate).toBeLessThan(0.505);
+    // GK ~10% (GOALKEEPER_TIER_DISTRIBUTION.NO_SPEC = 90)
+    expect(gkRate).toBeGreaterThan(0.095);
+    expect(gkRate).toBeLessThan(0.105);
   });
 
   it('outfield path: returned codes are always from the outfield pool (never GK, never deprecated)', () => {

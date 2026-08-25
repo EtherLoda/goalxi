@@ -155,6 +155,11 @@ export const TIER_MULTIPLIERS: Record<SpecialtyTier, number> = {
  * 50% of players get NO specialty. Of the 50% that do, tier
  * distribution is 5/15/30 (Gold/Silver/Bronze).
  *
+ * This is the **outfield** distribution. Goalkeepers use
+ * `GOALKEEPER_TIER_DISTRIBUTION` below — only 10% of GKs have a
+ * specialty, because the goalkeeper is the rarest on-pitch slot
+ * and a GK with a specialty should feel like a discovery.
+ *
  * See §1.2 of the design doc for the rationale ("5% Gold  = 1 in
  * 20 is rare-but-not-vanishing; 50% No spec makes finding one
  * feel like discovery").
@@ -164,6 +169,29 @@ export const TIER_DISTRIBUTION = {
   SILVER: 15,
   BRONZE: 30,
   NO_SPEC: 50,
+} as const;
+
+/**
+ * Goalkeeper-specific tier probability distribution. User
+ * 2026-08-25 request: GK specialty should be **5× rarer than
+ * outfield** (10% have any spec, vs 50% outfield). The conditional
+ * split within "has a spec" stays the same 5/15/30 ratio — only
+ * the NO_SPEC ceiling changes (50% → 90%).
+ *
+ * Trade-off vs `TIER_DISTRIBUTION`:
+ *   - Has-spec rate: outfield 50% vs GK 10% (5× rarer)
+ *   - Tier condition化: outfield Gold 10% / Silver 30% / Bronze 60%
+ *     — GK 同样 Gold 10% / Silver 30% / Bronze 60% (ratio 维持)
+ *   - Per-code: outfield 5/10 = 0.5% / GK 1/2 = 0.5% (同 — 因为
+ *     pool 大小差 5x 抵消 has-spec 5x 差距)
+ *   - Gold GK: outfield 2.5% (5% × 1/2) vs GK 0.5% (1% × 1/2) — GK Gold
+ *     是 5x rarer, "1 in 200" 极稀, 但仍 not impossible。
+ */
+export const GOALKEEPER_TIER_DISTRIBUTION = {
+  GOLD: 1,
+  SILVER: 3,
+  BRONZE: 6,
+  NO_SPEC: 90,
 } as const;
 
 // ────────────────────────────────────────────────────────────────────

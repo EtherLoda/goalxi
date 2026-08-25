@@ -67,6 +67,7 @@ export type SpecialtyEvent =
   | 'foul_rate'             // multiplier on foul chance (lower = better)
   | 'injury_chance'         // multiplier on injury chance (lower = better)
   | 'command_defense'       // multiplier on team defense lane strength (GK aura)
+  | 'defensive_header'      // multiplier on opponent's HEADER shoot rating (debuff, < 1.0)
   ;
 
 // ────────────────────────────────────────────────────────────────────
@@ -184,12 +185,23 @@ const BASE_EFFECTS: Partial<Record<SpecialtyEvent, Partial<Record<ActiveCoreSpec
   },
   injury_chance: {
     PHYSICAL_BEAST: 0.90,   // 1 - 0.10 = 0.90 (more robust)
-    AERIAL_THREAT: 0.80,    // 1 - 0.20 = 0.80 (jump events specifically;
-                            //  the simulator applies this only when
-                            //  actionType === 'jump')
+    // v2.8.1: AERIAL_THREAT 移出 — 心智错配（"跳多了不受伤"
+    // 是减副作用, 不是"空霸"主心智"赢头球"）。AERIAL_THREAT
+    // 改走 `defensive_header` (下方) — 守方有 AERIAL_THREAT
+    // 在场时,降低对手 HEADER 射门评分（正向心智"防对手头球"）。
   },
   command_defense: {
     SWEEPER_KEEPER: 1.05,   // 全队 defense lane 加成
+  },
+  // v2.8.1: AERIAL_THREAT 守方 debuff hook。空霸心智 = "攻方
+  // 让我头球更准 + 守方让对手头球更差"。前者已在 `shot_header`
+  // 1.10 (攻方 / 守方 / HEADER 射门评分三处用), 后者是新加的
+  // 守方独立 hook — 守方 AERIAL_THREAT 在场时, 对手 HEADER
+  // 射门评分乘 0.90 (per-player, team-level product, cap 0.75)。
+  // 心智比"jump 受伤减免"更精确, 不影响 ground defense (只对
+  // 对手 header 射门生效)。
+  defensive_header: {
+    AERIAL_THREAT: 0.90,    // 1 - 0.10 = 0.90 (debuff, 守方 AERIAL_THREAT 降低对手 header 质量)
   },
   // v2.5: COMPOSED set-piece hooks (v2.0 promised them but the
   // BASE_EFFECTS rows were never added — they were effectively
@@ -477,6 +489,21 @@ export const injuryChanceMultiplier = (
 /** Team-wide defense lane multiplier for the goalkeeper's aura effect. */
 export const commandDefenseMultiplier = (player: Player): number =>
   getEventMultiplier(player, 'command_defense');
+
+/**
+ * Multiplier on the opponent's HEADER shoot rating when an
+ * AERIAL_THREAT player is on the defending side. Values < 1.0
+ * (debuff) — `0.90` Silver / `0.876` Gold / `0.928` Bronze.
+ * Wired in `MatchEngine.calculateHeaderRating` — see that
+ * function for the team-level product+capped application.
+ *
+ * v2.8.1: replaces the v2.0-era `injury_chance` 0.80 (jump-only)
+ * hook which had a "减副作用" (reduce-side-effect) mental model
+ * — the v2.8.1 hook is "正向" (offensive-defensive balance):
+ * 空霸在守方让对手头球更差。
+ */
+export const defensiveHeaderMultiplier = (player: Player): number =>
+  getEventMultiplier(player, 'defensive_header');
 
 // ────────────────────────────────────────────────────────────────────
 // Team-level helpers — split by hook class

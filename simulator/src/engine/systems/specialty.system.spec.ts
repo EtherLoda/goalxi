@@ -7,6 +7,7 @@ import {
   attackLaneMultiplier,
   commandDefenseMultiplier,
   defenseLaneMultiplier,
+  defensiveHeaderMultiplier,
   foulRateMultiplier,
   getEventMultiplier,
   gkSaveMultiplier,
@@ -218,7 +219,18 @@ describe('per-event × per-specialty multipliers (Silver tier)', () => {
 
     // injury_chance
     { event: 'injury_chance', specialty: 'PHYSICAL_BEAST', expected: 0.90 },
-    { event: 'injury_chance', specialty: 'AERIAL_THREAT', expected: 0.80 },
+    // v2.8.1: AERIAL_THREAT 移出 injury_chance (心智错配:
+    // "跳多了不受伤" 是减副作用, 不是"空霸"主心智"赢头球")。
+    // 改走 `defensive_header` (下方) — 守方 debuff 对手 HEADER
+    // 射门评分, 心智是"空霸在守方让对手头球更差"。
+    { event: 'injury_chance', specialty: 'AERIAL_THREAT', expected: 1.0 },
+
+    // defensive_header (v2.8.1): AERIAL_THREAT 0.90 (debuff < 1.0)
+    // 守方 AERIAL_THREAT 在场时, 对手 HEADER 射门评分乘 0.90
+    // (per-player, team-level product, no cap — user 2026-08-25
+    // 要求多个 AERIAL_THREAT 累加不设上限, 自由乘)。
+    { event: 'defensive_header', specialty: 'AERIAL_THREAT', expected: 0.90 },
+    { event: 'defensive_header', specialty: 'PHYSICAL_BEAST', expected: 1.0 },
 
     // command_defense
     { event: 'command_defense', specialty: 'SWEEPER_KEEPER', expected: 1.05 },
@@ -308,17 +320,22 @@ describe('named convenience getters', () => {
   // uniformly within position buckets; specialty effects are
   // *passive* multipliers on the picked player only.
 
-  it('foulRateMultiplier / injuryChanceMultiplier / commandDefenseMultiplier', () => {
+  it('foulRateMultiplier / injuryChanceMultiplier / commandDefenseMultiplier / defensiveHeaderMultiplier', () => {
     expect(foulRateMultiplier(playerWith('TACKLER', 'SILVER'))).toBe(0.80);
     expect(foulRateMultiplier(playerWith('DRIBBLER', 'SILVER'))).toBe(0.90);
     expect(foulRateMultiplier(playerWith('COMPOSED', 'SILVER'))).toBe(0.50);
     expect(injuryChanceMultiplier(playerWith('PHYSICAL_BEAST', 'SILVER'))).toBe(0.90);
-    // AERIAL_THREAT injury reduction is jump-gated — without
-    // actionType='jump' the helper returns 1.0 (no effect). Verifies
-    // the gate lives in the helper and not the BASE_EFFECTS table.
-    expect(injuryChanceMultiplier(playerWith('AERIAL_THREAT', 'SILVER'))).toBe(1.0);
-    expect(injuryChanceMultiplier(playerWith('AERIAL_THREAT', 'SILVER'), 'jump')).toBe(0.80);
+    // v2.8.1: AERIAL_THREAT injury_chance 移出 — 心智错配,
+    // 改走 defensive_header (下方)。
+    expect(injuryChanceMultiplier(playerWith('AERIAL_THREAT', 'SILVER'), 'jump')).toBe(1.0);
     expect(commandDefenseMultiplier(playerWith('SWEEPER_KEEPER', 'SILVER'))).toBe(1.05);
+    // v2.8.1: defensive_header 0.90 (debuff) — 守方 AERIAL_THREAT
+    // 让对手 HEADER 射门评分降低 10%。Silver 0.90, Gold 0.863
+    // (0.90^1.4), Bronze 0.929 (0.90^0.7) via applyTierMultiplier。
+    expect(defensiveHeaderMultiplier(playerWith('AERIAL_THREAT', 'SILVER'))).toBe(0.90);
+    expect(defensiveHeaderMultiplier(playerWith('AERIAL_THREAT', 'GOLD'))).toBeCloseTo(0.863, 3);
+    expect(defensiveHeaderMultiplier(playerWith('AERIAL_THREAT', 'BRONZE'))).toBeCloseTo(0.929, 3);
+    expect(defensiveHeaderMultiplier(playerWith('PHYSICAL_BEAST', 'SILVER'))).toBe(1.0);
   });
 });
 
@@ -702,6 +719,33 @@ describe('teamProductEventMultiplier (strength class)', () => {
     );
     expect(teamProductEventMultiplier(players, 'push_defense', 1.0)).toBeCloseTo(1.3225, 4);
   });
+
+  // v2.8.1: defensive_header is a debuff (< 1.0). user requested
+  // "no cap" so multiple AERIAL_THREAT 累加, product 自由乘
+  // (default cap 1.80 是 buff ceiling, 对 debuff product < 1.0
+  // 不生效 — cap > 1.0 && product > cap 条件 product < 1.0
+  // 不成立, 返回 product 自由乘)。例子: 1 Silver 0.90 / 2 Silver
+  // 0.81 / 3 Silver 0.729 / 5 Silver 0.59 / 1 Gold + 5 Silver
+  // 0.509。
+  it('defensive_header (debuff) is no-cap: multiple AERIAL_THREAT 累加, product 自由乘', () => {
+    expect(teamProductEventMultiplier(lineup(['AERIAL_THREAT', 'SILVER']), 'defensive_header')).toBe(0.90);
+    expect(teamProductEventMultiplier(lineup(['AERIAL_THREAT', 'SILVER'], ['AERIAL_THREAT', 'SILVER']), 'defensive_header')).toBeCloseTo(0.81, 4);
+    expect(teamProductEventMultiplier(lineup(['AERIAL_THREAT', 'SILVER'], ['AERIAL_THREAT', 'SILVER'], ['AERIAL_THREAT', 'SILVER']), 'defensive_header')).toBeCloseTo(0.729, 4);
+    expect(teamProductEventMultiplier(lineup(['AERIAL_THREAT', 'SILVER'], ['AERIAL_THREAT', 'SILVER'], ['AERIAL_THREAT', 'SILVER'], ['AERIAL_THREAT', 'SILVER']), 'defensive_header')).toBeCloseTo(0.6561, 4);
+    expect(teamProductEventMultiplier(lineup(['AERIAL_THREAT', 'SILVER'], ['AERIAL_THREAT', 'SILVER'], ['AERIAL_THREAT', 'SILVER'], ['AERIAL_THREAT', 'SILVER'], ['AERIAL_THREAT', 'SILVER']), 'defensive_header')).toBeCloseTo(0.59049, 4);
+    // 1 Gold + 5 Silver: 0.863 × 0.90^5 = 0.863 × 0.59049 = 0.5095
+    expect(teamProductEventMultiplier(
+      lineup(
+        ['AERIAL_THREAT', 'GOLD'],
+        ['AERIAL_THREAT', 'SILVER'],
+        ['AERIAL_THREAT', 'SILVER'],
+        ['AERIAL_THREAT', 'SILVER'],
+        ['AERIAL_THREAT', 'SILVER'],
+        ['AERIAL_THREAT', 'SILVER'],
+      ),
+      'defensive_header',
+    )).toBeCloseTo(0.5095, 4);
+  });
 });
 
 // ────────────────────────────────────────────────────────────────────
@@ -808,6 +852,7 @@ describe('specialty hook wire-up tripwire (source-level)', () => {
     foul_rate: 'foulRateMultiplier',
     injury_chance: 'injuryChanceMultiplier',
     command_defense: 'commandDefenseMultiplier',
+    defensive_header: 'defensiveHeaderMultiplier',
   };
 
   const systemSrc = readSource(specialtySystemPath);

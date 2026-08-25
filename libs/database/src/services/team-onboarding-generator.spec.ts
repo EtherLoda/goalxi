@@ -207,6 +207,12 @@ describe('createTeam — v2 specialty distribution', () => {
     // Standard error on a proportion with N=2000 and p=0.5
     // is ~1.1%. We allow ±3% slack — tight enough to catch
     // a 5/25/70 regression, loose enough not to flake.
+    //
+    // v2.8.1: 2000 players = 1750 outfield (5/15/30/50) +
+    // 250 GK (1/3/6/90). Mixed mean: gold 4.5% / silver 13.5%
+    // / bronze 27% / noSpec 55%. Old test expected pure
+    // outfield (5/15/30/50) — now widened to bracket the mixed
+    // distribution.
     const total = Object.values(counts).reduce((a, b) => a + b, 0);
     const goldPct = counts.GOLD / total;
     const silverPct = counts.SILVER / total;
@@ -215,12 +221,12 @@ describe('createTeam — v2 specialty distribution', () => {
 
     expect(goldPct).toBeGreaterThan(0.02);
     expect(goldPct).toBeLessThan(0.08);
-    expect(silverPct).toBeGreaterThan(0.12);
-    expect(silverPct).toBeLessThan(0.18);
-    expect(bronzePct).toBeGreaterThan(0.27);
-    expect(bronzePct).toBeLessThan(0.33);
-    expect(noSpecPct).toBeGreaterThan(0.47);
-    expect(noSpecPct).toBeLessThan(0.53);
+    expect(silverPct).toBeGreaterThan(0.10);
+    expect(silverPct).toBeLessThan(0.17);
+    expect(bronzePct).toBeGreaterThan(0.24);
+    expect(bronzePct).toBeLessThan(0.30);
+    expect(noSpecPct).toBeGreaterThan(0.52);
+    expect(noSpecPct).toBeLessThan(0.58);
   });
 
   it('never produces a deprecated v1 code (HEADER, LPASS, etc.)', async () => {
