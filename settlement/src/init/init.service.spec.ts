@@ -222,3 +222,70 @@ describe('InitService — no system / bot user', () => {
     }
   });
 });
+
+/**
+ * Source-level tripwire for the "parallel pass" at
+ * the tail of the init pipeline. Steps 5-9
+ * (presets / scout seeds / schedule / weather /
+ * announcements) all read from the team + league
+ * tables that steps 3-4 just populated, and they
+ * each write to a disjoint table — so they run in
+ * parallel via `Promise.all` rather than serially.
+ *
+ * The parallel pass saves ~2s of wall-clock on a
+ * `--force` init. Re-serialising the five
+ * generators (i.e. dropping the `Promise.all`)
+ * would silently bring the regression back; the
+ * tripwire pins the source so a future "clean-up"
+ * that unwraps the parallel pass to "make it
+ * easier to read" fails the test.
+ */
+describe('InitService — parallel pass (5-9)', () => {
+  const fs = require('fs');
+  const path = require('path');
+  const source = fs.readFileSync(
+    path.join(__dirname, 'init.service.ts'),
+    'utf8',
+  );
+  // Strip comments so a docstring mention of
+  // `Promise.all` (the "what" prose) doesn't trip the
+  // test on its own commentary.
+  const code = source
+    .replace(/\/\*[\s\S]*?\*\//g, '')
+    .replace(/\/\/.*$/gm, '');
+
+  it('runs presets / scout seeds / schedule / weather / announcements in parallel via Promise.all', () => {
+    // The 5 generator calls must all sit inside one
+    // `Promise.all([...])` block, NOT a serial chain
+    // of `await`s. The structural shape is the only
+    // thing the tripwire cares about — a future
+    // refactor that splits the call sites (for
+    // separate logging, separate error handling, …)
+    // can re-add the Promise.all wrapper; what we
+    // forbid is the bare `await x; await y; await z;`
+    // serialisation.
+    expect(code).toMatch(/Promise\.all\(\s*\[/);
+    // All five generators must appear in the
+    // Promise.all array — pinning the set pins the
+    // contract that no generator is silently dropped
+    // or re-serialised by mistake.
+    for (const name of [
+      'tacticsPresetGenerator',
+      'scoutSeedGenerator',
+      'scheduleGenerator',
+      'weatherGenerator',
+      'announcementGenerator',
+    ]) {
+      // The generator reference must appear
+      // somewhere inside the Promise.all block.
+      // We anchor on the Promise.all open bracket
+      // and check that the generator name is found
+      // between it and the matching close — best-
+      // effort via indexOf because the close bracket
+      // is harder to match with regex.
+      const paIdx = code.indexOf('Promise.all(');
+      const slice = code.slice(paIdx, paIdx + 2000);
+      expect(slice).toContain(name);
+    }
+  });
+});

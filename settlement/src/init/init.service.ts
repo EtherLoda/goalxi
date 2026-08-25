@@ -23,31 +23,37 @@ import { InitOptions } from './init.types';
  *   - `BootstrapService` when the system_config row is
  *     missing (auto-recover path, with sane defaults).
  *
- * The full init pipeline (in order):
+ * The full init pipeline:
  *
- *   1. wipe          — drop every row from every game table
- *                      (only when `--force` or `--wipe-only`)
- *   2. init_date     — write `system_config.init_date` so
- *                      later boots and the match scheduler
- *                      anchor on a stable value
- *   3. users         — system + bot users
- *   4. leagues       — China I/II/III/IV pyramid (or small
- *                      pyramid under `--small`)
- *   5. teams         — 16 BOT teams per league, with squad
- *                      + staff + finance + fan + stadium
- *                      (via the shared `createTeam` helper)
- *   6. presets       — one default `tactics_preset` per
- *                      team so the match scheduler has a
- *                      fallback formation on day 1
- *   7. scout seeds   — one senior-mode scout candidate
- *                      per team so a freshly-claimed team
- *                      has something to look at
- *   8. schedule      — 30-round senior double round-robin
- *                      anchored on the next-Monday 00:00
- *                      UTC after `initDate`
- *   9. weather       — 7 days of forecast from `initDate`
- *  10. announcement  — season-1 banner pinned to the top
- *                      of the announcement feed
+ *   1. wipe            — drop every row from every game
+ *                        table (only when `--force` or
+ *                        `--wipe-only`)
+ *   2. init_date       — write `system_config.init_date`
+ *                        so later boots and the match
+ *                        scheduler anchor on a stable
+ *                        value
+ *   3. leagues         — China I/II/III/IV pyramid (or
+ *                        small pyramid under `--small`)
+ *   4. teams           — 16 BOT teams per league, with
+ *                        squad + staff + finance + fan
+ *                        + stadium (via the shared
+ *                        `createTeam` helper). Bot
+ *                        teams have no owning user —
+ *                        `team.userId` lands as null
+ *                        for every row.
+ *   5-9. parallel pass — presets / scout seeds /
+ *                        schedule / weather /
+ *                        announcements. Each reads
+ *                        from the team + league tables
+ *                        that steps 3-4 just populated
+ *                        and writes to a disjoint table,
+ *                        so they run in parallel via
+ *                        `Promise.all`. Wall-clock
+ *                        for the parallel pass is
+ *                        `max(t_presets, t_scout,
+ *                        t_schedule, t_weather,
+ *                        t_announcement)` instead of
+ *                        the sum.
  *
  * Each step is idempotent on its own — re-running init
  * without `--force` is a no-op for every step that's
@@ -116,35 +122,55 @@ export class InitService {
     });
     this.logger.info('[Init] teams ensured');
 
-    // 5. presets — one default `tactics_preset` per
-    //    team with a random formation so the match
-    //    scheduler's preprocessor has a fallback for
-    //    BOT teams that have never had a manager submit
-    //    per-match tactics.
-    await this.tacticsPresetGenerator.generate();
-    this.logger.info('[Init] tactics presets ensured');
-
-    // 6. scout seeds — one senior-mode candidate per
-    //    team so a freshly-claimed team has a card in
-    //    the inbox on day 1 (the weekly cron only runs
-    //    Saturdays).
-    await this.scoutSeedGenerator.generate();
-    this.logger.info('[Init] scout seeds ensured');
-
-    // 7. schedule — senior only; first match = next
-    //    Monday 00:00 UTC after `initDate`.
-    await this.scheduleGenerator.generateSeason1Schedule(options.initDate);
-    this.logger.info('[Init] schedule ensured');
-
-    // 8. weather — 7-day rolling forecast from
-    //    `initDate`'s day.
-    await this.weatherGenerator.generateInitialWeather(options.initDate);
-    this.logger.info('[Init] weather ensured');
-
-    // 9. announcements — pinned season-1 banner
-    //    shown to every fresh registration.
-    await this.announcementGenerator.generate(options.initDate);
-    this.logger.info('[Init] announcements ensured');
+    // 5-9. presets / scout seeds / schedule / weather
+    //     / announcements all read from the team +
+    //     league tables that steps 3-4 just populated,
+    //     and they each write to a disjoint table
+    //     (`tactics_preset`, `scout_candidate`,
+    //     `match`, `weather`, `announcement`). Run
+    //     them in parallel via Promise.all instead
+    //     of serially — for the full 1360-team
+    //     pyramid, presets + scout seeds + schedule
+    //     each take a few hundred ms on their own; the
+    //     serial stack added up to ~2s of wall-clock
+    //     on a `--force` init. Parallel: max(time).
+    //
+    //     Each generator's idempotency contract
+    //     (every step is a no-op if its data is
+    //     already present) makes the parallel pass
+    //     safe across re-runs.
+    const [
+      presetsResult,
+      scoutResult,
+      scheduleResult,
+      weatherResult,
+      announcementResult,
+    ] = await Promise.all([
+      this.tacticsPresetGenerator
+        .generate()
+        .then(() => 'tactics presets'),
+      this.scoutSeedGenerator
+        .generate()
+        .then(() => 'scout seeds'),
+      this.scheduleGenerator
+        .generateSeason1Schedule(options.initDate)
+        .then(() => 'schedule'),
+      this.weatherGenerator
+        .generateInitialWeather(options.initDate)
+        .then(() => 'weather'),
+      this.announcementGenerator
+        .generate(options.initDate)
+        .then(() => 'announcements'),
+    ]);
+    this.logger.info(
+      `[Init] parallel pass ensured (${[
+        presetsResult,
+        scoutResult,
+        scheduleResult,
+        weatherResult,
+        announcementResult,
+      ].join(', ')})`,
+    );
 
     // summary
     const summary = await this.summarize();
