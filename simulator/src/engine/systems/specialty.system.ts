@@ -100,18 +100,41 @@ const BASE_EFFECTS: Partial<Record<SpecialtyEvent, Partial<Record<ActiveCoreSpec
     // AERIAL_THREAT(空霸)。野兽的强项改成禁区抽射(NORMAL shot)
     // — CF 在禁区里扛住后卫射门。数值不变(1.10),hook 移位。
     AERIAL_THREAT: 1.10,    // 头球射门 (头球专精)
+    // v2.8: CROSSER 传中后前插头球。v2.7 删了 select_shot_type
+    // 1.20 (CROSS 之后偏 HEADER 的选人加权) 后,CROSSER 失去
+    // "传中后前插" 的 hook,这里补在 shoot rating 侧 — 选上的
+    // 头球射手如果是 CROSSER,header rating 乘 1.05。1.05 保守
+    // (避免跟 AERIAL_THREAT 1.10 撞车 — CROSSER 的头球心智是
+    // "传中+前插",AERIAL_THREAT 才是"纯头球专精")。
+    CROSSER: 1.05,
   },
   shot_long: {
-    // (no outfield specialty directly affects long shots in v2.3;
-    //  COMPOSED's late-game hook is the only "distance from goal" boost)
+    // v2.8: SPEEDSTER 远射威胁。v2.7 删了 select_shooter_counter
+    // 1.20 + counter attPower 1.20 后,SPEEDSTER 失去"反击时
+    // 远射" 的 hook,这里补在 long-shot shoot rating 侧 — 选上
+    // 的远射球员如果是 SPEEDSTER,long rating 乘 1.05。触发
+    // 频率低 (0-2 次/场),系数保守不破坏平衡。
+    SPEEDSTER: 1.05,
   },
   shot_rebound: {
-    // (handled by POACHER via select_shooter_rebound, not as a shoot
-    //  rating — see §2.8 in the design doc)
+    // v2.8: POACHER 补射嗅觉。v2.7 删了 select_shooter_rebound
+    // 1.25 后 POACHER 失去"补射时优先被选"的 hook,这里把
+    // 补射 payoff 补在 shoot rating 侧 — 选上的球员如果是
+    // POACHER,补射的 shoot rating 乘 1.15。触发频率约 1-3 次/场,
+    // 1.15 base 是 v2.6 前 1.25 加权贡献的近似 (1.25 加权主要
+    // 影响"被选为补射者"的频率,1.15 系数补在被选后的射术)。
+    POACHER: 1.15,
   },
   shot_one_on_one: {
-    // (no outfield specialty; SAVING_MASTER's gkRating multiplier
-    //  covers the GK side of the 1v1)
+    // v2.8: POACHER / SPEEDSTER 1v1 终结。v2.7 之前 selectShooter
+    // 加权 + attPower boost 把这俩特挑成单刀,现在改在 shoot
+    // rating 侧补 — 选上的单刀球员如果持这俩特技,shoot rating
+    // 乘对应系数。POACHER 1.08 (1v1 终结,冷静决断) + SPEEDSTER
+    // 1.10 (速度冲刺后单刀,pacing 优势)。Wired in
+    // `MatchEngine.calculateOneOnOneRating` (v2.8) — 之前是
+    // 死代码,只 import 没调。
+    POACHER: 1.08,
+    SPEEDSTER: 1.10,
   },
   shot_normal: {
     // v2.6: PHYSICAL_BEAST moved from `shot_header` here. CF 在
@@ -119,6 +142,11 @@ const BASE_EFFECTS: Partial<Record<SpecialtyEvent, Partial<Record<ActiveCoreSpec
     // 类型,触发频率高(每场 5-15 次),平衡 head-ball buff 移走的
     // 损失。1.10 base,B/S/G tier-scaling 后 1.103/1.10/1.154。
     PHYSICAL_BEAST: 1.10,
+    // v2.8: POACHER 把握机会。NORMAL shot 是单场最频繁的射门
+    // 类型 (5-15 次/场),POACHER 球员在禁区里"嗅觉"应体现在
+    // 此 — 1.05 base 保守 (避免跟 PHYSICAL_BEAST 1.10 撞车),
+    // 单场累计约 +0.1-0.2 expected goal。
+    POACHER: 1.05,
   },
   gk_save: {
     SAVING_MASTER: 1.10,   // 扑救 + 反应 + 1v1 全部折成 gkRating
@@ -362,6 +390,16 @@ export const pushOffenseMultiplier = (
   }
   if (code === 'CROSSER' && attackType !== 'CROSS') {
     return 1.0;
+  }
+  // v2.8: PLAYMAKER 直塞差异化。v2.5 删了 §2.2 "THROUGH_PASS
+  // 0.15 单独加成" 的 dead hook,design doc §2.2 显式留口:
+  // "如果未来真要直塞更强差异化,在 helper 内部按 attackType
+  // 分 tier 缩放"。v2.8 兑现 — THROUGH_PASS 1.18 (比 1.10 base
+  // 强 7.3%),其他 pass type 维持 1.10。这是 v2.7 删
+  // select_assist 1.25 后 PLAYMAKER "关键一传" 的主补偿 —
+  // 不是把加权加回选人侧,而是"被选为传球者后,直塞更有穿透力"。
+  if (code === 'PLAYMAKER' && attackType === 'THROUGH_PASS') {
+    return 1.18;
   }
   return getEventMultiplier(player, 'push_offense');
 };

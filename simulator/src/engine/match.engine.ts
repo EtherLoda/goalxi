@@ -2705,11 +2705,12 @@ export class MatchEngine {
             this.checkAndGenerateInjury(this.possessionTeam, 'jump');
             break;
           case ShotType.ONE_ON_ONE:
-            // 1v1 has no shoot-rating specialty hook in v2
-            // (the GK side is covered by SAVING_MASTER's
-            // `gk_save`). The shooter-side contribution gets
-            // attached if/when the v3 table adds one.
-            finalShootRating = this.calculateOneOnOneRating(player);
+            // RFC 0003 + v2.8: 1v1 now consumes the
+            // `shot_one_on_one` hook (POACHER 1.08, SPEEDSTER
+            // 1.10). The recorder fires so a future specialty
+            // populating the table is automatically surfaced
+            // without touching the call site again.
+            finalShootRating = this.calculateOneOnOneRating(player, specialtyRecorder);
             break;
           case ShotType.REBOUND:
             // RFC 0003 — `shot_normal` (PHYSICAL_BEAST) is the
@@ -4036,18 +4037,28 @@ export class MatchEngine {
    * 单刀 1v1 面对门将：终结能力最重要，冷静次之
    * finishing×8 + composure×2 + dribbling×1
    *
-   * No specialty multiplier applies (the `shot_one_on_one` hook
-   * is intentionally empty in the v2 BASE_EFFECTS table — the
-   * GK side is handled by SAVING_MASTER's `gk_save`). No
-   * `recorder` param needed.
+   * v2.8: `shot_one_on_one` hook wired — POACHER (1.08, 1v1
+   * 终结,冷静决断) and SPEEDSTER (1.10, 速度冲刺后单刀) now
+   * get a shoot-rating multiplier on 1v1. Before v2.8 the hook
+   * was dead code (helper was imported but never called — same
+   * class of failure mode the v2.5/v2.6 `de96c3f` commit
+   * surfaced for 4 other specialty hooks). The recorder is
+   * optional so callers that don't have one (e.g. unit tests)
+   * still work; the multiplier is 1.0 for players without an
+   * active `shot_one_on_one` row.
    */
-  private calculateOneOnOneRating(player: Player): number {
+  private calculateOneOnOneRating(
+    player: Player,
+    recorder?: SpecialtyAttributionRecorder,
+  ): number {
     const attrs = player.attributes;
-    return (
+    const raw =
       (attrs.finishing ?? 10) * 8 +
       (attrs.composure ?? 10) * 2 +
-      (attrs.dribbling ?? 10) * 1
-    );
+      (attrs.dribbling ?? 10) * 1;
+    const mult = shotOneOnOneMultiplier(player);
+    recorder?.record(player, 'shot_one_on_one', 'shooter', false, mult);
+    return raw * mult;
   }
 
   /**

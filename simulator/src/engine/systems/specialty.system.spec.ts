@@ -134,17 +134,44 @@ describe('per-event × per-specialty multipliers (Silver tier)', () => {
     // shot_header: AERIAL_THREAT only (v2.6). PHYSICAL_BEAST
     // moved to `shot_normal` to keep the "野兽" semantic aligned
     // with body contact in the box rather than aerial duels.
+    // v2.8: CROSSER added — "传中后前插头球", 1.05 base (比
+    // AERIAL_THREAT 1.10 弱, 反映 CROSSER 的头球是 second-order
+    // 心智, 不是纯头球专精)。
     { event: 'shot_header', specialty: 'AERIAL_THREAT', expected: 1.10 },
     { event: 'shot_header', specialty: 'PHYSICAL_BEAST', expected: 1.0 },
     { event: 'shot_header', specialty: 'POACHER', expected: 1.0 }, // not defined for shot_header
+    { event: 'shot_header', specialty: 'CROSSER', expected: 1.05 }, // v2.8: 传中后前插
 
-    // shot_normal: PHYSICAL_BEAST only (v2.6, moved from shot_header).
-    // Wired in `calculateShootRating` — also fixes a long-standing
-    // dead hook (`shotNormalMultiplier` was defined but never
-    // consumed before this commit).
+    // shot_normal: PHYSICAL_BEAST (v2.6) + POACHER (v2.8). 1.10
+    // and 1.05 respectively — PHYSICAL_BEAST is the primary
+    // "禁区扛住后卫抽射" specialty, POACHER is the secondary
+    // "嗅觉 + 把握机会". Wired in `calculateShootRating`.
     { event: 'shot_normal', specialty: 'PHYSICAL_BEAST', expected: 1.10 },
     { event: 'shot_normal', specialty: 'AERIAL_THREAT', expected: 1.0 }, // not defined for shot_normal
-    { event: 'shot_normal', specialty: 'POACHER', expected: 1.0 },
+    { event: 'shot_normal', specialty: 'POACHER', expected: 1.05 }, // v2.8: 把握机会
+
+    // shot_rebound: POACHER only (v2.8). v2.7 删了
+    // select_shooter_rebound 1.25 加权, v2.8 把补射 payoff 补
+    // 在 shoot rating 侧 — POACHER 补射 1.15 base. Wired in
+    // match.engine.ts (the rebound shoot-rating call site that
+    // v2.7 already added — see de96c3f-adjacent wiring).
+    { event: 'shot_rebound', specialty: 'POACHER', expected: 1.15 },
+    { event: 'shot_rebound', specialty: 'AERIAL_THREAT', expected: 1.0 },
+
+    // shot_one_on_one: POACHER + SPEEDSTER (v2.8). v2.8 wired
+    // `calculateOneOnOneRating` (previously dead code). POACHER
+    // 1.08 (1v1 终结, 冷静决断) and SPEEDSTER 1.10 (速度冲刺
+    // 后单刀) — SPEEDSTER 略高, 反映速度优势在 1v1 突破时更
+    // 直接。
+    { event: 'shot_one_on_one', specialty: 'POACHER', expected: 1.08 },
+    { event: 'shot_one_on_one', specialty: 'SPEEDSTER', expected: 1.10 },
+    { event: 'shot_one_on_one', specialty: 'DRIBBLER', expected: 1.0 },
+
+    // shot_long: SPEEDSTER only (v2.8). 1.05 base — 远射心智
+    // 体现 "速度型球员在反击时尝试远射" 的频率加成。触发
+    // 频率低 (0-2 次/场), 系数保守。
+    { event: 'shot_long', specialty: 'SPEEDSTER', expected: 1.05 },
+    { event: 'shot_long', specialty: 'POACHER', expected: 1.0 },
 
     // gk_save: SAVING_MASTER only
     { event: 'gk_save', specialty: 'SAVING_MASTER', expected: 1.10 },
@@ -342,18 +369,31 @@ describe('shotPenaltyMultiplier / shotFkMultiplier (v2.5 wired)', () => {
 });
 
 describe('pushOffenseMultiplier (v2.5 attackType-gated)', () => {
-  it('PLAYMAKER (1.10) fires on all 4 pass types', () => {
+  it('PLAYMAKER (1.10) fires on CROSS / SHORT_PASS / DRIBBLE; 1.18 on THROUGH_PASS', () => {
     // v2.5: SHORT_PASS is now in scope (was the v2.0 miss that
     // left 80% of NORMAL shots without the PLAYMAKER buff).
-    const passTypes: Array<'CROSS' | 'SHORT_PASS' | 'THROUGH_PASS' | 'DRIBBLE'> = [
-      'CROSS',
-      'SHORT_PASS',
-      'THROUGH_PASS',
-      'DRIBBLE',
-    ];
-    for (const at of passTypes) {
-      expect(pushOffenseMultiplier(playerWith('PLAYMAKER', 'SILVER'), at)).toBe(1.10);
-    }
+    // v2.8: THROUGH_PASS is now 1.18 (key-pass differentiation
+    // — design doc §2.2 reserved this in v2.5, the dead
+    // "0.15 单独加成" hook was deleted and the alternative
+    // "按 attackType 分 tier 缩放" is now implemented). The
+    // other 3 pass types stay at 1.10.
+    expect(pushOffenseMultiplier(playerWith('PLAYMAKER', 'SILVER'), 'CROSS')).toBe(1.10);
+    expect(pushOffenseMultiplier(playerWith('PLAYMAKER', 'SILVER'), 'SHORT_PASS')).toBe(1.10);
+    expect(pushOffenseMultiplier(playerWith('PLAYMAKER', 'SILVER'), 'DRIBBLE')).toBe(1.10);
+    expect(pushOffenseMultiplier(playerWith('PLAYMAKER', 'SILVER'), 'THROUGH_PASS')).toBe(1.18);
+  });
+
+  it('PLAYMAKER THROUGH_PASS boost applies across tiers', () => {
+    // v2.8: the 1.18 is a fixed attackType-tier bump, not a
+    // base that goes through `applyTierMultiplier`. PLAYMAKER
+    // Gold and Bronze should see the same 1.18 on THROUGH_PASS.
+    // The base 1.10 on other pass types still tier-scales
+    // (1.10^1.4 ≈ 1.143 at Gold).
+    expect(pushOffenseMultiplier(playerWith('PLAYMAKER', 'GOLD'), 'THROUGH_PASS')).toBe(1.18);
+    expect(pushOffenseMultiplier(playerWith('PLAYMAKER', 'BRONZE'), 'THROUGH_PASS')).toBe(1.18);
+    // But other pass types tier-scale.
+    expect(pushOffenseMultiplier(playerWith('PLAYMAKER', 'GOLD'), 'SHORT_PASS')).toBeCloseTo(1.143, 3);
+    expect(pushOffenseMultiplier(playerWith('PLAYMAKER', 'BRONZE'), 'SHORT_PASS')).toBeCloseTo(1.069, 3);
   });
 
   it('DRIBBLER (1.15) fires only on DRIBBLE', () => {
