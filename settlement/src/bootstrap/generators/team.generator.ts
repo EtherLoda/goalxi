@@ -122,8 +122,20 @@ export class TeamGenerator {
     private readonly dataSource: DataSource,
   ) {}
 
+  /**
+   * Generate one `team` row per slot in the pyramid.
+   *
+   * Bot teams have no owning user — `team.userId` is left
+   * `null` for every row this generator produces. The
+   * historical design had a fake `bot_manager` user
+   * whose id was stamped on every bot team, but the
+   * product direction is that bot teams don't need an
+   * account: they're managed by the simulator / cron
+   * and become manager-owned only via the onboarding
+   * claim flow (which is the only path that needs a
+   * real `userId`).
+   */
   async generateAllTeams(
-    botUserId: string,
     options: GenerateAllTeamsOptions = {},
   ): Promise<void> {
     const count = await this.teamRepo.count();
@@ -148,7 +160,7 @@ export class TeamGenerator {
     for (const league of targetLeagues) {
       for (let i = 0; i < league.maxTeams; i++) {
         const teamName = this.generateTeamName(league.tier, teamCount);
-        await this.createBotTeam(league, teamName, botUserId);
+        await this.createBotTeam(league, teamName);
         teamCount++;
       }
     }
@@ -404,7 +416,6 @@ export class TeamGenerator {
   private async createBotTeam(
     league: LeagueEntity,
     teamName: string,
-    botUserId: string,
   ): Promise<void> {
     const manager = this.dataSource.manager;
     const shortCode = await generateUniqueShortCode(async (code) => {
@@ -419,7 +430,10 @@ export class TeamGenerator {
       nationality: 'CN',
       isBot: true,
       botLevel: 5,
-      userId: botUserId,
+      // Bot teams have no owning user — see the
+      // docstring on `generateAllTeams` and the
+      // matching comment on `CreateTeamParams.userId`.
+      userId: null,
       shortCode,
       season: 1,
     });

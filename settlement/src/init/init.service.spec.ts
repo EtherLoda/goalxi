@@ -96,3 +96,129 @@ describe('InitService — wipe-list tripwires', () => {
     expect(tableNames).not.toContain('migrations');
   });
 });
+
+/**
+ * Source-level tripwires for the "no bot-owner / no
+ * system-user" init design.
+ *
+ * The pre-init design had two hard-coded user rows
+ * created at init time:
+ *
+ *   - `system@goalxi.com` / `System123!` (a "system"
+ *     user that wasn't actually used anywhere — the
+ *     return value of `UserGenerator.ensureSystemUsers`
+ *     was captured in a log message and never read).
+ *   - `bot@goalxi.com` / `Bot123!` (a fake "bot
+ *     manager" whose id was stamped on every BOT
+ *     team as the owner — `team.userId`).
+ *
+ * Both have been dropped. Bot teams have no owning
+ * user (`team.userId` lands as `null` for every row
+ * `TeamGenerator` produces), and the system user is
+ * not created at init. The only path that flips a
+ * team to a real owner is the onboarding claim flow
+ * (`OnboardingAssigner.claim`).
+ *
+ * Re-introducing either user silently regresses the
+ * design: every bot team would again have a fake
+ * owner, and the system user would sit unused in the
+ * `user` table forever. These tripwires pin the
+ * post-init state at the source surface.
+ */
+describe('InitService — no system / bot user', () => {
+  const fs = require('fs');
+  const path = require('path');
+
+  function read(rel: string): string {
+    return fs.readFileSync(
+      path.join(__dirname, '..', '..', rel),
+      'utf8',
+    );
+  }
+
+  it('InitService does not import or instantiate UserGenerator', () => {
+    // The init service had a `userGenerator: UserGenerator`
+    // constructor param and a step that called
+    // `userGenerator.ensureSystemUsers()`. Both are gone.
+    // Pin the absence so a future "convenience" doesn't
+    // re-add the system user.
+    const initSource = read('src/init/init.service.ts');
+    expect(initSource).not.toMatch(/UserGenerator/);
+    expect(initSource).not.toMatch(/ensureSystemUsers/);
+    expect(initSource).not.toMatch(/systemUserId|botUserId/);
+  });
+
+  it('scripts/init.ts CLI does not hand-roll a UserGenerator', () => {
+    // The CLI in `scripts/init.ts` mirrors what the
+    // `InitModule` (Nest DI) wires up. If the module
+    // dropped the user generator but the CLI didn't,
+    // `pnpm init:run` would still create a system user
+    // even though the programmatic path wouldn't.
+    const cliSource = read('scripts/init.ts');
+    expect(cliSource).not.toMatch(/UserGenerator/);
+    expect(cliSource).not.toMatch(/ensureSystemUsers/);
+  });
+
+  it('BootstrapModule does not register UserGenerator as a provider', () => {
+    // The auto-recover path (`BootstrapService.onModuleInit`)
+    // runs when the settlement process boots against a
+    // missing `system_config.init_date`. Pin the absence
+    // of the user generator on that side too.
+    const moduleSource = read(
+      'src/bootstrap/bootstrap.module.ts',
+    );
+    expect(moduleSource).not.toMatch(/UserGenerator/);
+  });
+
+  it('the UserGenerator source file has been removed', () => {
+    // Belt-and-braces: if a future refactor adds a
+    // `UserGenerator` import to the init path but the
+    // file itself is gone, the import is broken at
+    // build time. Pin the file removal so a "where
+    // did this go?" archaeology session has the
+    // answer baked into the test name.
+    const filePath = path.join(
+      __dirname,
+      '..',
+      '..',
+      'src',
+      'bootstrap',
+      'generators',
+      'user.generator.ts',
+    );
+    expect(fs.existsSync(filePath)).toBe(false);
+  });
+
+  it('settlement init path carries no hard-coded system/bot credentials', () => {
+    // The "no fake user" design is also a "no fake
+    // password" design. A `system@goalxi` or
+    // `bot@goalxi` string anywhere in the init path
+    // (init service, init script, the bootstrap module)
+    // is a regression. The forum migration has a
+    // separate `system@goalxi.local` row — that one
+    // is forum-internal, not in the init path, and
+    // is excluded from the search by scoping the
+    // assertion to the three init-pipeline files.
+    const initFiles = [
+      'src/init/init.service.ts',
+      'src/init/init.module.ts',
+      'src/bootstrap/bootstrap.module.ts',
+      'src/bootstrap/bootstrap.service.ts',
+      'scripts/init.ts',
+    ];
+    for (const rel of initFiles) {
+      const src = read(rel);
+      // Comment-strip so a docstring that DESCRIBES the
+      // removed hard-coded user ("we used to have
+      // system@goalxi.com, see commit X") doesn't trip
+      // the test on its own prose.
+      const code = src
+        .replace(/\/\*[\s\S]*?\*\//g, '')
+        .replace(/\/\/.*$/gm, '');
+      expect(code).not.toMatch(/system@goalxi/);
+      expect(code).not.toMatch(/bot@goalxi/);
+      expect(code).not.toMatch(/System123/);
+      expect(code).not.toMatch(/Bot123/);
+    }
+  });
+});

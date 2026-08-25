@@ -37,7 +37,6 @@ import {
   SYSTEM_CONFIG_INIT_DATE_KEY,
   LeagueEntity,
   MatchEntity,
-  UserEntity,
   PlayerEntity,
   StaffEntity,
   StadiumEntity,
@@ -52,7 +51,6 @@ import {
 import { DatabaseOptions } from '../src/config/database-options';
 import { InitService } from '../src/init/init.service';
 import { InitOptions } from '../src/init/init.types';
-import { UserGenerator } from '../src/bootstrap/generators/user.generator';
 import { LeagueGenerator } from '../src/bootstrap/generators/league.generator';
 import { TeamGenerator } from '../src/bootstrap/generators/team.generator';
 import { ScheduleGenerator } from '../src/bootstrap/generators/schedule.generator';
@@ -228,10 +226,6 @@ async function main(): Promise<number> {
     // container, so we instantiate each generator with
     // its repository + the console logger.
     const ds = dataSource;
-    const userGen = new UserGenerator(
-      asLogger<LOGGER_TYPE>(consoleLogger),
-      ds.getRepository(UserEntity),
-    );
     const leagueGen = new LeagueGenerator(
       asLogger<LOGGER_TYPE>(consoleLogger),
       ds.getRepository(LeagueEntity),
@@ -274,7 +268,6 @@ async function main(): Promise<number> {
     const svc = new InitService(
       asLogger<LOGGER_TYPE>(consoleLogger),
       ds,
-      userGen,
       leagueGen,
       teamGen,
       scheduleGen,

@@ -7,7 +7,6 @@ import {
   TeamEntity,
   startOfUtcDay,
 } from '@goalxi/database';
-import { UserGenerator } from '../bootstrap/generators/user.generator';
 import { LeagueGenerator } from '../bootstrap/generators/league.generator';
 import { TeamGenerator } from '../bootstrap/generators/team.generator';
 import { ScheduleGenerator } from '../bootstrap/generators/schedule.generator';
@@ -63,7 +62,6 @@ export class InitService {
     @Inject(LOGGER_SERVICE)
     private readonly logger: PinoLoggerService,
     private readonly dataSource: DataSource,
-    private readonly userGenerator: UserGenerator,
     private readonly leagueGenerator: LeagueGenerator,
     private readonly teamGenerator: TeamGenerator,
     private readonly scheduleGenerator: ScheduleGenerator,
@@ -100,26 +98,25 @@ export class InitService {
     // 2. init_date
     await this.writeInitDate(options.initDate);
 
-    // 3. users
-    const { systemUserId, botUserId } =
-      await this.userGenerator.ensureSystemUsers();
-    this.logger.info(
-      `[Init] users ensured (system=${systemUserId.slice(0, 8)}, bot=${botUserId.slice(0, 8)})`,
-    );
-
-    // 4. leagues
+    // 3. leagues
     await this.leagueGenerator.generatePyramid({ small: options.small });
     this.logger.info('[Init] leagues ensured');
 
-    // 5. teams (includes the post-enrichment pass for
+    // 4. teams (includes the post-enrichment pass for
     //    city, foundedYear, jerseyTertiary, eloRating,
-    //    bio, and stadium.name).
-    await this.teamGenerator.generateAllTeams(botUserId, {
+    //    bio, and stadium.name). Bot teams have no
+    //    owning user — `team.userId` lands as null
+    //    for every row, no fake `bot_manager` user is
+    //    created. The onboarding claim flow is the
+    //    only path that flips a team to a real
+    //    owner. See `CreateTeamParams.userId` for the
+    //    rationale.
+    await this.teamGenerator.generateAllTeams({
       small: options.small,
     });
     this.logger.info('[Init] teams ensured');
 
-    // 6. presets — one default `tactics_preset` per
+    // 5. presets — one default `tactics_preset` per
     //    team with a random formation so the match
     //    scheduler's preprocessor has a fallback for
     //    BOT teams that have never had a manager submit
@@ -127,25 +124,25 @@ export class InitService {
     await this.tacticsPresetGenerator.generate();
     this.logger.info('[Init] tactics presets ensured');
 
-    // 7. scout seeds — one senior-mode candidate per
+    // 6. scout seeds — one senior-mode candidate per
     //    team so a freshly-claimed team has a card in
     //    the inbox on day 1 (the weekly cron only runs
     //    Saturdays).
     await this.scoutSeedGenerator.generate();
     this.logger.info('[Init] scout seeds ensured');
 
-    // 8. schedule — senior only; first match = next
+    // 7. schedule — senior only; first match = next
     //    Monday 00:00 UTC after `initDate`.
     await this.scheduleGenerator.generateSeason1Schedule(options.initDate);
     this.logger.info('[Init] schedule ensured');
 
-    // 9. weather — 7-day rolling forecast from
+    // 8. weather — 7-day rolling forecast from
     //    `initDate`'s day.
     await this.weatherGenerator.generateInitialWeather(options.initDate);
     this.logger.info('[Init] weather ensured');
 
-    // 10. announcements — pinned season-1 banner
-    //     shown to every fresh registration.
+    // 9. announcements — pinned season-1 banner
+    //    shown to every fresh registration.
     await this.announcementGenerator.generate(options.initDate);
     this.logger.info('[Init] announcements ensured');
 

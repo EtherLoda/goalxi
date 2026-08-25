@@ -1,14 +1,15 @@
 /**
- * BootstrapContext - Shared context passed through all bootstrap generators
- * Carries references to repositories and system-wide config
+ * BootstrapContext - Reserved shape for the day generators
+ * need to share state. Currently empty: the historical
+ * `systemUserId` / `botUserId` fields were dropped when
+ * the `bot_manager` / `system@goalxi.com` system users
+ * were removed (bot teams don't need a fake owner; the
+ * system user wasn't actually used anywhere). Add fields
+ * back here when a generator needs shared state.
  */
 
-import { Repository } from 'typeorm';
-import { UserEntity } from '@goalxi/database';
-
 export interface BootstrapContext {
-  systemUserId: string;
-  botUserId: string;
+  // intentionally empty — see the docstring above
 }
 
 export interface BootstrapResult {

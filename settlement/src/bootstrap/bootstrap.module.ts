@@ -22,7 +22,6 @@ import {
   CupBracketSlotEntity,
 } from '@goalxi/database';
 import { BootstrapService } from './bootstrap.service';
-import { UserGenerator } from './generators/user.generator';
 import { LeagueGenerator } from './generators/league.generator';
 import { TeamGenerator } from './generators/team.generator';
 import { ScheduleGenerator } from './generators/schedule.generator';
@@ -66,7 +65,6 @@ import { CupGenerator } from './generators/cup.generator';
   ],
   providers: [
     BootstrapService,
-    UserGenerator,
     LeagueGenerator,
     TeamGenerator,
     ScheduleGenerator,
@@ -78,7 +76,6 @@ import { CupGenerator } from './generators/cup.generator';
   ],
   exports: [
     BootstrapService,
-    UserGenerator,
     LeagueGenerator,
     TeamGenerator,
     ScheduleGenerator,
