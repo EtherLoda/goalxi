@@ -8,6 +8,7 @@ import {
   MatchType,
   LeagueEntity,
   TeamEntity,
+  StadiumEntity,
   GAME_SETTINGS,
   computeSeasonWeekOneMonday,
 } from '@goalxi/database';
@@ -49,6 +50,17 @@ interface RoundRobinOptions {
   weekOneMonday: Date;
   /** Season number stamped onto every match. */
   season: number;
+  /**
+   * `teamId → stadiumId` lookup, pre-loaded once at the
+   * top of `generateSeason1Schedule` so every match row
+   * gets `stadiumId = map.get(homeTeamId) ?? null` without
+   * a per-row DB hit. The map is built from a single
+   * `stadiumRepo.find()` over the whole `stadium` table;
+   * passing it through (rather than re-querying per
+   * league) keeps the round-robin pure and lets the spec
+   * stub it without faking a real repo.
+   */
+  stadiumIdByTeam: Map<string, string>;
 }
 
 @Injectable()
@@ -62,6 +74,8 @@ export class ScheduleGenerator {
     private readonly leagueRepo: Repository<LeagueEntity>,
     @InjectRepository(TeamEntity)
     private readonly teamRepo: Repository<TeamEntity>,
+    @InjectRepository(StadiumEntity)
+    private readonly stadiumRepo: Repository<StadiumEntity>,
   ) {}
 
   /**
@@ -96,9 +110,33 @@ export class ScheduleGenerator {
         `first kickoff=${this.matchStart(0, weekOneMonday).toISOString()})...`,
     );
 
+    // Pre-fetch every stadium ONCE. The round-robin generates
+    // 20,400 matches for the full 85-league pyramid; looking
+    // up the venue per-match would be 20,400 PK lookups.
+    // One `SELECT id, team_id` over the stadium table is
+    // a single round-trip and the result is small
+    // (≤ team count rows). The map is then used by both
+    // legs of every round-robin to stamp `match.stadium_id`
+    // so the FE's `/matches/:id` venue column is non-null
+    // on a freshly-initialised DB (previously it was
+    // silently null because this generator never set the
+    // column, and only the historical backfill in
+    // migration 1721000000001-AddMatchStadiumId patched
+    // existing rows — fresh init rows were left null).
+    const stadiumRows = await this.stadiumRepo.find({
+      select: ['id', 'teamId'],
+    });
+    const stadiumIdByTeam = new Map<string, string>(
+      stadiumRows.map((s) => [s.teamId, s.id]),
+    );
+    this.logger.info(
+      `[ScheduleGenerator] Pre-loaded ${stadiumIdByTeam.size} stadium id(s) for venue stamping`,
+    );
+
     const total = await this.generateSeniorFixtures({
       weekOneMonday,
       season: 1,
+      stadiumIdByTeam,
     });
 
     this.logger.info(
@@ -111,6 +149,7 @@ export class ScheduleGenerator {
   private async generateSeniorFixtures(options: {
     weekOneMonday: Date;
     season: number;
+    stadiumIdByTeam: Map<string, string>;
   }): Promise<number> {
     const leagues = await this.leagueRepo.find();
     let total = 0;
@@ -131,6 +170,7 @@ export class ScheduleGenerator {
         leagueId: league.id,
         weekOneMonday: options.weekOneMonday,
         season: options.season,
+        stadiumIdByTeam: options.stadiumIdByTeam,
       });
       await this.matchRepo.save(matches);
       total += matches.length;
@@ -232,6 +272,17 @@ export class ScheduleGenerator {
           round: (round % 2) + 1,
           homeTeamId: home,
           awayTeamId: away,
+          // Stamp the home team's stadium id at schedule
+          // time. The pre-loaded `stadiumIdByTeam` map
+          // makes this an O(1) lookup; a missing entry
+          // falls back to null (matches the historical
+          // `match.stadium_id` column being nullable for
+          // pre-migration rows). The `match.service.ts`
+          // venue field is `match.stadium?.name ?? null`,
+          // so a non-null id is what the FE needs to
+          // render the venue line on the match detail
+          // page.
+          stadiumId: options.stadiumIdByTeam.get(home) ?? null,
           status: MatchStatus.SCHEDULED,
           type: MatchType.LEAGUE,
           tacticsLocked: false,
@@ -270,6 +321,11 @@ export class ScheduleGenerator {
           round: ((numRounds + round) % 2) + 1,
           homeTeamId: away,
           awayTeamId: home,
+          // Venue reverses with the legs. The original
+          // `home` from the first leg becomes the away
+          // here, so we look up the stadium for `away`
+          // (the new home team).
+          stadiumId: options.stadiumIdByTeam.get(away) ?? null,
           status: MatchStatus.SCHEDULED,
           type: MatchType.LEAGUE,
           tacticsLocked: false,

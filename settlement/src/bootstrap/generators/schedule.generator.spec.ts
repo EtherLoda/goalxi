@@ -42,16 +42,34 @@ describe('ScheduleGenerator — senior-only', () => {
     };
     const leagueRepo = { find: jest.fn() };
     const teamRepo = { find: jest.fn() };
+    const stadiumRepo = {
+      // Default to "every team has a stadium with id
+      // `stadium-<teamId>`". Individual tests can
+      // override this to simulate missing or extra
+      // stadium rows.
+      find: jest.fn().mockImplementation(() =>
+        Promise.resolve(
+          // The test passes a 4-team league; back-fill
+          // with a real-shaped StadiumEntity array.
+          (['T0', 'T1', 'T2', 'T3'] as const).map((id) => ({
+            id: `stadium-${id}`,
+            teamId: id,
+          })),
+        ),
+      ),
+    };
     return {
       gen: new ScheduleGenerator(
         mockLogger as any,
         matchRepo as any,
         leagueRepo as any,
         teamRepo as any,
+        stadiumRepo as any,
       ),
       matchRepo,
       leagueRepo,
       teamRepo,
+      stadiumRepo,
     };
   }
 
@@ -218,5 +236,112 @@ describe('ScheduleGenerator — senior-only', () => {
       ...secondLeg.map((m) => new Date(m.scheduledAt!).getTime()),
     );
     expect(secondLegMin).toBeGreaterThan(firstLegMax);
+  });
+
+  /**
+   * Regression for the historical bug where the schedule
+   * generator wrote match rows without `stadiumId`,
+   * leaving the FE's `match.service.ts:700` `venue`
+   * field permanently null on a fresh init. The fix
+   * pre-loads the stadium map and stamps every match.
+   */
+  it('stamps `stadiumId` on every saved match row (home team\'s stadium)', async () => {
+    const { gen, matchRepo, leagueRepo, teamRepo, stadiumRepo } = build();
+    matchRepo.count.mockResolvedValue(0);
+    leagueRepo.find.mockResolvedValue([seniorLeague('L-1')]);
+    const teams: TeamEntity[] = [];
+    for (let i = 0; i < 4; i++) {
+      teams.push(seniorTeam(`T${i}`, 'L-1'));
+    }
+    teamRepo.find.mockResolvedValue(teams);
+    matchRepo.save.mockResolvedValue([]);
+
+    await gen.generateSeason1Schedule(new Date('2026-09-09T00:00:00Z'));
+
+    const saved: Partial<MatchEntity>[] = matchRepo.save.mock.calls[0][0];
+    // 12 total = 6 first-leg + 6 second-leg.
+    expect(saved).toHaveLength(12);
+
+    // The stadium map was loaded exactly once (not per
+    // match, not per league).
+    expect(stadiumRepo.find).toHaveBeenCalledTimes(1);
+
+    // Every match has its home team's stadium id.
+    // First-leg home is the `home` of the pairing; the
+    // second leg reverses, so the second-leg home is
+    // the `away` of the original pairing. The map keys
+    // are teamIds (`T0`..`T3`) and the stadium id is
+    // `stadium-<teamId>` per the default mock.
+    for (const m of saved) {
+      expect(m.stadiumId).toBe(`stadium-${m.homeTeamId}`);
+    }
+  });
+
+  it('falls back to null stadiumId when a team has no stadium row', async () => {
+    // Regression for the "BOT team whose stadium
+    // creation failed" path: a missing stadium entry
+    // must not throw — it just stamps null. The FE
+    // renders "—" for the venue, which is the same
+    // behaviour the historical pre-migration rows get.
+    const { gen, matchRepo, leagueRepo, teamRepo, stadiumRepo } = build();
+    matchRepo.count.mockResolvedValue(0);
+    leagueRepo.find.mockResolvedValue([seniorLeague('L-1')]);
+    const teams: TeamEntity[] = [];
+    for (let i = 0; i < 4; i++) {
+      teams.push(seniorTeam(`T${i}`, 'L-1'));
+    }
+    teamRepo.find.mockResolvedValue(teams);
+    // Only T0 and T1 have a stadium; T2 and T3 don't.
+    stadiumRepo.find.mockResolvedValue([
+      { id: 'stadium-T0', teamId: 'T0' },
+      { id: 'stadium-T1', teamId: 'T1' },
+    ]);
+    matchRepo.save.mockResolvedValue([]);
+
+    await gen.generateSeason1Schedule(new Date('2026-09-09T00:00:00Z'));
+
+    const saved: Partial<MatchEntity>[] = matchRepo.save.mock.calls[0][0];
+    // The matches that have T0 or T1 as the home team
+    // get a stadium id; the matches with T2 or T3 as
+    // home get null. We don't pin a specific count
+    // because the round-robin pairing is fixed, but we
+    // do assert the schema: stadiumId is either a real
+    // id or null, never an unrelated string.
+    for (const m of saved) {
+      if (m.homeTeamId === 'T0' || m.homeTeamId === 'T1') {
+        expect(m.stadiumId).toBe(`stadium-${m.homeTeamId}`);
+      } else {
+        expect(m.stadiumId).toBeNull();
+      }
+    }
+  });
+
+  /**
+   * Source-level tripwire. The pre-load-then-stamp
+   * pattern requires a `stadiumRepo.find()` call
+   * followed by a `Map(teamId → stadiumId)` build;
+   * if either is removed, the FE breaks. Pin both at
+   * the source surface so a future refactor can't
+   * accidentally re-introduce the N+1.
+   */
+  it('source-level tripwire: pre-loads stadiums once (no per-match lookup)', () => {
+    const fs = require('fs');
+    const path = require('path');
+    const source = fs.readFileSync(
+      path.join(__dirname, 'schedule.generator.ts'),
+      'utf8',
+    );
+    // Strip comments before matching so docstring
+    // mentions of the pattern don't trip the test.
+    const code = source
+      .replace(/\/\*[\s\S]*?\*\//g, '')
+      .replace(/\/\/.*$/gm, '');
+
+    // The schedule generator must inject StadiumEntity
+    // and use the pre-loaded map to stamp stadiumId.
+    expect(source).toMatch(/StadiumEntity/);
+    // The actual stamping line: `stadiumId: ...get(home)`
+    // or `stadiumId: ...get(away)` — both legs.
+    expect(code).toMatch(/stadiumId:\s*options\.stadiumIdByTeam\.get\(/);
   });
 });
