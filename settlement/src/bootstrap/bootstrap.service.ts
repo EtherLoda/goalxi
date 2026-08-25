@@ -8,6 +8,7 @@ import { TacticsPresetGenerator } from './generators/tactics-preset.generator';
 import { ScoutSeedGenerator } from './generators/scout-seed.generator';
 import { AnnouncementGenerator } from './generators/announcement.generator';
 import { CupGenerator } from './generators/cup.generator';
+import { YouthStructureGenerator } from './generators/youth-structure.generator';
 import {
   SYSTEM_CONFIG_INIT_DATE_KEY,
   SystemConfigEntity,
@@ -54,6 +55,7 @@ export class BootstrapService implements OnModuleInit {
     private readonly scoutSeedGenerator: ScoutSeedGenerator,
     private readonly announcementGenerator: AnnouncementGenerator,
     private readonly cupGenerator: CupGenerator,
+    private readonly youthStructureGenerator: YouthStructureGenerator,
   ) {}
 
   async onModuleInit() {
@@ -91,6 +93,15 @@ export class BootstrapService implements OnModuleInit {
     // creation is an init-only concern. A new team
     // gets created by the onboarding claim flow, not
     // here.
+    //
+    // Youth-structure: 1:1 youth_league (per senior_league)
+    // + 1:1 youth_team (per senior_team). Idempotent — no
+    // work when the link rows already exist. Kept in
+    // gap-fill parity with `InitService` so an old DB that
+    // predates the youth tables gets them created the first
+    // time the settlement process boots. Cup is handled
+    // below.
+    await this.youthStructureGenerator.generate();
     await this.scheduleGenerator.generateSeason1Schedule(initDate);
     await this.weatherGenerator.generateInitialWeather(initDate);
     await this.tacticsPresetGenerator.generate();

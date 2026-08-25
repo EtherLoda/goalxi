@@ -10,10 +10,12 @@ import {
 import { UserGenerator } from '../bootstrap/generators/user.generator';
 import { LeagueGenerator } from '../bootstrap/generators/league.generator';
 import { TeamGenerator } from '../bootstrap/generators/team.generator';
+import { YouthStructureGenerator } from '../bootstrap/generators/youth-structure.generator';
 import { ScheduleGenerator } from '../bootstrap/generators/schedule.generator';
 import { WeatherGenerator } from '../bootstrap/generators/weather.generator';
 import { TacticsPresetGenerator } from '../bootstrap/generators/tactics-preset.generator';
 import { ScoutSeedGenerator } from '../bootstrap/generators/scout-seed.generator';
+import { CupGenerator } from '../bootstrap/generators/cup.generator';
 import { AnnouncementGenerator } from '../bootstrap/generators/announcement.generator';
 import { InitOptions } from './init.types';
 
@@ -26,29 +28,40 @@ import { InitOptions } from './init.types';
  *
  * The full init pipeline (in order):
  *
- *   1. wipe          — drop every row from every game table
- *                      (only when `--force` or `--wipe-only`)
- *   2. init_date     — write `system_config.init_date` so
- *                      later boots and the match scheduler
- *                      anchor on a stable value
- *   3. users         — system + bot users
- *   4. leagues       — China I/II/III/IV pyramid (or small
- *                      pyramid under `--small`)
- *   5. teams         — 16 BOT teams per league, with squad
- *                      + staff + finance + fan + stadium
- *                      (via the shared `createTeam` helper)
- *   6. presets       — one default `tactics_preset` per
- *                      team so the match scheduler has a
- *                      fallback formation on day 1
- *   7. scout seeds   — one senior-mode scout candidate
- *                      per team so a freshly-claimed team
- *                      has something to look at
- *   8. schedule      — 30-round senior double round-robin
- *                      anchored on the next-Monday 00:00
- *                      UTC after `initDate`
- *   9. weather       — 7 days of forecast from `initDate`
- *  10. announcement  — season-1 banner pinned to the top
- *                      of the announcement feed
+ *   1. wipe           — drop every row from every game table
+ *                       (only when `--force` or `--wipe-only`)
+ *   2. init_date      — write `system_config.init_date` so
+ *                       later boots and the match scheduler
+ *                       anchor on a stable value
+ *   3. users          — system + bot users
+ *   4. leagues        — China I/II/III/IV pyramid (or small
+ *                       pyramid under `--small`)
+ *   5. teams          — 16 BOT teams per league, with squad
+ *                       + staff + finance + fan + stadium
+ *                       (via the shared `createTeam` helper)
+ *   6. youth structure — 1:1 youth_league (per senior_league)
+ *                       + 1:1 youth_team (per senior_team).
+ *                       Must run after teams so the senior
+ *                       rows exist; runs before presets/cup
+ *                       so those generators can see the youth
+ *                       rows if they need to.
+ *   7. presets        — one default `tactics_preset` per
+ *                       team so the match scheduler has a
+ *                       fallback formation on day 1
+ *   8. scout seeds    — one senior-mode scout candidate
+ *                       per team so a freshly-claimed team
+ *                       has something to look at
+ *   9. cup            — National Cup for season 1 (cup row,
+ *                       rounds, entries, round-0 bracket
+ *                       slots). Passes `initDate` so the
+ *                       cup round-0 kickoff lands a week
+ *                       after the league's first matchday.
+ *  10. schedule       — 30-round senior double round-robin
+ *                       anchored on the next-Monday 00:00
+ *                       UTC after `initDate`
+ *  11. weather        — 7 days of forecast from `initDate`
+ *  12. announcement   — season-1 banner pinned to the top
+ *                       of the announcement feed
  *
  * Each step is idempotent on its own — re-running init
  * without `--force` is a no-op for every step that's
@@ -66,10 +79,12 @@ export class InitService {
     private readonly userGenerator: UserGenerator,
     private readonly leagueGenerator: LeagueGenerator,
     private readonly teamGenerator: TeamGenerator,
+    private readonly youthStructureGenerator: YouthStructureGenerator,
     private readonly scheduleGenerator: ScheduleGenerator,
     private readonly weatherGenerator: WeatherGenerator,
     private readonly tacticsPresetGenerator: TacticsPresetGenerator,
     private readonly scoutSeedGenerator: ScoutSeedGenerator,
+    private readonly cupGenerator: CupGenerator,
     private readonly announcementGenerator: AnnouncementGenerator,
   ) {}
 
@@ -119,7 +134,14 @@ export class InitService {
     });
     this.logger.info('[Init] teams ensured');
 
-    // 6. presets — one default `tactics_preset` per
+    // 6. youth structure — 1:1 youth_league (per senior_league)
+    //    + 1:1 youth_team (per senior_team). Idempotent: skips
+    //    when the link row already exists. Must run after teams
+    //    so the senior rows are in place.
+    await this.youthStructureGenerator.generate();
+    this.logger.info('[Init] youth structure ensured');
+
+    // 7. presets — one default `tactics_preset` per
     //    team with a random formation so the match
     //    scheduler's preprocessor has a fallback for
     //    BOT teams that have never had a manager submit
@@ -127,24 +149,35 @@ export class InitService {
     await this.tacticsPresetGenerator.generate();
     this.logger.info('[Init] tactics presets ensured');
 
-    // 7. scout seeds — one senior-mode candidate per
+    // 8. scout seeds — one senior-mode candidate per
     //    team so a freshly-claimed team has a card in
     //    the inbox on day 1 (the weekly cron only runs
     //    Saturdays).
     await this.scoutSeedGenerator.generate();
     this.logger.info('[Init] scout seeds ensured');
 
-    // 8. schedule — senior only; first match = next
-    //    Monday 00:00 UTC after `initDate`.
+    // 9. cup — National Cup for season 1: 1 cup row,
+    //    N cup_round rows, M cup_entry rows, R0
+    //    cup_bracket_slot rows. The actual round-0
+    //    match rows are written by CupSchedulerService
+    //    on its first tick. We pass `initDate` so the
+    //    cup round-0 kickoff lands a week after the
+    //    league's first matchday. Idempotent on
+    //    (season, type='NATIONAL') unique index.
+    await this.cupGenerator.generateCupForSeason(1, options.initDate);
+    this.logger.info('[Init] cup ensured');
+
+    // 10. schedule — senior only; first match = next
+    //     Monday 00:00 UTC after `initDate`.
     await this.scheduleGenerator.generateSeason1Schedule(options.initDate);
     this.logger.info('[Init] schedule ensured');
 
-    // 9. weather — 7-day rolling forecast from
-    //    `initDate`'s day.
+    // 11. weather — 7-day rolling forecast from
+    //     `initDate`'s day.
     await this.weatherGenerator.generateInitialWeather(options.initDate);
     this.logger.info('[Init] weather ensured');
 
-    // 10. announcements — pinned season-1 banner
+    // 12. announcements — pinned season-1 banner
     //     shown to every fresh registration.
     await this.announcementGenerator.generate(options.initDate);
     this.logger.info('[Init] announcements ensured');

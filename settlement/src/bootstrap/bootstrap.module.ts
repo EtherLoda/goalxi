@@ -34,11 +34,12 @@ import { CupGenerator } from './generators/cup.generator';
 
 /**
  * Wires the auto-recover `BootstrapService` + the
- * individual generators it orchestrates. The youth-league
- * / youth-team generators that the historical bootstrap
- * ran are intentionally omitted — the youth pipeline was
- * retired and the new init (`InitService`) only generates
- * senior rows.
+ * individual generators it orchestrates. Both senior
+ * (init `InitService` runs end-to-end) and the cup /
+ * youth-structure gap-fill are wired here so a settlement
+ * process that boots against an existing-but-incomplete
+ * DB (e.g. one from before the cup + youth generators
+ * were added) quietly back-fills the missing rows.
  */
 @Module({
   imports: [
@@ -62,6 +63,8 @@ import { CupGenerator } from './generators/cup.generator';
       CupRoundEntity,
       CupEntryEntity,
       CupBracketSlotEntity,
+      YouthLeagueEntity,
+      YouthTeamEntity,
     ]),
   ],
   providers: [
@@ -75,6 +78,7 @@ import { CupGenerator } from './generators/cup.generator';
     ScoutSeedGenerator,
     AnnouncementGenerator,
     CupGenerator,
+    YouthStructureGenerator,
   ],
   exports: [
     BootstrapService,
@@ -87,6 +91,7 @@ import { CupGenerator } from './generators/cup.generator';
     ScoutSeedGenerator,
     AnnouncementGenerator,
     CupGenerator,
+    YouthStructureGenerator,
   ],
 })
 export class BootstrapModule {}

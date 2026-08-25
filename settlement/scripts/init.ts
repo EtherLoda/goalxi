@@ -46,6 +46,12 @@ import {
   ScoutCandidateEntity,
   TacticsPresetEntity,
   AnnouncementEntity,
+  CupEntity,
+  CupRoundEntity,
+  CupEntryEntity,
+  CupBracketSlotEntity,
+  YouthLeagueEntity,
+  YouthTeamEntity,
   startOfUtcDay,
   resolveGameStart,
 } from '@goalxi/database';
@@ -55,10 +61,12 @@ import { InitOptions } from '../src/init/init.types';
 import { UserGenerator } from '../src/bootstrap/generators/user.generator';
 import { LeagueGenerator } from '../src/bootstrap/generators/league.generator';
 import { TeamGenerator } from '../src/bootstrap/generators/team.generator';
+import { YouthStructureGenerator } from '../src/bootstrap/generators/youth-structure.generator';
 import { ScheduleGenerator } from '../src/bootstrap/generators/schedule.generator';
 import { WeatherGenerator } from '../src/bootstrap/generators/weather.generator';
 import { TacticsPresetGenerator } from '../src/bootstrap/generators/tactics-preset.generator';
 import { ScoutSeedGenerator } from '../src/bootstrap/generators/scout-seed.generator';
+import { CupGenerator } from '../src/bootstrap/generators/cup.generator';
 import { AnnouncementGenerator } from '../src/bootstrap/generators/announcement.generator';
 
 function printHelp(): void {
@@ -245,6 +253,13 @@ async function main(): Promise<number> {
       ds.getRepository(LeagueEntity),
       ds,
     );
+    const youthGen = new YouthStructureGenerator(
+      asLogger<LOGGER_TYPE>(consoleLogger),
+      ds.getRepository(LeagueEntity),
+      ds.getRepository(YouthLeagueEntity),
+      ds.getRepository(TeamEntity),
+      ds.getRepository(YouthTeamEntity),
+    );
     const scheduleGen = new ScheduleGenerator(
       asLogger<LOGGER_TYPE>(consoleLogger),
       ds.getRepository(MatchEntity),
@@ -266,6 +281,15 @@ async function main(): Promise<number> {
       ds.getRepository(TeamEntity),
       ds.getRepository(ScoutCandidateEntity),
     );
+    const cupGen = new CupGenerator(
+      asLogger<LOGGER_TYPE>(consoleLogger),
+      ds.getRepository(CupEntity),
+      ds.getRepository(CupRoundEntity),
+      ds.getRepository(CupEntryEntity),
+      ds.getRepository(CupBracketSlotEntity),
+      ds.getRepository(TeamEntity),
+      ds.getRepository(LeagueEntity),
+    );
     const announcementGen = new AnnouncementGenerator(
       asLogger<LOGGER_TYPE>(consoleLogger),
       ds.getRepository(AnnouncementEntity),
@@ -277,10 +301,12 @@ async function main(): Promise<number> {
       userGen,
       leagueGen,
       teamGen,
+      youthGen,
       scheduleGen,
       weatherGen,
       presetGen,
       scoutGen,
+      cupGen,
       announcementGen,
     );
 
