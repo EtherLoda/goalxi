@@ -49,6 +49,19 @@ describe('CupSchedulerService — materialize round', () => {
       find: jest.fn(),
       update: jest.fn().mockResolvedValue({ affected: 1 }),
     };
+    // Default stadium mock: every team in the test has a
+    // stadium with id `stadium-<teamId>`. Individual tests
+    // can override this to simulate a missing-row case.
+    const stadiumRepo = {
+      find: jest.fn().mockImplementation(({ where }: any) => {
+        const ids: string[] = where?.teamId?._value ?? where?.teamId ?? [];
+        return Promise.resolve(
+          (Array.isArray(ids) ? ids : [ids])
+            .filter(Boolean)
+            .map((id) => ({ id: `stadium-${id}`, teamId: id })),
+        );
+      }),
+    };
     return {
       gen: new CupSchedulerService(
         mockLogger as any,
@@ -56,11 +69,13 @@ describe('CupSchedulerService — materialize round', () => {
         cupRepo as any,
         roundRepo as any,
         slotRepo as any,
+        stadiumRepo as any,
       ),
       matchRepo,
       cupRepo,
       roundRepo,
       slotRepo,
+      stadiumRepo,
     };
   }
 
@@ -249,5 +264,183 @@ describe('CupSchedulerService — materialize round', () => {
     expect(mocks.cupRepo.update).toHaveBeenCalledWith('cup-1', {
       status: CupStatus.IN_PROGRESS,
     });
+  });
+
+  /**
+   * Regression for the historical bug where
+   * `CupSchedulerService` materialised match rows without
+   * `stadiumId`, leaving the FE's `/matches/:id` venue
+   * column permanently null for cup fixtures. The fix
+   * pre-loads a `teamId → stadiumId` map (one query per
+   * round) and stamps every cup match row.
+   *
+   * The slot fixture mirrors the existing
+   * "materialize round" test: 4 slots, 2 pair-matches,
+   * homes team-A and team-C. Both should resolve to
+   * `stadium-team-A` / `stadium-team-C` per the default
+   * `stadiumRepo.find` mock in `build()`.
+   */
+  it('stamps `stadiumId` on every cup match (home team\'s stadium)', async () => {
+    const mocks = build();
+    const round: CupRoundEntity = {
+      id: 'round-1' as Uuid,
+      cupId: 'cup-1' as Uuid,
+      roundNumber: 0,
+      roundName: 'Pre-Qualifying',
+      kind: 'qualifying',
+      status: CupRoundStatus.PENDING,
+      slotCount: 4,
+      tacticsDeadline: null,
+      scheduledAt: new Date('2026-09-16T06:00:00Z'),
+    } as CupRoundEntity;
+    const cup: CupEntity = {
+      id: 'cup-1' as Uuid,
+      season: 1,
+      type: 'NATIONAL',
+      name: 'National Cup 1',
+      status: CupStatus.PENDING,
+      prizeCurrency: 'CNY',
+      prizePool: '0',
+    } as CupEntity;
+    const slots: CupBracketSlotEntity[] = [
+      {
+        id: 'slot-0' as Uuid,
+        cupId: 'cup-1' as Uuid,
+        roundId: 'round-1' as Uuid,
+        roundNumber: 0,
+        slotIndex: 0,
+        homeTeamId: 'team-A' as Uuid,
+        awayTeamId: null,
+        matchId: null,
+        winnerTeamId: null,
+        sourceSlotId: null,
+        isBye: false,
+      } as CupBracketSlotEntity,
+      {
+        id: 'slot-1' as Uuid,
+        cupId: 'cup-1' as Uuid,
+        roundId: 'round-1' as Uuid,
+        roundNumber: 0,
+        slotIndex: 1,
+        homeTeamId: null,
+        awayTeamId: 'team-B' as Uuid,
+        matchId: null,
+        winnerTeamId: null,
+        sourceSlotId: null,
+        isBye: false,
+      } as CupBracketSlotEntity,
+      {
+        id: 'slot-2' as Uuid,
+        cupId: 'cup-1' as Uuid,
+        roundId: 'round-1' as Uuid,
+        roundNumber: 0,
+        slotIndex: 2,
+        homeTeamId: 'team-C' as Uuid,
+        awayTeamId: null,
+        matchId: null,
+        winnerTeamId: null,
+        sourceSlotId: null,
+        isBye: false,
+      } as CupBracketSlotEntity,
+      {
+        id: 'slot-3' as Uuid,
+        cupId: 'cup-1' as Uuid,
+        roundId: 'round-1' as Uuid,
+        roundNumber: 0,
+        slotIndex: 3,
+        homeTeamId: null,
+        awayTeamId: 'team-D' as Uuid,
+        matchId: null,
+        winnerTeamId: null,
+        sourceSlotId: null,
+        isBye: false,
+      } as CupBracketSlotEntity,
+    ];
+    mocks.roundRepo.find.mockResolvedValue([round]);
+    mocks.cupRepo.findOne.mockResolvedValue(cup);
+    mocks.roundRepo.update.mockResolvedValue({ affected: 1 });
+    mocks.slotRepo.find.mockResolvedValue(slots);
+
+    await mocks.gen.scheduleDueCupRounds();
+
+    // Two match saves (one per slot pair).
+    expect(mocks.matchRepo.save).toHaveBeenCalledTimes(2);
+    const savedRows = mocks.matchRepo.save.mock.calls.map((c) => c[0]);
+    // First match: home = team-A.
+    expect(savedRows[0].homeTeamId).toBe('team-A');
+    expect(savedRows[0].stadiumId).toBe('stadium-team-A');
+    // Second match: home = team-C.
+    expect(savedRows[1].homeTeamId).toBe('team-C');
+    expect(savedRows[1].stadiumId).toBe('stadium-team-C');
+  });
+
+  it('falls back to null stadiumId when the home team has no stadium row', async () => {
+    // Override the default stadium mock to return an
+    // empty list — simulates the "stadium creation
+    // failed for this team" path. The cup match should
+    // still be created, just with stadiumId=null so the
+    // FE renders "—" for the venue.
+    const mocks = build();
+    mocks.stadiumRepo.find.mockResolvedValue([]);
+
+    const round: CupRoundEntity = {
+      id: 'round-1' as Uuid,
+      cupId: 'cup-1' as Uuid,
+      roundNumber: 0,
+      roundName: 'Pre-Qualifying',
+      kind: 'qualifying',
+      status: CupRoundStatus.PENDING,
+      slotCount: 2,
+      tacticsDeadline: null,
+      scheduledAt: new Date('2026-09-16T06:00:00Z'),
+    } as CupRoundEntity;
+    const cup: CupEntity = {
+      id: 'cup-1' as Uuid,
+      season: 1,
+      type: 'NATIONAL',
+      name: 'National Cup 1',
+      status: CupStatus.PENDING,
+      prizeCurrency: 'CNY',
+      prizePool: '0',
+    } as CupEntity;
+    const slots: CupBracketSlotEntity[] = [
+      {
+        id: 'slot-0' as Uuid,
+        cupId: 'cup-1' as Uuid,
+        roundId: 'round-1' as Uuid,
+        roundNumber: 0,
+        slotIndex: 0,
+        homeTeamId: 'team-A' as Uuid,
+        awayTeamId: null,
+        matchId: null,
+        winnerTeamId: null,
+        sourceSlotId: null,
+        isBye: false,
+      } as CupBracketSlotEntity,
+      {
+        id: 'slot-1' as Uuid,
+        cupId: 'cup-1' as Uuid,
+        roundId: 'round-1' as Uuid,
+        roundNumber: 0,
+        slotIndex: 1,
+        homeTeamId: null,
+        awayTeamId: 'team-B' as Uuid,
+        matchId: null,
+        winnerTeamId: null,
+        sourceSlotId: null,
+        isBye: false,
+      } as CupBracketSlotEntity,
+    ];
+    mocks.roundRepo.find.mockResolvedValue([round]);
+    mocks.cupRepo.findOne.mockResolvedValue(cup);
+    mocks.roundRepo.update.mockResolvedValue({ affected: 1 });
+    mocks.slotRepo.find.mockResolvedValue(slots);
+
+    await mocks.gen.scheduleDueCupRounds();
+
+    expect(mocks.matchRepo.save).toHaveBeenCalledTimes(1);
+    const saved = mocks.matchRepo.save.mock.calls[0][0];
+    expect(saved.homeTeamId).toBe('team-A');
+    expect(saved.stadiumId).toBeNull();
   });
 });

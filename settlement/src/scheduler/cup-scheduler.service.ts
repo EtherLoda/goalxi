@@ -2,7 +2,7 @@ import { Injectable, Inject } from '@nestjs/common';
 import { LOGGER_SERVICE, PinoLoggerService } from '@goalxi/logger';
 import { Cron } from '@nestjs/schedule';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, LessThanOrEqual, IsNull, Not } from 'typeorm';
+import { Repository, In, LessThanOrEqual, IsNull, Not } from 'typeorm';
 import {
   CupBracketSlotEntity,
   CupEntity,
@@ -12,6 +12,7 @@ import {
   MatchEntity,
   MatchStatus,
   MatchType,
+  StadiumEntity,
   type Uuid,
 } from '@goalxi/database';
 
@@ -69,6 +70,8 @@ export class CupSchedulerService {
     private readonly roundRepo: Repository<CupRoundEntity>,
     @InjectRepository(CupBracketSlotEntity)
     private readonly slotRepo: Repository<CupBracketSlotEntity>,
+    @InjectRepository(StadiumEntity)
+    private readonly stadiumRepo: Repository<StadiumEntity>,
   ) {}
 
   /**
@@ -176,6 +179,33 @@ export class CupSchedulerService {
       return 0;
     }
 
+    // Pre-fetch stadiums for every home team in this round in
+    // a single query, so the per-match loop is O(1) lookups
+    // instead of one query per match. Mirrors the pattern
+    // `ScheduleGenerator` uses for league fixtures — both
+    // sides of the venue-stamping contract share the same
+    // "load once, stamp many" shape. Missing stadium rows
+    // simply don't appear in the map; the per-match lookup
+    // falls back to null and the FE renders "—" for the
+    // venue (same as the historical pre-migration rows).
+    const homeTeamIds = Array.from(
+      new Set(
+        slots
+          .map((s) => s.homeTeamId)
+          .filter((id): id is Uuid => id !== null),
+      ),
+    );
+    const stadiumRows =
+      homeTeamIds.length > 0
+        ? await this.stadiumRepo.find({
+            where: { teamId: In(homeTeamIds) },
+            select: ['id', 'teamId'],
+          })
+        : [];
+    const stadiumIdByTeam = new Map<string, string>(
+      stadiumRows.map((s) => [s.teamId, s.id]),
+    );
+
     let matchesCreated = 0;
     for (let i = 0; i < slots.length; i += 2) {
       const homeSlot = slots[i];
@@ -223,6 +253,11 @@ export class CupSchedulerService {
           round: round.roundNumber,
           homeTeamId: homeSlot.homeTeamId,
           awayTeamId: awaySlot.awayTeamId,
+          // Stamp the home team's stadium id so the FE's
+          // `match.service.ts:700` venue field is non-null
+          // for cup matches too. Same shape as
+          // `ScheduleGenerator`'s league-side stamping.
+          stadiumId: stadiumIdByTeam.get(homeSlot.homeTeamId) ?? null,
           status: MatchStatus.SCHEDULED,
           type: MatchType.CUP,
           tacticsLocked: false,
