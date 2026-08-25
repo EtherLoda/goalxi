@@ -183,7 +183,23 @@ export class TeamGenerator {
     const stadiumRows = await this.stadiumRepo.find();
     const stadiumByTeam = new Map(stadiumRows.map((s) => [s.teamId, s]));
 
-    let enriched = 0;
+    // Build the per-team enrichment values once. The
+    // previous implementation issued N `teamRepo.update`
+    // + N `stadiumRepo.update` round-trips (2720 for the
+    // 1360-team pyramid) — every row in a separate
+    // transaction. The new code batches each table
+    // into a single `UPDATE … FROM (VALUES …)` per
+    // chunk, dropping the round-trip count to O(teams /
+    // CHUNK_SIZE) and the wall-clock time by ~100x.
+    const teamRows: Array<{
+      id: string;
+      city: string;
+      foundedYear: number;
+      jerseyColorTertiary: string;
+      eloRating: number;
+      bio: string;
+    }> = [];
+    const stadiumNameById: Array<{ id: string; name: string }> = [];
     for (const team of teams) {
       const city = this.extractCity(team.name) ?? '中国';
       const foundedYear = randomInt(1950, 2010);
@@ -195,12 +211,8 @@ export class TeamGenerator {
       const eloRating = 1500 + Math.round((team.botLevel - 5) * 20);
       const bio = `${team.name} 是位于${city}的球队，成立于 ${foundedYear} 年。`;
 
-      // Build the partial update so we only touch
-      // the enrichment columns. `city`, `foundedYear`,
-      // `jerseyColorTertiary`, `eloRating`, and
-      // `bio` are all nullable / have defaults so
-      // this is a safe additive change.
-      await this.teamRepo.update(team.id, {
+      teamRows.push({
+        id: team.id,
         city,
         foundedYear,
         jerseyColorTertiary: jerseyTertiary,
@@ -210,14 +222,116 @@ export class TeamGenerator {
 
       const stadium = stadiumByTeam.get(team.id);
       if (stadium) {
-        await this.stadiumRepo.update(stadium.id, {
+        stadiumNameById.push({
+          id: stadium.id,
           name: `${city}体育中心`,
         });
       }
-
-      enriched++;
     }
-    this.logger.info(`[TeamGenerator] post-enriched ${enriched} team(s)`);
+
+    await this.batchUpdateTeams(teamRows);
+    await this.batchUpdateStadiumNames(stadiumNameById);
+
+    this.logger.info(
+      `[TeamGenerator] post-enriched ${teamRows.length} team(s) in ` +
+        `${this.lastBatchRoundTrips} batched round-trip(s)`,
+    );
+  }
+
+  /**
+   * Number of round-trips the last `enrichAllTeams`
+   * pass issued (team chunks + stadium chunks). Exposed
+   * on the instance so the spec can assert the
+   * round-trip count is bounded by `teams.length /
+   * BATCH_CHUNK_SIZE` rather than `teams.length`. Read
+   * immediately after `enrichAllTeams()` completes.
+   */
+  private lastBatchRoundTrips = 0;
+
+  /**
+   * Chunk size for the batched `UPDATE … FROM (VALUES
+   * …)`. PostgreSQL's default max-bind-parameter
+   * limit is 65535; the team batch is 6 params / row
+   * and the stadium batch is 2 / row, so 500 rows is
+   * 3000 / 1000 params per chunk — well under the cap
+   * with headroom for a future column add. 500 also
+   * keeps the prepared-statement plan cache hit
+   * across the chunks (same shape, different values).
+   */
+  private static readonly BATCH_CHUNK_SIZE = 500;
+
+  private async batchUpdateTeams(
+    rows: Array<{
+      id: string;
+      city: string;
+      foundedYear: number;
+      jerseyColorTertiary: string;
+      eloRating: number;
+      bio: string;
+    }>,
+  ): Promise<void> {
+    if (rows.length === 0) return;
+    let roundTrips = 0;
+    for (let i = 0; i < rows.length; i += TeamGenerator.BATCH_CHUNK_SIZE) {
+      const chunk = rows.slice(i, i + TeamGenerator.BATCH_CHUNK_SIZE);
+      const tuples: string[] = [];
+      const params: unknown[] = [];
+      let p = 1;
+      for (const r of chunk) {
+        tuples.push(
+          `($${p++}::uuid, $${p++}, $${p++}, $${p++}, $${p++}, $${p++})`,
+        );
+        params.push(
+          r.id,
+          r.city,
+          r.foundedYear,
+          r.jerseyColorTertiary,
+          r.eloRating,
+          r.bio,
+        );
+      }
+      const sql = `
+        UPDATE team SET
+          city                = v.city,
+          founded_year        = v.founded_year,
+          jersey_color_tertiary = v.jersey_color_tertiary,
+          elo_rating          = v.elo_rating,
+          bio                 = v.bio
+        FROM (VALUES ${tuples.join(', ')})
+          AS v(id, city, founded_year, jersey_color_tertiary, elo_rating, bio)
+        WHERE team.id = v.id
+      `;
+      await this.dataSource.query(sql, params);
+      roundTrips++;
+    }
+    this.lastBatchRoundTrips += roundTrips;
+  }
+
+  private async batchUpdateStadiumNames(
+    rows: Array<{ id: string; name: string }>,
+  ): Promise<void> {
+    if (rows.length === 0) return;
+    let roundTrips = 0;
+    for (let i = 0; i < rows.length; i += TeamGenerator.BATCH_CHUNK_SIZE) {
+      const chunk = rows.slice(i, i + TeamGenerator.BATCH_CHUNK_SIZE);
+      const tuples: string[] = [];
+      const params: unknown[] = [];
+      let p = 1;
+      for (const r of chunk) {
+        tuples.push(`($${p++}::uuid, $${p++})`);
+        params.push(r.id, r.name);
+      }
+      const sql = `
+        UPDATE stadium SET
+          name = v.name
+        FROM (VALUES ${tuples.join(', ')})
+          AS v(id, name)
+        WHERE stadium.id = v.id
+      `;
+      await this.dataSource.query(sql, params);
+      roundTrips++;
+    }
+    this.lastBatchRoundTrips += roundTrips;
   }
 
   /**
