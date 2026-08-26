@@ -244,6 +244,13 @@ async function main(): Promise<number> {
       ds.getRepository(MatchEntity),
       ds.getRepository(LeagueEntity),
       ds.getRepository(TeamEntity),
+      // Pre-loaded stadium map drives the
+      // `stadium_id` stamp on every match row
+      // (see `ScheduleGenerator.generateSeason1Schedule`).
+      // Added in `79ee912` (P0 — stadium id on
+      // every match) so the FE's `/matches/:id`
+      // venue field is non-null on a fresh init.
+      ds.getRepository(StadiumEntity),
     );
     const weatherGen = new WeatherGenerator(
       asLogger<LOGGER_TYPE>(consoleLogger),
