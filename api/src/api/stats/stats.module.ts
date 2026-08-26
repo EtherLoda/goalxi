@@ -5,6 +5,7 @@ import {
   PlayerCompetitionStatsEntity,
   PlayerEntity,
   TeamEntity,
+  LeagueEntity,
 } from '@goalxi/database';
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
@@ -20,6 +21,7 @@ import { StatsService } from './stats.service';
       MatchEventEntity,
       MatchTeamStatsEntity,
       TeamEntity,
+      LeagueEntity,
       PlayerCompetitionStatsEntity,
       PlayerEntity,
     ]),
