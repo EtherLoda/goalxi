@@ -122,8 +122,26 @@ export class MatchEventEntity extends BaseEntity {
      * (partial) to answer "events where a specialty fired" without
      * JSONB parsing. STORED (not VIRTUAL) because PG disallows
      * indexing on VIRTUAL generated columns.
+     *
+     * The `name:` override is load-bearing: TypeORM's
+     * `DefaultNamingStrategy.columnName()` does NOT do camelCase →
+     * snake_case conversion (it returns the property name as-is).
+     * Without this override, TypeORM generates SQL referencing
+     * `"primarySpecialtyCode"` (camelCase, double-quoted) which
+     * doesn't exist — the actual column is the snake_case
+     * `primary_specialty_code` created by migration
+     * `1788000000000-AddMatchEventSpecialtyContributions`.
+     * The simulator bulk-insert path (`createQueryBuilder().insert()
+     * .into(MatchEventEntity)`) tripped this once it started
+     * reaching for the entity metadata to build the column list.
      */
-    @Column({ type: 'varchar', length: 32, nullable: true, select: false })
+    @Column({
+      name: 'primary_specialty_code',
+      type: 'varchar',
+      length: 32,
+      nullable: true,
+      select: false,
+    })
     primarySpecialtyCode?: string | null;
 
     /**
@@ -131,8 +149,20 @@ export class MatchEventEntity extends BaseEntity {
      * `specialty_contributions->0->>'tier'`. Not indexed alone
      * (the FE always queries with the code). STORED so the FE can
      * render "Gold 空霸" without re-parsing JSONB.
+     *
+     * `name:` override for the same reason as
+     * `primarySpecialtyCode` above — TypeORM's
+     * `DefaultNamingStrategy` doesn't snake_case the property
+     * name, and the migration created the column as
+     * `primary_specialty_tier`.
      */
-    @Column({ type: 'varchar', length: 8, nullable: true, select: false })
+    @Column({
+      name: 'primary_specialty_tier',
+      type: 'varchar',
+      length: 8,
+      nullable: true,
+      select: false,
+    })
     primarySpecialtyTier?: string | null;
 
     // =============================================================
