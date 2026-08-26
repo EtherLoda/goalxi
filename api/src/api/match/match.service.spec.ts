@@ -395,4 +395,49 @@ describe('MatchService', () => {
       ).rejects.toThrow(ForbiddenException);
     });
   });
+
+  /**
+   * Source-level tripwire. The `findAll` QueryBuilder
+   * MUST `leftJoinAndSelect('match.stadium', 'stadium')`,
+   * because `mapToResDto` reads `match.stadium?.name` to
+   * produce the FE's `venue` field. Pre-fix, `findAll`
+   * only joined `homeTeam` / `awayTeam` / `league` and
+   * the dashboard's "next match" card always rendered
+   * "TBD" even when `match.stadiumId` was populated by
+   * the schedule generator (commit `79ee912`).
+   *
+   * The behavioural path is covered by the live
+   * integration test (`pnpm --filter api test:e2e`
+   * with a real DB); the source-level check below
+   * pins the contract so a future "let me drop an
+   * unused join" simplification doesn't silently
+   * bring back the TBD bug.
+   */
+  describe('source-level: findAll joins match.stadium (venue field)', () => {
+    it('findAll QueryBuilder must leftJoinAndSelect match.stadium', () => {
+      const fs = require('fs');
+      const path = require('path');
+      const source = fs.readFileSync(
+        path.join(__dirname, 'match.service.ts'),
+        'utf8',
+      );
+      // Strip comments so a docstring explaining the
+      // join (e.g. "the FE's venue field is non-null
+      // because of this join") doesn't trip the test
+      // on its own prose.
+      const code = source
+        .replace(/\/\*[\s\S]*?\*\//g, '')
+        .replace(/\/\/.*$/gm, '');
+      // Find the `findAll` method body. The simplest
+      // marker is the QueryBuilder construction; assert
+      // that within ~5 lines of `createQueryBuilder('match')`,
+      // a `leftJoinAndSelect('match.stadium'` exists.
+      const qbIdx = code.indexOf("createQueryBuilder('match')");
+      expect(qbIdx).toBeGreaterThan(-1);
+      // Look at the next 1500 chars of code (enough to
+      // cover all the joins + filters).
+      const slice = code.slice(qbIdx, qbIdx + 1500);
+      expect(slice).toMatch(/leftJoinAndSelect\(\s*['"]match\.stadium['"]/);
+    });
+  });
 });

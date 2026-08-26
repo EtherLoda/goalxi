@@ -80,7 +80,17 @@ export class MatchService {
       .createQueryBuilder('match')
       .leftJoinAndSelect('match.homeTeam', 'homeTeam')
       .leftJoinAndSelect('match.awayTeam', 'awayTeam')
-      .leftJoinAndSelect('match.league', 'league');
+      .leftJoinAndSelect('match.league', 'league')
+      // `match.stadium` is needed for the FE's `venue` field
+      // (`mapToResDto` returns `match.stadium?.name ?? null`).
+      // `findOne` already had `stadium` in its `relations`
+      // array; the list path missed it, so the dashboard's
+      // "next match" card and the matches list always showed
+      // "TBD" even when `match.stadiumId` was populated by the
+      // schedule generator (commit `79ee912`). Pin the join
+      // here so the list endpoint behaves the same as the
+      // single-match fetch.
+      .leftJoinAndSelect('match.stadium', 'stadium');
 
     if (leagueId) {
       let actualLeagueId = leagueId;
