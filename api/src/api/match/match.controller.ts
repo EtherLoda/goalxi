@@ -11,6 +11,7 @@ import {
   Delete,
   Get,
   Param,
+  ParseUUIDPipe,
   Patch,
   Post,
   Put,
@@ -57,7 +58,17 @@ export class MatchController {
 
   @Public()
   @Post(':matchId/simulate')
-  async triggerSimulation(@Param('matchId') matchId: string) {
+  async triggerSimulation(
+    // `ParseUUIDPipe` rejects non-uuid matchId params
+    // with a 400 BEFORE the SQL query — the pre-fix code
+    // passed `"synthetic-id"` (a Playwright test placeholder)
+    // straight to the DB and got a 500 from PG's uuid
+    // parser. A 400 is what a manual `curl /matches/foo`
+    // by a curious user would surface anyway, and it's
+    // the right code for the FE's tactics-editor test that
+    // drives this URL with a non-uuid.
+    @Param('matchId', ParseUUIDPipe) matchId: string,
+  ) {
     return this.matchService.queueSimulation(matchId);
   }
 
@@ -66,7 +77,7 @@ export class MatchController {
   @Public()
   @Get(':matchId/events')
   async getMatchEvents(
-    @Param('matchId') matchId: string,
+    @Param('matchId', ParseUUIDPipe) matchId: string,
     @CurrentUser() user?: JwtPayloadType,
   ) {
     return this.matchEventService.getMatchEvents(matchId, user?.id);
@@ -76,7 +87,9 @@ export class MatchController {
 
   @Public()
   @Get(':id')
-  async getMatch(@Param('id') id: string): Promise<MatchResDto> {
+  async getMatch(
+    @Param('id', ParseUUIDPipe) id: string,
+  ): Promise<MatchResDto> {
     return this.matchService.findOne(id);
   }
 
@@ -96,7 +109,7 @@ export class MatchController {
   @Roles(UserRole.ADMIN)
   @UseGuards(AuthGuard, RolesGuard)
   async updateMatch(
-    @Param('id') id: string,
+    @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: UpdateMatchReqDto,
   ): Promise<MatchResDto> {
     return this.matchService.update(id, dto);
@@ -107,7 +120,7 @@ export class MatchController {
   // and the simulator's lock. Was unguarded before.
   @Roles(UserRole.ADMIN)
   @UseGuards(AuthGuard, RolesGuard)
-  async deleteMatch(@Param('id') id: string): Promise<void> {
+  async deleteMatch(@Param('id', ParseUUIDPipe) id: string): Promise<void> {
     return this.matchService.delete(id);
   }
 
@@ -118,7 +131,7 @@ export class MatchController {
   // tactics to expose based on team ownership / admin role — see
   // `MatchService.getTactics`. Was `@Public` + a TODO before.
   async getTactics(
-    @Param('matchId') matchId: string,
+    @Param('matchId', ParseUUIDPipe) matchId: string,
     @CurrentUser() user: JwtPayloadType,
   ): Promise<{
     homeTactics: TacticsResDto | null;
@@ -132,7 +145,7 @@ export class MatchController {
   // Previously `@Public` + commented-out `validateTeamOwnership` —
   // any logged-in user could submit tactics for any team.
   async submitTactics(
-    @Param('matchId') matchId: string,
+    @Param('matchId', ParseUUIDPipe) matchId: string,
     @Body() dto: SubmitTacticsReqDto,
     @CurrentUser() user: JwtPayloadType,
   ): Promise<TacticsResDto> {
@@ -145,7 +158,7 @@ export class MatchController {
   @Put(':matchId/tactics')
   // Same ownership rule as POST.
   async updateTactics(
-    @Param('matchId') matchId: string,
+    @Param('matchId', ParseUUIDPipe) matchId: string,
     @Body() dto: SubmitTacticsReqDto,
     @CurrentUser() user: JwtPayloadType,
   ): Promise<TacticsResDto> {

@@ -440,4 +440,62 @@ describe('MatchService', () => {
       expect(slice).toMatch(/leftJoinAndSelect\(\s*['"]match\.stadium['"]/);
     });
   });
+
+  /**
+   * Source-level tripwire. Every `matchId` / `id` path
+   * param on `MatchController` must be wrapped with
+   * `ParseUUIDPipe`. Pre-fix, a non-uuid value
+   * (`"synthetic-id"` from a Playwright test placeholder
+   * URL `/en/matches/synthetic-id/tactics`) was passed
+   * straight to the SQL query, which PG rejected with
+   * `invalid input syntax for type uuid` and a 500.
+   *
+   * The fix uses Nest's built-in `ParseUUIDPipe` so a
+   * non-uuid param returns 400 BEFORE the SQL query.
+   * That's both the correct HTTP code and what the FE
+   * test expects ("the page will fail to load and
+   * show error state, which is OK" — see
+   * `web/test/tactics-editor.spec.ts:81`).
+   *
+   * Source-level because the alternative is a full
+   * e2e stack (the controller, the routing, the pipe)
+   * which the unit suite doesn't exercise; the contract
+   * is "every matchId-param endpoint is parseUUID'd"
+   * and a regex check on the file pins it.
+   */
+  describe('source-level: matchId / id params are ParseUUIDPipe-validated', () => {
+    it('every @Param with matchId or id name is wrapped in ParseUUIDPipe', () => {
+      const fs = require('fs');
+      const path = require('path');
+      const source = fs.readFileSync(
+        path.join(__dirname, 'match.controller.ts'),
+        'utf8',
+      );
+      // Strip comments so a docstring example
+      // ("@Param('id') id: string") doesn't trip the
+      // test on its own prose.
+      const code = source
+        .replace(/\/\*[\s\S]*?\*\//g, '')
+        .replace(/\/\/.*$/gm, '');
+
+      // Each `@Param('matchId'...)` or `@Param('id'...)`
+      // param must include `ParseUUIDPipe` as the second
+      // argument. We assert this for every match.
+      // The regex looks for `@Param('matchId', ParseUUIDPipe)`
+      // or `@Param('id', ParseUUIDPipe)`. The decorator
+      // might wrap multi-line; we collapse whitespace
+      // to be regex-safe.
+      const normalised = code.replace(/\s+/g, ' ');
+
+      // Find every `@Param('matchId'...)` and `@Param('id'...)`
+      // occurrence and assert the pipe is there.
+      const paramRegex = /@Param\(\s*['"](matchId|id)['"]\s*,?\s*([^)]*)\)/g;
+      const matches = [...normalised.matchAll(paramRegex)];
+      expect(matches.length).toBeGreaterThan(0);
+      for (const m of matches) {
+        const argList = m[2].trim();
+        expect(argList).toMatch(/ParseUUIDPipe/);
+      }
+    });
+  });
 });
