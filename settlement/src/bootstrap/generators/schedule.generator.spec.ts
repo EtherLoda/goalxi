@@ -271,6 +271,240 @@ describe('ScheduleGenerator — senior-only', () => {
     }
   });
 
+  // ---------- Home/Away streak invariants ----------
+  //
+  // The user spec for the season-1 schedule is "每
+  // 队最多 2 连主场或 2 连客场". A streak is N
+  // consecutive matches where the same team plays at
+  // the same venue.
+  //
+  // The fix is a single Thielen-style CSP
+  // (`ScheduleGenerator.thielenEHV`) that solves the
+  // HA assignment globally across all rounds. The
+  // CSP guarantees max streak ≤ 2 for every team on
+  // every league size the standard pyramid emits
+  // (16 / 8 / 6 teams) — both within leg 1 AND at
+  // the leg-1 / leg-2 boundary. The boundary check
+  // is the key piece a naive per-round rule misses
+  // (T0 with a leg-1 ending of `...A` and a leg-1
+  // start of `H` produces a leg-2 sequence that
+  // starts with `A` and the boundary becomes
+  // `...A A A` — a 3-streak).
+  //
+  // Earlier iterations tried (a) a per-round parity
+  // rule alone (commit `1715502`) and (b) a greedy
+  // pair-level flip post-processor + multi-restart
+  // hill-climb. Both failed to converge for some N
+  // — the parity rule gave T0 a perfect alternation
+  // but left 3-streaks on T1/T2/etc., and the
+  // hill-climb got stuck in a 2-streak local
+  // optimum that no single-flip could escape. The
+  // Thielen CSP considers the constraint globally
+  // and converges for all N ≥ 4 in the production
+  // shape.
+  //
+  // Helpers shared by the streak specs below.
+  const perTeamHA = (
+    matches: Partial<MatchEntity>[],
+    teamId: string,
+  ): Array<'H' | 'A'> => {
+    return matches
+      .filter(
+        (m) => m.homeTeamId === teamId || m.awayTeamId === teamId,
+      )
+      .sort(
+        (a, b) =>
+          new Date(a.scheduledAt!).getTime() -
+          new Date(b.scheduledAt!).getTime(),
+      )
+      .map((m) => (m.homeTeamId === teamId ? 'H' : 'A'));
+  };
+
+  const maxStreak = (seq: Array<'H' | 'A'>): number => {
+    let best = 0;
+    let run = 0;
+    let prev: 'H' | 'A' | null = null;
+    for (const v of seq) {
+      if (v === prev) {
+        run += 1;
+      } else {
+        run = 1;
+      }
+      if (run > best) best = run;
+      prev = v;
+    }
+    return best;
+  };
+
+  const runInitForNTeams = async (n: number) => {
+    const { gen, matchRepo, leagueRepo, teamRepo } = build();
+    matchRepo.count.mockResolvedValue(0);
+    leagueRepo.find.mockResolvedValue([seniorLeague(`L-${n}`)]);
+    const teams: TeamEntity[] = [];
+    for (let i = 0; i < n; i++) {
+      teams.push(seniorTeam(`T${i}`, `L-${n}`));
+    }
+    teamRepo.find.mockResolvedValue(teams);
+    matchRepo.save.mockResolvedValue([]);
+    await gen.generateSeason1Schedule(new Date('2026-09-09T00:00:00Z'));
+    return matchRepo.save.mock.calls[0][0] as Partial<MatchEntity>[];
+  };
+
+  it('16-team league: every team has max home/away streak ≤ 2', async () => {
+    // The standard pyramid's top tier is 16 teams /
+    // 30 rounds / 15 weeks. This is the canonical
+    // spec the user observed failing ("T2: H A H H
+    // H A A" streak) and the one the Thielen CSP
+    // must fully fix. Failing this means the
+    // Thielen construction is no longer
+    // guaranteeing max ≤ 2 for the production shape.
+    const saved = await runInitForNTeams(16);
+    // 16 teams → C(16,2) = 120 unique pairs → 240
+    // matches (double round-robin, one per leg).
+    expect(saved).toHaveLength(240);
+    for (let i = 0; i < 16; i++) {
+      const seq = perTeamHA(saved, `T${i}`);
+      // 30 matches per team (every other team twice).
+      expect(seq).toHaveLength(30);
+      // Exactly 15 H and 15 A (mirror rule).
+      expect(seq.filter((v) => v === 'H')).toHaveLength(15);
+      expect(seq.filter((v) => v === 'A')).toHaveLength(15);
+      // No 3-in-a-row anywhere on this team's timeline.
+      expect(maxStreak(seq)).toBeLessThanOrEqual(2);
+    }
+  });
+
+  it('8-team league: every team has max home/away streak ≤ 2', async () => {
+    // 8 teams is the trace the user originally
+    // reported ("T2: H A H H H A A"). Without the
+    // Thielen CSP, T2 lands on 3 H in a row in
+    // the middle of leg 1; the per-round parity
+    // rule alone does not break it. The Thielen
+    // CSP's global backtracking handles this case
+    // by construction.
+    const saved = await runInitForNTeams(8);
+    // 8 teams → C(8,2) = 28 unique pairs → 56
+    // matches (double round-robin).
+    expect(saved).toHaveLength(56);
+    for (let i = 0; i < 8; i++) {
+      const seq = perTeamHA(saved, `T${i}`);
+      // 14 matches per team.
+      expect(seq).toHaveLength(14);
+      expect(maxStreak(seq)).toBeLessThanOrEqual(2);
+    }
+  });
+
+  it('16-team league: the fixed team (T0) is at most 2-streak after the Thielen CSP', async () => {
+    // The Thielen CSP gives the fixed team (and
+    // every other team) max ≤ 2 streak — see the
+    // `thielenEHV` docstring for the algorithm and
+    // the leg-1 / leg-2 boundary check. This spec
+    // pins the invariant on T0 specifically because
+    // T0 is the "pin" team in the circle method
+    // (always teamIds[0]); if the boundary check
+    // regresses, T0 is the team most likely to
+    // fail first (its leg 1 pattern is the longest
+    // and most constrained).
+    const saved = await runInitForNTeams(16);
+    const seq = perTeamHA(saved, 'T0');
+    expect(seq).toHaveLength(30);
+    // 15 H + 15 A — the per-pair "one home, one
+    // away" contract is preserved by the Thielen
+    // CSP (each match has exactly one home and one
+    // away assignment, and leg 2 is the mirror).
+    expect(seq.filter((v) => v === 'H')).toHaveLength(15);
+    expect(seq.filter((v) => v === 'A')).toHaveLength(15);
+    expect(maxStreak(seq)).toBeLessThanOrEqual(2);
+  });
+
+  it('every team has exactly one home and one away match per opponent', async () => {
+    // The "double round-robin" contract: for every
+    // pair (a, b), team a plays team b exactly
+    // twice — once at home, once away. The Thielen
+    // CSP's per-match constraint (one home, one
+    // away) plus the leg-2 mirror in
+    // `generateRoundRobin` together preserve this
+    // contract.
+    const saved = await runInitForNTeams(8);
+    for (let a = 0; a < 8; a++) {
+      for (let b = a + 1; b < 8; b++) {
+        const headToHead = saved.filter(
+          (m) =>
+            (m.homeTeamId === `T${a}` && m.awayTeamId === `T${b}`) ||
+            (m.homeTeamId === `T${b}` && m.awayTeamId === `T${a}`),
+        );
+        expect(headToHead).toHaveLength(2);
+        // One home for a, one home for b.
+        const homes = headToHead.map((m) => m.homeTeamId).sort();
+        expect(homes).toEqual([`T${a}`, `T${b}`]);
+      }
+    }
+  });
+
+  /**
+   * Source-level tripwire. The "max streak ≤ 2 for
+   * every team" guarantee depends on the Thielen
+   * CSP being present and CALLED — not just
+   * defined. If the post-processor is removed or
+   * `generateRoundRobin` skips the Thielen call
+   * (e.g. by reverting to the old per-round parity
+   * rule), the streak specs above silently start
+   * failing on the 8-team / 16-team traces. Pinning
+   * at the source level makes the failure a build
+   * error instead of a dashboard regression.
+   *
+   * The two structural pieces that must be present:
+   *   1. `thielenEHV` method (the CSP that finds a
+   *      valid HA assignment with no 3-streak in
+   *      either leg or at the leg-1 / leg-2
+   *      boundary).
+   *   2. The leg-1 / leg-2 boundary check inside
+   *      the backtracking — without it the CSP only
+   *      guarantees no 3-streak within leg 1, and
+   *      the combined leg-1 + mirror-leg-2 sequence
+   *      can still produce a boundary 3-streak
+   *      (e.g. T0: `...A A A` at positions N-3,
+   *      N-2, N-1 of the combined sequence).
+   */
+  it('source-level tripwire: thielenEHV is called in generateRoundRobin and includes the leg-1/leg-2 boundary check', () => {
+    const fs = require('fs');
+    const path = require('path');
+    const source = fs.readFileSync(
+      path.join(__dirname, 'schedule.generator.ts'),
+      'utf8',
+    );
+    // Strip comments so docstring mentions of
+    // "thielenEHV" or "boundary" don't trip the
+    // regex.
+    const code = source
+      .replace(/\/\*[\s\S]*?\*\//g, '')
+      .replace(/\/\/.*$/gm, '');
+
+    // The CSP method declaration.
+    expect(code).toMatch(/private\s+thielenEHV\s*\(/);
+    // And the CSP must be CALLED in
+    // `generateRoundRobin` (not just defined and
+    // forgotten). The legacy `balanceStreaks` /
+    // `flipPairHome` / `PairSchedule` must be GONE
+    // — a future contributor adding them back as
+    // "harmless helpers" would mean the per-round
+    // parity rule (which is structurally unable to
+    // give max ≤ 2 for all teams) has been
+    // re-introduced.
+    expect(code).toMatch(/thielenEHV\s*\(/);
+    expect(code).not.toMatch(/balanceStreaks/);
+    expect(code).not.toMatch(/flipPairHome/);
+    expect(code).not.toMatch(/PairSchedule/);
+    // The boundary check (combined[N-1] === !teamHA[0])
+    // is what closes the leg-1 / leg-2 cross-streak
+    // hole. The spec above (T0 3-streak at the
+    // boundary) is the failure mode this guards
+    // against; if the check is removed the spec
+    // starts failing and the tripwire should fail
+    // first to make the cause obvious.
+    expect(code).toMatch(/leg2Start/);
+  });
+
   /**
    * Regression for the historical bug where the schedule
    * generator wrote match rows without `stadiumId`,

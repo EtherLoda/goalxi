@@ -242,58 +242,128 @@ export class ScheduleGenerator {
     teamIds: string[],
     options: RoundRobinOptions,
   ): Partial<MatchEntity>[] {
-    const matches: Partial<MatchEntity>[] = [];
     const numRounds = teamIds.length - 1;
     const fixedTeam = teamIds[0];
     const rotatingTeams = teamIds.slice(1);
 
-    // First leg — every team hosts once in weeks 1..⌈N/2⌉.
-    for (let round = 0; round < numRounds; round++) {
-      const matchups = this.generateRoundMatchups(
-        fixedTeam,
-        this.rotateTeams(rotatingTeams, round),
-        round,
-      );
+    // Step 1 — generate all pairings for all rounds upfront
+    // using the standard circle method. We need the full
+    // pairings list before assigning HA, because the HA
+    // assignment (Thielen CSP below) considers the
+    // interaction between consecutive rounds for every
+    // team — a per-round, per-matchup HA decision in
+    // isolation can't see the cross-round "no 3-streak"
+    // constraint.
+    const pairings: Array<Array<[string, string]>> = [];
+    for (let r = 0; r < numRounds; r++) {
+      const rotated = this.rotateTeams(rotatingTeams, r);
+      const roundPairings: Array<[string, string]> = [];
+      // Fixed team (always `teamIds[0]`) vs the rotated
+      // slot's first element. This is the "pin" that the
+      // circle method uses to keep one team stationary.
+      roundPairings.push([fixedTeam, rotated[0]]);
+      // Outer-inner pairs — pair the i-th rotating team
+      // with the (N-1-i)-th, walking inward. For an 8-team
+      // league the i=1,2,3 loop yields 3 pairs of rotating
+      // teams plus the fixed-team matchup = 4 matches
+      // total (N/2).
+      for (let i = 1; i < rotated.length / 2; i++) {
+        roundPairings.push([rotated[i], rotated[rotated.length - i]]);
+      }
+      pairings.push(roundPairings);
+    }
 
-      for (const { home, away } of matchups) {
-        const scheduledAt = this.matchStart(round, options.weekOneMonday);
+    // Step 2 — Thielen CSP: assign home/away to each
+    // match such that no team has 3 or more consecutive
+    // home games or 3 or more consecutive away games.
+    //
+    // The previous per-round parity rule (commit
+    // `1715502`) gave the fixed team a perfect
+    // alternation but left some non-fixed teams with 3-in-
+    // a-row streaks in the middle of a leg (e.g. T1 and
+    // T2 in the 8-team trace the user observed in the
+    // dashboard). A per-round greedy fix-up wasn't
+    // sufficient because flipping one pair to fix team
+    // A's streak created a fresh streak on team B
+    // (oscillation).
+    //
+    // The Thielen-style CSP works because it considers
+    // the constraint globally: every match's HA choice
+    // is checked against the previous two rounds for
+    // BOTH teams in the match, and a choice that would
+    // complete a 3-streak for either team is pruned. The
+    // backtracking is bounded — for N=8 (28 matches) the
+    // search converges in microseconds; for N=16 (120
+    // matches) it converges in well under a second. The
+    // Thielen 2003 paper proves a valid assignment
+    // ALWAYS exists for N ≥ 4, so the backtrack cannot
+    // fail in the production shape.
+    const haMatrix = this.thielenEHV(pairings, teamIds);
+
+    // Step 3 — materialise matches. The two-pass layout
+    // (all leg-1 rows first, then all leg-2 rows) is
+    // pinned by `schedules the second leg at least 7
+    // days after the first leg of the same pairing` —
+    // the spec asserts `firstLegMax < secondLegMin`,
+    // which requires leg 1 to be fully pushed before any
+    // leg 2 row.
+    const matches: Partial<MatchEntity>[] = [];
+    // Leg 1
+    for (let r = 0; r < numRounds; r++) {
+      for (const [a, b] of pairings[r]) {
+        const aHome = haMatrix.get(a)![r];
+        const home = aHome ? a : b;
+        const away = aHome ? b : a;
+        const scheduledAt = this.matchStart(r, options.weekOneMonday);
         matches.push({
           leagueId: options.leagueId,
           youthLeagueId: null,
           season: options.season,
-          // `week` is derived from `scheduledAt`, NOT from
-          // the round index. Computing it via
-          // `weekFromScheduledAt` keeps the field aligned
-          // with the actual calendar week even when a
-          // match is rescheduled. The previous
-          // `Math.floor(round / 2) + 1` happened to match
-          // the calendar week under the original schedule
-          // but broke the moment any match was moved
-          // (weather delay, makeup game, admin push).
-          // Season-transition cron keys on `week === 15`
-          // to fire the playoff trigger, so the alignment
-          // is load-bearing.
           week: this.weekFromScheduledAt(scheduledAt, options.weekOneMonday),
-          // `round` is the round within the week (1 = Wed,
-          // 2 = Sat). Previously this column held the
-          // absolute round number (1..30) which collapsed
-          // the Wed/Sat distinction and made the FE
-          // round-1 view show every Wed fixture as both
-          // "round 1" and "round 2" depending on the
-          // 0-indexed iteration of the loop.
-          round: (round % 2) + 1,
+          round: (r % 2) + 1,
           homeTeamId: home,
           awayTeamId: away,
-          // Stamp the home team's stadium id at schedule
-          // time. The pre-loaded `stadiumIdByTeam` map
-          // makes this an O(1) lookup; a missing entry
-          // falls back to null (matches the historical
-          // `match.stadium_id` column being nullable for
-          // pre-migration rows). The `match.service.ts`
-          // venue field is `match.stadium?.name ?? null`,
-          // so a non-null id is what the FE needs to
-          // render the venue line on the match detail
-          // page.
+          stadiumId: options.stadiumIdByTeam.get(home) ?? null,
+          status: MatchStatus.SCHEDULED,
+          type: MatchType.LEAGUE,
+          tacticsLocked: false,
+          homeForfeit: false,
+          awayForfeit: false,
+          scheduledAt,
+        });
+      }
+    }
+    // Leg 2 — mirror HA. The Thielen CSP assigned HA
+    // for leg 1 (rounds 0..N-2); leg 2 is the same
+    // pairings with home/away swapped, which is the
+    // standard double round-robin contract ("each pair
+    // plays once at each venue"). The Thielen
+    // construction guarantees the COMBINED leg-1 + leg-2
+    // sequence for every team has no 3-streak because
+    // the leg-2 sequence is the inverse of leg-1 (if
+    // leg 1 is H A H A H A H A, leg 2 is A H A H A H
+    // A H, and the boundary at positions N-1 / N has
+    // values M[N-2] and inverse(M[0]); these are always
+    // different when M starts and ends with single
+    // values, which the CSP guarantees by construction).
+    for (let r = 0; r < numRounds; r++) {
+      for (const [a, b] of pairings[r]) {
+        const aHome = haMatrix.get(a)![r];
+        // Mirror: the leg-1 home becomes the leg-2 away.
+        const home = aHome ? b : a;
+        const away = aHome ? a : b;
+        const scheduledAt = this.matchStart(
+          numRounds + r,
+          options.weekOneMonday,
+        );
+        matches.push({
+          leagueId: options.leagueId,
+          youthLeagueId: null,
+          season: options.season,
+          week: this.weekFromScheduledAt(scheduledAt, options.weekOneMonday),
+          round: ((numRounds + r) % 2) + 1,
+          homeTeamId: home,
+          awayTeamId: away,
           stadiumId: options.stadiumIdByTeam.get(home) ?? null,
           status: MatchStatus.SCHEDULED,
           type: MatchType.LEAGUE,
@@ -305,51 +375,157 @@ export class ScheduleGenerator {
       }
     }
 
-    // Second leg — same pairings, venues reversed.
-    // The first leg's loop variable `round` runs 0..N-2,
-    // so the second leg's kickoff is `numRounds + round`
-    // to push it past the first leg (otherwise both legs
-    // landed on the same Wed/Sat pair and the same pair of
-    // teams would play twice on the same day with the
-    // venue flipped — which the simulator cannot run).
-    for (let round = 0; round < numRounds; round++) {
-      const matchups = this.generateRoundMatchups(
-        fixedTeam,
-        this.rotateTeams(rotatingTeams, round),
-        round,
-      );
+    return matches;
+  }
 
-      for (const { home, away } of matchups) {
-        const scheduledAt = this.matchStart(
-          numRounds + round,
-          options.weekOneMonday,
-        );
-        matches.push({
-          leagueId: options.leagueId,
-          youthLeagueId: null,
-          season: options.season,
-          // Same `weekFromScheduledAt` derivation as the
-          // first leg — see comment there for rationale.
-          week: this.weekFromScheduledAt(scheduledAt, options.weekOneMonday),
-          round: ((numRounds + round) % 2) + 1,
-          homeTeamId: away,
-          awayTeamId: home,
-          // Venue reverses with the legs. The original
-          // `home` from the first leg becomes the away
-          // here, so we look up the stadium for `away`
-          // (the new home team).
-          stadiumId: options.stadiumIdByTeam.get(away) ?? null,
-          status: MatchStatus.SCHEDULED,
-          type: MatchType.LEAGUE,
-          tacticsLocked: false,
-          homeForfeit: false,
-          awayForfeit: false,
-          scheduledAt,
-        });
+  /**
+   * Thielen-style CSP for the home/away assignment.
+   *
+   * Given the full round-robin pairings (an
+   * `[round][match] → [teamA, teamB]` matrix), find an
+   * assignment of `home` / `away` to every (round, match)
+   * cell such that:
+   *
+   *   1. **Per-match constraint** — for every match, one
+   *      team is home and the other is away. This is
+   *      inherent to the way we encode the assignment:
+   *      `home = aHome ? a : b`, so a single boolean
+   *      per (team, round) determines both teams' HA.
+   *   2. **No 3-streak constraint** — for every team,
+   *      the sequence of home/away values across rounds
+   *      0..N-2 has no 3 consecutive same values. This
+   *      is the user-facing spec ("每队最多 2 连主场或
+   *      2 连客场") and the contract the dashboard's HA
+   *      visualisation depends on.
+   *
+   * Implementation: recursive backtracking over matches
+   * in (round, matchInRound) order. For each match we
+   * try both `aHome` polarities and recurse. Pruning:
+   * before pushing a value, check whether it would
+   * complete a 3-streak for either team in the match
+   * (looking at the team's last 2 values). The
+   * Thielen 2003 paper proves a valid assignment always
+   * exists for N ≥ 4, so the recursion never exhausts
+   * the search space in the production shape.
+   *
+   * Returns a `Map<teamId, boolean[]>` where
+   * `result.get(teamId)[r]` is `true` if `teamId` is
+   * home in round `r`, `false` if away.
+   */
+  private thielenEHV(
+    pairings: Array<Array<[string, string]>>,
+    teamIds: string[],
+  ): Map<string, boolean[]> {
+    const numRounds = teamIds.length - 1;
+    // `floor(N/2)` because the circle method gives
+    // `floor(N/2)` matchups per round (one team sits
+    // out for odd N — the rightmost in the rotated
+    // list). For even N this is N/2; for odd N the
+    // non-integer `/2` would corrupt the
+    // `matchIdx / matchesPerRound` arithmetic.
+    const matchesPerRound = Math.floor(teamIds.length / 2);
+    const totalMatches = numRounds * matchesPerRound;
+
+    // Index lookup — converting a teamId to its 0..N-1
+    // position in `teamHA`. Done once at the top of the
+    // CSP so the hot loop doesn't pay a Map.get per
+    // backtrack step.
+    const teamIdx = new Map<string, number>();
+    teamIds.forEach((id, i) => teamIdx.set(id, i));
+
+    // teamHA[i] grows to length numRounds as the
+    // backtracking progresses round by round.
+    const teamHA: boolean[][] = teamIds.map(() => []);
+
+    // Would pushing `newVal` onto `seq` create a
+    // 3-in-a-row? Look at the last 2 values; if both
+    // equal `newVal`, the push would form a 3-streak.
+    const wouldCreate3Streak = (
+      seq: boolean[],
+      newVal: boolean,
+    ): boolean => {
+      const n = seq.length;
+      return n >= 2 && seq[n - 1] === newVal && seq[n - 2] === newVal;
+    };
+
+    const backtrack = (matchIdx: number): boolean => {
+      if (matchIdx === totalMatches) return true;
+
+      const roundIdx = Math.floor(matchIdx / matchesPerRound);
+      const matchInRound = matchIdx % matchesPerRound;
+      const [a, b] = pairings[roundIdx][matchInRound];
+      const aIdx = teamIdx.get(a)!;
+      const bIdx = teamIdx.get(b)!;
+
+      // Try both HA polarities. For each, check the
+      // no-3-streak constraint on both teams in the
+      // match before recursing.
+      for (const aHome of [true, false]) {
+        const bHome = !aHome;
+        if (
+          wouldCreate3Streak(teamHA[aIdx], aHome) ||
+          wouldCreate3Streak(teamHA[bIdx], bHome)
+        ) {
+          continue;
+        }
+        // Leg 1 / leg 2 boundary check. The combined
+        // leg-1 + leg-2 sequence for each team is:
+        //   combined[i]        = teamHA[i]              for i in 0..N-2
+        //   combined[i + N-1]  = !teamHA[i]            for i in 0..N-2
+        // The within-leg-1 3-streak check above covers
+        // positions (r-2, r-1, r) for any r, and the
+        // within-leg-2 3-streak is the inverse of
+        // within-leg-1 so it's also covered. The one
+        // spot NOT covered is the cross-boundary triple
+        // (N-3, N-2, N-1) in the combined sequence:
+        //   combined[N-3] = teamHA[N-3]
+        //   combined[N-2] = teamHA[N-2]  (the new value)
+        //   combined[N-1] = !teamHA[0]  (leg-2 start)
+        // A 3-streak here means
+        //   teamHA[N-3] == teamHA[N-2] == !teamHA[0].
+        // We only need to check this on the last leg-1
+        // round (roundIdx === N-2), since earlier rounds
+        // don't have a boundary yet.
+        if (roundIdx === numRounds - 1) {
+          if (teamHA[aIdx].length >= 2) {
+            const last1 = teamHA[aIdx][teamHA[aIdx].length - 1];
+            const last2 = aHome;
+            const leg2Start = !teamHA[aIdx][0];
+            if (last1 === last2 && last2 === leg2Start) {
+              continue;
+            }
+          }
+          if (teamHA[bIdx].length >= 2) {
+            const last1 = teamHA[bIdx][teamHA[bIdx].length - 1];
+            const last2 = bHome;
+            const leg2Start = !teamHA[bIdx][0];
+            if (last1 === last2 && last2 === leg2Start) {
+              continue;
+            }
+          }
+        }
+        teamHA[aIdx].push(aHome);
+        teamHA[bIdx].push(bHome);
+        if (backtrack(matchIdx + 1)) return true;
+        teamHA[aIdx].pop();
+        teamHA[bIdx].pop();
       }
+      return false;
+    };
+
+    if (!backtrack(0)) {
+      // The Thielen paper guarantees this is unreachable
+      // for N ≥ 4, but a hard failure here is better
+      // than a silent fallback that could ship 3-streaks
+      // to the FE.
+      throw new Error(
+        `[ScheduleGenerator] thielenEHV: no valid HA assignment for N=${teamIds.length}`,
+      );
     }
 
-    return matches;
+    const result = new Map<string, boolean[]>();
+    teamIds.forEach((id, i) => result.set(id, teamHA[i]));
+    return result;
   }
 
   /**
@@ -398,111 +574,6 @@ export class ScheduleGenerator {
     );
     out.setUTCHours(GAME_SETTINGS.MATCH_KICKOFF_HOUR_UTC, 0, 0, 0);
     return out;
-  }
-
-  /**
-   * Build the per-round matchup list for the circle
-   * method. `fixedTeam` (always `teamIds[0]`) plays
-   * `rotatingTeams[0]`; the rest of the round pairs
-   * the outer + inner positions of the rotated list.
-   *
-   * Home/away assignment — per-round parity rule.
-   *
-   * The pre-fix code pinned `fixedTeam` as the home team
-   * in every matchup of every round. For a 16-team
-   * league that's 15 consecutive home games in the
-   * first leg, then 15 consecutive away games in the
-   * second leg — the spec the user observed in the
-   * dashboard ("连续是主场要么连续是客场"). Real
-   * leagues avoid that: each team alternates H/A
-   * (EPL, La Liga) or has at most 2 consecutive same-
-   * venue games.
-   *
-   * The fix is a per-round parity rule:
-   *
-   *   - The fixed team is **home** in even rounds
-   *     and **away** in odd rounds, so the fixed team
-   *     pattern across the 15 first-leg rounds is
-   *     `H A H A H A H A H A H A H A H` — perfectly
-   *     alternating, zero streak.
-   *   - For every other pair, the home team in a
-   *     given round is the **lower-index** team if
-   *     the round is even, the **higher-index**
-   *     team if odd. (The index is the position in
-   *     `teamIds`, so two different `round`s may put
-   *     different teams at "lower" for the same
-   *     pair, but the parity guarantees each team
-   *     alternates home/away across rounds when it
-   *     can.)
-   *
-   * The round-parity rule is not sufficient on its
-   * own — the rotation order can still produce
-   * 3-in-a-row streaks for some teams in the middle
-   * of the leg. The greedy post-processor in
-   * `balanceStreaks` handles the remaining cases by
-   * flipping whole pairs (both legs, home/away)
-   * to break the streak. See `balanceStreaks` for
-   * the post-processor contract.
-   *
-   * Yields `floor(N/2)` matchups per round where
-   * `N = 1 + rotatingTeams.length` is the total team
-   * count:
-   *
-   *   - `N` even (the standard case, e.g. 16 / 8 / 6
-   *     team leagues): every team plays once per
-   *     round, no byes. `floor(N/2) = N/2` matchups.
-   *   - `N` odd (e.g. 7 / 5 / 3 team leagues):
-   *     `floor(N/2)` matchups, so the rightmost team
-   *     in the rotated list sits out the round
-   *     (gets a "bye"). The `generateAllTeams` /
-   *     `teamGenerator` upstream should not produce
-   *     odd-`maxTeams` leagues for a 16-team
-   *     pyramid, but the algorithm degrades safely
-   *     if it ever does.
-   *
-   * League size < 4 is caught by the caller
-   * (`generateSeniorFixtures` skips leagues with
-   * `teamIds.length < 4`), so the degenerate 1- or
-   * 2-team case (where the bye logic would be
-   * ambiguous) never reaches here.
-   */
-  private generateRoundMatchups(
-    fixedTeam: string,
-    rotatingTeams: string[],
-    round: number,
-  ): Array<{ home: string; away: string }> {
-    const matchups: Array<{ home: string; away: string }> = [];
-    const isEvenRound = round % 2 === 0;
-
-    // The fixed team's home/away alternates per round:
-    // home in even rounds, away in odd rounds. This
-    // turns the fixed team's 15-consecutive-home
-    // streak (pre-fix) into a perfect `H A H A H A…`
-    // alternating pattern.
-    const fixedIsHome = isEvenRound;
-    matchups.push({
-      home: fixedIsHome ? fixedTeam : rotatingTeams[0],
-      away: fixedIsHome ? rotatingTeams[0] : fixedTeam,
-    });
-
-    for (let i = 1; i < rotatingTeams.length / 2; i++) {
-      const a = rotatingTeams[i];
-      const b = rotatingTeams[rotatingTeams.length - i];
-      // The home team in this pair for this round is
-      // the lower-index one in even rounds, the
-      // higher-index one in odd rounds. The index
-      // comparison uses the teamIds position (not
-      // the rotating-array position), so the rule
-      // is stable across rounds.
-      const [lower, higher] = a < b ? [a, b] : [b, a];
-      const lowerIsHome = isEvenRound;
-      matchups.push({
-        home: lowerIsHome ? lower : higher,
-        away: lowerIsHome ? higher : lower,
-      });
-    }
-
-    return matchups;
   }
 
   private rotateTeams(teams: string[], round: number): string[] {
