@@ -29,6 +29,7 @@
     "at": "@",
     "round": "第 {round} 轮",
     "tbd": "待定",
+    "updated": "已更新",
     "match": "{count} 场比赛",
     "ageFormat": "{y}岁{d}天"
   },
@@ -1519,6 +1520,18 @@
       "title": "球场",
       "subtitle": "容量、上座率、最近比赛与座位扩建/拆除,全部集中在一页。",
       "renameCta": "重命名",
+      "renameDialog": {
+        "title": "重命名球场",
+        "subtitle": "为你主场选一个名字。球迷和媒体在比赛列表里看到的就是这个名称。",
+        "fieldLabel": "球场名称",
+        "placeholder": "例如: 我的梦幻FC球场",
+        "charCount": "{count, plural, =0 {未输入} other {# / 128 字}}",
+        "maxLengthError": "名称过长。",
+        "submit": "保存",
+        "submitting": "保存中…",
+        "cancel": "取消",
+        "submitErrorFallback": "保存失败,请重试。"
+      },
       "lastMatchAttendance": "最近主场上座率",
       "fillRateHint": "占容量",
       "seasonAttendance": "赛季均值",

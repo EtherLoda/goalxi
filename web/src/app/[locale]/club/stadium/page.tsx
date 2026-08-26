@@ -13,6 +13,7 @@ import {
 } from "@/lib/api";
 import { useCurrentTeamId } from "@/stores/gameStore";
 import { ConstructionDialog } from "@/components/club/ConstructionDialog";
+import { RenameStadiumDialog } from "@/components/club/RenameStadiumDialog";
 
 type Locale = "en" | "zh";
 
@@ -124,6 +125,12 @@ export default function StadiumPage() {
   const [dialogKind, setDialogKind] = useState<"expand" | "demolish" | null>(
     null,
   );
+  // The rename dialog is independent of the
+  // expand/demolish dialog (different API endpoint,
+  // different schema) so it lives in its own state
+  // slot rather than overloading `dialogKind` with a
+  // "rename" value that would be a type-lie.
+  const [isRenameOpen, setIsRenameOpen] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
 
   const refresh = async () => {
@@ -254,7 +261,7 @@ export default function StadiumPage() {
             <div className="grid grid-cols-1 lg:grid-cols-[1.4fr_1fr] gap-0">
               {/* Stadium visual */}
               <div className="p-6 lg:p-8">
-                <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center justify-between mb-4 gap-3">
                   <div>
                     <div className="text-[10px] font-black uppercase tracking-[0.3em] text-on-surface-variant mb-1">
                       {tStadium("title")}
@@ -263,6 +270,17 @@ export default function StadiumPage() {
                       {summary.name}
                     </h2>
                   </div>
+                  <button
+                    type="button"
+                    onClick={() => setIsRenameOpen(true)}
+                    className="inline-flex items-center gap-1.5 rounded-full border border-primary/30 bg-primary/5 px-3 py-1.5 text-[10px] font-black uppercase tracking-widest text-primary hover:bg-primary/15 transition-colors"
+                    aria-label={t("renameCta")}
+                  >
+                    <span className="material-symbols-outlined text-[14px]">
+                      edit
+                    </span>
+                    {t("renameCta")}
+                  </button>
                 </div>
                 <StadiumPitch fillRate={fillRate} capacity={summary.capacity} />
               </div>
@@ -481,6 +499,32 @@ export default function StadiumPage() {
           currentEstMatchdayRevenue={summary.estMatchdayRevenue}
           onCancel={() => setDialogKind(null)}
           onSuccess={handleDialogSuccess}
+        />
+      )}
+
+      {/* Rename dialog — independent of the construction
+          dialog (different API endpoint, different
+          schema) so it lives in its own render block. */}
+      {isRenameOpen && summary && (
+        <RenameStadiumDialog
+          teamId={currentTeamId}
+          currentName={summary.name}
+          onCancel={() => setIsRenameOpen(false)}
+          onSuccess={(newName) => {
+            // Optimistic update: stamp the new name into
+            // the local summary so the title re-renders
+            // immediately. The full `refresh()` below
+            // re-fetches the stadium stats (capacity,
+            // attendance, recent matches) so the
+            // rest of the page stays consistent with
+            // the backend's view of the row.
+            setSummary((prev) =>
+              prev ? { ...prev, name: newName } : prev,
+            );
+            setIsRenameOpen(false);
+            setToast(tCommon("common.updated"));
+            void refresh();
+          }}
         />
       )}
     </div>
