@@ -21,6 +21,7 @@ import {
   PlayerTransactionEntity,
   SeasonResultEntity,
   SessionEntity,
+  SystemConfigEntity,
   TacticsPresetEntity,
   TeamEntity,
   TransactionEntity,
@@ -90,6 +91,17 @@ export class TypeOrmConfigService implements TypeOrmOptionsFactory {
         CupRoundEntity,
         CupEntryEntity,
         CupBracketSlotEntity,
+        // `system_config` is the singleton table the
+        // init CLI writes the season anchor to. The
+        // API only started reading it after commit
+        // `3a6773e` (`resolveInitDate` from
+        // `main.ts` / `GameStateService` /
+        // `StaffsService`), so the entity wasn't
+        // registered here before — adding it now
+        // so `DataSource.getMetadata(SystemConfigEntity)`
+        // resolves at boot and the post-init
+        // `system_config.init_date` is readable.
+        SystemConfigEntity,
       ],
       // Exclude `*.spec.ts` / `*.spec.js` so Jest tripwire specs that
       // live next to migrations (see 1722000000000-UnifyYouthIntoPlayer
