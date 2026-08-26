@@ -89,6 +89,9 @@ api/scripts/reset-db.js
 *.md
 !README.md
 !CLAUDE.md
+# Performance / perf-tracking ledger under docs/perf/
+!docs/perf/**
+!docs/perf/
 
 # Design files
 stitch_design/**/*
