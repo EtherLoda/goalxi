@@ -262,6 +262,65 @@ describe('TeamGenerator — post-enrich (batched)', () => {
       expect(loop).not.toMatch(/stadiumRepo\.update\(/);
     }
   });
+
+  /**
+   * The VALUES-clause tuple in the batched UPDATE
+   * has 6 bind parameters per row (team batch) and
+   * 2 per row (stadium batch). PostgreSQL is strict
+   * about expression types in the SET clause: an
+   * untyped `$N` parameter is text by default, and
+   * PG errors with `42804 — column "founded_year" is
+   * of type integer but expression is of type text`
+   * when the destination column is int (or any other
+   * strict type).
+   *
+   * Pin that every parameter in the VALUES tuple is
+   * explicitly cast — `::uuid`, `::int`, `::varchar`,
+   * `::text` per the team entity column types. A
+   * future "let me simplify and drop the casts"
+   * refactor fails this test, not a fresh
+   * `pnpm init:run --force`.
+   */
+  it('source-level: every batch UPDATE parameter has an explicit type cast', () => {
+    const fs = require('fs');
+    const path = require('path');
+    const source = fs.readFileSync(
+      path.join(__dirname, 'team.generator.ts'),
+      'utf8',
+    );
+    // The two batch helpers construct the tuple
+    // string template with `${p++}` placeholders. The
+    // post-fix pattern is `($${p++}::TYPE, ...)` for
+    // every column. Match the tuple template literals
+    // and assert every `$${p++}` is followed by a
+    // `::type` suffix.
+    const tupleTemplates = source.match(
+      /`\(\$\$[\s\S]*?\)`/g,
+    );
+    expect(tupleTemplates).not.toBeNull();
+    for (const tpl of tupleTemplates!) {
+      // Find every `$${p++}` (or `$${p++}` etc.) in
+      // the template and assert the very next
+      // non-whitespace characters are `::TYPE`.
+      const placeholders = tpl.match(/\$\$\{p\+\+\}/g) ?? [];
+      // Cast-assertion regex: `$${p++}::wordchars` —
+      // a placeholder followed by `::` and a type
+      // name. (We anchor on `::` rather than the
+      // specific type so a future column-add or
+      // type-change doesn't have to update the
+      // test, only the cast shape.)
+      const castPattern = /\$\$\{p\+\+\}::[a-zA-Z]+/;
+      const matches = tpl.match(castPattern);
+      // At least one cast in the tuple — if the
+      // template has no casts, that's the regression.
+      expect(matches).not.toBeNull();
+      // And every placeholder in the tuple must be
+      // followed by a `::type` cast.
+      const allCastPattern = /\$\$\{p\+\+\}(?=::)/g;
+      const castPlaceholders = tpl.match(allCastPattern) ?? [];
+      expect(castPlaceholders.length).toBe(placeholders.length);
+    }
+  });
 });
 
 /**

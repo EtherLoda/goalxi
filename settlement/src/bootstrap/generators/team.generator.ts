@@ -458,8 +458,20 @@ export class TeamGenerator {
       const params: unknown[] = [];
       let p = 1;
       for (const r of chunk) {
+        // Explicit per-column casts. The pre-fix
+        // code only cast `id::uuid`; the other 5
+        // parameters were untyped, which PG
+        // rejected with `42804 — column "..."
+        // is of type integer but expression is of
+        // type text` for `founded_year` /
+        // `elo_rating` (the int columns). The
+        // VALUES-clause column types are inferred
+        // from the cast on the FIRST tuple's first
+        // parameter, so casting every column up
+        // front avoids the inference problem and
+        // documents the column types inline.
         tuples.push(
-          `($${p++}::uuid, $${p++}, $${p++}, $${p++}, $${p++}, $${p++})`,
+          `($${p++}::uuid, $${p++}::varchar, $${p++}::int, $${p++}::varchar, $${p++}::int, $${p++}::text)`,
         );
         params.push(
           r.id,
@@ -498,7 +510,14 @@ export class TeamGenerator {
       const params: unknown[] = [];
       let p = 1;
       for (const r of chunk) {
-        tuples.push(`($${p++}::uuid, $${p++})`);
+        // `::uuid` + `::varchar` for the same reason as
+        // the team batch — PG infers the column types
+        // from the cast on the first tuple, and
+        // untyped parameters hit the same `42804`
+        // error when the target column is strict
+        // (varchar here, but the cast is cheap and
+        // self-documenting).
+        tuples.push(`($${p++}::uuid, $${p++}::varchar)`);
         params.push(r.id, r.name);
       }
       const sql = `
