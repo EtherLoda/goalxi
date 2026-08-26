@@ -24,7 +24,6 @@ import {
   StaffRole,
   TrainingCategory,
   MatchPhase,
-  MatchEventType,
   PlayerSkills,
   GKTechnical,
   OutfieldTechnical,
@@ -612,7 +611,14 @@ async function simulateMatch(
       eventRepo.create({
         matchId: match.id,
         minute,
-        type: MatchEventType.GOAL,
+        // `type` (legacy int enum) was dropped in
+        // RFC 0002; the event is now identified by
+        // `typeName` (wire format) + the
+        // `eventClassId` / `outcomeId` two-axis
+        // tuple. This test dev-script just wants
+        // a row to exist; the engine still falls
+        // back to `typeName` when the two-axis is
+        // NULL.
         typeName: 'Goal',
         teamId: match.homeTeamId,
         playerId: scorer?.id,
@@ -628,7 +634,10 @@ async function simulateMatch(
       eventRepo.create({
         matchId: match.id,
         minute,
-        type: MatchEventType.GOAL,
+        // See note on the home loop — `type` was
+        // dropped in RFC 0002; `typeName` is the
+        // wire format and the engine falls back to
+        // it when the two-axis encoding is NULL.
         typeName: 'Goal',
         teamId: match.awayTeamId,
         playerId: scorer?.id,
