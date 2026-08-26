@@ -444,29 +444,38 @@ describe('ScheduleGenerator — senior-only', () => {
   /**
    * Source-level tripwire. The "max streak ≤ 2 for
    * every team" guarantee depends on the Thielen
-   * CSP being present and CALLED — not just
-   * defined. If the post-processor is removed or
-   * `generateRoundRobin` skips the Thielen call
-   * (e.g. by reverting to the old per-round parity
-   * rule), the streak specs above silently start
-   * failing on the 8-team / 16-team traces. Pinning
-   * at the source level makes the failure a build
-   * error instead of a dashboard regression.
+   * CSP being CALLED in `generateRoundRobin` —
+   * not just imported. The CSP itself lives in
+   * `libs/database/src/services/thielen-ehv.ts` so
+   * the schedule generator imports it from
+   * `@goalxi/database` and calls it on the
+   * circle-method pairings.
    *
-   * The two structural pieces that must be present:
-   *   1. `thielenEHV` method (the CSP that finds a
-   *      valid HA assignment with no 3-streak in
-   *      either leg or at the leg-1 / leg-2
-   *      boundary).
-   *   2. The leg-1 / leg-2 boundary check inside
-   *      the backtracking — without it the CSP only
-   *      guarantees no 3-streak within leg 1, and
-   *      the combined leg-1 + mirror-leg-2 sequence
-   *      can still produce a boundary 3-streak
-   *      (e.g. T0: `...A A A` at positions N-3,
-   *      N-2, N-1 of the combined sequence).
+   * If a future contributor reverts the call to
+   * `thielenEHV` (e.g. by inlining a per-round parity
+   * rule, or by going back to a `balanceStreaks`
+   * post-processor that can't converge for some N),
+   * the streak specs above silently start failing on
+   * the 8-team / 16-team traces. Pinning at the
+   * source level makes the failure a build error
+   * instead of a dashboard regression.
+   *
+   * The legacy in-this-file helpers must be GONE:
+   *   - `balanceStreaks` — pair-level greedy
+   *     post-processor; oscillates and never
+   *     converges for N=8 / N=16.
+   *   - `flipPairHome` — pair-flip primitive
+   *     powering the greedy post-processor.
+   *   - `PairSchedule` — pair-level data structure
+   *     powering the greedy post-processor.
+   *
+   * Re-introducing any of them as "harmless
+   * helpers" is the structural shape of the
+   * per-round-parity regression — a future
+   * contributor doing that is the failure mode the
+   * tripwire is built to catch.
    */
-  it('source-level tripwire: thielenEHV is called in generateRoundRobin and includes the leg-1/leg-2 boundary check', () => {
+  it('source-level tripwire: thielenEHV is called in generateRoundRobin and legacy helpers are absent', () => {
     const fs = require('fs');
     const path = require('path');
     const source = fs.readFileSync(
@@ -480,29 +489,77 @@ describe('ScheduleGenerator — senior-only', () => {
       .replace(/\/\*[\s\S]*?\*\//g, '')
       .replace(/\/\/.*$/gm, '');
 
-    // The CSP method declaration.
-    expect(code).toMatch(/private\s+thielenEHV\s*\(/);
+    // The CSP must be IMPORTED from @goalxi/database
+    // (it lives in libs/database/src/services/
+    // thielen-ehv.ts).
+    expect(code).toMatch(/thielenEHV\s*[,}]/);
+    // The circle-method pairings helper must also be
+    // imported (it lives in the same module).
+    expect(code).toMatch(/circleMethodPairings\s*[,}]/);
     // And the CSP must be CALLED in
-    // `generateRoundRobin` (not just defined and
-    // forgotten). The legacy `balanceStreaks` /
-    // `flipPairHome` / `PairSchedule` must be GONE
-    // — a future contributor adding them back as
-    // "harmless helpers" would mean the per-round
-    // parity rule (which is structurally unable to
-    // give max ≤ 2 for all teams) has been
-    // re-introduced.
+    // `generateRoundRobin` (not just imported and
+    // forgotten). The legacy helpers must be GONE.
     expect(code).toMatch(/thielenEHV\s*\(/);
     expect(code).not.toMatch(/balanceStreaks/);
     expect(code).not.toMatch(/flipPairHome/);
     expect(code).not.toMatch(/PairSchedule/);
-    // The boundary check (combined[N-1] === !teamHA[0])
-    // is what closes the leg-1 / leg-2 cross-streak
-    // hole. The spec above (T0 3-streak at the
-    // boundary) is the failure mode this guards
-    // against; if the check is removed the spec
-    // starts failing and the tripwire should fail
-    // first to make the cause obvious.
+    // No inline CSP — the algorithm must come from
+    // the shared utility so the season-scheduler's
+    // mid-season reschedule path uses the same
+    // guarantee. An inline `private thielenEHV`
+    // method means the scheduler silently reverts
+    // to whatever it had before the extraction.
+    expect(code).not.toMatch(/private\s+thielenEHV\s*\(/);
+  });
+
+  /**
+   * Source-level tripwire on the SHARED utility.
+   * The leg-1 / leg-2 boundary check (the
+   * `!teamHA[0]` comparison in the
+   * `roundIdx === numRounds - 1` branch) is the
+   * piece that closes the cross-boundary
+   * 3-streak hole. Without it T0 ends up with
+   * `...A A A` at positions N-3, N-2, N-1 of the
+   * combined leg-1 + mirror-leg-2 sequence and
+   * the tripwire spec above (T0 max ≤ 2) fails
+   * first to make the regression root-cause
+   * obvious. The check is in
+   * `libs/database/src/services/thielen-ehv.ts`,
+   * not the generator file, so it gets its own
+   * tripwire.
+   */
+  it('source-level tripwire: shared thielen-ehv utility includes the leg-1/leg-2 boundary check', () => {
+    const fs = require('fs');
+    const path = require('path');
+    // The utility is one level up from the
+    // bootstrap/generators dir.
+    const utilityPath = path.join(
+      __dirname,
+      '..',
+      '..',
+      '..',
+      '..',
+      'libs',
+      'database',
+      'src',
+      'services',
+      'thielen-ehv.ts',
+    );
+    const source = fs.readFileSync(utilityPath, 'utf8');
+    const code = source
+      .replace(/\/\*[\s\S]*?\*\//g, '')
+      .replace(/\/\/.*$/gm, '');
+
+    // The `leg2Start` variable is the clearest
+    // surface for the boundary check; checking the
+    // string guards against someone deleting the
+    // `if (roundIdx === numRounds - 1)` branch in
+    // a future refactor.
     expect(code).toMatch(/leg2Start/);
+    // And the `roundIdx === numRounds - 1` guard
+    // must still gate the boundary check, so the
+    // check doesn't fire on every match.
+    expect(code).toMatch(/roundIdx\s*===\s*numRounds\s*-\s*1/);
   });
 
   /**

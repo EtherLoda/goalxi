@@ -83,5 +83,6 @@ export * from './services/player-decline';
 export * from './services/specialty-generator';
 export * from './services/init-date-resolver';
 export * from './services/cup-calculator';
+export * from './services/thielen-ehv';
 export * from './types/match-event-data';
 export * from './types/simulation-player';

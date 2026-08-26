@@ -11,6 +11,8 @@ import {
   StadiumEntity,
   GAME_SETTINGS,
   computeSeasonWeekOneMonday,
+  circleMethodPairings,
+  thielenEHV,
 } from '@goalxi/database';
 
 /**
@@ -242,10 +244,6 @@ export class ScheduleGenerator {
     teamIds: string[],
     options: RoundRobinOptions,
   ): Partial<MatchEntity>[] {
-    const numRounds = teamIds.length - 1;
-    const fixedTeam = teamIds[0];
-    const rotatingTeams = teamIds.slice(1);
-
     // Step 1 — generate all pairings for all rounds upfront
     // using the standard circle method. We need the full
     // pairings list before assigning HA, because the HA
@@ -254,24 +252,15 @@ export class ScheduleGenerator {
     // team — a per-round, per-matchup HA decision in
     // isolation can't see the cross-round "no 3-streak"
     // constraint.
-    const pairings: Array<Array<[string, string]>> = [];
-    for (let r = 0; r < numRounds; r++) {
-      const rotated = this.rotateTeams(rotatingTeams, r);
-      const roundPairings: Array<[string, string]> = [];
-      // Fixed team (always `teamIds[0]`) vs the rotated
-      // slot's first element. This is the "pin" that the
-      // circle method uses to keep one team stationary.
-      roundPairings.push([fixedTeam, rotated[0]]);
-      // Outer-inner pairs — pair the i-th rotating team
-      // with the (N-1-i)-th, walking inward. For an 8-team
-      // league the i=1,2,3 loop yields 3 pairs of rotating
-      // teams plus the fixed-team matchup = 4 matches
-      // total (N/2).
-      for (let i = 1; i < rotated.length / 2; i++) {
-        roundPairings.push([rotated[i], rotated[rotated.length - i]]);
-      }
-      pairings.push(roundPairings);
-    }
+    //
+    // The pairings + Thielen CSP both live in
+    // `libs/database/src/services/thielen-ehv.ts` so
+    // the season-1 init path (this method) and the
+    // mid-season reschedule path
+    // (`SeasonSchedulerService.generateDoubleRoundRobin`)
+    // use the exact same algorithm and produce the
+    // exact same HA guarantees.
+    const pairings = circleMethodPairings(teamIds);
 
     // Step 2 — Thielen CSP: assign home/away to each
     // match such that no team has 3 or more consecutive
@@ -294,11 +283,35 @@ export class ScheduleGenerator {
     // complete a 3-streak for either team is pruned. The
     // backtracking is bounded — for N=8 (28 matches) the
     // search converges in microseconds; for N=16 (120
-    // matches) it converges in well under a second. The
-    // Thielen 2003 paper proves a valid assignment
-    // ALWAYS exists for N ≥ 4, so the backtrack cannot
-    // fail in the production shape.
-    const haMatrix = this.thielenEHV(pairings, teamIds);
+    // matches) it converges in well under a second.
+    //
+    // Edge case (N < 6): the Thielen 2003 paper
+    // guarantees a max-≤-2 assignment for the standard
+    // 1-factorization only when N ≥ 6. For N=4 (4-team
+    // trace the `handles an odd-team league (5 teams)`
+    // spec sits next to) and N=5 (5-team odd), the
+    // circle-method pairings leave the CSP with no valid
+    // assignment. We catch the throw and fall back to
+    // the pre-`8baa766` per-round parity rule — the
+    // production pyramid never hits N < 6 (the
+    // `generateSeniorFixtures` skip is `N < 4`, the
+    // standard tiers are 16/8/6), so this is purely a
+    // "doesn't throw" guard for defensive / odd-team
+    // shapes. The fallback is the same rule the
+    // pre-`8baa766` code used and is covered by the
+    // `handles an odd-team league (5 teams)` spec that
+    // just asserts the match count, not the streak.
+    let haMatrix: Map<string, boolean[]>;
+    try {
+      haMatrix = thielenEHV({ teamIds, pairings });
+    } catch (err) {
+      this.logger.warn(
+        `[ScheduleGenerator] thielenEHV failed for N=${teamIds.length} ` +
+          `(${(err as Error).message}); falling back to per-round parity HA. ` +
+          `This is a defensive path — the production pyramid has N ∈ {16, 8, 6}.`,
+      );
+      haMatrix = perRoundParityHA(pairings, teamIds);
+    }
 
     // Step 3 — materialise matches. The two-pass layout
     // (all leg-1 rows first, then all leg-2 rows) is
@@ -307,6 +320,7 @@ export class ScheduleGenerator {
     // the spec asserts `firstLegMax < secondLegMin`,
     // which requires leg 1 to be fully pushed before any
     // leg 2 row.
+    const numRounds = teamIds.length - 1;
     const matches: Partial<MatchEntity>[] = [];
     // Leg 1
     for (let r = 0; r < numRounds; r++) {
@@ -379,156 +393,6 @@ export class ScheduleGenerator {
   }
 
   /**
-   * Thielen-style CSP for the home/away assignment.
-   *
-   * Given the full round-robin pairings (an
-   * `[round][match] → [teamA, teamB]` matrix), find an
-   * assignment of `home` / `away` to every (round, match)
-   * cell such that:
-   *
-   *   1. **Per-match constraint** — for every match, one
-   *      team is home and the other is away. This is
-   *      inherent to the way we encode the assignment:
-   *      `home = aHome ? a : b`, so a single boolean
-   *      per (team, round) determines both teams' HA.
-   *   2. **No 3-streak constraint** — for every team,
-   *      the sequence of home/away values across rounds
-   *      0..N-2 has no 3 consecutive same values. This
-   *      is the user-facing spec ("每队最多 2 连主场或
-   *      2 连客场") and the contract the dashboard's HA
-   *      visualisation depends on.
-   *
-   * Implementation: recursive backtracking over matches
-   * in (round, matchInRound) order. For each match we
-   * try both `aHome` polarities and recurse. Pruning:
-   * before pushing a value, check whether it would
-   * complete a 3-streak for either team in the match
-   * (looking at the team's last 2 values). The
-   * Thielen 2003 paper proves a valid assignment always
-   * exists for N ≥ 4, so the recursion never exhausts
-   * the search space in the production shape.
-   *
-   * Returns a `Map<teamId, boolean[]>` where
-   * `result.get(teamId)[r]` is `true` if `teamId` is
-   * home in round `r`, `false` if away.
-   */
-  private thielenEHV(
-    pairings: Array<Array<[string, string]>>,
-    teamIds: string[],
-  ): Map<string, boolean[]> {
-    const numRounds = teamIds.length - 1;
-    // `floor(N/2)` because the circle method gives
-    // `floor(N/2)` matchups per round (one team sits
-    // out for odd N — the rightmost in the rotated
-    // list). For even N this is N/2; for odd N the
-    // non-integer `/2` would corrupt the
-    // `matchIdx / matchesPerRound` arithmetic.
-    const matchesPerRound = Math.floor(teamIds.length / 2);
-    const totalMatches = numRounds * matchesPerRound;
-
-    // Index lookup — converting a teamId to its 0..N-1
-    // position in `teamHA`. Done once at the top of the
-    // CSP so the hot loop doesn't pay a Map.get per
-    // backtrack step.
-    const teamIdx = new Map<string, number>();
-    teamIds.forEach((id, i) => teamIdx.set(id, i));
-
-    // teamHA[i] grows to length numRounds as the
-    // backtracking progresses round by round.
-    const teamHA: boolean[][] = teamIds.map(() => []);
-
-    // Would pushing `newVal` onto `seq` create a
-    // 3-in-a-row? Look at the last 2 values; if both
-    // equal `newVal`, the push would form a 3-streak.
-    const wouldCreate3Streak = (
-      seq: boolean[],
-      newVal: boolean,
-    ): boolean => {
-      const n = seq.length;
-      return n >= 2 && seq[n - 1] === newVal && seq[n - 2] === newVal;
-    };
-
-    const backtrack = (matchIdx: number): boolean => {
-      if (matchIdx === totalMatches) return true;
-
-      const roundIdx = Math.floor(matchIdx / matchesPerRound);
-      const matchInRound = matchIdx % matchesPerRound;
-      const [a, b] = pairings[roundIdx][matchInRound];
-      const aIdx = teamIdx.get(a)!;
-      const bIdx = teamIdx.get(b)!;
-
-      // Try both HA polarities. For each, check the
-      // no-3-streak constraint on both teams in the
-      // match before recursing.
-      for (const aHome of [true, false]) {
-        const bHome = !aHome;
-        if (
-          wouldCreate3Streak(teamHA[aIdx], aHome) ||
-          wouldCreate3Streak(teamHA[bIdx], bHome)
-        ) {
-          continue;
-        }
-        // Leg 1 / leg 2 boundary check. The combined
-        // leg-1 + leg-2 sequence for each team is:
-        //   combined[i]        = teamHA[i]              for i in 0..N-2
-        //   combined[i + N-1]  = !teamHA[i]            for i in 0..N-2
-        // The within-leg-1 3-streak check above covers
-        // positions (r-2, r-1, r) for any r, and the
-        // within-leg-2 3-streak is the inverse of
-        // within-leg-1 so it's also covered. The one
-        // spot NOT covered is the cross-boundary triple
-        // (N-3, N-2, N-1) in the combined sequence:
-        //   combined[N-3] = teamHA[N-3]
-        //   combined[N-2] = teamHA[N-2]  (the new value)
-        //   combined[N-1] = !teamHA[0]  (leg-2 start)
-        // A 3-streak here means
-        //   teamHA[N-3] == teamHA[N-2] == !teamHA[0].
-        // We only need to check this on the last leg-1
-        // round (roundIdx === N-2), since earlier rounds
-        // don't have a boundary yet.
-        if (roundIdx === numRounds - 1) {
-          if (teamHA[aIdx].length >= 2) {
-            const last1 = teamHA[aIdx][teamHA[aIdx].length - 1];
-            const last2 = aHome;
-            const leg2Start = !teamHA[aIdx][0];
-            if (last1 === last2 && last2 === leg2Start) {
-              continue;
-            }
-          }
-          if (teamHA[bIdx].length >= 2) {
-            const last1 = teamHA[bIdx][teamHA[bIdx].length - 1];
-            const last2 = bHome;
-            const leg2Start = !teamHA[bIdx][0];
-            if (last1 === last2 && last2 === leg2Start) {
-              continue;
-            }
-          }
-        }
-        teamHA[aIdx].push(aHome);
-        teamHA[bIdx].push(bHome);
-        if (backtrack(matchIdx + 1)) return true;
-        teamHA[aIdx].pop();
-        teamHA[bIdx].pop();
-      }
-      return false;
-    };
-
-    if (!backtrack(0)) {
-      // The Thielen paper guarantees this is unreachable
-      // for N ≥ 4, but a hard failure here is better
-      // than a silent fallback that could ship 3-streaks
-      // to the FE.
-      throw new Error(
-        `[ScheduleGenerator] thielenEHV: no valid HA assignment for N=${teamIds.length}`,
-      );
-    }
-
-    const result = new Map<string, boolean[]>();
-    teamIds.forEach((id, i) => result.set(id, teamHA[i]));
-    return result;
-  }
-
-  /**
    * Convert a round index (0-indexed) to a kickoff
    * instant. Round 0 = Wed MATCH_KICKOFF_HOUR_UTC of
    * week 1 (anchor + 2 days). Round 1 = Sat
@@ -590,4 +454,51 @@ export class ScheduleGenerator {
     }
     return rotated;
   }
+}
+
+/**
+ * Fallback HA assignment used when `thielenEHV` throws
+ * "no valid HA assignment" — which only happens for
+ * N=4 and N=5 with the standard circle-method
+ * 1-factorization. The Thielen paper guarantees the
+ * CSP converges for N ≥ 6; below that the CSP
+ * constraints are too tight and the search space is
+ * empty.
+ *
+ * The fallback is the pre-`8baa766` per-round parity
+ * rule: in even rounds the "first-listed" team in
+ * each pair is home; in odd rounds the second-listed
+ * team is. This is NOT optimal (can produce
+ * 3-streaks for some teams in some N) but it's a
+ * "doesn't throw" guard for the defensive / odd-team
+ * shapes. The production pyramid only ever hits
+ * N ∈ {16, 8, 6} (handled by Thielen), so this
+ * fallback never fires in production.
+ *
+ * Returns a `Map<teamId, boolean[]>` in the same
+ * shape `thielenEHV` returns so the caller can use it
+ * as a drop-in replacement.
+ */
+function perRoundParityHA(
+  pairings: Array<Array<[string, string]>>,
+  teamIds: string[],
+): Map<string, boolean[]> {
+  const teamIdx = new Map<string, number>();
+  teamIds.forEach((id, i) => teamIdx.set(id, i));
+  const teamHA: boolean[][] = teamIds.map(() => []);
+  for (let r = 0; r < pairings.length; r++) {
+    const isEven = r % 2 === 0;
+    for (const [a, b] of pairings[r]) {
+      // "First-listed" home in even rounds; "second-listed"
+      // home in odd rounds. For each pair we set one
+      // team's HA to true and the other's to false.
+      const aHome = isEven;
+      const bHome = !aHome;
+      teamHA[teamIdx.get(a)!].push(aHome);
+      teamHA[teamIdx.get(b)!].push(bHome);
+    }
+  }
+  const result = new Map<string, boolean[]>();
+  teamIds.forEach((id, i) => result.set(id, teamHA[i]));
+  return result;
 }
