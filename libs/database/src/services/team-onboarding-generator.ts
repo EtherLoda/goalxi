@@ -292,7 +292,23 @@ export async function createTeam(
   //    manager; encapsulated inside each helper).
   await generateTeamFinance(manager, team.id, params.isBot);
   await generateTeamFan(manager, team.id, params.isBot);
-  await generateTeamStadium(manager, team.id);
+  const stadium = await generateTeamStadium(manager, team.id);
+
+  // 5b. On a claim (`existingTeamId` is set), auto-rename
+  //     the freshly-created stadium to `${teamName} Stadium`
+  //     so the new manager lands on a personalised venue
+  //     name on day 1. The bot path keeps the city-based
+  //     name (`${city}体育中心`) the init generator
+  //     already applied via the `enrichAllTeams` pass; the
+  //     manager can rename later via
+  //     `PATCH /teams/:teamId/stadium` (the rename API
+  //     already exists, FE UI is the only missing piece).
+  //     The name is set on the new stadium row only (the
+  //     historical stadium — if any — was just scrubbed).
+  if (params.existingTeamId) {
+    stadium.name = `${params.name} Stadium`;
+    await manager.save(stadium);
+  }
 
   // 6. League standing — the bot path needs it for the
   //    season-1 schedule, the manager path needs it so the
@@ -869,6 +885,32 @@ export async function generateTeamFan(
  * host home matches on day 1 — a half-built stadium would
  * block the first home fixture and force a construction
  * timer nobody signed up for.
+ *
+ * After the create, re-link every historical `match.stadium_id`
+ * for the team to the new stadium. The pre-fix flow was:
+ *
+ *   1. `scrubManagerSpecificData` deletes the OLD
+ *      stadium row (call site in `createTeam`).
+ *   2. The `match.stadium_id → stadium.id` FK is
+ *      `ON DELETE SET NULL` (per migration
+ *      `1721000000001-AddMatchStadiumId`), so step 1
+ *      silently set every historical match's
+ *      `stadium_id` to NULL.
+ *   3. `generateTeamStadium` inserts the NEW stadium
+ *      row with a different UUID, but no path
+ *      re-stamped the historical matches. Result:
+ *      30 historical matches for the claimed team
+ *      all rendered "TBD" in the FE's venue
+ *      column, and the `MatchService.findAll` /
+ *      `findOne` `mapToResDto` returned
+ *      `venue: null`.
+ *
+ * The re-link below fixes that: a single `UPDATE
+ * match` brings every previously-NULL historical
+ * row for the team to the new stadium id. The
+ * `WHERE stadium_id IS NULL` predicate keeps the
+ * query safe to re-run (idempotent: re-running the
+ * claim on the same team won't double-apply).
  */
 export async function generateTeamStadium(
   manager: EntityManager,
@@ -879,7 +921,22 @@ export async function generateTeamStadium(
     capacity: DEFAULT_STADIUM_CAPACITY,
     isBuilt: true,
   });
-  return manager.save(row);
+  const saved = await manager.save(row);
+  // Re-stamp the team's historical matches so
+  // `match.stadium_id` points at the new stadium.
+  // See the docstring above for why this is
+  // needed; in short, the FK is `ON DELETE SET NULL`
+  // and the scrub's `DELETE FROM stadium` would
+  // otherwise leave every historical match with
+  // a NULL venue.
+  await manager.query(
+    `UPDATE "match"
+        SET "stadium_id" = $1
+      WHERE "home_team_id" = $2
+        AND "stadium_id" IS NULL`,
+    [saved.id, teamId],
+  );
+  return saved;
 }
 
 /**

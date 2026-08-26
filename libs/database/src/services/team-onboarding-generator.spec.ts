@@ -435,6 +435,205 @@ describe('createTeam — existingTeamId (onboarding claim)', () => {
       }),
     ).rejects.toThrow(/existingTeamId/);
   });
+
+  /**
+   * On a claim, the freshly-created stadium is auto-named
+   * `${teamName} Stadium` so the new manager lands on a
+   * personalised venue on day 1. The bot path keeps the
+   * city-based name from the init `enrichAllTeams` pass.
+   */
+  it('auto-renames the new stadium to `${teamName} Stadium` on claim', async () => {
+    const existingId = 'preserved-uuid' as Uuid;
+    const existingTeam = {
+      id: existingId,
+      name: 'Bot Original',
+      isBot: true,
+      userId: 'user-bot',
+      botLevel: 5,
+      leagueId: sampleLeague.id,
+      nationality: 'CN',
+    } as unknown as TeamEntity;
+
+    // `manager.save` is called multiple times (team row,
+    // players, staff, finance, fan, stadium, standing). The
+    // stadium save is the one we want to inspect — the
+    // mock returns whatever was passed, so the captured
+    // stadium is the most recent call's argument.
+    const savedRows: any[] = [];
+    const manager = {
+      findOne: jest.fn().mockResolvedValue(existingTeam),
+      create: jest.fn((_E: unknown, data: unknown) => ({
+        id: 'mock-row-id',
+        ...((data as object) ?? {}),
+      })),
+      save: jest.fn(async (rows: any) => {
+        const list = Array.isArray(rows) ? rows : [rows];
+        for (const r of list) {
+          savedRows.push(r);
+        }
+        return rows;
+      }),
+      query: jest.fn().mockResolvedValue({ rowCount: 0, rows: [] }),
+      createQueryBuilder: jest.fn(() => {
+        const chain: any = {};
+        for (const m of ['update', 'set', 'where', 'andWhere']) {
+          chain[m] = jest.fn(() => chain);
+        }
+        chain.execute = jest.fn().mockResolvedValue(undefined);
+        return chain;
+      }),
+    } as any;
+
+    await createTeam(manager, {
+      leagueId: sampleLeague.id,
+      name: 'My Awesome FC',
+      nationality: 'CN',
+      isBot: false,
+      userId: 'user-mgr',
+      existingTeamId: existingId,
+    });
+
+    // Find the stadium row in the saved set — the
+    // `generateTeamStadium` save lands BEFORE the
+    // `auto-rename` save, so the LAST save call with a
+    // `name` field matching the format wins.
+    const stadiumSaves = savedRows.filter(
+      (r) => typeof r.name === 'string' && /Stadium$/.test(r.name),
+    );
+    expect(stadiumSaves.length).toBeGreaterThan(0);
+    const lastStadium = stadiumSaves[stadiumSaves.length - 1];
+    expect(lastStadium.name).toBe('My Awesome FC Stadium');
+  });
+
+  /**
+   * The pre-fix claim flow left every historical `match.stadium_id`
+   * NULL because:
+   *   1. `scrubManagerSpecificData` `DELETE FROM stadium` cascades
+   *      to matches via the `ON DELETE SET NULL` FK.
+   *   2. `generateTeamStadium` inserts a new stadium with a
+   *      different UUID; no path re-stamped the historical
+   *      matches.
+   *
+   * The fix: `generateTeamStadium` re-links every
+   * `home_team_id = $teamId AND stadium_id IS NULL` row to
+   * the new stadium. Pin the relink here so a future
+   * "let me drop the relink" refactor fails the test, not
+   * the dashboard's 30 historical-match TBD column.
+   */
+  it('re-links the team\'s historical matches to the new stadium', async () => {
+    const existingId = 'preserved-uuid' as Uuid;
+    const existingTeam = {
+      id: existingId,
+      name: 'Bot Original',
+      isBot: true,
+      userId: 'user-bot',
+      botLevel: 5,
+      leagueId: sampleLeague.id,
+      nationality: 'CN',
+    } as unknown as TeamEntity;
+
+    const queryCalls: { sql: string; params: any[] }[] = [];
+    const manager = {
+      findOne: jest.fn().mockResolvedValue(existingTeam),
+      create: jest.fn((_E: unknown, data: unknown) => ({
+        id: 'mock-row-id',
+        ...((data as object) ?? {}),
+      })),
+      save: jest.fn(async (rows: any) => rows),
+      query: jest.fn(async (sql: string, params?: any[]) => {
+        queryCalls.push({ sql, params: params ?? [] });
+        return { rowCount: 0, rows: [] };
+      }),
+      createQueryBuilder: jest.fn(() => {
+        const chain: any = {};
+        for (const m of ['update', 'set', 'where', 'andWhere']) {
+          chain[m] = jest.fn(() => chain);
+        }
+        chain.execute = jest.fn().mockResolvedValue(undefined);
+        return chain;
+      }),
+    } as any;
+
+    await createTeam(manager, {
+      leagueId: sampleLeague.id,
+      name: 'My Awesome FC',
+      nationality: 'CN',
+      isBot: false,
+      userId: 'user-mgr',
+      existingTeamId: existingId,
+    });
+
+    // The relink query must reference the new stadium
+    // (the most recent create() return id) AND the team
+    // id AND filter to NULL rows only.
+    const relink = queryCalls.find(
+      (c) =>
+        c.sql.includes('UPDATE') &&
+        c.sql.includes('"match"') &&
+        c.sql.includes('stadium_id') &&
+        c.sql.includes('home_team_id'),
+    );
+    expect(relink).toBeDefined();
+    // The relink is idempotent — only NULL rows are
+    // touched, so a re-run on the same team is a no-op.
+    // The actual SQL has no whitespace between the
+    // column name and `IS NULL` (`"stadium_id" IS NULL`).
+    expect(relink!.sql).toMatch(/stadium_id"\s+IS\s+NULL/i);
+  });
+
+  /**
+   * Belt-and-braces: the init path (no `existingTeamId`)
+   * must NOT auto-rename the stadium. Bot teams keep the
+   * city-based name from the init `enrichAllTeams` pass.
+   */
+  it('does NOT auto-rename on the init path (no existingTeamId)', async () => {
+    const createdStadium: any[] = [];
+    const manager = {
+      findOne: jest.fn(),
+      create: jest.fn((_E: unknown, data: unknown) => {
+        const row = { id: 'mock-row-id', ...((data as object) ?? {}) };
+        if ((data as any)?.teamId && (data as any)?.capacity) {
+          createdStadium.push(row);
+        }
+        return row;
+      }),
+      save: jest.fn(async (rows: any) => rows),
+      query: jest.fn().mockResolvedValue({ rowCount: 0, rows: [] }),
+      createQueryBuilder: jest.fn(() => {
+        const chain: any = {};
+        for (const m of ['update', 'set', 'where', 'andWhere']) {
+          chain[m] = jest.fn(() => chain);
+        }
+        chain.execute = jest.fn().mockResolvedValue(undefined);
+        return chain;
+      }),
+    } as any;
+
+    await createTeam(manager, {
+      leagueId: sampleLeague.id,
+      name: '北京FC',
+      nationality: 'CN',
+      isBot: true,
+      userId: null, // bot path
+      shortCode: 'FC1',
+    });
+
+    // The freshly-created stadium row's name is whatever
+    // `manager.create(StadiumEntity, ...)` set — the
+    // helper only fills `teamId` / `capacity` / `isBuilt`.
+    // The auto-rename step (which writes `${name} Stadium`)
+    // is conditional on `existingTeamId` and must NOT run
+    // here. The mock's `create` doesn't pre-populate `name`
+    // because the entity declaration doesn't default it,
+    // so the stadium row's name is `undefined` on the
+    // init path. The real init flow gets the city-based
+    // name from the post-enrichment pass
+    // (`TeamGenerator.enrichAllTeams`); we don't test
+    // that here.
+    for (const s of createdStadium) {
+      expect(s.name).toBeUndefined();
+    }
+  });
 });
 
 describe('createTeam — OVR range', () => {
