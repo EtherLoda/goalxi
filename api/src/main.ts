@@ -1,4 +1,4 @@
-import { resolveGameStart } from '@goalxi/database';
+import { resolveInitDate } from '@goalxi/database';
 import { LOGGER_SERVICE, PinoLoggerService } from '@goalxi/logger';
 import {
   ClassSerializerInterceptor,
@@ -11,6 +11,7 @@ import {
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { NestFactory, Reflector } from '@nestjs/core';
+import { DataSource } from 'typeorm';
 import compression from 'compression';
 import helmet from 'helmet';
 import { AuthService } from './api/auth/auth.service';
@@ -33,29 +34,34 @@ async function bootstrap() {
 
   console.warn(`[Bootstrap] MODULES_SET=${modulesSet}`);
 
-  // Resolve the season/week anchor at boot and log it. Every
-  // service that needs a season/week reads the same env via
-  // `resolveGameStart`; surfacing the resolved value once here
-  // makes drift between the env value and the actual fallback
-  // obvious in the boot logs.
+  // Resolve the season/week anchor at boot. The order of
+  // precedence is: `system_config.init_date` (written by the
+  // `pnpm init:run` script) > `GAME_START_DATE` env var >
+  // today (UTC midnight, dev-only fallback). Reading the DB
+  // row is the right behaviour post-init: the env var only
+  // matters on a fresh DB where the row doesn't exist yet
+  // (i.e. first boot before the first init). After that, the
+  // row is the source of truth and a misconfigured env var
+  // is silently ignored. `resolveInitDate(manager, envValue)`
+  // is the canonical helper.
+  //
+  // The actual `dataSource` isn't available until AFTER
+  // `NestFactory.create` (TypeOrmModule wires it inside
+  // AppModule), so the resolution happens post-bootstrap.
+  // The pre-Nest `console.warn` below keeps the same
+  // "GAME_START_DATE is unset" message visible at boot
+  // even before the Nest app finishes wiring — useful for
+  // dev where the env is typically unset.
   const envValue = process.env.GAME_START_DATE;
-  const gameStart = resolveGameStart(envValue);
-  if (envValue && envValue.trim().length > 0) {
-    const parsed = new Date(envValue);
-    if (isNaN(parsed.getTime())) {
-      console.error(
-        `[Bootstrap] GAME_START_DATE='${envValue}' is not a parseable date. ` +
-          `Falling back to today (UTC midnight). Fix the env var so season/week are stable across restarts.`,
-      );
-    } else {
-      console.warn(
-        `[Bootstrap] GAME_START_DATE=${envValue} -> ${gameStart.toISOString()}`,
-      );
-    }
+  if (!envValue || envValue.trim().length === 0) {
+    console.warn(
+      `[Bootstrap] GAME_START_DATE is unset. Will read init_date from system_config after Nest boots; ` +
+        `falls back to today (UTC midnight) only if the row is also missing.`,
+    );
   } else {
     console.warn(
-      `[Bootstrap] GAME_START_DATE is unset. Falling back to today (UTC midnight = ${gameStart.toISOString()}). ` +
-        `Production MUST set GAME_START_DATE=YYYY-MM-DD so a restart does not reset the season.`,
+      `[Bootstrap] GAME_START_DATE=${envValue} (env override; ` +
+        `system_config.init_date takes precedence when both are set)`,
     );
   }
 
@@ -70,8 +76,23 @@ async function bootstrap() {
   const logger = app.get<PinoLoggerService>(LOGGER_SERVICE);
   app.useLogger(logger);
   logger.warn(`[Bootstrap] MODULES_SET=${modulesSet}`);
+
+  // Now that the TypeOrmModule has wired the DataSource, read
+  // the real init_date from `system_config`. The DB row is
+  // written by `pnpm init:run` and is the source of truth
+  // post-init; the env var is only a fallback for fresh DBs.
+  // `resolveInitDate(manager, envValue)` returns: the DB row
+  // if it exists, else the env value if parseable, else
+  // today (UTC midnight).
+  const dataSource = app.get(DataSource);
+  const initDateFromDb = await resolveInitDate(
+    dataSource.manager,
+    process.env.GAME_START_DATE,
+  );
   logger.warn(
-    `[Bootstrap] gameStart=${gameStart.toISOString()} (GAME_START_DATE=${envValue ?? '<unset>'})`,
+    `[Bootstrap] gameStart=${initDateFromDb.toISOString()} (source=${
+      process.env.GAME_START_DATE ? 'env or system_config.init_date' : 'system_config.init_date or today'
+    })`,
   );
 
   // Setup security headers

@@ -5,7 +5,7 @@ import {
   getMaxPlayersForRole,
   getTrainingCategoryForRole,
   PlayerEntity,
-  resolveGameStart,
+  resolveInitDate,
   SKILL_CATEGORY_MAP,
   StaffEntity,
   StaffLevel,
@@ -19,9 +19,10 @@ import {
   Injectable,
   Logger,
   NotFoundException,
+  OnModuleInit,
 } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
-import { LessThanOrEqual, Repository } from 'typeorm';
+import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
+import { DataSource, LessThanOrEqual, Repository } from 'typeorm';
 import { FinanceService } from '../finance/finance.service';
 
 export const STAFF_SALARY: Record<StaffLevel, number> = {
@@ -46,12 +47,18 @@ export const STAFF_LEVEL_SCORE: Record<StaffLevel, number> = {
 };
 
 @Injectable()
-export class StaffsService {
+export class StaffsService implements OnModuleInit {
   private readonly logger = new Logger(StaffsService.name);
-  // Resolved once at construction. `resolveGameStart` falls back
-  // to today UTC midnight if GAME_START_DATE is missing — main.ts
-  // WARN-logs that case loudly at boot.
-  private readonly gameStart: Date;
+  // Resolved once on `onModuleInit` from
+  // `system_config.init_date` (with `GAME_START_DATE` env
+  // as the override / fallback). The historical code
+  // resolved from the env var only, which silently
+  // shadowed the DB row after the first init — a restart
+  // of the API with no env var landed on "today UTC
+  // midnight" even though the row said otherwise. The
+  // async resolution happens on `onModuleInit` so the
+  // DataSource is wired before the read.
+  private gameStart!: Date;
 
   constructor(
     @InjectRepository(StaffEntity)
@@ -64,9 +71,15 @@ export class StaffsService {
     private assignmentRepo: Repository<CoachPlayerAssignmentEntity>,
     @InjectRepository(PlayerEntity)
     private playerRepo: Repository<PlayerEntity>,
+    @InjectDataSource() private readonly dataSource: DataSource,
     private readonly financeService: FinanceService,
-  ) {
-    this.gameStart = resolveGameStart(process.env.GAME_START_DATE);
+  ) {}
+
+  async onModuleInit(): Promise<void> {
+    this.gameStart = await resolveInitDate(
+      this.dataSource.manager,
+      process.env.GAME_START_DATE,
+    );
   }
 
   /** Get all staff for a team */
@@ -442,6 +455,16 @@ export class StaffsService {
   // shared pure function in @goalxi/database so this API and
   // every settlement cron handler agree on the value.
   private getCurrentSeasonWeek(): { season: number; week: number } {
+    // `onModuleInit` populates `gameStart` before any HTTP
+    // request is served (Nest awaits all `onModuleInit`
+    // hooks before binding the HTTP listener). Same
+    // lifecycle contract as `GameStateService`.
+    if (!this.gameStart) {
+      throw new Error(
+        'StaffsService.gameStart is unset — onModuleInit did not run. ' +
+          'This is a Nest lifecycle bug, not a runtime condition.',
+      );
+    }
     return currentSeasonWeek(new Date(), this.gameStart);
   }
 
