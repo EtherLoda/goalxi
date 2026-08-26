@@ -3,7 +3,7 @@
     "version": "0.0.0",
     "private": true,
     "scripts": {
-        "dev": "concurrently -n api,sim,settle,web -c blue,green,magenta,yellow --kill-others-on-fail \"pnpm -F goalxi-api start:dev\" \"pnpm -F simulator start:dev\" \"pnpm -F settlement start:dev\" \"pnpm -F web dev\"",
+        "dev": "node -e \"if(process.platform==='win32'){try{require('child_process').execSync('chcp 65001 >nul',{stdio:'ignore',shell:'cmd.exe'})}catch(e){}}\" && concurrently -n api,sim,settle,web -c blue,green,magenta,yellow --kill-others-on-fail \"pnpm -F goalxi-api start:dev\" \"pnpm -F simulator start:dev\" \"pnpm -F settlement start:dev\" \"pnpm -F web dev\"",
         "dev:api": "pnpm -F goalxi-api start:dev",
         "dev:sim": "pnpm -F simulator start:dev",
         "dev:settle": "pnpm -F settlement start:dev",
