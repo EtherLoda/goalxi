@@ -9,6 +9,8 @@ import {
   MatchEntity,
   MatchStatus,
   MatchType,
+  circleMethodPairings,
+  thielenEHV,
 } from '@goalxi/database';
 
 @Injectable()
@@ -159,8 +161,36 @@ export class SeasonSchedulerService {
   }
 
   /**
-   * Standard circle method. The `week` field is the
-   * 1-indexed schedule week (1..15, day-aligned with
+   * Standard circle method for the pairings + Thielen
+   * CSP for the home/away assignment. Both utilities
+   * live in `libs/database/src/services/thielen-ehv.ts`
+   * so this method produces the exact same schedule
+   * (pairings + HA) as `ScheduleGenerator` in the init
+   * path.
+   *
+   * Two earlier bugs in this method that the shared
+   * utility silently fixes:
+   *
+   *   1. The local `rotateTeams` helper ignored its
+   *      `round` argument and only ever rotated by 1,
+   *      so every round had the same set of matchups.
+   *      The "round-robin" was really a single round
+   *      replayed `numRounds` times. `circleMethodPairings`
+   *      rotates by `round` per round, the way the
+   *      circle method is supposed to.
+   *   2. The local `generateRoundMatchups` had no
+   *      per-round HA parity rule and just hard-coded
+   *      "first team listed is home" — which for the
+   *      fixed-team matchup meant T0 was home in every
+   //      round, giving T0 a 15-consecutive-home streak
+   *      and every other team 3+ streaks from the
+   *      cascading imbalance. `thielenEHV` solves the
+   *      HA assignment globally and gives every team
+   *      max ≤ 2 streak (the same guarantee the init
+   *      path has shipped since commit `8baa766`).
+   *
+   * The `week` field is the 1-indexed schedule week
+   * (1..15, day-aligned with
    * `GAME_SETTINGS.SEASON_LENGTH_WEEKS = 16` — the cron
    * layer uses `week === 15` to trigger the playoff).
    * The `round` field is 1 (Wed) or 2 (Sat) within the
@@ -174,23 +204,41 @@ export class SeasonSchedulerService {
     season: number,
     startDate: Date,
   ): Partial<MatchEntity>[] {
-    const matches: Partial<MatchEntity>[] = [];
     const numRounds = teamIds.length - 1;
-    const fixedTeam = teamIds[0];
-    const rotatingTeams = teamIds.slice(1);
+
+    // Step 1 — pairings + Thielen HA, both from the
+    // shared utility so this method can never drift
+    // from the init-path schedule shape.
+    const pairings = circleMethodPairings(teamIds);
+    // Thielen throws for N < 6 (the standard
+    // 1-factorization constraints are too tight to
+    // admit a max-≤-2 assignment for N=4 and N=5).
+    // The scheduler's `generateSeasonSchedule`
+    // already throws on `teamIds.length < 4` so the
+    // catch is a defensive guard for the N=4 / N=5
+    // edge cases the user-facing path never reaches.
+    let haMatrix: Map<string, boolean[]>;
+    try {
+      haMatrix = thielenEHV({ teamIds, pairings });
+    } catch (err) {
+      this.logger.warn(
+        `[SeasonSchedulerService] thielenEHV failed for N=${teamIds.length} ` +
+          `(${(err as Error).message}); falling back to per-round parity HA.`,
+      );
+      haMatrix = perRoundParityHA(pairings, teamIds);
+    }
 
     const firstLegDates = this.calculateFirstLegDates(startDate, numRounds);
     const secondLegDates = this.calculateSecondLegDates(startDate, numRounds);
 
-    // First leg — every team hosts once across weeks
-    // 1..⌈N/2⌉. Two rounds per week (Wed + Sat).
+    const matches: Partial<MatchEntity>[] = [];
+    // Leg 1
     for (let round = 0; round < numRounds; round++) {
-      const roundMatchups = this.generateRoundMatchups(
-        fixedTeam,
-        this.rotateTeams(rotatingTeams, round),
-      );
-      for (let i = 0; i < roundMatchups.length; i++) {
-        const { home, away } = roundMatchups[i];
+      for (let i = 0; i < pairings[round].length; i++) {
+        const [a, b] = pairings[round][i];
+        const aHome = haMatrix.get(a)![round];
+        const home = aHome ? a : b;
+        const away = aHome ? b : a;
         const scheduledAt =
           firstLegDates[round * 2 + i] ?? firstLegDates[round * 2];
         matches.push({
@@ -210,24 +258,23 @@ export class SeasonSchedulerService {
       }
     }
 
-    // Second leg — same pairings, venues reversed, kicked
-    // off `numRounds` weeks later. Previously this
-    // re-used the first-leg dates so the same pair of
-    // teams ended up scheduled to play twice on the same
-    // day, which the simulator can't run.
+    // Leg 2 — mirror HA. The Thielen CSP assigned HA
+    // for leg 1 (rounds 0..N-2); leg 2 is the same
+    // pairings with home/away swapped, which is the
+    // standard double round-robin contract ("each
+    // pair plays once at each venue").
     for (let round = 0; round < numRounds; round++) {
-      const roundMatchups = this.generateRoundMatchups(
-        fixedTeam,
-        this.rotateTeams(rotatingTeams, round),
-      );
-      for (let i = 0; i < roundMatchups.length; i++) {
-        const { home, away } = roundMatchups[i];
+      for (let i = 0; i < pairings[round].length; i++) {
+        const [a, b] = pairings[round][i];
+        const aHome = haMatrix.get(a)![round];
+        const home = aHome ? b : a;
+        const away = aHome ? a : b;
         const scheduledAt =
           secondLegDates[round * 2 + i] ?? secondLegDates[round * 2];
         matches.push({
           leagueId,
-          homeTeamId: away,
-          awayTeamId: home,
+          homeTeamId: home,
+          awayTeamId: away,
           season,
           week: Math.floor((numRounds + round) / 2) + 1,
           round: ((numRounds + round) % 2) + 1,
@@ -286,34 +333,6 @@ export class SeasonSchedulerService {
     return firstLeg.map((d) => new Date(d.getTime() + offsetMs));
   }
 
-  private generateRoundMatchups(
-    fixedTeam: string,
-    rotatingTeams: string[],
-  ): Array<{ home: string; away: string }> {
-    const matchups: Array<{ home: string; away: string }> = [];
-
-    matchups.push({
-      home: fixedTeam,
-      away: rotatingTeams[0],
-    });
-
-    for (let i = 1; i < rotatingTeams.length / 2; i++) {
-      matchups.push({
-        home: rotatingTeams[rotatingTeams.length - i],
-        away: rotatingTeams[i],
-      });
-    }
-
-    return matchups;
-  }
-
-  private rotateTeams(teams: string[], round: number): string[] {
-    const rotated = [...teams];
-    const last = rotated.pop()!;
-    rotated.unshift(last);
-    return rotated;
-  }
-
   async getCurrentSeasonWeek(leagueId: string): Promise<number> {
     const latestMatch = await this.matchRepository.findOne({
       where: { leagueId },
@@ -344,4 +363,51 @@ export class SeasonSchedulerService {
     });
     return homeMatches + awayMatches;
   }
+}
+
+/**
+ * Fallback HA assignment used when `thielenEHV` throws
+ * "no valid HA assignment" — which only happens for
+ * N=4 and N=5 with the standard circle-method
+ * 1-factorization. The Thielen paper guarantees the
+ * CSP converges for N ≥ 6; below that the CSP
+ * constraints are too tight and the search space is
+ * empty.
+ *
+ * The fallback is the pre-`8baa766` per-round parity
+ * rule: in even rounds the "first-listed" team in
+ * each pair is home; in odd rounds the second-listed
+ * team is. This is NOT optimal (can produce
+ * 3-streaks for some teams in some N) but it's a
+ * "doesn't throw" guard for the defensive / odd-team
+ * shapes. The production pyramid only ever hits
+ * N ∈ {16, 8, 6} (handled by Thielen), so this
+ * fallback never fires in production.
+ *
+ * Returns a `Map<teamId, boolean[]>` in the same
+ * shape `thielenEHV` returns so the caller can use it
+ * as a drop-in replacement.
+ */
+function perRoundParityHA(
+  pairings: Array<Array<[string, string]>>,
+  teamIds: string[],
+): Map<string, boolean[]> {
+  const teamIdx = new Map<string, number>();
+  teamIds.forEach((id, i) => teamIdx.set(id, i));
+  const teamHA: boolean[][] = teamIds.map(() => []);
+  for (let r = 0; r < pairings.length; r++) {
+    const isEven = r % 2 === 0;
+    for (const [a, b] of pairings[r]) {
+      // "First-listed" home in even rounds; "second-listed"
+      // home in odd rounds. For each pair we set one
+      // team's HA to true and the other's to false.
+      const aHome = isEven;
+      const bHome = !aHome;
+      teamHA[teamIdx.get(a)!].push(aHome);
+      teamHA[teamIdx.get(b)!].push(bHome);
+    }
+  }
+  const result = new Map<string, boolean[]>();
+  teamIds.forEach((id, i) => result.set(id, teamHA[i]));
+  return result;
 }
