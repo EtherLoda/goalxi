@@ -291,6 +291,65 @@ export class SimulationProcessor extends WorkerHost {
     super();
   }
 
+  /**
+   * [RFC 0002 P3 tripwire] Pre-flight every event through
+   * `getEventTwoAxis` and throw with a clear, actionable error
+   * if any event's `type` has no mapping. Pure / static so the
+   * spec can call it directly without spinning up a Nest
+   * container or a BullMQ worker.
+   *
+   * Background: migration 1788000000002 made `event_class_id`
+   * NOT NULL. A future engine emit that lands here without a
+   * corresponding row in `EVENT_TWO_AXIS` would otherwise
+   * 5xx with a cryptic PG `violates not-null constraint` error
+   * — the worker can't tell *which* event is the culprit
+   * without re-running the whole match and grepping the
+   * typeNames. The pre-flight names the offending typeName(s)
+   * and points the fix at the map file.
+   *
+   * Throws are intentional: a no-throw `if (unmapped) logger.warn`
+   * would let the broken event pass through to the bulk insert
+   * and surface as the same PG error. Failing loud here is
+   * strictly better — BullMQ will retry the job, the retry will
+   * hit the same error, and the operator can see the typeName
+   * in the simulator logs to know exactly which `EVENT_TWO_AXIS`
+   * row to add.
+   *
+   * @param events  The events to pre-flight. Accepts any
+   *                `{ type: string | null | undefined }[]`
+   *                shape — the function only reads `.type`.
+   * @param matchId The match id, embedded in the error for log
+   *                triage. Optional — pass `'<unknown>'` when
+   *                called outside a match context.
+   * @param path    Free-form label for the call site, embedded
+   *                in the error message. The processor calls
+   *                this with `'simulation'` (main path) or
+   *                `'forfeit'` (forfeit path).
+   */
+  static assertAllEventsMapped(
+    events: ReadonlyArray<{ type?: string | null }>,
+    matchId: string,
+    path: 'simulation' | 'forfeit',
+  ): void {
+    const unmapped = new Set<string>();
+    for (const e of events) {
+      if (e.type != null && getEventTwoAxis(e.type).classId == null) {
+        unmapped.add(e.type);
+      }
+    }
+    if (unmapped.size > 0) {
+      const sample = Array.from(unmapped).slice(0, 5);
+      const ellipsis = unmapped.size > 5 ? ', ...' : '';
+      throw new Error(
+        `[${path}] match=${matchId} produced ${events.length} events; ` +
+          `${unmapped.size} distinct typeName(s) have no EVENT_TWO_AXIS ` +
+          `mapping: ${sample.join(', ')}${ellipsis}. Add a row to ` +
+          `EVENT_TWO_AXIS in libs/database/src/constants/event-two-axis.ts ` +
+          `(classId + outcomeId tuple) and update event-two-axis.spec.ts.`,
+      );
+    }
+  }
+
   async process(job: Job<SimulationJobData>): Promise<void> {
     const { matchId, homeForfeit, awayForfeit, weather, traceId } = job.data;
     // Bind the inbound traceId (X-Request-Id from the api caller) to every
@@ -1052,6 +1111,25 @@ export class SimulationProcessor extends WorkerHost {
       await manager.save(match);
 
       // Save Events with Bulk Insert (bypass entity instantiation overhead)
+      //
+      // [RFC 0002 P3 tripwire] Pre-flight every event through
+      // `getEventTwoAxis` BEFORE the bulk insert. If the engine
+      // pushed a `type` string that's not in EVENT_TWO_AXIS,
+      // `getEventTwoAxis` returns the null tuple (classId=null),
+      // and migration 1788000000002 made `event_class_id` NOT
+      // NULL — the bulk insert would 5xx with a cryptic PG
+      // "violates not-null constraint" error. The first time
+      // this fired in production was 2026-08-26 on a
+      // `recover-${matchId}-${bucket}` job (see
+      // settlement/src/scheduler/match-scheduler.service.ts),
+      // where the engine emitted `'tactical_change'` for a
+      // position_swap tactical instruction — the map had no
+      // entry. Catching it here surfaces a clear error that
+      // names the offending typeName and points the fix at
+      // `EVENT_TWO_AXIS`, instead of dumping the worker with
+      // an opaque PG error.
+      SimulationProcessor.assertAllEventsMapped(events, match.id, 'simulation');
+
       await manager
         .createQueryBuilder()
         .insert()
@@ -1646,6 +1724,15 @@ export class SimulationProcessor extends WorkerHost {
       },
       { minute: 90, type: 'full_time', eventScheduledTime: end },
     );
+
+    // [RFC 0002 P3 tripwire] Same fail-fast as the main path —
+    // see the comment at the main bulk-insert site. The forfeit
+    // path's events are all hardcoded ('forfeit', 'full_time',
+    // 'weather_announcement', etc.) so the check is defensive
+    // belt-and-braces; if a future contributor adds a new hard-
+    // coded type to the forfeit path without updating the map,
+    // this catches it at insert time.
+    SimulationProcessor.assertAllEventsMapped(forfeitEvents, match.id, 'forfeit');
 
     await this.dataSource.transaction(async (manager) => {
       await manager.save(match);
