@@ -252,6 +252,7 @@ export class ScheduleGenerator {
       const matchups = this.generateRoundMatchups(
         fixedTeam,
         this.rotateTeams(rotatingTeams, round),
+        round,
       );
 
       for (const { home, away } of matchups) {
@@ -315,6 +316,7 @@ export class ScheduleGenerator {
       const matchups = this.generateRoundMatchups(
         fixedTeam,
         this.rotateTeams(rotatingTeams, round),
+        round,
       );
 
       for (const { home, away } of matchups) {
@@ -404,6 +406,44 @@ export class ScheduleGenerator {
    * `rotatingTeams[0]`; the rest of the round pairs
    * the outer + inner positions of the rotated list.
    *
+   * Home/away assignment — per-round parity rule.
+   *
+   * The pre-fix code pinned `fixedTeam` as the home team
+   * in every matchup of every round. For a 16-team
+   * league that's 15 consecutive home games in the
+   * first leg, then 15 consecutive away games in the
+   * second leg — the spec the user observed in the
+   * dashboard ("连续是主场要么连续是客场"). Real
+   * leagues avoid that: each team alternates H/A
+   * (EPL, La Liga) or has at most 2 consecutive same-
+   * venue games.
+   *
+   * The fix is a per-round parity rule:
+   *
+   *   - The fixed team is **home** in even rounds
+   *     and **away** in odd rounds, so the fixed team
+   *     pattern across the 15 first-leg rounds is
+   *     `H A H A H A H A H A H A H A H` — perfectly
+   *     alternating, zero streak.
+   *   - For every other pair, the home team in a
+   *     given round is the **lower-index** team if
+   *     the round is even, the **higher-index**
+   *     team if odd. (The index is the position in
+   *     `teamIds`, so two different `round`s may put
+   *     different teams at "lower" for the same
+   *     pair, but the parity guarantees each team
+   *     alternates home/away across rounds when it
+   *     can.)
+   *
+   * The round-parity rule is not sufficient on its
+   * own — the rotation order can still produce
+   * 3-in-a-row streaks for some teams in the middle
+   * of the leg. The greedy post-processor in
+   * `balanceStreaks` handles the remaining cases by
+   * flipping whole pairs (both legs, home/away)
+   * to break the streak. See `balanceStreaks` for
+   * the post-processor contract.
+   *
    * Yields `floor(N/2)` matchups per round where
    * `N = 1 + rotatingTeams.length` is the total team
    * count:
@@ -429,14 +469,36 @@ export class ScheduleGenerator {
   private generateRoundMatchups(
     fixedTeam: string,
     rotatingTeams: string[],
+    round: number,
   ): Array<{ home: string; away: string }> {
     const matchups: Array<{ home: string; away: string }> = [];
-    matchups.push({ home: fixedTeam, away: rotatingTeams[0] });
+    const isEvenRound = round % 2 === 0;
+
+    // The fixed team's home/away alternates per round:
+    // home in even rounds, away in odd rounds. This
+    // turns the fixed team's 15-consecutive-home
+    // streak (pre-fix) into a perfect `H A H A H A…`
+    // alternating pattern.
+    const fixedIsHome = isEvenRound;
+    matchups.push({
+      home: fixedIsHome ? fixedTeam : rotatingTeams[0],
+      away: fixedIsHome ? rotatingTeams[0] : fixedTeam,
+    });
 
     for (let i = 1; i < rotatingTeams.length / 2; i++) {
+      const a = rotatingTeams[i];
+      const b = rotatingTeams[rotatingTeams.length - i];
+      // The home team in this pair for this round is
+      // the lower-index one in even rounds, the
+      // higher-index one in odd rounds. The index
+      // comparison uses the teamIds position (not
+      // the rotating-array position), so the rule
+      // is stable across rounds.
+      const [lower, higher] = a < b ? [a, b] : [b, a];
+      const lowerIsHome = isEvenRound;
       matchups.push({
-        home: rotatingTeams[rotatingTeams.length - i],
-        away: rotatingTeams[i],
+        home: lowerIsHome ? lower : higher,
+        away: lowerIsHome ? higher : lower,
       });
     }
 
