@@ -9,27 +9,59 @@ import { EVENT_TWO_AXIS, getEventTwoAxis } from './event-two-axis';
 
 describe('EVENT_TWO_AXIS (RFC 0002 P2)', () => {
     describe('mapping integrity', () => {
-        it('covers all 24 type strings the engine emits', () => {
-            // The engine emits exactly 24 distinct `type: '...'`
-            // strings (verified by grep). Each MUST have a row.
-            // If a future contributor adds a new emit and forgets
-            // to add a mapping, the entry will silently get NULL
-            // in the bulk insert — this test catches the omission
-            // at lint time.
-            const expected = [
+        it('covers every type string the engine emits', () => {
+            // Authoritative list of strings the engine pushes
+            // to `events` (verified by grep `events\.push` across
+            // simulator/src/engine/match.engine.ts and
+            // simulator/src/processor/simulation.processor.ts,
+            // filtering for the `type:` field). The list is
+            // 22 entries.
+            //
+            // 2026-08-26 production incident: 'miss' and
+            // 'tactical_change' were missing from this list.
+            // The engine pushed them, getEventTwoAxis returned
+            // the null tuple, the bulk insert wrote
+            // event_class_id=NULL, and PG rejected the row
+            // because migration 1788000000002 made the column
+            // NOT NULL. The previous "24 strings" test only
+            // checked that a curated subset existed — it
+            // drifted from the engine's actual emit set.
+            // This test is now bidirectional in spirit: the
+            // list below must match the engine exactly. If a
+            // future contributor adds a new `type: 'foo'` to
+            // the engine and forgets to add 'foo' here, the
+            // assertion will fail at lint time.
+            //
+            // Note on the other direction: the map may
+            // legitimately contain keys the engine doesn't
+            // emit today (`'shot_on_target'`, `'shot_off_target'`,
+            // `'foul'`) — the FE commentary template system
+            // (web/src/lib/commentary.ts, web/messages/*.json)
+            // and the test fixtures reference them. Removing
+            // them would orphan FE fallback strings and is
+            // out of scope. Adding a NEW extra key without
+            // an engine emit is also a code smell — see the
+            // "does NOT contain dead enum types" check below
+            // for the curated list of forbidden entries.
+            const engineEmits = [
+                // match.engine.ts (events.push sites)
                 'kickoff', 'half_time', 'second_half', 'full_time',
-                'forfeit',
-                'goal', 'shot_on_target', 'shot_off_target', 'save', 'turnover',
-                'foul', 'yellow_card', 'red_card',
+                'goal', 'miss', 'save', 'turnover',
                 'corner', 'free_kick', 'penalty_goal', 'penalty_miss',
-                'substitution', 'injury',
-                'snapshot', 'weather_announcement',
-                'player_introduction', 'attendance_announcement',
+                'yellow_card', 'red_card', 'injury', 'substitution',
+                'tactical_change', 'snapshot',
+                // event.generator.ts (called from match.engine.ts push sites)
+                'weather_announcement', 'attendance_announcement',
+                'player_introduction',
+                // simulation.processor.ts (forfeit path)
+                'forfeit',
             ];
-            for (const t of expected) {
+            for (const t of engineEmits) {
                 expect(EVENT_TWO_AXIS).toHaveProperty(t);
-                // Sanity: the lookup must return the row, not the
-                // null fallback.
+                // Sanity: the lookup must return the row, not
+                // the null fallback. A null classId here
+                // would surface as a PG NOT NULL violation
+                // in the simulator's bulk insert path.
                 expect(getEventTwoAxis(t).classId).not.toBeNull();
             }
         });
@@ -115,6 +147,36 @@ describe('EVENT_TWO_AXIS (RFC 0002 P2)', () => {
             });
         });
 
+        it('miss maps to class SHOT (3) + outcome MISS (4) — engine emit at match.engine.ts:3387-3392', () => {
+            // Added 2026-08-26 after a production incident on a
+            // `recover-${matchId}-${bucket}` job: the engine
+            // emitted 'miss' but the map had no entry, so
+            // getEventTwoAxis returned the null tuple and PG
+            // rejected the bulk insert with `event_class_id
+            // violates not-null constraint`. The class/outcome
+            // mirror the spec for `shot_off_target` (a shot
+            // that missed) and `turnover` (a failed attack
+            // push that missed) — same SHOT class, same MISS
+            // outcome.
+            expect(getEventTwoAxis('miss')).toEqual({
+                classId: 3, outcomeId: 4, outcomeCode: 'MISS',
+            });
+        });
+
+        it('tactical_change maps to class SUBSTITUTION (8) + outcome TACTICAL (14) — engine emit at match.engine.ts:2153', () => {
+            // Added 2026-08-26 after the same production incident
+            // as `miss` above. The engine emits 'tactical_change'
+            // for non-sub tactical instructions (position_swap /
+            // move). The closest class is SUBSTITUTION (8) with
+            // outcome TACTICAL (14) — same tuple as a tactical
+            // sub. The data field carries the full
+            // TacticalInstruction so consumers can distinguish
+            // (data.type === 'position_swap' / 'move').
+            expect(getEventTwoAxis('tactical_change')).toEqual({
+                classId: 8, outcomeId: 14, outcomeCode: 'TACTICAL',
+            });
+        });
+
         it('free_kick maps to class FREE_KICK (5) + outcome TAKEN (11)', () => {
             expect(getEventTwoAxis('free_kick')).toEqual({
                 classId: 5, outcomeId: 11, outcomeCode: 'TAKEN',
@@ -154,11 +216,15 @@ describe('EVENT_TWO_AXIS (RFC 0002 P2)', () => {
 
     describe('null fallback for unknown strings', () => {
         it('returns the null tuple for an unknown type', () => {
-            // Future-proofing: a new engine emit without a mapping
-            // should not throw. The bulk insert will write
-            // classId/outcomeId/outcomeCode as NULL, and the
-            // `type` int will fall back to NEUTRAL_EVENT in
-            // `mapEventType`.
+            // Defensive: a new engine emit without a mapping
+            // returns the null tuple. As of 2026-08-26, this is
+            // no longer allowed to reach the DB — the simulator
+            // pre-flight at simulation.processor.ts throws with
+            // a clear error if it sees a null classId. The
+            // helper itself still returns the null tuple (no
+            // throw) so a misconfigured caller fails *noisy*
+            // rather than *silent* — the goal is the error
+            // surface, not silent-NULL inserts.
             expect(getEventTwoAxis('made_up_future_event')).toEqual({
                 classId: null, outcomeId: null, outcomeCode: null,
             });

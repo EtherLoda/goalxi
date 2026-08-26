@@ -166,25 +166,37 @@ export class MatchEventEntity extends BaseEntity {
     primarySpecialtyTier?: string | null;
 
     // =============================================================
-    // RFC 0002 — Two-Axis Event Coding (Phase 1: additive only)
+    // RFC 0002 — Two-Axis Event Coding (Phase 3: NOT NULL enforced)
     // =============================================================
     // See `docs/rfcs/0002-event-two-axis.md`. The legacy `type`
-    // int + `typeName` string columns above are KEPT for the
-    // 1-week Phase 1 soak period. Phase 2 reads through the
-    // new columns; Phase 3 drops the old ones.
+    // int column is DROPPED. The new (eventClassId, outcomeId,
+    // outcomeCode) tuple is the single source of truth for
+    // classification.
     //
-    // All three columns are nullable: a row with no mapping
-    // (legacy debug events PASS/TACKLE/INTERCEPTION/CLEARANCE/
-    // OFFSIDE) keeps event_class_id NULL and the engine still
-    // finds it via `type` / `typeName`.
+    // `event_class_id` is NOT NULL. The Phase 3 migration
+    // (1788000000002-DropMatchEventLegacyColumns) ran a pre-check
+    // on existing rows and a SET NOT NULL. The TS entity is
+    // updated to match — `nullable: false` here so any future
+    // TypeORM contributor sees the constraint in code, and the
+    // simulator's bulk-insert pre-flight (see
+    // simulation.processor.ts) fails fast with a clear error
+    // if a new engine emit lands without an EVENT_TWO_AXIS row
+    // (the 2026-08-26 production incident on a
+    // `recover-${matchId}-${bucket}` job).
+    //
+    // `outcome_id` and `outcome_code` STAY nullable. Some
+    // classes are outcome-less by design (KICKOFF, OWN_GOAL,
+    // CELEBRATION, WEATHER, ATTENDANCE, SNAPSHOT), and a few
+    // others (INJURY, SUBSTITUTION) store their outcome in
+    // the `data` JSONB column.
 
     /**
-     * Stable SMALLINT id into `event_class_def`. NULL when the
-     * legacy `type` has no class mapping (see RFC 0002 §4.2
-     * "Note").
+     * Stable SMALLINT id into `event_class_def`. NOT NULL —
+     * every match_event row has exactly one class. See the
+     * block comment above for the migration / tripwire story.
      */
-    @Column({ name: 'event_class_id', type: 'smallint', nullable: true })
-    eventClassId?: number | null;
+    @Column({ name: 'event_class_id', type: 'smallint', nullable: false })
+    eventClassId!: number;
 
     /**
      * Stable SMALLINT id into `event_outcome_def`. NULL when

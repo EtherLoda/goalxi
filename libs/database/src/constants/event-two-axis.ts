@@ -92,6 +92,14 @@ export const EVENT_TWO_AXIS: Readonly<Record<string, EventTwoAxis>> = Object.fre
     goal:                    { classId:  3, outcomeId:  1, outcomeCode: 'GOAL' },
     shot_on_target:          { classId:  3, outcomeId: null, outcomeCode: null },
     shot_off_target:         { classId:  3, outcomeId:  4, outcomeCode: 'MISS' },
+    // 'miss' is the engine's own emit (see match.engine.ts:3387-3392,
+    // where eventType = ... 'goal' : ... 'save' : 'miss'). It's the
+    // post-duel result for a shot that went off-target without a save —
+    // same class/outcome as 'shot_off_target' / 'turnover'. Required
+    // because migration 1788000000002 made `event_class_id` NOT NULL
+    // and a missing key here was producing a cryptic PG error in the
+    // simulator's recover-* job (2026-08-26 production incident).
+    miss:                    { classId:  3, outcomeId:  4, outcomeCode: 'MISS' },
     save:                    { classId:  3, outcomeId:  2, outcomeCode: 'SAVE' },
     turnover:                { classId:  3, outcomeId:  4, outcomeCode: 'MISS' },  // 'turnover' = failed attack push (int=5 PASS)
 
@@ -114,6 +122,18 @@ export const EVENT_TWO_AXIS: Readonly<Record<string, EventTwoAxis>> = Object.fre
     // The four generated columns (shot/foul/corner/fk_outcome)
     // stay NULL for these rows; readers fall back to data.
     substitution:            { classId:  8, outcomeId: 14,   outcomeCode: 'TACTICAL' },
+    // 'tactical_change' is the engine's emit for non-sub
+    // tactical instructions (position_swap / move, see
+    // match.engine.ts:2153 — `ins.type === 'swap' ? 'substitution' : 'tactical_change'`).
+    // It's a position-only adjustment, not a player swap.
+    // Best fit: SUBSTITUTION class + TACTICAL outcome (same
+    // tuple as a tactical sub). The data field carries the
+    // full TacticalInstruction so consumers can distinguish
+    // (data.type === 'position_swap' / 'move'). Required
+    // because the NOT NULL constraint on event_class_id
+    // would otherwise reject the row (same incident as
+    // 'miss' above, 2026-08-26).
+    tactical_change:         { classId:  8, outcomeId: 14,   outcomeCode: 'TACTICAL' },
     injury:                  { classId:  9, outcomeId: null, outcomeCode: null },
 
     // ============== Lifecycle / neutral ==============
