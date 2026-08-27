@@ -15,6 +15,7 @@ import {
   extractTimelineMarkers,
   formatMatchMinute,
   minuteToPercent,
+  resolveWhistleMinutes,
   timelineEnd,
 } from './match-timeline';
 
@@ -594,5 +595,122 @@ describe('extractTimelineMarkers', () => {
     ];
     const markers = extractTimelineMarkers(events, []);
     expect(markers[0]?.minuteLabel).toBe('46');
+  });
+});
+
+// ============================================================================
+// resolveWhistleMinutes
+// ============================================================================
+
+describe('resolveWhistleMinutes', () => {
+  it('returns regulation defaults when no half_time / full_time have fired', () => {
+    // Live mid-match, no whistles yet. Falls back to 45 / 90 so
+    // the timeline still anchors the half boundary at the
+    // expected spot rather than the right edge.
+    const events: MatchEvent[] = [
+      mkEvent({ type: 'goal', typeName: 'goal', minute: 12, teamId: 't1' }),
+    ];
+    expect(resolveWhistleMinutes(events, 90)).toEqual({
+      halfTime: 45,
+      fullTime: 90,
+      etHalfTime: null,
+      final: 90, // no full_time yet -> endMinute fallback
+    });
+  });
+
+  it('reads the stoppage-inclusive minute from the half_time event', () => {
+    // 1H+2 stoppage — the half_time event lands at minute 47
+    // (the actual whistle, not 45). The timeline tick at 47
+    // gets the label "45+2'" via formatMatchMinute.
+    const events: MatchEvent[] = [
+      mkEvent({
+        type: 'half_time',
+        typeName: 'half_time',
+        minute: 47,
+        data: { period: 'half_time', homeScore: 0, awayScore: 0, injuryTime: 2 },
+      }),
+    ];
+    expect(resolveWhistleMinutes(events, 90).halfTime).toBe(47);
+  });
+
+  it('reads the stoppage-inclusive minute from the regulation full_time', () => {
+    // 2H+3 stoppage — the full_time event lands at minute 93.
+    const events: MatchEvent[] = [
+      mkEvent({
+        type: 'half_time',
+        typeName: 'half_time',
+        minute: 45,
+        data: { period: 'half_time', homeScore: 0, awayScore: 0, injuryTime: 0 },
+      }),
+      mkEvent({
+        type: 'full_time',
+        typeName: 'full_time',
+        minute: 93,
+        data: { homeScore: 1, awayScore: 1, injuryTime: 3 },
+      }),
+    ];
+    const w = resolveWhistleMinutes(events, 95);
+    expect(w.halfTime).toBe(45); // clean half, no stoppage
+    expect(w.fullTime).toBe(93);
+    expect(w.final).toBe(93); // regulation FT, no ET
+  });
+
+  it('resolves ET whistles separately from regulation whistles', () => {
+    // ET match: regulation 1H+2 (47), regulation 2H+3 (93),
+    // ET 1H+1 (106), ET full time at 121.
+    const events: MatchEvent[] = [
+      mkEvent({
+        type: 'half_time',
+        typeName: 'half_time',
+        minute: 47,
+        data: { period: 'half_time', injuryTime: 2 },
+      }),
+      mkEvent({
+        type: 'full_time',
+        typeName: 'full_time',
+        minute: 93,
+        data: { injuryTime: 3 },
+      }),
+      mkEvent({
+        type: 'half_time',
+        typeName: 'half_time',
+        minute: 106,
+        data: { period: 'extra_time_half_time', injuryTime: 1 },
+      }),
+      mkEvent({
+        type: 'full_time',
+        typeName: 'full_time',
+        minute: 121,
+        data: { injuryTime: 1 },
+      }),
+    ];
+    const w = resolveWhistleMinutes(events, 121);
+    expect(w.halfTime).toBe(47); // 1H
+    expect(w.fullTime).toBe(93); // regulation 2H
+    expect(w.etHalfTime).toBe(106); // ET 1H
+    expect(w.final).toBe(121); // ET 2H
+  });
+
+  it('picks the regulation full_time (not ET) when both exist', () => {
+    // Both `full_time` events exist. The `minute < 120` guard
+    // in resolveWhistleMinutes pins `fullTime` to the regulation
+    // whistle (93), while `final` jumps to the ET whistle (121).
+    const events: MatchEvent[] = [
+      mkEvent({
+        type: 'full_time',
+        typeName: 'full_time',
+        minute: 93,
+        data: { injuryTime: 3 },
+      }),
+      mkEvent({
+        type: 'full_time',
+        typeName: 'full_time',
+        minute: 121,
+        data: { injuryTime: 1 },
+      }),
+    ];
+    const w = resolveWhistleMinutes(events, 121);
+    expect(w.fullTime).toBe(93);
+    expect(w.final).toBe(121);
   });
 });

@@ -327,6 +327,88 @@ export function extractInjuryWindows(events: MatchEvent[]): InjuryWindow[] {
 }
 
 // ============================================================================
+// resolveWhistleMinutes
+// ============================================================================
+
+/**
+ * Find the actual stoppage-inclusive whistle minutes for the
+ * 1H / 2H / ET 1H / ET 2H boundaries. The engine emits `half_time`
+ * / `full_time` events with `minute: 45 + firstHalfInjuryTime`
+ * etc., so the wire value is the actual time the ref blew the
+ * whistle — the FE just needs to read it. Returns the regulation
+ * boundary (45 / 90) as a fallback when the matching event
+ * hasn't arrived yet (e.g. live match in the first 45 minutes,
+ * the half_time event fires only when the whistle blows).
+ *
+ * The values drive the timeline's half-time / full-time tick
+ * mark positions AND their labels (a 1H+2 stoppage reads as
+ * "45+2'" — the wire value of the `half_time` event's `minute`).
+ */
+export interface WhistleMinutes {
+  /** Actual 1H whistle minute. Defaults to 45 when no event yet. */
+  halfTime: number;
+  /**
+   * Actual 2H whistle minute. Defaults to 90 when no event yet.
+   * For an ET match this is the regulation full_time, not the
+   * final whistle — use `endMinute` for the ET whistle, which
+   * the timeline already exposes separately.
+   */
+  fullTime: number;
+  /**
+   * ET 1H whistle minute. `null` when the match has no ET 1H
+   * half_time (i.e. regulation-only). Defaults to `null`.
+   */
+  etHalfTime: number | null;
+  /**
+   * Final whistle minute (the ET full_time if ET was played, or
+   * the regulation full_time otherwise). Defaults to
+   * `endMinute` when no event has arrived yet (live mid-match).
+   */
+  final: number;
+}
+
+export function resolveWhistleMinutes(
+  events: MatchEvent[],
+  endMinute: number,
+): WhistleMinutes {
+  // 1H whistle — `half_time` with `data.period === 'half_time'`.
+  // This is the engine's pre-ET first-half whistle.
+  const firstHalfHt = events.find(
+    (e) =>
+      e.type === 'half_time' &&
+      (e.data as { period?: string } | undefined)?.period === 'half_time',
+  );
+  // 2H (regulation) whistle — `full_time` with `minute < 120`.
+  // The `minute < 120` guard avoids picking up the ET full_time
+  // event (which lands at 120+stoppage) when ET is played.
+  const regFt = events.find(
+    (e) => e.type === 'full_time' && e.minute < 120,
+  );
+  // ET 1H whistle — `half_time` with `data.period ===
+  // 'extra_time_half_time'`. `null` for regulation-only matches.
+  const et1Ht = events.find(
+    (e) =>
+      e.type === 'half_time' &&
+      (e.data as { period?: string } | undefined)?.period ===
+        'extra_time_half_time',
+  );
+  // Final whistle — the ET full_time (at 120+stoppage). If
+  // there's no ET full_time, fall back to the regulation
+  // full_time's minute; if neither has arrived, fall back to
+  // `endMinute` (which the timeline's `timelineEnd` helper
+  // already grows to fit the latest event).
+  const etFt = events.find(
+    (e) => e.type === 'full_time' && e.minute >= 120,
+  );
+  return {
+    halfTime: firstHalfHt?.minute ?? 45,
+    fullTime: regFt?.minute ?? 90,
+    etHalfTime: et1Ht?.minute ?? null,
+    final: etFt?.minute ?? regFt?.minute ?? endMinute,
+  };
+}
+
+// ============================================================================
 // useInjuryWindows
 // ============================================================================
 

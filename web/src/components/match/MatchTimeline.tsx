@@ -46,6 +46,7 @@ import {
   extractTimelineMarkers,
   formatMatchMinute,
   minuteToPercent,
+  resolveWhistleMinutes,
   timelineEnd,
 } from './match-timeline';
 import type { MatchSnapshot } from './match-pitch-data';
@@ -176,10 +177,20 @@ export function MatchTimeline({
   //
   // (Removed — `injuryWindows` is declared above alongside
   // `markers` so the hook call is hoisted to share memo state.)
-
+  //
   // endMinute — total length of the bar. Default 90, grows to fit the
   // latest event up to 120. Memoized on (events, currentMinute).
+  // Declared BEFORE `useMemoWhistleMinutes` because the whistle
+  // helper needs the end-minute as a fallback for matches that
+  // haven't reached the final whistle yet (live mid-match).
   const endMinute = useMemoEnd(events, currentMinute);
+
+  // Whistle minutes for the 1H / 2H / ET tick marks. The engine
+  // emits `half_time` / `full_time` events with the stoppage-
+  // inclusive minute (e.g. `45 + firstHalfInjuryTime`), so we
+  // read those and surface the actual whistle time on the tick
+  // labels (a 1H+2 stoppage reads as "45+2'" — the wire value).
+  const whistleMinutes = useMemoWhistleMinutes(events, endMinute);
 
   // Snapshot ticks — derive minute positions from the snapshots prop.
   const snapshotTicks = snapshots.map((s, i) => ({ minute: s.minute, index: i }));
@@ -268,10 +279,14 @@ export function MatchTimeline({
   const playheadPercent = minuteToPercent(displayMinute, endMinute) * 100;
   const progressPercent = minuteToPercent(currentMinute, endMinute) * 100;
 
-  // Half-time / full-time ticks — fixed minutes that help orient the
-  // reader. 90' grows to endMinute if the match runs over (extra time).
-  const halfTimeMin = 45;
-  const fullTimeMin = endMinute >= 90 ? 90 : endMinute;
+  // Half-time / full-time ticks — the actual whistle minutes the
+  // engine wrote on the `half_time` / `full_time` events
+  // (stoppage-inclusive). The band already shows the stoppage
+  // region; the tick position now lands on the right edge of
+  // each band (the whistle), and the label uses the "+N" form
+  // so a reader can read "45+2'" / "90+3'" at a glance.
+  const halfTimeMin = whistleMinutes.halfTime;
+  const fullTimeMin = whistleMinutes.fullTime;
 
   return (
     <div
@@ -329,16 +344,23 @@ export function MatchTimeline({
               endMinute={endMinute}
             />
           ))}
-          {/* Half-time groove — vertical hairline at 45' */}
+          {/* Half-time groove — vertical hairline at the actual 1H
+              whistle minute. Pre-fix this was a hardcoded "45'" tick
+              at the regulation boundary, which left a 1H+2 stoppage
+              looking like "0-47 was a slow half" rather than "the
+              ref blew at 45+2". Position and label are both driven
+              by the engine's `half_time` event minute. */}
           <TickMark
             percent={minuteToPercent(halfTimeMin, endMinute) * 100}
-            label="45'"
+            label={`${formatMatchMinute(halfTimeMin, injuryWindows)}'`}
             align="top"
           />
-          {/* Full-time groove — vertical hairline at 90' (or endMinute) */}
+          {/* Full-time groove — same as half-time but for the
+              regulation full_time event (or ET full_time if ET was
+              played, which the timeline already grows to fit). */}
           <TickMark
             percent={minuteToPercent(fullTimeMin, endMinute) * 100}
-            label={t('fullTimeTick', { minute: fullTimeMin })}
+            label={`${formatMatchMinute(fullTimeMin, injuryWindows)}'`}
             align="top"
           />
 
@@ -381,11 +403,14 @@ export function MatchTimeline({
           ))}
         </div>
 
-        {/* Minute scale labels — 0, 45, endMinute below the track */}
+        {/* Minute scale labels — 0, half-time, endMinute below the
+            track. The half-time label mirrors the tick mark above
+            (stoppage-inclusive, e.g. "45+2'") so a reader can read
+            the half boundary off either the tick or the axis. */}
         <div className="absolute inset-x-6 -bottom-0.5 h-4 flex justify-between text-[9px] font-label uppercase tracking-widest text-outline pointer-events-none">
           <span data-testid="timeline-axis-start">0&apos;</span>
-          <span data-testid="timeline-axis-mid">{halfTimeMin}&apos;</span>
-          <span data-testid="timeline-axis-end">{endMinute}&apos;</span>
+          <span data-testid="timeline-axis-mid">{formatMatchMinute(halfTimeMin, injuryWindows)}&apos;</span>
+          <span data-testid="timeline-axis-end">{formatMatchMinute(endMinute, injuryWindows)}&apos;</span>
         </div>
       </div>
 
@@ -703,6 +728,16 @@ function useMemoMarkers(
 
 function useMemoInjuryWindows(events: MatchEvent[]): InjuryWindow[] {
   return useMemo(() => extractInjuryWindows(events), [events]);
+}
+
+function useMemoWhistleMinutes(
+  events: MatchEvent[],
+  endMinute: number,
+): { halfTime: number; fullTime: number; etHalfTime: number | null; final: number } {
+  return useMemo(
+    () => resolveWhistleMinutes(events, endMinute),
+    [events, endMinute],
+  );
 }
 
 function useMemoEnd(events: MatchEvent[], currentMinute: number): number {
