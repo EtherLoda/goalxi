@@ -51,6 +51,15 @@ const API_BASE = process.env.API_BASE ?? 'http://localhost:3000/api/v1';
 const API_TOKEN = process.env.API_TOKEN; // optional; required only for
 // authenticated endpoints (PATCH /matches/:id, POST /matches/:id/tactics).
 // `POST /matches/:id/simulate` and `GET /matches/:id` are @Public().
+/**
+ * `SKIP_HOME_TACTICS=1` — don't POST home tactics; the user's
+ * already-set home lineup + formation are preserved verbatim
+ * (the script otherwise overwrites them with the auto-picked
+ * 4-3-3 best-XI). Use this when iterating on a hand-tuned home
+ * tactic and you only want sim-debug to handle the rest (DB
+ * reset, deadline unwinding, away auto-pick, simulate, poll).
+ */
+const SKIP_HOME_TACTICS = process.env.SKIP_HOME_TACTICS === '1';
 const POLL_INTERVAL_MS = 2000;
 const POLL_TIMEOUT_MS = 5 * 60 * 1000; // 5 minutes
 
@@ -282,16 +291,22 @@ async function run() {
 
   // Submit via HTTP rather than the DB — see fetchJson note in
   // postTactics() above for why DB writes were lost.
-  console.log('📡 POST home tactics via API …');
-  await postTactics(
-    match.id,
-    match.homeTeamId,
-    '4-3-3',
-    home433Lineup(homeEleven),
-  );
-  console.log(
-    `   ✓ Home tactics saved (4-3-3, ${Object.values(home433Lineup(homeEleven)).filter(Boolean).length} slots filled)`,
-  );
+  if (SKIP_HOME_TACTICS) {
+    console.log(
+      '⏭  SKIP_HOME_TACTICS=1 — preserving existing home lineup + formation',
+    );
+  } else {
+    console.log('📡 POST home tactics via API …');
+    await postTactics(
+      match.id,
+      match.homeTeamId,
+      '4-3-3',
+      home433Lineup(homeEleven),
+    );
+    console.log(
+      `   ✓ Home tactics saved (4-3-3, ${Object.values(home433Lineup(homeEleven)).filter(Boolean).length} slots filled)`,
+    );
+  }
 
   console.log('📡 POST away tactics via API …');
   await postTactics(
