@@ -41,6 +41,26 @@ export class MatchEventEntity extends BaseEntity {
     @Column({ type: 'int', default: 0 })
     second!: number;
 
+    /**
+     * In-game clock at the moment the event was emitted, in seconds
+     * (0 = 0'0", 2700 = 45'0", 5400 = 90'0", 6300 = 105'0", 7200 = 120'0").
+     *
+     * Distinct from `minute` because the engine's simulation tick is
+     * per-half: 1H ticks 1..45 map to in-game 1..45, but 2H ticks
+     * 46..90 map to in-game 45..89. The 2H kickoff is at in-game
+     * 45'0" (clockSeconds=2700) but engine `minute: 46`. With this
+     * column, the FE can sort / display the timeline on the in-game
+     * clock and group the 1H whistle + 2H kickoff at the same
+     * instant (both clockSeconds=2700 when N1=0).
+     *
+     * Nullable + default NULL on purpose: rows persisted before
+     * RFC clockSeconds-2026 have no value here, and the FE falls
+     * back to `minute * 60 + second` so the wire is still
+     * functional. Backfill is deferred (cheap to do on read).
+     */
+    @Column({ name: 'clock_seconds', type: 'int', nullable: true })
+    clockSeconds?: number | null;
+
     // RFC 0002 Phase 3 — the legacy `type` int column is
     // DROPPED. The `typeName` string STAYS — it is the
     // wire format the FE relies on (commentary templates,

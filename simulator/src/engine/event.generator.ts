@@ -219,6 +219,7 @@ export function generateWeatherAnnouncementEvent(
   weather: string,
   homeTeam: string,
   awayTeam: string,
+  clockSeconds: number = minute * 60,
 ): any {
   // Format weather for display
   const weatherDisplay = weather
@@ -238,6 +239,7 @@ export function generateWeatherAnnouncementEvent(
     type: 'weather_announcement',
     minute,
     second: 0,
+    clockSeconds,
     teamId: undefined, // Neutral event
     data: {
       weather: weatherDisplay,
@@ -269,11 +271,13 @@ export function generateAttendanceAnnouncementEvent(
   attendance: number,
   homeTeam: string,
   awayTeam: string,
+  clockSeconds: number = minute * 60,
 ): any {
   return {
     type: 'attendance_announcement',
     minute,
     second: 0,
+    clockSeconds,
     teamId: undefined, // Neutral event
     data: {
       attendance,
@@ -292,11 +296,13 @@ export function generatePlayerIntroductionEvent(
   awayTeam: string,
   homePlayers: Array<{ name: string; position: string }>,
   awayPlayers: Array<{ name: string; position: string }>,
+  clockSeconds: number = minute * 60,
 ): any {
   return {
     type: 'player_introduction',
     minute,
     second: 0,
+    clockSeconds,
     teamId: undefined, // Neutral event
     data: {
       homeTeam,
@@ -314,11 +320,13 @@ export function generateForfeitEvent(
   minute: number,
   forfeitingTeamName: string,
   winnerName: string,
+  clockSeconds: number = minute * 60,
 ): any {
   return {
     type: MatchEventType.FORFEIT,
     minute,
     second: 0,
+    clockSeconds,
     teamId: undefined, // Neutral event
     data: {
       forfeitingTeam: forfeitingTeamName,

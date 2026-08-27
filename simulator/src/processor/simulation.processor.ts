@@ -124,11 +124,7 @@ export class SimulationProcessor extends WorkerHost {
    */
   static computeEventRealTimeMs(
     event: MatchEvent,
-    phase:
-      | 'pre_1h'
-      | 'post_1h'
-      | 'pre_et1'
-      | 'post_et1',
+    phase: 'pre_1h' | 'post_1h' | 'pre_et1' | 'post_et1',
     ctx: {
       hasExtraTime: boolean;
       firstHalfInjuryTime: number;
@@ -219,8 +215,7 @@ export class SimulationProcessor extends WorkerHost {
         // ET 1H injury-time event (106..105+N2-1). Same
         // formula as ET 1H regulation — before the ET
         // half-time whistle, no ET-break offset.
-        realWorldOffset =
-          (90 + HT + (eventMinute - 90)) * MIN;
+        realWorldOffset = (90 + HT + (eventMinute - 90)) * MIN;
       }
     } else {
       // phase === 'post_et1'
@@ -230,8 +225,7 @@ export class SimulationProcessor extends WorkerHost {
         // term — pre-fix the processor dropped it and put the
         // kickoff `N2` minutes too early whenever ET 1H had
         // any stoppage.
-        realWorldOffset =
-          (90 + HT + 15 + N2 + ET_BREAK) * MIN;
+        realWorldOffset = (90 + HT + 15 + N2 + ET_BREAK) * MIN;
       } else if (eventMinute <= 120) {
         // ET 2H regulation (106..120).
         realWorldOffset =
@@ -940,11 +934,7 @@ export class SimulationProcessor extends WorkerHost {
     // shares the same range as ET 2H regulation (106..120). The
     // function can't disambiguate from the event alone — it
     // needs to know which "phase" the current event falls in.
-    let inGamePhase:
-      | 'pre_1h'
-      | 'post_1h'
-      | 'pre_et1'
-      | 'post_et1' = 'pre_1h';
+    let inGamePhase: 'pre_1h' | 'post_1h' | 'pre_et1' | 'post_et1' = 'pre_1h';
     for (const event of events) {
       // Phase transitions: a `half_time` event marks the end of
       // the current regulation half; a `full_time` event ends
@@ -1149,6 +1139,15 @@ export class SimulationProcessor extends WorkerHost {
               matchId: match.id,
               minute: e.minute,
               second: 0,
+              // In-game clock at the moment the engine emitted
+              // the event. See `MatchEvent.clockSeconds` and
+              // `engineMinuteToClockSeconds` in
+              // `simulator/src/engine/match.engine.ts` for the
+              // per-period mapping (1H `t → t*60`, 2H
+              // `t → (t-1)*60`). Old rows pre-this-RFC have
+              // `clockSeconds = NULL` and the FE falls back to
+              // `minute * 60 + second`.
+              clockSeconds: e.clockSeconds,
               // RFC 0002 Phase 3 — the legacy `type` int column is
               // DROPPED. The single source of truth for the event
               // classification is the (eventClassId, outcomeId,
@@ -1226,28 +1225,57 @@ export class SimulationProcessor extends WorkerHost {
         redCards: number;
       };
       const counters: Record<'home' | 'away', PerTeamCounters> = {
-        home: { goals: 0, misses: 0, savesByOpponent: 0, corners: 0, yellowCards: 0, redCards: 0 },
-        away: { goals: 0, misses: 0, savesByOpponent: 0, corners: 0, yellowCards: 0, redCards: 0 },
+        home: {
+          goals: 0,
+          misses: 0,
+          savesByOpponent: 0,
+          corners: 0,
+          yellowCards: 0,
+          redCards: 0,
+        },
+        away: {
+          goals: 0,
+          misses: 0,
+          savesByOpponent: 0,
+          corners: 0,
+          yellowCards: 0,
+          redCards: 0,
+        },
       };
       for (const e of events) {
         // Skip events that don't belong to either team (e.g.
         // kickoff, half_time, full_time) — they don't move any
         // per-team counter and the legacy `events.filter` calls
         // would also have ignored them via the teamName check.
-        const side = e.teamName === homeName ? 'home' : e.teamName === awayName ? 'away' : null;
+        const side =
+          e.teamName === homeName
+            ? 'home'
+            : e.teamName === awayName
+              ? 'away'
+              : null;
         if (side === null) continue;
         const c = counters[side];
         switch (e.type) {
-          case 'goal': c.goals++; break;
-          case 'miss': c.misses++; break;
+          case 'goal':
+            c.goals++;
+            break;
+          case 'miss':
+            c.misses++;
+            break;
           case 'save':
             // A save by the defending GK counts as a
             // `savesByOpponent` for the OTHER team.
             counters[side === 'home' ? 'away' : 'home'].savesByOpponent++;
             break;
-          case 'corner': c.corners++; break;
-          case 'yellow_card': c.yellowCards++; break;
-          case 'red_card': c.redCards++; break;
+          case 'corner':
+            c.corners++;
+            break;
+          case 'yellow_card':
+            c.yellowCards++;
+            break;
+          case 'red_card':
+            c.redCards++;
+            break;
           // 'foul' is intentionally absent — fouls are tracked
           // in `foulStats` (the engine's running counter), not
           // in the event stream. See the comment above
@@ -1265,10 +1293,12 @@ export class SimulationProcessor extends WorkerHost {
         const teamId = side === 'home' ? match.homeTeamId : match.awayTeamId;
         const possessionPercent =
           totalPossession > 0
-            ? ((possessionStats[side] / totalPossession) * 100)
+            ? (possessionStats[side] / totalPossession) * 100
             : 50;
         const teamLaneStrengths =
-          side === 'home' ? laneStrengthAverages.home : laneStrengthAverages.away;
+          side === 'home'
+            ? laneStrengthAverages.home
+            : laneStrengthAverages.away;
         return manager.create(MatchTeamStatsEntity, {
           matchId: match.id,
           teamId,
@@ -1285,10 +1315,7 @@ export class SimulationProcessor extends WorkerHost {
         });
       };
 
-      await manager.save([
-        buildStats('home'),
-        buildStats('away'),
-      ]);
+      await manager.save([buildStats('home'), buildStats('away')]);
 
       // Update Player Career Stats (Settlement)
       const playerStats = matchReport.playerStats;
@@ -1362,8 +1389,10 @@ export class SimulationProcessor extends WorkerHost {
         // Count cards from events (pre-computed in
         // `playerCardCounts` above — see the comment block
         // before the player loop for the rationale).
-        const playerCards =
-          playerCardCounts.get(player.id) ?? { yellowCards: 0, redCards: 0 };
+        const playerCards = playerCardCounts.get(player.id) ?? {
+          yellowCards: 0,
+          redCards: 0,
+        };
         player.careerStats.club.yellowCards += playerCards.yellowCards;
         player.careerStats.club.redCards += playerCards.redCards;
 
@@ -1699,8 +1728,12 @@ export class SimulationProcessor extends WorkerHost {
     // Player introduction: only emit when at least one team has players
     // (i.e. the non-forfeiting side showed up). Forfeiting side is sent
     // as an empty array — never synthesise fake players.
-    const homePlayers = homeForfeit ? [] : homeTacticalPlayers.map(toPlayerInfo);
-    const awayPlayers = awayForfeit ? [] : awayTacticalPlayers.map(toPlayerInfo);
+    const homePlayers = homeForfeit
+      ? []
+      : homeTacticalPlayers.map(toPlayerInfo);
+    const awayPlayers = awayForfeit
+      ? []
+      : awayTacticalPlayers.map(toPlayerInfo);
     if (homePlayers.length > 0 || awayPlayers.length > 0) {
       forfeitEvents.push({
         minute: 0,
@@ -1732,7 +1765,11 @@ export class SimulationProcessor extends WorkerHost {
     // belt-and-braces; if a future contributor adds a new hard-
     // coded type to the forfeit path without updating the map,
     // this catches it at insert time.
-    SimulationProcessor.assertAllEventsMapped(forfeitEvents, match.id, 'forfeit');
+    SimulationProcessor.assertAllEventsMapped(
+      forfeitEvents,
+      match.id,
+      'forfeit',
+    );
 
     await this.dataSource.transaction(async (manager) => {
       await manager.save(match);
@@ -1745,6 +1782,12 @@ export class SimulationProcessor extends WorkerHost {
             matchId: match.id,
             minute: e.minute,
             second: 0,
+            // Forfeit events use the engine `minute` directly
+            // as the in-game clock (no per-half mapping
+            // needed — forfeits fire at kickoff or end-of-match,
+            // both flat in-game 0'0" / 90'0" / 120'0"). See
+            // the main insert path above for the rationale.
+            clockSeconds: e.minute * 60,
             // RFC 0002 Phase 3 — same dual-write as the main
             // bulk-insert path. The forfeit event's `e.type` is
             // always 'forfeit' (or 'full_time' / 'match_start'),

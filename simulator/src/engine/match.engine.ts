@@ -207,6 +207,24 @@ function contributionToStars(contribution: number): number {
 
 export interface MatchEvent {
   minute: number;
+  /**
+   * In-game clock at the moment the event is emitted, expressed as
+   * seconds from the 1H kickoff (0 = 0'0", 2700 = 45'0", 5400 = 90'0",
+   * 6300 = 105'0", 7200 = 120'0").
+   *
+   * Distinct from `minute` because the engine's simulation tick is
+   * **per-half** — 1H ticks 1..45 map to in-game 1..45, but 2H ticks
+   * 46..90 map to in-game 45..89 (the 2H kickoff is at in-game 45'0",
+   * not 46'0"). `clockSeconds` collapses that off-by-one so a 1H
+   * whistle (engine `minute: 45+N1`) and a 2H kickoff (engine
+   * `minute: 46`) can share the same in-game instant when N1=0
+   * (both = 2700) and be told apart by `period` / `type`.
+   *
+   * The FE uses `(period, clockSeconds)` as the canonical sort key;
+   * `minute` is kept on the wire for back-compat with the 5-min
+   * snapshot cadence and the existing i18n `45'+1'""` formatter.
+   */
+  clockSeconds: number;
   type:
     | 'goal'
     | 'miss'
@@ -440,6 +458,17 @@ export class MatchEngine {
   private currentMomentTimes: Set<number> | null = null;
 
   /**
+   * In-game clock seconds for the current simulation tick. Cached
+   * at the top of `simulateMinute` so every event the helper
+   * pushes (snapshot, key moment, foul, injury, sub) can stamp
+   * itself without re-deriving the mapping. Boundary events
+   * (whistles, kickoffs pushed outside `simulateMinute`) compute
+   * `clockSeconds` from their literal minute — see
+   * `engineMinuteToClockSeconds` for the per-period mapping.
+   */
+  private currentClockSeconds: number = 0;
+
+  /**
    * Compute stoppage minutes for the just-finished half.
    *
    * Per design (2026-08-18, simpler formula requested by
@@ -484,6 +513,52 @@ export class MatchEngine {
     };
   }
 
+  /**
+   * Map an engine simulation tick `t` to in-game clock seconds.
+   *
+   * The engine's tick counter is per-half:
+   *   - 1H reg:  t=1..45             → in-game 1'..45'
+   *   - 1H inj:  t=46..45+N1         → in-game 46'..(45+N1)'
+   *   - 2H reg:  t=46..90            → in-game 45'..89'
+   *   - 2H inj:  t=91..90+M          → in-game 90'..(89+M)'
+   *   - ET1 reg: t=91..105           → in-game 90'..104'
+   *   - ET1 inj: t=106..105+N2       → in-game 105'..(104+N2)'
+   *   - ET2 reg: t=106..120          → in-game 105'..119'
+   *   - ET2 inj: t=121..120+M2       → in-game 120'..(119+M2)'
+   *
+   * Why 2H / ET2H tick is `t-1`: each half starts at the *previous*
+   * whistle's in-game minute. 2H reg tick 46 IS the 2H kickoff at
+   * in-game 45'0" — without the `-1` we'd label a 2H kickoff as
+   * "46'0"" which is wrong (and collides with 1H injury when N1>0).
+   * ET2H reg tick 106 is the ET 2H kickoff at in-game 105'0".
+   *
+   * Boundary events (whistles, kickoffs pushed outside `simulateMinute`)
+   * use literal values, NOT this helper — see the comment at each
+   * push site.
+   */
+  private engineMinuteToClockSeconds(
+    t: number,
+    period:
+      | 'first_half'
+      | 'first_half_injury'
+      | 'second_half'
+      | 'second_half_injury'
+      | 'extra_time_first_half'
+      | 'extra_time_first_half_injury'
+      | 'extra_time_second_half'
+      | 'extra_time_second_half_injury',
+  ): number {
+    if (
+      period === 'second_half' ||
+      period === 'second_half_injury' ||
+      period === 'extra_time_second_half' ||
+      period === 'extra_time_second_half_injury'
+    ) {
+      return (t - 1) * 60;
+    }
+    return t * 60;
+  }
+
   // ---------------------------------------------------------------------------
   // Per-minute simulation body. Pulled out of the previous inline loop so all
   // four halves (1H, 2H, ET1, ET2) and their four injury-time stretches can
@@ -507,6 +582,7 @@ export class MatchEngine {
   ): void {
     this.time = t;
     this.currentPeriod = period;
+    this.currentClockSeconds = this.engineMinuteToClockSeconds(t, period);
 
     // 1. Process tactical instructions (no-op for the wrapping half-end
     //    transition minutes, but harmless to call).
@@ -1107,8 +1183,13 @@ export class MatchEngine {
     // KICKOFF Event — single emission. Previously three `kickoff` events were
     // pushed (data-only, home, away); the FE had no way to dedupe them and
     // "And we're off!" rendered three times at minute 0.
+    //
+    // `clockSeconds: 0` is the in-game kickoff time. Every minute-0
+    // neutral event (kickoff / weather / attendance / intro) shares
+    // the same value; the FE differentiates by `type`.
     this.events.push({
       minute: 0,
+      clockSeconds: 0,
       type: 'kickoff',
       data: {
         homeTeam: this.homeTeam.name,
@@ -1175,7 +1256,10 @@ export class MatchEngine {
     // Initial Snapshot
     this.homeTeam.updateSnapshot(0, this.homeTactics.pitchWidth);
     this.awayTeam.updateSnapshot(0, this.awayTactics.pitchWidth);
-    this.generateSnapshotEvent(0);
+    // 1H kickoff is at in-game 0'0"; pass the override since
+    // `simulateMinute` hasn't run yet and `this.currentClockSeconds`
+    // is still at the constructor default (0 here, but be explicit).
+    this.generateSnapshotEvent(0, 0);
 
     // Pre-calculate moment times to maintain original pacing (approx 20 moments)
     const momentTimes = new Set<number>();
@@ -1237,8 +1321,15 @@ export class MatchEngine {
     // (i.e. 45 + N, not always 45), and `injuryTime` is
     // surfaced in the data so the FE / processor can read
     // the stoppage without re-running `computeInjuryTime`.
+    //
+    // `clockSeconds` is the in-game minute * 60 — for the
+    // no-stoppage case (N1=0) this is 2700, the SAME
+    // value the 2H kickoff below will carry, so the two
+    // events share the in-game instant and the FE can
+    // disambiguate by `period` (1H end vs 2H start).
     this.events.push({
       minute: 45 + this.firstHalfInjuryTime,
+      clockSeconds: (45 + this.firstHalfInjuryTime) * 60,
       type: 'half_time',
       data: {
         period: 'half_time',
@@ -1251,13 +1342,18 @@ export class MatchEngine {
     // Second-half kickoff. We preserve the legacy wire shape
     // (`type: 'second_half'`, `minute: 46`, `data.period:
     // 'second_half'`) so downstream consumers keyed on
-    // `type === 'second_half'` keep working. This is emitted
-    // *after* the injury-time loop, so it lands at minute 46
-    // even if N > 0 — a 1-minute "kickoff after extra time"
-    // gap is realistic (ref signals players back, second-half
-    // begins on the dot of 46).
+    // `type === 'second_half'` keep working. `clockSeconds:
+    // 2700` is the in-game 45'0" — always, regardless of N1
+    // — so the 1H whistle above (N1=0 → clockSeconds 2700) and
+    // this event land on the same in-game instant and the FE
+    // tells them apart by `period` / `type`. With N1>0 the
+    // whistle is at clockSeconds 2700+N1*60 and the kickoff
+    // stays at 2700, mirroring how a real match ball is
+    // kicked off at the 45'0" mark even after a multi-minute
+    // stoppage in 1H.
     this.events.push({
       minute: 46,
+      clockSeconds: 2700,
       type: 'second_half',
       data: {
         period: 'second_half',
@@ -1284,9 +1380,12 @@ export class MatchEngine {
     // convention as `half_time` (actual stoppage-inclusive
     // clock), and `injuryTime` is included for symmetry so a
     // future FE can render "FT, +M stoppage" without reaching
-    // back into `MatchEntity.firstHalfInjuryTime`.
+    // back into `MatchEntity.firstHalfInjuryTime`. `clockSeconds`
+    // is the in-game whistle time (90 + M minutes, expressed
+    // in seconds).
     this.events.push({
       minute: 90 + this.secondHalfInjuryTime,
+      clockSeconds: (90 + this.secondHalfInjuryTime) * 60,
       type: 'full_time',
       data: {
         homeScore: this.homeScore,
@@ -1343,10 +1442,17 @@ export class MatchEngine {
     // Extra Time Setup (30 mins = ~7 moments)
     const MOMENTS_COUNT = 7;
 
-    // Update Snapshot for start of ET
+    // Update Snapshot for start of ET. ET 1H starts at in-game 90'0"
+    // (clockSeconds 5400). We stage `this.currentClockSeconds` /
+    // `this.currentPeriod` manually because no `simulateMinute` has
+    // run yet — `simulateMatch` left the cache at the 2H injury
+    // last-tick value.
+    this.time = 90;
+    this.currentPeriod = 'extra_time_first_half';
+    this.currentClockSeconds = 5400;
     this.homeTeam.updateSnapshot(90, this.homeTactics.pitchWidth);
     this.awayTeam.updateSnapshot(90, this.awayTactics.pitchWidth);
-    this.generateSnapshotEvent(90);
+    this.generateSnapshotEvent(90, 5400);
 
     // [RFC injury-time-2026] ET follows the same phased structure as
     // regular time: each ET half bakes its own moment set, runs
@@ -1358,9 +1464,12 @@ export class MatchEngine {
     // t=46. With the new structure, each half is its own clean
     // phase with the kickoff pushed *before* the per-minute loop.
 
-    // ET 1st half: kickoff, then 91-105.
+    // ET 1st half: kickoff, then 91-105. `clockSeconds: 5400` is
+    // the in-game 90'0" — same convention as the 2H kickoff
+    // (always 45'0" regardless of 1H stoppage).
     this.events.push({
       minute: 90,
+      clockSeconds: 5400,
       type: 'kickoff',
       data: {
         period: 'extra_time',
@@ -1386,8 +1495,13 @@ export class MatchEngine {
 
     // ET 2nd-half kickoff — pushed between the two halves so
     // the wire order is "1H whistle → 2H kickoff → 2H play".
+    // Same off-by-one pattern as the regular 2H kickoff: the
+    // whistle's `minute` is `105 + N2` (the stoppage-inclusive
+    // actual time) but the kickoff is always at in-game 105'0"
+    // (clockSeconds 6300), regardless of N2.
     this.events.push({
       minute: 105 + this.extraTimeFirstHalfInjury,
+      clockSeconds: (105 + this.extraTimeFirstHalfInjury) * 60,
       type: 'half_time',
       data: {
         period: 'extra_time_half_time',
@@ -1398,6 +1512,7 @@ export class MatchEngine {
     });
     this.events.push({
       minute: 105,
+      clockSeconds: 6300,
       type: 'kickoff',
       data: {
         period: 'extra_time_second_half',
@@ -1430,6 +1545,7 @@ export class MatchEngine {
     // FE's "match ended in penalties" path still triggers.
     this.events.push({
       minute: 120 + this.extraTimeSecondHalfInjury,
+      clockSeconds: (120 + this.extraTimeSecondHalfInjury) * 60,
       type: 'full_time',
       data: {
         homeScore: this.homeScore,
@@ -1560,6 +1676,7 @@ export class MatchEngine {
 
     this.events.push({
       minute: 120,
+      clockSeconds: 7200,
       type: 'full_time',
       data: { homeScore: homePKScore, awayScore: awayPKScore, isPenalty: true },
     });
@@ -1989,6 +2106,11 @@ export class MatchEngine {
     const p = kicker.player as Player;
     this.events.push({
       minute: 120,
+      // Penalty shootout events use 120'0" (clockSeconds 7200) as
+      // a fixed "post-120" anchor — the shootout isn't part of
+      // either ET half's in-game clock. Sequence is preserved by
+      // event order, not by clockSeconds.
+      clockSeconds: 7200,
       type: goal ? 'penalty_goal' : 'penalty_miss',
       teamName: team.name,
       playerId: p.id,
@@ -2150,6 +2272,7 @@ export class MatchEngine {
       if (success) {
         this.events.push({
           minute,
+          clockSeconds: this.currentClockSeconds,
           type: ins.type === 'swap' ? 'substitution' : 'tactical_change',
           teamName: team.name,
           playerId: ins.type === 'swap' ? ins.newPlayerId : ins.playerId,
@@ -2992,6 +3115,7 @@ export class MatchEngine {
       player.isSentOff = true;
       this.events.push({
         minute: this.time,
+        clockSeconds: this.currentClockSeconds,
         type: 'red_card',
         teamName: foulingTeam.name,
         playerId: p.id,
@@ -3016,6 +3140,7 @@ export class MatchEngine {
         player.isSentOff = true;
         this.events.push({
           minute: this.time,
+          clockSeconds: this.currentClockSeconds,
           type: 'red_card',
           teamName: foulingTeam.name,
           playerId: p.id,
@@ -3031,6 +3156,7 @@ export class MatchEngine {
         // First yellow - also determine set piece
         this.events.push({
           minute: this.time,
+          clockSeconds: this.currentClockSeconds,
           type: 'yellow_card',
           teamName: foulingTeam.name,
           playerId: p.id,
@@ -3181,6 +3307,7 @@ export class MatchEngine {
       // Push injury event
       this.events.push({
         minute: this.time,
+        clockSeconds: this.currentClockSeconds,
         type: 'injury',
         teamName: team.name,
         playerId: player.id,
@@ -3233,6 +3360,7 @@ export class MatchEngine {
           // Add substitution event
           this.events.push({
             minute: this.time,
+            clockSeconds: this.currentClockSeconds,
             type: 'substitution',
             teamName: team.name,
             playerId: playerInId,
@@ -3278,6 +3406,7 @@ export class MatchEngine {
           team.sendOffPlayer(player.id);
           this.events.push({
             minute: this.time,
+            clockSeconds: this.currentClockSeconds,
             type: 'red_card',
             teamName: team.name,
             playerId: player.id,
@@ -3579,6 +3708,7 @@ export class MatchEngine {
 
     this.events.push({
       minute: this.time,
+      clockSeconds: this.currentClockSeconds,
       type: eventType,
       teamName: possessor,
       playerId: eventPlayer ? (eventPlayer.player as Player).id : undefined,
@@ -4188,7 +4318,14 @@ export class MatchEngine {
     }
   }
 
-  private generateSnapshotEvent(time: number) {
+  private generateSnapshotEvent(time: number, clockSecondsOverride?: number) {
+    // Use the override (boundary events: initial kickoff, ET 1H kickoff)
+    // when present; otherwise rely on `this.currentClockSeconds` which
+    // `simulateMinute` cached at the top of every tick. The in-loop
+    // snapshot helper calls in `recordAttackSequence` / `resolveFoul` /
+    // `checkAndGenerateInjury` all run under `simulateMinute` so they
+    // see the right value without an explicit argument.
+    const clockSeconds = clockSecondsOverride ?? this.currentClockSeconds;
     const homeSnapshot = this.homeTeam.getSnapshot();
     const awaySnapshot = this.awayTeam.getSnapshot();
 
@@ -4434,6 +4571,7 @@ export class MatchEngine {
 
     this.events.push({
       minute: time,
+      clockSeconds,
       type: 'snapshot',
       data: {
         h: {
@@ -4491,6 +4629,7 @@ export class MatchEngine {
 
     this.events.push({
       minute: this.time,
+      clockSeconds: this.currentClockSeconds,
       type: isGoal ? 'goal' : 'corner',
       teamName: attackingTeam.name,
       playerId: kickerPlayer.id,
@@ -4556,6 +4695,7 @@ export class MatchEngine {
 
     this.events.push({
       minute: this.time,
+      clockSeconds: this.currentClockSeconds,
       type: isGoal ? 'goal' : 'free_kick',
       teamName: attackingTeam.name,
       playerId: kickerPlayer.id,
@@ -4638,6 +4778,7 @@ export class MatchEngine {
 
     this.events.push({
       minute: this.time,
+      clockSeconds: this.currentClockSeconds,
       type: isGoal ? 'goal' : 'free_kick',
       teamName: attackingTeam.name,
       playerId: kickerP.id,
@@ -4738,6 +4879,7 @@ export class MatchEngine {
 
     this.events.push({
       minute: this.time,
+      clockSeconds: this.currentClockSeconds,
       type: isGoal ? 'goal' : 'penalty_miss',
       teamName: attackingTeam.name,
       playerId: kickerP.id,

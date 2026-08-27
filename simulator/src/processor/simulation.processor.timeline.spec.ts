@@ -328,6 +328,13 @@ describe('SimulationProcessor.computeEventRealTimeMs (timeline mapping)', () => 
         const halfTime = SimulationProcessor.computeEventRealTimeMs(
           {
             minute: 45 + N1,
+            // The 1H whistle is at in-game 45+N1'0" — engine
+            // and in-game minute align for 1H. The processor's
+            // `computeEventRealTimeMs` only reads `minute` and
+            // `data.period`, so this is a no-op for the math
+            // — it's required by the engine's `MatchEvent` type
+            // after RFC clockSeconds-2026.
+            clockSeconds: (45 + N1) * 60,
             type: 'half_time',
             data: { period: 'half_time' },
           } as MatchEvent,
@@ -338,7 +345,17 @@ describe('SimulationProcessor.computeEventRealTimeMs (timeline mapping)', () => 
 
         for (const m of [46, 50, 60, 75, 90]) {
           const offset = SimulationProcessor.computeEventRealTimeMs(
-            { minute: m, type: 'goal', data: {} } as MatchEvent,
+            {
+              minute: m,
+              // 2H events at engine `m` map to in-game
+              // `(m-1)*60` per `engineMinuteToClockSeconds`.
+              // Real-time scheduling doesn't read this; the
+              // field is required by the engine's `MatchEvent`
+              // type after RFC clockSeconds-2026.
+              clockSeconds: (m - 1) * 60,
+              type: 'goal',
+              data: {},
+            } as MatchEvent,
             'post_1h',
             ctx,
           );
@@ -361,7 +378,11 @@ describe('SimulationProcessor.computeEventRealTimeMs (timeline mapping)', () => 
 
         for (const m of [91, 92, 93, 95]) {
           const offset = SimulationProcessor.computeEventRealTimeMs(
-            { minute: m, type: 'snapshot', data: {} } as MatchEvent,
+            // 2H injury ticks 91..90+M map to in-game
+            // 90..(89+M) per `engineMinuteToClockSeconds`.
+            // Field is required by the engine's `MatchEvent`
+            // type after RFC clockSeconds-2026.
+            { minute: m, clockSeconds: (m - 1) * 60, type: 'snapshot', data: {} } as MatchEvent,
             'post_1h',
             ctx,
           );
@@ -369,7 +390,10 @@ describe('SimulationProcessor.computeEventRealTimeMs (timeline mapping)', () => 
         }
 
         const ft = SimulationProcessor.computeEventRealTimeMs(
-          { minute: 90 + M, type: 'full_time', data: {} } as MatchEvent,
+          // 2H whistle is at in-game 90+M:00 (clockSeconds
+          // (90+M)*60) — engine `minute` and in-game minute
+          // happen to align for the whistle.
+          { minute: 90 + M, clockSeconds: (90 + M) * 60, type: 'full_time', data: {} } as MatchEvent,
           'post_1h',
           ctx,
         );
@@ -396,7 +420,9 @@ describe('SimulationProcessor.computeEventRealTimeMs (timeline mapping)', () => 
 
     it('FT whistle real time = 140+N2+M2', () => {
       const ft = SimulationProcessor.computeEventRealTimeMs(
-        { minute: 120 + M2, type: 'full_time', data: {} } as MatchEvent,
+        // ET 2H whistle is at in-game 120+M2:00 (engine and
+        // in-game align for the whistle).
+        { minute: 120 + M2, clockSeconds: (120 + M2) * 60, type: 'full_time', data: {} } as MatchEvent,
         'post_et1',
         ctx,
       );
@@ -407,6 +433,7 @@ describe('SimulationProcessor.computeEventRealTimeMs (timeline mapping)', () => 
       const t = SimulationProcessor.computeEventRealTimeMs(
         {
           minute: 45 + N1,
+          clockSeconds: (45 + N1) * 60,
           type: 'half_time',
           data: { period: 'half_time' },
         } as MatchEvent,
@@ -420,6 +447,7 @@ describe('SimulationProcessor.computeEventRealTimeMs (timeline mapping)', () => 
       const t = SimulationProcessor.computeEventRealTimeMs(
         {
           minute: 105 + N2,
+          clockSeconds: (105 + N2) * 60,
           type: 'half_time',
           data: { period: 'extra_time_half_time' },
         } as MatchEvent,
@@ -432,7 +460,12 @@ describe('SimulationProcessor.computeEventRealTimeMs (timeline mapping)', () => 
     it('2H kickoff real time = 60 (HT is constant, N1 does not shift)', () => {
       const t = SimulationProcessor.computeEventRealTimeMs(
         {
+          // 2H kickoff is at engine `minute: 46` (legacy
+          // wire shape) but in-game 45'0" (clockSeconds
+          // 2700). Field is required by the engine's
+          // `MatchEvent` type after RFC clockSeconds-2026.
           minute: 46,
+          clockSeconds: 2700,
           type: 'second_half',
           data: { period: 'second_half' },
         } as MatchEvent,
@@ -444,7 +477,9 @@ describe('SimulationProcessor.computeEventRealTimeMs (timeline mapping)', () => 
 
     it('2H FT whistle real time = 105+M (HT is constant, M only shifts 2H end)', () => {
       const t = SimulationProcessor.computeEventRealTimeMs(
-        { minute: 90 + M, type: 'full_time', data: {} } as MatchEvent,
+        // 2H whistle is at in-game 90+M:00 (engine and
+        // in-game align for the whistle).
+        { minute: 90 + M, clockSeconds: (90 + M) * 60, type: 'full_time', data: {} } as MatchEvent,
         'post_1h',
         ctx,
       );
@@ -458,7 +493,9 @@ describe('SimulationProcessor.computeEventRealTimeMs (timeline mapping)', () => 
       // routes correctly to the 2H-injury formula (NOT the ET
       // 2H regulation formula at 90+15+15+5+(m-105)).
       const t = SimulationProcessor.computeEventRealTimeMs(
-        { minute: 91, type: 'snapshot', data: {} } as MatchEvent,
+        // 2H injury tick 91 is at in-game 90:00
+        // (clockSeconds 5400) per `engineMinuteToClockSeconds`.
+        { minute: 91, clockSeconds: 5400, type: 'snapshot', data: {} } as MatchEvent,
         'post_1h',
         ctx,
       );

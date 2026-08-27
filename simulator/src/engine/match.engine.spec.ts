@@ -884,6 +884,116 @@ describe('MatchEngine', () => {
     });
   });
 
+  describe('clockSeconds on every event (RFC clockSeconds-2026)', () => {
+    // The engine now stamps every `MatchEvent` with `clockSeconds`
+    // (in-game clock, 0..7200) so the FE can group the 1H whistle
+    // and the 2H kickoff at the same in-game instant (2700s)
+    // when N1=0. The `minute` field is unchanged (legacy wire
+    // shape for the processor's real-time scheduler). See
+    // `engineMinuteToClockSeconds` for the per-period mapping.
+    it('every event has a numeric clockSeconds ≥ 0', () => {
+      engine.simulateMatch();
+      const events = (engine as any).events as MatchEvent[];
+      for (const e of events) {
+        expect(typeof e.clockSeconds).toBe('number');
+        expect(e.clockSeconds).toBeGreaterThanOrEqual(0);
+        // 7200 = 120'0" (penalty shootout anchor); the engine
+        // never emits anything past that.
+        expect(e.clockSeconds).toBeLessThanOrEqual(7200);
+      }
+    });
+
+    it('1H whistle and 2H kickoff share clockSeconds=2700 when N1=0', () => {
+      // Force N1=0 by stubbing computeInjuryTime to return 0.
+      // Without this the engine's random walk can land on N1>0
+      // and the whistle moves to clockSeconds > 2700, which is
+      // still correct but doesn't exercise the collision.
+      const original = (MatchEngine as unknown as {
+        computeInjuryTime: typeof MatchEngine['computeInjuryTime'];
+      }).computeInjuryTime;
+      (MatchEngine as unknown as {
+        computeInjuryTime: () => number;
+      }).computeInjuryTime = () => 0;
+      try {
+        engine.simulateMatch();
+        const events = (engine as unknown as { events: MatchEvent[] }).events;
+        const whistle = events.find((e) => e.type === 'half_time');
+        const kickoff = events.find((e) => e.type === 'second_half');
+        expect(whistle).toBeDefined();
+        expect(kickoff).toBeDefined();
+        // The fix: both events land at in-game 45'0"
+        // (clockSeconds 2700) — the same in-game instant.
+        // Pre-fix the whistle was at engine `minute: 45` (no
+        // clockSeconds field) and the kickoff at engine
+        // `minute: 46`, so the FE couldn't tell they shared a
+        // moment.
+        expect(whistle!.clockSeconds).toBe(2700);
+        expect(kickoff!.clockSeconds).toBe(2700);
+        // `minute` stays on the legacy wire shape — whistle at
+        // 45, kickoff at 46. The processor's real-time scheduler
+        // still reads `minute`, not `clockSeconds`.
+        expect(whistle!.minute).toBe(45);
+        expect(kickoff!.minute).toBe(46);
+      } finally {
+        (MatchEngine as unknown as {
+          computeInjuryTime: typeof MatchEngine['computeInjuryTime'];
+        }).computeInjuryTime = original;
+      }
+    });
+
+    it('1H whistle clockSeconds shifts with stoppage; 2H kickoff stays at 2700', () => {
+      // The kickoff is ALWAYS at in-game 45'0" (clockSeconds
+      // 2700), regardless of how much 1H stoppage there was.
+      // The whistle moves with the stoppage. This mirrors real
+      // football: the ball is kicked off at the 45:00 mark
+      // even after a multi-minute delay.
+      const original = (MatchEngine as unknown as {
+        computeInjuryTime: typeof MatchEngine['computeInjuryTime'];
+      }).computeInjuryTime;
+      (MatchEngine as unknown as {
+        computeInjuryTime: () => number;
+      }).computeInjuryTime = () => 3;
+      try {
+        engine.simulateMatch();
+        const events = (engine as unknown as { events: MatchEvent[] }).events;
+        const whistle = events.find((e) => e.type === 'half_time');
+        const kickoff = events.find((e) => e.type === 'second_half');
+        // 1H whistle = 45 + 3 = 48 minutes = 2880s
+        expect(whistle!.clockSeconds).toBe(2880);
+        // 2H kickoff = 45 minutes = 2700s (UNCHANGED)
+        expect(kickoff!.clockSeconds).toBe(2700);
+        // Engine wire: whistle at minute 48, kickoff at minute 46
+        expect(whistle!.minute).toBe(48);
+        expect(kickoff!.minute).toBe(46);
+      } finally {
+        (MatchEngine as unknown as {
+          computeInjuryTime: typeof MatchEngine['computeInjuryTime'];
+        }).computeInjuryTime = original;
+      }
+    });
+
+    it('2H events use (t-1)*60 mapping — engine minute 90 = in-game 89:00', () => {
+      // The 2H regulation tick t=90 maps to in-game 89'0"
+      // (the last minute before stoppage). Pin the mapping so a
+      // future "let me just use minute*60 everywhere" refactor
+      // fails the test.
+      engine.simulateMatch();
+      const events = (engine as any).events as MatchEvent[];
+      // 2H reg tick 90 is the snapshot at 89:00. Find a 2H
+      // regulation snapshot (any 2H snapshot NOT at minute 90+M
+      // — that's the full_time whistle, not a per-tick event).
+      const secondHalfSnapshot = events.find(
+        (e) =>
+          e.type === 'snapshot' &&
+          e.minute === 90 &&
+          e.data?.period === undefined,
+      );
+      if (secondHalfSnapshot) {
+        expect(secondHalfSnapshot.clockSeconds).toBe(5340); // 89 * 60
+      }
+    });
+  });
+
   describe('second yellow → red card dismissal', () => {
     // Pre-fix the 2nd-yellow branch in `resolveFoul` called
     // `foulingTeam.sendOffPlayer(p.id)` but forgot
