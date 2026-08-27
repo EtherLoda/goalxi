@@ -13,6 +13,7 @@ import {
   closestSnapshotIndex,
   extractInjuryWindows,
   extractTimelineMarkers,
+  formatMatchMinute,
   minuteToPercent,
   timelineEnd,
 } from './match-timeline';
@@ -475,5 +476,123 @@ describe('TIMELINE_EVENT_TYPES', () => {
       'RED_CARD',
       'INJURY',
     ]);
+  });
+});
+
+// ============================================================================
+// formatMatchMinute
+// ============================================================================
+
+describe('formatMatchMinute', () => {
+  // Two-window fixture: 1H +3 stoppage (45-48), 2H +4 stoppage
+  // (90-94). The helper should resolve the +N suffix for any
+  // minute inside either window and pass through unchanged for
+  // any minute in regulation (1-45, 46-90) or in the ET windows.
+  const windows = [
+    { startMinute: 45, endMinute: 48, addedMinutes: 3, label: '1H' as const },
+    { startMinute: 90, endMinute: 94, addedMinutes: 4, label: '2H' as const },
+  ];
+
+  it('renders regulation minutes as the raw minute', () => {
+    expect(formatMatchMinute(1, windows)).toBe('1');
+    expect(formatMatchMinute(23, windows)).toBe('23');
+    expect(formatMatchMinute(45, windows)).toBe('45'); // 45 is the regulation half end, NOT stoppage
+    expect(formatMatchMinute(90, windows)).toBe('90'); // 90 is the regulation half end
+  });
+
+  it('renders 1H stoppage minutes with the +N suffix', () => {
+    // Engine emits stoppage minutes with the stoppage-inclusive
+    // clock: 45+1 → 46, 45+2 → 47, 45+3 → 48 (the half-time
+    // whistle itself lands at 48). The helper just surfaces
+    // the "+N" suffix the wire data is already carrying.
+    expect(formatMatchMinute(46, windows)).toBe('45+1');
+    expect(formatMatchMinute(47, windows)).toBe('45+2');
+    expect(formatMatchMinute(48, windows)).toBe('45+3'); // whistle
+  });
+
+  it('renders 2H stoppage minutes with the +N suffix', () => {
+    expect(formatMatchMinute(91, windows)).toBe('90+1');
+    expect(formatMatchMinute(92, windows)).toBe('90+2');
+    expect(formatMatchMinute(93, windows)).toBe('90+3');
+    expect(formatMatchMinute(94, windows)).toBe('90+4'); // whistle
+  });
+
+  it('falls back to the raw minute when no stoppage windows are provided', () => {
+    // Pre-fix behaviour: a row that predates the `data.injuryTime`
+    // surfacing (or a test fixture that omits half_time / full_time
+    // events) renders the raw number rather than crashing.
+    expect(formatMatchMinute(46, [])).toBe('46');
+    expect(formatMatchMinute(46, undefined as never)).toBe('46');
+  });
+
+  it('does NOT mark the regulation-half boundary as stoppage (45 stays 45, not 45+0)', () => {
+    // 45 is the end of regulation 1H. A naive "inside (45, 48]"
+    // check would correctly exclude the open boundary, but a
+    // sloppy ">=" would print "45+0" — pin the contract here.
+    expect(formatMatchMinute(45, windows)).toBe('45');
+  });
+
+  it('handles ET windows (startMinute 105 / 120)', () => {
+    // ET 1H +2 (105-107) and ET 2H +3 (120-123) on top of the
+    // regulation windows. The helper should pick the right
+    // window for each minute.
+    const etWindows = [
+      ...windows,
+      { startMinute: 105, endMinute: 107, addedMinutes: 2, label: 'ET1H' as const },
+      { startMinute: 120, endMinute: 123, addedMinutes: 3, label: 'ET2H' as const },
+    ];
+    expect(formatMatchMinute(106, etWindows)).toBe('105+1');
+    expect(formatMatchMinute(107, etWindows)).toBe('105+2');
+    expect(formatMatchMinute(121, etWindows)).toBe('120+1');
+    expect(formatMatchMinute(123, etWindows)).toBe('120+3');
+    expect(formatMatchMinute(105, etWindows)).toBe('105'); // boundary
+  });
+});
+
+// ============================================================================
+// extractTimelineMarkers — minuteLabel carries the "+N" suffix
+// ============================================================================
+
+describe('extractTimelineMarkers', () => {
+  it('sets marker.minuteLabel to the stoppage-aware display string', () => {
+    // 1H +3 stoppage: a goal at minute 46 (the first stoppage
+    // minute) should land on the timeline as "45+1" — the same
+    // label a reader would see in the live feed above.
+    const events: MatchEvent[] = [
+      mkEvent({
+        type: 'half_time',
+        typeName: 'half_time',
+        minute: 48,
+        data: { period: 'half_time', homeScore: 0, awayScore: 0, injuryTime: 3 },
+      }),
+      mkEvent({
+        type: 'goal',
+        typeName: 'goal',
+        minute: 46,
+        teamId: 't1',
+      }),
+      mkEvent({
+        type: 'goal',
+        typeName: 'goal',
+        minute: 23, // regulation
+        teamId: 't1',
+      }),
+    ];
+    const windows = extractInjuryWindows(events);
+    const markers = extractTimelineMarkers(events, windows);
+    const goalAt46 = markers.find((m) => m.minute === 46);
+    const goalAt23 = markers.find((m) => m.minute === 23);
+    expect(goalAt46?.minuteLabel).toBe('45+1');
+    expect(goalAt23?.minuteLabel).toBe('23');
+  });
+
+  it('falls back to the raw minute when no windows are supplied', () => {
+    // Backwards-compat: callers that pre-date this change pass
+    // `[]` for windows. The marker should still label correctly.
+    const events: MatchEvent[] = [
+      mkEvent({ type: 'goal', typeName: 'goal', minute: 46, teamId: 't1' }),
+    ];
+    const markers = extractTimelineMarkers(events, []);
+    expect(markers[0]?.minuteLabel).toBe('46');
   });
 });

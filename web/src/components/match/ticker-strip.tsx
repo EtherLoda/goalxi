@@ -19,6 +19,7 @@ import { useTranslations } from 'next-intl';
 import type { MatchEvent } from '@/lib/api';
 import { canonicalEventType, formatEventCommentary } from '@/lib/commentary';
 import { eventIcon } from './commentary-icons';
+import { formatMatchMinute, type InjuryWindow } from './match-timeline';
 
 export interface TickerStripProps {
   events: MatchEvent[];
@@ -27,18 +28,27 @@ export interface TickerStripProps {
   /** Cap how many events make it onto the strip — too many and the
    *  scroll speed gets unusable. Default 24. */
   maxItems?: number;
+  /** Stoppage windows derived from the same `events` list. Used to
+   *  format the minute column with the "+N" suffix for events in
+   *  1H / 2H / ET stoppage time. Optional for backwards-compat;
+   *  the strip falls back to the raw minute when this is missing. */
+  injuryWindows?: InjuryWindow[];
 }
 
 interface TickerChunkProps {
   items: MatchEvent[];
   formatText: (e: MatchEvent) => string;
+  /** Player-facing minute label resolver — same signature as
+   *  `formatMatchMinute` so the parent can pre-bind the windows
+   *  once and pass the closure down. */
+  formatMinute: (m: number) => string;
 }
 
 // Defined at module scope so its identity is stable across renders —
 // declaring components inside the function body trips the
 // react-hooks/static-components lint rule and also resets state per
 // render.
-const TickerChunk: React.FC<TickerChunkProps> = ({ items, formatText }) => (
+const TickerChunk: React.FC<TickerChunkProps> = ({ items, formatText, formatMinute }) => (
   <>
     {items.map((e, i) => {
       const type = canonicalEventType(e.typeName ?? e.type);
@@ -58,7 +68,7 @@ const TickerChunk: React.FC<TickerChunkProps> = ({ items, formatText }) => (
             {React.createElement(Icon, { size: 14 })}
           </span>
           <span className="font-mono text-[11px] font-bold tabular-nums text-primary/90">
-            {e.minute}&apos;
+            {formatMinute(e.minute)}&apos;
           </span>
           <span className="text-xs leading-none">{formatText(e)}</span>
         </div>
@@ -72,6 +82,7 @@ export const TickerStrip: React.FC<TickerStripProps> = ({
   homeTeamName,
   awayTeamName,
   maxItems = 24,
+  injuryWindows,
 }) => {
   const tChrome = useTranslations('matches.live');
   const t = useTranslations('commentary');
@@ -85,6 +96,16 @@ export const TickerStrip: React.FC<TickerStripProps> = ({
   const formatText = React.useCallback(
     (e: MatchEvent) => formatEventCommentary(e, homeTeamName, awayTeamName, t) ?? '',
     [homeTeamName, awayTeamName, t],
+  );
+
+  // `formatMinute` is pre-bound with the injury windows so each
+  // TickerChunk call site only carries the resolver closure (vs
+  // re-passing the windows array down the tree). Falls back to a
+  // passthrough resolver when the parent didn't supply windows
+  // — same default the helper itself uses internally.
+  const formatMinute = React.useCallback(
+    (m: number) => formatMatchMinute(m, injuryWindows ?? []),
+    [injuryWindows],
   );
 
   if (items.length === 0) {
@@ -109,9 +130,9 @@ export const TickerStrip: React.FC<TickerStripProps> = ({
       <div className="pointer-events-none absolute right-0 top-0 bottom-0 w-10 bg-gradient-to-l from-surface-container-lowest to-transparent z-10" />
 
       <div className="ticker-track flex items-center gap-2 py-2 px-2 w-max group-hover:[animation-play-state:paused]">
-        <TickerChunk items={items} formatText={formatText} />
+        <TickerChunk items={items} formatText={formatText} formatMinute={formatMinute} />
         {/* duplicate for seamless loop */}
-        <TickerChunk items={items} formatText={formatText} />
+        <TickerChunk items={items} formatText={formatText} formatMinute={formatMinute} />
       </div>
 
       <style jsx>{`

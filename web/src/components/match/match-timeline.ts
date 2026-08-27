@@ -1,8 +1,9 @@
 /**
- * match-timeline.ts — pure helpers for the horizontal match timeline.
+ * match-timeline.ts — pure helpers + one React hook for the
+ * horizontal match timeline.
  *
- * Lives in `.ts` (not `.tsx`) so jest can resolve it without a jsdom
- * environment. Owns:
+ * Lives in `.ts` (not `.tsx`) so jest can resolve it without a
+ * jsdom environment. Owns:
  *   - `TIMELINE_EVENT_TYPES` — the event types we render as markers on
  *     the timeline (everything else falls through to the snapshot ticks).
  *   - `extractTimelineMarkers(events)` — walks the event list, returns a
@@ -11,15 +12,23 @@
  *   - `timelineEnd(events, currentMinute)` — total minutes the bar
  *     covers (90 by default; grows if an event falls past the 90th
  *     minute so extra-time events stay visible).
+ *   - `extractInjuryWindows(events)` — stoppage windows (1H/2H/ET1H/ET2H)
+ *     derived from `data.injuryTime` on the half_time / full_time events.
+ *   - `useInjuryWindows(events)` — React hook wrapper with memoisation.
+ *   - `formatMatchMinute(minute, windows)` — renders raw engine minutes
+ *     as "45+1" labels in stoppage windows (the engine's wire value
+ *     is already stoppage-inclusive; this just surfaces the "+N" suffix).
  *   - `closestSnapshotIndex(snapshots, minute)` — used when the user
  *     clicks a marker / the track itself: jump the scrubber to the
  *     nearest snapshot by minute (snapping backwards; we never jump
  *     past a moment the user hasn't "watched" yet).
  *
- * Pure functions — no React, no fetch. The page component owns the
- * `activeIndex` state and reads these helpers inside `useMemo`s.
+ * Pure functions — no fetch, no DOM access. The `useInjuryWindows`
+ * hook is the only React dependency; the rest are side-effect-free
+ * and unit-testable in node.
  */
 
+import { useMemo } from 'react';
 import type { MatchEvent } from '@/lib/api';
 import type { MatchSnapshot } from './match-pitch-data';
 import { canonicalEventType } from '@/lib/commentary';
@@ -52,8 +61,21 @@ export type TimelineEventType = (typeof TIMELINE_EVENT_TYPES)[number];
 export interface TimelineMarker {
   /** Canonical uppercase type key (matches `TimelineEventType`). */
   type: TimelineEventType;
-  /** Match minute — used for horizontal placement. */
+  /** Raw match minute — used for horizontal placement. The engine
+   *  emits stoppage minutes with the stoppage-inclusive clock
+   *  (e.g. `46` for the first 1H+1 stoppage minute), so the marker
+   *  carries BOTH the raw number (for positioning) and the player-
+   *  facing label (for tooltips / aria). */
   minute: number;
+  /**
+   * Player-facing minute label — the raw minute with a "+N"
+   * suffix for stoppage-time events (e.g. "45+1" instead of "46").
+   * Set by `extractTimelineMarkers` from the same stoppage windows
+   * the engine writes on `half_time` / `full_time` events via
+   * `data.injuryTime`. The renderer reads this verbatim rather
+   * than re-deriving the format from `minute`.
+   */
+  minuteLabel: string;
   /** Team id, used by the marker to pick the home/away color side. */
   teamId?: string;
   /** Whether the event belongs to the home side (set when known). */
@@ -81,11 +103,22 @@ export interface TimelineMarker {
  * both a `GOAL` and a `PENALTY_GOAL` for the same kick (the alias map
  * folds `PENALTY_GOAL` to `GOAL`, but defensive dedup is cheap).
  *
+ * `injuryWindows` is the result of `extractInjuryWindows(events)` —
+ * passed in (rather than re-derived here) so the caller can memo
+ * the windows once and feed them to both `extractInjuryWindows`
+ * consumers (timeline + sidebar + commentary feed) without re-
+ * walking the events. Defaults to `[]` for tests / one-off call
+ * sites that don't have the windows handy; the marker falls back
+ * to the raw minute in that case.
+ *
  * Pre-condition: events come from `api.matches.getEvents(matchId)` and
  * have already been typed by the API client. If the FE ever ingests a
  * pre-typed array, this filter is the only normalization needed.
  */
-export function extractTimelineMarkers(events: MatchEvent[]): TimelineMarker[] {
+export function extractTimelineMarkers(
+  events: MatchEvent[],
+  injuryWindows: InjuryWindow[] = [],
+): TimelineMarker[] {
   const out: TimelineMarker[] = [];
   const seen = new Set<string>();
   for (const e of events) {
@@ -98,6 +131,11 @@ export function extractTimelineMarkers(events: MatchEvent[]): TimelineMarker[] {
     out.push({
       type: canonical as TimelineEventType,
       minute,
+      // Player-facing label — e.g. "45+1" for a 1H+1 stoppage
+      // event whose raw minute is 46. See `formatMatchMinute`
+      // for the rule (strictly inside the stoppage window,
+      // boundaries stay un-suffixed).
+      minuteLabel: formatMatchMinute(minute, injuryWindows),
       teamId: e.teamId,
       isHome: e.isHome,
       // Pull `playerName` from the event's data payload — same source
@@ -289,6 +327,26 @@ export function extractInjuryWindows(events: MatchEvent[]): InjuryWindow[] {
 }
 
 // ============================================================================
+// useInjuryWindows
+// ============================================================================
+
+/**
+ * React hook wrapper around `extractInjuryWindows` with memoisation
+ * keyed on the events array reference. Use this in any component
+ * that needs the stoppage windows for the same `events` list across
+ * multiple render sites (e.g. `LiveCommentary` derives them once and
+ * passes to `EventBubble` / `TickerStrip` so each consumer doesn't
+ * re-walk the events). Empty / undefined input returns [] (matches
+ * `extractInjuryWindows`'s contract — never throws).
+ */
+export function useInjuryWindows(events: MatchEvent[] | undefined | null): InjuryWindow[] {
+  return useMemo(
+    () => (events ? extractInjuryWindows(events) : []),
+    [events],
+  );
+}
+
+// ============================================================================
 // closestSnapshotIndex
 // ============================================================================
 
@@ -312,4 +370,57 @@ export function closestSnapshotIndex(
     else break;
   }
   return chosen;
+}
+
+// ============================================================================
+// formatMatchMinute
+// ============================================================================
+
+/**
+ * Render a raw event minute as a "45+1"-style display string.
+ *
+ * The engine emits stoppage-time events with the stoppage-inclusive
+ * minute (a 1H +3 event lands at `minute: 48`, the `half_time` whistle
+ * at `minute: 48`, etc.) and surfaces the per-half stoppage count via
+ * `data.injuryTime` on the `half_time` / `full_time` events. This
+ * helper is the consumer-facing formatter: pass the raw minute + the
+ * already-resolved `InjuryWindow[]`, and it returns the player-facing
+ * label.
+ *
+ * Rules (driven by the four stoppage windows the engine writes):
+ *   - minute in `(window.startMinute, window.endMinute]` — render as
+ *     `${startMinute}+${minute - startMinute}` (the +N offset into
+ *     that stoppage window)
+ *   - minute outside any stoppage window — render as the raw minute
+ *   - minute is exactly `window.startMinute` (e.g. minute 45 with
+ *     a 1H+3 stoppage) — render as the raw minute (not "45+0").
+ *     45 is the regulation-half end, not a stoppage minute. The
+ *     half_time event at minute 48 is the "+3" boundary, and
+ *     events strictly between 45 and 48 are the stoppage minutes.
+ *   - injuryWindows is empty / undefined (e.g. old rows without
+ *     `data.injuryTime`) — fall back to the raw minute so the
+ *     pre-fix behaviour is preserved.
+ *
+ * Pre-fix code rendered the raw number everywhere (e.g. "46'" for
+ * a 45+1 event), which is wrong: the engine's wire value 46 is the
+ * STOPPAGE-INCLUSIVE clock, not the regulation minute. A reader
+ * looking at the live feed would see "46'" and not know if the
+ * event was in regulation 46 or in the 1H +3 window. This helper
+ * surfaces the "+N" suffix the wire data is already carrying.
+ */
+export function formatMatchMinute(
+  minute: number,
+  injuryWindows: InjuryWindow[],
+): string {
+  if (!injuryWindows || injuryWindows.length === 0) return String(minute);
+  for (const w of injuryWindows) {
+    // Strictly inside the stoppage window: (start, end]. The start
+    // minute itself (e.g. 45 for 1H) is the regulation-half end,
+    // not a stoppage minute, so it's excluded.
+    if (minute > w.startMinute && minute <= w.endMinute) {
+      const offset = minute - w.startMinute;
+      return `${w.startMinute}+${offset}`;
+    }
+  }
+  return String(minute);
 }

@@ -31,6 +31,7 @@ import type { MatchEvent } from '@/lib/api';
 import { canonicalEventType, formatEventCommentary } from '@/lib/commentary';
 import { eventIcon } from './commentary-icons';
 import { resolveSide } from './match-event-side';
+import { formatMatchMinute, type InjuryWindow } from './match-timeline';
 
 export interface EventBubbleProps {
   event: MatchEvent;
@@ -49,6 +50,16 @@ export interface EventBubbleProps {
   awayTeamId?: string | null;
   homeColor?: string | null;
   awayColor?: string | null;
+  /**
+   * Stoppage windows derived from the same `events` list the bubble
+   * is rendered from. Used to format the minute column with the
+   * "+N" suffix for events that land in 1H / 2H / ET stoppage time
+   * (e.g. "45+1'" instead of "46'"). Optional for backwards-compat;
+   * the bubble falls back to the raw minute when the windows array
+   * is missing / empty (e.g. live matches where the half_time /
+   * full_time events haven't fired yet).
+   */
+  injuryWindows?: InjuryWindow[];
 }
 
 export const EventBubble: React.FC<EventBubbleProps> = ({
@@ -59,6 +70,7 @@ export const EventBubble: React.FC<EventBubbleProps> = ({
   awayTeamId,
   homeColor,
   awayColor,
+  injuryWindows,
 }) => {
   const t = useTranslations('commentary');
   const type = canonicalEventType(event.typeName ?? event.type);
@@ -153,7 +165,7 @@ export const EventBubble: React.FC<EventBubbleProps> = ({
           className={`font-mono font-black text-[11px] tabular-nums ${minuteTone}`}
           style={minuteStyle}
         >
-          {event.minute}&apos;
+          {formatMatchMinute(event.minute, injuryWindows ?? [])}&apos;
         </span>
       </div>
 

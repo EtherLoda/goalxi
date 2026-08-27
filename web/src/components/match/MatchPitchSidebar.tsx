@@ -14,6 +14,7 @@ import type { MatchEvent } from '@/lib/api';
 import { extractSidebarData, type MatchSidebarData } from './match-sidebar-data';
 import { MatchInfoPanel } from './MatchInfoPanel';
 import { MatchKeyEvents } from './MatchKeyEvents';
+import { useInjuryWindows } from './match-timeline';
 
 export type { MatchSidebarData } from './match-sidebar-data';
 export { extractSidebarData } from './match-sidebar-data';
@@ -53,6 +54,15 @@ export function MatchPitchSidebar({
   const t = useTranslations('matches.live');
 
   const { weather, attendance: extractedAttendance, keyEvents } = extractSidebarData(events);
+
+  // Stoppage windows derived from the full event list (not just
+  // the filtered `keyEvents` — half_time / full_time events are
+  // critical to the windows and they're surfaced as META rows
+  // that `extractSidebarData` would otherwise drop). The hook
+  // memoises by `events` reference so the cost is one walk per
+  // events-list change, paid once and shared with every consumer
+  // downstream.
+  const injuryWindows = useInjuryWindows(events);
 
   const hasWeatherOrAttendance = weather !== null || attendance !== null || extractedAttendance !== null;
 
@@ -100,6 +110,7 @@ export function MatchPitchSidebar({
             currentMinute={currentMinute}
             homeTeamId={homeTeamId}
             awayTeamId={awayTeamId}
+            injuryWindows={injuryWindows}
           />
         </div>
       )}

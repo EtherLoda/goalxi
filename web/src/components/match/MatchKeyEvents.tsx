@@ -22,6 +22,7 @@ import React from 'react';
 import { clsx } from 'clsx';
 import type { MatchEvent } from '@/lib/api';
 import { extractKeyEvents } from './extract-key-events';
+import { formatMatchMinute, type InjuryWindow } from './match-timeline';
 
 interface MatchKeyEventsProps {
   events: MatchEvent[];
@@ -37,6 +38,12 @@ interface MatchKeyEventsProps {
    */
   homeTeamId?: string | null;
   awayTeamId?: string | null;
+  /** Stoppage windows derived from the same `events` list. Used to
+   *  format the minute column with the "+N" suffix (e.g. "45+1'"
+   *  for a 1H+1 stoppage event whose raw minute is 46). Optional
+   *  for backwards-compat; the row falls back to the raw minute
+   *  when this is missing / empty. */
+  injuryWindows?: InjuryWindow[];
 }
 
 // Fallback cap. The panel is internally scrollable now, so this
@@ -55,6 +62,7 @@ export function MatchKeyEvents({
   currentMinute,
   homeTeamId,
   awayTeamId,
+  injuryWindows,
 }: MatchKeyEventsProps) {
   // Chronological, earliest first. The list is intentionally not
   // sliced — readers want to see every key event, not a curated
@@ -98,7 +106,7 @@ export function MatchKeyEvents({
                 )}
                 style={{ color }}
               >
-                {entry.minute}
+                {formatMatchMinute(entry.minute, injuryWindows ?? [])}
               </span>
               <span className="font-mono text-[7px] opacity-60 leading-none" style={{ color }}>
                 &apos;

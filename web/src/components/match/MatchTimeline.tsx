@@ -44,6 +44,7 @@ import {
   closestSnapshotIndex,
   extractInjuryWindows,
   extractTimelineMarkers,
+  formatMatchMinute,
   minuteToPercent,
   timelineEnd,
 } from './match-timeline';
@@ -157,18 +158,24 @@ export function MatchTimeline({
 }: MatchTimelineProps) {
   const t = useTranslations('matches.timeline');
 
-  // Markers — memoized on the events list. extractTimelineMarkers is
-  // pure, so calling it on every render would still be cheap, but
-  // memoizing keeps the dedupe / sort from re-running on unrelated
-  // re-renders (e.g. when `currentMinute` ticks by 1).
-  const markers = useMemoMarkers(events);
+  // Markers — memoized on the events list. extractTimelineMarkers
+  // is pure, so calling it on every render would still be cheap,
+  // but memoizing keeps the dedupe / sort from re-running on
+  // unrelated re-renders (e.g. when `currentMinute` ticks by 1).
+  // `injuryWindows` is passed so each marker carries its
+  // pre-formatted "+N" label for stoppage-time events.
+  const injuryWindows = useMemoInjuryWindows(events);
+  const markers = useMemoMarkers(events, injuryWindows);
 
   // Stoppage-time windows (1H / 2H / ET 1H / ET 2H). Memoized
   // alongside `markers` so both recompute on the same event-list
-  // changes. Used to render the amber-tinted band + "+N" label
-  // so a reader can see the stoppage window as a distinct region
-  // of the timeline.
-  const injuryWindows = useMemoInjuryWindows(events);
+  // changes. (Hoisted above the markers line so the markers can
+  // also receive the windows for the "+N" label format.) Used to
+  // render the amber-tinted band + "+N" label so a reader can
+  // see the stoppage window as a distinct region of the timeline.
+  //
+  // (Removed — `injuryWindows` is declared above alongside
+  // `markers` so the hook call is hoisted to share memo state.)
 
   // endMinute — total length of the bar. Default 90, grows to fit the
   // latest event up to 120. Memoized on (events, currentMinute).
@@ -344,7 +351,7 @@ export function MatchTimeline({
                 key={`snap-${tick.index}-${tick.minute}`}
                 percent={percent}
                 isActive={isActive}
-                minute={tick.minute}
+                minuteLabel={formatMatchMinute(tick.minute, injuryWindows)}
                 onClick={() => jumpToMinute(tick.minute)}
               />
             );
@@ -352,7 +359,10 @@ export function MatchTimeline({
 
           {/* Playhead — the thumb. Anchored at the active minute, follows
               the draft while dragging. */}
-          <Playhead percent={playheadPercent} minute={displayMinute} />
+          <Playhead
+            percent={playheadPercent}
+            minuteLabel={formatMatchMinute(displayMinute, injuryWindows)}
+          />
         </div>
 
         {/* Event markers — positioned above the track. Rendered outside
@@ -463,12 +473,13 @@ function TickMark({
 function SnapshotTick({
   percent,
   isActive,
-  minute,
+  minuteLabel,
   onClick,
 }: {
   percent: number;
   isActive: boolean;
-  minute: number;
+  /** Player-facing minute label (e.g. "45+1" for a 1H+1 stoppage tick). */
+  minuteLabel: string;
   onClick: () => void;
 }) {
   // Active tick scales up and uses primary. Inactive stays a muted ring.
@@ -479,7 +490,7 @@ function SnapshotTick({
         e.stopPropagation();
         onClick();
       }}
-      aria-label={`Snapshot at ${minute}'`}
+      aria-label={`Snapshot at ${minuteLabel}'`}
       className={`absolute top-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full transition-all ${
         isActive
           ? 'w-3 h-3 bg-primary ring-2 ring-primary/30 shadow-[0_0_6px_rgba(0,228,121,0.5)]'
@@ -495,7 +506,15 @@ function SnapshotTick({
 // Playhead
 // ============================================================================
 
-function Playhead({ percent, minute }: { percent: number; minute: number }) {
+function Playhead({
+  percent,
+  minuteLabel,
+}: {
+  percent: number;
+  /** Player-facing minute label (e.g. "45+1" for a 1H+1 stoppage
+   *  scrubber position). */
+  minuteLabel: string;
+}) {
   return (
     <div
       className="absolute top-1/2 -translate-x-1/2 -translate-y-1/2 pointer-events-none"
@@ -511,7 +530,7 @@ function Playhead({ percent, minute }: { percent: number; minute: number }) {
           scrubbed minute. Always visible so the reader doesn't have to
           hunt. */}
       <div className="absolute left-1/2 -translate-x-1/2 -top-9 px-1.5 py-0.5 rounded-md bg-primary text-on-primary font-mono font-black text-[10px] tabular-nums">
-        {minute}&apos;
+        {minuteLabel}&apos;
       </div>
     </div>
   );
@@ -552,13 +571,13 @@ function EventMarker({
       // type label so the title is never blank.
       title={
         marker.playerName
-          ? `${marker.playerName} — ${marker.type} ${marker.minute}'`
-          : `${marker.type} at ${marker.minute}'`
+          ? `${marker.playerName} — ${marker.type} ${marker.minuteLabel}'`
+          : `${marker.type} at ${marker.minuteLabel}'`
       }
       aria-label={
         marker.playerName
-          ? `${marker.playerName} — ${marker.type} at ${marker.minute}'`
-          : `${marker.type} at ${marker.minute}'`
+          ? `${marker.playerName} — ${marker.type} at ${marker.minuteLabel}'`
+          : `${marker.type} at ${marker.minuteLabel}'`
       }
       className={`absolute ${topOffset} -translate-x-1/2 w-5 h-5 rounded-full ring-2 ${visual.ringClass} ${visual.bgClass} flex items-center justify-center pointer-events-auto cursor-pointer hover:scale-125 hover:ring-4 transition-all shadow-md`}
       style={{ left: `${percent}%` }}
@@ -664,8 +683,14 @@ function InjuryBand({
 // start consuming the same derivations).
 // ============================================================================
 
-function useMemoMarkers(events: MatchEvent[]): TimelineMarker[] {
-  return useMemo(() => extractTimelineMarkers(events), [events]);
+function useMemoMarkers(
+  events: MatchEvent[],
+  injuryWindows: InjuryWindow[],
+): TimelineMarker[] {
+  return useMemo(
+    () => extractTimelineMarkers(events, injuryWindows),
+    [events, injuryWindows],
+  );
 }
 
 function useMemoInjuryWindows(events: MatchEvent[]): InjuryWindow[] {

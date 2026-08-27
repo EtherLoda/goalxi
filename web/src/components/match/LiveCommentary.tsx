@@ -23,6 +23,7 @@ import type { MatchEvent } from '@/lib/api';
 import { canonicalEventType } from '@/lib/commentary';
 import { TickerStrip } from './ticker-strip';
 import { EventBubble } from './event-bubble';
+import { formatMatchMinute, useInjuryWindows } from './match-timeline';
 
 export interface LiveCommentaryProps {
   events: MatchEvent[];
@@ -98,6 +99,15 @@ export function LiveCommentary({
     [feedEvents],
   );
 
+  // Stoppage windows — derived once here and passed to every
+  // consumer that needs a player-facing minute label (TickerStrip,
+  // EventBubble, the LIVE header). `currentMinute` is the wire
+  // value (stoppage-inclusive when the match is in injury time),
+  // so the helper turns e.g. 50 into "45+5" if the 1H+5 stoppage
+  // is still active at the live cursor. No-op when no half_time /
+  // full_time events have been emitted yet.
+  const injuryWindows = useInjuryWindows(events);
+
   return (
     <div className="space-y-3">
       {/* Header row */}
@@ -114,7 +124,7 @@ export function LiveCommentary({
         </h3>
         <div className="flex items-center gap-1.5">
           <span className="font-mono font-black text-sm tabular-nums text-primary">
-            {currentMinute}&apos;
+            {formatMatchMinute(currentMinute, injuryWindows)}&apos;
           </span>
           {mode === 'live' ? (
             <span className="text-[9px] font-bold uppercase tracking-widest text-error/80 font-headline animate-pulse">
@@ -133,6 +143,7 @@ export function LiveCommentary({
         events={events}
         homeTeamName={homeTeamName}
         awayTeamName={awayTeamName}
+        injuryWindows={injuryWindows}
       />
 
       {/* 2. Feed — single left-aligned chronological column. Home / away /
@@ -155,6 +166,7 @@ export function LiveCommentary({
                 awayTeamId={awayTeamId}
                 homeColor={homeColor}
                 awayColor={awayColor}
+                injuryWindows={injuryWindows}
               />
             ))
           )}

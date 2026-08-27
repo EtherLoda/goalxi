@@ -32,6 +32,7 @@ import { clsx } from 'clsx';
 import type { MatchEvent, Player } from '@/lib/api';
 import { BENCH_SLOTS } from '../tactics/types';
 import type { BenchSlot } from '../tactics/types';
+import { formatMatchMinute, useInjuryWindows } from './match-timeline';
 
 export interface MatchSubstitutesProps {
   homeTeamName: string;
@@ -167,7 +168,15 @@ interface TeamBenchProps {
   t: ReturnType<typeof useTranslations<'matches.bento.substitutes'>>;
 }
 
-function TeamBench({ teamName, bench, rosterById, subs, color, t }: TeamBenchProps) {
+function TeamBench({
+  teamName,
+  bench,
+  rosterById,
+  subs,
+  color,
+  t,
+  formatMinute,
+}: TeamBenchProps & { formatMinute: (m: number) => string }) {
   return (
     <div className="min-w-0">
       <div className="flex items-center justify-between mb-2 px-0.5">
@@ -201,7 +210,7 @@ function TeamBench({ teamName, bench, rosterById, subs, color, t }: TeamBenchPro
                 className="font-headline font-black tabular-nums text-[9px] shrink-0"
                 style={{ color }}
               >
-                {s.minute}&apos;
+                {formatMinute(s.minute)}&apos;
               </span>
               <span
                 className="w-1 h-1 rounded-full shrink-0"
@@ -236,6 +245,20 @@ export function MatchSubstitutes({
   const t = useTranslations('matches.bento.substitutes');
 
   const allSubs = extractSubstitutions(events, homeTeamId, awayTeamId);
+
+  // Stoppage windows derived from the same `events` list. Used to
+  // format the bench sub row's minute column ("45+1'" instead of
+  // "46'") so a sub that lands in 1H/2H/ET stoppage time is
+  // visually consistent with the live feed above.
+  const injuryWindows = useInjuryWindows(events);
+
+  // Pre-bound minute formatter passed down to the per-team
+  // `TeamBench` sub-component so it doesn't need to know about
+  // `InjuryWindow`. Same pattern as `TickerStrip`'s `formatMinute`.
+  const formatMinute = React.useCallback(
+    (m: number) => formatMatchMinute(m, injuryWindows),
+    [injuryWindows],
+  );
   const homeSubs = allSubs.filter((s) => s.side === 'home');
   const awaySubs = allSubs.filter((s) => s.side === 'away');
 
@@ -253,6 +276,7 @@ export function MatchSubstitutes({
           subs={homeSubs}
           color={homeColor}
           t={t}
+          formatMinute={formatMinute}
         />
         <TeamBench
           teamName={awayTeamName}
@@ -261,6 +285,7 @@ export function MatchSubstitutes({
           subs={awaySubs}
           color={awayColor}
           t={t}
+          formatMinute={formatMinute}
         />
       </div>
     </div>
