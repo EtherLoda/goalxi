@@ -191,6 +191,25 @@ export function minuteToPercent(minute: number, end: number): number {
 // ============================================================================
 
 /**
+ * Whitelist check for the period-transition event types we care
+ * about (`half_time` / `full_time`). The wire shape has
+ * `typeName` as the canonical name (RFC 0002 Phase 3 dropped
+ * the legacy `type` int column — see
+ * `libs/database/src/entities/match-event.entity.ts:44-47`).
+ * The WS gateway also sets `type` to the same value
+ * (`e.typeName`), so we accept either field for
+ * backwards-compat with older / cached payloads. The legacy
+ * int enum values (e.g. 32 for `half_time`) would NOT match —
+ * they were the pre-Phase 3 wire format.
+ */
+function isHalfTimeEvent(e: MatchEvent): boolean {
+  return e.typeName === 'half_time' || e.type === 'half_time';
+}
+function isFullTimeEvent(e: MatchEvent): boolean {
+  return e.typeName === 'full_time' || e.type === 'full_time';
+}
+
+/**
  * Visual marker for a stoppage-time window. The timeline surfaces
  * these as a tinted band stretching from the regulation-half
  * boundary (e.g. 45) to the actual whistle minute (e.g. 48), so
@@ -240,7 +259,7 @@ export function extractInjuryWindows(events: MatchEvent[]): InjuryWindow[] {
 
   const firstHalfHt = events.find(
     (e) =>
-      e.type === 'half_time' &&
+      isHalfTimeEvent(e) &&
       (e.data as { period?: string } | undefined)?.period === 'half_time',
   );
   if (firstHalfHt) {
@@ -261,7 +280,7 @@ export function extractInjuryWindows(events: MatchEvent[]): InjuryWindow[] {
   // by the `e.minute < 120` check below. (For a non-ET match
   // the engine emits exactly one `full_time` at minute 90+M.)
   const regFt = events.find(
-    (e) => e.type === 'full_time' && e.minute < 120,
+    (e) => isFullTimeEvent(e) && e.minute < 120,
   );
   if (regFt) {
     const m = (regFt.data as { injuryTime?: number } | undefined)
@@ -281,7 +300,7 @@ export function extractInjuryWindows(events: MatchEvent[]): InjuryWindow[] {
   // ET 1H and ET 2H, with `data.injuryTime = N2`).
   const et1Ht = events.find(
     (e) =>
-      e.type === 'half_time' &&
+      isHalfTimeEvent(e) &&
       (e.data as { period?: string } | undefined)?.period ===
         'extra_time_half_time',
   );
@@ -303,7 +322,7 @@ export function extractInjuryWindows(events: MatchEvent[]): InjuryWindow[] {
   // subtract the ET 1H contribution (already captured above
   // when the ET 1H `half_time` was present) to isolate M2.
   const etFt = events.find(
-    (e) => e.type === 'full_time' && e.minute >= 120,
+    (e) => isFullTimeEvent(e) && e.minute >= 120,
   );
   if (etFt) {
     const total = (etFt.data as { injuryTime?: number } | undefined)
@@ -375,20 +394,20 @@ export function resolveWhistleMinutes(
   // This is the engine's pre-ET first-half whistle.
   const firstHalfHt = events.find(
     (e) =>
-      e.type === 'half_time' &&
+      isHalfTimeEvent(e) &&
       (e.data as { period?: string } | undefined)?.period === 'half_time',
   );
   // 2H (regulation) whistle — `full_time` with `minute < 120`.
   // The `minute < 120` guard avoids picking up the ET full_time
   // event (which lands at 120+stoppage) when ET is played.
   const regFt = events.find(
-    (e) => e.type === 'full_time' && e.minute < 120,
+    (e) => isFullTimeEvent(e) && e.minute < 120,
   );
   // ET 1H whistle — `half_time` with `data.period ===
   // 'extra_time_half_time'`. `null` for regulation-only matches.
   const et1Ht = events.find(
     (e) =>
-      e.type === 'half_time' &&
+      isHalfTimeEvent(e) &&
       (e.data as { period?: string } | undefined)?.period ===
         'extra_time_half_time',
   );
@@ -398,7 +417,7 @@ export function resolveWhistleMinutes(
   // `endMinute` (which the timeline's `timelineEnd` helper
   // already grows to fit the latest event).
   const etFt = events.find(
-    (e) => e.type === 'full_time' && e.minute >= 120,
+    (e) => isFullTimeEvent(e) && e.minute >= 120,
   );
   return {
     halfTime: firstHalfHt?.minute ?? 45,
