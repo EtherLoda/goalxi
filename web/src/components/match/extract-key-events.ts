@@ -17,6 +17,9 @@ import { formatSpecialtyBonus } from '@/lib/specialty-bonus';
 import { getSpecialtyLabel } from '@/lib/specialties';
 import {
   GoalCenterIcon,
+  MissCenterIcon,
+  SaveIcon,
+  TurnoverIcon,
   YellowCardIcon,
   RedCardIcon,
   SubstitutionIcon,
@@ -28,10 +31,33 @@ export type EventEntry = {
   minute: number;
   /**
    * D-style SVG icon component. The sidebar renders it with
-   * `<entry.icon size={14} />`. Always one of the goal/card/sub/injury
-   * family — the helper never returns a non-key event.
+   * `<entry.icon size={13} />`. One of the goal / shot / card / sub /
+   * injury family — the helper never returns a non-key event.
    */
   icon: React.FC<CommentaryIconProps>;
+  /**
+   * RFC 0002 classId + outcomeId tuple. Rendered as a `title`
+   * tooltip on the icon so the user can hover to verify which
+   * underlying category each row belongs to (debug / dev
+   * affordance — the helper is also the test surface for the
+   * classification contract).
+   *
+   * `outcomeId` is `null` for class-only events (INJURY, OWN_GOAL,
+   * KICKOFF, etc. — the outcome lives in `data` JSONB). The fields
+   * are `number | null | undefined` to match the underlying
+   * `MatchEvent` shape (the source columns are nullable, the FE
+   * DTO marks them optional).
+   */
+  classId: number | null | undefined;
+  outcomeId: number | null | undefined;
+  /**
+   * Short, human-readable outcome tag pulled from the event's
+   * `outcomeCode` (RFC 0002). Shown in the icon `title` only —
+   * kept here for test pin + tooltip composition. The user-facing
+   * sublabel on the row still comes from the category-specific
+   * sublabel field below.
+   */
+  outcomeCode: string | null | undefined;
   label: string;
   sublabel?: string;
   /**
@@ -64,8 +90,20 @@ export type EventEntry = {
  * The class ids and outcome ids come from
  * `libs/database/src/constants/event-two-axis.ts` — keep
  * them in sync.
+ *
+ * Categories:
+ *   - goal        — shot that scored (incl. own goal + penalty goal)
+ *   - shot        — shot that didn't score (saved / missed / turnover
+ *                   / penalty miss). Pre-duel `shot_on_target` rows
+ *                   (classId=3, outcomeId=null) are NOT classified —
+ *                   they're a transition state the engine later
+ *                   resolves to goal / save / miss, so showing them
+ *                   would duplicate the row.
+ *   - card        — foul that drew a card (yellow / 2nd yellow / red)
+ *   - substitution — player swap
+ *   - injury      — player injury
  */
-type EventCategory = 'goal' | 'card' | 'substitution' | 'injury' | null;
+type EventCategory = 'goal' | 'shot' | 'card' | 'substitution' | 'injury' | null;
 
 function classifyEvent(ev: MatchEvent): EventCategory {
   // RFC 0002 Phase 3 — the new (eventClassId, outcomeId)
@@ -81,12 +119,28 @@ function classifyEvent(ev: MatchEvent): EventCategory {
     // that build raw event objects without the tuple.
     return null;
   }
-  // GOAL: class SHOT(3) + outcome GOAL(1), OR class OWN_GOAL(11)
+  // GOAL: class SHOT(3) or PENALTY(7) + outcome GOAL(1), or
+  //       class OWN_GOAL(11) (outcome is null there — the
+  //       data field carries the "scored into own net" flag).
   if (
-    (ev.eventClassId === 3 && ev.outcomeId === 1) ||
+    ((ev.eventClassId === 3 || ev.eventClassId === 7) && ev.outcomeId === 1) ||
     ev.eventClassId === 11
   ) {
     return 'goal';
+  }
+  // SHOT (no goal): class SHOT(3) with a non-GOAL outcome —
+  //   outcomeId=2 (SAVE)   → GK saved
+  //   outcomeId=4 (MISS)   → off-target / blocked / cleared
+  //   outcomeId=null (pre-duel shot_on_target) → NOT classified.
+  //     The engine will resolve this to goal / save / miss and
+  //     the resolved row already classifies; showing the
+  //     pre-duel row would double-list the same physical event.
+  // Plus class PENALTY(7) + outcomeId=4 (penalty miss).
+  if (
+    (ev.eventClassId === 3 && (ev.outcomeId === 2 || ev.outcomeId === 4)) ||
+    (ev.eventClassId === 7 && ev.outcomeId === 4)
+  ) {
+    return 'shot';
   }
   // CARD: class FOUL(4) + outcome YELLOW(6) / SECOND_YELLOW(7) / RED(8)
   if (
@@ -171,16 +225,64 @@ export function extractKeyEvents(
     if (category === 'goal') {
       const scorer = resolveName(ev, 'playerName');
       const assist = ev.data?.assistName;
+      // PENALTY_GOAL gets a "Penalty" sublabel so the row reads
+      // as a spot-kick goal (otherwise it's identical to a regular
+      // goal in the icon + name). OWN_GOAL keeps the existing "OG"
+      // sublabel.
+      const goalSublabel =
+        typeName === 'own_goal' ? 'OG'
+          : typeName === 'penalty_goal' ? 'Penalty'
+            : undefined;
       entries.push({
         minute: ev.minute,
+        classId: ev.eventClassId,
+        outcomeId: ev.outcomeId,
+        outcomeCode: ev.outcomeCode,
         // D-style: buckyball + green ▲. The engine doesn't yet emit a
         // ball-side / zone hint on goal events, so the centre variant
         // is the safe default. When/if it does, swap to the L/R
         // variant from `commentary-icons` (no helper change needed).
         icon: GoalCenterIcon,
         label: scorer + (assist ? `  ·  A: ${assist}` : ''),
-        sublabel: typeName === 'own_goal' ? 'OG' : undefined,
+        sublabel: goalSublabel,
         specialtyChip,
+        side,
+      });
+    } else if (category === 'shot') {
+      // SHOT that didn't score. Icon + sublabel depend on the
+      // outcome (or the typeName for the turnover case):
+      //   - classId=3 + outcomeId=2  → SaveIcon,    "Saved"
+      //   - classId=3 + outcomeId=4 + typeName='turnover' → TurnoverIcon, "Turnover"
+      //   - classId=3 + outcomeId=4  → MissCenterIcon, "Missed"  (shot_off_target / miss)
+      //   - classId=7 + outcomeId=4  → MissCenterIcon, "Penalty miss"  (penalty_miss)
+      //
+      // The shooter is the player on the event. Unlike GOAL we
+      // don't have a `data.assistName` for shot rows (the assist
+      // is recorded on the FOLLOW-UP goal row, not the shot
+      // itself), so the label is just the player name.
+      const shooter = resolveName(ev, 'playerName');
+      const isTurnover = typeName === 'turnover';
+      const isPenaltyMiss = ev.eventClassId === 7;
+      const shotIcon = ev.outcomeId === 2
+        ? SaveIcon
+        : isTurnover
+          ? TurnoverIcon
+          : MissCenterIcon;
+      const shotSublabel = ev.outcomeId === 2
+        ? 'Saved'
+        : isTurnover
+          ? 'Turnover'
+          : isPenaltyMiss
+            ? 'Penalty miss'
+            : 'Missed';
+      entries.push({
+        minute: ev.minute,
+        classId: ev.eventClassId,
+        outcomeId: ev.outcomeId,
+        outcomeCode: ev.outcomeCode,
+        icon: shotIcon,
+        label: shooter,
+        sublabel: shotSublabel,
         side,
       });
     } else if (category === 'card') {
@@ -193,6 +295,9 @@ export function extractKeyEvents(
             : 'Yellow';
       entries.push({
         minute: ev.minute,
+        classId: ev.eventClassId,
+        outcomeId: ev.outcomeId,
+        outcomeCode: ev.outcomeCode,
         // D-style chunky card glyphs: YellowCardIcon (yellow rect +
         // navy outline + dark stripe) / RedCardIcon (same shape, red
         // fill). The two-second-yellow case is rendered as a red card
@@ -213,6 +318,9 @@ export function extractKeyEvents(
       const playerOut = ev.data?.playerOut ?? '?';
       entries.push({
         minute: ev.minute,
+        classId: ev.eventClassId,
+        outcomeId: ev.outcomeId,
+        outcomeCode: ev.outcomeCode,
         // D-style: red ← (out) on the left + green → (in) on the
         // right, horizontal. Larger silhouette than the v1 ⇄ emoji
         // so the row reads as a sub at a glance.
@@ -231,6 +339,9 @@ export function extractKeyEvents(
         severity === 'minor' || severity === 'severe' ? severity : undefined;
       entries.push({
         minute: ev.minute,
+        classId: ev.eventClassId,
+        outcomeId: ev.outcomeId,
+        outcomeCode: ev.outcomeCode,
         // D-style: red rounded box with white cross. Replaces the 🚑
         // emoji so the row reads as medical attention (the cross
         // icon is the international medical symbol, not an

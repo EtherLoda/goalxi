@@ -108,14 +108,27 @@ export function MatchKeyEvents({
             {/* Event body — transparent background (matches the
                 pre-redesign inline key events so the player name
                 sits on the panel's own background rather than a
-                tinted block). */}
-            <div className="flex-1 min-w-0 flex items-center gap-1.5 px-1.5 py-1">
+                tinted block). Layout tuned for compactness:
+                py-0.5 (vs py-1) and the sublabel's mt-0 (vs mt-0.5)
+                collapse the row height without losing the
+                label/sublabel two-line read. The outer
+                gap-1.5 between rows is unchanged so inter-event
+                spacing stays consistent. */}
+            <div className="flex-1 min-w-0 flex items-center gap-1.5 px-1.5 py-0.5">
               {/* D-style SVG icon (replaces the previous emoji). The
-                  component carries its own palette; the size prop is
-                  locked to 14 to match the ticker-strip so the two
-                  surfaces read at the same visual weight. */}
-              <span className="shrink-0 inline-flex">
-                <entry.icon size={14} />
+                  component carries its own palette. The `title`
+                  attribute surfaces the RFC 0002 (classId, outcomeId)
+                  tuple as a native browser tooltip on hover — a
+                  dev/debug affordance so the user can verify which
+                  underlying category each row belongs to without
+                  reading the source. `outcomeId` is `null` for
+                  class-only events (OWN_GOAL, INJURY, etc.) — the
+                  tooltip shows "—" rather than 0. */}
+              <span
+                className="shrink-0 inline-flex"
+                title={`c${entry.classId ?? '—'} · o${entry.outcomeId ?? '—'} (${entry.outcomeCode ?? '—'})`}
+              >
+                <entry.icon size={13} />
               </span>
               <div className="flex-1 min-w-0">
                 <p
@@ -125,7 +138,7 @@ export function MatchKeyEvents({
                   {entry.label}
                 </p>
                 {(entry.sublabel || entry.specialtyChip) && (
-                  <p className="font-label text-[8px] text-white/40 uppercase tracking-wider truncate leading-tight mt-0.5 flex items-center gap-1">
+                  <p className="font-label text-[8px] text-white/40 uppercase tracking-wider truncate leading-tight flex items-center gap-1">
                     {entry.sublabel}
                     {entry.specialtyChip && (
                       // RFC 0003 — Specialty chip. Tier-tinted

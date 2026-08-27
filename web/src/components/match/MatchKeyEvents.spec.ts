@@ -14,6 +14,9 @@ import type { MatchEvent } from '@/lib/api';
 import { extractKeyEvents } from './extract-key-events';
 import {
   GoalCenterIcon,
+  MissCenterIcon,
+  SaveIcon,
+  TurnoverIcon,
   YellowCardIcon,
   RedCardIcon,
   SubstitutionIcon,
@@ -453,5 +456,222 @@ describe('MatchKeyEvents · two-axis event classification (RFC 0002)', () => {
       away,
     );
     expect(result).toEqual([]);
+  });
+});
+
+/**
+ * Shot-but-no-goal classification. RFC 0002's SHOT class (3) splits
+ * into GOAL(1) / SAVE(2) / MISS(4) outcomes. GOAL lands in the
+ * existing `goal` category; SAVE / MISS / TURNOVER land in the new
+ * `shot` category. PENALTY_MISS (class=7, outcome=4) is a parallel
+ * path. The pre-duel SHOT_ON_TARGET (class=3, outcome=null) is
+ * intentionally excluded — the engine resolves it to one of the
+ * above and showing both would double-list the same physical event.
+ */
+describe('MatchKeyEvents · shot (no goal) classification (RFC 0002)', () => {
+  it('classifies SHOT+SAVE (class=3, outcome=2) as a shot entry with SaveIcon', () => {
+    const result = extractKeyEvents(
+      [ev({
+        eventClassId: 3,
+        outcomeId: 2,
+        outcomeCode: 'SAVE',
+        typeName: 'save',
+        minute: 18,
+        teamId: home,
+        playerId: 101,
+        data: { playerName: '李雷' },
+      })],
+      roster, home, away,
+    );
+    expect(result).toHaveLength(1);
+    expect(result[0].icon).toBe(SaveIcon);
+    expect(result[0].label).toBe('李雷');
+    expect(result[0].sublabel).toBe('Saved');
+    // (classId, outcomeId) tuple surfaces in the icon title.
+    expect(result[0].classId).toBe(3);
+    expect(result[0].outcomeId).toBe(2);
+    expect(result[0].outcomeCode).toBe('SAVE');
+  });
+
+  it('classifies SHOT+MISS (class=3, outcome=4) as a shot entry with MissIcon', () => {
+    const result = extractKeyEvents(
+      [ev({
+        eventClassId: 3,
+        outcomeId: 4,
+        outcomeCode: 'MISS',
+        typeName: 'shot_off_target',
+        minute: 22,
+        teamId: away,
+        playerId: 202,
+        data: { playerName: '韩梅梅' },
+      })],
+      roster, home, away,
+    );
+    expect(result).toHaveLength(1);
+    expect(result[0].icon).toBe(MissCenterIcon);
+    expect(result[0].sublabel).toBe('Missed');
+  });
+
+  it('classifies TURNOVER (class=3, outcome=4, typeName=turnover) with TurnoverIcon', () => {
+    // Same (classId, outcomeId) tuple as shot_off_target/miss but
+    // the typeName flips the icon + sublabel so the U-turn visual
+    // distinguishes "possession lost" from "shot that missed".
+    const result = extractKeyEvents(
+      [ev({
+        eventClassId: 3,
+        outcomeId: 4,
+        outcomeCode: 'MISS',
+        typeName: 'turnover',
+        minute: 35,
+        teamId: home,
+        playerId: 101,
+        data: { playerName: '李雷' },
+      })],
+      roster, home, away,
+    );
+    expect(result).toHaveLength(1);
+    expect(result[0].icon).toBe(TurnoverIcon);
+    expect(result[0].sublabel).toBe('Turnover');
+  });
+
+  it('classifies PENALTY_MISS (class=7, outcome=4) as a shot entry with "Penalty miss" sublabel', () => {
+    const result = extractKeyEvents(
+      [ev({
+        eventClassId: 7,
+        outcomeId: 4,
+        outcomeCode: 'MISS',
+        typeName: 'penalty_miss',
+        minute: 80,
+        teamId: home,
+        playerId: 101,
+        data: { playerName: '李雷' },
+      })],
+      roster, home, away,
+    );
+    expect(result).toHaveLength(1);
+    expect(result[0].icon).toBe(MissCenterIcon);
+    expect(result[0].sublabel).toBe('Penalty miss');
+    expect(result[0].classId).toBe(7);
+  });
+
+  it('skips pre-duel SHOT_ON_TARGET (class=3, outcome=null) so it does not double-list', () => {
+    // The engine emits shot_on_target as a transition state before
+    // the duel resolves to goal / save / miss. Showing the
+    // transition would duplicate the resolved row. classifyEvent
+    // returns null for this tuple.
+    const result = extractKeyEvents(
+      [ev({
+        eventClassId: 3,
+        outcomeId: null,
+        outcomeCode: null,
+        typeName: 'shot_on_target',
+        minute: 50,
+        teamId: home,
+        playerId: 101,
+      })],
+      roster, home, away,
+    );
+    expect(result).toEqual([]);
+  });
+
+  it('classifies PENALTY_GOAL (class=7, outcome=1) as a goal entry with "Penalty" sublabel', () => {
+    // Parallel to the SHOT+GOAL path but in the PENALTY class.
+    const result = extractKeyEvents(
+      [ev({
+        eventClassId: 7,
+        outcomeId: 1,
+        outcomeCode: 'GOAL',
+        typeName: 'penalty_goal',
+        minute: 88,
+        teamId: home,
+        playerId: 101,
+        data: { playerName: '李雷' },
+      })],
+      roster, home, away,
+    );
+    expect(result).toHaveLength(1);
+    expect(result[0].icon).toBe(GoalCenterIcon);
+    expect(result[0].sublabel).toBe('Penalty');
+    expect(result[0].classId).toBe(7);
+  });
+});
+
+/**
+ * The (classId, outcomeId, outcomeCode) tuple is rendered as a
+ * `title` attribute on the icon in `MatchKeyEvents`. The helper
+ * populates these fields on every entry so the consumer can read
+ * them — these tests pin the contract (which events surface which
+ * tuple, including the null cases for class-only events).
+ */
+describe('MatchKeyEvents · classId / outcomeId / outcomeCode on entry', () => {
+  it('populates the tuple on a goal entry (classId=3, outcomeId=1, outcomeCode=GOAL)', () => {
+    const result = extractKeyEvents(
+      [ev({
+        eventClassId: 3,
+        outcomeId: 1,
+        outcomeCode: 'GOAL',
+        typeName: 'goal',
+        minute: 10,
+        teamId: home,
+        data: { playerName: '李雷' },
+      })],
+      roster, home, away,
+    );
+    expect(result[0].classId).toBe(3);
+    expect(result[0].outcomeId).toBe(1);
+    expect(result[0].outcomeCode).toBe('GOAL');
+  });
+
+  it('populates null outcomeId for class-only OWN_GOAL (classId=11, outcomeId=null)', () => {
+    const result = extractKeyEvents(
+      [ev({
+        eventClassId: 11,
+        outcomeId: null,
+        outcomeCode: null,
+        typeName: 'own_goal',
+        minute: 50,
+        teamId: home,
+        data: { playerName: '李雷' },
+      })],
+      roster, home, away,
+    );
+    expect(result[0].classId).toBe(11);
+    expect(result[0].outcomeId).toBeNull();
+    expect(result[0].outcomeCode).toBeNull();
+  });
+
+  it('populates the tuple on a yellow card (classId=4, outcomeId=6, outcomeCode=YELLOW)', () => {
+    const result = extractKeyEvents(
+      [ev({
+        eventClassId: 4,
+        outcomeId: 6,
+        outcomeCode: 'YELLOW',
+        typeName: 'yellow_card',
+        minute: 30,
+        teamId: home,
+        data: { playerName: '李雷' },
+      })],
+      roster, home, away,
+    );
+    expect(result[0].classId).toBe(4);
+    expect(result[0].outcomeId).toBe(6);
+    expect(result[0].outcomeCode).toBe('YELLOW');
+  });
+
+  it('populates the tuple on an injury entry (classId=9, outcomeId=null)', () => {
+    const result = extractKeyEvents(
+      [ev({
+        eventClassId: 9,
+        outcomeId: null,
+        outcomeCode: null,
+        typeName: 'injury',
+        minute: 70,
+        teamId: home,
+        data: { playerName: '李雷', severity: 'minor' },
+      })],
+      roster, home, away,
+    );
+    expect(result[0].classId).toBe(9);
+    expect(result[0].outcomeId).toBeNull();
   });
 });
