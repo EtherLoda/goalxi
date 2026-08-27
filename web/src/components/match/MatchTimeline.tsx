@@ -653,16 +653,24 @@ function InjuryBand({
   const width = Math.max(0, right - left);
   return (
     <div
-      className="absolute inset-y-0 rounded-sm bg-amber-500/15 dark:bg-amber-400/15 pointer-events-none"
+      // 35% amber tint + 1px top/bottom border in solid amber.
+      // The pre-fix 15% tint was visually lost over the primary
+      // green fill — a 1H+3 stoppage on a 95-minute track is
+      // ~3% wide, and 15% amber on full-opacity green reads as
+      // a barely-different shade. 35% + a hard 1px edge gives
+      // the band a clear "this region is stoppage" outline
+      // without overpowering the progress fill.
+      className="absolute inset-y-0 rounded-sm border-y border-amber-500/80 dark:border-amber-400/80 bg-amber-500/35 dark:bg-amber-400/35 pointer-events-none"
       style={{ left: `${left}%`, width: `${width}%` }}
       data-testid={`timeline-injury-band-${w.label.toLowerCase()}`}
       aria-hidden="true"
     >
       {/* "+N" label — sits centered in the band, just below the
-          track. Only rendered when the band is wide enough to
-          fit the text; otherwise the visual cue is enough and
-          the label would overlap the next groove. */}
-      {width > 4 && (
+          track. Pre-fix threshold was `width > 4` (4% of the
+          track), which excluded 1H+3 on any normal-length match
+          (a 1H+3 stoppage on a 95-minute track is 3.16%).
+          Lowered to 2.5 so even 1H+3 gets a label. */}
+      {width > 2.5 && (
         <span
           className="absolute left-1/2 top-full mt-0.5 -translate-x-1/2 font-mono font-bold text-[8px] tabular-nums text-amber-700 dark:text-amber-300 leading-none"
           title={t('injuryBandTitle', {
