@@ -33,19 +33,21 @@ for (const [parent, subKeys, count] of subSectionCases) {
 }
 
 // Flat key namespaces (no tpl_ suffix, just keys under a parent).
-// These are referenced by helpers like getShotQualityLabel, getLaneText,
-// getShotTypeText — if a key goes missing the UI renders a literal
-// "shotQuality.tier_top" string instead of "top-drawer".
-// `t()` calls in commentary.ts are scoped to `commentary.*` via
-// `useTranslations('commentary')`, so the path here includes that
-// prefix to match what the runtime sees.
+// These are referenced by helpers like getLaneText, getShotTypeText —
+// if a key goes missing the UI renders a literal dotted key instead
+// of the resolved string. `t()` calls in commentary.ts are scoped to
+// `commentary.*` via `useTranslations('commentary')`, so the path
+// here includes that prefix to match what the runtime sees.
+//
+// (2026-08-27) The `shotQuality.tier_*` set was dropped alongside
+// the getShotQualityLabel helper. The narrative templates still
+// carry a `{quality}` placeholder for back-compat with already-
+// translated copy, but the placeholder resolves to an empty
+// string on the FE — no UI surface reads a shotQuality key now.
 const flatKeys: string[] = [
   ...['left', 'center', 'right'].map((k) => `commentary.lane.${k}`),
   ...['header', 'one_on_one', 'normal', 'long_shot', 'rebound'].map(
     (k) => `commentary.shotType.${k}`,
-  ),
-  ...['tier_top', 'tier_quality', 'tier_decent', 'tier_tame', 'tier_wayward'].map(
-    (k) => `commentary.shotQuality.${k}`,
   ),
 ];
 

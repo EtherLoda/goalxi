@@ -1055,11 +1055,6 @@
       "tpl_1": "{player} 破门得分！简直势不可挡！",
       "tpl_2": "漂亮的进球！{player} 冷静推射死角入网！",
       "tpl_3": "{player} 凌空抽射！球像炮弹一样飞入球门！",
-      "quality_excellent": "这是一记足以载入史册的世界波！",
-      "quality_great": "精彩绝伦的破门！",
-      "quality_good": "进球漂亮！",
-      "quality_chance": "这球居然进了！简直是神来之笔！",
-      "quality_opportunity": "把握住了转瞬即逝的机会！",
       "center_with_assist": {
         "tpl_0": "球进了！{pusher} 在中场策动进攻，{assist} 送出手术刀般的直塞，{shooter} 反越位成功，{quality}攻破对方球门！",
         "tpl_1": "{pusher} 在中路组织进攻，{assist} 一记精准斜传撕开防线，{shooter} 跟上左脚推射，{quality}破门！{tackler} 完全跟不上对手的节奏。",
@@ -1305,13 +1300,6 @@
       "normal": "射门",
       "long_shot": "远射",
       "rebound": "补射"
-    },
-    "shotQuality": {
-      "tier_top": "世界级",
-      "tier_quality": "高质量",
-      "tier_decent": "中规中矩",
-      "tier_tame": "软弱",
-      "tier_wayward": "偏靶"
     }
   },
   "tactics": {

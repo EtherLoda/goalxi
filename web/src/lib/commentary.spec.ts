@@ -105,7 +105,7 @@ describe('formatEventCommentary dispatch', () => {
     const t = jest.fn((key: string) => {
       if (key.startsWith('goal.tpl_')) {
         // Include `{quality}` so we can assert it was substituted.
-        return 'GOAL_TPL:{player} scored for {team} �?{quality}!';
+        return 'GOAL_TPL:{player} scored for {team} — {quality}!';
       }
       if (key === 'goal.quality_excellent') return 'brilliant';
       if (key === 'goal.quality_great') return 'great';
@@ -137,66 +137,21 @@ describe('formatEventCommentary dispatch', () => {
 
     expect(text).toContain('Saka');
     expect(text).toContain('Arsenal');
-    // Quality branch should have hit for shotQuality 85.
-    expect(text).toContain('brilliant');
+    // {quality} placeholder resolves to an empty string now (the
+    // tier system was removed in 2026-08-27). The template still
+    // has the — and '!' around the empty slot, so the
+    // rendered text is exactly 'GOAL_TPL:Saka scored for Arsenal — !'.
+    expect(text).toBe('GOAL_TPL:Saka scored for Arsenal — !');
   });
 
-  // Regression: `goal.quality_great` and `goal.quality_good` are i18n
-  // strings that contain a `{player}` placeholder, so calling t() without
-  // passing `player` in the params object made next-intl@4 throw
-  // FORMATTING_ERROR ("The intl string context variable 'player' was not
-  // provided to the string 'A composed finish from {player}!'").
-  // getQualityText now passes `{ player }` on every branch so the
-  // string is fully resolved before being dropped into the goal template.
-  it('GOAL with shotQuality < 60 does not crash on the {player} placeholder (quality_good branch)', () => {
-    // Real next-intl substitutes `{var}` from the params before returning,
-    // so the test mock has to do the same �?otherwise the inner `{player}`
-    // in the quality string would leak through and the outer template's
-    // interpolate() can't recurse into the substituted value.
-    const t = jest.fn((key: string, params?: Record<string, string | number>) => {
-      const render = (s: string) =>
-        params
-          ? s.replace(/\{(\w+)\}/g, (_, k) => String(params[k] ?? `{${k}}`))
-          : s;
-      if (key.startsWith('goal.tpl_')) return render('GOAL_TPL:{player} {quality}');
-      if (key === 'goal.quality_good') return render('good from {player}');
-      if (key === 'goal.quality_great') return render('great from {player}');
-      if (key === 'goal.quality_excellent') return render('brilliant from {player}');
-      if (key === 'lane.left') return 'left';
-      if (key === 'shotType.normal') return 'normal';
-      return key;
-    });
-
-    const text = formatEventCommentary(
-      baseEvent({
-        minute: 12,
-        data: {
-          playerName: 'Saka',
-          sequence: {
-            shot: {
-              shooter: 'Saka',
-              shotType: 'normal',
-              // 50 �?falls into the quality_good branch (the one that
-              // crashed in production with FORMATTING_ERROR).
-              shotQuality: 50,
-            },
-          },
-          lane: 'left',
-        },
-      }),
-      'Arsenal',
-      'Chelsea',
-      t,
-    );
-
-    // {player} should already be resolved inside the quality string �?    // the template's {quality} placeholder then receives the rendered
-    // text, NOT a raw "{player}" token.
-    expect(text).toContain('Saka');
-    expect(text).toContain('good from Saka');
-    expect(text).not.toContain('{player}');
-    expect(text).not.toContain('{quality}');
-    expect(t).toHaveBeenCalledWith('goal.quality_good', { player: 'Saka' });
-  });
+  // The previous "GOAL with shotQuality < 60 does not crash on the
+  // {player} placeholder" FORMATTING_ERROR regression is OBSOLETE
+  // after the 2026-08-27 shotQuality removal — getQualityText and
+  // the goal.quality_* i18n keys are gone, so the call site that
+  // passed { player } no longer exists. The substitution is now a
+  // no-op (`quality: ''` in the params object). If a future tier
+  // system lands, the test should re-assert the same FORMATTING_ERROR
+  // regression here.
 
   it('SECOND_HALF resolves to commentary.second_half_start (regression for missing arm)', () => {
     // Pre-fix the second-half kickoff was unreachable because the canonical
@@ -1075,44 +1030,6 @@ describe('formatEventCommentary dispatch', () => {
       expect(tplKeys).not.toContain('turnover.tpl_2');
       expect(tplKeys).not.toContain('turnover.tpl_3');
     });
-  });
-});
-
-// ============================================================================
-// shotQuality tier label
-// ============================================================================
-
-describe('getShotQualityLabel maps 0-100 to 5 tier strings', () => {
-  // Re-import lazily so the describe block sits with its peers but
-  // doesn't shadow the top-level import we already do for the rest
-  // of the spec.
-  // eslint-disable-next-line @typescript-eslint/no-var-requires
-  const { getShotQualityLabel } = require('./commentary');
-
-  // Mock t() that returns the i18n key verbatim — we only care that
-  // the right key path is picked for each tier boundary.
-  const tKey = (key: string) => key;
-
-  const cases: Array<[number, string]> = [
-    [100, 'shotQuality.tier_top'],
-    [90, 'shotQuality.tier_top'],
-    [89, 'shotQuality.tier_quality'],
-    [75, 'shotQuality.tier_quality'],
-    [74, 'shotQuality.tier_decent'],
-    [50, 'shotQuality.tier_decent'],
-    [49, 'shotQuality.tier_tame'],
-    [25, 'shotQuality.tier_tame'],
-    [24, 'shotQuality.tier_wayward'],
-    [0, 'shotQuality.tier_wayward'],
-  ];
-
-  it.each(cases)('shotQuality=%i → %s', (value, expected) => {
-    expect(getShotQualityLabel(tKey, value)).toBe(expected);
-  });
-
-  it('returns empty string for null / undefined', () => {
-    expect(getShotQualityLabel(tKey, null)).toBe('');
-    expect(getShotQualityLabel(tKey, undefined)).toBe('');
   });
 });
 

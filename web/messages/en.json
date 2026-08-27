@@ -1055,11 +1055,6 @@
       "tpl_1": "What a strike! {player} finds the back of the net!",
       "tpl_2": "Brilliant finish! {player} curls it into the corner!",
       "tpl_3": "Unstoppable! {player} smashes it into the roof of the net!",
-      "quality_excellent": "An absolute screamer that will be remembered for years!",
-      "quality_great": "Stunning goal from {player}!",
-      "quality_good": "A composed finish from {player}!",
-      "quality_chance": "He made it look so easy!",
-      "quality_opportunity": "Took it well under pressure!",
       "center_with_assist": {
         "tpl_0": "GOAL! {pusher} drives through the middle, finds {assist} who slides a pass to {shooter} — {shooter} {quality} past the keeper!",
         "tpl_1": "{pusher} orchestrates through the middle, {assist} threads a needle through the defense, and {shooter} {quality} into the net! {tackler} never stood a chance.",
@@ -1308,13 +1303,6 @@
       "normal": "shot",
       "long_shot": "long-range shot",
       "rebound": "rebound"
-    },
-    "shotQuality": {
-      "tier_top": "top-drawer",
-      "tier_quality": "quality",
-      "tier_decent": "decent",
-      "tier_tame": "tame",
-      "tier_wayward": "wayward"
     }
   },
   "tactics": {

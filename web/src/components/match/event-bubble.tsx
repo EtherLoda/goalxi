@@ -28,7 +28,7 @@
 import React from 'react';
 import { useTranslations } from 'next-intl';
 import type { MatchEvent } from '@/lib/api';
-import { canonicalEventType, formatEventCommentary, getShotQualityLabel } from '@/lib/commentary';
+import { canonicalEventType, formatEventCommentary } from '@/lib/commentary';
 import { eventIcon } from './commentary-icons';
 import { resolveSide } from './match-event-side';
 
@@ -123,17 +123,6 @@ export const EventBubble: React.FC<EventBubbleProps> = ({
     ? 'text-secondary'
     : 'text-on-surface-variant';
 
-  // Stat line: read shotQuality straight from the structured event
-  // payload, then map to a tier label. Pre-fix code tried to scrape
-  // 'shotQuality=NN' substrings out of the rendered narrative text
-  // (see the old STAT_RE), but no i18n template ever emitted that
-  // literal, so the stat line was dead in production. The narrative
-  // already has its own `{quality}` slot for prose; the stat line is
-  // a separate UI surface for an at-a-glance shot descriptor.
-  const shotQuality = (event?.data as any)?.sequence?.shot?.shotQuality;
-  const statLabel =
-    typeof shotQuality === 'number' ? getShotQualityLabel(t, shotQuality) : '';
-
   // Layout: every event is the same shape — a 4px team bar, a fixed-
   // width minute column (with a coloured dot), then a 1fr content
   // column. Side is encoded by colour on every element, not by
@@ -168,7 +157,7 @@ export const EventBubble: React.FC<EventBubbleProps> = ({
         </span>
       </div>
 
-      {/* 3. Content — icon + text + optional stat */}
+      {/* 3. Content — icon + text */}
       <div className="min-w-0 pl-1">
         <div className="flex items-start gap-1.5">
           <span className={`shrink-0 mt-0.5 ${iconTone}`}>
@@ -176,11 +165,6 @@ export const EventBubble: React.FC<EventBubbleProps> = ({
           </span>
           <div className="flex-1 min-w-0">
             <p className="text-[13px] leading-snug text-on-surface">{text}</p>
-            {statLabel && (
-              <p className="mt-0.5 text-[10px] font-mono text-on-surface-variant/80">
-                shotQuality: {statLabel}
-              </p>
-            )}
           </div>
         </div>
       </div>

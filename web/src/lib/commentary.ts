@@ -154,48 +154,18 @@ function getTemplate(
 // string would crash the t() call (next-intl@4 throws FORMATTING_ERROR
 // when an expected context variable is missing), so we always pass `player`
 // even for the {excellent} branch that doesn't use it (no-op there).
-function getQualityText(
-  t: TranslationFunction,
-  shotQuality: number,
-  player: string,
-): string {
-  // Thresholds (60/80) read shotQuality on its native 0-100 scale —
-  // the per-shot noise perturbation, NOT the player's finalShootRating
-  // (which is 0-300+). The pre-fix code used the same 60/80 gates on
-  // a 0-300 value, so virtually every real shot hit `quality_excellent`
-  // and the tier system was effectively dead.
-  if (shotQuality >= 80) return t('goal.quality_excellent', { player });
-  if (shotQuality >= 60) return t('goal.quality_great', { player });
-  return t('goal.quality_good', { player });
-}
-
-/**
- * Map a 0-100 shotQuality to a tier label. Used by the EventBubble stat
- * line (and any future UI surface that needs a human-readable shot
- * descriptor). Five tiers:
- *
- *   ≥90  top-drawer  — screamer / world-class
- *   ≥75  quality     — clean strike
- *   ≥50  decent      — standard
- *   ≥25  tame        — soft / weak
- *    0+  wayward     — terrible
- *
- * Complements getQualityText (which feeds the narrative `{quality}`
- * slot with a 3-tier gradient — excellent / great / good) by giving
- * UI surfaces a more discriminating label since they're not
- * constrained to a sentence-shaped template.
- */
-export function getShotQualityLabel(
-  t: TranslationFunction,
-  shotQuality: number | null | undefined,
-): string {
-  if (shotQuality == null) return '';
-  if (shotQuality >= 90) return t('shotQuality.tier_top');
-  if (shotQuality >= 75) return t('shotQuality.tier_quality');
-  if (shotQuality >= 50) return t('shotQuality.tier_decent');
-  if (shotQuality >= 25) return t('shotQuality.tier_tame');
-  return t('shotQuality.tier_wayward');
-}
+//
+// (2026-08-27) The {quality} placeholder in goal templates and the
+// `shotQuality.*` tier-label set in i18n are dropped. The pre-fix
+// 0–100 numeric scale never lined up with what the engine actually
+// emits (a per-shot perturbation vs. the player's finalShootRating
+// 0–300+ scale), so the tier system rendered essentially the same
+// label for every shot and the visual differentiation was a no-op.
+// The narrative's existing sentence-shaped templates already convey
+// the action ("看 {shooter} 这记远射——" etc.) without needing a
+// separate prose-grain descriptor. Templates keep the {quality}
+// placeholder so the substitution is a no-op rather than a missing
+// key.
 
 function getLaneText(t: TranslationFunction, lane: string | undefined): string {
   if (!lane) return '';
@@ -294,21 +264,26 @@ function isRebound(data: any): boolean {
   return getShotType(data) === 'REBOUND';
 }
 
-function isNormalShot(data: any): boolean {
-  return getShotType(data) === 'NORMAL';
-}
-
 /**
  * Resolve a shotType discriminator to the narrative sub-section key suffix
  * the i18n file uses. Returns empty string when no shotType is set (caller
- * falls through to lane × assist or the base section).
+ * falls through to lane × assist or the base section) OR when the shotType
+ * is NORMAL.
+ *
+ * Why NORMAL falls through: the i18n files only define sub-sections for
+ * the four dramaturgically-distinct shot types (header / one_on_one /
+ * rebound / long_shot). A `shot_on_target.normal.tpl_3` lookup previously
+ * raised MISSING_MESSAGE because no such key exists. The base
+ * `shot_on_target.tpl_*` section already covers the "straightforward
+ * shot on target" prose well, so the simplest fix is to make NORMAL use
+ * the base section (same pattern the goal formatter already follows for
+ * its `goal.${lane}_${with|without}_assist` split).
  */
 function getShotTypeSection(data: any): string {
   if (isHeader(data)) return 'header';
   if (isOneOnOne(data)) return 'one_on_one';
   if (isRebound(data)) return 'rebound';
   if (isLongShot(data)) return 'long_shot';
-  if (isNormalShot(data)) return 'normal';
   return '';
 }
 
@@ -376,8 +351,6 @@ export function formatGoalCommentary(
   const pusher = getPusherName(data);
   const tackler = getTacklerName(data);
   const assist = getAssistName(data);
-  const shotQuality = data?.sequence?.shot?.shotQuality || 0;
-  const quality = getQualityText(t, shotQuality, shooter);
 
   const params: Record<string, string | number> = {
     player: shooter,
@@ -386,7 +359,11 @@ export function formatGoalCommentary(
     tackler: tackler || 'the defender',
     assist: assist || 'a teammate',
     team: teamName,
-    quality,
+    // `{quality}` placeholder is preserved in goal templates for
+    // back-compat with already-translated copy that references it.
+    // Resolves to an empty string (the {quality} tier system is
+    // dropped — see getQualityText removal above).
+    quality: '',
     lane: getLaneText(t, data?.lane),
     shotType: getShotTypeText(t, getShotType(data)),
   };
@@ -460,12 +437,6 @@ export function formatShotOnTargetCommentary(
   const pusher = getPusherName(data);
   const tackler = getTacklerName(data);
   const assist = getAssistName(data);
-  const shotQuality = data?.sequence?.shot?.shotQuality || 0;
-  const quality = shotQuality >= 80
-    ? t('goal.quality_chance')
-    : shotQuality >= 60
-      ? t('goal.quality_opportunity')
-      : '';
 
   const params: Record<string, string | number> = {
     player: shooter,
@@ -474,7 +445,10 @@ export function formatShotOnTargetCommentary(
     tackler: tackler || 'the defender',
     assist: assist || 'a teammate',
     team: teamName,
-    quality,
+    // `{quality}` preserved for template back-compat (empty
+    // string now; tier system dropped — see getQualityText
+    // removal in formatGoalCommentary).
+    quality: '',
     lane: getLaneText(t, data?.lane),
     shotType: getShotTypeText(t, getShotType(data)),
   };
