@@ -24,26 +24,59 @@ export interface LineupResult {
  * `SLOT_TO_FIT_POSITION` because `calculatePositionFit` understands the
  * short player-position codes (`CB`, `CM`, `ST`, …) and not the numbered
  * slot keys.
+ *
+ * ## Invariant: every formation must have exactly 10 outfield slots
+ *
+ * GoalXI plays 11-a-side: 1 GK + 10 outfield. Each formation below
+ * lists exactly 10 outfield positions; the GK slot is added
+ * unconditionally by `generateAutoLineup`. A previous version of
+ * this file had 4-3-3 / 4-2-3-1 / 5-3-2 with 11 outfield positions
+ * (an extra `LM` / `LW` / `CM` slipped in), which produced
+ * 12-player lineups in matches where the BOT used one of those
+ * formations — visibly wrong (you can't field 12 on an 11-a-side
+ * pitch) and a regression the unit spec failed to catch because
+ * it only validated slot-key shape, not count. The tripwire in
+ * `auto-lineup.util.spec.ts` now asserts `positions.length === 10`
+ * for every formation so the bug can't return.
  */
 export const FORMATIONS = {
     '4-4-2': {
+        // 4 def + 4 mid (wide) + 2 ST
         positions: ['LB', 'CBL', 'CB', 'RB', 'LM', 'CML', 'CM', 'RM', 'CFL', 'CFR'],
         label: '4-4-2',
     },
     '4-3-3': {
-        positions: ['LB', 'CBL', 'CB', 'RB', 'LM', 'CML', 'CM', 'RM', 'LW', 'CF', 'RW'],
+        // 4 def + 3 central mid + 3 fwd (LW/CF/RW).
+        // The previous version had `LM` in the midfield, making it
+        // 11 outfield and a 12-player lineup. Standard 4-3-3 is
+        // 4-3-3 (def-mf-fwd), not 4-4-2 with a winger dropped in
+        // front of CM.
+        positions: ['LB', 'CBL', 'CB', 'RB', 'CML', 'CM', 'CMR', 'LW', 'CF', 'RW'],
         label: '4-3-3',
     },
     '4-2-3-1': {
-        positions: ['LB', 'CBL', 'CB', 'RB', 'DMFL', 'DMF', 'LW', 'CAML', 'CAM', 'CAMR', 'CF'],
+        // 4 def + 2 DM (DMFL/DMF) + 3 AM (CAML/CAM/CAMR) + 1 ST.
+        // The previous version had `LW` in the front three, making
+        // 4-2-4 (5 attackers counting the ST) and 11 outfield.
+        // Standard 4-2-3-1 is 4 def + 2 holding mid + 3 attacking
+        // mid + 1 striker.
+        positions: ['LB', 'CBL', 'CB', 'RB', 'DMFL', 'DMF', 'CAML', 'CAM', 'CAMR', 'CF'],
         label: '4-2-3-1',
     },
     '3-5-2': {
+        // 3 def (CBL/CB/CBR) + 5 mid (wide LM/RM + central CML/CM/CMR) + 2 ST.
+        // Width on the wings comes from the LM/RM, not from
+        // wingbacks, so this one already had 10 outfield.
         positions: ['CBL', 'CB', 'CBR', 'LM', 'CML', 'CM', 'CMR', 'RM', 'CFL', 'CFR'],
         label: '3-5-2',
     },
     '5-3-2': {
-        positions: ['LWB', 'CBL', 'CB', 'CBR', 'RWB', 'LM', 'CML', 'CM', 'RM', 'CFL', 'CFR'],
+        // 5 def (wingbacks LWB/RWB + central CBL/CB/CBR) + 3 central
+        // mid (CML/CM/CMR) + 2 ST. The wingbacks carry the width,
+        // so the 3 mids sit central — the previous version had
+        // LM/CML/CM/RM (4 mids including wide ones), which
+        // duplicated the 3-5-2's role and put 12 on the pitch.
+        positions: ['LWB', 'CBL', 'CB', 'CBR', 'RWB', 'CML', 'CM', 'CMR', 'CFL', 'CFR'],
         label: '5-3-2',
     },
 } as const;
