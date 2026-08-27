@@ -23,7 +23,12 @@ import type { MatchEvent } from '@/lib/api';
 import { canonicalEventType } from '@/lib/commentary';
 import { TickerStrip } from './ticker-strip';
 import { EventBubble } from './event-bubble';
-import { formatMatchMinute, useInjuryWindows } from './match-timeline';
+import {
+  derivePeriodForMinute,
+  formatMatchMinute,
+  phaseOfEvent,
+  useInjuryWindows,
+} from './match-timeline';
 
 export interface LiveCommentaryProps {
   events: MatchEvent[];
@@ -91,12 +96,31 @@ export function LiveCommentary({
   //    home/away/neutral distinction is colour-only (see EventBubble).
   //    Sorted oldest-first so the feed reads top-to-bottom as a real
   //    match transcript: kickoff at the top, full-time at the bottom.
+  //
+  //    Sort key is (phase, minute, second), NOT just (minute, second).
+  //    The engine emits the 2H kickoff at engine minute 46 and the
+  //    1H whistle at engine minute 45+N1 — but the raw `(minute,
+  //    second)` order puts the 2H kickoff BEFORE the 1H whistle in
+  //    the list (because 46 < 50), even though the kickoff happens
+  //    after the whistle in real time. Without the phase sort key,
+  //    the feed renders "46' 下半场开始" *above* "45+5' 半场结束"
+  //    — a time paradox the user can't read past.
+  //    `phaseOfEvent` returns 0 for 1H events, 1 for 2H, etc.,
+  //    so all 1H events (regardless of engine minute) sort above
+  //    all 2H events. Within a phase, the engine minute + second
+  //    tie-break preserves the engine's emit order.
   const sortedFeed = useMemo(
     () =>
-      [...feedEvents].sort(
-        (a, b) => a.minute - b.minute || (a.second ?? 0) - (b.second ?? 0),
-      ),
-    [feedEvents],
+      [...feedEvents].sort((a, b) => {
+        const phaseA = phaseOfEvent(a, events);
+        const phaseB = phaseOfEvent(b, events);
+        return (
+          phaseA - phaseB ||
+          a.minute - b.minute ||
+          (a.second ?? 0) - (b.second ?? 0)
+        );
+      }),
+    [feedEvents, events],
   );
 
   // Stoppage windows — derived once here and passed to every
@@ -107,6 +131,17 @@ export function LiveCommentary({
   // is still active at the live cursor. No-op when no half_time /
   // full_time events have been emitted yet.
   const injuryWindows = useInjuryWindows(events);
+  // Live cursor's current period. The engine emits the 2H kickoff
+  // at engine minute 46 (same wire value as the first 1H stoppage
+  // minute), so a naive `formatMatchMinute(currentMinute, ...)` on
+  // the header turns a 2H kickoff live cursor into "45+1'" — a
+  // 2H moment renders as 1H stoppage, ahead of the "45+5'" 1H
+  // whistle in the feed. `derivePeriodForMinute` recovers the
+  // real period from the events list.
+  const currentPeriod = useMemo(
+    () => derivePeriodForMinute(events, currentMinute),
+    [events, currentMinute],
+  );
 
   return (
     <div className="space-y-3">
@@ -124,7 +159,7 @@ export function LiveCommentary({
         </h3>
         <div className="flex items-center gap-1.5">
           <span className="font-mono font-black text-sm tabular-nums text-primary">
-            {formatMatchMinute(currentMinute, injuryWindows)}&apos;
+            {formatMatchMinute(currentMinute, injuryWindows, currentPeriod)}&apos;
           </span>
           {mode === 'live' ? (
             <span className="text-[9px] font-bold uppercase tracking-widest text-error/80 font-headline animate-pulse">

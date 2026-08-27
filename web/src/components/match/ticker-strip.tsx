@@ -19,7 +19,11 @@ import { useTranslations } from 'next-intl';
 import type { MatchEvent } from '@/lib/api';
 import { canonicalEventType, formatEventCommentary } from '@/lib/commentary';
 import { eventIcon } from './commentary-icons';
-import { formatMatchMinute, type InjuryWindow } from './match-timeline';
+import {
+  formatMatchMinute,
+  phaseOfEvent,
+  type InjuryWindow,
+} from './match-timeline';
 
 export interface TickerStripProps {
   events: MatchEvent[];
@@ -38,10 +42,11 @@ export interface TickerStripProps {
 interface TickerChunkProps {
   items: MatchEvent[];
   formatText: (e: MatchEvent) => string;
-  /** Player-facing minute label resolver — same signature as
-   *  `formatMatchMinute` so the parent can pre-bind the windows
-   *  once and pass the closure down. */
-  formatMinute: (m: number) => string;
+  /** Player-facing minute label resolver — takes the event so
+   *  the parent can plumb the per-event `data.period` through
+   *  and avoid the 2H-kickoff-as-45+1 misclassification that
+   *  comes from a minute-only resolver. */
+  formatMinute: (e: MatchEvent) => string;
 }
 
 // Defined at module scope so its identity is stable across renders —
@@ -68,7 +73,7 @@ const TickerChunk: React.FC<TickerChunkProps> = ({ items, formatText, formatMinu
             {React.createElement(Icon, { size: 14 })}
           </span>
           <span className="font-mono text-[11px] font-bold tabular-nums text-primary/90">
-            {formatMinute(e.minute)}&apos;
+            {formatMinute(e)}&apos;
           </span>
           <span className="text-xs leading-none">{formatText(e)}</span>
         </div>
@@ -87,9 +92,26 @@ export const TickerStrip: React.FC<TickerStripProps> = ({
   const tChrome = useTranslations('matches.live');
   const t = useTranslations('commentary');
 
+  // Sort the events in real-time chronological order (NOT by
+  // engine minute) before slicing — the engine reuses engine
+  // minute 46 for both 1H stoppage and the 2H kickoff, and the
+  // API sort is `(minute, second, id)` which puts the kickoff
+  // before the 1H whistle. `phaseOfEvent` (1H=0, 2H=1, …) is
+  // the primary key so the 1H whistle lines up where a reader
+  // expects (above its 1H injury neighbours, not below the 2H
+  // kickoff). See the same fix in `LiveCommentary.sortedFeed`.
   const items = useMemo(() => {
     return events
       .filter((e) => canonicalEventType(e.typeName ?? e.type) !== 'SNAPSHOT')
+      .sort((a, b) => {
+        const phaseA = phaseOfEvent(a, events);
+        const phaseB = phaseOfEvent(b, events);
+        return (
+          phaseA - phaseB ||
+          a.minute - b.minute ||
+          (a.second ?? 0) - (b.second ?? 0)
+        );
+      })
       .slice(0, maxItems);
   }, [events, maxItems]);
 
@@ -102,9 +124,16 @@ export const TickerStrip: React.FC<TickerStripProps> = ({
   // TickerChunk call site only carries the resolver closure (vs
   // re-passing the windows array down the tree). Falls back to a
   // passthrough resolver when the parent didn't supply windows
-  // — same default the helper itself uses internally.
+  // — same default the helper itself uses internally. Takes the
+  // full event (not just the minute) so the period-aware filter
+  // can disambiguate the 2H kickoff at engine minute 46.
   const formatMinute = React.useCallback(
-    (m: number) => formatMatchMinute(m, injuryWindows ?? []),
+    (e: MatchEvent) =>
+      formatMatchMinute(
+        e.minute,
+        injuryWindows ?? [],
+        (e.data as { period?: string } | undefined)?.period,
+      ),
     [injuryWindows],
   );
 

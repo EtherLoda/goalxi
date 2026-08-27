@@ -165,7 +165,12 @@ export const EventBubble: React.FC<EventBubbleProps> = ({
           className={`font-mono font-black text-[11px] tabular-nums ${minuteTone}`}
           style={minuteStyle}
         >
-          {formatMatchMinute(event.minute, injuryWindows ?? [])}&apos;
+          {formatMatchMinute(
+            event.minute,
+            injuryWindows ?? [],
+            (event.data as { period?: string } | undefined)?.period,
+          )}
+          &apos;
         </span>
       </div>
 

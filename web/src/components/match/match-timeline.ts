@@ -61,12 +61,24 @@ export type TimelineEventType = (typeof TIMELINE_EVENT_TYPES)[number];
 export interface TimelineMarker {
   /** Canonical uppercase type key (matches `TimelineEventType`). */
   type: TimelineEventType;
-  /** Raw match minute — used for horizontal placement. The engine
-   *  emits stoppage minutes with the stoppage-inclusive clock
-   *  (e.g. `46` for the first 1H+1 stoppage minute), so the marker
-   *  carries BOTH the raw number (for positioning) and the player-
-   *  facing label (for tooltips / aria). */
+  /** Raw match minute — used for the player-facing label
+   *  (`"45+1"` etc.) and for any per-minute tooltip that wants
+   *  the engine value. The engine emits stoppage minutes with
+   *  the stoppage-inclusive clock (e.g. `46` for the first 1H+1
+   *  stoppage minute, 2H regulation also starts at 46), so the
+   *  marker carries both the raw minute (for the label) and
+   *  the visual position (for layout). */
   minute: number;
+  /**
+   * Visual position the marker should be rendered at, after the
+   * 2H-shift (`visualMinute(engineMinute, period, N1)`). For
+   *  1H events this equals `minute`; for 2H / 2H-injury /
+   *  extra-time-2H events it's `minute + (N1 - 1)` so the 2H
+   *  region abuts the 1H injury band rather than overlapping
+   *  it. Set by `extractTimelineMarkers` from the same injury
+   *  windows the engine writes on `half_time` / `full_time`.
+   */
+  visualMinute: number;
   /**
    * Player-facing minute label — the raw minute with a "+N"
    * suffix for stoppage-time events (e.g. "45+1" instead of "46").
@@ -131,11 +143,31 @@ export function extractTimelineMarkers(
     out.push({
       type: canonical as TimelineEventType,
       minute,
+      // Visual position after the 2H-shift — 1H events stay at
+      // their engine minute, 2H / 2H-injury / ET-2H events
+      // move right by (N1 - 1) so the 2H region abuts the 1H
+      // injury band. See `visualMinute` for the full rule.
+      visualMinute: visualMinute(
+        minute,
+        (e.data as { period?: string } | undefined)?.period,
+        firstHalfInjuryFromWindows(injuryWindows),
+      ),
       // Player-facing label — e.g. "45+1" for a 1H+1 stoppage
       // event whose raw minute is 46. See `formatMatchMinute`
       // for the rule (strictly inside the stoppage window,
-      // boundaries stay un-suffixed).
-      minuteLabel: formatMatchMinute(minute, injuryWindows),
+      // boundaries stay un-suffixed). The 2H kickoff is the
+      // reason the third `period` arg matters: it lands at
+      // engine minute 46 — same wire value as the first 1H
+      // stoppage minute — and without the period filter the
+      // formatter prints "45+1" for a 2H kickoff, which is
+      // both wrong (it's 2H regulation, not 1H injury) and
+      // earlier in the feed than the 1H whistle that prints
+      // as "45+5".
+      minuteLabel: formatMatchMinute(
+        minute,
+        injuryWindows,
+        (e.data as { period?: string } | undefined)?.period,
+      ),
       teamId: e.teamId,
       isHome: e.isHome,
       // Pull `playerName` from the event's data payload — same source
@@ -155,22 +187,80 @@ export function extractTimelineMarkers(
 // ============================================================================
 
 /**
- * Total minutes the timeline track should cover. Always at least 90
- * (a normal match); grows to whatever the latest event minute is so
- * extra-time / stoppage-time markers don't get clipped off the right
- * edge. Capped at 120 since no real match goes beyond that — extra
- * padding is added by the renderer.
+ * (Forward-declared above as the post-shift version. The actual
+ *  implementation lives near the bottom of this file so the
+ *  helper functions it depends on (`firstHalfInjuryFromWindows`)
+ *  are in scope.)
  */
-export function timelineEnd(
-  events: MatchEvent[],
-  currentMinute: number,
+
+// ============================================================================
+// visualMinute
+// ============================================================================
+
+/**
+ * Apply the "2H-shift" to an engine minute. The engine's wire
+ * convention is that the second half's `minute` field starts at
+ * `46` (the next game-clock slot after 1H's 1-45) regardless of
+ * how much 1H injury was played — so for a match with 1H+3
+ * stoppage, the 2H kickoff event lands at engine minute 46 even
+ * though the actual on-field kickoff happens at clock 48.
+ *
+ * Visually, the user expects 1H injury (clock 45-48) to end
+ * BEFORE 2H regulation starts — i.e. 2H should NOT be at the
+ * same position as the 1H injury band, and there should be a
+ * visible 1-minute "half-time break" between them. The shift
+ * moves every 2H-period event right by `N1` (where N1 = first-
+ * half injury duration), so for 1H+3:
+ *   - 2H kickoff (engine 46) → visual 49 (= 46 + 3, one minute
+ *     past the 1H whistle at visual 48)
+ *   - 2H whistle  (engine 95) → visual 98 (= 95 + 3)
+ *   - 1H whistle  (engine 48) → visual 48 (no shift — it's
+ *     in the no-shift region)
+ * The visual end (visual 98 = engine 95 + N1) lines up with
+ * the 2H whistle at the right edge of the track.
+ *
+ * The 1-minute gap between visual 48 (1H whistle) and visual
+ * 49 (2H kickoff) is the half-time break — rendered as empty
+ * track (no fill) on the timeline so a reader can see the
+ * boundary.
+ *
+ * Period `first_half*` events are NOT shifted — those are the
+ * 1H region (0-45 regulation + 45-45+N1 injury), and the
+ * 1H injury band already lives at visual 45-45+N1 with no
+ * shift. Period `extra_time_first_half*` is also NOT shifted:
+ * it's the "1H of extra time", and the half-time gap between
+ * 2H whistle and ET 1H is preserved as visual space.
+ *
+ * Fallback for events WITHOUT `data.period` (e.g. the engine's
+ * 2H `full_time` whistle, which is pushed with type, minute,
+ * and stoppage count but no period field): use the minute
+ * threshold. Once the wire minute is past the 1H injury band
+ * (> 45 + N1), we're in the 2H / ET 2H region and the shift
+ * applies.
+ */
+export function visualMinute(
+  engineMinute: number,
+  period: string | undefined,
+  firstHalfInjury: number,
 ): number {
-  let maxMinute = 90;
-  for (const e of events) {
-    if (e.minute > maxMinute) maxMinute = e.minute;
+  if (firstHalfInjury <= 0) return engineMinute;
+  if (
+    period === 'second_half' ||
+    period === 'second_half_injury' ||
+    period === 'extra_time_second_half' ||
+    period === 'extra_time_second_half_injury'
+  ) {
+    return engineMinute + firstHalfInjury;
   }
-  if (currentMinute > maxMinute) maxMinute = currentMinute;
-  return Math.max(90, Math.min(120, maxMinute));
+  if (period === undefined && engineMinute > 45 + firstHalfInjury) {
+    return engineMinute + firstHalfInjury;
+  }
+  return engineMinute;
+}
+
+/** Read the 1H injury duration off the windows array (0 if no 1H stoppage). */
+function firstHalfInjuryFromWindows(windows: InjuryWindow[]): number {
+  return windows.find((w) => w.label === '1H')?.addedMinutes ?? 0;
 }
 
 // ============================================================================
@@ -180,10 +270,55 @@ export function timelineEnd(
 /**
  * Map a match minute to a [0, 1] position along the timeline track.
  * Pure: clamping happens here so the renderer can stay focused on layout.
+ *
+ * `injuryWindows` (default `[]`) optionally applies the 2H-shift via
+ * `visualMinute` so 1H injury and 2H regulation don't overlap on the
+ * track. When `[]`, the function is byte-identical to the pre-shift
+ * behaviour (no visual transform) — backwards compatible with
+ * existing callers / tests that don't have the windows handy.
  */
-export function minuteToPercent(minute: number, end: number): number {
+export function minuteToPercent(
+  minute: number,
+  end: number,
+  injuryWindows: InjuryWindow[] = [],
+): number {
   if (end <= 0) return 0;
-  return Math.max(0, Math.min(1, minute / end));
+  const n1 = firstHalfInjuryFromWindows(injuryWindows);
+  const visual = visualMinute(minute, undefined, n1);
+  return Math.max(0, Math.min(1, visual / end));
+}
+
+// ============================================================================
+// timelineEnd
+// ============================================================================
+
+/**
+ * Total length of the timeline track. Default 90, grows to fit the
+ * latest event minute if past 90. With `injuryWindows` supplied,
+ * the returned length is the VISUAL end (engine end + N1 - 1) so
+ * the 2H-shift compresses the timeline correctly: a 1H+3 / 2H+5
+ * match has engine end 95 but visual end 97 (the 2H regulation
+ * shifts right by 2 to abut the 1H injury band). Default `[]`
+ * keeps the legacy behaviour (engine end).
+ */
+export function timelineEnd(
+  events: MatchEvent[],
+  currentMinute: number,
+  injuryWindows: InjuryWindow[] = [],
+): number {
+  const maxEventMinute = events.reduce((max, e) => Math.max(max, e.minute), 0);
+  const engineEnd = Math.max(90, maxEventMinute, currentMinute);
+  // Cap the engine end at 120 — no real match goes beyond that
+  // (extra time is 105-120). The renderer pads further if the
+  // cap was too tight.
+  const cappedEngineEnd = Math.min(120, engineEnd);
+  const n1 = firstHalfInjuryFromWindows(injuryWindows);
+  // N1 = 0 (no 1H stoppage): no shift. N1 > 0: shift by N1
+  // so the 2H region sits 1 visual minute after the 1H whistle
+  // (creating a "half-time break" gap in the timeline). The
+  // 1-minute gap is purely visual — the engine emits 2H at
+  // engine 46 regardless of N1.
+  return cappedEngineEnd + n1;
 }
 
 // ============================================================================
@@ -502,6 +637,18 @@ export function closestSnapshotIndex(
  *     `data.injuryTime`) — fall back to the raw minute so the
  *     pre-fix behaviour is preserved.
  *
+ * The optional `period` argument narrows the window search to the
+ * half that owns the event. This is required to label the 2H
+ * kickoff correctly: the engine emits the kickoff at engine minute
+ * 46 (same wire value as the first 1H stoppage minute) with
+ * `data.period = 'second_half'`. Without the period filter, the
+ * helper matches the 1H window and prints "45+1'" — a 2H kickoff
+ * appears in the live feed as 1H stoppage time, *earlier* than the
+ * 1H whistle (which prints as "45+5'"). With `period = 'second_half'`
+ * the helper looks only at the 2H/ET2H windows, sees that 46 is
+ * not in the 2H stoppage range, and falls through to "46" — the
+ * 2H kickoff renders at its real engine clock.
+ *
  * Pre-fix code rendered the raw number everywhere (e.g. "46'" for
  * a 45+1 event), which is wrong: the engine's wire value 46 is the
  * STOPPAGE-INCLUSIVE clock, not the regulation minute. A reader
@@ -512,9 +659,11 @@ export function closestSnapshotIndex(
 export function formatMatchMinute(
   minute: number,
   injuryWindows: InjuryWindow[],
+  period?: string,
 ): string {
   if (!injuryWindows || injuryWindows.length === 0) return String(minute);
-  for (const w of injuryWindows) {
+  const windows = windowsForPeriod(injuryWindows, period);
+  for (const w of windows) {
     // Strictly inside the stoppage window: (start, end]. The start
     // minute itself (e.g. 45 for 1H) is the regulation-half end,
     // not a stoppage minute, so it's excluded.
@@ -524,4 +673,299 @@ export function formatMatchMinute(
     }
   }
   return String(minute);
+}
+
+/**
+ * Restrict the stoppage window set to the ones that own `period`.
+ *
+ * Mapping (the engine wire format):
+ *   - 'first_half' / 'first_half_injury' / 'half_time'
+ *       → 1H windows
+ *   - 'second_half' / 'second_half_injury'
+ *       → 2H windows
+ *   - 'extra_time_first_half' / 'extra_time_first_half_injury' /
+ *     'extra_time_half_time'
+ *       → ET1H windows
+ *   - 'extra_time_second_half' / 'extra_time_second_half_injury'
+ *       → ET2H windows
+ *   - undefined / unrecognised
+ *       → all windows (back-compat with pre-period-aware callers)
+ *
+ * Returns the original `windows` array reference when `period` is
+ * undefined so the back-compat path doesn't pay a copy.
+ */
+export function windowsForPeriod(
+  windows: InjuryWindow[],
+  period: string | undefined,
+): InjuryWindow[] {
+  if (!period) return windows;
+  const allowedLabels = periodToWindowLabels(period);
+  if (!allowedLabels) return windows;
+  return windows.filter((w) => allowedLabels.has(w.label));
+}
+
+function periodToWindowLabels(
+  period: string,
+): Set<InjuryWindow['label']> | null {
+  switch (period) {
+    case 'first_half':
+    case 'first_half_injury':
+    case 'half_time':
+      return new Set<InjuryWindow['label']>(['1H']);
+    case 'second_half':
+    case 'second_half_injury':
+      return new Set<InjuryWindow['label']>(['2H']);
+    case 'extra_time_first_half':
+    case 'extra_time_first_half_injury':
+    case 'extra_time_half_time':
+      return new Set<InjuryWindow['label']>(['ET1H']);
+    case 'extra_time_second_half':
+    case 'extra_time_second_half_injury':
+      return new Set<InjuryWindow['label']>(['ET2H']);
+    default:
+      return null;
+  }
+}
+
+// ============================================================================
+// deriveSnapshotPeriods
+// ============================================================================
+
+/**
+ * Walk the events list and assign each SNAPSHOT a `data.period` so
+ * the timeline can apply the 2H shift per-snapshot (without a `period`
+ * field, a snapshot at engine minute 46 in 1H injury and the
+ * corresponding 2H reg snapshot at the same minute are
+ * indistinguishable).
+ *
+ * The list is sorted by `(minute, second, id)` per
+ * `match-event.service.ts:131` — NOT by real-time chronological
+ * order. Around the half-time boundary, the order is reversed:
+ * the 2H kickoff (engine minute 46) sorts BEFORE the 1H injury
+ * events at engine minutes 47-50 and BEFORE the 1H whistle at
+ * engine minute 50. The walker has to recover real-time order
+ * from the list-order + engine-minute combination.
+ *
+ * Algorithm (in order, first match wins):
+ *   1. The engine may set `data.period` on some snapshot events
+ *      (e.g. a 2H reg snapshot emitted after the kickoff). Use it.
+ *   2. Snapshot at the same minute as the 2H kickoff, listed AFTER
+ *      the 2H kickoff → 2H reg. (The 1H injury snapshot at the
+ *      same minute would be listed BEFORE the kickoff, so this
+ *      catches only the post-kickoff 2H reg snapshot.)
+ *   3. Snapshot at the 1H whistle minute:
+ *      - listed BEFORE the 1H whistle → 1H injury (the last 1H
+ *        stoppage minute's snapshot, just before the ref blows)
+ *      - listed AT/AFTER the 1H whistle → 2H (the first 2H reg
+ *        snapshot at the same engine minute)
+ *   4. Snapshot at engine minute < 1H whistle minute → 1H
+ *      (regulation if minute ≤ 45, injury otherwise)
+ *   5. Snapshot at engine minute > 1H whistle minute → 2H
+ *      (regulation if minute < 90, injury otherwise)
+ *   6. No 1H whistle in the events list → 1H (no 2H/ET distinction)
+ *
+ * ET matches follow the same shape with the 1H/2H thresholds
+ * extended to the ET boundaries — the 1H whistle resolution
+ * above naturally routes ET 1H/2H snapshots by minute, since
+ * the engine emits the 1H/2H whistle and the ET 1H/2H whistle
+ * at distinct engine minutes.
+ *
+ * Returns a string[] of `data.period` values, one per input
+ * event. Indices that aren't snapshots are NOT in the returned
+ * array (the caller filters SNAPSHOT events and zips the result
+ * back to the snapshots prop).
+ */
+export function deriveSnapshotPeriods(events: MatchEvent[]): string[] {
+  const periods: string[] = [];
+  let halfTimeIdx = -1;
+  let halfTimeMinute = -1;
+  let secondHalfIdx = -1;
+  let secondHalfMinute = -1;
+  let fullTimeMinute = -1;
+
+  for (let i = 0; i < events.length; i++) {
+    const e = events[i];
+    const dp = (e.data as { period?: string } | undefined)?.period;
+    if (halfTimeIdx === -1 && e.typeName === 'half_time' && dp === 'half_time') {
+      halfTimeIdx = i;
+      halfTimeMinute = e.minute;
+    }
+    if (
+      secondHalfIdx === -1 &&
+      e.typeName === 'second_half' &&
+      dp === 'second_half'
+    ) {
+      secondHalfIdx = i;
+      secondHalfMinute = e.minute;
+    }
+    if (fullTimeMinute === -1 && e.typeName === 'full_time') {
+      fullTimeMinute = e.minute;
+    }
+  }
+
+  for (let i = 0; i < events.length; i++) {
+    const e = events[i];
+    if (e.typeName !== 'snapshot') continue;
+    const dp = (e.data as { period?: string } | undefined)?.period;
+    if (dp) {
+      periods.push(dp);
+      continue;
+    }
+    // 2H kickoff at the same minute, listed after the kickoff → 2H reg.
+    if (
+      secondHalfIdx !== -1 &&
+      e.minute === secondHalfMinute &&
+      i > secondHalfIdx
+    ) {
+      periods.push('second_half');
+      continue;
+    }
+    // 1H whistle at the same minute, listed before the whistle → 1H
+    // injury; at or after → 2H.
+    if (halfTimeIdx !== -1 && e.minute === halfTimeMinute) {
+      if (i < halfTimeIdx) {
+        periods.push('first_half_injury');
+      } else {
+        periods.push('second_half');
+      }
+      continue;
+    }
+    // Fall back to the minute threshold vs the 1H whistle minute.
+    if (halfTimeMinute !== -1) {
+      if (e.minute < halfTimeMinute) {
+        periods.push(e.minute > 45 ? 'first_half_injury' : 'first_half');
+        continue;
+      }
+      if (e.minute > halfTimeMinute) {
+        periods.push(
+          e.minute >= 90
+            ? 'second_half_injury'
+            : 'second_half',
+        );
+        continue;
+      }
+    }
+    periods.push('first_half');
+  }
+
+  return periods;
+}
+
+/**
+ * Look up the period of a single engine minute, by walking the
+ * same boundary events as `deriveSnapshotPeriods`. Used for the
+ * live cursor in `LiveCommentary` (no list index, just an engine
+ * minute + the surrounding events).
+ *
+ * The interesting case is engine minute 46 right after the 2H
+ * kickoff — the engine emits the kickoff at minute 46 (same wire
+ * value as the first 1H stoppage minute), so a naive threshold
+ * (currentMinute > 45 + N1) misses it. The helper checks
+ * `secondHalfIdx !== -1` first: if the 2H kickoff has been seen,
+ * any currentMinute at or past the kickoff's engine minute is in
+ * 2H.
+ */
+export function derivePeriodForMinute(
+  events: MatchEvent[],
+  currentMinute: number,
+): string {
+  let halfTimeMinute = -1;
+  let secondHalfIdx = -1;
+  let fullTimeMinute = -1;
+  for (const e of events) {
+    const dp = (e.data as { period?: string } | undefined)?.period;
+    if (
+      halfTimeMinute === -1 &&
+      e.typeName === 'half_time' &&
+      dp === 'half_time'
+    ) {
+      halfTimeMinute = e.minute;
+    }
+    if (
+      secondHalfIdx === -1 &&
+      e.typeName === 'second_half' &&
+      dp === 'second_half'
+    ) {
+      secondHalfIdx = 1; // truthy marker — we only need "seen or not"
+    }
+    if (fullTimeMinute === -1 && e.typeName === 'full_time') {
+      fullTimeMinute = e.minute;
+    }
+  }
+  // Live cursor at or after the 2H kickoff → 2H. (Use 46 as the
+  // kickoff's engine minute, since the engine always emits the
+  // kickoff at minute 46 regardless of N1.)
+  if (secondHalfIdx !== -1 && currentMinute >= 46) {
+    if (currentMinute > 45 && currentMinute < (halfTimeMinute === -1 ? 46 : halfTimeMinute)) {
+      // Past the kickoff but still in the 1H injury minute range
+      // — shouldn't happen in real-time, but the threshold is safe.
+      return 'first_half_injury';
+    }
+    return currentMinute >= 90 ? 'second_half_injury' : 'second_half';
+  }
+  if (halfTimeMinute !== -1) {
+    if (currentMinute < halfTimeMinute) {
+      return currentMinute > 45 ? 'first_half_injury' : 'first_half';
+    }
+    if (currentMinute > halfTimeMinute) {
+      return currentMinute >= 90 ? 'second_half_injury' : 'second_half';
+    }
+    return 'first_half_injury';
+  }
+  if (fullTimeMinute !== -1 && currentMinute >= 90) {
+    return 'second_half_injury';
+  }
+  return currentMinute > 45 ? 'first_half_injury' : 'first_half';
+}
+
+/**
+ * Return the real-time chronological phase of a single event as a
+ * small integer suitable for `Array.sort` comparison. Used by
+ * the commentary feed (and the ticker) to break the half-time
+ * tie: the engine emits the 2H kickoff at engine minute 46 and
+ * the 1H whistle at engine minute 45+N1, but the API sort is by
+ * `(minute, second, id)`, which puts the 2H kickoff *before* the
+ * 1H whistle in the list — even though the kickoff happens
+ * after the whistle in real time. Without a phase-aware sort,
+ * the feed renders "46' 下半场开始" *before* "45+5' 半场结束",
+ * which a reader reads as a time paradox.
+ *
+ * Phase values:
+ *   0 = 1H (regulation, injury, whistle)
+ *   1 = 2H (regulation, injury, whistle)
+ *   2 = ET 1H
+ *   3 = ET 2H
+ *
+ * For events with `data.period` set, the engine's own
+ * classification wins (1H events tagged `first_half_injury`
+ * always sort before 2H events tagged `second_half`, even when
+ * the engine minutes are equal). For unperioded events we
+ * fall back to the engine minute + the 1H whistle minute: an
+ * event at engine minute < halfTimeMinute is 1H, and at engine
+ * minute > halfTimeMinute is 2H. At the halfTimeMinute itself
+ * (the rare case of a regular match event at the same engine
+ * minute as the 1H whistle), the default is 1H — the engine
+ * emits 1H injury events before the whistle event, and any
+ * post-whistle 2H event at the same engine minute would carry
+ * `data.period = 'second_half'` and route via the period-aware
+ * branch above.
+ */
+export function phaseOfEvent(event: MatchEvent, events: MatchEvent[]): number {
+  const dp = (event.data as { period?: string } | undefined)?.period;
+  if (dp) {
+    if (dp.startsWith('first_half') || dp === 'half_time') return 0;
+    if (dp.startsWith('second_half') || dp === 'full_time') return 1;
+    if (dp.startsWith('extra_time_first_half') || dp === 'extra_time_half_time') return 2;
+    if (dp.startsWith('extra_time_second_half')) return 3;
+  }
+  const halfTime = events.find(
+    (e) =>
+      e.typeName === 'half_time' &&
+      (e.data as { period?: string } | undefined)?.period === 'half_time',
+  );
+  const halfTimeMinute = halfTime?.minute ?? -1;
+  if (halfTimeMinute === -1) return 0;
+  if (event.minute < halfTimeMinute) return 0;
+  if (event.minute > halfTimeMinute) return 1;
+  return 0;
 }

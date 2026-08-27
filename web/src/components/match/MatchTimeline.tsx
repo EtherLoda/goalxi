@@ -42,12 +42,14 @@ import {
   type TimelineMarker,
   type InjuryWindow,
   closestSnapshotIndex,
+  deriveSnapshotPeriods,
   extractInjuryWindows,
   extractTimelineMarkers,
   formatMatchMinute,
   minuteToPercent,
   resolveWhistleMinutes,
   timelineEnd,
+  visualMinute,
 } from './match-timeline';
 import type { MatchSnapshot } from './match-pitch-data';
 
@@ -183,7 +185,12 @@ export function MatchTimeline({
   // Declared BEFORE `useMemoWhistleMinutes` because the whistle
   // helper needs the end-minute as a fallback for matches that
   // haven't reached the final whistle yet (live mid-match).
-  const endMinute = useMemoEnd(events, currentMinute);
+  // The `injuryWindows` argument triggers the 2H-shift so the
+  // visual end is engine end + N1 - 1 (e.g. 1H+3 / 2H+5 →
+  // engine end 95 → visual end 97, so the 2H regulation has
+  // visual space to abut the 1H injury band rather than
+  // overlapping it).
+  const endMinute = useMemoEnd(events, currentMinute, injuryWindows);
 
   // Whistle minutes for the 1H / 2H / ET tick marks. The engine
   // emits `half_time` / `full_time` events with the stoppage-
@@ -194,6 +201,16 @@ export function MatchTimeline({
 
   // Snapshot ticks — derive minute positions from the snapshots prop.
   const snapshotTicks = snapshots.map((s, i) => ({ minute: s.minute, index: i }));
+  // Per-snapshot period — used to apply the 2H shift to dots that
+  // belong to 2H regulation / injury snapshots. Without this, a
+  // snapshot at engine minute 46 (2H kickoff) sits at visual
+  // 46 inside the 1H injury band instead of at visual 51 just
+  // past the half-time gap. The `events` list is sorted by
+  // `(minute, second, id)`, so the API order at the half-time
+  // boundary is reversed vs real-time — the helper uses both
+  // the list position and the engine minute to recover the
+  // real period. See `deriveSnapshotPeriods` for the full rule.
+  const snapshotPeriods = useMemoSnapshotPeriods(events);
 
   // Active snapshot, clamped defensively against an out-of-range index
   // (the parent should never pass one, but timeline rendering must
@@ -276,8 +293,59 @@ export function MatchTimeline({
   // -------------------------------------------------------------------------
 
   // Playhead position (% of track). Active minute first, then draft.
-  const playheadPercent = minuteToPercent(displayMinute, endMinute) * 100;
-  const progressPercent = minuteToPercent(currentMinute, endMinute) * 100;
+  // `displayMinute` is the engine minute; we need its visual
+  // equivalent for placement on the track (2H events shift
+  // right by N1-1 so the 2H region abuts the 1H injury band).
+  // The display minute on the chip stays engine-formatted
+  // (e.g. "90+5'") — the shift is layout-only.
+  const firstHalfInjury =
+    injuryWindows.find((w) => w.label === '1H')?.addedMinutes ?? 0;
+  // Apply the 2H-shift on display minute only when it's actually
+  // in the 2H region. The 1H region (0-45+N1) doesn't shift.
+  const playheadVisual = visualMinute(
+    displayMinute,
+    // The engine's current minute <= 45+N1 means we're still in
+    // the 1H region (no shift). For 2H the period in
+    // `currentPeriod` (from the WS payload) would be more
+    // authoritative, but the engine convention is that any
+    // engine minute > 45+N1 is in 2H or beyond, and the helper
+    // already keys off the threshold, so we pass `undefined`
+    // and let `visualMinute` shift based on the threshold.
+    undefined,
+    firstHalfInjury,
+  );
+  const playheadPercent = minuteToPercent(playheadVisual, endMinute) * 100;
+  const progressPercent =
+    minuteToPercent(
+      visualMinute(currentMinute, undefined, firstHalfInjury),
+      endMinute,
+    ) * 100;
+
+  // Fill split: the 1H fill covers the 1H regulation half
+  // (visual 0-45), the 2H fill starts at the 2H kickoff
+  // (visual 45+N1+1, one minute after the 1H whistle for the
+  // half-time break) and runs to the visual end. Both widths
+  // are clamped to the playhead position so the 1H fill caps
+  // at 45 even if the playhead is well into the 2H, and the 2H
+  // fill is 0 if the playhead is still in 1H.
+  const firstHalfFillEndVisual = 45;
+  const secondHalfFillStartVisual = 45 + firstHalfInjury + 1;
+  const currentVisual = visualMinute(
+    currentMinute,
+    undefined,
+    firstHalfInjury,
+  );
+  const firstHalfWidthPercent = Math.max(
+    0,
+    Math.min(currentVisual, firstHalfFillEndVisual) / endMinute * 100,
+  );
+  const secondHalfWidthPercent = currentVisual <= secondHalfFillStartVisual
+    ? 0
+    : (Math.min(currentVisual, endMinute) - secondHalfFillStartVisual) /
+        endMinute *
+      100;
+  const secondHalfLeftPercent =
+    (secondHalfFillStartVisual / endMinute) * 100;
 
   // Half-time / full-time ticks — the actual whistle minutes the
   // engine wrote on the `half_time` / `full_time` events
@@ -321,11 +389,33 @@ export function MatchTimeline({
           className="relative h-3 rounded-full bg-surface-container-high cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
           data-testid="match-timeline-track"
         >
-          {/* Fill — primary gradient from 0 to currentMinute */}
+          {/* Fill — split into two strips so the 1H injury band
+              region (45-45+N1) and the 1-minute "half-time break"
+              (45+N1 to 45+N1+1) sit on the track background, NOT
+              under the primary gradient. The pre-fix single fill
+              was a continuous 0-currentMinute gradient that ran
+              THROUGH the 1H injury band, so the band's amber
+              tint mixed with the primary green into a muddy
+              olive — readers couldn't tell where 1H injury ended
+              and 2H started. The 1H fill covers the 1H
+              regulation half (0-45); the 2H fill starts at the
+              2H kickoff visual position (45+N1+1) and runs to
+              the end of the track. Both strips share the same
+              primary gradient so the colour stays consistent
+              across the half-time break. The gap is exactly the
+              1H injury duration plus one visual minute for the
+              half-time break. */}
           <div
             className="absolute inset-y-0 left-0 rounded-full bg-gradient-to-r from-primary/70 via-primary to-primary/90 shadow-[0_0_8px_rgba(0,228,121,0.35)] transition-[width] duration-300 ease-out"
-            style={{ width: `${progressPercent}%` }}
-            data-testid="match-timeline-fill"
+            style={{ width: `${firstHalfWidthPercent}%` }}
+            data-testid="match-timeline-fill-1h"
+            aria-label="first half progress"
+          />
+          <div
+            className="absolute inset-y-0 left-0 rounded-full bg-gradient-to-r from-primary/70 via-primary to-primary/90 shadow-[0_0_8px_rgba(0,228,121,0.35)] transition-[width] duration-300 ease-out"
+            style={{ left: `${secondHalfLeftPercent}%`, width: `${secondHalfWidthPercent}%` }}
+            data-testid="match-timeline-fill-2h"
+            aria-label="second half progress"
           />
           {/* Injury-time bands — amber-tinted strip that visually
               distinguishes the stoppage window from the regulation
@@ -342,38 +432,71 @@ export function MatchTimeline({
               key={`injury-${w.label}-${w.startMinute}`}
               window={w}
               endMinute={endMinute}
+              firstHalfInjury={firstHalfInjury}
             />
           ))}
           {/* Half-time groove — vertical hairline at the actual 1H
-              whistle minute. Pre-fix this was a hardcoded "45'" tick
-              at the regulation boundary, which left a 1H+2 stoppage
-              looking like "0-47 was a slow half" rather than "the
-              ref blew at 45+2". Position and label are both driven
-              by the engine's `half_time` event minute. */}
+              whistle minute. The 1H whistle lives in the no-shift
+              region (period 'half_time' is excluded by visualMinute's
+              period check), so the tick sits at its engine position
+              (visual 45+N1 for 1H+N1). Position and label are both
+              driven by the engine's `half_time` event minute. */}
           <TickMark
-            percent={minuteToPercent(halfTimeMin, endMinute) * 100}
+            percent={
+              minuteToPercent(
+                visualMinute(halfTimeMin, 'half_time', firstHalfInjury),
+                endMinute,
+              ) * 100
+            }
             label={`${formatMatchMinute(halfTimeMin, injuryWindows)}'`}
             align="top"
           />
           {/* Full-time groove — same as half-time but for the
-              regulation full_time event (or ET full_time if ET was
-              played, which the timeline already grows to fit). */}
+              regulation full_time event. The 2H whistle lives in
+              the shift region (engine 90+N2, no `data.period` set
+              by the engine, so visualMinute falls back to the
+              minute threshold), so the tick lands at the visual
+              2H end (engine 90+N2 + N1-1 = 89+N1+N2 for a
+              regulation match). The label stays engine-formatted
+              ("90+5'") so the reader sees the actual whistle
+              time, not the layout position. */}
           <TickMark
-            percent={minuteToPercent(fullTimeMin, endMinute) * 100}
+            percent={
+              minuteToPercent(
+                visualMinute(fullTimeMin, undefined, firstHalfInjury),
+                endMinute,
+              ) * 100
+            }
             label={`${formatMatchMinute(fullTimeMin, injuryWindows)}'`}
             align="top"
           />
 
-          {/* Snapshot ticks — small dots sitting on the track */}
-          {snapshotTicks.map((tick) => {
-            const percent = minuteToPercent(tick.minute, endMinute) * 100;
+          {/* Snapshot ticks — small dots sitting on the track.
+              Each dot's visual position comes from
+              `visualMinute(engineMinute, period, N1)` so a 2H
+              reg snapshot at engine minute 46 (the same wire
+              value as the 2H kickoff) lands at visual 51,
+              abutting the 1H injury band's right edge with
+              the half-time gap, instead of at visual 46
+              inside the band. Pre-fix this map used the
+              engine minute directly without the period, so
+              2H dots lagged their 2H event markers by N1
+              visual minutes. */}
+          {snapshotTicks.map((tick, i) => {
+            const period = snapshotPeriods[i];
+            const visual = visualMinute(
+              tick.minute,
+              period,
+              firstHalfInjury,
+            );
+            const percent = minuteToPercent(visual, endMinute) * 100;
             const isActive = tick.index === safeActiveIndex;
             return (
               <SnapshotTick
                 key={`snap-${tick.index}-${tick.minute}`}
                 percent={percent}
                 isActive={isActive}
-                minuteLabel={formatMatchMinute(tick.minute, injuryWindows)}
+                minuteLabel={formatMatchMinute(tick.minute, injuryWindows, period)}
                 onClick={() => jumpToMinute(tick.minute)}
               />
             );
@@ -396,7 +519,19 @@ export function MatchTimeline({
             <EventMarker
               key={m.key}
               marker={m}
-              percent={minuteToPercent(m.minute, endMinute) * 100}
+              // Use `m.visualMinute` (pre-shifted via the marker's
+              // own `data.period`) with a plain 2-arg
+              // `minuteToPercent` (no re-shift). `extractTimelineMarkers`
+              // computes `visualMinute` from the event's
+              // `data.period`, which the engine sets for 2H events
+              // at engine minute 46 — so a 2H reg goal at engine
+              // m=46 lands at visual m=N1+1, not at m=46 inside
+              // the 1H injury band. The pre-fix layout fed
+              // `m.visualMinute` into a 3-arg `minuteToPercent`,
+              // which re-applied the shift (visual 60+5+5 = 70
+              // for an event at engine 60 with N1=5) — markers
+              // lagged 5 visual minutes past the 2H region start.
+              percent={minuteToPercent(m.visualMinute, endMinute) * 100}
               isHome={m.isHome}
               onClick={() => jumpToMinute(m.minute)}
             />
@@ -410,7 +545,7 @@ export function MatchTimeline({
         <div className="absolute inset-x-6 -bottom-0.5 h-4 flex justify-between text-[9px] font-label uppercase tracking-widest text-outline pointer-events-none">
           <span data-testid="timeline-axis-start">0&apos;</span>
           <span data-testid="timeline-axis-mid">{formatMatchMinute(halfTimeMin, injuryWindows)}&apos;</span>
-          <span data-testid="timeline-axis-end">{formatMatchMinute(endMinute, injuryWindows)}&apos;</span>
+          <span data-testid="timeline-axis-end">{formatMatchMinute(fullTimeMin, injuryWindows)}&apos;</span>
         </div>
       </div>
 
@@ -665,16 +800,33 @@ function Legend() {
 function InjuryBand({
   window: w,
   endMinute,
+  firstHalfInjury,
 }: {
   window: InjuryWindow;
   endMinute: number;
+  /** First-half injury duration (N1). 2H / ET2H bands shift
+   *  right by N1 (one minute past the 1H whistle, the same
+   *  offset `visualMinute` applies to 2H events); 1H / ET1H
+   *  bands stay at their engine positions. The pre-fix
+   *  N1-1 offset left the 2H band 1 visual minute too far
+   *  left for the 2H whistle — e.g. 2H +5 stoppage on a
+   *  100-minute track sat at 94-99% instead of 95-100%,
+   *  and the 2H whistle tick at 100% no longer aligned
+   *  with the band's right edge. */
+  firstHalfInjury: number;
 }) {
   const t = useTranslations('matches.timeline');
   // The band stretches from the regulation boundary to the
-  // whistle minute. We anchor it as `left: X%; width: Y%` so it
-  // grows naturally with the timeline.
-  const left = minuteToPercent(w.startMinute, endMinute) * 100;
-  const right = minuteToPercent(w.endMinute, endMinute) * 100;
+  // whistle minute. For 2H / ET2H bands, shift both endpoints
+  // right by N1 (matching the 2H event shift in `visualMinute`)
+  // so the band lands at the right visual position. For 1H /
+  // ET1H, the band sits at its engine position (1H injury is
+  // at 45-45+N1, which is the END of the 1H region — no
+  // shift needed).
+  const isShiftedBand = w.label === '2H' || w.label === 'ET2H';
+  const shift = isShiftedBand ? firstHalfInjury : 0;
+  const left = minuteToPercent(w.startMinute + shift, endMinute) * 100;
+  const right = minuteToPercent(w.endMinute + shift, endMinute) * 100;
   const width = Math.max(0, right - left);
   return (
     <div
@@ -740,6 +892,24 @@ function useMemoWhistleMinutes(
   );
 }
 
-function useMemoEnd(events: MatchEvent[], currentMinute: number): number {
-  return useMemo(() => timelineEnd(events, currentMinute), [events, currentMinute]);
+function useMemoEnd(
+  events: MatchEvent[],
+  currentMinute: number,
+  injuryWindows: InjuryWindow[],
+): number {
+  // Pass `injuryWindows` so the visual end includes the 2H-shift
+  // (engine end + N1 - 1). Without the windows the timeline
+  // collapses back to the engine end (90 by default).
+  return useMemo(
+    () => timelineEnd(events, currentMinute, injuryWindows),
+    [events, currentMinute, injuryWindows],
+  );
+}
+
+function useMemoSnapshotPeriods(events: MatchEvent[]): string[] {
+  // One-pass walk; events are usually ≤ a few hundred rows so the
+  // raw allocation is fine. Memoised on the events reference so a
+  // re-render that doesn't change the events list reuses the
+  // result (the parent passes the same array down).
+  return useMemo(() => deriveSnapshotPeriods(events), [events]);
 }
