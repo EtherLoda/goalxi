@@ -61,13 +61,19 @@ export type TimelineEventType = (typeof TIMELINE_EVENT_TYPES)[number];
 export interface TimelineMarker {
   /** Canonical uppercase type key (matches `TimelineEventType`). */
   type: TimelineEventType;
-  /** Raw match minute — used for the player-facing label
-   *  (`"45+1"` etc.) and for any per-minute tooltip that wants
-   *  the engine value. The engine emits stoppage minutes with
-   *  the stoppage-inclusive clock (e.g. `46` for the first 1H+1
-   *  stoppage minute, 2H regulation also starts at 46), so the
-   *  marker carries both the raw minute (for the label) and
-   *  the visual position (for layout). */
+  /**
+   * In-game minute the marker represents. For 1H events this is
+   * the engine `minute` (1..45) plus any stoppage offset. For 2H
+   * events it is the in-game minute derived from `clockSeconds`
+   * (45..89 for 2H regulation, 90..90+M for 2H injury) so the
+   * 2H kickoff renders at in-game 45'0" instead of the legacy
+   * engine "46" — this is the off-by-one the
+   * `clockSeconds-2026` RFC closes.
+   *
+   * Pre-deploy rows (no `clockSeconds` field) keep the legacy
+   * engine `minute` value. See `resolveMarkerMinute` for the
+   * single conversion site.
+   */
   minute: number;
   /**
    * Visual position the marker should be rendered at, after the
@@ -136,33 +142,47 @@ export function extractTimelineMarkers(
   for (const e of events) {
     const canonical = canonicalEventType(e.typeName ?? e.type);
     if (!TIMELINE_EVENT_TYPES.includes(canonical as TimelineEventType)) continue;
-    const minute = e.minute;
+    // Use the in-game minute (from `clockSeconds` when present,
+    // else the legacy engine `minute`) so the 2H kickoff lands
+    // at in-game 45'0" — not the engine's legacy 46. See
+    // `resolveMarkerMinute` for the full rationale.
+    const minute = resolveMarkerMinute(e);
+    // Dedupe on (canonical, in-game minute, team). The
+    // clockSeconds-aware in-game minute means the 1H whistle and
+    // 2H kickoff at clockSeconds=2700 share the same dedupe
+    // bucket IF they have the same canonical type — but they
+    // don't (`half_time` vs `second_half`), so this is
+    // belt-and-braces. The id-based `key` below is the
+    // authoritative dedupe if a future event type is added that
+    // DOES collide at 45'0".
     const dedupeKey = `${canonical}-${minute}-${e.teamId ?? ''}`;
     if (seen.has(dedupeKey)) continue;
     seen.add(dedupeKey);
     out.push({
       type: canonical as TimelineEventType,
       minute,
-      // Visual position after the 2H-shift — 1H events stay at
-      // their engine minute, 2H / 2H-injury / ET-2H events
-      // move right by (N1 - 1) so the 2H region abuts the 1H
-      // injury band. See `visualMinute` for the full rule.
+      // Visual position after the 2H-shift. `visualMinute`
+      // operates on the ENGINE `minute` (not the in-game
+      // minute) because the shift is by FIRST-HALF STOPPAGE
+      // MINUTES — which is itself an engine-wire concept, not
+      // an in-game concept. We pass `e.minute` directly to keep
+      // the existing shift math intact. See the `visualMinute`
+      // docstring for the rule.
       visualMinute: visualMinute(
-        minute,
+        e.minute,
         (e.data as { period?: string } | undefined)?.period,
         firstHalfInjuryFromWindows(injuryWindows),
       ),
       // Player-facing label — e.g. "45+1" for a 1H+1 stoppage
       // event whose raw minute is 46. See `formatMatchMinute`
       // for the rule (strictly inside the stoppage window,
-      // boundaries stay un-suffixed). The 2H kickoff is the
-      // reason the third `period` arg matters: it lands at
-      // engine minute 46 — same wire value as the first 1H
-      // stoppage minute — and without the period filter the
-      // formatter prints "45+1" for a 2H kickoff, which is
-      // both wrong (it's 2H regulation, not 1H injury) and
-      // earlier in the feed than the 1H whistle that prints
-      // as "45+5".
+      // boundaries stay un-suffixed). Passing the in-game
+      // `minute` (not `e.minute`) is what makes the 2H kickoff
+      // render as "45" instead of the engine's legacy "46" —
+      // and the 1H whistle renders the same "45" (when N1=0)
+      // so both events share the in-game instant on the FE
+      // timeline, in different rows (1H row for the whistle,
+      // 2H row for the kickoff).
       minuteLabel: formatMatchMinute(
         minute,
         injuryWindows,
@@ -389,6 +409,55 @@ export interface InjuryWindow {
  * `half_time` / `full_time` events with non-numeric or
  * `injuryTime: 0` data, and never throws on missing fields.
  */
+
+// ============================================================================
+// resolveMarkerMinute (RFC clockSeconds-2026)
+// ============================================================================
+
+/**
+ * Resolve a marker's in-game minute for sorting / display.
+ *
+ *   - Post-RFC events with `clockSeconds`: the in-game minute is
+ *     `clockSeconds / 60`, so the 2H kickoff lands at 45 (not the
+ *     engine's legacy 46) and the 1H whistle at 45+N1.
+ *   - Pre-RFC events (no `clockSeconds`): the engine `minute`
+ *     is used as-is. The off-by-one at the 2H kickoff returns,
+ *     but only for data persisted before the deploy — the FE
+ *     still renders these as legacy "46" kickoffs, which is what
+ *     the historical screenshots show.
+ *
+ * The 2H visual shift (`visualMinute` in this file) is unchanged
+ * — it operates on the engine `minute` and is applied AFTER this
+ * resolution for the x-axis layout. See the dedicated
+ * `visualMinute` docstring for why the two stay decoupled.
+ *
+ * **2H injury quirk**: the engine's 2H injury loop runs
+ * `t=91..90+M` and `clockSeconds = (t-1)*60` puts the FIRST
+ * injury event at in-game 90:00 (= the regulation/stoppage
+ * boundary). The player-facing "90+1" label is supposed to
+ * mark the FIRST stoppage minute, so a raw in-game minute
+ * would render the first event as "90" (no suffix) — wrong
+ * by one. The label helper `formatMatchMinute` is calibrated
+ * for the engine `minute` (1st stoppage event = "90+1", last
+ * = "90+(M-1)"), and the whistle is at the trailing boundary
+ * ("90+M"). For 2H-injury events we therefore fall back to
+ * the engine `minute` even when `clockSeconds` is present —
+ * the 1H/2H regulation/2H kickoff is the only half boundary
+ * the RFC needs to fix; the 2H injury ticks were already
+ * correctly labeled.
+ */
+export function resolveMarkerMinute(event: MatchEvent): number {
+  const period = (event.data as { period?: string } | undefined)?.period;
+  if (
+    typeof event.clockSeconds === 'number' &&
+    period !== 'second_half_injury' &&
+    period !== 'extra_time_second_half_injury'
+  ) {
+    return Math.floor(event.clockSeconds / 60);
+  }
+  return event.minute;
+}
+
 export function extractInjuryWindows(events: MatchEvent[]): InjuryWindow[] {
   const out: InjuryWindow[] = [];
 

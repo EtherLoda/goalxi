@@ -15,6 +15,7 @@ import type { MatchEvent } from '@/lib/api';
 import { resolveSide, type EventSide } from './match-event-side';
 import { formatSpecialtyBonus } from '@/lib/specialty-bonus';
 import { getSpecialtyLabel } from '@/lib/specialties';
+import { resolveMarkerMinute } from './match-timeline';
 import {
   GoalCenterIcon,
   MissCenterIcon,
@@ -234,7 +235,7 @@ export function extractKeyEvents(
           : typeName === 'penalty_goal' ? 'Penalty'
             : undefined;
       entries.push({
-        minute: ev.minute,
+        minute: resolveMarkerMinute(ev),
         classId: ev.eventClassId,
         outcomeId: ev.outcomeId,
         outcomeCode: ev.outcomeCode,
@@ -276,7 +277,7 @@ export function extractKeyEvents(
             ? 'Penalty miss'
             : 'Missed';
       entries.push({
-        minute: ev.minute,
+        minute: resolveMarkerMinute(ev),
         classId: ev.eventClassId,
         outcomeId: ev.outcomeId,
         outcomeCode: ev.outcomeCode,
@@ -294,7 +295,7 @@ export function extractKeyEvents(
             ? 'Red'
             : 'Yellow';
       entries.push({
-        minute: ev.minute,
+        minute: resolveMarkerMinute(ev),
         classId: ev.eventClassId,
         outcomeId: ev.outcomeId,
         outcomeCode: ev.outcomeCode,
@@ -317,7 +318,7 @@ export function extractKeyEvents(
       const playerIn = resolveName(ev, 'substitutePlayerName');
       const playerOut = ev.data?.playerOut ?? '?';
       entries.push({
-        minute: ev.minute,
+        minute: resolveMarkerMinute(ev),
         classId: ev.eventClassId,
         outcomeId: ev.outcomeId,
         outcomeCode: ev.outcomeCode,
@@ -338,7 +339,7 @@ export function extractKeyEvents(
       const sublabel =
         severity === 'minor' || severity === 'severe' ? severity : undefined;
       entries.push({
-        minute: ev.minute,
+        minute: resolveMarkerMinute(ev),
         classId: ev.eventClassId,
         outcomeId: ev.outcomeId,
         outcomeCode: ev.outcomeCode,

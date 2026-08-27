@@ -22,6 +22,7 @@ import { eventIcon } from './commentary-icons';
 import {
   formatMatchMinute,
   phaseOfEvent,
+  resolveMarkerMinute,
   type InjuryWindow,
 } from './match-timeline';
 
@@ -126,11 +127,14 @@ export const TickerStrip: React.FC<TickerStripProps> = ({
   // passthrough resolver when the parent didn't supply windows
   // — same default the helper itself uses internally. Takes the
   // full event (not just the minute) so the period-aware filter
-  // can disambiguate the 2H kickoff at engine minute 46.
+  // can disambiguate the 2H kickoff at engine minute 46 AND the
+  // `resolveMarkerMinute` helper can map the engine `minute` to
+  // the in-game minute (RFC clockSeconds-2026: 2H kickoff
+  // renders as "45" instead of the engine's legacy "46").
   const formatMinute = React.useCallback(
     (e: MatchEvent) =>
       formatMatchMinute(
-        e.minute,
+        resolveMarkerMinute(e),
         injuryWindows ?? [],
         (e.data as { period?: string } | undefined)?.period,
       ),

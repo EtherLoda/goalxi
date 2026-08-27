@@ -31,7 +31,7 @@ import type { MatchEvent } from '@/lib/api';
 import { canonicalEventType, formatEventCommentary } from '@/lib/commentary';
 import { eventIcon } from './commentary-icons';
 import { resolveSide } from './match-event-side';
-import { formatMatchMinute, type InjuryWindow } from './match-timeline';
+import { formatMatchMinute, resolveMarkerMinute, type InjuryWindow } from './match-timeline';
 
 export interface EventBubbleProps {
   event: MatchEvent;
@@ -166,7 +166,7 @@ export const EventBubble: React.FC<EventBubbleProps> = ({
           style={minuteStyle}
         >
           {formatMatchMinute(
-            event.minute,
+            resolveMarkerMinute(event),
             injuryWindows ?? [],
             (event.data as { period?: string } | undefined)?.period,
           )}

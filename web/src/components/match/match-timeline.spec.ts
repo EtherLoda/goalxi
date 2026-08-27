@@ -17,6 +17,7 @@ import {
   formatMatchMinute,
   minuteToPercent,
   phaseOfEvent,
+  resolveMarkerMinute,
   resolveWhistleMinutes,
   timelineEnd,
   visualMinute,
@@ -1473,5 +1474,157 @@ describe('extractTimelineMarkers minuteLabel is period-aware', () => {
     const goal = events[2];
     const windows = extractInjuryWindows(events);
     expect(formatMatchMinute(goal.minute, windows, (goal.data as any).period)).toBe('60');
+  });
+});
+
+// ============================================================================
+// extractTimelineMarkers + formatMatchMinute — clockSeconds (RFC clockSeconds-2026)
+// ============================================================================
+//
+// RFC `clockSeconds-2026` makes the engine stamp every `MatchEvent`
+// with `clockSeconds: number` (in-game clock, 0..7200). The 2H
+// kickoff is always at in-game 45'0" (clockSeconds 2700) regardless
+// of N1, and the 1H whistle at in-game 45+N1'0" — same `clockSeconds`
+// when N1=0, different otherwise. The FE resolves `clockSeconds`
+// to the in-game minute and the timeline marker label reflects it.
+//
+// These tests pin the post-RFC contract:
+//   - 2H kickoff (engine minute 46, clockSeconds 2700) renders "45"
+//   - 1H whistle (engine minute 45+N1, clockSeconds 2700+N1*60) renders "45+N1"
+//   - both events share clockSeconds=2700 when N1=0 → same in-game instant
+//   - old rows WITHOUT clockSeconds keep the legacy engine-minute path
+describe('extractTimelineMarkers + formatMatchMinute — clockSeconds resolution', () => {
+  const N1 = 0;
+  const windows = extractInjuryWindows([
+    mkEvent({
+      type: 'half_time',
+      typeName: 'half_time',
+      minute: 45 + N1,
+      data: { period: 'half_time', injuryTime: N1 },
+    }),
+    mkEvent({
+      type: 'full_time',
+      typeName: 'full_time',
+      minute: 90,
+      data: { period: 'full_time', injuryTime: 0 },
+    }),
+  ]);
+
+  it('renders the 2H kickoff as "45" when clockSeconds=2700 (in-game, not engine "46")', () => {
+    // The 2H kickoff arrives at engine `minute: 46` but in-game
+    // 45'0" (clockSeconds 2700). The marker label must follow
+    // the in-game clock so the 1H whistle + 2H kickoff share
+    // the "45'0"" in-game instant in the FE (different rows:
+    // 1H row for the whistle, 2H row for the kickoff).
+    const kickoff = mkEvent({
+      type: 'second_half',
+      typeName: 'second_half',
+      minute: 46,
+      clockSeconds: 2700,
+      data: { period: 'second_half' },
+    });
+    expect(formatMatchMinute(resolveMarkerMinute(kickoff), windows, (kickoff.data as any).period)).toBe('45');
+  });
+
+  it('renders the 1H whistle as "45" when N1=0 (same in-game instant as the 2H kickoff)', () => {
+    // With N1=0 the 1H whistle and 2H kickoff are BOTH at
+    // in-game 45'0" (clockSeconds 2700). The user wanted
+    // exactly this: two snapshots at the same in-game
+    // instant, one labeled "上半场结束" and the other
+    // "下半场开始". The marker label is identical; the
+    // period label disambiguates on the timeline.
+    const whistle = mkEvent({
+      type: 'half_time',
+      typeName: 'half_time',
+      minute: 45,
+      clockSeconds: 2700,
+      data: { period: 'half_time', injuryTime: 0 },
+    });
+    expect(formatMatchMinute(resolveMarkerMinute(whistle), windows, (whistle.data as any).period)).toBe('45');
+  });
+
+  it('renders the 1H whistle as "45+3" when N1=3 (whistle shifts with stoppage, kickoff stays at "45")', () => {
+    // The kickoff is ALWAYS at in-game 45'0" (clockSeconds
+    // 2700), regardless of 1H stoppage. The whistle moves
+    // with the stoppage: 1H +3 → clockSeconds 2880 → label
+    // "45+3". Pin the asymmetric-update contract from the
+    // user-facing design ("kickoff 不跟 stoppage 走").
+    const N1Stop = 3;
+    const windowsN1Stop = extractInjuryWindows([
+      mkEvent({
+        type: 'half_time',
+        typeName: 'half_time',
+        minute: 45 + N1Stop,
+        data: { period: 'half_time', injuryTime: N1Stop },
+      }),
+    ]);
+    const whistle = mkEvent({
+      type: 'half_time',
+      typeName: 'half_time',
+      minute: 45 + N1Stop,
+      clockSeconds: (45 + N1Stop) * 60,
+      data: { period: 'half_time', injuryTime: N1Stop },
+    });
+    expect(
+      formatMatchMinute(resolveMarkerMinute(whistle), windowsN1Stop, (whistle.data as any).period),
+    ).toBe('45+3');
+  });
+
+  it('falls back to engine minute when clockSeconds is missing (pre-deploy rows)', () => {
+    // Old DB rows pre-RFC `clockSeconds-2026` have no
+    // `clockSeconds` field. The helper falls back to the
+    // engine `minute` so the legacy wire shape keeps
+    // rendering as before — the 2H kickoff still labels
+    // as "46" (engine minute) for the historical match
+    // data, even though new matches will label it "45".
+    const kickoff = mkEvent({
+      type: 'second_half',
+      typeName: 'second_half',
+      minute: 46,
+      // no clockSeconds — pre-deploy row
+      data: { period: 'second_half' },
+    });
+    expect(resolveMarkerMinute(kickoff)).toBe(46);
+    expect(
+      formatMatchMinute(resolveMarkerMinute(kickoff), windows, (kickoff.data as any).period),
+    ).toBe('46');
+  });
+
+  it('keeps the engine minute for 2H injury events (label math calibrated for engine tick count)', () => {
+    // Engine 2H injury loop runs t=91..90+M. The first injury
+    // event (engine 91) labels as "90+1" because the 2H
+    // window is `(90, 90+M]` (strict on the left). The
+    // in-game minute of engine 91 is 90:00, which IS the
+    // startMinute, so the rule falls through to "90" (no
+    // suffix) — wrong. `resolveMarkerMinute` therefore
+    // returns the engine `minute` for 2H injury events
+    // (and ET 2H injury) to preserve the existing label.
+    // The fixture has a 2H whistle with 2 minutes of
+    // stoppage (M=2), so the 2H window is `[90, 92]`.
+    const windowsWith2H = extractInjuryWindows([
+      mkEvent({
+        type: 'half_time',
+        typeName: 'half_time',
+        minute: 45,
+        data: { period: 'half_time', injuryTime: 0 },
+      }),
+      mkEvent({
+        type: 'full_time',
+        typeName: 'full_time',
+        minute: 92,
+        data: { period: 'full_time', injuryTime: 2 },
+      }),
+    ]);
+    const injury = mkEvent({
+      type: 'foul',
+      typeName: 'foul',
+      minute: 91,
+      clockSeconds: 5400, // (91-1)*60
+      data: { period: 'second_half_injury' },
+    });
+    expect(resolveMarkerMinute(injury)).toBe(91);
+    expect(
+      formatMatchMinute(resolveMarkerMinute(injury), windowsWith2H, (injury.data as any).period),
+    ).toBe('90+1');
   });
 });

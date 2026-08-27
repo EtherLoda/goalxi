@@ -509,8 +509,36 @@ interface Match {
 interface MatchEvent {
   id: string;
   matchId: string;
+  /**
+   * Engine simulation tick. Per-half: 1H ticks 1..45, 2H ticks
+   * 46..90 (with the 2H kickoff landing at `46` by engine
+   * convention regardless of how much 1H stoppage was played).
+   * Kept on the wire for back-compat with the existing 5-min
+   * snapshot cadence and the legacy `formatMatchMinute` /
+   * i18n `45'+1'""` formatter — see `clockSeconds` below for the
+   * in-game clock that the timeline should prefer when present.
+   */
   minute: number;
+  /** Second within the engine `minute` (0 for snapshots and the
+   *  current 5-min cadence; future mid-minute work will randomize
+   *  this for goals / fouls). */
   second: number;
+  /**
+   * In-game clock at the moment the event was emitted, in seconds
+   * (0 = 0'0", 2700 = 45'0", 5400 = 90'0", 6300 = 105'0",
+   * 7200 = 120'0"). Populated by the simulator since the
+   * `clockSeconds-2026` deploy; older rows have it `undefined`
+   * and the timeline helpers fall back to `minute * 60 + second`.
+   *
+   * Why it exists: the engine's `minute` is per-half, so a 2H
+   * kickoff lands at engine `minute: 46` but the in-game clock
+   * is 45'0" (clockSeconds 2700). Same for the 1H whistle at
+   * engine `minute: 45 + N1` (in-game 45+N1'0"). With
+   * `clockSeconds`, the FE can group boundary events at the
+   * same in-game instant (e.g. 1H whistle + 2H kickoff when
+   * N1=0) and disambiguate by `type` / `period`.
+   */
+  clockSeconds?: number;
   type: string;
   typeName: string;
   teamId?: string;
