@@ -299,12 +299,22 @@ export function MatchTimeline({
           className="relative h-3 rounded-full bg-surface-container-high cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
           data-testid="match-timeline-track"
         >
-          {/* Injury-time bands — amber-tinted strip behind the fill
-              that visually distinguishes the stoppage window from
-              the regulation half. Renders BEFORE the fill so the
-              progress overlay sits on top (a filled band on a
-              still-empty window looks like the match is paused,
-              which it isn't). */}
+          {/* Fill — primary gradient from 0 to currentMinute */}
+          <div
+            className="absolute inset-y-0 left-0 rounded-full bg-gradient-to-r from-primary/70 via-primary to-primary/90 shadow-[0_0_8px_rgba(0,228,121,0.35)] transition-[width] duration-300 ease-out"
+            style={{ width: `${progressPercent}%` }}
+            data-testid="match-timeline-fill"
+          />
+          {/* Injury-time bands — amber-tinted strip that visually
+              distinguishes the stoppage window from the regulation
+              half. Renders AFTER the fill (not before) so the band
+              stays visible once the playhead passes it. The
+              pre-fix ordering put the band behind the fill, which
+              made the 1H stoppage window (45-48) invisible the
+              moment the playhead crossed 48’ — leaving only the
+              2H band visible, so the reader couldn’t tell how much
+              stoppage was played in the 1H after the fact. The 15%
+              amber tint sits cleanly on top of the primary gradient. */}
           {injuryWindows.map((w) => (
             <InjuryBand
               key={`injury-${w.label}-${w.startMinute}`}
@@ -312,12 +322,6 @@ export function MatchTimeline({
               endMinute={endMinute}
             />
           ))}
-          {/* Fill — primary gradient from 0 to currentMinute */}
-          <div
-            className="absolute inset-y-0 left-0 rounded-full bg-gradient-to-r from-primary/70 via-primary to-primary/90 shadow-[0_0_8px_rgba(0,228,121,0.35)] transition-[width] duration-300 ease-out"
-            style={{ width: `${progressPercent}%` }}
-            data-testid="match-timeline-fill"
-          />
           {/* Half-time groove — vertical hairline at 45' */}
           <TickMark
             percent={minuteToPercent(halfTimeMin, endMinute) * 100}
