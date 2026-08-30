@@ -16,9 +16,9 @@ A complete lineup has five parts:
 
 - **Starting XI** — 9 to 11 pitch players (1 GK required, no duplicates)
 - **Bench** — 6 bench slots (one sub per slot)
-- **Formation** — pick a template (e.g. 4-3-3, 4-4-2)
 - **Tactical style** — tempo, pitch width, defensive line, 3 options each
 - **Tactical events** — pre-scheduled subs / position moves triggered by minute + condition (optional)
+- **Formation display** — **auto-derived from the starting XI** (not a manual choice); you'll see codes like 4-4-2, 4-3-3, 4-2-3-1
 
 > This chapter covers **how to set a lineup**. For positions and headline skills, see [chapter 3](03-positions.md). For how each attribute affects a match in progress, see [chapter 6](06-match-basics.md).
 
@@ -34,7 +34,7 @@ The **starting XI = 9 to 11 pitch players**, each in a specific position slot.
 - **No duplicates**: one player can't occupy two slots
 - **All players must belong to your team**: bench / youth / opponent players don't count
 
-**Slot layout**: comes from the chosen formation template (see below). Different formations use different slot sets.
+**Slot layout**: comes from **the players you actually place**. The system counts the positions and shows the formation code automatically.
 
 > Which skills matter for each position is in [chapter 3](03-positions.md). For GKs the 9-skill set, for outfielders the 10-skill set — every skill contributes at the position it's slotted into.
 
@@ -61,30 +61,26 @@ The **starting XI = 9 to 11 pitch players**, each in a specific position slot.
 
 ---
 
-## Formations (10 templates)
+## Formation display (auto)
 
-GoalXI provides **10 standard formations**. Pick one and the editor lays out the 11 position slots for you.
+**You don't pick a formation** — the editor **auto-shows a formation code** at the top (e.g. 4-4-2, 4-3-3, 3-5-2) based on the starting XI.
 
-| Formation | Defenders | Midfielders | Forwards | Character |
-|---|---|---|---|---|
-| **4-4-2** | 4 | 4 | 2 | classic balance, two up top |
-| **4-3-3** | 4 | 3 | 3 | wingers stretch the field |
-| **4-2-3-1** | 4 | 2 + 3 | 1 | double pivot + attacking mid, defensively solid |
-| **4-1-4-1** | 4 | 1 + 4 | 1 | single pivot, flat midfield four |
-| **4-3-2-1** | 4 | 3 + 2 | 1 | dense midfield, two AMs roam |
-| **3-5-2** | 3 | 5 | 2 | wing-backs bomb forward, midfield controls |
-| **3-4-3** | 3 | 4 | 3 | wingers + wide midfielders |
-| **3-4-2-1** | 3 | 4 + 2 | 1 | three CBs + two AMs |
-| **5-3-2** | 5 | 3 | 2 | wing-backs push high, midfield covers |
-| **5-4-1** | 5 | 4 | 1 | defensive, counter-attack |
+**How it's computed** (from the actual filled positions, not from a template):
+- **Defenders** = players placed in LB / CBL / CB / CBR / RB / LWB / RWB
+- **Midfielders** = players placed in DMFL / DMF / DMFR / CML / CM / CMR / CAML / CAM / CAMR / LM / RM
+- **Forwards** = players placed in LW / RW / CFL / CF / CFR
+- Display format: `defenders-midfielders-forwards` (GK is not counted in any bucket)
 
-**How to pick**:
-- **Possession** → more midfielders (4-3-3 / 3-5-2)
-- **Defensive** → more defenders + a holding mid (4-1-4-1 / 5-4-1)
-- **Attacking** → more forwards + wingers (4-3-3 / 3-4-3)
-- **By squad** → fixed formation, build around your headline players
+**Practical meaning**: you just **fill the slots**, the formation code updates itself. Move one player from CM to CAM and a 4-3-3 becomes a 4-2-3-1.
 
-> A formation is just a **slot layout**. The same formation can play very differently depending on which players you put in it.
+**Common formation codes for reference**:
+- 4-4-2 — classic balance, 2 strikers
+- 4-3-3 — wingers + 1 striker
+- 4-2-3-1 — double pivot + attacking mid
+- 3-5-2 — three CBs + wing-backs
+- 5-4-1 — five defenders, dense
+
+> The formation code is **just a label** — it tells you how many defenders / midfielders / forwards you currently have. The actual effect depends on the players, their headlines, and the tactical style.
 
 ---
 
@@ -193,12 +189,13 @@ scheduled → tactics_locked → in_progress → completed
 ## How to set a lineup (overview)
 
 1. Open match detail → click "Set tactics"
-2. **Pick a formation** — 11 position slots appear
-3. **Drag players into slots** — 11 starters + up to 6 bench
-4. **Set tactical style** — tempo / pitch width / defensive line
-5. **Add tactical events** (optional) — sub / move + minute + condition
-6. **Save as preset** (optional) — give it a name, optionally mark as default
-7. **Submit tactics** — finish before the 30-minute lock window
+2. **Drag players into pitch slots** — 9-11 starters (1 GK required)
+3. **Drag players into bench slots** — 0-6 bench
+4. **Watch the formation code at the top** — it updates as you fill positions
+5. **Set tactical style** — tempo / pitch width / defensive line
+6. **Add tactical events** (optional) — sub / move + minute + condition
+7. **Save as preset** (optional) — give it a name, optionally mark as default
+8. **Submit tactics** — finish before the 30-minute lock window
 
 > The editor **validates in real time**: missing GK, wrong player count, players not on your team, etc. all surface as errors before submit.
 
