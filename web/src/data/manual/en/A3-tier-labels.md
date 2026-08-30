@@ -10,7 +10,7 @@ relatedEntries: [experience-meaning]
 
 # Player Tier Labels
 
-GoalXI uses a **21-tier label set** to translate skill and experience values (0-20) into human-readable names. This label set is **shared across multiple surfaces** — every chapter that references it pulls the same table.
+GoalXI uses a **tier label set** to translate skill and experience values (0-20) into human-readable names. This label set is **shared across multiple surfaces** — every chapter that references it pulls the same table.
 
 ## Where this label set is used
 
@@ -22,7 +22,7 @@ GoalXI uses a **21-tier label set** to translate skill and experience values (0-
 
 ---
 
-## Full 21-tier table
+## Full label table
 
 | Value range | L | English | 中文 | Rough meaning |
 |---|---|---|---|---|
@@ -91,19 +91,19 @@ So an L20 veteran can actually be at very different XP totals (just-reached L20 
 | **PWI / overall** (Ch 4) | headline skills + potential + form combined, **not** the tier label |
 | **Experience / level** (Ch 4) | cumulative XP → label, caps at L20 |
 | **Position** (Ch 3) | headline skills + position = player's value to the team, **not** the tier label |
-| **potentialTier** (Ch 4) | 5 bands (LOW / REGULAR / HIGH_PRO / ELITE / LEGEND), **a different system from the 21-tier label** — don't mix them up |
+| **potentialTier** (Ch 4) | a separate potential bracket (LOW / REGULAR / HIGH_PRO / ELITE / LEGEND), **a different system from this label set** — don't mix them up |
 
-> `potentialTier` is a 5-band "potential ceiling" label. `tier label` is the 21-step "current skill/experience" label. They sound similar but **are different systems**.
+> `potentialTier` is a separate "potential ceiling" label. `tier label` is the "skill / experience grade" label. They sound similar but **are different systems**.
 
 ---
 
 ## Common mistakes
 
-❌ **Using the 21-tier label as PWI**: L18 Unmatched ≠ strong player; look at PWI
+❌ **Using the tier label as PWI**: L18 Unmatched ≠ strong player; look at PWI
 ❌ **Mixing dimensions**: skill L12 + experience L20 is not a composite score, read them separately
 ❌ **"L20 = maxed"**: L20 is the display cap, the internal level keeps growing past it
 ❌ **"L0 = 0"**: L0 is the "no data" label, not a real "0 value" (a normal player starts at L1 Terrible)
-❌ **Confusing with potentialTier**: 5 bands ≠ 21 tiers, two different systems
+❌ **Confusing with potentialTier**: potential bracket ≠ skill/experience grade, two different systems
 ❌ **Only looking at the highest skill label**: each skill is independent; check all 10/9, not just the headline
 
 ---

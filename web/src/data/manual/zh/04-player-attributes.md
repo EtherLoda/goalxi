@@ -14,7 +14,7 @@ relatedEntries: [current-vs-potential-skills, potential-tier-meaning, experience
 
 - **PWI** — 综合分(供比价、球探、阵容总览)
 - **currentSkills vs potentialSkills** — 雷达图双线
-- **potentialTier** — 5 档潜力档
+- **potentialTier** — 潜力档(LOW / REGULAR / HIGH_PRO / ELITE / LEGEND)
 - **form** — 比赛中**每一次关键动作**的实时加成乘子
 - **experience** — 比赛中**每一次关键动作**的长期经验乘子
 - **stamina / 比赛中当前体能** — 比赛中体能消耗曲线,透支时**指数衰减**
@@ -33,7 +33,7 @@ relatedEntries: [current-vs-potential-skills, potential-tier-meaning, experience
 **PWI 由三个因素综合决定**(定性):
 
 1. **currentSkills** — 主导。头牌技能高 → PWI 高
-2. **潜力**(5 档 + per-skill 上限) — 放大因子。**同样技能下,潜力高的球员 PWI 上限更高**(潜力低的涨到顶也就那样)
+2. **潜力**(潜力档 + per-skill 上限) — 放大因子。**同样技能下,潜力高的球员 PWI 上限更高**(潜力低的涨到顶也就那样)
 3. **form** — 微调。form 高时 PWI 显示略高,form 低时略低
 
 > **PWI 高 ≠ 场上一定好**。两个 PWI 相同的球员,放在不同位置踢,实际表现天差地别(位置权重不同)。看 PWI 永远要结合**位置**([第 3 章](03-positions.md))。
@@ -67,16 +67,19 @@ relatedEntries: [current-vs-potential-skills, potential-tier-meaning, experience
 
 ---
 
-## potentialTier — 5 档潜力档
+## potentialTier — 潜力档
 
-5 档潜力标签,跟**当前能力**无关,代表**球员的天花板**:
+潜力标签(从低到高):**LOW / REGULAR / HIGH_PRO / ELITE / LEGEND**。跟**当前能力**无关,代表**球员的天花板**。
+
 - **LOW**(灰)— 潜力低,练到顶也基本是替补
 - **REGULAR**(绿)— 标准,大多数 outfield 主力水平
 - **HIGH_PRO**(金)— 高潜,练满是顶级
+- **ELITE**(金偏红)— 顶级潜力,极其稀有
+- **LEGEND**(紫)— 现象级,几乎不出
 
-**HIGH_PRO 跟 21 档 tier 标签不一样**:
-- **potentialTier** 是 5 档"潜力档",标在球员卡的"潜力"位置
-- **tier label** 是 21 档"当前技能/经验档",标在雷达图每项技能旁边
+**注意:potentialTier 跟雷达图上技能 / 经验显示的 tier 标签是两套不同的东西**:
+- **potentialTier** = 潜力档,标在球员卡的"潜力"位置
+- **tier 标签** = 技能 / 经验的等级档,标在雷达图每项技能旁 / 经验 badge 上
 - **名字像,不是同一套**——别混
 
 ---
@@ -139,7 +142,7 @@ PWI 显示时也考虑 form(form 高时 PWI 显示略高,form 低时略低),但 
 - L5 → L6 需 20 XP
 - ...
 
-### 21 档 tier 标签
+### tier 标签
 
 经验 ≥ 某个值时显示对应 tier(具体见 [附录 3](A3-tier-labels.md))。**L20 封顶显示**——内部等级还能继续涨,但 tier 标签不会超过 `L20 化境`。
 - 鼠标悬停 → 看 raw XP
@@ -324,9 +327,9 @@ PWI 显示时也考虑 form(form 高时 PWI 显示略高,form 低时略低),但 
 | **PWI** | 综合 | (不直接参与比赛,是预估值) | 转会比价、球探报告、阵容总览 | 球员卡、转会市场、雷达图旁 |
 | **currentSkills** | 当前 | 关键事件的**基础评分**(被 form / experience / stamina 乘子作用) | 雷达图实线 | 雷达图实线 |
 | **potentialSkills** | 潜力上限 | (不直接参与,决定 currentSkills 涨到顶的位置) | 雷达图虚线 | 雷达图虚线 |
-| **potentialTier** | 5 档标签 | (不直接参与) | 长期价值判断 | 球员卡"潜力"位置 |
+| **potentialTier** | 潜力档 | (不直接参与) | 长期价值判断 | 球员卡"潜力"位置 |
 | **form** | 短期状态 | **状态乘子**,作用在所有关键事件 | PWI 显示微调 | 球员卡"状态箭头" |
-| **experience** | 长期积累 | **经验乘子**(双曲饱和),作用在所有关键事件;点球**只看 form + exp 不看 stamina** | PWI 因子;21 档 tier badge | 球员卡"EXP" + 21 档 tier |
+| **experience** | 长期积累 | **经验乘子**(双曲饱和),作用在所有关键事件;点球**只看 form + exp 不看 stamina** | PWI 因子;tier badge | 球员卡"EXP" + tier 标签 |
 | **stamina** | 球员天赋 | 决定每场**起始体能池 + 免费缓冲**(stamina 高 → 抗疲劳) | 球员卡"stamina"标签 | 球员卡 stamina |
 | **比赛中当前体能** | runtime(临时) | **体能乘子**,满血 = 1.0,透支时**指数衰减** | (不持久) | 比赛直播体力条 |
 | **injury** | 伤病状态 | minor = 能力下降,severe = 不能上场 | 锁首发 / `INJURY` 事件 | 球员卡"伤病"位置 |
@@ -341,8 +344,8 @@ PWI 显示时也考虑 form(form 高时 PWI 显示略高,form 低时略低),但 
 |---|---|
 | **技能**(第 2 章) | 头牌技能 + 潜力 + form = PWI;currentSkills vs potentialSkills 双线 |
 | **位置**(第 3 章) | PWI 高 ≠ 适合任意位置,位置权重不同 |
-| **tier 标签**(附录 3) | experience 用 21 档 tier 显示,L20 封顶 |
-| **potentialTier 5 档**(本章) | 跟 21 档 tier 标签**不是同一套**,别混 |
+| **tier 标签**(附录 3) | experience 用 tier 标签显示,L20 封顶 |
+| **potentialTier**(本章) | 跟 tier 标签**不是同一套**,别混 |
 | **比赛事件**(第 6 章) | form / experience / stamina 三个乘子作用在几乎所有比赛事件上 |
 | **特殊事件**(第 6 章) | INJURY 事件 + HAT_TRICK 等 14 种事件类型 |
 | **转会**(第 18 章) | 买人看 PWI + 伤病史 + form + potentialTier + stamina(抗疲劳) |
@@ -355,7 +358,7 @@ PWI 显示时也考虑 form(form 高时 PWI 显示略高,form 低时略低),但 
 ❌ **不看 potentialSkills 差距**:**潜力高不等于还能涨**,看 currentSkills 跟 potentialSkills 的 gap
 ❌ **追 perfect 球员**:**LEGEND + 满技能 + 健康 + 年轻 + 便宜 = 不存在**
 ❌ **忽视 form 波动**:**form < 1.5 时买便宜**(伤后恢复期,可能反弹)
-❌ **把 potentialTier 跟 21 档 tier 混**:**5 档潜力 ≠ 21 档当前档,两套**
+❌ **把 potentialTier 跟 tier 标签混**:**潜力档 ≠ 等级档,两套**
 ❌ **以为 age = 衰退**:**age 本身没衰减机制**,衰退系统是"35+"开关
 ❌ **GK 看 pace / strength / 定位球**:**没用**(GK 算分不走这些)
 ❌ **minor 伤病当没事上**:**能力下降**,关键比赛别赌
@@ -372,4 +375,4 @@ PWI 显示时也考虑 form(form 高时 PWI 显示略高,form 低时略低),但 
 - [第 5 章:阵容:基本认识](05-lineup-basics.md) — 怎么用这些属性排阵容
 - [第 6 章:比赛:基本信息](06-match-basics.md) — 比赛里这些属性怎么用
 - [第 18 章:转会交易](18-transfer.md) — 买人看哪些属性
-- [附录 3:球员等级标签](A3-tier-labels.md) — 21 档 tier 完整表
+- [附录 3:球员等级标签](A3-tier-labels.md) — tier 标签完整表

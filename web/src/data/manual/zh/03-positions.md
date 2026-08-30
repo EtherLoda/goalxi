@@ -237,4 +237,4 @@ GoalXI 里**最容易混淆**的几对位置:
 - [第 4 章:球员:其他属性](04-player-attributes.md) — PWI / form / EXP / 伤病
 - [第 5 章:阵容:基本认识](05-lineup-basics.md) — 怎么把球员放对位置 + 板凳
 - [第 15 章:比赛:战术](15-tactics.md) — 战术怎么调度位置
-- [附录 3:球员等级标签](A3-tier-labels.md) — 雷达图上的 21 档标签
+- [附录 3:球员等级标签](A3-tier-labels.md) — 雷达图上的 tier 标签

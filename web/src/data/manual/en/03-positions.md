@@ -237,4 +237,4 @@ Detailed comparisons in the FAQ: `w-vs-wm` / `wbl-vs-lb` / `am-vs-cm` / `dm-vs-c
 - [Ch 4: Player Other Attributes](04-player-attributes.md) — PWI / form / EXP / injury
 - [Ch 5: Lineup Basics](05-lineup-basics.md) — how to place players in the right positions + bench
 - [Ch 15: Match Tactics](15-tactics.md) — tactics that deploy positions
-- [Appendix 3: Player Tier Labels](A3-tier-labels.md) — the 21-tier labels on the radar
+- [Appendix 3: Player Tier Labels](A3-tier-labels.md) — the tier labels on the radar

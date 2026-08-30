@@ -15,9 +15,9 @@ relatedEntries: [outfield-skills-meaning, gk-skills-vs-outfield, skill-dimension
 - **outfield 球员** 10 项技能(分 4 维度)
 - **GK 球员** 9 项技能(8 项跟 outfield 重叠,3 项 GK 专属)
 
-每项技能 **0-20**,默认 **10**。数值越高,球员在相应场景下的表现越好。雷达图上每项技能都会显示**数值 + 21 档 tier 标签**(标签见 [附录 3:球员等级标签](A3-tier-labels.md))。
+每项技能 **0-20**,默认 **10**。数值越高,球员在相应场景下的表现越好。雷达图上每项技能都会显示**数值 + tier 标签**(标签见 [附录 3:球员等级标签](A3-tier-labels.md))。
 
-> 这一章讲**每项技能是什么**。**每个位置重视哪些技能** 见 [第 3 章:球员:位置](03-positions.md)。**雷达图上的 21 档标签怎么读** 见 [附录 3](A3-tier-labels.md)。
+> 这一章讲**每项技能是什么**。**每个位置重视哪些技能** 见 [第 3 章:球员:位置](03-positions.md)。**雷达图上的 tier 标签怎么读** 见 [附录 3](A3-tier-labels.md)。
 
 ## 数值范围 + 双线
 
@@ -129,7 +129,7 @@ relatedEntries: [outfield-skills-meaning, gk-skills-vs-outfield, skill-dimension
 | 概念 | 关系 |
 |---|---|
 | **position**(第 3 章) | 决定哪些技能被引擎"加权"用 → 见 [球员:位置](03-positions.md) |
-| **21 档 tier 标签**(附录 3) | 每项技能 0-20 → 标签,雷达图上显示 → 见 [A3-tier-labels](A3-tier-labels.md) |
+| **tier 标签**(附录 3) | 每项技能 0-20 → 标签,雷达图上显示 → 见 [A3-tier-labels](A3-tier-labels.md) |
 | **PWI / overall**(第 4 章) | 头牌技能 + 潜力 + form 综合算的**综合分**,不是技能简单加和 |
 | **form**(第 4 章) | 短期状态,跟技能正交(form 高技能不一定高) |
 | **experience / 等级**(第 4 章) | 长期"老练度",跟技能正交(老将不一定技能高) |
@@ -143,7 +143,7 @@ relatedEntries: [outfield-skills-meaning, gk-skills-vs-outfield, skill-dimension
 ❌ **"均衡雷达 = 强"**:均衡只说明分布均匀,不是 PWI 高。真正强不强看 PWI
 ❌ **追求每项都高**:技能有上限 + 工资约束,真实球员有强项有弱项,**强项对位置就够用**
 ❌ **把 GK 雷达图的 pace / strength 当回事**:**没用**,GK 算分不走这俩
-❌ **忽视 4 维度的分组**:21 档标签不分组(L0-L20 都用),但**技能类型不同** — pace 20 体能 ≠ reflexes 20 扑救反应
+❌ **忽视 4 维度的分组**:tier 标签不分组(L0-L20 都用),但**技能类型不同** — pace 20 体能 ≠ reflexes 20 扑救反应
 
 > 关于**跨位置比技能 / 头牌选错** 这类"位置相关"的错误,见 [第 3 章:球员:位置](03-positions.md) 的"常见错误"。
 
@@ -154,4 +154,4 @@ relatedEntries: [outfield-skills-meaning, gk-skills-vs-outfield, skill-dimension
 - [第 3 章:球员:位置](03-positions.md) — 14 个位置 + 头牌技能(定性,不带具体值)
 - [第 4 章:球员:其他属性](04-player-attributes.md) — PWI / form / EXP / 伤病 / specialty
 - [第 5 章:阵容:基本认识](05-lineup-basics.md) — 怎么把球员放对位置
-- [附录 3:球员等级标签](A3-tier-labels.md) — 21 档 tier 标签完整表
+- [附录 3:球员等级标签](A3-tier-labels.md) — tier 标签完整表

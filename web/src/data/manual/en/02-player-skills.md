@@ -15,9 +15,9 @@ Every player's "on-pitch ability" is defined by a set of 0-20 skill values.
 - **Outfield players** have 10 skills (4 dimensions)
 - **GK players** have 9 skills (8 overlap with outfield, 3 are GK-specific)
 
-Each skill ranges **0-20**, default **10**. Higher value = better performance in the relevant situations. The radar shows each skill as a **numeric value + 21-tier label** (the label table is in [Appendix 3: Player Tier Labels](A3-tier-labels.md)).
+Each skill ranges **0-20**, default **10**. Higher value = better performance in the relevant situations. The radar shows each skill as a **numeric value + tier label** (the label table is in [Appendix 3: Player Tier Labels](A3-tier-labels.md)).
 
-> This chapter is about **what each skill is**. **Which skills each position values** is in [Ch 3: Player Positions](03-positions.md). **How to read the 21-tier labels** is in [Appendix 3](A3-tier-labels.md).
+> This chapter is about **what each skill is**. **Which skills each position values** is in [Ch 3: Player Positions](03-positions.md). **How to read the tier labels** is in [Appendix 3](A3-tier-labels.md).
 
 ## Value range + double line
 
@@ -129,7 +129,7 @@ The gap between solid and dashed = how much more the player can grow. Senior pla
 | Concept | Relation |
 |---|---|
 | **position** (Ch 3) | determines which skills the engine weights heavily → see [Ch 3: Player Positions](03-positions.md) |
-| **21-tier label** (Appendix 3) | every 0-20 skill value renders a tier label on the radar → see [A3-tier-labels](A3-tier-labels.md) |
+| **Tier label** (Appendix 3) | every 0-20 skill value renders a tier label on the radar → see [A3-tier-labels](A3-tier-labels.md) |
 | **PWI / overall** (Ch 4) | headline skills + potential + form combined into a composite score, not a simple sum |
 | **form** (Ch 4) | short-term state, orthogonal to skills (high form doesn't mean high skills) |
 | **experience / level** (Ch 4) | long-term "seasoning", orthogonal to skills (veteran doesn't mean skilled) |
@@ -143,7 +143,7 @@ The gap between solid and dashed = how much more the player can grow. Senior pla
 ❌ **"Balanced radar = strong"**: balanced only means even distribution, **not** high PWI; real strength is PWI
 ❌ **Chasing all-high skills**: there's a ceiling + wage constraint; real players have strengths and weaknesses, **strengths in the right position are enough**
 ❌ **Treating a GK's pace / strength radar as meaningful**: **useless**, the GK save rating doesn't use them
-❌ **Ignoring the 4-dimension grouping**: the 21-tier label doesn't group by dimension (L0-L20 applies to all), but **the actual skill types are different** — pace 20 stamina ≠ reflexes 20 save reaction
+❌ **Ignoring the 4-dimension grouping**: the tier label doesn't group by dimension (L0-L20 applies to all), but **the actual skill types are different** — pace 20 stamina ≠ reflexes 20 save reaction
 
 > Mistakes about **cross-position skill comparison** or **picking the wrong position for a player** live in [Ch 3: Player Positions](03-positions.md).
 
@@ -154,4 +154,4 @@ The gap between solid and dashed = how much more the player can grow. Senior pla
 - [Ch 3: Player Positions](03-positions.md) — 14 positions + headline skills per position (qualitative, no specific values)
 - [Ch 4: Player Other Attributes](04-player-attributes.md) — PWI / form / EXP / injury / specialty
 - [Ch 5: Lineup Basics](05-lineup-basics.md) — how to place players in the right positions
-- [Appendix 3: Player Tier Labels](A3-tier-labels.md) — full 21-tier label table
+- [Appendix 3: Player Tier Labels](A3-tier-labels.md) — full tier label table

@@ -14,7 +14,7 @@ Skills (chapter 2) and positions (chapter 3) are the player's "hard metrics", bu
 
 - **PWI** — the aggregate score (for comparison, scout reports, squad overview)
 - **currentSkills vs potentialSkills** — the two lines on the radar chart
-- **potentialTier** — a 5-tier potential label
+- **potentialTier** — a potential bracket (LOW / REGULAR / HIGH_PRO / ELITE / LEGEND)
 - **form** — a real-time **multiplier on every key in-match event**
 - **experience** — a long-term **multiplier on every key in-match event**
 - **stamina / in-match current energy** — the in-match energy curve; **exponential decay** when overdrawn
@@ -33,7 +33,7 @@ Skills (chapter 2) and positions (chapter 3) are the player's "hard metrics", bu
 **PWI is shaped by three factors** (qualitative):
 
 1. **currentSkills** — the dominant factor. High headline skills → high PWI
-2. **potential** (5-tier label + per-skill ceiling) — an amplifier. At the same skill levels, a high-potential player has a higher PWI ceiling (a low-potential player tops out no matter how much they train)
+2. **potential** (potential bracket + per-skill ceiling) — an amplifier. At the same skill levels, a high-potential player has a higher PWI ceiling (a low-potential player tops out no matter how much they train)
 3. **form** — a fine-tuning factor. High form nudges PWI up, low form nudges it down
 
 > **High PWI ≠ guaranteed good performance on the pitch**. Two players with the same PWI, deployed in different positions, will produce wildly different results (position weights differ). Always read PWI together with **position** ([chapter 3](03-positions.md)).
@@ -67,17 +67,20 @@ See [chapter 2](02-player-skills.md) "how skills grow" for details.
 
 ---
 
-## potentialTier — the 5-tier potential bracket
+## potentialTier — the potential bracket
 
-A 5-tier potential label. It is **independent of current ability** and represents the player's **ceiling**:
+A potential label (low → high): **LOW / REGULAR / HIGH_PRO / ELITE / LEGEND**. It is **independent of current ability** and represents the player's **ceiling**.
+
 - **LOW** (grey) — low potential; maxed out they're still mostly a sub
 - **REGULAR** (green) — standard; typical outfield starter level
 - **HIGH_PRO** (gold) — high potential; maxed out they're top-tier
+- **ELITE** (red-gold) — elite potential, extremely rare
+- **LEGEND** (purple) — generational, almost never seen
 
-**HIGH_PRO is not the same as the 21-tier label**:
-- **potentialTier** is a 5-tier "potential bracket", shown on the player card's "potential" slot
-- **tier label** is a 21-tier "current skill / experience bracket", shown next to each skill on the radar
-- **They look similar but are different systems** — don't mix them up
+**Note: `potentialTier` is a different system from the tier label shown on the radar / experience badge**:
+- **potentialTier** = the potential bracket, shown on the player card's "potential" slot
+- **tier label** = the skill / experience grade, shown next to each skill on the radar and on the experience badge
+- **They sound similar but are different systems** — don't mix them up
 
 ---
 
@@ -139,7 +142,7 @@ For every match, the engine computes an **experience multiplier from `experience
 - L5 → L6 needs 20 XP
 - ...
 
-### The 21-tier label
+### The tier label
 
 Once experience crosses certain thresholds, the matching tier displays (see [appendix 3](A3-tier-labels.md) for the full table). **Display caps at L20** — the internal level can keep climbing, but the tier label never goes above `L20 transcendent`.
 - Hover for the raw XP
@@ -324,9 +327,9 @@ A player has a **current injury state** (`injuryState` field), with **3 states**
 | **PWI** | aggregate | (not directly used in matches — pre-match estimate) | transfer comparison, scout reports, squad overview | player card, transfer market, next to radar |
 | **currentSkills** | current | **base score** for key events (then multiplied by form / experience / stamina) | radar solid line | radar solid line |
 | **potentialSkills** | ceiling | (not directly used — sets where currentSkills tops out) | radar dashed line | radar dashed line |
-| **potentialTier** | 5-tier label | (not directly used) | long-term value judgement | player card "potential" slot |
+| **potentialTier** | potential bracket | (not directly used) | long-term value judgement | player card "potential" slot |
 | **form** | short-term state | **status multiplier** on all key events | mild PWI display nudge | player card "state arrow" |
-| **experience** | long-term accrual | **experience multiplier** (hyperbolic saturation) on all key events; penalties use form + exp **only**, not stamina | PWI factor; 21-tier badge | player card "EXP" + 21-tier label |
+| **experience** | long-term accrual | **experience multiplier** (hyperbolic saturation) on all key events; penalties use form + exp **only**, not stamina | PWI factor; tier badge | player card "EXP" + tier label |
 | **stamina** | player talent | sets the per-match **starting energy pool + free buffer** (high stamina = fatigue-resistant) | player card "stamina" label | player card stamina |
 | **in-match current energy** | runtime (transient) | **fitness multiplier** — full energy = 1.0, overdrawn = **exponential decay** | (not persistent) | live-match energy bar |
 | **injury** | fitness status | minor = ability reduced, severe = cannot play | locks starting XI / `INJURY` event | player card "injury" slot |
@@ -341,8 +344,8 @@ A player has a **current injury state** (`injuryState` field), with **3 states**
 |---|---|
 | **Skills** (chapter 2) | headline skills + potential + form = PWI; the currentSkills vs potentialSkills gap |
 | **Positions** (chapter 3) | high PWI ≠ good at every position, position weights differ |
-| **Tier labels** (appendix 3) | experience uses the 21-tier label for display, capped at L20 |
-| **potentialTier 5-tier** (this chapter) | **not the same system** as the 21-tier label, don't mix them up |
+| **Tier labels** (appendix 3) | experience uses the tier label for display, capped at L20 |
+| **potentialTier** (this chapter) | **not the same system** as the tier label, don't mix them up |
 | **Match events** (chapter 6) | form / experience / stamina multipliers apply to almost every match event |
 | **Special events** (chapter 6) | `INJURY` event + 14 other event types like `HAT_TRICK` |
 | **Transfers** (chapter 18) | when buying, look at PWI + injury history + form + potentialTier + stamina (fatigue resistance) |
@@ -355,7 +358,7 @@ A player has a **current injury state** (`injuryState` field), with **3 states**
 ❌ **"Ignoring the potentialSkills gap"**: **high potential doesn't mean they can still grow** — read the gap between currentSkills and potentialSkills
 ❌ **"Chasing the perfect player"**: **LEGEND + maxed skills + healthy + young + cheap = doesn't exist**
 ❌ **"Ignoring form swings"**: **form < 1.5 = buy cheap** (post-injury recovery, may bounce back)
-❌ **"Mixing up potentialTier and the 21-tier label"**: **5-tier potential ≠ 21-tier current tier, two separate systems**
+❌ **"Mixing up potentialTier and the tier label"**: **potential bracket ≠ skill/experience grade, two separate systems**
 ❌ **"Assuming age = decay"**: **age itself has no decay mechanic**, the decay system is a "35+" switch
 ❌ **"Judging a GK by pace / strength / set pieces"**: **irrelevant** (the GK scoring path doesn't use these)
 ❌ **"Playing through a minor injury like nothing"**: **ability is reduced**, don't gamble in key matches
@@ -372,4 +375,4 @@ A player has a **current injury state** (`injuryState` field), with **3 states**
 - [chapter 5: Lineup Basics](05-lineup-basics.md) — how to use these attributes when building a lineup
 - [chapter 6: Match Basics](06-match-basics.md) — how these attributes play out in a match
 - [chapter 18: Transfer Market](18-transfer.md) — which attributes to look at when buying
-- [appendix 3: Player Tier Labels](A3-tier-labels.md) — the full 21-tier table
+- [appendix 3: Player Tier Labels](A3-tier-labels.md) — the full tier label table
