@@ -4,41 +4,41 @@ slug: player-attributes
 title: 球员:其他属性
 status: full
 lastUpdated: 2026-08-30
-relatedChapters: [2, 3, 5, 18, 19]
-relatedEntries: [pwi-vs-overall, current-vs-potential-skills, potential-tier-meaning, experience-meaning, specialties-meaning, condition-form-injury]
+relatedChapters: [2, 3, 5, 18]
+relatedEntries: [current-vs-potential-skills, potential-tier-meaning, experience-meaning, specialties-meaning, condition-form-injury]
 ---
 
 # 球员:其他属性
 
-技能(第 2 章)和位置(第 3 章)是球员的"硬指标",但场上表现还受一组**其他属性**影响。这章讲这些"软指标":
+技能(第 2 章)和位置(第 3 章)是球员的"硬指标",但场上表现还受一组**其他属性**直接影响。这章讲这些"软指标",重点说明每个属性**在比赛里具体起什么作用**:
 
-- **PWI / overall** — 综合评分(把硬指标 + 软指标汇总成一个数)
-- **currentSkills vs potentialSkills** — 雷达图双线(实线 vs 虚线)
-- **potentialTier** — 5 档潜力标签
-- **form** — 短期状态
-- **experience / 等级** — 长期"老练度"
-- **condition / stamina** — 比赛中体能
-- **injury** — 伤病状态
+- **PWI** — 综合分(供比价、球探、阵容总览)
+- **currentSkills vs potentialSkills** — 雷达图双线
+- **potentialTier** — 5 档潜力档
+- **form** — 比赛中**每一次关键动作**的实时加成乘子
+- **experience** — 比赛中**每一次关键动作**的长期经验乘子
+- **stamina / 比赛中当前体能** — 比赛中体能消耗曲线,透支时**指数衰减**
+- **injury** — 伤病状态(影响能否上场)
 - **specialties** — 12 种 + 3 档(GOLD / SILVER / BRONZE)
-- **age** — 年龄(无衰减机制,影响长期规划)
+- **age** — 年龄(目前仅触发 35+ 衰退系统)
 
-> 这些属性跟技能(第 2 章)+ 位置(第 3 章)**正交**——一个球员可以 PWI 极高但受伤中(form 好也没用),或技能爆表但 35 岁(experience 高但 PWI 已经被衰退系统压)。
+> **核心理解**:**form、experience、stamina 三者决定比赛内每次关键事件的乘子**。三者一起算出一个 `performance multiplier`,作用在进球、助攻、抢断、扑救、关键传球、过人...几乎所有比赛事件的最终评分上。PWI 只是**比赛外的预估值**,真正的"场上发挥"看这三个。
 
 ---
 
-## PWI / overall — 综合评分
+## PWI — 综合分
 
-**PWI = Player Worth Index** = 球员综合分。雷达图旁边、球员卡上、转会市场、球探报告里都看得到。
-
-**跟 overall 的关系**:**PWI = overall**,接口同时返回两个字段,值完全相等。`pwiDisplay` 是 UI 上四舍五入到 10 的整数倍(例 4772 → 4770)。
+**PWI = Player Worth Index** = 球员的综合分。雷达图旁边、球员卡、转会市场、球探报告里都看得到。
 
 **PWI 由三个因素综合决定**(定性):
 
-1. **当前技能(currentSkills)** — 主导因素。头牌技能高 → PWI 高
-2. **潜力(potentialAbility)** — 放大因子。**同样技能下,潜力高的球员 PWI 上限更高**(潜力低的球员涨到顶也就那样)
-3. **form** — 微调。form 高时 PWI 略高,form 低时略低
+1. **currentSkills** — 主导。头牌技能高 → PWI 高
+2. **潜力**(5 档 + per-skill 上限) — 放大因子。**同样技能下,潜力高的球员 PWI 上限更高**(潜力低的涨到顶也就那样)
+3. **form** — 微调。form 高时 PWI 显示略高,form 低时略低
 
-> **PWI 高 ≠ 场上一定好**。两个 PWI 相同的球员,放在不同位置踢,实际表现天差地别(position 权重不同)。看 PWI 永远要结合**位置**([第 3 章](03-positions.md))。
+> **PWI 高 ≠ 场上一定好**。两个 PWI 相同的球员,放在不同位置踢,实际表现天差地别(位置权重不同)。看 PWI 永远要结合**位置**([第 3 章](03-positions.md))。
+
+**PWI 显示**:一个整数(例 `4770`),UI 上用整数显示。
 
 **什么时候看 PWI**:
 - 转会市场比价(PWI 越高,起拍价 / 工资越高)
@@ -54,15 +54,14 @@ relatedEntries: [pwi-vs-overall, current-vs-potential-skills, potential-tier-mea
 - **虚线** = `potentialSkills`(潜力上限,涨到这就不长了)
 
 **两线距离 = 还能涨多少**:
-- **senior 球员**:两线几乎重合(已长完)
-- **youth 球员**:差距大(还在长,每周 0-2 项可能提升)
+- **长成的球员**:两线几乎重合(已到顶)
+- **未长成的球员**:差距大(还在长)
 
 涨到 `potentialSkills` 就到顶(不会超过虚线)。**潜在技能的值由潜力决定**,currentSkills 涨到顶后停。
 
 **怎么涨**:
 - **比赛** — 比赛后引擎按场上表现给技能 +1(在潜力范围内)
 - **训练** — 周四按训练类别涨
-- **青训 reveal** — youth 球员每周围棋式揭示 1 项技能(被雾化隐藏的技能,reveal 后才能涨)
 
 详细见 [第 2 章](02-player-skills.md) "技能怎么涨"段。
 
@@ -74,40 +73,65 @@ relatedEntries: [pwi-vs-overall, current-vs-potential-skills, potential-tier-mea
 - **LOW**(灰)— 潜力低,练到顶也基本是替补
 - **REGULAR**(绿)— 标准,大多数 outfield 主力水平
 - **HIGH_PRO**(金)— 高潜,练满是顶级
-- **HIGH_PRO** 跟 21 档 tier 标签不一样:
-  - **potentialTier** 是 5 档"潜力档",标在球员卡的"潜力"位置
-  - **tier label** 是 21 档"当前技能/经验档",标在雷达图每项技能旁边
-  - **名字像,不是同一套**——别混
 
-> youth 球员的 potentialTier 被 revealLevel 雾化,要 reveal 一定数量技能才能看到。
+**HIGH_PRO 跟 21 档 tier 标签不一样**:
+- **potentialTier** 是 5 档"潜力档",标在球员卡的"潜力"位置
+- **tier label** 是 21 档"当前技能/经验档",标在雷达图每项技能旁边
+- **名字像,不是同一套**——别混
 
 ---
 
-## form — 短期状态
+## form — 短期状态(在比赛里做什么)
 
-**form = 短期状态**,影响 PWI 显示和场上表现。范围 **0-5**,默认 **3.0**,3.0 是基准。
+**form = 短期状态**,**影响每场比赛的实时表现**。范围 **0-5**,默认 **3.0**(3.0 是基准)。
 
-**怎么看**:
-- **雷达图 / 球员卡** 上显示 "状态箭头"(`↑ / → / ↓`)
-- form 高 → PWI 显示略高 / 场上表现好
-- form 低 → PWI 显示略低 / 场上表现差
+### form 在比赛里做什么
 
-**form 怎么变**:
+每场比赛,引擎按 `form` 算一个**状态乘子**,作用在**几乎所有比赛事件**的最终评分上(进球、助攻、抢断、扑救、关键传球、过人、争顶...):
+- `form > 3.0` → 状态乘子 > 1(关键动作按比例加成)
+- `form = 3.0` → 中性(基准)
+- `form < 3.0` → 状态乘子 < 1(关键动作按比例衰减)
+
+**结论**:**form 高的球员,关键时刻的"动作评分"更优**。一场比赛 form 5.0 vs form 1.0 的两个球员,同样位置同样技能,前者进球 / 扑救的"评分"会系统性高于后者。
+
+### form 怎么变
+
 - **比赛** — 表现好涨,表现差跌
 - **训练** — 训练能影响
-- **累积比赛分钟** — 长期不打比赛 form 会下降
+- **长期不打比赛** — 引擎有累计分钟计数器,长期没比赛 form 会下降
 
-**什么时候看 form**:
+### form 跟 PWI 的关系
+
+PWI 显示时也考虑 form(form 高时 PWI 显示略高,form 低时略低),但 **PWI 只是预估**——比赛内 form 对每次事件的乘子才是 form 的**真实作用**。
+
+### 怎么看
+
+- 球员卡 / 雷达图上显示"状态箭头"(`↑ / → / ↓`)
+
+### 什么时候看 form
+
 - **短期决策**(这赛季争冠) → form 极重要,看 form 买人
 - **长期决策** → form 波动可以忽略,看潜力 + 经验
 
 ---
 
-## experience / 等级 — 长期"老练度"
+## experience / 等级 — 长期"老练度"(在比赛里做什么)
 
-**experience = 累计 XP**,每场比赛结束涨。**等级** = `getExperienceLevel(totalExp)`,从 0 起,**无上限**。
+**experience = 累计 XP**,每场比赛结束涨。**等级** = `getExperienceLevel(totalExp)`,从 0 起,**无上限**(等级无封顶,显示封顶到 L20,见 [附录 3](A3-tier-labels.md))。
 
-**升级成本**(`getExperienceUpgradeCost`):**线性**,每级 +2 XP
+### experience 在比赛里做什么
+
+每场比赛,引擎按 `experience` 算一个**经验乘子**,作用在**几乎所有比赛事件**的最终评分上(进球、助攻、抢断、扑救、关键传球...):
+- **0 XP → 经验乘子 = 1.0**(中性,无加成)
+- **高 XP → 经验乘子 > 1**(关键动作按比例加成)
+- **双曲饱和** — 经验越高加成越大,但**越往后增长越慢**(收益递减)
+- **没有硬封顶**(等级 L20 显示封顶,但内部 XP 继续涨,乘子继续接近上限,只是越来越慢)
+
+**结论**:**经验高的球员 = 关键时刻的"动作评分"更优**。同样位置同样技能,老将比新秀在比赛事件上系统性更强。
+
+### 升级成本(`getExperienceUpgradeCost`)
+
+**线性**,每级 +2 XP:
 - L0 → L1 需 10 XP
 - L1 → L2 需 12 XP
 - L2 → L3 需 14 XP
@@ -115,12 +139,15 @@ relatedEntries: [pwi-vs-overall, current-vs-potential-skills, potential-tier-mea
 - L5 → L6 需 20 XP
 - ...
 
-**21 档 tier 标签**:经验 ≥ 某个值时显示对应 tier(具体见 [附录 3](A3-tier-labels.md))。**L20 封顶显示**——内部等级还能继续涨,但 tier 标签不会超过 `L20 化境`。
+### 21 档 tier 标签
+
+经验 ≥ 某个值时显示对应 tier(具体见 [附录 3](A3-tier-labels.md))。**L20 封顶显示**——内部等级还能继续涨,但 tier 标签不会超过 `L20 化境`。
 - 鼠标悬停 → 看 raw XP
 - L20 以上的球员,UI 看起来都标"化境",raw XP 用来区分
 
-**经验怎么涨**(按比赛类型倍率):
-- 国家队 **5x**(涨最快,顶 5 场联赛)
+### 经验怎么涨(按比赛类型倍率)
+
+- 国家队 **5x**(涨最快)
 - 季后赛 2x
 - 联赛 / 杯赛 1x(基准)
 - 友谊赛 0.1x(几乎不涨)
@@ -128,36 +155,68 @@ relatedEntries: [pwi-vs-overall, current-vs-potential-skills, potential-tier-mea
 
 踢满 90 分钟 = 拿满基础经验;踢 45 分钟只拿一半;替补 10 分钟几乎不涨。
 
-**老将红利**(为什么经验高值钱):
-- 引擎按 raw XP(不是 tier 标签)算 multiplier
-- **`calculatePenaltyMultiplier`** + **`getMultiplierWithFitnessFactor`** 都用 raw XP
-- **官方注释**:"Penalty specific multiplier: Ignores stamina, high experience bonus."
-- **结论**:**老将踢点球更稳**,不受体力影响
+### 老将点球红利(为什么 experience 高值钱)
 
-详细见 [附录 3](A3-tier-labels.md) "怎么读 - 经验"段。
+**点球**用**专门的乘子**(`ConditionSystem.calculatePenaltyMultiplier`),**只**看 form + experience,**不看 stamina**:
+- 引擎注释原文:"Penalty specific multiplier: Ignores stamina, high experience bonus."
+- **结论**:**老将踢点球更稳**——不会因为疲劳而失准,经验加成照常生效
+
+### 为什么 experience 是长期价值
+
+- 经验**不可逆**(不会掉)
+- 比赛**每场都在涨**(即使替补 1 分钟)
+- 越老的球员经验越高 → 场上关键时刻表现越稳
+- **PWI 显示时也考虑 experience**(作为 PWI 预估的因子之一),但 PWI 只是预估,比赛内的经验乘子才是真实作用
 
 ---
 
-## condition / stamina — 比赛中体能
+## stamina / 比赛中当前体能 — 比赛内体能曲线(在比赛里做什么)
 
-**condition = 比赛中当前体力**,**stamina = 比赛初始体力**。
+**两个概念要分清**:
+- **stamina** = 球员的"**体力池**"属性(球员卡的 stamina 字段,1-6 范围,默认 3.0)
+- **比赛中当前体能** = 比赛内**runtime** 的剩余体力,只在一场比赛中存在
 
-**生命周期**:
-- 比赛开始时 stamina = 100%
-- 比赛中持续消耗(跑动、对抗、扑救、动作都耗)
-- 体力低时**场上表现下降**(低于某个阈值有 penalty,阈值不透露)
-- **节间休息**(中场 15 分钟)**不恢复**
-- 换人后**新球员体力 100%**
-- 比赛后:**stamina 回到 100%**(下一场重新来)
+### 比赛中当前体能的完整生命周期
 
-**怎么看**:
-- 比赛直播时,球员卡上显示**体力条**(绿色 / 黄色 / 红色)
+| 阶段 | 行为 |
+|---|---|
+| 比赛开始 | 当前体能 = stamina 属性(每场满血) |
+| 比赛中 | 持续消耗(跑动、对抗、扑救、动作都耗) |
+| 中场 15 分钟 | **部分恢复**(少量) |
+| 换人 | **新上场球员当前体能 = stamina 属性**(100% 满血) |
+| 比赛结束 | 当前体能丢弃,球员回到"满血"状态等下一场 |
+
+### 当前体能(比赛中)在引擎里做什么
+
+每场比赛,引擎按 `当前体能` 算一个**体能乘子**(`ConditionSystem.calculateMultiplier` 的 `fitnessFactor`):
+- **体能充足时**(消耗没超过"免费缓冲")→ 乘子 = 1.0(**满血表现**,场上动作不受影响)
+- **透支时**(消耗超过免费缓冲)→ 乘子按**指数衰减**,消耗越多衰减越严重
+- 引擎设计了一个"免费缓冲"区:消耗到这个比例之前,场上表现**不会**衰减(给球员一个"热身时间")
+
+**结论**:
+- **满血上场** → 场上表现不受影响(乘子 = 1.0)
+- **踢到下半场体能见底** → 表现急剧下降
+- **中场换上来的球员** → 100% 满血上场,体能乘子 = 1.0(适合补时强攻)
+
+### stamina 属性本身
+
+- **stamina 不会因为比赛消耗而永久下降**——它是个"天赋",决定每场比赛的起始体力池和免费缓冲大小
+- **stamina 高的球员** = 体力池大、缓冲大、**抗疲劳** → 比赛末段不容易崩
+- 比赛之间 stamina 属性**不变**(它是天赋,不是当前状态)
+
+### 怎么看
+
+- 比赛直播时,球员卡上显示**体力条**(绿色 / 黄色 / 红色)——这就是比赛中当前体能
 - 实时变化,不用看雷达
+- stamina 属性本身在球员卡 / 雷达上以"stamina"标签显示
 
-**stamina 跟 form / experience 的区别**:
-- stamina 是**比赛内**的(影响当前场表现)
-- form 是**跨比赛**的(影响 PWI)
-- experience 是**长期**的(影响老将红利)
+### stamina 跟 form / experience 的区别
+
+- **stamina** = 球员的体力**天赋**(每场的起点)
+- **比赛中当前体能** = 本场剩余(临时状态)
+- **form** = 跨比赛**短期状态**(影响每次动作)
+- **experience** = **长期**积累(影响每次动作)
+- 比赛中三者一起算:`performance multiplier = fitnessFactor × statusFactor × expFactor`
 
 ---
 
@@ -177,11 +236,6 @@ relatedEntries: [pwi-vs-overall, current-vs-potential-skills, potential-tier-mea
 - `joint`(关节)
 - `head`(头部)
 - `other`(其他)
-
-**严重程度** = `currentInjuryValue`(int,引擎内部字段,**不显示**):
-- 轻伤 = 几天的恢复期
-- 重伤 = 几周的恢复期
-- 引擎按 value 倒计时恢复,每天扣 1
 
 **伤病怎么产生**:
 - 比赛事件触发(铲断受伤、过度使用等)
@@ -263,21 +317,21 @@ relatedEntries: [pwi-vs-overall, current-vs-potential-skills, potential-tier-mea
 
 ---
 
-## 11 个属性总览
+## 10 个属性总览
 
-| 属性 | 类型 | 影响 | 怎么涨 / 怎么掉 | 在哪看 |
+| 属性 | 类型 | 在比赛里做什么 | 在比赛外做什么 | 在哪看 |
 |---|---|---|---|---|
-| **PWI** | 综合 | 球员总评(转会、球探、阵容总览) | 3 因素:技能 + 潜力 + form | 球员卡、转会市场、雷达图旁 |
-| **currentSkills** | 当前 | 场上实际表现 | 比赛 + 训练 | 雷达图实线 |
-| **potentialSkills** | 潜力 | 技能上限 | 不可改(出生时定) | 雷达图虚线 |
-| **potentialTier** | 5 档标签 | 长期价值判断 | 不可改 | 球员卡"潜力"位置 |
-| **form** | 短期状态 | PWI 显示 + 场上发挥 | 比赛 / 训练 / 累计分钟 | 球员卡"状态箭头" |
-| **experience** | 长期积累 | PWI 因子 + 老将红利 | 比赛(5x 国家 / 2x 季后赛 / 1x 联赛 / 0.1x 友谊) | 球员卡"EXP" + 21 档 tier |
-| **condition** | 比赛中体能 | 当前场表现 | 比赛消耗 / 换人恢复 | 比赛直播体力条 |
-| **injury** | 伤病状态 | 可上场 / 能力 | 比赛事件触发 / 倒计时恢复 | 球员卡"伤病"位置 |
-| **specialties** | 特性 | 事件触发加成 | 不可改(出生时定) | 球员卡"特性"位置 |
-| **age** | 数值 | 触发 35+ 衰退系统 | 不可改(由 createdDay 算) | 球员卡"年龄"位置 |
-| **nationality** | ISO 国家码 | 国家队 / 风格倾向 | 不可改 | 球员卡"国籍"位置(目前**无影响**) |
+| **PWI** | 综合 | (不直接参与比赛,是预估值) | 转会比价、球探报告、阵容总览 | 球员卡、转会市场、雷达图旁 |
+| **currentSkills** | 当前 | 关键事件的**基础评分**(被 form / experience / stamina 乘子作用) | 雷达图实线 | 雷达图实线 |
+| **potentialSkills** | 潜力上限 | (不直接参与,决定 currentSkills 涨到顶的位置) | 雷达图虚线 | 雷达图虚线 |
+| **potentialTier** | 5 档标签 | (不直接参与) | 长期价值判断 | 球员卡"潜力"位置 |
+| **form** | 短期状态 | **状态乘子**,作用在所有关键事件 | PWI 显示微调 | 球员卡"状态箭头" |
+| **experience** | 长期积累 | **经验乘子**(双曲饱和),作用在所有关键事件;点球**只看 form + exp 不看 stamina** | PWI 因子;21 档 tier badge | 球员卡"EXP" + 21 档 tier |
+| **stamina** | 球员天赋 | 决定每场**起始体能池 + 免费缓冲**(stamina 高 → 抗疲劳) | 球员卡"stamina"标签 | 球员卡 stamina |
+| **比赛中当前体能** | runtime(临时) | **体能乘子**,满血 = 1.0,透支时**指数衰减** | (不持久) | 比赛直播体力条 |
+| **injury** | 伤病状态 | minor = 能力下降,severe = 不能上场 | 锁首发 / `INJURY` 事件 | 球员卡"伤病"位置 |
+| **specialties** | 特性 | 特定事件的引擎加成 | 球员卡"特性"位置 | 球员卡"特性"位置 |
+| **age** | 数值 | (不直接参与) | 触发 35+ 衰退系统;长期规划参考 | 球员卡"年龄"位置 |
 
 ---
 
@@ -289,9 +343,9 @@ relatedEntries: [pwi-vs-overall, current-vs-potential-skills, potential-tier-mea
 | **位置**(第 3 章) | PWI 高 ≠ 适合任意位置,位置权重不同 |
 | **tier 标签**(附录 3) | experience 用 21 档 tier 显示,L20 封顶 |
 | **potentialTier 5 档**(本章) | 跟 21 档 tier 标签**不是同一套**,别混 |
+| **比赛事件**(第 6 章) | form / experience / stamina 三个乘子作用在几乎所有比赛事件上 |
 | **特殊事件**(第 6 章) | INJURY 事件 + HAT_TRICK 等 14 种事件类型 |
-| **转会**(第 18 章) | 买人看 PWI + 伤病史 + form + potentialTier |
-| **青训**(第 19 章) | youth 球员 reveal 技能 + form 漂移 |
+| **转会**(第 18 章) | 买人看 PWI + 伤病史 + form + potentialTier + stamina(抗疲劳) |
 
 ---
 
@@ -306,6 +360,8 @@ relatedEntries: [pwi-vs-overall, current-vs-potential-skills, potential-tier-mea
 ❌ **GK 看 pace / strength / 定位球**:**没用**(GK 算分不走这些)
 ❌ **minor 伤病当没事上**:**能力下降**,关键比赛别赌
 ❌ **只追 GOLD 特性**:**没有特性 + 头牌高 > GOLD 特性 + 头牌低**
+❌ **新秀当老将用**:**experience 0 → 经验乘子 = 1.0(无加成)**,同样技能下老将关键时刻更稳
+❌ **忽视 stamina 低的球员**:**stamina 低 → 每场缓冲小 → 比赛末段容易崩**,关键场次慎用
 
 ---
 
@@ -316,5 +372,4 @@ relatedEntries: [pwi-vs-overall, current-vs-potential-skills, potential-tier-mea
 - [第 5 章:阵容:基本认识](05-lineup-basics.md) — 怎么用这些属性排阵容
 - [第 6 章:比赛:基本信息](06-match-basics.md) — 比赛里这些属性怎么用
 - [第 18 章:转会交易](18-transfer.md) — 买人看哪些属性
-- [第 19 章:青年球员](19-youth.md) — youth 球员的 reveal / form 漂移
 - [附录 3:球员等级标签](A3-tier-labels.md) — 21 档 tier 完整表
