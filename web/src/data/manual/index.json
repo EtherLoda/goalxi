@@ -1,0 +1,304 @@
+{
+  "version": 1,
+  "lastUpdated": "2026-08-30",
+  "format": {
+    "manualRoot": "web/src/data/manual",
+    "chapterFilePattern": "{order:02d}-{slug}.md",
+    "appendixFilePattern": "A{order}-{slug}.md",
+    "locales": ["zh", "en"],
+    "statusValues": {
+      "full": "content complete, ready to ship",
+      "partial": "partial content, more to come",
+      "stub": "placeholder, real content pending",
+      "not-applicable": "Hattrick chapter but GoalXI doesn't have this feature (see notApplicableReason)"
+    }
+  },
+  "chapters": [
+    {
+      "order": 0,
+      "slug": "how-to-read",
+      "title": { "zh": "如何阅读这本手册", "en": "How to Read This Manual" },
+      "file": { "zh": "00-how-to-read.md", "en": "00-how-to-read.md" },
+      "status": "full",
+      "hattrickEquivalent": null,
+      "relatedChapters": [],
+      "relatedEntries": []
+    },
+    {
+      "order": 1,
+      "slug": "game-intro",
+      "title": { "zh": "游戏介绍", "en": "Game Introduction" },
+      "file": { "zh": "01-game-intro.md", "en": "01-game-intro.md" },
+      "status": "full",
+      "hattrickEquivalent": "Hattrick § 1",
+      "relatedChapters": [2, 3, 4, 5, 14, 17, 18],
+      "relatedEntries": ["pwi-vs-overall", "outfield-skills-meaning", "experience-meaning", "player-event-types", "comparing-two-players"]
+    },
+    {
+      "order": 2,
+      "slug": "player-skills",
+      "title": { "zh": "球员:技能", "en": "Player Skills" },
+      "status": "stub",
+      "hattrickEquivalent": "Hattrick § 2",
+      "relatedChapters": [3, 4, 14],
+      "relatedEntries": ["outfield-skills-meaning", "gk-skills-vs-outfield", "skill-dimensions-note"]
+    },
+    {
+      "order": 3,
+      "slug": "player-attributes",
+      "title": { "zh": "球员:其他属性", "en": "Player Other Attributes" },
+      "status": "stub",
+      "hattrickEquivalent": "Hattrick § 3",
+      "relatedChapters": [2, 4, 17, 18],
+      "relatedEntries": ["pwi-vs-overall", "current-vs-potential-skills", "potential-tier-meaning", "experience-meaning", "specialties-meaning", "condition-form-injury"]
+    },
+    {
+      "order": 4,
+      "slug": "lineup-basics",
+      "title": { "zh": "阵容:基本认识", "en": "Lineup Basics" },
+      "status": "stub",
+      "hattrickEquivalent": "Hattrick § 4",
+      "relatedChapters": [2, 3, 14, 15],
+      "relatedEntries": ["position-keys-glossary", "w-vs-wm", "wbl-vs-lb", "am-vs-cm", "dm-vs-cdm", "cfl-cfr-vs-cf", "cd-cdl-cdr-vs-cb", "skill-priority-w", "skill-priority-cb", "skill-priority-cm-dm-am", "skill-priority-cf", "skill-priority-gk"]
+    },
+    {
+      "order": 5,
+      "slug": "match-basics",
+      "title": { "zh": "比赛:基本信息", "en": "Match Basics" },
+      "status": "stub",
+      "hattrickEquivalent": "Hattrick § 5",
+      "relatedChapters": [13, 14, 15],
+      "relatedEntries": ["player-event-types"]
+    },
+    {
+      "order": 6,
+      "slug": "training",
+      "title": { "zh": "训练", "en": "Training" },
+      "status": "stub",
+      "hattrickEquivalent": "Hattrick § 6",
+      "relatedChapters": [7, 11],
+      "relatedEntries": []
+    },
+    {
+      "order": 7,
+      "slug": "staff",
+      "title": { "zh": "教练", "en": "Coaches" },
+      "status": "stub",
+      "hattrickEquivalent": "Hattrick § 7",
+      "relatedChapters": [6, 11],
+      "relatedEntries": [],
+      "notes": "7 StaffRole types in GoalXI (HEAD_COACH, FITNESS_COACH, PSYCHOLOGY_COACH, TECHNICAL_COACH, SET_PIECE_COACH, GOALKEEPER_COACH, TEAM_DOCTOR). YOUTH_COACH was removed. Concrete staff effects + wage + assignment flow to be confirmed in code before writing."
+    },
+    {
+      "order": 8,
+      "slug": "finance",
+      "title": { "zh": "财政", "en": "Finance" },
+      "status": "stub",
+      "hattrickEquivalent": "Hattrick § 8",
+      "relatedChapters": [10, 11, 17],
+      "relatedEntries": []
+    },
+    {
+      "order": 9,
+      "slug": "fans",
+      "title": { "zh": "球迷", "en": "Fans" },
+      "status": "stub",
+      "hattrickEquivalent": "Hattrick § 9",
+      "relatedChapters": [8, 10],
+      "relatedEntries": []
+    },
+    {
+      "order": 10,
+      "slug": "stadium",
+      "title": { "zh": "球场", "en": "Stadium" },
+      "status": "stub",
+      "hattrickEquivalent": "Hattrick § 10",
+      "relatedChapters": [8, 9],
+      "relatedEntries": []
+    },
+    {
+      "order": 11,
+      "slug": "club-staff",
+      "title": { "zh": "俱乐部职员", "en": "Club Staff" },
+      "status": "stub",
+      "hattrickEquivalent": "Hattrick § 11",
+      "relatedChapters": [7],
+      "relatedEntries": [],
+      "notes": "Could overlap with chapter 7 (Coaches). Decide whether to merge into one chapter or keep separate based on whether GoalXI distinguishes 'head coach' (tactics) from 'fitness/psychology/etc. coaches' (training support)."
+    },
+    {
+      "order": 12,
+      "slug": "lineup-experience-and-confusion",
+      "title": { "zh": "阵容:经验和混乱事件", "en": "Lineup: Experience and Confusion Events" },
+      "status": "not-applicable",
+      "hattrickEquivalent": "Hattrick § 12",
+      "relatedChapters": [],
+      "relatedEntries": [],
+      "notApplicableReason": "GoalXI doesn't have Hattrick's 'confusion' mechanic — that's a Hattrick-specific chaos system. Only the experience half of this chapter applies to GoalXI, and that is already covered under chapter 3 (player-attributes) and the experience-meaning FAQ entry."
+    },
+    {
+      "order": 13,
+      "slug": "set-pieces",
+      "title": { "zh": "比赛:定位球和特别事件", "en": "Set Pieces and Special Events" },
+      "status": "stub",
+      "hattrickEquivalent": "Hattrick § 13",
+      "relatedChapters": [5, 14],
+      "relatedEntries": ["specialties-meaning", "player-event-types"]
+    },
+    {
+      "order": 14,
+      "slug": "tactics",
+      "title": { "zh": "比赛:战术", "en": "Match Tactics" },
+      "status": "stub",
+      "hattrickEquivalent": "Hattrick § 14",
+      "relatedChapters": [4, 5, 13, 15],
+      "relatedEntries": ["w-vs-wm", "wbl-vs-lb", "am-vs-cm", "dm-vs-cdm", "cfl-cfr-vs-cf"]
+    },
+    {
+      "order": 15,
+      "slug": "subs-and-orders",
+      "title": { "zh": "比赛:替补和球队指示", "en": "Subs and Team Orders" },
+      "status": "stub",
+      "hattrickEquivalent": "Hattrick § 15",
+      "relatedChapters": [4, 5, 14],
+      "relatedEntries": []
+    },
+    {
+      "order": 16,
+      "slug": "mental-state",
+      "title": { "zh": "心理状态", "en": "Mental State" },
+      "status": "not-applicable",
+      "hattrickEquivalent": "Hattrick § 16",
+      "relatedChapters": [],
+      "relatedEntries": [],
+      "notApplicableReason": "GoalXI doesn't have Hattrick's confidence / mood system. The closest analog is `form` (a single 0-5 short-term state), which is already covered in chapter 3 (player-attributes) and the condition-form-injury FAQ entry."
+    },
+    {
+      "order": 17,
+      "slug": "transfer",
+      "title": { "zh": "转会交易", "en": "Transfer Market" },
+      "status": "stub",
+      "hattrickEquivalent": "Hattrick § 17",
+      "relatedChapters": [3, 8, 18],
+      "relatedEntries": ["release-list-player", "comparing-two-players"]
+    },
+    {
+      "order": 18,
+      "slug": "youth-and-scouts",
+      "title": { "zh": "青年球员", "en": "Youth Players and Scouts" },
+      "status": "stub",
+      "hattrickEquivalent": "Hattrick § 18",
+      "relatedChapters": [3, 17],
+      "relatedEntries": ["experience-meaning", "comparing-two-players"]
+    },
+    {
+      "order": 19,
+      "slug": "league-system",
+      "title": { "zh": "联赛级别系统", "en": "League Tier System" },
+      "status": "stub",
+      "hattrickEquivalent": "Hattrick § 19",
+      "relatedChapters": [20, 23],
+      "relatedEntries": []
+    },
+    {
+      "order": 20,
+      "slug": "cup-system",
+      "title": { "zh": "杯赛系统", "en": "Cup System" },
+      "status": "stub",
+      "hattrickEquivalent": "Hattrick § 20",
+      "relatedChapters": [19],
+      "relatedEntries": []
+    },
+    {
+      "order": 21,
+      "slug": "friendly-matches",
+      "title": { "zh": "友谊赛", "en": "Friendly Matches" },
+      "status": "not-applicable",
+      "hattrickEquivalent": "Hattrick § 21",
+      "relatedChapters": [],
+      "relatedEntries": [],
+      "notApplicableReason": "FRIENDLY exists in the MatchType enum (and 0.1x EXP multiplier applies in settlement) but there is no player-facing flow to schedule a friendly match. Treat as not implemented."
+    },
+    {
+      "order": 22,
+      "slug": "hattrick-arena",
+      "title": { "zh": "Hattrick Arena 竞赛", "en": "Hattrick Arena" },
+      "status": "not-applicable",
+      "hattrickEquivalent": "Hattrick § 22",
+      "relatedChapters": [],
+      "relatedEntries": [],
+      "notApplicableReason": "GoalXI doesn't have an analog to Hattrick Arena."
+    },
+    {
+      "order": 23,
+      "slug": "national-team",
+      "title": { "zh": "国家(代表)队", "en": "National Team" },
+      "status": "partial",
+      "hattrickEquivalent": "Hattrick § 23",
+      "relatedChapters": [3, 19, 20],
+      "relatedEntries": ["experience-meaning"],
+      "notes": "NATIONAL_TEAM match type exists in the engine (5.0x EXP multiplier), but the full national-team organizational structure (selection process, NT manager UI, NT matches) is not yet implemented as a player-facing feature. Chapter will explain what's available (5x EXP for your players) and what's not (running an NT as a manager)."
+    },
+    {
+      "order": 24,
+      "slug": "hattrick-master",
+      "title": { "zh": "Hattrick 大师赛", "en": "Hattrick Masters" },
+      "status": "not-applicable",
+      "hattrickEquivalent": "Hattrick § 24",
+      "relatedChapters": [],
+      "relatedEntries": [],
+      "notApplicableReason": "GoalXI doesn't have an analog to Hattrick Masters."
+    },
+    {
+      "order": 25,
+      "slug": "extra-clubs",
+      "title": { "zh": "额外俱乐部", "en": "Extra Clubs" },
+      "status": "not-applicable",
+      "hattrickEquivalent": "Hattrick § 25",
+      "relatedChapters": [],
+      "relatedEntries": [],
+      "notApplicableReason": "GoalXI doesn't have multi-club management — one user owns one team."
+    },
+    {
+      "order": 26,
+      "slug": "rankings",
+      "title": { "zh": "球队排名", "en": "Team Rankings" },
+      "status": "stub",
+      "hattrickEquivalent": "Hattrick § 26",
+      "relatedChapters": [19, 20],
+      "relatedEntries": [],
+      "notes": "League standings exist (entity + service). Need to confirm what other rankings (scoring / transfers / fan) are exposed."
+    }
+  ],
+  "appendices": [
+    {
+      "order": 1,
+      "slug": "weekly-cycle",
+      "title": { "zh": "GoalXI 周", "en": "GoalXI Week" },
+      "status": "stub",
+      "hattrickEquivalent": "Hattrick 附录 1 (Hattrick Week)",
+      "relatedChapters": [5, 6, 13, 19, 20],
+      "relatedEntries": []
+    },
+    {
+      "order": 2,
+      "slug": "names",
+      "title": { "zh": "名称", "en": "Names" },
+      "status": "stub",
+      "hattrickEquivalent": "Hattrick 附录 2 (Names)",
+      "relatedChapters": [1],
+      "relatedEntries": [],
+      "notes": "GoalXI has a name-database.ts providing the name pool. Chapter will explain name generation rules."
+    }
+  ],
+  "skipped": [
+    {
+      "hattrickEquivalent": "Hattrick 附录 3 (货币)",
+      "reason": "Single currency (Goalxi Coin). No multi-currency mechanics to explain."
+    },
+    {
+      "hattrickEquivalent": "Hattrick 附录 4 (转会费用)",
+      "reason": "Single currency means no exchange rates / fees. Transfer fees are covered in chapter 17 (transfer)."
+    }
+  ]
+}
