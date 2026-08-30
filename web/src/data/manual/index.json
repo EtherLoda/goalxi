@@ -38,10 +38,11 @@
       "order": 2,
       "slug": "player-skills",
       "title": { "zh": "球员:技能", "en": "Player Skills" },
-      "status": "stub",
+      "file": { "zh": "02-player-skills.md", "en": "02-player-skills.md" },
+      "status": "full",
       "hattrickEquivalent": "Hattrick § 2",
-      "relatedChapters": [3, 4, 14],
-      "relatedEntries": ["outfield-skills-meaning", "gk-skills-vs-outfield", "skill-dimensions-note"]
+      "relatedChapters": [3, 4, 14, 17],
+      "relatedEntries": ["outfield-skills-meaning", "gk-skills-vs-outfield", "skill-dimensions-note", "skill-priority-w", "skill-priority-cb", "skill-priority-cm-dm-am", "skill-priority-cf", "skill-priority-gk"]
     },
     {
       "order": 3,
