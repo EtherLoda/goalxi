@@ -15,14 +15,15 @@ Skills (chapter 2) and positions (chapter 3) are the player's "hard metrics", bu
 - **PWI** — the aggregate score (for comparison, scout reports, squad overview)
 - **currentSkills vs potentialSkills** — the two lines on the radar chart
 - **potentialTier** — a potential bracket (LOW / REGULAR / HIGH_PRO / ELITE / LEGEND)
-- **form** — a real-time **multiplier on every key in-match event**
-- **experience** — a long-term **multiplier on every key in-match event**
-- **stamina / in-match current energy** — the in-match energy curve; **exponential decay** when overdrawn
+- **form** — short-term state, affects **every key in-match event**
+- **experience** — long-term accrual, affects **every key in-match event**
+- **stamina** — the player's stamina talent
+- **in-match current energy** — remaining energy during a match (the energy bar)
 - **injury** — fitness status (gates availability)
-- **specialties** — 12 types, 3 tiers (GOLD / SILVER / BRONZE)
-- **age** — age (currently only triggers the 35+ decay system)
+- **specialties** — 12 types, in GOLD / SILVER / BRONZE tiers
+- **age** — age (currently has no direct effect on in-match performance)
 
-> **The core idea**: **form, experience, and stamina together determine a performance multiplier that applies to almost every match event** — goals, assists, tackles, saves, key passes, dribbles... The PWI is only a **pre-match estimate**; what actually happens on the pitch is governed by these three.
+> **The core idea**: **form, experience, and in-match current energy together determine the player's per-event performance on almost every match event** — goals, assists, tackles, saves, key passes, dribbles... The PWI is only a **pre-match estimate**; what actually happens on the pitch is governed by these three.
 
 ---
 
@@ -33,12 +34,10 @@ Skills (chapter 2) and positions (chapter 3) are the player's "hard metrics", bu
 **PWI is shaped by three factors** (qualitative):
 
 1. **currentSkills** — the dominant factor. High headline skills → high PWI
-2. **potential** (potential bracket + per-skill ceiling) — an amplifier. At the same skill levels, a high-potential player has a higher PWI ceiling (a low-potential player tops out no matter how much they train)
+2. **potential** — an amplifier. At the same skill levels, a high-potential player has a higher PWI ceiling (a low-potential player tops out no matter how much they train)
 3. **form** — a fine-tuning factor. High form nudges PWI up, low form nudges it down
 
 > **High PWI ≠ guaranteed good performance on the pitch**. Two players with the same PWI, deployed in different positions, will produce wildly different results (position weights differ). Always read PWI together with **position** ([chapter 3](03-positions.md)).
-
-**PWI display**: an integer (e.g. `4770`), shown as a whole number in the UI.
 
 **When to look at PWI**:
 - Transfer market comparison (higher PWI → higher starting price / wage)
@@ -60,7 +59,7 @@ On the radar chart each skill has **two lines**:
 Skills stop growing when they hit `potentialSkills` (won't exceed the dashed line). **The potential values are fixed by the player's potential**; once `currentSkills` hits the cap, that's it.
 
 **How they grow**:
-- **Matches** — the engine awards +1 to skills after matches based on in-match contribution (within the potential range)
+- **Matches** — awards +1 to skills after matches based on in-match contribution (within the potential range)
 - **Training** — Thursday weekly training tick by category
 
 See [chapter 2](02-player-skills.md) "how skills grow" for details.
@@ -84,28 +83,28 @@ A potential label (low → high): **LOW / REGULAR / HIGH_PRO / ELITE / LEGEND**.
 
 ---
 
-## form — short-term state (what it does in a match)
+## form — short-term state
 
 **form = short-term state**, **directly affects the player's real-time performance in every match**. Range **0-5**, default **3.0**, with 3.0 as the baseline.
 
 ### What form does in a match
 
-For every match, the engine computes a **status multiplier from `form`** and applies it to the final score of **almost every match event** — goals, assists, tackles, saves, key passes, dribbles, aerial duels, etc.:
-- `form > 3.0` → status multiplier > 1 (key events get a proportional boost)
+For every match, form determines a **status bonus** that's applied to the final outcome of **almost every match event** — goals, assists, tackles, saves, key passes, dribbles, aerial duels, etc.:
+- `form > 3.0` → bonus > 1 (key events get a proportional boost)
 - `form = 3.0` → neutral (baseline)
-- `form < 3.0` → status multiplier < 1 (key events get a proportional cut)
+- `form < 3.0` → bonus < 1 (key events get a proportional cut)
 
-**Bottom line**: **a high-form player's event scores are systematically higher**. Two players with the same skills, same position, but form 5.0 vs form 1.0 — the first will systematically outscore the second on goals, saves, and other key events.
+**Bottom line**: **a high-form player's event outcomes are systematically better**. Two players with the same skills, same position, but form 5.0 vs form 1.0 — the first will systematically outscore the second on goals, saves, and other key events.
 
 ### How form changes
 
 - **Matches** — good performances push it up, bad ones push it down
 - **Training** — training can affect it
-- **Long stretches without playing** — the engine tracks cumulative minutes since last appearance; form drops when that counter gets too high
+- **Long stretches without playing** — form drops
 
 ### How form relates to PWI
 
-PWI display also factors in form (high form → PWI displays a bit higher, low form → a bit lower), but **PWI is only an estimate** — the real role of form is the per-event multiplier inside the match.
+PWI display also factors in form (high form → PWI displays a bit higher, low form → a bit lower), but **PWI is only an estimate** — the real role of form is the per-event bonus inside the match.
 
 ### How to read it
 
@@ -118,21 +117,21 @@ PWI display also factors in form (high form → PWI displays a bit higher, low f
 
 ---
 
-## experience / level — long-term "seasoning" (what it does in a match)
+## experience / level — long-term "seasoning"
 
-**experience = cumulative XP**, earned after every match. **Level** = `getExperienceLevel(totalExp)`, starting from 0, **no upper cap on level** (the L20 display cap is documented in [appendix 3](A3-tier-labels.md)).
+**experience = cumulative XP**, earned after every match. **Level** starts from 0, **no upper cap on level** (the L20 display cap is documented in [appendix 3](A3-tier-labels.md)).
 
 ### What experience does in a match
 
-For every match, the engine computes an **experience multiplier from `experience`** and applies it to the final score of **almost every match event** — goals, assists, tackles, saves, key passes, etc.:
-- **0 XP → experience multiplier = 1.0** (neutral, no bonus)
-- **High XP → experience multiplier > 1** (key events get a proportional boost)
-- **Hyperbolic saturation** — the more experience, the bigger the boost, but with **diminishing returns at the top end** (the curve flattens as you accumulate)
-- **No hard cap** (the L20 display caps, but internal XP keeps growing, and the multiplier keeps approaching the asymptote — just ever more slowly)
+For every match, experience determines an **experience bonus** that's applied to the final outcome of **almost every match event** — goals, assists, tackles, saves, key passes, etc.:
+- **0 XP → bonus is neutral** (no boost)
+- **High XP → bonus > 1** (key events get a proportional boost)
+- **Diminishing returns** — the more experience, the bigger the boost, but with **slowing growth at the top end** (the curve flattens as you accumulate)
+- **No hard cap** (the L20 display caps, but internal XP keeps growing, and the bonus keeps approaching the asymptote — just ever more slowly)
 
-**Bottom line**: **high-experience players have systematically better event scores**. Same skills, same position, but an old head vs a rookie — the veteran is reliably better on key events.
+**Bottom line**: **high-experience players have systematically better event outcomes**. Same skills, same position, but an old head vs a rookie — the veteran is reliably better on key events.
 
-### Leveling cost (`getExperienceUpgradeCost`)
+### Leveling cost
 
 **Linear**, +2 XP per level:
 - L0 → L1 needs 10 XP
@@ -160,8 +159,7 @@ Playing a full 90 minutes = full base XP; 45 minutes = half; 10 minutes off the 
 
 ### The veterans' penalty bonus (why experience is valuable)
 
-Penalties use a **dedicated multiplier** (`ConditionSystem.calculatePenaltyMultiplier`) that looks at **form + experience only, ignoring stamina**:
-- Engine comment (verbatim): "Penalty specific multiplier: Ignores stamina, high experience bonus."
+Penalties use a **dedicated bonus** that looks at **form + experience only, ignoring in-match current energy**:
 - **Bottom line**: **veterans are more reliable from the spot** — they aren't affected by stamina, and the experience bonus still applies
 
 ### Why experience is long-term value
@@ -169,71 +167,70 @@ Penalties use a **dedicated multiplier** (`ConditionSystem.calculatePenaltyMulti
 - Experience is **non-reversible** (never decreases)
 - It grows **every match** (even 1 minute off the bench)
 - Older players accumulate more experience → more reliable on key events
-- PWI display also factors in experience (one of the PWI factors), but PWI is only an estimate; the real role of experience is the per-event multiplier inside the match
+- PWI display also factors in experience (one of the PWI factors), but PWI is only an estimate; the real role of experience is the per-event bonus inside the match
 
 ---
 
-## stamina / in-match current energy — the in-match energy curve (what it does in a match)
+## stamina / in-match current energy — the in-match energy curve
 
 **Two concepts to keep separate**:
-- **stamina** = the player's "**stamina pool**" attribute (the `stamina` field on the player card, 1-6 range, default 3.0)
-- **in-match current energy** = the runtime remaining energy **during a single match** — it exists only while a match is in progress
+- **stamina** = the player's "**stamina talent**", shown on the player card / radar
+- **in-match current energy** = the **remaining energy** during a match, shown on the live-match energy bar
 
 ### In-match current energy lifecycle
 
 | Phase | Behaviour |
 |---|---|
-| Kickoff | current energy = `stamina` attribute (full tank every match) |
+| Kickoff | current energy = `stamina` talent (full tank every match) |
 | During the match | continuously drained (running, duels, saves, actions all cost energy) |
 | Halftime (15 min) | **partial recovery** (a small amount) |
-| Substitution | **incoming player's current energy = `stamina` attribute** (full tank) |
+| Substitution | **incoming player's current energy = `stamina` talent** (full tank) |
 | After the match | current energy is discarded; player returns to "full" for the next match |
 
-### What in-match current energy does in the engine
+### What in-match current energy does on the pitch
 
-For every match, the engine computes a **fitness multiplier from current energy** (`ConditionSystem.calculateMultiplier`'s `fitnessFactor`):
-- **Energy plentiful** (consumption not yet past the "free buffer") → fitness multiplier = 1.0 (**peak performance**; on-pitch actions unaffected)
-- **Overdrawn** (consumption past the free buffer) → fitness multiplier **decays exponentially** — the more overdrawn, the steeper the drop
-- The engine intentionally gives a "free buffer" zone: until consumption hits that threshold, **performance does not decay** (gives players a "warm-up window" before the penalty kicks in)
+For every match, current energy determines an **energy bonus**:
+- **Energy plentiful** (consumption not yet past the "warm-up window") → bonus is neutral at 1.0 (**peak performance**; on-pitch actions unaffected)
+- **Overdrawn** → bonus **drops sharply**, more drain = faster drop
+- There's an intentional "warm-up window" at the start: until consumption passes that point, **performance does not decay** (gives players an early-match protection window)
 
 **Bottom line**:
-- **Full energy at kickoff** → on-pitch performance is unaffected (multiplier = 1.0)
-- **Drained by the 80th minute** → performance degrades sharply
-- **A halftime sub coming on** → 100% energy, fitness multiplier = 1.0 (great for late-game attacks)
+- **Full energy at kickoff** → on-pitch performance is unaffected
+- **Drained by the second half** → performance drops sharply
+- **A halftime sub coming on** → 100% energy, energy bonus is neutral (great for late-game attacks)
 
-### The stamina attribute itself
+### The stamina talent itself
 
-- **stamina does NOT permanently drop from match consumption** — it's a "talent" that defines the **starting energy pool** and the **free buffer size** for every match
-- **High-stamina players** = bigger pool, bigger buffer, **more fatigue-resistant** → less likely to collapse late in the match
-- Between matches, the stamina attribute **does not change** (it's a talent, not a current state)
+- **stamina does NOT permanently drop from match consumption** — it's a "talent" that defines the **starting energy pool** and the **fatigue resistance** for every match
+- **High-stamina players** = bigger pool, **more fatigue-resistant** → less likely to collapse late in the match
+- Between matches, the stamina talent **does not change** (it's a talent, not a current state)
 
 ### How to read it
 
 - During a live match, the player card shows an **energy bar** (green / yellow / red) — this is the in-match current energy
 - Updates in real time — no need to consult the radar
-- The stamina attribute itself is shown on the player card / radar under the "stamina" label
+- The stamina talent itself is shown on the player card / radar under the "stamina" label
 
 ### How stamina differs from form / experience
 
-- **stamina** = the player's **stamina talent** (kickoff starting point)
+- **stamina talent** = the player's **stamina ceiling** (kickoff starting point)
 - **in-match current energy** = this-match's remaining energy (transient)
 - **form** = **cross-match short-term state** (affects every action)
 - **experience** = **long-term** accrual (affects every action)
-- In the match, all three combine: `performance multiplier = fitnessFactor × statusFactor × expFactor`
 
 ---
 
 ## injury — fitness status
 
-A player has a **current injury state** (`injuryState` field), with **3 states**:
+A player has a **current injury** state, **3 types**:
 
 | State | Meaning | Behaviour |
 |---|---|---|
-| `null` / healthy | not injured | plays normally |
+| healthy | not injured | plays normally |
 | `minor` | minor injury | can play, **ability reduced** |
 | `severe` | major injury | **cannot play** |
 
-**Injury types** (`injuryType`, 5 kinds):
+**Injury types** (5 kinds):
 - `muscle` (muscle)
 - `ligament` (ligament)
 - `joint` (joint)
@@ -247,18 +244,18 @@ A player has a **current injury state** (`injuryState` field), with **3 states**
 **How to read / use injuries**:
 - Player card / detail page shows the "injury" status
 - A severe injury **locks the player out of the starting XI** (lineup buttons are disabled)
-- Major injuries generate an "injury record" event (`INJURY` event)
+- Major injuries generate an "injury record" event
 
 **Practical implications**:
-- Before buying, check the injury history (lots of `INJURY` events = injury-prone, be careful)
+- Before buying, check the injury history (lots of injury record events = injury-prone, be careful)
 - On matchday, a severe injury forces a substitution
 - For minor injuries, it's your call whether to play them (the ability hit = the risk)
 
 ---
 
-## specialties — 12 types, 3 tiers
+## specialties — 12 types, in GOLD / SILVER / BRONZE tiers
 
-**specialties = the player's "identity tags"**, which trigger engine bonuses on specific match events. **12 active specialties**, each with an engine hook.
+**specialties = the player's "identity tags"**, which trigger bonuses on specific match events. **12 types**, each linked to a class of events.
 
 ### 12 specialties (best positions / trigger event)
 
@@ -277,7 +274,7 @@ A player has a **current injury state** (`injuryState` field), with **3 states**
 | `SAVING_MASTER` | GK | key saves |
 | `SWEEPER_KEEPER` | GK | sweeper actions |
 
-**3 tiers**:
+**Tiers**:
 - **GOLD** — biggest bonus
 - **SILVER** — medium bonus
 - **BRONZE** — smallest bonus
@@ -300,9 +297,9 @@ A player has a **current injury state** (`injuryState` field), with **3 states**
 
 ---
 
-## age — age (no decay mechanic)
+## age — age
 
-**`age` field = the player's age** (integer, computed from `createdDay`).
+**`age` = the player's age** (integer).
 
 **Key fact**: **GoalXI currently has no age-based decay mechanic**. A 35+ veteran will **not** lose skills just because they're old — only the "35+ decay" system mentioned in [chapter 2](02-player-skills.md) (runs Monday in the background) is in play, and that is not the same as age itself decaying.
 
@@ -320,20 +317,20 @@ A player has a **current injury state** (`injuryState` field), with **3 states**
 
 ---
 
-## 11-attribute overview
+## Attribute overview
 
 | Attribute | Type | What it does in a match | What it does outside matches | Where to see it |
 |---|---|---|---|---|
 | **PWI** | aggregate | (not directly used in matches — pre-match estimate) | transfer comparison, scout reports, squad overview | player card, transfer market, next to radar |
-| **currentSkills** | current | **base score** for key events (then multiplied by form / experience / stamina) | radar solid line | radar solid line |
+| **currentSkills** | current | **base score** for key events (then modified by form / experience / current energy bonuses) | radar solid line | radar solid line |
 | **potentialSkills** | ceiling | (not directly used — sets where currentSkills tops out) | radar dashed line | radar dashed line |
 | **potentialTier** | potential bracket | (not directly used) | long-term value judgement | player card "potential" slot |
-| **form** | short-term state | **status multiplier** on all key events | mild PWI display nudge | player card "state arrow" |
-| **experience** | long-term accrual | **experience multiplier** (hyperbolic saturation) on all key events; penalties use form + exp **only**, not stamina | PWI factor; tier badge | player card "EXP" + tier label |
-| **stamina** | player talent | sets the per-match **starting energy pool + free buffer** (high stamina = fatigue-resistant) | player card "stamina" label | player card stamina |
-| **in-match current energy** | runtime (transient) | **fitness multiplier** — full energy = 1.0, overdrawn = **exponential decay** | (not persistent) | live-match energy bar |
-| **injury** | fitness status | minor = ability reduced, severe = cannot play | locks starting XI / `INJURY` event | player card "injury" slot |
-| **specialties** | specialty | engine bonus on specific events | player card "specialty" slot | player card "specialty" slot |
+| **form** | short-term state | **status bonus** on all key events | mild PWI display nudge | player card "state arrow" |
+| **experience** | long-term accrual | **experience bonus** (diminishing returns) on all key events; penalties use form + exp **only**, not current energy | PWI factor; tier badge | player card "EXP" + tier label |
+| **stamina** | player talent | sets the per-match **starting energy pool + fatigue resistance** | player card "stamina" label | player card stamina |
+| **in-match current energy** | in-match (transient) | **energy bonus** — full energy = neutral, overdrawn = **sharp drop** | (not persistent) | live-match energy bar |
+| **injury** | fitness status | minor = ability reduced, severe = cannot play | locks starting XI / injury record event | player card "injury" slot |
+| **specialties** | specialty | bonus on specific events | player card "specialty" slot | player card "specialty" slot |
 | **age** | number | (not directly used) | triggers 35+ decay system; long-term planning reference | player card "age" slot |
 
 ---
@@ -346,8 +343,8 @@ A player has a **current injury state** (`injuryState` field), with **3 states**
 | **Positions** (chapter 3) | high PWI ≠ good at every position, position weights differ |
 | **Tier labels** (appendix 3) | experience uses the tier label for display, capped at L20 |
 | **potentialTier** (this chapter) | **not the same system** as the tier label, don't mix them up |
-| **Match events** (chapter 6) | form / experience / stamina multipliers apply to almost every match event |
-| **Special events** (chapter 6) | `INJURY` event + 14 other event types like `HAT_TRICK` |
+| **Match events** (chapter 6) | form / experience / current energy bonuses apply to almost every match event |
+| **Special events** (chapter 6) | injury record event + 14 other event types like `HAT_TRICK` |
 | **Transfers** (chapter 18) | when buying, look at PWI + injury history + form + potentialTier + stamina (fatigue resistance) |
 
 ---
@@ -360,11 +357,11 @@ A player has a **current injury state** (`injuryState` field), with **3 states**
 ❌ **"Ignoring form swings"**: **form < 1.5 = buy cheap** (post-injury recovery, may bounce back)
 ❌ **"Mixing up potentialTier and the tier label"**: **potential bracket ≠ skill/experience grade, two separate systems**
 ❌ **"Assuming age = decay"**: **age itself has no decay mechanic**, the decay system is a "35+" switch
-❌ **"Judging a GK by pace / strength / set pieces"**: **irrelevant** (the GK scoring path doesn't use these)
+❌ **"Judging a GK by pace / strength / set pieces"**: **irrelevant**, pace / strength / set pieces don't affect GK performance
 ❌ **"Playing through a minor injury like nothing"**: **ability is reduced**, don't gamble in key matches
 ❌ **"Only chasing GOLD specialties"**: **no specialty + high headline > GOLD specialty + low headline**
-❌ **"Using a rookie like a veteran"**: **0 experience → experience multiplier = 1.0 (no bonus)**, same skills but a veteran is more reliable on key events
-❌ **"Ignoring low-stamina players"**: **low stamina → small buffer → late-match collapse**, be careful in key games
+❌ **"Using a rookie like a veteran"**: **0 XP = neutral experience bonus (no boost)**, same skills but a veteran is more reliable on key events
+❌ **"Ignoring low-stamina players"**: **low stamina = low fatigue resistance → late-match collapse**, be careful in key games
 
 ---
 

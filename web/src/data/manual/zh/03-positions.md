@@ -12,7 +12,7 @@ relatedEntries: [position-keys-glossary, w-vs-wm, wbl-vs-lb, am-vs-cm, dm-vs-cdm
 
 每个球员在场上都有一个**位置**。位置决定:
 - 这个球员在**场上哪个区域活动**
-- 引擎**哪些技能被加权**(头牌 vs 几乎不看的技能)
+- **哪些技能被加权**(头牌 vs 几乎不看的技能)
 - 阵容的**板凳 / 换人 / 战术**逻辑
 
 GoalXI 总共 **9 个位置家族 + 14 个具体位置键**。同一家族内的球员可以互相替补,不同家族基本不能直接换(头牌完全不同)。
@@ -35,7 +35,7 @@ GoalXI 总共 **9 个位置家族 + 14 个具体位置键**。同一家族内的
 | **AM**(前腰) | AM / AML / AMR(3-slot) | 中路前 | passing / dribbling / finishing |
 | **CF**(中锋) | CF / CFL / CFR(3-slot) | 禁区前 | finishing / positioning / strength |
 
-> **3-slot** 家族(CB / CM / DM / AM / CF)可以填 1-3 个球员在家族内,引擎用同一套技能权重。
+> **3-slot** 家族(CB / CM / DM / AM / CF)可以填 1-3 个球员在家族内,3 个槽位用同一组头牌技能。
 
 ---
 
@@ -213,7 +213,7 @@ GoalXI 里**最容易混淆**的几对位置:
 ❌ **头牌选错位置**:把"全能均衡"球员放错位置 → 头牌技能用不上,场上隐身
 ❌ **AM 不配 DM**:单前腰阵型**必须有 DM 在后面**,AM 防守 ≈ 0,没 DM 就被打穿
 ❌ **WBL 当 LB 用**:WBL 是翼卫,3 中卫阵型用;4 后卫阵型用 LB。混用 = WBL 上去不回防 = 灾难
-❌ **GK 看 pace / strength**:**没用**,GK 算分不走这俩。pace 18 的 GK 跟 pace 10 的 GK 一样
+❌ **GK 看 pace / strength**:**没用**,pace / strength 对 GK 表现没影响。pace 18 的 GK 跟 pace 10 的 GK 一样
 ❌ **CF 当出球点**:CF 的出球弱(`passing（传球）` 几乎不看),需要 AM 串联,别让 CF 拿球就传
 ❌ **3-slot 家族只填 1 个**:**可以**填 1 个(常见 4 后卫阵型),但要意识到这一侧没补位
 

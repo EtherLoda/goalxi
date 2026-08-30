@@ -76,8 +76,8 @@ The gap between solid and dashed = how much more the player can grow. Senior pla
 
 | Skill | On-pitch behavior | GK importance |
 |---|---|---|
-| **pace** | (no meaningful on-pitch impact) | barely affects GK rating |
-| **strength** | (no meaningful on-pitch impact) | barely affects GK rating |
+| **pace** | (no meaningful on-pitch impact) | barely affects GK performance |
+| **strength** | (no meaningful on-pitch impact) | barely affects GK performance |
 
 ### technical — GK-specific (replaces outfield's 4)
 
@@ -101,7 +101,7 @@ The gap between solid and dashed = how much more the player can grow. Senior pla
 | **freeKicks** | position-independent |
 | **penalties** | position-independent |
 
-> A GK's `pace` and `strength` show up on the radar but **do not enter the GK save rating**. A GK with pace 18 and a GK with pace 10 perform identically. When shopping for a GK, **look at reflexes / handling / aerial / positioning / composure only** — that's the 5-skill set that matters.
+> A GK's `pace` and `strength` show up on the radar but **do not affect GK performance**. A GK with pace 18 and a GK with pace 10 perform identically. When shopping for a GK, **look at reflexes / handling / aerial / positioning / composure only** — that's the 5-skill set that matters.
 
 ---
 
@@ -109,7 +109,7 @@ The gap between solid and dashed = how much more the player can grow. Senior pla
 
 | Source | Effect | Details |
 |---|---|---|
-| **Matches** | post-match engine awards +1 to skills in scope (up to potential) | [Ch 6: Match Basics](06-match-basics.md) |
+| **Matches** | post-match awards +1 to skills in scope (up to potential) | [Ch 6: Match Basics](06-match-basics.md) |
 | **Training** | Thursday per the category you set (1 of 5) | [Ch 7: Training](07-training.md) |
 | **Decline** | seniors (35+) lose 1 occasionally, ticked on Monday | [Ch 4: Player Other Attributes](04-player-attributes.md) |
 | **Youth reveal** | youth players reveal 1 skill per week (fog mechanic) | [Ch 19: Youth](19-youth.md) |
@@ -128,7 +128,7 @@ The gap between solid and dashed = how much more the player can grow. Senior pla
 
 | Concept | Relation |
 |---|---|
-| **position** (Ch 3) | determines which skills the engine weights heavily → see [Ch 3: Player Positions](03-positions.md) |
+| **position** (Ch 3) | determines which skills matter most (headline vs almost no impact) → see [Ch 3: Player Positions](03-positions.md) |
 | **Tier label** (Appendix 3) | every 0-20 skill value renders a tier label on the radar → see [A3-tier-labels](A3-tier-labels.md) |
 | **PWI / overall** (Ch 4) | headline skills + potential + form combined into a composite score, not a simple sum |
 | **form** (Ch 4) | short-term state, orthogonal to skills (high form doesn't mean high skills) |
@@ -142,7 +142,7 @@ The gap between solid and dashed = how much more the player can grow. Senior pla
 
 ❌ **"Balanced radar = strong"**: balanced only means even distribution, **not** high PWI; real strength is PWI
 ❌ **Chasing all-high skills**: there's a ceiling + wage constraint; real players have strengths and weaknesses, **strengths in the right position are enough**
-❌ **Treating a GK's pace / strength radar as meaningful**: **useless**, the GK save rating doesn't use them
+❌ **Treating a GK's pace / strength radar as meaningful**: **useless**, they don't affect GK performance
 ❌ **Ignoring the 4-dimension grouping**: the tier label doesn't group by dimension (L0-L20 applies to all), but **the actual skill types are different** — pace 20 stamina ≠ reflexes 20 save reaction
 
 > Mistakes about **cross-position skill comparison** or **picking the wrong position for a player** live in [Ch 3: Player Positions](03-positions.md).

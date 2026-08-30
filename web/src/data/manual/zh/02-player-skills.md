@@ -101,7 +101,7 @@ relatedEntries: [outfield-skills-meaning, gk-skills-vs-outfield, skill-dimension
 | **freeKicks** | 跟位置无关 |
 | **penalties** | 跟位置无关 |
 
-> GK 的 `pace` 和 `strength` 在雷达图上会有数值,但**实际算分时不参与 GK 评分**。一个 pace 18 的 GK 跟 pace 10 的 GK,场上表现没差。找 GK **只看 reflexes / handling / aerial / positioning / composure 这 5 项**。
+> GK 的 `pace` 和 `strength` 在雷达图上会有数值,但**对 GK 表现没影响**。一个 pace 18 的 GK 跟 pace 10 的 GK,场上表现没差。找 GK **只看 reflexes / handling / aerial / positioning / composure 这 5 项**。
 
 ---
 
@@ -109,7 +109,7 @@ relatedEntries: [outfield-skills-meaning, gk-skills-vs-outfield, skill-dimension
 
 | 来源 | 怎么影响 | 详细章节 |
 |---|---|---|
-| **比赛** | 比赛后引擎按场上表现给技能 +1(潜力内) | [第 6 章:比赛:基本信息](06-match-basics.md) |
+| **比赛** | 比赛后按场上表现给技能 +1(潜力内) | [第 6 章:比赛:基本信息](06-match-basics.md) |
 | **训练** | 周四按你定的训练类别涨,5 选 1 | [第 7 章:训练](07-training.md) |
 | **衰退** | 35+ 岁的老将,周一可能被削一点(后台跑) | [第 4 章:球员:其他属性](04-player-attributes.md) |
 | **青训 reveal** | youth 球员每周围棋式揭示 1 项技能 | [第 19 章:青年球员](19-youth.md) |
@@ -128,7 +128,7 @@ relatedEntries: [outfield-skills-meaning, gk-skills-vs-outfield, skill-dimension
 
 | 概念 | 关系 |
 |---|---|
-| **position**(第 3 章) | 决定哪些技能被引擎"加权"用 → 见 [球员:位置](03-positions.md) |
+| **position**(第 3 章) | 决定哪些技能被加权用 → 见 [球员:位置](03-positions.md) |
 | **tier 标签**(附录 3) | 每项技能 0-20 → 标签,雷达图上显示 → 见 [A3-tier-labels](A3-tier-labels.md) |
 | **PWI / overall**(第 4 章) | 头牌技能 + 潜力 + form 综合算的**综合分**,不是技能简单加和 |
 | **form**(第 4 章) | 短期状态,跟技能正交(form 高技能不一定高) |
@@ -142,7 +142,7 @@ relatedEntries: [outfield-skills-meaning, gk-skills-vs-outfield, skill-dimension
 
 ❌ **"均衡雷达 = 强"**:均衡只说明分布均匀,不是 PWI 高。真正强不强看 PWI
 ❌ **追求每项都高**:技能有上限 + 工资约束,真实球员有强项有弱项,**强项对位置就够用**
-❌ **把 GK 雷达图的 pace / strength 当回事**:**没用**,GK 算分不走这俩
+❌ **把 GK 雷达图的 pace / strength 当回事**:**没用**,pace / strength 对 GK 表现没影响
 ❌ **忽视 4 维度的分组**:tier 标签不分组(L0-L20 都用),但**技能类型不同** — pace 20 体能 ≠ reflexes 20 扑救反应
 
 > 关于**跨位置比技能 / 头牌选错** 这类"位置相关"的错误,见 [第 3 章:球员:位置](03-positions.md) 的"常见错误"。

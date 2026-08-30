@@ -12,7 +12,7 @@ relatedEntries: [position-keys-glossary, w-vs-wm, wbl-vs-lb, am-vs-cm, dm-vs-cdm
 
 Every player on the pitch has a **position**. The position determines:
 - **Where on the pitch** this player operates
-- Which skills the engine **weights heavily** (headline vs almost no impact)
+- Which skills matter most (headline vs almost no impact)
 - The **bench / substitution / tactics** logic
 
 GoalXI has **9 position families + 14 specific position keys**. Players in the same family can substitute for each other; different families generally can't (headlines differ).
@@ -67,7 +67,7 @@ GoalXI has **9 position families + 14 specific position keys**. Players in the s
 - **Duty**: save goals. Saves, 1v1s, low balls, high balls
 - **Headline**: `reflexes` / `handling` / `positioning`
 - **Important**: `aerial` / `composure`
-- **Almost no impact**: `pace` / `strength` / setPieces (don't enter GK save rating)
+- **Almost no impact**: `pace` / `strength` / setPieces (don't affect GK performance)
 - **Common use**: **every team has exactly 1**; 4-3-3 / 4-4-2 / 3-5-2 all use 1 GK
 - **GK shopping rule**: **only buy high `reflexes` / `handling`**; everything else is a bonus
 
@@ -213,7 +213,7 @@ Detailed comparisons in the FAQ: `w-vs-wm` / `wbl-vs-lb` / `am-vs-cm` / `dm-vs-c
 ❌ **Right player, wrong position**: an "all-round balanced" player in the wrong slot has no headline to use — invisible on the pitch
 ❌ **AM without a DM**: single-AM shapes **must have a DM behind**; AM defense ≈ 0, gets torn apart
 ❌ **WBL as LB**: WBL is a wing back, used in 3-CB shapes; LB is traditional, used in 4-back. Swapping = WBL goes up and never comes back = disaster
-❌ **GK's pace / strength matter**: **they don't**; the GK save rating doesn't use them. A pace-18 GK and a pace-10 GK are identical
+❌ **GK's pace / strength matter**: **they don't**; they don't affect GK performance. A pace-18 GK and a pace-10 GK are identical
 ❌ **CF as the build-up hub**: CF's `passing` is almost no impact; CF distribution is weak. Let the AM do the creating
 ❌ **3-slot family with only 1 player**: **allowed** (common in 4-back shapes), but be aware that side has no rotation
 
