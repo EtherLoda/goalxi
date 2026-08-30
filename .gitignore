@@ -89,6 +89,9 @@ api/scripts/reset-db.js
 *.md
 !README.md
 !CLAUDE.md
+# Game manual — bilingual long-form reference, lives alongside the help KB
+!web/src/data/manual/**/*.md
+!web/src/data/manual/**/index.json
 # Performance / perf-tracking ledger under docs/perf/
 !docs/perf/**
 !docs/perf/
