@@ -65,18 +65,18 @@ GoalXI 总共 **9 个位置家族 + 14 个具体位置键**。同一家族内的
 ### GK — 门将
 
 - **职责**:守门。扑救、单刀、低平球、高空球
-- **头牌**:`reflexes` / `handling` / `positioning`
-- **重要**:`aerial` / `composure`
-- **几乎不看**:`pace` / `strength` / 定位球(不影响 GK 评分)
+- **头牌**:`reflexes（反应）` / `handling（接球）` / `positioning（跑位）`
+- **重要**:`aerial（高空）` / `composure（冷静）`
+- **几乎不看**:`pace（速度）` / `strength（力量）` / 定位球(不影响 GK 评分)
 - **常见用法**:**每个球队必须有 1 个**;4-3-3 / 4-4-2 / 3-5-2 都用 1 GK
-- **找 GK 重点**:**只买高 `reflexes` / `handling`**,其他都是锦上添花
+- **找 GK 重点**:**只买高 `reflexes（反应）` / `handling（接球）`**,其他都是锦上添花
 
 ### CB — 中后卫(CBL / CB / CBR)
 
 - **职责**:禁区前防守。盯对方中锋、卡位、抢断、头球解围、出球
-- **头牌**:`defending` / `positioning` / `strength`
-- **重要**:`passing`(现代 CB 要能拿球出球)
-- **几乎不看**:`dribbling` / `finishing` / 定位球
+- **头牌**:`defending（防守）` / `positioning（跑位）` / `strength（力量）`
+- **重要**:`passing（传球）`(现代 CB 要能拿球出球)
+- **几乎不看**:`dribbling（盘带）` / `finishing（射门）` / 定位球
 - **3-slot**:左 / 中 / 右 3 个 slot,可填 1-3 个
 - **常见用法**:
   - 4 后卫 = 2 个 CB(传统双中卫)
@@ -86,21 +86,21 @@ GoalXI 总共 **9 个位置家族 + 14 个具体位置键**。同一家族内的
 ### fullback — 边后卫(LB / RB / WBL / WBR)
 
 - **职责**:边路防守 + 有限插上。盯对方边锋、协防、传中
-- **头牌**:`defending` / `positioning`
-- **重要**:`pace`(回追)/ `strength`(对抗)
-- **几乎不看**:`finishing` / 定位球
+- **头牌**:`defending（防守）` / `positioning（跑位）`
+- **重要**:`pace（速度）`(回追)/ `strength（力量）`(对抗)
+- **几乎不看**:`finishing（射门）` / 定位球
 - **分两类**:
   - **传统边后卫 LB / RB** — 位置靠后,插上有限 → 4 后卫阵型
   - **翼卫 WBL / WBR** — 大幅插上,基本等于"半个 W" → 3 中卫 / 352 / 3412 阵型
-- **找 WBL 的标准**:基本算"半个 W"的身体素质(`pace` + `dribbling` + `finishing` 都要够),不然回防时站不住
+- **找 WBL 的标准**:基本算"半个 W"的身体素质(`pace（速度）` + `dribbling（盘带）` + `finishing（射门）` 都要够),不然回防时站不住
 - **WBL 上去后空档大**:必须有 CB 帮擦屁股,**或者中卫出球能力要够**
 
 ### W — 边锋(LW / RW)
 
 - **职责**:边路最前。突破、传中、内切打门
-- **头牌**:`pace` / `dribbling` / `finishing`
-- **重要**:`passing`(传中质量)
-- **几乎不看**:`defending` / `positioning` / `composure`(W 几乎不参与防守)
+- **头牌**:`pace（速度）` / `dribbling（盘带）` / `finishing（射门）`
+- **重要**:`passing（传球）`(传中质量)
+- **几乎不看**:`defending（防守）` / `positioning（跑位）` / `composure（冷静）`(W 几乎不参与防守)
 - **2 个独立 slot**:LW / RW 各占一边
 - **常见用法**:
   - 4-3-3 / 4-2-3-1 / 3-4-3:2 个 W
@@ -109,8 +109,8 @@ GoalXI 总共 **9 个位置家族 + 14 个具体位置键**。同一家族内的
 ### WM — 边中场(LM / RM)
 
 - **职责**:边路中场。中场组织、协助防守、给边锋输送
-- **头牌**:`pace` / `dribbling` / `passing` / `positioning`(4 项都重要)
-- **几乎不看**:`finishing`
+- **头牌**:`pace（速度）` / `dribbling（盘带）` / `passing（传球）` / `positioning（跑位）`(4 项都重要)
+- **几乎不看**:`finishing（射门）`
 - **2 个独立 slot**:LM / RM 各占一边
 - **vs W**:**WM 要回追,W 不回**。WM 是"半攻半守"位置
 - **常见用法**:
@@ -121,9 +121,9 @@ GoalXI 总共 **9 个位置家族 + 14 个具体位置键**。同一家族内的
 ### CM — 中前卫(CML / CM / CMR)
 
 - **职责**:中路平衡。出球 + 协防 + 推进
-- **头牌**:`passing` / `defending` / `dribbling`(3 项平衡)
-- **重要**:`positioning` / `composure`
-- **几乎不看**:`finishing`(偶尔插上,不是头牌)
+- **头牌**:`passing（传球）` / `defending（防守）` / `dribbling（盘带）`(3 项平衡)
+- **重要**:`positioning（跑位）` / `composure（冷静）`
+- **几乎不看**:`finishing（射门）`(偶尔插上,不是头牌)
 - **3-slot**:左 / 中 / 右
 - **vs DM / AM**:CM 兼顾攻守,DM 偏守,AM 偏攻
 - **常见用法**:
@@ -133,9 +133,9 @@ GoalXI 总共 **9 个位置家族 + 14 个具体位置键**。同一家族内的
 ### DM — 防守中场(DML / DM / DMR)
 
 - **职责**:中后卫前面第一道屏障。拦截、抢断、保护后防线
-- **头牌**:`defending` / `positioning` / `strength`
-- **重要**:`passing`(出球发起)
-- **几乎不看**:`finishing` / `dribbling`(DM 几乎不参与进攻)
+- **头牌**:`defending（防守）` / `positioning（跑位）` / `strength（力量）`
+- **重要**:`passing（传球）`(出球发起)
+- **几乎不看**:`finishing（射门）` / `dribbling（盘带）`(DM 几乎不参与进攻)
 - **3-slot**:左 / 中 / 右
 - **"单后腰"特殊**:单后腰 = 球队只有 1 个 DM 时,**对 DM 的要求最高**(出球 + 防守 + 站位都要强)
 - **常见用法**:
@@ -146,8 +146,8 @@ GoalXI 总共 **9 个位置家族 + 14 个具体位置键**。同一家族内的
 ### AM — 前腰(AML / AM / AMR)
 
 - **职责**:中场最前。直塞、最后一传、制造机会、前插射门
-- **头牌**:`passing` / `dribbling` / `finishing`
-- **几乎不看**:`defending` / `strength`(AM 几乎不参与防守)
+- **头牌**:`passing（传球）` / `dribbling（盘带）` / `finishing（射门）`
+- **几乎不看**:`defending（防守）` / `strength（力量）`(AM 几乎不参与防守)
 - **3-slot**:左 / 中 / 右
 - **"单前腰"特殊**:**必须有 DM 在后面**,AM 防守 ≈ 0
 - **常见用法**:
@@ -158,9 +158,9 @@ GoalXI 总共 **9 个位置家族 + 14 个具体位置键**。同一家族内的
 ### CF — 中锋(CFL / CF / CFR)
 
 - **职责**:禁区前。进球、抢点、扛中后卫、做支点
-- **头牌**:`finishing` / `positioning` / `strength`
-- **重要**:`composure`(单刀)
-- **几乎不看**:`defending` / `passing`(CF 出球弱,组织交给 AM)
+- **头牌**:`finishing（射门）` / `positioning（跑位）` / `strength（力量）`
+- **重要**:`composure（冷静）`(单刀)
+- **几乎不看**:`defending（防守）` / `passing（传球）`(CF 出球弱,组织交给 AM)
 - **3-slot**:左 / 中 / 右
 - **CFL / CFR 是 3-striker(3-4-3)用**,不是给单中锋阵型
 - **常见用法**:
@@ -191,23 +191,6 @@ GoalXI 总共 **9 个位置家族 + 14 个具体位置键**。同一家族内的
 
 ---
 
-## 历史命名(aliases)
-
-GoalXI 引擎接受这些**历史位置键**,会自动归并到现代命名:
-
-| 历史键 | 归并到 |
-|---|---|
-| `CD` / `CDL` / `CDR` | `CB` / `CBL` / `CBR` |
-| `CAM` / `CAML` / `CAMR` | `AM` / `AML` / `AMR` |
-| `CDM` | `DM` |
-| `DMF` / `DMFL` / `DMFR` | `DM` / `DML` / `DMR` |
-| `ST` | `CF` |
-| `LWB` / `RWB` | `WBL` / `WBR` |
-
-> 这些历史键可能在老球员 / 老战术表 / 老 spec 里出现,**引擎自动兼容**,不需要手动改。
-
----
-
 ## 跨位置比较(简表)
 
 GoalXI 里**最容易混淆**的几对位置:
@@ -231,7 +214,7 @@ GoalXI 里**最容易混淆**的几对位置:
 ❌ **AM 不配 DM**:单前腰阵型**必须有 DM 在后面**,AM 防守 ≈ 0,没 DM 就被打穿
 ❌ **WBL 当 LB 用**:WBL 是翼卫,3 中卫阵型用;4 后卫阵型用 LB。混用 = WBL 上去不回防 = 灾难
 ❌ **GK 看 pace / strength**:**没用**,GK 算分不走这俩。pace 18 的 GK 跟 pace 10 的 GK 一样
-❌ **CF 当出球点**:CF 的出球弱(`passing` 几乎不看),需要 AM 串联,别让 CF 拿球就传
+❌ **CF 当出球点**:CF 的出球弱(`passing（传球）` 几乎不看),需要 AM 串联,别让 CF 拿球就传
 ❌ **3-slot 家族只填 1 个**:**可以**填 1 个(常见 4 后卫阵型),但要意识到这一侧没补位
 
 ---

@@ -191,23 +191,6 @@ GoalXI has **9 position families + 14 specific position keys**. Players in the s
 
 ---
 
-## Historical aliases
-
-The GoalXI engine accepts these **historical position keys** and folds them to modern names:
-
-| Historical key | Folded to |
-|---|---|
-| `CD` / `CDL` / `CDR` | `CB` / `CBL` / `CBR` |
-| `CAM` / `CAML` / `CAMR` | `AM` / `AML` / `AMR` |
-| `CDM` | `DM` |
-| `DMF` / `DMFL` / `DMFR` | `DM` / `DML` / `DMR` |
-| `ST` | `CF` |
-| `LWB` / `RWB` | `WBL` / `WBR` |
-
-> These historical keys may still appear in old player rows, old tactics rows, and old specs — the engine auto-compat, no manual change needed.
-
----
-
 ## Cross-position comparisons (quick)
 
 The pairs that get confused the most in GoalXI:
