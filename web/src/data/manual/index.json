@@ -70,7 +70,8 @@
       "order": 4,
       "slug": "player-attributes",
       "title": { "zh": "球员:其他属性", "en": "Player Other Attributes" },
-      "status": "stub",
+      "file": { "zh": "04-player-attributes.md", "en": "04-player-attributes.md" },
+      "status": "full",
       "hattrickEquivalent": "Hattrick § 3",
       "relatedChapters": [2, 3, 5, 18, 19],
       "relatedEntries": ["pwi-vs-overall", "current-vs-potential-skills", "potential-tier-meaning", "experience-meaning", "specialties-meaning", "condition-form-injury"]
