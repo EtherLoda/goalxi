@@ -19,15 +19,23 @@ GoalXI lets you:
 - **Take over a small club** — start in the lowest division with a starting squad, stadium, and a small budget
 - **Compete with players worldwide** — your group has real players plus AI-controlled BOT teams to fill out the league
 - **Build the club end-to-end** — tactics, lineup, training, transfers, youth, finances, all in your hands
-- **Climb the ladder** — 5-tier league pyramid, fight your way to the top flight and chase the title
+- **Climb the ladder** — a **multi-tier league pyramid** (tier count is configurable / extensible, see current game config for the exact number), fight your way to the top flight and chase the title
 
-Matches are **simulated in real time**, not turn-based — you watch players run their lanes, events pop up one by one, and the scoreboard updates live. Every match feels like a small broadcast of its own.
+Matches follow a **set-up-then-watch** model, not real-time / not turn-based / not "manage while it plays":
+
+- **Pre-match** (more than 10 min before kickoff) → you set the **starting XI, bench, tactics, and team orders**
+- **T-minus 10 minutes** → tactics lock; no further changes
+- **Match day** → the game auto-simulates per your setup; events stream in one by one (the scoreboard updates live, like watching a small broadcast)
+- **During play** → there are **no in-match actions** (no subs / no tactical changes / no live orders)
+- **Post-match** → full event timeline, player ratings, and event history
+
+So the result is largely decided by **your pre-match setup**. Watching the live stream is reading the outcome. All the tactical work happens before kickoff.
 
 ## What you play
 
 You wear two hats:
 
-- **Head coach** — pick the starting XI, set tactics, manage training, make in-match adjustments
+- **Head coach** — pick the starting XI, set tactics, manage training, and set up match-day orders (**no live changes once the match starts**)
 - **Club owner** — decide who to buy and sell, upgrade the stadium, hire and fire staff
 
 Your day-to-day:
@@ -112,7 +120,7 @@ So your opponents are **people who think**, not scripts. Wins come from tactics,
 
 1. **Read this manual first** — the first few chapters are the core, the rest is reference
 2. **Don't rush to buy players** — your initial squad + wage budget is enough to start; understand tactics first
-3. **Watch your matches** — live play tells you how players actually perform, beyond what PWI / radar shows
+3. **Watch the match-day stream** — events streaming in tell you how your pre-match setup actually played out. The radar + PWI doesn't reveal the in-game impact of your choices; the live event stream does.
 4. **Use the forum** — the tactics / transfer / youth categories have experienced players sharing what works
 5. **Stay long-term** — if you don't win a title in season one, that's fine; after 3-4 seasons your youth + transfer strategy compounds
 
