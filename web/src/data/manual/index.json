@@ -80,10 +80,11 @@
       "order": 5,
       "slug": "lineup-basics",
       "title": { "zh": "阵容:基本认识", "en": "Lineup Basics" },
-      "status": "stub",
+      "file": { "zh": "05-lineup-basics.md", "en": "05-lineup-basics.md" },
+      "status": "full",
       "hattrickEquivalent": "Hattrick § 4 (lineup part)",
-      "relatedChapters": [2, 3, 4, 15, 16],
-      "relatedEntries": ["position-keys-glossary", "skill-priority-w", "skill-priority-cb", "skill-priority-cm-dm-am", "skill-priority-cf", "skill-priority-gk"]
+      "relatedChapters": [2, 3, 4, 6, 14, 15, 16, 19],
+      "relatedEntries": ["position-keys-glossary", "skill-priority-w", "skill-priority-cb", "skill-priority-cm-dm-am", "skill-priority-cf", "skill-priority-gk", "player-event-types"]
     },
     {
       "order": 6,
