@@ -86,22 +86,23 @@ GoalXI's core systems (detailed in later chapters):
 | System | Chapter | One-liner |
 |---|---|---|
 | Player skills | [Ch 2](../02-player-skills.md) | 10 outfield skills + 9 GK skills |
-| Player other attributes | [Ch 3](../03-player-attributes.md) | PWI, form, EXP, injury, specialty |
-| Lineup | [Ch 4](../04-lineup-basics.md) | 14 positions + substitution |
-| Match basics | [Ch 5](../05-match-basics.md) | 90-min real-time sim, 14 event types |
-| Training | [Ch 6](../06-training.md) | 5 training categories |
-| Staff | [Ch 7](../07-staff.md) | 7 StaffRole types |
-| Finance | [Ch 8](../08-finance.md) | Wages, income, Goalxi Coin |
-| Fans | [Ch 9](../09-fans.md) | Attendance, fan reaction |
-| Stadium | [Ch 10](../10-stadium.md) | Capacity, seats, upgrades |
-| Set pieces | [Ch 13](../13-set-pieces.md) | Free kicks, penalties, special events |
-| Match tactics | [Ch 14](../14-tactics.md) | tempo / pitchWidth / defensiveLine |
-| Subs and team orders | [Ch 15](../15-subs-and-orders.md) | In-match adjustments, substitutions |
-| Transfers | [Ch 17](../17-transfer.md) | Open market, auction, buyout |
-| Youth and scouts | [Ch 18](../18-youth.md) | Recruit, reveal, promote |
-| League system | [Ch 19](../19-league-system.md) | 5-tier pyramid, 85+ leagues |
-| Cup system | [Ch 20](../20-cup-system.md) | Cup + playoffs |
-| National team | [Ch 23](../23-national-team.md) | NATIONAL_TEAM, 5x EXP |
+| Player positions | [Ch 3](../03-positions.md) | 14 position families + headline skills (qualitative) |
+| Player other attributes | [Ch 4](../04-player-attributes.md) | PWI, form, EXP, injury, specialty |
+| Lineup | [Ch 5](../05-lineup-basics.md) | 14 positions + substitution |
+| Match basics | [Ch 6](../06-match-basics.md) | 90-min real-time sim, 14 event types |
+| Training | [Ch 7](../07-training.md) | 5 training categories |
+| Staff | [Ch 8](../08-staff.md) | 7 StaffRole types |
+| Finance | [Ch 9](../09-finance.md) | Wages, income, Goalxi Coin |
+| Fans | [Ch 10](../10-fans.md) | Attendance, fan reaction |
+| Stadium | [Ch 11](../11-stadium.md) | Capacity, seats, upgrades |
+| Set pieces | [Ch 14](../14-set-pieces.md) | Free kicks, penalties, special events |
+| Match tactics | [Ch 15](../15-tactics.md) | tempo / pitchWidth / defensiveLine |
+| Subs and team orders | [Ch 16](../16-subs-and-orders.md) | In-match adjustments, substitutions |
+| Transfers | [Ch 18](../18-transfer.md) | Open market, auction, buyout |
+| Youth and scouts | [Ch 19](../19-youth.md) | Recruit, reveal, promote |
+| League system | [Ch 20](../20-league-system.md) | Multi-tier pyramid (tier count configurable) |
+| Cup system | [Ch 21](../21-cup-system.md) | Cup + playoffs |
+| National team | [Ch 24](../24-national-team.md) | NATIONAL_TEAM, 5x EXP |
 
 > Chapter links are relative paths. If you move the whole manual to a different location, remember to update them.
 
@@ -131,5 +132,5 @@ So your opponents are **people who think**, not scripts. Wins come from tactics,
 **What to read next**:
 
 - [Ch 2: Player Skills](02-player-skills.md) — full breakdown of the 10 outfield + 9 GK skills
-- [Ch 3: Player Other Attributes](03-player-attributes.md) — PWI / form / EXP / injury / specialty
-- [Ch 4: Lineup Basics](04-lineup-basics.md) — 14 position families + substitution
+- [Ch 3: Player Positions](03-positions.md) — 14 position families + headline skills
+- [Ch 4: Player Other Attributes](04-player-attributes.md) — PWI / form / EXP / injury / specialty

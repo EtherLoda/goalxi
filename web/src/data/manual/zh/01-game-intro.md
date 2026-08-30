@@ -86,22 +86,23 @@ GoalXI 的核心系统(后续章节详细讲):
 | 系统 | 章节 | 一句话 |
 |---|---|---|
 | 球员技能 | [第 2 章](../02-player-skills.md) | 10 项 outfield 技能 + 9 项 GK 技能 |
-| 球员其他属性 | [第 3 章](../03-player-attributes.md) | PWI、form、EXP、伤病、specialty |
-| 阵容 | [第 4 章](../04-lineup-basics.md) | 14 个位置 + 替补机制 |
-| 比赛基础 | [第 5 章](../05-match-basics.md) | 90 分钟实时模拟、14 种事件 |
-| 训练 | [第 6 章](../06-training.md) | 5 大训练类别 |
-| 教练 / 职员 | [第 7 章](../07-staff.md) | 7 类 StaffRole |
-| 财政 | [第 8 章](../08-finance.md) | 工资、收入、Goalxi Coin |
-| 球迷 | [第 9 章](../09-fans.md) | 上座率、球迷反应 |
-| 球场 | [第 10 章](../10-stadium.md) | 容量、座位、升级 |
-| 比赛定位球 | [第 13 章](../13-set-pieces.md) | 任意球、点球、特别事件 |
-| 比赛战术 | [第 14 章](../14-tactics.md) | tempo / pitchWidth / defensiveLine |
-| 替补 / 球队指示 | [第 15 章](../15-subs-and-orders.md) | 临场调整、换人 |
-| 转会 | [第 17 章](../17-transfer.md) | 公开市场、拍卖、buyout |
-| 青训 / 球探 | [第 18 章](../18-youth.md) | 招募、reveal、promote |
-| 联赛 | [第 19 章](../19-league-system.md) | 5 层金字塔、85+ 联赛 |
-| 杯赛 | [第 20 章](../20-cup-system.md) | 杯赛 + 季后赛 |
-| 国家队 | [第 23 章](../23-national-team.md) | NATIONAL_TEAM、5x EXP |
+| 球员位置 | [第 3 章](../03-positions.md) | 14 个位置家族 + 头牌技能(定性) |
+| 球员其他属性 | [第 4 章](../04-player-attributes.md) | PWI、form、EXP、伤病、specialty |
+| 阵容 | [第 5 章](../05-lineup-basics.md) | 14 个位置 + 替补机制 |
+| 比赛基础 | [第 6 章](../06-match-basics.md) | 90 分钟实时模拟、14 种事件 |
+| 训练 | [第 7 章](../07-training.md) | 5 大训练类别 |
+| 教练 / 职员 | [第 8 章](../08-staff.md) | 7 类 StaffRole |
+| 财政 | [第 9 章](../09-finance.md) | 工资、收入、Goalxi Coin |
+| 球迷 | [第 10 章](../10-fans.md) | 上座率、球迷反应 |
+| 球场 | [第 11 章](../11-stadium.md) | 容量、座位、升级 |
+| 比赛定位球 | [第 14 章](../14-set-pieces.md) | 任意球、点球、特别事件 |
+| 比赛战术 | [第 15 章](../15-tactics.md) | tempo / pitchWidth / defensiveLine |
+| 替补 / 球队指示 | [第 16 章](../16-subs-and-orders.md) | 临场调整、换人 |
+| 转会 | [第 18 章](../18-transfer.md) | 公开市场、拍卖、buyout |
+| 青训 / 球探 | [第 19 章](../19-youth.md) | 招募、reveal、promote |
+| 联赛 | [第 20 章](../20-league-system.md) | 多层金字塔(层数可配置) |
+| 杯赛 | [第 21 章](../21-cup-system.md) | 杯赛 + 季后赛 |
+| 国家队 | [第 24 章](../24-national-team.md) | NATIONAL_TEAM、5x EXP |
 
 > 章节链接是相对路径,如果你把整本手册搬到另一个地方,记得同步改链接。
 
@@ -131,5 +132,5 @@ GoalXI 不是单机 —— 你的对手是**真实玩家**:
 **接下来读什么**:
 
 - [第 2 章:球员:技能](02-player-skills.md) — 10 项技能 + GK 9 项技能完整图解
-- [第 3 章:球员:其他属性](03-player-attributes.md) — PWI / form / EXP / 伤病 / specialty
-- [第 4 章:阵容:基本认识](04-lineup-basics.md) — 14 个位置家族 + 替补机制
+- [第 3 章:球员:位置](03-positions.md) — 14 个位置家族 + 头牌技能
+- [第 4 章:球员:其他属性](04-player-attributes.md) — PWI / form / EXP / 伤病 / specialty
