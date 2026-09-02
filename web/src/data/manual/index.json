@@ -1,5 +1,5 @@
 {
-  "version": 7,
+  "version": 8,
   "lastUpdated": "2026-09-02",
   "format": {
     "manualRoot": "web/src/data/manual",
@@ -14,6 +14,11 @@
     }
   },
   "changelog": [
+    {
+      "version": 8,
+      "date": "2026-09-02",
+      "change": "Wrote ch 27 (rankings) zh + en — MVP 阶段只有 3 个排名(联赛积分榜 / 联赛球员榜 / 单球队赛季统计),全 per-league;4 个没有(全球球队榜 / 全球射手榜 / 转会活跃榜 / 球迷榜);球员榜默认前 10 / 仅 3 种 type(goals/assists/tackles);未来可能加(跨联赛榜 / 个人奖项)."
+    },
     {
       "version": 7,
       "date": "2026-09-02",
@@ -303,11 +308,11 @@
       "order": 27,
       "slug": "rankings",
       "title": { "zh": "球队排名", "en": "Team Rankings" },
-      "status": "stub",
+      "file": { "zh": "27-rankings.md", "en": "27-rankings.md" },
+      "status": "full",
       "hattrickEquivalent": "Hattrick § 26",
       "relatedChapters": [20, 21],
-      "relatedEntries": [],
-      "notes": "League standings exist (entity + service). Need to confirm what other rankings (scoring / transfers / fan) are exposed."
+      "relatedEntries": []
     }
   ],
   "appendices": [
