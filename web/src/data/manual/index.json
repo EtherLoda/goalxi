@@ -100,10 +100,11 @@
       "order": 7,
       "slug": "training",
       "title": { "zh": "训练", "en": "Training" },
-      "status": "stub",
+      "file": { "zh": "07-training.md", "en": "07-training.md" },
+      "status": "full",
       "hattrickEquivalent": "Hattrick § 6",
-      "relatedChapters": [8, 9],
-      "relatedEntries": []
+      "relatedChapters": [2, 3, 4, 8, 9],
+      "relatedEntries": ["condition-form-injury", "comparing-two-players", "pwi-vs-overall", "outfield-skills-meaning", "gk-skills-vs-outfield"]
     },
     {
       "order": 8,
