@@ -15,6 +15,11 @@ export class TacticsResDto {
     minute: number;
     out: number;
     in: number;
+    /**
+     * `undefined` (or absent) is treated as `always` by the engine.
+     * Mirrors the field written by `MatchService.normaliseSubstitutions`.
+     */
+    condition?: string;
   }> | null;
   submittedAt!: Date;
   presetId!: string | null;

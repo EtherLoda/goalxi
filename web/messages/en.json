@@ -1817,5 +1817,18 @@
         "saving": "Saving..."
       }
     }
+  },
+  "manual": {
+    "eyebrow": "Game Manual",
+    "title": "Manual",
+    "subtitle": "Everything you need to know to manage your club, organised in chapters. New here? Start with the introduction.",
+    "chaptersLabel": "Chapters",
+    "appendixLabel": "Appendix",
+    "empty": "No chapters available yet.",
+    "relatedCount": "{count, plural, =0 {} one {1 related chapter} other {# related chapters}}",
+    "tocLabel": "On this page",
+    "tocAria": "Chapter contents",
+    "prevChapter": "Previous chapter",
+    "nextChapter": "Next chapter"
   }
 }

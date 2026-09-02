@@ -1814,5 +1814,18 @@
         "saving": "保存中..."
       }
     }
+  },
+  "manual": {
+    "eyebrow": "游戏手册",
+    "title": "手册",
+    "subtitle": "管理球队所需的全部内容，按章节组织。新手从入门开始。",
+    "chaptersLabel": "章节",
+    "appendixLabel": "附录",
+    "empty": "暂无章节。",
+    "relatedCount": "{count, plural, =0 {} other {# 个相关章节}}",
+    "tocLabel": "本页目录",
+    "tocAria": "本章目录",
+    "prevChapter": "上一章",
+    "nextChapter": "下一章"
   }
 }
