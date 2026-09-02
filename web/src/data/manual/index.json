@@ -120,10 +120,11 @@
       "order": 9,
       "slug": "finance",
       "title": { "zh": "财政", "en": "Finance" },
-      "status": "stub",
+      "file": { "zh": "09-finance.md", "en": "09-finance.md" },
+      "status": "full",
       "hattrickEquivalent": "Hattrick § 8",
-      "relatedChapters": [10, 11, 18],
-      "relatedEntries": []
+      "relatedChapters": [8, 10, 11, 18],
+      "relatedEntries": ["comparing-two-players"]
     },
     {
       "order": 10,
