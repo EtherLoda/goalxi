@@ -1603,7 +1603,6 @@
     },
     "doctor": {
       "title": "队医",
-      "level": "Lv. {level}",
       "recoveryBonus": "恢复加成",
       "contractExpiry": "合同到期",
       "none": "尚未聘任队医,按基础速率恢复。"

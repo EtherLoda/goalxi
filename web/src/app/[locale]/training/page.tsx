@@ -10,6 +10,7 @@ interface CoachPlayerWithGK extends CoachAssignment {
   isGoalkeeper: boolean;
 }
 import PlayerStatsCard from "@/components/player/PlayerStatsCard";
+import { coachLevelLabel, coachLevelColorClass } from "@/lib/coach-level";
 
 const STAFF_ROLE_LABELS: Record<string, { label: string; labelEn: string }> = {
   head_coach: { label: "主教练", labelEn: "Head Coach" },
@@ -418,18 +419,10 @@ export default function TrainingPage() {
     });
   };
 
-  const levelColors = [
-    'text-white',       // Lv1
-    'text-green-400',   // Lv2
-    'text-blue-400',    // Lv3
-    'text-purple-400',  // Lv4
-    'text-orange-400',  // Lv5
-  ];
-
   const renderLevel = (level: number) => {
     return (
-      <span className={`font-bold ${levelColors[level - 1] || 'text-white'}`}>
-        Lv{level}
+      <span className={`font-bold ${coachLevelColorClass(level)}`}>
+        {coachLevelLabel(level)}
       </span>
     );
   };
@@ -1356,8 +1349,8 @@ export default function TrainingPage() {
                         : "bg-surface-container-low text-on-surface hover:bg-surface-container"
                     }`}
                   >
-                    <span className="material-symbols-outlined text-xl mb-1" style={{ fontVariationSettings: "'FILL' 1" }}>star</span>
-                    <div className="text-xs font-medium">Lv.{level}</div>
+                    <span className={`material-symbols-outlined text-xl mb-1 ${coachLevelColorClass(level)}`} style={{ fontVariationSettings: "'FILL' 1" }}>star</span>
+                    <div className={`text-base font-bold ${coachLevelColorClass(level)}`}>{coachLevelLabel(level)}</div>
                   </button>
                 ))}
               </div>
@@ -1416,8 +1409,8 @@ export default function TrainingPage() {
                         : "bg-surface-container-low text-on-surface hover:bg-surface-container"
                     }`}
                   >
-                    <span className="material-symbols-outlined text-xl mb-1" style={{ fontVariationSettings: "'FILL' 1" }}>star</span>
-                    <div className="text-xs font-medium">Lv.{level}</div>
+                    <span className={`material-symbols-outlined text-xl mb-1 ${coachLevelColorClass(level)}`} style={{ fontVariationSettings: "'FILL' 1" }}>star</span>
+                    <div className={`text-base font-bold ${coachLevelColorClass(level)}`}>{coachLevelLabel(level)}</div>
                   </button>
                 ))}
               </div>
@@ -1466,7 +1459,7 @@ export default function TrainingPage() {
             <div className="bg-surface-container-low rounded-DEFAULT p-4 mb-6">
               <div className="flex justify-between text-sm mb-2">
                 <span className="text-on-surface-variant">Current:</span>
-                <span className="text-on-surface font-medium">Lv.{fitnessCoach.level} (${costSummary.salaryByLevel[fitnessCoach.level]?.toLocaleString() || 0}/week)</span>
+                <span className={`text-on-surface font-medium ${coachLevelColorClass(fitnessCoach.level)}`}>{coachLevelLabel(fitnessCoach.level)} (${costSummary.salaryByLevel[fitnessCoach.level]?.toLocaleString() || 0}/week)</span>
               </div>
               <div className="flex justify-between text-sm">
                 <span className="text-on-surface-variant">{t('training.signingFee')}:</span>
@@ -1488,8 +1481,8 @@ export default function TrainingPage() {
                         : "bg-surface-container-low text-on-surface hover:bg-surface-container"
                     }`}
                   >
-                    <span className="material-symbols-outlined text-xl mb-1" style={{ fontVariationSettings: "'FILL' 1" }}>star</span>
-                    <div className="text-xs font-medium">Lv.{level}</div>
+                    <span className={`material-symbols-outlined text-xl mb-1 ${coachLevelColorClass(level)}`} style={{ fontVariationSettings: "'FILL' 1" }}>star</span>
+                    <div className={`text-base font-bold ${coachLevelColorClass(level)}`}>{coachLevelLabel(level)}</div>
                   </button>
                 ))}
               </div>

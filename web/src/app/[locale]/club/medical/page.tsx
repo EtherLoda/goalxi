@@ -10,6 +10,7 @@ import {
   type PlayerInjuryStatus,
   type TeamDoctor,
 } from "@/lib/api";
+import { coachLevelLabel, coachLevelColorClass } from "@/lib/coach-level";
 import { useCurrentTeamId } from "@/stores/gameStore";
 import { formatRecoveryWeeks } from "@/lib/format-recovery-weeks";
 
@@ -158,8 +159,8 @@ export default function MedicalPage() {
                   <div className="font-headline text-sm font-bold text-on-surface truncate">
                     {doctor.name}
                   </div>
-                  <div className="font-label text-[10px] font-bold text-on-surface-variant uppercase tracking-widest">
-                    {t("doctor.level", { level: doctor.level })}
+                  <div className={`font-label text-[10px] font-bold uppercase tracking-widest ${coachLevelColorClass(doctor.level)}`}>
+                    {coachLevelLabel(doctor.level)}
                   </div>
                 </div>
               </div>

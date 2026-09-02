@@ -1606,7 +1606,6 @@
     },
     "doctor": {
       "title": "Team Doctor",
-      "level": "Level {level}",
       "recoveryBonus": "Recovery bonus",
       "contractExpiry": "Contract ends",
       "none": "No team doctor hired. Recovery is at the base rate."
