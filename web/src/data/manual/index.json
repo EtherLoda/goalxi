@@ -1,5 +1,5 @@
 {
-  "version": 5,
+  "version": 6,
   "lastUpdated": "2026-09-02",
   "format": {
     "manualRoot": "web/src/data/manual",
@@ -14,6 +14,11 @@
     }
   },
   "changelog": [
+    {
+      "version": 6,
+      "date": "2026-09-02",
+      "change": "Wrote ch 18 (transfer) zh + en — 2 种挂牌(quick list / auction) + 拍卖机制(出价规则 / 最后 3 分钟延长 / lockedCash) + 5 状态机(ACTIVE/SETTLING/SOLD/EXPIRED/CANCELLED) + 7 不能做(buyout disabled / 续约未接 / 跨联赛未做 / 议价未做 / 交换未做 / 租借未做 / 借贷未做) + 定价参考表 + 买人 4 步流程."
+    },
     {
       "version": 5,
       "date": "2026-09-02",
@@ -204,10 +209,11 @@
       "order": 18,
       "slug": "transfer",
       "title": { "zh": "转会交易", "en": "Transfer Market" },
-      "status": "stub",
+      "file": { "zh": "18-transfer.md", "en": "18-transfer.md" },
+      "status": "full",
       "hattrickEquivalent": "Hattrick § 17",
-      "relatedChapters": [3, 9, 19],
-      "relatedEntries": ["release-list-player", "comparing-two-players"]
+      "relatedChapters": [3, 9],
+      "relatedEntries": ["release-list-player", "comparing-two-players", "pwi-vs-overall", "experience-meaning"]
     },
     {
       "order": 19,
