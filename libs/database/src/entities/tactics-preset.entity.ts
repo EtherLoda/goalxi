@@ -59,7 +59,17 @@ export class TacticsPresetEntity extends BaseEntity {
     substitutions?: Array<{ minute: number; out: never; in: never }> | null;
 
     @Column({ name: 'substitutions_v2', type: 'jsonb', nullable: true })
-    substitutionsV2?: Array<{ minute: number; out: number; in: number }>;
+    /**
+     * Same wire shape as `MatchTacticsEntity.substitutionsV2` — the
+     * engine reads both columns via `simulation.processor.ts`.
+     * `condition` is optional; `undefined` means `always`.
+     */
+    substitutionsV2?: Array<{
+      minute: number;
+      out: number;
+      in: number;
+      condition?: string;
+    }>;
 
     @CreateDateColumn({ name: 'created_at' })
     createdAt!: Date;

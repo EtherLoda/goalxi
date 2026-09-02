@@ -257,16 +257,35 @@ export class PresetService {
 
   private normaliseSubstitutions(
     substitutions:
-      | Array<{ minute: number; out: string | number; in: string | number }>
+      | Array<{
+          minute: number;
+          out: string | number;
+          in: string | number;
+          condition?: string;
+        }>
       | null
       | undefined,
-  ): Array<{ minute: number; out: number; in: number }> | undefined {
+  ): Array<{ minute: number; out: number; in: number; condition?: string }> | undefined {
     if (!substitutions || substitutions.length === 0) return undefined;
     return substitutions.map((s) => ({
       minute: Number(s.minute),
       out:
         typeof s.out === 'number' ? s.out : Number.parseInt(String(s.out), 10),
       in: typeof s.in === 'number' ? s.in : Number.parseInt(String(s.in), 10),
+      // Same condition-forwarding policy as MatchService. The DTO
+      // already validates with @IsEnum(EventCondition); here we just
+      // gate on the known set so a stale value can't poison the row.
+      ...(s.condition &&
+      [
+        'always',
+        'leading',
+        'trailing',
+        'tied',
+        'notLeading',
+        'notTrailing',
+      ].includes(s.condition)
+        ? { condition: s.condition }
+        : {}),
     }));
   }
 }

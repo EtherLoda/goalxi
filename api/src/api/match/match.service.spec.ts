@@ -376,6 +376,147 @@ describe('MatchService', () => {
       const result = await service.submitTactics(matchId, teamId, dto);
       expect(result.formation).toBe('4-4-2');
     });
+
+    /**
+     * Regression: tactical event conditions (always / leading / trailing
+     * / tied / notLeading / notTrailing) used to be silently stripped by
+     * the global ValidationPipe because `SubstitutionDto` had no
+     * `condition` field, which made every sub fire regardless of score.
+     * The engine's `shouldFire` now receives the right gate. This test
+     * pins the wire-to-DB contract:
+     *   wire { condition: 'trailing' } → substitutionsV2[0].condition === 'trailing'
+     * and also pins the forwarder's allowlist (unknown values are dropped
+     * so a future typo / stale FE build can't poison the row).
+     */
+    it('should forward substitution condition to substitutionsV2', async () => {
+      const matchId = 'match-id';
+      const teamId = 'team-id';
+      const dto: SubmitTacticsReqDto = {
+        teamId,
+        formation: '4-3-3',
+        lineup: {
+          GK: 1001,
+          CBL: 1002,
+          CBR: 1003,
+          LB: 1004,
+          RB: 1005,
+          CML: 1006,
+          CMR: 1007,
+          LW: 1008,
+          RW: 1009,
+          CF: 1010,
+        },
+        substitutions: [
+          { minute: 60, out: 1006, in: 1011, condition: 'trailing' as any },
+          { minute: 75, out: 1008, in: 1012 }, // no condition → always
+          { minute: 80, out: 1010, in: 1013, condition: 'leading' as any },
+        ],
+      };
+
+      mockMatchRepository.findOne.mockResolvedValue({
+        id: matchId,
+        homeTeamId: teamId,
+        scheduledAt: new Date(Date.now() + 31 * 60 * 1000),
+        tacticsLocked: false,
+      });
+
+      mockPlayerRepository.find.mockResolvedValue(
+        Array.from({ length: 13 }, (_, i) => ({
+          id: 1001 + i,
+          isGoalkeeper: i === 0,
+        })),
+      );
+      mockTacticsRepository.findOne.mockResolvedValue(null);
+      // Reset create/save mocks so the previous "should succeed" test's
+      // `mockResolvedValue({...dto, id: 'tactics-id'})` doesn't shadow
+      // this test's payload. `mock.calls` is also reset so the index
+      // `[0]` below reads this test's save call only.
+      mockTacticsRepository.create.mockReset();
+      mockTacticsRepository.save.mockReset();
+      mockTacticsRepository.create.mockImplementation((payload) => ({
+        ...payload,
+        id: 'tactics-id',
+      }));
+      mockTacticsRepository.save.mockImplementation(async (payload) => payload);
+
+      await service.submitTactics(matchId, teamId, dto);
+
+      // The save call is the source of truth — verify what landed in the row.
+      const saved = mockTacticsRepository.save.mock.calls[0][0] as {
+        substitutionsV2: Array<{
+          minute: number;
+          out: number;
+          in: number;
+          condition?: string;
+        }>;
+      };
+      expect(saved.substitutionsV2).toEqual([
+        { minute: 60, out: 1006, in: 1011, condition: 'trailing' },
+        { minute: 75, out: 1008, in: 1012 }, // condition dropped — equivalent to 'always'
+        { minute: 80, out: 1010, in: 1013, condition: 'leading' },
+      ]);
+    });
+
+    /**
+     * Unknown condition values are NOT forwarded — defensive against a
+     * future FE build that ships a typo, or an old client that still
+     * sends a name we renamed. The engine treats `undefined` as `always`,
+     * which is the safe default.
+     */
+    it('should drop unknown substitution conditions instead of persisting them', async () => {
+      const matchId = 'match-id';
+      const teamId = 'team-id';
+      const dto: SubmitTacticsReqDto = {
+        teamId,
+        formation: '4-3-3',
+        lineup: {
+          GK: 1001,
+          CBL: 1002,
+          CBR: 1003,
+          LB: 1004,
+          RB: 1005,
+          CML: 1006,
+          CMR: 1007,
+          LW: 1008,
+          RW: 1009,
+          CF: 1010,
+        },
+        substitutions: [
+          // Bypasses DTO validation only if the wire payload were tampered
+          // with directly. The service-layer gate is the last line of
+          // defence; the DTO would normally reject this in production.
+          { minute: 60, out: 1006, in: 1011, condition: 'winning' as any },
+        ],
+      };
+
+      mockMatchRepository.findOne.mockResolvedValue({
+        id: matchId,
+        homeTeamId: teamId,
+        scheduledAt: new Date(Date.now() + 31 * 60 * 1000),
+        tacticsLocked: false,
+      });
+      mockPlayerRepository.find.mockResolvedValue(
+        Array.from({ length: 12 }, (_, i) => ({
+          id: 1001 + i,
+          isGoalkeeper: i === 0,
+        })),
+      );
+      mockTacticsRepository.findOne.mockResolvedValue(null);
+      mockTacticsRepository.create.mockReset();
+      mockTacticsRepository.save.mockReset();
+      mockTacticsRepository.create.mockImplementation((payload) => ({
+        ...payload,
+        id: 'tactics-id',
+      }));
+      mockTacticsRepository.save.mockImplementation(async (payload) => payload);
+
+      await service.submitTactics(matchId, teamId, dto);
+
+      const saved = mockTacticsRepository.save.mock.calls[0][0] as {
+        substitutionsV2: Array<{ condition?: string }>;
+      };
+      expect(saved.substitutionsV2?.[0].condition).toBeUndefined();
+    });
   });
 
   describe('validateTeamOwnership', () => {

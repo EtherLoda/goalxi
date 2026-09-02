@@ -632,19 +632,46 @@ export class MatchService {
    * Coerce wire `substitutions` into the int-keyed `substitutionsV2` shape.
    * Returns `undefined` (which TypeORM persists as NULL) when the caller
    * didn't send any, matching the entity column being nullable.
+   *
+   * Forwards `condition` (always / leading / trailing / tied / notLeading /
+   * notTrailing) so the engine's `shouldFire` can gate the sub on the
+   * match score. The DTO already validates the value; here we just pass
+   * it through. `undefined` means `always` per the engine's contract.
    */
   private normaliseSubstitutions(
     substitutions:
-      | Array<{ minute: number; out: string | number; in: string | number }>
+      | Array<{
+          minute: number;
+          out: string | number;
+          in: string | number;
+          condition?: string;
+        }>
       | null
       | undefined,
-  ): Array<{ minute: number; out: number; in: number }> | undefined {
+  ): Array<{ minute: number; out: number; in: number; condition?: string }> | undefined {
     if (!substitutions || substitutions.length === 0) return undefined;
     return substitutions.map((s) => ({
       minute: Number(s.minute),
       out:
         typeof s.out === 'number' ? s.out : Number.parseInt(String(s.out), 10),
       in: typeof s.in === 'number' ? s.in : Number.parseInt(String(s.in), 10),
+      // `condition` is optional. We only forward the values the engine
+      // recognises (mirrors `EventCondition` in
+      // simulator/src/engine/types/simulation.types.ts) so a future typo
+      // or stale FE build doesn't poison the row. The DTO already
+      // validates this with `@IsEnum(EventCondition)`, so any value
+      // that reaches here is either a known condition or undefined.
+      ...(s.condition &&
+      [
+        'always',
+        'leading',
+        'trailing',
+        'tied',
+        'notLeading',
+        'notTrailing',
+      ].includes(s.condition)
+        ? { condition: s.condition }
+        : {}),
     }));
   }
 

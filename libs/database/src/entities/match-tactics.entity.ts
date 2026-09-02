@@ -69,7 +69,21 @@ export class MatchTacticsEntity extends BaseEntity {
     substitutions?: Array<{ minute: number; out: string | number; in: string | number }> | null;
 
     @Column({ name: 'substitutions_v2', type: 'jsonb', nullable: true })
-    substitutionsV2?: Array<{ minute: number; out: number; in: number }>;
+    /**
+     * Per-substitution trigger condition. `undefined` / missing means
+     * `always` per the engine's contract (`shouldFire` in
+     * `simulator/src/engine/match.engine.ts`). The wire path is
+     * FE → `SubstitutionDto` (validates with `@IsEnum(EventCondition)`)
+     * → `MatchService.normaliseSubstitutions` (forwards) → this column
+     * (jsonb, accepts the extra field) → `simulation.processor.ts`
+     * `mapInstructions` (reads `s.condition`).
+     */
+    substitutionsV2?: Array<{
+      minute: number;
+      out: number;
+      in: number;
+      condition?: string;
+    }>;
 
     @Column({ type: 'varchar', length: 10, default: 'balanced' })
     tempo!: string;
