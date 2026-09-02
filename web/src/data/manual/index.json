@@ -1,6 +1,6 @@
 {
-  "version": 2,
-  "lastUpdated": "2026-08-30",
+  "version": 4,
+  "lastUpdated": "2026-09-02",
   "format": {
     "manualRoot": "web/src/data/manual",
     "chapterFilePattern": "{order:02d}-{slug}.md",
@@ -14,6 +14,11 @@
     }
   },
   "changelog": [
+    {
+      "version": 4,
+      "date": "2026-09-02",
+      "change": "Wrote ch 14 (set-pieces) zh + en — 角球/任意球/点球/越位/红黄牌/受伤/乌龙/加时/点球大战 全部覆盖,自动选主罚 + 老将点球红利 + 特性挂钩 + 防线高度影响越位."
+    },
     {
       "version": 3,
       "date": "2026-09-02",
@@ -155,7 +160,8 @@
       "order": 14,
       "slug": "set-pieces",
       "title": { "zh": "比赛:定位球和特别事件", "en": "Set Pieces and Special Events" },
-      "status": "stub",
+      "file": { "zh": "14-set-pieces.md", "en": "14-set-pieces.md" },
+      "status": "full",
       "hattrickEquivalent": "Hattrick § 13",
       "relatedChapters": [6, 15],
       "relatedEntries": ["specialties-meaning", "player-event-types"]
