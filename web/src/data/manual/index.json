@@ -140,7 +140,8 @@
       "order": 11,
       "slug": "stadium",
       "title": { "zh": "球场", "en": "Stadium" },
-      "status": "stub",
+      "file": { "zh": "11-stadium.md", "en": "11-stadium.md" },
+      "status": "full",
       "hattrickEquivalent": "Hattrick § 10",
       "relatedChapters": [9, 10],
       "relatedEntries": []
