@@ -130,9 +130,10 @@
       "order": 10,
       "slug": "fans",
       "title": { "zh": "球迷", "en": "Fans" },
-      "status": "stub",
+      "file": { "zh": "10-fans.md", "en": "10-fans.md" },
+      "status": "full",
       "hattrickEquivalent": "Hattrick § 9",
-      "relatedChapters": [9, 11],
+      "relatedChapters": [6, 9, 11],
       "relatedEntries": []
     },
     {
