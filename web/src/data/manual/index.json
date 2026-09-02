@@ -15,6 +15,11 @@
   },
   "changelog": [
     {
+      "version": 3,
+      "date": "2026-09-02",
+      "change": "Removed ch 12 (lineup-experience-and-confusion) — already N/A, content covered in ch 4. Numbering now goes 0-11 + 14-27; ch 13 is permanently skipped (Hattrick § 13 mapped to our ch 14)."
+    },
+    {
       "version": 2,
       "date": "2026-08-30",
       "change": "Inserted ch 3 (positions) and bumped all subsequent chapters +1. Added appendix A3 (tier labels)."
@@ -145,16 +150,6 @@
       "hattrickEquivalent": "Hattrick § 10",
       "relatedChapters": [9, 10],
       "relatedEntries": []
-    },
-    {
-      "order": 12,
-      "slug": "lineup-experience-and-confusion",
-      "title": { "zh": "阵容:经验和混乱事件", "en": "Lineup: Experience and Confusion Events" },
-      "status": "not-applicable",
-      "hattrickEquivalent": "Hattrick § 12",
-      "relatedChapters": [],
-      "relatedEntries": [],
-      "notApplicableReason": "GoalXI doesn't have Hattrick's 'confusion' mechanic — that's a Hattrick-specific chaos system. Only the experience half of this chapter applies to GoalXI, and that is already covered under chapter 4 (player-attributes) and the experience-meaning FAQ entry."
     },
     {
       "order": 14,
