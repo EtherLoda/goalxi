@@ -1,5 +1,5 @@
 {
-  "version": 6,
+  "version": 7,
   "lastUpdated": "2026-09-02",
   "format": {
     "manualRoot": "web/src/data/manual",
@@ -14,6 +14,11 @@
     }
   },
   "changelog": [
+    {
+      "version": 7,
+      "date": "2026-09-02",
+      "change": "Wrote ch 20 (league-system) + ch 21 (cup-system) zh + en — 4 级金字塔 L1-L4 / 1+4+16+64 = 85 联赛 / 1360 队 / 16 队/联赛; 16 周赛季 / 周三+周六 / 6:00 UTC = 14:00 北京; 升降级 1+4+4 (直接升 / 附加赛 / 直接降); 积分榜 排序 积分→净胜球→进球; 杯赛 12 轮 / R0 L4 进 / R6 L1 进 / 单淘汰 / 加时+点球 / 周二+周四 / 1.0× EXP; MVP 限制(NATIONAL 1 种, 跨赛季归档 N/A, 季军赛 N/A)."
+    },
     {
       "version": 6,
       "date": "2026-09-02",
@@ -228,7 +233,8 @@
       "order": 20,
       "slug": "league-system",
       "title": { "zh": "联赛级别系统", "en": "League Tier System" },
-      "status": "stub",
+      "file": { "zh": "20-league-system.md", "en": "20-league-system.md" },
+      "status": "full",
       "hattrickEquivalent": "Hattrick § 19",
       "relatedChapters": [21, 24],
       "relatedEntries": []
@@ -237,7 +243,8 @@
       "order": 21,
       "slug": "cup-system",
       "title": { "zh": "杯赛系统", "en": "Cup System" },
-      "status": "stub",
+      "file": { "zh": "21-cup-system.md", "en": "21-cup-system.md" },
+      "status": "full",
       "hattrickEquivalent": "Hattrick § 20",
       "relatedChapters": [20],
       "relatedEntries": []
