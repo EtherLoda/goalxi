@@ -90,10 +90,11 @@
       "order": 6,
       "slug": "match-basics",
       "title": { "zh": "比赛:基本信息", "en": "Match Basics" },
-      "status": "stub",
+      "file": { "zh": "06-match-basics.md", "en": "06-match-basics.md" },
+      "status": "full",
       "hattrickEquivalent": "Hattrick § 5",
-      "relatedChapters": [14, 15, 16],
-      "relatedEntries": ["player-event-types"]
+      "relatedChapters": [5, 14, 15, 16, 18],
+      "relatedEntries": ["player-event-types", "condition-form-injury", "pwi-vs-overall", "comparing-two-players"]
     },
     {
       "order": 7,
