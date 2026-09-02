@@ -1,5 +1,5 @@
 {
-  "version": 4,
+  "version": 5,
   "lastUpdated": "2026-09-02",
   "format": {
     "manualRoot": "web/src/data/manual",
@@ -14,6 +14,11 @@
     }
   },
   "changelog": [
+    {
+      "version": 5,
+      "date": "2026-09-02",
+      "change": "Wrote ch 15 (tactics) zh + en — 3 维度(节奏/球场宽度/防线高度) 各档效果 + 5 个常见组合 + 战术跟球员匹配 + 锁定时机(UI 30 分钟 / BE 10 分钟) + 实战流程."
+    },
     {
       "version": 4,
       "date": "2026-09-02",
@@ -169,8 +174,9 @@
     {
       "order": 15,
       "slug": "tactics",
-      "title": { "zh": "比赛:战术", "en": "Match Tactics" },
-      "status": "stub",
+      "title": { "zh": "比赛:战术", "en": "Match: Tactics" },
+      "file": { "zh": "15-tactics.md", "en": "15-tactics.md" },
+      "status": "full",
       "hattrickEquivalent": "Hattrick § 14",
       "relatedChapters": [3, 5, 6, 14, 16],
       "relatedEntries": ["w-vs-wm", "wbl-vs-lb", "am-vs-cm", "dm-vs-cdm", "cfl-cfr-vs-cf"]
