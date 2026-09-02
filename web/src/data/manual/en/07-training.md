@@ -70,7 +70,7 @@ This chapter covers **how to set training**, **how to hire coaches**, **how to a
 - **Total specialised coaches per team**: **2 max** (excludes head coach and team doctor)
 
 **Coaches themselves**:
-- Have a **level** (1-5, five tiers); higher level = bigger training bonus
+- Have a **level** (**S / A / B / C / D** in five tiers, S highest, D lowest); higher level = bigger training bonus
 - Have a **signing fee** and **weekly salary** (financial pressure, see [chapter 9: Finance](09-finance.md))
 - Can be **upgraded** to a higher level
 - Can be **fired** (their assigned players go back to "unassigned")

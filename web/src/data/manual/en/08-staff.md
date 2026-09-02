@@ -18,15 +18,15 @@ Coaches (also called staff) train your players, recover their stamina, and speed
 
 ## 5 levels (coach strength)
 
-Every coach has one of **5 levels**:**Lv.1 → Lv.5**.
+Every coach has one of **5 levels**:**S / A / B / C / D** (S highest, D lowest).
 
 | Level | Role | Training bonus | Weekly wage (ref) |
 |---|---|---|---|
-| **Lv.1** | entry | lowest | 500 |
-| **Lv.2** | junior | low | 2,000 |
-| **Lv.3** | mid | medium | 8,000 |
-| **Lv.4** | senior | high | 32,000 |
-| **Lv.5** | top | highest | 128,000 |
+| **D** | entry | lowest | 500 |
+| **C** | junior | low | 2,000 |
+| **B** | mid | medium | 8,000 |
+| **A** | senior | high | 32,000 |
+| **S** | top | highest | 128,000 |
 
 **Key facts**:
 - Higher level = **bigger training bonus** (the actual bonus is in [chapter 7](07-training.md))
@@ -61,7 +61,7 @@ Training page → "Hire specialised coach" / "Hire fitness coach".
 
 **Steps**:
 1. Pick a role
-2. Pick a level (Lv.1 - Lv.5)
+2. Pick a level (D / C / B / A / S)
 3. (Specialised coach) Pick a main trained skill
 4. See the **signing fee + weekly wage** preview
 5. Confirm → cash deducted → coach active
@@ -95,7 +95,7 @@ Training page → "Hire specialised coach" / "Hire fitness coach".
 2. Rehire at a higher level (pays new signing fee)
 3. Old player assignments are **lost — re-drag** everyone
 
-> Short-term "save money" tip: **don't swap every season**. An Lv.3 mid-tier coach can hold up for 2-3 seasons. Only go Lv.4 / Lv.5 when you're pushing for the title.
+> Short-term "save money" tip: **don't swap every season**. A B-tier mid coach can hold up for 2-3 seasons. Only go A / S when you're pushing for the title.
 
 ---
 
@@ -117,11 +117,11 @@ Each specialised coach can take **up to 3 players**. The detailed mechanics are 
 
 | Doctor level | Recovery bonus |
 |---|---|
-| Lv.1 | 1.1× |
-| Lv.2 | 1.2× |
-| Lv.3 | 1.3× |
-| Lv.4 | 1.4× |
-| Lv.5 | 1.5× |
+| D | 1.1× |
+| C | 1.2× |
+| B | 1.3× |
+| A | 1.4× |
+| S | 1.5× |
 
 > No doctor? You can still play, but injuries recover at the **base rate** (1.0×, slower).
 
@@ -159,17 +159,17 @@ Every coach has a **contract**:
 
 | Level | Weekly wage | Signing fee (16 weeks' wage) |
 |---|---|---|
-| Lv.1 | 500 | 8,000 |
-| Lv.2 | 2,000 | 32,000 |
-| Lv.3 | 8,000 | 128,000 |
-| Lv.4 | 32,000 | 512,000 |
-| Lv.5 | 128,000 | 2,048,000 |
+| D | 500 | 8,000 |
+| C | 2,000 | 32,000 |
+| B | 8,000 | 128,000 |
+| A | 32,000 | 512,000 |
+| S | 128,000 | 2,048,000 |
 
 **Practical guidance**:
 - **Early game** (just took over the team): **don't hire anyone**, save up for a few weeks
-- **First core squad forming**: **Lv.1 head + Lv.1 fitness** (1k / week combined) is enough
-- **Mid-table**: **Lv.2-3 specialised** (10-20k / week total) + Lv.1 head
-- **Pushing for the title**: **Lv.4-5** (a single Lv.5 = 130k / week; signing fee 2M+). **Don't sign without checking the budget first** (see [chapter 9: Finance](09-finance.md))
+- **First core squad forming**: **D head + D fitness** (1k / week combined) is enough
+- **Mid-table**: **C-B specialised** (10-20k / week total) + D head
+- **Pushing for the title**: **A-S** (a single S = 130k / week; signing fee 2M+). **Don't sign without checking the budget first** (see [chapter 9: Finance](09-finance.md))
 
 > Wages auto-deduct weekly. **Check [chapter 9: Finance](09-finance.md) before signing.**
 
@@ -184,7 +184,7 @@ Every coach has a **contract**:
 ❌ **"Contract expired and the coach is gone"** — auto-renew was off; **turn it on at season end**
 ❌ **"My doctor is gone"** — same as above
 ❌ **"I changed the main trained skill but the player still trains elsewhere"** — probably the main skill **hit potential** and the system fell back to random (see [chapter 7](07-training.md))
-❌ **"Lv.5 doctor is too expensive"** — depends on injury pressure. Lots of injuries → buy; few → Lv.1-2 is enough
+❌ **"S-tier doctor is too expensive"** — depends on injury pressure. Lots of injuries → buy; few → D-C is enough
 
 ---
 
