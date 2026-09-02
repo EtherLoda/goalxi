@@ -10,7 +10,9 @@ relatedEntries: [specialties-meaning, player-event-types]
 
 # Match: Set Pieces and Special Events
 
-The "non-flow" events in a match — **corners, free kicks, penalties, offside, cards, injuries, own goals, extra time and penalty shootout** — all change the scoreline or the on-pitch numbers. The match runs automatically on your lineup + tactics + preset, so you can't pause mid-game to pick a taker. You can only **shape the outcome before kickoff through your lineup, bench, and specialty mix**.
+The "non-flow" events in a match — **corners, free kicks, penalties, cards, injuries, own goals, extra time and penalty shootout** — all change the scoreline or the on-pitch numbers. The match runs automatically on your lineup + tactics + preset, so you can't pause mid-game to pick a taker. You can only **shape the outcome before kickoff through your lineup, bench, and specialty mix**.
+
+> **About offside**: the engine has the **infrastructure already in place** (event type, stat field, commentary templates, defensive-line→probability constants), but **the simulation logic isn't wired up yet** — meaning the referee **doesn't actually call offside** on the pitch, and the FE shows no offside events. See the "Offside" section below for the full picture.
 
 This chapter explains **how these events happen in a match, what you can see, and how they hook into a player's attributes / specialties**. For the overall match flow see [Chapter 6](06-match-basics.md), for lineup see [Chapter 5](05-lineup-basics.md), for tactics see [Chapter 15](15-tactics.md).
 
@@ -90,21 +92,27 @@ A GK with `SAVING_MASTER` specialty (GOLD tier is strongest) gets a **stacking s
 
 **How it happens**: an attacking player is **closer to the opponent's goal line than the ball** when the pass is played, and **only the keeper is ahead of them** → linesman raises the flag → attacking side **loses possession**.
 
-**Tactical effect (key!)**:
-The **defensive line height** directly drives offside frequency (see [Chapter 15](15-tactics.md)):
+**Current status — simulation logic not wired up yet**:
 
-| Defensive line | Offside rate | Character |
-|---|---|---|
-| **Low** (drop back) | Very low | Few offside traps, deeper block, **safer on counters** |
-| **Mid** (default) | Normal | Balanced |
-| **High** (push up) | High | High press, **often caught offside** |
+The engine **has the offside infrastructure in place**, but **the simulation logic isn't connected yet**:
+- The event type `'offside'` is declared in the type union
+- The defensive-line→offside-probability constants are defined (low 1% / mid 4% / high 15%)
+- The post-match stat field `offsides` exists
+- The FE has 2 offside commentary templates ready
+- **But there's no `events.push({ type: 'offside' })` anywhere in the engine code** — the simulation never actually produces an offside event
 
-> Higher line → more offside → but **stronger attacking pressure** (the high-line bonus). This is a **tactical trade-off**, not a bug.
+**What this means in practice**:
+- **The referee doesn't actually call offside** — no matter how high you push the line, the match isn't affected by offside
+- **The FE shows no offside** — nothing on the timeline, the post-match stat is always 0, no commentary drops
+- **The "tactical trade-off" doesn't exist yet** — the defensive line **only** drives the **attacking press** vs **counter-exposure** trade-off (see [Chapter 15](15-tactics.md)), **not** offside
+- When the simulation logic gets wired up, all of the above will start working automatically — the data layer is ready
 
-**FE display**:
-- Offside **itself doesn't** enter the timeline (too frequent, like fouls)
-- **Post-match stats page** shows the offside count
-- **Commentary** sometimes drops a line ("flag goes up, {team} caught offside") — but **not every call**
+> **If / when it gets wired up, here's what players will see** (cross-ref [Chapter 15](15-tactics.md)):
+> - Higher defensive line → higher offside rate
+> - Offside doesn't enter the timeline (too frequent, like fouls)
+> - Post-match stats show the offside count
+> - Commentary sometimes drops a line ("flag goes up, {team} caught offside")
+> **But none of that is live today.**
 
 ### Yellow / red cards
 
@@ -213,7 +221,7 @@ Set pieces / special events **can't be operated mid-match**, but **before kickof
 | **Player's `freeKicks` / `penalties` skill** | Determines taker ranking — higher skill = more likely to be picked |
 | **Player position (AM / CM vs others)** | Taker ranking has a **bonus** (AM / CM the highest) |
 | **Player's `specialty`** | Modifies the matching events (see the table below) |
-| **Tactics — defensive line height** | Offside frequency (high line = more offside) |
+| **Tactics — defensive line height** | Attacking press / counter-exposure (offside logic not yet wired up, so it doesn't drive offside today) |
 | **Bench config** | Whether moderate / severe injuries **can be auto-subbed** (have a sub = sub, no sub = send-off) |
 | **GK's `SAVING_MASTER` specialty** | Penalty saves + key-save bonus |
 
@@ -241,21 +249,21 @@ There is **no dedicated pre-match settings page** for set pieces / special event
 2. **Pick the GK** — favor a GK with `SAVING_MASTER` (GOLD > SILVER > BRONZE) for penalty defense
 3. **Specialty mix** — possession-heavy system? Look for `POACHER` / `AERIAL_THREAT` / `COMPOSED`; counter-attack? Look for `SPEEDSTER`
 4. **Bench config** — every same-position slot must have a sub, otherwise a moderate / severe injury is **a direct send-off** (10 men)
-5. **Tactics — defensive line** — want to avoid the offside trap? Pick **low / mid**; want high press? Pick **high** (accept the offside risk)
+5. **Tactics — defensive line** — drives the **attacking press** vs **counter-exposure** trade-off (no offside effect today, see the "Offside" section above)
 
 ---
 
 ## 6. Common mistakes
 
 ❌ **"Why doesn't the corner enter the timeline?"** — corners are too frequent (8-12 per match), only the **goal** shows, not every delivery
-❌ **"Why don't I see the offside?"** — offside is too frequent, **doesn't enter the timeline**; it shows up in post-match stats
+❌ **"Why don't I see offside?"** — the **offside simulation isn't wired up yet**, so the referee never calls it, the FE shows nothing; the infrastructure is ready, it'll start working when the engine is connected
 ❌ **"Can we sub a red-carded player?"** — **no**. After a red the team **plays with 10**, the system **does not** auto-replace
 ❌ **"Is the 2nd yellow a yellow or a red?"** — it shows as a **red** (event type `red_card`), commentary may mention "second yellow"
 ❌ **"Do shootout goals count as personal stats?"** — **no**. They count for the result, **not** the player's goal tally
 ❌ **"Are veterans more reliable from the spot?"** — **yes**. Penalties only use `form` + `experience`, stamina doesn't apply, so the experience bonus is in full effect
 ❌ **"Can I pick the taker?"** — **no**. The system **auto-picks** by `penalties` / `freeKicks` skill + position bonus
 ❌ **"Did the GK play badly because he didn't save the penalty?"** — not necessarily — penalties are **high-scoring overall**, saves are rare; judge by **rate over many** kicks, not one
-❌ **"High line = lots of offside = bad tactic?"** — **no**. The high line also brings an attacking-pressure bonus; the offside is a trade-off
+❌ **"High line = lots of offside = bad tactic?"** — today, a high line **does NOT trigger more offside** (the simulation isn't wired up yet); the real cost of the high line is **getting hit on the counter**
 ❌ **"Why is my mildly injured player performing poorly?"** — mild = can play but **reduced ability**, **not** a bug
 
 ---
@@ -268,7 +276,7 @@ There is **no dedicated pre-match settings page** for set pieces / special event
 | **Lineup** (Chapter 5) | Starting 11 + 6 bench = taker candidate pool + auto-sub candidates |
 | **Player attributes** (Chapter 4) | `form` / `experience` / current stamina → drives set-piece performance (penalties only use form + exp) |
 | **Specialties** (Chapter 4) | `SAVING_MASTER` / `AERIAL_THREAT` / `POACHER` etc. directly affect set pieces / special events |
-| **Tactics** (Chapter 15) | Defensive line height directly drives offside frequency |
+| **Tactics** (Chapter 15) | Defensive line height drives the **attacking press / counter-exposure** trade-off (offside logic not yet wired up, so it doesn't drive offside today) |
 | **Player event history** (`player-event-types` entry) | The player detail page's `goal` / `INJURY` / `HAT_TRICK` events do **not** include set-piece types, they only log personal milestones |
 
 ---
@@ -278,4 +286,4 @@ There is **no dedicated pre-match settings page** for set pieces / special event
 - [Chapter 4: Player Other Attributes](04-player-attributes.md) — how `form` / `experience` / stamina drive set-piece performance
 - [Chapter 5: Lineup Basics](05-lineup-basics.md) — how to pick starters + bench (affects the set-piece candidate pool)
 - [Chapter 6: Match Basics](06-match-basics.md) — live event stream and timeline
-- [Chapter 15: Match Tactics](15-tactics.md) — how defensive line height drives offside frequency
+- [Chapter 15: Match Tactics](15-tactics.md) — how defensive line height drives the match (today: attacking press / counter-exposure; offside logic not yet wired up)

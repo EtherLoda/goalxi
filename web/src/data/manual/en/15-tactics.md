@@ -22,7 +22,7 @@ Tactical style = the 3 dimensions (tempo / pitch width / defensive line) you set
 |---|---|---|---|
 | **Tempo** | slow / balanced / fast | Drives attack pace (fast = more counters, slow = more possession) and **post-loss reaction** | Headline pace / passing decides whether you can play fast |
 | **Pitch width** | narrow / balanced / wide | Drives **flank** vs **central** play | W / wing-back more comfortable in wide; AM / CM more comfortable in narrow |
-| **Defensive line** | low / mid / high | Drives **offside-trap frequency** and **counter-exposure** | Fast CBs are fine on a high line; slow CBs need a low line |
+| **Defensive line** | low / mid / high | Drives **attacking press** and **counter-exposure** (offside logic not yet wired up, so it doesn't drive offside today) | Fast CBs are fine on a high line; slow CBs need a low line |
 
 > All 3 dimensions default to **balanced / balanced / mid**. Use the default when you have no opinion.
 
@@ -108,13 +108,14 @@ Tactical style = the 3 dimensions (tempo / pitch width / defensive line) you set
 
 ## 3. Defensive line
 
-**Defensive line = where the back four / three stand on the pitch**, 3 levels. **This is the highest-impact dimension of the three** because it ties directly into **offside** and **counter-exposure**.
+**Defensive line = where the back four / three stand on the pitch**, 3 levels. **This is the highest-impact dimension of the three** because it directly drives the **attacking press** vs **counter-exposure** trade-off.
+
+> **About offside**: the engine has the defensive-line→offside-probability constants (1% / 4% / 15% for low / mid / high) **but the simulation logic isn't wired up yet** — meaning a high line **does NOT actually call more offside** on the pitch (cross-ref [chapter 14](14-set-pieces.md) "Offside" section). When it gets wired up, an extra cost will land here. What follows is the **current live effect**.
 
 ### Low (deep block)
 
 - **Position**: the back line stays close to their own box
 - **Match shape**:
-  - **Few offside traps** (almost never flagged)
   - **Counter space is small** (opposition has to run a long way after winning the ball)
   - **Attacking press is weak** (you wait for the opponent to push up)
 - **Good for**:
@@ -125,14 +126,13 @@ Tactical style = the 3 dimensions (tempo / pitch width / defensive line) you set
 ### Mid (default)
 
 - Position is around the middle of the pitch
-- **Offside / counter-exposure / attacking press** are all balanced
+- **Counter-exposure / attacking press** are all balanced
 - **Default**
 
 ### High (high press)
 
 - **Position**: the back line sits near the halfway line
 - **Match shape**:
-  - **Many offside traps** (high line = more offside, see [chapter 14](14-set-pieces.md))
   - **Counter space is huge** (long balls / through balls split the line easily)
   - **Attacking press is strong** (win the ball back fast)
 - **Good for**:
@@ -140,12 +140,14 @@ Tactical style = the 3 dimensions (tempo / pitch width / defensive line) you set
   - Squads with **fast CBs / sweeper-keepers** (`SWEEPER_KEEPER` specialty)
   - 4-3-3 setups that need to press high
 
-### The cost of going high
+### The real cost of going high (today)
 
-**Higher line = more offside** (see [chapter 14](14-set-pieces.md)). This isn't a bug — it's a **tactical trade-off**:
+**The real trade-off is attacking press vs counter-exposure, not offside**:
 
 - **High line bonus**: **stronger pressing**, **faster ball recovery**
-- **High line cost**: **more offside**, **bigger space behind for counters**
+- **High line cost**: **bigger space behind for counters**
+
+> **Future** if the offside simulation is wired up, an extra cost ("more offside") will join this list. **Not today**.
 
 If your CBs are slow, the high line will get torn open on the counter. If your CBs are fast, the high line + fast wingers = a machine.
 
@@ -155,7 +157,7 @@ If your CBs are slow, the high line will get torn open on the counter. If your C
 |---|---|
 | **Strong vs weak** | **high** — press the opponent |
 | **Weak vs strong** | **low** — sit deep, counter |
-| **Fast CBs** + **fast keeper** | **high** — offside trap works |
+| **Fast CBs** + **fast keeper** | **high** — back line can catch up |
 | **Slow CBs** | **low** — don't get hit on the counter |
 | **Leading** | **low** — sit on the lead |
 | **Trailing** | **mid / high** — apply pressure (but don't over-commit) |
@@ -263,8 +265,8 @@ Tactical **style** is set **pre-match**. Mid-match (at a specified minute + cond
 | **Player skills** (chapter 2) | Tactics need to match headline skills (fast tempo needs pace heads) |
 | **Player positions** (chapter 3) | Formation picks positions; tactics pick how to play them |
 | **Specialties** (chapter 4) | Tactics trigger specialties (fast + `SPEEDSTER` = counter machine; high line + `SWEEPER_KEEPER` = solid back line) |
-| **Match events** (chapter 6) | Tactical style affects the **frequency and distribution** of every match event (shots / offside / counters...) |
-| **Set pieces / offside** (chapter 14) | **Defensive line height directly drives offside frequency** |
+| **Match events** (chapter 6) | Tactical style affects the **frequency and distribution** of every match event (shots / counters / tackles...) |
+| **Set pieces / offside** (chapter 14) | Defensive line height **today** only drives **attacking press / counter-exposure** (offside logic not yet wired up, see the "Offside" section in chapter 14) |
 | **Tactical changes** (chapter 16) | Tactical style is pre-match; tactical changes are mid-match |
 | **Tactical presets** (chapter 5) | Save + reuse common setups; don't rebuild every match |
 
@@ -273,10 +275,10 @@ Tactical **style** is set **pre-match**. Mid-match (at a specified minute + cond
 ## 9. Common mistakes
 
 ❌ **"Fast tempo is always better"**: **fast = more turnovers**; if your squad isn't fast, fast tempo actually costs you goals
-❌ **"High line = more offside = bad tactic"**: high line is a trade-off — **bonus pressing** + cost offside, depends on whether your squad can hold the line
+❌ **"High line = more offside = bad tactic"**: today, a high line **does NOT trigger more offside** (the simulation isn't wired up yet); the real cost of the high line is **getting hit on the counter**; once the offside logic is wired up, this trade-off will be complete
 ❌ **"Wide = lots of flank play"**: wide **needs strong wingers**; no winger = no flank
 ❌ **"Narrow = parking the bus"**: narrow = **central play**, not parking the bus; 5-3-2 + narrow = possession
-❌ **"Defensive line height = playing style"**: line height is an **offside / counter-exposure** trade-off, not the style itself
+❌ **"Defensive line height = playing style"**: line height is an **attacking press / counter-exposure** trade-off, not the style itself
 ❌ **"Tactics are independent of players"**: tactics tie tightly to **headline skills**; strong-vs-weak with weak players = wasted tactics
 ❌ **"I can still edit after lock"**: once the UI locks, stop trying; the backend also refuses new submissions ~10 min before kickoff
 ❌ **"The 3 dimensions are independent"**: they **interact** (fast + high + slow CB = disaster; slow + low + strong striker = wasted)
@@ -319,5 +321,5 @@ Save a few common setups as presets (home / away / strong opponent / weak oppone
 - [Chapter 3: Player Positions](03-positions.md) — how to pick a formation, how headlines and positions fit together
 - [Chapter 5: Lineup Basics](05-lineup-basics.md) — tactics editor + tactical changes + tactical presets
 - [Chapter 6: Match Basics](06-match-basics.md) — how tactical style shows up in match events
-- [Chapter 14: Set Pieces and Special Events](14-set-pieces.md) — how defensive line height drives offside
+- [Chapter 14: Set Pieces and Special Events](14-set-pieces.md) — the "Offside" section, "Current status — simulation logic not wired up yet"
 - [Chapter 16: Subs and Team Orders](16-subs-and-orders.md) — mid-match subs and position swaps
