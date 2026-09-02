@@ -3,7 +3,7 @@ order: 4
 slug: player-attributes
 title: Player Other Attributes
 status: full
-lastUpdated: 2026-08-30
+lastUpdated: 2026-09-02
 relatedChapters: [2, 3, 5, 18]
 relatedEntries: [current-vs-potential-skills, potential-tier-meaning, experience-meaning, specialties-meaning, condition-form-injury]
 ---
@@ -21,7 +21,7 @@ Skills (chapter 2) and positions (chapter 3) are the player's "hard metrics", bu
 - **in-match current energy** — remaining energy during a match (the energy bar)
 - **injury** — fitness status (gates availability)
 - **specialties** — 12 types, in GOLD / SILVER / BRONZE tiers
-- **age** — age (currently has no direct effect on in-match performance)
+- **age** — age (28+ triggers the skill-decay system, see below)
 
 > **The core idea**: **form, experience, and in-match current energy together determine the player's per-event performance on almost every match event** — goals, assists, tackles, saves, key passes, dribbles... The PWI is only a **pre-match estimate**; what actually happens on the pitch is governed by these three.
 
@@ -40,9 +40,11 @@ Skills (chapter 2) and positions (chapter 3) are the player's "hard metrics", bu
 > **High PWI ≠ guaranteed good performance on the pitch**. Two players with the same PWI, deployed in different positions, will produce wildly different results (position weights differ). Always read PWI together with **position** ([chapter 3](03-positions.md)).
 
 **When to look at PWI**:
-- Transfer market comparison (higher PWI → higher starting price / wage)
-- Scout reports (the PWI range the scout gives is a quick way to gauge a player's bracket)
-- Squad overview (scan the PWI distribution of your core players at a glance)
+- **Transfer market comparison** — PWI is the core metric for **your own judgement**, but **the asking price is set by the seller manually**; there's no PWI→price formula
+- **Scout reports** — the PWI range the scout gives is a quick way to gauge a player's bracket
+- **Squad overview** — scan the PWI distribution of your core players at a glance
+
+> **PWI ≠ starting price / wage**. The starting price is set by the seller manually; the wage is fixed at **player generation** (related to age + a random component, **not** to PWI directly). High PWI **may** correlate with a high wage (because the age term in the generation formula also drives the PWI ceiling), but the relationship is **not causal**. When you read PWI, **don't** assume "high PWI = must be expensive".
 
 ---
 
@@ -85,22 +87,27 @@ A potential label (low → high): **LOW / REGULAR / HIGH_PRO / ELITE / LEGEND**.
 
 ## form — short-term state
 
-**form = short-term state**, **directly affects the player's real-time performance in every match**. Range **0-5**, default **3.0**, with 3.0 as the baseline.
+**form = short-term state**, **directly affects the player's real-time performance in every match**. Effective range **~1-6** (the system clamps at 5.99, default 3.0).
 
 ### What form does in a match
 
 For every match, form determines a **status bonus** that's applied to the final outcome of **almost every match event** — goals, assists, tackles, saves, key passes, dribbles, aerial duels, etc.:
-- `form > 3.0` → bonus > 1 (key events get a proportional boost)
-- `form = 3.0` → neutral (baseline)
-- `form < 3.0` → bonus < 1 (key events get a proportional cut)
+- `form ≈ 3.5` → status bonus ≈ 0.95 (sigmoid midpoint, **closest to "no offset"**)
+- `form > 3.5` → bonus converges toward 1.12 (key events get a boost)
+- `form < 3.5` → bonus converges toward 0.78 (key events get a cut)
+- form 5+ sustained for many matches = clearly good; 1-2 sustained for many matches = clearly bad
 
-**Bottom line**: **a high-form player's event outcomes are systematically better**. Two players with the same skills, same position, but form 5.0 vs form 1.0 — the first will systematically outscore the second on goals, saves, and other key events.
+> Form never actually gives exactly 1.0; 3.5 is the closest it gets to a "no offset" point. Two players with the same skills, same position, but form 5.0 vs form 1.0 — the first will systematically outscore the second on goals, saves, and other key events.
 
 ### How form changes
 
-- **Matches** — good performances push it up, bad ones push it down
-- **Training** — training can affect it
-- **Long stretches without playing** — form drops
+Form is settled by a background worker at **Thursday 00:00 UTC (`condition-settlement`)**, which drives the current value toward a hidden baseline (plus a small random perturbation). The baseline is built from **minutes played, fan emotion, head-coach level, and current injury status** — that's it. **Form has nothing to do with how well the player actually performed on the pitch, and nothing to do with training** (training only changes skills, not form).
+
+Practical implications:
+- **Plenty of minutes** (60+ in a single match) → hidden baseline ≈ 3.5, form holds / climbs
+- **No match played** → hidden baseline ≈ 2.5, form slowly drifts down
+- **High fan emotion** → hidden baseline nudges up
+- **Playing through an injury** → hidden baseline -0.5 (clear drag)
 
 ### How form relates to PWI
 
@@ -222,13 +229,15 @@ For every match, current energy determines an **energy bonus**:
 
 ## injury — fitness status
 
-A player has a **current injury** state, **3 types**:
+A player has a **current injury** state, **3 buckets**:
 
 | State | Meaning | Behaviour |
 |---|---|---|
 | healthy | not injured | plays normally |
-| `minor` | minor injury | can play, **ability reduced** |
-| `severe` | major injury | **cannot play** |
+| **minor** | can keep playing | ability reduced (set by the system) |
+| **severe** | must leave the pitch | **forced sub**; same-position bench player comes on, otherwise 10 men |
+
+**Why 2 on-pitch buckets instead of 3**: an older version had a "moderate" tier (must leave the pitch); from 2026-08 it was merged into `severe` (both are "must leave the pitch", the only difference is recovery length, which is now driven directly by the injury value rather than a severity label). On the pitch today, only minor vs severe matters.
 
 **Injury types** (5 kinds):
 - `muscle` (muscle)
@@ -238,8 +247,9 @@ A player has a **current injury** state, **3 types**:
 - `other` (other)
 
 **How injuries happen**:
-- Triggered by match events (tackles, overuse, etc.)
-- Long stretches without rest can accumulate
+- Triggered by match events (tackle / sprint / jump / collision / overuse, can happen any match)
+- Probability scales with **age, stamina, and the `PHYSICAL_BEAST` / `AERIAL_THREAT` specialty** (older / low-stamina players are more injury-prone)
+- **Each player can only be injured once per match** (the engine de-duplicates)
 
 **How to read / use injuries**:
 - Player card / detail page shows the "injury" status
@@ -248,7 +258,7 @@ A player has a **current injury** state, **3 types**:
 
 **Practical implications**:
 - Before buying, check the injury history (lots of injury record events = injury-prone, be careful)
-- On matchday, a severe injury forces a substitution
+- On matchday, a severe injury forces a sub; **if no same-position sub is available, the player is sent off** (10 men)
 - For minor injuries, it's your call whether to play them (the ability hit = the risk)
 
 ---
@@ -280,9 +290,9 @@ A player has a **current injury** state, **3 types**:
 - **BRONZE** — smallest bonus
 
 **Key facts about specialties**:
-- **~50% of players have no specialty** (the other half are randomly assigned one)
+- **~50% of players have no specialty** (the other half are randomly assigned one; GK only ~10%)
 - **Tier is independent of skills** — set at generation, fixed for life
-- **Only the strongest counts per match** — if your team has multiple of the same specialty, only the strongest one applies
+- **Multiple holders of the same specialty DO stack, they don't just take the strongest** — every matching player on the pitch contributes their tier multiplier, with a depth bonus on top (so 3 Silvers often beat 1 Gold)
 - **Synergy with position / tactics** — a specialty that matches the player's role is a bonus
 
 **Practical implications**:
@@ -301,19 +311,25 @@ A player has a **current injury** state, **3 types**:
 
 **`age` = the player's age** (integer).
 
-**Key fact**: **GoalXI currently has no age-based decay mechanic**. A 35+ veteran will **not** lose skills just because they're old — only the "35+ decay" system mentioned in [chapter 2](02-player-skills.md) (runs Monday in the background) is in play, and that is not the same as age itself decaying.
+**Key fact**: **GoalXI does have an age-based decay system**. Starting at **age 28+**, a sub-quadratic decay curve is applied weekly in the background (physical categories decay first, setPieces almost don't move; runs every Monday). Decay has a **floor of 5 on every skill** — age 35 is the corner where a **peak-18 physical skill** hits the floor, not where decay starts.
+
+**The actual decay rhythm (qualitative)**:
+- **17-28** — peak years, no age-driven skill loss
+- **28-32** — physical skills start to drift down slightly; the other categories basically hold
+- **32-35** — physical / technical clearly drop; mental / setPieces still slow
+- **35+** — physical hits the floor, mental still useful, setPieces almost untouched
 
 **How age relates to other attributes**:
 - **Positive correlation with experience** — the longer they've played, the more XP (veteran = high experience)
-- **No direct relationship with PWI / skills** (the decay system is age-triggered, but only the "35+" switch is wired)
+- **28+** triggers the background decay system, which directly subtracts from `currentSkills` (down to the floor)
 - **No direct relationship with form**
 
 **Age's only roles**:
 - Shown on the player card / detail page (so you know how "old" a player is)
-- Triggers the 35+ decay system switch (background)
-- A long-term planning reference (young = still has potential, old = in the veterans' bonus window)
+- **28+** triggers the background skill-decay system (runs every Monday)
+- A long-term planning reference (young = still has potential + in peak years; old = experience bonus + decay trade-off)
 
-> **GoalXI's age system is not like Hattrick / FM** where older players automatically lose attributes. As long as a veteran isn't injured and form holds, they're just as dangerous on the pitch.
+> **GoalXI's age decay is earlier than Hattrick but slower than FM**. Veterans don't "suddenly collapse" — they drift down from 28, and 35 is the corner where peak physical skills bottom out. Pre-28 veterans = full bonus window; 30-32 = experience + still startable; 33+ = think twice about renewing.
 
 ---
 
@@ -329,9 +345,9 @@ A player has a **current injury** state, **3 types**:
 | **experience** | long-term accrual | **experience bonus** (diminishing returns) on all key events; penalties use form + exp **only**, not current energy | PWI factor; tier badge | player card "EXP" + tier label |
 | **stamina** | player talent | sets the per-match **starting energy pool + fatigue resistance** | player card "stamina" label | player card stamina |
 | **in-match current energy** | in-match (transient) | **energy bonus** — full energy = neutral, overdrawn = **sharp drop** | (not persistent) | live-match energy bar |
-| **injury** | fitness status | minor = ability reduced, severe = cannot play | locks starting XI / injury record event | player card "injury" slot |
-| **specialties** | specialty | bonus on specific events | player card "specialty" slot | player card "specialty" slot |
-| **age** | number | (not directly used) | triggers 35+ decay system; long-term planning reference | player card "age" slot |
+| **injury** | fitness status | minor = ability reduced (can play), severe = forced off (can't start) | locks starting XI / injury record event | player card "injury" slot |
+| **specialties** | specialty | bonus on specific events, **multiple holders of the same specialty stack** | player card "specialty" slot | player card "specialty" slot |
+| **age** | number | 28+ triggers the background skill-decay (physical fastest, setPieces slowest) | decay-system switch; long-term planning reference | player card "age" slot |
 
 ---
 
@@ -345,21 +361,22 @@ A player has a **current injury** state, **3 types**:
 | **potentialTier** (this chapter) | **not the same system** as the tier label, don't mix them up |
 | **Match events** (chapter 6) | form / experience / current energy bonuses apply to almost every match event |
 | **Special events** (chapter 6) | injury record event + 14 other event types like `HAT_TRICK` |
-| **Transfers** (chapter 18) | when buying, look at PWI + injury history + form + potentialTier + stamina (fatigue resistance) |
+| **Transfers** (chapter 18) | when buying, look at PWI + injury history + form + potentialTier + stamina (fatigue resistance) + age (28+ decay trade-off) |
 
 ---
 
 ## Common mistakes (about attributes)
 
 ❌ **"High PWI = strong player"**: **a high PWI is just a high aggregate score** — if the headline skill doesn't match the position, the player disappears on the pitch
+❌ **"High PWI = high starting price / wage"**: **there's no PWI→price formula**; the starting price is set by the seller, the wage is fixed at generation
 ❌ **"Ignoring the potentialSkills gap"**: **high potential doesn't mean they can still grow** — read the gap between currentSkills and potentialSkills
 ❌ **"Chasing the perfect player"**: **LEGEND + maxed skills + healthy + young + cheap = doesn't exist**
 ❌ **"Ignoring form swings"**: **form < 1.5 = buy cheap** (post-injury recovery, may bounce back)
 ❌ **"Mixing up potentialTier and the tier label"**: **potential bracket ≠ skill/experience grade, two separate systems**
-❌ **"Assuming age = decay"**: **age itself has no decay mechanic**, the decay system is a "35+" switch
+❌ **"Assuming age has no effect / 35+ is when decay starts"**: **decay starts at 28+**; 35 is just where peak physical skills hit the floor
 ❌ **"Judging a GK by pace / strength / set pieces"**: **irrelevant**, pace / strength / set pieces don't affect GK performance
 ❌ **"Playing through a minor injury like nothing"**: **ability is reduced**, don't gamble in key matches
-❌ **"Only chasing GOLD specialties"**: **no specialty + high headline > GOLD specialty + low headline**
+❌ **"Only chasing GOLD specialties"**: **no specialty + high headline > GOLD specialty + low headline** (and multiple Silvers often stack past 1 Gold)
 ❌ **"Using a rookie like a veteran"**: **0 XP = neutral experience bonus (no boost)**, same skills but a veteran is more reliable on key events
 ❌ **"Ignoring low-stamina players"**: **low stamina = low fatigue resistance → late-match collapse**, be careful in key games
 

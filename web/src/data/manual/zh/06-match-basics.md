@@ -3,7 +3,7 @@ order: 6
 slug: match-basics
 title: 比赛:基本信息
 status: full
-lastUpdated: 2026-08-30
+lastUpdated: 2026-09-02
 relatedChapters: [5, 14, 15, 16, 18]
 relatedEntries: [player-event-types, condition-form-injury, pwi-vs-overall, comparing-two-players]
 ---
@@ -138,13 +138,13 @@ relatedEntries: [player-event-types, condition-form-injury, pwi-vs-overall, comp
 ### 换人
 
 - 战术预设的**换人**(见 [第 5 章](05-lineup-basics.md))在指定分钟触发
-- **受伤换人**也会自动发生(系统判 minor 还能踢、severe 必须换)
+- **受伤换人**也会自动发生(系统判轻伤还能踢、重伤必须换)
 - 时间轴会显示:换下谁、换上谁
 
 ### 受伤
 
 - 比赛中触发:**铲断受伤 / 过度使用受伤**
-- 状态分两档:**轻伤**(还能踢,能力下降)/ **重伤**(强制换下,详见 [第 4 章](04-player-attributes.md))
+- 状态分两档:**轻伤**(还能踢,能力下降)/ **重伤**(强制换下;有同位置替补就换人,没替补就 10 人应战,详见 [第 4 章](04-player-attributes.md))
 
 ### 定位球
 
