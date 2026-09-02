@@ -1,5 +1,5 @@
 {
-  "version": 8,
+  "version": 9,
   "lastUpdated": "2026-09-02",
   "format": {
     "manualRoot": "web/src/data/manual",
@@ -14,6 +14,11 @@
     }
   },
   "changelog": [
+    {
+      "version": 9,
+      "date": "2026-09-02",
+      "change": "Wrote A1 (weekly-cycle) + A2 (names) zh + en — 7 天 cron 时刻表(每天 0:00 UTC 后台 + 6:00 UTC 比赛)/ 14 国籍名池(CN 默认 / 70% 跟随球队国籍)/ 3 类名字(球员不能改 / 球队能改 / 球场能改)/ 球探与初始 squad 同源."
+    },
     {
       "version": 8,
       "date": "2026-09-02",
@@ -320,7 +325,8 @@
       "order": 1,
       "slug": "weekly-cycle",
       "title": { "zh": "GoalXI 周", "en": "GoalXI Week" },
-      "status": "stub",
+      "file": { "zh": "A1-weekly-cycle.md", "en": "A1-weekly-cycle.md" },
+      "status": "full",
       "hattrickEquivalent": "Hattrick 附录 1 (Hattrick Week)",
       "relatedChapters": [6, 7, 14, 20, 21],
       "relatedEntries": []
@@ -329,11 +335,11 @@
       "order": 2,
       "slug": "names",
       "title": { "zh": "名称", "en": "Names" },
-      "status": "stub",
+      "file": { "zh": "A2-names.md", "en": "A2-names.md" },
+      "status": "full",
       "hattrickEquivalent": "Hattrick 附录 2 (Names)",
       "relatedChapters": [1],
-      "relatedEntries": [],
-      "notes": "GoalXI has a name-database.ts providing the name pool. Chapter will explain name generation rules."
+      "relatedEntries": []
     },
     {
       "order": 3,
