@@ -110,11 +110,11 @@
       "order": 8,
       "slug": "staff",
       "title": { "zh": "教练", "en": "Coaches" },
-      "status": "stub",
+      "file": { "zh": "08-staff.md", "en": "08-staff.md" },
+      "status": "full",
       "hattrickEquivalent": "Hattrick § 7",
       "relatedChapters": [7, 9],
-      "relatedEntries": [],
-      "notes": "7 StaffRole types in GoalXI (HEAD_COACH, FITNESS_COACH, PSYCHOLOGY_COACH, TECHNICAL_COACH, SET_PIECE_COACH, GOALKEEPER_COACH, TEAM_DOCTOR). YOUTH_COACH was removed. Concrete staff effects + wage + assignment flow to be confirmed in code before writing."
+      "relatedEntries": ["comparing-two-players"]
     },
     {
       "order": 9,
