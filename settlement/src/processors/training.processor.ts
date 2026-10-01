@@ -2,7 +2,7 @@ import { Processor, WorkerHost, OnWorkerEvent } from '@nestjs/bullmq';
 import { Injectable, Inject } from '@nestjs/common';
 import { LOGGER_SERVICE, PinoLoggerService } from '@goalxi/logger';
 import { InjectRepository, InjectDataSource } from '@nestjs/typeorm';
-import { DataSource, In, Repository } from 'typeorm';
+import { DataSource, EntityManager, In, Repository } from 'typeorm';
 import { Job } from 'bullmq';
 import {
   PlayerEntity,
@@ -12,7 +12,8 @@ import {
   TrainingUpdateEntity,
   PlayerTrainingChange,
   StaffRole,
-  calculateWeeklyStaminaChange,
+  TRAINING_SETTINGS,
+  calculateMaxStamina,
   calculateStaminaGain,
   calculateFitnessCoachBonus,
   calculateDecay,
@@ -70,30 +71,62 @@ export class TrainingProcessor extends WorkerHost {
     );
 
     const startTime = Date.now();
-    let totalPlayersProcessed = 0;
-    let totalPlayersTrained = 0;
 
     try {
-      const teams = await this.teamRepo.find();
-      this.logger.info(`[TrainingProcessor] Processing ${teams.length} teams`);
+      const { season, week } = this.getCurrentSeasonWeek();
 
-      for (const team of teams) {
-        const teamResult = await this.processTeamTraining(team);
-        totalPlayersProcessed += teamResult.playersProcessed;
-        totalPlayersTrained += teamResult.playersTrained;
-      }
+      // ONE transaction for the whole tick.
+      //
+      // This used to be a transaction PER TEAM. Combined with
+      // `attempts: 3` on the enqueue side
+      // (`WeeklySettlementService`), that was a double-application bug:
+      // a failure at team 700 left teams 1-699 committed, and the retry
+      // restarted from team 1 — applying a *second* week of training
+      // and stamina regeneration to 699 teams. The old docstring claimed
+      // "processors do not need to be idempotent on their own; they get
+      // to see the job exactly once", which is false: BullMQ re-invokes
+      // `process()` on every attempt.
+      //
+      // A single transaction makes rollback-then-retry clean, which is
+      // the same contract `PlayerDeclineProcessor` and
+      // `YouthProgressionProcessor` already use (one transaction per
+      // tick). It also moves the reads inside the transaction, so the
+      // diff TypeORM computes on save is against a consistent snapshot
+      // instead of a mix of pre- and post-transaction reads.
+      const result = await this.dataSource.transaction(async (manager) => {
+        const teams = await manager.getRepository(TeamEntity).find();
+        this.logger.info(
+          `[TrainingProcessor] Processing ${teams.length} teams`,
+        );
+
+        let playersProcessed = 0;
+        let playersTrained = 0;
+
+        for (const team of teams) {
+          const teamResult = await this.processTeamTraining(
+            team,
+            manager,
+            season,
+            week,
+          );
+          playersProcessed += teamResult.playersProcessed;
+          playersTrained += teamResult.playersTrained;
+        }
+
+        return { teamsProcessed: teams.length, playersProcessed, playersTrained };
+      });
 
       const duration = Date.now() - startTime;
       this.logger.info(
         `[TrainingProcessor] Training settlement completed! ` +
-          `${totalPlayersTrained}/${totalPlayersProcessed} players received training ` +
+          `${result.playersTrained}/${result.playersProcessed} players received training ` +
           `in ${duration}ms`,
       );
 
       return {
-        teamsProcessed: teams.length,
-        playersProcessed: totalPlayersProcessed,
-        playersTrained: totalPlayersTrained,
+        teamsProcessed: result.teamsProcessed,
+        playersProcessed: result.playersProcessed,
+        playersTrained: result.playersTrained,
         durationMs: duration,
       };
     } catch (error) {
@@ -105,7 +138,12 @@ export class TrainingProcessor extends WorkerHost {
     }
   }
 
-  private async processTeamTraining(team: TeamEntity): Promise<{
+  private async processTeamTraining(
+    team: TeamEntity,
+    manager: EntityManager,
+    season: number,
+    week: number,
+  ): Promise<{
     playersProcessed: number;
     playersTrained: number;
   }> {
@@ -114,12 +152,14 @@ export class TrainingProcessor extends WorkerHost {
       return { playersProcessed: 0, playersTrained: 0 };
     }
 
-    // Per-team transaction: a bad row on team A must not roll
-    // back team B's already-computed work, and committing each
-    // team in one shot keeps the read snapshot tight. Read-only
-    // queries still go through the injected (non-tx) repos to
-    // avoid holding row locks while we walk N players.
-    const staffList = await this.staffRepo.find({
+    // Every read below goes through the transaction's manager so the
+    // whole tick sees one consistent snapshot and the writes can't
+    // clobber a column another processor changed in between.
+    const playerRepo = manager.getRepository(PlayerEntity);
+    const staffRepo = manager.getRepository(StaffEntity);
+    const assignmentRepo = manager.getRepository(CoachPlayerAssignmentEntity);
+
+    const staffList = await staffRepo.find({
       where: { teamId: team.id, isActive: true },
     });
 
@@ -139,7 +179,7 @@ export class TrainingProcessor extends WorkerHost {
     // the column type checked at compile time (no `as any` cast).
     const assignments =
       staffList.length > 0
-        ? await this.assignmentRepo.find({
+        ? await assignmentRepo.find({
             where: {
               coachId: In(staffList.map((s) => s.id)),
             },
@@ -162,7 +202,7 @@ export class TrainingProcessor extends WorkerHost {
     }
 
     // Get all players on the team
-    const players = await this.playerRepo.find({
+    const players = await playerRepo.find({
       where: { teamId: team.id },
     });
 
@@ -181,12 +221,19 @@ export class TrainingProcessor extends WorkerHost {
     }
 
     let playersTrained = 0;
-    const { season, week } = this.getCurrentSeasonWeek();
+    // Youth are loaded (the snapshot pass above walks them) but skipped
+    // below — their growth belongs to `YouthProgressionProcessor`, which
+    // also owns the `revealLevel` sync. Count them separately so the
+    // summary line doesn't report them as processed; the previous code
+    // returned `players.length`, over-reporting by the squad's youth
+    // count on every team, every week.
+    let playersSkipped = 0;
     const dirtyPlayers: PlayerEntity[] = [];
 
     for (const player of players) {
       // Skip youth players
       if (player.isYouth) {
+        playersSkipped++;
         continue;
       }
 
@@ -198,9 +245,17 @@ export class TrainingProcessor extends WorkerHost {
       const decay = calculateDecay(player.fractionalAge, player.stamina);
       const netStaminaChange = staminaGain - decay;
 
+      // Age-scaled ceiling via the shared helper, NOT a hardcoded
+      // `5.99`. `calculateMaxStamina(age)` is `6.0 - (age-17)*0.05`, so
+      // a 36-year-old tops out at 5.10. The old inline literal let older
+      // players bank the full 5.99, contradicting the shared contract
+      // that the rest of the system reads.
       const newStamina = Math.max(
         0,
-        Math.min(5.99, player.stamina + netStaminaChange),
+        Math.min(
+          calculateMaxStamina(player.fractionalAge),
+          player.stamina + netStaminaChange,
+        ),
       );
       player.stamina = Math.round(newStamina * 100) / 100;
 
@@ -246,9 +301,16 @@ export class TrainingProcessor extends WorkerHost {
             player.isGoalkeeper,
             staminaIntensity,
             // 1 + (headCoachLevel + assignedCoachLevel) × BONUS_PER_LEVEL.
-            // Inlined here to avoid re-importing the helper that
-            // lives next to `computeWeeklyTrainingPoints`.
-            1 + (headCoachLevel + assignedCoach.level) * 0.05,
+            //
+            // Uses the shared `TRAINING_SETTINGS.COACH_BONUS_PER_LEVEL`
+            // constant (was a hardcoded `0.05`). A retune of the constant
+            // has to move this in lockstep with
+            // `computeWeeklyTrainingPoints` eight lines below, or the
+            // applied bonus silently diverges from both the total and
+            // the manager-facing API preview.
+            1 +
+              (headCoachLevel + assignedCoach.level) *
+                TRAINING_SETTINGS.COACH_BONUS_PER_LEVEL,
             1, // 1 week
             assignedCoach.trainedSkill, // Use coach's specific trained skill
           );
@@ -346,45 +408,57 @@ export class TrainingProcessor extends WorkerHost {
       }
     }
 
-    // Commit everything for this team in one transaction. Read
-    // queries above already used the non-tx repos so the tx
-    // window is just the writes.
-    await this.dataSource.transaction(async (manager) => {
-      const txPlayerRepo = manager.getRepository(PlayerEntity);
+    // Writes join the tick-wide transaction opened in `process()`. No
+    // per-team transaction — see the note there on why per-team
+    // commits + `attempts: 3` double-applied a week of training.
+    //
+    // NOTE on `save(array)`: TypeORM 0.3 emits ONE UPDATE per entity in
+    // the array (plus a single `WHERE id IN (...)` pre-read). It is not
+    // a single bulk statement — the old "single batched UPDATE instead
+    // of one per player" comment overstated it. The win vs. a per-player
+    // loop is the transaction count, not the statement count.
+    if (dirtyPlayers.length > 0) {
+      await playerRepo.save(dirtyPlayers);
+    }
+
+    if (playerUpdates.length > 0 && team.userId) {
       const txTrainingUpdateRepo = manager.getRepository(TrainingUpdateEntity);
+      // CAS on `id IS NULL` so two overlapping runs can't both insert a
+      // row for the same (team, season, week). The only index on
+      // `training_update` is NON-unique
+      // (migration 1700000000024), so without this a retry racing the
+      // original would duplicate the manager-facing weekly report.
+      const inserted = await txTrainingUpdateRepo
+        .createQueryBuilder()
+        .insert()
+        .into(TrainingUpdateEntity)
+        .values({
+          teamId: team.id,
+          season,
+          week,
+          playerUpdates,
+        })
+        .orIgnore()
+        .execute();
 
-      if (dirtyPlayers.length > 0) {
-        // Single batched UPDATE/INSERT instead of one per player.
-        await txPlayerRepo.save(dirtyPlayers);
+      if (inserted.identifiers.length === 0) {
+        // A row already existed (another tick / a retry) — overwrite it.
+        await txTrainingUpdateRepo.update(
+          { teamId: team.id, season, week },
+          { playerUpdates },
+        );
+        this.logger.debug(
+          `[TrainingProcessor] Updated training update for team ${team.id} S${season}W${week}: ${playerUpdates.length} players with changes`,
+        );
+      } else {
+        this.logger.debug(
+          `[TrainingProcessor] Created training update for team ${team.id} S${season}W${week}: ${playerUpdates.length} players with changes`,
+        );
       }
-
-      if (playerUpdates.length > 0 && team.userId) {
-        const existing = await txTrainingUpdateRepo.findOne({
-          where: { teamId: team.id, season, week },
-        });
-        if (existing) {
-          existing.playerUpdates = playerUpdates;
-          await txTrainingUpdateRepo.save(existing);
-          this.logger.debug(
-            `[TrainingProcessor] Updated training update for team ${team.id} S${season}W${week}: ${playerUpdates.length} players with changes`,
-          );
-        } else {
-          const trainingUpdate = txTrainingUpdateRepo.create({
-            teamId: team.id,
-            season,
-            week,
-            playerUpdates,
-          });
-          await txTrainingUpdateRepo.save(trainingUpdate);
-          this.logger.debug(
-            `[TrainingProcessor] Created training update for team ${team.id} S${season}W${week}: ${playerUpdates.length} players with changes`,
-          );
-        }
-      }
-    });
+    }
 
     return {
-      playersProcessed: players.length,
+      playersProcessed: players.length - playersSkipped,
       playersTrained,
     };
   }

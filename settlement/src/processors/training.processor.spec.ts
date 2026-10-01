@@ -23,6 +23,12 @@ describe('TrainingProcessor', () => {
     transaction: jest.Mock;
     _txSave: jest.Mock;
     _txCreate: jest.Mock;
+    _txFindOne: jest.Mock;
+    _txUpdate: jest.Mock;
+    _txInsertExecute: jest.Mock;
+    _txInsertQuery: Record<string, jest.Mock>;
+    _txManager: { getRepository: jest.Mock };
+    _committedWrites: () => number;
   };
 
   const mockTeamRepo = { find: jest.fn() };
@@ -63,26 +69,84 @@ describe('TrainingProcessor', () => {
     }) as unknown as TeamEntity;
 
   // Build a DataSource whose transaction invokes the callback with a
-  // fake manager. The fake manager returns per-entity save/create
-  // spies, so we can assert batched-write behaviour.
+  // fake manager. The processor now routes EVERY read and write through
+  // the transaction manager (one transaction per tick, so a retry after
+  // a mid-tick failure rolls back cleanly instead of double-applying a
+  // week of training to already-committed teams), so the fake manager
+  // hands back the same repo mocks the DI tokens provide.
   const makeDataSource = () => {
-    const txSave = jest.fn((x: any) => x);
+    // Simulates a real transaction: writes issued inside the callback
+    // only count as committed if the callback resolves. If it throws,
+    // the counter stays put — which is what lets the atomicity
+    // regression test assert "team A's write was rolled back".
+    let committedWrites = 0;
+    const pendingWrites: unknown[] = [];
+    const txSave = jest.fn((x: any) => {
+      pendingWrites.push(x);
+      return x;
+    });
     const txCreate = jest.fn((x: any) => x);
+    const txUpdate = jest.fn((x: any) => x);
     const txFindOne = jest.fn();
+    // `orIgnore()` insert: `identifiers.length === 0` signals the row
+    // already existed, which routes the processor to the UPDATE branch.
+    const txInsertQuery = {
+      insert: jest.fn().mockReturnThis(),
+      into: jest.fn().mockReturnThis(),
+      values: jest.fn().mockReturnThis(),
+      orIgnore: jest.fn().mockReturnThis(),
+      execute: jest.fn().mockResolvedValue({ identifiers: [{ id: 'tu-1' }] }),
+    };
+    const txCreateQueryBuilder = jest.fn(() => txInsertQuery);
+
     const txManager = {
       getRepository: jest.fn().mockImplementation((Entity: any) => {
         const name = Entity?.name;
-        if (name === 'PlayerEntity') return { save: txSave };
-        if (name === 'TrainingUpdateEntity')
-          return { save: txSave, create: txCreate, findOne: txFindOne };
+        if (name === 'PlayerEntity') {
+          return { find: mockPlayerRepo.find, save: txSave };
+        }
+        if (name === 'TeamEntity') {
+          return { find: mockTeamRepo.find };
+        }
+        if (name === 'StaffEntity') {
+          return { find: mockStaffRepo.find };
+        }
+        if (name === 'CoachPlayerAssignmentEntity') {
+          return { find: mockAssignmentRepo.find };
+        }
+        if (name === 'TrainingUpdateEntity') {
+          return {
+            save: txSave,
+            create: txCreate,
+            findOne: txFindOne,
+            update: txUpdate,
+            createQueryBuilder: txCreateQueryBuilder,
+          };
+        }
         return { save: txSave, create: txCreate, findOne: txFindOne };
       }),
     };
     return {
-      transaction: jest.fn(async (cb: any) => cb(txManager)),
+      transaction: jest.fn(async (cb: any) => {
+        pendingWrites.length = 0;
+        try {
+          const out = await cb(txManager);
+          committedWrites += pendingWrites.length;
+          return out;
+        } catch (err) {
+          // rollback: `pendingWrites` is discarded on the next call.
+          pendingWrites.length = 0;
+          throw err;
+        }
+      }),
+      _committedWrites: () => committedWrites,
+      _txManager: txManager,
       _txSave: txSave,
       _txCreate: txCreate,
       _txFindOne: txFindOne,
+      _txUpdate: txUpdate,
+      _txInsertExecute: txInsertQuery.execute,
+      _txInsertQuery: txInsertQuery,
     };
   };
 
@@ -118,19 +182,31 @@ describe('TrainingProcessor', () => {
     trainingUpdateRepo = module.get(getRepositoryToken(TrainingUpdateEntity));
 
     jest.clearAllMocks();
+    // `clearAllMocks` does NOT drain the `mockResolvedValueOnce` /
+    // `mockRejectedValueOnce` queues, so a per-test override would leak
+    // into the next test. Reset each repo mock explicitly and re-seed
+    // the shared defaults.
+    for (const m of [
+      mockTeamRepo,
+      mockStaffRepo,
+      mockPlayerRepo,
+      mockAssignmentRepo,
+      mockTrainingUpdateRepo,
+    ]) {
+      for (const fn of Object.values(m)) {
+        (fn as jest.Mock).mockReset();
+      }
+    }
     // Re-attach the freshly-cleared dataSource spies.
     const fresh = makeDataSource();
-    (dataSource as any).transaction = fresh.transaction;
-    (dataSource as any)._txSave = fresh._txSave;
-    (dataSource as any)._txCreate = fresh._txCreate;
-    (dataSource as any)._txFindOne = fresh._txFindOne;
+    Object.assign(dataSource, fresh);
     // Default: no assignment rows, no existing training update.
     mockAssignmentRepo.find.mockResolvedValue([]);
     mockTrainingUpdateRepo.findOne.mockResolvedValue(null);
   });
 
   describe('process', () => {
-    it('opens one transaction per non-bot team and saves all dirty players in a single batched call', async () => {
+    it('opens ONE transaction for the whole tick and saves all dirty players in a single batched call', async () => {
       const team = buildTeam();
       mockTeamRepo.find.mockResolvedValueOnce([team]);
       mockStaffRepo.find.mockResolvedValueOnce([
@@ -162,7 +238,7 @@ describe('TrainingProcessor', () => {
       expect(result.playersProcessed).toBe(2);
     });
 
-    it('skips bot teams entirely (no transaction opened)', async () => {
+    it('skips bot teams entirely (no player writes)', async () => {
       mockTeamRepo.find.mockResolvedValueOnce([
         buildTeam({ id: 'bot' as Uuid, isBot: true }),
         buildTeam({ id: 'bot2' as Uuid, isBot: true }),
@@ -170,7 +246,10 @@ describe('TrainingProcessor', () => {
 
       const result = await processor.process({ id: 'job-2' } as any);
 
-      expect(dataSource.transaction).not.toHaveBeenCalled();
+      // ONE transaction for the whole tick (opened unconditionally), but no
+      // player rows are written for bot squads.
+      expect(dataSource.transaction).toHaveBeenCalledTimes(1);
+      expect(dataSource._txSave).not.toHaveBeenCalled();
       // Bot teams are still counted in the team total but contribute
       // 0 processed players.
       expect(result.teamsProcessed).toBe(2);
@@ -203,14 +282,103 @@ describe('TrainingProcessor', () => {
 
       await processor.process({ id: 'job-4' } as any);
 
-      // The training update is created+save inside the transaction
-      // (txCreate + txSave calls, not the injected repo).
-      expect((dataSource as any)._txCreate).toHaveBeenCalled();
-      const allSaves = (dataSource as any)._txSave.mock.calls;
-      const nonArraySaves = allSaves.filter((c: any[]) => !Array.isArray(c[0]));
-      expect(nonArraySaves.length).toBeGreaterThanOrEqual(1);
-      expect(nonArraySaves[0][0]).toEqual(
+      // The training update is written through the transaction manager
+      // via an `INSERT ... ON CONFLICT DO NOTHING`. That replaces the
+      // previous `findOne`-then-`create` TOCTOU: `training_update`'s
+      // only index is NON-unique (migration 1700000000024), so two
+      // overlapping runs could both insert a row for the same
+      // (team, season, week) and duplicate the manager-facing report.
+      expect(dataSource._txInsertQuery.insert).toHaveBeenCalled();
+      expect(dataSource._txInsertQuery.into).toHaveBeenCalledWith(
+        TrainingUpdateEntity,
+      );
+      expect(dataSource._txInsertQuery.values).toHaveBeenCalledWith(
         expect.objectContaining({ teamId: team.id }),
+      );
+      expect(dataSource._txInsertExecute).toHaveBeenCalled();
+      // Insert succeeded → no redundant UPDATE.
+      expect(dataSource._txUpdate).not.toHaveBeenCalled();
+    });
+
+    it('falls back to UPDATE when the training update row already exists', async () => {
+      // `orIgnore()` insert returns 0 identifiers when the row is
+      // already there, which is how the retry path avoids a duplicate.
+      const team = buildTeam();
+      mockTeamRepo.find.mockResolvedValueOnce([team]);
+      mockStaffRepo.find.mockResolvedValueOnce([]);
+      mockPlayerRepo.find.mockResolvedValueOnce([buildPlayer({ id: 1 })]);
+      dataSource._txInsertExecute.mockResolvedValueOnce({
+        identifiers: [],
+      });
+
+      await processor.process({ id: 'job-5' } as any);
+
+      expect(dataSource._txUpdate).toHaveBeenCalledWith(
+        expect.objectContaining({ teamId: team.id }),
+        expect.objectContaining({ playerUpdates: expect.any(Array) }),
+      );
+    });
+
+    it('REGRESSION: one transaction for the tick, so a mid-tick failure rolls back everything', async () => {
+      // Per-team commits + `attempts: 3` on the enqueue side was a
+      // double-application bug: a failure at team 700 left teams 1-699
+      // committed, and the BullMQ retry restarted from team 1 — applying
+      // a SECOND week of training and stamina regeneration to 699 teams.
+      // The old docstring claimed processors only ever see a job once,
+      // which is false.
+      const teamA = buildTeam({ id: 'team-a' as Uuid });
+      const teamB = buildTeam({ id: 'team-b' as Uuid });
+      mockTeamRepo.find.mockResolvedValueOnce([teamA, teamB]);
+      mockStaffRepo.find
+        .mockResolvedValueOnce([])
+        .mockResolvedValueOnce([]);
+      // Team A reads fine; team B's player read blows up.
+      mockPlayerRepo.find
+        .mockResolvedValueOnce([buildPlayer({ id: 1 })])
+        .mockRejectedValueOnce(new Error('boom'));
+
+      await expect(
+        processor.process({ id: 'job-atomic' } as any),
+      ).rejects.toThrow('boom');
+
+      // Exactly ONE transaction attempt — the whole tick is inside it,
+      // so team A's player write is rolled back when team B throws and a
+      // retry starts from a clean slate.
+      expect(dataSource.transaction).toHaveBeenCalledTimes(1);
+      expect(dataSource._txSave).toHaveBeenCalled(); // team A did write...
+      expect(dataSource._committedWrites()).toBe(0); // ...but nothing committed
+    });
+
+    it('REGRESSION: routes reads through the transaction manager', async () => {
+      // Staff / assignments / players used to be read on the injected
+      // non-tx repos while the writes went through the transaction —
+      // i.e. no consistent read view, and TypeORM's save-diff could
+      // write back stale values for columns the processor never meant
+      // to touch (e.g. `form`, which ConditionProcessor owns).
+      const team = buildTeam();
+      mockTeamRepo.find.mockResolvedValueOnce([team]);
+      mockStaffRepo.find.mockResolvedValueOnce([
+        {
+          id: 99,
+          teamId: team.id,
+          isActive: true,
+          level: 3,
+        } as unknown as StaffEntity,
+      ]);
+      mockPlayerRepo.find.mockResolvedValueOnce([buildPlayer({ id: 1 })]);
+
+      await processor.process({ id: 'job-mgr' } as any);
+
+      // Every entity the tick touches was resolved through the manager.
+      const requested = dataSource._txManager.getRepository.mock.calls.map(
+        (c: any[]) => c[0]?.name,
+      );
+      expect(requested).toEqual(
+        expect.arrayContaining([
+          'TeamEntity',
+          'StaffEntity',
+          'PlayerEntity',
+        ]),
       );
     });
 
