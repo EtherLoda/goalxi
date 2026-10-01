@@ -299,7 +299,11 @@ describe('MatchSchedulerService', () => {
 
     it('re-enqueues simulation when IN_PROGRESS match has no events and scheduledAt > 30min in past', async () => {
       const match = buildInProgressMatch();
-      matchRepository.find.mockResolvedValue([match]);
+      matchRepository.find
+        .mockResolvedValueOnce([match])
+        // Trailing reconciliation sweep finds nothing (this match is
+        // IN_PROGRESS, not COMPLETED-and-unsettled).
+        .mockResolvedValueOnce([]);
       eventRepository.findOne.mockResolvedValue(null);
       // Helper reads match + tactics before re-enqueueing.
       matchRepository.findOne.mockResolvedValue(match);
@@ -351,7 +355,12 @@ describe('MatchSchedulerService', () => {
         minute: 95,
         eventScheduledTime: new Date(Date.now() - 10 * 60 * 1000),
       } as unknown as MatchEventEntity;
-      matchRepository.find.mockResolvedValue([match]);
+      matchRepository.find
+        .mockResolvedValueOnce([match])
+        // The trailing reconciliation sweep (COMPLETED + settled_at IS
+        // NULL, completed more than the grace period ago) finds nothing:
+        // this match has only just been flipped to COMPLETED.
+        .mockResolvedValueOnce([]);
       eventRepository.findOne.mockResolvedValue(lastEvent);
 
       await service.completeMatches();
@@ -463,8 +472,10 @@ describe('MatchSchedulerService', () => {
         minute: 95,
         eventScheduledTime: new Date(Date.now() - 10 * 60 * 1000),
       } as unknown as MatchEventEntity;
-      matchRepository.find.mockResolvedValue([match]);
+      matchRepository.find.mockResolvedValueOnce([match]);
       eventRepository.findOne.mockResolvedValue(lastEvent);
+      // The trailing reconciliation sweep finds nothing.
+      matchRepository.find.mockResolvedValueOnce([]);
       matchRepository.update.mockResolvedValueOnce({
         affected: 0,
         raw: [],
@@ -484,7 +495,12 @@ describe('MatchSchedulerService', () => {
         minute: 80,
         eventScheduledTime: new Date(Date.now() + 10 * 60 * 1000),
       } as unknown as MatchEventEntity;
-      matchRepository.find.mockResolvedValue([match]);
+      // The main scan returns the in-progress match; the trailing
+      // reconciliation sweep (COMPLETED + settled_at IS NULL) finds
+      // nothing, because this match is not COMPLETED yet.
+      matchRepository.find
+        .mockResolvedValueOnce([match])
+        .mockResolvedValueOnce([]);
       eventRepository.findOne.mockResolvedValue(lastEvent);
 
       await service.completeMatches();
@@ -492,6 +508,121 @@ describe('MatchSchedulerService', () => {
       expect(matchRepository.save).not.toHaveBeenCalled();
       expect(completionQueue.add).not.toHaveBeenCalled();
       expect(simulationQueue.add).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('completeMatches — unsettled reconciliation sweep', () => {
+    // The hole this closes: `completeMatches` does a status CAS to
+    // COMPLETED and then a separate `queue.add`. A crash between them
+    // leaves a row that is COMPLETED but never settled — and permanently
+    // invisible, because the next scan only matches IN_PROGRESS /
+    // TACTICS_LOCKED. Manual recovery didn't work either: the
+    // `complete-${id}` jobId still exists in Redis with no
+    // `removeOnComplete`, so re-adding is a silent no-op, and the only
+    // settlement guard was a Redis key with a 24h TTL.
+    //
+    // `match.settledAt` (migration 1788000000030) is the durable
+    // receipt: `MatchCompletionService` stamps it only after every
+    // mutation commits.
+
+    const completedUnsettled = (over: Partial<MatchEntity> = {}) =>
+      ({
+        id: 'match-unsettled',
+        type: MatchType.LEAGUE,
+        status: MatchStatus.COMPLETED,
+        settledAt: null,
+        completedAt: new Date(Date.now() - 60 * 60 * 1000),
+        ...over,
+      }) as unknown as MatchEntity;
+
+    it('REGRESSION: re-enqueues settlement for a COMPLETED but unsettled match', async () => {
+      const match = completedUnsettled();
+      // Main scan returns nothing; the reconcile sweep finds the gap.
+      matchRepository.find
+        .mockResolvedValueOnce([])
+        .mockResolvedValueOnce([match]);
+
+      await service.completeMatches();
+
+      expect(completionQueue.add).toHaveBeenCalledWith(
+        'complete-match',
+        { matchId: match.id },
+        expect.objectContaining({
+          jobId: expect.stringContaining(`reconcile-complete-${match.id}`),
+          attempts: 3,
+        }),
+      );
+      // A league match must not touch the cup queue.
+      expect(cupProgressQueue.add).not.toHaveBeenCalled();
+    });
+
+    it('scans on status + settledAt + a completedAt grace window', async () => {
+      matchRepository.find.mockResolvedValue([]);
+
+      await service.completeMatches();
+
+      const sweep = matchRepository.find.mock.calls[1]?.[0] as
+        | { where: Record<string, unknown>; take?: number }
+        | undefined;
+      expect(sweep).toBeDefined();
+      // COMPLETED is required — an in-progress match is not "unsettled",
+      // it is "not finished".
+      expect(sweep?.where).toEqual(
+        expect.objectContaining({
+          status: MatchStatus.COMPLETED,
+          settledAt: expect.objectContaining({ _type: 'isNull' }),
+        }),
+      );
+      // Grace window: a match that only just completed has a job in
+      // flight and must not be re-enqueued.
+      expect(sweep?.where.completedAt).toBeDefined();
+      // Bounded so a large backlog can't flood the queue in one tick.
+      expect(sweep?.take).toBeGreaterThan(0);
+    });
+
+    it('does nothing when every COMPLETED match is settled', async () => {
+      // Both scans empty — the normal steady state.
+      matchRepository.find.mockResolvedValue([]);
+
+      await service.completeMatches();
+
+      expect(completionQueue.add).not.toHaveBeenCalled();
+    });
+
+    it('REGRESSION: also re-drives cup bracket progression for an unsettled cup match', async () => {
+      // The bracket advance lives on its own queue but keys off the same
+      // settlement event, so a missed cup settlement strands the bracket
+      // too — which deadlocks the cup (no round ever closes).
+      const match = completedUnsettled({ type: MatchType.CUP });
+      matchRepository.find
+        .mockResolvedValueOnce([])
+        .mockResolvedValueOnce([match]);
+
+      await service.completeMatches();
+
+      expect(cupProgressQueue.add).toHaveBeenCalledWith(
+        'complete-match',
+        { matchId: match.id },
+        expect.objectContaining({
+          jobId: expect.stringContaining(`reconcile-cup-${match.id}`),
+        }),
+      );
+    });
+
+    it('uses a bucketed jobId so a stuck match retries once per bucket, not every minute', async () => {
+      const match = completedUnsettled();
+      matchRepository.find
+        .mockResolvedValueOnce([])
+        .mockResolvedValueOnce([match]);
+
+      await service.completeMatches();
+
+      const opts = completionQueue.add.mock.calls[0][2];
+      // Bucketed + retention windows, so a later attempt is not blocked
+      // by an old job record sitting in Redis.
+      expect(opts.jobId).toMatch(/^reconcile-complete-.+-\d+$/);
+      expect(opts.removeOnComplete).toBeDefined();
+      expect(opts.removeOnFail).toBeDefined();
     });
   });
 
@@ -680,6 +811,71 @@ describe('MatchSchedulerService', () => {
     it('does NOT touch TACTICS_LOCKED matches scheduled in the future', async () => {
       // Both find() calls return empty — no stuck matches.
       matchRepository.find.mockResolvedValueOnce([]).mockResolvedValueOnce([]);
+
+      await service.preprocessMatch();
+
+      expect(simulationQueue.add).not.toHaveBeenCalled();
+    });
+
+    it('REGRESSION: excludes already-simulated matches from the recovery sweep', async () => {
+      // The simulator deliberately does NOT flip `status` to COMPLETED —
+      // it writes the score + events, stamps `simulationCompletedAt`, and
+      // leaves the row TACTICS_LOCKED for `completeMatches` to finalise.
+      // So a freshly-simulated match looks exactly like a stuck one.
+      //
+      // Both this sweep and `completeMatches` are `@Cron('0 * * * * *')`,
+      // so they run concurrently in the same process and either can win
+      // the race on any given minute — giving a re-simulated match a
+      // 60-second window. Neither simulator guard saved it:
+      // `status === COMPLETED` doesn't apply, and the
+      // `simulation_started_at` lease is RELEASED in the processor's
+      // `finally`, so the atomic claim succeeds a second time.
+      //
+      // The delete-then-reinsert of `match_event` made the event rows
+      // look fine, hiding it. Every `+=` aggregate was applied TWICE:
+      // careerStats.club matches/goals/assists/tackles, experience, and
+      // PlayerCompetitionStats appearances/starts/goals.
+      await service.preprocessMatch();
+
+      // The scan must exclude simulated rows at the QUERY level.
+      const recoveryScan = matchRepository.find.mock.calls[1]?.[0] as
+        | { where: Record<string, unknown> }
+        | undefined;
+      expect(recoveryScan).toBeDefined();
+      expect(recoveryScan?.where).toEqual(
+        expect.objectContaining({
+          status: MatchStatus.TACTICS_LOCKED,
+          simulationCompletedAt: expect.objectContaining({
+            _type: 'isNull',
+          }),
+        }),
+      );
+    });
+
+    it('REGRESSION: a second guard in the enqueue helper skips a simulated match', async () => {
+      // Defence in depth: even if the query filter were removed, the
+      // helper re-reads the row and must bail on `simulationCompletedAt`
+      // rather than trusting the caller's filter.
+      const now = Date.now();
+      const simulatedButNotFinalised = {
+        id: 'match-simulated',
+        homeTeamId: 'team-home',
+        awayTeamId: 'team-away',
+        homeForfeit: false,
+        awayForfeit: false,
+        type: MatchType.LEAGUE,
+        weather: null,
+        // Exactly the state the simulator leaves behind.
+        status: MatchStatus.TACTICS_LOCKED,
+        simulationCompletedAt: new Date(now - 30 * 1000),
+        scheduledAt: new Date(now - 10 * 60 * 1000),
+        tacticsLocked: true,
+      } as unknown as MatchEntity;
+
+      matchRepository.find
+        .mockResolvedValueOnce([])
+        .mockResolvedValueOnce([simulatedButNotFinalised]);
+      matchRepository.findOne.mockResolvedValue(simulatedButNotFinalised);
 
       await service.preprocessMatch();
 

@@ -60,6 +60,22 @@ const STALE_SIMULATION_LOCK_MS = 60 * 60 * 1000;
  */
 const CUP_PROGRESS_ATTEMPTS = 3;
 
+/**
+ * How long a COMPLETED match may sit unsettled before
+ * `reconcileUnsettledMatches` treats it as a gap rather than a
+ * still-in-flight job. Comfortably longer than a normal completion
+ * round trip, comfortably shorter than a full matchday.
+ */
+const RECONCILE_SETTLED_GRACE_MINUTES = 10;
+
+/**
+ * Cap on how many unsettled matches one sweep re-enqueues. Keeps a
+ * backlog (e.g. the first sweep after deploying the `settled_at`
+ * migration against a database with no backfill) from flooding the queue
+ * in a single tick; the remainder is picked up on the next minute.
+ */
+const RECONCILE_BATCH_SIZE = 100;
+
 @Injectable()
 export class MatchSchedulerService {
   constructor(
@@ -182,9 +198,8 @@ export class MatchSchedulerService {
           // (TypeORM ignores `undefined`) won't overwrite a non-null
           // existing value either, so re-running the tick after the
           // simulator already pre-baked a different value is a no-op.
-          const attendanceValue = await this.computeAttendanceForPreprocess(
-            match,
-          );
+          const attendanceValue =
+            await this.computeAttendanceForPreprocess(match);
 
           // Atomic status-guard update. Without this, two cron ticks
           // could both pass the SCHEDULED-tacticsLocked-false filter
@@ -261,7 +276,6 @@ export class MatchSchedulerService {
     await this.recoverStuckTacticsLockedMatches(now);
   }
 
-
   /**
    * Compute the match attendance for a match that has not yet been
    * simulated. Returns `undefined` (so the column stays null) when
@@ -292,8 +306,8 @@ export class MatchSchedulerService {
       }),
       match.leagueId
         ? this.leagueRepository.findOne({
-          where: { id: match.leagueId as Uuid },
-        })
+            where: { id: match.leagueId as Uuid },
+          })
         : Promise.resolve(null),
     ]);
 
@@ -314,6 +328,32 @@ export class MatchSchedulerService {
   /**
    * Find matches stuck in TACTICS_LOCKED whose scheduledAt is already past
    * the grace period, and re-enqueue their simulation job.
+   *
+   * ## `simulationCompletedAt IS NULL` is load-bearing
+   *
+   * The simulator deliberately does NOT flip `status` to COMPLETED after
+   * simulating — it writes the score + events, stamps
+   * `simulationCompletedAt`, and leaves the row `TACTICS_LOCKED` for
+   * `completeMatches` to finalise on a later tick. So a freshly-simulated
+   * match looks exactly like a stuck one: `TACTICS_LOCKED` with a
+   * `scheduledAt` in the past.
+   *
+   * Without the `simulationCompletedAt IS NULL` filter, this sweep
+   * re-enqueued those matches. Both this method and `completeMatches` are
+   * `@Cron('0 * * * * *')`, so they run concurrently in the same process
+   * and either can win the race on any given minute — meaning a match had
+   * up to a 60-second window to be re-simulated. The simulator's guards
+   * did not save it:
+   *
+   *   - `status === COMPLETED` doesn't apply (it's TACTICS_LOCKED);
+   *   - the `simulation_started_at` lease is RELEASED in the processor's
+   *     `finally`, so the atomic claim succeeds on the second run.
+   *
+   * The delete-then-reinsert of `match_event` made the EVENT rows look
+   * fine, which is why this was invisible. The aggregate writes are `+=`
+   * against the freshly-read row and were applied twice:
+   * `careerStats.club.matches` / goals / assists / tackles, experience,
+   * and `PlayerCompetitionStats.appearances` / starts / goals.
    */
   private async recoverStuckTacticsLockedMatches(now: Date): Promise<void> {
     const stuckThreshold = new Date(
@@ -323,6 +363,8 @@ export class MatchSchedulerService {
       where: {
         status: MatchStatus.TACTICS_LOCKED,
         scheduledAt: LessThan(stuckThreshold),
+        // Simulated already, awaiting `completeMatches`. Not stuck.
+        simulationCompletedAt: IsNull(),
       },
     });
 
@@ -331,7 +373,7 @@ export class MatchSchedulerService {
     }
 
     this.logger.warn(
-      `[MatchRecovery] Found ${stuckMatches.length} TACTICS_LOCKED match(es) past scheduledAt — re-enqueueing simulation`,
+      `[MatchRecovery] Found ${stuckMatches.length} TACTICS_LOCKED match(es) past scheduledAt with no simulation — re-enqueueing`,
     );
 
     for (const match of stuckMatches) {
@@ -369,6 +411,22 @@ export class MatchSchedulerService {
     if (match.status === MatchStatus.COMPLETED) {
       this.logger.debug(
         `[MatchRecovery] Match ${matchId} already completed, skipping recovery`,
+      );
+      return;
+    }
+    if (match.simulationCompletedAt) {
+      // Second line of defence behind the query filter above: the
+      // simulator stamps this but leaves `status = TACTICS_LOCKED` for
+      // `completeMatches` to finalise. Re-enqueueing here would run the
+      // engine a second time — the lease is released in the processor's
+      // `finally`, so the atomic claim succeeds — and double-apply every
+      // `+=` aggregate (careerStats, PlayerCompetitionStats, experience).
+      // The event rows survive that only because the simulator
+      // delete-then-reinserts them.
+      this.logger.debug(
+        `[MatchRecovery] Match ${matchId} is already simulated ` +
+          `(simulationCompletedAt=${match.simulationCompletedAt.toISOString()}), ` +
+          `awaiting completion — skipping recovery`,
       );
       return;
     }
@@ -510,10 +568,11 @@ export class MatchSchedulerService {
       ],
     });
 
-    if (matches.length === 0) {
-      return;
-    }
-
+    // Deliberately NOT an early return: the reconciliation sweep below is
+    // independent of this scan. An early `if (matches.length === 0)
+    // return` would mean the sweep only ever runs on ticks that also
+    // happened to finalise a match — so the tick that could recover a
+    // stranded match is the one tick most likely to find nothing to do.
     for (const match of matches) {
       try {
         const lastEvent = await this.eventRepository.findOne({
@@ -599,11 +658,11 @@ export class MatchSchedulerService {
           //
           // Deliberately AFTER the log + outside the completion enqueue:
           // the match is already COMPLETED by this point, so a failure
-          // here cannot be retried by this cron (the `completeMatches`
-          // WHERE only scans IN_PROGRESS / TACTICS_LOCKED, and nothing
-          // sweeps for unsettled matches). Log loudly and move on rather
-          // than letting a Redis blip on the second queue hide the fact
-          // that the match itself completed.
+          // here cannot be retried by this cron — `reconcileUnsettledMatches`
+          // is the safety net (it re-enqueues on `settled_at IS NULL`).
+          // Log loudly and move on rather than letting a Redis blip on
+          // the second queue hide the fact that the match itself
+          // completed.
           if (match.type === MatchType.CUP) {
             try {
               await this.cupProgressQueue.add(
@@ -618,8 +677,11 @@ export class MatchSchedulerService {
             } catch (cupError) {
               this.logger.error(
                 `[MatchCompletionScheduler] FAILED to enqueue cup progression for match ${match.id}: ${cupError.message}. ` +
-                  `The bracket will NOT advance for this cup match and there is no reconciliation sweep — ` +
-                  `re-enqueue manually with jobId "cup-complete-${match.id}".`,
+                  `The bracket will NOT advance for this cup match. The ` +
+                  `reconciliation sweep re-enqueues any match that stays ` +
+                  `unsettled, so this should self-heal; if the match is ` +
+                  `already marked settled, re-enqueue manually with jobId ` +
+                  `"cup-complete-${match.id}".`,
                 cupError.stack,
               );
             }
@@ -629,6 +691,120 @@ export class MatchSchedulerService {
         this.logger.error(
           `[MatchCompletionScheduler] Failed to complete match ${match.id}: ${error.message}`,
           error.stack,
+        );
+      }
+    }
+
+    // Safety net for matches that were flipped to COMPLETED but whose
+    // settlement job never landed. See `reconcileUnsettledMatches`.
+    await this.reconcileUnsettledMatches(now);
+  }
+
+  /**
+   * Re-enqueue settlement for matches that are COMPLETED but unsettled.
+   *
+   * ## The hole this closes
+   *
+   * `completeMatches` scans `IN_PROGRESS` and `TACTICS_LOCKED +
+   * simulationCompletedAt NOT NULL`, then does two separate statements:
+   * a status CAS to COMPLETED, and a `queue.add`. A crash between them
+   * leaves a row that is COMPLETED but has never been settled — and
+   * permanently invisible, because the next scan no longer matches it.
+   *
+   * Recovery by hand did not work either: `jobId: complete-${match.id}`
+   * still exists in Redis (no `removeOnComplete` on that queue), so
+   * re-adding is a silent BullMQ no-op; and the only settlement guard
+   * was a Redis key with a **24h TTL**, so after 24h a duplicate
+   * re-applied standings, ELO, minutes, fan emotion and ticket revenue.
+   *
+   * `match.settledAt` (migration 1788000000030) is the durable receipt:
+   * `MatchCompletionService` stamps it only after every mutation
+   * commits, so `status = COMPLETED AND settled_at IS NULL` is exactly
+   * the set of matches needing (re)settlement.
+   *
+   * ## Why re-enqueueing is safe
+   *
+   * `completeMatch` short-circuits on `settledAt`, so a match settled by
+   * the original job is skipped rather than re-applied. A match that
+   * genuinely failed mid-way has `settledAt IS NULL` and is re-run from
+   * the top; `updateLeagueStandings` is now transactional and the Redis
+   * key still covers the 24h fast path.
+   *
+   * The jobId is suffixed with a time bucket so a stuck match is
+   * re-enqueued at most once per bucket instead of every minute — the
+   * same throttle `enqueueSimulationRecovery` uses. `removeOnComplete` /
+   * `removeOnFail` free the key so a later attempt isn't blocked by an
+   * old job record.
+   */
+  private async reconcileUnsettledMatches(now: Date): Promise<void> {
+    // Only look at matches that have been COMPLETED long enough that a
+    // missing settlement is a real gap rather than a job still in flight.
+    const settledThreshold = new Date(
+      now.getTime() - RECONCILE_SETTLED_GRACE_MINUTES * 60 * 1000,
+    );
+
+    const unsettled = await this.matchRepository.find({
+      where: {
+        status: MatchStatus.COMPLETED,
+        settledAt: IsNull(),
+        completedAt: LessThan(settledThreshold),
+      },
+      select: ['id', 'type'],
+      take: RECONCILE_BATCH_SIZE,
+    });
+
+    if (unsettled.length === 0) {
+      return;
+    }
+
+    this.logger.warn(
+      `[MatchReconcile] Found ${unsettled.length} COMPLETED but unsettled match(es) — re-enqueueing settlement`,
+    );
+
+    const bucket = Math.floor(now.getTime() / RECOVERY_JOBID_BUCKET_MS);
+
+    for (const match of unsettled) {
+      try {
+        await this.completionQueue.add(
+          'complete-match',
+          { matchId: match.id },
+          {
+            // Bucketed so a permanently-failing match retries once per
+            // bucket instead of every minute. The base `completeMatches`
+            // enqueue uses an unbucketed id, so a normal in-flight job
+            // never collides with this.
+            jobId: `reconcile-complete-${match.id}-${bucket}`,
+            attempts: 3,
+            backoff: { type: 'exponential', delay: 60_000 },
+            removeOnComplete: { age: 3600, count: 500 },
+            removeOnFail: { age: 24 * 3600 },
+          },
+        );
+        // A CUP match's bracket advance lives on its own queue and keys
+        // off the same settlement event, so it needs re-driving too.
+        if (match.type === MatchType.CUP) {
+          await this.cupProgressQueue.add(
+            'complete-match',
+            { matchId: match.id },
+            {
+              jobId: `reconcile-cup-${match.id}-${bucket}`,
+              attempts: CUP_PROGRESS_ATTEMPTS,
+              backoff: { type: 'exponential', delay: 60_000 },
+              removeOnComplete: { age: 3600, count: 500 },
+              removeOnFail: { age: 24 * 3600 },
+            },
+          );
+        }
+      } catch (error) {
+        const msg = error instanceof Error ? error.message : String(error);
+        if (/already exists|Job with id|duplicate/i.test(msg)) {
+          // BullMQ rejected a duplicate jobId — the bucket throttle is
+          // working, i.e. we already re-enqueued this match this bucket.
+          continue;
+        }
+        this.logger.error(
+          `[MatchReconcile] Failed to re-enqueue settlement for match ${match.id}: ${msg}`,
+          error instanceof Error ? error.stack : undefined,
         );
       }
     }
