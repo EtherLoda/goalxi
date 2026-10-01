@@ -34,11 +34,26 @@ describe('LeagueAwardService', () => {
     findOne: jest.fn(),
     create: jest.fn(),
     save: jest.fn(),
+    createQueryBuilder: jest.fn(),
   };
   const mockStandingRepo = { find: jest.fn(), findOne: jest.fn() };
   const mockPlayerRepo = { find: jest.fn(), findOne: jest.fn() };
   const mockTeamRepo = { findOne: jest.fn() };
   const mockFinanceRepo = { findOne: jest.fn(), save: jest.fn() };
+  // Fluent query-builder stub. Records the WHERE/AND-WHERE predicates so
+  // tests can assert the idempotency check is actually scoped per league.
+  const makeQB = (rows: any[] = []) => {
+    const qb: any = {
+      where: jest.fn().mockReturnThis(),
+      andWhere: jest.fn().mockReturnThis(),
+      select: jest.fn().mockReturnThis(),
+      orderBy: jest.fn().mockReturnThis(),
+      addOrderBy: jest.fn().mockReturnThis(),
+      getOne: jest.fn().mockResolvedValue(rows[0] ?? null),
+      getRawMany: jest.fn().mockResolvedValue(rows),
+    };
+    return qb;
+  };
   const mockMatchRepo = {
     find: jest.fn(),
     findOne: jest.fn(),
@@ -46,6 +61,8 @@ describe('LeagueAwardService', () => {
     manager: {
       createQueryBuilder: jest.fn().mockReturnValue({
         select: jest.fn().mockReturnThis(),
+        where: jest.fn().mockReturnThis(),
+        andWhere: jest.fn().mockReturnThis(),
         getRawMany: jest.fn().mockResolvedValue([]),
       }),
     },
@@ -100,17 +117,24 @@ describe('LeagueAwardService', () => {
   });
 
   describe('processSeasonAwards', () => {
-    it('skips the league when a CHAMPIONSHIP_TITLE event already exists (idempotent re-run)', async () => {
+    it('skips the league when a CHAMPIONSHIP_TITLE event already exists for THAT league (idempotent re-run)', async () => {
       // Manager says we have one league.
       mockMatchRepo.manager.createQueryBuilder.mockReturnValue({
         select: jest.fn().mockReturnThis(),
+        where: jest.fn().mockReturnThis(),
+        andWhere: jest.fn().mockReturnThis(),
         getRawMany: jest.fn().mockResolvedValue([{ leagueId: 'league-1' }]),
       });
       // The championship has already been awarded in a prior tick.
-      mockPlayerEventRepo.findOne.mockResolvedValue({
-        id: 'evt-existing' as any,
-        eventType: PlayerEventType.CHAMPIONSHIP_TITLE,
-      } as PlayerEventEntity);
+      // This is now a scoped query-builder lookup, not `findOne`.
+      mockPlayerEventRepo.createQueryBuilder.mockReturnValue(
+        makeQB([
+          {
+            id: 'evt-existing',
+            eventType: PlayerEventType.CHAMPIONSHIP_TITLE,
+          },
+        ]),
+      );
 
       await service.processSeasonAwards(1);
 
@@ -120,15 +144,103 @@ describe('LeagueAwardService', () => {
       expect(mockFinanceRepo.save).not.toHaveBeenCalled();
     });
 
+    it('REGRESSION: awards EVERY league, not just the first one', async () => {
+      // The idempotency check used to be
+      // `findOne({ season, eventType: CHAMPIONSHIP_TITLE })` with NO
+      // leagueId. `processSeasonAwards` loops over all leagues, so the
+      // first league created a championship event and every subsequent
+      // league matched that row and returned early — exactly 1 of 85
+      // leagues got any award per season. This test mocked a single
+      // league, which is why it never caught it.
+      const LEAGUES = [
+        'league-1',
+        'league-2',
+        'league-3',
+        'league-4',
+        'league-5',
+      ];
+      mockMatchRepo.manager.createQueryBuilder.mockReturnValue({
+        select: jest.fn().mockReturnThis(),
+        where: jest.fn().mockReturnThis(),
+        andWhere: jest.fn().mockReturnThis(),
+        getRawMany: jest.fn().mockResolvedValue(LEAGUES.map((id) => ({ leagueId: id }))),
+      });
+
+      // Simulate the REAL failure mode: the idempotency query answers
+      // "already awarded" once a championship event exists anywhere in
+      // the season. A correctly-scoped query answers per league.
+      const writtenLeagueIds: string[] = [];
+      const probedLeagueIds: (string | undefined)[] = [];
+      mockPlayerEventRepo.createQueryBuilder.mockImplementation(() => {
+        const qb: any = {
+          _leagueId: undefined as string | undefined,
+          where: jest.fn().mockReturnThis(),
+          andWhere: jest.fn(function (this: any, _sql: string, params?: any) {
+            if (params?.leagueId) qb._leagueId = params.leagueId;
+            return qb;
+          }),
+          getOne: jest.fn().mockImplementation(async () => {
+            probedLeagueIds.push(qb._leagueId);
+            if (!qb._leagueId) return null;
+            // "Already awarded" iff THIS league has a championship event.
+            return writtenLeagueIds.includes(qb._leagueId)
+              ? { id: 'evt' }
+              : null;
+          }),
+        };
+        return qb;
+      });
+
+      mockPlayerEventRepo.create.mockImplementation((p) => p);
+      mockPlayerEventRepo.save.mockImplementation(async (p: any) => {
+        if (p?.eventType === PlayerEventType.CHAMPIONSHIP_TITLE) {
+          writtenLeagueIds.push(p.details.leagueId);
+        }
+        return p;
+      });
+
+      mockStandingRepo.find.mockResolvedValue([] as any);
+      mockStandingRepo.findOne.mockResolvedValue({
+        leagueId: 'league-1' as Uuid,
+        teamId: 'champion-team' as Uuid,
+        position: 1,
+        team: { id: 'champion-team' as Uuid, name: 'T1' } as TeamEntity,
+      } as any);
+      mockPlayerRepo.find.mockResolvedValue([] as any);
+      mockLeagueRepo.findOne.mockResolvedValue({
+        id: 'league-1' as Uuid,
+        tier: 1,
+      } as LeagueEntity);
+      mockStatsRepo.findOne.mockResolvedValue({
+        goals: 0,
+        assists: 0,
+        tackles: 0,
+      } as any);
+
+      await service.processSeasonAwards(1);
+
+      // Every league must be probed — the whole bug was that leagues
+      // 2..N short-circuited on league 1's event.
+      expect(mockPlayerEventRepo.createQueryBuilder).toHaveBeenCalledTimes(
+        LEAGUES.length,
+      );
+      // AND each probe must be scoped to that league. Without the
+      // `details->>'leagueId' = :leagueId` predicate the query would
+      // answer "already awarded" for every league after the first.
+      expect(probedLeagueIds).toEqual(LEAGUES);
+    });
+
     it('awards champion title, golden boot, assists leader, tackles leader, and prize money', async () => {
       // ── Setup: 1 league with 8 standings (1-8) for prize money. ───────
       mockMatchRepo.manager.createQueryBuilder.mockReturnValue({
         select: jest.fn().mockReturnThis(),
+        where: jest.fn().mockReturnThis(),
+        andWhere: jest.fn().mockReturnThis(),
         getRawMany: jest.fn().mockResolvedValue([{ leagueId: 'league-1' }]),
       });
 
       // No prior championship event — processLeagueAwards should run.
-      mockPlayerEventRepo.findOne.mockResolvedValueOnce(null);
+      mockPlayerEventRepo.createQueryBuilder.mockReturnValue(makeQB([]));
 
       const championTeamId = 'champion-team' as Uuid;
       const standings = Array.from({ length: 8 }, (_, i) => ({
@@ -221,9 +333,11 @@ describe('LeagueAwardService', () => {
       // Single league.
       mockMatchRepo.manager.createQueryBuilder.mockReturnValue({
         select: jest.fn().mockReturnThis(),
+        where: jest.fn().mockReturnThis(),
+        andWhere: jest.fn().mockReturnThis(),
         getRawMany: jest.fn().mockResolvedValue([{ leagueId: 'league-1' }]),
       });
-      mockPlayerEventRepo.findOne.mockResolvedValueOnce(null);
+      mockPlayerEventRepo.createQueryBuilder.mockReturnValue(makeQB([]));
 
       // Empty standings → no prize money, no champion.
       mockStandingRepo.find.mockResolvedValue([] as any);

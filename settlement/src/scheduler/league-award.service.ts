@@ -18,10 +18,20 @@ import {
   TransactionEntity,
   TransactionType,
   PRIZE_MONEY,
+  currentSeasonWeek,
+  resolveGameStart,
 } from '@goalxi/database';
 
 @Injectable()
 export class LeagueAwardService {
+  /**
+   * Resolved once at construction so the award cron sees the same
+   * (season, week) pair as every other settlement cron, the API and the
+   * simulator. See `getCurrentSeasonAndWeek` for why this used to be a
+   * match-table query instead.
+   */
+  private readonly gameStart: Date;
+
   constructor(
     @Inject(LOGGER_SERVICE)
     private readonly logger: PinoLoggerService,
@@ -43,7 +53,9 @@ export class LeagueAwardService {
     private readonly leagueRepo: Repository<LeagueEntity>,
     @InjectRepository(TransactionEntity)
     private readonly transactionRepo: Repository<TransactionEntity>,
-  ) {}
+  ) {
+    this.gameStart = resolveGameStart(process.env.GAME_START_DATE);
+  }
 
   /**
    * 每周日 00:00 检查是否需要发放赛季奖项
@@ -80,11 +92,26 @@ export class LeagueAwardService {
    * 需在联赛最后一轮结束后调用
    */
   async processSeasonAwards(season: number): Promise<void> {
-    // 获取所有联赛
+    // Collect the leagues that actually have a ladder this season.
+    //
+    // The previous query was `SELECT DISTINCT match.leagueId FROM match`
+    // with NO WHERE clause — no season filter, no type filter. That
+    // swept in cup and youth matches (which carry `leagueId = null`) and
+    // every league from every other season. A NULL `leagueId` then ran
+    // the whole award path against a nonexistent league.
     const leagues = await this.matchRepo.manager
       .createQueryBuilder(MatchEntity, 'match')
       .select('DISTINCT match.leagueId', 'leagueId')
-      .getRawMany();
+      .where('match.season = :season', { season })
+      .andWhere('match.leagueId IS NOT NULL')
+      .andWhere('match.type IN (:...types)', {
+        types: [MatchType.LEAGUE, MatchType.PLAYOFF],
+      })
+      .getRawMany<{ leagueId: string }>();
+
+    this.logger.info(
+      `[LeagueAward] Processing awards for ${leagues.length} league(s) in season ${season}`,
+    );
 
     for (const { leagueId } of leagues) {
       await this.processLeagueAwards(leagueId, season);
@@ -97,10 +124,32 @@ export class LeagueAwardService {
     leagueId: string,
     season: number,
   ): Promise<void> {
-    // 检查是否已发过奖（幂等）
-    const existingAwards = await this.playerEventRepo.findOne({
-      where: { season, eventType: PlayerEventType.CHAMPIONSHIP_TITLE },
-    });
+    // Idempotency check — MUST be scoped to this league.
+    //
+    // This used to be `findOne({ season, eventType: CHAMPIONSHIP_TITLE })`
+    // with no `leagueId`. `processSeasonAwards` loops over every league,
+    // so the FIRST league processed created a championship event and
+    // every subsequent league matched that row and returned early.
+    // Net effect: exactly 1 of the 85 leagues received any award per
+    // season — golden boot, assists leader, tackles leader, championship
+    // titles and all prize money were silently dropped for the other 84.
+    // This was a deterministic every-season failure, not a race.
+    //
+    // The unit test missed it because it mocked a single league.
+    //
+    // All four award types already write `leagueId` into the `details`
+    // JSONB, so scoping on it needs no migration. There is no index on
+    // the JSONB path — acceptable for an annual cron over a table that
+    // only grows with discrete player events.
+    const existingAwards = await this.playerEventRepo
+      .createQueryBuilder('pe')
+      .where('pe.season = :season', { season })
+      .andWhere('pe.eventType = :eventType', {
+        eventType: PlayerEventType.CHAMPIONSHIP_TITLE,
+      })
+      .andWhere("pe.details->>'leagueId' = :leagueId", { leagueId })
+      .getOne();
+
     if (existingAwards) {
       this.logger.info(
         `[LeagueAward] Awards already processed for league ${leagueId} season ${season}`,
@@ -347,16 +396,17 @@ export class LeagueAwardService {
     season: number;
     week: number;
   }> {
-    const latestMatch = await this.matchRepo.findOne({
-      where: { type: MatchType.LEAGUE },
-      order: { scheduledAt: 'DESC' },
-    });
-
-    if (!latestMatch) {
-      return { season: 1, week: 1 };
-    }
-
-    return { season: latestMatch.season, week: latestMatch.week };
+    // Use the shared game clock, like every other settlement cron.
+    //
+    // This used to read `MAX(scheduled_at)` from the match table with
+    // no season filter. `season-transition.service.ts` explicitly
+    // documents that pattern as a fixed bug ("Previously this service
+    // derived 'current week' by querying the latest match row, which
+    // could disagree with the rest of the system by one full season"),
+    // but this service kept it — and the `ORDER BY scheduled_at DESC`
+    // had no supporting index, so it seq-scanned + top-N sorted the
+    // whole match table every Sunday.
+    return currentSeasonWeek(new Date(), this.gameStart);
   }
 
   private async areAllWeekMatchesCompleted(
