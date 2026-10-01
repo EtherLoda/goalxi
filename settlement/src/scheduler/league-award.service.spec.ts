@@ -1,5 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { getRepositoryToken } from '@nestjs/typeorm';
+import { getDataSourceToken, getRepositoryToken } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { LeagueAwardService } from './league-award.service';
 import { LOGGER_SERVICE_PROVIDER } from '../test-utils/test-logger';
@@ -69,6 +69,20 @@ describe('LeagueAwardService', () => {
   };
   const mockLeagueRepo = { findOne: jest.fn() };
   const mockTransactionRepo = { create: jest.fn(), save: jest.fn() };
+  // `addPrizeToTeam` credits the balance and writes a ledger row in one
+  // transaction, re-reading the balance under a write lock.
+  const mockDataSource = {
+    transaction: jest.fn(async (cb: any) => cb(mockTxManager)),
+  };
+  const mockTxFinanceRepo = { findOne: jest.fn(), save: jest.fn() };
+  const mockTxTransactionRepo = { create: jest.fn(), save: jest.fn() };
+  const mockTxManager = {
+    getRepository: jest.fn((entity: any) =>
+      entity?.name === 'FinanceEntity'
+        ? mockTxFinanceRepo
+        : mockTxTransactionRepo,
+    ),
+  };
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
@@ -99,6 +113,7 @@ describe('LeagueAwardService', () => {
           provide: getRepositoryToken(TransactionEntity),
           useValue: mockTransactionRepo,
         },
+        { provide: getDataSourceToken(), useValue: mockDataSource },
       ],
     }).compile();
 
@@ -163,7 +178,9 @@ describe('LeagueAwardService', () => {
         select: jest.fn().mockReturnThis(),
         where: jest.fn().mockReturnThis(),
         andWhere: jest.fn().mockReturnThis(),
-        getRawMany: jest.fn().mockResolvedValue(LEAGUES.map((id) => ({ leagueId: id }))),
+        getRawMany: jest
+          .fn()
+          .mockResolvedValue(LEAGUES.map((id) => ({ leagueId: id }))),
       });
 
       // Simulate the REAL failure mode: the idempotency query answers
@@ -316,6 +333,15 @@ describe('LeagueAwardService', () => {
           12: { id: 12, teamId: 'team-tackle' as Uuid },
         }[id];
       });
+      // The transaction re-reads the balance under a write lock.
+      mockTxFinanceRepo.findOne.mockResolvedValue({
+        id: 'fin-1',
+        teamId: 'champion-team' as Uuid,
+        balance: 1_000_000,
+      } as any);
+      mockTxFinanceRepo.save.mockResolvedValue({} as any);
+      mockTxTransactionRepo.create.mockImplementation((t: any) => t);
+      mockTxTransactionRepo.save.mockResolvedValue({} as any);
 
       await service.processSeasonAwards(1);
 
@@ -326,7 +352,83 @@ describe('LeagueAwardService', () => {
       // Prize money: 8 transactions (one per top-8 team).
       // Finance saves: 8 prize money + 3 leader addPrizeToTeam calls.
       expect(mockTransactionRepo.save).toHaveBeenCalledTimes(8);
-      expect(mockFinanceRepo.save).toHaveBeenCalledTimes(8 + 3);
+      expect(mockFinanceRepo.save).toHaveBeenCalledTimes(8);
+      // The three leader prizes go through the TRANSACTION's repo, not
+      // the injected one — they must write a ledger row alongside the
+      // balance bump, in the same transaction.
+      expect(mockTxFinanceRepo.save).toHaveBeenCalledTimes(3);
+      expect(mockTxTransactionRepo.save).toHaveBeenCalledTimes(3);
+    });
+
+    it('REGRESSION: leader prizes write a ledger row (was unaccounted money)', async () => {
+      // `addPrizeToTeam` used to be a bare `finance.balance += amount`
+      // with NO TransactionEntity, which made £100k x 3 awards x 85
+      // leagues per season invisible in the finance history AND absent
+      // from `archived_transaction` (the archive reads `transaction`).
+      mockMatchRepo.manager.createQueryBuilder.mockReturnValue({
+        select: jest.fn().mockReturnThis(),
+        where: jest.fn().mockReturnThis(),
+        andWhere: jest.fn().mockReturnThis(),
+        getRawMany: jest.fn().mockResolvedValue([{ leagueId: 'league-1' }]),
+      });
+      mockPlayerEventRepo.createQueryBuilder.mockReturnValue(makeQB([]));
+      mockStandingRepo.find.mockResolvedValue([] as any);
+      mockStandingRepo.findOne.mockResolvedValue(null as any);
+      mockPlayerRepo.find.mockResolvedValue([] as any);
+      mockLeagueRepo.findOne.mockResolvedValue({
+        id: 'league-1' as Uuid,
+        tier: 1,
+      } as LeagueEntity);
+      mockStatsRepo.findOne
+        .mockResolvedValueOnce({
+          playerId: 10,
+          goals: 20,
+          assists: 0,
+          tackles: 0,
+        } as any)
+        .mockResolvedValueOnce({
+          playerId: 11,
+          goals: 0,
+          assists: 12,
+          tackles: 0,
+        } as any)
+        .mockResolvedValueOnce({
+          playerId: 12,
+          goals: 0,
+          assists: 0,
+          tackles: 40,
+        } as any);
+      // Each award winner is on a real team with a finance row.
+      mockPlayerRepo.findOne.mockImplementation(async (opts: any) => ({
+        teamId: `team-${opts.where.id}`,
+      }));
+      mockFinanceRepo.findOne.mockResolvedValue({
+        id: 'fin-1',
+        teamId: 'team-10',
+        balance: 0,
+      } as any);
+      mockTxFinanceRepo.findOne.mockResolvedValue({
+        id: 'fin-1',
+        teamId: 'team-10',
+        balance: 0,
+      } as any);
+      mockTxTransactionRepo.create.mockImplementation((t: any) => t);
+      mockTxTransactionRepo.save.mockResolvedValue({} as any);
+      mockTxFinanceRepo.save.mockResolvedValue({} as any);
+
+      await service.processSeasonAwards(1);
+
+      // One ledger row per player award, carrying the amount.
+      expect(mockTxTransactionRepo.save).toHaveBeenCalledTimes(3);
+      const rows = mockTxTransactionRepo.create.mock.calls.map(
+        (c: any[]) => c[0],
+      );
+      for (const row of rows) {
+        expect(row.amount).toBe(100_000);
+        expect(row.season).toBe(1);
+        expect(row.description).toEqual(expect.any(String));
+        expect(row.teamId).toEqual(expect.any(String));
+      }
     });
 
     it('skips a leader award when the top stat row has zero', async () => {

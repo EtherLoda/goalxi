@@ -1,8 +1,8 @@
 import { Injectable, Inject } from '@nestjs/common';
 import { LOGGER_SERVICE, PinoLoggerService } from '@goalxi/logger';
 import { Cron } from '@nestjs/schedule';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { InjectRepository, InjectDataSource } from '@nestjs/typeorm';
+import { DataSource, Repository } from 'typeorm';
 import {
   PlayerCompetitionStatsEntity,
   PlayerEventEntity,
@@ -17,11 +17,22 @@ import {
   LeagueEntity,
   TransactionEntity,
   TransactionType,
+  GAME_SETTINGS,
   PRIZE_MONEY,
   currentSeasonWeek,
   resolveGameStart,
-  GAME_SETTINGS,
 } from '@goalxi/database';
+
+/**
+ * Week the end-of-season awards are booked against. Matches the
+ * `week: 16` literal that `awardPrizeMoney` used, now derived from
+ * the same `GAME_SETTINGS.SEASON_LENGTH_WEEKS` the season-transition
+ * crons key on, so the three can't drift.
+ */
+const SEASON_END_AWARD_WEEK = GAME_SETTINGS.SEASON_LENGTH_WEEKS;
+
+/** Cash prize for each individual player award (boot / assists / tackles). */
+const PLAYER_AWARD_BONUS = 100_000;
 
 @Injectable()
 export class LeagueAwardService {
@@ -54,6 +65,8 @@ export class LeagueAwardService {
     private readonly leagueRepo: Repository<LeagueEntity>,
     @InjectRepository(TransactionEntity)
     private readonly transactionRepo: Repository<TransactionEntity>,
+    @InjectDataSource()
+    private readonly dataSource: DataSource,
   ) {
     this.gameStart = resolveGameStart(process.env.GAME_START_DATE);
   }
@@ -219,7 +232,7 @@ export class LeagueAwardService {
           amount: prizeAmount,
           type: TransactionType.PRIZE_MONEY,
           season,
-          week: 16, // 赛季结束时（第16周结算）
+          week: SEASON_END_AWARD_WEEK,
           description: `Season ${season} final position prize (${position}${this.getPositionSuffix(position)} in ${league.name})`,
         });
         await this.transactionRepo.save(transaction);
@@ -267,7 +280,12 @@ export class LeagueAwardService {
     );
 
     // 发放奖金给球员所在球队
-    await this.addPrizeToTeam(topScorer.playerId, 100000);
+    await this.addPrizeToTeam(
+      topScorer.playerId,
+      PLAYER_AWARD_BONUS,
+      season,
+      'Golden Boot',
+    );
     this.logger.info(
       `[LeagueAward] GOLDEN_BOOT: player=${topScorer.playerId} goals=${topScorer.goals}`,
     );
@@ -296,7 +314,12 @@ export class LeagueAwardService {
       }),
     );
 
-    await this.addPrizeToTeam(topAssister.playerId, 100000);
+    await this.addPrizeToTeam(
+      topAssister.playerId,
+      PLAYER_AWARD_BONUS,
+      season,
+      'Assists Leader',
+    );
     this.logger.info(
       `[LeagueAward] ASSISTS_LEADER: player=${topAssister.playerId} assists=${topAssister.assists}`,
     );
@@ -325,7 +348,12 @@ export class LeagueAwardService {
       }),
     );
 
-    await this.addPrizeToTeam(topTackler.playerId, 100000);
+    await this.addPrizeToTeam(
+      topTackler.playerId,
+      PLAYER_AWARD_BONUS,
+      season,
+      'Tackles Leader',
+    );
     this.logger.info(
       `[LeagueAward] TACKLES_LEADER: player=${topTackler.playerId} tackles=${topTackler.tackles}`,
     );
@@ -371,9 +399,33 @@ export class LeagueAwardService {
     );
   }
 
+  /**
+   * Credit a player's current club (golden boot / assists / tackles).
+   *
+   * ## Why this writes a ledger row
+   *
+   * This used to be a bare `finance.balance += amount` with NO
+   * `TransactionEntity`. That made the money unaccounted-for:
+   *
+   *  - invisible in the finance history, so a manager looking at their
+   *    ledger sees their balance jump with no matching entry;
+   *  - absent from `SeasonArchiveService.archiveTransactions`, which
+   *    reads `transaction` — so the £100k never reached
+   *    `archived_transaction` either, and the archived books did not
+   *    reconcile with the live balance.
+   *
+   * £100k x 3 awards x 85 leagues per season was simply created from
+   * nothing. The sibling `awardPrizeMoney` path DOES write a ledger row,
+   * so the two were inconsistent.
+   *
+   * The balance update and the ledger insert share one transaction, so
+   * a crash can't leave money credited with no record (or vice versa).
+   */
   private async addPrizeToTeam(
     playerId: number,
     amount: number,
+    season: number,
+    reason: string,
   ): Promise<void> {
     // 查找球员当前所在球队
     const player = await this.playerRepo.findOne({
@@ -382,15 +434,48 @@ export class LeagueAwardService {
 
     if (!player?.teamId) return;
 
-    // 给球队加奖金
+    const teamId = player.teamId;
     const finance = await this.financeRepo.findOne({
-      where: { teamId: player.teamId as any },
+      where: { teamId: teamId as any },
     });
 
-    if (finance) {
-      finance.balance += amount;
-      await this.financeRepo.save(finance);
+    if (!finance) {
+      this.logger.warn(
+        `[LeagueAward] ${reason}: no finance row for team ${teamId}, ` +
+          `£${amount} not credited`,
+      );
+      return;
     }
+
+    await this.dataSource.transaction(async (manager) => {
+      // Re-read the balance under a write lock. `awardPrizeMoney` runs
+      // the five award paths concurrently via `Promise.all`, so two of
+      // them crediting the same club (a golden-boot winner who also won
+      // assists, say) would otherwise lose one increment.
+      const lockedFinance = await manager.getRepository(FinanceEntity).findOne({
+        where: { id: finance.id },
+        lock: { mode: 'pessimistic_write' },
+      });
+      if (!lockedFinance) return;
+
+      lockedFinance.balance += amount;
+      await manager.getRepository(FinanceEntity).save(lockedFinance);
+
+      await manager.getRepository(TransactionEntity).save(
+        manager.getRepository(TransactionEntity).create({
+          teamId,
+          amount,
+          type: TransactionType.OTHER_INCOME,
+          season,
+          week: SEASON_END_AWARD_WEEK,
+          description: `${reason} (player ${playerId})`,
+        }),
+      );
+    });
+
+    this.logger.info(
+      `[LeagueAward] ${reason}: credited £${amount} to team ${teamId}`,
+    );
   }
 
   private async getCurrentSeasonAndWeek(): Promise<{
