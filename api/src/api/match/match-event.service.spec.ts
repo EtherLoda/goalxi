@@ -186,10 +186,34 @@ describe('MatchEventService', () => {
         // RFC 0002 Phase 3 — the legacy `type` int is gone.
         // Goals are identified by the (classId=3, outcomeId=1)
         // tuple only.
-        { eventClassId: 3, outcomeId: 1, teamId: 'team-1', minute: 10, second: 0 }, // Home goal
-        { eventClassId: 3, outcomeId: 1, teamId: 'team-2', minute: 20, second: 0 }, // Away goal
-        { eventClassId: 3, outcomeId: 1, teamId: 'team-1', minute: 30, second: 0 }, // Home goal
-        { eventClassId: 3, outcomeId: 2, teamId: 'team-1', minute: 40, second: 0 }, // Save (not a goal)
+        {
+          eventClassId: 3,
+          outcomeId: 1,
+          teamId: 'team-1',
+          minute: 10,
+          second: 0,
+        }, // Home goal
+        {
+          eventClassId: 3,
+          outcomeId: 1,
+          teamId: 'team-2',
+          minute: 20,
+          second: 0,
+        }, // Away goal
+        {
+          eventClassId: 3,
+          outcomeId: 1,
+          teamId: 'team-1',
+          minute: 30,
+          second: 0,
+        }, // Home goal
+        {
+          eventClassId: 3,
+          outcomeId: 2,
+          teamId: 'team-1',
+          minute: 40,
+          second: 0,
+        }, // Save (not a goal)
       ];
 
       eventRepository.find.mockResolvedValue(mockEvents as any);
@@ -232,9 +256,30 @@ describe('MatchEventService', () => {
 
       const mockEvents = [
         // SHOT (3) + GOAL (1) — Phase 2 row, no legacy `type` set
-        { eventClassId: 3, outcomeId: 1, outcomeCode: 'GOAL', teamId: 'team-1', minute: 10, second: 0 },
-        { eventClassId: 3, outcomeId: 1, outcomeCode: 'GOAL', teamId: 'team-2', minute: 20, second: 0 },
-        { eventClassId: 3, outcomeId: 2, outcomeCode: 'SAVE', teamId: 'team-1', minute: 30, second: 0 }, // not a goal
+        {
+          eventClassId: 3,
+          outcomeId: 1,
+          outcomeCode: 'GOAL',
+          teamId: 'team-1',
+          minute: 10,
+          second: 0,
+        },
+        {
+          eventClassId: 3,
+          outcomeId: 1,
+          outcomeCode: 'GOAL',
+          teamId: 'team-2',
+          minute: 20,
+          second: 0,
+        },
+        {
+          eventClassId: 3,
+          outcomeId: 2,
+          outcomeCode: 'SAVE',
+          teamId: 'team-1',
+          minute: 30,
+          second: 0,
+        }, // not a goal
       ];
 
       eventRepository.find.mockResolvedValue(mockEvents as any);
@@ -261,8 +306,20 @@ describe('MatchEventService', () => {
         // count a goal. A bare-bones row that would have
         // been a `type=2` goal in the legacy schema no
         // longer counts.
-        { eventClassId: null, outcomeId: null, teamId: 'team-1', minute: 10, second: 0 },
-        { eventClassId: 3, outcomeId: 2, teamId: 'team-2', minute: 20, second: 0 }, // Save (not a goal)
+        {
+          eventClassId: null,
+          outcomeId: null,
+          teamId: 'team-1',
+          minute: 10,
+          second: 0,
+        },
+        {
+          eventClassId: 3,
+          outcomeId: 2,
+          teamId: 'team-2',
+          minute: 20,
+          second: 0,
+        }, // Save (not a goal)
       ];
 
       eventRepository.find.mockResolvedValue(mockEvents as any);
@@ -281,8 +338,7 @@ describe('MatchEventService', () => {
       // ever re-introduced, the "credit the OTHER team" logic
       // belongs here, NOT in the engine.
       const ev: any = { type: 29, eventClassId: 11, teamId: 'team-1' };
-      const isGoalByNew =
-        ev.eventClassId === 3 && (ev as any).outcomeId === 1;
+      const isGoalByNew = ev.eventClassId === 3 && (ev as any).outcomeId === 1;
       const isGoalByLegacy = ev.type === 2; // GOAL
       expect(isGoalByNew || isGoalByLegacy).toBe(false);
     });

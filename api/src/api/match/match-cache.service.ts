@@ -24,7 +24,9 @@ interface CachedMatchEvent {
   // from `specialtyContributions` so the cache hit doesn't
   // have to re-decode the JSONB). `null` = no specialty
   // fired on this event (the 90% case).
-  specialtyContributions: import('@goalxi/database').SpecialtyContribution[] | null;
+  specialtyContributions:
+    | import('@goalxi/database').SpecialtyContribution[]
+    | null;
   // RFC 0002 — the new two-axis tuple. Same null contract
   // as the entity columns.
   eventClassId: number | null;

@@ -27,9 +27,7 @@ describe('1788000000001-CreateEventClassOutcomeDefs migration (RFC 0002 P1)', ()
 
   describe('up() — dictionary tables', () => {
     it('creates the event_class_def table with PK + UNIQUE(code)', () => {
-      expect(source).toMatch(
-        /CREATE TABLE IF NOT EXISTS "event_class_def"/,
-      );
+      expect(source).toMatch(/CREATE TABLE IF NOT EXISTS "event_class_def"/);
       expect(source).toMatch(
         /CONSTRAINT "PK_event_class_def" PRIMARY KEY \("id"\)/,
       );
@@ -39,9 +37,7 @@ describe('1788000000001-CreateEventClassOutcomeDefs migration (RFC 0002 P1)', ()
     });
 
     it('creates the event_outcome_def table with PK + UNIQUE(code)', () => {
-      expect(source).toMatch(
-        /CREATE TABLE IF NOT EXISTS "event_outcome_def"/,
-      );
+      expect(source).toMatch(/CREATE TABLE IF NOT EXISTS "event_outcome_def"/);
       expect(source).toMatch(
         /CONSTRAINT "PK_event_outcome_def" PRIMARY KEY \("id"\)/,
       );
@@ -56,7 +52,9 @@ describe('1788000000001-CreateEventClassOutcomeDefs migration (RFC 0002 P1)', ()
       // 'period'). The outcomes block has BOOLEAN as its 2nd
       // value, so this regex only matches the 17 class rows.
       const classRows =
-        source.match(/\(\s*\d+\s*,\s*'[A-Z_]+'\s*,\s*'(?:neutral|negative|positive|period)'/g) ?? [];
+        source.match(
+          /\(\s*\d+\s*,\s*'[A-Z_]+'\s*,\s*'(?:neutral|negative|positive|period)'/g,
+        ) ?? [];
       expect(classRows.length).toBe(17);
     });
 
@@ -66,9 +64,10 @@ describe('1788000000001-CreateEventClassOutcomeDefs migration (RFC 0002 P1)', ()
       // (BOOLEAN, BOOLEAN, ...) which is unique to outcomes.
       const outcomeSection =
         source.split('INSERT INTO "event_outcome_def"')[1] ?? '';
-      const outcomeRows = outcomeSection.match(
-        /^\s*\(\s*\d+\s*,\s*'[A-Z_]+'\s*,\s*(?:TRUE|FALSE)/gm,
-      ) ?? [];
+      const outcomeRows =
+        outcomeSection.match(
+          /^\s*\(\s*\d+\s*,\s*'[A-Z_]+'\s*,\s*(?:TRUE|FALSE)/gm,
+        ) ?? [];
       expect(outcomeRows.length).toBe(28);
     });
 
@@ -109,8 +108,12 @@ describe('1788000000001-CreateEventClassOutcomeDefs migration (RFC 0002 P1)', ()
     });
 
     it('adds 2 partial B-tree indexes', () => {
-      expect(source).toMatch(/CREATE INDEX IF NOT EXISTS "idx_event_class_outcome"/);
-      expect(source).toMatch(/CREATE INDEX IF NOT EXISTS "idx_player_class_outcome"/);
+      expect(source).toMatch(
+        /CREATE INDEX IF NOT EXISTS "idx_event_class_outcome"/,
+      );
+      expect(source).toMatch(
+        /CREATE INDEX IF NOT EXISTS "idx_player_class_outcome"/,
+      );
       // Both must be partial (WHERE NOT NULL) to keep index
       // size in check on the ~10% of events that have a
       // class_id set after backfill.
@@ -149,7 +152,9 @@ describe('1788000000001-CreateEventClassOutcomeDefs migration (RFC 0002 P1)', ()
     it('calls the backfill once for all existing rows in the up()', () => {
       // Auto-run on migrate so a fresh production DB doesn't
       // need a separate "backfill" step.
-      expect(source).toMatch(/SELECT "match_event_backfill_class_outcome"\(NULL\)/);
+      expect(source).toMatch(
+        /SELECT "match_event_backfill_class_outcome"\(NULL\)/,
+      );
     });
 
     it('does NOT map dead enum types (TACKLE/INTERCEPTION/CLEARANCE/OFFSIDE/...)', () => {
@@ -166,9 +171,10 @@ describe('1788000000001-CreateEventClassOutcomeDefs migration (RFC 0002 P1)', ()
       // maps to type=5). The 2026-08-24 fix removed 5 from
       // the dead list and added a proper `WHEN 5 THEN 3`
       // (SHOT class) + `WHEN 5 THEN 4` (MISS outcome) row.
-      const funcSection = source.match(
-        /CREATE OR REPLACE FUNCTION[\s\S]*?LANGUAGE plpgsql/,
-      )?.[0] ?? '';
+      const funcSection =
+        source.match(
+          /CREATE OR REPLACE FUNCTION[\s\S]*?LANGUAGE plpgsql/,
+        )?.[0] ?? '';
       for (const deadType of [6, 7, 16, 27, 26, 28]) {
         // The `event_class_id` branch must NOT have this dead
         // type. We use a negative lookahead: no `WHEN <N> THEN`
@@ -188,19 +194,21 @@ describe('1788000000001-CreateEventClassOutcomeDefs migration (RFC 0002 P1)', ()
       // left PASS as a dead enum). The fix routes them to
       // SHOT(3)+MISS(4) per the TS mirror in
       // `EVENT_TWO_AXIS.turnover`.
-      const funcSection = source.match(
-        /CREATE OR REPLACE FUNCTION[\s\S]*?LANGUAGE plpgsql/,
-      )?.[0] ?? '';
-      expect(funcSection).toMatch(/WHEN 5\s+THEN 3/);  // event_class_id = SHOT
-      expect(funcSection).toMatch(/WHEN 5\s+THEN 4/);  // outcome_id = MISS
+      const funcSection =
+        source.match(
+          /CREATE OR REPLACE FUNCTION[\s\S]*?LANGUAGE plpgsql/,
+        )?.[0] ?? '';
+      expect(funcSection).toMatch(/WHEN 5\s+THEN 3/); // event_class_id = SHOT
+      expect(funcSection).toMatch(/WHEN 5\s+THEN 4/); // outcome_id = MISS
     });
 
     it('maps GOAL (type=2) to class SHOT (3) + outcome GOAL (1)', () => {
       // The most important mapping — it powers the "X scored
       // a goal" stat query. Pin the exact ids.
-      const funcSection = source.match(
-        /CREATE OR REPLACE FUNCTION[\s\S]*?LANGUAGE plpgsql/,
-      )?.[0] ?? '';
+      const funcSection =
+        source.match(
+          /CREATE OR REPLACE FUNCTION[\s\S]*?LANGUAGE plpgsql/,
+        )?.[0] ?? '';
       expect(funcSection).toMatch(/WHEN 2\s+THEN 3/);
       // And the outcome branch:
       expect(funcSection).toMatch(/WHEN 2\s+THEN 1/);
@@ -212,14 +220,12 @@ describe('1788000000001-CreateEventClassOutcomeDefs migration (RFC 0002 P1)', ()
       // Phase 1 is additive. Dropping `type` happens in Phase 3.
       // A premature drop would break every reader that's still
       // on the old code path.
-      const downSection =
-        source.split('public async down')[1] ?? '';
+      const downSection = source.split('public async down')[1] ?? '';
       expect(downSection).not.toMatch(/DROP COLUMN.*"type"/);
     });
 
     it('does NOT drop the legacy `typeName` string column', () => {
-      const downSection =
-        source.split('public async down')[1] ?? '';
+      const downSection = source.split('public async down')[1] ?? '';
       expect(downSection).not.toMatch(/DROP COLUMN.*"typeName"/);
     });
 

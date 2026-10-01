@@ -1,7 +1,7 @@
 import { AuthService } from '@/api/auth/auth.service';
+import { computeCurrentInGameMinute } from '@/api/match/match-current-minute';
 import { MatchEventService } from '@/api/match/match-event.service';
 import { MatchService } from '@/api/match/match.service';
-import { computeCurrentInGameMinute } from '@/api/match/match-current-minute';
 import { MatchEventEntity, MatchStatus } from '@goalxi/database';
 import { Inject, Logger, forwardRef } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';

@@ -59,9 +59,7 @@ describe('1788000000002-DropMatchEventLegacyColumns migration (RFC 0002 P3)', ()
     });
 
     it('sets event_class_id NOT NULL after the pre-check', () => {
-      expect(source).toMatch(
-        /ALTER COLUMN "event_class_id" SET NOT NULL/,
-      );
+      expect(source).toMatch(/ALTER COLUMN "event_class_id" SET NOT NULL/);
     });
 
     it('keeps the range check (BETWEEN 1 AND 100) intact across the NOT NULL change', () => {
@@ -83,10 +81,16 @@ describe('1788000000002-DropMatchEventLegacyColumns migration (RFC 0002 P3)', ()
   describe('up() — does NOT touch things that should stay', () => {
     it('does NOT drop the 6 entity declared generated columns (they were never created)', () => {
       for (const col of [
-        'shot_type', 'body_part', 'card_type',
-        'injury_severity', 'sub_position', 'penalty_outcome',
+        'shot_type',
+        'body_part',
+        'card_type',
+        'injury_severity',
+        'sub_position',
+        'penalty_outcome',
       ]) {
-        expect(source).not.toMatch(new RegExp(`DROP COLUMN IF EXISTS "${col}"`));
+        expect(source).not.toMatch(
+          new RegExp(`DROP COLUMN IF EXISTS "${col}"`),
+        );
       }
     });
 

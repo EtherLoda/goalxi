@@ -44,9 +44,7 @@ import { MigrationInterface, QueryRunner } from 'typeorm';
  * break those paths; `nullable: true` + the FE fallback
  * keeps the door open.
  */
-export class AddMatchEventClockSeconds1788000000010
-  implements MigrationInterface
-{
+export class AddMatchEventClockSeconds1788000000010 implements MigrationInterface {
   name = 'AddMatchEventClockSeconds1788000000010';
 
   public async up(queryRunner: QueryRunner): Promise<void> {

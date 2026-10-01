@@ -1,4 +1,4 @@
-import { hashPassword, verifyPassword } from '@/utils/password.util';
+import { verifyPassword } from '@/utils/password.util';
 import { SessionEntity, UserEntity } from '@goalxi/database';
 import { UnauthorizedException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';

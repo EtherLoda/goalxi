@@ -87,9 +87,7 @@ export class MatchController {
 
   @Public()
   @Get(':id')
-  async getMatch(
-    @Param('id', ParseUUIDPipe) id: string,
-  ): Promise<MatchResDto> {
+  async getMatch(@Param('id', ParseUUIDPipe) id: string): Promise<MatchResDto> {
     return this.matchService.findOne(id);
   }
 

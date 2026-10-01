@@ -63,9 +63,7 @@ import { MigrationInterface, QueryRunner } from 'typeorm';
  *   `down` in production is a no-go once any consumer has
  *   read the new columns.
  */
-export class CreateEventClassOutcomeDefs1788000000001
-  implements MigrationInterface
-{
+export class CreateEventClassOutcomeDefs1788000000001 implements MigrationInterface {
   name = 'CreateEventClassOutcomeDefs1788000000001';
 
   public async up(queryRunner: QueryRunner): Promise<void> {

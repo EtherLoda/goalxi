@@ -20,8 +20,8 @@ export class PlayerSeasonStatsEntryDto {
   leagueName!: string | null;
 
   // Explicit league/cup/youth/other bucket. See
- // `CompetitionType` in `@goalxi/database`. The string values
- // are uppercase to match the column default in the DB.
+  // `CompetitionType` in `@goalxi/database`. The string values
+  // are uppercase to match the column default in the DB.
   @Expose()
   competitionType!: 'LEAGUE' | 'CUP' | 'YOUTH' | 'OTHER';
 

@@ -22,7 +22,10 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { AuthModule } from '../auth/auth.module';
 import { FanModule } from '../fan/fan.module';
 import { FinanceModule } from '../finance/finance.module';
-import { EventClassDefController, EventOutcomeDefController } from './event-definitions.controller';
+import {
+  EventClassDefController,
+  EventOutcomeDefController,
+} from './event-definitions.controller';
 import { EventDefinitionsService } from './event-definitions.service';
 import { MatchCacheService } from './match-cache.service';
 import { MatchCompletionService } from './match-completion.service';

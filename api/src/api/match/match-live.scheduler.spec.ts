@@ -293,7 +293,9 @@ describe('MatchLiveScheduler — processRevealableEvents (B6/B7)', () => {
       }),
     ]);
     eventRepository.createQueryBuilder.mockReturnValue(
-      mockAggregateQuery([{ matchId: 'match-1', homeGoals: '0', awayGoals: '0' }]),
+      mockAggregateQuery([
+        { matchId: 'match-1', homeGoals: '0', awayGoals: '0' },
+      ]),
     );
     matchRepository.find.mockResolvedValue([mkMatch()]);
 
@@ -353,7 +355,9 @@ describe('MatchLiveScheduler — processRevealableEvents (B6/B7)', () => {
       }),
     ]);
     eventRepository.createQueryBuilder.mockReturnValue(
-      mockAggregateQuery([{ matchId: 'match-1', homeGoals: '1', awayGoals: '0' }]),
+      mockAggregateQuery([
+        { matchId: 'match-1', homeGoals: '1', awayGoals: '0' },
+      ]),
     );
     matchRepository.find.mockResolvedValue([mkMatch()]);
 

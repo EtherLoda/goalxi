@@ -34,9 +34,7 @@ import { DataSource } from 'typeorm';
 export class GameStateService implements OnModuleInit {
   private gameStart!: Date;
 
-  constructor(
-    @InjectDataSource() private readonly dataSource: DataSource,
-  ) {}
+  constructor(@InjectDataSource() private readonly dataSource: DataSource) {}
 
   async onModuleInit(): Promise<void> {
     this.gameStart = await resolveInitDate(

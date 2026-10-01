@@ -34,9 +34,7 @@ import { MigrationInterface, QueryRunner } from 'typeorm';
  * CHECK constraint and the backfill UPDATE both short-circuit
  * on a re-run.
  */
-export class AddCompetitionTypeToPlayerStats1737000000000
-  implements MigrationInterface
-{
+export class AddCompetitionTypeToPlayerStats1737000000000 implements MigrationInterface {
   name = 'AddCompetitionTypeToPlayerStats1737000000000';
 
   private readonly ALLOWED_VALUES = ["'LEAGUE'", "'CUP'", "'YOUTH'", "'OTHER'"];
@@ -53,12 +51,15 @@ export class AddCompetitionTypeToPlayerStats1737000000000
     queryRunner: QueryRunner,
     table: string,
   ): Promise<void> {
-    const hasColumn = await queryRunner.query(`
+    const hasColumn = await queryRunner.query(
+      `
       SELECT 1
         FROM information_schema.columns
        WHERE table_name = $1
          AND column_name = 'competition_type'
-    `, [table]);
+    `,
+      [table],
+    );
     if (hasColumn.length > 0) {
       return; // already added
     }

@@ -28,9 +28,7 @@ import { MigrationInterface, QueryRunner } from 'typeorm';
  * Idempotent: ADD COLUMN IF NOT EXISTS on each table
  * (PG 9.6+).
  */
-export class AddMinutesToPlayerCompetitionStats1738000000002
-  implements MigrationInterface
-{
+export class AddMinutesToPlayerCompetitionStats1738000000002 implements MigrationInterface {
   name = 'AddMinutesToPlayerCompetitionStats1738000000002';
 
   public async up(queryRunner: QueryRunner): Promise<void> {

@@ -1,10 +1,7 @@
+import { EventClassDefEntity, EventOutcomeDefEntity } from '@goalxi/database';
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import {
-  EventClassDefEntity,
-  EventOutcomeDefEntity,
-} from '@goalxi/database';
 
 /**
  * RFC 0002 — Phase 1 dictionary lookup service.

@@ -256,8 +256,7 @@ export class MatchEventService {
       // "credit the OTHER team" logic is here (the engine
       // is the wrong layer — it doesn't know about real-
       // football attribution conventions).
-      const isGoal =
-        event.eventClassId === 3 && event.outcomeId === 1;
+      const isGoal = event.eventClassId === 3 && event.outcomeId === 1;
       if (!isGoal) continue;
       if (event.teamId === match.homeTeamId) {
         homeScore++;

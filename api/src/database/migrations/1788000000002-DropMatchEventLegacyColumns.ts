@@ -57,9 +57,7 @@ import { MigrationInterface, QueryRunner } from 'typeorm';
  *     enum becomes effectively dead code at the TS layer too
  *     — Phase 3 also removes the imports / references.
  */
-export class DropMatchEventLegacyColumns1788000000002
-  implements MigrationInterface
-{
+export class DropMatchEventLegacyColumns1788000000002 implements MigrationInterface {
   name = 'DropMatchEventLegacyColumns1788000000002';
 
   public async up(queryRunner: QueryRunner): Promise<void> {

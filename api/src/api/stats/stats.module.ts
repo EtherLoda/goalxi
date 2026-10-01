@@ -1,11 +1,11 @@
 import {
+  LeagueEntity,
   MatchEntity,
   MatchEventEntity,
   MatchTeamStatsEntity,
   PlayerCompetitionStatsEntity,
   PlayerEntity,
   TeamEntity,
-  LeagueEntity,
 } from '@goalxi/database';
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';

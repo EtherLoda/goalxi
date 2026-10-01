@@ -72,9 +72,7 @@ describe('1788000000010-AddMatchEventClockSeconds migration', () => {
       // `name` field, not the class name, to track
       // applied migrations. Both must be present and
       // timestamp-suffixed.
-      expect(source).toMatch(
-        /class\s+AddMatchEventClockSeconds1788000000010/,
-      );
+      expect(source).toMatch(/class\s+AddMatchEventClockSeconds1788000000010/);
       expect(source).toMatch(
         /name\s*=\s*['"]AddMatchEventClockSeconds1788000000010['"]/,
       );

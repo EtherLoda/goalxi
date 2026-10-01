@@ -125,7 +125,6 @@ describe('LeagueService.getPastSeasons (regression for #20)', () => {
   });
 });
 
-
 /**
  * Regression spec for the SQL sort fix in getStandings.
  *
@@ -410,9 +409,7 @@ describe('LeagueService.getStandings (SQL sort regression)', () => {
 
     const teamA = out.find((r) => r.teamId === 'team-A')!;
     expect(teamA.recentMatches).toHaveLength(3);
-    expect(
-      (teamA.recentMatches as any[]).map((m) => m.scheduledAt),
-    ).toEqual([
+    expect((teamA.recentMatches as any[]).map((m) => m.scheduledAt)).toEqual([
       '2026-04-01T00:00:00Z',
       '2026-03-01T00:00:00Z',
       '2026-02-01T00:00:00Z',

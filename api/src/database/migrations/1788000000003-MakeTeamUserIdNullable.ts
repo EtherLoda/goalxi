@@ -54,9 +54,7 @@ import { MigrationInterface, QueryRunner } from 'typeorm';
  * orphan-UUID concern is moot for the
  * `--force` path.
  */
-export class MakeTeamUserIdNullable1788000000003
-  implements MigrationInterface
-{
+export class MakeTeamUserIdNullable1788000000003 implements MigrationInterface {
   name = 'MakeTeamUserIdNullable1788000000003';
 
   public async up(queryRunner: QueryRunner): Promise<void> {

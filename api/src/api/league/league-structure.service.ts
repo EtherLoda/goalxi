@@ -148,19 +148,21 @@ export class LeagueStructureService {
     leagueId: string,
     season: number,
   ): Promise<LeagueStandingEntity[]> {
-    return this.standingRepository
-      .createQueryBuilder('s')
-      .leftJoinAndSelect('s.team', 'team')
-      .where('s.leagueId = :leagueId', { leagueId: leagueId as Uuid })
-      .andWhere('s.season = :season', { season })
-      .orderBy('s.points', 'DESC')
-      .addOrderBy('s.goalsFor - s.goalsAgainst', 'DESC')
-      .addOrderBy('s.goalsFor', 'DESC')
-      // Deterministic tie-breaks — see STANDINGS_SORT_SQL.
-      .addOrderBy('s.wins', 'DESC')
-      .addOrderBy('s.goalsAgainst', 'ASC')
-      .addOrderBy('s.teamId', 'ASC')
-      .getMany();
+    return (
+      this.standingRepository
+        .createQueryBuilder('s')
+        .leftJoinAndSelect('s.team', 'team')
+        .where('s.leagueId = :leagueId', { leagueId: leagueId as Uuid })
+        .andWhere('s.season = :season', { season })
+        .orderBy('s.points', 'DESC')
+        .addOrderBy('s.goalsFor - s.goalsAgainst', 'DESC')
+        .addOrderBy('s.goalsFor', 'DESC')
+        // Deterministic tie-breaks — see STANDINGS_SORT_SQL.
+        .addOrderBy('s.wins', 'DESC')
+        .addOrderBy('s.goalsAgainst', 'ASC')
+        .addOrderBy('s.teamId', 'ASC')
+        .getMany()
+    );
   }
 
   /**
@@ -216,10 +218,7 @@ export class LeagueStructureService {
       .createQueryBuilder()
       .update(LeagueStandingEntity)
       .set({ position: () => `CASE ${cases} ELSE "position" END` })
-      .where(
-        moved.map((_, i) => `id = :id${i}`).join(' OR '),
-        params,
-      )
+      .where(moved.map((_, i) => `id = :id${i}`).join(' OR '), params)
       .execute();
   }
 

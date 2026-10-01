@@ -44,16 +44,24 @@ describe('1788000000000-AddMatchEventSpecialtyContributions migration', () => {
     });
 
     it('creates the 3 indexes (primary code, player+code, GIN)', () => {
-      expect(source).toMatch(/CREATE INDEX IF NOT EXISTS "idx_event_primary_specialty"/);
-      expect(source).toMatch(/CREATE INDEX IF NOT EXISTS "idx_player_specialty_fires"/);
-      expect(source).toMatch(/CREATE INDEX IF NOT EXISTS "idx_event_specialty_gin"/);
+      expect(source).toMatch(
+        /CREATE INDEX IF NOT EXISTS "idx_event_primary_specialty"/,
+      );
+      expect(source).toMatch(
+        /CREATE INDEX IF NOT EXISTS "idx_player_specialty_fires"/,
+      );
+      expect(source).toMatch(
+        /CREATE INDEX IF NOT EXISTS "idx_event_specialty_gin"/,
+      );
     });
 
     it('uses jsonb_path_ops on the GIN index (smaller than default ops)', () => {
       // The default GIN operator class supports more operators but
       // doubles the index size. We only need `@>` containment, so
       // jsonb_path_ops is the right pick.
-      expect(source).toMatch(/USING GIN \("specialty_contributions" jsonb_path_ops\)/);
+      expect(source).toMatch(
+        /USING GIN \("specialty_contributions" jsonb_path_ops\)/,
+      );
     });
 
     it('all 3 indexes are partial (WHERE NOT NULL)', () => {
@@ -76,8 +84,12 @@ describe('1788000000000-AddMatchEventSpecialtyContributions migration', () => {
       // PG will refuse to drop a column that has an index pointing at
       // it. Order matters: indexes first, then columns.
       expect(source).toMatch(/DROP INDEX IF EXISTS "idx_event_specialty_gin"/);
-      expect(source).toMatch(/DROP INDEX IF EXISTS "idx_player_specialty_fires"/);
-      expect(source).toMatch(/DROP INDEX IF EXISTS "idx_event_primary_specialty"/);
+      expect(source).toMatch(
+        /DROP INDEX IF EXISTS "idx_player_specialty_fires"/,
+      );
+      expect(source).toMatch(
+        /DROP INDEX IF EXISTS "idx_event_primary_specialty"/,
+      );
     });
 
     it('drops all 3 columns in reverse dependency order', () => {

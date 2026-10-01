@@ -16,7 +16,9 @@ describe('EventDefinitionsService (RFC 0002 P1)', () => {
         // Mirror the service's `order: { sortOrder: 'ASC' }` so
         // the test can verify the call shape without a DB.
         if (order && order.sortOrder === 'ASC') {
-          return Promise.resolve([...rows].sort((a, b) => a.sortOrder - b.sortOrder));
+          return Promise.resolve(
+            [...rows].sort((a, b) => a.sortOrder - b.sortOrder),
+          );
         }
         return Promise.resolve(rows);
       }),
@@ -29,7 +31,10 @@ describe('EventDefinitionsService (RFC 0002 P1)', () => {
       { id: 1, code: 'KICKOFF', sortOrder: 10 },
       { id: 2, code: 'PERIOD', sortOrder: 20 },
     ];
-    const svc = new EventDefinitionsService(makeRepoStub(rows), makeRepoStub([]));
+    const svc = new EventDefinitionsService(
+      makeRepoStub(rows),
+      makeRepoStub([]),
+    );
     const out = await svc.findAllClasses();
     expect(out.map((r) => r.sortOrder)).toEqual([10, 20, 30]);
     expect(out.map((r) => r.code)).toEqual(['KICKOFF', 'PERIOD', 'SHOT']);
@@ -42,7 +47,10 @@ describe('EventDefinitionsService (RFC 0002 P1)', () => {
       { id: 2, code: 'SAVE', sortOrder: 20 },
       { id: 3, code: 'BLOCKED', sortOrder: 30 },
     ];
-    const svc = new EventDefinitionsService(makeRepoStub([]), makeRepoStub(rows));
+    const svc = new EventDefinitionsService(
+      makeRepoStub([]),
+      makeRepoStub(rows),
+    );
     const out = await svc.findAllOutcomes();
     expect(out.map((r) => r.code)).toEqual(['GOAL', 'SAVE', 'BLOCKED', 'MISS']);
   });

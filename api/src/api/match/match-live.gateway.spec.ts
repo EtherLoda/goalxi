@@ -467,7 +467,9 @@ describe('MatchLiveGateway — handleJoinMatch (B8)', () => {
       addSelect: jest.fn().mockReturnThis(),
       where: jest.fn().mockReturnThis(),
       andWhere: jest.fn().mockReturnThis(),
-      getRawOne: jest.fn().mockResolvedValue({ maxMinute: '12', homeGoals: '0', awayGoals: '0' }),
+      getRawOne: jest
+        .fn()
+        .mockResolvedValue({ maxMinute: '12', homeGoals: '0', awayGoals: '0' }),
     };
     eventRepository.createQueryBuilder.mockReturnValue(qb);
     matchEventService.getMatchEvents.mockResolvedValue({

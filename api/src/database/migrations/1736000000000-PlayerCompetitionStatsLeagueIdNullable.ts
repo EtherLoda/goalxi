@@ -34,9 +34,7 @@ import { MigrationInterface, QueryRunner } from 'typeorm';
  * `information_schema` check so a re-run is a no-op even if one of the
  * two tables was already nullable (e.g. a partial prior run).
  */
-export class PlayerCompetitionStatsLeagueIdNullable1736000000000
-  implements MigrationInterface
-{
+export class PlayerCompetitionStatsLeagueIdNullable1736000000000 implements MigrationInterface {
   name = 'PlayerCompetitionStatsLeagueIdNullable1736000000000';
 
   public async up(queryRunner: QueryRunner): Promise<void> {
@@ -47,9 +45,7 @@ export class PlayerCompetitionStatsLeagueIdNullable1736000000000
        WHERE table_name = 'player_competition_stats'
          AND column_name = 'league_id'
     `);
-    if (
-      !(liveState.length > 0 && liveState[0].is_nullable === 'YES')
-    ) {
+    if (!(liveState.length > 0 && liveState[0].is_nullable === 'YES')) {
       await queryRunner.query(`
         ALTER TABLE "player_competition_stats"
           ALTER COLUMN "league_id" DROP NOT NULL
@@ -63,9 +59,7 @@ export class PlayerCompetitionStatsLeagueIdNullable1736000000000
        WHERE table_name = 'archived_player_competition_stats'
          AND column_name = 'league_id'
     `);
-    if (
-      !(archiveState.length > 0 && archiveState[0].is_nullable === 'YES')
-    ) {
+    if (!(archiveState.length > 0 && archiveState[0].is_nullable === 'YES')) {
       await queryRunner.query(`
         ALTER TABLE "archived_player_competition_stats"
           ALTER COLUMN "league_id" DROP NOT NULL

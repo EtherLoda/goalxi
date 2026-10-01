@@ -1,6 +1,6 @@
-import { Controller, Get } from '@nestjs/common';
 import { Public } from '@/decorators/public.decorator';
 import { EventClassDefEntity, EventOutcomeDefEntity } from '@goalxi/database';
+import { Controller, Get } from '@nestjs/common';
 import { EventDefinitionsService } from './event-definitions.service';
 
 /**

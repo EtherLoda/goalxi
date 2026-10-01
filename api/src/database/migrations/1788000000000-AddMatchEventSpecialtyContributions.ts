@@ -64,9 +64,7 @@ import { MigrationInterface, QueryRunner } from 'typeorm';
  *   already been migrated is a no-op. The companion spec file
  *   (`*.spec.ts`) source-greps for these clauses.
  */
-export class AddMatchEventSpecialtyContributions1788000000000
-  implements MigrationInterface
-{
+export class AddMatchEventSpecialtyContributions1788000000000 implements MigrationInterface {
   name = 'AddMatchEventSpecialtyContributions1788000000000';
 
   public async up(queryRunner: QueryRunner): Promise<void> {
@@ -115,8 +113,12 @@ export class AddMatchEventSpecialtyContributions1788000000000
     // Drop in reverse FK order — no FKs here, but indexes first then
     // generated columns then the canonical column.
     await queryRunner.query(`DROP INDEX IF EXISTS "idx_event_specialty_gin"`);
-    await queryRunner.query(`DROP INDEX IF EXISTS "idx_player_specialty_fires"`);
-    await queryRunner.query(`DROP INDEX IF EXISTS "idx_event_primary_specialty"`);
+    await queryRunner.query(
+      `DROP INDEX IF EXISTS "idx_player_specialty_fires"`,
+    );
+    await queryRunner.query(
+      `DROP INDEX IF EXISTS "idx_event_primary_specialty"`,
+    );
     await queryRunner.query(
       `ALTER TABLE "match_event" DROP COLUMN IF EXISTS "primary_specialty_tier"`,
     );

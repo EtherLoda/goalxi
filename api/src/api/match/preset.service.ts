@@ -265,7 +265,9 @@ export class PresetService {
         }>
       | null
       | undefined,
-  ): Array<{ minute: number; out: number; in: number; condition?: string }> | undefined {
+  ):
+    | Array<{ minute: number; out: number; in: number; condition?: string }>
+    | undefined {
     if (!substitutions || substitutions.length === 0) return undefined;
     return substitutions.map((s) => ({
       minute: Number(s.minute),

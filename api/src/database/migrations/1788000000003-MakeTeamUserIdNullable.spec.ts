@@ -68,9 +68,7 @@ describe('1788000000003-MakeTeamUserIdNullable migration', () => {
       // `name` field, not the class name, to track
       // applied migrations. Both must be present and
       // timestamp-suffixed.
-      expect(source).toMatch(
-        /class\s+MakeTeamUserIdNullable1788000000003/,
-      );
+      expect(source).toMatch(/class\s+MakeTeamUserIdNullable1788000000003/);
       expect(source).toMatch(
         /name\s*=\s*['"]MakeTeamUserIdNullable1788000000003['"]/,
       );

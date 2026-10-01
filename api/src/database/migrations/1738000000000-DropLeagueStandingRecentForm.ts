@@ -21,9 +21,7 @@ import { MigrationInterface, QueryRunner } from 'typeorm';
  * the original shape (varchar(10) NOT NULL DEFAULT '') so a
  * rollback is non-destructive.
  */
-export class DropLeagueStandingRecentForm1738000000000
-  implements MigrationInterface
-{
+export class DropLeagueStandingRecentForm1738000000000 implements MigrationInterface {
   name = 'DropLeagueStandingRecentForm1738000000000';
 
   public async up(queryRunner: QueryRunner): Promise<void> {

@@ -359,11 +359,7 @@ export class StatsService {
     // team-tracking is productised (likely tied to the transfer
     // history feature, not the stats card).
     const leagueIds = Array.from(
-      new Set(
-        rows
-          .map((r) => r.leagueId)
-          .filter((id): id is Uuid => !!id),
-      ),
+      new Set(rows.map((r) => r.leagueId).filter((id): id is Uuid => !!id)),
     );
     const [leagues, currentTeam] = await Promise.all([
       leagueIds.length
@@ -447,5 +443,4 @@ export class StatsService {
       career,
     };
   }
-
 }
