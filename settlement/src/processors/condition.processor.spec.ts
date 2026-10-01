@@ -224,15 +224,17 @@ describe('ConditionProcessor', () => {
       // processor's outer try/catch to surface the error so the
       // job retries — the per-team transaction guarantees team B's
       // already-committed work isn't rolled back by team A's throw.
+      //
+      // The `isBot` flag now rides in from the single `teamRepo.find()`
+      // (it used to cost an extra `findOne` per team), so the injected
+      // failure comes from the head-coach lookup instead.
       mockTeamRepo.find.mockResolvedValueOnce([
         { id: 'A' as Uuid, isBot: false } as TeamEntity,
         { id: 'B' as Uuid, isBot: false } as TeamEntity,
       ]);
-      mockTeamRepo.findOne
-        .mockResolvedValueOnce({ id: 'A' as Uuid, isBot: false } as TeamEntity) // A bot-check passes
-        .mockImplementationOnce(() => {
-          throw new Error('simulated team A DB failure');
-        }); // A's headCoach fetch throws
+      mockStaffRepo.findOne.mockImplementationOnce(() => {
+        throw new Error('simulated team A DB failure');
+      });
       // Default playerRepo.find returns [] (no throw side effect).
 
       await expect(processor.process({ id: 'job-4' } as any)).rejects.toThrow(

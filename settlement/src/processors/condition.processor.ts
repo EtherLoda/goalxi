@@ -43,12 +43,14 @@ export class ConditionProcessor extends WorkerHost {
     let totalPlayersProcessed = 0;
 
     try {
-      // Get all teams
+      // Get all teams. Loaded once — `processTeamCondition` used to
+      // re-fetch each team by id, which was a redundant round trip per
+      // team on top of a full table scan.
       const teams = await this.teamRepo.find();
       this.logger.info(`[ConditionProcessor] Processing ${teams.length} teams`);
 
       for (const team of teams) {
-        const result = await this.processTeamCondition(team.id);
+        const result = await this.processTeamCondition(team.id, team.isBot);
         totalPlayersProcessed += result.playersProcessed;
       }
 
@@ -73,7 +75,10 @@ export class ConditionProcessor extends WorkerHost {
     }
   }
 
-  private async processTeamCondition(teamId: string): Promise<{
+  private async processTeamCondition(
+    teamId: string,
+    isBot: boolean,
+  ): Promise<{
     playersProcessed: number;
   }> {
     // Bot teams don't run the full form / minutes-accumulation loop
@@ -82,8 +87,7 @@ export class ConditionProcessor extends WorkerHost {
     // `matchMinutes = 0` reset each tick, otherwise the field grows
     // without bound — `match-completion.service.ts` increments it on
     // every match and nothing else decrements it for bot squads.
-    const team = await this.teamRepo.findOne({ where: { id: teamId as Uuid } });
-    if (team?.isBot) {
+    if (isBot) {
       await this.resetMatchMinutesForBotTeam(teamId);
       return { playersProcessed: 0 };
     }
@@ -96,14 +100,27 @@ export class ConditionProcessor extends WorkerHost {
     const headCoach = await this.staffRepo.findOne({
       where: { teamId, role: StaffRole.HEAD_COACH, isActive: true },
     });
-    const headCoachLevel = headCoach?.level ?? 3;
+    // NOTE: matches `TrainingProcessor`'s `?? 0` default for "no head
+    // coach". These two previously disagreed (`?? 3` here vs `?? 0`
+    // there) in the same tick, so a team without a head coach got two
+    // different coach levels depending on which processor ran first.
+    const headCoachLevel = headCoach?.level ?? 0;
 
     const fan = await this.fanRepo.findOne({ where: { teamId } });
     const fanEmotion = fan?.fanEmotion ?? 50;
 
-    const players = await this.playerRepo.find({
-      where: { teamId, isYouth: false },
-    });
+    // Youth ARE included. They play youth fixtures on the same
+    // `match` table and `match-completion.service.ts` increments
+    // `matchMinutes` for every player in `tactics.lineupV2` regardless
+    // of `isYouth` — so filtering them out here left youth
+    // `matchMinutes` growing without bound, exactly the bug this bot
+    // branch was added to fix.
+    //
+    // `updatePlayerForm` is a generic per-player weekly decay/recovery
+    // and has no senior-specific inputs, so it is safe for youth. Their
+    // skill growth is handled separately by `YouthProgressionProcessor`
+    // (which also handles `revealLevel` sync).
+    const players = await this.playerRepo.find({ where: { teamId } });
 
     if (players.length === 0) {
       return { playersProcessed: 0 };
@@ -140,7 +157,6 @@ export class ConditionProcessor extends WorkerHost {
 
     await this.dataSource.transaction(async (manager) => {
       const txPlayerRepo = manager.getRepository(PlayerEntity);
-      // Single batched UPDATE instead of one save per player.
       await txPlayerRepo.save(dirtyPlayers);
     });
 
@@ -148,17 +164,20 @@ export class ConditionProcessor extends WorkerHost {
   }
 
   /**
-   * Reset `matchMinutes` to 0 for every non-youth player on a bot
-   * team. Bot squads still get `matchMinutes` incremented by
-   * `match-completion.service.ts` on each match they play; without
-   * this reset the field grows without bound across the season.
-   * Skips the form/stamina work because bot player state is meant
-   * to stay frozen at the seeded values.
+   * Reset `matchMinutes` to 0 for every player on a bot team. Bot
+   * squads still get `matchMinutes` incremented by
+   * `match-completion.service.ts` on each match they play; without this
+   * reset the field grows without bound across the season.
+   * Skips the form/stamina work because bot player state is meant to
+   * stay frozen at the seeded values.
+   *
+   * Includes youth — `youth-structure.generator.ts` creates one
+   * `youth_team` per EVERY senior team (bots included), and those
+   * academy players play youth fixtures through the same
+   * `match-completion` path, so they accumulate minutes too.
    */
   private async resetMatchMinutesForBotTeam(teamId: string): Promise<void> {
-    const players = await this.playerRepo.find({
-      where: { teamId, isYouth: false },
-    });
+    const players = await this.playerRepo.find({ where: { teamId } });
     const dirty = players.filter((p) => p.matchMinutes !== 0);
     if (dirty.length === 0) return;
     for (const p of dirty) p.matchMinutes = 0;

@@ -6,6 +6,7 @@ import { LoggerModule as SharedLoggerModule } from '@goalxi/logger';
 import { DatabaseConfigService } from './config/database.config';
 import { GlobalExceptionFilter } from './common/global-exception.filter';
 import { TrainingModule } from './training.module';
+import { ConditionModule } from './condition.module';
 import { FanModule } from './fan.module';
 import { OnboardingModule } from './onboarding.module';
 import { PlayerWageModule } from './player-wage.module';
@@ -41,6 +42,11 @@ const isDevelopmentFromEnv = () =>
       useClass: DatabaseConfigService,
     }),
     TrainingModule,
+    // Registers `ConditionProcessor`, the weekly form / matchMinutes
+    // tick. It was missing here, so `player.form` stayed frozen at its
+    // seeded value (the simulator reads it in 5 places) and
+    // `matchMinutes` grew without bound. See `condition.module.ts`.
+    ConditionModule,
     FanModule,
     OnboardingModule,
     PlayerWageModule,
