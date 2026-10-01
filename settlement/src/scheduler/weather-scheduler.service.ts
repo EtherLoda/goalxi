@@ -3,9 +3,14 @@ import { LOGGER_SERVICE, PinoLoggerService } from '@goalxi/logger';
 import { Cron } from '@nestjs/schedule';
 import { GAME_SETTINGS } from '@goalxi/database';
 import { WeatherService } from './weather.service';
+import { CronLocked } from '../common/cron-lock/cron-lock.decorator';
+import { CronLockService } from '../common/cron-lock/cron-lock.service';
 
 @Injectable()
 export class WeatherSchedulerService {
+  @Inject(CronLockService)
+  private readonly cronLock!: CronLockService;
+
   constructor(
     @Inject(LOGGER_SERVICE)
     private readonly logger: PinoLoggerService,
@@ -14,7 +19,12 @@ export class WeatherSchedulerService {
 
   // ===== SCHEDULER: Daily Weather Generation =====
   // Run at midnight (00:00) UTC every day
+  //
+  // TTL 15 min: daily cron, and the handler only touches one day's row,
+  // so a 15-minute crash window is generous while still letting a
+  // crashed tick be retried well before the next midnight.
   @Cron('0 0 0 * * *', { timeZone: GAME_SETTINGS.CRON_TIME_ZONE })
+  @CronLocked('settlement.weather.daily', { ttlMs: 15 * 60_000 })
   async generateDailyWeather() {
     const now = new Date();
     this.logger.info(

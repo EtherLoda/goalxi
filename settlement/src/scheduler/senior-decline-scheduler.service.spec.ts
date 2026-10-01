@@ -1,6 +1,7 @@
 import { LOGGER_SERVICE } from '@goalxi/logger';
 import { getQueueToken } from '@nestjs/bullmq';
 import { Test } from '@nestjs/testing';
+import { cronLockPassThrough } from '../test-utils/cron-lock-mock';
 import { resolveGameStart } from '@goalxi/database';
 import { SeniorDeclineSchedulerService } from './senior-decline-scheduler.service';
 
@@ -34,6 +35,7 @@ describe('SeniorDeclineSchedulerService', () => {
     const moduleRef = await Test.createTestingModule({
       providers: [
         SeniorDeclineSchedulerService,
+        cronLockPassThrough,
         { provide: LOGGER_SERVICE, useValue: logger },
         {
           provide: getQueueToken('senior-decline-settlement'),

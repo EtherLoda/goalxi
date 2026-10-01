@@ -39,8 +39,14 @@ type SettlementKind =
  * list. Previously the queue had `attempts: 0` (BullMQ default)
  * and any error went straight to dead-letter.
  */
+import { CronLocked } from '../common/cron-lock/cron-lock.decorator';
+import { CronLockService } from '../common/cron-lock/cron-lock.service';
+
 @Injectable()
 export class WeeklySettlementService {
+  @Inject(CronLockService)
+  private readonly cronLock!: CronLockService;
+
   // Resolved once at construction. see game-clock.ts doc for
   // why a constructor capture is safer than a per-tick read.
   private readonly gameStart: Date;
@@ -62,7 +68,12 @@ export class WeeklySettlementService {
     this.gameStart = resolveGameStart(process.env.GAME_START_DATE);
   }
 
+  // Only enqueues; the 5 consumers do the heavy work. The
+  // BullMQ business-key jobIds (`weekly-{kind}-{season}-week{n}`)
+  // already dedupe the enqueue, so this lock mainly stops two
+  // replicas racing the same Thursday tick.
   @Cron('0 0 0 * * 4', { timeZone: GAME_SETTINGS.CRON_TIME_ZONE }) // Every Thursday at 00:00 UTC
+  @CronLocked('settlement.weekly.enqueue', { ttlMs: 15 * 60_000 })
   async processWeeklySettlement() {
     const { season, week } = currentSeasonWeek(new Date(), this.gameStart);
 

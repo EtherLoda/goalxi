@@ -16,6 +16,7 @@ import {
   TacticsPresetEntity,
   MatchType,
 } from '@goalxi/database';
+import { cronLockPassThrough } from '../test-utils/cron-lock-mock';
 
 describe('MatchSchedulerService', () => {
   let service: MatchSchedulerService;
@@ -99,6 +100,7 @@ describe('MatchSchedulerService', () => {
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
+      cronLockPassThrough,
         MatchSchedulerService,
         {
           provide: LOGGER_SERVICE,

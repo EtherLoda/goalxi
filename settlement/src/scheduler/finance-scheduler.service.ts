@@ -13,8 +13,14 @@ import {
   GAME_SETTINGS,
 } from '@goalxi/database';
 
+import { CronLocked } from '../common/cron-lock/cron-lock.decorator';
+import { CronLockService } from '../common/cron-lock/cron-lock.service';
+
 @Injectable()
 export class FinanceSchedulerService {
+  @Inject(CronLockService)
+  private readonly cronLock!: CronLockService;
+
   // Resolved once at construction; see training.processor for
   // the same pattern + reason (long-running crons must not
   // re-read env mid-tick).
@@ -50,6 +56,7 @@ export class FinanceSchedulerService {
    * Generates financial data (sponsorship, wages, staff, youth) for the NEW week
    */
   @Cron('0 0 0 * * 1', { timeZone: GAME_SETTINGS.CRON_TIME_ZONE }) // Every Monday at 00:00 UTC
+  @CronLocked('settlement.finance.weekly', { ttlMs: 15 * 60_000 })
   async processWeeklyFinanceSettlement() {
     this.logger.info(
       '[FinanceScheduler] Starting weekly finance settlement...',

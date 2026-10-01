@@ -17,6 +17,7 @@ import { StadiumConstructionModule } from './stadium-construction.module';
 import { YouthProgressionModule } from './youth-progression.module';
 import { SeniorDeclineModule } from './senior-decline.module';
 import { CupModule } from './cup.module';
+import { CronLockModule } from './common/cron-lock/cron-lock.service';
 
 const isDevelopmentFromEnv = () =>
   (process.env.NODE_ENV || 'development') === 'development';
@@ -41,6 +42,10 @@ const isDevelopmentFromEnv = () =>
     TypeOrmModule.forRootAsync({
       useClass: DatabaseConfigService,
     }),
+    // `@Global()` — provides `CronLockService` to every scheduler
+    // service without a per-module import. Must be registered before
+    // `SchedulerModule` consumes it.
+    CronLockModule,
     TrainingModule,
     // Registers `ConditionProcessor`, the weekly form / matchMinutes
     // tick. It was missing here, so `player.form` stayed frozen at its

@@ -3,6 +3,7 @@ import { WeatherSchedulerService } from './weather-scheduler.service';
 import { WeatherService } from './weather.service';
 import { WeatherEntity, WeatherType, WeatherForecast } from '@goalxi/database';
 import { LOGGER_SERVICE_PROVIDER } from '../test-utils/test-logger';
+import { cronLockPassThrough } from '../test-utils/cron-lock-mock';
 
 describe('WeatherSchedulerService', () => {
   let service: WeatherSchedulerService;
@@ -15,6 +16,7 @@ describe('WeatherSchedulerService', () => {
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
+      cronLockPassThrough,
         WeatherSchedulerService,
         LOGGER_SERVICE_PROVIDER,
         {

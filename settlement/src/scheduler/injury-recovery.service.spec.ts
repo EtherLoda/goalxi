@@ -15,6 +15,7 @@ import {
   Uuid,
 } from '@goalxi/database';
 import { NotificationService } from '../notification/notification.service';
+import { cronLockPassThrough } from '../test-utils/cron-lock-mock';
 
 describe('InjuryRecoveryService', () => {
   let service: InjuryRecoveryService;
@@ -84,6 +85,7 @@ describe('InjuryRecoveryService', () => {
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
+      cronLockPassThrough,
         InjuryRecoveryService,
         LOGGER_SERVICE_PROVIDER,
         { provide: getDataSourceToken(), useValue: dataSourceMock },

@@ -76,8 +76,14 @@ const RECONCILE_SETTLED_GRACE_MINUTES = 10;
  */
 const RECONCILE_BATCH_SIZE = 100;
 
+import { CronLocked } from '../common/cron-lock/cron-lock.decorator';
+import { CronLockService } from '../common/cron-lock/cron-lock.service';
+
 @Injectable()
 export class MatchSchedulerService {
+  @Inject(CronLockService)
+  private readonly cronLock!: CronLockService;
+
   constructor(
     @Inject(LOGGER_SERVICE)
     private readonly logger: PinoLoggerService,
@@ -117,7 +123,12 @@ export class MatchSchedulerService {
    * - 将战术数据和弃权状态提交到模拟器队列
    * - 锁定战术并更新比赛状态为 TACTICS_LOCKED
    */
+  // The three per-minute crons in this class fire concurrently
+  // (see the note above `startMatches`) and are logically
+  // independent, so each gets its own lock name. All three already
+  // CAS their DB writes; the lock is the belt to that braces.
   @Cron('0 * * * * *', { timeZone: GAME_SETTINGS.CRON_TIME_ZONE }) // Every minute
+  @CronLocked('settlement.match.preprocess', { ttlMs: 3 * 60_000 })
   async preprocessMatch() {
     const now = new Date();
     this.logger.debug(
@@ -490,6 +501,7 @@ export class MatchSchedulerService {
    *    slower tick is latency, not correctness.
    */
   @Cron('0 * * * * *', { timeZone: GAME_SETTINGS.CRON_TIME_ZONE }) // Every minute
+  @CronLocked('settlement.match.start', { ttlMs: 3 * 60_000 })
   async startMatches() {
     this.logger.debug('[MatchStartScheduler] Checking for matches to start');
 
@@ -548,6 +560,7 @@ export class MatchSchedulerService {
    * - 提交完成任务到结算队列
    */
   @Cron('0 * * * * *', { timeZone: GAME_SETTINGS.CRON_TIME_ZONE }) // Every minute
+  @CronLocked('settlement.match.complete', { ttlMs: 3 * 60_000 })
   async completeMatches() {
     this.logger.debug(
       '[MatchCompletionScheduler] Checking for matches to complete',

@@ -29,8 +29,14 @@ import { SeasonArchiveService } from '../services/season-archive.service';
 const SEASON_LAST_WEEK = GAME_SETTINGS.SEASON_LENGTH_WEEKS;
 const PLAYOFF_TRIGGER_WEEK = SEASON_LAST_WEEK - 1;
 
+import { CronLocked } from '../common/cron-lock/cron-lock.decorator';
+import { CronLockService } from '../common/cron-lock/cron-lock.service';
+
 @Injectable()
 export class SeasonTransitionService {
+  @Inject(CronLockService)
+  private readonly cronLock!: CronLockService;
+
   // Resolved once at construction. Used by both cron handlers
   // so the trigger conditions (`week === 15`, `week === 0/1`)
   // see the same value that the rest of the system does
@@ -78,7 +84,14 @@ export class SeasonTransitionService {
    * 完整结束，检查的是 `PLAYOFF_TRIGGER_WEEK`(15) 的完成度。
    * 附加赛随后落在 week 16 的周三（`getNextPlayoffDate`）。
    */
+  // Heaviest tick in the codebase: `processAllTiers` walks every tier
+  // and `initNewSeasonStandings` writes ~1360 rows. 60 min crash
+  // window. Shares ONE lock name with the other two crons below
+  // because they are steps of the same season state machine — a
+  // shared lock is what stops the swap and the season-start from
+  // interleaving.
   @Cron('0 0 * * 1', { timeZone: GAME_SETTINGS.CRON_TIME_ZONE }) // 每周一 00:00
+  @CronLocked('settlement.season-transition', { ttlMs: 60 * 60_000 })
   async checkAndGeneratePlayoffs() {
     const currentSeasonWeek_ = currentSeasonWeek(new Date(), this.gameStart);
 
@@ -131,6 +144,7 @@ export class SeasonTransitionService {
    * the season that just ended.
    */
   @Cron('0 0 * * 1', { timeZone: GAME_SETTINGS.CRON_TIME_ZONE }) // 每周一 00:00
+  @CronLocked('settlement.season-transition', { ttlMs: 60 * 60_000 })
   async processPlayoffResultsAndSwap() {
     const currentSeasonWeek_ = currentSeasonWeek(new Date(), this.gameStart);
 
@@ -171,6 +185,7 @@ export class SeasonTransitionService {
    * been removed.
    */
   @Cron('0 0 * * 2', { timeZone: GAME_SETTINGS.CRON_TIME_ZONE }) // 每周二 00:00
+  @CronLocked('settlement.season-transition', { ttlMs: 60 * 60_000 })
   async checkAndProcessSeasonStart() {
     const currentSeasonWeek_ = currentSeasonWeek(new Date(), this.gameStart);
 

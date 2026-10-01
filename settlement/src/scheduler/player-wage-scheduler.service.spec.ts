@@ -4,6 +4,7 @@ import { getRepositoryToken } from '@nestjs/typeorm';
 import { Test } from '@nestjs/testing';
 import { PlayerEntity } from '@goalxi/database';
 import { PlayerWageSchedulerService } from './player-wage-scheduler.service';
+import { cronLockPassThrough } from '../test-utils/cron-lock-mock';
 
 describe('PlayerWageSchedulerService (regression for #A — jobId dedup)', () => {
   let service: PlayerWageSchedulerService;
@@ -62,6 +63,7 @@ describe('PlayerWageSchedulerService (regression for #A — jobId dedup)', () =>
   const buildService = async (): Promise<PlayerWageSchedulerService> => {
     const moduleRef = await Test.createTestingModule({
       providers: [
+      cronLockPassThrough,
         PlayerWageSchedulerService,
         { provide: LOGGER_SERVICE, useValue: logger },
         { provide: getQueueToken('player-wage'), useValue: queue },

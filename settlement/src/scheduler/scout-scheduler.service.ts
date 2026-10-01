@@ -23,8 +23,14 @@ import {
   GAME_SETTINGS,
 } from '@goalxi/database';
 
+import { CronLocked } from '../common/cron-lock/cron-lock.decorator';
+import { CronLockService } from '../common/cron-lock/cron-lock.service';
+
 @Injectable()
 export class ScoutSchedulerService {
+  @Inject(CronLockService)
+  private readonly cronLock!: CronLockService;
+
   constructor(
     @Inject(LOGGER_SERVICE)
     private readonly logger: PinoLoggerService,
@@ -46,6 +52,7 @@ export class ScoutSchedulerService {
    *   utility (uniform PA-range algorithm, the cron-friendly path).
    */
   @Cron('0 0 6 * * 6', { timeZone: GAME_SETTINGS.CRON_TIME_ZONE }) // 每周六 06:00 UTC
+  @CronLocked('settlement.scout.weekly', { ttlMs: 15 * 60_000 })
   async generateScoutCandidates() {
     this.logger.debug(
       '[ScoutScheduler] Generating scout candidates for all teams',

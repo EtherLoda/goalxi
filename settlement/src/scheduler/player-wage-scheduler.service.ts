@@ -44,8 +44,14 @@ const computeTodayGameDay = (nowMs: number = Date.now()): number => {
  */
 const CATCHUP_DAYS = 3;
 
+import { CronLocked } from '../common/cron-lock/cron-lock.decorator';
+import { CronLockService } from '../common/cron-lock/cron-lock.service';
+
 @Injectable()
 export class PlayerWageSchedulerService {
+  @Inject(CronLockService)
+  private readonly cronLock!: CronLockService;
+
   constructor(
     @Inject(LOGGER_SERVICE)
     private readonly logger: PinoLoggerService,
@@ -79,6 +85,7 @@ export class PlayerWageSchedulerService {
    * original run would have emitted and BullMQ dedupes it.
    */
   @Cron('0 0 0 * * *', { timeZone: GAME_SETTINGS.CRON_TIME_ZONE }) // Every day at midnight
+  @CronLocked('settlement.player-wage.birthday', { ttlMs: 15 * 60_000 })
   async processBirthdayWageUpdates() {
     const todayGameDay = computeTodayGameDay();
 

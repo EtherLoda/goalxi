@@ -1,4 +1,5 @@
 import { CupSchedulerService } from './cup-scheduler.service';
+import { passThroughCronLock } from '../test-utils/cron-lock-mock';
 import { LOGGER_SERVICE } from '@goalxi/logger';
 import {
   CupBracketSlotEntity,
@@ -62,15 +63,22 @@ describe('CupSchedulerService — materialize round', () => {
         );
       }),
     };
+    const svc = new CupSchedulerService(
+      mockLogger as any,
+      matchRepo as any,
+      cupRepo as any,
+      roundRepo as any,
+      slotRepo as any,
+      stadiumRepo as any,
+    );
+    // `scheduleDueCupRounds` is `@CronLocked`, so the handler is a
+    // wrapper reading `this.cronLock`. This spec constructs the service
+    // directly instead of via a TestingModule, so property injection
+    // never runs — assign the pass-through by hand.
+    (svc as unknown as { cronLock: unknown }).cronLock = passThroughCronLock;
+
     return {
-      gen: new CupSchedulerService(
-        mockLogger as any,
-        matchRepo as any,
-        cupRepo as any,
-        roundRepo as any,
-        slotRepo as any,
-        stadiumRepo as any,
-      ),
+      gen: svc,
       matchRepo,
       cupRepo,
       roundRepo,

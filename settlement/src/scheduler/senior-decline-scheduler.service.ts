@@ -2,6 +2,8 @@ import { InjectQueue } from '@nestjs/bullmq';
 import { Cron } from '@nestjs/schedule';
 import { Injectable, Inject } from '@nestjs/common';
 import { LOGGER_SERVICE, PinoLoggerService } from '@goalxi/logger';
+import { CronLocked } from '../common/cron-lock/cron-lock.decorator';
+import { CronLockService } from '../common/cron-lock/cron-lock.service';
 import { Queue } from 'bullmq';
 import {
   GAME_SETTINGS,
@@ -46,6 +48,9 @@ import {
  */
 @Injectable()
 export class SeniorDeclineSchedulerService {
+  @Inject(CronLockService)
+  private readonly cronLock!: CronLockService;
+
   // Resolved once at construction; see the finance-scheduler for
   // the same pattern + reason (long-running crons must not
   // re-read env mid-tick).
@@ -64,7 +69,12 @@ export class SeniorDeclineSchedulerService {
     return currentSeasonWeek(new Date(), this.gameStart);
   }
 
+  // Fires at the same instant as `finance-scheduler` and two
+  // `season-transition` crons (all `0 0 0 * * 1`). They are logically
+  // independent, so each needs its OWN lock name — sharing one would make
+  // them serialise and, worse, make one of them skip.
   @Cron('0 0 0 * * 1', { timeZone: GAME_SETTINGS.CRON_TIME_ZONE }) // Every Monday at 00:00 UTC
+  @CronLocked('settlement.senior-decline.weekly', { ttlMs: 15 * 60_000 })
   async triggerWeeklyDecline() {
     const { season, week } = this.getCurrentSeasonWeek();
 

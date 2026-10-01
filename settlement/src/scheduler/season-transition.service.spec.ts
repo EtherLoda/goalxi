@@ -16,6 +16,7 @@ import {
   LeagueEntity,
   Uuid,
 } from '@goalxi/database';
+import { cronLockPassThrough } from '../test-utils/cron-lock-mock';
 
 describe('SeasonTransitionService', () => {
   let service: SeasonTransitionService;
@@ -115,6 +116,7 @@ describe('SeasonTransitionService', () => {
     // for the constructor call. Tests override per-case via pinClockTo.
     const module: TestingModule = await Test.createTestingModule({
       providers: [
+      cronLockPassThrough,
         SeasonTransitionService,
         LOGGER_SERVICE_PROVIDER,
         {

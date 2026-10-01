@@ -69,8 +69,14 @@ export function _resetInjuryRecoveryDedupForTests(): void {
   lastRecoveryRunAt = null;
 }
 
+import { CronLocked } from '../common/cron-lock/cron-lock.decorator';
+import { CronLockService } from '../common/cron-lock/cron-lock.service';
+
 @Injectable()
 export class InjuryRecoveryService {
+  @Inject(CronLockService)
+  private readonly cronLock!: CronLockService;
+
   constructor(
     @Inject(LOGGER_SERVICE)
     private readonly logger: PinoLoggerService,
@@ -84,6 +90,7 @@ export class InjuryRecoveryService {
   ) {}
 
   @Cron('0 30 * * * *', { timeZone: GAME_SETTINGS.CRON_TIME_ZONE })
+  @CronLocked('settlement.injury-recovery.hourly', { ttlMs: 30 * 60_000 })
   async processDailyInjuryRecovery() {
     const now = new Date();
 

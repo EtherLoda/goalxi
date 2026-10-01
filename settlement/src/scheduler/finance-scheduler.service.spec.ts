@@ -4,6 +4,7 @@ import { getRepositoryToken } from '@nestjs/typeorm';
 import { Test } from '@nestjs/testing';
 import { MatchEntity, TeamEntity } from '@goalxi/database';
 import { FinanceSchedulerService } from './finance-scheduler.service';
+import { cronLockPassThrough } from '../test-utils/cron-lock-mock';
 
 describe('FinanceSchedulerService', () => {
   let service: FinanceSchedulerService;
@@ -38,6 +39,7 @@ describe('FinanceSchedulerService', () => {
   const buildService = async (): Promise<FinanceSchedulerService> => {
     const moduleRef = await Test.createTestingModule({
       providers: [
+      cronLockPassThrough,
         FinanceSchedulerService,
         { provide: LOGGER_SERVICE, useValue: logger },
         { provide: getQueueToken('finance-settlement'), useValue: queue },

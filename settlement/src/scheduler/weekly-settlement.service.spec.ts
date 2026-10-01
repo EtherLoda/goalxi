@@ -3,6 +3,7 @@ import { LOGGER_SERVICE } from '@goalxi/logger';
 import { getQueueToken } from '@nestjs/bullmq';
 import { Test } from '@nestjs/testing';
 import { WeeklySettlementService } from './weekly-settlement.service';
+import { cronLockPassThrough } from '../test-utils/cron-lock-mock';
 
 /**
  * Unit-level regression for the weekly-settlement idempotency
@@ -47,6 +48,7 @@ describe('WeeklySettlementService', () => {
   const buildService = async (): Promise<WeeklySettlementService> => {
     const moduleRef = await Test.createTestingModule({
       providers: [
+      cronLockPassThrough,
         WeeklySettlementService,
         { provide: LOGGER_SERVICE, useValue: logger },
         {

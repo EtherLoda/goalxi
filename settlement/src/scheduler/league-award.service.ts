@@ -34,8 +34,14 @@ const SEASON_END_AWARD_WEEK = GAME_SETTINGS.SEASON_LENGTH_WEEKS;
 /** Cash prize for each individual player award (boot / assists / tackles). */
 const PLAYER_AWARD_BONUS = 100_000;
 
+import { CronLocked } from '../common/cron-lock/cron-lock.decorator';
+import { CronLockService } from '../common/cron-lock/cron-lock.service';
+
 @Injectable()
 export class LeagueAwardService {
+  @Inject(CronLockService)
+  private readonly cronLock!: CronLockService;
+
   /**
    * Resolved once at construction so the award cron sees the same
    * (season, week) pair as every other settlement cron, the API and the
@@ -75,7 +81,10 @@ export class LeagueAwardService {
    * 每周日 00:00 检查是否需要发放赛季奖项
    * 第15周周六比赛结束后（第15周日）触发
    */
+  // Slowest weekly tick: 85 leagues, prize money + per-player
+  // leader events. 30 min crash window.
   @Cron('0 0 * * 0', { timeZone: GAME_SETTINGS.CRON_TIME_ZONE }) // 每周日 00:00
+  @CronLocked('settlement.league-award.season-end', { ttlMs: 30 * 60_000 })
   async checkAndProcessSeasonAwards() {
     const currentSeasonWeek = await this.getCurrentSeasonAndWeek();
 

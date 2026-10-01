@@ -16,6 +16,7 @@ import {
   TransactionEntity,
   Uuid,
 } from '@goalxi/database';
+import { cronLockPassThrough } from '../test-utils/cron-lock-mock';
 
 describe('LeagueAwardService', () => {
   let service: LeagueAwardService;
@@ -87,6 +88,7 @@ describe('LeagueAwardService', () => {
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
+      cronLockPassThrough,
         LeagueAwardService,
         LOGGER_SERVICE_PROVIDER,
         {

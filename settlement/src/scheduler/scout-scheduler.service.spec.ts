@@ -9,6 +9,7 @@ import {
   SCOUT_CANDIDATE_TTL_DAYS,
   TeamEntity,
 } from '@goalxi/database';
+import { cronLockPassThrough } from '../test-utils/cron-lock-mock';
 
 describe('ScoutSchedulerService', () => {
   let service: ScoutSchedulerService;
@@ -54,6 +55,7 @@ describe('ScoutSchedulerService', () => {
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
+      cronLockPassThrough,
         ScoutSchedulerService,
         { provide: LOGGER_SERVICE, useValue: mockLogger },
         { provide: getRepositoryToken(TeamEntity), useValue: mockTeamRepo },

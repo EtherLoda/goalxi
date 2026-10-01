@@ -122,10 +122,135 @@ describe('settlement cron timezone (wiring tripwire)', () => {
 
   it('found at least one @Cron to scan', () => {
     const total = schedulerFiles.reduce(
-      (n, f) => n + (stripComments(readFileSync(f, 'utf8')).match(/@Cron\(/g) ?? []).length,
+      (n, f) => (n + (stripComments(readFileSync(f, 'utf8')).match(/@Cron\(/g) ?? []).length),
       0,
     );
     expect(total).toBeGreaterThan(5);
+  });
+});
+
+/**
+ * Cron mutual exclusion.
+ *
+ * ## Why this test exists
+ *
+ * Until Phase 0 the api process imported settlement's compiled
+ * `SchedulerModule` and booted these handlers too, so every settlement
+ * cron fired twice in two processes. Nothing stopped the second run, and
+ * the handlers with multi-step unwrapped writes had no database guard:
+ *
+ *   - `season-transition` `checkAndProcessSeasonStart` — 5 ordered
+ *     steps; its own comment notes a mid-sequence failure re-runs
+ *     promotions and UN-SWAPs every pair on the next tick
+ *   - `promotion-relegation` `processAllTiers` — 5+ unwrapped writes,
+ *     `swapTeamLeague` is not commutative
+ *   - `league-standing` `initNewSeasonStandings` — per-row saves
+ *   - `league-admin` `addTeamToLeague` — 3 unwrapped writes
+ *
+ * Phase 0 removed the second owner. `@CronLocked` (backed by a Redis
+ * `SET NX PX` with a token-checked release) closes the general case:
+ * two settlement replicas, a restart mid-tick, or a slow tick
+ * overlapping the next.
+ *
+ * This tripwire exists because the lock is invisible to unit tests —
+ * every scheduler spec injects a pass-through runner, so a cron that
+ * silently lost its `@CronLocked` would still pass all of them.
+ */
+describe('settlement cron locking (wiring tripwire)', () => {
+  const schedulerFiles = collectFiles(
+    join(__dirname, '..', 'scheduler'),
+    '.service.ts',
+  );
+
+  it('every @Cron handler is wrapped by @CronLocked', () => {
+    const offenders: string[] = [];
+
+    for (const file of schedulerFiles) {
+      const src = stripComments(readFileSync(file, 'utf8'));
+      const lines = src.split('\n');
+      lines.forEach((line, i) => {
+        if (!/^\s*@Cron\(/.test(line)) return;
+        // Decorators apply bottom-up, so `@CronLocked` MUST be the line
+        // directly below `@Cron`. If it is above, `@Cron` attaches its
+        // metadata to the INNER method, Nest schedules the unguarded
+        // original, and the lock is decorative.
+        const next = lines[i + 1] ?? '';
+        if (!/@CronLocked\(/.test(next)) {
+          offenders.push(
+            `${relative(file)}:${i + 1} — @Cron without @CronLocked directly below it`,
+          );
+        }
+      });
+    }
+
+    expect(offenders).toEqual([]);
+  });
+
+  it('found the @Cron handlers to scan (sanity check on the scan)', () => {
+    let count = 0;
+    for (const file of schedulerFiles) {
+      const src = stripComments(readFileSync(file, 'utf8'));
+      count += (src.match(/^\s*@Cron\(/gm) ?? []).length;
+    }
+    expect(count).toBeGreaterThanOrEqual(15);
+  });
+
+  it('no two crons take the same lock unless they are declared as one group', () => {
+    // Two independent crons sharing a lock name would serialise: the
+    // second would observe the lock held and SKIP its tick. Four crons
+    // fire at exactly `0 0 0 * * 1` (finance, senior-decline, and two
+    // season-transition), so this is a live hazard rather than a
+    // theoretical one.
+    //
+    // `settlement.season-transition` is the intentional exception: the
+    // three crons are steps of ONE season state machine and must not
+    // interleave. It is declared once here as a known-shared group.
+    const INTENTIONAL_SHARED = new Set(['settlement.season-transition']);
+
+    const byLock = new Map<string, string[]>();
+    for (const file of schedulerFiles) {
+      const src = stripComments(readFileSync(file, 'utf8'));
+      const re = /@CronLocked\(\s*['"`]([^'"`]+)['"`]/g;
+      let m: RegExpExecArray | null;
+      while ((m = re.exec(src)) !== null) {
+        const list = byLock.get(m[1]) ?? [];
+        list.push(`${relative(file)}`);
+        byLock.set(m[1], list);
+      }
+    }
+
+    const collisions = [...byLock.entries()]
+      .filter(([lock, sites]) => sites.length > 1 && !INTENTIONAL_SHARED.has(lock))
+      .map(
+        ([lock, sites]) =>
+          `${lock} taken by ${sites.length} crons: ${sites.join(', ')}`,
+      );
+
+    expect(collisions).toEqual([]);
+  });
+
+  it('every @CronLocked declares a positive ttlMs', () => {
+    // A TTL of 0 or a negative value makes `SET ... PX 0` expire
+    // immediately, so the lock would never actually exclude anyone.
+    const offenders: string[] = [];
+    const re =
+      /@CronLocked\(\s*['"`]([^'"`]+)['"`]\s*,\s*\{\s*ttlMs:\s*([^}]+?)\s*\}\s*\)/g;
+
+    for (const file of schedulerFiles) {
+      const src = stripComments(readFileSync(file, 'utf8'));
+      let m: RegExpExecArray | null;
+      while ((m = re.exec(src)) !== null) {
+        const [, name, expr] = m;
+        // Every declaration is a `<n> * 60_000`-style literal; assert it
+        // is a multiplication rather than a bare number so nobody writes
+        // `ttlMs: 60` and silently gets a 60 ms lock.
+        if (!/^\d+\s*\*\s*[\d_]+\s*$/.test(expr.trim())) {
+          offenders.push(`${relative(file)} — ${name}: ttlMs: ${expr.trim()}`);
+        }
+      }
+    }
+
+    expect(offenders).toEqual([]);
   });
 });
 
@@ -181,4 +306,9 @@ function findProcessorClasses(dir: string): {
  */
 function stripComments(src: string): string {
   return src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
+}
+
+/** Repo-relative path, so assertion failures are clickable. */
+function relative(full: string): string {
+  return full.replace(/\\/g, '/').split('/settlement/').slice(-1)[0];
 }
