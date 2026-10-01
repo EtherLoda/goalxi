@@ -76,12 +76,13 @@ export class FinanceSchedulerService {
     // explicitly.
     const teams = await this.teamRepo.find({ where: { isBot: false } });
 
-    let successCount = 0;
-    let failCount = 0;
-
-    for (const team of teams) {
-      try {
-        await this.financeQueue.add(
+    // Fan out in parallel. The previous `for` loop awaited each
+    // `queue.add` serially — ~1,000 sequential Redis round trips every
+    // Monday. `WeeklySettlementService` already uses `Promise.allSettled`
+    // for the same reason.
+    const results = await Promise.allSettled(
+      teams.map((team) =>
+        this.financeQueue.add(
           'weekly-settlement',
           {
             teamId: team.id,
@@ -90,17 +91,39 @@ export class FinanceSchedulerService {
             type: 'weekly',
           },
           {
-            jobId: `finance-weekly-${team.id}-${Date.now()}`,
+            // Business key, NOT `Date.now()`.
+            //
+            // The old id embedded `Date.now()`, which defeated BullMQ's
+            // duplicate-jobId rejection entirely: every fire (restart,
+            // deploy, manual re-trigger) minted a fresh key. Since
+            // `FinanceService.processWeeklySettlementAtomic` has no
+            // `(teamId, season, week)` guard — it unconditionally writes a
+            // SPONSORSHIP transaction and adds to `finance.balance`, plus
+            // staff / youth / stadium / player-wage lines — a double fire
+            // means sponsorship and wages paid twice, from nothing.
+            //
+            // Same contract as `WeeklySettlementService`
+            // (`weekly-${kind}-${season}-week${week}`).
+            jobId: `finance-weekly-${team.id}-${season}-week${week}`,
+            attempts: 3,
+            backoff: { type: 'exponential', delay: 60_000 },
+            removeOnComplete: { age: 7 * 24 * 3600, count: 500 },
+            removeOnFail: { age: 30 * 24 * 3600 },
           },
-        );
-        successCount++;
-      } catch (error) {
-        failCount++;
+        ),
+      ),
+    );
+
+    const failCount = results.filter((r) => r.status === 'rejected').length;
+    const successCount = teams.length - failCount;
+
+    results.forEach((r, i) => {
+      if (r.status === 'rejected') {
         this.logger.error(
-          `[FinanceScheduler] Failed to queue finance settlement for team ${team.id}: ${error.message}`,
+          `[FinanceScheduler] Failed to queue finance settlement for team ${teams[i].id}: ${r.reason?.message ?? r.reason}`,
         );
       }
-    }
+    });
 
     this.logger.info(
       `[FinanceScheduler] Finance settlement queued: ${successCount} teams succeeded, ${failCount} failed (Season ${season}, Week ${week})`,

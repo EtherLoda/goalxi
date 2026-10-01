@@ -76,21 +76,50 @@ describe('FinanceSchedulerService', () => {
     expect(teamIds).toEqual(['real-1', 'real-2', 'real-3']);
   });
 
-  it('emits a unique jobId per team so duplicate enqueue dedups', async () => {
-    teamRepo.find.mockResolvedValueOnce([
-      { id: 'real-1' },
-      { id: 'real-2' },
-    ] as TeamEntity[]);
-    service = await buildService();
+  it('emits a business-key jobId anchored to (season, week) — not Date.now()', async () => {
+      // The old id was `finance-weekly-${team.id}-${Date.now()}`, which
+      // defeats BullMQ's duplicate-jobId rejection entirely: every fire
+      // (restart, deploy, manual re-trigger) minted a fresh key.
+      // `FinanceService.processWeeklySettlementAtomic` has no
+      // (teamId, season, week) guard — it unconditionally credits
+      // sponsorship and wages — so a double fire paid twice from nothing.
+      teamRepo.find.mockResolvedValueOnce([
+        { id: 'real-1' },
+        { id: 'real-2' },
+      ] as TeamEntity[]);
+      service = await buildService();
 
-    await service.processWeeklyFinanceSettlement();
+      await service.processWeeklyFinanceSettlement();
 
-    const jobIds = queue.add.mock.calls.map((c) => c[2].jobId);
-    expect(new Set(jobIds).size).toBe(2);
-    for (const id of jobIds) {
-      expect(id).toMatch(/^finance-weekly-real-\d+-/);
-    }
-  });
+      const jobIds = queue.add.mock.calls.map((c) => c[2].jobId);
+      // Unique per team.
+      expect(new Set(jobIds).size).toBe(2);
+      for (const id of jobIds) {
+        expect(id).toMatch(/^finance-weekly-real-\d+-\d+-week\d+$/);
+      }
+      // The season/week suffix must be identical across teams so a
+      // second fire in the SAME week dedups.
+      const suffixes = jobIds.map((id) => id.replace(/^finance-weekly-real-\d+-/, ''));
+      expect(new Set(suffixes).size).toBe(1);
+
+      // And a retry policy, so a single Postgres blip isn't a silent
+      // permanent loss for that team.
+      for (const call of queue.add.mock.calls) {
+        expect(call[2].attempts).toBeGreaterThan(1);
+      }
+    });
+
+    it('REGRESSION: a second cron fire in the same week produces the same jobIds', async () => {
+      teamRepo.find.mockResolvedValue([{ id: 'real-1' }] as TeamEntity[]);
+      service = await buildService();
+
+      await service.processWeeklyFinanceSettlement();
+      await service.processWeeklyFinanceSettlement();
+
+      const jobIds = queue.add.mock.calls.map((c) => c[2].jobId);
+      expect(jobIds).toHaveLength(2);
+      expect(jobIds[0]).toBe(jobIds[1]);
+    });
 
   it('does not throw when the queue rejects a single team job', async () => {
     teamRepo.find.mockResolvedValueOnce([
