@@ -211,6 +211,79 @@ describe('PromotionRelegationService', () => {
   });
 
   describe('swapTeamLeague', () => {
+    it('REGRESSION: a second call is a no-op (a swap is not commutative)', async () => {
+      // `processAllTiers` — the direct path's only caller — has no
+      // idempotency latch (unlike the playoff path's
+      // `match.playoff_swapped_at`). It reads `standing.position`, which
+      // the swap never mutates, so a second run re-reads identical
+      // positions and re-executes identical swaps.
+      //
+      // That is reachable: `SeasonTransitionService
+      // .checkAndProcessSeasonStart` logs-and-rethrows, so a failure in a
+      // later step (e.g. schedule generation hitting a league that
+      // drifted to an odd team count) makes the next tick re-run
+      // promotions — and UN-SWAP every pair, returning each team to the
+      // league it was trying to leave.
+      //
+      // Idempotency comes from current membership rather than a marker
+      // column: a leg whose team already sits in its target league is
+      // skipped, so on a re-run BOTH legs no-op.
+      const upperTeam = {
+        ...createMockTeam('upper-team-id', 'Upper Team'),
+        leagueId: 'upper-league-id' as Uuid,
+      } as TeamEntity;
+      const lowerTeam = {
+        ...createMockTeam('lower-team-id', 'Lower Team'),
+        leagueId: 'lower-league-id' as Uuid,
+      } as TeamEntity;
+
+      mockTeamRepository.findOne
+        .mockResolvedValueOnce(upperTeam)
+        .mockResolvedValueOnce(lowerTeam)
+        // Second call: the rows now read back post-swap.
+        .mockResolvedValueOnce({
+          ...upperTeam,
+          leagueId: 'lower-league-id',
+        } as TeamEntity)
+        .mockResolvedValueOnce({
+          ...lowerTeam,
+          leagueId: 'upper-league-id',
+        } as TeamEntity);
+      mockTeamRepository.save.mockResolvedValue({} as TeamEntity);
+      const fanSpy = jest
+        .spyOn(
+          service as unknown as {
+            applyFanRewardForTierChange: (
+              id: string,
+              dir: string,
+            ) => Promise<void>;
+          },
+          'applyFanRewardForTierChange',
+        )
+        .mockResolvedValue(undefined);
+
+      await service.swapTeamLeague(
+        'upper-team-id',
+        'lower-team-id',
+        'upper-league-id',
+        'lower-league-id',
+      );
+      expect(mockTeamRepository.save).toHaveBeenCalledTimes(2);
+
+      // Re-run: both teams are already in their target leagues.
+      mockTeamRepository.save.mockClear();
+      await service.swapTeamLeague(
+        'upper-team-id',
+        'lower-team-id',
+        'upper-league-id',
+        'lower-league-id',
+      );
+
+      expect(mockTeamRepository.save).not.toHaveBeenCalled();
+      // The tier-change fan reward is not paid again either.
+      expect(fanSpy).toHaveBeenCalledTimes(2);
+    });
+
     it('should swap leagueIds when lowerTeamId is provided', async () => {
       const upperTeam = createMockTeam(
         'upper-team-id',

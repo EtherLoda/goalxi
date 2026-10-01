@@ -368,14 +368,44 @@ export class PromotionRelegationService {
     upperLeagueId: string,
     lowerLeagueId: string,
   ): Promise<void> {
+    // Idempotency by current membership.
+    //
+    // This method is a SWAP, not a set operation: `upperTeamId` is the
+    // team being relegated into `lowerLeagueId`, `lowerTeamId` the team
+    // being promoted into `upperLeagueId`. Calling it twice puts BOTH
+    // teams back where they started.
+    //
+    // `processAllTiers` — the only caller on the direct path — has no
+    // idempotency latch (unlike the playoff path, which uses
+    // `match.playoff_swapped_at`). It reads `standing.position`, which
+    // the swap never mutates, so a second run re-reads identical
+    // positions and re-executes identical swaps. That is reachable:
+    // `SeasonTransitionService.checkAndProcessSeasonStart` logs-and-
+    // rethrows, so a failure in a later step (e.g. schedule generation
+    // hitting a league that drifted to an odd team count) leaves the
+    // next tick to re-run promotions and UN-SWAP every pair.
+    //
+    // Making each leg conditional on where the team currently sits
+    // makes the whole operation idempotent with no new table, no marker
+    // column, and no change to the call sites. A leg whose team is
+    // already in its target league is a no-op; on a re-run that is BOTH
+    // legs, so nothing moves.
+    //
+    // This also removes the `applyFanRewardForTierChange` double-count:
+    // that reward used to be paid again on every re-run.
+
     // `upperTeamId` is the relegated team (moves to lower league).
     const upperTeam = await this.teamRepository.findOne({
       where: { id: upperTeamId as any },
     });
-    if (upperTeam) {
+    if (upperTeam && upperTeam.leagueId !== lowerLeagueId) {
       upperTeam.leagueId = lowerLeagueId;
       await this.teamRepository.save(upperTeam);
       await this.applyFanRewardForTierChange(upperTeamId, 'relegate');
+    } else if (upperTeam) {
+      this.logger.debug(
+        `[PromotionRelegation] ${upperTeamId} already in lower league ${lowerLeagueId}, nothing to do`,
+      );
     }
 
     // `lowerTeamId` (if present) is the promoted team (moves to upper league).
@@ -383,10 +413,14 @@ export class PromotionRelegationService {
       const lowerTeam = await this.teamRepository.findOne({
         where: { id: lowerTeamId as any },
       });
-      if (lowerTeam) {
+      if (lowerTeam && lowerTeam.leagueId !== upperLeagueId) {
         lowerTeam.leagueId = upperLeagueId;
         await this.teamRepository.save(lowerTeam);
         await this.applyFanRewardForTierChange(lowerTeamId, 'promote');
+      } else if (lowerTeam) {
+        this.logger.debug(
+          `[PromotionRelegation] ${lowerTeamId} already in upper league ${upperLeagueId}, nothing to do`,
+        );
       }
     }
   }
