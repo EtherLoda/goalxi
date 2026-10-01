@@ -25,6 +25,7 @@ describe('MatchSchedulerService', () => {
   let eventRepository: jest.Mocked<Repository<MatchEventEntity>>;
   let simulationQueue: { add: jest.Mock };
   let completionQueue: { add: jest.Mock };
+  let cupProgressQueue: { add: jest.Mock };
 
   const mockTacticsRepository = {
     findOne: jest.fn(),
@@ -82,6 +83,10 @@ describe('MatchSchedulerService', () => {
     add: jest.fn(),
   };
 
+  const mockCupProgressQueue = {
+    add: jest.fn(),
+  };
+
   const mockLogger = {
     log: jest.fn(),
     debug: jest.fn(),
@@ -106,6 +111,10 @@ describe('MatchSchedulerService', () => {
         {
           provide: 'BullQueue_match-completion',
           useValue: mockCompletionQueue,
+        },
+        {
+          provide: 'BullQueue_cup-progress',
+          useValue: mockCupProgressQueue,
         },
         {
           provide: getRepositoryToken(MatchTacticsEntity),
@@ -149,6 +158,7 @@ describe('MatchSchedulerService', () => {
     eventRepository = module.get(getRepositoryToken(MatchEventEntity));
     simulationQueue = module.get('BullQueue_match-simulation');
     completionQueue = module.get('BullQueue_match-completion');
+    cupProgressQueue = module.get('BullQueue_cup-progress');
 
     jest.clearAllMocks();
     // Default: every status-guarded update succeeds. Individual tests
@@ -359,6 +369,84 @@ describe('MatchSchedulerService', () => {
         'complete-match',
         { matchId: match.id },
         expect.objectContaining({ jobId: `complete-${match.id}` }),
+      );
+      // League matches must NOT touch the cup queue — that queue has a
+      // dedicated worker and feeding it a league match would either
+      // burn a worker slot or (worse, if the guard were ever removed)
+      // corrupt a bracket.
+      expect(cupProgressQueue.add).not.toHaveBeenCalled();
+    });
+
+    it('fans a CUP match out to BOTH match-completion and cup-progress', async () => {
+      // Regression: `CupProgressProcessor` used to share the
+      // `match-completion` queue with the API's league completion
+      // worker. BullMQ workers compete rather than broadcast, so each
+      // job went to exactly one of them — cup jobs left the bracket
+      // un-advanced and league jobs were dropped with no standings,
+      // ELO, or revenue. The two paths are now separate queues.
+      const match = buildInProgressMatch({
+        id: 'match-cup',
+        type: MatchType.CUP,
+        scheduledAt: new Date(Date.now() - 60 * 60 * 1000),
+      });
+      const lastEvent = {
+        id: 'evt-cup',
+        matchId: match.id,
+        minute: 95,
+        eventScheduledTime: new Date(Date.now() - 10 * 60 * 1000),
+      } as unknown as MatchEventEntity;
+      matchRepository.find.mockResolvedValue([match]);
+      eventRepository.findOne.mockResolvedValue(lastEvent);
+
+      await service.completeMatches();
+
+      expect(completionQueue.add).toHaveBeenCalledWith(
+        'complete-match',
+        { matchId: match.id },
+        expect.objectContaining({ jobId: `complete-${match.id}` }),
+      );
+      expect(cupProgressQueue.add).toHaveBeenCalledWith(
+        'complete-match',
+        { matchId: match.id },
+        expect.objectContaining({
+          jobId: `cup-complete-${match.id}`,
+          // Without `attempts` every throw is a permanent dead-letter
+          // and there is no reconciliation sweep to recover it.
+          attempts: expect.any(Number),
+        }),
+      );
+    });
+
+    it('does not let a cup-progress enqueue failure hide a completed match', async () => {
+      // The match is already COMPLETED by this point and nothing
+      // sweeps for unsettled matches, so a Redis blip on the second
+      // queue must at least log loudly — and must not skip the
+      // "match completed" log line.
+      const match = buildInProgressMatch({
+        id: 'match-cup-fail',
+        type: MatchType.CUP,
+        scheduledAt: new Date(Date.now() - 60 * 60 * 1000),
+      });
+      const lastEvent = {
+        id: 'evt-cup-fail',
+        matchId: match.id,
+        minute: 95,
+        eventScheduledTime: new Date(Date.now() - 10 * 60 * 1000),
+      } as unknown as MatchEventEntity;
+      matchRepository.find.mockResolvedValue([match]);
+      eventRepository.findOne.mockResolvedValue(lastEvent);
+      cupProgressQueue.add.mockRejectedValueOnce(new Error('redis down'));
+
+      await expect(service.completeMatches()).resolves.toBeUndefined();
+
+      expect(completionQueue.add).toHaveBeenCalled();
+      expect(mockLogger.error).toHaveBeenCalledWith(
+        expect.stringContaining('FAILED to enqueue cup progression'),
+        expect.anything(),
+      );
+      // The completion log still fired.
+      expect(mockLogger.info).toHaveBeenCalledWith(
+        expect.stringContaining('[done] Match completed'),
       );
     });
 

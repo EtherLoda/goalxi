@@ -18,12 +18,11 @@ import {
 } from '@goalxi/database';
 
 /**
- * Payload contract for `match-completion` jobs, shared with the
- * league flow. Re-declared here rather than imported across the
- * workspace boundary because settlement and the API are sibling
- * services — matching by hand is the right level of loose
- * coupling. The job name is `complete-match` (see
- * `match-scheduler.service.ts:enqueueCompletion`).
+ * Payload contract for `cup-progress` jobs. Re-declared here
+ * rather than imported across the workspace boundary because
+ * settlement and the API are sibling services — matching by hand
+ * is the right level of loose coupling. The job name is
+ * `complete-match` (see `match-scheduler.service.ts:completeMatches`).
  */
 export interface CompleteMatchJobPayload {
   matchId: string;
@@ -32,10 +31,27 @@ export interface CompleteMatchJobPayload {
 /**
  * BullMQ consumer for cup match completions.
  *
- * Listens on the same `match-completion` queue the league uses,
- * but filters out everything that isn't `match.type === 'CUP'`.
- * The non-cup matches are silently dropped — the league has its
- * own completion handling downstream of this queue.
+ * ## Why this has its own queue
+ *
+ * This processor used to be decorated `@Processor('match-completion')`
+ * — the same queue `api/src/background/queues/match-completion/match-completion.processor.ts`
+ * consumes. That was broken: **BullMQ workers compete for jobs, they
+ * do not broadcast them.** Every job goes to exactly one worker, so
+ * the split was a coin flip per match:
+ *
+ *   - a CUP job landing on the API worker ran `completeMatch` but
+ *     never stamped the bracket → the round never closed, the cup
+ *     deadlocked;
+ *   - a LEAGUE job landing here hit the `match.type !== CUP`
+ *     early-return → **no standings, no ELO, no ticket revenue,
+ *     no match minutes** — and the job was acked as completed, so
+ *     nothing retried it.
+ *
+ * `match-completion` now carries only league/settlement work, and
+ * `MatchSchedulerService.completeMatches` fans a CUP match out to
+ * both queues. The `match.type !== CUP` guard below stays as
+ * defence-in-depth (a misrouted job should no-op, not corrupt a
+ * bracket).
  *
  * ## Per-match flow
  *
@@ -50,9 +66,12 @@ export interface CompleteMatchJobPayload {
  *      tick wins the CAS — the others bail.
  *   4. On round completion:
  *      a. If the round is the last one (Final), mark the cup
- *         completed and stamp the champion's `final_position=1`.
- *         Runner-up gets `final_position=2`. The other semi-
- *         finalists get `final_position=3` (shared 3rd).
+ *         completed and stamp `final_position=1` on the champion
+ *         and `final_position=2` on the runner-up. Note that
+ *         `winnerTeamId` on a slot holds the MATCH winner (stamped
+ *         on both slots for FE rendering), so the runner-up is
+ *         derived from the final's home/away ids, not from a slot's
+ *         `winnerTeamId`.
  *      b. Otherwise, build the next round's bracket slots from
  *         this round's winners + any new tier entries for that
  *         round. Schedule them at the next round's
@@ -69,15 +88,15 @@ export interface CompleteMatchJobPayload {
  *
  * ## Concurrency
  *
- * `@Processor('match-completion', { concurrency: 4 })`. The
- * `match-completion` queue is shared with the league (which has
- * no concurrency cap today and runs single-threaded), so the
- * 4-worker pool here might steal cycles from the league's
- * completion handler. If contention shows up in the slow-query
- * log, the league path can be moved to its own queue.
+ * `@Processor('cup-progress', { concurrency: 4 })`. This queue
+ * carries only cup matches, so the worker pool cannot starve the
+ * league completion path (which runs single-threaded on
+ * `match-completion`). Cup closeout is cheap — a handful of
+ * updates per match — so the pool is sized for bracket latency,
+ * not throughput.
  */
 @Injectable()
-@Processor('match-completion', { concurrency: 4 })
+@Processor('cup-progress', { concurrency: 4 })
 export class CupProgressProcessor extends WorkerHost {
   /**
    * @nestjs/bullmq requires either a no-arg constructor or
@@ -103,7 +122,12 @@ export class CupProgressProcessor extends WorkerHost {
 
   async process(job: Job<CompleteMatchJobPayload>): Promise<void> {
     if (job.name !== 'complete-match') {
-      // Some other job name sharing the same queue — ignore.
+      // `cup-progress` carries only cup closeout jobs. Log rather than
+      // silently drop — a typo in an enqueue call site is otherwise
+      // invisible (the job is still acked as completed).
+      this.logger.warn(
+        `[CupProgress] Ignoring job with unexpected name "${job.name}" (jobId=${job.id})`,
+      );
       return;
     }
     const { matchId } = job.data;
@@ -118,7 +142,7 @@ export class CupProgressProcessor extends WorkerHost {
         `[CupProgress] handleCompletedMatch failed for matchId=${matchId}: ${(err as Error).message}`,
         (err as Error).stack,
       );
-      throw err; // let BullMQ retry per queue policy
+      throw err; // retried by the enqueue call site's `attempts` policy
     }
   }
 
@@ -133,15 +157,19 @@ export class CupProgressProcessor extends WorkerHost {
       return;
     }
     if (match.type !== MatchType.CUP) {
-      // League match — not our concern. The league's own
-      // completion handler will pick this up downstream.
+      // Defence-in-depth. The `cup-progress` queue only receives
+      // `MatchType.CUP` matches (`MatchSchedulerService.completeMatches`
+      // filters on `match.type`), so this only fires if a caller
+      // misroutes a job. No-op rather than corrupt a bracket.
+      this.logger.warn(
+        `[CupProgress] matchId=${matchId} is type=${match.type}, not CUP — skipping`,
+      );
       return;
     }
     if (match.status !== MatchStatus.COMPLETED) {
-      // The preprocessor may have run before the match was
-      // marked COMPLETED. The "match-completion" job fires
-      // after COMPLETED, but defensive no-op if we see a stale
-      // status (e.g. a manual re-enqueue).
+      // The `cup-progress` job is enqueued after `MatchSchedulerService`
+      // flips the match to COMPLETED, but be defensive: a manual
+      // re-enqueue or a mid-flight status change should no-op.
       this.logger.debug(
         `[CupProgress] matchId=${matchId} status=${match.status} — not COMPLETED, skipping cup progress`,
       );
@@ -337,35 +365,57 @@ export class CupProgressProcessor extends WorkerHost {
     const isLastRound = lastRound?.id === round.id;
 
     if (isLastRound) {
-      // Champion = winner of the only match in the final
-      // round. With 2 teams in the final, there is 1 match
-      // and 2 slots. The "winner" slot is whichever slot
-      // has `winnerTeamId IS NOT NULL` and that team is the
-      // champion. The "loser" slot is the runner-up.
+      // Rank the finalists.
+      //
+      // `winnerTeamId` on a bracket slot is NOT the slot's own team —
+      // `stampSlotWinner` writes the MATCH winner onto BOTH slots (one
+      // per team perspective) so the FE can render the bracket from
+      // either side. So both final slots carry the champion's id and
+      // `finalSlots.find(s => s.winnerTeamId)` twice yields the same
+      // team. The runner-up has to be derived from the final's actual
+      // participants: whichever of home/away is not the champion.
       const finalSlots = await this.slotRepo.find({
         where: { roundId: round.id },
       });
-      const championSlot = finalSlots.find((s) => s.winnerTeamId);
-      const runnerUpSlot = finalSlots.find(
-        (s) => s.winnerTeamId && s.id !== championSlot?.id,
-      );
-      if (championSlot?.winnerTeamId) {
+
+      // The final round has exactly one match; both of its slots
+      // point at it. Prefer the slot's match row, and fall back to
+      // the slot's own home/away ids if the link is missing.
+      const finalMatchId = finalSlots.find((s) => s.matchId)?.matchId;
+      const finalMatch = finalMatchId
+        ? await this.matchRepo.findOne({ where: { id: finalMatchId } })
+        : null;
+
+      const championTeamId: Uuid | null =
+        finalMatch && finalMatch.status === MatchStatus.COMPLETED
+          ? this.determineWinner(finalMatch)
+          : (finalSlots.find((s) => s.winnerTeamId)?.winnerTeamId ?? null);
+
+      const runnerUpTeamId: Uuid | null = finalMatch
+        ? ([finalMatch.homeTeamId, finalMatch.awayTeamId].find(
+            (teamId) => teamId && teamId !== championTeamId,
+          ) as Uuid | undefined) ?? null
+        : null;
+
+      if (championTeamId) {
         await this.entryRepo.update(
-          { cupId, teamId: championSlot.winnerTeamId },
+          { cupId, teamId: championTeamId },
           { finalPosition: 1 },
         );
       }
-      if (runnerUpSlot?.winnerTeamId) {
+      if (runnerUpTeamId) {
         await this.entryRepo.update(
-          { cupId, teamId: runnerUpSlot.winnerTeamId },
+          { cupId, teamId: runnerUpTeamId },
           { finalPosition: 2 },
         );
       }
+
       // Mark the cup completed.
       await this.cupRepo.update(cupId, { status: CupStatus.COMPLETED });
       this.logger.info(
         `[CupProgress] Cup ${cupId} (season ${cup.season}) completed. ` +
-          `Champion: team ${championSlot?.winnerTeamId ?? 'unknown'}`,
+          `Champion: team ${championTeamId ?? 'unknown'}, ` +
+          `runner-up: team ${runnerUpTeamId ?? 'unknown'}`,
       );
     } else {
       // Not the last round — build the next round's slots.

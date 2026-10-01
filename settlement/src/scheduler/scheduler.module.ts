@@ -64,6 +64,17 @@ import { NotificationModule } from '../notification/notification.module';
     BullModule.registerQueue({
       name: 'match-completion',
     }),
+    // Cup bracket closeout. Deliberately a SEPARATE queue from
+    // `match-completion`: the API's league completion worker also
+    // consumes `match-completion`, and two BullMQ workers on one
+    // queue compete rather than broadcast — sharing it meant roughly
+    // half of all matches were either bracket-advanced-without-
+    // settlement or settled-without-bracket-advance. Produced by
+    // `MatchSchedulerService.completeMatches` for CUP matches only;
+    // consumed by `CupProgressProcessor` (registered in `CupModule`).
+    BullModule.registerQueue({
+      name: 'cup-progress',
+    }),
     BullModule.registerQueue({
       name: 'training-settlement',
     }),

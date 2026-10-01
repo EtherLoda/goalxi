@@ -11,6 +11,7 @@ import {
   LeagueEntity,
   MatchEntity,
   MatchStatus,
+  MatchType,
   MatchTacticsEntity,
   Uuid,
   MatchEventEntity,
@@ -42,6 +43,23 @@ const STUCK_LOCKED_MINUTES = 5;
 const RECOVERY_JOBID_BUCKET_MS = 5 * 60 * 1000;
 const STALE_SIMULATION_LOCK_MS = 60 * 60 * 1000;
 
+/**
+ * Retry budget for the `cup-progress` job.
+ *
+ * The cup processor is NOT wrapped in a transaction (it issues a
+ * sequence of CAS-guarded updates: stamp slot winner → stamp
+ * loser elimination → CAS round to completed → build next round).
+ * Every step is individually idempotent, so a retry is safe — but
+ * the enqueue call site used to set no `attempts` at all, which made
+ * every throw a permanent dead-letter: the round stayed `in_progress`
+ * and the cup silently stopped advancing.
+ *
+ * This queue has no reconciliation sweep, so a job that exhausts its
+ * attempts is unrecoverable. The `error` log in `completeMatches` is
+ * therefore the only signal an operator gets.
+ */
+const CUP_PROGRESS_ATTEMPTS = 3;
+
 @Injectable()
 export class MatchSchedulerService {
   constructor(
@@ -51,6 +69,8 @@ export class MatchSchedulerService {
     private simulationQueue: Queue,
     @InjectQueue('match-completion')
     private completionQueue: Queue,
+    @InjectQueue('cup-progress')
+    private cupProgressQueue: Queue,
     @InjectRepository(MatchEntity)
     private matchRepository: Repository<MatchEntity>,
     @InjectRepository(MatchTacticsEntity)
@@ -570,6 +590,40 @@ export class MatchSchedulerService {
               `${match.awayScore || 0} ${match.awayTeam?.name || 'Away'} ` +
               `(ID: ${match.id})`,
           );
+
+          // Cup bracket closeout runs on its own queue. `match-completion`
+          // is consumed by the API's `MatchCompletionProcessor` (standings,
+          // ELO, fan/revenue, minutes); if the cup processor shared that
+          // queue the two workers would compete and each job would only be
+          // seen by one of them. See `cup.module.ts`.
+          //
+          // Deliberately AFTER the log + outside the completion enqueue:
+          // the match is already COMPLETED by this point, so a failure
+          // here cannot be retried by this cron (the `completeMatches`
+          // WHERE only scans IN_PROGRESS / TACTICS_LOCKED, and nothing
+          // sweeps for unsettled matches). Log loudly and move on rather
+          // than letting a Redis blip on the second queue hide the fact
+          // that the match itself completed.
+          if (match.type === MatchType.CUP) {
+            try {
+              await this.cupProgressQueue.add(
+                'complete-match',
+                { matchId: match.id },
+                {
+                  jobId: `cup-complete-${match.id}`,
+                  attempts: CUP_PROGRESS_ATTEMPTS,
+                  backoff: { type: 'exponential', delay: 60_000 },
+                },
+              );
+            } catch (cupError) {
+              this.logger.error(
+                `[MatchCompletionScheduler] FAILED to enqueue cup progression for match ${match.id}: ${cupError.message}. ` +
+                  `The bracket will NOT advance for this cup match and there is no reconciliation sweep — ` +
+                  `re-enqueue manually with jobId "cup-complete-${match.id}".`,
+                cupError.stack,
+              );
+            }
+          }
         }
       } catch (error) {
         this.logger.error(

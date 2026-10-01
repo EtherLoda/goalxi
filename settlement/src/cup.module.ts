@@ -13,14 +13,18 @@ import { CupProgressProcessor } from './processors/cup-progress.processor';
 /**
  * Wires the cup-competition side of settlement:
  *
- *   - `CupProgressProcessor` consumes the shared
- *     `match-completion` BullMQ queue. It filters for
- *     `match.type === 'CUP'` and runs the round-closeout +
- *     next-round slot creation. Non-cup matches are passed
- *     through to the league's own completion handler
- *     (which doesn't exist as a worker today — the league
- *     flow currently finalises matches via the scheduler's
- *     `completeMatches` cron tick, not via a worker).
+ *   - `CupProgressProcessor` consumes the dedicated `cup-progress`
+ *     queue. It runs the round-closeout + next-round slot
+ *     creation for `match.type === 'CUP'` matches.
+ *
+ *     It deliberately does **not** share the `match-completion`
+ *     queue with the API's league completion worker. BullMQ workers
+ *     compete for jobs rather than broadcasting them, so sharing a
+ *     queue meant each job went to exactly one of the two workers:
+ *     cup jobs reached the API worker and left the bracket
+ *     un-advanced, while league jobs reached this processor and
+ *     were dropped without standings/ELO/revenue. `MatchSchedulerService.completeMatches`
+ *     now fans cup matches out to both queues.
  *
  *   - The `CupSchedulerService` is NOT in this module — it
  *     lives in `SchedulerModule` because that's where the
@@ -38,7 +42,7 @@ import { CupProgressProcessor } from './processors/cup-progress.processor';
 @Module({
   imports: [
     BullModule.registerQueue({
-      name: 'match-completion',
+      name: 'cup-progress',
     }),
     TypeOrmModule.forFeature([
       CupEntity,
