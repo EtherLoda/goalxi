@@ -296,16 +296,38 @@ export class WeatherService {
     return this.weatherRepository.save(weather);
   }
 
+  /**
+   * `YYYY-MM-DD` in UTC.
+   *
+   * This used to use the LOCAL getters (`getFullYear` / `getMonth` /
+   * `getDate`), which made it the odd one out:
+   *
+   *   - `bootstrap/generators/weather.generator.ts` — `toISOString().slice(0,10)`
+   *   - `api/src/api/weather/weather.service.ts`        — `toISOString().slice(0,10)`
+   *   - `match-scheduler.service.ts:164` (the reader that attaches
+   *     weather to a match) — `match.scheduledAt.toISOString().split('T')[0]`
+   *
+   * So on a host whose local date differs from the UTC date (any TZ west
+   * of UTC during the evening, or any eastern TZ before midday), the daily
+   * row written by `createOrUpdateTodayWeather` landed on a DIFFERENT date
+   * key than the one the match preprocessor looked up — and every match
+   * got `weather = undefined`. The images are UTC so this never fired in
+   * practice, which is exactly why it survived; see the parallel
+   * GAME_SETTINGS.CRON_TIME_ZONE change that removed the same class of
+   * assumption from the crons.
+   */
   private formatDate(date: Date): string {
-    const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    const day = String(date.getDate()).padStart(2, '0');
-    return `${year}-${month}-${day}`;
+    return date.toISOString().slice(0, 10);
   }
 
+  /**
+   * `formatDate` and `addDays` must agree on the calendar. `addDays`
+   * shifts by a fixed 24h in UTC, which is correct for a date-only key
+   * (no DST transitions in UTC), and the previous local-time
+   * `setDate(getDate() + n)` could skip or repeat a day across a DST
+   * boundary.
+   */
   private addDays(date: Date, days: number): Date {
-    const result = new Date(date);
-    result.setDate(result.getDate() + days);
-    return result;
+    return new Date(date.getTime() + days * 24 * 60 * 60 * 1000);
   }
 }
