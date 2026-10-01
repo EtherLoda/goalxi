@@ -14,8 +14,8 @@ import { LOGGER_SERVICE } from '@goalxi/logger';
 import { Test, TestingModule } from '@nestjs/testing';
 import { getDataSourceToken, getRepositoryToken } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { FinanceService } from '../finance/finance.service';
 import { FanService } from '../fan/fan.service';
+import { FinanceService } from '../finance/finance.service';
 import { MatchCacheService } from './match-cache.service';
 import { MatchCompletionService } from './match-completion.service';
 
@@ -104,9 +104,7 @@ describe('MatchCompletionService data-flow review', () => {
         if (entity?.name === 'LeagueStandingEntity') return mockStandingRepo;
         return { find: jest.fn(), findOne: jest.fn(), save: jest.fn() };
       }),
-      createQueryBuilder: jest
-        .fn()
-        .mockReturnValue(txUpdateChain),
+      createQueryBuilder: jest.fn().mockReturnValue(txUpdateChain),
     };
     dataSource = {
       transaction: jest.fn(async (cb: any) => cb(txManager)),
@@ -137,6 +135,10 @@ describe('MatchCompletionService data-flow review', () => {
           useValue: {
             findOne: jest.fn(),
             save: jest.fn(),
+            // `completeMatch` stamps the durable settlement receipt
+            // (`settledAt`) with a targeted update rather than an
+            // entity save, so the mock needs it.
+            update: jest.fn(),
           },
         },
         {
@@ -149,7 +151,12 @@ describe('MatchCompletionService data-flow review', () => {
         },
         {
           provide: getRepositoryToken(PlayerEntity),
-          useValue: { find: jest.fn(), findOne: jest.fn(), save: jest.fn(), increment: jest.fn() },
+          useValue: {
+            find: jest.fn(),
+            findOne: jest.fn(),
+            save: jest.fn(),
+            increment: jest.fn(),
+          },
         },
         {
           provide: getRepositoryToken(MatchEventEntity),
@@ -169,7 +176,7 @@ describe('MatchCompletionService data-flow review', () => {
         },
         {
           provide: getRepositoryToken(FanEntity),
-          useValue: { findOne: jest.fn() },
+          useValue: { findOne: jest.fn(), find: jest.fn() },
         },
         {
           provide: getRepositoryToken(InjuryEntity),
@@ -185,7 +192,9 @@ describe('MatchCompletionService data-flow review', () => {
         },
         {
           provide: FinanceService,
-          useValue: { processTransaction: jest.fn().mockResolvedValue(undefined) },
+          useValue: {
+            processTransaction: jest.fn().mockResolvedValue(undefined),
+          },
         },
         {
           provide: FanService,
@@ -198,7 +207,9 @@ describe('MatchCompletionService data-flow review', () => {
     }).compile();
 
     service = moduleRef.get(MatchCompletionService);
-    standingRepository = moduleRef.get(getRepositoryToken(LeagueStandingEntity));
+    standingRepository = moduleRef.get(
+      getRepositoryToken(LeagueStandingEntity),
+    );
     matchRepository = moduleRef.get(getRepositoryToken(MatchEntity));
     eventRepository = moduleRef.get(getRepositoryToken(MatchEventEntity));
     tacticsRepository = moduleRef.get(getRepositoryToken(MatchTacticsEntity));
@@ -214,9 +225,9 @@ describe('MatchCompletionService data-flow review', () => {
 
   const makeStanding = (over: Partial<LeagueStandingEntity> = {}) =>
     ({
-      id: "standing-uuid",
-      leagueId: "league-uuid",
-      teamId: "team-uuid",
+      id: 'standing-uuid',
+      leagueId: 'league-uuid',
+      teamId: 'team-uuid',
       season: 1,
       position: 0,
       played: 0,
@@ -232,15 +243,142 @@ describe('MatchCompletionService data-flow review', () => {
       ...over,
     }) as unknown as LeagueStandingEntity;
 
-  describe("updateLeagueStandings type guard", () => {
-    it("skips the standing upsert + position recalc for cup matches (leagueId=null)", async () => {
+  describe('settlement receipt (settledAt)', () => {
+    // `status = COMPLETED` records that the simulator finished and the
+    // scheduler finalised the row — NOT that settlement ran. The only
+    // settlement guard used to be a Redis key with a 24h TTL, which left
+    // no durable record and re-applied every mutation to any delivery
+    // arriving after 24h (standings, ELO, minutes, fan, ticket revenue).
+    // `match.settledAt` (migration 1788000000030) is that record.
+
+    const buildMatch = (over: Partial<Record<string, unknown>> = {}) =>
+      ({
+        id: 'match-receipt',
+        type: 'league',
+        leagueId: 'league-uuid',
+        season: 1,
+        homeTeamId: 'team-home',
+        awayTeamId: 'team-away',
+        homeScore: 1,
+        awayScore: 0,
+        status: MatchStatus.COMPLETED,
+        settledAt: null,
+        ...over,
+      }) as unknown as MatchEntity;
+
+    /** Minimal happy-path wiring so `completeMatch` runs to the end. */
+    const wireHappyPath = () => {
+      standingRepository.findOne.mockImplementation(async (opts: any) =>
+        makeStanding({ teamId: opts?.where?.teamId ?? 'team-uuid' }),
+      );
+      standingRepository.createQueryBuilder.mockReturnValue({
+        where: jest.fn().mockReturnThis(),
+        andWhere: jest.fn().mockReturnThis(),
+        orderBy: jest.fn().mockReturnThis(),
+        addOrderBy: jest.fn().mockReturnThis(),
+        getMany: jest.fn().mockResolvedValue([]),
+      } as any);
+      // `addMatchMinutes` walks the substitution / red-card events.
+      eventRepository.find.mockResolvedValue([] as any);
+      // ...and the v2 lineup columns for both teams.
+      tacticsRepository.find.mockResolvedValue([] as any);
+      // Attendance needs a built stadium + a fan row for the home team.
+      stadiumRepository.findOne.mockResolvedValue({
+        isBuilt: true,
+        capacity: 50000,
+      } as any);
+      fanRepository.find
+        .mockResolvedValueOnce({
+          totalFans: 40000,
+          fanEmotion: 60,
+        } as any)
+        .mockResolvedValueOnce({
+          totalFans: 30000,
+          fanEmotion: 55,
+        } as any);
+    };
+
+    it('stamps settledAt only after every mutation step has run', async () => {
+      const match = buildMatch();
+      matchRepository.findOne.mockResolvedValue(match);
+      wireHappyPath();
+
+      await service.completeMatch(match.id);
+
+      // The stamp is the LAST write, so its position in the call order
+      // proves it can't run before the standings / minutes / ELO /
+      // revenue writes. If any of those throws, settledAt stays null and
+      // `reconcileUnsettledMatches` re-enqueues.
+      const updateCalls = matchRepository.update.mock.calls;
+      expect(updateCalls.length).toBeGreaterThan(0);
+      const settledCall = updateCalls.find(
+        (c: any[]) => c[1] && 'settledAt' in c[1],
+      );
+      expect(settledCall).toBeDefined();
+      expect(settledCall![1].settledAt).toBeInstanceOf(Date);
+      // And the cache key is stamped after it, not before.
+      expect(cacheService.setMatchProcessed).toHaveBeenCalled();
+    });
+
+    it('REGRESSION: skips a match that is already settled', async () => {
+      // The Redis key expires after 24h, so a late duplicate delivery
+      // (stalled job, manual replay, second reconciliation pass) used to
+      // re-apply every mutation.
+      const match = buildMatch({
+        settledAt: new Date('2026-01-01T00:00:00Z'),
+      });
+      matchRepository.findOne.mockResolvedValue(match);
+
+      await service.completeMatch(match.id);
+
+      // No standings work, no money, no receipt rewrite.
+      expect(standingRepository.findOne).not.toHaveBeenCalled();
+      expect(financeService.processTransaction).not.toHaveBeenCalled();
+      expect(fanService.updateAfterMatch).not.toHaveBeenCalled();
+      expect(
+        matchRepository.update.mock.calls.some(
+          (c: any[]) => c[1] && 'settledAt' in c[1],
+        ),
+      ).toBe(false);
+    });
+
+    it('still honours the Redis fast path before touching the DB', async () => {
+      cacheService.isMatchProcessed.mockResolvedValue(true);
+
+      await service.completeMatch('match-receipt');
+
+      expect(matchRepository.findOne).not.toHaveBeenCalled();
+    });
+
+    it('REGRESSION: a mid-way failure leaves settledAt null so the sweep retries', async () => {
+      // The reconciliation sweep selects
+      // `status = COMPLETED AND settled_at IS NULL`, so the receipt must
+      // NOT be written before the risky steps.
+      const match = buildMatch();
+      matchRepository.findOne.mockResolvedValue(match);
+      // Standings write blows up.
+      standingRepository.findOne.mockRejectedValue(new Error('db gone'));
+
+      await expect(service.completeMatch(match.id)).rejects.toThrow('db gone');
+
+      expect(
+        matchRepository.update.mock.calls.some(
+          (c: any[]) => c[1] && 'settledAt' in c[1],
+        ),
+      ).toBe(false);
+      expect(cacheService.setMatchProcessed).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('updateLeagueStandings type guard', () => {
+    it('skips the standing upsert + position recalc for cup matches (leagueId=null)', async () => {
       const cupMatch = {
-        id: "match-cup-1",
-        type: "cup",
+        id: 'match-cup-1',
+        type: 'cup',
         leagueId: null,
         season: 1,
-        homeTeamId: "team-home",
-        awayTeamId: "team-away",
+        homeTeamId: 'team-home',
+        awayTeamId: 'team-away',
         homeScore: 2,
         awayScore: 1,
         status: MatchStatus.COMPLETED,
@@ -258,15 +396,15 @@ describe('MatchCompletionService data-flow review', () => {
       expect(standingRepository.createQueryBuilder).not.toHaveBeenCalled();
     });
 
-    it("skips for youth matches (leagueId=null, type=youth_league)", async () => {
+    it('skips for youth matches (leagueId=null, type=youth_league)', async () => {
       const youthMatch = {
-        id: "match-youth-1",
-        type: "youth_league",
+        id: 'match-youth-1',
+        type: 'youth_league',
         leagueId: null,
-        youthLeagueId: "youth-league-uuid",
+        youthLeagueId: 'youth-league-uuid',
         season: 1,
-        homeTeamId: "team-home",
-        awayTeamId: "team-away",
+        homeTeamId: 'team-home',
+        awayTeamId: 'team-away',
         homeScore: 1,
         awayScore: 1,
         status: MatchStatus.COMPLETED,
@@ -278,16 +416,16 @@ describe('MatchCompletionService data-flow review', () => {
       expect(standingRepository.save).not.toHaveBeenCalled();
     });
 
-    it("skips for friendly and national_team matches", async () => {
-      for (const type of ["friendly", "national_team", "tournament"]) {
+    it('skips for friendly and national_team matches', async () => {
+      for (const type of ['friendly', 'national_team', 'tournament']) {
         jest.clearAllMocks();
         const match = {
           id: `match-${type}-1`,
           type,
           leagueId: null,
           season: 1,
-          homeTeamId: "team-home",
-          awayTeamId: "team-away",
+          homeTeamId: 'team-home',
+          awayTeamId: 'team-away',
           homeScore: 0,
           awayScore: 0,
           status: MatchStatus.COMPLETED,
@@ -298,7 +436,7 @@ describe('MatchCompletionService data-flow review', () => {
       }
     });
 
-    it("REGRESSION: skips for PLAYOFF matches (leagueId is NOT null)", async () => {
+    it('REGRESSION: skips for PLAYOFF matches (leagueId is NOT null)', async () => {
       // `playoff.service.ts` stamps playoff matches with
       // `leagueId = homeLeagueId` (the UPPER league) and parks the
       // lower league's id in `lowerLeagueId`. So the `!leagueId` guard
@@ -313,13 +451,13 @@ describe('MatchCompletionService data-flow review', () => {
       // *began*). Both fixed together — if you ever remove the PLAYOFF
       // guard, expect 84 phantom rows per season.
       const playoffMatch = {
-        id: "match-playoff-1",
-        type: "playoff",
-        leagueId: "upper-league-uuid",
-        lowerLeagueId: "lower-league-uuid",
+        id: 'match-playoff-1',
+        type: 'playoff',
+        leagueId: 'upper-league-uuid',
+        lowerLeagueId: 'lower-league-uuid',
         season: 1,
-        homeTeamId: "upper-team-9th",
-        awayTeamId: "lower-team-2nd",
+        homeTeamId: 'upper-team-9th',
+        awayTeamId: 'lower-team-2nd',
         homeScore: 1,
         awayScore: 2,
         status: MatchStatus.COMPLETED,
@@ -332,27 +470,27 @@ describe('MatchCompletionService data-flow review', () => {
       expect(standingRepository.createQueryBuilder).not.toHaveBeenCalled();
     });
 
-    it("DOES update standings for LEAGUE matches (positive control)", async () => {
+    it('DOES update standings for LEAGUE matches (positive control)', async () => {
       const leagueMatch = {
-        id: "match-league-1",
-        type: "league",
-        leagueId: "league-uuid",
+        id: 'match-league-1',
+        type: 'league',
+        leagueId: 'league-uuid',
         season: 1,
-        homeTeamId: "team-home",
-        awayTeamId: "team-away",
+        homeTeamId: 'team-home',
+        awayTeamId: 'team-away',
         homeScore: 3,
         awayScore: 1,
         status: MatchStatus.COMPLETED,
       } as unknown as MatchEntity;
 
       const homeStanding = makeStanding({
-        teamId: "team-home",
+        teamId: 'team-home',
         points: 0,
         goalsFor: 0,
         goalsAgainst: 0,
       });
       const awayStanding = makeStanding({
-        teamId: "team-away",
+        teamId: 'team-away',
         points: 0,
         goalsFor: 0,
         goalsAgainst: 0,
@@ -366,10 +504,12 @@ describe('MatchCompletionService data-flow review', () => {
         andWhere: jest.fn().mockReturnThis(),
         orderBy: jest.fn().mockReturnThis(),
         addOrderBy: jest.fn().mockReturnThis(),
-        getMany: jest.fn().mockResolvedValue([
-          { ...homeStanding, position: 0 } as LeagueStandingEntity,
-          { ...awayStanding, position: 0 } as LeagueStandingEntity,
-        ]),
+        getMany: jest
+          .fn()
+          .mockResolvedValue([
+            { ...homeStanding, position: 0 } as LeagueStandingEntity,
+            { ...awayStanding, position: 0 } as LeagueStandingEntity,
+          ]),
       };
       standingRepository.createQueryBuilder.mockReturnValue(qb as any);
       standingRepository.save.mockResolvedValue([] as any);
@@ -392,7 +532,7 @@ describe('MatchCompletionService data-flow review', () => {
       expect(dataSource._txManager.createQueryBuilder).toHaveBeenCalled();
       const updateChain = dataSource._txUpdateChain;
       const setArg = updateChain.set.mock.calls[0][0];
-      expect(Object.keys(setArg)).toEqual(["position"]);
+      expect(Object.keys(setArg)).toEqual(['position']);
       // Positions 1 and 2 are bound as parameters, not interpolated.
       const whereParams = updateChain.where.mock.calls[0][1] as Record<
         string,
@@ -407,21 +547,16 @@ describe('MatchCompletionService data-flow review', () => {
       // The single save carried the per-team stat update (wins /
       // losses / points / goals). The home team won 3-1, so the home
       // standing should be 1 win, 0 loss, 3 pts.
-      const perTeamRows = standingRepository.save.mock
-        .calls[0][0] as any[];
-      const homeRow = perTeamRows.find(
-        (r: any) => r.teamId === "team-home",
-      );
+      const perTeamRows = standingRepository.save.mock.calls[0][0] as any[];
+      const homeRow = perTeamRows.find((r: any) => r.teamId === 'team-home');
       expect(homeRow.wins).toBe(1);
       expect(homeRow.points).toBe(3);
-      const awayRow = perTeamRows.find(
-        (r: any) => r.teamId === "team-away",
-      );
+      const awayRow = perTeamRows.find((r: any) => r.teamId === 'team-away');
       expect(awayRow.losses).toBe(1);
       expect(awayRow.points).toBe(0);
     });
 
-    it("REGRESSION: reads the standings under a row lock, in a transaction", async () => {
+    it('REGRESSION: reads the standings under a row lock, in a transaction', async () => {
       // The old shape was `findOne` -> mutate in JS -> `save()` with no
       // transaction, no row lock and no version column: a textbook lost
       // update. Two matches for the same team completing concurrently (a
@@ -436,19 +571,19 @@ describe('MatchCompletionService data-flow review', () => {
       // contract. Raising it — the obvious throughput fix — would have
       // silently corrupted the table.
       const leagueMatch = {
-        id: "match-lock",
-        type: "league",
-        leagueId: "league-uuid",
+        id: 'match-lock',
+        type: 'league',
+        leagueId: 'league-uuid',
         season: 1,
-        homeTeamId: "team-home",
-        awayTeamId: "team-away",
+        homeTeamId: 'team-home',
+        awayTeamId: 'team-away',
         homeScore: 1,
         awayScore: 0,
         status: MatchStatus.COMPLETED,
       } as unknown as MatchEntity;
 
       standingRepository.findOne.mockResolvedValue(
-        makeStanding({ teamId: "team-home", points: 0 }),
+        makeStanding({ teamId: 'team-home', points: 0 }),
       );
       standingRepository.createQueryBuilder.mockReturnValue({
         where: jest.fn().mockReturnThis(),
@@ -468,7 +603,7 @@ describe('MatchCompletionService data-flow review', () => {
       const lockArg = standingRepository.findOne.mock.calls[0][0];
       expect(lockArg).toEqual(
         expect.objectContaining({
-          lock: { mode: "pessimistic_write" },
+          lock: { mode: 'pessimistic_write' },
         }),
       );
 
@@ -479,7 +614,7 @@ describe('MatchCompletionService data-flow review', () => {
       );
     });
 
-    it("REGRESSION: skips for PLAYOFF matches (leagueId is NOT null)", async () => {
+    it('REGRESSION: skips for PLAYOFF matches (leagueId is NOT null)', async () => {
       // This test used to assert the OPPOSITE — "DOES update standings
       // for PLAYOFF matches" — which encoded the bug.
       //
@@ -505,13 +640,13 @@ describe('MatchCompletionService data-flow review', () => {
       // fixed together — if you ever remove the PLAYOFF guard, expect
       // 84 phantom standings rows per season.
       const playoffMatch = {
-        id: "match-playoff-1",
-        type: "playoff",
-        leagueId: "upper-league-uuid",
-        lowerLeagueId: "lower-league-uuid",
+        id: 'match-playoff-1',
+        type: 'playoff',
+        leagueId: 'upper-league-uuid',
+        lowerLeagueId: 'lower-league-uuid',
         season: 1,
-        homeTeamId: "upper-team-9th",
-        awayTeamId: "lower-team-2nd",
+        homeTeamId: 'upper-team-9th',
+        awayTeamId: 'lower-team-2nd',
         homeScore: 1,
         awayScore: 2,
         status: MatchStatus.COMPLETED,
@@ -552,10 +687,20 @@ describe('MatchCompletionService data-flow review', () => {
       // away team: 4 - 9 = -5 (NOT -5 - 2 = -7 if the field had
       // been naively += homeScore - awayScore on the away row).
       standingRepository.findOne.mockResolvedValueOnce(
-        makeStanding({ teamId: 'team-home', goalsFor: 5, goalsAgainst: 3, goalDifference: 0 }),
+        makeStanding({
+          teamId: 'team-home',
+          goalsFor: 5,
+          goalsAgainst: 3,
+          goalDifference: 0,
+        }),
       );
       standingRepository.findOne.mockResolvedValueOnce(
-        makeStanding({ teamId: 'team-away', goalsFor: 4, goalsAgainst: 9, goalDifference: 0 }),
+        makeStanding({
+          teamId: 'team-away',
+          goalsFor: 4,
+          goalsAgainst: 9,
+          goalDifference: 0,
+        }),
       );
       const qb = {
         where: jest.fn().mockReturnThis(),
@@ -595,15 +740,24 @@ describe('MatchCompletionService data-flow review', () => {
       };
       standingRepository.createQueryBuilder.mockReturnValue(qb2 as any);
       standingRepository.save.mockResolvedValue([] as any);
-      const draw = { ...leagueMatch, id: 'match-gd-2', homeScore: 0, awayScore: 0 } as unknown as MatchEntity;
+      const draw = {
+        ...leagueMatch,
+        id: 'match-gd-2',
+        homeScore: 0,
+        awayScore: 0,
+      } as unknown as MatchEntity;
       await (service as any).updateLeagueStandings(draw);
       const drawRows = standingRepository.save.mock.calls[0][0] as any[];
-      expect(drawRows.find((r: any) => r.teamId === 'team-home').goalDifference).toBe(4);
-      expect(drawRows.find((r: any) => r.teamId === 'team-away').goalDifference).toBe(-7);
+      expect(
+        drawRows.find((r: any) => r.teamId === 'team-home').goalDifference,
+      ).toBe(4);
+      expect(
+        drawRows.find((r: any) => r.teamId === 'team-away').goalDifference,
+      ).toBe(-7);
     });
   });
 
-  describe("recalculateLeaguePositions", () => {
+  describe('recalculateLeaguePositions', () => {
     // The recalc uses a QueryBuilder with the computed GD expression and
     // a deterministic tie-break chain. A previous implementation (still
     // in LeagueStructureService until this batch) sorted by the
@@ -613,7 +767,7 @@ describe('MatchCompletionService data-flow review', () => {
     // playoff qualification all select by exact `position === N`, that
     // tie silently decided who was promoted. `standings-sort.spec.ts` is
     // the cross-file contract test.
-    it("renumbers positions 1..N and writes ONLY the changed rows", async () => {
+    it('renumbers positions 1..N and writes ONLY the changed rows', async () => {
       // Pre-sort the rows the way TypeORM would after the ORDER BY. The
       // mock QueryBuilder doesn't run the SQL, so we feed the rows in
       // already-sorted order:
@@ -626,29 +780,50 @@ describe('MatchCompletionService data-flow review', () => {
         orderBy: jest.fn().mockReturnThis(),
         addOrderBy: jest.fn().mockReturnThis(),
         getMany: jest.fn().mockResolvedValue([
-          makeStanding({ id: "s-b", teamId: "team-b", position: 1, points: 9, goalsFor: 7, goalsAgainst: 2 }),
-          makeStanding({ id: "s-a", teamId: "team-a", position: 2, points: 9, goalsFor: 5, goalsAgainst: 3 }),
-          makeStanding({ id: "s-c", teamId: "team-c", position: 3, points: 6, goalsFor: 4, goalsAgainst: 3 }),
+          makeStanding({
+            id: 's-b',
+            teamId: 'team-b',
+            position: 1,
+            points: 9,
+            goalsFor: 7,
+            goalsAgainst: 2,
+          }),
+          makeStanding({
+            id: 's-a',
+            teamId: 'team-a',
+            position: 2,
+            points: 9,
+            goalsFor: 5,
+            goalsAgainst: 3,
+          }),
+          makeStanding({
+            id: 's-c',
+            teamId: 'team-c',
+            position: 3,
+            points: 6,
+            goalsFor: 4,
+            goalsAgainst: 3,
+          }),
         ]),
       };
       standingRepository.createQueryBuilder.mockReturnValue(qb as any);
 
       await (service as any).recalculateLeaguePositions(
         dataSource._txManager,
-        "league-uuid",
+        'league-uuid',
         1,
       );
 
       // The full deterministic key: computed GD, GF, then wins /
       // goals-against / teamId so a tie is never resolved by heap order.
       expect(qb.addOrderBy).toHaveBeenCalledWith(
-        "s.goalsFor - s.goalsAgainst",
-        "DESC",
+        's.goalsFor - s.goalsAgainst',
+        'DESC',
       );
-      expect(qb.addOrderBy).toHaveBeenCalledWith("s.goalsFor", "DESC");
-      expect(qb.addOrderBy).toHaveBeenCalledWith("s.wins", "DESC");
-      expect(qb.addOrderBy).toHaveBeenCalledWith("s.goalsAgainst", "ASC");
-      expect(qb.addOrderBy).toHaveBeenCalledWith("s.teamId", "ASC");
+      expect(qb.addOrderBy).toHaveBeenCalledWith('s.goalsFor', 'DESC');
+      expect(qb.addOrderBy).toHaveBeenCalledWith('s.wins', 'DESC');
+      expect(qb.addOrderBy).toHaveBeenCalledWith('s.goalsAgainst', 'ASC');
+      expect(qb.addOrderBy).toHaveBeenCalledWith('s.teamId', 'ASC');
       expect(qb.addOrderBy).toHaveBeenCalledTimes(5);
 
       // Nobody moved, so no UPDATE fires at all. The old code
@@ -659,7 +834,7 @@ describe('MatchCompletionService data-flow review', () => {
       expect(standingRepository.save).not.toHaveBeenCalled();
     });
 
-    it("writes only the position column of the rows that moved", async () => {
+    it('writes only the position column of the rows that moved', async () => {
       const qb = {
         where: jest.fn().mockReturnThis(),
         andWhere: jest.fn().mockReturnThis(),
@@ -667,16 +842,37 @@ describe('MatchCompletionService data-flow review', () => {
         addOrderBy: jest.fn().mockReturnThis(),
         // team-c jumped from 3rd to 1st; team-a/b shifted down one.
         getMany: jest.fn().mockResolvedValue([
-          makeStanding({ id: "s-c", teamId: "team-c", position: 3, points: 12, goalsFor: 9, goalsAgainst: 1 }),
-          makeStanding({ id: "s-b", teamId: "team-b", position: 1, points: 9, goalsFor: 7, goalsAgainst: 2 }),
-          makeStanding({ id: "s-a", teamId: "team-a", position: 2, points: 9, goalsFor: 5, goalsAgainst: 3 }),
+          makeStanding({
+            id: 's-c',
+            teamId: 'team-c',
+            position: 3,
+            points: 12,
+            goalsFor: 9,
+            goalsAgainst: 1,
+          }),
+          makeStanding({
+            id: 's-b',
+            teamId: 'team-b',
+            position: 1,
+            points: 9,
+            goalsFor: 7,
+            goalsAgainst: 2,
+          }),
+          makeStanding({
+            id: 's-a',
+            teamId: 'team-a',
+            position: 2,
+            points: 9,
+            goalsFor: 5,
+            goalsAgainst: 3,
+          }),
         ]),
       };
       standingRepository.createQueryBuilder.mockReturnValue(qb as any);
 
       await (service as any).recalculateLeaguePositions(
         dataSource._txManager,
-        "league-uuid",
+        'league-uuid',
         1,
       );
 
@@ -685,10 +881,10 @@ describe('MatchCompletionService data-flow review', () => {
       // every moved row — which is how a concurrent completion's
       // `goals_for` increment got clobbered.
       const setArg = dataSource._txUpdateChain.set.mock.calls[0][0];
-      expect(Object.keys(setArg)).toEqual(["position"]);
+      expect(Object.keys(setArg)).toEqual(['position']);
     });
 
-    it("is a no-op when the league has no standing rows yet", async () => {
+    it('is a no-op when the league has no standing rows yet', async () => {
       const qb = {
         where: jest.fn().mockReturnThis(),
         andWhere: jest.fn().mockReturnThis(),
@@ -700,7 +896,7 @@ describe('MatchCompletionService data-flow review', () => {
 
       await (service as any).recalculateLeaguePositions(
         dataSource._txManager,
-        "empty-league",
+        'empty-league',
         1,
       );
 
@@ -804,7 +1000,19 @@ describe('MatchCompletionService data-flow review', () => {
       } as unknown as MatchEntity;
       const tactic = {
         teamId: 'team-home',
-        lineupV2: { GK: 1, LB: 2, RB: 3, CD1: 4, CD2: 5, LM: 6, RM: 7, CM1: 8, CM2: 9, ST1: 10, ST2: 11 },
+        lineupV2: {
+          GK: 1,
+          LB: 2,
+          RB: 3,
+          CD1: 4,
+          CD2: 5,
+          LM: 6,
+          RM: 7,
+          CM1: 8,
+          CM2: 9,
+          ST1: 10,
+          ST2: 11,
+        },
         substitutionsV2: [],
       } as unknown as MatchTacticsEntity;
       setupBasicMatch({}, [], [tactic]);
@@ -829,7 +1037,19 @@ describe('MatchCompletionService data-flow review', () => {
       } as unknown as MatchEntity;
       const tactic = {
         teamId: 'team-home',
-        lineupV2: { GK: 1, LB: 2, RB: 3, CD1: 4, CD2: 5, LM: 6, RM: 7, CM1: 8, CM2: 9, ST1: 10, ST2: 11 },
+        lineupV2: {
+          GK: 1,
+          LB: 2,
+          RB: 3,
+          CD1: 4,
+          CD2: 5,
+          LM: 6,
+          RM: 7,
+          CM1: 8,
+          CM2: 9,
+          ST1: 10,
+          ST2: 11,
+        },
         substitutionsV2: [{ minute: 60, out: 10, in: 20 }],
       } as unknown as MatchTacticsEntity;
       const events = [
@@ -867,7 +1087,19 @@ describe('MatchCompletionService data-flow review', () => {
       } as unknown as MatchEntity;
       const tactic = {
         teamId: 'team-home',
-        lineupV2: { GK: 1, LB: 2, RB: 3, CD1: 4, CD2: 5, LM: 6, RM: 7, CM1: 8, CM2: 9, ST1: 10, ST2: 11 },
+        lineupV2: {
+          GK: 1,
+          LB: 2,
+          RB: 3,
+          CD1: 4,
+          CD2: 5,
+          LM: 6,
+          RM: 7,
+          CM1: 8,
+          CM2: 9,
+          ST1: 10,
+          ST2: 11,
+        },
         substitutionsV2: [],
       } as unknown as MatchTacticsEntity;
       const events = [
@@ -903,7 +1135,19 @@ describe('MatchCompletionService data-flow review', () => {
       } as unknown as MatchEntity;
       const tactic = {
         teamId: 'team-home',
-        lineupV2: { GK: 1, LB: 2, RB: 3, CD1: 4, CD2: 5, LM: 6, RM: 7, CM1: 8, CM2: 9, ST1: 10, ST2: 11 },
+        lineupV2: {
+          GK: 1,
+          LB: 2,
+          RB: 3,
+          CD1: 4,
+          CD2: 5,
+          LM: 6,
+          RM: 7,
+          CM1: 8,
+          CM2: 9,
+          ST1: 10,
+          ST2: 11,
+        },
         substitutionsV2: [],
       } as unknown as MatchTacticsEntity;
       setupBasicMatch({}, [], [tactic]);

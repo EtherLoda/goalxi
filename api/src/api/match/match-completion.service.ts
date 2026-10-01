@@ -65,7 +65,8 @@ export class MatchCompletionService {
   async completeMatch(matchId: string): Promise<void> {
     this.logger.info(`Completing match ${matchId}...`);
 
-    // Check if stats already processed to avoid double counting
+    // Fast-path dedup: a Redis key with a 24h TTL, checked BEFORE the DB
+    // read so a burst of duplicate deliveries costs one cache hit.
     const isProcessed = await this.matchCacheService.isMatchProcessed(matchId);
     if (isProcessed) {
       this.logger.warn(
@@ -81,6 +82,18 @@ export class MatchCompletionService {
 
     if (!match) {
       this.logger.error(`Match ${matchId} not found for completion`);
+      return;
+    }
+
+    // Durable dedup: `settled_at` is the settlement receipt, and unlike
+    // the Redis key it does not expire. Without this, any delivery
+    // arriving more than 24h after settlement (a stalled BullMQ job, a
+    // manual replay, a second reconciliation pass) re-applied standings,
+    // ELO, match minutes, fan emotion and ticket revenue.
+    if (match.settledAt) {
+      this.logger.warn(
+        `Match ${matchId} already settled at ${match.settledAt.toISOString()}. Skipping duplicated job.`,
+      );
       return;
     }
 
@@ -118,10 +131,28 @@ export class MatchCompletionService {
     // 6. Instant injury recovery for bot players
     await this.recoverBotPlayerInjuries(match);
 
-    // 7. Mark as processed in cache
+    // 7. Stamp the durable settlement receipt LAST, after every mutation
+    //    above has committed.
+    //
+    //    Order matters: if any step above throws, we never reach this
+    //    line, so `settled_at` stays null and
+    //    `MatchSchedulerService.reconcileUnsettledMatches` re-enqueues
+    //    the match on a later sweep. Stamping first would mark a
+    //    partially-settled match as done and strand it permanently.
+    //
+    //    The Redis key below is a fast path, not the record of truth —
+    //    it expires after 24h, at which point a late duplicate delivery
+    //    could re-apply standings / ELO / minutes / revenue without this
+    //    column to stop it.
+    await this.matchRepository.update(
+      { id: matchId },
+      { settledAt: new Date() },
+    );
+
+    // 8. Mark as processed in cache (fast-path dedup within the TTL)
     await this.matchCacheService.setMatchProcessed(matchId);
 
-    // 7. Invalidate Cache
+    // 9. Invalidate Cache
     await this.matchCacheService.invalidateMatchCache(matchId);
 
     this.logger.info(`Match ${matchId} completion processing finished.`);
@@ -256,10 +287,9 @@ export class MatchCompletionService {
         awayStanding.points += 1;
       }
 
-      await manager.getRepository(LeagueStandingEntity).save([
-        homeStanding,
-        awayStanding,
-      ]);
+      await manager
+        .getRepository(LeagueStandingEntity)
+        .save([homeStanding, awayStanding]);
 
       // Re-derive positions for the whole league inside the SAME
       // transaction, so direct DB readers (`season-archive.service.ts`
@@ -350,10 +380,7 @@ export class MatchCompletionService {
       .createQueryBuilder()
       .update(LeagueStandingEntity)
       .set({ position: () => `CASE ${cases} ELSE "position" END` })
-      .where(
-        moved.map((_, i) => `id = :id${i}`).join(' OR '),
-        params,
-      )
+      .where(moved.map((_, i) => `id = :id${i}`).join(' OR '), params)
       .execute();
 
     this.logger.debug(
@@ -398,7 +425,6 @@ export class MatchCompletionService {
 
     return standing;
   }
-
 
   /**
    * Add match minutes to players for condition/form calculation.
@@ -509,9 +535,7 @@ export class MatchCompletionService {
 
       for (const playerId of starterIds) {
         const exitMinute =
-          substitutedOut.get(playerId) ??
-          sentOff.get(playerId) ??
-          finalMinute;
+          substitutedOut.get(playerId) ?? sentOff.get(playerId) ?? finalMinute;
         record(playerId, teamId, exitMinute);
       }
 
@@ -521,9 +545,7 @@ export class MatchCompletionService {
         const subInMinute = substitutedIn.get(inId);
         if (subInMinute === undefined) continue;
         const exitMinute =
-          substitutedOut.get(inId) ??
-          sentOff.get(inId) ??
-          finalMinute;
+          substitutedOut.get(inId) ?? sentOff.get(inId) ?? finalMinute;
         record(inId, teamId, exitMinute - subInMinute);
       }
     }

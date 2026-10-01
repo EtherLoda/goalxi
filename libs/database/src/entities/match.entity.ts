@@ -189,6 +189,37 @@ export class MatchEntity extends AbstractEntity {
     @Column({ name: 'playoff_swapped_at', type: 'timestamptz', nullable: true })
     playoffSwappedAt?: Date | null;
 
+    /**
+     * When the post-match settlement completed. This is the durable
+     * settlement receipt — `status = COMPLETED` only records that the
+     * simulator finished and the scheduler finalised the row.
+     *
+     * ## Why this had to be a column
+     *
+     * The only settlement guard was a Redis key
+     * (`MatchCacheService.isMatchProcessed`, **24h TTL**), which left:
+     *
+     *  - no durable, queryable record of whether settlement ran;
+     *  - a permanent blind spot in `MatchSchedulerService.completeMatches`
+     *    — it scans `IN_PROGRESS` and `TACTICS_LOCKED +
+     *    simulationCompletedAt`, so a row already flipped to COMPLETED
+     *    is never seen again;
+     *  - an unrecoverable state when the process dies between the
+     *    status CAS and the `queue.add`: the match is COMPLETED but
+     *    unsettled, and a manual re-add is a silent BullMQ no-op
+     *    (`jobId: complete-<id>` still exists, no `removeOnComplete`);
+     *  - a 24h window after which a late duplicate re-applies
+     *    standings / ELO / minutes / fan / ticket revenue.
+     *
+     * `MatchSchedulerService.reconcileUnsettledMatches` sweeps
+     * `status = COMPLETED AND settled_at IS NULL` and re-enqueues.
+     * Nullable + no default → existing rows are "not yet settled" and
+     * the sweep picks them up; migration 1788000000030 backfills rows
+     * that completed more than a day before it ran.
+     */
+    @Column({ name: 'settled_at', type: 'timestamptz', nullable: true })
+    settledAt?: Date | null;
+
     /** 比赛天气 */
     @Column({ name: 'weather', type: 'varchar', length: 20, nullable: true })
     weather?: WeatherType;
