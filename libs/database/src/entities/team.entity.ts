@@ -5,7 +5,7 @@ import { LeagueEntity } from './league.entity';
 import type { FinanceEntity } from './finance.entity';
 import type { MatchEntity } from './match.entity';
 import type { SeasonResultEntity } from './season-result.entity';
-import { Column, DeleteDateColumn, Entity, JoinColumn, ManyToOne, OneToMany, OneToOne, PrimaryGeneratedColumn } from 'typeorm';
+import { Column, DeleteDateColumn, Entity, Index, JoinColumn, ManyToOne, OneToMany, OneToOne, PrimaryGeneratedColumn } from 'typeorm';
 
 /**
  * Bench configuration for team substitutions
@@ -21,7 +21,15 @@ export interface BenchConfig {
     forward: number | null;                 // FWD/CF 前锋替补
 }
 
+/**
+ * `league_id` is a plain uuid with NO foreign key, so PostgreSQL never
+ * created an implicit index for it. `LeagueStandingService.initNewSeasonStandings`
+ * does `find({ where: { leagueId } })` once per league, which was 85
+ * sequential scans of the team table per season transition.
+ * See migration 1788000000020.
+ */
 @Entity('team')
+@Index(['leagueId'])
 export class TeamEntity extends AbstractEntity {
     @PrimaryGeneratedColumn('uuid', { primaryKeyConstraintName: 'PK_team_id' })
     id!: Uuid;

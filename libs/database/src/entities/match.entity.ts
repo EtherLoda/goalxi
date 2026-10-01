@@ -33,6 +33,15 @@ export enum MatchType {
 @Index(['leagueId', 'season', 'week'])
 @Index(['homeTeamId'])
 @Index(['awayTeamId'])
+// Serves `LeagueService.getStandings` — a @Public() endpoint that loads
+// `where: { leagueId, season, status: 'completed' }` ordered by
+// `completedAt DESC`. Three equality predicates then an ordered scan means
+// Postgres needs no sort node. See migration 1788000000020.
+@Index(['leagueId', 'season', 'status', 'completedAt'])
+// Serves `SeasonTransitionService.areAllWeekMatchesCompleted` and the
+// playoff gate, which count by (season, week, type, status) with no
+// league filter. See migration 1788000000020.
+@Index(['season', 'week', 'type', 'status'])
 export class MatchEntity extends AbstractEntity {
     @PrimaryGeneratedColumn('uuid')
     id!: string;

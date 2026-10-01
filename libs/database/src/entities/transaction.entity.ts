@@ -1,10 +1,18 @@
 import { Uuid } from '../types/common.type';
 import { AbstractEntity } from './abstract.entity';
 import { TeamEntity } from './team.entity';
-import { Column, Entity, JoinColumn, ManyToOne, PrimaryGeneratedColumn } from 'typeorm';
+import { Column, Entity, Index, JoinColumn, ManyToOne, PrimaryGeneratedColumn } from 'typeorm';
 import { TransactionType } from '../constants/finance.constants';
 
+/**
+ * `(season, team_id)` serves the season-end archive scan
+ * (`SeasonArchiveService.archiveTransactions` does
+ * `find({ where: { season } })` over 200k-400k rows per season).
+ * The column is an `integer`, and no FK or index existed on it.
+ * See migration 1788000000020.
+ */
 @Entity('transaction')
+@Index(['season', 'teamId'])
 export class TransactionEntity extends AbstractEntity {
     constructor(data?: Partial<TransactionEntity>) {
         super();
