@@ -84,6 +84,21 @@ export class SeasonSchedulerService {
    * different team count. The fix accepts any even team
    * count ≥ 4 so off-by-one promotion/relegation counts
    * still get a working schedule.
+   *
+   * ## Idempotency
+   *
+   * Per-league guard on "does this league already have fixtures for
+   * `nextSeason`?". There was none here, which was the most damaging
+   * consequence of `SeasonTransitionService.checkAndProcessSeasonStart`
+   * having no latch: that method logs-and-rethrows, so if step 4 (this
+   * method) fails on the FIRST drifting league after steps 1-3 already
+   * committed, next week's cron re-runs it and inserts a complete
+   * duplicate fixture list — ~20,400 extra `match` rows, teams playing
+   * every opponent twice in the same week slots, with no unique
+   * constraint on `match` to stop it.
+   *
+   * `ScheduleGenerator.generateSeasonSchedule` (the season-1 path) has
+   * the equivalent `count > 0` check; this path did not.
    */
   async generateNextSeasonSchedule(
     currentSeason: number,
@@ -94,8 +109,21 @@ export class SeasonSchedulerService {
     const startDate = this.calculateNextSeasonStartDate();
 
     const allMatches: MatchEntity[] = [];
+    let skippedAlreadyScheduled = 0;
 
     for (const league of leagues) {
+      // Idempotency: never re-emit a fixture list that already exists.
+      const existingCount = await this.matchRepository.count({
+        where: { leagueId: league.id, season: nextSeason },
+      });
+      if (existingCount > 0) {
+        skippedAlreadyScheduled++;
+        this.logger.warn(
+          `[SeasonScheduler] League ${league.id} already has ${existingCount} match(es) for season ${nextSeason}, skipping (idempotency guard)`,
+        );
+        continue;
+      }
+
       // Read team ids from the *upcoming* season's
       // standings (post promotion/relegation). Using
       // `standingRepository` directly instead of
@@ -127,7 +155,10 @@ export class SeasonSchedulerService {
     }
 
     this.logger.info(
-      `Generated ${allMatches.length} matches for Season ${nextSeason}`,
+      `Generated ${allMatches.length} matches for Season ${nextSeason}` +
+        (skippedAlreadyScheduled > 0
+          ? ` (${skippedAlreadyScheduled} league(s) skipped — already scheduled)`
+          : ''),
     );
 
     return allMatches;
@@ -239,8 +270,15 @@ export class SeasonSchedulerService {
         const aHome = haMatrix.get(a)![round];
         const home = aHome ? a : b;
         const away = aHome ? b : a;
-        const scheduledAt =
-          firstLegDates[round * 2 + i] ?? firstLegDates[round * 2];
+        const scheduledAt = firstLegDates[round];
+        if (!scheduledAt) {
+          // Never silently fall back to another round's date — that
+          // masked the indexing bug for the whole first season.
+          throw new Error(
+            `No kickoff date for round ${round} (league=${leagueId}, numRounds=${numRounds}, ` +
+              `firstLegDates.length=${firstLegDates.length}). Refusing to schedule a match with an undefined date.`,
+          );
+        }
         matches.push({
           leagueId,
           homeTeamId: home,
@@ -269,8 +307,13 @@ export class SeasonSchedulerService {
         const aHome = haMatrix.get(a)![round];
         const home = aHome ? b : a;
         const away = aHome ? a : b;
-        const scheduledAt =
-          secondLegDates[round * 2 + i] ?? secondLegDates[round * 2];
+        const scheduledAt = secondLegDates[round];
+        if (!scheduledAt) {
+          throw new Error(
+            `No kickoff date for second-leg round ${round} (league=${leagueId}, numRounds=${numRounds}, ` +
+              `secondLegDates.length=${secondLegDates.length}). Refusing to schedule a match with an undefined date.`,
+          );
+        }
         matches.push({
           leagueId,
           homeTeamId: home,
@@ -292,28 +335,64 @@ export class SeasonSchedulerService {
   }
 
   /**
-   * First-leg kickoff dates: `numRounds` weeks of
-   * Wed + Sat, starting from the next Wednesday on or
-   * after `startDate`. All at
-   * `GAME_SETTINGS.MATCH_KICKOFF_HOUR_UTC` UTC.
-   */
-  private calculateFirstLegDates(startDate: Date, numRounds: number): Date[] {
+ * Kickoff date for each round: `numRounds` entries, ONE date per
+ * round, alternating Wednesday / Saturday.
+ *
+ * Mirrors `ScheduleGenerator.matchStart` (season 1), which puts even
+ * rounds on the Wednesday and odd rounds on the Saturday of
+ * `floor(round/2)`-th week. Two rounds per week × 15 rounds = 8
+ * match-weeks, which lines up with `week: Math.floor(round/2) + 1`.
+ *
+ * The previous version pushed BOTH `wed` and `sat` per iteration,
+ * producing `2 * numRounds` entries — and the caller then indexed
+ * `dates[round * 2 + i]` where `i` was the index of the match WITHIN
+ * the round (0..7 for a 16-team league). So:
+ *
+ *   - round 0's 8 matches were spread across `dates[0..7]`, i.e.
+ *     Wed r0, Sat r0, Wed r1, Sat r1, Wed r2, Sat r2, Wed r3, Sat r3
+ *     — one matchday scattered across four calendar weeks;
+ *   - by round 7 the index reached 21, and by round 14 it reached 35
+ *     against an array of length 30, so six of the eight matches fell
+ *     to a `??` fallback and shared one timestamp;
+ *   - the second leg (rounds 15-29) indexed up to 88 and collapsed
+ *     almost entirely onto the fallback date.
+ *
+ * This only ever ran from season 2 onward (season 1 goes through
+ * `ScheduleGenerator`, which uses `matchStart` correctly), which is
+ * why the game looked fine through season 1 and then produced a
+ * broken fixture list.
+ */
+private calculateFirstLegDates(startDate: Date, numRounds: number): Date[] {
     const dates: Date[] = [];
-    // Walk forward to the first Wednesday at or after
-    // startDate (UTC).
-    let cursor = new Date(startDate);
-    cursor.setUTCHours(GAME_SETTINGS.MATCH_KICKOFF_HOUR_UTC, 0, 0, 0);
-    while (cursor.getUTCDay() !== 3) {
-      cursor = new Date(cursor.getTime() + 24 * 60 * 60 * 1000);
+
+    // Anchor on the Monday of the first match-week. Walk forward from
+    // `startDate` to the first Wednesday at or after it (UTC), then step
+    // back two days to that week's Monday — the anchor
+    // `ScheduleGenerator.matchStart(round, weekOneMonday)` expects.
+    const firstWednesday = new Date(startDate);
+    firstWednesday.setUTCHours(
+      GAME_SETTINGS.MATCH_KICKOFF_HOUR_UTC,
+      0,
+      0,
+      0,
+    );
+    while (firstWednesday.getUTCDay() !== 3) {
+      firstWednesday.setTime(firstWednesday.getTime() + 24 * 60 * 60 * 1000);
     }
+    const weekOneMonday = new Date(
+      firstWednesday.getTime() - 2 * 24 * 60 * 60 * 1000,
+    );
 
     for (let round = 0; round < numRounds; round++) {
-      // Wed (cursor is currently Wed) + Sat (cursor + 3d).
-      const wed = new Date(cursor.getTime());
-      const sat = new Date(cursor.getTime() + 3 * 24 * 60 * 60 * 1000);
-      dates.push(wed, sat);
-      // Next week's Wednesday is +7 days.
-      cursor = new Date(cursor.getTime() + 7 * 24 * 60 * 60 * 1000);
+      // Two rounds per match-week: even → Wednesday, odd → Saturday.
+      // Monday=0, Wednesday=+2 days, Saturday=+5 days.
+      const weekOffset = Math.floor(round / 2) * 7;
+      const dayOffset = round % 2 === 0 ? 2 : 5;
+      dates.push(
+        new Date(
+          weekOneMonday.getTime() + (weekOffset + dayOffset) * 24 * 60 * 60 * 1000,
+        ),
+      );
     }
 
     return dates;
