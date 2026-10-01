@@ -21,6 +21,46 @@ export interface ArchiveSummary {
   playerEventCount: number;
 }
 
+/**
+ * Rows per INSERT statement when archiving.
+ *
+ * PostgreSQL's wire protocol caps a single statement at **65535 bind
+ * parameters**. TypeORM's `insert(array)` emits ONE
+ * `INSERT ... VALUES (...),(...),...` statement, so the row ceiling is
+ * `65535 / columnCount`:
+ *
+ *   archived_season_result          16 cols → ~4,095 rows
+ *   archived_player_competition_stats 13 cols → ~5,041 rows
+ *   archived_transaction              8 cols → ~8,191 rows
+ *   archived_player_event            10 cols → ~6,553 rows
+ *
+ * Real per-season volumes blow through all of them: ~21,760 players
+ * write a `player_competition_stats` row each, and the transaction
+ * ledger carries sponsorship + wages + staff + youth + stadium +
+ * ticket-income entries for 1,360 teams over 16 weeks (easily
+ * 200k-400k rows).
+ *
+ * 500 is comfortably under every ceiling while keeping the statement
+ * count low (a 300k-row archive is 600 statements). Matches the
+ * `BATCH_CHUNK_SIZE` pattern already used in
+ * `bootstrap/generators/team.generator.ts`.
+ */
+const ARCHIVE_INSERT_CHUNK = 500;
+
+/**
+ * Insert in chunks so a large archive cannot exceed PostgreSQL's
+ * 65535 bind-parameter limit on a single statement.
+ */
+async function insertChunked<T>(
+  repo: { insert: (rows: T[]) => Promise<unknown> },
+  rows: T[],
+  chunkSize: number = ARCHIVE_INSERT_CHUNK,
+): Promise<void> {
+  for (let i = 0; i < rows.length; i += chunkSize) {
+    await repo.insert(rows.slice(i, i + chunkSize));
+  }
+}
+
 @Injectable()
 export class SeasonArchiveService {
   constructor(
@@ -45,9 +85,21 @@ export class SeasonArchiveService {
   ) {}
 
   /**
-   * Archive all data for a completed season
-   * Called during season transition (checkAndProcessSeasonStart)
-   */
+ * Archive all data for a completed season
+ * Called during season transition (checkAndProcessSeasonStart)
+ *
+ * ## Idempotency
+ *
+ * The four `archived_*` tables have NO unique constraints (see
+ * migration 1700000000009) — only non-unique indexes. So a re-run
+ * appends an exact duplicate copy of the whole season.
+ *
+ * That matters because `SeasonTransitionService.checkAndProcessSeasonStart`
+ * logs and rethrows on failure: if step 4 (schedule generation) throws
+ * after steps 1-3 committed, the next week's cron re-runs this method
+ * and appends another full copy. The `season-results` guard below makes
+ * that harmless.
+ */
   async archiveSeason(season: number): Promise<ArchiveSummary> {
     this.logger.info(
       `[SeasonArchive] Starting archive process for Season ${season}`,
@@ -60,6 +112,19 @@ export class SeasonArchiveService {
       transactionCount: 0,
       playerEventCount: 0,
     };
+
+    // Guard: `archived_season_result` is written first and is the
+    // cheapest signal that this season has already been archived. Its
+    // `(season, ...)` index makes the count cheap.
+    const alreadyArchived = await this.archivedSeasonResultRepo.count({
+      where: { season },
+    });
+    if (alreadyArchived > 0) {
+      this.logger.warn(
+        `[SeasonArchive] Season ${season} already has ${alreadyArchived} archived season result(s) — skipping archive to avoid duplicating rows`,
+      );
+      return summary;
+    }
 
     // 1. Archive season results with FULL stats
     summary.seasonResultCount = await this.archiveSeasonResults(season);
@@ -116,7 +181,7 @@ export class SeasonArchiveService {
       });
     });
 
-    await this.archivedSeasonResultRepo.insert(archivedRecords);
+    await insertChunked(this.archivedSeasonResultRepo, archivedRecords);
     this.logger.info(
       `[SeasonArchive] Archived ${archivedRecords.length} season results`,
     );
@@ -153,7 +218,7 @@ export class SeasonArchiveService {
       }),
     );
 
-    await this.archivedPlayerStatsRepo.insert(archivedRecords);
+    await insertChunked(this.archivedPlayerStatsRepo, archivedRecords);
     this.logger.info(
       `[SeasonArchive] Archived ${archivedRecords.length} player competition stats`,
     );
@@ -185,7 +250,7 @@ export class SeasonArchiveService {
       }),
     );
 
-    await this.archivedTransactionRepo.insert(archivedRecords);
+    await insertChunked(this.archivedTransactionRepo, archivedRecords);
     this.logger.info(
       `[SeasonArchive] Archived ${archivedRecords.length} transactions`,
     );
@@ -220,7 +285,7 @@ export class SeasonArchiveService {
       }),
     );
 
-    await this.archivedPlayerEventRepo.insert(archivedRecords);
+    await insertChunked(this.archivedPlayerEventRepo, archivedRecords);
     this.logger.info(
       `[SeasonArchive] Archived ${archivedRecords.length} player events`,
     );

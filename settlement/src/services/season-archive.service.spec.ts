@@ -42,7 +42,11 @@ describe('SeasonArchiveService', () => {
   const mockTransactionRepo = { find: jest.fn() };
   const mockPlayerEventRepo = { find: jest.fn() };
   const mockStandingRepo = { find: jest.fn() };
-  const mockArchivedSeasonResultRepo = { create: jest.fn(), insert: jest.fn() };
+  const mockArchivedSeasonResultRepo = {
+    create: jest.fn(),
+    insert: jest.fn(),
+    count: jest.fn().mockResolvedValue(0),
+  };
   const mockArchivedPlayerStatsRepo = { create: jest.fn(), insert: jest.fn() };
   const mockArchivedTransactionRepo = { create: jest.fn(), insert: jest.fn() };
   const mockArchivedPlayerEventRepo = { create: jest.fn(), insert: jest.fn() };
@@ -112,6 +116,10 @@ describe('SeasonArchiveService', () => {
     );
 
     jest.clearAllMocks();
+    // `clearAllMocks` does not drain the `mockResolvedValueOnce` queue,
+    // so a `count` override in one test would leak into the next.
+    mockArchivedSeasonResultRepo.count.mockReset();
+    mockArchivedSeasonResultRepo.count.mockResolvedValue(0);
     mockArchivedSeasonResultRepo.create.mockImplementation(identity);
     mockArchivedPlayerStatsRepo.create.mockImplementation(identity);
     mockArchivedTransactionRepo.create.mockImplementation(identity);
@@ -246,6 +254,76 @@ describe('SeasonArchiveService', () => {
         transactionCount: 0,
         playerEventCount: 0,
       });
+    });
+
+    it('REGRESSION: chunks inserts so a big archive cannot exceed the 65535 bind-param limit', async () => {
+      // PostgreSQL caps a single statement at 65535 bind parameters.
+      // TypeORM's `insert(array)` emits ONE multi-VALUES statement, so
+      // the row ceiling is 65535/columnCount — between ~4,095 and ~8,191
+      // depending on the table. Real per-season volumes are 200k-400k
+      // transaction rows, which blew the limit and aborted the season
+      // transition at step 3 of 4 (after promotions had committed).
+      //
+      // 1,200 rows with a 500-row chunk = 3 statements, and no single
+      // statement may carry more than 500 rows.
+      const COLUMNS = 8; // archived_transaction
+      const PG_BIND_LIMIT = 65535;
+      const rowsPerStatementCeiling = Math.floor(PG_BIND_LIMIT / COLUMNS);
+      const rowCount = 1200;
+
+      mockStandingRepo.find.mockResolvedValue([] as any);
+      mockPlayerStatsRepo.find.mockResolvedValue([] as any);
+      mockPlayerEventRepo.find.mockResolvedValue([] as any);
+      const rows = Array.from({ length: rowCount }, (_, i) => ({
+        teamId: `team-${i}`,
+        season: 1,
+        amount: 1000,
+        type: 'TICKET_INCOME',
+        description: `match ${i}`,
+        relatedId: null,
+        archivedAt: new Date(0),
+      }));
+      mockTransactionRepo.find.mockResolvedValue(rows as any);
+
+      const summary = await service.archiveSeason(1);
+
+      expect(summary.transactionCount).toBe(rowCount);
+      // More than one statement — the whole point of chunking.
+      expect(archivedTransactionRepo.insert.mock.calls.length).toBeGreaterThan(
+        1,
+      );
+      // Every statement must be a legal Postgres statement.
+      const sizes = archivedTransactionRepo.insert.mock.calls.map(
+        (c) => (c[0] as unknown[]).length,
+      );
+      for (const size of sizes) {
+        expect(size * COLUMNS).toBeLessThanOrEqual(PG_BIND_LIMIT);
+        expect(size).toBeLessThanOrEqual(rowsPerStatementCeiling);
+      }
+      // And no row is lost or duplicated across the chunk boundary.
+      expect(sizes.reduce((a, b) => a + b, 0)).toBe(rowCount);
+    });
+
+    it('REGRESSION: skips the whole archive when the season is already archived', async () => {
+      // The `archived_*` tables have NO unique constraints, so a re-run
+      // appends an exact duplicate of the season. That is reachable:
+      // `checkAndProcessSeasonStart` logs-and-rethrows, so if step 4
+      // fails after steps 1-3 committed, next week's cron re-archives.
+      mockArchivedSeasonResultRepo.count.mockResolvedValueOnce(1360);
+      mockStandingRepo.find.mockResolvedValue([{} as any]);
+      mockTransactionRepo.find.mockResolvedValue([{} as any]);
+
+      const summary = await service.archiveSeason(1);
+
+      expect(summary).toEqual({
+        season: 1,
+        seasonResultCount: 0,
+        playerStatsCount: 0,
+        transactionCount: 0,
+        playerEventCount: 0,
+      });
+      expect(archivedSeasonResultRepo.insert).not.toHaveBeenCalled();
+      expect(archivedTransactionRepo.insert).not.toHaveBeenCalled();
     });
   });
 });
