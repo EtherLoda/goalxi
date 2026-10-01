@@ -69,6 +69,10 @@ describe('MatchCompletionService data-flow review', () => {
   let cacheService: jest.Mocked<MatchCacheService>;
   let financeService: jest.Mocked<FinanceService>;
   let fanService: jest.Mocked<FanService>;
+  // `updateEloRatings` re-reads both team rows under a write lock inside
+  // the transaction rather than trusting the relation hydrated at the top
+  // of `completeMatch`, so the fake manager needs a team repo too.
+  let mockTeamRepo: { findOne: jest.Mock; update: jest.Mock };
   let dataSource: {
     transaction: jest.Mock;
     createQueryBuilder: jest.Mock;
@@ -82,6 +86,11 @@ describe('MatchCompletionService data-flow review', () => {
     // the old `findOne -> mutate -> save` with no transaction was a lost
     // update whenever two matches for the same team completed
     // concurrently (double matchweeks are explicitly supported).
+    //
+    // `updateEloRatings` re-reads both team rows under a write lock too,
+    // rather than trusting the relation hydrated once at the top of
+    // `completeMatch` — same lost-update class.
+    mockTeamRepo = { findOne: jest.fn(), update: jest.fn() };
     //
     // The fake manager hands back the same repo mocks the DI tokens
     // provide, and `createQueryBuilder` is shared so tests can drive the
@@ -102,6 +111,7 @@ describe('MatchCompletionService data-flow review', () => {
     const txManager = {
       getRepository: jest.fn().mockImplementation((entity: any) => {
         if (entity?.name === 'LeagueStandingEntity') return mockStandingRepo;
+        if (entity?.name === 'TeamEntity') return mockTeamRepo;
         return { find: jest.fn(), findOne: jest.fn(), save: jest.fn() };
       }),
       createQueryBuilder: jest.fn().mockReturnValue(txUpdateChain),
@@ -242,6 +252,99 @@ describe('MatchCompletionService data-flow review', () => {
       updatedAt: new Date(),
       ...over,
     }) as unknown as LeagueStandingEntity;
+
+  describe('updateEloRatings', () => {
+    // The old implementation read `match.homeTeam.eloRating` — a
+    // relation hydrated once at the top of `completeMatch` — and wrote
+    // both teams' new ratings as two separate updates outside any
+    // transaction. Two matches involving the same team completing
+    // concurrently (a Saturday double-matchweek is explicitly supported)
+    // both computed their delta from the SAME stale snapshot, and the
+    // second write clobbered the first: the rating moved by one match's
+    // delta instead of two.
+
+    const buildEloMatch = () =>
+      ({
+        id: 'match-elo',
+        type: 'league',
+        leagueId: 'league-uuid',
+        season: 1,
+        homeTeamId: 'team-home',
+        awayTeamId: 'team-away',
+        homeScore: 3,
+        awayScore: 0,
+        status: MatchStatus.COMPLETED,
+        settledAt: null,
+      }) as unknown as MatchEntity;
+
+    /** Everything `completeMatch` needs before it reaches the ELO step. */
+    // A function, not a value: it references the DI-resolved mocks,
+    // which don't exist until `beforeEach` has run.
+    const wireUpToElo = () => {
+      standingRepository.findOne.mockResolvedValue(makeStanding());
+      standingRepository.createQueryBuilder.mockReturnValue({
+        where: jest.fn().mockReturnThis(),
+        andWhere: jest.fn().mockReturnThis(),
+        orderBy: jest.fn().mockReturnThis(),
+        addOrderBy: jest.fn().mockReturnThis(),
+        getMany: jest.fn().mockResolvedValue([]),
+      } as any);
+      eventRepository.find.mockResolvedValue([] as any);
+      tacticsRepository.find.mockResolvedValue([] as any);
+      mockTeamRepo.update.mockResolvedValue({ affected: 1 });
+    };
+
+    it('REGRESSION: re-reads both ratings under a write lock inside the transaction', async () => {
+      const match = buildEloMatch();
+      matchRepository.findOne.mockResolvedValue(match);
+      wireUpToElo();
+      // The transaction's team repo returns the CURRENT rating, which is
+      // deliberately different from anything on the `match` object.
+      mockTeamRepo.findOne
+        .mockResolvedValueOnce({
+          id: 'team-home',
+          name: 'Home',
+          eloRating: 1600,
+        })
+        .mockResolvedValueOnce({
+          id: 'team-away',
+          name: 'Away',
+          eloRating: 1400,
+        });
+
+      await service.completeMatch(match.id);
+
+      // Both reads take the write lock — this is what serialises
+      // concurrent completions for the same team.
+      for (const call of mockTeamRepo.findOne.mock.calls) {
+        expect(call[0]).toEqual(
+          expect.objectContaining({
+            lock: { mode: 'pessimistic_write' },
+          }),
+        );
+      }
+      // And the delta came from the re-read value (1600), not from a
+      // stale relation. Home won 3-0; expected was 1/(1+10^(-200/400)) =
+      // 0.757, so the gain is round(32 * (1 - 0.757)) = +8.
+      const homeWrite = mockTeamRepo.update.mock.calls.find(
+        (c: any[]) => c[0]?.id === 'team-home',
+      );
+      expect(homeWrite?.[1].eloRating).toBe(1608);
+    });
+
+    it('skips the ELO step when a team row has gone missing', async () => {
+      const match = buildEloMatch();
+      matchRepository.findOne.mockResolvedValue(match);
+      wireUpToElo();
+      mockTeamRepo.findOne
+        .mockResolvedValueOnce({ id: 'team-home', eloRating: 1500 })
+        .mockResolvedValueOnce(null);
+
+      await expect(service.completeMatch(match.id)).resolves.toBeUndefined();
+
+      expect(mockTeamRepo.update).not.toHaveBeenCalled();
+    });
+  });
 
   describe('settlement receipt (settledAt)', () => {
     // `status = COMPLETED` records that the simulator finished and the

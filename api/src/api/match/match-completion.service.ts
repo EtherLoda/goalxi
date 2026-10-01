@@ -32,6 +32,12 @@ import { FanService } from '../fan/fan.service';
 import { FinanceService } from '../finance/finance.service';
 import { MatchCacheService } from './match-cache.service';
 
+/** ELO for a team with no rating yet. */
+const DEFAULT_ELO = 1500;
+
+/** Standard Elo K-factor. */
+const ELO_K_FACTOR = 32;
+
 @Injectable()
 export class MatchCompletionService {
   constructor(
@@ -567,49 +573,70 @@ export class MatchCompletionService {
    * Update ELO ratings after match
    */
   private async updateEloRatings(match: MatchEntity): Promise<void> {
-    if (
-      !match.homeTeam ||
-      !match.awayTeam ||
-      match.homeScore === undefined ||
-      match.awayScore === undefined
-    ) {
+    if (match.homeScore === undefined || match.awayScore === undefined) {
       return;
     }
 
-    const homeElo = match.homeTeam.eloRating || 1500;
-    const awayElo = match.awayTeam.eloRating || 1500;
-    const K = 32;
+    // Read the CURRENT ratings inside the transaction under a write lock.
+    //
+    // This used to read `match.homeTeam.eloRating` — a relation hydrated
+    // once at the top of `completeMatch` — and then write both teams'
+    // new ratings as two separate updates outside any transaction. Two
+    // matches involving the same team completing concurrently (a
+    // Saturday double-matchweek is explicitly supported) therefore both
+    // computed their delta from the SAME stale snapshot, and the second
+    // write clobbered the first. The team's rating drifted toward (or
+    // away from) 1500 by one match's delta instead of two.
+    //
+    // Same shape as `updateLeagueStandings` — see the note there on why
+    // relying on BullMQ's default concurrency of 1 is not a contract.
+    await this.dataSource.transaction(async (manager) => {
+      const txTeamRepo = manager.getRepository(TeamEntity);
 
-    // Expected score
-    const expectedHome = 1 / (1 + Math.pow(10, (awayElo - homeElo) / 400));
-    const expectedAway = 1 - expectedHome;
+      const homeTeam = await txTeamRepo.findOne({
+        where: { id: match.homeTeamId as Uuid },
+        lock: { mode: 'pessimistic_write' },
+      });
+      const awayTeam = await txTeamRepo.findOne({
+        where: { id: match.awayTeamId as Uuid },
+        lock: { mode: 'pessimistic_write' },
+      });
+      if (!homeTeam || !awayTeam) {
+        this.logger.warn(
+          `[MatchCompletion] ELO skipped for match ${match.id}: ` +
+            `team row missing (home=${!!homeTeam}, away=${!!awayTeam})`,
+        );
+        return;
+      }
 
-    // Actual score
-    const actualHome =
-      match.homeScore > match.awayScore
-        ? 1
-        : match.homeScore < match.awayScore
-          ? 0
-          : 0.5;
-    const actualAway = 1 - actualHome;
+      const homeElo = homeTeam.eloRating || DEFAULT_ELO;
+      const awayElo = awayTeam.eloRating || DEFAULT_ELO;
+      const K = ELO_K_FACTOR;
 
-    // Update ELO
-    const newHomeElo = homeElo + K * (actualHome - expectedHome);
-    const newAwayElo = awayElo + K * (actualAway - expectedAway);
+      // Expected score
+      const expectedHome = 1 / (1 + Math.pow(10, (awayElo - homeElo) / 400));
+      const expectedAway = 1 - expectedHome;
 
-    await this.teamRepository.update(
-      { id: match.homeTeamId as Uuid },
-      { eloRating: Math.round(newHomeElo) },
-    );
-    await this.teamRepository.update(
-      { id: match.awayTeamId as Uuid },
-      { eloRating: Math.round(newAwayElo) },
-    );
+      // Actual score
+      const actualHome =
+        match.homeScore! > match.awayScore!
+          ? 1
+          : match.homeScore! < match.awayScore!
+            ? 0
+            : 0.5;
+      const actualAway = 1 - actualHome;
 
-    this.logger.debug(
-      `ELO update: ${match.homeTeam.name} ${homeElo} -> ${Math.round(newHomeElo)}, ` +
-        `${match.awayTeam.name} ${awayElo} -> ${Math.round(newAwayElo)}`,
-    );
+      const newHomeElo = Math.round(homeElo + K * (actualHome - expectedHome));
+      const newAwayElo = Math.round(awayElo + K * (actualAway - expectedAway));
+
+      await txTeamRepo.update({ id: homeTeam.id }, { eloRating: newHomeElo });
+      await txTeamRepo.update({ id: awayTeam.id }, { eloRating: newAwayElo });
+
+      this.logger.debug(
+        `ELO update: ${homeTeam.name ?? match.homeTeamId} ${homeElo} -> ${newHomeElo}, ` +
+          `${awayTeam.name ?? match.awayTeamId} ${awayElo} -> ${newAwayElo}`,
+      );
+    });
   }
 
   /**
