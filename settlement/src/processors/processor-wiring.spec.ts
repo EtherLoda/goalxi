@@ -84,6 +84,51 @@ describe('settlement processor registration (wiring tripwire)', () => {
   });
 });
 
+describe('settlement cron timezone (wiring tripwire)', () => {
+  const schedulerFiles = collectFiles(
+    join(__dirname, '..', 'scheduler'),
+    '.service.ts',
+  );
+
+  it('found the scheduler services to scan (sanity check on the glob)', () => {
+    expect(schedulerFiles.length).toBeGreaterThan(5);
+  });
+
+  it('every @Cron pins timeZone to GAME_SETTINGS.CRON_TIME_ZONE', () => {
+    // `@nestjs/schedule` passes decorator options straight to
+    // `CronJob.from`, which defaults to the SERVER's local timezone.
+    // Every cron here is written and commented as UTC, and the whole
+    // season/week grid (`currentSeasonWeek`) is anchored on a UTC-Monday
+    // boundary — so on a non-UTC host the weekly triggers drift by up to
+    // a day and can fire on the wrong weekday. It worked only because
+    // `settlement/Dockerfile` uses node:20-alpine (UTC) and compose sets
+    // no TZ, which is an undocumented load-bearing assumption.
+    const offenders: string[] = [];
+
+    for (const file of schedulerFiles) {
+      const src = stripComments(readFileSync(file, 'utf8'));
+      const re = /@Cron\(\s*['"`][^'"`]+['"`]\s*(\)|,)/g;
+      let m: RegExpExecArray | null;
+      while ((m = re.exec(src)) !== null) {
+        const rest = src.slice(m.index + m[0].length - 1);
+        if (!/^\s*,\s*\{[^}]*timeZone:\s*GAME_SETTINGS\.CRON_TIME_ZONE/.test(rest)) {
+          offenders.push(`${file}: ${m[0].replace(/\s+/g, ' ')}`);
+        }
+      }
+    }
+
+    expect(offenders).toEqual([]);
+  });
+
+  it('found at least one @Cron to scan', () => {
+    const total = schedulerFiles.reduce(
+      (n, f) => n + (stripComments(readFileSync(f, 'utf8')).match(/@Cron\(/g) ?? []).length,
+      0,
+    );
+    expect(total).toBeGreaterThan(5);
+  });
+});
+
 function collectFiles(dir: string, suffix: string): string[] {
   const out: string[] = [];
   for (const entry of readdirSync(dir)) {

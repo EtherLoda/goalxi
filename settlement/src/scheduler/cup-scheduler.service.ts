@@ -14,6 +14,7 @@ import {
   MatchType,
   StadiumEntity,
   type Uuid,
+  GAME_SETTINGS,
 } from '@goalxi/database';
 
 /**
@@ -97,7 +98,7 @@ export class CupSchedulerService {
    *    most once regardless of cadence, so a slower tick
    *    is purely a latency tradeoff, not a correctness one.
    */
-  @Cron('0 * * * * *')
+  @Cron('0 * * * * *', { timeZone: GAME_SETTINGS.CRON_TIME_ZONE })
   async scheduleDueCupRounds(): Promise<void> {
     const now = new Date();
     // PENDING rounds whose scheduledAt is in the past. We

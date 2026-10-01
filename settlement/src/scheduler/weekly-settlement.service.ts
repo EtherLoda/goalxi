@@ -3,7 +3,10 @@ import { LOGGER_SERVICE, PinoLoggerService } from '@goalxi/logger';
 import { Cron } from '@nestjs/schedule';
 import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
-import { currentSeasonWeek, resolveGameStart } from '@goalxi/database';
+import {
+  GAME_SETTINGS,
+  currentSeasonWeek, resolveGameStart,
+} from '@goalxi/database';
 
 type SettlementKind =
   | 'training'
@@ -59,7 +62,7 @@ export class WeeklySettlementService {
     this.gameStart = resolveGameStart(process.env.GAME_START_DATE);
   }
 
-  @Cron('0 0 0 * * 4') // Every Thursday at 00:00 UTC
+  @Cron('0 0 0 * * 4', { timeZone: GAME_SETTINGS.CRON_TIME_ZONE }) // Every Thursday at 00:00 UTC
   async processWeeklySettlement() {
     const { season, week } = currentSeasonWeek(new Date(), this.gameStart);
 

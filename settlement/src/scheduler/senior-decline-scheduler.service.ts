@@ -3,7 +3,11 @@ import { Cron } from '@nestjs/schedule';
 import { Injectable, Inject } from '@nestjs/common';
 import { LOGGER_SERVICE, PinoLoggerService } from '@goalxi/logger';
 import { Queue } from 'bullmq';
-import { currentSeasonWeek, resolveGameStart } from '@goalxi/database';
+import {
+  GAME_SETTINGS,
+  currentSeasonWeek,
+  resolveGameStart,
+} from '@goalxi/database';
 
 /**
  * Weekly senior-decline scheduler.
@@ -60,7 +64,7 @@ export class SeniorDeclineSchedulerService {
     return currentSeasonWeek(new Date(), this.gameStart);
   }
 
-  @Cron('0 0 0 * * 1') // Every Monday at 00:00 UTC
+  @Cron('0 0 0 * * 1', { timeZone: GAME_SETTINGS.CRON_TIME_ZONE }) // Every Monday at 00:00 UTC
   async triggerWeeklyDecline() {
     const { season, week } = this.getCurrentSeasonWeek();
 

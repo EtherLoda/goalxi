@@ -78,7 +78,7 @@ export class SeasonTransitionService {
    * 完整结束，检查的是 `PLAYOFF_TRIGGER_WEEK`(15) 的完成度。
    * 附加赛随后落在 week 16 的周三（`getNextPlayoffDate`）。
    */
-  @Cron('0 0 * * 1') // 每周一 00:00
+  @Cron('0 0 * * 1', { timeZone: GAME_SETTINGS.CRON_TIME_ZONE }) // 每周一 00:00
   async checkAndGeneratePlayoffs() {
     const currentSeasonWeek_ = currentSeasonWeek(new Date(), this.gameStart);
 
@@ -130,7 +130,7 @@ export class SeasonTransitionService {
    * Note `season - 1`: at week 1 the playoffs being swapped belong to
    * the season that just ended.
    */
-  @Cron('0 0 * * 1') // 每周一 00:00
+  @Cron('0 0 * * 1', { timeZone: GAME_SETTINGS.CRON_TIME_ZONE }) // 每周一 00:00
   async processPlayoffResultsAndSwap() {
     const currentSeasonWeek_ = currentSeasonWeek(new Date(), this.gameStart);
 
@@ -170,7 +170,7 @@ export class SeasonTransitionService {
    * code under the 1-indexed `currentSeasonWeek` helper and has
    * been removed.
    */
-  @Cron('0 0 * * 2') // 每周二 00:00
+  @Cron('0 0 * * 2', { timeZone: GAME_SETTINGS.CRON_TIME_ZONE }) // 每周二 00:00
   async checkAndProcessSeasonStart() {
     const currentSeasonWeek_ = currentSeasonWeek(new Date(), this.gameStart);
 

@@ -1,6 +1,25 @@
 export const GAME_SETTINGS = {
     SEASON_LENGTH_WEEKS: 16,
     DAYS_PER_WEEK: 7,
+
+    /**
+     * Timezone every `@Cron` in this workspace must be pinned to.
+     *
+     * `@nestjs/schedule` passes its options straight through to
+     * `CronJob.from`, which defaults to the **server's local timezone**.
+     * Every cron in `settlement/src/scheduler/` is written and commented
+     * as UTC ("Every Monday at 00:00 UTC"), and the whole season/week
+     * grid (`currentSeasonWeek`) is anchored on a UTC-Monday boundary —
+     * so on a non-UTC host the daily/weekly triggers drift by up to a day
+     * and can fire on the wrong weekday.
+     *
+     * It happened to work because `settlement/Dockerfile` uses
+     * `node:20-alpine` (UTC) and the compose file sets no `TZ`. That is
+     * an undocumented, load-bearing assumption. Pass it explicitly:
+     *
+     *     @Cron('0 0 0 * * 1', { timeZone: GAME_SETTINGS.CRON_TIME_ZONE })
+     */
+    CRON_TIME_ZONE: 'UTC',
     get DAYS_PER_YEAR() {
         return this.SEASON_LENGTH_WEEKS * this.DAYS_PER_WEEK;
     },

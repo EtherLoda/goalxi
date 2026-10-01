@@ -101,7 +101,7 @@ export class MatchSchedulerService {
    * - 将战术数据和弃权状态提交到模拟器队列
    * - 锁定战术并更新比赛状态为 TACTICS_LOCKED
    */
-  @Cron('0 * * * * *') // Every minute
+  @Cron('0 * * * * *', { timeZone: GAME_SETTINGS.CRON_TIME_ZONE }) // Every minute
   async preprocessMatch() {
     const now = new Date();
     this.logger.debug(
@@ -431,7 +431,7 @@ export class MatchSchedulerService {
    *  - CAS on match.status makes this idempotent; a
    *    slower tick is latency, not correctness.
    */
-  @Cron('0 * * * * *') // Every minute
+  @Cron('0 * * * * *', { timeZone: GAME_SETTINGS.CRON_TIME_ZONE }) // Every minute
   async startMatches() {
     this.logger.debug('[MatchStartScheduler] Checking for matches to start');
 
@@ -489,7 +489,7 @@ export class MatchSchedulerService {
    * - 检查最后事件时间，如果已到时间则标记为 COMPLETED
    * - 提交完成任务到结算队列
    */
-  @Cron('0 * * * * *') // Every minute
+  @Cron('0 * * * * *', { timeZone: GAME_SETTINGS.CRON_TIME_ZONE }) // Every minute
   async completeMatches() {
     this.logger.debug(
       '[MatchCompletionScheduler] Checking for matches to complete',

@@ -5,7 +5,10 @@ import { LOGGER_SERVICE, PinoLoggerService } from '@goalxi/logger';
 import { Queue } from 'bullmq';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { PlayerEntity } from '@goalxi/database';
+import {
+  GAME_SETTINGS,
+  PlayerEntity,
+} from '@goalxi/database';
 
 /**
  * The game-day clock: every (DAYS_PER_YEAR = 112) game-days is
@@ -75,7 +78,7 @@ export class PlayerWageSchedulerService {
    * catch-up run (see `CATCHUP_DAYS`) produces the same jobId the
    * original run would have emitted and BullMQ dedupes it.
    */
-  @Cron('0 0 0 * * *') // Every day at midnight
+  @Cron('0 0 0 * * *', { timeZone: GAME_SETTINGS.CRON_TIME_ZONE }) // Every day at midnight
   async processBirthdayWageUpdates() {
     const todayGameDay = computeTodayGameDay();
 

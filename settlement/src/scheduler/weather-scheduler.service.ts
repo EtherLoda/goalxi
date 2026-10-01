@@ -1,6 +1,7 @@
 import { Injectable, Logger, Inject } from '@nestjs/common';
 import { LOGGER_SERVICE, PinoLoggerService } from '@goalxi/logger';
 import { Cron } from '@nestjs/schedule';
+import { GAME_SETTINGS } from '@goalxi/database';
 import { WeatherService } from './weather.service';
 
 @Injectable()
@@ -13,7 +14,7 @@ export class WeatherSchedulerService {
 
   // ===== SCHEDULER: Daily Weather Generation =====
   // Run at midnight (00:00) UTC every day
-  @Cron('0 0 0 * * *')
+  @Cron('0 0 0 * * *', { timeZone: GAME_SETTINGS.CRON_TIME_ZONE })
   async generateDailyWeather() {
     const now = new Date();
     this.logger.info(

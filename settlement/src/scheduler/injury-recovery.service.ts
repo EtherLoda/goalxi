@@ -9,6 +9,7 @@ import {
   StaffRole,
   Uuid,
   applyDailyInjuryRecovery,
+  GAME_SETTINGS,
 } from '@goalxi/database';
 import {
   NotificationService,
@@ -82,7 +83,7 @@ export class InjuryRecoveryService {
     private readonly notificationService: NotificationService,
   ) {}
 
-  @Cron('0 30 * * * *')
+  @Cron('0 30 * * * *', { timeZone: GAME_SETTINGS.CRON_TIME_ZONE })
   async processDailyInjuryRecovery() {
     const now = new Date();
 

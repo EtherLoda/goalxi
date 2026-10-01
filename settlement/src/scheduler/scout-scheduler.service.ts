@@ -20,6 +20,7 @@ import {
   generateScoutCandidate,
   getRandomNameByNationality,
   getRandomNationality,
+  GAME_SETTINGS,
 } from '@goalxi/database';
 
 @Injectable()
@@ -44,7 +45,7 @@ export class ScoutSchedulerService {
    *   generates 3 fresh ones via the shared `generateScoutCandidate`
    *   utility (uniform PA-range algorithm, the cron-friendly path).
    */
-  @Cron('0 0 6 * * 6') // 每周六 06:00 UTC
+  @Cron('0 0 6 * * 6', { timeZone: GAME_SETTINGS.CRON_TIME_ZONE }) // 每周六 06:00 UTC
   async generateScoutCandidates() {
     this.logger.debug(
       '[ScoutScheduler] Generating scout candidates for all teams',

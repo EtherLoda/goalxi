@@ -10,6 +10,7 @@ import {
   TeamEntity,
   currentSeasonWeek,
   resolveGameStart,
+  GAME_SETTINGS,
 } from '@goalxi/database';
 
 @Injectable()
@@ -48,7 +49,7 @@ export class FinanceSchedulerService {
    * Weekly finance settlement cron - runs every Monday at UTC 00:00
    * Generates financial data (sponsorship, wages, staff, youth) for the NEW week
    */
-  @Cron('0 0 0 * * 1') // Every Monday at 00:00 UTC
+  @Cron('0 0 0 * * 1', { timeZone: GAME_SETTINGS.CRON_TIME_ZONE }) // Every Monday at 00:00 UTC
   async processWeeklyFinanceSettlement() {
     this.logger.info(
       '[FinanceScheduler] Starting weekly finance settlement...',

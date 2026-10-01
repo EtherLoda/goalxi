@@ -20,6 +20,7 @@ import {
   PRIZE_MONEY,
   currentSeasonWeek,
   resolveGameStart,
+  GAME_SETTINGS,
 } from '@goalxi/database';
 
 @Injectable()
@@ -61,7 +62,7 @@ export class LeagueAwardService {
    * 每周日 00:00 检查是否需要发放赛季奖项
    * 第15周周六比赛结束后（第15周日）触发
    */
-  @Cron('0 0 * * 0') // 每周日 00:00
+  @Cron('0 0 * * 0', { timeZone: GAME_SETTINGS.CRON_TIME_ZONE }) // 每周日 00:00
   async checkAndProcessSeasonAwards() {
     const currentSeasonWeek = await this.getCurrentSeasonAndWeek();
 
