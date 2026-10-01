@@ -234,7 +234,10 @@ export class PlayoffService {
         awayLeagueId: lowerLeague.id,
         scheduledAt: playoffDate,
         season,
-        week: 16,
+        // Derived, not hardcoded: `SeasonTransitionService` looks these
+        // rows up with the same `GAME_SETTINGS.SEASON_LENGTH_WEEKS`-based
+        // constant, so the two cannot drift.
+        week: GAME_SETTINGS.SEASON_LENGTH_WEEKS,
       });
 
       this.logger.info(

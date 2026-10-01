@@ -8,6 +8,7 @@ import {
   MatchEventEntity,
   MatchStatus,
   MatchTacticsEntity,
+  MatchType,
   PlayerEntity,
   StadiumEntity,
   TeamEntity,
@@ -141,6 +142,30 @@ export class MatchCompletionService {
     if (!leagueId) {
       this.logger.debug(
         `Skipping league_standings update for non-league match ${match.id} (type=${match.type})`,
+      );
+      return;
+    }
+
+    // Playoff matches carry a NON-null `leagueId` — `playoff.service.ts`
+    // stamps `leagueId = homeLeagueId` (the upper league) and parks the
+    // lower league's id in `lowerLeagueId`. So the `!leagueId` guard above
+    // does NOT catch them, and the `getOrCreateStanding` call below would
+    // INSERT a phantom `league_standing` row into the *upper* league for a
+    // team that belongs to a different league. The phantom row then gets
+    // ranked by `recalculateLeaguePositions` and displaces a real team in
+    // the table — and could even outrank the champion, at which point
+    // `promotion-relegation.service.ts` would pick it for promotion.
+    //
+    // Playoffs decide promotion via `swapTeamLeague` in
+    // `SeasonTransitionService.processAfterPlayoffsComplete`, never via
+    // league standings, so there is nothing legitimate to record here.
+    //
+    // (This bug was masked while the playoff cron could never fire — the
+    // gate was `week === 15` evaluated on the Monday that week 15
+    // *began*, so no playoff was ever generated. Both are fixed together.)
+    if (match.type === MatchType.PLAYOFF) {
+      this.logger.debug(
+        `Skipping league_standings update for playoff match ${match.id}`,
       );
       return;
     }

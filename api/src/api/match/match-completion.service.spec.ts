@@ -255,6 +255,40 @@ describe('MatchCompletionService data-flow review', () => {
       }
     });
 
+    it("REGRESSION: skips for PLAYOFF matches (leagueId is NOT null)", async () => {
+      // `playoff.service.ts` stamps playoff matches with
+      // `leagueId = homeLeagueId` (the UPPER league) and parks the
+      // lower league's id in `lowerLeagueId`. So the `!leagueId` guard
+      // does not catch them, and `getOrCreateStanding` would INSERT a
+      // phantom `league_standing` row into the upper league for a team
+      // that belongs to a different league. The phantom row then gets
+      // ranked by `recalculateLeaguePositions` and displaces a real
+      // team in the table.
+      //
+      // This was masked while the playoff cron could never fire (its
+      // gate was `week === 15`, evaluated on the Monday week 15
+      // *began*). Both fixed together — if you ever remove the PLAYOFF
+      // guard, expect 84 phantom rows per season.
+      const playoffMatch = {
+        id: "match-playoff-1",
+        type: "playoff",
+        leagueId: "upper-league-uuid",
+        lowerLeagueId: "lower-league-uuid",
+        season: 1,
+        homeTeamId: "upper-team-9th",
+        awayTeamId: "lower-team-2nd",
+        homeScore: 1,
+        awayScore: 2,
+        status: MatchStatus.COMPLETED,
+      } as unknown as MatchEntity;
+
+      await (service as any).updateLeagueStandings(playoffMatch);
+
+      expect(standingRepository.findOne).not.toHaveBeenCalled();
+      expect(standingRepository.save).not.toHaveBeenCalled();
+      expect(standingRepository.createQueryBuilder).not.toHaveBeenCalled();
+    });
+
     it("DOES update standings for LEAGUE matches (positive control)", async () => {
       const leagueMatch = {
         id: "match-league-1",
@@ -329,38 +363,49 @@ describe('MatchCompletionService data-flow review', () => {
       expect(awayRow.points).toBe(0);
     });
 
-    it("DOES update standings for PLAYOFF matches (promotion/relegation is league-scoped)", async () => {
+    it("REGRESSION: skips for PLAYOFF matches (leagueId is NOT null)", async () => {
+      // This test used to assert the OPPOSITE — "DOES update standings
+      // for PLAYOFF matches" — which encoded the bug.
+      //
+      // `playoff.service.ts` stamps playoff matches with
+      // `leagueId = homeLeagueId` (the UPPER league) and parks the
+      // lower league's id in `lowerLeagueId`. The old fixture used
+      // `team-home`/`team-away`, which reads as if both teams were in
+      // the same league — but in reality `awayTeamId` belongs to a
+      // DIFFERENT league, so `getOrCreateStanding(upperLeague, awayTeam)`
+      // INSERTs a phantom `league_standing` row into the upper league
+      // for a team that does not belong there. The phantom row is then
+      // ranked by `recalculateLeaguePositions` and displaces a real
+      // team — and could outrank the champion, at which point
+      // `promotion-relegation.service.ts` would pick it for promotion.
+      //
+      // Playoffs decide promotion via `swapTeamLeague` in
+      // `SeasonTransitionService.processAfterPlayoffsComplete`, never
+      // via league standings.
+      //
+      // This was masked while the playoff cron could never fire (its
+      // gate was `week === 15`, evaluated on the Monday week 15
+      // *began*, so the completeness check always failed). Both are
+      // fixed together — if you ever remove the PLAYOFF guard, expect
+      // 84 phantom standings rows per season.
       const playoffMatch = {
         id: "match-playoff-1",
         type: "playoff",
-        leagueId: "league-uuid",
+        leagueId: "upper-league-uuid",
+        lowerLeagueId: "lower-league-uuid",
         season: 1,
-        homeTeamId: "team-home",
-        awayTeamId: "team-away",
+        homeTeamId: "upper-team-9th",
+        awayTeamId: "lower-team-2nd",
         homeScore: 1,
-        awayScore: 0,
+        awayScore: 2,
         status: MatchStatus.COMPLETED,
       } as unknown as MatchEntity;
 
-      standingRepository.findOne.mockResolvedValueOnce(
-        makeStanding({ teamId: "team-home" }),
-      );
-      standingRepository.findOne.mockResolvedValueOnce(
-        makeStanding({ teamId: "team-away" }),
-      );
-      const qb = {
-        where: jest.fn().mockReturnThis(),
-        andWhere: jest.fn().mockReturnThis(),
-        orderBy: jest.fn().mockReturnThis(),
-        addOrderBy: jest.fn().mockReturnThis(),
-        getMany: jest.fn().mockResolvedValue([]),
-      };
-      standingRepository.createQueryBuilder.mockReturnValue(qb as any);
-      standingRepository.save.mockResolvedValue([] as any);
-
       await (service as any).updateLeagueStandings(playoffMatch);
 
-      expect(standingRepository.findOne).toHaveBeenCalledTimes(2);
+      expect(standingRepository.findOne).not.toHaveBeenCalled();
+      expect(standingRepository.save).not.toHaveBeenCalled();
+      expect(standingRepository.createQueryBuilder).not.toHaveBeenCalled();
     });
 
     it('maintains league_standing.goalDifference so the season-archive pipeline sees real numbers', async () => {

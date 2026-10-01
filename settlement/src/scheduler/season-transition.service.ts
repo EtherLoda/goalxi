@@ -7,6 +7,7 @@ import {
   MatchEntity,
   MatchStatus,
   MatchType,
+  GAME_SETTINGS,
   currentSeasonWeek,
   resolveGameStart,
 } from '@goalxi/database';
@@ -16,6 +17,17 @@ import { PlayoffService } from './playoff.service';
 import { SeasonSchedulerService } from './season-scheduler.service';
 import { LeagueStandingService } from './league-standing.service';
 import { SeasonArchiveService } from '../services/season-archive.service';
+
+/**
+ * The last week of a season. Playoffs are played in this week and
+ * the regular-season ladder is decided by week `PLAYOFF_TRIGGER_WEEK`.
+ *
+ * Both are derived from `GAME_SETTINGS.SEASON_LENGTH_WEEKS` rather
+ * than hardcoded, because the two disagreeing is what made the
+ * playoffs unschedulable (see `checkAndGeneratePlayoffs`).
+ */
+const SEASON_LAST_WEEK = GAME_SETTINGS.SEASON_LENGTH_WEEKS;
+const PLAYOFF_TRIGGER_WEEK = SEASON_LAST_WEEK - 1;
 
 @Injectable()
 export class SeasonTransitionService {
@@ -47,8 +59,24 @@ export class SeasonTransitionService {
   }
 
   /**
-   * 每周一 00:00 检查是否需要生成附加赛
-   * 条件：Week 15 结束，所有 Week 15 比赛已完成
+   * 每周一 00:00 — 在最后一周（Week 16）开始时生成附加赛
+   *
+   * ## 为什么 gate 是 `week === 16` 而不是 `week === 15`
+   *
+   * `currentSeasonWeek` 是 1-indexed、以周一为锚点的，所以 week N
+   * 覆盖 `[gameStart + (N-1)周, gameStart + N周)` —— 也就是说**周 N
+   * 是从周一开始的**。而 week 15 的联赛比赛排在该周的**周三/周六**
+   * （`schedule.generator.ts` 的 Wed+Sat 赛程）。
+   *
+   * 原实现在周一的 00:00（= week 15 的**第一天**）检查
+   * `areAllWeekMatchesCompleted(15)`。此刻 week 15 一场都还没踢，
+   * 判定恒为 false → 打日志 return；下一个周一时已经是 week 16，
+   * `week !== 15` 又直接 return。**结果是附加赛每季一场都不会生成**，
+   * 第 9-12 名永远不升降级（`playoffSlots: 4` 全季白配）。
+   *
+   * 现在 gate 是 `week === 16`（最后一周的开始），此时 week 15 已经
+   * 完整结束，检查的是 `PLAYOFF_TRIGGER_WEEK`(15) 的完成度。
+   * 附加赛随后落在 week 16 的周三（`getNextPlayoffDate`）。
    */
   @Cron('0 0 * * 1') // 每周一 00:00
   async checkAndGeneratePlayoffs() {
@@ -58,62 +86,78 @@ export class SeasonTransitionService {
       `[SeasonTransition] Checking Season ${currentSeasonWeek_.season}, Week ${currentSeasonWeek_.week}`,
     );
 
-    // 检查是否 Week 15 结束
-    if (currentSeasonWeek_.week !== 15) {
+    // Fire on the FIRST Monday of the final week — by then the
+    // regular season is over.
+    if (currentSeasonWeek_.week !== SEASON_LAST_WEEK) {
       return;
     }
 
-    // 检查 Week 15 所有联赛比赛是否完成
-    const week15Complete = await this.areAllWeekMatchesCompleted(
+    // Verify the regular season (week 15) actually finished.
+    const regularSeasonComplete = await this.areAllWeekMatchesCompleted(
       currentSeasonWeek_.season,
-      currentSeasonWeek_.week,
+      PLAYOFF_TRIGGER_WEEK,
     );
 
-    if (!week15Complete) {
-      this.logger.info('[SeasonTransition] Week 15 matches not yet complete');
-      return;
-    }
-
-    // 生成附加赛
-    this.logger.info(
-      `[SeasonTransition] Week 15 complete, generating playoff matches for Season ${currentSeasonWeek_.season}...`,
-    );
-    await this.generatePlayoffs(currentSeasonWeek_.season);
-  }
-
-  /**
-   * 每周一 00:00 — Week 16 时执行附加赛结果的升降级互换
-   *
-   * Previously this lived inside `checkAndProcessSeasonStart` and
-   * was guarded by `week === 0`. But `currentSeasonWeek` is
-   * 1-indexed (range 1–16), so `week === 0` was unreachable and
-   * the playoff swap silently never ran. Lifting it into its own
-   * cron fired on `week === 16` makes the swap actually happen —
-   * week 16's matches complete on the weekend, this fires on the
-   * next Monday.
-   */
-  @Cron('0 0 * * 1') // 每周一 00:00
-  async processPlayoffResultsAndSwap() {
-    const currentSeasonWeek_ = currentSeasonWeek(new Date(), this.gameStart);
-
-    if (currentSeasonWeek_.week !== 16) {
-      return;
-    }
-
-    const playoffsComplete = await this.areAllPlayoffsCompleted(
-      currentSeasonWeek_.season,
-    );
-    if (!playoffsComplete) {
+    if (!regularSeasonComplete) {
       this.logger.info(
-        '[SeasonTransition] Playoff matches not yet complete, skipping swap',
+        `[SeasonTransition] Week ${PLAYOFF_TRIGGER_WEEK} matches not yet complete, deferring playoff generation`,
       );
       return;
     }
 
     this.logger.info(
-      `[SeasonTransition] Week 16 playoffs complete, processing swap for Season ${currentSeasonWeek_.season}...`,
+      `[SeasonTransition] Week ${PLAYOFF_TRIGGER_WEEK} complete, generating playoff matches for Season ${currentSeasonWeek_.season}...`,
     );
-    await this.processAfterPlayoffsComplete(currentSeasonWeek_.season);
+    await this.generatePlayoffs(currentSeasonWeek_.season);
+  }
+
+  /**
+   * 每周一 00:00 — Week 1（新赛季第一周）时执行附加赛结果的升降级互换
+   *
+   * The playoffs are *generated* on the Monday that starts week 16 and
+   * *played* the following Wednesday. So the result cannot be processed
+   * on the same Monday — the old `week === 16` gate fired before a single
+   * playoff had been played, and `areAllPlayoffsCompleted` returned
+   * `true` vacuously (0 playoffs found) so `processAfterPlayoffsComplete`
+   * no-op'd and positions 9-12 never changed league.
+   *
+   * The swap therefore runs on the Monday that starts week 1, i.e. the
+   * last cron slot before `checkAndProcessSeasonStart` runs direct
+   * promotions on Tuesday. It is also re-invoked at the top of that
+   * method (idempotent via the `playoff_swapped_at` latch) so a Monday
+   * failure retries before the ladder is committed.
+   *
+   * Note `season - 1`: at week 1 the playoffs being swapped belong to
+   * the season that just ended.
+   */
+  @Cron('0 0 * * 1') // 每周一 00:00
+  async processPlayoffResultsAndSwap() {
+    const currentSeasonWeek_ = currentSeasonWeek(new Date(), this.gameStart);
+
+    if (currentSeasonWeek_.week !== 1) {
+      return;
+    }
+
+    const finishedSeason = currentSeasonWeek_.season - 1;
+    if (finishedSeason < 1) {
+      return;
+    }
+
+    const playoffsComplete = await this.areAllPlayoffsCompleted(
+      finishedSeason,
+    );
+    if (!playoffsComplete) {
+      this.logger.warn(
+        `[SeasonTransition] Season ${finishedSeason} playoff matches not all complete — skipping swap. ` +
+          `Positions 9-12 will not change league this season.`,
+      );
+      return;
+    }
+
+    this.logger.info(
+      `[SeasonTransition] Season ${finishedSeason} playoffs complete, processing swap...`,
+    );
+    await this.processAfterPlayoffsComplete(finishedSeason);
   }
 
   /**
@@ -146,6 +190,19 @@ export class SeasonTransitionService {
     );
 
     try {
+      // 0. 附加赛互换（重试）。
+      //
+      // `processPlayoffResultsAndSwap` already ran on the previous
+      // Monday and is idempotent via the `playoff_swapped_at` latch,
+      // so this is a no-op in the happy path. It runs here too so that
+      // a Monday failure retries BEFORE step 1 commits the rest of the
+      // ladder — otherwise direct promotions would be applied on a
+      // season whose playoff results were silently dropped.
+      this.logger.info(
+        '[SeasonTransition] Step 0: Retrying un-swapped playoff results (idempotent)...',
+      );
+      await this.processAfterPlayoffsComplete(previousSeason);
+
       // 1. 执行升降级（基于上赛季排名）
       this.logger.info(
         '[SeasonTransition] Step 1: Executing promotions/relegations...',
@@ -227,7 +284,7 @@ export class SeasonTransitionService {
     const playoffMatches = await this.matchRepository.find({
       where: {
         season,
-        week: 16,
+        week: SEASON_LAST_WEEK,
         type: MatchType.PLAYOFF,
         status: MatchStatus.COMPLETED,
         playoffSwappedAt: IsNull(),
@@ -337,12 +394,16 @@ export class SeasonTransitionService {
 
   /**
    * 检查所有附加赛是否完成
+   *
+   * Deliberately does NOT filter on `week`: a playoff is a playoff
+   * regardless of which week column it was stamped with, and a
+   * week-scoped count would silently report "all complete" for any
+   * playoff that ended up stamped with a different week.
    */
   private async areAllPlayoffsCompleted(season: number): Promise<boolean> {
     const totalPlayoffs = await this.matchRepository.count({
       where: {
         season,
-        week: 16,
         type: MatchType.PLAYOFF,
       },
     });
@@ -355,7 +416,6 @@ export class SeasonTransitionService {
     const completedPlayoffs = await this.matchRepository.count({
       where: {
         season,
-        week: 16,
         type: MatchType.PLAYOFF,
         status: MatchStatus.COMPLETED,
       },
