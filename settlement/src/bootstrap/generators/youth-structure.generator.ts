@@ -12,6 +12,19 @@ import {
 /**
  * WAVE A1 — youth-structure bootstrap.
  *
+ * ⛔ **FROZEN SUBSYSTEM — hands off.** Youth development is paused
+ * indefinitely; see the "Youth Pipeline" section of `CLAUDE.md`. This
+ * generator must keep running (youth fixtures depend on the rows it
+ * creates, and youth fixtures are still simulated every matchday).
+ * Freezing means *don't develop it*, not *shut it down* — do not delete
+ * it as cleanup, and do not add academy features, without an explicit
+ * go-ahead from the maintainer.
+ *
+ * Note the skip for teams with no `leagueId` (line ~81). That is what
+ * makes the "team-less youth can never pass the promotion gate" note in
+ * `CLAUDE.md` true in practice — every youth row this subsystem creates
+ * does have a team.
+ *
  * For every senior `league`, ensure exactly one `youth_league` exists
  * (1:1 mapping by `senior_league_id`). For every senior `team`,
  * ensure exactly one `youth_team` exists (1:1 mapping by `team_id`).

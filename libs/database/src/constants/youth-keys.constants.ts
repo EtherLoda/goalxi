@@ -53,6 +53,19 @@ export function getYouthSkillKeys(
 /**
  * Minimum fraction of skills that must be revealed before promotion is
  * allowed. Outfield = 5/10, GK = 5/9 (Math.ceil rounds up).
+ *
+ * ⛔ **FROZEN SUBSYSTEM — do not retune.** Youth development is paused
+ * indefinitely; see the "Youth Pipeline" section of `CLAUDE.md`.
+ *
+ * This number is the server-side gate that stops a raw client promoting
+ * a 0-revealed youth straight to the senior squad. The FE's own checks
+ * are cosmetic, so this constant is the only thing holding that line —
+ * lowering it to "make promotion feel less restrictive" is a security
+ * change wearing a UX costume.
+ *
+ * It also cannot be raised to "fix" the team-less-youth case: those rows
+ * have `revealedSkills = []` permanently, so no value of this constant
+ * makes them promotable. See *Known limitations* in `CLAUDE.md`.
  */
 export const PROMOTION_REVEAL_THRESHOLD = 0.5;
 

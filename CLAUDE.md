@@ -116,6 +116,34 @@ Community forum lives at `api/src/api/forum/` and `web/src/app/forum/`. Entities
 
 ### Youth Pipeline (post-RFC 0001)
 
+> **FROZEN — do not develop, extend, or "improve" this subsystem without
+> an explicit go-ahead from the maintainer.**
+>
+> Youth development is paused indefinitely. The code below is
+> **documentation of what exists**, not a specification of what should
+> be built. Specifically:
+>
+> - **No new features.** Do not add youth scouts, youth tactics depth,
+>   academy upgrades, loan pathways, or a Youth Mode toggle.
+> - **Do not "fix" the known rough edges** listed under *Known
+>   limitations* — several were left deliberately, and "fixing" one
+>   silently re-activates a path nobody has validated.
+> - **The reveal/promote loop is half-wired on purpose.** See *Known
+>   limitations* → "The promotion gate can never be satisfied for a
+>   team-less youth". Fixing it requires a product decision, not a code
+>   change.
+> - **Bug fixes are still welcome** where the subsystem is actively
+>   running (it generates and simulates youth fixtures every matchday).
+>   Keep those minimal and self-contained.
+> - **Runtime behaviour is unchanged and must stay that way.** The
+>   weekly worker still ticks, youth fixtures are still generated and
+>   simulated. Freezing means *hands off*, not *shut it down*.
+>
+> If you believe something here genuinely must change, say so and wait
+> for an answer rather than fixing it in passing. A drive-by "cleanup"
+> in this area has already caused one regression (the un-swappable
+> playoff ladder, fixed in the 2026-09 batch).
+
 The youth flow was consolidated into `player` (RFC 0001, migration `1722000000000`). No more separate `youth_player` / `youth_match` tables — youth rows sit in the unified tables with `is_youth = true` and `youth_league_id` set.
 
 **Pyramid bootstrap** (`settlement/src/bootstrap/`):
@@ -156,6 +184,32 @@ back apart.
 - `settlement/src/processors/youth-progression.processor.ts` — BullMQ worker for the weekly tick. Now only does base growth + reveal (no coach bonus).
 - `settlement/src/bootstrap/generators/youth-structure.generator.ts` — idempotent 1:1 creator.
 - `api/src/api/scouts/scouts.service.ts` (`selectCandidate`) — player is dropped here with: `position` (from candidate), `potentialAbility` recomputed from `potentialSkills` (NOT a hardcoded 50 anymore), `revealLevel` derived from `revealedSkills.length`.
+
+**Known limitations** — *left deliberately under the freeze. Do not
+"fix" these without maintainer sign-off; each one looks like a bug but
+repairing it re-opens a path the paused subsystem never validated.*
+
+- **The promotion gate can never be satisfied for a team-less youth.**
+  `YouthProgressionProcessor` skips `!player.teamId` rows *before*
+  calling `pickNextRevealSkills`, so their `revealedSkills` stays `[]`
+  forever; `PlayerService.promote()` requires ≥ 5 revealed. A team-less
+  youth is therefore permanently unpromotable. In practice no such rows
+  exist — `youth-structure.generator.ts` only creates `youth_team` rows
+  for senior teams that have a `leagueId`, and `selectCandidate` always
+  sets `teamId` — so this is defensive dead code, not a live defect. The
+  options were A (also reveal team-less youth), B (special-case the gate
+  in `promote`, which WAVE B1 exists to prevent), C (assert they can't
+  exist). **C is the honest one** but needs a data audit first.
+- **`PlayerEntity.matchMinutes` is excluded for youth in
+  `resetMatchMinutesForBotTeam` but included in the senior path.** Youth
+  on bot teams therefore accumulate minutes unbounded — the same growth
+  class the senior branch was fixed for. Left alone because bot-academy
+  state is itself frozen.
+- **`player.generation`/age semantics are loose.** `applyWeeklyGrowth`
+  has no age curve (unlike senior `getAgeTrainingFactor`), so a
+  long-tenured `is_youth` row keeps growing at the 16-year-old rate.
+- **No youth retirement.** A player who never gets promoted stays youth
+  forever and grows without bound toward potential.
 
 ### Onboarding pipeline (manager register → claim a BOT team)
 

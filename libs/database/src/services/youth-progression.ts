@@ -1,5 +1,23 @@
 import { getYouthSkillKeys } from '../constants/youth-keys.constants';
 
+/**
+ * ⛔ **FROZEN SUBSYSTEM — hands off.**
+ *
+ * Youth development is paused indefinitely. See the "Youth Pipeline"
+ * section of `CLAUDE.md` for the full freeze notice and the list of
+ * rough edges that are deliberate.
+ *
+ * `applyWeeklyGrowth` has **no age curve** (unlike the senior
+ * `getAgeTrainingFactor`), so a long-tenured `is_youth` row keeps
+ * growing at the 16-year-old rate indefinitely. That looks like an
+ * obvious omission to fix — it is on the *Known limitations* list
+ * precisely so nobody fixes it in passing. Same for the
+ * growth-toward-potential model, which has no retirement counterpart.
+ *
+ * The only production caller is
+ * `settlement/src/processors/youth-progression.processor.ts`.
+ */
+
 /** Minimal skill shape required by progression functions. */
 export interface ProgressionSkills {
   isGoalkeeper: boolean;

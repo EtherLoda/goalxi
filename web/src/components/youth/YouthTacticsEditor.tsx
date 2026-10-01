@@ -3,6 +3,15 @@
 /**
  * YouthTacticsEditor — simplified tactics editor for youth matches.
  *
+ * ⛔ **FROZEN SUBSYSTEM — hands off.** Youth development is paused
+ * indefinitely; see the "Youth Pipeline" section of `CLAUDE.md`. This
+ * component is still live (youth fixtures are still generated and
+ * simulated every matchday) and must keep working. Do not extend it
+ * with new tactics options — the `tempo` / `pitchWidth` /
+ * `defensiveLine` dimensions below are the frozen scope — and do not
+ * delete it as cleanup, without an explicit go-ahead from the
+ * maintainer.
+ *
  * Compared to the senior `TacticsEntryButton` + `PitchCanvas`:
  *  - No bench, no substitutions, no dimensions, no presets
  *  - Pure form-based: pick a formation, then assign one of your youth

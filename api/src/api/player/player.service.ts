@@ -146,11 +146,31 @@ export class PlayerService {
   /**
    * [RFC 0001] Promote a youth player to the senior squad.
    *
+   * ⛔ **FROZEN SUBSYSTEM.** Youth development is paused indefinitely —
+   * see the "Youth Pipeline" section of `CLAUDE.md`. Do not extend,
+   * remove, or "fix" this gate without an explicit go-ahead from the
+   * maintainer.
+   *
+   * In particular, this gate looks like over-restrictive validation
+   * that a reasonable person would relax. It is load-bearing:
+   *
+   *  - It is the ONLY thing preventing a raw client (curl/Postman) from
+   *    promoting a 0-revealed youth straight to the senior squad. The
+   *    FE's own checks are cosmetic.
+   *  - It cannot be relaxed by special-casing. `revealedSkills` is
+   *    populated exclusively by `YouthProgressionProcessor`, which
+   *    skips `!player.teamId` rows — so a team-less youth has
+   *    `revealedSkills = []` permanently and can never pass. Loosening
+   *    the threshold for "team-less" players is exactly the bypass
+   *    WAVE B1 exists to close.
+   *
+   * See *Known limitations* in `CLAUDE.md` → "The promotion gate can
+   * never be satisfied for a team-less youth" for why this is left as
+   * defensive dead code rather than repaired.
+   *
    * Gate: at least `ceil(PROMOTION_REVEAL_THRESHOLD * total_keys)` of
-   * the player's skills must already be revealed. This is enforced
-   * server-side — the comment's earlier "server-enforced" claim was
-   * aspirational (the check was missing). Curl/Postman cannot promote
-   * a 0-revealed youth any more.
+   * the player's skills must already be revealed. Enforced server-side
+   * before any state mutation.
    */
   async promote(id: number): Promise<PlayerResDto> {
     const player = await PlayerEntity.findOneByOrFail({ id });

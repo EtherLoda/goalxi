@@ -20,6 +20,36 @@ export interface YouthProgressionResult {
 /**
  * Weekly youth-progression worker.
  *
+ * ## ⛔ FROZEN SUBSYSTEM — hands off
+ *
+ * Youth development is paused indefinitely (see the "Youth Pipeline"
+ * section of `CLAUDE.md` for the full freeze notice). **Do not develop,
+ * extend, or "improve" this worker** without an explicit go-ahead from
+ * the maintainer.
+ *
+ * What that means concretely, because these all look like reasonable
+ * bugs to fix in passing:
+ *
+ *  - **No new features.** No youth scouts, academy upgrades, loan
+ *    pathways, or a Youth Mode toggle.
+ *  - **Do not "fix" the deliberate rough edges.** The team filters, the
+ *    absent age curve, and the unbounded-growth-toward-potential model
+ *    are all documented under *Known limitations* in `CLAUDE.md`. Each
+ *    one looks like a bug; repairing it re-opens a path nobody has
+ *    validated.
+ *  - **Runtime behaviour must not change.** This worker still ticks
+ *    every Thursday and still writes rows. Freezing means hands off, NOT
+ *    shut it down.
+ *  - **Bug fixes are still welcome** where this is actively running (it
+ *    grows every youth player's skills each week). Keep those minimal
+ *    and self-contained.
+ *
+ * If something here genuinely must change, say so and wait for an answer
+ * rather than fixing it in passing. A drive-by "cleanup" in this area has
+ * already caused one regression (the un-swappable playoff ladder).
+ *
+ * ---
+ *
  * Runs alongside the senior training tick (Thursday 00:00 UTC, kicked
  * off by `WeeklySettlementService`). The historical YOUTH_COACH staff
  * role was removed when the youth subsystem was paused, so this worker
@@ -100,17 +130,18 @@ export class YouthProgressionProcessor extends WorkerHost {
         continue;
       }
       if (!player.teamId) {
-        // Free-agent youth (no team) — nothing to do. The UI's "promote"
-        // flow can still flip is_youth on these, but they don't grow
-        // until they're rostered somewhere.
+        // Free-agent youth (no team) — nothing to do.
         //
-        // NOTE: `PlayerService.promote()` requires
-        // `revealedSkills.length >= ceil(PROMOTION_REVEAL_THRESHOLD * totalKeys)`
-        // and reveal only happens HERE — so a team-less youth can never
-        // reach the threshold and can never be promoted. The comment
-        // above claimed the UI could still flip `is_youth`; the gate
-        // would reject it. Left as-is (free agents shouldn't be growing),
-        // but the docs were wrong.
+        // ⛔ This skip is DELIBERATE under the freeze, not an oversight.
+        // It means such a player never accumulates `revealedSkills`, so
+        // `PlayerService.promote()` (which requires ≥ 5 revealed) can
+        // never be satisfied for them. In practice no such rows exist —
+        // `youth-structure.generator.ts` only creates youth rows for
+        // senior teams with a `leagueId`, and `scouts.selectCandidate`
+        // always sets `teamId` — so this is defensive dead code rather
+        // than a live defect. See *Known limitations* in `CLAUDE.md`
+        // → "The promotion gate can never be satisfied for a team-less
+        // youth" for why it is left alone rather than repaired.
         skippedNoTeam++;
         continue;
       }
