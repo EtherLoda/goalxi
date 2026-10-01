@@ -18,10 +18,27 @@ describe('PlayerWageSchedulerService (regression for #A — jobId dedup)', () =>
     (NOW.getTime() - Date.UTC(1970, 0, 1)) / 86_400_000,
   );
 
-  const buildQueryBuilder = (rows: Array<{ id: number; name: string }>) => {
+  const buildQueryBuilder = (
+    rows: Array<{ id: number; name: string }>,
+    birthdayGameDays?: Record<number, number>,
+  ) => {
+    // Defaults: every row's birthday falls on TODAY_GAME_DAY.
+    const map: Record<number, number> =
+      birthdayGameDays ??
+      Object.fromEntries(rows.map((r) => [r.id, TODAY_GAME_DAY]));
+
     const qb: any = {
       where: jest.fn().mockReturnThis(),
       andWhere: jest.fn().mockReturnThis(),
+      leftJoin: jest.fn().mockReturnThis(),
+      addSelect: jest.fn().mockReturnThis(),
+      getRawAndEntities: jest.fn().mockResolvedValue({
+        entities: rows,
+        raw: rows.map((r) => ({
+          player_id: r.id,
+          birthdayGameDay: map[r.id],
+        })),
+      }),
       getMany: jest.fn().mockResolvedValue(rows),
     };
     return qb;
@@ -117,7 +134,7 @@ describe('PlayerWageSchedulerService (regression for #A — jobId dedup)', () =>
     expect(opts.backoff).toEqual({ type: 'exponential', delay: 30_000 });
   });
 
-  it('does not throw if the queue.add itself fails — logs a warning', async () => {
+  it('reports a partial enqueue at ERROR so the miss is visible', async () => {
     playerRepo.createQueryBuilder.mockReturnValueOnce(
       buildQueryBuilder([{ id: 1, name: 'A' }]),
     );
@@ -126,25 +143,90 @@ describe('PlayerWageSchedulerService (regression for #A — jobId dedup)', () =>
 
     await expect(service.processBirthdayWageUpdates()).resolves.toBeUndefined();
 
-    // Partial enqueue (1/1 fail) is reported at WARN, not
-    // ERROR — the next tick will retry naturally.
-    const warnCalls = logger.warn.mock.calls.map((c) => String(c[0]));
-    expect(warnCalls.some((line) => line.includes('Partial enqueue'))).toBe(
-      true,
-    );
+    // Partial enqueue means these players' wages stay stale, so it
+    // is reported at ERROR (not WARN) and names the recovery path.
+    const errCalls = logger.error.mock.calls.map((c) => String(c[0]));
+    expect(
+      errCalls.some(
+        (line) =>
+          line.includes('Partial enqueue') && line.includes('catch-up'),
+      ),
+    ).toBe(true);
   });
 
-  it('does not crash when the player query itself throws', async () => {
+  it('surfaces a player-query failure instead of swallowing it', async () => {
     playerRepo.createQueryBuilder.mockReturnValueOnce({
+      leftJoin: jest.fn().mockReturnThis(),
       where: jest.fn().mockReturnThis(),
       andWhere: jest.fn().mockReturnThis(),
-      getMany: jest.fn().mockRejectedValue(new Error('postgres gone')),
+      addSelect: jest.fn().mockReturnThis(),
+      getRawAndEntities: jest
+        .fn()
+        .mockRejectedValue(new Error('postgres gone')),
     });
     service = await buildService();
 
-    await expect(service.processBirthdayWageUpdates()).resolves.toBeUndefined();
+    // The old code wrapped the whole cron body in
+    // catch { logger.error(...) }, so a DB blip at 00:00 was invisible
+    // and the game-day's birthdays were lost for 112 game-days. It
+    // now propagates so the failure is reportable, and the scan's
+    // catch-up window recovers the missed players on the next runs.
+    await expect(service.processBirthdayWageUpdates()).rejects.toThrow(
+      'postgres gone',
+    );
 
-    expect(logger.error).toHaveBeenCalled();
     expect(queue.add).not.toHaveBeenCalled();
+  });
+
+  it('REGRESSION: scans a catch-up window, not just today', async () => {
+    // The scan trigger was an exact modulus and `@Cron` has no retry,
+    // so one DB blip at 00:00 meant that game-day's birthdays were lost
+    // for 112 game-days. The window makes the miss self-healing.
+    const rows = [{ id: 1, name: 'Today' }, { id: 2, name: 'Yesterday' }];
+    const qb = buildQueryBuilder(rows, {
+      1: TODAY_GAME_DAY,
+      2: TODAY_GAME_DAY - 1,
+    });
+    playerRepo.createQueryBuilder.mockReturnValueOnce(qb);
+    service = await buildService();
+
+    await service.processBirthdayWageUpdates();
+
+    // The WHERE must be a window, not an equality.
+    const whereSql = qb.where.mock.calls[0][0] as string;
+    expect(whereSql).toContain('BETWEEN');
+    expect(whereSql).not.toMatch(/112\)\s*=\s*0/);
+
+    // The catch-up player is queued, keyed on its OWN birthday
+    // game-day so it dedupes against the run that missed it.
+    expect(queue.add).toHaveBeenCalledTimes(2);
+    const jobIds = queue.add.mock.calls.map((c) => c[2].jobId);
+    expect(jobIds).toContain(`birthday-wage-2-${TODAY_GAME_DAY - 1}`);
+
+    // And the recovery path is logged.
+    const infoCalls = logger.info.mock.calls.map((c) => String(c[0]));
+    expect(infoCalls.some((l) => l.includes('Catch-up'))).toBe(true);
+  });
+
+  it('REGRESSION: filters BOT teams at the enqueue side', async () => {
+    // The processor skips BOT players, but the enqueue filter only
+    // checked `is_youth = false`. With ~70% of the pyramid being BOT,
+    // ~70% of every daily enqueue was a dead job.
+    const rows = [{ id: 1, name: 'A' }];
+    const qb = buildQueryBuilder(rows);
+    playerRepo.createQueryBuilder.mockReturnValueOnce(qb);
+    service = await buildService();
+
+    await service.processBirthdayWageUpdates();
+
+    expect(qb.leftJoin).toHaveBeenCalledWith(
+      'team',
+      'team.id = player.team_id',
+    );
+    const predicates = qb.andWhere.mock.calls.map((c) => String(c[0]));
+    expect(predicates).toContain('player.is_youth = false');
+    expect(
+      predicates.some((p) => p.includes('is_bot = false')),
+    ).toBe(true);
   });
 });
