@@ -184,19 +184,42 @@ export class InjuryRecoveryService {
     }
 
     // 4. Notify each recovered player's team manager.
+    //
+    // Each notification is independently guarded: a Redis blip on one
+    // player must not abandon the notifications for every player after
+    // it, and — critically — must not abort the method before the dedup
+    // stamp below, which would make the next hourly tick re-run the
+    // whole recovery pass and decrement every injured player's
+    // `current_injury_value` a SECOND time. That was the previous
+    // behaviour: the loop had no try/catch, `notificationService.create`
+    // writes to Redis, one throw escaped, `@nestjs/schedule` swallowed it
+    // into a log line, `lastRecoveryRunAt` was never set, and the
+    // recovery re-ran.
     let recoveredCount = 0;
+    let notificationFailures = 0;
     for (const r of recoveries) {
       if (r.userId) {
-        await this.notificationService.create(
-          r.userId,
-          NotificationType.PLAYER_RECOVERED,
-          'notification.playerRecovered',
-          {
-            playerId: r.playerId,
-            playerName: r.playerName,
-            injuryType: r.injuryType,
-          },
-        );
+        try {
+          await this.notificationService.create(
+            r.userId,
+            NotificationType.PLAYER_RECOVERED,
+            'notification.playerRecovered',
+            {
+              playerId: r.playerId,
+              playerName: r.playerName,
+              injuryType: r.injuryType,
+            },
+          );
+        } catch (error) {
+          notificationFailures++;
+          this.logger.error(
+            `[InjuryRecovery] Failed to notify ${r.userId} of ` +
+              `${r.playerName}'s recovery: ${(error as Error).message}. ` +
+              `The recovery itself is already committed and the dedup ` +
+              `stamp will still be set — only the notification is lost.`,
+            (error as Error).stack,
+          );
+        }
       }
 
       recoveredCount++;
@@ -205,14 +228,25 @@ export class InjuryRecoveryService {
       );
     }
 
+    if (notificationFailures > 0) {
+      this.logger.warn(
+        `[InjuryRecovery] ${notificationFailures} of ${recoveries.length} recovery notification(s) failed`,
+      );
+    }
+
     this.logger.info(
       `[InjuryRecovery] Completed. ${recoveredCount} player(s) fully recovered today.`,
     );
 
-    // Stamp the dedup timestamp AFTER the recovery helper
-    // commits. If the transaction threw, `lastRecoveryRunAt`
-    // stays unchanged and the next tick retries. Successful
-    // runs block the next 23h from running again.
+    // Stamp the dedup timestamp AFTER the recovery helper commits AND
+    // after the (now failure-tolerant) notification pass. If the
+    // transaction threw, `lastRecoveryRunAt` stays unchanged and the
+    // next tick retries from a rolled-back state. Successful runs block
+    // the next 23h.
+    //
+    // Process restarts also reset this module-scoped variable, which is
+    // why the container must be started at most once per recovery
+    // window — see the note on `lastRecoveryRunAt` above.
     lastRecoveryRunAt = now;
   }
 }

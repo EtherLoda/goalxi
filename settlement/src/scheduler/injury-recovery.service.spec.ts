@@ -259,5 +259,55 @@ describe('InjuryRecoveryService', () => {
       expect(staffRepo.find).toHaveBeenCalledTimes(1);
       expect(dataSource.transaction).toHaveBeenCalledTimes(1);
     });
+
+    it('REGRESSION: a notification failure still stamps the dedup timestamp', async () => {
+      // The notification loop had no try/catch and the dedup stamp was
+      // written after it. `notificationService.create` writes to Redis,
+      // so one blip threw out of the method, `@nestjs/schedule` swallowed
+      // it into a log line, `lastRecoveryRunAt` was never set, and the
+      // next hourly tick re-ran the WHOLE recovery pass — decrementing
+      // every injured player's `current_injury_value` a SECOND time.
+      notificationService.create.mockRejectedValueOnce(
+        new Error('redis is down'),
+      );
+
+      const player = buildPlayer({ id: 60, currentInjuryValue: 1 });
+      playerRepo.find.mockResolvedValue([player]);
+      staffRepo.find.mockResolvedValue([
+        { teamId: 'team-1' as Uuid, level: 0 } as unknown as StaffEntity,
+      ]);
+
+      // The tick itself must not blow up.
+      await expect(service.processDailyInjuryRecovery()).resolves.toBeUndefined();
+
+      // The failure is reported.
+      expect(notificationService.create).toHaveBeenCalled();
+
+      // And the next tick is deduped, i.e. no second decrement.
+      await service.processDailyInjuryRecovery();
+      expect(playerRepo.find).toHaveBeenCalledTimes(1);
+      expect(dataSource.transaction).toHaveBeenCalledTimes(1);
+    });
+
+    it('REGRESSION: one failed notification does not abandon the rest', async () => {
+      // Both players recover in the same pass.
+      const players = [
+        buildPlayer({ id: 61, currentInjuryValue: 1 }),
+        buildPlayer({ id: 62, currentInjuryValue: 1 }),
+      ];
+      notificationService.create
+        .mockRejectedValueOnce(new Error('redis is down'))
+        .mockResolvedValueOnce(undefined);
+
+      playerRepo.find.mockResolvedValue(players);
+      staffRepo.find.mockResolvedValue([
+        { teamId: 'team-1' as Uuid, level: 0 } as unknown as StaffEntity,
+      ]);
+
+      await service.processDailyInjuryRecovery();
+
+      // Both got an attempt — the throw did not exit the loop.
+      expect(notificationService.create).toHaveBeenCalledTimes(2);
+    });
   });
 });
