@@ -19,8 +19,15 @@ import {
 } from '@goalxi/database';
 import { LOGGER_SERVICE, PinoLoggerService } from '@goalxi/logger';
 import { Inject, Injectable } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
-import { In, IsNull, MoreThanOrEqual, Repository } from 'typeorm';
+import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
+import {
+  DataSource,
+  EntityManager,
+  In,
+  IsNull,
+  MoreThanOrEqual,
+  Repository,
+} from 'typeorm';
 import { FanService } from '../fan/fan.service';
 import { FinanceService } from '../finance/finance.service';
 import { MatchCacheService } from './match-cache.service';
@@ -34,6 +41,8 @@ export class MatchCompletionService {
     private matchRepository: Repository<MatchEntity>,
     @InjectRepository(LeagueStandingEntity)
     private standingRepository: Repository<LeagueStandingEntity>,
+    @InjectDataSource()
+    private readonly dataSource: DataSource,
     @InjectRepository(PlayerEntity)
     private playerRepository: Repository<PlayerEntity>,
     @InjectRepository(MatchEventEntity)
@@ -170,101 +179,207 @@ export class MatchCompletionService {
       return;
     }
 
-    const [homeStanding, awayStanding] = await Promise.all([
-      this.getOrCreateStanding(leagueId, homeTeamId, season),
-      this.getOrCreateStanding(leagueId, awayTeamId, season),
-    ]);
+    // Atomic read-modify-write with row locks.
+    //
+    // The previous shape was `findOne` -> mutate in JS -> `save()` with
+    // no transaction, no row lock, and no version column: a textbook lost
+    // update. Two matches for the same team completing concurrently (a
+    // Saturday double-matchweek is explicitly supported — see
+    // `match.entity.ts`'s "Round within the week (1 or 2 for double
+    // matchweeks)") both read the same row and the second write clobbers
+    // the first's `points += 3`.
+    //
+    // Nothing enforced single-threadedness either: the completion worker
+    // merely happened to be registered with BullMQ's default concurrency
+    // of 1, which is an accident of configuration rather than a contract.
+    // Raising that concurrency — the obvious fix for throughput — would
+    // have silently corrupted the table.
+    //
+    // `pessimistic_write` issues `SELECT ... FOR UPDATE` on the two rows
+    // for the duration of the transaction. This is the same primitive
+    // `libs/database/src/services/onboarding-assigner.ts` uses for the
+    // same class of read-modify-write.
+    await this.dataSource.transaction(async (manager) => {
+      // Read (or create) both rows under the lock. NOT `Promise.all`:
+      // two `FOR UPDATE` statements issued concurrently on the same
+      // transaction can deadlock, and there is nothing to gain — these
+      // are two indexed single-row lookups.
+      const homeStanding = await this.getOrCreateStanding(
+        manager,
+        leagueId,
+        homeTeamId,
+        season,
+      );
+      const awayStanding = await this.getOrCreateStanding(
+        manager,
+        leagueId,
+        awayTeamId,
+        season,
+      );
 
-    // Update home team stats
-    homeStanding.goalsFor += homeScore;
-    homeStanding.goalsAgainst += awayScore;
+      homeStanding.goalsFor += homeScore;
+      homeStanding.goalsAgainst += awayScore;
 
-    // Update away team stats
-    awayStanding.goalsFor += awayScore;
-    awayStanding.goalsAgainst += homeScore;
+      awayStanding.goalsFor += awayScore;
+      awayStanding.goalsAgainst += homeScore;
 
-    // [Fix 2026-08-23] Maintain goalDifference on the row.
-    //   season-archive.service.ts copies this column straight into
-    //   archived_season_result.goalDifference at season end, so a
-    //   stale 0 here would silently corrupt every team's end-of-
-    //   season history. The DTO path (league.service.ts getStandings)
-    //   recomputes the value in memory from goalsFor/goalsAgainst, so
-    //   this write is the DB-side single source of truth for the
-    //   archive pipeline. See the comment in recalculateLeaguePositions
-    //   for why the SQL sort key is still the computed expression.
-    homeStanding.goalDifference = homeStanding.goalsFor - homeStanding.goalsAgainst;
-    awayStanding.goalDifference = awayStanding.goalsFor - awayStanding.goalsAgainst;
+      // Maintain goalDifference on the row. `season-archive.service.ts`
+      // copies this column straight into
+      // `archived_season_result.goalDifference`, so a stale 0 would
+      // corrupt every team's end-of-season history.
+      //
+      // NOTE: this is a DERIVED column. The canonical sort key is the
+      // computed expression, not this column — see `STANDINGS_SORT_SQL`.
+      homeStanding.goalDifference =
+        homeStanding.goalsFor - homeStanding.goalsAgainst;
+      awayStanding.goalDifference =
+        awayStanding.goalsFor - awayStanding.goalsAgainst;
 
-    // [Fix 2026-08-23] `played` was never incremented anywhere, so
-    // every team's row in `league_standing` showed 0 even after wins
-    // were recorded. The DTO exposes it to the FE so the scoreboard
-    // looked broken. Increment unconditionally — the win/draw/loss
-    // branch below is just for points/W/D/L bookkeeping, not for
-    // participation.
-    homeStanding.played += 1;
-    awayStanding.played += 1;
+      // `played` drives the FE scoreboard, so it must be incremented for
+      // every match regardless of outcome. The win/draw/loss branch below
+      // is points/W/D/L bookkeeping only.
+      homeStanding.played += 1;
+      awayStanding.played += 1;
 
-    if (homeScore > awayScore) {
-      homeStanding.wins += 1;
-      homeStanding.points += 3;
-      awayStanding.losses += 1;
-    } else if (homeScore < awayScore) {
-      awayStanding.wins += 1;
-      awayStanding.points += 3;
-      homeStanding.losses += 1;
-    } else {
-      homeStanding.draws += 1;
-      homeStanding.points += 1;
-      awayStanding.draws += 1;
-      awayStanding.points += 1;
-    }
+      if (homeScore > awayScore) {
+        homeStanding.wins += 1;
+        homeStanding.points += 3;
+        awayStanding.losses += 1;
+      } else if (homeScore < awayScore) {
+        awayStanding.wins += 1;
+        awayStanding.points += 3;
+        homeStanding.losses += 1;
+      } else {
+        homeStanding.draws += 1;
+        homeStanding.points += 1;
+        awayStanding.draws += 1;
+        awayStanding.points += 1;
+      }
 
-    await this.standingRepository.save([homeStanding, awayStanding]);
+      await manager.getRepository(LeagueStandingEntity).save([
+        homeStanding,
+        awayStanding,
+      ]);
 
-    // Re-derive positions for the whole league in the same
-    // critical section as the per-team update so direct
-    // DB readers (e.g. season-archive.service.ts which copies
-    // `standing.position` into `SeasonResult.finalPosition`)
-    // see a real number rather than the entity default of 0.
-    // See the league.service.ts getStandings docstring for
-    // why the GD sort is a computed expression in the SQL
-    // rather than the `goal_difference` column.
-    await this.recalculateLeaguePositions(leagueId, season);
+      // Re-derive positions for the whole league inside the SAME
+      // transaction, so direct DB readers (`season-archive.service.ts`
+      // copies `standing.position` into `SeasonResult.finalPosition`;
+      // `promotion-relegation.service.ts` and `playoff.service.ts`
+      // select by exact `position === N`) never observe a stale rank
+      // relative to the counters they are reading.
+      await this.recalculateLeaguePositions(manager, leagueId, season);
+    });
   }
 
   /**
-   * Renumber positions 1..N for every team in the league
-   * so direct DB readers see a consistent rank. Sort key is
-   * points > (goalsFor - goalsAgainst) > goalsFor, matching
-   * the in-memory sort in LeagueService.getStandings.
+   * Renumber positions 1..N for every team in the league so direct DB
+   * readers see a consistent rank.
+   *
+   * ## Determinism
+   *
+   * The sort key is the shared `STANDINGS_SORT_SQL`, identical to the
+   * public standings endpoint's. It previously stopped at three keys
+   * (points, GD, GF), so two teams tied on all three received an
+   * ARBITRARY rank from Postgres heap order — and since promotion,
+   * relegation, playoff qualification and prize money all select by
+   * exact `position === N`, a tie silently decided who was promoted and
+   * who was paid. Keys 4-6 make the rank reproducible.
+   *
+   * ## Cost
+   *
+   * This runs after EVERY completed match, and it used to `save()` all N
+   * rows unconditionally — and TypeORM's `save(array)` emits one UPDATE
+   * per entity writing every column. At 85 leagues × 240 matches that is
+   * ~326k full-row UPDATEs per season purely renumbering, on the
+   * single-threaded completion worker. Worse, writing every column
+   * clobbered a `goals_for` that a concurrently-completing match had just
+   * incremented, using the value read a moment earlier.
+   *
+   * Now only rows whose position actually changed are written, with an
+   * explicit column list. In the common case (the two teams that just
+   * played moved, the rest did not) that is 2-3 rows instead of 16.
    */
   private async recalculateLeaguePositions(
+    manager: EntityManager,
     leagueId: string,
     season: number,
   ): Promise<void> {
-    const rows = await this.standingRepository
+    const rows = await manager
+      .getRepository(LeagueStandingEntity)
       .createQueryBuilder('s')
       .where('s.leagueId = :leagueId', { leagueId })
       .andWhere('s.season = :season', { season })
       .orderBy('s.points', 'DESC')
       .addOrderBy('s.goalsFor - s.goalsAgainst', 'DESC')
       .addOrderBy('s.goalsFor', 'DESC')
+      // Deterministic tie-breaks — see STANDINGS_SORT_SQL.
+      .addOrderBy('s.wins', 'DESC')
+      .addOrderBy('s.goalsAgainst', 'ASC')
+      .addOrderBy('s.teamId', 'ASC')
       .getMany();
+
+    const moved: LeagueStandingEntity[] = [];
     for (let i = 0; i < rows.length; i++) {
-      rows[i].position = i + 1;
+      if (rows[i].position !== i + 1) {
+        rows[i].position = i + 1;
+        moved.push(rows[i]);
+      }
     }
-    if (rows.length > 0) {
-      await this.standingRepository.save(rows);
+
+    if (moved.length === 0) {
+      return;
     }
+
+    // Write ONLY the `position` column, via a single CASE expression.
+    //
+    // `save(moved)` would emit one UPDATE per row and write EVERY column
+    // of each — which is precisely how the old version clobbered a
+    // `goals_for` that a concurrently-completing match had just
+    // incremented, using the value read a moment earlier. A
+    // column-scoped UPDATE cannot touch anything else.
+    const params: Record<string, unknown> = {};
+    const cases = moved
+      .map((r, i) => {
+        params[`id${i}`] = r.id;
+        params[`pos${i}`] = r.position;
+        return `WHEN id = :id${i} THEN :pos${i}`;
+      })
+      .join(' ');
+
+    await manager
+      .createQueryBuilder()
+      .update(LeagueStandingEntity)
+      .set({ position: () => `CASE ${cases} ELSE "position" END` })
+      .where(
+        moved.map((_, i) => `id = :id${i}`).join(' OR '),
+        params,
+      )
+      .execute();
+
+    this.logger.debug(
+      `[MatchCompletion] Renumbered ${moved.length}/${rows.length} standing(s) for league ${leagueId} season ${season}`,
+    );
   }
 
+  /**
+   * Load a team's standing row for the season, creating a zeroed row if
+   * it doesn't exist yet.
+   *
+   * Runs on the transaction's manager with `pessimistic_write` so a
+   * concurrent completion for the same team serialises here rather than
+   * reading a value that is about to change. See
+   * `updateLeagueStandings` for why that matters.
+   */
   private async getOrCreateStanding(
+    manager: EntityManager,
     leagueId: string,
     teamId: string,
     season: number,
   ): Promise<LeagueStandingEntity> {
-    let standing = await this.standingRepository.findOne({
+    const repo = manager.getRepository(LeagueStandingEntity);
+    let standing = await repo.findOne({
       where: { leagueId, teamId, season },
+      lock: { mode: 'pessimistic_write' },
     });
 
     if (!standing) {
@@ -272,7 +387,7 @@ export class MatchCompletionService {
       standing.leagueId = leagueId;
       standing.teamId = teamId;
       standing.season = season;
-      standing.position = 0; // Will be recalculated by a separate service if needed
+      standing.position = 0; // Renumbered by recalculateLeaguePositions.
       standing.points = 0;
       standing.wins = 0;
       standing.draws = 0;
@@ -283,6 +398,7 @@ export class MatchCompletionService {
 
     return standing;
   }
+
 
   /**
    * Add match minutes to players for condition/form calculation.

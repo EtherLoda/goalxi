@@ -133,27 +133,47 @@ export class LeagueStructureService {
 
   /**
    * 获取联赛当前赛季的排名
+   *
+   * Sorted with the canonical `STANDINGS_SORT_SQL` key. This used to be
+   * `order: { points: 'DESC', goalDifference: 'DESC', goalsFor: 'DESC' }`
+   * — sorted by the STORED `goal_difference` column while the other three
+   * readers sorted by the computed expression, and with no deterministic
+   * tie-break, so a total tie fell back to heap order. It also returned
+   * the raw stored `position`, which is written by
+   * `MatchCompletionService.recalculateLeaguePositions` on a different
+   * schedule — so two readers of the same league could disagree on row
+   * order.
    */
   async getLeagueStandings(
     leagueId: string,
     season: number,
   ): Promise<LeagueStandingEntity[]> {
-    return this.standingRepository.find({
-      where: { leagueId: leagueId as Uuid, season },
-      relations: ['team'],
-      order: { points: 'DESC', goalDifference: 'DESC', goalsFor: 'DESC' },
-    });
+    return this.standingRepository
+      .createQueryBuilder('s')
+      .leftJoinAndSelect('s.team', 'team')
+      .where('s.leagueId = :leagueId', { leagueId: leagueId as Uuid })
+      .andWhere('s.season = :season', { season })
+      .orderBy('s.points', 'DESC')
+      .addOrderBy('s.goalsFor - s.goalsAgainst', 'DESC')
+      .addOrderBy('s.goalsFor', 'DESC')
+      // Deterministic tie-breaks — see STANDINGS_SORT_SQL.
+      .addOrderBy('s.wins', 'DESC')
+      .addOrderBy('s.goalsAgainst', 'ASC')
+      .addOrderBy('s.teamId', 'ASC')
+      .getMany();
   }
 
   /**
    * 计算排名并更新 position 字段
    *
-   * Sorts by the COMPUTED goal-difference expression (not the
-   * `goal_difference` column, which is never maintained by
-   * the update path). Mirrors the SQL in
-   * LeagueService.getStandings and
-   * MatchCompletionService.recalculateLeaguePositions so the
-   * three places stay in lockstep.
+   * Sorts with the canonical `STANDINGS_SORT_SQL` key, mirroring
+   * `LeagueService.getStandings` and
+   * `MatchCompletionService.recalculateLeaguePositions`.
+   *
+   * Only rows whose position actually changed are written, and the write
+   * is a column-scoped `UPDATE`. `save(standings)` emitted one UPDATE per
+   * row writing every column, which could clobber a `goals_for` that a
+   * concurrently-completing match had just incremented.
    */
   async updateStandingsPositions(
     leagueId: string,
@@ -166,15 +186,41 @@ export class LeagueStructureService {
       .orderBy('s.points', 'DESC')
       .addOrderBy('s.goalsFor - s.goalsAgainst', 'DESC')
       .addOrderBy('s.goalsFor', 'DESC')
+      .addOrderBy('s.wins', 'DESC')
+      .addOrderBy('s.goalsAgainst', 'ASC')
+      .addOrderBy('s.teamId', 'ASC')
       .getMany();
 
+    const moved: LeagueStandingEntity[] = [];
     for (let i = 0; i < standings.length; i++) {
-      standings[i].position = i + 1;
+      if (standings[i].position !== i + 1) {
+        standings[i].position = i + 1;
+        moved.push(standings[i]);
+      }
     }
 
-    if (standings.length > 0) {
-      await this.standingRepository.save(standings);
+    if (moved.length === 0) {
+      return;
     }
+
+    const params: Record<string, unknown> = {};
+    const cases = moved
+      .map((r, i) => {
+        params[`id${i}`] = r.id;
+        params[`pos${i}`] = r.position;
+        return `WHEN id = :id${i} THEN :pos${i}`;
+      })
+      .join(' ');
+
+    await this.standingRepository
+      .createQueryBuilder()
+      .update(LeagueStandingEntity)
+      .set({ position: () => `CASE ${cases} ELSE "position" END` })
+      .where(
+        moved.map((_, i) => `id = :id${i}`).join(' OR '),
+        params,
+      )
+      .execute();
   }
 
   /**

@@ -185,21 +185,33 @@ describe('LeagueService.getStandings (SQL sort regression)', () => {
   // resolution (resolveLeagueId -> LeagueEntity.findOne) for
   // every test after the first one in this block.
 
-  it('builds the SQL with Points -> GD -> Goals For in the right order', async () => {
+  it('builds the SQL with the canonical deterministic sort key', async () => {
     await service.getStandings('some-league' as Uuid, 1);
 
     // Points first, then the computed goal-difference expression, then
-    // goalsFor. Any future contributor reordering these (e.g. to "sort
-    // by GF first for tiebreak") would change ranking semantics for
-    // tied-points teams, so we pin the order here.
+    // goalsFor, then the deterministic tie-breaks. Any future contributor
+    // reordering or truncating these changes ranking semantics for
+    // tied teams, so we pin the full chain here.
+    //
+    // Keys 4-6 exist because the previous three-key sort left a total tie
+    // to Postgres heap order — and promotion, relegation, playoff
+    // qualification and prize money all select by exact `position === N`,
+    // so that tie silently decided who was promoted and who was paid.
     expect(qbChain.orderBy).toHaveBeenCalledWith('s.points', 'DESC');
-    expect(qbChain.addOrderBy).toHaveBeenCalledTimes(2);
+    expect(qbChain.addOrderBy).toHaveBeenCalledTimes(5);
     expect(qbChain.addOrderBy).toHaveBeenNthCalledWith(
       1,
       's.goalsFor - s.goalsAgainst',
       'DESC',
     );
     expect(qbChain.addOrderBy).toHaveBeenNthCalledWith(2, 's.goalsFor', 'DESC');
+    expect(qbChain.addOrderBy).toHaveBeenNthCalledWith(3, 's.wins', 'DESC');
+    expect(qbChain.addOrderBy).toHaveBeenNthCalledWith(
+      4,
+      's.goalsAgainst',
+      'ASC',
+    );
+    expect(qbChain.addOrderBy).toHaveBeenNthCalledWith(5, 's.teamId', 'ASC');
   });
 
   it('renumbers positions 1..N from the DB-sorted result order (no in-memory sort)', async () => {

@@ -118,18 +118,22 @@ export class LeagueService {
   ): Promise<LeagueStandingResDto[]> {
     const leagueId = await this.resolveLeagueId(id);
 
-    // Sort by Points -> Goal Difference -> Goals For in the DB so
-    // the FE receives rows already in rank order. The previous
-    // `find({ order: { points, goalsFor } })` skipped GD, so two
-    // teams with equal points but different GDs came back in DB
-    // insertion order, forcing a wasteful in-memory re-sort and
-    // a second pass to renumber positions. The `goalDifference`
-    // column on the entity exists but isn't maintained by the
-    // update path (match-completion.service.ts updateLeagueStandings
-    // only writes goalsFor / goalsAgainst), so we compute GD
-    // inline. TypeORM 0.3's addOrderBy doesn't quote expressions
-    // containing arithmetic, so the generated SQL is the raw
-    // `s.goalsFor - s.goalsAgainst` PG expects.
+    // Sort in the DB so the FE receives rows already in rank order, using
+    // the SAME key as `MatchCompletionService.recalculateLeaguePositions`
+    // and `league-structure.service.ts`. The three implementations used to
+    // drift apart — one sorted by the stored `goal_difference` column, the
+    // other two by the computed expression — and they all stopped at three
+    // keys, so a team tied on (points, GD, GF) got an arbitrary rank from
+    // Postgres heap order. `STANDINGS_SORT_SQL` documents the 4th/5th/6th
+    // tie-breaks.
+    //
+    // `goalDifference` IS maintained now (`updateLeagueStandings` writes
+    // it), but the computed expression stays the canonical key so the
+    // sort can't be wrong even if a row predates that fix.
+    //
+    // TypeORM 0.3's addOrderBy doesn't quote expressions containing
+    // arithmetic, so the generated SQL is the raw `s.goalsFor -
+    // s.goalsAgainst` PG expects.
     const standings = await LeagueStandingEntity.createQueryBuilder('s')
       .leftJoinAndSelect('s.team', 'team')
       .where('s.leagueId = :leagueId', { leagueId })
@@ -137,6 +141,9 @@ export class LeagueService {
       .orderBy('s.points', 'DESC')
       .addOrderBy('s.goalsFor - s.goalsAgainst', 'DESC')
       .addOrderBy('s.goalsFor', 'DESC')
+      .addOrderBy('s.wins', 'DESC')
+      .addOrderBy('s.goalsAgainst', 'ASC')
+      .addOrderBy('s.teamId', 'ASC')
       .getMany();
 
     // Get completed matches to calculate recentForm dynamically

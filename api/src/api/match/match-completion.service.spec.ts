@@ -12,7 +12,7 @@ import {
 } from '@goalxi/database';
 import { LOGGER_SERVICE } from '@goalxi/logger';
 import { Test, TestingModule } from '@nestjs/testing';
-import { getRepositoryToken } from '@nestjs/typeorm';
+import { getDataSourceToken, getRepositoryToken } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { FinanceService } from '../finance/finance.service';
 import { FanService } from '../fan/fan.service';
@@ -69,8 +69,52 @@ describe('MatchCompletionService data-flow review', () => {
   let cacheService: jest.Mocked<MatchCacheService>;
   let financeService: jest.Mocked<FinanceService>;
   let fanService: jest.Mocked<FanService>;
+  let dataSource: {
+    transaction: jest.Mock;
+    createQueryBuilder: jest.Mock;
+    _txManager: { getRepository: jest.Mock; createQueryBuilder: jest.Mock };
+    _txUpdateChain: Record<string, jest.Mock>;
+  };
 
   beforeEach(async () => {
+    // `updateLeagueStandings` now runs inside
+    // `dataSource.transaction(...)` with `pessimistic_write` row locks —
+    // the old `findOne -> mutate -> save` with no transaction was a lost
+    // update whenever two matches for the same team completed
+    // concurrently (double matchweeks are explicitly supported).
+    //
+    // The fake manager hands back the same repo mocks the DI tokens
+    // provide, and `createQueryBuilder` is shared so tests can drive the
+    // position-recacl and the column-scoped UPDATE.
+    const mockStandingRepo = {
+      findOne: jest.fn(),
+      find: jest.fn(),
+      save: jest.fn(),
+      createQueryBuilder: jest.fn(),
+    };
+    // Mirrors `manager.createQueryBuilder().update(Entity).set(...).where(...)`.
+    const txUpdateChain = {
+      update: jest.fn().mockReturnThis(),
+      set: jest.fn().mockReturnThis(),
+      where: jest.fn().mockReturnThis(),
+      execute: jest.fn().mockResolvedValue({ affected: 1 }),
+    };
+    const txManager = {
+      getRepository: jest.fn().mockImplementation((entity: any) => {
+        if (entity?.name === 'LeagueStandingEntity') return mockStandingRepo;
+        return { find: jest.fn(), findOne: jest.fn(), save: jest.fn() };
+      }),
+      createQueryBuilder: jest
+        .fn()
+        .mockReturnValue(txUpdateChain),
+    };
+    dataSource = {
+      transaction: jest.fn(async (cb: any) => cb(txManager)),
+      createQueryBuilder: jest.fn().mockReturnValue(txUpdateChain),
+      _txManager: txManager,
+      _txUpdateChain: txUpdateChain,
+    };
+
     const moduleRef: TestingModule = await Test.createTestingModule({
       providers: [
         MatchCompletionService,
@@ -97,12 +141,11 @@ describe('MatchCompletionService data-flow review', () => {
         },
         {
           provide: getRepositoryToken(LeagueStandingEntity),
-          useValue: {
-            findOne: jest.fn(),
-            find: jest.fn(),
-            save: jest.fn(),
-            createQueryBuilder: jest.fn(),
-          },
+          useValue: mockStandingRepo,
+        },
+        {
+          provide: getDataSourceToken(),
+          useValue: dataSource,
         },
         {
           provide: getRepositoryToken(PlayerEntity),
@@ -333,22 +376,37 @@ describe('MatchCompletionService data-flow review', () => {
 
       await (service as any).updateLeagueStandings(leagueMatch);
 
-      // The two team findOne calls + one QueryBuilder fetch.
+      // The two team lookups (now `FOR UPDATE`) + one QueryBuilder fetch.
       expect(standingRepository.findOne).toHaveBeenCalledTimes(2);
       expect(standingRepository.createQueryBuilder).toHaveBeenCalledTimes(1);
-      // Two save calls expected: the per-team update, then
-      // the position renumber. The renumber save is the one
-      // that actually carries the new positions (1 and 2).
-      expect(standingRepository.save).toHaveBeenCalledTimes(2);
-      const renumberedRows = standingRepository.save.mock
-        .calls[1][0] as any[];
-      const positions = renumberedRows
-        .map((r: any) => r.position)
+
+      // ONE save now. Previously there were two: the per-team stat
+      // update, then a `save(rows)` renumbering the whole league. The
+      // renumber is now a column-scoped UPDATE that only touches rows
+      // whose position actually changed — the old full-row `save`
+      // wrote every column of all 16 rows on every completed match
+      // (~326k full-row UPDATEs per season) and could clobber a
+      // `goals_for` a concurrent completion had just incremented.
+      expect(standingRepository.save).toHaveBeenCalledTimes(1);
+      // Both rows moved from position 0, so the renumber fires.
+      expect(dataSource._txManager.createQueryBuilder).toHaveBeenCalled();
+      const updateChain = dataSource._txUpdateChain;
+      const setArg = updateChain.set.mock.calls[0][0];
+      expect(Object.keys(setArg)).toEqual(["position"]);
+      // Positions 1 and 2 are bound as parameters, not interpolated.
+      const whereParams = updateChain.where.mock.calls[0][1] as Record<
+        string,
+        unknown
+      >;
+      const positions = Object.entries(whereParams)
+        .filter(([k]) => k.startsWith('pos'))
+        .map(([, v]) => v)
         .sort();
       expect(positions).toEqual([1, 2]);
-      // The first save carried the per-team stat update
-      // (wins/losses/points/goals). The home team won 3-1
-      // so the home standing should be 1 win, 0 loss, 3 pts.
+
+      // The single save carried the per-team stat update (wins /
+      // losses / points / goals). The home team won 3-1, so the home
+      // standing should be 1 win, 0 loss, 3 pts.
       const perTeamRows = standingRepository.save.mock
         .calls[0][0] as any[];
       const homeRow = perTeamRows.find(
@@ -361,6 +419,64 @@ describe('MatchCompletionService data-flow review', () => {
       );
       expect(awayRow.losses).toBe(1);
       expect(awayRow.points).toBe(0);
+    });
+
+    it("REGRESSION: reads the standings under a row lock, in a transaction", async () => {
+      // The old shape was `findOne` -> mutate in JS -> `save()` with no
+      // transaction, no row lock and no version column: a textbook lost
+      // update. Two matches for the same team completing concurrently (a
+      // Saturday double-matchweek is explicitly supported —
+      // `match.entity.ts` "Round within the week (1 or 2 for double
+      // matchweeks)") both read the same row and the second write
+      // clobbered the first's `points += 3`.
+      //
+      // Nothing enforced single-threadedness either: the completion
+      // worker merely happened to be registered with BullMQ's default
+      // concurrency of 1, an accident of configuration rather than a
+      // contract. Raising it — the obvious throughput fix — would have
+      // silently corrupted the table.
+      const leagueMatch = {
+        id: "match-lock",
+        type: "league",
+        leagueId: "league-uuid",
+        season: 1,
+        homeTeamId: "team-home",
+        awayTeamId: "team-away",
+        homeScore: 1,
+        awayScore: 0,
+        status: MatchStatus.COMPLETED,
+      } as unknown as MatchEntity;
+
+      standingRepository.findOne.mockResolvedValue(
+        makeStanding({ teamId: "team-home", points: 0 }),
+      );
+      standingRepository.createQueryBuilder.mockReturnValue({
+        where: jest.fn().mockReturnThis(),
+        andWhere: jest.fn().mockReturnThis(),
+        orderBy: jest.fn().mockReturnThis(),
+        addOrderBy: jest.fn().mockReturnThis(),
+        getMany: jest.fn().mockResolvedValue([]),
+      } as any);
+
+      await (service as any).updateLeagueStandings(leagueMatch);
+
+      // Everything happens inside one transaction.
+      expect(dataSource.transaction).toHaveBeenCalledTimes(1);
+
+      // And both reads take a write lock, which is what serialises
+      // concurrent completions for the same team.
+      const lockArg = standingRepository.findOne.mock.calls[0][0];
+      expect(lockArg).toEqual(
+        expect.objectContaining({
+          lock: { mode: "pessimistic_write" },
+        }),
+      );
+
+      // The writes run on the transaction's manager, not the injected
+      // repo, so they participate in the same transaction.
+      expect(dataSource._txManager.getRepository).toHaveBeenCalledWith(
+        LeagueStandingEntity,
+      );
     });
 
     it("REGRESSION: skips for PLAYOFF matches (leagueId is NOT null)", async () => {
@@ -488,18 +604,20 @@ describe('MatchCompletionService data-flow review', () => {
   });
 
   describe("recalculateLeaguePositions", () => {
-    // The recalc uses a QueryBuilder with the computed GD
-    // expression. The previous implementation (still found in
-    // LeagueStructureService.updateStandingsPositions until
-    // the review) sorted by the `goalDifference` column which
-    // is never maintained, so the tiebreak was wrong. This
-    // case pins the computed-expression sort key.
-    it("renumbers positions 1..N by points > (GF - GA) > GF", async () => {
-      // Pre-sort the rows the way TypeORM would after the
-      // ORDER BY points DESC, (GF - GA) DESC, GF DESC. The
-      // mock QueryBuilder doesn\'t actually run the SQL, so
-      // we have to feed the rows in already-sorted order:
-      //   - team-b: 9 pts, GD +5, GF 7  (best GD, #1)
+    // The recalc uses a QueryBuilder with the computed GD expression and
+    // a deterministic tie-break chain. A previous implementation (still
+    // in LeagueStructureService until this batch) sorted by the
+    // `goalDifference` column, and every implementation stopped at three
+    // keys — so a team tied on (points, GD, GF) got an arbitrary rank
+    // from Postgres heap order, and since promotion / relegation /
+    // playoff qualification all select by exact `position === N`, that
+    // tie silently decided who was promoted. `standings-sort.spec.ts` is
+    // the cross-file contract test.
+    it("renumbers positions 1..N and writes ONLY the changed rows", async () => {
+      // Pre-sort the rows the way TypeORM would after the ORDER BY. The
+      // mock QueryBuilder doesn't run the SQL, so we feed the rows in
+      // already-sorted order:
+      //   - team-b: 9 pts, GD +5, GF 7  (#1)
       //   - team-a: 9 pts, GD +2, GF 5  (same pts, worse GD, #2)
       //   - team-c: 6 pts, GD +1, GF 4  (#3)
       const qb = {
@@ -508,36 +626,66 @@ describe('MatchCompletionService data-flow review', () => {
         orderBy: jest.fn().mockReturnThis(),
         addOrderBy: jest.fn().mockReturnThis(),
         getMany: jest.fn().mockResolvedValue([
-          makeStanding({ teamId: "team-b", points: 9, goalsFor: 7, goalsAgainst: 2 }),
-          makeStanding({ teamId: "team-a", points: 9, goalsFor: 5, goalsAgainst: 3 }),
-          makeStanding({ teamId: "team-c", points: 6, goalsFor: 4, goalsAgainst: 3 }),
+          makeStanding({ id: "s-b", teamId: "team-b", position: 1, points: 9, goalsFor: 7, goalsAgainst: 2 }),
+          makeStanding({ id: "s-a", teamId: "team-a", position: 2, points: 9, goalsFor: 5, goalsAgainst: 3 }),
+          makeStanding({ id: "s-c", teamId: "team-c", position: 3, points: 6, goalsFor: 4, goalsAgainst: 3 }),
         ]),
       };
       standingRepository.createQueryBuilder.mockReturnValue(qb as any);
-      standingRepository.save.mockResolvedValue([] as any);
 
-      await (service as any).recalculateLeaguePositions("league-uuid", 1);
+      await (service as any).recalculateLeaguePositions(
+        dataSource._txManager,
+        "league-uuid",
+        1,
+      );
 
-      // The three addOrderBy calls pin the GD expression + GF
-      // tiebreak. A future refactor that switches to the
-      // `goalDifference` column would break the test.
+      // The full deterministic key: computed GD, GF, then wins /
+      // goals-against / teamId so a tie is never resolved by heap order.
       expect(qb.addOrderBy).toHaveBeenCalledWith(
         "s.goalsFor - s.goalsAgainst",
         "DESC",
       );
       expect(qb.addOrderBy).toHaveBeenCalledWith("s.goalsFor", "DESC");
-      expect(qb.addOrderBy).toHaveBeenCalledTimes(2);
+      expect(qb.addOrderBy).toHaveBeenCalledWith("s.wins", "DESC");
+      expect(qb.addOrderBy).toHaveBeenCalledWith("s.goalsAgainst", "ASC");
+      expect(qb.addOrderBy).toHaveBeenCalledWith("s.teamId", "ASC");
+      expect(qb.addOrderBy).toHaveBeenCalledTimes(5);
 
-      // The save payload should have positions 1, 2, 3 in the
-      // order dictated by the sort: team-b, team-a, team-c.
-      expect(standingRepository.save).toHaveBeenCalled();
-      const saved = standingRepository.save.mock.calls[0][0] as any[];
-      const sortedByPos = [...saved].sort((a, b) => a.position - b.position);
-      expect(sortedByPos.map((r) => r.teamId)).toEqual([
-        "team-b",
-        "team-a",
-        "team-c",
-      ]);
+      // Nobody moved, so no UPDATE fires at all. The old code
+      // `save()`d all N rows unconditionally — ~326k full-row UPDATEs
+      // per season, each writing every column and therefore able to
+      // clobber a `goals_for` a concurrent completion had just bumped.
+      expect(dataSource._txManager.createQueryBuilder).not.toHaveBeenCalled();
+      expect(standingRepository.save).not.toHaveBeenCalled();
+    });
+
+    it("writes only the position column of the rows that moved", async () => {
+      const qb = {
+        where: jest.fn().mockReturnThis(),
+        andWhere: jest.fn().mockReturnThis(),
+        orderBy: jest.fn().mockReturnThis(),
+        addOrderBy: jest.fn().mockReturnThis(),
+        // team-c jumped from 3rd to 1st; team-a/b shifted down one.
+        getMany: jest.fn().mockResolvedValue([
+          makeStanding({ id: "s-c", teamId: "team-c", position: 3, points: 12, goalsFor: 9, goalsAgainst: 1 }),
+          makeStanding({ id: "s-b", teamId: "team-b", position: 1, points: 9, goalsFor: 7, goalsAgainst: 2 }),
+          makeStanding({ id: "s-a", teamId: "team-a", position: 2, points: 9, goalsFor: 5, goalsAgainst: 3 }),
+        ]),
+      };
+      standingRepository.createQueryBuilder.mockReturnValue(qb as any);
+
+      await (service as any).recalculateLeaguePositions(
+        dataSource._txManager,
+        "league-uuid",
+        1,
+      );
+
+      expect(dataSource._txManager.createQueryBuilder).toHaveBeenCalled();
+      // Column-scoped UPDATE. `save(moved)` would write every column of
+      // every moved row — which is how a concurrent completion's
+      // `goals_for` increment got clobbered.
+      const setArg = dataSource._txUpdateChain.set.mock.calls[0][0];
+      expect(Object.keys(setArg)).toEqual(["position"]);
     });
 
     it("is a no-op when the league has no standing rows yet", async () => {
@@ -549,13 +697,16 @@ describe('MatchCompletionService data-flow review', () => {
         getMany: jest.fn().mockResolvedValue([]),
       };
       standingRepository.createQueryBuilder.mockReturnValue(qb as any);
-      standingRepository.save.mockResolvedValue([] as any);
 
-      await (service as any).recalculateLeaguePositions("empty-league", 1);
+      await (service as any).recalculateLeaguePositions(
+        dataSource._txManager,
+        "empty-league",
+        1,
+      );
 
-      // The save is skipped when there\'s nothing to renumber.
-      // We do this so the SQL UPDATE doesn\'t fire on every
-      // match in a league that hasn\'t started yet.
+      // Nothing to renumber, so no UPDATE fires — we don't want the SQL
+      // to run on every match in a league that hasn't started yet.
+      expect(dataSource._txManager.createQueryBuilder).not.toHaveBeenCalled();
       expect(standingRepository.save).not.toHaveBeenCalled();
     });
   });
