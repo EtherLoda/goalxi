@@ -54,19 +54,22 @@ export const STANDINGS_SORT_SQL = [
  * deliberately: if you change one you must change the other, and the
  * `standings-sort.spec.ts` contract test asserts they agree.
  */
-export function compareStandings(a: {
-  points: number;
-  goalsFor: number;
-  goalsAgainst: number;
-  wins: number;
-  teamId: string;
-}, b: {
-  points: number;
-  goalsFor: number;
-  goalsAgainst: number;
-  wins: number;
-  teamId: string;
-}): number {
+export function compareStandings(
+  a: {
+    points: number;
+    goalsFor: number;
+    goalsAgainst: number;
+    wins: number;
+    teamId: string;
+  },
+  b: {
+    points: number;
+    goalsFor: number;
+    goalsAgainst: number;
+    wins: number;
+    teamId: string;
+  },
+): number {
   if (a.points !== b.points) return b.points - a.points;
   const gdA = a.goalsFor - a.goalsAgainst;
   const gdB = b.goalsFor - b.goalsAgainst;

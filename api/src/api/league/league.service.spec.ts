@@ -152,6 +152,13 @@ describe('LeagueService.getStandings (SQL sort regression)', () => {
     addOrderBy: jest.Mock;
     getMany: jest.Mock;
   };
+  let recentFormChain: {
+    select: jest.Mock;
+    addSelect: jest.Mock;
+    from: jest.Mock;
+    setParameter: jest.Mock;
+    getRawMany: jest.Mock;
+  };
 
   beforeEach(() => {
     service = new LeagueService();
@@ -166,7 +173,22 @@ describe('LeagueService.getStandings (SQL sort regression)', () => {
     jest
       .spyOn(LeagueStandingEntity, 'createQueryBuilder')
       .mockReturnValue(qbChain as any);
-    jest.spyOn(MatchEntity, 'find').mockResolvedValue([] as any);
+
+    // The recent-form strip used to be `MatchEntity.find(...)` over the
+    // WHOLE season, filtered per team in Node. It's now one window-
+    // function query (`loadRecentForm`), so the stub is a fluent chain
+    // ending in `getRawMany`. Kept as a spy rather than a real query
+    // builder because these tests assert on the STANDINGS sort key.
+    recentFormChain = {
+      select: jest.fn().mockReturnThis(),
+      addSelect: jest.fn().mockReturnThis(),
+      from: jest.fn().mockReturnThis(),
+      setParameter: jest.fn().mockReturnThis(),
+      getRawMany: jest.fn().mockResolvedValue([]),
+    };
+    jest
+      .spyOn(MatchEntity, 'createQueryBuilder')
+      .mockReturnValue(recentFormChain as any);
     // resolveLeagueId hits LeagueEntity.findOne for slug inputs
     // (the test calls getStandings with 'some-league', not a UUID)
     // and runs BEFORE the QueryBuilder mock, so we need this spy
@@ -306,4 +328,135 @@ describe('LeagueService.getStandings (SQL sort regression)', () => {
     expect(out[0].position).toBe(1);
     expect(out[1].position).toBe(2);
   });
+
+  it('REGRESSION: builds the recent form with ONE window-function query, not a full-season load', async () => {
+    // The old code did `MatchEntity.find({ where: { leagueId, season,
+    // status: 'completed' }, relations: ['homeTeam','awayTeam'],
+    // order: { completedAt: 'DESC' } })` — the WHOLE season (240 matches
+    // + 480 joined team rows) — then `.filter(...)` over that array once
+    // per standing. That's O(teams x matches) = 3,840 comparisons per
+    // request on a `@Public()` endpoint, and no `match` index covered
+    // the predicate, so it was a seq scan + sort on every page view.
+    //
+    // Now `loadRecentForm` issues one query that expands each match into
+    // a row per participant, ranks with ROW_NUMBER() PARTITION BY team,
+    // and keeps the top 5. These assertions pin that shape so a
+    // regression back to a full-season load is caught.
+    await service.getStandings('some-league' as Uuid, 1);
+
+    // A single FROM subquery, not the entity table.
+    expect(recentFormChain.from).toHaveBeenCalledTimes(1);
+    const sql = recentFormChain.from.mock.calls[0][0] as string;
+
+    // Window function, partitioned per team and ordered most-recent-first.
+    expect(sql).toContain('ROW_NUMBER() OVER');
+    expect(sql).toMatch(
+      /PARTITION BY m\.home_team_id\s+ORDER BY m\.completed_at DESC NULLS LAST, m\.id DESC/,
+    );
+    expect(sql).toMatch(
+      /PARTITION BY m\.away_team_id\s+ORDER BY m\.completed_at DESC NULLS LAST, m\.id DESC/,
+    );
+    // Bounded to the top N per team, and N is a bound parameter.
+    expect(sql).toContain('WHERE rn <= :limit');
+    expect(recentFormChain.setParameter).toHaveBeenCalledWith('limit', 5);
+    // Scoped to this league + season + completed only.
+    expect(sql).toContain('m.league_id = :leagueId');
+    expect(sql).toContain('m.season = :season');
+    expect(sql).toContain("m.status = 'completed'");
+    // Opponent names come from the join rather than a relation load.
+    expect(sql).toContain('ht.name AS home_team_name');
+    expect(sql).toContain('at.name AS away_team_name');
+    // getRawMany, not getMany — we want the aliased scalar columns.
+    expect(recentFormChain.getRawMany).toHaveBeenCalled();
+  });
+
+  it('REGRESSION: groups the recent-form rows per team and keeps them newest-first', async () => {
+    // The outer SELECT has no ORDER BY of its own, so `loadRecentForm`
+    // re-sorts each team's slice — the DTO's `recentMatches[0]` is
+    // "last match" and must not depend on Postgres row order.
+    recentFormChain.getRawMany.mockResolvedValueOnce([
+      row('team-A', '2026-03-01T00:00:00Z'),
+      row('team-A', '2026-04-01T00:00:00Z'),
+      row('team-A', '2026-02-01T00:00:00Z'),
+      row('team-B', '2026-04-02T00:00:00Z'),
+    ]);
+
+    qbChain.getMany.mockResolvedValueOnce([
+      {
+        teamId: 'team-A',
+        team: { name: 'A' } as any,
+        points: 3,
+        wins: 1,
+        draws: 0,
+        losses: 0,
+        goalsFor: 2,
+        goalsAgainst: 0,
+        position: 1,
+      },
+      {
+        teamId: 'team-B',
+        team: { name: 'B' } as any,
+        points: 0,
+        wins: 0,
+        draws: 0,
+        losses: 1,
+        goalsFor: 0,
+        goalsAgainst: 2,
+        position: 2,
+      },
+    ]);
+
+    const out = await service.getStandings('some-league' as Uuid, 1);
+
+    const teamA = out.find((r) => r.teamId === 'team-A')!;
+    expect(teamA.recentMatches).toHaveLength(3);
+    expect(
+      (teamA.recentMatches as any[]).map((m) => m.scheduledAt),
+    ).toEqual([
+      '2026-04-01T00:00:00Z',
+      '2026-03-01T00:00:00Z',
+      '2026-02-01T00:00:00Z',
+    ]);
+
+    // A team with no rows at all gets an empty array, not undefined —
+    // the DTO declares `recentMatches` as a list, and `undefined` would
+    // break any FE that maps over it.
+    const teamB = out.find((r) => r.teamId === 'team-B')!;
+    expect(teamB.recentMatches).toHaveLength(1);
+    expect((teamB.recentMatches as any[])[0].scheduledAt).toBe(
+      '2026-04-02T00:00:00Z',
+    );
+
+    // And a standing whose teamId never appears in the result set.
+    qbChain.getMany.mockResolvedValueOnce([
+      {
+        teamId: 'team-Z',
+        team: { name: 'Z' } as any,
+        points: 0,
+        wins: 0,
+        draws: 0,
+        losses: 0,
+        goalsFor: 0,
+        goalsAgainst: 0,
+        position: 1,
+      },
+    ]);
+    const out2 = await service.getStandings('some-league' as Uuid, 1);
+    expect(out2[0].recentMatches).toEqual([]);
+  });
 });
+
+/** One raw recent-form row as the SQL aliases it. */
+function row(teamId: string, completedAtIso: string) {
+  return {
+    teamId,
+    homeTeamId: teamId,
+    awayTeamId: 'other',
+    homeScore: 1,
+    awayScore: 0,
+    homeTeamName: 'Home',
+    awayTeamName: 'Away',
+    completedAtIso,
+    scheduledAtIso: completedAtIso,
+  };
+}

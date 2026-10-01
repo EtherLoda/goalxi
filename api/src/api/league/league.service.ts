@@ -17,6 +17,25 @@ import { LeagueResDto } from './dto/league.res.dto';
 import { ListLeagueReqDto } from './dto/list-league.req.dto';
 import { UpdateLeagueReqDto } from './dto/update-league.req.dto';
 
+/**
+ * How many completed matches the FE's recent-form strip shows per team.
+ * The DTO contract is 5 (`recentMatches[0]` is "last match").
+ */
+const RECENT_FORM_MATCHES = 5;
+
+/** One row of the recent-form query (snake_case aliases are mapped in SQL). */
+interface RecentFormRow {
+  teamId: string;
+  homeTeamId: string;
+  awayTeamId: string;
+  homeScore: number;
+  awayScore: number;
+  homeTeamName: string | null;
+  awayTeamName: string | null;
+  completedAtIso: string | null;
+  scheduledAtIso: string | null;
+}
+
 @Injectable()
 export class LeagueService {
   constructor() {}
@@ -146,23 +165,26 @@ export class LeagueService {
       .addOrderBy('s.teamId', 'ASC')
       .getMany();
 
-    // Get completed matches to calculate recentForm dynamically
-    const completedMatches = await MatchEntity.find({
-      where: { leagueId, season, status: 'completed' as any },
-      relations: ['homeTeam', 'awayTeam'],
-      order: { completedAt: 'DESC' },
-    });
+    // Recent form: the last 5 completed matches per team.
+    //
+    // This used to load EVERY completed match in the season with both
+    // team relations joined (240 matches + 480 team rows), then filter
+    // that array in Node once per standing — O(teams x matches), i.e.
+    // 3,840 comparisons per request, on a `@Public()` endpoint. None of
+    // the `match` indexes covered the predicate, so it was also a seq
+    // scan plus a sort on every page view.
+    //
+    // One window-function query instead: expand each match into a row per
+    // participant, rank each team's rows by `completed_at DESC`, keep the
+    // top 5. At most 5 x 16 = 80 rows come back regardless of season
+    // length, and the new `(league_id, season, status, completed_at)`
+    // index (migration 1788000000020) serves it.
+    const recentMatchesByTeam = await this.loadRecentForm(leagueId, season);
 
     // Build recentMatches with details for each team
     const teamRecentMatches: Record<string, any[]> = {};
     for (const standing of standings) {
-      const teamMatches = completedMatches
-        .filter(
-          (m) =>
-            m.homeTeamId === standing.teamId ||
-            m.awayTeamId === standing.teamId,
-        )
-        .slice(0, 5);
+      const teamMatches = recentMatchesByTeam.get(standing.teamId) ?? [];
 
       const matches = [];
       for (const m of teamMatches) {
@@ -170,8 +192,8 @@ export class LeagueService {
         const myScore = isHome ? m.homeScore : m.awayScore;
         const oppScore = isHome ? m.awayScore : m.homeScore;
         const opponentName = isHome
-          ? (m.awayTeam as any)?.name || 'Unknown'
-          : (m.homeTeam as any)?.name || 'Unknown';
+          ? (m.awayTeamName ?? 'Unknown')
+          : (m.homeTeamName ?? 'Unknown');
 
         let result: 'W' | 'D' | 'L';
         if (myScore > oppScore) result = 'W';
@@ -184,18 +206,15 @@ export class LeagueService {
           awayScore: m.awayScore,
           opponentName,
           isHome,
-          scheduledAt:
-            m.completedAt?.toISOString() || m.scheduledAt?.toISOString() || '',
+          scheduledAt: m.completedAtIso || m.scheduledAtIso || '',
         });
       }
       teamRecentMatches[standing.teamId] = matches;
     }
 
     // The SQL already returns standings in rank order, so the only
-    // work left is to compute GD for the DTO (the column exists on
-    // the entity but isn't maintained by the update path) and to
-    // renumber positions 1..N from the result index. No in-memory
-    // sort needed — the DB did it.
+    // work left is to compute GD for the DTO and renumber positions 1..N
+    // from the result index. No in-memory sort needed — the DB did it.
     const result = standings.map((s) => {
       const recentMatches = teamRecentMatches[s.teamId] || [];
       return {
@@ -214,6 +233,110 @@ export class LeagueService {
     return plainToInstance(LeagueStandingResDto, result, {
       excludeExtraneousValues: true,
     });
+  }
+
+  /**
+   * The last `RECENT_FORM_MATCHES` completed matches for every team in a
+   * league+season, as a Map keyed by teamId and already ordered most
+   * recent first.
+   *
+   * ## Why raw SQL
+   *
+   * The shape needed is "top N per group", which needs a window
+   * function. TypeORM's query builder has no portable API for that, and
+   * the previous implementation approximated it in Node — loading the
+   * whole season and filtering it once per team.
+   *
+   * The query:
+   *   1. `per_team` — a `UNION ALL` that expands each match into one row
+   *      per participant, carrying the OPPONENT's name along. Both halves
+   *      hit `(league_id, season, status, completed_at)`.
+   *   2. `ranked` — `ROW_NUMBER() OVER (PARTITION BY team_id ORDER BY
+   *      completed_at DESC, id DESC)`; `id DESC` is a deterministic
+   *      tie-break so two matches completed in the same millisecond don't
+   *      swap places between requests.
+   *   3. outer — keep `rn <= 5`.
+   *
+   * `completed_at DESC NULLS LAST` keeps matches that were completed
+   * without a timestamp (older rows / admin replays) out of the "recent"
+   * strip rather than letting NULLs sort to the top.
+   */
+  private async loadRecentForm(
+    leagueId: string,
+    season: number,
+  ): Promise<Map<string, RecentFormRow[]>> {
+    const rows = await MatchEntity.createQueryBuilder()
+      .select('p.team_id', 'teamId')
+      .addSelect('p.home_score', 'homeScore')
+      .addSelect('p.away_score', 'awayScore')
+      .addSelect('p.home_team_id', 'homeTeamId')
+      .addSelect('p.away_team_id', 'awayTeamId')
+      .addSelect('p.home_team_name', 'homeTeamName')
+      .addSelect('p.away_team_name', 'awayTeamName')
+      .addSelect('p.completed_at_iso', 'completedAtIso')
+      .addSelect('p.scheduled_at_iso', 'scheduledAtIso')
+      .from(
+        `(
+          SELECT * FROM (
+            SELECT
+              m.home_team_id AS team_id,
+              m.home_team_id, m.away_team_id,
+              m.home_score, m.away_score,
+              m.scheduled_at, m.completed_at,
+              m.season,
+              ht.name AS home_team_name,
+              at.name AS away_team_name,
+              ROW_NUMBER() OVER (
+                PARTITION BY m.home_team_id
+                ORDER BY m.completed_at DESC NULLS LAST, m.id DESC
+              ) AS rn
+            FROM "match" m
+            LEFT JOIN "team" ht ON ht.id = m.home_team_id
+            LEFT JOIN "team" at ON at.id = m.away_team_id
+            WHERE m.league_id = :leagueId
+              AND m.season = :season
+              AND m.status = 'completed'
+            UNION ALL
+            SELECT
+              m.away_team_id AS team_id,
+              m.home_team_id, m.away_team_id,
+              m.home_score, m.away_score,
+              m.scheduled_at, m.completed_at,
+              m.season,
+              ht.name AS home_team_name,
+              at.name AS away_team_name,
+              ROW_NUMBER() OVER (
+                PARTITION BY m.away_team_id
+                ORDER BY m.completed_at DESC NULLS LAST, m.id DESC
+              ) AS rn
+            FROM "match" m
+            LEFT JOIN "team" ht ON ht.id = m.home_team_id
+            LEFT JOIN "team" at ON at.id = m.away_team_id
+            WHERE m.league_id = :leagueId
+              AND m.season = :season
+              AND m.status = 'completed'
+          ) all_rows WHERE rn <= :limit
+        ) p`,
+        'p',
+      )
+      .setParameter('leagueId', leagueId)
+      .setParameter('season', season)
+      .setParameter('limit', RECENT_FORM_MATCHES)
+      .getRawMany<RecentFormRow>();
+
+    const byTeam = new Map<string, RecentFormRow[]>();
+    for (const row of rows) {
+      const list = byTeam.get(row.teamId) ?? [];
+      list.push(row);
+      byTeam.set(row.teamId, list);
+    }
+    // The outer SELECT has no ORDER BY of its own, so restore the
+    // per-team most-recent-first ordering the DTO's `recentMatches[0]`
+    // relies on.
+    for (const list of byTeam.values()) {
+      list.sort((a, b) => (a.completedAtIso < b.completedAtIso ? 1 : -1));
+    }
+    return byTeam;
   }
 
   private mapToResDto(league: LeagueEntity): LeagueResDto {

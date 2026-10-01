@@ -37,7 +37,12 @@ import { ConditionProcessor } from './processors/condition.processor';
     BullModule.registerQueue({
       name: 'condition-settlement',
     }),
-    TypeOrmModule.forFeature([PlayerEntity, StaffEntity, TeamEntity, FanEntity]),
+    TypeOrmModule.forFeature([
+      PlayerEntity,
+      StaffEntity,
+      TeamEntity,
+      FanEntity,
+    ]),
   ],
   providers: [ConditionProcessor],
   exports: [BullModule],

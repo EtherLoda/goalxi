@@ -1,22 +1,8 @@
-import { readFileSync, readdirSync, statSync } from 'fs';
+import { readFileSync } from 'fs';
 import { join } from 'path';
-import {
-  STANDINGS_SORT_SQL,
-  compareStandings,
-} from './standings-sort';
+import { STANDINGS_SORT_SQL, compareStandings } from './standings-sort';
 
 const API_SRC = join(__dirname, '..');
-
-function collectFiles(dir: string, suffix: string): string[] {
-  const out: string[] = [];
-  for (const entry of readdirSync(dir)) {
-    if (entry === 'node_modules' || entry === 'dist') continue;
-    const full = join(dir, entry);
-    if (statSync(full).isDirectory()) out.push(...collectFiles(full, suffix));
-    else if (full.endsWith(suffix)) out.push(full);
-  }
-  return out;
-}
 
 /** Strip comments so a sort key quoted in prose isn't counted as code. */
 function stripComments(src: string): string {
