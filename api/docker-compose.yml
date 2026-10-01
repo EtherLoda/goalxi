@@ -10,16 +10,25 @@ services:
       - .env.docker
     # `MODULES_SET` controls which slice of the API process boots
     # — see README "Production deployment" and
-    # `api/src/utils/modules-set.ts`. The `monolith` default
-    # (controllers + cron + workers in one process) is fine for a
-    # single-replica dev deploy. For production:
-    #   * `MODULES_SET=api`         — public HTTP API only
-    #   * `MODULES_SET=background`  — cron + workers (no HTTP); run
-    #                                 alongside the `api` replica
-    # Two `monolith` replicas in production will race on cron and
-    # double-write rows, so never scale `monolith` horizontally.
+    # `api/src/utils/modules-set.ts`. The `api` default (HTTP
+    # controllers + the api-owned queue consumers) is correct for
+    # this stack, because the `goalxi-settlement` container below
+    # boots every settlement `@Cron`.
+    #   * `MODULES_SET=api`         — public HTTP API (default)
+    #   * `MODULES_SET=background`  — queue consumers only, no HTTP
+    #
+    # Do NOT set `MODULES_SET=monolith` here. `monolith` used to mean
+    # "controllers + workers + settlement cron" — the api process
+    # imported settlement's compiled `SchedulerModule` and ran its ~26
+    # `@Cron` handlers alongside the `goalxi-settlement` container.
+    # Every settlement cron therefore fired twice, with no distributed
+    # lock on the multi-step unwrapped writes (season transition,
+    # promotion/relegation, standings init) → double-written rows.
+    # `monolith` is still accepted as a deprecated alias of `api` so
+    # existing deploys don't fail to boot, but it no longer implies
+    # settlement cron.
     environment:
-      MODULES_SET: ${MODULES_SET:-monolith}
+      MODULES_SET: ${MODULES_SET:-api}
     ports:
       - "3000:3000"
     volumes:

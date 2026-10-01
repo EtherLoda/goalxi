@@ -128,28 +128,41 @@ const { season, week } = currentSeasonWeek(new Date(), gameStart); // 1-indexed 
 ## 🚀 Production deployment (`MODULES_SET`)
 
 The API container can boot in three modes controlled by the
-`MODULES_SET` env var. **It defaults to `monolith`** for dev
-ergonomics — every cron, controller, and worker is mounted in a
-single process. For production you must split them so cron
-handlers don't run twice in parallel (which would double-write
-rows in `training_update`, `transaction`, etc.).
+`MODULES_SET` env var. **It defaults to `api`.** An unrecognised
+value fails the boot rather than silently starting a
+near-empty process.
 
-| Mode         | HTTP API | Background cron / workers | Use it for                                   |
+| Mode         | HTTP API | api-owned queue consumers | Use it for                                   |
 | ------------ | :------: | :-----------------------: | -------------------------------------------- |
-| `monolith`   |    ✅    |             ✅             | local dev only — never ship to prod          |
-| `api`        |    ✅    |             ❌             | the public-facing API container              |
-| `background` |    ❌    |             ✅             | the API container's sidecar / worker process |
+| `api`        |    ✅    |            ✅             | the public-facing API container (default)    |
+| `background` |    ❌    |            ✅             | a worker sidecar that needs no HTTP surface  |
+| `monolith`   |    ✅    |            ✅             | **deprecated alias of `api`** — boots the same |
 
-> ⚠️ **Don't deploy `monolith` to production.** Two replicas
-> running `monolith` will race on the same cron schedule and
-> produce duplicate `match_simulation` jobs, double-applied
-> `weekly-settlement` ticks, etc. Either run a single
-> `monolith` replica (one-box deploys) or split into `api` +
-> `background`.
+> **Settlement cron has exactly one owner: the `settlement`
+> service.** The API process used to mount settlement's
+> `SchedulerModule` (via a cross-package import of
+> `settlement/dist`) and run its ~26 `@Cron` handlers *as well*.
+> Since the `settlement` service boots those same handlers itself,
+> every default deployment — root `pnpm dev` and the shipped
+> `api/docker-compose.yml` — fired each one **twice, in two
+> processes**. Handlers with multi-step unwrapped writes
+> (season transition, promotion/relegation, standings init) had
+> **no distributed lock** and double-wrote rows. A few were saved by
+> CAS/latch logic, which is why it went unnoticed.
+>
+> The import is gone. `MODULES_SET` in the api process no longer
+> affects which cron runs — it never should have. See
+> `api/src/background/background.module.ts`.
+>
+> `monolith` remains accepted so existing deploys don't break, but
+> it is now an exact alias of `api` and does **not** imply
+> settlement cron. If you were relying on `monolith` to run the
+> game clock, note that the `settlement` container already does.
 
 The bootstrap log line is your canary — every API process prints
-`[Bootstrap] MODULES_SET=<value>` at startup. Mismatches between
-`docker-compose.yml` and `.env` surface immediately.
+`[Bootstrap] MODULES_SET=<value> cronOwner=settlement` at startup.
+The explicit `cronOwner` is there so that anyone re-introducing a
+second owner sees the contradiction immediately.
 
 The same concern applies to the `settlement` service: it has
 its own `@Cron` handlers and BullMQ workers, so even a single
@@ -173,7 +186,7 @@ services:
   api-worker:
     image: goalxi-api
     environment:
-      MODULES_SET: background  # cron + workers, no HTTP
+      MODULES_SET: background  # queue consumers, no HTTP
       GAME_START_DATE: 2025-01-01
   simulator:
     image: goalxi-simulator

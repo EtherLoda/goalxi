@@ -11,9 +11,9 @@ import {
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { NestFactory, Reflector } from '@nestjs/core';
-import { DataSource } from 'typeorm';
 import compression from 'compression';
 import helmet from 'helmet';
+import { DataSource } from 'typeorm';
 import { AuthService } from './api/auth/auth.service';
 import { AppModule } from './app.module';
 import { type AllConfigType } from './config/config.type';
@@ -26,13 +26,22 @@ import setupSwagger from './utils/setup-swagger';
 async function bootstrap() {
   // `MODULES_SET` controls which slice of the app boots — see
   // `api/src/utils/modules-set.ts`. We echo it BEFORE Nest
-  // constructs the AppModule so a misconfigured deploy (defaulting
-  // to `monolith` when the operator meant `api`) is immediately
-  // visible in the logs, rather than discovered hours later as
-  // duplicated cron runs and double-writes.
-  const modulesSet = process.env.MODULES_SET || 'monolith';
+  // constructs the AppModule so a misconfigured deploy is immediately
+  // visible in the logs, rather than discovered hours later.
+  //
+  // `cronOwner` is printed alongside it on purpose. Every settlement
+  // `@Cron` used to be reachable from this process as well as from the
+  // `settlement` service, so a default deployment ran each one twice
+  // and double-wrote rows with no distributed lock to stop it. That
+  // import is gone; settlement cron now has exactly one owner. Printing
+  // the owner every boot means anyone re-introducing a second owner
+  // sees the contradiction in the logs immediately.
+  const modulesSet = process.env.MODULES_SET || 'api';
 
-  console.warn(`[Bootstrap] MODULES_SET=${modulesSet}`);
+  console.warn(
+    `[Bootstrap] MODULES_SET=${modulesSet} cronOwner=settlement ` +
+      `(this process registers NO settlement cron)`,
+  );
 
   // Resolve the season/week anchor at boot. The order of
   // precedence is: `system_config.init_date` (written by the
@@ -75,7 +84,10 @@ async function bootstrap() {
   // messages share one transport.
   const logger = app.get<PinoLoggerService>(LOGGER_SERVICE);
   app.useLogger(logger);
-  logger.warn(`[Bootstrap] MODULES_SET=${modulesSet}`);
+  logger.warn(
+    `[Bootstrap] MODULES_SET=${modulesSet} cronOwner=settlement ` +
+      `(this process registers NO settlement cron)`,
+  );
 
   // Now that the TypeOrmModule has wired the DataSource, read
   // the real init_date from `system_config`. The DB row is
@@ -91,7 +103,9 @@ async function bootstrap() {
   );
   logger.warn(
     `[Bootstrap] gameStart=${initDateFromDb.toISOString()} (source=${
-      process.env.GAME_START_DATE ? 'env or system_config.init_date' : 'system_config.init_date or today'
+      process.env.GAME_START_DATE
+        ? 'env or system_config.init_date'
+        : 'system_config.init_date or today'
     })`,
   );
 

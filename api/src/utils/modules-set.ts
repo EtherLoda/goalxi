@@ -175,10 +175,28 @@ function generateModulesSet(): ModuleMetadata['imports'] {
     inject: [ConfigService],
   });
 
-  const modulesSet = process.env.MODULES_SET || 'monolith';
+  // Default is `api`, NOT `monolith`.
+  //
+  // The `monolith` set used to differ from `api` only in that
+  // `BackgroundModule` imported settlement's compiled `SchedulerModule`
+  // and booted its ~26 `@Cron` handlers inside this process. Since the
+  // `settlement` service boots those same crons itself, every default
+  // deployment ran each one twice — with no distributed lock on the
+  // multi-step unwrapped writes (season transition, promotion/relegation,
+  // standings init). That import is gone; see
+  // `api/src/background/background.module.ts` for the full rationale.
+  //
+  // `monolith` is kept as an accepted alias because operators already
+  // have it in their env files and an unknown value silently drops to a
+  // near-empty module list (see the `default:` branch), which is a much
+  // worse failure mode than a deprecated alias.
+  const modulesSet = process.env.MODULES_SET || 'api';
 
   switch (modulesSet) {
+    // Alias of `api`. Identical module list — retained only so existing
+    // deployments do not fall through to `default`.
     case 'monolith':
+    case 'api':
       customModules = [
         ApiModule,
         bullModule,
@@ -194,21 +212,18 @@ function generateModulesSet(): ModuleMetadata['imports'] {
         RedisModule,
       ];
       break;
-    case 'api':
-      customModules = [
-        ApiModule,
-        bullModule,
-        cacheModule,
-        clsModule,
-        dbModule,
-        HealthModule,
-        i18nModule,
-        loggerModule,
-        sharedLoggerModule,
-        MailModule,
-        RedisModule,
-      ];
-      break;
+    // Worker-only slice: no `ApiModule`, so no controllers, no mail,
+    // no `MailModule`. Runs the api-owned queue consumers
+    // (`email`, `match-completion`, `finance-settlement`).
+    //
+    // NOTE: despite the name, this set registers NO cron of its own.
+    // The only `@Cron` handlers reachable from `BackgroundModule` were
+    // settlement's, and those were removed (see
+    // `api/src/background/background.module.ts`). Settlement cron is
+    // owned exclusively by the `settlement` process. If you were
+    // splitting api into "HTTP" + "background" replicas, this set is
+    // still correct for that — it just does not do more than `api`
+    // does minus the HTTP surface.
     case 'background':
       customModules = [
         bullModule,
@@ -224,8 +239,15 @@ function generateModulesSet(): ModuleMetadata['imports'] {
       ];
       break;
     default:
-      console.error(`Unsupported modules set: ${modulesSet}`);
-      break;
+      // Do NOT silently fall through to a usable module list. A typo
+      // in `MODULES_SET` used to produce a near-empty app that booted
+      // "successfully" and served nothing. Fail the boot instead — the
+      // operator is looking at these logs precisely because the
+      // topology is wrong.
+      throw new Error(
+        `Unsupported modules set: ${modulesSet}. ` +
+          `Expected one of: api (default), monolith (deprecated alias of api), background.`,
+      );
   }
 
   return imports.concat(customModules);

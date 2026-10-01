@@ -32,8 +32,7 @@
     "^@/mail(.*)$": "<rootDir>/mail$1",
     "^@/redis(.*)$": "<rootDir>/redis$1",
     "^@/shared(.*)$": "<rootDir>/shared$1",
-    "^@/utils(.*)$": "<rootDir>/utils$1",
-    "^settlement/scheduler/(.*)$": "<rootDir>/../../settlement/dist/src/scheduler/$1"
+    "^@/utils(.*)$": "<rootDir>/utils$1"
   },
   "setupFiles": ["../setup-jest.mjs"],
   "cacheDirectory": "../.jest-cache",
