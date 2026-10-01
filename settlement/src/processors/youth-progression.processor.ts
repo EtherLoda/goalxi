@@ -8,6 +8,7 @@ import {
   applyWeeklyGrowth,
   pickNextRevealSkills,
   PlayerEntity,
+  TeamEntity,
 } from '@goalxi/database';
 
 export interface YouthProgressionResult {
@@ -62,24 +63,59 @@ export class YouthProgressionProcessor extends WorkerHost {
     );
     const start = Date.now();
 
-    // Iterate every youth player. No coach query is needed any more.
-    const youth = await this.playerRepo.find({ where: { isYouth: true } });
+    // Load every youth player WITH its team in one join, then filter out
+    // BOT squads in JS. This is the only player-subsystem processor that
+    // used to touch BOT squads:
+    //
+    //   - TrainingProcessor skips bot teams
+    //   - ConditionProcessor freezes bot squads (form/minutes reset only)
+    //   - PlayerDeclineProcessor excludes bot players
+    //     ("Bot rosters must stay frozen" — its own class docstring)
+    //   - InjuryRecoveryService skips bot teams
+    //
+    // `youth-structure.generator.ts` creates one `youth_team` per EVERY
+    // senior team, bots included, so without this filter BOT academy
+    // players grew without bound every week — which matters because
+    // growth walks current skills TOWARD potential and never retunes
+    // potential itself, so a BOT academy eventually produces free agents
+    // indistinguishable from real prospects.
+    const youth = await this.playerRepo.find({
+      where: { isYouth: true },
+      relations: ['team'],
+    });
     this.logger.info(
       `[YouthProgressionProcessor] Processing ${youth.length} youth player(s) (no youth coach in the system)`,
     );
 
     let youthGrew = 0;
     let youthRevealed = 0;
+    let skippedNoTeam = 0;
+    let skippedBot = 0;
+    let skippedNoSkills = 0;
     const dirtyPlayers: PlayerEntity[] = [];
 
     for (const player of youth) {
       if (!player.currentSkills || !player.potentialSkills) {
+        skippedNoSkills++;
         continue;
       }
       if (!player.teamId) {
         // Free-agent youth (no team) — nothing to do. The UI's "promote"
         // flow can still flip is_youth on these, but they don't grow
         // until they're rostered somewhere.
+        //
+        // NOTE: `PlayerService.promote()` requires
+        // `revealedSkills.length >= ceil(PROMOTION_REVEAL_THRESHOLD * totalKeys)`
+        // and reveal only happens HERE — so a team-less youth can never
+        // reach the threshold and can never be promoted. The comment
+        // above claimed the UI could still flip `is_youth`; the gate
+        // would reject it. Left as-is (free agents shouldn't be growing),
+        // but the docs were wrong.
+        skippedNoTeam++;
+        continue;
+      }
+      if ((player as { team?: TeamEntity }).team?.isBot) {
+        skippedBot++;
         continue;
       }
 
@@ -126,14 +162,20 @@ export class YouthProgressionProcessor extends WorkerHost {
     }
 
     const duration = Date.now() - start;
+    const actuallyProcessed =
+      youth.length - skippedNoTeam - skippedBot - skippedNoSkills;
     this.logger.info(
       `[YouthProgressionProcessor] Done in ${duration}ms — ` +
-        `${youth.length} youth, grew=${youthGrew}, ` +
-        `revealed=${youthRevealed}`,
+        `scanned=${youth.length}, processed=${actuallyProcessed}, ` +
+        `grew=${youthGrew}, revealed=${youthRevealed}, ` +
+        `skipped(bot=${skippedBot}, noTeam=${skippedNoTeam}, noSkills=${skippedNoSkills})`,
     );
 
     return {
-      youthProcessed: youth.length,
+      // Count what was actually evaluated, not everything scanned.
+      // `youth.length` previously included every skipped row, so the
+      // weekly log line over-reported.
+      youthProcessed: actuallyProcessed,
       youthGrew,
       youthRevealed,
     };

@@ -4,7 +4,7 @@ import { DataSource, Repository } from 'typeorm';
 import { Job } from 'bullmq';
 import { YouthProgressionProcessor } from './youth-progression.processor';
 import { LOGGER_SERVICE } from '@goalxi/logger';
-import { PlayerEntity } from '@goalxi/database';
+import { PlayerEntity, TeamEntity, Uuid } from '@goalxi/database';
 
 describe('YouthProgressionProcessor', () => {
   let processor: YouthProgressionProcessor;
@@ -152,9 +152,39 @@ describe('YouthProgressionProcessor', () => {
 
     const result = await processor.process({} as Job);
 
-    expect(result.youthProcessed).toBe(1);
+    // `youthProcessed` counts what was actually evaluated. It used to
+    // return `youth.length`, which counted every skipped row — so the
+    // weekly log over-reported by the whole skipped population.
+    expect(result.youthProcessed).toBe(0);
     // Free agents are not saved (no growth expected for them yet).
     expect(playerRepo.save).not.toHaveBeenCalled();
+  });
+
+  it('REGRESSION: skips youth on BOT teams (bot rosters must stay frozen)', async () => {
+    // This was the ONLY player-subsystem processor that grew BOT
+    // squads — training, condition, decline and injury recovery all
+    // exclude them, and `player-decline.processor.ts` states the rule
+    // explicitly ("Bot rosters must stay frozen").
+    // `youth-structure.generator.ts` creates one `youth_team` per EVERY
+    // senior team including bots, so BOT academy players were growing
+    // toward potential without bound every week.
+    const botYouth = outfieldYouth(1, 'bot-team', {
+      team: { id: 'bot-team' as Uuid, isBot: true } as unknown as TeamEntity,
+    });
+    const realYouth = outfieldYouth(2, 'real-team', {
+      team: { id: 'real-team' as Uuid, isBot: false } as unknown as TeamEntity,
+    });
+    playerRepo.find.mockResolvedValue([botYouth, realYouth]);
+
+    const result = await processor.process({} as Job);
+
+    // Only the real one grew.
+    expect(result.youthProcessed).toBe(1);
+    expect(result.youthGrew).toBe(1);
+
+    const skillsBefore = JSON.stringify(botYouth.currentSkills);
+    await processor.process({} as Job);
+    expect(JSON.stringify(botYouth.currentSkills)).toBe(skillsBefore);
   });
 
   // -------- 3: reveal level sync --------
