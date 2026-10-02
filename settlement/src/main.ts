@@ -1,7 +1,6 @@
 import { NestFactory } from '@nestjs/core';
 import { LOGGER_SERVICE, PinoLoggerService } from '@goalxi/logger';
 import { AppModule } from './app.module';
-import { GlobalExceptionFilter } from './common/global-exception.filter';
 
 async function bootstrap() {
   // Resolve the season/week anchor at boot and log it.
@@ -36,7 +35,27 @@ async function bootstrap() {
     );
   }
 
-  const app = await NestFactory.create(AppModule, {
+  // Settlement is a worker, not a web service: it has no controllers
+  // and serves no HTTP. `createApplicationContext` builds the DI
+  // container and runs the full lifecycle (`onModuleInit` /
+  // `onApplicationBootstrap`, which is where `ScheduleModule` mounts
+  // its cron jobs and where `BootstrapService` runs the pyramid
+  // generators) without ever binding a TCP port.
+  //
+  // It used to be `NestFactory.create(...)` + `app.listen(3001)`, which
+  // reserved a port that served nothing — no routes, no health check,
+  // no probe pointed at it. `simulator` already used
+  // `createApplicationContext` for exactly this reason. The cost was
+  // real: port collisions during local work, and an open port that
+  // invites someone to point a liveness probe at a host that answers
+  // nothing.
+  //
+  // One consequence: `app.useGlobalFilters(...)` is unavailable on an
+  // application context, so the settlement-wide exception filter is no
+  // longer registered here. That is not a loss of coverage — see
+  // `common/global-exception.filter.ts`, which documents why it could
+  // never have caught anything in this service anyway.
+  const app = await NestFactory.createApplicationContext(AppModule, {
     bufferLogs: true,
   });
 
@@ -50,12 +69,6 @@ async function bootstrap() {
     }; effective anchor is read from system_config by BootstrapService)`,
   );
 
-  // Apply the settlement-wide exception filter so unhandled errors from
-  // cron handlers and BullMQ workers land in pino-roll instead of
-  // terminating the worker silently.
-  app.useGlobalFilters(app.get(GlobalExceptionFilter));
-
   logger.warn('Settlement service started');
-  await app.listen(process.env.PORT ?? 3001);
 }
 bootstrap();

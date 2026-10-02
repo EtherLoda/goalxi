@@ -12,18 +12,42 @@ import { LOGGER_SERVICE, PinoLoggerService } from '@goalxi/logger';
 /**
  * Settlement-side global exception filter.
  *
- * Settlement has no HTTP boundary (controllers: []), so this filter mostly
- * catches:
- *   - Exceptions thrown during cron handler execution that bubble past
- *     @Cron decorator error handling
- *   - Unhandled rejections in BullMQ workers' `process()` paths that
- *     rethrow after BullMQ's own retry/abort logic runs out
- *   - Anything thrown from onModuleInit / onApplicationBootstrap hooks
+ * ## This filter cannot fire in this service
  *
- * Without this filter, those exceptions terminate the worker process and
- * leave nothing in pino-roll. With it, every error lands on
- * `logs/settlement.log` with a stack, even if the original caller never
- * saw the error.
+ * It was previously registered via `app.useGlobalFilters(...)` in
+ * `main.ts`, which made it look like the safety net for worker errors.
+ * It is not, and cannot be:
+ *
+ *   - **HTTP.** A Nest global filter is invoked by the HTTP exception
+ *     layer. Settlement declares no controllers, so there is no route
+ *     to filter.
+ *   - **Cron.** `@nestjs/schedule` wraps every `@Cron` / `@Interval` /
+ *     `@Timeout` method in its *own* try/catch — see
+ *     `ScheduleExplorer.wrapFunctionInTryCatchBlocks` in
+ *     `node_modules/@nestjs/schedule` — which swallows the error and
+ *     logs it through that module's logger. The exception never
+ *     propagates to a Nest exception filter.
+ *   - **BullMQ.** The `Worker` wraps `process()` in its own try/catch
+ *     and reports failures through the queue's `failed` / `error`
+ *     events. Also never a Nest exception filter.
+ *
+ * So the three cases this filter's original doc claimed to cover were
+ * already being handled elsewhere, and a thrown cron error never
+ * "terminated the worker process" as claimed — `@nestjs/schedule`
+ * caught it first.
+ *
+ * Cron failures still reach pino-roll, just not through this filter:
+ * `@nestjs/schedule` catches them and calls Nest's `Logger`, and
+ * `main.ts` calls `app.useLogger(pino)`, which redirects every
+ * `Logger.*` call in the process into the pino transport.
+ * `ScheduleModule.forRoot()` is registered bare in
+ * `scheduler.module.ts`, so there is no separate schedule-specific
+ * logger to configure.
+ *
+ * It is retained (and still provided in `app.module.ts`) because it is
+ * cheap and would become meaningful if settlement ever gains an HTTP
+ * edge. It is no longer registered in `main.ts`, since
+ * `INestApplicationContext` has no `useGlobalFilters`.
  */
 @Catch()
 @Injectable()
