@@ -34,16 +34,28 @@ interface FakeArgs {
   leagues: FakeLeague[];
   pickedTeam?: TeamEntity | null;
   existingTeamForUser?: TeamEntity | null;
+  /**
+   * What the in-transaction ownership re-check finds. Defaults to
+   * null (= nobody owns a team yet), which is the normal path. Set it
+   * to a team to simulate a sibling worker winning the race while this
+   * one was blocked on the user row lock.
+   */
+  ownedTeamInTransaction?: TeamEntity | null;
+  /** Whether the `user` row exists when the lock is taken. */
+  userExists?: boolean;
 }
 
 interface FakeHandle {
   dataSource: DataSource;
   manager: any;
   teamSelectQb: any;
+  teamOwnedQb: any;
   teamAggQb: any;
   leagueQb: any;
   teamPickQb: any;
+  teamRefreshQb: any;
   userQb: any;
+  userLockQb: any;
 }
 
 function makeFakeDataSource(args: FakeArgs): FakeHandle {
@@ -65,31 +77,50 @@ function makeFakeDataSource(args: FakeArgs): FakeHandle {
     return base;
   };
 
-  // The first call against TeamEntity is the existing-ownership
-  // check; it terminates with getOne().
-  // The second is the per-league aggregate; it terminates with
-  // getRawMany().
-  // The third is the BOT pick; terminates with getOne().
-  // The fourth (only inside the transaction) is the claim
-  // re-fetch; terminates with getOne().
+  // TeamEntity is queried five times, in this order. The counter is
+  // shared between the pre-transaction fast path and the transaction
+  // body because both go through the same fake `manager`.
   let teamQbIndex = 0;
   const teamSelectQb = makeQb({
+    // 1. pre-transaction existing-ownership fast path.
     getOne: jest.fn().mockResolvedValue(args.existingTeamForUser ?? null),
   });
+  const teamOwnedQb = makeQb({
+    // 2. in-transaction ownership re-check, under the user row lock.
+    getOne: jest.fn().mockResolvedValue(args.ownedTeamInTransaction ?? null),
+  });
   const teamAggQb = makeQb({
+    // 3. per-league player/bot aggregate.
     getRawMany: jest.fn().mockResolvedValue(args.rows),
   });
   const teamPickQb = makeQb({
+    // 4. the BOT pick.
     getOne: jest.fn().mockResolvedValue(args.pickedTeam ?? null),
   });
   const teamRefreshQb = makeQb({
+    // 5. in-transaction claim re-fetch.
     getOne: jest.fn().mockResolvedValue(args.pickedTeam ?? null),
   });
+  const teamQbs = [
+    teamSelectQb,
+    teamOwnedQb,
+    teamAggQb,
+    teamPickQb,
+    teamRefreshQb,
+  ];
   const leagueQb = makeQb({
     getMany: jest.fn().mockResolvedValue(args.leagues),
   });
+  // No-arg form: `update(UserEntity).set(...).where(...)` → execute().
   const userQb = makeQb({
     execute: jest.fn().mockResolvedValue(undefined),
+  });
+  // Aliased form: `createQueryBuilder(UserEntity, 'u')` → the
+  // pessimistic-lock SELECT that serialises claims per user.
+  const userLockQb = makeQb({
+    getOne: jest.fn().mockResolvedValue(
+      args.userExists === false ? null : { id: 'user-1' },
+    ),
   });
 
   const manager: any = {
@@ -139,15 +170,12 @@ function makeFakeDataSource(args: FakeArgs): FakeHandle {
     createQueryBuilder: jest.fn((entity?: unknown) => {
       if (entity === TeamEntity) {
         teamQbIndex++;
-        if (teamQbIndex === 1) return teamSelectQb;
-        if (teamQbIndex === 2) return teamAggQb;
-        if (teamQbIndex === 3) return teamPickQb;
-        return teamRefreshQb;
+        return teamQbs[teamQbIndex - 1] ?? teamRefreshQb;
       }
       if (entity === LeagueEntity) return leagueQb;
-      if (entity === UserEntity) return userQb;
-      // No-arg form is used by `update(UserEntity).set(...).where(...)`
-      // — give it the user Qb so the chain works.
+      // Aliased `createQueryBuilder(UserEntity, 'u')` takes the row
+      // lock; the no-arg `update(UserEntity)` form writes the status.
+      if (entity === UserEntity) return userLockQb;
       return userQb;
     }),
   };
@@ -163,21 +191,32 @@ function makeFakeDataSource(args: FakeArgs): FakeHandle {
     } as unknown as DataSource,
     manager,
     teamSelectQb,
+    teamOwnedQb,
     teamAggQb,
     leagueQb,
     teamPickQb,
+    teamRefreshQb,
     userQb,
+    userLockQb,
   };
 }
 
 describe('OnboardingAssigner.claim', () => {
   const userId = 'user-1' as Uuid;
-  const sampleTeam = {
-    id: 'team-1',
+
+/**
+ * A fresh BOT team. Built per-test on purpose: the claim transaction
+ * mutates the picked row (`isBot = false`, `userId = …`), so a shared
+ * module-level fixture leaks state between tests and makes later ones
+ * fail with a spurious `OnboardingClaimRaceError`.
+ */
+const botTeam = (id: string) =>
+  ({
+    id,
     isBot: true,
     userId: null,
     botLevel: 5,
-  } as unknown as TeamEntity;
+  }) as unknown as TeamEntity;
 
   it('throws OnboardingNoBotAvailableError when there are no leagues', async () => {
     const { dataSource } = makeFakeDataSource({ rows: [], leagues: [] });
@@ -217,11 +256,89 @@ describe('OnboardingAssigner.claim', () => {
         { id: 'L1', tier: 1, tierDivision: 1 },
         { id: 'L2', tier: 2, tierDivision: 1 },
       ],
-      pickedTeam: sampleTeam,
+      pickedTeam: botTeam('team-1'),
     });
     const result = await OnboardingAssigner.claim(dataSource, userId);
     expect(result.reused).toBe(false);
     expect(result.team.id).toBe('team-1');
+  });
+
+  it('locks the user row before picking a BOT', async () => {
+    // Without this lock two jobs for the same user each lock a
+    // *different* BOT row, so neither blocks the other and the user
+    // ends up owning two clubs.
+    const { dataSource, userLockQb } = makeFakeDataSource({
+      rows: [{ leagueId: 'L1', total: 10, players: 2 }],
+      leagues: [{ id: 'L1', tier: 1, tierDivision: 1 }],
+      pickedTeam: botTeam('team-1'),
+    });
+
+    await OnboardingAssigner.claim(dataSource, userId);
+
+    expect(userLockQb.setLock).toHaveBeenCalledWith('pessimistic_write');
+    expect(userLockQb.where).toHaveBeenCalledWith('u.id = :id', {
+      id: userId,
+    });
+  });
+
+  it('re-checks ownership inside the transaction', async () => {
+    // The fast path outside the transaction is not authoritative; the
+    // authoritative check has to happen under the user lock.
+    const { dataSource, teamOwnedQb } = makeFakeDataSource({
+      rows: [{ leagueId: 'L1', total: 10, players: 2 }],
+      leagues: [{ id: 'L1', tier: 1, tierDivision: 1 }],
+      pickedTeam: botTeam('team-1'),
+    });
+
+    await OnboardingAssigner.claim(dataSource, userId);
+
+    expect(teamOwnedQb.getOne).toHaveBeenCalled();
+    expect(teamOwnedQb.where).toHaveBeenCalledWith('t.userId = :userId', {
+      userId,
+    });
+  });
+
+  it('reuses the winner team when a sibling claimed it while we waited', async () => {
+    // A sibling worker committed a team while this one was blocked on
+    // the user lock. The re-check must short-circuit to `reused`
+    // WITHOUT picking or claiming a second BOT.
+    const winnersTeam = {
+      id: 'team-won-by-sibling',
+      isBot: false,
+      userId,
+      name: 'Sibling FC',
+    } as unknown as TeamEntity;
+
+    const { dataSource, teamPickQb, manager } = makeFakeDataSource({
+      rows: [{ leagueId: 'L1', total: 10, players: 2 }],
+      leagues: [{ id: 'L1', tier: 1, tierDivision: 1 }],
+      pickedTeam: botTeam('team-1'),
+      ownedTeamInTransaction: winnersTeam,
+    });
+
+    const result = await OnboardingAssigner.claim(dataSource, userId);
+
+    expect(result.reused).toBe(true);
+    expect(result.team.id).toBe('team-won-by-sibling');
+    expect(result.appliedName).toBe('Sibling FC');
+    // The BOT pick must never have run.
+    expect(teamPickQb.getOne).not.toHaveBeenCalled();
+    expect(manager.findOne).not.toHaveBeenCalled();
+  });
+
+  it('throws when the user row does not exist', async () => {
+    // Locking a row that is not there locks nothing, so the
+    // serialisation guarantee would silently not apply.
+    const { dataSource } = makeFakeDataSource({
+      rows: [{ leagueId: 'L1', total: 10, players: 2 }],
+      leagues: [{ id: 'L1', tier: 1, tierDivision: 1 }],
+      pickedTeam: botTeam('team-1'),
+      userExists: false,
+    });
+
+    await expect(OnboardingAssigner.claim(dataSource, userId)).rejects.toThrow(
+      /unknown user/,
+    );
   });
 
   it('round-robins to the emptiest league in Phase 2 (every league >= 50%)', async () => {
@@ -232,18 +349,6 @@ describe('OnboardingAssigner.claim', () => {
     // tierDivision) and depend on the order of `rows`. We do
     // assert the happy-path contract: claim returns a
     // non-reused result without throwing.
-    //
-    // `sampleTeam` is a module-level fixture that the Phase-1
-    // test mutates (via the claim transaction's
-    // `team.userId = userId; team.isBot = false`). We build
-    // a fresh picked team here so this test starts from a
-    // clean BOT state.
-    const freshPickedTeam = {
-      id: 'team-from-l1',
-      isBot: true,
-      userId: null,
-      botLevel: 5,
-    } as unknown as TeamEntity;
     const { dataSource } = makeFakeDataSource({
       rows: [
         { leagueId: 'L1', total: 10, players: 6 }, // 60%
@@ -253,7 +358,7 @@ describe('OnboardingAssigner.claim', () => {
         { id: 'L1', tier: 1, tierDivision: 1 },
         { id: 'L2', tier: 2, tierDivision: 1 },
       ],
-      pickedTeam: freshPickedTeam,
+      pickedTeam: botTeam('team-from-l1'),
     });
     const result = await OnboardingAssigner.claim(dataSource, userId);
     expect(result.reused).toBe(false);

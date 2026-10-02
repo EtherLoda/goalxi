@@ -73,18 +73,28 @@ interface LeagueBotStats {
  *      distribution stays even.
  *
  * Concurrency: every state mutation runs inside a single
- * `dataSource.transaction(...)` and the BOT pick uses
- * `pessimistic_write`. Two simultaneous register calls cannot
- * both pass the `isBot=true` check; the second waits for the
- * first to commit, then sees `userId !== null` and throws
+ * `dataSource.transaction(...)`. Two things are locked:
+ *
+ *   - the **user** row (`pessimistic_write`), which serialises all
+ *     claims for one user and is re-checked for existing ownership
+ *     under that lock. This is the lock that actually prevents a
+ *     double-claim — see the comment at the top of the transaction.
+ *   - the **BOT team** row, so two users cannot claim the same club.
+ *
+ * Lock order is always user → team, so concurrent claims cannot
+ * deadlock. A worker that loses the team race throws
  * `OnboardingClaimRaceError`, which BullMQ retries with
- * `attempts: 3, backoff: { type: 'exponential', delay: 1500 }`.
+ * `attempts: 3, backoff: { type: 'exponential', delay: 1500 }`; a
+ * worker that loses the user race finds the winner's team and
+ * returns `reused: true` instead.
  *
  * Idempotency: if the user already owns a non-BOT team, returns
  * the existing team with `reused: true` and does NOT touch any
  * row. This is what makes the manual retry endpoint safe — a
  * double-click on the "retry" button can never create or
- * overwrite state.
+ * overwrite state. The check runs twice: a cheap read outside the
+ * transaction, and an authoritative re-check inside it under the
+ * user lock.
  */
 export class OnboardingAssigner {
   /**
@@ -155,6 +165,44 @@ export class OnboardingAssigner {
     //     roster, and a crash mid-regen would leave a team
     //     with zero players. Both are unacceptable mid-season.
     return dataSource.transaction(async (manager) => {
+      // ── Serialise per user, then re-check ownership ────────────
+      //
+      // The fast-path check above this transaction is NOT sufficient
+      // on its own: it runs outside any transaction, so two jobs for
+      // the same user both read "no team owned", both enter here, and
+      // each locks a *different* BOT team. The team lock cannot catch
+      // that — the rows being locked are different rows. The result
+      // was a user silently owning two clubs, one of which
+      // `/onboarding/state` (a `findOne`) never shows.
+      //
+      // Locking the user row makes every claim for a given user
+      // serialise: the second worker blocks here until the first
+      // commits, then re-reads and finds the team already there.
+      // Lock order is always user → BOT team, so claims cannot
+      // deadlock against each other.
+      const lockedUser = await manager
+        .createQueryBuilder(UserEntity, 'u')
+        .setLock('pessimistic_write')
+        .where('u.id = :id', { id: userId })
+        .getOne();
+      if (!lockedUser) {
+        throw new Error(
+          `Onboarding claim for unknown user ${userId} — the register transaction must have committed`,
+        );
+      }
+
+      const ownedNow = await manager
+        .createQueryBuilder(TeamEntity, 't')
+        .where('t.userId = :userId', { userId })
+        .andWhere('t.isBot = :isBot', { isBot: false })
+        .andWhere('t.deletedAt IS NULL')
+        .getOne();
+      if (ownedNow) {
+        // A sibling worker won the race while we waited on the lock.
+        // Reuse its team and touch nothing else.
+        return { team: ownedNow, reused: true, appliedName: ownedNow.name };
+      }
+
       const target = await this.pickAndLockInTransaction(manager);
       if (!target) {
         // Let the caller decide how to handle this. The
