@@ -29,7 +29,7 @@
  * alongside the new value so the caller can decide whether to surface
  * a "hit floor" event.
  *
- * ## Calibration (a=0.013, p=1.5, no jitter, category=physical, peak 18)
+ * ## Calibration (a=0.0189, p=1.5, no jitter, category=physical, peak 18)
  *   age 28: 18.00  age 30: 17.20  age 32: 14.46  age 34:  9.08  ← halved+
  *   age 35:  5.00  ← skill floor (peak 18 → 5 in 7 game years)
  *
@@ -42,24 +42,69 @@
  *   32→34: 5.38  (29.9%)  — was 7.30 (40.6%) with p=2
  *   34→35: 3.88  (floor)
  *
- * The `0.013` rate was chosen so a peak-18 physical skill lands at
- * ~9.0 (just over half) at age 34 in the discrete game-time
- * simulation (16 weeks per integer game-year). Do NOT lower this
- * without re-running `player-decline.spec.ts` — the calibration
- * specs are the only thing pinning the "halved at 34" promise.
+ * ## Why 0.0189 and not 0.013
+ *
+ * This is a PER-WEEK rate and it is applied once a week. A game-year is
+ * `GAME_SETTINGS.SEASON_LENGTH_WEEKS` weeks — 16 until the season was
+ * compressed to 11 — so the same per-year decline needs
+ *
+ *     0.013 × (16 / 11) = 0.01891
+ *
+ * Leaving it at 0.013 would apply 11 ticks a year instead of 16 and a
+ * peak-18 physical skill would land at ~11.9 (66%) at age 34 instead of
+ * ~9.1 (50%) — the decline curve would silently flatten by a third while
+ * every other promise about it stayed in the docs.
+ *
+ * `0.013 × 16/11` reproduces the old 16-week table age by age, which is
+ * the check that matters: the CAREER ARC is unchanged, only the wall-clock
+ * it is traversed in.
+ *
+ * Do NOT change this without re-running `player-decline.spec.ts` — the
+ * calibration specs are the only thing pinning the "halved at 34" promise.
  */
 
 import { PlayerEntity } from '../entities/player.entity';
+import { GAME_SETTINGS } from '../constants/game.constants';
 
 /** First age at which any decline is applied. */
 export const DECLINE_START_AGE = 28;
 
 /**
- * Per-week decline coefficient. Tuned so a peak-18 physical skill
- * lands at ~9.0 (just over half) at age 34 with p=1.5 in discrete
- * game-time. Do NOT lower this without re-running the spec.
+ * Per-week decline coefficient.
+ *
+ * A per-WEEK rate, so it is coupled to `SEASON_LENGTH_WEEKS`: a shorter
+ * game-year needs proportionally fewer weeks at a proportionally higher
+ * rate for the same per-year decline. At 11 weeks/season that is
+ * `0.013 × 16/11 ≈ 0.0189`.
+ *
+ * Tuned so a peak-18 physical skill lands at ~9.0 (just over half) at age
+ * 34 with p=1.5 in discrete game-time. Do NOT change it without re-running
+ * `player-decline.spec.ts`.
  */
-export const DECLINE_BASE_RATE = 0.013;
+/**
+ * Per-GAME-YEAR decline coefficient — this is the calibrated quantity.
+ *
+ * `0.013` per week for the 16-week seasons the curve was tuned against,
+ * i.e. 0.208 per game-year. Declining by a fixed amount per YEAR is the
+ * property worth holding constant: it is what makes a career arc
+ * independent of how long a season takes in wall-clock time.
+ */
+export const DECLINE_BASE_RATE_PER_YEAR = 0.013 * 16;
+
+/**
+ * Per-week decline coefficient — DERIVED, do not set this directly.
+ *
+ * Applied once a week by `applyWeeklyDecline`, so the per-year rate is
+ * `SEASON_LENGTH_WEEKS × this`. The season was compressed from 16 weeks to
+ * 11; deriving the per-week rate from the per-year one is what keeps the
+ * career arc unchanged.
+ *
+ * At 11 weeks/season this is `0.208 / 11 ≈ 0.0189`. Left at 0.013 the
+ * curve would have flattened by a third: a peak-18 physical skill would
+ * land at ~11.9 (66%) at age 34 instead of the promised ~9.1 (50%).
+ */
+export const DECLINE_BASE_RATE =
+    DECLINE_BASE_RATE_PER_YEAR / GAME_SETTINGS.SEASON_LENGTH_WEEKS;
 
 /**
  * Sub-quadratic curve. p=2 (pure quadratic) was too back-loaded —

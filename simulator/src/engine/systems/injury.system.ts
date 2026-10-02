@@ -61,15 +61,46 @@ export class InjurySystem {
   // band, otherwise the engine's "can play" intent and the DB's
   // "must sit out" state contradict each other. Severe ranges start
   // at 50 to leave a clear gap from the mild ceiling.
-  private static readonly INJURY_VALUES: Record<
-    InjuryType,
-    Record<InjurySeverity, [number, number]>
+  /**
+   * Injury severity → a RANGE OF POINTS, not days.
+   *
+   * Recovery length is derived: `estimateRecoveryDays` divides the point
+   * value by a daily-recovery sigmoid (~10/day at 23, ~11.5 at 17, ~4.6 at
+   * 34), so a 60-100 point severe ligament is roughly 6-10 REAL days.
+   * These numbers are points; that is why scaling them is the way to change
+   * how long an injury lasts.
+   *
+   * ## Coupled to `INJURY_MINOR_VALUE_THRESHOLD` — do not rescale alone
+   *
+   * `applyInjuryBatch` writes `injuryState = 'minor'` when
+   * `injuryValue <= INJURY_MINOR_VALUE_THRESHOLD` (30), and
+   * `calculateInjuryPenalty` turns that into 95% ABILITY. Anything above
+   * the threshold is written 'severe', which is **0% ability — the player
+   * does not play at all**.
+   *
+   * So the mild band's upper bound must stay at or below 30. It used to be
+   * exactly 30; it is now 21, which keeps the same relationship with room
+   * to spare. `injury.system.spec.ts` asserts
+   * `max(mild) <= INJURY_MINOR_VALUE_THRESHOLD` so a future rescale that
+   * pushes a mild injury over the line fails loudly instead of quietly
+   * turning every knock into a red card.
+   *
+   * ## Why scaled at all
+   *
+   * The game-year went 112 → 77 days, so an unchanged point value is a
+   * ~45% larger fraction of a season. At 30 fixtures, an 8-day severe
+   * injury went from ~7% of the season to ~11%. These bands are the
+   * pre-compression values times 77/112, which keeps the fraction — and
+   * therefore the design intent — intact.
+   */
+  static readonly INJURY_VALUES: Readonly<
+    Record<InjuryType, Record<InjurySeverity, [number, number]>>
   > = {
-    muscle: { mild: [15, 30], severe: [50, 80] },
-    ligament: { mild: [15, 30], severe: [60, 100] },
-    joint: { mild: [15, 30], severe: [55, 90] },
-    head: { mild: [15, 30], severe: [70, 110] },
-    other: { mild: [15, 30], severe: [50, 80] },
+    muscle: { mild: [10, 21], severe: [34, 55] },
+    ligament: { mild: [10, 21], severe: [41, 69] },
+    joint: { mild: [10, 21], severe: [38, 62] },
+    head: { mild: [10, 21], severe: [48, 76] },
+    other: { mild: [10, 21], severe: [34, 55] },
   };
 
   // (Removed: `TREATMENT_TIME` table and `getTreatmentTime()`

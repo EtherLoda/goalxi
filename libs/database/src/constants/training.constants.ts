@@ -1,3 +1,5 @@
+import { GAME_SETTINGS } from './game.constants';
+
 /**
  * Training system constants
  *
@@ -8,8 +10,26 @@
  */
 
 export const TRAINING_SETTINGS = {
-  /** Base training points earned per week */
-  BASE_WEEKLY_TRAINING: 20,
+  /**
+   * Base training points earned per GAME-YEAR, divided down to the week
+   * the processor actually runs on.
+   *
+   * `20` per week across the 16-week seasons this was tuned for, i.e.
+   * 320 per game-year. Holding the PER-YEAR figure constant is what keeps a
+   * player's development arc independent of how long a season takes in
+   * wall-clock time — the same reasoning as `DECLINE_BASE_RATE_PER_YEAR`.
+   *
+   * At 11 weeks/season the weekly figure is ~29.1. Left at 20, a player
+   * would have gained 31% less training over a career purely because the
+   * season got shorter.
+   */
+  BASE_WEEKLY_TRAINING_PER_YEAR: 20 * 16,
+
+  /** Base training points earned per week — DERIVED, do not set directly. */
+  get BASE_WEEKLY_TRAINING() {
+    return this.BASE_WEEKLY_TRAINING_PER_YEAR /
+      GAME_SETTINGS.SEASON_LENGTH_WEEKS;
+  },
 
   /** Training slot multipliers */
   ENHANCED_MULTIPLIER: 1.5,

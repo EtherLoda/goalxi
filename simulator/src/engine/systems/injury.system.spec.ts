@@ -1,3 +1,4 @@
+import { GAME_SETTINGS } from '@goalxi/database';
 import { InjurySystem, InjuryType, InjurySeverity } from './injury.system';
 
 describe('InjurySystem', () => {
@@ -171,9 +172,45 @@ describe('InjurySystem', () => {
 
       // Since tackle -> muscle, severity is random but based on mocked Math.random = 0
       // With Math.random = 0, severity will be 'mild' (since roll < 0.2)
-      // Muscle mild: 15-30 (post-2026-08-06 alignment, see INJURY_VALUES).
-      expect(result.injuryValue).toBeGreaterThanOrEqual(15);
-      expect(result.injuryValue).toBeLessThanOrEqual(30);
+      // Read the band from the table rather than restating it — the
+      // previous version asserted a literal 15-30, which is how the bands
+      // could be rescaled without the spec noticing.
+      const [min, max] = InjurySystem.INJURY_VALUES.muscle.mild;
+      expect(result.injuryValue).toBeGreaterThanOrEqual(min);
+      expect(result.injuryValue).toBeLessThanOrEqual(max);
+    });
+
+    it('the mild band can never exceed INJURY_MINOR_VALUE_THRESHOLD', () => {
+      // The table-level guard for the coupling documented on
+      // `INJURY_VALUES`. `applyInjuryBatch` writes
+      // `injuryState = 'minor'` at `injuryValue <= 30`, and
+      // `calculateInjuryPenalty` maps 'minor' to 95% ability and
+      // everything else to **0% — the player does not play**.
+      //
+      // So a mild band that drifted above the threshold would turn
+      // every knock into a red card, and the only symptom would be
+      // mysteriously out-of-play players. The roll-based test below
+      // covers the generated values; this covers the table itself, so a
+      // rescale that breaks the relationship fails without needing
+      // 1000 rolls per injury type to notice.
+      for (const [type, bands] of Object.entries(InjurySystem.INJURY_VALUES)) {
+        const [min, max] = bands.mild;
+        expect({
+          type,
+          max,
+          threshold: GAME_SETTINGS.INJURY_MINOR_VALUE_THRESHOLD,
+          withinThreshold: max <= GAME_SETTINGS.INJURY_MINOR_VALUE_THRESHOLD,
+        }).toEqual({
+          type,
+          max,
+          threshold: GAME_SETTINGS.INJURY_MINOR_VALUE_THRESHOLD,
+          withinThreshold: true,
+        });
+        // The bands must also stay well-ordered, or a "severe" roll
+        // could produce a smaller value than a "mild" one.
+        expect(min).toBeGreaterThan(0);
+        expect(bands.severe[0]).toBeGreaterThan(max);
+      }
     });
 
     it('mild severity always lands in the "minor / playable" band (P1-#2 alignment)', () => {
@@ -186,9 +223,9 @@ describe('InjurySystem', () => {
       // invariant: every mild value must be ≤ 30, across all
       // injury types. Forces 1000 rolls per type to expose the
       // upper bound.
-      const actions: Array<'tackle' | 'sprint' | 'jump' | 'collision' | 'other'> = [
-        'tackle', 'sprint', 'jump', 'collision', 'other',
-      ];
+      const actions: Array<
+        'tackle' | 'sprint' | 'jump' | 'collision' | 'other'
+      > = ['tackle', 'sprint', 'jump', 'collision', 'other'];
       for (const action of actions) {
         for (let i = 0; i < 1000; i++) {
           // Math.random() = 0 forces `severity = 'mild'` via
@@ -211,12 +248,13 @@ describe('InjurySystem', () => {
       // — we hand each one a deterministic value via
       // `mockReturnValueOnce` so the run produces a 'severe'
       // injury deterministically.
-      const actions: Array<'tackle' | 'sprint' | 'jump' | 'collision' | 'other'> = [
-        'tackle', 'sprint', 'jump', 'collision', 'other',
-      ];
+      const actions: Array<
+        'tackle' | 'sprint' | 'jump' | 'collision' | 'other'
+      > = ['tackle', 'sprint', 'jump', 'collision', 'other'];
       for (const action of actions) {
         for (let i = 0; i < 200; i++) {
-          jest.spyOn(Math, 'random')
+          jest
+            .spyOn(Math, 'random')
             // 1st call: pass the `> chance` gate (tackle chance
             //    is 0.02, so any value ≤ 0.02 works).
             .mockReturnValueOnce(0)

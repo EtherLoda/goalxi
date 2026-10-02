@@ -10,7 +10,12 @@ import {
   getSkillLevel,
   setSkillLevel,
 } from './training-calculator';
-import { getSkillTrainingSpeed } from '../constants/training.constants';
+import {
+  getAgeTrainingFactor,
+  getSkillTrainingSpeed,
+  TRAINING_SETTINGS,
+} from '../constants/training.constants';
+import { GAME_SETTINGS } from '../constants/game.constants';
 import { StaffEntity, StaffLevel, StaffRole } from '../entities/staff.entity';
 import {
   PlayerSkills,
@@ -84,10 +89,39 @@ describe('TrainingCalculator', () => {
 
   describe('calculateSpecializedTrainingPoints', () => {
     it('should calculate points with default intensity', () => {
+      const age = 23;
+      const intensity = 0.1;
+      const bonus = 1.5;
+      const points = calculateSpecializedTrainingPoints(age, intensity, bonus);
+
+      // Derived from the formula and the constants rather than restated:
+      // the previous version asserted a 10..15 band that only held while
+      // BASE_WEEKLY_TRAINING was the literal 20, and it rotted silently
+      // when the season length changed that constant.
+      const expected = Math.round(
+        (1 - intensity) *
+          0.5 *
+          bonus *
+          TRAINING_SETTINGS.BASE_WEEKLY_TRAINING *
+          getAgeTrainingFactor(age) *
+          100,
+      ) / 100;
+      expect(points).toBe(expected);
+    });
+
+    it('scales linearly with the weekly base', () => {
+      // The property that matters when BASE_WEEKLY_TRAINING is derived
+      // from SEASON_LENGTH_WEEKS: per WEEK it moves, but the per-YEAR
+      // total a player earns does not.
       const points = calculateSpecializedTrainingPoints(23, 0.1, 1.5);
-      // (1 - 0.1) * 0.5 * 1.5 * 20 * ageFactor(23) ≈ 0.9 * 0.5 * 1.5 * 20 * 0.9 ≈ 12.15
-      expect(points).toBeGreaterThan(10);
-      expect(points).toBeLessThan(15);
+      const perYear =
+        points * GAME_SETTINGS.SEASON_LENGTH_WEEKS;
+      const oldPerYear =
+        (calculateSpecializedTrainingPoints(23, 0.1, 1.5) /
+          TRAINING_SETTINGS.BASE_WEEKLY_TRAINING) *
+        20 *
+        16;
+      expect(perYear / oldPerYear).toBeCloseTo(1, 5);
     });
 
     it('should return 0 when intensity is 1.0', () => {
@@ -97,8 +131,14 @@ describe('TrainingCalculator', () => {
 
     it('should return max points when intensity is 0', () => {
       const points = calculateSpecializedTrainingPoints(23, 0, 1.5);
-      // 1.0 * 0.5 * 1.5 * 20 * ageFactor ≈ 13.5
-      expect(points).toBeGreaterThan(12);
+      // Intensity 0 means the full base is earned.
+      const fullBase =
+        0.5 * 1.5 * TRAINING_SETTINGS.BASE_WEEKLY_TRAINING *
+        getAgeTrainingFactor(23);
+      expect(points).toBeCloseTo(Math.round(fullBase * 100) / 100, 2);
+      expect(points).toBeGreaterThan(
+        calculateSpecializedTrainingPoints(23, 0.5, 1.5),
+      );
     });
 
     it('should account for age factor - younger players get more', () => {

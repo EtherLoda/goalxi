@@ -19,6 +19,43 @@
 export const STAMINA_MAX = 5.99;
 export const STAMINA_MIN = 0;
 export const PEAK_AGE = 23;
+
+/**
+ * Per-week stamina decay.
+ *
+ * ## Deliberately NOT rescaled when the season was compressed 16 → 11 weeks
+ *
+ * Every other per-week constant in this file's neighbourhood was converted
+ * to a per-game-year constant so the arc a player traverses stays identical
+ * (see `DECLINE_BASE_RATE` and `BASE_WEEKLY_TRAINING_PER_YEAR`). Stamina is
+ * the exception, and the reason is that it is a BOUNDED, CONVERGING state
+ * rather than a cumulative one — so "preserve the per-year total" is the
+ * wrong invariant for it.
+ *
+ * Measured, not assumed:
+ *
+ *   - The equilibrium is set by the gain:decay ratio, and scaling both by
+ *     16/11 leaves it BIT-IDENTICAL (5.7000 for intensity 0.5 / coach ×1,
+ *     0 for intensity 0) because it scales numerator and denominator
+ *     together. So the stamina a player settles at — the thing that decides
+ *     whether the system matters at all — is unaffected either way.
+ *   - Scaling both makes the trajectory converge faster, and lands the
+ *     year-end value FURTHER from the old behaviour, not closer: starting
+ *     from 3.0 at age 23, the 16-week baseline ends at 5.700, unscaled
+ *     11-week at 5.001, scaled 11-week at 4.696. There is no single factor
+ *     that reproduces a 16-step trajectory in 11 steps, because
+ *     `calculateStaminaFactor` is state-dependent and the clamp binds.
+ *
+ * So the accepted consequence of leaving it alone is a player ending a
+ * season ~0.7 (on a 0-6 scale) fresher than before, at the same
+ * equilibrium. Revisit if that reads wrong in play.
+ *
+ * Also note: `calculateFitnessDecay` in the simulator's `ConditionSystem`
+ * is a pure in-match computation with NO write-back — `player.stamina` is
+ * written in exactly one production place, the weekly tick in
+ * `training.processor.ts`. So the number of fixtures per week does not
+ * compound into this value at all.
+ */
 export const BASE_DECAY_RATE = 0.05;
 
 export interface StaminaResult {

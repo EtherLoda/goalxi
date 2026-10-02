@@ -1,4 +1,5 @@
 import { PlayerEntity } from '../entities/player.entity';
+import { GAME_SETTINGS } from '../constants/game.constants';
 import {
     DECLINE_BASE_RATE,
     DECLINE_CATEGORY_MULTIPLIER,
@@ -7,6 +8,33 @@ import {
     applyWeeklyDecline,
     calculateDeclinedSkill,
 } from './player-decline';
+
+/**
+ * Weeks in one game-year.
+ *
+ * Every cumulative-decline expectation below is a function of this, and
+ * `DECLINE_BASE_RATE` is defined as the per-week coefficient that
+ * `WEEKS_PER_YEAR × rate` stays constant across season lengths. Deriving
+ * both the loop lengths and the expectations from here is what keeps the
+ * "halved at 34" promise honest when the season length changes again —
+ * the previous version hardcoded 16, 112 and 144, which is why it would
+ * have failed on a season-length change for reasons that had nothing to
+ * do with the curve.
+ */
+const WEEKS_PER_YEAR = GAME_SETTINGS.SEASON_LENGTH_WEEKS;
+
+/**
+ * Single-week physical loss at `age`, from the exported constants.
+ *
+ * The single-week specs used to restate the arithmetic inline
+ * (`0.013 * 6^1.5 = 0.19106`). That is precisely how a rate change goes
+ * unnoticed: the expectation moves with the implementation only if
+ * somebody remembers to redo the sum. Every expectation below is now
+ * derived, so changing `DECLINE_BASE_RATE` cannot leave a stale number
+ * behind to make the suite pass for the wrong reason.
+ */
+const weeklyLoss = (age: number): number =>
+    DECLINE_BASE_RATE * Math.pow(age - DECLINE_START_AGE, 1.5);
 
 /** Build a minimal PlayerEntity-shaped object for the pure-function specs.
  *  No DB connection, no `AbstractEntity` constructor — the decline code
@@ -47,7 +75,7 @@ function advanceOneWeek(player: PlayerEntity, random: () => number): void {
     applyWeeklyDecline(player, random);
     // daysAlive is the source-of-truth for `PlayerEntity.age`; bumping
     // it by 7 (= one real week) flips the integer age boundary every
-    // 16 iterations. The test doesn't have a real `daysAlive`, so we
+    // one game-year. The test doesn't have a real `daysAlive`, so we
     // recompute `age` directly here. The production worker uses the
     // real getter — this shortcut only matters in the unit test.
     (player as unknown as { age: number }).age += 0; // no-op; the loop below sets it
@@ -67,22 +95,26 @@ describe('calculateDeclinedSkill', () => {
     });
 
     it('declines physical at age 30 by the calibrated per-week amount', () => {
-        // 0.013 * 2^1.5 (age-28)^p * 1.0 (physical) * 1.0 (jitter @ random=0.5)
-        // = 0.013 * 2.8284 = 0.036769
         const r = calculateDeclinedSkill(30, 'physical', 18, () => 0.5);
-        expect(r.value).toBeCloseTo(18 - 0.03677, 4);
+        expect(r.value).toBeCloseTo(18 - weeklyLoss(30), 10);
         expect(r.floored).toBe(false);
     });
 
     it('declines physical at age 34 substantially (single week)', () => {
-        // 0.013 * 6^1.5 = 0.013 * 14.697 = 0.19106 per week
         const r = calculateDeclinedSkill(34, 'physical', 18, () => 0.5);
-        expect(r.value).toBeCloseTo(18 - 0.19106, 3);
+        expect(r.value).toBeCloseTo(18 - weeklyLoss(34), 10);
         expect(r.floored).toBe(false);
     });
 
+    it('declines more at 34 than at 30, and both are non-trivial', () => {
+        // Guards the CURVE, not a number: the whole point of p=1.5 is that
+        // the loss accelerates with age rather than jumping at the end.
+        expect(weeklyLoss(34)).toBeGreaterThan(weeklyLoss(30) * 3);
+        expect(weeklyLoss(30)).toBeGreaterThan(0);
+    });
+
     it('clamps to the skill floor when decline would push below the floor', () => {
-        // age 40, current 5.5: 0.013 * 12^1.5 = 0.013 * 41.569 = 0.5404 lost
+        // age 40, current 5.5 — one week's loss pushes it under the floor
         // 5.5 - 0.5404 = 4.96 ≤ floor 5 → clamp
         const r = calculateDeclinedSkill(40, 'physical', 5.5, () => 0.5);
         expect(r.value).toBe(DECLINE_SKILL_FLOOR);
@@ -110,9 +142,8 @@ describe('calculateDeclinedSkill', () => {
         const max = calculateDeclinedSkill(34, 'physical', 18, () => 1);
         const minLoss = 18 - min.value;
         const maxLoss = 18 - max.value;
-        // 0.19106 base * 0.85 = 0.16240; * 1.15 = 0.21972
-        expect(minLoss).toBeCloseTo(0.19106 * 0.85, 5);
-        expect(maxLoss).toBeCloseTo(0.19106 * 1.15, 5);
+        expect(minLoss).toBeCloseTo(weeklyLoss(34) * 0.85, 10);
+        expect(maxLoss).toBeCloseTo(weeklyLoss(34) * 1.15, 10);
         expect(maxLoss).toBeGreaterThan(minLoss);
     });
 });
@@ -128,13 +159,16 @@ describe('applyWeeklyDecline (cumulative, calibrated against the plan)', () => {
      */
     function runWeeks(player: PlayerEntity, weeks: number, random: () => number): void {
         const startAge = player.age;
+        const perYear = WEEKS_PER_YEAR;
         for (let w = 0; w < weeks; w++) {
-            const ageNow = Math.floor(startAge + w / 16);
+            const ageNow = Math.floor(startAge + w / perYear);
             (player as unknown as { age: number }).age = ageNow;
             applyWeeklyDecline(player, random);
         }
         // Stamp the post-loop age so callers can assert on it.
-        (player as unknown as { age: number }).age = Math.floor(startAge + weeks / 16);
+        (player as unknown as { age: number }).age = Math.floor(
+            startAge + weeks / perYear,
+        );
     }
 
     it('produces zero deltas for a player below DECLINE_START_AGE', () => {
@@ -147,14 +181,20 @@ describe('applyWeeklyDecline (cumulative, calibrated against the plan)', () => {
     });
 
     it('SKILL-CALIBRATION: physical skills lose ~8.9 over 6 game years (28→35), peak 18 → ~9.1 (just halved)', () => {
-        // 16 weeks at each of ages 29, 30, 31, 32, 33, 34 = 96 weeks of
-        // decline plus 16 weeks at age 34 = 112 weeks total. After
+        // One game-year of decline at each of ages 29..34, then another
+        // at age 34 — `WEEKS_PER_YEAR * 7` weeks in total. After
         // 7 game years the player has just turned 35. The "halved
         // by 34-35" promise is satisfied here.
         //
-        // Discrete sum (a=0.013, p=1.5):
-        //   16 × 0.013 × (1^1.5 + 2^1.5 + 3^1.5 + 4^1.5 + 5^1.5 + 6^1.5)
-        //   = 16 × 0.013 × 42.91 = 8.92
+        // Discrete sum, where `WEEKS_PER_YEAR × DECLINE_BASE_RATE` is the
+        // per-game-year rate and 42.91 = Σ(1..6)^1.5:
+        //   7 × (WEEKS_PER_YEAR × DECLINE_BASE_RATE) × 42.91 ≈ 8.92
+        //
+        // The product is what matters, not either factor: DECLINE_BASE_RATE
+        // is a PER-WEEK rate, so it is scaled by 16/11 whenever
+        // SEASON_LENGTH_WEEKS changes. That is why this spec derives the
+        // expectation from the constants instead of restating a number —
+        // restating it is how the "halved at 34" promise silently rotted.
         //
         // The plan-level contract is "halved by 34-35" — peak 18 → 9.08
         // is just over half. Categories are scaled by their
@@ -164,9 +204,9 @@ describe('applyWeeklyDecline (cumulative, calibrated against the plan)', () => {
         //   mental:      18 − 0.4 × 8.92 ≈ 14.43
         //   setPieces:   18 − 0.2 × 8.92 ≈ 16.22
         const player = makePlayer({ age: 28, pace: 18, strength: 18 });
-        runWeeks(player, 112, () => 0.5);
+        runWeeks(player, WEEKS_PER_YEAR * 7, () => 0.5);
 
-        // After 112 weeks the player has just turned 35.
+        // After seven game-years the player has just turned 35.
         expect(player.age).toBe(35);
         // physical: peak 18 → ~9.1 (just over half ✓)
         expect(player.currentSkills.physical.pace).toBeCloseTo(9.1, 0);
@@ -186,14 +226,15 @@ describe('applyWeeklyDecline (cumulative, calibrated against the plan)', () => {
     });
 
     it('physical skills hit the skill floor (5) by age 37', () => {
-        // 16 weeks at each of ages 29..36 = 144 weeks total. After
+        // Ages 29..36 = one game-year each, so `WEEKS_PER_YEAR * 9`
+        // weeks total. After
         // 9 game years the player has just turned 37.
         //
-        // Discrete sum (a=0.013, p=1.5): 16 × 0.013 × Σ(y-28)^1.5
-        // for y in {29,30,31,32,33,34,35,36} = 16 × 0.013 × 88.18 = 18.34
+        // Discrete sum: 9 × (WEEKS_PER_YEAR × DECLINE_BASE_RATE) × 88.18,
+        // where 88.18 = Σ(1..8)^1.5 over ages 29..36.
         // Peak 18 − 18.34 = -0.34 → clamps to 5.
         const player = makePlayer({ age: 28, pace: 18, strength: 18 });
-        runWeeks(player, 144, () => 0.5);
+        runWeeks(player, WEEKS_PER_YEAR * 9, () => 0.5);
 
         expect(player.age).toBe(37);
         expect(player.currentSkills.physical.pace).toBe(DECLINE_SKILL_FLOOR);
@@ -232,9 +273,9 @@ describe('applyWeeklyDecline (cumulative, calibrated against the plan)', () => {
     });
 
     it('rounds the new skill value to 2 decimals (matches youth-progression convention)', () => {
-        // 0.013 * 2^1.5 * 1.0 (physical) * 1.0 (jitter @ random=0.5)
-        // = 0.013 * 2.828 = 0.0368 → 18 - 0.0368 = 17.9632
-        // → parseFloat(17.9632.toFixed(2)) === 17.96
+        // One week at age 30: `18 - weeklyLoss(30)`, rounded to 2dp by
+        // `applyWeeklyDecline`. Expected value derived from the constants
+        // rather than restated.
         // All 10 skills on a default player sit at 18, so all 10
         // produce deltas; we assert on the pace value (a physical
         // skill with multiplier 1.0 → biggest decline) plus the
@@ -244,8 +285,9 @@ describe('applyWeeklyDecline (cumulative, calibrated against the plan)', () => {
         expect(result.deltas.length).toBe(10);
         const paceDelta = result.deltas.find((d) => d.skillKey === 'pace');
         expect(paceDelta).toBeDefined();
-        expect(paceDelta?.after).toBe(17.96);
-        expect(player.currentSkills.physical.pace).toBe(17.96);
+        const expected = parseFloat((18 - weeklyLoss(30)).toFixed(2));
+        expect(paceDelta?.after).toBe(expected);
+        expect(player.currentSkills.physical.pace).toBe(expected);
     });
 
     it('uses Math.random by default (jitter is non-deterministic) — both calls land in the jitter band', () => {
@@ -254,21 +296,20 @@ describe('applyWeeklyDecline (cumulative, calibrated against the plan)', () => {
         // No random argument → falls through to Math.random. We don't
         // assert that the two calls differ (that's a flake waiting to
         // happen) — we assert that both land in the documented
-        // [0.85×, 1.15×] jitter band around the calibrated 0.0368
-        // per-week decline (a=0.013, p=1.5, age 30). The band is
-        // widened by 2dp rounding drift (0.005 either side of the
-        // continuous band edges) — e.g. 0.85 × 0.0368 = 0.03128
-        // rounds down to a stored 0.03.
+        // [0.85×, 1.15×] jitter band around the calibrated per-week
+        // decline at age 30. The band is widened by 2dp rounding drift
+        // (0.005 either side of the continuous band edges).
         applyWeeklyDecline(a);
         applyWeeklyDecline(b);
         const aLost = 18 - a.currentSkills.physical.pace;
         const bLost = 18 - b.currentSkills.physical.pace;
-        // 0.0368 * 0.85 = 0.03128; rounds to 0.03
-        // 0.0368 * 1.15 = 0.04232; rounds to 0.04
-        expect(aLost).toBeGreaterThanOrEqual(0.03);
-        expect(aLost).toBeLessThanOrEqual(0.04);
-        expect(bLost).toBeGreaterThanOrEqual(0.03);
-        expect(bLost).toBeLessThanOrEqual(0.04);
+        const base = weeklyLoss(30);
+        const lo = parseFloat((base * 0.85).toFixed(2));
+        const hi = parseFloat((base * 1.15).toFixed(2));
+        for (const lost of [aLost, bLost]) {
+            expect(lost).toBeGreaterThanOrEqual(lo);
+            expect(lost).toBeLessThanOrEqual(hi);
+        }
     });
 
     it('hitFloor flag is true when at least one skill lands in the clamp', () => {
@@ -285,8 +326,21 @@ describe('applyWeeklyDecline (cumulative, calibrated against the plan)', () => {
 describe('constants and shapes', () => {
     it('exports the documented calibration constants', () => {
         expect(DECLINE_START_AGE).toBe(28);
-        expect(DECLINE_BASE_RATE).toBe(0.013);
         expect(DECLINE_SKILL_FLOOR).toBe(5);
+    });
+
+    it('keeps the per-GAME-YEAR decline rate constant across season lengths', () => {
+        // `DECLINE_BASE_RATE` is per week and `WEEKS_PER_YEAR` is the
+        // number of weeks it is applied in, so the per-year rate is their
+        // product. The season went 16 → 11 weeks; the product must not
+        // have moved, or every 34-year-old in the world would have quietly
+        // declined by a different amount.
+        //
+        // 16 × 0.013 was the original calibration, and 11 × 0.0189 is
+        // 0.2079 against 0.208 — the same curve, traversed in less time.
+        const perGameYear = WEEKS_PER_YEAR * DECLINE_BASE_RATE;
+        expect(perGameYear).toBeCloseTo(0.013 * 16, 3);
+        expect(DECLINE_BASE_RATE).toBeCloseTo((0.013 * 16) / WEEKS_PER_YEAR, 5);
     });
 
     it('category multipliers follow the physical→setPieces ordering', () => {

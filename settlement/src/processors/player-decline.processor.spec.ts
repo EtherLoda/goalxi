@@ -4,7 +4,25 @@ import { DataSource, Repository } from 'typeorm';
 import { Job } from 'bullmq';
 import { PlayerDeclineProcessor } from './player-decline.processor';
 import { LOGGER_SERVICE } from '@goalxi/logger';
-import { DECLINE_START_AGE, PlayerEntity } from '@goalxi/database';
+import {
+  DECLINE_BASE_RATE,
+  DECLINE_START_AGE,
+  PlayerEntity,
+} from '@goalxi/database';
+
+/**
+ * The jittered single-week decline band for a physical skill at `age`.
+ *
+ * Derived from the exported rate rather than restated. The previous
+ * version asserted literal 0.038..0.045 (age 30) and 0.01..0.015 (age 29),
+ * which only held while `DECLINE_BASE_RATE` was the literal 0.013 — so
+ * rescaling the rate for the shorter season broke these for a reason that
+ * had nothing to do with the processor.
+ */
+const weeklyDeclineBand = (age: number): [number, number] => {
+  const base = DECLINE_BASE_RATE * Math.pow(age - DECLINE_START_AGE, 1.5);
+  return [base * 0.85, base * 1.15];
+};
 
 describe('PlayerDeclineProcessor', () => {
   let processor: PlayerDeclineProcessor;
@@ -142,16 +160,13 @@ describe('PlayerDeclineProcessor', () => {
     expect(dataSource.transaction).toHaveBeenCalledTimes(1);
 
     // Single week at age 30 with the max-jitter RNG (random=1,
-    // jitter=1.15):
-    //   decline = 0.013 * 2^1.5 (age-28)^p * catMult * 1.15
-    //   physical (1.0): 0.013 * 2.828 * 1.15 = 0.0423
-    //   mental (0.4):    0.013 * 2.828 * 0.4 * 1.15 = 0.0169
-    // We assert a range rather than exact — the spec is the
-    // "decline fires at age 30" contract, not the precise delta.
+    // We assert the jitter band rather than an exact delta — the spec is
+    // the "decline fires at age 30" contract, not the precise number.
     const before = 18;
     const lost = before - senior.currentSkills.physical.pace;
-    expect(lost).toBeGreaterThan(0.038);
-    expect(lost).toBeLessThan(0.045);
+    const [lo, hi] = weeklyDeclineBand(30);
+    expect(lost).toBeGreaterThanOrEqual(lo);
+    expect(lost).toBeLessThanOrEqual(hi);
 
     // Mental declines less.
     const mentalLost =
@@ -302,9 +317,9 @@ describe('PlayerDeclineProcessor', () => {
     const result = await processor.process({} as Job);
 
     expect(result.playersDeclined).toBe(1);
-    // 0.011 * 1 * 1.0 * 1.15 = 0.01265 lost on physical.
     const lost = 18 - justOver.currentSkills.physical.pace;
-    expect(lost).toBeGreaterThan(0.01);
-    expect(lost).toBeLessThan(0.015);
+    const [lo, hi] = weeklyDeclineBand(29);
+    expect(lost).toBeGreaterThanOrEqual(lo);
+    expect(lost).toBeLessThanOrEqual(hi);
   });
 });
