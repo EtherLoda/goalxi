@@ -92,7 +92,6 @@ export interface CronLockRun<T> {
  *   - `promotion-relegation` `processAllTiers` — 5+ unwrapped writes,
  *     and `swapTeamLeague` is not commutative
  *   - `league-standing` `initNewSeasonStandings` — per-row saves
- *   - `league-admin` `addTeamToLeague` — 3 unwrapped writes
  *
  * Handlers that DO have a guard (`match-scheduler`'s conditional UPDATE,
  * the `playoff_swapped_at` latch, `league-award`'s event-existence check,

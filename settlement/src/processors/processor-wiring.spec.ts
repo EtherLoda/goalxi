@@ -145,7 +145,6 @@ describe('settlement cron timezone (wiring tripwire)', () => {
  *   - `promotion-relegation` `processAllTiers` — 5+ unwrapped writes,
  *     `swapTeamLeague` is not commutative
  *   - `league-standing` `initNewSeasonStandings` — per-row saves
- *   - `league-admin` `addTeamToLeague` — 3 unwrapped writes
  *
  * Phase 0 removed the second owner. `@CronLocked` (backed by a Redis
  * `SET NX PX` with a token-checked release) closes the general case:

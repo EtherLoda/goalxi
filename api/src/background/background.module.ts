@@ -26,7 +26,6 @@ import { MatchCompletionModule } from './queues/match-completion/match-completio
 //   - `promotion-relegation.service.ts` `processAllTiers`
 //     (5+ unwrapped writes; `swapTeamLeague` is not commutative)
 //   - `league-standing.service.ts` `initNewSeasonStandings`
-//   - `league-admin.service.ts` `addTeamToLeague`
 //
 // A few handlers were accidentally saved by CAS / latch logic
 // (`match-scheduler`'s `UPDATE ... WHERE status='scheduled'`, the

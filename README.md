@@ -90,7 +90,7 @@ This is a **pnpm workspace monorepo** with four services and shared libs:
 
 - **Schedulers** (`@Cron`-driven) — `MatchSchedulerService` (preprocess → start → complete), `WeeklySettlementService` (Thursday tick), `PlayerWageSchedulerService`, `InjuryRecoveryService` (daily 02:00), `SeasonTransitionService` (Mon/Tue), `ScoutSchedulerService`, `WeatherSchedulerService`, `LeagueAwardService` (Sunday week-15), `FinanceSchedulerService`.
 - **Processors** (BullMQ workers) — `TrainingProcessor`, `ConditionProcessor`, `PlayerWageProcessor`, `StadiumConstructionProcessor`, `YouthProgressionProcessor`, `TransferProcessor`, `SimulationProcessor` (lives in `simulator/`).
-- **Cross-cutting services** — `PromotionRelegationService` (tier ladder + playoff swap), `PlayoffService`, `SeasonArchiveService` (writes the `archived_*` mirror tables at season end), `LeagueAdminService` (createLeague / addTeam / removeTeam), `LeagueStandingService`, `SeasonSchedulerService`.
+- **Cross-cutting services** — `PromotionRelegationService` (tier ladder + playoff swap), `PlayoffService`, `SeasonArchiveService` (writes the `archived_*` mirror tables at season end), `LeagueStandingService`, `SeasonSchedulerService`.
 
 ### One source of truth for the game clock
 

@@ -8,8 +8,6 @@ import {
   MatchEventEntity,
   PlayerEntity,
   InjuryEntity,
-  YouthLeagueEntity,
-  YouthTeamEntity,
   TeamEntity,
   ScoutCandidateEntity,
   StaffEntity,
@@ -44,7 +42,6 @@ import { SeasonSchedulerService } from './season-scheduler.service';
 
 import { PromotionRelegationService } from './promotion-relegation.service';
 import { PlayoffService } from './playoff.service';
-import { LeagueAdminService } from './league-admin.service';
 import { TeamGeneratorService } from './team-generator.service';
 import { ScoutSchedulerService } from './scout-scheduler.service';
 import { FinanceSchedulerService } from './finance-scheduler.service';
@@ -109,9 +106,6 @@ import { NotificationModule } from '../notification/notification.module';
       PlayerEntity,
       InjuryEntity,
 
-      YouthLeagueEntity,
-      YouthTeamEntity,
-
       TeamEntity,
       ScoutCandidateEntity,
       StaffEntity,
@@ -149,7 +143,6 @@ import { NotificationModule } from '../notification/notification.module';
 
     PromotionRelegationService,
     PlayoffService,
-    LeagueAdminService,
     TeamGeneratorService,
     ScoutSchedulerService,
     FinanceSchedulerService,
@@ -172,7 +165,6 @@ import { NotificationModule } from '../notification/notification.module';
 
     PromotionRelegationService,
     PlayoffService,
-    LeagueAdminService,
     TeamGeneratorService,
     ScoutSchedulerService,
     FinanceSchedulerService,
