@@ -1043,10 +1043,6 @@ export const api = {
     getById: async (id: number): Promise<Player> => {
       return request<Player>(`/players/${id}`);
     },
-    /** [RFC 0001] Promotes a youth player to the senior squad. */
-    promote: async (id: number): Promise<Player> => {
-      return request<Player>(`/players/${id}/promote`, { method: 'POST' });
-    },
     getByTeam: async (teamId: string, detailed?: boolean): Promise<{ items: Player[]; meta: any }> => {
       const params = new URLSearchParams({ teamId });
       if (detailed !== undefined) params.set('detailed', String(detailed));

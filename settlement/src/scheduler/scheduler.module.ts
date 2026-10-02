@@ -76,9 +76,6 @@ import { NotificationModule } from '../notification/notification.module';
       name: 'training-settlement',
     }),
     BullModule.registerQueue({
-      name: 'youth-match-simulation',
-    }),
-    BullModule.registerQueue({
       name: 'finance-settlement',
     }),
     BullModule.registerQueue({
@@ -89,9 +86,6 @@ import { NotificationModule } from '../notification/notification.module';
     }),
     BullModule.registerQueue({
       name: 'construction-settlement',
-    }),
-    BullModule.registerQueue({
-      name: 'youth-progression-settlement',
     }),
     BullModule.registerQueue({
       name: 'senior-decline-settlement',

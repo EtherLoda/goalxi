@@ -6,7 +6,9 @@ import { MigrationInterface, QueryRunner } from 'typeorm';
  *
  * Nullable for now to keep the migration backwards-compatible with any
  * pre-existing `youth_league` rows; the new
- * `YouthStructureGenerator` backfills the column right after it runs.
+ * The `youth-structure` generator that would have backfilled this
+ * column was never registered in `BootstrapModule` and has since
+ * been deleted, so the column stays null in practice.
  */
 export class AddYouthLeagueSeniorLink1723200000000 implements MigrationInterface {
   name = 'AddYouthLeagueSeniorLink1723200000000';

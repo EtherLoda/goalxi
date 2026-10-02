@@ -21,9 +21,13 @@ export class YouthLeagueEntity extends AbstractEntity {
   status!: string;
 
   /**
-   * 1:1 link to the parent senior league. Set by
-   * `YouthStructureGenerator` during bootstrap so the schedule
-   * generator can pair the two halves of the pyramid.
+   * 1:1 link to the parent senior league.
+   *
+   * NOTE: nothing populates this today. The `youth-structure`
+   * generator that would have created one `youth_league` per senior
+   * league was never registered in `BootstrapModule` and has been
+   * deleted. The column and the migration that added it are kept so
+   * the pyramid can be rebuilt without a data migration.
    */
   @Column({ name: "senior_league_id", type: "uuid", nullable: true })
   seniorLeagueId?: string | null;

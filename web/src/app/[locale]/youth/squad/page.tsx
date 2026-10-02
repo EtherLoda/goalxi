@@ -1,11 +1,10 @@
 "use client";
 
-import React, { Suspense,  useEffect, useMemo, useState  } from "react";
+import React, { Suspense, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { useParams, useSearchParams } from "next/navigation";
+import { useParams } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { api, type Player, type User } from "@/lib/api";
-import { useAuth } from "@/contexts/AuthContext";
 
 /** Skill keys total per player type — used to compute reveal progress. */
 const OUTFIELD_KEYS = [
@@ -56,30 +55,19 @@ function YouthSquadPage() {
   const tPos = useTranslations("youth.squad.position");
   const tPot = useTranslations("youth.squad.potentialLabel");
   const params = useParams();
-  const search = useSearchParams();
-  const { user, team } = useAuth();
 
   const locale = (params.locale as string) || "en";
-  const teamIdFromQuery = search.get("team");
-  const viewTeamId = teamIdFromQuery; // future: when viewing another team
 
   const [players, setPlayers] = useState<Player[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [view, setView] = useState<ViewMode>("table");
-  const [promoting, setPromoting] = useState<Player | null>(null);
   const [toast, setToast] = useState<{
     kind: "success" | "error";
     text: string;
   } | null>(null);
 
-  // Only the team owner can manage their own youth squad — sidebar links
-  // to /youth/squad always go to the user's own team; viewing another
-  // team's squad is read-only in a future iteration.
-  const isOwnTeam = !viewTeamId || viewTeamId === team?.id;
-
   useEffect(() => {
     let cancelled = false;
-    setError(null);
 
     // The youth controller is class-level @UseGuards(AuthGuard) so a logged-in
     // user is sufficient. If we're viewing another team's squad we still
@@ -88,13 +76,21 @@ function YouthSquadPage() {
     api.players
       .list({ isYouth: true })
       .then((data) => {
-        if (!cancelled) setPlayers(data.items);
+        if (cancelled) return;
+        // Clear a previous error here rather than with a synchronous
+        // `setError(null)` at the top of the effect body: that runs
+        // before the first paint of every effect pass and forces an
+        // extra render cascade (`react-hooks/set-state-in-effect`).
+        // Clearing on success keeps the behaviour that matters — a
+        // recovered fetch no longer shows a stale error — without the
+        // double render.
+        setError(null);
+        setPlayers(data.items);
       })
       .catch((err) => {
-        if (!cancelled) {
-          setError(err instanceof Error ? err.message : "load failed");
-          setPlayers([]);
-        }
+        if (cancelled) return;
+        setError(err instanceof Error ? err.message : "load failed");
+        setPlayers([]);
       });
 
     return () => {
@@ -107,8 +103,10 @@ function YouthSquadPage() {
     return [...players].sort((a, b) => {
       // Active youth first, then by reveal progress desc, then by potential tier desc, then by joinedAt desc.
       if (a.isPromoted !== b.isPromoted) return a.isPromoted ? 1 : -1;
-      const pa = (a.revealedSkills ?? []).length / Math.max(1, getExpectedKeyCount(a));
-      const pb = (b.revealedSkills ?? []).length / Math.max(1, getExpectedKeyCount(b));
+      const pa =
+        (a.revealedSkills ?? []).length / Math.max(1, getExpectedKeyCount(a));
+      const pb =
+        (b.revealedSkills ?? []).length / Math.max(1, getExpectedKeyCount(b));
       if (pa !== pb) return pb - pa;
       const tierOrder: Record<string, number> = {
         LEGEND: 5,
@@ -123,25 +121,6 @@ function YouthSquadPage() {
       );
     });
   }, [players]);
-
-  const handlePromote = async (p: Player) => {
-    setPromoting(p);
-    setToast(null);
-    try {
-      await api.players.promote(p.id);
-      setToast({ kind: "success", text: t("promoteSuccess", { name: p.name }) });
-      // Refresh list — promoted player disappears from /youth (isYouth=true filter).
-      const fresh = await api.players.list({ isYouth: true });
-      setPlayers(fresh.items);
-    } catch (err) {
-      setToast({
-        kind: "error",
-        text: err instanceof Error ? err.message : t("promoteError"),
-      });
-    } finally {
-      setPromoting(null);
-    }
-  };
 
   // -------- Render --------
   if (error) {
@@ -165,9 +144,7 @@ function YouthSquadPage() {
         onViewChange={setView}
       />
 
-      {sorted.length === 0 && (
-        <EmptyState text={t("empty")} />
-      )}
+      {sorted.length === 0 && <EmptyState text={t("empty")} />}
 
       {sorted.length > 0 && view === "table" && (
         <TableView
@@ -175,10 +152,7 @@ function YouthSquadPage() {
           tPos={tPos}
           tPot={tPot}
           players={sorted}
-          isOwnTeam={isOwnTeam}
           locale={locale}
-          promoting={promoting}
-          onPromote={handlePromote}
         />
       )}
 
@@ -188,10 +162,7 @@ function YouthSquadPage() {
           tPos={tPos}
           tPot={tPot}
           players={sorted}
-          isOwnTeam={isOwnTeam}
           locale={locale}
-          promoting={promoting}
-          onPromote={handlePromote}
         />
       )}
 
@@ -275,7 +246,7 @@ function PlayerMeta({
 }) {
   const tier = p.potentialTier;
   const tierClass = tier
-    ? POTENTIAL_TIER_COLOR[tier] ?? POTENTIAL_TIER_COLOR.LOW
+    ? (POTENTIAL_TIER_COLOR[tier] ?? POTENTIAL_TIER_COLOR.LOW)
     : "bg-[#2f4e44]/40 text-[#91b2a6]";
   return (
     <span
@@ -335,9 +306,7 @@ function AgeCell({
   return (
     <span className="text-xs text-[#d3f5e8] tabular-nums">
       {t("common.ageFormat", { y: p.age, d: p.ageDays })}
-      <span className="text-[10px] text-[#91b2a6] ml-1">
-        ({p.revealLevel})
-      </span>
+      <span className="text-[10px] text-[#91b2a6] ml-1">({p.revealLevel})</span>
     </span>
   );
 }
@@ -347,19 +316,13 @@ function TableView({
   tPos,
   tPot,
   players,
-  isOwnTeam,
   locale,
-  promoting,
-  onPromote,
 }: {
   t: ReturnType<typeof useTranslations>;
   tPos: ReturnType<typeof useTranslations>;
   tPot: ReturnType<typeof useTranslations>;
   players: Player[];
-  isOwnTeam: boolean;
   locale: string;
-  promoting: Player | null;
-  onPromote: (p: Player) => void;
 }) {
   return (
     <div className="bg-[#00251c]/60 rounded-2xl border border-white/5 overflow-hidden">
@@ -379,10 +342,6 @@ function TableView({
         </thead>
         <tbody className="divide-y divide-white/5">
           {players.map((p) => {
-            const canPromote =
-              isOwnTeam &&
-              (p.revealedSkills ?? []).length >= getRequiredRevealCount(p) &&
-              !p.isPromoted;
             return (
               <tr
                 key={p.id}
@@ -411,15 +370,6 @@ function TableView({
                 <td className="px-4 py-3">
                   <RevealProgressBar p={p} t={t} />
                 </td>
-                <td className="px-4 py-3 text-right">
-                  <PromoteButton
-                    p={p}
-                    canPromote={canPromote}
-                    promoting={promoting}
-                    onClick={() => onPromote(p)}
-                    t={t}
-                  />
-                </td>
               </tr>
             );
           })}
@@ -434,26 +384,16 @@ function CardsView({
   tPos,
   tPot,
   players,
-  isOwnTeam,
-  promoting,
-  onPromote,
 }: {
   t: ReturnType<typeof useTranslations>;
   tPos: ReturnType<typeof useTranslations>;
   tPot: ReturnType<typeof useTranslations>;
   players: Player[];
-  isOwnTeam: boolean;
   locale?: string;
-  promoting: Player | null;
-  onPromote: (p: Player) => void;
 }) {
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
       {players.map((p) => {
-        const canPromote =
-          isOwnTeam &&
-          (p.revealedSkills ?? []).length >= getRequiredRevealCount(p) &&
-          !p.isPromoted;
         return (
           <article
             key={p.id}
@@ -461,11 +401,10 @@ function CardsView({
           >
             <div className="flex items-start justify-between gap-2">
               <div>
-                <h3 className="text-base font-bold text-[#d3f5e8]">
-                  {p.name}
-                </h3>
+                <h3 className="text-base font-bold text-[#d3f5e8]">{p.name}</h3>
                 <p className="text-[11px] text-[#91b2a6] font-space">
-                  {p.isGoalkeeper ? tPos("GK") : tPos("OUT")} · {p.nationality ?? "—"}
+                  {p.isGoalkeeper ? tPos("GK") : tPos("OUT")} ·{" "}
+                  {p.nationality ?? "—"}
                 </p>
               </div>
               <PlayerMeta p={p} tPot={tPot} />
@@ -490,61 +429,10 @@ function CardsView({
             )}
 
             <RevealProgressBar p={p} t={t} />
-
-            <PromoteButton
-              p={p}
-              canPromote={canPromote}
-              promoting={promoting}
-              onClick={() => onPromote(p)}
-              t={t}
-            />
           </article>
         );
       })}
     </div>
-  );
-}
-
-function PromoteButton({
-  p,
-  canPromote,
-  promoting,
-  onClick,
-  t,
-}: {
-  p: Player;
-  canPromote: boolean;
-  promoting: Player | null;
-  onClick: () => void;
-  t: ReturnType<typeof useTranslations>;
-}) {
-  if (p.isPromoted) {
-    return (
-      <span className="text-[10px] text-[#91b2a6] uppercase tracking-wider font-bold">
-        ✓
-      </span>
-    );
-  }
-  return (
-    <button
-      onClick={onClick}
-      disabled={!canPromote || promoting?.id === p.id}
-      title={!canPromote ? t("promoteDisabledReason") : ""}
-      className={
-        canPromote
-          ? "inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-[#a1ffc2] text-[#001e17] text-[11px] font-bold uppercase tracking-wider hover:bg-[#b9ffce] transition-colors disabled:opacity-50"
-          : "inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-[#2f4e44]/30 text-[#91b2a6] text-[11px] font-bold uppercase tracking-wider cursor-not-allowed"
-      }
-    >
-      {promoting?.id === p.id ? (
-        <span className="material-symbols-outlined text-[14px] animate-spin">
-          progress_activity
-        </span>
-      ) : (
-        <span className="material-symbols-outlined text-[14px]">trending_up</span>
-      )}
-      {t("promote")}
-    </button>
   );
 }
 

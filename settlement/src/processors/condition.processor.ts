@@ -171,10 +171,11 @@ export class ConditionProcessor extends WorkerHost {
    * Skips the form/stamina work because bot player state is meant to
    * stay frozen at the seeded values.
    *
-   * Includes youth — `youth-structure.generator.ts` creates one
-   * `youth_team` per EVERY senior team (bots included), and those
-   * academy players play youth fixtures through the same
-   * `match-completion` path, so they accumulate minutes too.
+   * Includes youth. `is_youth = true` rows cannot currently exist —
+   * scout discovery creates every player with `is_youth = false` —
+   * so this branch is inert. It is left in place so that restoring
+   * the youth pipeline does not silently reintroduce the unbounded
+   * growth this method was written to avoid.
    */
   private async resetMatchMinutesForBotTeam(teamId: string): Promise<void> {
     const players = await this.playerRepo.find({ where: { teamId } });

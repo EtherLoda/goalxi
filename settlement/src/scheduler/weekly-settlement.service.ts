@@ -12,12 +12,11 @@ type SettlementKind =
   | 'training'
   | 'condition'
   | 'construction'
-  | 'youth-progression'
   | 'fan';
 
 /**
- * Weekly training, condition, stadium construction, youth
- * progression, and fan settlement cron. Runs every Thursday at
+ * Weekly training, condition, stadium construction, and fan
+ * settlement cron. Runs every Thursday at
  * 00:00 UTC.
  *
  * Each settlement is a single "all teams" BullMQ job that the
@@ -60,15 +59,13 @@ export class WeeklySettlementService {
     private conditionQueue: Queue,
     @InjectQueue('construction-settlement')
     private constructionQueue: Queue,
-    @InjectQueue('youth-progression-settlement')
-    private youthProgressionQueue: Queue,
     @InjectQueue('fan-settlement')
     private fanQueue: Queue,
   ) {
     this.gameStart = resolveGameStart(process.env.GAME_START_DATE);
   }
 
-  // Only enqueues; the 5 consumers do the heavy work. The
+  // Only enqueues; the 4 consumers do the heavy work. The
   // BullMQ business-key jobIds (`weekly-{kind}-{season}-week{n}`)
   // already dedupe the enqueue, so this lock mainly stops two
   // replicas racing the same Thursday tick.
@@ -85,7 +82,6 @@ export class WeeklySettlementService {
       { kind: 'training', queue: this.trainingQueue },
       { kind: 'condition', queue: this.conditionQueue },
       { kind: 'construction', queue: this.constructionQueue },
-      { kind: 'youth-progression', queue: this.youthProgressionQueue },
       { kind: 'fan', queue: this.fanQueue },
     ];
 

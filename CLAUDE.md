@@ -119,9 +119,11 @@ Community forum lives at `api/src/api/forum/` and `web/src/app/forum/`. Entities
 > **FROZEN — do not develop, extend, or "improve" this subsystem without
 > an explicit go-ahead from the maintainer.**
 >
-> Youth development is paused indefinitely. The code below is
-> **documentation of what exists**, not a specification of what should
-> be built. Specifically:
+> Youth development is paused indefinitely. **New players enter the
+> world through scout discovery only** — `ScoutsService.selectCandidate`
+> creates every player with `isYouth = false` and `youthLeagueId = null`.
+> The code below is **documentation of what remains**, not a
+> specification of what should be built. Specifically:
 >
 > - **No new features.** Do not add youth scouts, youth tactics depth,
 >   academy upgrades, loan pathways, or a Youth Mode toggle.
@@ -132,12 +134,11 @@ Community forum lives at `api/src/api/forum/` and `web/src/app/forum/`. Entities
 >   limitations* → "The promotion gate can never be satisfied for a
 >   team-less youth". Fixing it requires a product decision, not a code
 >   change.
-> - **Bug fixes are still welcome** where the subsystem is actively
->   running (it generates and simulates youth fixtures every matchday).
->   Keep those minimal and self-contained.
-> - **Runtime behaviour is unchanged and must stay that way.** The
->   weekly worker still ticks, youth fixtures are still generated and
->   simulated. Freezing means *hands off*, not *shut it down*.
+> - **The pipeline is inert, and has been for a while.** Nothing creates
+>   youth leagues, youth teams or youth fixtures, so nothing simulates
+>   them either. `GET /players?isYouth=true` returns an empty list.
+> - **Bug fixes are still welcome** only where code is genuinely
+>   running. Keep them minimal and self-contained.
 >
 > If you believe something here genuinely must change, say so and wait
 > for an answer rather than fixing it in passing. A drive-by "cleanup"
@@ -149,28 +150,34 @@ The youth flow was consolidated into `player` (RFC 0001, migration `172200000000
 **Pyramid bootstrap** (`settlement/src/bootstrap/`):
 - `LeagueGenerator.generatePyramid()` runs first → 85 senior leagues (L1 + 4 L2 + 16 L3 + 64 L4).
 - `TeamGenerator.generateAllTeams()` populates each senior league.
-- `YouthStructureGenerator.generate()` (WAVE A1) creates exactly **1 `youth_league` per senior_league** (1:1 by `senior_league_id`) and **1 `youth_team` per senior_team** (1:1 by `team_id`). Idempotent; skipped for teams with no `leagueId`.
-- `ScheduleGenerator.generateSeason1Schedule()` (WAVE A2) generates senior fixtures AND youth fixtures. Youth matches have `leagueId = null` and `youthLeagueId` set. Every match (senior + youth) gets a real `scheduledAt` so the preprocessor's `LessThanOrEqual(lockThreshold)` filter picks them up. Youth matches are offset by **2 days** from the senior schedule so they don't open for tactics at the same instant.
+- `ScheduleGenerator.generateSeason1Schedule()` (WAVE A2) generates **senior fixtures only**. Every match it creates carries `youthLeagueId = null`; no code path emits a youth match.
+
+  The `youth-structure.generator.ts` that used to create the 1:1 `youth_league` / `youth_team` rows was never registered in `BootstrapModule`, so it never ran. It has since been deleted along with the rest of the inert runtime surface. That means no youth rows exist, and the youth fixtures it was documented as feeding were never generated in the first place.
 
 **Youth coach model** — *paused*: the `StaffRole.YOUTH_COACH` enum member, the
 `applyYouthCoachCategoryTraining` helper, and the youth-coach branches in
 `staffs.service.ts` were removed in the YOUTH_COACH-removal batch. The
 Postgres enum value was dropped by migration `1724000000000`. The
-`youth-progression-settlement` worker still runs every Thursday at
-00:00 UTC but only handles `applyWeeklyGrowth` (base growth) and
-`pickNextRevealSkills` (fog reveal) — there is no coach bonus any more.
+The `youth-progression-settlement` worker itself has been removed: it
+ticked every Thursday but had no `is_youth` rows to act on. The pure
+functions it called remain in
+`libs/database/src/services/youth-progression.ts`.
 Re-introducing the role requires restoring the enum value, the training
 helper, and the validation/assignment branches together; don't peel them
 back apart.
 
-**Promotion gate** (WAVE B1, **server-enforced**):
-- `PlayerService.promote()` flips `is_youth=false` and clears the reveal mask. Throws `ForbiddenException` if `revealedSkills.length < ceil(PROMOTION_REVEAL_THRESHOLD * totalKeys)`. Outfield needs ≥ **5/10** unlocked skills; goalkeeper ≥ **5/9**.
+**Promotion gate** (WAVE B1) — *endpoint removed, constant kept*:
+- `PlayerService.promote()` required ≥ **5/10** revealed skills (goalkeeper
+  ≥ **5/9**) before flipping `is_youth=false`. It could only ever return
+  400, because nothing in the codebase creates `is_youth = true`, so the
+  route and the method have been removed. The threshold constant and the
+  player columns it guarded are untouched.
 - Constant: `PROMOTION_REVEAL_THRESHOLD = 0.5` in `libs/database/src/constants/youth-keys.constants.ts`. Update `revealLevel` together with `revealedSkills.length` (the processor keeps them in sync).
 - Curl/Postman cannot bypass — the gate runs on the server before any state mutation.
 
-**Release endpoint** (WAVE B2):
-- `POST /players/:id/release` soft-deletes a youth (`PlayerEntity.softRemove()`, preserves the row for event history). Refuses senior players (400) so a UI typo cannot dump a contracted first-teamer.
-- The generic `DELETE /players/:id` is preserved untouched for admin-level hard deletes.
+**Release endpoint** (WAVE B2) — *removed*, same reason as `promote`
+above: it also required `is_youth = true`. The generic
+`DELETE /players/:id` is preserved untouched for admin-level hard deletes.
 
 **Down-migration gotcha** (WAVE B3):
 - `1722000000000-UnifyYouthIntoPlayer.down()` originally selected `p."joined_at"` from the unified `player` table. That column was already dropped by migration `1721000000000` (ReplaceBirthdayWithCreatedDay), so a real rollback would 5xx. The down() now backfills `joined_at` with `p."created_at"`. There is a static-tripwire spec at `1722000000000-UnifyYouthIntoPlayer.spec.ts` that fails if the bad reference reappears.
@@ -180,9 +187,7 @@ back apart.
 
 **Where to look** when changing anything in this subsystem:
 - `libs/database/src/constants/youth-keys.constants.ts` — `PROMOTION_REVEAL_THRESHOLD`, `YOUTH_PROMOTION_*`.
-- `libs/database/src/services/youth-progression.ts` — pure functions: `applyWeeklyGrowth`, `pickNextRevealSkills`. The settlement worker is the only caller in production today.
-- `settlement/src/processors/youth-progression.processor.ts` — BullMQ worker for the weekly tick. Now only does base growth + reveal (no coach bonus).
-- `settlement/src/bootstrap/generators/youth-structure.generator.ts` — idempotent 1:1 creator.
+- `libs/database/src/services/youth-progression.ts` — pure functions: `applyWeeklyGrowth`, `pickNextRevealSkills`. **No production caller any more**; kept so the subsystem can be restored without rewriting the maths.
 - `api/src/api/scouts/scouts.service.ts` (`selectCandidate`) — player is dropped here with: `position` (from candidate), `potentialAbility` recomputed from `potentialSkills` (NOT a hardcoded 50 anymore), `revealLevel` derived from `revealedSkills.length`.
 
 **Known limitations** — *left deliberately under the freeze. Do not

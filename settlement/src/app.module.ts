@@ -14,7 +14,6 @@ import { SchedulerModule } from './scheduler/scheduler.module';
 import { TransferModule } from './transfer.module';
 import { BootstrapModule } from './bootstrap/bootstrap.module';
 import { StadiumConstructionModule } from './stadium-construction.module';
-import { YouthProgressionModule } from './youth-progression.module';
 import { SeniorDeclineModule } from './senior-decline.module';
 import { CupModule } from './cup.module';
 import { CronLockModule } from './common/cron-lock/cron-lock.service';
@@ -59,7 +58,6 @@ const isDevelopmentFromEnv = () =>
     TransferModule,
     BootstrapModule,
     StadiumConstructionModule,
-    YouthProgressionModule,
     SeniorDeclineModule,
     CupModule,
     SharedLoggerModule.forRoot({

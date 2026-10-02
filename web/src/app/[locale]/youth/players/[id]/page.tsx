@@ -1,8 +1,8 @@
 "use client";
 
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useState } from "react";
 import Link from "next/link";
-import { useParams, useRouter } from "next/navigation";
+import { useParams } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { api, type Player } from "@/lib/api";
 import { useAuth } from "@/contexts/AuthContext";
@@ -61,10 +61,6 @@ function getExpectedKeys(p: Player): string[] {
   return p.isGoalkeeper ? GK_KEYS : OUTFIELD_KEYS;
 }
 
-function getRequiredRevealCount(p: Player): number {
-  return Math.ceil(getExpectedKeys(p).length * 0.5);
-}
-
 export default function YouthPlayerDetailPage({
   params,
 }: {
@@ -73,24 +69,19 @@ export default function YouthPlayerDetailPage({
   const t = useTranslations("youth.squad");
   const tPos = useTranslations("youth.squad.position");
   const tPot = useTranslations("youth.squad.potentialLabel");
-  const router = useRouter();
   const routeParams = useParams();
   const { team } = useAuth();
 
   const locale = (routeParams.locale as string) || "en";
   const [player, setPlayer] = useState<Player | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [promoting, setPromoting] = useState(false);
   const [toast, setToast] = useState<{
     kind: "success" | "error";
     text: string;
   } | null>(null);
 
-  const isOwnTeam = team != null; // detail page is team-scoped via auth
-
   useEffect(() => {
     let cancelled = false;
-    setError(null);
     const playerId = parseInt(params.id, 10);
     if (Number.isNaN(playerId)) return;
     api.players
@@ -107,37 +98,6 @@ export default function YouthPlayerDetailPage({
       cancelled = true;
     };
   }, [params.id]);
-
-  const canPromote = useMemo(() => {
-    if (!player) return false;
-    return (
-      !player.isPromoted &&
-      (player.revealedSkills?.length ?? 0) >= getRequiredRevealCount(player)
-    );
-  }, [player]);
-
-  const handlePromote = async () => {
-    if (!player) return;
-    setPromoting(true);
-    setToast(null);
-    try {
-      await api.players.promote(player.id);
-      setToast({
-        kind: "success",
-        text: t("promoteSuccess", { name: player.name }),
-      });
-      // After a moment, navigate back to the squad list.
-      setTimeout(() => {
-        router.push(`/${locale}/youth/squad?team=${team?.id ?? ""}`);
-      }, 1500);
-    } catch (err) {
-      setToast({
-        kind: "error",
-        text: err instanceof Error ? err.message : t("promoteError"),
-      });
-      setPromoting(false);
-    }
-  };
 
   if (error) {
     return (
@@ -158,12 +118,11 @@ export default function YouthPlayerDetailPage({
   }
 
   const expectedKeys = getExpectedKeys(player);
-  const requiredCount = getRequiredRevealCount(player);
   const total = expectedKeys.length;
   const revealedCount = player.revealedSkills?.length ?? 0;
   const tier = player.potentialTier;
   const tierClass = tier
-    ? POTENTIAL_TIER_COLOR[tier] ?? POTENTIAL_TIER_COLOR.LOW
+    ? (POTENTIAL_TIER_COLOR[tier] ?? POTENTIAL_TIER_COLOR.LOW)
     : "bg-[#2f4e44]/40 text-[#91b2a6]";
 
   return (
@@ -188,8 +147,8 @@ export default function YouthPlayerDetailPage({
           </div>
           <p className="mt-2 text-sm text-[#91b2a6] font-space">
             {player.nationality ?? "—"} ·{" "}
-            {player.isGoalkeeper ? tPos("GK") : tPos("OUT")} · age{" "}
-            {player.age} ·{" "}
+            {player.isGoalkeeper ? tPos("GK") : tPos("OUT")} · age {player.age}{" "}
+            ·{" "}
             {player.joinedAt &&
               t("joinedOn", {
                 date: new Date(player.joinedAt).toLocaleDateString(locale),
@@ -214,29 +173,7 @@ export default function YouthPlayerDetailPage({
             <span className="px-3 py-1.5 rounded-lg bg-[#a1ffc2]/20 text-[#a1ffc2] text-[11px] font-bold uppercase tracking-wider">
               ✓ Senior
             </span>
-          ) : (
-            <button
-              onClick={handlePromote}
-              disabled={!canPromote || promoting || !isOwnTeam}
-              title={!canPromote ? t("promoteDisabledReason") : ""}
-              className={
-                canPromote
-                  ? "inline-flex items-center gap-1 px-4 py-2 rounded-lg bg-[#a1ffc2] text-[#001e17] text-sm font-bold uppercase tracking-wider hover:bg-[#b9ffce] transition-colors disabled:opacity-50"
-                  : "inline-flex items-center gap-1 px-4 py-2 rounded-lg bg-[#2f4e44]/30 text-[#91b2a6] text-sm font-bold uppercase tracking-wider cursor-not-allowed"
-              }
-            >
-              {promoting ? (
-                <span className="material-symbols-outlined text-[14px] animate-spin">
-                  progress_activity
-                </span>
-              ) : (
-                <span className="material-symbols-outlined text-[14px]">
-                  trending_up
-                </span>
-              )}
-              {t("promote")}
-            </button>
-          )}
+          ) : null}
         </div>
       </header>
 
@@ -248,28 +185,24 @@ export default function YouthPlayerDetailPage({
           </h2>
           <span
             className={
-              canPromote
+              revealedCount >= total
                 ? "text-[11px] font-bold text-[#a1ffc2] uppercase tracking-wider"
                 : "text-[11px] font-bold text-[#91b2a6] uppercase tracking-wider"
             }
           >
             {revealedCount} / {total} revealed
-            {canPromote && " · ready to promote"}
           </span>
         </div>
         <div className="h-2 rounded-full bg-[#001e17] overflow-hidden">
           <div
             className={
-              canPromote
+              revealedCount >= total
                 ? "h-full bg-[#a1ffc2]"
                 : "h-full bg-gradient-to-r from-[#a78bfa] to-[#60a5fa]"
             }
             style={{ width: `${(revealedCount / total) * 100}%` }}
           />
-        </div>
-        <p className="text-[11px] text-[#91b2a6] font-space">
-          Need at least {requiredCount} of {total} skills revealed to promote.
-        </p>
+        </div>{" "}
       </section>
 
       {/* Skill grid */}
@@ -312,13 +245,7 @@ export default function YouthPlayerDetailPage({
   );
 }
 
-function BackBar({
-  href,
-  label,
-}: {
-  href: string;
-  label: string;
-}) {
+function BackBar({ href, label }: { href: string; label: string }) {
   return (
     <Link
       href={href}
