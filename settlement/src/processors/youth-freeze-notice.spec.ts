@@ -148,6 +148,40 @@ describe('youth subsystem freeze', () => {
       expect(service).not.toContain('async releaseYouth(');
     });
 
+    it('has no /youth/* routes', () => {
+      // The four routes were unlinked from all navigation, always rendered
+      // an empty list (`GET /players?isYouth=true` returns nothing), and
+      // two of them called the deleted `promote` endpoint. `ScoutCard` —
+      // the one component that lived under `components/youth/` — is used
+      // by the live `/scouts` page and was kept.
+      for (const route of [
+        'squad',
+        'players/[id]',
+        'matches',
+        'matches/[id]',
+      ]) {
+        expect(
+          exists('web', 'src', 'app', '[locale]', 'youth', ...route.split('/'), 'page.tsx'),
+        ).toBe(false);
+      }
+
+      expect(
+        exists('web', 'src', 'components', 'youth', 'YouthTacticsEditor.tsx'),
+      ).toBe(false);
+      // Kept, and reachable only from the live scouts inbox.
+      expect(exists('web', 'src', 'components', 'scout', 'ScoutCard.tsx')).toBe(
+        true,
+      );
+    });
+
+    it('the live scout discovery page is untouched', () => {
+      // The removal above must not have taken the scout inbox with it —
+      // scout discovery is the ONLY way a new player enters the world.
+      const scouts = read('web', 'src', 'app', '[locale]', 'scouts', 'page.tsx');
+      expect(scouts).toContain('ScoutCard');
+      expect(scouts).not.toContain('youth/squad');
+    });
+
     it('does not enqueue youth progression on the weekly tick', () => {
       const weekly = read(
         'settlement',

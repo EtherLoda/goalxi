@@ -5,7 +5,7 @@ import { useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { api, type ScoutCandidate } from "@/lib/api";
 import { useAuth } from "@/contexts/AuthContext";
-import { ScoutCard } from "@/components/youth/ScoutCard";
+import { ScoutCard } from "@/components/scout/ScoutCard";
 
 function ScoutsPage() {
   // useSearchParams() forces a CSR bailout; Next 16 requires it to

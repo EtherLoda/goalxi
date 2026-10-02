@@ -1,26 +1,38 @@
 /**
- * Youth Onboarding Smoke Test
+ * Scout Onboarding Smoke Test
  *
- * Validates the full P0 baseline: from a brand-new user we can register,
- * create a team, observe the onboarding hook seed scout candidates, sign
- * one, and see it land in /youth/squad. Runs against a live api server.
+ * Validates the full onboarding baseline: from a brand-new user we can
+ * register, claim a team, see the onboarding hook seed scout candidates,
+ * sign one, and see it land on the SENIOR roster. Runs against a live api
+ * server.
  *
- * This test exists to give the P1 migration a known-good green baseline.
- * If this test fails AFTER the P1 migration runs, the migration is
- * broken — roll back (see docs/rfcs/0001-rollback.md).
+ * ## Why it is not called "youth" any more
  *
- * Pre-conditions:
+ * Scout discovery is the only way a new player enters the world.
+ * `ScoutsService.selectCandidate` signs a player straight into the senior
+ * squad with `isYouth = false` and `youthLeagueId = null` — there is no
+ * academy to graduate them through. The `/youth/*` routes, the promote
+ * endpoint and the youth progression worker have all been removed, so
+ * this spec no longer touches any of them.
+ *
+ * ## Pre-conditions
+ *
  *   - api server is up on http://localhost:3000
- *   - web server is up on http://localhost:8001 (only used for the UI smoke
- *     step at the end; everything else is direct API)
  *   - The database has been reset (or the user/team identifiers below
  *     are randomized per run).
+ *
+ * NOTE: this spec needs a live API, so it is NOT part of `pnpm test`
+ * (which is Playwright and expects a running stack). That is why its
+ * step-7 assertion could rot unnoticed: it asserted
+ * `GET /players?isYouth=true` returned exactly 1 player, which stopped
+ * being true the moment scouts switched to senior-mode signing. If you
+ * change the onboarding or signing flow, run this spec — nothing else
+ * in CI will catch a regression here.
  */
 
 import { test, expect, request } from '@playwright/test';
 
 const API_URL = 'http://localhost:3000/api/v1';
-const WEB_URL = process.env.PLAYWRIGHT_WEB_URL || 'http://localhost:8001';
 
 interface RegisterResponse {
   userId: string;
@@ -52,13 +64,20 @@ interface ScoutCandidate {
   expiresAt: string;
 }
 
-interface YouthPlayer {
+interface SignedPlayer {
   id: string;
   name: string;
   isGoalkeeper: boolean;
   isPromoted: boolean;
   revealLevel: number;
   revealedSkills: string[];
+}
+
+/** A player row as returned by `GET /players?teamId=`. */
+interface RosterPlayer {
+  id: string;
+  name: string;
+  isYouth: boolean;
 }
 
 // Unique suffix per run to avoid collisions in a shared dev DB.
@@ -144,28 +163,48 @@ interface League {
     const scoutList = (await scouts.json()) as ScoutCandidate[];
     expect(scoutList.length, 'expected 3 scout candidates after onboarding').toBe(3);
 
-    // 6. Sign the first candidate. This should create a YouthPlayer
-    //    row and remove the candidate.
+    // 6. Sign the first candidate. This creates a senior player row and
+    //    removes the candidate from the inbox.
     const candidateId = scoutList[0].id;
     const sign = await ctx.post(`${API_URL}/scouts/${candidateId}/select`, {
       headers: { Authorization: `Bearer ${accessToken}` },
     });
     expect(sign.ok(), `sign candidate failed: ${sign.status()} ${await sign.text()}`).toBeTruthy();
-    const signed = (await sign.json()) as YouthPlayer;
+    const signed = (await sign.json()) as SignedPlayer;
     expect(signed.isPromoted).toBe(false);
     expect(signed.revealLevel).toBe(1);
 
-    // 7. Verify /players?isYouth=true shows exactly 1 player (the one we just signed).
-    //    After RFC 0001 there is no separate /youth-players endpoint; we filter
-    //    by isYouth=true.
+    // 7. Verify the signed player is on the SENIOR roster.
+    //
+    //    This used to assert `GET /players?isYouth=true` returned exactly
+    //    1 player. That stopped being true when scout discovery switched to
+    //    senior-mode signing: `ScoutsService.selectCandidate` creates the
+    //    player with `isYouth = false` and `youthLeagueId = null`, because
+    //    there is no youth pipeline to graduate them through. Nothing in
+    //    the codebase creates `isYouth = true`, so that list is always
+    //    empty and the assertion could only fail — it just never ran,
+    //    since this spec needs a live API and is not part of `pnpm test`.
+    const teamPlayers = await ctx.get(
+      `${API_URL}/players?teamId=${teamId}`,
+      { headers: { Authorization: `Bearer ${accessToken}` } },
+    );
+    expect(teamPlayers.ok()).toBeTruthy();
+    const roster = (await teamPlayers.json()) as { items: RosterPlayer[] };
+    const signedOnRoster = roster.items.find((p) => p.id === signed.id);
+    expect(
+      signedOnRoster,
+      `signed player ${signed.id} missing from the senior roster`,
+    ).toBeTruthy();
+    expect(signedOnRoster!.isYouth).toBe(false);
+
+    // The youth filter is kept honest: it must return nothing rather than
+    // silently claiming a youth pipeline exists.
     const youth = await ctx.get(`${API_URL}/players?isYouth=true`, {
       headers: { Authorization: `Bearer ${accessToken}` },
     });
     expect(youth.ok()).toBeTruthy();
-    const youthList = (await youth.json()) as YouthPlayer[];
-    expect(youthList.length).toBe(1);
-    expect(youthList[0].id).toBe(signed.id);
-    expect(youthList[0].name).toBe(scoutList[0].name);
+    const youthList = (await youth.json()) as { items: unknown[] };
+    expect(youthList.items).toHaveLength(0);
 
     // 8. Verify the scout inbox now has 2 candidates left.
     const scoutsAfter = await ctx.get(`${API_URL}/scouts/candidates`, {
