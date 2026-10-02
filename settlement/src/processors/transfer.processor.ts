@@ -47,6 +47,30 @@ export interface TransferSettlementJobData {
  */
 const STALE_PROCESSING_MS = 10 * 60 * 1000;
 
+/**
+ * Thrown when this worker does not own the settlement: the row is
+ * missing, already terminal, or a sibling holds a live claim.
+ *
+ * These are **not** settlement failures — nothing this worker did went
+ * wrong, and a sibling may be settling the row right now. The catch
+ * block therefore re-throws these without stamping FAILED and without
+ * opening the cleanup transaction.
+ *
+ * Without that distinction, a duplicate BullMQ delivery is destructive:
+ * the loser sees a fresh `PROCESSING`, throws "already being
+ * processed", and its failure CAS — which filters on
+ * `status IN (PENDING, PROCESSING)` — *matches* the sibling's row. It
+ * then CANCELs the auction and clears `player.onTransfer` while the
+ * winning worker is still settling, so a transfer that genuinely
+ * succeeded ends up with a cancelled auction.
+ */
+class TransferNotOwnerError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'TransferNotOwnerError';
+  }
+}
+
 @Injectable()
 @Processor('transfer-settlement')
 export class TransferProcessor extends WorkerHost {
@@ -120,7 +144,9 @@ export class TransferProcessor extends WorkerHost {
         this.jobLog.error(
           `[TransferProcessor] Transaction ${transactionId} not found`,
         );
-        throw new Error(`Transaction ${transactionId} not found`);
+        throw new TransferNotOwnerError(
+          `Transaction ${transactionId} not found`,
+        );
       }
 
       if (existingTx.status === TransferTransactionStatus.COMPLETED) {
@@ -138,7 +164,7 @@ export class TransferProcessor extends WorkerHost {
         this.jobLog.warn(
           `[TransferProcessor] Transaction ${transactionId} previously FAILED, refusing to take over`,
         );
-        throw new Error(
+        throw new TransferNotOwnerError(
           `Transaction ${transactionId} previously failed: ${existingTx.failureReason ?? 'unknown'}`,
         );
       }
@@ -154,7 +180,9 @@ export class TransferProcessor extends WorkerHost {
         this.jobLog.warn(
           `[TransferProcessor] Transaction ${transactionId} is being processed by another worker (claimedAt=${existingTx.claimedAt?.toISOString() ?? 'n/a'})`,
         );
-        throw new Error(`Transaction ${transactionId} already being processed`);
+        throw new TransferNotOwnerError(
+          `Transaction ${transactionId} already being processed`,
+        );
       }
 
       // Atomic claim: only succeeds if the row is still in a
@@ -178,7 +206,9 @@ export class TransferProcessor extends WorkerHost {
         this.jobLog.warn(
           `[TransferProcessor] Transaction ${transactionId} claim lost the CAS race`,
         );
-        throw new Error(`Transaction ${transactionId} claim lost the CAS race`);
+        throw new TransferNotOwnerError(
+          `Transaction ${transactionId} claim lost the CAS race`,
+        );
       }
 
       // Execute settlement in a transaction. The settlement
@@ -488,6 +518,13 @@ export class TransferProcessor extends WorkerHost {
         }
       }
     } catch (error) {
+      // Not-our-row: re-throw untouched. See TransferNotOwnerError —
+      // running the FAILED stamp / cleanup here would sabotage whichever
+      // worker actually holds the claim.
+      if (error instanceof TransferNotOwnerError) {
+        throw error;
+      }
+
       this.jobLog.error(
         `[TransferProcessor] Failed to process transaction ${transactionId}: ${error.message || error}`,
       );

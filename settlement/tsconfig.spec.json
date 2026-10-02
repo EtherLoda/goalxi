@@ -1,0 +1,34 @@
+{
+  "//": [
+    "Jest-only tsconfig.",
+    "",
+    "`tsconfig.json` maps `@goalxi/logger` to its COMPILED `dist/` output,",
+    "which is correct for `nest build`. ts-jest type-checks through this",
+    "file though, so specs were type-resolved against `dist/` too. With a",
+    "STALE `dist/` that means settlement tests the previous version of every",
+    "shared domain formula; with no `dist/` at all (fresh clone) every suite",
+    "importing a shared module fails to resolve.",
+    "",
+    "Pointing these at `src/` makes tests read the source of truth.",
+    "`jest.config.json`'s `moduleNameMapper` mirrors them for runtime",
+    "resolution — both halves are required: the mapper fixes `require`,",
+    "this fixes types.",
+    "",
+    "NOTE: `paths` here duplicates the base file's `@/*` aliases because",
+    "TypeScript's `extends` REPLACES `compilerOptions.paths` wholesale",
+    "rather than merging it. `libs/` cannot self-reference `@goalxi/*`,",
+    "so this file is hand-maintained; `settlement/src/utils/shared-package-paths.spec.ts`",
+    "fails if the two blocks drift apart."
+  ],
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "paths": {
+      "@goalxi/logger": ["../libs/logger/src"],
+      "@goalxi/logger/*": ["../libs/logger/src/*"],
+      "@goalxi/database": ["../libs/database/src"],
+      "@goalxi/database/*": ["../libs/database/src/*"]
+    }
+  },
+  "include": ["src/**/*.ts", "scripts/**/*.ts"],
+  "exclude": ["node_modules", "dist"]
+}

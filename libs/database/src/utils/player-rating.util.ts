@@ -176,14 +176,25 @@ function getPlayerSkillPairs(
     const mental = player.currentSkills.mental as OutfieldMental;
     // 外场球员不含定位球（定位球是选修技能，不影响身价）
 
-    pairs.push({ key: "pace", value: physical.pace ?? 0 });
-    pairs.push({ key: "strength", value: physical.strength ?? 0 });
-    pairs.push({ key: "finishing", value: technical.finishing ?? 0 });
-    pairs.push({ key: "passing", value: technical.passing ?? 0 });
-    pairs.push({ key: "dribbling", value: technical.dribbling ?? 0 });
-    pairs.push({ key: "defending", value: technical.defending ?? 0 });
-    pairs.push({ key: "positioning", value: mental.positioning ?? 0 });
-    pairs.push({ key: "composure", value: mental.composure ?? 0 });
+    // `current_skills` is a NOT NULL jsonb column, but Postgres does not
+    // validate what is INSIDE it. A row missing `technical` (partial
+    // import, hand-edited row, a future writer that only fills `physical`)
+    // used to throw here and 500 the whole player page. The goalkeeper
+    // branch above already guards its own group; this one now matches.
+    if (physical) {
+      pairs.push({ key: "pace", value: physical.pace ?? 0 });
+      pairs.push({ key: "strength", value: physical.strength ?? 0 });
+    }
+    if (technical) {
+      pairs.push({ key: "finishing", value: technical.finishing ?? 0 });
+      pairs.push({ key: "passing", value: technical.passing ?? 0 });
+      pairs.push({ key: "dribbling", value: technical.dribbling ?? 0 });
+      pairs.push({ key: "defending", value: technical.defending ?? 0 });
+    }
+    if (mental) {
+      pairs.push({ key: "positioning", value: mental.positioning ?? 0 });
+      pairs.push({ key: "composure", value: mental.composure ?? 0 });
+    }
   }
 
   return pairs;

@@ -1,0 +1,101 @@
+{
+  "//": [
+    "Jest-only tsconfig.",
+    "",
+    "`tsconfig.json` maps `@goalxi/database` / `@goalxi/logger` to their",
+    "COMPILED `dist/` output, which is correct for `nest build`. ts-jest,",
+    "however, type-checks through this file, so specs were type-resolved",
+    "against `dist/` too. That produced two failure modes:",
+    "",
+    "  - on a fresh clone `libs/*/dist` does not exist, so every suite",
+    "    importing a shared entity failed with",
+    "    `TS2307: Cannot find module '@goalxi/database'`;",
+    "  - with a STALE `dist/`, specs silently type-checked and tested the",
+    "    previous version of every shared domain formula.",
+    "",
+    "Pointing the spec tsconfig at `src/` makes tests read the source of",
+    "truth, so no pre-test build step is needed and a stale build can never",
+    "quietly invalidate a green suite. `jest.config.json`'s",
+    "`moduleNameMapper` mirrors these paths for runtime resolution — both",
+    "halves are required: the mapper fixes `require`, this fixes types."
+  ],
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "paths": {
+      "@/api/*": [
+        "src/api/*"
+      ],
+      "@/background/*": [
+        "src/background/*"
+      ],
+      "@/common/*": [
+        "src/common/*"
+      ],
+      "@/config/*": [
+        "src/config/*"
+      ],
+      "@/constants/*": [
+        "src/constants/*"
+      ],
+      "@/database/*": [
+        "src/database/*"
+      ],
+      "@/decorators/*": [
+        "src/decorators/*"
+      ],
+      "@/exceptions/*": [
+        "src/exceptions/*"
+      ],
+      "@/filters/*": [
+        "src/filters/*"
+      ],
+      "@/generated/*": [
+        "src/generated/*"
+      ],
+      "@/guards/*": [
+        "src/guards/*"
+      ],
+      "@/health/*": [
+        "src/health/*"
+      ],
+      "@/interceptors/*": [
+        "src/interceptors/*"
+      ],
+      "@/libs/*": [
+        "src/libs/*"
+      ],
+      "@/mail/*": [
+        "src/mail/*"
+      ],
+      "@/redis/*": [
+        "src/redis/*"
+      ],
+      "@/shared/*": [
+        "src/shared/*"
+      ],
+      "@/utils/*": [
+        "src/utils/*"
+      ],
+      "@goalxi/database": [
+        "../libs/database/src"
+      ],
+      "@goalxi/logger": [
+        "../libs/logger/src"
+      ],
+      "@goalxi/database/*": [
+        "../libs/database/src/*"
+      ],
+      "@goalxi/logger/*": [
+        "../libs/logger/src/*"
+      ]
+    }
+  },
+  "include": [
+    "src/**/*.ts",
+    "test/**/*.ts"
+  ],
+  "exclude": [
+    "node_modules",
+    "dist"
+  ]
+}

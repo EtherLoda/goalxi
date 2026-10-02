@@ -3,10 +3,16 @@
   "rootDir": "src",
   "testRegex": ".*\\.spec\\.ts$",
   "transform": {
-    "^.+\\.(t|j)s$": "ts-jest"
+    "^.+\\.(t|j)s$": ["ts-jest", { "tsconfig": "<rootDir>/../tsconfig.spec.json" }]
   },
   "collectCoverageFrom": ["**/*.(t|j)s", "!**/*.spec.(t|j)s"],
   "coverageDirectory": "../coverage",
   "testEnvironment": "node",
-  "testTimeout": 120000
+  "testTimeout": 120000,
+  "moduleNameMapper": {
+    "^@goalxi/database$": "<rootDir>/../../libs/database/src",
+    "^@goalxi/database/(.*)$": "<rootDir>/../../libs/database/src/$1",
+    "^@goalxi/logger$": "<rootDir>/../../libs/logger/src",
+    "^@goalxi/logger/(.*)$": "<rootDir>/../../libs/logger/src/$1"
+  }
 }

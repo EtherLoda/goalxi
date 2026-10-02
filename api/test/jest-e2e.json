@@ -1,9 +1,21 @@
 {
+  "//": [
+    "E2E config. Same shared-package resolution as jest.config.json:",
+    "`@goalxi/database` and `@goalxi/logger` are mapped to `src/` so an",
+    "e2e run cannot silently exercise a stale `dist/`. Needs a live",
+    "database and Redis; NOT part of `pnpm test`."
+  ],
   "moduleFileExtensions": ["js", "json", "ts"],
   "rootDir": ".",
   "testEnvironment": "node",
   "testRegex": ".e2e-spec.ts$",
   "transform": {
-    "^.+\\.(t|j)s$": "ts-jest"
+    "^.+\\.(t|j)s$": ["ts-jest", { "tsconfig": "<rootDir>/../tsconfig.spec.json" }]
+  },
+  "moduleNameMapper": {
+    "^@goalxi/database$": "<rootDir>/../../libs/database/src",
+    "^@goalxi/database/(.*)$": "<rootDir>/../../libs/database/src/$1",
+    "^@goalxi/logger$": "<rootDir>/../../libs/logger/src",
+    "^@goalxi/logger/(.*)$": "<rootDir>/../../libs/logger/src/$1"
   }
 }
