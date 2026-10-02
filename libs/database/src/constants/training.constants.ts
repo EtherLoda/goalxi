@@ -1,4 +1,4 @@
-import { GAME_SETTINGS } from './game.constants';
+import { GAME_SETTINGS } from "./game.constants";
 
 /**
  * Training system constants
@@ -14,21 +14,28 @@ export const TRAINING_SETTINGS = {
    * Base training points earned per GAME-YEAR, divided down to the week
    * the processor actually runs on.
    *
-   * `20` per week across the 16-week seasons this was tuned for, i.e.
-   * 320 per game-year. Holding the PER-YEAR figure constant is what keeps a
-   * player's development arc independent of how long a season takes in
-   * wall-clock time — the same reasoning as `DECLINE_BASE_RATE_PER_YEAR`.
+   * Originally `20` per week across the 16-week seasons this was tuned
+   * for — 320 per game-year — which at 11 weeks/season derives to
+   * 29.0909. Rounded to a clean **30/week**, which means the per-year
+   * figure is **330**, not 320.
    *
-   * At 11 weeks/season the weekly figure is ~29.1. Left at 20, a player
-   * would have gained 31% less training over a career purely because the
-   * season got shorter.
+   * The rounding is deliberate and costs 3.1% more training per game-year
+   * than the 16-week original. Set this back to 320 if that is not wanted;
+   * do not "fix" the weekly getter to 30 instead, which would break the
+   * link to `SEASON_LENGTH_WEEKS` and leave the arc coupled to whatever
+   * season length happened to be current.
+   *
+   * Holding the PER-YEAR figure constant is what keeps a player's
+   * development arc independent of how long a season takes in wall-clock
+   * time — the same reasoning as `DECLINE_BASE_RATE_PER_YEAR`.
    */
-  BASE_WEEKLY_TRAINING_PER_YEAR: 20 * 16,
+  BASE_WEEKLY_TRAINING_PER_YEAR: 330,
 
   /** Base training points earned per week — DERIVED, do not set directly. */
   get BASE_WEEKLY_TRAINING() {
-    return this.BASE_WEEKLY_TRAINING_PER_YEAR /
-      GAME_SETTINGS.SEASON_LENGTH_WEEKS;
+    return (
+      this.BASE_WEEKLY_TRAINING_PER_YEAR / GAME_SETTINGS.SEASON_LENGTH_WEEKS
+    );
   },
 
   /** Training slot multipliers */

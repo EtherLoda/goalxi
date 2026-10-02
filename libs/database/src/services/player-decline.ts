@@ -63,8 +63,8 @@
  * calibration specs are the only thing pinning the "halved at 34" promise.
  */
 
-import { PlayerEntity } from '../entities/player.entity';
-import { GAME_SETTINGS } from '../constants/game.constants';
+import { PlayerEntity } from "../entities/player.entity";
+import { GAME_SETTINGS } from "../constants/game.constants";
 
 /** First age at which any decline is applied. */
 export const DECLINE_START_AGE = 28;
@@ -72,12 +72,22 @@ export const DECLINE_START_AGE = 28;
 /**
  * Per-GAME-YEAR decline coefficient — this is the calibrated quantity.
  *
- * `0.013` per week for the 16-week seasons the curve was tuned against,
- * i.e. 0.208 per game-year. Declining by a fixed amount per YEAR is the
- * property worth holding constant: it is what makes a career arc
- * independent of how long a season takes in wall-clock time.
+ * The 16-week seasons this curve was tuned against used `0.013` per week,
+ * i.e. 0.208 per game-year, which at 11 weeks/season derives to 0.018909.
+ * Rounded to a clean **0.019/week**, so the per-year figure is **0.209**.
+ *
+ * The rounding is deliberate: it costs 0.5% more decline per game-year than
+ * the 16-week original, which is far inside the jitter band (0.85-1.15) and
+ * moves the "halved at 34" landing point from 9.076 to 9.034 on a peak-18
+ * physical skill — 50.2% of peak, still "just over half". Set this back to
+ * 0.208 if that is not wanted; do not "fix" the weekly getter to 0.019
+ * instead, which would break the link to `SEASON_LENGTH_WEEKS`.
+ *
+ * Declining by a fixed amount per YEAR is the property worth holding
+ * constant: it is what makes a career arc independent of how long a season
+ * takes in wall-clock time.
  */
-export const DECLINE_BASE_RATE_PER_YEAR = 0.013 * 16;
+export const DECLINE_BASE_RATE_PER_YEAR = 0.209;
 
 /**
  * Per-week decline coefficient — DERIVED, do not set this directly.
@@ -87,12 +97,12 @@ export const DECLINE_BASE_RATE_PER_YEAR = 0.013 * 16;
  * 11; deriving the per-week rate from the per-year one is what keeps the
  * career arc unchanged.
  *
- * At 11 weeks/season this is `0.208 / 11 ≈ 0.0189`. Left at 0.013 the
- * curve would have flattened by a third: a peak-18 physical skill would
- * land at ~11.9 (66%) at age 34 instead of the promised ~9.1 (50%).
+ * At 11 weeks/season this is exactly 0.019. Left at the 16-week figure of
+ * 0.013 the curve would have flattened by a third: a peak-18 physical skill
+ * would land at ~11.9 (66%) at age 34 instead of the promised ~9.1 (50%).
  */
 export const DECLINE_BASE_RATE =
-    DECLINE_BASE_RATE_PER_YEAR / GAME_SETTINGS.SEASON_LENGTH_WEEKS;
+  DECLINE_BASE_RATE_PER_YEAR / GAME_SETTINGS.SEASON_LENGTH_WEEKS;
 
 /**
  * Sub-quadratic curve. p=2 (pure quadratic) was too back-loaded —
@@ -117,10 +127,10 @@ export const DECLINE_SKILL_FLOOR = 5;
  * than his pace.
  */
 export const DECLINE_CATEGORY_MULTIPLIER: Record<string, number> = {
-    physical: 1.00,
-    technical: 0.70,
-    mental: 0.40,
-    setPieces: 0.20,
+  physical: 1.0,
+  technical: 0.7,
+  mental: 0.4,
+  setPieces: 0.2,
 };
 
 /**
@@ -131,18 +141,18 @@ export const DECLINE_CATEGORY_MULTIPLIER: Record<string, number> = {
  * and the existing training diff on Thursday picks the change up.
  */
 export interface DeclineDelta {
-    category: string;
-    skillKey: string;
-    before: number;
-    after: number;
-    floored: boolean;
+  category: string;
+  skillKey: string;
+  before: number;
+  after: number;
+  floored: boolean;
 }
 
 /** Aggregate return value from `applyWeeklyDecline`. */
 export interface DeclineResult {
-    deltas: DeclineDelta[];
-    totalLost: number;
-    hitFloor: boolean;
+  deltas: DeclineDelta[];
+  totalLost: number;
+  hitFloor: boolean;
 }
 
 /**
@@ -156,33 +166,36 @@ export interface DeclineResult {
  * pushed the skill into the floor clamp".
  */
 export function calculateDeclinedSkill(
-    age: number,
-    category: string,
-    currentValue: number,
-    random: () => number = Math.random,
+  age: number,
+  category: string,
+  currentValue: number,
+  random: () => number = Math.random,
 ): { value: number; floored: boolean } {
-    if (age < DECLINE_START_AGE) {
-        return { value: currentValue, floored: false };
-    }
-    const catMult = DECLINE_CATEGORY_MULTIPLIER[category] ?? 0.5;
-    const baseDecline =
-        DECLINE_BASE_RATE *
-        Math.pow(age - DECLINE_START_AGE, DECLINE_CURVE_EXPONENT) *
-        catMult;
-    // jitter ∈ [0.85, 1.15] — keeps decline from being perfectly
-    // uniform across an entire team in the same week.
-    const jitter = 0.85 + random() * 0.30;
-    const newValue = currentValue - baseDecline * jitter;
-    if (newValue <= DECLINE_SKILL_FLOOR) {
-        // `floored` is only set when decline *actually* pushed the
-        // skill into the clamp. A skill that was already at the
-        // floor and would have stayed there is not "floored" — it
-        // is a no-op. The caller uses this to decide whether to
-        // emit a "hit floor" event; only the first transition
-        // counts.
-        return { value: DECLINE_SKILL_FLOOR, floored: currentValue > DECLINE_SKILL_FLOOR };
-    }
-    return { value: newValue, floored: false };
+  if (age < DECLINE_START_AGE) {
+    return { value: currentValue, floored: false };
+  }
+  const catMult = DECLINE_CATEGORY_MULTIPLIER[category] ?? 0.5;
+  const baseDecline =
+    DECLINE_BASE_RATE *
+    Math.pow(age - DECLINE_START_AGE, DECLINE_CURVE_EXPONENT) *
+    catMult;
+  // jitter ∈ [0.85, 1.15] — keeps decline from being perfectly
+  // uniform across an entire team in the same week.
+  const jitter = 0.85 + random() * 0.3;
+  const newValue = currentValue - baseDecline * jitter;
+  if (newValue <= DECLINE_SKILL_FLOOR) {
+    // `floored` is only set when decline *actually* pushed the
+    // skill into the clamp. A skill that was already at the
+    // floor and would have stayed there is not "floored" — it
+    // is a no-op. The caller uses this to decide whether to
+    // emit a "hit floor" event; only the first transition
+    // counts.
+    return {
+      value: DECLINE_SKILL_FLOOR,
+      floored: currentValue > DECLINE_SKILL_FLOOR,
+    };
+  }
+  return { value: newValue, floored: false };
 }
 
 /**
@@ -202,37 +215,37 @@ export function calculateDeclinedSkill(
  * skip the save.
  */
 export function applyWeeklyDecline(
-    player: PlayerEntity,
-    random: () => number = Math.random,
+  player: PlayerEntity,
+  random: () => number = Math.random,
 ): DeclineResult {
-    const deltas: DeclineDelta[] = [];
-    let totalLost = 0;
-    let hitFloor = false;
+  const deltas: DeclineDelta[] = [];
+  let totalLost = 0;
+  let hitFloor = false;
 
-    if (!player.currentSkills) {
-        return { deltas, totalLost, hitFloor };
-    }
-
-    for (const [category, sub] of Object.entries(player.currentSkills)) {
-        if (!sub || typeof sub !== 'object') continue;
-        for (const [skillKey, before] of Object.entries(sub)) {
-            if (typeof before !== 'number') continue;
-            const { value: after, floored } = calculateDeclinedSkill(
-                player.age,
-                category,
-                before,
-                random,
-            );
-            if (after === before) continue;
-            // Round to 2dp to match the existing applyWeeklyGrowth
-            // convention (see `youth-progression.ts` line ~33).
-            const rounded = parseFloat(after.toFixed(2));
-            (sub as Record<string, number>)[skillKey] = rounded;
-            deltas.push({ category, skillKey, before, after: rounded, floored });
-            totalLost += before - rounded;
-            if (floored) hitFloor = true;
-        }
-    }
-
+  if (!player.currentSkills) {
     return { deltas, totalLost, hitFloor };
+  }
+
+  for (const [category, sub] of Object.entries(player.currentSkills)) {
+    if (!sub || typeof sub !== "object") continue;
+    for (const [skillKey, before] of Object.entries(sub)) {
+      if (typeof before !== "number") continue;
+      const { value: after, floored } = calculateDeclinedSkill(
+        player.age,
+        category,
+        before,
+        random,
+      );
+      if (after === before) continue;
+      // Round to 2dp to match the existing applyWeeklyGrowth
+      // convention (see `youth-progression.ts` line ~33).
+      const rounded = parseFloat(after.toFixed(2));
+      (sub as Record<string, number>)[skillKey] = rounded;
+      deltas.push({ category, skillKey, before, after: rounded, floored });
+      totalLost += before - rounded;
+      if (floored) hitFloor = true;
+    }
+  }
+
+  return { deltas, totalLost, hitFloor };
 }
