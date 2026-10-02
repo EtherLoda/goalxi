@@ -3,6 +3,7 @@ import { getRepositoryToken } from '@nestjs/typeorm';
 import { DataSource, Repository } from 'typeorm';
 import { BadRequestException } from '@nestjs/common';
 import { LeagueAdminService } from './league-admin.service';
+import { LOGGER_SERVICE } from '@goalxi/logger';
 import { LOGGER_SERVICE_PROVIDER } from '../test-utils/test-logger';
 import {
   LeagueEntity,
@@ -49,6 +50,30 @@ describe('LeagueAdminService', () => {
   };
   const dataSourceMock = {
     getRepository: jest.fn().mockReturnValue(matchRepoForInfo),
+    // `addTeamToLeague` / `removeTeamFromLeague` now run their
+    // multi-write sequences inside one transaction, so the manager must
+    // hand back the SAME mocks the spec asserts on. Routing to anything
+    // else would let a test pass while the transaction wrote elsewhere.
+    transaction: jest.fn(async (cb: any) =>
+      cb({
+        getRepository: jest.fn((entity: any) => {
+          switch (entity?.name) {
+            case 'TeamEntity':
+              return mockTeamRepo;
+            case 'LeagueStandingEntity':
+              return mockStandingRepo;
+            case 'YouthLeagueEntity':
+              return mockYouthLeagueRepo;
+            case 'YouthTeamEntity':
+              return mockYouthTeamRepo;
+            default:
+              throw new Error(
+                `txManager: unmocked entity ${entity?.name}`,
+              );
+          }
+        }),
+      }),
+    ),
   };
 
   // identity creator — `create(input)` echoes the input back so the
@@ -296,5 +321,136 @@ describe('LeagueAdminService', () => {
       expect(info.isComplete).toBe(false);
       expect(info.currentWeek).toBe(0);
     });
+  });
+});
+
+/**
+ * Atomicity of the league-membership writes.
+ *
+ * `addTeamToLeague` used to run three writes with no transaction:
+ * `team.leagueId = leagueId`, the standing row, and (conditionally) the
+ * youth team. A failure after the first left a team pointing at a league
+ * it had no ladder entry in — and `promotion-relegation` / `playoff`
+ * both select by `standing.position === N`, so the phantom team was
+ * invisible to selection while still consuming a `maxTeams` slot.
+ *
+ * `removeTeamFromLeague` had the mirror problem in inverted order: it
+ * deleted the standing row FIRST, then cleared `team.leagueId`. A
+ * failure in between left a team with no league still occupying a slot.
+ */
+describe('LeagueAdminService — atomic league membership', () => {
+  let service: LeagueAdminService;
+  let teamRepo: any;
+  let standingRepo: any;
+  let youthLeagueRepo: any;
+  let youthTeamRepo: any;
+  let transactionShouldThrow: boolean;
+
+  const identity = (x: any) => x;
+  const emptyRepo = { findOne: jest.fn().mockResolvedValue(null) };
+
+  const manager = {
+    getRepository: jest.fn((entity: any) => {
+      switch (entity?.name) {
+        case 'TeamEntity':
+          return teamRepo;
+        case 'LeagueStandingEntity':
+          return standingRepo;
+        case 'YouthLeagueEntity':
+          return youthLeagueRepo;
+        case 'YouthTeamEntity':
+          return youthTeamRepo;
+        default:
+          throw new Error(`unmocked ${entity?.name}`);
+      }
+    }),
+  };
+
+  const dataSource = {
+    getRepository: jest.fn().mockReturnValue(emptyRepo),
+    transaction: jest.fn(async (cb: any) => {
+      if (transactionShouldThrow) throw new Error('ROLLBACK');
+      return cb(manager);
+    }),
+  };
+
+  beforeEach(async () => {
+    transactionShouldThrow = false;
+    jest.clearAllMocks();
+
+    teamRepo = { findOne: jest.fn(), save: jest.fn(identity) };
+    standingRepo = {
+      findOne: jest.fn().mockResolvedValue(null),
+      count: jest.fn().mockResolvedValue(3),
+      create: jest.fn(identity),
+      save: jest.fn(identity),
+      delete: jest.fn(),
+    };
+    youthLeagueRepo = { findOne: jest.fn().mockResolvedValue(null), create: jest.fn(identity), save: jest.fn(identity) };
+    youthTeamRepo = { create: jest.fn(identity), save: jest.fn(identity) };
+
+    teamRepo.findOne.mockResolvedValue({ id: 't', name: 'Team', leagueId: null });
+
+    const module = await Test.createTestingModule({
+      providers: [
+        LeagueAdminService,
+        { provide: LOGGER_SERVICE, useValue: { info: jest.fn(), error: jest.fn(), warn: jest.fn(), log: jest.fn() } },
+        { provide: getRepositoryToken(LeagueEntity), useValue: { findOne: jest.fn().mockResolvedValue({ id: 'l', name: 'L', tier: 1, maxTeams: 16 }), create: jest.fn(), save: jest.fn() } },
+        { provide: getRepositoryToken(LeagueStandingEntity), useValue: standingRepo },
+        { provide: getRepositoryToken(TeamEntity), useValue: teamRepo },
+        { provide: getRepositoryToken(YouthLeagueEntity), useValue: youthLeagueRepo },
+        { provide: getRepositoryToken(YouthTeamEntity), useValue: youthTeamRepo },
+        { provide: DataSource, useValue: dataSource },
+      ],
+    }).compile();
+
+    service = module.get<LeagueAdminService>(LeagueAdminService);
+  });
+
+  it('wraps the three addTeamToLeague writes in one transaction', async () => {
+    youthLeagueRepo.findOne.mockResolvedValue({ id: 'yl', parentTier: 1 });
+
+    await service.addTeamToLeague('t' as any, 'l' as any, 1);
+
+    expect(dataSource.transaction).toHaveBeenCalledTimes(1);
+    // team.leagueId, the standing row, and the youth team all go through
+    // the transaction's manager — none through the injected repositories.
+    expect(manager.getRepository).toHaveBeenCalled();
+  });
+
+  it('propagates a rollback out of addTeamToLeague', async () => {
+    transactionShouldThrow = true;
+
+    await expect(
+      service.addTeamToLeague('t' as any, 'l' as any, 1),
+    ).rejects.toThrow('ROLLBACK');
+  });
+
+  it('clears team.leagueId BEFORE deleting the standing row on removal', async () => {
+    // The original order deleted the row first, so a failure in between
+    // left a team with no league still holding a ladder slot.
+    const order: string[] = [];
+    teamRepo.save.mockImplementation(async () => {
+      order.push('clear-league-id');
+      return {};
+    });
+    standingRepo.delete.mockImplementation(async () => {
+      order.push('delete-standing');
+      return {};
+    });
+
+    await service.removeTeamFromLeague('t' as any);
+
+    expect(order).toEqual(['clear-league-id', 'delete-standing']);
+  });
+
+  it('wraps the two removeTeamFromLeague writes in one transaction', async () => {
+    await service.removeTeamFromLeague('t' as any);
+
+    expect(dataSource.transaction).toHaveBeenCalledTimes(1);
+    expect(teamRepo.save).toHaveBeenCalledWith(
+      expect.objectContaining({ leagueId: null }),
+    );
+    expect(standingRepo.delete).toHaveBeenCalledWith({ teamId: 't' });
   });
 });

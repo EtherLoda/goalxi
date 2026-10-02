@@ -1057,14 +1057,30 @@ export class AuctionService implements OnModuleInit {
       // Enqueue settlement job. The business jobId prevents a
       // BullMQ re-delivery (or our own recovery path running
       // twice) from enqueuing duplicates of the same settlement.
-      await this.enqueueSettlement(auction, transaction.id, currentSeason);
+      // NOTE: the settlement job is enqueued AFTER this transaction
+      // commits (see below). Enqueuing inside it would publish a job
+      // for a row that may still roll back.
 
-      this.logger.log(
-        `[Auction] buyout queued settlement transactionId=${transaction.id} auctionId=${auction.id} buyerTeamId=${buyerTeam.id} sellerTeamId=${auction.teamId} playerId=${auction.playerId} amount=${auction.buyoutPrice}`,
-      );
-
-      return { auction, transaction, buyerTeamId: buyerTeam.id };
+      return { auction, transaction, buyerTeamId: buyerTeam.id, currentSeason };
     });
+
+    // ── Post-commit settlement enqueue ────────────────────────
+    // Deliberately outside the transaction.
+    //
+    // `enqueueSettlement` is a Redis write. Inside the tx, a rollback
+    // after this point would leave a job pointing at a transaction id
+    // that never committed: `transfer.processor` would log "Transaction
+    // <id> not found", throw, and burn all 3 `attempts`, ending in a
+    // permanent failure with the auction stuck in SETTLING.
+    await this.enqueueSettlement(
+      result.auction,
+      result.transaction.id,
+      result.currentSeason,
+    );
+
+    this.logger.log(
+      `[Auction] buyout queued settlement transactionId=${result.transaction.id} auctionId=${result.auction.id} buyerTeamId=${result.buyerTeamId} sellerTeamId=${result.auction.teamId} playerId=${result.auction.playerId} amount=${result.auction.buyoutPrice}`,
+    );
 
     // ── Post-commit Redis mirror (best-effort) ────────────────
     // Same rationale as `placeBid`: Postgres is the source of
@@ -1190,11 +1206,8 @@ export class AuctionService implements OnModuleInit {
         this.logger.log(
           `[Auction] finalizeOneAuction winner found auctionId=${auction.id} playerId=${auction.playerId} winnerTeamId=${auction.currentBidderId} sellerTeamId=${auction.teamId} price=${auction.currentPrice}`,
         );
-        await this.dataSource.transaction(async (manager) => {
+        const settled = await this.dataSource.transaction(async (manager) => {
           const auctionRepo = manager.getRepository(AuctionEntity);
-          const transferTxRepo = manager.getRepository(
-            TransferTransactionEntity,
-          );
 
           const currentSeason = await this.getCurrentSeason();
 
@@ -1214,8 +1227,29 @@ export class AuctionService implements OnModuleInit {
             status: AuctionStatus.SETTLING,
           });
 
-          await this.enqueueSettlement(auction, transaction.id, currentSeason);
+          return { transactionId: transaction.id, currentSeason };
         });
+
+        // ── Post-commit settlement enqueue ────────────────────
+        // Outside the transaction on purpose: `enqueueSettlement` is a
+        // Redis write, and a rollback after it would leave a job
+        // pointing at a transaction id that was never committed.
+        // `transfer.processor` would then log "Transaction <id> not
+        // found", throw, burn all 3 `attempts`, and end in a permanent
+        // failure with the auction stuck in SETTLING.
+        //
+        // The reverse window is the safe one to reason about: if the
+        // process dies between commit and enqueue, the auction is
+        // already SETTLING with a PENDING transaction, and
+        // `recoverStuckSettlingAuctions` (5-min cron) re-enqueues it
+        // from Postgres. That path reads the DB, not Redis, so it
+        // recovers a lost enqueue — an enqueue inside the tx cannot be
+        // recovered at all.
+        await this.enqueueSettlement(
+          auction,
+          settled.transactionId,
+          settled.currentSeason,
+        );
       } else {
         // No bids - mark as expired and reset player's onTransfer
         // inside one transaction.

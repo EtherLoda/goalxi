@@ -109,37 +109,56 @@ export class LeagueAdminService {
       );
     }
 
-    team.leagueId = leagueId;
-    await this.teamRepository.save(team);
+    // From here on this is a 3-write sequence whose intermediate states
+    // are all invalid, so it runs in ONE transaction.
+    //
+    // Failure after `team.leagueId = leagueId` but before the standing
+    // row exists leaves a team pointing at a league with no ladder
+    // entry. That is worse than a hard error: `promotion-relegation`
+    // and `playoff` both select by `standing.position === N`, so the
+    // phantom team is invisible to every selection query while still
+    // sitting in the table — and `league.maxTeams` is then permanently
+    // off by one, because `count(standing)` never sees it.
+    //
+    // NOTE: this service currently has no production callers (only its
+    // own spec and its DI registration), so the exposure is theoretical
+    // today. Wrapping it anyway keeps the invariant true if it is ever
+    // wired up.
+    await this.dataSource.transaction(async (manager) => {
+      const teamRepo = manager.getRepository(TeamEntity);
+      team.leagueId = leagueId;
+      await teamRepo.save(team);
 
-    const standing = this.standingRepository.create({
-      teamId,
-      leagueId,
-      season,
-      position: currentTeams + 1,
-      played: 0,
-      points: 0,
-      wins: 0,
-      draws: 0,
-      losses: 0,
-      goalsFor: 0,
-      goalsAgainst: 0,
-      goalDifference: 0,
-    });
-    await this.standingRepository.save(standing);
-
-    const youthLeague = await this.youthLeagueRepository.findOne({
-      where: { parentTier: league.tier },
-    });
-    if (youthLeague) {
-      const youthTeam = this.youthTeamRepository.create({
-        teamId: team.id,
-        youthLeagueId: youthLeague.id,
-        name: `${team.name} Youth`,
+      const standing = manager.getRepository(LeagueStandingEntity).create({
+        teamId,
+        leagueId,
+        season,
+        position: currentTeams + 1,
+        played: 0,
+        points: 0,
+        wins: 0,
+        draws: 0,
+        losses: 0,
+        goalsFor: 0,
+        goalsAgainst: 0,
+        goalDifference: 0,
       });
-      await this.youthTeamRepository.save(youthTeam);
-      this.logger.info(`Created youth team for ${team.name}`);
-    }
+      await manager.getRepository(LeagueStandingEntity).save(standing);
+
+      const youthLeague = await manager
+        .getRepository(YouthLeagueEntity)
+        .findOne({ where: { parentTier: league.tier } });
+
+      if (youthLeague) {
+        const youthTeam = manager.getRepository(YouthTeamEntity).create({
+          teamId: team.id,
+          youthLeagueId: youthLeague.id,
+          name: `${team.name} Youth`,
+        });
+        await manager.getRepository(YouthTeamEntity).save(youthTeam);
+        this.logger.info(`Created youth team for ${team.name}`);
+      }
+    });
 
     this.logger.info(
       `Added team ${team.name} to league ${league.name} (season ${season})`,
@@ -154,10 +173,22 @@ export class LeagueAdminService {
       throw new BadRequestException(`Team ${teamId} not found`);
     }
 
-    await this.standingRepository.delete({ teamId: teamId as any });
+    // Clear the team FIRST, then drop the standing row, in one
+    // transaction.
+    //
+    // The original order was inverted: it deleted the standing row and
+    // only then cleared `team.leagueId`. A failure in between left a
+    // team with no `leagueId` still occupying a slot in the old
+    // league's `count(standing)` — so `addTeamToLeague`'s capacity check
+    // would refuse a replacement while the ladder had a hole in it.
+    await this.dataSource.transaction(async (manager) => {
+      team.leagueId = null;
+      await manager.getRepository(TeamEntity).save(team);
 
-    team.leagueId = null;
-    await this.teamRepository.save(team);
+      await manager
+        .getRepository(LeagueStandingEntity)
+        .delete({ teamId: teamId as any });
+    });
 
     this.logger.info(`Removed team ${team.name} from league`);
   }

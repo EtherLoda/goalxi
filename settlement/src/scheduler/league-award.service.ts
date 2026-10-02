@@ -2,14 +2,13 @@ import { Injectable, Inject } from '@nestjs/common';
 import { LOGGER_SERVICE, PinoLoggerService } from '@goalxi/logger';
 import { Cron } from '@nestjs/schedule';
 import { InjectRepository, InjectDataSource } from '@nestjs/typeorm';
-import { DataSource, Repository } from 'typeorm';
+import { DataSource, EntityManager, Repository } from 'typeorm';
 import {
   PlayerCompetitionStatsEntity,
   PlayerEventEntity,
   PlayerEventType,
   LeagueStandingEntity,
   PlayerEntity,
-  TeamEntity,
   FinanceEntity,
   MatchEntity,
   MatchStatus,
@@ -53,24 +52,18 @@ export class LeagueAwardService {
   constructor(
     @Inject(LOGGER_SERVICE)
     private readonly logger: PinoLoggerService,
-    @InjectRepository(PlayerCompetitionStatsEntity)
-    private readonly statsRepo: Repository<PlayerCompetitionStatsEntity>,
-    @InjectRepository(PlayerEventEntity)
-    private readonly playerEventRepo: Repository<PlayerEventEntity>,
-    @InjectRepository(LeagueStandingEntity)
-    private readonly standingRepo: Repository<LeagueStandingEntity>,
-    @InjectRepository(PlayerEntity)
-    private readonly playerRepo: Repository<PlayerEntity>,
-    @InjectRepository(TeamEntity)
-    private readonly teamRepo: Repository<TeamEntity>,
-    @InjectRepository(FinanceEntity)
-    private readonly financeRepo: Repository<FinanceEntity>,
+    // Only `matchRepo` and `dataSource` remain.
+    //
+    // The seven award paths used to take their repositories from
+    // injection while the enclosing `processLeagueAwards` opened a
+    // transaction — so they read and wrote through a DIFFERENT
+    // connection than the transaction and were never actually part of
+    // it. They now take an `EntityManager` and use
+    // `manager.getRepository(...)`, which is what makes the per-league
+    // award atomic. Leaving the injected repositories in place would
+    // only invite the next author to reintroduce the same split.
     @InjectRepository(MatchEntity)
     private readonly matchRepo: Repository<MatchEntity>,
-    @InjectRepository(LeagueEntity)
-    private readonly leagueRepo: Repository<LeagueEntity>,
-    @InjectRepository(TransactionEntity)
-    private readonly transactionRepo: Repository<TransactionEntity>,
     @InjectDataSource()
     private readonly dataSource: DataSource,
   ) {
@@ -147,57 +140,90 @@ export class LeagueAwardService {
     leagueId: string,
     season: number,
   ): Promise<void> {
-    // Idempotency check — MUST be scoped to this league.
+    // ONE transaction for all five award paths.
     //
-    // This used to be `findOne({ season, eventType: CHAMPIONSHIP_TITLE })`
-    // with no `leagueId`. `processSeasonAwards` loops over every league,
-    // so the FIRST league processed created a championship event and
-    // every subsequent league matched that row and returned early.
-    // Net effect: exactly 1 of the 85 leagues received any award per
-    // season — golden boot, assists leader, tackles leader, championship
-    // titles and all prize money were silently dropped for the other 84.
-    // This was a deterministic every-season failure, not a race.
+    // ## Why this is atomic
     //
-    // The unit test missed it because it mocked a single league.
+    // The idempotency latch below is "does a CHAMPIONSHIP_TITLE event
+    // exist for this league+season". That only works if the latch and
+    // everything it guards commit together. Previously the five paths
+    // ran via `Promise.all` with NO transaction:
     //
-    // All four award types already write `leagueId` into the `details`
-    // JSONB, so scoping on it needs no migration. There is no index on
-    // the JSONB path — acceptable for an annual cron over a table that
-    // only grows with discrete player events.
-    const existingAwards = await this.playerEventRepo
-      .createQueryBuilder('pe')
-      .where('pe.season = :season', { season })
-      .andWhere('pe.eventType = :eventType', {
-        eventType: PlayerEventType.CHAMPIONSHIP_TITLE,
-      })
-      .andWhere("pe.details->>'leagueId' = :leagueId", { leagueId })
-      .getOne();
+    //   - `awardChampion` wrote one event per player in a loop of bare
+    //     `save()` calls. Failing at player 11 of 16 left players 1-10
+    //     with a title.
+    //   - `awardPrizeMoney` paid teams one at a time. Failing at team 4
+    //     of 8 left teams 1-3 paid.
+    //   - `Promise.all` rejects on the first failure but does NOT cancel
+    //     the others, so a `awardPrizeMoney` failure still let
+    //     `awardChampion` finish writing its latch.
+    //
+    // On the next Sunday the latch was satisfied, so the league
+    // returned early and the unpaid teams were PERMANENTLY skipped.
+    // Partial awards were not recoverable by re-running.
+    //
+    // Making it atomic means a failure rolls back the latch too, so the
+    // retry redoes the whole league correctly. It also stops
+    // `Promise.all`'s partial application: on one connection the paths
+    // now run sequentially and any throw aborts all of them.
+    await this.dataSource.transaction(async (manager) => {
+      // Idempotency check — MUST be scoped to this league, and MUST run
+      // inside the transaction that writes the awards.
+      //
+      // This used to be `findOne({ season, eventType: CHAMPIONSHIP_TITLE })`
+      // with no `leagueId`. `processSeasonAwards` loops over every league,
+      // so the FIRST league processed created a championship event and
+      // every subsequent league matched that row and returned early.
+      // Net effect: exactly 1 of the 85 leagues received any award per
+      // season — golden boot, assists leader, tackles leader, championship
+      // titles and all prize money were silently dropped for the other 84.
+      // This was a deterministic every-season failure, not a race.
+      //
+      // The unit test missed it because it mocked a single league.
+      //
+      // All four award types already write `leagueId` into the `details`
+      // JSONB, so scoping on it needs no migration. There is no index on
+      // the JSONB path — acceptable for an annual cron over a table that
+      // only grows with discrete player events.
+      const existingAwards = await manager
+        .getRepository(PlayerEventEntity)
+        .createQueryBuilder('pe')
+        .where('pe.season = :season', { season })
+        .andWhere('pe.eventType = :eventType', {
+          eventType: PlayerEventType.CHAMPIONSHIP_TITLE,
+        })
+        .andWhere("pe.details->>'leagueId' = :leagueId", { leagueId })
+        .getOne();
 
-    if (existingAwards) {
-      this.logger.info(
-        `[LeagueAward] Awards already processed for league ${leagueId} season ${season}`,
-      );
-      return;
-    }
+      if (existingAwards) {
+        this.logger.info(
+          `[LeagueAward] Awards already processed for league ${leagueId} season ${season}`,
+        );
+        return;
+      }
 
-    await Promise.all([
-      this.awardGoldenBoot(leagueId, season),
-      this.awardAssistsLeader(leagueId, season),
-      this.awardTacklesLeader(leagueId, season),
-      this.awardChampion(leagueId, season),
-      this.awardPrizeMoney(leagueId, season),
-    ]);
+      // Sequential, not `Promise.all`. On a single query runner
+      // concurrent statements merely queue, and `Promise.all` rejects on
+      // the first failure while letting the rest keep writing — the
+      // partial-application shape this transaction exists to remove.
+      await this.awardGoldenBoot(manager, leagueId, season);
+      await this.awardAssistsLeader(manager, leagueId, season);
+      await this.awardTacklesLeader(manager, leagueId, season);
+      await this.awardChampion(manager, leagueId, season);
+      await this.awardPrizeMoney(manager, leagueId, season);
+    });
   }
 
   /**
    * 发放排名奖金给前8名球队
    */
   private async awardPrizeMoney(
+    manager: EntityManager,
     leagueId: string,
     season: number,
   ): Promise<void> {
     // 获取联赛信息获取tier
-    const league = await this.leagueRepo.findOne({
+    const league = await manager.getRepository(LeagueEntity).findOne({
       where: { id: leagueId as any },
     });
     if (!league) return;
@@ -207,12 +233,17 @@ export class LeagueAwardService {
     if (!prizeTable) return;
 
     // 获取前8名排名
-    const top8Standings = await this.standingRepo.find({
-      where: { leagueId, season },
-      order: { position: 'ASC' },
-      take: 8,
-      relations: ['team'],
-    });
+    const top8Standings = await manager
+      .getRepository(LeagueStandingEntity)
+      .find({
+        where: { leagueId, season },
+        order: { position: 'ASC' },
+        take: 8,
+        relations: ['team'],
+      });
+
+    const financeRepo = manager.getRepository(FinanceEntity);
+    const transactionRepo = manager.getRepository(TransactionEntity);
 
     for (const standing of top8Standings) {
       const position = standing.position;
@@ -229,14 +260,20 @@ export class LeagueAwardService {
       const prizeAmount = prizeTable[prizePosition];
       if (!prizeAmount || prizeAmount === 0) continue;
 
-      // 给球队加奖金和交易记录
-      const finance = await this.financeRepo.findOne({
+      // Read the balance under a write lock. A club can occupy more
+      // than one paid position only by accident, but the golden-boot /
+      // assists / tackles awards all credit `addPrizeToTeam` earlier in
+      // this same transaction, so this row may already be locked by us —
+      // re-reading under `FOR UPDATE` is correct and idempotent within a
+      // transaction (it does not self-deadlock).
+      const finance = await financeRepo.findOne({
         where: { teamId: standing.teamId as any },
+        lock: { mode: 'pessimistic_write' },
       });
 
       if (finance) {
         // 创建交易记录
-        const transaction = this.transactionRepo.create({
+        const transaction = transactionRepo.create({
           teamId: standing.teamId as any,
           amount: prizeAmount,
           type: TransactionType.PRIZE_MONEY,
@@ -244,11 +281,11 @@ export class LeagueAwardService {
           week: SEASON_END_AWARD_WEEK,
           description: `Season ${season} final position prize (${position}${this.getPositionSuffix(position)} in ${league.name})`,
         });
-        await this.transactionRepo.save(transaction);
+        await transactionRepo.save(transaction);
 
         // 更新余额
         finance.balance += prizeAmount;
-        await this.financeRepo.save(finance);
+        await financeRepo.save(finance);
 
         this.logger.info(
           `[LeagueAward] PRIZE: team=${standing.team?.name} position=${position} amount=£${prizeAmount}`,
@@ -265,19 +302,22 @@ export class LeagueAwardService {
   }
 
   private async awardGoldenBoot(
+    manager: EntityManager,
     leagueId: string,
     season: number,
   ): Promise<void> {
-    const topScorer = await this.statsRepo.findOne({
-      where: { leagueId: leagueId as any, season },
-      order: { goals: 'DESC', playerId: 'ASC' },
-    });
+    const topScorer = await manager
+      .getRepository(PlayerCompetitionStatsEntity)
+      .findOne({
+        where: { leagueId: leagueId as any, season },
+        order: { goals: 'DESC', playerId: 'ASC' },
+      });
 
     if (!topScorer || topScorer.goals === 0) return;
 
     // 创建事件
-    await this.playerEventRepo.save(
-      this.playerEventRepo.create({
+    await manager.getRepository(PlayerEventEntity).save(
+      manager.getRepository(PlayerEventEntity).create({
         playerId: topScorer.playerId,
         season,
         date: new Date(),
@@ -290,6 +330,7 @@ export class LeagueAwardService {
 
     // 发放奖金给球员所在球队
     await this.addPrizeToTeam(
+      manager,
       topScorer.playerId,
       PLAYER_AWARD_BONUS,
       season,
@@ -301,18 +342,21 @@ export class LeagueAwardService {
   }
 
   private async awardAssistsLeader(
+    manager: EntityManager,
     leagueId: string,
     season: number,
   ): Promise<void> {
-    const topAssister = await this.statsRepo.findOne({
-      where: { leagueId: leagueId as any, season },
-      order: { assists: 'DESC', playerId: 'ASC' },
-    });
+    const topAssister = await manager
+      .getRepository(PlayerCompetitionStatsEntity)
+      .findOne({
+        where: { leagueId: leagueId as any, season },
+        order: { assists: 'DESC', playerId: 'ASC' },
+      });
 
     if (!topAssister || topAssister.assists === 0) return;
 
-    await this.playerEventRepo.save(
-      this.playerEventRepo.create({
+    await manager.getRepository(PlayerEventEntity).save(
+      manager.getRepository(PlayerEventEntity).create({
         playerId: topAssister.playerId,
         season,
         date: new Date(),
@@ -324,6 +368,7 @@ export class LeagueAwardService {
     );
 
     await this.addPrizeToTeam(
+      manager,
       topAssister.playerId,
       PLAYER_AWARD_BONUS,
       season,
@@ -335,18 +380,21 @@ export class LeagueAwardService {
   }
 
   private async awardTacklesLeader(
+    manager: EntityManager,
     leagueId: string,
     season: number,
   ): Promise<void> {
-    const topTackler = await this.statsRepo.findOne({
-      where: { leagueId: leagueId as any, season },
-      order: { tackles: 'DESC', playerId: 'ASC' },
-    });
+    const topTackler = await manager
+      .getRepository(PlayerCompetitionStatsEntity)
+      .findOne({
+        where: { leagueId: leagueId as any, season },
+        order: { tackles: 'DESC', playerId: 'ASC' },
+      });
 
     if (!topTackler || topTackler.tackles === 0) return;
 
-    await this.playerEventRepo.save(
-      this.playerEventRepo.create({
+    await manager.getRepository(PlayerEventEntity).save(
+      manager.getRepository(PlayerEventEntity).create({
         playerId: topTackler.playerId,
         season,
         date: new Date(),
@@ -358,6 +406,7 @@ export class LeagueAwardService {
     );
 
     await this.addPrizeToTeam(
+      manager,
       topTackler.playerId,
       PLAYER_AWARD_BONUS,
       season,
@@ -368,8 +417,15 @@ export class LeagueAwardService {
     );
   }
 
-  private async awardChampion(leagueId: string, season: number): Promise<void> {
-    const champion = await this.standingRepo.findOne({
+  private async awardChampion(
+    manager: EntityManager,
+    leagueId: string,
+    season: number,
+  ): Promise<void> {
+    const standingRepo = manager.getRepository(LeagueStandingEntity);
+    const playerEventRepo = manager.getRepository(PlayerEventEntity);
+
+    const champion = await standingRepo.findOne({
       where: { leagueId, season },
       order: { position: 'ASC' },
       relations: ['team'],
@@ -378,33 +434,36 @@ export class LeagueAwardService {
     if (!champion) return;
 
     // Find all players from the champion team
-    const championPlayers = await this.playerRepo.find({
+    const championPlayers = await manager.getRepository(PlayerEntity).find({
       where: { teamId: champion.teamId as any },
     });
 
-    // Create a championship event for each player on the team
-    for (const player of championPlayers) {
-      await this.playerEventRepo.save(
-        this.playerEventRepo.create({
-          playerId: player.id,
-          season,
-          date: new Date(),
-          eventType: PlayerEventType.CHAMPIONSHIP_TITLE,
-          icon: 'emoji_events',
-          titleKey: 'player_events.championship_title',
-          details: {
-            teamId: champion.teamId,
-            teamName: champion.team?.name,
-            leagueId,
+    // Create a championship event for each player on the team.
+    // Batched: one INSERT rather than one round trip per player.
+    if (championPlayers.length > 0) {
+      await playerEventRepo.save(
+        championPlayers.map((player) =>
+          playerEventRepo.create({
+            playerId: player.id,
             season,
-            position: champion.position,
-          },
-        }),
+            date: new Date(),
+            eventType: PlayerEventType.CHAMPIONSHIP_TITLE,
+            icon: 'emoji_events',
+            titleKey: 'player_events.championship_title',
+            details: {
+              teamId: champion.teamId,
+              teamName: champion.team?.name,
+              leagueId,
+              season,
+              position: champion.position,
+            },
+          }),
+        ),
       );
     }
 
     this.logger.info(
-      `[LeagueAward] CHAMPIONSHIP: team=${champion.teamId} position=${champion.position}`,
+      `[LeagueAward] CHAMPIONSHIP: team=${champion.teamId} position=${champion.position} players=${championPlayers.length}`,
     );
   }
 
@@ -431,21 +490,35 @@ export class LeagueAwardService {
    * a crash can't leave money credited with no record (or vice versa).
    */
   private async addPrizeToTeam(
+    manager: EntityManager,
     playerId: number,
     amount: number,
     season: number,
     reason: string,
   ): Promise<void> {
     // 查找球员当前所在球队
-    const player = await this.playerRepo.findOne({
+    const player = await manager.getRepository(PlayerEntity).findOne({
       where: { id: playerId as any },
     });
 
     if (!player?.teamId) return;
 
     const teamId = player.teamId;
-    const finance = await this.financeRepo.findOne({
+
+    // Re-read the balance under a write lock. The five award paths run
+    // sequentially inside one transaction, and two of them can credit
+    // the same club (a golden-boot winner who also won assists, say) —
+    // without the lock the second increment would be computed from a
+    // stale read.
+    //
+    // This no longer opens its own `dataSource.transaction`. It used to,
+    // which was a latent bug: a nested `transaction()` call gets a
+    // DIFFERENT connection, so the "transaction" was not part of the
+    // caller's and its commit was independent. Now the caller owns the
+    // boundary and this method participates in it.
+    const finance = await manager.getRepository(FinanceEntity).findOne({
       where: { teamId: teamId as any },
+      lock: { mode: 'pessimistic_write' },
     });
 
     if (!finance) {
@@ -456,31 +529,20 @@ export class LeagueAwardService {
       return;
     }
 
-    await this.dataSource.transaction(async (manager) => {
-      // Re-read the balance under a write lock. `awardPrizeMoney` runs
-      // the five award paths concurrently via `Promise.all`, so two of
-      // them crediting the same club (a golden-boot winner who also won
-      // assists, say) would otherwise lose one increment.
-      const lockedFinance = await manager.getRepository(FinanceEntity).findOne({
-        where: { id: finance.id },
-        lock: { mode: 'pessimistic_write' },
-      });
-      if (!lockedFinance) return;
+    finance.balance += amount;
+    await manager.getRepository(FinanceEntity).save(finance);
 
-      lockedFinance.balance += amount;
-      await manager.getRepository(FinanceEntity).save(lockedFinance);
-
-      await manager.getRepository(TransactionEntity).save(
-        manager.getRepository(TransactionEntity).create({
-          teamId,
-          amount,
-          type: TransactionType.OTHER_INCOME,
-          season,
-          week: SEASON_END_AWARD_WEEK,
-          description: `${reason} (player ${playerId})`,
-        }),
-      );
-    });
+    const transactionRepo = manager.getRepository(TransactionEntity);
+    await transactionRepo.save(
+      transactionRepo.create({
+        teamId,
+        amount,
+        type: TransactionType.OTHER_INCOME,
+        season,
+        week: SEASON_END_AWARD_WEEK,
+        description: `${reason} (player ${playerId})`,
+      }),
+    );
 
     this.logger.info(
       `[LeagueAward] ${reason}: credited £${amount} to team ${teamId}`,

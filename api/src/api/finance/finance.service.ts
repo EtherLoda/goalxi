@@ -93,7 +93,29 @@ export class FinanceService {
       const financeRepo = manager.getRepository(FinanceEntity);
       const transactionRepo = manager.getRepository(TransactionEntity);
 
-      const finance = await financeRepo.findOneBy({ teamId });
+      // Read the balance under a WRITE lock.
+      //
+      // This read-modify-write was NOT locked. `processTransaction` is
+      // the settlement path for several concurrent flows — auction
+      // payouts (`auction.service.ts`), stadium completion, league prize
+      // money — and two of them can credit the same club at the same
+      // moment. Both read the same `balance`, both compute
+      // `balance + amount`, both write: one increment is silently lost.
+      //
+      // Being inside a transaction does not prevent this. At READ
+      // COMMITTED (Postgres' default, and TypeORM's default) each
+      // statement sees a fresh snapshot, so the second `save` simply
+      // overwrites the first with a value computed from a stale read.
+      //
+      // The same operation is written correctly elsewhere in the repo:
+      // `league-award.service.ts` `addPrizeToTeam` and
+      // `auction.service.ts` both use `lock: { mode:
+      // 'pessimistic_write' }`. This was the third spelling of the same
+      // read-modify-write.
+      const finance = await financeRepo.findOne({
+        where: { teamId },
+        lock: { mode: 'pessimistic_write' },
+      });
       if (!finance) {
         throw new NotFoundException(
           `Finance record not found for team ${teamId}`,
@@ -234,156 +256,131 @@ export class FinanceService {
     const financeRepo = manager.getRepository(FinanceEntity);
     const transactionRepo = manager.getRepository(TransactionEntity);
 
-    // Get or create finance record
-    let finance = await financeRepo.findOneBy({ teamId });
+    // Get or create finance record.
+    //
+    // Locked for the same reason as `processTransaction`: the five
+    // blocks below accumulate `finance.balance` IN MEMORY (one
+    // sponsorship add, four expense subtracts) and write once at the
+    // end. Without a row lock that is a wide read-modify-write window —
+    // two settlements for the same club overlap and one set of expenses
+    // vanishes. This is the same bug `processTransaction` had.
+    //
+    // The create branch cannot be locked (no row exists yet), but
+    // `finance.team_id` carries `UNIQUE ("team_id")`, so a concurrent
+    // first-time settlement fails on the constraint and rolls back
+    // rather than inserting a duplicate row.
+    let finance = await financeRepo.findOne({
+      where: { teamId },
+      lock: { mode: 'pessimistic_write' },
+    });
     if (!finance) {
       finance = financeRepo.create({ teamId, balance: 100000 });
       finance = await financeRepo.save(finance);
     }
 
     // Income: Sponsorship = 基础值 × 2 × √(球迷数/1万)
-    try {
-      const fan = await manager
-        .getRepository(FanEntity)
-        .findOne({ where: { teamId } });
-      const baseSponsorship =
-        FINANCE_CONSTANTS.SPONSORSHIP_BASE[
-          tier as keyof typeof FINANCE_CONSTANTS.SPONSORSHIP_BASE
-        ] || 30000;
-      const fanCount = fan?.totalFans || 1000;
-      const sponsorshipMultiplier = Math.sqrt(fanCount / 10000);
-      const sponsorship = Math.floor(
-        baseSponsorship * 2 * sponsorshipMultiplier,
-      );
+    const fan = await manager
+      .getRepository(FanEntity)
+      .findOne({ where: { teamId } });
+    const baseSponsorship =
+      FINANCE_CONSTANTS.SPONSORSHIP_BASE[
+        tier as keyof typeof FINANCE_CONSTANTS.SPONSORSHIP_BASE
+      ] || 30000;
+    const fanCount = fan?.totalFans || 1000;
+    const sponsorshipMultiplier = Math.sqrt(fanCount / 10000);
+    const sponsorship = Math.floor(
+      baseSponsorship * 2 * sponsorshipMultiplier,
+    );
 
-      const sponsorshipTx = transactionRepo.create({
-        teamId,
-        amount: sponsorship,
-        type: TransactionType.SPONSORSHIP,
-        season,
-        week,
-        description: `Weekly sponsorship income (Tier ${tier}, ${fanCount} fans)`,
-      });
-      finance.balance += sponsorship;
-      await transactionRepo.save(sponsorshipTx);
-    } catch (error) {
-      this.logger.error(
-        `[Finance] weeklySettlement sponsorship sub-block failed teamId=${teamId}: ${(error as Error).message}`,
-        (error as Error).stack,
-      );
-      throw error;
-    }
+    const sponsorshipTx = transactionRepo.create({
+      teamId,
+      amount: sponsorship,
+      type: TransactionType.SPONSORSHIP,
+      season,
+      week,
+      description: `Weekly sponsorship income (Tier ${tier}, ${fanCount} fans)`,
+    });
+    finance.balance += sponsorship;
+    await transactionRepo.save(sponsorshipTx);
 
     // Expense: Staff wages (HEAD_COACH gets 2x)
-    try {
-      const staffMembers = await manager.getRepository(StaffEntity).find({
-        where: { teamId, isActive: true },
-      });
-      for (const staff of staffMembers) {
-        const baseWage =
-          FINANCE_CONSTANTS.STAFF_WAGE[
-            staff.level as keyof typeof FINANCE_CONSTANTS.STAFF_WAGE
-          ] || 15000;
-        const staffWage =
-          staff.role === StaffRole.HEAD_COACH ? baseWage * 2 : baseWage;
+    const staffMembers = await manager.getRepository(StaffEntity).find({
+      where: { teamId, isActive: true },
+    });
+    for (const staff of staffMembers) {
+      const baseWage =
+        FINANCE_CONSTANTS.STAFF_WAGE[
+          staff.level as keyof typeof FINANCE_CONSTANTS.STAFF_WAGE
+        ] || 15000;
+      const staffWage =
+        staff.role === StaffRole.HEAD_COACH ? baseWage * 2 : baseWage;
 
-        const staffTx = transactionRepo.create({
-          teamId,
-          amount: -staffWage,
-          type: TransactionType.STAFF_EXPENSES,
-          season,
-          week,
-          description: `Weekly wage for ${staff.name} (${staff.role})`,
-          relatedId: staff.id,
-        });
-        finance.balance -= staffWage;
-        await transactionRepo.save(staffTx);
-      }
-    } catch (error) {
-      this.logger.error(
-        `[Finance] weeklySettlement staff sub-block failed teamId=${teamId}: ${(error as Error).message}`,
-        (error as Error).stack,
-      );
-      throw error;
+      const staffTx = transactionRepo.create({
+        teamId,
+        amount: -staffWage,
+        type: TransactionType.STAFF_EXPENSES,
+        season,
+        week,
+        description: `Weekly wage for ${staff.name} (${staff.role})`,
+        relatedId: staff.id,
+      });
+      finance.balance -= staffWage;
+      await transactionRepo.save(staffTx);
     }
 
     // Expense: Youth team
-    try {
-      const youthTx = transactionRepo.create({
-        teamId,
-        amount: -FINANCE_CONSTANTS.YOUTH_TEAM_COST,
-        type: TransactionType.YOUTH_TEAM,
-        season,
-        week,
-        description: 'Weekly youth team operation',
-      });
-      finance.balance -= FINANCE_CONSTANTS.YOUTH_TEAM_COST;
-      await transactionRepo.save(youthTx);
-    } catch (error) {
-      this.logger.error(
-        `[Finance] weeklySettlement youth sub-block failed teamId=${teamId}: ${(error as Error).message}`,
-        (error as Error).stack,
-      );
-      throw error;
-    }
+    const youthTx = transactionRepo.create({
+      teamId,
+      amount: -FINANCE_CONSTANTS.YOUTH_TEAM_COST,
+      type: TransactionType.YOUTH_TEAM,
+      season,
+      week,
+      description: 'Weekly youth team operation',
+    });
+    finance.balance -= FINANCE_CONSTANTS.YOUTH_TEAM_COST;
+    await transactionRepo.save(youthTx);
 
     // Expense: Stadium maintenance (based on capacity)
-    try {
-      const stadium = await manager
-        .getRepository(StadiumEntity)
-        .findOne({ where: { teamId } });
-      if (stadium?.isBuilt) {
-        const maintenanceCost =
-          stadium.capacity * FINANCE_CONSTANTS.STADIUM_MAINTENANCE_PER_SEAT;
-        const stadiumTx = transactionRepo.create({
-          teamId,
-          amount: -maintenanceCost,
-          type: TransactionType.OTHER_EXPENSE,
-          season,
-          week,
-          description: `Weekly stadium maintenance (${stadium.capacity} seats)`,
-          relatedId: stadium.id,
-        });
-        finance.balance -= maintenanceCost;
-        await transactionRepo.save(stadiumTx);
-      }
-    } catch (error) {
-      this.logger.error(
-        `[Finance] weeklySettlement stadium sub-block failed teamId=${teamId}: ${(error as Error).message}`,
-        (error as Error).stack,
-      );
-      throw error;
+    const stadium = await manager
+      .getRepository(StadiumEntity)
+      .findOne({ where: { teamId } });
+    if (stadium?.isBuilt) {
+      const maintenanceCost =
+        stadium.capacity * FINANCE_CONSTANTS.STADIUM_MAINTENANCE_PER_SEAT;
+      const stadiumTx = transactionRepo.create({
+        teamId,
+        amount: -maintenanceCost,
+        type: TransactionType.OTHER_EXPENSE,
+        season,
+        week,
+        description: `Weekly stadium maintenance (${stadium.capacity} seats)`,
+        relatedId: stadium.id,
+      });
+      finance.balance -= maintenanceCost;
+      await transactionRepo.save(stadiumTx);
     }
 
     // Expense: Player wages (all non-youth players)
-    try {
-      const players = await manager.getRepository(PlayerEntity).find({
-        where: { teamId, isYouth: false },
-      });
-      if (players.length > 0) {
-        const totalPlayerWages = players.reduce(
-          (sum, player) => sum + (player.currentWage || 0),
-          0,
-        );
-        if (totalPlayerWages > 0) {
-          const wagesTx = transactionRepo.create({
-            teamId,
-            amount: -totalPlayerWages,
-            type: TransactionType.WAGES,
-            season,
-            week,
-            description: `Weekly player wages (${players.length} players)`,
-          });
-          finance.balance -= totalPlayerWages;
-          await transactionRepo.save(wagesTx);
-        }
-      }
-    } catch (error) {
-      this.logger.error(
-        `[Finance] weeklySettlement wages sub-block failed teamId=${teamId}: ${(error as Error).message}`,
-        (error as Error).stack,
+    const players = await manager.getRepository(PlayerEntity).find({
+      where: { teamId, isYouth: false },
+    });
+    if (players.length > 0) {
+      const totalPlayerWages = players.reduce(
+        (sum, player) => sum + (player.currentWage || 0),
+        0,
       );
-      throw error;
+      if (totalPlayerWages > 0) {
+        const wagesTx = transactionRepo.create({
+          teamId,
+          amount: -totalPlayerWages,
+          type: TransactionType.WAGES,
+          season,
+          week,
+          description: `Weekly player wages (${players.length} players)`,
+        });
+        finance.balance -= totalPlayerWages;
+        await transactionRepo.save(wagesTx);
+      }
     }
 
     // Save final balance

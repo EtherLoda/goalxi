@@ -14,6 +14,7 @@ import {
   MatchEntity,
   LeagueEntity,
   TransactionEntity,
+  TransactionType,
   Uuid,
 } from '@goalxi/database';
 import { cronLockPassThrough } from '../test-utils/cron-lock-mock';
@@ -70,20 +71,45 @@ describe('LeagueAwardService', () => {
   };
   const mockLeagueRepo = { findOne: jest.fn() };
   const mockTransactionRepo = { create: jest.fn(), save: jest.fn() };
-  // `addPrizeToTeam` credits the balance and writes a ledger row in one
-  // transaction, re-reading the balance under a write lock.
+
+  // The whole per-league award now runs inside ONE
+  // `processLeagueAwards` transaction, so every repository it touches is
+  // obtained from the transaction's `EntityManager` rather than from
+  // injection. The manager therefore has to hand back the SAME mocks the
+  // spec asserts on — otherwise a spec can pass while the transaction
+  // silently routes writes somewhere else.
+  //
+  // This is also the assertion that the split is closed: `addPrizeToTeam`
+  // used to open its own `dataSource.transaction`, which handed it a
+  // different connection entirely.
+  const mockTxManager = {
+    getRepository: jest.fn((entity: any) => {
+      switch (entity?.name) {
+        case 'PlayerCompetitionStatsEntity':
+          return mockStatsRepo;
+        case 'PlayerEventEntity':
+          return mockPlayerEventRepo;
+        case 'LeagueStandingEntity':
+          return mockStandingRepo;
+        case 'PlayerEntity':
+          return mockPlayerRepo;
+        case 'FinanceEntity':
+          return mockFinanceRepo;
+        case 'LeagueEntity':
+          return mockLeagueRepo;
+        case 'TransactionEntity':
+          return mockTransactionRepo;
+        default:
+          throw new Error(`mockTxManager: unmocked entity ${entity?.name}`);
+      }
+    }),
+  };
   const mockDataSource = {
     transaction: jest.fn(async (cb: any) => cb(mockTxManager)),
   };
-  const mockTxFinanceRepo = { findOne: jest.fn(), save: jest.fn() };
-  const mockTxTransactionRepo = { create: jest.fn(), save: jest.fn() };
-  const mockTxManager = {
-    getRepository: jest.fn((entity: any) =>
-      entity?.name === 'FinanceEntity'
-        ? mockTxFinanceRepo
-        : mockTxTransactionRepo,
-    ),
-  };
+  // Aliases so the older leader-prize assertions keep reading clearly.
+  const mockTxFinanceRepo = mockFinanceRepo;
+  const mockTxTransactionRepo = mockTransactionRepo;
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
@@ -347,19 +373,46 @@ describe('LeagueAwardService', () => {
 
       await service.processSeasonAwards(1);
 
-      // 2 championship events (one per champion-team player)
-      // + 3 individual awards (golden boot, assists, tackles).
-      expect(mockPlayerEventRepo.save).toHaveBeenCalledTimes(5);
+      // 5 player events in total: 2 championship (one per champion-team
+      // player, now written in a SINGLE batched save) + 3 individual
+      // awards (golden boot, assists, tackles).
+      //
+      // Asserted on events CREATED rather than `save()` call count: the
+      // championship events were previously written one `save()` per
+      // player, which is exactly the shape that lost 10 of 16 titles when
+      // the 11th `save` failed. Asserting the call count would pin that
+      // N-round-trips-per-team behaviour back in place.
+      const createdEventTypes = mockPlayerEventRepo.create.mock.calls.map(
+        (c: any) => c[0].eventType,
+      );
+      expect(
+        createdEventTypes.filter(
+          (t: string) => t === PlayerEventType.CHAMPIONSHIP_TITLE,
+        ),
+      ).toHaveLength(2);
+      expect(createdEventTypes).toHaveLength(5);
+      // The two championship events share one save.
+      expect(mockPlayerEventRepo.save).toHaveBeenCalledTimes(4);
 
-      // Prize money: 8 transactions (one per top-8 team).
-      // Finance saves: 8 prize money + 3 leader addPrizeToTeam calls.
-      expect(mockTransactionRepo.save).toHaveBeenCalledTimes(8);
-      expect(mockFinanceRepo.save).toHaveBeenCalledTimes(8);
-      // The three leader prizes go through the TRANSACTION's repo, not
-      // the injected one — they must write a ledger row alongside the
-      // balance bump, in the same transaction.
-      expect(mockTxFinanceRepo.save).toHaveBeenCalledTimes(3);
-      expect(mockTxTransactionRepo.save).toHaveBeenCalledTimes(3);
+      // Ledger rows: 8 prize-money transactions + 3 leader
+      // `addPrizeToTeam` rows. Finance saves likewise 8 + 3.
+      //
+      // The leader prizes used to write to a DIFFERENT repository — the
+      // one handed to the nested `dataSource.transaction` that
+      // `addPrizeToTeam` opened itself, i.e. a separate connection, so
+      // its commit was independent of the awards around it. They now
+      // share this transaction, which is why the counts merge here.
+      expect(mockTransactionRepo.save).toHaveBeenCalledTimes(11);
+      expect(mockFinanceRepo.save).toHaveBeenCalledTimes(11);
+
+      // The three leader prizes each wrote a ledger row alongside their
+      // balance bump — the original bug was money with no record.
+      expect(mockTransactionRepo.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          amount: 100_000,
+          type: TransactionType.OTHER_INCOME,
+        }),
+      );
     });
 
     it('REGRESSION: leader prizes write a ledger row (was unaccounted money)', async () => {
