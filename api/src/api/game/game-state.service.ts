@@ -1,4 +1,8 @@
-import { currentSeasonWeek, resolveInitDate } from '@goalxi/database';
+import {
+  currentSeasonWeek,
+  GAME_SETTINGS,
+  resolveInitDate,
+} from '@goalxi/database';
 import { Injectable, OnModuleInit } from '@nestjs/common';
 import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource } from 'typeorm';
@@ -43,7 +47,12 @@ export class GameStateService implements OnModuleInit {
     );
   }
 
-  getCurrentSeasonWeek(): { season: number; week: number } {
+  getCurrentSeasonWeek(): {
+    season: number;
+    week: number;
+    seasonLengthWeeks: number;
+    regularSeasonWeeks: number;
+  } {
     // `onModuleInit` populates `gameStart` before any
     // HTTP request is served (Nest awaits all
     // `onModuleInit` hooks before binding the HTTP
@@ -56,6 +65,24 @@ export class GameStateService implements OnModuleInit {
           'This is a Nest lifecycle bug, not a runtime condition.',
       );
     }
-    return currentSeasonWeek(new Date(), this.gameStart);
+
+    const { season, week } = currentSeasonWeek(new Date(), this.gameStart);
+
+    // The season SHAPE travels with the season NUMBER. Two callers render
+    // "MW{week}/{total}" and both previously hardcoded 16 in the frontend,
+    // which is how the header ended up reading "MW16/16" forever once the
+    // season was compressed to 11 weeks. One field here is cheaper than a
+    // second request or a duplicated constant in two components.
+    //
+    // `regularSeasonWeeks` is the number a "week N of M" progress
+    // indicator should count to — the regular season occupies weeks
+    // 1..M and week M+1 is the playoff week, which is not part of the
+    // league fixture list a user is looking at.
+    return {
+      season,
+      week,
+      seasonLengthWeeks: GAME_SETTINGS.SEASON_LENGTH_WEEKS,
+      regularSeasonWeeks: GAME_SETTINGS.REGULAR_SEASON_WEEKS,
+    };
   }
 }

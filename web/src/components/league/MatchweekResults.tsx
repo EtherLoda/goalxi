@@ -20,7 +20,8 @@ interface MatchResult {
 }
 
 interface MatchweekResultsProps {
-  currentRound: number;
+  lastMatchweek: number | null;
+  nextMatchweek: number | null;
   lastRoundResults: MatchResult[];
   nextRoundMatches: MatchResult[];
   userTeamId?: string;
@@ -148,7 +149,14 @@ function RoundPanel({
   children,
 }: {
   kicker: string;
-  round: number;
+  /**
+   * Matchweek number, or null when there is nothing to label — e.g. the
+   * "next" panel after the season is over, or "last" before kickoff.
+   * Rendering `null` as an empty span is deliberate: the previous code
+   * synthesised a number (`currentRound + 1`) that pointed at a week with
+   * no fixtures in it.
+   */
+  round: number | null;
   status: string;
   statusAccent: 'primary' | 'tertiary';
   children: React.ReactNode;
@@ -166,7 +174,7 @@ function RoundPanel({
             {kicker}
           </span>
           <span className="font-headline text-sm font-black text-on-surface">
-            {round}
+            {round ?? ''}
           </span>
         </div>
         <span
@@ -184,7 +192,8 @@ function RoundPanel({
 }
 
 export default function MatchweekResults({
-  currentRound,
+  lastMatchweek,
+  nextMatchweek,
   lastRoundResults,
   nextRoundMatches,
   userTeamId,
@@ -197,7 +206,7 @@ export default function MatchweekResults({
       {/* This Round (Last Completed) */}
       <RoundPanel
         kicker={t('league.sections.matchweek')}
-        round={currentRound}
+        round={lastMatchweek}
         status={t('league.matchweek.completed')}
         statusAccent="primary"
       >
@@ -222,7 +231,7 @@ export default function MatchweekResults({
       {/* Next Round */}
       <RoundPanel
         kicker={t('league.sections.nextMatchweek')}
-        round={currentRound + 1}
+        round={nextMatchweek}
         status={t('league.matchweek.upcoming')}
         statusAccent="tertiary"
       >

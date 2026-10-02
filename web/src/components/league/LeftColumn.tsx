@@ -20,7 +20,10 @@ interface MatchResult {
 
 interface LeftColumnProps {
   news: (LeagueNewsItem & { timeAgo: string })[];
-  currentRound: number;
+  /** Matchweek of the last completed matchday, or null pre-kickoff. */
+  lastMatchweek: number | null;
+  /** Matchweek of the next scheduled matchday, or null when finished. */
+  nextMatchweek: number | null;
   lastRoundResults: MatchResult[];
   nextRoundMatches: MatchResult[];
   userTeamId?: string;
@@ -30,7 +33,8 @@ interface LeftColumnProps {
 
 export default function LeftColumn({
   news,
-  currentRound,
+  lastMatchweek,
+  nextMatchweek,
   lastRoundResults,
   nextRoundMatches,
   userTeamId,
@@ -39,7 +43,8 @@ export default function LeftColumn({
   return (
     <div className="space-y-6">
       <MatchweekResults
-        currentRound={currentRound}
+        lastMatchweek={lastMatchweek}
+        nextMatchweek={nextMatchweek}
         lastRoundResults={lastRoundResults}
         nextRoundMatches={nextRoundMatches}
         userTeamId={userTeamId}

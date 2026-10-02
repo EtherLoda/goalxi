@@ -6,6 +6,7 @@ import { clsx } from "clsx";
 import StandingsTable from "./StandingsTable";
 import { TacticsEntryButton } from "@/components/tactics/shared/TacticsEntryButton";
 import { MATCH_STATUS, type Standing, type Match } from "@/lib/api";
+import { matchdayKey } from "@/lib/league-fixtures";
 
 interface RightColumnProps {
   standings: Standing[];
@@ -37,20 +38,39 @@ export default function RightColumn({
     { key: "data", label: t("league.rightColumn.data") },
   ];
 
-  // Group matches by round/week
+  /**
+   * Group fixtures into matchdays.
+   *
+   * This used to key on `match.round ?? match.week * 2`. `round` is the
+   * matchday index WITHIN a week (1..ROUNDS_PER_WEEK), so keying on it
+   * alone collapsed every week of the season into one group per round —
+   * three groups for a ten-week season, two before it. Grouping on the
+   * `(week, round)` tuple is what actually identifies a matchday.
+   *
+   * Groups are ordered by their earliest kickoff, not by their label, so a
+   * rescheduled fixture cannot reorder the list.
+   */
   const groupedMatches = allMatches.reduce(
     (acc, match) => {
-      const round = match.round ?? match.week * 2;
-      if (!acc[round]) acc[round] = [];
-      acc[round].push(match);
+      const key = matchdayKey(match);
+      if (!acc[key]) acc[key] = [];
+      acc[key].push(match);
       return acc;
     },
-    {} as Record<number, Match[]>,
+    {} as Record<string, Match[]>,
   );
 
-  const sortedRounds = Object.keys(groupedMatches)
-    .map(Number)
-    .sort((a, b) => a - b);
+  const sortedMatchdays = Object.entries(groupedMatches)
+    .map(([key, matches]) => ({
+      key,
+      week: matches[0]?.week ?? 0,
+      matches,
+      firstKickoff: matches.reduce(
+        (min, m) => (m.scheduledAt < min ? m.scheduledAt : min),
+        matches[0]?.scheduledAt ?? "",
+      ),
+    }))
+    .sort((a, b) => a.firstKickoff.localeCompare(b.firstKickoff));
 
   return (
     <div className="glass-panel rounded-2xl overflow-hidden flex flex-col self-start border border-white/5">
@@ -98,8 +118,7 @@ export default function RightColumn({
         {activeTab === "fixtures" && (
           <FixturesTab
             t={t}
-            sortedRounds={sortedRounds}
-            groupedMatches={groupedMatches}
+            sortedMatchdays={sortedMatchdays}
             userTeamId={userTeamId}
             locale={locale}
           />
@@ -131,20 +150,23 @@ function DataEmptyState({ t }: { t: ReturnType<typeof useTranslations> }) {
 
 function FixturesTab({
   t,
-  sortedRounds,
-  groupedMatches,
+  sortedMatchdays,
   userTeamId,
   locale,
 }: {
   t: ReturnType<typeof useTranslations>;
-  sortedRounds: number[];
-  groupedMatches: Record<number, Match[]>;
+  sortedMatchdays: {
+    key: string;
+    week: number;
+    matches: Match[];
+    firstKickoff: string;
+  }[];
   userTeamId?: string;
   locale: string;
 }) {
   const tCommon = useTranslations('common');
 
-  if (sortedRounds.length === 0) {
+  if (sortedMatchdays.length === 0) {
     return (
       <div className="h-full flex items-center justify-center">
         <div className="text-center max-w-sm">
@@ -167,8 +189,7 @@ function FixturesTab({
   return (
     <div className="h-full overflow-y-auto custom-scrollbar pr-1">
       <div className="space-y-3 pb-2">
-        {sortedRounds.map((round) => {
-          const matches = groupedMatches[round];
+        {sortedMatchdays.map(({ key, week, matches }) => {
           const hasCompleted = matches.some((m) => m.status === MATCH_STATUS.COMPLETED);
           const hasUpcoming = matches.some(
             (m) => m.status === MATCH_STATUS.SCHEDULED || m.status === MATCH_STATUS.TACTICS_LOCKED,
@@ -176,13 +197,13 @@ function FixturesTab({
 
           return (
             <div
-              key={round}
+              key={key}
               className="glass-panel rounded-2xl p-3 border border-white/5"
             >
               <div className="flex items-center justify-between mb-2 px-1">
                 <div className="flex items-center gap-2">
                   <span className="font-label text-[9px] font-black uppercase tracking-[0.25em] text-primary">
-                    {t('league.matchweek.thisRound', { round })}
+                    {t('league.matchweek.thisRound', { round: week })}
                   </span>
                 </div>
                 {hasCompleted && (

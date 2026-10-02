@@ -1247,8 +1247,26 @@ export const api = {
   },
 
   game: {
-    getCurrent: async (): Promise<{ season: number; week: number }> => {
-      return request<{ season: number; week: number }>('/game/current');
+    /**
+     * `seasonLengthWeeks` is the whole season-year INCLUDING the playoff
+     * week; `regularSeasonWeeks` is how many weeks the league actually
+     * has fixtures for. Anything rendering "week N of M" wants the latter.
+     *
+     * Both come from the server so no component hardcodes the season
+     * shape — two of them used to carry a literal `16`.
+     */
+    getCurrent: async (): Promise<{
+      season: number;
+      week: number;
+      seasonLengthWeeks: number;
+      regularSeasonWeeks: number;
+    }> => {
+      return request<{
+        season: number;
+        week: number;
+        seasonLengthWeeks: number;
+        regularSeasonWeeks: number;
+      }>('/game/current');
     },
   },
 

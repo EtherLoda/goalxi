@@ -12,6 +12,8 @@ import type { Team } from "@/lib/api";
 interface GameState {
   season: number;
   week: number;
+  /** Weeks in the regular season — what "MW{n}/{total}" should count to. */
+  regularSeasonWeeks: number;
 }
 
 interface GlobalHeaderProps {
@@ -132,7 +134,10 @@ export default function GlobalHeader({ locale }: GlobalHeaderProps) {
   }, [team?.leagueId, viewedTeam?.leagueId]);
 
   const leagueId = team?.leagueId;
-  const totalMatchweeks = 16;
+  // From the API, not a literal. This used to be a hardcoded 16, so once
+  // the season was compressed to 11 weeks the badge read "MW16/16" for
+  // the rest of the season and the progress was meaningless.
+  const totalMatchweeks = gameState?.regularSeasonWeeks ?? 0;
   const isTransfersPage = pathname?.startsWith(`/${locale}/transfers`);
 
   return (

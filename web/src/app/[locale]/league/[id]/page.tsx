@@ -9,6 +9,13 @@ import LeagueKpiStrip from "@/components/league/LeagueKpiStrip";
 import { useAuth } from "@/contexts/AuthContext";
 import { useGameStore } from "@/stores/gameStore";
 import { api, MATCH_STATUS, type Standing, type Match, type LeagueNewsItem } from "@/lib/api";
+import {
+  currentMatchweek,
+  fixtureSeason,
+  leagueFixtures,
+  matchdayGroups,
+  totalMatchweeks as countMatchweeks,
+} from "@/lib/league-fixtures";
 
 interface MatchResult {
   id: string;
@@ -89,12 +96,23 @@ function LeaguePageContent() {
 
   const [league, setLeague] = useState<{ name: string; tier: number } | null>(null);
   const [standings, setStandings] = useState<Standing[]>([]);
+  // `week` is a MATCHWEEK (1..totalMatchweeks), not a matchday index.
   const [gameState, setGameState] = useState<{
     season: number;
     week: number;
-    round: number;
+    totalMatchweeks: number;
   } | null>(null);
   const [lastRoundResults, setLastRoundResults] = useState<MatchResult[]>([]);
+  /**
+   * Matchweek labels for the two result panels, read off the fixtures
+   * themselves. The old code passed a single `currentRound` — a global
+   * matchday index — and labelled the second panel `currentRound + 1`,
+   * which is a fiction: the next matchday is usually in the SAME week as
+   * the last one (three fixtures a week now), so "+1" pointed at a week
+   * that had nothing to do with it.
+   */
+  const [lastMatchweek, setLastMatchweek] = useState<number | null>(null);
+  const [nextMatchweek, setNextMatchweek] = useState<number | null>(null);
   const [nextRoundMatches, setNextRoundMatches] = useState<MatchResult[]>([]);
   const [allMatches, setAllMatches] = useState<Match[]>([]);
   const [leagueNews, setLeagueNews] = useState<(LeagueNewsItem & { timeAgo: string })[]>([]);
@@ -113,44 +131,36 @@ function LeaguePageContent() {
         setLeague(leagueData);
         setStandings(standingsData);
 
-        const matches = matchesData.data || [];
-        setAllMatches(matches);
+        // League fixtures only. The endpoint returns cup ties too, and a
+        // cup row carries `week: 0` plus its own round number (0..11), so
+        // mixing them in folds phantom cup rounds into the league ladder.
+        const leagueMatches = leagueFixtures(
+          matchesData.data || [],
+          leagueId,
+        );
+        setAllMatches(leagueMatches);
 
-        const completedMatches = matches
-          .filter((m: Match) => m.status === MATCH_STATUS.COMPLETED)
-          .sort((a: Match, b: Match) => {
-            const roundA = a.round ?? a.week * 2;
-            const roundB = b.round ?? b.week * 2;
-            return roundB - roundA;
-          });
+        // Derived from the rows — see `lib/league-fixtures`. The previous
+        // code computed a global matchday index as `m.round ?? m.week * 2`
+        // and used it for sorting, grouping AND the "current week" field,
+        // which is how this page came to render "Round 30 / 16" with a
+        // permanently full progress bar.
+        const { lastMatchday, nextMatchday } = matchdayGroups(leagueMatches, {
+          completed: MATCH_STATUS.COMPLETED,
+          upcoming: [MATCH_STATUS.SCHEDULED, MATCH_STATUS.TACTICS_LOCKED],
+        });
 
-        const latestCompletedRound = completedMatches.length > 0
-          ? (completedMatches[0].round ?? completedMatches[0].week * 2)
-          : 0;
+        const week = currentMatchweek(leagueMatches, MATCH_STATUS.COMPLETED);
+        setGameState({
+          season: fixtureSeason(leagueMatches) ?? 0,
+          week,
+          totalMatchweeks: countMatchweeks(leagueMatches),
+        });
 
-        const scheduledMatches = matches
-          .filter((m: Match) => m.status === MATCH_STATUS.SCHEDULED || m.status === MATCH_STATUS.TACTICS_LOCKED)
-          .sort((a: Match, b: Match) => {
-            const roundA = a.round ?? a.week * 2;
-            const roundB = b.round ?? b.week * 2;
-            return roundA - roundB;
-          });
-
-        const nextScheduledRound = scheduledMatches.length > 0
-          ? (scheduledMatches[0].round ?? scheduledMatches[0].week * 2)
-          : latestCompletedRound + 1;
-
-        setGameState({ season: 2024, week: latestCompletedRound, round: latestCompletedRound });
-
-        const lastMatches = completedMatches
-          .filter((m: Match) => (m.round ?? m.week * 2) === latestCompletedRound)
-          .map((m: Match) => matchToResult(m));
-        setLastRoundResults(lastMatches);
-
-        const nextMatches = scheduledMatches
-          .filter((m: Match) => (m.round ?? m.week * 2) === nextScheduledRound)
-          .map((m: Match) => matchToResult(m));
-        setNextRoundMatches(nextMatches);
+        setLastRoundResults(lastMatchday.map((m: Match) => matchToResult(m)));
+        setNextRoundMatches(nextMatchday.map((m: Match) => matchToResult(m)));
+        setLastMatchweek(lastMatchday[0]?.week ?? null);
+        setNextMatchweek(nextMatchday[0]?.week ?? null);
 
         const newsWithTimeAgo = (newsData?.items || []).map((item: LeagueNewsItem) => {
           const date = new Date(item.date);
@@ -182,8 +192,10 @@ function LeaguePageContent() {
     );
   }
 
-  const totalMatchweeks = 16;
-  const currentRound = gameState?.round || 0;
+  // From the fixture list, not a constant. This was a hardcoded 16 while
+  // the page also passed a global matchday index (up to 30) as the current
+  // value, so it rendered "Round 30 / 16" and a 100% progress bar.
+  const matchweekCount = gameState?.totalMatchweeks ?? 0;
   const userTeamColor = userTeam?.jerseyColorPrimary || '#00E479';
 
   return (
@@ -191,9 +203,9 @@ function LeaguePageContent() {
       {/* League hero */}
       <LeagueHeader
         leagueName={league?.name || 'League'}
-        season={gameState?.season || 2024}
-        matchweek={Math.max(1, currentRound)}
-        totalMatchweeks={totalMatchweeks}
+        season={gameState?.season || 0}
+        matchweek={Math.max(1, gameState?.week ?? 1)}
+        totalMatchweeks={matchweekCount}
         viewingTeamName={
           userTeam && standings.find((s) => s.teamId === userTeam.id)?.teamName
             ? standings.find((s) => s.teamId === userTeam.id)!.teamName
@@ -215,7 +227,8 @@ function LeaguePageContent() {
         <div className="lg:col-span-5">
           <LeftColumn
             news={leagueNews}
-            currentRound={currentRound}
+            lastMatchweek={lastMatchweek}
+            nextMatchweek={nextMatchweek}
             lastRoundResults={lastRoundResults}
             nextRoundMatches={nextRoundMatches}
             userTeamId={userTeam?.id}
