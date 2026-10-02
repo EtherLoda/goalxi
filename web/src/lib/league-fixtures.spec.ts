@@ -10,6 +10,18 @@ import {
 
 const LEAGUE_ID = 'league-1';
 
+/**
+ * `MatchType` values as the API serialises them.
+ *
+ * `MatchType.LEAGUE` is `'league'`, lower case, and the match `type`
+ * column is a plain varchar holding the enum VALUE — so the API returns
+ * `"type": "league"`, never `"LEAGUE"`. An earlier version of this file
+ * compared against `'LEAGUE'`, which matched nothing and rendered an
+ * empty league page.
+ */
+const LEAGUE_TYPE = 'league';
+const CUP_TYPE = 'cup';
+
 const league = (
   week: number,
   round: number,
@@ -20,7 +32,7 @@ const league = (
   season: 7,
   week,
   round,
-  type: 'LEAGUE',
+  type: LEAGUE_TYPE,
   // Deterministic ascending ISO timestamps; day index → 2026-04-01 + n.
   scheduledAt: new Date(Date.UTC(2026, 3, 1 + day, 6)).toISOString(),
   status,
@@ -42,15 +54,23 @@ describe('leagueFixtures', () => {
     const rows = [
       league(1, 1, 0),
       { ...league(1, 1, 0), leagueId: 'other-league' },
-      { ...league(1, 1, 0), type: 'CUP', leagueId: null },
+      { ...league(1, 1, 0), type: CUP_TYPE, leagueId: null },
       // A cup row that DOES carry a league id must still be excluded —
       // `type` is the discriminator, not `leagueId`.
-      { ...league(1, 1, 0), type: 'CUP' },
+      { ...league(1, 1, 0), type: CUP_TYPE },
     ] as FixtureLike[];
 
     expect(leagueFixtures(rows, LEAGUE_ID).map((m) => m.type)).toEqual([
-      'LEAGUE',
+      LEAGUE_TYPE,
     ]);
+  });
+
+  it('matches the value the API actually returns', () => {
+    // Regression: comparing against `'LEAGUE'` (the enum MEMBER name)
+    // instead of `'league'` (its VALUE) matches no rows at all, and the
+    // symptom is a silently empty league page rather than an error.
+    expect(LEAGUE_TYPE).toBe('league');
+    expect(leagueFixtures([league(1, 1, 0)], LEAGUE_ID)).toHaveLength(1);
   });
 
   it('drops cup rows that carry a cup round number', () => {
@@ -62,7 +82,7 @@ describe('leagueFixtures', () => {
       season: 7,
       week: 0,
       round: 5,
-      type: 'CUP',
+      type: CUP_TYPE,
       scheduledAt: new Date(Date.UTC(2026, 3, 3, 18)).toISOString(),
       status: 'completed',
     };

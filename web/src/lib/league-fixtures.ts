@@ -45,19 +45,32 @@ export interface FixtureLike {
 }
 
 /**
+ * `match.type` as the API serialises it.
+ *
+ * `MatchType.LEAGUE` in `libs/database/src/entities/match.entity.ts` is
+ * the string `'league'` — lower case — and the entity column is a plain
+ * `varchar`, so the API returns the raw enum VALUE, not the enum member
+ * name. Comparing against `'LEAGUE'` silently matches nothing.
+ *
+ * Pinned by a spec so this cannot drift again: the symptom is an empty
+ * league page, not an error.
+ */
+const LEAGUE_MATCH_TYPE = 'league';
+
+/**
  * A league's own fixtures, excluding cup ties.
  *
- * `type` is the discriminator (`LEAGUE` on league rows, `CUP` on cup rows).
- * Both checks are needed: cup rows have `leagueId: null`, but a league row
- * is identified by its type, and relying on `leagueId` alone would let a
- * future cup variant that does carry a league id leak in.
+ * `type` is the discriminator (`'league'` vs `'cup'`), not `leagueId` —
+ * relying on `leagueId` alone would let a future cup variant that does
+ * carry a league id leak in, and `leagueId` is null on cup rows today for
+ * an unrelated reason (cup matches have no league).
  */
 export function leagueFixtures<T extends FixtureLike>(
   matches: readonly T[],
   leagueId: string,
 ): T[] {
   return matches.filter(
-    (m) => m.type === 'LEAGUE' && m.leagueId === leagueId,
+    (m) => m.type === LEAGUE_MATCH_TYPE && m.leagueId === leagueId,
   );
 }
 
