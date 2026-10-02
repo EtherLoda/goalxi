@@ -334,7 +334,7 @@ export class ScheduleGenerator {
           youthLeagueId: null,
           season: options.season,
           week: this.weekFromScheduledAt(scheduledAt, options.weekOneMonday),
-          round: (r % 2) + 1,
+          round: (r % GAME_SETTINGS.ROUNDS_PER_WEEK) + 1,
           homeTeamId: home,
           awayTeamId: away,
           stadiumId: options.stadiumIdByTeam.get(home) ?? null,
@@ -375,7 +375,7 @@ export class ScheduleGenerator {
           youthLeagueId: null,
           season: options.season,
           week: this.weekFromScheduledAt(scheduledAt, options.weekOneMonday),
-          round: ((numRounds + r) % 2) + 1,
+          round: ((numRounds + r) % GAME_SETTINGS.ROUNDS_PER_WEEK) + 1,
           homeTeamId: home,
           awayTeamId: away,
           stadiumId: options.stadiumIdByTeam.get(home) ?? null,
@@ -393,48 +393,52 @@ export class ScheduleGenerator {
   }
 
   /**
-   * Convert a round index (0-indexed) to a kickoff
-   * instant. Round 0 = Wed MATCH_KICKOFF_HOUR_UTC of
-   * week 1 (anchor + 2 days). Round 1 = Sat
-   * MATCH_KICKOFF_HOUR_UTC of week 1 (anchor + 5
-   * days). Round 2 = Wed MATCH_KICKOFF_HOUR_UTC of
-   * week 2 (anchor + 9 days). Etc.
+   * Convert a round index (0-indexed) to a kickoff instant.
    *
-   * The 30 round indices of a 16-team double round-robin
-   * map to 15 schedule weeks (2 rounds per week):
-   *   round 0  → week 1 Wed
-   *   round 1  → week 1 Sat
-   *   round 2  → week 2 Wed
+   * Everything comes from `GAME_SETTINGS`, so the match-week shape lives
+   * in exactly one place:
+   *
+   *   week       = floor(round / ROUNDS_PER_WEEK)
+   *   dayOffset  = MATCH_DAY_OFFSETS[round % ROUNDS_PER_WEEK]
+   *
+   * The 30 round indices of a 16-team double round-robin map to
+   * 10 schedule weeks at `ROUNDS_PER_WEEK = 3`:
+   *   round 0  → week 1  Tue
+   *   round 1  → week 1  Thu
+   *   round 2  → week 1  Sat
+   *   round 3  → week 2  Tue
    *   ...
-   *   round 28 → week 15 Wed
-   *   round 29 → week 15 Sat
+   *   round 29 → week 10 Sat
    *
-   * The caller's `round` argument is the loop variable
-   * across both legs (0..N-2 first leg, then
-   * numRounds..2*numRounds-1 second leg after the fix
-   * to the second-leg `matchStart` offset), so passing
-   * `numRounds + round` from the second leg pushes its
-   * kickoff past the first leg's last round.
+   * The caller's `round` argument is the loop variable across both legs
+   * (0..N-2 first leg, then numRounds..2*numRounds-1 second leg), so
+   * passing `numRounds + round` from the second leg pushes its kickoff
+   * past the first leg's last round onto the same grid.
    *
-   * Even rounds → Wednesday.
-   * Odd rounds  → Saturday.
-   * Both at GAME_SETTINGS.MATCH_KICKOFF_HOUR_UTC
+   * All kickoffs are at `GAME_SETTINGS.MATCH_KICKOFF_HOUR_UTC`
    * (= 6:00 UTC = 14:00 in China time as of 2026-08-18).
    *
-   * NOTE: the caller is responsible for stamping
-   * `match.week` separately (see `generateRoundRobin`).
-   * The historical `week = round + 1` here was moved
-   * up to that loop and is now `Math.floor(round / 2)
-   * + 1` so it tracks the schedule week rather than the
-   * absolute round number.
+   * NOTE: the caller is responsible for stamping `match.week` separately
+   * (see `generateRoundRobin`). The historical `week = round + 1` here
+   * was moved up to that loop and is now
+   * `floor(round / ROUNDS_PER_WEEK) + 1` so it tracks the schedule week
+   * rather than the absolute round number.
+   *
+   * ## Must stay identical to `SeasonSchedulerService.calculateLegDates`
+   *
+   * This is the season-1 path; seasons 2+ use the scheduler service.
+   * They were separate implementations and drifted, which is how a
+   * mis-stamped second leg shipped unnoticed for a full season. The
+   * cross-generator assertion in `schedule.generator.spec.ts` is what
+   * keeps them together now.
    */
   private matchStart(round: number, weekOneMonday: Date): Date {
-    const week = Math.floor(round / 2);
-    const isWed = round % 2 === 0;
-    // Monday=0, Wednesday=+2 days, Saturday=+5 days.
-    const dayOffset = isWed ? 2 : 5;
+    const week = Math.floor(round / GAME_SETTINGS.ROUNDS_PER_WEEK);
+    const dayOffset =
+      GAME_SETTINGS.MATCH_DAY_OFFSETS[round % GAME_SETTINGS.ROUNDS_PER_WEEK];
     const out = new Date(
-      weekOneMonday.getTime() + (week * 7 + dayOffset) * 24 * 60 * 60 * 1000,
+      weekOneMonday.getTime() +
+        (week * GAME_SETTINGS.DAYS_PER_WEEK + dayOffset) * 86_400_000,
     );
     out.setUTCHours(GAME_SETTINGS.MATCH_KICKOFF_HOUR_UTC, 0, 0, 0);
     return out;

@@ -63,11 +63,12 @@ export class AnnouncementGenerator {
 
   async generate(initDate: Date): Promise<void> {
     const weekOneMonday = computeSeasonWeekOneMonday(initDate);
-    // First match lands on Wednesday of that week
-    // (anchor + 2 days). Show the Wed date in the
-    // banner so a manager knows when to log in.
+    // First match lands on `MATCH_DAY_OFFSETS[0]` of that week (anchor
+    // + 1 day at ROUNDS_PER_WEEK=3 — it used to be Wednesday, +2). Show
+    // that date in the banner so a manager knows when to log in.
     const firstMatch = new Date(
-      weekOneMonday.getTime() + 2 * 24 * 60 * 60 * 1000,
+      weekOneMonday.getTime() +
+        GAME_SETTINGS.MATCH_DAY_OFFSETS[0] * 24 * 60 * 60 * 1000,
     );
     const firstMatchDateStr = firstMatch.toISOString().split('T')[0];
     const nextContent = this.buildBannerContent(firstMatchDateStr);
@@ -135,11 +136,19 @@ export class AnnouncementGenerator {
   }
 
   private buildBannerContent(firstMatchDateStr: string): string {
+    // Derived from MATCH_DAY_OFFSETS rather than spelled out. This line
+    // is player-facing, and when round 0 moved from Wednesday to Tuesday
+    // it went on advertising the wrong matchdays.
+    const dayNames = ['周一', '周二', '周三', '周四', '周五', '周六', '周日'];
+    const matchdays = GAME_SETTINGS.MATCH_DAY_OFFSETS.map(
+      (d) => dayNames[d],
+    ).join('、');
+
     return [
       '欢迎来到 GoalXI!',
       '',
       `第一场比赛将于 ${firstMatchDateStr} ${GAME_SETTINGS.MATCH_KICKOFF_HOUR_UTC}:00 UTC 准时开赛。`,
-      `赛季第一周起点为周一 00:00 UTC,每周三和周六各有一场比赛,均为 ${GAME_SETTINGS.MATCH_KICKOFF_HOUR_UTC}:00 UTC 开球。`,
+      `赛季第一周起点为周一 00:00 UTC,每周${matchdays}各有一场比赛,均为 ${GAME_SETTINGS.MATCH_KICKOFF_HOUR_UTC}:00 UTC 开球。`,
       '',
       '您可以现在选择一支 BOT 球队开始您的执教生涯。',
       '赛程、天气、青训(暂停)、转会市场均已就绪。',

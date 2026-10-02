@@ -310,6 +310,15 @@ export class SeasonSchedulerService {
     // grid rather than by offsetting a second date list.
     const legDates = this.calculateLegDates(startDate, numRounds);
 
+    // `week` and `round` are both derived from the SAME grid index that
+    // produced `scheduledAt`. Keeping them structurally tied like this is
+    // the point: the bug this file used to have was a date list and a week
+    // stamp computed by two different pieces of arithmetic, which drifted
+    // apart silently. See `calculateLegDates`.
+    const gridWeek = (i: number) =>
+      Math.floor(i / GAME_SETTINGS.ROUNDS_PER_WEEK) + 1;
+    const gridRound = (i: number) => (i % GAME_SETTINGS.ROUNDS_PER_WEEK) + 1;
+
     const matches: Partial<MatchEntity>[] = [];
     // Leg 1
     for (let round = 0; round < numRounds; round++) {
@@ -332,8 +341,8 @@ export class SeasonSchedulerService {
           homeTeamId: home,
           awayTeamId: away,
           season,
-          week: Math.floor(round / 2) + 1,
-          round: (round % 2) + 1,
+          week: gridWeek(round),
+          round: gridRound(round),
           scheduledAt,
           status: MatchStatus.SCHEDULED,
           type: MatchType.LEAGUE,
@@ -350,12 +359,13 @@ export class SeasonSchedulerService {
     // standard double round-robin contract ("each
     // pair plays once at each venue").
     for (let round = 0; round < numRounds; round++) {
+      const gridIndex = numRounds + round;
       for (let i = 0; i < pairings[round].length; i++) {
         const [a, b] = pairings[round][i];
         const aHome = haMatrix.get(a)![round];
         const home = aHome ? b : a;
         const away = aHome ? a : b;
-        const scheduledAt = legDates[numRounds + round];
+        const scheduledAt = legDates[gridIndex];
         if (!scheduledAt) {
           throw new Error(
             `No kickoff date for second-leg round ${round} (league=${leagueId}, numRounds=${numRounds}, ` +
@@ -367,8 +377,8 @@ export class SeasonSchedulerService {
           homeTeamId: home,
           awayTeamId: away,
           season,
-          week: Math.floor((numRounds + round) / 2) + 1,
-          round: ((numRounds + round) % 2) + 1,
+          week: gridWeek(gridIndex),
+          round: gridRound(gridIndex),
           scheduledAt,
           status: MatchStatus.SCHEDULED,
           type: MatchType.LEAGUE,
@@ -384,19 +394,20 @@ export class SeasonSchedulerService {
 
   /**
    * Kickoff dates for the whole season: `2 * numRounds` entries, ONE
-   * date per grid slot, alternating Wednesday / Saturday.
+   * date per grid slot, on the weekdays in `MATCH_DAY_OFFSETS`
+   * (Tue / Thu / Sat at `ROUNDS_PER_WEEK = 3`).
    *
    * ## The invariant
    *
    * For every grid index `i` in `0 .. 2·numRounds-1`:
    *
-   *   - `week === floor(i / 2) + 1`
+   *   - `week === floor(i / ROUNDS_PER_WEEK) + 1`
+   *   - `round === (i % ROUNDS_PER_WEEK) + 1`
    *   - `scheduledAt` falls inside that calendar week
    *
    * `ScheduleGenerator` (season 1) satisfies this by generating leg 2
    * as `matchStart(numRounds + r, weekOneMonday)` — the same grid,
-   * indexed past the first leg. This method used to satisfy neither
-   * half of it.
+   * indexed past the first leg. This method used to satisfy none of it.
    *
    * ## What was broken
    *
@@ -412,13 +423,14 @@ export class SeasonSchedulerService {
    *      2      114        17          9   <- in season 2
    *     14      156        23         15   <- in season 2
    *
-   * Knock-on effect: `areAllWeekMatchesCompleted(season, 15)` could
-   * never be true when the playoff cron evaluated it, so promotion and
-   * relegation via the 9-12 playoff was unreliable from season 2 on.
+   * Knock-on effect: `areAllWeekMatchesCompleted(season, PLAYOFF_TRIGGER_WEEK)`
+   * could never be true when the playoff cron evaluated it, so promotion
+   * and relegation via the 9-12 playoff was unreliable from season 2 on.
    *
    * Season 1 looked fine because it goes through `ScheduleGenerator`,
    * which never offset the second leg. That divergence is what let this
-   * survive a full season unnoticed.
+   * survive a full season unnoticed — hence the cross-generator assertion
+   * in `schedule.generator.spec.ts`.
    *
    * ## Do not "fix" this by re-adding a second-leg offset
    *
@@ -426,36 +438,51 @@ export class SeasonSchedulerService {
    * the bug. Giving leg 2 round `r` the same date as leg 1 round `r` is
    * the other tempting mistake: that is the same pairing with mirrored
    * home/away on the same day, which double-books the fixture.
+   *
+   * ## Nothing about the match-week shape is a literal here
+   *
+   * `ROUNDS_PER_WEEK`, `MATCH_DAY_OFFSETS` and `DAYS_PER_WEEK` all come
+   * from `GAME_SETTINGS`. The previous version carried `2` and
+   * `[2, 5]` as locals and walked to a hardcoded Wednesday, so moving
+   * round 0 to a different weekday would have left the anchor a day out
+   * while still compiling.
    */
   private calculateLegDates(startDate: Date, numRounds: number): Date[] {
     const dates: Date[] = [];
 
     // Anchor on the Monday of the first match-week. Walk forward from
-    // `startDate` to the first Wednesday at or after it (UTC), then step
-    // back two days to that week's Monday — the anchor
-    // `ScheduleGenerator.matchStart(round, weekOneMonday)` expects.
-    const firstWednesday = new Date(startDate);
-    firstWednesday.setUTCHours(GAME_SETTINGS.MATCH_KICKOFF_HOUR_UTC, 0, 0, 0);
-    while (firstWednesday.getUTCDay() !== 3) {
-      firstWednesday.setTime(firstWednesday.getTime() + 24 * 60 * 60 * 1000);
+    // `startDate` to the first day of the week carrying round 0 —
+    // `MATCH_DAY_OFFSETS[0]` — then step back to that week's Monday, the
+    // anchor `ScheduleGenerator.matchStart(round, weekOneMonday)` expects.
+    //
+    // Written against the constant rather than a literal Wednesday: when
+    // round 0 moved from Wednesday to Tuesday, a hardcoded walk would have
+    // silently left the anchor a day late and thrown the whole grid off.
+    const firstDayOffset = GAME_SETTINGS.MATCH_DAY_OFFSETS[0];
+    const firstMatchDay = new Date(startDate);
+    firstMatchDay.setUTCHours(GAME_SETTINGS.MATCH_KICKOFF_HOUR_UTC, 0, 0, 0);
+    // getUTCDay() is Sun=0; MATCH_DAY_OFFSETS is Mon=0.
+    const todayOffset = (firstMatchDay.getUTCDay() + 6) % 7;
+    let delta = (firstDayOffset - todayOffset + 7) % 7;
+    if (delta === 0 && todayOffset > firstDayOffset) {
+      // This week's matchday has already passed — roll forward a week so
+      // round 0 is never dated in the past.
+      delta = GAME_SETTINGS.DAYS_PER_WEEK;
     }
+    firstMatchDay.setTime(firstMatchDay.getTime() + delta * 86_400_000);
     const weekOneMonday = new Date(
-      firstWednesday.getTime() - 2 * 24 * 60 * 60 * 1000,
+      firstMatchDay.getTime() - firstDayOffset * 86_400_000,
     );
 
-    // Two rounds per match-week: even → Wednesday, odd → Saturday.
-    // Monday=0, Wednesday=+2 days, Saturday=+5 days. These two literals
-    // are the only place the match-week shape is encoded on this path.
-    const ROUNDS_PER_WEEK = 2;
-    const DAY_OFFSETS = [2, 5];
-
     for (let i = 0; i < numRounds * 2; i++) {
-      const weekOffset = Math.floor(i / ROUNDS_PER_WEEK) * 7;
-      const dayOffset = DAY_OFFSETS[i % ROUNDS_PER_WEEK];
+      const weekOffset =
+        Math.floor(i / GAME_SETTINGS.ROUNDS_PER_WEEK) *
+        GAME_SETTINGS.DAYS_PER_WEEK;
+      const dayOffset =
+        GAME_SETTINGS.MATCH_DAY_OFFSETS[i % GAME_SETTINGS.ROUNDS_PER_WEEK];
       dates.push(
         new Date(
-          weekOneMonday.getTime() +
-            (weekOffset + dayOffset) * 24 * 60 * 60 * 1000,
+          weekOneMonday.getTime() + (weekOffset + dayOffset) * 86_400_000,
         ),
       );
     }

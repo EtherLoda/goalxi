@@ -11,6 +11,7 @@ import {
   startOfUtcDay,
 } from '@goalxi/database';
 import { SeasonSchedulerService } from './season-scheduler.service';
+import { ScheduleGenerator } from '../bootstrap/generators/schedule.generator';
 import { LOGGER_SERVICE_PROVIDER } from '../test-utils/test-logger';
 
 /**
@@ -33,10 +34,15 @@ describe('SeasonSchedulerService', () => {
   let dataSource: { manager: { findOne: jest.Mock } };
 
   const TEAM_IDS = Array.from({ length: 16 }, (_, i) => `team-${i + 1}`);
-  // A Wednesday, so `calculateLegDates` doesn't have to walk.
-  const START = new Date('2026-04-08T00:00:00.000Z'); // Wed
+  // A **Monday**, so the week-one anchor is START itself: round 0 lands on
+  // `MATCH_DAY_OFFSETS[0]` (Tuesday) and the anchor walks back exactly one
+  // day to START. With a non-Monday START the tests would have to
+  // re-derive the anchor, which is the calculation they are trying to check.
+  const START = new Date('2026-04-06T00:00:00.000Z'); // Mon
+  const WEEK_ONE_MONDAY = START;
   // A Monday, matching what `resolveInitDate` returns in production.
   const INIT_DATE = new Date('2026-04-06T00:00:00.000Z'); // Mon
+  const MS_WEEK = 7 * 24 * 60 * 60 * 1000;
 
   beforeEach(async () => {
     matchRepository = {
@@ -125,34 +131,38 @@ describe('SeasonSchedulerService', () => {
     expect(Math.max(...counts.values())).toBe(8);
   });
 
-  it('REGRESSION: kickoff alternates Wed / Sat across the whole 30-slot grid', () => {
-    // Matches `ScheduleGenerator.matchStart`: even grid indices on the
-    // Wednesday, odd on the Saturday, two rounds per week (so 30 grid
-    // slots span 15 calendar weeks).
+  it('REGRESSION: kickoffs land on MATCH_DAY_OFFSETS across the whole grid', () => {
+    // Derived from the constants. The previous version spelled out
+    // `[3,6,3,6,…]` (Wed/Sat) and gaps of `[3,4]` days, which stopped
+    // describing the schedule the moment `MATCH_DAY_OFFSETS` changed.
     //
-    // This previously asserted `leg2[i] - leg1[i] === 15 * 7` — pinning
-    // the bug. The second leg was 105 days after the first while its
-    // `week` stamp said it was in weeks 8-15, which put 13 of its 15
-    // rounds outside the season-year. The correct relationship is that
-    // the second leg continues on the SAME grid, 15 slots later.
+    // It also asserted `leg2[i] - leg1[i] === 15 * 7` — pinning the bug.
+    // The second leg continues on the SAME grid, 15 slots later.
     const allTimes = [
       ...new Set(gen().map((m) => (m.scheduledAt as Date).getTime())),
     ].sort((a, b) => a - b);
-    expect(allTimes).toHaveLength(30);
 
-    const days = allTimes.map((t) => new Date(t).getUTCDay());
-    expect(days).toEqual(
-      Array.from({ length: 30 }, (_, i) => (i % 2 === 0 ? 3 : 6)),
+    // One grid slot per round of the double round-robin.
+    const totalSlots = 2 * (TEAM_IDS.length - 1);
+    expect(allTimes).toHaveLength(totalSlots);
+
+    // Weekday of each slot, Monday=0 to match MATCH_DAY_OFFSETS.
+    const weekday = (t: number) => (new Date(t).getUTCDay() + 6) % 7;
+    expect(allTimes.map(weekday)).toEqual(
+      Array.from(
+        { length: totalSlots },
+        (_, i) =>
+          GAME_SETTINGS.MATCH_DAY_OFFSETS[i % GAME_SETTINGS.ROUNDS_PER_WEEK],
+      ),
     );
 
-    // Consecutive slots: Wed->Sat = 3 days, Sat->Wed = 4 days, except
-    // at the leg boundary (slot 14 Sat -> slot 15 Tue-equivalent grid
-    // position), which under the 2-per-week grid is also 3 days.
+    // Consecutive slots are 2 or 3 days apart (and the wrap from the last
+    // day of a week back to the first of the next is 3).
     const gaps = allTimes
-      .map((t, i) => (i === 0 ? null : (t - allTimes[i - 1]) / 86400000))
-      .slice(1);
+      .map((t, i) => (i === 0 ? null : (t - allTimes[i - 1]) / 86_400_000))
+      .slice(1) as number[];
     for (const g of gaps) {
-      expect([3, 4]).toContain(g);
+      expect([2, 3]).toContain(g);
     }
   });
 
@@ -164,9 +174,9 @@ describe('SeasonSchedulerService', () => {
     // Assert with the derived value as the EXPECTED side — building both
     // sides from `m.week` makes the comparison trivially true and the
     // test passes against the very bug it is meant to catch.
-    const msWeek = 7 * 24 * 60 * 60 * 1000;
-    // START is a Wednesday, so week-1 Monday is 2 days earlier.
-    const weekOneMonday = START.getTime() - 2 * 24 * 60 * 60 * 1000;
+    const msWeek = MS_WEEK;
+    // START is a Monday, so the week-one anchor is START itself.
+    const weekOneMonday = WEEK_ONE_MONDAY.getTime();
 
     const mismatches = gen()
       .map((m) => ({
@@ -186,8 +196,8 @@ describe('SeasonSchedulerService', () => {
     // The failure that actually shipped: leg 2 was scheduled 105 days
     // after leg 1, so its rounds 2..14 landed in the FOLLOWING season
     // while carrying this season's number.
-    const msWeek = 7 * 24 * 60 * 60 * 1000;
-    const weekOneMonday = START.getTime() - 2 * 24 * 60 * 60 * 1000;
+    const msWeek = MS_WEEK;
+    const weekOneMonday = WEEK_ONE_MONDAY.getTime();
     const seasonEnd =
       weekOneMonday + GAME_SETTINGS.SEASON_LENGTH_WEEKS * msWeek;
 
@@ -204,8 +214,8 @@ describe('SeasonSchedulerService', () => {
     // Guards against the other tempting "fix" — dropping the offset
     // entirely, which gives leg-2 round r the same date as leg-1 round r.
     // That is the same pairing with mirrored home/away on the same day.
-    const msWeek = 7 * 24 * 60 * 60 * 1000;
-    const weekOneMonday = START.getTime() - 2 * 24 * 60 * 60 * 1000;
+    const msWeek = MS_WEEK;
+    const weekOneMonday = WEEK_ONE_MONDAY.getTime();
     const weekOf = (t: number) => Math.floor((t - weekOneMonday) / msWeek);
 
     const byPairing = new Map<string, number[]>();
@@ -268,25 +278,35 @@ describe('SeasonSchedulerService', () => {
 
   it('weeks stay within the season length so the transition crons can fire', () => {
     // `SeasonTransitionService` keys on `week`, and the playoff gate
-    // checks week 15 / 16. A schedule whose `week` runs past
-    // SEASON_LENGTH_WEEKS would silently never satisfy those gates.
+    // checks that the last REGULAR week is complete. A schedule whose
+    // `week` runs past that would silently never satisfy the gate.
     //
-    // Upper bound is `PLAYOFF_TRIGGER_WEEK`, not `SEASON_LENGTH_WEEKS`:
-    // the regular season occupies weeks 1..15 and the playoff week is
-    // reserved for `PlayoffService`. Asserting only `<= 16` is what let
-    // the mis-stamped second leg (weeks 8-15, dates in weeks 16-23)
-    // pass — the stamp was in range even though the date was not, which
-    // is why the three date-vs-stamp tests above exist.
+    // This asserts the *stamp*, so it could not have caught the
+    // mis-stamped second leg (those stamps were always in range — only the
+    // dates were wrong). The date-based tests above are what catch that.
     const weeks = gen().map((m) => m.week as number);
-    expect(Math.min(...weeks)).toBeGreaterThanOrEqual(1);
-    expect(Math.max(...weeks)).toBeLessThanOrEqual(
-      GAME_SETTINGS.SEASON_LENGTH_WEEKS - 1,
-    );
-    // Every week 1..15 is actually used — no gaps that would leave a
-    // matchday unplayed.
+    const regularWeeks = GAME_SETTINGS.REGULAR_SEASON_WEEKS;
+
+    expect(Math.min(...weeks)).toBe(1);
+    expect(Math.max(...weeks)).toBe(regularWeeks);
+
+    // Every regular week is actually used — no gaps that would leave a
+    // matchday unplayed, and nothing spilling into the playoff week.
     expect([...new Set(weeks)].sort((a, b) => a - b)).toEqual(
-      Array.from({ length: 15 }, (_, i) => i + 1),
+      Array.from({ length: regularWeeks }, (_, i) => i + 1),
     );
+
+    // ROUNDS_PER_WEEK fixtures per team per week, every week.
+    const perWeek = new Map<number, number>();
+    for (const m of gen()) {
+      perWeek.set(m.week as number, (perWeek.get(m.week as number) ?? 0) + 1);
+    }
+    const fixturesPerMatchday = TEAM_IDS.length / 2;
+    expect(
+      [...perWeek.values()].every(
+        (n) => n === fixturesPerMatchday * GAME_SETTINGS.ROUNDS_PER_WEEK,
+      ),
+    ).toBe(true);
   });
 
   it('stamps SCHEDULED / LEAGUE so the completion cron picks them up', () => {
@@ -382,6 +402,148 @@ describe('SeasonSchedulerService', () => {
       const seasonOneMonday = computeSeasonWeekOneMonday(tuesday);
       expect(startOfUtcDay(seasonOneMonday).getUTCDay()).toBe(1);
       expect(seasonOneMonday.getTime()).toBeGreaterThan(tuesday.getTime());
+    });
+  });
+
+  /**
+   * The two fixture generators must produce the SAME grid.
+   *
+   * Season 1 goes through `ScheduleGenerator`; seasons 2+ go through this
+   * service. They were independent implementations and drifted: the second
+   * leg's dates were offset by 105 days while its `week` stamp was not, so
+   * 13 of 15 rounds were scheduled outside the season-year. Season 1 looked
+   * correct the whole time, which is exactly why it survived a full season
+   * and why no unit test caught it.
+   *
+   * This compares the two grids slot by slot. It is the assertion that would
+   * have failed on day one of season 2.
+   */
+  describe('cross-generator: season 1 and season 2+ must agree', () => {
+    /** The distinct (week, round, kickoff) slots of a generated fixture list. */
+    const slotsOf = (matches: Partial<MatchEntity>[]) =>
+      [
+        ...new Set(
+          matches.map((m) =>
+            [m.week, m.round, (m.scheduledAt as Date).getTime()].join('|'),
+          ),
+        ),
+      ].sort();
+
+    let season1Gen: {
+      generateSeason1Schedule: (initDate: Date) => Promise<void>;
+    };
+    let saved1: Partial<MatchEntity>[];
+
+    beforeEach(() => {
+      const mockLogger = {
+        info: jest.fn(),
+        warn: jest.fn(),
+        debug: jest.fn(),
+        error: jest.fn(),
+      };
+      const matchRepo = {
+        count: jest.fn().mockResolvedValue(0),
+        save: jest.fn().mockImplementation((rows: Partial<MatchEntity>[]) => {
+          saved1 = rows;
+          return Promise.resolve([]);
+        }),
+      };
+      const leagueRepo = {
+        find: jest.fn().mockResolvedValue([{ id: 'L-1', maxTeams: 16 }]),
+      };
+      const teamRepo = {
+        find: jest
+          .fn()
+          .mockResolvedValue(
+            TEAM_IDS.map((id) => ({ id, name: id, leagueId: 'L-1' })),
+          ),
+      };
+      const stadiumRepo = {
+        find: jest
+          .fn()
+          .mockImplementation(() =>
+            Promise.resolve(
+              TEAM_IDS.map((id) => ({ id: `st-${id}`, teamId: id })),
+            ),
+          ),
+      };
+      season1Gen = new ScheduleGenerator(
+        mockLogger as never,
+        matchRepo as never,
+        leagueRepo as never,
+        teamRepo as never,
+        stadiumRepo as never,
+      );
+    });
+
+    /**
+     * `initDate` for `ScheduleGenerator`.
+     *
+     * `computeSeasonWeekOneMonday` always pushes to the NEXT Monday, so a
+     * Monday input lands a week later. Feeding it the Monday *before*
+     * `WEEK_ONE_MONDAY` anchors both generators on the same week. That
+     * one-week gap between the schedule anchor and `currentSeasonWeek`'s
+     * `gameStart` is load-bearing, not a bug — see the note on
+     * `generateDoubleRoundRobin`.
+     */
+    const season1InitDate = new Date(
+      WEEK_ONE_MONDAY.getTime() - 7 * 86_400_000,
+    );
+
+    /** Run the season-1 generator and return its saved fixture list. */
+    const runSeason1 = async (): Promise<Partial<MatchEntity>[]> => {
+      await season1Gen.generateSeason1Schedule(season1InitDate);
+      return saved1;
+    };
+
+    it('produce an identical week / round / kickoff grid', async () => {
+      const season1 = slotsOf(await runSeason1());
+      const season2 = slotsOf(gen());
+
+      expect({ generator: 'season 1', slots: season1.length }).toEqual({
+        generator: 'season 1',
+        slots: season2.length,
+      });
+      expect({
+        generator: 'season 1',
+        differing: season1.filter((s, i) => s !== season2[i]),
+      }).toEqual({ generator: 'season 1', differing: [] });
+    });
+
+    it('agree on how many fixtures each team plays per week', async () => {
+      const saved = await runSeason1();
+
+      const perWeek = (matches: Partial<MatchEntity>[]) => {
+        const counts = new Map<number, number>();
+        const perMatchday = TEAM_IDS.length / 2;
+        for (const m of matches) {
+          const key = m.week as number;
+          counts.set(key, (counts.get(key) ?? 0) + perMatchday);
+        }
+        return [...counts.entries()].sort((a, b) => a[0] - b[0]);
+      };
+
+      expect({ generator: 'season 1', load: perWeek(saved) }).toEqual({
+        generator: 'season 1',
+        load: perWeek(gen()),
+      });
+    });
+
+    it('both end on the last regular week, not the playoff week', async () => {
+      const saved = await runSeason1();
+
+      const lastWeek = (matches: Partial<MatchEntity>[]) =>
+        Math.max(...matches.map((m) => m.week as number));
+
+      expect({
+        generator: 'season 1',
+        lastWeek: lastWeek(saved),
+        playoffTriggerWeek: GAME_SETTINGS.SEASON_LENGTH_WEEKS - 1,
+      }).toEqual({
+        generator: 'season 1',
+        lastWeek: lastWeek(gen()),
+        playoffTriggerWeek: GAME_SETTINGS.SEASON_LENGTH_WEEKS - 1,
+      });
     });
   });
 

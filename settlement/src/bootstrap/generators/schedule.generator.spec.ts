@@ -1,6 +1,11 @@
 import { ScheduleGenerator } from './schedule.generator';
 import { LOGGER_SERVICE } from '@goalxi/logger';
-import { LeagueEntity, MatchEntity, TeamEntity } from '@goalxi/database';
+import {
+  GAME_SETTINGS,
+  LeagueEntity,
+  MatchEntity,
+  TeamEntity,
+} from '@goalxi/database';
 
 /**
  * Spec for the senior-only schedule generator. Replaces
@@ -131,13 +136,17 @@ describe('ScheduleGenerator — senior-only', () => {
     );
   });
 
-  it('schedules round 0 on Wed 06:00 UTC and round 1 on Sat 06:00 UTC of week 1', async () => {
-    // Wed 2026-09-09 init → week-1 Monday is 2026-09-14.
-    //   round 0 → Wed 2026-09-16 06:00 UTC
-    //   round 1 → Sat 2026-09-19 06:00 UTC
-    // (kickoff hour pulled from GAME_SETTINGS.MATCH_KICKOFF_HOUR_UTC
-    // — was 13:00 UTC before 2026-08-18, changed to 06:00 UTC to
-    // share one window with cup matches.)
+  it('schedules each round on its MATCH_DAY_OFFSETS weekday of week 1', async () => {
+    // Wed 2026-09-09 init → week-1 Monday is 2026-09-14, so with
+    // MATCH_DAY_OFFSETS = [1, 3, 5] (Tue / Thu / Sat):
+    //   round 0 → Tue 2026-09-15 06:00 UTC
+    //   round 1 → Thu 2026-09-17 06:00 UTC
+    //   round 2 → Sat 2026-09-19 06:00 UTC
+    //
+    // Derived from the constants rather than spelled out, because the
+    // previous version hardcoded '2026-09-16' (Wed) and '2026-09-19'
+    // (Sat) and stopped describing the schedule the moment round 0 moved
+    // to Tuesday.
     const { gen, matchRepo, leagueRepo, teamRepo } = build();
     matchRepo.count.mockResolvedValue(0);
     leagueRepo.find.mockResolvedValue([seniorLeague('L-1')]);
@@ -154,24 +163,31 @@ describe('ScheduleGenerator — senior-only', () => {
     await gen.generateSeason1Schedule(new Date('2026-09-09T00:00:00Z'));
 
     const saved: Partial<MatchEntity>[] = matchRepo.save.mock.calls[0][0];
-    const wed = saved.find((m) => m.round === 1)!;
-    const sat = saved.find((m) => m.round === 2)!;
-    expect(new Date(wed.scheduledAt!).toISOString()).toBe(
-      '2026-09-16T06:00:00.000Z',
-    );
-    expect(new Date(sat.scheduledAt!).toISOString()).toBe(
-      '2026-09-19T06:00:00.000Z',
-    );
+    const weekOneMonday = new Date('2026-09-14T00:00:00.000Z');
+
+    for (let round = 1; round <= GAME_SETTINGS.ROUNDS_PER_WEEK; round++) {
+      const m = saved.find((x) => x.round === round)!;
+      const expected = new Date(
+        weekOneMonday.getTime() +
+          GAME_SETTINGS.MATCH_DAY_OFFSETS[round - 1] * 86_400_000,
+      );
+      expected.setUTCHours(GAME_SETTINGS.MATCH_KICKOFF_HOUR_UTC, 0, 0, 0);
+      expect({
+        round,
+        scheduledAt: new Date(m.scheduledAt!).toISOString(),
+      }).toEqual({ round, scheduledAt: expected.toISOString() });
+    }
   });
 
-  it('stamps `week` in 1..15 and `round` in {1,2} (not the absolute round 1..30)', async () => {
+  it('stamps `week` in 1..REGULAR_SEASON_WEEKS and `round` per matchday', async () => {
     // Regression for the bug where the historical code set
     // `week = round + 1` and `round = round + 1`, which
-    // made the `week` field run 1..30 instead of 1..15 and
-    // the `round` field carry the absolute round number.
-    // The season-transition cron's `week === 15` trigger
-    // needs the 1..15 range; the FE's "round 1 / round 2"
-    // split needs the 1/2 value to mean Wed vs Sat.
+    // made the `week` field run 1..30 instead of the
+    // regular-season range and the `round` field carry the
+    // absolute round number.
+    // The season-transition cron gates on `week ===
+    // PLAYOFF_TRIGGER_WEEK`, and `round` means "which
+    // matchday of the week", not an absolute round.
     const { gen, matchRepo, leagueRepo, teamRepo } = build();
     matchRepo.count.mockResolvedValue(0);
     leagueRepo.find.mockResolvedValue([seniorLeague('L-1')]);
@@ -187,8 +203,10 @@ describe('ScheduleGenerator — senior-only', () => {
     const saved: Partial<MatchEntity>[] = matchRepo.save.mock.calls[0][0];
     for (const m of saved) {
       expect(m.week).toBeGreaterThanOrEqual(1);
-      expect(m.week).toBeLessThanOrEqual(15);
-      expect([1, 2]).toContain(m.round);
+      expect(m.week).toBeLessThanOrEqual(GAME_SETTINGS.REGULAR_SEASON_WEEKS);
+      expect(
+        Array.from({ length: GAME_SETTINGS.ROUNDS_PER_WEEK }, (_, i) => i + 1),
+      ).toContain(m.round);
     }
   });
 
