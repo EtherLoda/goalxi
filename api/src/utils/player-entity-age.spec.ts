@@ -1,4 +1,8 @@
-import { currentGameDay, PlayerEntity } from '@goalxi/database';
+import {
+  currentGameDay,
+  GAME_SETTINGS,
+  PlayerEntity,
+} from '@goalxi/database';
 
 describe('PlayerEntity age calculations', () => {
   // Pin both wall-clock and the imported `currentGameDay()` to a single
@@ -8,6 +12,12 @@ describe('PlayerEntity age calculations', () => {
   // 2026-06-30.
   const PINNED_INSTANT = new Date('2026-06-30T12:00:00Z');
   const TODAY = currentGameDay(PINNED_INSTANT);
+
+  // `DAYS_PER_YEAR` rather than a literal. It was 112 (16-week seasons)
+  // and is now 77 (11-week seasons); hardcoding it here meant this spec
+  // silently started asserting the wrong ages the moment the season
+  // length changed, which is precisely what it exists to catch.
+  const YEAR = GAME_SETTINGS.DAYS_PER_YEAR;
 
   beforeEach(() => {
     jest.useFakeTimers();
@@ -20,7 +30,7 @@ describe('PlayerEntity age calculations', () => {
 
   it('calculates age in years correctly', () => {
     // Player created 20 years 33 days ago → age should be 20, ageDays 33.
-    const createdDay = TODAY - 20 * 112 - 33;
+    const createdDay = TODAY - 20 * YEAR - 33;
     const player = new PlayerEntity({
       name: 'Test',
       createdDay,
@@ -31,7 +41,7 @@ describe('PlayerEntity age calculations', () => {
   });
 
   it('handles youth flag independently of age', () => {
-    const createdDay = TODAY - 18 * 112;
+    const createdDay = TODAY - 18 * YEAR;
     const player = new PlayerEntity({
       name: 'Youth',
       createdDay,

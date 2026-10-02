@@ -210,7 +210,7 @@ describe('PlayoffService', () => {
       expect(t1Lower).toMatchObject({
         homeLeagueId: 'tier1-id',
         awayLeagueId: 'tier2-d1-id',
-        week: 16,
+        week: GAME_SETTINGS.SEASON_LENGTH_WEEKS,
       });
 
       // (b) L2-D1 lower-boundary: L2-D1 #9 (home) vs L3-D1 #2 (away)
@@ -223,7 +223,7 @@ describe('PlayoffService', () => {
       expect(l2d1Lower).toMatchObject({
         homeLeagueId: 'tier2-d1-id',
         awayLeagueId: 'tier3-d1-id',
-        week: 16,
+        week: GAME_SETTINGS.SEASON_LENGTH_WEEKS,
       });
     });
 

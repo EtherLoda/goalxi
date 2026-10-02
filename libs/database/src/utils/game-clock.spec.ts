@@ -138,6 +138,18 @@ describe('game-clock', () => {
     const seasonLengthWeeks = GAME_SETTINGS.SEASON_LENGTH_WEEKS;
     const anchor = new Date('2026-04-06T00:00:00Z');
 
+    // 2026-04-06 → 2026-08-06 is 122 days = 17 whole game-weeks, so
+    // season = floor(17 / SEASON_LENGTH_WEEKS) + 1 and
+    // week = (17 % SEASON_LENGTH_WEEKS) + 1. Derived rather than pinned so
+    // a season-length change does not turn this regression test into a
+    // second thing that has to be edited by hand — it was asserting
+    // `{season: 2, week: 2}`, which was only correct at 16 weeks.
+    const WEEKS_ELAPSED = 17;
+    const EXPECTED = {
+      season: Math.floor(WEEKS_ELAPSED / seasonLengthWeeks) + 1,
+      week: (WEEKS_ELAPSED % seasonLengthWeeks) + 1,
+    };
+
     it('returns season 1, week 1 on the very first week after the start', () => {
       const { season, week } = currentSeasonWeek(new Date(anchor.getTime()), anchor);
       expect(season).toBe(1);
@@ -195,15 +207,14 @@ describe('game-clock', () => {
       const a = currentSeasonWeek(now, anchor);
       const b = currentSeasonWeek(now, anchor);
       expect(a).toEqual(b);
-      // 17 real weeks after 2026-04-06 → season 2, week 2.
-      expect(a).toEqual({ season: 2, week: 2 });
+      expect(a).toEqual(EXPECTED);
     });
 
     it('reuses resolveGameStart in the integration case (env path)', () => {
       // Simulate what callers do: read the env, resolve, then ask.
       const now = new Date('2026-08-06T12:00:00Z');
       const start = resolveGameStart('2026-04-06T00:00:00Z');
-      expect(currentSeasonWeek(now, start)).toEqual({ season: 2, week: 2 });
+      expect(currentSeasonWeek(now, start)).toEqual(EXPECTED);
     });
   });
 });
