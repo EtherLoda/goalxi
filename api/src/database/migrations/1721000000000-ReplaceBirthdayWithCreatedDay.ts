@@ -17,7 +17,26 @@ import { MigrationInterface, QueryRunner } from 'typeorm';
  */
 
 const GAME_EPOCH_ISO = '1970-01-01T00:00:00Z';
+
+/**
+ * 112 — and this literal is CORRECT, do not "fix" it.
+ *
+ * This migration back-filled `created_day` from real `birthday` values
+ * using the game-day rate **in force when it ran** (16-week seasons).
+ * That is the whole point: it is a historical conversion, not a live
+ * constant.
+ *
+ * `GAME_SETTINGS.DAYS_PER_YEAR` is now 77 (11-week seasons). Rewriting
+ * this to match would change what the migration asserts to be true about
+ * the past, and would corrupt the audit trail of a migration that has
+ * already run. Leave it.
+ *
+ * Ages derived from the `created_day` this migration wrote are correct:
+ * `created_day` is days-since-epoch, not years, and the age denominator is
+ * applied at read time.
+ */
 const GAME_DAYS_PER_YEAR = 112;
+
 const REAL_DAYS_PER_YEAR = 365.25;
 
 export class ReplaceBirthdayWithCreatedDay1721000000000 implements MigrationInterface {

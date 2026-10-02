@@ -1,8 +1,4 @@
-import {
-  currentGameDay,
-  GAME_SETTINGS,
-  PlayerEntity,
-} from '@goalxi/database';
+import { currentGameDay, GAME_SETTINGS, PlayerEntity } from '@goalxi/database';
 
 describe('PlayerEntity age calculations', () => {
   // Pin both wall-clock and the imported `currentGameDay()` to a single

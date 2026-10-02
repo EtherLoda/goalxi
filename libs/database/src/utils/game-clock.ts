@@ -4,11 +4,15 @@
  * calendar shifts.
  *
  * 1 game-day = 1 real-day.
- * 1 game-year = GAME_SETTINGS.DAYS_PER_YEAR (112) game-days = 112 real-days.
+ * 1 game-year = GAME_SETTINGS.DAYS_PER_YEAR game-days = the same number of
+ * real-days (77 since the season was compressed from 16 weeks to 11). The
+ * point of the fixed epoch is that this ratio is exact — a game-year is not
+ * a real year.
  *
- * Note: This is intentionally distinct from `GameStateService.getCurrentSeasonWeek`
- * which uses a rolling "most recent Wednesday" anchor for match scheduling.
- * Player age is anchored to the fixed epoch so `createdDay` never shifts.
+ * Note: this is intentionally distinct from the week anchor, which is a
+ * UTC **Monday** boundary (`resolveGameStart` throws otherwise), not a
+ * rolling "most recent weekday" one. Player age is anchored to the fixed
+ * epoch so `createdDay` never shifts.
  */
 
 import { GAME_SETTINGS } from '../constants/game.constants';

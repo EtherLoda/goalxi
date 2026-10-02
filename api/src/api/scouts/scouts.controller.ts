@@ -2,6 +2,7 @@
   currentGameDay,
   currentWeekIndex,
   derivePotentialTier,
+  GAME_SETTINGS,
   PlayerEntity,
   ScoutCandidateEntity,
   TeamEntity,
@@ -254,17 +255,24 @@ function mapYouthToDto(y: PlayerEntity): YouthPlayerDto {
   };
 }
 
-/** Age derived from `createdDay`: floor((currentGameDay - createdDay) / 112). */
+/**
+ * Age derived from `createdDay`: `floor((currentGameDay - createdDay) /
+ * DAYS_PER_YEAR)`. The divisor was a literal `112` in three places here,
+ * so compressing the season to 11 weeks made every candidate card report
+ * an age ~31% too high — a 16-year-old prospect shown as 21.
+ */
 function calcAge(createdDay: number): number {
-  return Math.floor((currentGameDay() - createdDay) / 112);
+  return Math.floor(
+    (currentGameDay() - createdDay) / GAME_SETTINGS.DAYS_PER_YEAR,
+  );
 }
 
 /** Same divisor as `PlayerEntity.getExactAge()`: total days split into
  *  full years + remainder days. Drives the "17y 12d" line on the card. */
 function calcExactAge(createdDay: number): { age: number; ageDays: number } {
   const total = currentGameDay() - createdDay;
-  const age = Math.floor(total / 112);
-  const ageDays = total - age * 112;
+  const age = Math.floor(total / GAME_SETTINGS.DAYS_PER_YEAR);
+  const ageDays = total - age * GAME_SETTINGS.DAYS_PER_YEAR;
   return { age, ageDays };
 }
 

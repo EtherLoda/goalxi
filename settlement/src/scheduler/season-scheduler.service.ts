@@ -265,11 +265,18 @@ export class SeasonSchedulerService {
    * clock's "week N+1", and the two views are one week apart by
    * construction.
    *
-   * That offset is what makes the transition crons line up: the last
-   * regular match is stamped `week: 15` and falls on the Saturday of
-   * calendar day 110, and the Monday that starts the clock's week 16 is
-   * day 112 — two days later. The playoff trigger's "is week 15
-   * complete?" check therefore passes exactly when it should.
+   * That offset is what makes the transition crons line up. Measured for
+   * the current grid (day 0 = Monday of clock week 1 = `initDate`, so the
+   * schedule anchor sits on day 7):
+   *
+   *   last regular match = week 10's Saturday  = day 75
+   *   Monday starting the clock's week 11      = day 77
+   *
+   * A two-day gap, which is what the playoff trigger's "is week 10
+   * complete?" check needs to be true exactly when it should be. The same
+   * two-day gap held under the old 2-rounds-a-week grid (day 110 → 112), so
+   * the alignment is a property of the structure rather than of these
+   * particular constants.
    *
    * Aligning the two anchors would be a behaviour change, not a cleanup.
    */

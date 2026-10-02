@@ -2,6 +2,7 @@ import {
   CoachPlayerAssignmentEntity,
   currentSeasonWeek,
   FinanceEntity,
+  GAME_SETTINGS,
   getMaxPlayersForRole,
   getTrainingCategoryForRole,
   PlayerEntity,
@@ -33,9 +34,15 @@ export const STAFF_SALARY: Record<StaffLevel, number> = {
   [StaffLevel.LEVEL_5]: 128000,
 };
 
-/** Signing fee = 16 weeks of salary */
+/**
+ * Signing fee = one season's worth of salary.
+ *
+ * Was `* 16` — a bare week count. Compressing the season to 11 weeks
+ * would have silently dropped every signing fee by 31% without touching
+ * `STAFF_SALARY`, so the two would have drifted apart.
+ */
 export function getSigningFee(level: StaffLevel): number {
-  return STAFF_SALARY[level] * 16;
+  return STAFF_SALARY[level] * GAME_SETTINGS.SEASON_LENGTH_WEEKS;
 }
 
 export const STAFF_LEVEL_SCORE: Record<StaffLevel, number> = {
@@ -174,9 +181,17 @@ export class StaffsService implements OnModuleInit {
     // Get current season and week
     const { season, week } = this.getCurrentSeasonWeek();
 
-    // Create staff - contract is 1 season (16 weeks)
-    const contractExpiry = new Date();
-    contractExpiry.setDate(contractExpiry.getDate() + 16 * 7);
+    // Contract is one season long, in real days.
+    //
+    // Derived from SEASON_LENGTH_DAYS so "1 season" means the same thing
+    // everywhere. An OPEN DECISION: this now expires contracts in 77 real
+    // days rather than 112, which means more renewal churn over a career.
+    // If contracts should instead keep their old real-time length, add an
+    // independent `CONTRACT_LENGTH_DAYS` here rather than re-inlining a
+    // literal — do not go back to a bare week count.
+    const contractExpiry = new Date(
+      Date.now() + GAME_SETTINGS.SEASON_LENGTH_DAYS * 86_400_000,
+    );
 
     const staff = this.staffRepo.create({
       teamId,
@@ -435,9 +450,10 @@ export class StaffsService implements OnModuleInit {
 
     for (const staff of expiring) {
       if (staff.autoRenew) {
-        // Renew for another season (16 weeks)
-        const newExpiry = new Date();
-        newExpiry.setDate(newExpiry.getDate() + 16 * 7);
+        // Renew for another season (see the note on hire).
+        const newExpiry = new Date(
+          Date.now() + GAME_SETTINGS.SEASON_LENGTH_DAYS * 86_400_000,
+        );
         staff.contractExpiry = newExpiry;
         await this.staffRepo.save(staff);
         renewed++;

@@ -1,4 +1,8 @@
-import { currentGameDay, ScoutCandidatePlayerData } from '@goalxi/database';
+import {
+  currentGameDay,
+  GAME_SETTINGS,
+  ScoutCandidatePlayerData,
+} from '@goalxi/database';
 
 /**
  * NarrativeSection — structured, frontend-rendered description of a
@@ -68,8 +72,13 @@ export type NarrativeSection =
       variant: number;
     };
 
-/** Age displayed in years + leftover days (1 year = 112 game days). */
-const DAYS_PER_YEAR = 112;
+/**
+ * Age displayed in years + leftover days. Aliases
+ * `GAME_SETTINGS.DAYS_PER_YEAR` rather than repeating it — this was a
+ * local `const DAYS_PER_YEAR = 112`, a fourth copy of the same number,
+ * and the narratives store the rendered age at generation time.
+ */
+const DAYS_PER_YEAR = GAME_SETTINGS.DAYS_PER_YEAR;
 
 /**
  * Growth-gap threshold: if the potential is at least this many points

@@ -1,4 +1,5 @@
 import { currentGameDay } from "../utils/game-clock";
+import { GAME_SETTINGS } from "../constants/game.constants";
 import { PlayerAbility, ScoutCandidatePlayerData } from "../index";
 import { rollSpecialty } from "./specialty-generator";
 import { PotentialTier } from "./potential";
@@ -82,7 +83,17 @@ export interface GeneratedScoutCandidate extends Omit<
 
 const SKILL_VALUE_MIN = 1;
 const SKILL_VALUE_MAX = 20;
-const SKILL_VALUE_MAX_DAYS = 112;
+
+/**
+ * Days per game-year — `GAME_SETTINGS.DAYS_PER_YEAR`.
+ *
+ * This used to be a local named `SKILL_VALUE_MAX_DAYS`, which is a
+ * misnomer for what it is (it has nothing to do with `SKILL_VALUE_MAX`)
+ * and, being a literal `112`, meant that compressing the season to 11
+ * weeks made every generated scout candidate land at age 23 instead of
+ * 16.
+ */
+const DAYS_PER_YEAR = GAME_SETTINGS.DAYS_PER_YEAR;
 
 /**
  * Pure generator — no I/O, no DB. Produces a deterministic given a fixed
@@ -102,9 +113,11 @@ export function generateScoutCandidate(
   const ageRange = options.ageRange ?? [15, 16];
   const ageYears =
     ageRange[0] + Math.floor(rand() * (ageRange[1] - ageRange[0] + 1));
-  // Game-world age in days: age in years × 112 + jitter [0, 112).
+  // Game-world age in days: age in years × DAYS_PER_YEAR + jitter within
+  // the year. Jitter keeps two same-age candidates from sharing a birthday,
+  // which would make their age-derived wage step-ups coincide exactly.
   const daysAlive =
-    ageYears * SKILL_VALUE_MAX_DAYS + Math.floor(rand() * SKILL_VALUE_MAX_DAYS);
+    ageYears * DAYS_PER_YEAR + Math.floor(rand() * DAYS_PER_YEAR);
   // Place creation day so the player is `daysAlive` days old as of "now".
   const createdDay = currentGameDay(new Date(now())) - daysAlive;
 

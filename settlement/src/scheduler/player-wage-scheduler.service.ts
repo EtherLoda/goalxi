@@ -5,16 +5,14 @@ import { LOGGER_SERVICE, PinoLoggerService } from '@goalxi/logger';
 import { Queue } from 'bullmq';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import {
-  GAME_SETTINGS,
-  PlayerEntity,
-} from '@goalxi/database';
+import { GAME_SETTINGS, PlayerEntity } from '@goalxi/database';
 
 /**
- * The game-day clock: every (DAYS_PER_YEAR = 112) game-days is
- * a player's game-birthday. Aligned to UTC midnight so a job
- * queued at 00:00 UTC and a job queued at 23:59 UTC the
- * previous day both agree on which day index we're on.
+ * The game-day clock: every `GAME_SETTINGS.DAYS_PER_YEAR` game-days
+ * (77, since the season was compressed from 16 weeks to 11) is a
+ * player's game-birthday. Aligned to UTC midnight so a job queued at
+ * 00:00 UTC and a job queued at 23:59 UTC the previous day both agree on
+ * which day index we're on.
  *
  * Reads `Date.now()` rather than constructing `new Date()` so
  * tests can pin the clock via `jest.spyOn(Date, 'now')`
@@ -28,10 +26,10 @@ const computeTodayGameDay = (nowMs: number = Date.now()): number => {
  * How many past game-days the birthday scan also covers.
  *
  * The scan trigger used to be an exact modulus
- * (`MOD(today - created_day, 112) = 0`) and `@Cron` has no retry
- * mechanism, so one DB blip at 00:00 meant that game-day's birthdays
- * were **permanently** missed — the condition would not hold again for
- * 112 game-days, and the thrown error was caught and only logged.
+ * (`MOD(today - created_day, <DAYS_PER_YEAR>) = 0`) and `@Cron` has no
+ * retry mechanism, so one DB blip at 00:00 meant that game-day's birthdays
+ * were **permanently** missed — the condition would not hold again for a
+ * whole game-year, and the thrown error was caught and only logged.
  *
  * Scanning a window of recent game-days turns that silent permanent
  * loss into a bounded, self-healing one. Safe because the processor's
@@ -94,11 +92,20 @@ export class PlayerWageSchedulerService {
     );
 
     // [C2] "Birthday today" check uses the game-day clock:
-    // a player's game-birthday is every 112 game-days starting
-    // from their `createdDay`. PostgreSQL `MOD` always returns
-    // a non-negative remainder, so the same query catches
-    // players whose birthday is today regardless of how long
-    // ago they were created.
+    // a player's game-birthday is every `DAYS_PER_YEAR` game-days
+    // starting from their `createdDay`. PostgreSQL `MOD` always returns
+    // a non-negative remainder, so the same query catches players
+    // whose birthday is today regardless of how long ago they were
+    // created.
+    //
+    // The modulus is passed as a BIND PARAMETER, not interpolated. It
+    // used to be a literal `112` in the SQL text, which meant that
+    // compressing the season silently broke the birthday cycle while
+    // still type-checking and still querying successfully — the daily
+    // wage step-up would just never line up with anyone's birthday
+    // again. Interpolating the constant instead of binding it would
+    // reintroduce a season-length literal into a query string, which is
+    // the class of coupling this is removing.
     //
     // The window (`BETWEEN 0 AND :catchup`) is what makes a missed
     // cron self-healing — see `CATCHUP_DAYS`.
@@ -112,17 +119,21 @@ export class PlayerWageSchedulerService {
     const rows = await this.playerRepo
       .createQueryBuilder('player')
       .leftJoin('team', 'team.id = player.team_id')
-      .where('MOD(:today - player.created_day, 112) BETWEEN 0 AND :catchup', {
-        today: todayGameDay,
-        catchup: CATCHUP_DAYS - 1,
-      })
+      .where(
+        'MOD(:today - player.created_day, :yearDays) BETWEEN 0 AND :catchup',
+        {
+          today: todayGameDay,
+          yearDays: GAME_SETTINGS.DAYS_PER_YEAR,
+          catchup: CATCHUP_DAYS - 1,
+        },
+      )
       .andWhere('player.is_youth = false')
       .andWhere('(team.id IS NULL OR team.is_bot = false)')
       // The game-day the birthday actually falls on (= today - age).
       // Used as the jobId suffix so a catch-up dedupes against the
       // original run instead of queueing a second job.
       .addSelect(
-        '(:today - MOD(:today - player.created_day, 112))',
+        '(:today - MOD(:today - player.created_day, :yearDays))',
         'birthdayGameDay',
       )
       .getRawAndEntities();
@@ -146,9 +157,8 @@ export class PlayerWageSchedulerService {
 
     const catchupCount =
       playersWithBirthday.length -
-      [...birthdayGameDayByPlayerId.values()].filter(
-        (d) => d === todayGameDay,
-      ).length;
+      [...birthdayGameDayByPlayerId.values()].filter((d) => d === todayGameDay)
+        .length;
     if (catchupCount > 0) {
       this.logger.info(
         `[PlayerWageScheduler] Catch-up: ${catchupCount} birthday wage ` +
@@ -177,8 +187,9 @@ export class PlayerWageSchedulerService {
       ),
     );
 
-    const succeeded = enqueueResults.filter((r) => r.status === 'fulfilled')
-      .length;
+    const succeeded = enqueueResults.filter(
+      (r) => r.status === 'fulfilled',
+    ).length;
     const failed = enqueueResults.length - succeeded;
 
     if (failed > 0) {

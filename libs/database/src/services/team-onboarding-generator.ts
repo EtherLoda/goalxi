@@ -816,7 +816,9 @@ export async function generateTeamStaff(
   nationality: string | null,
 ): Promise<StaffEntity[]> {
   const teamNationality = nationality ?? DEFAULT_TEAM_NATIONALITY;
-  const contractExpiry = new Date(Date.now() + 16 * 7 * 24 * 60 * 60 * 1000);
+  const contractExpiry = new Date(
+    Date.now() + GAME_SETTINGS.SEASON_LENGTH_DAYS * 86_400_000,
+  );
 
   const head = getRandomNameByNationality(teamNationality);
   const fitness = getRandomNameByNationality(teamNationality);

@@ -3,6 +3,7 @@
 import {
   currentGameDay,
   derivePotentialTier,
+  GAME_SETTINGS,
   PotentialTier,
   rollSpecialty,
   calculatePotentialAbility as sharedCalculatePotentialAbility,
@@ -472,7 +473,11 @@ export function generatePlayerData(options?: {
 
   // 年龄
   const age = options?.age ?? 15 + Math.floor(Math.random() * 2); // 15 or 16
-  const birthday = age * 112 + Math.floor(Math.random() * 112);
+  // `DAYS_PER_YEAR`, not a literal: this used to be `age * 112 + rand(112)`,
+  // which after the season was compressed to 11 weeks created a "15-year-old"
+  // with 1680+ days alive — i.e. one who reads as 21.
+  const yearDays = GAME_SETTINGS.DAYS_PER_YEAR;
+  const birthday = age * yearDays + Math.floor(Math.random() * yearDays);
   const createdDay = currentGameDay(new Date()) - birthday;
 
   return {

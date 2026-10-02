@@ -220,20 +220,25 @@ export class ScheduleGenerator {
    * pairs the outer + inner positions.
    *
    * 30 rounds = 2 × (N-1) = double round-robin for a
-   * 16-team league. Each round has 8 matches (N/2). Two
-   * rounds share a single `week` (Wed + Sat), so the
-   * season stretches across 15 `week`s — see
-   * `GAME_SETTINGS.SEASON_LENGTH_WEEKS` which the cron
-   * layer anchors against. Match weeks 1-15 = the regular
-   * season; week 16 is reserved for the playoff + season
+   * 16-team league. Each round has 8 matches (N/2).
+   * `GAME_SETTINGS.ROUNDS_PER_WEEK` rounds share a single
+   * `week` (Tue + Thu + Sat), so the season stretches across
+   * `GAME_SETTINGS.REGULAR_SEASON_WEEKS` weeks; the week
+   * after that is reserved for the playoff + season
    * transition.
    *
    * Field semantics on the match row:
-   *   - `week`  : 1..15, the human-readable "matchday of
-   *               the season" (1-indexed, day-aligned).
-   *               Both legs reuse the same `week` since
-   *               both fit in the same 15-week calendar.
-   *   - `round` : 1 or 2 within the week (1 = Wed, 2 = Sat).
+   *   - `week`  : 1..REGULAR_SEASON_WEEKS, the human-readable
+   *               "matchweek of the season" (1-indexed,
+   *               day-aligned). Both legs reuse the same
+   *               `week` range since both fit in the same
+   *               calendar.
+   *   - `round` : 1..ROUNDS_PER_WEEK within the week —
+   *               which day of `MATCH_DAY_OFFSETS` this is.
+   *               NOTE this column is overloaded: cup rounds
+   *               write their own round number here too
+   *               (`CupScheduler`), so a league `round` is
+   *               only meaningful on a `type = LEAGUE` row.
    *   - `scheduledAt` : absolute kickoff instant derived
    *               from `matchStart(round, weekOneMonday)`.
    *               The second leg is offset by `numRounds`

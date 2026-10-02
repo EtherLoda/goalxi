@@ -428,7 +428,12 @@ function calculateOvr(skills: PlayerSkills): number {
 function generateCreatedDay(age: number): number {
   // [C2] Age in days, anchored to the 1970-01-01 game epoch used everywhere.
   const today = Math.floor((Date.now() - Date.UTC(1970, 0, 1)) / 86_400_000);
-  const daysAlive = age * 112 + Math.floor(Math.random() * 112);
+  // `DAYS_PER_YEAR`, not a literal 112 — this script seeds players straight
+  // into the DB, so a stale divisor here would silently mis-age the whole
+  // simulated world.
+  const daysAlive =
+    age * GAME_SETTINGS.DAYS_PER_YEAR +
+    Math.floor(Math.random() * GAME_SETTINGS.DAYS_PER_YEAR);
   return today - daysAlive;
 }
 
@@ -757,10 +762,15 @@ async function processWeeklyTraining(ds: DataSource): Promise<void> {
 
     for (const player of trainees) {
       // [C2] Age derived from createdDay via the 1970-01-01 game epoch.
-      const today = Math.floor((Date.now() - Date.UTC(1970, 0, 1)) / 86_400_000);
-      const age = player.createdDay != null
-        ? Math.floor((today - player.createdDay) / 112)
-        : 25;
+      const today = Math.floor(
+        (Date.now() - Date.UTC(1970, 0, 1)) / 86_400_000,
+      );
+      const age =
+        player.createdDay != null
+          ? Math.floor(
+              (today - player.createdDay) / GAME_SETTINGS.DAYS_PER_YEAR,
+            )
+          : 25;
 
       // Random training category
       const categories = Object.values(TrainingCategory);

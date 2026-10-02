@@ -10,6 +10,7 @@ import { ValidationException } from '@/exceptions/validation.exception';
 import { paginate } from '@/utils/offset-pagination';
 import {
   BenchConfig,
+  GAME_SETTINGS,
   generateUniqueShortCode,
   isValidShortCode,
   LeagueEntity,
@@ -207,7 +208,9 @@ export class TeamService {
       role: StaffRole.HEAD_COACH,
       level: StaffLevel.LEVEL_2,
       salary: 4000,
-      contractExpiry: new Date(Date.now() + 16 * 7 * 24 * 60 * 60 * 1000),
+      contractExpiry: new Date(
+        Date.now() + GAME_SETTINGS.SEASON_LENGTH_DAYS * 86_400_000,
+      ),
       autoRenew: true,
       isActive: true,
       nationality,
@@ -223,7 +226,9 @@ export class TeamService {
       role: StaffRole.FITNESS_COACH,
       level: StaffLevel.LEVEL_2,
       salary: 2000,
-      contractExpiry: new Date(Date.now() + 16 * 7 * 24 * 60 * 60 * 1000),
+      contractExpiry: new Date(
+        Date.now() + GAME_SETTINGS.SEASON_LENGTH_DAYS * 86_400_000,
+      ),
       autoRenew: true,
       isActive: true,
       nationality,
