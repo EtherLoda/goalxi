@@ -70,9 +70,11 @@ export class SeniorDeclineSchedulerService {
   }
 
   // Fires at the same instant as `finance-scheduler` and two
-  // `season-transition` crons (all `0 0 0 * * 1`). They are logically
-  // independent, so each needs its OWN lock name — sharing one would make
-  // them serialise and, worse, make one of them skip.
+  // `settlement.season.*` crons (all Monday 00:00 UTC; the third season
+  // cron is on Tuesday). They are logically independent, so each needs
+  // its OWN lock name — sharing one would not serialise them, it would
+  // make one of them SKIP its tick, silently. See the "One lock per
+  // handler" note in `CronLockService`.
   @Cron('0 0 0 * * 1', { timeZone: GAME_SETTINGS.CRON_TIME_ZONE }) // Every Monday at 00:00 UTC
   @CronLocked('settlement.senior-decline.weekly', { ttlMs: 15 * 60_000 })
   async triggerWeeklyDecline() {

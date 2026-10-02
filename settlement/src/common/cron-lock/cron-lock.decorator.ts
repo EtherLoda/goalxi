@@ -28,7 +28,7 @@ export interface CronLockMetadata extends CronLockOptions {
  *
  * ```ts
  * @Cron('0 0 * * 1', { timeZone: GAME_SETTINGS.CRON_TIME_ZONE })
- * @CronLocked('season-transition.playoffs', { ttlMs: 60_000 })
+ * @CronLocked('settlement.season.playoffs', { ttlMs: 60 * 60_000 })
  * async checkAndGeneratePlayoffs() {}
  * ```
  *

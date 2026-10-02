@@ -86,12 +86,29 @@ export class SeasonTransitionService {
    */
   // Heaviest tick in the codebase: `processAllTiers` walks every tier
   // and `initNewSeasonStandings` writes ~1360 rows. 60 min crash
-  // window. Shares ONE lock name with the other two crons below
-  // because they are steps of the same season state machine — a
-  // shared lock is what stops the swap and the season-start from
-  // interleaving.
+  // window.
+  //
+  // LOCK NAMING — why the three steps do NOT share one lock.
+  //
+  // They used to, on the reasoning that they are steps of one state
+  // machine and "must not interleave". That is a category error: the
+  // lock provides MUTUAL EXCLUSION between settlement replicas, not
+  // ordering between steps. Ordering is already enforced by the gates
+  // (`week === SEASON_LAST_WEEK` vs `week === 1`) and by the
+  // `playoff_swapped_at` latch.
+  //
+  // Sharing a lock actively cost us the first two steps. Both fire at
+  // `0 0 * * 1` with the same lock name, so on any given Monday exactly
+  // ONE of them ran and the other was silently dropped by
+  // `CronLockService.run` at `logger.debug`. It happened to be harmless
+  // — the loser's own gate would have returned early anyway — which is
+  // precisely what made it dangerous: a real tick lost this way would
+  // have deferred a season transition by a week with nothing in the
+  // logs. `processor-wiring.spec.ts` now asserts that no two crons share
+  // both a cron expression and a lock name, which is the condition that
+  // actually drops a tick.
   @Cron('0 0 * * 1', { timeZone: GAME_SETTINGS.CRON_TIME_ZONE }) // 每周一 00:00
-  @CronLocked('settlement.season-transition', { ttlMs: 60 * 60_000 })
+  @CronLocked('settlement.season.playoffs', { ttlMs: 60 * 60_000 })
   async checkAndGeneratePlayoffs() {
     const currentSeasonWeek_ = currentSeasonWeek(new Date(), this.gameStart);
 
@@ -144,7 +161,7 @@ export class SeasonTransitionService {
    * the season that just ended.
    */
   @Cron('0 0 * * 1', { timeZone: GAME_SETTINGS.CRON_TIME_ZONE }) // 每周一 00:00
-  @CronLocked('settlement.season-transition', { ttlMs: 60 * 60_000 })
+  @CronLocked('settlement.season.playoff-swap', { ttlMs: 60 * 60_000 })
   async processPlayoffResultsAndSwap() {
     const currentSeasonWeek_ = currentSeasonWeek(new Date(), this.gameStart);
 
@@ -185,7 +202,7 @@ export class SeasonTransitionService {
    * been removed.
    */
   @Cron('0 0 * * 2', { timeZone: GAME_SETTINGS.CRON_TIME_ZONE }) // 每周二 00:00
-  @CronLocked('settlement.season-transition', { ttlMs: 60 * 60_000 })
+  @CronLocked('settlement.season.start', { ttlMs: 60 * 60_000 })
   async checkAndProcessSeasonStart() {
     const currentSeasonWeek_ = currentSeasonWeek(new Date(), this.gameStart);
 

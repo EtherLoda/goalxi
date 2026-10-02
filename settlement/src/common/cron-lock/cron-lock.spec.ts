@@ -188,6 +188,37 @@ describe('CronLockService.run', () => {
     expect(handler).not.toHaveBeenCalled();
   });
 
+  it('logs a skipped tick at WARN, with the lock name and ttl', async () => {
+    // A dropped tick must be visible in a default-level log. It used to
+    // log at `debug`, which made it indistinguishable from a handler
+    // returning early on its own gate — the reason a shared-lock
+    // misconfiguration in `season-transition` went unnoticed.
+    //
+    // The shared `logger` mock above is `as any`, so every property read
+    // off it trips `no-unsafe-member-access`. Narrow it locally rather
+    // than retyping the mock, which would ripple through `makeService`.
+    const mocks = logger as {
+      info: jest.Mock;
+      warn: jest.Mock;
+      error: jest.Mock;
+      debug: jest.Mock;
+    };
+
+    const redis = new FakeRedis();
+    const svc = makeService(redis);
+    await svc.acquire('cron.a', TTL);
+
+    await svc.run('cron.a', jest.fn().mockResolvedValue('done'), {
+      ttlMs: TTL,
+    });
+
+    expect(mocks.warn).toHaveBeenCalledWith(
+      { cron: 'cron.a', ttlMs: TTL },
+      'Cron lock held elsewhere; skipping tick',
+    );
+    expect(mocks.debug).not.toHaveBeenCalled();
+  });
+
   it('releases the lock even when the handler throws', async () => {
     const redis = new FakeRedis();
     const svc = makeService(redis);

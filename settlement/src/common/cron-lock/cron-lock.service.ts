@@ -87,7 +87,7 @@ export interface CronLockRun<T> {
  * Several of these handlers are explicitly NOT safe to run twice and have
  * no database-level guard:
  *
- *   - `season-transition` `checkAndProcessSeasonStart` — 5 ordered steps;
+ *   - `season.start` `checkAndProcessSeasonStart` — 5 ordered steps;
  *     a mid-sequence failure re-runs promotions and UN-SWAPs every pair
  *   - `promotion-relegation` `processAllTiers` — 5+ unwrapped writes,
  *     and `swapTeamLeague` is not commutative
@@ -98,6 +98,21 @@ export interface CronLockRun<T> {
  * and the BullMQ business-key `jobId`s used by `weekly-settlement`) are
  * locked too. The point is that safety stops depending on every future
  * author remembering to add a latch.
+ *
+ * ## One lock per handler
+ *
+ * The lock is mutual exclusion between settlement replicas. It is NOT a
+ * mechanism for ordering steps of a state machine — that is what the
+ * handler's own gate and its database latch are for. Two handlers that
+ * share a lock name and fire at the same instant therefore do not
+ * "serialise"; the second one is silently dropped, because `run` treats
+ * a held lock as "someone else is already doing this tick".
+ *
+ * The three `settlement.season.*` crons used to share one name on the
+ * mistaken belief that this kept their steps from interleaving. Two of
+ * them fire on Monday, so one was being dropped every week and the
+ * `processor-wiring.spec.ts` tripwire that would have said so carried an
+ * allowlist exempting exactly that lock. Each now has its own name.
  *
  * ## What this is NOT
  *
@@ -175,11 +190,19 @@ export class CronLockService implements OnApplicationShutdown {
   /**
    * Run `handler` under the lock.
    *
-   * When the lock is held elsewhere, logs at debug and returns
+   * When the lock is held elsewhere, logs at warn and returns
    * `{ executed: false }` WITHOUT running the handler and WITHOUT
    * throwing. Not throwing is deliberate: settlement's global exception
    * filter is `@Catch()`-all and only logs, so a thrown "could not
    * acquire" would vanish and leave the tick silently skipped.
+   *
+   * The tick is *still* dropped — a lock held elsewhere genuinely means
+   * the work is in flight or was done. Warn rather than debug because
+   * the interesting case is a crash-and-restart, where the tick is
+   * skipped for no reason anyone can see from the logs. That used to log
+   * at debug and was indistinguishable from a handler returning early on
+   * its own gate, which is how a shared-lock misconfiguration in
+   * `season-transition` went unnoticed for a full season.
    */
   async run<T>(
     name: string,
@@ -189,8 +212,8 @@ export class CronLockService implements OnApplicationShutdown {
     const acquired = await this.acquire(name, opts.ttlMs);
 
     if (acquired.status === 'held') {
-      this.logger.debug(
-        { cron: name },
+      this.logger.warn(
+        { cron: name, ttlMs: opts.ttlMs },
         'Cron lock held elsewhere; skipping tick',
       );
       return { executed: false };

@@ -139,7 +139,7 @@ describe('settlement cron timezone (wiring tripwire)', () => {
  * cron fired twice in two processes. Nothing stopped the second run, and
  * the handlers with multi-step unwrapped writes had no database guard:
  *
- *   - `season-transition` `checkAndProcessSeasonStart` — 5 ordered
+ *   - `settlement.season.start` `checkAndProcessSeasonStart` — 5 ordered
  *     steps; its own comment notes a mid-sequence failure re-runs
  *     promotions and UN-SWAPs every pair on the next tick
  *   - `promotion-relegation` `processAllTiers` — 5+ unwrapped writes,
@@ -194,35 +194,70 @@ describe('settlement cron locking (wiring tripwire)', () => {
     expect(count).toBeGreaterThanOrEqual(15);
   });
 
-  it('no two crons take the same lock unless they are declared as one group', () => {
-    // Two independent crons sharing a lock name would serialise: the
-    // second would observe the lock held and SKIP its tick. Four crons
-    // fire at exactly `0 0 0 * * 1` (finance, senior-decline, and two
-    // season-transition), so this is a live hazard rather than a
-    // theoretical one.
+  it('no two crons share BOTH a cron expression and a lock name', () => {
+    // A tick is dropped when, at the same instant, two handlers ask for
+    // a lock one of them already holds — `CronLockService.run` returns
+    // `{ executed: false }` and only logs. Sharing a lock with a
+    // DIFFERENT schedule is harmless; the conjunction is the hazard.
     //
-    // `settlement.season-transition` is the intentional exception: the
-    // three crons are steps of ONE season state machine and must not
-    // interleave. It is declared once here as a known-shared group.
-    const INTENTIONAL_SHARED = new Set(['settlement.season-transition']);
+    // ## Why the previous version was not enough
+    //
+    // It asserted "no two crons share a lock name" and carried an
+    // `INTENTIONAL_SHARED` allowlist — which muted the guard for
+    // exactly the lock that needed watching. `settlement.season-transition`
+    // was on that list, and two of its three crons both fire at
+    // `0 0 * * 1`: on any given Monday one ran and the other was
+    // silently dropped. Harmless in practice, because the loser's own
+    // week-gate would have returned early — which is what made it a
+    // trap rather than a bug. Nothing in the logs distinguished
+    // "skipped by lock" from "returned on gate", and a real tick lost
+    // that way would have deferred a season transition by a week.
+    //
+    // Asserting the conjunction removes the need for an allowlist at
+    // all: the three season-transition steps run on different schedules
+    // (Mon / Mon / Tue) and, since the lock split, different locks, so
+    // they pass on the merits rather than by exemption.
+    const sites = collectCronSites();
+
+    const byScheduleAndLock = new Map<string, string[]>();
+    for (const site of sites) {
+      const key = `${site.cron}|${site.lock}`;
+      const list = byScheduleAndLock.get(key) ?? [];
+      list.push(`${relative(site.file)} (${site.handler})`);
+      byScheduleAndLock.set(key, list);
+    }
+
+    const collisions = [...byScheduleAndLock.entries()]
+      .filter(([, handlers]) => handlers.length > 1)
+      .map(
+        ([key, handlers]) =>
+          `${key} claimed by ${handlers.length} crons: ${handlers.join(', ')}`,
+      );
+
+    expect(collisions).toEqual([]);
+  });
+
+  it('no two crons share a lock name at all (mutual-exclusion hygiene)', () => {
+    // Stricter than the conjunction check above, and deliberately so: a
+    // shared lock name is a latent hazard even when the schedules
+    // differ today, because moving a cron onto an occupied slot later
+    // silently starts dropping ticks. `settlement.match.preprocess` /
+    // `.start` / `.complete` are the precedent — three crons on
+    // `0 * * * * *`, three distinct locks.
+    const sites = collectCronSites();
 
     const byLock = new Map<string, string[]>();
-    for (const file of schedulerFiles) {
-      const src = stripComments(readFileSync(file, 'utf8'));
-      const re = /@CronLocked\(\s*['"`]([^'"`]+)['"`]/g;
-      let m: RegExpExecArray | null;
-      while ((m = re.exec(src)) !== null) {
-        const list = byLock.get(m[1]) ?? [];
-        list.push(`${relative(file)}`);
-        byLock.set(m[1], list);
-      }
+    for (const site of sites) {
+      const list = byLock.get(site.lock) ?? [];
+      list.push(`${relative(site.file)} (${site.handler} @ ${site.cron})`);
+      byLock.set(site.lock, list);
     }
 
     const collisions = [...byLock.entries()]
-      .filter(([lock, sites]) => sites.length > 1 && !INTENTIONAL_SHARED.has(lock))
+      .filter(([, handlers]) => handlers.length > 1)
       .map(
-        ([lock, sites]) =>
-          `${lock} taken by ${sites.length} crons: ${sites.join(', ')}`,
+        ([lock, handlers]) =>
+          `${lock} taken by ${handlers.length} crons: ${handlers.join(', ')}`,
       );
 
     expect(collisions).toEqual([]);
@@ -252,6 +287,71 @@ describe('settlement cron locking (wiring tripwire)', () => {
     expect(offenders).toEqual([]);
   });
 });
+
+/**
+ * Every `@Cron` handler, paired with the `@CronLocked` directly below it.
+ *
+ * Pairing has to be positional: a file can declare several crons, and
+ * the lock name is the first argument of the decorator rather than
+ * something keyed by handler. Comments are stripped first, since several
+ * handlers carry a trailing `// 每周一 00:00` on the `@Cron` line and a
+ * doc comment naming the lock name.
+ *
+ * Scanning source text rather than reflecting over the Nest DI container
+ * is deliberate — the container would need a booted `AppModule` with
+ * Redis and a live database, which is exactly the wiring this tripwire
+ * exists to check without booting.
+ */
+function collectCronSites(): {
+  file: string;
+  cron: string;
+  lock: string;
+  handler: string;
+}[] {
+  const out: {
+    file: string;
+    cron: string;
+    lock: string;
+    handler: string;
+  }[] = [];
+
+  const schedulerFiles = collectFiles(
+    join(__dirname, '..', 'scheduler'),
+    '.service.ts',
+  );
+  for (const file of schedulerFiles) {
+    const src = stripComments(readFileSync(file, 'utf8'));
+    const lines = src.split('\n');
+    lines.forEach((line, i) => {
+      const cron = line.match(/^\s*@Cron\(\s*['"`]([^'"`]+)['"`]/);
+      if (!cron) return;
+
+      // The existing "every @Cron is wrapped" test already asserts this
+      // adjacency; bail rather than throw so a missing lock surfaces as
+      // that test's failure instead of an exception here.
+      const lockLine = lines[i + 1] ?? '';
+      const lock = lockLine.match(/@CronLocked\(\s*['"`]([^'"`]+)['"`]/);
+      if (!lock) return;
+
+      // Handler name is the next non-empty, non-decorator line.
+      const handler =
+        lines.slice(i + 2).find((l) => l.trim() && !l.trim().startsWith('@')) ??
+        '<unknown>';
+
+      out.push({
+        file,
+        cron: cron[1],
+        lock: lock[1],
+        handler: handler
+          .trim()
+          .replace(/^(async\s+)?/, '')
+          .replace(/\(.*$/, ''),
+      });
+    });
+  }
+
+  return out;
+}
 
 function collectFiles(dir: string, suffix: string): string[] {
   const out: string[] = [];
