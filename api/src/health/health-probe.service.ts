@@ -12,6 +12,35 @@ import { DataSource } from 'typeorm';
 import { HealthStateService } from './health-state.service';
 
 /**
+ * Render an unknown thrown value as a string worth showing an operator.
+ *
+ * The naive `err instanceof Error ? err.message : String(err)` is not
+ * enough here. When Postgres goes away mid-flight, node-postgres rejects
+ * pool-level waiters with an error whose `message` is an **empty
+ * string**, and `String(err)` on a non-Error is often `"[object
+ * Object]"` or `""` too. Either way `/health` reports
+ * `"lastError": ""` while `state` is `failing` — so during a real
+ * outage the endpoint says "the database is broken" and gives no hint
+ * why.
+ *
+ * So: always prefix the constructor name, and only append the message
+ * when there is one.
+ */
+export function describeProbeError(err: unknown): string {
+  if (err instanceof Error) {
+    const name = err.name || err.constructor?.name || 'Error';
+    const message = err.message?.trim();
+    return message ? `${name}: ${message}` : name;
+  }
+  const asString = String(err);
+  // `String({})` and `String([])` are noise; keep the object tag so the
+  // value is at least identifiable.
+  return asString && asString !== '[object Object]'
+    ? asString
+    : Object.prototype.toString.call(err);
+}
+
+/**
  * Background liveness probe. Every `intervalMs` it pings Postgres
  * with `SELECT 1` and Redis with `PING`, both wrapped in a hard
  * `timeoutMs` deadline. Results feed `HealthStateService` which
@@ -80,9 +109,7 @@ export class HealthProbeService implements OnModuleInit, OnModuleDestroy {
       await this.raceWithTimeout(this.dataSource.query('SELECT 1'));
       this.state.markDbSuccess();
     } catch (err) {
-      this.state.markDbFailure(
-        err instanceof Error ? err.message : String(err),
-      );
+      this.state.markDbFailure(describeProbeError(err));
     }
   }
 
@@ -91,9 +118,7 @@ export class HealthProbeService implements OnModuleInit, OnModuleDestroy {
       await this.raceWithTimeout(this.redis.ping());
       this.state.markRedisSuccess();
     } catch (err) {
-      this.state.markRedisFailure(
-        err instanceof Error ? err.message : String(err),
-      );
+      this.state.markRedisFailure(describeProbeError(err));
     }
   }
 
