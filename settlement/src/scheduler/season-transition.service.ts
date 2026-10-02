@@ -142,41 +142,74 @@ export class SeasonTransitionService {
   }
 
   /**
-   * 每周一 00:00 — Week 1（新赛季第一周）时执行附加赛结果的升降级互换
+   * 每周日 00:00 — 附加赛周（`PLAYOFF_TRIGGER_WEEK + 1`）内执行升降级互换
    *
-   * The playoffs are *generated* on the Monday that starts week 16 and
-   * *played* the following Wednesday. So the result cannot be processed
-   * on the same Monday — the old `week === 16` gate fired before a single
-   * playoff had been played, and `areAllPlayoffsCompleted` returned
-   * `true` vacuously (0 playoffs found) so `processAfterPlayoffsComplete`
-   * no-op'd and positions 9-12 never changed league.
+   * The historical chain of bugs here, kept because the shape of the fix
+   * depends on it:
    *
-   * The swap therefore runs on the Monday that starts week 1, i.e. the
-   * last cron slot before `checkAndProcessSeasonStart` runs direct
-   * promotions on Tuesday. It is also re-invoked at the top of that
-   * method (idempotent via the `playoff_swapped_at` latch) so a Monday
-   * failure retries before the ladder is committed.
+   *   1. The gate was `week === 16` evaluated on the Monday that week 16
+   *      *began* — before a single playoff had been played, so
+   *      `areAllPlayoffsCompleted` returned `true` vacuously (0 playoffs
+   *      found), `processAfterPlayoffsComplete` no-op'd, and positions
+   *      9-12 never changed league. The playoffs were not even GENERATED
+   *      (`checkAndGeneratePlayoffs` had the mirror-image bug: `week !== 15`
+   *      evaluated on the Monday week 15 began, when week 15 had not been
+   *      played, so it deferred, and by the next Monday `week !== 15`
+   *      returned outright).
+   *   2. The swap was then moved to the Monday that starts week 1 — after
+   *      the season number had already rolled over — which required a
+   *      `season - 1` fudge to name the season it was actually swapping.
    *
-   * Note `season - 1`: at week 1 the playoffs being swapped belong to
-   * the season that just ended.
+   * Both are gone. The playoffs are generated on the Monday that starts the
+   * playoff week (after the last regular week is verified complete) and
+   * played that Wednesday; the swap runs the Sunday after, while the
+   * season number still refers to the season that just finished.
+   *
+   * ## When this runs, and why the gate is not `week === 1`
+   *
+   * Timeline for one season-year (day 0 = Monday of week 1):
+   *
+   *   day 71  Mon 00:00  week 11  `checkAndGeneratePlayoffs`
+   *   day 74  Wed 06:00  week 11  the playoffs are PLAYED
+   *   day 76  Sun 00:00  week 11  ← this cron
+   *   day 77  Mon 00:00  week 12  `checkAndProcessSeasonStart`
+   *   day 78  Tue 06:00  week 12  round 1 kickoff
+   *
+   * This used to run on the Monday that starts week 1, which is *after*
+   * the season number has already rolled over — hence the
+   * `season - 1` fudge below and a comment explaining it. It now runs on
+   * the Sunday that still belongs to the season whose playoffs just
+   * finished, so the season number is already the right one and the
+   * arithmetic disappears.
+   *
+   * The gate is `week === SEASON_LAST_WEEK` (the playoff week) rather
+   * than `week === 1` because that is the week this cron is now in. The
+   * completion check still has to pass: the playoffs are stamped
+   * `week: SEASON_LENGTH_WEEKS` and played on the Wednesday, so a Sunday
+   * run is 2 days clear of them.
+   *
+   * Why Sunday and not the following Monday: the season-start tick has to
+   * generate ~20,400 fixtures across 1,360 teams, and it calls
+   * `processAfterPlayoffsComplete(previousSeason)` as step 0 so a missed
+   * swap retries before the ladder is committed. With the first kickoff on
+   * Tuesday 06:00, a Monday season-start leaves under 6 hours for that
+   * work. Moving the swap to Sunday restores a 30-hour buffer, and the
+   * step-0 retry remains the safety net if Sunday's run fails.
    */
-  @Cron('0 0 * * 1', { timeZone: GAME_SETTINGS.CRON_TIME_ZONE }) // 每周一 00:00
+  @Cron('0 0 * * 0', { timeZone: GAME_SETTINGS.CRON_TIME_ZONE }) // 每周日 00:00
   @CronLocked('settlement.season.playoff-swap', { ttlMs: 60 * 60_000 })
   async processPlayoffResultsAndSwap() {
     const currentSeasonWeek_ = currentSeasonWeek(new Date(), this.gameStart);
 
-    if (currentSeasonWeek_.week !== 1) {
+    // The playoff week is the last week of the season-year, and the
+    // playoffs belong to THAT season — no `season - 1` needed.
+    if (currentSeasonWeek_.week !== SEASON_LAST_WEEK) {
       return;
     }
 
-    const finishedSeason = currentSeasonWeek_.season - 1;
-    if (finishedSeason < 1) {
-      return;
-    }
+    const finishedSeason = currentSeasonWeek_.season;
 
-    const playoffsComplete = await this.areAllPlayoffsCompleted(
-      finishedSeason,
-    );
+    const playoffsComplete = await this.areAllPlayoffsCompleted(finishedSeason);
     if (!playoffsComplete) {
       this.logger.warn(
         `[SeasonTransition] Season ${finishedSeason} playoff matches not all complete — skipping swap. ` +
@@ -192,16 +225,21 @@ export class SeasonTransitionService {
   }
 
   /**
-   * 新赛季第一天（周二 00:00）执行升降级和生成新赛季赛程
-   * 在 Week 1 比赛开始前触发
+   * 新赛季第一周第一天（周一 00:00）执行升降级和生成新赛季赛程
+   * 在 Week 1 第一场比赛（周二 06:00）前触发
    *
-   * Note: playoff-result swap happens in the separate
-   * `processPlayoffResultsAndSwap` cron above (week 16), not
-   * here. The `week === 0` guard that used to live here is dead
-   * code under the 1-indexed `currentSeasonWeek` helper and has
-   * been removed.
+   * Monday, not Tuesday: round 1 kicks off Tuesday 06:00 and this tick has
+   * to promote/relegate, archive the season, write ~1,360 standings rows
+   * and generate ~20,400 fixtures. On Tuesday that was under 6 hours of
+   * headroom. Monday restores 30.
+   *
+   * Note: the playoff-result swap happens in the separate
+   * `processPlayoffResultsAndSwap` cron above, on the Sunday that ends the
+   * playoff week. It is re-invoked here as step 0 — idempotent via the
+   * `playoff_swapped_at` latch — so a failed Sunday still gets retried
+   * before this method commits the rest of the ladder.
    */
-  @Cron('0 0 * * 2', { timeZone: GAME_SETTINGS.CRON_TIME_ZONE }) // 每周二 00:00
+  @Cron('0 0 * * 1', { timeZone: GAME_SETTINGS.CRON_TIME_ZONE }) // 每周一 00:00
   @CronLocked('settlement.season.start', { ttlMs: 60 * 60_000 })
   async checkAndProcessSeasonStart() {
     const currentSeasonWeek_ = currentSeasonWeek(new Date(), this.gameStart);
@@ -224,10 +262,10 @@ export class SeasonTransitionService {
     try {
       // 0. 附加赛互换（重试）。
       //
-      // `processPlayoffResultsAndSwap` already ran on the previous
-      // Monday and is idempotent via the `playoff_swapped_at` latch,
+      // `processPlayoffResultsAndSwap` already ran on the preceding
+      // Sunday and is idempotent via the `playoff_swapped_at` latch,
       // so this is a no-op in the happy path. It runs here too so that
-      // a Monday failure retries BEFORE step 1 commits the rest of the
+      // a Sunday failure retries BEFORE step 1 commits the rest of the
       // ladder — otherwise direct promotions would be applied on a
       // season whose playoff results were silently dropped.
       this.logger.info(

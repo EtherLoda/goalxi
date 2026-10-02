@@ -30,6 +30,14 @@ import {
  */
 const SEASON_END_AWARD_WEEK = GAME_SETTINGS.SEASON_LENGTH_WEEKS;
 
+/**
+ * The gate `checkAndProcessSeasonAwards` keys on: the last week of the
+ * REGULAR season, one before `SEASON_END_AWARD_WEEK`. Not the same thing —
+ * awards are *booked* against the season-end week but *triggered* once the
+ * last regular week's matches are complete.
+ */
+const REGULAR_SEASON_WEEK = GAME_SETTINGS.SEASON_LENGTH_WEEKS - 1;
+
 /** Cash prize for each individual player award (boot / assists / tackles). */
 const PLAYER_AWARD_BONUS = 100_000;
 
@@ -81,8 +89,19 @@ export class LeagueAwardService {
   async checkAndProcessSeasonAwards() {
     const currentSeasonWeek = await this.getCurrentSeasonAndWeek();
 
-    // 只在第15周之后处理
-    if (currentSeasonWeek.week !== 15) {
+    // 只在常规赛最后一周之后处理
+    //
+    // This gate was a literal `15`, which stopped matching the moment
+    // `SEASON_LENGTH_WEEKS` moved off 16 and the season silently stopped
+    // awarding anything. It must be the last REGULAR week, not the season
+    // length: this cron runs Sunday 00:00, and the only Sunday inside the
+    // regular season's final week is its last day — after that week's
+    // Saturday matchday has finished. That is also why
+    // `MATCH_DAY_OFFSETS` must end on a Saturday; a Sunday final matchday
+    // would leave this cron evaluating 6 h before the last matches
+    // completed, and since the season number rolls over on Monday the gate
+    // would never be true again.
+    if (currentSeasonWeek.week !== REGULAR_SEASON_WEEK) {
       return;
     }
 

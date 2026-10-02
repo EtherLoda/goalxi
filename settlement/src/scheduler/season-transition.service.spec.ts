@@ -71,6 +71,23 @@ describe('SeasonTransitionService', () => {
     );
   };
 
+  /**
+   * A specific weekday inside a given (season, week).
+   *
+   * `jsDay` uses `Date.getUTCDay()` convention: 0 = Sunday … 6 = Saturday.
+   * The swap cron fires on the SUNDAY of the playoff week while the season
+   * number still refers to the season that just finished, so pinning it
+   * with `atWeek` alone (which lands on the Monday) would test the wrong
+   * day.
+   */
+  const atWeekday = (season: number, week: number, jsDay: number): Date => {
+    const monday = atWeek(season, week);
+    return new Date(monday.getTime() + ((jsDay + 6) % 7) * 86_400_000);
+  };
+
+  /** Sunday of the playoff week — when `processPlayoffResultsAndSwap` runs. */
+  const atSwapTime = (season: number) => atWeekday(season, SEASON_LAST_WEEK, 0);
+
   const pinClockTo = (gameStart: Date, now: Date) => {
     jest.useFakeTimers().setSystemTime(now);
     (service as { gameStart: Date }).gameStart = gameStart;
@@ -144,7 +161,7 @@ describe('SeasonTransitionService', () => {
     // for the constructor call. Tests override per-case via pinClockTo.
     const module: TestingModule = await Test.createTestingModule({
       providers: [
-      cronLockPassThrough,
+        cronLockPassThrough,
         SeasonTransitionService,
         LOGGER_SERVICE_PROVIDER,
         {
@@ -326,7 +343,7 @@ describe('SeasonTransitionService', () => {
       ).toHaveBeenCalledWith(1);
 
       // Step 0 IS a playoff query: `checkAndProcessSeasonStart`
-      // re-invokes `processAfterPlayoffsComplete` so a failed Monday
+      // re-invokes `processAfterPlayoffsComplete` so a failed SUNDAY
       // swap retries BEFORE the rest of the ladder commits. It is
       // idempotent via the `playoff_swapped_at` latch, so this is a
       // no-op in the happy path.
@@ -337,6 +354,70 @@ describe('SeasonTransitionService', () => {
             playoffSwappedAt: expect.anything(),
           }),
         }),
+      );
+    });
+
+    it('REGRESSION: retries an un-swapped playoff before committing the ladder', async () => {
+      // The Sunday swap is the primary path; Monday's step 0 is what stops
+      // a Sunday failure from dropping the 9-12 promotion entirely. If
+      // this stops running, `processAllTiers` would commit a season whose
+      // playoff results were silently discarded.
+      pinClockTo(new Date(GAME_START_ISO), atWeek(2, 1));
+
+      mockPromotionService.processAllTiers.mockResolvedValue(undefined);
+      mockSeasonArchiveService.archiveSeason.mockResolvedValue({
+        seasonResultCount: 0,
+        playerStatsCount: 0,
+        transactionCount: 0,
+        playerEventCount: 0,
+      });
+      mockLeagueStandingService.initNewSeasonStandings.mockResolvedValue(
+        undefined,
+      );
+      mockSeasonSchedulerService.generateNextSeasonSchedule.mockResolvedValue(
+        [],
+      );
+
+      // The Sunday swap never ran, so there is still an un-swapped
+      // completed playoff waiting.
+      const homeTeam = { id: 'home-team-id', name: 'Upper FC' } as any;
+      const awayTeam = { id: 'away-team-id', name: 'Lower FC' } as any;
+      mockMatchRepository.find.mockResolvedValue([
+        {
+          id: 'playoff-1' as Uuid,
+          season: 1,
+          week: SEASON_LAST_WEEK,
+          type: MatchType.PLAYOFF,
+          status: MatchStatus.COMPLETED,
+          homeScore: 0,
+          awayScore: 2,
+          lowerLeagueId: 'lower-league-id',
+          homeTeam,
+          awayTeam,
+          league: { id: 'upper-league-id', name: 'Upper League' },
+        } as any,
+      ]);
+      mockPromotionService.swapTeamLeague.mockResolvedValue(undefined);
+
+      await service.checkAndProcessSeasonStart();
+
+      // The swap ran …
+      expect(mockPromotionService.swapTeamLeague).toHaveBeenCalledTimes(1);
+      // … and it ran BEFORE the ladder committed.
+      const swapOrder =
+        mockPromotionService.swapTeamLeague.mock.invocationCallOrder[0];
+      const tierOrder =
+        mockPromotionService.processAllTiers.mock.invocationCallOrder[0];
+      expect({ swapBeforeLadder: swapOrder < tierOrder }).toEqual({
+        swapBeforeLadder: true,
+      });
+
+      // The latch is stamped so a re-run does not swap twice.
+      // `update(criteria, partialEntity)` — the criteria is the bare
+      // `In([...])` on `id`, not wrapped in a `where`.
+      expect(mockMatchRepository.update).toHaveBeenCalledWith(
+        expect.objectContaining({ id: In(['playoff-1']) }),
+        expect.objectContaining({ playoffSwappedAt: expect.any(Date) }),
       );
     });
 
@@ -359,15 +440,33 @@ describe('SeasonTransitionService', () => {
       expect(mockPromotionService.swapTeamLeague).not.toHaveBeenCalled();
     });
 
-    it('REGRESSION: does no swap work on week 16 — the playoffs have not been played yet', async () => {
-      // Playoffs are GENERATED on the Monday that starts week 16 and
-      // PLAYED that Wednesday. The old `week === 16` gate therefore
-      // fired before a single playoff had been played, and
-      // `areAllPlayoffsCompleted` returned true vacuously (0 playoffs
-      // found) so `processAfterPlayoffsComplete` silently no-op'd —
-      // positions 9-12 never changed league. The swap must happen on
-      // the Monday that starts week 1.
-      pinClockTo(new Date(GAME_START_ISO), atWeek(1, SEASON_LAST_WEEK)); // week 16
+    it('REGRESSION: does no swap work on the Monday of the playoff week — the playoffs have not been played yet', async () => {
+      // Playoffs are GENERATED on the Monday that starts the playoff week
+      // and PLAYED that Wednesday. A swap gated on that Monday fires
+      // before a single playoff has been played, and
+      // `areAllPlayoffsCompleted` returns true vacuously (0 playoffs
+      // found) so `processAfterPlayoffsComplete` silently no-ops —
+      // positions 9-12 never change league. That was the original bug
+      // (`week === 16` on the Monday week 16 began).
+      //
+      // The swap now runs on the SUNDAY of the same week, two days after
+      // the playoffs are played. This test pins that the Monday is still
+      // too early.
+      pinClockTo(new Date(GAME_START_ISO), atWeek(1, SEASON_LAST_WEEK));
+
+      // The realistic Monday state: the playoffs were generated on this
+      // very tick, so `total > 0`, and none have been played yet.
+      //
+      // Note this test previously passed for the wrong reason — it relied
+      // on the old `week === 1` gate returning early, and left `count` at
+      // its default of 0. With the gate now on the playoff week, a zero
+      // total makes `areAllPlayoffsCompleted` return TRUE vacuously, which
+      // is the very bug class this guards against. Mocking the real
+      // Monday state is what makes it a test of the completeness check.
+      mockMatchRepository.count
+        .mockResolvedValueOnce(4) // total playoffs, just generated
+        .mockResolvedValueOnce(0); // none completed yet
+      mockMatchRepository.find.mockResolvedValue([]);
 
       await service.processPlayoffResultsAndSwap();
 
@@ -375,10 +474,59 @@ describe('SeasonTransitionService', () => {
       expect(mockPromotionService.swapTeamLeague).not.toHaveBeenCalled();
     });
 
+    it('treats a zero playoff count as vacuously complete', async () => {
+      // The trap in `areAllPlayoffsCompleted`: no playoffs means "nothing
+      // to swap", which must NOT be reported as "all swapped" by a
+      // separate path. Documented here so the behaviour is a decision
+      // rather than an accident.
+      pinClockTo(new Date(GAME_START_ISO), atSwapTime(1));
+      mockMatchRepository.count
+        .mockResolvedValueOnce(0) // no playoffs at all (single-tier league)
+        .mockResolvedValueOnce(0);
+      mockMatchRepository.find.mockResolvedValue([]);
+
+      await service.processPlayoffResultsAndSwap();
+
+      // It proceeds, and finds nothing to swap.
+      expect(mockMatchRepository.find).toHaveBeenCalledTimes(1);
+      expect(mockPromotionService.swapTeamLeague).not.toHaveBeenCalled();
+    });
+
+    it('runs on the Sunday of the playoff week and names that same season', async () => {
+      // The reason the swap moved off the Monday of week 1: from there the
+      // season number has already rolled over, so the handler had to
+      // subtract one to name the season it was actually swapping. Firing
+      // on the Sunday of the playoff week removes the fudge entirely.
+      pinClockTo(new Date(GAME_START_ISO), atSwapTime(1));
+
+      // areAllPlayoffsCompleted: 4 total, 4 completed
+      mockMatchRepository.count
+        .mockResolvedValueOnce(4)
+        .mockResolvedValueOnce(4);
+      mockMatchRepository.find.mockResolvedValue([]);
+
+      await service.processPlayoffResultsAndSwap();
+
+      expect(mockMatchRepository.find).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({ season: 1 }),
+        }),
+      );
+    });
+
+    it('does not fire a week early, when the regular season is still running', async () => {
+      pinClockTo(new Date(GAME_START_ISO), atWeek(1, PLAYOFF_TRIGGER_WEEK));
+
+      await service.processPlayoffResultsAndSwap();
+
+      expect(mockMatchRepository.count).not.toHaveBeenCalled();
+      expect(mockPromotionService.swapTeamLeague).not.toHaveBeenCalled();
+    });
+
     it('processes un-swapped playoffs for the season that just ended', async () => {
       // week 1 of season 2 — 4 days after the
       // week-16 playoffs were played.
-      pinClockTo(new Date(GAME_START_ISO), atWeek(2, 1));
+      pinClockTo(new Date(GAME_START_ISO), atSwapTime(1));
       mockMatchRepository.count
         .mockResolvedValueOnce(84) // total playoffs
         .mockResolvedValueOnce(84); // all completed
@@ -394,9 +542,9 @@ describe('SeasonTransitionService', () => {
       );
     });
 
-    it('skips when the ended season\'s playoffs are not all complete yet', async () => {
+    it("skips when the ended season's playoffs are not all complete yet", async () => {
       // week 1 of season 2
-      pinClockTo(new Date(GAME_START_ISO), atWeek(2, 1));
+      pinClockTo(new Date(GAME_START_ISO), atSwapTime(1));
       // areAllPlayoffsCompleted: total 4, completed 2 → not done
       mockMatchRepository.count
         .mockResolvedValueOnce(4) // total playoffs
@@ -410,7 +558,7 @@ describe('SeasonTransitionService', () => {
 
     it('runs the swap when all playoffs are complete', async () => {
       // week 1 of season 2
-      pinClockTo(new Date(GAME_START_ISO), atWeek(2, 1));
+      pinClockTo(new Date(GAME_START_ISO), atSwapTime(1));
       // areAllPlayoffsCompleted: 2 total, 2 completed → done
       mockMatchRepository.count
         .mockResolvedValueOnce(2) // total playoffs
@@ -429,7 +577,7 @@ describe('SeasonTransitionService', () => {
 
     it('triggers swapTeamLeague when a lower-league team wins a playoff', async () => {
       // week 1 of season 2
-      pinClockTo(new Date(GAME_START_ISO), atWeek(2, 1));
+      pinClockTo(new Date(GAME_START_ISO), atSwapTime(1));
       mockMatchRepository.count
         .mockResolvedValueOnce(1) // total
         .mockResolvedValueOnce(1); // completed
