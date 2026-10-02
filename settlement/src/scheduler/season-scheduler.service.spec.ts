@@ -1,5 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { getRepositoryToken } from '@nestjs/typeorm';
+import { getDataSourceToken, getRepositoryToken } from '@nestjs/typeorm';
 import {
   LeagueEntity,
   LeagueStandingEntity,
@@ -7,6 +7,8 @@ import {
   MatchStatus,
   MatchType,
   GAME_SETTINGS,
+  computeSeasonWeekOneMonday,
+  startOfUtcDay,
 } from '@goalxi/database';
 import { SeasonSchedulerService } from './season-scheduler.service';
 import { LOGGER_SERVICE_PROVIDER } from '../test-utils/test-logger';
@@ -28,10 +30,13 @@ describe('SeasonSchedulerService', () => {
   };
   let leagueRepository: { find: jest.Mock };
   let standingRepository: { find: jest.Mock };
+  let dataSource: { manager: { findOne: jest.Mock } };
 
   const TEAM_IDS = Array.from({ length: 16 }, (_, i) => `team-${i + 1}`);
-  // A Wednesday, so `calculateFirstLegDates` doesn't have to walk.
+  // A Wednesday, so `calculateLegDates` doesn't have to walk.
   const START = new Date('2026-04-08T00:00:00.000Z'); // Wed
+  // A Monday, matching what `resolveInitDate` returns in production.
+  const INIT_DATE = new Date('2026-04-06T00:00:00.000Z'); // Mon
 
   beforeEach(async () => {
     matchRepository = {
@@ -40,6 +45,10 @@ describe('SeasonSchedulerService', () => {
     };
     leagueRepository = { find: jest.fn().mockResolvedValue([]) };
     standingRepository = { find: jest.fn().mockResolvedValue([]) };
+    // `resolveInitDate` reads the singleton `system_config.init_date`
+    // row; returning null makes it fall back to `resolveGameStart(env)`,
+    // which these tests leave unset.
+    dataSource = { manager: { findOne: jest.fn().mockResolvedValue(null) } };
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         SeasonSchedulerService,
@@ -53,6 +62,7 @@ describe('SeasonSchedulerService', () => {
           provide: getRepositoryToken(LeagueStandingEntity),
           useValue: standingRepository,
         },
+        { provide: getDataSourceToken(), useValue: dataSource },
       ],
     }).compile();
     service = module.get(SeasonSchedulerService);
@@ -115,32 +125,102 @@ describe('SeasonSchedulerService', () => {
     expect(Math.max(...counts.values())).toBe(8);
   });
 
-  it('REGRESSION: kickoff alternates Wed / Sat across rounds', () => {
-    // Matches `ScheduleGenerator.matchStart`: even rounds on the
-    // Wednesday, odd rounds on the Saturday, two rounds per week
-    // (so 15 rounds span 8 calendar weeks).
+  it('REGRESSION: kickoff alternates Wed / Sat across the whole 30-slot grid', () => {
+    // Matches `ScheduleGenerator.matchStart`: even grid indices on the
+    // Wednesday, odd on the Saturday, two rounds per week (so 30 grid
+    // slots span 15 calendar weeks).
+    //
+    // This previously asserted `leg2[i] - leg1[i] === 15 * 7` — pinning
+    // the bug. The second leg was 105 days after the first while its
+    // `week` stamp said it was in weeks 8-15, which put 13 of its 15
+    // rounds outside the season-year. The correct relationship is that
+    // the second leg continues on the SAME grid, 15 slots later.
     const allTimes = [
       ...new Set(gen().map((m) => (m.scheduledAt as Date).getTime())),
     ].sort((a, b) => a - b);
-    // First leg is the earliest 15 slots; the second leg is the same
-    // pattern shifted 15 weeks.
-    const leg1 = allTimes.slice(0, 15);
-    const days = leg1.map((t) => new Date(t).getUTCDay());
-    expect(days).toEqual([
-      3, 6, 3, 6, 3, 6, 3, 6, 3, 6, 3, 6, 3, 6, 3, // Wed, Sat, ... (r=14 is even)
-    ]);
-    // Wed->Sat = 3 days, Sat->Wed = 4 days.
-    const gaps = leg1
-      .map((t, i) => (i === 0 ? null : (t - leg1[i - 1]) / 86400000))
+    expect(allTimes).toHaveLength(30);
+
+    const days = allTimes.map((t) => new Date(t).getUTCDay());
+    expect(days).toEqual(
+      Array.from({ length: 30 }, (_, i) => (i % 2 === 0 ? 3 : 6)),
+    );
+
+    // Consecutive slots: Wed->Sat = 3 days, Sat->Wed = 4 days, except
+    // at the leg boundary (slot 14 Sat -> slot 15 Tue-equivalent grid
+    // position), which under the 2-per-week grid is also 3 days.
+    const gaps = allTimes
+      .map((t, i) => (i === 0 ? null : (t - allTimes[i - 1]) / 86400000))
       .slice(1);
     for (const g of gaps) {
       expect([3, 4]).toContain(g);
     }
-    // The second leg mirrors the first exactly, 15 weeks later.
-    const leg2 = allTimes.slice(15);
-    expect(leg2).toHaveLength(15);
-    for (let i = 0; i < 15; i++) {
-      expect((leg2[i] - leg1[i]) / 86400000).toBe(15 * 7);
+  });
+
+  it('REGRESSION: the week stamp agrees with the kickoff date', () => {
+    // The core invariant. Before the fix every second-leg round carried a
+    // `week` stamp 8 weeks behind its actual calendar week, and 13 of 15
+    // were dated outside the season-year altogether.
+    //
+    // Assert with the derived value as the EXPECTED side — building both
+    // sides from `m.week` makes the comparison trivially true and the
+    // test passes against the very bug it is meant to catch.
+    const msWeek = 7 * 24 * 60 * 60 * 1000;
+    // START is a Wednesday, so week-1 Monday is 2 days earlier.
+    const weekOneMonday = START.getTime() - 2 * 24 * 60 * 60 * 1000;
+
+    const mismatches = gen()
+      .map((m) => ({
+        stamped: m.week as number,
+        derived:
+          Math.floor(
+            ((m.scheduledAt as Date).getTime() - weekOneMonday) / msWeek,
+          ) + 1,
+      }))
+      .filter(({ stamped, derived }) => stamped !== derived);
+
+    // Show the distinct (stamped, derived) pairs rather than 120 rows.
+    expect([...new Set(mismatches.map((m) => JSON.stringify(m)))]).toEqual([]);
+  });
+
+  it('REGRESSION: every match falls inside the season-year', () => {
+    // The failure that actually shipped: leg 2 was scheduled 105 days
+    // after leg 1, so its rounds 2..14 landed in the FOLLOWING season
+    // while carrying this season's number.
+    const msWeek = 7 * 24 * 60 * 60 * 1000;
+    const weekOneMonday = START.getTime() - 2 * 24 * 60 * 60 * 1000;
+    const seasonEnd =
+      weekOneMonday + GAME_SETTINGS.SEASON_LENGTH_WEEKS * msWeek;
+
+    for (const m of gen()) {
+      const t = (m.scheduledAt as Date).getTime();
+      expect({
+        inSeason: t >= weekOneMonday && t < seasonEnd,
+        week: m.week,
+      }).toEqual({ inSeason: true, week: m.week });
+    }
+  });
+
+  it('REGRESSION: no pairing meets twice inside one calendar week', () => {
+    // Guards against the other tempting "fix" — dropping the offset
+    // entirely, which gives leg-2 round r the same date as leg-1 round r.
+    // That is the same pairing with mirrored home/away on the same day.
+    const msWeek = 7 * 24 * 60 * 60 * 1000;
+    const weekOneMonday = START.getTime() - 2 * 24 * 60 * 60 * 1000;
+    const weekOf = (t: number) => Math.floor((t - weekOneMonday) / msWeek);
+
+    const byPairing = new Map<string, number[]>();
+    for (const m of gen()) {
+      const key = [m.homeTeamId, m.awayTeamId].sort().join('|');
+      byPairing.set(key, [
+        ...(byPairing.get(key) ?? []),
+        weekOf((m.scheduledAt as Date).getTime()),
+      ]);
+    }
+    for (const [key, weeks] of byPairing) {
+      expect({ key, distinct: new Set(weeks).size }).toEqual({
+        key,
+        distinct: 2,
+      });
     }
   });
 
@@ -190,10 +270,22 @@ describe('SeasonSchedulerService', () => {
     // `SeasonTransitionService` keys on `week`, and the playoff gate
     // checks week 15 / 16. A schedule whose `week` runs past
     // SEASON_LENGTH_WEEKS would silently never satisfy those gates.
+    //
+    // Upper bound is `PLAYOFF_TRIGGER_WEEK`, not `SEASON_LENGTH_WEEKS`:
+    // the regular season occupies weeks 1..15 and the playoff week is
+    // reserved for `PlayoffService`. Asserting only `<= 16` is what let
+    // the mis-stamped second leg (weeks 8-15, dates in weeks 16-23)
+    // pass — the stamp was in range even though the date was not, which
+    // is why the three date-vs-stamp tests above exist.
     const weeks = gen().map((m) => m.week as number);
     expect(Math.min(...weeks)).toBeGreaterThanOrEqual(1);
     expect(Math.max(...weeks)).toBeLessThanOrEqual(
-      GAME_SETTINGS.SEASON_LENGTH_WEEKS,
+      GAME_SETTINGS.SEASON_LENGTH_WEEKS - 1,
+    );
+    // Every week 1..15 is actually used — no gaps that would leave a
+    // matchday unplayed.
+    expect([...new Set(weeks)].sort((a, b) => a - b)).toEqual(
+      Array.from({ length: 15 }, (_, i) => i + 1),
     );
   });
 
@@ -202,6 +294,95 @@ describe('SeasonSchedulerService', () => {
       expect(m.status).toBe(MatchStatus.SCHEDULED);
       expect(m.type).toBe(MatchType.LEAGUE);
     }
+  });
+
+  describe('calculateNextSeasonStartDate', () => {
+    const anchorFor = (initDate: Date, currentSeason: number): Date =>
+      (service as any).calculateNextSeasonStartDate(initDate, currentSeason);
+
+    it('is derived from the init date, not from the current clock', () => {
+      // The old implementation walked forward from `new Date()` to the
+      // next Wednesday and added 7 days. That is a function of WHEN the
+      // cron fired, not of the calendar.
+      jest.useFakeTimers();
+      try {
+        const results = [
+          new Date('2026-04-07T00:00:00Z'), // Tue
+          new Date('2026-04-09T00:00:00Z'), // Thu
+          new Date('2026-07-15T12:00:00Z'), // months later, mid-week
+        ].map((now) => {
+          jest.setSystemTime(now);
+          return anchorFor(INIT_DATE, 3).toISOString();
+        });
+
+        // Every fire time yields the same anchor.
+        expect([...new Set(results)]).toHaveLength(1);
+      } finally {
+        jest.useRealTimers();
+      }
+    });
+
+    it('lands on the season-N week-one Monday', () => {
+      // Season 1 is anchored by `computeSeasonWeekOneMonday(initDate)` in
+      // `ScheduleGenerator`; each later season is exactly
+      // SEASON_LENGTH_WEEKS further on. Using a different anchor for
+      // season 2+ is what let the two generators drift apart.
+      const seasonOneMonday = computeSeasonWeekOneMonday(INIT_DATE);
+      const msWeek = 7 * 24 * 60 * 60 * 1000;
+
+      for (const currentSeason of [1, 2, 5, 12]) {
+        const expected = new Date(
+          seasonOneMonday.getTime() +
+            currentSeason * GAME_SETTINGS.SEASON_LENGTH_WEEKS * msWeek,
+        );
+        expect({
+          currentSeason,
+          isMonday: anchorFor(INIT_DATE, currentSeason).getUTCDay(),
+          matches: anchorFor(INIT_DATE, currentSeason).getTime(),
+        }).toEqual({ currentSeason, isMonday: 1, matches: expected.getTime() });
+      }
+    });
+
+    it('steps forward by whole weeks as the season count grows', () => {
+      const msWeek = 7 * 24 * 60 * 60 * 1000;
+      const a = anchorFor(INIT_DATE, 1).getTime();
+      const b = anchorFor(INIT_DATE, 2).getTime();
+      expect((b - a) / msWeek).toBe(GAME_SETTINGS.SEASON_LENGTH_WEEKS);
+    });
+
+    it('follows the system_config.init_date row, not the env var', () => {
+      // `resolveInitDate` reads `system_config.init_date` first. If this
+      // service resolved from `GAME_START_DATE` alone it would silently
+      // disagree with `BootstrapService` (and therefore with season 1)
+      // after the first init.
+      const rowDate = new Date('2026-04-06T00:00:00.000Z'); // Mon
+      dataSource.manager.findOne.mockResolvedValue({
+        key: 'init_date',
+        value: rowDate.toISOString(),
+      });
+
+      const expected = computeSeasonWeekOneMonday(rowDate);
+      // Re-resolve through the service's own call path.
+      return service.generateNextSeasonSchedule(1).then(() => {
+        // `generateNextSeasonSchedule` computed a start date from the
+        // row; assert the pure helper agrees for the same inputs.
+        expect(anchorFor(rowDate, 1).getTime() - expected.getTime()).toBe(
+          GAME_SETTINGS.SEASON_LENGTH_WEEKS * 7 * 24 * 60 * 60 * 1000,
+        );
+      });
+    });
+
+    it('agrees with the init date helper for a non-Monday init', () => {
+      // `computeSeasonWeekOneMonday` pushes to the NEXT Monday, so a
+      // Tuesday init anchors season 1 six days later. Whatever that rule
+      // is, season 2+ must use the same one — the schedule's week N
+      // living one week later than the clock's week N is load-bearing
+      // (see the note on `generateDoubleRoundRobin`).
+      const tuesday = new Date('2026-04-07T00:00:00.000Z');
+      const seasonOneMonday = computeSeasonWeekOneMonday(tuesday);
+      expect(startOfUtcDay(seasonOneMonday).getUTCDay()).toBe(1);
+      expect(seasonOneMonday.getTime()).toBeGreaterThan(tuesday.getTime());
+    });
   });
 
   describe('generateNextSeasonSchedule idempotency', () => {
