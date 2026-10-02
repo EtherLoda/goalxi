@@ -70,18 +70,6 @@ import { GAME_SETTINGS } from '../constants/game.constants';
 export const DECLINE_START_AGE = 28;
 
 /**
- * Per-week decline coefficient.
- *
- * A per-WEEK rate, so it is coupled to `SEASON_LENGTH_WEEKS`: a shorter
- * game-year needs proportionally fewer weeks at a proportionally higher
- * rate for the same per-year decline. At 11 weeks/season that is
- * `0.013 × 16/11 ≈ 0.0189`.
- *
- * Tuned so a peak-18 physical skill lands at ~9.0 (just over half) at age
- * 34 with p=1.5 in discrete game-time. Do NOT change it without re-running
- * `player-decline.spec.ts`.
- */
-/**
  * Per-GAME-YEAR decline coefficient — this is the calibrated quantity.
  *
  * `0.013` per week for the 16-week seasons the curve was tuned against,
