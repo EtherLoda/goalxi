@@ -204,6 +204,54 @@ describe("season shape constants", () => {
   const { GAME_SETTINGS } =
     require("./game.constants") as typeof import("./game.constants");
 
+  it("no week gate branches on ROUNDS_PER_WEEK", () => {
+    // A wrong *derivation* is invisible to the RULES table above.
+    //
+    // `season-test-cli.ts` gated promotions on a bare `week === 15`.
+    // Replacing it with `week === GAME_SETTINGS.ROUNDS_PER_WEEK + 1`
+    // removed the literal — so every rule above went quiet — while being
+    // wrong: `ROUNDS_PER_WEEK` is matches per week (3), not the length of
+    // the regular season, which is `SEASON_LENGTH_WEEKS - 1` (10).
+    // Promotions fired in week 4, and only the full-season E2E caught it.
+    //
+    // So: a week gate may not mention `ROUNDS_PER_WEEK` at all.
+    const offenders: string[] = [];
+    for (const file of SCANNED_ROOTS.flatMap((r) => walk(join(REPO_ROOT, r)))) {
+      const rel = relative(file);
+      if (rel === "libs/database/src/constants/season-shape.spec.ts") continue;
+
+      const src = stripComments(readFileSync(file, "utf8"));
+      const re =
+        /\bweek\s*(?:===|!==|==|!=|<|>|<=|>=)[^;{]*?\bROUNDS_PER_WEEK\b/g;
+      for (const m of src.match(re) ?? []) {
+        offenders.push(`${rel}: \`${m.trim()}\``);
+      }
+    }
+    expect(offenders).toEqual([]);
+  });
+
+  it("the regular season is 10 weeks and the playoff week is the 11th", () => {
+    expect(GAME_SETTINGS.SEASON_LENGTH_WEEKS - 1).toBe(10);
+    expect(GAME_SETTINGS.ROUNDS_PER_WEEK).toBe(3);
+    // Different quantities — which is the whole reason the rule above
+    // exists. If these ever legitimately converge, delete that rule in the
+    // same commit rather than letting it rot.
+    expect(GAME_SETTINGS.ROUNDS_PER_WEEK).not.toBe(
+      GAME_SETTINGS.SEASON_LENGTH_WEEKS - 1,
+    );
+  });
+
+  it("season-test-cli gates the regular season and the rollover on SEASON_LENGTH_WEEKS", () => {
+    const src = readFileSync(
+      join(REPO_ROOT, "settlement/scripts/season-test-cli.ts"),
+      "utf8",
+    );
+    expect(src).toContain(
+      "const lastRegularWeek = GAME_SETTINGS.SEASON_LENGTH_WEEKS - 1;",
+    );
+    expect(src).toContain("if (week === GAME_SETTINGS.SEASON_LENGTH_WEEKS) {");
+  });
+
   it("SEASON_LENGTH_WEEKS is 11", () => {
     expect(GAME_SETTINGS.SEASON_LENGTH_WEEKS).toBe(11);
   });

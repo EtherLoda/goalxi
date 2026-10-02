@@ -31,7 +31,10 @@ import {
   StadiumEntity,
   distributeTrainingPoints,
   GAME_SETTINGS,
+  getEventTwoAxis,
+  SeasonResultEntity,
 } from '@goalxi/database';
+import { SeasonSchedulerService } from '../src/scheduler/season-scheduler.service';
 
 // ============ CLI Args ============
 
@@ -447,120 +450,72 @@ function randomFloat(min: number, max: number): number {
 
 // ============ Schedule Generation ============
 
-async function generateSchedule(ds: DataSource, season: number): Promise<void> {
-  const leagueRepo = ds.getRepository(LeagueEntity);
-  const teamRepo = ds.getRepository(TeamEntity);
-  const matchRepo = ds.getRepository(MatchEntity);
-
-  // Base date for scheduling (Season 1 starts at week 1)
-  const seasonStartDate = new Date();
-  seasonStartDate.setHours(13, 0, 0, 0); // 1 PM
-
-  const leagues = await leagueRepo.find();
-  let totalMatches = 0;
-
-  for (const league of leagues) {
-    const teams = await teamRepo.find({ where: { leagueId: league.id } });
-    const teamIds = teams.map((t) => t.id);
-
-    if (teamIds.length < 4) continue;
-
-    // Double round-robin
-    const numRounds = teamIds.length - 1;
-
-    // First round (home games)
-    for (let round = 0; round < numRounds; round++) {
-      const matchups = generateRoundMatchups(
-        teamIds[0],
-        teamIds.slice(1),
-        round,
-      );
-      const matchDate = new Date(seasonStartDate);
-      matchDate.setDate(matchDate.getDate() + round * 7); // Each round is 1 week apart
-
-      for (const { home, away } of matchups) {
-        await matchRepo.save(
-          matchRepo.create({
-            leagueId: league.id,
-            homeTeamId: home,
-            awayTeamId: away,
-            season,
-            week: round + 1,
-            status: MatchStatus.SCHEDULED,
-            type: MatchType.LEAGUE,
-            scheduledAt: matchDate,
-            tacticsLocked: false,
-            homeForfeit: false,
-            awayForfeit: false,
-          }),
-        );
-        totalMatches++;
-      }
-    }
-
-    // Second round (away games)
-    for (let round = 0; round < numRounds; round++) {
-      const matchups = generateRoundMatchups(
-        teamIds[0],
-        teamIds.slice(1),
-        round,
-      );
-      const matchDate = new Date(seasonStartDate);
-      matchDate.setDate(matchDate.getDate() + (numRounds + round) * 7);
-
-      for (const { home, away } of matchups) {
-        await matchRepo.save(
-          matchRepo.create({
-            leagueId: league.id,
-            homeTeamId: away,
-            awayTeamId: home,
-            season,
-            week: numRounds + round + 1,
-            status: MatchStatus.SCHEDULED,
-            type: MatchType.LEAGUE,
-            scheduledAt: matchDate,
-            tacticsLocked: false,
-            homeForfeit: false,
-            awayForfeit: false,
-          }),
-        );
-        totalMatches++;
-      }
-    }
-  }
-
-  console.log(
-    `[Schedule] Generated ${totalMatches} matches for Season ${season}`,
+/**
+ * The production season scheduler, built by hand.
+ *
+ * This script used to carry its own `generateSchedule`, and it had
+ * drifted from `ScheduleSchedulerService` in every dimension that
+ * matters: 1 matchday a week instead of `ROUNDS_PER_WEEK`, a 13:00 local
+ * kickoff instead of `MATCH_DAY_OFFSETS` at 06:00 UTC, and a naive
+ * `generateRoundMatchups` rotation instead of circle-method pairings with
+ * the Thielen home/away solve. A rollover through it produced a 30-week
+ * all-Friday season — 30, not 11 — which no production code path would
+ * ever produce.
+ *
+ * Rather than keep a second copy of the algorithm alive, the rollover
+ * calls the real thing. `SeasonSchedulerService` only needs a logger,
+ * three repositories and the data source, so it can be constructed
+ * outside Nest.
+ */
+function productionScheduler(ds: DataSource): SeasonSchedulerService {
+  return new SeasonSchedulerService(
+    {
+      info: (m: unknown) => console.log(m),
+      warn: (m: unknown) => console.warn(m),
+      error: (m: unknown) => console.error(m),
+      debug: (m: unknown) => console.log(m),
+      verbose: (m: unknown) => console.log(m),
+    } as never,
+    ds.getRepository(MatchEntity),
+    ds.getRepository(LeagueEntity),
+    ds.getRepository(LeagueStandingEntity),
+    ds,
   );
 }
-
-function generateRoundMatchups(
-  fixedTeam: string,
-  rotatingTeams: string[],
-  round: number,
-): Array<{ home: string; away: string }> {
-  const matchups: Array<{ home: string; away: string }> = [];
-  const rotated = [...rotatingTeams];
-  const last = rotated.pop()!;
-  rotated.unshift(last);
-
-  matchups.push({ home: fixedTeam, away: rotated[0] });
-  for (let i = 1; i < rotated.length / 2; i++) {
-    matchups.push({
-      home: rotated[rotatingTeams.length - i],
-      away: rotated[i],
-    });
-  }
-
-  return matchups;
-}
-
 // ============ Match Simulation (Simplified for testing) ============
 
 /**
  * Simplified match simulation - generates realistic random scores for integration testing
  * Uses basic team strength estimation from player overall ratings
  */
+/**
+ * RFC 0002 two-axis fields for a `match_event` row.
+ *
+ * `getEventTwoAxis` returns `{ classId, ... }`, but the entity column is
+ * `eventClassId`. Spreading the helper's result straight into
+ * `eventRepo.create()` silently sets an unmapped property and leaves
+ * `event_class_id` NULL — which violates its NOT NULL constraint at
+ * insert time, not at compile time. `simulation.processor.ts` remaps
+ * explicitly for the same reason; this mirrors it.
+ */
+function twoAxis(typeName: string) {
+  const axis = getEventTwoAxis(typeName);
+  // Fail here, not 20400 matches into a NOT NULL violation. Every event
+  // this script writes must have a class; an unmapped `typeName` is a
+  // bug in EVENT_TWO_AXIS, and it should say so.
+  if (axis.classId == null) {
+    throw new Error(
+      `[season-test-cli] EVENT_TWO_AXIS has no entry for '${typeName}'. ` +
+        `event_class_id is NOT NULL, so this event cannot be persisted.`,
+    );
+  }
+  return {
+    eventClassId: axis.classId,
+    outcomeId: axis.outcomeId,
+    outcomeCode: axis.outcomeCode,
+  };
+}
+
 async function simulateMatch(
   ds: DataSource,
   match: MatchEntity,
@@ -617,14 +572,16 @@ async function simulateMatch(
         matchId: match.id,
         minute,
         // `type` (legacy int enum) was dropped in
-        // RFC 0002; the event is now identified by
-        // `typeName` (wire format) + the
-        // `eventClassId` / `outcomeId` two-axis
-        // tuple. This test dev-script just wants
-        // a row to exist; the engine still falls
-        // back to `typeName` when the two-axis is
-        // NULL.
-        typeName: 'Goal',
+        // RFC 0002: the event is identified by `typeName` (wire
+        // format) PLUS the `eventClassId` / `outcomeId` /
+        // `outcomeCode` two-axis tuple. The `event_class_id` column is
+        // NOT NULL, so the tuple is mandatory on insert — the fallback
+        // to `typeName` is a *read* path for legacy rows, not a way to
+        // skip writing it. The simulator processor does the same thing
+        // via `getEventTwoAxis`; this dev-script predated that and
+        // crashed on the NOT NULL constraint.
+        ...twoAxis('goal'),
+        typeName: 'goal',
         teamId: match.homeTeamId,
         playerId: scorer?.id,
         eventScheduledTime: new Date(Date.now() + minute * 60 * 1000),
@@ -640,10 +597,10 @@ async function simulateMatch(
         matchId: match.id,
         minute,
         // See note on the home loop — `type` was
-        // dropped in RFC 0002; `typeName` is the
-        // wire format and the engine falls back to
-        // it when the two-axis encoding is NULL.
-        typeName: 'Goal',
+        // dropped in RFC 0002 and `typeName` alone
+        // is not enough: `event_class_id` is NOT NULL.
+        ...twoAxis('goal'),
+        typeName: 'goal',
         teamId: match.awayTeamId,
         playerId: scorer?.id,
         eventScheduledTime: new Date(Date.now() + minute * 60 * 1000),
@@ -653,7 +610,14 @@ async function simulateMatch(
   }
 
   // Update match
-  match.status = MatchStatus.IN_PROGRESS;
+  //
+  // `COMPLETED`, not `IN_PROGRESS`. Leaving finished matches in
+  // `IN_PROGRESS` means every "are this week's matches done?" check
+  // downstream answers no forever — `LeagueAwardService`'s
+  // `areAllWeekMatchesCompleted` counts on `status = COMPLETED`, so a
+  // full run of this script used to leave the whole season permanently
+  // unpaid and invisible to the settlement crons.
+  match.status = MatchStatus.COMPLETED;
   match.homeScore = homeGoals;
   match.awayScore = awayGoals;
   match.startedAt = new Date();
@@ -880,7 +844,8 @@ async function main() {
     // Generate leagues, teams, schedule
     await generateLeagues(ds, args.tiers);
     await generateTeams(ds);
-    await generateSchedule(ds, 1);
+    // `generateNextSeasonSchedule(0)` produces season 1.
+    await productionScheduler(ds).generateNextSeasonSchedule(0);
     await createTestUser(ds);
   } else {
     console.log('[Data] Using existing data');
@@ -924,10 +889,21 @@ async function main() {
     // Weekly summary
     await printWeekSummary(ds, week, currentSeason);
 
-    // The week after the last regular round: promotion/relegation playoffs.
+    // The LAST regular-season week — when the table is final and
+    // promotion/relegation is decided. Matches `SEASON_LAST_WEEK - 1` in
+    // `season-transition.service.ts`.
+    //
     // Was a bare `week === 15`, which silently became "never" when the
     // season was compressed to 11 weeks.
-    if (week === GAME_SETTINGS.ROUNDS_PER_WEEK + 1) {
+    //
+    // NB: this was briefly mis-derived as `ROUNDS_PER_WEEK + 1`, on the
+    // theory that the two agreed. They do not — `ROUNDS_PER_WEEK` is
+    // matches per week (3), while the regular season is
+    // `SEASON_LENGTH_WEEKS - 1` weeks (10). Promotions therefore fired in
+    // week 4 and the full-season E2E caught it. No tripwire could: the
+    // literal was gone, only a wrong derivation remained.
+    const lastRegularWeek = GAME_SETTINGS.SEASON_LENGTH_WEEKS - 1;
+    if (week === lastRegularWeek) {
       console.log(`\n[Week ${week}] Generating playoff matches...`);
       // For simplicity, process promotions directly
       await processPromotions(ds, currentSeason);
@@ -937,9 +913,14 @@ async function main() {
     // Was a bare `week === 16`, same failure mode as above.
     if (week === GAME_SETTINGS.SEASON_LENGTH_WEEKS) {
       console.log(`\n[Season ${currentSeason}] Season complete!`);
+      // `generateNextSeasonSchedule(n)` produces season `n + 1`, so it
+      // takes the season that just ENDED. This script incremented
+      // `currentSeason` first and passed the result, which generated
+      // season 3 and skipped a season; passing `currentSeason - 1`
+      // instead generated season 1 and tripped the idempotency guard.
+      // The un-incremented value is the right one.
+      await productionScheduler(ds).generateNextSeasonSchedule(currentSeason);
       currentSeason++;
-      // Generate new season schedule
-      await generateSchedule(ds, currentSeason);
       console.log(`[Season ${currentSeason}] New season schedule generated`);
     }
   }
