@@ -1,3 +1,4 @@
+import { Public } from '@/decorators/public.decorator';
 import { Controller, Get, HttpStatus, Res } from '@nestjs/common';
 import type { Response } from 'express';
 import { HealthStateService } from './health-state.service';
@@ -14,7 +15,22 @@ import { SkipReadiness } from './skip-readiness.decorator';
  * K8s figures that out from the timeout, not from a 200/503. Adding
  * a separate `/health/live` would just duplicate the same code path
  * for no operational gain.
+ *
+ * `@Public()` and `@SkipReadiness()` are both required and neither
+ * substitutes for the other:
+ *   - `@SkipReadiness()` exempts the route from the global
+ *     `ReadinessGuard`, which would otherwise answer 503 itself and
+ *     hide the snapshot (and the recovery transition) from K8s.
+ *   - `@Public()` exempts it from the global `AuthGuard`. Without it
+ *     the probe gets 401 — a probe cannot present a bearer token, so
+ *     the endpoint would be permanently "unready" to the only caller
+ *     that matters.
+ *
+ * There is no information leak worth guarding here: the snapshot is
+ * this process's own readiness state, and the alternative (a probe
+ * that always 401s) is strictly worse than exposing it.
  */
+@Public()
 @SkipReadiness()
 @Controller('health')
 export class HealthController {
