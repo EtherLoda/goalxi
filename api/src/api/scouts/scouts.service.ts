@@ -1,4 +1,5 @@
 import {
+  DEFAULT_TIER_DISTRIBUTION,
   PlayerEntity,
   SCOUT_ABILITY_CHANCE,
   SCOUT_ABILITY_POOL,
@@ -104,13 +105,7 @@ function generatePlayerData(team: TeamEntity) {
   // for the potential-skill range, which keeps ~99% of draws inside
   // [8, 20] after the hard caps we apply below.
   const raw = generateScoutCandidate({
-    tierDistribution: {
-      LEGEND: 0.005,
-      ELITE: 0.015,
-      HIGH_PRO: 0.05,
-      REGULAR: 0.43,
-      LOW: 0.5,
-    },
+    tierDistribution: DEFAULT_TIER_DISTRIBUTION,
     algorithm: 'gaussian',
     gaussianMean: 13,
     gaussianStdDev: 2.5,

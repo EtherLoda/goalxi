@@ -1,6 +1,14 @@
 // ============== 球员技能键常量 ==============
 
-import { currentGameDay, rollSpecialty, SpecialtyTier } from '@goalxi/database';
+import {
+  currentGameDay,
+  derivePotentialTier,
+  PotentialTier,
+  rollSpecialty,
+  calculatePotentialAbility as sharedCalculatePotentialAbility,
+  PlayerSkills as SharedPlayerSkills,
+  SpecialtyTier,
+} from '@goalxi/database';
 
 /** 外场球员技能键 (10个) */
 export const OUTFIELD_SKILL_KEYS = [
@@ -31,12 +39,16 @@ export const GK_SKILL_KEYS = [
 
 // ============== 类型定义 ==============
 
-export interface PlayerSkills {
-  physical: { pace: number; strength: number };
-  technical: Record<string, number>;
-  mental: { positioning: number; composure: number };
-  setPieces: { freeKicks: number; penalties: number };
-}
+/**
+ * Alias of the canonical shape in `@goalxi/database`.
+ *
+ * This used to be a local interface whose `technical` was
+ * `Record<string, number>` — looser than the entity's
+ * `OutfieldTechnical | GKTechnical`. That difference is why the shared
+ * `calculatePotentialAbility` could not be called from here without a
+ * cast, and a cast is exactly where a shape drift hides.
+ */
+export type PlayerSkills = SharedPlayerSkills;
 
 export interface GeneratedPlayerData {
   name: string;
@@ -47,7 +59,11 @@ export interface GeneratedPlayerData {
   currentSkills: PlayerSkills;
   potentialSkills: PlayerSkills;
   potentialAbility: number;
-  potentialTier: PlayerTier;
+  /**
+   * Product band (five steps) — what the API and UI show. NOT the
+   * nine-step `PlayerTier` used internally to steer generation.
+   */
+  potentialTier: PotentialTier;
   /**
    * v2 core specialty — null for the 50% of players who have no
    * specialty. Replaces the legacy v1 `abilities` field. See
@@ -257,31 +273,11 @@ export function calculatePotentialAbility(
   potentialSkills: PlayerSkills,
   isGoalkeeper: boolean,
 ): number {
-  const physical =
-    (potentialSkills.physical.pace + potentialSkills.physical.strength) * 1;
-
-  const technical =
-    Object.values(potentialSkills.technical).reduce(
-      (sum, val) => sum + val,
-      0,
-    ) * 1;
-
-  const mental =
-    (potentialSkills.mental.positioning + potentialSkills.mental.composure) *
-    0.4;
-
-  const setPieces =
-    (potentialSkills.setPieces.freeKicks +
-      potentialSkills.setPieces.penalties) *
-    0.1;
-
-  const rawPA = physical + technical + mental + setPieces;
-
-  // 归一化到 5-100
-  const maxRaw = isGoalkeeper ? 120 : 140;
-  const pa = Math.round((rawPA / maxRaw) * 100);
-
-  return clamp(pa, 5, 100);
+  // Delegates to the shared implementation. This used to be a third
+  // copy with its own `maxRaw` and its own clamp, and the two other
+  // copies omitted the goalkeeper branch entirely — capping every
+  // keeper at PA 86. One implementation, one ceiling table.
+  return sharedCalculatePotentialAbility(potentialSkills, isGoalkeeper);
 }
 
 /**
@@ -401,7 +397,23 @@ export function generatePlayerData(options?: {
     potentialSkills,
     isGoalkeeper,
   );
-  const potentialTier = determineTier(potentialAbility);
+
+  // The OUTPUT label is the product scale, not the nine-step internal
+  // tier. `targetTier` above is a generation knob — it picked `tierMean`
+  // and the impact coefficients — but it must not escape into the API.
+  //
+  // This used to be `determineTier(potentialAbility)` (nine steps), and
+  // `scouts.service` copied that label straight into the candidate JSONB
+  // and onto the promoted `player` row. Meanwhile `mapYouthToDto`
+  // returned the five-step scale for the same players, and
+  // `web/src/app/[locale]/youth/squad/page.tsx` sorts on exactly those
+  // five names. A `SUPERSTAR` / `ROTATION` / `PROSPECT` label therefore
+  // resolved to `tierOrder[label] ?? 0` — sorted to the bottom of the
+  // squad list — and rendered a badge outside the design system.
+  //
+  // `determineTier` is kept below as the inverse of `randomTier()` for
+  // callers that want to report the generation band.
+  const potentialTier = derivePotentialTier(potentialAbility);
 
   // 当前技能：基于 PA 的 50-80% 范围内
   const currentRatio = 0.5 + Math.random() * 0.3; // 50%-80% of potential

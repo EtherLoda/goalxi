@@ -1,11 +1,17 @@
-import { currentGameDay } from '../utils/game-clock';
-import { PlayerAbility, ScoutCandidatePlayerData } from '../index';
-import { rollSpecialty } from './specialty-generator';
+import { currentGameDay } from "../utils/game-clock";
+import { PlayerAbility, ScoutCandidatePlayerData } from "../index";
+import { rollSpecialty } from "./specialty-generator";
+import { PotentialTier } from "./potential";
 
 /**
  * Probability of a candidate falling into each potential tier. Sum should be 1.0.
+ *
+ * Alias of {@link PotentialTier} rather than a second literal union: the
+ * generator draws a band and the product displays the same band, so the
+ * two must not be able to drift. This used to be an independent
+ * `'LOW' | 'REGULAR' | 'HIGH_PRO' | 'ELITE' | 'LEGEND'` union.
  */
-export type ScoutTier = 'LOW' | 'REGULAR' | 'HIGH_PRO' | 'ELITE' | 'LEGEND';
+export type ScoutTier = PotentialTier;
 
 /**
  * Two algorithms are supported:
@@ -15,7 +21,7 @@ export type ScoutTier = 'LOW' | 'REGULAR' | 'HIGH_PRO' | 'ELITE' | 'LEGEND';
  * - 'uniform': potential ability (PA) is uniform in `paRange`; per-skill values
  *   are clamped to PA/5 ± 3. Used by the cron-driven `ScoutSchedulerService`.
  */
-export type ScoutGenerationAlgorithm = 'gaussian' | 'uniform';
+export type ScoutGenerationAlgorithm = "gaussian" | "uniform";
 
 export interface ScoutGeneratorOptions {
   /** Optional override for `Math.random()` to make the generator testable. */
@@ -30,7 +36,9 @@ export interface ScoutGeneratorOptions {
   gaussianMean?: number;
   gaussianStdDev?: number;
   /** Impact coefficients for medium/low-skill impact per tier (gaussian only). */
-  impactCoefficients?: Partial<Record<ScoutTier, { medium: number; low: number }>>;
+  impactCoefficients?: Partial<
+    Record<ScoutTier, { medium: number; low: number }>
+  >;
   /** Algorithm = 'uniform' */
   paRange?: [number, number];
   /** Current-skill ratio applied to potential. Default: [0.5, 0.8]. */
@@ -44,19 +52,27 @@ export interface ScoutGeneratorOptions {
   /** Outfield positions to pick from (non-GK only). */
   outfieldPositions: string[];
   /** Per-position impact buckets. Keys are position names. */
-  positionSkillImpact: Record<string, { high: string[]; medium: string[]; low: string[] }>;
+  positionSkillImpact: Record<
+    string,
+    { high: string[]; medium: string[]; low: string[] }
+  >;
   /** Probability that the candidate is a goalkeeper. */
   goalkeeperChance?: number;
   /** Min / max age in years. */
   ageRange?: [number, number];
   /** Nationality pool + name provider, used to seed playerData.name. */
   pickRandomNationality: () => string;
-  getRandomNameByNationality: (nationality: string) => { firstName: string; lastName: string };
+  getRandomNameByNationality: (nationality: string) => {
+    firstName: string;
+    lastName: string;
+  };
 }
 
 /** A complete scout candidate payload ready to be persisted in `scout_candidate.playerData`. */
-export interface GeneratedScoutCandidate
-  extends Omit<ScoutCandidatePlayerData, 'revealedSkills' | 'joinedAt' | 'potentialRevealed' | 'potentialTier'> {
+export interface GeneratedScoutCandidate extends Omit<
+  ScoutCandidatePlayerData,
+  "revealedSkills" | "joinedAt" | "potentialRevealed" | "potentialTier"
+> {
   potentialTier: ScoutTier;
   position: string;
   revealedSkills: string[];
@@ -81,51 +97,54 @@ export function generateScoutCandidate(
 
   const isGoalkeeper = rand() < (options.goalkeeperChance ?? 0.1);
   const nationality = options.pickRandomNationality();
-  const { firstName, lastName } = options.getRandomNameByNationality(nationality);
+  const { firstName, lastName } =
+    options.getRandomNameByNationality(nationality);
   const ageRange = options.ageRange ?? [15, 16];
   const ageYears =
-    ageRange[0] +
-    Math.floor(rand() * (ageRange[1] - ageRange[0] + 1));
+    ageRange[0] + Math.floor(rand() * (ageRange[1] - ageRange[0] + 1));
   // Game-world age in days: age in years × 112 + jitter [0, 112).
-  const daysAlive = ageYears * SKILL_VALUE_MAX_DAYS + Math.floor(rand() * SKILL_VALUE_MAX_DAYS);
+  const daysAlive =
+    ageYears * SKILL_VALUE_MAX_DAYS + Math.floor(rand() * SKILL_VALUE_MAX_DAYS);
   // Place creation day so the player is `daysAlive` days old as of "now".
   const createdDay = currentGameDay(new Date(now())) - daysAlive;
 
-  const position = isGoalkeeper ? 'GK' : pick(options.outfieldPositions, rand);
+  const position = isGoalkeeper ? "GK" : pick(options.outfieldPositions, rand);
   const impact = options.positionSkillImpact[position];
   const keys = isGoalkeeper
     ? [
-        'pace',
-        'strength',
-        'reflexes',
-        'handling',
-        'aerial',
-        'positioning',
-        'composure',
-        'freeKicks',
-        'penalties',
+        "pace",
+        "strength",
+        "reflexes",
+        "handling",
+        "aerial",
+        "positioning",
+        "composure",
+        "freeKicks",
+        "penalties",
       ]
     : [
-        'pace',
-        'strength',
-        'finishing',
-        'passing',
-        'dribbling',
-        'defending',
-        'positioning',
-        'composure',
-        'freeKicks',
-        'penalties',
+        "pace",
+        "strength",
+        "finishing",
+        "passing",
+        "dribbling",
+        "defending",
+        "positioning",
+        "composure",
+        "freeKicks",
+        "penalties",
       ];
 
   const targetTier = pickTier(options.tierDistribution, rand);
-  const coeffs =
-    options.impactCoefficients?.[targetTier] ?? { medium: 0.9, low: 0.8 };
+  const coeffs = options.impactCoefficients?.[targetTier] ?? {
+    medium: 0.9,
+    low: 0.8,
+  };
 
   const potential: Record<string, number> = {};
   const current: Record<string, number> = {};
 
-  if (options.algorithm === 'gaussian') {
+  if (options.algorithm === "gaussian") {
     const mean = options.gaussianMean ?? 15;
     const stdDev = options.gaussianStdDev ?? 2;
     for (const k of keys) {
@@ -134,7 +153,11 @@ export function generateScoutCandidate(
       else if (impact.high.includes(k)) m = mean;
       else m = mean * coeffs.medium;
       potential[k] = round2(
-        clamp(gaussianRandom(m, stdDev, rand), SKILL_VALUE_MIN, SKILL_VALUE_MAX),
+        clamp(
+          gaussianRandom(m, stdDev, rand),
+          SKILL_VALUE_MIN,
+          SKILL_VALUE_MAX,
+        ),
       );
     }
     // Current skills: 50-80% of potential (gaussian), capped at potential.
@@ -145,7 +168,11 @@ export function generateScoutCandidate(
       const ratioPick = ratio[0] + rand() * (ratio[1] - ratio[0]);
       const meanCurrent = potential[k] * ratioPick;
       current[k] = round2(
-        clamp(gaussianRandom(meanCurrent, 1.5, rand), SKILL_VALUE_MIN, potential[k]),
+        clamp(
+          gaussianRandom(meanCurrent, 1.5, rand),
+          SKILL_VALUE_MIN,
+          potential[k],
+        ),
       );
     }
   } else {
@@ -155,9 +182,17 @@ export function generateScoutCandidate(
     const targetAvg = pa / 5;
     const ratio = options.currentRatio ?? [0.35, 0.45];
     for (const k of keys) {
-      const potVal = clamp(targetAvg + (rand() * 6 - 3), SKILL_VALUE_MIN, SKILL_VALUE_MAX);
+      const potVal = clamp(
+        targetAvg + (rand() * 6 - 3),
+        SKILL_VALUE_MIN,
+        SKILL_VALUE_MAX,
+      );
       potential[k] = round2(potVal);
-      const curVal = clamp(potential[k] * (ratio[0] + rand() * (ratio[1] - ratio[0])), SKILL_VALUE_MIN, potential[k]);
+      const curVal = clamp(
+        potential[k] * (ratio[0] + rand() * (ratio[1] - ratio[0])),
+        SKILL_VALUE_MIN,
+        potential[k],
+      );
       current[k] = round2(curVal);
     }
   }
@@ -200,8 +235,9 @@ export function generateScoutCandidate(
     nationality,
     isGoalkeeper,
     position,
-    currentSkills: currentSkills as ScoutCandidatePlayerData['currentSkills'],
-    potentialSkills: potentialSkills as ScoutCandidatePlayerData['potentialSkills'],
+    currentSkills: currentSkills as ScoutCandidatePlayerData["currentSkills"],
+    potentialSkills:
+      potentialSkills as ScoutCandidatePlayerData["potentialSkills"],
     coreSpecialty,
     coreSpecialtyTier,
     abilities,
@@ -222,7 +258,11 @@ function round2(v: number): number {
   return parseFloat(v.toFixed(2));
 }
 
-function gaussianRandom(mean: number, stdDev: number, rand: () => number): number {
+function gaussianRandom(
+  mean: number,
+  stdDev: number,
+  rand: () => number,
+): number {
   let u = 0;
   let v = 0;
   while (u === 0) u = rand();
@@ -241,7 +281,7 @@ function pickTier(
 ): ScoutTier {
   const entries = Object.entries(distribution) as [ScoutTier, number][];
   const total = entries.reduce((s, [, w]) => s + w, 0);
-  if (total <= 0) return 'LOW';
+  if (total <= 0) return PotentialTier.LOW;
   const r = rand() * total;
   let acc = 0;
   for (const [tier, weight] of entries) {
@@ -282,7 +322,10 @@ function buildSkillStructures(
   current: Record<string, number>,
   potential: Record<string, number>,
   isGoalkeeper: boolean,
-): [ScoutCandidatePlayerData['currentSkills'], ScoutCandidatePlayerData['potentialSkills']] {
+): [
+  ScoutCandidatePlayerData["currentSkills"],
+  ScoutCandidatePlayerData["potentialSkills"],
+] {
   const technical = isGoalkeeper
     ? {
         reflexes: current.reflexes,
@@ -312,14 +355,23 @@ function buildSkillStructures(
     {
       physical: { pace: current.pace, strength: current.strength },
       technical,
-      mental: { positioning: current.positioning, composure: current.composure },
+      mental: {
+        positioning: current.positioning,
+        composure: current.composure,
+      },
       setPieces: { freeKicks: current.freeKicks, penalties: current.penalties },
-    } as ScoutCandidatePlayerData['currentSkills'],
+    } as ScoutCandidatePlayerData["currentSkills"],
     {
       physical: { pace: potential.pace, strength: potential.strength },
       technical: potentialTechnical,
-      mental: { positioning: potential.positioning, composure: potential.composure },
-      setPieces: { freeKicks: potential.freeKicks, penalties: potential.penalties },
-    } as ScoutCandidatePlayerData['potentialSkills'],
+      mental: {
+        positioning: potential.positioning,
+        composure: potential.composure,
+      },
+      setPieces: {
+        freeKicks: potential.freeKicks,
+        penalties: potential.penalties,
+      },
+    } as ScoutCandidatePlayerData["potentialSkills"],
   ];
 }

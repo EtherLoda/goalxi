@@ -21,6 +21,7 @@ import {
   getRandomNameByNationality,
   getRandomNationality,
   GAME_SETTINGS,
+  DEFAULT_TIER_DISTRIBUTION,
 } from '@goalxi/database';
 
 import { CronLocked } from '../common/cron-lock/cron-lock.decorator';
@@ -82,13 +83,7 @@ export class ScoutSchedulerService {
 
         for (let i = 0; i < SCOUT_CANDIDATES_PER_TEAM; i++) {
           const generated = generateScoutCandidate({
-            tierDistribution: {
-              LEGEND: 0.005,
-              ELITE: 0.015,
-              HIGH_PRO: 0.05,
-              REGULAR: 0.43,
-              LOW: 0.5,
-            },
+            tierDistribution: DEFAULT_TIER_DISTRIBUTION,
             // Uniform PA range — cheaper and more predictable for a
             // background cron (no per-skill gaussian sampling).
             algorithm: 'uniform',

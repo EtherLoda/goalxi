@@ -1,4 +1,4 @@
-import { EntityManager } from 'typeorm';
+import { EntityManager } from "typeorm";
 import {
   FanEntity,
   FinanceEntity,
@@ -9,12 +9,13 @@ import {
   StaffRole,
   StadiumEntity,
   TeamEntity,
-} from '../index';
-import { getRandomNameByNationality } from '../constants/name-database';
-import { currentGameDay } from '../utils/game-clock';
-import { GAME_SETTINGS } from '../constants/game.constants';
-import { rollSpecialty } from './specialty-generator';
-import type { Uuid } from '../types/common.type';
+} from "../index";
+import { getRandomNameByNationality } from "../constants/name-database";
+import { currentGameDay } from "../utils/game-clock";
+import { GAME_SETTINGS } from "../constants/game.constants";
+import { rollSpecialty } from "./specialty-generator";
+import { calculatePotentialAbility } from "./potential";
+import type { Uuid } from "../types/common.type";
 
 // ============================================================
 // Constants — single source of truth for "what a team looks
@@ -124,7 +125,7 @@ export const DEFAULT_STADIUM_CAPACITY = 10_000;
  * frontend register form makes the field required, so this
  * string should never surface for a real manager.
  */
-export const DEFAULT_TEAM_NAME = 'New Club';
+export const DEFAULT_TEAM_NAME = "New Club";
 
 /**
  * Default nationality fallback when a team has no `nationality`
@@ -132,7 +133,7 @@ export const DEFAULT_TEAM_NAME = 'New Club';
  * Falls back to CN — matches the same fallback in
  * `ScoutsService` and `TeamService.create`.
  */
-const DEFAULT_TEAM_NATIONALITY = 'CN';
+const DEFAULT_TEAM_NATIONALITY = "CN";
 
 /**
  * Default bot level for newly created BOT teams. Mirrors the
@@ -282,11 +283,7 @@ export async function createTeam(
   });
 
   // 4. Head coach + fitness coach.
-  const staff = await generateTeamStaff(
-    manager,
-    team.id,
-    params.nationality,
-  );
+  const staff = await generateTeamStaff(manager, team.id, params.nationality);
 
   // 5. Finance / fan / stadium (values differ for bot vs
   //    manager; encapsulated inside each helper).
@@ -405,9 +402,9 @@ export async function scrubManagerSpecificData(
   await manager
     .createQueryBuilder()
     .update(PlayerEntity)
-    .set({ deletedAt: () => 'NOW()' })
-    .where('team_id = :teamId', { teamId })
-    .andWhere('deleted_at IS NULL')
+    .set({ deletedAt: () => "NOW()" })
+    .where("team_id = :teamId", { teamId })
+    .andWhere("deleted_at IS NULL")
     .execute();
 
   // 2. Hard-delete the manager-controlled rows. All keyed
@@ -417,11 +414,19 @@ export async function scrubManagerSpecificData(
   //    (typeorm/typeorm#9367). All queries are parameterized.
   await manager.query(`DELETE FROM staff WHERE team_id = $1`, [teamId]);
   await manager.query(`DELETE FROM match_tactics WHERE team_id = $1`, [teamId]);
-  await manager.query(`DELETE FROM scout_candidate WHERE team_id = $1`, [teamId]);
+  await manager.query(`DELETE FROM scout_candidate WHERE team_id = $1`, [
+    teamId,
+  ]);
   await manager.query(`DELETE FROM auction WHERE team_id = $1`, [teamId]);
-  await manager.query(`DELETE FROM stadium_construction WHERE team_id = $1`, [teamId]);
-  await manager.query(`DELETE FROM tactics_preset WHERE team_id = $1`, [teamId]);
-  await manager.query(`DELETE FROM training_update WHERE team_id = $1`, [teamId]);
+  await manager.query(`DELETE FROM stadium_construction WHERE team_id = $1`, [
+    teamId,
+  ]);
+  await manager.query(`DELETE FROM tactics_preset WHERE team_id = $1`, [
+    teamId,
+  ]);
+  await manager.query(`DELETE FROM training_update WHERE team_id = $1`, [
+    teamId,
+  ]);
   await manager.query(`DELETE FROM finance WHERE team_id = $1`, [teamId]);
   await manager.query(`DELETE FROM fan WHERE team_id = $1`, [teamId]);
   await manager.query(`DELETE FROM stadium WHERE team_id = $1`, [teamId]);
@@ -489,8 +494,7 @@ export async function generateTeamSquad(
   options: GenerateSquadOptions,
 ): Promise<PlayerEntity[]> {
   const teamNationality = options.nationality ?? DEFAULT_TEAM_NATIONALITY;
-  const distribution =
-    options.distribution ?? TEAM_POSITION_DISTRIBUTION;
+  const distribution = options.distribution ?? TEAM_POSITION_DISTRIBUTION;
   const positions = expandDistribution(distribution);
 
   const today = currentGameDay();
@@ -499,18 +503,25 @@ export async function generateTeamSquad(
 
   for (const position of positions) {
     const targetOvr = randomInt(options.ovrMin, options.ovrMax);
-    const { currentSkills, potentialSkills } =
-      generateSkillsForPosition(position, targetOvr);
-    const potentialAbility =
-      calculatePotentialAbility(potentialSkills);
-    const isGoalkeeper = position === 'GK';
+    const { currentSkills, potentialSkills } = generateSkillsForPosition(
+      position,
+      targetOvr,
+    );
+    const isGoalkeeper = position === "GK";
+    // `isGoalkeeper` was NOT passed before the formula was consolidated.
+    // The private mirror of this function hard-coded `maxRaw = 140`, so a
+    // keeper's ceiling (120) was divided by 140 and no generated keeper
+    // could exceed PA 86.
+    const potentialAbility = calculatePotentialAbility(
+      potentialSkills,
+      isGoalkeeper,
+    );
 
     // 70% squad nationality, 30% random — same mix as the
     // previous `generateTeamSquad`. Keeps the squad feeling
     // like a real club without being monochromatic.
-    const playerNationality = Math.random() < 0.7
-      ? teamNationality
-      : pickRandomNationality();
+    const playerNationality =
+      Math.random() < 0.7 ? teamNationality : pickRandomNationality();
     const { firstName, lastName } =
       getRandomNameByNationality(playerNationality);
 
@@ -524,11 +535,10 @@ export async function generateTeamSquad(
       ageRoll < 0.25
         ? DEFAULT_PLAYER_AGE_MIN + Math.floor(Math.random() * 3) // 18..20
         : ageRoll < 0.85
-          ? 22 + Math.floor(Math.random() * 5)                    // 22..26
-          : 27 + Math.floor(Math.random() * 4);                   // 27..30
+          ? 22 + Math.floor(Math.random() * 5) // 22..26
+          : 27 + Math.floor(Math.random() * 4); // 27..30
     const daysAliveInYear = Math.floor(Math.random() * daysPerYear);
-    const createdDay =
-      today - age * daysPerYear - daysAliveInYear;
+    const createdDay = today - age * daysPerYear - daysAliveInYear;
 
     // v2 specialty — single roll decides both presence and
     // tier. v2.4+ is position-aware: GK rolls from the 2-code
@@ -555,13 +565,13 @@ export async function generateTeamSquad(
       currentSkills: {
         ...currentSkills,
         abilities, // v1 legacy mirror on the JSONB
-      } as unknown as PlayerEntity['currentSkills'],
-      potentialSkills: potentialSkills as unknown as PlayerEntity['potentialSkills'],
+      } as unknown as PlayerEntity["currentSkills"],
+      potentialSkills:
+        potentialSkills as unknown as PlayerEntity["potentialSkills"],
       potentialAbility,
       // Experience ages with the player. Raw rookies start
       // low; prime-age pros have accumulated a few seasons.
-      experience:
-        0.5 + Math.random() * 2.5 + Math.max(0, age - 20) * 0.4,
+      experience: 0.5 + Math.random() * 2.5 + Math.max(0, age - 20) * 0.4,
       form: 3,
       stamina: 3,
       matchMinutes: 0,
@@ -590,9 +600,7 @@ export async function generateTeamSquad(
  * deterministic seeds) should keep the distribution object
  * key order stable, which JS does for string keys.
  */
-function expandDistribution(
-  distribution: Record<string, number>,
-): string[] {
+function expandDistribution(distribution: Record<string, number>): string[] {
   const out: string[] = [];
   for (const [position, count] of Object.entries(distribution)) {
     for (let i = 0; i < count; i++) {
@@ -609,7 +617,7 @@ function expandDistribution(
  * enough to inline; matches the dev-seed nationality pool.
  */
 function pickRandomNationality(): string {
-  const pool = ['CN', 'GB', 'ES', 'BR', 'IT', 'DE', 'FR', 'JP', 'KR', 'AR'];
+  const pool = ["CN", "GB", "ES", "BR", "IT", "DE", "FR", "JP", "KR", "AR"];
   return pool[Math.floor(Math.random() * pool.length)];
 }
 
@@ -633,8 +641,8 @@ function generateSkillsForPosition(
   position: string,
   targetOvr: number,
 ): {
-  currentSkills: PlayerEntity['currentSkills'];
-  potentialSkills: PlayerEntity['potentialSkills'];
+  currentSkills: PlayerEntity["currentSkills"];
+  potentialSkills: PlayerEntity["potentialSkills"];
 } {
   const skillBase = Math.max(1, Math.min(20, Math.round(targetOvr / 5)));
   const v = () => Math.floor(Math.random() * 3) - 1; // -1, 0, +1
@@ -662,7 +670,7 @@ function generatePositionSkills(
   base: number,
   skill: (base: number, boost: number) => number,
 ): Record<string, Record<string, number>> {
-  if (position === 'GK') {
+  if (position === "GK") {
     return {
       physical: {
         pace: skill(base, -3),
@@ -690,18 +698,18 @@ function generatePositionSkills(
   const arch = positionArchetype(position);
   return {
     physical: {
-      pace: skill(base, arch.boost('pace')),
-      strength: skill(base, arch.boost('strength')),
+      pace: skill(base, arch.boost("pace")),
+      strength: skill(base, arch.boost("strength")),
     },
     technical: {
-      finishing: skill(base, arch.boost('finishing')),
-      passing: skill(base, arch.boost('passing')),
-      dribbling: skill(base, arch.boost('dribbling')),
-      defending: skill(base, arch.boost('defending')),
+      finishing: skill(base, arch.boost("finishing")),
+      passing: skill(base, arch.boost("passing")),
+      dribbling: skill(base, arch.boost("dribbling")),
+      defending: skill(base, arch.boost("defending")),
     },
     mental: {
-      positioning: skill(base, arch.boost('positioning')),
-      composure: skill(base, arch.boost('composure')),
+      positioning: skill(base, arch.boost("positioning")),
+      composure: skill(base, arch.boost("composure")),
     },
     setPieces: {
       freeKicks: skill(base, -3),
@@ -723,26 +731,26 @@ function positionArchetype(position: string): {
   boost: (attr: string) => number;
 } {
   const PRIMARY: Record<string, string[]> = {
-    CD: ['defending', 'strength', 'positioning'],
-    LB: ['pace', 'defending', 'positioning'],
-    RB: ['pace', 'defending', 'positioning'],
-    DM: ['defending', 'positioning', 'strength'],
-    CM: ['passing', 'composure', 'positioning'],
-    AM: ['passing', 'dribbling', 'composure'],
-    LW: ['pace', 'dribbling', 'finishing'],
-    RW: ['pace', 'dribbling', 'finishing'],
-    CF: ['finishing', 'positioning', 'composure'],
+    CD: ["defending", "strength", "positioning"],
+    LB: ["pace", "defending", "positioning"],
+    RB: ["pace", "defending", "positioning"],
+    DM: ["defending", "positioning", "strength"],
+    CM: ["passing", "composure", "positioning"],
+    AM: ["passing", "dribbling", "composure"],
+    LW: ["pace", "dribbling", "finishing"],
+    RW: ["pace", "dribbling", "finishing"],
+    CF: ["finishing", "positioning", "composure"],
   };
   const SECONDARY: Record<string, string[]> = {
-    CD: ['pace', 'composure'],
-    LB: ['passing', 'composure', 'strength'],
-    RB: ['passing', 'composure', 'strength'],
-    DM: ['passing', 'composure'],
-    CM: ['dribbling', 'defending', 'pace'],
-    AM: ['finishing', 'pace', 'positioning'],
-    LW: ['passing', 'composure'],
-    RW: ['passing', 'composure'],
-    CF: ['pace', 'dribbling', 'strength'],
+    CD: ["pace", "composure"],
+    LB: ["passing", "composure", "strength"],
+    RB: ["passing", "composure", "strength"],
+    DM: ["passing", "composure"],
+    CM: ["dribbling", "defending", "pace"],
+    AM: ["finishing", "pace", "positioning"],
+    LW: ["passing", "composure"],
+    RW: ["passing", "composure"],
+    CF: ["pace", "dribbling", "strength"],
   };
   const primary = PRIMARY[position] ?? [];
   const secondary = SECONDARY[position] ?? [];
@@ -785,8 +793,8 @@ function bumpSkills(
  */
 function wrapPlayerSkills(
   raw: Record<string, Record<string, number>>,
-): PlayerEntity['currentSkills'] {
-  return raw as unknown as PlayerEntity['currentSkills'];
+): PlayerEntity["currentSkills"] {
+  return raw as unknown as PlayerEntity["currentSkills"];
 }
 
 // ============================================================
@@ -808,9 +816,7 @@ export async function generateTeamStaff(
   nationality: string | null,
 ): Promise<StaffEntity[]> {
   const teamNationality = nationality ?? DEFAULT_TEAM_NATIONALITY;
-  const contractExpiry = new Date(
-    Date.now() + 16 * 7 * 24 * 60 * 60 * 1000,
-  );
+  const contractExpiry = new Date(Date.now() + 16 * 7 * 24 * 60 * 60 * 1000);
 
   const head = getRandomNameByNationality(teamNationality);
   const fitness = getRandomNameByNationality(teamNationality);
@@ -874,7 +880,7 @@ export async function generateTeamFan(
     teamId,
     totalFans: isBot ? BOT_STARTING_FANS : MANAGER_STARTING_FANS,
     fanEmotion: 50,
-    recentForm: '',
+    recentForm: "",
   });
   return manager.save(row);
 }
@@ -970,7 +976,7 @@ export async function generateTeamStanding(
     goalsFor: 0,
     goalsAgainst: 0,
     goalDifference: 0,
-    recentForm: '',
+    recentForm: "",
   });
   return manager.save(row);
 }
@@ -987,32 +993,4 @@ export async function generateTeamStanding(
  */
 function randomInt(min: number, max: number): number {
   return Math.floor(Math.random() * (max - min + 1)) + min;
-}
-
-/**
- * Mirror of `PlayerService.calculatePotentialAbility` from
- * the api/. Kept private here so `createTeam` can stamp a
- * sane PA on each new row without pulling in a service.
- */
-function calculatePotentialAbility(
-  skills: PlayerEntity['potentialSkills'],
-): number {
-  if (!skills) return 50;
-  const physical = skills.physical as unknown as Record<string, number>;
-  const technical = skills.technical as unknown as Record<string, number>;
-  const mental = skills.mental as unknown as Record<string, number>;
-  const setPieces = skills.setPieces as unknown as Record<string, number>;
-
-  const physicalSum = Object.values(physical).reduce((a, b) => a + b, 0);
-  const technicalSum = Object.values(technical).reduce((a, b) => a + b, 0);
-  const mentalSum = Object.values(mental).reduce((a, b) => a + b, 0);
-  const setPiecesSum = Object.values(setPieces).reduce((a, b) => a + b, 0);
-
-  const rawPA =
-    physicalSum * 1 +
-    technicalSum * 1 +
-    mentalSum * 0.4 +
-    setPiecesSum * 0.1;
-  const maxRaw = 140;
-  return Math.min(100, Math.max(0, Math.round((rawPA / maxRaw) * 100)));
 }

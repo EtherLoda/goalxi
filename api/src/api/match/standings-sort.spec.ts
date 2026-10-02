@@ -21,9 +21,11 @@ function stripComments(src: string): string {
  *   - `league/league.service.ts` → `getStandings`
  *   - `league/league-structure.service.ts` → `getLeagueStandings`
  *   - `league/league-structure.service.ts` → `updateStandingsPositions`
+ *     [DELETED — zero callers; it was also the sole reader of the
+ *      `goal_difference` column described below]
  *
- * Three sorted by the COMPUTED expression `goalsFor - goalsAgainst`; one
- * (`getLeagueStandings`) sorted by the STORED `goal_difference` column.
+ * Three sorted by the COMPUTED expression `goalsFor - goalsAgainst`; the
+ * deleted `getLeagueStandings` sorted by the STORED `goal_difference` column.
  * They agreed numerically only because `updateLeagueStandings` happened to
  * keep that column in sync — a coupling with no test and no comment
  * explaining it.
@@ -45,7 +47,6 @@ describe('standings sort key (contract)', () => {
   const standingsFiles = [
     join(API_SRC, 'match', 'match-completion.service.ts'),
     join(API_SRC, 'league', 'league.service.ts'),
-    join(API_SRC, 'league', 'league-structure.service.ts'),
   ];
 
   it('finds every file that sorts the standings table', () => {
@@ -53,7 +54,10 @@ describe('standings sort key (contract)', () => {
     const withSort = standingsFiles.filter((f) =>
       SORT_CALL.test(stripComments(readFileSync(f, 'utf8'))),
     );
-    expect(withSort.length).toBeGreaterThanOrEqual(3);
+    // `league-structure.service.ts` was one of the four and has been
+    // deleted (zero callers, and a second writer of
+    // `league_standing.position`), so the floor drops from 3 to 2.
+    expect(withSort.length).toBeGreaterThanOrEqual(2);
   });
 
   it('every standings sort uses the full deterministic key', () => {

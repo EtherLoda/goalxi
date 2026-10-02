@@ -13,16 +13,20 @@ import {
   SCOUT_SENIOR_GAUSSIAN_STDDEV,
   SCOUT_SENIOR_POTENTIAL_MAX,
   SCOUT_SENIOR_POTENTIAL_MIN,
-} from '../constants/scout-config';
+} from "../constants/scout-config";
 import {
   ScoutCandidateEntity,
   ScoutCandidatePlayerData,
   TeamEntity,
-} from '../index';
-import { DataSource, EntityManager } from 'typeorm';
-import { currentWeekIndex, endOfCurrentWeek } from '../utils/game-clock';
-import { generateScoutCandidate, GeneratedScoutCandidate } from './scout-generator';
-import { getRandomNameByNationality } from '../constants/name-database';
+} from "../index";
+import { DataSource, EntityManager } from "typeorm";
+import { currentWeekIndex, endOfCurrentWeek } from "../utils/game-clock";
+import {
+  generateScoutCandidate,
+  GeneratedScoutCandidate,
+} from "./scout-generator";
+import { DEFAULT_TIER_DISTRIBUTION } from "./potential";
+import { getRandomNameByNationality } from "../constants/name-database";
 
 /**
  * Hard skill caps for senior-mode candidates. Pulled out as
@@ -42,7 +46,7 @@ const SENIOR_POTENTIAL_MAX = SCOUT_SENIOR_POTENTIAL_MAX;
  * the `DEFAULT_TEAM_NATIONALITY` constant in the original
  * `ScoutsService`.
  */
-export const DEFAULT_TEAM_NATIONALITY = 'CN';
+export const DEFAULT_TEAM_NATIONALITY = "CN";
 
 /**
  * Build a senior-mode (17–18 years old, current in
@@ -62,19 +66,13 @@ export const DEFAULT_TEAM_NATIONALITY = 'CN';
  * candidate for a freshly-claimed BOT team.
  */
 export function generateSeniorScoutCandidate(
-  team: Pick<TeamEntity, 'nationality'>,
+  team: Pick<TeamEntity, "nationality">,
   random: () => number = Math.random,
 ): GeneratedScoutCandidate {
   const nationality = team.nationality ?? DEFAULT_TEAM_NATIONALITY;
   const raw = generateScoutCandidate({
-    tierDistribution: {
-      LEGEND: 0.005,
-      ELITE: 0.015,
-      HIGH_PRO: 0.05,
-      REGULAR: 0.43,
-      LOW: 0.5,
-    },
-    algorithm: 'gaussian',
+    tierDistribution: DEFAULT_TIER_DISTRIBUTION,
+    algorithm: "gaussian",
     gaussianMean: SCOUT_SENIOR_GAUSSIAN_MEAN,
     gaussianStdDev: SCOUT_SENIOR_GAUSSIAN_STDDEV,
     impactCoefficients: SCOUT_IMPACT_COEFFICIENTS,
@@ -99,13 +97,23 @@ export function generateSeniorScoutCandidate(
   // Clamp the raw skill map into the senior-mode range and
   // swap any current > potential pair so the UI never sees a
   // card that lies.
-  const current = flattenSkills(raw.currentSkills as unknown as Record<string, unknown>);
-  const potential = flattenSkills(raw.potentialSkills as unknown as Record<string, unknown>);
+  const current = flattenSkills(
+    raw.currentSkills as unknown as Record<string, unknown>,
+  );
+  const potential = flattenSkills(
+    raw.potentialSkills as unknown as Record<string, unknown>,
+  );
   applySeniorSkillCaps(current, potential);
   return {
     ...raw,
-    currentSkills: rebuildSkills(current, raw.isGoalkeeper) as GeneratedScoutCandidate['currentSkills'],
-    potentialSkills: rebuildSkills(potential, raw.isGoalkeeper) as GeneratedScoutCandidate['potentialSkills'],
+    currentSkills: rebuildSkills(
+      current,
+      raw.isGoalkeeper,
+    ) as GeneratedScoutCandidate["currentSkills"],
+    potentialSkills: rebuildSkills(
+      potential,
+      raw.isGoalkeeper,
+    ) as GeneratedScoutCandidate["potentialSkills"],
   };
 }
 
@@ -145,7 +153,7 @@ export async function seedSeniorScoutCandidate(
   const playerData = generateSeniorScoutCandidate(teamShim, random);
   const expiresAt = endOfCurrentWeek();
 
-  const manager = 'manager' in source ? source.manager : source;
+  const manager = "manager" in source ? source.manager : source;
   const repo = manager.getRepository(ScoutCandidateEntity);
   const candidate = repo.create({
     teamId,
@@ -171,9 +179,9 @@ function forEachSkillValue(
   fn: (v: number) => number,
 ): void {
   for (const cat of Object.values(skills)) {
-    if (!cat || typeof cat !== 'object') continue;
+    if (!cat || typeof cat !== "object") continue;
     for (const [k, v] of Object.entries(cat as Record<string, number>)) {
-      if (typeof v === 'number') {
+      if (typeof v === "number") {
         (cat as Record<string, number>)[k] = fn(v);
       }
     }
@@ -186,9 +194,9 @@ function flattenSkills(
 ): Record<string, number> {
   const out: Record<string, number> = {};
   for (const cat of Object.values(skills)) {
-    if (!cat || typeof cat !== 'object') continue;
+    if (!cat || typeof cat !== "object") continue;
     for (const [k, v] of Object.entries(cat as Record<string, number>)) {
-      if (typeof v === 'number') out[k] = v;
+      if (typeof v === "number") out[k] = v;
     }
   }
   return out;
@@ -209,7 +217,7 @@ function applySeniorSkillCaps(
   for (const k of Object.keys(potential)) {
     const cur = current[k];
     const pot = potential[k];
-    if (typeof cur === 'number' && typeof pot === 'number' && cur > pot) {
+    if (typeof cur === "number" && typeof pot === "number" && cur > pot) {
       current[k] = pot;
       potential[k] = cur;
     }
@@ -219,7 +227,7 @@ function applySeniorSkillCaps(
 function rebuildSkills(
   flat: Record<string, number>,
   isGoalkeeper: boolean,
-): GeneratedScoutCandidate['currentSkills'] {
+): GeneratedScoutCandidate["currentSkills"] {
   const technical = isGoalkeeper
     ? {
         reflexes: flat.reflexes,
@@ -237,7 +245,7 @@ function rebuildSkills(
     technical,
     mental: { positioning: flat.positioning, composure: flat.composure },
     setPieces: { freeKicks: flat.freeKicks, penalties: flat.penalties },
-  } as GeneratedScoutCandidate['currentSkills'];
+  } as GeneratedScoutCandidate["currentSkills"];
 }
 
 /**

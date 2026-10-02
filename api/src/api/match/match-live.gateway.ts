@@ -3,7 +3,7 @@ import { computeCurrentInGameMinute } from '@/api/match/match-current-minute';
 import { MatchEventService } from '@/api/match/match-event.service';
 import { MatchService } from '@/api/match/match.service';
 import { MatchEventEntity, MatchStatus } from '@goalxi/database';
-import { Inject, Logger, forwardRef } from '@nestjs/common';
+import { Inject, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import {
   ConnectedSocket,
@@ -146,9 +146,7 @@ export class MatchLiveGateway
 
   constructor(
     private readonly authService: AuthService,
-    @Inject(forwardRef(() => MatchEventService))
     private readonly matchEventService: MatchEventService,
-    @Inject(forwardRef(() => MatchService))
     private readonly matchService: MatchService,
     @InjectRepository(MatchEventEntity)
     private readonly eventRepository: Repository<MatchEventEntity>,

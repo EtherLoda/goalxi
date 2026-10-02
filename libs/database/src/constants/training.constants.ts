@@ -8,24 +8,24 @@
  */
 
 export const TRAINING_SETTINGS = {
-    /** Base training points earned per week */
-    BASE_WEEKLY_TRAINING: 20,
+  /** Base training points earned per week */
+  BASE_WEEKLY_TRAINING: 20,
 
-    /** Training slot multipliers */
-    ENHANCED_MULTIPLIER: 1.5,
-    REGULAR_MULTIPLIER: 1.0,
-    NONE_MULTIPLIER: 0,
+  /** Training slot multipliers */
+  ENHANCED_MULTIPLIER: 1.5,
+  REGULAR_MULTIPLIER: 1.0,
+  NONE_MULTIPLIER: 0,
 
-    /** Age training factor: 1.0 at age 17, decreasing linearly */
-    AGE_TRAINING_FACTOR: {
-        MIN_AGE: 17,
-        MIN_FACTOR: 1.0,
-        MAX_AGE: 36,
-        MAX_FACTOR: 0.65,
-    },
+  /** Age training factor: 1.0 at age 17, decreasing linearly */
+  AGE_TRAINING_FACTOR: {
+    MIN_AGE: 17,
+    MIN_FACTOR: 1.0,
+    MAX_AGE: 36,
+    MAX_FACTOR: 0.65,
+  },
 
-    /** Coach bonus per level (5% per level) */
-    COACH_BONUS_PER_LEVEL: 0.05,
+  /** Coach bonus per level (5% per level) */
+  COACH_BONUS_PER_LEVEL: 0.05,
 };
 
 /**
@@ -33,11 +33,12 @@ export const TRAINING_SETTINGS = {
  * age 17 = 1.0, age 36 = 0.65
  */
 export function getAgeTrainingFactor(age: number): number {
-    const { MIN_AGE, MIN_FACTOR, MAX_AGE, MAX_FACTOR } = TRAINING_SETTINGS.AGE_TRAINING_FACTOR;
-    if (age <= MIN_AGE) return MIN_FACTOR;
-    if (age >= MAX_AGE) return MAX_FACTOR;
-    const slope = (MAX_FACTOR - MIN_FACTOR) / (MAX_AGE - MIN_AGE);
-    return MIN_FACTOR + slope * (age - MIN_AGE);
+  const { MIN_AGE, MIN_FACTOR, MAX_AGE, MAX_FACTOR } =
+    TRAINING_SETTINGS.AGE_TRAINING_FACTOR;
+  if (age <= MIN_AGE) return MIN_FACTOR;
+  if (age >= MAX_AGE) return MAX_FACTOR;
+  const slope = (MAX_FACTOR - MIN_FACTOR) / (MAX_AGE - MIN_AGE);
+  return MIN_FACTOR + slope * (age - MIN_AGE);
 }
 
 /**
@@ -46,18 +47,21 @@ export function getAgeTrainingFactor(age: number): number {
  * Higher levels cost more, curve is monotonically increasing
  */
 export function getSkillUpgradeCost(level: number): number {
-    return 0.8 * level * level + 20;
+  return 0.8 * level * level + 20;
 }
 
 /**
  * Total training cost to reach target level from start level
  */
-export function getTotalTrainingCost(startLevel: number, targetLevel: number): number {
-    let total = 0;
-    for (let lvl = startLevel; lvl < targetLevel; lvl++) {
-        total += getSkillUpgradeCost(lvl);
-    }
-    return total;
+export function getTotalTrainingCost(
+  startLevel: number,
+  targetLevel: number,
+): number {
+  let total = 0;
+  for (let lvl = startLevel; lvl < targetLevel; lvl++) {
+    total += getSkillUpgradeCost(lvl);
+  }
+  return total;
 }
 
 /**
@@ -66,37 +70,37 @@ export function getTotalTrainingCost(startLevel: number, targetLevel: number): n
  * Value: array of skill keys that belong to this category
  */
 export const SKILL_CATEGORY_MAP: Record<string, string[]> = {
-    physical: ['pace', 'strength'],
-    technical: ['finishing', 'passing', 'dribbling', 'defending'],
-    goalkeeper: ['reflexes', 'handling', 'aerial'],
-    mental: ['positioning', 'composure'],
-    setPieces: ['freeKicks', 'penalties'],
+  physical: ["pace", "strength"],
+  technical: ["finishing", "passing", "dribbling", "defending"],
+  goalkeeper: ["reflexes", "handling", "aerial"],
+  mental: ["positioning", "composure"],
+  setPieces: ["freeKicks", "penalties"],
 };
 
 /**
  * Get which coach role handles which skill category
  */
 export function getSkillCategory(skillKey: string): string | null {
-    for (const [category, skills] of Object.entries(SKILL_CATEGORY_MAP)) {
-        if (skills.includes(skillKey)) {
-            return category;
-        }
+  for (const [category, skills] of Object.entries(SKILL_CATEGORY_MAP)) {
+    if (skills.includes(skillKey)) {
+      return category;
     }
-    return null;
+  }
+  return null;
 }
 
 /**
  * Get staff role constant name from category name
  */
 export function getCategoryCoachRole(category: string): string {
-    const map: Record<string, string> = {
-        physical: 'FITNESS_COACH',
-        technical: 'TECHNICAL_COACH',
-        goalkeeper: 'GOALKEEPER_COACH',
-        mental: 'PSYCHOLOGY_COACH',
-        setPieces: 'SET_PIECE_COACH',
-    };
-    return map[category] || '';
+  const map: Record<string, string> = {
+    physical: "FITNESS_COACH",
+    technical: "TECHNICAL_COACH",
+    goalkeeper: "GOALKEEPER_COACH",
+    mental: "PSYCHOLOGY_COACH",
+    setPieces: "SET_PIECE_COACH",
+  };
+  return map[category] || "";
 }
 
 /**
@@ -109,36 +113,36 @@ export function getCategoryCoachRole(category: string): string {
  * Technical skills are moderate (0.85-1.00)
  */
 export const SKILL_TRAINING_SPEED: Record<string, number> = {
-    // Outfield skills
-    finishing: 0.85,
-    defending: 0.90,
-    dribbling: 1.00,
-    passing: 1.10,
-    pace: 0.88,
-    strength: 0.90,
-    // Mental skills train faster (1.20-1.30) — `positioning` and
-    // `composure` are shared between outfield and GK mental category,
-    // so the same key serves both player types.
-    positioning: 1.25,
-    composure: 1.30,
-    // GK-only skills — the keys here MUST match the runtime skill
-    // names returned by `getPlayerSkillKeys(true)` and the FIELD_MAP
-    // in `simulation-player.ts`. Earlier this map used a `gk_` prefix
-    // (e.g. `gk_reflexes`) which never matched, so every GK training
-    // silently fell back to the 1.0 default. Keep them prefix-free.
-    reflexes: 0.80,
-    handling: 0.85,
-    aerial: 0.82,
-    // Set piece skills (5x speed -选修技能，快速训练）
-    freeKicks: 5.0,
-    penalties: 5.0,
+  // Outfield skills
+  finishing: 0.85,
+  defending: 0.9,
+  dribbling: 1.0,
+  passing: 1.1,
+  pace: 0.88,
+  strength: 0.9,
+  // Mental skills train faster (1.20-1.30) — `positioning` and
+  // `composure` are shared between outfield and GK mental category,
+  // so the same key serves both player types.
+  positioning: 1.25,
+  composure: 1.3,
+  // GK-only skills — the keys here MUST match the runtime skill
+  // names returned by `getPlayerSkillKeys(true)` and the FIELD_MAP
+  // in `simulation-player.ts`. Earlier this map used a `gk_` prefix
+  // (e.g. `gk_reflexes`) which never matched, so every GK training
+  // silently fell back to the 1.0 default. Keep them prefix-free.
+  reflexes: 0.8,
+  handling: 0.85,
+  aerial: 0.82,
+  // Set piece skills (5x speed -选修技能，快速训练）
+  freeKicks: 5.0,
+  penalties: 5.0,
 };
 
 /**
  * Get training speed for a skill
  */
 export function getSkillTrainingSpeed(skillKey: string): number {
-    return SKILL_TRAINING_SPEED[skillKey] ?? 1.0;
+  return SKILL_TRAINING_SPEED[skillKey] ?? 1.0;
 }
 
 // =====================
@@ -146,4 +150,8 @@ export function getSkillTrainingSpeed(skillKey: string): number {
 // =====================
 
 // Re-export from finance.constants (wage calculation belongs to finance, not training)
-export { calculatePlayerWage, testWageCalculation, SKILL_WAGE_WEIGHT, GK_SKILL_WAGE_WEIGHT } from './finance.constants';
+export {
+  calculatePlayerWage,
+  SKILL_WAGE_WEIGHT,
+  GK_SKILL_WAGE_WEIGHT,
+} from "./finance.constants";

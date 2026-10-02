@@ -10,7 +10,11 @@ import { Repository } from 'typeorm';
 import { OnboardingService } from '../onboarding/onboarding.service';
 import { AuthService } from './auth.service';
 
-jest.mock('@/utils/password.util', () => ({
+jest.mock('@goalxi/database', () => ({
+  // Spread the real module so only the two password functions are
+  // replaced — a bare object here would blank out every entity and
+  // constant the file also imports.
+  ...jest.requireActual('@goalxi/database'),
   // `resetPassword` now pre-hashes the plaintext (the
   // `@BeforeUpdate` hook was removed from `UserEntity` to stop
   // the PATCH /users/me double-hash regression). The mock

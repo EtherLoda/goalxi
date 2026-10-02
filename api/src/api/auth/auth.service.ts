@@ -2,11 +2,13 @@ import { EmailQueueService } from '@/background/queues/email-queue/email-queue.s
 import { Branded } from '@/common/types/types';
 import { AllConfigType } from '@/config/config.type';
 import {
+  hashPassword,
   SessionEntity,
   UserEntity,
   UserOnboardingStatus,
   UserRole,
   Uuid,
+  verifyPassword,
 } from '@goalxi/database';
 import { LOGGER_SERVICE, PinoLoggerService } from '@goalxi/logger';
 import { CACHE_MANAGER } from '@nestjs/cache-manager';
@@ -24,7 +26,6 @@ import { CacheKey } from '../../constants/cache.constant';
 import { ErrorCode } from '../../constants/error-code.constant';
 import { ValidationException } from '../../exceptions/validation.exception';
 import { createCacheKey } from '../../utils/cache.util';
-import { hashPassword, verifyPassword } from '../../utils/password.util';
 import { OnboardingService } from '../onboarding/onboarding.service';
 import { ForgotPasswordReqDto } from './dto/forgot-password.req.dto';
 import { ForgotPasswordResDto } from './dto/forgot-password.res.dto';

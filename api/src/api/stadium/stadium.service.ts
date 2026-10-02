@@ -2,6 +2,7 @@ import {
   FINANCE_CONSTANTS,
   MatchEntity,
   MatchStatus,
+  SEAT_DEMOLISH_REFUND_RATE,
   STADIUM_COST_PER_SEAT,
   STADIUM_DEMOLISH_REFUND_RATE,
   StadiumEntity,
@@ -17,8 +18,6 @@ import { BuildStadiumReqDto } from './dto/stadium.req.dto';
 
 /** 单次扩/缩座位时的最小步长 */
 export const SEAT_ADJUST_STEP = 500;
-/** 增量拆除返还比例(单座返还) */
-export const SEAT_DEMOLISH_REFUND_RATE = 0.15;
 /** 历史比赛无 attendance 时的回退填充率 */
 export const DEFAULT_FILL_RATE = 0.7;
 

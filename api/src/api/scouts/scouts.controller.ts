@@ -1,6 +1,7 @@
 ﻿import {
   currentGameDay,
   currentWeekIndex,
+  derivePotentialTier,
   PlayerEntity,
   ScoutCandidateEntity,
   TeamEntity,
@@ -251,14 +252,6 @@ function mapYouthToDto(y: PlayerEntity): YouthPlayerDto {
       ? new Date(y.createdAt as any).toISOString()
       : new Date().toISOString(),
   };
-}
-
-function derivePotentialTier(pa: number): string {
-  if (pa >= 91) return 'LEGEND';
-  if (pa >= 81) return 'ELITE';
-  if (pa >= 71) return 'HIGH_PRO';
-  if (pa >= 56) return 'REGULAR';
-  return 'LOW';
 }
 
 /** Age derived from `createdDay`: floor((currentGameDay - createdDay) / 112). */

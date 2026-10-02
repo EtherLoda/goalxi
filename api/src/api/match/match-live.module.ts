@@ -1,5 +1,5 @@
 import { MatchEntity, MatchEventEntity } from '@goalxi/database';
-import { Module, forwardRef } from '@nestjs/common';
+import { Module } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { ScheduleModule } from '@nestjs/schedule';
 import { TypeOrmModule } from '@nestjs/typeorm';
@@ -20,8 +20,8 @@ export const MATCH_LIVE_RATE_LIMITER = 'MATCH_LIVE_RATE_LIMITER';
   imports: [
     ScheduleModule.forRoot(),
     TypeOrmModule.forFeature([MatchEntity, MatchEventEntity]),
-    forwardRef(() => AuthModule),
-    forwardRef(() => MatchModule),
+    AuthModule,
+    MatchModule,
   ],
   providers: [
     MatchLiveGateway,

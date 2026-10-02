@@ -2,6 +2,7 @@ import { OffsetPaginatedDto } from '@/common/dto/offset-pagination/paginated.dto
 import { paginate } from '@/utils/offset-pagination';
 import {
   calculatePlayerPWI,
+  calculatePotentialAbility,
   formatPWI,
   getYouthSkillKeys,
   PlayerEntity,
@@ -215,7 +216,10 @@ export class PlayerService {
 
       const [currentSkills, potentialSkills] =
         this.generateRandomSkills(isGoalkeeper);
-      const potentialAbility = this.calculatePotentialAbility(potentialSkills);
+      const potentialAbility = calculatePotentialAbility(
+        potentialSkills,
+        isGoalkeeper,
+      );
 
       const player = new PlayerEntity({
         name: `${firstName} ${lastName}`,
@@ -319,46 +323,6 @@ export class PlayerService {
     };
 
     return [currentSkills, potentialSkills];
-  }
-
-  private calculateOverall(skills: PlayerSkills): number {
-    if (!skills) return 0;
-    let total = 0;
-    let count = 0;
-
-    for (const cat of Object.values(skills)) {
-      for (const val of Object.values(cat)) {
-        total += val as number;
-        count++;
-      }
-    }
-
-    return count > 0 ? Math.round((total / count) * 5) : 0; // Scale to 0-100 roughly (avg * 5 as max is 20)
-  }
-
-  /**
-   * Calculate potential ability from potential skills
-   * Formula: PA = (Σ physical + Σ technical) × 1 + Σ mental × 0.4 + Σ setPieces × 0.1
-   * Normalized to 0-100
-   */
-  private calculatePotentialAbility(skills: PlayerSkills): number {
-    if (!skills) return 50;
-    const physical = skills.physical as unknown as Record<string, number>;
-    const technical = skills.technical as unknown as Record<string, number>;
-    const mental = skills.mental as unknown as Record<string, number>;
-    const setPieces = skills.setPieces as unknown as Record<string, number>;
-
-    const physicalSum = Object.values(physical).reduce((a, b) => a + b, 0);
-    const technicalSum = Object.values(technical).reduce((a, b) => a + b, 0);
-    const mentalSum = Object.values(mental).reduce((a, b) => a + b, 0);
-    const setPiecesSum = Object.values(setPieces).reduce((a, b) => a + b, 0);
-
-    const rawPA =
-      physicalSum * 1 + technicalSum * 1 + mentalSum * 0.4 + setPiecesSum * 0.1;
-
-    // Normalize to 0-100 (max raw for outfield: 6*20 + 4*20*0.4 + 2*20*0.1 = 140)
-    const maxRaw = 140;
-    return Math.min(100, Math.max(0, Math.round((rawPA / maxRaw) * 100)));
   }
 
   private mapToResDto(player: PlayerEntity, DtoClass: any = PlayerResDto): any {

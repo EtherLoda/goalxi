@@ -1,12 +1,15 @@
-import { verifyPassword } from '@/utils/password.util';
-import { SessionEntity, UserEntity } from '@goalxi/database';
+import { SessionEntity, UserEntity, verifyPassword } from '@goalxi/database';
 import { UnauthorizedException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { ChangePasswordReqDto } from './dto/change-password.req.dto';
 import { UserService } from './user.service';
 
-jest.mock('@/utils/password.util', () => ({
+jest.mock('@goalxi/database', () => ({
+  // Spread the real module so only the two password functions are
+  // replaced — a bare object here would blank out every entity and
+  // constant the file also imports.
+  ...jest.requireActual('@goalxi/database'),
   // Pre-hash on the service side. After the `@BeforeUpdate` hook
   // was removed from `UserEntity.hashPassword` (it was re-hashing
   // the loaded hash on every PATCH /users/me and silently locking
@@ -21,7 +24,7 @@ jest.mock('@/utils/password.util', () => ({
 describe('UserService.changePassword', () => {
   let service: UserService;
   let userRepo: { findOneByOrFail: jest.Mock; save: jest.Mock };
-  const { hashPassword } = jest.requireMock('@/utils/password.util') as {
+  const { hashPassword } = jest.requireMock('@goalxi/database') as {
     hashPassword: jest.Mock;
   };
 
