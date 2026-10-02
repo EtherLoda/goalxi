@@ -1,21 +1,20 @@
-import { Test, TestingModule } from '@nestjs/testing';
-import { getRepositoryToken } from '@nestjs/typeorm';
-import { DataSource } from 'typeorm';
-import { Queue } from 'bullmq';
-import { LOGGER_SERVICE } from '@goalxi/logger';
-import { AuctionService } from './auction.service';
 import {
   AuctionEntity,
   AuctionStatus,
   PlayerEntity,
-  TeamEntity,
   PlayerEventEntity,
+  TeamEntity,
   TransferTransactionEntity,
 } from '@goalxi/database';
+import { LOGGER_SERVICE } from '@goalxi/logger';
+import { Test, TestingModule } from '@nestjs/testing';
+import { getRepositoryToken } from '@nestjs/typeorm';
 import { ClsService } from 'nestjs-cls';
+import { DataSource } from 'typeorm';
 import { AuctionRedisRepository } from '../../redis/auction-redis.repository';
 import { FinanceService } from '../finance/finance.service';
 import { NotificationRedisService } from '../notification/notification-redis.service';
+import { AuctionService } from './auction.service';
 
 /**
  * Settlement enqueue must happen AFTER the transaction commits.
@@ -85,7 +84,10 @@ describe('AuctionService — settlement enqueue ordering', () => {
               save: jest.fn(async (o: any) => o),
             };
           case 'PlayerEntity':
-            return { findOne: jest.fn().mockResolvedValue(null), save: jest.fn() };
+            return {
+              findOne: jest.fn().mockResolvedValue(null),
+              save: jest.fn(),
+            };
           default:
             throw new Error(`unmocked ${entity?.name}`);
         }
@@ -149,11 +151,20 @@ describe('AuctionService — settlement enqueue ordering', () => {
             save: jest.fn(async (o: any) => o),
           },
         },
-        { provide: getRepositoryToken(PlayerEntity), useValue: { findOne: jest.fn(), save: jest.fn() } },
-        { provide: getRepositoryToken(TeamEntity), useValue: { findOne: jest.fn(), save: jest.fn() } },
+        {
+          provide: getRepositoryToken(PlayerEntity),
+          useValue: { findOne: jest.fn(), save: jest.fn() },
+        },
+        {
+          provide: getRepositoryToken(TeamEntity),
+          useValue: { findOne: jest.fn(), save: jest.fn() },
+        },
         { provide: getRepositoryToken(PlayerEventEntity), useValue: {} },
         { provide: FinanceService, useValue: {} },
-        { provide: getRepositoryToken(TransferTransactionEntity), useValue: { findOne: jest.fn(), save: jest.fn(), create: jest.fn() } },
+        {
+          provide: getRepositoryToken(TransferTransactionEntity),
+          useValue: { findOne: jest.fn(), save: jest.fn(), create: jest.fn() },
+        },
         { provide: 'BullQueue_transfer-settlement', useValue: transferQueue },
         {
           provide: AuctionRedisRepository,
@@ -167,7 +178,10 @@ describe('AuctionService — settlement enqueue ordering', () => {
           },
         },
         { provide: NotificationRedisService, useValue: { push: jest.fn() } },
-        { provide: ClsService, useValue: { get: jest.fn(), set: jest.fn(), run: jest.fn() } },
+        {
+          provide: ClsService,
+          useValue: { get: jest.fn(), set: jest.fn(), run: jest.fn() },
+        },
       ],
     }).compile();
 

@@ -288,9 +288,7 @@ export class FinanceService {
       ] || 30000;
     const fanCount = fan?.totalFans || 1000;
     const sponsorshipMultiplier = Math.sqrt(fanCount / 10000);
-    const sponsorship = Math.floor(
-      baseSponsorship * 2 * sponsorshipMultiplier,
-    );
+    const sponsorship = Math.floor(baseSponsorship * 2 * sponsorshipMultiplier);
 
     const sponsorshipTx = transactionRepo.create({
       teamId,

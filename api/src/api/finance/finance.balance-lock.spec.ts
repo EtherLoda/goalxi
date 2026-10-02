@@ -1,18 +1,18 @@
-import { Test, TestingModule } from '@nestjs/testing';
-import { getDataSourceToken, getRepositoryToken } from '@nestjs/typeorm';
-import { LOGGER_SERVICE } from '@goalxi/logger';
-import { NotFoundException } from '@nestjs/common';
-import { FinanceService } from './finance.service';
 import {
-  FinanceEntity,
-  TransactionEntity,
-  TeamEntity,
   FanEntity,
+  FinanceEntity,
+  PlayerEntity,
   StadiumEntity,
   StaffEntity,
-  PlayerEntity,
+  TeamEntity,
+  TransactionEntity,
   Uuid,
 } from '@goalxi/database';
+import { LOGGER_SERVICE } from '@goalxi/logger';
+import { NotFoundException } from '@nestjs/common';
+import { Test, TestingModule } from '@nestjs/testing';
+import { getDataSourceToken, getRepositoryToken } from '@nestjs/typeorm';
+import { FinanceService } from './finance.service';
 
 /**
  * Balance updates must read under a write lock.
@@ -77,7 +77,10 @@ describe('FinanceService — balance read-modify-write', () => {
           provide: getDataSourceToken(),
           useValue: {
             transaction: jest.fn(async (cb: any) =>
-              cb({ getRepository: managerGetRepository, create: (e: any, o: any) => o }),
+              cb({
+                getRepository: managerGetRepository,
+                create: (e: any, o: any) => o,
+              }),
             ),
           },
         },
@@ -182,12 +185,9 @@ describe('FinanceService — balance read-modify-write', () => {
         }
       });
 
-      await service.processWeeklySettlementAtomic(
-        'team-1' as Uuid,
-        1,
-        3,
-        { getRepository: managerGetRepository } as any,
-      );
+      await service.processWeeklySettlementAtomic('team-1' as Uuid, 1, 3, {
+        getRepository: managerGetRepository,
+      } as any);
 
       expect(financeRepo.findOne).toHaveBeenCalledWith({
         where: { teamId: 'team-1' },
