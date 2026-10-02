@@ -179,6 +179,48 @@ describe('ScheduleGenerator — senior-only', () => {
     }
   });
 
+  it('REGRESSION: refuses a league whose fixtures would spill into the playoff week', async () => {
+    // A 17-team double round-robin is 32 rounds, and round 32 lands on
+    // week 11 — which is the promotion/relegation playoff week. Before the
+    // guard this scheduled silently, putting league fixtures and playoffs
+    // in the same matchweek. 18 teams is worse: 34 rounds ends on week 12,
+    // a week no season transition ever fires for.
+    for (const teamCount of [17, 18]) {
+      const { gen, matchRepo, leagueRepo, teamRepo } = build();
+      matchRepo.count.mockResolvedValue(0);
+      leagueRepo.find.mockResolvedValue([seniorLeague('L-1')]);
+      const teams: TeamEntity[] = [];
+      for (let i = 0; i < teamCount; i++)
+        teams.push(seniorTeam(`T${i}`, 'L-1'));
+      teamRepo.find.mockResolvedValue(teams);
+      matchRepo.save.mockResolvedValue([]);
+
+      await expect(
+        gen.generateSeason1Schedule(new Date('2026-09-09T00:00:00Z')),
+      ).rejects.toThrow(/playoff week/);
+
+      expect(matchRepo.save).not.toHaveBeenCalled();
+    }
+  });
+
+  it('accepts a 16-team league at the exact ceiling', async () => {
+    // 30 rounds is exactly 10 weeks x 3 rounds — there is zero slack, so
+    // this test guards the boundary from both sides: 16 must pass, 17 must
+    // throw. See `constants/season-shape.spec.ts` for the arithmetic.
+    const { gen, matchRepo, leagueRepo, teamRepo } = build();
+    matchRepo.count.mockResolvedValue(0);
+    leagueRepo.find.mockResolvedValue([seniorLeague('L-1')]);
+    const teams: TeamEntity[] = [];
+    for (let i = 0; i < 16; i++) teams.push(seniorTeam(`T${i}`, 'L-1'));
+    teamRepo.find.mockResolvedValue(teams);
+    matchRepo.save.mockResolvedValue([]);
+
+    await expect(
+      gen.generateSeason1Schedule(new Date('2026-09-09T00:00:00Z')),
+    ).resolves.toBeUndefined();
+    expect(matchRepo.save).toHaveBeenCalledTimes(1);
+  });
+
   it('stamps `week` in 1..REGULAR_SEASON_WEEKS and `round` per matchday', async () => {
     // Regression for the bug where the historical code set
     // `week = round + 1` and `round = round + 1`, which
@@ -327,9 +369,7 @@ describe('ScheduleGenerator — senior-only', () => {
     teamId: string,
   ): Array<'H' | 'A'> => {
     return matches
-      .filter(
-        (m) => m.homeTeamId === teamId || m.awayTeamId === teamId,
-      )
+      .filter((m) => m.homeTeamId === teamId || m.awayTeamId === teamId)
       .sort(
         (a, b) =>
           new Date(a.scheduledAt!).getTime() -
@@ -587,7 +627,7 @@ describe('ScheduleGenerator — senior-only', () => {
    * field permanently null on a fresh init. The fix
    * pre-loads the stadium map and stamps every match.
    */
-  it('stamps `stadiumId` on every saved match row (home team\'s stadium)', async () => {
+  it("stamps `stadiumId` on every saved match row (home team's stadium)", async () => {
     const { gen, matchRepo, leagueRepo, teamRepo, stadiumRepo } = build();
     matchRepo.count.mockResolvedValue(0);
     leagueRepo.find.mockResolvedValue([seniorLeague('L-1')]);

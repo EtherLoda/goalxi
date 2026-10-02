@@ -112,12 +112,14 @@ export class LeagueAwardService {
     );
 
     if (!weekComplete) {
-      this.logger.info('[LeagueAward] Week 15 matches not yet complete');
+      this.logger.info(
+        `[LeagueAward] Week ${currentSeasonWeek.week} matches not yet complete`,
+      );
       return;
     }
 
     this.logger.info(
-      `[LeagueAward] Week 15 complete, processing Season ${currentSeasonWeek.season} awards...`,
+      `[LeagueAward] Week ${currentSeasonWeek.week} complete, processing Season ${currentSeasonWeek.season} awards...`,
     );
     await this.processSeasonAwards(currentSeasonWeek.season);
   }

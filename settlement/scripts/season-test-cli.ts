@@ -924,15 +924,18 @@ async function main() {
     // Weekly summary
     await printWeekSummary(ds, week, currentSeason);
 
-    // Week 15: generate playoff matches for promotion/relegation
-    if (week === 15) {
+    // The week after the last regular round: promotion/relegation playoffs.
+    // Was a bare `week === 15`, which silently became "never" when the
+    // season was compressed to 11 weeks.
+    if (week === GAME_SETTINGS.ROUNDS_PER_WEEK + 1) {
       console.log(`\n[Week ${week}] Generating playoff matches...`);
       // For simplicity, process promotions directly
       await processPromotions(ds, currentSeason);
     }
 
-    // Week 16: end of season
-    if (week === 16) {
+    // End of season: roll over and generate the next schedule.
+    // Was a bare `week === 16`, same failure mode as above.
+    if (week === GAME_SETTINGS.SEASON_LENGTH_WEEKS) {
       console.log(`\n[Season ${currentSeason}] Season complete!`);
       currentSeason++;
       // Generate new season schedule

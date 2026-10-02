@@ -168,6 +168,44 @@ export class ScheduleGenerator {
         continue;
       }
 
+      // Upper bound, and it is load-bearing. The double round-robin is
+      // `2 * (N - 1)` rounds, and a round's week is
+      // `floor(round / ROUNDS_PER_WEEK) + 1`. The last round therefore
+      // lands on week `floor((2N - 3) / 3) + 1`.
+      //
+      // The season is `SEASON_LENGTH_WEEKS` weeks, but the final one is
+      // the promotion/relegation playoff week, so league fixtures may only
+      // reach week `SEASON_LENGTH_WEEKS - 1` (10). That caps N at 16 — exactly, with
+      // no slack, since 30 rounds is precisely 10 x 3:
+      //
+      //   N = 16  30 rounds  last round week 10  ok
+      //   N = 17  32 rounds  last round week 11  collides with playoffs
+      //   N = 18  34 rounds  last round week 12  past the end of the season
+      //
+      // Both failure modes are silent: the league fixtures simply share a
+      // matchweek with the playoffs, or carry a `week` no season
+      // transition ever fires for.
+      //
+      // This is not new with the 11-week season — the 16-week shape
+      // collided at N = 17 as well (32 rounds → week 16) — but there is
+      // less headroom now. The production pyramid tops out at 16.
+      const regularSeasonWeeks = GAME_SETTINGS.SEASON_LENGTH_WEEKS - 1;
+      const requiredRounds = 2 * (teamIds.length - 1);
+      const lastRoundWeek =
+        Math.floor((requiredRounds - 1) / GAME_SETTINGS.ROUNDS_PER_WEEK) + 1;
+      if (lastRoundWeek > regularSeasonWeeks) {
+        const maxTeams =
+          Math.floor((regularSeasonWeeks * GAME_SETTINGS.ROUNDS_PER_WEEK) / 2) +
+          1;
+        throw new Error(
+          `[ScheduleGenerator] League "${league.name}" has ${teamIds.length} teams, ` +
+            `which needs ${requiredRounds} rounds and would put its last fixture on ` +
+            `week ${lastRoundWeek} — past the ${regularSeasonWeeks}-week regular ` +
+            `season, i.e. into the playoff week. Cap the league at ` +
+            `${maxTeams} teams, or raise SEASON_LENGTH_WEEKS/ROUNDS_PER_WEEK.`,
+        );
+      }
+
       const matches = this.generateRoundRobin(teamIds, {
         leagueId: league.id,
         weekOneMonday: options.weekOneMonday,
