@@ -14,6 +14,7 @@ import {
   StadiumEntity,
   TacticsPresetEntity,
   TeamEntity,
+  YouthLeagueEntity,
 } from '@goalxi/database';
 import { BullModule } from '@nestjs/bullmq';
 import { CacheModule } from '@nestjs/cache-manager';
@@ -54,6 +55,18 @@ import { PresetService } from './preset.service';
       MatchTeamStatsEntity,
       CupBracketSlotEntity,
       StadiumEntity,
+      // `MatchEntity.youthLeague` is a relation, and TypeORM resolves
+      // every relation target at boot. The api runs with
+      // `autoLoadEntities: true`, which only knows about entities some
+      // module registered via `forFeature`. Nothing injects a
+      // `YouthLeagueEntity` repository, so without this entry the
+      // connection fails with "Entity metadata for
+      // MatchEntity#youthLeague was not found" and the whole api never
+      // boots. The relation itself is never queried — the youth
+      // subsystem is frozen and holds no rows — but the column stays
+      // and the entity has to be registered. Same reason
+      // `StadiumEntity` is listed above.
+      YouthLeagueEntity,
       FanEntity,
       LeagueStandingEntity,
       InjuryEntity,
