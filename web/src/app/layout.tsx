@@ -1,5 +1,31 @@
 import type { Metadata } from "next";
+import { Inter, Space_Grotesk } from "next/font/google";
 import "./globals.css";
+
+/**
+ * Fonts are self-hosted through next/font: the browser downloads them
+ * from our own origin with a real preload instead of a render-blocking
+ * third-party stylesheet, and there is no external request to leak a
+ * visitor to. The CSS variables are consumed by the `--font-*` tokens
+ * in globals.css, so utility classes stay font-agnostic.
+ *
+ * Only `latin` is loaded. Neither family carries CJK glyphs, so the
+ * zh UI has always rendered through the system-ui fallback — this
+ * keeps that behaviour and keeps the payload small.
+ */
+const spaceGrotesk = Space_Grotesk({
+    subsets: ["latin"],
+    weight: ["300", "400", "500", "600", "700"],
+    variable: "--font-space-grotesk",
+    display: "swap",
+});
+
+const inter = Inter({
+    subsets: ["latin"],
+    weight: ["300", "400", "500", "600", "700"],
+    variable: "--font-inter",
+    display: "swap",
+});
 
 export const metadata: Metadata = {
     title: "GoalXI - Tactical Intelligence & Elite Performance",
@@ -55,23 +81,11 @@ export default function RootLayout({
     children,
 }: Readonly<{ children: React.ReactNode }>) {
     return (
-        <html lang="en" className="dark" suppressHydrationWarning>
-            <head>
-                <link rel="preconnect" href="https://fonts.googleapis.com" />
-                <link
-                    rel="preconnect"
-                    href="https://fonts.gstatic.com"
-                    crossOrigin="anonymous"
-                />
-                <link
-                    href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=Inter:wght@300;400;500;600;700&display=swap"
-                    rel="stylesheet"
-                />
-                <link
-                    rel="stylesheet"
-                    href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap"
-                />
-            </head>
+        <html
+            lang="en"
+            className={`dark ${spaceGrotesk.variable} ${inter.variable}`}
+            suppressHydrationWarning
+        >
             <body
                 className="min-h-screen bg-surface text-on-surface antialiased"
                 suppressHydrationWarning

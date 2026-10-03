@@ -158,11 +158,13 @@
   --color-positive-soft: #6ee7b7;
 
   /* -------------------------------------------------------------------------
-     TYPOGRAPHY — Font families (loaded via <link> in layout.tsx)
+     TYPOGRAPHY — Font families. The `--font-space-grotesk` /
+     `--font-inter` variables are injected on <html> by next/font (see
+     layout.tsx); these tokens are what components should reference.
   ------------------------------------------------------------------------- */
-  --font-headline: "Space Grotesk", system-ui, sans-serif;
-  --font-body: "Inter", system-ui, sans-serif;
-  --font-label: "Inter", system-ui, sans-serif;
+  --font-headline: var(--font-space-grotesk), system-ui, sans-serif;
+  --font-body: var(--font-inter), system-ui, sans-serif;
+  --font-label: var(--font-inter), system-ui, sans-serif;
 
   /* -------------------------------------------------------------------------
      BORDER RADIUS — Following spec
@@ -203,44 +205,19 @@ body {
 
 /* -------------------------------------------------------------------------
    TYPOGRAPHY UTILITY CLASSES
-   Use these instead of raw Tailwind font classes
+   Use these instead of raw Tailwind font classes. They delegate to the
+   --font-* tokens so there is exactly one place a family is named.
 ------------------------------------------------------------------------- */
 .font-headline {
-  font-family: "Space Grotesk", system-ui, sans-serif;
+  font-family: var(--font-headline);
 }
 
 .font-body {
-  font-family: "Inter", system-ui, sans-serif;
+  font-family: var(--font-body);
 }
 
 .font-label {
-  font-family: "Inter", system-ui, sans-serif;
-}
-
-/* -------------------------------------------------------------------------
-   MATERIAL SYMBOLS — Icon font setup
-------------------------------------------------------------------------- */
-.material-symbols-outlined {
-  font-variation-settings:
-    "FILL" 0,
-    "wght" 400,
-    "GRAD" 0,
-    "opsz" 24;
-  display: inline-block;
-  vertical-align: middle;
-  user-select: none;
-}
-
-/* Filled variant */
-.material-symbols-filled {
-  font-variation-settings:
-    "FILL" 1,
-    "wght" 400,
-    "GRAD" 0,
-    "opsz" 24;
-  display: inline-block;
-  vertical-align: middle;
-  user-select: none;
+  font-family: var(--font-label);
 }
 
 /* -------------------------------------------------------------------------
