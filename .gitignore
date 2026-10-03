@@ -95,6 +95,11 @@ api/scripts/reset-db.js
 # Performance / perf-tracking ledger under docs/perf/
 !docs/perf/**
 !docs/perf/
+# Hand-maintained design-system contract under docs/design/. Unlike the
+# Stitch exports it grew out of (still ignored below) it is written by
+# hand and reviewed in PRs, so it has to be versioned.
+!docs/design/**
+!docs/design/
 
 # Design files
 stitch_design/**/*
