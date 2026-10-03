@@ -168,7 +168,7 @@ function HalfPitch({
 
   return (
     <div
-      className={`absolute inset-0 pointer-events-none transition-transform duration-500 ease-out ${glow}`}
+      className={`absolute inset-0 pointer-events-none transition-transform duration-deliberate ease-standard ${glow}`}
       style={wrapperStyle}
       data-side={side}
     >

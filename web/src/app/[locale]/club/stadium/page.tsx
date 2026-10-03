@@ -301,7 +301,7 @@ export default function StadiumPage() {
                 {/* Bar */}
                 <div className="mt-5 h-2 rounded-full bg-surface-container overflow-hidden">
                   <div
-                    className="h-full bg-gradient-to-r from-primary via-primary to-amber-300 transition-[width] duration-700"
+                    className="h-full bg-gradient-to-r from-primary via-primary to-amber-300 transition-[width] duration-deliberate"
                     style={{ width: `${Math.round(fillRate * 100)}%` }}
                   />
                 </div>
@@ -571,7 +571,7 @@ function ActiveConstructionCard({
       <div className="h-2 rounded-full bg-surface-container overflow-hidden">
         <div
           className={
-            "h-full transition-[width] duration-700 " +
+            "h-full transition-[width] duration-deliberate " +
             (isExpand
               ? "bg-gradient-to-r from-primary via-primary to-amber-300"
               : "bg-gradient-to-r from-error via-error to-amber-300")

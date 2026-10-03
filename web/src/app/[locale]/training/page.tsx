@@ -636,7 +636,7 @@ export default function TrainingPage() {
                 onClick={() => setNotification(null)}
                 className={`
                   w-8 h-8 rounded-lg flex items-center justify-center shrink-0
-                  transition-all duration-200 hover:scale-110
+                  transition-all duration-base hover:scale-110
                   ${notification.type === 'success'
                     ? 'text-muted hover:text-frost hover:bg-accent/10'
                     : 'text-red-400/60 hover:text-red-300 hover:bg-danger/10'

@@ -49,7 +49,7 @@ export function FixtureTicket({
         'bg-surface-container-low/70 backdrop-blur-xl',
         'border border-white/5 hover:border-white/15',
         'shadow-card hover:shadow-[0_8px_24px_rgba(0,0,0,0.45)]',
-        'transition-all duration-200',
+        'transition-all duration-base',
       )}
     >
       {/* Jersey-color vertical stripe (uses team primary) */}

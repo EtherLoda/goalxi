@@ -59,7 +59,7 @@ export function PitchField({
   );
 
   return (
-    <div className={`relative w-full aspect-[3/4] rounded-2xl overflow-hidden border border-white/5 bg-ink-750 transition-shadow duration-500 ${tempoGlow}`}>
+    <div className={`relative w-full aspect-[3/4] rounded-2xl overflow-hidden border border-white/5 bg-ink-750 transition-shadow duration-deliberate ${tempoGlow}`}>
       {/* Pitch surface */}
       <div className="absolute inset-0 bg-gradient-to-b from-pitch-deep/40 via-pitch-mid/30 to-pitch-dark/40" />
       <div className="absolute inset-0 opacity-20 bg-[repeating-linear-gradient(0deg,transparent,transparent_40px,rgba(0,0,0,0.15)_40px,rgba(0,0,0,0.15)_80px)]" />
@@ -83,7 +83,7 @@ export function PitchField({
 
       {/* Position slots — apply defensiveLine translation & pitchWidth scaling */}
       <div
-        className="absolute inset-0 transition-transform duration-300 ease-out"
+        className="absolute inset-0 transition-transform duration-slow ease-standard"
         style={{
           transform: `translateY(${offsets.translateY}%) scaleX(${offsets.scaleX})`,
           transformOrigin: 'center center',

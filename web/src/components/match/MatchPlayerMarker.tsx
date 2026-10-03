@@ -101,7 +101,7 @@ export function MatchPlayerMarker({
 
   return (
     <div
-      className={`group relative flex flex-col items-center select-none transition-all duration-200 ${
+      className={`group relative flex flex-col items-center select-none transition-all duration-base ${
         isDragging ? 'opacity-30 scale-90' : ''
       } ${isSelected ? 'scale-110' : ''}`}
       draggable
@@ -127,7 +127,7 @@ export function MatchPlayerMarker({
         style={{ width: AVATAR_SIZE, height: AVATAR_SIZE }}
       >
         <div
-          className={`relative rounded-full flex items-center justify-center font-headline font-extrabold text-[13px] uppercase cursor-grab active:cursor-grabbing z-10 transition-all duration-300 ${
+          className={`relative rounded-full flex items-center justify-center font-headline font-extrabold text-[13px] uppercase cursor-grab active:cursor-grabbing z-10 transition-all duration-slow ${
             isSelected ? 'ring-2 ring-white ring-offset-1 ring-offset-ink-750' : ''
           } ${isSubstitute ? 'animate-pulse' : ''}`}
           style={{

@@ -404,13 +404,13 @@ export function MatchTimeline({
               1H injury duration plus one visual minute for the
               half-time break. */}
           <div
-            className="absolute inset-y-0 left-0 rounded-full bg-gradient-to-r from-primary/70 via-primary to-primary/90 shadow-[0_0_8px_rgba(0,228,121,0.35)] transition-[width] duration-300 ease-out"
+            className="absolute inset-y-0 left-0 rounded-full bg-gradient-to-r from-primary/70 via-primary to-primary/90 shadow-[0_0_8px_rgba(0,228,121,0.35)] transition-[width] duration-slow ease-standard"
             style={{ width: `${firstHalfWidthPercent}%` }}
             data-testid="match-timeline-fill-1h"
             aria-label="first half progress"
           />
           <div
-            className="absolute inset-y-0 left-0 rounded-full bg-gradient-to-r from-primary/70 via-primary to-primary/90 shadow-[0_0_8px_rgba(0,228,121,0.35)] transition-[width] duration-300 ease-out"
+            className="absolute inset-y-0 left-0 rounded-full bg-gradient-to-r from-primary/70 via-primary to-primary/90 shadow-[0_0_8px_rgba(0,228,121,0.35)] transition-[width] duration-slow ease-standard"
             style={{ left: `${secondHalfLeftPercent}%`, width: `${secondHalfWidthPercent}%` }}
             data-testid="match-timeline-fill-2h"
             aria-label="second half progress"

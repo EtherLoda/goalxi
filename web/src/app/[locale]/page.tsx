@@ -50,13 +50,13 @@ export default function Home() {
         <nav className="hidden md:flex absolute left-1/2 -translate-x-1/2 gap-8">
           <Link
             href={`/${locale}/manual`}
-            className={`font-headline text-xs font-medium text-on-surface-variant hover:text-on-surface transition-colors duration-200 ${focusRing}`}
+            className={`font-headline text-xs font-medium text-on-surface-variant hover:text-on-surface transition-colors duration-base ${focusRing}`}
           >
             {t("nav.howToPlay")}
           </Link>
           <Link
             href={`/${locale}/forum`}
-            className={`font-headline text-xs font-medium text-on-surface-variant hover:text-on-surface transition-colors duration-200 ${focusRing}`}
+            className={`font-headline text-xs font-medium text-on-surface-variant hover:text-on-surface transition-colors duration-base ${focusRing}`}
           >
             {t("nav.news")}
           </Link>
@@ -65,13 +65,13 @@ export default function Home() {
         <div className="flex items-center gap-3 md:gap-4 ml-auto shrink-0">
           <Link
             href={`/${locale}/auth/login`}
-            className={`font-headline font-bold text-xs uppercase tracking-widest px-4 md:px-5 py-2 text-primary border border-primary/30 hover:bg-primary/10 transition-colors duration-200 ${focusRing}`}
+            className={`font-headline font-bold text-xs uppercase tracking-widest px-4 md:px-5 py-2 text-primary border border-primary/30 hover:bg-primary/10 transition-colors duration-base ${focusRing}`}
           >
             {t("nav.login")}
           </Link>
           <Link
             href={registerHref}
-            className={`font-headline font-bold text-xs uppercase tracking-widest px-4 md:px-5 py-2 bg-primary text-on-primary hover:opacity-90 active:scale-[0.98] transition duration-200 ${focusRing}`}
+            className={`font-headline font-bold text-xs uppercase tracking-widest px-4 md:px-5 py-2 bg-primary text-on-primary hover:opacity-90 active:scale-[0.98] transition duration-base ${focusRing}`}
           >
             {t("nav.signUp")}
           </Link>
@@ -108,12 +108,12 @@ export default function Home() {
               </p>
               <Link
                 href={registerHref}
-                className={`group relative inline-block mt-10 px-8 py-4 bg-primary text-on-primary font-headline font-bold text-base tracking-tight overflow-hidden transition duration-200 hover:opacity-90 active:scale-[0.98] ${focusRing}`}
+                className={`group relative inline-block mt-10 px-8 py-4 bg-primary text-on-primary font-headline font-bold text-base tracking-tight overflow-hidden transition duration-base hover:opacity-90 active:scale-[0.98] ${focusRing}`}
               >
                 <span className="relative z-10">{t("hero.cta")}</span>
                 <span
                   aria-hidden="true"
-                  className="absolute inset-0 bg-white/20 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-500"
+                  className="absolute inset-0 bg-white/20 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-deliberate"
                 />
               </Link>
             </div>
@@ -150,7 +150,7 @@ export default function Home() {
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <article className="md:col-span-2 relative overflow-hidden p-8 border border-white/5 bg-gradient-to-br from-primary-container via-surface-container-low to-surface-container-lowest transition-colors duration-200 hover:via-surface-container">
+            <article className="md:col-span-2 relative overflow-hidden p-8 border border-white/5 bg-gradient-to-br from-primary-container via-surface-container-low to-surface-container-lowest transition-colors duration-base hover:via-surface-container">
               <div className="w-12 h-12 bg-surface-container-highest flex items-center justify-center border border-primary/30">
                 <AppIcon name="strategy" className="text-primary" />
               </div>
@@ -162,7 +162,7 @@ export default function Home() {
               </p>
             </article>
 
-            <article className="glass-panel p-8 transition-shadow duration-200 hover:shadow-card">
+            <article className="glass-panel p-8 transition-shadow duration-base hover:shadow-card">
               <div className="w-12 h-12 bg-primary-container flex items-center justify-center mb-6 border border-primary/20">
                 <AppIcon name="travel_explore" className="text-primary" />
               </div>
@@ -174,7 +174,7 @@ export default function Home() {
               </p>
             </article>
 
-            <article className="p-8 border border-white/5 bg-surface-container-high transition-colors duration-200 hover:bg-surface-container-highest">
+            <article className="p-8 border border-white/5 bg-surface-container-high transition-colors duration-base hover:bg-surface-container-highest">
               <div className="w-12 h-12 bg-surface-container-highest flex items-center justify-center mb-6 border border-white/10">
                 <AppIcon name="monitoring" className="text-primary" />
               </div>
@@ -204,7 +204,7 @@ export default function Home() {
             </div>
             <Link
               href={registerHref}
-              className={`shrink-0 inline-block px-8 py-4 bg-primary text-on-primary font-headline font-bold text-base tracking-tight text-center hover:opacity-90 active:scale-[0.98] transition duration-200 ${focusRing}`}
+              className={`shrink-0 inline-block px-8 py-4 bg-primary text-on-primary font-headline font-bold text-base tracking-tight text-center hover:opacity-90 active:scale-[0.98] transition duration-base ${focusRing}`}
             >
               {t("cta.button")}
             </Link>
@@ -232,7 +232,7 @@ export default function Home() {
               <a
                 key={link.key}
                 href="#"
-                className={`font-body text-xs text-on-surface-variant hover:text-primary transition-colors duration-200 whitespace-nowrap ${focusRing}`}
+                className={`font-body text-xs text-on-surface-variant hover:text-primary transition-colors duration-base whitespace-nowrap ${focusRing}`}
               >
                 {link.label}
               </a>
@@ -242,7 +242,7 @@ export default function Home() {
           <Link
             href={`/${otherLocale}`}
             lang={otherLocale}
-            className={`font-headline text-xs font-bold uppercase tracking-widest text-on-surface-variant hover:text-primary border border-white/10 px-3 py-1.5 transition-colors duration-200 ${focusRing}`}
+            className={`font-headline text-xs font-bold uppercase tracking-widest text-on-surface-variant hover:text-primary border border-white/10 px-3 py-1.5 transition-colors duration-base ${focusRing}`}
           >
             {otherLocale === "zh" ? "中文" : "EN"}
           </Link>

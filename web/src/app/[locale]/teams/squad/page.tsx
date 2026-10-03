@@ -413,7 +413,7 @@ function SquadPageContent() {
                             <div
                               key={player.id}
                               onClick={() => setSelectedPlayer(player)}
-                              className={`group relative mx-3 mb-2 rounded-xl cursor-pointer transition-all duration-200 ease-out border-l-2 ${
+                              className={`group relative mx-3 mb-2 rounded-xl cursor-pointer transition-all duration-base ease-entrance border-l-2 ${
                                 isSelected
                                   ? "bg-ink-600 border-accent shadow-[inset_0_0_24px_rgba(161,255,194,0.10)]"
                                   : "bg-transparent border-transparent hover:bg-ink-700/70 hover:border-accent/40 hover:shadow-[inset_0_0_18px_rgba(161,255,194,0.06)]"
@@ -421,7 +421,7 @@ function SquadPageContent() {
                             >
                               {/* Subtle hover sheen — slides in from the left */}
                               <div
-                                className={`absolute inset-y-0 left-0 w-1 transition-all duration-200 ease-out ${
+                                className={`absolute inset-y-0 left-0 w-1 transition-all duration-base ease-entrance ${
                                   isSelected
                                     ? "bg-gradient-to-r from-accent/40 to-transparent opacity-100"
                                     : "opacity-0 group-hover:opacity-100 bg-gradient-to-r from-accent/30 to-transparent"
@@ -431,7 +431,7 @@ function SquadPageContent() {
                                 <div className="flex items-center gap-4">
                                   {/* Avatar Circle */}
                                   <div
-                                    className={`w-12 h-12 rounded-full flex items-center justify-center font-bold text-sm shrink-0 transition-all duration-200 ${
+                                    className={`w-12 h-12 rounded-full flex items-center justify-center font-bold text-sm shrink-0 transition-all duration-base ${
                                       isSelected
                                         ? "bg-accent/20 text-accent scale-105 ring-2 ring-accent/30"
                                         : "bg-ink-700 text-muted group-hover:bg-ink-500 group-hover:text-frost"
@@ -468,7 +468,7 @@ function SquadPageContent() {
                                             tier={player.coreSpecialtyTier}
                                             size="lg"
                                           />
-                                          <span className="max-w-0 group-hover:max-w-[140px] opacity-0 group-hover:opacity-100 ml-0 group-hover:ml-0.5 overflow-hidden transition-all duration-200 ease-out whitespace-nowrap">
+                                          <span className="max-w-0 group-hover:max-w-[140px] opacity-0 group-hover:opacity-100 ml-0 group-hover:ml-0.5 overflow-hidden transition-all duration-base ease-entrance whitespace-nowrap">
                                             {getSpecialtyLabel(player.coreSpecialty, locale === "en" ? "en" : "zh")}
                                           </span>
                                         </span>
@@ -1041,7 +1041,7 @@ function SkillRow({ labelKey, current, potential, color = "#a1ffc2" }: { labelKe
         />
         {/* Current bar */}
         <div
-          className="absolute inset-y-0 left-0 h-full rounded-full transition-all duration-500"
+          className="absolute inset-y-0 left-0 h-full rounded-full transition-all duration-deliberate"
           style={{ width: `${currentPercent}%`, backgroundColor: color }}
         />
       </div>

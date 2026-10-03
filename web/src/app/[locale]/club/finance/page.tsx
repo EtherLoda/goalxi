@@ -622,7 +622,7 @@ export default function FinancePage() {
                           </span>
                         )}
                         <div
-                          className={`w-6 rounded-t-sm transition-all duration-300 ${
+                          className={`w-6 rounded-t-sm transition-all duration-slow ${
                             hasData
                               ? isCurrentWeek
                                 ? "bg-primary shadow-[0_0_12px_rgba(0,228,121,0.6)]"

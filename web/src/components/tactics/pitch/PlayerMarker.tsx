@@ -123,7 +123,7 @@ export function PlayerMarker({
 
   return (
     <div
-      className={`group relative flex flex-col items-center gap-1 select-none transition-all duration-200 ${
+      className={`group relative flex flex-col items-center gap-1 select-none transition-all duration-base ${
         isDragging ? 'opacity-30 scale-90' : ''
       } ${isSelected ? 'scale-105' : ''}`}
       draggable

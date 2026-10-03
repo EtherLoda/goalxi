@@ -167,6 +167,34 @@
   --font-label: var(--font-inter), system-ui, sans-serif;
 
   /* -------------------------------------------------------------------------
+     MOTION — The timing scale.
+
+     Durations are a ladder, not a free choice: pick the step that matches
+     what is physically happening (see the `duration-*` aliases below).
+     Before this existed, 273 transitions all ran on Tailwind's 150ms
+     default, so a hover fade, a panel expanding and a progress bar
+     filling all felt identical.
+
+       instant     100ms  a state flips on something already on screen
+       quick       150ms  hover / press feedback: color, opacity, ring
+       base        200ms  cards, dropdowns, disclosure, tabs
+       slow        300ms  larger surfaces moving: sheets, drawers, modal
+       deliberate  500ms  continuous physical motion: progress fills,
+                         stamina bars, camera pans
+
+     Easings: `standard` is the curve everything gets by default (see the
+     base rule below) — a decelerating curve, because UI elements that
+     stop should arrive settled, not coast. `entrance` is for elements
+     appearing, `exit` for elements leaving (it starts fast, so the
+     disappearance is not noticed), `spring` overshoots slightly and
+     belongs to continuous motion that carries momentum.
+  ------------------------------------------------------------------------- */
+  --ease-standard: cubic-bezier(0.2, 0, 0, 1);
+  --ease-entrance: cubic-bezier(0.05, 0.7, 0.1, 1);
+  --ease-exit: cubic-bezier(0.4, 0, 1, 1);
+  --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+
+  /* -------------------------------------------------------------------------
      BORDER RADIUS — Following spec
   ------------------------------------------------------------------------- */
   --radius-sm: 0.125rem;   /* inline elements */
@@ -185,10 +213,49 @@
 }
 
 /* -------------------------------------------------------------------------
+   DURATION LADDER
+
+   Tailwind's `duration-*` utilities are fixed numeric steps, which makes
+   them easy to use arbitrarily: the codebase had `duration-200` for a
+   hover and `duration-700` for a progress bar with nothing in between to
+   say which was intentional. These aliases name the intent instead, so a
+   reviewer can see the choice and a refactor can retime the whole app by
+   editing five numbers. Tailwind's numeric utilities keep working.
+------------------------------------------------------------------------- */
+@utility duration-instant {
+  transition-duration: 100ms;
+}
+
+@utility duration-quick {
+  transition-duration: 150ms;
+}
+
+@utility duration-base {
+  transition-duration: 200ms;
+}
+
+@utility duration-slow {
+  transition-duration: 300ms;
+}
+
+@utility duration-deliberate {
+  transition-duration: 500ms;
+}
+
+/* -------------------------------------------------------------------------
    BASE STYLES
 ------------------------------------------------------------------------- */
 *, *::before, *::after {
   box-sizing: border-box;
+}
+
+/* Default easing for every transition. Tailwind's `transition-*`
+   utilities set duration and property but no curve, so without this the
+   whole app animates on the browser default. Declared on the universal
+   selector on purpose: specificity 0-0-0, so any `ease-*` utility or
+   inline timing still overrides it — this only supplies the default. */
+*, *::before, *::after {
+  transition-timing-function: var(--ease-standard);
 }
 
 html {
