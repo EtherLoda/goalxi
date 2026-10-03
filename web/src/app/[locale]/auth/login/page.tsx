@@ -4,9 +4,8 @@ import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { useState, useEffect } from "react";
 import { useAuth } from "@/contexts/AuthContext";
-import { Eye, EyeOff } from "lucide";
-import { MorphIcon } from "morphicons/react";
 import { AppIcon } from "@/components/icons/AppIcon";
+import { AnimatedIcon } from "@/components/icons/AnimatedIcon";
 
 export default function LoginPage() {
   const t = useTranslations();
@@ -183,10 +182,10 @@ export default function LoginPage() {
                   aria-label="Toggle password visibility"
                   className="absolute right-3 top-1/2 -translate-y-1/2 text-on-surface-variant hover:text-on-surface transition-colors"
                 >
-                  <MorphIcon
-                    icon={showPassword ? EyeOff : Eye}
+                  <AnimatedIcon
+                    slot="password-visibility"
+                    active={showPassword}
                     size={20}
-                    reducedMotion="user"
                   />
                 </button>
               </div>
