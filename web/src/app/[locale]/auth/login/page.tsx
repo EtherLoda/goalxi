@@ -6,6 +6,7 @@ import { useState, useEffect } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { AppIcon } from "@/components/icons/AppIcon";
 import { AnimatedIcon } from "@/components/icons/AnimatedIcon";
+import StadiumBackdrop from "@/components/auth/StadiumBackdrop";
 
 export default function LoginPage() {
   const t = useTranslations();
@@ -116,14 +117,7 @@ export default function LoginPage() {
         }
       `}</style>
       {/* Background */}
-      <div className="fixed inset-0 z-0">
-        <img
-          alt="Stadium"
-          className="w-full h-full object-cover grayscale brightness-30"
-          src="https://images.unsplash.com/photo-1489944440615-453fc2b6a9a9?w=1920&q=80"
-        />
-        <div className="absolute inset-0 bg-surface/80" />
-      </div>
+      <StadiumBackdrop />
 
       {/* Auth Card */}
       <div className="relative z-10 w-full max-w-md">

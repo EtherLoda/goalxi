@@ -6,6 +6,7 @@ import { useTranslations } from "next-intl";
 import Link from "next/link";
 import { api, type OnboardingState } from "@/lib/api";
 import { useAuth } from "@/contexts/AuthContext";
+import StadiumBackdrop from "@/components/auth/StadiumBackdrop";
 
 /**
  * "We are waiting on the worker" loading screen. The actual
@@ -125,14 +126,7 @@ export default function OnboardingSelectPage() {
 
   return (
     <div className="min-h-screen flex items-center justify-center px-4 bg-surface">
-      <div className="fixed inset-0 z-0">
-        <img
-          alt="Stadium"
-          className="w-full h-full object-cover grayscale brightness-30"
-          src="https://images.unsplash.com/photo-1489944440615-453fc2b6a9a9?w=1920&q=80"
-        />
-        <div className="absolute inset-0 bg-surface/80" />
-      </div>
+      <StadiumBackdrop />
 
       <div className="relative z-10 w-full max-w-md">
         <div className="text-center mb-10">
