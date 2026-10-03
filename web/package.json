@@ -17,6 +17,9 @@
   },
   "dependencies": {
     "clsx": "^2.1.1",
+    "lucide": "^1.51.0",
+    "lucide-react": "^1.51.0",
+    "morphicons": "^1.7.1",
     "next": "16.2.3",
     "next-intl": "^4.9.0",
     "pino": "^10.3.1",
