@@ -78,12 +78,12 @@ export function PositionSelect({ value, onChange, align = 'left', disabled = fal
         className={`w-full flex items-center justify-between gap-2 px-2.5 py-2 rounded-lg border transition-all ${
           disabled
             ? 'opacity-50 cursor-not-allowed border-outline-variant/20'
-            : `cursor-pointer border-outline-variant/30 hover:border-amber-400/60 ${open ? 'ring-2 ring-amber-400/30 border-amber-400' : ''}`
+            : `cursor-pointer border-outline-variant/30 hover:border-signal-gold/60 ${open ? 'ring-2 ring-signal-gold/30 border-signal-gold' : ''}`
         } bg-surface-container/50`}
       >
         {value ? (
           <div className={`flex-1 min-w-0 flex flex-col ${align === 'right' ? 'items-end text-right' : 'items-start text-left'}`}>
-            <span className="text-xs font-bold text-white">{positionShortLabel(value as PitchSlot)}</span>
+            <span className="text-xs font-bold text-on-surface">{positionShortLabel(value as PitchSlot)}</span>
             <span className="text-[9px] font-bold uppercase tracking-widest text-amber-300/80">
               {t('newPosition')}
             </span>
@@ -95,7 +95,7 @@ export function PositionSelect({ value, onChange, align = 'left', disabled = fal
           </div>
         )}
         {!disabled && (
-          <span className={`material-symbols-outlined text-[14px] text-outline transition-transform ${open ? 'rotate-180 text-amber-400' : ''}`}>
+          <span className={`material-symbols-outlined text-[14px] text-outline transition-transform ${open ? 'rotate-180 text-signal-gold' : ''}`}>
             expand_more
           </span>
         )}
@@ -120,13 +120,13 @@ export function PositionSelect({ value, onChange, align = 'left', disabled = fal
                 }}
                 className={`w-full flex items-center justify-between gap-2 px-2 py-1.5 rounded text-left text-xs font-bold transition-colors ${
                   value === slot
-                    ? 'bg-amber-500/15 text-amber-200'
+                    ? 'bg-signal-amber/15 text-amber-200'
                     : 'text-on-surface hover:bg-surface-container/60'
                 }`}
               >
                 <span className="font-headline">{positionShortLabel(slot)}</span>
                 {value === slot && (
-                  <span className="material-symbols-outlined text-[12px] text-amber-400">check</span>
+                  <span className="material-symbols-outlined text-[12px] text-signal-gold">check</span>
                 )}
               </button>
             ))}

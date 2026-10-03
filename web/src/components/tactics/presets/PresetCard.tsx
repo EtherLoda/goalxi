@@ -34,7 +34,7 @@ export function PresetCard({ preset, disabled, isActive, onApply, onDelete }: Pr
               star
             </span>
           )}
-          <span className="font-headline font-bold text-sm text-white truncate">{preset.name}</span>
+          <span className="font-headline font-bold text-sm text-on-surface truncate">{preset.name}</span>
         </div>
         <span className="font-headline font-black text-xs text-primary tracking-tight">
           {preset.formation}

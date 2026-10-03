@@ -18,7 +18,7 @@ export function SavePresetDialog({ onCancel, onConfirm }: SavePresetDialogProps)
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm" role="dialog" aria-modal="true">
       <div className="glass-panel rounded-2xl p-6 w-full max-w-sm mx-4">
-        <h2 className="font-headline font-bold text-lg tracking-tight text-white uppercase mb-4">
+        <h2 className="font-headline font-bold text-lg tracking-tight text-on-surface uppercase mb-4">
           {t('title')}
         </h2>
         <div className="space-y-3">
@@ -33,7 +33,7 @@ export function SavePresetDialog({ onCancel, onConfirm }: SavePresetDialogProps)
               placeholder={t('namePlaceholder')}
               maxLength={100}
               autoFocus
-              className="w-full px-3 py-2 rounded-lg bg-surface-container-highest text-white border border-outline-variant/30 focus:outline-none focus:ring-1 focus:ring-primary"
+              className="w-full px-3 py-2 rounded-lg bg-surface-container-highest text-on-surface border border-outline-variant/30 focus:outline-none focus:ring-1 focus:ring-primary"
             />
           </div>
           <label className="flex items-center gap-2 cursor-pointer">
@@ -52,7 +52,7 @@ export function SavePresetDialog({ onCancel, onConfirm }: SavePresetDialogProps)
           <button
             type="button"
             onClick={onCancel}
-            className="flex-1 px-3 py-2 rounded-lg border border-outline-variant/30 text-on-surface-variant font-label text-[10px] tracking-widest uppercase hover:text-white transition-colors"
+            className="flex-1 px-3 py-2 rounded-lg border border-outline-variant/30 text-on-surface-variant font-label text-[10px] tracking-widest uppercase hover:text-on-surface transition-colors"
           >
             {t('cancel')}
           </button>

@@ -20,7 +20,7 @@ describe('skill-display', () => {
 
   it('exposes a color for every category', () => {
     for (const cat of SKILL_CATEGORIES) {
-      expect(CATEGORY_COLORS[cat]).toMatch(/^text-\[#/);
+      expect(CATEGORY_COLORS[cat]).toMatch(/^text-[a-z]/);
     }
   });
 

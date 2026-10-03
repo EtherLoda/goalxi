@@ -156,7 +156,7 @@ export default function GlobalHeader({ locale }: GlobalHeaderProps) {
             League
           </span>
         )}
-        <span className="text-white/20">|</span>
+        <span className="text-on-surface/20">|</span>
         {team && !isViewingMyTeam ? (
           <button
             onClick={() => {

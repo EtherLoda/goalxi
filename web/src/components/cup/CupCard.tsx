@@ -16,7 +16,7 @@ export default function CupCard({ cup, locale, totalRounds }: CupCardProps) {
     cup.status === "completed"
       ? "bg-primary/10 text-primary border-primary/30"
       : cup.status === "in_progress"
-        ? "bg-amber-500/10 text-amber-300 border-amber-500/30"
+        ? "bg-signal-amber/10 text-amber-300 border-signal-amber/30"
         : "bg-surface-container/50 text-on-surface-variant border-outline-variant/20";
   return (
     <Link
@@ -28,7 +28,7 @@ export default function CupCard({ cup, locale, totalRounds }: CupCardProps) {
           <div className="font-label text-[10px] font-black uppercase tracking-[0.15em] text-on-surface-variant/60 mb-1">
             Season {cup.season} · {cup.type}
           </div>
-          <h3 className="font-headline font-black text-lg text-[#d3f5e8] truncate">
+          <h3 className="font-headline font-black text-lg text-frost truncate">
             {cup.name}
           </h3>
         </div>

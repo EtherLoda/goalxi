@@ -71,7 +71,7 @@ export default function NewThreadForm({
           value={title}
           onChange={(e) => setTitle(e.target.value)}
           placeholder={t("placeholderThreadTitle")}
-          className="w-full p-3 bg-surface-container border border-outline-variant/20 rounded-lg font-headline text-[#d3f5e8] placeholder-on-surface-variant/50 focus:outline-none focus:border-[#a1ffc2]/50 transition-colors"
+          className="w-full p-3 bg-surface-container border border-outline-variant/20 rounded-lg font-headline text-frost placeholder-on-surface-variant/50 focus:outline-none focus:border-accent/50 transition-colors"
           disabled={submitting}
         />
         <div className="font-label text-[10px] uppercase tracking-widest text-on-surface-variant/70 mt-2 flex items-center justify-between">
@@ -93,7 +93,7 @@ export default function NewThreadForm({
           onChange={(e) => setBody(e.target.value)}
           placeholder={t("placeholderThreadBody")}
           rows={10}
-          className="w-full p-3 bg-surface-container border border-outline-variant/20 rounded-lg font-body text-[#d3f5e8] placeholder-on-surface-variant/50 focus:outline-none focus:border-[#a1ffc2]/50 resize-y transition-colors"
+          className="w-full p-3 bg-surface-container border border-outline-variant/20 rounded-lg font-body text-frost placeholder-on-surface-variant/50 focus:outline-none focus:border-accent/50 resize-y transition-colors"
           disabled={submitting}
         />
         <div className="font-label text-[10px] uppercase tracking-widest text-on-surface-variant/70 mt-2 flex items-center justify-between">
@@ -120,7 +120,7 @@ export default function NewThreadForm({
             title.length < TITLE_MIN ||
             body.length < BODY_MIN
           }
-          className="font-headline font-bold text-xs uppercase tracking-widest px-6 py-3 rounded-lg bg-[#a1ffc2] text-[#003328] hover:bg-[#d3f5e8] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+          className="font-headline font-bold text-xs uppercase tracking-widest px-6 py-3 rounded-lg bg-accent text-ink-500 hover:bg-frost disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
         >
           {submitting ? t("posting") : t("postThread")}
         </button>
@@ -128,7 +128,7 @@ export default function NewThreadForm({
           type="button"
           onClick={() => router.push(`/${locale}/forum/${categorySlug}`)}
           disabled={submitting}
-          className="font-headline font-bold text-xs uppercase tracking-widest px-4 py-3 text-on-surface-variant hover:text-[#d3f5e8] transition-colors"
+          className="font-headline font-bold text-xs uppercase tracking-widest px-4 py-3 text-on-surface-variant hover:text-frost transition-colors"
         >
           {t("cancel")}
         </button>

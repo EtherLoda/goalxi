@@ -15,7 +15,7 @@ function ScoutsPage() {
   return (
     <Suspense
       fallback={
-        <div className="px-8 py-6 text-sm text-[#91b2a6] font-space">
+        <div className="px-8 py-6 text-sm text-muted font-space">
           Loading…
         </div>
       }
@@ -173,7 +173,7 @@ function ScoutsPageInner() {
       <Header title={t("title")} />
 
       {!isOwnTeam && (
-        <div className="bg-[#fbbf24]/10 border border-[#fbbf24]/30 rounded-xl p-4 text-sm text-[#fbbf24] font-space">
+        <div className="bg-signal-gold/10 border border-signal-gold/30 rounded-xl p-4 text-sm text-signal-gold font-space">
           Viewing another team — scouts inbox is only available for your own
           team.
         </div>
@@ -181,7 +181,7 @@ function ScoutsPageInner() {
 
       <div className="flex justify-center">
         {loading ? (
-          <div className="flex items-center gap-3 py-16 text-sm text-[#91b2a6] font-space">
+          <div className="flex items-center gap-3 py-16 text-sm text-muted font-space">
             <span className="material-symbols-outlined animate-spin">
               progress_activity
             </span>
@@ -220,7 +220,7 @@ function ScoutsPageInner() {
           <button
             onClick={handleDraw}
             disabled={busy || weeklyDrawsRemaining <= 0}
-            className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-[#a1ffc2]/10 border border-[#a1ffc2]/30 text-[#a1ffc2] text-xs font-bold uppercase tracking-wider hover:bg-[#a1ffc2]/20 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-accent/10 border border-accent/30 text-accent text-xs font-bold uppercase tracking-wider hover:bg-accent/20 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {busy ? (
               <span className="material-symbols-outlined text-[14px] animate-spin">
@@ -256,10 +256,10 @@ function ScoutsPageInner() {
 function Header({ title }: { title: string }) {
   return (
     <header className="flex flex-col gap-1">
-      <h1 className="text-3xl font-black font-space text-[#d3f5e8] tracking-tight">
+      <h1 className="text-3xl font-black font-space text-frost tracking-tight">
         {title}
       </h1>
-      <p className="text-xs text-[#91b2a6] font-space">
+      <p className="text-xs text-muted font-space">
         Auto-refreshes every Saturday at 06:00 UTC. Draw a fresh
         dossier below.
       </p>
@@ -281,11 +281,11 @@ function EmptyState({
   onRefresh: () => void;
 }) {
   return (
-    <div className="bg-[#00251c]/60 rounded-2xl border border-white/5 px-6 py-12 sm:py-16 text-center w-full max-w-[580px]">
-      <span className="material-symbols-outlined text-[#91b2a6] text-5xl">
+    <div className="bg-ink-700/60 rounded-2xl border border-white/5 px-6 py-12 sm:py-16 text-center w-full max-w-[580px]">
+      <span className="material-symbols-outlined text-muted text-5xl">
         travel_explore
       </span>
-      <p className="mt-4 text-sm text-[#91b2a6] font-space max-w-md mx-auto">
+      <p className="mt-4 text-sm text-muted font-space max-w-md mx-auto">
         {text}
       </p>
       <button
@@ -293,8 +293,8 @@ function EmptyState({
         disabled={refreshing || capReached}
         className={
           capReached
-            ? "mt-6 inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-white/5 text-[#91b2a6] text-sm font-bold uppercase tracking-wider cursor-not-allowed border border-white/10"
-            : "mt-6 inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-[#a1ffc2] text-[#001e17] text-sm font-bold uppercase tracking-wider hover:bg-[#b9ffce] transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-[#a1ffc2]/20"
+            ? "mt-6 inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-white/5 text-muted text-sm font-bold uppercase tracking-wider cursor-not-allowed border border-white/10"
+            : "mt-6 inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-accent text-ink-800 text-sm font-bold uppercase tracking-wider hover:bg-accent-soft transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-accent/20"
         }
       >
         {refreshing ? (
@@ -329,8 +329,8 @@ function Toast({
     <div
       className={
         kind === "success"
-          ? "fixed bottom-6 right-6 z-50 px-4 py-3 rounded-xl bg-[#a1ffc2] text-[#001e17] text-sm font-bold shadow-2xl flex items-center gap-2"
-          : "fixed bottom-6 right-6 z-50 px-4 py-3 rounded-xl bg-error text-white text-sm font-bold shadow-2xl flex items-center gap-2"
+          ? "fixed bottom-6 right-6 z-50 px-4 py-3 rounded-xl bg-accent text-ink-800 text-sm font-bold shadow-2xl flex items-center gap-2"
+          : "fixed bottom-6 right-6 z-50 px-4 py-3 rounded-xl bg-error text-on-error text-sm font-bold shadow-2xl flex items-center gap-2"
       }
     >
       <span className="material-symbols-outlined">

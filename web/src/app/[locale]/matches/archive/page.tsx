@@ -253,7 +253,7 @@ export default function ArchivedMatchesPage() {
                 key={f}
                 onClick={() => setTypeFilter(f)}
                 className={clsx(
-                  "px-2.5 py-1 rounded-md font-label text-[10px] font-black uppercase tracking-widest border transition-colors",
+                  "px-2.5 py-1 rounded-lg font-label text-[10px] font-black uppercase tracking-widest border transition-colors",
                   active
                     ? "bg-primary/10 border-primary/40 text-primary"
                     : "bg-surface-container/30 border-outline-variant/10 text-on-surface-variant hover:text-on-surface hover:border-outline-variant/30",

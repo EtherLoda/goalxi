@@ -15,10 +15,10 @@
 export const SKILL_MAX = 20;
 
 export const CATEGORY_COLORS = {
-  physical: 'text-[#a1ffc2]',
-  technical: 'text-[#60a5fa]',
-  mental: 'text-[#c084fc]',
-  setPieces: 'text-[#fbbf24]',
+  physical: 'text-accent',
+  technical: 'text-signal-blue',
+  mental: 'text-signal-lilac',
+  setPieces: 'text-signal-gold',
 } as const;
 
 export type SkillCategory = keyof typeof CATEGORY_COLORS;

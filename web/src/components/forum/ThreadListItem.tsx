@@ -30,22 +30,22 @@ export default function ThreadListItem({ thread }: ThreadListItemProps) {
   return (
     <Link
       href={`/${locale}/forum/thread/${thread.id}`}
-      className="flex items-start gap-4 p-4 border-b border-outline-variant/10 last:border-b-0 hover:bg-[#003328] transition-colors group"
+      className="flex items-start gap-4 p-4 border-b border-outline-variant/10 last:border-b-0 hover:bg-ink-500 transition-colors group"
     >
       {thread.isPinned ? (
         <span
-          className="material-symbols-outlined text-[#a1ffc2] text-lg mt-0.5 shrink-0"
+          className="material-symbols-outlined text-accent text-lg mt-0.5 shrink-0"
           title="Pinned"
         >
           push_pin
         </span>
       ) : (
-        <span className="material-symbols-outlined text-on-surface-variant/40 text-lg mt-0.5 shrink-0 group-hover:text-[#a1ffc2] transition-colors">
+        <span className="material-symbols-outlined text-on-surface-variant/40 text-lg mt-0.5 shrink-0 group-hover:text-accent transition-colors">
           article
         </span>
       )}
       <div className="flex-1 min-w-0">
-        <h4 className="font-headline font-medium text-[#d3f5e8] truncate group-hover:text-[#a1ffc2] transition-colors">
+        <h4 className="font-headline font-medium text-frost truncate group-hover:text-accent transition-colors">
           {thread.title}
         </h4>
         <div className="flex items-center gap-3 font-label text-[10px] uppercase tracking-widest text-on-surface-variant/70 mt-1">
@@ -66,7 +66,7 @@ export default function ThreadListItem({ thread }: ThreadListItemProps) {
         </div>
       </div>
       <div className="text-right font-label text-[10px] uppercase tracking-widest text-on-surface-variant/70 shrink-0">
-        <div className="text-[#d3f5e8] font-headline text-sm font-bold">
+        <div className="text-frost font-headline text-sm font-bold">
           {thread.replyCount}
         </div>
         <div>{t("replyCount_other")}</div>

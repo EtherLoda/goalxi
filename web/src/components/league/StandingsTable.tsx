@@ -4,6 +4,7 @@ import { useTranslations } from "next-intl";
 import { clsx } from "clsx";
 import { useRouter } from "next/navigation";
 import type { Standing } from "@/lib/api";
+import { signalGold, signalLime } from "@/lib/design-tokens";
 import { useGameStore } from "@/stores/gameStore";
 import { FormChipStrip, type FormResult } from "@/components/match/FormChipStrip";
 
@@ -15,8 +16,8 @@ interface StandingsTableProps {
 
 const ZONE_COLORS = {
   promote: "#00e479",
-  promotePlayoff: "#a3e635",
-  relPlayoff: "#fbbf24",
+  promotePlayoff: signalLime,
+  relPlayoff: signalGold,
   rel: "#ffb4ab",
 };
 

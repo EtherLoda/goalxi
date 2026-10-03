@@ -36,7 +36,7 @@ export function EditorHeader({ formation, isDirty, lock, isSubmitting, canSubmit
       <div className="flex items-center gap-3 min-w-0">
         <span className="material-symbols-outlined text-primary text-2xl">strategy</span>
         <div className="min-w-0">
-          <h1 className="font-headline font-black text-xl tracking-tight text-white uppercase">
+          <h1 className="font-headline font-black text-xl tracking-tight text-on-surface uppercase">
             {t('title')}
           </h1>
           <p className="font-label text-[10px] tracking-widest uppercase text-outline">

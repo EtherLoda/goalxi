@@ -207,12 +207,12 @@ export function MatchLiveView({
         <div
           role="status"
           aria-live="polite"
-          className="rounded-xl bg-amber-500/10 border border-amber-500/40 px-5 py-4 flex items-center justify-between gap-3"
+          className="rounded-xl bg-signal-amber/10 border border-signal-amber/40 px-5 py-4 flex items-center justify-between gap-3"
         >
           <div className="flex items-center gap-3">
-            <span className="material-symbols-outlined text-amber-500">sports_score</span>
+            <span className="material-symbols-outlined text-signal-amber">sports_score</span>
             <div>
-              <p className="font-headline font-bold text-amber-500 uppercase tracking-wider text-sm">
+              <p className="font-headline font-bold text-signal-amber uppercase tracking-wider text-sm">
                 {t('fullTimeTitle')}
               </p>
               <p className="text-on-surface-variant text-sm mt-0.5">

@@ -31,11 +31,11 @@ function renderSkillBar(
   const percentage = (current / SKILL_MAX) * 100;
   return (
     <div className="space-y-1">
-      <div className="flex justify-between text-[9px] font-bold uppercase tracking-wider text-[#91b2a6]">
+      <div className="flex justify-between text-[9px] font-bold uppercase tracking-wider text-muted">
         <span>{label}</span>
         <span className={colorClass}>{current}</span>
       </div>
-      <div className="h-1 w-full bg-[#00251c] rounded-full overflow-hidden">
+      <div className="h-1 w-full bg-ink-700 rounded-full overflow-hidden">
         <div
           className={`h-full ${colorClass.replace("text-", "bg-")} rounded-full`}
           style={{ width: `${percentage}%` }}
@@ -64,75 +64,75 @@ export default function TransferTransactionCard({
   const isGK = player.isGoalkeeper;
 
   return (
-    <div className="bg-[#001711] rounded-2xl p-5 border border-[#2f4e44]/20">
+    <div className="bg-ink-900 rounded-2xl p-5 border border-edge/20">
       {/* Header */}
       <div className="flex items-center gap-5 mb-5">
-        <div className="w-16 h-16 rounded-full bg-gradient-to-br from-[#002c22] to-[#001711] flex items-center justify-center font-bold text-2xl text-[#a1ffc2] border border-[#2f4e44]/30">
+        <div className="w-16 h-16 rounded-full bg-gradient-to-br from-ink-600 to-ink-900 flex items-center justify-center font-bold text-2xl text-accent border border-edge/30">
           {initials}
         </div>
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-3">
-            <Link href={`/players/${player.id}`} className="font-bold text-xl text-[#d3f5e8] truncate hover:text-[#a1ffc2] transition-colors">
+            <Link href={`/players/${player.id}`} className="font-bold text-xl text-frost truncate hover:text-accent transition-colors">
               {player.name}
             </Link>
             {status === "failed" ? (
-              <span className="bg-red-500/20 text-red-400 text-[11px] font-bold px-2 py-1 rounded-md">
+              <span className="bg-danger/20 text-red-400 text-[11px] font-bold px-2 py-1 rounded-lg">
                 Failed
               </span>
             ) : (
-              <span className="bg-[#a1ffc2]/10 text-[#a1ffc2] text-[11px] font-bold px-2 py-1 rounded-md border border-[#a1ffc2]/20">
+              <span className="bg-accent/10 text-accent text-[11px] font-bold px-2 py-1 rounded-lg border border-accent/20">
                 {isSale ? "SOLD" : "SIGNED"}
               </span>
             )}
           </div>
-          <p className="text-sm text-[#91b2a6]">
+          <p className="text-sm text-muted">
             {t("common.ageFormat", { y: player.age, d: player.ageDays })}
           </p>
         </div>
         <div className="flex items-center gap-6">
           <div className="text-center">
-            <p className="text-[10px] text-[#91b2a6] uppercase tracking-wider mb-1">
+            <p className="text-[10px] text-muted uppercase tracking-wider mb-1">
               Age
             </p>
-            <p className="font-bold text-lg text-[#d3f5e8]">{player.age}</p>
+            <p className="font-bold text-lg text-frost">{player.age}</p>
           </div>
           <div className="text-center">
-            <p className="text-[10px] text-[#91b2a6] uppercase tracking-wider mb-1">
+            <p className="text-[10px] text-muted uppercase tracking-wider mb-1">
               Stamina
             </p>
-            <p className="font-bold text-lg text-[#abf853]">{player.stamina || 85}</p>
+            <p className="font-bold text-lg text-signal-lime">{player.stamina || 85}</p>
           </div>
           <div className="text-center">
-            <p className="text-[10px] text-[#91b2a6] uppercase tracking-wider mb-1">
+            <p className="text-[10px] text-muted uppercase tracking-wider mb-1">
               Form
             </p>
-            <p className="font-bold text-lg text-[#f59e0b]">{player.form || 7.0}</p>
+            <p className="font-bold text-lg text-signal-amber">{player.form || 7.0}</p>
           </div>
           <div className="text-center">
-            <p className="text-[10px] text-[#91b2a6] uppercase tracking-wider mb-1">
+            <p className="text-[10px] text-muted uppercase tracking-wider mb-1">
               Exp
             </p>
-            <ExperienceTierLabel value={player.experience} className="font-bold text-lg text-[#d3f5e8]" />
+            <ExperienceTierLabel value={player.experience} className="font-bold text-lg text-frost" />
           </div>
         </div>
         <div className="flex items-center gap-6">
           <div className="text-center w-36 h-14 flex flex-col justify-between">
-            <p className="text-[10px] text-[#91b2a6] uppercase tracking-wider">
+            <p className="text-[10px] text-muted uppercase tracking-wider">
               {isSale ? "Sale Price" : "Purchase Price"}
             </p>
             <p
               className={`font-headline font-black text-2xl tracking-tight ${
-                status === "success" ? "text-[#a1ffc2]" : "text-[#d3f5e8]"
+                status === "success" ? "text-accent" : "text-frost"
               }`}
             >
               {formatCurrency(transaction.amount)}
             </p>
           </div>
           <div className="text-center w-36 h-14 flex flex-col justify-between">
-            <p className="text-[10px] text-[#91b2a6] uppercase tracking-wider">
+            <p className="text-[10px] text-muted uppercase tracking-wider">
               {isSale ? "To" : "From"}
             </p>
-            <p className="font-bold text-lg text-[#d3f5e8]">
+            <p className="font-bold text-lg text-frost">
               {isSale
                 ? transaction.toTeam?.name?.toUpperCase() || "UNKNOWN"
                 : transaction.fromTeam?.name?.toUpperCase() || "UNKNOWN"}
@@ -175,24 +175,24 @@ export default function TransferTransactionCard({
         {/* Technical */}
         <div>
           <div className="flex items-center gap-2 mb-2">
-            <div className="w-1 h-3 bg-[#a1ffc2] rounded-full" />
-            <h4 className="text-[10px] font-black tracking-widest uppercase text-[#91b2a6]">
+            <div className="w-1 h-3 bg-accent rounded-full" />
+            <h4 className="text-[10px] font-black tracking-widest uppercase text-muted">
               Technical
             </h4>
           </div>
           <div className="space-y-1.5">
             {isGK ? (
               <>
-                {renderSkillBar("REF", skills?.technical?.reflexes || 0, "text-[#a1ffc2]")}
-                {renderSkillBar("HAN", skills?.technical?.handling || 0, "text-[#a1ffc2]")}
-                {renderSkillBar("AER", skills?.technical?.aerial || 0, "text-[#a1ffc2]")}
+                {renderSkillBar("REF", skills?.technical?.reflexes || 0, "text-accent")}
+                {renderSkillBar("HAN", skills?.technical?.handling || 0, "text-accent")}
+                {renderSkillBar("AER", skills?.technical?.aerial || 0, "text-accent")}
               </>
             ) : (
               <>
-                {renderSkillBar("FIN", skills?.technical?.finishing || 0, "text-[#a1ffc2]")}
-                {renderSkillBar("PAS", skills?.technical?.passing || 0, "text-[#a1ffc2]")}
-                {renderSkillBar("DRI", skills?.technical?.dribbling || 0, "text-[#a1ffc2]")}
-                {renderSkillBar("DEF", skills?.technical?.defending || 0, "text-[#a1ffc2]")}
+                {renderSkillBar("FIN", skills?.technical?.finishing || 0, "text-accent")}
+                {renderSkillBar("PAS", skills?.technical?.passing || 0, "text-accent")}
+                {renderSkillBar("DRI", skills?.technical?.dribbling || 0, "text-accent")}
+                {renderSkillBar("DEF", skills?.technical?.defending || 0, "text-accent")}
               </>
             )}
           </div>
@@ -201,49 +201,49 @@ export default function TransferTransactionCard({
         {/* Physical */}
         <div>
           <div className="flex items-center gap-2 mb-2">
-            <div className="w-1 h-3 bg-[#abf853] rounded-full" />
-            <h4 className="text-[10px] font-black tracking-widest uppercase text-[#91b2a6]">
+            <div className="w-1 h-3 bg-signal-lime rounded-full" />
+            <h4 className="text-[10px] font-black tracking-widest uppercase text-muted">
               Physical
             </h4>
           </div>
           <div className="space-y-1.5">
-            {renderSkillBar("PAC", skills?.physical?.pace || 0, "text-[#abf853]")}
-            {renderSkillBar("STR", skills?.physical?.strength || 0, "text-[#abf853]")}
+            {renderSkillBar("PAC", skills?.physical?.pace || 0, "text-signal-lime")}
+            {renderSkillBar("STR", skills?.physical?.strength || 0, "text-signal-lime")}
           </div>
         </div>
 
         {/* Mental */}
         <div>
           <div className="flex items-center gap-2 mb-2">
-            <div className="w-1 h-3 bg-[#f59e0b] rounded-full" />
-            <h4 className="text-[10px] font-black tracking-widest uppercase text-[#91b2a6]">
+            <div className="w-1 h-3 bg-signal-amber rounded-full" />
+            <h4 className="text-[10px] font-black tracking-widest uppercase text-muted">
               Mental
             </h4>
           </div>
           <div className="space-y-1.5">
-            {renderSkillBar("COM", skills?.mental?.composure || 0, "text-[#f59e0b]")}
-            {renderSkillBar("POS", skills?.mental?.positioning || 0, "text-[#f59e0b]")}
+            {renderSkillBar("COM", skills?.mental?.composure || 0, "text-signal-amber")}
+            {renderSkillBar("POS", skills?.mental?.positioning || 0, "text-signal-amber")}
           </div>
         </div>
 
         {/* Set Pieces */}
         <div>
           <div className="flex items-center gap-2 mb-2">
-            <div className="w-1 h-3 bg-[#ec4899] rounded-full" />
-            <h4 className="text-[10px] font-black tracking-widest uppercase text-[#91b2a6]">
+            <div className="w-1 h-3 bg-signal-pink rounded-full" />
+            <h4 className="text-[10px] font-black tracking-widest uppercase text-muted">
               Set Pieces
             </h4>
           </div>
           <div className="space-y-1.5">
-            {renderSkillBar("FK", skills?.setPieces?.freeKicks || 0, "text-[#ec4899]")}
-            {renderSkillBar("PEN", skills?.setPieces?.penalties || 0, "text-[#ec4899]")}
+            {renderSkillBar("FK", skills?.setPieces?.freeKicks || 0, "text-signal-pink")}
+            {renderSkillBar("PEN", skills?.setPieces?.penalties || 0, "text-signal-pink")}
           </div>
         </div>
       </div>
 
       {/* Footer */}
-      <div className="flex justify-end mt-4 pt-4 border-t border-[#2f4e44]/20">
-        <p className="text-[10px] text-[#91b2a6] font-bold uppercase tracking-widest">
+      <div className="flex justify-end mt-4 pt-4 border-t border-edge/20">
+        <p className="text-[10px] text-muted font-bold uppercase tracking-widest">
           {isSale ? "SOLD" : "PURCHASED"} · {new Date(transaction.transactionDate).toLocaleDateString()}
         </p>
       </div>

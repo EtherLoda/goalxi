@@ -17,7 +17,7 @@ export default function ThreadList({ threads, pagination }: ThreadListProps) {
         <span className="material-symbols-outlined text-4xl text-on-surface-variant/40 mb-3 block">
           article
         </span>
-        <p className="font-headline text-[#d3f5e8] mb-1">{t("emptyThreads")}</p>
+        <p className="font-headline text-frost mb-1">{t("emptyThreads")}</p>
         <p className="font-body text-sm text-on-surface-variant">
           {t("startFirstThread")}
         </p>

@@ -257,7 +257,7 @@ function FixturesTab({
                       </div>
                       <div
                         className={clsx(
-                          'font-headline font-black px-2.5 py-0.5 rounded-md shrink-0 mx-2 min-w-[58px] text-center',
+                          'font-headline font-black px-2.5 py-0.5 rounded-lg shrink-0 mx-2 min-w-[58px] text-center',
                           isMatchCompleted
                             ? 'bg-primary/15 text-primary'
                             : 'bg-white/5 text-on-surface-variant/60',

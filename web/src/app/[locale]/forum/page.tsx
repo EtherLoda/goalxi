@@ -29,10 +29,10 @@ export default function ForumIndexPage() {
     <div className="max-w-5xl mx-auto px-6 py-8">
       <div className="mb-8">
         <div className="flex items-center gap-3 mb-2">
-          <span className="material-symbols-outlined text-[#a1ffc2] text-3xl">
+          <span className="material-symbols-outlined text-accent text-3xl">
             forum
           </span>
-          <h1 className="font-headline font-black text-3xl uppercase tracking-tight text-[#d3f5e8]">
+          <h1 className="font-headline font-black text-3xl uppercase tracking-tight text-frost">
             {t("title")}
           </h1>
         </div>
@@ -42,7 +42,7 @@ export default function ForumIndexPage() {
       </div>
 
       {error && (
-        <div className="glass-panel p-4 mb-6 rounded-2xl border border-red-500/30 bg-red-500/10">
+        <div className="glass-panel p-4 mb-6 rounded-2xl border border-danger/30 bg-danger/10">
           <div className="flex items-center gap-3 font-body text-sm text-red-300">
             <span className="material-symbols-outlined">error</span>
             {error}

@@ -44,7 +44,7 @@ function clamp01to5(value: number): number {
 }
 
 function levelClass(value: number): string {
-  return value >= 4 ? 'bg-emerald-500' : value >= 2 ? 'bg-yellow-400' : 'bg-orange-500';
+  return value >= 4 ? 'bg-positive' : value >= 2 ? 'bg-yellow-400' : 'bg-orange-500';
 }
 
 function renderVerticalStrip(
@@ -170,7 +170,7 @@ export function PlayerMarker({
         <span className="font-label text-[8px] tracking-widest uppercase text-outline">
           {positionShortLabel(slot)}
         </span>
-        <span className="font-headline font-bold text-[10px] text-white truncate max-w-[64px]">
+        <span className="font-headline font-bold text-[10px] text-on-surface truncate max-w-[64px]">
           {player.name.split(' ').pop()}
         </span>
         <span className="font-headline font-black text-[10px] text-primary">{player.overall}</span>

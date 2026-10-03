@@ -44,13 +44,13 @@ export default function LoginPage() {
           <div className={`
             relative overflow-hidden rounded-2xl border backdrop-blur-2xl
             ${notification.type === 'success'
-              ? 'bg-[#002c22]/95 border-[#a1ffc2]/30 shadow-[0_0_30px_rgba(161,255,194,0.15)]'
-              : 'bg-[#2a1515]/95 border-red-500/30 shadow-[0_0_30px_rgba(255,100,100,0.1)]'
+              ? 'bg-ink-600/95 border-accent/30 shadow-[0_0_30px_rgba(161,255,194,0.15)]'
+              : 'bg-danger-surface/95 border-danger/30 shadow-[0_0_30px_rgba(255,100,100,0.1)]'
             }
           `}>
             {/* Accent line */}
             <div className={`absolute left-0 top-0 bottom-0 w-[3px] ${
-              notification.type === 'success' ? 'bg-[#a1ffc2]' : 'bg-red-500'
+              notification.type === 'success' ? 'bg-accent' : 'bg-danger'
             }`} />
 
             {/* Content */}
@@ -58,8 +58,8 @@ export default function LoginPage() {
               <div className={`
                 w-10 h-10 rounded-xl flex items-center justify-center shrink-0
                 ${notification.type === 'success'
-                  ? 'bg-[#a1ffc2]/10 text-[#a1ffc2]'
-                  : 'bg-red-500/10 text-red-400'
+                  ? 'bg-accent/10 text-accent'
+                  : 'bg-danger/10 text-red-400'
                 }
               `}>
                 <span className="material-symbols-outlined text-xl">
@@ -69,7 +69,7 @@ export default function LoginPage() {
 
               <div className="flex-1 min-w-0">
                 <p className={`text-sm font-semibold ${
-                  notification.type === 'success' ? 'text-[#d3f5e8]' : 'text-red-200'
+                  notification.type === 'success' ? 'text-frost' : 'text-red-200'
                 }`}>
                   {notification.message}
                 </p>
@@ -81,8 +81,8 @@ export default function LoginPage() {
                   w-8 h-8 rounded-lg flex items-center justify-center shrink-0
                   transition-all duration-200 hover:scale-110
                   ${notification.type === 'success'
-                    ? 'text-[#91b2a6] hover:text-[#d3f5e8] hover:bg-[#a1ffc2]/10'
-                    : 'text-red-400/60 hover:text-red-300 hover:bg-red-500/10'
+                    ? 'text-muted hover:text-frost hover:bg-accent/10'
+                    : 'text-red-400/60 hover:text-red-300 hover:bg-danger/10'
                   }
                 `}
               >
@@ -95,8 +95,8 @@ export default function LoginPage() {
               <div
                 className={`h-full animate-[shrink_5s_linear_forwards] ${
                   notification.type === 'success'
-                    ? 'bg-[#a1ffc2]'
-                    : 'bg-red-500'
+                    ? 'bg-accent'
+                    : 'bg-danger'
                 }`}
                 style={{
                   animation: 'shrink 5s linear forwards',

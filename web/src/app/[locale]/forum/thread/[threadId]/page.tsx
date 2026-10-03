@@ -99,7 +99,7 @@ export default function ThreadPage() {
   if (error) {
     return (
       <div className="max-w-3xl mx-auto px-6 py-8">
-        <div className="glass-panel p-6 rounded-2xl border border-red-500/30 bg-red-500/10">
+        <div className="glass-panel p-6 rounded-2xl border border-danger/30 bg-danger/10">
           <div className="flex items-center gap-3 font-body text-sm text-red-300">
             <span className="material-symbols-outlined">error</span>
             {error}
@@ -107,7 +107,7 @@ export default function ThreadPage() {
         </div>
         <Link
           href={`/${locale}/forum`}
-          className="font-label text-[10px] uppercase tracking-widest text-[#a1ffc2] hover:underline mt-4 inline-block"
+          className="font-label text-[10px] uppercase tracking-widest text-accent hover:underline mt-4 inline-block"
         >
           {t("backToForum")}
         </Link>
@@ -133,7 +133,7 @@ export default function ThreadPage() {
       <nav className="flex items-center gap-2 font-label text-[10px] uppercase tracking-widest text-on-surface-variant/70 mb-4">
         <Link
           href={`/${locale}/forum`}
-          className="hover:text-[#a1ffc2] transition-colors flex items-center gap-1"
+          className="hover:text-accent transition-colors flex items-center gap-1"
         >
           <span className="material-symbols-outlined text-xs">forum</span>
           {t("title")}
@@ -144,13 +144,13 @@ export default function ThreadPage() {
         <div className="flex items-start gap-2 mb-2">
           {thread.isPinned && (
             <span
-              className="material-symbols-outlined text-[#a1ffc2] mt-1"
+              className="material-symbols-outlined text-accent mt-1"
               title="Pinned"
             >
               push_pin
             </span>
           )}
-          <h1 className="font-headline font-black text-2xl uppercase tracking-tight text-[#d3f5e8] flex-1">
+          <h1 className="font-headline font-black text-2xl uppercase tracking-tight text-frost flex-1">
             {thread.title}
           </h1>
           {isAuthor && (
@@ -164,10 +164,10 @@ export default function ThreadPage() {
           )}
         </div>
         <div className="font-label text-[10px] uppercase tracking-widest text-on-surface-variant/70 flex items-center gap-2">
-          <div className="w-6 h-6 rounded-full bg-primary/20 border border-primary/30 flex items-center justify-center font-headline font-black text-[10px] text-[#a1ffc2]">
+          <div className="w-6 h-6 rounded-full bg-primary/20 border border-primary/30 flex items-center justify-center font-headline font-black text-[10px] text-accent">
             {(thread.author?.username ?? "?").charAt(0).toUpperCase()}
           </div>
-          <span className="text-[#d3f5e8]">{thread.author?.username ?? "unknown"}</span>
+          <span className="text-frost">{thread.author?.username ?? "unknown"}</span>
           <span className="text-on-surface-variant/40">•</span>
           <span>{new Date(thread.createdAt).toLocaleString()}</span>
         </div>
@@ -175,14 +175,14 @@ export default function ThreadPage() {
 
       {/* Original post (the thread body) — Reply/Quote targetable */}
       <div className="glass-panel p-6 mb-8 rounded-2xl border border-outline-variant/10">
-        <p className="font-body text-[#d3f5e8] whitespace-pre-wrap break-words leading-relaxed mb-3">
+        <p className="font-body text-frost whitespace-pre-wrap break-words leading-relaxed mb-3">
           {thread.body}
         </p>
         {user && (
           <div className="flex items-center gap-2 pt-3 border-t border-outline-variant/10">
             <button
               onClick={handleReplyButtonClick}
-              className="flex items-center gap-1 font-label text-[10px] uppercase tracking-widest text-on-surface-variant hover:text-[#a1ffc2] transition-colors"
+              className="flex items-center gap-1 font-label text-[10px] uppercase tracking-widest text-on-surface-variant hover:text-accent transition-colors"
             >
               <span className="material-symbols-outlined text-sm">reply</span>
               {t("reply")}
@@ -200,7 +200,7 @@ export default function ThreadPage() {
                   updatedAt: thread.updatedAt,
                 })
               }
-              className="flex items-center gap-1 font-label text-[10px] uppercase tracking-widest text-on-surface-variant hover:text-[#a1ffc2] transition-colors"
+              className="flex items-center gap-1 font-label text-[10px] uppercase tracking-widest text-on-surface-variant hover:text-accent transition-colors"
             >
               <span className="material-symbols-outlined text-sm">format_quote</span>
               {t("quote")}
@@ -224,10 +224,10 @@ export default function ThreadPage() {
             <button
               key={s}
               onClick={() => setSort(s)}
-              className={`font-label text-[10px] uppercase tracking-widest px-2.5 py-1 rounded-md transition-colors ${
+              className={`font-label text-[10px] uppercase tracking-widest px-2.5 py-1 rounded-lg transition-colors ${
                 sort === s
-                  ? "bg-[#a1ffc2]/15 text-[#a1ffc2] border border-[#a1ffc2]/30"
-                  : "bg-surface-container text-on-surface-variant border border-outline-variant/20 hover:text-[#a1ffc2] hover:border-[#a1ffc2]/30"
+                  ? "bg-accent/15 text-accent border border-accent/30"
+                  : "bg-surface-container text-on-surface-variant border border-outline-variant/20 hover:text-accent hover:border-accent/30"
               }`}
             >
               {s === "oldest" ? t("sortOldest") : t("sortNewest")}
@@ -274,7 +274,7 @@ export default function ThreadPage() {
             <p className="font-body text-sm text-on-surface-variant">
               <Link
                 href={`/${locale}/auth/login`}
-                className="text-[#a1ffc2] hover:underline"
+                className="text-accent hover:underline"
               >
                 {t("loginToReply").trim()}
               </Link>

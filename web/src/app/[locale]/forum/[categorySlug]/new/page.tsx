@@ -28,7 +28,7 @@ export default function NewThreadPage() {
       <nav className="flex items-center gap-2 font-label text-[10px] uppercase tracking-widest text-on-surface-variant/70 mb-4">
         <Link
           href={`/${locale}/forum`}
-          className="hover:text-[#a1ffc2] transition-colors"
+          className="hover:text-accent transition-colors"
         >
           {t("title")}
         </Link>
@@ -37,27 +37,27 @@ export default function NewThreadPage() {
           <>
             <Link
               href={`/${locale}/forum/${slug}`}
-              className="hover:text-[#a1ffc2] transition-colors"
+              className="hover:text-accent transition-colors"
             >
               {category.name}
             </Link>
             <span className="text-on-surface-variant/40">/</span>
           </>
         )}
-        <span className="text-[#d3f5e8]">{t("newThread")}</span>
+        <span className="text-frost">{t("newThread")}</span>
       </nav>
 
       <div className="flex items-center gap-3 mb-6">
-        <span className="material-symbols-outlined text-[#a1ffc2] text-3xl">
+        <span className="material-symbols-outlined text-accent text-3xl">
           edit
         </span>
-        <h1 className="font-headline font-black text-3xl uppercase tracking-tight text-[#d3f5e8]">
+        <h1 className="font-headline font-black text-3xl uppercase tracking-tight text-frost">
           {t("newThreadTitle")}
         </h1>
       </div>
 
       {error && (
-        <div className="glass-panel p-4 mb-6 rounded-2xl border border-red-500/30 bg-red-500/10">
+        <div className="glass-panel p-4 mb-6 rounded-2xl border border-danger/30 bg-danger/10">
           <div className="flex items-center gap-3 font-body text-sm text-red-300">
             <span className="material-symbols-outlined">error</span>
             {error}

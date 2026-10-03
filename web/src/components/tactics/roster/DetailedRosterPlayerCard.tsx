@@ -62,10 +62,10 @@ export function DetailedRosterPlayerCard({
       draggable
       onDragStart={drag.onDragStart}
       onDragEnd={drag.onDragEnd}
-      className={`group relative flex flex-col gap-2.5 p-3 rounded-xl border bg-[#001e17] cursor-grab active:cursor-grabbing transition-all ${
+      className={`group relative flex flex-col gap-2.5 p-3 rounded-xl border bg-ink-800 cursor-grab active:cursor-grabbing transition-all ${
         isAssigned
           ? 'border-outline-variant/20 opacity-60 grayscale'
-          : 'border-[#2f4e44]/40 hover:border-primary/60'
+          : 'border-edge/40 hover:border-primary/60'
       }`}
       data-player-id={player.id}
       data-testid={`roster-player-detailed-${player.id}`}
@@ -83,7 +83,7 @@ export function DetailedRosterPlayerCard({
           {initials(player.name)}
         </div>
         <div className="flex-1 min-w-0">
-          <div className="font-headline font-bold text-sm text-[#d3f5e8] truncate">
+          <div className="font-headline font-bold text-sm text-frost truncate">
             {player.name}
           </div>
           <div className="font-label text-[9px] tracking-widest uppercase text-outline truncate">
@@ -121,7 +121,7 @@ export function DetailedRosterPlayerCard({
                   key={i}
                   className={`w-1 h-2 rounded-sm ${
                     i < Math.max(0, Math.min(5, Math.round(player.stamina)))
-                      ? 'bg-emerald-500'
+                      ? 'bg-positive'
                       : 'bg-outline-variant/30'
                   }`}
                   aria-label={`stamina ${player.stamina}`}
@@ -133,7 +133,7 @@ export function DetailedRosterPlayerCard({
       </div>
 
       {/* Skills — 2-column grid, one column per (category × 2) */}
-      <div className="grid grid-cols-2 gap-x-3 gap-y-2.5 border-t border-[#2f4e44]/30 pt-2.5">
+      <div className="grid grid-cols-2 gap-x-3 gap-y-2.5 border-t border-edge/30 pt-2.5">
         {SKILL_CATEGORIES.map((cat) => (
           <SkillCategoryGroup
             key={cat}
@@ -173,7 +173,7 @@ function SkillCategoryGroup({
           }`}
           aria-hidden
         />
-        <span className="text-[9px] font-black uppercase tracking-widest text-[#91b2a6]">
+        <span className="text-[9px] font-black uppercase tracking-widest text-muted">
           {getCategoryName(cat, locale)}
         </span>
       </div>

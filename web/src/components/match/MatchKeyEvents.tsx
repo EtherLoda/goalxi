@@ -91,7 +91,7 @@ export function MatchKeyEvents({
         return (
           <div
             key={i}
-            className="flex items-stretch gap-1.5 rounded-md overflow-hidden border border-white/5"
+            className="flex items-stretch gap-1.5 rounded-lg overflow-hidden border border-white/5"
           >
             {/* Minute badge — side-tinted so the team attribution
                 reads at a glance, even before the user sees the name. */}
@@ -140,13 +140,13 @@ export function MatchKeyEvents({
               </span>
               <div className="flex-1 min-w-0">
                 <p
-                  className="font-headline font-bold text-[10px] text-white/90 truncate leading-tight"
+                  className="font-headline font-bold text-[10px] text-on-surface/90 truncate leading-tight"
                   title={entry.label}
                 >
                   {entry.label}
                 </p>
                 {(entry.sublabel || entry.specialtyChip) && (
-                  <p className="font-label text-[8px] text-white/40 uppercase tracking-wider truncate leading-tight flex items-center gap-1">
+                  <p className="font-label text-[8px] text-on-surface/40 uppercase tracking-wider truncate leading-tight flex items-center gap-1">
                     {entry.sublabel}
                     {entry.specialtyChip && (
                       // RFC 0003 — Specialty chip. Tier-tinted

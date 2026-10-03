@@ -133,7 +133,7 @@ export default function JerseyColorPicker({
             </div>
 
             {showContrastWarn && (
-                <div className="px-3 py-2 rounded-lg border border-amber-400/30 bg-amber-400/10 text-amber-200 text-xs">
+                <div className="px-3 py-2 rounded-lg border border-signal-gold/30 bg-signal-gold/10 text-amber-200 text-xs">
                     {t("jerseyContrastWarning", { ratio: primarySecondaryRatio.toFixed(2) })}
                 </div>
             )}

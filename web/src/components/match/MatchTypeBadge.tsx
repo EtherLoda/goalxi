@@ -50,12 +50,12 @@ const STYLE_BY_TYPE: Record<string, ChipStyle> = {
   cup: {
     label: "Cup",
     icon: "workspace_premium",
-    cls: "text-amber-300 border-amber-500/30 bg-amber-500/10",
+    cls: "text-amber-300 border-signal-amber/30 bg-signal-amber/10",
   },
   tournament: {
     label: "Tournament",
     icon: "emoji_events",
-    cls: "text-amber-300 border-amber-500/30 bg-amber-500/10",
+    cls: "text-amber-300 border-signal-amber/30 bg-signal-amber/10",
   },
   playoff: {
     label: "Playoff",
@@ -70,7 +70,7 @@ const STYLE_BY_TYPE: Record<string, ChipStyle> = {
   national_team: {
     label: "National",
     icon: "flag",
-    cls: "text-red-300 border-red-500/30 bg-red-500/10",
+    cls: "text-red-300 border-danger/30 bg-danger/10",
   },
 };
 

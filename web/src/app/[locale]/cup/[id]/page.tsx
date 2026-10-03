@@ -33,7 +33,7 @@ export default function CupDetailPage() {
   if (error) {
     return (
       <div className="max-w-5xl mx-auto px-6 py-8">
-        <div className="glass-panel p-4 rounded-2xl border border-red-500/30 bg-red-500/10">
+        <div className="glass-panel p-4 rounded-2xl border border-danger/30 bg-danger/10">
           <div className="flex items-center gap-3 font-body text-sm text-red-300">
             <span className="material-symbols-outlined">error</span>
             {error}
@@ -50,7 +50,7 @@ export default function CupDetailPage() {
           <div className="font-label text-[10px] font-black uppercase tracking-[0.2em] text-on-surface-variant/60 mb-1">
             {t("title")}
           </div>
-          <h1 className="font-headline font-black text-3xl uppercase tracking-tight text-[#d3f5e8]">
+          <h1 className="font-headline font-black text-3xl uppercase tracking-tight text-frost">
             {cup?.name ?? "—"}
           </h1>
           {cup && (
@@ -80,7 +80,7 @@ function ChampionBanner({ cup }: { cup: CupRef }) {
       <div className="font-label text-[10px] font-black uppercase tracking-[0.2em] text-primary/80 mb-1">
         {t("title")}
       </div>
-      <div className="font-headline font-black text-lg text-[#d3f5e8]">
+      <div className="font-headline font-black text-lg text-frost">
         {t("subtitle", { season: cup.season })}
       </div>
     </div>

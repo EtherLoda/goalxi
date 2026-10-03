@@ -141,7 +141,7 @@ export function ConstructionDialog({
             </span>
             <span>{title}</span>
           </div>
-          <h2 className="font-headline text-xl font-black text-white tracking-tight">
+          <h2 className="font-headline text-xl font-black text-on-surface tracking-tight">
             {title}
           </h2>
         </header>
@@ -149,7 +149,7 @@ export function ConstructionDialog({
         {/* Slider */}
         <div>
           <div className="flex items-baseline justify-between mb-2">
-            <span className="font-headline text-4xl font-black text-white tabular-nums">
+            <span className="font-headline text-4xl font-black text-on-surface tabular-nums">
               {kind === "expand" ? "+" : "−"}
               {clamped.toLocaleString()}
             </span>
@@ -237,7 +237,7 @@ export function ConstructionDialog({
             type="button"
             onClick={onCancel}
             disabled={isSubmitting}
-            className="flex-1 px-3 py-2.5 rounded-lg border border-outline-variant/30 text-on-surface-variant font-headline text-xs font-bold uppercase tracking-widest hover:text-white transition-colors disabled:opacity-50"
+            className="flex-1 px-3 py-2.5 rounded-lg border border-outline-variant/30 text-on-surface-variant font-headline text-xs font-bold uppercase tracking-widest hover:text-on-surface transition-colors disabled:opacity-50"
           >
             {t("cancel")}
           </button>
@@ -297,7 +297,7 @@ function PreviewStat({
           {icon}
         </span>
       </div>
-      <div className="font-headline text-lg font-black text-white tabular-nums">
+      <div className="font-headline text-lg font-black text-on-surface tabular-nums">
         {value}
       </div>
     </div>

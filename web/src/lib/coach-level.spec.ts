@@ -23,11 +23,11 @@ describe('coachLevelColorClass', () => {
     expect(coachLevelColorClass(4)).toBe('text-purple-400');
     expect(coachLevelColorClass(3)).toBe('text-blue-400');
     expect(coachLevelColorClass(2)).toBe('text-green-400');
-    expect(coachLevelColorClass(1)).toBe('text-white');
+    expect(coachLevelColorClass(1)).toBe('text-on-surface');
   });
 
   it('falls back to the D colour for out-of-range levels', () => {
-    expect(coachLevelColorClass(0)).toBe('text-white');
-    expect(coachLevelColorClass(99)).toBe('text-white');
+    expect(coachLevelColorClass(0)).toBe('text-on-surface');
+    expect(coachLevelColorClass(99)).toBe('text-on-surface');
   });
 });

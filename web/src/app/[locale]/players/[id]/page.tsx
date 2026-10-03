@@ -31,20 +31,20 @@ const EVENT_ICONS: Record<string, string> = {
 };
 
 const EVENT_COLORS: Record<string, string> = {
-  TRANSFER: "text-[#60a5fa]",
-  YOUTH_PROMOTION: "text-[#34d399]",
-  HAT_TRICK: "text-[#fbbf24]",
-  CHAMPIONSHIP_TITLE: "text-[#f59e0b]",
-  GOLDEN_BOOT: "text-[#fbbf24]",
-  ASSISTS_LEADER: "text-[#60a5fa]",
-  TACKLES_LEADER: "text-[#34d399]",
-  MAN_OF_THE_MATCH: "text-[#f472b6]",
-  INJURY: "text-[#ef4444]",
-  DEBUT: "text-[#a78bfa]",
-  LEAGUE_DEBUT: "text-[#a78bfa]",
-  CAPTAIN_DEBUT: "text-[#fbbf24]",
-  RECORD_BROKEN: "text-[#22d3ee]",
-  CONTRACT_RENEWAL: "text-[#60a5fa]",
+  TRANSFER: "text-signal-blue",
+  YOUTH_PROMOTION: "text-positive-bright",
+  HAT_TRICK: "text-signal-gold",
+  CHAMPIONSHIP_TITLE: "text-signal-amber",
+  GOLDEN_BOOT: "text-signal-gold",
+  ASSISTS_LEADER: "text-signal-blue",
+  TACKLES_LEADER: "text-positive-bright",
+  MAN_OF_THE_MATCH: "text-signal-magenta",
+  INJURY: "text-danger",
+  DEBUT: "text-signal-violet",
+  LEAGUE_DEBUT: "text-signal-violet",
+  CAPTAIN_DEBUT: "text-signal-gold",
+  RECORD_BROKEN: "text-signal-cyan",
+  CONTRACT_RENEWAL: "text-signal-blue",
 };
 
 interface PageProps {
@@ -111,28 +111,28 @@ function ListPlayerModal({ player, onClose, onSuccess }: ListPlayerModalProps) {
         className="absolute inset-0 bg-black/70 backdrop-blur-sm"
         onClick={onClose}
       />
-      <div className="relative w-full max-w-sm bg-gradient-to-b from-[#0a1a14] to-[#001e17] rounded-2xl border border-[#2f4e44]/50 shadow-2xl overflow-hidden">
+      <div className="relative w-full max-w-sm bg-gradient-to-b from-ink-750 to-ink-800 rounded-2xl border border-edge/50 shadow-2xl overflow-hidden">
         <div className="relative px-6 pt-6 pb-4">
-          <div className="absolute inset-0 bg-linear-to-r from-[#a1ffc2]/5 to-transparent pointer-events-none" />
+          <div className="absolute inset-0 bg-linear-to-r from-accent/5 to-transparent pointer-events-none" />
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-[#a1ffc2]/20 flex items-center justify-center">
-                <span className="material-symbols-outlined text-[#a1ffc2]">
+              <div className="w-10 h-10 rounded-xl bg-accent/20 flex items-center justify-center">
+                <span className="material-symbols-outlined text-accent">
                   sell
                 </span>
               </div>
               <div>
-                <h3 className="text-lg font-black font-space text-[#d3f5e8]">
+                <h3 className="text-lg font-black font-space text-frost">
                   {t("squad.transfer.listPlayer")}
                 </h3>
-                <p className="text-[10px] text-[#91b2a6] font-space uppercase tracking-wider">
+                <p className="text-[10px] text-muted font-space uppercase tracking-wider">
                   Set your auction terms
                 </p>
               </div>
             </div>
             <button
               onClick={onClose}
-              className="w-8 h-8 rounded-full flex items-center justify-center hover:bg-[#002c22] transition-colors"
+              className="w-8 h-8 rounded-full flex items-center justify-center hover:bg-ink-600 transition-colors"
             >
               <span className="material-symbols-outlined text-[#91b6a] text-lg">
                 close
@@ -141,10 +141,10 @@ function ListPlayerModal({ player, onClose, onSuccess }: ListPlayerModalProps) {
           </div>
         </div>
 
-        <div className="mx-6 mt-4 mb-4 p-4 bg-[#00251c]/80 rounded-xl border border-[#2f4e44]/20">
+        <div className="mx-6 mt-4 mb-4 p-4 bg-ink-700/80 rounded-xl border border-edge/20">
           <div className="flex items-center gap-3">
             <div
-              className="w-12 h-12 rounded-xl flex items-center justify-center font-space font-black text-lg text-[#a1ffc2]"
+              className="w-12 h-12 rounded-xl flex items-center justify-center font-space font-black text-lg text-accent"
               style={{
                 background: "linear-gradient(135deg, #a1ffc220, #a1ffc210)",
               }}
@@ -156,12 +156,12 @@ function ListPlayerModal({ player, onClose, onSuccess }: ListPlayerModalProps) {
                 .slice(0, 2)}
             </div>
             <div>
-              <p className="text-sm font-bold text-[#d3f5e8]">{player.name}</p>
+              <p className="text-sm font-bold text-frost">{player.name}</p>
               <div className="flex items-center gap-2 mt-0.5">
-                <span className="px-2 py-0.5 bg-[#a1ffc2]/20 text-[#a1ffc2] text-[10px] font-bold rounded">
+                <span className="px-2 py-0.5 bg-accent/20 text-accent text-[10px] font-bold rounded">
                   PWI {player.pwi?.toLocaleString() || "0"}
                 </span>
-                <span className="text-[10px] text-[#91b2a6] font-space">
+                <span className="text-[10px] text-muted font-space">
                   {player.isGoalkeeper ? "GK" : ""}
                 </span>
               </div>
@@ -171,11 +171,11 @@ function ListPlayerModal({ player, onClose, onSuccess }: ListPlayerModalProps) {
 
         <form onSubmit={handleSubmit} className="px-6 pb-6 space-y-4">
           <div>
-            <label className="block text-[10px] font-bold uppercase tracking-wider text-[#91b2a6] mb-1.5">
+            <label className="block text-[10px] font-bold uppercase tracking-wider text-muted mb-1.5">
               {t("squad.transfer.startPrice")}
             </label>
             <div className="relative">
-              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[#91b2a6] text-sm font-space">
+              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted text-sm font-space">
                 £
               </span>
               <input
@@ -184,7 +184,7 @@ function ListPlayerModal({ player, onClose, onSuccess }: ListPlayerModalProps) {
                 onChange={(e) => setStartPrice(e.target.value)}
                 placeholder="0"
                 min={0}
-                className="w-full bg-[#001a12] border border-[#2f4e44]/40 rounded-lg pl-7 pr-3 py-2.5 text-[#d3f5e8] font-space text-sm placeholder:text-[#4a7a6a] focus:outline-none focus:border-[#a1ffc2]/60 transition-colors"
+                className="w-full bg-ink-850 border border-edge/40 rounded-lg pl-7 pr-3 py-2.5 text-frost font-space text-sm placeholder:text-faint focus:outline-none focus:border-accent/60 transition-colors"
               />
             </div>
           </div>
@@ -194,7 +194,7 @@ function ListPlayerModal({ player, onClose, onSuccess }: ListPlayerModalProps) {
           <button
             type="submit"
             disabled={isSubmitting}
-            className="w-full py-3 rounded-xl bg-[#a1ffc2] text-[#001a12] font-bold text-sm hover:bg-[#8ee6b8] disabled:opacity-50 transition-colors"
+            className="w-full py-3 rounded-xl bg-accent text-ink-850 font-bold text-sm hover:bg-accent-hover disabled:opacity-50 transition-colors"
           >
             {isSubmitting ? t("squad.transfer.listing") : t("squad.transfer.listButton")}
           </button>
@@ -305,7 +305,7 @@ export default function PlayerDetailPage({ params }: PageProps) {
     const offset = circumference - (percentage / 100) * circumference;
 
     return (
-      <div className="bg-[#00251c] rounded-xl p-3 flex flex-col items-center justify-center border border-[#2f4e44]/10">
+      <div className="bg-ink-700 rounded-xl p-3 flex flex-col items-center justify-center border border-edge/10">
         <div className="relative w-11 h-11 flex items-center justify-center">
           <svg className="w-full h-full -rotate-90">
             <circle
@@ -332,7 +332,7 @@ export default function PlayerDetailPage({ params }: PageProps) {
             {value}
           </span>
         </div>
-        <span className="text-[8px] font-bold font-space mt-1 tracking-widest uppercase text-[#91b2a6]">
+        <span className="text-[8px] font-bold font-space mt-1 tracking-widest uppercase text-muted">
           {label}
         </span>
       </div>
@@ -350,13 +350,13 @@ export default function PlayerDetailPage({ params }: PageProps) {
 
     return (
       <div className="space-y-1.5">
-        <div className="flex justify-between text-[10px] font-bold uppercase tracking-wider text-[#91b2a6]">
+        <div className="flex justify-between text-[10px] font-bold uppercase tracking-wider text-muted">
           <span>{label}</span>
           <span className={colorClass}>
             {value}/{potential}
           </span>
         </div>
-        <div className="h-1.5 w-full bg-[#00251c] rounded-full overflow-hidden">
+        <div className="h-1.5 w-full bg-ink-700 rounded-full overflow-hidden">
           <div
             className={`h-full ${colorClass.replace("text-", "bg-")} rounded-full`}
             style={{ width: `${percentage}%` }}
@@ -371,25 +371,25 @@ export default function PlayerDetailPage({ params }: PageProps) {
       <div className="flex-grow p-6 pt-10">
         {isLoading ? (
           <div className="flex items-center justify-center h-full w-full">
-            <span className="material-symbols-outlined text-4xl text-[#a1ffc2] animate-spin">
+            <span className="material-symbols-outlined text-4xl text-accent animate-spin">
               progress_activity
             </span>
           </div>
         ) : player ? (
           <div className="w-full max-w-[580px] mx-auto pb-8">
             {/* Player Card */}
-            <div className="bg-[#001e17] rounded-xl flex flex-col relative min-h-[600px]">
+            <div className="bg-ink-800 rounded-xl flex flex-col relative min-h-[600px]">
               {/* Glass Background */}
-              <div className="absolute inset-0 bg-gradient-to-br from-[#a1ffc2]/5 to-transparent pointer-events-none" />
+              <div className="absolute inset-0 bg-gradient-to-br from-accent/5 to-transparent pointer-events-none" />
 
               {/* Player Header Section */}
               <div className="p-6 pb-4 relative flex items-start justify-between">
                 <div className="flex gap-8">
                   {/* Avatar */}
                   <div className="relative">
-                    <div className="w-24 h-24 rounded-2xl overflow-hidden border-2 border-[#a1ffc2]/30 p-1 bg-[#002c22]">
+                    <div className="w-24 h-24 rounded-2xl overflow-hidden border-2 border-accent/30 p-1 bg-ink-600">
                       <div
-                        className="w-full h-full rounded-xl flex items-center justify-center font-space font-black text-3xl text-[#a1ffc2]"
+                        className="w-full h-full rounded-xl flex items-center justify-center font-space font-black text-3xl text-accent"
                         style={{
                           background:
                             "linear-gradient(135deg, #a1ffc220, #a1ffc210)",
@@ -407,7 +407,7 @@ export default function PlayerDetailPage({ params }: PageProps) {
                   {/* Name & Bio */}
                   <div>
                     <div className="flex items-center gap-3">
-                      <h1 className="text-4xl font-black font-space tracking-tight leading-none text-[#d3f5e8]">
+                      <h1 className="text-4xl font-black font-space tracking-tight leading-none text-frost">
                         {player.name}
                       </h1>
                       {player.coreSpecialty && (
@@ -430,48 +430,48 @@ export default function PlayerDetailPage({ params }: PageProps) {
                     </div>
                     <div className="flex items-center gap-4 mt-2">
                       <div className="flex items-center gap-2">
-                        <span className="material-symbols-outlined text-[#91b2a6] text-sm">
+                        <span className="material-symbols-outlined text-muted text-sm">
                           calendar_month
                         </span>
-                        <span className="text-xs font-bold uppercase tracking-widest text-[#91b2a6]">
+                        <span className="text-xs font-bold uppercase tracking-widest text-muted">
                           {tc("ageFormat", { y: player.age, d: player.ageDays })}
                         </span>
                       </div>
                       <div className="flex items-center gap-2">
-                        <span className="material-symbols-outlined text-[#91b2a6] text-sm">
+                        <span className="material-symbols-outlined text-muted text-sm">
                           military_tech
                         </span>
-                        <span className="text-xs font-bold uppercase tracking-widest text-[#91b2a6]">
-                          {t("exp")} <ExperienceTierLabel value={player.experience} className="text-[#d3f5e8]" />
+                        <span className="text-xs font-bold uppercase tracking-widest text-muted">
+                          {t("exp")} <ExperienceTierLabel value={player.experience} className="text-frost" />
                         </span>
                       </div>
                       <div className="flex items-center gap-2">
-                        <span className="material-symbols-outlined text-[#91b2a6] text-sm">
+                        <span className="material-symbols-outlined text-muted text-sm">
                           payments
                         </span>
-                        <span className="text-xs font-bold uppercase tracking-widest text-[#f59e0b]">
+                        <span className="text-xs font-bold uppercase tracking-widest text-signal-amber">
                           £{(player.currentWage || 0).toLocaleString()}/w
                         </span>
                       </div>
                     </div>
                     <div className="mt-4 flex gap-2">
                       {player.potentialTier && (
-                        <span className="bg-[#3e6a00]/20 text-[#abf853] px-3 py-1 rounded-full text-[10px] font-bold font-space">
+                        <span className="bg-signal-lime-dim/20 text-signal-lime px-3 py-1 rounded-full text-[10px] font-bold font-space">
                           {player.potentialTier.replace("_", " ")}
                         </span>
                       )}
                       {player.isGoalkeeper && (
-                        <span className="bg-[#0066ff]/20 text-[#60a5fa] px-3 py-1 rounded-full text-[10px] font-bold font-space">
+                        <span className="bg-signal-blue-deep/20 text-signal-blue px-3 py-1 rounded-full text-[10px] font-bold font-space">
                           {tt("status.goalkeeper")}
                         </span>
                       )}
                       {player.onTransfer && (
-                        <span className="bg-[#a1ffc2]/20 text-[#a1ffc2] px-3 py-1 rounded-full text-[10px] font-bold font-space">
+                        <span className="bg-accent/20 text-accent px-3 py-1 rounded-full text-[10px] font-bold font-space">
                           {tt("status.onTransfer")}
                         </span>
                       )}
                       {player.isYouth && (
-                        <span className="bg-[#f59e0b]/20 text-[#f59e0b] px-3 py-1 rounded-full text-[10px] font-bold font-space">
+                        <span className="bg-signal-amber/20 text-signal-amber px-3 py-1 rounded-full text-[10px] font-bold font-space">
                           {tt("status.youth")}
                         </span>
                       )}
@@ -484,16 +484,16 @@ export default function PlayerDetailPage({ params }: PageProps) {
                   {!player.onTransfer && (
                     <button
                       onClick={() => setShowListModal(true)}
-                      className="w-10 h-10 rounded-full flex items-center justify-center bg-[#a1ffc2]/20 text-[#a1ffc2] hover:bg-[#a1ffc2]/30 transition-colors border border-[#a1ffc2]/30"
+                      className="w-10 h-10 rounded-full flex items-center justify-center bg-accent/20 text-accent hover:bg-accent/30 transition-colors border border-accent/30"
                       title={t("transfer.listButton")}
                     >
                       <span className="material-symbols-outlined">sell</span>
                     </button>
                   )}
-                  <button className="w-10 h-10 rounded-full flex items-center justify-center bg-[#002c22] text-[#91b2a6] hover:text-[#a1ffc2] transition-colors border border-[#2f4e44]/20">
+                  <button className="w-10 h-10 rounded-full flex items-center justify-center bg-ink-600 text-muted hover:text-accent transition-colors border border-edge/20">
                     <span className="material-symbols-outlined">favorite</span>
                   </button>
-                  <button className="w-10 h-10 rounded-full flex items-center justify-center bg-[#002c22] text-[#91b2a6] hover:text-[#a1ffc2] transition-colors border border-[#2f4e44]/20">
+                  <button className="w-10 h-10 rounded-full flex items-center justify-center bg-ink-600 text-muted hover:text-accent transition-colors border border-edge/20">
                     <span className="material-symbols-outlined">share</span>
                   </button>
                 </div>
@@ -502,11 +502,11 @@ export default function PlayerDetailPage({ params }: PageProps) {
               {/* Gauges Area */}
               <div className="px-6 py-4 grid grid-cols-4 gap-3">
                 {/* PWI - Simple text display */}
-                <div className="bg-[#00251c] rounded-xl p-3 flex flex-col items-center justify-center border border-[#2f4e44]/10">
-                  <div className="text-lg font-black font-space text-[#a1ffc2]">
+                <div className="bg-ink-700 rounded-xl p-3 flex flex-col items-center justify-center border border-edge/10">
+                  <div className="text-lg font-black font-space text-accent">
                     {player.pwi?.toLocaleString() || "0"}
                   </div>
-                  <span className="text-[8px] font-bold font-space mt-1 tracking-widest uppercase text-[#91b2a6]">
+                  <span className="text-[8px] font-bold font-space mt-1 tracking-widest uppercase text-muted">
                     PWI
                   </span>
                 </div>
@@ -515,9 +515,9 @@ export default function PlayerDetailPage({ params }: PageProps) {
                   5.99,
                   t("stamina"),
                   player.stamina >= 4
-                    ? "text-[#a1ffc2]"
+                    ? "text-accent"
                     : player.stamina >= 2
-                      ? "text-[#abf853]"
+                      ? "text-signal-lime"
                       : "text-red-400",
                 )}
                 {renderGauge(
@@ -525,16 +525,16 @@ export default function PlayerDetailPage({ params }: PageProps) {
                   5.99,
                   t("form"),
                   player.form >= 4
-                    ? "text-[#a1ffc2]"
+                    ? "text-accent"
                     : player.form >= 2
-                      ? "text-[#abf853]"
+                      ? "text-signal-lime"
                       : "text-red-400",
                 )}
                 {renderGauge(
                   player.potentialAbility,
                   99,
                   "PA",
-                  "text-[#00ec90]",
+                  "text-primary-dim",
                 )}
               </div>
 
@@ -544,24 +544,24 @@ export default function PlayerDetailPage({ params }: PageProps) {
                   {/* Header */}
                   <div className="flex items-center justify-between mb-4">
                     <div className="flex items-center gap-2">
-                      <span className="material-symbols-outlined text-[#a1ffc2]">
+                      <span className="material-symbols-outlined text-accent">
                         sell
                       </span>
-                      <h4 className="text-xs font-black font-space tracking-widest uppercase text-[#a1ffc2]">
+                      <h4 className="text-xs font-black font-space tracking-widest uppercase text-accent">
                         {t("transfer.onTransfer")}
                       </h4>
                     </div>
                     <div
                       className={`px-3 py-1.5 rounded-lg flex items-center gap-2 ${
                         formatTimeRemaining(auction.expiresAt) === tt("expired")
-                          ? "bg-red-500/80"
-                          : "bg-[#002c22]/80 backdrop-blur-md"
+                          ? "bg-danger/80"
+                          : "bg-ink-600/80 backdrop-blur-md"
                       }`}
                     >
-                      <span className="material-symbols-outlined text-xs text-[#ef4444]">
+                      <span className="material-symbols-outlined text-xs text-danger">
                         timer
                       </span>
-                      <span className="text-[10px] font-bold text-white uppercase tracking-wider">
+                      <span className="text-[10px] font-bold text-on-surface uppercase tracking-wider">
                         {formatTimeRemaining(auction.expiresAt)}
                       </span>
                     </div>
@@ -569,11 +569,11 @@ export default function PlayerDetailPage({ params }: PageProps) {
 
                   {/* Pricing */}
                   <div className="mb-4">
-                    <div className="bg-[#002c22] p-4 rounded-2xl border border-[#2f4e44]/10">
-                      <p className="text-[10px] text-[#91b2a6] uppercase tracking-widest mb-1">
+                    <div className="bg-ink-600 p-4 rounded-2xl border border-edge/10">
+                      <p className="text-[10px] text-muted uppercase tracking-widest mb-1">
                         {tt("detail.currentPrice")}
                       </p>
-                      <p className="text-2xl font-bold text-[#a1ffc2] truncate">
+                      <p className="text-2xl font-bold text-accent truncate">
                         {formatCurrency(auction.currentPrice)}
                       </p>
                     </div>
@@ -583,14 +583,14 @@ export default function PlayerDetailPage({ params }: PageProps) {
                   {auction.bidHistory && auction.bidHistory.length > 0 && (
                     <div className="mb-4">
                       <div className="flex items-center gap-2 mb-3">
-                        <span className="material-symbols-outlined text-[#a1ffc2] text-sm">
+                        <span className="material-symbols-outlined text-accent text-sm">
                           gavel
                         </span>
-                        <h4 className="text-[10px] uppercase tracking-widest text-[#91b2a6] font-bold">
+                        <h4 className="text-[10px] uppercase tracking-widest text-muted font-bold">
                           Bid History
                         </h4>
                       </div>
-                      <div className="divide-y divide-[#2f4e44]/20">
+                      <div className="divide-y divide-edge/20">
                         {[...auction.bidHistory]
                           .reverse()
                           .slice(0, 3)
@@ -600,21 +600,21 @@ export default function PlayerDetailPage({ params }: PageProps) {
                               className="flex items-center justify-between py-3"
                             >
                               <div className="flex items-center gap-3">
-                                <div className="w-7 h-7 rounded-full bg-gradient-to-br from-[#a1ffc2]/30 to-[#002c22] flex items-center justify-center">
-                                  <span className="text-[9px] font-bold text-[#a1ffc2]">
+                                <div className="w-7 h-7 rounded-full bg-gradient-to-br from-accent/30 to-ink-600 flex items-center justify-center">
+                                  <span className="text-[9px] font-bold text-accent">
                                     {(bid.teamName || "?").charAt(0)}
                                   </span>
                                 </div>
                                 <div>
-                                  <p className="text-[11px] font-semibold text-[#d3f5e8]">
+                                  <p className="text-[11px] font-semibold text-frost">
                                     {bid.teamName || "Unknown"}
                                   </p>
-                                  <p className="text-[9px] text-[#91b2a6]">
+                                  <p className="text-[9px] text-muted">
                                     {new Date(bid.timestamp).toLocaleString()}
                                   </p>
                                 </div>
                               </div>
-                              <p className="text-[12px] font-bold text-[#a1ffc2]">
+                              <p className="text-[12px] font-bold text-accent">
                                 {formatCurrency(bid.amount)}
                               </p>
                             </div>
@@ -625,18 +625,18 @@ export default function PlayerDetailPage({ params }: PageProps) {
 
                   {/* Bid Input */}
                   {team && auction.team?.id !== team.id && (
-                    <div className="p-4 bg-[#001e17] rounded-xl border border-[#2f4e44]/10">
+                    <div className="p-4 bg-ink-800 rounded-xl border border-edge/10">
                       <div className="flex gap-3 items-center">
                         <div className="flex-1 relative">
-                          <label className="absolute -top-2 left-3 px-1 bg-[#001e17] text-[8px] text-[#00ec90] font-bold uppercase tracking-widest z-10">
+                          <label className="absolute -top-2 left-3 px-1 bg-ink-800 text-[8px] text-primary-dim font-bold uppercase tracking-widest z-10">
                             {tt("detail.offerPrice")}
                           </label>
                           <div className="relative">
-                            <span className="absolute left-4 top-1/2 -translate-y-1/2 text-[#a1ffc2] font-bold text-sm">
+                            <span className="absolute left-4 top-1/2 -translate-y-1/2 text-accent font-bold text-sm">
                               {tc("currencySymbol")}
                             </span>
                             <input
-                              className="w-full bg-[#002c22] border border-[#2f4e44]/30 rounded-xl py-3 pl-8 pr-4 text-sm font-bold text-[#d3f5e8] focus:ring-1 focus:ring-[#a1ffc2] focus:border-[#a1ffc2] transition-all placeholder:text-[#91b2a6]/40"
+                              className="w-full bg-ink-600 border border-edge/30 rounded-xl py-3 pl-8 pr-4 text-sm font-bold text-frost focus:ring-1 focus:ring-accent focus:border-accent transition-all placeholder:text-muted/40"
                               placeholder={tt("placeholder.enterOffer")}
                               type="text"
                               value={formatBidAmountInput(bidAmount)}
@@ -651,7 +651,7 @@ export default function PlayerDetailPage({ params }: PageProps) {
                           </div>
                         </div>
                         <button
-                          className="px-6 py-3.5 bg-[#a1ffc2] text-[#00110c] font-bold rounded-xl flex items-center justify-center gap-2 hover:brightness-110 active:scale-95 transition-all shadow-lg shadow-[#a1ffc2]/20 uppercase tracking-widest text-[10px] whitespace-nowrap disabled:opacity-50"
+                          className="px-6 py-3.5 bg-accent text-ink-1000 font-bold rounded-xl flex items-center justify-center gap-2 hover:brightness-110 active:scale-95 transition-all shadow-lg shadow-accent/20 uppercase tracking-widest text-[10px] whitespace-nowrap disabled:opacity-50"
                           onClick={async () => {
                             if (!auction || !bidAmount || !team) return;
                             const amount = parseInt(
@@ -696,8 +696,8 @@ export default function PlayerDetailPage({ params }: PageProps) {
                     {/* Physical */}
                     <div>
                       <div className="flex items-center gap-2 mb-3">
-                        <div className="w-1.5 h-4 bg-[#60a5fa] rounded-full" />
-                        <h3 className="text-xs font-black font-space tracking-widest uppercase text-[#91b2a6]">
+                        <div className="w-1.5 h-4 bg-signal-blue rounded-full" />
+                        <h3 className="text-xs font-black font-space tracking-widest uppercase text-muted">
                           {t("skills.physicalAttributes")}
                         </h3>
                       </div>
@@ -706,13 +706,13 @@ export default function PlayerDetailPage({ params }: PageProps) {
                           t("skills.pace"),
                           player.currentSkills.physical?.pace || 0,
                           player.potentialSkills.physical?.pace || 0,
-                          "text-[#60a5fa]",
+                          "text-signal-blue",
                         )}
                         {renderSkillBar(
                           t("skills.strength"),
                           player.currentSkills.physical?.strength || 0,
                           player.potentialSkills.physical?.strength || 0,
-                          "text-[#60a5fa]",
+                          "text-signal-blue",
                         )}
                       </div>
                     </div>
@@ -721,9 +721,9 @@ export default function PlayerDetailPage({ params }: PageProps) {
                     <div>
                       <div className="flex items-center gap-2 mb-3">
                         <div
-                          className={`w-1.5 h-4 ${player.isGoalkeeper ? "bg-[#a1ffc2]" : "bg-[#a1ffc2]"} rounded-full`}
+                          className={`w-1.5 h-4 ${player.isGoalkeeper ? "bg-accent" : "bg-accent"} rounded-full`}
                         />
-                        <h3 className="text-xs font-black font-space tracking-widest uppercase text-[#91b2a6]">
+                        <h3 className="text-xs font-black font-space tracking-widest uppercase text-muted">
                           {player.isGoalkeeper
                             ? t("skills.goalkeeperSkills")
                             : t("skills.technicalSkills")}
@@ -738,7 +738,7 @@ export default function PlayerDetailPage({ params }: PageProps) {
                                 ?.reflexes || 0,
                               (player.potentialSkills.technical as any)
                                 ?.reflexes || 0,
-                              "text-[#a1ffc2]",
+                              "text-accent",
                             )}
                             {renderSkillBar(
                               t("skills.handling"),
@@ -746,7 +746,7 @@ export default function PlayerDetailPage({ params }: PageProps) {
                                 ?.handling || 0,
                               (player.potentialSkills.technical as any)
                                 ?.handling || 0,
-                              "text-[#a1ffc2]",
+                              "text-accent",
                             )}
                             {renderSkillBar(
                               t("skills.aerial"),
@@ -754,7 +754,7 @@ export default function PlayerDetailPage({ params }: PageProps) {
                                 0,
                               (player.potentialSkills.technical as any)
                                 ?.aerial || 0,
-                              "text-[#a1ffc2]",
+                              "text-accent",
                             )}
                           </>
                         ) : (
@@ -765,7 +765,7 @@ export default function PlayerDetailPage({ params }: PageProps) {
                                 ?.finishing || 0,
                               (player.potentialSkills.technical as any)
                                 ?.finishing || 0,
-                              "text-[#a1ffc2]",
+                              "text-accent",
                             )}
                             {renderSkillBar(
                               t("skills.passing"),
@@ -773,7 +773,7 @@ export default function PlayerDetailPage({ params }: PageProps) {
                                 ?.passing || 0,
                               (player.potentialSkills.technical as any)
                                 ?.passing || 0,
-                              "text-[#a1ffc2]",
+                              "text-accent",
                             )}
                             {renderSkillBar(
                               t("skills.dribbling"),
@@ -781,7 +781,7 @@ export default function PlayerDetailPage({ params }: PageProps) {
                                 ?.dribbling || 0,
                               (player.potentialSkills.technical as any)
                                 ?.dribbling || 0,
-                              "text-[#a1ffc2]",
+                              "text-accent",
                             )}
                             {renderSkillBar(
                               t("skills.defending"),
@@ -789,7 +789,7 @@ export default function PlayerDetailPage({ params }: PageProps) {
                                 ?.defending || 0,
                               (player.potentialSkills.technical as any)
                                 ?.defending || 0,
-                              "text-[#a1ffc2]",
+                              "text-accent",
                             )}
                           </>
                         )}
@@ -802,8 +802,8 @@ export default function PlayerDetailPage({ params }: PageProps) {
                     {/* Mental */}
                     <div>
                       <div className="flex items-center gap-2 mb-3">
-                        <div className="w-1.5 h-4 bg-[#abf853] rounded-full" />
-                        <h3 className="text-xs font-black font-space tracking-widest uppercase text-[#91b2a6]">
+                        <div className="w-1.5 h-4 bg-signal-lime rounded-full" />
+                        <h3 className="text-xs font-black font-space tracking-widest uppercase text-muted">
                           {t("skills.mentalProfile")}
                         </h3>
                       </div>
@@ -812,13 +812,13 @@ export default function PlayerDetailPage({ params }: PageProps) {
                           t("skills.positioning"),
                           player.currentSkills.mental?.positioning || 0,
                           player.potentialSkills.mental?.positioning || 0,
-                          "text-[#abf853]",
+                          "text-signal-lime",
                         )}
                         {renderSkillBar(
                           t("skills.composure"),
                           player.currentSkills.mental?.composure || 0,
                           player.potentialSkills.mental?.composure || 0,
-                          "text-[#abf853]",
+                          "text-signal-lime",
                         )}
                       </div>
                     </div>
@@ -826,8 +826,8 @@ export default function PlayerDetailPage({ params }: PageProps) {
                     {/* Set Pieces */}
                     <div>
                       <div className="flex items-center gap-2 mb-3">
-                        <div className="w-1.5 h-4 bg-[#f59e0b] rounded-full" />
-                        <h3 className="text-xs font-black font-space tracking-widest uppercase text-[#91b2a6]">
+                        <div className="w-1.5 h-4 bg-signal-amber rounded-full" />
+                        <h3 className="text-xs font-black font-space tracking-widest uppercase text-muted">
                           {t("skills.setPieces")}
                         </h3>
                       </div>
@@ -836,13 +836,13 @@ export default function PlayerDetailPage({ params }: PageProps) {
                           t("skills.freeKicks"),
                           player.currentSkills.setPieces?.freeKicks || 0,
                           player.potentialSkills.setPieces?.freeKicks || 0,
-                          "text-[#f59e0b]",
+                          "text-signal-amber",
                         )}
                         {renderSkillBar(
                           t("skills.penalties"),
                           player.currentSkills.setPieces?.penalties || 0,
                           player.potentialSkills.setPieces?.penalties || 0,
-                          "text-[#f59e0b]",
+                          "text-signal-amber",
                         )}
                       </div>
                     </div>
@@ -858,26 +858,26 @@ export default function PlayerDetailPage({ params }: PageProps) {
                   visual block sits apart from the skill bars (which are
                   about attributes, not what the player has done on the
                   pitch). */}
-              <div className="px-6 pb-6 border-t border-[#2f4e44]/20">
+              <div className="px-6 pb-6 border-t border-edge/20">
                 <PlayerSeasonStatsCard
                   playerId={parseInt(resolvedParams?.id ?? "0", 10)}
                 />
               </div>
 
               {/* Player Events Section */}
-              <div className="px-6 pb-6 border-t border-[#2f4e44]/20">
+              <div className="px-6 pb-6 border-t border-edge/20">
                 <div className="flex items-center gap-2 mt-4 mb-3">
-                  <div className="w-1.5 h-4 bg-[#f59e0b] rounded-full" />
-                  <h3 className="text-xs font-black font-space tracking-widest uppercase text-[#91b2a6]">
+                  <div className="w-1.5 h-4 bg-signal-amber rounded-full" />
+                  <h3 className="text-xs font-black font-space tracking-widest uppercase text-muted">
                     {te("title")}
                   </h3>
                 </div>
                 {events.length === 0 ? (
-                  <div className="bg-[#00251c]/50 rounded-xl p-6 text-center">
-                    <span className="material-symbols-outlined text-3xl text-[#4a7a6a]">
+                  <div className="bg-ink-700/50 rounded-xl p-6 text-center">
+                    <span className="material-symbols-outlined text-3xl text-faint">
                       history
                     </span>
-                    <p className="text-[#4a7a6a] text-xs mt-2">
+                    <p className="text-faint text-xs mt-2">
                       {te("no_events")}
                     </p>
                   </div>
@@ -886,7 +886,7 @@ export default function PlayerDetailPage({ params }: PageProps) {
                     {events.map((event) => {
                       const iconName = EVENT_ICONS[event.eventType] || "event";
                       const colorClass =
-                        EVENT_COLORS[event.eventType] || "text-[#a1ffc2]";
+                        EVENT_COLORS[event.eventType] || "text-accent";
                       const eventLabel = event.titleKey
                         ? te(event.titleKey.replace(/^player_events\./, ""))
                         : event.eventType;
@@ -896,20 +896,20 @@ export default function PlayerDetailPage({ params }: PageProps) {
                       return (
                         <div
                           key={event.id}
-                          className="flex items-center gap-3 p-3 bg-[#00251c]/30 rounded-lg"
+                          className="flex items-center gap-3 p-3 bg-ink-700/30 rounded-lg"
                         >
                           <div
-                            className={`w-10 h-10 rounded-full flex items-center justify-center bg-[#00251c] ${colorClass}`}
+                            className={`w-10 h-10 rounded-full flex items-center justify-center bg-ink-700 ${colorClass}`}
                           >
                             <span className="material-symbols-outlined text-lg">
                               {iconName}
                             </span>
                           </div>
                           <div className="flex-1">
-                            <p className="text-sm font-bold text-[#d3f5e8]">
+                            <p className="text-sm font-bold text-frost">
                               {eventLabel}
                             </p>
-                            <p className="text-xs text-[#91b2a6]">
+                            <p className="text-xs text-muted">
                               {dateStr} - Season {event.season}
                             </p>
                           </div>
@@ -923,12 +923,12 @@ export default function PlayerDetailPage({ params }: PageProps) {
           </div>
         ) : (
           <div className="w-full max-w-[700px] mx-auto text-center">
-            <p className="text-[#91b2a6] text-lg">
+            <p className="text-muted text-lg">
               {t("states.playerNotFound")}
             </p>
             <Link
               href={`/${resolvedParams?.locale}/teams/squad`}
-              className="inline-flex items-center gap-2 text-[#a1ffc2] hover:text-[#8ee6b8] transition-colors mt-4 text-sm font-bold"
+              className="inline-flex items-center gap-2 text-accent hover:text-accent-hover transition-colors mt-4 text-sm font-bold"
             >
               <span className="material-symbols-outlined text-lg">
                 arrow_back

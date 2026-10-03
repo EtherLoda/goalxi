@@ -16,7 +16,7 @@
  *     youth leagues).
  *
  * Visual language follows the rest of GoalXI: dark slate cards
- * (`bg-[#001e17] / border-[#2f4e44]/20`), mint primary text
+ * (`bg-ink-800 / border-edge/20`), mint primary text
  * (`#a1ffc2`), and the same 1.5x4 colored-bar + uppercase
  * tracking-widest label pattern used in the skill section.
  *
@@ -46,10 +46,10 @@ const COMPETITION_BADGE: Record<
   CompetitionType,
   { labelKey: string; accent: string }
 > = {
-  LEAGUE: { labelKey: "compBadge.LEAGUE", accent: "bg-[#a1ffc2]/15 text-[#a1ffc2] border-[#a1ffc2]/30" },
-  CUP: { labelKey: "compBadge.CUP", accent: "bg-[#60a5fa]/15 text-[#60a5fa] border-[#60a5fa]/30" },
-  YOUTH: { labelKey: "compBadge.YOUTH", accent: "bg-[#abf853]/15 text-[#abf853] border-[#abf853]/30" },
-  OTHER: { labelKey: "compBadge.OTHER", accent: "bg-[#4a7a6a]/20 text-[#91b2a6] border-[#4a7a6a]/30" },
+  LEAGUE: { labelKey: "compBadge.LEAGUE", accent: "bg-accent/15 text-accent border-accent/30" },
+  CUP: { labelKey: "compBadge.CUP", accent: "bg-signal-blue/15 text-signal-blue border-signal-blue/30" },
+  YOUTH: { labelKey: "compBadge.YOUTH", accent: "bg-signal-lime/15 text-signal-lime border-signal-lime/30" },
+  OTHER: { labelKey: "compBadge.OTHER", accent: "bg-faint/20 text-muted border-faint/30" },
 };
 
 export interface PlayerSeasonStatsCardProps {
@@ -72,17 +72,17 @@ function KpiTile({
   accent: "mint" | "lime" | "amber" | "sky";
 }) {
   const accentClass = {
-    mint: "text-[#a1ffc2]",
-    lime: "text-[#abf853]",
-    amber: "text-[#f59e0b]",
-    sky: "text-[#60a5fa]",
+    mint: "text-accent",
+    lime: "text-signal-lime",
+    amber: "text-signal-amber",
+    sky: "text-signal-blue",
   }[accent];
   return (
-    <div className="bg-[#00251c] rounded-xl p-3 flex flex-col items-center justify-center border border-[#2f4e44]/10 min-h-[64px]">
+    <div className="bg-ink-700 rounded-xl p-3 flex flex-col items-center justify-center border border-edge/10 min-h-[64px]">
       <div className={`text-2xl font-black font-space leading-none ${accentClass}`}>
         {value}
       </div>
-      <span className="text-[8px] font-bold font-space mt-1.5 tracking-widest uppercase text-[#91b2a6]">
+      <span className="text-[8px] font-bold font-space mt-1.5 tracking-widest uppercase text-muted">
         {label}
       </span>
     </div>
@@ -112,9 +112,9 @@ function SeasonRow({
   // page level if the project enables youth leagues.
   const competitionLabel = row.leagueName ?? cupLabel;
   return (
-    <div className="grid grid-cols-12 gap-2 items-center px-3 py-2.5 rounded-lg bg-[#001a12] border border-[#2f4e44]/10 hover:bg-[#00251c] transition-colors">
+    <div className="grid grid-cols-12 gap-2 items-center px-3 py-2.5 rounded-lg bg-ink-850 border border-edge/10 hover:bg-ink-700 transition-colors">
       <div className="col-span-2 flex items-center gap-1.5 min-w-0">
-        <span className="text-[10px] font-black font-space tracking-wider text-[#d3f5e8] shrink-0">
+        <span className="text-[10px] font-black font-space tracking-wider text-frost shrink-0">
           S{row.season}
         </span>
         <span
@@ -124,22 +124,22 @@ function SeasonRow({
           {badgeLabels[row.competitionType]}
         </span>
       </div>
-      <div className="col-span-3 text-[10px] font-bold font-space text-[#91b2a6] truncate">
+      <div className="col-span-3 text-[10px] font-bold font-space text-muted truncate">
         {competitionLabel}
       </div>
-      <div className="col-span-3 text-[10px] font-bold font-space text-[#91b2a6] truncate">
+      <div className="col-span-3 text-[10px] font-bold font-space text-muted truncate">
         {row.teamName}
       </div>
-      <div className="col-span-1 text-center text-sm font-black font-space text-[#d3f5e8]">
+      <div className="col-span-1 text-center text-sm font-black font-space text-frost">
         {row.appearances}
       </div>
-      <div className="col-span-1 text-center text-sm font-black font-space text-[#a1ffc2]">
+      <div className="col-span-1 text-center text-sm font-black font-space text-accent">
         {row.goals}
       </div>
-      <div className="col-span-1 text-center text-sm font-black font-space text-[#60a5fa]">
+      <div className="col-span-1 text-center text-sm font-black font-space text-signal-blue">
         {row.assists}
       </div>
-      <div className="col-span-1 text-center text-[11px] font-bold font-space text-[#abf853]">
+      <div className="col-span-1 text-center text-[11px] font-bold font-space text-signal-lime">
         {startsWithSub(row.starts, row.substituteAppearances)}
       </div>
     </div>
@@ -149,13 +149,13 @@ function SeasonRow({
 function EmptyState({ t }: { t: ReturnType<typeof useTranslations<"player_stats">> }) {
   return (
     <div className="flex flex-col items-center justify-center py-6 text-center">
-      <div className="w-10 h-10 rounded-full bg-[#00251c] border border-[#2f4e44]/20 flex items-center justify-center mb-2">
-        <span className="material-icons text-[#91b2a6] text-lg">sports_soccer</span>
+      <div className="w-10 h-10 rounded-full bg-ink-700 border border-edge/20 flex items-center justify-center mb-2">
+        <span className="material-icons text-muted text-lg">sports_soccer</span>
       </div>
-      <p className="text-[10px] font-bold font-space tracking-widest uppercase text-[#91b2a6]">
+      <p className="text-[10px] font-bold font-space tracking-widest uppercase text-muted">
         {t("emptyTitle")}
       </p>
-      <p className="text-[9px] font-space text-[#4a7a6a] mt-1 max-w-[240px]">
+      <p className="text-[9px] font-space text-faint mt-1 max-w-[240px]">
         {t("emptyBody")}
       </p>
     </div>
@@ -169,7 +169,7 @@ function LoadingSkeleton() {
         {[0, 1, 2, 3].map((i) => (
           <div
             key={i}
-            className="h-[64px] rounded-xl bg-[#00251c] border border-[#2f4e44]/10"
+            className="h-[64px] rounded-xl bg-ink-700 border border-edge/10"
           />
         ))}
       </div>
@@ -177,7 +177,7 @@ function LoadingSkeleton() {
         {[0, 1, 2].map((i) => (
           <div
             key={i}
-            className="h-[40px] rounded-lg bg-[#001a12] border border-[#2f4e44]/10"
+            className="h-[40px] rounded-lg bg-ink-850 border border-edge/10"
           />
         ))}
       </div>
@@ -196,18 +196,18 @@ function ErrorState({
 }) {
   return (
     <div className="flex flex-col items-center justify-center py-6 text-center">
-      <span className="material-icons text-[#f59e0b] text-2xl mb-2">
+      <span className="material-icons text-signal-amber text-2xl mb-2">
         error_outline
       </span>
-      <p className="text-[10px] font-bold font-space tracking-widest uppercase text-[#91b2a6]">
+      <p className="text-[10px] font-bold font-space tracking-widest uppercase text-muted">
         {t("errorTitle")}
       </p>
-      <p className="text-[9px] font-space text-[#4a7a6a] mt-1 max-w-[240px]">
+      <p className="text-[9px] font-space text-faint mt-1 max-w-[240px]">
         {message}
       </p>
       <button
         onClick={onRetry}
-        className="mt-3 px-3 py-1.5 rounded-lg bg-[#00251c] border border-[#2f4e44]/30 text-[10px] font-bold font-space tracking-widest uppercase text-[#a1ffc2] hover:bg-[#003329] transition-colors"
+        className="mt-3 px-3 py-1.5 rounded-lg bg-ink-700 border border-edge/30 text-[10px] font-bold font-space tracking-widest uppercase text-accent hover:bg-ink-500 transition-colors"
       >
         {t("retry")}
       </button>
@@ -252,12 +252,12 @@ export function PlayerSeasonStatsCard({
 
   const header = (
     <div className="flex items-center gap-2 mb-4">
-      <div className="w-1.5 h-4 bg-[#a1ffc2] rounded-full" />
-      <h3 className="text-xs font-black font-space tracking-widest uppercase text-[#a1ffc2]">
+      <div className="w-1.5 h-4 bg-accent rounded-full" />
+      <h3 className="text-xs font-black font-space tracking-widest uppercase text-accent">
         {t("title")}
       </h3>
       {data && data.career.seasonsPlayed > 0 && (
-        <span className="ml-auto text-[9px] font-bold font-space tracking-widest uppercase text-[#91b2a6]">
+        <span className="ml-auto text-[9px] font-bold font-space tracking-widest uppercase text-muted">
           {data.career.seasonsPlayed}{" "}
           {data.career.seasonsPlayed === 1
             ? t("seasonsPlayed")
@@ -268,8 +268,8 @@ export function PlayerSeasonStatsCard({
   );
 
   return (
-    <div className="bg-[#001e17] rounded-xl p-4 border border-[#2f4e44]/20 relative">
-      <div className="absolute inset-0 bg-gradient-to-br from-[#a1ffc2]/3 to-transparent rounded-xl pointer-events-none" />
+    <div className="bg-ink-800 rounded-xl p-4 border border-edge/20 relative">
+      <div className="absolute inset-0 bg-gradient-to-br from-accent/3 to-transparent rounded-xl pointer-events-none" />
       <div className="relative">
         {header}
 
@@ -298,7 +298,7 @@ export function PlayerSeasonStatsCard({
             {/* Column header row. Same grid template as the data rows
                 so the columns line up. Kept tight (8px) so it
                 doesn\'t dominate the card visually. */}
-            <div className="grid grid-cols-12 gap-2 px-3 py-1.5 text-[8px] font-bold font-space tracking-widest uppercase text-[#4a7a6a]">
+            <div className="grid grid-cols-12 gap-2 px-3 py-1.5 text-[8px] font-bold font-space tracking-widest uppercase text-faint">
               <div className="col-span-2">{t("colSeason")}</div>
               <div className="col-span-3">{t("colComp")}</div>
               <div className="col-span-3">{t("colTeam")}</div>
@@ -334,28 +334,28 @@ export function PlayerSeasonStatsCard({
             {/* Footer: one-line career rollup of the four numbers
                 that aren\'t in the KPI strip \u2014 starts, sub
                 appearances, yellow cards, red cards. */}
-            <div className="mt-3 pt-3 border-t border-[#2f4e44]/15 flex items-center justify-between text-[9px] font-space text-[#91b2a6]">
+            <div className="mt-3 pt-3 border-t border-edge/15 flex items-center justify-between text-[9px] font-space text-muted">
               <span>
-                <span className="font-bold text-[#d3f5e8]">
+                <span className="font-bold text-frost">
                   {data.career.starts}
                 </span>{" "}
                 {t("startsLabel")}
               </span>
               <span>
-                <span className="font-bold text-[#d3f5e8]">
+                <span className="font-bold text-frost">
                   {data.career.substituteAppearances}
                 </span>{" "}
                 {t("asSubLabel")}
               </span>
               <span className="flex items-center gap-1">
-                <span className="font-bold text-[#d3f5e8]">
+                <span className="font-bold text-frost">
                   {data.career.yellowCards}
                 </span>
-                <span className="text-[#facc15]">{"⚫"}</span>
-                <span className="font-bold text-[#d3f5e8]">
+                <span className="text-signal-yellow">{"⚫"}</span>
+                <span className="font-bold text-frost">
                   {data.career.redCards}
                 </span>
-                <span className="text-[#ef4444]">{"⛕"}</span>
+                <span className="text-danger">{"⛕"}</span>
               </span>
             </div>
           </>

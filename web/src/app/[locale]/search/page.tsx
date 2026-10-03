@@ -198,7 +198,7 @@ function SearchPageContent() {
                 key={type}
                 onClick={() => handleTypeChange(type)}
                 className={clsx(
-                  "flex-1 py-2.5 text-xs font-headline font-black uppercase tracking-widest rounded-md transition-all",
+                  "flex-1 py-2.5 text-xs font-headline font-black uppercase tracking-widest rounded-lg transition-all",
                   searchType === type
                     ? "bg-primary text-on-primary shadow-lg"
                     : "text-on-surface-variant hover:text-on-surface hover:bg-white/5"

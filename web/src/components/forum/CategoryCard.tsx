@@ -17,14 +17,14 @@ export default function CategoryCard({ category }: CategoryCardProps) {
   return (
     <Link
       href={`/${locale}/forum/${category.slug}`}
-      className="glass-panel group block p-6 rounded-2xl border border-outline-variant/10 hover:border-[#a1ffc2]/40 hover:bg-[#003328] transition-all"
+      className="glass-panel group block p-6 rounded-2xl border border-outline-variant/10 hover:border-accent/40 hover:bg-ink-500 transition-all"
     >
       <div className="flex items-start gap-4">
-        <div className="w-12 h-12 rounded-xl bg-surface-container-high border border-outline-variant/20 flex items-center justify-center shrink-0 group-hover:border-[#a1ffc2]/40 transition-colors">
-          <span className="material-symbols-outlined text-[#a1ffc2]">forum</span>
+        <div className="w-12 h-12 rounded-xl bg-surface-container-high border border-outline-variant/20 flex items-center justify-center shrink-0 group-hover:border-accent/40 transition-colors">
+          <span className="material-symbols-outlined text-accent">forum</span>
         </div>
         <div className="flex-1 min-w-0">
-          <h3 className="font-headline font-bold text-lg text-[#d3f5e8] leading-tight mb-1 group-hover:text-[#a1ffc2] transition-colors">
+          <h3 className="font-headline font-bold text-lg text-frost leading-tight mb-1 group-hover:text-accent transition-colors">
             {category.name}
           </h3>
           {category.description && (
@@ -43,7 +43,7 @@ export default function CategoryCard({ category }: CategoryCardProps) {
             </span>
           </div>
         </div>
-        <span className="material-symbols-outlined text-on-surface-variant/40 group-hover:text-[#a1ffc2] group-hover:translate-x-1 transition-all">
+        <span className="material-symbols-outlined text-on-surface-variant/40 group-hover:text-accent group-hover:translate-x-1 transition-all">
           chevron_right
         </span>
       </div>

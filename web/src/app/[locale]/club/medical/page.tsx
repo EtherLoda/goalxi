@@ -254,7 +254,7 @@ export default function MedicalPage() {
                             className={[
                               "inline-block px-2 py-0.5 rounded-full border text-[10px] font-black uppercase tracking-wider",
                               isMinor
-                                ? "bg-amber-400/15 text-amber-300 border-amber-400/30"
+                                ? "bg-signal-gold/15 text-amber-300 border-signal-gold/30"
                                 : "bg-error/15 text-error border-error/30",
                             ].join(" ")}
                           >

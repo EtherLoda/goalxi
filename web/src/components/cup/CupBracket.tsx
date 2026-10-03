@@ -67,7 +67,7 @@ export default function CupBracket({ cupId, locale = "en" }: CupBracketProps) {
 
   if (error) {
     return (
-      <div className="glass-panel p-4 rounded-2xl border border-red-500/30 bg-red-500/10">
+      <div className="glass-panel p-4 rounded-2xl border border-danger/30 bg-danger/10">
         <div className="flex items-center gap-3 font-body text-sm text-red-300">
           <span className="material-symbols-outlined">error</span>
           {error}
@@ -105,7 +105,7 @@ export default function CupBracket({ cupId, locale = "en" }: CupBracketProps) {
 
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="font-headline font-black text-xl uppercase tracking-tight text-[#d3f5e8]">
+          <h2 className="font-headline font-black text-xl uppercase tracking-tight text-frost">
             {selectedRoundData?.roundName}
           </h2>
           <p className="font-body text-xs text-on-surface-variant/70 mt-0.5">

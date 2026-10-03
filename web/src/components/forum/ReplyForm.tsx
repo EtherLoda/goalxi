@@ -116,8 +116,8 @@ export default function ReplyForm({
   return (
     <form onSubmit={handleSubmit} className="mt-6">
       {replyTarget && (
-        <div className="flex items-center justify-between mb-2 px-4 py-2 rounded-lg bg-[#003328] border border-[#a1ffc2]/30">
-          <span className="font-label text-[10px] uppercase tracking-widest text-[#a1ffc2] flex items-center gap-2">
+        <div className="flex items-center justify-between mb-2 px-4 py-2 rounded-lg bg-ink-500 border border-accent/30">
+          <span className="font-label text-[10px] uppercase tracking-widest text-accent flex items-center gap-2">
             <span className="material-symbols-outlined text-sm">format_quote</span>
             {t("replyingTo", { username: replyTarget.authorUsername })}
           </span>
@@ -140,7 +140,7 @@ export default function ReplyForm({
             replyTarget ? t("placeholderTypeReply") : t("placeholderReply")
           }
           rows={4}
-          className="w-full p-3 bg-transparent font-body text-[#d3f5e8] placeholder-on-surface-variant/50 focus:outline-none resize-y"
+          className="w-full p-3 bg-transparent font-body text-frost placeholder-on-surface-variant/50 focus:outline-none resize-y"
           disabled={disabled || submitting}
         />
         <div className="flex items-center justify-between pt-3 border-t border-outline-variant/10">
@@ -156,7 +156,7 @@ export default function ReplyForm({
           <button
             type="submit"
             disabled={disabled || submitting || tooShort || tooLong}
-            className="font-headline font-bold text-xs uppercase tracking-widest px-5 py-2 rounded-lg bg-[#a1ffc2] text-[#003328] hover:bg-[#d3f5e8] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            className="font-headline font-bold text-xs uppercase tracking-widest px-5 py-2 rounded-lg bg-accent text-ink-500 hover:bg-frost disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >
             {submitting ? t("posting") : t("postReply")}
           </button>

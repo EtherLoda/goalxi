@@ -39,10 +39,10 @@ export default function ReactionButton({
     <button
       onClick={toggle}
       disabled={loading}
-      className={`flex items-center gap-1.5 font-label text-[10px] uppercase tracking-widest px-2.5 py-1 rounded-md transition-colors ${
+      className={`flex items-center gap-1.5 font-label text-[10px] uppercase tracking-widest px-2.5 py-1 rounded-lg transition-colors ${
         hasReacted
-          ? "bg-[#a1ffc2]/15 text-[#a1ffc2] border border-[#a1ffc2]/30"
-          : "bg-surface-container border border-outline-variant/20 text-on-surface-variant hover:text-[#a1ffc2] hover:border-[#a1ffc2]/30"
+          ? "bg-accent/15 text-accent border border-accent/30"
+          : "bg-surface-container border border-outline-variant/20 text-on-surface-variant hover:text-accent hover:border-accent/30"
       } disabled:opacity-50`}
       aria-label={hasReacted ? "Unlike" : "Like"}
     >

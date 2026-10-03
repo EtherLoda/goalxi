@@ -70,7 +70,7 @@ export function TacticalEventRow({
                 onUpdate(index, { minute: Math.max(1, Math.min(90, Number(e.target.value) || 1)) } as Partial<TacticalEvent>)
               }
               disabled={disabled}
-              className="w-9 bg-transparent text-[11px] font-bold text-white text-center focus:outline-none tabular-nums"
+              className="w-9 bg-transparent text-[11px] font-bold text-on-surface text-center focus:outline-none tabular-nums"
               aria-label={t('minute')}
             />
           </div>
@@ -79,7 +79,7 @@ export function TacticalEventRow({
               (same px-2 py-0.5, text-[9px], border) so the two pills
               line up vertically next to each other. */}
           <span
-            className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md border font-label text-[9px] font-bold uppercase tracking-widest ${
+            className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-lg border font-label text-[9px] font-bold uppercase tracking-widest ${
               isSub
                 ? 'bg-primary/15 text-primary border-primary/30'
                 : 'bg-tertiary/15 text-tertiary border-tertiary/30'
@@ -156,13 +156,13 @@ export function TacticalEventRow({
         {/* In / New Position */}
         <div className="space-y-1">
           <div className="flex items-center justify-end gap-1 px-0.5">
-            <span className={`text-[9px] font-black uppercase tracking-widest ${isSub ? 'text-emerald-300/80' : 'text-amber-300/80'}`}>
+            <span className={`text-[9px] font-black uppercase tracking-widest ${isSub ? 'text-positive-soft/80' : 'text-amber-300/80'}`}>
               {isSub ? t('inLabel') : t('newPosition')}
             </span>
             {isSub ? (
-              <span className="material-symbols-outlined text-[10px] text-emerald-400">add_circle</span>
+              <span className="material-symbols-outlined text-[10px] text-positive-bright">add_circle</span>
             ) : (
-              <span className="material-symbols-outlined text-[10px] text-amber-400">open_with</span>
+              <span className="material-symbols-outlined text-[10px] text-signal-gold">open_with</span>
             )}
           </div>
           {isSub ? (

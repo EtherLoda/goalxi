@@ -81,7 +81,7 @@ function StatusDot({ status }: { status: CupRound["status"] }) {
     status === "completed"
       ? "bg-primary"
       : status === "in_progress"
-        ? "bg-amber-400"
+        ? "bg-signal-gold"
         : "bg-on-surface-variant/30";
   return <span className={"w-2 h-2 rounded-full " + cls} />;
 }

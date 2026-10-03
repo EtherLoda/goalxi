@@ -39,20 +39,20 @@ function StadiumPitch({
   return (
     <div className="relative w-full aspect-[2.4/1] rounded-[2rem] overflow-hidden bg-gradient-to-br from-surface-container-high via-surface-container to-surface-container-low border border-outline-variant/15">
       {/* 球场草地 */}
-      <div className="absolute inset-[14%] rounded-[1.2rem] bg-gradient-to-br from-emerald-900/40 via-emerald-800/30 to-emerald-900/40 border border-emerald-700/30">
+      <div className="absolute inset-[14%] rounded-2xl bg-gradient-to-br from-pitch-deep/40 via-pitch-mid/30 to-pitch-deep/40 border border-pitch-line/30">
         <div className="absolute inset-0 opacity-30">
           {/* 草皮条纹 */}
           {Array.from({ length: 8 }).map((_, i) => (
             <div
               key={i}
-              className="absolute left-0 right-0 h-[12.5%] border-t border-emerald-700/20"
+              className="absolute left-0 right-0 h-[12.5%] border-t border-pitch-line/20"
               style={{ top: `${i * 12.5}%` }}
             />
           ))}
           {/* 中圈 */}
-          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-24 h-24 rounded-full border border-emerald-300/30" />
-          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-2 h-2 rounded-full bg-emerald-300/40" />
-          <div className="absolute top-1/2 left-0 right-0 h-px bg-emerald-300/20" />
+          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-24 h-24 rounded-full border border-pitch-mark/30" />
+          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-2 h-2 rounded-full bg-pitch-mark/40" />
+          <div className="absolute top-1/2 left-0 right-0 h-px bg-pitch-mark/20" />
         </div>
       </div>
 
@@ -257,7 +257,7 @@ export default function StadiumPage() {
       ) : (
         <>
           {/* Hero — visual pitch + occupancy gauge */}
-          <section className="relative overflow-hidden rounded-3xl border border-outline-variant/10 bg-gradient-to-br from-surface-container-low via-surface-container to-surface-container-low">
+          <section className="relative overflow-hidden rounded-2xl border border-outline-variant/10 bg-gradient-to-br from-surface-container-low via-surface-container to-surface-container-low">
             <div className="grid grid-cols-1 lg:grid-cols-[1.4fr_1fr] gap-0">
               {/* Stadium visual */}
               <div className="p-6 lg:p-8">
@@ -703,7 +703,7 @@ function RecentMatchCard({
       : match.result === "L"
         ? "bg-error/15 text-error border-error/40"
         : match.result === "D"
-          ? "bg-amber-400/15 text-amber-300 border-amber-400/40"
+          ? "bg-signal-gold/15 text-amber-300 border-signal-gold/40"
           : "bg-on-surface-variant/15 text-on-surface-variant border-outline-variant/30";
 
   return (

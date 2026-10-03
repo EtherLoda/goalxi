@@ -16,7 +16,7 @@ interface SectionHeaderProps {
 export function SectionHeader({ title, iconName, action, className = '' }: SectionHeaderProps) {
   return (
     <div className={`flex items-center justify-between mb-3 ${className}`}>
-      <h2 className="font-headline font-bold text-xs tracking-tight text-white uppercase flex items-center gap-2">
+      <h2 className="font-headline font-bold text-xs tracking-tight text-on-surface uppercase flex items-center gap-2">
         {iconName && <span className="material-symbols-outlined text-primary text-base">{iconName}</span>}
         {title}
       </h2>

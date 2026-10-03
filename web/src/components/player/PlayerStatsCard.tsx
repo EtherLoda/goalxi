@@ -16,13 +16,13 @@ export function SkillBar({ label, current, potential, colorClass }: SkillBarProp
 
   return (
     <div className="space-y-1">
-      <div className="flex justify-between text-[9px] font-bold uppercase tracking-wider text-[#91b2a6]">
+      <div className="flex justify-between text-[9px] font-bold uppercase tracking-wider text-muted">
         <span>{label}</span>
         <span className={colorClass}>
           {Math.floor(current)}/{Math.floor(potential)}
         </span>
       </div>
-      <div className="h-1 w-full bg-[#00251c] rounded-full overflow-hidden">
+      <div className="h-1 w-full bg-ink-700 rounded-full overflow-hidden">
         <div
           className={`h-full ${colorClass.replace("text-", "bg-")} rounded-full`}
           style={{ width: `${percentage}%` }}
@@ -82,17 +82,17 @@ export default function PlayerStatsCard({
 
   const staminaColor =
     player.stamina >= 4
-      ? "text-[#a1ffc2]"
+      ? "text-accent"
       : player.stamina >= 2
-        ? "text-[#abf853]"
+        ? "text-signal-lime"
         : "text-red-400";
 
   const formOrCondition = player.form ?? player.condition ?? 0;
   const formColor =
     formOrCondition >= 4
-      ? "text-[#a1ffc2]"
+      ? "text-accent"
       : formOrCondition >= 2
-        ? "text-[#abf853]"
+        ? "text-signal-lime"
         : "text-red-400";
 
   // Build skills data from skillBreakdown or currentSkills
@@ -137,35 +137,35 @@ export default function PlayerStatsCard({
 
   if (compact) {
     return (
-      <div onClick={onClick} className="bg-[#001e17] rounded-xl p-3 border border-[#2f4e44]/20 cursor-pointer hover:bg-[#00251c] transition-colors">
+      <div onClick={onClick} className="bg-ink-800 rounded-xl p-3 border border-edge/20 cursor-pointer hover:bg-ink-700 transition-colors">
         {/* Header with name and basic stats */}
         <div className="flex items-center gap-2 mb-3">
-          <div className="w-8 h-8 rounded-lg bg-[#00251c] flex items-center justify-center text-[10px] font-bold text-[#a1ffc2]">
+          <div className="w-8 h-8 rounded-lg bg-ink-700 flex items-center justify-center text-[10px] font-bold text-accent">
             {player.name.split(" ").map(n => n[0]).join("").slice(0, 2)}
           </div>
           <div className="flex-1 min-w-0">
-            <div className="text-xs font-bold text-[#d3f5e8] truncate">{player.name}</div>
-            <div className="text-[9px] text-[#91b2a6]">{player.age}y</div>
+            <div className="text-xs font-bold text-frost truncate">{player.name}</div>
+            <div className="text-[9px] text-muted">{player.age}y</div>
           </div>
         </div>
 
         {/* Top Stats */}
         <div className="grid grid-cols-4 gap-1 mb-3">
           <div className="flex flex-col items-center">
-            <span className="text-sm font-black text-[#a1ffc2]">{player.pwi}</span>
-            <span className="text-[7px] text-[#91b2a6]">PWI</span>
+            <span className="text-sm font-black text-accent">{player.pwi}</span>
+            <span className="text-[7px] text-muted">PWI</span>
           </div>
           <div className="flex flex-col items-center">
             <span className={`text-sm font-black ${staminaColor}`}>{Math.floor(player.stamina)}</span>
-            <span className="text-[7px] text-[#91b2a6]">STA</span>
+            <span className="text-[7px] text-muted">STA</span>
           </div>
           <div className="flex flex-col items-center">
             <span className={`text-sm font-black ${formColor}`}>{Math.floor(formOrCondition)}</span>
-            <span className="text-[7px] text-[#91b2a6]">{locale === "zh" ? "状态" : "FRM"}</span>
+            <span className="text-[7px] text-muted">{locale === "zh" ? "状态" : "FRM"}</span>
           </div>
           <div className="flex flex-col items-center">
-            <ExperienceTierLabel value={player.experience} className="text-sm font-black text-[#d3f5e8]" />
-            <span className="text-[7px] text-[#91b2a6]">EXP</span>
+            <ExperienceTierLabel value={player.experience} className="text-sm font-black text-frost" />
+            <span className="text-[7px] text-muted">EXP</span>
           </div>
         </div>
 
@@ -177,7 +177,7 @@ export default function PlayerStatsCard({
               if (!catSkills || catSkills.length === 0) return null;
               return (
                 <div key={cat}>
-                  <div className="text-[8px] text-[#4a7a6a] uppercase mb-1">{getCategoryName(cat, locale as 'en' | 'zh')}</div>
+                  <div className="text-[8px] text-faint uppercase mb-1">{getCategoryName(cat, locale as 'en' | 'zh')}</div>
                   <div className="space-y-1">
                     {catSkills.slice(0, 2).map((sk) => (
                       <SkillBar
@@ -185,7 +185,7 @@ export default function PlayerStatsCard({
                         label={formatSkillLabel(sk.skill, locale as 'en' | 'zh')}
                         current={sk.current}
                         potential={sk.potential}
-                        colorClass={CATEGORY_COLORS[cat] || "text-[#a1ffc2]"}
+                        colorClass={CATEGORY_COLORS[cat] || "text-accent"}
                       />
                     ))}
                   </div>
@@ -200,28 +200,28 @@ export default function PlayerStatsCard({
 
   // Full version
   return (
-    <div className="bg-[#001e17] rounded-xl p-4 border border-[#2f4e44]/20">
+    <div className="bg-ink-800 rounded-xl p-4 border border-edge/20">
       {/* Gauges */}
       <div className="grid grid-cols-4 gap-2 mb-4">
-        <div className="bg-[#00251c] rounded-xl p-2 flex flex-col items-center justify-center border border-[#2f4e44]/10">
-          <div className="text-lg font-black text-[#a1ffc2]">{player.pwi}</div>
-          <span className="text-[8px] font-bold uppercase tracking-widest text-[#91b2a6]">PWI</span>
+        <div className="bg-ink-700 rounded-xl p-2 flex flex-col items-center justify-center border border-edge/10">
+          <div className="text-lg font-black text-accent">{player.pwi}</div>
+          <span className="text-[8px] font-bold uppercase tracking-widest text-muted">PWI</span>
         </div>
-        <div className="bg-[#00251c] rounded-xl p-2 flex flex-col items-center justify-center border border-[#2f4e44]/10">
+        <div className="bg-ink-700 rounded-xl p-2 flex flex-col items-center justify-center border border-edge/10">
           <div className={`text-lg font-black ${staminaColor}`}>{Math.floor(player.stamina)}</div>
-          <span className="text-[8px] font-bold uppercase tracking-widest text-[#91b2a6]">
+          <span className="text-[8px] font-bold uppercase tracking-widest text-muted">
             {locale === "zh" ? "体能" : "STA"}
           </span>
         </div>
-        <div className="bg-[#00251c] rounded-xl p-2 flex flex-col items-center justify-center border border-[#2f4e44]/10">
+        <div className="bg-ink-700 rounded-xl p-2 flex flex-col items-center justify-center border border-edge/10">
           <div className={`text-lg font-black ${formColor}`}>{Math.floor(formOrCondition)}</div>
-          <span className="text-[8px] font-bold uppercase tracking-widest text-[#91b2a6]">
+          <span className="text-[8px] font-bold uppercase tracking-widest text-muted">
             {locale === "zh" ? "状态" : "FRM"}
           </span>
         </div>
-        <div className="bg-[#00251c] rounded-xl p-2 flex flex-col items-center justify-center border border-[#2f4e44]/10">
-          <ExperienceTierLabel value={player.experience} className="text-lg font-black text-[#d3f5e8]" />
-          <span className="text-[8px] font-bold uppercase tracking-widest text-[#91b2a6]">EXP</span>
+        <div className="bg-ink-700 rounded-xl p-2 flex flex-col items-center justify-center border border-edge/10">
+          <ExperienceTierLabel value={player.experience} className="text-lg font-black text-frost" />
+          <span className="text-[8px] font-bold uppercase tracking-widest text-muted">EXP</span>
         </div>
       </div>
 
@@ -233,8 +233,8 @@ export default function PlayerStatsCard({
           return (
             <div key={cat}>
               <div className="flex items-center gap-1.5 mb-2">
-                <div className={`w-1 h-3 rounded-full ${CATEGORY_COLORS[cat]?.replace("text-", "bg-") || "bg-[#a1ffc2]"}`} />
-                <span className="text-[10px] font-black uppercase tracking-widest text-[#91b2a6]">
+                <div className={`w-1 h-3 rounded-full ${CATEGORY_COLORS[cat]?.replace("text-", "bg-") || "bg-accent"}`} />
+                <span className="text-[10px] font-black uppercase tracking-widest text-muted">
                   {getCategoryName(cat, locale as 'en' | 'zh')}
                 </span>
               </div>
@@ -245,7 +245,7 @@ export default function PlayerStatsCard({
                     label={formatSkillLabel(sk.skill, locale as 'en' | 'zh')}
                     current={sk.current}
                     potential={sk.potential}
-                    colorClass={CATEGORY_COLORS[cat] || "text-[#a1ffc2]"}
+                    colorClass={CATEGORY_COLORS[cat] || "text-accent"}
                   />
                 ))}
               </div>

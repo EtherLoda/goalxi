@@ -39,13 +39,13 @@ function renderSkillBar(
   const percentage = (current / SKILL_MAX) * 100;
   return (
     <div className="space-y-1.5">
-      <div className="flex justify-between text-[10px] font-bold uppercase tracking-wider text-[#91b2a6]">
+      <div className="flex justify-between text-[10px] font-bold uppercase tracking-wider text-muted">
         <span>{label}</span>
         <span className={colorClass}>
           {current}/{potential}
         </span>
       </div>
-      <div className="h-1.5 w-full bg-[#00251c] rounded-full overflow-hidden">
+      <div className="h-1.5 w-full bg-ink-700 rounded-full overflow-hidden">
         <div
           className={`h-full ${colorClass.replace("text-", "bg-")} rounded-full`}
           style={{ width: `${percentage}%` }}
@@ -94,37 +94,37 @@ export default function TransferPlayerCard({
   return (
     <div
       onClick={onClick}
-      className={`bg-[#001711] rounded-2xl p-5 transition-all border ${
+      className={`bg-ink-900 rounded-2xl p-5 transition-all border ${
         onClick
-          ? "cursor-pointer hover:border-[#2f4e44]/40 hover:bg-[#001e17]"
+          ? "cursor-pointer hover:border-edge/40 hover:bg-ink-800"
           : ""
       } ${
         isSelected
-          ? "border-[#a1ffc2] ring-1 ring-[#a1ffc2]/30"
-          : "border-[#2f4e44]/20"
+          ? "border-accent ring-1 ring-accent/30"
+          : "border-edge/20"
       }`}
     >
       {/* Header */}
       <div className="flex items-center gap-6 mb-5">
-        <div className="w-16 h-16 rounded-full bg-gradient-to-br from-[#002c22] to-[#001711] flex items-center justify-center font-bold text-2xl text-[#a1ffc2] border border-[#2f4e44]/30">
+        <div className="w-16 h-16 rounded-full bg-gradient-to-br from-ink-600 to-ink-900 flex items-center justify-center font-bold text-2xl text-accent border border-edge/30">
           {initials}
         </div>
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-3">
-            <Link href={`/players/${player.id}`} className={`font-bold text-xl truncate hover:text-[#a1ffc2] transition-colors ${isSelected ? "text-[#a1ffc2]" : "text-[#d3f5e8]"}`}>
+            <Link href={`/players/${player.id}`} className={`font-bold text-xl truncate hover:text-accent transition-colors ${isSelected ? "text-accent" : "text-frost"}`}>
               {player.name}
             </Link>
             <span
-              className={`text-[11px] font-bold px-2 py-1 rounded-md ${
+              className={`text-[11px] font-bold px-2 py-1 rounded-lg ${
                 isExpired
-                  ? "bg-red-500/20 text-red-400"
-                  : "bg-[#002c22] text-[#91b2a6]"
+                  ? "bg-danger/20 text-red-400"
+                  : "bg-ink-600 text-muted"
               }`}
             >
               {timeLeft}
             </span>
           </div>
-          <p className="text-sm text-[#91b2a6]">
+          <p className="text-sm text-muted">
             {t("common.ageFormat", { y: player.age, d: player.ageDays })} ·{" "}
             <button
               type="button"
@@ -132,7 +132,7 @@ export default function TransferPlayerCard({
                 e.stopPropagation();
                 handleTeamClick(transfer.team.id);
               }}
-              className="text-[#91b2a6] hover:text-[#a1ffc2] transition-colors cursor-pointer"
+              className="text-muted hover:text-accent transition-colors cursor-pointer"
             >
               {player.teamName || transfer.team.name}
             </button>{" "}
@@ -142,45 +142,45 @@ export default function TransferPlayerCard({
         </div>
         <div className="flex items-center gap-6">
           <div className="text-center">
-            <p className="text-[10px] text-[#91b2a6] uppercase tracking-wider mb-1">
+            <p className="text-[10px] text-muted uppercase tracking-wider mb-1">
               {t("squad.age")}
             </p>
-            <p className="font-bold text-lg text-[#d3f5e8]">{player.age}</p>
+            <p className="font-bold text-lg text-frost">{player.age}</p>
           </div>
           <div className="text-center">
-            <p className="text-[10px] text-[#91b2a6] uppercase tracking-wider mb-1">
+            <p className="text-[10px] text-muted uppercase tracking-wider mb-1">
               {t("squad.stamina")}
             </p>
-            <p className="font-bold text-lg text-[#abf853]">
+            <p className="font-bold text-lg text-signal-lime">
               {player.stamina || 85}
             </p>
           </div>
           <div className="text-center">
-            <p className="text-[10px] text-[#91b2a6] uppercase tracking-wider mb-1">
+            <p className="text-[10px] text-muted uppercase tracking-wider mb-1">
               {t("squad.form")}
             </p>
-            <p className="font-bold text-lg text-[#f59e0b]">
+            <p className="font-bold text-lg text-signal-amber">
               {player.form || 7.0}
             </p>
           </div>
           <div className="text-center">
-            <p className="text-[10px] text-[#91b2a6] uppercase tracking-wider mb-1">
+            <p className="text-[10px] text-muted uppercase tracking-wider mb-1">
               {t("squad.exp")}
             </p>
-            <p className="font-bold text-lg text-[#d3f5e8]">
+            <p className="font-bold text-lg text-frost">
               <ExperienceTierLabel value={player.experience} />
             </p>
           </div>
         </div>
         <div className="flex items-center gap-8">
           <div className="text-center">
-            <p className="text-[10px] text-[#91b2a6] uppercase tracking-wider mb-1">
+            <p className="text-[10px] text-muted uppercase tracking-wider mb-1">
               {t("transfers.detail.currentPrice")}
             </p>
             <p className={`font-bold text-xl ${
               bidStatus === "leading" || bidStatus === "won"
-                ? "text-[#a1ffc2]"
-                : "text-[#d3f5e8]"
+                ? "text-accent"
+                : "text-frost"
             }`}>
               {formatCurrency(transfer.currentPrice)}
             </p>
@@ -222,8 +222,8 @@ export default function TransferPlayerCard({
         {/* Technical */}
         <div>
           <div className="flex items-center gap-2 mb-3">
-            <div className="w-1.5 h-4 bg-[#a1ffc2] rounded-full" />
-            <h3 className="text-xs font-black tracking-widest uppercase text-[#91b2a6]">
+            <div className="w-1.5 h-4 bg-accent rounded-full" />
+            <h3 className="text-xs font-black tracking-widest uppercase text-muted">
               {t("transfers.detail.technical")}
             </h3>
           </div>
@@ -234,19 +234,19 @@ export default function TransferPlayerCard({
                   t("squad.skills.reflexes"),
                   skills?.technical?.reflexes || 0,
                   potential?.technical?.reflexes || 0,
-                  "text-[#a1ffc2]",
+                  "text-accent",
                 )}
                 {renderSkillBar(
                   t("squad.skills.handling"),
                   skills?.technical?.handling || 0,
                   potential?.technical?.handling || 0,
-                  "text-[#a1ffc2]",
+                  "text-accent",
                 )}
                 {renderSkillBar(
                   t("squad.skills.aerial"),
                   skills?.technical?.aerial || 0,
                   potential?.technical?.aerial || 0,
-                  "text-[#a1ffc2]",
+                  "text-accent",
                 )}
               </>
             ) : (
@@ -255,25 +255,25 @@ export default function TransferPlayerCard({
                   t("squad.skills.finishing"),
                   skills?.technical?.finishing || 0,
                   potential?.technical?.finishing || 0,
-                  "text-[#a1ffc2]",
+                  "text-accent",
                 )}
                 {renderSkillBar(
                   t("squad.skills.passing"),
                   skills?.technical?.passing || 0,
                   potential?.technical?.passing || 0,
-                  "text-[#a1ffc2]",
+                  "text-accent",
                 )}
                 {renderSkillBar(
                   t("squad.skills.dribbling"),
                   skills?.technical?.dribbling || 0,
                   potential?.technical?.dribbling || 0,
-                  "text-[#a1ffc2]",
+                  "text-accent",
                 )}
                 {renderSkillBar(
                   t("squad.skills.defending"),
                   skills?.technical?.defending || 0,
                   potential?.technical?.defending || 0,
-                  "text-[#a1ffc2]",
+                  "text-accent",
                 )}
               </>
             )}
@@ -283,8 +283,8 @@ export default function TransferPlayerCard({
         {/* Physical */}
         <div>
           <div className="flex items-center gap-2 mb-3">
-            <div className="w-1.5 h-4 bg-[#60a5fa] rounded-full" />
-            <h3 className="text-xs font-black tracking-widest uppercase text-[#91b2a6]">
+            <div className="w-1.5 h-4 bg-signal-blue rounded-full" />
+            <h3 className="text-xs font-black tracking-widest uppercase text-muted">
               {t("transfers.detail.physical")}
             </h3>
           </div>
@@ -293,13 +293,13 @@ export default function TransferPlayerCard({
               t("squad.skills.pace"),
               skills?.physical?.pace || 0,
               potential?.physical?.pace || 0,
-              "text-[#60a5fa]",
+              "text-signal-blue",
             )}
             {renderSkillBar(
               t("squad.skills.strength"),
               skills?.physical?.strength || 0,
               potential?.physical?.strength || 0,
-              "text-[#60a5fa]",
+              "text-signal-blue",
             )}
           </div>
         </div>
@@ -307,8 +307,8 @@ export default function TransferPlayerCard({
         {/* Mental */}
         <div>
           <div className="flex items-center gap-2 mb-3">
-            <div className="w-1.5 h-4 bg-[#abf853] rounded-full" />
-            <h3 className="text-xs font-black tracking-widest uppercase text-[#91b2a6]">
+            <div className="w-1.5 h-4 bg-signal-lime rounded-full" />
+            <h3 className="text-xs font-black tracking-widest uppercase text-muted">
               {t("transfers.detail.mental")}
             </h3>
           </div>
@@ -317,13 +317,13 @@ export default function TransferPlayerCard({
               t("squad.skills.composure"),
               skills?.mental?.composure || 0,
               potential?.mental?.composure || 0,
-              "text-[#abf853]",
+              "text-signal-lime",
             )}
             {renderSkillBar(
               t("squad.skills.positioning"),
               skills?.mental?.positioning || 0,
               potential?.mental?.positioning || 0,
-              "text-[#abf853]",
+              "text-signal-lime",
             )}
           </div>
         </div>
@@ -331,8 +331,8 @@ export default function TransferPlayerCard({
         {/* Set Pieces */}
         <div>
           <div className="flex items-center gap-2 mb-3">
-            <div className="w-1.5 h-4 bg-[#f59e0b] rounded-full" />
-            <h3 className="text-xs font-black tracking-widest uppercase text-[#91b2a6]">
+            <div className="w-1.5 h-4 bg-signal-amber rounded-full" />
+            <h3 className="text-xs font-black tracking-widest uppercase text-muted">
               {t("squad.skills.setPieces")}
             </h3>
           </div>
@@ -341,13 +341,13 @@ export default function TransferPlayerCard({
               t("squad.skills.freeKicks"),
               skills?.setPieces?.freeKicks || 0,
               potential?.setPieces?.freeKicks || 0,
-              "text-[#f59e0b]",
+              "text-signal-amber",
             )}
             {renderSkillBar(
               t("squad.skills.penalties"),
               skills?.setPieces?.penalties || 0,
               potential?.setPieces?.penalties || 0,
-              "text-[#f59e0b]",
+              "text-signal-amber",
             )}
           </div>
         </div>

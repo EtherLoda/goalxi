@@ -11,7 +11,7 @@
  *   4 → A (high tier, purple)
  *   3 → B (mid tier, blue)
  *   2 → C (junior, green)
- *   1 → D (entry, white)
+ *   1 → D (entry, on-surface)
  *
  * Pure module — no React / no i18n — so unit tests can pin every
  * boundary case (level out of range, 0, negative).
@@ -34,7 +34,7 @@ const GRADE_COLOR_CLASS: Readonly<Record<CoachGrade, string>> = Object.freeze({
   A: 'text-purple-400',
   B: 'text-blue-400',
   C: 'text-green-400',
-  D: 'text-white',
+  D: 'text-on-surface',
 });
 
 export function coachLevelLabel(level: number): CoachGrade {

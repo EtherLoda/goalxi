@@ -121,7 +121,7 @@ type Props = {
    *
    * The tooltip is positioned ABOVE the icon, centered, with a
    * small gap. Tier color drives the border + text; the
-   * background is a dark `bg-[#001a12]/95` with backdrop-blur
+   * background is a dark `bg-ink-850/95` with backdrop-blur
    * so it stays readable over busy row backgrounds.
    *
    * Pass a label/tier override via `title` to customize the
@@ -582,13 +582,13 @@ export function SpecialtyIcon({
       {showTooltip && (
         <span
           aria-hidden
-          className="pointer-events-none invisible opacity-0 group-hover/specialty:visible group-hover/specialty:opacity-100 group-hover/specialty:-translate-y-0.5 translate-y-1 transition-all duration-200 ease-out absolute bottom-full left-1/2 -translate-x-1/2 mb-2 z-50 whitespace-nowrap bg-[#001a12]/95 border border-current rounded-lg px-2.5 py-1.5 text-xs font-bold font-space shadow-xl shadow-black/40 backdrop-blur-sm"
+          className="pointer-events-none invisible opacity-0 group-hover/specialty:visible group-hover/specialty:opacity-100 group-hover/specialty:-translate-y-0.5 translate-y-1 transition-all duration-200 ease-out absolute bottom-full left-1/2 -translate-x-1/2 mb-2 z-50 whitespace-nowrap bg-ink-850/95 border border-current rounded-lg px-2.5 py-1.5 text-xs font-bold font-space shadow-xl shadow-black/40 backdrop-blur-sm"
         >
           <span>{tooltipLabel}</span>
           <span className="mx-1.5 opacity-50">·</span>
           <span className="opacity-90">{tierLabel}</span>
           {/* Small arrow pointing down to the icon */}
-          <span className="absolute top-full left-1/2 -translate-x-1/2 -mt-px w-2 h-2 bg-[#001a12]/95 border-r border-b border-current rotate-45" />
+          <span className="absolute top-full left-1/2 -translate-x-1/2 -mt-px w-2 h-2 bg-ink-850/95 border-r border-b border-current rotate-45" />
         </span>
       )}
     </span>

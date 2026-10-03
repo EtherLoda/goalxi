@@ -15,7 +15,7 @@ interface InjuryBadgeProps {
 }
 
 const SEVERE_CLASSES = "bg-error/15 text-error border-error/30";
-const MINOR_CLASSES = "bg-amber-400/15 text-amber-300 border-amber-400/30";
+const MINOR_CLASSES = "bg-signal-gold/15 text-amber-300 border-signal-gold/30";
 
 export function InjuryBadge({
   player,
@@ -61,7 +61,7 @@ export function InjuryBadge({
       <span>{weeksLabel}</span>
       {isMinor && (
         <span
-          className="px-1 rounded-sm bg-amber-400/20 text-amber-200 ml-0.5"
+          className="px-1 rounded-sm bg-signal-gold/20 text-amber-200 ml-0.5"
           title={t("minorAbleToPlay")}
         >
           {t("minorBadge")}

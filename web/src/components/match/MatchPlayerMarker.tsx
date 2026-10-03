@@ -2,6 +2,7 @@
 
 import React from 'react';
 import type { Player } from '@/lib/api';
+import { signalAmber } from '@/lib/design-tokens';
 import { positionShortLabel } from '../tactics/shared/position-legend';
 import type { PitchSlot } from '../tactics/types';
 
@@ -52,7 +53,7 @@ function fitnessBgColor(fitness: number): string {
 }
 
 function powerColor(sr: number): { bg: string; text: string } {
-  if (sr >= 14) return { bg: 'rgba(245,158,11,0.15)', text: '#f59e0b' };
+  if (sr >= 14) return { bg: 'rgba(245,158,11,0.15)', text: signalAmber };
   if (sr >= 8)  return { bg: 'rgba(34,197,94,0.12)',  text: '#22c55e' };
   if (sr >= 4)  return { bg: 'rgba(96,165,250,0.12)', text: '#60a5fa' };
   return           { bg: 'rgba(148,163,184,0.12)', text: '#94a3b8' };
@@ -125,7 +126,7 @@ export function MatchPlayerMarker({
       >
         <div
           className={`relative rounded-full flex items-center justify-center font-headline font-extrabold text-[13px] uppercase cursor-grab active:cursor-grabbing z-10 transition-all duration-300 ${
-            isSelected ? 'ring-2 ring-white ring-offset-1 ring-offset-[#051a14]' : ''
+            isSelected ? 'ring-2 ring-white ring-offset-1 ring-offset-ink-750' : ''
           } ${isSubstitute ? 'animate-pulse' : ''}`}
           style={{
             width: AVATAR_SIZE,
@@ -143,7 +144,7 @@ export function MatchPlayerMarker({
                 e.stopPropagation();
                 onRemove();
               }}
-              className="absolute -top-2 -right-2 w-5 h-5 rounded-full bg-[#1a1a2e] border border-white/20 text-white/60 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center"
+              className="absolute -top-2 -right-2 w-5 h-5 rounded-full bg-float border border-white/20 text-on-surface/60 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center"
               aria-label="Remove player"
             >
               <span className="material-symbols-outlined text-[12px]">close</span>
@@ -154,10 +155,10 @@ export function MatchPlayerMarker({
 
       {/* Name + slot */}
       <div className="flex flex-col items-center leading-none mt-1">
-        <span className="font-label text-[9px] tracking-widest uppercase text-white/40">
+        <span className="font-label text-[9px] tracking-widest uppercase text-on-surface/40">
           {positionShortLabel(slot)}
         </span>
-        <span className="font-headline font-bold text-[12px] text-white truncate max-w-[80px] text-center">
+        <span className="font-headline font-bold text-[12px] text-on-surface truncate max-w-[80px] text-center">
           {player.name}
         </span>
       </div>

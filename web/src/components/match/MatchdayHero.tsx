@@ -71,8 +71,8 @@ export function MatchdayHero({
   return (
     <section
       className={clsx(
-        'relative w-full overflow-hidden rounded-3xl',
-        'bg-[#051a14] border border-white/5',
+        'relative w-full overflow-hidden rounded-2xl',
+        'bg-ink-750 border border-white/5',
         'shadow-[0_12px_32px_rgba(0,0,0,0.4)]',
       )}
     >
@@ -236,7 +236,7 @@ export function MatchdayHero({
               {isLive ? (
                 <Link
                   href={detailHref}
-                  className="inline-flex items-center gap-2 px-4 py-2 bg-primary text-on-primary rounded-DEFAULT text-sm font-bold uppercase tracking-wider hover:bg-primary-fixed transition-colors"
+                  className="inline-flex items-center gap-2 px-4 py-2 bg-primary text-on-primary rounded-lg text-sm font-bold uppercase tracking-wider hover:bg-primary-fixed transition-colors"
                 >
                   <span className="w-1.5 h-1.5 rounded-full bg-on-primary animate-pulse" />
                   Enter Live

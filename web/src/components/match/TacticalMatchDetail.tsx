@@ -343,8 +343,8 @@ export function TacticalMatchDetail({
                     pre-match, live and post-match all read from the same
                     source. */}
                 <div className="flex items-center gap-2">
-                  <span className="text-white/40 text-sm">📍</span>
-                  <span className="font-headline font-bold text-sm text-white/90">
+                  <span className="text-on-surface/40 text-sm">📍</span>
+                  <span className="font-headline font-bold text-sm text-on-surface/90">
                     {resolvedVenue ?? tLiveChrome('venueTbd') ?? 'Venue TBD'}
                   </span>
                 </div>
@@ -363,26 +363,26 @@ export function TacticalMatchDetail({
                           ? weatherEmoji(forecast.forecasts[0].weather)
                           : '❔'}
                     </span>
-                    <span className="font-headline font-bold text-sm text-white/90">
+                    <span className="font-headline font-bold text-sm text-on-surface/90">
                       {tLiveChrome('weatherForecastLabel') ?? 'Forecast'}:{' '}
                       {match.weather ? (
                         <span className="capitalize">
                           {String(match.weather).replace('_', ' ')}
                         </span>
                       ) : daysUntilMatch > MAX_FORECAST_DAYS ? (
-                        <span className="text-white/60 font-normal">
+                        <span className="text-on-surface/60 font-normal">
                           {tLiveChrome('weatherForecastOutOfRange') ??
                             `Out of range (>${MAX_FORECAST_DAYS} days)`}
                         </span>
                       ) : forecast?.forecasts?.[0] ? (
                         <span className="capitalize">
                           {forecast.forecasts[0].weather.replace('_', ' ')}{' '}
-                          <span className="text-white/50 font-normal">
+                          <span className="text-on-surface/50 font-normal">
                             ({forecast.forecasts[0].probability}%)
                           </span>
                         </span>
                       ) : (
-                        <span className="text-white/60 font-normal">
+                        <span className="text-on-surface/60 font-normal">
                           {tLiveChrome('weatherForecastTbd') ??
                             'Decided at kickoff'}
                         </span>
@@ -397,13 +397,13 @@ export function TacticalMatchDetail({
                       {forecast.forecasts.slice(1).map((f: WeatherForecastEntry) => (
                         <span
                           key={f.weather}
-                          className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-surface-container text-[10px] font-label text-white/60"
+                          className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-surface-container text-[10px] font-label text-on-surface/60"
                         >
                           <span>{weatherEmoji(f.weather)}</span>
                           <span className="capitalize">
                             {f.weather.replace('_', ' ')}
                           </span>
-                          <span className="text-white/40">{f.probability}%</span>
+                          <span className="text-on-surface/40">{f.probability}%</span>
                         </span>
                       ))}
                     </div>
@@ -412,8 +412,8 @@ export function TacticalMatchDetail({
                 {/* Kickoff time */}
                 {match.scheduledAt && (
                   <div className="flex items-center gap-2">
-                    <span className="text-white/40 text-sm">🕒</span>
-                    <span className="font-headline font-bold text-sm text-white/90">
+                    <span className="text-on-surface/40 text-sm">🕒</span>
+                    <span className="font-headline font-bold text-sm text-on-surface/90">
                       {tLiveChrome('scheduledFor') ?? 'Kickoff'}:{' '}
                       {new Date(match.scheduledAt).toLocaleString()}
                     </span>

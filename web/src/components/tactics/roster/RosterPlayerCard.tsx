@@ -57,7 +57,7 @@ export function RosterPlayerCard({ player, isAssigned, onDragStart, onDragEnd }:
           .toUpperCase()}
       </div>
       <div className="flex-1 min-w-0">
-        <div className="font-headline font-bold text-sm text-white truncate">{player.name}</div>
+        <div className="font-headline font-bold text-sm text-on-surface truncate">{player.name}</div>
         <div className="font-label text-[9px] tracking-widest uppercase text-outline">
           {player.position}
         </div>
@@ -70,7 +70,7 @@ export function RosterPlayerCard({ player, isAssigned, onDragStart, onDragEnd }:
             {Array.from({ length: 5 }).map((_, i) => (
               <span
                 key={i}
-                className={`w-1 h-2 rounded-sm ${i < staminaBars(player.stamina) ? 'bg-emerald-500' : 'bg-outline-variant/30'}`}
+                className={`w-1 h-2 rounded-sm ${i < staminaBars(player.stamina) ? 'bg-positive' : 'bg-outline-variant/30'}`}
               />
             ))}
           </div>

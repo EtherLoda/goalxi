@@ -115,17 +115,17 @@ export function PlayerSelect({
   const ringByTone: Record<NonNullable<PlayerSelectProps['tone']>, string> = {
     primary: 'border-primary bg-primary/15 text-primary',
     tertiary: 'border-tertiary bg-tertiary/15 text-tertiary',
-    amber: 'border-amber-400 bg-amber-500/15 text-amber-300',
+    amber: 'border-signal-gold bg-signal-amber/15 text-amber-300',
   };
   const focusRingByTone: Record<NonNullable<PlayerSelectProps['tone']>, string> = {
     primary: 'ring-primary/30 border-primary',
     tertiary: 'ring-tertiary/30 border-tertiary',
-    amber: 'ring-amber-400/30 border-amber-400',
+    amber: 'ring-signal-gold/30 border-signal-gold',
   };
   const focusIconByTone: Record<NonNullable<PlayerSelectProps['tone']>, string> = {
     primary: 'text-primary',
     tertiary: 'text-tertiary',
-    amber: 'text-amber-400',
+    amber: 'text-signal-gold',
   };
 
   return (
@@ -142,7 +142,7 @@ export function PlayerSelect({
       >
         {selected ? (
           <div className={`flex-1 min-w-0 flex flex-col ${align === 'right' ? 'items-end text-right' : 'items-start text-left'}`}>
-            <span className="text-xs font-bold text-white truncate w-full">{selected.name}</span>
+            <span className="text-xs font-bold text-on-surface truncate w-full">{selected.name}</span>
             <div className={`flex items-center gap-1.5 mt-0.5 ${align === 'right' ? 'justify-end' : 'justify-start'}`}>
               {showRole && (
                 <span className="text-[9px] font-bold uppercase tracking-widest text-outline">
@@ -152,7 +152,7 @@ export function PlayerSelect({
               {showOverall && (
                 <>
                   {showRole && <span className="w-0.5 h-0.5 rounded-full bg-outline-variant" />}
-                  <span className={`text-[9px] font-bold ${selected.overall >= 80 ? 'text-emerald-400' : 'text-outline'}`}>
+                  <span className={`text-[9px] font-bold ${selected.overall >= 80 ? 'text-positive-bright' : 'text-outline'}`}>
                     {t('overallLabel', { value: selected.overall })}
                   </span>
                 </>
@@ -188,7 +188,7 @@ export function PlayerSelect({
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 placeholder={t('searchPlaceholder')}
-                className="flex-1 bg-transparent text-xs text-white placeholder:text-outline focus:outline-none"
+                className="flex-1 bg-transparent text-xs text-on-surface placeholder:text-outline focus:outline-none"
                 autoFocus
               />
             </div>
@@ -209,7 +209,7 @@ export function PlayerSelect({
                     setQuery('');
                   }}
                   className={`w-full flex items-center gap-2 px-2 py-1.5 rounded text-left transition-colors ${
-                    value === p.id ? 'bg-primary/15 text-white' : 'text-on-surface hover:bg-surface-container/60'
+                    value === p.id ? 'bg-primary/15 text-on-surface' : 'text-on-surface hover:bg-surface-container/60'
                   }`}
                 >
                   <span
@@ -233,7 +233,7 @@ export function PlayerSelect({
                   </div>
                   <span
                     className={`font-headline font-black text-sm tabular-nums ${
-                      p.overall >= 80 ? 'text-emerald-400' : 'text-on-surface-variant'
+                      p.overall >= 80 ? 'text-positive-bright' : 'text-on-surface-variant'
                     }`}
                   >
                     {p.overall}

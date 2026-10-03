@@ -602,13 +602,13 @@ export default function TrainingPage() {
           <div className={`
             relative overflow-hidden rounded-2xl border backdrop-blur-2xl
             ${notification.type === 'success'
-              ? 'bg-[#002c22]/95 border-[#a1ffc2]/30 shadow-[0_0_30px_rgba(161,255,194,0.15)]'
-              : 'bg-[#2a1515]/95 border-red-500/30 shadow-[0_0_30px_rgba(255,100,100,0.1)]'
+              ? 'bg-ink-600/95 border-accent/30 shadow-[0_0_30px_rgba(161,255,194,0.15)]'
+              : 'bg-danger-surface/95 border-danger/30 shadow-[0_0_30px_rgba(255,100,100,0.1)]'
             }
           `}>
             {/* Accent line */}
             <div className={`absolute left-0 top-0 bottom-0 w-[3px] ${
-              notification.type === 'success' ? 'bg-[#a1ffc2]' : 'bg-red-500'
+              notification.type === 'success' ? 'bg-accent' : 'bg-danger'
             }`} />
 
             {/* Content */}
@@ -616,8 +616,8 @@ export default function TrainingPage() {
               <div className={`
                 w-10 h-10 rounded-xl flex items-center justify-center shrink-0
                 ${notification.type === 'success'
-                  ? 'bg-[#a1ffc2]/10 text-[#a1ffc2]'
-                  : 'bg-red-500/10 text-red-400'
+                  ? 'bg-accent/10 text-accent'
+                  : 'bg-danger/10 text-red-400'
                 }
               `}>
                 <span className="material-symbols-outlined text-xl">
@@ -627,7 +627,7 @@ export default function TrainingPage() {
 
               <div className="flex-1 min-w-0">
                 <p className={`text-sm font-semibold ${
-                  notification.type === 'success' ? 'text-[#d3f5e8]' : 'text-red-200'
+                  notification.type === 'success' ? 'text-frost' : 'text-red-200'
                 }`}>
                   {notification.message}
                 </p>
@@ -639,8 +639,8 @@ export default function TrainingPage() {
                   w-8 h-8 rounded-lg flex items-center justify-center shrink-0
                   transition-all duration-200 hover:scale-110
                   ${notification.type === 'success'
-                    ? 'text-[#91b2a6] hover:text-[#d3f5e8] hover:bg-[#a1ffc2]/10'
-                    : 'text-red-400/60 hover:text-red-300 hover:bg-red-500/10'
+                    ? 'text-muted hover:text-frost hover:bg-accent/10'
+                    : 'text-red-400/60 hover:text-red-300 hover:bg-danger/10'
                   }
                 `}
               >
@@ -663,13 +663,13 @@ export default function TrainingPage() {
       </header>
 
       {/* Stamina Training Intensity */}
-      <div className="bg-surface-container-low rounded-DEFAULT border border-outline-variant/15 p-5 shadow-[0_12px_32px_rgba(0,0,0,0.4)] mb-6">
+      <div className="bg-surface-container-low rounded-xl border border-outline-variant/15 p-5 shadow-[0_12px_32px_rgba(0,0,0,0.4)] mb-6">
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-lg font-headline font-bold text-on-surface">{t('training.staminaTraining')}</h3>
           {!fitnessCoach ? (
             <button
               onClick={() => setShowHireFitnessModal(true)}
-              className="px-3 py-1.5 bg-primary text-on-primary rounded-DEFAULT font-medium text-xs hover:bg-primary/90 transition-colors"
+              className="px-3 py-1.5 bg-primary text-on-primary rounded-lg font-medium text-xs hover:bg-primary/90 transition-colors"
             >
               + {t('training.hireFitnessCoach')}
             </button>
@@ -679,7 +679,7 @@ export default function TrainingPage() {
                 setSelectedLevel(fitnessCoach.level);
                 setShowUpgradeFitnessModal(true);
               }}
-              className="px-3 py-1.5 bg-green-600/80 text-white rounded-DEFAULT font-medium text-xs hover:bg-green-600 transition-colors"
+              className="px-3 py-1.5 bg-green-600/80 text-white rounded-lg font-medium text-xs hover:bg-green-600 transition-colors"
             >
               {t('training.changeLevel')}
             </button>
@@ -689,7 +689,7 @@ export default function TrainingPage() {
           {/* Fitness Coach Info - Left Side */}
           {fitnessCoach ? (
             <div className="flex items-center gap-3">
-              <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-green-500/20 to-emerald-600/20 border-2 border-green-500/30 flex items-center justify-center">
+              <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-green-500/20 to-positive-mid/20 border-2 border-green-500/30 flex items-center justify-center">
                 <span className="text-xl font-bold text-green-400">{fitnessCoach.name.charAt(0)}</span>
               </div>
               <div className="flex flex-col">
@@ -721,7 +721,7 @@ export default function TrainingPage() {
             <button
               onClick={handleSaveStamina}
               disabled={isSaving || localStaminaIntensity === staminaIntensity}
-              className="px-4 py-1.5 bg-primary text-on-primary rounded-DEFAULT font-medium text-sm hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              className="px-4 py-1.5 bg-primary text-on-primary rounded-lg font-medium text-sm hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {isSaving ? t('training.saving') : t('training.save')}
             </button>
@@ -743,12 +743,12 @@ export default function TrainingPage() {
                 {canHireMoreCoaches ? (
                   <button
                     onClick={() => { setShowHireModal(true); setSelectedTrainedSkill(undefined); }}
-                    className="px-3 py-1.5 bg-primary text-on-primary rounded-DEFAULT font-medium text-xs hover:bg-primary/90 transition-colors"
+                    className="px-3 py-1.5 bg-primary text-on-primary rounded-lg font-medium text-xs hover:bg-primary/90 transition-colors"
                   >
                     + {t('training.hireSpecializedCoach')}
                   </button>
                 ) : (
-                  <span className="px-3 py-1.5 bg-surface-container text-on-surface-variant rounded-DEFAULT text-xs">
+                  <span className="px-3 py-1.5 bg-surface-container text-on-surface-variant rounded-lg text-xs">
                     {t('training.coachesFull')}
                   </span>
                 )}
@@ -757,14 +757,14 @@ export default function TrainingPage() {
                 <div className="flex items-center gap-2">
                   <button
                     onClick={cancelPending}
-                    className="px-3 py-1.5 bg-surface-container text-on-surface rounded-DEFAULT font-medium text-xs hover:bg-surface-container-highest transition-colors"
+                    className="px-3 py-1.5 bg-surface-container text-on-surface rounded-lg font-medium text-xs hover:bg-surface-container-highest transition-colors"
                   >
                     {t('training.cancel')}
                   </button>
                   <button
                     onClick={saveAssignments}
                     disabled={isSaving}
-                    className="px-3 py-1.5 bg-primary text-on-primary rounded-DEFAULT font-medium text-xs hover:bg-primary/90 transition-colors disabled:opacity-50"
+                    className="px-3 py-1.5 bg-primary text-on-primary rounded-lg font-medium text-xs hover:bg-primary/90 transition-colors disabled:opacity-50"
                   >
                     {isSaving ? t('training.savingAssignments') : t('training.saveAssignments')}
                   </button>
@@ -773,7 +773,7 @@ export default function TrainingPage() {
             </div>
 
             {specializedCoaches.length === 0 ? (
-              <div className="bg-surface-container-low rounded-DEFAULT border border-outline-variant/15 p-8 text-center">
+              <div className="bg-surface-container-low rounded-xl border border-outline-variant/15 p-8 text-center">
                 <p className="text-on-surface-variant">{t('training.noSpecializedCoaches')}</p>
               </div>
             ) : (
@@ -786,7 +786,7 @@ export default function TrainingPage() {
                   return (
                     <div
                       key={coach.id}
-                      className="bg-surface-container-low/75 backdrop-blur-xl border border-white/5 rounded-DEFAULT p-5 shadow-[0_12px_32px_rgba(0,0,0,0.4)] border border-outline-variant/15"
+                      className="bg-surface-container-low/75 backdrop-blur-xl border border-white/5 rounded-xl p-5 shadow-[0_12px_32px_rgba(0,0,0,0.4)] border border-outline-variant/15"
                       onDragOver={handleDragOver}
                       onDrop={(e) => handleDrop(e, coach.id)}
                     >
@@ -858,7 +858,7 @@ export default function TrainingPage() {
                           <div className="flex items-center gap-2">
                             <span className={`px-2 py-1 rounded text-xs font-medium ${
                               coach.trainedSkill
-                                ? 'bg-[#a1ffc2]/10 text-[#a1ffc2] border border-[#a1ffc2]/30'
+                                ? 'bg-accent/10 text-accent border border-accent/30'
                                 : 'bg-surface-container-low text-on-surface-variant border border-outline-variant/20'
                             }`}>
                               {coach.trainedSkill
@@ -940,22 +940,22 @@ export default function TrainingPage() {
 
           {/* Weekly Training Update - Below Specialized Coaches */}
           {latestUpdate && latestUpdate.playerUpdates.length > 0 ? (
-            <div className="relative overflow-hidden rounded-DEFAULT border border-[#a1ffc2]/20 bg-gradient-to-br from-[#001a14] to-[#002219] p-5 shadow-[0_8px_32px_rgba(0,0,0,0.5)]">
+            <div className="relative overflow-hidden rounded-xl border border-accent/20 bg-gradient-to-br from-ink-850 to-ink-700 p-5 shadow-[0_8px_32px_rgba(0,0,0,0.5)]">
               {/* Decorative elements */}
-              <div className="absolute top-0 right-0 w-32 h-32 bg-[#a1ffc2]/5 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2 pointer-events-none" />
-              <div className="absolute bottom-0 left-0 w-24 h-24 bg-[#abf853]/5 rounded-full blur-2xl translate-y-1/2 -translate-x-1/2 pointer-events-none" />
+              <div className="absolute top-0 right-0 w-32 h-32 bg-accent/5 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2 pointer-events-none" />
+              <div className="absolute bottom-0 left-0 w-24 h-24 bg-signal-lime/5 rounded-full blur-2xl translate-y-1/2 -translate-x-1/2 pointer-events-none" />
 
               {/* Header with selector */}
               <div className="flex items-center justify-between mb-5">
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-[#a1ffc2]/10 border border-[#a1ffc2]/20 flex items-center justify-center">
-                    <span className="material-symbols-outlined text-[#a1ffc2] text-lg">trending_up</span>
+                  <div className="w-10 h-10 rounded-xl bg-accent/10 border border-accent/20 flex items-center justify-center">
+                    <span className="material-symbols-outlined text-accent text-lg">trending_up</span>
                   </div>
                   <div>
-                    <h3 className="text-base font-headline font-bold text-[#a1ffc2]">
+                    <h3 className="text-base font-headline font-bold text-accent">
                       {t('training.weeklyUpdate')}
                     </h3>
-                    <p className="text-xs text-[#91b2a6]">
+                    <p className="text-xs text-muted">
                       {t('league.season')} {latestUpdate.season} · {t('training.week')} {latestUpdate.week}
                     </p>
                   </div>
@@ -969,7 +969,7 @@ export default function TrainingPage() {
                       setSelectedSeason(season);
                       setSelectedWeek(1);
                     }}
-                    className="bg-[#00251c] border border-[#2f4e44]/50 text-[#a1ffc2] text-xs rounded-lg px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-[#a1ffc2]/50"
+                    className="bg-ink-700 border border-edge/50 text-accent text-xs rounded-lg px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-accent/50"
                   >
                     {[...new Set([1, currentGame.season, ...availableUpdates.map(u => u.season)])].sort((a, b) => a - b).map((s, i) => (
                       <option key={`season-${s}-${i}`} value={s}>{t('league.season')} {s}</option>
@@ -978,7 +978,7 @@ export default function TrainingPage() {
                   <select
                     value={selectedWeek}
                     onChange={(e) => setSelectedWeek(parseInt(e.target.value))}
-                    className="bg-[#00251c] border border-[#2f4e44]/50 text-[#a1ffc2] text-xs rounded-lg px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-[#a1ffc2]/50"
+                    className="bg-ink-700 border border-edge/50 text-accent text-xs rounded-lg px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-accent/50"
                   >
                     {Array.from({ length: getMaxWeekForSeason(selectedSeason) }, (_, i) => i + 1).map((w) => (
                       <option key={w} value={w}>{t('training.week')} {w}</option>
@@ -990,16 +990,16 @@ export default function TrainingPage() {
               {/* Player updates - stacked rows */}
               <div className="space-y-3">
                 {latestUpdate.playerUpdates.map((update) => (
-                  <div key={update.playerId} className="flex items-center gap-4 p-4 rounded-xl bg-[#00251c]/50 border border-[#2f4e44]/30">
+                  <div key={update.playerId} className="flex items-center gap-4 p-4 rounded-xl bg-ink-700/50 border border-edge/30">
                     {/* Large Player avatar */}
-                    <Link href={`/${locale}/players/${update.playerId}`} className="w-14 h-14 rounded-2xl bg-gradient-to-br from-[#003520] to-[#00251c] border border-[#2f4e44]/50 flex items-center justify-center shrink-0 hover:ring-2 hover:ring-[#a1ffc2]/50 transition-all">
-                      <span className="text-lg font-bold text-[#a1ffc2]">
+                    <Link href={`/${locale}/players/${update.playerId}`} className="w-14 h-14 rounded-2xl bg-gradient-to-br from-ink-500 to-ink-700 border border-edge/50 flex items-center justify-center shrink-0 hover:ring-2 hover:ring-accent/50 transition-all">
+                      <span className="text-lg font-bold text-accent">
                         {getInitials(update.playerName)}
                       </span>
                     </Link>
                     {/* Player name - clickable link */}
                     <div className="w-40 shrink-0">
-                      <Link href={`/${locale}/players/${update.playerId}`} className="text-sm font-semibold text-white hover:text-[#a1ffc2] hover:underline transition-colors">
+                      <Link href={`/${locale}/players/${update.playerId}`} className="text-sm font-semibold text-on-surface hover:text-accent hover:underline transition-colors">
                         {update.playerName}
                       </Link>
                     </div>
@@ -1015,10 +1015,10 @@ export default function TrainingPage() {
                               : change.field;
                         const isUp = change.newValue > change.oldValue;
                         const colors: Record<string, string> = {
-                          stamina: 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30',
-                          form: 'bg-amber-500/20 text-amber-400 border-amber-500/30',
+                          stamina: 'bg-positive/20 text-positive-bright border-positive/30',
+                          form: 'bg-signal-amber/20 text-signal-gold border-signal-amber/30',
                         };
-                        const colorClass = colors[fieldKey] || 'bg-[#a1ffc2]/20 text-[#a1ffc2] border-[#a1ffc2]/30';
+                        const colorClass = colors[fieldKey] || 'bg-accent/20 text-accent border-accent/30';
                         const icon = isUp ? '↑' : '↓';
 
                         // Stamina levels (1-5)
@@ -1101,11 +1101,11 @@ export default function TrainingPage() {
                         return (
                           <span
                             key={idx}
-                            className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-medium border ${colorClass}`}
+                            className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-medium border ${colorClass}`}
                           >
                             <span className="opacity-70">{locale === 'zh' ? fieldLabel.zh : fieldLabel.en}</span>
                             <span>{oldLabel}</span>
-                            <span className={isUp ? 'text-emerald-300' : 'text-red-400'}>{icon}</span>
+                            <span className={isUp ? 'text-positive-soft' : 'text-red-400'}>{icon}</span>
                             <span>{newLabel}</span>
                           </span>
                         );
@@ -1116,18 +1116,18 @@ export default function TrainingPage() {
               </div>
             </div>
           ) : (
-            <div className="relative overflow-hidden rounded-DEFAULT border border-outline-variant/15 bg-gradient-to-br from-[#001a14] to-[#002219] p-5 shadow-[0_8px_32px_rgba(0,0,0,0.5)]">
+            <div className="relative overflow-hidden rounded-xl border border-outline-variant/15 bg-gradient-to-br from-ink-850 to-ink-700 p-5 shadow-[0_8px_32px_rgba(0,0,0,0.5)]">
               {/* Header for empty state */}
               <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-[#a1ffc2]/10 border border-[#a1ffc2]/20 flex items-center justify-center">
-                    <span className="material-symbols-outlined text-[#a1ffc2] text-lg">trending_up</span>
+                  <div className="w-10 h-10 rounded-xl bg-accent/10 border border-accent/20 flex items-center justify-center">
+                    <span className="material-symbols-outlined text-accent text-lg">trending_up</span>
                   </div>
                   <div>
-                    <h3 className="text-base font-headline font-bold text-[#a1ffc2]">
+                    <h3 className="text-base font-headline font-bold text-accent">
                       {t('training.weeklyUpdate')}
                     </h3>
-                    <p className="text-xs text-[#91b2a6]">
+                    <p className="text-xs text-muted">
                       {t('league.season')} {selectedSeason} · {t('training.week')} {selectedWeek}
                     </p>
                   </div>
@@ -1141,7 +1141,7 @@ export default function TrainingPage() {
                       setSelectedSeason(season);
                       setSelectedWeek(1);
                     }}
-                    className="bg-[#00251c] border border-[#2f4e44]/50 text-[#a1ffc2] text-xs rounded-lg px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-[#a1ffc2]/50"
+                    className="bg-ink-700 border border-edge/50 text-accent text-xs rounded-lg px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-accent/50"
                   >
                     {[...new Set([1, currentGame.season, ...availableUpdates.map(u => u.season)])].sort((a, b) => a - b).map((s, i) => (
                       <option key={`season-${s}-${i}`} value={s}>{t('league.season')} {s}</option>
@@ -1150,7 +1150,7 @@ export default function TrainingPage() {
                   <select
                     value={selectedWeek}
                     onChange={(e) => setSelectedWeek(parseInt(e.target.value))}
-                    className="bg-[#00251c] border border-[#2f4e44]/50 text-[#a1ffc2] text-xs rounded-lg px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-[#a1ffc2]/50"
+                    className="bg-ink-700 border border-edge/50 text-accent text-xs rounded-lg px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-accent/50"
                   >
                     {Array.from({ length: getMaxWeekForSeason(selectedSeason) }, (_, i) => i + 1).map((w) => (
                       <option key={w} value={w}>{t('training.week')} {w}</option>
@@ -1160,8 +1160,8 @@ export default function TrainingPage() {
               </div>
               {/* Empty state */}
               <div className="flex flex-col items-center justify-center py-8 text-center">
-                <span className="material-symbols-outlined text-4xl text-[#91b2a6]/50 mb-2">info</span>
-                <p className="text-sm text-[#91b2a6]">{t('training.noUpdates')}</p>
+                <span className="material-symbols-outlined text-4xl text-muted/50 mb-2">info</span>
+                <p className="text-sm text-muted">{t('training.noUpdates')}</p>
               </div>
             </div>
           )}
@@ -1169,7 +1169,7 @@ export default function TrainingPage() {
 
         {/* Right: Unassigned Players Sidebar */}
         <div className="w-[280px] shrink-0">
-          <div className="bg-surface-container rounded-DEFAULT overflow-hidden h-[calc(100vh-280px)] sticky top-6">
+          <div className="bg-surface-container rounded-xl overflow-hidden h-[calc(100vh-280px)] sticky top-6">
             <div className="px-4 py-3 border-b border-white/10">
               <h3 className="text-sm font-headline font-bold text-on-surface">{t('training.unassignedPlayers')}</h3>
             </div>
@@ -1215,24 +1215,24 @@ export default function TrainingPage() {
                       </div>
                       {/* Expanded Skills */}
                       {isExpanded && player.skillBreakdown && player.skillBreakdown.length > 0 && (
-                        <div className="mt-2 p-3 bg-[#001711] rounded-xl border border-[#2f4e44]/20">
+                        <div className="mt-2 p-3 bg-ink-900 rounded-xl border border-edge/20">
                           {/* Skills Grid - 4 columns */}
                           <div className="grid grid-cols-2 gap-4">
                             {['physical', 'technical', 'mental', 'setPieces'].map(cat => {
                               const catSkills = player.skillBreakdown?.filter(s => s.category === cat) || [];
                               if (catSkills.length === 0) return null;
                               const catColors: Record<string, string> = {
-                                physical: 'text-[#abf853]',
-                                technical: 'text-[#a1ffc2]',
-                                mental: 'text-[#f59e0b]',
-                                setPieces: 'text-[#ec4899]',
+                                physical: 'text-signal-lime',
+                                technical: 'text-accent',
+                                mental: 'text-signal-amber',
+                                setPieces: 'text-signal-pink',
                               };
-                              const catColor = catColors[cat] || 'text-[#a1ffc2]';
+                              const catColor = catColors[cat] || 'text-accent';
                               return (
                                 <div key={cat}>
                                   <div className="flex items-center gap-1.5 mb-2">
                                     <div className={`w-1 h-3 rounded-full ${catColor.replace('text-', 'bg-')}`} />
-                                    <span className="text-[9px] font-black uppercase tracking-widest text-[#91b2a6]">
+                                    <span className="text-[9px] font-black uppercase tracking-widest text-muted">
                                       {cat === 'physical' ? (locale === 'zh' ? '体能' : 'Physical') :
                                        cat === 'technical' ? (locale === 'zh' ? '技术' : 'Technical') :
                                        cat === 'mental' ? (locale === 'zh' ? '心智' : 'Mental') :
@@ -1244,11 +1244,11 @@ export default function TrainingPage() {
                                       const pct = (sk.current / 20) * 100;
                                       return (
                                         <div key={sk.skill} className="space-y-1">
-                                          <div className="flex justify-between text-[9px] font-bold uppercase tracking-wider text-[#91b2a6]">
+                                          <div className="flex justify-between text-[9px] font-bold uppercase tracking-wider text-muted">
                                             <span>{sk.skill.charAt(0).toUpperCase() + sk.skill.slice(1)}</span>
                                             <span className={catColor}>{Math.floor(sk.current)}/{Math.floor(sk.potential)}</span>
                                           </div>
-                                          <div className="h-1 w-full bg-[#00251c] rounded-full overflow-hidden">
+                                          <div className="h-1 w-full bg-ink-700 rounded-full overflow-hidden">
                                             <div
                                               className={`h-full ${catColor.replace('text-', 'bg-')} rounded-full`}
                                               style={{ width: `${pct}%` }}
@@ -1276,7 +1276,7 @@ export default function TrainingPage() {
       {/* Hire Specialized Coach Modal */}
       {showHireModal && costSummary && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50" onClick={() => setShowHireModal(false)}>
-          <div className="bg-surface-container-high rounded-DEFAULT p-6 w-[400px] shadow-2xl" onClick={e => e.stopPropagation()}>
+          <div className="bg-surface-container-high rounded-xl p-6 w-[400px] shadow-2xl" onClick={e => e.stopPropagation()}>
             <h2 className="text-xl font-headline font-bold text-on-surface mb-6">{t('training.hireSpecializedCoach')}</h2>
 
             {/* Coach Type */}
@@ -1287,7 +1287,7 @@ export default function TrainingPage() {
                   <button
                     key={type.value}
                     onClick={() => { setSelectedCoachType(type.value); setSelectedTrainedSkill(undefined); }}
-                    className={`p-3 rounded-DEFAULT text-left text-sm transition-colors ${
+                    className={`p-3 rounded-lg text-left text-sm transition-colors ${
                       selectedCoachType === type.value
                         ? "bg-primary text-on-primary"
                         : "bg-surface-container-low text-on-surface hover:bg-surface-container"
@@ -1308,7 +1308,7 @@ export default function TrainingPage() {
                 {/* No specific skill option */}
                 <button
                   onClick={() => setSelectedTrainedSkill(undefined)}
-                  className={`p-2 rounded-DEFAULT text-center text-sm transition-colors ${
+                  className={`p-2 rounded-lg text-center text-sm transition-colors ${
                     selectedTrainedSkill === undefined
                       ? "bg-primary text-on-primary"
                       : "bg-surface-container-low text-on-surface hover:bg-surface-container"
@@ -1320,7 +1320,7 @@ export default function TrainingPage() {
                   <button
                     key={skill.value}
                     onClick={() => setSelectedTrainedSkill(skill.value)}
-                    className={`p-2 rounded-DEFAULT text-center text-sm transition-colors ${
+                    className={`p-2 rounded-lg text-center text-sm transition-colors ${
                       selectedTrainedSkill === skill.value
                         ? "bg-primary text-on-primary"
                         : "bg-surface-container-low text-on-surface hover:bg-surface-container"
@@ -1343,7 +1343,7 @@ export default function TrainingPage() {
                   <button
                     key={level}
                     onClick={() => setSelectedLevel(level)}
-                    className={`flex-1 p-3 rounded-DEFAULT text-center transition-colors ${
+                    className={`flex-1 p-3 rounded-lg text-center transition-colors ${
                       selectedLevel === level
                         ? "bg-primary text-on-primary"
                         : "bg-surface-container-low text-on-surface hover:bg-surface-container"
@@ -1357,7 +1357,7 @@ export default function TrainingPage() {
             </div>
 
             {/* Cost Info */}
-            <div className="bg-surface-container-low rounded-DEFAULT p-4 mb-6 space-y-2">
+            <div className="bg-surface-container-low rounded-xl p-4 mb-6 space-y-2">
               <div className="flex justify-between text-sm">
                 <span className="text-on-surface-variant">{t('training.signingFee')}:</span>
                 <span className="text-on-surface font-medium">${costSummary.signingFeesByLevel[selectedLevel]?.toLocaleString() || 0}</span>
@@ -1372,14 +1372,14 @@ export default function TrainingPage() {
             <div className="flex gap-3">
               <button
                 onClick={() => setShowHireModal(false)}
-                className="flex-1 px-4 py-2 bg-surface-container text-on-surface rounded-DEFAULT font-medium text-sm hover:bg-surface-container-high transition-colors"
+                className="flex-1 px-4 py-2 bg-surface-container text-on-surface rounded-lg font-medium text-sm hover:bg-surface-container-high transition-colors"
                 disabled={isHiring}
               >
                 {t('training.cancel')}
               </button>
               <button
                 onClick={handleHireCoach}
-                className="flex-1 px-4 py-2 bg-primary text-on-primary rounded-DEFAULT font-medium text-sm hover:bg-primary/90 transition-colors"
+                className="flex-1 px-4 py-2 bg-primary text-on-primary rounded-lg font-medium text-sm hover:bg-primary/90 transition-colors"
                 disabled={isHiring}
               >
                 {isHiring ? t('training.hiring') : t('training.hire')}
@@ -1392,7 +1392,7 @@ export default function TrainingPage() {
       {/* Hire Fitness Coach Modal */}
       {showHireFitnessModal && costSummary && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50" onClick={() => setShowHireFitnessModal(false)}>
-          <div className="bg-surface-container-high rounded-DEFAULT p-6 w-[400px] shadow-2xl" onClick={e => e.stopPropagation()}>
+          <div className="bg-surface-container-high rounded-xl p-6 w-[400px] shadow-2xl" onClick={e => e.stopPropagation()}>
             <h2 className="text-xl font-headline font-bold text-on-surface mb-6">{t('training.hireFitnessCoach')}</h2>
 
             {/* Level */}
@@ -1403,7 +1403,7 @@ export default function TrainingPage() {
                   <button
                     key={level}
                     onClick={() => setSelectedLevel(level)}
-                    className={`flex-1 p-3 rounded-DEFAULT text-center transition-colors ${
+                    className={`flex-1 p-3 rounded-lg text-center transition-colors ${
                       selectedLevel === level
                         ? "bg-primary text-on-primary"
                         : "bg-surface-container-low text-on-surface hover:bg-surface-container"
@@ -1417,7 +1417,7 @@ export default function TrainingPage() {
             </div>
 
             {/* Cost Info */}
-            <div className="bg-surface-container-low rounded-DEFAULT p-4 mb-6 space-y-2">
+            <div className="bg-surface-container-low rounded-xl p-4 mb-6 space-y-2">
               <div className="flex justify-between text-sm">
                 <span className="text-on-surface-variant">{t('training.signingFee')}:</span>
                 <span className="text-on-surface font-medium">${costSummary.signingFeesByLevel[selectedLevel]?.toLocaleString() || 0}</span>
@@ -1432,14 +1432,14 @@ export default function TrainingPage() {
             <div className="flex gap-3">
               <button
                 onClick={() => setShowHireFitnessModal(false)}
-                className="flex-1 px-4 py-2 bg-surface-container text-on-surface rounded-DEFAULT font-medium text-sm hover:bg-surface-container-high transition-colors"
+                className="flex-1 px-4 py-2 bg-surface-container text-on-surface rounded-lg font-medium text-sm hover:bg-surface-container-high transition-colors"
                 disabled={isHiring}
               >
                 {t('training.cancel')}
               </button>
               <button
                 onClick={handleHireFitnessCoach}
-                className="flex-1 px-4 py-2 bg-primary text-on-primary rounded-DEFAULT font-medium text-sm hover:bg-primary/90 transition-colors"
+                className="flex-1 px-4 py-2 bg-primary text-on-primary rounded-lg font-medium text-sm hover:bg-primary/90 transition-colors"
                 disabled={isHiring}
               >
                 {isHiring ? t('training.hiring') : t('training.hire')}
@@ -1452,11 +1452,11 @@ export default function TrainingPage() {
       {/* Upgrade Fitness Coach Modal */}
       {showUpgradeFitnessModal && costSummary && fitnessCoach && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50" onClick={() => setShowUpgradeFitnessModal(false)}>
-          <div className="bg-surface-container-high rounded-DEFAULT p-6 w-[400px] shadow-2xl" onClick={e => e.stopPropagation()}>
+          <div className="bg-surface-container-high rounded-xl p-6 w-[400px] shadow-2xl" onClick={e => e.stopPropagation()}>
             <h2 className="text-xl font-headline font-bold text-on-surface mb-6">{t('training.changeFitnessCoachLevel')}</h2>
 
             {/* Current Level Info */}
-            <div className="bg-surface-container-low rounded-DEFAULT p-4 mb-6">
+            <div className="bg-surface-container-low rounded-xl p-4 mb-6">
               <div className="flex justify-between text-sm mb-2">
                 <span className="text-on-surface-variant">Current:</span>
                 <span className={`text-on-surface font-medium ${coachLevelColorClass(fitnessCoach.level)}`}>{coachLevelLabel(fitnessCoach.level)} (${costSummary.salaryByLevel[fitnessCoach.level]?.toLocaleString() || 0}/week)</span>
@@ -1475,7 +1475,7 @@ export default function TrainingPage() {
                   <button
                     key={level}
                     onClick={() => setSelectedLevel(level)}
-                    className={`flex-1 p-3 rounded-DEFAULT text-center transition-colors ${
+                    className={`flex-1 p-3 rounded-lg text-center transition-colors ${
                       selectedLevel === level
                         ? "bg-primary text-on-primary"
                         : "bg-surface-container-low text-on-surface hover:bg-surface-container"
@@ -1489,7 +1489,7 @@ export default function TrainingPage() {
             </div>
 
             {/* New Cost Info */}
-            <div className="bg-surface-container-low rounded-DEFAULT p-4 mb-6 space-y-2">
+            <div className="bg-surface-container-low rounded-xl p-4 mb-6 space-y-2">
               <div className="flex justify-between text-sm">
                 <span className="text-on-surface-variant">{t('training.signingFee')}:</span>
                 <span className="text-on-surface font-medium">${(costSummary.signingFeesByLevel[selectedLevel] || 0).toLocaleString()}</span>
@@ -1504,14 +1504,14 @@ export default function TrainingPage() {
             <div className="flex gap-3">
               <button
                 onClick={() => setShowUpgradeFitnessModal(false)}
-                className="flex-1 px-4 py-2 bg-surface-container text-on-surface rounded-DEFAULT font-medium text-sm hover:bg-surface-container-high transition-colors"
+                className="flex-1 px-4 py-2 bg-surface-container text-on-surface rounded-lg font-medium text-sm hover:bg-surface-container-high transition-colors"
                 disabled={isUpgrading}
               >
                 {t('training.cancel')}
               </button>
               <button
                 onClick={handleUpgradeFitnessCoach}
-                className="flex-1 px-4 py-2 bg-green-600 text-white rounded-DEFAULT font-medium text-sm hover:bg-green-600/90 transition-colors"
+                className="flex-1 px-4 py-2 bg-green-600 text-white rounded-lg font-medium text-sm hover:bg-green-600/90 transition-colors"
                 disabled={isUpgrading || selectedLevel === fitnessCoach.level}
               >
                 {isUpgrading ? t('training.hiring') : t('training.confirmUpgrade')}
@@ -1524,7 +1524,7 @@ export default function TrainingPage() {
       {/* Fire Coach Confirmation */}
       {showFireConfirm && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50" onClick={() => setShowFireConfirm(null)}>
-          <div className="bg-surface-container-high rounded-DEFAULT p-6 w-[360px] shadow-2xl" onClick={e => e.stopPropagation()}>
+          <div className="bg-surface-container-high rounded-xl p-6 w-[360px] shadow-2xl" onClick={e => e.stopPropagation()}>
             <h2 className="text-xl font-headline font-bold text-on-surface mb-2">{t('training.fireCoach')}</h2>
             <p className="text-on-surface-variant text-sm mb-6">
               {t('training.fireCoachConfirm')}
@@ -1532,14 +1532,14 @@ export default function TrainingPage() {
             <div className="flex gap-3">
               <button
                 onClick={() => setShowFireConfirm(null)}
-                className="flex-1 px-4 py-2 bg-surface-container text-on-surface rounded-DEFAULT font-medium text-sm hover:bg-surface-container-high transition-colors"
+                className="flex-1 px-4 py-2 bg-surface-container text-on-surface rounded-lg font-medium text-sm hover:bg-surface-container-high transition-colors"
                 disabled={isFiring}
               >
                 {t('training.cancel')}
               </button>
               <button
                 onClick={() => handleFireCoach(showFireConfirm)}
-                className="flex-1 px-4 py-2 bg-error text-on-error rounded-DEFAULT font-medium text-sm hover:bg-error/90 transition-colors"
+                className="flex-1 px-4 py-2 bg-error text-on-error rounded-lg font-medium text-sm hover:bg-error/90 transition-colors"
                 disabled={isFiring}
               >
                 {isFiring ? t('training.firing') : t('training.confirmFire')}

@@ -264,7 +264,7 @@ export function MatchPitch({
   const awayWidth = awayTactics?.pitchWidth ?? 'balanced';
 
   return (
-    <div className="relative w-full aspect-video rounded-2xl overflow-hidden border border-white/5 bg-[#051a14]">
+    <div className="relative w-full aspect-video rounded-2xl overflow-hidden border border-white/5 bg-ink-750">
       {/* Everything pitch-mode (gradient, stripes, markings, player
           halves, forfeit chip) is rendered ONLY in non-stats mode.
           When `statsMode` is true the container shows exclusively the
@@ -275,7 +275,7 @@ export function MatchPitch({
         <>
           {/* Pitch surface — emerald gradient + vertical stripes (perpendicular
               to attack direction in this layout). */}
-          <div className="absolute inset-0 bg-linear-to-r from-emerald-950/40 via-emerald-900/30 to-emerald-950/40" />
+          <div className="absolute inset-0 bg-linear-to-r from-pitch-dark/40 via-pitch-deep/30 to-pitch-dark/40" />
           <div className="absolute inset-0 opacity-20 bg-[repeating-linear-gradient(90deg,transparent,transparent_40px,rgba(0,0,0,0.15)_40px,rgba(0,0,0,0.15)_80px)]" />
 
           {/* Single SVG: pitch markings span the whole pitch. */}
@@ -446,10 +446,10 @@ function ForfeitBanner({
         <span className="font-label text-[9px] tracking-[0.3em] uppercase text-error/90">
           Forfeit
         </span>
-        <span className="font-headline font-black text-sm text-white tabular-nums">
+        <span className="font-headline font-black text-sm text-on-surface tabular-nums">
           {homeScore} – {awayScore}
         </span>
-        <span className="font-headline font-bold text-[10px] uppercase tracking-wider text-white whitespace-nowrap">
+        <span className="font-headline font-bold text-[10px] uppercase tracking-wider text-on-surface whitespace-nowrap">
           {headline}
         </span>
       </div>

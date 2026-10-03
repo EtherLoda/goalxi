@@ -165,7 +165,7 @@ export function RadarChart({
             y={pos.y}
             textAnchor={textAnchor}
             dominantBaseline="middle"
-            className="text-[7px] font-bold font-space uppercase fill-[#91b2a6]"
+            className="text-[7px] font-bold font-space uppercase fill-muted"
           >
             {label}
           </text>

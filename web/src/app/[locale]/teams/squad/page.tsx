@@ -7,6 +7,7 @@ import { useParams, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { useAuth } from "@/contexts/AuthContext";
 import { api, type Player, type PlayerEvent, type Team } from "@/lib/api";
+import { signalAmber, signalLime } from "@/lib/design-tokens";
 import { useGameStore } from "@/stores/gameStore";
 import { RadarChart } from "@/components/player/RadarChart";
 import { InjuryBadge } from "@/components/player/InjuryBadge";
@@ -33,20 +34,20 @@ const EVENT_ICONS: Record<string, string> = {
 };
 
 const EVENT_COLORS: Record<string, string> = {
-  TRANSFER: "text-[#60a5fa]",
-  YOUTH_PROMOTION: "text-[#34d399]",
-  HAT_TRICK: "text-[#fbbf24]",
-  CHAMPIONSHIP_TITLE: "text-[#f59e0b]",
-  GOLDEN_BOOT: "text-[#fbbf24]",
-  ASSISTS_LEADER: "text-[#60a5fa]",
-  TACKLES_LEADER: "text-[#34d399]",
-  MAN_OF_THE_MATCH: "text-[#f472b6]",
-  INJURY: "text-[#ef4444]",
-  DEBUT: "text-[#a78bfa]",
-  LEAGUE_DEBUT: "text-[#a78bfa]",
-  CAPTAIN_DEBUT: "text-[#fbbf24]",
-  RECORD_BROKEN: "text-[#22d3ee]",
-  CONTRACT_RENEWAL: "text-[#60a5fa]",
+  TRANSFER: "text-signal-blue",
+  YOUTH_PROMOTION: "text-positive-bright",
+  HAT_TRICK: "text-signal-gold",
+  CHAMPIONSHIP_TITLE: "text-signal-amber",
+  GOLDEN_BOOT: "text-signal-gold",
+  ASSISTS_LEADER: "text-signal-blue",
+  TACKLES_LEADER: "text-positive-bright",
+  MAN_OF_THE_MATCH: "text-signal-magenta",
+  INJURY: "text-danger",
+  DEBUT: "text-signal-violet",
+  LEAGUE_DEBUT: "text-signal-violet",
+  CAPTAIN_DEBUT: "text-signal-gold",
+  RECORD_BROKEN: "text-signal-cyan",
+  CONTRACT_RENEWAL: "text-signal-blue",
 };
 
 const POSITION_GROUPS = [
@@ -96,47 +97,47 @@ function ListPlayerModal({ player, onClose, onSuccess }: ListPlayerModalProps) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={onClose} />
-      <div className="relative w-full max-w-sm bg-gradient-to-b from-[#0a1a14] to-[#001e17] rounded-2xl border border-[#2f4e44]/50 shadow-2xl overflow-hidden">
+      <div className="relative w-full max-w-sm bg-gradient-to-b from-ink-750 to-ink-800 rounded-2xl border border-edge/50 shadow-2xl overflow-hidden">
         <div className="relative px-6 pt-6 pb-4">
-          <div className="absolute inset-0 bg-linear-to-r from-[#a1ffc2]/5 to-transparent pointer-events-none" />
+          <div className="absolute inset-0 bg-linear-to-r from-accent/5 to-transparent pointer-events-none" />
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-[#a1ffc2]/20 flex items-center justify-center">
-                <span className="material-symbols-outlined text-[#a1ffc2]">sell</span>
+              <div className="w-10 h-10 rounded-xl bg-accent/20 flex items-center justify-center">
+                <span className="material-symbols-outlined text-accent">sell</span>
               </div>
               <div>
-                <h3 className="text-lg font-black font-space text-[#d3f5e8]">
+                <h3 className="text-lg font-black font-space text-frost">
                   {t("squad.transfer.listPlayer")}
                 </h3>
-                <p className="text-[10px] text-[#91b2a6] font-space uppercase tracking-wider">
+                <p className="text-[10px] text-muted font-space uppercase tracking-wider">
                   {t("squad.transfer.modalSubtitle")}
                 </p>
               </div>
             </div>
             <button
               onClick={onClose}
-              className="w-8 h-8 rounded-full flex items-center justify-center hover:bg-[#002c22] transition-colors"
+              className="w-8 h-8 rounded-full flex items-center justify-center hover:bg-ink-600 transition-colors"
             >
-              <span className="material-symbols-outlined text-[#91b2a6] text-lg">close</span>
+              <span className="material-symbols-outlined text-muted text-lg">close</span>
             </button>
           </div>
         </div>
 
-        <div className="mx-6 mt-4 mb-4 p-4 bg-[#00251c]/80 rounded-xl border border-[#2f4e44]/20">
+        <div className="mx-6 mt-4 mb-4 p-4 bg-ink-700/80 rounded-xl border border-edge/20">
           <div className="flex items-center gap-3">
             <div
-              className="w-12 h-12 rounded-xl flex items-center justify-center font-space font-black text-lg text-[#a1ffc2]"
+              className="w-12 h-12 rounded-xl flex items-center justify-center font-space font-black text-lg text-accent"
               style={{ background: "linear-gradient(135deg, #a1ffc220, #a1ffc210)" }}
             >
               {player.name.split(" ").map((n) => n[0]).join("").slice(0, 2)}
             </div>
             <div>
-              <p className="text-sm font-bold text-[#d3f5e8]">{player.name}</p>
+              <p className="text-sm font-bold text-frost">{player.name}</p>
               <div className="flex items-center gap-2 mt-0.5">
-                <span className="px-2 py-0.5 bg-[#a1ffc2]/20 text-[#a1ffc2] text-[10px] font-bold rounded">
+                <span className="px-2 py-0.5 bg-accent/20 text-accent text-[10px] font-bold rounded">
                   PWI {player.pwi?.toLocaleString() || "0"}
                 </span>
-                <span className="text-[10px] text-[#91b2a6] font-space">
+                <span className="text-[10px] text-muted font-space">
                   {player.isGoalkeeper ? "GK" : ""}
                 </span>
               </div>
@@ -146,24 +147,24 @@ function ListPlayerModal({ player, onClose, onSuccess }: ListPlayerModalProps) {
 
         <form onSubmit={handleSubmit} className="px-6 pb-6 space-y-4">
           <div>
-            <label className="block text-[10px] font-bold uppercase tracking-wider text-[#91b2a6] mb-1.5">
+            <label className="block text-[10px] font-bold uppercase tracking-wider text-muted mb-1.5">
               {t("squad.transfer.startPrice")}
             </label>
             <div className="relative">
-              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[#91b2a6] text-sm font-space">€</span>
+              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted text-sm font-space">€</span>
               <input
                 type="number"
                 value={startPrice}
                 onChange={(e) => setStartPrice(e.target.value)}
                 placeholder="0"
                 min={0}
-                className="w-full bg-[#001a12] border border-[#2f4e44]/40 rounded-lg pl-7 pr-3 py-2.5 text-[#d3f5e8] font-space text-sm placeholder:text-[#4a7a6a] focus:outline-none focus:border-[#a1ffc2]/60 transition-colors"
+                className="w-full bg-ink-850 border border-edge/40 rounded-lg pl-7 pr-3 py-2.5 text-frost font-space text-sm placeholder:text-faint focus:outline-none focus:border-accent/60 transition-colors"
               />
             </div>
           </div>
 
           {error && (
-            <div className="p-3 bg-red-500/10 border border-red-500/30 rounded-lg">
+            <div className="p-3 bg-danger/10 border border-danger/30 rounded-lg">
               <p className="text-red-400 text-xs">{error}</p>
             </div>
           )}
@@ -171,7 +172,7 @@ function ListPlayerModal({ player, onClose, onSuccess }: ListPlayerModalProps) {
           <button
             type="submit"
             disabled={isSubmitting}
-            className="w-full mt-2 py-3 rounded-xl font-bold font-space text-sm transition-all bg-[#a1ffc2] hover:bg-[#8ee6b8] disabled:bg-[#2f4e44]/50 disabled:text-[#91b2a6] text-[#00110c]"
+            className="w-full mt-2 py-3 rounded-xl font-bold font-space text-sm transition-all bg-accent hover:bg-accent-hover disabled:bg-edge/50 disabled:text-muted text-ink-1000"
           >
             {isSubmitting ? (
               <span className="flex items-center justify-center gap-2">
@@ -351,7 +352,7 @@ function SquadPageContent() {
       <div className="flex-grow flex p-6 min-h-0">
         {isLoading ? (
           <div className="flex items-center justify-center h-full w-full">
-            <span className="material-symbols-outlined text-4xl text-[#a1ffc2] animate-spin">
+            <span className="material-symbols-outlined text-4xl text-accent animate-spin">
               progress_activity
             </span>
           </div>
@@ -362,17 +363,17 @@ function SquadPageContent() {
 
             {/* Left Column: Formation-Based Player List */}
             <div className="w-[580px] max-w-[43%] shrink-0 flex flex-col gap-4">
-              <div className="bg-[#001e17] rounded-xl flex flex-col h-full">
+              <div className="bg-ink-800 rounded-xl flex flex-col h-full">
                 {/* List Header */}
-                <div className="px-4 py-3 border-b border-[#2f4e44]/10">
+                <div className="px-4 py-3 border-b border-edge/10">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
-                      <span className="material-symbols-outlined text-[#a1ffc2] text-lg">groups</span>
-                      <span className="text-sm font-black font-space text-[#d3f5e8] uppercase tracking-wider">
+                      <span className="material-symbols-outlined text-accent text-lg">groups</span>
+                      <span className="text-sm font-black font-space text-frost uppercase tracking-wider">
                         {displayTeam?.name || t("squad.squad")}
                       </span>
                     </div>
-                    <span className="text-xs font-bold text-[#91b2a6] font-space">
+                    <span className="text-xs font-bold text-muted font-space">
                       {players.length} {t("squad.players")}
                     </span>
                   </div>
@@ -385,16 +386,16 @@ function SquadPageContent() {
                     if (groupPlayers.length === 0) return null;
 
                     return (
-                      <div key={group.key} className="border-b border-[#2f4e44]/5 last:border-b-0">
+                      <div key={group.key} className="border-b border-edge/5 last:border-b-0">
                         {/* Position Group Header */}
-                        <div className="sticky top-0 z-10 bg-[#001a12]/95 backdrop-blur-sm px-4 py-2 flex items-center gap-2">
+                        <div className="sticky top-0 z-10 bg-ink-850/95 backdrop-blur-sm px-4 py-2 flex items-center gap-2">
                           <div className={`w-1.5 h-1.5 rounded-full ${
-                            group.key === "GK" ? "bg-[#fbbf24]" : "bg-[#a1ffc2]"
+                            group.key === "GK" ? "bg-signal-gold" : "bg-accent"
                           }`} />
-                          <span className="text-[10px] font-bold font-space uppercase tracking-widest text-[#91b2a6]">
+                          <span className="text-[10px] font-bold font-space uppercase tracking-widest text-muted">
                             {t(group.key === "GK" ? "squad.gk" : "squad.field")}
                           </span>
-                          <span className="text-[10px] text-[#4a7a6a] font-space">
+                          <span className="text-[10px] text-faint font-space">
                             ({groupPlayers.length})
                           </span>
                         </div>
@@ -414,16 +415,16 @@ function SquadPageContent() {
                               onClick={() => setSelectedPlayer(player)}
                               className={`group relative mx-3 mb-2 rounded-xl cursor-pointer transition-all duration-200 ease-out border-l-2 ${
                                 isSelected
-                                  ? "bg-[#002c22] border-[#a1ffc2] shadow-[inset_0_0_24px_rgba(161,255,194,0.10)]"
-                                  : "bg-transparent border-transparent hover:bg-[#00251c]/70 hover:border-[#a1ffc2]/40 hover:shadow-[inset_0_0_18px_rgba(161,255,194,0.06)]"
+                                  ? "bg-ink-600 border-accent shadow-[inset_0_0_24px_rgba(161,255,194,0.10)]"
+                                  : "bg-transparent border-transparent hover:bg-ink-700/70 hover:border-accent/40 hover:shadow-[inset_0_0_18px_rgba(161,255,194,0.06)]"
                               }`}
                             >
                               {/* Subtle hover sheen — slides in from the left */}
                               <div
                                 className={`absolute inset-y-0 left-0 w-1 transition-all duration-200 ease-out ${
                                   isSelected
-                                    ? "bg-gradient-to-r from-[#a1ffc2]/40 to-transparent opacity-100"
-                                    : "opacity-0 group-hover:opacity-100 bg-gradient-to-r from-[#a1ffc2]/30 to-transparent"
+                                    ? "bg-gradient-to-r from-accent/40 to-transparent opacity-100"
+                                    : "opacity-0 group-hover:opacity-100 bg-gradient-to-r from-accent/30 to-transparent"
                                 }`}
                               />
                               <div className="relative px-4 py-3.5">
@@ -432,8 +433,8 @@ function SquadPageContent() {
                                   <div
                                     className={`w-12 h-12 rounded-full flex items-center justify-center font-bold text-sm shrink-0 transition-all duration-200 ${
                                       isSelected
-                                        ? "bg-[#a1ffc2]/20 text-[#a1ffc2] scale-105 ring-2 ring-[#a1ffc2]/30"
-                                        : "bg-[#00251c] text-[#91b2a6] group-hover:bg-[#003328] group-hover:text-[#d3f5e8]"
+                                        ? "bg-accent/20 text-accent scale-105 ring-2 ring-accent/30"
+                                        : "bg-ink-700 text-muted group-hover:bg-ink-500 group-hover:text-frost"
                                     }`}
                                   >
                                     {initials}
@@ -445,13 +446,13 @@ function SquadPageContent() {
                                       <Link
                                         href={`/${locale}/players/${player.id}`}
                                         onClick={(e) => e.stopPropagation()}
-                                        className="text-sm font-bold text-[#d3f5e8] truncate hover:text-[#a1ffc2] transition-colors"
+                                        className="text-sm font-bold text-frost truncate hover:text-accent transition-colors"
                                       >
                                         {player.name}
                                       </Link>
                                       {player.onTransfer && (
                                         <span
-                                          className="material-symbols-outlined text-[#a1ffc2] text-xs"
+                                          className="material-symbols-outlined text-accent text-xs"
                                           title={t("squad.transfer.listed")}
                                         >
                                           sell
@@ -488,13 +489,13 @@ function SquadPageContent() {
                                     {/* Stats row — always visible */}
                                     <div className="grid grid-cols-5 gap-4 text-xs font-space mt-1.5">
                                       <span className="truncate">
-                                        <span className="text-[#4a7a6a] uppercase">{t("squad.stamina")} </span>
+                                        <span className="text-faint uppercase">{t("squad.stamina")} </span>
                                         <span
                                           className={`font-bold ${
                                             player.stamina >= 4
-                                              ? "text-[#a1ffc2]"
+                                              ? "text-accent"
                                               : player.stamina >= 2
-                                              ? "text-[#abf853]"
+                                              ? "text-signal-lime"
                                               : "text-red-400"
                                           }`}
                                         >
@@ -502,13 +503,13 @@ function SquadPageContent() {
                                         </span>
                                       </span>
                                       <span className="truncate">
-                                        <span className="text-[#4a7a6a] uppercase">{t("squad.form")} </span>
+                                        <span className="text-faint uppercase">{t("squad.form")} </span>
                                         <span
                                           className={`font-bold ${
                                             player.form >= 4
-                                              ? "text-[#a1ffc2]"
+                                              ? "text-accent"
                                               : player.form >= 2
-                                              ? "text-[#abf853]"
+                                              ? "text-signal-lime"
                                               : "text-red-400"
                                           }`}
                                         >
@@ -516,18 +517,18 @@ function SquadPageContent() {
                                         </span>
                                       </span>
                                       <span className="truncate">
-                                        <span className="text-[#4a7a6a] uppercase">{t("squad.age")} </span>
-                                        <span className="font-bold text-[#d3f5e8]">
+                                        <span className="text-faint uppercase">{t("squad.age")} </span>
+                                        <span className="font-bold text-frost">
                                           {t("common.ageFormat", { y: player.age, d: player.ageDays })}
                                         </span>
                                       </span>
                                       <span className="truncate">
-                                        <span className="text-[#4a7a6a] uppercase">{t("squad.exp")} </span>
-                                        <ExperienceTierLabel value={player.experience} className="font-bold text-[#d3f5e8]" />
+                                        <span className="text-faint uppercase">{t("squad.exp")} </span>
+                                        <ExperienceTierLabel value={player.experience} className="font-bold text-frost" />
                                       </span>
                                       <span className="truncate">
-                                        <span className="text-[#4a7a6a]">PWI </span>
-                                        <span className="font-bold text-[#a1ffc2]">
+                                        <span className="text-faint">PWI </span>
+                                        <span className="font-bold text-accent">
                                           {player.pwi?.toLocaleString() || "0"}
                                         </span>
                                       </span>
@@ -550,9 +551,9 @@ function SquadPageContent() {
 
             {/* Right Column: Player Profile Detail */}
             <div className="w-[700px] max-w-[57%] shrink-0 flex flex-col gap-6">
-              <div className="bg-[#001e17] rounded-xl h-full flex flex-col relative">
+              <div className="bg-ink-800 rounded-xl h-full flex flex-col relative">
                 {/* Glass Background */}
-                <div className="absolute inset-0 bg-gradient-to-br from-[#a1ffc2]/3 via-transparent to-transparent pointer-events-none" />
+                <div className="absolute inset-0 bg-gradient-to-br from-accent/3 via-transparent to-transparent pointer-events-none" />
 
                 {selectedPlayer ? (
                   <>
@@ -562,13 +563,13 @@ function SquadPageContent() {
                         {/* Avatar Hero */}
                         <div className="relative shrink-0">
                           <div
-                            className="w-36 h-36 rounded-2xl overflow-hidden border-2 border-[#a1ffc2]/20 p-1.5"
+                            className="w-36 h-36 rounded-2xl overflow-hidden border-2 border-accent/20 p-1.5"
                             style={{
                               background: `linear-gradient(135deg, ${displayTeam?.jerseyColorPrimary || "#a1ffc2"}30, ${displayTeam?.jerseyColorPrimary || "#a1ffc2"}10)`,
                             }}
                           >
-                            <div className="w-full h-full rounded-xl bg-[#00251c] flex items-center justify-center">
-                              <span className="text-5xl font-black font-space text-[#a1ffc2] leading-none uppercase">
+                            <div className="w-full h-full rounded-xl bg-ink-700 flex items-center justify-center">
+                              <span className="text-5xl font-black font-space text-accent leading-none uppercase">
                                 {selectedPlayer.name.split(" ").map((n: string) => n[0]).join("").slice(0, 2)}
                               </span>
                             </div>
@@ -579,7 +580,7 @@ function SquadPageContent() {
                         <div className="flex-1 min-w-0 pt-4">
                           <div className="flex items-center gap-3">
                             <Link href={`/${locale}/players/${selectedPlayer.id}`}>
-                              <h2 className="text-4xl font-black font-space tracking-tight leading-none text-[#d3f5e8] hover:text-[#a1ffc2] transition-colors">
+                              <h2 className="text-4xl font-black font-space tracking-tight leading-none text-frost hover:text-accent transition-colors">
                                 {selectedPlayer.name}
                               </h2>
                             </Link>
@@ -604,23 +605,23 @@ function SquadPageContent() {
 
                           <div className="flex items-center gap-6 mt-4 text-sm font-space">
                             <div className="flex items-center gap-2">
-                              <span className="material-symbols-outlined text-[#91b2a6]">calendar_month</span>
-                              <span className="text-[#91b2a6]">
+                              <span className="material-symbols-outlined text-muted">calendar_month</span>
+                              <span className="text-muted">
                                 {t("squad.age")}{" "}
-                                <span className="font-bold text-[#d3f5e8]">
+                                <span className="font-bold text-frost">
                                   {t("common.ageFormat", { y: selectedPlayer.age, d: selectedPlayer.ageDays })}
                                 </span>
                               </span>
                             </div>
                             <div className="flex items-center gap-2">
-                              <span className="material-symbols-outlined text-[#91b2a6]">military_tech</span>
-                              <span className="text-[#91b2a6]">
-                                {t("squad.exp")} <ExperienceTierLabel value={selectedPlayer.experience} className="font-bold text-[#d3f5e8]" />
+                              <span className="material-symbols-outlined text-muted">military_tech</span>
+                              <span className="text-muted">
+                                {t("squad.exp")} <ExperienceTierLabel value={selectedPlayer.experience} className="font-bold text-frost" />
                               </span>
                             </div>
                             <div className="flex items-center gap-2">
-                              <span className="material-symbols-outlined text-[#91b2a6]">payments</span>
-                              <span className="font-bold text-[#f59e0b]">
+                              <span className="material-symbols-outlined text-muted">payments</span>
+                              <span className="font-bold text-signal-amber">
                                 £{(selectedPlayer.currentWage || 0).toLocaleString()}/w
                               </span>
                             </div>
@@ -632,16 +633,16 @@ function SquadPageContent() {
                           {isViewingMyTeam && !selectedPlayer.onTransfer && (
                             <button
                               onClick={() => setShowListModal(true)}
-                              className="w-10 h-10 rounded-full flex items-center justify-center bg-[#a1ffc2]/20 text-[#a1ffc2] hover:bg-[#a1ffc2]/30 transition-colors border border-[#a1ffc2]/30"
+                              className="w-10 h-10 rounded-full flex items-center justify-center bg-accent/20 text-accent hover:bg-accent/30 transition-colors border border-accent/30"
                               title={t("squad.transfer.listButton")}
                             >
                               <span className="material-symbols-outlined">sell</span>
                             </button>
                           )}
-                          <button className="w-10 h-10 rounded-full flex items-center justify-center bg-[#002c22] text-[#91b2a6] hover:text-[#a1ffc2] transition-colors border border-[#2f4e44]/20">
+                          <button className="w-10 h-10 rounded-full flex items-center justify-center bg-ink-600 text-muted hover:text-accent transition-colors border border-edge/20">
                             <span className="material-symbols-outlined">favorite</span>
                           </button>
-                          <button className="w-10 h-10 rounded-full flex items-center justify-center bg-[#002c22] text-[#91b2a6] hover:text-[#a1ffc2] transition-colors border border-[#2f4e44]/20">
+                          <button className="w-10 h-10 rounded-full flex items-center justify-center bg-ink-600 text-muted hover:text-accent transition-colors border border-edge/20">
                             <span className="material-symbols-outlined">share</span>
                           </button>
                         </div>
@@ -650,36 +651,36 @@ function SquadPageContent() {
 
                     {/* Quick Stats Row */}
                     <div className="px-6 pb-4 flex gap-3">
-                      <div className="flex-1 bg-[#00251c] rounded-xl p-3 border border-[#2f4e44]/10 flex items-center justify-center gap-4">
+                      <div className="flex-1 bg-ink-700 rounded-xl p-3 border border-edge/10 flex items-center justify-center gap-4">
                         <div className="text-center">
                           <div className={`text-xl font-black font-space ${
-                            selectedPlayer.stamina >= 4 ? "text-[#a1ffc2]" :
-                            selectedPlayer.stamina >= 2 ? "text-[#abf853]" : "text-red-400"
+                            selectedPlayer.stamina >= 4 ? "text-accent" :
+                            selectedPlayer.stamina >= 2 ? "text-signal-lime" : "text-red-400"
                           }`}>
                             {Math.round(selectedPlayer.stamina)}
                           </div>
-                          <div className="text-[8px] font-bold font-space text-[#91b2a6] uppercase tracking-widest mt-0.5">
+                          <div className="text-[8px] font-bold font-space text-muted uppercase tracking-widest mt-0.5">
                             {t("squad.stamina")}
                           </div>
                         </div>
-                        <div className="w-px h-8 bg-[#2f4e44]/30" />
+                        <div className="w-px h-8 bg-edge/30" />
                         <div className="text-center">
                           <div className={`text-xl font-black font-space ${
-                            selectedPlayer.form >= 4 ? "text-[#a1ffc2]" :
-                            selectedPlayer.form >= 2 ? "text-[#abf853]" : "text-red-400"
+                            selectedPlayer.form >= 4 ? "text-accent" :
+                            selectedPlayer.form >= 2 ? "text-signal-lime" : "text-red-400"
                           }`}>
                             {Math.round(selectedPlayer.form)}
                           </div>
-                          <div className="text-[8px] font-bold font-space text-[#91b2a6] uppercase tracking-widest mt-0.5">
+                          <div className="text-[8px] font-bold font-space text-muted uppercase tracking-widest mt-0.5">
                             {t("squad.form")}
                           </div>
                         </div>
-                        <div className="w-px h-8 bg-[#2f4e44]/30" />
+                        <div className="w-px h-8 bg-edge/30" />
                         <div className="text-center">
-                          <div className="text-xl font-black font-space text-[#00ec90]">
+                          <div className="text-xl font-black font-space text-primary-dim">
                             {selectedPlayer.potentialAbility || 0}
                           </div>
-                          <div className="text-[8px] font-bold font-space text-[#91b2a6] uppercase tracking-widest mt-0.5">
+                          <div className="text-[8px] font-bold font-space text-muted uppercase tracking-widest mt-0.5">
                             {t("squad.potential")}
                           </div>
                         </div>
@@ -689,9 +690,9 @@ function SquadPageContent() {
                     {/* Transfer Info */}
                     {selectedPlayer.onTransfer && (
                       <div className="px-6 pb-4">
-                        <div className="bg-[#002c22] rounded-xl p-3 border border-[#a1ffc2]/20 flex items-center gap-2">
-                          <span className="material-symbols-outlined text-[#a1ffc2] text-sm">sell</span>
-                          <span className="text-xs font-bold text-[#a1ffc2]">{t("squad.transfer.onTransfer")}</span>
+                        <div className="bg-ink-600 rounded-xl p-3 border border-accent/20 flex items-center gap-2">
+                          <span className="material-symbols-outlined text-accent text-sm">sell</span>
+                          <span className="text-xs font-bold text-accent">{t("squad.transfer.onTransfer")}</span>
                         </div>
                       </div>
                     )}
@@ -711,12 +712,12 @@ function SquadPageContent() {
                             />
                             <div className="flex items-center gap-4 mt-3">
                               <div className="flex items-center gap-1.5">
-                                <div className="w-3 h-3 rounded-full bg-[#a1ffc2]" />
-                                <span className="text-[9px] font-bold font-space text-[#91b2a6] uppercase">{t("squad.radar.current")}</span>
+                                <div className="w-3 h-3 rounded-full bg-accent" />
+                                <span className="text-[9px] font-bold font-space text-muted uppercase">{t("squad.radar.current")}</span>
                               </div>
                               <div className="flex items-center gap-1.5">
-                                <div className="w-3 h-3 rounded-full bg-[#2f4e44]" />
-                                <span className="text-[9px] font-bold font-space text-[#91b2a6] uppercase">{t("squad.radar.potential")}</span>
+                                <div className="w-3 h-3 rounded-full bg-edge" />
+                                <span className="text-[9px] font-bold font-space text-muted uppercase">{t("squad.radar.potential")}</span>
                               </div>
                             </div>
                           </div>
@@ -728,8 +729,8 @@ function SquadPageContent() {
                                 {/* GK: pace, strength (2) + reflexes, handling, aerial (3) + positioning, composure (2) + freeKicks, penalties (2) = 9 */}
                                 <div className="mb-4">
                                   <div className="flex items-center gap-2 mb-2">
-                                    <div className="w-1.5 h-3 bg-[#60a5fa] rounded-full" />
-                                    <span className="text-[10px] font-black font-space uppercase tracking-widest text-[#91b2a6]">
+                                    <div className="w-1.5 h-3 bg-signal-blue rounded-full" />
+                                    <span className="text-[10px] font-black font-space uppercase tracking-widest text-muted">
                                       {t("squad.skills.physicalAttributes")}
                                     </span>
                                   </div>
@@ -751,8 +752,8 @@ function SquadPageContent() {
 
                                 <div className="mb-4">
                                   <div className="flex items-center gap-2 mb-2">
-                                    <div className="w-1.5 h-3 bg-[#a1ffc2] rounded-full" />
-                                    <span className="text-[10px] font-black font-space uppercase tracking-widest text-[#91b2a6]">
+                                    <div className="w-1.5 h-3 bg-accent rounded-full" />
+                                    <span className="text-[10px] font-black font-space uppercase tracking-widest text-muted">
                                       {t("squad.skills.goalkeeperSkills")}
                                     </span>
                                   </div>
@@ -775,8 +776,8 @@ function SquadPageContent() {
 
                                 <div className="mb-4">
                                   <div className="flex items-center gap-2 mb-2">
-                                    <div className="w-1.5 h-3 bg-[#abf853] rounded-full" />
-                                    <span className="text-[10px] font-black font-space uppercase tracking-widest text-[#91b2a6]">
+                                    <div className="w-1.5 h-3 bg-signal-lime rounded-full" />
+                                    <span className="text-[10px] font-black font-space uppercase tracking-widest text-muted">
                                       {t("squad.skills.mentalProfile")}
                                     </span>
                                   </div>
@@ -790,7 +791,7 @@ function SquadPageContent() {
                                         labelKey={skill.key}
                                         current={selectedPlayer.currentSkills.mental?.[skill.key as keyof typeof selectedPlayer.currentSkills.mental] || 0}
                                         potential={selectedPlayer.potentialSkills?.mental?.[skill.key as keyof typeof selectedPlayer.potentialSkills.mental] || 0}
-                                        color="#abf853"
+                                        color={signalLime}
                                       />
                                     ))}
                                   </div>
@@ -798,8 +799,8 @@ function SquadPageContent() {
 
                                 <div>
                                   <div className="flex items-center gap-2 mb-2">
-                                    <div className="w-1.5 h-3 bg-[#f59e0b] rounded-full" />
-                                    <span className="text-[10px] font-black font-space uppercase tracking-widest text-[#91b2a6]">
+                                    <div className="w-1.5 h-3 bg-signal-amber rounded-full" />
+                                    <span className="text-[10px] font-black font-space uppercase tracking-widest text-muted">
                                       {t("squad.skills.setPieces")}
                                     </span>
                                   </div>
@@ -813,7 +814,7 @@ function SquadPageContent() {
                                         labelKey={skill.key}
                                         current={selectedPlayer.currentSkills.setPieces?.[skill.key as keyof typeof selectedPlayer.currentSkills.setPieces] || 0}
                                         potential={selectedPlayer.potentialSkills?.setPieces?.[skill.key as keyof typeof selectedPlayer.potentialSkills.setPieces] || 0}
-                                        color="#f59e0b"
+                                        color={signalAmber}
                                       />
                                     ))}
                                   </div>
@@ -824,8 +825,8 @@ function SquadPageContent() {
                                 {/* Outfield: pace, strength (2) + finishing, passing, dribbling, defending (4) + positioning, composure (2) + freeKicks, penalties (2) = 10 */}
                                 <div className="mb-4">
                                   <div className="flex items-center gap-2 mb-2">
-                                    <div className="w-1.5 h-3 bg-[#60a5fa] rounded-full" />
-                                    <span className="text-[10px] font-black font-space uppercase tracking-widest text-[#91b2a6]">
+                                    <div className="w-1.5 h-3 bg-signal-blue rounded-full" />
+                                    <span className="text-[10px] font-black font-space uppercase tracking-widest text-muted">
                                       {t("squad.skills.physicalAttributes")}
                                     </span>
                                   </div>
@@ -847,8 +848,8 @@ function SquadPageContent() {
 
                                 <div className="mb-4">
                                   <div className="flex items-center gap-2 mb-2">
-                                    <div className="w-1.5 h-3 bg-[#a1ffc2] rounded-full" />
-                                    <span className="text-[10px] font-black font-space uppercase tracking-widest text-[#91b2a6]">
+                                    <div className="w-1.5 h-3 bg-accent rounded-full" />
+                                    <span className="text-[10px] font-black font-space uppercase tracking-widest text-muted">
                                       {t("squad.skills.technicalSkills")}
                                     </span>
                                   </div>
@@ -871,8 +872,8 @@ function SquadPageContent() {
 
                                 <div className="mb-4">
                                   <div className="flex items-center gap-2 mb-2">
-                                    <div className="w-1.5 h-3 bg-[#abf853] rounded-full" />
-                                    <span className="text-[10px] font-black font-space uppercase tracking-widest text-[#91b2a6]">
+                                    <div className="w-1.5 h-3 bg-signal-lime rounded-full" />
+                                    <span className="text-[10px] font-black font-space uppercase tracking-widest text-muted">
                                       {t("squad.skills.mentalProfile")}
                                     </span>
                                   </div>
@@ -886,7 +887,7 @@ function SquadPageContent() {
                                         labelKey={skill.key}
                                         current={selectedPlayer.currentSkills.mental?.[skill.key as keyof typeof selectedPlayer.currentSkills.mental] || 0}
                                         potential={selectedPlayer.potentialSkills?.mental?.[skill.key as keyof typeof selectedPlayer.potentialSkills.mental] || 0}
-                                        color="#abf853"
+                                        color={signalLime}
                                       />
                                     ))}
                                   </div>
@@ -894,8 +895,8 @@ function SquadPageContent() {
 
                                 <div>
                                   <div className="flex items-center gap-2 mb-2">
-                                    <div className="w-1.5 h-3 bg-[#f59e0b] rounded-full" />
-                                    <span className="text-[10px] font-black font-space uppercase tracking-widest text-[#91b2a6]">
+                                    <div className="w-1.5 h-3 bg-signal-amber rounded-full" />
+                                    <span className="text-[10px] font-black font-space uppercase tracking-widest text-muted">
                                       {t("squad.skills.setPieces")}
                                     </span>
                                   </div>
@@ -909,7 +910,7 @@ function SquadPageContent() {
                                         labelKey={skill.key}
                                         current={selectedPlayer.currentSkills.setPieces?.[skill.key as keyof typeof selectedPlayer.currentSkills.setPieces] || 0}
                                         potential={selectedPlayer.potentialSkills?.setPieces?.[skill.key as keyof typeof selectedPlayer.potentialSkills.setPieces] || 0}
-                                        color="#f59e0b"
+                                        color={signalAmber}
                                       />
                                     ))}
                                   </div>
@@ -920,36 +921,36 @@ function SquadPageContent() {
                         </div>
 
                         {/* Events Timeline */}
-                        <div className="mt-6 pt-4 border-t border-[#2f4e44]/10">
+                        <div className="mt-6 pt-4 border-t border-edge/10">
                           <div className="flex items-center gap-2 mb-3">
-                            <div className="w-1.5 h-3 bg-[#f59e0b] rounded-full" />
-                            <h3 className="text-[10px] font-black font-space uppercase tracking-widest text-[#91b2a6]">
+                            <div className="w-1.5 h-3 bg-signal-amber rounded-full" />
+                            <h3 className="text-[10px] font-black font-space uppercase tracking-widest text-muted">
                               {t("player_events.title")}
                             </h3>
                           </div>
                           {playerEvents.length === 0 ? (
-                            <div className="bg-[#00251c]/30 rounded-xl p-4 text-center">
-                              <span className="material-symbols-outlined text-xl text-[#4a7a6a]">history</span>
-                              <p className="text-[#4a7a6a] text-xs mt-1">{t("player_events.no_events")}</p>
+                            <div className="bg-ink-700/30 rounded-xl p-4 text-center">
+                              <span className="material-symbols-outlined text-xl text-faint">history</span>
+                              <p className="text-faint text-xs mt-1">{t("player_events.no_events")}</p>
                             </div>
                           ) : (
-                            <div className="relative pl-4 border-l border-[#2f4e44]/30 space-y-2">
+                            <div className="relative pl-4 border-l border-edge/30 space-y-2">
                               {playerEvents.slice(0, 5).map((event) => {
                                 const iconName = EVENT_ICONS[event.eventType] || "event";
-                                const colorClass = EVENT_COLORS[event.eventType] || "text-[#a1ffc2]";
+                                const colorClass = EVENT_COLORS[event.eventType] || "text-accent";
                                 const eventDate = new Date(event.date);
                                 const dateStr = `${eventDate.getFullYear()}/${eventDate.getMonth() + 1}/${eventDate.getDate()}`;
                                 return (
                                   <div key={event.id} className="flex items-center gap-3 relative">
-                                    <div className={`absolute -left-[17px] w-2 h-2 rounded-full bg-[#00251c] border-2 border-[#4a7a6a]`} />
-                                    <div className={`w-6 h-6 rounded-full flex items-center justify-center bg-[#00251c] ${colorClass}`}>
+                                    <div className={`absolute -left-[17px] w-2 h-2 rounded-full bg-ink-700 border-2 border-faint`} />
+                                    <div className={`w-6 h-6 rounded-full flex items-center justify-center bg-ink-700 ${colorClass}`}>
                                       <span className="material-symbols-outlined text-xs">{iconName}</span>
                                     </div>
                                     <div className="flex-1 min-w-0">
-                                      <p className="text-[11px] font-bold text-[#d3f5e8] truncate">
+                                      <p className="text-[11px] font-bold text-frost truncate">
                                         {event.titleKey ? te(event.titleKey.replace(/^player_events\./, '')) : event.eventType}
                                       </p>
-                                      <p className="text-[9px] text-[#4a7a6a]">S{event.season} · {dateStr}</p>
+                                      <p className="text-[9px] text-faint">S{event.season} · {dateStr}</p>
                                     </div>
                                   </div>
                                 );
@@ -962,7 +963,7 @@ function SquadPageContent() {
                   </>
                 ) : (
                   <div className="flex-grow flex items-center justify-center">
-                    <p className="text-[#91b2a6] text-sm">{t("squad.selectPlayer")}</p>
+                    <p className="text-muted text-sm">{t("squad.selectPlayer")}</p>
                   </div>
                 )}
               </div>
@@ -1024,16 +1025,16 @@ function SkillRow({ labelKey, current, potential, color = "#a1ffc2" }: { labelKe
   return (
     <div className="space-y-1">
       <div className="flex justify-between items-center">
-        <span className="text-[10px] font-bold uppercase tracking-wider text-[#91b2a6]">{t(`squad.skills.${labelKey}`)}</span>
-        <span className={`text-[10px] font-black font-space ${isMaxed ? "text-[#a1ffc2]" : "text-[#d3f5e8]"}`}>
+        <span className="text-[10px] font-bold uppercase tracking-wider text-muted">{t(`squad.skills.${labelKey}`)}</span>
+        <span className={`text-[10px] font-black font-space ${isMaxed ? "text-accent" : "text-frost"}`}>
           {current}
-          {!isMaxed && <span className="text-[#4a7a6a]">/{potential}</span>}
+          {!isMaxed && <span className="text-faint">/{potential}</span>}
         </span>
       </div>
-      <div className="h-1.5 w-full bg-[#00251c] rounded-full overflow-hidden relative">
+      <div className="h-1.5 w-full bg-ink-700 rounded-full overflow-hidden relative">
         {/* Potential bar */}
         <div
-          className="absolute inset-y-0 left-0 h-full rounded-full bg-[#2f4e44]/50"
+          className="absolute inset-y-0 left-0 h-full rounded-full bg-edge/50"
           style={{ width: `${potentialPercent}%` }}
         />
         {/* Current bar */}
@@ -1057,7 +1058,7 @@ function SquadPage() {
 function SquadPageLoading() {
   return (
     <div className="flex items-center justify-center h-full w-full">
-      <span className="material-symbols-outlined text-4xl text-[#a1ffc2] animate-spin">
+      <span className="material-symbols-outlined text-4xl text-accent animate-spin">
         progress_activity
       </span>
     </div>

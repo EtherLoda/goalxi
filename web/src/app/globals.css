@@ -91,6 +91,73 @@
   --color-outline-variant: #414845;
 
   /* -------------------------------------------------------------------------
+     CONSOLIDATED FAMILIES (wave 1: exact-value tokenization, no visual change)
+
+     Legacy mint accent — pre-token page palettes (players, transfers, forum,
+     scouts, training, auth). `accent` is the primary action colour of those
+     pages; `ink-*` is their deep mint-black surface ramp (1000 = darkest).
+  ------------------------------------------------------------------------- */
+  --color-accent: #a1ffc2;
+  --color-accent-hover: #8ee6b8;
+  --color-accent-soft: #b9ffce;
+  --color-frost: #d3f5e8;
+  --color-muted: #91b2a6;
+  --color-faint: #4a7a6a;
+  --color-edge: #2f4e44;
+  --color-jade: #00ff9c;
+  --color-float: #1a1a2e;
+
+  --color-ink-1000: #00110c;
+  --color-ink-900: #001711;
+  --color-ink-850: #001a12;
+  --color-ink-800: #001e17;
+  --color-ink-750: #051a14;
+  --color-ink-700: #00251c;
+  --color-ink-600: #002c22;
+  --color-ink-500: #003328;
+
+  /* -------------------------------------------------------------------------
+     DANGER ACCENTS — injury / rejected transfers / red states
+  ------------------------------------------------------------------------- */
+  --color-danger: #ef4444;
+  --color-danger-soft: #ff716c;
+  --color-danger-surface: #2a1515;
+  --color-on-danger-soft: #490006;
+
+  /* -------------------------------------------------------------------------
+     SIGNAL ACCENTS — milestone badges, skill-category dots, chips
+  ------------------------------------------------------------------------- */
+  --color-signal-amber: #f59e0b;
+  --color-signal-gold: #fbbf24;
+  --color-signal-lime: #abf853;
+  --color-signal-lime-dim: #3e6a00;
+  --color-signal-blue: #60a5fa;
+  --color-signal-blue-deep: #0066ff;
+  --color-signal-violet: #a78bfa;
+  --color-signal-lilac: #c084fc;
+  --color-signal-pink: #ec4899;
+  --color-signal-magenta: #f472b6;
+  --color-signal-cyan: #22d3ee;
+  --color-signal-yellow: #facc15;
+
+  /* -------------------------------------------------------------------------
+     PITCH GRAPHICS — stadium / match-pitch grass ramp (field drawings only)
+  ------------------------------------------------------------------------- */
+  --color-pitch-dark: #022c22;
+  --color-pitch-deep: #064e3b;
+  --color-pitch-mid: #065f46;
+  --color-pitch-line: #047857;
+  --color-pitch-mark: #6ee7b7;
+
+  /* -------------------------------------------------------------------------
+     POSITIVE STATUS — stamina, condition, form, high-overall highlights
+  ------------------------------------------------------------------------- */
+  --color-positive-mid: #059669;
+  --color-positive: #10b981;
+  --color-positive-bright: #34d399;
+  --color-positive-soft: #6ee7b7;
+
+  /* -------------------------------------------------------------------------
      TYPOGRAPHY — Font families (loaded via <link> in layout.tsx)
   ------------------------------------------------------------------------- */
   --font-headline: "Space Grotesk", system-ui, sans-serif;
@@ -104,7 +171,8 @@
   --radius-lg: 0.25rem;    /* small buttons */
   --radius-xl: 0.5rem;     /* cards, inputs */
   --radius-2xl: 0.75rem;   /* modals, FABs */
-  --radius-full: 0.75rem;  /* pills, avatars, FABs */
+  --radius-full: 9999px;  /* pills, avatars, FABs (spec said 0.75rem — wrong:
+                             12px cannot render a pill or a circle; erratum) */
 
   /* -------------------------------------------------------------------------
      SHADOWS — Following spec
@@ -177,12 +245,17 @@ body {
 
 /* -------------------------------------------------------------------------
    CUSTOM COMPONENT CLASSES
-------------------------------------------------------------------------- */
-.glass-panel {
-  background: rgba(13, 31, 26, 0.75);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-  border: 1px solid rgba(255, 255, 255, 0.05);
+   Declared inside @layer components so Tailwind utilities (hover:,
+   border-*, bg-*) can override them. Unlayered CSS always beats layered
+   utilities, which is why `glass-panel hover:bg-...` used to be a no-op.
+   ------------------------------------------------------------------------- */
+@layer components {
+  .glass-panel {
+    background: rgba(13, 31, 26, 0.75);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+  }
 }
 
 /* -------------------------------------------------------------------------
@@ -224,10 +297,31 @@ body {
 }
 
 .custom-scrollbar::-webkit-scrollbar-thumb {
-  background: #002c22;
+  background: var(--color-ink-600);
   border-radius: 10px;
 }
 
 .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-  background: #003328;
+  background: var(--color-ink-500);
+}
+
+/* -------------------------------------------------------------------------
+   REDUCED MOTION
+   Collapses every animation/transition for users who ask for it.
+   Perpetual loops (animate-pulse live dots, spinners) become static,
+   hover/press transitions become instant, smooth scroll turns off.
+   ------------------------------------------------------------------------- */
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    transition-delay: 0ms !important;
+  }
 }

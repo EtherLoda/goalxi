@@ -26,6 +26,7 @@
  * boundary without mounting React.
  */
 import { getSkillTierLabel, type SkillTierLocale } from "./skill-tier";
+import { signalAmber } from "./design-tokens";
 
 /**
  * `+` modifier appended to the tier label when the value's fractional
@@ -87,11 +88,11 @@ export function laneStrengthTierColor(value: number): LaneStrengthTierColor {
 
 export const LANE_STRENGTH_TIER_COLOR_HEX: Record<LaneStrengthTierColor, string> = {
   // Matched to the same hue family MatchPlayerMarker uses for the
-  // 0-20 power rating chip (f59e0b / 22c55e / 60a5fa / 94a3b8), so a
+  // 0-20 power rating chip (signalAmber / 22c55e / 60a5fa / 94a3b8), so a
   // player whose `sr` lives in the same 0-20 bucket as the team's
   // lane strength renders in the same accent — the user can
   // visually link the two.
-  amber: "#f59e0b",
+  amber: signalAmber,
   green: "#22c55e",
   blue:  "#60a5fa",
   gray:  "#94a3b8",

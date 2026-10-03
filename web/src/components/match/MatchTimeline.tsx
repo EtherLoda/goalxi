@@ -114,25 +114,25 @@ const EVENT_VISUAL: Record<
     glyph: '⇄',
     ringClass: 'ring-sky-400/50',
     bgClass: 'bg-sky-500',
-    labelClass: 'text-white',
+    labelClass: 'text-on-surface',
   },
   YELLOW_CARD: {
     glyph: '🟨',
-    ringClass: 'ring-amber-400/50',
-    bgClass: 'bg-amber-400',
+    ringClass: 'ring-signal-gold/50',
+    bgClass: 'bg-signal-gold',
     labelClass: 'text-amber-950',
   },
   SECOND_YELLOW: {
     glyph: '🟨',
-    ringClass: 'ring-amber-400/50',
-    bgClass: 'bg-amber-400',
+    ringClass: 'ring-signal-gold/50',
+    bgClass: 'bg-signal-gold',
     labelClass: 'text-amber-950',
   },
   RED_CARD: {
     glyph: '🟥',
-    ringClass: 'ring-red-500/50',
-    bgClass: 'bg-red-500',
-    labelClass: 'text-white',
+    ringClass: 'ring-danger/50',
+    bgClass: 'bg-danger',
+    labelClass: 'text-on-surface',
   },
   INJURY: {
     // Material Symbols has a `medical_services` icon, but using the
@@ -142,7 +142,7 @@ const EVENT_VISUAL: Record<
     glyph: '🚑',
     ringClass: 'ring-rose-500/50',
     bgClass: 'bg-rose-500',
-    labelClass: 'text-white',
+    labelClass: 'text-on-surface',
   },
 };
 
@@ -689,7 +689,7 @@ function Playhead({
       {/* Minute chip — small label above the thumb showing the current
           scrubbed minute. Always visible so the reader doesn't have to
           hunt. */}
-      <div className="absolute left-1/2 -translate-x-1/2 -top-9 px-1.5 py-0.5 rounded-md bg-primary text-on-primary font-mono font-black text-[10px] tabular-nums">
+      <div className="absolute left-1/2 -translate-x-1/2 -top-9 px-1.5 py-0.5 rounded-lg bg-primary text-on-primary font-mono font-black text-[10px] tabular-nums">
         {minuteLabel}&apos;
       </div>
     </div>
@@ -837,7 +837,7 @@ function InjuryBand({
       // a barely-different shade. 35% + a hard 1px edge gives
       // the band a clear "this region is stoppage" outline
       // without overpowering the progress fill.
-      className="absolute inset-y-0 rounded-sm border-y border-amber-500/80 dark:border-amber-400/80 bg-amber-500/35 dark:bg-amber-400/35 pointer-events-none"
+      className="absolute inset-y-0 rounded-sm border-y border-signal-amber/80 dark:border-signal-gold/80 bg-signal-amber/35 dark:bg-signal-gold/35 pointer-events-none"
       style={{ left: `${left}%`, width: `${width}%` }}
       data-testid={`timeline-injury-band-${w.label.toLowerCase()}`}
       aria-hidden="true"

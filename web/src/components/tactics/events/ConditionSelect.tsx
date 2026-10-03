@@ -19,9 +19,9 @@ export interface ConditionSelectProps {
 /** Per-condition tone (icon + ring color) — keeps the chip scannable. */
 const CONDITION_META: Record<EventCondition, { icon: string; tone: string }> = {
   always: { icon: 'bolt', tone: 'border-outline-variant/40 text-outline' },
-  leading: { icon: 'trending_up', tone: 'border-emerald-500/40 text-emerald-400' },
-  trailing: { icon: 'trending_down', tone: 'border-red-500/40 text-red-400' },
-  tied: { icon: 'balance', tone: 'border-amber-400/40 text-amber-300' },
+  leading: { icon: 'trending_up', tone: 'border-positive/40 text-positive-bright' },
+  trailing: { icon: 'trending_down', tone: 'border-danger/40 text-red-400' },
+  tied: { icon: 'balance', tone: 'border-signal-gold/40 text-amber-300' },
   notLeading: { icon: 'horizontal_rule', tone: 'border-orange-500/40 text-orange-300' },
   notTrailing: { icon: 'shield', tone: 'border-sky-500/40 text-sky-300' },
 };
@@ -81,7 +81,7 @@ export function ConditionSelect({ value, onChange, disabled = false }: Condition
         type="button"
         onClick={() => !disabled && setOpen((o) => !o)}
         disabled={disabled}
-        className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md border bg-surface-container/50 font-label text-[9px] font-bold uppercase tracking-widest transition-colors ${
+        className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-lg border bg-surface-container/50 font-label text-[9px] font-bold uppercase tracking-widest transition-colors ${
           disabled ? 'opacity-50 cursor-not-allowed' : `cursor-pointer hover:${meta.tone.split(' ')[0]}`
         } ${meta.tone}`}
         title={t(value)}
@@ -110,7 +110,7 @@ export function ConditionSelect({ value, onChange, disabled = false }: Condition
                   }}
                   className={`w-full flex items-center gap-2 px-2 py-1.5 rounded text-left text-[11px] font-bold uppercase tracking-widest transition-colors ${
                     active
-                      ? 'bg-primary/15 text-white'
+                      ? 'bg-primary/15 text-on-surface'
                       : 'text-on-surface hover:bg-surface-container/60'
                   }`}
                 >

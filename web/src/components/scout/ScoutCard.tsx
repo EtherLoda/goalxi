@@ -5,6 +5,7 @@ import { useLocale, useTranslations } from "next-intl";
 import type { ScoutCandidate } from "@/lib/api";
 import { SpecialtyIcon } from "@/components/player/SpecialtyIcon";
 import { getSpecialtyLabel } from "@/lib/specialties";
+import { signalAmber, signalLime } from "@/lib/design-tokens";
 import styles from "./ScoutCard.module.css";
 
 /**
@@ -37,8 +38,8 @@ type SkillView = Array<{
 
 const COLOR_PHYSICAL = "#60a5fa";
 const COLOR_TECHNICAL = "#a1ffc2";
-const COLOR_MENTAL = "#abf853";
-const COLOR_SETPIECES = "#f59e0b";
+const COLOR_MENTAL = signalLime;
+const COLOR_SETPIECES = signalAmber;
 
 export function ScoutCard({
   c,

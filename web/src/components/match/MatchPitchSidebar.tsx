@@ -73,7 +73,7 @@ export function MatchPitchSidebar({
           <span className="material-symbols-outlined text-base">history</span>
           {t('keyEvents') ?? 'Key Events'}
         </h3>
-        <p className="text-[10px] text-white/30 font-headline italic">
+        <p className="text-[10px] text-on-surface/30 font-headline italic">
           {t('waiting') ?? 'Waiting for events…'}
         </p>
       </div>

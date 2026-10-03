@@ -254,7 +254,7 @@ function DashboardPageContent() {
                 </div>
 
                 {/* VS Block */}
-                <div className="flex items-center gap-6 px-8 py-6 rounded-3xl bg-surface-container-low/80 backdrop-blur-md border border-white/5">
+                <div className="flex items-center gap-6 px-8 py-6 rounded-2xl bg-surface-container-low/80 backdrop-blur-md border border-white/5">
                   <div className="text-center space-y-2">
                     <div
                       className="w-16 h-16 rounded-full border-2 flex items-center justify-center"
@@ -544,7 +544,7 @@ function FanMoodCard({
           </h3>
           {fan ? (
             <span
-              className={`font-label text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded-md border ${accent.chip}`}
+              className={`font-label text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded-lg border ${accent.chip}`}
             >
               Tier {tier}/10
             </span>

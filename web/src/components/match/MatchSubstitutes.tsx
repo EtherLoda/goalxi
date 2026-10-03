@@ -125,7 +125,7 @@ function SeatCard({ label, isGk, player, color }: SeatCardProps) {
   return (
     <div
       className={clsx(
-        'rounded-md border bg-surface-container/30 px-1.5 py-1.5 min-w-0 flex flex-col items-center gap-0.5',
+        'rounded-lg border bg-surface-container/30 px-1.5 py-1.5 min-w-0 flex flex-col items-center gap-0.5',
         isGk ? 'border-tertiary/30' : 'border-on-surface/5',
       )}
     >

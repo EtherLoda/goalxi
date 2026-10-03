@@ -104,7 +104,7 @@ function MatchPageContent() {
         <div className="flex items-center gap-4">
           <Link
             href={`/${locale}/matches`}
-            className="flex items-center justify-center w-10 h-10 bg-surface-container-low border border-outline-variant/30 text-on-surface-variant rounded-DEFAULT hover:bg-surface-container-high hover:text-on-surface transition-all"
+            className="flex items-center justify-center w-10 h-10 bg-surface-container-low border border-outline-variant/30 text-on-surface-variant rounded-lg hover:bg-surface-container-high hover:text-on-surface transition-all"
             aria-label={tBento('back')}
           >
             <span className="material-symbols-outlined text-[18px]">arrow_back</span>
@@ -130,7 +130,7 @@ function MatchPageContent() {
         {match.type === 'cup' && match.cupId && (
           <Link
             href={`/${locale}/cup/${match.cupId}${match.cupRound !== null && match.cupRound !== undefined ? `#round-${match.cupRound}` : ''}`}
-            className="inline-flex items-center gap-2 h-10 px-4 rounded-full glass-panel border border-amber-500/30 hover:border-amber-500/60 hover:shadow-[0_0_18px_rgba(251,191,36,0.15)] transition-all"
+            className="inline-flex items-center gap-2 h-10 px-4 rounded-full glass-panel border border-signal-amber/30 hover:border-signal-amber/60 hover:shadow-[0_0_18px_rgba(251,191,36,0.15)] transition-all"
           >
             <span className="material-symbols-outlined text-[18px] text-amber-300">
               workspace_premium
@@ -180,7 +180,7 @@ function MatchPageLoading() {
   return (
     <div className="p-6 md:p-8 max-w-[1600px] mx-auto w-full">
       <div className="flex items-center gap-4 mb-6">
-        <div className="w-10 h-10 bg-surface-container-low rounded-DEFAULT animate-pulse" />
+        <div className="w-10 h-10 bg-surface-container-low rounded-lg animate-pulse" />
         <div className="space-y-2">
           <div className="h-8 w-48 bg-surface-container-low rounded animate-pulse" />
           <div className="h-4 w-32 bg-surface-container-low rounded animate-pulse" />

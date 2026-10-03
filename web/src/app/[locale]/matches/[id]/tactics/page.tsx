@@ -65,7 +65,7 @@ function TacticsEditorContent() {
         <div className="flex items-center gap-3">
           <Link
             href={`/${locale}/matches/${matchId}`}
-            className="flex items-center justify-center w-10 h-10 bg-surface-container-low border border-outline-variant/30 text-on-surface-variant rounded-DEFAULT hover:bg-surface-container-high hover:text-on-surface transition-all"
+            className="flex items-center justify-center w-10 h-10 bg-surface-container-low border border-outline-variant/30 text-on-surface-variant rounded-lg hover:bg-surface-container-high hover:text-on-surface transition-all"
           >
             <span className="material-symbols-outlined text-[18px]">arrow_back</span>
           </Link>
@@ -88,7 +88,7 @@ function TacticsLoading() {
   return (
     <div className="p-4 md:p-6 max-w-[1600px] mx-auto w-full">
       <div className="flex items-center gap-3 mb-4">
-        <div className="w-10 h-10 bg-surface-container-low rounded-DEFAULT animate-pulse" />
+        <div className="w-10 h-10 bg-surface-container-low rounded-lg animate-pulse" />
         <div className="space-y-2">
           <div className="h-6 w-48 bg-surface-container-low rounded animate-pulse" />
           <div className="h-4 w-32 bg-surface-container-low rounded animate-pulse" />

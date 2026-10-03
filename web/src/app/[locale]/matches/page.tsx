@@ -206,7 +206,7 @@ function MatchesPageContent() {
       <div className="p-6 md:p-8 max-w-7xl mx-auto w-full">
         <div className="animate-pulse space-y-6">
           <div className="h-12 w-64 bg-surface-container rounded-lg" />
-          <div className="h-[420px] bg-surface-container rounded-3xl" />
+          <div className="h-[420px] bg-surface-container rounded-2xl" />
         </div>
       </div>
     );
@@ -428,7 +428,7 @@ function MatchesPageContent() {
                   key={f}
                   onClick={() => setTypeFilter(f)}
                   className={clsx(
-                    "px-2.5 py-1 rounded-md font-label text-[10px] font-black uppercase tracking-widest border transition-colors",
+                    "px-2.5 py-1 rounded-lg font-label text-[10px] font-black uppercase tracking-widest border transition-colors",
                     active
                       ? "bg-primary/10 border-primary/40 text-primary"
                       : "bg-surface-container/30 border-outline-variant/10 text-on-surface-variant hover:text-on-surface hover:border-outline-variant/30",
@@ -481,7 +481,7 @@ function MatchesPageLoading() {
     <div className="p-6 md:p-8 max-w-7xl mx-auto w-full">
       <div className="animate-pulse space-y-6">
         <div className="h-12 w-64 bg-surface-container rounded-lg" />
-        <div className="h-[420px] bg-surface-container rounded-3xl" />
+        <div className="h-[420px] bg-surface-container rounded-2xl" />
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
           <div className="lg:col-span-5 space-y-2">
             <div className="h-6 w-40 bg-surface-container rounded mb-3" />

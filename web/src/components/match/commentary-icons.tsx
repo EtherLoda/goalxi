@@ -33,6 +33,7 @@
  *   SaveIcon     — D-style glove
  */
 import React from 'react';
+import { signalGold } from '@/lib/design-tokens';
 
 export interface CommentaryIconProps {
   size?: number;
@@ -62,7 +63,7 @@ const SLATE_3 = '#334155';
 const WHITE = '#f8fafc';
 const GREEN = '#34d399';
 const RED = '#ef4444';
-const YELLOW = '#fbbf24';
+const YELLOW = signalGold;
 const BLUE = '#60a5fa';
 const GRAY = '#94a3b8';
 const PURPLE = '#a78bfa';

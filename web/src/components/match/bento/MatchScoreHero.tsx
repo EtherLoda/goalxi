@@ -120,7 +120,7 @@ export function MatchScoreHero({
             ? 'bg-surface-container border border-outline-variant/40 text-on-surface-variant'
             : isConnected
               ? 'bg-primary/10 text-primary border border-primary/20'
-              : 'bg-amber-500/10 text-amber-500 border border-amber-500/30'
+              : 'bg-signal-amber/10 text-signal-amber border border-signal-amber/30'
         }`}
         data-testid="match-minute-pill"
       >
@@ -130,7 +130,7 @@ export function MatchScoreHero({
               ? 'bg-on-surface-variant'
               : isConnected
                 ? 'bg-primary animate-pulse'
-                : 'bg-amber-500 animate-pulse'
+                : 'bg-signal-amber animate-pulse'
           }`}
           aria-hidden="true"
         />

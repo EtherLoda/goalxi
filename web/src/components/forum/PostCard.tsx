@@ -69,11 +69,11 @@ export default function PostCard({
     <div className="glass-panel p-5 rounded-2xl border border-outline-variant/10">
       <div className="flex items-center justify-between mb-3 pb-3 border-b border-outline-variant/10">
         <div className="flex items-center gap-3">
-          <div className="w-8 h-8 rounded-full bg-primary/20 border border-primary/30 flex items-center justify-center font-headline font-black text-[10px] text-[#a1ffc2]">
+          <div className="w-8 h-8 rounded-full bg-primary/20 border border-primary/30 flex items-center justify-center font-headline font-black text-[10px] text-accent">
             {(post.author?.username ?? "?").charAt(0).toUpperCase()}
           </div>
           <div>
-            <div className="font-headline font-bold text-sm text-[#d3f5e8]">
+            <div className="font-headline font-bold text-sm text-frost">
               {post.author?.username ?? "unknown"}
             </div>
             <div
@@ -100,7 +100,7 @@ export default function PostCard({
           )}
         </div>
       </div>
-      <p className="font-body text-[#d3f5e8] whitespace-pre-wrap break-words leading-relaxed mb-3">
+      <p className="font-body text-frost whitespace-pre-wrap break-words leading-relaxed mb-3">
         {post.body}
       </p>
       {(onReply || onQuote) && (
@@ -108,7 +108,7 @@ export default function PostCard({
           {onReply && (
             <button
               onClick={onReply}
-              className="flex items-center gap-1 font-label text-[10px] uppercase tracking-widest text-on-surface-variant hover:text-[#a1ffc2] transition-colors"
+              className="flex items-center gap-1 font-label text-[10px] uppercase tracking-widest text-on-surface-variant hover:text-accent transition-colors"
             >
               <span className="material-symbols-outlined text-sm">reply</span>
               {t("reply")}
@@ -117,7 +117,7 @@ export default function PostCard({
           {onQuote && (
             <button
               onClick={() => onQuote(post)}
-              className="flex items-center gap-1 font-label text-[10px] uppercase tracking-widest text-on-surface-variant hover:text-[#a1ffc2] transition-colors"
+              className="flex items-center gap-1 font-label text-[10px] uppercase tracking-widest text-on-surface-variant hover:text-accent transition-colors"
             >
               <span className="material-symbols-outlined text-sm">format_quote</span>
               {t("quote")}
