@@ -14,6 +14,7 @@ import {
   FAN_EMOTION_TIER_ICON,
   FAN_EMOTION_TIER_ACCENT,
 } from "@/lib/fan-constants";
+import DashboardSkeleton from "@/components/dashboard/DashboardSkeleton";
 
 // Mock announcements for System Announcements panel
 const MOCK_ANNOUNCEMENTS = [
@@ -142,6 +143,15 @@ function DashboardPageContent() {
 
   const formResults = getFormResults();
 
+  // A skeleton is only honest while a fetch is genuinely in flight. The
+  // dashboard effect bails out early when the team has no league, which
+  // leaves `isLoading` parked on its initial `true` forever — so gating
+  // on that flag alone would strand a league-less team (and a teamless
+  // user mid-redirect) on a permanent skeleton. Gate on "a league exists,
+  // therefore a fetch is running" instead.
+  const awaitingLeague = Boolean(currentTeam?.leagueId);
+  const showSkeleton = authLoading || (isLoading && awaitingLeague);
+
   const getOpponentName = (match: Match) => {
     if (!currentTeam) return "";
     return match.homeTeamId === currentTeam.id ? match.awayTeam?.name : match.homeTeam?.name;
@@ -208,6 +218,10 @@ function DashboardPageContent() {
       default: return data.message || type;
     }
   };
+
+  if (showSkeleton) {
+    return <DashboardSkeleton />;
+  }
 
   return (
     <div className="p-6 space-y-6 max-w-7xl mx-auto w-full">
