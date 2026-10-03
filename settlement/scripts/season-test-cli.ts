@@ -50,7 +50,14 @@ function parseCliArgs(): CliArgs {
   const { values } = parseArgs({
     options: {
       tiers: { type: 'string', short: 't', default: '2' },
-      weeks: { type: 'string', short: 'w', default: '16' },
+      // Derived, not a literal: this was hardcoded to 16 and survived the
+      // 16w2m -> 11w3m compression, so a bare `pnpm cli:season-test` ran
+      // five empty weeks past the end of the season.
+      weeks: {
+        type: 'string',
+        short: 'w',
+        default: String(GAME_SETTINGS.SEASON_LENGTH_WEEKS),
+      },
       teams: { type: 'string', short: 'n', default: '16' },
       fresh: { type: 'boolean', short: 'f', default: false },
       help: { type: 'boolean', short: 'h', default: false },
@@ -63,11 +70,11 @@ Season Test CLI - Full system integration test
 
 Usage:
   pnpm cli:season-test --tiers 2 --fresh
-  pnpm cli:season-test --tiers 2 --weeks 8
+  pnpm cli:season-test --tiers 2 --weeks 11
 
 Options:
   --tiers, -t    Number of tiers (default: 2)
-  --weeks, -w    Weeks to simulate (default: 16)
+  --weeks, -w    Weeks to simulate (default: ${GAME_SETTINGS.SEASON_LENGTH_WEEKS})
   --teams, -n    Teams per league (default: 16)
   --fresh, -f    Drop and recreate database
   --help, -h     Show this help message
