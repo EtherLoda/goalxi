@@ -5,12 +5,13 @@ import {
   ArchivedSeasonResultEntity,
   LeagueEntity,
   LeagueStandingEntity,
-  MatchEntity,
   SeasonResultEntity,
 } from '@goalxi/database';
 import { Injectable, NotFoundException } from '@nestjs/common';
+import { InjectDataSource } from '@nestjs/typeorm';
 import assert from 'assert';
 import { plainToInstance } from 'class-transformer';
+import { DataSource } from 'typeorm';
 import { CreateLeagueReqDto } from './dto/create-league.req.dto';
 import { LeagueStandingResDto } from './dto/league-standing.res.dto';
 import { LeagueResDto } from './dto/league.res.dto';
@@ -38,7 +39,12 @@ interface RecentFormRow {
 
 @Injectable()
 export class LeagueService {
-  constructor() {}
+  /**
+   * `loadRecentForm` needs a raw SQL escape hatch — see the note on that
+   * method for why the QueryBuilder cannot express it. That needs a
+   * DataSource, which is why this is not a zero-dependency service.
+   */
+  constructor(@InjectDataSource() private readonly dataSource: DataSource) {}
 
   async findMany(
     reqDto: ListLeagueReqDto,
@@ -265,24 +271,49 @@ export class LeagueService {
     leagueId: string,
     season: number,
   ): Promise<Map<string, RecentFormRow[]>> {
-    const rows = await MatchEntity.createQueryBuilder()
-      .select('p.team_id', 'teamId')
-      .addSelect('p.home_score', 'homeScore')
-      .addSelect('p.away_score', 'awayScore')
-      .addSelect('p.home_team_id', 'homeTeamId')
-      .addSelect('p.away_team_id', 'awayTeamId')
-      .addSelect('p.home_team_name', 'homeTeamName')
-      .addSelect('p.away_team_name', 'awayTeamName')
-      .addSelect('p.completed_at_iso', 'completedAtIso')
-      .addSelect('p.scheduled_at_iso', 'scheduledAtIso')
-      .from(
-        `(
+    // Raw SQL, deliberately, and NOT via QueryBuilder.
+    //
+    // `.from(<string>, alias)` does not accept a subquery string: TypeORM
+    // keeps its own main FROM and treats the string as a *table name*, so
+    // it emitted
+    //
+    //   FROM "match" "MatchEntity", "(SELECT * FROM (...) p" "p"
+    //
+    // and then applied its property replacement inside that string,
+    // rewriting `m.home_team_id` to `m"."home_team_id`. Postgres rejected
+    // it with `improper qualified name (too many dotted names)`, which
+    // surfaced as a 500 on `GET /leagues/:id/standings` — the whole
+    // standings page, not just the form strip.
+    //
+    // Renaming the inner alias does not help: the outer FROM was still
+    // emitted. `QueryBuilder.from()` wants a SelectQueryBuilder, and
+    // building this UNION ALL of two window queries as one is far more
+    // code than it is worth.
+    //
+    // `dataSource.query` passes the string through untouched. It is the
+    // same connection pool and the same parameter binding ($1/$2/$3), so
+    // there is no injection surface — the values are still bound, not
+    // interpolated.
+    const rows = (await this.dataSource.query(
+      `
+        SELECT
+          p.team_id            AS "teamId",
+          p.home_score          AS "homeScore",
+          p.away_score          AS "awayScore",
+          p.home_team_id        AS "homeTeamId",
+          p.away_team_id        AS "awayTeamId",
+          p.home_team_name      AS "homeTeamName",
+          p.away_team_name      AS "awayTeamName",
+          p.completed_at_iso    AS "completedAtIso",
+          p.scheduled_at_iso    AS "scheduledAtIso"
+        FROM (
           SELECT * FROM (
             SELECT
               m.home_team_id AS team_id,
               m.home_team_id, m.away_team_id,
               m.home_score, m.away_score,
-              m.scheduled_at, m.completed_at,
+              m.completed_at AS completed_at_iso,
+              m.scheduled_at AS scheduled_at_iso,
               m.season,
               ht.name AS home_team_name,
               at.name AS away_team_name,
@@ -293,15 +324,16 @@ export class LeagueService {
             FROM "match" m
             LEFT JOIN "team" ht ON ht.id = m.home_team_id
             LEFT JOIN "team" at ON at.id = m.away_team_id
-            WHERE m.league_id = :leagueId
-              AND m.season = :season
+            WHERE m.league_id = $1
+              AND m.season = $2
               AND m.status = 'completed'
             UNION ALL
             SELECT
               m.away_team_id AS team_id,
               m.home_team_id, m.away_team_id,
               m.home_score, m.away_score,
-              m.scheduled_at, m.completed_at,
+              m.completed_at AS completed_at_iso,
+              m.scheduled_at AS scheduled_at_iso,
               m.season,
               ht.name AS home_team_name,
               at.name AS away_team_name,
@@ -312,17 +344,14 @@ export class LeagueService {
             FROM "match" m
             LEFT JOIN "team" ht ON ht.id = m.home_team_id
             LEFT JOIN "team" at ON at.id = m.away_team_id
-            WHERE m.league_id = :leagueId
-              AND m.season = :season
+            WHERE m.league_id = $1
+              AND m.season = $2
               AND m.status = 'completed'
-          ) all_rows WHERE rn <= :limit
-        ) p`,
-        'p',
-      )
-      .setParameter('leagueId', leagueId)
-      .setParameter('season', season)
-      .setParameter('limit', RECENT_FORM_MATCHES)
-      .getRawMany<RecentFormRow>();
+          ) all_rows WHERE rn <= $3
+        ) p
+      `,
+      [leagueId, season, RECENT_FORM_MATCHES],
+    )) as RecentFormRow[];
 
     const byTeam = new Map<string, RecentFormRow[]>();
     for (const row of rows) {

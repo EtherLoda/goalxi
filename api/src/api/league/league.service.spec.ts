@@ -3,7 +3,6 @@ import {
   ArchivedSeasonResultEntity,
   LeagueEntity,
   LeagueStandingEntity,
-  MatchEntity,
   SeasonResultEntity,
 } from '@goalxi/database';
 import { LeagueService } from './league.service';
@@ -25,7 +24,10 @@ describe('LeagueService.getPastSeasons (regression for #20)', () => {
   };
 
   beforeAll(() => {
-    service = new LeagueService();
+    // DataSource stub — this block only exercises the standings sort.
+    service = new LeagueService({
+      query: jest.fn().mockResolvedValue([]),
+    } as any);
     jest
       .spyOn(LeagueEntity, 'findOne')
       .mockImplementation((opts: any) => repos.league(opts));
@@ -151,16 +153,14 @@ describe('LeagueService.getStandings (SQL sort regression)', () => {
     addOrderBy: jest.Mock;
     getMany: jest.Mock;
   };
-  let recentFormChain: {
-    select: jest.Mock;
-    addSelect: jest.Mock;
-    from: jest.Mock;
-    setParameter: jest.Mock;
-    getRawMany: jest.Mock;
-  };
+  let rawQuery: jest.Mock;
 
   beforeEach(() => {
-    service = new LeagueService();
+    // `loadRecentForm` is raw SQL now, so the service needs a DataSource.
+    // A bare object with a `query` jest.fn is enough: the assertions
+    // below read the SQL string handed to it.
+    rawQuery = jest.fn().mockResolvedValue([]);
+    service = new LeagueService({ query: rawQuery } as any);
     qbChain = {
       leftJoinAndSelect: jest.fn().mockReturnThis(),
       where: jest.fn().mockReturnThis(),
@@ -174,20 +174,10 @@ describe('LeagueService.getStandings (SQL sort regression)', () => {
       .mockReturnValue(qbChain as any);
 
     // The recent-form strip used to be `MatchEntity.find(...)` over the
-    // WHOLE season, filtered per team in Node. It's now one window-
-    // function query (`loadRecentForm`), so the stub is a fluent chain
-    // ending in `getRawMany`. Kept as a spy rather than a real query
-    // builder because these tests assert on the STANDINGS sort key.
-    recentFormChain = {
-      select: jest.fn().mockReturnThis(),
-      addSelect: jest.fn().mockReturnThis(),
-      from: jest.fn().mockReturnThis(),
-      setParameter: jest.fn().mockReturnThis(),
-      getRawMany: jest.fn().mockResolvedValue([]),
-    };
-    jest
-      .spyOn(MatchEntity, 'createQueryBuilder')
-      .mockReturnValue(recentFormChain as any);
+    // WHOLE season, filtered per team in Node. It is now one window-
+    // function query (`loadRecentForm`), issued as raw SQL through the
+    // DataSource — see the note on that method for why it cannot be a
+    // QueryBuilder.
     // resolveLeagueId hits LeagueEntity.findOne for slug inputs
     // (the test calls getStandings with 'some-league', not a UUID)
     // and runs BEFORE the QueryBuilder mock, so we need this spy
@@ -344,8 +334,8 @@ describe('LeagueService.getStandings (SQL sort regression)', () => {
     await service.getStandings('some-league' as Uuid, 1);
 
     // A single FROM subquery, not the entity table.
-    expect(recentFormChain.from).toHaveBeenCalledTimes(1);
-    const sql = recentFormChain.from.mock.calls[0][0] as string;
+    expect(rawQuery).toHaveBeenCalledTimes(1);
+    const sql = rawQuery.mock.calls[0][0] as string;
 
     // Window function, partitioned per team and ordered most-recent-first.
     expect(sql).toContain('ROW_NUMBER() OVER');
@@ -356,24 +346,31 @@ describe('LeagueService.getStandings (SQL sort regression)', () => {
       /PARTITION BY m\.away_team_id\s+ORDER BY m\.completed_at DESC NULLS LAST, m\.id DESC/,
     );
     // Bounded to the top N per team, and N is a bound parameter.
-    expect(sql).toContain('WHERE rn <= :limit');
-    expect(recentFormChain.setParameter).toHaveBeenCalledWith('limit', 5);
+    expect(sql).toContain('WHERE rn <= $3');
+    expect(rawQuery.mock.calls[0][1]).toEqual([
+      '00000000-0000-0000-0000-000000000099',
+      1,
+      5,
+    ]);
     // Scoped to this league + season + completed only.
-    expect(sql).toContain('m.league_id = :leagueId');
-    expect(sql).toContain('m.season = :season');
+    expect(sql).toContain('m.league_id = $1');
+    expect(sql).toContain('m.season = $2');
     expect(sql).toContain("m.status = 'completed'");
     // Opponent names come from the join rather than a relation load.
     expect(sql).toContain('ht.name AS home_team_name');
     expect(sql).toContain('at.name AS away_team_name');
-    // getRawMany, not getMany — we want the aliased scalar columns.
-    expect(recentFormChain.getRawMany).toHaveBeenCalled();
+    // REGRESSION: the SQL must reach Postgres verbatim. `.from(<string>)`
+    // on a QueryBuilder does NOT take a subquery — TypeORM emits its own
+    // main FROM and quotes the string as a table name, which 500s the
+    // endpoint. Asserting we go through `query()` is what pins that.
+    expect(rawQuery).toHaveBeenCalled();
   });
 
   it('REGRESSION: groups the recent-form rows per team and keeps them newest-first', async () => {
     // The outer SELECT has no ORDER BY of its own, so `loadRecentForm`
     // re-sorts each team's slice — the DTO's `recentMatches[0]` is
     // "last match" and must not depend on Postgres row order.
-    recentFormChain.getRawMany.mockResolvedValueOnce([
+    rawQuery.mockResolvedValueOnce([
       row('team-A', '2026-03-01T00:00:00Z'),
       row('team-A', '2026-04-01T00:00:00Z'),
       row('team-A', '2026-02-01T00:00:00Z'),
