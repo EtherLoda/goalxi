@@ -1,7 +1,9 @@
 "use client";
 
+import { AppIcon } from "@/components/icons/AppIcon";
 import Link from "next/link";
 import { useParams } from "next/navigation";
+import { useTranslations } from "next-intl";
 import { useAuth } from "@/contexts/AuthContext";
 
 interface HeaderProps {
@@ -14,6 +16,7 @@ export default function Header({ title, showUser = true, actions }: HeaderProps)
   const params = useParams();
   const locale = params.locale as string || "en";
   const { user } = useAuth();
+  const t = useTranslations();
 
   return (
     <header className="h-16 bg-ink-1000/70 backdrop-blur-2xl border-b border-white/5 flex items-center justify-between px-6 shrink-0">
@@ -29,11 +32,15 @@ export default function Header({ title, showUser = true, actions }: HeaderProps)
         <Link
           href={`/${locale}/transfers`}
           className="p-2 text-muted hover:text-accent transition-colors"
+          aria-label={t("dashboard.nav.transfers")}
         >
-          <span className="material-symbols-outlined">storefront</span>
+          <AppIcon name="storefront" />
         </Link>
-        <button className="p-2 text-muted hover:text-accent transition-colors">
-          <span className="material-symbols-outlined">notifications</span>
+        <button
+          className="p-2 text-muted hover:text-accent transition-colors"
+          aria-label={t("notification.title")}
+        >
+          <AppIcon name="notifications" />
         </button>
         {showUser && (
           <>

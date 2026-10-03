@@ -1,5 +1,6 @@
 "use client";
 
+import { AppIcon } from "@/components/icons/AppIcon";
 import { useState } from "react";
 import { forumApi } from "@/lib/forum-api";
 
@@ -46,7 +47,7 @@ export default function ReactionButton({
       } disabled:opacity-50`}
       aria-label={hasReacted ? "Unlike" : "Like"}
     >
-      <span className="material-symbols-outlined text-sm">thumb_up</span>
+      <AppIcon name="thumb_up" className="text-sm" />
       <span className="font-bold">{count}</span>
     </button>
   );

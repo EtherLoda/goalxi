@@ -5,6 +5,7 @@
  * planned sub / move. Visual polish: gradient surface + icon header +
  * single Add button + animated cards.
  */
+import { AppIcon } from "@/components/icons/AppIcon";
 import React from 'react';
 import { useTranslations } from 'next-intl';
 import type { Player } from '@/lib/api';
@@ -49,7 +50,7 @@ export function TacticalEventsPanel({
         <div className="flex items-center justify-between mb-3 gap-2">
           <div className="flex items-center gap-2 min-w-0">
             <span className="flex items-center justify-center w-8 h-8 rounded-lg bg-primary/15 text-primary border border-primary/20 shrink-0">
-              <span className="material-symbols-outlined text-[16px]">event_list</span>
+              <AppIcon name="event_list" className="text-[16px]" />
             </span>
             <div className="min-w-0">
               <h3 className="text-sm font-black uppercase tracking-[0.08em] text-on-surface truncate">
@@ -67,7 +68,7 @@ export function TacticalEventsPanel({
               disabled={disabled}
               className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-primary text-on-primary font-label text-[10px] font-bold uppercase tracking-widest hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             >
-              <span className="material-symbols-outlined text-[12px]">swap_horiz</span>
+              <AppIcon name="swap_horiz" className="text-[12px]" />
               {t('sub')}
             </button>
             <button
@@ -76,7 +77,7 @@ export function TacticalEventsPanel({
               disabled={disabled}
               className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-tertiary/20 text-tertiary border border-tertiary/30 font-label text-[10px] font-bold uppercase tracking-widest hover:bg-tertiary/30 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             >
-              <span className="material-symbols-outlined text-[12px]">open_with</span>
+              <AppIcon name="open_with" className="text-[12px]" />
               {t('move')}
             </button>
           </div>
@@ -85,7 +86,7 @@ export function TacticalEventsPanel({
         {events.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-8 text-center border-2 border-dashed border-outline-variant/20 rounded-xl">
             <div className="w-10 h-10 rounded-full bg-surface-container-highest flex items-center justify-center mb-2">
-              <span className="material-symbols-outlined text-[20px] text-outline/40">event_busy</span>
+              <AppIcon name="event_busy" className="text-[20px] text-outline/40" />
             </div>
             <p className="font-label text-[10px] font-bold uppercase tracking-widest text-outline px-4">
               {t('empty')}

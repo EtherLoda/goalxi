@@ -1,5 +1,6 @@
 "use client";
 
+import { AppIcon } from "@/components/icons/AppIcon";
 import { useEffect, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 
@@ -118,7 +119,7 @@ export default function ReplyForm({
       {replyTarget && (
         <div className="flex items-center justify-between mb-2 px-4 py-2 rounded-lg bg-ink-500 border border-accent/30">
           <span className="font-label text-[10px] uppercase tracking-widest text-accent flex items-center gap-2">
-            <span className="material-symbols-outlined text-sm">format_quote</span>
+            <AppIcon name="format_quote" className="text-sm" />
             {t("replyingTo", { username: replyTarget.authorUsername })}
           </span>
           <button
@@ -126,7 +127,7 @@ export default function ReplyForm({
             onClick={handleClearTarget}
             className="font-label text-[10px] uppercase tracking-widest text-on-surface-variant hover:text-red-400 transition-colors flex items-center gap-1"
           >
-            <span className="material-symbols-outlined text-sm">close</span>
+            <AppIcon name="close" className="text-sm" />
             {t("cancel")}
           </button>
         </div>

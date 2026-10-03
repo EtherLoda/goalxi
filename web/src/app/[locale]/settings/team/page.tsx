@@ -1,5 +1,6 @@
 "use client";
 
+import { AppIcon } from "@/components/icons/AppIcon";
 import { useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
 import { useAuth } from "@/contexts/AuthContext";
@@ -54,7 +55,7 @@ export default function TeamSettingsPage() {
         <>
             <header>
                 <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.3em] text-primary/70 mb-3">
-                    <span className="material-symbols-outlined text-base">settings</span>
+                    <AppIcon name="settings" className="text-base" />
                     <span>{t("eyebrow")}</span>
                 </div>
                 <h1 className="font-headline text-4xl font-black uppercase tracking-tight text-on-surface">

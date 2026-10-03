@@ -1,5 +1,6 @@
 "use client";
 
+import { AppIcon, type MaterialIconName } from "@/components/icons/AppIcon";
 import { useEffect, useState, Suspense, useCallback } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
@@ -124,7 +125,7 @@ function LeagueHistoryContent() {
           )}
           aria-label="Back"
         >
-          <span className="material-symbols-outlined text-base">arrow_back</span>
+          <AppIcon name="arrow_back" className="text-base" />
           <span>{t('common.back')}</span>
         </button>
 
@@ -159,9 +160,7 @@ function LeagueHistoryContent() {
         />
       ) : isLoadingStandings ? (
         <div className="glass-panel rounded-2xl p-12 flex items-center justify-center">
-          <span className="material-symbols-outlined text-4xl text-primary animate-spin">
-            progress_activity
-          </span>
+          <AppIcon name="progress_activity" className="text-4xl text-primary animate-spin" />
         </div>
       ) : standings && standings.length > 0 ? (
         <StandingsTable
@@ -194,7 +193,7 @@ function SeasonFilter({ seasons, selected, onChange }: SeasonFilterProps) {
   return (
     <div className="flex items-center gap-3 flex-wrap">
       <span className="inline-flex items-center gap-1.5 font-label text-[10px] font-black uppercase tracking-[0.2em] text-on-surface-variant/70">
-        <span className="material-symbols-outlined text-base">filter_list</span>
+        <AppIcon name="filter_list" className="text-base" />
         {t('league.history.filterSeason', { defaultValue: 'Season' })}
       </span>
       <div className="inline-flex items-center gap-1.5 overflow-x-auto custom-scrollbar pb-1 -mx-1 px-1">
@@ -225,7 +224,7 @@ function SeasonFilter({ seasons, selected, onChange }: SeasonFilterProps) {
 }
 
 interface EmptyStateProps {
-  icon: string;
+  icon: MaterialIconName;
   title: string;
   message: string;
 }
@@ -236,9 +235,7 @@ function EmptyState({ icon, title, message }: EmptyStateProps) {
       <div className="flex items-center justify-center py-20 px-6">
         <div className="text-center max-w-sm">
           <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-primary/10 border border-primary/20 mb-4">
-            <span className="material-symbols-outlined text-4xl text-primary">
-              {icon}
-            </span>
+            <AppIcon name={icon} className="text-4xl text-primary" />
           </div>
           <p className="font-headline text-base font-black text-on-surface mb-1">
             {title}
@@ -253,9 +250,7 @@ function EmptyState({ icon, title, message }: EmptyStateProps) {
 function LeagueHistoryLoading() {
   return (
     <div className="flex items-center justify-center min-h-screen">
-      <span className="material-symbols-outlined text-4xl text-primary animate-spin">
-        progress_activity
-      </span>
+      <AppIcon name="progress_activity" className="text-4xl text-primary animate-spin" />
     </div>
   );
 }

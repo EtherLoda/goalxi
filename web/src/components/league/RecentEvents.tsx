@@ -1,5 +1,6 @@
 "use client";
 
+import { AppIcon } from "@/components/icons/AppIcon";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { useParams } from "next/navigation";
@@ -69,9 +70,7 @@ export default function RecentEvents({ news }: RecentEventsProps) {
                     <div
                       className={`w-6 h-6 rounded-lg ${style.bg} flex items-center justify-center ${style.labelColor}`}
                     >
-                      <span className="material-symbols-outlined text-[14px]">
-                        {style.icon}
-                      </span>
+                      <AppIcon name={style.icon} className="text-[14px]" />
                     </div>
                     <span
                       className={`font-label text-[9px] font-headline uppercase font-black tracking-[0.25em] ${style.labelColor}`}
@@ -102,9 +101,7 @@ export default function RecentEvents({ news }: RecentEventsProps) {
                       className="inline-flex items-center gap-1 text-xs text-primary hover:text-primary-fixed font-medium transition-colors"
                     >
                       {t("league.recentEvents.viewMatch")}
-                      <span className="material-symbols-outlined text-sm">
-                        arrow_forward
-                      </span>
+                      <AppIcon name="arrow_forward" className="text-sm" />
                     </Link>
                   </div>
                 )}
@@ -115,9 +112,7 @@ export default function RecentEvents({ news }: RecentEventsProps) {
       ) : (
         <div className="glass-panel rounded-2xl p-10 text-center">
           <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-white/5 border border-white/10 mb-3">
-            <span className="material-symbols-outlined text-3xl text-on-surface-variant/40">
-              inbox
-            </span>
+            <AppIcon name="inbox" className="text-3xl text-on-surface-variant/40" />
           </div>
           <p className="font-headline text-sm font-bold text-on-surface mb-1">
             {t('league.sections.noEvents')}

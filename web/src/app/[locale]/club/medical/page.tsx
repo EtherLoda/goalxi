@@ -1,5 +1,6 @@
 "use client";
 
+import { AppIcon, type MaterialIconName } from "@/components/icons/AppIcon";
 import { useTranslations } from "next-intl";
 import { useEffect, useMemo, useState } from "react";
 import { useParams } from "next/navigation";
@@ -14,7 +15,7 @@ import { coachLevelLabel, coachLevelColorClass } from "@/lib/coach-level";
 import { useCurrentTeamId } from "@/stores/gameStore";
 import { formatRecoveryWeeks } from "@/lib/format-recovery-weeks";
 
-const INJURY_TYPE_ICONS: Record<string, string> = {
+const INJURY_TYPE_ICONS: Record<string, MaterialIconName> = {
   muscle: "fitness_center",
   ligament: "healing",
   joint: "accessibility",
@@ -98,7 +99,7 @@ export default function MedicalPage() {
       {/* Header */}
       <header className="mb-10">
         <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.3em] text-primary/70 mb-3">
-          <span className="material-symbols-outlined text-base">medical_services</span>
+          <AppIcon name="medical_services" className="text-base" />
           <span>{tCommon("dashboard.nav.operations")}</span>
         </div>
         <h1 className="font-headline text-4xl font-black uppercase tracking-tight text-on-surface">
@@ -185,9 +186,7 @@ export default function MedicalPage() {
             </div>
           ) : (
             <div className="text-center py-6">
-              <span className="material-symbols-outlined text-4xl text-on-surface-variant/40">
-                medical_information
-              </span>
+              <AppIcon name="medical_information" className="text-4xl text-on-surface-variant/40" />
               <p className="font-body text-sm text-on-surface-variant mt-3">
                 {t("doctor.none")}
               </p>
@@ -238,10 +237,8 @@ export default function MedicalPage() {
                         </td>
                         <td className="px-3 py-2.5 text-xs">
                           <span className="inline-flex items-center gap-1.5">
-                            <span className="material-symbols-outlined text-base text-on-surface-variant">
-                              {INJURY_TYPE_ICONS[p.injuryType ?? "other"] ??
-                                "medical_services"}
-                            </span>
+                            <AppIcon name={INJURY_TYPE_ICONS[p.injuryType ?? "other"] ??
+                                "medical_services"} className="text-base text-on-surface-variant" />
                             <span className="text-on-surface">
                               {p.injuryType
                                 ? t(`injuryTypes.${p.injuryType}`)
@@ -315,10 +312,8 @@ export default function MedicalPage() {
                       </td>
                       <td className="px-3 py-2.5 text-xs">
                         <span className="inline-flex items-center gap-1.5">
-                          <span className="material-symbols-outlined text-base text-on-surface-variant">
-                            {INJURY_TYPE_ICONS[h.injuryType] ??
-                              "medical_services"}
-                          </span>
+                          <AppIcon name={INJURY_TYPE_ICONS[h.injuryType] ??
+                              "medical_services"} className="text-base text-on-surface-variant" />
                           <span className="text-on-surface">
                             {t(`injuryTypes.${h.injuryType}`)}
                           </span>
@@ -359,7 +354,7 @@ interface SummaryCardProps {
   label: string;
   value: number | string;
   tone: "primary" | "error" | "amber" | "muted";
-  icon: string;
+  icon: MaterialIconName;
 }
 
 function SummaryCard({ label, value, tone, icon }: SummaryCardProps) {
@@ -376,13 +371,7 @@ function SummaryCard({ label, value, tone, icon }: SummaryCardProps) {
         <span className="font-label text-[10px] font-black uppercase tracking-widest text-on-surface-variant">
           {label}
         </span>
-        <span
-          className={`material-symbols-outlined text-lg ${toneClasses}`}
-          style={{ fontVariationSettings: "'FILL' 1" }}
-          aria-hidden
-        >
-          {icon}
-        </span>
+        <AppIcon name={icon} className={`text-lg ${toneClasses}`} />
       </div>
       <div className={`font-headline text-3xl font-black ${toneClasses}`}>
         {value}
@@ -404,12 +393,10 @@ function SkeletonRows({ rows }: { rows: number }) {
   );
 }
 
-function EmptyState({ message, icon }: { message: string; icon: string }) {
+function EmptyState({ message, icon }: { message: string; icon: MaterialIconName }) {
   return (
     <div className="text-center py-8">
-      <span className="material-symbols-outlined text-3xl text-on-surface-variant/40">
-        {icon}
-      </span>
+      <AppIcon name={icon} className="text-3xl text-on-surface-variant/40" />
       <p className="font-body text-sm text-on-surface-variant mt-2">{message}</p>
     </div>
   );

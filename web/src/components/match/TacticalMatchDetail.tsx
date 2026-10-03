@@ -1,5 +1,6 @@
 'use client';
 
+import { AppIcon, type MaterialIconName } from "@/components/icons/AppIcon";
 import { useEffect, useMemo, useState } from 'react';
 import { useTranslations, useLocale } from 'next-intl';
 import {
@@ -95,16 +96,17 @@ interface SnapshotData_dead {
   };
 }
 
-/** Maps a weather type to the emoji shown in the pre-match card. */
-function weatherEmoji(w: WeatherType | string): string {
+/** Maps a weather type to the Material ligature name shown in the
+ * pre-match card (resolved to an SVG by <AppIcon>). */
+function weatherIconName(w: WeatherType | string): MaterialIconName {
   const key = w.toLowerCase();
-  if (key.includes('storm')) return '⛈️';
-  if (key.includes('rain')) return '🌧️';
-  if (key.includes('snow')) return '❄️';
-  if (key.includes('fog')) return '🌫️';
-  if (key.includes('wind')) return '💨';
-  if (key.includes('cloud')) return '☁️';
-  return '☀️';
+  if (key.includes('storm')) return 'thunderstorm';
+  if (key.includes('rain')) return 'rainy';
+  if (key.includes('snow')) return 'ac_unit';
+  if (key.includes('fog')) return 'foggy';
+  if (key.includes('wind')) return 'air';
+  if (key.includes('cloud')) return 'cloud';
+  return 'wb_sunny';
 }
 
 /**
@@ -335,7 +337,7 @@ export function TacticalMatchDetail({
           <div className="flex flex-col gap-3">
             <div className="glass-panel rounded-2xl p-4">
               <h3 className="font-headline font-bold text-[10px] uppercase tracking-widest text-primary/80 mb-3 flex items-center gap-2">
-                <span className="material-symbols-outlined text-base">stadium</span>
+                <AppIcon name="stadium" className="text-base" />
                 {tLiveChrome('matchInfo') ?? 'Match Info'}
               </h3>
               <div className="flex flex-col gap-2">
@@ -343,7 +345,7 @@ export function TacticalMatchDetail({
                     pre-match, live and post-match all read from the same
                     source. */}
                 <div className="flex items-center gap-2">
-                  <span className="text-on-surface/40 text-sm">📍</span>
+                  <AppIcon name="place" className="text-on-surface/40 text-sm" />
                   <span className="font-headline font-bold text-sm text-on-surface/90">
                     {resolvedVenue ?? tLiveChrome('venueTbd') ?? 'Venue TBD'}
                   </span>
@@ -357,11 +359,15 @@ export function TacticalMatchDetail({
                 <div className="flex flex-col gap-1.5">
                   <div className="flex items-center gap-2">
                     <span className="text-base">
-                      {match.weather
-                        ? weatherEmoji(match.weather)
-                        : forecast?.forecasts?.[0]
-                          ? weatherEmoji(forecast.forecasts[0].weather)
-                          : '❔'}
+                      <AppIcon
+                        name={
+                          match.weather
+                            ? weatherIconName(match.weather)
+                            : forecast?.forecasts?.[0]
+                              ? weatherIconName(forecast.forecasts[0].weather)
+                              : 'help_outline'
+                        }
+                      />
                     </span>
                     <span className="font-headline font-bold text-sm text-on-surface/90">
                       {tLiveChrome('weatherForecastLabel') ?? 'Forecast'}:{' '}
@@ -399,7 +405,7 @@ export function TacticalMatchDetail({
                           key={f.weather}
                           className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-surface-container text-[10px] font-label text-on-surface/60"
                         >
-                          <span>{weatherEmoji(f.weather)}</span>
+                          <AppIcon name={weatherIconName(f.weather)} />
                           <span className="capitalize">
                             {f.weather.replace('_', ' ')}
                           </span>
@@ -412,7 +418,7 @@ export function TacticalMatchDetail({
                 {/* Kickoff time */}
                 {match.scheduledAt && (
                   <div className="flex items-center gap-2">
-                    <span className="text-on-surface/40 text-sm">🕒</span>
+                    <AppIcon name="schedule" className="text-on-surface/40 text-sm" />
                     <span className="font-headline font-bold text-sm text-on-surface/90">
                       {tLiveChrome('scheduledFor') ?? 'Kickoff'}:{' '}
                       {new Date(match.scheduledAt).toLocaleString()}
@@ -429,9 +435,7 @@ export function TacticalMatchDetail({
 
             {/* Pre-match hint card */}
             <div className="glass-panel rounded-2xl p-4 flex flex-col items-center text-center gap-2">
-              <span className="material-symbols-outlined text-3xl text-primary/40">
-                event
-              </span>
+              <AppIcon name="event" className="text-3xl text-primary/40" />
               <p className="text-xs text-on-surface-variant font-headline">
                 {tLiveChrome('notStartedBody') ??
                   'Lineups, live stats and the event timeline will appear here once the match kicks off.'}
@@ -472,9 +476,7 @@ export function TacticalMatchDetail({
                     }`}
                     data-testid="pitch-stats-toggle"
                   >
-                    <span className="material-symbols-outlined text-base">
-                      {statsMode ? 'group' : 'monitoring'}
-                    </span>
+                    <AppIcon name={statsMode ? 'group' : 'monitoring'} className="text-base" />
                     <span>
                       {statsMode ? tChip('playersView') : tChip('statsView')}
                     </span>
@@ -538,7 +540,7 @@ export function TacticalMatchDetail({
                   overflowing. */}
               <div className="glass-panel rounded-2xl p-4 shrink-0">
                 <h3 className="font-headline font-bold text-[10px] uppercase tracking-widest text-primary/80 mb-3 flex items-center gap-2">
-                  <span className="material-symbols-outlined text-base">stadium</span>
+                  <AppIcon name="stadium" className="text-base" />
                   {tLiveChrome('matchInfo') ?? 'Match Info'}
                 </h3>
                 <MatchInfoPanel
@@ -557,7 +559,7 @@ export function TacticalMatchDetail({
                   ~0px — hence "no events visible". */}
               <div className="glass-panel rounded-2xl p-4 flex flex-col min-h-[200px] max-h-[420px]">
                 <h3 className="font-headline font-bold text-[10px] uppercase tracking-widest text-primary/80 mb-3 flex items-center gap-2 shrink-0">
-                  <span className="material-symbols-outlined text-base">history</span>
+                  <AppIcon name="history" className="text-base" />
                   {tLiveChrome('keyEvents') ?? 'Key Events'}
                 </h3>
                 <div className="flex-1 min-h-0 overflow-y-auto">

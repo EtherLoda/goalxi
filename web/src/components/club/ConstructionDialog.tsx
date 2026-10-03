@@ -1,5 +1,6 @@
 "use client";
 
+import { AppIcon, type MaterialIconName } from "@/components/icons/AppIcon";
 import { useMemo, useState } from "react";
 import { useTranslations } from "next-intl";
 import { api } from "@/lib/api";
@@ -136,9 +137,7 @@ export function ConstructionDialog({
               (kind === "expand" ? "text-primary" : "text-error")
             }
           >
-            <span className="material-symbols-outlined text-base">
-              {kind === "expand" ? "add_circle" : "remove_circle"}
-            </span>
+            <AppIcon name={kind === "expand" ? "add_circle" : "remove_circle"} className="text-base" />
             <span>{title}</span>
           </div>
           <h2 className="font-headline text-xl font-black text-on-surface tracking-tight">
@@ -252,9 +251,7 @@ export function ConstructionDialog({
                 : "bg-error text-on-error hover:opacity-90")
             }
           >
-            <span className="material-symbols-outlined text-base">
-              {isSubmitting ? "hourglass_empty" : "check"}
-            </span>
+            <AppIcon name={isSubmitting ? "hourglass_empty" : "check"} className="text-base" />
             {isSubmitting
               ? t("submitting")
               : kind === "expand"
@@ -275,7 +272,7 @@ function PreviewStat({
 }: {
   label: string;
   value: string;
-  icon: string;
+  icon: MaterialIconName;
   tone?: "primary" | "error";
 }) {
   return (
@@ -284,18 +281,11 @@ function PreviewStat({
         <span className="font-label text-[10px] font-black uppercase tracking-widest text-on-surface-variant">
           {label}
         </span>
-        <span
-          className={
-            "material-symbols-outlined text-base " +
-            (tone === "primary"
+        <AppIcon name={icon} className={(tone === "primary"
               ? "text-primary"
               : tone === "error"
                 ? "text-error"
-                : "text-on-surface-variant")
-          }
-        >
-          {icon}
-        </span>
+                : "text-on-surface-variant")} />
       </div>
       <div className="font-headline text-lg font-black text-on-surface tabular-nums">
         {value}

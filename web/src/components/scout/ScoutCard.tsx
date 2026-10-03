@@ -1,5 +1,6 @@
 "use client";
 
+import { AppIcon } from "@/components/icons/AppIcon";
 import React from "react";
 import { useLocale, useTranslations } from "next-intl";
 import type { ScoutCandidate } from "@/lib/api";
@@ -170,9 +171,7 @@ export function ScoutCard({
           className={styles.btnSkip}
         >
           {busy ? (
-            <span className={`material-symbols-outlined ${styles.spinner}`}>
-              progress_activity
-            </span>
+            <AppIcon name="progress_activity" className={`${styles.spinner}`} />
           ) : null}
           {t("skip")}
         </button>
@@ -182,13 +181,9 @@ export function ScoutCard({
           className={styles.btnSign}
         >
           {busy ? (
-            <span className={`material-symbols-outlined ${styles.spinner}`}>
-              progress_activity
-            </span>
+            <AppIcon name="progress_activity" className={`${styles.spinner}`} />
           ) : (
-            <span className="material-symbols-outlined" style={{ fontSize: 14 }}>
-              add
-            </span>
+            <AppIcon name="add" style={{fontSize: 14}} />
           )}
           {t("select")}
         </button>

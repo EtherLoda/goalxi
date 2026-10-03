@@ -1,5 +1,6 @@
 "use client";
 
+import { AppIcon } from "@/components/icons/AppIcon";
 import { useTranslations } from "next-intl";
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
@@ -59,7 +60,7 @@ export default function ClubOverviewPage() {
         <div className="px-6 py-8 lg:px-10 lg:py-10 max-w-7xl mx-auto">
             <header className="mb-8">
                 <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.3em] text-primary/70 mb-3">
-                    <span className="material-symbols-outlined text-base">apartment</span>
+                    <AppIcon name="apartment" className="text-base" />
                     <span>{t("eyebrow")}</span>
                 </div>
                 <h1 className="font-headline text-4xl font-black uppercase tracking-tight text-on-surface">
@@ -79,7 +80,7 @@ export default function ClubOverviewPage() {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="bg-surface-container-low rounded-xl p-6 border border-outline-variant/10">
                         <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-on-surface-variant mb-3">
-                            <span className="material-symbols-outlined text-base">stadium</span>
+                            <AppIcon name="stadium" className="text-base" />
                             <span>{t("stadium.title")}</span>
                         </div>
                         <div className="font-headline text-3xl font-black text-on-surface">
@@ -93,7 +94,7 @@ export default function ClubOverviewPage() {
                     </div>
                     <div className="bg-surface-container-low rounded-xl p-6 border border-outline-variant/10">
                         <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-on-surface-variant mb-3">
-                            <span className="material-symbols-outlined text-base">info</span>
+                            <AppIcon name="info" className="text-base" />
                             <span>{t("info.title")}</span>
                         </div>
                         <div className="font-body text-sm text-on-surface space-y-1">

@@ -1,5 +1,6 @@
 "use client";
 
+import { AppIcon } from "@/components/icons/AppIcon";
 import { useEffect, useMemo, useState } from "react";
 import { useTranslations } from "next-intl";
 import { cupApi, type CupBracket as CupBracketData } from "@/lib/cup-api";
@@ -69,7 +70,7 @@ export default function CupBracket({ cupId, locale = "en" }: CupBracketProps) {
     return (
       <div className="glass-panel p-4 rounded-2xl border border-danger/30 bg-danger/10">
         <div className="flex items-center gap-3 font-body text-sm text-red-300">
-          <span className="material-symbols-outlined">error</span>
+          <AppIcon name="error" />
           {error}
         </div>
       </div>
@@ -79,9 +80,7 @@ export default function CupBracket({ cupId, locale = "en" }: CupBracketProps) {
   if (!bracket) {
     return (
       <div className="glass-panel p-12 rounded-2xl border border-outline-variant/10 text-center">
-        <span className="material-symbols-outlined text-4xl text-on-surface-variant/40 mb-3 block animate-pulse">
-          hourglass_empty
-        </span>
+        <AppIcon name="hourglass_empty" className="text-4xl text-on-surface-variant/40 mb-3 block animate-pulse" />
         <p className="font-headline text-on-surface-variant">{t("loading")}</p>
       </div>
     );

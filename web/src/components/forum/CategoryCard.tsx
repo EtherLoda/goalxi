@@ -1,5 +1,6 @@
 "use client";
 
+import { AppIcon } from "@/components/icons/AppIcon";
 import Link from "next/link";
 import type { ForumCategory } from "@/lib/forum-api";
 import { useParams } from "next/navigation";
@@ -21,7 +22,7 @@ export default function CategoryCard({ category }: CategoryCardProps) {
     >
       <div className="flex items-start gap-4">
         <div className="w-12 h-12 rounded-xl bg-surface-container-high border border-outline-variant/20 flex items-center justify-center shrink-0 group-hover:border-accent/40 transition-colors">
-          <span className="material-symbols-outlined text-accent">forum</span>
+          <AppIcon name="forum" className="text-accent" />
         </div>
         <div className="flex-1 min-w-0">
           <h3 className="font-headline font-bold text-lg text-frost leading-tight mb-1 group-hover:text-accent transition-colors">
@@ -34,18 +35,16 @@ export default function CategoryCard({ category }: CategoryCardProps) {
           )}
           <div className="flex items-center gap-4 font-label text-[10px] uppercase tracking-widest text-on-surface-variant/70">
             <span className="flex items-center gap-1">
-              <span className="material-symbols-outlined text-xs">chat_bubble</span>
+              <AppIcon name="chat_bubble" className="text-xs" />
               {t("threadCount_other", { count: category.threadCount })}
             </span>
             <span className="flex items-center gap-1">
-              <span className="material-symbols-outlined text-xs">forum</span>
+              <AppIcon name="forum" className="text-xs" />
               {t("postCount_other", { count: category.postCount })}
             </span>
           </div>
         </div>
-        <span className="material-symbols-outlined text-on-surface-variant/40 group-hover:text-accent group-hover:translate-x-1 transition-all">
-          chevron_right
-        </span>
+        <AppIcon name="chevron_right" className="text-on-surface-variant/40 group-hover:text-accent group-hover:translate-x-1 transition-all" />
       </div>
     </Link>
   );

@@ -1,5 +1,6 @@
 "use client";
 
+import { AppIcon } from "@/components/icons/AppIcon";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useTranslations } from "next-intl";
@@ -39,9 +40,7 @@ export default function SettingsNav({ locale }: SettingsNavProps) {
                                 : "text-on-surface-variant hover:text-on-surface hover:bg-white/5 border border-transparent"
                         }`}
                     >
-                        <span className="material-symbols-outlined text-base">
-                            {item.icon}
-                        </span>
+                        <AppIcon name={item.icon} className="text-base" />
                         <span>{t(item.href)}</span>
                     </Link>
                 );

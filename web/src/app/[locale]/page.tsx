@@ -1,5 +1,6 @@
 "use client";
 
+import { AppIcon } from "@/components/icons/AppIcon";
 import Link from "next/link";
 import Image from "next/image";
 import { useTranslations, useLocale } from "next-intl";
@@ -151,7 +152,7 @@ export default function Home() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <article className="md:col-span-2 relative overflow-hidden p-8 border border-white/5 bg-gradient-to-br from-primary-container via-surface-container-low to-surface-container-lowest transition-colors duration-200 hover:via-surface-container">
               <div className="w-12 h-12 bg-surface-container-highest flex items-center justify-center border border-primary/30">
-                <span className="material-symbols-outlined text-primary">strategy</span>
+                <AppIcon name="strategy" className="text-primary" />
               </div>
               <h3 className="font-headline text-xl md:text-2xl font-bold mt-6 text-on-surface">
                 {t("features.tacticalCanvas.title")}
@@ -163,7 +164,7 @@ export default function Home() {
 
             <article className="glass-panel p-8 transition-shadow duration-200 hover:shadow-card">
               <div className="w-12 h-12 bg-primary-container flex items-center justify-center mb-6 border border-primary/20">
-                <span className="material-symbols-outlined text-primary">travel_explore</span>
+                <AppIcon name="travel_explore" className="text-primary" />
               </div>
               <h3 className="font-headline text-xl md:text-2xl font-bold mb-3 text-on-surface">
                 {t("features.scouting.title")}
@@ -175,7 +176,7 @@ export default function Home() {
 
             <article className="p-8 border border-white/5 bg-surface-container-high transition-colors duration-200 hover:bg-surface-container-highest">
               <div className="w-12 h-12 bg-surface-container-highest flex items-center justify-center mb-6 border border-white/10">
-                <span className="material-symbols-outlined text-primary">monitoring</span>
+                <AppIcon name="monitoring" className="text-primary" />
               </div>
               <h3 className="font-headline text-xl md:text-2xl font-bold mb-3 text-on-surface">
                 {t("features.dataDriven.title")}

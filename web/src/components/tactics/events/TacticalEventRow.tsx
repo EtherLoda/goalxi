@@ -17,6 +17,7 @@
  * Toggling Sub↔Move clears the player/position fields (the reducer's
  * UPDATE_EVENT handler does the type-aware replacement).
  */
+import { AppIcon } from "@/components/icons/AppIcon";
 import React from 'react';
 import { useTranslations } from 'next-intl';
 import type { Player } from '@/lib/api';
@@ -60,7 +61,7 @@ export function TacticalEventRow({
       <div className="flex items-center justify-between mb-2.5 pb-2.5 border-b border-outline-variant/15">
         <div className="flex items-center gap-1.5">
           <div className="flex items-center gap-1 px-1.5 py-0.5 rounded bg-surface-container-highest border border-outline-variant/20">
-            <span className="material-symbols-outlined text-[12px] text-primary">schedule</span>
+            <AppIcon name="schedule" className="text-[12px] text-primary" />
             <input
               type="number"
               min={1}
@@ -85,7 +86,7 @@ export function TacticalEventRow({
                 : 'bg-tertiary/15 text-tertiary border-tertiary/30'
             }`}
           >
-            <span className="material-symbols-outlined text-[11px]">{isSub ? 'swap_horiz' : 'open_with'}</span>
+            <AppIcon name={isSub ? 'swap_horiz' : 'open_with'} className="text-[11px]" />
             {isSub ? t('sub') : t('move')}
           </span>
 
@@ -110,7 +111,7 @@ export function TacticalEventRow({
           aria-label={t('deleteAria')}
           className="p-1 rounded text-outline hover:text-error hover:bg-error/10 transition-all opacity-0 group-hover/item:opacity-100 disabled:opacity-50"
         >
-          <span className="material-symbols-outlined text-[14px]">close</span>
+          <AppIcon name="close" className="text-[14px]" />
         </button>
       </div>
 
@@ -120,9 +121,9 @@ export function TacticalEventRow({
         <div className="space-y-1">
           <div className="flex items-center gap-1 px-0.5">
             {isSub ? (
-              <span className="material-symbols-outlined text-[10px] text-red-400">remove_circle</span>
+              <AppIcon name="remove_circle" className="text-[10px] text-red-400" />
             ) : (
-              <span className="material-symbols-outlined text-[10px] text-tertiary">open_with</span>
+              <AppIcon name="open_with" className="text-[10px] text-tertiary" />
             )}
             <span className={`text-[9px] font-black uppercase tracking-widest ${isSub ? 'text-red-300/80' : 'text-tertiary/80'}`}>
               {isSub ? t('outLabel') : t('player')}
@@ -148,9 +149,7 @@ export function TacticalEventRow({
 
         {/* Arrow */}
         <div className="pt-5 flex justify-center text-outline">
-          <span className="material-symbols-outlined text-[16px]">
-            {isSub ? 'arrow_forward' : 'arrow_forward'}
-          </span>
+          <AppIcon name={isSub ? 'arrow_forward' : 'arrow_forward'} className="text-[16px]" />
         </div>
 
         {/* In / New Position */}
@@ -160,9 +159,9 @@ export function TacticalEventRow({
               {isSub ? t('inLabel') : t('newPosition')}
             </span>
             {isSub ? (
-              <span className="material-symbols-outlined text-[10px] text-positive-bright">add_circle</span>
+              <AppIcon name="add_circle" className="text-[10px] text-positive-bright" />
             ) : (
-              <span className="material-symbols-outlined text-[10px] text-signal-gold">open_with</span>
+              <AppIcon name="open_with" className="text-[10px] text-signal-gold" />
             )}
           </div>
           {isSub ? (

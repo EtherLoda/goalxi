@@ -1,5 +1,6 @@
 "use client";
 
+import { AppIcon } from "@/components/icons/AppIcon";
 import { useTranslations, useLocale } from "next-intl";
 import { useEffect, useState, useCallback, useRef, useMemo } from "react";
 import { useParams } from "next/navigation";
@@ -58,7 +59,7 @@ export default function TransfersPage() {
     { value: "positioning", label: t("squad.skills.positioning"), icon: "place_item" },
     { value: "freeKicks", label: t("squad.skills.freeKicks"), icon: "sports" },
     { value: "penalties", label: t("squad.skills.penalties"), icon: "flag" },
-  ], [t]);
+  ] as const, [t]);
 
   const GK_ATTRIBUTES = useMemo(() => [
     { value: "reflexes", label: t("squad.skills.reflexes"), icon: "pan_tool" },
@@ -70,7 +71,7 @@ export default function TransfersPage() {
     { value: "composure", label: t("squad.skills.composure"), icon: "psychology" },
     { value: "freeKicks", label: t("squad.skills.freeKicks"), icon: "sports" },
     { value: "penalties", label: t("squad.skills.penalties"), icon: "flag" },
-  ], [t]);
+  ] as const, [t]);
 
   const ATTRIBUTES = playerTypeFilter === "gk" ? GK_ATTRIBUTES : OUTFIELD_ATTRIBUTES;
 
@@ -91,7 +92,7 @@ export default function TransfersPage() {
     { value: "PHYSICAL_BEAST", label: t("transfers.specialties.PHYSICAL_BEAST") },
     { value: "SAVING_MASTER",  label: t("transfers.specialties.SAVING_MASTER") },
     { value: "SWEEPER_KEEPER", label: t("transfers.specialties.SWEEPER_KEEPER") },
-  ], [t]);
+  ] as const, [t]);
 
   const EXPIRED_LABEL = t("transfers.expired");
 
@@ -328,9 +329,7 @@ export default function TransfersPage() {
                   : 'bg-danger/10 text-red-400'
                 }
               `}>
-                <span className="material-symbols-outlined text-xl">
-                  {notification.type === 'success' ? 'check_circle' : 'error'}
-                </span>
+                <AppIcon name={notification.type === 'success' ? 'check_circle' : 'error'} className="text-xl" />
               </div>
 
               <div className="flex-1 min-w-0">
@@ -352,7 +351,7 @@ export default function TransfersPage() {
                   }
                 `}
               >
-                <span className="material-symbols-outlined text-lg">close</span>
+                <AppIcon name="close" className="text-lg" />
               </button>
             </div>
 
@@ -385,7 +384,7 @@ export default function TransfersPage() {
           <aside className="w-72 h-full bg-ink-800 border-r border-edge/10 p-6 overflow-y-auto custom-scrollbar">
             <div className="flex items-center justify-between mb-6">
               <h2 className="font-bold text-accent tracking-tight text-xs uppercase">{t("transfers.filters.scoutingFilters")}</h2>
-              <span className="material-symbols-outlined text-sm text-muted cursor-pointer">filter_list</span>
+              <AppIcon name="filter_list" className="text-sm text-muted cursor-pointer" />
             </div>
 
             <div className="space-y-6">
@@ -429,14 +428,14 @@ export default function TransfersPage() {
                       <div key={filter.id} className="bg-ink-900 p-3 rounded-xl border border-edge/10">
                         <div className="flex items-center justify-between mb-3">
                           <div className="flex items-center gap-2">
-                            <span className="material-symbols-outlined text-sm text-accent">{attrInfo.icon}</span>
+                            <AppIcon name={attrInfo.icon} className="text-sm text-accent" />
                             <span className="text-[11px] font-bold text-frost">{attrInfo.label}</span>
                           </div>
                           <button
                             onClick={() => removeAttributeFilter(filter.id)}
                             className="text-muted hover:text-red-400 transition-colors"
                           >
-                            <span className="material-symbols-outlined text-sm">close</span>
+                            <AppIcon name="close" className="text-sm" />
                           </button>
                         </div>
                         <div className="flex items-center gap-2 text-[10px] text-muted mb-2">
@@ -518,10 +517,10 @@ export default function TransfersPage() {
                     onClick={() => setShowAddFilterDropdown(!showAddFilterDropdown)}
                   >
                     <div className="flex items-center gap-3">
-                      <span className="material-symbols-outlined text-sm text-muted">add</span>
+                      <AppIcon name="add" className="text-sm text-muted" />
                       <span className="text-xs font-bold text-muted">{t("transfers.filter.addAttributeFilter")}</span>
                     </div>
-                    <span className="material-symbols-outlined text-muted text-xl">expand_more</span>
+                    <AppIcon name="expand_more" className="text-muted text-xl" />
                   </button>
                   {showAddFilterDropdown && (
                     <div className="add-filter-dropdown absolute z-50 mt-2 w-full bg-ink-900 border border-edge/30 rounded-xl overflow-hidden shadow-xl shadow-black/50 max-h-64 overflow-y-auto">
@@ -534,7 +533,7 @@ export default function TransfersPage() {
                             className={`w-full flex items-center gap-3 px-4 py-3 hover:bg-ink-600 transition-colors ${isUsed ? 'opacity-40' : ''}`}
                             onClick={() => !isUsed && addAttributeFilter(attr.value)}
                           >
-                            <span className="material-symbols-outlined text-sm text-muted">{attr.icon}</span>
+                            <AppIcon name={attr.icon} className="text-sm text-muted" />
                             <span className={`text-xs font-bold ${isUsed ? 'text-muted' : 'text-frost'}`}>{attr.label}</span>
                             {isUsed && (
                               <span className="text-[10px] text-muted ml-auto">{t("transfers.filter.alreadyAdded")}</span>
@@ -551,7 +550,7 @@ export default function TransfersPage() {
               <div className="bg-ink-900 p-4 rounded-xl border border-edge/10">
                 <div className="flex items-center justify-between mb-3">
                   <div className="flex items-center gap-2">
-                    <span className="material-symbols-outlined text-sm text-accent">cake</span>
+                    <AppIcon name="cake" className="text-sm text-accent" />
                     <span className="text-[11px] font-bold text-accent">{t("transfers.filter.ageFilter")}</span>
                   </div>
                   <button
@@ -630,7 +629,7 @@ export default function TransfersPage() {
               <div className="bg-ink-900 p-4 rounded-xl border border-edge/10">
                 <div className="flex items-center justify-between mb-3">
                   <div className="flex items-center gap-2">
-                    <span className="material-symbols-outlined text-sm text-accent">emoji_events</span>
+                    <AppIcon name="emoji_events" className="text-sm text-accent" />
                     <span className="text-[11px] font-bold text-accent">{t("transfers.filter.specialtyFilter")}</span>
                   </div>
                   <button
@@ -656,7 +655,7 @@ export default function TransfersPage() {
                           {selectedSpecialty ? SPECIALTIES.find(s => s.value === selectedSpecialty)?.label : t("transfers.filters.any")}
                         </span>
                       </div>
-                      <span className="material-symbols-outlined text-muted text-xl">expand_more</span>
+                      <AppIcon name="expand_more" className="text-muted text-xl" />
                     </button>
                     <div
                       id="specialty-dropdown"
@@ -669,9 +668,9 @@ export default function TransfersPage() {
                           setShowSpecialtyDropdown(false);
                         }}
                       >
-                        <span className="material-symbols-outlined text-sm text-muted">all_inclusive</span>
+                        <AppIcon name="all_inclusive" className="text-sm text-muted" />
                         <span className={`text-xs font-bold ${!selectedSpecialty ? 'text-accent' : 'text-frost'}`}>{t("transfers.filters.any")}</span>
-                        {!selectedSpecialty && <span className="material-symbols-outlined text-accent text-sm ml-auto">check</span>}
+                        {!selectedSpecialty && <AppIcon name="check" className="text-accent text-sm ml-auto" />}
                       </button>
                       {SPECIALTIES.map((spec) => (
                         <button
@@ -684,7 +683,7 @@ export default function TransfersPage() {
                         >
                           <SpecialtyIcon code={spec.value} size="sm" className="text-muted" />
                           <span className={`text-xs font-bold ${selectedSpecialty === spec.value ? 'text-accent' : 'text-frost'}`}>{spec.label}</span>
-                          {selectedSpecialty === spec.value && <span className="material-symbols-outlined text-accent text-sm ml-auto">check</span>}
+                          {selectedSpecialty === spec.value && <AppIcon name="check" className="text-accent text-sm ml-auto" />}
                         </button>
                       ))}
                     </div>
@@ -714,7 +713,7 @@ export default function TransfersPage() {
             {/* Error State */}
             {error && (
               <div className="flex flex-col items-center justify-center py-16">
-                <span className="material-symbols-outlined text-5xl text-red-400 mb-4">error_outline</span>
+                <AppIcon name="error_outline" className="text-5xl text-red-400 mb-4" />
                 <p className="text-frost font-bold mb-2">{t("transfers.error.failedToLoad")}</p>
                 <p className="text-muted text-sm mb-4">{error}</p>
                 <button
@@ -732,7 +731,7 @@ export default function TransfersPage() {
             {/* Player List */}
             {!isLoading && !error && filteredTransfers.length === 0 && (
               <div className="flex flex-col items-center justify-center py-16">
-                <span className="material-symbols-outlined text-5xl text-muted mb-4">search_off</span>
+                <AppIcon name="search_off" className="text-5xl text-muted mb-4" />
                 <p className="text-frost font-bold mb-2">{t("transfers.empty.noResults")}</p>
                 <p className="text-muted text-sm mb-4">{t("transfers.empty.adjustFilters")}</p>
                 <button
@@ -784,7 +783,7 @@ export default function TransfersPage() {
                         ? "bg-danger/80"
                         : "bg-ink-700/80 backdrop-blur-md"
                     }`}>
-                      <span className="material-symbols-outlined text-xs text-danger">timer</span>
+                      <AppIcon name="timer" className="text-xs text-danger" />
                       <span className="text-[10px] font-bold text-on-surface uppercase tracking-wider">{formatTimeRemaining(selectedTransfer.expiresAt)}</span>
                     </div>
                     <div className="absolute bottom-4 left-4">
@@ -808,7 +807,7 @@ export default function TransfersPage() {
                   {/* Attribute Section */}
                   <section className="space-y-6">
                     <div className="flex items-center gap-2 mb-4 border-b border-edge/10 pb-2">
-                      <span className="material-symbols-outlined text-accent text-sm">analytics</span>
+                      <AppIcon name="analytics" className="text-accent text-sm" />
                       <h4 className="text-[10px] uppercase tracking-widest text-muted font-bold">{t("transfers.detail.profile")}</h4>
                     </div>
 
@@ -884,7 +883,7 @@ export default function TransfersPage() {
                         <div className="mt-0 pt-4 border-t border-edge/10">
                           <div className="flex items-center justify-between mb-4">
                             <div className="flex items-center gap-2">
-                              <span className="material-symbols-outlined text-accent text-sm">gavel</span>
+                              <AppIcon name="gavel" className="text-accent text-sm" />
                               <h4 className="text-[10px] uppercase tracking-widest text-muted font-bold">{t("transfers.bidHistory")}</h4>
                             </div>
                             {selectedTransfer.bidHistory.length > 3 && (
@@ -893,7 +892,7 @@ export default function TransfersPage() {
                                 className="text-[10px] text-muted hover:text-accent transition-colors flex items-center gap-1"
                               >
                                 <span>{t("transfers.more")}</span>
-                                <span className="material-symbols-outlined text-sm">navigate_next</span>
+                                <AppIcon name="navigate_next" className="text-sm" />
                               </button>
                             )}
                           </div>
@@ -966,7 +965,7 @@ export default function TransfersPage() {
                       }}
                       disabled={!bidAmount || isSubmittingBid}
                     >
-                      <span className="material-symbols-outlined text-sm">payments</span>
+                      <AppIcon name="payments" className="text-sm" />
                       {t("transfers.detail.makeOffer")}
                     </button>
                   </div>
@@ -983,14 +982,15 @@ export default function TransfersPage() {
             <div className="p-6">
               <div className="flex items-center justify-between mb-6">
                 <div className="flex items-center gap-2">
-                  <span className="material-symbols-outlined text-accent text-lg">gavel</span>
+                  <AppIcon name="gavel" className="text-accent text-lg" />
                   <h3 className="text-lg font-bold text-frost">{t("transfers.bidHistory")}</h3>
                 </div>
                 <button
-                  className="material-symbols-outlined text-muted hover:text-frost transition-colors"
+                  aria-label="Close bid history"
+                  className="text-muted hover:text-frost transition-colors"
                   onClick={() => setShowBidHistoryModal(false)}
                 >
-                  close
+                  <AppIcon name="close" />
                 </button>
               </div>
               <div className="space-y-3">

@@ -1,5 +1,6 @@
 "use client";
 
+import { AppIcon, type MaterialIconName } from "@/components/icons/AppIcon";
 import { useState } from "react";
 import { useTranslations } from "next-intl";
 import { clsx } from "clsx";
@@ -17,7 +18,7 @@ interface RightColumnProps {
 
 type TabKey = "standings" | "data" | "fixtures";
 
-const TAB_ICONS: Record<TabKey, string> = {
+const TAB_ICONS: Record<TabKey, MaterialIconName> = {
   standings: "leaderboard",
   data: "analytics",
   fixtures: "event",
@@ -92,9 +93,7 @@ export default function RightColumn({
                     : 'text-on-surface-variant hover:text-on-surface',
                 )}
               >
-                <span className="material-symbols-outlined text-[14px]">
-                  {TAB_ICONS[tab.key]}
-                </span>
+                <AppIcon name={TAB_ICONS[tab.key]} className="text-[14px]" />
                 {tab.label}
               </button>
             );
@@ -133,9 +132,7 @@ function DataEmptyState({ t }: { t: ReturnType<typeof useTranslations> }) {
     <div className="h-full flex items-center justify-center">
       <div className="text-center max-w-sm">
         <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-primary/10 border border-primary/20 mb-4">
-          <span className="material-symbols-outlined text-4xl text-primary">
-            analytics
-          </span>
+          <AppIcon name="analytics" className="text-4xl text-primary" />
         </div>
         <p className="font-headline text-base font-black text-on-surface mb-1">
           {t('league.empty.dataTitle')}
@@ -171,9 +168,7 @@ function FixturesTab({
       <div className="h-full flex items-center justify-center">
         <div className="text-center max-w-sm">
           <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-primary/10 border border-primary/20 mb-4">
-            <span className="material-symbols-outlined text-4xl text-primary">
-              event_busy
-            </span>
+            <AppIcon name="event_busy" className="text-4xl text-primary" />
           </div>
           <p className="font-headline text-base font-black text-on-surface mb-1">
             {t('league.empty.fixturesTitle')}

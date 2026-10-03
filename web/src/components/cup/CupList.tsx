@@ -1,5 +1,6 @@
 "use client";
 
+import { AppIcon } from "@/components/icons/AppIcon";
 import { useTranslations } from "next-intl";
 import type { CupRef } from "@/lib/cup-api";
 import CupCard from "./CupCard";
@@ -19,9 +20,7 @@ export default function CupList({ cups, locale }: CupListProps) {
   if (cups.length === 0) {
     return (
       <div className="glass-panel p-12 rounded-2xl border border-outline-variant/10 text-center">
-        <span className="material-symbols-outlined text-4xl text-on-surface-variant/40 mb-3 block">
-          emoji_events
-        </span>
+        <AppIcon name="emoji_events" className="text-4xl text-on-surface-variant/40 mb-3 block" />
         <p className="font-headline text-on-surface-variant">{t("list.empty")}</p>
       </div>
     );

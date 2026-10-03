@@ -1,5 +1,6 @@
 'use client';
 
+import { AppIcon } from "@/components/icons/AppIcon";
 import React, { useEffect, useRef } from 'react';
 import { LOCK_WARNING_MINUTES } from '../types';
 
@@ -58,9 +59,7 @@ export function LockCountdown({
 
   return (
     <div className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border ${bg} ${className}`}>
-      <span className="material-symbols-outlined text-base">
-        {isLocked ? 'lock' : isWarning ? 'timer' : 'schedule'}
-      </span>
+      <AppIcon name={isLocked ? 'lock' : isWarning ? 'timer' : 'schedule'} className="text-base" />
       <div className="flex flex-col">
         <span className="font-label text-[9px] tracking-[0.2em] uppercase opacity-70">{label}</span>
         <span ref={ref} className="font-headline font-bold text-sm tracking-tight">

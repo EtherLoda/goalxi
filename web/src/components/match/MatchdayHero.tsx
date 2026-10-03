@@ -1,5 +1,6 @@
 'use client';
 
+import { AppIcon } from "@/components/icons/AppIcon";
 import { clsx } from 'clsx';
 import Link from 'next/link';
 import { useTranslations } from 'next-intl';
@@ -114,14 +115,14 @@ export function MatchdayHero({
             </span>
           ) : featuredRight && pick === featuredRight && !latestCompleted ? (
             <span className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-tertiary/10 border border-tertiary/30">
-              <span className="material-symbols-outlined text-[14px] text-tertiary">event</span>
+              <AppIcon name="event" className="text-[14px] text-tertiary" />
               <span className="font-label text-[10px] font-black uppercase tracking-[0.25em] text-tertiary">
                 {t('nextMatch')} · {dateLabel}
               </span>
             </span>
           ) : (
             <span className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/5 border border-white/10">
-              <span className="material-symbols-outlined text-[14px] text-on-surface-variant">history</span>
+              <AppIcon name="history" className="text-[14px] text-on-surface-variant" />
               <span className="font-label text-[10px] font-black uppercase tracking-[0.25em] text-on-surface-variant">
                 {t('latest')}
               </span>
@@ -136,7 +137,7 @@ export function MatchdayHero({
           className="font-label text-[10px] font-black uppercase tracking-[0.25em] text-primary hover:text-primary-fixed transition-colors flex items-center gap-1"
         >
           {isLive ? t('enterLive') : t('viewReport')}
-          <span className="material-symbols-outlined text-base">arrow_forward</span>
+          <AppIcon name="arrow_forward" className="text-base" />
         </Link>
       </div>
 
@@ -229,7 +230,7 @@ export function MatchdayHero({
           {/* Footer: venue / live link / tactics entry */}
           <div className="relative z-10 mt-6 pt-4 border-t border-white/5 flex flex-wrap items-center justify-between gap-3">
             <div className="flex items-center gap-2 text-xs text-on-surface-variant">
-              <span className="material-symbols-outlined text-[14px]">stadium</span>
+              <AppIcon name="stadium" className="text-[14px]" />
               <span>{pick.venue || t('venueTbd')}</span>
             </div>
             <div className="flex items-center gap-2">

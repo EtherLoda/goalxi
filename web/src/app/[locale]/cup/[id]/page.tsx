@@ -1,5 +1,6 @@
 "use client";
 
+import { AppIcon } from "@/components/icons/AppIcon";
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import { useTranslations } from "next-intl";
@@ -35,7 +36,7 @@ export default function CupDetailPage() {
       <div className="max-w-5xl mx-auto px-6 py-8">
         <div className="glass-panel p-4 rounded-2xl border border-danger/30 bg-danger/10">
           <div className="flex items-center gap-3 font-body text-sm text-red-300">
-            <span className="material-symbols-outlined">error</span>
+            <AppIcon name="error" />
             {error}
           </div>
         </div>

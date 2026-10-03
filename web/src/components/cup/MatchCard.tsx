@@ -1,5 +1,6 @@
 "use client";
 
+import { AppIcon } from "@/components/icons/AppIcon";
 import { useTranslations } from "next-intl";
 import { useMemo } from "react";
 import Link from "next/link";
@@ -132,9 +133,7 @@ function TeamRow({ name, tier, isWinner, isLoser }: TeamRowProps) {
         </span>
       )}
       {isWinner && (
-        <span className="material-symbols-outlined text-base text-primary shrink-0">
-          check_circle
-        </span>
+        <AppIcon name="check_circle" className="text-base text-primary shrink-0" />
       )}
     </div>
   );

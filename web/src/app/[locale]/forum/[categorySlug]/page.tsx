@@ -1,5 +1,6 @@
 "use client";
 
+import { AppIcon } from "@/components/icons/AppIcon";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
@@ -59,7 +60,7 @@ export default function CategoryPage() {
           href={`/${locale}/forum`}
           className="hover:text-accent transition-colors flex items-center gap-1"
         >
-          <span className="material-symbols-outlined text-xs">forum</span>
+          <AppIcon name="forum" className="text-xs" />
           {t("title")}
         </Link>
         <span className="text-on-surface-variant/40">/</span>
@@ -69,7 +70,7 @@ export default function CategoryPage() {
       {error && (
         <div className="glass-panel p-4 mb-6 rounded-2xl border border-danger/30 bg-danger/10">
           <div className="flex items-center gap-3 font-body text-sm text-red-300">
-            <span className="material-symbols-outlined">error</span>
+            <AppIcon name="error" />
             {error}
           </div>
         </div>
@@ -91,7 +92,7 @@ export default function CategoryPage() {
             onClick={() => router.push(`/${locale}/forum/${slug}/new`)}
             className="font-headline font-bold text-xs uppercase tracking-widest px-5 py-2.5 rounded-lg bg-accent text-ink-500 hover:bg-frost transition-colors flex items-center gap-2"
           >
-            <span className="material-symbols-outlined text-sm">add</span>
+            <AppIcon name="add" className="text-sm" />
             {t("newThread")}
           </button>
         </div>
@@ -118,17 +119,13 @@ export default function CategoryPage() {
 
       {!threads && !error && (
         <div className="glass-panel p-12 rounded-2xl border border-outline-variant/10 text-center">
-          <span className="material-symbols-outlined text-4xl text-on-surface-variant/40 mb-3 block animate-pulse">
-            hourglass_empty
-          </span>
+          <AppIcon name="hourglass_empty" className="text-4xl text-on-surface-variant/40 mb-3 block animate-pulse" />
           <p className="font-headline text-on-surface-variant">{t("loading")}</p>
         </div>
       )}
       {threads && threads.length === 0 && (
         <div className="glass-panel p-12 rounded-2xl border border-outline-variant/10 text-center">
-          <span className="material-symbols-outlined text-4xl text-on-surface-variant/40 mb-3 block">
-            article
-          </span>
+          <AppIcon name="article" className="text-4xl text-on-surface-variant/40 mb-3 block" />
           <p className="font-headline text-frost mb-1">
             {t("emptyThreadsCategory")}
           </p>

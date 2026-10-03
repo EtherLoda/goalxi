@@ -1,3 +1,4 @@
+import { AppIcon, type MaterialIconName } from "@/components/icons/AppIcon";
 import { setRequestLocale, getTranslations } from "next-intl/server";
 import type { Locale } from "@/i18n";
 import { Link } from "@/i18n/navigation";
@@ -35,9 +36,7 @@ export default async function ManualIndexPage({ params }: ManualIndexPageProps) 
       {/* ── Header ── */}
       <div className="mb-10">
         <div className="flex items-center gap-3 mb-2">
-          <span className="material-symbols-outlined text-primary text-3xl">
-            menu_book
-          </span>
+          <AppIcon name="menu_book" className="text-primary text-3xl" />
           <p className="font-label text-[10px] font-black uppercase tracking-[0.2em] text-on-surface-variant/60">
             {t("eyebrow")}
           </p>
@@ -85,9 +84,7 @@ export default async function ManualIndexPage({ params }: ManualIndexPageProps) 
       {/* ── Empty fallback (shouldn't happen — index.json always seeds ch 0) ── */}
       {chapters.length === 0 && appendices.length === 0 && (
         <div className="glass-panel p-12 rounded-2xl border border-outline-variant/20 text-center">
-          <span className="material-symbols-outlined text-5xl text-on-surface-variant/30 mb-3 block">
-            inventory_2
-          </span>
+          <AppIcon name="inventory_2" className="text-5xl text-on-surface-variant/30 mb-3 block" />
           <p className="text-sm text-on-surface-variant">{t("empty")}</p>
         </div>
       )}
@@ -102,13 +99,11 @@ function SectionHeading({
 }: {
   label: string;
   count: number;
-  icon: string;
+  icon: MaterialIconName;
 }) {
   return (
     <div className="flex items-center gap-2 mb-4">
-      <span className="material-symbols-outlined text-on-surface-variant/60 text-base">
-        {icon}
-      </span>
+      <AppIcon name={icon} className="text-on-surface-variant/60 text-base" />
       <h2 className="font-label text-xs font-black uppercase tracking-[0.18em] text-on-surface-variant">
         {label}
       </h2>
@@ -167,9 +162,7 @@ function ChapterCard({
             </p>
           )}
         </div>
-        <span className="material-symbols-outlined text-on-surface-variant/40 group-hover:text-primary group-hover:translate-x-0.5 transition-all shrink-0">
-          arrow_forward
-        </span>
+        <AppIcon name="arrow_forward" className="text-on-surface-variant/40 group-hover:text-primary group-hover:translate-x-0.5 transition-all shrink-0" />
       </div>
     </Link>
   );

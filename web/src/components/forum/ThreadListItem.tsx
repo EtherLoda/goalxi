@@ -1,5 +1,6 @@
 "use client";
 
+import { AppIcon, type MaterialIconName } from "@/components/icons/AppIcon";
 import Link from "next/link";
 import type { ForumThread } from "@/lib/forum-api";
 import { useParams } from "next/navigation";
@@ -33,16 +34,9 @@ export default function ThreadListItem({ thread }: ThreadListItemProps) {
       className="flex items-start gap-4 p-4 border-b border-outline-variant/10 last:border-b-0 hover:bg-ink-500 transition-colors group"
     >
       {thread.isPinned ? (
-        <span
-          className="material-symbols-outlined text-accent text-lg mt-0.5 shrink-0"
-          title="Pinned"
-        >
-          push_pin
-        </span>
+        <AppIcon name="push_pin" className="text-accent text-lg mt-0.5 shrink-0" label="Pinned" />
       ) : (
-        <span className="material-symbols-outlined text-on-surface-variant/40 text-lg mt-0.5 shrink-0 group-hover:text-accent transition-colors">
-          article
-        </span>
+        <AppIcon name="article" className="text-on-surface-variant/40 text-lg mt-0.5 shrink-0 group-hover:text-accent transition-colors" />
       )}
       <div className="flex-1 min-w-0">
         <h4 className="font-headline font-medium text-frost truncate group-hover:text-accent transition-colors">
@@ -56,9 +50,7 @@ export default function ThreadListItem({ thread }: ThreadListItemProps) {
             <>
               <span className="text-on-surface-variant/30">•</span>
               <span className="flex items-center gap-1">
-                <span className="material-symbols-outlined text-[10px]">
-                  reply
-                </span>
+                <AppIcon name="reply" className="text-[10px]" />
                 {thread.lastReplyUser.username ?? "unknown"}
               </span>
             </>

@@ -5,6 +5,7 @@
  * events. Shows the slot's short label + a "New Position" hint when
  * selected; the popover is a narrow list of every PITCH_SLOTS entry.
  */
+import { AppIcon } from "@/components/icons/AppIcon";
 import React, { useEffect, useRef, useState } from 'react';
 import { useTranslations } from 'next-intl';
 import { PITCH_SLOTS, type PitchSlot } from '../types';
@@ -90,14 +91,12 @@ export function PositionSelect({ value, onChange, align = 'left', disabled = fal
           </div>
         ) : (
           <div className="flex items-center gap-1.5 text-outline">
-            <span className="material-symbols-outlined text-[14px]">open_with</span>
+            <AppIcon name="open_with" className="text-[14px]" />
             <span className="text-xs font-medium">{ph}</span>
           </div>
         )}
         {!disabled && (
-          <span className={`material-symbols-outlined text-[14px] text-outline transition-transform ${open ? 'rotate-180 text-signal-gold' : ''}`}>
-            expand_more
-          </span>
+          <AppIcon name="expand_more" className={`text-[14px] text-outline transition-transform ${open ? 'rotate-180 text-signal-gold' : ''}`} />
         )}
       </button>
 
@@ -126,7 +125,7 @@ export function PositionSelect({ value, onChange, align = 'left', disabled = fal
               >
                 <span className="font-headline">{positionShortLabel(slot)}</span>
                 {value === slot && (
-                  <span className="material-symbols-outlined text-[12px] text-signal-gold">check</span>
+                  <AppIcon name="check" className="text-[12px] text-signal-gold" />
                 )}
               </button>
             ))}

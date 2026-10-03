@@ -1,5 +1,6 @@
 "use client";
 
+import { AppIcon } from "@/components/icons/AppIcon";
 import { useTranslations } from "next-intl";
 import Link from "next/link";
 import type { CupMatch } from "@/lib/cup-api";
@@ -254,9 +255,7 @@ function TeamLine({
         {name}
       </span>
       {isWinner && (
-        <span className="material-symbols-outlined text-sm text-primary shrink-0">
-          check_circle
-        </span>
+        <AppIcon name="check_circle" className="text-sm text-primary shrink-0" />
       )}
     </div>
   );

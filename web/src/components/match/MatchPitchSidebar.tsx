@@ -8,6 +8,7 @@
 
 'use client';
 
+import { AppIcon } from "@/components/icons/AppIcon";
 import React from 'react';
 import { useTranslations } from 'next-intl';
 import type { MatchEvent } from '@/lib/api';
@@ -70,7 +71,7 @@ export function MatchPitchSidebar({
     return (
       <div className="glass-panel rounded-2xl p-4">
         <h3 className="font-headline font-bold text-[10px] uppercase tracking-widest text-primary/80 mb-3 flex items-center gap-2">
-          <span className="material-symbols-outlined text-base">history</span>
+          <AppIcon name="history" className="text-base" />
           {t('keyEvents') ?? 'Key Events'}
         </h3>
         <p className="text-[10px] text-on-surface/30 font-headline italic">
@@ -86,7 +87,7 @@ export function MatchPitchSidebar({
       {hasWeatherOrAttendance && (
         <div className="glass-panel rounded-2xl p-4 shrink-0">
           <h3 className="font-headline font-bold text-[10px] uppercase tracking-widest text-primary/80 mb-3 flex items-center gap-2">
-            <span className="material-symbols-outlined text-base">stadium</span>
+            <AppIcon name="stadium" className="text-base" />
             {t('matchInfo') ?? 'Match Info'}
           </h3>
           <MatchInfoPanel
@@ -101,7 +102,7 @@ export function MatchPitchSidebar({
       {keyEvents.length > 0 && (
         <div className="glass-panel rounded-2xl p-4 flex flex-col max-h-56 overflow-y-auto">
           <h3 className="font-headline font-bold text-[10px] uppercase tracking-widest text-primary/80 mb-3 flex items-center gap-2 shrink-0">
-            <span className="material-symbols-outlined text-base">history</span>
+            <AppIcon name="history" className="text-base" />
             {t('keyEvents') ?? 'Key Events'}
           </h3>
           <MatchKeyEvents

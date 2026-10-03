@@ -1,5 +1,6 @@
 "use client";
 
+import { AppIcon } from "@/components/icons/AppIcon";
 import { useEffect, useState, useCallback } from "react";
 import { useTranslations, useLocale } from "next-intl";
 import Link from "next/link";
@@ -620,9 +621,7 @@ export default function TrainingPage() {
                   : 'bg-danger/10 text-red-400'
                 }
               `}>
-                <span className="material-symbols-outlined text-xl">
-                  {notification.type === 'success' ? 'check_circle' : 'error'}
-                </span>
+                <AppIcon name={notification.type === 'success' ? 'check_circle' : 'error'} className="text-xl" />
               </div>
 
               <div className="flex-1 min-w-0">
@@ -644,7 +643,7 @@ export default function TrainingPage() {
                   }
                 `}
               >
-                <span className="material-symbols-outlined text-lg">close</span>
+                <AppIcon name="close" className="text-lg" />
               </button>
             </div>
           </div>
@@ -816,7 +815,7 @@ export default function TrainingPage() {
                             className="p-1.5 text-error/70 hover:bg-error/10 hover:text-error rounded transition-colors"
                             title="Fire coach"
                           >
-                            <span className="material-symbols-outlined text-base">delete</span>
+                            <AppIcon name="delete" className="text-base" />
                           </button>
                         </div>
                       </div>
@@ -870,7 +869,7 @@ export default function TrainingPage() {
                               className="p-1 text-on-surface-variant hover:text-on-surface hover:bg-surface-container-low rounded transition-colors"
                               title={locale === 'zh' ? '更换技能' : 'Change skill'}
                             >
-                              <span className="material-symbols-outlined text-sm">edit</span>
+                              <AppIcon name="edit" className="text-sm" />
                             </button>
                           </div>
                         )}
@@ -914,7 +913,7 @@ export default function TrainingPage() {
                                   onClick={() => handleUnassign(coach.id, player.playerId)}
                                   className="absolute -top-1 -right-1 p-1 text-error/70 hover:bg-error/10 hover:text-error rounded flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
                                 >
-                                  <span className="material-symbols-outlined text-[4px]">delete</span>
+                                  <AppIcon name="delete" className="text-[4px]" />
                                 </button>
                               </div>
                             );
@@ -925,7 +924,7 @@ export default function TrainingPage() {
                               key={`empty-${i}`}
                               className="flex-1 aspect-square border-2 border-dashed border-outline-variant/30 rounded-2xl flex flex-col items-center justify-center text-[10px] text-on-surface-variant/50"
                             >
-                              <span className="material-symbols-outlined text-base">add</span>
+                              <AppIcon name="add" className="text-base" />
                               <span>{t('training.dragPlayer')}</span>
                             </div>
                           ))}
@@ -949,7 +948,7 @@ export default function TrainingPage() {
               <div className="flex items-center justify-between mb-5">
                 <div className="flex items-center gap-3">
                   <div className="w-10 h-10 rounded-xl bg-accent/10 border border-accent/20 flex items-center justify-center">
-                    <span className="material-symbols-outlined text-accent text-lg">trending_up</span>
+                    <AppIcon name="trending_up" className="text-accent text-lg" />
                   </div>
                   <div>
                     <h3 className="text-base font-headline font-bold text-accent">
@@ -1121,7 +1120,7 @@ export default function TrainingPage() {
               <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center gap-3">
                   <div className="w-10 h-10 rounded-xl bg-accent/10 border border-accent/20 flex items-center justify-center">
-                    <span className="material-symbols-outlined text-accent text-lg">trending_up</span>
+                    <AppIcon name="trending_up" className="text-accent text-lg" />
                   </div>
                   <div>
                     <h3 className="text-base font-headline font-bold text-accent">
@@ -1160,7 +1159,7 @@ export default function TrainingPage() {
               </div>
               {/* Empty state */}
               <div className="flex flex-col items-center justify-center py-8 text-center">
-                <span className="material-symbols-outlined text-4xl text-muted/50 mb-2">info</span>
+                <AppIcon name="info" className="text-4xl text-muted/50 mb-2" />
                 <p className="text-sm text-muted">{t('training.noUpdates')}</p>
               </div>
             </div>
@@ -1349,7 +1348,7 @@ export default function TrainingPage() {
                         : "bg-surface-container-low text-on-surface hover:bg-surface-container"
                     }`}
                   >
-                    <span className={`material-symbols-outlined text-xl mb-1 ${coachLevelColorClass(level)}`} style={{ fontVariationSettings: "'FILL' 1" }}>star</span>
+                    <AppIcon name="star" className={`text-xl mb-1 ${coachLevelColorClass(level)}`} />
                     <div className={`text-base font-bold ${coachLevelColorClass(level)}`}>{coachLevelLabel(level)}</div>
                   </button>
                 ))}
@@ -1409,7 +1408,7 @@ export default function TrainingPage() {
                         : "bg-surface-container-low text-on-surface hover:bg-surface-container"
                     }`}
                   >
-                    <span className={`material-symbols-outlined text-xl mb-1 ${coachLevelColorClass(level)}`} style={{ fontVariationSettings: "'FILL' 1" }}>star</span>
+                    <AppIcon name="star" className={`text-xl mb-1 ${coachLevelColorClass(level)}`} />
                     <div className={`text-base font-bold ${coachLevelColorClass(level)}`}>{coachLevelLabel(level)}</div>
                   </button>
                 ))}
@@ -1481,7 +1480,7 @@ export default function TrainingPage() {
                         : "bg-surface-container-low text-on-surface hover:bg-surface-container"
                     }`}
                   >
-                    <span className={`material-symbols-outlined text-xl mb-1 ${coachLevelColorClass(level)}`} style={{ fontVariationSettings: "'FILL' 1" }}>star</span>
+                    <AppIcon name="star" className={`text-xl mb-1 ${coachLevelColorClass(level)}`} />
                     <div className={`text-base font-bold ${coachLevelColorClass(level)}`}>{coachLevelLabel(level)}</div>
                   </button>
                 ))}

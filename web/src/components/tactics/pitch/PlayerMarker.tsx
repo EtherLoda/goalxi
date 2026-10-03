@@ -1,5 +1,6 @@
 'use client';
 
+import { AppIcon } from "@/components/icons/AppIcon";
 import React from 'react';
 import type { Player } from '@/lib/api';
 import { positionShortLabel } from '../shared/position-legend';
@@ -156,7 +157,7 @@ export function PlayerMarker({
               className="absolute -top-2 -right-2 w-5 h-5 rounded-full bg-surface-container-highest border border-outline-variant/40 text-on-surface-variant hover:text-error opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center"
               aria-label="Remove player"
             >
-              <span className="material-symbols-outlined text-[12px]">close</span>
+              <AppIcon name="close" className="text-[12px]" />
             </button>
           )}
         </div>

@@ -1,5 +1,6 @@
 "use client";
 
+import { AppIcon, type MaterialIconName } from "@/components/icons/AppIcon";
 import { useTranslations } from "next-intl";
 import { clsx } from "clsx";
 import type { Standing } from "@/lib/api";
@@ -13,7 +14,7 @@ interface LeagueKpiStripProps {
 interface KpiSpec {
   key: string;
   labelKey: 'kpi.leader' | 'kpi.form' | 'kpi.topScorer' | 'kpi.fouls';
-  icon: string;
+  icon: MaterialIconName;
   /** Picks the row to highlight. */
   pick: (standings: Standing[]) => Standing | null;
   /** Value formatter. */
@@ -94,7 +95,7 @@ export default function LeagueKpiStrip({
                 accentBg,
               )}
             >
-              <span className="material-symbols-outlined text-xl">{kpi.icon}</span>
+              <AppIcon name={kpi.icon} className="text-xl" />
             </div>
             <div className="min-w-0 flex-1">
               <p className="font-label text-[9px] uppercase tracking-[0.25em] font-black text-on-surface-variant">

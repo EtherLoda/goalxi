@@ -7,6 +7,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { api } from "@/lib/api";
 import { useParams, usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useGameStore } from "@/stores/gameStore";
+import { AppIcon } from "@/components/icons/AppIcon";
 import type { Team } from "@/lib/api";
 
 interface GameState {
@@ -63,7 +64,7 @@ function SettingsMenu({ locale }: { locale: string }) {
         onClick={() => setOpen((v) => !v)}
         className="w-9 h-9 rounded-full flex items-center justify-center text-on-surface-variant hover:text-primary hover:bg-white/5 transition-colors"
       >
-        <span className="material-symbols-outlined">settings</span>
+        <AppIcon name="settings" />
       </button>
       {open && (
         <div
@@ -78,7 +79,7 @@ function SettingsMenu({ locale }: { locale: string }) {
               onClick={() => setOpen(false)}
               className="flex items-center gap-3 px-3 py-2 font-headline text-xs font-bold uppercase tracking-widest text-on-surface-variant hover:text-on-surface hover:bg-white/5 transition-colors"
             >
-              <span className="material-symbols-outlined text-base">{s.icon}</span>
+              <AppIcon name={s.icon} className="text-base" />
               <span>{s.slug}</span>
             </Link>
           ))}
@@ -165,7 +166,7 @@ export default function GlobalHeader({ locale }: GlobalHeaderProps) {
             }}
             className="font-headline font-black text-sm uppercase tracking-[0.2em] text-on-surface hover:text-primary transition-colors flex items-center gap-1"
           >
-            <span className="material-symbols-outlined text-sm">arrow_back</span>
+            <AppIcon name="arrow_back" className="text-sm" />
             {team.name || "Team"}
           </button>
         ) : (
@@ -231,14 +232,18 @@ export default function GlobalHeader({ locale }: GlobalHeaderProps) {
         {/* Market icon */}
         <Link
           href={`/${locale}/transfers`}
+          aria-label="Market"
           className="w-9 h-9 rounded-full flex items-center justify-center text-on-surface-variant hover:text-primary hover:bg-white/5 transition-colors"
         >
-          <span className="material-symbols-outlined">storefront</span>
+          <AppIcon name="storefront" />
         </Link>
 
         {/* Messages icon */}
-        <button className="relative w-9 h-9 rounded-full flex items-center justify-center text-on-surface-variant hover:text-primary hover:bg-white/5 transition-colors">
-          <span className="material-symbols-outlined">mail</span>
+        <button
+          aria-label="Messages"
+          className="relative w-9 h-9 rounded-full flex items-center justify-center text-on-surface-variant hover:text-primary hover:bg-white/5 transition-colors"
+        >
+          <AppIcon name="mail" />
           <span className="absolute top-1 right-1 w-2 h-2 rounded-full bg-primary" />
         </button>
 
@@ -249,9 +254,10 @@ export default function GlobalHeader({ locale }: GlobalHeaderProps) {
         {/* Search icon */}
         <Link
           href={`/${locale}/search`}
+          aria-label="Search"
           className="w-9 h-9 rounded-full flex items-center justify-center text-on-surface-variant hover:text-primary hover:bg-white/5 transition-colors"
         >
-          <span className="material-symbols-outlined">search</span>
+          <AppIcon name="search" />
         </Link>
       </div>
     </header>

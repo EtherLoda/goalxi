@@ -1,5 +1,6 @@
 "use client";
 
+import { AppIcon } from "@/components/icons/AppIcon";
 import { useEffect, useState, Suspense } from "react";
 import { useParams, useSearchParams } from "next/navigation";
 import LeftColumn from "@/components/league/LeftColumn";
@@ -185,9 +186,7 @@ function LeaguePageContent() {
   if (isLoading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
-        <span className="material-symbols-outlined text-4xl text-primary animate-spin">
-          progress_activity
-        </span>
+        <AppIcon name="progress_activity" className="text-4xl text-primary animate-spin" />
       </div>
     );
   }
@@ -251,9 +250,7 @@ function LeaguePageContent() {
 function LeaguePageLoading() {
   return (
     <div className="flex items-center justify-center h-full">
-      <span className="material-symbols-outlined text-4xl text-primary animate-spin">
-        progress_activity
-      </span>
+      <AppIcon name="progress_activity" className="text-4xl text-primary animate-spin" />
     </div>
   );
 }

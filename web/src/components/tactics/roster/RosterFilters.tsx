@@ -5,6 +5,7 @@
  * The previous position filter (all/gk/def/mid/fwd) was removed to keep
  * the right rail focused on the player list; the sort dropdown stays.
  */
+import { AppIcon } from "@/components/icons/AppIcon";
 import React, { useState } from 'react';
 import { useTranslations } from 'next-intl';
 import type { Player } from '@/lib/api';
@@ -28,7 +29,7 @@ export function RosterFilters({ sort, onSortChange }: RosterFiltersProps) {
           onClick={() => setOpen((o) => !o)}
           className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-surface-container-highest text-on-surface font-label text-[10px] tracking-widest uppercase hover:text-primary"
         >
-          <span className="material-symbols-outlined text-[14px]">sort</span>
+          <AppIcon name="sort" className="text-[14px]" />
           {t(`sort.${sort}`)}
         </button>
         {open && (

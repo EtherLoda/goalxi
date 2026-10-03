@@ -11,6 +11,7 @@
  * PWI/STA/FRM/EXP gauges and the `condition`/`experience` fields to keep
  * each row scannable when 17+ players are listed.
  */
+import { AppIcon } from "@/components/icons/AppIcon";
 import React, { useRef } from 'react';
 import { useLocale } from 'next-intl';
 import type { Player } from '@/lib/api';
@@ -114,7 +115,7 @@ export function DetailedRosterPlayerCard({
           </div>
           {/* Stamina — 5 bars */}
           <div className="flex items-center gap-0.5 justify-end">
-            <span className="material-symbols-outlined text-[9px] text-outline">bolt</span>
+            <AppIcon name="bolt" className="text-[9px] text-outline" />
             <div className="flex gap-0.5">
               {Array.from({ length: 5 }).map((_, i) => (
                 <span

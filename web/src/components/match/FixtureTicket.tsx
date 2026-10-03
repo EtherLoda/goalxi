@@ -1,5 +1,6 @@
 'use client';
 
+import { AppIcon } from "@/components/icons/AppIcon";
 import { clsx } from 'clsx';
 import Link from 'next/link';
 import { useTranslations } from 'next-intl';
@@ -138,7 +139,7 @@ export function FixtureTicket({
           className="inline-flex items-center justify-center w-9 h-9 rounded-lg text-on-surface-variant hover:text-primary hover:bg-white/5 transition-colors"
           aria-label="View match"
         >
-          <span className="material-symbols-outlined text-xl">chevron_right</span>
+          <AppIcon name="chevron_right" className="text-xl" />
         </Link>
       </div>
     </div>

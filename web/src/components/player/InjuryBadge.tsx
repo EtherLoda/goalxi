@@ -1,5 +1,6 @@
 "use client";
 
+import { AppIcon } from "@/components/icons/AppIcon";
 import { useTranslations } from "next-intl";
 import { formatRecoveryWeeks } from "@/lib/format-recovery-weeks";
 import type { Player } from "@/lib/api";
@@ -49,13 +50,7 @@ export function InjuryBadge({
         .join(" ")}
       title={typeLabel}
     >
-      <span
-        className="material-symbols-outlined"
-        style={{ fontSize: "12px", fontVariationSettings: "'FILL' 1" }}
-        aria-hidden
-      >
-        {isMinor ? "healing" : "local_hospital"}
-      </span>
+      <AppIcon name={isMinor ? "healing" : "local_hospital"} style={{fontSize: "12px"}} />
       <span>{typeLabel}</span>
       <span aria-hidden>·</span>
       <span>{weeksLabel}</span>

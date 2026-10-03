@@ -6,6 +6,7 @@
  * Smaller and lighter than PlayerSelect — no search, no avatars, just a
  * short list of single-line options.
  */
+import { AppIcon, type MaterialIconName } from "@/components/icons/AppIcon";
 import React, { useEffect, useRef, useState } from 'react';
 import { useTranslations } from 'next-intl';
 import { EVENT_CONDITIONS, type EventCondition } from '../types';
@@ -17,7 +18,7 @@ export interface ConditionSelectProps {
 }
 
 /** Per-condition tone (icon + ring color) — keeps the chip scannable. */
-const CONDITION_META: Record<EventCondition, { icon: string; tone: string }> = {
+const CONDITION_META: Record<EventCondition, { icon: MaterialIconName; tone: string }> = {
   always: { icon: 'bolt', tone: 'border-outline-variant/40 text-outline' },
   leading: { icon: 'trending_up', tone: 'border-positive/40 text-positive-bright' },
   trailing: { icon: 'trending_down', tone: 'border-danger/40 text-red-400' },
@@ -86,7 +87,7 @@ export function ConditionSelect({ value, onChange, disabled = false }: Condition
         } ${meta.tone}`}
         title={t(value)}
       >
-        <span className="material-symbols-outlined text-[11px]">{meta.icon}</span>
+        <AppIcon name={meta.icon} className="text-[11px]" />
         {t(value)}
       </button>
 
@@ -114,10 +115,10 @@ export function ConditionSelect({ value, onChange, disabled = false }: Condition
                       : 'text-on-surface hover:bg-surface-container/60'
                   }`}
                 >
-                  <span className={`material-symbols-outlined text-[13px] ${active ? 'text-primary' : 'text-outline'}`}>{m.icon}</span>
+                  <AppIcon name={m.icon} className={`text-[13px] ${active ? 'text-primary' : 'text-outline'}`} />
                   <span className="flex-1">{t(c)}</span>
                   {active && (
-                    <span className="material-symbols-outlined text-[12px] text-primary">check</span>
+                    <AppIcon name="check" className="text-[12px] text-primary" />
                   )}
                 </button>
               );

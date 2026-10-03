@@ -1,5 +1,6 @@
 "use client";
 
+import { AppIcon } from "@/components/icons/AppIcon";
 import { useEffect, useState } from "react";
 import { useTranslations, useLocale } from "next-intl";
 import { api, type TransferTransaction } from "@/lib/api";
@@ -224,7 +225,7 @@ export default function TransferHistoryPanel({ team, initialTransactions }: Tran
                   <option key={s} value={s}>{t("shortlist.history.seasonOption", { n: s })}</option>
                 ))}
               </select>
-              <span className="absolute right-3 top-1/2 -translate-y-1/2 material-symbols-outlined text-sm text-muted pointer-events-none">expand_more</span>
+              <AppIcon name="expand_more" className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-muted pointer-events-none" />
             </div>
           )}
         </div>
@@ -312,9 +313,7 @@ export default function TransferHistoryPanel({ team, initialTransactions }: Tran
                       </td>
                       <td className="px-6 py-4">
                         <div className="flex items-center gap-2">
-                          <span className="material-symbols-outlined text-muted text-lg">
-                            shield
-                          </span>
+                          <AppIcon name="shield" className="text-muted text-lg" />
                           <p className="text-xs text-muted font-medium">
                             {isInbound
                               ? tx.fromTeam?.name?.toUpperCase() ||

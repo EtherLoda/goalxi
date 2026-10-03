@@ -1,5 +1,6 @@
 "use client";
 
+import { AppIcon } from "@/components/icons/AppIcon";
 import { useTranslations } from "next-intl";
 import type { CupRound } from "@/lib/cup-api";
 import MatchCard from "./MatchCard";
@@ -24,9 +25,7 @@ export default function RoundList({ round, locale = "en" }: RoundListProps) {
   if (matches.length === 0) {
     return (
       <div className="glass-panel p-12 rounded-2xl border border-outline-variant/10 text-center">
-        <span className="material-symbols-outlined text-4xl text-on-surface-variant/40 mb-3 block">
-          hourglass_empty
-        </span>
+        <AppIcon name="hourglass_empty" className="text-4xl text-on-surface-variant/40 mb-3 block" />
         <p className="font-headline text-on-surface-variant">{t("tbd")}</p>
       </div>
     );

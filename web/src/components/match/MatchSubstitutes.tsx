@@ -26,6 +26,7 @@
 
 'use client';
 
+import { AppIcon } from "@/components/icons/AppIcon";
 import React from 'react';
 import { useTranslations } from 'next-intl';
 import { clsx } from 'clsx';
@@ -265,7 +266,7 @@ export function MatchSubstitutes({
   return (
     <div className="glass-panel rounded-2xl p-4">
       <h3 className="font-headline font-bold text-[10px] uppercase tracking-widest text-primary/80 mb-3 flex items-center gap-2">
-        <span className="material-symbols-outlined text-base">groups</span>
+        <AppIcon name="groups" className="text-base" />
         {t('title')}
       </h3>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

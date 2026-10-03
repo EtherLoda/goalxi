@@ -1,5 +1,6 @@
 "use client";
 
+import { AppIcon } from "@/components/icons/AppIcon";
 import { useTranslations } from "next-intl";
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
@@ -306,9 +307,7 @@ export default function FinancePage() {
                     <option key={s} value={s}>Season {s}</option>
                   ))}
                 </select>
-                <span className="material-symbols-outlined absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-xs text-on-surface-variant">
-                  expand_more
-                </span>
+                <AppIcon name="expand_more" className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-xs text-on-surface-variant" />
               </div>
               <div className="relative">
                 <select
@@ -322,9 +321,7 @@ export default function FinancePage() {
                     </option>
                   ))}
                 </select>
-                <span className="material-symbols-outlined absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-xs text-on-surface-variant">
-                  expand_more
-                </span>
+                <AppIcon name="expand_more" className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-xs text-on-surface-variant" />
               </div>
             </div>
           </div>
@@ -470,9 +467,7 @@ export default function FinancePage() {
                   Last Week&apos;s Breakdown
                 </h2>
                 <div className="flex items-center gap-2 text-primary font-bold text-xs uppercase tracking-tighter">
-                  <span className="material-symbols-outlined text-sm">
-                    trending_up
-                  </span>
+                  <AppIcon name="trending_up" className="text-sm" />
                   {growthPercent >= 0 ? "+" : ""}
                   {growthPercent.toFixed(0)}% Net Growth
                 </div>

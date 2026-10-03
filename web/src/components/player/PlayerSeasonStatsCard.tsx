@@ -32,6 +32,8 @@
  * re-runs the same effect.
  */
 
+import { AppIcon } from "@/components/icons/AppIcon";
+import { RedCardIcon, YellowCardIcon } from "@/components/icons/custom-icons";
 import { useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
 import { api, type PlayerSeasonStats } from "@/lib/api";
@@ -150,7 +152,7 @@ function EmptyState({ t }: { t: ReturnType<typeof useTranslations<"player_stats"
   return (
     <div className="flex flex-col items-center justify-center py-6 text-center">
       <div className="w-10 h-10 rounded-full bg-ink-700 border border-edge/20 flex items-center justify-center mb-2">
-        <span className="material-icons text-muted text-lg">sports_soccer</span>
+        <AppIcon name="sports_soccer" className="text-muted text-lg" fill={true} />
       </div>
       <p className="text-[10px] font-bold font-space tracking-widest uppercase text-muted">
         {t("emptyTitle")}
@@ -196,9 +198,7 @@ function ErrorState({
 }) {
   return (
     <div className="flex flex-col items-center justify-center py-6 text-center">
-      <span className="material-icons text-signal-amber text-2xl mb-2">
-        error_outline
-      </span>
+      <AppIcon name="error_outline" className="text-signal-amber text-2xl mb-2" fill={true} />
       <p className="text-[10px] font-bold font-space tracking-widest uppercase text-muted">
         {t("errorTitle")}
       </p>
@@ -351,11 +351,15 @@ export function PlayerSeasonStatsCard({
                 <span className="font-bold text-frost">
                   {data.career.yellowCards}
                 </span>
-                <span className="text-signal-yellow">{"⚫"}</span>
+                <span className="text-signal-yellow">
+                  <YellowCardIcon size="1em" aria-hidden="true" />
+                </span>
                 <span className="font-bold text-frost">
                   {data.career.redCards}
                 </span>
-                <span className="text-danger">{"⛕"}</span>
+                <span className="text-danger">
+                  <RedCardIcon size="1em" aria-hidden="true" />
+                </span>
               </span>
             </div>
           </>

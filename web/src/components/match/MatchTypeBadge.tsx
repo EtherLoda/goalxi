@@ -1,5 +1,6 @@
 "use client";
 
+import { AppIcon, type MaterialIconName } from "@/components/icons/AppIcon";
 import { useTranslations } from "next-intl";
 import { clsx } from "clsx";
 
@@ -35,7 +36,7 @@ interface MatchTypeBadgeProps {
 
 interface ChipStyle {
   label: string;
-  icon: string;
+  icon: MaterialIconName;
   // Primary chip color (border + bg + text). Kept in CSS variables
   // so dark/light themes can override via globals.css if needed.
   cls: string;
@@ -116,9 +117,7 @@ export default function MatchTypeBadge({
         className,
       )}
     >
-      <span className="material-symbols-outlined text-[12px] leading-none">
-        {style.icon}
-      </span>
+      <AppIcon name={style.icon} className="text-[12px] leading-none" />
       <span className="leading-none">{label}</span>
     </span>
   );

@@ -1,5 +1,6 @@
 'use client';
 
+import { AppIcon } from "@/components/icons/AppIcon";
 import React from 'react';
 import { useTranslations } from 'next-intl';
 import type { Preset } from '@/lib/api';
@@ -26,13 +27,7 @@ export function PresetCard({ preset, disabled, isActive, onApply, onDelete }: Pr
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2 min-w-0 flex-1">
           {preset.isDefault && (
-            <span
-              className="material-symbols-outlined text-base text-tertiary"
-              style={{ fontVariationSettings: "'FILL' 1" }}
-              aria-label={t('isDefault')}
-            >
-              star
-            </span>
+            <AppIcon name="star" className="text-base text-tertiary" label={t('isDefault')} />
           )}
           <span className="font-headline font-bold text-sm text-on-surface truncate">{preset.name}</span>
         </div>
@@ -48,7 +43,7 @@ export function PresetCard({ preset, disabled, isActive, onApply, onDelete }: Pr
           className="p-1 rounded text-outline hover:text-error transition-colors disabled:opacity-50"
           aria-label={t('delete')}
         >
-          <span className="material-symbols-outlined text-base">delete</span>
+          <AppIcon name="delete" className="text-base" />
         </button>
         <button
           type="button"
@@ -56,7 +51,7 @@ export function PresetCard({ preset, disabled, isActive, onApply, onDelete }: Pr
           disabled={disabled}
           className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-primary/15 text-primary border border-primary/25 font-label text-[9px] font-bold tracking-widest uppercase hover:bg-primary/25 transition-colors disabled:opacity-50"
         >
-          <span className="material-symbols-outlined text-[10px]">play_arrow</span>
+          <AppIcon name="play_arrow" className="text-[10px]" />
           {t('apply')}
         </button>
       </div>

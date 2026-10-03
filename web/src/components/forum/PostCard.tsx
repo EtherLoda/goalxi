@@ -1,5 +1,6 @@
 "use client";
 
+import { AppIcon } from "@/components/icons/AppIcon";
 import { useState } from "react";
 import type { ForumPost } from "@/lib/forum-api";
 import { forumApi } from "@/lib/forum-api";
@@ -110,7 +111,7 @@ export default function PostCard({
               onClick={onReply}
               className="flex items-center gap-1 font-label text-[10px] uppercase tracking-widest text-on-surface-variant hover:text-accent transition-colors"
             >
-              <span className="material-symbols-outlined text-sm">reply</span>
+              <AppIcon name="reply" className="text-sm" />
               {t("reply")}
             </button>
           )}
@@ -119,7 +120,7 @@ export default function PostCard({
               onClick={() => onQuote(post)}
               className="flex items-center gap-1 font-label text-[10px] uppercase tracking-widest text-on-surface-variant hover:text-accent transition-colors"
             >
-              <span className="material-symbols-outlined text-sm">format_quote</span>
+              <AppIcon name="format_quote" className="text-sm" />
               {t("quote")}
             </button>
           )}

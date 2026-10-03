@@ -1,5 +1,6 @@
 "use client";
 
+import { AppIcon } from "@/components/icons/AppIcon";
 import { useEffect, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import Link from "next/link";
@@ -142,7 +143,7 @@ function MoreMenu({ locale, leagueId }: { locale: string; leagueId: string }) {
         )}
         data-testid="league-more-menu-trigger"
       >
-        <span className="material-symbols-outlined text-base">more_horiz</span>
+        <AppIcon name="more_horiz" className="text-base" />
         <span className="hidden sm:inline">{t('league.hero.more')}</span>
       </button>
 
@@ -166,7 +167,7 @@ function MoreMenu({ locale, leagueId }: { locale: string; leagueId: string }) {
               'text-on-surface hover:bg-white/5 transition-colors',
             )}
           >
-            <span className="material-symbols-outlined text-base text-primary">history</span>
+            <AppIcon name="history" className="text-base text-primary" />
             <span>{t('league.hero.menu.history')}</span>
           </Link>
         </div>

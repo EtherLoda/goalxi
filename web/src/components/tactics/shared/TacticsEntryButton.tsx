@@ -1,5 +1,6 @@
 'use client';
 
+import { AppIcon } from "@/components/icons/AppIcon";
 import React, { useState } from 'react';
 import Link from 'next/link';
 import { useTranslations } from 'next-intl';
@@ -67,7 +68,7 @@ export function TacticsEntryButton({
           data-testid="tactics-entry-locked"
         >
           <span className="relative inline-flex">
-            <span className="material-symbols-outlined text-base">lock</span>
+            <AppIcon name="lock" className="text-base" />
             <span className="absolute -top-0.5 -right-0.5 w-1.5 h-1.5 rounded-full bg-tertiary animate-pulse" />
           </span>
         </span>
@@ -86,7 +87,7 @@ export function TacticsEntryButton({
         data-testid="tactics-entry-locked"
       >
         <span className="relative inline-flex">
-          <span className="material-symbols-outlined text-base">lock</span>
+          <AppIcon name="lock" className="text-base" />
           <span className="absolute -top-0.5 -right-0.5 w-1.5 h-1.5 rounded-full bg-tertiary animate-pulse" />
         </span>
         <span>{title}</span>
@@ -110,7 +111,7 @@ export function TacticsEntryButton({
         aria-label={t('setTactics')}
         data-testid="tactics-entry"
       >
-        <span className="material-symbols-outlined text-base">tune</span>
+        <AppIcon name="tune" className="text-base" />
       </Link>
     );
   }
@@ -127,11 +128,9 @@ export function TacticsEntryButton({
       )}
       data-testid="tactics-entry"
     >
-      <span className="material-symbols-outlined text-base">tune</span>
+      <AppIcon name="tune" className="text-base" />
       <span>{t('setTactics')}</span>
-      <span className="material-symbols-outlined text-base opacity-0 -ml-1 group-hover:opacity-100 group-hover:ml-0 transition-all">
-        arrow_forward
-      </span>
+      <AppIcon name="arrow_forward" className="text-base opacity-0 -ml-1 group-hover:opacity-100 group-hover:ml-0 transition-all" />
     </Link>
   );
 }

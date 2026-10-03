@@ -1,5 +1,6 @@
 "use client";
 
+import { AppIcon } from "@/components/icons/AppIcon";
 import { useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
 import { forumApi, ForumCategory } from "@/lib/forum-api";
@@ -29,9 +30,7 @@ export default function ForumIndexPage() {
     <div className="max-w-5xl mx-auto px-6 py-8">
       <div className="mb-8">
         <div className="flex items-center gap-3 mb-2">
-          <span className="material-symbols-outlined text-accent text-3xl">
-            forum
-          </span>
+          <AppIcon name="forum" className="text-accent text-3xl" />
           <h1 className="font-headline font-black text-3xl uppercase tracking-tight text-frost">
             {t("title")}
           </h1>
@@ -44,7 +43,7 @@ export default function ForumIndexPage() {
       {error && (
         <div className="glass-panel p-4 mb-6 rounded-2xl border border-danger/30 bg-danger/10">
           <div className="flex items-center gap-3 font-body text-sm text-red-300">
-            <span className="material-symbols-outlined">error</span>
+            <AppIcon name="error" />
             {error}
           </div>
         </div>
@@ -52,9 +51,7 @@ export default function ForumIndexPage() {
 
       {!categories && !error && (
         <div className="glass-panel p-12 rounded-2xl border border-outline-variant/10 text-center">
-          <span className="material-symbols-outlined text-4xl text-on-surface-variant/40 mb-3 block animate-pulse">
-            hourglass_empty
-          </span>
+          <AppIcon name="hourglass_empty" className="text-4xl text-on-surface-variant/40 mb-3 block animate-pulse" />
           <p className="font-headline text-on-surface-variant">{t("loading")}</p>
         </div>
       )}

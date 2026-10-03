@@ -1,5 +1,6 @@
 "use client";
 
+import { AppIcon } from "@/components/icons/AppIcon";
 import { useState, useEffect, useCallback, Suspense } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
@@ -146,7 +147,7 @@ function SearchPageContent() {
             <div className="font-headline text-sm font-bold text-on-surface truncate">{team.name}</div>
             <div className="font-body text-xs text-on-surface-variant">Team</div>
           </div>
-          <span className="material-symbols-outlined text-on-surface-variant text-lg">chevron_right</span>
+          <AppIcon name="chevron_right" className="text-on-surface-variant text-lg" />
         </div>
       );
     } else if (type === "player") {
@@ -154,9 +155,7 @@ function SearchPageContent() {
       return (
         <div key={player.id} className="flex items-center gap-4">
           <div className="w-10 h-10 rounded-full bg-surface flex items-center justify-center">
-            <span className="material-symbols-outlined text-lg text-primary">
-              {player.isGoalkeeper ? "sports" : "sports_soccer"}
-            </span>
+            <AppIcon name={player.isGoalkeeper ? "sports" : "sports_soccer"} className="text-lg text-primary" />
           </div>
           <div className="flex-1 min-w-0">
             <div className="font-headline text-sm font-bold text-on-surface truncate">{player.name}</div>
@@ -164,7 +163,7 @@ function SearchPageContent() {
               {player.teamName || "Free Agent"}
             </div>
           </div>
-          <span className="material-symbols-outlined text-on-surface-variant text-lg">chevron_right</span>
+          <AppIcon name="chevron_right" className="text-on-surface-variant text-lg" />
         </div>
       );
     } else {
@@ -180,7 +179,7 @@ function SearchPageContent() {
               Tier {league.tier} · Division {league.tierDivision}
             </div>
           </div>
-          <span className="material-symbols-outlined text-on-surface-variant text-lg">chevron_right</span>
+          <AppIcon name="chevron_right" className="text-on-surface-variant text-lg" />
         </div>
       );
     }
@@ -211,9 +210,7 @@ function SearchPageContent() {
 
           {/* Search Input */}
           <div className="relative">
-            <span className="absolute left-4 top-1/2 -translate-y-1/2 material-symbols-outlined text-on-surface-variant">
-              search
-            </span>
+            <AppIcon name="search" className="absolute left-4 top-1/2 -translate-y-1/2 text-on-surface-variant" />
             <input
               type="text"
               value={query}
@@ -225,9 +222,10 @@ function SearchPageContent() {
             {query && (
               <button
                 onClick={() => setQuery("")}
-                className="absolute right-4 top-1/2 -translate-y-1/2 material-symbols-outlined text-on-surface-variant hover:text-on-surface"
+                aria-label="Clear search"
+                className="absolute right-4 top-1/2 -translate-y-1/2 text-on-surface-variant hover:text-on-surface"
               >
-                close
+                <AppIcon name="close" />
               </button>
             )}
           </div>
@@ -242,16 +240,12 @@ function SearchPageContent() {
           </div>
         ) : query.length < 2 ? (
           <div className="text-center py-12">
-            <span className="material-symbols-outlined text-5xl text-on-surface-variant/30 mb-4">
-              search
-            </span>
+            <AppIcon name="search" className="text-5xl text-on-surface-variant/30 mb-4" />
             <p className="font-body text-sm text-on-surface-variant">{t("hint")}</p>
           </div>
         ) : results.length === 0 ? (
           <div className="text-center py-12">
-            <span className="material-symbols-outlined text-5xl text-on-surface-variant/30 mb-4">
-              search_off
-            </span>
+            <AppIcon name="search_off" className="text-5xl text-on-surface-variant/30 mb-4" />
             <p className="font-body text-sm text-on-surface-variant">{t("noResults")}</p>
           </div>
         ) : (

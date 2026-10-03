@@ -1,5 +1,6 @@
 "use client";
 
+import { AppIcon } from "@/components/icons/AppIcon";
 import React, { Suspense, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
@@ -182,9 +183,7 @@ function ScoutsPageInner() {
       <div className="flex justify-center">
         {loading ? (
           <div className="flex items-center gap-3 py-16 text-sm text-muted font-space">
-            <span className="material-symbols-outlined animate-spin">
-              progress_activity
-            </span>
+            <AppIcon name="progress_activity" className="animate-spin" />
             {tCommon("loading")}
           </div>
         ) : current ? (
@@ -223,13 +222,9 @@ function ScoutsPageInner() {
             className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-accent/10 border border-accent/30 text-accent text-xs font-bold uppercase tracking-wider hover:bg-accent/20 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {busy ? (
-              <span className="material-symbols-outlined text-[14px] animate-spin">
-                progress_activity
-              </span>
+              <AppIcon name="progress_activity" className="text-[14px] animate-spin" />
             ) : (
-              <span className="material-symbols-outlined text-[14px]">
-                refresh
-              </span>
+              <AppIcon name="refresh" className="text-[14px]" />
             )}
             {busy
               ? t("refreshing")
@@ -282,9 +277,7 @@ function EmptyState({
 }) {
   return (
     <div className="bg-ink-700/60 rounded-2xl border border-white/5 px-6 py-12 sm:py-16 text-center w-full max-w-[580px]">
-      <span className="material-symbols-outlined text-muted text-5xl">
-        travel_explore
-      </span>
+      <AppIcon name="travel_explore" className="text-muted text-5xl" />
       <p className="mt-4 text-sm text-muted font-space max-w-md mx-auto">
         {text}
       </p>
@@ -298,13 +291,11 @@ function EmptyState({
         }
       >
         {refreshing ? (
-          <span className="material-symbols-outlined text-[16px] animate-spin">
-            progress_activity
-          </span>
+          <AppIcon name="progress_activity" className="text-[16px] animate-spin" />
         ) : capReached ? (
-          <span className="material-symbols-outlined text-[16px]">block</span>
+          <AppIcon name="block" className="text-[16px]" />
         ) : (
-          <span className="material-symbols-outlined text-[16px]">casino</span>
+          <AppIcon name="casino" className="text-[16px]" />
         )}
         {refreshLabel}
       </button>
@@ -333,9 +324,7 @@ function Toast({
           : "fixed bottom-6 right-6 z-50 px-4 py-3 rounded-xl bg-error text-on-error text-sm font-bold shadow-2xl flex items-center gap-2"
       }
     >
-      <span className="material-symbols-outlined">
-        {kind === "success" ? "check_circle" : "error"}
-      </span>
+      <AppIcon name={kind === "success" ? "check_circle" : "error"} />
       {text}
     </div>
   );

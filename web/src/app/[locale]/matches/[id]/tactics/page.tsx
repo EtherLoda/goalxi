@@ -1,5 +1,6 @@
 'use client';
 
+import { AppIcon } from "@/components/icons/AppIcon";
 import React, { useEffect, useState, Suspense } from 'react';
 import { useParams, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
@@ -13,6 +14,7 @@ function TacticsEditorContent() {
   const locale = (params.locale as string) || 'en';
   const matchId = params.id as string;
   const t = useTranslations('tactics');
+  const tCommon = useTranslations('common');
 
   const [match, setMatch] = useState<Match | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -45,13 +47,13 @@ function TacticsEditorContent() {
     return (
       <div className="p-6 md:p-8 max-w-7xl mx-auto w-full">
         <div className="glass-panel rounded-2xl p-12 text-center border border-error/20">
-          <span className="material-symbols-outlined text-6xl text-error/50 mb-4 block">error</span>
+          <AppIcon name="error" className="text-6xl text-error/50 mb-4 block" />
           <p className="text-on-surface-variant text-lg font-medium mb-2">{error || 'Match not found'}</p>
           <Link
             href={`/${locale}/matches`}
             className="inline-flex items-center gap-2 text-primary hover:underline mt-4"
           >
-            <span className="material-symbols-outlined text-lg">arrow_back</span>
+            <AppIcon name="arrow_back" className="text-lg" />
             Back
           </Link>
         </div>
@@ -66,8 +68,9 @@ function TacticsEditorContent() {
           <Link
             href={`/${locale}/matches/${matchId}`}
             className="flex items-center justify-center w-10 h-10 bg-surface-container-low border border-outline-variant/30 text-on-surface-variant rounded-lg hover:bg-surface-container-high hover:text-on-surface transition-all"
+            aria-label={tCommon('back')}
           >
-            <span className="material-symbols-outlined text-[18px]">arrow_back</span>
+            <AppIcon name="arrow_back" className="text-[18px]" />
           </Link>
           <div>
             <h1 className="font-headline text-xl md:text-2xl font-black tracking-tight text-on-surface uppercase italic">

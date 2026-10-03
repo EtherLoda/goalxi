@@ -9,6 +9,7 @@ import { useTranslations } from "next-intl";
 import { useEffect, useState } from "react";
 import { api, type Team } from "@/lib/api";
 import { useGameStore } from "@/stores/gameStore";
+import { AppIcon } from "@/components/icons/AppIcon";
 
 type Locale = "en" | "zh";
 
@@ -67,7 +68,7 @@ export default function Sidebar() {
         { labelKey: "scouting", href: `/${locale}/scouts?team=${currentTeamId}`, icon: "travel_explore" },
       ],
     },
-  ];
+  ] as const;
 
   return (
     <aside className="fixed left-0 top-0 h-screen w-64 bg-surface-container-low border-r border-white/5 flex flex-col z-40">
@@ -112,15 +113,14 @@ export default function Sidebar() {
                           : "text-on-surface-variant hover:text-on-surface hover:bg-white/5"
                       )}
                     >
-                      <span
+                      <AppIcon
+                        name={item.icon}
+                        fill={isActive}
                         className={clsx(
-                          "material-symbols-outlined text-lg",
+                          "text-lg",
                           isActive ? "" : "text-on-surface-variant/60"
                         )}
-                        style={isActive ? { fontVariationSettings: "'FILL' 1" } : {}}
-                      >
-                        {item.icon}
-                      </span>
+                      />
                       {t(item.labelKey)}
                     </Link>
                   );
@@ -149,18 +149,17 @@ export default function Sidebar() {
                             ? "bg-primary text-on-primary"
                             : "text-on-surface-variant hover:text-on-surface hover:bg-white/5"
                         )}
-                      >
-                        <span
-                          className={clsx(
-                            "material-symbols-outlined text-lg",
-                            isActive ? "" : "text-on-surface-variant/60"
-                          )}
-                          style={isActive ? { fontVariationSettings: "'FILL' 1" } : {}}
                         >
-                          {item.icon}
-                        </span>
-                        {t(item.labelKey)}
-                      </Link>
+                          <AppIcon
+                            name={item.icon}
+                            fill={isActive}
+                            className={clsx(
+                              "text-lg",
+                              isActive ? "" : "text-on-surface-variant/60"
+                            )}
+                          />
+                          {t(item.labelKey)}
+                        </Link>
                     );
                   })}
                 </div>
@@ -172,11 +171,17 @@ export default function Sidebar() {
       {/* Bottom */}
       <div className="p-4 border-t border-white/5 space-y-3">
         <div className="flex gap-3">
-          <button className="flex-1 flex items-center justify-center py-2 rounded-lg text-on-surface-variant hover:text-primary hover:bg-white/5 transition-all">
-            <span className="material-symbols-outlined text-lg">settings</span>
+          <button
+            aria-label="Settings"
+            className="flex-1 flex items-center justify-center py-2 rounded-lg text-on-surface-variant hover:text-primary hover:bg-white/5 transition-all"
+          >
+            <AppIcon name="settings" className="text-lg" />
           </button>
-          <button className="flex-1 flex items-center justify-center py-2 rounded-lg text-on-surface-variant hover:text-primary hover:bg-white/5 transition-all">
-            <span className="material-symbols-outlined text-lg">help_outline</span>
+          <button
+            aria-label="Help"
+            className="flex-1 flex items-center justify-center py-2 rounded-lg text-on-surface-variant hover:text-primary hover:bg-white/5 transition-all"
+          >
+            <AppIcon name="help_outline" className="text-lg" />
           </button>
         </div>
         {/* User */}
@@ -196,9 +201,10 @@ export default function Sidebar() {
           </div>
           <button
             onClick={logout}
+            aria-label="Log out"
             className="text-on-surface-variant hover:text-error transition-colors"
           >
-            <span className="material-symbols-outlined text-base">logout</span>
+            <AppIcon name="logout" className="text-base" />
           </button>
         </div>
       </div>

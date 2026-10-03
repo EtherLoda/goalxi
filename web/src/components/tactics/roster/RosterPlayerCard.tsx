@@ -1,5 +1,6 @@
 'use client';
 
+import { AppIcon } from "@/components/icons/AppIcon";
 import React, { useRef } from 'react';
 import type { Player } from '@/lib/api';
 import { usePlayerDrag } from '../shared/usePlayerDrag';
@@ -65,7 +66,7 @@ export function RosterPlayerCard({ player, isAssigned, onDragStart, onDragEnd }:
       <div className="text-right shrink-0">
         <div className="font-headline font-black text-lg text-primary leading-none">{player.overall}</div>
         <div className="flex items-center gap-1 mt-1 justify-end">
-          <span className="material-symbols-outlined text-[10px] text-outline">bolt</span>
+          <AppIcon name="bolt" className="text-[10px] text-outline" />
           <div className="flex gap-0.5">
             {Array.from({ length: 5 }).map((_, i) => (
               <span

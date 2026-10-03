@@ -1,5 +1,6 @@
 "use client";
 
+import { AppIcon } from "@/components/icons/AppIcon";
 import { useEffect, useMemo, useState, Suspense } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useParams, useSearchParams } from "next/navigation";
@@ -231,13 +232,11 @@ function MatchesPageContent() {
             href={`/${locale}/matches/archive`}
             className="group inline-flex items-center gap-2 h-10 px-4 rounded-full glass-panel hover:border-white/20 hover:shadow-[0_0_18px_rgba(0,228,121,0.15)] transition-all"
           >
-            <span className="material-symbols-outlined text-[18px] text-primary">inventory_2</span>
+            <AppIcon name="inventory_2" className="text-[18px] text-primary" />
             <span className="font-headline text-xs font-black uppercase tracking-[0.2em] text-on-surface">
               {t('archive')}
             </span>
-            <span className="material-symbols-outlined text-base text-on-surface-variant opacity-0 -ml-1 group-hover:opacity-100 group-hover:ml-0 transition-all">
-              arrow_forward
-            </span>
+            <AppIcon name="arrow_forward" className="text-base text-on-surface-variant opacity-0 -ml-1 group-hover:opacity-100 group-hover:ml-0 transition-all" />
           </Link>
         </div>
 
@@ -276,7 +275,7 @@ function MatchesPageContent() {
           {/* Upcoming count + next opponent */}
           <div className="glass-panel rounded-2xl p-4 flex items-center gap-3">
             <div className="w-11 h-11 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center shrink-0">
-              <span className="material-symbols-outlined text-primary">event</span>
+              <AppIcon name="event" className="text-primary" />
             </div>
             <div className="min-w-0 flex-1">
               <p className="font-label text-[9px] uppercase tracking-[0.25em] text-primary font-black">
@@ -307,15 +306,13 @@ function MatchesPageContent() {
         {/* Recent Results List */}
         <div className="lg:col-span-5 flex flex-col gap-3">
           <h2 className="font-headline text-xs font-black uppercase tracking-[0.25em] text-primary flex items-center gap-2 px-1">
-            <span className="material-symbols-outlined text-base">history</span>
+            <AppIcon name="history" className="text-base" />
             {t('sections.recentResults')}
           </h2>
 
           {recentMatches.length === 0 ? (
             <div className="glass-panel rounded-2xl p-10 text-center">
-              <span className="material-symbols-outlined text-5xl text-on-surface-variant/30 mb-2 block">
-                history
-              </span>
+              <AppIcon name="history" className="text-5xl text-on-surface-variant/30 mb-2 block" />
               <p className="text-on-surface-variant text-sm">{t('empty.noRecent')}</p>
             </div>
           ) : (
@@ -380,9 +377,7 @@ function MatchesPageContent() {
                       >
                         {userScore ?? '-'} - {opponentScore ?? '-'}
                       </p>
-                      <span className="material-symbols-outlined text-on-surface-variant/40 text-base group-hover:text-primary group-hover:translate-x-0.5 transition-all">
-                        chevron_right
-                      </span>
+                      <AppIcon name="chevron_right" className="text-on-surface-variant/40 text-base group-hover:text-primary group-hover:translate-x-0.5 transition-all" />
                     </div>
                   </Link>
                 );
@@ -395,7 +390,7 @@ function MatchesPageContent() {
         <div className="lg:col-span-7 flex flex-col gap-3">
           <div className="flex items-center justify-between gap-2 px-1">
             <h2 className="font-headline text-xs font-black uppercase tracking-[0.25em] text-primary flex items-center gap-2">
-              <span className="material-symbols-outlined text-base">event</span>
+              <AppIcon name="event" className="text-base" />
               {t('sections.upcomingFixtures')}
             </h2>
             {filteredAllUpcoming.length > filteredUpcoming.length && (
@@ -406,12 +401,12 @@ function MatchesPageContent() {
                 {showAllUpcoming ? (
                   <>
                     {t('showLess')}
-                    <span className="material-symbols-outlined text-base">expand_less</span>
+                    <AppIcon name="expand_less" className="text-base" />
                   </>
                 ) : (
                   <>
                     {t('showAll', { count: filteredAllUpcoming.length })}
-                    <span className="material-symbols-outlined text-base">expand_more</span>
+                    <AppIcon name="expand_more" className="text-base" />
                   </>
                 )}
               </button>
@@ -442,9 +437,7 @@ function MatchesPageContent() {
 
           {filteredUpcoming.length === 0 ? (
             <div className="glass-panel rounded-2xl p-10 text-center">
-              <span className="material-symbols-outlined text-5xl text-on-surface-variant/30 mb-2 block">
-                event_busy
-              </span>
+              <AppIcon name="event_busy" className="text-5xl text-on-surface-variant/30 mb-2 block" />
               <p className="text-on-surface-variant text-sm">{t('empty.noUpcoming')}</p>
             </div>
           ) : (

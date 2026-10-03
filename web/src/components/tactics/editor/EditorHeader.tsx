@@ -1,5 +1,6 @@
 'use client';
 
+import { AppIcon } from "@/components/icons/AppIcon";
 import React from 'react';
 import { useTranslations } from 'next-intl';
 import { LockCountdown, isLockWarning } from '../shared/LockCountdown';
@@ -34,7 +35,7 @@ export function EditorHeader({ formation, isDirty, lock, isSubmitting, canSubmit
   return (
     <header className="glass-panel rounded-2xl px-5 py-3 flex items-center justify-between gap-4 flex-wrap">
       <div className="flex items-center gap-3 min-w-0">
-        <span className="material-symbols-outlined text-primary text-2xl">strategy</span>
+        <AppIcon name="strategy" className="text-primary text-2xl" />
         <div className="min-w-0">
           <h1 className="font-headline font-black text-xl tracking-tight text-on-surface uppercase">
             {t('title')}
@@ -66,7 +67,7 @@ export function EditorHeader({ formation, isDirty, lock, isSubmitting, canSubmit
           className="flex items-center gap-2 px-5 py-2.5 rounded-lg bg-primary text-on-primary font-headline font-bold text-sm tracking-tight uppercase shadow-[0_0_15px_rgba(0,228,121,0.3)] hover:bg-primary-dim transition-all disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none"
           data-testid="submit-tactics"
         >
-          <span className="material-symbols-outlined text-base">save</span>
+          <AppIcon name="save" className="text-base" />
           {isSubmitting ? t('submitting') : t('submit')}
         </button>
       </div>

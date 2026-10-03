@@ -1,5 +1,6 @@
 "use client";
 
+import { AppIcon } from "@/components/icons/AppIcon";
 import { useEffect, useMemo, useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useParams } from "next/navigation";
@@ -141,9 +142,7 @@ export default function ArchivedMatchesPage() {
             className="group inline-flex items-center justify-center w-10 h-10 rounded-full glass-panel hover:border-white/20 transition-all"
             aria-label="Back to Matches"
           >
-            <span className="material-symbols-outlined text-[18px] text-on-surface-variant group-hover:text-primary transition-colors">
-              arrow_back
-            </span>
+            <AppIcon name="arrow_back" className="text-[18px] text-on-surface-variant group-hover:text-primary transition-colors" />
           </Link>
           <div>
             <span className="font-label text-[10px] font-black uppercase tracking-[0.3em] text-primary">
@@ -173,9 +172,7 @@ export default function ArchivedMatchesPage() {
                       : 'text-on-surface-variant hover:text-on-surface',
                   )}
                 >
-                  <span className="material-symbols-outlined text-[14px]">
-                    {active ? 'check_circle' : 'history'}
-                  </span>
+                  <AppIcon name={active ? 'check_circle' : 'history'} className="text-[14px]" />
                   {t('season', { season })}
                 </button>
               );
@@ -232,7 +229,7 @@ export default function ArchivedMatchesPage() {
       <section>
         <div className="flex items-center gap-2 px-1 mb-3">
           <h2 className="font-headline text-xs font-black uppercase tracking-[0.25em] text-primary flex items-center gap-2">
-            <span className="material-symbols-outlined text-base">history</span>
+            <AppIcon name="history" className="text-base" />
             {tSections('matchLog')}
           </h2>
           {!isLoading && (
@@ -276,9 +273,7 @@ export default function ArchivedMatchesPage() {
           </div>
         ) : filteredMatches.length === 0 ? (
           <div className="glass-panel rounded-2xl p-12 text-center">
-            <span className="material-symbols-outlined text-6xl text-on-surface-variant/30 mb-4 block">
-              event_busy
-            </span>
+            <AppIcon name="event_busy" className="text-6xl text-on-surface-variant/30 mb-4 block" />
             <p className="text-on-surface-variant text-lg font-medium mb-2">
               {t('noMatchFound')}
             </p>
@@ -327,7 +322,7 @@ export default function ArchivedMatchesPage() {
                         type={match.type}
                         cupRound={match.cupRound ?? null}
                       />
-                      <span className="material-symbols-outlined text-[12px]">stadium</span>
+                      <AppIcon name="stadium" className="text-[12px]" />
                       <span>{formatDate(match.scheduledAt)}</span>
                       <span className="text-on-surface-variant/40">•</span>
                       <span
@@ -376,9 +371,7 @@ export default function ArchivedMatchesPage() {
                               : '—'}
                       </p>
                     </div>
-                    <span className="material-symbols-outlined text-on-surface-variant/40 text-base group-hover:text-primary group-hover:translate-x-0.5 transition-all">
-                      chevron_right
-                    </span>
+                    <AppIcon name="chevron_right" className="text-on-surface-variant/40 text-base group-hover:text-primary group-hover:translate-x-0.5 transition-all" />
                   </div>
                 </Link>
               );

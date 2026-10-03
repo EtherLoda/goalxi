@@ -1,5 +1,6 @@
 'use client';
 
+import { AppIcon } from "@/components/icons/AppIcon";
 import React from 'react';
 import type { Player } from '@/lib/api';
 import type { BenchSlot, PositionKey } from '../types';
@@ -97,7 +98,7 @@ export function BenchSlotView({
           } ${isDragging ? 'cursor-pointer' : ''}`}
           data-testid={`slot-${slot}-empty`}
         >
-          <span className="material-symbols-outlined text-base text-outline">person_add</span>
+          <AppIcon name="person_add" className="text-base text-outline" />
         </div>
       )}
     </div>

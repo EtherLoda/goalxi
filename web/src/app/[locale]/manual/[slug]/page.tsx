@@ -1,3 +1,4 @@
+import { AppIcon } from "@/components/icons/AppIcon";
 import { notFound } from "next/navigation";
 import { setRequestLocale, getTranslations } from "next-intl/server";
 import { Link } from "@/i18n/navigation";
@@ -73,9 +74,7 @@ export default async function ManualChapterPage({ params }: ManualChapterPagePro
         >
           {t("title")}
         </Link>
-        <span className="material-symbols-outlined text-[12px] text-on-surface-variant/40">
-          chevron_right
-        </span>
+        <AppIcon name="chevron_right" className="text-[12px] text-on-surface-variant/40" />
         <span className="font-label uppercase tracking-widest text-on-surface truncate">
           {chapter.frontmatter.title}
         </span>
@@ -125,9 +124,7 @@ export default async function ManualChapterPage({ params }: ManualChapterPagePro
                 className="group glass-panel p-4 rounded-2xl border border-outline-variant/15 hover:border-primary/40 transition-all"
               >
                 <div className="flex items-center gap-2 mb-1 font-label text-[10px] uppercase tracking-widest text-on-surface-variant/60">
-                  <span className="material-symbols-outlined text-[14px]">
-                    arrow_back
-                  </span>
+                  <AppIcon name="arrow_back" className="text-[14px]" />
                   {t("prevChapter")}
                 </div>
                 <div className="font-headline font-bold text-sm text-on-surface group-hover:text-primary transition-colors line-clamp-1">
@@ -144,9 +141,7 @@ export default async function ManualChapterPage({ params }: ManualChapterPagePro
               >
                 <div className="flex items-center justify-end gap-2 mb-1 font-label text-[10px] uppercase tracking-widest text-on-surface-variant/60">
                   {t("nextChapter")}
-                  <span className="material-symbols-outlined text-[14px]">
-                    arrow_forward
-                  </span>
+                  <AppIcon name="arrow_forward" className="text-[14px]" />
                 </div>
                 <div className="font-headline font-bold text-sm text-on-surface group-hover:text-primary transition-colors line-clamp-1">
                   {chapter.next.title}

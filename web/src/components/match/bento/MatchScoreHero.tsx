@@ -23,6 +23,7 @@
 
 'use client';
 
+import { AppIcon } from "@/components/icons/AppIcon";
 import Link from 'next/link';
 import { useTranslations } from 'next-intl';
 import { GlassPanel } from '@/components/tactics/shared/GlassPanel';
@@ -64,7 +65,7 @@ export function MatchScoreHero({
         className="flex items-center justify-center w-10 h-10 rounded-xl bg-surface-container border border-outline-variant/30 text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-all"
         data-testid="match-back-link"
       >
-        <span className="material-symbols-outlined text-[18px]">arrow_back</span>
+        <AppIcon name="arrow_back" className="text-[18px]" />
       </Link>
 
       {/* Team strip — home on the left, away on the right, score in the

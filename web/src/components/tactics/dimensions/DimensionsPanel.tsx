@@ -1,5 +1,6 @@
 'use client';
 
+import { AppIcon } from "@/components/icons/AppIcon";
 import React from 'react';
 import { useTranslations } from 'next-intl';
 import type {
@@ -38,7 +39,7 @@ export function DimensionsPanel({ pitchWidth, defensiveLine, onChange, disabled 
   return (
     <GlassPanel size="md">
       <div className="flex items-center gap-1.5 mb-3">
-        <span className="material-symbols-outlined text-base text-primary">tune</span>
+        <AppIcon name="tune" className="text-base text-primary" />
         <KickerLabel>{t('title')}</KickerLabel>
       </div>
       <div className="space-y-3">

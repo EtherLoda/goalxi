@@ -1,5 +1,6 @@
 "use client";
 
+import { AppIcon, type MaterialIconName } from "@/components/icons/AppIcon";
 import React from "react";
 import { useTranslations } from "next-intl";
 import { useEffect, useState, Suspense } from "react";
@@ -16,7 +17,7 @@ import { SpecialtyIcon } from "@/components/player/SpecialtyIcon";
 import { getSpecialtyLabel } from "@/lib/specialties";
 import { ExperienceTierLabel } from "@/components/ExperienceTierLabel";
 
-const EVENT_ICONS: Record<string, string> = {
+const EVENT_ICONS: Record<string, MaterialIconName> = {
   TRANSFER: "swap_horiz",
   YOUTH_PROMOTION: "trending_up",
   HAT_TRICK: "sports_kabaddi",
@@ -103,7 +104,7 @@ function ListPlayerModal({ player, onClose, onSuccess }: ListPlayerModalProps) {
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-xl bg-accent/20 flex items-center justify-center">
-                <span className="material-symbols-outlined text-accent">sell</span>
+                <AppIcon name="sell" className="text-accent" />
               </div>
               <div>
                 <h3 className="text-lg font-black font-space text-frost">
@@ -117,8 +118,9 @@ function ListPlayerModal({ player, onClose, onSuccess }: ListPlayerModalProps) {
             <button
               onClick={onClose}
               className="w-8 h-8 rounded-full flex items-center justify-center hover:bg-ink-600 transition-colors"
+              aria-label={t("common.close")}
             >
-              <span className="material-symbols-outlined text-muted text-lg">close</span>
+              <AppIcon name="close" className="text-muted text-lg" />
             </button>
           </div>
         </div>
@@ -176,7 +178,7 @@ function ListPlayerModal({ player, onClose, onSuccess }: ListPlayerModalProps) {
           >
             {isSubmitting ? (
               <span className="flex items-center justify-center gap-2">
-                <span className="material-symbols-outlined text-lg animate-spin">progress_activity</span>
+                <AppIcon name="progress_activity" className="text-lg animate-spin" />
                 {t("transfers.submitting")}
               </span>
             ) : (
@@ -352,9 +354,7 @@ function SquadPageContent() {
       <div className="flex-grow flex p-6 min-h-0">
         {isLoading ? (
           <div className="flex items-center justify-center h-full w-full">
-            <span className="material-symbols-outlined text-4xl text-accent animate-spin">
-              progress_activity
-            </span>
+            <AppIcon name="progress_activity" className="text-4xl text-accent animate-spin" />
           </div>
         ) : (
           <>
@@ -368,7 +368,7 @@ function SquadPageContent() {
                 <div className="px-4 py-3 border-b border-edge/10">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
-                      <span className="material-symbols-outlined text-accent text-lg">groups</span>
+                      <AppIcon name="groups" className="text-accent text-lg" />
                       <span className="text-sm font-black font-space text-frost uppercase tracking-wider">
                         {displayTeam?.name || t("squad.squad")}
                       </span>
@@ -451,12 +451,7 @@ function SquadPageContent() {
                                         {player.name}
                                       </Link>
                                       {player.onTransfer && (
-                                        <span
-                                          className="material-symbols-outlined text-accent text-xs"
-                                          title={t("squad.transfer.listed")}
-                                        >
-                                          sell
-                                        </span>
+                                        <AppIcon name="sell" className="text-accent text-xs" label={t("squad.transfer.listed")} />
                                       )}
                                       {player.coreSpecialty ? (
                                         <span
@@ -605,7 +600,7 @@ function SquadPageContent() {
 
                           <div className="flex items-center gap-6 mt-4 text-sm font-space">
                             <div className="flex items-center gap-2">
-                              <span className="material-symbols-outlined text-muted">calendar_month</span>
+                              <AppIcon name="calendar_month" className="text-muted" />
                               <span className="text-muted">
                                 {t("squad.age")}{" "}
                                 <span className="font-bold text-frost">
@@ -614,13 +609,13 @@ function SquadPageContent() {
                               </span>
                             </div>
                             <div className="flex items-center gap-2">
-                              <span className="material-symbols-outlined text-muted">military_tech</span>
+                              <AppIcon name="military_tech" className="text-muted" />
                               <span className="text-muted">
                                 {t("squad.exp")} <ExperienceTierLabel value={selectedPlayer.experience} className="font-bold text-frost" />
                               </span>
                             </div>
                             <div className="flex items-center gap-2">
-                              <span className="material-symbols-outlined text-muted">payments</span>
+                              <AppIcon name="payments" className="text-muted" />
                               <span className="font-bold text-signal-amber">
                                 £{(selectedPlayer.currentWage || 0).toLocaleString()}/w
                               </span>
@@ -635,15 +630,22 @@ function SquadPageContent() {
                               onClick={() => setShowListModal(true)}
                               className="w-10 h-10 rounded-full flex items-center justify-center bg-accent/20 text-accent hover:bg-accent/30 transition-colors border border-accent/30"
                               title={t("squad.transfer.listButton")}
+                              aria-label={t("squad.transfer.listButton")}
                             >
-                              <span className="material-symbols-outlined">sell</span>
+                              <AppIcon name="sell" />
                             </button>
                           )}
-                          <button className="w-10 h-10 rounded-full flex items-center justify-center bg-ink-600 text-muted hover:text-accent transition-colors border border-edge/20">
-                            <span className="material-symbols-outlined">favorite</span>
+                          <button
+                            className="w-10 h-10 rounded-full flex items-center justify-center bg-ink-600 text-muted hover:text-accent transition-colors border border-edge/20"
+                            aria-label={t("common.favorite")}
+                          >
+                            <AppIcon name="favorite" />
                           </button>
-                          <button className="w-10 h-10 rounded-full flex items-center justify-center bg-ink-600 text-muted hover:text-accent transition-colors border border-edge/20">
-                            <span className="material-symbols-outlined">share</span>
+                          <button
+                            className="w-10 h-10 rounded-full flex items-center justify-center bg-ink-600 text-muted hover:text-accent transition-colors border border-edge/20"
+                            aria-label={t("common.share")}
+                          >
+                            <AppIcon name="share" />
                           </button>
                         </div>
                       </div>
@@ -691,7 +693,7 @@ function SquadPageContent() {
                     {selectedPlayer.onTransfer && (
                       <div className="px-6 pb-4">
                         <div className="bg-ink-600 rounded-xl p-3 border border-accent/20 flex items-center gap-2">
-                          <span className="material-symbols-outlined text-accent text-sm">sell</span>
+                          <AppIcon name="sell" className="text-accent text-sm" />
                           <span className="text-xs font-bold text-accent">{t("squad.transfer.onTransfer")}</span>
                         </div>
                       </div>
@@ -930,7 +932,7 @@ function SquadPageContent() {
                           </div>
                           {playerEvents.length === 0 ? (
                             <div className="bg-ink-700/30 rounded-xl p-4 text-center">
-                              <span className="material-symbols-outlined text-xl text-faint">history</span>
+                              <AppIcon name="history" className="text-xl text-faint" />
                               <p className="text-faint text-xs mt-1">{t("player_events.no_events")}</p>
                             </div>
                           ) : (
@@ -944,7 +946,7 @@ function SquadPageContent() {
                                   <div key={event.id} className="flex items-center gap-3 relative">
                                     <div className={`absolute -left-[17px] w-2 h-2 rounded-full bg-ink-700 border-2 border-faint`} />
                                     <div className={`w-6 h-6 rounded-full flex items-center justify-center bg-ink-700 ${colorClass}`}>
-                                      <span className="material-symbols-outlined text-xs">{iconName}</span>
+                                      <AppIcon name={iconName} className="text-xs" />
                                     </div>
                                     <div className="flex-1 min-w-0">
                                       <p className="text-[11px] font-bold text-frost truncate">
@@ -1058,9 +1060,7 @@ function SquadPage() {
 function SquadPageLoading() {
   return (
     <div className="flex items-center justify-center h-full w-full">
-      <span className="material-symbols-outlined text-4xl text-accent animate-spin">
-        progress_activity
-      </span>
+      <AppIcon name="progress_activity" className="text-4xl text-accent animate-spin" />
     </div>
   );
 }

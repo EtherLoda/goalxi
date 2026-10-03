@@ -1,5 +1,6 @@
 "use client";
 
+import { AppIcon, type MaterialIconName } from "@/components/icons/AppIcon";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { useEffect, useState, Suspense } from "react";
@@ -307,21 +308,21 @@ function DashboardPageContent() {
                   <div className="space-y-1">
                     {userStanding && userStanding.position <= 4 ? (
                       <div className="flex items-center gap-2 text-primary">
-                        <span className="material-symbols-outlined text-sm">trending_up</span>
+                        <AppIcon name="trending_up" className="text-sm" />
                         <span className="font-label text-[10px] font-black uppercase tracking-wider">
                           Playoff Zone
                         </span>
                       </div>
                     ) : userStanding && userStanding.position > 12 ? (
                       <div className="flex items-center gap-2 text-error">
-                        <span className="material-symbols-outlined text-sm">trending_down</span>
+                        <AppIcon name="trending_down" className="text-sm" />
                         <span className="font-label text-[10px] font-black uppercase tracking-wider">
                           Relegation Zone
                         </span>
                       </div>
                     ) : (
                       <div className="flex items-center gap-2 text-on-surface-variant">
-                        <span className="material-symbols-outlined text-sm">trending_flat</span>
+                        <AppIcon name="trending_flat" className="text-sm" />
                         <span className="font-label text-[10px] font-black uppercase tracking-wider">
                           Mid Table
                         </span>
@@ -389,7 +390,7 @@ function DashboardPageContent() {
             <div className="space-y-4">
               <div className="flex items-center justify-between px-2">
                 <h3 className="font-headline font-black text-xs uppercase tracking-[0.2em] text-primary flex items-center gap-2">
-                  <span className="material-symbols-outlined text-lg">assignment_late</span>
+                  <AppIcon name="assignment_late" className="text-lg" />
                   {isViewingMyTeam ? "Team News" : `${currentTeam?.name || "Team"} News`}
                 </h3>
                 {isViewingMyTeam && (
@@ -401,25 +402,21 @@ function DashboardPageContent() {
               <div className="bg-surface-container-low/75 backdrop-blur-xl border border-white/5 rounded-2xl overflow-hidden shadow-glass divide-y divide-white/5">
                 {!isViewingMyTeam ? (
                   <div className="p-8 text-center">
-                    <span className="material-symbols-outlined text-4xl text-on-surface-variant/30 mb-2 block">
-                      visibility
-                    </span>
+                    <AppIcon name="visibility" className="text-4xl text-on-surface-variant/30 mb-2 block" />
                     <p className="font-body text-sm text-on-surface-variant">
                       You are viewing {currentTeam?.name || "this team"}'s dashboard
                     </p>
                   </div>
                 ) : teamNotifications.length === 0 ? (
                   <div className="p-8 text-center">
-                    <span className="material-symbols-outlined text-4xl text-on-surface-variant/30 mb-2 block">
-                      check_circle
-                    </span>
+                    <AppIcon name="check_circle" className="text-4xl text-on-surface-variant/30 mb-2 block" />
                     <p className="font-body text-sm text-on-surface-variant">
                       No team news at this time
                     </p>
                   </div>
                 ) : (
                   teamNotifications.map((notification) => {
-                    const getNotificationIcon = (type: string) => {
+                    const getNotificationIcon = (type: string): { icon: MaterialIconName; bg: string; border: string; text: string } => {
                       switch (type) {
                         case 'MATCH_RESULT_WIN': return { icon: 'emoji_events', bg: 'bg-tertiary/10', border: 'border-tertiary/20', text: 'text-tertiary' };
                         case 'MATCH_RESULT_LOSS': return { icon: 'sentiment_dissatisfied', bg: 'bg-error/10', border: 'border-error/20', text: 'text-error' };
@@ -441,7 +438,7 @@ function DashboardPageContent() {
                     const content = (
                       <div className="p-5 flex items-center gap-4 hover:bg-primary/5 transition-colors cursor-pointer group">
                         <div className={`w-10 h-10 rounded-xl ${iconStyle.bg} border ${iconStyle.border} flex items-center justify-center ${iconStyle.text} shrink-0`}>
-                          <span className="material-symbols-outlined text-sm">{iconStyle.icon}</span>
+                          <AppIcon name={iconStyle.icon} className="text-sm" />
                         </div>
                         <div className="flex-1 min-w-0">
                           <h4 className="text-sm font-bold text-on-surface group-hover:text-primary transition-colors line-clamp-1">
@@ -451,7 +448,7 @@ function DashboardPageContent() {
                             {formatRelativeTime(notification.createdAt)}
                           </p>
                         </div>
-                        <span className="material-symbols-outlined text-on-surface-variant group-hover:text-primary">chevron_right</span>
+                        <AppIcon name="chevron_right" className="text-on-surface-variant group-hover:text-primary" />
                       </div>
                     );
                     return hasPlayerLink ? (
@@ -470,7 +467,7 @@ function DashboardPageContent() {
             <div className="space-y-4">
               <div className="flex items-center justify-between px-2">
                 <h3 className="font-headline font-black text-xs uppercase tracking-[0.2em] text-primary flex items-center gap-2">
-                  <span className="material-symbols-outlined text-lg" style={{ fontVariationSettings: "'FILL' 1" }}>campaign</span>
+                  <AppIcon name="campaign" className="text-lg" />
                   System Announcements
                 </h3>
                 <a href="#" className="font-label text-[10px] font-black text-on-surface-variant uppercase tracking-widest hover:text-primary transition-colors">
@@ -480,9 +477,7 @@ function DashboardPageContent() {
               <div className="space-y-4 overflow-visible">
                 {MOCK_ANNOUNCEMENTS.length === 0 ? (
                   <div className="bg-surface-container-low/75 backdrop-blur-xl border border-white/5 rounded-2xl p-8 text-center shadow-glass">
-                    <span className="material-symbols-outlined text-4xl text-on-surface-variant/30 mb-2 block">
-                      newsmode
-                    </span>
+                    <AppIcon name="newsmode" className="text-4xl text-on-surface-variant/30 mb-2 block" />
                     <p className="font-body text-sm text-on-surface-variant">
                       No announcements at this time
                     </p>
@@ -529,7 +524,7 @@ function FanMoodCard({
   const recentForm = fan?.recentForm ?? '';
   const tier = getFanEmotionTier(emotion);
   const tierName = FAN_EMOTION_TIER_NAMES[tier][locale === 'zh' ? 'zh' : 'en'];
-  const tierIcon = FAN_EMOTION_TIER_ICON[tier];
+  const tierIcon = FAN_EMOTION_TIER_ICON[tier] as MaterialIconName;
   const accent = FAN_EMOTION_TIER_ACCENT[tier];
 
   return (
@@ -537,9 +532,7 @@ function FanMoodCard({
       <div>
         <div className="flex items-center justify-between mb-6">
           <h3 className="font-headline font-black text-xs uppercase tracking-[0.2em] text-primary flex items-center gap-2">
-            <span className="material-symbols-outlined text-base" style={{ fontVariationSettings: "'FILL' 1" }}>
-              groups
-            </span>
+            <AppIcon name="groups" className="text-base" />
             {t('dashboard.fanMood')}
           </h3>
           {fan ? (
@@ -567,12 +560,7 @@ function FanMoodCard({
             {t('dashboard.fanMoodTier')}
           </p>
           <div className={`flex items-center gap-3 ${accent.text}`}>
-            <span
-              className="material-symbols-outlined text-4xl"
-              style={{ fontVariationSettings: "'FILL' 1" }}
-            >
-              {tierIcon}
-            </span>
+            <AppIcon name={tierIcon} className="text-4xl" />
             <span className="font-headline text-4xl font-black tracking-tighter leading-none">
               {tierName}
             </span>

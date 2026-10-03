@@ -1,5 +1,6 @@
 "use client";
 
+import { AppIcon } from "@/components/icons/AppIcon";
 import type { ForumThread, ForumPagination } from "@/lib/forum-api";
 import { useTranslations } from "next-intl";
 import ThreadListItem from "./ThreadListItem";
@@ -14,9 +15,7 @@ export default function ThreadList({ threads, pagination }: ThreadListProps) {
   if (threads.length === 0) {
     return (
       <div className="glass-panel p-12 rounded-2xl border border-outline-variant/10 text-center">
-        <span className="material-symbols-outlined text-4xl text-on-surface-variant/40 mb-3 block">
-          article
-        </span>
+        <AppIcon name="article" className="text-4xl text-on-surface-variant/40 mb-3 block" />
         <p className="font-headline text-frost mb-1">{t("emptyThreads")}</p>
         <p className="font-body text-sm text-on-surface-variant">
           {t("startFirstThread")}

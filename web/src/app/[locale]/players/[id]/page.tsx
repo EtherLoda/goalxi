@@ -1,5 +1,6 @@
 "use client";
 
+import { AppIcon, type MaterialIconName } from "@/components/icons/AppIcon";
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
@@ -13,7 +14,7 @@ import { ExperienceTierLabel } from "@/components/ExperienceTierLabel";
 
 const SKILL_MAX = 20;
 
-const EVENT_ICONS: Record<string, string> = {
+const EVENT_ICONS: Record<string, MaterialIconName> = {
   TRANSFER: "swap_horiz",
   YOUTH_PROMOTION: "trending_up",
   HAT_TRICK: "sports_kabaddi",
@@ -117,9 +118,7 @@ function ListPlayerModal({ player, onClose, onSuccess }: ListPlayerModalProps) {
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-xl bg-accent/20 flex items-center justify-center">
-                <span className="material-symbols-outlined text-accent">
-                  sell
-                </span>
+                <AppIcon name="sell" className="text-accent" />
               </div>
               <div>
                 <h3 className="text-lg font-black font-space text-frost">
@@ -133,10 +132,9 @@ function ListPlayerModal({ player, onClose, onSuccess }: ListPlayerModalProps) {
             <button
               onClick={onClose}
               className="w-8 h-8 rounded-full flex items-center justify-center hover:bg-ink-600 transition-colors"
+              aria-label={t("common.close")}
             >
-              <span className="material-symbols-outlined text-[#91b6a] text-lg">
-                close
-              </span>
+              <AppIcon name="close" className="text-[#91b6a] text-lg" />
             </button>
           </div>
         </div>
@@ -371,9 +369,7 @@ export default function PlayerDetailPage({ params }: PageProps) {
       <div className="flex-grow p-6 pt-10">
         {isLoading ? (
           <div className="flex items-center justify-center h-full w-full">
-            <span className="material-symbols-outlined text-4xl text-accent animate-spin">
-              progress_activity
-            </span>
+            <AppIcon name="progress_activity" className="text-4xl text-accent animate-spin" />
           </div>
         ) : player ? (
           <div className="w-full max-w-[580px] mx-auto pb-8">
@@ -430,25 +426,19 @@ export default function PlayerDetailPage({ params }: PageProps) {
                     </div>
                     <div className="flex items-center gap-4 mt-2">
                       <div className="flex items-center gap-2">
-                        <span className="material-symbols-outlined text-muted text-sm">
-                          calendar_month
-                        </span>
+                        <AppIcon name="calendar_month" className="text-muted text-sm" />
                         <span className="text-xs font-bold uppercase tracking-widest text-muted">
                           {tc("ageFormat", { y: player.age, d: player.ageDays })}
                         </span>
                       </div>
                       <div className="flex items-center gap-2">
-                        <span className="material-symbols-outlined text-muted text-sm">
-                          military_tech
-                        </span>
+                        <AppIcon name="military_tech" className="text-muted text-sm" />
                         <span className="text-xs font-bold uppercase tracking-widest text-muted">
                           {t("exp")} <ExperienceTierLabel value={player.experience} className="text-frost" />
                         </span>
                       </div>
                       <div className="flex items-center gap-2">
-                        <span className="material-symbols-outlined text-muted text-sm">
-                          payments
-                        </span>
+                        <AppIcon name="payments" className="text-muted text-sm" />
                         <span className="text-xs font-bold uppercase tracking-widest text-signal-amber">
                           £{(player.currentWage || 0).toLocaleString()}/w
                         </span>
@@ -486,15 +476,22 @@ export default function PlayerDetailPage({ params }: PageProps) {
                       onClick={() => setShowListModal(true)}
                       className="w-10 h-10 rounded-full flex items-center justify-center bg-accent/20 text-accent hover:bg-accent/30 transition-colors border border-accent/30"
                       title={t("transfer.listButton")}
+                      aria-label={t("transfer.listButton")}
                     >
-                      <span className="material-symbols-outlined">sell</span>
+                      <AppIcon name="sell" />
                     </button>
                   )}
-                  <button className="w-10 h-10 rounded-full flex items-center justify-center bg-ink-600 text-muted hover:text-accent transition-colors border border-edge/20">
-                    <span className="material-symbols-outlined">favorite</span>
+                  <button
+                    className="w-10 h-10 rounded-full flex items-center justify-center bg-ink-600 text-muted hover:text-accent transition-colors border border-edge/20"
+                    aria-label={tc("favorite")}
+                  >
+                    <AppIcon name="favorite" />
                   </button>
-                  <button className="w-10 h-10 rounded-full flex items-center justify-center bg-ink-600 text-muted hover:text-accent transition-colors border border-edge/20">
-                    <span className="material-symbols-outlined">share</span>
+                  <button
+                    className="w-10 h-10 rounded-full flex items-center justify-center bg-ink-600 text-muted hover:text-accent transition-colors border border-edge/20"
+                    aria-label={tc("share")}
+                  >
+                    <AppIcon name="share" />
                   </button>
                 </div>
               </div>
@@ -544,9 +541,7 @@ export default function PlayerDetailPage({ params }: PageProps) {
                   {/* Header */}
                   <div className="flex items-center justify-between mb-4">
                     <div className="flex items-center gap-2">
-                      <span className="material-symbols-outlined text-accent">
-                        sell
-                      </span>
+                      <AppIcon name="sell" className="text-accent" />
                       <h4 className="text-xs font-black font-space tracking-widest uppercase text-accent">
                         {t("transfer.onTransfer")}
                       </h4>
@@ -558,9 +553,7 @@ export default function PlayerDetailPage({ params }: PageProps) {
                           : "bg-ink-600/80 backdrop-blur-md"
                       }`}
                     >
-                      <span className="material-symbols-outlined text-xs text-danger">
-                        timer
-                      </span>
+                      <AppIcon name="timer" className="text-xs text-danger" />
                       <span className="text-[10px] font-bold text-on-surface uppercase tracking-wider">
                         {formatTimeRemaining(auction.expiresAt)}
                       </span>
@@ -583,9 +576,7 @@ export default function PlayerDetailPage({ params }: PageProps) {
                   {auction.bidHistory && auction.bidHistory.length > 0 && (
                     <div className="mb-4">
                       <div className="flex items-center gap-2 mb-3">
-                        <span className="material-symbols-outlined text-accent text-sm">
-                          gavel
-                        </span>
+                        <AppIcon name="gavel" className="text-accent text-sm" />
                         <h4 className="text-[10px] uppercase tracking-widest text-muted font-bold">
                           Bid History
                         </h4>
@@ -677,9 +668,7 @@ export default function PlayerDetailPage({ params }: PageProps) {
                           }}
                           disabled={!bidAmount || isSubmittingBid}
                         >
-                          <span className="material-symbols-outlined text-sm">
-                            payments
-                          </span>
+                          <AppIcon name="payments" className="text-sm" />
                           {tt("detail.makeOffer")}
                         </button>
                       </div>
@@ -874,9 +863,7 @@ export default function PlayerDetailPage({ params }: PageProps) {
                 </div>
                 {events.length === 0 ? (
                   <div className="bg-ink-700/50 rounded-xl p-6 text-center">
-                    <span className="material-symbols-outlined text-3xl text-faint">
-                      history
-                    </span>
+                    <AppIcon name="history" className="text-3xl text-faint" />
                     <p className="text-faint text-xs mt-2">
                       {te("no_events")}
                     </p>
@@ -901,9 +888,7 @@ export default function PlayerDetailPage({ params }: PageProps) {
                           <div
                             className={`w-10 h-10 rounded-full flex items-center justify-center bg-ink-700 ${colorClass}`}
                           >
-                            <span className="material-symbols-outlined text-lg">
-                              {iconName}
-                            </span>
+                            <AppIcon name={iconName} className="text-lg" />
                           </div>
                           <div className="flex-1">
                             <p className="text-sm font-bold text-frost">
@@ -930,9 +915,7 @@ export default function PlayerDetailPage({ params }: PageProps) {
               href={`/${resolvedParams?.locale}/teams/squad`}
               className="inline-flex items-center gap-2 text-accent hover:text-accent-hover transition-colors mt-4 text-sm font-bold"
             >
-              <span className="material-symbols-outlined text-lg">
-                arrow_back
-              </span>
+              <AppIcon name="arrow_back" className="text-lg" />
               {t("states.backToSquad")}
             </Link>
           </div>

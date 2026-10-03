@@ -12,9 +12,9 @@
  *      snapshot's minute position. Active tick scales up and picks up
  *      the primary color. Each tick is also clickable — clicking jumps
  *      the scrubber to that snapshot.
- *   3. **Event markers** — colored circles for goals (⚽, primary
- *      green), substitutions (🔄, sky blue), yellow cards (🟨, amber),
- *      red cards (🟥, red). Each marker is anchored above the track and
+ *   3. **Event markers** — colored circles for goals (ball, primary
+ *      green), substitutions (arrows, sky blue), yellow cards (amber),
+ *      red cards (red). Each marker is anchored above the track and
  *      clickable; the click commits the scrubber to the nearest
  *      snapshot at-or-before that minute.
  *
@@ -32,7 +32,10 @@
 
 'use client';
 
-import { useCallback, useMemo, useRef, useState, type MouseEvent, type PointerEvent } from 'react';
+import { AppIcon } from "@/components/icons/AppIcon";
+import { BallIcon, RedCardIcon, YellowCardIcon } from "@/components/icons/custom-icons";
+import { useCallback, useMemo, useRef, useState, type ComponentType, type MouseEvent, type PointerEvent } from 'react';
+import { Ambulance, ArrowLeftRight, type LucideProps } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import type { MatchEvent } from '@/lib/api';
 import { shouldCommitScrubber } from './snapshot-stats';
@@ -94,52 +97,47 @@ export interface MatchTimelineProps {
  * Visual style for each event type. Centralized so a designer can swap
  * the palette in one place.
  *
- * NOTE on icons: Material Symbols has icons like `sports_score` and
- * `swap_horiz`, but no canonical "yellow card" / "red card" glyph —
- * existing commentary uses the unicode dots 🟨🟥 for those. We do the
- * same here: emoji-based markers survive any icon-font load failure
- * and read clearly at any size.
+ * NOTE on icons: glyphs are inline SVG components (Lucide + custom
+ * from `custom-icons.tsx`) sized by the marker's font-size via
+ * `size="1em"` — no icon-font or emoji dependency, so markers render
+ * identically on every platform.
  */
 const EVENT_VISUAL: Record<
   TimelineEventType,
-  { glyph: string; ringClass: string; bgClass: string; labelClass: string }
+  { glyph: ComponentType<LucideProps>; ringClass: string; bgClass: string; labelClass: string }
 > = {
   GOAL: {
-    glyph: '⚽',
+    glyph: BallIcon,
     ringClass: 'ring-primary/40',
     bgClass: 'bg-primary',
     labelClass: 'text-on-primary',
   },
   SUBSTITUTION: {
-    glyph: '⇄',
+    glyph: ArrowLeftRight,
     ringClass: 'ring-sky-400/50',
     bgClass: 'bg-sky-500',
     labelClass: 'text-on-surface',
   },
   YELLOW_CARD: {
-    glyph: '🟨',
+    glyph: YellowCardIcon,
     ringClass: 'ring-signal-gold/50',
     bgClass: 'bg-signal-gold',
     labelClass: 'text-amber-950',
   },
   SECOND_YELLOW: {
-    glyph: '🟨',
+    glyph: YellowCardIcon,
     ringClass: 'ring-signal-gold/50',
     bgClass: 'bg-signal-gold',
     labelClass: 'text-amber-950',
   },
   RED_CARD: {
-    glyph: '🟥',
+    glyph: RedCardIcon,
     ringClass: 'ring-danger/50',
     bgClass: 'bg-danger',
     labelClass: 'text-on-surface',
   },
   INJURY: {
-    // Material Symbols has a `medical_services` icon, but using the
-    // same emoji-as-glyph convention as the other markers (🟨/🟥)
-    // keeps the visual weight consistent and survives icon-font
-    // load failures. The red cross-on-white reads at any size.
-    glyph: '🚑',
+    glyph: Ambulance,
     ringClass: 'ring-rose-500/50',
     bgClass: 'bg-rose-500',
     labelClass: 'text-on-surface',
@@ -575,7 +573,7 @@ function TimelineHeader({
   return (
     <div className="flex items-center justify-between px-5 py-3 border-b border-surface-container-high">
       <h3 className="font-headline font-bold text-xs uppercase tracking-widest text-primary flex items-center gap-1.5">
-        <span className="material-symbols-outlined text-sm text-primary">timeline</span>
+        <AppIcon name="timeline" className="text-sm text-primary" />
         {t('title')}
       </h3>
       <div className="flex items-center gap-3 text-[10px] font-headline uppercase tracking-widest text-on-surface-variant tabular-nums">
@@ -727,7 +725,7 @@ function EventMarker({
       // Tooltip: when the event payload carries a player name
       // (goals / subs / injuries do; legacy / pre-RFC events may
       // not), surface it on hover so a reader can tell the three
-      // ⚽ markers apart without click-through. Falls back to the
+      // ball markers apart without click-through. Falls back to the
       // type label so the title is never blank.
       title={
         marker.playerName
@@ -747,7 +745,7 @@ function EventMarker({
         className={`leading-none ${visual.labelClass}`}
         style={{ fontSize: '11px' }}
       >
-        {visual.glyph}
+        <visual.glyph size="1em" aria-hidden="true" />
       </span>
     </button>
   );
@@ -782,7 +780,7 @@ function Legend() {
                 className={`leading-none ${visual.labelClass}`}
                 style={{ fontSize: '9px' }}
               >
-                {visual.glyph}
+                <visual.glyph size="1em" aria-hidden="true" />
               </span>
             </span>
             {t(`legend.${type.toLowerCase()}`)}

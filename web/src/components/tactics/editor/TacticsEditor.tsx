@@ -1,5 +1,6 @@
 'use client';
 
+import { AppIcon } from "@/components/icons/AppIcon";
 import React, { useCallback, useEffect, useMemo, useReducer, useRef } from 'react';
 import { useTranslations } from 'next-intl';
 import { api, type Match, type Player, type Preset } from '@/lib/api';
@@ -383,14 +384,14 @@ export function TacticsEditor({ matchId, match }: TacticsEditorProps) {
   if (!dataReady) {
     return (
       <div className="flex items-center justify-center p-12">
-        <span className="material-symbols-outlined animate-spin text-3xl text-primary">progress_activity</span>
+        <AppIcon name="progress_activity" className="animate-spin text-3xl text-primary" />
       </div>
     );
   }
   if (dataError) {
     return (
       <div className="glass-panel rounded-2xl p-8 text-center">
-        <span className="material-symbols-outlined text-3xl text-error mb-2 block">error</span>
+        <AppIcon name="error" className="text-3xl text-error mb-2 block" />
         <p className="font-label text-xs tracking-widest uppercase text-on-surface">{dataError}</p>
       </div>
     );

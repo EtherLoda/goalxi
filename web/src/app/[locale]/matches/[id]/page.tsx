@@ -1,5 +1,6 @@
 'use client';
 
+import { AppIcon } from "@/components/icons/AppIcon";
 import { useEffect, useState, Suspense } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
@@ -55,9 +56,7 @@ function MatchPageContent() {
     return (
       <div className="p-6 md:p-8 max-w-7xl mx-auto w-full">
         <div className="bg-surface-container-low rounded-2xl p-12 text-center border border-error/20">
-          <span className="material-symbols-outlined text-6xl text-error/50 mb-4 block">
-            error
-          </span>
+          <AppIcon name="error" className="text-6xl text-error/50 mb-4 block" />
           <p className="text-on-surface-variant text-lg font-medium mb-2">
             {error ?? 'Match not found'}
           </p>
@@ -65,7 +64,7 @@ function MatchPageContent() {
             href={`/${locale}/matches`}
             className="inline-flex items-center gap-2 text-primary hover:underline mt-4"
           >
-            <span className="material-symbols-outlined text-lg">arrow_back</span>
+            <AppIcon name="arrow_back" className="text-lg" />
             Back to Matches
           </Link>
         </div>
@@ -107,7 +106,7 @@ function MatchPageContent() {
             className="flex items-center justify-center w-10 h-10 bg-surface-container-low border border-outline-variant/30 text-on-surface-variant rounded-lg hover:bg-surface-container-high hover:text-on-surface transition-all"
             aria-label={tBento('back')}
           >
-            <span className="material-symbols-outlined text-[18px]">arrow_back</span>
+            <AppIcon name="arrow_back" className="text-[18px]" />
           </Link>
           <div>
             <h1 className="font-headline text-2xl md:text-3xl font-black tracking-tight text-on-surface uppercase italic">
@@ -132,9 +131,7 @@ function MatchPageContent() {
             href={`/${locale}/cup/${match.cupId}${match.cupRound !== null && match.cupRound !== undefined ? `#round-${match.cupRound}` : ''}`}
             className="inline-flex items-center gap-2 h-10 px-4 rounded-full glass-panel border border-signal-amber/30 hover:border-signal-amber/60 hover:shadow-[0_0_18px_rgba(251,191,36,0.15)] transition-all"
           >
-            <span className="material-symbols-outlined text-[18px] text-amber-300">
-              workspace_premium
-            </span>
+            <AppIcon name="workspace_premium" className="text-[18px] text-amber-300" />
             <span className="font-label text-[10px] font-black uppercase tracking-widest text-amber-300">
               {tBento('viewBracket')}
             </span>

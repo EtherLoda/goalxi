@@ -2,13 +2,14 @@
  * MatchInfoPanel — venue / weather / attendance, redesigned as a row of
  * icon+label tiles. The old version was a flat 3-line text list with
  * emoji bullets that read as noise; this version uses the same icon
- * vocabulary as the rest of the match page (material-symbols-outlined)
+ * vocabulary as the rest of the match page (AppIcon / Lucide)
  * with a primary-tinted square chip and a small uppercase caption,
  * so each tile is self-contained and the panel as a whole feels like
  * part of the same design system.
  */
 'use client';
 
+import { AppIcon, type MaterialIconName } from "@/components/icons/AppIcon";
 import React from 'react';
 
 interface MatchInfoPanelProps {
@@ -20,7 +21,7 @@ interface MatchInfoPanelProps {
   attendance?: number;
 }
 
-function weatherIconName(w: string): string {
+function weatherIconName(w: string): MaterialIconName {
   const key = w.toLowerCase();
   if (key.includes('rain')) return 'rainy';
   if (key.includes('cloud')) return 'cloud';
@@ -39,7 +40,7 @@ function formatAttendance(n?: number): string {
 }
 
 interface TileProps {
-  icon: string;
+  icon: MaterialIconName;
   caption: string;
   value: string;
   capitalize?: boolean;
@@ -49,9 +50,7 @@ function InfoTile({ icon, caption, value, capitalize }: TileProps) {
   return (
     <div className="flex items-center gap-2 min-w-0">
       <div className="w-7 h-7 shrink-0 rounded-lg bg-primary/10 border border-primary/20 flex items-center justify-center">
-        <span className="material-symbols-outlined text-primary text-[15px] leading-none">
-          {icon}
-        </span>
+        <AppIcon name={icon} className="text-primary text-[15px] leading-none" />
       </div>
       <div className="flex flex-col min-w-0 leading-tight">
         <span className="font-label text-[8px] font-bold uppercase tracking-widest text-on-surface-variant/60">

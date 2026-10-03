@@ -15,6 +15,7 @@
  */
 'use client';
 
+import { AppIcon } from "@/components/icons/AppIcon";
 import React from 'react';
 import { useLocale } from 'next-intl';
 import { clsx } from 'clsx';
@@ -60,7 +61,7 @@ const LANES = [
   { key: 'left' as const, label: 'Left Wing', sub: 'L', icon: 'south_west' },
   { key: 'center' as const, label: 'Center', sub: 'C', icon: 'swap_vert' },
   { key: 'right' as const, label: 'Right Wing', sub: 'R', icon: 'south_east' },
-];
+] as const;
 
 const METRICS = [
   { key: 'attack' as const, label: 'Attack', short: 'ATK' },
@@ -105,7 +106,7 @@ export function LaneBreakdown({
     <div className="glass-panel rounded-2xl p-4 shrink-0">
       {/* Header */}
       <h3 className="font-headline font-bold text-[10px] uppercase tracking-widest text-primary/80 mb-3 flex items-center gap-2">
-        <span className="material-symbols-outlined text-base">analytics</span>
+        <AppIcon name="analytics" className="text-base" />
         Lane Breakdown
       </h3>
 
@@ -153,9 +154,7 @@ export function LaneBreakdown({
               {/* Lane header */}
               <div className="flex items-center justify-between px-2.5 py-1.5 bg-surface-container/50">
                 <div className="flex items-center gap-1.5">
-                  <span className="material-symbols-outlined text-[14px] text-on-surface-variant">
-                    {lane.icon}
-                  </span>
+                  <AppIcon name={lane.icon} className="text-[14px] text-on-surface-variant" />
                   <span className="font-headline font-black text-[10px] uppercase tracking-wider text-on-surface">
                     {lane.label}
                   </span>

@@ -1,5 +1,6 @@
 'use client';
 
+import { AppIcon } from "@/components/icons/AppIcon";
 import React from 'react';
 import { useTranslations } from 'next-intl';
 import type { Preset } from '@/lib/api';
@@ -22,7 +23,7 @@ export function PresetList({ presets, activePresetId, disabled, onApply, onDelet
     <GlassPanel size="md">
       <div className="flex items-center justify-between mb-3">
         <div className="flex items-center gap-1.5">
-          <span className="material-symbols-outlined text-base text-primary">bookmarks</span>
+          <AppIcon name="bookmarks" className="text-base text-primary" />
           <KickerLabel>{t('title')}</KickerLabel>
         </div>
         <button
@@ -31,13 +32,13 @@ export function PresetList({ presets, activePresetId, disabled, onApply, onDelet
           disabled={disabled}
           className="flex items-center gap-1 px-2 py-1 rounded bg-primary/20 text-primary border border-primary/30 font-label text-[9px] tracking-widest uppercase hover:bg-primary/30 transition-all disabled:opacity-50"
         >
-          <span className="material-symbols-outlined text-[12px]">add</span>
+          <AppIcon name="add" className="text-[12px]" />
           {t('save')}
         </button>
       </div>
       {presets.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-6 text-center border-2 border-dashed border-outline-variant/20 rounded-xl">
-          <span className="material-symbols-outlined text-2xl text-outline/40 mb-1">bookmark</span>
+          <AppIcon name="bookmark" className="text-2xl text-outline/40 mb-1" />
           <span className="font-label text-[10px] tracking-widest uppercase text-outline">
             No presets yet
           </span>

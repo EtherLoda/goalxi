@@ -14,6 +14,7 @@
 
 'use client';
 
+import { AppIcon } from "@/components/icons/AppIcon";
 import { useEffect, useMemo, useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { useTranslations } from 'next-intl';
@@ -189,9 +190,7 @@ export function MatchLiveView({
     return (
       <div className="p-6 md:p-8 max-w-7xl mx-auto w-full">
         <div className="bg-surface-container-low rounded-2xl p-12 text-center border border-error/20">
-          <span className="material-symbols-outlined text-6xl text-error/50 mb-4 block">
-            wifi_off
-          </span>
+          <AppIcon name="wifi_off" className="text-6xl text-error/50 mb-4 block" />
           <p className="text-on-surface-variant text-lg font-medium mb-2">{t('connectionLost')}</p>
           <p className="text-on-surface-variant/70 text-sm mb-4">{error}</p>
         </div>
@@ -210,7 +209,7 @@ export function MatchLiveView({
           className="rounded-xl bg-signal-amber/10 border border-signal-amber/40 px-5 py-4 flex items-center justify-between gap-3"
         >
           <div className="flex items-center gap-3">
-            <span className="material-symbols-outlined text-signal-amber">sports_score</span>
+            <AppIcon name="sports_score" className="text-signal-amber" />
             <div>
               <p className="font-headline font-bold text-signal-amber uppercase tracking-wider text-sm">
                 {t('fullTimeTitle')}
@@ -283,9 +282,7 @@ export function MatchLiveView({
               }`}
               data-testid="pitch-stats-toggle"
             >
-              <span className="material-symbols-outlined text-base">
-                {statsMode ? 'group' : 'monitoring'}
-              </span>
+              <AppIcon name={statsMode ? 'group' : 'monitoring'} className="text-base" />
               <span>{statsMode ? '球员视图' : '数据视图'}</span>
             </button>
           </div>

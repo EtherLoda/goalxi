@@ -4,6 +4,9 @@ import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { useState, useEffect } from "react";
 import { useAuth } from "@/contexts/AuthContext";
+import { Eye, EyeOff } from "lucide";
+import { MorphIcon } from "morphicons/react";
+import { AppIcon } from "@/components/icons/AppIcon";
 
 export default function LoginPage() {
   const t = useTranslations();
@@ -62,9 +65,10 @@ export default function LoginPage() {
                   : 'bg-danger/10 text-red-400'
                 }
               `}>
-                <span className="material-symbols-outlined text-xl">
-                  {notification.type === 'success' ? 'check_circle' : 'error'}
-                </span>
+                <AppIcon
+                  name={notification.type === 'success' ? 'check_circle' : 'error'}
+                  className="text-xl"
+                />
               </div>
 
               <div className="flex-1 min-w-0">
@@ -85,9 +89,9 @@ export default function LoginPage() {
                     : 'text-red-400/60 hover:text-red-300 hover:bg-danger/10'
                   }
                 `}
-              >
-                <span className="material-symbols-outlined text-lg">close</span>
-              </button>
+                >
+                  <AppIcon name="close" className="text-lg" />
+                </button>
             </div>
 
             {/* Auto-dismiss progress bar */}
@@ -176,11 +180,14 @@ export default function LoginPage() {
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
+                  aria-label="Toggle password visibility"
                   className="absolute right-3 top-1/2 -translate-y-1/2 text-on-surface-variant hover:text-on-surface transition-colors"
                 >
-                  <span className="material-symbols-outlined text-xl">
-                    {showPassword ? "visibility_off" : "visibility"}
-                  </span>
+                  <MorphIcon
+                    icon={showPassword ? EyeOff : Eye}
+                    size={20}
+                    reducedMotion="user"
+                  />
                 </button>
               </div>
             </div>

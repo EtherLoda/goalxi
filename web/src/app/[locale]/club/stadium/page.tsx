@@ -1,5 +1,6 @@
 "use client";
 
+import { AppIcon, type MaterialIconName } from "@/components/icons/AppIcon";
 import { useEffect, useMemo, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
@@ -224,7 +225,7 @@ export default function StadiumPage() {
       {/* Header */}
       <header>
         <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.3em] text-primary/70 mb-3">
-          <span className="material-symbols-outlined text-base">stadium</span>
+          <AppIcon name="stadium" className="text-base" />
           <span>{tCommon("dashboard.nav.operations")}</span>
         </div>
         <h1 className="font-headline text-4xl font-black uppercase tracking-tight text-on-surface">
@@ -276,9 +277,7 @@ export default function StadiumPage() {
                     className="inline-flex items-center gap-1.5 rounded-full border border-primary/30 bg-primary/5 px-3 py-1.5 text-[10px] font-black uppercase tracking-widest text-primary hover:bg-primary/15 transition-colors"
                     aria-label={t("renameCta")}
                   >
-                    <span className="material-symbols-outlined text-[14px]">
-                      edit
-                    </span>
+                    <AppIcon name="edit" className="text-[14px]" />
                     {t("renameCta")}
                   </button>
                 </div>
@@ -348,9 +347,7 @@ export default function StadiumPage() {
             <header className="flex items-center justify-between mb-5">
               <div>
                 <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.3em] text-on-surface-variant mb-1">
-                  <span className="material-symbols-outlined text-base">
-                    construction
-                  </span>
+                  <AppIcon name="construction" className="text-base" />
                   <span>{tConstruction("eyebrow")}</span>
                 </div>
                 <h3 className="font-headline text-xl font-black text-on-surface">
@@ -369,9 +366,7 @@ export default function StadiumPage() {
                 disabled={blockedByActive}
                 className="inline-flex items-center gap-1.5 rounded-full border border-primary/30 bg-primary/5 px-3 py-1.5 text-[10px] font-black uppercase tracking-widest text-primary hover:bg-primary/15 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
               >
-                <span className="material-symbols-outlined text-sm leading-none">
-                  add
-                </span>
+                <AppIcon name="add" className="text-sm leading-none" />
                 {tConstruction("expandCta")}
               </button>
 
@@ -381,9 +376,7 @@ export default function StadiumPage() {
                 disabled={blockedByActive}
                 className="inline-flex items-center gap-1.5 rounded-full border border-error/30 bg-error/5 px-3 py-1.5 text-[10px] font-black uppercase tracking-widest text-error hover:bg-error/15 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
               >
-                <span className="material-symbols-outlined text-sm leading-none">
-                  remove
-                </span>
+                <AppIcon name="remove" className="text-sm leading-none" />
                 {tConstruction("demolishCta")}
               </button>
             </div>
@@ -399,9 +392,7 @@ export default function StadiumPage() {
           {activeConstructions.length > 0 && (
             <section className="bg-surface-container-low rounded-2xl p-6 border border-outline-variant/10 space-y-3">
               <header className="flex items-center gap-2 mb-2">
-                <span className="material-symbols-outlined text-base text-primary">
-                  schedule
-                </span>
+                <AppIcon name="schedule" className="text-base text-primary" />
                 <h3 className="font-headline text-base font-bold text-on-surface">
                   {tConstruction("activeProjects")}
                 </h3>
@@ -428,9 +419,7 @@ export default function StadiumPage() {
             <div className="flex items-center justify-between mb-5">
               <div>
                 <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.3em] text-on-surface-variant mb-1">
-                  <span className="material-symbols-outlined text-base">
-                    history
-                  </span>
+                  <AppIcon name="history" className="text-base" />
                   <span>{t("recentMatches.eyebrow")}</span>
                 </div>
                 <h3 className="font-headline text-xl font-black text-on-surface">
@@ -446,9 +435,7 @@ export default function StadiumPage() {
             </div>
             {recent.length === 0 ? (
               <div className="text-center py-8">
-                <span className="material-symbols-outlined text-3xl text-on-surface-variant/40">
-                  sports_soccer
-                </span>
+                <AppIcon name="sports_soccer" className="text-3xl text-on-surface-variant/40" />
                 <p className="font-body text-sm text-on-surface-variant mt-2">
                   {t("recentMatches.empty")}
                 </p>
@@ -475,9 +462,7 @@ export default function StadiumPage() {
           {completedConstructions.length > 0 && (
             <section className="bg-surface-container-low rounded-2xl p-6 border border-outline-variant/10 space-y-2">
               <header className="flex items-center gap-2 mb-2">
-                <span className="material-symbols-outlined text-base text-on-surface-variant">
-                  check_circle
-                </span>
+                <AppIcon name="check_circle" className="text-base text-on-surface-variant" />
                 <h3 className="font-headline text-sm font-bold uppercase tracking-widest text-on-surface-variant">
                   {tConstruction("recentProjects")}
                 </h3>
@@ -608,14 +593,7 @@ function CompletedConstructionRow({
   return (
     <div className="flex items-center justify-between gap-3 px-3 py-2 rounded-lg bg-surface-container/40 border border-outline-variant/10 text-xs">
       <div className="flex items-center gap-2">
-        <span
-          className={
-            "material-symbols-outlined text-base " +
-            (isExpand ? "text-primary" : "text-error")
-          }
-        >
-          {isExpand ? "trending_up" : "trending_down"}
-        </span>
+        <AppIcon name={isExpand ? "trending_up" : "trending_down"} className={(isExpand ? "text-primary" : "text-error")} />
         <span className="font-headline text-on-surface tabular-nums">
           {sign}
           {construction.deltaSeats.toLocaleString()}
@@ -637,9 +615,7 @@ function NoStadiumEmpty() {
   const t = useTranslations("club.stadium");
   return (
     <div className="bg-surface-container-low rounded-2xl p-12 border border-outline-variant/10 text-center">
-      <span className="material-symbols-outlined text-6xl text-on-surface-variant/40">
-        stadium
-      </span>
+      <AppIcon name="stadium" className="text-6xl text-on-surface-variant/40" />
       <p className="font-headline text-base font-bold text-on-surface mt-4">
         {t("none")}
       </p>
@@ -655,7 +631,7 @@ function MiniStat({
 }: {
   label: string;
   value: string;
-  icon: string;
+  icon: MaterialIconName;
   tone?: "primary";
 }) {
   return (
@@ -664,14 +640,7 @@ function MiniStat({
         <span className="font-label text-[10px] font-black uppercase tracking-widest text-on-surface-variant">
           {label}
         </span>
-        <span
-          className={
-            "material-symbols-outlined text-base " +
-            (tone === "primary" ? "text-primary" : "text-on-surface-variant")
-          }
-        >
-          {icon}
-        </span>
+        <AppIcon name={icon} className={(tone === "primary" ? "text-primary" : "text-on-surface-variant")} />
       </div>
       <div className="font-headline text-lg font-black text-on-surface">
         {value}
@@ -752,9 +721,7 @@ function RecentMatchCard({
       </div>
       <div className="mt-1 flex items-center justify-between text-[10px] text-on-surface-variant">
         <span>
-          <span className="material-symbols-outlined text-[12px] align-middle mr-0.5">
-            groups
-          </span>
+          <AppIcon name="groups" className="text-[12px] align-middle mr-0.5" />
           {match.attendance?.toLocaleString() ?? "—"}
         </span>
         <span className="opacity-0 group-hover:opacity-100 transition-opacity text-primary">

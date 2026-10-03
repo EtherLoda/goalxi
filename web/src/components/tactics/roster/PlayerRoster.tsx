@@ -1,5 +1,6 @@
 'use client';
 
+import { AppIcon } from "@/components/icons/AppIcon";
 import React, { useState } from 'react';
 import { useTranslations } from 'next-intl';
 import type { Player } from '@/lib/api';
@@ -141,7 +142,7 @@ function DensityButton({ active, onClick, ariaLabel, icon }: DensityButtonProps)
           : 'text-on-surface-variant hover:text-on-surface'
       }`}
     >
-      <span className="material-symbols-outlined text-[14px] leading-none">{icon}</span>
+      <AppIcon name={icon} className="text-[14px] leading-none" />
     </button>
   );
 }

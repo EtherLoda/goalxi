@@ -1,6 +1,8 @@
 'use client';
 
+import { AppIcon } from "@/components/icons/AppIcon";
 import React from 'react';
+import { Star } from 'lucide-react';
 import type { Player } from '@/lib/api';
 import { signalAmber } from '@/lib/design-tokens';
 import { positionShortLabel } from '../tactics/shared/position-legend';
@@ -147,7 +149,7 @@ export function MatchPlayerMarker({
               className="absolute -top-2 -right-2 w-5 h-5 rounded-full bg-float border border-white/20 text-on-surface/60 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center"
               aria-label="Remove player"
             >
-              <span className="material-symbols-outlined text-[12px]">close</span>
+              <AppIcon name="close" className="text-[12px]" />
             </button>
           )}
         </div>
@@ -172,7 +174,9 @@ export function MatchPlayerMarker({
         <span className="font-headline font-black tabular-nums leading-none" style={{ color: pc.text, fontSize: 14 }}>
           {powerDisplay}
         </span>
-        <span style={{ color: pc.text, fontSize: 13 }}>⭐</span>
+        <span style={{ color: pc.text, fontSize: 13 }}>
+          <Star size="1em" fill="currentColor" strokeWidth={1} aria-hidden="true" />
+        </span>
       </div>
     </div>
   );

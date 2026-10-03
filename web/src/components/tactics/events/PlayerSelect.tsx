@@ -8,6 +8,7 @@
  * Uses the project's Material Symbols icon set + Tailwind tokens so it
  * matches the rest of the editor (no lucide-react dependency in web/).
  */
+import { AppIcon } from "@/components/icons/AppIcon";
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { useTranslations } from 'next-intl';
 import type { Player } from '@/lib/api';
@@ -161,14 +162,12 @@ export function PlayerSelect({
           </div>
         ) : (
           <div className="flex items-center gap-1.5 text-outline">
-            <span className="material-symbols-outlined text-[14px]">person</span>
+            <AppIcon name="person" className="text-[14px]" />
             <span className="text-xs font-medium">{ph}</span>
           </div>
         )}
         {!disabled && (
-          <span className={`material-symbols-outlined text-[14px] text-outline transition-transform ${open ? `rotate-180 ${focusIconByTone[tone]}` : ''}`}>
-            expand_more
-          </span>
+          <AppIcon name="expand_more" className={`text-[14px] text-outline transition-transform ${open ? `rotate-180 ${focusIconByTone[tone]}` : ''}`} />
         )}
       </button>
 
@@ -182,7 +181,7 @@ export function PlayerSelect({
         >
           <div className="p-1.5 border-b border-outline-variant/20">
             <div className="flex items-center gap-1.5 px-2 py-1 rounded bg-surface-container/60">
-              <span className="material-symbols-outlined text-[14px] text-outline">search</span>
+              <AppIcon name="search" className="text-[14px] text-outline" />
               <input
                 type="text"
                 value={query}

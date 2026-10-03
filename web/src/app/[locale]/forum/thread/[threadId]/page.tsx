@@ -1,5 +1,6 @@
 "use client";
 
+import { AppIcon, type MaterialIconName } from "@/components/icons/AppIcon";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -101,7 +102,7 @@ export default function ThreadPage() {
       <div className="max-w-3xl mx-auto px-6 py-8">
         <div className="glass-panel p-6 rounded-2xl border border-danger/30 bg-danger/10">
           <div className="flex items-center gap-3 font-body text-sm text-red-300">
-            <span className="material-symbols-outlined">error</span>
+            <AppIcon name="error" />
             {error}
           </div>
         </div>
@@ -118,9 +119,7 @@ export default function ThreadPage() {
   if (!thread || !postsData) {
     return (
       <div className="max-w-3xl mx-auto px-6 py-16 text-center">
-        <span className="material-symbols-outlined text-4xl text-on-surface-variant/40 mb-3 block animate-pulse">
-          hourglass_empty
-        </span>
+        <AppIcon name="hourglass_empty" className="text-4xl text-on-surface-variant/40 mb-3 block animate-pulse" />
         <p className="font-headline text-on-surface-variant">{t("loading")}</p>
       </div>
     );
@@ -135,7 +134,7 @@ export default function ThreadPage() {
           href={`/${locale}/forum`}
           className="hover:text-accent transition-colors flex items-center gap-1"
         >
-          <span className="material-symbols-outlined text-xs">forum</span>
+          <AppIcon name="forum" className="text-xs" />
           {t("title")}
         </Link>
       </nav>
@@ -143,12 +142,7 @@ export default function ThreadPage() {
       <div className="mb-6 pb-4 border-b border-outline-variant/10">
         <div className="flex items-start gap-2 mb-2">
           {thread.isPinned && (
-            <span
-              className="material-symbols-outlined text-accent mt-1"
-              title="Pinned"
-            >
-              push_pin
-            </span>
+            <AppIcon name="push_pin" className="text-accent mt-1" label="Pinned" />
           )}
           <h1 className="font-headline font-black text-2xl uppercase tracking-tight text-frost flex-1">
             {thread.title}
@@ -184,7 +178,7 @@ export default function ThreadPage() {
               onClick={handleReplyButtonClick}
               className="flex items-center gap-1 font-label text-[10px] uppercase tracking-widest text-on-surface-variant hover:text-accent transition-colors"
             >
-              <span className="material-symbols-outlined text-sm">reply</span>
+              <AppIcon name="reply" className="text-sm" />
               {t("reply")}
             </button>
             <button
@@ -202,7 +196,7 @@ export default function ThreadPage() {
               }
               className="flex items-center gap-1 font-label text-[10px] uppercase tracking-widest text-on-surface-variant hover:text-accent transition-colors"
             >
-              <span className="material-symbols-outlined text-sm">format_quote</span>
+              <AppIcon name="format_quote" className="text-sm" />
               {t("quote")}
             </button>
           </div>
@@ -211,7 +205,7 @@ export default function ThreadPage() {
 
       <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
         <h2 className="font-headline font-bold text-sm uppercase tracking-widest text-on-surface-variant flex items-center gap-2">
-          <span className="material-symbols-outlined text-base">forum</span>
+          <AppIcon name="forum" className="text-base" />
           {thread.replyCount === 1
             ? t("replyCount_one")
             : t("replyCount_other", { count: thread.replyCount })}
