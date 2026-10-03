@@ -46,42 +46,41 @@
   },
   "nav": {
     "howToPlay": "游戏指南",
-    "leaderboard": "排行榜",
     "news": "资讯",
     "login": "登录",
-    "signUp": "注册"
+    "signUp": "加入 GoalXI",
+    "skipToContent": "跳转到主要内容"
   },
   "hero": {
     "title": "从球员到技术总监",
-    "subtitle": "最沉浸式的足球管理体验。用精准数据掌控球场。",
+    "subtitle": "组建阵容、制定战术，在 85 个联赛的金字塔中逐分钟见证比赛演进。",
     "cta": "加入 GoalXI"
   },
   "stats": {
-    "managersOnline": "在线经理",
-    "matchesPlayed": "已完成比赛",
-    "tacticalSimulation": "战术模拟"
+    "leagues": "联赛总数",
+    "tiers": "联赛层级",
+    "minutes": "单场比赛分钟"
   },
   "features": {
     "title": "为什么选择 GOALXI？",
-    "subtitle": "深度与精英级呈现的完美结合。下一代战术控制从这里开始。",
+    "subtitle": "战术、球探与阵容数据驱动整场模拟，你的每个决定都会反映在球场上。",
     "tacticalCanvas": {
-      "title": "多样战术画布",
-      "desc": "自由拖放系统，让你在比赛的每个阶段都精确掌控。不再受限于固定模板——纯粹的执教体验。"
+      "title": "战术画布",
+      "desc": "拖拽调整阵型，赛前设定节奏、球场宽度与防线高度。"
     },
     "scouting": {
       "title": "全球球探网络",
-      "desc": "使用我们的专利球探算法，发掘下一代天才球员。追踪 15 万+ 球员，覆盖 60 个国家。"
+      "desc": "球探报告只揭示候选球员的部分能力，你需要凭已有信息决定是否签下他。"
     },
     "dataDriven": {
       "title": "数据驱动决策",
-      "desc": "每一项数据都至关重要。使用我们的 1-20 属性系统和热力图，优化阵容轮换和赛前准备。"
+      "desc": "每位球员以 1-20 的属性体系评分，赛前据此比较阵容并安排轮换。"
     }
   },
   "cta": {
     "title": "准备好统领联赛了吗？",
-    "subtitle": "加入世界上最高级的经理社区，今天开始建立你的王朝。",
-    "placeholder": "输入你的邮箱",
-    "button": "立即开始",
+    "subtitle": "创建经理账户，领取你的俱乐部。",
+    "button": "加入 GoalXI",
     "note": "无需信用卡。免费游玩。"
   },
   "footer": {

@@ -2,9 +2,25 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-    title: "GoalXI — Tactical Intelligence & Elite Performance",
+    title: "GoalXI - Tactical Intelligence & Elite Performance",
     description:
-        "The most immersive tactical football management experience on the web. Master the pitch with precision data.",
+        "Build your squad, set your tactics, and watch them play out minute by minute across an 85-league pyramid.",
+    // NOTE: no og:image yet - public/ ships no raster asset, and a social
+    // card pointing at a non-existent file is worse than none. Add one
+    // (1200x630, real product screenshot) alongside this field.
+    openGraph: {
+        title: "GoalXI - Tactical Intelligence & Elite Performance",
+        description:
+            "Build your squad, set your tactics, and watch them play out minute by minute across an 85-league pyramid.",
+        siteName: "GoalXI",
+        type: "website",
+    },
+    twitter: {
+        card: "summary",
+        title: "GoalXI - Tactical Intelligence & Elite Performance",
+        description:
+            "Build your squad, set your tactics, and watch them play out minute by minute across an 85-league pyramid.",
+    },
 };
 
 /**

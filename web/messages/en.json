@@ -69,42 +69,41 @@
   },
   "nav": {
     "howToPlay": "How to Play",
-    "leaderboard": "Leaderboard",
     "news": "News",
     "login": "Login",
-    "signUp": "Sign Up"
+    "signUp": "Join GoalXI",
+    "skipToContent": "Skip to content"
   },
   "hero": {
     "title": "FROM PLAYER TO TECHNICAL DIRECTOR",
-    "subtitle": "The most immersive tactical football management experience on the web. Master the pitch with precision data.",
+    "subtitle": "Build your squad, set your tactics, and watch them play out minute by minute across an 85-league pyramid.",
     "cta": "Join GoalXI"
   },
   "stats": {
-    "managersOnline": "Managers Online",
-    "matchesPlayed": "Matches Played",
-    "tacticalSimulation": "Tactical Simulation"
+    "leagues": "Senior leagues",
+    "tiers": "Division tiers",
+    "minutes": "Minutes per match"
   },
   "features": {
-    "title": "WHY GOALXI?",
-    "subtitle": "Revolutionary depth meets elite presentation. The next generation of tactical control starts here.",
+    "title": "Why GoalXI?",
+    "subtitle": "Tactics, scouting and squad data drive the simulation. Every decision you make shows up on the pitch.",
     "tacticalCanvas": {
-      "title": "Various Tactical Canvas",
-      "desc": "Free-form drag & drop systems that allow you to dictate every phase of play. No more rigid templates—just pure coaching."
+      "title": "Tactical canvas",
+      "desc": "Drag and drop your shape, then tune tempo, pitch width and the defensive line before kickoff."
     },
     "scouting": {
-      "title": "Global Scouting Network",
-      "desc": "Discover the next generational talent using our proprietary scouting algorithm. 150,000+ players tracked across 60 nations."
+      "title": "Global scouting network",
+      "desc": "Scout reports only reveal part of a candidate's skills. Sign players on the evidence you have."
     },
     "dataDriven": {
-      "title": "Data-Driven Decisions",
-      "desc": "Every individual stat matters. Use our 1-20 attribute system and heatmaps to optimize your squad rotation and match-day prep."
+      "title": "Data-driven decisions",
+      "desc": "Every player is rated on a 1-20 attribute scale. Compare squads and settle your rotation before each match."
     }
   },
   "cta": {
-    "title": "READY TO LEAD THE LEAGUE?",
-    "subtitle": "Join the world's most sophisticated manager community and start your dynasty today.",
-    "placeholder": "ENTER YOUR EMAIL",
-    "button": "GET STARTED",
+    "title": "Ready to lead the league?",
+    "subtitle": "Create your manager account and claim a club.",
+    "button": "Join GoalXI",
     "note": "No credit card required. Free to play, forever."
   },
   "footer": {
