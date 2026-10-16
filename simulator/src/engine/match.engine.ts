@@ -113,13 +113,91 @@ const ATTACK_TYPE_CONFIG: Record<
 // 射门类型配置
 // baseline 是对等双方射门时进球概率（GK 评分与射门员相当时）
 // 不同射门类型有显著差异，反映真实足球规律
-const SHOT_TYPE_CONFIG: Record<ShotType, { baseline: number }> = {
-  [ShotType.ONE_ON_ONE]: { baseline: 0.65 }, // 1v1 面对门将
-  [ShotType.HEADER]: { baseline: 0.45 }, // 头球靠位置争顶
-  [ShotType.NORMAL]: { baseline: 0.4 }, // 禁区内常规抽射
-  [ShotType.REBOUND]: { baseline: 0.5 }, // 补射（门前近距离）
-  [ShotType.LONG_SHOT]: { baseline: 0.3 }, // 远射
+/**
+ * 射门对决配置。
+ *
+ * `baseline`           = 攻守评分相等时的进球概率（对等点）。
+ * `anchorProbability`  = 攻方评分是守方 2 倍（anchorRatio=2.0）时的进球概率。
+ *
+ * ⚠️ 不变量：`anchorProbability` 必须 **大于** `baseline`。
+ * `duel.ts` 用这两个点解出曲线斜率：
+ *   k = (logit(anchorProbability) - logit(baseline)) / ln(anchorRatio)^amplification
+ * 一旦 anchor <= baseline，k <= 0，整条曲线**反向** —— 评分越高的射手
+ * 进球概率反而越低。历史上 ONE_ON_ONE（baseline 0.65）配全局
+ * anchor 0.55 就踩过这个坑，见 `duel-profiles.spec.ts` 的回归断言。
+ */
+export const SHOT_TYPE_CONFIG: Record<
+  ShotType,
+  { baseline: number; anchorProbability: number }
+> = {
+  // 1v1 面对门将：baseline 是五种射门里最高的，anchor 也必须最高。
+  // 0.78 ⇒ k≈1.35，与 NORMAL 的 k≈1.26 同量级，保证曲线陡峭度一致。
+  [ShotType.ONE_ON_ONE]: { baseline: 0.65, anchorProbability: 0.78 },
+  [ShotType.HEADER]: { baseline: 0.45, anchorProbability: 0.55 }, // 头球靠位置争顶
+  [ShotType.NORMAL]: { baseline: 0.4, anchorProbability: 0.55 }, // 禁区内常规抽射
+  [ShotType.REBOUND]: { baseline: 0.5, anchorProbability: 0.55 }, // 补射（门前近距离）
+  [ShotType.LONG_SHOT]: { baseline: 0.3, anchorProbability: 0.55 }, // 远射
 };
+
+/**
+ * 引擎里所有 `duelProbability` 调用点的参数表（射门类除外 ——
+ * 射门按 `SHOT_TYPE_CONFIG` 逐类型取值）。
+ *
+ * 集中在一处的两个原因：
+ *  1. 让「斜率不能反向」(anchorProbability > baseline) 成为可被测试的
+ *     表级不变量，而不是散落在 6 个调用点里的魔法数字；
+ *  2. FE 面板展示的预期概率（push success / possession share）直接来自
+ *     这些参数，调参时只需要改这里。
+ */
+export const DUEL_PROFILES = {
+  /** 中场拼抢：控球权归属。anchor 比 push 略高，让中场被压制更明显。 */
+  midfield: {
+    amplification: 1.7,
+    baseline: 0.5,
+    anchorRatio: 2.0,
+    anchorProbability: 0.6,
+  },
+  /** 推进对决：把球从后场推到射门位置。真实足球约 50-60%。 */
+  push: {
+    amplification: 1.5,
+    baseline: 0.55,
+    anchorRatio: 2.0,
+    anchorProbability: 0.6,
+  },
+  /** 角球：baseline 0.10 → 0.20（用户 2026-08-05 决定）。 */
+  corner: {
+    amplification: 2.0,
+    baseline: 0.2,
+    anchorRatio: 2.0,
+    anchorProbability: 0.55,
+  },
+  /** 间接任意球：baseline 0.12 → 0.24（合成多次机会为一次）。 */
+  indirectFreeKick: {
+    amplification: 2.0,
+    baseline: 0.24,
+    anchorRatio: 2.0,
+    anchorProbability: 0.55,
+  },
+  /** 直接任意球：baseline 0.18 → 0.36（合成多次机会为一次）。 */
+  directFreeKick: {
+    amplification: 2.0,
+    baseline: 0.36,
+    anchorRatio: 2.0,
+    anchorProbability: 0.55,
+  },
+  /**
+   * 点球：amplification=1.0（点球只打一次对决，曲线取线性）。
+   * anchor 必须大于 baseline 0.75 —— 历史上这里是 0.55，
+   * 导致「点球手越强、命中率越低」的反向曲线。
+   * 0.90 ⇒ k≈1.585；对等点仍是 75%，而顶级点球手明显更稳。
+   */
+  penalty: {
+    amplification: 1.0,
+    baseline: 0.75,
+    anchorRatio: 2.0,
+    anchorProbability: 0.9,
+  },
+} as const;
 
 /**
  * Map position keys to bench config keys
@@ -2390,12 +2468,7 @@ export class MatchEngine {
     const midfieldProbability = duelProbability(
       homeControlWithBonus,
       awayControlWithBonus,
-      {
-        amplification: 1.7,
-        baseline: 0.5,
-        anchorRatio: 2.0,
-        anchorProbability: 0.6,
-      },
+      DUEL_PROFILES.midfield,
     );
     const homeWinsPossession = Math.random() < midfieldProbability;
 
@@ -2687,12 +2760,7 @@ export class MatchEngine {
         // 同时计算 attacker 视角的预期推进概率（0..1），通过 recordAttackSequence
         // 累加到 laneCounters.pushProbabilitySum，给 FE 的 Push Success Rate 面板
         // 提供模型输出而不是 empirical 命中率。
-        const pushDuelOptions = {
-          amplification: 1.5,
-          baseline: 0.55,
-          anchorRatio: 2.0,
-          anchorProbability: 0.6,
-        };
+        const pushDuelOptions = DUEL_PROFILES.push;
         const teamP = duelProbability(
           effectiveAttPower,
           effectiveDefPower,
@@ -2806,7 +2874,7 @@ export class MatchEngine {
           amplification: 2.0,
           baseline: shotConfig.baseline,
           anchorRatio: 2.0,
-          anchorProbability: 0.55,
+          anchorProbability: shotConfig.anchorProbability,
         });
 
         // 远射：65% 有助攻
@@ -2938,7 +3006,7 @@ export class MatchEngine {
           amplification: 2.0,
           baseline: shotConfig.baseline,
           anchorRatio: 2.0,
-          anchorProbability: 0.55,
+          anchorProbability: shotConfig.anchorProbability,
         });
 
         // 助攻逻辑（根据射门类型）
@@ -4302,11 +4370,16 @@ export class MatchEngine {
     // 对等点附近两种曲线接近相同，但 ratio > 2 时会有微小差异。
     // 后续阶段会按场景引入 amplification > 1.0 以匹配业务直觉。
     const baseline = 1 / (1 + Math.exp((offset * k) / 100));
+    // anchor 必须严格大于 baseline，否则斜率反向（强的一方更难赢）。
+    // 这一层的 baseline 由 (k, offset) 动态算出，所以不能写死 0.55 ——
+    // 用 max(0.55, baseline + 0.05) 保证单调性对任意 offset 都成立。
+    // 唯一调用点是点球大战（k=0.1, offset=-11.5 ⇒ baseline≈0.497），
+    // 结果仍是原来的 0.55。
     return resolveDuelPure(valA, valB, {
       amplification: 1.0,
       baseline,
       anchorRatio: 2.0,
-      anchorProbability: 0.55,
+      anchorProbability: Math.min(0.99, Math.max(0.55, baseline + 0.05)),
     });
   }
 
@@ -4626,12 +4699,11 @@ export class MatchEngine {
     const defenseScore = opponentAvgFK * 0.6 + gkRating * 0.2;
     // baseline 0.10 → 0.20:把现实多次机会合成到游戏一次机会,
     // 对等双方角球转化率翻倍(用户 2026-08-05 决定)
-    const probability = duelProbability(attackScore, defenseScore, {
-      amplification: 2.0,
-      baseline: 0.2,
-      anchorRatio: 2.0,
-      anchorProbability: 0.55,
-    });
+    const probability = duelProbability(
+      attackScore,
+      defenseScore,
+      DUEL_PROFILES.corner,
+    );
     const isGoal = Math.random() < probability;
 
     const kickerPlayer = kicker.player as Player;
@@ -4692,12 +4764,11 @@ export class MatchEngine {
       avgFK * 0.6 + (kicker.player as Player).attributes.freeKicks * 0.6;
     const defenseScore = opponentAvgFK * 0.6 + gkRating * 0.2;
     // baseline 0.12 → 0.24:合成多次机会 → 一次,转化率翻倍
-    const probability = duelProbability(attackScore, defenseScore, {
-      amplification: 2.0,
-      baseline: 0.24,
-      anchorRatio: 2.0,
-      anchorProbability: 0.55,
-    });
+    const probability = duelProbability(
+      attackScore,
+      defenseScore,
+      DUEL_PROFILES.indirectFreeKick,
+    );
 
     const isGoal = Math.random() < probability;
 
@@ -4777,13 +4848,11 @@ export class MatchEngine {
     // base formula already has the GK hand/reflex terms folded in.
     // If a future spec adds a SAVING_MASTER on FK, this is the
     // single line to wire.
-    const probability = duelProbability(fkAttackScore, defenseScore, {
-      amplification: 2.0,
-      // baseline 0.18 → 0.36:合成多次机会 → 一次,转化率翻倍
-      baseline: 0.36,
-      anchorRatio: 2.0,
-      anchorProbability: 0.55,
-    });
+    const probability = duelProbability(
+      fkAttackScore,
+      defenseScore,
+      DUEL_PROFILES.directFreeKick,
+    );
     const isGoal = Math.random() < probability;
 
     this.events.push({
@@ -4879,12 +4948,11 @@ export class MatchEngine {
     // RFC 0003 — record the SAVING_MASTER `gk_save` hook fire.
     penaltyRecorder.record(gkP, 'gk_save', 'gk', false, gkSaveMult);
     defenseScore *= gkSaveMult;
-    const probability = duelProbability(finalAttackScore, defenseScore, {
-      amplification: 1.0,
-      baseline: 0.75,
-      anchorRatio: 2.0,
-      anchorProbability: 0.55,
-    });
+    const probability = duelProbability(
+      finalAttackScore,
+      defenseScore,
+      DUEL_PROFILES.penalty,
+    );
     const isGoal = Math.random() < probability;
 
     this.events.push({
