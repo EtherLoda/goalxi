@@ -22,6 +22,15 @@ export const WIDTH_MODIFIERS: Record<
 // DefensiveLine → offside probability + attack/defense multiplier
 // LOW: deep block, rarely caught offside, strong defense but slow to transition
 // HIGH: high press, frequently caught offside, strong attack but vulnerable behind
+//
+// RESERVED — `offsideProb` is NOT consumed by the engine.
+// `MatchEngine` never emits an `offside` event; the values below are the
+// originally designed per-line offside rate, waiting for the offside mechanic
+// to be specified (who is offside, at which point of the sequence, what
+// happens to possession, whether it consumes the key moment). Do NOT wire it
+// up as a bare roll against these numbers — that changes match balance and
+// would need its own calibration pass. Kept here so the design intent is not
+// lost. (`MatchEventType.OFFSIDE` exists for the same reason.)
 export const DEFENSIVE_LINE_MODIFIERS: Record<
   DefensiveLine,
   { offsideProb: number; attackMult: number; defenseMult: number }
