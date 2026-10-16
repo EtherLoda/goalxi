@@ -1,5 +1,7 @@
+import { GAME_SETTINGS } from '@goalxi/database';
 import { Type } from 'class-transformer';
 import {
+  ArrayMaxSize,
   IsArray,
   IsEnum,
   IsObject,
@@ -25,8 +27,15 @@ export class SubmitTacticsReqDto {
   @IsOptional()
   instructions?: Record<string, any>;
 
+  // Cap the queued voluntary substitutions. `MATCH_MAX_SUBSTITUTIONS` is the
+  // single source of truth (also enforced by the engine, which is the
+  // backstop for tactics rows stored before this limit existed). Injury
+  // replacements are made by the engine and do not count against the cap.
   @IsArray()
   @IsOptional()
+  @ArrayMaxSize(GAME_SETTINGS.MATCH_MAX_SUBSTITUTIONS, {
+    message: `substitutions must not contain more than ${GAME_SETTINGS.MATCH_MAX_SUBSTITUTIONS} entries (only voluntary substitutions count; injury replacements are handled by the engine)`,
+  })
   @ValidateNested({ each: true })
   @Type(() => SubstitutionDto)
   substitutions?: SubstitutionDto[];

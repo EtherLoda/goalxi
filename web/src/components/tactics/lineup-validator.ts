@@ -8,6 +8,7 @@
 import {
   ALL_POSITION_KEY_SET,
   BENCH_SLOT_SET,
+  MAX_VOLUNTARY_SUBSTITUTIONS,
   PITCH_SLOTS,
   type BenchSlot,
   type PitchSlot,
@@ -181,6 +182,18 @@ export function validateLineup(ctx: ValidationContext): ValidationResult {
         errors.push({ key: 'invalidSlot', params: { slot: event.toSlot } });
       }
     }
+  }
+
+  // -- 11. Voluntary substitutions: hard cap (mirrors the API DTO + engine).
+  // Only `sub` events count — `move` events are position changes, not
+  // substitutions, and injury replacements are made by the engine at match
+  // time and never appear in this draft.
+  const subCount = draft.events.filter((e) => e.kind === 'sub').length;
+  if (subCount > MAX_VOLUNTARY_SUBSTITUTIONS) {
+    errors.push({
+      key: 'tooManySubs',
+      params: { max: MAX_VOLUNTARY_SUBSTITUTIONS, count: subCount },
+    });
   }
 
   return {

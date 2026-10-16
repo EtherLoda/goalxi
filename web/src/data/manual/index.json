@@ -1,6 +1,6 @@
 {
-  "version": 9,
-  "lastUpdated": "2026-09-02",
+  "version": 10,
+  "lastUpdated": "2026-10-16",
   "format": {
     "manualRoot": "web/src/data/manual",
     "chapterFilePattern": "{order:02d}-{slug}.md",
@@ -14,6 +14,11 @@
     }
   },
   "changelog": [
+    {
+      "version": 10,
+      "date": "2026-10-16",
+      "change": "Wrote ch 16 (subs-and-orders) zh + en (was a stub with no file) — 主动换人每场上限 3 人(硬上限,编辑器不再加行 + 服务端拒收)/ 伤病换人由队医自动处理且不占名额(所以一场可能换超过 3 人)/ 移位不限次数且不占名额 / 6 个触发条件在每分钟开始时判定一次(不满足即作废)/ 轻伤可继续、重伤必下场、该位置家族无替补则少打一人 / UI 锁 ~30 分钟 + 后端硬锁 ~10 分钟 / 5 个实战组合 + 不能做的 6 件事 + 6 条常见误区."
+    },
     {
       "version": 9,
       "date": "2026-09-02",
@@ -205,10 +210,11 @@
       "order": 16,
       "slug": "subs-and-orders",
       "title": { "zh": "比赛:替补和球队指示", "en": "Subs and Team Orders" },
-      "status": "stub",
+      "file": { "zh": "16-subs-and-orders.md", "en": "16-subs-and-orders.md" },
+      "status": "full",
       "hattrickEquivalent": "Hattrick § 15",
       "relatedChapters": [5, 6, 15],
-      "relatedEntries": []
+      "relatedEntries": ["condition-form-injury", "player-event-types"]
     },
     {
       "order": 17,

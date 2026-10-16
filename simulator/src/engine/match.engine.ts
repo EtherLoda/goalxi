@@ -44,7 +44,7 @@ import {
 // "every player on the team triggered something" noise.
 import { SpecialtyAttributionRecorder } from './systems/specialty.attribution';
 import { LoggerService } from '@nestjs/common';
-import { SpecialtyContribution } from '@goalxi/database';
+import { GAME_SETTINGS, SpecialtyContribution } from '@goalxi/database';
 import { resolveDuel as resolveDuelPure, duelProbability } from './duel';
 import {
   generateWeatherAnnouncementEvent,
@@ -2200,7 +2200,15 @@ export class MatchEngine {
         );
         const subPlayer = this.substitutePlayers.get(ins.newPlayerId);
 
-        if (subPlayer && playerOut) {
+        // Voluntary-substitution cap (`GAME_SETTINGS.MATCH_MAX_SUBSTITUTIONS`,
+        // 3). Only this branch — a manager-queued `swap` — consumes quota;
+        // `checkAndGenerateInjury` may still replace a player past the limit
+        // because an injury sub is forced, not chosen. A rejected swap is a
+        // silent no-op, matching how a `move` onto an occupied slot behaves.
+        const subQuotaLeft =
+          team.activeSubstitutions < GAME_SETTINGS.MATCH_MAX_SUBSTITUTIONS;
+
+        if (subPlayer && playerOut && subQuotaLeft) {
           const playerOutName = (playerOut.player as Player).name;
           const playerInName = (subPlayer.player as Player).name;
 
@@ -2237,6 +2245,7 @@ export class MatchEngine {
 
           team.substitutePlayer(ins.playerId, subPlayer);
           subPlayer.entryMinute = minute; // Set entry minute
+          team.activeSubstitutions++; // Consume one voluntary-substitution slot
 
           (ins as any).playerInName = playerInName;
           (ins as any).playerOutName = playerOutName;
@@ -4655,8 +4664,9 @@ export class MatchEngine {
     // but match.awayScore = 7 because corners and free kicks scored
     // twice each).
 
-    // Update stats (use team name as ID for now, should use teamId)
-    const teamId = attackingTeam.name; // TODO: Use actual team ID
+    // Update stats (keyed by the real `team.id`, not the display name —
+    // two teams can share a name, e.g. bot teams in different leagues)
+    const teamId = attackingTeam.teamId;
     this.updateSetPieceStats(teamId, 'corner');
   }
 
@@ -4719,7 +4729,7 @@ export class MatchEngine {
     // comment for the original bug write-up).
 
     // Update stats
-    const teamId = attackingTeam.name;
+    const teamId = attackingTeam.teamId;
     this.updateSetPieceStats(teamId, 'indirect_fk');
   }
 
@@ -4810,7 +4820,7 @@ export class MatchEngine {
     // comment for the original bug write-up).
 
     // Update stats
-    const teamId = attackingTeam.name;
+    const teamId = attackingTeam.teamId;
     this.updateSetPieceStats(teamId, 'direct_fk');
   }
 
@@ -4914,7 +4924,7 @@ export class MatchEngine {
     // comment for the original bug write-up).
 
     // Update stats
-    const teamId = attackingTeam.name;
+    const teamId = attackingTeam.teamId;
     this.updateSetPieceStats(teamId, 'penalty');
   }
 

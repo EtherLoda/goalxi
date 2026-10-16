@@ -111,6 +111,20 @@ export const GAME_SETTINGS = {
     MATCH_POLLING_INTERVAL_MINUTES: 5,
 
     /**
+     * Maximum number of *voluntary* substitutions a team may make in a
+     * single match. Injury-forced replacements are exempt — the cap is a
+     * squad-management rule on the manager's own decisions, not a limit on
+     * medical luck.
+     *
+     * Enforced in TWO places, which must stay in agreement:
+     * - `api/src/api/match/dto/submit-tactics.req.dto.ts` → `@ArrayMaxSize`
+     *   rejects the 4th queued substitution at submission time
+     * - `MatchEngine.applyInstructionsForTeam` (simulator) → the backstop
+     *   for tactics rows stored before the limit existed
+     */
+    MATCH_MAX_SUBSTITUTIONS: 3,
+
+    /**
      * Kickoff hour (UTC) for every senior match — both league
      * (`MATCH_DAY_OFFSETS` cadence) and cup (Tue + Thu cadence).
      * 6:00 UTC = 14:00 in China time, the game audience's afternoon

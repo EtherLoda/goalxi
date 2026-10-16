@@ -113,6 +113,7 @@ Each lineup has 3 style dimensions, **all default to "balanced"**:
 - **Out** — a player currently on the pitch (or a sub already on)
 - **In** — a bench player (or a starter who hasn't been on yet)
 - **Condition** — one of the 6 trigger conditions (below)
+- **Limit** — **max 3 per match** (voluntary subs only; **injury substitutions do not count**, and **moves are unlimited**)
 
 ### Move (shift a player to a different position)
 
@@ -210,7 +211,8 @@ scheduled → tactics_locked → in_progress → completed
 ❌ **Two presets with the same name** — **unique names per team**, rename before saving
 ❌ **Deleting the default preset** — **can't**, set another preset as default first
 ❌ **Editing after lock** — **UI locks 30 min before kickoff**, plan ahead
-❌ **Empty bench** — **submits fine**, but you have 0 subs available. Strongly recommend at least 1-2 bench players
+❌ **Queuing a 4th voluntary sub** — **max 3 per match**; the editor will not add another row and the server rejects it too (injury substitutions do not use those 3)
+❌ **Empty bench** — **submits fine**, but you have 0 subs available, and with no bench cover an injury leaves you a man down. Strongly recommend at least 1-2 bench players
 ❌ **Sub minute = 0 / 95** — **1-90 only**, anything outside fails
 ❌ **Moving the GK** — **GKs don't move**, GK slots don't participate in moves
 ❌ **Cross-family moves** — **same family only** (CM → DM is fine, CM → W is not)

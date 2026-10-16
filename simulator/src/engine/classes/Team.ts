@@ -29,11 +29,37 @@ export class Team {
    */
   public injuredThisMatch: Set<number> = new Set();
 
+  /**
+   * Number of *voluntary* substitutions this team has made so far in the
+   * current match.
+   *
+   * Only manager-queued `swap` instructions count. An injury-forced
+   * replacement also goes through `substitutePlayer`, but must NOT
+   * increment this — the cap (`GAME_SETTINGS.MATCH_MAX_SUBSTITUTIONS`)
+   * limits the manager's own decisions, not medical luck. Enforced in
+   * `MatchEngine.applyInstructionsForTeam`.
+   *
+   * Per-instance, so a fresh `Team` per match starts at 0.
+   */
+  public activeSubstitutions: number = 0;
+
+  /**
+   * The real `team.id` from the database.
+   *
+   * Used as the key for per-team match aggregates
+   * (`MatchEngine.setPieceStats`) so that two teams sharing a display name
+   * cannot collide. Falls back to `name` for specs and for any caller that
+   * builds a `Team` without a persisted row.
+   */
+  public readonly teamId: string;
+
   constructor(
     public name: string,
     public players: TacticalPlayer[],
     public doctorLevel: number = 0,
+    teamId: string = '',
   ) {
+    this.teamId = teamId || name;
     this.playerFitness = new Float32Array(players.length);
     // Initialize Fitness to starting Stamina
     for (let i = 0; i < players.length; i++) {

@@ -1,5 +1,7 @@
+import { GAME_SETTINGS } from '@goalxi/database';
 import { Type } from 'class-transformer';
 import {
+  ArrayMaxSize,
   IsArray,
   IsBoolean,
   IsObject,
@@ -29,8 +31,14 @@ export class CreatePresetReqDto {
   @IsOptional()
   instructions?: Record<string, any>;
 
+  // Same cap as `SubmitTacticsReqDto` — a preset that queued 4 voluntary
+  // substitutions could otherwise be applied to a match, where the engine
+  // would silently drop the 4th.
   @IsArray()
   @IsOptional()
+  @ArrayMaxSize(GAME_SETTINGS.MATCH_MAX_SUBSTITUTIONS, {
+    message: `substitutions must not contain more than ${GAME_SETTINGS.MATCH_MAX_SUBSTITUTIONS} entries (only voluntary substitutions count; injury replacements are handled by the engine)`,
+  })
   @ValidateNested({ each: true })
   @Type(() => SubstitutionDto)
   substitutions?: SubstitutionDto[];

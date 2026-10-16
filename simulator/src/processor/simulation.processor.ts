@@ -781,11 +781,13 @@ export class SimulationProcessor extends WorkerHost {
       match.homeTeam.name,
       homeTacticalPlayers,
       homeDoctorLevel,
+      match.homeTeamId,
     );
     const tB = new Team(
       match.awayTeam.name,
       awayTacticalPlayers,
       awayDoctorLevel,
+      match.awayTeamId,
     );
 
     // Normalize weather string for MatchEngine

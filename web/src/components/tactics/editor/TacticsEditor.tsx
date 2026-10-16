@@ -20,6 +20,7 @@ import {
   validateLineup,
 } from '../lineup-validator';
 import {
+  MAX_VOLUNTARY_SUBSTITUTIONS,
   type BenchMap,
   type BenchSlot,
   type EditorState,
@@ -267,8 +268,21 @@ export function TacticsEditor({ matchId, match }: TacticsEditorProps) {
   // ---------------------------------------------------------------------
   const handleAddSub = useCallback(() => {
     if (state.lock.isLocked) return;
+    // Refuse to add a 4th voluntary sub. Blocking here (instead of letting the
+    // validator catch it) keeps the draft clean: a rejected row would show as
+    // a warning toast but still occupy the panel, and the submit path would
+    // then refuse the whole form for a row the player never wanted.
+    const subCount = state.draft.events.filter((e) => e.kind === 'sub').length;
+    if (subCount >= MAX_VOLUNTARY_SUBSTITUTIONS) {
+      showToast(
+        'error',
+        t('validation.tooManySubs' as never, { max: MAX_VOLUNTARY_SUBSTITUTIONS } as never),
+        '',
+      );
+      return;
+    }
     dispatch({ type: 'ADD_EVENT', event: { kind: 'sub', minute: 60, outId: 0, inId: 0 } });
-  }, [state.lock.isLocked, dispatch]);
+  }, [state.lock.isLocked, state.draft.events, dispatch, t]);
 
   const handleAddMove = useCallback(() => {
     if (state.lock.isLocked) return;

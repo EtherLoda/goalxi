@@ -340,6 +340,22 @@ export interface MoveEvent {
 
 export type TacticalEvent = SubstitutionEvent | MoveEvent;
 
+/**
+ * Maximum number of **voluntary** substitutions a manager may queue for a
+ * single match.
+ *
+ * Hand-mirrored from `GAME_SETTINGS.MATCH_MAX_SUBSTITUTIONS` in
+ * `libs/database/src/constants/game.constants.ts` — `web/` deliberately does
+ * not depend on `@goalxi/database`, so the two are kept in sync manually (same
+ * convention as `lib/fan-constants.ts`). Three places enforce it and must
+ * agree: this editor, `SubmitTacticsReqDto` (@ArrayMaxSize → 422) and
+ * `MatchEngine.applyInstructionsForTeam` (engine-side backstop for tactics
+ * rows stored before the limit existed).
+ *
+ * Injury replacements are made by the engine and do NOT count against this.
+ */
+export const MAX_VOLUNTARY_SUBSTITUTIONS = 3;
+
 // ============================================================================
 // Draft State
 // ============================================================================
