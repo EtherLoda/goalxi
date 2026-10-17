@@ -119,6 +119,13 @@ const ATTACK_TYPE_CONFIG: Record<
  * `baseline`           = 攻守评分相等时的进球概率（对等点）。
  * `anchorProbability`  = 攻方评分是守方 2 倍（anchorRatio=2.0）时的进球概率。
  *
+ * baseline 是「每场关键时刻密度」的倒数刻度：引擎每半场烘焙
+ * `MOMENTS_COUNT` 个关键时刻（2026-10-16 起上下半场各自按本半场区间
+ * 烘焙，此前两半都按 1-90 烘焙导致实际只发生一半），事件数翻倍后
+ * 若 baseline 不变，进球数也会翻倍。所以 2026-10-16 把全部 baseline
+ * 减半，把场均进球守在 2.5-3 球，同时把单次射门转化率从约 40-50%
+ * 拉回足球量级的 20% 附近。**改动关键时刻密度时必须同步核对这张表。**
+ *
  * ⚠️ 不变量：`anchorProbability` 必须 **大于** `baseline`。
  * `duel.ts` 用这两个点解出曲线斜率：
  *   k = (logit(anchorProbability) - logit(baseline)) / ln(anchorRatio)^amplification
@@ -132,11 +139,11 @@ export const SHOT_TYPE_CONFIG: Record<
 > = {
   // 1v1 面对门将：baseline 是五种射门里最高的，anchor 也必须最高。
   // 0.78 ⇒ k≈1.35，与 NORMAL 的 k≈1.26 同量级，保证曲线陡峭度一致。
-  [ShotType.ONE_ON_ONE]: { baseline: 0.65, anchorProbability: 0.78 },
-  [ShotType.HEADER]: { baseline: 0.45, anchorProbability: 0.55 }, // 头球靠位置争顶
-  [ShotType.NORMAL]: { baseline: 0.4, anchorProbability: 0.55 }, // 禁区内常规抽射
-  [ShotType.REBOUND]: { baseline: 0.5, anchorProbability: 0.55 }, // 补射（门前近距离）
-  [ShotType.LONG_SHOT]: { baseline: 0.3, anchorProbability: 0.55 }, // 远射
+  [ShotType.ONE_ON_ONE]: { baseline: 0.33, anchorProbability: 0.78 },
+  [ShotType.HEADER]: { baseline: 0.23, anchorProbability: 0.55 }, // 头球靠位置争顶
+  [ShotType.NORMAL]: { baseline: 0.2, anchorProbability: 0.55 }, // 禁区内常规抽射
+  [ShotType.REBOUND]: { baseline: 0.25, anchorProbability: 0.55 }, // 补射（门前近距离）
+  [ShotType.LONG_SHOT]: { baseline: 0.15, anchorProbability: 0.55 }, // 远射
 };
 
 /**
@@ -1329,6 +1336,11 @@ export class MatchEngine {
       ),
     );
 
+    // Key moments PER HALF of regulation time. Each half bakes its own
+    // `MOMENTS_COUNT` moments inside its own minute range (1-45 / 46-90),
+    // so a regulation match runs ~40 key moments total and each team gets
+    // ~14 attacks (`attack_sequence` events). Extra time uses its own
+    // smaller count (7 per ET half) declared in the ET block below.
     const MOMENTS_COUNT = 20;
 
     // Initial Snapshot
@@ -1338,16 +1350,6 @@ export class MatchEngine {
     // `simulateMinute` hasn't run yet and `this.currentClockSeconds`
     // is still at the constructor default (0 here, but be explicit).
     this.generateSnapshotEvent(0, 0);
-
-    // Pre-calculate moment times to maintain original pacing (approx 20 moments)
-    const momentTimes = new Set<number>();
-    for (let i = 0; i < MOMENTS_COUNT; i++) {
-      let nextTime =
-        ((i * 90) / MOMENTS_COUNT + (Math.random() * 90) / MOMENTS_COUNT) | 0;
-      if (nextTime < 1) nextTime = 1;
-      if (nextTime > 90) nextTime = 90;
-      momentTimes.add(nextTime);
-    }
 
     this.homeScore = 0;
     this.awayScore = 0;
@@ -1371,14 +1373,23 @@ export class MatchEngine {
     // no fabricated key-moment attacks land in stoppage.
     // ---------------------------------------------------------------------
 
-    // First half — pre-bake 20 key moments across 1-90 (the
-    // legacy "evenly distributed" schedule). We keep the
-    // 1-90 range here so that the moment density is the same
-    // regardless of how much injury time each half ends up
-    // with; the second half will get its own 1-90 set so the
-    // two halves feel symmetric.
+    // First half — pre-bake `MOMENTS_COUNT` key moments across the
+    // FIRST HALF'S OWN minute range (1-45).
+    //
+    // ⚠️ This used to be `bakeMomentTimes(MOMENTS_COUNT, 1, 90)` for
+    // both halves. Because the 1H loop below only walks minutes 1-45
+    // and the 2H loop only walks 46-90, roughly half of each bake fell
+    // outside the range actually simulated and was silently discarded —
+    // the match ran ~20 key moments instead of the intended 40, which
+    // halved the resolution of every lever (style, tempo, position
+    // weights) and forced the per-shot conversion rate up to 40-50% to
+    // still reach ~2.4 goals.
+    //
+    // Injury time is NOT a reason to widen this range: `currentMomentTimes`
+    // is cleared before the stoppage loop (see below), so stoppage minutes
+    // never produce key moments either way.
     this.resetHalfStats();
-    this.currentMomentTimes = this.bakeMomentTimes(MOMENTS_COUNT, 1, 90);
+    this.currentMomentTimes = this.bakeMomentTimes(MOMENTS_COUNT, 1, 45);
     for (let t = 1; t <= 45; t++) {
       this.simulateMinute(t, 'first_half', false);
     }
@@ -1440,9 +1451,12 @@ export class MatchEngine {
       },
     });
 
-    // Second half — fresh counter set, same shape.
+    // Second half — fresh counter set over ITS OWN minute range
+    // (46-90), mirroring the first half above. Baking 1-90 here would
+    // discard every moment below minute 46, since the loop below only
+    // walks 46..90.
     this.resetHalfStats();
-    this.currentMomentTimes = this.bakeMomentTimes(MOMENTS_COUNT, 1, 90);
+    this.currentMomentTimes = this.bakeMomentTimes(MOMENTS_COUNT, 46, 90);
     for (let t = 46; t <= 90; t++) {
       this.simulateMinute(t, 'second_half', false);
     }
@@ -1486,14 +1500,17 @@ export class MatchEngine {
   }
 
   /**
-   * Pre-bake a "key moment" minute set. The legacy engine
-   * baked ~20 evenly-jittered moments across 1-90 (or ~7
-   * across 90-120 for ET) to keep the per-minute attack
-   * density roughly constant. We pull this out of
-   * `simulateMatch` / `simulateExtraTime` so both halves
-   * can call it without duplicating the loop. The output
-   * is clamped to `[minMinute, maxMinute]` — the ET path
-   * uses [91, 120], the regular path uses [1, 90].
+   * Pre-bake a "key moment" minute set: `count` evenly-spaced
+   * buckets with a jitter inside each bucket, so per-minute
+   * attack density stays roughly constant across the range.
+   * Pulled out of `simulateMatch` / `simulateExtraTime` so
+   * every phase can call it without duplicating the loop.
+   *
+   * Output is clamped to `[minMinute, maxMinute]`; the caller
+   * decides the range and must pass the SAME range it is about
+   * to simulate, otherwise the moments outside it are discarded:
+   *   1H -> (20, 1, 45)    2H -> (20, 46, 90)
+   *   ET1 -> (7, 91, 105)  ET2 -> (7, 106, 120)
    */
   private bakeMomentTimes(count: number, minMinute: number, maxMinute: number): Set<number> {
     const span = maxMinute - minMinute + 1;

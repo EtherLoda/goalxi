@@ -135,13 +135,16 @@ describe('duel profiles — 斜率方向不变量', () => {
       anchorProbability: config.anchorProbability,
     };
 
+    // 从 SHOT_TYPE_CONFIG 读 baseline 而不是写死字面量：这张表是
+    // 「每场关键时刻密度」的倒数刻度，2026-10-16 关键时刻翻倍时
+    // 全部 baseline 减半过一次，写死会把标定改动变成假失败。
     const equal = duelProbability(100, 100, options);
     const strong = duelProbability(150, 100, options);
     const huge = duelProbability(200, 100, options);
 
-    expect(equal).toBeCloseTo(0.65, 10);
+    expect(equal).toBeCloseTo(config.baseline, 10);
     expect(strong).toBeGreaterThan(equal);
     expect(huge).toBeGreaterThan(strong);
-    expect(huge).toBeCloseTo(0.78, 10);
+    expect(huge).toBeCloseTo(config.anchorProbability, 10);
   });
 });
