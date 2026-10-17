@@ -3,7 +3,7 @@ order: 6
 slug: match-basics
 title: Match Basics
 status: full
-lastUpdated: 2026-08-30
+lastUpdated: 2026-10-16
 relatedChapters: [5, 14, 15, 16, 18]
 relatedEntries: [player-event-types, condition-form-injury, pwi-vs-overall, comparing-two-players]
 ---
@@ -193,6 +193,22 @@ Before kickoff, a few **informational events** appear on the page (not in the ti
 
 **Regular league / cup matches**: full 90 minutes, a draw just ends the match (split the points / per the rules)
 **Matches needing a winner** (cup / playoff): draw goes to extra time, then penalties if still tied
+
+---
+
+## Injury time: the match is not over
+
+Injury time is **not an empty clock** — it is a real final stretch of the match. The first-half stoppage and the second-half stoppage can both produce goals.
+
+**How stoppage time behaves**:
+
+- **Most stoppages are quiet.** With 1-2 minutes added, the overwhelming majority of halves end without a chance.
+- **The longer the stoppage, the higher the odds.** One added minute and five added minutes are different worlds — the former almost never produces a threat, the latter quite often produces a real chance.
+- **It is played by your players.** Chances in stoppage time go through exactly the same resolution as regulation: the shooter, the keeper, the set-piece taker. A team whose condition has drained is more likely to be unlocked late.
+
+**Where the stoppage length comes from**: at the end of each half it is computed from that half's fouls, yellow cards, red cards and injuries. More fouls, more cards and a forced substitution mean more added time. Two teams who keep it clean may see only a minute — or none at all.
+
+> **What this means in practice**: if you are a goal down in stoppage time, the clock has not run out — but do not count on a stoppage-time goal. It is a genuine, low-probability window, not insurance against losing.
 
 ---
 

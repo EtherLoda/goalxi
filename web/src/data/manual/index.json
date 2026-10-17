@@ -1,5 +1,5 @@
 {
-  "version": 10,
+  "version": 11,
   "lastUpdated": "2026-10-16",
   "format": {
     "manualRoot": "web/src/data/manual",
@@ -14,6 +14,11 @@
     }
   },
   "changelog": [
+    {
+      "version": 11,
+      "date": "2026-10-16",
+      "change": "ch 6 (match-basics) zh + en 新增「补时:比赛还没有结束」小节 — 补时不再是空转时钟,补时内可以进球 / 大部分补时平静收场 / 补时越长机会概率越高 / 机会走常规判定(射门/扑救/定位球)/ 补时长度由该半场犯规+黄红牌+伤病累计决定."
+    },
     {
       "version": 10,
       "date": "2026-10-16",
