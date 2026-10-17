@@ -144,18 +144,49 @@ export const SHOT_TYPE_CONFIG: Record<
  *     这些参数，调参时只需要改这里。
  */
 export const DUEL_PROFILES = {
-  /** 中场拼抢：控球权归属。anchor 比 push 略高，让中场被压制更明显。 */
+  /**
+   * 中场拼抢：控球权归属。anchor 比 push 略高，让中场被压制更明显。
+   *
+   * 2026-10-16：anchorRatio 从 2.0 收到 1.5，与 push 同样的原因 ——
+   * 跨队真实比值域只有 0.86-1.93，锚点 2.0 落在域外，域中点 r=1.29
+   * 处只比均势高 1.8pp，中场对抗几乎不随实力变化。收锚后：
+   *
+   *   比值 1.29（约 12 vs 14.5）51.8% → 54.6%
+   *   比值 1.50（14 vs 10）     54.1% → 60.0%
+   *   比值 1.93（18 vs 10）     59.2% → 71.6%
+   *
+   * baseline 0.5 就是对等点，所以 r=1.0 处仍是 50%，不需要重解。
+   */
   midfield: {
     amplification: 1.7,
     baseline: 0.5,
-    anchorRatio: 2.0,
+    anchorRatio: 1.5,
     anchorProbability: 0.6,
   },
-  /** 推进对决：把球从后场推到射门位置。真实足球约 50-60%。 */
+  /**
+   * 推进对决：把球从后场推到射门位置。真实足球约 50-60%。
+   *
+   * 2026-10-16：anchorRatio 从 2.0 收到 1.5，baseline 从 0.55 微调到
+   * 0.53205。原因是**真实推进比值根本到不了 2.0**：均势到全属性翻倍
+   * 的实际比值域只有 0.92-2.70（见 debug-strength-gap），而锚点在 2.0
+   * 时这些点全部落在曲线最平的一段 —— 20 vs 10 的推进率只比均势高
+   * 6.4pp。收锚到 1.5 后：
+   *
+   *   比值 1.35（均势边路） 55.2% → 57.5%
+   *   比值 1.50（14 vs 10）57.3% → 60.0%
+   *   比值 1.71（16 vs 10）58.4% → 63.5%
+   *   比值 2.14（20 vs 10）60.7% → 69.9%
+   *
+   * baseline 同步重解，使**按车道加权的均势推进率完全不变**
+   * （42.9% 中路 r=1.070、28.4/28.7% 边路 r=1.349，加权
+   * 55.89% → 55.89%），所以均势比赛的手感不动，只有强弱差被拉开。
+   * 代价是弱攻方（r=0.918）从 54.8% 压到 52.5%，这是曲线变陡的
+   * 必然结果，方向也是对的。
+   */
   push: {
     amplification: 1.5,
-    baseline: 0.55,
-    anchorRatio: 2.0,
+    baseline: 0.53205,
+    anchorRatio: 1.5,
     anchorProbability: 0.6,
   },
   /** 角球：baseline 0.10 → 0.20（用户 2026-08-05 决定）。 */
@@ -479,6 +510,19 @@ export class MatchEngine {
   public secondHalfInjuryTime: number = 0;
   public extraTimeFirstHalfInjury: number = 0;
   public extraTimeSecondHalfInjury: number = 0;
+
+  /**
+   * How many stoppage-time key moments were actually BAKED for each
+   * regulation half (the draw from `INJURY_SHOT_DISTRIBUTION`).
+   *
+   * Exposed for instrumentation only: the event stream cannot be used to
+   * count chances reliably, because a key moment that opens with a foul
+   * (`simulateKeyMoment`'s Step 1) returns before any shot outcome and
+   * emits only the set-piece event the foul produced. Reading these two
+   * numbers is the only faithful way to verify the distribution.
+   */
+  public firstHalfStoppageMoments: number = 0;
+  public secondHalfStoppageMoments: number = 0;
 
   /**
    * Per-half stoppage-causing event counters. Reset by
@@ -1323,11 +1367,16 @@ export class MatchEngine {
       ),
     );
 
-    // Key moments PER HALF of regulation time. Each half bakes its own
-    // `MOMENTS_COUNT` moments inside its own minute range (1-45 / 46-90),
-    // so a regulation match runs ~40 key moments total and each team gets
-    // ~14 attacks (`attack_sequence` events). Extra time uses its own
-    // smaller count (7 per ET half) declared in the ET block below.
+    // Key moments for the WHOLE match, baked once across 1-90 and shared
+    // by both halves. Each half's loop only consumes the minutes inside
+    // its own span (1-45 / 46-90).
+    //
+    // 2026-10-16: settled at 20 after a sweep over 15 / 20 / 30 / 40.
+    // The old `20` was ambiguous — both halves baked their own 1-90 set,
+    // so only half of each bake ever fired and a match ran ~20 moments.
+    // Once the bake was made honest that silently became 40 (≈18.7
+    // shots/match). 20 shared keeps the reading honest and the volume
+    // near the pre-fix level without touching any duel parameter.
     const MOMENTS_COUNT = 20;
 
     // Initial Snapshot
@@ -1360,34 +1409,45 @@ export class MatchEngine {
     // no fabricated key-moment attacks land in stoppage.
     // ---------------------------------------------------------------------
 
-    // First half — pre-bake `MOMENTS_COUNT` key moments across the
-    // FIRST HALF'S OWN minute range (1-45).
+    // Regulation time — bake ONE set of `MOMENTS_COUNT` key moments across
+    // the whole 1-90 window and share it between the halves. Each half's
+    // loop only looks at the minutes inside its own span, so a 1-90 bake
+    // gives roughly half the moments to each half (the count lands in the
+    // 30-60 split at ±3, which is fine: `bakeMomentTimes` jitters inside
+    // each bucket, it does not guarantee an even split).
     //
-    // ⚠️ This used to be `bakeMomentTimes(MOMENTS_COUNT, 1, 90)` for
-    // both halves. Because the 1H loop below only walks minutes 1-45
-    // and the 2H loop only walks 46-90, roughly half of each bake fell
-    // outside the range actually simulated and was silently discarded —
-    // the match ran ~20 key moments instead of the intended 40, which
-    // halved the resolution of every lever (style, tempo, position
-    // weights) and forced the per-shot conversion rate up to 40-50% to
-    // still reach ~2.4 goals.
+    // History: both halves used to bake their own 1-90 set and clear it in
+    // between; then (earlier the same day) each half was given its own
+    // half-range bake so that 20-per-half meant 40 a match. That doubled
+    // the event count and, with it, shot volume. The maintainer asked for
+    // a leaner match — 15 total — so the shared 1-90 bake is back, now
+    // with the count it was always supposed to mean.
     //
-    // Injury time is NOT a reason to widen this range: `currentMomentTimes`
-    // is cleared before the stoppage loop (see below), so stoppage minutes
-    // never produce key moments either way.
+    // Injury time never sees key moments: `currentMomentTimes` is cleared
+    // before each stoppage loop.
+    const momentTimes = this.bakeMomentTimes(MOMENTS_COUNT, 1, 90);
+
+    // First half
     this.resetHalfStats();
-    this.currentMomentTimes = this.bakeMomentTimes(MOMENTS_COUNT, 1, 45);
+    this.currentMomentTimes = momentTimes;
     for (let t = 1; t <= 45; t++) {
       this.simulateMinute(t, 'first_half', false);
     }
 
-    // First-half injury time. Compute the stoppage from the
-    // half's accumulated foul/card/injury counts, then loop
-    // 45+1..45+N with no key moments and a dampened foul
-    // probability. `momentTimes` is cleared so the helper
-    // short-circuits the `simulateKeyMoment` branch.
+    // First-half injury time. Compute the stoppage from the half's
+    // accumulated foul/card/injury counts, then bake a separate small
+    // moment set for the stoppage window itself (usually empty — see
+    // `INJURY_SHOT_DISTRIBUTION`) and loop 45+1..45+N with a dampened
+    // foul probability. Anything scored here is counted by the normal
+    // statistics, exactly like regulation: `simulateMinute` has no
+    // period-specific branch for shots or goals.
     this.firstHalfInjuryTime = MatchEngine.computeInjuryTime(this.halfStats);
-    this.currentMomentTimes = null;
+    this.currentMomentTimes = this.bakeStoppageMoments(
+      this.firstHalfInjuryTime,
+      45 + 1,
+      45 + this.firstHalfInjuryTime,
+    );
+    this.firstHalfStoppageMoments = this.currentMomentTimes.size;
     for (let i = 1; i <= this.firstHalfInjuryTime; i++) {
       this.simulateMinute(45 + i, 'first_half_injury', true);
     }
@@ -1438,19 +1498,26 @@ export class MatchEngine {
       },
     });
 
-    // Second half — fresh counter set over ITS OWN minute range
-    // (46-90), mirroring the first half above. Baking 1-90 here would
-    // discard every moment below minute 46, since the loop below only
-    // walks 46..90.
+    // Second half — same shared 1-90 set as the first half. Re-installing
+    // it is required because the first-half stoppage loop above cleared
+    // `currentMomentTimes`; the minutes below 46 in this set are already
+    // consumed and simply never match, so the half only sees its own tail.
     this.resetHalfStats();
-    this.currentMomentTimes = this.bakeMomentTimes(MOMENTS_COUNT, 46, 90);
+    this.currentMomentTimes = momentTimes;
     for (let t = 46; t <= 90; t++) {
       this.simulateMinute(t, 'second_half', false);
     }
 
-    // Second-half injury time.
+    // Second-half injury time — same treatment as the first (see above):
+    // its own small moment set over 91..90+M, on top of the 20 regulation
+    // moments, so a long stoppage at the death can still turn the game.
     this.secondHalfInjuryTime = MatchEngine.computeInjuryTime(this.halfStats);
-    this.currentMomentTimes = null;
+    this.currentMomentTimes = this.bakeStoppageMoments(
+      this.secondHalfInjuryTime,
+      90 + 1,
+      90 + this.secondHalfInjuryTime,
+    );
+    this.secondHalfStoppageMoments = this.currentMomentTimes.size;
     for (let i = 1; i <= this.secondHalfInjuryTime; i++) {
       this.simulateMinute(90 + i, 'second_half_injury', true);
     }
@@ -1493,12 +1560,91 @@ export class MatchEngine {
    * Pulled out of `simulateMatch` / `simulateExtraTime` so
    * every phase can call it without duplicating the loop.
    *
-   * Output is clamped to `[minMinute, maxMinute]`; the caller
-   * decides the range and must pass the SAME range it is about
-   * to simulate, otherwise the moments outside it are discarded:
-   *   1H -> (20, 1, 45)    2H -> (20, 46, 90)
-   *   ET1 -> (7, 91, 105)  ET2 -> (7, 106, 120)
+   * Output is clamped to `[minMinute, maxMinute]`. The caller
+   * must pass a range it is actually going to walk, otherwise
+   * the moments outside it are baked and then never matched:
+   *   regulation -> (MOMENTS_COUNT, 1, 90)   ← shared by both halves
+   *   ET1        -> (7, 91, 105)
+   *   ET2        -> (7, 106, 120)
    */
+  /**
+   * Chance-count distribution for ONE half's stoppage time, indexed by
+   * the stoppage length in minutes (1-5). Each row is
+   * `[P(0 moments), P(1 moment), P(2 moments)]` and must sum to 1.
+   *
+   * Rationale (2026-10-16): stoppage used to be pure clock — no attack
+   * could happen in it, so a "+4" board was just four dead minutes and a
+   * last-gasp goal was impossible by construction. It should be able to
+   * happen, but only rarely; and the longer the board, the likelier it
+   * gets, so a long stop reads as late drama rather than filler.
+   *
+   * Expected moments per half: 1'→0.075, 2'→0.14, 3'→0.22, 4'→0.33,
+   * 5'→0.45 — a 6x ramp from the shortest to the longest stoppage.
+   * Typical halves stop 1-2 minutes, so across both halves the expected
+   * count is ~0.15-0.25, i.e. roughly one match in four or five has a
+   * single stoppage-time moment and 2 is a genuine rarity.
+   *
+   * These are tunables, not physics: adjust the ramp by editing the rows.
+   */
+  private static readonly INJURY_SHOT_DISTRIBUTION: Readonly<
+    Record<number, readonly number[]>
+  > = {
+    1: [0.93, 0.065, 0.005],
+    2: [0.88, 0.1, 0.02],
+    3: [0.82, 0.14, 0.04],
+    4: [0.74, 0.19, 0.07],
+    5: [0.65, 0.25, 0.1],
+  };
+
+  /**
+   * Pre-bake the key-moment minute set for one half's stoppage time.
+   *
+   * Draws a chance count `k` from `INJURY_SHOT_DISTRIBUTION[minutes]`
+   * and then picks `k` distinct minutes at random inside
+   * `[minMinute, maxMinute]`. The stoppage window is at most 5 minutes,
+   * so reservoir-free repeated sampling is cheap and cannot loop forever:
+   * we simply retry until `k` distinct minutes are collected, and
+   * `k <= min(2, window)` by construction.
+   *
+   * Zero minutes means zero chances — a half that had no stoppage cannot
+   * contain a stoppage-time attack. (This used to fall through the `??`
+   * to the 5-minute row, which made plenty of no-stoppage halves draw a
+   * chance that had nowhere to be placed.)
+   *
+   * Returns an empty set when the draw is 0 as well, which makes the
+   * stoppage behave exactly as before for the (common) quiet case — no
+   * extra branching needed in the minute loop.
+   */
+  private bakeStoppageMoments(minutes: number, minMinute: number, maxMinute: number): Set<number> {
+    const result = new Set<number>();
+    if (minutes <= 0) return result;
+
+    const row = MatchEngine.INJURY_SHOT_DISTRIBUTION[minutes];
+    if (!row) return result;
+
+    // Inverse-CDF draw over [P(0), P(1), P(2)].
+    let roll = Math.random();
+    let count = 0;
+    for (let i = 0; i < row.length; i++) {
+      if (roll < row[i]) {
+        count = i;
+        break;
+      }
+      roll -= row[i];
+      count = i + 1;
+    }
+
+    // `maxMinute - minMinute + 1` is the window size; never draw more
+    // moments than there are minutes to place them in.
+    const window = Math.max(1, maxMinute - minMinute + 1);
+    const target = Math.min(count, window);
+    while (result.size < target) {
+      const picked = minMinute + Math.floor(Math.random() * window);
+      result.add(Math.min(maxMinute, picked));
+    }
+    return result;
+  }
+
   private bakeMomentTimes(count: number, minMinute: number, maxMinute: number): Set<number> {
     const span = maxMinute - minMinute + 1;
     const result = new Set<number>();

@@ -99,17 +99,61 @@ describe('duel profiles — 斜率方向不变量', () => {
     expect(violations).toEqual([]);
   });
 
-  it('对等点命中率 = baseline，2 倍优势命中率 = anchorProbability', () => {
+  /**
+   * 「锚点必须落在真实比值域之内」的回归防护。
+   *
+   * 2026-10-16 的根因：push 的 anchorRatio 是 2.0，但**推进阶段的真实
+   * 比值域只有 0.92-2.70**，而且绝大多数比赛落在 1.0-1.5 这一段 ——
+   * 也就是曲线最平的左侧。结果全属性翻倍也只换来 +6.4pp 推进率，
+   * 强弱差根本兑现不出来。把锚点收到 1.5 之后，同样一段比值域才
+   * 被真正用上。
+   *
+   * 断言：每个对决在「真实比值域的中点」处的概率，必须已经明显离开
+   * 均势点 —— 否则说明锚点跑到了比值域之外，曲线在这个域内是平的。
+   */
+  it('锚点必须落在各自比值域附近，否则强弱差在域内兑现不出来', () => {
+    // 每个调用点的真实比值域（from debug-strength-gap 的静态核算）
+    const domains: Record<string, [number, number]> = {
+      push: [0.92, 2.70],
+      midfield: [0.86, 1.93],
+    };
+
+    const flat: string[] = [];
+    for (const [name, [lo, hi]] of Object.entries(domains)) {
+      const options = DUEL_PROFILES[name as keyof typeof DUEL_PROFILES];
+      const mid = Math.sqrt(lo * hi); // 对数域中点
+      const pMid = duelProbability(100 * mid, 100, options);
+      const edge = pMid - options.baseline;
+      // 中点处至少要区别于均势点 3pp，否则这一段域等于没用。
+      if (edge < 0.03) {
+        flat.push(
+          `${name}: 域中点 r=${mid.toFixed(3)} 处仅 ${(edge * 100).toFixed(1)}pp，` +
+            `anchorRatio=${options.anchorRatio} 落在比值域之外`,
+        );
+      }
+    }
+
+    expect(flat).toEqual([]);
+  });
+
+  it('对等点命中率 = baseline，锚点比值命中率 = anchorProbability', () => {
     const mismatches = profiles
       .map(({ name, options }) => {
+        // 锚点比值从参数表里读，不要写死 2.0：各调用点的 anchorRatio
+        // 未必相同（2026-10-16 把 push 收到 1.5，因为真实推进比值域
+        // 根本到不了 2.0，锚点落在曲线平坦区时强弱差几乎兑现不出来）。
         const parity = duelProbability(100, 100, options);
-        const anchor = duelProbability(200, 100, options);
+        const anchor = duelProbability(
+          100 * options.anchorRatio,
+          100,
+          options,
+        );
         const ok =
           Math.abs(parity - options.baseline) < 1e-9 &&
           Math.abs(anchor - options.anchorProbability) < 1e-9;
         return ok
           ? null
-          : `${name}: parity=${parity} (expect ${options.baseline}), anchor=${anchor} (expect ${options.anchorProbability})`;
+          : `${name}: parity=${parity} (expect ${options.baseline}), anchor@${options.anchorRatio}x=${anchor} (expect ${options.anchorProbability})`;
       })
       .filter((entry): entry is string => entry !== null);
 
