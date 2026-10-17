@@ -2430,14 +2430,12 @@ export class MatchEngine {
     // 双方都用 'possession' phase 才能形成有效 ratio
     // 之前用 home='possession' vs away='defense' 是交叉 phase，
     // 不同 phase 数量级不同，ratio ≈ 1，P ≈ 0.5，导致控球永远 50/50
-    const homeControl = this.homeTeam.calculateLaneStrength(
-      this.currentLane,
-      'possession',
-    );
-    const awayControl = this.awayTeam.calculateLaneStrength(
-      this.currentLane,
-      'possession',
-    );
+    const homeControl =
+      this.homeTeam.calculateLaneStrength(this.currentLane, 'possession') *
+      this.homeTeam.style.possessionControl;
+    const awayControl =
+      this.awayTeam.calculateLaneStrength(this.currentLane, 'possession') *
+      this.awayTeam.style.possessionControl;
 
     // v2 TACKLER — team's midfield control is boosted by a
     // decision-class team multiplier. Picks one TACKLER on the pitch
@@ -2541,6 +2539,11 @@ export class MatchEngine {
       const attackConfig = ATTACK_TYPE_CONFIG[attackType];
       let effectiveAttPower = attPower;
 
+      // 打法风格：进攻方自身的推进力倍率（默认 1.0，见 engine/style.ts）。
+      // 放在所有 specialty / 战术修正之前，因为它描述的是「这套打法本身」
+      // 的推进能力，而不是某名球员或某个战术开关的加成。
+      effectiveAttPower *= this.possessionTeam.style.pushPower;
+
       // v2.5 pass-type specialty hooks — single call with attackType.
       // Replaces the v2.0 three-branch `if` chain that missed
       // SHORT_PASS (the most common pass type, ~80% of NORMAL
@@ -2639,7 +2642,11 @@ export class MatchEngine {
       // ==========================================
       // 反击机制：当防守强度远高于进攻时，增加断球概率和反击加成
       // ==========================================
-      const DEF_THRESHOLD = 1.3; // defRatio 阈值
+      // 风格修正：拦截窗口是**防守方**的能力，所以读 defendingTeam 的
+      // 风格（默认 threshold 1.3 / slope 0.1 / chance ×1 / bonus ×1）。
+      // 见 engine/style.ts 关于「为什么阈值是最有效的风格杠杆」的说明。
+      const defStyle = this.defendingTeam.style;
+      const DEF_THRESHOLD = 1.3 + defStyle.interceptThresholdDelta; // defRatio 阈值
       const MAX_INTERCEPT_CHANCE = 0.25; // 最高25%断球率
       const MAX_COUNTER_BONUS = 0.3; // 最高30%反击加成
 
@@ -2650,7 +2657,7 @@ export class MatchEngine {
         // 计算断球机会（防守远强于进攻时，有概率直接断球打反击）
         const interceptChance = Math.min(
           MAX_INTERCEPT_CHANCE,
-          (defRatio - DEF_THRESHOLD) * 0.1,
+          (defRatio - DEF_THRESHOLD) * 0.1 * defStyle.interceptChance,
         );
 
         if (Math.random() < interceptChance) {
@@ -2678,6 +2685,9 @@ export class MatchEngine {
             DEFENSIVE_LINE_MODIFIERS[newDefConfig.defensiveLine].defenseMult;
 
           effectiveAttPower = newAttPower * newAttDefMult;
+          // 换队之后 possessionTeam 已经是原来的防守方，加上它自己的
+          // 推进力风格倍率（反击打法通常 > 1）。
+          effectiveAttPower *= this.possessionTeam.style.pushPower;
           const newDefPower =
             this.defendingTeam.calculateLaneStrength(
               this.currentLane,
@@ -2695,7 +2705,10 @@ export class MatchEngine {
             ].counterVulnerability;
           const counterBonus = Math.min(
             MAX_COUNTER_BONUS,
-            (defRatio - DEF_THRESHOLD) * 0.15 * (1 / counterVuln),
+            (defRatio - DEF_THRESHOLD) *
+              0.15 *
+              (1 / counterVuln) *
+              defStyle.counterBonus,
           );
           effectiveAttPower *= 1 + counterBonus;
 
@@ -3137,7 +3150,16 @@ export class MatchEngine {
   }
 
   private resolveFoul() {
-    const foulingTeam = Math.random() < 0.5 ? this.homeTeam : this.awayTeam;
+    // 风格修正：`foulRate` 决定「这次犯规算在谁头上」，而不是改变全场
+    // 犯规总数（总数由每分钟的独立 roll 和 key moment 的 0.3 入口决定）。
+    // 默认两队都是 1.0 ⇒ 与原来的 50/50 完全等价。高压 / 凶狠打法拉高
+    // 自己的系数，代价是同时吃到更多定位球判罚和更多牌。
+    const homeFoulWeight = this.homeTeam.style.foulRate;
+    const awayFoulWeight = this.awayTeam.style.foulRate;
+    const foulingTeam =
+      Math.random() < homeFoulWeight / (homeFoulWeight + awayFoulWeight)
+        ? this.homeTeam
+        : this.awayTeam;
     const victimTeam =
       foulingTeam === this.homeTeam ? this.awayTeam : this.homeTeam;
     const playerIdx = (Math.random() * foulingTeam.players.length) | 0;
@@ -4143,9 +4165,27 @@ export class MatchEngine {
     // distribution 3 times (`.map` + `.reduce` + final draw
     // loop). Distribution is always 5 elements (AttackType enum),
     // so unrolling is both readable and allocation-free.
-    const w0 = distribution[0] * weatherWeights[0] * tempoWeights[AttackType[0]];
-    const w1 = distribution[1] * weatherWeights[1] * tempoWeights[AttackType[1]];
-    const w2 = distribution[2] * weatherWeights[2] * tempoWeights[AttackType[2]];
+    // 打法风格：进攻方式倾向（5 元素倍率，null = 不改）。
+    // 这是「长传冲吊 vs 控球」落地的地方 —— 它改的是打法组合而不是强度：
+    // CROSS/LONG_SHOT 加权会把球往边路和远射带，SHORT_PASS/THROUGH_PASS
+    // 加权则把球留在脚下。见 engine/style.ts。
+    const styleWeights = this.possessionTeam.style.attackTypeWeights;
+
+    const w0 =
+      distribution[0] *
+      weatherWeights[0] *
+      tempoWeights[AttackType[0]] *
+      (styleWeights?.[0] ?? 1);
+    const w1 =
+      distribution[1] *
+      weatherWeights[1] *
+      tempoWeights[AttackType[1]] *
+      (styleWeights?.[1] ?? 1);
+    const w2 =
+      distribution[2] *
+      weatherWeights[2] *
+      tempoWeights[AttackType[2]] *
+      (styleWeights?.[2] ?? 1);
     // v2.7: DRIBBLER no longer biases the attack type toward
     // DRIBBLE. `selectAttackType` now reads only the lane
     // distribution × weather × tempo; the `select_attack_type`
@@ -4157,8 +4197,16 @@ export class MatchEngine {
     // buff (1.15 on DRIBBLE) is unaffected — that's a passive
     // multiplier on a player who *happens* to be in the run, not
     // a steering of the pick itself.
-    const w3 = distribution[3] * weatherWeights[3] * tempoWeights[AttackType[3]];
-    const w4 = distribution[4] * weatherWeights[4] * tempoWeights[AttackType[4]];
+    const w3 =
+      distribution[3] *
+      weatherWeights[3] *
+      tempoWeights[AttackType[3]] *
+      (styleWeights?.[3] ?? 1);
+    const w4 =
+      distribution[4] *
+      weatherWeights[4] *
+      tempoWeights[AttackType[4]] *
+      (styleWeights?.[4] ?? 1);
 
     const sum = w0 + w1 + w2 + w3 + w4;
     // 归一化（保持总和为100）— equivalent to the legacy

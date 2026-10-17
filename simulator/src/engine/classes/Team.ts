@@ -4,7 +4,11 @@ import {
   Phase,
   TeamSnapshot,
 } from '../types/simulation.types';
-import { AttributeCalculator } from '../utils/attribute-calculator';
+import {
+  AttributeCalculator,
+  normalizePositionKey,
+} from '../utils/attribute-calculator';
+import { NEUTRAL_STYLE, StyleModifiers } from '../style';
 import { gkSetPieceRating } from '@goalxi/database';
 import { ConditionSystem } from '../systems/condition.system';
 import { Player } from '../../types/player.types';
@@ -53,6 +57,14 @@ export class Team {
    */
   public readonly teamId: string;
 
+  /**
+   * 本队的打法风格修正系数。默认全中性，等价于「没有风格」。
+   *
+   * 由调用方（processor / spec）在构造 `MatchEngine` 之前赋值；引擎只读。
+   * 每个实例持有自己的一份拷贝，避免两队共享同一个对象而互相污染。
+   */
+  public style: StyleModifiers = { ...NEUTRAL_STYLE };
+
   constructor(
     public name: string,
     public players: TacticalPlayer[],
@@ -93,7 +105,9 @@ export class Team {
 
       // Decay
       if (minutesDelta > 0) {
-        current -= ConditionSystem.calculateFitnessDecay(minutesDelta);
+        current -=
+          ConditionSystem.calculateFitnessDecay(minutesDelta) *
+          this.style.fitnessDecay;
       }
 
       // Recovery
@@ -164,6 +178,18 @@ export class Team {
       const attLaneMult = attackLaneMultiplier(player);
       const defLaneMult = defenseLaneMultiplier(player);
 
+      // 打法风格按位置族给本球员的贡献倍率（默认 1.0）。
+      // 与 `injuryPenalty` 不同，这一个不写进 AttributeCalculator 的缓存 ——
+      // 缓存按 (player, positionKey, lane, phase) 建键，而风格是**队伍**属性，
+      // 让缓存看见风格会污染同队其它风格的复用。
+      const familyMult =
+        this.style.positionFamilyMultipliers?.[
+          normalizePositionKey(p.positionKey)
+        ] ?? 1;
+      // 合并成一个因子，避免每次都要乘两遍（也避免超长行）。
+      // familyMult 默认 1 ⇒ `multiplier * 1 === multiplier`，结果不变。
+      const playerMult = multiplier * familyMult;
+
       // 使用calculateAndCacheContribution，自动缓存
       for (const lane of lanes) {
         const att = AttributeCalculator.calculateAndCacheContribution(
@@ -185,9 +211,9 @@ export class Team {
           'possession',
         );
 
-        laneStrengths[lane].attack += att * multiplier * attLaneMult;
-        laneStrengths[lane].defense += def * multiplier * defLaneMult;
-        laneStrengths[lane].possession += poss * multiplier;
+        laneStrengths[lane].attack += att * playerMult * attLaneMult;
+        laneStrengths[lane].defense += def * playerMult * defLaneMult;
+        laneStrengths[lane].possession += poss * playerMult;
       }
     }
 
