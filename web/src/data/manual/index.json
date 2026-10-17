@@ -1,5 +1,5 @@
 {
-  "version": 11,
+  "version": 12,
   "lastUpdated": "2026-10-16",
   "format": {
     "manualRoot": "web/src/data/manual",
@@ -14,6 +14,11 @@
     }
   },
   "changelog": [
+    {
+      "version": 12,
+      "date": "2026-10-16",
+      "change": "修正 ch 5 + ch 6 关于越位的过时文案(zh + en)。越位判定未接入模拟,ch 14 / ch 15 早已写明,但 ch 5 防线高度一栏和 ch 6 的「越位」小节 + 常见错误仍说越位会触发、只是不进时间轴。现统一为「目前比赛里不会吹越位,防线高度只影响进攻压迫 / 反击暴露」。"
+    },
     {
       "version": 11,
       "date": "2026-10-16",

@@ -3,7 +3,7 @@ order: 5
 slug: lineup-basics
 title: 阵容:基本认识
 status: full
-lastUpdated: 2026-08-30
+lastUpdated: 2026-10-16
 relatedChapters: [2, 3, 4, 6, 14, 15, 16, 19]
 relatedEntries: [position-keys-glossary, skill-priority-w, skill-priority-cb, skill-priority-cm-dm-am, skill-priority-cf, skill-priority-gk, player-event-types]
 ---
@@ -92,7 +92,7 @@ relatedEntries: [position-keys-glossary, skill-priority-w, skill-priority-cb, sk
 |---|---|---|
 | **节奏** | 慢 / 均衡 / 快 | 比赛推进速度(传球、跑动) |
 | **球场宽度** | 窄 / 均衡 / 宽 | 利用球场横向空间(边路 vs 中路) |
-| **防线高度** | 低 / 中 / 高 | 后卫线在球场上的位置(影响越位 / 反击) |
+| **防线高度** | 低 / 中 / 高 | 后卫线在球场上的位置(影响进攻压迫 / 反击暴露;越位未接入) |
 
 **怎么选**:
 - **快节奏 + 宽 + 防线高** → 激进高压,适合强队碾压弱队

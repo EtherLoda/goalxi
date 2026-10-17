@@ -3,7 +3,7 @@ order: 5
 slug: lineup-basics
 title: Lineup Basics
 status: full
-lastUpdated: 2026-08-30
+lastUpdated: 2026-10-16
 relatedChapters: [2, 3, 4, 6, 14, 15, 16, 19]
 relatedEntries: [position-keys-glossary, skill-priority-w, skill-priority-cb, skill-priority-cm-dm-am, skill-priority-cf, skill-priority-gk, player-event-types]
 ---
@@ -92,7 +92,7 @@ Each lineup has 3 style dimensions, **all default to "balanced"**:
 |---|---|---|
 | **Tempo** | slow / balanced / fast | overall game pace (passing, movement) |
 | **Pitch width** | narrow / balanced / wide | how wide the team spreads across the field (touchline vs middle) |
-| **Defensive line** | low / mid / high | how high the back line plays (affects offside traps and counter-attack space) |
+| **Defensive line** | low / mid / high | how high the back line plays (affects attacking pressure and counter-attack exposure; offside is not simulated) |
 
 **How to pick**:
 - **Fast + wide + high** → aggressive high press, fits a strong team overwhelming a weaker one

@@ -102,7 +102,7 @@ The timeline is a **chronological list of key events**, from kickoff to full tim
 
 - Per event: time + player + short description
 - Goals / subs / cards / injuries are colour-coded
-- Offsides, fouls, and corners usually **don't** show in the timeline (too frequent)
+- Fouls and corners usually **don't** show in the timeline (too frequent)
 
 ---
 
@@ -158,8 +158,15 @@ A sent-off player **can't continue**, and the team plays with one fewer.
 
 ### Offsides
 
-- Offsides fire during the match, but **don't always show in the timeline** (the FE usually skips them)
-- Important matches have a dedicated offside stat in the post-match report
+**Offsides are not called in the match right now.**
+
+The engine already has the offside scaffolding in place — the event type, the stat fields, the commentary lines, the per-defensive-line probability parameters — but **the offside check is not wired into the simulation**. So:
+
+- No offside is ever given, whatever defensive line you pick (low, mid or high)
+- The timeline never shows an offside, and the post-match offside count is always 0
+- The defensive line **currently** only changes **attacking pressure** and **counter-attack exposure**; it does not affect the match through offside
+
+> Once it is wired in, a higher line will mean more offsides caught — an extra cost on top of the high-line trade-off. Until then the high line is purely "push up to attack" versus "get hit on the counter". See the offside section in [chapter 14](14-set-pieces.md) and [chapter 15](15-tactics.md).
 
 ### Match phases
 
@@ -270,7 +277,7 @@ When the match moves to "completed":
 ❌ **"Why can't I see the opponent's events?"** — fog of war by design, you only see your own side's details in real time
 ❌ **"The clock isn't moving"** — half-time is 15 minutes and the clock freezes; not a bug
 ❌ **"Why is it still playing at 90 minutes?"** — injury time; wait for the ref's whistle
-❌ **"Where are the offsides?"** — too frequent, they don't go in the timeline; only in stats
+❌ **"Where are the offsides?"** — offside **is not simulated yet**, so it is not a frequency issue: the match never calls one and the stat is always 0 (see the offside section above)
 ❌ **"How does a forfeit count?"** — 3-0 walkover, winner gets 3 points; the forfeiting side gets no EXP
 ❌ **"When does extra time start?"** — only in matches that need a winner, not in regular league
 ❌ **"How are penalties scored?"** — only after ET is still tied; the shootout goals don't count for player stats (only the match result)
