@@ -97,19 +97,6 @@ const LANE_ATTACK_DISTRIBUTION: Record<string, number[]> = {
   center: [5, 45, 15, 25, 10], // 中路：短传为主
 };
 
-// 进攻类型配置（推进参数）
-// pushOffset 为正时增加进攻难度，目标推进成功率约 50%
-const ATTACK_TYPE_CONFIG: Record<
-  AttackType,
-  { pushK: number; pushOffset: number }
-> = {
-  [AttackType.CROSS]: { pushK: 3.5, pushOffset: -7 },
-  [AttackType.SHORT_PASS]: { pushK: 3.5, pushOffset: -7 },
-  [AttackType.THROUGH_PASS]: { pushK: 3.5, pushOffset: -7 },
-  [AttackType.DRIBBLE]: { pushK: 3.5, pushOffset: -7 },
-  [AttackType.LONG_SHOT]: { pushK: 0, pushOffset: 0 }, // 远射不经过推进阶段
-};
-
 // 射门类型配置
 // baseline 是对等双方射门时进球概率（GK 评分与射门员相当时）
 // 不同射门类型有显著差异，反映真实足球规律
@@ -2553,7 +2540,6 @@ export class MatchEngine {
       );
       const passerPlayer = preSelectedPasser?.player as Player | undefined;
 
-      const attackConfig = ATTACK_TYPE_CONFIG[attackType];
       let effectiveAttPower = attPower;
 
       // 打法风格：进攻方自身的推进力倍率（默认 1.0，见 engine/style.ts）。
@@ -2746,11 +2732,16 @@ export class MatchEngine {
       }
 
       // ==========================================
-      // 战术维度加成：tempo → 推进k值修正
-      // SLOW更稳定（k低），FAST更冒险（k高）
+      // 战术维度加成：tempo → 推进曲线陡峭度
+      // SLOW 曲线更平（强队推进优势被压缩、推进更"稳"），
+      // FAST 曲线更陡（强弱差距放大、也更容易连环丢球）。
+      // `duelK` 以 0.5 为 BALANCED 基准，映射到 DUEL_PROFILES.push
+      // 的 amplification（基准 1.5）。历史上这里算出的 `effectiveK`
+      // 赋值后从未被读取，tempo 对推进陡峭度完全没有作用。
       // ==========================================
       const attTempo = TEMPO_MODIFIERS[attDefConfig.tempo];
-      const effectiveK = attackConfig.pushK * (attTempo.duelK / 0.5);
+      const pushAmplification =
+        DUEL_PROFILES.push.amplification * (attTempo.duelK / 0.5);
 
       // Push-phase player duel — pick one attacker + one defender
       // (per the slot-weight tables at the top of the file), then
@@ -2794,7 +2785,10 @@ export class MatchEngine {
         const teamP = duelProbability(
           effectiveAttPower,
           effectiveDefPower,
-          pushDuelOptions,
+          // 只覆盖 tempo 驱动的陡峭度；baseline / anchorRatio /
+          // anchorProbability 保持 DUEL_PROFILES.push 的标定值，
+          // 这样 SLOW / FAST 只在同一个均势点上改变曲线形状。
+          { ...pushDuelOptions, amplification: pushAmplification },
         );
         // Apply the player-duel marginal and clamp to keep a single
         // Bernoulli draw within sane bounds. The clamp guards against
