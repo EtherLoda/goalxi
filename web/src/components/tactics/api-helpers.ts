@@ -10,7 +10,7 @@
  * handler and the apply-preset handler.
  */
 
-import type { TacticsDraft, TacticalEvent, PositionKey, PitchSlot, BenchSlot } from './types';
+import type { TacticsDraft, TacticalEvent, PositionKey, PitchSlot, BenchSlot, TeamTacticCodeValue } from './types';
 import { ALL_POSITION_KEY_SET, BENCH_SLOT_SET, PITCH_SLOT_SET } from './types';
 import type { HydratePayload, PresetPayload } from './use-tactics-state';
 
@@ -24,6 +24,12 @@ export interface SubmitTacticsPayload {
   lineup: Record<string, number>;
   pitchWidth: 'narrow' | 'balanced' | 'wide';
   defensiveLine: 'low' | 'mid' | 'high';
+  /**
+   * `null` clears any previously stored tactic; omitting the field keeps
+   * it. The editor always sends it explicitly so "no tactic" is a
+   * deliberate state rather than a stale one.
+   */
+  teamTactic: TeamTacticCodeValue | null;
   substitutions: Array<{ minute: number; out: number; in: number; condition?: string }>;
   instructions: { moves: Array<{ minute: number; player: number; position: string; condition?: string }> };
   presetId: string | null;
@@ -34,6 +40,7 @@ export interface CreatePresetPayload {
   formation: string;
   lineup: Record<string, number>;
   isDefault: boolean;
+  teamTactic?: TeamTacticCodeValue | null;
   substitutions: Array<{ minute: number; out: number; in: number; condition?: string }> | null;
   instructions: { moves: Array<{ minute: number; player: number; position: string; condition?: string }> } | null;
 }
@@ -128,6 +135,7 @@ export function serializeTactics(
     lineup: flattenLineup(draft),
     pitchWidth: draft.pitchWidth,
     defensiveLine: draft.defensiveLine,
+    teamTactic: draft.teamTactic,
     substitutions,
     instructions: { moves },
     presetId: draft.activePresetId,
@@ -254,6 +262,7 @@ export function hydrateTactics(
         lineup: Record<string, number>;
         pitchWidth: 'narrow' | 'balanced' | 'wide';
         defensiveLine: 'low' | 'mid' | 'high';
+        teamTactic?: TeamTacticCodeValue | null;
         substitutions: Array<{ minute: number; out: number; in: number; condition?: string }> | null;
         instructions: { moves?: Array<{ minute: number; player: number; position: string; condition?: string }> } | null;
         presetId: string | null;
@@ -265,6 +274,7 @@ export function hydrateTactics(
       lineup: {},
       pitchWidth: 'balanced',
       defensiveLine: 'mid',
+      teamTactic: null,
       substitutions: null,
       instructions: null,
       presetId: null,
@@ -302,6 +312,7 @@ export function hydrateTactics(
     lineup,
     pitchWidth: tactics.pitchWidth,
     defensiveLine: tactics.defensiveLine,
+    teamTactic: tactics.teamTactic ?? null,
     substitutions,
     instructions: moves.length > 0 ? { moves } : null,
     presetId: tactics.presetId,
@@ -314,6 +325,7 @@ export function hydratePreset(preset: {
   isDefault: boolean;
   formation: string;
   lineup: Record<string, number>;
+  teamTactic?: TeamTacticCodeValue | null;
   substitutions: Array<{ minute: number; out: number; in: number; condition?: string }> | null;
   instructions: { moves?: Array<{ minute: number; player: number; position: string; condition?: string }> } | null;
 }): PresetPayload {
@@ -343,6 +355,7 @@ export function hydratePreset(preset: {
     isDefault: preset.isDefault,
     formation: preset.formation,
     lineup,
+    teamTactic: preset.teamTactic ?? null,
     substitutions: preset.substitutions,
     instructions: moves.length > 0 ? { moves } : null,
   };

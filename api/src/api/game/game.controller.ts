@@ -1,5 +1,11 @@
 import { AuthGuard } from '@/guards/auth.guard';
-import { TACTIC_REQUIREMENTS, TEAM_TACTIC_CODES } from '@goalxi/database';
+import {
+  LEGACY_SLOT_FAMILIES,
+  POSITION_FAMILIES,
+  POSITION_FAMILY_ORDER,
+  TACTIC_REQUIREMENTS,
+  TEAM_TACTIC_CODES,
+} from '@goalxi/database';
 import { Controller, Get, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { TeamTacticsResDto } from './dto/team-tactics.res.dto';
@@ -49,6 +55,12 @@ export class GameController {
           count: requirement.count,
         })),
       })),
+      // The editor tallies the current lineup by family to decide which
+      // tactics it can field. Both halves of that mapping — canonical keys
+      // and the legacy aliases the editor's PITCH_SLOTS still uses — come
+      // from here so the tally can never disagree with the server gate.
+      families: { ...POSITION_FAMILIES, ...LEGACY_SLOT_FAMILIES },
+      familyOrder: [...POSITION_FAMILY_ORDER],
     };
   }
 }

@@ -1398,6 +1398,31 @@
       "BENCH_W": "边路",
       "BENCH_CM": "中场",
       "BENCH_FW": "前锋"
+    },
+    "teamTactic": {
+      "title": "球队战术",
+      "none": "不选战术",
+      "noneHint": "不选也能提交 —— 引擎按中性处理。",
+      "satisfied": "阵容满足要求",
+      "missing": "缺 {need} 个 {families}",
+      "loading": "加载战术要求…",
+      "unavailable": "战术要求暂时不可用",
+      "tally": "可上场位置",
+      "locked": "已锁定",
+      "codes": {
+        "possession": "传控压迫",
+        "high_press": "高位逼抢",
+        "counter": "防守反击",
+        "central": "中路渗透",
+        "wings": "双翼齐飞"
+      },
+      "desc": {
+        "possession": "多控球，靠耐心推进。",
+        "high_press": "整队前压，抢断更多，但犯规和体能代价更高。",
+        "counter": "后场站住，断球后直塞打身后。",
+        "central": "放弃边路，从中路穿透。",
+        "wings": "两个边路进攻、控球、防守都升，中路都降。"
+      }
     }
   },
   "club": {

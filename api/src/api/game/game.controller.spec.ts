@@ -71,4 +71,38 @@ describe('GameController — team tactics', () => {
     const second = controller.getTeamTactics();
     expect(second.tactics[0].requirements[0].families).not.toContain('GK');
   });
+
+  it('serves the slot → family map for both canonical keys and legacy aliases', () => {
+    const { families } = controller.getTeamTactics();
+    // Canonical keys the editor's PITCH_SLOTS uses.
+    expect(families.CB).toBe('CB');
+    expect(families.LWB).toBe('FB');
+    expect(families.DM).toBe('DM');
+    expect(families.CM).toBe('CM');
+    expect(families.LW).toBe('W');
+    expect(families.CF).toBe('CF');
+    expect(families.GK).toBe('GK');
+    // Legacy aliases still present in historical lineups.
+    expect(families.DMFL).toBe('DM');
+    expect(families.CAML).toBe('AM');
+    expect(families.ST).toBe('CF');
+    // Bench slots are not positions on the pitch.
+    expect(families.BENCH_GK).toBeUndefined();
+  });
+
+  it('serves a display order that covers the outfield families exactly once', () => {
+    const { familyOrder } = controller.getTeamTactics();
+    expect(familyOrder).toEqual(['CB', 'FB', 'DM', 'CM', 'AM', 'W', 'CF']);
+    expect(new Set(familyOrder).size).toBe(familyOrder.length);
+    expect(familyOrder).not.toContain('GK');
+  });
+
+  it('returns a fresh families object so a caller cannot mutate the shared tables', () => {
+    const first = controller.getTeamTactics();
+    first.families.CB = 'GK';
+    first.familyOrder.push('GK');
+    const second = controller.getTeamTactics();
+    expect(second.families.CB).toBe('CB');
+    expect(second.familyOrder).not.toContain('GK');
+  });
 });

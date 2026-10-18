@@ -460,6 +460,7 @@ export function TacticsEditor({ matchId, match }: TacticsEditorProps) {
           assignedPlayerIds={assignedIds}
           pitchWidth={state.draft.pitchWidth}
           defensiveLine={state.draft.defensiveLine}
+          teamTactic={state.draft.teamTactic}
           events={state.draft.events}
           starters={startersList}
           benchPlayers={benchPlayersList}

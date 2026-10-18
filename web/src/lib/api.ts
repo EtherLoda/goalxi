@@ -208,6 +208,12 @@ interface SubmitTacticsPayload {
   lineup: Record<string, number>;
   pitchWidth: PitchWidthValue;
   defensiveLine: DefensiveLineValue;
+  /**
+   * Always sent. `null` clears a previously stored tactic — omitting the
+   * key would mean "keep whatever is stored", which is not what the editor
+   * wants after the player picks 不选战术.
+   */
+  teamTactic: TeamTacticCodeValue | null;
   substitutions: TacticsSubstitution[];
   instructions: TacticsInstructions;
   presetId: string | null;
@@ -221,6 +227,8 @@ interface Tactics {
   lineup: Record<string, number>;
   pitchWidth: PitchWidthValue;
   defensiveLine: DefensiveLineValue;
+  /** `null` = no team tactic (the engine stays neutral), not "unset". */
+  teamTactic: TeamTacticCodeValue | null;
   substitutions: TacticsSubstitution[] | null;
   instructions: TacticsInstructions | null;
   submittedAt: string;
@@ -239,6 +247,8 @@ interface Preset {
   isDefault: boolean;
   formation: string;
   lineup: Record<string, number>;
+  /** `null` = the preset also stores "no team tactic". */
+  teamTactic: TeamTacticCodeValue | null;
   substitutions: TacticsSubstitution[] | null;
   instructions: TacticsInstructions | null;
   createdAt: string;
@@ -250,6 +260,7 @@ interface CreatePresetPayload {
   formation: string;
   lineup: Record<string, number>;
   isDefault: boolean;
+  teamTactic?: TeamTacticCodeValue | null;
   substitutions: TacticsSubstitution[] | null;
   instructions: TacticsInstructions | null;
 }
@@ -746,6 +757,70 @@ async function request<T>(
   const text = await response.text();
   if (!text) return null as T;
   return JSON.parse(text) as T;
+}
+
+// ============================================================================
+// Team tactics (GET /game/team-tactics)
+// ============================================================================
+
+/**
+ * The five team tactics, mirroring `TeamTacticCode` in
+ * `libs/database/src/constants/team-tactics.constants.ts`.
+ *
+ * Declared here rather than imported: `web` has no `@goalxi/database`
+ * dependency, and adding one would pull TypeORM entities into the client
+ * bundle. Only these five strings can drift; the requirement table and the
+ * slot → family map are served by the API precisely so they cannot.
+ *
+ * `null` (not `undefined`) is "no tactic" — a real choice, not a missing
+ * value, which is why the editor always sends it explicitly.
+ */
+export type TeamTacticCodeValue =
+  | 'possession'
+  | 'high_press'
+  | 'counter'
+  | 'central'
+  | 'wings';
+
+export const TEAM_TACTIC_CODES: readonly TeamTacticCodeValue[] = [
+  'possession',
+  'high_press',
+  'counter',
+  'central',
+  'wings',
+];
+
+/** Same union as `PositionFamily` in `@goalxi/database`. */
+export type PositionFamilyCode =
+  | 'GK'
+  | 'CB'
+  | 'FB'
+  | 'DM'
+  | 'CM'
+  | 'AM'
+  | 'W'
+  | 'CF';
+
+/**
+ * One clause of a tactic's requirement: `count` slots must belong to any of
+ * `families`. A slot can satisfy at most one clause of the same tactic.
+ */
+export interface TeamTacticRequirement {
+  families: PositionFamilyCode[];
+  count: number;
+}
+
+export interface TeamTacticDefinition {
+  code: string;
+  requirements: TeamTacticRequirement[];
+}
+
+export interface TeamTacticsResponse {
+  tactics: TeamTacticDefinition[];
+  /** Slot key (canonical or legacy) → family. */
+  families: Record<string, PositionFamilyCode>;
+  /** Display order for the tally; excludes `GK`. */
+  familyOrder: PositionFamilyCode[];
 }
 
 export const api = {
@@ -1265,6 +1340,17 @@ export const api = {
         seasonLengthWeeks: number;
         regularSeasonWeeks: number;
       }>('/game/current');
+    },
+
+    /**
+     * The team-tactic requirement table plus the slot → family map.
+     *
+     * Served rather than declared in the web bundle: `web` does not depend
+     * on `@goalxi/database`, and a hand-copied table would drift from the
+     * server-side gate the moment a slot or a requirement changes.
+     */
+    getTeamTactics: async (): Promise<TeamTacticsResponse> => {
+      return request<TeamTacticsResponse>('/game/team-tactics');
     },
   },
 

@@ -262,7 +262,9 @@ describe('hydratePreset', () => {
       instructions: null,
     };
     const result = hydratePreset(preset);
-    expect(result).toEqual(preset);
+    // `teamTactic` is a real field of the hydrated payload: a preset row
+    // that predates it must hydrate as "no tactic", not as `undefined`.
+    expect(result).toEqual({ ...preset, teamTactic: null });
   });
 });
 

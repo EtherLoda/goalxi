@@ -8,6 +8,8 @@ import { BenchStrip } from '../bench/BenchStrip';
 import { DimensionsPanel } from '../dimensions/DimensionsPanel';
 import { PresetList } from '../presets/PresetList';
 import { TacticalEventsPanel } from '../events/TacticalEventsPanel';
+import { TeamTacticBar } from '../team-tactic/TeamTacticBar';
+import { useTeamTactics } from '../team-tactic/use-team-tactics';
 import type {
   BenchSlot,
   DefensiveLineValue,
@@ -16,6 +18,7 @@ import type {
   PitchWidthValue,
   PositionKey,
   TacticalEvent,
+  TeamTacticCodeValue,
 } from '../types';
 import type { EditorTab } from './use-url-tab';
 import type { EditorViewport } from './use-editor-viewport';
@@ -32,6 +35,8 @@ interface EditorWorkspaceProps {
   // Dimensions
   pitchWidth: PitchWidthValue;
   defensiveLine: DefensiveLineValue;
+  // Team tactic
+  teamTactic: TeamTacticCodeValue | null;
   // Events
   events: TacticalEvent[];
   starters: Player[];
@@ -78,6 +83,7 @@ export function EditorWorkspace(props: EditorWorkspaceProps) {
     view, tab,
     lineup, bench, playersById, players, assignedPlayerIds,
     pitchWidth, defensiveLine,
+    teamTactic,
     events, starters, benchPlayers, pitchPlayers,
     presets, activePresetId,
     density, onDensityChange,
@@ -88,6 +94,19 @@ export function EditorWorkspace(props: EditorWorkspaceProps) {
     onApplyPreset, onDeletePreset, onSavePreset,
     onDragStart, onDragEnd, onRosterDragStart,
   } = props;
+
+  const teamTactics = useTeamTactics();
+
+  const tacticBar = (
+    <TeamTacticBar
+      lineup={lineup}
+      teamTactic={teamTactic}
+      table={teamTactics.table}
+      isLoading={teamTactics.isLoading}
+      error={teamTactics.error}
+      isLocked={isLocked}
+    />
+  );
 
   const pitchColumn = (
     <div className="flex flex-col gap-3">
@@ -116,6 +135,7 @@ export function EditorWorkspace(props: EditorWorkspaceProps) {
 
   const controlsColumn = (
     <div className="flex flex-col gap-3">
+      {tacticBar}
       <DimensionsPanel
         pitchWidth={pitchWidth}
         defensiveLine={defensiveLine}

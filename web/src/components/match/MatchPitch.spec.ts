@@ -45,6 +45,7 @@ function mkTactics(lineup: Record<string, number>): Tactics {
     lineup,
     pitchWidth: 'balanced',
     defensiveLine: 'mid',
+    teamTactic: null,
     substitutions: null,
     instructions: null,
     submittedAt: '2026-07-07T00:00:00.000Z',

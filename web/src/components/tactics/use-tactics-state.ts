@@ -18,6 +18,7 @@ import {
   type PositionKey,
   type TacticalEvent,
   type TacticsDraft,
+  type TeamTacticCodeValue,
   createEmptyDraft,
   LOCK_THRESHOLD_MINUTES,
   sortEventsByMinute,
@@ -40,6 +41,8 @@ export interface HydratePayload {
   lineup: Record<string, number>;        // slot → playerId
   pitchWidth: PitchWidthValue;
   defensiveLine: DefensiveLineValue;
+  /** `null` is "no tactic", the state every pre-feature row is in. */
+  teamTactic?: TeamTacticCodeValue | null;
   substitutions: Array<{ minute: number; out: number; in: number; condition?: string }> | null;
   instructions: { moves?: Array<{ minute: number; player: number; position: string; condition?: string }> } | null;
   presetId: string | null;
@@ -51,6 +54,7 @@ export interface PresetPayload {
   isDefault: boolean;
   formation: string;
   lineup: Record<string, number>;
+  teamTactic?: TeamTacticCodeValue | null;
   substitutions: Array<{ minute: number; out: number; in: number; condition?: string }> | null;
   instructions: { moves?: Array<{ minute: number; player: number; position: string; condition?: string }> } | null;
 }
@@ -68,6 +72,7 @@ export type Action =
   | { type: 'UPDATE_EVENT'; index: number; patch: Partial<TacticalEvent> }
   | { type: 'REMOVE_EVENT'; index: number }
   | { type: 'SET_DIMENSION'; key: 'pitchWidth' | 'defensiveLine'; value: PitchWidthValue | DefensiveLineValue }
+  | { type: 'SET_TEAM_TACTIC'; tactic: TeamTacticCodeValue | null }
   | { type: 'SET_PRESET'; id: string | null }
   | { type: 'TICK_LOCK'; now: number; scheduledAt: string }
   | { type: 'SUBMIT_START' }
@@ -156,6 +161,7 @@ export function reducer(state: EditorState, action: Action): EditorState {
           events: sortEventsByMinute(events),
           pitchWidth: payload.pitchWidth,
           defensiveLine: payload.defensiveLine,
+          teamTactic: payload.teamTactic ?? null,
           activePresetId: payload.presetId,
           isDirty: false,
         },
@@ -216,6 +222,12 @@ export function reducer(state: EditorState, action: Action): EditorState {
     case 'SET_DIMENSION': {
       const draft = { ...state.draft, [action.key]: action.value };
       return markDirty({ ...state, draft: draft as TacticsDraft });
+    }
+
+    case 'SET_TEAM_TACTIC': {
+      if (state.draft.teamTactic === action.tactic) return state;
+      const draft = { ...state.draft, teamTactic: action.tactic };
+      return markDirty({ ...state, draft });
     }
 
     case 'SET_PRESET': {
@@ -289,6 +301,7 @@ export function reducer(state: EditorState, action: Action): EditorState {
           events: sortEventsByMinute(events),
           pitchWidth: state.draft.pitchWidth,
           defensiveLine: state.draft.defensiveLine,
+          teamTactic: action.preset.teamTactic ?? null,
           activePresetId: action.preset.id,
           isDirty: false,
         },

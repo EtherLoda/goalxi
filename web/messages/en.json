@@ -1401,6 +1401,31 @@
       "BENCH_W": "W",
       "BENCH_CM": "CM",
       "BENCH_FW": "FW"
+    },
+    "teamTactic": {
+      "title": "Team tactic",
+      "none": "No tactic",
+      "noneHint": "Skipping is a real choice — the engine stays neutral.",
+      "satisfied": "Lineup qualifies",
+      "missing": "Needs {need} more {families}",
+      "loading": "Loading requirements…",
+      "unavailable": "Requirements unavailable",
+      "tally": "On-pitch positions",
+      "locked": "Locked",
+      "codes": {
+        "possession": "Possession",
+        "high_press": "High press",
+        "counter": "Counter-attack",
+        "central": "Central penetration",
+        "wings": "Wing play"
+      },
+      "desc": {
+        "possession": "Keep the ball, progress patiently.",
+        "high_press": "Push up as a unit; more interceptions, more fouls and more fatigue.",
+        "counter": "Sit deep, then break with through balls.",
+        "central": "Abandon the flanks and go through the middle.",
+        "wings": "Both flanks get stronger in all three phases; the middle gets weaker."
+      }
     }
   },
   "club": {

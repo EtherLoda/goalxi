@@ -24,4 +24,15 @@ export class TeamTacticResDto {
 
 export class TeamTacticsResDto {
   tactics!: TeamTacticResDto[];
+  /**
+   * Slot key → position family, covering the canonical keys AND the legacy
+   * aliases the editor still uses (`DMFL`, `CAML`, `ST`, …).
+   *
+   * Served rather than duplicated in the web bundle: the web app has no
+   * `@goalxi/database` dependency, so a hand-copied table would silently
+   * disagree with the gate the moment a slot is added or renamed.
+   */
+  families!: Record<string, PositionFamily>;
+  /** Display order for the tally. Excludes `GK` — no tactic constrains it. */
+  familyOrder!: PositionFamily[];
 }

@@ -80,6 +80,23 @@ export const POSITION_FAMILIES: Readonly<Record<PositionKey, PositionFamily>> =
   };
 
 /**
+ * 展示顺序（后卫 → 前锋）。不含 GK：没有任何战术约束门将位，把它放进
+ * 计数条只会永远显示 "GK 1/0"。
+ *
+ * 由后端下发而不是让前端自己排 —— 前端一旦自己定顺序，以后加族就会两边
+ * 不一致。
+ */
+export const POSITION_FAMILY_ORDER: readonly PositionFamily[] = [
+  'CB',
+  'FB',
+  'DM',
+  'CM',
+  'AM',
+  'W',
+  'CF',
+];
+
+/**
  * 旧槽位别名 → 位置族。
  *
  * 为什么需要这一张表：`POSITION_KEYS` 已经统一到 DML/DM/DMR 与 AML/AM/AMR，
@@ -90,7 +107,7 @@ export const POSITION_FAMILIES: Readonly<Record<PositionKey, PositionFamily>> =
  *
  * 这张表只用于"读"（校验 / 展示），规范键仍是唯一写入目标。
  */
-const LEGACY_SLOT_FAMILIES: Readonly<Record<string, PositionFamily>> = {
+export const LEGACY_SLOT_FAMILIES: Readonly<Record<string, PositionFamily>> = {
   ST: 'CF',
   CD: 'CB',
   CDL: 'CB',

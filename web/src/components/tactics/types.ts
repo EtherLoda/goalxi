@@ -364,12 +364,27 @@ export const MAX_VOLUNTARY_SUBSTITUTIONS = 3;
 export type LineupMap = Partial<Record<PitchSlot, number | null>>;
 export type BenchMap = Partial<Record<BenchSlot, number | null>>;
 
+/**
+ * The five team tactics. The canonical declaration lives in `@/lib/api`
+ * alongside the rest of the wire types; this is a re-export so component
+ * code can keep importing from `./types`.
+ */
+import type { TeamTacticCodeValue } from '@/lib/api';
+export type { TeamTacticCodeValue, PositionFamilyCode } from '@/lib/api';
+export { TEAM_TACTIC_CODES } from '@/lib/api';
+
 export interface TacticsDraft {
   lineup: LineupMap;
   bench: BenchMap;
   events: TacticalEvent[];
   pitchWidth: PitchWidthValue;
   defensiveLine: DefensiveLineValue;
+  /**
+   * `null` means "no team tactic", which is a real choice and not a missing
+   * value: the engine treats it as all-neutral. Every pre-existing match row
+   * is NULL, so the UI must render it as 不选战术 rather than blank.
+   */
+  teamTactic: TeamTacticCodeValue | null;
   activePresetId: string | null;
   isDirty: boolean;
 }
@@ -411,6 +426,7 @@ export function createEmptyDraft(): TacticsDraft {
     events: [],
     pitchWidth: 'balanced',
     defensiveLine: 'mid',
+    teamTactic: null,
     activePresetId: null,
     isDirty: false,
   };
