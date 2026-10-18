@@ -79,6 +79,61 @@ export const POSITION_FAMILIES: Readonly<Record<PositionKey, PositionFamily>> =
     GK: 'GK',
   };
 
+/**
+ * 旧槽位别名 → 位置族。
+ *
+ * 为什么需要这一张表：`POSITION_KEYS` 已经统一到 DML/DM/DMR 与 AML/AM/AMR，
+ * 但前端 `PITCH_SLOTS` 和历史 `match_tactics.lineupV2` 里仍然是
+ * DMFL/CAML/CAM 这些旧名字（引擎在 `SLOT_KEY_NORMALIZER` 里把它们折回
+ * 规范键）。如果校验只看规范键，用旧槽位排出的阵容会被判成"一个位置都
+ * 没有"，战术永远不可用 —— 而且报错信息还会说缺 4 个位置，玩家完全看不懂。
+ *
+ * 这张表只用于"读"（校验 / 展示），规范键仍是唯一写入目标。
+ */
+const LEGACY_SLOT_FAMILIES: Readonly<Record<string, PositionFamily>> = {
+  ST: 'CF',
+  CD: 'CB',
+  CDL: 'CB',
+  CDR: 'CB',
+  CAM: 'AM',
+  CAML: 'AM',
+  CAMR: 'AM',
+  CDM: 'DM',
+  DMF: 'DM',
+  DMFL: 'DM',
+  DMFR: 'DM',
+  DM1: 'DM',
+  DM2: 'DM',
+  DM3: 'DM',
+  WBL: 'FB',
+  WBR: 'FB',
+  LB1: 'FB',
+  RB1: 'FB',
+  LM1: 'W',
+  LM2: 'W',
+  RM1: 'W',
+  RM2: 'W',
+  LW1: 'W',
+  LW2: 'W',
+  RW1: 'W',
+  RW2: 'W',
+  CF_LW: 'CF',
+  CF_RW: 'CF',
+};
+
+/**
+ * 槽位（规范键或旧别名）→ 位置族；认不出来（替补槽位、拼错的值）返回
+ * `null`，调用方据此跳过而不是猜。
+ *
+ * 注意别名只做一层折叠：`WBL` → FB 而不是"边翼卫"这样的独立族。战术要求
+ * 的粒度就是八个族，多一层只会让玩家更难预期。
+ */
+export function positionFamilyOf(slot: string): PositionFamily | null {
+  const canonical = POSITION_FAMILIES[slot as PositionKey];
+  if (canonical) return canonical;
+  return LEGACY_SLOT_FAMILIES[slot] ?? null;
+}
+
 /** 一条要求：`count` 个槽位必须落在 `families` 里的任意一族。 */
 export interface TacticSlotRequirement {
   readonly families: readonly PositionFamily[];
@@ -141,7 +196,11 @@ export function isTeamTacticCode(value: unknown): value is TeamTacticCode {
 }
 
 /**
- * 用一组场上槽位（11 个 `PositionKey`，含 GK）检查是否满足战术要求。
+ * 用一组场上槽位（11 个，含 GK）检查是否满足战术要求。
+ *
+ * 入参是**字符串**而不是 `PositionKey[]`：API 层拿到的是 JSON 里的槽位名，
+ * 里面可能混着旧别名（`DMFL`/`CAML`）甚至替补槽位。用 `positionFamilyOf`
+ * 逐个折叠，认不出的槽位直接不计入（替补不算场上位置）。
  *
  * 贪心实现是精确的：五套要求内部互不共享同一族的剩余名额
  * （POSSESSION 的 {AM,W} 只和它自己的 CM×3 相邻但与 CM 不相交；
@@ -157,11 +216,11 @@ export interface TacticRequirementCheck {
 
 export function checkTacticRequirement(
   code: TeamTacticCode,
-  slotKeys: readonly PositionKey[],
+  slotKeys: readonly string[],
 ): TacticRequirementCheck {
   const available = new Map<PositionFamily, number>();
   for (const key of slotKeys) {
-    const family = POSITION_FAMILIES[key];
+    const family = positionFamilyOf(key);
     if (!family) continue;
     available.set(family, (available.get(family) ?? 0) + 1);
   }

@@ -37,6 +37,10 @@ import {
   // `type` string. See
   // `libs/database/src/constants/event-two-axis.ts`.
   getEventTwoAxis,
+  // Team tactic (second layer on top of tempo/pitchWidth/defensiveLine).
+  // `isTeamTacticCode` is used to drop unknown values instead of handing
+  // the engine a string it would silently resolve to the neutral style.
+  isTeamTacticCode,
 } from '@goalxi/database';
 import { MatchEngine, MatchEvent } from '../engine/match.engine';
 import { Team } from '../engine/classes/Team';
@@ -615,6 +619,19 @@ export class SimulationProcessor extends WorkerHost {
     });
 
     // 3. Map Instructions
+    /**
+     * Resolve the stored `match_tactics.team_tactic` string into a code the
+     * engine understands.
+     *
+     * Anything unrecognised (NULL, an empty string, or a code from a build
+     * that no longer exists) resolves to `null` = no team tactic = the
+     * neutral style. That is the same behaviour as "the player chose
+     * nothing", and it keeps a stale row from crashing the simulation for a
+     * reason the user cannot see or fix.
+     */
+    const pickTeamTactic = (raw: unknown): TacticsConfig['teamTactic'] =>
+      isTeamTacticCode(raw) ? raw : null;
+
     const mapInstructions = (
       tactics: MatchTacticsEntity,
     ): TacticalInstruction[] => {
@@ -798,6 +815,7 @@ export class SimulationProcessor extends WorkerHost {
       pitchWidth: (homeTactics.pitchWidth as PitchWidth) || PitchWidth.BALANCED,
       defensiveLine:
         (homeTactics.defensiveLine as DefensiveLine) || DefensiveLine.MID,
+      teamTactic: pickTeamTactic(homeTactics.teamTactic),
     };
 
     const awayTacticsConfig: TacticsConfig = {
@@ -805,6 +823,7 @@ export class SimulationProcessor extends WorkerHost {
       pitchWidth: (awayTactics.pitchWidth as PitchWidth) || PitchWidth.BALANCED,
       defensiveLine:
         (awayTactics.defensiveLine as DefensiveLine) || DefensiveLine.MID,
+      teamTactic: pickTeamTactic(awayTactics.teamTactic),
     };
 
     const engine = new MatchEngine(

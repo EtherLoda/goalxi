@@ -8,6 +8,7 @@ import {
   PlayerEntity,
   TacticsPresetEntity,
   TeamEntity,
+  TeamTacticCode,
 } from '@goalxi/database';
 import { getQueueToken } from '@nestjs/bullmq';
 import { BadRequestException, ForbiddenException } from '@nestjs/common';
@@ -251,6 +252,155 @@ describe('MatchService', () => {
 
       const result = await service.submitTactics(matchId, teamId, dto);
       expect(result.formation).toBe('4-4-2');
+    });
+
+    // ── Team tactic (five global tactics) ──────────────────────────────
+    // The tactic's 4-slot requirement is a HARD gate: a lineup either
+    // supports it or the submit is rejected, there is no half-strength
+    // version. These four tests pin the gate, the "omitted keeps the old
+    // value" rule, and the "explicit null clears" rule.
+    const tacticLineup = (
+      overrides: Record<string, number | undefined> = {},
+    ) => {
+      const base: Record<string, number | undefined> = {
+        GK: 1001,
+        CBL: 1002,
+        CB: 1003,
+        CBR: 1004,
+        LB: 1005,
+        RB: 1006,
+        CML: 1007,
+        CM: 1008,
+        CMR: 1009,
+        CAM: 1010,
+        CF: 1011,
+      };
+      const merged = { ...base, ...overrides };
+      const out: Record<string, number> = {};
+      for (const [slot, id] of Object.entries(merged)) {
+        if (typeof id === 'number') out[slot] = id;
+      }
+      return out;
+    };
+
+    const stubPlayers = (count = 11) =>
+      Array.from({ length: count }, (_, i) => ({
+        id: 1001 + i,
+        isGoalkeeper: i === 0,
+      }));
+
+    const stubFutureMatch = (teamId: string) =>
+      mockMatchRepository.findOne.mockResolvedValue({
+        id: 'match-id',
+        homeTeamId: teamId,
+        awayTeamId: 'other-id',
+        scheduledAt: new Date(Date.now() + 86400000),
+        tacticsLocked: false,
+      });
+
+    it('rejects a team tactic the lineup cannot satisfy', async () => {
+      const teamId = 'team-id';
+      stubFutureMatch(teamId);
+      mockPlayerRepository.find.mockResolvedValue(stubPlayers());
+      mockTacticsRepository.findOne.mockResolvedValue(null);
+      mockTacticsRepository.save.mockClear();
+
+      // Wing play needs 2 wingers + 2 full-backs; this lineup has the
+      // full-backs but puts nobody on the wing.
+      await expect(
+        service.submitTactics('match-id', teamId, {
+          teamId,
+          formation: '4-4-2',
+          lineup: tacticLineup(),
+          teamTactic: TeamTacticCode.WINGS,
+        }),
+      ).rejects.toThrow(BadRequestException);
+
+      expect(mockTacticsRepository.save).not.toHaveBeenCalled();
+    });
+
+    it('accepts a team tactic the lineup satisfies and persists it', async () => {
+      const teamId = 'team-id';
+      stubFutureMatch(teamId);
+      mockPlayerRepository.find.mockResolvedValue(stubPlayers());
+      mockTacticsRepository.findOne.mockResolvedValue(null);
+      mockTacticsRepository.create.mockImplementation((row: unknown) => row);
+      mockTacticsRepository.save.mockImplementation((row: unknown) =>
+        Promise.resolve({ ...(row as object), id: 'tactics-id' }),
+      );
+
+      await service.submitTactics('match-id', teamId, {
+        teamId,
+        formation: '4-4-2',
+        // LM/RM count as wingers, LB/RB as full-backs → 2 + 2.
+        lineup: tacticLineup({
+          CAM: undefined,
+          CF: undefined,
+          LM: 1010,
+          RM: 1011,
+        }),
+        teamTactic: TeamTacticCode.WINGS,
+      });
+
+      const saved = mockTacticsRepository.save.mock.calls[0][0] as {
+        teamTactic?: string;
+      };
+      expect(saved.teamTactic).toBe(TeamTacticCode.WINGS);
+    });
+
+    it('keeps the current team tactic when the field is omitted', async () => {
+      const teamId = 'team-id';
+      stubFutureMatch(teamId);
+      mockPlayerRepository.find.mockResolvedValue(stubPlayers());
+      const existing = {
+        id: 'tactics-id',
+        matchId: 'match-id',
+        teamId,
+        formation: '4-4-2',
+        lineup: {},
+        lineupV2: tacticLineup(),
+        teamTactic: TeamTacticCode.CENTRAL,
+      };
+      mockTacticsRepository.findOne.mockResolvedValue(existing);
+      mockTacticsRepository.save.mockImplementation((row: unknown) =>
+        Promise.resolve(row),
+      );
+
+      const result = await service.submitTactics('match-id', teamId, {
+        teamId,
+        formation: '4-4-2',
+        lineup: tacticLineup(),
+      });
+
+      expect(result.teamTactic).toBe(TeamTacticCode.CENTRAL);
+    });
+
+    it('clears the team tactic when null is sent explicitly', async () => {
+      const teamId = 'team-id';
+      stubFutureMatch(teamId);
+      mockPlayerRepository.find.mockResolvedValue(stubPlayers());
+      const existing = {
+        id: 'tactics-id',
+        matchId: 'match-id',
+        teamId,
+        formation: '4-4-2',
+        lineup: {},
+        lineupV2: tacticLineup(),
+        teamTactic: TeamTacticCode.CENTRAL,
+      };
+      mockTacticsRepository.findOne.mockResolvedValue(existing);
+      mockTacticsRepository.save.mockImplementation((row: unknown) =>
+        Promise.resolve(row),
+      );
+
+      const result = await service.submitTactics('match-id', teamId, {
+        teamId,
+        formation: '4-4-2',
+        lineup: tacticLineup(),
+        teamTactic: null,
+      });
+
+      expect(result.teamTactic).toBeNull();
     });
 
     it('should fail if deadline passed', async () => {

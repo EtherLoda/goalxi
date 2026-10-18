@@ -94,6 +94,20 @@ export class MatchTacticsEntity extends BaseEntity {
     @Column({ type: 'varchar', length: 10, default: 'mid' })
     defensiveLine!: string;
 
+    /**
+     * 球队战术（`TeamTacticCode`，见 `constants/team-tactics.constants.ts`）。
+     *
+     * `NULL` = 不选战术 = 引擎的中性打法，与引入这个字段之前逐位一致。
+     * 存字符串而不是 PG enum：战术代码可能会增加 / 改名，enum 迁移在
+     * PG 16 上要做整套 swap-type 动作（见 1724000000000 那个迁移），
+     * 而这一列的读取方会自己容错未知值（引擎拿到未知代码时解析成中性风格）。
+     *
+     * 写入时 API 已经用 `checkTacticRequirement` 校验过阵型，所以这里不
+     * 需要再存"是否满足"——不满足的提交根本不会落库。
+     */
+    @Column({ name: 'team_tactic', type: 'varchar', length: 20, nullable: true })
+    teamTactic?: string | null;
+
     @Column({ name: 'submitted_at', type: 'timestamp' })
     submittedAt!: Date;
 

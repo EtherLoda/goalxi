@@ -1,4 +1,4 @@
-import { GAME_SETTINGS } from '@goalxi/database';
+import { GAME_SETTINGS, TeamTacticCode } from '@goalxi/database';
 import { Type } from 'class-transformer';
 import {
   ArrayMaxSize,
@@ -58,4 +58,17 @@ export class SubmitTacticsReqDto {
   @IsEnum(DefensiveLine)
   @IsOptional()
   defensiveLine?: DefensiveLine;
+
+  // Team tactic — a separate layer from the three dimensions above. `null`
+  // (or omitting the field) means "no team tactic", which is the neutral
+  // engine behaviour. `@IsOptional()` skips validation for both `undefined`
+  // and `null`, so an explicit `null` clears a previously chosen tactic.
+  //
+  // Whether the submitted lineup actually satisfies the tactic's 4-slot
+  // requirement is NOT checkable here (it depends on the lineup payload), so
+  // the gate lives in `MatchService.submitTactics` right after lineup
+  // validation.
+  @IsEnum(TeamTacticCode)
+  @IsOptional()
+  teamTactic?: TeamTacticCode | null;
 }

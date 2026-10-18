@@ -6,6 +6,7 @@ import {
   TEAM_TACTIC_CODES,
   TeamTacticCode,
   checkTacticRequirement,
+  positionFamilyOf,
 } from '@goalxi/database';
 import { Team } from '../classes/Team';
 import { MatchEngine } from '../match.engine';
@@ -107,6 +108,68 @@ describe('team tactics — 要求表与效果表', () => {
     for (const key of POSITION_KEYS) {
       expect(POSITION_FAMILIES[key]).toBeTruthy();
     }
+  });
+
+  // 校验发生在 API 层，看到的槽位名直接来自 JSON。前端 `PITCH_SLOTS`
+  // 和历史行里还留着 `DMFL`/`CAML` 这些旧别名（引擎自己会 fold 回规范
+  // 键），所以家族解析必须两头都认，否则用旧槽位排出的阵容会被判成
+  // "一个位置都没有"，战术永远不可用。
+  it('旧槽位别名折叠到同一族，不与规范键冲突', () => {
+    expect(positionFamilyOf('DMFL')).toBe('DM');
+    expect(positionFamilyOf('DMF')).toBe('DM');
+    expect(positionFamilyOf('DML')).toBe('DM');
+    expect(positionFamilyOf('CAML')).toBe('AM');
+    expect(positionFamilyOf('AMR')).toBe('AM');
+    expect(positionFamilyOf('CD')).toBe('CB');
+    expect(positionFamilyOf('ST')).toBe('CF');
+    expect(positionFamilyOf('WBL')).toBe('FB');
+    expect(positionFamilyOf('LW1')).toBe('W');
+
+    // 认不出来的（替补槽位 / 拼错）返回 null，由调用方跳过。
+    expect(positionFamilyOf('BENCH_CB')).toBeNull();
+    expect(positionFamilyOf('NOPE')).toBeNull();
+
+    // 规范键优先：`LM` 是 W 而不是 CM。
+    expect(positionFamilyOf('LM')).toBe('W');
+  });
+
+  it('用旧槽位排出的阵容同样能通过要求校验', () => {
+    // 旧别名版的 4-4-2（DMFL/DMFR 而不是 DML/DMR）：
+    // 双翼齐飞要 2 个 W + 2 个 FB，这里 LM/RM 是 W，LB/RB 是 FB。
+    const legacyWings = [
+      'GK',
+      'LB',
+      'CD',
+      'CD',
+      'RB',
+      'LM',
+      'CM',
+      'CM',
+      'RM',
+      'ST',
+      'ST',
+    ];
+    expect(checkTacticRequirement(TeamTacticCode.WINGS, legacyWings).ok).toBe(
+      true,
+    );
+
+    // 旧后腰别名能顶住中路渗透的 DM 名额。
+    const legacyCentral = [
+      'GK',
+      'LB',
+      'CD',
+      'CD',
+      'RB',
+      'DMFL',
+      'CML',
+      'CMR',
+      'CAML',
+      'ST',
+      'ST',
+    ];
+    expect(
+      checkTacticRequirement(TeamTacticCode.CENTRAL, legacyCentral).ok,
+    ).toBe(true);
   });
 
   it('每个战术都有一个能天然满足它的阵型', () => {

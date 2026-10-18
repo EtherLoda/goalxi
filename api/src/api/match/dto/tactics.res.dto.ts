@@ -1,3 +1,4 @@
+import { TeamTacticCode } from '@goalxi/database';
 import { DefensiveLine, PitchWidth, Tempo } from '../types/tactical-dimensions';
 
 export class TacticsResDto {
@@ -26,4 +27,10 @@ export class TacticsResDto {
   tempo!: Tempo;
   pitchWidth!: PitchWidth;
   defensiveLine!: DefensiveLine;
+  /**
+   * `null` = no team tactic (neutral engine behaviour). Unlike the three
+   * dimensions above this has no default value: "not chosen" is a real
+   * state the player picks, not a missing setting.
+   */
+  teamTactic!: TeamTacticCode | null;
 }

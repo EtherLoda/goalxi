@@ -1,4 +1,5 @@
 import {
+  checkTacticRequirement,
   CupBracketSlotEntity,
   GAME_SETTINGS,
   LeagueEntity,
@@ -11,6 +12,7 @@ import {
   PlayerEntity,
   TacticsPresetEntity,
   TeamEntity,
+  TeamTacticCode,
   UserRole,
 } from '@goalxi/database';
 import { InjectQueue } from '@nestjs/bullmq';
@@ -565,6 +567,32 @@ export class MatchService {
     const lineupV2 = this.normaliseLineup(lineup);
     const substitutionsV2 = this.normaliseSubstitutions(substitutions);
 
+    // Team-tactic gate. This is a HARD requirement: a tactic is either
+    // deployable or it isn't — there is no half-strength version and no
+    // partial credit for satisfying 3 of 4 slots. The check reads the slot
+    // keys of the normalised lineup, i.e. the positions the players actually
+    // occupy, not their natural positions.
+    //
+    // `undefined` (field omitted) keeps whatever the row already had, so
+    // resubmitting only the tempo does not wipe a previously chosen tactic;
+    // an explicit `null` clears it.
+    const requestedTactic =
+      dto.teamTactic === undefined ? undefined : dto.teamTactic;
+    if (requestedTactic) {
+      const check = checkTacticRequirement(
+        requestedTactic,
+        Object.keys(lineupV2),
+      );
+      if (!check.ok) {
+        const missing = check.missing
+          .map((m) => `${m.count} more ${m.families.join('/')}`)
+          .join(', ');
+        throw new BadRequestException(
+          `Lineup does not satisfy team tactic "${requestedTactic}" — needs ${missing}`,
+        );
+      }
+    }
+
     // Check for existing tactics
     let tactics = await this.tacticsRepository.findOne({
       where: { matchId, teamId },
@@ -583,6 +611,9 @@ export class MatchService {
       if (dto.tempo) tactics.tempo = dto.tempo;
       if (dto.pitchWidth) tactics.pitchWidth = dto.pitchWidth;
       if (dto.defensiveLine) tactics.defensiveLine = dto.defensiveLine;
+      if (requestedTactic !== undefined) {
+        tactics.teamTactic = requestedTactic;
+      }
     } else {
       // Create new
       tactics = this.tacticsRepository.create({
@@ -599,6 +630,7 @@ export class MatchService {
         tempo: dto.tempo || 'balanced',
         pitchWidth: dto.pitchWidth || 'balanced',
         defensiveLine: dto.defensiveLine || 'mid',
+        teamTactic: requestedTactic ?? null,
       });
     }
 
@@ -777,6 +809,7 @@ export class MatchService {
       tempo: (tactics.tempo || 'balanced') as any,
       pitchWidth: (tactics.pitchWidth || 'balanced') as any,
       defensiveLine: (tactics.defensiveLine || 'mid') as any,
+      teamTactic: (tactics.teamTactic as TeamTacticCode) ?? null,
     };
   }
 }
