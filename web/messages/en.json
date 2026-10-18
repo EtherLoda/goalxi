@@ -1253,6 +1253,17 @@
     "submitError": "Failed to save tactics",
     "submitSuccess": "Tactics saved",
     "submitSuccessDesc": "{formation} formation with {events} changes submitted.",
+    "tabs": {
+      "label": "Tactics editor sections",
+      "lineup": "Lineup",
+      "tactics": "Tactics & Subs",
+      "changes": "Substitutions"
+    },
+    "stepper": {
+      "label": "Tactics setup steps",
+      "prev": "Back",
+      "next": "Next"
+    },
     "pitch": {
       "title": "Pitch",
       "emptySlot": "Empty"

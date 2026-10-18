@@ -9,7 +9,9 @@
  *
  * Used by `roster/RosterPlayerCard.tsx` and the new detailed card.
  */
+import { useCallback, useState } from 'react';
 import type { RefObject, DragEvent } from 'react';
+import type { PositionKey } from '../types';
 
 export const PLAYER_DRAG_MIME = 'application/x-goalxi-player';
 
@@ -65,5 +67,63 @@ export function usePlayerDrag(
     onDragEnd: () => {
       onEnd?.();
     },
+  };
+}
+
+// ============================================================================
+// Editor-level drag state
+// ============================================================================
+
+export interface EditorDragState {
+  /** True between dragstart and dragend, whichever card started it. */
+  isDragging: boolean;
+  /** Slot the drag started from, or null when it started on the roster. */
+  draggingFrom: PositionKey | null;
+  startFromSlot: (slot: PositionKey) => void;
+  startFromRoster: (playerId: number) => void;
+  end: () => void;
+  /** Clear without a real dragend — see the note on `reset`. */
+  reset: () => void;
+}
+
+/**
+ * Holds the drag state for the whole editor.
+ *
+ * This deliberately lives above `PitchField` rather than inside it: the
+ * pitch unmounts when the player switches tab, and a drag that is still in
+ * flight at that moment would otherwise leave `isDragging` stuck true, so
+ * every card on the next tab would render dimmed with no drag in progress.
+ *
+ * Rule for callers: **call `reset()` whenever the view changes** (tab or
+ * step), before or with the navigation. `end()` is for a genuine dragend;
+ * `reset()` is the belt-and-braces clear for a view change, where no
+ * dragend event will ever arrive for the component that just unmounted.
+ */
+export function useEditorDrag(): EditorDragState {
+  const [isDragging, setIsDragging] = useState(false);
+  const [draggingFrom, setDraggingFrom] = useState<PositionKey | null>(null);
+
+  const startFromSlot = useCallback((slot: PositionKey) => {
+    setIsDragging(true);
+    setDraggingFrom(slot);
+  }, []);
+
+  const startFromRoster = useCallback(() => {
+    setIsDragging(true);
+    setDraggingFrom(null);
+  }, []);
+
+  const reset = useCallback(() => {
+    setIsDragging(false);
+    setDraggingFrom(null);
+  }, []);
+
+  return {
+    isDragging,
+    draggingFrom,
+    startFromSlot,
+    startFromRoster,
+    end: reset,
+    reset,
   };
 }

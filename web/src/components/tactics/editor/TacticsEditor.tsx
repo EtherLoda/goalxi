@@ -31,8 +31,13 @@ import {
   type TacticsDraft,
   createEmptyDraft,
 } from '../types';
-import { EditorBentoGrid } from './EditorBentoGrid';
+import { EditorWorkspace } from './EditorWorkspace';
 import { EditorHeader } from './EditorHeader';
+import { EditorTabs } from './EditorTabs';
+import { EditorStepper } from './EditorStepper';
+import { useEditorViewport } from './use-editor-viewport';
+import { useUrlTab } from './use-url-tab';
+import { useEditorDrag } from '../shared/usePlayerDrag';
 import type { RosterDensity } from '../roster/PlayerRoster';
 
 interface TacticsEditorProps {
@@ -193,25 +198,25 @@ export function TacticsEditor({ matchId, match }: TacticsEditorProps) {
   }, [state.validation.errors, t]);
 
   // ---------------------------------------------------------------------
-  // Drag tracking
+  // Shell position (desktop tabs / mobile steps) and drag state
   // ---------------------------------------------------------------------
-  const [isDragging, setIsDragging] = React.useState(false);
-  const [draggingFrom, setDraggingFrom] = React.useState<PositionKey | null>(null);
+  const viewport = useEditorViewport();
+  const [tab, setTab] = useUrlTab();
+  const drag = useEditorDrag();
+  const resetDrag = drag.reset;
 
-  const handleRosterDragStart = useCallback((playerId: number) => {
-    setIsDragging(true);
-    setDraggingFrom(null);
-  }, []);
-
-  const handleSlotDragStart = useCallback((slot: PositionKey) => {
-    setIsDragging(true);
-    setDraggingFrom(slot);
-  }, []);
-
-  const handleDragEnd = useCallback(() => {
-    setIsDragging(false);
-    setDraggingFrom(null);
-  }, []);
+  /**
+   * Switching view must clear the drag state first: the pitch (which owns
+   * `dragOverSlot`) unmounts on the way out, so no dragend will ever arrive
+   * and `isDragging` would stay true, dimming every card on the new tab.
+   */
+  const handleTabChange = useCallback(
+    (next: Parameters<typeof setTab>[0]) => {
+      resetDrag();
+      setTab(next);
+    },
+    [resetDrag, setTab],
+  );
 
   // ---------------------------------------------------------------------
   // Drop handlers
@@ -412,7 +417,7 @@ export function TacticsEditor({ matchId, match }: TacticsEditorProps) {
   }
 
   return (
-    <div className="flex flex-col gap-4">
+    <div className={`flex flex-col gap-4 ${viewport === 'mobile' ? 'pb-24' : ''}`}>
       <EditorHeader
         formation={formation}
         isDirty={state.draft.isDirty}
@@ -420,41 +425,68 @@ export function TacticsEditor({ matchId, match }: TacticsEditorProps) {
         isSubmitting={state.submit.isSubmitting}
         canSubmit={state.validation.isValid && !state.lock.isLocked}
         onSubmit={handleSubmit}
+        // On mobile the submit button lives in the sticky footer so it is
+        // reachable from every step; a second one in the header would be two
+        // primary buttons competing for the same thumb.
+        showSubmit={viewport === 'desktop'}
       />
-      <EditorBentoGrid
-        lineup={state.draft.lineup}
-        bench={benchMap}
-        playersById={playersById}
-        players={players}
-        assignedPlayerIds={assignedIds}
-        pitchWidth={state.draft.pitchWidth}
-        defensiveLine={state.draft.defensiveLine}
-        events={state.draft.events}
-        starters={startersList}
-        benchPlayers={benchPlayersList}
-        pitchPlayers={pitchPlayers}
-        presets={presets}
-        activePresetId={state.draft.activePresetId}
-        density={density}
-        onDensityChange={setDensity}
-        isDragging={isDragging}
-        isLocked={state.lock.isLocked}
-        onPitchDrop={handlePitchDrop}
-        onBenchDrop={handleBenchDrop}
-        onRemovePitch={(slot) => dispatch({ type: 'REMOVE', slot })}
-        onRemoveBench={(slot) => dispatch({ type: 'REMOVE', slot })}
-        onDimensionChange={handleDimensionChange}
-        onAddSub={handleAddSub}
-        onAddMove={handleAddMove}
-        onUpdateEvent={(index, patch) => dispatch({ type: 'UPDATE_EVENT', index, patch })}
-        onRemoveEvent={(index) => dispatch({ type: 'REMOVE_EVENT', index })}
-        onApplyPreset={handleApplyPreset}
-        onDeletePreset={handleDeletePreset}
-        onSavePreset={() => setShowSaveDialog(true)}
-        onDragStart={handleSlotDragStart}
-        onDragEnd={handleDragEnd}
-        onRosterDragStart={handleRosterDragStart}
-      />
+      {viewport === 'desktop' ? (
+        <EditorTabs active={tab} onChange={handleTabChange} />
+      ) : (
+        <EditorStepper
+          active={tab}
+          onChange={handleTabChange}
+          onSubmit={handleSubmit}
+          canSubmit={state.validation.isValid && !state.lock.isLocked}
+          isSubmitting={state.submit.isSubmitting}
+        />
+      )}
+      <div
+        id="editor-tabpanel"
+        role={viewport === 'desktop' ? 'tabpanel' : undefined}
+        aria-labelledby={
+          viewport === 'desktop'
+            ? `editor-tab-${tab === 'lineup' ? 'lineup' : 'tactics'}`
+            : undefined
+        }
+      >
+        <EditorWorkspace
+          view={viewport}
+          tab={tab}
+          lineup={state.draft.lineup}
+          bench={benchMap}
+          playersById={playersById}
+          players={players}
+          assignedPlayerIds={assignedIds}
+          pitchWidth={state.draft.pitchWidth}
+          defensiveLine={state.draft.defensiveLine}
+          events={state.draft.events}
+          starters={startersList}
+          benchPlayers={benchPlayersList}
+          pitchPlayers={pitchPlayers}
+          presets={presets}
+          activePresetId={state.draft.activePresetId}
+          density={density}
+          onDensityChange={setDensity}
+          isDragging={drag.isDragging}
+          isLocked={state.lock.isLocked}
+          onPitchDrop={handlePitchDrop}
+          onBenchDrop={handleBenchDrop}
+          onRemovePitch={(slot) => dispatch({ type: 'REMOVE', slot })}
+          onRemoveBench={(slot) => dispatch({ type: 'REMOVE', slot })}
+          onDimensionChange={handleDimensionChange}
+          onAddSub={handleAddSub}
+          onAddMove={handleAddMove}
+          onUpdateEvent={(index, patch) => dispatch({ type: 'UPDATE_EVENT', index, patch })}
+          onRemoveEvent={(index) => dispatch({ type: 'REMOVE_EVENT', index })}
+          onApplyPreset={handleApplyPreset}
+          onDeletePreset={handleDeletePreset}
+          onSavePreset={() => setShowSaveDialog(true)}
+          onDragStart={drag.startFromSlot}
+          onDragEnd={drag.end}
+          onRosterDragStart={drag.startFromRoster}
+        />
+      </div>
       {showSaveDialog && (
         <SavePresetDialogComponent
           onCancel={() => setShowSaveDialog(false)}

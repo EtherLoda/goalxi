@@ -13,9 +13,22 @@ interface EditorHeaderProps {
   isSubmitting: boolean;
   canSubmit: boolean;
   onSubmit: () => void;
+  /**
+   * Mobile renders the primary action in the sticky footer instead, so the
+   * header drops its copy rather than showing two submit buttons.
+   */
+  showSubmit?: boolean;
 }
 
-export function EditorHeader({ formation, isDirty, lock, isSubmitting, canSubmit, onSubmit }: EditorHeaderProps) {
+export function EditorHeader({
+  formation,
+  isDirty,
+  lock,
+  isSubmitting,
+  canSubmit,
+  onSubmit,
+  showSubmit = true,
+}: EditorHeaderProps) {
   const t = useTranslations('tactics');
   const tLock = useTranslations('tactics.lock');
   const isWarning = isLockWarning(lock.countdownSeconds, lock.isLocked);
@@ -37,9 +50,11 @@ export function EditorHeader({ formation, isDirty, lock, isSubmitting, canSubmit
       <div className="flex items-center gap-3 min-w-0">
         <AppIcon name="strategy" className="text-primary text-2xl" />
         <div className="min-w-0">
-          <h1 className="font-headline font-black text-xl tracking-tight text-on-surface uppercase">
+          {/* The page's <h1> is the fixture name; repeating "战术" as a
+              second h1 was the reason the page announced two titles. */}
+          <p className="font-headline font-black text-xl tracking-tight text-on-surface uppercase">
             {t('title')}
-          </h1>
+          </p>
           <p className="font-label text-[10px] tracking-widest uppercase text-outline">
             {statusMessage}
           </p>
@@ -60,16 +75,18 @@ export function EditorHeader({ formation, isDirty, lock, isSubmitting, canSubmit
           isWarning={isWarning}
           matchStatus={lock.matchStatus}
         />
-        <button
-          type="button"
-          onClick={onSubmit}
-          disabled={!canSubmit || isSubmitting}
-          className="flex items-center gap-2 px-5 py-2.5 rounded-lg bg-primary text-on-primary font-headline font-bold text-sm tracking-tight uppercase shadow-[0_0_15px_rgba(0,228,121,0.3)] hover:bg-primary-dim transition-all disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none"
-          data-testid="submit-tactics"
-        >
-          <AppIcon name="save" className="text-base" />
-          {isSubmitting ? t('submitting') : t('submit')}
-        </button>
+        {showSubmit && (
+          <button
+            type="button"
+            onClick={onSubmit}
+            disabled={!canSubmit || isSubmitting}
+            className="flex items-center gap-2 px-5 py-2.5 rounded-lg bg-primary text-on-primary font-headline font-bold text-sm tracking-tight uppercase shadow-[0_0_15px_rgba(0,228,121,0.3)] hover:bg-primary-dim transition-all disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none"
+            data-testid="submit-tactics"
+          >
+            <AppIcon name="save" className="text-base" />
+            {isSubmitting ? t('submitting') : t('submit')}
+          </button>
+        )}
       </div>
     </header>
   );

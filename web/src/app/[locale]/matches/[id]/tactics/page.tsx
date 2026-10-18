@@ -13,7 +13,6 @@ function TacticsEditorContent() {
   const searchParams = useSearchParams();
   const locale = (params.locale as string) || 'en';
   const matchId = params.id as string;
-  const t = useTranslations('tactics');
   const tCommon = useTranslations('common');
 
   const [match, setMatch] = useState<Match | null>(null);
@@ -73,12 +72,12 @@ function TacticsEditorContent() {
             <AppIcon name="arrow_back" className="text-[18px]" />
           </Link>
           <div>
+            {/* The fixture is the page's one heading. The editor header also
+                renders "战术"; making that the h1 too gave the document two
+                competing titles. */}
             <h1 className="font-headline text-xl md:text-2xl font-black tracking-tight text-on-surface uppercase italic">
-              {t('title')}
-            </h1>
-            <p className="text-sm text-on-surface-variant font-headline">
               {match.homeTeam?.name} vs {match.awayTeam?.name}
-            </p>
+            </h1>
           </div>
         </div>
       </header>

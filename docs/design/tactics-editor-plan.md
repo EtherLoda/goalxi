@@ -357,11 +357,22 @@ tactics.skeleton.loading
 
 ### Phase 1 — 抽壳（不动内部布局）
 
+**状态**：✅ 已完成。
+
 **改动**
 1. 新增 `use-editor-viewport.ts`、`use-url-tab.ts`、`EditorTabs.tsx`、`EditorStepper.tsx`
 2. `EditorBentoGrid` → `EditorWorkspace`，按视图渲染；内容布局先照抄现状（三列）
 3. 拖拽状态统一到 `usePlayerDrag`，切视图时 `reset()`
 4. `page.tsx` 移除重复标题
+
+**实施记录**
+
+- `useEditorViewport` 用 `useSyncExternalStore`，服务端快照固定返回 `'desktop'`。选 desktop 而不是 mobile 是因为它是内容超集：猜错时手机上只是多一帧标签条，猜反向时桌面上会多一帧步骤条 + 固定底栏，跳动更大。
+- `useEditorDrag` 加在 `shared/usePlayerDrag.ts` 里（而不是新建文件），与计划写的「统一到 `usePlayerDrag`」一致；`usePlayerDrag(playerId)` 本身仍是每张卡片的叶子 hook，没有改动。
+- 桌面 `changes` 折叠进战术 tab：URL 里 `?tab=changes` 合法（手机分享链接不失效），桌面高亮战术 tab。
+- 移动端 `EditorHeader` 新增 `showSubmit`，手机端把主按钮交给固定底栏，避免同一屏两个主按钮。
+- `page.tsx` 的 `<h1>` 从「战术」改为对阵双方，`EditorHeader` 的标题降级为 `<p>` —— 之前一页有两个 h1。
+- `EditorBentoGrid.tsx` 已删除（无引用）。
 
 **验收**：桌面两个 tab 都在、状态跨 tab 保持；移动三步可前进后退、状态保持；拖拽中切 tab 无残留；`?tab=tactics` 可直接打开。
 
