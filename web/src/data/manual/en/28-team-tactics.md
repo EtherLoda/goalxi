@@ -70,6 +70,7 @@ Families are counted by **slot**, not by the player's natural position:
 - **In the match:** slightly fewer fouls than usual — your players are on the ball, not chasing it.
 - **Good fit:** midfield-heavy shapes (4-3-3 / 4-5-1 / 3-5-2), especially when you can name three midfielders.
 - **The cost:** one-dimensional. If your short-passing route cannot get through their middle, you have no second route.
+- **Strength:** attack and defence are slightly lower in all three lanes, possession is slightly higher in all three — you trade a little threat for the ball.
 
 ### High Press
 
@@ -78,6 +79,7 @@ Families are counted by **slot**, not by the player's natural position:
 - **In the match:** this is "trade fouls for the ball". You will break up play more often than your opponent does.
 - **Good fit:** mobile front players plus one centre-back who can step out (4-2-3-1 / 4-3-3).
 - **The cost:** more fouls means more free kicks conceded and more cards. On average it is also **slightly worse than no tactic at all** — the fouls cost more than the press buys back. You pick it for the way it plays, not because it is stronger.
+- **Strength:** attack and possession are slightly higher in all three lanes, defence slightly lower — the whole team steps up and leaves space behind.
 
 ### Counter
 
@@ -86,6 +88,7 @@ Families are counted by **slot**, not by the player's natural position:
 - **In the match:** you do not need the ball. Win it, then go forward in one or two passes — and a team that sits deep also **intercepts noticeably more**.
 - **Good fit:** five-at-the-back or a back four with a double pivot; against opponents who dominate the ball and push high.
 - **The cost:** few moves means **low margin for error**. The chances are rare, and missing them costs you.
+- **Strength:** defence is slightly higher in all three lanes, possession slightly lower — you sit deeper and hand over the ball on purpose.
 
 ### Central
 
@@ -94,6 +97,7 @@ Families are counted by **slot**, not by the player's natural position:
 - **In the match:** the same direction as a narrow pitch width, but more extreme.
 - **Good fit:** shapes that stack the middle (4-1-2-1-2, two-striker 3-5-2) with midfielders who can break forward.
 - **The cost:** the flanks are essentially abandoned. Against a packed middle you have no Plan B.
+- **Strength:** central attack and possession go up, central defence goes down; both flanks are the mirror image — strong through the middle, weak wide.
 
 ### Wings
 
@@ -102,10 +106,23 @@ Families are counted by **slot**, not by the player's natural position:
 - **In the match:** the same direction as a wide pitch setting.
 - **Good fit:** real wingers plus attacking full-backs (4-4-2 / a wide 4-2-3-1).
 - **The cost:** crossing is one of the lower-percentage ways to attack. You will get plenty of crosses without necessarily getting goals.
+- **Strength:** attack, possession and defence all go up on both flanks; all three go down through the middle — strong wide, weak central.
 
 ---
 
-## 4. How it combines with the three dimensions
+## 4. A tactic moves strength between lanes — it does not add any
+
+None of the five is "a small bonus to everything". Each one **redistributes** your team's strength across **left / centre / right**, and every lane is split further into **attack / possession / defence**.
+
+- **It shifts; it does not add.** The weighted average across the three lanes stays at 1. If a tactic makes one lane stronger, something else must get weaker — you are buying a **direction**, not extra total strength.
+- **It is team-level.** A particularly good right winger does not earn you extra in Wings. Players benefit only in the sense that their lane may already be the strong one.
+- **You never see the numbers.** The game will not tell you "wide attack +x%". You read it from the way the team plays (section 3) and from what happens in the match.
+
+So when you pick a tactic, ask two questions: **which lane and which phase do I want the edge in — and what am I willing to give up?**
+
+---
+
+## 5. How it combines with the three dimensions
 
 The two layers **multiply**; they are not alternatives:
 
@@ -125,17 +142,17 @@ Practical pairings:
 
 ---
 
-## 5. Are the five equally strong?
+## 6. Are the five equally strong?
 
 **No — but the gap is very small.**
 
-In testing, none of the five is reliably more than 2 percentage points better than picking no tactic. Possession is the only one that comes out slightly ahead; High Press comes out slightly behind; the other three are level. That gap is **far smaller** than what squad, player quality and the three dimensions are worth.
+In testing (the same squad against itself, thousands of matches per tactic), Possession comes out slightly ahead on average, High Press slightly behind, and the other three are level. That gap is **far smaller** than what squad, player quality and the three dimensions are worth — and it is barely larger than sampling error, so you will not feel it in a single match.
 
 So pick a tactic because of the way you want to play, not because one is stronger. The real cost is the one from section 2: **you pay 4 slots for it.**
 
 ---
 
-## 6. Common mistakes
+## 7. Common mistakes
 
 - **Treating the gate as "more is better".** It is not. Exactly 4 slots; extra slots in the same family buy nothing.
 - **Expecting a downgrade.** If the gate fails, the tactic is unavailable. There is no half-strength version.
@@ -146,11 +163,11 @@ So pick a tactic because of the way you want to play, not because one is stronge
 
 ---
 
-## 7. How it relates to everything else
+## 8. How it relates to everything else
 
-- **Tempo / width / line:** they stack — see section 4.
+- **Tempo / width / line:** they stack — see section 5.
 - **Substitutions:** a team tactic applies to the **whole team**, so substitutions do not break it. But **moving a player can break the gate** — shift your only central midfielder out wide and the requirement fails.
-- **Player quality:** the gate does not care how good your players are, only whether the **slots** are right. But the effect itself is **team-wide** — having a particularly good winger does not earn you extra in Wings.
+- **Player quality:** the gate does not care how good your players are, only whether the **slots** are right. The effect itself is **distributed across left / centre / right**, and it also ignores individual players — having a particularly good winger does not earn you extra in Wings (see section 4).
 - **Specialties:** independent systems. Specialties attach to players; a team tactic attaches to the team.
 
 ---
