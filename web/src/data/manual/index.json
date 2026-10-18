@@ -1,6 +1,6 @@
 {
-  "version": 12,
-  "lastUpdated": "2026-10-16",
+  "version": 14,
+  "lastUpdated": "2026-10-18",
   "format": {
     "manualRoot": "web/src/data/manual",
     "chapterFilePattern": "{order:02d}-{slug}.md",
@@ -14,6 +14,16 @@
     }
   },
   "changelog": [
+    {
+      "version": 14,
+      "date": "2026-10-18",
+      "change": "ch 28 补一节「五个战术一样强吗」:实测五个战术与「不选战术」的差距都在 2 个百分点以内(传控压迫略占优、高位逼抢略吃亏),远小于阵容与球员能力带来的差距;同时改写高位逼抢的代价(整队进攻略强、但犯规的代价更大)、防守反击补上「后场稳 = 断球更多」,并明确战术效果是整队层面、不按单个球员能力加权。"
+    },
+    {
+      "version": 13,
+      "date": "2026-10-18",
+      "change": "新增 ch 28 (team-tactics) zh + en — 球队战术是独立于 3 个维度的第二层选择:5 个战术(传控压迫 / 高位逼抢 / 防守反击 / 中路渗透 / 双翼齐飞)各要求 4 个场上位置位,满足才生效、不满足不能选,也可选「无战术」;位置按家族算(CB/FB/DM/CM/AM/W/CF),LM/RM 算边路;逐个说明打法方向与代价,并给出与节奏/宽度/防线的叠乘关系 + 6 条常见错误。"
+    },
     {
       "version": 12,
       "date": "2026-10-16",
@@ -333,6 +343,16 @@
       "status": "full",
       "hattrickEquivalent": "Hattrick § 26",
       "relatedChapters": [20, 21],
+      "relatedEntries": []
+    },
+    {
+      "order": 28,
+      "slug": "team-tactics",
+      "title": { "zh": "比赛:球队战术", "en": "Match: Team Tactics" },
+      "file": { "zh": "28-team-tactics.md", "en": "28-team-tactics.md" },
+      "status": "full",
+      "hattrickEquivalent": null,
+      "relatedChapters": [5, 15, 16],
       "relatedEntries": []
     }
   ],

@@ -3,8 +3,8 @@ order: 15
 slug: tactics
 title: Match: Tactics
 status: full
-lastUpdated: 2026-09-02
-relatedChapters: [3, 5, 6, 14, 16]
+lastUpdated: 2026-10-18
+relatedChapters: [3, 5, 6, 14, 16, 28]
 relatedEntries: [w-vs-wm, wbl-vs-lb, am-vs-cm, dm-vs-cdm, cfl-cfr-vs-cf]
 ---
 
@@ -323,3 +323,4 @@ Save a few common setups as presets (home / away / strong opponent / weak oppone
 - [Chapter 6: Match Basics](06-match-basics.md) — how tactical style shows up in match events
 - [Chapter 14: Set Pieces and Special Events](14-set-pieces.md) — the "Offside" section, "Current status — simulation logic not wired up yet"
 - [Chapter 16: Subs and Team Orders](16-subs-and-orders.md) — mid-match subs and position swaps
+- [Chapter 28: Match: Team Tactics](28-team-tactics.md) — the other layer: five team tactics, each needing 4 slots

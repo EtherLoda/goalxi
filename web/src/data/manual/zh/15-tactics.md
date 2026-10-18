@@ -3,8 +3,8 @@ order: 15
 slug: tactics
 title: 比赛:战术
 status: full
-lastUpdated: 2026-09-02
-relatedChapters: [3, 5, 6, 14, 16]
+lastUpdated: 2026-10-18
+relatedChapters: [3, 5, 6, 14, 16, 28]
 relatedEntries: [w-vs-wm, wbl-vs-lb, am-vs-cm, dm-vs-cdm, cfl-cfr-vs-cf]
 ---
 
@@ -323,3 +323,4 @@ relatedEntries: [w-vs-wm, wbl-vs-lb, am-vs-cm, dm-vs-cdm, cfl-cfr-vs-cf]
 - [第 6 章:比赛:基本信息](06-match-basics.md) — 战术在比赛事件里怎么体现
 - [第 14 章:比赛:定位球和特别事件](14-set-pieces.md) — 越位段的"当前状态 — 模拟逻辑未接入"
 - [第 16 章:比赛:替补和球队指示](16-subs-and-orders.md) — 赛中怎么换人 / 移位
+- [第 28 章:比赛:球队战术](28-team-tactics.md) — 另一层选择:5 个球队战术各要 4 个位置位
