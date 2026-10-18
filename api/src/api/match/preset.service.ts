@@ -113,10 +113,9 @@ export class PresetService {
       instructions: dto.instructions || null,
       substitutions: null,
       substitutionsV2: this.normaliseSubstitutions(dto.substitutions),
-      // The four tactical parameters. A preset is a complete tactical
+      // The three tactical parameters. A preset is a complete tactical
       // snapshot, so unset dimensions fall back to the same defaults
       // `match_tactics` uses rather than to NULL.
-      tempo: dto.tempo || 'balanced',
       pitchWidth: dto.pitchWidth || 'balanced',
       defensiveLine: dto.defensiveLine || 'mid',
       teamTactic: dto.teamTactic ?? null,
@@ -201,10 +200,9 @@ export class PresetService {
       preset.substitutions = null;
       preset.substitutionsV2 = this.normaliseSubstitutions(dto.substitutions);
     }
-    // The four tactical parameters. Explicit per-field guards rather than
+    // The three tactical parameters. Explicit per-field guards rather than
     // relying on `Object.assign`: an absent key must leave the stored value
     // alone, and only `teamTactic` treats `null` as a value.
-    if (dto.tempo) preset.tempo = dto.tempo;
     if (dto.pitchWidth) preset.pitchWidth = dto.pitchWidth;
     if (dto.defensiveLine) preset.defensiveLine = dto.defensiveLine;
     if (dto.teamTactic !== undefined) preset.teamTactic = dto.teamTactic;
@@ -269,7 +267,6 @@ export class PresetService {
       lineup,
       instructions: preset.instructions,
       substitutions,
-      tempo: preset.tempo as PresetResDto['tempo'],
       pitchWidth: preset.pitchWidth as PresetResDto['pitchWidth'],
       defensiveLine: preset.defensiveLine as PresetResDto['defensiveLine'],
       // Unknown codes (e.g. a tactic later removed from the enum) read as

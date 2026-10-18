@@ -43,7 +43,6 @@ function mkTactics(lineup: Record<string, number>): Tactics {
     teamId: 'team-1',
     formation: '4-3-3',
     lineup,
-    tempo: 'balanced',
     pitchWidth: 'balanced',
     defensiveLine: 'mid',
     substitutions: null,

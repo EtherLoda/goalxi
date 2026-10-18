@@ -18,7 +18,6 @@ import {
   type PositionKey,
   type TacticalEvent,
   type TacticsDraft,
-  type TempoValue,
   createEmptyDraft,
   LOCK_THRESHOLD_MINUTES,
   sortEventsByMinute,
@@ -39,7 +38,6 @@ import {
  */
 export interface HydratePayload {
   lineup: Record<string, number>;        // slot → playerId
-  tempo: TempoValue;
   pitchWidth: PitchWidthValue;
   defensiveLine: DefensiveLineValue;
   substitutions: Array<{ minute: number; out: number; in: number; condition?: string }> | null;
@@ -69,7 +67,7 @@ export type Action =
   | { type: 'ADD_EVENT'; event: TacticalEvent }
   | { type: 'UPDATE_EVENT'; index: number; patch: Partial<TacticalEvent> }
   | { type: 'REMOVE_EVENT'; index: number }
-  | { type: 'SET_DIMENSION'; key: 'tempo' | 'pitchWidth' | 'defensiveLine'; value: TempoValue | PitchWidthValue | DefensiveLineValue }
+  | { type: 'SET_DIMENSION'; key: 'pitchWidth' | 'defensiveLine'; value: PitchWidthValue | DefensiveLineValue }
   | { type: 'SET_PRESET'; id: string | null }
   | { type: 'TICK_LOCK'; now: number; scheduledAt: string }
   | { type: 'SUBMIT_START' }
@@ -156,7 +154,6 @@ export function reducer(state: EditorState, action: Action): EditorState {
           lineup,
           bench,
           events: sortEventsByMinute(events),
-          tempo: payload.tempo,
           pitchWidth: payload.pitchWidth,
           defensiveLine: payload.defensiveLine,
           activePresetId: payload.presetId,
@@ -290,7 +287,6 @@ export function reducer(state: EditorState, action: Action): EditorState {
           lineup,
           bench,
           events: sortEventsByMinute(events),
-          tempo: state.draft.tempo,
           pitchWidth: state.draft.pitchWidth,
           defensiveLine: state.draft.defensiveLine,
           activePresetId: action.preset.id,

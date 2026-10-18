@@ -178,7 +178,6 @@ async function run() {
       teamId: match.awayTeamId,
       formation: '4-2-3-1',
       lineup: away4231Lineup(eleven),
-      tempo: 'balanced',
       pitchWidth: 'balanced',
       defensiveLine: 'mid',
     });

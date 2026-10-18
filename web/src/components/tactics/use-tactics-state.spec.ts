@@ -87,7 +87,6 @@ function makeHydratePayload(overrides: Partial<HydratePayload> = {}): HydratePay
       CFL: ID_CF_1,
       CFR: ID_CF_2,
     },
-    tempo: 'balanced',
     pitchWidth: 'balanced',
     defensiveLine: 'mid',
     substitutions: null,
@@ -102,11 +101,10 @@ function makeHydratePayload(overrides: Partial<HydratePayload> = {}): HydratePay
 // ============================================================================
 
 describe('reducer — HYDRATE', () => {
-  it('populates lineup, tempo, dimensions, and resets isDirty to false', () => {
+  it('populates lineup, dimensions, and resets isDirty to false', () => {
     const payload = makeHydratePayload();
     const next = reducer(freshState(), { type: 'HYDRATE', payload });
     expect(next.draft.lineup.GK).toBe(ID_GK);
-    expect(next.draft.tempo).toBe('balanced');
     expect(next.draft.pitchWidth).toBe('balanced');
     expect(next.draft.defensiveLine).toBe('mid');
     expect(next.draft.isDirty).toBe(false);
@@ -279,15 +277,10 @@ describe('reducer — events', () => {
 // ============================================================================
 
 describe('reducer — SET_DIMENSION', () => {
-  it('updates tempo', () => {
-    const next = reducer(freshState(), { type: 'SET_DIMENSION', key: 'tempo', value: 'fast' });
-    expect(next.draft.tempo).toBe('fast');
-    expect(next.draft.isDirty).toBe(true);
-  });
-
-  it('updates pitchWidth', () => {
+  it('updates pitchWidth and marks the draft dirty', () => {
     const next = reducer(freshState(), { type: 'SET_DIMENSION', key: 'pitchWidth', value: 'wide' });
     expect(next.draft.pitchWidth).toBe('wide');
+    expect(next.draft.isDirty).toBe(true);
   });
 
   it('updates defensiveLine', () => {
@@ -407,9 +400,9 @@ describe('reducer — APPLY_PRESET', () => {
     expect(next.draft.events).toHaveLength(1);
   });
 
-  it('preserves current tempo/width/line when applying preset', () => {
+  it('preserves current width/line when applying preset', () => {
     let state = freshState();
-    state = { ...state, draft: { ...state.draft, tempo: 'fast', pitchWidth: 'wide' } };
+    state = { ...state, draft: { ...state.draft, pitchWidth: 'wide' } };
     const next = reducer(state, {
       type: 'APPLY_PRESET',
       preset: {
@@ -419,7 +412,6 @@ describe('reducer — APPLY_PRESET', () => {
         instructions: null,
       },
     });
-    expect(next.draft.tempo).toBe('fast');
     expect(next.draft.pitchWidth).toBe('wide');
   });
 });

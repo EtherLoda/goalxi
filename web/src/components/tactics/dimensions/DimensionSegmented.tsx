@@ -48,7 +48,7 @@ export function DimensionSegmented({ label, iconName, value, options, onChange, 
               data-testid={`dimension-${opt.value}`}
             >
               <AppIcon name={opt.iconName} className="text-[12px]" />
-              {t(opt.labelKey as `tempo.slow` | `tempo.balanced` | `tempo.fast` | `pitchWidth.narrow` | `pitchWidth.balanced` | `pitchWidth.wide` | `defensiveLine.low` | `defensiveLine.mid` | `defensiveLine.high`)}
+              {t(opt.labelKey as `pitchWidth.narrow` | `pitchWidth.balanced` | `pitchWidth.wide` | `defensiveLine.low` | `defensiveLine.mid` | `defensiveLine.high`)}
             </button>
           );
         })}

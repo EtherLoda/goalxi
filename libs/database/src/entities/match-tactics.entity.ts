@@ -85,8 +85,8 @@ export class MatchTacticsEntity extends BaseEntity {
       condition?: string;
     }>;
 
-    @Column({ type: 'varchar', length: 10, default: 'balanced' })
-    tempo!: string;
+    // tempo 列已于 2026-10-18 随「比赛节奏」这个维度一起删除
+    // （迁移 1788000000060-DropTempoDimensions）。宽度和防线保留。
 
     @Column({ type: 'varchar', length: 10, default: 'balanced' })
     pitchWidth!: string;

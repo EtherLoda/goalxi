@@ -96,7 +96,7 @@ GoalXI 的核心系统(后续章节详细讲):
 | 球迷 | [第 10 章](../10-fans.md) | 上座率、球迷反应 |
 | 球场 | [第 11 章](../11-stadium.md) | 容量、座位、升级 |
 | 比赛定位球 | [第 14 章](../14-set-pieces.md) | 任意球、点球、特别事件 |
-| 比赛战术 | [第 15 章](../15-tactics.md) | tempo / pitchWidth / defensiveLine |
+| 比赛战术 | [第 15 章](../15-tactics.md) | pitchWidth / defensiveLine + 球队战术 |
 | 替补 / 球队指示 | [第 16 章](../16-subs-and-orders.md) | 临场调整、换人 |
 | 转会 | [第 18 章](../18-transfer.md) | 公开市场、拍卖、buyout |
 | 青训 / 球探 | [第 19 章](../19-youth.md) | 招募、reveal、promote |

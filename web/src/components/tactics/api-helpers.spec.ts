@@ -42,7 +42,6 @@ function baseDraft(overrides: Partial<TacticsDraft> = {}): TacticsDraft {
       LW: ID_CF_1, CF: ID_CF_2, RW: ID_CF_3,
     },
     bench: { BENCH_CB: ID_BENCH_1 },
-    tempo: 'fast',
     pitchWidth: 'wide',
     defensiveLine: 'high',
     activePresetId: 'preset-1',
@@ -121,7 +120,6 @@ describe('serializeTactics', () => {
     expect(result._matchId).toBe('match-1');
     expect(result.teamId).toBe('team-1');
     expect(result.formation).toBe('4-3-3');
-    expect(result.tempo).toBe('fast');
     expect(result.pitchWidth).toBe('wide');
     expect(result.defensiveLine).toBe('high');
     expect(result.presetId).toBe('preset-1');
@@ -227,7 +225,6 @@ describe('hydrateTactics', () => {
     const server = {
       formation: '4-4-2',
       lineup: { GK: ID_GK, LB: ID_LB },
-      tempo: 'slow' as const,
       pitchWidth: 'narrow' as const,
       defensiveLine: 'low' as const,
       substitutions: [{ minute: 60, out: 1, in: 2 }],
@@ -236,14 +233,13 @@ describe('hydrateTactics', () => {
     };
     const result = hydrateTactics(server);
     expect(result.lineup).toEqual({ GK: ID_GK, LB: ID_LB });
-    expect(result.tempo).toBe('slow');
+    expect(result.pitchWidth).toBe('narrow');
     expect(result.presetId).toBe('preset-x');
   });
 
   it('returns an empty payload when tactics is null', () => {
     const result = hydrateTactics(null);
     expect(result.lineup).toEqual({});
-    expect(result.tempo).toBe('balanced');
     expect(result.pitchWidth).toBe('balanced');
     expect(result.defensiveLine).toBe('mid');
     expect(result.presetId).toBeNull();
@@ -352,7 +348,6 @@ describe('hydrateTactics — legacy short code aliasing', () => {
     const server = {
       formation: '4-4-2',
       lineup: { GK: ID_GK, CDL: ID_CB_1, DM: ID_CMF_1, ST: ID_CF_2 },
-      tempo: 'balanced' as const,
       pitchWidth: 'balanced' as const,
       defensiveLine: 'mid' as const,
       substitutions: null,
@@ -374,7 +369,6 @@ describe('hydrateTactics — legacy short code aliasing', () => {
     const server = {
       formation: '4-4-2',
       lineup: { GK: ID_GK },
-      tempo: 'balanced' as const,
       pitchWidth: 'balanced' as const,
       defensiveLine: 'mid' as const,
       substitutions: null,
@@ -399,7 +393,6 @@ describe('hydrateTactics — legacy short code aliasing', () => {
     const server = {
       formation: '4-4-2',
       lineup: { GK: ID_GK },
-      tempo: 'balanced' as const,
       pitchWidth: 'balanced' as const,
       defensiveLine: 'mid' as const,
       substitutions: null,
@@ -414,7 +407,6 @@ describe('hydrateTactics — legacy short code aliasing', () => {
     const server = {
       formation: '4-4-2',
       lineup: { GK: ID_GK },
-      tempo: 'balanced' as const,
       pitchWidth: 'balanced' as const,
       defensiveLine: 'mid' as const,
       substitutions: [{ minute: 60, out: 1, in: 2, condition: 'leading' }],

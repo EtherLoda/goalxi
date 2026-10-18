@@ -10,7 +10,7 @@ import {
   IsUUID,
   ValidateNested,
 } from 'class-validator';
-import { DefensiveLine, PitchWidth, Tempo } from '../types/tactical-dimensions';
+import { DefensiveLine, PitchWidth } from '../types/tactical-dimensions';
 import { SubstitutionDto } from './substitution.dto';
 
 export class SubmitTacticsReqDto {
@@ -47,10 +47,6 @@ export class SubmitTacticsReqDto {
   @IsUUID()
   teamId!: string;
 
-  @IsEnum(Tempo)
-  @IsOptional()
-  tempo?: Tempo;
-
   @IsEnum(PitchWidth)
   @IsOptional()
   pitchWidth?: PitchWidth;
@@ -59,7 +55,7 @@ export class SubmitTacticsReqDto {
   @IsOptional()
   defensiveLine?: DefensiveLine;
 
-  // Team tactic — a separate layer from the three dimensions above. `null`
+  // Team tactic — a separate layer from the two dimensions above. `null`
   // (or omitting the field) means "no team tactic", which is the neutral
   // engine behaviour. `@IsOptional()` skips validation for both `undefined`
   // and `null`, so an explicit `null` clears a previously chosen tactic.

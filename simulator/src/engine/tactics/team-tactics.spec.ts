@@ -11,7 +11,7 @@ import {
 import { Team } from '../classes/Team';
 import { MatchEngine } from '../match.engine';
 import { NEUTRAL_STYLE } from '../style';
-import { DefensiveLine, PitchWidth, Tempo } from '../types/tactics-config';
+import { DefensiveLine, PitchWidth } from '../types/tactics-config';
 import { resolveTeamTacticStyle, TEAM_TACTIC_STYLES } from './team-tactics';
 
 /**
@@ -263,13 +263,11 @@ describe('team tactics — 要求表与效果表', () => {
       null,
       'cloudy',
       {
-        tempo: Tempo.BALANCED,
         pitchWidth: PitchWidth.BALANCED,
         defensiveLine: DefensiveLine.MID,
         teamTactic: TeamTacticCode.POSSESSION,
       },
       {
-        tempo: Tempo.BALANCED,
         pitchWidth: PitchWidth.BALANCED,
         defensiveLine: DefensiveLine.MID,
         teamTactic: null,

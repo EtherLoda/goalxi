@@ -19,7 +19,7 @@ import { DataSource } from 'typeorm';
 import { CreateMatchReqDto } from './dto/create-match.req.dto';
 import { SubmitTacticsReqDto } from './dto/submit-tactics.req.dto';
 import { MatchService } from './match.service';
-import { Tempo } from './types/tactical-dimensions';
+import { DefensiveLine } from './types/tactical-dimensions';
 
 describe('MatchService', () => {
   let service: MatchService;
@@ -425,7 +425,6 @@ describe('MatchService', () => {
         }),
         instructions: null,
         substitutions: null,
-        tempo: 'fast',
         pitchWidth: 'wide',
         defensiveLine: 'high',
         teamTactic: TeamTacticCode.WINGS,
@@ -445,7 +444,6 @@ describe('MatchService', () => {
       });
 
       // A preset is a complete tactical snapshot, not just a lineup.
-      expect(result.tempo).toBe('fast');
       expect(result.pitchWidth).toBe('wide');
       expect(result.defensiveLine).toBe('high');
       expect(result.teamTactic).toBe(TeamTacticCode.WINGS);
@@ -467,7 +465,6 @@ describe('MatchService', () => {
         lineup: tacticLineup(),
         instructions: null,
         substitutions: null,
-        tempo: 'fast',
         pitchWidth: 'wide',
         defensiveLine: 'high',
         teamTactic: null,
@@ -478,14 +475,13 @@ describe('MatchService', () => {
         formation: '4-4-2',
         presetId: 'preset-id',
         lineup: tacticLineup(),
-        tempo: Tempo.SLOW,
+        defensiveLine: DefensiveLine.LOW,
       });
 
-      // Only tempo was overridden; the other three still come from the
-      // preset, so a per-match tweak doesn't silently drop the rest.
-      expect(result.tempo).toBe('slow');
+      // Only the defensive line was overridden; the other two still come from
+      // the preset, so a per-match tweak doesn't silently drop the rest.
+      expect(result.defensiveLine).toBe('low');
       expect(result.pitchWidth).toBe('wide');
-      expect(result.defensiveLine).toBe('high');
     });
 
     it('clears the team tactic when the applied preset carries none', async () => {
@@ -500,7 +496,6 @@ describe('MatchService', () => {
         lineup: {},
         lineupV2: tacticLineup(),
         teamTactic: TeamTacticCode.CENTRAL,
-        tempo: 'balanced',
         pitchWidth: 'balanced',
         defensiveLine: 'mid',
       };
@@ -515,7 +510,6 @@ describe('MatchService', () => {
         lineup: tacticLineup(),
         instructions: null,
         substitutions: null,
-        tempo: 'slow',
         pitchWidth: 'narrow',
         defensiveLine: 'low',
         teamTactic: null,
@@ -530,7 +524,7 @@ describe('MatchService', () => {
 
       // A preset without a tactic means "no tactic", not "keep the old one".
       expect(result.teamTactic).toBeNull();
-      expect(result.tempo).toBe('slow');
+      expect(result.pitchWidth).toBe('narrow');
     });
 
     it('should fail if deadline passed', async () => {

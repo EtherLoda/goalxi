@@ -1,8 +1,7 @@
-import { Tempo, PitchWidth, DefensiveLine } from '../types/tactics-config';
+import { PitchWidth, DefensiveLine } from '../types/tactics-config';
 import {
   WIDTH_MODIFIERS,
   DEFENSIVE_LINE_MODIFIERS,
-  TEMPO_MODIFIERS,
   DEFAULT_TACTICS,
 } from './tactics-presets';
 
@@ -14,7 +13,7 @@ describe('Tactics Presets', () => {
       expect(mods.left).toBeLessThan(1.0); // Flanks weakened
       expect(mods.right).toBeLessThan(1.0); // Flanks weakened
       // NARROW: center ×1.10, flanks ×0.9
-      expect(mods.center).toBeCloseTo(1.10, 2);
+      expect(mods.center).toBeCloseTo(1.1, 2);
       expect(mods.left).toBeCloseTo(0.9, 2);
       expect(mods.right).toBeCloseTo(0.9, 2);
     });
@@ -102,85 +101,19 @@ describe('Tactics Presets', () => {
     });
   });
 
-  describe('TEMPO_MODIFIERS', () => {
-    it('should have SLOW with stable duel k and fewer shot attempts', () => {
-      const mods = TEMPO_MODIFIERS[Tempo.SLOW];
-      expect(mods.duelK).toBeLessThan(0.5); // More stable
-      expect(mods.shotAttempts).toBeLessThan(1.0); // Fewer attempts
-      expect(mods.duelK).toBeCloseTo(0.42, 2);
-      expect(mods.shotAttempts).toBeCloseTo(0.9, 1);
-      expect(mods.counterVulnerability).toBeGreaterThan(1.0);
-    });
-
-    it('should have BALANCED with baseline values', () => {
-      const mods = TEMPO_MODIFIERS[Tempo.BALANCED];
-      expect(mods.duelK).toBeCloseTo(0.5, 1);
-      expect(mods.shotAttempts).toBeCloseTo(1.0, 1);
-      expect(mods.counterVulnerability).toBeCloseTo(1.0, 1);
-    });
-
-    it('should have FAST with risky duel k and more shot attempts', () => {
-      const mods = TEMPO_MODIFIERS[Tempo.FAST];
-      expect(mods.duelK).toBeGreaterThan(0.5); // More turnover-prone
-      expect(mods.shotAttempts).toBeGreaterThan(1.0); // More attempts
-      expect(mods.duelK).toBeCloseTo(0.58, 2);
-      expect(mods.shotAttempts).toBeCloseTo(1.1, 1);
-      expect(mods.counterVulnerability).toBeLessThan(1.0);
-    });
-
-    it('SLOW should prefer short passes over through/dribble', () => {
-      const mods = TEMPO_MODIFIERS[Tempo.SLOW];
-      expect(mods.attackTypeWeights.SHORT_PASS).toBeGreaterThan(
-        mods.attackTypeWeights.THROUGH_PASS,
-      );
-      expect(mods.attackTypeWeights.SHORT_PASS).toBeGreaterThan(
-        mods.attackTypeWeights.DRIBBLE,
-      );
-    });
-
-    it('FAST should prefer through passes and dribble over short passes', () => {
-      const mods = TEMPO_MODIFIERS[Tempo.FAST];
-      expect(mods.attackTypeWeights.THROUGH_PASS).toBeGreaterThan(
-        mods.attackTypeWeights.SHORT_PASS,
-      );
-      expect(mods.attackTypeWeights.DRIBBLE).toBeGreaterThan(
-        mods.attackTypeWeights.SHORT_PASS,
-      );
-    });
-
-    it('should have all attack type weights summing reasonably', () => {
-      for (const tempo of [Tempo.SLOW, Tempo.BALANCED, Tempo.FAST]) {
-        const mods = TEMPO_MODIFIERS[tempo];
-        const weights = mods.attackTypeWeights;
-        // All weights should be positive
-        Object.values(weights).forEach((w) => {
-          expect(w).toBeGreaterThan(0);
-        });
-        // Should have all attack types
-        expect(weights).toHaveProperty('CROSS');
-        expect(weights).toHaveProperty('SHORT_PASS');
-        expect(weights).toHaveProperty('THROUGH_PASS');
-        expect(weights).toHaveProperty('DRIBBLE');
-        expect(weights).toHaveProperty('LONG_SHOT');
-      }
-    });
-
-    it('should have all required properties for each tempo', () => {
-      for (const tempo of [Tempo.SLOW, Tempo.BALANCED, Tempo.FAST]) {
-        const mods = TEMPO_MODIFIERS[tempo];
-        expect(mods).toHaveProperty('attackTypeWeights');
-        expect(mods).toHaveProperty('duelK');
-        expect(mods).toHaveProperty('shotAttempts');
-        expect(mods).toHaveProperty('counterVulnerability');
-      }
-    });
-  });
-
   describe('DEFAULT_TACTICS', () => {
     it('should have BALANCED values for all dimensions', () => {
-      expect(DEFAULT_TACTICS.tempo).toBe(Tempo.BALANCED);
       expect(DEFAULT_TACTICS.pitchWidth).toBe(PitchWidth.BALANCED);
       expect(DEFAULT_TACTICS.defensiveLine).toBe(DefensiveLine.MID);
+    });
+
+    // Tempo（比赛节奏）2026-10-18 整体移除。这条断言是防回退的绊线：
+    // 一旦有人把 tempo 加回 TacticsConfig，这里会先红。
+    it('no longer carries a tempo dimension', () => {
+      expect(Object.keys(DEFAULT_TACTICS).sort()).toEqual([
+        'defensiveLine',
+        'pitchWidth',
+      ]);
     });
   });
 });

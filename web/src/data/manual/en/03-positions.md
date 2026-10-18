@@ -226,7 +226,7 @@ Detailed comparisons in the FAQ: `w-vs-wm` / `wbl-vs-lb` / `am-vs-cm` / `dm-vs-c
 | **Skills** (Ch 2) | headline skills are the position's "fitness test" — high in headlines = good fit |
 | **PWI** (Ch 4) | headline skills + potential + form combined; high PWI ≠ fit for any position |
 | **BenchConfig / subs** (Ch 5) | lineup + bench — position + slots |
-| **Tactics** (Ch 15) | tempo / pitchWidth / defensiveLine affect on-pitch performance at each position |
+| **Tactics** (Ch 15) | pitchWidth / defensiveLine + team tactics affect on-pitch performance at each position |
 | **Formations** | position + count = formation (4-3-3 / 4-4-2 / 3-5-2 etc.) |
 
 ---

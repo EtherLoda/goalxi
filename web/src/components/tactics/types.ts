@@ -280,11 +280,12 @@ export type MatchStatus =
 // Tactical Dimensions
 // ============================================================================
 
-export type TempoValue = 'slow' | 'balanced' | 'fast';
+// Tempo（比赛节奏）2026-10-18 整体删除：它不在产品计划里，引擎侧也不再读取。
+// 现在只剩宽度和防线两个维度，外加球队战术（teamTactic）。
+
 export type PitchWidthValue = 'narrow' | 'balanced' | 'wide';
 export type DefensiveLineValue = 'low' | 'mid' | 'high';
 
-export const TEMPO_VALUES: readonly TempoValue[] = ['slow', 'balanced', 'fast'];
 export const PITCH_WIDTH_VALUES: readonly PitchWidthValue[] = ['narrow', 'balanced', 'wide'];
 export const DEFENSIVE_LINE_VALUES: readonly DefensiveLineValue[] = ['low', 'mid', 'high'];
 
@@ -367,7 +368,6 @@ export interface TacticsDraft {
   lineup: LineupMap;
   bench: BenchMap;
   events: TacticalEvent[];
-  tempo: TempoValue;
   pitchWidth: PitchWidthValue;
   defensiveLine: DefensiveLineValue;
   activePresetId: string | null;
@@ -409,7 +409,6 @@ export function createEmptyDraft(): TacticsDraft {
     lineup: {},
     bench: {},
     events: [],
-    tempo: 'balanced',
     pitchWidth: 'balanced',
     defensiveLine: 'mid',
     activePresetId: null,

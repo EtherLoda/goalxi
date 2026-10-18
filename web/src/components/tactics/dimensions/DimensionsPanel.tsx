@@ -18,10 +18,8 @@ interface DimensionsPanelProps {
   disabled: boolean;
 }
 
-// Tempo is wired in the engine but intentionally not exposed in the
-// UI yet — the design needs more calibration before players pick it.
-// See `tactics-presets.ts` for the data shape; the editor keeps the
-// field on every draft for API compatibility.
+// Tempo（比赛节奏）2026-10-18 整体删除，见 `../types.ts`。这里只剩宽度和
+// 防线两个维度；球队战术另有独立的 UI。
 const WIDTH_OPTIONS: DimensionOption[] = [
   { value: 'narrow', labelKey: 'pitchWidth.narrow', iconName: 'compress' },
   { value: 'balanced', labelKey: 'pitchWidth.balanced', iconName: 'open_in_full' },

@@ -256,7 +256,7 @@ export function TacticsEditor({ matchId, match }: TacticsEditorProps) {
   // Dimension change
   // ---------------------------------------------------------------------
   const handleDimensionChange = useCallback(
-    (key: 'tempo' | 'pitchWidth' | 'defensiveLine', value: string) => {
+    (key: 'pitchWidth' | 'defensiveLine', value: string) => {
       if (state.lock.isLocked) return;
       dispatch({ type: 'SET_DIMENSION', key, value: value as never });
     },
@@ -427,7 +427,6 @@ export function TacticsEditor({ matchId, match }: TacticsEditorProps) {
         playersById={playersById}
         players={players}
         assignedPlayerIds={assignedIds}
-        tempo={state.draft.tempo}
         pitchWidth={state.draft.pitchWidth}
         defensiveLine={state.draft.defensiveLine}
         events={state.draft.events}

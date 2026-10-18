@@ -16,7 +16,7 @@ A complete lineup has five parts:
 
 - **Starting XI** — 9 to 11 pitch players (1 GK required, no duplicates)
 - **Bench** — 6 bench slots (one sub per slot)
-- **Tactical style** — tempo, pitch width, defensive line, 3 options each
+- **Tactical style** — pitch width and defensive line, 3 options each, plus one team tactic (1 of 5 or none)
 - **Tactical events** — pre-scheduled subs / position moves triggered by minute + condition (optional)
 - **Formation display** — **auto-derived from the starting XI** (not a manual choice); you'll see codes like 4-4-2, 4-3-3, 4-2-3-1
 
@@ -84,22 +84,21 @@ The **starting XI = 9 to 11 pitch players**, each in a specific position slot.
 
 ---
 
-## Tactical style (3 dimensions)
+## Tactical style (2 dimensions + a team tactic)
 
-Each lineup has 3 style dimensions, **all default to "balanced"**:
+Each lineup has 2 style dimensions, **both default to "balanced"**; you can also pick 1 team tactic (or none):
 
 | Dimension | Options | Meaning |
 |---|---|---|
-| **Tempo** | slow / balanced / fast | overall game pace (passing, movement) |
 | **Pitch width** | narrow / balanced / wide | how wide the team spreads across the field (touchline vs middle) |
 | **Defensive line** | low / mid / high | how high the back line plays (affects attacking pressure and counter-attack exposure; offside is not simulated) |
 
 **How to pick**:
-- **Fast + wide + high** → aggressive high press, fits a strong team overwhelming a weaker one
-- **Slow + narrow + low** → sit back and counter, fits an underdog facing a stronger team
-- **Balanced / balanced / mid** → neutral, use this when you don't have a specific plan
+- **Wide + high** → aggressive high press, fits a strong team overwhelming a weaker one
+- **Narrow + low** → sit back and counter, fits an underdog facing a stronger team
+- **Balanced / mid** → neutral, use this when you don't have a specific plan
 
-> These three dimensions apply to the **whole team on the pitch**. See [chapter 15: Match Tactics](15-tactics.md) for the on-pitch effects.
+> These two dimensions apply to the **whole team on the pitch** and shift strength between the three lanes (left / centre / right). See [chapter 15: Match Tactics](15-tactics.md) for the on-pitch effects and [chapter 28](28-team-tactics.md) for team tactics.
 
 ---
 
@@ -150,7 +149,7 @@ You might prepare different tactics for different opponents (home / away / stron
 
 **A preset contains**:
 - Formation + starting XI + bench
-- Tactical style (tempo / pitch width / defensive line)
+- Tactical style (pitch width / defensive line / team tactic)
 - Tactical events (subs / moves list)
 
 **Preset rules**:
@@ -193,7 +192,7 @@ scheduled → tactics_locked → in_progress → completed
 2. **Drag players into pitch slots** — 9-11 starters (1 GK required)
 3. **Drag players into bench slots** — 0-6 bench
 4. **Watch the formation code at the top** — it updates as you fill positions
-5. **Set tactical style** — tempo / pitch width / defensive line
+5. **Set tactical style** — pitch width / defensive line / team tactic
 6. **Add tactical events** (optional) — sub / move + minute + condition
 7. **Save as preset** (optional) — give it a name, optionally mark as default
 8. **Submit tactics** — finish before the 30-minute lock window

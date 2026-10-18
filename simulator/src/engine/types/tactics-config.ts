@@ -1,11 +1,5 @@
 import { TeamTacticCode } from '@goalxi/database';
 
-export enum Tempo {
-  SLOW = 'slow',
-  BALANCED = 'balanced',
-  FAST = 'fast',
-}
-
 export enum PitchWidth {
   NARROW = 'narrow',
   BALANCED = 'balanced',
@@ -19,7 +13,12 @@ export enum DefensiveLine {
 }
 
 export interface TacticsConfig {
-  tempo: Tempo;
+  /**
+   * 比赛节奏（tempo）已于 2026-10-18 整体移除：它从未进入产品计划，
+   * 且引擎侧四个参数里有两个是死参数（`shotAttempts` 无读取点、
+   * `counterVulnerability` 乘进的变量在断球路径上不再被读）。现在
+   * 一支球队能调的比赛参数只有宽度、防线和球队战术三项。
+   */
   pitchWidth: PitchWidth;
   defensiveLine: DefensiveLine;
   /**

@@ -69,7 +69,7 @@
     "subtitle": "战术、球探与阵容数据驱动整场模拟，你的每个决定都会反映在球场上。",
     "tacticalCanvas": {
       "title": "战术画布",
-      "desc": "拖拽调整阵型，赛前设定节奏、球场宽度与防线高度。"
+      "desc": "拖拽调整阵型，赛前设定球场宽度与防线高度。"
     },
     "scouting": {
       "title": "全球球探网络",
@@ -1279,12 +1279,6 @@
     },
     "dimensions": {
       "title": "战术风格",
-      "tempo": {
-        "label": "节奏",
-        "slow": "慢",
-        "balanced": "均衡",
-        "fast": "快"
-      },
       "pitchWidth": {
         "label": "球场宽度",
         "narrow": "窄",

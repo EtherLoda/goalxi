@@ -54,14 +54,12 @@ import {
 } from './event.generator';
 import {
   TacticsConfig,
-  Tempo,
   PitchWidth,
   DefensiveLine,
 } from './types/tactics-config';
 import {
   WIDTH_MODIFIERS,
   DEFENSIVE_LINE_MODIFIERS,
-  TEMPO_MODIFIERS,
   DEFAULT_TACTICS,
 } from './tactics/tactics-presets';
 
@@ -2855,9 +2853,6 @@ export class MatchEngine {
         // 直接断球，防守方获得球权并发动反击
         interceptTriggered = true;
 
-        // 先保存原始进攻方用于反击加成计算
-        const originalAttackingTeam = this.possessionTeam;
-
         // 角色互换： possessionTeam 变成 defendingTeam，defendingTeam 变成 possessionTeam
         const temp = this.possessionTeam;
         this.possessionTeam = this.defendingTeam;
@@ -2885,23 +2880,19 @@ export class MatchEngine {
             'defense',
           ) * newDefDefMult;
 
-        // 反击加成，受tempo counterVulnerability影响
-        // 快节奏队反击更危险（counterVulnerability低→反击加成高）
-        // 基准从「超过阈值」改成「超过均势」：断球本身已经不再需要
-        // 越过阈值，反击强度就直接按 高于均势多少 计，均势时归零。
-        const counterVuln =
-          TEMPO_MODIFIERS[
-            (originalAttackingTeam === this.homeTeam
-              ? this.awayTactics
-              : this.homeTactics
-            ).tempo
-          ].counterVulnerability;
+        // 反击加成：断球强度按「高于均势多少」计，均势时归零。
+        //
+        // 已知缺陷（待处理）：这个加成乘进 `effectiveAttPower`，但断球
+        // 路径随后把 `pushSuccess` 直接置 true 并跳过推进判定（见下方的
+        // `if (!interceptTriggered)`），而射门判定用的是
+        // `calculateShootRating` / `calculateHeaderRating`，不再读这个
+        // 变量。也就是说断球后的射门质量目前**不受**该加成影响，
+        // `StyleModifiers.counterBonus`（防守反击 1.2）也因此尚未生效。
+        // 修法是把加成挪到断球路径的射门评分上，属于独立的一次改动，
+        // 不在这里顺手做，避免把行为变更混进删除提交。
         const counterBonus = Math.min(
           MAX_COUNTER_BONUS,
-          Math.max(0, defRatio - 1) *
-            0.15 *
-            (1 / counterVuln) *
-            defStyle.counterBonus,
+          Math.max(0, defRatio - 1) * 0.15 * defStyle.counterBonus,
         );
         effectiveAttPower *= 1 + counterBonus;
 
@@ -2920,17 +2911,10 @@ export class MatchEngine {
         // No-op: counterBonus removed in v2.7.
       }
 
-      // ==========================================
-      // 战术维度加成：tempo → 推进曲线陡峭度
-      // SLOW 曲线更平（强队推进优势被压缩、推进更"稳"），
-      // FAST 曲线更陡（强弱差距放大、也更容易连环丢球）。
-      // `duelK` 以 0.5 为 BALANCED 基准，映射到 DUEL_PROFILES.push
-      // 的 amplification（基准 1.5）。历史上这里算出的 `effectiveK`
-      // 赋值后从未被读取，tempo 对推进陡峭度完全没有作用。
-      // ==========================================
-      const attTempo = TEMPO_MODIFIERS[attDefConfig.tempo];
-      const pushAmplification =
-        DUEL_PROFILES.push.amplification * (attTempo.duelK / 0.5);
+      // 推进曲线陡峭度直接用 DUEL_PROFILES.push 的标定值。tempo 曾经在
+      // 这里按 `duelK / 0.5` 缩放 amplification（SLOW 1.26 / BALANCED 1.5 /
+      // FAST 1.74），tempo 移除后不再缩放——BALANCED 的折算系数本来就是
+      // 1.0，因此这一改动在行为上等价。
 
       // Push-phase player duel — pick one attacker + one defender
       // (per the slot-weight tables at the top of the file), then
@@ -2962,22 +2946,16 @@ export class MatchEngine {
 
       // 推进判定（正常流程）
       if (!interceptTriggered) {
-        // 主推进参数：
-        // - amplification=1.5（弱凸性，避免强队推进率过度碾压）
-        // - baseline=0.55(对等双方 push 成功率 ~50%,真实足球控球方推进到前场
-        //   的概率在 50-60% 区间)
-        // - anchorProbability=0.6(跟 baseline 0.55 拉开,k 不为 0,曲线随 OVR 变化)
+        // 主推进参数见 `DUEL_PROFILES.push`（amplification 1.5、
+        // baseline 0.53205、anchorRatio 1.5 @ 0.60）。baseline 由「均势
+        // 路口加权推进率保持 55.89%」反解得出，改锚点时必须一起重解。
         // 同时计算 attacker 视角的预期推进概率（0..1），通过 recordAttackSequence
         // 累加到 laneCounters.pushProbabilitySum，给 FE 的 Push Success Rate 面板
         // 提供模型输出而不是 empirical 命中率。
-        const pushDuelOptions = DUEL_PROFILES.push;
         const teamP = duelProbability(
           effectiveAttPower,
           effectiveDefPower,
-          // 只覆盖 tempo 驱动的陡峭度；baseline / anchorRatio /
-          // anchorProbability 保持 DUEL_PROFILES.push 的标定值，
-          // 这样 SLOW / FAST 只在同一个均势点上改变曲线形状。
-          { ...pushDuelOptions, amplification: pushAmplification },
+          DUEL_PROFILES.push,
         );
         // Apply the player-duel marginal and clamp to keep a single
         // Bernoulli draw within sane bounds. The clamp guards against
@@ -4341,7 +4319,7 @@ export class MatchEngine {
   }
 
   /**
-   * 根据当前路（lane）选择进攻类型（受天气+tempo影响）
+   * 根据当前路（lane）选择进攻类型（受天气 + 球队打法影响）
    * @param lane 当前攻击的路
    * @returns 进攻类型枚举
    */
@@ -4351,15 +4329,11 @@ export class MatchEngine {
       return AttackType.SHORT_PASS;
     }
 
-    // Get tempo weights for attacking team
-    const attConfig = this.getTacticsForTeam(this.possessionTeam);
-    const tempoWeights = TEMPO_MODIFIERS[attConfig.tempo].attackTypeWeights;
-
     // Get weather weights
     const weatherWeights =
       WEATHER_ATTACK_WEIGHTS[this.weather] || WEATHER_ATTACK_WEIGHTS['cloudy'];
 
-    // Fold all three passes (weight × tempo × weather → sum →
+    // Fold every pass (lane distribution × weather × style → sum →
     // normalize → cumulative draw) into one. Legacy allocated
     // two intermediate 5-element arrays and walked the
     // distribution 3 times (`.map` + `.reduce` + final draw
@@ -4369,26 +4343,19 @@ export class MatchEngine {
     // 这是「长传冲吊 vs 控球」落地的地方 —— 它改的是打法组合而不是强度：
     // CROSS/LONG_SHOT 加权会把球往边路和远射带，SHORT_PASS/THROUGH_PASS
     // 加权则把球留在脚下。见 engine/style.ts。
+    // （tempo 曾在这里再乘一层 `TEMPO_MODIFIERS[].attackTypeWeights`，
+    // BALANCED 全为 1.0，删除后行为等价。）
     const styleWeights = this.possessionTeam.style.attackTypeWeights;
 
     const w0 =
-      distribution[0] *
-      weatherWeights[0] *
-      tempoWeights[AttackType[0]] *
-      (styleWeights?.[0] ?? 1);
+      distribution[0] * weatherWeights[0] * (styleWeights?.[0] ?? 1);
     const w1 =
-      distribution[1] *
-      weatherWeights[1] *
-      tempoWeights[AttackType[1]] *
-      (styleWeights?.[1] ?? 1);
+      distribution[1] * weatherWeights[1] * (styleWeights?.[1] ?? 1);
     const w2 =
-      distribution[2] *
-      weatherWeights[2] *
-      tempoWeights[AttackType[2]] *
-      (styleWeights?.[2] ?? 1);
+      distribution[2] * weatherWeights[2] * (styleWeights?.[2] ?? 1);
     // v2.7: DRIBBLER no longer biases the attack type toward
     // DRIBBLE. `selectAttackType` now reads only the lane
-    // distribution × weather × tempo; the `select_attack_type`
+    // distribution × weather × team style; the `select_attack_type`
     // event is unused and the corresponding `teamSampledEventMultiplier`
     // call is removed. The team can still end up running a DRIBBLE
     // attack type by chance (the bucket weight is preserved); the
@@ -4398,15 +4365,9 @@ export class MatchEngine {
     // multiplier on a player who *happens* to be in the run, not
     // a steering of the pick itself.
     const w3 =
-      distribution[3] *
-      weatherWeights[3] *
-      tempoWeights[AttackType[3]] *
-      (styleWeights?.[3] ?? 1);
+      distribution[3] * weatherWeights[3] * (styleWeights?.[3] ?? 1);
     const w4 =
-      distribution[4] *
-      weatherWeights[4] *
-      tempoWeights[AttackType[4]] *
-      (styleWeights?.[4] ?? 1);
+      distribution[4] * weatherWeights[4] * (styleWeights?.[4] ?? 1);
 
     const sum = w0 + w1 + w2 + w3 + w4;
     // 归一化（保持总和为100）— equivalent to the legacy

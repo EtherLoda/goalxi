@@ -37,7 +37,7 @@ import {
   // `type` string. See
   // `libs/database/src/constants/event-two-axis.ts`.
   getEventTwoAxis,
-  // Team tactic (second layer on top of tempo/pitchWidth/defensiveLine).
+  // Team tactic (second layer on top of pitchWidth/defensiveLine).
   // `isTeamTacticCode` is used to drop unknown values instead of handing
   // the engine a string it would silently resolve to the neutral style.
   isTeamTacticCode,
@@ -52,7 +52,6 @@ import {
 } from '../engine/types/simulation.types';
 import {
   TacticsConfig,
-  Tempo,
   PitchWidth,
   DefensiveLine,
 } from '../engine/types/tactics-config';
@@ -811,7 +810,6 @@ export class SimulationProcessor extends WorkerHost {
     const normalizedWeather = weather || 'cloudy';
 
     const homeTacticsConfig: TacticsConfig = {
-      tempo: (homeTactics.tempo as Tempo) || Tempo.BALANCED,
       pitchWidth: (homeTactics.pitchWidth as PitchWidth) || PitchWidth.BALANCED,
       defensiveLine:
         (homeTactics.defensiveLine as DefensiveLine) || DefensiveLine.MID,
@@ -819,7 +817,6 @@ export class SimulationProcessor extends WorkerHost {
     };
 
     const awayTacticsConfig: TacticsConfig = {
-      tempo: (awayTactics.tempo as Tempo) || Tempo.BALANCED,
       pitchWidth: (awayTactics.pitchWidth as PitchWidth) || PitchWidth.BALANCED,
       defensiveLine:
         (awayTactics.defensiveLine as DefensiveLine) || DefensiveLine.MID,

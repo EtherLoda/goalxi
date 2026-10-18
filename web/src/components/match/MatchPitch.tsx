@@ -20,10 +20,9 @@
  * goal (attacks left). The 180° rotation around (50, 50) lives in
  * `slotToMatchCoords`.
  *
- * Each half applies its own defensiveLine + pitchWidth + tempo:
+ * Each half applies its own defensiveLine + pitchWidth:
  *   - defensiveLine → translateX (home +X / away -X when high; opposite when low)
  *   - pitchWidth    → scaleY     (counter-applied on each marker card)
- *   - tempo         → shadow glow on the half-pitch wrapper
  *
  * Markers render at `MATCH_MARKER_SCALE` of the editor's default size,
  * so a 5-player line (LB, CBL, CB, CBR, RB) at y=12/32/50/68/88 fits
@@ -111,16 +110,9 @@ interface HalfPitchProps {
    * are silently dropped (mirrors the editor's PitchField behaviour).
    */
   rosterById: Map<number, Player>;
-  tempo: 'slow' | 'balanced' | 'fast';
   defensiveLine: 'low' | 'mid' | 'high';
   pitchWidth: 'narrow' | 'balanced' | 'wide';
 }
-
-const TEMPO_GLOW: Record<'slow' | 'balanced' | 'fast', string> = {
-  slow: 'shadow-none',
-  balanced: 'shadow-[0_0_30px_rgba(0,228,121,0.12)]',
-  fast: 'shadow-[0_0_60px_rgba(0,228,121,0.25)]',
-};
 
 /**
  * Visual scale applied to each player marker on the match page. The
@@ -143,13 +135,11 @@ function HalfPitch({
   side,
   cards,
   rosterById,
-  tempo,
   defensiveLine,
   pitchWidth,
 }: HalfPitchProps) {
   const offsets = computeMatchDimensionOffsets(defensiveLine, pitchWidth, side);
   const counterScaleY = 1 / offsets.scaleY;
-  const glow = TEMPO_GLOW[tempo];
 
   const wrapperStyle: CSSProperties = {
     transform: `translateX(${offsets.translateX}%) scaleY(${offsets.scaleY})`,
@@ -168,7 +158,7 @@ function HalfPitch({
 
   return (
     <div
-      className={`absolute inset-0 pointer-events-none transition-transform duration-deliberate ease-standard ${glow}`}
+      className={`absolute inset-0 pointer-events-none transition-transform duration-deliberate ease-standard`}
       style={wrapperStyle}
       data-side={side}
     >
@@ -256,8 +246,6 @@ export function MatchPitch({
     [awayTactics, activeSnapshot, rosterById],
   );
 
-  const homeTempo = homeTactics?.tempo ?? 'balanced';
-  const awayTempo = awayTactics?.tempo ?? 'balanced';
   const homeLine = homeTactics?.defensiveLine ?? 'mid';
   const awayLine = awayTactics?.defensiveLine ?? 'mid';
   const homeWidth = homeTactics?.pitchWidth ?? 'balanced';
@@ -349,7 +337,6 @@ export function MatchPitch({
             side="home"
             cards={homeCards}
             rosterById={rosterById}
-            tempo={homeTempo}
             defensiveLine={homeLine}
             pitchWidth={homeWidth}
           />
@@ -359,7 +346,6 @@ export function MatchPitch({
             side="away"
             cards={awayCards}
             rosterById={rosterById}
-            tempo={awayTempo}
             defensiveLine={awayLine}
             pitchWidth={awayWidth}
           />

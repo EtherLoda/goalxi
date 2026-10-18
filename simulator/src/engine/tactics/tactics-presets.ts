@@ -1,6 +1,4 @@
-import { AttackType } from '../types/simulation.types';
 import {
-  Tempo,
   PitchWidth,
   DefensiveLine,
   TacticsConfig,
@@ -52,60 +50,14 @@ export const DEFENSIVE_LINE_MODIFIERS: Record<
   },
 };
 
-// Tempo → attack type weights + duel stability + counter vulnerability (±20% effect)
-// SLOW: methodical build-up, prefer short passes, stable but fewer shots
-// FAST: direct transitions, prefer through/dribble, more attempts but less stable
-export const TEMPO_MODIFIERS: Record<
-  Tempo,
-  {
-    attackTypeWeights: Record<keyof typeof AttackType, number>;
-    duelK: number;
-    shotAttempts: number;
-    counterVulnerability: number;
-  }
-> = {
-  [Tempo.SLOW]: {
-    // Short-pass oriented, minimal risk
-    attackTypeWeights: {
-      CROSS: 0.9,
-      SHORT_PASS: 1.2,
-      THROUGH_PASS: 0.8,
-      DRIBBLE: 0.8,
-      LONG_SHOT: 0.7,
-    },
-    duelK: 0.42, // More stable, fewer turnovers
-    shotAttempts: 0.9, // Fewer but slightly higher quality
-    counterVulnerability: 1.15, // Slightly more vulnerable when losing possession
-  },
-  [Tempo.BALANCED]: {
-    attackTypeWeights: {
-      CROSS: 1.0,
-      SHORT_PASS: 1.0,
-      THROUGH_PASS: 1.0,
-      DRIBBLE: 1.0,
-      LONG_SHOT: 1.0,
-    },
-    duelK: 0.5,
-    shotAttempts: 1.0,
-    counterVulnerability: 1.0,
-  },
-  [Tempo.FAST]: {
-    // Direct play, more turnovers but more attempts
-    attackTypeWeights: {
-      CROSS: 0.9,
-      SHORT_PASS: 0.8,
-      THROUGH_PASS: 1.2,
-      DRIBBLE: 1.2,
-      LONG_SHOT: 0.9,
-    },
-    duelK: 0.58, // More turnover-prone
-    shotAttempts: 1.1, // More attempts
-    counterVulnerability: 0.85, // Turns over ball frequently, but less exposed on counters
-  },
-};
+// Tempo（比赛节奏）已于 2026-10-18 整体移除，见
+// `simulator/src/engine/types/tactics-config.ts` 的 TacticsConfig 注释。
+// 删除时它只有两个参数真正生效（推进曲线陡峭度、进攻方式权重），另外
+// 两个（shotAttempts、counterVulnerability）没有任何读取点。宽度和防线
+// 各自还有一个参数（DEFENSIVE_LINE_MODIFIERS.offsideProb）留在原地待
+// 未来的越位机制使用。
 
 export const DEFAULT_TACTICS: TacticsConfig = {
-  tempo: Tempo.BALANCED,
   pitchWidth: PitchWidth.BALANCED,
   defensiveLine: DefensiveLine.MID,
 };

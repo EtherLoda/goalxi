@@ -179,12 +179,12 @@ Players get injured during a match, and a serious injury **means they must come 
 ### 1. Protect a lead
 
 - Minute 60-70 / **while leading** / bring off an attacker, bring on a holding midfielder or centre-back
-- Pairs with "slow tempo + low line" from chapter 15
+- Pairs with "narrow + low line" from chapter 15, or 防守反击 (Counter) from chapter 28
 
 ### 2. Chase the game
 
 - Minute 55-65 / **while trailing** / bring off a defender, bring on a striker
-- Pairs with "fast tempo + high line"
+- Pairs with "wide + high line", or 高位逼抢 (High Press) from chapter 28
 
 ### 3. Running on empty
 
@@ -234,5 +234,6 @@ Players get injured during a match, and a serious injury **means they must come 
 
 - [Chapter 5: Lineup Basics](05-lineup-basics.md) — lineup + bench + adding an adjustment
 - [Chapter 6: Match Basics](06-match-basics.md) — what you can see during a match
-- [Chapter 15: Match Tactics](15-tactics.md) — the 3 tactical dimensions (tempo / width / line)
+- [Chapter 15: Match Tactics](15-tactics.md) — the 2 tactical dimensions (width / line) plus team tactics
+- [Chapter 28: Team Tactics](28-team-tactics.md) — picking one of the five team tactics
 - [Chapter 14: Set Pieces & Special Events](14-set-pieces.md) — cards / injuries / offside

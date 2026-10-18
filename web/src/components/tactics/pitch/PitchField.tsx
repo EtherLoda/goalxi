@@ -12,7 +12,6 @@ interface PitchFieldProps {
   playersById: Map<number, Player>;
   defensiveLine: DefensiveLineValue;
   pitchWidth: PitchWidthValue;
-  tempo: 'slow' | 'balanced' | 'fast';
   isDragging: boolean;
   onDrop: (toSlot: PitchSlot, playerId: number, fromSlot: PositionKey | null) => void;
   onRemove: (slot: PitchSlot) => void;
@@ -31,7 +30,6 @@ export function PitchField({
   playersById,
   defensiveLine,
   pitchWidth,
-  tempo,
   isDragging,
   onDrop,
   onRemove,
@@ -45,8 +43,6 @@ export function PitchField({
   // Slots spread apart when pitch is wide, but each card should keep a
   // fixed visual width — so children counter-scale against the parent scaleX.
   const counterScaleX = 1 / offsets.scaleX;
-  const tempoGlow =
-    tempo === 'fast' ? 'shadow-[0_0_60px_rgba(0,228,121,0.25)]' : tempo === 'slow' ? 'shadow-none' : 'shadow-[0_0_30px_rgba(0,228,121,0.12)]';
 
   const handleSlotDrop = useCallback(
     (slot: PitchSlot) => (playerId: number) => {
@@ -59,7 +55,7 @@ export function PitchField({
   );
 
   return (
-    <div className={`relative w-full aspect-[3/4] rounded-2xl overflow-hidden border border-white/5 bg-ink-750 transition-shadow duration-deliberate ${tempoGlow}`}>
+    <div className={`relative w-full aspect-[3/4] rounded-2xl overflow-hidden border border-white/5 bg-ink-750 transition-shadow duration-deliberate`}>
       {/* Pitch surface */}
       <div className="absolute inset-0 bg-gradient-to-b from-pitch-deep/40 via-pitch-mid/30 to-pitch-dark/40" />
       <div className="absolute inset-0 opacity-20 bg-[repeating-linear-gradient(0deg,transparent,transparent_40px,rgba(0,0,0,0.15)_40px,rgba(0,0,0,0.15)_80px)]" />

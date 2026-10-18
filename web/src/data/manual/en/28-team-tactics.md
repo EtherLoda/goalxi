@@ -10,11 +10,11 @@ relatedEntries: []
 
 # Match: Team Tactics
 
-Chapter 15 covers the three dimensions (tempo / pitch width / defensive line). This chapter covers **team tactics** — a separate choice: **pick 1 of 5, or pick none.**
+Chapter 15 covers the two dimensions (pitch width / defensive line). This chapter covers **team tactics** — a separate choice: **pick 1 of 5, or pick none.**
 
-Team tactics and the three dimensions are two different layers, and they stack:
+Team tactics and the two dimensions are two different layers, and they stack:
 
-- The **three dimensions** are knobs. Each notch moves things a little, and you can combine them freely.
+- The **two dimensions** are knobs. Each notch moves things a little, and you can combine them freely.
 - A **team tactic** is a route. It pushes the whole team's play in one direction, and the price is that you must field **4 specific position slots**.
 
 ---
@@ -122,23 +122,23 @@ So when you pick a tactic, ask two questions: **which lane and which phase do I 
 
 ---
 
-## 5. How it combines with the three dimensions
+## 5. How it combines with the two dimensions
 
 The two layers **multiply**; they are not alternatives:
 
-- **Same direction** → stronger. Wings + wide pitch + fast tempo all push play to the flanks and up the pace.
+- **Same direction** → stronger. Wings + wide pitch both push play to the flanks.
 - **Opposite directions** → they cancel. Wings + narrow pitch means the tactic pulls wide while the width setting pulls central.
 - **No conflict** → they simply coexist. Defensive line does not collide with any of the five.
 
 Practical pairings:
 
-| The picture you want | Team tactic | Three dimensions |
+| The picture you want | Team tactic | Two dimensions |
 |---|---|---|
-| Control it, no mistakes | Possession | Slow / Narrow / Mid |
-| Swarm them | High Press | Fast / Balanced / High |
-| Underdog vs favourite | Counter | Fast / Balanced / Low |
-| Force it through the middle | Central | Balanced / Narrow / High |
-| Dominate the flanks | Wings | Balanced / Wide / Mid |
+| Control it, no mistakes | Possession | Narrow / Mid |
+| Swarm them | High Press | Balanced / High |
+| Underdog vs favourite | Counter | Balanced / Low |
+| Force it through the middle | Central | Narrow / High |
+| Dominate the flanks | Wings | Wide / Mid |
 
 ---
 
@@ -146,7 +146,7 @@ Practical pairings:
 
 **No — but the gap is very small.**
 
-In testing (the same squad against itself, thousands of matches per tactic), Possession comes out slightly ahead on average, High Press slightly behind, and the other three are level. That gap is **far smaller** than what squad, player quality and the three dimensions are worth — and it is barely larger than sampling error, so you will not feel it in a single match.
+In testing (the same squad against itself, thousands of matches per tactic), Possession comes out slightly ahead on average, High Press slightly behind, and the other three are level. That gap is **far smaller** than what squad, player quality and the two dimensions are worth — and it is barely larger than sampling error, so you will not feel it in a single match.
 
 So pick a tactic because of the way you want to play, not because one is stronger. The real cost is the one from section 2: **you pay 4 slots for it.**
 
@@ -165,7 +165,7 @@ So pick a tactic because of the way you want to play, not because one is stronge
 
 ## 8. How it relates to everything else
 
-- **Tempo / width / line:** they stack — see section 5.
+- **Width / line:** they stack — see section 5.
 - **Substitutions:** a team tactic applies to the **whole team**, so substitutions do not break it. But **moving a player can break the gate** — shift your only central midfielder out wide and the requirement fails.
 - **Player quality:** the gate does not care how good your players are, only whether the **slots** are right. The effect itself is **distributed across left / centre / right**, and it also ignores individual players — having a particularly good winger does not earn you extra in Wings (see section 4).
 - **Specialties:** independent systems. Specialties attach to players; a team tactic attaches to the team.
@@ -174,6 +174,6 @@ So pick a tactic because of the way you want to play, not because one is stronge
 
 ## Next
 
-- How each of the three dimensions behaves → [chapter 15](15-tactics.md)
+- How each of the two dimensions behaves → [chapter 15](15-tactics.md)
 - Substitutions and in-match orders → [chapter 16](16-subs-and-orders.md)
 - How to build a lineup → [chapter 5](05-lineup-basics.md)

@@ -8,7 +8,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { CreatePresetReqDto } from './dto/create-preset.req.dto';
 import { PresetService } from './preset.service';
-import { DefensiveLine, PitchWidth, Tempo } from './types/tactical-dimensions';
+import { DefensiveLine, PitchWidth } from './types/tactical-dimensions';
 
 describe('PresetService', () => {
   let service: PresetService;
@@ -180,12 +180,11 @@ describe('PresetService', () => {
       );
     });
 
-    it('stores all four parameters when they are supplied', async () => {
+    it('stores all three parameters when they are supplied', async () => {
       const dto: CreatePresetReqDto = {
         name: 'Wings',
         formation: '4-4-2',
         lineup,
-        tempo: Tempo.FAST,
         pitchWidth: PitchWidth.WIDE,
         defensiveLine: DefensiveLine.HIGH,
         teamTactic: TeamTacticCode.WINGS,
@@ -193,7 +192,6 @@ describe('PresetService', () => {
 
       const result = await service.create('team-id', dto);
 
-      expect(result.tempo).toBe(Tempo.FAST);
       expect(result.pitchWidth).toBe(PitchWidth.WIDE);
       expect(result.defensiveLine).toBe(DefensiveLine.HIGH);
       expect(result.teamTactic).toBe(TeamTacticCode.WINGS);
@@ -208,7 +206,6 @@ describe('PresetService', () => {
 
       const result = await service.create('team-id', dto);
 
-      expect(result.tempo).toBe(Tempo.BALANCED);
       expect(result.pitchWidth).toBe(PitchWidth.BALANCED);
       expect(result.defensiveLine).toBe(DefensiveLine.MID);
       expect(result.teamTactic).toBeNull();
@@ -234,7 +231,6 @@ describe('PresetService', () => {
         teamId: 'team-id',
         name: 'Wings',
         isDefault: false,
-        tempo: Tempo.FAST,
         pitchWidth: PitchWidth.WIDE,
         defensiveLine: DefensiveLine.HIGH,
         teamTactic: TeamTacticCode.WINGS,
@@ -245,7 +241,6 @@ describe('PresetService', () => {
         isDefault: false,
       });
 
-      expect(result.tempo).toBe(Tempo.FAST);
       expect(result.pitchWidth).toBe(PitchWidth.WIDE);
       expect(result.defensiveLine).toBe(DefensiveLine.HIGH);
       expect(result.teamTactic).toBe(TeamTacticCode.WINGS);
@@ -257,7 +252,6 @@ describe('PresetService', () => {
         teamId: 'team-id',
         name: 'Wings',
         isDefault: false,
-        tempo: Tempo.FAST,
         pitchWidth: PitchWidth.WIDE,
         defensiveLine: DefensiveLine.HIGH,
         teamTactic: TeamTacticCode.WINGS,
@@ -269,8 +263,8 @@ describe('PresetService', () => {
       });
 
       expect(result.teamTactic).toBeNull();
-      // The other three survive a tactics-only edit.
-      expect(result.tempo).toBe(Tempo.FAST);
+      // The other two survive a tactics-only edit.
+      expect(result.pitchWidth).toBe(PitchWidth.WIDE);
     });
 
     it('rejects an update whose new lineup cannot field the stored tactic', async () => {
@@ -279,7 +273,6 @@ describe('PresetService', () => {
         teamId: 'team-id',
         name: 'Wings',
         isDefault: false,
-        tempo: Tempo.BALANCED,
         pitchWidth: PitchWidth.BALANCED,
         defensiveLine: DefensiveLine.MID,
         teamTactic: TeamTacticCode.WINGS,

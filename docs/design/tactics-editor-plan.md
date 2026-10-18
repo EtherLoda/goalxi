@@ -40,7 +40,7 @@
 | `roster/PlayerRoster.tsx` | 148 | 名单 + 排序筛选 + 密度 | 自带滚动容器（`:73`） |
 | `events/TacticalEventsPanel.tsx` | 115 | 换人/换位列表 | 自带滚动容器（`:96`） |
 | `events/TacticalEventRow.tsx` | 200 | 单行 | 已换成 motion 入场 |
-| `dimensions/DimensionsPanel.tsx` | 65 | 宽度 + 防线 | 有意不暴露 tempo（见 §7-Q1） |
+| `dimensions/DimensionsPanel.tsx` | 65 | 宽度 + 防线 | tempo 已整体删除（见 §7-Q1） |
 | `presets/PresetList.tsx` | 62 | 预设读写档 | 常驻占位，实际低频 |
 | `use-tactics-state.ts` | 431 | reducer + hydrate + lock tick | 稳定，只需小改 |
 | `types.ts` | 445 | 类型 + PITCH_SLOTS(24) + 坐标 | — |
@@ -134,7 +134,7 @@
 | `types.ts` | `TacticsDraft.teamTactic`、`EditorView` 类型、`MAX_VOLUNTARY_SUBSTITUTIONS` 旁加 `TEAM_TACTIC_LABELS` 的键名常量（显示名走 i18n） |
 | `lineup-validator.ts` | 增加 `validateTeamTactic(lineup, tactic, defs)`，产出 `validation.tacticMissing` |
 | `api-helpers.ts` | 提交载荷加 `teamTactic`；`hydrateFromTactics` 读 `teamTactic` |
-| `DimensionsPanel.tsx` | 三个 chip 变成一排（宽度/防线/节奏），可见性见 §7-Q1 |
+| `DimensionsPanel.tsx` | 两个 chip 变成一排（宽度/防线）+ 一个球队战术入口（tempo 已删除，见 §7-Q1） |
 
 ### 删除
 
@@ -153,7 +153,6 @@ export interface TacticsDraft {
   lineup: LineupMap;
   bench: BenchMap;
   events: TacticalEvent[];
-  tempo: TempoValue;
   pitchWidth: PitchWidthValue;
   defensiveLine: DefensiveLineValue;
   teamTactic: TeamTacticCode | null;   // 新增；null = 不选战术
@@ -287,7 +286,7 @@ export const EASE = {
 | V04 | 字号 8/9px 泛滥 | `PlayerMarker.tsx:171,174,177`、`BenchSlot.tsx:59`、`PresetCard.tsx:52`、`RosterFilters.tsx:45` | 下限 10px；8-9px 只留非必要元数据 | 4 |
 | V05 | `backdrop-filter: blur(16px)` 用在 6 个面板，其中一个是滚动容器 | `globals.css:297-300` | 移动端关闭（`@media (max-width: 1023px)` 覆盖为不透明底色） | 4 |
 | V06 | 球场线条 0.18 alpha 偏淡、条纹 0.20 偏重 | `PitchField.tsx:65,70-81` | 线条 → 0.30，条纹 → 0.10 | 4 |
-| V07 | tempo 只靠一个几乎看不见的外发光 | `PitchField.tsx:48-49` | 换成中场圆呼吸（`motion` `animate` + `repeat: Infinity`），并受 reduced-motion 约束 | 4 |
+| V07 | 防线高度只靠一个几乎看不见的外发光 | `PitchField.tsx:48-49` | 换成中场圆呼吸（`motion` `animate` + `repeat: Infinity`），并受 reduced-motion 约束 | 4 |
 | V08 | 空槽只在拖拽时出现，结构不可见 | `PositionSlot.tsx:92-94` | 常驻 15% 虚线圆，拖拽时变实 | 4 |
 | V09 | header 5 个焦点竞争 | `EditorHeader.tsx:36-73` | 阵型降为 mono 标签；<10min 时倒计时升为最强者 | 3 |
 | V10 | 入口按钮无限 `animate-pulse` | `TacticsEntryButton.tsx:72,91` | 改一次性 ping 或静态点 | 4 |
@@ -300,22 +299,22 @@ export const EASE = {
 
 预设整体移进 header 抽屉，应用预设固定为「打开抽屉 → 点一个」。不保留 header 里的最近使用入口。
 
-**Q1（tempo）—— 待定，且发现了比预期严重的问题。**
+**Q1（tempo）—— 已决定：整个维度删除（2026-10-18）。**
 
-tempo 在引擎里**确实接了三处，但其中两处的参数是死的**（审查结论）：
+审查发现 tempo 在引擎里只有两处真实效果，其中一处还是死参数：
 
 | 参数 | 状态 | 位置 |
 |---|---|---|
-| `duelK` | 生效 | `simulator/src/engine/match.engine.ts:2931-2933`，映射成推进对决曲线的 amplification（SLOW 1.26 / BAL 1.5 / FAST 1.74） |
-| `attackTypeWeights` | 生效 | `match.engine.ts:4356-4377`，与天气、路权重相乘后决定进攻方式 |
-| `counterVulnerability` | **失效** | `match.engine.ts:2892-2906` 算出的 `counterBonus` 乘进 `effectiveAttPower`，但断球后 `pushSuccess = true` 直接跳过推进判定（`:2964`），`effectiveAttPower` 再也没有被读过 |
-| `shotAttempts` | **失效** | `simulator/src/engine/tactics/tactics-presets.ts:63` 里声明并赋了 0.9 / 1.0 / 1.1，全仓库没有任何读取点 |
+| `duelK` | 生效 | `simulator/src/engine/match.engine.ts`，映射成推进对决曲线的 amplification（SLOW 1.26 / BAL 1.5 / FAST 1.74） |
+| `attackTypeWeights` | 生效 | `match.engine.ts`，与天气、路权重相乘后决定进攻方式 |
+| `counterVulnerability` | **失效** | 算出的 `counterBonus` 乘进 `effectiveAttPower`，但断球后 `pushSuccess = true` 直接跳过推进判定，`effectiveAttPower` 再也没有被读过 |
+| `shotAttempts` | **失效** | `simulator/src/engine/tactics/tactics-presets.ts` 里声明并赋了 0.9 / 1.0 / 1.1，全仓库没有任何读取点 |
 
-后两条正好是玩家从「节奏」二字最容易预期的两件事（**更多射门**、**反击更危险**）—— 也就是说现在把 tempo 放出来，等于卖一个许诺了却不存在的东西。
+实测（N=500/格，锚点改到 1.5 之后）：推进率 SLOW 53.4% / BAL 53.0% / FAST 50.7%（12v12），主胜 39.4 / 37.6 / 40.8，进球 1.65 / 1.69 / 1.74。胜率与进球全部落在 ±2.1pp 的噪声内。
 
-实测（N=500/格，锚点改到 1.5 之后重跑的 `debug-tempo-sweep.spec.ts`）：推进率 SLOW 53.4% / BAL 53.0% / FAST 50.7%（12v12），主胜 39.4 / 37.6 / 40.8，进球 1.65 / 1.69 / 1.74。胜率与进球全部落在 ±2.1pp 的噪声内，唯一像信号的是 FAST 的推进率略低。
+结论：这个维度既没有可信的机制，也没有可信的实测差异，而编辑器从未提供过它的控件（`DimensionsPanel` 只渲染宽度 + 防线）。**保留一个玩家看不见、引擎里半死的参数只会增加维护负担**，因此整体删除：引擎枚举与参数、实体列、API DTO、前端类型、预设字段、手册全部移除。
 
-**建议的放行顺序**：先补两个死参数（`counterVulnerability` 乘到断球后的 `finalShootRating` 上约 10 行；`shotAttempts` 要么实现成关键时刻密度、要么直接删除），再重跑一次校准；确认 FAST 的「高风险高回报」真的存在之后，才在 Phase 3 里放出第三个分段控件。文案只能写引擎真正做的事（推进风险、球路偏好），不能写射门数量。
+删除后的战术层是 **2 个维度（宽度 / 防线）+ 1 个球队战术**。
 
 ---
 

@@ -22,7 +22,6 @@ export interface SubmitTacticsPayload {
   teamId: string;
   formation: string;
   lineup: Record<string, number>;
-  tempo: 'slow' | 'balanced' | 'fast';
   pitchWidth: 'narrow' | 'balanced' | 'wide';
   defensiveLine: 'low' | 'mid' | 'high';
   substitutions: Array<{ minute: number; out: number; in: number; condition?: string }>;
@@ -127,7 +126,6 @@ export function serializeTactics(
     teamId,
     formation: computeFormation(draft.lineup),
     lineup: flattenLineup(draft),
-    tempo: draft.tempo,
     pitchWidth: draft.pitchWidth,
     defensiveLine: draft.defensiveLine,
     substitutions,
@@ -254,7 +252,6 @@ export function hydrateTactics(
     | {
         formation: string;
         lineup: Record<string, number>;
-        tempo: 'slow' | 'balanced' | 'fast';
         pitchWidth: 'narrow' | 'balanced' | 'wide';
         defensiveLine: 'low' | 'mid' | 'high';
         substitutions: Array<{ minute: number; out: number; in: number; condition?: string }> | null;
@@ -266,7 +263,6 @@ export function hydrateTactics(
   if (!tactics) {
     return {
       lineup: {},
-      tempo: 'balanced',
       pitchWidth: 'balanced',
       defensiveLine: 'mid',
       substitutions: null,
@@ -304,7 +300,6 @@ export function hydrateTactics(
 
   return {
     lineup,
-    tempo: tactics.tempo,
     pitchWidth: tactics.pitchWidth,
     defensiveLine: tactics.defensiveLine,
     substitutions,

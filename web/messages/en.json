@@ -92,7 +92,7 @@
     "subtitle": "Tactics, scouting and squad data drive the simulation. Every decision you make shows up on the pitch.",
     "tacticalCanvas": {
       "title": "Tactical canvas",
-      "desc": "Drag and drop your shape, then tune tempo, pitch width and the defensive line before kickoff."
+      "desc": "Drag and drop your shape, then tune pitch width and the defensive line before kickoff."
     },
     "scouting": {
       "title": "Global scouting network",
@@ -1282,12 +1282,6 @@
     },
     "dimensions": {
       "title": "Tactical Style",
-      "tempo": {
-        "label": "Tempo",
-        "slow": "Slow",
-        "balanced": "Balanced",
-        "fast": "Fast"
-      },
       "pitchWidth": {
         "label": "Pitch Width",
         "narrow": "Narrow",

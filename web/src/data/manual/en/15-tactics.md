@@ -10,64 +10,27 @@ relatedEntries: [w-vs-wm, wbl-vs-lb, am-vs-cm, dm-vs-cdm, cfl-cfr-vs-cf]
 
 # Match: Tactics
 
-Tactical style = the 3 dimensions (tempo / pitch width / defensive line) you set **before each match kicks off**, each with 3 levels, applied to the **whole team** on the pitch. Once the match starts, tactics are locked; you cannot change them mid-game.
+Tactical style = the 2 dimensions (pitch width / defensive line) you set **before each match kicks off**, each with 3 levels, applied to the **whole team** on the pitch. Once the match starts, tactics are locked; you cannot change them mid-game.
 
-[Chapter 5](05-lineup-basics.md) covers **how to submit tactics** (UI / presets / locking). This chapter covers **how each of the 3 dimensions affects the match**, and **how to pick them based on opponent and squad**.
+[Chapter 5](05-lineup-basics.md) covers **how to submit tactics** (UI / presets / locking). This chapter covers **how each of the 2 dimensions affects the match**, and **how to pick them based on opponent and squad**.
+
+> A "match tempo" dimension used to exist. It has been **removed entirely** — you will not see it in the UI, and you no longer have to think about it.
 
 ---
 
-## The 3 dimensions (quick reference)
+## The 2 dimensions (quick reference)
 
 | Dimension | Levels | Key effect | How it links to players |
 |---|---|---|---|
-| **Tempo** | slow / balanced / fast | Drives attack pace (fast = more counters, slow = more possession) and **post-loss reaction** | Headline pace / passing decides whether you can play fast |
 | **Pitch width** | narrow / balanced / wide | Drives **flank** vs **central** play | W / wing-back more comfortable in wide; AM / CM more comfortable in narrow |
 | **Defensive line** | low / mid / high | Drives **attacking press** and **counter-exposure** (offside logic not yet wired up, so it doesn't drive offside today) | Fast CBs are fine on a high line; slow CBs need a low line |
 
-> All 3 dimensions default to **balanced / balanced / mid**. Use the default when you have no opinion.
+> Both dimensions default to **balanced / mid**. Use the default when you have no opinion.
+> For a stronger bias, use a [team tactic](28-team-tactics.md) — that's a separate choice.
 
 ---
 
-## 1. Tempo
-
-**Tempo = overall team build-up speed**, 3 levels:
-
-### Slow
-
-- **Attack pattern**: short passing, **few counters**, possession is stable
-- **Match shape**: **fewer shots but more stable quality**, **slower reaction to losing the ball** (slight second-ball vulnerability)
-- **Good for**:
-  - Squad that's **weaker than the opponent** → possession reduces mistakes
-  - **Defensively-heavy formations** (5-3-2 / 5-4-1)
-  - **Protecting a lead** (paired with a sub-on event, see [chapter 16](16-subs-and-orders.md))
-
-### Balanced
-
-- Short / long / through / dribble / long-shot ratios are **even**
-- **Default**; use this when you have no opinion
-
-### Fast
-
-- **Attack pattern**: **through balls + dribbles** dominate, lots of counters, **direct pressure on the back line**
-- **Match shape**: **more shots**, **faster reaction to losing the ball** (instant press), but **more turnovers** (passing accuracy drops)
-- **Good for**:
-  - Squad with **fast players** (SPEEDSTER wings / COMPOSED strikers)
-  - **Front-three formations** (4-3-3 / 4-2-3-1)
-  - Chasing a deficit (paired with a sub-on event to bring on a striker)
-
-### How to pick
-
-| Your situation | Suggested tempo |
-|---|---|
-| **Pace / passing high**, opponent weak | **fast** — overwhelm them |
-| **Pace / passing low**, opponent strong | **slow** — possession reduces mistakes |
-| Both **average** | **balanced** — default |
-| **Leading** (paired with a sub event) | **slow** — hold the ball, run down the clock |
-| **Trailing** | **fast** — more counters |
-
----
-
-## 2. Pitch width
+## 1. Pitch width
 
 **Pitch width = lateral-space preference**, 3 levels:
 
@@ -106,7 +69,7 @@ Tactical style = the 3 dimensions (tempo / pitch width / defensive line) you set
 
 ---
 
-## 3. Defensive line
+## 2. Defensive line
 
 **Defensive line = where the back four / three stand on the pitch**, 3 levels. **This is the highest-impact dimension of the three** because it directly drives the **attacking press** vs **counter-exposure** trade-off.
 
@@ -164,45 +127,53 @@ If your CBs are slow, the high line will get torn open on the counter. If your C
 
 ---
 
-## 4. How the 3 dimensions combine (common combos)
+## 3. Combining the 2 dimensions with a team tactic (common combos)
+
+The dials you have are width, defensive line, and a [team tactic](28-team-tactics.md). Here are the usual pairings.
 
 ### 1. Balanced / generic (default)
 
-**balanced / balanced / mid** — nothing special, works most of the time.
+**balanced / mid**, no team tactic — nothing special, works most of the time.
 
-### 2. High press (strong vs weak)
+### 2. Attack the flanks (strong vs weak)
 
-**fast / wide / high** — overwhelm with pace and width, the high line makes it hard for the opponent to play out from the back.
+**wide / high** + Wings — use the width to pull players out to the flanks; the high line stops the opponent playing out.
 
-**Pre-req**: fast players (W / CB / GK all need pace), strong frontline pressure (`DRIBBLER` / `SPEEDSTER` / `COMPOSED`).
+**Pre-req**: your wide players (W / FB) are the strongest part of the XI.
 
 ### 3. Counter-attack (weak vs strong)
 
-**slow / narrow / low** — tighten the middle, let the opponent grind down the flanks, the back line stays dense.
+**narrow / low** + Counter — tighten the middle, let the opponent grind down the flanks, then break in behind.
 
 **Pre-req**: enough bodies at the back, CBs with strong positioning (not pace, but `TACKLER` / `WALL` specialty).
 
 ### 4. Possession burn (leading)
 
-**slow / balanced / low** — hold the ball, don't take risks, drag time out up top.
+**balanced / low** + Possession — hold the ball, don't take risks, drag time out up top.
 
 **Pre-req**: enough stamina in the tank, midfielders who can hold the ball (AM / CM headline passing).
 
 ### 5. All-in attack (trailing)
 
-**fast / wide / high** — push everyone up, lots of flank crosses, striker leading the line.
+**wide / high** + High Press — push everyone up, lots of flank crosses, striker leading the line.
 
 **Pre-req**: not too late in the game (before ~70'), opponent hasn't parked the bus.
 
+### 6. Attack through the middle
+
+**narrow / mid** + Central — stack bodies centrally and open the opponent up with through balls and dribbles.
+
+**Pre-req**: enough central bodies (DM / CM / AM adding up to at least 4).
+
 ### Combinations to avoid
 
-- **fast / high** with **slow CBs** = disaster, you get countered to death
-- **slow / wide** with **no wingers** = wasted width, the flanks are empty
-- **fast / narrow** = contradictory — fast wants through balls or flanks, narrow forces central play, the two pull in opposite directions
+- **high line** with **slow CBs** = disaster, you get countered to death
+- **wide** with **no wingers** = wasted width, the flanks are empty
+- **narrow** with **no central players** = you can't fit them centrally and you've given up the width too
 
 ---
 
-## 5. Tactics and your squad
+## 4. Tactics and your squad
 
 Tactics are the **team config**; players are the **individual ability**. They have to match.
 
@@ -210,8 +181,6 @@ Tactics are the **team config**; players are the **individual ability**. They ha
 
 | Tactical ask | Headline you need |
 |---|---|
-| **Fast tempo** | `SPEEDSTER` W / `COMPOSED` CF / `DRIBBLER` AM |
-| **Slow tempo** | `PLAYMAKER` CM / `TACKLER` DM / high headline passing |
 | **Wide** | `CROSSER` W / `DRIBBLER` wing-back |
 | **Narrow** | `PLAYMAKER` AM / `COMPOSED` CF (central play) |
 | **High line** | Fast CBs / `SWEEPER_KEEPER` GK |
@@ -219,14 +188,14 @@ Tactics are the **team config**; players are the **individual ability**. They ha
 
 ### What if your squad doesn't fit
 
-- **Slow squad, fast tempo wanted** → players turn over the ball constantly, fast tempo actually loses you the match
 - **Weak wingers, wide wanted** → the flanks get picked on, you get torn open from the side
+- **No central players, narrow wanted** → the middle is crowded with nobody to play out to
 - **Slow CBs, high line wanted** → you get hit on the counter constantly
 - **Conclusion**: **tactics should follow the squad**, not the other way around
 
 ---
 
-## 6. Submitting and locking
+## 5. Submitting and locking
 
 Tactics are submitted **before kickoff**, locked the moment the match starts:
 
@@ -249,7 +218,7 @@ Tactics are submitted **before kickoff**, locked the moment the match starts:
 
 ---
 
-## 7. Tactical changes (mid-match triggers)
+## 6. Tactical changes (mid-match triggers)
 
 Tactical **style** is set **pre-match**. Mid-match (at a specified minute + condition) you can still trigger **substitutions / position swaps** — see [chapter 16](16-subs-and-orders.md).
 
@@ -257,14 +226,15 @@ Tactical **style** is set **pre-match**. Mid-match (at a specified minute + cond
 
 ---
 
-## 8. How this connects to other concepts
+## 7. How this connects to other concepts
 
 | Concept | Connection |
 |---|---|
 | **Lineup** (chapter 5) | Formation + starters + bench + tactical changes = a full match plan; tactical style is the "playing style" slice of that plan |
-| **Player skills** (chapter 2) | Tactics need to match headline skills (fast tempo needs pace heads) |
+| **Player skills** (chapter 2) | Tactics need to match headline skills (wide needs winger heads) |
 | **Player positions** (chapter 3) | Formation picks positions; tactics pick how to play them |
-| **Specialties** (chapter 4) | Tactics trigger specialties (fast + `SPEEDSTER` = counter machine; high line + `SWEEPER_KEEPER` = solid back line) |
+| **Specialties** (chapter 4) | Tactics trigger specialties (high line + `SWEEPER_KEEPER` = solid back line) |
+| **Team tactics** (chapter 28) | The 2 dimensions tilt *where* you play; a team tactic changes *how the whole team* plays; the two stack |
 | **Match events** (chapter 6) | Tactical style affects the **frequency and distribution** of every match event (shots / counters / tackles...) |
 | **Set pieces / offside** (chapter 14) | Defensive line height **today** only drives **attacking press / counter-exposure** (offside logic not yet wired up, see the "Offside" section in chapter 14) |
 | **Tactical changes** (chapter 16) | Tactical style is pre-match; tactical changes are mid-match |
@@ -272,27 +242,24 @@ Tactical **style** is set **pre-match**. Mid-match (at a specified minute + cond
 
 ---
 
-## 9. Common mistakes
+## 8. Common mistakes
 
-❌ **"Fast tempo is always better"**: **fast = more turnovers**; if your squad isn't fast, fast tempo actually costs you goals
 ❌ **"High line = more offside = bad tactic"**: today, a high line **does NOT trigger more offside** (the simulation isn't wired up yet); the real cost of the high line is **getting hit on the counter**; once the offside logic is wired up, this trade-off will be complete
 ❌ **"Wide = lots of flank play"**: wide **needs strong wingers**; no winger = no flank
 ❌ **"Narrow = parking the bus"**: narrow = **central play**, not parking the bus; 5-3-2 + narrow = possession
 ❌ **"Defensive line height = playing style"**: line height is an **attacking press / counter-exposure** trade-off, not the style itself
 ❌ **"Tactics are independent of players"**: tactics tie tightly to **headline skills**; strong-vs-weak with weak players = wasted tactics
 ❌ **"I can still edit after lock"**: once the UI locks, stop trying; the backend also refuses new submissions ~10 min before kickoff
-❌ **"The 3 dimensions are independent"**: they **interact** (fast + high + slow CB = disaster; slow + low + strong striker = wasted)
+❌ **"The 2 dimensions are independent"**: they **interact** (high + slow CB = disaster; narrow + no central players = wasted)
 ❌ **"Push the line up to win"**: high line **isn't a free win**, depends on CB speed + opponent's counter threat
 ❌ **"Try all 5 formations"**: formation picks the **positions**, tactics pick the **style**; **first pick the formation that fits your squad, then tune the tactics**
 
 ---
 
-## 10. How to use tactics (practical flow)
+## 9. How to use tactics (practical flow)
 
 ### Step 1: Look at your squad
 
-- **Pace headlines**? → fast tempo
-- **Passing headlines**? → slow tempo / possession
 - **Strong wingers**? → wide
 - **Strong AM**? → narrow
 - **Fast CBs**? → high line
@@ -300,14 +267,14 @@ Tactical **style** is set **pre-match**. Mid-match (at a specified minute + cond
 
 ### Step 2: Look at the opponent
 
-- **Strong vs weak** → press (fast / wide / high)
-- **Weak vs strong** → counter (slow / narrow / low)
-- **Even matchup** → default (balanced / balanced / mid)
+- **Strong vs weak** → press (wide / high)
+- **Weak vs strong** → counter (narrow / low)
+- **Even matchup** → default (balanced / mid)
 
 ### Step 3: Look at the match situation
 
-- **Leading** → slow / low (possession, sit on it)
-- **Trailing** → fast / high (press, before ~70')
+- **Leading** → low line (possession, sit on it)
+- **Trailing** → wide / high (press, before ~70')
 - **Draw** → default
 
 ### Step 4: Save as a preset

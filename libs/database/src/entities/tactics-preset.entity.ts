@@ -72,15 +72,15 @@ export class TacticsPresetEntity extends BaseEntity {
     }>;
 
     /**
-     * The three tactical dimensions plus the team tactic, mirroring
+     * The remaining tactical dimensions plus the team tactic, mirroring
      * `MatchTacticsEntity` column-for-column (same quoted camelCase column
      * names, same defaults). A preset is a complete tactical snapshot, so
      * `MatchService.submitTactics` copies these straight onto the match row
      * when the request names a `presetId`.
+     *
+     * tempo（比赛节奏）2026-10-18 整体删除，见迁移
+     * 1788000000060-DropTempoDimensions。
      */
-    @Column({ type: 'varchar', length: 10, default: 'balanced' })
-    tempo!: string;
-
     @Column({ type: 'varchar', length: 10, default: 'balanced' })
     pitchWidth!: string;
 

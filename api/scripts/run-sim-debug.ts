@@ -129,7 +129,6 @@ async function postTactics(
       teamId,
       formation,
       lineup,
-      tempo: 'balanced',
       pitchWidth: 'balanced',
       defensiveLine: 'mid',
     }),

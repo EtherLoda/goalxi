@@ -16,7 +16,6 @@ import type {
   PitchSlot,
   PitchWidthValue,
   PositionKey,
-  TempoValue,
   TacticalEvent,
 } from '../types';
 
@@ -28,7 +27,6 @@ interface EditorBentoGridProps {
   players: Player[];
   assignedPlayerIds: Set<number>;
   // Dimensions
-  tempo: TempoValue;
   pitchWidth: PitchWidthValue;
   defensiveLine: DefensiveLineValue;
   // Events
@@ -66,7 +64,7 @@ interface EditorBentoGridProps {
 export function EditorBentoGrid(props: EditorBentoGridProps) {
   const {
     lineup, bench, playersById, players, assignedPlayerIds,
-    tempo, pitchWidth, defensiveLine,
+    pitchWidth, defensiveLine,
     events, starters, benchPlayers, pitchPlayers,
     presets, activePresetId,
     density, onDensityChange,
@@ -116,7 +114,6 @@ export function EditorBentoGrid(props: EditorBentoGridProps) {
           playersById={playersById}
           defensiveLine={defensiveLine}
           pitchWidth={pitchWidth}
-          tempo={tempo}
           isDragging={isDragging}
           onDrop={onPitchDrop}
           onRemove={onRemovePitch}

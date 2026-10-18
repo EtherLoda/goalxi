@@ -96,7 +96,7 @@ GoalXI's core systems (detailed in later chapters):
 | Fans | [Ch 10](../10-fans.md) | Attendance, fan reaction |
 | Stadium | [Ch 11](../11-stadium.md) | Capacity, seats, upgrades |
 | Set pieces | [Ch 14](../14-set-pieces.md) | Free kicks, penalties, special events |
-| Match tactics | [Ch 15](../15-tactics.md) | tempo / pitchWidth / defensiveLine |
+| Match tactics | [Ch 15](../15-tactics.md) | pitchWidth / defensiveLine + team tactics |
 | Subs and team orders | [Ch 16](../16-subs-and-orders.md) | In-match adjustments, substitutions |
 | Transfers | [Ch 18](../18-transfer.md) | Open market, auction, buyout |
 | Youth and scouts | [Ch 19](../19-youth.md) | Recruit, reveal, promote |

@@ -520,11 +520,10 @@ export class MatchService {
     let instructions = dto.instructions;
     let substitutions = dto.substitutions;
 
-    // The four tactical parameters, resolved the same way as the lineup: an
+    // The three tactical parameters, resolved the same way as the lineup: an
     // explicit field in the request wins, otherwise the preset supplies it.
     // Kept as `undefined` when neither does, which means "leave the stored
     // value alone" on an update and "use the column default" on an insert.
-    let tempo = dto.tempo;
     let pitchWidth = dto.pitchWidth;
     let defensiveLine = dto.defensiveLine;
     let teamTactic: TeamTacticCode | null | undefined = dto.teamTactic;
@@ -545,11 +544,10 @@ export class MatchService {
       substitutions = dto.substitutions || preset.substitutions;
 
       // A preset is a complete tactical snapshot: applying it restores all
-      // four parameters, including clearing the team tactic when the preset
+      // three parameters, including clearing the team tactic when the preset
       // carries none (`null`, not "unspecified"). Without this, picking a
       // preset would restore eleven players but leave whatever tactic was
       // already on the match row.
-      tempo = dto.tempo ?? (preset.tempo as typeof tempo);
       pitchWidth = dto.pitchWidth ?? (preset.pitchWidth as typeof pitchWidth);
       defensiveLine =
         dto.defensiveLine ?? (preset.defensiveLine as typeof defensiveLine);
@@ -600,7 +598,8 @@ export class MatchService {
     // occupy, not their natural positions.
     //
     // `undefined` (field omitted) keeps whatever the row already had, so
-    // resubmitting only the tempo does not wipe a previously chosen tactic;
+    // resubmitting only the pitch width does not wipe a previously chosen
+    // tactic;
     // an explicit `null` clears it.
     const requestedTactic = teamTactic;
     if (requestedTactic) {
@@ -633,7 +632,6 @@ export class MatchService {
       tactics.substitutionsV2 = substitutionsV2;
       tactics.presetId = dto.presetId || null;
       tactics.submittedAt = new Date();
-      if (tempo) tactics.tempo = tempo;
       if (pitchWidth) tactics.pitchWidth = pitchWidth;
       if (defensiveLine) tactics.defensiveLine = defensiveLine;
       if (requestedTactic !== undefined) {
@@ -652,7 +650,6 @@ export class MatchService {
         substitutionsV2,
         presetId: dto.presetId || null,
         submittedAt: new Date(),
-        tempo: tempo || 'balanced',
         pitchWidth: pitchWidth || 'balanced',
         defensiveLine: defensiveLine || 'mid',
         teamTactic: requestedTactic ?? null,
@@ -831,7 +828,6 @@ export class MatchService {
       substitutions,
       submittedAt: tactics.submittedAt,
       presetId: tactics.presetId,
-      tempo: (tactics.tempo || 'balanced') as any,
       pitchWidth: (tactics.pitchWidth || 'balanced') as any,
       defensiveLine: (tactics.defensiveLine || 'mid') as any,
       teamTactic: (tactics.teamTactic as TeamTacticCode) ?? null,

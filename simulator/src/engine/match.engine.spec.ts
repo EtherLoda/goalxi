@@ -1466,11 +1466,7 @@ expect(worldClass?.avgStars).toBeGreaterThanOrEqual(15);
     it('should accept tactics config via constructor', () => {
       const home = createTeam('Home', 16);
       const away = createTeam('Away', 16);
-      const {
-        Tempo,
-        PitchWidth,
-        DefensiveLine,
-      } = require('./types/tactics-config');
+      const { PitchWidth, DefensiveLine } = require('./types/tactics-config');
       const engine = new MatchEngine(
         home,
         away,
@@ -1481,12 +1477,10 @@ expect(worldClass?.avgStars).toBeGreaterThanOrEqual(15);
         null,
         'cloudy',
         {
-          tempo: Tempo.FAST,
           pitchWidth: PitchWidth.WIDE,
           defensiveLine: DefensiveLine.HIGH,
         },
         {
-          tempo: Tempo.SLOW,
           pitchWidth: PitchWidth.NARROW,
           defensiveLine: DefensiveLine.LOW,
         },
@@ -1506,71 +1500,27 @@ expect(worldClass?.avgStars).toBeGreaterThanOrEqual(15);
       expect(events.length).toBeGreaterThan(0);
     });
 
-    it('should generate events with different tempos producing different duel outcomes', () => {
-      const home = createTeam('Home', 16);
-      const away = createTeam('Away', 16);
-      const {
-        Tempo,
-        PitchWidth,
-        DefensiveLine,
-      } = require('./types/tactics-config');
-
-      // Run multiple times with FAST tempo to observe higher variance
-      const fastEngine = new MatchEngine(
-        home,
-        away,
-        [],
-        [],
-        new Map(),
-        null,
-        null,
-        'cloudy',
-        {
-          tempo: Tempo.FAST,
-          pitchWidth: PitchWidth.BALANCED,
-          defensiveLine: DefensiveLine.MID,
-        },
-        {
-          tempo: Tempo.SLOW,
-          pitchWidth: PitchWidth.BALANCED,
-          defensiveLine: DefensiveLine.MID,
-        },
-      );
-
-      const fastEvents = fastEngine.simulateMatch();
-      expect(fastEvents.length).toBeGreaterThan(0);
-    });
-
     it('should produce valid match events with all tactic combinations', () => {
-      const {
-        Tempo,
-        PitchWidth,
-        DefensiveLine,
-      } = require('./types/tactics-config');
+      const { PitchWidth, DefensiveLine } = require('./types/tactics-config');
 
       const combinations = [
         {
-          tempo: Tempo.SLOW,
           pitchWidth: PitchWidth.NARROW,
           defensiveLine: DefensiveLine.LOW,
         },
         {
-          tempo: Tempo.BALANCED,
           pitchWidth: PitchWidth.BALANCED,
           defensiveLine: DefensiveLine.MID,
         },
         {
-          tempo: Tempo.FAST,
           pitchWidth: PitchWidth.WIDE,
           defensiveLine: DefensiveLine.HIGH,
         },
         {
-          tempo: Tempo.FAST,
           pitchWidth: PitchWidth.NARROW,
           defensiveLine: DefensiveLine.HIGH,
         },
         {
-          tempo: Tempo.SLOW,
           pitchWidth: PitchWidth.WIDE,
           defensiveLine: DefensiveLine.LOW,
         },

@@ -182,7 +182,7 @@ interface BenchConfig {
 // Tactics types (mirror backend SubmitTacticsReqDto / TacticsResDto / presets)
 // ============================================================================
 
-type TempoValue = 'slow' | 'balanced' | 'fast';
+// Tempo（比赛节奏）已整体删除，见 web/src/components/tactics/types.ts。
 type PitchWidthValue = 'narrow' | 'balanced' | 'wide';
 type DefensiveLineValue = 'low' | 'mid' | 'high';
 
@@ -206,7 +206,6 @@ interface SubmitTacticsPayload {
   teamId: string;
   formation: string;
   lineup: Record<string, number>;
-  tempo: TempoValue;
   pitchWidth: PitchWidthValue;
   defensiveLine: DefensiveLineValue;
   substitutions: TacticsSubstitution[];
@@ -220,7 +219,6 @@ interface Tactics {
   teamId: string;
   formation: string;
   lineup: Record<string, number>;
-  tempo: TempoValue;
   pitchWidth: PitchWidthValue;
   defensiveLine: DefensiveLineValue;
   substitutions: TacticsSubstitution[] | null;
@@ -1908,7 +1906,6 @@ export type {
   Fan,
   // Tactics
   BenchConfig,
-  TempoValue,
   PitchWidthValue,
   DefensiveLineValue,
   Tactics,

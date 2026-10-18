@@ -1,9 +1,6 @@
-// 比赛节奏
-export enum Tempo {
-  SLOW = 'slow',
-  BALANCED = 'balanced',
-  FAST = 'fast',
-}
+// 比赛节奏（tempo）2026-10-18 整体删除 —— 见
+// `simulator/src/engine/types/tactics-config.ts` 的说明。这里只剩宽度和
+// 防线两个维度，外加球队战术（`TeamTacticCode`，在 @goalxi/database）。
 
 // 球场宽度
 export enum PitchWidth {
