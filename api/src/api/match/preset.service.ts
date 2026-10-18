@@ -1,4 +1,10 @@
-import { PlayerEntity, TacticsPresetEntity } from '@goalxi/database';
+import {
+  checkTacticRequirement,
+  isTeamTacticCode,
+  PlayerEntity,
+  TacticsPresetEntity,
+  TeamTacticCode,
+} from '@goalxi/database';
 import {
   BadRequestException,
   Injectable,
@@ -67,6 +73,15 @@ export class PresetService {
       throw new BadRequestException(validation.errors.join(', '));
     }
 
+    // A preset that carries a team tactic must be able to field it. Without
+    // this the requirement would only surface later, when the preset is
+    // applied to an actual match — the player would save a preset that can
+    // never be used, with nothing to tell them why.
+    this.assertTacticSatisfied(
+      dto.teamTactic,
+      this.normaliseLineup(dto.lineup),
+    );
+
     // Check name uniqueness
     const existingPreset = await this.presetRepository.findOne({
       where: { teamId, name: dto.name },
@@ -98,6 +113,13 @@ export class PresetService {
       instructions: dto.instructions || null,
       substitutions: null,
       substitutionsV2: this.normaliseSubstitutions(dto.substitutions),
+      // The four tactical parameters. A preset is a complete tactical
+      // snapshot, so unset dimensions fall back to the same defaults
+      // `match_tactics` uses rather than to NULL.
+      tempo: dto.tempo || 'balanced',
+      pitchWidth: dto.pitchWidth || 'balanced',
+      defensiveLine: dto.defensiveLine || 'mid',
+      teamTactic: dto.teamTactic ?? null,
       isDefault: dto.isDefault || false,
     } as Partial<TacticsPresetEntity>);
 
@@ -179,6 +201,21 @@ export class PresetService {
       preset.substitutions = null;
       preset.substitutionsV2 = this.normaliseSubstitutions(dto.substitutions);
     }
+    // The four tactical parameters. Explicit per-field guards rather than
+    // relying on `Object.assign`: an absent key must leave the stored value
+    // alone, and only `teamTactic` treats `null` as a value.
+    if (dto.tempo) preset.tempo = dto.tempo;
+    if (dto.pitchWidth) preset.pitchWidth = dto.pitchWidth;
+    if (dto.defensiveLine) preset.defensiveLine = dto.defensiveLine;
+    if (dto.teamTactic !== undefined) preset.teamTactic = dto.teamTactic;
+
+    // Validate against the RESULTING preset, not the request: either half of
+    // the pair can change independently (add a tactic without touching the
+    // lineup, or reshuffle the lineup of a preset that already has one).
+    this.assertTacticSatisfied(
+      isTeamTacticCode(preset.teamTactic) ? preset.teamTactic : null,
+      preset.lineupV2 ?? this.normaliseLineup(dto.lineup),
+    );
 
     const updatedPreset = await this.presetRepository.save(preset);
 
@@ -232,9 +269,45 @@ export class PresetService {
       lineup,
       instructions: preset.instructions,
       substitutions,
+      tempo: preset.tempo as PresetResDto['tempo'],
+      pitchWidth: preset.pitchWidth as PresetResDto['pitchWidth'],
+      defensiveLine: preset.defensiveLine as PresetResDto['defensiveLine'],
+      // Unknown codes (e.g. a tactic later removed from the enum) read as
+      // "no tactic" rather than being handed to a client that cannot type
+      // them — the engine resolves them to the neutral style anyway.
+      teamTactic: isTeamTacticCode(preset.teamTactic)
+        ? preset.teamTactic
+        : null,
       createdAt: preset.createdAt,
       updatedAt: preset.updatedAt,
     };
+  }
+
+  /**
+   * Reject a preset whose own lineup cannot field the team tactic it stores.
+   *
+   * Same hard gate as `MatchService.submitTactics`: satisfying 3 of 4 slots
+   * is a 400, not a weakened tactic. `tactic` may be `null` / `undefined`
+   * (no tactic), in which case there is nothing to check.
+   */
+  private assertTacticSatisfied(
+    tactic: TeamTacticCode | null | undefined,
+    lineup: Record<string, number>,
+  ): void {
+    if (!tactic) return;
+
+    const check = checkTacticRequirement(tactic, Object.keys(lineup));
+    if (check.ok) return;
+
+    const missing = check.missing
+      .map(
+        (requirement) =>
+          `${requirement.count} more ${requirement.families.join('/')}`,
+      )
+      .join(', ');
+    throw new BadRequestException(
+      `Lineup does not satisfy team tactic "${tactic}" — needs ${missing}`,
+    );
   }
 
   /**

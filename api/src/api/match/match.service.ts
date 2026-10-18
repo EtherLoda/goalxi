@@ -2,6 +2,7 @@ import {
   checkTacticRequirement,
   CupBracketSlotEntity,
   GAME_SETTINGS,
+  isTeamTacticCode,
   LeagueEntity,
   MatchEntity,
   MatchEventEntity,
@@ -519,6 +520,15 @@ export class MatchService {
     let instructions = dto.instructions;
     let substitutions = dto.substitutions;
 
+    // The four tactical parameters, resolved the same way as the lineup: an
+    // explicit field in the request wins, otherwise the preset supplies it.
+    // Kept as `undefined` when neither does, which means "leave the stored
+    // value alone" on an update and "use the column default" on an insert.
+    let tempo = dto.tempo;
+    let pitchWidth = dto.pitchWidth;
+    let defensiveLine = dto.defensiveLine;
+    let teamTactic: TeamTacticCode | null | undefined = dto.teamTactic;
+
     if (dto.presetId) {
       const preset = await this.presetRepository.findOne({
         where: { id: dto.presetId, teamId },
@@ -533,6 +543,22 @@ export class MatchService {
       formation = dto.formation || preset.formation;
       instructions = dto.instructions || preset.instructions;
       substitutions = dto.substitutions || preset.substitutions;
+
+      // A preset is a complete tactical snapshot: applying it restores all
+      // four parameters, including clearing the team tactic when the preset
+      // carries none (`null`, not "unspecified"). Without this, picking a
+      // preset would restore eleven players but leave whatever tactic was
+      // already on the match row.
+      tempo = dto.tempo ?? (preset.tempo as typeof tempo);
+      pitchWidth = dto.pitchWidth ?? (preset.pitchWidth as typeof pitchWidth);
+      defensiveLine =
+        dto.defensiveLine ?? (preset.defensiveLine as typeof defensiveLine);
+      teamTactic =
+        dto.teamTactic !== undefined
+          ? dto.teamTactic
+          : isTeamTacticCode(preset.teamTactic)
+            ? preset.teamTactic
+            : null;
     }
 
     // Validate lineup
@@ -576,8 +602,7 @@ export class MatchService {
     // `undefined` (field omitted) keeps whatever the row already had, so
     // resubmitting only the tempo does not wipe a previously chosen tactic;
     // an explicit `null` clears it.
-    const requestedTactic =
-      dto.teamTactic === undefined ? undefined : dto.teamTactic;
+    const requestedTactic = teamTactic;
     if (requestedTactic) {
       const check = checkTacticRequirement(
         requestedTactic,
@@ -608,9 +633,9 @@ export class MatchService {
       tactics.substitutionsV2 = substitutionsV2;
       tactics.presetId = dto.presetId || null;
       tactics.submittedAt = new Date();
-      if (dto.tempo) tactics.tempo = dto.tempo;
-      if (dto.pitchWidth) tactics.pitchWidth = dto.pitchWidth;
-      if (dto.defensiveLine) tactics.defensiveLine = dto.defensiveLine;
+      if (tempo) tactics.tempo = tempo;
+      if (pitchWidth) tactics.pitchWidth = pitchWidth;
+      if (defensiveLine) tactics.defensiveLine = defensiveLine;
       if (requestedTactic !== undefined) {
         tactics.teamTactic = requestedTactic;
       }
@@ -627,9 +652,9 @@ export class MatchService {
         substitutionsV2,
         presetId: dto.presetId || null,
         submittedAt: new Date(),
-        tempo: dto.tempo || 'balanced',
-        pitchWidth: dto.pitchWidth || 'balanced',
-        defensiveLine: dto.defensiveLine || 'mid',
+        tempo: tempo || 'balanced',
+        pitchWidth: pitchWidth || 'balanced',
+        defensiveLine: defensiveLine || 'mid',
         teamTactic: requestedTactic ?? null,
       });
     }

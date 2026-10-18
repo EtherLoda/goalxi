@@ -71,6 +71,31 @@ export class TacticsPresetEntity extends BaseEntity {
       condition?: string;
     }>;
 
+    /**
+     * The three tactical dimensions plus the team tactic, mirroring
+     * `MatchTacticsEntity` column-for-column (same quoted camelCase column
+     * names, same defaults). A preset is a complete tactical snapshot, so
+     * `MatchService.submitTactics` copies these straight onto the match row
+     * when the request names a `presetId`.
+     */
+    @Column({ type: 'varchar', length: 10, default: 'balanced' })
+    tempo!: string;
+
+    @Column({ type: 'varchar', length: 10, default: 'balanced' })
+    pitchWidth!: string;
+
+    @Column({ type: 'varchar', length: 10, default: 'mid' })
+    defensiveLine!: string;
+
+    /**
+     * 球队战术（`TeamTacticCode`）。`NULL` = 不选战术，与 `match_tactics`
+     * 同义；应用这个预设会把比赛战术一并清空。
+     *
+     * 存字符串而不是 PG enum，理由同 `MatchTacticsEntity.teamTactic`。
+     */
+    @Column({ name: 'team_tactic', type: 'varchar', length: 20, nullable: true })
+    teamTactic?: string | null;
+
     @CreateDateColumn({ name: 'created_at' })
     createdAt!: Date;
 

@@ -1,9 +1,10 @@
-import { GAME_SETTINGS } from '@goalxi/database';
+import { GAME_SETTINGS, TeamTacticCode } from '@goalxi/database';
 import { Type } from 'class-transformer';
 import {
   ArrayMaxSize,
   IsArray,
   IsBoolean,
+  IsEnum,
   IsObject,
   IsOptional,
   IsString,
@@ -11,6 +12,7 @@ import {
   MinLength,
   ValidateNested,
 } from 'class-validator';
+import { DefensiveLine, PitchWidth, Tempo } from '../types/tactical-dimensions';
 import { SubstitutionDto } from './substitution.dto';
 
 export class CreatePresetReqDto {
@@ -46,4 +48,30 @@ export class CreatePresetReqDto {
   @IsBoolean()
   @IsOptional()
   isDefault?: boolean;
+
+  // The four tactical parameters. A preset is a complete tactical snapshot,
+  // so these are stored on the preset and copied onto the match row when the
+  // request names this preset — see `MatchService.submitTactics`.
+  //
+  // All four are optional on the wire; the service fills the gaps with the
+  // same defaults `match_tactics` uses ('balanced' / 'balanced' / 'mid' and
+  // no team tactic), so a client that only knows about lineups still works.
+  @IsEnum(Tempo)
+  @IsOptional()
+  tempo?: Tempo;
+
+  @IsEnum(PitchWidth)
+  @IsOptional()
+  pitchWidth?: PitchWidth;
+
+  @IsEnum(DefensiveLine)
+  @IsOptional()
+  defensiveLine?: DefensiveLine;
+
+  // `null` is a real value here (no team tactic), not "leave unchanged" —
+  // `@IsOptional()` accepts both `undefined` and `null`, and the service
+  // stores `null` verbatim.
+  @IsEnum(TeamTacticCode)
+  @IsOptional()
+  teamTactic?: TeamTacticCode | null;
 }

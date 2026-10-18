@@ -1,3 +1,5 @@
+import { TeamTacticCode } from '@goalxi/database';
+import { DefensiveLine, PitchWidth, Tempo } from '../types/tactical-dimensions';
 import { SubstitutionDto } from './substitution.dto';
 
 export class PresetResDto {
@@ -11,6 +13,11 @@ export class PresetResDto {
   lineup!: Record<string, number>;
   instructions!: Record<string, any> | null;
   substitutions!: SubstitutionDto[] | null;
+  tempo!: Tempo;
+  pitchWidth!: PitchWidth;
+  defensiveLine!: DefensiveLine;
+  /** `null` = this preset carries no team tactic (a real choice, not a gap). */
+  teamTactic!: TeamTacticCode | null;
   createdAt!: Date;
   updatedAt!: Date;
 }

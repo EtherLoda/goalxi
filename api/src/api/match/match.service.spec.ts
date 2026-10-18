@@ -19,6 +19,7 @@ import { DataSource } from 'typeorm';
 import { CreateMatchReqDto } from './dto/create-match.req.dto';
 import { SubmitTacticsReqDto } from './dto/submit-tactics.req.dto';
 import { MatchService } from './match.service';
+import { Tempo } from './types/tactical-dimensions';
 
 describe('MatchService', () => {
   let service: MatchService;
@@ -401,6 +402,135 @@ describe('MatchService', () => {
       });
 
       expect(result.teamTactic).toBeNull();
+    });
+
+    it('applies all four tactical parameters from the preset', async () => {
+      const teamId = 'team-id';
+      stubFutureMatch(teamId);
+      mockPlayerRepository.find.mockResolvedValue(stubPlayers());
+      mockTacticsRepository.findOne.mockResolvedValue(null);
+      mockTacticsRepository.create.mockImplementation((row: unknown) => row);
+      mockTacticsRepository.save.mockImplementation((row: unknown) =>
+        Promise.resolve({ ...(row as object), id: 'tactics-id' }),
+      );
+      mockPresetRepository.findOne.mockResolvedValue({
+        id: 'preset-id',
+        teamId,
+        formation: '4-4-2',
+        lineup: tacticLineup({
+          CAM: undefined,
+          CF: undefined,
+          LM: 1010,
+          RM: 1011,
+        }),
+        instructions: null,
+        substitutions: null,
+        tempo: 'fast',
+        pitchWidth: 'wide',
+        defensiveLine: 'high',
+        teamTactic: TeamTacticCode.WINGS,
+      });
+
+      const result = await service.submitTactics('match-id', teamId, {
+        teamId,
+        formation: '4-4-2',
+        presetId: 'preset-id',
+        // LM/RM count as wingers, LB/RB as full-backs → 双翼齐飞 is legal.
+        lineup: tacticLineup({
+          CAM: undefined,
+          CF: undefined,
+          LM: 1010,
+          RM: 1011,
+        }),
+      });
+
+      // A preset is a complete tactical snapshot, not just a lineup.
+      expect(result.tempo).toBe('fast');
+      expect(result.pitchWidth).toBe('wide');
+      expect(result.defensiveLine).toBe('high');
+      expect(result.teamTactic).toBe(TeamTacticCode.WINGS);
+    });
+
+    it('lets an explicit request field win over the preset', async () => {
+      const teamId = 'team-id';
+      stubFutureMatch(teamId);
+      mockPlayerRepository.find.mockResolvedValue(stubPlayers());
+      mockTacticsRepository.findOne.mockResolvedValue(null);
+      mockTacticsRepository.create.mockImplementation((row: unknown) => row);
+      mockTacticsRepository.save.mockImplementation((row: unknown) =>
+        Promise.resolve({ ...(row as object), id: 'tactics-id' }),
+      );
+      mockPresetRepository.findOne.mockResolvedValue({
+        id: 'preset-id',
+        teamId,
+        formation: '4-4-2',
+        lineup: tacticLineup(),
+        instructions: null,
+        substitutions: null,
+        tempo: 'fast',
+        pitchWidth: 'wide',
+        defensiveLine: 'high',
+        teamTactic: null,
+      });
+
+      const result = await service.submitTactics('match-id', teamId, {
+        teamId,
+        formation: '4-4-2',
+        presetId: 'preset-id',
+        lineup: tacticLineup(),
+        tempo: Tempo.SLOW,
+      });
+
+      // Only tempo was overridden; the other three still come from the
+      // preset, so a per-match tweak doesn't silently drop the rest.
+      expect(result.tempo).toBe('slow');
+      expect(result.pitchWidth).toBe('wide');
+      expect(result.defensiveLine).toBe('high');
+    });
+
+    it('clears the team tactic when the applied preset carries none', async () => {
+      const teamId = 'team-id';
+      stubFutureMatch(teamId);
+      mockPlayerRepository.find.mockResolvedValue(stubPlayers());
+      const existing = {
+        id: 'tactics-id',
+        matchId: 'match-id',
+        teamId,
+        formation: '4-4-2',
+        lineup: {},
+        lineupV2: tacticLineup(),
+        teamTactic: TeamTacticCode.CENTRAL,
+        tempo: 'balanced',
+        pitchWidth: 'balanced',
+        defensiveLine: 'mid',
+      };
+      mockTacticsRepository.findOne.mockResolvedValue(existing);
+      mockTacticsRepository.save.mockImplementation((row: unknown) =>
+        Promise.resolve(row),
+      );
+      mockPresetRepository.findOne.mockResolvedValue({
+        id: 'preset-id',
+        teamId,
+        formation: '4-4-2',
+        lineup: tacticLineup(),
+        instructions: null,
+        substitutions: null,
+        tempo: 'slow',
+        pitchWidth: 'narrow',
+        defensiveLine: 'low',
+        teamTactic: null,
+      });
+
+      const result = await service.submitTactics('match-id', teamId, {
+        teamId,
+        formation: '4-4-2',
+        presetId: 'preset-id',
+        lineup: tacticLineup(),
+      });
+
+      // A preset without a tactic means "no tactic", not "keep the old one".
+      expect(result.teamTactic).toBeNull();
+      expect(result.tempo).toBe('slow');
     });
 
     it('should fail if deadline passed', async () => {
