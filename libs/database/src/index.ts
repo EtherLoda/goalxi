@@ -66,6 +66,7 @@ export * from "./constants/specialty-codes";
 export * from "./constants/event-two-axis";
 export * from "./constants/youth-position-aliases";
 export * from "./constants/gk-rating.constants";
+export * from "./constants/team-tactics.constants";
 export * from "./services/training-calculator";
 export * from "./services/condition-calculator";
 export * from "./services/stamina-calculator";

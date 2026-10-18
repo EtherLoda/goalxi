@@ -46,6 +46,7 @@ import { SpecialtyAttributionRecorder } from './systems/specialty.attribution';
 import { LoggerService } from '@nestjs/common';
 import { GAME_SETTINGS, SpecialtyContribution } from '@goalxi/database';
 import { resolveDuel as resolveDuelPure, duelProbability } from './duel';
+import { resolveTeamTacticStyle } from './tactics/team-tactics';
 import {
   generateWeatherAnnouncementEvent,
   generateAttendanceAnnouncementEvent,
@@ -1007,6 +1008,12 @@ export class MatchEngine {
   ) {
     this.possessionTeam = homeTeam;
     this.defendingTeam = awayTeam;
+
+    // 球队战术 → 全局风格修正。放在构造器里一次性写入，之后所有读取点
+    // （推进力、控球、拦截、犯规、体能、进攻方式组合）都走 Team.style，
+    // 不散落在各阶段。不选战术时解析出来是全中性，行为与引入前逐位一致。
+    homeTeam.style = resolveTeamTacticStyle(homeTactics.teamTactic);
+    awayTeam.style = resolveTeamTacticStyle(awayTactics.teamTactic);
 
     // Register starting lineups and initialize player stats
     [...homeTeam.players, ...awayTeam.players].forEach((p) => {
