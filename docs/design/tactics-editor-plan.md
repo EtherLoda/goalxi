@@ -294,10 +294,28 @@ export const EASE = {
 | V11 | 加载态整页 spinner 换掉三列 | `TacticsEditor.tsx:399-405` | 布局保持的骨架屏（骨架已在 `page.tsx:90-103`，复用） | 3 |
 | V12 | 标题重复两处 | `page.tsx:76` + `EditorHeader.tsx:40` | 页面级保留 h1，`EditorHeader` 里删掉标题只留状态行 | 3 |
 
-### 待你确认的两个问题
+### 两个待定的问题
 
-- **Q1（tempo）**：预设现在能存四个参数，但界面只暴露宽度和防线（`DimensionsPanel.tsx:21-24` 注释说 tempo「引擎已接但故意不暴露」）。要不要在本次一并放出 tempo？放出的成本是每个战术的 tempo 敏感度都要重新校准。
-- **Q2（预设入口）**：预设移进抽屉后，「应用预设」多一次点击。是否在 header 保留一个最近使用的预设快捷按钮？
+**Q2（预设入口）—— 已决定：不做最近使用快捷按钮。**
+
+预设整体移进 header 抽屉，应用预设固定为「打开抽屉 → 点一个」。不保留 header 里的最近使用入口。
+
+**Q1（tempo）—— 待定，且发现了比预期严重的问题。**
+
+tempo 在引擎里**确实接了三处，但其中两处的参数是死的**（审查结论）：
+
+| 参数 | 状态 | 位置 |
+|---|---|---|
+| `duelK` | 生效 | `simulator/src/engine/match.engine.ts:2931-2933`，映射成推进对决曲线的 amplification（SLOW 1.26 / BAL 1.5 / FAST 1.74） |
+| `attackTypeWeights` | 生效 | `match.engine.ts:4356-4377`，与天气、路权重相乘后决定进攻方式 |
+| `counterVulnerability` | **失效** | `match.engine.ts:2892-2906` 算出的 `counterBonus` 乘进 `effectiveAttPower`，但断球后 `pushSuccess = true` 直接跳过推进判定（`:2964`），`effectiveAttPower` 再也没有被读过 |
+| `shotAttempts` | **失效** | `simulator/src/engine/tactics/tactics-presets.ts:63` 里声明并赋了 0.9 / 1.0 / 1.1，全仓库没有任何读取点 |
+
+后两条正好是玩家从「节奏」二字最容易预期的两件事（**更多射门**、**反击更危险**）—— 也就是说现在把 tempo 放出来，等于卖一个许诺了却不存在的东西。
+
+实测（N=500/格，锚点改到 1.5 之后重跑的 `debug-tempo-sweep.spec.ts`）：推进率 SLOW 53.4% / BAL 53.0% / FAST 50.7%（12v12），主胜 39.4 / 37.6 / 40.8，进球 1.65 / 1.69 / 1.74。胜率与进球全部落在 ±2.1pp 的噪声内，唯一像信号的是 FAST 的推进率略低。
+
+**建议的放行顺序**：先补两个死参数（`counterVulnerability` 乘到断球后的 `finalShootRating` 上约 10 行；`shotAttempts` 要么实现成关键时刻密度、要么直接删除），再重跑一次校准；确认 FAST 的「高风险高回报」真的存在之后，才在 Phase 3 里放出第三个分段控件。文案只能写引擎真正做的事（推进风险、球路偏好），不能写射门数量。
 
 ---
 
