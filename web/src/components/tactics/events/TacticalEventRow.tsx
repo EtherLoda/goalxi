@@ -19,6 +19,7 @@
  */
 import { AppIcon } from "@/components/icons/AppIcon";
 import React from 'react';
+import { motion } from 'motion/react';
 import { useTranslations } from 'next-intl';
 import type { Player } from '@/lib/api';
 import type { EventCondition, TacticalEvent } from '../types';
@@ -52,8 +53,16 @@ export function TacticalEventRow({
   const isSub = event.kind === 'sub';
 
   return (
-    <div
-      className="group/item relative rounded-xl border border-outline-variant/20 bg-surface-container/40 p-3 hover:border-primary/40 transition-colors animate-in slide-in-from-left-2 fade-in"
+    <motion.div
+      // Entrance only — the row is appended to the end of the list, so mount
+      // is the one moment worth animating. The previous `animate-in
+      // slide-in-from-left-2 fade-in` classes came from `tw-animate-css`,
+      // which this project does not install: they compiled to nothing and the
+      // row appeared instantly. Duration/easing mirror `--ease-standard`.
+      initial={{ opacity: 0, x: -8 }}
+      animate={{ opacity: 1, x: 0 }}
+      transition={{ duration: 0.2, ease: [0.2, 0, 0, 1] }}
+      className="group/item relative rounded-xl border border-outline-variant/20 bg-surface-container/40 p-3 hover:border-primary/40 transition-colors"
       data-testid={`tactical-event-${index}`}
     >
       {/* Header — minute + delete. The event's kind is fixed at creation
@@ -186,6 +195,6 @@ export function TacticalEventRow({
           )}
         </div>
       </div>
-    </div>
+    </motion.div>
   );
 }

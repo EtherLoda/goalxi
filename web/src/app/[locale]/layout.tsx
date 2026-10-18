@@ -3,6 +3,7 @@ import { getMessages, setRequestLocale } from "next-intl/server";
 import { notFound } from "next/navigation";
 import { locales, type Locale } from "../../i18n";
 import AppShell from "@/components/AppShell";
+import { MotionProvider } from "@/components/providers/MotionProvider";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { TeamViewProvider } from "@/contexts/TeamViewContext";
 
@@ -34,11 +35,13 @@ export default async function LocaleLayout({
 
   return (
     <NextIntlClientProvider locale={locale} messages={messages}>
-      <AuthProvider>
-        <TeamViewProvider>
-          <AppShell locale={locale}>{children}</AppShell>
-        </TeamViewProvider>
-      </AuthProvider>
+      <MotionProvider>
+        <AuthProvider>
+          <TeamViewProvider>
+            <AppShell locale={locale}>{children}</AppShell>
+          </TeamViewProvider>
+        </AuthProvider>
+      </MotionProvider>
     </NextIntlClientProvider>
   );
 }

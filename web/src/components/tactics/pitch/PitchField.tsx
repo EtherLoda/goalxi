@@ -23,7 +23,7 @@ interface PitchFieldProps {
 const DRAG_MIME = 'application/x-goalxi-player';
 
 /**
- * SVG-based 2D pitch. Renders the 18 pitch slots and reacts to dimension changes
+ * SVG-based 2D pitch. Renders the 24 pitch slots and reacts to dimension changes
  * by translating the lines up/down (defensiveLine) and scaling X (pitchWidth).
  */
 export function PitchField({
@@ -113,6 +113,7 @@ export function PitchField({
                 player={player}
                 isGkSlot={slot === 'GK'}
                 isDragOver={dragOverSlot === slot}
+                isDropTarget={dragOverSlot === slot}
                 isDragging={isDragging}
                 counterScaleX={counterScaleX}
                 onDrop={handleSlotDrop(slot)}

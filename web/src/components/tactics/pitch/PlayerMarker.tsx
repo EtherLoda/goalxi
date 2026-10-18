@@ -24,6 +24,12 @@ interface PlayerMarkerProps {
    * design is shown. When undefined (editor / tactics mode), the
    * original form-dot / stamina-bar layout is shown.
    */
+  /**
+   * True while a player is dragged over this occupied slot. The empty slots
+   * already light up on drag-over; a filled slot needs the same response so
+   * the player can tell a drop will SWAP rather than do nothing.
+   */
+  isDropTarget?: boolean;
   snapshotFitness?: number;
   snapshotStarRating?: number;
 }
@@ -84,6 +90,7 @@ export function PlayerMarker({
   isSelected = false,
   isDragging = false,
   isSubstitute = false,
+  isDropTarget = false,
   onClick,
   onRemove,
   onDragStart,
@@ -121,6 +128,15 @@ export function PlayerMarker({
   const staminaFilled = clamp01to5(player.stamina);
   const formFilled = clamp01to5(player.form);
 
+  // A drop-target ring wins over the selection ring: while a drag is in
+  // flight, "what happens if I let go here" outranks "what is selected".
+  // Both use a ring rather than a scale so neighbour cards never shift.
+  const ringClass = isDropTarget
+    ? 'ring-2 ring-tertiary ring-offset-2 ring-offset-surface'
+    : isSelected
+      ? 'ring-2 ring-primary ring-offset-2 ring-offset-surface'
+      : '';
+
   return (
     <div
       className={`group relative flex flex-col items-center gap-1 select-none transition-all duration-base ${
@@ -140,11 +156,11 @@ export function PlayerMarker({
 
         {/* Avatar */}
         <div
-          className={`relative w-12 h-12 rounded-full flex items-center justify-center font-headline font-extrabold text-[10px] uppercase cursor-grab active:cursor-grabbing ${
+          className={`relative w-12 h-12 rounded-full flex items-center justify-center font-headline font-extrabold text-[10px] uppercase cursor-grab active:cursor-grabbing transition-[box-shadow] duration-base ${
             isGkSlot
               ? 'bg-tertiary/20 border-2 border-tertiary text-tertiary'
               : 'bg-primary/15 border-2 border-primary text-primary'
-          } ${isSelected ? 'ring-2 ring-primary ring-offset-2 ring-offset-surface' : ''}`}
+          } ${ringClass}`}
         >
           {initials(player.name)}
           {onRemove && (

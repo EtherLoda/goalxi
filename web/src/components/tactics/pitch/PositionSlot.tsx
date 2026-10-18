@@ -20,6 +20,8 @@ interface PositionSlotProps {
    * unchanged.
    */
   counterScaleX?: number;
+  /** True while a player is dragged over this (already filled) slot. */
+  isDropTarget?: boolean;
   onDrop: (playerId: number) => void;
   onRemove: () => void;
   onDragStart: () => void;
@@ -40,6 +42,7 @@ export function PositionSlot({
   isDragOver,
   isDragging,
   counterScaleX = 1,
+  isDropTarget = false,
   onDrop,
   onRemove,
   onDragStart,
@@ -62,6 +65,12 @@ export function PositionSlot({
 
   // Only emit a transform when we actually need to counter-scale — avoids
   // creating a new compositing layer for the common balanced case.
+  //
+  // When it IS active the transition must match the pitch container's
+  // (`transition-transform duration-slow ease-standard` in PitchField)
+  // exactly. Without it the parent animates 1 -> 1.10 over 300ms while this
+  // child jumps to 1/1.10 on the first frame, so every card is rendered
+  // horizontally squashed for the whole transition and then snaps back.
   const innerStyle =
     counterScaleX === 1
       ? undefined
@@ -69,6 +78,8 @@ export function PositionSlot({
           transform: `scaleX(${counterScaleX})`,
           transformOrigin: 'center center',
         };
+  const innerClassName =
+    counterScaleX === 1 ? undefined : 'transition-transform duration-slow ease-standard';
 
   return (
     <div
@@ -79,12 +90,13 @@ export function PositionSlot({
       data-slot={slot}
       data-testid={`slot-${slot}`}
     >
-      <div style={innerStyle}>
+      <div className={innerClassName} style={innerStyle}>
         {player ? (
           <PlayerMarker
             player={player}
             slot={slot}
             isGkSlot={isGkSlot}
+            isDropTarget={isDropTarget}
             onRemove={onRemove}
             onDragStart={onDragStart}
             onDragEnd={onDragEnd}
