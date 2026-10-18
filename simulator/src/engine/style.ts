@@ -36,21 +36,21 @@ export interface StyleModifiers {
   possessionControl: number;
 
   /**
-   * 拦截阈值下调量。引擎的拦截条件是 `defRatio > interceptThreshold`
-   * （默认 1.3）。负值 = 更容易拦截。
+   * 断球概率倍率，乘在 `DUEL_PROFILES.intercept` 曲线的输出上。
    *
-   * ⚠️ 这是风格面里增益最高的一个杠杆：均势对局里 `defRatio` 典型值
-   * 只有 1.0–1.1，也就是说默认阈值下拦截**几乎不触发**（1.4 → 1%、
-   * 2.0 → 7%、4.0 才封顶 25%）。把阈值降到 1.15 就能让「断球反击」
-   * 从罕见事件变成常规事件 —— 阈值跨越是阶跃的，收益远大于任何
-   * 5% 的乘法。防守反击风格应该主要动这里。
+   * 2026-10-18 起拦截不再是「比值越过 1.3 才有概率」的分段线性 —— 那条
+   * 曲线在均势（defRatio≈0.9）时概率恰好为 0，等于断球反击在正常比赛里
+   * 根本不存在（实测 0.04 次/场，不到 1% 的比赛能看到一次）。现在它走
+   * 和 push / midfield / 射门同一条 `duelProbability` 曲线，
+   * **均势就有 baseline 0.10 的平局基线**，差距越大越快上升。
+   *
+   * 因此「防守反击」风格在这个面上的杠杆就是本字段：×1.5 即把整条
+   * 曲线的概率抬高一档（均势 10% → 15%），而不是把阈值挪到没人到得了
+   * 的位置。
    */
-  interceptThresholdDelta: number;
-
-  /** 断球概率倍率，乘在 `(defRatio - 阈值) × interceptSlope` 上。 */
   interceptChance: number;
 
-  /** 反击加成倍率，乘在 `(defRatio - 阈值) × counterBonusSlope` 上。 */
+  /** 反击加成倍率，乘在 `(defRatio - 1) × counterBonusSlope` 上。 */
   counterBonus: number;
 
   /**
@@ -86,7 +86,6 @@ export interface StyleModifiers {
 export const NEUTRAL_STYLE: StyleModifiers = {
   pushPower: 1,
   possessionControl: 1,
-  interceptThresholdDelta: 0,
   interceptChance: 1,
   counterBonus: 1,
   foulRate: 1,

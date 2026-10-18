@@ -189,6 +189,34 @@ export const DUEL_PROFILES = {
     anchorRatio: 1.5,
     anchorProbability: 0.6,
   },
+  /**
+   * 中场断球（拦截）：防守方在推进阶段直接断下球权并立刻反击。
+   *
+   * 2026-10-18 之前这里没有曲线，用的是一段以 1.3 为起点的分段线性：
+   * `chance = min(0.25, (defRatio - 1.3) × 0.1)`。问题是**均势时
+   * defRatio 只有 0.9 左右**，整场都进不了那一段，断球反击于是成了
+   * 只存在于代码里的事件（实测 0.04 次/场）。而且分段线性有个硬拐点：
+   * 比值从 1.29 到 1.30 时概率从 0 跳到 0，再从 1.30 起突然线性增长。
+   *
+   * 改成曲线后：
+   *   比值 1.00（均势）        10.0%
+   *   比值 1.20                 10.4%
+   *   比值 1.50（14 vs 10）     20.0%
+   *   比值 2.00（18 vs 9）      25%（受 MAX_INTERCEPT_CHANCE 封顶）
+   *
+   * baseline 0.10 是用户 2026-10-18 定的「均势时长这样」的值：
+   * 每队每场约 7 次推进，10% 基线约等于 1.4 次断球/场 —— 一场看到
+   * 一两次「后腰断球直接打反击」是合理的，再多推进阶段就失去意义。
+   *
+   * amplification 1.4 略低于 push 的 1.5：拦截是**被动**判定（防守方
+   * 强才发生），不该像主动推进那样陡。
+   */
+  intercept: {
+    amplification: 1.4,
+    baseline: 0.1,
+    anchorRatio: 1.5,
+    anchorProbability: 0.2,
+  },
   /** 角球：baseline 0.10 → 0.20（用户 2026-08-05 决定）。 */
   corner: {
     amplification: 2.0,
@@ -2792,78 +2820,86 @@ export class MatchEngine {
       // 反击机制：当防守强度远高于进攻时，增加断球概率和反击加成
       // ==========================================
       // 风格修正：拦截窗口是**防守方**的能力，所以读 defendingTeam 的
-      // 风格（默认 threshold 1.3 / slope 0.1 / chance ×1 / bonus ×1）。
-      // 见 engine/style.ts 关于「为什么阈值是最有效的风格杠杆」的说明。
+      // 风格（chance ×1 / bonus ×1 为默认）。见 engine/style.ts。
       const defStyle = this.defendingTeam.style;
-      const DEF_THRESHOLD = 1.3 + defStyle.interceptThresholdDelta; // defRatio 阈值
       const MAX_INTERCEPT_CHANCE = 0.25; // 最高25%断球率
       const MAX_COUNTER_BONUS = 0.3; // 最高30%反击加成
 
       interceptTriggered = false;
       const defRatio = effectiveDefPower / effectiveAttPower;
 
-      if (defRatio > DEF_THRESHOLD) {
-        // 计算断球机会（防守远强于进攻时，有概率直接断球打反击）
-        const interceptChance = Math.min(
-          MAX_INTERCEPT_CHANCE,
-          (defRatio - DEF_THRESHOLD) * 0.1 * defStyle.interceptChance,
+      // 断球概率走和 push / midfield / 射门同一条 `duelProbability` 曲线。
+      //
+      // 历史：这里曾是「比值越过 1.3 才开始有概率」的分段线性
+      // `min(0.25, (defRatio - 1.3) × 0.1)`。但均势时 defRatio 只有 0.9
+      // 左右，整场都进不去那一段 —— 断球反击等于不存在（实测 0.04 次/场）。
+      // 曲线版在均势就有 baseline 0.10 的平局基线，差值越大越快上升，
+      // 且没有硬拐点。参数与理由见 DUEL_PROFILES.intercept。
+      const interceptChance = Math.min(
+        MAX_INTERCEPT_CHANCE,
+        duelProbability(
+          effectiveDefPower,
+          effectiveAttPower,
+          DUEL_PROFILES.intercept,
+        ) * defStyle.interceptChance,
+      );
+
+      if (Math.random() < interceptChance) {
+        // 直接断球，防守方获得球权并发动反击
+        interceptTriggered = true;
+
+        // 先保存原始进攻方用于反击加成计算
+        const originalAttackingTeam = this.possessionTeam;
+
+        // 角色互换： possessionTeam 变成 defendingTeam，defendingTeam 变成 possessionTeam
+        const temp = this.possessionTeam;
+        this.possessionTeam = this.defendingTeam;
+        this.defendingTeam = temp;
+
+        // 重新计算新进攻方的effectiveAttPower（换了队）
+        const newAttPower = this.possessionTeam.calculateLaneStrength(
+          this.currentLane,
+          'attack',
         );
+        const newDefConfig = this.getTacticsForTeam(this.defendingTeam);
+        const newAttDefConfig = this.getTacticsForTeam(this.possessionTeam);
+        const newAttDefMult =
+          DEFENSIVE_LINE_MODIFIERS[newAttDefConfig.defensiveLine].attackMult;
+        const newDefDefMult =
+          DEFENSIVE_LINE_MODIFIERS[newDefConfig.defensiveLine].defenseMult;
 
-        if (Math.random() < interceptChance) {
-          // 直接断球，防守方获得球权并发动反击
-          interceptTriggered = true;
-
-          // 先保存原始进攻方用于反击加成计算
-          const originalAttackingTeam = this.possessionTeam;
-
-          // 角色互换： possessionTeam 变成 defendingTeam，defendingTeam 变成 possessionTeam
-          const temp = this.possessionTeam;
-          this.possessionTeam = this.defendingTeam;
-          this.defendingTeam = temp;
-
-          // 重新计算新进攻方的effectiveAttPower（换了队）
-          const newAttPower = this.possessionTeam.calculateLaneStrength(
+        effectiveAttPower = newAttPower * newAttDefMult;
+        // 换队之后 possessionTeam 已经是原来的防守方，加上它自己的
+        // 推进力风格倍率（反击打法通常 > 1）。
+        effectiveAttPower *= this.possessionTeam.style.pushPower;
+        const newDefPower =
+          this.defendingTeam.calculateLaneStrength(
             this.currentLane,
-            'attack',
-          );
-          const newDefConfig = this.getTacticsForTeam(this.defendingTeam);
-          const newAttDefConfig = this.getTacticsForTeam(this.possessionTeam);
-          const newAttDefMult =
-            DEFENSIVE_LINE_MODIFIERS[newAttDefConfig.defensiveLine].attackMult;
-          const newDefDefMult =
-            DEFENSIVE_LINE_MODIFIERS[newDefConfig.defensiveLine].defenseMult;
+            'defense',
+          ) * newDefDefMult;
 
-          effectiveAttPower = newAttPower * newAttDefMult;
-          // 换队之后 possessionTeam 已经是原来的防守方，加上它自己的
-          // 推进力风格倍率（反击打法通常 > 1）。
-          effectiveAttPower *= this.possessionTeam.style.pushPower;
-          const newDefPower =
-            this.defendingTeam.calculateLaneStrength(
-              this.currentLane,
-              'defense',
-            ) * newDefDefMult;
+        // 反击加成，受tempo counterVulnerability影响
+        // 快节奏队反击更危险（counterVulnerability低→反击加成高）
+        // 基准从「超过阈值」改成「超过均势」：断球本身已经不再需要
+        // 越过阈值，反击强度就直接按 高于均势多少 计，均势时归零。
+        const counterVuln =
+          TEMPO_MODIFIERS[
+            (originalAttackingTeam === this.homeTeam
+              ? this.awayTactics
+              : this.homeTactics
+            ).tempo
+          ].counterVulnerability;
+        const counterBonus = Math.min(
+          MAX_COUNTER_BONUS,
+          Math.max(0, defRatio - 1) *
+            0.15 *
+            (1 / counterVuln) *
+            defStyle.counterBonus,
+        );
+        effectiveAttPower *= 1 + counterBonus;
 
-          // 反击加成，受tempo counterVulnerability影响
-          // 快节奏队反击更危险（counterVulnerability低→反击加成高）
-          const counterVuln =
-            TEMPO_MODIFIERS[
-              (originalAttackingTeam === this.homeTeam
-                ? this.awayTactics
-                : this.homeTactics
-              ).tempo
-            ].counterVulnerability;
-          const counterBonus = Math.min(
-            MAX_COUNTER_BONUS,
-            (defRatio - DEF_THRESHOLD) *
-              0.15 *
-              (1 / counterVuln) *
-              defStyle.counterBonus,
-          );
-          effectiveAttPower *= 1 + counterBonus;
-
-          // 拦截成功后直接射门（不需要再走推进流程）
-          pushSuccess = true;
-        }
+        // 拦截成功后直接射门（不需要再走推进流程）
+        pushSuccess = true;
       }
 
       // v2.7: SPEEDSTER counter-attack boost no longer reads

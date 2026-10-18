@@ -49,13 +49,14 @@ describe('duel profiles — 斜率方向不变量', () => {
     ...shotProfiles,
   ];
 
-  it('参数表覆盖了全部 11 个对决调用点（6 个 DUEL_PROFILES + 5 种射门）', () => {
+  it('参数表覆盖了全部 12 个对决调用点（7 个 DUEL_PROFILES + 5 种射门）', () => {
     // 故意写死数量：以后新增一个调用点必须同时更新这里，避免新参数
     // 悄悄绕过下面的方向性断言。
     expect(Object.keys(DUEL_PROFILES).sort()).toEqual([
       'corner',
       'directFreeKick',
       'indirectFreeKick',
+      'intercept',
       'midfield',
       'penalty',
       'push',
@@ -67,7 +68,7 @@ describe('duel profiles — 斜率方向不变量', () => {
       'shot:ONE_ON_ONE',
       'shot:REBOUND',
     ]);
-    expect(profiles).toHaveLength(11);
+    expect(profiles).toHaveLength(12);
   });
 
   it('每个参数都满足 anchorProbability > baseline', () => {
@@ -114,8 +115,12 @@ describe('duel profiles — 斜率方向不变量', () => {
   it('锚点必须落在各自比值域附近，否则强弱差在域内兑现不出来', () => {
     // 每个调用点的真实比值域（from debug-strength-gap 的静态核算）
     const domains: Record<string, [number, number]> = {
-      push: [0.92, 2.70],
+      push: [0.92, 2.7],
       midfield: [0.86, 1.93],
+      // 拦截的比值域和 push 是同一个（它用的就是攻击/防守通道强度），
+      // 但域中点落在 1.53 附近而不是 1.57：拦截只需要在 1.4-1.6 就有
+      // 明显反应，所以锚点 1.5 正好压在域中间。
+      intercept: [0.9, 2.6],
     };
 
     const flat: string[] = [];
@@ -143,11 +148,7 @@ describe('duel profiles — 斜率方向不变量', () => {
         // 未必相同（2026-10-16 把 push 收到 1.5，因为真实推进比值域
         // 根本到不了 2.0，锚点落在曲线平坦区时强弱差几乎兑现不出来）。
         const parity = duelProbability(100, 100, options);
-        const anchor = duelProbability(
-          100 * options.anchorRatio,
-          100,
-          options,
-        );
+        const anchor = duelProbability(100 * options.anchorRatio, 100, options);
         const ok =
           Math.abs(parity - options.baseline) < 1e-9 &&
           Math.abs(anchor - options.anchorProbability) < 1e-9;
