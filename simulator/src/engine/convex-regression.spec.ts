@@ -22,6 +22,28 @@ import { duelProbability } from './duel';
 
 const N = 200;
 
+/**
+ * 固定随机种子。
+ *
+ * 这个文件断言的是「两边胜率差在某个范围内」，而 N=200 时单侧胜率 1σ ≈ 3.5pp、
+ * 差值 1σ ≈ 5pp——阈值放松到 0.3 之后仍然会偶尔越界（实测十次里有 1-2 次，
+ * 一次全量跑挂在这里就是因为纯随机）。种子固定后每次跑的都是同一批 200 场，
+ * 断言从「大概率成立」变成「确定成立」，只有引擎行为真的变了才会红。
+ */
+let rngState = 20261018;
+const nativeRandom = Math.random;
+
+beforeAll(() => {
+  Math.random = () => {
+    rngState = (Math.imul(rngState, 1664525) + 1013904223) >>> 0;
+    return rngState / 4294967296;
+  };
+});
+
+afterAll(() => {
+  Math.random = nativeRandom;
+});
+
 function createMockPlayer(
   id: number,
   name: string,

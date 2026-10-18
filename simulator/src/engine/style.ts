@@ -22,6 +22,29 @@
  * 被同一个标定流程（`debug-style-calibration.spec.ts`）扫描，从而把
  * 「小克 / 大克」定义成目标胜率差而不是拍脑袋的倍率。
  */
+/** 阶段名，与 `Team.updateSnapshot` 的三条通道一致。 */
+export type StylePhase = 'attack' | 'defense' | 'possession';
+/** 球场三路，与 `Lane` 一致（这里不 import 是为了让 style.ts 零依赖）。 */
+export type StyleLane = 'left' | 'center' | 'right';
+
+/**
+ * 分路 × 分阶段的贡献倍率（9 个数）。
+ *
+ * 这是「战术在球场的哪块地盘更强」的唯一载体。不加它就只能全队一个倍率，
+ * 那五种战术就都变成「整体调高 / 调低」，既说不清形状，也会互相覆盖。
+ *
+ * **加权平均必须等于 1.00**（权重是引擎实际的 29/42/29 分路比例）：
+ * 也就是「只在某条路加强、在其余路等量削弱」。这样战术改变的是强弱分布，
+ * 不是整体强度，数值不会累积。
+ *
+ * 不用它去改**球路偏好**：如果能决定「这一球走哪条路」，最优解就是把球
+ * 全塞进自己加成最高的那条，五战术退化成五种堆单路的固定套路，且对手
+ * 无法反制。中路分配保持中性的 29/42/29。
+ */
+export type LanePhaseMultipliers = Partial<
+  Record<StyleLane, Partial<Record<StylePhase, number>>>
+>;
+
 export interface StyleModifiers {
   /**
    * 进攻推进力倍率。乘在 `effectiveAttPower` 上（推进入口那一步）。
@@ -80,6 +103,12 @@ export interface StyleModifiers {
 
   /** 体能衰减倍率。> 1 更耗体能（高压打法的代价）。 */
   fitnessDecay: number;
+
+  /**
+   * 分路 × 分阶段的贡献倍率，见 `LanePhaseMultipliers`。
+   * 缺省 = 不改（9 条通道全部按 1.0 处理）。
+   */
+  lanePhaseMultipliers?: LanePhaseMultipliers;
 }
 
 /** 全中性风格：不挂风格时的引擎行为。 */

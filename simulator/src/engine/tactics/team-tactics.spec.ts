@@ -11,7 +11,7 @@ import { Team } from '../classes/Team';
 import { MatchEngine } from '../match.engine';
 import { NEUTRAL_STYLE } from '../style';
 import { DefensiveLine, PitchWidth, Tempo } from '../types/tactics-config';
-import { resolveTeamTacticStyle } from './team-tactics';
+import { resolveTeamTacticStyle, TEAM_TACTIC_STYLES } from './team-tactics';
 
 /**
  * 球队战术的两半：`@goalxi/database` 里的**要求表**、`./team-tactics` 里的
@@ -213,7 +213,12 @@ describe('team tactics — 要求表与效果表', () => {
       },
     );
 
-    expect(engine.homeTeam.style.possessionControl).toBeCloseTo(1.12, 10);
+    const expected =
+      TEAM_TACTIC_STYLES[TeamTacticCode.POSSESSION]!.lanePhaseMultipliers!;
+    expect(engine.homeTeam.style.lanePhaseMultipliers.center.possession).toBeCloseTo(
+      expected.center.possession,
+      10,
+    );
     expect(engine.awayTeam.style).toEqual(NEUTRAL_STYLE);
   });
 });

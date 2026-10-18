@@ -226,6 +226,24 @@ export class Team {
       laneStrengths[lane].possession *= widthMults[lane];
     }
 
+    // 球队战术：分路 × 分阶段的贡献倍率（缺省不改 ⇒ 逐位不变）。
+    // 放在宽度修正之后：宽度描述「球场被拉宽还是收窄」，战术描述「这套
+    // 打法在哪条路更强」，两者都是球队级乘数，直接相乘即可。加权平均
+    // 必须等于 1.00（见 style.ts 的 §LanePhaseMultipliers），所以这里
+    // 不需要再做归一化 —— 归一化是战术表自己保证的。
+    const lanePhase = this.style.lanePhaseMultipliers;
+    if (lanePhase) {
+      for (const lane of lanes) {
+        const m = lanePhase[lane];
+        if (!m) continue;
+        if (m.attack !== undefined) laneStrengths[lane].attack *= m.attack;
+        if (m.defense !== undefined) laneStrengths[lane].defense *= m.defense;
+        if (m.possession !== undefined) {
+          laneStrengths[lane].possession *= m.possession;
+        }
+      }
+    }
+
     // v2 SWEEPER_KEEPER aura — boosts the whole team's defense lane
     // strength. Strength-class team multiplier — every SWEEPER_KEEPER
     // on the pitch contributes multiplicatively, capped at 1.20
