@@ -3,14 +3,14 @@ order: 28
 slug: team-tactics
 title: Match: Team Tactics
 status: full
-lastUpdated: 2026-10-18
+lastUpdated: 2026-10-19
 relatedChapters: [5, 15, 16]
 relatedEntries: []
 ---
 
 # Match: Team Tactics
 
-Chapter 15 covers the two dimensions (pitch width / defensive line). This chapter covers **team tactics** — a separate choice: **pick 1 of 5, or pick none.**
+Chapter 15 covers the two dimensions (pitch width / defensive line). This chapter covers **team tactics** — a separate choice: **pick 1 of 5, or stay on Standard.**
 
 Team tactics and the two dimensions are two different layers, and they stack:
 
@@ -29,13 +29,15 @@ Team tactics and the two dimensions are two different layers, and they stack:
 | **Central** | DM ×1 + Midfield ×2 + Central AM ×1 | The most through balls, almost no crosses | Break through the middle |
 | **Wings** | Wide ×2 + Full-back ×2 | The most crosses, the fewest through balls | Stretch them to the flanks |
 
-> **Not choosing is also a choice.** No team tactic means the engine's balanced default. If you cannot field the 4 slots a tactic needs, that is the only option (see section 2).
+> **Standard is also a choice.** No team tactic means the engine's balanced default.
+>
+> If you cannot field the 4 slots a tactic needs, **you can still select it** — the editor will say right under the card how many of which slots are missing, and the submit button is what refuses. So there is no fixed order: you can move between the lineup tab and the tactics tab as often as you like.
 
 ---
 
 ## 2. The gate is hard
 
-**A tactic needs 4 of your 11 on-pitch slots to fall inside the specified families.** It is not "more is better" — it is **all-or-nothing**. Meet it and the tactic applies; miss it and you cannot pick the tactic at all.
+**A tactic needs 4 of your 11 on-pitch slots to fall inside the specified families.** It is not "more is better" — it is **all-or-nothing**. Meet it and the tactic applies; selecting costs nothing, but a lineup that misses it **cannot be submitted** — the editor says how many of which slots are missing.
 
 Families are counted by **slot**, not by the player's natural position:
 
@@ -57,7 +59,7 @@ Families are counted by **slot**, not by the player's natural position:
 - **"Central AM or Wide" is a union.** The 2 slots High Press needs can both be AM, both be wide, or one of each.
 - You field a **slot**, not a player. Move a CM out to LW and that slot counts as Wide, not Midfield.
 
-**What if you cannot field it?** One answer: choose no tactic. The game will not quietly downgrade the tactic, and partial requirements do nothing.
+**What if you cannot field it?** Select it anyway if you like — submission is what gets blocked, and the card tells you how many of which slots are missing. The game will not quietly downgrade the tactic, and partial requirements do nothing: either fill the slots or go back to Standard.
 
 ---
 
@@ -78,7 +80,7 @@ Families are counted by **slot**, not by the player's natural position:
 - **How it plays:** noticeably more fouls; the whole team pushes up a notch, so attack and possession are both slightly better and the press wins the ball more often.
 - **In the match:** this is "trade fouls for the ball". You will break up play more often than your opponent does.
 - **Good fit:** mobile front players plus one centre-back who can step out (4-2-3-1 / 4-3-3).
-- **The cost:** more fouls means more free kicks conceded and more cards. On average it is also **slightly worse than no tactic at all** — the fouls cost more than the press buys back. You pick it for the way it plays, not because it is stronger.
+- **The cost:** more fouls means more free kicks conceded and more cards. On average it is also **slightly worse than Standard** — the fouls cost more than the press buys back. You pick it for the way it plays, not because it is stronger.
 - **Strength:** attack and possession are slightly higher in all three lanes, defence slightly lower — the whole team steps up and leaves space behind.
 
 ### Counter

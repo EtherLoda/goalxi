@@ -1,7 +1,7 @@
 'use client';
 
 /**
- * TeamTacticPicker.tsx — the five tactics plus "no tactic".
+ * TeamTacticPicker.tsx — the five tactics plus the default.
  *
  * Anyone can SELECT any tactic. The lineup gate is a submission gate, not a
  * selection gate: refusing the click meant the player had to work out for
@@ -10,11 +10,12 @@
  * the card can be chosen in any state, the shortfall is reported under the
  * grid, and the submit button is what refuses — with the same sentence.
  *
- * The slot requirement is on hover/focus instead of printed on every card.
- * Five lines of `CM×3 AM/W×1` at rest drowned the five names, which are the
- * thing being compared; the requirement only matters once the pointer is on a
- * card. The selected card shows its own requirement permanently, because a
- * touch device has no hover and the selection is exactly what needs checking.
+ * A card is an icon and a name. Printing `CM×3 AM/W×1` on every card turned
+ * six decisions into five lines of slot arithmetic that the player had to parse
+ * before they could compare names; the requirement is a consequence of the
+ * choice, not the choice. It still reaches the player three other ways: the
+ * native tooltip on the card, the tally row underneath, and the shortfall line
+ * once the tactic is selected.
  */
 import { useTranslations } from 'next-intl';
 import { AppIcon } from '@/components/icons/AppIcon';
@@ -26,6 +27,7 @@ import {
 } from '../types';
 import { checkTactic, tallyFamilies } from './requirement';
 import { LineupFamilyTally } from './LineupFamilyTally';
+import { TacticIcon } from './tactic-icon';
 import type { TeamTacticsTable } from './use-team-tactics';
 
 export interface TeamTacticPickerProps {
@@ -70,14 +72,7 @@ export function TeamTacticPicker({
     }
   }
 
-  if (isLoading) {
-    return <p className="text-label text-on-surface-variant/75">{t('loading')}</p>;
-  }
-  if (error) {
-    return <p className="text-label text-tertiary">{t('unavailable')}</p>;
-  }
-
-  /** "CM×3 AM/W×1" — the slot requirement, shown on hover and while selected. */
+  /** "CM×3 AM/W×1" — tooltip only now. */
   const requirementText = (code: string): string => {
     const definition = table?.tactics.find((d) => d.code === code);
     if (!definition) return '';
@@ -85,6 +80,13 @@ export function TeamTacticPicker({
       .map((r) => `${r.families.join('/')}×${r.count}`)
       .join('  ');
   };
+
+  if (isLoading) {
+    return <p className="text-label text-on-surface-variant/75">{t('loading')}</p>;
+  }
+  if (error) {
+    return <p className="text-label text-tertiary">{t('unavailable')}</p>;
+  }
 
   return (
     <div className="flex flex-col gap-3">
@@ -96,30 +98,29 @@ export function TeamTacticPicker({
         className="grid grid-cols-2 gap-2 sm:grid-cols-3"
       >
         <TacticCard
+          code={null}
           label={t('none')}
-          requirement="—"
+          hint={t('noneHint')}
           isActive={value === null}
           isUnmet={false}
           disabled={disabled}
           onClick={() => onChange(null)}
           testId="team-tactic-none"
         />
-        {TEAM_TACTIC_CODES.map((code) => {
-          const reason = unmet.get(code);
-          return (
-            <TacticCard
-              key={code}
-              label={t(`codes.${code}`)}
-              requirement={requirementText(code)}
-              isActive={value === code}
-              isUnmet={Boolean(reason)}
-              unmetLabel={reason}
-              disabled={disabled}
-              onClick={() => onChange(code)}
-              testId={`team-tactic-${code}`}
-            />
-          );
-        })}
+        {TEAM_TACTIC_CODES.map((code) => (
+          <TacticCard
+            key={code}
+            code={code}
+            label={t(`codes.${code}`)}
+            hint={requirementText(code)}
+            unmetLabel={unmet.get(code)}
+            isActive={value === code}
+            isUnmet={unmet.has(code)}
+            disabled={disabled}
+            onClick={() => onChange(code)}
+            testId={`team-tactic-${code}`}
+          />
+        ))}
       </div>
 
       {tally && table ? (
@@ -151,29 +152,30 @@ export function TeamTacticPicker({
 }
 
 interface TacticCardProps {
+  code: TeamTacticCodeValue | null;
   label: string;
-  requirement: string;
+  /** Tooltip text: the slot requirement, or the neutral note for the default. */
+  hint: string;
+  unmetLabel?: string;
   isActive: boolean;
   isUnmet: boolean;
-  unmetLabel?: string;
   disabled: boolean;
   onClick: () => void;
   testId: string;
 }
 
 function TacticCard({
+  code,
   label,
-  requirement,
+  hint,
+  unmetLabel,
   isActive,
   isUnmet,
-  unmetLabel,
   disabled,
   onClick,
   testId,
 }: TacticCardProps) {
-  // One dot slot in the corner: the shortfall outranks the selection, because
-  // "this is what you picked" is already legible from the card's fill.
-  const dot = isUnmet ? 'bg-tertiary' : isActive ? 'bg-primary' : null;
+  const title = [hint, unmetLabel].filter(Boolean).join(' · ') || undefined;
 
   return (
     <button
@@ -181,11 +183,11 @@ function TacticCard({
       role="radio"
       aria-checked={isActive}
       aria-disabled={disabled}
-      title={unmetLabel ?? undefined}
+      title={title}
       onClick={() => !disabled && onClick()}
       data-testid={testId}
       className={[
-        'group relative flex flex-col items-start rounded-lg border px-3 py-2.5 text-left',
+        'group flex items-center gap-2 rounded-lg border px-3 py-2.5 text-left',
         'transition-[border-color,background-color,box-shadow,transform] duration-quick',
         'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60',
         isActive
@@ -199,25 +201,15 @@ function TacticCard({
         .filter(Boolean)
         .join(' ')}
     >
-      <span className="flex w-full items-start justify-between gap-2">
-        <span className="font-headline text-body font-bold leading-tight">{label}</span>
-        {dot ? (
-          <span aria-hidden className={`mt-1 h-1.5 w-1.5 shrink-0 rounded-full ${dot}`} />
-        ) : null}
-      </span>
-
-      {/* Reserved height, not conditional rendering: hiding the line would make
-          every card change height on hover and shove its neighbours. */}
-      <span
-        className={[
-          'mt-1 block w-full truncate font-label text-kicker uppercase tracking-[0.12em] tabular-nums',
-          'transition-[opacity,color] duration-quick',
-          isUnmet ? 'text-tertiary' : isActive ? 'text-primary/85' : 'text-on-surface-variant/70',
-          isActive ? 'opacity-100' : 'opacity-0 group-hover:opacity-100 group-focus-visible:opacity-100',
-        ].join(' ')}
-      >
-        {requirement || '—'}
-      </span>
+      {/* The icon carries the tactical shape; gold overrides green because a
+          shortfall is the one thing the player must act on. */}
+      <TacticIcon
+        code={code}
+        className={
+          isUnmet ? 'text-tertiary' : isActive ? 'text-primary' : 'text-on-surface-variant/70'
+        }
+      />
+      <span className="font-headline text-body font-bold leading-tight">{label}</span>
     </button>
   );
 }

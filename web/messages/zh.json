@@ -1412,8 +1412,8 @@
     },
     "teamTactic": {
       "title": "球队战术",
-      "none": "不选战术",
-      "noneHint": "不选也能提交 —— 引擎按中性处理。",
+      "none": "常规",
+      "noneHint": "不做特殊安排 —— 引擎按中性处理,可以直接提交。",
       "satisfied": "阵容满足要求",
       "missing": "缺 {need} 个 {families}",
       "loading": "加载战术要求…",

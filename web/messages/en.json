@@ -1415,8 +1415,8 @@
     },
     "teamTactic": {
       "title": "Team tactic",
-      "none": "No tactic",
-      "noneHint": "Skipping is a real choice — the engine stays neutral.",
+      "none": "Standard",
+      "noneHint": "No special instruction — the engine treats this as neutral, and you can submit as-is.",
       "satisfied": "Lineup qualifies",
       "missing": "Needs {need} more {families}",
       "loading": "Loading requirements…",

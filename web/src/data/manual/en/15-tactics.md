@@ -133,7 +133,7 @@ The dials you have are width, defensive line, and a [team tactic](28-team-tactic
 
 ### 1. Balanced / generic (default)
 
-**balanced / mid**, no team tactic — nothing special, works most of the time.
+**balanced / mid**, team tactic on Standard — nothing special, works most of the time.
 
 ### 2. Attack the flanks (strong vs weak)
 
