@@ -1376,7 +1376,8 @@
       "eventPlayerMissing": "第 {minute} 分钟调整中的球员不在场上",
       "moveToSamePosition": "不能将球员移至其当前所在位置",
       "tooManySubs": "主动换人每场最多 {max} 人 (当前已排 {count} 次);伤病换人不占名额",
-      "teamTacticUnmet": "球队战术的阵容要求未满足: {detail}"
+      "teamTacticUnmet": "球队战术的阵容要求未满足: {detail}",
+      "tooManyMoves": "最多只能安排 {max} 次位置移动（当前 {count} 次）"
     },
     "position": {
       "GK": "门将",

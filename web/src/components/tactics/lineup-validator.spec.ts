@@ -10,7 +10,7 @@ import {
   type ValidatorPlayer,
   type ValidationContext,
 } from './lineup-validator';
-import { createEmptyDraft, type TacticsDraft } from './types';
+import { createEmptyDraft, MAX_POSITION_MOVES, type TacticalEvent, type TacticsDraft, type PositionKey } from './types';
 
 // ============================================================================
 // Fixtures — numeric player ids (post-UUID-removal)
@@ -520,6 +520,46 @@ describe('validateLineup — team tactic gate', () => {
     // make the editor unusable while the table request is in flight.
     const result = validateLineup(baseCtx({ draft, tacticGate: null }));
     expect(result.errors.filter((e) => e.key === 'teamTacticUnmet')).toEqual([]);
+  });
+});
+
+// ============================================================================
+// Position-move transport cap
+// ============================================================================
+
+describe('validateLineup — position-move cap', () => {
+  const moves = (count: number): TacticalEvent[] =>
+    Array.from({ length: count }, (_, i) => ({
+      kind: 'move' as const,
+      minute: 1 + (i % 90),
+      playerId: OUT_IDS.bob,
+      // Alternate between two slots so every single move is legal on its own;
+      // the only thing under test is the count.
+      toSlot: (i % 2 === 0 ? 'CB' : 'CBL') as PositionKey,
+    }));
+
+  it('accepts exactly the cap', () => {
+    const draft: TacticsDraft = {
+      ...createEmptyDraft(),
+      lineup: validLineup(),
+      events: moves(MAX_POSITION_MOVES),
+    };
+    const result = validateLineup(baseCtx({ draft }));
+    expect(result.errors.filter((e) => e.key === 'tooManyMoves')).toEqual([]);
+  });
+
+  it('flags one more than the cap', () => {
+    const draft: TacticsDraft = {
+      ...createEmptyDraft(),
+      lineup: validLineup(),
+      events: moves(MAX_POSITION_MOVES + 1),
+    };
+    const result = validateLineup(baseCtx({ draft }));
+    expect(result.isValid).toBe(false);
+    expect(result.errors).toContainEqual({
+      key: 'tooManyMoves',
+      params: { max: MAX_POSITION_MOVES, count: MAX_POSITION_MOVES + 1 },
+    });
   });
 });
 

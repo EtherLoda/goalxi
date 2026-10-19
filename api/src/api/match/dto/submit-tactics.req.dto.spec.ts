@@ -1,4 +1,5 @@
 import { ValidationPipe } from '@nestjs/common';
+import { MAX_POSITION_MOVES } from './move-instruction.dto';
 import { SubmitTacticsReqDto } from './submit-tactics.req.dto';
 
 /**
@@ -80,9 +81,6 @@ describe('SubmitTacticsReqDto — trigger conditions survive the validation pipe
   });
 
   it('keeps the condition on a move instruction', async () => {
-    // `instructions` is a plain Record with `@IsObject()` and no nested
-    // DTO, so class-validator has no class to whitelist against and the
-    // whole object passes through untouched.
     const out = await run({
       ...base,
       instructions: {
@@ -92,9 +90,7 @@ describe('SubmitTacticsReqDto — trigger conditions survive the validation pipe
       },
     });
 
-    const moves = (out.instructions as { moves: Array<{ condition?: string }> })
-      .moves;
-    expect(moves[0].condition).toBe('trailing');
+    expect(out.instructions?.moves?.[0].condition).toBe('trailing');
   });
 
   it('leaves the condition off when the editor did not send one', async () => {
@@ -124,5 +120,110 @@ describe('SubmitTacticsReqDto — trigger conditions survive the validation pipe
     });
 
     expect(out).not.toHaveProperty('bogusField');
+  });
+});
+
+/**
+ * Moves used to be an opaque `Record<string, any>`, so `position` was
+ * never checked: a typo sailed through the pipe, was stored, and then
+ * folded to "no position" by `SLOT_KEY_NORMALIZER` in the simulator —
+ * the player stood nowhere, contributed nothing to any lane, and the
+ * manager had no way to see it. These cases pin the three fields that
+ * make a move placeable.
+ */
+describe('SubmitTacticsReqDto — a position move is validated, not just stored', () => {
+  const pipe = new ValidationPipe({ transform: true, whitelist: true });
+
+  const base = {
+    formation: '4-4-2',
+    lineup: { GK: 1001, CBL: 1002, CB: 1003, CBR: 1004, CF: 1011 },
+    teamId: '8f0d3b2e-4a51-4c8b-9f36-0d5a7c1e2b44',
+  };
+
+  const run = async (payload: unknown): Promise<SubmitTacticsReqDto> =>
+    (await pipe.transform(payload, {
+      type: 'body',
+      metatype: SubmitTacticsReqDto,
+    })) as SubmitTacticsReqDto;
+
+  const move = (overrides: Record<string, unknown> = {}) => ({
+    minute: 60,
+    player: 1008,
+    position: 'CAM',
+    ...overrides,
+  });
+
+  it('keeps a well-formed move and coerces its numbers', async () => {
+    const out = await run({
+      ...base,
+      instructions: { moves: [move()] },
+    });
+
+    expect(out.instructions?.moves?.[0]).toMatchObject({
+      minute: 60,
+      player: 1008,
+      position: 'CAM',
+    });
+  });
+
+  it('accepts a legacy slot alias, because the engine folds those too', async () => {
+    const out = await run({
+      ...base,
+      instructions: { moves: [move({ position: 'ST' })] },
+    });
+
+    expect(out.instructions?.moves?.[0].position).toBe('ST');
+  });
+
+  it('rejects a position the engine cannot place anyone in', async () => {
+    await expect(
+      run({ ...base, instructions: { moves: [move({ position: 'CBX' })] } }),
+    ).rejects.toBeInstanceOf(Error);
+  });
+
+  it('rejects a bench key as a move target', async () => {
+    await expect(
+      run({
+        ...base,
+        instructions: { moves: [move({ position: 'BENCH_CB' })] },
+      }),
+    ).rejects.toBeInstanceOf(Error);
+  });
+
+  it('rejects a minute outside the match', async () => {
+    await expect(
+      run({ ...base, instructions: { moves: [move({ minute: 0 })] } }),
+    ).rejects.toBeInstanceOf(Error);
+    await expect(
+      run({ ...base, instructions: { moves: [move({ minute: 121 })] } }),
+    ).rejects.toBeInstanceOf(Error);
+  });
+
+  it('rejects a move without a position', async () => {
+    await expect(
+      run({
+        ...base,
+        instructions: { moves: [{ minute: 60, player: 1008 }] },
+      }),
+    ).rejects.toBeInstanceOf(Error);
+  });
+
+  it('caps the number of queued moves', async () => {
+    const many = Array.from({ length: MAX_POSITION_MOVES + 1 }, (_, i) =>
+      move({ minute: 1 + i, player: 1000 + i }),
+    );
+
+    await expect(
+      run({ ...base, instructions: { moves: many } }),
+    ).rejects.toBeInstanceOf(Error);
+  });
+
+  it('strips an undeclared field inside a move', async () => {
+    const out = await run({
+      ...base,
+      instructions: { moves: [move({ secret: 'nope' })] },
+    });
+
+    expect(out.instructions?.moves?.[0]).not.toHaveProperty('secret');
   });
 });

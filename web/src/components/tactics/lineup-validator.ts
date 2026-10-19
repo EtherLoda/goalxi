@@ -8,6 +8,7 @@
 import {
   ALL_POSITION_KEY_SET,
   BENCH_SLOT_SET,
+  MAX_POSITION_MOVES,
   MAX_VOLUNTARY_SUBSTITUTIONS,
   PITCH_SLOTS,
   type BenchSlot,
@@ -202,6 +203,18 @@ export function validateLineup(ctx: ValidationContext): ValidationResult {
     errors.push({
       key: 'tooManySubs',
       params: { max: MAX_VOLUNTARY_SUBSTITUTIONS, count: subCount },
+    });
+  }
+
+  // -- 11b. Position moves: transport cap (mirrors the API DTO).
+  // Moves are free, so this is not a game rule — it exists because the API
+  // rejects more than `MAX_POSITION_MOVES` outright, and a 422 after the whole
+  // form was sent is not a diagnosable error for the player.
+  const moveCount = draft.events.filter((e) => e.kind === 'move').length;
+  if (moveCount > MAX_POSITION_MOVES) {
+    errors.push({
+      key: 'tooManyMoves',
+      params: { max: MAX_POSITION_MOVES, count: moveCount },
     });
   }
 

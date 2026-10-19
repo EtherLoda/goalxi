@@ -368,6 +368,22 @@ export type TacticalEvent = SubstitutionEvent | MoveEvent;
  */
 export const MAX_VOLUNTARY_SUBSTITUTIONS = 3;
 
+/**
+ * Maximum number of queued position moves.
+ *
+ * Hand-mirrored from `MAX_POSITION_MOVES` in
+ * `api/src/api/match/dto/move-instruction.dto.ts` (same manual-sync convention
+ * as `MAX_VOLUNTARY_SUBSTITUTIONS`). Unlike substitutions this is not a game
+ * rule — moves are free and unlimited in fiction. The cap exists because the
+ * engine scans the instruction list at every unlock point, and 24 is already
+ * twice the number of pitch slots, far beyond any real plan.
+ *
+ * Without this rule the only feedback would be a 422 from the API after the
+ * whole form was sent, which is exactly the bug the substitution cap was added
+ * to prevent.
+ */
+export const MAX_POSITION_MOVES = 24;
+
 // ============================================================================
 // Draft State
 // ============================================================================

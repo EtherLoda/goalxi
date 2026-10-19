@@ -11,6 +11,7 @@ import {
   ValidateNested,
 } from 'class-validator';
 import { DefensiveLine, PitchWidth } from '../types/tactical-dimensions';
+import { InstructionsDto } from './move-instruction.dto';
 import { SubstitutionDto } from './substitution.dto';
 
 export class SubmitTacticsReqDto {
@@ -23,9 +24,19 @@ export class SubmitTacticsReqDto {
   @IsObject()
   lineup!: Record<string, number>;
 
+  // Position moves (free — they do not consume a substitution slot).
+  //
+  // This used to be an opaque `Record<string, any>`. Typing the real shape
+  // is what gives the three fields of a move a validator: `minute` inside
+  // 1-120, `player` an int id, `position` a slot the engine can actually
+  // place a player in. An unknown slot used to sail through and fold to
+  // "no position" in the simulator, which contributes nothing to any lane
+  // — a silent no-op the manager could never diagnose.
   @IsObject()
   @IsOptional()
-  instructions?: Record<string, any>;
+  @ValidateNested()
+  @Type(() => InstructionsDto)
+  instructions?: InstructionsDto;
 
   // Cap the queued voluntary substitutions. `MATCH_MAX_SUBSTITUTIONS` is the
   // single source of truth (also enforced by the engine, which is the

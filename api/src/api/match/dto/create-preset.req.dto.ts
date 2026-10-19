@@ -13,6 +13,7 @@ import {
   ValidateNested,
 } from 'class-validator';
 import { DefensiveLine, PitchWidth } from '../types/tactical-dimensions';
+import { InstructionsDto } from './move-instruction.dto';
 import { SubstitutionDto } from './substitution.dto';
 
 export class CreatePresetReqDto {
@@ -29,9 +30,16 @@ export class CreatePresetReqDto {
   @IsObject()
   lineup!: Record<string, number>;
 
+  // Position moves. Same shape and same validators as
+  // `SubmitTacticsReqDto.instructions` — a preset is a stored copy of a
+  // submitted lineup, so a move that is rejected on submit must not be
+  // storable either (otherwise applying the preset later would replay an
+  // instruction the engine cannot place).
   @IsObject()
   @IsOptional()
-  instructions?: Record<string, any>;
+  @ValidateNested()
+  @Type(() => InstructionsDto)
+  instructions?: InstructionsDto;
 
   // Same cap as `SubmitTacticsReqDto` — a preset that queued 4 voluntary
   // substitutions could otherwise be applied to a match, where the engine
