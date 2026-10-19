@@ -1263,7 +1263,10 @@
     },
     "pitch": {
       "title": "球场",
-      "emptySlot": "空位"
+      "emptySlot": "空位",
+      "assignTitle": "为 {slot} 选择球员",
+      "assignPlaceholder": "选择一名球员…",
+      "cancel": "取消"
     },
     "bench": {
       "title": "替补席",

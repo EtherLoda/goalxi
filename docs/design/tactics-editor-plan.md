@@ -452,6 +452,19 @@ tactics.skeleton.loading
 
 **验收**：只用键盘完成「选阵型 → 放 11 人 → 选战术 → 提交」。
 
+**状态**：✅ 已完成。
+
+**实施记录**
+
+- **放置球员的键盘替代不是「用方向键模拟拖拽」，而是一个原生 `<select>`**：在空位上按 Enter 弹出一个只有未上场球员的 `<select>`，选中即落位。理由是自己写 listbox 要处理 roving tabIndex、typeahead、滚动跟随、屏幕阅读器播报，而 `<select>` 三样全都自带；键盘用户真正缺的是「不靠指针也能把球员放上去」，不是「能用方向键搬运一张卡片」。
+- **移动已有球员走「Enter 拾起 → 方向键 → Enter 放下」**：`pickedSlot` 状态放在 `PitchField`，而不是每个槽位各存一份。方向键用 `neighbourSlot()` 找几何最近的槽位（前向距离权重 1.0、侧向 1.6，所以斜邻位永远输给正邻位），找到后**真的把 DOM 焦点移过去**——不移焦点，屏幕阅读器不会播报新位置，等于什么都没发生。
+- **一个槽位只能有一个可聚焦元素**：有球员时是 `PlayerMarker`（原本就 `role="button" tabIndex={0}`），空位时是 `PositionSlot` 的外层 `div`（动态加 `tabIndex={0} role="button" aria-label={slot}`）。两者都在 `PitchField` 的同一个 `onKeyDown` 里处理，因为 keydown 会从内层冒泡上来——否则 24 个槽位要重复 24 份按键逻辑。
+- **`role="button"` 的那次判断刻意跳过 `<button>`**：球员卡上的删除按钮是真正的 button，Enter/Space 应该由它自己处理，否则会被拾起逻辑吃掉。
+- **tabpanel 的焦点接管加了首挂载守卫**：切 tab 后把焦点移进新面板，否则键盘用户在 tab 按钮上按 Tab 会走进另一个 tab 的内容。但页面初次挂载时绝不能抢焦点（会滚动页面），所以用一个 `hasMountedRef` 跳过第一次。
+- **`role="tabpanel"` 只在桌面加**：移动端是 stepper（`<nav>` + `aria-current="step"`），不是 tablist，套上 tabpanel 会让屏幕阅读器读出一组不存在的 tab。
+- **底栏按钮的 `aria-label` 带上目标步骤名**：「上一步」在屏幕阅读器里只是一个动词，加上「上一步: 阵容」才知道会去哪。
+- **门槛读数条用 `role="status"`**：`aria-live="polite"` 之前只加在容器上，没有 role，部分屏幕阅读器不会把它当状态区。
+
 ### Phase 6 — 文档
 
 1. 手册第 16 章（替补与指令）更新界面操作描述与新的三步流程

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useTranslations } from 'next-intl';
 import { motion } from 'motion/react';
 import type { Player } from '@/lib/api';
@@ -113,6 +113,10 @@ export function EditorWorkspace(props: EditorWorkspaceProps) {
     />
   );
 
+  // Keyboard placement needs the list of players still sitting on the bench
+  // touchline — i.e. everyone not already on the pitch or the bench.
+  const availablePlayers = players.filter((p) => !assignedPlayerIds.has(p.id));
+
   const pitchColumn = (
     <div className="flex flex-col gap-3">
       {/* The pitch is `w-full aspect-[3/4]`. In the old three-column grid it
@@ -123,6 +127,7 @@ export function EditorWorkspace(props: EditorWorkspaceProps) {
         <PitchField
           lineup={lineup}
           playersById={playersById}
+          availablePlayers={availablePlayers}
           defensiveLine={defensiveLine}
           pitchWidth={pitchWidth}
           isDragging={isDragging}
@@ -258,9 +263,36 @@ export function EditorWorkspace(props: EditorWorkspaceProps) {
     );
   })();
 
+  // Moving focus into the new panel after a tab change is what makes the tab
+  // bar usable by keyboard at all: without it, focus stays on the tab button
+  // and the next Tab walks into the OTHER tab rather than the content the user
+  // just opened. Skipped on first mount — stealing focus on page load would
+  // scroll the page and is never what the user asked for.
+  const panelRef = useRef<HTMLDivElement>(null);
+  const hasMountedRef = useRef(false);
+  useEffect(() => {
+    if (!hasMountedRef.current) {
+      hasMountedRef.current = true;
+      return;
+    }
+    if (view !== 'desktop') return;
+    const first = panelRef.current?.querySelector<HTMLElement>(
+      'button:not([disabled]), a[href], input, select, textarea, [tabindex]:not([tabindex="-1"])',
+    );
+    first?.focus();
+  }, [tab, view]);
+
   return (
     <motion.div
+      ref={panelRef}
       key={`${view}-${tab}`}
+      role={view === 'desktop' ? 'tabpanel' : undefined}
+      id={view === 'desktop' ? 'editor-tabpanel' : undefined}
+      aria-labelledby={
+        view === 'desktop'
+          ? `editor-tab-${tab === 'lineup' ? 'lineup' : 'tactics'}`
+          : undefined
+      }
       initial={
         view === 'mobile'
           ? { opacity: 0, x: direction * 24 }

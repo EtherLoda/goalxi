@@ -2,12 +2,44 @@
 
 import React, { useState, useCallback } from 'react';
 import { motion } from 'motion/react';
+import { useTranslations } from 'next-intl';
 import type { Player } from '@/lib/api';
 import type { DefensiveLineValue, LineupMap, PitchSlot, PitchWidthValue, PositionKey } from '../types';
 import { PITCH_SLOTS } from '../types';
-import { computeDimensionOffsets } from './pitch-grid';
+import { computeDimensionOffsets, PITCH_COORDS } from './pitch-grid';
 import { PositionSlot } from './PositionSlot';
 import { DURATION, EASE } from '@/lib/motion';
+
+/**
+ * Nearest slot in a cardinal direction, used by the keyboard navigation.
+ * Weighting the sideways offset above the forward one means a diagonal
+ * neighbour loses to a straight one, which is what "press right to go right"
+ * has to feel like.
+ */
+function neighbourSlot(
+  from: PitchSlot,
+  direction: 'up' | 'down' | 'left' | 'right',
+): PitchSlot | null {
+  const origin = PITCH_COORDS[from];
+  let best: PitchSlot | null = null;
+  let bestScore = Number.POSITIVE_INFINITY;
+  for (const candidate of PITCH_SLOTS) {
+    if (candidate === from) continue;
+    const point = PITCH_COORDS[candidate];
+    const dx = point.x - origin.x;
+    const dy = point.y - origin.y;
+    const forward =
+      direction === 'up' ? -dy : direction === 'down' ? dy : direction === 'left' ? -dx : dx;
+    if (forward <= 2) continue;
+    const sideways = direction === 'up' || direction === 'down' ? Math.abs(dx) : Math.abs(dy);
+    const score = forward + sideways * 1.6;
+    if (score < bestScore) {
+      bestScore = score;
+      best = candidate;
+    }
+  }
+  return best;
+}
 
 /**
  * Where the defensive-line band sits on the 0-100 pitch, in the same
@@ -24,6 +56,8 @@ const DEFENSIVE_LINE_BAND_Y: Record<DefensiveLineValue, number> = {
 interface PitchFieldProps {
   lineup: LineupMap;
   playersById: Map<number, Player>;
+  /** Unassigned players, offered when an empty slot is activated by keyboard. */
+  availablePlayers: Player[];
   defensiveLine: DefensiveLineValue;
   pitchWidth: PitchWidthValue;
   isDragging: boolean;
@@ -42,6 +76,7 @@ const DRAG_MIME = 'application/x-goalxi-player';
 export function PitchField({
   lineup,
   playersById,
+  availablePlayers,
   defensiveLine,
   pitchWidth,
   isDragging,
@@ -50,8 +85,73 @@ export function PitchField({
   onDragStart,
   onDragEnd,
 }: PitchFieldProps) {
+  const t = useTranslations('tactics.pitch');
   const [dragOverSlot, setDragOverSlot] = useState<PitchSlot | null>(null);
   const [draggingFromSlot, setDraggingFromSlot] = useState<PitchSlot | null>(null);
+  // Keyboard model, mirroring drag-and-drop without a pointer:
+  //   Enter on a filled slot  -> pick it up
+  //   arrows                  -> move focus to the neighbouring slot
+  //   Enter on any slot       -> drop there (swap if it is occupied)
+  //   Enter on an empty slot  -> open a native <select> of unassigned players
+  //   Esc                     -> cancel the pick-up
+  // Arrow-key navigation needs focus to actually move, so `focusSlot` reaches
+  // for the slot's own focusable element (the marker, or the empty wrapper).
+  const [pickedSlot, setPickedSlot] = useState<PitchSlot | null>(null);
+  const [pickerSlot, setPickerSlot] = useState<PitchSlot | null>(null);
+
+  const focusSlot = useCallback((slot: PitchSlot) => {
+    const el = document.querySelector<HTMLElement>(
+      `[data-slot="${slot}"] [tabindex], [data-slot="${slot}"][tabindex]`,
+    );
+    el?.focus();
+  }, []);
+
+  const handleSlotKeyDown = useCallback(
+    (slot: PitchSlot) => (event: React.KeyboardEvent) => {
+      const direction =
+        event.key === 'ArrowUp'
+          ? 'up'
+          : event.key === 'ArrowDown'
+            ? 'down'
+            : event.key === 'ArrowLeft'
+              ? 'left'
+              : event.key === 'ArrowRight'
+                ? 'right'
+                : null;
+      if (direction) {
+        const next = neighbourSlot(slot, direction);
+        if (next) {
+          event.preventDefault();
+          focusSlot(next);
+        }
+        return;
+      }
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        setPickedSlot(null);
+        setPickerSlot(null);
+        return;
+      }
+      if (event.key !== 'Enter' && event.key !== ' ') return;
+      // The marker's remove button is a real button; let it activate itself.
+      if ((event.target as HTMLElement).tagName === 'BUTTON') return;
+      event.preventDefault();
+      const occupant = lineup[slot];
+      if (pickedSlot) {
+        if (pickedSlot !== slot) {
+          onDrop(slot, lineup[pickedSlot]!, pickedSlot);
+        }
+        setPickedSlot(null);
+        return;
+      }
+      if (occupant !== undefined) {
+        setPickedSlot(slot);
+        return;
+      }
+      setPickerSlot(slot);
+    },
+    [focusSlot, lineup, onDrop, pickedSlot],
+  );
 
   const offsets = computeDimensionOffsets(defensiveLine, pitchWidth);
   // Slots spread apart when pitch is wide, but each card should keep a
@@ -141,6 +241,7 @@ export function PitchField({
           return (
             <div
               key={slot}
+              onKeyDown={handleSlotKeyDown(slot)}
               onDragEnter={() => setDragOverSlot(slot)}
               onDragLeave={(e) => {
                 if (!e.currentTarget.contains(e.relatedTarget as Node)) {
@@ -178,6 +279,60 @@ export function PitchField({
           );
         })}
       </div>
+
+      {/* Keyboard placement. A pointer user drags a card; a keyboard user
+          presses Enter on an empty slot and gets a native <select>, which is
+          focusable, screen-reader labelled and dismissible with Esc without any
+          custom listbox code. */}
+      {pickerSlot && (
+        <div
+          className="absolute inset-0 z-30 flex items-center justify-center bg-black/50 backdrop-blur-sm"
+          onKeyDown={(e) => {
+            if (e.key === 'Escape') {
+              e.stopPropagation();
+              setPickerSlot(null);
+            }
+          }}
+        >
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-label={t('assignTitle', { slot: pickerSlot })}
+            className="glass-panel rounded-xl p-4 w-[260px] flex flex-col gap-3"
+          >
+            <p className="font-label text-[10px] tracking-widest uppercase text-outline">
+              {t('assignTitle', { slot: pickerSlot })}
+            </p>
+            <select
+              autoFocus
+              defaultValue=""
+              aria-label={t('assignTitle', { slot: pickerSlot })}
+              onChange={(e) => {
+                if (!e.target.value) return;
+                onDrop(pickerSlot, Number(e.target.value), null);
+                setPickerSlot(null);
+              }}
+              className="w-full rounded-lg bg-surface-container-low border border-outline-variant/40 px-3 py-2 text-sm text-on-surface"
+            >
+              <option value="" disabled>
+                {t('assignPlaceholder')}
+              </option>
+              {availablePlayers.map((player) => (
+                <option key={player.id} value={player.id}>
+                  {player.name} · {player.position}
+                </option>
+              ))}
+            </select>
+            <button
+              type="button"
+              onClick={() => setPickerSlot(null)}
+              className="self-end rounded-lg px-3 py-1.5 font-label text-[10px] tracking-widest uppercase text-on-surface-variant hover:text-on-surface transition-colors duration-quick"
+            >
+              {t('cancel')}
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

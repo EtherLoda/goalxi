@@ -81,14 +81,25 @@ export function PositionSlot({
   const innerClassName =
     counterScaleX === 1 ? undefined : 'transition-transform duration-slow ease-standard';
 
+  // Keyboard model: exactly ONE focusable element per slot. A filled slot
+  // already has one — the marker is `role="button" tabIndex={0}` — so the
+  // wrapper only becomes focusable when the slot is empty. Key handling for
+  // both lives in PitchField (keydown bubbles up to the slot wrapper), which
+  // keeps the pick-up / move / drop state in one place instead of one copy per
+  // slot.
+  const wrapperFocusable = player
+    ? {}
+    : { tabIndex: 0, role: 'button' as const, 'aria-label': slot };
+
   return (
     <div
-      className="absolute -translate-x-1/2 -translate-y-1/2"
+      className="absolute -translate-x-1/2 -translate-y-1/2 outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-surface rounded-full"
       style={{ left: `${coords.x}%`, top: `${coords.y}%` }}
       onDragOver={handleDragOver}
       onDrop={handleDrop}
       data-slot={slot}
       data-testid={`slot-${slot}`}
+      {...wrapperFocusable}
     >
       <div className={innerClassName} style={innerStyle}>
         {player ? (

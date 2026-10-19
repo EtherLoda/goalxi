@@ -1266,7 +1266,10 @@
     },
     "pitch": {
       "title": "Pitch",
-      "emptySlot": "Empty"
+      "emptySlot": "Empty",
+      "assignTitle": "Pick a player for {slot}",
+      "assignPlaceholder": "Choose a player…",
+      "cancel": "Cancel"
     },
     "bench": {
       "title": "Substitutes",

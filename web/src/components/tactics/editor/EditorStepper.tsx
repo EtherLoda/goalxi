@@ -92,6 +92,11 @@ export function EditorStepper({
             type="button"
             onClick={() => goTo(index - 1)}
             disabled={isFirst}
+            aria-label={
+              isFirst
+                ? t('stepper.prev')
+                : `${t('stepper.prev')}: ${t(`tabs.${EDITOR_TABS[index - 1]}`)}`
+            }
             className="flex items-center gap-2 px-4 py-2.5 rounded-lg border border-outline-variant/40 text-on-surface-variant font-label text-xs tracking-widest uppercase disabled:opacity-40 disabled:cursor-not-allowed transition-colors duration-quick"
           >
             {t('stepper.prev')}
@@ -101,6 +106,7 @@ export function EditorStepper({
               type="button"
               onClick={onSubmit}
               disabled={!canSubmit || isSubmitting}
+              aria-label={t('submit')}
               className="flex items-center gap-2 px-5 py-2.5 rounded-lg bg-primary text-on-primary font-headline font-bold text-sm tracking-tight uppercase disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-quick"
               data-testid="stepper-submit"
             >
@@ -110,6 +116,7 @@ export function EditorStepper({
             <button
               type="button"
               onClick={() => goTo(index + 1)}
+              aria-label={`${t('stepper.next')}: ${t(`tabs.${EDITOR_TABS[index + 1]}`)}`}
               className="flex items-center gap-2 px-5 py-2.5 rounded-lg bg-surface-container-highest text-on-surface border border-outline-variant/40 font-label text-xs tracking-widest uppercase transition-colors duration-quick"
             >
               {t('stepper.next')}
