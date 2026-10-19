@@ -19,7 +19,7 @@ import { DataSource } from 'typeorm';
 import { CreateMatchReqDto } from './dto/create-match.req.dto';
 import { SubmitTacticsReqDto } from './dto/submit-tactics.req.dto';
 import { MatchService } from './match.service';
-import { DefensiveLine } from './types/tactical-dimensions';
+import { DefensiveLine, EventCondition } from './types/tactical-dimensions';
 
 describe('MatchService', () => {
   let service: MatchService;
@@ -525,6 +525,52 @@ describe('MatchService', () => {
       // A preset without a tactic means "no tactic", not "keep the old one".
       expect(result.teamTactic).toBeNull();
       expect(result.pitchWidth).toBe('narrow');
+    });
+
+    // ── Trigger conditions on queued instructions ─────────────────────
+    // A regression here is invisible in the request: the editor shows
+    // 「领先时」, the engine receives no `condition`, `shouldFire` falls
+    // back to `always`, and every queued substitution/move fires no
+    // matter the score. The one documented cause was `whitelist: true`
+    // on the global ValidationPipe stripping `condition` because
+    // `SubstitutionDto` did not declare it. This test is the guard:
+    // whatever the transport does, the value must reach the SQL row.
+    it('persists the trigger condition on substitutions and moves', async () => {
+      const teamId = 'team-id';
+      stubFutureMatch(teamId);
+      mockPlayerRepository.find.mockResolvedValue(stubPlayers(12));
+      mockTacticsRepository.findOne.mockResolvedValue(null);
+      mockTacticsRepository.create.mockImplementation((row: unknown) => row);
+      mockTacticsRepository.save.mockClear();
+      mockTacticsRepository.save.mockImplementation((row: unknown) =>
+        Promise.resolve({ ...(row as object), id: 'tactics-id' }),
+      );
+
+      await service.submitTactics('match-id', teamId, {
+        teamId,
+        formation: '4-4-2',
+        lineup: tacticLineup(),
+        substitutions: [
+          { minute: 60, out: 1007, in: 1012, condition: EventCondition.LEADING },
+        ],
+        instructions: {
+          moves: [
+            {
+              minute: 70,
+              player: 1008,
+              position: 'CAM',
+              condition: EventCondition.TRAILING,
+            },
+          ],
+        },
+      });
+
+      const saved = mockTacticsRepository.save.mock.calls[0][0] as {
+        substitutionsV2: Array<{ condition?: string }>;
+        instructions: { moves: Array<{ condition?: string }> };
+      };
+      expect(saved.substitutionsV2[0].condition).toBe('leading');
+      expect(saved.instructions.moves[0].condition).toBe('trailing');
     });
 
     it('should fail if deadline passed', async () => {
