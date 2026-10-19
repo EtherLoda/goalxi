@@ -1293,7 +1293,8 @@
         "detailed": "Detailed",
         "compactAria": "Switch to compact card view",
         "detailedAria": "Switch to detailed card view"
-      }
+      },
+      "empty": "No players"
     },
     "dimensions": {
       "title": "Tactical Style",

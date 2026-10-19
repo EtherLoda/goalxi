@@ -73,7 +73,7 @@ export function PlayerRoster({
       <div className="space-y-2 mt-2 flex-1 overflow-y-auto pr-1 min-h-0">
         {available.length === 0 && onPitch.length === 0 && (
           <div className="text-center text-outline py-8 font-label text-xs uppercase tracking-widest">
-            No players
+            {t('empty')}
           </div>
         )}
         {available.map((p) =>
@@ -136,7 +136,7 @@ function DensityButton({ active, onClick, ariaLabel, icon }: DensityButtonProps)
       onClick={onClick}
       aria-label={ariaLabel}
       aria-pressed={active}
-      className={`flex items-center justify-center w-6 h-6 rounded transition-colors ${
+      className={`flex items-center justify-center w-6 h-6 rounded transition-colors duration-quick ${
         active
           ? 'bg-primary text-on-primary'
           : 'text-on-surface-variant hover:text-on-surface'

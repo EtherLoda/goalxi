@@ -1290,7 +1290,8 @@
         "detailed": "详细",
         "compactAria": "切换为精简卡片视图",
         "detailedAria": "切换为详细卡片视图"
-      }
+      },
+      "empty": "没有球员"
     },
     "dimensions": {
       "title": "战术风格",
