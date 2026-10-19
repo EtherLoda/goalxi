@@ -37,7 +37,9 @@ export function BenchStrip({
   const [draggingFromSlot, setDraggingFromSlot] = useState<BenchSlot | null>(null);
 
   return (
-    <div className="mt-3 w-full">
+    // No outer margin: the pitch column is a `gap-3` flex column, so `mt-3`
+    // here would double the gap between the pitch and the bench.
+    <div className="w-full">
       <div className="flex items-center justify-between mb-2 px-1">
         <KickerLabel>{t('title')}</KickerLabel>
         <span className="font-label text-[10px] text-outline">{t('hint')}</span>

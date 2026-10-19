@@ -157,6 +157,7 @@ export function PitchField({
   // Slots spread apart when pitch is wide, but each card should keep a
   // fixed visual width — so children counter-scale against the parent scaleX.
   const counterScaleX = 1 / offsets.scaleX;
+  const placedCount = Object.values(lineup).filter(Boolean).length;
 
   const handleSlotDrop = useCallback(
     (slot: PitchSlot) => (playerId: number) => {
@@ -169,12 +170,19 @@ export function PitchField({
   );
 
   return (
-    <div className={`relative w-full aspect-[3/4] rounded-2xl overflow-hidden border border-white/5 bg-ink-750 transition-shadow duration-deliberate`}>
+    <div className={`relative w-full aspect-[3/4] rounded-2xl overflow-hidden border border-white/[0.08] bg-ink-750 shadow-[inset_0_0_60px_rgba(0,0,0,0.35)] transition-shadow duration-deliberate`}>
       {/* Pitch surface */}
-      <div className="absolute inset-0 bg-gradient-to-b from-pitch-deep/40 via-pitch-mid/30 to-pitch-dark/40" />
-      {/* V06: 0.20 of black over a dark green read as a heavy banding; 0.10
-          keeps the mowing stripes visible without competing with the cards. */}
-      <div className="absolute inset-0 opacity-10 bg-[repeating-linear-gradient(0deg,transparent,transparent_40px,rgba(0,0,0,0.15)_40px,rgba(0,0,0,0.15)_80px)]" />
+      <div className="absolute inset-0 bg-gradient-to-b from-pitch-deep/50 via-pitch-mid/35 to-pitch-dark/55" />
+      {/* Mowing stripes: alternating light and dark bands over the green, so
+          the surface reads as turf rather than a flat fill. V06: 0.20 of
+          black read as heavy banding; these two are what stay invisible
+          enough to not compete with the cards. */}
+      <div
+        className="absolute inset-0 opacity-[0.55] bg-[repeating-linear-gradient(0deg,rgba(255,255,255,0.028),rgba(255,255,255,0.028)_40px,rgba(0,0,0,0.10)_40px,rgba(0,0,0,0.10)_80px)]"
+      />
+      {/* Vignette — pulls the eye to the middle and hides the seam where the
+          rounded corners meet the panel behind. */}
+      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,transparent_45%,rgba(0,0,0,0.35)_100%)]" />
 
       {/* SVG pitch markings — V06: lines were 0.18 alpha, which disappeared
           behind a card at 0.9 opacity. 0.30 keeps them readable. */}
@@ -189,6 +197,17 @@ export function PitchField({
         {/* Goal areas */}
         <path d="M 32 2 L 32 8 L 68 8 L 68 2" fill="none" stroke="rgba(0,228,121,0.2)" strokeWidth="0.3" />
         <path d="M 32 98 L 32 92 L 68 92 L 68 98" fill="none" stroke="rgba(0,228,121,0.2)" strokeWidth="0.3" />
+        {/* Penalty spots and the D — the marks that make it read as a pitch
+            rather than a green rectangle. */}
+        <circle cx="50" cy="12" r="0.6" fill="rgba(0,228,121,0.3)" />
+        <circle cx="50" cy="88" r="0.6" fill="rgba(0,228,121,0.3)" />
+        <path d="M 34 16 A 16 16 0 0 0 66 16" fill="none" stroke="rgba(0,228,121,0.22)" strokeWidth="0.35" />
+        <path d="M 34 84 A 16 16 0 0 1 66 84" fill="none" stroke="rgba(0,228,121,0.22)" strokeWidth="0.35" />
+        {/* Corner arcs */}
+        <path d="M 2 6 A 4 4 0 0 0 6 2" fill="none" stroke="rgba(0,228,121,0.25)" strokeWidth="0.35" />
+        <path d="M 98 6 A 4 4 0 0 1 94 2" fill="none" stroke="rgba(0,228,121,0.25)" strokeWidth="0.35" />
+        <path d="M 2 94 A 4 4 0 0 1 6 98" fill="none" stroke="rgba(0,228,121,0.25)" strokeWidth="0.35" />
+        <path d="M 98 94 A 4 4 0 0 0 94 98" fill="none" stroke="rgba(0,228,121,0.25)" strokeWidth="0.35" />
       </svg>
 
       {/* V07: the defensive line used to be communicated only by a faint
@@ -279,6 +298,17 @@ export function PitchField({
           );
         })}
       </div>
+
+      {/* First-run guidance. Twenty-four empty circles explain that there are
+          slots but not what to do with them, so an untouched pitch says it.
+          `pointer-events-none` keeps every drop target live underneath. */}
+      {placedCount === 0 && !isDragging ? (
+        <div className="pointer-events-none absolute inset-x-0 top-[46%] z-20 flex -translate-y-1/2 justify-center px-6">
+          <p className="rounded-full border border-primary/25 bg-surface-container/85 px-4 py-2 text-center font-label text-[11px] tracking-wider text-on-surface-variant backdrop-blur-sm">
+            {t('emptyHint')}
+          </p>
+        </div>
+      ) : null}
 
       {/* Keyboard placement. A pointer user drags a card; a keyboard user
           presses Enter on an empty slot and gets a native <select>, which is

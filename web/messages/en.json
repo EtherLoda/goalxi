@@ -1269,7 +1269,8 @@
       "emptySlot": "Empty",
       "assignTitle": "Pick a player for {slot}",
       "assignPlaceholder": "Choose a player…",
-      "cancel": "Cancel"
+      "cancel": "Cancel",
+      "emptyHint": "Drag a player from the roster onto the pitch, or tap a player card and then a slot"
     },
     "bench": {
       "title": "Substitutes",

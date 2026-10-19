@@ -1266,7 +1266,8 @@
       "emptySlot": "空位",
       "assignTitle": "为 {slot} 选择球员",
       "assignPlaceholder": "选择一名球员…",
-      "cancel": "取消"
+      "cancel": "取消",
+      "emptyHint": "从右侧名单把球员拖到球场上,或点球员卡片再点空位"
     },
     "bench": {
       "title": "替补席",
