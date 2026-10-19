@@ -117,7 +117,7 @@
 | `editor/EditorWorkspace.tsx` | 取代 `EditorBentoGrid`：按当前视图渲染对应面板组合 |
 | `editor/use-editor-viewport.ts` | `matchMedia('(min-width: 1024px)')` → `'desktop' \| 'mobile'`，`useSyncExternalStore` 实现避免水合闪烁 |
 | `editor/use-url-tab.ts` | `?tab=` 读写（`useSearchParams` + `router.replace`，不产生历史记录） |
-| `team-tactic/TeamTacticPicker.tsx` | 五个 chip + 「不选战术」+ 不可选态（缺 slot 时置灰并写明缺什么） |
+| `team-tactic/TeamTacticPicker.tsx` | 六张等宽卡（3×2）+ 「不选战术」；选择阶段不拦，缺 slot 在卡下报告 |
 | `team-tactic/LineupFamilyTally.tsx` | 族计数条（§5） |
 | `team-tactic/use-team-tactics.ts` | 拉 `GET /game/team-tactics` 并缓存；返回定义表 + families 映射 |
 | `team-tactic/requirement.ts` | 纯函数 `tallyFamilies(lineup, families)` / `checkRequirement(code, tally, defs)` |
@@ -225,7 +225,7 @@ CB 3/2 ✓   FB 1/2 ✕   DM 1/1 ✓   CM 2/3 ✕   AM 1/1 ✓   W 0/2 ✕   CF 
 - 缺：金色（`text-tertiary`）+ 数字加粗
 - **不用绿色表示「满足」** —— 绿色在这个页面已经是「主行为」的语义（见 §7-08）
 - `aria-live="polite"`，值变化时朗读「双翼齐飞还缺 2 个边」
-- 战术 chip 不可选时（缺 slot）：置灰 + tooltip 说明缺什么，但仍可点击查看说明（不是完全禁用）
+- 战术卡缺 slot 时：仍可选（门槛挪到提交），卡下用金色写明缺什么
 
 ### 5.4 提交闸门
 
@@ -397,7 +397,7 @@ tactics.skeleton.loading
 **状态**：✅ 已完成。
 
 **改动**
-1. `TeamTacticPicker.tsx`（五个 chip + 不选 + 不可选态）
+1. `TeamTacticPicker.tsx`（六张等宽卡 + 不选 + 缺 slot 说明）
 2. `LineupFamilyTally.tsx` + `aria-live`
 3. `DimensionsPanel` 变成一排 chip
 4. 换人计划默认折叠（`TacticalEventsPanel` 加 `collapsible`）
@@ -405,7 +405,7 @@ tactics.skeleton.loading
 6. `EditorHeader` 重排（V09、V12）+ 战术摘要
 7. 阵容 tab 变两栏（球场 + 名单 420px）；骨架屏（V11）
 
-**验收**：五个战术可选中/取消；缺 slot 时 chip 置灰并说明；提交闸门生效；三个滚动容器降到 1 个以内。
+**验收**：五个战术可选中/取消；缺 slot 时卡下写明；提交闸门生效；三个滚动容器降到 1 个以内。
 
 **风险**：桌面两栏后球场变宽，`aspect-[3/4]` 会变高，可能出现纵向溢出 —— 需要给球场 `max-h` 并让名单独立滚动。
 
@@ -413,7 +413,8 @@ tactics.skeleton.loading
 
 - 门槛闸门落在 `lineup-validator.ts` 的第 12 条规则，而不是新增一个 `validateTeamTactic`：`ValidationContext` 加可选 `tacticGate`，由 `TacticsEditor` 用 `checkTactic` 算好后传入。可选是刻意的 —— 需求表还在路上（或请求失败）时，校验器不能凭空判一个它没法检查的战术有罪，否则前端会在首帧就禁掉提交。
 - 需求表 `useTeamTactics` 被调用两次（`TacticsEditor` 一次、`EditorWorkspace` 一次），因为它在模块作用域缓存：第二次是纯命中，不会多发请求。
-- 不可选的 chip 用 `aria-disabled` 而不是 `disabled`，键盘用户仍能聚焦到它读到 `title` 里的缺失原因；点它不改变选择（门槛是硬的，没有「部分生效」）。
+- 选择阶段不拦：任何战术都能选，缺 slot 由卡下的金色说明和提交按钮的阻塞原因来拦；只有锁定后才 `aria-disabled`。
+- 2026-10-19 调整：原先点缺 slot 的卡就直接拒绝，等于逼玩家先猜出要哪些槽位才允许他看一眼说明 —— 而唯一的说明恰恰在那张点不动的卡上。门槛本来就在服务端（`checkTacticRequirement`），客户端提前反馈是为了省一次往返，不是为了再立一条规则。
 - 球场宽度上限用的是 `lg:max-w-[calc((100vh-300px)*0.75)]` 而不是 `max-h`：`aspect-[3/4]` 下限制 max-height 会让宽度先算出再被压，比例和位置都会抖；反过来限制宽度，高度自然满足。
 - 名单栏从 `max-h` 改成 `lg:h-[calc(100vh-150px)]`：`PlayerRoster` 是 `flex flex-col h-full`，列表是 `flex-1 overflow-y-auto`，祖先没有确定高度时它不会滚动，只会把整页撑高。
 - 骨架屏（V11）复用了 `page.tsx` 的脉冲色块，但按新布局摆位（header + tab 条 + 球场/名单两栏），因为改版后原来的三列骨架已经对不上。

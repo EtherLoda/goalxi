@@ -1436,7 +1436,8 @@
         "counter": "Sit deep, then break with through balls.",
         "central": "Abandon the flanks and go through the middle.",
         "wings": "Both flanks get stronger in all three phases; the middle gets weaker."
-      }
+      },
+      "shortfall": "Lineup does not meet it yet — {detail}"
     }
   },
   "club": {

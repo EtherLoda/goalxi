@@ -3,10 +3,11 @@
 /**
  * TeamTacticBar.tsx — the read-only tactic summary shown above the pitch.
  *
- * Why a bar and not a panel: the deployment gate is a HARD slot count, so
- * the player needs the count visible while dragging on the 阵容 tab, where
- * the picker is not on screen. The picker itself lives in the 战术与换人 tab
- * and renders the same tally, so the two can never disagree.
+ * Why a bar and not a panel: the slot count gates SUBMISSION, so the player
+ * needs to watch the count while dragging on the 阵容 tab, where the picker is
+ * not on screen. Selecting an unsatisfied tactic is allowed — the bar is how
+ * the 阵容 tab reports the shortfall while the player fixes it. The picker
+ * renders the same tally, so the two can never disagree.
  */
 import { useTranslations } from 'next-intl';
 import type { PositionFamilyCode } from '@/lib/api';
