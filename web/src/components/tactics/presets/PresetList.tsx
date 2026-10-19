@@ -30,7 +30,7 @@ export function PresetList({ presets, activePresetId, disabled, onApply, onDelet
           type="button"
           onClick={onSaveNew}
           disabled={disabled}
-          className="flex items-center gap-1 px-2 py-1 rounded bg-primary/20 text-primary border border-primary/30 font-label text-[9px] tracking-widest uppercase hover:bg-primary/30 transition-all disabled:opacity-50"
+          className="flex items-center gap-1 px-2 py-1 rounded bg-primary/20 text-primary border border-primary/30 font-label text-[10px] tracking-widest uppercase hover:bg-primary/30 transition disabled:opacity-50"
         >
           <AppIcon name="add" className="text-[12px]" />
           {t('save')}

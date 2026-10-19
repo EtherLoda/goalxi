@@ -101,25 +101,38 @@ export function PositionSlot({
             onDragStart={onDragStart}
             onDragEnd={onDragEnd}
           />
-        ) : isDragging ? (
-          // Empty slots only appear as drop targets while a drag is in
-          // flight. Outside of drag mode the pitch stays clean.
+        ) : (
+          // V08: empty slots used to appear only while a drag was in flight,
+          // so the formation's structure was invisible until you started
+          // dragging — the one moment you were too busy to read it. They are
+          // now always drawn at 15% and only become solid under a drag.
+          // V02: the drag-over state is a ring + fill, not `scale-110`; a
+          // scaling circle shifts its neighbours and reads as "the slot
+          // moved" rather than "this is where it will go".
           <div
-            className={`w-12 h-12 rounded-full border-2 border-dashed flex items-center justify-center transition-all duration-base ${
+            className={`flex h-12 w-12 items-center justify-center rounded-full transition-[border-color,background-color,box-shadow] duration-base ${
               isDragOver
                 ? isGkSlot
-                  ? 'border-tertiary bg-tertiary/20 scale-110'
-                  : 'border-primary bg-primary/20 scale-110'
+                  ? 'border-2 border-solid border-tertiary bg-tertiary/20 ring-2 ring-tertiary/30'
+                  : 'border-2 border-solid border-primary bg-primary/20 ring-2 ring-primary/30'
                 : isGkSlot
-                  ? 'border-tertiary/30 bg-surface-container/60'
-                  : 'border-outline-variant/30 bg-surface-container/60'
+                  ? 'border border-dashed border-tertiary/25'
+                  : 'border border-dashed border-white/15'
             } ${isDragging ? 'cursor-pointer' : ''}`}
           >
-            <span className={`font-label text-[8px] tracking-widest uppercase ${isGkSlot ? 'text-tertiary/70' : 'text-outline'}`}>
+            <span
+              className={`font-label text-[10px] tracking-widest uppercase ${
+                isDragOver
+                  ? isGkSlot
+                    ? 'text-tertiary'
+                    : 'text-primary'
+                  : 'text-outline/50'
+              }`}
+            >
               {slot}
             </span>
           </div>
-        ) : null}
+        )}
       </div>
     </div>
   );

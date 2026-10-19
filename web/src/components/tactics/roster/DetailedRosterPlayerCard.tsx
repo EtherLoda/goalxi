@@ -63,7 +63,7 @@ export function DetailedRosterPlayerCard({
       draggable
       onDragStart={drag.onDragStart}
       onDragEnd={drag.onDragEnd}
-      className={`group relative flex flex-col gap-2.5 p-3 rounded-xl border bg-ink-800 cursor-grab active:cursor-grabbing transition-all ${
+      className={`group relative flex flex-col gap-2.5 p-3 rounded-xl border bg-ink-800 cursor-grab active:cursor-grabbing transition ${
         isAssigned
           ? 'border-outline-variant/20 opacity-60 grayscale'
           : 'border-edge/40 hover:border-primary/60'
@@ -87,7 +87,7 @@ export function DetailedRosterPlayerCard({
           <div className="font-headline font-bold text-sm text-frost truncate">
             {player.name}
           </div>
-          <div className="font-label text-[9px] tracking-widest uppercase text-outline truncate">
+          <div className="font-label text-[10px] tracking-widest uppercase text-outline truncate">
             {player.position}
           </div>
         </div>
@@ -96,7 +96,7 @@ export function DetailedRosterPlayerCard({
             {player.overall}
           </div>
           {/* Age */}
-          <div className="font-label text-[9px] tracking-widest uppercase text-outline">
+          <div className="font-label text-[10px] tracking-widest uppercase text-outline">
             {player.age}y
           </div>
           {/* Form — 5 dots */}
@@ -115,7 +115,7 @@ export function DetailedRosterPlayerCard({
           </div>
           {/* Stamina — 5 bars */}
           <div className="flex items-center gap-0.5 justify-end">
-            <AppIcon name="bolt" className="text-[9px] text-outline" />
+            <AppIcon name="bolt" className="text-[10px] text-outline" />
             <div className="flex gap-0.5">
               {Array.from({ length: 5 }).map((_, i) => (
                 <span
@@ -174,7 +174,7 @@ function SkillCategoryGroup({
           }`}
           aria-hidden
         />
-        <span className="text-[9px] font-black uppercase tracking-widest text-muted">
+        <span className="text-[10px] font-black uppercase tracking-widest text-muted">
           {getCategoryName(cat, locale)}
         </span>
       </div>

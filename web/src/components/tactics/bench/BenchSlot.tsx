@@ -56,7 +56,7 @@ export function BenchSlotView({
       data-testid={`slot-${slot}`}
     >
       <div
-        className={`mb-1.5 px-2 py-0.5 rounded text-[9px] font-headline font-bold tracking-widest uppercase transition-all ${
+        className={`mb-1.5 px-2 py-0.5 rounded text-[10px] font-headline font-bold tracking-widest uppercase transition-[background-color,color,border-color] duration-base ${
           isGkSlot
             ? isDragOver
               ? 'bg-tertiary/30 text-tertiary border border-tertiary/50'
@@ -83,18 +83,18 @@ export function BenchSlotView({
         // no subs are queued. The placeholder tint signals whether the
         // slot can accept a drop right now (`isDragging`).
         <div
-          className={`w-10 h-10 rounded-full border-2 flex items-center justify-center transition-all ${
+          className={`flex h-10 w-10 items-center justify-center rounded-full border-2 transition-[border-color,background-color,box-shadow] duration-base ${
             isGkSlot
               ? isDragOver
-                ? 'border-tertiary bg-tertiary/20 scale-110'
+                ? 'border-tertiary bg-tertiary/20 ring-2 ring-tertiary/30'
                 : isDragging
                   ? 'border-tertiary/30 bg-tertiary/10'
-                  : 'border-outline-variant/20 bg-surface-container/40'
+                  : 'border-white/12 border-dashed bg-surface-container/40'
               : isDragOver
-                ? 'border-primary bg-primary/20 scale-110'
+                ? 'border-primary bg-primary/20 ring-2 ring-primary/30'
                 : isDragging
                   ? 'border-primary/30 bg-primary/5'
-                  : 'border-outline-variant/20 bg-surface-container/40'
+                  : 'border-white/12 border-dashed bg-surface-container/40'
           } ${isDragging ? 'cursor-pointer' : ''}`}
           data-testid={`slot-${slot}-empty`}
         >

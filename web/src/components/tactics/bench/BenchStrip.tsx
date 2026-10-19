@@ -40,7 +40,7 @@ export function BenchStrip({
     <div className="mt-3 w-full">
       <div className="flex items-center justify-between mb-2 px-1">
         <KickerLabel>{t('title')}</KickerLabel>
-        <span className="font-label text-[9px] text-outline">{t('hint')}</span>
+        <span className="font-label text-[10px] text-outline">{t('hint')}</span>
       </div>
       <div className="flex gap-2 p-3 rounded-xl bg-surface-container border border-outline-variant/30">
         {BENCH_SLOTS.map((slot) => {

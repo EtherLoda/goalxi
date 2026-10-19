@@ -134,7 +134,13 @@ describe('reducer — HYDRATE', () => {
     });
     const next = reducer(freshState(), { type: 'HYDRATE', payload });
     expect(next.draft.events).toHaveLength(2);
-    expect(next.draft.events[0]).toEqual({ kind: 'sub', minute: 60, outId: ID_CMF_1, inId: ID_BENCH_1 });
+    expect(next.draft.events[0]).toEqual({
+      id: expect.any(String) as unknown as string,
+      kind: 'sub',
+      minute: 60,
+      outId: ID_CMF_1,
+      inId: ID_BENCH_1,
+    });
   });
 
   it('hydrates moves from instructions into move events', () => {
@@ -147,6 +153,7 @@ describe('reducer — HYDRATE', () => {
     });
     const next = reducer(freshState(), { type: 'HYDRATE', payload });
     expect(next.draft.events).toContainEqual({
+      id: expect.any(String) as unknown as string,
       kind: 'move', minute: 50, playerId: ID_CMF_1, toSlot: 'CAML',
     });
   });

@@ -13,8 +13,10 @@
  * On an eleven-man lineup every family has some count, so "which of these
  * numbers matters" is the only question the strip answers.
  */
+import { motion } from 'motion/react';
 import type { PositionFamilyCode } from '@/lib/api';
 import type { FamilyTally } from './requirement';
+import { DURATION, EASE } from '@/lib/motion';
 
 export interface LineupFamilyTallyProps {
   tally: FamilyTally;
@@ -38,6 +40,7 @@ export function LineupFamilyTally({
         .filter((family) => family !== 'GK')
         .map((family) => {
           const isNeeded = needed.has(family);
+          const count = tally[family];
           return (
             <span
               key={family}
@@ -49,7 +52,18 @@ export function LineupFamilyTally({
               }
             >
               <span className="font-semibold">{family}</span>
-              <span>{tally[family]}</span>
+              {/* Only the counter that actually changed replays the pop: the
+                  key embeds the value, so an unchanged family keeps its
+                  element and the drag of one player does not animate the
+                  other seven numbers. */}
+              <motion.span
+                key={count}
+                animate={{ scale: [1, 1.08, 1] }}
+                transition={{ duration: DURATION.quick, ease: EASE.spring }}
+                className="inline-block"
+              >
+                {count}
+              </motion.span>
             </span>
           );
         })}

@@ -33,7 +33,7 @@ export function RosterPlayerCard({ player, isAssigned, onDragStart, onDragEnd }:
       draggable
       onDragStart={drag.onDragStart}
       onDragEnd={drag.onDragEnd}
-      className={`group relative flex items-center gap-3 p-3 rounded-xl border bg-surface-container cursor-grab active:cursor-grabbing transition-all ${
+      className={`group relative flex items-center gap-3 p-3 rounded-xl border bg-surface-container cursor-grab active:cursor-grabbing transition ${
         isAssigned
           ? 'border-outline-variant/20 opacity-60 grayscale'
           : 'border-outline-variant/40 hover:border-primary/60 hover:bg-surface-container-high'
@@ -59,7 +59,7 @@ export function RosterPlayerCard({ player, isAssigned, onDragStart, onDragEnd }:
       </div>
       <div className="flex-1 min-w-0">
         <div className="font-headline font-bold text-sm text-on-surface truncate">{player.name}</div>
-        <div className="font-label text-[9px] tracking-widest uppercase text-outline">
+        <div className="font-label text-[10px] tracking-widest uppercase text-outline">
           {player.position}
         </div>
       </div>

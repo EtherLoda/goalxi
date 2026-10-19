@@ -135,7 +135,7 @@ export function PlayerSelect({
         type="button"
         onClick={() => !disabled && setOpen((o) => !o)}
         disabled={disabled}
-        className={`w-full flex items-center justify-between gap-2 px-2.5 py-2 rounded-lg border transition-all ${
+        className={`w-full flex items-center justify-between gap-2 px-2.5 py-2 rounded-lg border transition ${
           disabled
             ? 'opacity-50 cursor-not-allowed border-outline-variant/20'
             : `cursor-pointer border-outline-variant/30 hover:border-primary/50 ${open ? `ring-2 ${focusRingByTone[tone]}` : ''}`
@@ -146,14 +146,14 @@ export function PlayerSelect({
             <span className="text-xs font-bold text-on-surface truncate w-full">{selected.name}</span>
             <div className={`flex items-center gap-1.5 mt-0.5 ${align === 'right' ? 'justify-end' : 'justify-start'}`}>
               {showRole && (
-                <span className="text-[9px] font-bold uppercase tracking-widest text-outline">
+                <span className="text-[10px] font-bold uppercase tracking-widest text-outline">
                   {selected.isGoalkeeper ? t('roleGk') : t('roleOutfielder')}
                 </span>
               )}
               {showOverall && (
                 <>
                   {showRole && <span className="w-0.5 h-0.5 rounded-full bg-outline-variant" />}
-                  <span className={`text-[9px] font-bold ${selected.overall >= 80 ? 'text-positive-bright' : 'text-outline'}`}>
+                  <span className={`text-[10px] font-bold ${selected.overall >= 80 ? 'text-positive-bright' : 'text-outline'}`}>
                     {t('overallLabel', { value: selected.overall })}
                   </span>
                 </>
@@ -212,7 +212,7 @@ export function PlayerSelect({
                   }`}
                 >
                   <span
-                    className={`w-7 h-7 rounded-full flex items-center justify-center text-[9px] font-extrabold font-headline shrink-0 ${
+                    className={`w-7 h-7 rounded-full flex items-center justify-center text-[10px] font-extrabold font-headline shrink-0 ${
                       p.isGoalkeeper
                         ? 'bg-tertiary/15 text-tertiary border border-tertiary/30'
                         : 'bg-primary/15 text-primary border border-primary/30'
@@ -224,7 +224,7 @@ export function PlayerSelect({
                     <div className="text-xs font-bold truncate">{p.name}</div>
                     {showRole && (
                       <div className="flex items-center gap-1.5">
-                        <span className="text-[9px] font-bold uppercase tracking-widest text-outline">
+                        <span className="text-[10px] font-bold uppercase tracking-widest text-outline">
                           {p.isGoalkeeper ? t('roleGk') : t('roleOutfielder')}
                         </span>
                       </div>

@@ -128,20 +128,26 @@ export function PlayerMarker({
   const staminaFilled = clamp01to5(player.stamina);
   const formFilled = clamp01to5(player.form);
 
-  // A drop-target ring wins over the selection ring: while a drag is in
-  // flight, "what happens if I let go here" outranks "what is selected".
-  // Both use a ring rather than a scale so neighbour cards never shift.
+  // V03: the three ring colours now mean three different things. Green is the
+  // primary action ("let go here and it will land"); gold is a warning (the
+  // GK slot, unsaved changes); selection gets a neutral ring. Selecting a
+  // player is not an action and must not borrow the action colour.
   const ringClass = isDropTarget
-    ? 'ring-2 ring-tertiary ring-offset-2 ring-offset-surface'
+    ? 'ring-2 ring-primary ring-offset-2 ring-offset-surface'
     : isSelected
-      ? 'ring-2 ring-primary ring-offset-2 ring-offset-surface'
+      ? 'ring-2 ring-on-surface/60 ring-offset-2 ring-offset-surface'
       : '';
 
   return (
     <div
-      className={`group relative flex flex-col items-center gap-1 select-none transition-all duration-base ${
-        isDragging ? 'opacity-30 scale-90' : ''
-      } ${isSelected ? 'scale-105' : ''}`}
+      // V01/V02: the old `transition-all` here animated layout properties too
+      // (width, height, transform), which is what produced the 300ms judder
+      // when the pitch re-laid out; and `scale-105` on selection moved the
+      // card out of the slot it is meant to mark. Selection is the ring on
+      // the avatar instead, and only paint properties transition here.
+      className={`group relative flex select-none flex-col items-center gap-1 transition-[opacity,color] duration-base ${
+        isDragging ? 'opacity-30' : ''
+      }`}
       draggable
       onDragStart={handleDragStart}
       onDragEnd={onDragEnd}
@@ -184,7 +190,7 @@ export function PlayerMarker({
 
       {/* Bottom: slot + name + overall */}
       <div className="flex flex-col items-center leading-none">
-        <span className="font-label text-[8px] tracking-widest uppercase text-outline">
+        <span className="font-label text-[10px] tracking-widest uppercase text-outline">
           {positionShortLabel(slot)}
         </span>
         <span className="font-headline font-bold text-[10px] text-on-surface truncate max-w-[64px]">

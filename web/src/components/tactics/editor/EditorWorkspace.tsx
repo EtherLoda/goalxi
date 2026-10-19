@@ -1,7 +1,8 @@
 'use client';
 
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { useTranslations } from 'next-intl';
+import { motion } from 'motion/react';
 import type { Player } from '@/lib/api';
 import { PlayerRoster, type RosterDensity } from '../roster/PlayerRoster';
 import { PitchField } from '../pitch/PitchField';
@@ -25,6 +26,7 @@ import type {
 } from '../types';
 import type { EditorTab } from './use-url-tab';
 import type { EditorViewport } from './use-editor-viewport';
+import { DURATION, EASE } from '@/lib/motion';
 
 interface EditorWorkspaceProps {
   view: EditorViewport;
@@ -194,47 +196,83 @@ export function EditorWorkspace(props: EditorWorkspaceProps) {
     />
   );
 
-  // ---------------------------------------------------------------- mobile
-  if (view === 'mobile') {
+  // ------------------------------------------------------------- animation
+  // Tab content fades; it does NOT slide horizontally on desktop, because the
+  // panels scroll and a lateral move reads as a scroll jump. Mobile steps DO
+  // slide, in the direction the user walked, because there is no shared
+  // horizontal context to conflict with.
+  const STEPS: EditorTab[] = ['lineup', 'tactics', 'changes'];
+  const stepIndex = STEPS.indexOf(tab);
+  // Direction is state, not a ref: a ref read during render is what
+  // `react-hooks/refs` exists to catch, and here the value genuinely takes part
+  // in the render output (the sign of the x offset).
+  const [previousStep, setPreviousStep] = useState<number | null>(null);
+  const direction = previousStep === null || stepIndex >= previousStep ? 1 : -1;
+  useEffect(() => {
+    setPreviousStep(stepIndex);
+  }, [stepIndex]);
+
+  const content = (() => {
+    // ---------------------------------------------------------------- mobile
+    if (view === 'mobile') {
+      if (tab === 'lineup') {
+        return (
+          <div className="flex flex-col gap-3">
+            {tacticBar}
+            {pitchColumn}
+            {roster}
+          </div>
+        );
+      }
+      if (tab === 'tactics') {
+        return tacticPanel;
+      }
+      return changesPanel(false, false);
+    }
+
+    // --------------------------------------------------------------- desktop
     if (tab === 'lineup') {
       return (
-        <div className="flex flex-col gap-3">
-          {tacticBar}
-          {pitchColumn}
-          {roster}
+        <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_420px] gap-4 items-start">
+          <div className="flex min-w-0 flex-col gap-3">
+            {tacticBar}
+            {pitchColumn}
+          </div>
+          {/* The roster owns the only scroll container on this tab. It needs an
+              explicit height (not just max-height): `PlayerRoster` is
+              `flex flex-col h-full` and its list is `flex-1 overflow-y-auto`,
+              which only scrolls when the ancestor's height is definite. */}
+          <div className="overflow-hidden lg:sticky lg:top-4 lg:h-[calc(100vh-150px)]">
+            {roster}
+          </div>
         </div>
       );
     }
-    if (tab === 'tactics') {
-      return tacticPanel;
-    }
-    return changesPanel(false, false);
-  }
 
-  // --------------------------------------------------------------- desktop
-  if (tab === 'lineup') {
+    // 战术与换人 tab: no pitch, two independent halves.
     return (
-      <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_420px] gap-4 items-start">
-        <div className="flex flex-col gap-3 min-w-0">
-          {tacticBar}
-          {pitchColumn}
-        </div>
-        {/* The roster owns the only scroll container on this tab. It needs an
-            explicit height (not just max-height): `PlayerRoster` is
-            `flex flex-col h-full` and its list is `flex-1 overflow-y-auto`,
-            which only scrolls when the ancestor's height is definite. */}
-        <div className="lg:sticky lg:top-4 lg:h-[calc(100vh-150px)] overflow-hidden">
-          {roster}
-        </div>
+      <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
+        <div className="min-w-0">{tacticPanel}</div>
+        <div className="min-w-0">{changesPanel(true, true)}</div>
       </div>
     );
-  }
+  })();
 
-  // 战术与换人 tab: no pitch, two independent halves.
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] gap-4 items-start">
-      <div className="min-w-0">{tacticPanel}</div>
-      <div className="min-w-0">{changesPanel(true, true)}</div>
-    </div>
+    <motion.div
+      key={`${view}-${tab}`}
+      initial={
+        view === 'mobile'
+          ? { opacity: 0, x: direction * 24 }
+          : { opacity: 0, y: 8 }
+      }
+      animate={{ opacity: 1, x: 0, y: 0 }}
+      transition={{
+        duration: view === 'mobile' ? DURATION.base : DURATION.quick,
+        ease: view === 'mobile' ? EASE.entrance : EASE.standard,
+      }}
+    >
+      {content}
+    </motion.div>
   );
 }

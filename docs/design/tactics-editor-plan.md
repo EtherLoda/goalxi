@@ -420,6 +420,8 @@ tactics.skeleton.loading
 
 ### Phase 4 — 视觉与动效
 
+**状态**：✅ 已完成。
+
 **改动**
 1. `web/src/lib/motion.ts`
 2. V01–V08、V10 逐项修复（见 §7）
@@ -429,6 +431,20 @@ tactics.skeleton.loading
 **验收**：`prefers-reduced-motion: reduce` 下所有动效瞬时完成（手动验证 + 一条 Playwright 用 `emulateMedia`）；滚动容器无卡顿；字号最小 10px 的地方可读性检查。
 
 **风险**：`layout` 动效作用在 24 个绝对定位元素上会触发频繁重排，需实测帧率，必要时退化为 CSS transition。
+
+**实施记录**
+
+- **V01 用的是 `transition` 而不是逐个列属性**：Tailwind 的裸 `transition` 恰好等于「颜色 / 背景 / 边框 / 透明度 / 阴影 / transform」，正好排除了出问题的 `width/height/margin`。唯一例外是 `TacticsEntryButton` 里那根靠 `margin-left` 滑入的箭头，它需要 `transition-[opacity,margin]`，因为裸 `transition` 不含 margin。
+- **V02 的选中态改 ring 而不是缩小 scale**：拖拽态原本同时有 `opacity-30` 和 `scale-90`，两者一起把卡片从槽位上「拿起来」，导致同一时刻位置信息有两套。现在只剩透明度，位置只由 ring 表达。
+- **V03 的绿/金语义是反的，已对调**：原本 drop-target 用金色（=警示）、选中的球员用绿色（=主行为）。现在绿色只归 drop-target（"松手就落在这里"，是动作），金色只归 GK 槽和未保存提示（警示），选中态换成中性 ring。
+- **V05 用 `max-width: 1023px` 关掉 backdrop-filter**：`@media (max-width: 1023px)` 里把 `.glass-panel` 换成不透明 `surface-container-low`。选 1023 而不是 768 是因为三栏布局在 lg 才成立，平板竖屏同样在滚名单栏。
+- **V07 没有沿用「外发光」**：发光只表达「有变化」，不表达「防线在哪」。改成球场内的一条带 + 一个呼吸圆，位置直接对应低/中/高；呼吸用 `repeat: Infinity`，但在 `prefers-reduced-motion` 下由 `MotionProvider` 统一降为瞬时。
+- **V08 的空位从「拖拽时才出现」改成常驻 15% 虚线**：原实现只有在拖拽中才渲染空槽，等于把阵型结构藏起来；现在常驻但不抢注意力，拖拽时才实心化。
+- **`layout` 动效没有用在 24 个棋子上**：棋子已经在 `transform: scaleX()/translateY()` 的父容器里，父容器本身就是 300ms CSS 过渡，再加 `layout` 会同时量测再补间，变成双重位移。§6.2 那一行由父容器已有过渡满足。
+- **换人行退场需要稳定 key**：原来是 `key={event-${idx}}`，删中间一行时 React 会复用下一行的 DOM，退场动画和输入框焦点都会错位。给 `TacticalEvent` 加可选 `id`（reducer 分配，`serializeTactics` 逐字段取所以不会发给 API），列表 key 改成 `event.id`，外面套 `AnimatePresence`。可选是刻意的：历史 hydration 之外还有大量测试用字面量构造事件，强制必填要改二十多处。
+- **面板入场做的是整块而不是逐面板 40ms 错开**：逐面板错开需要给六个面板各包一层 `motion.div`，其中名单栏和事件栏是滚动容器，加包裹层会改变高度计算。退一步只在 tab 内容整块做 8px 上浮，信息量不变。
+- **tab 内容在桌面只淡入、不横移**：桌面内容会在自己的列里滚动，横向位移会和滚动条视觉打架；移动端三步才按方向 ±24 位移。
+- **顺手修掉的 lint**：`EditorWorkspace` 里判断移动方向原本用 `useRef` 在渲染期读 `.current`，被 `react-hooks/refs` 判错，改成 `useState`。
 
 ### Phase 5 — 键盘与无障碍
 

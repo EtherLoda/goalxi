@@ -2,7 +2,9 @@
 
 import React, { useCallback, useRef } from 'react';
 import { useTranslations } from 'next-intl';
+import { motion } from 'motion/react';
 import type { EditorTab } from './use-url-tab';
+import { DURATION, EASE } from '@/lib/motion';
 
 interface EditorTabsProps {
   active: EditorTab;
@@ -69,14 +71,25 @@ export function EditorTabs({ active, onChange }: EditorTabsProps) {
             tabIndex={selected ? 0 : -1}
             onClick={() => onChange(tab)}
             className={[
-              'flex-1 px-4 py-2 rounded-xl font-label text-xs tracking-widest uppercase',
+              'relative flex-1 px-4 py-2 rounded-xl font-label text-xs tracking-widest uppercase',
               'transition-colors duration-quick',
               selected
-                ? 'bg-primary/15 text-primary border border-primary/30'
+                ? 'text-primary'
                 : 'text-on-surface-variant border border-transparent hover:text-on-surface hover:bg-surface-container-high/60',
             ].join(' ')}
           >
-            {t(`tabs.${tab}`)}
+            {/* The selected tab is a shared-layout element, so the highlight
+                slides between the two buttons instead of fading out of one
+                and into the other. `layoutId` is what makes it continuous —
+                two independent highlights read as two separate states. */}
+            {selected && (
+              <motion.span
+                layoutId="editor-tab-indicator"
+                className="absolute inset-0 rounded-xl border border-primary/30 bg-primary/15"
+                transition={{ duration: DURATION.base, ease: EASE.standard }}
+              />
+            )}
+            <span className="relative z-10">{t(`tabs.${tab}`)}</span>
           </button>
         );
       })}

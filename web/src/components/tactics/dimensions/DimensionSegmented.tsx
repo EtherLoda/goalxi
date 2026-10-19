@@ -39,7 +39,7 @@ export function DimensionSegmented({ label, iconName, value, options, onChange, 
               disabled={disabled}
               onClick={() => onChange(opt.value)}
               className={clsx(
-                'flex-1 flex items-center justify-center gap-1 py-1.5 px-2 rounded-lg font-label text-[10px] tracking-widest uppercase transition-all',
+                'flex-1 flex items-center justify-center gap-1 py-1.5 px-2 rounded-lg font-label text-[10px] tracking-widest uppercase transition',
                 isActive
                   ? 'bg-primary text-on-primary shadow-sm'
                   : 'text-on-surface-variant hover:text-on-surface',

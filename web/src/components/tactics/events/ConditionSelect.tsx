@@ -82,7 +82,7 @@ export function ConditionSelect({ value, onChange, disabled = false }: Condition
         type="button"
         onClick={() => !disabled && setOpen((o) => !o)}
         disabled={disabled}
-        className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-lg border bg-surface-container/50 font-label text-[9px] font-bold uppercase tracking-widest transition-colors ${
+        className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-lg border bg-surface-container/50 font-label text-[10px] font-bold uppercase tracking-widest transition-colors ${
           disabled ? 'opacity-50 cursor-not-allowed' : `cursor-pointer hover:${meta.tone.split(' ')[0]}`
         } ${meta.tone}`}
         title={t(value)}

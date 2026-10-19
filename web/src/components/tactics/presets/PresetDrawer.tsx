@@ -13,8 +13,10 @@
 import { AppIcon } from "@/components/icons/AppIcon";
 import React, { useState } from 'react';
 import { useTranslations } from 'next-intl';
+import { AnimatePresence, motion } from 'motion/react';
 import type { Preset } from '@/lib/api';
 import { PresetList } from './PresetList';
+import { DURATION, EASE } from '@/lib/motion';
 
 export interface PresetDrawerProps {
   presets: Preset[];
@@ -56,18 +58,27 @@ export function PresetDrawer({
           className="text-[14px]"
         />
       </button>
-      {open ? (
-        <div id="preset-drawer" className="w-full">
-          <PresetList
-            presets={presets}
-            activePresetId={activePresetId}
-            disabled={disabled}
-            onApply={onApply}
-            onDelete={onDelete}
-            onSaveNew={onSaveNew}
-          />
-        </div>
-      ) : null}
+      <AnimatePresence initial={false}>
+        {open ? (
+          <motion.div
+            id="preset-drawer"
+            className="w-full"
+            initial={{ opacity: 0, y: -8 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -8 }}
+            transition={{ duration: DURATION.base, ease: EASE.entrance }}
+          >
+            <PresetList
+              presets={presets}
+              activePresetId={activePresetId}
+              disabled={disabled}
+              onApply={onApply}
+              onDelete={onDelete}
+              onSaveNew={onSaveNew}
+            />
+          </motion.div>
+        ) : null}
+      </AnimatePresence>
     </div>
   );
 }

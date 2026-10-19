@@ -17,7 +17,7 @@ export function PresetCard({ preset, disabled, isActive, onApply, onDelete }: Pr
   const t = useTranslations('tactics.presets');
   return (
     <div
-      className={`p-3 rounded-lg border transition-all ${
+      className={`p-3 rounded-lg border transition ${
         isActive
           ? 'border-tertiary/50 bg-tertiary/10 shadow-[0_0_15px_rgba(233,195,73,0.15)]'
           : 'border-outline-variant/30 bg-surface-container hover:border-primary/40'
@@ -49,7 +49,7 @@ export function PresetCard({ preset, disabled, isActive, onApply, onDelete }: Pr
           type="button"
           onClick={() => onApply(preset)}
           disabled={disabled}
-          className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-primary/15 text-primary border border-primary/25 font-label text-[9px] font-bold tracking-widest uppercase hover:bg-primary/25 transition-colors disabled:opacity-50"
+          className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-primary/15 text-primary border border-primary/25 font-label text-[10px] font-bold tracking-widest uppercase hover:bg-primary/25 transition-colors disabled:opacity-50"
         >
           <AppIcon name="play_arrow" className="text-[10px]" />
           {t('apply')}

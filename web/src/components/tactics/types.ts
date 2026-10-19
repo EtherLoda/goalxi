@@ -325,6 +325,16 @@ export const EVENT_CONDITIONS: readonly EventCondition[] = [
 
 export interface SubstitutionEvent {
   readonly kind: 'sub';
+  /**
+   * Stable client-side identity, assigned by the reducer. It is NOT sent to
+   * the API (`serializeTactics` picks fields explicitly) and is not part of
+   * the match payload; it exists so React can key a row by identity instead of
+   * by list position. Without it, deleting the second of three rows makes
+   * React reuse the third row's DOM for the old second one, which both breaks
+   * the exit animation and can leave a focused input bound to a different
+   * player.
+   */
+  readonly id?: string;
   readonly minute: number;
   readonly outId: number;
   readonly inId: number;
@@ -333,6 +343,7 @@ export interface SubstitutionEvent {
 
 export interface MoveEvent {
   readonly kind: 'move';
+  readonly id?: string;
   readonly minute: number;
   readonly playerId: number;
   readonly toSlot: PositionKey;

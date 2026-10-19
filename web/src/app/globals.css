@@ -300,6 +300,20 @@ body {
     -webkit-backdrop-filter: blur(16px);
     border: 1px solid rgba(255, 255, 255, 0.05);
   }
+
+  /*
+   * V05: blur(16px) on six panels — one of which (the roster) is a scroll
+   * container — is the single most expensive thing on this page on mobile.
+   * Below the desktop breakpoint the panels get an opaque surface instead:
+   * the same silhouette, no per-frame backdrop sampling while scrolling.
+   */
+  @media (max-width: 1023px) {
+    .glass-panel {
+      background: var(--color-surface-container-low);
+      backdrop-filter: none;
+      -webkit-backdrop-filter: none;
+    }
+  }
 }
 
 /* -------------------------------------------------------------------------

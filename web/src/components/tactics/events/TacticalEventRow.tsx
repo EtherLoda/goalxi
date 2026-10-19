@@ -54,13 +54,14 @@ export function TacticalEventRow({
 
   return (
     <motion.div
-      // Entrance only — the row is appended to the end of the list, so mount
-      // is the one moment worth animating. The previous `animate-in
-      // slide-in-from-left-2 fade-in` classes came from `tw-animate-css`,
-      // which this project does not install: they compiled to nothing and the
-      // row appeared instantly. Duration/easing mirror `--ease-standard`.
+      // Entrance and exit. The previous `animate-in slide-in-from-left-2
+      // fade-in` classes came from `tw-animate-css`, which this project does
+      // not install: they compiled to nothing and the row appeared instantly.
+      // The exit collapses height as well as opacity, so deleting a row slides
+      // the rest up instead of leaving a gap that snaps shut.
       initial={{ opacity: 0, x: -8 }}
       animate={{ opacity: 1, x: 0 }}
+      exit={{ opacity: 0, height: 0, marginTop: 0, overflow: 'hidden' }}
       transition={{ duration: 0.2, ease: [0.2, 0, 0, 1] }}
       className="group/item relative rounded-xl border border-outline-variant/20 bg-surface-container/40 p-3 hover:border-primary/40 transition-colors"
       data-testid={`tactical-event-${index}`}
@@ -86,10 +87,10 @@ export function TacticalEventRow({
           </div>
 
           {/* Kind badge — mirrors ConditionSelect chip dimensions
-              (same px-2 py-0.5, text-[9px], border) so the two pills
+              (same px-2 py-0.5, text-[10px], border) so the two pills
               line up vertically next to each other. */}
           <span
-            className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-lg border font-label text-[9px] font-bold uppercase tracking-widest ${
+            className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-lg border font-label text-[10px] font-bold uppercase tracking-widest ${
               isSub
                 ? 'bg-primary/15 text-primary border-primary/30'
                 : 'bg-tertiary/15 text-tertiary border-tertiary/30'
@@ -118,7 +119,7 @@ export function TacticalEventRow({
           onClick={() => onRemove(index)}
           disabled={disabled}
           aria-label={t('deleteAria')}
-          className="p-1 rounded text-outline hover:text-error hover:bg-error/10 transition-all opacity-0 group-hover/item:opacity-100 disabled:opacity-50"
+          className="p-1 rounded text-outline hover:text-error hover:bg-error/10 transition opacity-0 group-hover/item:opacity-100 disabled:opacity-50"
         >
           <AppIcon name="close" className="text-[14px]" />
         </button>
@@ -134,7 +135,7 @@ export function TacticalEventRow({
             ) : (
               <AppIcon name="open_with" className="text-[10px] text-tertiary" />
             )}
-            <span className={`text-[9px] font-black uppercase tracking-widest ${isSub ? 'text-red-300/80' : 'text-tertiary/80'}`}>
+            <span className={`text-[10px] font-black uppercase tracking-widest ${isSub ? 'text-red-300/80' : 'text-tertiary/80'}`}>
               {isSub ? t('outLabel') : t('player')}
             </span>
           </div>
@@ -164,7 +165,7 @@ export function TacticalEventRow({
         {/* In / New Position */}
         <div className="space-y-1">
           <div className="flex items-center justify-end gap-1 px-0.5">
-            <span className={`text-[9px] font-black uppercase tracking-widest ${isSub ? 'text-positive-soft/80' : 'text-amber-300/80'}`}>
+            <span className={`text-[10px] font-black uppercase tracking-widest ${isSub ? 'text-positive-soft/80' : 'text-amber-300/80'}`}>
               {isSub ? t('inLabel') : t('newPosition')}
             </span>
             {isSub ? (

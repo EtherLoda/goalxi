@@ -81,7 +81,7 @@ export function EditorHeader({
       </div>
       <div className="flex items-center gap-3">
         {isDirty && (
-          <span className="px-2 py-0.5 rounded bg-tertiary/20 text-tertiary border border-tertiary/30 font-label text-[9px] tracking-widest uppercase">
+          <span className="px-2 py-0.5 rounded bg-tertiary/20 text-tertiary border border-tertiary/30 font-label text-[10px] tracking-widest uppercase">
             ● Unsaved
           </span>
         )}
@@ -96,7 +96,7 @@ export function EditorHeader({
             type="button"
             onClick={onSubmit}
             disabled={!canSubmit || isSubmitting}
-            className="flex items-center gap-2 px-5 py-2.5 rounded-lg bg-primary text-on-primary font-headline font-bold text-sm tracking-tight uppercase shadow-[0_0_15px_rgba(0,228,121,0.3)] hover:bg-primary-dim transition-all disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none"
+            className="flex items-center gap-2 px-5 py-2.5 rounded-lg bg-primary text-on-primary font-headline font-bold text-sm tracking-tight uppercase shadow-[0_0_15px_rgba(0,228,121,0.3)] hover:bg-primary-dim transition disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none"
             data-testid="submit-tactics"
           >
             <AppIcon name="save" className="text-base" />

@@ -69,7 +69,11 @@ export function TacticsEntryButton({
         >
           <span className="relative inline-flex">
             <AppIcon name="lock" className="text-base" />
-            <span className="absolute -top-0.5 -right-0.5 w-1.5 h-1.5 rounded-full bg-tertiary animate-pulse" />
+            {/* V10: this used to be `animate-pulse` — an infinite blink, the
+                strongest attention signal the design system has, on a state
+                that lasts until kickoff. A locked button is not an event; it
+                is a fact. Static dot, colour carries the meaning. */}
+            <span className="absolute -top-0.5 -right-0.5 h-1.5 w-1.5 rounded-full bg-tertiary" />
           </span>
         </span>
       );
@@ -88,7 +92,7 @@ export function TacticsEntryButton({
       >
         <span className="relative inline-flex">
           <AppIcon name="lock" className="text-base" />
-          <span className="absolute -top-0.5 -right-0.5 w-1.5 h-1.5 rounded-full bg-tertiary animate-pulse" />
+          <span className="absolute -top-0.5 -right-0.5 h-1.5 w-1.5 rounded-full bg-tertiary" />
         </span>
         <span>{title}</span>
       </span>
@@ -104,7 +108,7 @@ export function TacticsEntryButton({
           'group inline-flex items-center justify-center w-9 h-9 rounded-full',
           'bg-primary text-on-primary',
           'shadow-[0_0_18px_rgba(0,228,121,0.45)] hover:shadow-[0_0_24px_rgba(0,228,121,0.7)]',
-          'hover:scale-105 active:scale-95 transition-all',
+          'hover:scale-105 active:scale-95 transition-[transform,box-shadow] duration-quick',
           className,
         )}
         title={t('setTactics')}
@@ -122,7 +126,7 @@ export function TacticsEntryButton({
         'group inline-flex items-center gap-2 px-5 h-10 rounded-full',
         'bg-primary text-on-primary',
         'shadow-[0_0_18px_rgba(0,228,121,0.45)] hover:shadow-[0_0_28px_rgba(0,228,121,0.75)]',
-        'hover:scale-[1.02] active:scale-[0.98] transition-all',
+        'hover:scale-[1.02] active:scale-[0.98] transition-[transform,box-shadow] duration-quick',
         'font-headline text-xs font-black uppercase tracking-wider',
         className,
       )}
@@ -130,7 +134,7 @@ export function TacticsEntryButton({
     >
       <AppIcon name="tune" className="text-base" />
       <span>{t('setTactics')}</span>
-      <AppIcon name="arrow_forward" className="text-base opacity-0 -ml-1 group-hover:opacity-100 group-hover:ml-0 transition-all" />
+      <AppIcon name="arrow_forward" className="text-base opacity-0 -ml-1 group-hover:opacity-100 group-hover:ml-0 transition-[opacity,margin] duration-quick" />
     </Link>
   );
 }

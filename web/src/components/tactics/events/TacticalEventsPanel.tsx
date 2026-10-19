@@ -14,7 +14,7 @@
 import { AppIcon } from "@/components/icons/AppIcon";
 import React, { useState } from 'react';
 import { useTranslations } from 'next-intl';
-import { motion } from 'motion/react';
+import { AnimatePresence, motion } from 'motion/react';
 import type { Player } from '@/lib/api';
 import type { TacticalEvent } from '../types';
 import { GlassPanel } from '../shared/GlassPanel';
@@ -89,7 +89,7 @@ export function TacticalEventsPanel({
                   </span>
                 ) : null}
               </span>
-              <span className="block text-[9px] font-bold uppercase tracking-widest text-outline truncate">
+              <span className="block text-[10px] font-bold uppercase tracking-widest text-outline truncate">
                 {t('subtitle')}
               </span>
             </span>
@@ -138,20 +138,22 @@ export function TacticalEventsPanel({
                 </p>
               </div>
             ) : (
-              <div className="space-y-2 max-h-[360px] overflow-y-auto pr-1">
-                {events.map((event, idx) => (
-                  <TacticalEventRow
-                    key={`event-${idx}`}
-                    index={idx}
-                    event={event}
-                    starters={starters}
-                    bench={benchPlayers}
-                    pitchPlayers={pitchPlayers}
-                    disabled={disabled}
-                    onUpdate={onUpdate}
-                    onRemove={onRemove}
-                  />
-                ))}
+              <div className="max-h-[360px] space-y-2 overflow-y-auto pr-1">
+                <AnimatePresence initial={false}>
+                  {events.map((event, idx) => (
+                    <TacticalEventRow
+                      key={event.id ?? `event-${idx}`}
+                      index={idx}
+                      event={event}
+                      starters={starters}
+                      bench={benchPlayers}
+                      pitchPlayers={pitchPlayers}
+                      disabled={disabled}
+                      onUpdate={onUpdate}
+                      onRemove={onRemove}
+                    />
+                  ))}
+                </AnimatePresence>
               </div>
             )}
           </div>

@@ -76,7 +76,7 @@ export function PositionSelect({ value, onChange, align = 'left', disabled = fal
         type="button"
         onClick={() => !disabled && setOpen((o) => !o)}
         disabled={disabled}
-        className={`w-full flex items-center justify-between gap-2 px-2.5 py-2 rounded-lg border transition-all ${
+        className={`w-full flex items-center justify-between gap-2 px-2.5 py-2 rounded-lg border transition ${
           disabled
             ? 'opacity-50 cursor-not-allowed border-outline-variant/20'
             : `cursor-pointer border-outline-variant/30 hover:border-signal-gold/60 ${open ? 'ring-2 ring-signal-gold/30 border-signal-gold' : ''}`
@@ -85,7 +85,7 @@ export function PositionSelect({ value, onChange, align = 'left', disabled = fal
         {value ? (
           <div className={`flex-1 min-w-0 flex flex-col ${align === 'right' ? 'items-end text-right' : 'items-start text-left'}`}>
             <span className="text-xs font-bold text-on-surface">{positionShortLabel(value as PitchSlot)}</span>
-            <span className="text-[9px] font-bold uppercase tracking-widest text-amber-300/80">
+            <span className="text-[10px] font-bold uppercase tracking-widest text-amber-300/80">
               {t('newPosition')}
             </span>
           </div>

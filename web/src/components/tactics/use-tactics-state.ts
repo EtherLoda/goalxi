@@ -117,6 +117,17 @@ export function computeLockState(
 // Reducer
 // ============================================================================
 
+/**
+ * Monotonic counter for client-side event ids. Deliberately module-level and
+ * deliberately not derived from the event payload: two identical planned subs
+ * are legal, and they still need distinct identities.
+ */
+let eventIdSeq = 0;
+function nextEventId(): string {
+  eventIdSeq += 1;
+  return `event-${eventIdSeq}`;
+}
+
 export function reducer(state: EditorState, action: Action): EditorState {
   switch (action.type) {
     case 'HYDRATE': {
@@ -135,6 +146,7 @@ export function reducer(state: EditorState, action: Action): EditorState {
         for (const s of payload.substitutions) {
           events.push({
             kind: 'sub',
+            id: nextEventId(),
             minute: s.minute,
             outId: s.out,
             inId: s.in,
@@ -146,6 +158,7 @@ export function reducer(state: EditorState, action: Action): EditorState {
         for (const m of payload.instructions.moves) {
           events.push({
             kind: 'move',
+            id: nextEventId(),
             minute: m.minute,
             playerId: m.player,
             toSlot: m.position as PositionKey,
@@ -275,6 +288,7 @@ export function reducer(state: EditorState, action: Action): EditorState {
         for (const s of action.preset.substitutions) {
           events.push({
             kind: 'sub',
+            id: nextEventId(),
             minute: s.minute,
             outId: s.out,
             inId: s.in,
@@ -286,6 +300,7 @@ export function reducer(state: EditorState, action: Action): EditorState {
         for (const m of action.preset.instructions.moves) {
           events.push({
             kind: 'move',
+            id: nextEventId(),
             minute: m.minute,
             playerId: m.player,
             toSlot: m.position as PositionKey,
