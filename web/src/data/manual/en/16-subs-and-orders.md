@@ -3,7 +3,7 @@ order: 16
 slug: subs-and-orders
 title: Match: Substitutions and Team Orders
 status: full
-lastUpdated: 2026-10-16
+lastUpdated: 2026-10-19
 relatedChapters: [5, 6, 15]
 relatedEntries: [condition-form-injury, player-event-types]
 ---
@@ -227,6 +227,40 @@ Players get injured during a match, and a serious injury **means they must come 
 ❌ **"I can replace a sent-off player"**: **you cannot.** You play a man down and cover with moves.
 
 ❌ **"The bench does not matter"**: you can submit, but **the thinner the bench, the more likely an injury leaves you a man down**.
+
+---
+
+## 10. What the editor looks like
+
+The pre-match screen arranges the same content in two different ways depending on your screen width.
+
+**Desktop (wide): two tabs at the top**
+
+| Tab | What is in it |
+|---|---|
+| **Lineup** | Pitch and bench on the left, squad list on the right — drag from either side to the other |
+| **Tactics & changes** | Pitch width / defensive line and the five team tactics on top; the **substitution plan** below (collapsed by default, the header says "2 scheduled") |
+
+- The header spells out your current setup, e.g. `4-4-2 · Narrow · Low line · Wings`, so you never have to switch tabs to check
+- The **Presets** button at the top right opens a drawer — save, apply and delete all live in there, out of the way the rest of the time
+- Switching tabs **loses nothing**; unsaved changes stay put
+
+**Mobile: three steps at the bottom**
+
+`① Lineup → ② Tactics → ③ Changes`, with a fixed bottom bar showing **Back** and **Next**; on the last step the button becomes **Submit tactics**.
+
+> The steps are not a form you must fill in order — they are the same form cut into three screens, and you can walk back at any time.
+
+**Keyboard works too**(no mouse needed)
+
+| To do this | Press |
+|---|---|
+| Put a squad player on the pitch | **Enter** on an empty slot, pick from the list |
+| Move a player already on the pitch | **Enter** to pick up → **arrows** to walk → **Enter** to drop |
+| Jump to another slot | **Arrow keys** (focus goes to the nearest slot) |
+| Cancel a pick-up | **Esc** |
+
+Filling all 11 slots, choosing a tactic and submitting needs no pointer at all.
 
 ---
 

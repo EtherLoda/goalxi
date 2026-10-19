@@ -3,7 +3,7 @@ order: 15
 slug: tactics
 title: 比赛:战术
 status: full
-lastUpdated: 2026-10-18
+lastUpdated: 2026-10-19
 relatedChapters: [3, 5, 6, 14, 16, 28]
 relatedEntries: [w-vs-wm, wbl-vs-lb, am-vs-cm, dm-vs-cdm, cfl-cfr-vs-cf]
 ---
@@ -264,6 +264,8 @@ relatedEntries: [w-vs-wm, wbl-vs-lb, am-vs-cm, dm-vs-cdm, cfl-cfr-vs-cf]
 - **强力前腰**? → 窄阵
 - **速度 CB**? → 高线
 - **位置感 CB**? → 低线
+
+> 这两个维度在编辑器的**「战术与换人」标签页**(手机上是第 ② 步),跟球队战术在同一屏。编辑器怎么摆、键盘怎么用,见[第 16 章](16-subs-and-orders.md)第十节。
 
 ### Step 2:看对手
 

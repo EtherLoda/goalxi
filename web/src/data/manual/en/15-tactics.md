@@ -3,7 +3,7 @@ order: 15
 slug: tactics
 title: Match: Tactics
 status: full
-lastUpdated: 2026-10-18
+lastUpdated: 2026-10-19
 relatedChapters: [3, 5, 6, 14, 16, 28]
 relatedEntries: [w-vs-wm, wbl-vs-lb, am-vs-cm, dm-vs-cdm, cfl-cfr-vs-cf]
 ---
@@ -264,6 +264,8 @@ Tactical **style** is set **pre-match**. Mid-match (at a specified minute + cond
 - **Strong AM**? → narrow
 - **Fast CBs**? → high line
 - **Positional CBs**? → low line
+
+> Both dimensions live on the **"Tactics & changes" tab** of the editor (step ② on mobile), on the same screen as the team tactics. For how the editor is laid out and how to drive it with a keyboard, see [chapter 16](16-subs-and-orders.md) section 10.
 
 ### Step 2: Look at the opponent
 

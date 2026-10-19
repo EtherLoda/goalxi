@@ -1,6 +1,6 @@
 {
-  "version": 16,
-  "lastUpdated": "2026-10-18",
+  "version": 17,
+  "lastUpdated": "2026-10-19",
   "format": {
     "manualRoot": "web/src/data/manual",
     "chapterFilePattern": "{order:02d}-{slug}.md",
@@ -14,6 +14,11 @@
     }
   },
   "changelog": [
+    {
+      "version": 17,
+      "date": "2026-10-19",
+      "change": "ch 16 新增第十节「编辑器长什么样」(zh + en):桌面两个标签页(阵容 / 战术与换人)、移动端三步流程、预设抽屉、换人计划默认折叠,以及键盘操作表(空位 Enter 选人、Enter 拾起 → 方向键 → Enter 放下、Esc 取消)。ch 15 第九节补一句界面位置指引 + 指向 ch 16 第十节。"
+    },
     {
       "version": 16,
       "date": "2026-10-18",
