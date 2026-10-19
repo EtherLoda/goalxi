@@ -48,10 +48,10 @@ export function PresetDrawer({
         onClick={() => setOpen((prev) => !prev)}
         aria-expanded={open}
         aria-controls="preset-drawer"
-        className="flex h-11 items-center gap-1.5 rounded-lg border border-white/[0.08] bg-white/[0.04] px-3 font-label text-[10px] font-bold uppercase tracking-widest text-on-surface-variant transition-colors duration-quick hover:border-white/20 hover:text-on-surface focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60"
+        className="flex h-11 items-center gap-1.5 rounded-lg border border-white/[0.08] bg-white/[0.04] px-3 font-label text-kicker font-bold uppercase tracking-widest text-on-surface-variant transition-colors duration-quick hover:border-white/20 hover:text-on-surface focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60"
         data-testid="preset-drawer-toggle"
       >
-        <AppIcon name="bookmark" className="text-[13px]" />
+        <AppIcon name="bookmark" className="text-body" />
         {t('title')}
         {presets.length > 0 ? (
           <span className="rounded bg-white/10 px-1 tabular-nums">{presets.length}</span>

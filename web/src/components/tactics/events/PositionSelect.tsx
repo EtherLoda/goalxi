@@ -85,7 +85,7 @@ export function PositionSelect({ value, onChange, align = 'left', disabled = fal
         {value ? (
           <div className={`flex-1 min-w-0 flex flex-col ${align === 'right' ? 'items-end text-right' : 'items-start text-left'}`}>
             <span className="text-xs font-bold text-on-surface">{positionShortLabel(value as PitchSlot)}</span>
-            <span className="text-[10px] font-bold uppercase tracking-widest text-amber-300/80">
+            <span className="text-kicker font-bold uppercase tracking-widest text-amber-300/80">
               {t('newPosition')}
             </span>
           </div>

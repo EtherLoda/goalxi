@@ -43,7 +43,7 @@ export function RosterPlayerCard({ player, isAssigned, onDragStart, onDragEnd }:
     >
       <div
         ref={avatarRef}
-        className={`w-10 h-10 rounded-full flex items-center justify-center font-headline font-extrabold text-[10px] shrink-0 ${
+        className={`w-10 h-10 rounded-full flex items-center justify-center font-headline font-extrabold text-kicker shrink-0 ${
           player.isGoalkeeper
             ? 'bg-tertiary/15 border border-tertiary/40 text-tertiary'
             : 'bg-primary/15 border border-primary/40 text-primary'
@@ -59,14 +59,14 @@ export function RosterPlayerCard({ player, isAssigned, onDragStart, onDragEnd }:
       </div>
       <div className="flex-1 min-w-0">
         <div className="font-headline font-bold text-sm text-on-surface truncate">{player.name}</div>
-        <div className="font-label text-[10px] tracking-widest uppercase text-outline">
+        <div className="font-label text-kicker tracking-widest uppercase text-outline">
           {player.position}
         </div>
       </div>
       <div className="text-right shrink-0">
         <div className="font-headline font-black text-lg text-primary leading-none">{player.overall}</div>
         <div className="flex items-center gap-1 mt-1 justify-end">
-          <AppIcon name="bolt" className="text-[10px] text-outline" />
+          <AppIcon name="bolt" className="text-kicker text-outline" />
           <div className="flex gap-0.5">
             {Array.from({ length: 5 }).map((_, i) => (
               <span

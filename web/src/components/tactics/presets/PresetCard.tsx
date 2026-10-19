@@ -49,9 +49,9 @@ export function PresetCard({ preset, disabled, isActive, onApply, onDelete }: Pr
           type="button"
           onClick={() => onApply(preset)}
           disabled={disabled}
-          className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-primary/15 text-primary border border-primary/25 font-label text-[10px] font-bold tracking-widest uppercase hover:bg-primary/25 transition-colors disabled:opacity-50"
+          className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-primary/15 text-primary border border-primary/25 font-label text-kicker font-bold tracking-widest uppercase hover:bg-primary/25 transition-colors disabled:opacity-50"
         >
-          <AppIcon name="play_arrow" className="text-[10px]" />
+          <AppIcon name="play_arrow" className="text-kicker" />
           {t('apply')}
         </button>
       </div>

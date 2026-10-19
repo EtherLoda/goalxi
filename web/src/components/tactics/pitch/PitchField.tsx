@@ -304,7 +304,7 @@ export function PitchField({
           `pointer-events-none` keeps every drop target live underneath. */}
       {placedCount === 0 && !isDragging ? (
         <div className="pointer-events-none absolute inset-x-0 top-[46%] z-20 flex -translate-y-1/2 justify-center px-6">
-          <p className="rounded-full border border-primary/25 bg-surface-container/85 px-4 py-2 text-center font-label text-[11px] tracking-wider text-on-surface-variant backdrop-blur-sm">
+          <p className="rounded-full border border-primary/25 bg-surface-container/85 px-4 py-2 text-center font-label text-label tracking-wider text-on-surface-variant backdrop-blur-sm">
             {t('emptyHint')}
           </p>
         </div>
@@ -330,7 +330,7 @@ export function PitchField({
             aria-label={t('assignTitle', { slot: pickerSlot })}
             className="glass-panel rounded-xl p-4 w-[260px] flex flex-col gap-3"
           >
-            <p className="font-label text-[10px] tracking-widest uppercase text-outline">
+            <p className="font-label text-kicker tracking-widest uppercase text-outline">
               {t('assignTitle', { slot: pickerSlot })}
             </p>
             <select
@@ -356,7 +356,7 @@ export function PitchField({
             <button
               type="button"
               onClick={() => setPickerSlot(null)}
-              className="self-end rounded-lg px-3 py-1.5 font-label text-[10px] tracking-widest uppercase text-on-surface-variant hover:text-on-surface transition-colors duration-quick"
+              className="self-end rounded-lg px-3 py-1.5 font-label text-kicker tracking-widest uppercase text-on-surface-variant hover:text-on-surface transition-colors duration-quick"
             >
               {t('cancel')}
             </button>

@@ -30,7 +30,7 @@ export function DimensionSegmented({ label, iconName, value, options, onChange, 
     <div className="flex items-center gap-4">
       <div className="flex w-[92px] shrink-0 items-center gap-1.5">
         <AppIcon name={iconName} className="text-sm text-primary" />
-        <span className="font-label text-[10px] tracking-[0.18em] uppercase text-outline">{label}</span>
+        <span className="font-label text-kicker tracking-[0.18em] uppercase text-outline">{label}</span>
       </div>
       <div className="flex flex-1 gap-1 rounded-lg bg-surface-container-highest p-1">
         {options.map((opt) => {
@@ -42,7 +42,7 @@ export function DimensionSegmented({ label, iconName, value, options, onChange, 
               disabled={disabled}
               onClick={() => onChange(opt.value)}
               className={clsx(
-                'flex flex-1 items-center justify-center gap-1.5 rounded-md px-2 py-2 font-label text-[11px] tracking-widest uppercase transition-colors duration-quick',
+                'flex flex-1 items-center justify-center gap-1.5 rounded-md px-2 py-2 font-label text-label tracking-widest uppercase transition-colors duration-quick',
                 isActive
                   ? 'bg-primary text-on-primary shadow-sm'
                   : 'text-on-surface-variant hover:bg-white/[0.04] hover:text-on-surface',
@@ -50,7 +50,7 @@ export function DimensionSegmented({ label, iconName, value, options, onChange, 
               )}
               data-testid={`dimension-${opt.value}`}
             >
-              <AppIcon name={opt.iconName} className="text-[13px]" />
+              <AppIcon name={opt.iconName} className="text-body" />
               {t(opt.labelKey as `pitchWidth.narrow` | `pitchWidth.balanced` | `pitchWidth.wide` | `defensiveLine.low` | `defensiveLine.mid` | `defensiveLine.high`)}
             </button>
           );

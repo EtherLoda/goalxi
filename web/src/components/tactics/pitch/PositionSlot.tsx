@@ -132,14 +132,14 @@ export function PositionSlot({
             } ${isDragging ? 'cursor-pointer' : ''}`}
           >
             <span
-              className={`font-label text-[10px] tracking-widest uppercase ${
+              className={`font-label text-kicker tracking-widest uppercase ${
                 isDragOver
                   ? isGkSlot
                     ? 'text-tertiary'
                     : 'text-primary'
                   : isGkSlot
-                    ? 'text-tertiary/70'
-                    : 'text-outline/80'
+                    ? 'text-tertiary/85'
+                    : 'text-outline'
               }`}
             >
               {slot}

@@ -84,12 +84,12 @@ export function TacticalEventsPanel({
               <span className="flex items-center gap-1.5 text-sm font-black uppercase tracking-[0.08em] text-on-surface">
                 <span className="truncate">{t('title')}</span>
                 {events.length > 0 ? (
-                  <span className="shrink-0 rounded-md bg-primary/15 px-1.5 py-0.5 text-[10px] font-bold tabular-nums text-primary">
+                  <span className="shrink-0 rounded-md bg-primary/15 px-1.5 py-0.5 text-kicker font-bold tabular-nums text-primary">
                     {events.length}
                   </span>
                 ) : null}
               </span>
-              <span className="block text-[10px] font-bold uppercase tracking-widest text-outline truncate">
+              <span className="block text-kicker font-bold uppercase tracking-widest text-outline truncate">
                 {t('subtitle')}
               </span>
             </span>
@@ -109,7 +109,7 @@ export function TacticalEventsPanel({
               type="button"
               onClick={() => handleAdd(onAddSub)}
               disabled={disabled}
-              className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-primary text-on-primary font-label text-[10px] font-bold uppercase tracking-widest hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-primary text-on-primary font-label text-kicker font-bold uppercase tracking-widest hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             >
               <AppIcon name="swap_horiz" className="text-[12px]" />
               {t('sub')}
@@ -118,7 +118,7 @@ export function TacticalEventsPanel({
               type="button"
               onClick={() => handleAdd(onAddMove)}
               disabled={disabled}
-              className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-tertiary/20 text-tertiary border border-tertiary/30 font-label text-[10px] font-bold uppercase tracking-widest hover:bg-tertiary/30 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-tertiary/20 text-tertiary border border-tertiary/30 font-label text-kicker font-bold uppercase tracking-widest hover:bg-tertiary/30 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             >
               <AppIcon name="open_with" className="text-[12px]" />
               {t('move')}
@@ -131,9 +131,9 @@ export function TacticalEventsPanel({
             {events.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-8 text-center border-2 border-dashed border-outline-variant/20 rounded-xl">
                 <div className="w-10 h-10 rounded-full bg-surface-container-highest flex items-center justify-center mb-2">
-                  <AppIcon name="event_busy" className="text-[20px] text-outline/40" />
+                  <AppIcon name="event_busy" className="text-[20px] text-outline" />
                 </div>
-                <p className="font-label text-[10px] font-bold uppercase tracking-widest text-outline px-4">
+                <p className="font-label text-kicker font-bold uppercase tracking-widest text-outline px-4">
                   {t('empty')}
                 </p>
               </div>

@@ -480,7 +480,7 @@ tactics.skeleton.loading
 - **键盘表是这一节存在的另一个理由**：键盘替代不是「隐藏功能」，玩家不看手册不会发现空位可以按 Enter。
 - **ch 15 只加了一句指引**，没有重复布局描述 —— 同一件事写两遍就会在两处分别过期。
 
-### Phase 7 — 视觉打磨（未开始，待单独安排）
+### Phase 7 — 视觉打磨（第 1 批已完成，其余待单独安排）
 
 **触发原因**：Phase 1–6 交付后，实际页面「功能没问题，但太宽、空隙多、没有设计感」。
 
@@ -502,6 +502,43 @@ tactics.skeleton.loading
 6. **移动端**：三步之间高度不一致导致底栏位置跳动
 
 **做法建议**：先截图（1080p / 1440p / 375px 三档，每个 tab 一张），对着截图标问题点，再一次性改 CSS token 层（`globals.css` 的 spacing / type scale），而不是逐组件打补丁。
+
+#### Phase 7 第 1 批（已完成）
+
+对着 1440×900 与 375 宽两档截图，按上表 1 / 2 / 5 先做：
+
+**1 + 2. token 层（`web/src/app/globals.css`）**
+
+新增两个命名空间，都是「加词汇」而不是「换掉 Tailwind」：
+
+```css
+--spacing-micro 4  --spacing-tight 8  --spacing-panel 12
+--spacing-gutter 16 --spacing-section 24
+--text-kicker 10 --text-label 11 --text-body 13 --text-title 14
+```
+
+容器级节奏先落到 `EditorWorkspace`（三列 grid、各列内 `gap`）与 `BenchStrip`；微间距（图标与文字之间的 6px 之类）**故意保留半档** —— 强行对齐到 4px 会让 icon+label 行看起来发散，这不是漏做，是取舍。
+
+字号用 `text-kicker|label|body` 替换了全部 `text-[8px]` / `text-[9px]` / `text-[10px]` / `text-[11px]` / `text-[13px]`（26 个文件）。8px / 9px 现在**不允许存在**，由 `web/src/components/tactics/type-scale.spec.ts` 守住：它扫描目录里所有 `.tsx`，出现小于 10px 的任意字号就让测试红。
+
+**5. 对比度地板**
+
+按 WCAG AA（正文 4.5:1）实测了 token 在 `--color-surface-container` 上的实际值，并把不达标的写法一次性清掉：
+
+| 原写法 | 实测 | 改为 |
+|---|---|---|
+| `text-outline/40` · `/50` | 2.1 / 2.3 : 1 | `text-outline`（5.15:1） |
+| `text-outline/80` | 4.2 : 1 | `text-outline` |
+| `text-on-surface-variant/40` · `/60` | 3.1 / 4.0 : 1 | `text-on-surface-variant/75`（5.4:1） |
+| `text-tertiary/60` · `/70` | 4.4 / 5.0 : 1 | `text-tertiary/85` |
+
+规则记在 `globals.css` 的 type scale 注释里：`text-outline` 满不透明是 5.15:1 的地板，`/50` 只能做装饰、不能做文字。
+
+**顺带：替补席重做**
+
+原替补席与页面其余部分不一致的四个原因，都在 `BenchSlot.tsx` / `BenchStrip.tsx` 重写时消掉：位置胶囊的 chip 样式全页只有它用；空槽 40px 比球场 52px 小一档；填了人的槽位会同时显示 chip 和 `PlayerMarker` 自带的标签（位置显示两次）；整条塞在一个硬边框盒子里，和 `GlassPanel` 的观感无关。现在：容器与面板同宽同圆角同内缩，槽位 = 52px 圆圈 + 圆点下方的槽位标签，与球场 `PositionSlot` 完全同一套语言；空槽始终渲染标签而不是只画一个图标。
+
+**仍然留着的**（第 1 批没做，记录在案）：第 3 条卡片密度（名册卡与球场卡信息量差一个数量级）、第 4 条空状态、第 6 条移动端三步等高。半档间距（`gap-1.5` / `px-2.5` / `py-1.5`）也仍在微间距里使用，见上文取舍。
 
 ---
 

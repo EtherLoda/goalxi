@@ -118,7 +118,7 @@ export function EditorWorkspace(props: EditorWorkspaceProps) {
   const availablePlayers = players.filter((p) => !assignedPlayerIds.has(p.id));
 
   const pitchColumn = (
-    <div className="flex flex-col gap-3">
+    <div className="flex flex-col gap-gutter">
       {/* The pitch is `w-full aspect-[3/4]`, so its height is always ×4/3 of
           its width, and the cap that keeps the whole shape on screen belongs
           on the grid TRACK, not on this wrapper. Capping the wrapper left the
@@ -151,7 +151,7 @@ export function EditorWorkspace(props: EditorWorkspaceProps) {
   );
 
   const tacticPanel = (
-    <div className="flex flex-col gap-3">
+    <div className="flex flex-col gap-gutter">
       <DimensionsPanel
         pitchWidth={pitchWidth}
         defensiveLine={defensiveLine}
@@ -159,7 +159,7 @@ export function EditorWorkspace(props: EditorWorkspaceProps) {
         disabled={isLocked}
       />
       <GlassPanel size="sm">
-        <div className="flex items-center gap-1.5 mb-2.5">
+        <div className="flex items-center gap-micro mb-tight">
           <KickerLabel>{t('title')}</KickerLabel>
         </div>
         <TeamTacticPicker
@@ -223,7 +223,7 @@ export function EditorWorkspace(props: EditorWorkspaceProps) {
     if (view === 'mobile') {
       if (tab === 'lineup') {
         return (
-          <div className="flex flex-col gap-3">
+          <div className="flex flex-col gap-gutter">
             {tacticBar}
             {pitchColumn}
             {roster}
@@ -240,7 +240,7 @@ export function EditorWorkspace(props: EditorWorkspaceProps) {
     if (tab === 'lineup') {
       return (
         <div
-          className="grid grid-cols-1 items-start justify-center gap-4 lg:grid-cols-[minmax(0,1fr)_380px]"
+          className="grid grid-cols-1 items-start justify-center gap-section lg:grid-cols-[minmax(0,1fr)_380px]"
           // The roster gets a fixed 380px — enough for the detailed card
           // (name row + ten skill bars) without wrapping — and every remaining
           // pixel goes to the pitch. The pitch keeps its 3:4 aspect, so a wider
@@ -248,7 +248,7 @@ export function EditorWorkspace(props: EditorWorkspaceProps) {
           // fold rather than being capped back to a postage stamp.
           data-testid="lineup-grid"
         >
-          <div className="flex min-w-0 flex-col gap-3">
+          <div className="flex min-w-0 flex-col gap-gutter">
             {tacticBar}
             {pitchColumn}
           </div>
@@ -268,7 +268,7 @@ export function EditorWorkspace(props: EditorWorkspaceProps) {
     // side-by-side halves left a screen-tall hole under the shorter one.
     // Stacked and width-capped it reads as a form, which is what it is.
     return (
-      <div className="mx-auto flex w-full max-w-[760px] flex-col gap-4">
+      <div className="mx-auto flex w-full max-w-[760px] flex-col gap-gutter">
         {tacticPanel}
         {changesPanel(true, true)}
       </div>

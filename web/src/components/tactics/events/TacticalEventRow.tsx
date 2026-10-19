@@ -81,22 +81,22 @@ export function TacticalEventRow({
                 onUpdate(index, { minute: Math.max(1, Math.min(90, Number(e.target.value) || 1)) } as Partial<TacticalEvent>)
               }
               disabled={disabled}
-              className="w-9 bg-transparent text-[11px] font-bold text-on-surface text-center focus:outline-none tabular-nums"
+              className="w-9 bg-transparent text-label font-bold text-on-surface text-center focus:outline-none tabular-nums"
               aria-label={t('minute')}
             />
           </div>
 
           {/* Kind badge — mirrors ConditionSelect chip dimensions
-              (same px-2 py-0.5, text-[10px], border) so the two pills
+              (same px-2 py-0.5, text-kicker, border) so the two pills
               line up vertically next to each other. */}
           <span
-            className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-lg border font-label text-[10px] font-bold uppercase tracking-widest ${
+            className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-lg border font-label text-kicker font-bold uppercase tracking-widest ${
               isSub
                 ? 'bg-primary/15 text-primary border-primary/30'
                 : 'bg-tertiary/15 text-tertiary border-tertiary/30'
             }`}
           >
-            <AppIcon name={isSub ? 'swap_horiz' : 'open_with'} className="text-[11px]" />
+            <AppIcon name={isSub ? 'swap_horiz' : 'open_with'} className="text-label" />
             {isSub ? t('sub') : t('move')}
           </span>
 
@@ -131,11 +131,11 @@ export function TacticalEventRow({
         <div className="space-y-1">
           <div className="flex items-center gap-1 px-0.5">
             {isSub ? (
-              <AppIcon name="remove_circle" className="text-[10px] text-red-400" />
+              <AppIcon name="remove_circle" className="text-kicker text-red-400" />
             ) : (
-              <AppIcon name="open_with" className="text-[10px] text-tertiary" />
+              <AppIcon name="open_with" className="text-kicker text-tertiary" />
             )}
-            <span className={`text-[10px] font-black uppercase tracking-widest ${isSub ? 'text-red-300/80' : 'text-tertiary/80'}`}>
+            <span className={`text-kicker font-black uppercase tracking-widest ${isSub ? 'text-red-300/80' : 'text-tertiary/80'}`}>
               {isSub ? t('outLabel') : t('player')}
             </span>
           </div>
@@ -165,13 +165,13 @@ export function TacticalEventRow({
         {/* In / New Position */}
         <div className="space-y-1">
           <div className="flex items-center justify-end gap-1 px-0.5">
-            <span className={`text-[10px] font-black uppercase tracking-widest ${isSub ? 'text-positive-soft/80' : 'text-amber-300/80'}`}>
+            <span className={`text-kicker font-black uppercase tracking-widest ${isSub ? 'text-positive-soft/80' : 'text-amber-300/80'}`}>
               {isSub ? t('inLabel') : t('newPosition')}
             </span>
             {isSub ? (
-              <AppIcon name="add_circle" className="text-[10px] text-positive-bright" />
+              <AppIcon name="add_circle" className="text-kicker text-positive-bright" />
             ) : (
-              <AppIcon name="open_with" className="text-[10px] text-signal-gold" />
+              <AppIcon name="open_with" className="text-kicker text-signal-gold" />
             )}
           </div>
           {isSub ? (

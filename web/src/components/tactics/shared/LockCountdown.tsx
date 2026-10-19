@@ -61,7 +61,7 @@ export function LockCountdown({
     <div className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border ${bg} ${className}`}>
       <AppIcon name={isLocked ? 'lock' : isWarning ? 'timer' : 'schedule'} className="text-base" />
       <div className="flex flex-col">
-        <span className="font-label text-[10px] tracking-[0.2em] uppercase opacity-70">{label}</span>
+        <span className="font-label text-kicker tracking-[0.2em] uppercase opacity-70">{label}</span>
         <span ref={ref} className="font-headline font-bold text-sm tracking-tight">
           {formatCountdown(countdownSeconds)}
         </span>

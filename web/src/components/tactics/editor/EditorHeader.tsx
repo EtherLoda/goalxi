@@ -74,13 +74,13 @@ export function EditorHeader({
         <AppIcon name="strategy" className="text-primary text-2xl shrink-0" />
         <div className="min-w-0">
           <p className="flex flex-wrap items-center gap-x-2 gap-y-1 font-headline font-bold text-sm text-on-surface">
-            <span className="rounded bg-primary/12 px-1.5 py-0.5 font-label text-[11px] font-bold tabular-nums tracking-[0.08em] text-primary">
+            <span className="rounded bg-primary/12 px-1.5 py-0.5 font-label text-label font-bold tabular-nums tracking-[0.08em] text-primary">
               {formation}
             </span>
             <span className="truncate text-on-surface-variant">{summary}</span>
           </p>
           {statusMessage ? (
-            <p className="font-label text-[10px] tracking-widest uppercase text-outline">
+            <p className="font-label text-kicker tracking-widest uppercase text-outline">
               {statusMessage}
             </p>
           ) : null}
@@ -95,7 +95,7 @@ export function EditorHeader({
       <div className="flex shrink-0 items-center gap-3">
         {presetSlot}
         {isDirty && (
-          <span className="flex h-11 items-center gap-1.5 rounded-lg border border-tertiary/30 bg-tertiary/15 px-2.5 font-label text-[10px] tracking-widest uppercase text-tertiary">
+          <span className="flex h-11 items-center gap-1.5 rounded-lg border border-tertiary/30 bg-tertiary/15 px-2.5 font-label text-kicker tracking-widest uppercase text-tertiary">
             <span aria-hidden className="h-1.5 w-1.5 rounded-full bg-tertiary" />
             {tLock('unsaved')}
           </span>

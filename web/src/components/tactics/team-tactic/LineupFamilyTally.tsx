@@ -46,7 +46,7 @@ export function LineupFamilyTally({
             <span
               key={family}
               className={
-                'inline-flex items-baseline gap-1 rounded-md px-1.5 py-0.5 text-[11px] tabular-nums transition-colors duration-quick ' +
+                'inline-flex items-baseline gap-1 rounded-md px-1.5 py-0.5 text-label tabular-nums transition-colors duration-quick ' +
                 (isNeeded
                   ? 'bg-primary/12 text-primary'
                   : 'bg-white/4 text-on-surface-variant/70')

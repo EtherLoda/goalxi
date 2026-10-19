@@ -56,7 +56,7 @@ export function EditorStepper({
                   aria-current={current ? 'step' : undefined}
                   className={[
                     'w-full flex items-center justify-center gap-2 px-2 py-2 rounded-xl',
-                    'font-label text-[11px] tracking-widest uppercase',
+                    'font-label text-label tracking-widest uppercase',
                     'transition-colors duration-quick',
                     current
                       ? 'bg-primary/15 text-primary border border-primary/30'
@@ -66,7 +66,7 @@ export function EditorStepper({
                   <span
                     aria-hidden="true"
                     className={[
-                      'flex items-center justify-center w-5 h-5 rounded-full text-[10px] font-black',
+                      'flex items-center justify-center w-5 h-5 rounded-full text-kicker font-black',
                       current
                         ? 'bg-primary text-on-primary'
                         : done

@@ -27,7 +27,7 @@ export function RosterFilters({ sort, onSortChange }: RosterFiltersProps) {
         <button
           type="button"
           onClick={() => setOpen((o) => !o)}
-          className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-surface-container-highest text-on-surface font-label text-[10px] tracking-widest uppercase hover:text-primary"
+          className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-surface-container-highest text-on-surface font-label text-kicker tracking-widest uppercase hover:text-primary"
         >
           <AppIcon name="sort" className="text-[14px]" />
           {t(`sort.${sort}`)}
@@ -42,7 +42,7 @@ export function RosterFilters({ sort, onSortChange }: RosterFiltersProps) {
                   onSortChange(key);
                   setOpen(false);
                 }}
-                className={`block w-full text-left px-3 py-1.5 rounded font-label text-[10px] tracking-widest uppercase transition-colors ${
+                className={`block w-full text-left px-3 py-1.5 rounded font-label text-kicker tracking-widest uppercase transition-colors ${
                   sort === key
                     ? 'bg-primary/20 text-primary'
                     : 'text-on-surface hover:bg-white/5'

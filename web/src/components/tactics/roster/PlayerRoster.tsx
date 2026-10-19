@@ -41,7 +41,7 @@ export function PlayerRoster({
       <div className="flex items-center justify-between mb-3 gap-2">
         <KickerLabel>{t('title')}</KickerLabel>
         <div className="flex items-center gap-2">
-          <span className="font-label text-[10px] text-outline">
+          <span className="font-label text-kicker text-outline">
             {available.length} {t('available')} · {onPitch.length} {t('onPitch')}
           </span>
           {onDensityChange && (

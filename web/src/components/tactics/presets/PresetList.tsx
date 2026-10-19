@@ -30,7 +30,7 @@ export function PresetList({ presets, activePresetId, disabled, onApply, onDelet
           type="button"
           onClick={onSaveNew}
           disabled={disabled}
-          className="flex items-center gap-1 px-2 py-1 rounded bg-primary/20 text-primary border border-primary/30 font-label text-[10px] tracking-widest uppercase hover:bg-primary/30 transition disabled:opacity-50"
+          className="flex items-center gap-1 px-2 py-1 rounded bg-primary/20 text-primary border border-primary/30 font-label text-kicker tracking-widest uppercase hover:bg-primary/30 transition disabled:opacity-50"
         >
           <AppIcon name="add" className="text-[12px]" />
           {t('save')}
@@ -38,8 +38,8 @@ export function PresetList({ presets, activePresetId, disabled, onApply, onDelet
       </div>
       {presets.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-6 text-center border-2 border-dashed border-outline-variant/20 rounded-xl">
-          <AppIcon name="bookmark" className="text-2xl text-outline/40 mb-1" />
-          <span className="font-label text-[10px] tracking-widest uppercase text-outline">
+          <AppIcon name="bookmark" className="text-2xl text-outline mb-1" />
+          <span className="font-label text-kicker tracking-widest uppercase text-outline">
             No presets yet
           </span>
         </div>

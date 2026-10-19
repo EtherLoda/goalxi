@@ -71,11 +71,11 @@ export function TeamTacticPicker({
 
   if (isLoading) {
     return (
-      <p className="text-[11px] text-on-surface-variant/60">{t('loading')}</p>
+      <p className="text-label text-on-surface-variant/75">{t('loading')}</p>
     );
   }
   if (error) {
-    return <p className="text-[11px] text-tertiary">{t('unavailable')}</p>;
+    return <p className="text-label text-tertiary">{t('unavailable')}</p>;
   }
 
   /** "W×2 FB×2" — the slot requirement, printed on the chip. */
@@ -100,7 +100,7 @@ export function TeamTacticPicker({
           data-testid="team-tactic-none"
         >
           <span className="block font-headline font-bold">{t('none')}</span>
-          <span className="block text-[10px] tracking-wide opacity-60">—</span>
+          <span className="block text-kicker tracking-wide opacity-60">—</span>
         </button>
         {TEAM_TACTIC_CODES.map((code) => {
           const reason = unmet.get(code);
@@ -131,7 +131,7 @@ export function TeamTacticPicker({
                   <span aria-hidden className="h-1.5 w-1.5 rounded-full bg-primary" />
                 ) : null}
               </span>
-              <span className="block font-label text-[10px] tracking-widest tabular-nums opacity-60">
+              <span className="block font-label text-kicker tracking-widest tabular-nums opacity-60">
                 {requirementText(code) || ' '}
               </span>
             </button>
@@ -147,12 +147,12 @@ export function TeamTacticPicker({
         />
       ) : null}
 
-      <p className="text-[11px] leading-relaxed text-on-surface-variant/75">
+      <p className="text-label leading-relaxed text-on-surface-variant/75">
         {value === null ? t('noneHint') : t(`desc.${value}`)}
       </p>
 
       {value !== null && unmet.get(value) ? (
-        <p className="text-[11px] font-medium text-tertiary">{unmet.get(value)}</p>
+        <p className="text-label font-medium text-tertiary">{unmet.get(value)}</p>
       ) : null}
     </div>
   );
@@ -162,7 +162,7 @@ function chipClass(isActive: boolean, isBlocked: boolean, disabled: boolean): st
   const base =
     'min-w-[104px] rounded-lg border px-3 py-2 text-left text-xs transition-colors duration-quick';
   if (isBlocked || disabled) {
-    return `${base} border-white/6 bg-white/[0.03] text-on-surface-variant/40 cursor-not-allowed`;
+    return `${base} border-white/6 bg-white/[0.03] text-on-surface-variant/75 cursor-not-allowed`;
   }
   if (isActive) {
     return `${base} border-primary/50 bg-primary/15 text-primary`;

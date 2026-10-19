@@ -76,7 +76,7 @@ export function DetailedRosterPlayerCard({
       <div className="flex items-center gap-2.5">
         <div
           ref={avatarRef}
-          className={`w-9 h-9 rounded-lg flex items-center justify-center font-headline font-extrabold text-[10px] shrink-0 ${
+          className={`w-9 h-9 rounded-lg flex items-center justify-center font-headline font-extrabold text-kicker shrink-0 ${
             player.isGoalkeeper
               ? 'bg-tertiary/15 border border-tertiary/40 text-tertiary'
               : 'bg-primary/15 border border-primary/40 text-primary'
@@ -88,7 +88,7 @@ export function DetailedRosterPlayerCard({
           <div className="font-headline font-bold text-sm text-on-surface truncate">
             {player.name}
           </div>
-          <div className="font-label text-[10px] tracking-widest uppercase text-outline truncate">
+          <div className="font-label text-kicker tracking-widest uppercase text-outline truncate">
             {player.position}
           </div>
         </div>
@@ -97,7 +97,7 @@ export function DetailedRosterPlayerCard({
             {player.overall}
           </div>
           {/* Age */}
-          <div className="font-label text-[10px] tracking-widest uppercase text-outline">
+          <div className="font-label text-kicker tracking-widest uppercase text-outline">
             {player.age}y
           </div>
           {/* Form — 5 dots */}
@@ -116,7 +116,7 @@ export function DetailedRosterPlayerCard({
           </div>
           {/* Stamina — 5 bars */}
           <div className="flex items-center gap-0.5 justify-end">
-            <AppIcon name="bolt" className="text-[10px] text-outline" />
+            <AppIcon name="bolt" className="text-kicker text-outline" />
             <div className="flex gap-0.5">
               {Array.from({ length: 5 }).map((_, i) => (
                 <span
@@ -173,7 +173,7 @@ function SkillCategoryGroup({
           className={`w-1 h-3 rounded-full ${CATEGORY_BARS[cat]}`}
           aria-hidden
         />
-        <span className="text-[10px] font-black uppercase tracking-widest text-on-surface-variant">
+        <span className="text-kicker font-black uppercase tracking-widest text-on-surface-variant">
           {getCategoryName(cat, locale)}
         </span>
       </div>

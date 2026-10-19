@@ -210,6 +210,43 @@
   --shadow-card: 0 4px 16px rgba(0, 0, 0, 0.3);
   --shadow-glass: 0 8px 32px rgba(0, 0, 0, 0.37);
   --shadow-floating: 0 12px 32px rgba(0, 0, 0, 0.4);
+
+  /* -------------------------------------------------------------------------
+     SPACING RHYTHM
+
+     Five steps, all multiples of 4. Before this existed the tactics editor
+     mixed `gap-3` (12), `gap-4` (16), `p-4` (16), `px-5 py-3` (20/12) and
+     `px-3.5 py-2` (14/8) inside one screen, so no two panels agreed on
+     where their edges were and the page read as assembled rather than
+     designed.
+
+     Use `gap-section` between panels, `p-panel` for a panel's own inset,
+     `gap-tight`/`gap-micro` inside a panel. Tailwind's numeric spacing
+     still works; this is the vocabulary, not a cage.
+  ------------------------------------------------------------------------- */
+  --spacing-micro: 0.25rem;    /* 4  — icon ↔ text */
+  --spacing-tight: 0.5rem;     /* 8  — items inside one group */
+  --spacing-panel: 0.75rem;    /* 12 — a panel's inner inset */
+  --spacing-gutter: 1rem;      /* 16 — panel ↔ panel */
+  --spacing-section: 1.5rem;   /* 24 — section breaks */
+
+  /* -------------------------------------------------------------------------
+     TYPE SCALE
+
+     Four readable steps. The editor had drifted into "9px and 10px for
+     everything", which flattened the hierarchy: a section title, a skill
+     label and a numeric value were all 10px uppercase. Anything below
+     `kicker` is no longer allowed for text.
+
+     Contrast floor, measured against `--color-surface-container`:
+       text-kicker 10px  needs `text-on-surface-variant` ≥ 70% (5.4:1)
+       text-outline at full opacity is 5.15:1 — safe
+       `text-outline/50` is 2.31:1 — decoration, never text
+  ------------------------------------------------------------------------- */
+  --text-kicker: 0.625rem;     /* 10 — uppercase labels only */
+  --text-label: 0.6875rem;     /* 11 — secondary values */
+  --text-body: 0.8125rem;      /* 13 — body copy */
+  --text-title: 0.875rem;      /* 14 — panel titles */
 }
 
 /* -------------------------------------------------------------------------

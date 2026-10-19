@@ -82,12 +82,12 @@ export function ConditionSelect({ value, onChange, disabled = false }: Condition
         type="button"
         onClick={() => !disabled && setOpen((o) => !o)}
         disabled={disabled}
-        className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-lg border bg-surface-container/50 font-label text-[10px] font-bold uppercase tracking-widest transition-colors ${
+        className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-lg border bg-surface-container/50 font-label text-kicker font-bold uppercase tracking-widest transition-colors ${
           disabled ? 'opacity-50 cursor-not-allowed' : `cursor-pointer hover:${meta.tone.split(' ')[0]}`
         } ${meta.tone}`}
         title={t(value)}
       >
-        <AppIcon name={meta.icon} className="text-[11px]" />
+        <AppIcon name={meta.icon} className="text-label" />
         {t(value)}
       </button>
 
@@ -109,13 +109,13 @@ export function ConditionSelect({ value, onChange, disabled = false }: Condition
                     onChange(c);
                     setOpen(false);
                   }}
-                  className={`w-full flex items-center gap-2 px-2 py-1.5 rounded text-left text-[11px] font-bold uppercase tracking-widest transition-colors ${
+                  className={`w-full flex items-center gap-2 px-2 py-1.5 rounded text-left text-label font-bold uppercase tracking-widest transition-colors ${
                     active
                       ? 'bg-primary/15 text-on-surface'
                       : 'text-on-surface hover:bg-surface-container/60'
                   }`}
                 >
-                  <AppIcon name={m.icon} className={`text-[13px] ${active ? 'text-primary' : 'text-outline'}`} />
+                  <AppIcon name={m.icon} className={`text-body ${active ? 'text-primary' : 'text-outline'}`} />
                   <span className="flex-1">{t(c)}</span>
                   {active && (
                     <AppIcon name="check" className="text-[12px] text-primary" />

@@ -21,7 +21,12 @@ interface BenchStripProps {
 const DRAG_MIME = 'application/x-goalxi-player';
 
 /**
- * The 6 bench slots rendered as a horizontal strip below the pitch.
+ * The 6 bench slots, rendered as a panel under the pitch.
+ *
+ * The panel treatment (inset, corners, surface) is the same one the roster
+ * and the tactical panels use, so the bench reads as one of the page's
+ * blocks rather than an orphan strip. Three columns on narrow screens keep
+ * the 52px circles from being squeezed; six across from `sm` up.
  */
 export function BenchStrip({
   bench,
@@ -37,21 +42,20 @@ export function BenchStrip({
   const [draggingFromSlot, setDraggingFromSlot] = useState<BenchSlot | null>(null);
 
   return (
-    // No outer margin: the pitch column is a `gap-3` flex column, so `mt-3`
-    // here would double the gap between the pitch and the bench.
-    <div className="w-full">
-      <div className="flex items-center justify-between mb-2 px-1">
+    // No outer margin: the pitch column is a `gap-gutter` flex column, so
+    // `mt-*` here would double the gap between the pitch and the bench.
+    <div className="w-full rounded-2xl bg-surface-container/60 border border-white/[0.06] p-panel">
+      <div className="mb-tight flex items-center justify-between px-micro">
         <KickerLabel>{t('title')}</KickerLabel>
-        <span className="font-label text-[10px] text-outline">{t('hint')}</span>
+        <span className="font-label text-kicker text-on-surface-variant/75">{t('hint')}</span>
       </div>
-      <div className="flex gap-2 p-3 rounded-xl bg-surface-container border border-outline-variant/30">
+      <div className="grid grid-cols-3 gap-tight sm:grid-cols-6">
         {BENCH_SLOTS.map((slot) => {
           const playerId = bench[slot] ?? null;
           const player = playerId ? playersById.get(playerId) ?? null : null;
           return (
             <div
               key={slot}
-              className="flex-1"
               onDragEnter={() => setDragOverSlot(slot)}
               onDragLeave={(e) => {
                 if (!e.currentTarget.contains(e.relatedTarget as Node)) {
@@ -75,8 +79,8 @@ export function BenchStrip({
                 isGkSlot={slot === 'BENCH_GK'}
                 isDragOver={dragOverSlot === slot}
                 isDragging={isDragging}
-                onDrop={(playerId) => {
-                  onDrop(slot, playerId, draggingFromSlot);
+                onDrop={(droppedPlayerId) => {
+                  onDrop(slot, droppedPlayerId, draggingFromSlot);
                   setDraggingFromSlot(null);
                   setDragOverSlot(null);
                 }}

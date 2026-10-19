@@ -1,6 +1,6 @@
 'use client';
 
-import { AppIcon } from "@/components/icons/AppIcon";
+import { AppIcon } from '@/components/icons/AppIcon';
 import React from 'react';
 import type { Player } from '@/lib/api';
 import type { BenchSlot, PositionKey } from '../types';
@@ -22,6 +22,16 @@ interface BenchSlotProps {
 
 const DRAG_MIME = 'application/x-goalxi-player';
 
+/**
+ * One bench slot.
+ *
+ * It deliberately mirrors `PositionSlot` on the pitch: a 52px circle with the
+ * slot label underneath, in the same type scale and the same colours. The
+ * previous version stacked a filled chip above the circle *and* let
+ * `PlayerMarker` draw its own label underneath, so a filled bench slot showed
+ * its position twice while an empty one showed it once, and nothing on the
+ * strip matched the pitch's sizing.
+ */
 export function BenchSlotView({
   slot,
   playerId,
@@ -47,59 +57,57 @@ export function BenchSlotView({
     if (droppedId) onDrop(Number(droppedId));
   };
 
+  const label = positionShortLabel(slot);
+
   return (
     <div
-      className="flex flex-col items-center"
+      className={`flex flex-col items-center gap-micro rounded-xl p-tight transition-colors duration-base ${
+        isDragOver ? (isGkSlot ? 'bg-tertiary/[0.07]' : 'bg-primary/[0.07]') : ''
+      }`}
       onDragOver={handleDragOver}
       onDrop={handleDrop}
       data-slot={slot}
       data-testid={`slot-${slot}`}
     >
-      <div
-        className={`mb-1.5 px-2 py-0.5 rounded text-[10px] font-headline font-bold tracking-widest uppercase transition-[background-color,color,border-color] duration-base ${
-          isGkSlot
-            ? isDragOver
-              ? 'bg-tertiary/30 text-tertiary border border-tertiary/50'
-              : 'bg-tertiary/10 text-tertiary/80 border border-tertiary/30'
-            : isDragOver
-              ? 'bg-primary/30 text-primary border border-primary/50'
-              : 'bg-surface-container-highest text-on-surface-variant border border-outline-variant/30'
-        }`}
-      >
-        {positionShortLabel(slot)}
-      </div>
       {player ? (
         <PlayerMarker
           player={player}
           slot={slot as PositionKey as never}
           isGkSlot={isGkSlot}
+          isDropTarget={isDragOver}
           onRemove={onRemove}
           onDragStart={onDragStart}
           onDragEnd={onDragEnd}
         />
       ) : (
-        // Empty-slot placeholder. Always rendered (not just during a
-        // drag) so the bench strip stays a clean visual grid even when
-        // no subs are queued. The placeholder tint signals whether the
-        // slot can accept a drop right now (`isDragging`).
-        <div
-          className={`flex h-10 w-10 items-center justify-center rounded-full border-2 transition-[border-color,background-color,box-shadow] duration-base ${
-            isGkSlot
-              ? isDragOver
-                ? 'border-tertiary bg-tertiary/20 ring-2 ring-tertiary/30'
+        <>
+          <div
+            className={`flex h-[52px] w-[52px] items-center justify-center rounded-full border transition-[border-color,background-color,box-shadow] duration-base ${
+              isGkSlot
+                ? 'border-tertiary/25 border-dashed'
+                : 'border-white/15 border-dashed'
+            } ${
+              isDragOver
+                ? isGkSlot
+                  ? 'border-2 border-solid border-tertiary bg-tertiary/20 ring-2 ring-tertiary/30'
+                  : 'border-2 border-solid border-primary bg-primary/20 ring-2 ring-primary/30'
                 : isDragging
-                  ? 'border-tertiary/30 bg-tertiary/10'
-                  : 'border-white/12 border-dashed bg-surface-container/40'
-              : isDragOver
-                ? 'border-primary bg-primary/20 ring-2 ring-primary/30'
-                : isDragging
-                  ? 'border-primary/30 bg-primary/5'
-                  : 'border-white/12 border-dashed bg-surface-container/40'
-          } ${isDragging ? 'cursor-pointer' : ''}`}
-          data-testid={`slot-${slot}-empty`}
-        >
-          <AppIcon name="person_add" className="text-base text-outline" />
-        </div>
+                  ? isGkSlot
+                    ? 'bg-tertiary/10'
+                    : 'bg-primary/5'
+                  : ''
+            } ${isDragging ? 'cursor-pointer' : ''}`}
+            data-testid={`slot-${slot}-empty`}
+          >
+            <AppIcon
+              name="person_add"
+              className={`text-base ${isGkSlot ? 'text-tertiary/85' : 'text-outline'}`}
+            />
+          </div>
+          <span className="font-label text-kicker tracking-widest uppercase text-outline">
+            {label}
+          </span>
+        </>
       )}
     </div>
   );

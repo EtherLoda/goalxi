@@ -55,10 +55,10 @@ export function TeamTacticBar({
       // it gave back goes to the pitch, which is now the dominant column.
       className="glass-panel flex flex-wrap items-center gap-x-3 gap-y-1.5 rounded-xl px-3.5 py-2"
     >
-      <span className="shrink-0 text-[10px] font-semibold uppercase tracking-[0.14em] text-on-surface-variant/60">
+      <span className="shrink-0 text-kicker font-semibold uppercase tracking-[0.14em] text-on-surface-variant/75">
         {t('title')}
       </span>
-      <span className="shrink-0 text-[13px] font-semibold text-on-surface">
+      <span className="shrink-0 text-body font-semibold text-on-surface">
         {isLoading ? t('loading') : error ? t('unavailable') : name}
       </span>
       <span aria-hidden className="hidden h-3 w-px shrink-0 bg-white/10 sm:block" />
@@ -74,21 +74,21 @@ export function TeamTacticBar({
 
       <div className="flex shrink-0 items-center gap-2">
         {showMissing ? (
-          <span className="text-[11px] font-medium text-tertiary">
+          <span className="text-label font-medium text-tertiary">
             {check.missing
               .map((m) => t('missing', { need: m.need - m.have, families: m.families.join('/') }))
               .join(' · ')}
           </span>
         ) : teamTactic ? (
-          <span className="inline-flex items-center gap-1 text-[11px] font-medium text-primary">
+          <span className="inline-flex items-center gap-1 text-label font-medium text-primary">
             <span aria-hidden className="h-1.5 w-1.5 rounded-full bg-primary" />
             {t('satisfied')}
           </span>
         ) : (
-          <span className="text-[11px] text-on-surface-variant/60">{t('noneHint')}</span>
+          <span className="text-label text-on-surface-variant/75">{t('noneHint')}</span>
         )}
         {isLocked ? (
-          <span className="rounded bg-white/6 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-on-surface-variant">
+          <span className="rounded bg-white/6 px-1.5 py-0.5 text-kicker font-semibold uppercase tracking-wider text-on-surface-variant">
             {t('locked')}
           </span>
         ) : null}

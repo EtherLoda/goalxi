@@ -23,7 +23,7 @@ export function SavePresetDialog({ onCancel, onConfirm }: SavePresetDialogProps)
         </h2>
         <div className="space-y-3">
           <div>
-            <label className="block font-label text-[10px] tracking-widest uppercase text-outline mb-1">
+            <label className="block font-label text-kicker tracking-widest uppercase text-outline mb-1">
               {t('name')}
             </label>
             <input
@@ -43,7 +43,7 @@ export function SavePresetDialog({ onCancel, onConfirm }: SavePresetDialogProps)
               onChange={(e) => setIsDefault(e.target.checked)}
               className="w-4 h-4 accent-primary"
             />
-            <span className="font-label text-[10px] tracking-widest uppercase text-on-surface">
+            <span className="font-label text-kicker tracking-widest uppercase text-on-surface">
               {t('setDefault')}
             </span>
           </label>
@@ -52,7 +52,7 @@ export function SavePresetDialog({ onCancel, onConfirm }: SavePresetDialogProps)
           <button
             type="button"
             onClick={onCancel}
-            className="flex-1 px-3 py-2 rounded-lg border border-outline-variant/30 text-on-surface-variant font-label text-[10px] tracking-widest uppercase hover:text-on-surface transition-colors"
+            className="flex-1 px-3 py-2 rounded-lg border border-outline-variant/30 text-on-surface-variant font-label text-kicker tracking-widest uppercase hover:text-on-surface transition-colors"
           >
             {t('cancel')}
           </button>
@@ -60,7 +60,7 @@ export function SavePresetDialog({ onCancel, onConfirm }: SavePresetDialogProps)
             type="button"
             onClick={() => onConfirm(name.trim(), isDefault)}
             disabled={!canConfirm}
-            className="flex-1 px-3 py-2 rounded-lg bg-primary text-on-primary font-label text-[10px] tracking-widest uppercase hover:bg-primary-dim transition-colors disabled:opacity-50"
+            className="flex-1 px-3 py-2 rounded-lg bg-primary text-on-primary font-label text-kicker tracking-widest uppercase hover:bg-primary-dim transition-colors disabled:opacity-50"
           >
             {t('confirm')}
           </button>

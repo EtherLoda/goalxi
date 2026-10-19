@@ -13,7 +13,7 @@ interface KickerLabelProps {
  */
 export function KickerLabel({ children, className = '' }: KickerLabelProps) {
   return (
-    <span className={`font-label text-[10px] tracking-[0.2em] uppercase text-outline ${className}`}>
+    <span className={`font-label text-kicker tracking-[0.2em] uppercase text-outline ${className}`}>
       {children}
     </span>
   );

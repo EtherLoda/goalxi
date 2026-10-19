@@ -162,7 +162,7 @@ export function PlayerMarker({
 
         {/* Avatar */}
         <div
-          className={`relative w-[52px] h-[52px] rounded-full flex items-center justify-center font-headline font-extrabold text-[10px] uppercase cursor-grab active:cursor-grabbing transition-[box-shadow] duration-base ${
+          className={`relative w-[52px] h-[52px] rounded-full flex items-center justify-center font-headline font-extrabold text-kicker uppercase cursor-grab active:cursor-grabbing transition-[box-shadow] duration-base ${
             isGkSlot
               ? 'bg-tertiary/20 border-2 border-tertiary text-tertiary'
               : 'bg-primary/15 border-2 border-primary text-primary'
@@ -190,13 +190,13 @@ export function PlayerMarker({
 
       {/* Bottom: slot + name + overall */}
       <div className="flex flex-col items-center leading-none">
-        <span className="font-label text-[10px] tracking-widest uppercase text-outline">
+        <span className="font-label text-kicker tracking-widest uppercase text-outline">
           {positionShortLabel(slot)}
         </span>
-        <span className="font-headline font-bold text-[10px] text-on-surface truncate max-w-[64px]">
+        <span className="font-headline font-bold text-kicker text-on-surface truncate max-w-[64px]">
           {player.name.split(' ').pop()}
         </span>
-        <span className="font-headline font-black text-[10px] text-primary">{player.overall}</span>
+        <span className="font-headline font-black text-kicker text-primary">{player.overall}</span>
       </div>
     </div>
   );
