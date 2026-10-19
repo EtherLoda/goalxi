@@ -17,6 +17,7 @@ import { useLocale } from 'next-intl';
 import type { Player } from '@/lib/api';
 import { SkillBar } from '@/components/player/PlayerStatsCard';
 import {
+  CATEGORY_BARS,
   CATEGORY_COLORS,
   SKILL_CATEGORIES,
   type SkillCategory,
@@ -169,9 +170,7 @@ function SkillCategoryGroup({
     <div className="space-y-1.5">
       <div className="flex items-center gap-1.5">
         <span
-          className={`w-1 h-3 rounded-full ${
-            CATEGORY_COLORS[cat].replace('text-', 'bg-')
-          }`}
+          className={`w-1 h-3 rounded-full ${CATEGORY_BARS[cat]}`}
           aria-hidden
         />
         <span className="text-[10px] font-black uppercase tracking-widest text-on-surface-variant">
@@ -190,6 +189,7 @@ function SkillCategoryGroup({
               current={current}
               potential={potential}
               colorClass={CATEGORY_COLORS[cat]}
+              barClass={CATEGORY_BARS[cat]}
             />
           );
         })}

@@ -11,6 +11,7 @@ import { SpecialtyIcon } from "@/components/player/SpecialtyIcon";
 import { PlayerSeasonStatsCard } from "@/components/player/PlayerSeasonStatsCard";
 import { getSpecialtyLabel } from "@/lib/specialties";
 import { ExperienceTierLabel } from "@/components/ExperienceTierLabel";
+import { barClassFor } from "@/components/player/skill-display";
 
 const SKILL_MAX = 20;
 
@@ -356,7 +357,7 @@ export default function PlayerDetailPage({ params }: PageProps) {
         </div>
         <div className="h-1.5 w-full bg-ink-700 rounded-full overflow-hidden">
           <div
-            className={`h-full ${colorClass.replace("text-", "bg-")} rounded-full`}
+            className={`h-full ${barClassFor(colorClass)} rounded-full`}
             style={{ width: `${percentage}%` }}
           />
         </div>

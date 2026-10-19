@@ -1,7 +1,7 @@
 "use client";
 
 import { useTranslations } from "next-intl";
-import { CATEGORY_COLORS, SKILL_CATEGORIES, SKILL_MAX, formatSkillLabel, getCategoryName } from "./skill-display";
+import { CATEGORY_BARS, CATEGORY_COLORS, SKILL_CATEGORIES, SKILL_MAX, formatSkillLabel, getCategoryName } from "./skill-display";
 import { ExperienceTierLabel } from "../ExperienceTierLabel";
 
 interface SkillBarProps {
@@ -9,23 +9,40 @@ interface SkillBarProps {
   current: number;
   potential: number;
   colorClass: string;
+  /**
+   * Literal `bg-*` class for the fill. Required in practice — a class built
+   * by `colorClass.replace('text-', 'bg-')` is invisible to Tailwind's
+   * scanner and renders as an empty track. Kept optional so older call sites
+   * still compile; pass `CATEGORY_BARS[cat]`.
+   */
+  barClass?: string;
 }
 
-export function SkillBar({ label, current, potential, colorClass }: SkillBarProps) {
-  const percentage = (current / SKILL_MAX) * 100;
+export function SkillBar({ label, current, potential, colorClass, barClass }: SkillBarProps) {
+  const currentPct = Math.max(0, Math.min(100, (current / SKILL_MAX) * 100));
+  const potentialPct = Math.max(currentPct, Math.min(100, (potential / SKILL_MAX) * 100));
+  const fill = barClass ?? colorClass.replace('text-', 'bg-');
 
   return (
     <div className="space-y-1">
-      <div className="flex justify-between text-[9px] font-bold uppercase tracking-wider text-muted">
+      <div className="flex justify-between text-[10px] font-bold uppercase tracking-wider text-muted">
         <span>{label}</span>
         <span className={colorClass}>
-          {Math.floor(current)}/{Math.floor(potential)}
+          {Math.floor(current)}
+          <span className="text-muted/60">/{Math.floor(potential)}</span>
         </span>
       </div>
-      <div className="h-1 w-full bg-ink-700 rounded-full overflow-hidden">
+      {/* Two layers: the dimmer one is what the player could still become.
+          Painting only `current` made a 20-potential wonderkid and a 20-ability
+          veteran look identical on this card. */}
+      <div className="relative h-1.5 w-full overflow-hidden rounded-full bg-ink-700">
         <div
-          className={`h-full ${colorClass.replace("text-", "bg-")} rounded-full`}
-          style={{ width: `${percentage}%` }}
+          className={`absolute inset-y-0 left-0 rounded-full ${fill} opacity-25`}
+          style={{ width: `${potentialPct}%` }}
+        />
+        <div
+          className={`absolute inset-y-0 left-0 rounded-full ${fill}`}
+          style={{ width: `${currentPct}%` }}
         />
       </div>
     </div>
@@ -186,6 +203,7 @@ export default function PlayerStatsCard({
                         current={sk.current}
                         potential={sk.potential}
                         colorClass={CATEGORY_COLORS[cat] || "text-accent"}
+                        barClass={CATEGORY_BARS[cat] || 'bg-accent'}
                       />
                     ))}
                   </div>
@@ -233,7 +251,7 @@ export default function PlayerStatsCard({
           return (
             <div key={cat}>
               <div className="flex items-center gap-1.5 mb-2">
-                <div className={`w-1 h-3 rounded-full ${CATEGORY_COLORS[cat]?.replace("text-", "bg-") || "bg-accent"}`} />
+                <div className={`w-1 h-3 rounded-full ${CATEGORY_BARS[cat] || 'bg-accent'}`} />
                 <span className="text-[10px] font-black uppercase tracking-widest text-muted">
                   {getCategoryName(cat, locale as 'en' | 'zh')}
                 </span>
@@ -246,6 +264,7 @@ export default function PlayerStatsCard({
                     current={sk.current}
                     potential={sk.potential}
                     colorClass={CATEGORY_COLORS[cat] || "text-accent"}
+                    barClass={CATEGORY_BARS[cat] || 'bg-accent'}
                   />
                 ))}
               </div>

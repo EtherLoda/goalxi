@@ -11,6 +11,7 @@ import TransferListSkeleton from "@/components/transfers/TransferListSkeleton";
 import PlayerDetailSkeleton from "@/components/transfers/PlayerDetailSkeleton";
 import TransferPlayerCard from "@/components/transfers/TransferPlayerCard";
 import { SpecialtyIcon } from "@/components/player/SpecialtyIcon";
+import { barClassFor } from "@/components/player/skill-display";
 
 type TransferPlayer = Player;
 
@@ -297,7 +298,7 @@ export default function TransfersPage() {
           <span className={colorClass}>{current}/{potential}</span>
         </div>
         <div className="h-1.5 w-full bg-ink-700 rounded-full overflow-hidden">
-          <div className={`h-full ${colorClass.replace('text-', 'bg-')} rounded-full`} style={{ width: `${percentage}%` }} />
+          <div className={`h-full ${barClassFor(colorClass)} rounded-full`} style={{ width: `${percentage}%` }} />
         </div>
       </div>
     );

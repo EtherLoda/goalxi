@@ -21,6 +21,50 @@ export const CATEGORY_COLORS = {
   setPieces: 'text-signal-gold',
 } as const;
 
+/**
+ * The `bg-*` twin of {@link CATEGORY_COLORS}, spelled out literally.
+ *
+ * Tailwind only emits utilities whose class name appears as a literal string
+ * in the source tree. `colorClass.replace('text-', 'bg-')` builds the bar
+ * class at runtime, so it is invisible to the scanner — `bg-signal-lilac`
+ * was never generated and the mental bars rendered as empty tracks. Keep
+ * these two tables in step by hand.
+ */
+export const CATEGORY_BARS = {
+  physical: 'bg-accent',
+  technical: 'bg-signal-blue',
+  mental: 'bg-signal-lilac',
+  setPieces: 'bg-signal-gold',
+} as const;
+
+/**
+ * Literal `text-*` → `bg-*` table for the bar fills used across the player
+ * widgets. Every value has to appear here (not be assembled at runtime) or
+ * Tailwind drops the utility — see {@link CATEGORY_BARS}. Call sites that
+ * still receive a `text-…` token string should look it up through this map
+ * instead of `colorClass.replace('text-', 'bg-')`.
+ */
+const BAR_BY_TEXT_COLOR: Readonly<Record<string, string>> = {
+  'text-accent': 'bg-accent',
+  'text-primary': 'bg-primary',
+  'text-secondary': 'bg-secondary',
+  'text-tertiary': 'bg-tertiary',
+  'text-signal-amber': 'bg-signal-amber',
+  'text-signal-gold': 'bg-signal-gold',
+  'text-signal-lime': 'bg-signal-lime',
+  'text-signal-blue': 'bg-signal-blue',
+  'text-signal-violet': 'bg-signal-violet',
+  'text-signal-lilac': 'bg-signal-lilac',
+  'text-signal-pink': 'bg-signal-pink',
+  'text-signal-magenta': 'bg-signal-magenta',
+  'text-signal-cyan': 'bg-signal-cyan',
+  'text-signal-yellow': 'bg-signal-yellow',
+};
+
+export function barClassFor(colorClass: string): string {
+  return BAR_BY_TEXT_COLOR[colorClass] ?? 'bg-accent';
+}
+
 export type SkillCategory = keyof typeof CATEGORY_COLORS;
 
 export const SKILL_CATEGORIES: readonly SkillCategory[] = [
@@ -46,6 +90,7 @@ export const CATEGORY_NAMES: Record<SkillCategory, { en: string; zh: string }> =
 export const SKILL_LABELS: Record<string, { en: string; zh: string }> = {
   pace: { en: 'Pace', zh: '速度' },
   strength: { en: 'Strength', zh: '力量' },
+  defending: { en: 'Defend', zh: '防守' },
   tackling: { en: 'Tackle', zh: '抢断' },
   shooting: { en: 'Shoot', zh: '射门' },
   passing: { en: 'Pass', zh: '传球' },

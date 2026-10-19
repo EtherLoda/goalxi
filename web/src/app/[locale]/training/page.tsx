@@ -11,6 +11,7 @@ interface CoachPlayerWithGK extends CoachAssignment {
   isGoalkeeper: boolean;
 }
 import PlayerStatsCard from "@/components/player/PlayerStatsCard";
+import { barClassFor } from "@/components/player/skill-display";
 import { coachLevelLabel, coachLevelColorClass } from "@/lib/coach-level";
 
 const STAFF_ROLE_LABELS: Record<string, { label: string; labelEn: string }> = {
@@ -1230,7 +1231,7 @@ export default function TrainingPage() {
                               return (
                                 <div key={cat}>
                                   <div className="flex items-center gap-1.5 mb-2">
-                                    <div className={`w-1 h-3 rounded-full ${catColor.replace('text-', 'bg-')}`} />
+                                    <div className={`w-1 h-3 rounded-full ${barClassFor(catColor)}`} />
                                     <span className="text-[9px] font-black uppercase tracking-widest text-muted">
                                       {cat === 'physical' ? (locale === 'zh' ? '体能' : 'Physical') :
                                        cat === 'technical' ? (locale === 'zh' ? '技术' : 'Technical') :
@@ -1249,7 +1250,7 @@ export default function TrainingPage() {
                                           </div>
                                           <div className="h-1 w-full bg-ink-700 rounded-full overflow-hidden">
                                             <div
-                                              className={`h-full ${catColor.replace('text-', 'bg-')} rounded-full`}
+                                              className={`h-full ${barClassFor(catColor)} rounded-full`}
                                               style={{ width: `${pct}%` }}
                                             />
                                           </div>
