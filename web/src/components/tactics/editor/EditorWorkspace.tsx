@@ -119,11 +119,13 @@ export function EditorWorkspace(props: EditorWorkspaceProps) {
 
   const pitchColumn = (
     <div className="flex flex-col gap-3">
-      {/* The pitch is `w-full aspect-[3/4]`. In the old three-column grid it
-          was ~780px wide; as a two-column layout its column is ~1100px, which
-          would make it 1460px tall. Capping the WIDTH so that width × 4/3
-          fits the viewport keeps the whole shape on screen at 1080p. */}
-      <div className="w-full mx-auto lg:max-w-[calc((100vh-300px)*0.75)]">
+      {/* The pitch is `w-full aspect-[3/4]`, so its height is always ×4/3 of
+          its width. The cap that keeps the whole shape on screen at 1080p
+          belongs on the COLUMN, not on an inner wrapper: capping the inner
+          wrapper left the `1fr` column still claiming the full remaining
+          width, and `mx-auto` then turned that surplus into dead space on
+          both sides of the pitch. See `PITCH_COLUMN_WIDTH` below. */}
+      <div className="w-full">
         <PitchField
           lineup={lineup}
           playersById={playersById}
@@ -238,7 +240,10 @@ export function EditorWorkspace(props: EditorWorkspaceProps) {
     // --------------------------------------------------------------- desktop
     if (tab === 'lineup') {
       return (
-        <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_420px] gap-4 items-start">
+        <div
+          className="grid grid-cols-1 items-start justify-center gap-4 lg:grid-cols-[minmax(360px,calc((100vh-300px)*0.75))_420px]"
+          data-testid="lineup-grid"
+        >
           <div className="flex min-w-0 flex-col gap-3">
             {tacticBar}
             {pitchColumn}
@@ -254,9 +259,12 @@ export function EditorWorkspace(props: EditorWorkspaceProps) {
       );
     }
 
-    // 战术与换人 tab: no pitch, two independent halves.
+    // 战术与换人 tab: no pitch, two independent halves. The halves are capped
+    // rather than stretched — the tactics panel is a few chips and the changes
+    // panel is a collapsed list, so two full-width columns read as two empty
+    // boxes with content pushed into the corners.
     return (
-      <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
+      <div className="mx-auto grid w-full grid-cols-1 items-start gap-4 lg:max-w-[1120px] lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
         <div className="min-w-0">{tacticPanel}</div>
         <div className="min-w-0">{changesPanel(true, true)}</div>
       </div>

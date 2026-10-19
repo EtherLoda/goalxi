@@ -61,7 +61,7 @@ function TacticsEditorContent() {
   }
 
   return (
-    <div className="p-4 md:p-6 max-w-[1600px] mx-auto w-full">
+    <div className="p-4 md:p-6 max-w-[1320px] mx-auto w-full">
       <header className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-3">
           <Link
@@ -88,7 +88,7 @@ function TacticsEditorContent() {
 
 function TacticsLoading() {
   return (
-    <div className="p-4 md:p-6 max-w-[1600px] mx-auto w-full">
+    <div className="p-4 md:p-6 max-w-[1320px] mx-auto w-full">
       <div className="flex items-center gap-3 mb-4">
         <div className="w-10 h-10 bg-surface-container-low rounded-lg animate-pulse" />
         <div className="space-y-2">
