@@ -1,21 +1,18 @@
 'use client';
 
 /**
- * TeamTacticBar.tsx — the live position tally above the lineup.
+ * TeamTacticBar.tsx — the read-only tactic summary shown above the pitch.
  *
  * Why a bar and not a panel: the deployment gate is a HARD slot count, so
- * the player needs the count visible while dragging — not one tab away.
- * Phase 2 renders it read-only; the picker lands in phase 3 and reuses the
- * same check.
- *
- * A family the current tactic actually needs is emphasised, everything else
- * is muted: on an eleven-man lineup every family has a non-zero count, so
- * "which of these numbers matters" is the only question the bar answers.
+ * the player needs the count visible while dragging on the 阵容 tab, where
+ * the picker is not on screen. The picker itself lives in the 战术与换人 tab
+ * and renders the same tally, so the two can never disagree.
  */
 import { useTranslations } from 'next-intl';
 import type { PositionFamilyCode } from '@/lib/api';
 import type { LineupMap, TeamTacticCodeValue } from '../types';
 import { checkTactic, tallyFamilies } from './requirement';
+import { LineupFamilyTally } from './LineupFamilyTally';
 import type { TeamTacticsTable } from './use-team-tactics';
 
 export interface TeamTacticBarProps {
@@ -26,17 +23,6 @@ export interface TeamTacticBarProps {
   error: string | null;
   isLocked: boolean;
 }
-
-const FAMILY_LABEL: Record<PositionFamilyCode, string> = {
-  GK: 'GK',
-  CB: 'CB',
-  FB: 'FB',
-  DM: 'DM',
-  CM: 'CM',
-  AM: 'AM',
-  W: 'W',
-  CF: 'CF',
-};
 
 export function TeamTacticBar({
   lineup,
@@ -76,27 +62,13 @@ export function TeamTacticBar({
       </div>
 
       <div className="flex flex-1 flex-wrap items-center gap-1.5">
-        {tally && table
-          ? table.familyOrder
-              .filter((family) => family !== 'GK')
-              .map((family) => {
-                const isNeeded = needed.has(family);
-                return (
-                  <span
-                    key={family}
-                    className={
-                      'inline-flex items-baseline gap-1 rounded-md px-1.5 py-0.5 text-[11px] tabular-nums transition-colors duration-quick ' +
-                      (isNeeded
-                        ? 'bg-primary/12 text-primary'
-                        : 'bg-white/4 text-on-surface-variant/70')
-                    }
-                  >
-                    <span className="font-semibold">{FAMILY_LABEL[family]}</span>
-                    <span>{tally[family]}</span>
-                  </span>
-                );
-              })
-          : null}
+        {tally && table ? (
+          <LineupFamilyTally
+            tally={tally}
+            familyOrder={table.familyOrder}
+            needed={needed}
+          />
+        ) : null}
       </div>
 
       <div className="flex items-center gap-2">

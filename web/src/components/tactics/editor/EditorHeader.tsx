@@ -8,6 +8,8 @@ import type { LockState } from '../types';
 
 interface EditorHeaderProps {
   formation: string;
+  /** "窄 · 防线低 · 双翼齐飞" — the rest of the shape, already localised. */
+  summary: string;
   isDirty: boolean;
   lock: LockState;
   isSubmitting: boolean;
@@ -20,8 +22,22 @@ interface EditorHeaderProps {
   showSubmit?: boolean;
 }
 
+/**
+ * The header used to hold five competing focal points — a second "战术"
+ * title, a 2xl formation badge, an unsaved chip, a countdown and the submit
+ * button — so nothing read as the primary action.
+ *
+ * What changed (V09 / V12):
+ *  - the page owns the only <h1>; this header carries no title at all;
+ *  - the formation is demoted to a small tabular-nums chip inside the
+ *    summary line, because it is reference information, not a call to act;
+ *  - the countdown keeps its own emphasis behaviour from `LockCountdown`,
+ *    which is the one element that genuinely has to win the eye when the
+ *    deadline is close.
+ */
 export function EditorHeader({
   formation,
+  summary,
   isDirty,
   lock,
   isSubmitting,
@@ -33,7 +49,7 @@ export function EditorHeader({
   const tLock = useTranslations('tactics.lock');
   const isWarning = isLockWarning(lock.countdownSeconds, lock.isLocked);
 
-  let statusMessage: string;
+  let statusMessage: string | null;
   if (lock.isLocked) {
     if (lock.matchStatus === 'in_progress') statusMessage = tLock('inProgress');
     else if (lock.matchStatus === 'completed') statusMessage = tLock('completed');
@@ -42,28 +58,28 @@ export function EditorHeader({
   } else if (isWarning) {
     statusMessage = tLock('warningDesc', { time: formatTime(lock.countdownSeconds) });
   } else {
-    statusMessage = t('formationAuto', { formation });
+    statusMessage = null;
   }
 
   return (
     <header className="glass-panel rounded-2xl px-5 py-3 flex items-center justify-between gap-4 flex-wrap">
       <div className="flex items-center gap-3 min-w-0">
-        <AppIcon name="strategy" className="text-primary text-2xl" />
+        <AppIcon name="strategy" className="text-primary text-2xl shrink-0" />
         <div className="min-w-0">
-          {/* The page's <h1> is the fixture name; repeating "战术" as a
-              second h1 was the reason the page announced two titles. */}
-          <p className="font-headline font-black text-xl tracking-tight text-on-surface uppercase">
-            {t('title')}
+          <p className="flex flex-wrap items-center gap-x-2 gap-y-1 font-headline font-bold text-sm text-on-surface">
+            <span className="rounded bg-primary/12 px-1.5 py-0.5 font-label text-[11px] font-bold tabular-nums tracking-[0.08em] text-primary">
+              {formation}
+            </span>
+            <span className="truncate text-on-surface-variant">{summary}</span>
           </p>
-          <p className="font-label text-[10px] tracking-widest uppercase text-outline">
-            {statusMessage}
-          </p>
+          {statusMessage ? (
+            <p className="font-label text-[10px] tracking-widest uppercase text-outline">
+              {statusMessage}
+            </p>
+          ) : null}
         </div>
       </div>
       <div className="flex items-center gap-3">
-        <div className="font-headline font-black text-2xl tracking-tighter text-primary">
-          {formation}
-        </div>
         {isDirty && (
           <span className="px-2 py-0.5 rounded bg-tertiary/20 text-tertiary border border-tertiary/30 font-label text-[9px] tracking-widest uppercase">
             ● Unsaved

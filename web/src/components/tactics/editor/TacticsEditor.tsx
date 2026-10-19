@@ -29,15 +29,19 @@ import {
   type PitchSlot,
   type PositionKey,
   type TacticsDraft,
+  type TeamTacticCodeValue,
   createEmptyDraft,
 } from '../types';
 import { EditorWorkspace } from './EditorWorkspace';
 import { EditorHeader } from './EditorHeader';
 import { EditorTabs } from './EditorTabs';
 import { EditorStepper } from './EditorStepper';
+import { PresetDrawer } from '../presets/PresetDrawer';
 import { useEditorViewport } from './use-editor-viewport';
 import { useUrlTab } from './use-url-tab';
 import { useEditorDrag } from '../shared/usePlayerDrag';
+import { useTeamTactics } from '../team-tactic/use-team-tactics';
+import { checkTactic } from '../team-tactic/requirement';
 import type { RosterDensity } from '../roster/PlayerRoster';
 
 interface TacticsEditorProps {
@@ -164,14 +168,25 @@ export function TacticsEditor({ matchId, match }: TacticsEditorProps) {
 
   const teamPlayerIds = useMemo(() => new Set(players.map((p) => p.id)), [players]);
 
+  // The gate needs the requirement table, which is fetched async and cached
+  // at module scope — calling the hook here as well as inside the workspace
+  // resolves from that cache rather than issuing a second request.
+  const teamTactics = useTeamTactics();
+  const tacticGate = useMemo(() => {
+    if (!state.draft.teamTactic) return null;
+    if (!teamTactics.table) return null; // cannot check yet; do not invent a failure
+    return checkTactic(state.draft.lineup, state.draft.teamTactic, teamTactics.table);
+  }, [state.draft.teamTactic, state.draft.lineup, teamTactics.table]);
+
   useEffect(() => {
     const ctx: ValidationContext = {
       draft: state.draft,
       teamPlayerIds,
       playersById: validatorPlayersById,
+      tacticGate,
     };
     dispatch({ type: 'REVALIDATE', ctx });
-  }, [state.draft, teamPlayerIds, validatorPlayersById, dispatch]);
+  }, [state.draft, teamPlayerIds, validatorPlayersById, tacticGate, dispatch]);
 
   // ---------------------------------------------------------------------
   // Validation → toast. The inline error banner above the pitch was
@@ -264,6 +279,14 @@ export function TacticsEditor({ matchId, match }: TacticsEditorProps) {
     (key: 'pitchWidth' | 'defensiveLine', value: string) => {
       if (state.lock.isLocked) return;
       dispatch({ type: 'SET_DIMENSION', key, value: value as never });
+    },
+    [state.lock.isLocked, dispatch],
+  );
+
+  const handleTeamTacticChange = useCallback(
+    (tactic: TeamTacticCodeValue | null) => {
+      if (state.lock.isLocked) return;
+      dispatch({ type: 'SET_TEAM_TACTIC', tactic });
     },
     [state.lock.isLocked, dispatch],
   );
@@ -398,12 +421,39 @@ export function TacticsEditor({ matchId, match }: TacticsEditorProps) {
   const pitchPlayers = startersList;
 
   // ---------------------------------------------------------------------
+  // Header summary — "窄 · 防线低 · 双翼齐飞"
+  // ---------------------------------------------------------------------
+  const headerSummary = useMemo(() => {
+    const width = t(`dimensions.pitchWidth.${state.draft.pitchWidth}` as never);
+    const line = t(`dimensions.defensiveLine.${state.draft.defensiveLine}` as never);
+    const tactic = state.draft.teamTactic
+      ? t(`teamTactic.codes.${state.draft.teamTactic}` as never)
+      : t('teamTactic.none');
+    return `${width} · ${line} · ${tactic}`;
+  }, [state.draft.pitchWidth, state.draft.defensiveLine, state.draft.teamTactic, t]);
+
+  // ---------------------------------------------------------------------
   // Loading / error
   // ---------------------------------------------------------------------
   if (!dataReady) {
+    // V11: a centred spinner replaced the whole three-column layout with a
+    // single dot, so the page visibly jumped when data landed. The skeleton
+    // keeps the header, the tab bar and the two columns where they will be.
     return (
-      <div className="flex items-center justify-center p-12">
-        <AppIcon name="progress_activity" className="animate-spin text-3xl text-primary" />
+      <div className="flex flex-col gap-4" aria-busy="true" aria-live="polite">
+        <div className="glass-panel rounded-2xl h-[68px] animate-pulse" />
+        <div className="flex items-center gap-2">
+          <div className="h-9 w-24 rounded-lg bg-surface-container-low animate-pulse" />
+          <div className="h-9 w-32 rounded-lg bg-surface-container-low animate-pulse" />
+        </div>
+        <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_420px] gap-4 items-start">
+          <div className="flex flex-col gap-3">
+            <div className="h-9 rounded-lg bg-surface-container-low animate-pulse" />
+            <div className="aspect-[3/4] max-h-[calc(100vh-260px)] rounded-2xl bg-surface-container-low animate-pulse" />
+            <div className="h-[92px] rounded-2xl bg-surface-container-low animate-pulse" />
+          </div>
+          <div className="h-[520px] rounded-2xl bg-surface-container-low animate-pulse" />
+        </div>
       </div>
     );
   }
@@ -420,6 +470,7 @@ export function TacticsEditor({ matchId, match }: TacticsEditorProps) {
     <div className={`flex flex-col gap-4 ${viewport === 'mobile' ? 'pb-24' : ''}`}>
       <EditorHeader
         formation={formation}
+        summary={headerSummary}
         isDirty={state.draft.isDirty}
         lock={state.lock}
         isSubmitting={state.submit.isSubmitting}
@@ -430,17 +481,27 @@ export function TacticsEditor({ matchId, match }: TacticsEditorProps) {
         // primary buttons competing for the same thumb.
         showSubmit={viewport === 'desktop'}
       />
-      {viewport === 'desktop' ? (
-        <EditorTabs active={tab} onChange={handleTabChange} />
-      ) : (
-        <EditorStepper
-          active={tab}
-          onChange={handleTabChange}
-          onSubmit={handleSubmit}
-          canSubmit={state.validation.isValid && !state.lock.isLocked}
-          isSubmitting={state.submit.isSubmitting}
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        {viewport === 'desktop' ? (
+          <EditorTabs active={tab} onChange={handleTabChange} />
+        ) : (
+          <EditorStepper
+            active={tab}
+            onChange={handleTabChange}
+            onSubmit={handleSubmit}
+            canSubmit={state.validation.isValid && !state.lock.isLocked}
+            isSubmitting={state.submit.isSubmitting}
+          />
+        )}
+        <PresetDrawer
+          presets={presets}
+          activePresetId={state.draft.activePresetId}
+          disabled={state.lock.isLocked}
+          onApply={handleApplyPreset}
+          onDelete={handleDeletePreset}
+          onSaveNew={() => setShowSaveDialog(true)}
         />
-      )}
+      </div>
       <div
         id="editor-tabpanel"
         role={viewport === 'desktop' ? 'tabpanel' : undefined}
@@ -461,12 +522,11 @@ export function TacticsEditor({ matchId, match }: TacticsEditorProps) {
           pitchWidth={state.draft.pitchWidth}
           defensiveLine={state.draft.defensiveLine}
           teamTactic={state.draft.teamTactic}
+          onTeamTacticChange={handleTeamTacticChange}
           events={state.draft.events}
           starters={startersList}
           benchPlayers={benchPlayersList}
           pitchPlayers={pitchPlayers}
-          presets={presets}
-          activePresetId={state.draft.activePresetId}
           density={density}
           onDensityChange={setDensity}
           isDragging={drag.isDragging}
@@ -480,9 +540,6 @@ export function TacticsEditor({ matchId, match }: TacticsEditorProps) {
           onAddMove={handleAddMove}
           onUpdateEvent={(index, patch) => dispatch({ type: 'UPDATE_EVENT', index, patch })}
           onRemoveEvent={(index) => dispatch({ type: 'REMOVE_EVENT', index })}
-          onApplyPreset={handleApplyPreset}
-          onDeletePreset={handleDeletePreset}
-          onSavePreset={() => setShowSaveDialog(true)}
           onDragStart={drag.startFromSlot}
           onDragEnd={drag.end}
           onRosterDragStart={drag.startFromRoster}

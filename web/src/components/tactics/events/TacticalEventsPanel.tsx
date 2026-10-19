@@ -1,17 +1,25 @@
 'use client';
 
 /**
- * TacticalEventsPanel — "Tactical Changes" panel that lists every
- * planned sub / move. Visual polish: gradient surface + icon header +
- * single Add button + animated cards.
+ * TacticalEventsPanel — the planned substitutions and position moves.
+ *
+ * Optional by design: most matches are submitted with an empty list, so on
+ * the 战术与换人 tab the panel starts collapsed and only the count is shown
+ * in the header. Adding an event expands it, because a row you cannot see
+ * is a row you will forget to check.
+ *
+ * `collapsible={false}` is used where the panel *is* the page (the mobile
+ * 换人 step) and collapsing it would leave the step empty.
  */
 import { AppIcon } from "@/components/icons/AppIcon";
-import React from 'react';
+import React, { useState } from 'react';
 import { useTranslations } from 'next-intl';
+import { motion } from 'motion/react';
 import type { Player } from '@/lib/api';
 import type { TacticalEvent } from '../types';
 import { GlassPanel } from '../shared/GlassPanel';
 import { TacticalEventRow } from './TacticalEventRow';
+import { EASE, DURATION } from '@/lib/motion';
 
 interface TacticalEventsPanelProps {
   events: TacticalEvent[];
@@ -23,6 +31,10 @@ interface TacticalEventsPanelProps {
   onAddMove: () => void;
   onUpdate: (index: number, patch: Partial<TacticalEvent>) => void;
   onRemove: (index: number) => void;
+  /** Show a disclosure toggle in the header. Defaults to true. */
+  collapsible?: boolean;
+  /** Start closed. Ignored when `collapsible` is false. */
+  defaultCollapsed?: boolean;
 }
 
 export function TacticalEventsPanel({
@@ -35,8 +47,17 @@ export function TacticalEventsPanel({
   onAddMove,
   onUpdate,
   onRemove,
+  collapsible = true,
+  defaultCollapsed = true,
 }: TacticalEventsPanelProps) {
   const t = useTranslations('tactics.events');
+  const [open, setOpen] = useState(() => !collapsible || !defaultCollapsed);
+  const isOpen = !collapsible || open;
+
+  const handleAdd = (add: () => void) => {
+    add();
+    setOpen(true);
+  };
 
   return (
     <GlassPanel size="md" className="relative overflow-hidden">
@@ -48,23 +69,45 @@ export function TacticalEventsPanel({
 
       <div className="relative">
         <div className="flex items-center justify-between mb-3 gap-2">
-          <div className="flex items-center gap-2 min-w-0">
+          <button
+            type="button"
+            onClick={() => collapsible && setOpen((prev) => !prev)}
+            aria-expanded={isOpen}
+            aria-controls="tactical-events-body"
+            disabled={!collapsible}
+            className="flex items-center gap-2 min-w-0 text-left rounded-lg disabled:cursor-default focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60"
+          >
             <span className="flex items-center justify-center w-8 h-8 rounded-lg bg-primary/15 text-primary border border-primary/20 shrink-0">
               <AppIcon name="event_list" className="text-[16px]" />
             </span>
-            <div className="min-w-0">
-              <h3 className="text-sm font-black uppercase tracking-[0.08em] text-on-surface truncate">
-                {t('title')}
-              </h3>
-              <p className="text-[9px] font-bold uppercase tracking-widest text-outline truncate">
+            <span className="min-w-0">
+              <span className="flex items-center gap-1.5 text-sm font-black uppercase tracking-[0.08em] text-on-surface">
+                <span className="truncate">{t('title')}</span>
+                {events.length > 0 ? (
+                  <span className="shrink-0 rounded-md bg-primary/15 px-1.5 py-0.5 text-[10px] font-bold tabular-nums text-primary">
+                    {events.length}
+                  </span>
+                ) : null}
+              </span>
+              <span className="block text-[9px] font-bold uppercase tracking-widest text-outline truncate">
                 {t('subtitle')}
-              </p>
-            </div>
-          </div>
+              </span>
+            </span>
+            {collapsible ? (
+              <motion.span
+                aria-hidden
+                animate={{ rotate: isOpen ? 0 : -90 }}
+                transition={{ duration: DURATION.quick, ease: EASE.standard }}
+                className="ml-1 flex text-outline"
+              >
+                <AppIcon name="expand_more" className="text-[18px]" />
+              </motion.span>
+            ) : null}
+          </button>
           <div className="flex gap-1 shrink-0">
             <button
               type="button"
-              onClick={onAddSub}
+              onClick={() => handleAdd(onAddSub)}
               disabled={disabled}
               className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-primary text-on-primary font-label text-[10px] font-bold uppercase tracking-widest hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             >
@@ -73,7 +116,7 @@ export function TacticalEventsPanel({
             </button>
             <button
               type="button"
-              onClick={onAddMove}
+              onClick={() => handleAdd(onAddMove)}
               disabled={disabled}
               className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-tertiary/20 text-tertiary border border-tertiary/30 font-label text-[10px] font-bold uppercase tracking-widest hover:bg-tertiary/30 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             >
@@ -83,32 +126,36 @@ export function TacticalEventsPanel({
           </div>
         </div>
 
-        {events.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-8 text-center border-2 border-dashed border-outline-variant/20 rounded-xl">
-            <div className="w-10 h-10 rounded-full bg-surface-container-highest flex items-center justify-center mb-2">
-              <AppIcon name="event_busy" className="text-[20px] text-outline/40" />
-            </div>
-            <p className="font-label text-[10px] font-bold uppercase tracking-widest text-outline px-4">
-              {t('empty')}
-            </p>
+        {isOpen ? (
+          <div id="tactical-events-body">
+            {events.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-8 text-center border-2 border-dashed border-outline-variant/20 rounded-xl">
+                <div className="w-10 h-10 rounded-full bg-surface-container-highest flex items-center justify-center mb-2">
+                  <AppIcon name="event_busy" className="text-[20px] text-outline/40" />
+                </div>
+                <p className="font-label text-[10px] font-bold uppercase tracking-widest text-outline px-4">
+                  {t('empty')}
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-2 max-h-[360px] overflow-y-auto pr-1">
+                {events.map((event, idx) => (
+                  <TacticalEventRow
+                    key={`event-${idx}`}
+                    index={idx}
+                    event={event}
+                    starters={starters}
+                    bench={benchPlayers}
+                    pitchPlayers={pitchPlayers}
+                    disabled={disabled}
+                    onUpdate={onUpdate}
+                    onRemove={onRemove}
+                  />
+                ))}
+              </div>
+            )}
           </div>
-        ) : (
-          <div className="space-y-2 max-h-[360px] overflow-y-auto pr-1">
-            {events.map((event, idx) => (
-              <TacticalEventRow
-                key={`event-${idx}`}
-                index={idx}
-                event={event}
-                starters={starters}
-                bench={benchPlayers}
-                pitchPlayers={pitchPlayers}
-                disabled={disabled}
-                onUpdate={onUpdate}
-                onRemove={onRemove}
-              />
-            ))}
-          </div>
-        )}
+        ) : null}
       </div>
     </GlassPanel>
   );

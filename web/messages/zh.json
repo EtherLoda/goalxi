@@ -1365,7 +1365,8 @@
       "playerNotInTeam": "球员 {player} 不在你的球队中",
       "eventPlayerMissing": "第 {minute} 分钟调整中的球员不在场上",
       "moveToSamePosition": "不能将球员移至其当前所在位置",
-      "tooManySubs": "主动换人每场最多 {max} 人 (当前已排 {count} 次);伤病换人不占名额"
+      "tooManySubs": "主动换人每场最多 {max} 人 (当前已排 {count} 次);伤病换人不占名额",
+      "teamTacticUnmet": "球队战术的阵容要求未满足: {detail}"
     },
     "position": {
       "GK": "门将",

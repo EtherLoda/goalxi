@@ -35,6 +35,15 @@ export interface ValidationContext {
   draft: TacticsDraft;
   teamPlayerIds: ReadonlySet<number>;
   playersById: ReadonlyMap<number, ValidatorPlayer>;
+  /**
+   * Result of the team-tactic slot gate. Optional because the requirement
+   * table arrives asynchronously: before it loads (or if the request fails)
+   * the validator must not invent a failure for a tactic it cannot check.
+   */
+  tacticGate?: {
+    ok: boolean;
+    missing: readonly { families: readonly string[]; have: number; need: number }[];
+  } | null;
 }
 
 // ============================================================================
@@ -193,6 +202,21 @@ export function validateLineup(ctx: ValidationContext): ValidationResult {
     errors.push({
       key: 'tooManySubs',
       params: { max: MAX_VOLUNTARY_SUBSTITUTIONS, count: subCount },
+    });
+  }
+
+  // -- 12. Team tactic: the deployment gate (design doc §5.4).
+  // The picker will not let you SELECT an unsatisfiable tactic, but you can
+  // select one and then reshuffle the lineup out of it. Without this rule the
+  // only feedback would be a 400 from the API after the whole form was sent.
+  if (draft.teamTactic && ctx.tacticGate && !ctx.tacticGate.ok) {
+    errors.push({
+      key: 'teamTacticUnmet',
+      params: {
+        detail: ctx.tacticGate.missing
+          .map((m) => `${m.families.join('/')} ${m.have}/${m.need}`)
+          .join(', '),
+      },
     });
   }
 

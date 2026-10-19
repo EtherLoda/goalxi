@@ -380,6 +380,8 @@ tactics.skeleton.loading
 
 ### Phase 2 — 战术门槛数据层
 
+**状态**：✅ 已完成（commit `832fe3b`）。
+
 **改动**
 1. 后端：`TeamTacticsResDto` 增加 `families` / `familyOrder`；`game.controller.ts` 返回；spec 补断言
 2. 前端：`use-team-tactics.ts`、`requirement.ts`（纯函数 + 单测）
@@ -391,6 +393,8 @@ tactics.skeleton.loading
 **风险**：现有已提交的战术行 `team_tactic` 为 NULL → 必须渲染成「不选战术」而不是「未知」。
 
 ### Phase 3 — 战术面板与布局瘦身
+
+**状态**：✅ 已完成。
 
 **改动**
 1. `TeamTacticPicker.tsx`（五个 chip + 不选 + 不可选态）
@@ -404,6 +408,15 @@ tactics.skeleton.loading
 **验收**：五个战术可选中/取消；缺 slot 时 chip 置灰并说明；提交闸门生效；三个滚动容器降到 1 个以内。
 
 **风险**：桌面两栏后球场变宽，`aspect-[3/4]` 会变高，可能出现纵向溢出 —— 需要给球场 `max-h` 并让名单独立滚动。
+
+**实施记录**
+
+- 门槛闸门落在 `lineup-validator.ts` 的第 12 条规则，而不是新增一个 `validateTeamTactic`：`ValidationContext` 加可选 `tacticGate`，由 `TacticsEditor` 用 `checkTactic` 算好后传入。可选是刻意的 —— 需求表还在路上（或请求失败）时，校验器不能凭空判一个它没法检查的战术有罪，否则前端会在首帧就禁掉提交。
+- 需求表 `useTeamTactics` 被调用两次（`TacticsEditor` 一次、`EditorWorkspace` 一次），因为它在模块作用域缓存：第二次是纯命中，不会多发请求。
+- 不可选的 chip 用 `aria-disabled` 而不是 `disabled`，键盘用户仍能聚焦到它读到 `title` 里的缺失原因；点它不改变选择（门槛是硬的，没有「部分生效」）。
+- 球场宽度上限用的是 `lg:max-w-[calc((100vh-300px)*0.75)]` 而不是 `max-h`：`aspect-[3/4]` 下限制 max-height 会让宽度先算出再被压，比例和位置都会抖；反过来限制宽度，高度自然满足。
+- 名单栏从 `max-h` 改成 `lg:h-[calc(100vh-150px)]`：`PlayerRoster` 是 `flex flex-col h-full`，列表是 `flex-1 overflow-y-auto`，祖先没有确定高度时它不会滚动，只会把整页撑高。
+- 骨架屏（V11）复用了 `page.tsx` 的脉冲色块，但按新布局摆位（header + tab 条 + 球场/名单两栏），因为改版后原来的三列骨架已经对不上。
 
 ### Phase 4 — 视觉与动效
 

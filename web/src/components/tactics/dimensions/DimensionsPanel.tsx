@@ -32,15 +32,22 @@ const LINE_OPTIONS: DimensionOption[] = [
   { value: 'high', labelKey: 'defensiveLine.high', iconName: 'north' },
 ];
 
+/**
+ * The two tactical dimensions, laid out as one row.
+ *
+ * They used to be two stacked segmented controls inside a full panel, which
+ * made two three-way choices look like a form; side by side they read as
+ * what they are — a pair of switches that together describe the shape.
+ */
 export function DimensionsPanel({ pitchWidth, defensiveLine, onChange, disabled }: DimensionsPanelProps) {
   const t = useTranslations('tactics.dimensions');
   return (
-    <GlassPanel size="md">
-      <div className="flex items-center gap-1.5 mb-3">
+    <GlassPanel size="sm">
+      <div className="flex items-center gap-1.5 mb-2">
         <AppIcon name="tune" className="text-base text-primary" />
         <KickerLabel>{t('title')}</KickerLabel>
       </div>
-      <div className="space-y-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
         <DimensionSegmented
           label={t('pitchWidth.label')}
           iconName="open_in_full"

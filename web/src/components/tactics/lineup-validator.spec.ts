@@ -455,6 +455,75 @@ describe('validateLineup — invalid slot keys', () => {
 });
 
 // ============================================================================
+// Team-tactic deployment gate (design doc §5.4)
+// ============================================================================
+
+describe('validateLineup — team tactic gate', () => {
+  it('raises nothing when no tactic is selected', () => {
+    const draft: TacticsDraft = {
+      ...createEmptyDraft(),
+      lineup: validLineup(),
+      teamTactic: null,
+    };
+    // Even a failing gate must be ignored: there is no tactic to deploy.
+    const result = validateLineup(
+      baseCtx({
+        draft,
+        tacticGate: { ok: false, missing: [{ families: ['W'], have: 0, need: 2 }] },
+      }),
+    );
+    expect(result.errors.filter((e) => e.key === 'teamTacticUnmet')).toEqual([]);
+  });
+
+  it('passes when the gate is satisfied', () => {
+    const draft: TacticsDraft = {
+      ...createEmptyDraft(),
+      lineup: validLineup(),
+      teamTactic: 'wings' as TacticsDraft['teamTactic'],
+    };
+    const result = validateLineup(baseCtx({ draft, tacticGate: { ok: true, missing: [] } }));
+    expect(result.isValid).toBe(true);
+  });
+
+  it('rejects a tactic the lineup no longer satisfies, listing what is short', () => {
+    const draft: TacticsDraft = {
+      ...createEmptyDraft(),
+      lineup: validLineup(),
+      teamTactic: 'wings' as TacticsDraft['teamTactic'],
+    };
+    const result = validateLineup(
+      baseCtx({
+        draft,
+        tacticGate: {
+          ok: false,
+          missing: [
+            { families: ['W'], have: 1, need: 2 },
+            { families: ['FB'], have: 1, need: 2 },
+          ],
+        },
+      }),
+    );
+    expect(result.isValid).toBe(false);
+    expect(result.errors).toContainEqual({
+      key: 'teamTacticUnmet',
+      params: { detail: 'W 1/2, FB 1/2' },
+    });
+  });
+
+  it('stays silent when the requirement table has not loaded yet', () => {
+    const draft: TacticsDraft = {
+      ...createEmptyDraft(),
+      lineup: validLineup(),
+      teamTactic: 'wings' as TacticsDraft['teamTactic'],
+    };
+    // `tacticGate: null` means "cannot check" — blocking submit here would
+    // make the editor unusable while the table request is in flight.
+    const result = validateLineup(baseCtx({ draft, tacticGate: null }));
+    expect(result.errors.filter((e) => e.key === 'teamTacticUnmet')).toEqual([]);
+  });
+});
+
+// ============================================================================
 // Helpers
 // ============================================================================
 

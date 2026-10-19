@@ -1368,7 +1368,8 @@
       "playerNotInTeam": "Player {player} is not on your team",
       "eventPlayerMissing": "Player in event at minute {minute} is not on the pitch",
       "moveToSamePosition": "Cannot move a player to their current position",
-      "tooManySubs": "At most {max} voluntary substitutions per match (currently {count}); injury replacements do not count"
+      "tooManySubs": "At most {max} voluntary substitutions per match (currently {count}); injury replacements do not count",
+      "teamTacticUnmet": "Team tactic requirement not met: {detail}"
     },
     "position": {
       "GK": "Goalkeeper",
