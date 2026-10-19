@@ -1271,7 +1271,8 @@
       "assignTitle": "Pick a player for {slot}",
       "assignPlaceholder": "Choose a player…",
       "cancel": "Cancel",
-      "emptyHint": "Drag a player from the roster onto the pitch, or tap a player card and then a slot"
+      "emptyHint": "Drag a player from the roster onto the pitch, or tap a player card and then a slot",
+      "missingGk": "No goalkeeper yet — the GK slot cannot be empty"
     },
     "bench": {
       "title": "Substitutes",
@@ -1343,7 +1344,8 @@
         "tied": "If Tied",
         "notLeading": "If Not Leading",
         "notTrailing": "If Not Trailing"
-      }
+      },
+      "emptyHint": "Substitutions run automatically during the match; a position move is free and does not use one."
     },
     "presets": {
       "title": "Presets",
@@ -1360,7 +1362,9 @@
         "confirm": "Save",
         "cancel": "Cancel"
       },
-      "deleteConfirm": "Delete preset \"{name}\"?"
+      "deleteConfirm": "Delete preset \"{name}\"?",
+      "emptyTitle": "No presets yet",
+      "emptyHint": "A preset is a saved lineup plus tactics. Set one up once, hit Save preset above, then reuse it in one click."
     },
     "validation": {
       "goalkeeperRequired": "Goalkeeper is required",

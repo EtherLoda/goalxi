@@ -158,6 +158,11 @@ export function PitchField({
   // fixed visual width — so children counter-scale against the parent scaleX.
   const counterScaleX = 1 / offsets.scaleX;
   const placedCount = Object.values(lineup).filter(Boolean).length;
+  // The keeper slot is the one empty slot that blocks the whole submission
+  // rather than merely weakening it, and it sits at the bottom edge of the
+  // pitch — often below the fold on a phone, so the player sees a full-looking
+  // lineup and a dead submit button. Say it on the pitch.
+  const missingGk = placedCount > 0 && !lineup.GK;
 
   const handleSlotDrop = useCallback(
     (slot: PitchSlot) => (playerId: number) => {
@@ -306,6 +311,20 @@ export function PitchField({
         <div className="pointer-events-none absolute inset-x-0 top-[46%] z-20 flex -translate-y-1/2 justify-center px-6">
           <p className="rounded-full border border-primary/25 bg-surface-container/85 px-4 py-2 text-center font-label text-label tracking-wider text-on-surface-variant backdrop-blur-sm">
             {t('emptyHint')}
+          </p>
+        </div>
+      ) : null}
+
+      {missingGk && !isDragging ? (
+        <div className="pointer-events-none absolute inset-x-0 bottom-3 z-20 flex justify-center px-6">
+          <p className="flex items-center gap-1.5 rounded-full border border-tertiary/40 bg-surface-container/90 px-3 py-1.5 text-center font-label text-kicker uppercase tracking-wider text-tertiary backdrop-blur-sm">
+            <span
+              aria-hidden="true"
+              className="flex h-4 w-4 items-center justify-center rounded-full bg-tertiary text-kicker font-black leading-none text-surface"
+            >
+              !
+            </span>
+            {t('missingGk')}
           </p>
         </div>
       ) : null}

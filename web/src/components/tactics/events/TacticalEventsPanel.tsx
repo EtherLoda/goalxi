@@ -136,6 +136,9 @@ export function TacticalEventsPanel({
                 <p className="font-label text-kicker font-bold uppercase tracking-widest text-outline px-4">
                   {t('empty')}
                 </p>
+                <p className="mt-1.5 max-w-[300px] px-4 font-body text-label leading-relaxed text-on-surface-variant/75">
+                  {t('emptyHint')}
+                </p>
               </div>
             ) : (
               <div className="max-h-[360px] space-y-2 overflow-y-auto pr-1">

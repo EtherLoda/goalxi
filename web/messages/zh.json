@@ -1268,7 +1268,8 @@
       "assignTitle": "为 {slot} 选择球员",
       "assignPlaceholder": "选择一名球员…",
       "cancel": "取消",
-      "emptyHint": "从右侧名单把球员拖到球场上,或点球员卡片再点空位"
+      "emptyHint": "从右侧名单把球员拖到球场上,或点球员卡片再点空位",
+      "missingGk": "还没放门将 —— 门将位不能空"
     },
     "bench": {
       "title": "替补席",
@@ -1340,7 +1341,8 @@
         "tied": "平局时",
         "notLeading": "未领先时",
         "notTrailing": "未落后时"
-      }
+      },
+      "emptyHint": "换人会在比赛中自动执行;移位只是让球员换个位置,不占换人次数。"
     },
     "presets": {
       "title": "战术预设",
@@ -1357,7 +1359,9 @@
         "confirm": "保存",
         "cancel": "取消"
       },
-      "deleteConfirm": "确认删除预设 \"{name}\"？"
+      "deleteConfirm": "确认删除预设 \"{name}\"？",
+      "emptyTitle": "暂无预设",
+      "emptyHint": "预设 = 存好的一套阵容 + 战术。布置好一次,点右上角「保存为预设」,下次一键套用。"
     },
     "validation": {
       "goalkeeperRequired": "必须设置首发门将",

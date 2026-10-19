@@ -35,7 +35,7 @@ import {
 import { EditorWorkspace } from './EditorWorkspace';
 import { EditorHeader } from './EditorHeader';
 import { EditorTabs } from './EditorTabs';
-import { EditorStepper } from './EditorStepper';
+import { EditorActionBar, EditorStepNav } from './EditorStepper';
 import { PresetDrawer } from '../presets/PresetDrawer';
 import { useEditorViewport } from './use-editor-viewport';
 import { useUrlTab } from './use-url-tab';
@@ -211,6 +211,22 @@ export function TacticsEditor({ matchId, match }: TacticsEditorProps) {
     }
     seenErrorKeysRef.current = currentKeys;
   }, [state.validation.errors, t]);
+
+  /**
+   * The standing reason the submit button is disabled, for the mobile bar.
+   *
+   * Different from the toast above: a toast announces an issue the moment it
+   * appears and then fades, which is right for "you just did something
+   * illegal". The bottom bar needs the opposite — a persistent sentence for as
+   * long as the condition holds, because the button it explains is disabled
+   * right next to it. A lock is not a validation error and is reported
+   * separately by the countdown, so it is excluded here.
+   */
+  const firstBlocking = state.validation.errors[0];
+  const blockedReason =
+    firstBlocking && !state.lock.isLocked
+      ? t(`validation.${firstBlocking.key}` as never, firstBlocking.params as never)
+      : null;
 
   // ---------------------------------------------------------------------
   // Shell position (desktop tabs / mobile steps) and drag state
@@ -470,12 +486,14 @@ export function TacticsEditor({ matchId, match }: TacticsEditorProps) {
     );
   }
 
+  // ------------------------------------------------------------- shell
+  // Mobile is a full-height app shell (page header and step bar fixed, only the
+  // middle scrolls) so all three steps occupy the same box. With the page
+  // scrolling instead, a 2000px lineup step and a 300px changes step give the
+  // document two wildly different heights, and switching between them makes
+  // the browser clamp the scroll offset — the whole page jumps.
   return (
-    <div
-      className={`mx-auto flex w-full max-w-[1120px] flex-col gap-4 ${
-        viewport === 'mobile' ? 'pb-24' : ''
-      }`}
-    >
+    <div className="mx-auto flex h-full min-h-0 w-full max-w-[1120px] flex-col gap-4 lg:h-auto">
       <EditorHeader
         formation={formationLabel}
         summary={headerSummary}
@@ -503,15 +521,10 @@ export function TacticsEditor({ matchId, match }: TacticsEditorProps) {
         }
       />
       {viewport === 'mobile' ? (
-        <EditorStepper
-          active={tab}
-          onChange={handleTabChange}
-          onSubmit={handleSubmit}
-          canSubmit={state.validation.isValid && !state.lock.isLocked}
-          isSubmitting={state.submit.isSubmitting}
-        />
+        <EditorStepNav active={tab} onChange={handleTabChange} />
       ) : null}
       <div
+        className="min-h-0 flex-1 overflow-y-auto overscroll-contain lg:flex-none lg:overflow-visible"
         id="editor-tabpanel"
         role={viewport === 'desktop' ? 'tabpanel' : undefined}
         aria-labelledby={
@@ -554,6 +567,16 @@ export function TacticsEditor({ matchId, match }: TacticsEditorProps) {
           onRosterDragStart={drag.startFromRoster}
         />
       </div>
+      {viewport === 'mobile' ? (
+        <EditorActionBar
+          active={tab}
+          onChange={handleTabChange}
+          onSubmit={handleSubmit}
+          canSubmit={state.validation.isValid && !state.lock.isLocked}
+          isSubmitting={state.submit.isSubmitting}
+          blockedReason={blockedReason}
+        />
+      ) : null}
       {showSaveDialog && (
         <SavePresetDialogComponent
           onCancel={() => setShowSaveDialog(false)}

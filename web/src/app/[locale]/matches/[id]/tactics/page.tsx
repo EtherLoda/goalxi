@@ -61,8 +61,8 @@ function TacticsEditorContent() {
   }
 
   return (
-    <div className="p-4 md:p-6 max-w-[1320px] mx-auto w-full">
-      <header className="flex items-center justify-between mb-4">
+    <div className="mx-auto flex h-dvh w-full max-w-[1320px] flex-col overflow-hidden p-4 md:p-6 lg:block lg:h-auto lg:overflow-visible">
+      <header className="mb-4 flex shrink-0 items-center justify-between">
         <div className="flex items-center gap-3">
           <Link
             href={`/${locale}/matches/${matchId}`}
@@ -81,7 +81,12 @@ function TacticsEditorContent() {
           </div>
         </div>
       </header>
-      <TacticsEditor matchId={matchId} match={match} />
+      {/* Mobile: the editor is an app shell that owns the remaining height, so
+          the step bar and the action bar stay put and only the middle scrolls.
+          Desktop: everything is in normal document flow and the page scrolls. */}
+      <div className="flex min-h-0 flex-1 flex-col lg:block">
+        <TacticsEditor matchId={matchId} match={match} />
+      </div>
     </div>
   );
 }

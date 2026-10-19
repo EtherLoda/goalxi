@@ -37,10 +37,13 @@ export function PresetList({ presets, activePresetId, disabled, onApply, onDelet
         </button>
       </div>
       {presets.length === 0 ? (
-        <div className="flex flex-col items-center justify-center py-6 text-center border-2 border-dashed border-outline-variant/20 rounded-xl">
-          <AppIcon name="bookmark" className="text-2xl text-outline mb-1" />
-          <span className="font-label text-kicker tracking-widest uppercase text-outline">
-            No presets yet
+        <div className="flex flex-col items-center gap-2 rounded-xl border-2 border-dashed border-outline-variant/20 px-4 py-6 text-center">
+          <AppIcon name="bookmark" className="text-2xl text-outline" />
+          <span className="font-label text-kicker uppercase tracking-widest text-outline">
+            {t('emptyTitle')}
+          </span>
+          <span className="font-body text-label leading-relaxed text-on-surface-variant/75">
+            {t('emptyHint')}
           </span>
         </div>
       ) : (
