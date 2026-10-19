@@ -62,7 +62,10 @@ export function TeamTacticBar({
       </div>
 
       <div className="flex flex-1 flex-wrap items-center gap-1.5">
-        {tally && table ? (
+        {/* The tally only earns its space once a tactic is chosen: with no
+            tactic every family reads 0 and the row is seven zeroes of noise
+            above the pitch. */}
+        {teamTactic && tally && table ? (
           <LineupFamilyTally
             tally={tally}
             familyOrder={table.familyOrder}

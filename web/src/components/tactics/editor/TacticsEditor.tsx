@@ -432,6 +432,10 @@ export function TacticsEditor({ matchId, match }: TacticsEditorProps) {
     return `${width} · ${line} · ${tactic}`;
   }, [state.draft.pitchWidth, state.draft.defensiveLine, state.draft.teamTactic, t]);
 
+  // An empty pitch computes to "0-0-0", which reads as a scoreline in a
+  // header that already sits under a match title. Show an em dash instead.
+  const formationLabel = startersList.length > 0 ? formation : '—';
+
   // ---------------------------------------------------------------------
   // Loading / error
   // ---------------------------------------------------------------------
@@ -467,9 +471,13 @@ export function TacticsEditor({ matchId, match }: TacticsEditorProps) {
   }
 
   return (
-    <div className={`flex flex-col gap-4 ${viewport === 'mobile' ? 'pb-24' : ''}`}>
+    <div
+      className={`mx-auto flex w-full max-w-[1180px] flex-col gap-4 ${
+        viewport === 'mobile' ? 'pb-24' : ''
+      }`}
+    >
       <EditorHeader
-        formation={formation}
+        formation={formationLabel}
         summary={headerSummary}
         isDirty={state.draft.isDirty}
         lock={state.lock}

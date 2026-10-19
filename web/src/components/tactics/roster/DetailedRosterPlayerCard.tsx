@@ -63,10 +63,10 @@ export function DetailedRosterPlayerCard({
       draggable
       onDragStart={drag.onDragStart}
       onDragEnd={drag.onDragEnd}
-      className={`group relative flex flex-col gap-2.5 p-3 rounded-xl border bg-ink-800 cursor-grab active:cursor-grabbing transition ${
+      className={`group relative flex flex-col gap-2.5 rounded-xl border bg-surface-container p-3 cursor-grab active:cursor-grabbing transition ${
         isAssigned
           ? 'border-outline-variant/20 opacity-60 grayscale'
-          : 'border-edge/40 hover:border-primary/60'
+          : 'border-outline-variant/40 hover:border-primary/60 hover:bg-surface-container-high'
       }`}
       data-player-id={player.id}
       data-testid={`roster-player-detailed-${player.id}`}
@@ -84,7 +84,7 @@ export function DetailedRosterPlayerCard({
           {initials(player.name)}
         </div>
         <div className="flex-1 min-w-0">
-          <div className="font-headline font-bold text-sm text-frost truncate">
+          <div className="font-headline font-bold text-sm text-on-surface truncate">
             {player.name}
           </div>
           <div className="font-label text-[10px] tracking-widest uppercase text-outline truncate">
@@ -134,7 +134,7 @@ export function DetailedRosterPlayerCard({
       </div>
 
       {/* Skills — 2-column grid, one column per (category × 2) */}
-      <div className="grid grid-cols-2 gap-x-3 gap-y-2.5 border-t border-edge/30 pt-2.5">
+      <div className="grid grid-cols-2 gap-x-4 gap-y-2.5 border-t border-outline-variant/30 pt-2.5">
         {SKILL_CATEGORIES.map((cat) => (
           <SkillCategoryGroup
             key={cat}
@@ -174,7 +174,7 @@ function SkillCategoryGroup({
           }`}
           aria-hidden
         />
-        <span className="text-[10px] font-black uppercase tracking-widest text-muted">
+        <span className="text-[10px] font-black uppercase tracking-widest text-on-surface-variant">
           {getCategoryName(cat, locale)}
         </span>
       </div>

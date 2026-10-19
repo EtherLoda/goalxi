@@ -43,11 +43,11 @@ export function DimensionsPanel({ pitchWidth, defensiveLine, onChange, disabled 
   const t = useTranslations('tactics.dimensions');
   return (
     <GlassPanel size="sm">
-      <div className="flex items-center gap-1.5 mb-2">
+      <div className="mb-3 flex items-center gap-1.5">
         <AppIcon name="tune" className="text-base text-primary" />
         <KickerLabel>{t('title')}</KickerLabel>
       </div>
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+      <div className="flex flex-col gap-2">
         <DimensionSegmented
           label={t('pitchWidth.label')}
           iconName="open_in_full"

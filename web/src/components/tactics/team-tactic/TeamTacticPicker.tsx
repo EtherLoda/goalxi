@@ -78,9 +78,18 @@ export function TeamTacticPicker({
     return <p className="text-[11px] text-tertiary">{t('unavailable')}</p>;
   }
 
+  /** "W×2 FB×2" — the slot requirement, printed on the chip. */
+  const requirementText = (code: string): string => {
+    const definition = table?.tactics.find((d) => d.code === code);
+    if (!definition) return '';
+    return definition.requirements
+      .map((r) => `${r.families.join('/')}×${r.count}`)
+      .join(' ');
+  };
+
   return (
-    <div className="flex flex-col gap-2.5">
-      <div className="flex flex-wrap items-center gap-1.5" role="radiogroup" aria-label={t('title')}>
+    <div className="flex flex-col gap-3">
+      <div className="flex flex-wrap items-stretch gap-2" role="radiogroup" aria-label={t('title')}>
         <button
           type="button"
           role="radio"
@@ -90,7 +99,8 @@ export function TeamTacticPicker({
           className={chipClass(value === null, false, disabled)}
           data-testid="team-tactic-none"
         >
-          {t('none')}
+          <span className="block font-headline font-bold">{t('none')}</span>
+          <span className="block text-[10px] tracking-wide opacity-60">—</span>
         </button>
         {TEAM_TACTIC_CODES.map((code) => {
           const reason = unmet.get(code);
@@ -115,7 +125,15 @@ export function TeamTacticPicker({
               className={chipClass(isActive, isBlocked, disabled)}
               data-testid={`team-tactic-${code}`}
             >
-              {t(`codes.${code}`)}
+              <span className="flex items-center gap-1.5 font-headline font-bold">
+                {t(`codes.${code}`)}
+                {isActive ? (
+                  <span aria-hidden className="h-1.5 w-1.5 rounded-full bg-primary" />
+                ) : null}
+              </span>
+              <span className="block font-label text-[10px] tracking-widest tabular-nums opacity-60">
+                {requirementText(code) || ' '}
+              </span>
             </button>
           );
         })}
@@ -142,15 +160,12 @@ export function TeamTacticPicker({
 
 function chipClass(isActive: boolean, isBlocked: boolean, disabled: boolean): string {
   const base =
-    'rounded-lg px-2.5 py-1.5 text-[11px] font-label tracking-wide transition-colors duration-quick border';
-  if (isBlocked) {
-    return `${base} border-white/6 bg-white/3 text-on-surface-variant/40 cursor-not-allowed`;
-  }
-  if (disabled) {
-    return `${base} border-white/6 bg-white/3 text-on-surface-variant/40 cursor-not-allowed`;
+    'min-w-[104px] rounded-lg border px-3 py-2 text-left text-xs transition-colors duration-quick';
+  if (isBlocked || disabled) {
+    return `${base} border-white/6 bg-white/[0.03] text-on-surface-variant/40 cursor-not-allowed`;
   }
   if (isActive) {
-    return `${base} border-primary/40 bg-primary/15 text-primary`;
+    return `${base} border-primary/50 bg-primary/15 text-primary`;
   }
-  return `${base} border-white/8 bg-white/4 text-on-surface-variant hover:border-white/16 hover:text-on-surface`;
+  return `${base} border-white/8 bg-white/[0.04] text-on-surface-variant hover:border-white/20 hover:bg-white/[0.07] hover:text-on-surface`;
 }

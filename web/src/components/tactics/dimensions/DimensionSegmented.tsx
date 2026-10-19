@@ -24,12 +24,15 @@ export function DimensionSegmented({ label, iconName, value, options, onChange, 
   const t = useTranslations('tactics.dimensions');
 
   return (
-    <div>
-      <div className="flex items-center gap-1.5 mb-1.5">
-        <AppIcon name={iconName} className="text-base text-primary" />
-        <span className="font-label text-[10px] tracking-[0.2em] uppercase text-outline">{label}</span>
+    // Label left, control right. Stacking them made each dimension a
+    // two-line block, and two of those side by side read as a form with four
+    // unrelated fields; as rows they read as two switches.
+    <div className="flex items-center gap-4">
+      <div className="flex w-[92px] shrink-0 items-center gap-1.5">
+        <AppIcon name={iconName} className="text-sm text-primary" />
+        <span className="font-label text-[10px] tracking-[0.18em] uppercase text-outline">{label}</span>
       </div>
-      <div className="flex p-1 rounded-lg bg-surface-container-highest">
+      <div className="flex flex-1 gap-1 rounded-lg bg-surface-container-highest p-1">
         {options.map((opt) => {
           const isActive = value === opt.value;
           return (
@@ -39,15 +42,15 @@ export function DimensionSegmented({ label, iconName, value, options, onChange, 
               disabled={disabled}
               onClick={() => onChange(opt.value)}
               className={clsx(
-                'flex-1 flex items-center justify-center gap-1 py-1.5 px-2 rounded-lg font-label text-[10px] tracking-widest uppercase transition',
+                'flex flex-1 items-center justify-center gap-1.5 rounded-md px-2 py-2 font-label text-[11px] tracking-widest uppercase transition-colors duration-quick',
                 isActive
                   ? 'bg-primary text-on-primary shadow-sm'
-                  : 'text-on-surface-variant hover:text-on-surface',
+                  : 'text-on-surface-variant hover:bg-white/[0.04] hover:text-on-surface',
                 disabled && 'opacity-50 cursor-not-allowed',
               )}
               data-testid={`dimension-${opt.value}`}
             >
-              <AppIcon name={opt.iconName} className="text-[12px]" />
+              <AppIcon name={opt.iconName} className="text-[13px]" />
               {t(opt.labelKey as `pitchWidth.narrow` | `pitchWidth.balanced` | `pitchWidth.wide` | `defensiveLine.low` | `defensiveLine.mid` | `defensiveLine.high`)}
             </button>
           );

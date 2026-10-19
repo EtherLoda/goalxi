@@ -56,7 +56,7 @@ export function EditorTabs({ active, onChange }: EditorTabsProps) {
       role="tablist"
       aria-label={t('tabs.label')}
       onKeyDown={onKeyDown}
-      className="glass-panel rounded-2xl p-1 flex items-center gap-1"
+      className="glass-panel rounded-2xl p-1 flex shrink-0 items-center gap-1"
     >
       {DESKTOP_TABS.map((tab) => {
         const selected = tab === activeDesktop;
@@ -71,7 +71,10 @@ export function EditorTabs({ active, onChange }: EditorTabsProps) {
             tabIndex={selected ? 0 : -1}
             onClick={() => onChange(tab)}
             className={[
-              'relative flex-1 px-4 py-2 rounded-xl font-label text-xs tracking-widest uppercase',
+              // `whitespace-nowrap` is load-bearing: "战术与换人" is four CJK
+              // glyphs plus wide tracking, and without it the label breaks
+              // across two lines and makes the bar 60px tall.
+              'relative whitespace-nowrap px-5 py-2 rounded-xl font-label text-xs tracking-widest uppercase',
               'transition-colors duration-quick',
               selected
                 ? 'text-primary'
