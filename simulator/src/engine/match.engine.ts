@@ -523,6 +523,23 @@ export class MatchEngine {
   public awayScore: number = 0;
 
   /**
+   * Indices of tactical instructions that have already run, per side.
+   *
+   * A condition is no longer evaluated only at the instruction's own
+   * minute — an instruction becomes *eligible* at its minute and then
+   * stays pending until its trigger first holds (see
+   * `applyInstructionsForTeam`). That turns "fires at minute N if
+   * leading" into "fires at the first minute ≥ N in which we are
+   * leading", which is how a manager reads 「领先时换人」 anyway. The
+   * cost is that the engine must remember what already ran, and it
+   * must NOT write that into the caller's `TacticalInstruction`
+   * objects: those come from the processor and a retried or replayed
+   * simulation would then inherit the previous run's flags.
+   */
+  private readonly homeInstructionFired = new Set<number>();
+  private readonly awayInstructionFired = new Set<number>();
+
+  /**
    * Per-half injury time actually simulated. Populated by
    * `simulateMatch()` and `simulateExtraTime()` after each
    * half's stoppage calculation. The processor reads these
@@ -2398,12 +2415,14 @@ export class MatchEngine {
       this.homeInstructions,
       minute,
       homeScoreStatus,
+      this.homeInstructionFired,
     );
     this.applyInstructionsForTeam(
       this.awayTeam,
       this.awayInstructions,
       minute,
       awayScoreStatus,
+      this.awayInstructionFired,
     );
   }
 
@@ -2432,6 +2451,7 @@ export class MatchEngine {
     instructions: TacticalInstruction[],
     minute: number,
     scoreStatus: ScoreStatus,
+    fired: Set<number>,
   ) {
     // Walk the team's instructions directly (was an `Array.filter`
     // allocation). 90 minutes × 2 teams = 180 calls per match, so
@@ -2439,12 +2459,38 @@ export class MatchEngine {
     // churned the GC. For-loop walks in place — `pending` is only
     // referenced inside this function so there's no behavior
     // change.
+    //
+    // ELIGIBILITY vs TRIGGER — the distinction this loop encodes:
+    //   * `ins.minute` is the minute the manager wants the change to
+    //     happen *from*. It is not a deadline. Once reached, the
+    //     instruction stays pending.
+    //   * `condition` is the game state that must hold AT THE MOMENT
+    //     IT RUNS. If it does not hold yet, the instruction waits for
+    //     the next minute instead of being thrown away.
+    // So 「60 分钟落后时换人」 now means "as soon as we are trailing, at
+    // or after 60'", not "only if we happen to be trailing exactly at
+    // 60'". The old reading silently discarded most queued changes —
+    // a manager who queued a trailing sub at 60' in a match they led
+    // until 70' got nothing at all, with no feedback.
+    //
+    // An instruction that has run (or whose action failed) is
+    // recorded in `fired` and never revisited, so the change happens
+    // at most once.
     const pending: TacticalInstruction[] = [];
     for (let i = 0; i < instructions.length; i++) {
+      if (fired.has(i)) continue;
       const ins = instructions[i];
-      if (ins.minute !== minute) continue;
+      if (ins.minute > minute) continue;
       if (!this.shouldFire(ins.condition, scoreStatus)) continue;
+      fired.add(i);
       pending.push(ins);
+    }
+
+    // Two instructions can become due on the same minute (e.g. one
+    // queued at 60' and one at 70' that both waited for the same
+    // scoreline). Apply them in the order the manager queued them.
+    if (pending.length > 1) {
+      pending.sort((a, b) => a.minute - b.minute);
     }
 
     for (const ins of pending) {

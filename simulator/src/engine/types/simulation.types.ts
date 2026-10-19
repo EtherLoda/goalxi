@@ -28,16 +28,21 @@ export type ScoreStatus = 'leading' | 'draw' | 'trailing';
 
 /**
  * Trigger condition for a tactical event (sub or move). Mirrors the
- * frontend's `EventCondition` type. `always` fires unconditionally;
- * the others gate the event on the team's score state at the
- * scheduled minute.
+ * frontend's `EventCondition` type. `always` fires at the scheduled
+ * minute; the others gate the event on the team's score state.
  *
- *   always       — fire regardless of score
- *   leading      — only when the team is ahead
- *   trailing     — only when the team is behind
- *   tied         — only when the score is level (synonym of `draw`)
- *   notLeading   — only when NOT ahead (trailing or tied)
- *   notTrailing  — only when NOT behind (leading or tied)
+ * `minute` is a FLOOR, not a deadline: the instruction becomes
+ * eligible at `minute` and then stays pending until its condition
+ * first holds, so 「60 分钟落后时换人」 runs at the first minute at or
+ * after 60' in which the team is behind. See
+ * `MatchEngine.applyInstructionsForTeam`.
+ *
+ *   always       — fire as soon as the minute is reached
+ *   leading      — wait until the team is ahead
+ *   trailing     — wait until the team is behind
+ *   tied         — wait until the score is level (synonym of `draw`)
+ *   notLeading   — wait until the team is NOT ahead (trailing or tied)
+ *   notTrailing  — wait until the team is NOT behind (leading or tied)
  */
 export type EventCondition =
   | 'always'

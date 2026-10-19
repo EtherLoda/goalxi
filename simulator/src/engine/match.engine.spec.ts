@@ -1616,6 +1616,7 @@ describe('MatchEngine.applyInstructionsForTeam — move & swap plumbing', () => 
       (engine as any).homeInstructions,
       70,
       'draw',
+      new Set(),
     );
     const moved = team.players.find((p: TacticalPlayer) => p.player.id === 1);
     expect(moved?.positionKey).toBe('CMR');
@@ -1644,6 +1645,9 @@ describe('MatchEngine.applyInstructionsForTeam — move & swap plumbing', () => 
         (engine as any).homeInstructions,
         60,
         status,
+        // Fresh per iteration: an instruction runs at most once, so a
+        // shared set would make iterations 2 and 3 no-ops.
+        new Set(),
       );
       const moved = team.players.find(
         (tp: TacticalPlayer) => tp.player.id === 1,
@@ -1678,6 +1682,7 @@ describe('MatchEngine.applyInstructionsForTeam — move & swap plumbing', () => 
       (engine as any).homeInstructions,
       60,
       'trailing',
+      new Set(),
     );
     const moved = team.players.find((p: TacticalPlayer) => p.player.id === 1);
     expect(moved?.positionKey).toBe('CML'); // unchanged — move gated out
@@ -1709,6 +1714,7 @@ describe('MatchEngine.applyInstructionsForTeam — move & swap plumbing', () => 
       (engine as any).homeInstructions,
       60,
       'leading',
+      new Set(),
     );
     const moved = team.players.find((p: TacticalPlayer) => p.player.id === 1);
     expect(moved?.positionKey).toBe('CMR');

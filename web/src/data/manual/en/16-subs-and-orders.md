@@ -121,27 +121,34 @@ The cap governs **your decisions**, not **what happens on the pitch**. In an inj
 
 ## 4. The 6 trigger conditions
 
-Every adjustment can carry a **condition**. It is evaluated **once, at the start of that minute**: satisfied → it runs; not satisfied → **it is discarded** (it does not wait for a better moment).
+Every adjustment has two different parts — do not read them as one:
+
+- **Minute** — the earliest moment it may run. It is a **floor**, not a deadline.
+- **Condition** — the score state at the moment it actually runs.
+
+So "minute 60 / while trailing" means: **from the 60th minute on, the first time you are behind**. If it is still level at 60, the order waits. If you concede on 70, it runs on 70. If you never go behind, it never runs.
 
 | Condition | Meaning |
 |---|---|
-| **Always** | triggers on time regardless of the score (**default**) |
-| **While leading** | only when you are ahead |
-| **While trailing** | only when you are behind |
-| **While tied** | only when the score is level |
-| **While not leading** | when behind or level (the inverse of "while leading") |
-| **While not trailing** | when ahead or level (the inverse of "while trailing") |
+| **Always** | runs as soon as the minute is reached (**default**) |
+| **While leading** | waits for the moment you go ahead |
+| **While trailing** | waits for the moment you go behind |
+| **While tied** | waits for the moment the score is level |
+| **While not leading** | waits until you are not ahead (behind or level) |
+| **While not trailing** | waits until you are not behind (ahead or level) |
 
 **Which to pick**:
 
 | What you want to do | Condition to use |
 |---|---|
 | Change things on time regardless of the score | always |
-| Shut up shop once ahead (bring on a holding midfielder) | while leading (or "while not trailing" to do it earlier) |
-| Chase the game (bring on a striker) | while trailing (or "while not leading" to do it earlier) |
-| Adjust only if it is still level | while tied |
+| Shut up shop once ahead (bring on a holding midfielder) | while leading — the moment you lead |
+| Chase the game (bring on a striker) | while trailing — the moment you are behind |
+| Adjust only while it is still level | while tied — note that once the deadlock breaks it no longer fires |
 
-> The **default is "always"**. If you do not set a condition, it fires on time no matter what.
+> The **default is "always"**. Without a condition it runs the moment the minute is reached.
+>
+> Each adjustment runs **at most once**. Once it has run it will not fire a second time, whatever the minute or the score.
 
 ---
 
@@ -220,7 +227,7 @@ Players get injured during a match, and a serious injury **means they must come 
 
 ❌ **"Injury substitutions use the limit too"**: **they do not.** Those 3 slots only count the substitutions you queued.
 
-❌ **"If it is queued, it happens"**: an unmet condition → **discarded**; the player coming off is no longer on the pitch → **the order does nothing**; the move target is already occupied → **does nothing**.
+❌ **"If it is queued, it happens"**: the condition keeps waiting, but at the moment it runs it can still fail — the player coming off is no longer on the pitch, or the move target is already occupied. An order that has run never runs a second time.
 
 ❌ **"I can still edit after the lock"**: once the UI is locked, stop trying — the server starts rejecting about 10 minutes before kickoff.
 

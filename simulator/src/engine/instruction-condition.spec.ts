@@ -1,24 +1,44 @@
 /**
- * Regression tests for **trigger conditions on tactical instructions**
- * (`EventCondition`: always / leading / trailing / tied / notLeading /
- * notTrailing).
+ * Regression tests for **when** a tactical instruction runs.
  *
- * These drive the real match loop (`simulateMatch`) rather than
- * `shouldFire` in isolation, because the question that kept coming
- * back was never "does `shouldFire` compare two strings correctly" —
- * it was "does the minute the instruction lands on get evaluated
- * against the score at that moment". A unit test on the predicate
- * cannot see a wiring mistake between `simulateMinute` and
- * `processTacticalInstructions`; this can.
+ * An instruction carries two different things and they must not be
+ * confused:
  *
- * Minute 1 is the useful probe: the score is 0-0 in every match, so
- * `leading` and `trailing` must both be false and `tied` must be true,
- * with no need to steer the RNG toward a particular scoreline.
+ *   * `minute` — the earliest minute the change may happen. A floor,
+ *     not a deadline.
+ *   * `condition` — the score state that must hold at the moment it
+ *     actually runs.
+ *
+ * The engine used to require BOTH on the same minute: a 「60 分钟落后时」
+ * substitution in a match the team led until the 70th minute never
+ * happened, and the manager got no feedback at all. Instructions now
+ * stay pending until their condition first holds, so the change lands
+ * at minute 70 instead — at most once.
+ *
+ * The predicate itself (`shouldFire`) was never the doubtful part; the
+ * question was whether the loop re-checks a pending instruction on
+ * later minutes. So these drive `applyInstructionsForTeam` minute by
+ * minute with an explicit `scoreStatus`, exactly as `simulateMinute`
+ * does, and two of them run the full `simulateMatch` loop as a wiring
+ * check.
  */
 import { MatchEngine, MatchEvent } from './match.engine';
 import { Team } from './classes/Team';
 import { TacticalInstruction, TacticalPlayer } from './types/simulation.types';
 import { Player } from '../types/player.types';
+
+interface EngineInternals {
+  applyInstructionsForTeam(
+    team: Team,
+    instructions: TacticalInstruction[],
+    minute: number,
+    scoreStatus: 'leading' | 'draw' | 'trailing',
+    fired: Set<number>,
+  ): void;
+}
+
+const internals = (engine: MatchEngine): EngineInternals =>
+  engine as unknown as EngineInternals;
 
 const mkPlayer = (id: number, name: string, pos: string, ovr: number): Player => ({
   id,
@@ -53,24 +73,28 @@ const mkTactical = (
   positionKey: string,
 ): TacticalPlayer => ({ player: mkPlayer(id, name, pos, ovr), positionKey });
 
+const HOME_SLOTS: Array<[number, string, string, string]> = [
+  [1, 'GK', 'GK', 'GK'],
+  [2, 'LB', 'FB', 'LB'],
+  [3, 'CB1', 'CB', 'CD'],
+  [4, 'CB2', 'CB', 'CDR'],
+  [5, 'RB', 'FB', 'RB'],
+  [6, 'CM1', 'CM', 'CML'],
+  [7, 'CM2', 'CM', 'CMC'],
+  [8, 'CM3', 'CM', 'CMR'],
+  [9, 'LW', 'W', 'LW'],
+  [10, 'RW', 'W', 'RW'],
+  [11, 'ST', 'CF', 'CF'],
+];
+
 function buildTeam(name: string, idBase = 0): Team {
-  const starters: TacticalPlayer[] = [
-    mkTactical(idBase + 1, 'GK', 'GK', 50, 'GK'),
-    mkTactical(idBase + 2, 'LB', 'FB', 60, 'LB'),
-    mkTactical(idBase + 3, 'CB1', 'CB', 60, 'CD'),
-    mkTactical(idBase + 4, 'CB2', 'CB', 60, 'CDR'),
-    mkTactical(idBase + 5, 'RB', 'FB', 60, 'RB'),
-    mkTactical(idBase + 6, 'CM1', 'CM', 60, 'CML'),
-    mkTactical(idBase + 7, 'CM2', 'CM', 60, 'CMC'),
-    mkTactical(idBase + 8, 'CM3', 'CM', 60, 'CMR'),
-    mkTactical(idBase + 9, 'LW', 'W', 60, 'LW'),
-    mkTactical(idBase + 10, 'RW', 'W', 60, 'RW'),
-    mkTactical(idBase + 11, 'ST', 'CF', 60, 'CF'),
-  ];
+  const starters: TacticalPlayer[] = HOME_SLOTS.map(
+    ([id, pname, pos, slot]) =>
+      mkTactical(idBase + id, pname, pos, id === 1 ? 50 : 60, slot),
+  );
   return new Team(name, starters, 0, name);
 }
 
-/** Two bench CMs, so a planned swap always has somewhere to go. */
 function bench(): Map<number, TacticalPlayer> {
   return new Map([
     [900, mkTactical(900, 'CM-Sub', 'CM', 65, 'CML')],
@@ -78,14 +102,13 @@ function bench(): Map<number, TacticalPlayer> {
   ]);
 }
 
-interface RunResult {
-  events: MatchEvent[];
-  homeTeam: Team;
-}
-
-function runWith(instructions: TacticalInstruction[]): RunResult {
+function buildEngine(instructions: TacticalInstruction[]): {
+  engine: MatchEngine;
+  team: Team;
+} {
+  const home = buildTeam('HomeFC');
   const engine = new MatchEngine(
-    buildTeam('HomeFC'),
+    home,
     buildTeam('AwayFC', 100),
     instructions,
     [],
@@ -94,35 +117,109 @@ function runWith(instructions: TacticalInstruction[]): RunResult {
     null,
     'cloudy',
   );
-  const events = engine.simulateMatch();
-  return { events, homeTeam: engine.homeTeam };
+  return { engine, team: home };
 }
 
-const substitutions = (run: RunResult): MatchEvent[] =>
-  run.events.filter((e) => e.type === 'substitution');
+const subFor = (
+  minute: number,
+  condition: TacticalInstruction['condition'],
+  playerId = 6,
+  newPlayerId = 900,
+): TacticalInstruction => ({
+  minute,
+  type: 'swap',
+  playerId,
+  newPlayerId,
+  newPosition: 'CML',
+  condition,
+});
 
-describe('tactical instruction conditions — through the real match loop', () => {
-  it('fires a minute-1 instruction when the team is tied', () => {
-    const run = runWith([
-      {
-        minute: 1,
-        type: 'move',
-        // 'DM' is unoccupied in this eleven (the midfield trio sits at
-        // CML/CMC/CMR), so the move cannot be rejected for a full slot
-        // and the assertion is about the condition alone.
-        playerId: 7,
-        newPosition: 'DM',
-        condition: 'tied',
-      },
-    ]);
-    // A `move` is silent on the event stream — it is a position change,
-    // not an event — so assert on the pitch state it produced.
-    const moved = run.homeTeam.players.find((p) => p.player.id === 7);
-    expect(moved?.positionKey).toBe('DM');
+const substitutions = (engine: MatchEngine): MatchEvent[] =>
+  (engine as unknown as { events: MatchEvent[] }).events.filter(
+    (e) => e.type === 'substitution',
+  );
+
+describe('instruction timing — minute is a floor, condition is the trigger', () => {
+  it('does not run before its minute, even when the condition already holds', () => {
+    const ins = [subFor(60, 'leading')];
+    const { engine, team } = buildEngine(ins);
+    const fired = new Set<number>();
+
+    internals(engine).applyInstructionsForTeam(team, ins, 59, 'leading', fired);
+
+    expect(substitutions(engine)).toHaveLength(0);
+    expect(fired.size).toBe(0);
   });
 
-  it('fires a notTrailing instruction while the score is level', () => {
-    const run = runWith([
+  it('waits past its minute and runs at the first minute the condition holds', () => {
+    const ins = [subFor(60, 'leading')];
+    const { engine, team } = buildEngine(ins);
+    const fired = new Set<number>();
+
+    // Still level at 60-62: the instruction must survive those minutes.
+    internals(engine).applyInstructionsForTeam(team, ins, 60, 'draw', fired);
+    internals(engine).applyInstructionsForTeam(team, ins, 61, 'draw', fired);
+    internals(engine).applyInstructionsForTeam(team, ins, 62, 'trailing', fired);
+    expect(substitutions(engine)).toHaveLength(0);
+    expect(fired.size).toBe(0);
+
+    // A goal goes in at 70 and the team leads — now it runs.
+    internals(engine).applyInstructionsForTeam(team, ins, 70, 'leading', fired);
+    const subs = substitutions(engine);
+    expect(subs).toHaveLength(1);
+    expect(subs[0].minute).toBe(70);
+    expect(team.activeSubstitutions).toBe(1);
+  });
+
+  it('runs at most once, however many later minutes satisfy the condition', () => {
+    const ins = [subFor(60, 'leading')];
+    const { engine, team } = buildEngine(ins);
+    const fired = new Set<number>();
+
+    internals(engine).applyInstructionsForTeam(team, ins, 60, 'leading', fired);
+    internals(engine).applyInstructionsForTeam(team, ins, 61, 'leading', fired);
+    internals(engine).applyInstructionsForTeam(team, ins, 80, 'leading', fired);
+
+    expect(substitutions(engine)).toHaveLength(1);
+    expect(team.activeSubstitutions).toBe(1);
+  });
+
+  it('applies two instructions that become due on the same minute in minute order', () => {
+    const ins = [subFor(70, 'trailing', 7, 901), subFor(60, 'trailing', 6, 900)];
+    const { engine, team } = buildEngine(ins);
+    const fired = new Set<number>();
+
+    internals(engine).applyInstructionsForTeam(team, ins, 75, 'trailing', fired);
+
+    const subs = substitutions(engine);
+    expect(subs).toHaveLength(2);
+    // The 60' instruction must not be applied after the 70' one; the
+    // incoming ids (900 from the 60' row, 901 from the 70' row) are the
+    // observable order.
+    const incoming = subs.map(
+      (e) => (e.data as { newPlayerId?: number }).newPlayerId,
+    );
+    expect(incoming).toEqual([900, 901]);
+  });
+
+  it('keeps waiting into extra time', () => {
+    const ins = [subFor(90, 'trailing')];
+    const { engine, team } = buildEngine(ins);
+    const fired = new Set<number>();
+
+    internals(engine).applyInstructionsForTeam(team, ins, 90, 'leading', fired);
+    expect(substitutions(engine)).toHaveLength(0);
+
+    internals(engine).applyInstructionsForTeam(team, ins, 104, 'trailing', fired);
+    expect(substitutions(engine)).toHaveLength(1);
+    expect(substitutions(engine)[0].minute).toBe(104);
+  });
+});
+
+describe('instruction timing — through the real match loop', () => {
+  it('fires a minute-1 instruction whose condition holds at kickoff', () => {
+    // 0-0 at minute 1, so `notTrailing` is already true.
+    const ins: TacticalInstruction[] = [
       {
         minute: 1,
         type: 'move',
@@ -130,73 +227,20 @@ describe('tactical instruction conditions — through the real match loop', () =
         newPosition: 'DM',
         condition: 'notTrailing',
       },
-    ]);
-    const moved = run.homeTeam.players.find((p) => p.player.id === 7);
-    expect(moved?.positionKey).toBe('DM');
+    ];
+    const { engine, team } = buildEngine(ins);
+    engine.simulateMatch();
+
+    // A `move` is silent on the event stream — assert the pitch state.
+    expect(team.players.find((p) => p.player.id === 7)?.positionKey).toBe('DM');
   });
 
-  it('does not fire a leading-only instruction while the score is level', () => {
-    const run = runWith([
-      {
-        minute: 1,
-        type: 'swap',
-        playerId: 6,
-        newPlayerId: 900,
-        newPosition: 'CML',
-        condition: 'leading',
-      },
-    ]);
-    expect(substitutions(run)).toHaveLength(0);
-  });
+  it('fires each unconditional instruction exactly once', () => {
+    const ins: TacticalInstruction[] = [subFor(1, undefined)];
+    const { engine, team } = buildEngine(ins);
+    engine.simulateMatch();
 
-  it('does not fire a trailing-only instruction while the score is level', () => {
-    const run = runWith([
-      {
-        minute: 1,
-        type: 'swap',
-        playerId: 6,
-        newPlayerId: 900,
-        newPosition: 'CML',
-        condition: 'trailing',
-      },
-    ]);
-    expect(substitutions(run)).toHaveLength(0);
-  });
-
-  it('spends no substitution quota when the condition never holds', () => {
-    const run = runWith([
-      {
-        minute: 1,
-        type: 'swap',
-        playerId: 6,
-        newPlayerId: 900,
-        newPosition: 'CML',
-        condition: 'leading',
-      },
-      {
-        minute: 30,
-        type: 'swap',
-        playerId: 7,
-        newPlayerId: 901,
-        newPosition: 'CMC',
-        condition: 'trailing',
-      },
-    ]);
-    expect(substitutions(run)).toHaveLength(0);
-    expect(run.homeTeam.activeSubstitutions).toBe(0);
-  });
-
-  it('fires an unconditional instruction at its minute', () => {
-    const run = runWith([
-      {
-        minute: 1,
-        type: 'swap',
-        playerId: 6,
-        newPlayerId: 900,
-        newPosition: 'CML',
-      },
-    ]);
-    expect(substitutions(run)).toHaveLength(1);
-    expect(run.homeTeam.activeSubstitutions).toBe(1);
+    expect(substitutions(engine)).toHaveLength(1);
+    expect(team.activeSubstitutions).toBe(1);
   });
 });

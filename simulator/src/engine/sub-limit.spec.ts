@@ -46,6 +46,7 @@ interface EngineInternals {
     instructions: TacticalInstruction[],
     minute: number,
     scoreStatus: string,
+    fired: Set<number>,
   ): void;
 }
 
@@ -161,12 +162,16 @@ function buildHarness(slots: number): Harness {
 
 /** Run every instruction at its own minute, as `simulateMinute` would. */
 function runInstructions(h: Harness): void {
+  // One shared `fired` set per side — the engine keeps it per match so
+  // a condition-gated instruction runs once.
+  const fired = new Set<number>();
   for (const ins of h.instructions) {
     internals(h.engine).applyInstructionsForTeam(
       h.homeTeam,
       h.instructions,
       ins.minute,
       'draw',
+      fired,
     );
   }
 }
@@ -246,7 +251,13 @@ describe('Active substitution quota (engine-enforced)', () => {
         condition: 'always',
       },
     ];
-    internals(engine).applyInstructionsForTeam(homeTeam, moves, 30, 'draw');
+    internals(engine).applyInstructionsForTeam(
+      homeTeam,
+      moves,
+      30,
+      'draw',
+      new Set<number>(),
+    );
     // The move itself must have landed (LM was empty)…
     expect(
       homeTeam.players.find((p) => (p.player as Player).id === 9)?.positionKey,
