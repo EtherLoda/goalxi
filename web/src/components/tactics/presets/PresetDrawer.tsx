@@ -39,19 +39,22 @@ export function PresetDrawer({
   const [open, setOpen] = useState(false);
 
   return (
-    <div className="flex flex-col gap-2">
+    // `relative` + an absolutely positioned panel: the trigger sits in the
+    // header, so an inline expansion would grow the header and shove the whole
+    // page down every time the drawer opens.
+    <div className="relative">
       <button
         type="button"
         onClick={() => setOpen((prev) => !prev)}
         aria-expanded={open}
         aria-controls="preset-drawer"
-        className="flex items-center gap-1.5 rounded-lg border border-white/8 bg-white/4 px-2.5 py-1.5 font-label text-[10px] font-bold uppercase tracking-widest text-on-surface-variant transition-colors duration-quick hover:border-white/16 hover:text-on-surface focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60"
+        className="flex h-11 items-center gap-1.5 rounded-lg border border-white/[0.08] bg-white/[0.04] px-3 font-label text-[10px] font-bold uppercase tracking-widest text-on-surface-variant transition-colors duration-quick hover:border-white/20 hover:text-on-surface focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60"
         data-testid="preset-drawer-toggle"
       >
         <AppIcon name="bookmark" className="text-[13px]" />
         {t('title')}
         {presets.length > 0 ? (
-          <span className="rounded bg-white/8 px-1 tabular-nums">{presets.length}</span>
+          <span className="rounded bg-white/10 px-1 tabular-nums">{presets.length}</span>
         ) : null}
         <AppIcon
           name={open ? 'expand_less' : 'expand_more'}
@@ -62,7 +65,7 @@ export function PresetDrawer({
         {open ? (
           <motion.div
             id="preset-drawer"
-            className="w-full"
+            className="absolute right-0 top-full z-40 mt-2 w-[340px] rounded-xl border border-white/10 bg-surface-container p-2 shadow-floating"
             initial={{ opacity: 0, y: -8 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -8 }}

@@ -56,7 +56,9 @@ export function EditorTabs({ active, onChange }: EditorTabsProps) {
       role="tablist"
       aria-label={t('tabs.label')}
       onKeyDown={onKeyDown}
-      className="glass-panel rounded-2xl p-1 flex shrink-0 items-center gap-1"
+      // No glass of its own: the tab bar now lives INSIDE the header panel,
+      // and a second translucent surface on top of the first read as a seam.
+      className="flex shrink-0 items-center gap-1 rounded-xl bg-surface-container/70 p-1"
     >
       {DESKTOP_TABS.map((tab) => {
         const selected = tab === activeDesktop;

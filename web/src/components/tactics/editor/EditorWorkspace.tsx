@@ -240,11 +240,12 @@ export function EditorWorkspace(props: EditorWorkspaceProps) {
     if (tab === 'lineup') {
       return (
         <div
-          className="grid grid-cols-1 items-start justify-center gap-4 lg:grid-cols-[minmax(420px,var(--pitch-col))_minmax(380px,560px)]"
-          // Two limits on the pitch column, whichever is smaller: the vertical
-          // budget (the pitch is 4/3 as tall as it is wide) and a hard 560px —
-          // past that the 24 markers float in more green than they can fill.
-          style={{ '--pitch-col': 'min(calc((100vh - 260px) * 0.62), 560px)' } as React.CSSProperties}
+          className="grid grid-cols-1 items-start justify-center gap-4 lg:grid-cols-[minmax(0,1fr)_380px]"
+          // The roster gets a fixed 380px — enough for the detailed card
+          // (name row + ten skill bars) without wrapping — and every remaining
+          // pixel goes to the pitch. The pitch keeps its 3:4 aspect, so a wider
+          // column also means a taller one: it is allowed to run past the
+          // fold rather than being capped back to a postage stamp.
           data-testid="lineup-grid"
         >
           <div className="flex min-w-0 flex-col gap-3">

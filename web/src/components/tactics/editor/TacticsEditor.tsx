@@ -472,7 +472,7 @@ export function TacticsEditor({ matchId, match }: TacticsEditorProps) {
 
   return (
     <div
-      className={`mx-auto flex w-full max-w-[1180px] flex-col gap-4 ${
+      className={`mx-auto flex w-full max-w-[1120px] flex-col gap-4 ${
         viewport === 'mobile' ? 'pb-24' : ''
       }`}
     >
@@ -488,28 +488,29 @@ export function TacticsEditor({ matchId, match }: TacticsEditorProps) {
         // reachable from every step; a second one in the header would be two
         // primary buttons competing for the same thumb.
         showSubmit={viewport === 'desktop'}
-      />
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        {viewport === 'desktop' ? (
-          <EditorTabs active={tab} onChange={handleTabChange} />
-        ) : (
-          <EditorStepper
-            active={tab}
-            onChange={handleTabChange}
-            onSubmit={handleSubmit}
-            canSubmit={state.validation.isValid && !state.lock.isLocked}
-            isSubmitting={state.submit.isSubmitting}
+        center={
+          viewport === 'desktop' ? <EditorTabs active={tab} onChange={handleTabChange} /> : undefined
+        }
+        presetSlot={
+          <PresetDrawer
+            presets={presets}
+            activePresetId={state.draft.activePresetId}
+            disabled={state.lock.isLocked}
+            onApply={handleApplyPreset}
+            onDelete={handleDeletePreset}
+            onSaveNew={() => setShowSaveDialog(true)}
           />
-        )}
-        <PresetDrawer
-          presets={presets}
-          activePresetId={state.draft.activePresetId}
-          disabled={state.lock.isLocked}
-          onApply={handleApplyPreset}
-          onDelete={handleDeletePreset}
-          onSaveNew={() => setShowSaveDialog(true)}
+        }
+      />
+      {viewport === 'mobile' ? (
+        <EditorStepper
+          active={tab}
+          onChange={handleTabChange}
+          onSubmit={handleSubmit}
+          canSubmit={state.validation.isValid && !state.lock.isLocked}
+          isSubmitting={state.submit.isSubmitting}
         />
-      </div>
+      ) : null}
       <div
         id="editor-tabpanel"
         role={viewport === 'desktop' ? 'tabpanel' : undefined}

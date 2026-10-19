@@ -162,7 +162,7 @@ export function PlayerMarker({
 
         {/* Avatar */}
         <div
-          className={`relative w-12 h-12 rounded-full flex items-center justify-center font-headline font-extrabold text-[10px] uppercase cursor-grab active:cursor-grabbing transition-[box-shadow] duration-base ${
+          className={`relative w-[52px] h-[52px] rounded-full flex items-center justify-center font-headline font-extrabold text-[10px] uppercase cursor-grab active:cursor-grabbing transition-[box-shadow] duration-base ${
             isGkSlot
               ? 'bg-tertiary/20 border-2 border-tertiary text-tertiary'
               : 'bg-primary/15 border-2 border-primary text-primary'

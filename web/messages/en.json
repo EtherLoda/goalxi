@@ -1239,7 +1239,8 @@
       "warningDesc": "Tactics lock in {time}.",
       "submitted": "Tactics submitted",
       "completed": "Match completed",
-      "inProgress": "Match in progress"
+      "inProgress": "Match in progress",
+      "unsaved": "Unsaved"
     },
     "entry": {
       "setTactics": "Set Tactics",

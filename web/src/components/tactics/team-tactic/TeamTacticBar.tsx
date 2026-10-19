@@ -50,37 +50,33 @@ export function TeamTacticBar({
   return (
     <section
       aria-label={t('title')}
-      className="glass-panel flex flex-wrap items-center gap-x-4 gap-y-2 rounded-xl px-4 py-3"
+      // One line, ~40px tall. It was a two-line card and the second line was
+      // a label repeating a word the header already says; the vertical space
+      // it gave back goes to the pitch, which is now the dominant column.
+      className="glass-panel flex flex-wrap items-center gap-x-3 gap-y-1.5 rounded-xl px-3.5 py-2"
     >
-      <div className="flex min-w-0 flex-col">
-        <span className="text-[10px] font-semibold uppercase tracking-[0.14em] text-on-surface-variant/70">
-          {t('title')}
-        </span>
-        <span className="truncate text-sm font-semibold text-on-surface">
-          {isLoading ? t('loading') : error ? t('unavailable') : name}
-        </span>
-      </div>
+      <span className="shrink-0 text-[10px] font-semibold uppercase tracking-[0.14em] text-on-surface-variant/60">
+        {t('title')}
+      </span>
+      <span className="shrink-0 text-[13px] font-semibold text-on-surface">
+        {isLoading ? t('loading') : error ? t('unavailable') : name}
+      </span>
+      <span aria-hidden className="hidden h-3 w-px shrink-0 bg-white/10 sm:block" />
 
-      <div className="flex flex-1 flex-wrap items-center gap-1.5">
-        {/* The tally only earns its space once a tactic is chosen: with no
-            tactic every family reads 0 and the row is seven zeroes of noise
-            above the pitch. */}
+      {/* The tally only earns its space once a tactic is chosen: with no
+          tactic every family reads 0 and the row is seven zeroes of noise
+          above the pitch. */}
+      <div className="flex min-w-0 flex-1 flex-wrap items-center gap-1.5">
         {teamTactic && tally && table ? (
-          <LineupFamilyTally
-            tally={tally}
-            familyOrder={table.familyOrder}
-            needed={needed}
-          />
+          <LineupFamilyTally tally={tally} familyOrder={table.familyOrder} needed={needed} />
         ) : null}
       </div>
 
-      <div className="flex items-center gap-2">
+      <div className="flex shrink-0 items-center gap-2">
         {showMissing ? (
           <span className="text-[11px] font-medium text-tertiary">
             {check.missing
-              .map((m) =>
-                t('missing', { need: m.need - m.have, families: m.families.join('/') }),
-              )
+              .map((m) => t('missing', { need: m.need - m.have, families: m.families.join('/') }))
               .join(' · ')}
           </span>
         ) : teamTactic ? (

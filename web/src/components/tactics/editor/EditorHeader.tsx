@@ -20,6 +20,11 @@ interface EditorHeaderProps {
    * header drops its copy rather than showing two submit buttons.
    */
   showSubmit?: boolean;
+  /** The desktop tab bar. Rendered between the summary and the actions so
+   *  navigation sits on the same line as the state it switches between. */
+  center?: React.ReactNode;
+  /** Preset drawer trigger, kept beside the other header actions. */
+  presetSlot?: React.ReactNode;
 }
 
 /**
@@ -44,6 +49,8 @@ export function EditorHeader({
   canSubmit,
   onSubmit,
   showSubmit = true,
+  center,
+  presetSlot,
 }: EditorHeaderProps) {
   const t = useTranslations('tactics');
   const tLock = useTranslations('tactics.lock');
@@ -62,8 +69,8 @@ export function EditorHeader({
   }
 
   return (
-    <header className="glass-panel rounded-2xl px-5 py-3 flex items-center justify-between gap-4 flex-wrap">
-      <div className="flex items-center gap-3 min-w-0">
+    <header className="glass-panel flex flex-wrap items-center gap-x-4 gap-y-3 rounded-2xl px-5 py-3">
+      <div className="flex min-w-0 items-center gap-3">
         <AppIcon name="strategy" className="text-primary text-2xl shrink-0" />
         <div className="min-w-0">
           <p className="flex flex-wrap items-center gap-x-2 gap-y-1 font-headline font-bold text-sm text-on-surface">
@@ -79,10 +86,18 @@ export function EditorHeader({
           ) : null}
         </div>
       </div>
-      <div className="flex items-center gap-3">
+
+      {/* Navigation sits in the middle of the bar: the tabs switch WHICH
+          state you are editing, so they belong next to the state summary
+          rather than on a row of their own above the work. */}
+      {center ? <div className="flex flex-1 justify-center">{center}</div> : <div className="flex-1" />}
+
+      <div className="flex shrink-0 items-center gap-3">
+        {presetSlot}
         {isDirty && (
-          <span className="px-2 py-0.5 rounded bg-tertiary/20 text-tertiary border border-tertiary/30 font-label text-[10px] tracking-widest uppercase">
-            ● Unsaved
+          <span className="flex h-11 items-center gap-1.5 rounded-lg border border-tertiary/30 bg-tertiary/15 px-2.5 font-label text-[10px] tracking-widest uppercase text-tertiary">
+            <span aria-hidden className="h-1.5 w-1.5 rounded-full bg-tertiary" />
+            {tLock('unsaved')}
           </span>
         )}
         <LockCountdown
@@ -90,13 +105,14 @@ export function EditorHeader({
           isLocked={lock.isLocked}
           isWarning={isWarning}
           matchStatus={lock.matchStatus}
+          className="h-11"
         />
         {showSubmit && (
           <button
             type="button"
             onClick={onSubmit}
             disabled={!canSubmit || isSubmitting}
-            className="flex items-center gap-2 px-5 py-2.5 rounded-lg bg-primary text-on-primary font-headline font-bold text-sm tracking-tight uppercase shadow-[0_0_15px_rgba(0,228,121,0.3)] hover:bg-primary-dim transition disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none"
+            className="flex h-11 items-center gap-2 rounded-lg bg-primary px-5 font-headline font-bold text-sm tracking-tight text-on-primary uppercase shadow-[0_0_15px_rgba(0,228,121,0.3)] transition-colors duration-quick hover:bg-primary-dim disabled:cursor-not-allowed disabled:opacity-50 disabled:shadow-none"
             data-testid="submit-tactics"
           >
             <AppIcon name="save" className="text-base" />
