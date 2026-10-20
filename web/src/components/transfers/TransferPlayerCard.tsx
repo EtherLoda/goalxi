@@ -128,6 +128,11 @@ export default function TransferPlayerCard({
             <span className="rounded-md border border-white/[0.08] bg-white/[0.03] px-1.5 py-0.5 font-label text-kicker font-bold tabular-nums text-outline">
               #{player.id}
             </span>
+            {/* Age rides with the identifier: it is the one thing you check
+                while scanning a shortlist, and it is not a stat you train. */}
+            <span className="font-label text-kicker font-bold tabular-nums text-on-surface-variant">
+              {t("common.ageFormat", { y: player.age, d: player.ageDays })}
+            </span>
           </div>
 
           {/* The club is a chip, not a run-on sentence: the old line read
@@ -214,8 +219,8 @@ export default function TransferPlayerCard({
           here because this card has no separate meta row for age. */}
       <div className="mt-gutter grid grid-cols-2 gap-tight sm:grid-cols-4">
         <StatTile
-          label={t("squad.age")}
-          value={t("common.ageFormat", { y: player.age, d: player.ageDays })}
+          label={t("squad.wage")}
+          value={`${t("common.currencySymbol")}${(player.currentWage ?? 0).toLocaleString()}`}
           tone="text-on-surface"
         />
         <StatTile
@@ -245,7 +250,7 @@ export default function TransferPlayerCard({
       </div>
 
       {/* Skills - Profile Style */}
-      <div className="grid grid-cols-4 gap-6">
+      <div className="mt-section grid grid-cols-4 gap-6">
         {/* Technical */}
         <div>
           <div className="flex items-center gap-2 mb-3">
