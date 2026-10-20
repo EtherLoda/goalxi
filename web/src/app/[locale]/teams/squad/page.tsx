@@ -156,7 +156,10 @@ function SquadPageContent() {
     return Math.round(players.reduce((sum, p) => sum + p.overall, 0) / players.length);
   }, [players]);
 
-  const listedCount = useMemo(() => players.filter((p) => p.onTransfer).length, [players]);
+  const totalWage = useMemo(
+    () => players.reduce((sum, p) => sum + (p.currentWage || 0), 0),
+    [players],
+  );
 
   const refreshTeam = () => {
     if (!team?.id) return;
@@ -196,9 +199,9 @@ function SquadPageContent() {
           <HeaderStat label={t('squad.avgOverall')} value={averageOverall} tone="text-primary" />
           <span className="h-7 w-px bg-outline-variant/40" />
           <HeaderStat
-            label={t('squad.transfer.listed')}
-            value={listedCount}
-            tone={listedCount > 0 ? 'text-secondary' : 'text-outline'}
+            label={t('squad.payroll')}
+            value={`${t('common.currencySymbol')}${totalWage.toLocaleString()}`}
+            tone="text-secondary"
           />
         </div>
       </header>
@@ -251,13 +254,12 @@ function SquadPageContent() {
             </div>
           </GlassPanel>
 
-          <GlassPanel size="sm" className="overflow-hidden">
+          <GlassPanel size="sm" className="overflow-hidden lg:sticky lg:top-4 lg:max-h-[calc(100dvh-140px)] lg:overflow-y-auto">
             {selectedPlayer ? (
               <SquadPlayerDetail
                 player={selectedPlayer}
                 locale={locale}
                 events={playerEvents}
-                teamName={displayTeam?.name}
                 jerseyColor={displayTeam?.jerseyColorPrimary}
                 canList={isViewingMyTeam && !selectedPlayer.onTransfer}
                 onList={() => setShowListDialog(true)}

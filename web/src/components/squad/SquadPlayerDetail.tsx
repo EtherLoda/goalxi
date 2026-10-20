@@ -3,7 +3,6 @@
 import Link from 'next/link';
 import { useTranslations } from 'next-intl';
 import { AppIcon, type MaterialIconName } from '@/components/icons/AppIcon';
-import { RadarChart } from '@/components/player/RadarChart';
 import { SkillBar } from '@/components/player/PlayerStatsCard';
 import { CATEGORY_BARS, CATEGORY_COLORS } from '@/components/player/skill-display';
 import { SpecialtyIcon } from '@/components/player/SpecialtyIcon';
@@ -12,7 +11,6 @@ import { KickerLabel } from '@/components/ui/KickerLabel';
 import { conditionToneClass } from './SquadPlayerRow';
 import {
   groupSkills,
-  radarSpecsFor,
   readSkillPair,
   skillSpecsFor,
   type SkillCategoryKey,
@@ -58,7 +56,6 @@ interface SquadPlayerDetailProps {
   player: Player;
   locale: string;
   events: readonly PlayerEvent[];
-  teamName?: string | null;
   jerseyColor?: string | null;
   /** Listing is only offered on your own squad and only while unlisted. */
   canList: boolean;
@@ -88,16 +85,19 @@ function MetaCell({ label, children }: { label: string; children: React.ReactNod
 function StatTile({
   label,
   value,
+  suffix,
   tone = 'text-on-surface',
 }: {
   label: string;
   value: React.ReactNode;
+  suffix?: string;
   tone?: string;
 }) {
   return (
     <div className="flex flex-1 flex-col items-center gap-micro rounded-xl bg-surface-container/60 px-tight py-2">
       <span className={`font-headline text-xl font-black leading-none tabular-nums ${tone}`}>
         {value}
+        {suffix ? <span className="ml-0.5 font-label text-kicker font-bold text-outline">{suffix}</span> : null}
       </span>
       <KickerLabel>{label}</KickerLabel>
     </div>
@@ -115,7 +115,6 @@ export function SquadPlayerDetail({
   player,
   locale,
   events,
-  teamName,
   jerseyColor,
   canList,
   onList,
@@ -124,10 +123,6 @@ export function SquadPlayerDetail({
   const te = useTranslations('player_events');
   const lang: 'en' | 'zh' = locale === 'en' ? 'en' : 'zh';
   const jersey = jerseyColor ?? '#00e479';
-
-  const radarSpecs = radarSpecsFor(player.isGoalkeeper);
-  const radarCurrent = radarSpecs.map((spec) => readSkillPair(player.currentSkills, player.potentialSkills, spec).current);
-  const radarPotential = radarSpecs.map((spec) => readSkillPair(player.currentSkills, player.potentialSkills, spec).potential);
 
   const groups = groupSkills(skillSpecsFor(player.isGoalkeeper));
 
@@ -170,9 +165,6 @@ export function SquadPlayerDetail({
             <span className="rounded-md border border-outline-variant/40 bg-surface-container-high px-1.5 py-0.5 font-label text-kicker font-bold uppercase tracking-[0.08em] text-on-surface-variant">
               {player.isGoalkeeper ? 'GK' : (player.position ?? '—').toUpperCase()}
             </span>
-            {teamName ? (
-              <span className="font-label text-label text-on-surface-variant/75">{teamName}</span>
-            ) : null}
             {player.onTransfer ? (
               <span className="inline-flex items-center gap-micro rounded-md border border-secondary/30 bg-secondary/10 px-1.5 py-0.5 font-label text-kicker font-bold uppercase tracking-[0.08em] text-secondary">
                 <AppIcon name="sell" className="text-kicker" />
@@ -189,10 +181,13 @@ export function SquadPlayerDetail({
               <ExperienceTierLabel value={player.experience} className="font-bold text-on-surface" />
             </MetaCell>
             <MetaCell label={t('squad.wage')}>
-              <span className="text-secondary">£{(player.currentWage || 0).toLocaleString()}</span>
+              <span className="text-secondary">
+                {t('common.currencySymbol')}
+                {(player.currentWage || 0).toLocaleString()}
+              </span>
             </MetaCell>
-            <MetaCell label="PWI">
-              <span className="text-primary">{player.pwi?.toLocaleString() || 0}</span>
+            <MetaCell label={t('squad.overall')}>
+              <span className="text-primary">{(player.overall ?? 0).toLocaleString()}</span>
             </MetaCell>
           </div>
         </div>
@@ -204,16 +199,19 @@ export function SquadPlayerDetail({
           <StatTile
             label={t('squad.stamina')}
             value={Math.round(player.stamina)}
+            suffix="/6"
             tone={conditionToneClass(player.stamina, 4, 2)}
           />
           <StatTile
             label={t('squad.form')}
             value={Math.round(player.form)}
+            suffix="/5"
             tone={conditionToneClass(player.form, 4, 2)}
           />
           <StatTile
             label={t('squad.potential')}
             value={player.potentialAbility || 0}
+            suffix="/100"
             tone="text-primary"
           />
         </div>
@@ -240,32 +238,8 @@ export function SquadPlayerDetail({
 
       {/* ── Skills ───────────────────────────────────────────────────── */}
       <div className="border-t border-outline-variant/30 p-panel">
-        <div className="flex flex-col gap-gutter lg:flex-row">
-          <div className="flex shrink-0 flex-col items-center gap-tight">
-            <RadarChart
-              labels={radarSpecs.map((spec) => t(`squad.skills.${spec.key}`))}
-              currentValues={radarCurrent}
-              potentialValues={radarPotential}
-              maxValue={20}
-              size={190}
-              currentColor="#00e479"
-              potentialColor="#3b4f49"
-              locale={locale}
-            />
-            <div className="flex items-center gap-gutter">
-              <span className="flex items-center gap-micro font-label text-kicker uppercase tracking-[0.12em] text-on-surface-variant/75">
-                <span className="h-2 w-2 rounded-full bg-primary" />
-                {t('squad.radar.current')}
-              </span>
-              <span className="flex items-center gap-micro font-label text-kicker uppercase tracking-[0.12em] text-outline">
-                <span className="h-2 w-2 rounded-full bg-surface-container-highest" />
-                {t('squad.radar.potential')}
-              </span>
-            </div>
-          </div>
-
-          <div className="grid min-w-0 flex-1 gap-x-gutter gap-y-panel sm:grid-cols-2">
-            {groups.map((group) => (
+        <div className="grid min-w-0 gap-x-gutter gap-y-panel sm:grid-cols-2">
+          {groups.map((group) => (
               <div key={group.category} className="flex flex-col gap-tight">
                 <div className="flex items-center gap-micro">
                   <span className={`h-3 w-1 rounded-full ${CATEGORY_ACCENT[group.category]}`} />
@@ -288,7 +262,6 @@ export function SquadPlayerDetail({
                 </div>
               </div>
             ))}
-          </div>
         </div>
       </div>
 
@@ -303,12 +276,9 @@ export function SquadPlayerDetail({
           ) : null}
         </div>
         {events.length === 0 ? (
-          <div className="flex flex-col items-center gap-micro rounded-xl border border-dashed border-outline-variant/30 py-panel">
-            <AppIcon name="history" className="text-base text-outline" />
-            <span className="font-label text-label text-on-surface-variant/75">
-              {t('player_events.no_events')}
-            </span>
-          </div>
+          <p className="font-label text-label text-on-surface-variant/60">
+            {t('player_events.no_events')}
+          </p>
         ) : (
           <ul className="flex flex-col gap-tight">
             {events.slice(0, 5).map((event) => {

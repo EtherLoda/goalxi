@@ -114,7 +114,8 @@ export function SquadPlayerRow({ player, isSelected, locale, onSelect }: SquadPl
           {player.overall}
         </span>
         <span className="mt-0.5 block font-label text-kicker tabular-nums text-outline">
-          PWI {player.pwi?.toLocaleString() || 0}
+          {t('common.currencySymbol')}
+          {(player.currentWage || 0).toLocaleString()}
         </span>
       </span>
     </button>

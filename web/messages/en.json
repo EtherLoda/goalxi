@@ -531,7 +531,9 @@
     "wage": "Wage",
     "fullProfile": "Full profile",
     "noPlayers": "No players yet",
-    "noPlayersHint": "Players join through scouting or the transfer market."
+    "noPlayersHint": "Players join through scouting or the transfer market.",
+    "overall": "OVR",
+    "payroll": "Wage bill"
   },
   "transfers": {
     "title": "Transfer Market",

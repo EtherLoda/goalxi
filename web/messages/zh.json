@@ -531,7 +531,9 @@
     "wage": "周薪",
     "fullProfile": "完整档案",
     "noPlayers": "暂无球员",
-    "noPlayersHint": "球员通过球探或转会市场获得。"
+    "noPlayersHint": "球员通过球探或转会市场获得。",
+    "overall": "综合",
+    "payroll": "周薪总额"
   },
   "transfers": {
     "title": "转会市场",
