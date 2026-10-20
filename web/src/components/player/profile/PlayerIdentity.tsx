@@ -42,7 +42,10 @@ export function PlayerIdentity({
   const lang: 'en' | 'zh' = locale === 'en' ? 'en' : 'zh';
   const accent = accentColor ?? '#00e479';
   const initials = useMemo(() => initialsOf(player.name), [player.name]);
-  const overall = player.overall ?? player.pwi ?? 0;
+  // PWI is derived server-side, so any payload that forgets to compute it
+  // arrives with 0/undefined. Print an em dash instead of a confident zero:
+  // a real PWI can never be 0 (it is a power curve over skills >= 1).
+  const overall = player.overall || player.pwi || 0;
   const clubLabel = player.teamName ?? t('player_profile.freeAgent');
 
   const nameClass =
@@ -127,7 +130,9 @@ export function PlayerIdentity({
             </span>
           </MetaCell>
           <MetaCell label={t('squad.overall')}>
-            <span className="text-primary">{overall.toLocaleString()}</span>
+            <span className="text-primary">
+              {overall > 0 ? overall.toLocaleString() : '—'}
+            </span>
           </MetaCell>
         </div>
       </div>

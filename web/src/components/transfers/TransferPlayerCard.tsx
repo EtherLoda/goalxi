@@ -6,7 +6,7 @@ import { type TransferAuction } from "@/lib/api";
 import { SpecialtyIcon } from "@/components/player/SpecialtyIcon";
 import { barClassFor } from "@/components/player/skill-display";
 import { getSpecialtyLabel } from "@/lib/specialties";
-import { MetaCell } from "@/components/player/profile/player-profile-primitives";
+import { StatTile } from "@/components/player/profile/player-profile-primitives";
 import { conditionTier, conditionToneClass } from "@/lib/condition-tone";
 import { ExperienceTierLabel } from "@/components/ExperienceTierLabel";
 import { useGameStore } from "@/stores/gameStore";
@@ -209,32 +209,39 @@ export default function TransferPlayerCard({
         </div>
       </div>
 
-      {/* Stat strip: its own row, divided from the identity block. Inside
-          the identity column the four cells had ~4px of vertical room and
-          read as a caption of the name. */}
-      <div className="mt-panel grid grid-cols-2 gap-x-gutter gap-y-tight border-t border-outline-variant/25 pt-tight sm:grid-cols-4">
-        <MetaCell label={t("squad.age")}>
-          {t("common.ageFormat", { y: player.age, d: player.ageDays })}
-        </MetaCell>
-        <MetaCell label={t("squad.stamina")}>
-          <span
-            className={`font-bold ${conditionToneClass(player.stamina ?? 0, 4, 2)}`}
-            title={`${Math.min(5, Math.max(0, Math.round(player.stamina ?? 0)))}/5`}
-          >
-            {t(`squad.staminaTier.${conditionTier(player.stamina ?? 0)}`)}
-          </span>
-        </MetaCell>
-        <MetaCell label={t("squad.form")}>
-          <span
-            className={`font-bold ${conditionToneClass(player.form ?? 0, 4, 2)}`}
-            title={`${Math.min(5, Math.max(0, Math.round(player.form ?? 0)))}/5`}
-          >
-            {t(`squad.formTier.${conditionTier(player.form ?? 0)}`)}
-          </span>
-        </MetaCell>
-        <MetaCell label={t("squad.exp")}>
-          <ExperienceTierLabel value={player.experience} />
-        </MetaCell>
+      {/* Stat strip — same tile recipe as the profile's three-up condition
+          strip, so a candidate reads like the player he becomes. Four tiles
+          here because this card has no separate meta row for age. */}
+      <div className="mt-gutter grid grid-cols-2 gap-tight sm:grid-cols-4">
+        <StatTile
+          label={t("squad.age")}
+          value={t("common.ageFormat", { y: player.age, d: player.ageDays })}
+          tone="text-on-surface"
+        />
+        <StatTile
+          label={t("squad.stamina")}
+          value={t(`squad.staminaTier.${conditionTier(player.stamina ?? 0)}`)}
+          tone={conditionToneClass(player.stamina ?? 0, 4, 2)}
+          tooltip={`${Math.min(5, Math.max(0, Math.round(player.stamina ?? 0)))}/5`}
+        />
+        <StatTile
+          label={t("squad.form")}
+          value={t(`squad.formTier.${conditionTier(player.form ?? 0)}`)}
+          tone={conditionToneClass(player.form ?? 0, 4, 2)}
+          tooltip={`${Math.min(5, Math.max(0, Math.round(player.form ?? 0)))}/5`}
+        />
+        <StatTile
+          label={t("squad.exp")}
+          value={
+            <ExperienceTierLabel
+              value={player.experience}
+              className="text-xl font-black leading-none"
+              showTitle={false}
+            />
+          }
+          tone="text-on-surface"
+          tooltip={`${Math.round(player.experience ?? 0)} XP`}
+        />
       </div>
 
       {/* Skills - Profile Style */}
