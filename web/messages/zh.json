@@ -513,7 +513,9 @@
       "listing": "上架中...",
       "modalSubtitle": "设置拍卖条款",
       "startPrice": "起始价格",
-      "buyoutPrice": "买断价格"
+      "buyoutPrice": "买断价格",
+      "invalidPrice": "请输入有效的起始价格",
+      "listFailed": "挂牌失败,请稍后重试"
     },
     "states": {
       "playerNotFound": "未找到该球员",
@@ -522,7 +524,14 @@
     "radar": {
       "current": "当前",
       "potential": "潜力"
-    }
+    },
+    "title": "我的阵容",
+    "titleOther": "对手阵容",
+    "avgOverall": "平均综合",
+    "wage": "周薪",
+    "fullProfile": "完整档案",
+    "noPlayers": "暂无球员",
+    "noPlayersHint": "球员通过球探或转会市场获得。"
   },
   "transfers": {
     "title": "转会市场",

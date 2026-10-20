@@ -513,7 +513,9 @@
       "listing": "Listing...",
       "modalSubtitle": "Set your auction terms",
       "startPrice": "Starting Price",
-      "buyoutPrice": "Buyout Price"
+      "buyoutPrice": "Buyout Price",
+      "invalidPrice": "Enter a valid starting price",
+      "listFailed": "Could not list the player. Try again."
     },
     "states": {
       "playerNotFound": "Player not found",
@@ -522,7 +524,14 @@
     "radar": {
       "current": "Current",
       "potential": "Potential"
-    }
+    },
+    "title": "My squad",
+    "titleOther": "Opponent squad",
+    "avgOverall": "Avg OVR",
+    "wage": "Wage",
+    "fullProfile": "Full profile",
+    "noPlayers": "No players yet",
+    "noPlayersHint": "Players join through scouting or the transfer market."
   },
   "transfers": {
     "title": "Transfer Market",
