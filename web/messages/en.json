@@ -1809,5 +1809,16 @@
     "tocAria": "Chapter contents",
     "prevChapter": "Previous chapter",
     "nextChapter": "Next chapter"
+  },
+  "player_profile": {
+    "club": "Club",
+    "freeAgent": "Free agent",
+    "noEvents": "No records yet",
+    "noMatches": "No match records yet",
+    "tabs": {
+      "events": "Player events",
+      "matches": "Match log"
+    },
+    "eventsInMatch": "{count} entries"
   }
 }

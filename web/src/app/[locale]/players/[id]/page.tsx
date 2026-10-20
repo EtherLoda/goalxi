@@ -10,7 +10,7 @@ import { PlayerSeasonStatsCard } from "@/components/player/PlayerSeasonStatsCard
 import { PlayerIdentity } from "@/components/player/profile/PlayerIdentity";
 import { PlayerStatTiles } from "@/components/player/profile/PlayerStatTiles";
 import { PlayerSkillGrid } from "@/components/player/profile/PlayerSkillGrid";
-import { PlayerEventTimeline } from "@/components/player/profile/PlayerEventTimeline";
+import { PlayerSidebar } from "@/components/player/profile/PlayerSidebar";
 
 interface PageProps {
   params: Promise<{ locale: string; id: string }>;
@@ -249,7 +249,7 @@ export default function PlayerDetailPage({ params }: PageProps) {
             <AppIcon name="progress_activity" className="text-4xl text-accent animate-spin" />
           </div>
         ) : player ? (
-          <div className="w-full max-w-[720px] mx-auto pb-8">
+          <div className="mx-auto grid w-full max-w-[1000px] items-start gap-panel pb-8 md:grid-cols-[minmax(0,1fr)_300px] lg:grid-cols-[minmax(0,1fr)_340px]">
             <div className="glass-panel flex flex-col overflow-hidden rounded-2xl">
               <PlayerIdentity
                 player={player}
@@ -455,22 +455,21 @@ export default function PlayerDetailPage({ params }: PageProps) {
               )}
 
               <PlayerSkillGrid player={player} columns={2} />
+            </div>
 
-              {/* Season Stats Section — career totals + every (league, season) row from
-                  `GET /stats/player/:id/seasons`. The data is keyed by
-                  (player, league, season) and the simulator writes it inside
-                  its atomic simulation transaction; this card just reads it.
-                  Rendered as a separate card so the page's "career numbers"
-                  visual block sits apart from the skill bars (which are
-                  about attributes, not what the player has done on the
-                  pitch). */}
-              <div className="border-t border-outline-variant/30 p-panel">
+            <aside className="flex min-w-0 flex-col">
+              <PlayerSidebar events={events} />
+            </aside>
+
+            {/* Career numbers sit under both columns: the table needs the full
+                width, and it is a different kind of fact from the attribute
+                bars above it. */}
+            <div className="md:col-span-2">
+              <div className="glass-panel overflow-hidden rounded-2xl p-panel">
                 <PlayerSeasonStatsCard
                   playerId={parseInt(resolvedParams?.id ?? "0", 10)}
                 />
               </div>
-
-              <PlayerEventTimeline events={events} limit={10} />
             </div>
           </div>
         ) : (

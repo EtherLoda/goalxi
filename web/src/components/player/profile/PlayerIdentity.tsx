@@ -19,6 +19,8 @@ interface PlayerIdentityProps {
   accentColor?: string | null;
   /** Position / transfer / youth chips, supplied by the screen that knows which matter. */
   chips?: ReactNode;
+  /** Where the club chip should navigate. Omitted = rendered as plain text. */
+  clubHref?: string;
   /** Right-aligned action cluster. */
   actions?: ReactNode;
 }
@@ -35,12 +37,14 @@ export function PlayerIdentity({
   accentColor,
   chips,
   actions,
+  clubHref,
 }: PlayerIdentityProps) {
   const t = useTranslations();
   const lang: 'en' | 'zh' = locale === 'en' ? 'en' : 'zh';
   const accent = accentColor ?? '#00e479';
   const initials = useMemo(() => initialsOf(player.name), [player.name]);
   const overall = player.overall ?? player.pwi ?? 0;
+  const clubLabel = player.teamName ?? t('player_profile.freeAgent');
 
   const nameClass =
     'font-headline text-2xl font-black leading-none tracking-tight text-on-surface';
@@ -83,7 +87,27 @@ export function PlayerIdentity({
           ) : null}
         </div>
 
-        {chips ? <div className="flex flex-wrap items-center gap-tight">{chips}</div> : null}
+        {/* The club is part of who the player is, not decoration: it sits in
+            the chip row so "which team does he play for" is answerable without
+            opening the squad list. */}
+        <div className="flex flex-wrap items-center gap-tight">
+          <span className="inline-flex items-center gap-micro rounded-full border border-white/[0.08] bg-white/[0.04] px-tight py-micro font-label text-kicker">
+            <span className="uppercase tracking-[0.08em] text-outline">
+              {t('player_profile.club')}
+            </span>
+            {clubHref ? (
+              <Link
+                href={clubHref}
+                className="font-bold text-on-surface transition-colors duration-quick hover:text-primary"
+              >
+                {clubLabel}
+              </Link>
+            ) : (
+              <span className="font-bold text-on-surface">{clubLabel}</span>
+            )}
+          </span>
+          {chips}
+        </div>
 
         <div className="mt-tight grid grid-cols-2 gap-x-gutter gap-y-tight sm:grid-cols-4">
           <MetaCell label={t('squad.age')}>

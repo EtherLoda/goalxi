@@ -6,6 +6,16 @@ import type { Player } from '@/lib/api';
 import { StatTile } from './player-profile-primitives';
 
 /**
+ * Condition values run 0–5.99 in the engine (`STAMINA_MAX` = 5.99). Rounding
+ * alone would print "6/5" for a maxed player, so both tiles clamp to the
+ * five-point scale the player actually thinks in: 5.99 reads 5/5, and the
+ * dot positions on the pitch agree with the number here.
+ */
+function conditionPoints(value: number): number {
+  return Math.min(5, Math.max(0, Math.round(value)));
+}
+
+/**
  * The three-up condition strip: 体能 / 状态 / 潜力.
  *
  * Thresholds are the squad row's (≥4 reads strong, ≥2 reads playable), so a
@@ -18,13 +28,13 @@ export function PlayerStatTiles({ player }: { player: Player }) {
     <div className="flex min-w-0 flex-1 gap-tight">
       <StatTile
         label={t('squad.stamina')}
-        value={Math.round(player.stamina)}
-        suffix="/6"
+        value={conditionPoints(player.stamina)}
+        suffix="/5"
         tone={conditionToneClass(player.stamina, 4, 2)}
       />
       <StatTile
         label={t('squad.form')}
-        value={Math.round(player.form)}
+        value={conditionPoints(player.form)}
         suffix="/5"
         tone={conditionToneClass(player.form, 4, 2)}
       />

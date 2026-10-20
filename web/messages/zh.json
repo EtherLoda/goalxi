@@ -1806,5 +1806,16 @@
     "tocAria": "本章目录",
     "prevChapter": "上一章",
     "nextChapter": "下一章"
+  },
+  "player_profile": {
+    "club": "归属球队",
+    "freeAgent": "自由球员",
+    "noEvents": "暂无记录",
+    "noMatches": "暂无比赛记录",
+    "tabs": {
+      "events": "球员事件",
+      "matches": "比赛记录"
+    },
+    "eventsInMatch": "{count} 条"
   }
 }
