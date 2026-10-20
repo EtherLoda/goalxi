@@ -385,6 +385,29 @@ interface PlayerEvent {
   details?: any;
 }
 
+export interface PlayerMatchLogEntry {
+  matchId: string;
+  season: number;
+  round: number | null;
+  scheduledAt: string;
+  /** `league` | `cup` | `friendly` | `playoff` | ... */
+  matchType: string;
+  isHome: boolean;
+  opponentName: string;
+  opponentShortCode: string | null;
+  teamScore: number | null;
+  opponentScore: number | null;
+  result: 'win' | 'draw' | 'loss' | 'pending';
+  /** Recorded events the player has in this match. */
+  eventCount: number;
+}
+
+export interface PlayerMatchLog {
+  items: PlayerMatchLogEntry[];
+  /** Every season the player has a recorded match in, newest first. */
+  seasons: number[];
+}
+
 /**
  * One row per (league, season) the player has competition stats for.
  * `leagueId` / `leagueName` are nullable because cup / youth matches
@@ -1139,6 +1162,26 @@ export const api = {
      */
     getSeasonStats: async (playerId: number): Promise<PlayerSeasonStats> => {
       return request<PlayerSeasonStats>(`/stats/player/${playerId}/seasons`);
+    },
+    /**
+     * The player's match log, newest first.
+     *
+     * Derived on the API side from recorded match events, so a match only
+     * appears when the player did something recordable in it. `seasons` is
+     * every season the player has a recorded match in — it powers the
+     * season filter on the match-log page.
+     */
+    getMatches: async (
+      playerId: number,
+      params?: { limit?: number; season?: number },
+    ): Promise<PlayerMatchLog> => {
+      const search = new URLSearchParams();
+      if (params?.limit !== undefined) search.set('limit', String(params.limit));
+      if (params?.season !== undefined) search.set('season', String(params.season));
+      const qs = search.toString();
+      return request<PlayerMatchLog>(
+        `/stats/player/${playerId}/matches${qs ? `?${qs}` : ''}`,
+      );
     },
   },
 

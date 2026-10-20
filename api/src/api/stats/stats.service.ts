@@ -23,6 +23,10 @@ import {
   PlayerSeasonStatsEntryDto,
   PlayerSeasonStatsResDto,
 } from './dto/player-season-stats.res.dto';
+import {
+  PlayerMatchLogEntryDto,
+  PlayerMatchLogResDto,
+} from './dto/player-match-log.res.dto';
 import { TeamStatsResDto } from './dto/team-stats.res.dto';
 
 @Injectable()
@@ -442,5 +446,90 @@ export class StatsService {
       seasons,
       career,
     };
+  }
+
+  /**
+   * A player's match log, newest first.
+   *
+   * `match_event` is the only per-match, per-player row the simulation writes,
+   * so the log is built from the matches in which the player has a recorded
+   * event. A quiet 90 minutes leaves no trace here; projecting the persisted
+   * lineups would be the way to a true appearance list, and that is a larger
+   * change than this endpoint.
+   */
+  async getPlayerMatches(
+    playerId: number,
+    options: { limit: number; season?: number },
+  ): Promise<PlayerMatchLogResDto> {
+    const player = await this.playerRepo.findOne({
+      where: { id: playerId },
+    });
+    if (!player) {
+      throw new NotFoundException(`Player ${playerId} not found`);
+    }
+
+    const touched = await this.eventRepository
+      .createQueryBuilder('e')
+      .select('e.match_id', 'matchId')
+      .addSelect('COUNT(*)', 'eventCount')
+      .where('e.player_id = :playerId', { playerId })
+      .groupBy('e.match_id')
+      .getRawMany<{ matchId: string; eventCount: string }>();
+
+    if (touched.length === 0) {
+      return { items: [], seasons: [] };
+    }
+
+    const countByMatch = new Map(
+      touched.map((row) => [row.matchId, Number(row.eventCount)]),
+    );
+
+    const matches = await this.matchRepository.find({
+      where: { id: In([...countByMatch.keys()]) },
+      order: { scheduledAt: 'DESC' },
+    });
+
+    const seasons = [...new Set(matches.map((match) => match.season))].sort(
+      (a, b) => b - a,
+    );
+
+    const visible =
+      options.season === undefined
+        ? matches
+        : matches.filter((match) => match.season === options.season);
+
+    const items = visible.slice(0, options.limit).map((match) => {
+      const isHome = match.homeTeamId === player.teamId;
+      const opponent = isHome ? match.awayTeam : match.homeTeam;
+      const teamScore = isHome ? match.homeScore : match.awayScore;
+      const opponentScore = isHome ? match.awayScore : match.homeScore;
+
+      let result: PlayerMatchLogEntryDto['result'] = 'pending';
+      if (typeof teamScore === 'number' && typeof opponentScore === 'number') {
+        result =
+          teamScore > opponentScore
+            ? 'win'
+            : teamScore < opponentScore
+              ? 'loss'
+              : 'draw';
+      }
+
+      return {
+        matchId: match.id,
+        season: match.season,
+        round: match.round ?? null,
+        scheduledAt: match.scheduledAt.toISOString(),
+        matchType: match.type,
+        isHome,
+        opponentName: opponent?.name ?? '',
+        opponentShortCode: opponent?.shortCode ?? null,
+        teamScore: teamScore ?? null,
+        opponentScore: opponentScore ?? null,
+        result,
+        eventCount: countByMatch.get(match.id) ?? 0,
+      };
+    });
+
+    return { items, seasons };
   }
 }

@@ -1816,6 +1816,28 @@
       "events": "球员事件",
       "matches": "比赛记录"
     },
-    "eventsInMatch": "{count} 条"
+    "eventsInMatch": "{count} 条",
+    "nav": {
+      "events": "球员事件",
+      "eventsHint": "职业生涯的每一次记录",
+      "matches": "比赛记录",
+      "matchesHint": "按赛季查看出场与比分"
+    },
+    "result": {
+      "win": "胜",
+      "draw": "平",
+      "loss": "负",
+      "pending": "未赛"
+    },
+    "venue": {
+      "home": "主",
+      "away": "客"
+    },
+    "profile": {
+      "recentMatches": "最近比赛",
+      "viewAll": "全部"
+    },
+    "back": "返回球员档案",
+    "seasonAll": "全部赛季"
   }
 }

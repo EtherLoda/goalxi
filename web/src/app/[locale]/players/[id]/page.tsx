@@ -3,14 +3,15 @@
 import { AppIcon } from "@/components/icons/AppIcon";
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { api, type Player, type PlayerEvent, type TransferAuction } from "@/lib/api";
+import { api, type Player, type PlayerMatchLogEntry, type TransferAuction } from "@/lib/api";
 import { useTranslations } from "next-intl";
 import { useAuth } from "@/contexts/AuthContext";
 import { PlayerSeasonStatsCard } from "@/components/player/PlayerSeasonStatsCard";
 import { PlayerIdentity } from "@/components/player/profile/PlayerIdentity";
 import { PlayerStatTiles } from "@/components/player/profile/PlayerStatTiles";
 import { PlayerSkillGrid } from "@/components/player/profile/PlayerSkillGrid";
-import { PlayerSidebar } from "@/components/player/profile/PlayerSidebar";
+import { PlayerProfileNav } from "@/components/player/profile/PlayerProfileNav";
+import { PlayerMatchList } from "@/components/player/profile/PlayerMatchLog";
 
 interface PageProps {
   params: Promise<{ locale: string; id: string }>;
@@ -159,7 +160,7 @@ export default function PlayerDetailPage({ params }: PageProps) {
   const tc = useTranslations("common");
   const { team } = useAuth();
   const [player, setPlayer] = useState<Player | null>(null);
-  const [events, setEvents] = useState<PlayerEvent[]>([]);
+  const [recentMatches, setRecentMatches] = useState<PlayerMatchLogEntry[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [resolvedParams, setResolvedParams] = useState<{
     locale: string;
@@ -185,11 +186,6 @@ export default function PlayerDetailPage({ params }: PageProps) {
       .getById(playerId)
       .then((data) => {
         setPlayer(data);
-        // Fetch player events
-        return api.players.getEvents(playerId);
-      })
-      .then((eventData) => {
-        setEvents(eventData);
       })
       .catch(console.error)
       .finally(() => setIsLoading(false));
@@ -206,6 +202,24 @@ export default function PlayerDetailPage({ params }: PageProps) {
       })
       .catch(console.error);
   }, [player?.id, player?.onTransfer]);
+
+  // Recent match log — one row per match, newest first. The API derives it
+  // from recorded match events, so a silent appearance has no row here.
+  useEffect(() => {
+    if (!player?.id) return;
+    let cancelled = false;
+    api.players
+      .getMatches(player.id, { limit: 4 })
+      .then((log) => {
+        if (!cancelled) setRecentMatches(log.items);
+      })
+      .catch(() => {
+        if (!cancelled) setRecentMatches([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [player?.id]);
 
   // Pre-fill bid amount when auction is loaded
   useEffect(() => {
@@ -250,6 +264,7 @@ export default function PlayerDetailPage({ params }: PageProps) {
           </div>
         ) : player ? (
           <div className="mx-auto grid w-full max-w-[1000px] items-start gap-panel pb-8 md:grid-cols-[minmax(0,1fr)_300px] lg:grid-cols-[minmax(0,1fr)_340px]">
+            <div className="flex min-w-0 flex-col gap-panel">
             <div className="glass-panel flex flex-col overflow-hidden rounded-2xl">
               <PlayerIdentity
                 player={player}
@@ -457,20 +472,36 @@ export default function PlayerDetailPage({ params }: PageProps) {
               <PlayerSkillGrid player={player} columns={2} />
             </div>
 
-            <aside className="flex min-w-0 flex-col">
-              <PlayerSidebar events={events} />
-            </aside>
-
-            {/* Career numbers sit under both columns: the table needs the full
-                width, and it is a different kind of fact from the attribute
-                bars above it. */}
-            <div className="md:col-span-2">
-              <div className="glass-panel overflow-hidden rounded-2xl p-panel">
-                <PlayerSeasonStatsCard
-                  playerId={parseInt(resolvedParams?.id ?? "0", 10)}
-                />
+            <div className="glass-panel overflow-hidden rounded-2xl">
+              <div className="flex items-center justify-between px-panel py-tight">
+                <span className="font-label text-kicker font-bold uppercase tracking-[0.12em] text-on-surface-variant">
+                  {t("profile.recentMatches")}
+                </span>
+                <Link
+                  href={`/${resolvedParams?.locale}/players/${player.id}/matches`}
+                  className="font-label text-kicker font-bold uppercase tracking-[0.08em] text-primary transition-colors duration-quick hover:text-primary/80"
+                >
+                  {t("profile.viewAll")}
+                </Link>
+              </div>
+              <div className="px-tight pb-tight">
+                <PlayerMatchList entries={recentMatches} />
               </div>
             </div>
+
+            <div className="glass-panel overflow-hidden rounded-2xl p-panel">
+              <PlayerSeasonStatsCard
+                playerId={parseInt(resolvedParams?.id ?? "0", 10)}
+              />
+            </div>
+            </div>
+
+            <aside className="flex min-w-0 flex-col">
+              <PlayerProfileNav
+                playerId={player.id}
+                locale={resolvedParams?.locale ?? "zh"}
+              />
+            </aside>
           </div>
         ) : (
           <div className="w-full max-w-[700px] mx-auto text-center">

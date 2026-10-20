@@ -1819,6 +1819,28 @@
       "events": "Player events",
       "matches": "Match log"
     },
-    "eventsInMatch": "{count} entries"
+    "eventsInMatch": "{count} entries",
+    "nav": {
+      "events": "Player events",
+      "eventsHint": "Every recorded moment of the career",
+      "matches": "Match log",
+      "matchesHint": "Appearances and scores by season"
+    },
+    "result": {
+      "win": "W",
+      "draw": "D",
+      "loss": "L",
+      "pending": "—"
+    },
+    "venue": {
+      "home": "H",
+      "away": "A"
+    },
+    "profile": {
+      "recentMatches": "Recent matches",
+      "viewAll": "All"
+    },
+    "back": "Back to profile",
+    "seasonAll": "All seasons"
   }
 }

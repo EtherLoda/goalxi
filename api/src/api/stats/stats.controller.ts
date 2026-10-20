@@ -9,6 +9,7 @@ import {
 import { AuthGuard } from '../../guards/auth.guard';
 import { LeaderboardResDto } from './dto/leaderboard.res.dto';
 import { MatchStatsResDto } from './dto/match-stats.res.dto';
+import { PlayerMatchLogResDto } from './dto/player-match-log.res.dto';
 import { PlayerSeasonStatsResDto } from './dto/player-season-stats.res.dto';
 import { TeamStatsResDto } from './dto/team-stats.res.dto';
 import { StatsService } from './stats.service';
@@ -82,5 +83,28 @@ export class StatsController {
     @Param('playerId') playerId: string,
   ): Promise<PlayerSeasonStatsResDto> {
     return this.statsService.getPlayerSeasonStats(playerId);
+  }
+
+  /**
+   * The player's match log, newest first.
+   *
+   * Derived from `match_event` — the only per-match, per-player record the
+   * simulation writes. That means a match shows up when the player did
+   * something recordable in it (goal, assist, card, injury, ...), not for a
+   * silent 90 minutes. A true appearance log would have to project the
+   * persisted lineups; until then this is what the profile can honestly show.
+   */
+  @Public()
+  @Get('player/:playerId/matches')
+  async getPlayerMatches(
+    @Param('playerId', ParseIntPipe) playerId: number,
+    @Query('limit') limit?: string,
+    @Query('season') season?: string,
+  ): Promise<PlayerMatchLogResDto> {
+    const parsedLimit = limit === undefined ? 20 : Number(limit);
+    return this.statsService.getPlayerMatches(playerId, {
+      limit: Number.isFinite(parsedLimit) ? Math.min(Math.max(parsedLimit, 1), 100) : 20,
+      season: season === undefined ? undefined : Number(season),
+    });
   }
 }
