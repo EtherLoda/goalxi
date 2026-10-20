@@ -4,16 +4,15 @@ import { AppIcon } from "@/components/icons/AppIcon";
 import { useTranslations, useLocale } from "next-intl";
 import { useEffect, useState, useCallback, useRef, useMemo } from "react";
 import { useParams } from "next/navigation";
-import Link from "next/link";
 import { useAuth } from "@/contexts/AuthContext";
 import { api, type Player, type TransferAuction } from "@/lib/api";
 import TransferListSkeleton from "@/components/transfers/TransferListSkeleton";
 import PlayerDetailSkeleton from "@/components/transfers/PlayerDetailSkeleton";
+import { PlayerIdentity } from "@/components/player/profile/PlayerIdentity";
 import TransferPlayerCard from "@/components/transfers/TransferPlayerCard";
 import TransferNav from "@/components/transfers/TransferNav";
 import { SpecialtyIcon } from "@/components/player/SpecialtyIcon";
 import { barClassFor } from "@/components/player/skill-display";
-import { initialsOf } from "@/components/player/profile/player-profile-primitives";
 
 type TransferPlayer = Player;
 
@@ -788,37 +787,34 @@ export default function TransfersPage() {
             ) : (
               <>
                 <div className="p-6 overflow-y-auto flex-1 custom-scrollbar">
-                  {/* Identity */}
-                  <div className="mb-4 flex items-start gap-4 rounded-xl border border-outline-variant/40 bg-surface-container p-4">
-                    <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-lg bg-surface-container-high font-headline text-title font-black text-primary ring-1 ring-inset ring-primary/20">
-                      {initialsOf(selectedTransfer.player.name)}
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <Link href={`/${params.locale}/players/${selectedTransfer.player.id}`}>
-                        <h3 className="truncate font-headline text-title font-bold text-on-surface transition-colors hover:text-primary">
-                          {selectedTransfer.player.name}
-                        </h3>
-                      </Link>
-                      <p className="mt-0.5 truncate text-kicker text-on-surface-variant">
-                        {t("common.ageFormat", { y: selectedTransfer.player.age, d: selectedTransfer.player.ageDays })}
-                        {" · "}
-                        {selectedTransfer.player.teamName || selectedTransfer.team.name}
-                        {" · "}
-                        {t("common.currencySymbol")}{(selectedTransfer.player.currentWage || 0).toLocaleString()}{t("common.perWeek")}
-                      </p>
-                      <span
-                        className={`mt-2 inline-flex items-center gap-1.5 rounded-md px-2 py-0.5 ${
-                          formatTimeRemaining(selectedTransfer.expiresAt) === EXPIRED_LABEL
-                            ? "bg-danger/15 text-danger"
-                            : "bg-surface-container-high text-on-surface-variant"
-                        }`}
-                      >
-                        <AppIcon name="timer" className="text-kicker" />
-                        <span className="text-kicker font-bold uppercase tracking-wider">
-                          {formatTimeRemaining(selectedTransfer.expiresAt)}
-                        </span>
-                      </span>
-                    </div>
+                  {/* Identity — the same component the squad pane and the
+                      profile page use, so a candidate looks like the player he
+                      becomes once signed. */}
+                  <div className="mb-4 rounded-xl border border-outline-variant/40 bg-surface-container p-0">
+                    <PlayerIdentity
+                      player={selectedTransfer.player}
+                      locale={(params.locale as string) ?? "zh"}
+                      nameHref={`/${params.locale}/players/${selectedTransfer.player.id}`}
+                      chips={
+                        <>
+                          {selectedTransfer.player.position ? (
+                            <span className="inline-flex items-center rounded-full border border-white/[0.08] bg-white/[0.04] px-tight py-micro font-label text-kicker font-bold text-on-surface-variant">
+                              {selectedTransfer.player.position}
+                            </span>
+                          ) : null}
+                          <span
+                            className={`inline-flex items-center gap-micro rounded-full px-tight py-micro font-label text-kicker font-bold uppercase tracking-wider ${
+                              formatTimeRemaining(selectedTransfer.expiresAt) === EXPIRED_LABEL
+                                ? "bg-danger/15 text-danger"
+                                : "bg-surface-container-high text-on-surface-variant"
+                            }`}
+                          >
+                            <AppIcon name="timer" className="text-kicker" />
+                            {formatTimeRemaining(selectedTransfer.expiresAt)}
+                          </span>
+                        </>
+                      }
+                    />
                   </div>
 
                   {/* Pricing */}

@@ -6,6 +6,7 @@ import { type TransferAuction } from "@/lib/api";
 import { SpecialtyIcon } from "@/components/player/SpecialtyIcon";
 import { barClassFor } from "@/components/player/skill-display";
 import { getSpecialtyLabel } from "@/lib/specialties";
+import { MetaCell } from "@/components/player/profile/player-profile-primitives";
 import { ExperienceTierLabel } from "@/components/ExperienceTierLabel";
 import { useGameStore } from "@/stores/gameStore";
 import { useAuth } from "@/contexts/AuthContext";
@@ -104,118 +105,124 @@ export default function TransferPlayerCard({
       }`}
     >
       {/* Header */}
-      <div className="flex items-center gap-6 mb-5">
-        <div className="w-16 h-16 rounded-full bg-gradient-to-br from-surface-container-high to-surface flex items-center justify-center font-bold text-2xl text-accent border border-outline-variant/30">
+      <div className="flex items-start gap-panel">
+        <div
+          className="flex h-14 w-14 shrink-0 items-center justify-center rounded-xl border border-white/[0.08] font-headline text-xl font-black text-on-surface"
+          style={{ background: "linear-gradient(135deg, #00e47926, #00e4790a)" }}
+          aria-hidden="true"
+        >
           {initials}
         </div>
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-3">
-            <Link href={`/players/${player.id}`} className={`font-bold text-xl truncate hover:text-primary transition-colors ${isSelected ? "text-primary" : "text-on-surface"}`}>
+
+        <div className="flex min-w-0 flex-1 flex-col gap-tight">
+          <div className="flex min-w-0 flex-wrap items-center gap-tight">
+            <Link
+              href={`/${locale}/players/${player.id}`}
+              className={`truncate font-headline text-lg font-bold transition-colors duration-quick hover:text-primary ${
+                isSelected ? "text-primary" : "text-on-surface"
+              }`}
+            >
               {player.name}
             </Link>
+            <span className="rounded-md border border-white/[0.08] bg-white/[0.03] px-1.5 py-0.5 font-label text-kicker font-bold tabular-nums text-outline">
+              #{player.id}
+            </span>
             <span
-              className={`text-label font-bold px-2 py-1 rounded-lg ${
+              className={`ml-auto rounded-md px-tight py-0.5 font-label text-kicker font-bold uppercase tracking-wider ${
                 isExpired
-                  ? "bg-danger/20 text-red-400"
+                  ? "bg-danger/15 text-danger"
                   : "bg-surface-container-high text-on-surface-variant"
               }`}
             >
               {timeLeft}
             </span>
           </div>
-          <p className="text-sm text-on-surface-variant">
-            {t("common.ageFormat", { y: player.age, d: player.ageDays })} ·{" "}
+
+          {/* The club is a chip, not a run-on sentence: the old line read
+              "30岁13天 · Club · £4,694/周" and wrapped mid-number at the
+              container's narrowest width. */}
+          <div className="flex flex-wrap items-center gap-tight">
             <button
               type="button"
               onClick={(e) => {
                 e.stopPropagation();
                 handleTeamClick(transfer.team.id);
               }}
-              className="text-on-surface-variant hover:text-primary transition-colors cursor-pointer"
+              className="inline-flex items-center gap-micro rounded-full border border-white/[0.08] bg-white/[0.04] px-tight py-micro font-label text-kicker transition-colors duration-quick hover:border-primary/40"
             >
-              {player.teamName || transfer.team.name}
-            </button>{" "}
-            · {t("common.currencySymbol")}
-            {(player.currentWage || 0).toLocaleString()}{t("common.perWeek")}
-          </p>
-        </div>
-        <div className="flex items-center gap-6">
-          <div className="text-center">
-            <p className="text-kicker text-on-surface-variant uppercase tracking-wider mb-1">
-              {t("squad.age")}
-            </p>
-            <p className="font-bold text-lg text-on-surface">{player.age}</p>
+              <span className="uppercase tracking-[0.08em] text-outline">
+                {t("player_profile.club")}
+              </span>
+              <span className="font-bold text-on-surface">
+                {player.teamName || transfer.team.name}
+              </span>
+            </button>
+            {player.position ? (
+              <span className="inline-flex items-center rounded-full border border-white/[0.08] bg-white/[0.04] px-tight py-micro font-label text-kicker font-bold text-on-surface-variant">
+                {player.position}
+              </span>
+            ) : null}
+            {player.coreSpecialty ? (
+              <span
+                className={`inline-flex items-center gap-micro font-label text-kicker font-bold ${
+                  player.coreSpecialtyTier === "GOLD"
+                    ? "text-tertiary"
+                    : player.coreSpecialtyTier === "SILVER"
+                      ? "text-on-surface-variant"
+                      : "text-outline"
+                }`}
+              >
+                <SpecialtyIcon
+                  code={player.coreSpecialty}
+                  tier={player.coreSpecialtyTier}
+                  size="sm"
+                />
+                {getSpecialtyLabel(player.coreSpecialty, locale === "en" ? "en" : "zh")}
+              </span>
+            ) : null}
           </div>
-          <div className="text-center">
-            <p className="text-kicker text-on-surface-variant uppercase tracking-wider mb-1">
-              {t("squad.stamina")}
-            </p>
-            <p className="font-bold text-lg tabular-nums text-on-surface">
-              {Math.min(5, Math.max(0, Math.round(player.stamina ?? 0)))}
-              <span className="text-kicker font-normal text-on-surface-variant">/5</span>
-            </p>
-          </div>
-          <div className="text-center">
-            <p className="text-kicker text-on-surface-variant uppercase tracking-wider mb-1">
-              {t("squad.form")}
-            </p>
-            <p className="font-bold text-lg tabular-nums text-on-surface">
-              {Math.min(5, Math.max(0, Math.round(player.form ?? 0)))}
-              <span className="text-kicker font-normal text-on-surface-variant">/5</span>
-            </p>
-          </div>
-          <div className="text-center">
-            <p className="text-kicker text-on-surface-variant uppercase tracking-wider mb-1">
-              {t("squad.exp")}
-            </p>
-            <p className="font-bold text-lg text-on-surface">
-              <ExperienceTierLabel value={player.experience} />
-            </p>
-          </div>
-        </div>
-        <div className="flex items-center gap-8">
-          <div className="text-center">
-            <p className="text-kicker text-on-surface-variant uppercase tracking-wider mb-1">
-              {t("transfers.detail.currentPrice")}
-            </p>
-            <p className={`font-bold text-xl ${
-              bidStatus === "leading" || bidStatus === "won"
-                ? "text-accent"
-                : "text-on-surface"
-            }`}>
-              {formatCurrency(transfer.currentPrice)}
-            </p>
-          </div>
-        </div>
-      </div>
 
-      {/* Specialties — v2 with tier */}
-      <div className="flex flex-wrap gap-2 mb-5">
-        {player.coreSpecialty ? (
-          <span
-            className={`inline-flex items-center gap-1.5 text-kicker px-3 py-1.5 rounded-lg border uppercase tracking-wider ${
-              player.coreSpecialtyTier === 'GOLD'
-                ? 'bg-amber-300/10 text-amber-300 border-amber-300/30'
-                : player.coreSpecialtyTier === 'SILVER'
-                ? 'bg-slate-300/10 text-slate-300 border-slate-300/30'
-                : 'bg-stone-400/10 text-stone-400 border-stone-400/30'
+          <div className="mt-micro grid grid-cols-4 gap-x-panel">
+            <MetaCell label={t("squad.age")}>
+              {t("common.ageFormat", { y: player.age, d: player.ageDays })}
+            </MetaCell>
+            <MetaCell label={t("squad.stamina")}>
+              <span className="tabular-nums">
+                {Math.min(5, Math.max(0, Math.round(player.stamina ?? 0)))}
+                <span className="font-normal text-on-surface-variant">/5</span>
+              </span>
+            </MetaCell>
+            <MetaCell label={t("squad.form")}>
+              <span className="tabular-nums">
+                {Math.min(5, Math.max(0, Math.round(player.form ?? 0)))}
+                <span className="font-normal text-on-surface-variant">/5</span>
+              </span>
+            </MetaCell>
+            <MetaCell label={t("squad.exp")}>
+              <ExperienceTierLabel value={player.experience} />
+            </MetaCell>
+          </div>
+        </div>
+
+        <div className="shrink-0 text-right">
+          <p className="font-label text-kicker uppercase tracking-widest text-on-surface-variant">
+            {t("transfers.detail.currentPrice")}
+          </p>
+          <p
+            className={`mt-0.5 font-headline text-xl font-bold tabular-nums ${
+              bidStatus === "leading" || bidStatus === "won"
+                ? "text-primary"
+                : "text-on-surface"
             }`}
           >
-            <SpecialtyIcon
-              code={player.coreSpecialty}
-              tier={player.coreSpecialtyTier}
-              size="xs"
-            />
-            {getSpecialtyLabel(player.coreSpecialty, locale === "en" ? "en" : "zh")}
-            {player.coreSpecialtyTier && (
-              <span className="opacity-60 ml-0.5">· {player.coreSpecialtyTier}</span>
-            )}
-          </span>
-        ) : (
-          <span className="inline-flex items-center gap-1.5 bg-stone-500/10 text-stone-500 text-kicker px-3 py-1.5 rounded-lg border border-stone-500/20 uppercase tracking-wider">
-            {t("transfers.specialty.none")}
-          </span>
-        )}
+            {formatCurrency(transfer.currentPrice)}
+          </p>
+          <p className="mt-0.5 font-label text-kicker text-on-surface-variant">
+            {t("common.currencySymbol")}
+            {(player.currentWage || 0).toLocaleString()}
+            {t("common.perWeek")}
+          </p>
+        </div>
       </div>
 
       {/* Skills - Profile Style */}
