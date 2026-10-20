@@ -717,33 +717,56 @@ export default function TransfersPage() {
                       locale={(params.locale as string) ?? "zh"}
                       nameHref={`/${params.locale}/players/${selectedTransfer.player.id}`}
                       chips={
-                        <>
-                          {selectedTransfer.player.position ? (
-                            <span className="inline-flex items-center rounded-full border border-white/[0.08] bg-white/[0.04] px-tight py-micro font-label text-kicker font-bold text-on-surface-variant">
-                              {selectedTransfer.player.position}
-                            </span>
-                          ) : null}
-                          <span
-                            className={`inline-flex items-center gap-micro rounded-full px-tight py-micro font-label text-kicker font-bold uppercase tracking-wider ${
-                              formatTimeRemaining(selectedTransfer.expiresAt) === EXPIRED_LABEL
-                                ? "bg-danger/15 text-danger"
-                                : "bg-surface-container-high text-on-surface-variant"
-                            }`}
-                          >
-                            <AppIcon name="timer" className="text-kicker" />
-                            {formatTimeRemaining(selectedTransfer.expiresAt)}
+                        selectedTransfer.player.position ? (
+                          <span className="inline-flex items-center rounded-full border border-white/[0.08] bg-white/[0.04] px-tight py-micro font-label text-kicker font-bold text-on-surface-variant">
+                            {selectedTransfer.player.position}
                           </span>
-                        </>
+                        ) : null
                       }
                     />
                   </div>
 
-                  {/* Pricing */}
-                  <div className="mb-5 rounded-xl border border-outline-variant/40 bg-surface-container p-4">
-                    <p className="text-kicker uppercase tracking-widest text-on-surface-variant">{t("transfers.detail.currentPrice")}</p>
-                    <p className="mt-1 truncate font-headline text-2xl font-bold tabular-nums text-primary">
-                      {formatCurrency(selectedTransfer.currentPrice)}
-                    </p>
+                  {/* Auction block: price, countdown and leading bid belong
+                      together. The countdown used to live in the identity
+                      chips, which put a live clock next to the player's name
+                      on a panel that is otherwise static. */}
+                  <div className="mb-5 rounded-xl border border-outline-variant/40 bg-surface-container px-panel py-tight">
+                    <div className="flex items-start justify-between gap-tight">
+                      <div className="min-w-0">
+                        <p className="font-label text-kicker uppercase tracking-widest text-outline">
+                          {t("transfers.detail.currentPrice")}
+                        </p>
+                        <p className="mt-micro truncate font-headline text-2xl font-bold tabular-nums text-primary">
+                          {formatCurrency(selectedTransfer.currentPrice)}
+                        </p>
+                      </div>
+                      <span
+                        className={`inline-flex shrink-0 items-center gap-micro rounded-full px-tight py-micro font-label text-kicker font-bold uppercase tracking-wider ${
+                          formatTimeRemaining(selectedTransfer.expiresAt) === EXPIRED_LABEL
+                            ? "bg-danger/15 text-danger"
+                            : "bg-surface-container-high text-on-surface-variant"
+                        }`}
+                      >
+                        <AppIcon name="timer" className="text-kicker" />
+                        {formatTimeRemaining(selectedTransfer.expiresAt)}
+                      </span>
+                    </div>
+                    <div className="mt-tight flex flex-wrap items-center gap-x-gutter gap-y-micro border-t border-outline-variant/25 pt-tight">
+                      <span className="font-label text-kicker text-on-surface-variant">
+                        {t("squad.wage")}{" "}
+                        <span className="font-bold tabular-nums text-on-surface">
+                          {formatCurrency(selectedTransfer.player.currentWage ?? 0)}
+                        </span>
+                      </span>
+                      {selectedTransfer.currentBidder ? (
+                        <span className="min-w-0 truncate font-label text-kicker text-on-surface-variant">
+                          {t("transfers.detail.leading")}{" "}
+                          <span className="font-bold text-on-surface">
+                            {selectedTransfer.currentBidder.name}
+                          </span>
+                        </span>
+                      ) : null}
+                    </div>
                   </div>
 
                   {/* Skills — the same grid the profile page renders, so a

@@ -1,7 +1,7 @@
 'use client';
 
 import { useTranslations } from 'next-intl';
-import { conditionToneClass } from '@/lib/condition-tone';
+import { conditionTier, conditionToneClass } from '@/lib/condition-tone';
 import { ExperienceTierLabel } from '@/components/ExperienceTierLabel';
 import type { Player } from '@/lib/api';
 import { StatTile } from './player-profile-primitives';
@@ -14,15 +14,6 @@ import { StatTile } from './player-profile-primitives';
  */
 function conditionPoints(value: number): number {
   return Math.min(5, Math.max(0, Math.round(value)));
-}
-
-/** Three words, not five numbers: the exact value is a hover away. */
-type ConditionTier = 'high' | 'mid' | 'low';
-
-function conditionTier(value: number): ConditionTier {
-  if (value >= 4) return 'high';
-  if (value >= 2) return 'mid';
-  return 'low';
 }
 
 /**

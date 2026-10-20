@@ -15,6 +15,7 @@ import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { InjectRepository } from '@nestjs/typeorm';
 import { plainToInstance } from 'class-transformer';
 import { Repository } from 'typeorm';
+import { toAuctionResDto, toMyBidResDto } from './auction.mapper';
 import { AuctionService } from './auction.service';
 import { AuctionResDto } from './dto/auction.res.dto';
 import { BuyoutResDto } from './dto/buyout.res.dto';
@@ -43,7 +44,7 @@ export class TransferController {
   @ApiOperation({ summary: 'Get all in-flight auctions (ACTIVE + SETTLING)' })
   async findAllAuctions(): Promise<AuctionResDto[]> {
     const auctions = await this.auctionService.findAllInFlight();
-    return auctions.map((a) => plainToInstance(AuctionResDto, a));
+    return auctions.map((a) => toAuctionResDto(a));
   }
 
   @Get('auction/my-bids')
@@ -52,15 +53,7 @@ export class TransferController {
     const team = await this.teamRepo.findOneBy({ userId });
     if (!team) throw new Error('User has no team');
     const auctions = await this.auctionService.findMyBids(team.id);
-    return auctions.map((a) => {
-      const dto = plainToInstance(MyBidResDto, a);
-      dto.isLeading = a.currentBidderId === team.id;
-      dto.isOutbid =
-        a.currentBidderId !== undefined &&
-        a.currentBidderId !== team.id &&
-        a.bidHistory.some((b: any) => b.teamId === team.id);
-      return dto;
-    });
+    return auctions.map((a) => toMyBidResDto(a, team.id));
   }
 
   @Get('auction/my-listings')
@@ -71,7 +64,7 @@ export class TransferController {
     const team = await this.teamRepo.findOneBy({ userId });
     if (!team) throw new Error('User has no team');
     const auctions = await this.auctionService.findMyListings(team.id);
-    return auctions.map((a) => plainToInstance(AuctionResDto, a));
+    return auctions.map((a) => toAuctionResDto(a));
   }
 
   @Get('transactions/purchases')
@@ -135,7 +128,7 @@ export class TransferController {
     @Body() dto: CreateAuctionReqDto,
   ): Promise<AuctionResDto> {
     const auction = await this.auctionService.createAuction(userId, dto);
-    return plainToInstance(AuctionResDto, auction);
+    return toAuctionResDto(auction);
   }
 
   @Post('auction/:id/bid')
@@ -147,7 +140,7 @@ export class TransferController {
   ): Promise<PlaceBidResDto> {
     const result = await this.auctionService.placeBid(userId, auctionId, dto);
     return {
-      ...plainToInstance(AuctionResDto, result.auction),
+      ...toAuctionResDto(result.auction),
       lockedAmount: result.lockedAmount,
     };
   }

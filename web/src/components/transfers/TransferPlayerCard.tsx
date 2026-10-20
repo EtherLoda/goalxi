@@ -7,6 +7,7 @@ import { SpecialtyIcon } from "@/components/player/SpecialtyIcon";
 import { barClassFor } from "@/components/player/skill-display";
 import { getSpecialtyLabel } from "@/lib/specialties";
 import { MetaCell } from "@/components/player/profile/player-profile-primitives";
+import { conditionTier, conditionToneClass } from "@/lib/condition-tone";
 import { ExperienceTierLabel } from "@/components/ExperienceTierLabel";
 import { useGameStore } from "@/stores/gameStore";
 import { useAuth } from "@/contexts/AuthContext";
@@ -127,15 +128,6 @@ export default function TransferPlayerCard({
             <span className="rounded-md border border-white/[0.08] bg-white/[0.03] px-1.5 py-0.5 font-label text-kicker font-bold tabular-nums text-outline">
               #{player.id}
             </span>
-            <span
-              className={`ml-auto rounded-md px-tight py-0.5 font-label text-kicker font-bold uppercase tracking-wider ${
-                isExpired
-                  ? "bg-danger/15 text-danger"
-                  : "bg-surface-container-high text-on-surface-variant"
-              }`}
-            >
-              {timeLeft}
-            </span>
           </div>
 
           {/* The club is a chip, not a run-on sentence: the old line read
@@ -182,47 +174,67 @@ export default function TransferPlayerCard({
             ) : null}
           </div>
 
-          <div className="mt-micro grid grid-cols-4 gap-x-panel">
-            <MetaCell label={t("squad.age")}>
-              {t("common.ageFormat", { y: player.age, d: player.ageDays })}
-            </MetaCell>
-            <MetaCell label={t("squad.stamina")}>
-              <span className="tabular-nums">
-                {Math.min(5, Math.max(0, Math.round(player.stamina ?? 0)))}
-                <span className="font-normal text-on-surface-variant">/5</span>
-              </span>
-            </MetaCell>
-            <MetaCell label={t("squad.form")}>
-              <span className="tabular-nums">
-                {Math.min(5, Math.max(0, Math.round(player.form ?? 0)))}
-                <span className="font-normal text-on-surface-variant">/5</span>
-              </span>
-            </MetaCell>
-            <MetaCell label={t("squad.exp")}>
-              <ExperienceTierLabel value={player.experience} />
-            </MetaCell>
-          </div>
         </div>
 
-        <div className="shrink-0 text-right">
-          <p className="font-label text-kicker uppercase tracking-widest text-on-surface-variant">
+        {/* Price block: label, number, unit, countdown — stacked on the
+            same right edge so they read as one object. The wage used to
+            sit under the price with no label, which made it look like a
+            second price. */}
+        <div className="flex shrink-0 flex-col items-end gap-micro text-right">
+          <span className="font-label text-kicker uppercase tracking-widest text-outline">
             {t("transfers.detail.currentPrice")}
-          </p>
-          <p
-            className={`mt-0.5 font-headline text-xl font-bold tabular-nums ${
+          </span>
+          <span
+            className={`font-headline text-2xl font-bold leading-none tabular-nums ${
               bidStatus === "leading" || bidStatus === "won"
                 ? "text-primary"
                 : "text-on-surface"
             }`}
           >
             {formatCurrency(transfer.currentPrice)}
-          </p>
-          <p className="mt-0.5 font-label text-kicker text-on-surface-variant">
-            {t("common.currencySymbol")}
+          </span>
+          <span className="font-label text-kicker text-on-surface-variant">
+            {t("squad.wage")} {t("common.currencySymbol")}
             {(player.currentWage || 0).toLocaleString()}
-            {t("common.perWeek")}
-          </p>
+          </span>
+          <span
+            className={`mt-micro rounded-md px-tight py-0.5 font-label text-kicker font-bold uppercase tracking-wider ${
+              isExpired
+                ? "bg-danger/15 text-danger"
+                : "bg-surface-container-high text-on-surface-variant"
+            }`}
+          >
+            {timeLeft}
+          </span>
         </div>
+      </div>
+
+      {/* Stat strip: its own row, divided from the identity block. Inside
+          the identity column the four cells had ~4px of vertical room and
+          read as a caption of the name. */}
+      <div className="mt-panel grid grid-cols-2 gap-x-gutter gap-y-tight border-t border-outline-variant/25 pt-tight sm:grid-cols-4">
+        <MetaCell label={t("squad.age")}>
+          {t("common.ageFormat", { y: player.age, d: player.ageDays })}
+        </MetaCell>
+        <MetaCell label={t("squad.stamina")}>
+          <span
+            className={`font-bold ${conditionToneClass(player.stamina ?? 0, 4, 2)}`}
+            title={`${Math.min(5, Math.max(0, Math.round(player.stamina ?? 0)))}/5`}
+          >
+            {t(`squad.staminaTier.${conditionTier(player.stamina ?? 0)}`)}
+          </span>
+        </MetaCell>
+        <MetaCell label={t("squad.form")}>
+          <span
+            className={`font-bold ${conditionToneClass(player.form ?? 0, 4, 2)}`}
+            title={`${Math.min(5, Math.max(0, Math.round(player.form ?? 0)))}/5`}
+          >
+            {t(`squad.formTier.${conditionTier(player.form ?? 0)}`)}
+          </span>
+        </MetaCell>
+        <MetaCell label={t("squad.exp")}>
+          <ExperienceTierLabel value={player.experience} />
+        </MetaCell>
       </div>
 
       {/* Skills - Profile Style */}

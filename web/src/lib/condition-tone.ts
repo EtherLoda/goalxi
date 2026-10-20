@@ -13,3 +13,18 @@ export function conditionToneClass(value: number, good: number, ok: number): str
   if (value >= ok) return 'text-tertiary';
   return 'text-error';
 }
+
+export type ConditionTier = 'high' | 'mid' | 'low';
+
+/**
+ * Condition as a word. The numbers move to a tooltip: `4/5` and `3/5` are a
+ * one-point difference that nobody reads as "fresh" vs "played 70 minutes",
+ * and the three condition values in the strip (体能 / 状态 / 经验) have to be
+ * the same kind of thing or the row looks like it mixed units.
+ */
+export function conditionTier(value: number): ConditionTier {
+  if (value >= 4) return 'high';
+  if (value >= 2) return 'mid';
+  return 'low';
+}
+
