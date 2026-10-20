@@ -114,6 +114,31 @@ export class AttributeCalculator {
   // 缓存：Player -> GK save rating
   private static gkCache = new Map<Player, number>();
 
+  // 缓存：Player -> 整块 9 个贡献值（3 lane × 3 phase），lane-major，
+  // 每条 lane 依次 attack / defense / possession。
+  //
+  // 为什么需要这一层：`updateSnapshot`（每 5 分钟）和
+  // `mapPlayerStates`（同频）各自要读同一个球员的全部 9 个值，合计
+  // 2 × 22 球员 × 9 × 18 次快照 ≈ 7100 次查找/场。每次查找都要拼一个
+  // 模板字符串键（`${positionKey}:${lane}:${phase}`）再做两层 Map.get，
+  // 而值早在开场 `preCachePlayerContributions` 就算好了 —— CPU profile
+  // 显示这纯粹是「取已算好的值」占了引擎 44% 的时间。
+  //
+  // 这一层只做扁平化，不改变任何数值：写入时仍然走
+  // `calculateAndCacheContribution`，所以两张缓存永远一致。
+  private static blockCache = new Map<
+    Player,
+    { positionKey: string; values: Float64Array }
+  >();
+
+  /** `getContributionBlock` 的索引：lane-major，每 lane 三相位。 */
+  static readonly LANE_ORDER: readonly Lane[] = ['left', 'center', 'right'];
+  static readonly PHASE_ORDER: readonly Phase[] = [
+    'attack',
+    'defense',
+    'possession',
+  ];
+
   // Dedup warn-set: log each unknown slot key once per process so a
   // 90-min match full of badly-keyed players doesn't emit 90 * 11 logs.
   private static unknownKeyWarned = new Set<string>();
@@ -137,6 +162,44 @@ export class AttributeCalculator {
   static clearCache(): void {
     this.contributionCache.clear();
     this.gkCache.clear();
+    this.blockCache.clear();
+  }
+
+  /**
+   * 一次性取出球员在某个位置上的全部 9 个贡献值。
+   *
+   * 索引见 `LANE_ORDER` / `PHASE_ORDER`：`laneIndex * 3 + phaseIndex`，
+   * 即 `[0..2]` = left 的 attack/defense/possession，`[3..5]` = center，
+   * `[6..8]` = right。
+   *
+   * 数值与逐个调用 `calculateContribution` 完全一致（同一张底层缓存），
+   * 区别只是把「9 次字符串键查找」换成「1 次引用键查找 + 9 次数组读」。
+   * 位置一旦变化（换人 / 移位）缓存键里的 positionKey 对不上，会自动重算。
+   */
+  static getContributionBlock(
+    player: Player,
+    positionKey: string,
+  ): Float64Array {
+    const cached = this.blockCache.get(player);
+    if (cached && cached.positionKey === positionKey) {
+      return cached.values;
+    }
+
+    const values = new Float64Array(9);
+    let i = 0;
+    for (const lane of this.LANE_ORDER) {
+      for (const phase of this.PHASE_ORDER) {
+        values[i++] = this.calculateAndCacheContribution(
+          player,
+          positionKey,
+          lane,
+          phase,
+        );
+      }
+    }
+
+    this.blockCache.set(player, { positionKey, values });
+    return values;
   }
 
   /**
@@ -301,14 +364,9 @@ export class AttributeCalculator {
     player: Player,
     positionKey: string,
   ): void {
-    const lanes: Lane[] = ['left', 'center', 'right'];
-    const phases: Phase[] = ['attack', 'possession', 'defense'];
-
-    for (const lane of lanes) {
-      for (const phase of phases) {
-        this.calculateAndCacheContribution(player, positionKey, lane, phase);
-      }
-    }
+    // Warm the flat block as well as the per-key map: every snapshot reads
+    // the block, so paying for it here keeps minute 0 off the miss path.
+    this.getContributionBlock(player, positionKey);
 
     // GK 也缓存
     if (positionKey === 'GK') {

@@ -816,7 +816,12 @@ export class MatchEngine {
     // pushed during this minute — open-play from the key-moment path
     // AND set-piece from the foul path. Exactly once per goal,
     // regardless of which entry point emitted it.
-    for (const event of this.events.slice(startOfMinute)) {
+    //
+    // Index loop rather than `this.events.slice(startOfMinute)`: the slice
+    // allocated a fresh array on every one of the ~100 simulated minutes,
+    // almost always empty, purely to iterate it once.
+    for (let i = startOfMinute; i < this.events.length; i++) {
+      const event = this.events[i];
       if (event.type === 'goal') {
         if (event.teamName === this.homeTeam.name) this.homeScore++;
         else this.awayScore++;
@@ -830,6 +835,25 @@ export class MatchEngine {
 
   private currentLane: Lane = 'center';
   private knownPlayerIds: Set<number> = new Set();
+
+  // 位置契合度只取决于 (球员属性, 位置) —— 两者在一场比赛里都不变，
+  // 但 `mapPlayerStates` 每 5 分钟给每个在场球员重算一遍（22 人 × 18 次
+  // ≈ 400 次/场），而 `calculatePositionFit` 内部要做 9 次
+  // `computeWeightedSum` + 9 次 `Object.keys`（每次都在分配数组）。
+  // 纯记忆化，不改变任何数值。
+  private positionFitCache = new Map<
+    number,
+    { key: string; value: number }
+  >();
+
+  private getPositionFit(player: Player, positionKey: string): number {
+    const cached = this.positionFitCache.get(player.id);
+    if (cached && cached.key === positionKey) return cached.value;
+
+    const value = calculatePositionFit(player.attributes, positionKey);
+    this.positionFitCache.set(player.id, { key: positionKey, value });
+    return value;
+  }
 
   // ------------------------------------------------------------------
   // Push-phase player duel state — populated by `simulateKeyMoment`'s
@@ -4702,62 +4726,23 @@ export class MatchEngine {
             player.experience,
           );
 
-        const lAtk = AttributeCalculator.calculateContribution(
+        // One block fetch instead of nine string-keyed cache lookups.
+        // `totalContribution` below still sums all nine values, in the same
+        // order (left/center/right × attack/defense/possession), so the
+        // arithmetic is unchanged — only the lookup cost is.
+        const block = AttributeCalculator.getContributionBlock(
           player,
           tacticalPlayer.positionKey,
-          'left',
-          'attack',
         );
-        const lDef = AttributeCalculator.calculateContribution(
-          player,
-          tacticalPlayer.positionKey,
-          'left',
-          'defense',
-        );
-        const lPos = AttributeCalculator.calculateContribution(
-          player,
-          tacticalPlayer.positionKey,
-          'left',
-          'possession',
-        );
-
-        const cAtk = AttributeCalculator.calculateContribution(
-          player,
-          tacticalPlayer.positionKey,
-          'center',
-          'attack',
-        );
-        const cDef = AttributeCalculator.calculateContribution(
-          player,
-          tacticalPlayer.positionKey,
-          'center',
-          'defense',
-        );
-        const cPos = AttributeCalculator.calculateContribution(
-          player,
-          tacticalPlayer.positionKey,
-          'center',
-          'possession',
-        );
-
-        const rAtk = AttributeCalculator.calculateContribution(
-          player,
-          tacticalPlayer.positionKey,
-          'right',
-          'attack',
-        );
-        const rDef = AttributeCalculator.calculateContribution(
-          player,
-          tacticalPlayer.positionKey,
-          'right',
-          'defense',
-        );
-        const rPos = AttributeCalculator.calculateContribution(
-          player,
-          tacticalPlayer.positionKey,
-          'right',
-          'possession',
-        );
+        const lAtk = block[0];
+        const lDef = block[1];
+        const lPos = block[2];
+        const cAtk = block[3];
+        const cDef = block[4];
+        const cPos = block[5];
+        const rAtk = block[6];
+        const rDef = block[7];
+        const rPos = block[8];
 
         const totalContribution =
           (lAtk + lDef + lPos + cAtk + cDef + cPos + rAtk + rDef + rPos) *
@@ -4779,8 +4764,8 @@ export class MatchEngine {
           stars = contributionToStars(normalizedContribution);
         } else {
           // Outfield: apply multiplier then normalize to 0-100 scale
-          const positionFit = calculatePositionFit(
-            player.attributes,
+          const positionFit = this.getPositionFit(
+            player,
             tacticalPlayer.positionKey,
           );
           const rawContribution = positionFit * multiplier;

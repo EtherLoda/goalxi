@@ -190,30 +190,21 @@ export class Team {
       // familyMult 默认 1 ⇒ `multiplier * 1 === multiplier`，结果不变。
       const playerMult = multiplier * familyMult;
 
-      // 使用calculateAndCacheContribution，自动缓存
-      for (const lane of lanes) {
-        const att = AttributeCalculator.calculateAndCacheContribution(
-          player,
-          p.positionKey,
-          lane,
-          'attack',
-        );
-        const def = AttributeCalculator.calculateAndCacheContribution(
-          player,
-          p.positionKey,
-          lane,
-          'defense',
-        );
-        const poss = AttributeCalculator.calculateAndCacheContribution(
-          player,
-          p.positionKey,
-          lane,
-          'possession',
-        );
+      // 一次取出该球员全部 9 个贡献值（见
+      // `AttributeCalculator.getContributionBlock`）。原来是 3 lane × 3 phase
+      // 共 9 次字符串键缓存查找，每 5 分钟每人重来一遍；数值完全相同。
+      const block = AttributeCalculator.getContributionBlock(
+        player,
+        p.positionKey,
+      );
 
-        laneStrengths[lane].attack += att * playerMult * attLaneMult;
-        laneStrengths[lane].defense += def * playerMult * defLaneMult;
-        laneStrengths[lane].possession += poss * playerMult;
+      for (let li = 0; li < 3; li++) {
+        const lane = lanes[li];
+        const base = li * 3;
+        laneStrengths[lane].attack += block[base] * playerMult * attLaneMult;
+        laneStrengths[lane].defense +=
+          block[base + 1] * playerMult * defLaneMult;
+        laneStrengths[lane].possession += block[base + 2] * playerMult;
       }
     }
 
