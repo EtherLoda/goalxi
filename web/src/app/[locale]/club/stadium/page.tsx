@@ -191,11 +191,11 @@ export default function StadiumPage() {
       wasKind === "demolish"
         ? tConstruction("queuedDemolishToast", {
             delta: info.delta.toLocaleString(),
-            weeks: tConstruction("weeksValue", { n: info.weeks }),
+            weeks: tConstruction("weeksTotal", { n: info.weeks }),
           })
         : tConstruction("queuedExpandToast", {
             delta: info.delta.toLocaleString(),
-            weeks: tConstruction("weeksValue", { n: info.weeks }),
+            weeks: tConstruction("weeksTotal", { n: info.weeks }),
           }),
     );
     await refresh();

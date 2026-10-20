@@ -43,7 +43,8 @@
       "confirmPassword": "Confirm Password",
       "submit": "Create Account",
       "hasAccount": "Already have an account?"
-    }
+    },
+    "loginRequired": "Please sign in first"
   },
   "onboarding": {
     "title": "Preparing your club",
@@ -614,7 +615,9 @@
       "addAttributeFilter": "Add Skill Filter",
       "ageFilter": "Age Filter",
       "specialtyFilter": "Specialty Filter",
-      "alreadyAdded": "Added"
+      "alreadyAdded": "Added",
+      "minimum": "Minimum",
+      "maximum": "Maximum"
     },
     "empty": {
       "noResults": "No players found",

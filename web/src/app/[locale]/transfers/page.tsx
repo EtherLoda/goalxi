@@ -436,8 +436,8 @@ export default function TransfersPage() {
                         </div>
                         <AttributeRangeSlider
                           label={attrInfo.label}
-                          minLabel={t("filters.minimum")}
-                          maxLabel={t("filters.maximum")}
+                          minLabel={t("transfers.filter.minimum")}
+                          maxLabel={t("transfers.filter.maximum")}
                           min={filter.range.min}
                           max={filter.range.max}
                           onChange={(lo: number, hi: number) => updateAttributeFilterRange(filter.id, lo, hi)}
@@ -503,8 +503,8 @@ export default function TransfersPage() {
                   <div className="mt-3">
                     <AttributeRangeSlider
                       label={t("transfers.filter.ageFilter")}
-                      minLabel={t("filters.minimum")}
-                      maxLabel={t("filters.maximum")}
+                      minLabel={t("transfers.filter.minimum")}
+                      maxLabel={t("transfers.filter.maximum")}
                       min={ageRange.min}
                       max={ageRange.max}
                       scaleMin={15}
