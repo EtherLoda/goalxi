@@ -10,8 +10,10 @@ import { api, type Player, type TransferAuction } from "@/lib/api";
 import TransferListSkeleton from "@/components/transfers/TransferListSkeleton";
 import PlayerDetailSkeleton from "@/components/transfers/PlayerDetailSkeleton";
 import TransferPlayerCard from "@/components/transfers/TransferPlayerCard";
+import TransferNav from "@/components/transfers/TransferNav";
 import { SpecialtyIcon } from "@/components/player/SpecialtyIcon";
 import { barClassFor } from "@/components/player/skill-display";
+import { initialsOf } from "@/components/player/profile/player-profile-primitives";
 
 type TransferPlayer = Player;
 
@@ -312,7 +314,7 @@ export default function TransfersPage() {
           <div className={`
             relative overflow-hidden rounded-2xl border backdrop-blur-2xl
             ${notification.type === 'success'
-              ? 'bg-surface-container-high/95 border-accent/30 shadow-[0_0_30px_rgba(161,255,194,0.15)]'
+              ? 'bg-surface-container-high/95 border-primary/30 shadow-[0_0_30px_rgba(161,255,194,0.15)]'
               : 'bg-danger-surface/95 border-danger/30 shadow-[0_0_30px_rgba(255,100,100,0.1)]'
             }
           `}>
@@ -326,7 +328,7 @@ export default function TransfersPage() {
               <div className={`
                 w-10 h-10 rounded-xl flex items-center justify-center shrink-0
                 ${notification.type === 'success'
-                  ? 'bg-accent/10 text-accent'
+                  ? 'bg-accent/10 text-primary'
                   : 'bg-danger/10 text-red-400'
                 }
               `}>
@@ -335,7 +337,7 @@ export default function TransfersPage() {
 
               <div className="flex-1 min-w-0">
                 <p className={`text-sm font-semibold ${
-                  notification.type === 'success' ? 'text-frost' : 'text-red-200'
+                  notification.type === 'success' ? 'text-on-surface' : 'text-red-200'
                 }`}>
                   {notification.message}
                 </p>
@@ -347,7 +349,7 @@ export default function TransfersPage() {
                   w-8 h-8 rounded-lg flex items-center justify-center shrink-0
                   transition-all duration-base hover:scale-110
                   ${notification.type === 'success'
-                    ? 'text-on-surface-variant hover:text-frost hover:bg-accent/10'
+                    ? 'text-on-surface-variant hover:text-on-surface hover:bg-accent/10'
                     : 'text-red-400/60 hover:text-red-300 hover:bg-danger/10'
                   }
                 `}
@@ -393,13 +395,14 @@ export default function TransfersPage() {
               {t("transfers.showingProfiles", { count: filteredTransfers.length })}
             </p>
           </div>
+          <TransferNav />
         </header>
 
         <div className="flex flex-col gap-gutter lg:flex-row lg:items-start">
           {/* Left Panel: Filters */}
           <aside className="glass-panel w-full shrink-0 rounded-2xl p-panel lg:sticky lg:top-4 lg:max-h-[calc(100dvh-140px)] lg:w-[284px] lg:overflow-y-auto custom-scrollbar">
             <div className="flex items-center justify-between mb-6">
-              <h2 className="font-bold text-accent tracking-tight text-xs uppercase">{t("transfers.filters.scoutingFilters")}</h2>
+              <h2 className="font-bold text-kicker uppercase tracking-widest text-on-surface-variant">{t("transfers.filters.scoutingFilters")}</h2>
               <AppIcon name="filter_list" className="text-sm text-on-surface-variant cursor-pointer" />
             </div>
 
@@ -441,11 +444,11 @@ export default function TransfersPage() {
                   {attributeFilters.map((filter) => {
                     const attrInfo = ATTRIBUTES.find(a => a.value === filter.attribute) || ATTRIBUTES[0];
                     return (
-                      <div key={filter.id} className="bg-surface p-3 rounded-xl border border-outline-variant/10">
+                      <div key={filter.id} className="bg-surface-container-high/40 p-3 rounded-xl border border-outline-variant/40">
                         <div className="flex items-center justify-between mb-3">
                           <div className="flex items-center gap-2">
-                            <AppIcon name={attrInfo.icon} className="text-sm text-accent" />
-                            <span className="text-label font-bold text-frost">{attrInfo.label}</span>
+                            <AppIcon name={attrInfo.icon} className="text-sm text-primary" />
+                            <span className="text-label font-bold text-on-surface">{attrInfo.label}</span>
                           </div>
                           <button
                             onClick={() => removeAttributeFilter(filter.id)}
@@ -458,15 +461,15 @@ export default function TransfersPage() {
                           <span>{filter.range.min}</span>
                           <div className="flex-1 h-1 bg-surface-container-high rounded-full relative">
                             <div
-                              className="absolute h-full bg-accent rounded-full"
+                              className="absolute h-full rounded-full bg-primary/70"
                               style={{
                                 left: `${(filter.range.min / 20) * 100}%`,
                                 width: `${((filter.range.max - filter.range.min) / 20) * 100}%`
                               }}
                             />
                             <div
-                              className="absolute w-3 h-3 bg-accent rounded-full -top-1 cursor-pointer"
-                              style={{ left: `calc(${(filter.range.min / 20) * 100}% - 6px)` }}
+                              className="absolute h-2.5 w-2.5 -top-[3px] rounded-full bg-primary ring-2 ring-surface-container cursor-pointer"
+                              style={{ left: `calc(${(filter.range.min / 20) * 100}% - 5px)` }}
                               onMouseDown={(e) => {
                                 e.preventDefault();
                                 e.stopPropagation();
@@ -491,8 +494,8 @@ export default function TransfersPage() {
                               }}
                             />
                             <div
-                              className="absolute w-3 h-3 bg-accent rounded-full -top-1 cursor-pointer"
-                              style={{ left: `calc(${(filter.range.max / 20) * 100}% - 6px)` }}
+                              className="absolute h-2.5 w-2.5 -top-[3px] rounded-full bg-primary ring-2 ring-surface-container cursor-pointer"
+                              style={{ left: `calc(${(filter.range.max / 20) * 100}% - 5px)` }}
                               onMouseDown={(e) => {
                                 e.preventDefault();
                                 e.stopPropagation();
@@ -529,7 +532,7 @@ export default function TransfersPage() {
               {attributeFilters.length < 3 && (
                 <div className="relative">
                   <button
-                    className="add-filter-dropdown w-full flex items-center justify-between bg-surface-container-high/50 border border-dashed border-outline-variant/50 rounded-xl py-3 px-4 text-left hover:border-accent/30 transition-colors"
+                    className="add-filter-dropdown w-full flex items-center justify-between bg-surface-container-high/50 border border-dashed border-outline-variant/50 rounded-xl py-3 px-4 text-left hover:border-primary/30 transition-colors"
                     onClick={() => setShowAddFilterDropdown(!showAddFilterDropdown)}
                   >
                     <div className="flex items-center gap-3">
@@ -550,7 +553,7 @@ export default function TransfersPage() {
                             onClick={() => !isUsed && addAttributeFilter(attr.value)}
                           >
                             <AppIcon name={attr.icon} className="text-sm text-on-surface-variant" />
-                            <span className={`text-xs font-bold ${isUsed ? 'text-on-surface-variant' : 'text-frost'}`}>{attr.label}</span>
+                            <span className={`text-xs font-bold ${isUsed ? 'text-on-surface-variant' : 'text-on-surface'}`}>{attr.label}</span>
                             {isUsed && (
                               <span className="text-kicker text-on-surface-variant ml-auto">{t("transfers.filter.alreadyAdded")}</span>
                             )}
@@ -566,8 +569,8 @@ export default function TransfersPage() {
               <div className="bg-surface p-4 rounded-xl border border-outline-variant/10">
                 <div className="flex items-center justify-between mb-3">
                   <div className="flex items-center gap-2">
-                    <AppIcon name="cake" className="text-sm text-accent" />
-                    <span className="text-label font-bold text-accent">{t("transfers.filter.ageFilter")}</span>
+                    <AppIcon name="cake" className="text-sm text-primary" />
+                    <span className="text-label font-bold text-primary">{t("transfers.filter.ageFilter")}</span>
                   </div>
                   <button
                     onClick={() => setAgeEnabled(!ageEnabled)}
@@ -581,15 +584,15 @@ export default function TransfersPage() {
                     <span>{ageRange.min}</span>
                     <div className="flex-1 h-1 bg-surface-container-high rounded-full relative">
                       <div
-                        className="absolute h-full bg-accent rounded-full"
+                        className="absolute h-full rounded-full bg-primary/70"
                         style={{
                           left: `${((ageRange.min - 15) / 20) * 100}%`,
                           width: `${((ageRange.max - ageRange.min) / 20) * 100}%`
                         }}
                       />
                       <div
-                        className="absolute w-3 h-3 bg-accent rounded-full -top-1 cursor-pointer"
-                        style={{ left: `calc(${((ageRange.min - 15) / 20) * 100}% - 6px)` }}
+                        className="absolute h-2.5 w-2.5 -top-[3px] rounded-full bg-primary ring-2 ring-surface-container cursor-pointer"
+                        style={{ left: `calc(${((ageRange.min - 15) / 20) * 100}% - 5px)` }}
                         onMouseDown={(e) => {
                           e.preventDefault();
                           e.stopPropagation();
@@ -612,8 +615,8 @@ export default function TransfersPage() {
                         }}
                       />
                       <div
-                        className="absolute w-3 h-3 bg-accent rounded-full -top-1 cursor-pointer"
-                        style={{ left: `calc(${((ageRange.max - 15) / 20) * 100}% - 6px)` }}
+                        className="absolute h-2.5 w-2.5 -top-[3px] rounded-full bg-primary ring-2 ring-surface-container cursor-pointer"
+                        style={{ left: `calc(${((ageRange.max - 15) / 20) * 100}% - 5px)` }}
                         onMouseDown={(e) => {
                           e.preventDefault();
                           e.stopPropagation();
@@ -645,8 +648,8 @@ export default function TransfersPage() {
               <div className="bg-surface p-4 rounded-xl border border-outline-variant/10">
                 <div className="flex items-center justify-between mb-3">
                   <div className="flex items-center gap-2">
-                    <AppIcon name="emoji_events" className="text-sm text-accent" />
-                    <span className="text-label font-bold text-accent">{t("transfers.filter.specialtyFilter")}</span>
+                    <AppIcon name="emoji_events" className="text-sm text-primary" />
+                    <span className="text-label font-bold text-primary">{t("transfers.filter.specialtyFilter")}</span>
                   </div>
                   <button
                     onClick={() => setSpecialtyEnabled(!specialtyEnabled)}
@@ -658,16 +661,16 @@ export default function TransfersPage() {
                 {specialtyEnabled && (
                   <div className="relative">
                     <button
-                      className="specialty-trigger w-full flex items-center justify-between bg-surface-container-high border border-outline-variant/30 rounded-xl py-2.5 px-3 text-left hover:border-accent/30 transition-colors"
+                      className="specialty-trigger w-full flex items-center justify-between bg-surface-container-high border border-outline-variant/30 rounded-xl py-2.5 px-3 text-left hover:border-primary/30 transition-colors"
                       onClick={() => setShowSpecialtyDropdown((v) => !v)}
                     >
                       <div className="flex items-center gap-2">
                         <SpecialtyIcon
                           code={selectedSpecialty || undefined}
                           size="sm"
-                          className="text-accent"
+                          className="text-primary"
                         />
-                        <span className="text-xs font-bold text-frost">
+                        <span className="text-xs font-bold text-on-surface">
                           {selectedSpecialty ? SPECIALTIES.find(s => s.value === selectedSpecialty)?.label : t("transfers.filters.any")}
                         </span>
                       </div>
@@ -685,8 +688,8 @@ export default function TransfersPage() {
                         }}
                       >
                         <AppIcon name="all_inclusive" className="text-sm text-on-surface-variant" />
-                        <span className={`text-xs font-bold ${!selectedSpecialty ? 'text-accent' : 'text-frost'}`}>{t("transfers.filters.any")}</span>
-                        {!selectedSpecialty && <AppIcon name="check" className="text-accent text-sm ml-auto" />}
+                        <span className={`text-xs font-bold ${!selectedSpecialty ? 'text-primary' : 'text-on-surface'}`}>{t("transfers.filters.any")}</span>
+                        {!selectedSpecialty && <AppIcon name="check" className="text-primary text-sm ml-auto" />}
                       </button>
                       {SPECIALTIES.map((spec) => (
                         <button
@@ -698,8 +701,8 @@ export default function TransfersPage() {
                           }}
                         >
                           <SpecialtyIcon code={spec.value} size="sm" className="text-on-surface-variant" />
-                          <span className={`text-xs font-bold ${selectedSpecialty === spec.value ? 'text-accent' : 'text-frost'}`}>{spec.label}</span>
-                          {selectedSpecialty === spec.value && <AppIcon name="check" className="text-accent text-sm ml-auto" />}
+                          <span className={`text-xs font-bold ${selectedSpecialty === spec.value ? 'text-primary' : 'text-on-surface'}`}>{spec.label}</span>
+                          {selectedSpecialty === spec.value && <AppIcon name="check" className="text-primary text-sm ml-auto" />}
                         </button>
                       ))}
                     </div>
@@ -709,7 +712,7 @@ export default function TransfersPage() {
 
               {/* Reset Button */}
               <button
-                className="w-full py-3 bg-surface-container-high text-accent font-bold text-xs uppercase tracking-widest rounded-xl hover:bg-surface-container-highest transition-colors border border-accent/10"
+                className="w-full py-3 bg-surface-container-high text-primary font-bold text-xs uppercase tracking-widest rounded-xl hover:bg-surface-container-highest transition-colors border border-accent/10"
                 onClick={resetAllFilters}
               >
                 {t("transfers.filters.resetAllFilters")}
@@ -778,71 +781,83 @@ export default function TransfersPage() {
             {isLoading ? (
               <PlayerDetailSkeleton />
             ) : !selectedTransfer ? (
-              <div className="flex-grow flex items-center justify-center">
-                <p className="text-on-surface-variant text-sm">{t("squad.selectPlayer")}</p>
+              <div className="flex flex-grow flex-col items-center justify-center rounded-xl border border-dashed border-outline-variant/40 bg-white/[0.02] px-panel py-section text-center">
+                <AppIcon name="search" className="text-4xl text-outline" />
+                <p className="mt-tight max-w-[240px] font-label text-label text-on-surface-variant">{t("squad.selectPlayer")}</p>
               </div>
             ) : (
               <>
                 <div className="p-6 overflow-y-auto flex-1 custom-scrollbar">
-                  {/* Header Image */}
-                  <div className="relative h-56 rounded-2xl overflow-hidden mb-6 group">
-                    <div className="w-full h-full bg-gradient-to-br from-accent/20 to-surface-container" />
-                    <div className="absolute inset-0 bg-gradient-to-t from-surface-container via-transparent to-black/20" />
-                    <div className={`absolute top-4 right-4 px-3 py-1.5 rounded-lg flex items-center gap-2 ${
-                      formatTimeRemaining(selectedTransfer.expiresAt) === EXPIRED_LABEL
-                        ? "bg-danger/80"
-                        : "bg-surface-container/80 backdrop-blur-md"
-                    }`}>
-                      <AppIcon name="timer" className="text-xs text-danger" />
-                      <span className="text-kicker font-bold text-on-surface uppercase tracking-wider">{formatTimeRemaining(selectedTransfer.expiresAt)}</span>
+                  {/* Identity */}
+                  <div className="mb-4 flex items-start gap-4 rounded-xl border border-outline-variant/40 bg-surface-container p-4">
+                    <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-lg bg-surface-container-high font-headline text-title font-black text-primary ring-1 ring-inset ring-primary/20">
+                      {initialsOf(selectedTransfer.player.name)}
                     </div>
-                    <div className="absolute bottom-4 left-4">
+                    <div className="min-w-0 flex-1">
                       <Link href={`/${params.locale}/players/${selectedTransfer.player.id}`}>
-                        <h3 className="text-3xl font-bold text-on-surface tracking-tighter hover:text-accent transition-colors">{selectedTransfer.player.name}</h3>
+                        <h3 className="truncate font-headline text-title font-bold text-on-surface transition-colors hover:text-primary">
+                          {selectedTransfer.player.name}
+                        </h3>
                       </Link>
-                      <p className="text-on-surface-variant text-xs">
-                        {t("common.ageFormat", { y: selectedTransfer.player.age, d: selectedTransfer.player.ageDays })} · {selectedTransfer.player.teamName || selectedTransfer.team.name} · {t("common.currencySymbol")}{(selectedTransfer.player.currentWage || 0).toLocaleString()}{t("common.perWeek")}
+                      <p className="mt-0.5 truncate text-kicker text-on-surface-variant">
+                        {t("common.ageFormat", { y: selectedTransfer.player.age, d: selectedTransfer.player.ageDays })}
+                        {" · "}
+                        {selectedTransfer.player.teamName || selectedTransfer.team.name}
+                        {" · "}
+                        {t("common.currencySymbol")}{(selectedTransfer.player.currentWage || 0).toLocaleString()}{t("common.perWeek")}
                       </p>
+                      <span
+                        className={`mt-2 inline-flex items-center gap-1.5 rounded-md px-2 py-0.5 ${
+                          formatTimeRemaining(selectedTransfer.expiresAt) === EXPIRED_LABEL
+                            ? "bg-danger/15 text-danger"
+                            : "bg-surface-container-high text-on-surface-variant"
+                        }`}
+                      >
+                        <AppIcon name="timer" className="text-kicker" />
+                        <span className="text-kicker font-bold uppercase tracking-wider">
+                          {formatTimeRemaining(selectedTransfer.expiresAt)}
+                        </span>
+                      </span>
                     </div>
                   </div>
 
                   {/* Pricing */}
-                  <div className="mb-6">
-                    <div className="bg-surface-container-high p-4 rounded-2xl border border-outline-variant/10">
-                      <p className="text-kicker text-on-surface-variant uppercase tracking-widest mb-1">{t("transfers.detail.currentPrice")}</p>
-                      <p className="text-2xl font-bold text-accent truncate">{formatCurrency(selectedTransfer.currentPrice)}</p>
-                    </div>
+                  <div className="mb-5 rounded-xl border border-outline-variant/40 bg-surface-container p-4">
+                    <p className="text-kicker uppercase tracking-widest text-on-surface-variant">{t("transfers.detail.currentPrice")}</p>
+                    <p className="mt-1 truncate font-headline text-2xl font-bold tabular-nums text-primary">
+                      {formatCurrency(selectedTransfer.currentPrice)}
+                    </p>
                   </div>
 
                   {/* Attribute Section */}
                   <section className="space-y-6">
                     <div className="flex items-center gap-2 mb-4 border-b border-outline-variant/10 pb-2">
-                      <AppIcon name="analytics" className="text-accent text-sm" />
+                      <AppIcon name="analytics" className="text-primary text-sm" />
                       <h4 className="text-kicker uppercase tracking-widest text-on-surface-variant font-bold">{t("transfers.detail.profile")}</h4>
                     </div>
 
-                    <div className="grid grid-cols-2 gap-10">
+                    <div className="grid grid-cols-2 gap-6">
                       {/* Technical & Physical */}
-                      <div className="space-y-8">
+                      <div className="space-y-6">
                         {/* Technical */}
                         <div>
                           <div className="flex items-center gap-2 mb-3">
-                            <div className="w-1.5 h-4 bg-accent rounded-full" />
+                            <div className="w-1.5 h-4 bg-signal-blue rounded-full" />
                             <h3 className="text-xs font-black font-headline tracking-widest uppercase text-on-surface-variant">{t("transfers.detail.technical")}</h3>
                           </div>
                           <div className="space-y-3">
                             {selectedTransfer.player.isGoalkeeper ? (
                               <>
-                                {renderSkillBar(t("squad.skills.reflexes"), (selectedTransfer.player.currentSkills)?.technical?.reflexes || 0, (selectedTransfer.player.potentialSkills)?.technical?.reflexes || 0, "text-accent")}
-                                {renderSkillBar(t("squad.skills.handling"), (selectedTransfer.player.currentSkills)?.technical?.handling || 0, (selectedTransfer.player.potentialSkills)?.technical?.handling || 0, "text-accent")}
-                                {renderSkillBar(t("squad.skills.aerial"), (selectedTransfer.player.currentSkills)?.technical?.aerial || 0, (selectedTransfer.player.potentialSkills)?.technical?.aerial || 0, "text-accent")}
+                                {renderSkillBar(t("squad.skills.reflexes"), (selectedTransfer.player.currentSkills)?.technical?.reflexes || 0, (selectedTransfer.player.potentialSkills)?.technical?.reflexes || 0, "text-signal-blue")}
+                                {renderSkillBar(t("squad.skills.handling"), (selectedTransfer.player.currentSkills)?.technical?.handling || 0, (selectedTransfer.player.potentialSkills)?.technical?.handling || 0, "text-signal-blue")}
+                                {renderSkillBar(t("squad.skills.aerial"), (selectedTransfer.player.currentSkills)?.technical?.aerial || 0, (selectedTransfer.player.potentialSkills)?.technical?.aerial || 0, "text-signal-blue")}
                               </>
                             ) : (
                               <>
-                                {renderSkillBar(t("squad.skills.finishing"), (selectedTransfer.player.currentSkills)?.technical?.finishing || 0, (selectedTransfer.player.potentialSkills)?.technical?.finishing || 0, "text-accent")}
-                                {renderSkillBar(t("squad.skills.passing"), (selectedTransfer.player.currentSkills)?.technical?.passing || 0, (selectedTransfer.player.potentialSkills)?.technical?.passing || 0, "text-accent")}
-                                {renderSkillBar(t("squad.skills.dribbling"), (selectedTransfer.player.currentSkills)?.technical?.dribbling || 0, (selectedTransfer.player.potentialSkills)?.technical?.dribbling || 0, "text-accent")}
-                                {renderSkillBar(t("squad.skills.defending"), (selectedTransfer.player.currentSkills)?.technical?.defending || 0, (selectedTransfer.player.potentialSkills)?.technical?.defending || 0, "text-accent")}
+                                {renderSkillBar(t("squad.skills.finishing"), (selectedTransfer.player.currentSkills)?.technical?.finishing || 0, (selectedTransfer.player.potentialSkills)?.technical?.finishing || 0, "text-signal-blue")}
+                                {renderSkillBar(t("squad.skills.passing"), (selectedTransfer.player.currentSkills)?.technical?.passing || 0, (selectedTransfer.player.potentialSkills)?.technical?.passing || 0, "text-signal-blue")}
+                                {renderSkillBar(t("squad.skills.dribbling"), (selectedTransfer.player.currentSkills)?.technical?.dribbling || 0, (selectedTransfer.player.potentialSkills)?.technical?.dribbling || 0, "text-signal-blue")}
+                                {renderSkillBar(t("squad.skills.defending"), (selectedTransfer.player.currentSkills)?.technical?.defending || 0, (selectedTransfer.player.potentialSkills)?.technical?.defending || 0, "text-signal-blue")}
                               </>
                             )}
                           </div>
@@ -851,39 +866,39 @@ export default function TransfersPage() {
                         {/* Physical */}
                         <div>
                           <div className="flex items-center gap-2 mb-3">
-                            <div className="w-1.5 h-4 bg-signal-blue rounded-full" />
+                            <div className="w-1.5 h-4 bg-accent rounded-full" />
                             <h3 className="text-xs font-black font-headline tracking-widest uppercase text-on-surface-variant">{t("transfers.detail.physical")}</h3>
                           </div>
                           <div className="space-y-3">
-                            {renderSkillBar(t("squad.skills.pace"), (selectedTransfer.player.currentSkills)?.physical?.pace || 0, (selectedTransfer.player.potentialSkills)?.physical?.pace || 0, "text-signal-blue")}
-                            {renderSkillBar(t("squad.skills.strength"), (selectedTransfer.player.currentSkills)?.physical?.strength || 0, (selectedTransfer.player.potentialSkills)?.physical?.strength || 0, "text-signal-blue")}
+                            {renderSkillBar(t("squad.skills.pace"), (selectedTransfer.player.currentSkills)?.physical?.pace || 0, (selectedTransfer.player.potentialSkills)?.physical?.pace || 0, "text-accent")}
+                            {renderSkillBar(t("squad.skills.strength"), (selectedTransfer.player.currentSkills)?.physical?.strength || 0, (selectedTransfer.player.potentialSkills)?.physical?.strength || 0, "text-accent")}
                           </div>
                         </div>
                       </div>
 
                       {/* Mental & Set Pieces */}
-                      <div className="space-y-8">
+                      <div className="space-y-6">
                         {/* Mental */}
                         <div>
                           <div className="flex items-center gap-2 mb-3">
-                            <div className="w-1.5 h-4 bg-signal-lime rounded-full" />
-                            <h3 className="text-xs font-black font-headline tracking-widest uppercase text-[#91b12a6]">{t("transfers.detail.mental")}</h3>
+                            <div className="w-1.5 h-4 bg-signal-lilac rounded-full" />
+                            <h3 className="text-xs font-black font-headline tracking-widest uppercase text-on-surface-variant">{t("transfers.detail.mental")}</h3>
                           </div>
                           <div className="space-y-3">
-                            {renderSkillBar(t("squad.skills.composure"), (selectedTransfer.player.currentSkills)?.mental?.composure || 0, (selectedTransfer.player.potentialSkills)?.mental?.composure || 0, "text-signal-lime")}
-                            {renderSkillBar(t("squad.skills.positioning"), (selectedTransfer.player.currentSkills)?.mental?.positioning || 0, (selectedTransfer.player.potentialSkills)?.mental?.positioning || 0, "text-signal-lime")}
+                            {renderSkillBar(t("squad.skills.composure"), (selectedTransfer.player.currentSkills)?.mental?.composure || 0, (selectedTransfer.player.potentialSkills)?.mental?.composure || 0, "text-signal-lilac")}
+                            {renderSkillBar(t("squad.skills.positioning"), (selectedTransfer.player.currentSkills)?.mental?.positioning || 0, (selectedTransfer.player.potentialSkills)?.mental?.positioning || 0, "text-signal-lilac")}
                           </div>
                         </div>
 
                         {/* Set Pieces */}
                         <div>
                           <div className="flex items-center gap-2 mb-3">
-                            <div className="w-1.5 h-4 bg-signal-amber rounded-full" />
+                            <div className="w-1.5 h-4 bg-signal-gold rounded-full" />
                             <h3 className="text-xs font-black font-headline tracking-widest uppercase text-on-surface-variant">{t("squad.skills.setPieces")}</h3>
                           </div>
                           <div className="space-y-3">
-                            {renderSkillBar(t("squad.skills.freeKicks"), (selectedTransfer.player.currentSkills)?.setPieces?.freeKicks || 0, (selectedTransfer.player.potentialSkills)?.setPieces?.freeKicks || 0, "text-signal-amber")}
-                            {renderSkillBar(t("squad.skills.penalties"), (selectedTransfer.player.currentSkills)?.setPieces?.penalties || 0, (selectedTransfer.player.potentialSkills)?.setPieces?.penalties || 0, "text-signal-amber")}
+                            {renderSkillBar(t("squad.skills.freeKicks"), (selectedTransfer.player.currentSkills)?.setPieces?.freeKicks || 0, (selectedTransfer.player.potentialSkills)?.setPieces?.freeKicks || 0, "text-signal-gold")}
+                            {renderSkillBar(t("squad.skills.penalties"), (selectedTransfer.player.currentSkills)?.setPieces?.penalties || 0, (selectedTransfer.player.potentialSkills)?.setPieces?.penalties || 0, "text-signal-gold")}
                           </div>
                         </div>
                       </div>
@@ -893,13 +908,13 @@ export default function TransfersPage() {
                         <div className="mt-0 pt-4 border-t border-outline-variant/10">
                           <div className="flex items-center justify-between mb-4">
                             <div className="flex items-center gap-2">
-                              <AppIcon name="gavel" className="text-accent text-sm" />
+                              <AppIcon name="gavel" className="text-primary text-sm" />
                               <h4 className="text-kicker uppercase tracking-widest text-on-surface-variant font-bold">{t("transfers.bidHistory")}</h4>
                             </div>
                             {selectedTransfer.bidHistory.length > 3 && (
                               <button
                                 onClick={() => setShowBidHistoryModal(true)}
-                                className="text-kicker text-on-surface-variant hover:text-accent transition-colors flex items-center gap-1"
+                                className="text-kicker text-on-surface-variant hover:text-primary transition-colors flex items-center gap-1"
                               >
                                 <span>{t("transfers.more")}</span>
                                 <AppIcon name="navigate_next" className="text-sm" />
@@ -911,14 +926,14 @@ export default function TransfersPage() {
                               <div key={idx} className="flex items-center justify-between py-3">
                                 <div className="flex items-center gap-3">
                                   <div className="w-7 h-7 rounded-full bg-gradient-to-br from-accent/30 to-surface-container-high flex items-center justify-center">
-                                    <span className="text-kicker font-bold text-accent">{(bid.teamName || '?').charAt(0)}</span>
+                                    <span className="text-kicker font-bold text-primary">{(bid.teamName || '?').charAt(0)}</span>
                                   </div>
                                   <div>
-                                    <p className="text-label font-semibold text-frost">{bid.teamName || t("transfers.notifications.unknown")}</p>
+                                    <p className="text-label font-semibold text-on-surface">{bid.teamName || t("transfers.notifications.unknown")}</p>
                                     <p className="text-kicker text-on-surface-variant">{formatBidTime(bid.timestamp)}</p>
                                   </div>
                                 </div>
-                                <p className="text-label font-bold text-accent">{formatCurrency(bid.amount)}</p>
+                                <p className="text-label font-bold text-primary">{formatCurrency(bid.amount)}</p>
                               </div>
                             ))}
                           </div>
@@ -936,9 +951,9 @@ export default function TransfersPage() {
                         {t("transfers.detail.offerPrice")}
                       </label>
                       <div className="relative">
-                        <span className="absolute left-4 top-1/2 -translate-y-1/2 text-accent font-bold text-sm">{t("common.currencySymbol")}</span>
+                        <span className="absolute left-4 top-1/2 -translate-y-1/2 text-primary font-bold text-sm">{t("common.currencySymbol")}</span>
                         <input
-                          className="w-full bg-surface-container-high border border-outline-variant/30 rounded-xl py-3 pl-8 pr-4 text-sm font-bold text-frost focus:ring-1 focus:ring-accent focus:border-accent transition-all placeholder:text-on-surface-variant/40"
+                          className="w-full bg-surface-container-high border border-outline-variant/30 rounded-xl py-3 pl-8 pr-4 text-sm font-bold text-on-surface focus:ring-1 focus:ring-primary focus:border-primary transition-all placeholder:text-on-surface-variant/40"
                           placeholder={t("transfers.detail.offerPlaceholder")}
                           type="text"
                           inputMode="numeric"
@@ -954,7 +969,7 @@ export default function TransfersPage() {
                       </div>
                     </div>
                     <button
-                      className="px-6 py-3.5 bg-accent text-on-primary font-bold rounded-xl flex items-center justify-center gap-2 hover:brightness-110 active:scale-95 transition-all shadow-lg shadow-accent/20 uppercase tracking-widest text-kicker whitespace-nowrap disabled:opacity-50"
+                      className="px-6 py-3.5 bg-primary text-on-primary font-bold rounded-xl flex items-center justify-center gap-2 hover:brightness-110 active:scale-95 transition-all shadow-lg shadow-primary/20 uppercase tracking-widest text-kicker whitespace-nowrap disabled:opacity-50"
                       onClick={async () => {
                         if (!selectedTransfer || !bidAmount || !team) return;
                         const amount = parseInt(bidAmount.replace(/,/g, ""));
@@ -993,12 +1008,12 @@ export default function TransfersPage() {
             <div className="p-6">
               <div className="flex items-center justify-between mb-6">
                 <div className="flex items-center gap-2">
-                  <AppIcon name="gavel" className="text-accent text-lg" />
-                  <h3 className="text-lg font-bold text-frost">{t("transfers.bidHistory")}</h3>
+                  <AppIcon name="gavel" className="text-primary text-lg" />
+                  <h3 className="text-lg font-bold text-on-surface">{t("transfers.bidHistory")}</h3>
                 </div>
                 <button
                   aria-label="Close bid history"
-                  className="text-on-surface-variant hover:text-frost transition-colors"
+                  className="text-on-surface-variant hover:text-on-surface transition-colors"
                   onClick={() => setShowBidHistoryModal(false)}
                 >
                   <AppIcon name="close" />
@@ -1009,14 +1024,14 @@ export default function TransfersPage() {
                   <div key={idx} className="flex items-center justify-between py-3 border-b border-outline-variant/20 last:border-0">
                     <div className="flex items-center gap-3">
                       <div className="w-8 h-8 rounded-full bg-gradient-to-br from-accent/30 to-surface-container-high flex items-center justify-center">
-                        <span className="text-kicker font-bold text-accent">{(bid.teamName || '?').charAt(0)}</span>
+                        <span className="text-kicker font-bold text-primary">{(bid.teamName || '?').charAt(0)}</span>
                       </div>
                       <div>
-                        <p className="text-label font-semibold text-frost">{bid.teamName || t("transfers.notifications.unknown")}</p>
+                        <p className="text-label font-semibold text-on-surface">{bid.teamName || t("transfers.notifications.unknown")}</p>
                         <p className="text-kicker text-on-surface-variant">{formatBidTime(bid.timestamp)}</p>
                       </div>
                     </div>
-                    <p className="text-title font-bold text-accent">{formatCurrency(bid.amount)}</p>
+                    <p className="text-title font-bold text-primary">{formatCurrency(bid.amount)}</p>
                   </div>
                 ))}
               </div>

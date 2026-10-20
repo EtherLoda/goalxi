@@ -6,6 +6,7 @@ import { useParams } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { useAuth } from "@/contexts/AuthContext";
 import { api, type MyBid, type TransferAuction, type TransferTransaction } from "@/lib/api";
+import TransferNav from "@/components/transfers/TransferNav";
 
 type TabType = "buying" | "selling";
 
@@ -86,55 +87,56 @@ export default function ShortlistPage() {
   const getActiveBids = () => bids.filter((b) => b.status === "ACTIVE");
 
   return (
-    <div className="min-h-screen bg-surface-container-lowest">
-      {/* Header */}
-      <header className="bg-surface-container-low/60 backdrop-blur-2xl border-b border-outline-variant/10">
-        <div className="max-w-6xl mx-auto px-8 py-6">
-          <div className="flex justify-between items-center">
-            <div>
-              <h1 className="text-2xl font-black text-jade tracking-tighter uppercase">
-                {team?.name || t("shortlist.yourClub")}
-              </h1>
-              <p className="text-kicker uppercase tracking-[0.3em] text-on-surface-variant font-bold mt-1">
-                {t("shortlist.subtitle")}
-              </p>
-            </div>
-          </div>
-
-          {/* Tabs */}
-          <div className="flex gap-2 mt-6 bg-surface-container p-1.5 rounded-full w-fit">
-            <button
-              onClick={() => setActiveTab("buying")}
-              className={`px-6 py-2 rounded-full text-xs font-bold uppercase tracking-widest transition-all ${
-                activeTab === "buying"
-                  ? "bg-accent text-inverse-primary"
-                  : "text-on-surface-variant hover:text-frost"
-              }`}
-            >
-              {t("shortlist.tabs.buying")}
-            </button>
-            <button
-              onClick={() => setActiveTab("selling")}
-              className={`px-6 py-2 rounded-full text-xs font-bold uppercase tracking-widest transition-all ${
-                activeTab === "selling"
-                  ? "bg-accent text-inverse-primary"
-                  : "text-on-surface-variant hover:text-frost"
-              }`}
-            >
-              {t("shortlist.tabs.selling")}
-            </button>
-          </div>
+    <div className="mx-auto w-full max-w-[1480px] p-4 md:p-6">
+      <header className="mb-gutter flex flex-wrap items-end justify-between gap-tight">
+        <div className="min-w-0">
+          <p className="font-label text-kicker font-bold uppercase tracking-[0.14em] text-primary">
+            {t("transfers.title")}
+          </p>
+          <h1 className="mt-1 font-headline text-2xl font-black tracking-tight text-on-surface">
+            {team?.name || t("shortlist.yourClub")}
+          </h1>
+          <p className="mt-1 font-label text-label text-on-surface-variant">
+            {t("shortlist.subtitle")}
+          </p>
         </div>
+        <TransferNav />
       </header>
 
+      {/* Tabs */}
+      <div className="mb-panel flex w-fit items-center gap-1 rounded-xl bg-surface-container p-1">
+        <button
+          onClick={() => setActiveTab("buying")}
+          aria-pressed={activeTab === "buying"}
+          className={`inline-flex h-9 items-center rounded-lg px-tight font-label text-label font-bold transition-colors duration-quick ${
+            activeTab === "buying"
+              ? "bg-primary text-on-primary"
+              : "text-on-surface-variant hover:text-on-surface"
+          }`}
+        >
+          {t("shortlist.tabs.buying")}
+        </button>
+        <button
+          onClick={() => setActiveTab("selling")}
+          aria-pressed={activeTab === "selling"}
+          className={`inline-flex h-9 items-center rounded-lg px-tight font-label text-label font-bold transition-colors duration-quick ${
+            activeTab === "selling"
+              ? "bg-primary text-on-primary"
+              : "text-on-surface-variant hover:text-on-surface"
+          }`}
+        >
+          {t("shortlist.tabs.selling")}
+        </button>
+      </div>
+
       {/* Content */}
-      <div className="w-full max-w-6xl mx-auto px-8 py-8">
+      <div className="w-full">
         {activeTab === "buying" ? (
           <div className="space-y-8">
             {/* Active Bids */}
             <section>
               <div className="flex items-center justify-between mb-4">
-                <h2 className="text-xs uppercase tracking-[0.2em] text-on-surface-variant font-bold">
+                <h2 className="font-label text-kicker uppercase tracking-widest text-on-surface-variant">
                   {t("shortlist.activeBids", { count: getActiveBids().length })}
                 </h2>
               </div>
@@ -145,7 +147,7 @@ export default function ShortlistPage() {
                   ))}
                 </div>
               ) : getActiveBids().length === 0 ? (
-                <div className="text-center py-12 text-on-surface-variant text-sm">
+                <div className="rounded-xl border border-dashed border-outline-variant/40 px-panel py-section text-center font-label text-label text-on-surface-variant">
                   {t("shortlist.noBids")}
                 </div>
               ) : (
@@ -153,16 +155,16 @@ export default function ShortlistPage() {
                   {getActiveBids().map((bid) => (
                     <div
                       key={bid.id}
-                      className="flex items-center justify-between p-4 bg-surface-container rounded-xl border border-outline-variant/10 hover:border-accent/20 transition-colors"
+                      className="flex items-center justify-between p-4 bg-surface-container-high/40 rounded-xl border border-outline-variant/40 hover:border-primary/30 transition-colors"
                     >
                       <div className="flex items-center gap-4">
-                        <div className="w-12 h-12 bg-surface-container-high rounded-xl flex items-center justify-center text-lg font-bold text-accent">
+                        <div className="w-12 h-12 bg-surface-container-high rounded-xl flex items-center justify-center text-lg font-bold text-primary">
                           {bid.player.name.charAt(0)}
                         </div>
                         <div>
                           <Link
                             href={`/${localeParam}/players/${bid.player.id}`}
-                            className="text-sm font-bold text-frost hover:text-accent transition-colors"
+                            className="text-sm font-bold text-on-surface hover:text-primary transition-colors"
                           >
                             {bid.player.name}
                           </Link>
@@ -174,7 +176,7 @@ export default function ShortlistPage() {
                       <div className="flex items-center gap-6">
                         <div className="text-right">
                           <p className="text-xs text-on-surface-variant mb-1">{t("shortlist.currentBid")}</p>
-                          <p className="text-lg font-bold text-frost">
+                          <p className="text-lg font-bold text-on-surface">
                             {formatCurrency(bid.currentPrice)}
                           </p>
                         </div>
@@ -182,8 +184,8 @@ export default function ShortlistPage() {
                           <span
                             className={`inline-block px-3 py-1 rounded-full text-kicker font-bold uppercase ${
                               bid.isHighestBidder
-                                ? "bg-jade/10 text-jade border border-jade/20"
-                                : "bg-danger-soft/10 text-danger-soft border border-danger-soft/20"
+                                ? "bg-jade/10 text-on-surface border border-jade/20"
+                                : "bg-danger/10 text-danger border border-danger/20"
                             }`}
                           >
                             {bid.isHighestBidder ? t("shortlist.highest") : t("shortlist.outbid")}
@@ -198,26 +200,26 @@ export default function ShortlistPage() {
 
             {/* Purchases */}
             <section>
-              <h2 className="text-xs uppercase tracking-[0.2em] text-on-surface-variant font-bold mb-4">
+              <h2 className="font-label text-kicker uppercase tracking-widest text-on-surface-variant mb-4">
                 {t("shortlist.purchases", { count: purchases.length })}
               </h2>
               {purchases.length === 0 ? (
-                <div className="text-center py-8 text-on-surface-variant text-sm">{t("shortlist.noPurchases")}</div>
+                <div className="rounded-xl border border-dashed border-outline-variant/40 px-panel py-section text-center font-label text-label text-on-surface-variant">{t("shortlist.noPurchases")}</div>
               ) : (
                 <div className="space-y-3">
                   {purchases.map((tx) => (
                     <div
                       key={tx.id}
-                      className="flex items-center justify-between p-4 bg-surface-container rounded-xl border border-outline-variant/10 opacity-70"
+                      className="flex items-center justify-between p-4 bg-surface-container-high/40 rounded-xl border border-outline-variant/40 opacity-70"
                     >
                       <div className="flex items-center gap-4">
-                        <div className="w-12 h-12 bg-surface-container-high rounded-xl flex items-center justify-center text-lg font-bold text-accent grayscale">
+                        <div className="w-12 h-12 bg-surface-container-high rounded-xl flex items-center justify-center text-lg font-bold text-primary grayscale">
                           {tx.player.name.charAt(0)}
                         </div>
                         <div>
                           <Link
                             href={`/${localeParam}/players/${tx.player.id}`}
-                            className="text-sm font-bold text-frost hover:text-accent transition-colors"
+                            className="text-sm font-bold text-on-surface hover:text-primary transition-colors"
                           >
                             {tx.player.name}
                           </Link>
@@ -227,7 +229,7 @@ export default function ShortlistPage() {
                         </div>
                       </div>
                       <div className="text-right">
-                        <p className="text-lg font-bold text-accent">
+                        <p className="text-lg font-bold text-primary">
                           {formatCurrency(tx.amount)}
                         </p>
                         <p className="text-kicker text-on-surface-variant">{t("shortlist.season", { season: tx.season })}</p>
@@ -242,7 +244,7 @@ export default function ShortlistPage() {
           <div className="space-y-8">
             {/* Active Listings */}
             <section>
-              <h2 className="text-xs uppercase tracking-[0.2em] text-on-surface-variant font-bold mb-4">
+              <h2 className="font-label text-kicker uppercase tracking-widest text-on-surface-variant mb-4">
                 {t("shortlist.activeListings", { count: listings.length })}
               </h2>
               {isLoading ? (
@@ -252,7 +254,7 @@ export default function ShortlistPage() {
                   ))}
                 </div>
               ) : listings.length === 0 ? (
-                <div className="text-center py-12 text-on-surface-variant text-sm">
+                <div className="rounded-xl border border-dashed border-outline-variant/40 px-panel py-section text-center font-label text-label text-on-surface-variant">
                   {t("shortlist.noListings")}
                 </div>
               ) : (
@@ -260,16 +262,16 @@ export default function ShortlistPage() {
                   {listings.map((listing) => (
                     <div
                       key={listing.id}
-                      className="flex items-center justify-between p-4 bg-surface-container rounded-xl border border-outline-variant/10 hover:border-accent/20 transition-colors"
+                      className="flex items-center justify-between p-4 bg-surface-container-high/40 rounded-xl border border-outline-variant/40 hover:border-primary/30 transition-colors"
                     >
                       <div className="flex items-center gap-4">
-                        <div className="w-12 h-12 bg-surface-container-high rounded-xl flex items-center justify-center text-lg font-bold text-accent">
+                        <div className="w-12 h-12 bg-surface-container-high rounded-xl flex items-center justify-center text-lg font-bold text-primary">
                           {listing.player.name.charAt(0)}
                         </div>
                         <div>
                           <Link
                             href={`/${localeParam}/players/${listing.player.id}`}
-                            className="text-sm font-bold text-frost hover:text-accent transition-colors"
+                            className="text-sm font-bold text-on-surface hover:text-primary transition-colors"
                           >
                             {listing.player.name}
                           </Link>
@@ -281,7 +283,7 @@ export default function ShortlistPage() {
                       <div className="flex items-center gap-6">
                         <div className="text-right">
                           <p className="text-xs text-on-surface-variant mb-1">{t("shortlist.currentBid")}</p>
-                          <p className="text-lg font-bold text-accent">
+                          <p className="text-lg font-bold text-primary">
                             {formatCurrency(listing.currentPrice)}
                           </p>
                         </div>
@@ -302,26 +304,26 @@ export default function ShortlistPage() {
 
             {/* Sales */}
             <section>
-              <h2 className="text-xs uppercase tracking-[0.2em] text-on-surface-variant font-bold mb-4">
+              <h2 className="font-label text-kicker uppercase tracking-widest text-on-surface-variant mb-4">
                 {t("shortlist.sales", { count: sales.length })}
               </h2>
               {sales.length === 0 ? (
-                <div className="text-center py-8 text-on-surface-variant text-sm">{t("shortlist.noSales")}</div>
+                <div className="rounded-xl border border-dashed border-outline-variant/40 px-panel py-section text-center font-label text-label text-on-surface-variant">{t("shortlist.noSales")}</div>
               ) : (
                 <div className="space-y-3">
                   {sales.map((tx) => (
                     <div
                       key={tx.id}
-                      className="flex items-center justify-between p-4 bg-surface-container rounded-xl border border-outline-variant/10 opacity-70"
+                      className="flex items-center justify-between p-4 bg-surface-container-high/40 rounded-xl border border-outline-variant/40 opacity-70"
                     >
                       <div className="flex items-center gap-4">
-                        <div className="w-12 h-12 bg-surface-container-high rounded-xl flex items-center justify-center text-lg font-bold text-accent grayscale">
+                        <div className="w-12 h-12 bg-surface-container-high rounded-xl flex items-center justify-center text-lg font-bold text-primary grayscale">
                           {tx.player.name.charAt(0)}
                         </div>
                         <div>
                           <Link
                             href={`/${localeParam}/players/${tx.player.id}`}
-                            className="text-sm font-bold text-frost hover:text-accent transition-colors"
+                            className="text-sm font-bold text-on-surface hover:text-primary transition-colors"
                           >
                             {tx.player.name}
                           </Link>
@@ -331,7 +333,7 @@ export default function ShortlistPage() {
                         </div>
                       </div>
                       <div className="text-right">
-                        <p className="text-lg font-bold text-frost">
+                        <p className="text-lg font-bold text-on-surface">
                           {formatCurrency(tx.amount)}
                         </p>
                         <p className="text-kicker text-on-surface-variant">{t("shortlist.season", { season: tx.season })}</p>
