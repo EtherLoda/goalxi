@@ -13,6 +13,12 @@ export interface PlayerMatchLogEntryDto {
   /** `league` | `cup` | `friendly` | `playoff` | ... (MatchType). */
   matchType: string;
   isHome: boolean;
+  /** Both club names, so a row can render "home vs away" without guessing. */
+  homeTeamName: string;
+  awayTeamName: string;
+  /** Goals per side, null while the match has not been played. */
+  homeScore: number | null;
+  awayScore: number | null;
   opponentName: string;
   opponentShortCode: string | null;
   /** Goals for the player's side, null when the match has not been played. */

@@ -393,6 +393,12 @@ export interface PlayerMatchLogEntry {
   /** `league` | `cup` | `friendly` | `playoff` | ... */
   matchType: string;
   isHome: boolean;
+  /** Both club names, so a row can render "home vs away". */
+  homeTeamName: string;
+  awayTeamName: string;
+  /** Goals per side, null while the match has not been played. */
+  homeScore: number | null;
+  awayScore: number | null;
   opponentName: string;
   opponentShortCode: string | null;
   teamScore: number | null;

@@ -4,7 +4,6 @@ import Link from 'next/link';
 import { useTranslations } from 'next-intl';
 import { useMemo } from 'react';
 import type { ReactNode } from 'react';
-import { ExperienceTierLabel } from '@/components/ExperienceTierLabel';
 import { SpecialtyIcon } from '@/components/player/SpecialtyIcon';
 import { getSpecialtyLabel } from '@/lib/specialties';
 import type { Player } from '@/lib/api';
@@ -109,12 +108,9 @@ export function PlayerIdentity({
           {chips}
         </div>
 
-        <div className="mt-tight grid grid-cols-2 gap-x-gutter gap-y-tight sm:grid-cols-4">
+        <div className="mt-tight grid grid-cols-3 gap-x-gutter gap-y-tight">
           <MetaCell label={t('squad.age')}>
             {t('common.ageFormat', { y: player.age, d: player.ageDays })}
-          </MetaCell>
-          <MetaCell label={t('squad.exp')}>
-            <ExperienceTierLabel value={player.experience} className="font-bold text-on-surface" />
           </MetaCell>
           <MetaCell label={t('squad.wage')}>
             <span className="text-secondary">

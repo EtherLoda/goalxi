@@ -298,14 +298,22 @@ export default function PlayerDetailPage({ params }: PageProps) {
                 actions={
                   <>
                     {!player.onTransfer ? (
-                      <button
-                        type="button"
-                        onClick={() => setShowListModal(true)}
-                        className="inline-flex h-9 items-center gap-micro rounded-lg border border-primary/30 bg-primary/12 px-tight font-label text-label font-bold text-primary transition-colors duration-quick hover:bg-primary/20"
-                      >
-                        <AppIcon name="sell" className="text-kicker" />
-                        {t("transfer.listButton")}
-                      </button>
+                      <div className="group relative">
+                        <button
+                          type="button"
+                          onClick={() => setShowListModal(true)}
+                          aria-label={t("transfer.listButton")}
+                          className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-primary/30 bg-primary/12 text-primary transition-colors duration-quick hover:bg-primary/20 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+                        >
+                          <AppIcon name="sell" className="text-kicker" />
+                        </button>
+                        <span
+                          role="tooltip"
+                          className="pointer-events-none absolute right-0 top-full z-20 mt-micro whitespace-nowrap rounded-md border border-outline-variant/40 bg-surface-container-high px-tight py-1 font-label text-kicker font-bold text-on-surface opacity-0 shadow-lg transition-opacity duration-quick group-hover:opacity-100 group-focus-within:opacity-100"
+                        >
+                          {t("transfer.listButton")}
+                        </span>
+                      </div>
                     ) : null}
                     <button
                       type="button"
