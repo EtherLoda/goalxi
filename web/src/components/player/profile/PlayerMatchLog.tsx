@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { useLocale, useTranslations } from 'next-intl';
 import type { PlayerMatchLogEntry } from '@/lib/api';
+import { Tooltip } from '@/components/ui/Tooltip';
 
 const RESULT_TONE: Record<PlayerMatchLogEntry['result'], string> = {
   win: 'text-primary',
@@ -69,7 +70,11 @@ export function PlayerMatchRow({ entry }: { entry: PlayerMatchLogEntry }) {
           <p className="truncate font-label text-kicker tabular-nums text-outline">
             S{entry.season}
             {entry.round ? ` · R${entry.round}` : ''} · {dateLabel(entry.scheduledAt)} ·{' '}
-            <span title={entry.matchId}>#{shortId(entry.matchId)}</span>
+            <Tooltip label={entry.matchId} wrap side="top" align="center">
+              <span className="underline decoration-dotted decoration-outline/60 underline-offset-2">
+                #{shortId(entry.matchId)}
+              </span>
+            </Tooltip>
           </p>
         </div>
 

@@ -43,13 +43,13 @@ export function PlayerStatTiles({ player }: { player: Player }) {
       <StatTile
         label={t('squad.stamina')}
         value={<span className="text-body font-black">{t(`squad.staminaTier.${staminaTier}`)}</span>}
-        title={`${conditionPoints(player.stamina)}/5`}
+        tooltip={`${conditionPoints(player.stamina)}/5`}
         tone={conditionToneClass(player.stamina, 4, 2)}
       />
       <StatTile
         label={t('squad.form')}
         value={<span className="text-body font-black">{t(`squad.formTier.${formTier}`)}</span>}
-        title={`${conditionPoints(player.form)}/5`}
+        tooltip={`${conditionPoints(player.form)}/5`}
         tone={conditionToneClass(player.form, 4, 2)}
       />
       <StatTile
@@ -58,8 +58,10 @@ export function PlayerStatTiles({ player }: { player: Player }) {
           <ExperienceTierLabel
             value={player.experience}
             className="text-body font-black leading-tight"
+            showTitle={false}
           />
         }
+        tooltip={`${Math.round(player.experience ?? 0)} XP`}
         tone="text-on-surface"
       />
     </div>

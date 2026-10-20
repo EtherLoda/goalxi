@@ -26,16 +26,26 @@ interface PlayerSkillGridProps {
 export function PlayerSkillGrid({ player, columns = 4 }: PlayerSkillGridProps) {
   const t = useTranslations();
   const groups = groupSkills(skillSpecsFor(player.isGoalkeeper));
+  /**
+   * `columns === 2` is the narrow profile card: the bars are capped and each
+   * group is centred inside its track, so the outer margins on the left and
+   * right of the panel come out equal. Uncapped groups in a `1fr` track put
+   * all the leftover space on the right, which reads as a broken layout.
+   */
   const gridClass =
     columns === 4
       ? 'grid min-w-0 max-w-[980px] gap-x-gutter gap-y-panel sm:grid-cols-2 lg:grid-cols-4'
-      : 'grid min-w-0 gap-x-gutter gap-y-panel sm:grid-cols-2';
+      : 'grid min-w-0 gap-x-gutter gap-y-panel justify-items-center sm:grid-cols-2';
+  const groupClass =
+    columns === 4
+      ? 'flex min-w-0 flex-col gap-tight'
+      : 'flex w-full min-w-0 max-w-[240px] flex-col gap-tight';
 
   return (
     <div className="border-t border-outline-variant/30 p-panel">
       <div className={gridClass}>
         {groups.map((group) => (
-          <div key={group.category} className="flex min-w-0 flex-col gap-tight">
+          <div key={group.category} className={groupClass}>
             <div className="flex items-center gap-micro">
               <span className={`h-3 w-1 rounded-full ${CATEGORY_ACCENT[group.category]}`} />
               <span className="font-label text-kicker font-bold uppercase tracking-[0.12em] text-on-surface-variant">
@@ -46,7 +56,7 @@ export function PlayerSkillGrid({ player, columns = 4 }: PlayerSkillGridProps) {
               {group.specs.map((spec) => {
                 const pair = readSkillPair(player.currentSkills, player.potentialSkills, spec);
                 return (
-                  <div key={spec.key} className="max-w-[240px]">
+                  <div key={spec.key} className={columns === 2 ? 'w-full' : 'max-w-[240px]'}>
                     <SkillBar
                       label={t(`squad.skills.${spec.key}`)}
                       current={pair.current}

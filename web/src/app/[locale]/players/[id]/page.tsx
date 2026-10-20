@@ -8,6 +8,7 @@ import { useTranslations } from "next-intl";
 import { useAuth } from "@/contexts/AuthContext";
 import { PlayerSeasonStatsCard } from "@/components/player/PlayerSeasonStatsCard";
 import { PlayerIdentity } from "@/components/player/profile/PlayerIdentity";
+import { Tooltip } from "@/components/ui/Tooltip";
 import { PlayerStatTiles } from "@/components/player/profile/PlayerStatTiles";
 import { PlayerSkillGrid } from "@/components/player/profile/PlayerSkillGrid";
 import { PlayerProfileNav } from "@/components/player/profile/PlayerProfileNav";
@@ -298,7 +299,7 @@ export default function PlayerDetailPage({ params }: PageProps) {
                 actions={
                   <>
                     {!player.onTransfer ? (
-                      <div className="group relative">
+                      <Tooltip label={t("transfer.listButton")} side="bottom" align="end">
                         <button
                           type="button"
                           onClick={() => setShowListModal(true)}
@@ -307,13 +308,7 @@ export default function PlayerDetailPage({ params }: PageProps) {
                         >
                           <AppIcon name="sell" className="text-kicker" />
                         </button>
-                        <span
-                          role="tooltip"
-                          className="pointer-events-none absolute right-0 top-full z-20 mt-micro whitespace-nowrap rounded-md border border-outline-variant/40 bg-surface-container-high px-tight py-1 font-label text-kicker font-bold text-on-surface opacity-0 shadow-lg transition-opacity duration-quick group-hover:opacity-100 group-focus-within:opacity-100"
-                        >
-                          {t("transfer.listButton")}
-                        </span>
-                      </div>
+                      </Tooltip>
                     ) : null}
                     <button
                       type="button"

@@ -7,6 +7,8 @@ interface Props {
     value: number | null | undefined;
     className?: string;
     fallback?: string;
+    /** Set false when an outer tooltip already surfaces the raw value. */
+    showTitle?: boolean;
 }
 
 /**
@@ -19,16 +21,16 @@ interface Props {
  * See libs/database/src/services/skill-tier.ts for the source-of-truth
  * 21-tier table; this is a web-side mirror of the labels.
  */
-export function ExperienceTierLabel({ value, className, fallback = "—" }: Props) {
+export function ExperienceTierLabel({ value, className, fallback = "—", showTitle = true }: Props) {
     const rawLocale = useLocale();
     const locale: SkillTierLocale = rawLocale === "zh" ? "zh" : "en";
     const safe = typeof value === "number" && Number.isFinite(value) ? Math.max(0, value) : null;
     if (safe === null) {
-        return <span className={className} title="no data">{fallback}</span>;
+        return <span className={className} title={showTitle ? "no data" : undefined}>{fallback}</span>;
     }
     const label = getSkillTierLabel(safe, locale);
     return (
-        <span className={className} title={safe + " XP"}>
+        <span className={className} title={showTitle ? safe + " XP" : undefined}>
             {label}
         </span>
     );

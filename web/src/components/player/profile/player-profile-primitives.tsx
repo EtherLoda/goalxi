@@ -14,6 +14,7 @@
 
 import { AppIcon, type MaterialIconName } from '@/components/icons/AppIcon';
 import { KickerLabel } from '@/components/ui/KickerLabel';
+import { Tooltip } from '@/components/ui/Tooltip';
 import type { SkillCategoryKey } from '@/components/player/skill-groups';
 
 export function initialsOf(name: string): string {
@@ -41,28 +42,29 @@ export function StatTile({
   value,
   suffix,
   tone = 'text-on-surface',
-  title,
+  tooltip,
 }: {
   label: string;
   value: React.ReactNode;
   suffix?: string;
   tone?: string;
   /** Raw value behind the words, revealed on hover. */
-  title?: string;
+  tooltip?: React.ReactNode;
 }) {
   return (
-    <div
-      title={title}
-      className="flex flex-1 flex-col items-center gap-micro rounded-xl bg-surface-container/60 px-tight py-2"
-    >
-      <span
-        className={`font-headline text-xl font-black leading-none tabular-nums ${tone}`}
-      >
-        {value}
-        {suffix ? <span className="ml-0.5 font-label text-kicker font-bold text-outline">{suffix}</span> : null}
-      </span>
-      <KickerLabel>{label}</KickerLabel>
-    </div>
+    <Tooltip label={tooltip} className="flex-1">
+      <div className="flex w-full flex-col items-center gap-micro rounded-xl bg-surface-container/60 px-tight py-2">
+        <span
+          className={`font-headline text-xl font-black leading-none tabular-nums ${tone}`}
+        >
+          {value}
+          {suffix ? (
+            <span className="ml-0.5 font-label text-kicker font-bold text-outline">{suffix}</span>
+          ) : null}
+        </span>
+        <KickerLabel>{label}</KickerLabel>
+      </div>
+    </Tooltip>
   );
 }
 
