@@ -66,11 +66,11 @@ export function SquadPlayerRow({ player, isSelected, locale, onSelect }: SquadPl
       </span>
 
       <span className="flex min-w-0 flex-1 flex-col">
-        <span className="flex items-center gap-micro">
+        <span className="flex items-center gap-1.5">
           <span className="truncate text-title font-semibold text-on-surface">{player.name}</span>
           {player.coreSpecialty ? (
             <span
-              className={`shrink-0 ${
+              className={`flex h-4 w-4 shrink-0 items-center justify-center ${
                 player.coreSpecialtyTier === 'GOLD'
                   ? 'text-tertiary'
                   : player.coreSpecialtyTier === 'SILVER'
@@ -79,11 +79,13 @@ export function SquadPlayerRow({ player, isSelected, locale, onSelect }: SquadPl
               }`}
               title={getSpecialtyLabel(player.coreSpecialty, locale === 'en' ? 'en' : 'zh')}
             >
-              <SpecialtyIcon code={player.coreSpecialty} tier={player.coreSpecialtyTier} size="sm" />
+              <SpecialtyIcon code={player.coreSpecialty} tier={player.coreSpecialtyTier} size="md" />
             </span>
           ) : null}
           {player.onTransfer ? (
-            <AppIcon name="sell" className="shrink-0 text-kicker text-secondary" label={t('squad.transfer.listed')} />
+            <span className="flex h-4 w-4 shrink-0 items-center justify-center text-secondary">
+              <AppIcon name="sell" className="text-body" label={t('squad.transfer.listed')} />
+            </span>
           ) : null}
           <InjuryBadge
             player={player}

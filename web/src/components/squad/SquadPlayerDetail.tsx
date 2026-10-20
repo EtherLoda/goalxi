@@ -238,7 +238,7 @@ export function SquadPlayerDetail({
 
       {/* ── Skills ───────────────────────────────────────────────────── */}
       <div className="border-t border-outline-variant/30 p-panel">
-        <div className="grid min-w-0 gap-x-gutter gap-y-panel sm:grid-cols-2">
+        <div className="grid min-w-0 max-w-[980px] gap-x-gutter gap-y-panel sm:grid-cols-2 lg:grid-cols-4">
           {groups.map((group) => (
               <div key={group.category} className="flex flex-col gap-tight">
                 <div className="flex items-center gap-micro">
