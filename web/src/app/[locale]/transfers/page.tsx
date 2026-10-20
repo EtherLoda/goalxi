@@ -2,7 +2,7 @@
 
 import { AppIcon } from "@/components/icons/AppIcon";
 import { useTranslations, useLocale } from "next-intl";
-import { useEffect, useState, useCallback, useRef, useMemo } from "react";
+import { useEffect, useState, useCallback, useMemo } from "react";
 import { useParams } from "next/navigation";
 import { useAuth } from "@/contexts/AuthContext";
 import { api, type Player, type TransferAuction } from "@/lib/api";
@@ -40,13 +40,6 @@ export default function TransfersPage() {
   const [showSpecialtyDropdown, setShowSpecialtyDropdown] = useState(false);
   const [selectedSpecialty, setSelectedSpecialty] = useState("");
   const [playerTypeFilter, setPlayerTypeFilter] = useState<"outfield" | "gk">("outfield");
-
-  // Auto-select the first auction exactly once. A ref (not state) is
-  // the right tool here because the rule is "select-once-per-mount",
-  // not "select when the list becomes non-empty" — without the ref
-  // we'd need `selectedTransfer` in `fetchTransfers`'s deps, and
-  // every selection change would re-fetch the entire market.
-  const hasAutoSelectedRef = useRef(false);
 
   // useMemo on t() — t is stable in next-intl, but using useMemo
   // documents that these arrays only change when the i18n function
@@ -157,9 +150,13 @@ export default function TransfersPage() {
 
   // Fetch transfers data. `selectedTransfer` is intentionally NOT in
   // the deps — including it would re-fetch the entire market on
-  // every card click. Auto-select is gated by `hasAutoSelectedRef`
-  // so the "pick the first auction" rule fires exactly once per
-  // mount instead of every time the user changes their selection.
+  // every card click.
+  //
+  // Nothing is auto-selected. Landing on a player you did not pick made the
+  // right-hand pane look like a property of the page instead of a response to
+  // your click, and it silently pre-loaded a bid form for whoever happened to
+  // sort first. The pane now starts on its empty state and only fills in after
+  // an explicit selection.
   const fetchTransfers = useCallback(
     async (signal?: AbortSignal) => {
       setIsLoading(true);
@@ -167,10 +164,6 @@ export default function TransfersPage() {
       try {
         const auctionsData = await api.transfers.getAuctions({ signal });
         setTransfers(auctionsData);
-        if (auctionsData.length > 0 && !hasAutoSelectedRef.current) {
-          hasAutoSelectedRef.current = true;
-          setSelectedTransfer(auctionsData[0]);
-        }
         return auctionsData;
       } catch (err) {
         // AbortError fires when the effect cleans up; not a real

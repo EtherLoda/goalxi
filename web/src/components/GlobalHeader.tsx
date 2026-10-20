@@ -2,10 +2,9 @@
 
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
-import { useTranslations } from "next-intl";
 import { useAuth } from "@/contexts/AuthContext";
 import { api } from "@/lib/api";
-import { useParams, usePathname, useRouter, useSearchParams } from "next/navigation";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { useGameStore } from "@/stores/gameStore";
 import { AppIcon } from "@/components/icons/AppIcon";
 import type { Team } from "@/lib/api";
@@ -90,10 +89,8 @@ function SettingsMenu({ locale }: { locale: string }) {
 }
 
 export default function GlobalHeader({ locale }: GlobalHeaderProps) {
-  const t = useTranslations();
   const { team } = useAuth();
   const params = useParams();
-  const pathname = usePathname();
   const router = useRouter();
   const searchParams = useSearchParams();
   const { viewTeamId, setViewTeam, teamId } = useGameStore();
@@ -139,7 +136,6 @@ export default function GlobalHeader({ locale }: GlobalHeaderProps) {
   // the season was compressed to 11 weeks the badge read "MW16/16" for
   // the rest of the season and the progress was meaningless.
   const totalMatchweeks = gameState?.regularSeasonWeeks ?? 0;
-  const isTransfersPage = pathname?.startsWith(`/${locale}/transfers`);
 
   return (
     <header className="h-16 bg-surface/70 backdrop-blur-2xl border-b border-white/5 flex items-center px-6 relative">
@@ -175,42 +171,6 @@ export default function GlobalHeader({ locale }: GlobalHeaderProps) {
           </span>
         )}
       </div>
-
-      {/* Center: Transfers tabs (on any transfers page) */}
-      {isTransfersPage && (
-        <nav className="absolute left-1/2 -translate-x-1/2 flex items-center gap-8">
-          <Link
-            href={`/${locale}/transfers`}
-            className={`text-xs font-bold pb-1 transition-colors border-b-2 ${
-              pathname === `/${locale}/transfers`
-                ? "text-primary border-primary"
-                : "text-on-surface-variant border-transparent hover:text-primary hover:border-primary/50"
-            }`}
-          >
-            {t("transfers.nav.market")}
-          </Link>
-          <Link
-            href={`/${locale}/transfers/shortlist`}
-            className={`text-xs font-bold pb-1 transition-colors border-b-2 ${
-              pathname === `/${locale}/transfers/shortlist`
-                ? "text-primary border-primary"
-                : "text-on-surface-variant border-transparent hover:text-primary hover:border-primary/50"
-            }`}
-          >
-            {t("transfers.nav.shortlist")}
-          </Link>
-          <Link
-            href={`/${locale}/transfers/history`}
-            className={`text-xs font-bold pb-1 transition-colors border-b-2 ${
-              pathname === `/${locale}/transfers/history`
-                ? "text-primary border-primary"
-                : "text-on-surface-variant border-transparent hover:text-primary hover:border-primary/50"
-            }`}
-          >
-            {t("transfers.nav.history")}
-          </Link>
-        </nav>
-      )}
 
       {/* Spacer */}
       <div className="flex-1" />
