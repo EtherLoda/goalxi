@@ -246,7 +246,7 @@ describe('PlayerService', () => {
 
     beforeEach(() => {
       jest
-        .spyOn(PlayerEntity, 'findOneBy')
+        .spyOn(PlayerEntity, 'findOne')
         .mockImplementation((async () => null) as never);
     });
 
@@ -267,12 +267,13 @@ describe('PlayerService', () => {
           setPieces: {},
         },
       });
-      (PlayerEntity.findOneBy as jest.Mock).mockResolvedValue(player);
+      (PlayerEntity.findOne as jest.Mock).mockResolvedValue(player);
 
       const result = await service.findOne(String(VALID_NUMERIC_ID));
 
-      expect(PlayerEntity.findOneBy).toHaveBeenCalledWith({
-        id: VALID_NUMERIC_ID,
+      expect(PlayerEntity.findOne).toHaveBeenCalledWith({
+        where: { id: VALID_NUMERIC_ID },
+        relations: { team: true },
       });
       expect(result.id).toBe(VALID_NUMERIC_ID);
     });
@@ -282,8 +283,34 @@ describe('PlayerService', () => {
     });
 
     it('throws NotFoundException when the player is not found', async () => {
-      (PlayerEntity.findOneBy as jest.Mock).mockResolvedValue(null);
+      (PlayerEntity.findOne as jest.Mock).mockResolvedValue(null);
       await expect(service.findOne(String(VALID_NUMERIC_ID))).rejects.toThrow();
+    });
+
+    it('resolves the club name from the joined team relation', async () => {
+      const player = Object.assign(new PlayerEntity(), {
+        id: VALID_NUMERIC_ID,
+        name: 'F1',
+        teamId: '11111111-1111-1111-1111-111111111111',
+        team: { name: 'Hello Goalxi FC' },
+        currentSkills: {
+          physical: {},
+          technical: {},
+          mental: {},
+          setPieces: {},
+        },
+        potentialSkills: {
+          physical: {},
+          technical: {},
+          mental: {},
+          setPieces: {},
+        },
+      });
+      (PlayerEntity.findOne as jest.Mock).mockResolvedValue(player);
+
+      const result = await service.findOne(String(VALID_NUMERIC_ID));
+
+      expect(result.teamName).toBe('Hello Goalxi FC');
     });
   });
 });

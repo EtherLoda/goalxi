@@ -18,6 +18,15 @@ export class PlayerPublicResDto {
   @Expose()
   teamId?: string | null;
 
+  /**
+   * Club name resolved from the `team` relation. Only endpoints that join
+   * the relation populate it (currently `GET /players/:id`); list endpoints
+   * leave it null, so consumers must treat it as optional.
+   */
+  @StringFieldOptional()
+  @Expose()
+  teamName?: string | null;
+
   @StringField()
   @Expose()
   name: string;

@@ -69,7 +69,10 @@ export class PlayerService {
       throw new NotFoundException('Invalid player ID (expected numeric)');
     }
 
-    const player = await PlayerEntity.findOneBy({ id: numericId });
+    const player = await PlayerEntity.findOne({
+      where: { id: numericId },
+      relations: { team: true },
+    });
     if (!player) {
       throw new NotFoundException('Player not found');
     }
@@ -255,6 +258,7 @@ export class PlayerService {
     return plainToInstance(DtoClass, {
       id: player.id,
       teamId: player.teamId,
+      teamName: player.team?.name ?? null,
       name: player.name,
       nationality: player.nationality,
       createdDay: player.createdDay,
