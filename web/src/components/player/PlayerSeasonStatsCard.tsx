@@ -81,10 +81,10 @@ function KpiTile({
   }[accent];
   return (
     <div className="bg-ink-700 rounded-xl p-3 flex flex-col items-center justify-center border border-edge/10 min-h-[64px]">
-      <div className={`text-2xl font-black font-space leading-none ${accentClass}`}>
+      <div className={`text-2xl font-black font-headline leading-none ${accentClass}`}>
         {value}
       </div>
-      <span className="text-[8px] font-bold font-space mt-1.5 tracking-widest uppercase text-muted">
+      <span className="text-[8px] font-bold font-headline mt-1.5 tracking-widest uppercase text-muted">
         {label}
       </span>
     </div>
@@ -116,32 +116,32 @@ function SeasonRow({
   return (
     <div className="grid grid-cols-12 gap-2 items-center px-3 py-2.5 rounded-lg bg-ink-850 border border-edge/10 hover:bg-ink-700 transition-colors">
       <div className="col-span-2 flex items-center gap-1.5 min-w-0">
-        <span className="text-[10px] font-black font-space tracking-wider text-frost shrink-0">
+        <span className="text-[10px] font-black font-headline tracking-wider text-frost shrink-0">
           S{row.season}
         </span>
         <span
-          className={`px-1.5 py-0.5 rounded text-[8px] font-bold font-space tracking-widest uppercase border ${badgeAccents[row.competitionType]}`}
+          className={`px-1.5 py-0.5 rounded text-[8px] font-bold font-headline tracking-widest uppercase border ${badgeAccents[row.competitionType]}`}
           title={badgeLabels[row.competitionType]}
         >
           {badgeLabels[row.competitionType]}
         </span>
       </div>
-      <div className="col-span-3 text-[10px] font-bold font-space text-muted truncate">
+      <div className="col-span-3 text-[10px] font-bold font-headline text-muted truncate">
         {competitionLabel}
       </div>
-      <div className="col-span-3 text-[10px] font-bold font-space text-muted truncate">
+      <div className="col-span-3 text-[10px] font-bold font-headline text-muted truncate">
         {row.teamName}
       </div>
-      <div className="col-span-1 text-center text-sm font-black font-space text-frost">
+      <div className="col-span-1 text-center text-sm font-black font-headline text-frost">
         {row.appearances}
       </div>
-      <div className="col-span-1 text-center text-sm font-black font-space text-accent">
+      <div className="col-span-1 text-center text-sm font-black font-headline text-accent">
         {row.goals}
       </div>
-      <div className="col-span-1 text-center text-sm font-black font-space text-signal-blue">
+      <div className="col-span-1 text-center text-sm font-black font-headline text-signal-blue">
         {row.assists}
       </div>
-      <div className="col-span-1 text-center text-[11px] font-bold font-space text-signal-lime">
+      <div className="col-span-1 text-center text-[11px] font-bold font-headline text-signal-lime">
         {startsWithSub(row.starts, row.substituteAppearances)}
       </div>
     </div>
@@ -154,10 +154,10 @@ function EmptyState({ t }: { t: ReturnType<typeof useTranslations<"player_stats"
       <div className="w-10 h-10 rounded-full bg-ink-700 border border-edge/20 flex items-center justify-center mb-2">
         <AppIcon name="sports_soccer" className="text-muted text-lg" fill={true} />
       </div>
-      <p className="text-[10px] font-bold font-space tracking-widest uppercase text-muted">
+      <p className="text-[10px] font-bold font-headline tracking-widest uppercase text-muted">
         {t("emptyTitle")}
       </p>
-      <p className="text-[9px] font-space text-faint mt-1 max-w-[240px]">
+      <p className="text-[9px] font-headline text-faint mt-1 max-w-[240px]">
         {t("emptyBody")}
       </p>
     </div>
@@ -199,15 +199,15 @@ function ErrorState({
   return (
     <div className="flex flex-col items-center justify-center py-6 text-center">
       <AppIcon name="error_outline" className="text-signal-amber text-2xl mb-2" fill={true} />
-      <p className="text-[10px] font-bold font-space tracking-widest uppercase text-muted">
+      <p className="text-[10px] font-bold font-headline tracking-widest uppercase text-muted">
         {t("errorTitle")}
       </p>
-      <p className="text-[9px] font-space text-faint mt-1 max-w-[240px]">
+      <p className="text-[9px] font-headline text-faint mt-1 max-w-[240px]">
         {message}
       </p>
       <button
         onClick={onRetry}
-        className="mt-3 px-3 py-1.5 rounded-lg bg-ink-700 border border-edge/30 text-[10px] font-bold font-space tracking-widest uppercase text-accent hover:bg-ink-500 transition-colors"
+        className="mt-3 px-3 py-1.5 rounded-lg bg-ink-700 border border-edge/30 text-[10px] font-bold font-headline tracking-widest uppercase text-accent hover:bg-ink-500 transition-colors"
       >
         {t("retry")}
       </button>
@@ -253,11 +253,11 @@ export function PlayerSeasonStatsCard({
   const header = (
     <div className="flex items-center gap-2 mb-4">
       <div className="w-1.5 h-4 bg-accent rounded-full" />
-      <h3 className="text-xs font-black font-space tracking-widest uppercase text-accent">
+      <h3 className="text-xs font-black font-headline tracking-widest uppercase text-accent">
         {t("title")}
       </h3>
       {data && data.career.seasonsPlayed > 0 && (
-        <span className="ml-auto text-[9px] font-bold font-space tracking-widest uppercase text-muted">
+        <span className="ml-auto text-[9px] font-bold font-headline tracking-widest uppercase text-muted">
           {data.career.seasonsPlayed}{" "}
           {data.career.seasonsPlayed === 1
             ? t("seasonsPlayed")
@@ -298,7 +298,7 @@ export function PlayerSeasonStatsCard({
             {/* Column header row. Same grid template as the data rows
                 so the columns line up. Kept tight (8px) so it
                 doesn\'t dominate the card visually. */}
-            <div className="grid grid-cols-12 gap-2 px-3 py-1.5 text-[8px] font-bold font-space tracking-widest uppercase text-faint">
+            <div className="grid grid-cols-12 gap-2 px-3 py-1.5 text-[8px] font-bold font-headline tracking-widest uppercase text-faint">
               <div className="col-span-2">{t("colSeason")}</div>
               <div className="col-span-3">{t("colComp")}</div>
               <div className="col-span-3">{t("colTeam")}</div>
@@ -334,7 +334,7 @@ export function PlayerSeasonStatsCard({
             {/* Footer: one-line career rollup of the four numbers
                 that aren\'t in the KPI strip \u2014 starts, sub
                 appearances, yellow cards, red cards. */}
-            <div className="mt-3 pt-3 border-t border-edge/15 flex items-center justify-between text-[9px] font-space text-muted">
+            <div className="mt-3 pt-3 border-t border-edge/15 flex items-center justify-between text-[9px] font-headline text-muted">
               <span>
                 <span className="font-bold text-frost">
                   {data.career.starts}

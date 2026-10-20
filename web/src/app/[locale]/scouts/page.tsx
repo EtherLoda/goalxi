@@ -16,7 +16,7 @@ function ScoutsPage() {
   return (
     <Suspense
       fallback={
-        <div className="px-8 py-6 text-sm text-muted font-space">
+        <div className="px-8 py-6 text-sm text-muted font-headline">
           Loading…
         </div>
       }
@@ -174,7 +174,7 @@ function ScoutsPageInner() {
       <Header title={t("title")} />
 
       {!isOwnTeam && (
-        <div className="bg-signal-gold/10 border border-signal-gold/30 rounded-xl p-4 text-sm text-signal-gold font-space">
+        <div className="bg-signal-gold/10 border border-signal-gold/30 rounded-xl p-4 text-sm text-signal-gold font-headline">
           Viewing another team — scouts inbox is only available for your own
           team.
         </div>
@@ -182,7 +182,7 @@ function ScoutsPageInner() {
 
       <div className="flex justify-center">
         {loading ? (
-          <div className="flex items-center gap-3 py-16 text-sm text-muted font-space">
+          <div className="flex items-center gap-3 py-16 text-sm text-muted font-headline">
             <AppIcon name="progress_activity" className="animate-spin" />
             {tCommon("loading")}
           </div>
@@ -251,10 +251,10 @@ function ScoutsPageInner() {
 function Header({ title }: { title: string }) {
   return (
     <header className="flex flex-col gap-1">
-      <h1 className="text-3xl font-black font-space text-frost tracking-tight">
+      <h1 className="text-3xl font-black font-headline text-frost tracking-tight">
         {title}
       </h1>
-      <p className="text-xs text-muted font-space">
+      <p className="text-xs text-muted font-headline">
         Auto-refreshes every Saturday at 06:00 UTC. Draw a fresh
         dossier below.
       </p>
@@ -278,7 +278,7 @@ function EmptyState({
   return (
     <div className="bg-ink-700/60 rounded-2xl border border-white/5 px-6 py-12 sm:py-16 text-center w-full max-w-[580px]">
       <AppIcon name="travel_explore" className="text-muted text-5xl" />
-      <p className="mt-4 text-sm text-muted font-space max-w-md mx-auto">
+      <p className="mt-4 text-sm text-muted font-headline max-w-md mx-auto">
         {text}
       </p>
       <button

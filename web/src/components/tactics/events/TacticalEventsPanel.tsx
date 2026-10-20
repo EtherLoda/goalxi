@@ -17,7 +17,7 @@ import { useTranslations } from 'next-intl';
 import { AnimatePresence, motion } from 'motion/react';
 import type { Player } from '@/lib/api';
 import type { TacticalEvent } from '../types';
-import { GlassPanel } from '../shared/GlassPanel';
+import { GlassPanel } from '@/components/ui/GlassPanel';
 import { TacticalEventRow } from './TacticalEventRow';
 import { EASE, DURATION } from '@/lib/motion';
 

@@ -582,7 +582,7 @@ export function SpecialtyIcon({
       {showTooltip && (
         <span
           aria-hidden
-          className="pointer-events-none invisible opacity-0 group-hover/specialty:visible group-hover/specialty:opacity-100 group-hover/specialty:-translate-y-0.5 translate-y-1 transition-all duration-base ease-entrance absolute bottom-full left-1/2 -translate-x-1/2 mb-2 z-50 whitespace-nowrap bg-ink-850/95 border border-current rounded-lg px-2.5 py-1.5 text-xs font-bold font-space shadow-xl shadow-black/40 backdrop-blur-sm"
+          className="pointer-events-none invisible opacity-0 group-hover/specialty:visible group-hover/specialty:opacity-100 group-hover/specialty:-translate-y-0.5 translate-y-1 transition-all duration-base ease-entrance absolute bottom-full left-1/2 -translate-x-1/2 mb-2 z-50 whitespace-nowrap bg-ink-850/95 border border-current rounded-lg px-2.5 py-1.5 text-xs font-bold font-headline shadow-xl shadow-black/40 backdrop-blur-sm"
         >
           <span>{tooltipLabel}</span>
           <span className="mx-1.5 opacity-50">·</span>

@@ -4,8 +4,8 @@ import { AppIcon } from "@/components/icons/AppIcon";
 import React from 'react';
 import { useTranslations } from 'next-intl';
 import type { Preset } from '@/lib/api';
-import { GlassPanel } from '../shared/GlassPanel';
-import { KickerLabel } from '../shared/KickerLabel';
+import { GlassPanel } from '@/components/ui/GlassPanel';
+import { KickerLabel } from '@/components/ui/KickerLabel';
 import { PresetCard } from './PresetCard';
 
 interface PresetListProps {

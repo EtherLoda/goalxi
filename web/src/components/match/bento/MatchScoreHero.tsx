@@ -26,7 +26,7 @@
 import { AppIcon } from "@/components/icons/AppIcon";
 import Link from 'next/link';
 import { useTranslations } from 'next-intl';
-import { GlassPanel } from '@/components/tactics/shared/GlassPanel';
+import { GlassPanel } from '@/components/ui/GlassPanel';
 
 export interface MatchScoreHeroProps {
   locale: string;

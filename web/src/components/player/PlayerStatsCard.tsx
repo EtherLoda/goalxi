@@ -35,7 +35,7 @@ export function SkillBar({ label, current, potential, colorClass, barClass }: Sk
       {/* Two layers: the dimmer one is what the player could still become.
           Painting only `current` made a 20-potential wonderkid and a 20-ability
           veteran look identical on this card. */}
-      <div className="relative h-1.5 w-full overflow-hidden rounded-full bg-ink-700">
+      <div className="relative h-1.5 w-full overflow-hidden rounded-full bg-surface-container-highest">
         <div
           className={`absolute inset-y-0 left-0 rounded-full ${fill} opacity-25`}
           style={{ width: `${potentialPct}%` }}

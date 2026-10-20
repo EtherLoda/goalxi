@@ -122,10 +122,10 @@ function ListPlayerModal({ player, onClose, onSuccess }: ListPlayerModalProps) {
                 <AppIcon name="sell" className="text-accent" />
               </div>
               <div>
-                <h3 className="text-lg font-black font-space text-frost">
+                <h3 className="text-lg font-black font-headline text-frost">
                   {t("squad.transfer.listPlayer")}
                 </h3>
-                <p className="text-[10px] text-muted font-space uppercase tracking-wider">
+                <p className="text-[10px] text-muted font-headline uppercase tracking-wider">
                   Set your auction terms
                 </p>
               </div>
@@ -143,7 +143,7 @@ function ListPlayerModal({ player, onClose, onSuccess }: ListPlayerModalProps) {
         <div className="mx-6 mt-4 mb-4 p-4 bg-ink-700/80 rounded-xl border border-edge/20">
           <div className="flex items-center gap-3">
             <div
-              className="w-12 h-12 rounded-xl flex items-center justify-center font-space font-black text-lg text-accent"
+              className="w-12 h-12 rounded-xl flex items-center justify-center font-headline font-black text-lg text-accent"
               style={{
                 background: "linear-gradient(135deg, #a1ffc220, #a1ffc210)",
               }}
@@ -160,7 +160,7 @@ function ListPlayerModal({ player, onClose, onSuccess }: ListPlayerModalProps) {
                 <span className="px-2 py-0.5 bg-accent/20 text-accent text-[10px] font-bold rounded">
                   PWI {player.pwi?.toLocaleString() || "0"}
                 </span>
-                <span className="text-[10px] text-muted font-space">
+                <span className="text-[10px] text-muted font-headline">
                   {player.isGoalkeeper ? "GK" : ""}
                 </span>
               </div>
@@ -174,7 +174,7 @@ function ListPlayerModal({ player, onClose, onSuccess }: ListPlayerModalProps) {
               {t("squad.transfer.startPrice")}
             </label>
             <div className="relative">
-              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted text-sm font-space">
+              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted text-sm font-headline">
                 £
               </span>
               <input
@@ -183,7 +183,7 @@ function ListPlayerModal({ player, onClose, onSuccess }: ListPlayerModalProps) {
                 onChange={(e) => setStartPrice(e.target.value)}
                 placeholder="0"
                 min={0}
-                className="w-full bg-ink-850 border border-edge/40 rounded-lg pl-7 pr-3 py-2.5 text-frost font-space text-sm placeholder:text-faint focus:outline-none focus:border-accent/60 transition-colors"
+                className="w-full bg-ink-850 border border-edge/40 rounded-lg pl-7 pr-3 py-2.5 text-frost font-headline text-sm placeholder:text-faint focus:outline-none focus:border-accent/60 transition-colors"
               />
             </div>
           </div>
@@ -327,11 +327,11 @@ export default function PlayerDetailPage({ params }: PageProps) {
               strokeLinecap="round"
             />
           </svg>
-          <span className="absolute text-sm font-black font-space">
+          <span className="absolute text-sm font-black font-headline">
             {value}
           </span>
         </div>
-        <span className="text-[8px] font-bold font-space mt-1 tracking-widest uppercase text-muted">
+        <span className="text-[8px] font-bold font-headline mt-1 tracking-widest uppercase text-muted">
           {label}
         </span>
       </div>
@@ -386,7 +386,7 @@ export default function PlayerDetailPage({ params }: PageProps) {
                   <div className="relative">
                     <div className="w-24 h-24 rounded-2xl overflow-hidden border-2 border-accent/30 p-1 bg-ink-600">
                       <div
-                        className="w-full h-full rounded-xl flex items-center justify-center font-space font-black text-3xl text-accent"
+                        className="w-full h-full rounded-xl flex items-center justify-center font-headline font-black text-3xl text-accent"
                         style={{
                           background:
                             "linear-gradient(135deg, #a1ffc220, #a1ffc210)",
@@ -404,7 +404,7 @@ export default function PlayerDetailPage({ params }: PageProps) {
                   {/* Name & Bio */}
                   <div>
                     <div className="flex items-center gap-3">
-                      <h1 className="text-4xl font-black font-space tracking-tight leading-none text-frost">
+                      <h1 className="text-4xl font-black font-headline tracking-tight leading-none text-frost">
                         {player.name}
                       </h1>
                       {player.coreSpecialty && (
@@ -447,22 +447,22 @@ export default function PlayerDetailPage({ params }: PageProps) {
                     </div>
                     <div className="mt-4 flex gap-2">
                       {player.potentialTier && (
-                        <span className="bg-signal-lime-dim/20 text-signal-lime px-3 py-1 rounded-full text-[10px] font-bold font-space">
+                        <span className="bg-signal-lime-dim/20 text-signal-lime px-3 py-1 rounded-full text-[10px] font-bold font-headline">
                           {player.potentialTier.replace("_", " ")}
                         </span>
                       )}
                       {player.isGoalkeeper && (
-                        <span className="bg-signal-blue-deep/20 text-signal-blue px-3 py-1 rounded-full text-[10px] font-bold font-space">
+                        <span className="bg-signal-blue-deep/20 text-signal-blue px-3 py-1 rounded-full text-[10px] font-bold font-headline">
                           {tt("status.goalkeeper")}
                         </span>
                       )}
                       {player.onTransfer && (
-                        <span className="bg-accent/20 text-accent px-3 py-1 rounded-full text-[10px] font-bold font-space">
+                        <span className="bg-accent/20 text-accent px-3 py-1 rounded-full text-[10px] font-bold font-headline">
                           {tt("status.onTransfer")}
                         </span>
                       )}
                       {player.isYouth && (
-                        <span className="bg-signal-amber/20 text-signal-amber px-3 py-1 rounded-full text-[10px] font-bold font-space">
+                        <span className="bg-signal-amber/20 text-signal-amber px-3 py-1 rounded-full text-[10px] font-bold font-headline">
                           {tt("status.youth")}
                         </span>
                       )}
@@ -501,10 +501,10 @@ export default function PlayerDetailPage({ params }: PageProps) {
               <div className="px-6 py-4 grid grid-cols-4 gap-3">
                 {/* PWI - Simple text display */}
                 <div className="bg-ink-700 rounded-xl p-3 flex flex-col items-center justify-center border border-edge/10">
-                  <div className="text-lg font-black font-space text-accent">
+                  <div className="text-lg font-black font-headline text-accent">
                     {player.pwi?.toLocaleString() || "0"}
                   </div>
-                  <span className="text-[8px] font-bold font-space mt-1 tracking-widest uppercase text-muted">
+                  <span className="text-[8px] font-bold font-headline mt-1 tracking-widest uppercase text-muted">
                     PWI
                   </span>
                 </div>
@@ -543,7 +543,7 @@ export default function PlayerDetailPage({ params }: PageProps) {
                   <div className="flex items-center justify-between mb-4">
                     <div className="flex items-center gap-2">
                       <AppIcon name="sell" className="text-accent" />
-                      <h4 className="text-xs font-black font-space tracking-widest uppercase text-accent">
+                      <h4 className="text-xs font-black font-headline tracking-widest uppercase text-accent">
                         {t("transfer.onTransfer")}
                       </h4>
                     </div>
@@ -687,7 +687,7 @@ export default function PlayerDetailPage({ params }: PageProps) {
                     <div>
                       <div className="flex items-center gap-2 mb-3">
                         <div className="w-1.5 h-4 bg-signal-blue rounded-full" />
-                        <h3 className="text-xs font-black font-space tracking-widest uppercase text-muted">
+                        <h3 className="text-xs font-black font-headline tracking-widest uppercase text-muted">
                           {t("skills.physicalAttributes")}
                         </h3>
                       </div>
@@ -713,7 +713,7 @@ export default function PlayerDetailPage({ params }: PageProps) {
                         <div
                           className={`w-1.5 h-4 ${player.isGoalkeeper ? "bg-accent" : "bg-accent"} rounded-full`}
                         />
-                        <h3 className="text-xs font-black font-space tracking-widest uppercase text-muted">
+                        <h3 className="text-xs font-black font-headline tracking-widest uppercase text-muted">
                           {player.isGoalkeeper
                             ? t("skills.goalkeeperSkills")
                             : t("skills.technicalSkills")}
@@ -793,7 +793,7 @@ export default function PlayerDetailPage({ params }: PageProps) {
                     <div>
                       <div className="flex items-center gap-2 mb-3">
                         <div className="w-1.5 h-4 bg-signal-lime rounded-full" />
-                        <h3 className="text-xs font-black font-space tracking-widest uppercase text-muted">
+                        <h3 className="text-xs font-black font-headline tracking-widest uppercase text-muted">
                           {t("skills.mentalProfile")}
                         </h3>
                       </div>
@@ -817,7 +817,7 @@ export default function PlayerDetailPage({ params }: PageProps) {
                     <div>
                       <div className="flex items-center gap-2 mb-3">
                         <div className="w-1.5 h-4 bg-signal-amber rounded-full" />
-                        <h3 className="text-xs font-black font-space tracking-widest uppercase text-muted">
+                        <h3 className="text-xs font-black font-headline tracking-widest uppercase text-muted">
                           {t("skills.setPieces")}
                         </h3>
                       </div>
@@ -858,7 +858,7 @@ export default function PlayerDetailPage({ params }: PageProps) {
               <div className="px-6 pb-6 border-t border-edge/20">
                 <div className="flex items-center gap-2 mt-4 mb-3">
                   <div className="w-1.5 h-4 bg-signal-amber rounded-full" />
-                  <h3 className="text-xs font-black font-space tracking-widest uppercase text-muted">
+                  <h3 className="text-xs font-black font-headline tracking-widest uppercase text-muted">
                     {te("title")}
                   </h3>
                 </div>

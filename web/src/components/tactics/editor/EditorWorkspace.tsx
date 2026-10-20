@@ -12,8 +12,8 @@ import { TacticalEventsPanel } from '../events/TacticalEventsPanel';
 import { TeamTacticBar } from '../team-tactic/TeamTacticBar';
 import { TeamTacticPicker } from '../team-tactic/TeamTacticPicker';
 import { useTeamTactics } from '../team-tactic/use-team-tactics';
-import { GlassPanel } from '../shared/GlassPanel';
-import { KickerLabel } from '../shared/KickerLabel';
+import { GlassPanel } from '@/components/ui/GlassPanel';
+import { KickerLabel } from '@/components/ui/KickerLabel';
 import type {
   BenchSlot,
   DefensiveLineValue,

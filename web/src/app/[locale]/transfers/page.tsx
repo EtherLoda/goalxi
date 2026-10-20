@@ -396,7 +396,7 @@ export default function TransfersPage() {
                     setPlayerTypeFilter("outfield");
                     setAttributeFilters([]); // Clear filters when switching
                   }}
-                  className={`flex-1 py-2 px-3 rounded-lg text-xs font-bold font-space transition-all ${
+                  className={`flex-1 py-2 px-3 rounded-lg text-xs font-bold font-headline transition-all ${
                     playerTypeFilter === "outfield"
                       ? "bg-accent text-ink-1000"
                       : "text-muted hover:text-frost"
@@ -409,7 +409,7 @@ export default function TransfersPage() {
                     setPlayerTypeFilter("gk");
                     setAttributeFilters([]); // Clear filters when switching
                   }}
-                  className={`flex-1 py-2 px-3 rounded-lg text-xs font-bold font-space transition-all ${
+                  className={`flex-1 py-2 px-3 rounded-lg text-xs font-bold font-headline transition-all ${
                     playerTypeFilter === "gk"
                       ? "bg-accent text-ink-1000"
                       : "text-muted hover:text-frost"
@@ -819,7 +819,7 @@ export default function TransfersPage() {
                         <div>
                           <div className="flex items-center gap-2 mb-3">
                             <div className="w-1.5 h-4 bg-accent rounded-full" />
-                            <h3 className="text-xs font-black font-space tracking-widest uppercase text-muted">{t("transfers.detail.technical")}</h3>
+                            <h3 className="text-xs font-black font-headline tracking-widest uppercase text-muted">{t("transfers.detail.technical")}</h3>
                           </div>
                           <div className="space-y-3">
                             {selectedTransfer.player.isGoalkeeper ? (
@@ -843,7 +843,7 @@ export default function TransfersPage() {
                         <div>
                           <div className="flex items-center gap-2 mb-3">
                             <div className="w-1.5 h-4 bg-signal-blue rounded-full" />
-                            <h3 className="text-xs font-black font-space tracking-widest uppercase text-muted">{t("transfers.detail.physical")}</h3>
+                            <h3 className="text-xs font-black font-headline tracking-widest uppercase text-muted">{t("transfers.detail.physical")}</h3>
                           </div>
                           <div className="space-y-3">
                             {renderSkillBar(t("squad.skills.pace"), (selectedTransfer.player.currentSkills as any)?.physical?.pace || 0, (selectedTransfer.player.potentialSkills as any)?.physical?.pace || 0, "text-signal-blue")}
@@ -858,7 +858,7 @@ export default function TransfersPage() {
                         <div>
                           <div className="flex items-center gap-2 mb-3">
                             <div className="w-1.5 h-4 bg-signal-lime rounded-full" />
-                            <h3 className="text-xs font-black font-space tracking-widest uppercase text-[#91b12a6]">{t("transfers.detail.mental")}</h3>
+                            <h3 className="text-xs font-black font-headline tracking-widest uppercase text-[#91b12a6]">{t("transfers.detail.mental")}</h3>
                           </div>
                           <div className="space-y-3">
                             {renderSkillBar(t("squad.skills.composure"), (selectedTransfer.player.currentSkills as any)?.mental?.composure || 0, (selectedTransfer.player.potentialSkills as any)?.mental?.composure || 0, "text-signal-lime")}
@@ -870,7 +870,7 @@ export default function TransfersPage() {
                         <div>
                           <div className="flex items-center gap-2 mb-3">
                             <div className="w-1.5 h-4 bg-signal-amber rounded-full" />
-                            <h3 className="text-xs font-black font-space tracking-widest uppercase text-muted">{t("squad.skills.setPieces")}</h3>
+                            <h3 className="text-xs font-black font-headline tracking-widest uppercase text-muted">{t("squad.skills.setPieces")}</h3>
                           </div>
                           <div className="space-y-3">
                             {renderSkillBar(t("squad.skills.freeKicks"), (selectedTransfer.player.currentSkills as any)?.setPieces?.freeKicks || 0, (selectedTransfer.player.potentialSkills as any)?.setPieces?.freeKicks || 0, "text-signal-amber")}

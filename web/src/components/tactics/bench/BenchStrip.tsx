@@ -5,7 +5,7 @@ import { useTranslations } from 'next-intl';
 import type { Player } from '@/lib/api';
 import type { BenchMap, BenchSlot, PositionKey } from '../types';
 import { BENCH_SLOTS } from '../types';
-import { KickerLabel } from '../shared/KickerLabel';
+import { KickerLabel } from '@/components/ui/KickerLabel';
 import { BenchSlotView } from './BenchSlot';
 
 interface BenchStripProps {

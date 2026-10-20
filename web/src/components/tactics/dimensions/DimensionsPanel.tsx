@@ -7,8 +7,8 @@ import type {
   DefensiveLineValue,
   PitchWidthValue,
 } from '../types';
-import { GlassPanel } from '../shared/GlassPanel';
-import { KickerLabel } from '../shared/KickerLabel';
+import { GlassPanel } from '@/components/ui/GlassPanel';
+import { KickerLabel } from '@/components/ui/KickerLabel';
 import { DimensionSegmented, type DimensionOption } from './DimensionSegmented';
 
 interface DimensionsPanelProps {
