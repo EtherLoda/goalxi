@@ -16,29 +16,40 @@ function conditionPoints(value: number): number {
   return Math.min(5, Math.max(0, Math.round(value)));
 }
 
+/** Three words, not five numbers: the exact value is a hover away. */
+type ConditionTier = 'high' | 'mid' | 'low';
+
+function conditionTier(value: number): ConditionTier {
+  if (value >= 4) return 'high';
+  if (value >= 2) return 'mid';
+  return 'low';
+}
+
 /**
  * The three-up condition strip: 体能 / 状态 / 经验.
  *
  * Thresholds are the squad row's (≥4 reads strong, ≥2 reads playable), so a
  * player is the same colour here as in the list you clicked to get here.
- * Experience is a tier label, not a raw number — the potential ceiling is
- * deliberately not shown on this surface.
+ * Every tile reads as a word; the number behind it is the `title`, so the
+ * strip stays scannable without hiding the data.
  */
 export function PlayerStatTiles({ player }: { player: Player }) {
   const t = useTranslations();
+  const staminaTier = conditionTier(player.stamina);
+  const formTier = conditionTier(player.form);
 
   return (
     <div className="flex min-w-0 flex-1 gap-tight">
       <StatTile
         label={t('squad.stamina')}
-        value={conditionPoints(player.stamina)}
-        suffix="/5"
+        value={<span className="text-body font-black">{t(`squad.staminaTier.${staminaTier}`)}</span>}
+        title={`${conditionPoints(player.stamina)}/5`}
         tone={conditionToneClass(player.stamina, 4, 2)}
       />
       <StatTile
         label={t('squad.form')}
-        value={conditionPoints(player.form)}
-        suffix="/5"
+        value={<span className="text-body font-black">{t(`squad.formTier.${formTier}`)}</span>}
+        title={`${conditionPoints(player.form)}/5`}
         tone={conditionToneClass(player.form, 4, 2)}
       />
       <StatTile

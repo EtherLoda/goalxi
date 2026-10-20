@@ -533,7 +533,17 @@
     "noPlayers": "暂无球员",
     "noPlayersHint": "球员通过球探或转会市场获得。",
     "overall": "综合",
-    "payroll": "周薪总额"
+    "payroll": "周薪总额",
+    "staminaTier": {
+      "high": "充沛",
+      "mid": "一般",
+      "low": "疲劳"
+    },
+    "formTier": {
+      "high": "火热",
+      "mid": "平稳",
+      "low": "低迷"
+    }
   },
   "transfers": {
     "title": "转会市场",

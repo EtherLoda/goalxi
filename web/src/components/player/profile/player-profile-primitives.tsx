@@ -41,15 +41,23 @@ export function StatTile({
   value,
   suffix,
   tone = 'text-on-surface',
+  title,
 }: {
   label: string;
   value: React.ReactNode;
   suffix?: string;
   tone?: string;
+  /** Raw value behind the words, revealed on hover. */
+  title?: string;
 }) {
   return (
-    <div className="flex flex-1 flex-col items-center gap-micro rounded-xl bg-surface-container/60 px-tight py-2">
-      <span className={`font-headline text-xl font-black leading-none tabular-nums ${tone}`}>
+    <div
+      title={title}
+      className="flex flex-1 flex-col items-center gap-micro rounded-xl bg-surface-container/60 px-tight py-2"
+    >
+      <span
+        className={`font-headline text-xl font-black leading-none tabular-nums ${tone}`}
+      >
         {value}
         {suffix ? <span className="ml-0.5 font-label text-kicker font-bold text-outline">{suffix}</span> : null}
       </span>

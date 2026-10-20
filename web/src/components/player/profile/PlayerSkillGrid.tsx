@@ -42,18 +42,19 @@ export function PlayerSkillGrid({ player, columns = 4 }: PlayerSkillGridProps) {
                 {t(`squad.skills.${groupTitleKey(group.category, player.isGoalkeeper)}`)}
               </span>
             </div>
-            <div className="flex flex-col gap-tight">
+            <div className="flex flex-col gap-3">
               {group.specs.map((spec) => {
                 const pair = readSkillPair(player.currentSkills, player.potentialSkills, spec);
                 return (
-                  <SkillBar
-                    key={spec.key}
-                    label={t(`squad.skills.${spec.key}`)}
-                    current={pair.current}
-                    potential={pair.potential}
-                    colorClass={CATEGORY_COLORS[group.category]}
-                    barClass={CATEGORY_BARS[group.category]}
-                  />
+                  <div key={spec.key} className="max-w-[240px]">
+                    <SkillBar
+                      label={t(`squad.skills.${spec.key}`)}
+                      current={pair.current}
+                      potential={pair.potential}
+                      colorClass={CATEGORY_COLORS[group.category]}
+                      barClass={CATEGORY_BARS[group.category]}
+                    />
+                  </div>
                 );
               })}
             </div>

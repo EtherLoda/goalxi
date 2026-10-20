@@ -533,7 +533,17 @@
     "noPlayers": "No players yet",
     "noPlayersHint": "Players join through scouting or the transfer market.",
     "overall": "OVR",
-    "payroll": "Wage bill"
+    "payroll": "Wage bill",
+    "staminaTier": {
+      "high": "Fresh",
+      "mid": "Fair",
+      "low": "Tired"
+    },
+    "formTier": {
+      "high": "Hot",
+      "mid": "Steady",
+      "low": "Cold"
+    }
   },
   "transfers": {
     "title": "Transfer Market",
