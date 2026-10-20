@@ -1,0 +1,110 @@
+'use client';
+
+import Link from 'next/link';
+import { useTranslations } from 'next-intl';
+import { useMemo } from 'react';
+import type { ReactNode } from 'react';
+import { ExperienceTierLabel } from '@/components/ExperienceTierLabel';
+import { SpecialtyIcon } from '@/components/player/SpecialtyIcon';
+import { getSpecialtyLabel } from '@/lib/specialties';
+import type { Player } from '@/lib/api';
+import { initialsOf, MetaCell } from './player-profile-primitives';
+
+interface PlayerIdentityProps {
+  player: Player;
+  locale: string;
+  /** Rendered as a link when set; the profile page leaves it unset (you are already there). */
+  nameHref?: string;
+  /** Jersey tint for the avatar wash. Falls back to the club green. */
+  accentColor?: string | null;
+  /** Position / transfer / youth chips, supplied by the screen that knows which matter. */
+  chips?: ReactNode;
+  /** Right-aligned action cluster. */
+  actions?: ReactNode;
+}
+
+/**
+ * The player header: portrait, name, specialty, chips and the four-cell meta
+ * strip. Shared by the squad detail pane and the full profile page so a player
+ * cannot look like two different people depending on which screen you opened.
+ */
+export function PlayerIdentity({
+  player,
+  locale,
+  nameHref,
+  accentColor,
+  chips,
+  actions,
+}: PlayerIdentityProps) {
+  const t = useTranslations();
+  const lang: 'en' | 'zh' = locale === 'en' ? 'en' : 'zh';
+  const accent = accentColor ?? '#00e479';
+  const initials = useMemo(() => initialsOf(player.name), [player.name]);
+  const overall = player.overall ?? player.pwi ?? 0;
+
+  const nameClass =
+    'font-headline text-2xl font-black leading-none tracking-tight text-on-surface';
+
+  return (
+    <div className="flex flex-col gap-gutter p-panel sm:flex-row sm:items-start">
+      <div
+        className="flex h-24 w-24 shrink-0 items-center justify-center rounded-2xl border border-white/[0.08] font-headline text-3xl font-black text-on-surface"
+        style={{ background: `linear-gradient(135deg, ${accent}26, ${accent}0a)` }}
+        aria-hidden="true"
+      >
+        {initials}
+      </div>
+
+      <div className="flex min-w-0 flex-1 flex-col gap-tight">
+        <div className="flex flex-wrap items-center gap-tight">
+          {nameHref ? (
+            <Link
+              href={nameHref}
+              className={`${nameClass} transition-colors duration-quick hover:text-primary`}
+            >
+              {player.name}
+            </Link>
+          ) : (
+            <h1 className={nameClass}>{player.name}</h1>
+          )}
+          {player.coreSpecialty ? (
+            <span
+              className={`inline-flex items-center gap-micro font-label text-label font-bold ${
+                player.coreSpecialtyTier === 'GOLD'
+                  ? 'text-tertiary'
+                  : player.coreSpecialtyTier === 'SILVER'
+                    ? 'text-on-surface-variant'
+                    : 'text-outline'
+              }`}
+            >
+              <SpecialtyIcon code={player.coreSpecialty} tier={player.coreSpecialtyTier} size="md" />
+              {getSpecialtyLabel(player.coreSpecialty, lang)}
+            </span>
+          ) : null}
+        </div>
+
+        {chips ? <div className="flex flex-wrap items-center gap-tight">{chips}</div> : null}
+
+        <div className="mt-tight grid grid-cols-2 gap-x-gutter gap-y-tight sm:grid-cols-4">
+          <MetaCell label={t('squad.age')}>
+            {t('common.ageFormat', { y: player.age, d: player.ageDays })}
+          </MetaCell>
+          <MetaCell label={t('squad.exp')}>
+            <ExperienceTierLabel value={player.experience} className="font-bold text-on-surface" />
+          </MetaCell>
+          <MetaCell label={t('squad.wage')}>
+            <span className="text-secondary">
+              {t('common.currencySymbol')}
+              {(player.currentWage || 0).toLocaleString()}
+            </span>
+          </MetaCell>
+          <MetaCell label={t('squad.overall')}>
+            <span className="text-primary">{overall.toLocaleString()}</span>
+          </MetaCell>
+        </div>
+      </div>
+
+      {actions ? <div className="flex shrink-0 items-center gap-tight">{actions}</div> : null}
+    </div>
+  );
+}

@@ -4,6 +4,7 @@ import { useTranslations } from 'next-intl';
 import { AppIcon } from '@/components/icons/AppIcon';
 import { InjuryBadge } from '@/components/player/InjuryBadge';
 import { SpecialtyIcon } from '@/components/player/SpecialtyIcon';
+import { conditionToneClass } from '@/lib/condition-tone';
 import { getSpecialtyLabel } from '@/lib/specialties';
 import type { Player } from '@/lib/api';
 
@@ -14,12 +15,6 @@ interface SquadPlayerRowProps {
   onSelect: (player: Player) => void;
 }
 
-/** Colour for a 0-6 stamina / 0-5 form value, shared with the detail pane. */
-export function conditionToneClass(value: number, good: number, ok: number): string {
-  if (value >= good) return 'text-primary';
-  if (value >= ok) return 'text-tertiary';
-  return 'text-error';
-}
 
 function initialsOf(name: string): string {
   return name

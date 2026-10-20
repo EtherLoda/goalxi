@@ -1,69 +1,19 @@
 "use client";
 
-import { AppIcon, type MaterialIconName } from "@/components/icons/AppIcon";
+import { AppIcon } from "@/components/icons/AppIcon";
 import { useEffect, useState } from "react";
-import { useParams } from "next/navigation";
 import Link from "next/link";
-import { api, type Player, type TransferAuction } from "@/lib/api";
+import { api, type Player, type PlayerEvent, type TransferAuction } from "@/lib/api";
 import { useTranslations } from "next-intl";
 import { useAuth } from "@/contexts/AuthContext";
-import { SpecialtyIcon } from "@/components/player/SpecialtyIcon";
 import { PlayerSeasonStatsCard } from "@/components/player/PlayerSeasonStatsCard";
-import { getSpecialtyLabel } from "@/lib/specialties";
-import { ExperienceTierLabel } from "@/components/ExperienceTierLabel";
-import { barClassFor } from "@/components/player/skill-display";
-
-const SKILL_MAX = 20;
-
-const EVENT_ICONS: Record<string, MaterialIconName> = {
-  TRANSFER: "swap_horiz",
-  YOUTH_PROMOTION: "trending_up",
-  HAT_TRICK: "sports_kabaddi",
-  CHAMPIONSHIP_TITLE: "emoji_events",
-  GOLDEN_BOOT: "military_tech",
-  ASSISTS_LEADER: "assist_hand",
-  TACKLES_LEADER: "shield",
-  MAN_OF_THE_MATCH: "star",
-  INJURY: "local_hospital",
-  DEBUT: "play_circle",
-  LEAGUE_DEBUT: "stadium",
-  CAPTAIN_DEBUT: "captain",
-  RECORD_BROKEN: "record_voice_over",
-  CONTRACT_RENEWAL: "renewal",
-};
-
-const EVENT_COLORS: Record<string, string> = {
-  TRANSFER: "text-signal-blue",
-  YOUTH_PROMOTION: "text-positive-bright",
-  HAT_TRICK: "text-signal-gold",
-  CHAMPIONSHIP_TITLE: "text-signal-amber",
-  GOLDEN_BOOT: "text-signal-gold",
-  ASSISTS_LEADER: "text-signal-blue",
-  TACKLES_LEADER: "text-positive-bright",
-  MAN_OF_THE_MATCH: "text-signal-magenta",
-  INJURY: "text-danger",
-  DEBUT: "text-signal-violet",
-  LEAGUE_DEBUT: "text-signal-violet",
-  CAPTAIN_DEBUT: "text-signal-gold",
-  RECORD_BROKEN: "text-signal-cyan",
-  CONTRACT_RENEWAL: "text-signal-blue",
-};
+import { PlayerIdentity } from "@/components/player/profile/PlayerIdentity";
+import { PlayerStatTiles } from "@/components/player/profile/PlayerStatTiles";
+import { PlayerSkillGrid } from "@/components/player/profile/PlayerSkillGrid";
+import { PlayerEventTimeline } from "@/components/player/profile/PlayerEventTimeline";
 
 interface PageProps {
   params: Promise<{ locale: string; id: string }>;
-}
-
-interface PlayerEvent {
-  id: string;
-  playerId: number;
-  season: number;
-  date: string;
-  eventType: string;
-  icon?: string;
-  titleKey?: string;
-  matchId?: string;
-  titleData?: Record<string, any>;
-  details?: any;
 }
 
 interface ListPlayerModalProps {
@@ -207,8 +157,7 @@ export default function PlayerDetailPage({ params }: PageProps) {
   const t = useTranslations("squad");
   const tt = useTranslations("transfers");
   const tc = useTranslations("common");
-  const te = useTranslations("player_events");
-  const { user, team } = useAuth();
+  const { team } = useAuth();
   const [player, setPlayer] = useState<Player | null>(null);
   const [events, setEvents] = useState<PlayerEvent[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -292,79 +241,6 @@ export default function PlayerDetailPage({ params }: PageProps) {
     return `${hours}h ${minutes}m`;
   };
 
-  // Circular gauge component
-  const renderGauge = (
-    value: number,
-    max: number,
-    label: string,
-    colorClass: string,
-  ) => {
-    const percentage = (value / max) * 100;
-    const circumference = 2 * Math.PI * 20;
-    const offset = circumference - (percentage / 100) * circumference;
-
-    return (
-      <div className="bg-ink-700 rounded-xl p-3 flex flex-col items-center justify-center border border-edge/10">
-        <div className="relative w-11 h-11 flex items-center justify-center">
-          <svg className="w-full h-full -rotate-90">
-            <circle
-              cx="22"
-              cy="22"
-              fill="transparent"
-              r="20"
-              stroke="#00251c"
-              strokeWidth="3"
-            />
-            <circle
-              cx="22"
-              cy="22"
-              fill="transparent"
-              r="20"
-              className={colorClass}
-              strokeWidth="3"
-              strokeDasharray={circumference}
-              strokeDashoffset={offset}
-              strokeLinecap="round"
-            />
-          </svg>
-          <span className="absolute text-sm font-black font-headline">
-            {value}
-          </span>
-        </div>
-        <span className="text-[8px] font-bold font-headline mt-1 tracking-widest uppercase text-muted">
-          {label}
-        </span>
-      </div>
-    );
-  };
-
-  // Skill bar component
-  const renderSkillBar = (
-    label: string,
-    value: number,
-    potential: number,
-    colorClass: string,
-  ) => {
-    const percentage = (value / SKILL_MAX) * 100;
-
-    return (
-      <div className="space-y-1.5">
-        <div className="flex justify-between text-[10px] font-bold uppercase tracking-wider text-muted">
-          <span>{label}</span>
-          <span className={colorClass}>
-            {value}/{potential}
-          </span>
-        </div>
-        <div className="h-1.5 w-full bg-ink-700 rounded-full overflow-hidden">
-          <div
-            className={`h-full ${barClassFor(colorClass)} rounded-full`}
-            style={{ width: `${percentage}%` }}
-          />
-        </div>
-      </div>
-    );
-  };
-
   return (
     <div>
       <div className="flex-grow p-6 pt-10">
@@ -373,167 +249,67 @@ export default function PlayerDetailPage({ params }: PageProps) {
             <AppIcon name="progress_activity" className="text-4xl text-accent animate-spin" />
           </div>
         ) : player ? (
-          <div className="w-full max-w-[580px] mx-auto pb-8">
-            {/* Player Card */}
-            <div className="bg-ink-800 rounded-xl flex flex-col relative min-h-[600px]">
-              {/* Glass Background */}
-              <div className="absolute inset-0 bg-gradient-to-br from-accent/5 to-transparent pointer-events-none" />
-
-              {/* Player Header Section */}
-              <div className="p-6 pb-4 relative flex items-start justify-between">
-                <div className="flex gap-8">
-                  {/* Avatar */}
-                  <div className="relative">
-                    <div className="w-24 h-24 rounded-2xl overflow-hidden border-2 border-accent/30 p-1 bg-ink-600">
-                      <div
-                        className="w-full h-full rounded-xl flex items-center justify-center font-headline font-black text-3xl text-accent"
-                        style={{
-                          background:
-                            "linear-gradient(135deg, #a1ffc220, #a1ffc210)",
-                        }}
+          <div className="w-full max-w-[720px] mx-auto pb-8">
+            <div className="glass-panel flex flex-col overflow-hidden rounded-2xl">
+              <PlayerIdentity
+                player={player}
+                locale={resolvedParams?.locale ?? "zh"}
+                chips={
+                  <>
+                    {player.potentialTier ? (
+                      <span className="rounded-md border border-outline-variant/40 bg-surface-container-high px-1.5 py-0.5 font-label text-kicker font-bold uppercase tracking-[0.08em] text-on-surface-variant">
+                        {player.potentialTier.replace("_", " ")}
+                      </span>
+                    ) : null}
+                    {player.isGoalkeeper ? (
+                      <span className="rounded-md border border-secondary/30 bg-secondary/10 px-1.5 py-0.5 font-label text-kicker font-bold uppercase tracking-[0.08em] text-secondary">
+                        {tt("status.goalkeeper")}
+                      </span>
+                    ) : null}
+                    {player.onTransfer ? (
+                      <span className="inline-flex items-center gap-micro rounded-md border border-secondary/30 bg-secondary/10 px-1.5 py-0.5 font-label text-kicker font-bold uppercase tracking-[0.08em] text-secondary">
+                        <AppIcon name="sell" className="text-kicker" />
+                        {tt("status.onTransfer")}
+                      </span>
+                    ) : null}
+                    {player.isYouth ? (
+                      <span className="rounded-md border border-tertiary/30 bg-tertiary/10 px-1.5 py-0.5 font-label text-kicker font-bold uppercase tracking-[0.08em] text-tertiary">
+                        {tt("status.youth")}
+                      </span>
+                    ) : null}
+                  </>
+                }
+                actions={
+                  <>
+                    {!player.onTransfer ? (
+                      <button
+                        type="button"
+                        onClick={() => setShowListModal(true)}
+                        className="inline-flex h-9 items-center gap-micro rounded-lg border border-primary/30 bg-primary/12 px-tight font-label text-label font-bold text-primary transition-colors duration-quick hover:bg-primary/20"
                       >
-                        {player.name
-                          .split(" ")
-                          .map((n) => n[0])
-                          .join("")
-                          .slice(0, 2)}
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Name & Bio */}
-                  <div>
-                    <div className="flex items-center gap-3">
-                      <h1 className="text-4xl font-black font-headline tracking-tight leading-none text-frost">
-                        {player.name}
-                      </h1>
-                      {player.coreSpecialty && (
-                        <span
-                          className={`inline-flex items-center ${
-                            player.coreSpecialtyTier === "GOLD"
-                              ? "text-amber-300"
-                              : player.coreSpecialtyTier === "SILVER"
-                                ? "text-slate-300"
-                                : "text-stone-400"
-                          }`}
-                        >
-                          <SpecialtyIcon
-                            code={player.coreSpecialty}
-                            tier={player.coreSpecialtyTier}
-                            size="xl"
-                          />
-                        </span>
-                      )}
-                    </div>
-                    <div className="flex items-center gap-4 mt-2">
-                      <div className="flex items-center gap-2">
-                        <AppIcon name="calendar_month" className="text-muted text-sm" />
-                        <span className="text-xs font-bold uppercase tracking-widest text-muted">
-                          {tc("ageFormat", { y: player.age, d: player.ageDays })}
-                        </span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <AppIcon name="military_tech" className="text-muted text-sm" />
-                        <span className="text-xs font-bold uppercase tracking-widest text-muted">
-                          {t("exp")} <ExperienceTierLabel value={player.experience} className="text-frost" />
-                        </span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <AppIcon name="payments" className="text-muted text-sm" />
-                        <span className="text-xs font-bold uppercase tracking-widest text-signal-amber">
-                          £{(player.currentWage || 0).toLocaleString()}/w
-                        </span>
-                      </div>
-                    </div>
-                    <div className="mt-4 flex gap-2">
-                      {player.potentialTier && (
-                        <span className="bg-signal-lime-dim/20 text-signal-lime px-3 py-1 rounded-full text-[10px] font-bold font-headline">
-                          {player.potentialTier.replace("_", " ")}
-                        </span>
-                      )}
-                      {player.isGoalkeeper && (
-                        <span className="bg-signal-blue-deep/20 text-signal-blue px-3 py-1 rounded-full text-[10px] font-bold font-headline">
-                          {tt("status.goalkeeper")}
-                        </span>
-                      )}
-                      {player.onTransfer && (
-                        <span className="bg-accent/20 text-accent px-3 py-1 rounded-full text-[10px] font-bold font-headline">
-                          {tt("status.onTransfer")}
-                        </span>
-                      )}
-                      {player.isYouth && (
-                        <span className="bg-signal-amber/20 text-signal-amber px-3 py-1 rounded-full text-[10px] font-bold font-headline">
-                          {tt("status.youth")}
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                </div>
-
-                {/* Action Buttons */}
-                <div className="flex gap-2">
-                  {!player.onTransfer && (
+                        <AppIcon name="sell" className="text-kicker" />
+                        {t("transfer.listButton")}
+                      </button>
+                    ) : null}
                     <button
-                      onClick={() => setShowListModal(true)}
-                      className="w-10 h-10 rounded-full flex items-center justify-center bg-accent/20 text-accent hover:bg-accent/30 transition-colors border border-accent/30"
-                      title={t("transfer.listButton")}
-                      aria-label={t("transfer.listButton")}
+                      type="button"
+                      className="inline-flex h-9 items-center justify-center rounded-lg border border-outline-variant/40 px-2.5 font-label text-label font-bold text-on-surface-variant transition-colors duration-quick hover:border-outline hover:text-on-surface"
+                      aria-label={tc("favorite")}
                     >
-                      <AppIcon name="sell" />
+                      <AppIcon name="favorite" className="text-kicker" />
                     </button>
-                  )}
-                  <button
-                    className="w-10 h-10 rounded-full flex items-center justify-center bg-ink-600 text-muted hover:text-accent transition-colors border border-edge/20"
-                    aria-label={tc("favorite")}
-                  >
-                    <AppIcon name="favorite" />
-                  </button>
-                  <button
-                    className="w-10 h-10 rounded-full flex items-center justify-center bg-ink-600 text-muted hover:text-accent transition-colors border border-edge/20"
-                    aria-label={tc("share")}
-                  >
-                    <AppIcon name="share" />
-                  </button>
-                </div>
-              </div>
-
-              {/* Gauges Area */}
-              <div className="px-6 py-4 grid grid-cols-4 gap-3">
-                {/* PWI - Simple text display */}
-                <div className="bg-ink-700 rounded-xl p-3 flex flex-col items-center justify-center border border-edge/10">
-                  <div className="text-lg font-black font-headline text-accent">
-                    {player.pwi?.toLocaleString() || "0"}
-                  </div>
-                  <span className="text-[8px] font-bold font-headline mt-1 tracking-widest uppercase text-muted">
-                    PWI
-                  </span>
-                </div>
-                {renderGauge(
-                  player.stamina,
-                  5.99,
-                  t("stamina"),
-                  player.stamina >= 4
-                    ? "text-accent"
-                    : player.stamina >= 2
-                      ? "text-signal-lime"
-                      : "text-red-400",
-                )}
-                {renderGauge(
-                  player.form,
-                  5.99,
-                  t("form"),
-                  player.form >= 4
-                    ? "text-accent"
-                    : player.form >= 2
-                      ? "text-signal-lime"
-                      : "text-red-400",
-                )}
-                {renderGauge(
-                  player.potentialAbility,
-                  99,
-                  "PA",
-                  "text-primary-dim",
-                )}
+                    <button
+                      type="button"
+                      className="inline-flex h-9 items-center justify-center rounded-lg border border-outline-variant/40 px-2.5 font-label text-label font-bold text-on-surface-variant transition-colors duration-quick hover:border-outline hover:text-on-surface"
+                      aria-label={tc("share")}
+                    >
+                      <AppIcon name="share" className="text-kicker" />
+                    </button>
+                  </>
+                }
+              />
+              <div className="px-panel pb-panel">
+                <PlayerStatTiles player={player} />
               </div>
 
               {/* Transfer Market Section */}
@@ -678,167 +454,7 @@ export default function PlayerDetailPage({ params }: PageProps) {
                 </div>
               )}
 
-              {/* Skills Matrix */}
-              <div className="flex-grow overflow-y-auto custom-scrollbar px-6 pb-6">
-                <div className="grid grid-cols-2 gap-10">
-                  {/* Physical & Technical */}
-                  <div className="space-y-8">
-                    {/* Physical */}
-                    <div>
-                      <div className="flex items-center gap-2 mb-3">
-                        <div className="w-1.5 h-4 bg-signal-blue rounded-full" />
-                        <h3 className="text-xs font-black font-headline tracking-widest uppercase text-muted">
-                          {t("skills.physicalAttributes")}
-                        </h3>
-                      </div>
-                      <div className="space-y-3">
-                        {renderSkillBar(
-                          t("skills.pace"),
-                          player.currentSkills.physical?.pace || 0,
-                          player.potentialSkills.physical?.pace || 0,
-                          "text-signal-blue",
-                        )}
-                        {renderSkillBar(
-                          t("skills.strength"),
-                          player.currentSkills.physical?.strength || 0,
-                          player.potentialSkills.physical?.strength || 0,
-                          "text-signal-blue",
-                        )}
-                      </div>
-                    </div>
-
-                    {/* Technical */}
-                    <div>
-                      <div className="flex items-center gap-2 mb-3">
-                        <div
-                          className={`w-1.5 h-4 ${player.isGoalkeeper ? "bg-accent" : "bg-accent"} rounded-full`}
-                        />
-                        <h3 className="text-xs font-black font-headline tracking-widest uppercase text-muted">
-                          {player.isGoalkeeper
-                            ? t("skills.goalkeeperSkills")
-                            : t("skills.technicalSkills")}
-                        </h3>
-                      </div>
-                      <div className="space-y-3">
-                        {player.isGoalkeeper ? (
-                          <>
-                            {renderSkillBar(
-                              t("skills.reflexes"),
-                              (player.currentSkills.technical as any)
-                                ?.reflexes || 0,
-                              (player.potentialSkills.technical as any)
-                                ?.reflexes || 0,
-                              "text-accent",
-                            )}
-                            {renderSkillBar(
-                              t("skills.handling"),
-                              (player.currentSkills.technical as any)
-                                ?.handling || 0,
-                              (player.potentialSkills.technical as any)
-                                ?.handling || 0,
-                              "text-accent",
-                            )}
-                            {renderSkillBar(
-                              t("skills.aerial"),
-                              (player.currentSkills.technical as any)?.aerial ||
-                                0,
-                              (player.potentialSkills.technical as any)
-                                ?.aerial || 0,
-                              "text-accent",
-                            )}
-                          </>
-                        ) : (
-                          <>
-                            {renderSkillBar(
-                              t("skills.finishing"),
-                              (player.currentSkills.technical as any)
-                                ?.finishing || 0,
-                              (player.potentialSkills.technical as any)
-                                ?.finishing || 0,
-                              "text-accent",
-                            )}
-                            {renderSkillBar(
-                              t("skills.passing"),
-                              (player.currentSkills.technical as any)
-                                ?.passing || 0,
-                              (player.potentialSkills.technical as any)
-                                ?.passing || 0,
-                              "text-accent",
-                            )}
-                            {renderSkillBar(
-                              t("skills.dribbling"),
-                              (player.currentSkills.technical as any)
-                                ?.dribbling || 0,
-                              (player.potentialSkills.technical as any)
-                                ?.dribbling || 0,
-                              "text-accent",
-                            )}
-                            {renderSkillBar(
-                              t("skills.defending"),
-                              (player.currentSkills.technical as any)
-                                ?.defending || 0,
-                              (player.potentialSkills.technical as any)
-                                ?.defending || 0,
-                              "text-accent",
-                            )}
-                          </>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Mental & Set Pieces */}
-                  <div className="space-y-8">
-                    {/* Mental */}
-                    <div>
-                      <div className="flex items-center gap-2 mb-3">
-                        <div className="w-1.5 h-4 bg-signal-lime rounded-full" />
-                        <h3 className="text-xs font-black font-headline tracking-widest uppercase text-muted">
-                          {t("skills.mentalProfile")}
-                        </h3>
-                      </div>
-                      <div className="space-y-3">
-                        {renderSkillBar(
-                          t("skills.positioning"),
-                          player.currentSkills.mental?.positioning || 0,
-                          player.potentialSkills.mental?.positioning || 0,
-                          "text-signal-lime",
-                        )}
-                        {renderSkillBar(
-                          t("skills.composure"),
-                          player.currentSkills.mental?.composure || 0,
-                          player.potentialSkills.mental?.composure || 0,
-                          "text-signal-lime",
-                        )}
-                      </div>
-                    </div>
-
-                    {/* Set Pieces */}
-                    <div>
-                      <div className="flex items-center gap-2 mb-3">
-                        <div className="w-1.5 h-4 bg-signal-amber rounded-full" />
-                        <h3 className="text-xs font-black font-headline tracking-widest uppercase text-muted">
-                          {t("skills.setPieces")}
-                        </h3>
-                      </div>
-                      <div className="space-y-3">
-                        {renderSkillBar(
-                          t("skills.freeKicks"),
-                          player.currentSkills.setPieces?.freeKicks || 0,
-                          player.potentialSkills.setPieces?.freeKicks || 0,
-                          "text-signal-amber",
-                        )}
-                        {renderSkillBar(
-                          t("skills.penalties"),
-                          player.currentSkills.setPieces?.penalties || 0,
-                          player.potentialSkills.setPieces?.penalties || 0,
-                          "text-signal-amber",
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
+              <PlayerSkillGrid player={player} columns={2} />
 
               {/* Season Stats Section — career totals + every (league, season) row from
                   `GET /stats/player/:id/seasons`. The data is keyed by
@@ -848,63 +464,13 @@ export default function PlayerDetailPage({ params }: PageProps) {
                   visual block sits apart from the skill bars (which are
                   about attributes, not what the player has done on the
                   pitch). */}
-              <div className="px-6 pb-6 border-t border-edge/20">
+              <div className="border-t border-outline-variant/30 p-panel">
                 <PlayerSeasonStatsCard
                   playerId={parseInt(resolvedParams?.id ?? "0", 10)}
                 />
               </div>
 
-              {/* Player Events Section */}
-              <div className="px-6 pb-6 border-t border-edge/20">
-                <div className="flex items-center gap-2 mt-4 mb-3">
-                  <div className="w-1.5 h-4 bg-signal-amber rounded-full" />
-                  <h3 className="text-xs font-black font-headline tracking-widest uppercase text-muted">
-                    {te("title")}
-                  </h3>
-                </div>
-                {events.length === 0 ? (
-                  <div className="bg-ink-700/50 rounded-xl p-6 text-center">
-                    <AppIcon name="history" className="text-3xl text-faint" />
-                    <p className="text-faint text-xs mt-2">
-                      {te("no_events")}
-                    </p>
-                  </div>
-                ) : (
-                  <div className="space-y-2">
-                    {events.map((event) => {
-                      const iconName = EVENT_ICONS[event.eventType] || "event";
-                      const colorClass =
-                        EVENT_COLORS[event.eventType] || "text-accent";
-                      const eventLabel = event.titleKey
-                        ? te(event.titleKey.replace(/^player_events\./, ""))
-                        : event.eventType;
-                      const eventDate = new Date(event.date);
-                      const dateStr = `${eventDate.getFullYear()}/${eventDate.getMonth() + 1}/${eventDate.getDate()}`;
-
-                      return (
-                        <div
-                          key={event.id}
-                          className="flex items-center gap-3 p-3 bg-ink-700/30 rounded-lg"
-                        >
-                          <div
-                            className={`w-10 h-10 rounded-full flex items-center justify-center bg-ink-700 ${colorClass}`}
-                          >
-                            <AppIcon name={iconName} className="text-lg" />
-                          </div>
-                          <div className="flex-1">
-                            <p className="text-sm font-bold text-frost">
-                              {eventLabel}
-                            </p>
-                            <p className="text-xs text-muted">
-                              {dateStr} - Season {event.season}
-                            </p>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
+              <PlayerEventTimeline events={events} limit={10} />
             </div>
           </div>
         ) : (
