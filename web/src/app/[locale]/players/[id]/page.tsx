@@ -158,6 +158,7 @@ export default function PlayerDetailPage({ params }: PageProps) {
   const t = useTranslations("squad");
   const tt = useTranslations("transfers");
   const tc = useTranslations("common");
+  const tp = useTranslations("player_profile");
   const { team } = useAuth();
   const [player, setPlayer] = useState<Player | null>(null);
   const [recentMatches, setRecentMatches] = useState<PlayerMatchLogEntry[]>([]);
@@ -475,13 +476,13 @@ export default function PlayerDetailPage({ params }: PageProps) {
             <div className="glass-panel overflow-hidden rounded-2xl">
               <div className="flex items-center justify-between px-panel py-tight">
                 <span className="font-label text-kicker font-bold uppercase tracking-[0.12em] text-on-surface-variant">
-                  {t("profile.recentMatches")}
+                  {tp("profile.recentMatches")}
                 </span>
                 <Link
                   href={`/${resolvedParams?.locale}/players/${player.id}/matches`}
                   className="font-label text-kicker font-bold uppercase tracking-[0.08em] text-primary transition-colors duration-quick hover:text-primary/80"
                 >
-                  {t("profile.viewAll")}
+                  {tp("profile.viewAll")}
                 </Link>
               </div>
               <div className="px-tight pb-tight">
