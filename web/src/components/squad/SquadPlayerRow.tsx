@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { useTranslations } from 'next-intl';
 import { AppIcon } from '@/components/icons/AppIcon';
 import { InjuryBadge } from '@/components/player/InjuryBadge';
@@ -28,11 +29,10 @@ function initialsOf(name: string): string {
 /**
  * One row in the squad list.
  *
- * Deliberately a `<button>`, not a div with a nested `<Link>`: the row's only
- * job is "select this player", and a link inside a clickable row is both
- * invalid HTML (a button cannot contain one) and a second target in a 56px
- * strip. The profile link lives in the detail pane, where there is room to
- * label it.
+ * The row selects the player; the NAME is its own link into the full profile,
+ * which is the thing people try to click before they learn about the detail
+ * pane. A `<div role="button">` rather than a real `<button>` because a button
+ * may not contain a link — and the name really does have to be a link.
  */
 export function SquadPlayerRow({ player, isSelected, locale, onSelect }: SquadPlayerRowProps) {
   const t = useTranslations();
@@ -40,11 +40,18 @@ export function SquadPlayerRow({ player, isSelected, locale, onSelect }: SquadPl
   const position = isGk ? 'GK' : (player.position ?? '').toUpperCase();
 
   return (
-    <button
-      type="button"
+    <div
+      role="button"
+      tabIndex={0}
       onClick={() => onSelect(player)}
-      aria-current={isSelected ? 'true' : undefined}
-      className={`group flex w-full items-center gap-tight rounded-xl border px-tight py-2 text-left transition-colors duration-quick ${
+      onKeyDown={(event) => {
+        if (event.key === 'Enter' || event.key === ' ') {
+          event.preventDefault();
+          onSelect(player);
+        }
+      }}
+      aria-pressed={isSelected}
+      className={`group flex w-full cursor-pointer items-center gap-tight rounded-xl border px-tight py-2 text-left transition-colors duration-quick ${
         isSelected
           ? 'border-primary/30 bg-primary/10'
           : 'border-transparent hover:border-white/[0.06] hover:bg-white/[0.04]'
@@ -62,7 +69,13 @@ export function SquadPlayerRow({ player, isSelected, locale, onSelect }: SquadPl
 
       <span className="flex min-w-0 flex-1 flex-col">
         <span className="flex items-center gap-1.5">
-          <span className="truncate text-title font-semibold text-on-surface">{player.name}</span>
+          <Link
+            href={`/${locale}/players/${player.id}`}
+            onClick={(event) => event.stopPropagation()}
+            className="truncate text-title font-semibold text-on-surface transition-colors duration-quick hover:text-primary hover:underline"
+          >
+            {player.name}
+          </Link>
           {player.coreSpecialty ? (
             <span
               className={`flex h-4 w-4 shrink-0 items-center justify-center ${
@@ -115,6 +128,6 @@ export function SquadPlayerRow({ player, isSelected, locale, onSelect }: SquadPl
           {(player.currentWage || 0).toLocaleString()}
         </span>
       </span>
-    </button>
+    </div>
   );
 }

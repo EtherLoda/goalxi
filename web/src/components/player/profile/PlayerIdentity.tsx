@@ -70,6 +70,14 @@ export function PlayerIdentity({
           ) : (
             <h1 className={nameClass}>{player.name}</h1>
           )}
+          {/* The id is the only stable way for a player to say "this one" in a
+              support request or to a friend; the name is not unique. */}
+          <span
+            aria-label={`${t('player_profile.playerId')} ${player.id}`}
+            className="rounded-md border border-white/[0.08] bg-white/[0.03] px-1.5 py-0.5 font-label text-kicker font-bold tabular-nums tracking-[0.04em] text-outline"
+          >
+            #{player.id}
+          </span>
           {player.coreSpecialty ? (
             <span
               className={`inline-flex items-center gap-micro font-label text-label font-bold ${

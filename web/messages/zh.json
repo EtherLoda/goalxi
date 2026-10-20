@@ -1848,6 +1848,7 @@
       "viewAll": "全部"
     },
     "back": "返回球员档案",
-    "seasonAll": "全部赛季"
+    "seasonAll": "全部赛季",
+    "playerId": "球员 ID"
   }
 }

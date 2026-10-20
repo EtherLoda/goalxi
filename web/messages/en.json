@@ -1851,6 +1851,7 @@
       "viewAll": "All"
     },
     "back": "Back to profile",
-    "seasonAll": "All seasons"
+    "seasonAll": "All seasons",
+    "playerId": "Player ID"
   }
 }

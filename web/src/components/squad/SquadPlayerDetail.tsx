@@ -1,6 +1,5 @@
 'use client';
 
-import Link from 'next/link';
 import { useTranslations } from 'next-intl';
 import { AppIcon } from '@/components/icons/AppIcon';
 import { PlayerEventTimeline } from '@/components/player/profile/PlayerEventTimeline';
@@ -14,9 +13,6 @@ interface SquadPlayerDetailProps {
   locale: string;
   events: readonly PlayerEvent[];
   jerseyColor?: string | null;
-  /** Listing is only offered on your own squad and only while unlisted. */
-  canList: boolean;
-  onList: () => void;
 }
 
 /**
@@ -24,18 +20,11 @@ interface SquadPlayerDetailProps {
  * leaving the list.
  *
  * The sections below are the same components the full player profile renders,
- * so the two screens cannot disagree about what a player looks like. What stays
- * local is the navigation: this pane links into the profile and offers "list
- * for sale" because you got here from your own squad.
+ * so the two screens cannot disagree about what a player looks like. There is
+ * no "open full profile" button: the player's NAME is the link, here and in
+ * the list.
  */
-export function SquadPlayerDetail({
-  player,
-  locale,
-  events,
-  jerseyColor,
-  canList,
-  onList,
-}: SquadPlayerDetailProps) {
+export function SquadPlayerDetail({ player, locale, events, jerseyColor }: SquadPlayerDetailProps) {
   const t = useTranslations();
   const profileHref = `/${locale}/players/${player.id}`;
 
@@ -61,27 +50,8 @@ export function SquadPlayerDetail({
         }
       />
 
-      <div className="flex flex-wrap items-stretch gap-tight px-panel pb-panel">
+      <div className="px-panel pb-panel">
         <PlayerStatTiles player={player} />
-        <div className="flex items-center gap-tight">
-          <Link
-            href={profileHref}
-            className="inline-flex h-9 items-center gap-micro rounded-lg border border-outline-variant/40 px-tight font-label text-label font-bold text-on-surface-variant transition-colors duration-quick hover:border-outline hover:text-on-surface"
-          >
-            <AppIcon name="open_in_full" className="text-kicker" />
-            {t('squad.fullProfile')}
-          </Link>
-          {canList ? (
-            <button
-              type="button"
-              onClick={onList}
-              className="inline-flex h-9 items-center gap-micro rounded-lg border border-primary/30 bg-primary/12 px-tight font-label text-label font-bold text-primary transition-colors duration-quick hover:bg-primary/20"
-            >
-              <AppIcon name="sell" className="text-kicker" />
-              {t('squad.transfer.listPlayer')}
-            </button>
-          ) : null}
-        </div>
       </div>
 
       <PlayerSkillGrid player={player} columns={4} />

@@ -6,7 +6,6 @@ import { useTranslations } from 'next-intl';
 import { AppIcon } from '@/components/icons/AppIcon';
 import { GlassPanel } from '@/components/ui/GlassPanel';
 import { KickerLabel } from '@/components/ui/KickerLabel';
-import { ListPlayerDialog } from '@/components/squad/ListPlayerDialog';
 import { SquadPlayerDetail } from '@/components/squad/SquadPlayerDetail';
 import { SquadPlayerRow } from '@/components/squad/SquadPlayerRow';
 import { useAuth } from '@/contexts/AuthContext';
@@ -75,7 +74,6 @@ function SquadPageContent() {
   const [selectedPlayer, setSelectedPlayer] = useState<Player | null>(null);
   const [playerEvents, setPlayerEvents] = useState<PlayerEvent[]>([]);
   const [viewedTeam, setViewedTeam] = useState<Team | null>(null);
-  const [showListDialog, setShowListDialog] = useState(false);
 
   useEffect(() => {
     if (isViewingMyTeam) {
@@ -160,21 +158,6 @@ function SquadPageContent() {
     () => players.reduce((sum, p) => sum + (p.currentWage || 0), 0),
     [players],
   );
-
-  const refreshTeam = () => {
-    if (!team?.id) return;
-    api.players
-      .getByTeam(team.id, true)
-      .then((data) => {
-        const sorted = [...data.items].sort((a, b) => {
-          if (a.isGoalkeeper !== b.isGoalkeeper) return a.isGoalkeeper ? -1 : 1;
-          return b.overall - a.overall;
-        });
-        setPlayers(sorted);
-        setSelectedPlayer((current) => sorted.find((p) => p.id === current?.id) ?? sorted[0] ?? null);
-      })
-      .catch(() => {});
-  };
 
   if (isLoading) return <SquadSkeleton />;
 
@@ -261,8 +244,6 @@ function SquadPageContent() {
                 locale={locale}
                 events={playerEvents}
                 jerseyColor={displayTeam?.jerseyColorPrimary}
-                canList={isViewingMyTeam && !selectedPlayer.onTransfer}
-                onList={() => setShowListDialog(true)}
               />
             ) : (
               <div className="flex flex-col items-center gap-micro py-16 text-on-surface-variant/75">
@@ -274,13 +255,6 @@ function SquadPageContent() {
         </div>
       )}
 
-      {showListDialog && selectedPlayer ? (
-        <ListPlayerDialog
-          player={selectedPlayer}
-          onClose={() => setShowListDialog(false)}
-          onSuccess={refreshTeam}
-        />
-      ) : null}
     </div>
   );
 }
