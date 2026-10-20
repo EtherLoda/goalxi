@@ -1,348 +1,457 @@
 "use client";
 
 import { AppIcon } from "@/components/icons/AppIcon";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import { useTranslations, useLocale } from "next-intl";
 import { api, type TransferTransaction } from "@/lib/api";
+import { Tooltip } from "@/components/ui/Tooltip";
 
 interface TransferHistoryPanelProps {
   team: { id: string; name: string } | null;
-  initialTransactions?: TransferTransaction[];
+  locale: string;
 }
 
-export default function TransferHistoryPanel({ team, initialTransactions }: TransferHistoryPanelProps) {
-  const t = useTranslations();
-  const locale = useLocale();
-  const [transactions, setTransactions] = useState<TransferTransaction[]>(initialTransactions || []);
-  const [isLoading, setIsLoading] = useState(!initialTransactions);
-  const [typeFilter, setTypeFilter] = useState<"all" | "inbound" | "outbound">("all");
+type Direction = "inbound" | "outbound";
+type TypeFilter = "all" | Direction;
+
+const PAGE_SIZE = 12;
+// The API caps a page at 100; a club makes dozens of transfers per season, so
+// one page per direction is the whole history in practice. Filtering and
+// paging happen client-side so the summary numbers always describe the same
+// set the table is drawn from.
+const FETCH_LIMIT = 100;
+
+export default function TransferHistoryPanel({ team, locale }: TransferHistoryPanelProps) {
+  const t = useTranslations("transfers");
+  const localeTag = useLocale();
+
+  const [transactions, setTransactions] = useState<TransferTransaction[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [failed, setFailed] = useState(false);
+  const [typeFilter, setTypeFilter] = useState<TypeFilter>("all");
   const [seasonFilter, setSeasonFilter] = useState<number | "all">("all");
   const [page, setPage] = useState(1);
-  const [totalPages, setTotalPages] = useState(1);
-  const [total, setTotal] = useState(0);
-  const limit = 20;
-
-  // Get available seasons from transactions
-  const availableSeasons = Array.from(
-    new Set(transactions.map((tx) => tx.season).filter(Boolean))
-  ).sort((a, b) => b - a);
 
   useEffect(() => {
-    if (!team || (initialTransactions && initialTransactions.length > 0)) return;
+    if (!team) return;
+    let cancelled = false;
 
-    const fetchHistory = async () => {
+    const load = async () => {
       setIsLoading(true);
+      setFailed(false);
       try {
-        const query: { season?: number; page?: number; limit?: number } = {
-          limit,
-          page: seasonFilter !== "all" ? 1 : page,
-        };
-        if (seasonFilter !== "all") {
-          query.season = seasonFilter;
-        }
-        const [purchasesResult, salesResult] = await Promise.all([
-          api.transfers.getMyPurchases(query),
-          api.transfers.getMySales(query),
+        const [purchases, sales] = await Promise.all([
+          api.transfers.getMyPurchases({ page: 1, limit: FETCH_LIMIT }),
+          api.transfers.getMySales({ page: 1, limit: FETCH_LIMIT }),
         ]);
-        const allPurchases = purchasesResult.items;
-        const allSales = salesResult.items;
-        const all = [...allPurchases, ...allSales].sort(
+        if (cancelled) return;
+        const merged: TransferTransaction[] = [
+          ...purchases.items.map((p) => ({ ...p, direction: "inbound" as const })),
+          ...sales.items.map((s) => ({ ...s, direction: "outbound" as const })),
+        ];
+        merged.sort(
           (a, b) =>
-            new Date(b.transactionDate).getTime() -
-            new Date(a.transactionDate).getTime(),
+            new Date(b.transactionDate).getTime() - new Date(a.transactionDate).getTime(),
         );
-        setTransactions(all);
-        // Use the larger totalPages between purchases and sales
-        const maxTotal = Math.max(purchasesResult.meta.total, salesResult.meta.total);
-        setTotal(maxTotal);
-        setTotalPages(Math.ceil(maxTotal / limit));
+        setTransactions(merged);
       } catch (err) {
-        console.error(t("shortlist.history.failedToLoad"), err);
+        console.error("Failed to load transfer history", err);
+        if (!cancelled) setFailed(true);
       } finally {
-        setIsLoading(false);
+        if (!cancelled) setIsLoading(false);
       }
     };
 
-    fetchHistory();
-  }, [team, initialTransactions, seasonFilter, page, t]);
+    void load();
+    return () => {
+      cancelled = true;
+    };
+  }, [team]);
 
-  const filteredTransactions = transactions.filter((tx) => {
-    if (typeFilter === "inbound" && tx.toTeam?.id !== team?.id) return false;
-    if (typeFilter === "outbound" && tx.fromTeam?.id !== team?.id) return false;
-    if (seasonFilter !== "all" && tx.season !== seasonFilter) return false;
-    return true;
-  });
+  /** A transfer is inbound when the player landed on this club. The API's own
+   *  "purchases" endpoint already implies that, but the merged list is sorted
+   *  and filtered as one set, so derive it from the row instead of trusting the
+   *  endpoint it came from. */
+  const directionOf = (tx: TransferTransaction & { direction?: Direction }): Direction =>
+    tx.direction ?? (tx.toTeam?.id === team?.id ? "inbound" : "outbound");
 
-  const formatCurrency = (value: number) => {
-    return `${t("common.currencySymbol")}${value.toLocaleString()}`;
-  };
+  const seasons = useMemo(
+    () =>
+      Array.from(new Set(transactions.map((tx) => tx.season).filter((s): s is number => !!s))).sort(
+        (a, b) => b - a,
+      ),
+    [transactions],
+  );
 
-  const formatDate = (dateStr: string | Date | undefined) => {
-    if (!dateStr) return "—";
-    try {
-      const date = new Date(dateStr);
-      if (isNaN(date.getTime())) return "—";
-      return date.toLocaleDateString(locale, {
-        day: "2-digit",
-        month: "short",
-        year: "numeric",
-      });
-    } catch {
-      return "—";
+  const visible = useMemo(
+    () =>
+      transactions.filter((tx) => {
+        if (typeFilter !== "all" && directionOf(tx) !== typeFilter) return false;
+        if (seasonFilter !== "all" && tx.season !== seasonFilter) return false;
+        return true;
+      }),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [transactions, typeFilter, seasonFilter, team?.id],
+  );
+
+  const summary = useMemo(() => {
+    let inbound = 0;
+    let outbound = 0;
+    let spend = 0;
+    let income = 0;
+    for (const tx of visible) {
+      if (directionOf(tx) === "inbound") {
+        inbound += 1;
+        spend += tx.amount ?? 0;
+      } else {
+        outbound += 1;
+        income += tx.amount ?? 0;
+      }
     }
+    return { inbound, outbound, spend, income };
+  }, // eslint-disable-next-line react-hooks/exhaustive-deps
+  [visible, team?.id]);
+
+  const totalPages = Math.max(1, Math.ceil(visible.length / PAGE_SIZE));
+  const currentPage = Math.min(page, totalPages);
+  const pageRows = visible.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
+
+  const money = (value: number) =>
+    `${t("common.currencySymbol")}${Math.round(value).toLocaleString()}`;
+
+  const formatDate = (value: string | Date | undefined) => {
+    if (!value) return "—";
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return "—";
+    return date.toLocaleDateString(localeTag, { day: "2-digit", month: "short", year: "numeric" });
   };
 
-  const paginationControls = totalPages > 1 ? (
-    <div className="flex items-center justify-between px-6 py-4 border-t border-outline-variant/10">
-      <span className="text-xs text-on-surface-variant">
-        {t("shortlist.history.showing", { count: transactions.length, total })}
-      </span>
-      <div className="flex items-center gap-2">
-        <button
-          onClick={() => setPage((p) => Math.max(1, p - 1))}
-          disabled={page === 1}
-          className="px-3 py-1.5 text-kicker font-bold uppercase tracking-widest rounded-full transition-all disabled:opacity-30 disabled:cursor-not-allowed bg-surface-container text-on-surface hover:bg-surface-container-highest"
-        >
-          {t("shortlist.history.prev")}
-        </button>
-        <span className="text-xs text-on-surface font-medium">
-          {t("shortlist.history.page", { page, total: totalPages })}
-        </span>
-        <button
-          onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-          disabled={page === totalPages}
-          className="px-3 py-1.5 text-kicker font-bold uppercase tracking-widest rounded-full transition-all disabled:opacity-30 disabled:cursor-not-allowed bg-surface-container text-on-surface hover:bg-surface-container-highest"
-        >
-          {t("shortlist.history.next")}
-        </button>
-      </div>
-    </div>
-  ) : null;
+  const recentArrivals = transactions
+    .filter((tx) => directionOf(tx) === "inbound")
+    .slice(0, 2);
 
-  // Recent arrivals = purchases (inbound)
-  const recentArrivals = transactions.filter((tx) => tx.toTeam?.id === team?.id).slice(0, 2);
+  const chip = (active: boolean, tone: "primary" | "danger" = "primary") =>
+    [
+      "rounded-full px-gutter py-tight font-label text-kicker font-bold uppercase tracking-[0.08em] transition-colors duration-quick",
+      active
+        ? tone === "danger"
+          ? "bg-danger/15 text-danger"
+          : "bg-primary/15 text-primary"
+        : "text-on-surface-variant hover:text-on-surface",
+    ].join(" ");
+
+  const playerName = (tx: TransferTransaction) => tx.player?.name || t("history.unknownPlayer");
 
   return (
-    <div className="space-y-8 max-w-6xl mx-auto">
-      {/* Recent Arrivals Section */}
-      {recentArrivals.length > 0 && (
-        <div className="space-y-4">
-          <div className="flex justify-between items-center px-1">
-            <h3 className="text-xs uppercase tracking-[0.3em] text-on-surface-variant font-bold">
-              {t("shortlist.history.recentArrivals")}
-            </h3>
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+    <div className="flex flex-col gap-section">
+      {/* Summary — describes exactly the rows the table below is drawn from. */}
+      <div className="grid grid-cols-2 gap-tight md:grid-cols-4">
+        <SummaryTile
+          label={t("history.summaryInbound")}
+          value={String(summary.inbound)}
+          tone="primary"
+        />
+        <SummaryTile
+          label={t("history.summaryOutbound")}
+          value={String(summary.outbound)}
+          tone="neutral"
+        />
+        <SummaryTile label={t("history.summarySpend")} value={money(summary.spend)} tone="neutral" />
+        <SummaryTile
+          label={t("history.summaryIncome")}
+          value={money(summary.income)}
+          tone="primary"
+        />
+      </div>
+
+      {/* Recent arrivals */}
+      {recentArrivals.length > 0 ? (
+        <section className="flex flex-col gap-tight">
+          <h2 className="font-label text-kicker uppercase tracking-[0.14em] text-outline">
+            {t("history.recentArrivals")}
+          </h2>
+          <div className="grid grid-cols-1 gap-tight md:grid-cols-2">
             {recentArrivals.map((tx) => (
               <div
                 key={tx.id}
-                className="group relative rounded-2xl overflow-hidden glass-card h-40 flex items-center cursor-pointer hover:bg-surface-container-high transition-colors"
+                className="flex items-center gap-panel rounded-xl border border-outline-variant/30 bg-surface-container/60 p-panel"
               >
-                <div className="p-8 relative z-20 w-full flex justify-between items-center">
-                  <div>
-                    <span className="px-2 py-1 bg-primary text-on-primary text-kicker font-black uppercase tracking-tighter rounded-md">
-                      {t("shortlist.history.signed")}
+                <span
+                  className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg border border-white/[0.08] font-headline text-label font-black text-on-surface"
+                  style={{ background: "linear-gradient(135deg, #00e47926, #00e4790a)" }}
+                  aria-hidden="true"
+                >
+                  {initials(playerName(tx))}
+                </span>
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-tight">
+                    <span className="rounded-md bg-primary/15 px-1.5 py-0.5 font-label text-kicker font-bold uppercase tracking-wider text-primary">
+                      {t("history.signed")}
                     </span>
-                    <h4 className="text-2xl font-headline font-bold text-on-surface mt-2 group-hover:text-primary transition-colors">
-                      {tx.player?.name || t("shortlist.history.unknownPlayer")}
-                    </h4>
-                    <p className="text-xs text-on-surface-variant font-medium">
-                      {t("shortlist.history.from", { team: tx.fromTeam?.name?.toUpperCase() || t("shortlist.history.unknown") })}
-                    </p>
-                  </div>
-                  <div className="text-right">
-                    <div className="text-3xl font-headline font-bold text-primary">
-                      {formatCurrency(tx.amount)}
-                    </div>
-                    <span className="text-kicker font-bold opacity-40 uppercase tracking-widest">
-                      {t("shortlist.history.transferFee")}
+                    <span className="truncate font-headline text-body font-bold text-on-surface">
+                      {playerName(tx)}
                     </span>
                   </div>
+                  <p className="mt-0.5 truncate font-label text-kicker text-on-surface-variant">
+                    {t("history.from", { team: tx.fromTeam?.name || t("history.unknown") })}
+                    {" · "}
+                    {formatDate(tx.transactionDate)}
+                  </p>
+                </div>
+                <div className="shrink-0 text-right">
+                  <p className="font-headline text-body font-bold tabular-nums text-on-surface">
+                    {money(tx.amount)}
+                  </p>
+                  <p className="font-label text-kicker text-outline">{t("history.transferFee")}</p>
                 </div>
               </div>
             ))}
           </div>
-        </div>
-      )}
+        </section>
+      ) : null}
 
-      {/* Transaction Log */}
-      <section className="space-y-4">
-        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 px-1">
-          <h3 className="text-xs uppercase tracking-[0.3em] text-on-surface-variant font-bold">
-            {t("shortlist.history.transactionLog")}
-          </h3>
-          <div className="flex items-center gap-2 bg-surface-container p-1.5 rounded-full">
-            <button
-              onClick={() => setTypeFilter("all")}
-              className={`px-4 py-1.5 rounded-full text-kicker font-bold uppercase tracking-widest transition-all ${
-                typeFilter === "all"
-                  ? "bg-primary text-on-primary"
-                  : "text-on-surface-variant hover:text-on-surface"
-              }`}
-            >
-              {t("shortlist.history.filterAll")}
-            </button>
-            <button
-              onClick={() => setTypeFilter("inbound")}
-              className={`px-4 py-1.5 rounded-full text-kicker font-bold uppercase tracking-widest transition-all ${
-                typeFilter === "inbound"
-                  ? "bg-primary text-on-primary"
-                  : "text-on-surface-variant hover:text-on-surface"
-              }`}
-            >
-              {t("shortlist.history.filterInbound")}
-            </button>
-            <button
-              onClick={() => setTypeFilter("outbound")}
-              className={`px-4 py-1.5 rounded-full text-kicker font-bold uppercase tracking-widest transition-all ${
-                typeFilter === "outbound"
-                  ? "bg-danger-soft text-on-danger-soft"
-                  : "text-on-surface-variant hover:text-on-surface"
-              }`}
-            >
-              {t("shortlist.history.filterOutbound")}
-            </button>
-          </div>
-          {availableSeasons.length > 0 && (
-            <div className="relative">
-              <select
-                value={seasonFilter}
-                onChange={(e) => { setSeasonFilter(e.target.value === "all" ? "all" : Number(e.target.value)); setPage(1); }}
-                className="appearance-none bg-surface-container-high border border-outline-variant/30 rounded-xl px-4 py-2.5 pr-10 text-xs font-bold text-on-surface cursor-pointer hover:border-accent/30 transition-colors focus:outline-none focus:border-accent/50 shadow-lg"
+      {/* Ledger */}
+      <section className="flex flex-col gap-tight">
+        <div className="flex flex-wrap items-center justify-between gap-tight">
+          <h2 className="font-label text-kicker uppercase tracking-[0.14em] text-outline">
+            {t("history.ledger")}
+          </h2>
+          <div className="flex flex-wrap items-center gap-micro">
+            <div className="flex items-center gap-micro rounded-full border border-outline-variant/30 bg-surface-container/60 p-micro">
+              <button
+                type="button"
+                onClick={() => {
+                  setTypeFilter("all");
+                  setPage(1);
+                }}
+                className={chip(typeFilter === "all")}
               >
-                <option value="all">{t("shortlist.history.allSeasons")}</option>
-                {availableSeasons.map((s) => (
-                  <option key={s} value={s}>{t("shortlist.history.seasonOption", { n: s })}</option>
-                ))}
-              </select>
-              <AppIcon name="expand_more" className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-on-surface-variant pointer-events-none" />
+                {t("history.filterAll")}
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setTypeFilter("inbound");
+                  setPage(1);
+                }}
+                className={chip(typeFilter === "inbound")}
+              >
+                {t("history.inbound")}
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setTypeFilter("outbound");
+                  setPage(1);
+                }}
+                className={chip(typeFilter === "outbound", "danger")}
+              >
+                {t("history.outbound")}
+              </button>
             </div>
-          )}
+            {seasons.length > 1 ? (
+              <div className="flex items-center gap-micro rounded-full border border-outline-variant/30 bg-surface-container/60 p-micro">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSeasonFilter("all");
+                    setPage(1);
+                  }}
+                  className={chip(seasonFilter === "all")}
+                >
+                  {t("history.allSeasons")}
+                </button>
+                {seasons.map((season) => (
+                  <button
+                    key={season}
+                    type="button"
+                    onClick={() => {
+                      setSeasonFilter(season);
+                      setPage(1);
+                    }}
+                    className={chip(seasonFilter === season)}
+                  >
+                    {t("history.seasonOption", { n: season })}
+                  </button>
+                ))}
+              </div>
+            ) : null}
+          </div>
         </div>
 
-        <div className="rounded-2xl overflow-hidden glass-card">
+        <div className="overflow-hidden rounded-xl border border-outline-variant/30 bg-surface-container/40">
           {isLoading ? (
-            <div className="p-8 text-center text-on-surface-variant">{t("shortlist.history.loading")}</div>
-          ) : filteredTransactions.length === 0 ? (
-            <div className="p-8 text-center text-on-surface-variant">
-              {t("shortlist.history.noTransactions")}
+            <div className="flex flex-col gap-px">
+              {[0, 1, 2, 3, 4].map((i) => (
+                <div key={i} className="h-14 animate-pulse bg-surface-container/60" />
+              ))}
             </div>
+          ) : failed ? (
+            <EmptyState icon="error" text={t("history.failedToLoad")} />
+          ) : pageRows.length === 0 ? (
+            <EmptyState icon="swap_horiz" text={t("history.empty")} />
           ) : (
-            <>
-            <table className="w-full text-left border-collapse">
+            <table className="w-full border-collapse text-left">
               <thead>
-                <tr className="bg-surface-container">
-                  <th className="px-6 py-4 text-kicker font-black uppercase tracking-widest text-on-surface-variant">
-                    {t("shortlist.history.tableSeason")}
-                  </th>
-                  <th className="px-6 py-4 text-kicker font-black uppercase tracking-widest text-on-surface-variant">
-                    {t("shortlist.history.tableDate")}
-                  </th>
-                  <th className="px-6 py-4 text-kicker font-black uppercase tracking-widest text-on-surface-variant">
-                    {t("shortlist.history.tablePlayer")}
-                  </th>
-                  <th className="px-6 py-4 text-kicker font-black uppercase tracking-widest text-on-surface-variant">
-                    {t("shortlist.history.tableType")}
-                  </th>
-                  <th className="px-6 py-4 text-kicker font-black uppercase tracking-widest text-on-surface-variant">
-                    {t("shortlist.history.tableClub")}
-                  </th>
-                  <th className="px-6 py-4 text-kicker font-black uppercase tracking-widest text-on-surface-variant">
-                    {t("shortlist.history.tableFee")}
-                  </th>
-                  <th className="px-6 py-4 text-kicker font-black uppercase tracking-widest text-on-surface-variant">
-                    {t("shortlist.history.tableStatus")}
-                  </th>
+                <tr className="border-b border-outline-variant/30 bg-surface-container/60">
+                  {[
+                    t("history.tablePlayer"),
+                    t("history.tableType"),
+                    t("history.tableClub"),
+                    t("history.tableFee"),
+                    t("history.tableDate"),
+                  ].map((label) => (
+                    <th
+                      key={label}
+                      className="px-panel py-tight font-label text-kicker font-bold uppercase tracking-[0.14em] text-outline"
+                    >
+                      {label}
+                    </th>
+                  ))}
                 </tr>
               </thead>
-              <tbody className="divide-y divide-outline-variant/10">
-                {filteredTransactions.map((tx) => {
-                  const isInbound = tx.toTeam?.id === team?.id;
+              <tbody>
+                {pageRows.map((tx) => {
+                  const inbound = directionOf(tx) === "inbound";
                   return (
                     <tr
                       key={tx.id}
-                      className="hover:bg-surface-container-low transition-colors group"
+                      className="border-b border-outline-variant/20 transition-colors duration-quick last:border-0 hover:bg-surface-container/60"
                     >
-                      <td className="px-6 py-4">
-                        <span className="text-kicker font-bold text-on-surface-variant">
-                          {t("shortlist.season", { season: tx.season })}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4">
-                        <p className="text-xs font-medium text-on-surface">
-                          {tx.transactionDate ? formatDate(tx.transactionDate) : "—"}
-                        </p>
-                      </td>
-                      <td className="px-6 py-4">
-                        <div className="flex items-center gap-3">
-                          <div className="w-9 h-9 rounded-full bg-surface-container-high border border-accent/20 overflow-hidden flex items-center justify-center">
-                            <span className="text-sm font-bold text-primary">
-                              {tx.player?.name?.charAt(0) || "?"}
+                      <td className="px-panel py-tight">
+                        <div className="flex items-center gap-tight">
+                          <span
+                            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md border border-white/[0.08] font-headline text-kicker font-black text-on-surface"
+                            aria-hidden="true"
+                          >
+                            {initials(playerName(tx))}
+                          </span>
+                          <span className="min-w-0">
+                            <Link
+                              href={`/${locale}/players/${tx.player?.id ?? ""}`}
+                              className="block truncate font-body text-body font-bold text-on-surface transition-colors duration-quick hover:text-primary"
+                            >
+                              {playerName(tx)}
+                            </Link>
+                            <span className="block truncate font-label text-kicker text-on-surface-variant">
+                              {tx.player?.age ? `${tx.player.age} · ` : ""}
+                              {tx.season ? t("history.seasonOption", { n: tx.season }) : ""}
                             </span>
-                          </div>
-                          <div>
-                            <p className="text-sm font-bold text-on-surface">
-                              {tx.player?.name || t("shortlist.history.unknownPlayer")}
-                            </p>
-                            <p className="text-kicker text-on-surface-variant">
-                              {t("shortlist.history.age", { age: tx.player?.age || "?" })}
-                            </p>
-                          </div>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4">
-                        <span
-                          className={`text-kicker font-bold uppercase tracking-widest ${
-                            isInbound
-                              ? "text-primary"
-                              : "text-danger-soft"
-                          }`}
-                        >
-                          {isInbound ? t("shortlist.history.inbound") : t("shortlist.history.outbound")}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4">
-                        <div className="flex items-center gap-2">
-                          <AppIcon name="shield" className="text-on-surface-variant text-lg" />
-                          <p className="text-xs text-on-surface-variant font-medium">
-                            {isInbound
-                              ? tx.fromTeam?.name?.toUpperCase() ||
-                                t("shortlist.history.unknown")
-                              : tx.toTeam?.name?.toUpperCase() || t("shortlist.history.unknown")}
-                          </p>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4">
-                        <p className="text-sm font-headline font-bold text-on-surface">
-                          {formatCurrency(tx.amount)}
-                        </p>
-                      </td>
-                      <td className="px-6 py-4">
-                        <div className="flex items-center gap-2">
-                          <div className="w-1.5 h-1.5 rounded-full bg-jade"></div>
-                          <span className="text-kicker font-bold text-on-surface uppercase tracking-widest">
-                            {t("shortlist.history.completed")}
                           </span>
                         </div>
+                      </td>
+                      <td className="px-panel py-tight">
+                        <span
+                          className={`inline-flex items-center rounded-full px-tight py-micro font-label text-kicker font-bold uppercase tracking-wider ${
+                            inbound
+                              ? "bg-primary/15 text-primary"
+                              : "bg-danger/15 text-danger"
+                          }`}
+                        >
+                          {inbound ? t("history.inbound") : t("history.outbound")}
+                        </span>
+                      </td>
+                      <td className="px-panel py-tight">
+                        <span className="block truncate font-body text-body text-on-surface-variant">
+                          {inbound
+                            ? tx.fromTeam?.name || t("history.unknown")
+                            : tx.toTeam?.name || t("history.unknown")}
+                        </span>
+                      </td>
+                      <td className="px-panel py-tight">
+                        <span className="font-headline text-body font-bold tabular-nums text-on-surface">
+                          {money(tx.amount)}
+                        </span>
+                      </td>
+                      <td className="px-panel py-tight">
+                        <Tooltip label={t("history.completed")}>
+                          <span className="font-label text-label text-on-surface-variant">
+                            {formatDate(tx.transactionDate)}
+                          </span>
+                        </Tooltip>
                       </td>
                     </tr>
                   );
                 })}
               </tbody>
             </table>
-            {paginationControls}
-            </>
           )}
+
+          {!isLoading && !failed && totalPages > 1 ? (
+            <div className="flex items-center justify-between border-t border-outline-variant/30 px-panel py-tight">
+              <span className="font-label text-kicker text-on-surface-variant">
+                {t("history.showing", {
+                  count: visible.length,
+                  page: currentPage,
+                  total: totalPages,
+                })}
+              </span>
+              <div className="flex items-center gap-micro">
+                <button
+                  type="button"
+                  onClick={() => setPage(Math.max(1, currentPage - 1))}
+                  disabled={currentPage === 1}
+                  className="rounded-md px-tight py-micro font-label text-kicker font-bold uppercase tracking-wider text-on-surface-variant transition-colors duration-quick hover:text-on-surface disabled:opacity-30"
+                >
+                  {t("history.prev")}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setPage(Math.min(totalPages, currentPage + 1))}
+                  disabled={currentPage === totalPages}
+                  className="rounded-md px-tight py-micro font-label text-kicker font-bold uppercase tracking-wider text-on-surface-variant transition-colors duration-quick hover:text-on-surface disabled:opacity-30"
+                >
+                  {t("history.next")}
+                </button>
+              </div>
+            </div>
+          ) : null}
         </div>
       </section>
+    </div>
+  );
+}
 
-      <style jsx>{`
-        .glass-card {
-          background: rgba(0, 44, 34, 0.6);
-          backdrop-filter: blur(12px);
-          border: 1px solid rgba(161, 255, 194, 0.05);
-        }
-      `}</style>
+function initials(name: string): string {
+  return name
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase() ?? "")
+    .join("");
+}
+
+function SummaryTile({
+  label,
+  value,
+  tone,
+}: {
+  label: string;
+  value: string;
+  tone: "primary" | "neutral";
+}) {
+  return (
+    <div className="flex flex-col gap-micro rounded-xl border border-outline-variant/30 bg-surface-container/40 px-panel py-tight">
+      <span className="font-label text-kicker uppercase tracking-[0.14em] text-outline">
+        {label}
+      </span>
+      <span
+        className={`font-headline text-lg font-bold tabular-nums ${
+          tone === "primary" ? "text-primary" : "text-on-surface"
+        }`}
+      >
+        {value}
+      </span>
+    </div>
+  );
+}
+
+function EmptyState({ icon, text }: { icon: "error" | "swap_horiz"; text: string }) {
+  return (
+    <div className="flex items-center justify-center gap-tight px-panel py-section">
+      <AppIcon name={icon} className="text-body text-outline" />
+      <span className="font-label text-label text-on-surface-variant">{text}</span>
     </div>
   );
 }

@@ -561,7 +561,9 @@
       "expiring": "Expiring (6 Months)",
       "listed": "Listed",
       "freeAgent": "Free Agent",
-      "resetAllFilters": "Reset All Filters"
+      "resetAllFilters": "Reset All Filters",
+      "minimum": "Minimum",
+      "maximum": "Maximum"
     },
     "table": {
       "playerProfile": "Player Profile",
@@ -667,6 +669,35 @@
       "offerSubmitted": "Offer submitted: {amount} for {player}",
       "offerFailed": "Failed to submit offer",
       "unknown": "Unknown"
+    },
+    "history": {
+      "summaryInbound": "In",
+      "summaryOutbound": "Out",
+      "summarySpend": "Spent",
+      "summaryIncome": "Received",
+      "recentArrivals": "Recent arrivals",
+      "signed": "Signed",
+      "from": "From {team}",
+      "unknown": "Unknown",
+      "unknownPlayer": "Unknown player",
+      "transferFee": "Transfer fee",
+      "ledger": "Ledger",
+      "filterAll": "All",
+      "inbound": "In",
+      "outbound": "Out",
+      "allSeasons": "All seasons",
+      "seasonOption": "S{n}",
+      "tablePlayer": "Player",
+      "tableType": "Type",
+      "tableClub": "Club",
+      "tableFee": "Fee",
+      "tableDate": "Date",
+      "completed": "Deal completed",
+      "empty": "No transfers yet",
+      "failedToLoad": "Could not load your transfer history",
+      "showing": "{count} deals · page {page} of {total}",
+      "prev": "Prev",
+      "next": "Next"
     }
   },
   "shortlist": {

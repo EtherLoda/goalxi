@@ -561,7 +561,9 @@
       "expiring": "即将到期（6个月）",
       "listed": "挂牌中",
       "freeAgent": "自由球员",
-      "resetAllFilters": "重置所有筛选"
+      "resetAllFilters": "重置所有筛选",
+      "minimum": "最小值",
+      "maximum": "最大值"
     },
     "table": {
       "playerProfile": "球员资料",
@@ -667,6 +669,35 @@
       "offerSubmitted": "已提交报价：{amount}，目标 {player}",
       "offerFailed": "提交报价失败",
       "unknown": "未知"
+    },
+    "history": {
+      "summaryInbound": "转入",
+      "summaryOutbound": "转出",
+      "summarySpend": "总支出",
+      "summaryIncome": "总收入",
+      "recentArrivals": "最近成交",
+      "signed": "已签下",
+      "from": "来自 {team}",
+      "unknown": "未知",
+      "unknownPlayer": "未知球员",
+      "transferFee": "转会费",
+      "ledger": "交易流水",
+      "filterAll": "全部",
+      "inbound": "转入",
+      "outbound": "转出",
+      "allSeasons": "全部赛季",
+      "seasonOption": "S{n}",
+      "tablePlayer": "球员",
+      "tableType": "方向",
+      "tableClub": "对方球队",
+      "tableFee": "费用",
+      "tableDate": "日期",
+      "completed": "交易已完成",
+      "empty": "还没有转会记录",
+      "failedToLoad": "转会记录加载失败",
+      "showing": "共 {count} 笔 · 第 {page}/{total} 页",
+      "prev": "上一页",
+      "next": "下一页"
     }
   },
   "shortlist": {

@@ -9,6 +9,7 @@ import { api, type Player, type TransferAuction } from "@/lib/api";
 import TransferListSkeleton from "@/components/transfers/TransferListSkeleton";
 import PlayerDetailSkeleton from "@/components/transfers/PlayerDetailSkeleton";
 import { PlayerIdentity } from "@/components/player/profile/PlayerIdentity";
+import AttributeRangeSlider from "@/components/transfers/AttributeRangeSlider";
 import TransferPlayerCard from "@/components/transfers/TransferPlayerCard";
 import TransferNav from "@/components/transfers/TransferNav";
 import { SpecialtyIcon } from "@/components/player/SpecialtyIcon";
@@ -456,71 +457,14 @@ export default function TransfersPage() {
                             <AppIcon name="close" className="text-sm" />
                           </button>
                         </div>
-                        <div className="flex items-center gap-2 text-kicker text-on-surface-variant mb-2">
-                          <span>{filter.range.min}</span>
-                          <div className="flex-1 h-1 bg-surface-container-high rounded-full relative">
-                            <div
-                              className="absolute h-full rounded-full bg-primary/70"
-                              style={{
-                                left: `${(filter.range.min / 20) * 100}%`,
-                                width: `${((filter.range.max - filter.range.min) / 20) * 100}%`
-                              }}
-                            />
-                            <div
-                              className="absolute h-2.5 w-2.5 -top-[3px] rounded-full bg-primary ring-2 ring-surface-container cursor-pointer"
-                              style={{ left: `calc(${(filter.range.min / 20) * 100}% - 5px)` }}
-                              onMouseDown={(e) => {
-                                e.preventDefault();
-                                e.stopPropagation();
-                                const rect = (e.currentTarget as HTMLElement).parentElement!.getBoundingClientRect();
-                                const startMin = filter.range.min;
-                                const maxVal = filter.range.max;
-
-                                const handleMouseMove = (e: MouseEvent) => {
-                                  const x = Math.max(0, Math.min(e.clientX - rect.left, rect.width));
-                                  const val = Math.round((x / rect.width) * 20);
-                                  const gap = maxVal - val;
-                                  if (gap >= 1 && gap <= 5) {
-                                    updateAttributeFilterRange(filter.id, val, maxVal);
-                                  }
-                                };
-                                const handleMouseUp = () => {
-                                  document.removeEventListener('mousemove', handleMouseMove);
-                                  document.removeEventListener('mouseup', handleMouseUp);
-                                };
-                                document.addEventListener('mousemove', handleMouseMove);
-                                document.addEventListener('mouseup', handleMouseUp);
-                              }}
-                            />
-                            <div
-                              className="absolute h-2.5 w-2.5 -top-[3px] rounded-full bg-primary ring-2 ring-surface-container cursor-pointer"
-                              style={{ left: `calc(${(filter.range.max / 20) * 100}% - 5px)` }}
-                              onMouseDown={(e) => {
-                                e.preventDefault();
-                                e.stopPropagation();
-                                const rect = (e.currentTarget as HTMLElement).parentElement!.getBoundingClientRect();
-                                const minVal = filter.range.min;
-                                const startMax = filter.range.max;
-
-                                const handleMouseMove = (e: MouseEvent) => {
-                                  const x = Math.max(0, Math.min(e.clientX - rect.left, rect.width));
-                                  const val = Math.round((x / rect.width) * 20);
-                                  const gap = val - minVal;
-                                  if (gap >= 1 && gap <= 5) {
-                                    updateAttributeFilterRange(filter.id, minVal, val);
-                                  }
-                                };
-                                const handleMouseUp = () => {
-                                  document.removeEventListener('mousemove', handleMouseMove);
-                                  document.removeEventListener('mouseup', handleMouseUp);
-                                };
-                                document.addEventListener('mousemove', handleMouseMove);
-                                document.addEventListener('mouseup', handleMouseUp);
-                              }}
-                            />
-                          </div>
-                          <span>{filter.range.max}</span>
-                        </div>
+                        <AttributeRangeSlider
+                          label={attrInfo.label}
+                          minLabel={t("filters.minimum")}
+                          maxLabel={t("filters.maximum")}
+                          min={filter.range.min}
+                          max={filter.range.max}
+                          onChange={(lo: number, hi: number) => updateAttributeFilterRange(filter.id, lo, hi)}
+                        />
                       </div>
                     );
                   })}
