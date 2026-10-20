@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef } from "react";
 import type { PointerEvent as ReactPointerEvent } from "react";
-import { bandSpan, clampValue, panBand } from "./range-slider-math";
+import { bandSpan, clampValue, dragEdge, panBand } from "./range-slider-math";
 
 /** Engine attributes run 1-20. */
 const DEFAULT_SCALE_MIN = 0;
@@ -114,8 +114,28 @@ export default function AttributeRangeSlider({
       event.preventDefault();
       event.stopPropagation();
       event.currentTarget.setPointerCapture?.(event.pointerId);
+
+      // Edges at pointerdown, not live values: `dragEdge` is then a pure
+      // function of the pointer, so overshooting and coming back lands where
+      // the hand is instead of where the band has since drifted to.
+      const startLo = latest.current.min;
+      const startHi = latest.current.max;
       track(
-        (ev) => commit(which, valueAt(ev.clientX)),
+        (ev) => {
+          const next = dragEdge(
+            which,
+            valueAt(ev.clientX),
+            startLo,
+            startHi,
+            scaleMin,
+            scaleMax,
+            minSpan,
+            maxSpan,
+          );
+          if (next.min !== latest.current.min || next.max !== latest.current.max) {
+            onChange(next.min, next.max);
+          }
+        },
         event.nativeEvent as PointerEvent,
       );
     };
