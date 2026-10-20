@@ -2,12 +2,14 @@
 
 import { useCallback, useEffect, useRef } from "react";
 import type { PointerEvent as ReactPointerEvent } from "react";
+import { bandSpan, clampValue, panBand } from "./range-slider-math";
 
-const SCALE_MAX = 20;
-/** Engine attributes run 1-20; a filter of zero width is meaningless, and a
- *  band wider than five points stops being a filter at all. */
-const MIN_SPAN = 1;
-const MAX_SPAN = 5;
+/** Engine attributes run 1-20. */
+const DEFAULT_SCALE_MIN = 0;
+const DEFAULT_SCALE_MAX = 20;
+/** A zero-width band is meaningless, and a wide one stops being a filter. */
+const DEFAULT_MIN_SPAN = 1;
+const DEFAULT_MAX_SPAN = 5;
 
 export interface AttributeRangeSliderProps {
   label: string;
@@ -16,15 +18,25 @@ export interface AttributeRangeSliderProps {
   min: number;
   max: number;
   onChange: (min: number, max: number) => void;
+  /** Lowest value on the track. Defaults to 0. */
+  scaleMin?: number;
+  /** Highest value on the track. Defaults to 20. */
+  scaleMax?: number;
+  minSpan?: number;
+  maxSpan?: number;
 }
 
 /**
- * Two-thumb range slider for one attribute.
+ * Two-thumb range slider.
  *
- * Replaces a pair of `div`s that only listened for `mousedown`: touch had no
- * way to move a thumb, keyboard users could not reach one, and neither thumb
- * was announced as a slider. Pointer capture plus `role="slider"` fixes all
- * three without changing how it looks.
+ * Dragging a thumb resizes the band; dragging the band itself PANS it, keeping
+ * the width. Panning matters because two 10px thumbs on a 4px track are a
+ * small target and the band is where the hand already is — without it, shifting
+ * a 8-13 filter to 10-15 means two separate precise drags.
+ *
+ * Pointer capture plus `role="slider"` covers touch and keyboard; the thumbs
+ * carry an invisible `before:-inset-2` hit area so the target is 26px without
+ * changing what is drawn.
  */
 export default function AttributeRangeSlider({
   label,
@@ -33,6 +45,10 @@ export default function AttributeRangeSlider({
   min,
   max,
   onChange,
+  scaleMin = DEFAULT_SCALE_MIN,
+  scaleMax = DEFAULT_SCALE_MAX,
+  minSpan = DEFAULT_MIN_SPAN,
+  maxSpan = DEFAULT_MAX_SPAN,
 }: AttributeRangeSliderProps) {
   const trackRef = useRef<HTMLDivElement>(null);
   // Drag listeners are attached once, at pointerdown, so they would otherwise
@@ -44,45 +60,86 @@ export default function AttributeRangeSlider({
     latest.current = { min, max };
   }, [min, max]);
 
-  const valueAt = useCallback((clientX: number): number => {
-    const rect = trackRef.current?.getBoundingClientRect();
-    if (!rect || rect.width === 0) return latest.current.min;
-    const ratio = Math.min(1, Math.max(0, (clientX - rect.left) / rect.width));
-    return Math.round(ratio * SCALE_MAX);
-  }, []);
+  const domain = Math.max(1, scaleMax - scaleMin);
+
+  /** Fractional value under the pointer — panning needs the sub-step detail
+   *  that `valueAt` rounds away, otherwise a slow drag moves in 5% jumps. */
+  const rawValueAt = useCallback(
+    (clientX: number): number => {
+      const rect = trackRef.current?.getBoundingClientRect();
+      if (!rect || rect.width === 0) return latest.current.min;
+      const ratio = Math.min(1, Math.max(0, (clientX - rect.left) / rect.width));
+      return scaleMin + ratio * domain;
+    },
+    [scaleMin, domain],
+  );
+
+  const valueAt = useCallback(
+    (clientX: number): number => Math.round(rawValueAt(clientX)),
+    [rawValueAt],
+  );
+
+  /** Attach move/up once, run `apply` for the first event immediately. */
+  const track = (onMove: (event: PointerEvent) => void, first?: PointerEvent) => {
+    const end = () => {
+      window.removeEventListener("pointermove", onMove);
+      window.removeEventListener("pointerup", end);
+      window.removeEventListener("pointercancel", end);
+    };
+    window.addEventListener("pointermove", onMove);
+    window.addEventListener("pointerup", end);
+    window.addEventListener("pointercancel", end);
+    if (first) onMove(first);
+  };
 
   const commit = useCallback(
     (which: "min" | "max", rawValue: number) => {
       const { min: lo, max: hi } = latest.current;
-      const value = Math.min(SCALE_MAX, Math.max(0, rawValue));
+      const value = clampValue(rawValue, scaleMin, scaleMax);
       if (which === "min") {
-        const next = Math.min(value, hi - MIN_SPAN);
-        if (next < 0 || hi - next > MAX_SPAN) return;
+        const next = Math.min(value, hi - minSpan);
+        if (next < scaleMin || hi - next > maxSpan) return;
         if (next !== lo) onChange(next, hi);
         return;
       }
-      const next = Math.max(value, lo + MIN_SPAN);
-      if (next > SCALE_MAX || next - lo > MAX_SPAN) return;
+      const next = Math.max(value, lo + minSpan);
+      if (next > scaleMax || next - lo > maxSpan) return;
       if (next !== hi) onChange(lo, next);
     },
-    [onChange],
+    [onChange, scaleMin, scaleMax, minSpan, maxSpan],
   );
 
-  const startDrag = (which: "min" | "max") => (event: ReactPointerEvent<HTMLDivElement>) => {
+  const startDrag =
+    (which: "min" | "max") => (event: ReactPointerEvent<HTMLDivElement>) => {
+      event.preventDefault();
+      event.stopPropagation();
+      event.currentTarget.setPointerCapture?.(event.pointerId);
+      track(
+        (ev) => commit(which, valueAt(ev.clientX)),
+        event.nativeEvent as PointerEvent,
+      );
+    };
+
+  /** Translate the whole band, preserving its width. */
+  const startPan = (event: ReactPointerEvent<HTMLDivElement>) => {
     event.preventDefault();
     event.stopPropagation();
     event.currentTarget.setPointerCapture?.(event.pointerId);
 
-    const move = (ev: PointerEvent) => commit(which, valueAt(ev.clientX));
-    const end = () => {
-      window.removeEventListener("pointermove", move);
-      window.removeEventListener("pointerup", end);
-      window.removeEventListener("pointercancel", end);
-    };
-    window.addEventListener("pointermove", move);
-    window.addEventListener("pointerup", end);
-    window.addEventListener("pointercancel", end);
-    move(event.nativeEvent as PointerEvent);
+    const anchor = rawValueAt(event.clientX);
+    const startMin = latest.current.min;
+    const span = bandSpan(
+      latest.current.min,
+      latest.current.max,
+      minSpan,
+      maxSpan,
+    );
+
+    track((ev) => {
+      const delta = rawValueAt(ev.clientX) - anchor;
+      const next = panBand(startMin, span, delta, scaleMin, scaleMax);
+      if (next !== latest.current.min) onChange(next, next + span);
+    });
   };
 
   const nudge = (which: "min" | "max") => (event: React.KeyboardEvent<HTMLDivElement>) => {
@@ -96,21 +153,30 @@ export default function AttributeRangeSlider({
       commit(which, current + step);
     } else if (event.key === "Home") {
       event.preventDefault();
-      commit(which, 0);
+      commit(which, scaleMin);
     } else if (event.key === "End") {
       event.preventDefault();
-      commit(which, SCALE_MAX);
+      commit(which, scaleMax);
     }
   };
 
-  const percent = (value: number) => `${(value / SCALE_MAX) * 100}%`;
+  const percent = (value: number) => `${((value - scaleMin) / domain) * 100}%`;
 
   return (
     <div className="mb-2 flex items-center gap-tight font-label text-kicker text-on-surface-variant">
-      <span className="w-4 shrink-0 text-right tabular-nums">{min}</span>
+      <span className="w-5 shrink-0 text-right tabular-nums">{min}</span>
       <div ref={trackRef} className="relative h-1 flex-1 rounded-full bg-surface-container-high">
         <div
-          className="absolute h-full rounded-full bg-primary/70"
+          className="pointer-events-none absolute h-full rounded-full bg-primary/70"
+          style={{ left: percent(min), width: percent(max - min) }}
+        />
+        {/* Pan handle: taller than the track so the band is easy to grab, and
+            wide enough to grab even at the minimum span. Drawn before the
+            thumbs so a thumb on top always wins the pointer. */}
+        <div
+          onPointerDown={startPan}
+          aria-hidden="true"
+          className="absolute -top-2 h-5 cursor-grab touch-none active:cursor-grabbing"
           style={{ left: percent(min), width: percent(max - min) }}
         />
         {(
@@ -124,18 +190,18 @@ export default function AttributeRangeSlider({
             role="slider"
             tabIndex={0}
             aria-label={`${label} · ${which === "min" ? minLabel : maxLabel}`}
-            aria-valuemin={which === "min" ? 0 : min + MIN_SPAN}
-            aria-valuemax={which === "min" ? max - MIN_SPAN : SCALE_MAX}
+            aria-valuemin={which === "min" ? scaleMin : min + minSpan}
+            aria-valuemax={which === "min" ? max - minSpan : scaleMax}
             aria-valuenow={value}
             aria-orientation="horizontal"
             onPointerDown={startDrag(which)}
             onKeyDown={nudge(which)}
-            className="absolute -top-[3px] h-2.5 w-2.5 cursor-pointer rounded-full bg-primary ring-2 ring-surface-container transition-transform duration-quick hover:scale-125 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:scale-125 touch-none"
+            className="absolute -top-[3px] h-2.5 w-2.5 cursor-ew-resize rounded-full bg-primary ring-2 ring-surface-container transition-transform duration-quick before:absolute before:-inset-2 before:content-[''] hover:scale-125 focus-visible:scale-125 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary touch-none"
             style={{ left: `calc(${percent(value)} - 5px)` }}
           />
         ))}
       </div>
-      <span className="w-4 shrink-0 tabular-nums">{max}</span>
+      <span className="w-5 shrink-0 tabular-nums">{max}</span>
     </div>
   );
 }

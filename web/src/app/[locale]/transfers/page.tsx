@@ -500,66 +500,17 @@ export default function TransfersPage() {
                   </button>
                 </div>
                 {ageEnabled && (
-                  <div className="flex items-center gap-2 text-kicker text-on-surface-variant">
-                    <span>{ageRange.min}</span>
-                    <div className="flex-1 h-1 bg-surface-container-high rounded-full relative">
-                      <div
-                        className="absolute h-full rounded-full bg-primary/70"
-                        style={{
-                          left: `${((ageRange.min - 15) / 20) * 100}%`,
-                          width: `${((ageRange.max - ageRange.min) / 20) * 100}%`
-                        }}
-                      />
-                      <div
-                        className="absolute h-2.5 w-2.5 -top-[3px] rounded-full bg-primary ring-2 ring-surface-container cursor-pointer"
-                        style={{ left: `calc(${((ageRange.min - 15) / 20) * 100}% - 5px)` }}
-                        onMouseDown={(e) => {
-                          e.preventDefault();
-                          e.stopPropagation();
-                          const rect = (e.currentTarget as HTMLElement).parentElement!.getBoundingClientRect();
-
-                          const handleMouseMove = (e: MouseEvent) => {
-                            const x = Math.max(0, Math.min(e.clientX - rect.left, rect.width));
-                            const val = Math.round((x / rect.width) * 20) + 15;
-                            const gap = ageRange.max - val;
-                            if (gap >= 1 && gap <= 5 && val >= 15 && val <= 35) {
-                              setAgeRange({ min: val, max: ageRange.max });
-                            }
-                          };
-                          const handleMouseUp = () => {
-                            document.removeEventListener('mousemove', handleMouseMove);
-                            document.removeEventListener('mouseup', handleMouseUp);
-                          };
-                          document.addEventListener('mousemove', handleMouseMove);
-                          document.addEventListener('mouseup', handleMouseUp);
-                        }}
-                      />
-                      <div
-                        className="absolute h-2.5 w-2.5 -top-[3px] rounded-full bg-primary ring-2 ring-surface-container cursor-pointer"
-                        style={{ left: `calc(${((ageRange.max - 15) / 20) * 100}% - 5px)` }}
-                        onMouseDown={(e) => {
-                          e.preventDefault();
-                          e.stopPropagation();
-                          const rect = (e.currentTarget as HTMLElement).parentElement!.getBoundingClientRect();
-
-                          const handleMouseMove = (e: MouseEvent) => {
-                            const x = Math.max(0, Math.min(e.clientX - rect.left, rect.width));
-                            const val = Math.round((x / rect.width) * 20) + 15;
-                            const gap = val - ageRange.min;
-                            if (gap >= 1 && gap <= 5 && val >= 15 && val <= 35) {
-                              setAgeRange({ min: ageRange.min, max: val });
-                            }
-                          };
-                          const handleMouseUp = () => {
-                            document.removeEventListener('mousemove', handleMouseMove);
-                            document.removeEventListener('mouseup', handleMouseUp);
-                          };
-                          document.addEventListener('mousemove', handleMouseMove);
-                          document.addEventListener('mouseup', handleMouseUp);
-                        }}
-                      />
-                    </div>
-                    <span>{ageRange.max}</span>
+                  <div className="mt-3">
+                    <AttributeRangeSlider
+                      label={t("transfers.filter.ageFilter")}
+                      minLabel={t("filters.minimum")}
+                      maxLabel={t("filters.maximum")}
+                      min={ageRange.min}
+                      max={ageRange.max}
+                      scaleMin={15}
+                      scaleMax={35}
+                      onChange={(lo, hi) => setAgeRange({ min: lo, max: hi })}
+                    />
                   </div>
                 )}
               </div>
