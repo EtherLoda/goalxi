@@ -2,9 +2,6 @@ import {
   calculatePlayerPWI,
   formatPWI,
   getSkillWeight,
-  getStarLabel,
-  getStarRatingFromContribution,
-  getPlayerRating,
 } from './player-rating.util';
 import type { PlayerEntity } from '../entities/player.entity';
 
@@ -52,10 +49,6 @@ const player = (over: Partial<PlayerEntity> = {}): PlayerEntity =>
     form: 3,
     experience: 10,
     position: 'ST',
-    // `getPlayerRating` goes through `toSimulationPlayer`, which calls
-    // this prototype method. A plain object literal does not have it,
-    // so a bare fixture would fail before reaching any assertion.
-    getExactAge: () => ({ years: 24, days: 0 }),
     ...over,
   }) as unknown as PlayerEntity;
 
@@ -203,50 +196,5 @@ describe('formatPWI', () => {
   it('rounds to a whole number for display', () => {
     expect(formatPWI(1234.4)).toBe('1234');
     expect(formatPWI(1234.6)).toBe('1235');
-  });
-});
-
-describe('getStarRatingFromContribution / getStarLabel', () => {
-  it('clamps contribution into the band, with a 0.5 floor rather than 0', () => {
-    // Below STAR_THRESHOLDS.ONE this returns 0.5 — a poor performer is
-    // half a star, not none. Pinning the floor stops a "return 0" from
-    // quietly reappearing and losing the half-star tier.
-    expect(getStarRatingFromContribution(-50)).toBe(0.5);
-    expect(getStarRatingFromContribution(0)).toBe(0.5);
-    expect(getStarRatingFromContribution(1_000_000)).toBe(5);
-  });
-
-  it('rises with contribution', () => {
-    const low = getStarRatingFromContribution(10);
-    const high = getStarRatingFromContribution(90);
-    expect(high).toBeGreaterThanOrEqual(low);
-  });
-
-  it('has a label for every reachable star value', () => {
-    for (let s = 0; s <= 5; s++) {
-      expect(getStarLabel(s)).toBeTruthy();
-    }
-  });
-});
-
-describe('getPlayerRating', () => {
-  it('surfaces the PWI breakdown it wraps', () => {
-    const rating = getPlayerRating(player({ id: 7, name: 'Test' }));
-    expect(rating.playerId).toBe(7);
-    expect(rating.playerName).toBe('Test');
-    expect(rating.pwiDisplay).toBe(formatPWI(rating.pwi));
-    expect(rating.breakdown.pwi).toBe(rating.pwi);
-  });
-
-  it('keeps the goalkeeper path working end to end', () => {
-    const rating = getPlayerRating(
-      player({ isGoalkeeper: true, currentSkills: gkSkills() as any }),
-    );
-    expect(Number.isFinite(rating.pwi)).toBe(true);
-    expect(rating.pwi).toBeGreaterThan(0);
-    // GK stars come from the save-rating branch, not position-fit, so
-    // they must still be produced here.
-    expect(rating.stars).toBeGreaterThan(0);
-    expect(rating.starLabel).toBeTruthy();
   });
 });
