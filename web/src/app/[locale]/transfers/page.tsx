@@ -21,7 +21,7 @@ export default function TransfersPage() {
   const t = useTranslations();
   const locale = useLocale();
   const params = useParams();
-  const { user, team } = useAuth();
+  const { team } = useAuth();
   const [transfers, setTransfers] = useState<TransferAuction[]>([]);
   const [selectedTransfer, setSelectedTransfer] = useState<TransferAuction | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -182,7 +182,7 @@ export default function TransfersPage() {
         setIsLoading(false);
       }
     },
-    [user, team, t],
+    [t],
   );
 
   useEffect(() => {
@@ -940,39 +940,86 @@ export default function TransfersPage() {
 
       {/* Bid History Full Modal */}
       {showBidHistoryModal && selectedTransfer && (
-        <div className="fixed inset-0 z-[150] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
-          <div className="bg-surface-container-low/90 backdrop-blur-xl rounded-2xl overflow-hidden shadow-2xl border border-accent/20 w-full max-w-md">
-            <div className="p-6">
-              <div className="flex items-center justify-between mb-6">
-                <div className="flex items-center gap-2">
-                  <AppIcon name="gavel" className="text-primary text-lg" />
-                  <h3 className="text-lg font-bold text-on-surface">{t("transfers.bidHistory")}</h3>
-                </div>
-                <button
-                  aria-label="Close bid history"
-                  className="text-on-surface-variant hover:text-on-surface transition-colors"
-                  onClick={() => setShowBidHistoryModal(false)}
-                >
-                  <AppIcon name="close" />
-                </button>
+        <div
+          className="fixed inset-0 z-[150] flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm"
+          onClick={() => setShowBidHistoryModal(false)}
+          role="presentation"
+        >
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-label={t("transfers.bidHistory")}
+            className="w-full max-w-md overflow-hidden rounded-xl border border-outline-variant/40 bg-surface-container shadow-[0_24px_60px_-12px_rgba(0,0,0,0.85)]"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between gap-tight border-b border-outline-variant/30 px-panel py-tight">
+              <div className="flex items-center gap-tight">
+                <AppIcon name="gavel" className="text-sm text-primary" />
+                <h3 className="font-label text-kicker font-bold uppercase tracking-[0.14em] text-outline">
+                  {t("transfers.bidHistory")}
+                </h3>
               </div>
-              <div className="space-y-3">
-                {selectedTransfer.bidHistory.slice().reverse().map((bid, idx) => (
-                  <div key={idx} className="flex items-center justify-between py-3 border-b border-outline-variant/20 last:border-0">
-                    <div className="flex items-center gap-3">
-                      <div className="w-8 h-8 rounded-full bg-gradient-to-br from-accent/30 to-surface-container-high flex items-center justify-center">
-                        <span className="text-kicker font-bold text-primary">{(bid.teamName || '?').charAt(0)}</span>
-                      </div>
-                      <div>
-                        <p className="text-label font-semibold text-on-surface">{bid.teamName || t("transfers.notifications.unknown")}</p>
-                        <p className="text-kicker text-on-surface-variant">{formatBidTime(bid.timestamp)}</p>
-                      </div>
-                    </div>
-                    <p className="text-title font-bold text-primary">{formatCurrency(bid.amount)}</p>
-                  </div>
-                ))}
-              </div>
+              <button
+                type="button"
+                aria-label={t("transfers.modal.close")}
+                className="rounded-md p-micro text-on-surface-variant transition-colors duration-quick hover:text-on-surface focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary"
+                onClick={() => setShowBidHistoryModal(false)}
+              >
+                <AppIcon name="close" className="text-sm" />
+              </button>
             </div>
+            <ol className="max-h-[60vh] overflow-y-auto p-panel">
+              {selectedTransfer.bidHistory
+                .slice()
+                .reverse()
+                .map((bid, idx) => {
+                  const highest = Math.max(
+                    ...selectedTransfer.bidHistory.map((b) => b.amount),
+                  );
+                  const leading = bid.amount === highest;
+                  return (
+                    <li
+                      key={`${bid.timestamp}-${idx}`}
+                      className="flex items-center justify-between gap-tight border-b border-outline-variant/20 py-tight last:border-0"
+                    >
+                      <div className="flex min-w-0 items-center gap-tight">
+                        <span
+                          className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-md font-headline text-kicker font-black ${
+                            leading
+                              ? "bg-primary/15 text-primary"
+                              : "bg-surface-container-high text-on-surface-variant"
+                          }`}
+                          aria-hidden="true"
+                        >
+                          {(bid.teamName || "?").charAt(0).toUpperCase()}
+                        </span>
+                        <span className="min-w-0">
+                          <span className="flex items-center gap-micro">
+                            <span className="truncate font-body text-label font-semibold text-on-surface">
+                              {bid.teamName || t("transfers.notifications.unknown")}
+                            </span>
+                            {leading ? (
+                              <span className="shrink-0 rounded-full bg-primary/15 px-1.5 py-px font-label text-kicker font-bold uppercase tracking-wider text-primary">
+                                {t("transfers.detail.leading")}
+                              </span>
+                            ) : null}
+                          </span>
+                          <span className="block font-label text-kicker text-on-surface-variant">
+                            {formatBidTime(bid.timestamp)}
+                          </span>
+                        </span>
+                      </div>
+                      <span
+                        className={`shrink-0 font-headline text-label font-bold tabular-nums ${
+                          leading ? "text-primary" : "text-on-surface-variant"
+                        }`}
+                      >
+                        {formatCurrency(bid.amount)}
+                      </span>
+                    </li>
+                  );
+                })}
+            </ol>
           </div>
         </div>
       )}

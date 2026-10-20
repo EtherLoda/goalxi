@@ -599,7 +599,8 @@
       "totalPackage": "总费用",
       "strength": "竞争力",
       "draft": "草稿",
-      "submit": "提交"
+      "submit": "提交",
+      "close": "关闭"
     },
     "nav": {
       "market": "转会市场",

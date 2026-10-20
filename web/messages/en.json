@@ -599,7 +599,8 @@
       "totalPackage": "Total Package",
       "strength": "Strength",
       "draft": "Draft",
-      "submit": "Submit"
+      "submit": "Submit",
+      "close": "Close"
     },
     "nav": {
       "market": "Market",
