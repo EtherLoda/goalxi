@@ -24,6 +24,7 @@ const FETCH_LIMIT = 100;
 
 export default function TransferHistoryPanel({ team, locale }: TransferHistoryPanelProps) {
   const t = useTranslations("transfers");
+  const tc = useTranslations("common");
   const localeTag = useLocale();
 
   const [transactions, setTransactions] = useState<TransferTransaction[]>([]);
@@ -118,7 +119,7 @@ export default function TransferHistoryPanel({ team, locale }: TransferHistoryPa
   const pageRows = visible.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
 
   const money = (value: number) =>
-    `${t("common.currencySymbol")}${Math.round(value).toLocaleString()}`;
+    `${tc("currencySymbol")}${Math.round(value).toLocaleString()}`;
 
   const formatDate = (value: string | Date | undefined) => {
     if (!value) return "—";
