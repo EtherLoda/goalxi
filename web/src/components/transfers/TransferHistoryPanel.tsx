@@ -10,16 +10,6 @@ interface TransferHistoryPanelProps {
   initialTransactions?: TransferTransaction[];
 }
 
-interface PaginatedResponse<T> {
-  items: T[];
-  meta: {
-    total: number;
-    page: number;
-    limit: number;
-    totalPages: number;
-  };
-}
-
 export default function TransferHistoryPanel({ team, initialTransactions }: TransferHistoryPanelProps) {
   const t = useTranslations();
   const locale = useLocale();
@@ -103,15 +93,15 @@ export default function TransferHistoryPanel({ team, initialTransactions }: Tran
   };
 
   const paginationControls = totalPages > 1 ? (
-    <div className="flex items-center justify-between px-6 py-4 border-t border-edge/10">
-      <span className="text-xs text-muted">
+    <div className="flex items-center justify-between px-6 py-4 border-t border-outline-variant/10">
+      <span className="text-xs text-on-surface-variant">
         {t("shortlist.history.showing", { count: transactions.length, total })}
       </span>
       <div className="flex items-center gap-2">
         <button
           onClick={() => setPage((p) => Math.max(1, p - 1))}
           disabled={page === 1}
-          className="px-3 py-1.5 text-[10px] font-bold uppercase tracking-widest rounded-full transition-all disabled:opacity-30 disabled:cursor-not-allowed bg-ink-700 text-frost hover:bg-ink-500"
+          className="px-3 py-1.5 text-kicker font-bold uppercase tracking-widest rounded-full transition-all disabled:opacity-30 disabled:cursor-not-allowed bg-surface-container text-frost hover:bg-surface-container-highest"
         >
           {t("shortlist.history.prev")}
         </button>
@@ -121,7 +111,7 @@ export default function TransferHistoryPanel({ team, initialTransactions }: Tran
         <button
           onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
           disabled={page === totalPages}
-          className="px-3 py-1.5 text-[10px] font-bold uppercase tracking-widest rounded-full transition-all disabled:opacity-30 disabled:cursor-not-allowed bg-ink-700 text-frost hover:bg-ink-500"
+          className="px-3 py-1.5 text-kicker font-bold uppercase tracking-widest rounded-full transition-all disabled:opacity-30 disabled:cursor-not-allowed bg-surface-container text-frost hover:bg-surface-container-highest"
         >
           {t("shortlist.history.next")}
         </button>
@@ -138,7 +128,7 @@ export default function TransferHistoryPanel({ team, initialTransactions }: Tran
       {recentArrivals.length > 0 && (
         <div className="space-y-4">
           <div className="flex justify-between items-center px-1">
-            <h3 className="text-xs uppercase tracking-[0.3em] text-muted font-bold">
+            <h3 className="text-xs uppercase tracking-[0.3em] text-on-surface-variant font-bold">
               {t("shortlist.history.recentArrivals")}
             </h3>
           </div>
@@ -146,17 +136,17 @@ export default function TransferHistoryPanel({ team, initialTransactions }: Tran
             {recentArrivals.map((tx) => (
               <div
                 key={tx.id}
-                className="group relative rounded-2xl overflow-hidden glass-card h-40 flex items-center cursor-pointer hover:bg-ink-600 transition-colors"
+                className="group relative rounded-2xl overflow-hidden glass-card h-40 flex items-center cursor-pointer hover:bg-surface-container-high transition-colors"
               >
                 <div className="p-8 relative z-20 w-full flex justify-between items-center">
                   <div>
-                    <span className="px-2 py-1 bg-accent text-inverse-primary text-[9px] font-black uppercase tracking-tighter rounded-sm">
+                    <span className="px-2 py-1 bg-accent text-inverse-primary text-kicker font-black uppercase tracking-tighter rounded-sm">
                       {t("shortlist.history.signed")}
                     </span>
                     <h4 className="text-2xl font-headline font-bold text-frost mt-2 group-hover:text-accent transition-colors">
                       {tx.player?.name || t("shortlist.history.unknownPlayer")}
                     </h4>
-                    <p className="text-xs text-muted font-medium">
+                    <p className="text-xs text-on-surface-variant font-medium">
                       {t("shortlist.history.from", { team: tx.fromTeam?.name?.toUpperCase() || t("shortlist.history.unknown") })}
                     </p>
                   </div>
@@ -164,7 +154,7 @@ export default function TransferHistoryPanel({ team, initialTransactions }: Tran
                     <div className="text-3xl font-headline font-bold text-accent">
                       {formatCurrency(tx.amount)}
                     </div>
-                    <span className="text-[10px] font-bold opacity-40 uppercase tracking-widest">
+                    <span className="text-kicker font-bold opacity-40 uppercase tracking-widest">
                       {t("shortlist.history.transferFee")}
                     </span>
                   </div>
@@ -178,36 +168,36 @@ export default function TransferHistoryPanel({ team, initialTransactions }: Tran
       {/* Transaction Log */}
       <section className="space-y-4">
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 px-1">
-          <h3 className="text-xs uppercase tracking-[0.3em] text-muted font-bold">
+          <h3 className="text-xs uppercase tracking-[0.3em] text-on-surface-variant font-bold">
             {t("shortlist.history.transactionLog")}
           </h3>
-          <div className="flex items-center gap-2 bg-ink-700 p-1.5 rounded-full">
+          <div className="flex items-center gap-2 bg-surface-container p-1.5 rounded-full">
             <button
               onClick={() => setTypeFilter("all")}
-              className={`px-4 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-widest transition-all ${
+              className={`px-4 py-1.5 rounded-full text-kicker font-bold uppercase tracking-widest transition-all ${
                 typeFilter === "all"
                   ? "bg-accent text-inverse-primary"
-                  : "text-muted hover:text-frost"
+                  : "text-on-surface-variant hover:text-frost"
               }`}
             >
               {t("shortlist.history.filterAll")}
             </button>
             <button
               onClick={() => setTypeFilter("inbound")}
-              className={`px-4 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-widest transition-all ${
+              className={`px-4 py-1.5 rounded-full text-kicker font-bold uppercase tracking-widest transition-all ${
                 typeFilter === "inbound"
                   ? "bg-accent text-inverse-primary"
-                  : "text-muted hover:text-frost"
+                  : "text-on-surface-variant hover:text-frost"
               }`}
             >
               {t("shortlist.history.filterInbound")}
             </button>
             <button
               onClick={() => setTypeFilter("outbound")}
-              className={`px-4 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-widest transition-all ${
+              className={`px-4 py-1.5 rounded-full text-kicker font-bold uppercase tracking-widest transition-all ${
                 typeFilter === "outbound"
                   ? "bg-danger-soft text-on-danger-soft"
-                  : "text-muted hover:text-frost"
+                  : "text-on-surface-variant hover:text-frost"
               }`}
             >
               {t("shortlist.history.filterOutbound")}
@@ -218,63 +208,63 @@ export default function TransferHistoryPanel({ team, initialTransactions }: Tran
               <select
                 value={seasonFilter}
                 onChange={(e) => { setSeasonFilter(e.target.value === "all" ? "all" : Number(e.target.value)); setPage(1); }}
-                className="appearance-none bg-ink-600 border border-edge/30 rounded-xl px-4 py-2.5 pr-10 text-xs font-bold text-frost cursor-pointer hover:border-accent/30 transition-colors focus:outline-none focus:border-accent/50 shadow-lg"
+                className="appearance-none bg-surface-container-high border border-outline-variant/30 rounded-xl px-4 py-2.5 pr-10 text-xs font-bold text-frost cursor-pointer hover:border-accent/30 transition-colors focus:outline-none focus:border-accent/50 shadow-lg"
               >
                 <option value="all">{t("shortlist.history.allSeasons")}</option>
                 {availableSeasons.map((s) => (
                   <option key={s} value={s}>{t("shortlist.history.seasonOption", { n: s })}</option>
                 ))}
               </select>
-              <AppIcon name="expand_more" className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-muted pointer-events-none" />
+              <AppIcon name="expand_more" className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-on-surface-variant pointer-events-none" />
             </div>
           )}
         </div>
 
         <div className="rounded-2xl overflow-hidden glass-card">
           {isLoading ? (
-            <div className="p-8 text-center text-muted">{t("shortlist.history.loading")}</div>
+            <div className="p-8 text-center text-on-surface-variant">{t("shortlist.history.loading")}</div>
           ) : filteredTransactions.length === 0 ? (
-            <div className="p-8 text-center text-muted">
+            <div className="p-8 text-center text-on-surface-variant">
               {t("shortlist.history.noTransactions")}
             </div>
           ) : (
             <>
             <table className="w-full text-left border-collapse">
               <thead>
-                <tr className="bg-ink-700">
-                  <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-muted">
+                <tr className="bg-surface-container">
+                  <th className="px-6 py-4 text-kicker font-black uppercase tracking-widest text-on-surface-variant">
                     {t("shortlist.history.tableSeason")}
                   </th>
-                  <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-muted">
+                  <th className="px-6 py-4 text-kicker font-black uppercase tracking-widest text-on-surface-variant">
                     {t("shortlist.history.tableDate")}
                   </th>
-                  <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-muted">
+                  <th className="px-6 py-4 text-kicker font-black uppercase tracking-widest text-on-surface-variant">
                     {t("shortlist.history.tablePlayer")}
                   </th>
-                  <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-muted">
+                  <th className="px-6 py-4 text-kicker font-black uppercase tracking-widest text-on-surface-variant">
                     {t("shortlist.history.tableType")}
                   </th>
-                  <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-muted">
+                  <th className="px-6 py-4 text-kicker font-black uppercase tracking-widest text-on-surface-variant">
                     {t("shortlist.history.tableClub")}
                   </th>
-                  <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-muted">
+                  <th className="px-6 py-4 text-kicker font-black uppercase tracking-widest text-on-surface-variant">
                     {t("shortlist.history.tableFee")}
                   </th>
-                  <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-muted">
+                  <th className="px-6 py-4 text-kicker font-black uppercase tracking-widest text-on-surface-variant">
                     {t("shortlist.history.tableStatus")}
                   </th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-edge/10">
+              <tbody className="divide-y divide-outline-variant/10">
                 {filteredTransactions.map((tx) => {
                   const isInbound = tx.toTeam?.id === team?.id;
                   return (
                     <tr
                       key={tx.id}
-                      className="hover:bg-ink-800 transition-colors group"
+                      className="hover:bg-surface-container-low transition-colors group"
                     >
                       <td className="px-6 py-4">
-                        <span className="text-[10px] font-bold text-muted">
+                        <span className="text-kicker font-bold text-on-surface-variant">
                           {t("shortlist.season", { season: tx.season })}
                         </span>
                       </td>
@@ -285,7 +275,7 @@ export default function TransferHistoryPanel({ team, initialTransactions }: Tran
                       </td>
                       <td className="px-6 py-4">
                         <div className="flex items-center gap-3">
-                          <div className="w-9 h-9 rounded-full bg-ink-600 border border-accent/20 overflow-hidden flex items-center justify-center">
+                          <div className="w-9 h-9 rounded-full bg-surface-container-high border border-accent/20 overflow-hidden flex items-center justify-center">
                             <span className="text-sm font-bold text-accent">
                               {tx.player?.name?.charAt(0) || "?"}
                             </span>
@@ -294,7 +284,7 @@ export default function TransferHistoryPanel({ team, initialTransactions }: Tran
                             <p className="text-sm font-bold text-frost">
                               {tx.player?.name || t("shortlist.history.unknownPlayer")}
                             </p>
-                            <p className="text-[10px] text-muted">
+                            <p className="text-kicker text-on-surface-variant">
                               {t("shortlist.history.age", { age: tx.player?.age || "?" })}
                             </p>
                           </div>
@@ -302,7 +292,7 @@ export default function TransferHistoryPanel({ team, initialTransactions }: Tran
                       </td>
                       <td className="px-6 py-4">
                         <span
-                          className={`text-[10px] font-bold uppercase tracking-widest ${
+                          className={`text-kicker font-bold uppercase tracking-widest ${
                             isInbound
                               ? "text-accent"
                               : "text-danger-soft"
@@ -313,8 +303,8 @@ export default function TransferHistoryPanel({ team, initialTransactions }: Tran
                       </td>
                       <td className="px-6 py-4">
                         <div className="flex items-center gap-2">
-                          <AppIcon name="shield" className="text-muted text-lg" />
-                          <p className="text-xs text-muted font-medium">
+                          <AppIcon name="shield" className="text-on-surface-variant text-lg" />
+                          <p className="text-xs text-on-surface-variant font-medium">
                             {isInbound
                               ? tx.fromTeam?.name?.toUpperCase() ||
                                 t("shortlist.history.unknown")
@@ -330,7 +320,7 @@ export default function TransferHistoryPanel({ team, initialTransactions }: Tran
                       <td className="px-6 py-4">
                         <div className="flex items-center gap-2">
                           <div className="w-1.5 h-1.5 rounded-full bg-jade"></div>
-                          <span className="text-[10px] font-bold text-frost uppercase tracking-widest">
+                          <span className="text-kicker font-bold text-frost uppercase tracking-widest">
                             {t("shortlist.history.completed")}
                           </span>
                         </div>

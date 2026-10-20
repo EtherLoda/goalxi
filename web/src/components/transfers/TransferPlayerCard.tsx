@@ -2,7 +2,7 @@
 
 import { useLocale, useTranslations } from "next-intl";
 import Link from "next/link";
-import { type TransferAuction, type Player } from "@/lib/api";
+import { type TransferAuction } from "@/lib/api";
 import { SpecialtyIcon } from "@/components/player/SpecialtyIcon";
 import { barClassFor } from "@/components/player/skill-display";
 import { getSpecialtyLabel } from "@/lib/specialties";
@@ -40,13 +40,13 @@ function renderSkillBar(
   const percentage = (current / SKILL_MAX) * 100;
   return (
     <div className="space-y-1.5">
-      <div className="flex justify-between text-[10px] font-bold uppercase tracking-wider text-muted">
+      <div className="flex justify-between text-kicker font-bold uppercase tracking-wider text-on-surface-variant">
         <span>{label}</span>
         <span className={colorClass}>
           {current}/{potential}
         </span>
       </div>
-      <div className="h-1.5 w-full bg-ink-700 rounded-full overflow-hidden">
+      <div className="h-1.5 w-full bg-surface-container rounded-full overflow-hidden">
         <div
           className={`h-full ${barClassFor(colorClass)} rounded-full`}
           style={{ width: `${percentage}%` }}
@@ -95,19 +95,17 @@ export default function TransferPlayerCard({
   return (
     <div
       onClick={onClick}
-      className={`bg-ink-900 rounded-2xl p-5 transition-all border ${
-        onClick
-          ? "cursor-pointer hover:border-edge/40 hover:bg-ink-800"
-          : ""
+      className={`rounded-xl border p-tight transition-colors duration-quick ${
+        onClick ? "cursor-pointer" : ""
       } ${
         isSelected
-          ? "border-accent ring-1 ring-accent/30"
-          : "border-edge/20"
+          ? "border-primary/30 bg-primary/10"
+          : "border-transparent bg-surface-container-low hover:border-white/[0.06] hover:bg-white/[0.04]"
       }`}
     >
       {/* Header */}
       <div className="flex items-center gap-6 mb-5">
-        <div className="w-16 h-16 rounded-full bg-gradient-to-br from-ink-600 to-ink-900 flex items-center justify-center font-bold text-2xl text-accent border border-edge/30">
+        <div className="w-16 h-16 rounded-full bg-gradient-to-br from-surface-container-high to-surface flex items-center justify-center font-bold text-2xl text-accent border border-outline-variant/30">
           {initials}
         </div>
         <div className="flex-1 min-w-0">
@@ -116,16 +114,16 @@ export default function TransferPlayerCard({
               {player.name}
             </Link>
             <span
-              className={`text-[11px] font-bold px-2 py-1 rounded-lg ${
+              className={`text-label font-bold px-2 py-1 rounded-lg ${
                 isExpired
                   ? "bg-danger/20 text-red-400"
-                  : "bg-ink-600 text-muted"
+                  : "bg-surface-container-high text-on-surface-variant"
               }`}
             >
               {timeLeft}
             </span>
           </div>
-          <p className="text-sm text-muted">
+          <p className="text-sm text-on-surface-variant">
             {t("common.ageFormat", { y: player.age, d: player.ageDays })} ·{" "}
             <button
               type="button"
@@ -133,7 +131,7 @@ export default function TransferPlayerCard({
                 e.stopPropagation();
                 handleTeamClick(transfer.team.id);
               }}
-              className="text-muted hover:text-accent transition-colors cursor-pointer"
+              className="text-on-surface-variant hover:text-accent transition-colors cursor-pointer"
             >
               {player.teamName || transfer.team.name}
             </button>{" "}
@@ -143,13 +141,13 @@ export default function TransferPlayerCard({
         </div>
         <div className="flex items-center gap-6">
           <div className="text-center">
-            <p className="text-[10px] text-muted uppercase tracking-wider mb-1">
+            <p className="text-kicker text-on-surface-variant uppercase tracking-wider mb-1">
               {t("squad.age")}
             </p>
             <p className="font-bold text-lg text-frost">{player.age}</p>
           </div>
           <div className="text-center">
-            <p className="text-[10px] text-muted uppercase tracking-wider mb-1">
+            <p className="text-kicker text-on-surface-variant uppercase tracking-wider mb-1">
               {t("squad.stamina")}
             </p>
             <p className="font-bold text-lg text-signal-lime">
@@ -157,7 +155,7 @@ export default function TransferPlayerCard({
             </p>
           </div>
           <div className="text-center">
-            <p className="text-[10px] text-muted uppercase tracking-wider mb-1">
+            <p className="text-kicker text-on-surface-variant uppercase tracking-wider mb-1">
               {t("squad.form")}
             </p>
             <p className="font-bold text-lg text-signal-amber">
@@ -165,7 +163,7 @@ export default function TransferPlayerCard({
             </p>
           </div>
           <div className="text-center">
-            <p className="text-[10px] text-muted uppercase tracking-wider mb-1">
+            <p className="text-kicker text-on-surface-variant uppercase tracking-wider mb-1">
               {t("squad.exp")}
             </p>
             <p className="font-bold text-lg text-frost">
@@ -175,7 +173,7 @@ export default function TransferPlayerCard({
         </div>
         <div className="flex items-center gap-8">
           <div className="text-center">
-            <p className="text-[10px] text-muted uppercase tracking-wider mb-1">
+            <p className="text-kicker text-on-surface-variant uppercase tracking-wider mb-1">
               {t("transfers.detail.currentPrice")}
             </p>
             <p className={`font-bold text-xl ${
@@ -193,7 +191,7 @@ export default function TransferPlayerCard({
       <div className="flex flex-wrap gap-2 mb-5">
         {player.coreSpecialty ? (
           <span
-            className={`inline-flex items-center gap-1.5 text-[10px] px-3 py-1.5 rounded-lg border uppercase tracking-wider ${
+            className={`inline-flex items-center gap-1.5 text-kicker px-3 py-1.5 rounded-lg border uppercase tracking-wider ${
               player.coreSpecialtyTier === 'GOLD'
                 ? 'bg-amber-300/10 text-amber-300 border-amber-300/30'
                 : player.coreSpecialtyTier === 'SILVER'
@@ -212,7 +210,7 @@ export default function TransferPlayerCard({
             )}
           </span>
         ) : (
-          <span className="inline-flex items-center gap-1.5 bg-stone-500/10 text-stone-500 text-[10px] px-3 py-1.5 rounded-lg border border-stone-500/20 uppercase tracking-wider">
+          <span className="inline-flex items-center gap-1.5 bg-stone-500/10 text-stone-500 text-kicker px-3 py-1.5 rounded-lg border border-stone-500/20 uppercase tracking-wider">
             {t("transfers.specialty.none")}
           </span>
         )}
@@ -224,7 +222,7 @@ export default function TransferPlayerCard({
         <div>
           <div className="flex items-center gap-2 mb-3">
             <div className="w-1.5 h-4 bg-accent rounded-full" />
-            <h3 className="text-xs font-black tracking-widest uppercase text-muted">
+            <h3 className="text-xs font-black tracking-widest uppercase text-on-surface-variant">
               {t("transfers.detail.technical")}
             </h3>
           </div>
@@ -285,7 +283,7 @@ export default function TransferPlayerCard({
         <div>
           <div className="flex items-center gap-2 mb-3">
             <div className="w-1.5 h-4 bg-signal-blue rounded-full" />
-            <h3 className="text-xs font-black tracking-widest uppercase text-muted">
+            <h3 className="text-xs font-black tracking-widest uppercase text-on-surface-variant">
               {t("transfers.detail.physical")}
             </h3>
           </div>
@@ -309,7 +307,7 @@ export default function TransferPlayerCard({
         <div>
           <div className="flex items-center gap-2 mb-3">
             <div className="w-1.5 h-4 bg-signal-lime rounded-full" />
-            <h3 className="text-xs font-black tracking-widest uppercase text-muted">
+            <h3 className="text-xs font-black tracking-widest uppercase text-on-surface-variant">
               {t("transfers.detail.mental")}
             </h3>
           </div>
@@ -333,7 +331,7 @@ export default function TransferPlayerCard({
         <div>
           <div className="flex items-center gap-2 mb-3">
             <div className="w-1.5 h-4 bg-signal-amber rounded-full" />
-            <h3 className="text-xs font-black tracking-widest uppercase text-muted">
+            <h3 className="text-xs font-black tracking-widest uppercase text-on-surface-variant">
               {t("squad.skills.setPieces")}
             </h3>
           </div>

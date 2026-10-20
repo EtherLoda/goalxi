@@ -86,29 +86,29 @@ export default function ShortlistPage() {
   const getActiveBids = () => bids.filter((b) => b.status === "ACTIVE");
 
   return (
-    <div className="min-h-screen bg-ink-1000">
+    <div className="min-h-screen bg-surface-container-lowest">
       {/* Header */}
-      <header className="bg-ink-800/60 backdrop-blur-2xl border-b border-edge/10">
+      <header className="bg-surface-container-low/60 backdrop-blur-2xl border-b border-outline-variant/10">
         <div className="max-w-6xl mx-auto px-8 py-6">
           <div className="flex justify-between items-center">
             <div>
               <h1 className="text-2xl font-black text-jade tracking-tighter uppercase">
                 {team?.name || t("shortlist.yourClub")}
               </h1>
-              <p className="text-[10px] uppercase tracking-[0.3em] text-muted font-bold mt-1">
+              <p className="text-kicker uppercase tracking-[0.3em] text-on-surface-variant font-bold mt-1">
                 {t("shortlist.subtitle")}
               </p>
             </div>
           </div>
 
           {/* Tabs */}
-          <div className="flex gap-2 mt-6 bg-ink-700 p-1.5 rounded-full w-fit">
+          <div className="flex gap-2 mt-6 bg-surface-container p-1.5 rounded-full w-fit">
             <button
               onClick={() => setActiveTab("buying")}
               className={`px-6 py-2 rounded-full text-xs font-bold uppercase tracking-widest transition-all ${
                 activeTab === "buying"
                   ? "bg-accent text-inverse-primary"
-                  : "text-muted hover:text-frost"
+                  : "text-on-surface-variant hover:text-frost"
               }`}
             >
               {t("shortlist.tabs.buying")}
@@ -118,7 +118,7 @@ export default function ShortlistPage() {
               className={`px-6 py-2 rounded-full text-xs font-bold uppercase tracking-widest transition-all ${
                 activeTab === "selling"
                   ? "bg-accent text-inverse-primary"
-                  : "text-muted hover:text-frost"
+                  : "text-on-surface-variant hover:text-frost"
               }`}
             >
               {t("shortlist.tabs.selling")}
@@ -134,18 +134,18 @@ export default function ShortlistPage() {
             {/* Active Bids */}
             <section>
               <div className="flex items-center justify-between mb-4">
-                <h2 className="text-xs uppercase tracking-[0.2em] text-muted font-bold">
+                <h2 className="text-xs uppercase tracking-[0.2em] text-on-surface-variant font-bold">
                   {t("shortlist.activeBids", { count: getActiveBids().length })}
                 </h2>
               </div>
               {isLoading ? (
                 <div className="space-y-3">
                   {[1, 2].map((i) => (
-                    <div key={i} className="h-20 bg-ink-700 rounded-xl animate-pulse" />
+                    <div key={i} className="h-20 bg-surface-container rounded-xl animate-pulse" />
                   ))}
                 </div>
               ) : getActiveBids().length === 0 ? (
-                <div className="text-center py-12 text-muted text-sm">
+                <div className="text-center py-12 text-on-surface-variant text-sm">
                   {t("shortlist.noBids")}
                 </div>
               ) : (
@@ -153,10 +153,10 @@ export default function ShortlistPage() {
                   {getActiveBids().map((bid) => (
                     <div
                       key={bid.id}
-                      className="flex items-center justify-between p-4 bg-ink-700 rounded-xl border border-edge/10 hover:border-accent/20 transition-colors"
+                      className="flex items-center justify-between p-4 bg-surface-container rounded-xl border border-outline-variant/10 hover:border-accent/20 transition-colors"
                     >
                       <div className="flex items-center gap-4">
-                        <div className="w-12 h-12 bg-ink-600 rounded-xl flex items-center justify-center text-lg font-bold text-accent">
+                        <div className="w-12 h-12 bg-surface-container-high rounded-xl flex items-center justify-center text-lg font-bold text-accent">
                           {bid.player.name.charAt(0)}
                         </div>
                         <div>
@@ -166,21 +166,21 @@ export default function ShortlistPage() {
                           >
                             {bid.player.name}
                           </Link>
-                          <p className="text-[10px] text-muted">
+                          <p className="text-kicker text-on-surface-variant">
                             {bid.player.age}y • {bid.player.position} • {bid.team?.name}
                           </p>
                         </div>
                       </div>
                       <div className="flex items-center gap-6">
                         <div className="text-right">
-                          <p className="text-xs text-muted mb-1">{t("shortlist.currentBid")}</p>
+                          <p className="text-xs text-on-surface-variant mb-1">{t("shortlist.currentBid")}</p>
                           <p className="text-lg font-bold text-frost">
                             {formatCurrency(bid.currentPrice)}
                           </p>
                         </div>
                         <div className="text-right">
                           <span
-                            className={`inline-block px-3 py-1 rounded-full text-[10px] font-bold uppercase ${
+                            className={`inline-block px-3 py-1 rounded-full text-kicker font-bold uppercase ${
                               bid.isHighestBidder
                                 ? "bg-jade/10 text-jade border border-jade/20"
                                 : "bg-danger-soft/10 text-danger-soft border border-danger-soft/20"
@@ -198,20 +198,20 @@ export default function ShortlistPage() {
 
             {/* Purchases */}
             <section>
-              <h2 className="text-xs uppercase tracking-[0.2em] text-muted font-bold mb-4">
+              <h2 className="text-xs uppercase tracking-[0.2em] text-on-surface-variant font-bold mb-4">
                 {t("shortlist.purchases", { count: purchases.length })}
               </h2>
               {purchases.length === 0 ? (
-                <div className="text-center py-8 text-muted text-sm">{t("shortlist.noPurchases")}</div>
+                <div className="text-center py-8 text-on-surface-variant text-sm">{t("shortlist.noPurchases")}</div>
               ) : (
                 <div className="space-y-3">
                   {purchases.map((tx) => (
                     <div
                       key={tx.id}
-                      className="flex items-center justify-between p-4 bg-ink-700 rounded-xl border border-edge/10 opacity-70"
+                      className="flex items-center justify-between p-4 bg-surface-container rounded-xl border border-outline-variant/10 opacity-70"
                     >
                       <div className="flex items-center gap-4">
-                        <div className="w-12 h-12 bg-ink-600 rounded-xl flex items-center justify-center text-lg font-bold text-accent grayscale">
+                        <div className="w-12 h-12 bg-surface-container-high rounded-xl flex items-center justify-center text-lg font-bold text-accent grayscale">
                           {tx.player.name.charAt(0)}
                         </div>
                         <div>
@@ -221,7 +221,7 @@ export default function ShortlistPage() {
                           >
                             {tx.player.name}
                           </Link>
-                          <p className="text-[10px] text-muted">
+                          <p className="text-kicker text-on-surface-variant">
                             {tx.player.age}y • {tx.player.position} • {t("shortlist.from", { team: tx.fromTeam?.name || "" })}
                           </p>
                         </div>
@@ -230,7 +230,7 @@ export default function ShortlistPage() {
                         <p className="text-lg font-bold text-accent">
                           {formatCurrency(tx.amount)}
                         </p>
-                        <p className="text-[10px] text-muted">{t("shortlist.season", { season: tx.season })}</p>
+                        <p className="text-kicker text-on-surface-variant">{t("shortlist.season", { season: tx.season })}</p>
                       </div>
                     </div>
                   ))}
@@ -242,17 +242,17 @@ export default function ShortlistPage() {
           <div className="space-y-8">
             {/* Active Listings */}
             <section>
-              <h2 className="text-xs uppercase tracking-[0.2em] text-muted font-bold mb-4">
+              <h2 className="text-xs uppercase tracking-[0.2em] text-on-surface-variant font-bold mb-4">
                 {t("shortlist.activeListings", { count: listings.length })}
               </h2>
               {isLoading ? (
                 <div className="space-y-3">
                   {[1, 2].map((i) => (
-                    <div key={i} className="h-20 bg-ink-700 rounded-xl animate-pulse" />
+                    <div key={i} className="h-20 bg-surface-container rounded-xl animate-pulse" />
                   ))}
                 </div>
               ) : listings.length === 0 ? (
-                <div className="text-center py-12 text-muted text-sm">
+                <div className="text-center py-12 text-on-surface-variant text-sm">
                   {t("shortlist.noListings")}
                 </div>
               ) : (
@@ -260,10 +260,10 @@ export default function ShortlistPage() {
                   {listings.map((listing) => (
                     <div
                       key={listing.id}
-                      className="flex items-center justify-between p-4 bg-ink-700 rounded-xl border border-edge/10 hover:border-accent/20 transition-colors"
+                      className="flex items-center justify-between p-4 bg-surface-container rounded-xl border border-outline-variant/10 hover:border-accent/20 transition-colors"
                     >
                       <div className="flex items-center gap-4">
-                        <div className="w-12 h-12 bg-ink-600 rounded-xl flex items-center justify-center text-lg font-bold text-accent">
+                        <div className="w-12 h-12 bg-surface-container-high rounded-xl flex items-center justify-center text-lg font-bold text-accent">
                           {listing.player.name.charAt(0)}
                         </div>
                         <div>
@@ -273,23 +273,23 @@ export default function ShortlistPage() {
                           >
                             {listing.player.name}
                           </Link>
-                          <p className="text-[10px] text-muted">
+                          <p className="text-kicker text-on-surface-variant">
                             {listing.player.age}y • {listing.player.position}
                           </p>
                         </div>
                       </div>
                       <div className="flex items-center gap-6">
                         <div className="text-right">
-                          <p className="text-xs text-muted mb-1">{t("shortlist.currentBid")}</p>
+                          <p className="text-xs text-on-surface-variant mb-1">{t("shortlist.currentBid")}</p>
                           <p className="text-lg font-bold text-accent">
                             {formatCurrency(listing.currentPrice)}
                           </p>
                         </div>
                         <div className="text-right">
-                          <p className="text-[10px] text-muted">
+                          <p className="text-kicker text-on-surface-variant">
                             {t("shortlist.bidsCount", { count: listing.bidHistory.length })}
                           </p>
-                          <p className="text-[10px] text-muted">
+                          <p className="text-kicker text-on-surface-variant">
                             {t("shortlist.ends", { time: formatTimeRemaining(listing.expiresAt) })}
                           </p>
                         </div>
@@ -302,20 +302,20 @@ export default function ShortlistPage() {
 
             {/* Sales */}
             <section>
-              <h2 className="text-xs uppercase tracking-[0.2em] text-muted font-bold mb-4">
+              <h2 className="text-xs uppercase tracking-[0.2em] text-on-surface-variant font-bold mb-4">
                 {t("shortlist.sales", { count: sales.length })}
               </h2>
               {sales.length === 0 ? (
-                <div className="text-center py-8 text-muted text-sm">{t("shortlist.noSales")}</div>
+                <div className="text-center py-8 text-on-surface-variant text-sm">{t("shortlist.noSales")}</div>
               ) : (
                 <div className="space-y-3">
                   {sales.map((tx) => (
                     <div
                       key={tx.id}
-                      className="flex items-center justify-between p-4 bg-ink-700 rounded-xl border border-edge/10 opacity-70"
+                      className="flex items-center justify-between p-4 bg-surface-container rounded-xl border border-outline-variant/10 opacity-70"
                     >
                       <div className="flex items-center gap-4">
-                        <div className="w-12 h-12 bg-ink-600 rounded-xl flex items-center justify-center text-lg font-bold text-accent grayscale">
+                        <div className="w-12 h-12 bg-surface-container-high rounded-xl flex items-center justify-center text-lg font-bold text-accent grayscale">
                           {tx.player.name.charAt(0)}
                         </div>
                         <div>
@@ -325,7 +325,7 @@ export default function ShortlistPage() {
                           >
                             {tx.player.name}
                           </Link>
-                          <p className="text-[10px] text-muted">
+                          <p className="text-kicker text-on-surface-variant">
                             {tx.player.age}y • {tx.player.position} • {t("shortlist.to", { team: tx.toTeam?.name || "" })}
                           </p>
                         </div>
@@ -334,7 +334,7 @@ export default function ShortlistPage() {
                         <p className="text-lg font-bold text-frost">
                           {formatCurrency(tx.amount)}
                         </p>
-                        <p className="text-[10px] text-muted">{t("shortlist.season", { season: tx.season })}</p>
+                        <p className="text-kicker text-on-surface-variant">{t("shortlist.season", { season: tx.season })}</p>
                       </div>
                     </div>
                   ))}
