@@ -73,7 +73,7 @@ export default function TransferTransactionCard({
         </div>
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-3">
-            <Link href={`/players/${player.id}`} className="font-bold text-xl text-frost truncate hover:text-accent transition-colors">
+            <Link href={`/players/${player.id}`} className="font-bold text-xl text-on-surface truncate hover:text-primary transition-colors">
               {player.name}
             </Link>
             {status === "failed" ? (
@@ -95,25 +95,25 @@ export default function TransferTransactionCard({
             <p className="text-kicker text-on-surface-variant uppercase tracking-wider mb-1">
               Age
             </p>
-            <p className="font-bold text-lg text-frost">{player.age}</p>
+            <p className="font-bold text-lg text-on-surface">{player.age}</p>
           </div>
           <div className="text-center">
             <p className="text-kicker text-on-surface-variant uppercase tracking-wider mb-1">
               Stamina
             </p>
-            <p className="font-bold text-lg text-signal-lime">{player.stamina || 85}</p>
+            <p className="font-bold text-lg text-signal-lilac">{player.stamina || 85}</p>
           </div>
           <div className="text-center">
             <p className="text-kicker text-on-surface-variant uppercase tracking-wider mb-1">
               Form
             </p>
-            <p className="font-bold text-lg text-signal-amber">{player.form || 7.0}</p>
+            <p className="font-bold text-lg text-signal-gold">{player.form || 7.0}</p>
           </div>
           <div className="text-center">
             <p className="text-kicker text-on-surface-variant uppercase tracking-wider mb-1">
               Exp
             </p>
-            <ExperienceTierLabel value={player.experience} className="font-bold text-lg text-frost" />
+            <ExperienceTierLabel value={player.experience} className="font-bold text-lg text-on-surface" />
           </div>
         </div>
         <div className="flex items-center gap-6">
@@ -123,7 +123,7 @@ export default function TransferTransactionCard({
             </p>
             <p
               className={`font-headline font-black text-2xl tracking-tight ${
-                status === "success" ? "text-accent" : "text-frost"
+                status === "success" ? "text-accent" : "text-on-surface"
               }`}
             >
               {formatCurrency(transaction.amount)}
@@ -133,7 +133,7 @@ export default function TransferTransactionCard({
             <p className="text-kicker text-on-surface-variant uppercase tracking-wider">
               {isSale ? "To" : "From"}
             </p>
-            <p className="font-bold text-lg text-frost">
+            <p className="font-bold text-lg text-on-surface">
               {isSale
                 ? transaction.toTeam?.name?.toUpperCase() || "UNKNOWN"
                 : transaction.fromTeam?.name?.toUpperCase() || "UNKNOWN"}
@@ -202,28 +202,28 @@ export default function TransferTransactionCard({
         {/* Physical */}
         <div>
           <div className="flex items-center gap-2 mb-2">
-            <div className="w-1 h-3 bg-signal-lime rounded-full" />
+            <div className="w-1 h-3 bg-signal-lilac rounded-full" />
             <h4 className="text-kicker font-black tracking-widest uppercase text-on-surface-variant">
               Physical
             </h4>
           </div>
           <div className="space-y-1.5">
-            {renderSkillBar("PAC", skills?.physical?.pace || 0, "text-signal-lime")}
-            {renderSkillBar("STR", skills?.physical?.strength || 0, "text-signal-lime")}
+            {renderSkillBar("PAC", skills?.physical?.pace || 0, "text-signal-lilac")}
+            {renderSkillBar("STR", skills?.physical?.strength || 0, "text-signal-lilac")}
           </div>
         </div>
 
         {/* Mental */}
         <div>
           <div className="flex items-center gap-2 mb-2">
-            <div className="w-1 h-3 bg-signal-amber rounded-full" />
+            <div className="w-1 h-3 bg-signal-gold rounded-full" />
             <h4 className="text-kicker font-black tracking-widest uppercase text-on-surface-variant">
               Mental
             </h4>
           </div>
           <div className="space-y-1.5">
-            {renderSkillBar("COM", skills?.mental?.composure || 0, "text-signal-amber")}
-            {renderSkillBar("POS", skills?.mental?.positioning || 0, "text-signal-amber")}
+            {renderSkillBar("COM", skills?.mental?.composure || 0, "text-signal-gold")}
+            {renderSkillBar("POS", skills?.mental?.positioning || 0, "text-signal-gold")}
           </div>
         </div>
 

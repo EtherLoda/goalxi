@@ -110,7 +110,7 @@ export default function TransferPlayerCard({
         </div>
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-3">
-            <Link href={`/players/${player.id}`} className={`font-bold text-xl truncate hover:text-accent transition-colors ${isSelected ? "text-accent" : "text-frost"}`}>
+            <Link href={`/players/${player.id}`} className={`font-bold text-xl truncate hover:text-primary transition-colors ${isSelected ? "text-primary" : "text-on-surface"}`}>
               {player.name}
             </Link>
             <span
@@ -131,7 +131,7 @@ export default function TransferPlayerCard({
                 e.stopPropagation();
                 handleTeamClick(transfer.team.id);
               }}
-              className="text-on-surface-variant hover:text-accent transition-colors cursor-pointer"
+              className="text-on-surface-variant hover:text-primary transition-colors cursor-pointer"
             >
               {player.teamName || transfer.team.name}
             </button>{" "}
@@ -144,29 +144,31 @@ export default function TransferPlayerCard({
             <p className="text-kicker text-on-surface-variant uppercase tracking-wider mb-1">
               {t("squad.age")}
             </p>
-            <p className="font-bold text-lg text-frost">{player.age}</p>
+            <p className="font-bold text-lg text-on-surface">{player.age}</p>
           </div>
           <div className="text-center">
             <p className="text-kicker text-on-surface-variant uppercase tracking-wider mb-1">
               {t("squad.stamina")}
             </p>
-            <p className="font-bold text-lg text-signal-lime">
-              {player.stamina || 85}
+            <p className="font-bold text-lg tabular-nums text-on-surface">
+              {Math.min(5, Math.max(0, Math.round(player.stamina ?? 0)))}
+              <span className="text-kicker font-normal text-on-surface-variant">/5</span>
             </p>
           </div>
           <div className="text-center">
             <p className="text-kicker text-on-surface-variant uppercase tracking-wider mb-1">
               {t("squad.form")}
             </p>
-            <p className="font-bold text-lg text-signal-amber">
-              {player.form || 7.0}
+            <p className="font-bold text-lg tabular-nums text-on-surface">
+              {Math.min(5, Math.max(0, Math.round(player.form ?? 0)))}
+              <span className="text-kicker font-normal text-on-surface-variant">/5</span>
             </p>
           </div>
           <div className="text-center">
             <p className="text-kicker text-on-surface-variant uppercase tracking-wider mb-1">
               {t("squad.exp")}
             </p>
-            <p className="font-bold text-lg text-frost">
+            <p className="font-bold text-lg text-on-surface">
               <ExperienceTierLabel value={player.experience} />
             </p>
           </div>
@@ -179,7 +181,7 @@ export default function TransferPlayerCard({
             <p className={`font-bold text-xl ${
               bidStatus === "leading" || bidStatus === "won"
                 ? "text-accent"
-                : "text-frost"
+                : "text-on-surface"
             }`}>
               {formatCurrency(transfer.currentPrice)}
             </p>
@@ -306,7 +308,7 @@ export default function TransferPlayerCard({
         {/* Mental */}
         <div>
           <div className="flex items-center gap-2 mb-3">
-            <div className="w-1.5 h-4 bg-signal-lime rounded-full" />
+            <div className="w-1.5 h-4 bg-signal-lilac rounded-full" />
             <h3 className="text-xs font-black tracking-widest uppercase text-on-surface-variant">
               {t("transfers.detail.mental")}
             </h3>
@@ -316,13 +318,13 @@ export default function TransferPlayerCard({
               t("squad.skills.composure"),
               skills?.mental?.composure || 0,
               potential?.mental?.composure || 0,
-              "text-signal-lime",
+              "text-signal-lilac",
             )}
             {renderSkillBar(
               t("squad.skills.positioning"),
               skills?.mental?.positioning || 0,
               potential?.mental?.positioning || 0,
-              "text-signal-lime",
+              "text-signal-lilac",
             )}
           </div>
         </div>
@@ -330,7 +332,7 @@ export default function TransferPlayerCard({
         {/* Set Pieces */}
         <div>
           <div className="flex items-center gap-2 mb-3">
-            <div className="w-1.5 h-4 bg-signal-amber rounded-full" />
+            <div className="w-1.5 h-4 bg-signal-gold rounded-full" />
             <h3 className="text-xs font-black tracking-widest uppercase text-on-surface-variant">
               {t("squad.skills.setPieces")}
             </h3>
@@ -340,13 +342,13 @@ export default function TransferPlayerCard({
               t("squad.skills.freeKicks"),
               skills?.setPieces?.freeKicks || 0,
               potential?.setPieces?.freeKicks || 0,
-              "text-signal-amber",
+              "text-signal-gold",
             )}
             {renderSkillBar(
               t("squad.skills.penalties"),
               skills?.setPieces?.penalties || 0,
               potential?.setPieces?.penalties || 0,
-              "text-signal-amber",
+              "text-signal-gold",
             )}
           </div>
         </div>
