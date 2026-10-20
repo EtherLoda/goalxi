@@ -582,7 +582,8 @@
       "keyTarget": "重点目标",
       "offerPrice": "报价",
       "offerPlaceholder": "例如 55,000,000",
-      "makeOffer": "提交报价"
+      "makeOffer": "提交报价",
+      "leading": "当前最高"
     },
     "modal": {
       "negotiationPhase": "谈判阶段",

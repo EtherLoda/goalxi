@@ -582,7 +582,8 @@
       "keyTarget": "Key Target",
       "offerPrice": "Offer Price",
       "offerPlaceholder": "e.g. 55,000,000",
-      "makeOffer": "Make Offer"
+      "makeOffer": "Make Offer",
+      "leading": "Top bid"
     },
     "modal": {
       "negotiationPhase": "Negotiation Phase",

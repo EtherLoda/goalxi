@@ -9,11 +9,11 @@ import { api, type Player, type TransferAuction } from "@/lib/api";
 import TransferListSkeleton from "@/components/transfers/TransferListSkeleton";
 import PlayerDetailSkeleton from "@/components/transfers/PlayerDetailSkeleton";
 import { PlayerIdentity } from "@/components/player/profile/PlayerIdentity";
+import { PlayerSkillGrid } from "@/components/player/profile/PlayerSkillGrid";
 import AttributeRangeSlider from "@/components/transfers/AttributeRangeSlider";
 import TransferPlayerCard from "@/components/transfers/TransferPlayerCard";
 import TransferNav from "@/components/transfers/TransferNav";
 import { SpecialtyIcon } from "@/components/player/SpecialtyIcon";
-import { barClassFor } from "@/components/player/skill-display";
 
 type TransferPlayer = Player;
 
@@ -282,29 +282,6 @@ export default function TransfersPage() {
     }
   }, [selectedTransfer, team]);
 
-  const SKILL_MAX = 20;
-
-  // Skill-bar colors must match the player detail page
-  // (web/src/app/[locale]/players/[id]/page.tsx):
-  //   - technical / GK  = #a1ffc2
-  //   - physical        = #60a5fa
-  //   - mental          = #abf853
-  //   - set pieces      = #f59e0b
-  // If you change one here, change the other too.
-  const renderSkillBar = (label: string, current: number, potential: number, colorClass: string) => {
-    const percentage = (current / SKILL_MAX) * 100;
-    return (
-      <div className="space-y-1.5">
-        <div className="flex justify-between text-kicker font-bold uppercase tracking-wider text-on-surface-variant">
-          <span>{label}</span>
-          <span className={colorClass}>{current}/{potential}</span>
-        </div>
-        <div className="h-1.5 w-full bg-surface-container rounded-full overflow-hidden">
-          <div className={`h-full ${barClassFor(colorClass)} rounded-full`} style={{ width: `${percentage}%` }} />
-        </div>
-      </div>
-    );
-  };
 
   return (
     <>
@@ -769,170 +746,190 @@ export default function TransfersPage() {
                     </p>
                   </div>
 
-                  {/* Attribute Section */}
+                  {/* Skills — the same grid the profile page renders, so a
+                      candidate is described exactly like a signed player. */}
                   <section className="space-y-6">
-                    <div className="flex items-center gap-2 mb-4 border-b border-outline-variant/10 pb-2">
-                      <AppIcon name="analytics" className="text-primary text-sm" />
-                      <h4 className="text-kicker uppercase tracking-widest text-on-surface-variant font-bold">{t("transfers.detail.profile")}</h4>
+                    <div className="flex items-center gap-tight border-b border-outline-variant/30 pb-tight">
+                      <AppIcon name="analytics" className="text-sm text-primary" />
+                      <h4 className="font-label text-kicker font-bold uppercase tracking-[0.14em] text-outline">
+                        {t("transfers.detail.profile")}
+                      </h4>
                     </div>
 
-                    <div className="grid grid-cols-2 gap-6">
-                      {/* Technical & Physical */}
-                      <div className="space-y-6">
-                        {/* Technical */}
-                        <div>
-                          <div className="flex items-center gap-2 mb-3">
-                            <div className="w-1.5 h-4 bg-signal-blue rounded-full" />
-                            <h3 className="text-xs font-black font-headline tracking-widest uppercase text-on-surface-variant">{t("transfers.detail.technical")}</h3>
-                          </div>
-                          <div className="space-y-3">
-                            {selectedTransfer.player.isGoalkeeper ? (
-                              <>
-                                {renderSkillBar(t("squad.skills.reflexes"), (selectedTransfer.player.currentSkills)?.technical?.reflexes || 0, (selectedTransfer.player.potentialSkills)?.technical?.reflexes || 0, "text-signal-blue")}
-                                {renderSkillBar(t("squad.skills.handling"), (selectedTransfer.player.currentSkills)?.technical?.handling || 0, (selectedTransfer.player.potentialSkills)?.technical?.handling || 0, "text-signal-blue")}
-                                {renderSkillBar(t("squad.skills.aerial"), (selectedTransfer.player.currentSkills)?.technical?.aerial || 0, (selectedTransfer.player.potentialSkills)?.technical?.aerial || 0, "text-signal-blue")}
-                              </>
-                            ) : (
-                              <>
-                                {renderSkillBar(t("squad.skills.finishing"), (selectedTransfer.player.currentSkills)?.technical?.finishing || 0, (selectedTransfer.player.potentialSkills)?.technical?.finishing || 0, "text-signal-blue")}
-                                {renderSkillBar(t("squad.skills.passing"), (selectedTransfer.player.currentSkills)?.technical?.passing || 0, (selectedTransfer.player.potentialSkills)?.technical?.passing || 0, "text-signal-blue")}
-                                {renderSkillBar(t("squad.skills.dribbling"), (selectedTransfer.player.currentSkills)?.technical?.dribbling || 0, (selectedTransfer.player.potentialSkills)?.technical?.dribbling || 0, "text-signal-blue")}
-                                {renderSkillBar(t("squad.skills.defending"), (selectedTransfer.player.currentSkills)?.technical?.defending || 0, (selectedTransfer.player.potentialSkills)?.technical?.defending || 0, "text-signal-blue")}
-                              </>
-                            )}
-                          </div>
-                        </div>
+                    <PlayerSkillGrid player={selectedTransfer.player} columns={2} />
 
-                        {/* Physical */}
-                        <div>
-                          <div className="flex items-center gap-2 mb-3">
-                            <div className="w-1.5 h-4 bg-accent rounded-full" />
-                            <h3 className="text-xs font-black font-headline tracking-widest uppercase text-on-surface-variant">{t("transfers.detail.physical")}</h3>
+                    {/* Bid history */}
+                    {selectedTransfer.bidHistory && selectedTransfer.bidHistory.length > 0 ? (
+                      <div className="border-t border-outline-variant/30 pt-panel">
+                        <div className="mb-tight flex items-center justify-between gap-tight">
+                          <div className="flex items-center gap-tight">
+                            <AppIcon name="gavel" className="text-sm text-primary" />
+                            <h4 className="font-label text-kicker font-bold uppercase tracking-[0.14em] text-outline">
+                              {t("transfers.bidHistory")}
+                            </h4>
                           </div>
-                          <div className="space-y-3">
-                            {renderSkillBar(t("squad.skills.pace"), (selectedTransfer.player.currentSkills)?.physical?.pace || 0, (selectedTransfer.player.potentialSkills)?.physical?.pace || 0, "text-accent")}
-                            {renderSkillBar(t("squad.skills.strength"), (selectedTransfer.player.currentSkills)?.physical?.strength || 0, (selectedTransfer.player.potentialSkills)?.physical?.strength || 0, "text-accent")}
-                          </div>
+                          {selectedTransfer.bidHistory.length > 3 ? (
+                            <button
+                              type="button"
+                              onClick={() => setShowBidHistoryModal(true)}
+                              className="inline-flex items-center gap-micro font-label text-kicker uppercase tracking-wider text-on-surface-variant transition-colors duration-quick hover:text-primary"
+                            >
+                              {t("transfers.more")}
+                              <AppIcon name="navigate_next" className="text-kicker" />
+                            </button>
+                          ) : null}
                         </div>
-                      </div>
-
-                      {/* Mental & Set Pieces */}
-                      <div className="space-y-6">
-                        {/* Mental */}
-                        <div>
-                          <div className="flex items-center gap-2 mb-3">
-                            <div className="w-1.5 h-4 bg-signal-lilac rounded-full" />
-                            <h3 className="text-xs font-black font-headline tracking-widest uppercase text-on-surface-variant">{t("transfers.detail.mental")}</h3>
-                          </div>
-                          <div className="space-y-3">
-                            {renderSkillBar(t("squad.skills.composure"), (selectedTransfer.player.currentSkills)?.mental?.composure || 0, (selectedTransfer.player.potentialSkills)?.mental?.composure || 0, "text-signal-lilac")}
-                            {renderSkillBar(t("squad.skills.positioning"), (selectedTransfer.player.currentSkills)?.mental?.positioning || 0, (selectedTransfer.player.potentialSkills)?.mental?.positioning || 0, "text-signal-lilac")}
-                          </div>
-                        </div>
-
-                        {/* Set Pieces */}
-                        <div>
-                          <div className="flex items-center gap-2 mb-3">
-                            <div className="w-1.5 h-4 bg-signal-gold rounded-full" />
-                            <h3 className="text-xs font-black font-headline tracking-widest uppercase text-on-surface-variant">{t("squad.skills.setPieces")}</h3>
-                          </div>
-                          <div className="space-y-3">
-                            {renderSkillBar(t("squad.skills.freeKicks"), (selectedTransfer.player.currentSkills)?.setPieces?.freeKicks || 0, (selectedTransfer.player.potentialSkills)?.setPieces?.freeKicks || 0, "text-signal-gold")}
-                            {renderSkillBar(t("squad.skills.penalties"), (selectedTransfer.player.currentSkills)?.setPieces?.penalties || 0, (selectedTransfer.player.potentialSkills)?.setPieces?.penalties || 0, "text-signal-gold")}
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Bid History */}
-                      {selectedTransfer.bidHistory && selectedTransfer.bidHistory.length > 0 && (
-                        <div className="mt-0 pt-4 border-t border-outline-variant/10">
-                          <div className="flex items-center justify-between mb-4">
-                            <div className="flex items-center gap-2">
-                              <AppIcon name="gavel" className="text-primary text-sm" />
-                              <h4 className="text-kicker uppercase tracking-widest text-on-surface-variant font-bold">{t("transfers.bidHistory")}</h4>
-                            </div>
-                            {selectedTransfer.bidHistory.length > 3 && (
-                              <button
-                                onClick={() => setShowBidHistoryModal(true)}
-                                className="text-kicker text-on-surface-variant hover:text-primary transition-colors flex items-center gap-1"
-                              >
-                                <span>{t("transfers.more")}</span>
-                                <AppIcon name="navigate_next" className="text-sm" />
-                              </button>
-                            )}
-                          </div>
-                          <div className="divide-y divide-outline-variant/20">
-                            {selectedTransfer.bidHistory.slice().reverse().slice(0, 3).map((bid, idx) => (
-                              <div key={idx} className="flex items-center justify-between py-3">
-                                <div className="flex items-center gap-3">
-                                  <div className="w-7 h-7 rounded-full bg-gradient-to-br from-accent/30 to-surface-container-high flex items-center justify-center">
-                                    <span className="text-kicker font-bold text-primary">{(bid.teamName || '?').charAt(0)}</span>
+                        <ol className="divide-y divide-outline-variant/20">
+                          {selectedTransfer.bidHistory
+                            .slice()
+                            .reverse()
+                            .slice(0, 3)
+                            .map((bid, idx) => {
+                              const highest = Math.max(
+                                ...selectedTransfer.bidHistory.map((b) => b.amount),
+                              );
+                              const leading = bid.amount === highest;
+                              return (
+                                <li
+                                  key={`${bid.timestamp}-${idx}`}
+                                  className="flex items-center justify-between gap-tight py-tight"
+                                >
+                                  <div className="flex min-w-0 items-center gap-tight">
+                                    <span
+                                      className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-md font-headline text-kicker font-black ${
+                                        leading
+                                          ? "bg-primary/15 text-primary"
+                                          : "bg-surface-container-high text-on-surface-variant"
+                                      }`}
+                                      aria-hidden="true"
+                                    >
+                                      {(bid.teamName || "?").charAt(0).toUpperCase()}
+                                    </span>
+                                    <span className="min-w-0">
+                                      <span className="flex items-center gap-micro">
+                                        <span className="truncate font-body text-label font-semibold text-on-surface">
+                                          {bid.teamName || t("transfers.notifications.unknown")}
+                                        </span>
+                                        {leading ? (
+                                          <span className="shrink-0 rounded-full bg-primary/15 px-1.5 py-px font-label text-kicker font-bold uppercase tracking-wider text-primary">
+                                            {t("transfers.detail.leading")}
+                                          </span>
+                                        ) : null}
+                                      </span>
+                                      <span className="block font-label text-kicker text-on-surface-variant">
+                                        {formatBidTime(bid.timestamp)}
+                                      </span>
+                                    </span>
                                   </div>
-                                  <div>
-                                    <p className="text-label font-semibold text-on-surface">{bid.teamName || t("transfers.notifications.unknown")}</p>
-                                    <p className="text-kicker text-on-surface-variant">{formatBidTime(bid.timestamp)}</p>
-                                  </div>
-                                </div>
-                                <p className="text-label font-bold text-primary">{formatCurrency(bid.amount)}</p>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-                    </div>
+                                  <span
+                                    className={`shrink-0 font-headline text-label font-bold tabular-nums ${
+                                      leading ? "text-primary" : "text-on-surface-variant"
+                                    }`}
+                                  >
+                                    {formatCurrency(bid.amount)}
+                                  </span>
+                                </li>
+                              );
+                            })}
+                        </ol>
+                      </div>
+                    ) : null}
                   </section>
                 </div>
 
-                {/* Bid Input */}
-                <div className="p-6 bg-surface-container-low border-t border-outline-variant/10">
-                  <div className="flex gap-3 items-center">
-                    <div className="flex-1 relative">
-                      <label className="absolute -top-2 left-3 px-1 bg-surface-container-low text-kicker text-primary-dim font-bold uppercase tracking-widest z-10">
+                {/* Bid footer */}
+                <div className="border-t border-outline-variant/30 bg-surface-container-low/60 p-panel">
+                  <div className="flex flex-col gap-tight">
+                    <div className="flex items-end justify-between gap-tight">
+                      <label
+                        htmlFor="transfer-bid-amount"
+                        className="font-label text-kicker font-bold uppercase tracking-[0.14em] text-outline"
+                      >
                         {t("transfers.detail.offerPrice")}
                       </label>
-                      <div className="relative">
-                        <span className="absolute left-4 top-1/2 -translate-y-1/2 text-primary font-bold text-sm">{t("common.currencySymbol")}</span>
+                      <div className="flex items-center gap-micro">
+                        {[5, 10].map((pct) => (
+                          <button
+                            key={pct}
+                            type="button"
+                            onClick={() =>
+                              setBidAmount(
+                                String(
+                                  Math.round(
+                                    (selectedTransfer.currentPrice * (1 + pct / 100)) / 1000,
+                                  ) * 1000,
+                                ),
+                              )
+                            }
+                            className="rounded-full border border-outline-variant/30 px-tight py-micro font-label text-kicker font-bold tabular-nums text-on-surface-variant transition-colors duration-quick hover:border-primary/40 hover:text-primary"
+                          >
+                            +{pct}%
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-tight">
+                      <div className="relative flex-1">
+                        <span className="pointer-events-none absolute left-panel top-1/2 -translate-y-1/2 font-body text-body font-bold text-primary">
+                          {t("common.currencySymbol")}
+                        </span>
                         <input
-                          className="w-full bg-surface-container-high border border-outline-variant/30 rounded-xl py-3 pl-8 pr-4 text-sm font-bold text-on-surface focus:ring-1 focus:ring-primary focus:border-primary transition-all placeholder:text-on-surface-variant/40"
+                          id="transfer-bid-amount"
+                          className="w-full rounded-lg border border-outline-variant/40 bg-surface-container py-tight pl-7 pr-panel text-right font-headline text-body font-bold tabular-nums text-on-surface transition-colors duration-quick placeholder:text-right placeholder:font-body placeholder:font-normal placeholder:text-on-surface-variant/50 focus:border-primary/50 focus:outline-none"
                           placeholder={t("transfers.detail.offerPlaceholder")}
                           type="text"
                           inputMode="numeric"
                           value={formatBidAmountInput(bidAmount)}
                           onChange={(e) => {
                             // Strip non-digits; cap at 9 digits (max
-                            // 999,999,999) so a paste of "1e100" or
-                            // similar can't blow up the parser.
-                            const digits = e.target.value.replace(/[^0-9]/g, '').slice(0, 9);
+                            // 999,999,999) so a paste of "1e100" or similar
+                            // can't blow up the parser.
+                            const digits = e.target.value.replace(/[^0-9]/g, "").slice(0, 9);
                             setBidAmount(digits);
                           }}
                         />
                       </div>
+                      <button
+                        type="button"
+                        className="inline-flex items-center gap-tight rounded-lg bg-primary px-panel py-tight font-label text-label font-bold uppercase tracking-[0.08em] text-on-primary shadow-[0_6px_20px_-8px_rgba(0,228,121,0.6)] transition-all duration-quick hover:brightness-110 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-40 disabled:shadow-none"
+                        onClick={async () => {
+                          if (!selectedTransfer || !bidAmount || !team) return;
+                          const amount = parseInt(bidAmount.replace(/,/g, ""));
+                          if (isNaN(amount) || amount <= 0) return;
+                          setIsSubmittingBid(true);
+                          try {
+                            await api.transfers.placeBid(selectedTransfer.id, amount);
+                            setNotification({
+                              type: "success",
+                              message: t("transfers.notifications.offerSubmitted", {
+                                amount: `${t("common.currencySymbol")}${amount.toLocaleString()}`,
+                                player: selectedTransfer.player.name,
+                              }),
+                            });
+                            setBidAmount("");
+                            const freshData = await fetchTransfers();
+                            const updated = freshData.find((x) => x.id === selectedTransfer.id);
+                            if (updated) setSelectedTransfer(updated);
+                          } catch (error) {
+                            setNotification({
+                              type: "error",
+                              message:
+                                error instanceof Error
+                                  ? error.message
+                                  : t("transfers.notifications.offerFailed"),
+                            });
+                          } finally {
+                            setIsSubmittingBid(false);
+                          }
+                        }}
+                        disabled={!bidAmount || isSubmittingBid}
+                      >
+                        <AppIcon name="payments" className="text-kicker" />
+                        {isSubmittingBid
+                          ? t("transfers.submitting")
+                          : t("transfers.detail.makeOffer")}
+                      </button>
                     </div>
-                    <button
-                      className="px-6 py-3.5 bg-primary text-on-primary font-bold rounded-xl flex items-center justify-center gap-2 hover:brightness-110 active:scale-95 transition-all shadow-lg shadow-primary/20 uppercase tracking-widest text-kicker whitespace-nowrap disabled:opacity-50"
-                      onClick={async () => {
-                        if (!selectedTransfer || !bidAmount || !team) return;
-                        const amount = parseInt(bidAmount.replace(/,/g, ""));
-                        if (isNaN(amount) || amount <= 0) return;
-                        setIsSubmittingBid(true);
-                        try {
-                          await api.transfers.placeBid(selectedTransfer.id, amount);
-                          setNotification({ type: 'success', message: t("transfers.notifications.offerSubmitted", { amount: `${t("common.currencySymbol")}${amount.toLocaleString()}`, player: selectedTransfer.player.name }) });
-                          setBidAmount("");
-                          const freshData = await fetchTransfers();
-                          const updated = freshData.find(t => t.id === selectedTransfer.id);
-                          if (updated) setSelectedTransfer(updated);
-                        } catch (error) {
-                          setNotification({ type: 'error', message: error instanceof Error ? error.message : t("transfers.notifications.offerFailed") });
-                        } finally {
-                          setIsSubmittingBid(false);
-                        }
-                      }}
-                      disabled={!bidAmount || isSubmittingBid}
-                    >
-                      <AppIcon name="payments" className="text-sm" />
-                      {t("transfers.detail.makeOffer")}
-                    </button>
                   </div>
                 </div>
               </>
