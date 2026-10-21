@@ -43,7 +43,7 @@ export default function Sidebar() {
       items: [
         { labelKey: "dashboard", href: `/${locale}/dashboard?team=${currentTeamId}`, icon: "home" },
         { labelKey: "squad", href: `/${locale}/teams/squad?team=${currentTeamId}`, icon: "groups" },
-        { labelKey: "clubProfile", href: `${locale}/teams/${currentTeamId}`, icon: "shield" },
+        { labelKey: "clubProfile", href: `/${locale}/teams/${currentTeamId}`, icon: "shield" },
         { labelKey: "stadium", href: `/${locale}/club/stadium?team=${currentTeamId}`, icon: "stadium" },
         { labelKey: "matches", href: `/${locale}/matches?team=${currentTeamId}`, icon: "calendar_month" },
         { labelKey: "league", href: displayTeam?.leagueId ? `/${locale}/league/${displayTeam.leagueId}?team=${currentTeamId}` : "#", icon: "emoji_events" },
@@ -54,7 +54,7 @@ export default function Sidebar() {
       titleKey: "operations",
       items: [
         { labelKey: "search", href: `/${locale}/search`, icon: "search" },
-        { labelKey: "managerProfile", href: user?.id ? `${locale}/managers/${user.id}` : `${locale}/dashboard`, icon: "person" },
+        { labelKey: "managerProfile", href: user?.id ? `/${locale}/managers/${user.id}` : `/${locale}/dashboard`, icon: "person" },
         { labelKey: "transfers", href: `/${locale}/transfers?team=${currentTeamId}`, icon: "swap_horiz" },
         { labelKey: "training", href: `/${locale}/training?team=${currentTeamId}`, icon: "fitness_center" },
         { labelKey: "medical", href: `/${locale}/club/medical?team=${currentTeamId}`, icon: "medical_services" },
