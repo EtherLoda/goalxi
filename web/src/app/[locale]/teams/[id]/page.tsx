@@ -4,7 +4,6 @@ import { use, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useTranslations } from 'next-intl';
 import { AppIcon } from '@/components/icons/AppIcon';
-import { FormChipStrip } from '@/components/match/FormChipStrip';
 import { GlassPanel } from '@/components/ui/GlassPanel';
 import { KickerLabel } from '@/components/ui/KickerLabel';
 import { api, type TeamSummary } from '@/lib/api';
@@ -56,7 +55,7 @@ export default function TeamPublicPage({ params }: PageProps) {
 
   if (settled?.failed) {
     return (
-      <div className="mx-auto w-full max-w-[720px] pb-8">
+      <div className="mx-auto w-full max-w-[720px] p-4 md:p-6">
         <GlassPanel>
           <div className="flex flex-col items-center gap-3 px-6 py-14 text-center">
             <AppIcon name="shield" className="text-4xl text-outline" />
@@ -74,7 +73,7 @@ export default function TeamPublicPage({ params }: PageProps) {
 
   if (!settled?.data) {
     return (
-      <div className="mx-auto w-full max-w-[1000px] pb-8">
+      <div className="mx-auto w-full max-w-[1000px] p-4 md:p-6">
         <GlassPanel>
           <div className="flex animate-pulse items-center gap-5 px-5 py-5">
             <div className="h-20 w-20 rounded-2xl bg-white/[0.05]" />
@@ -89,15 +88,10 @@ export default function TeamPublicPage({ params }: PageProps) {
   }
 
   const team = settled.data;
-  const standing = team.standing;
   const accent = team.jerseyColorPrimary || '#00e479';
-  const formResults = team.recentMatches
-    .slice()
-    .reverse()
-    .map((match) => match.result);
 
   return (
-    <div className="mx-auto flex w-full max-w-[1000px] flex-col gap-gutter pb-8">
+    <div className="mx-auto flex w-full max-w-[1000px] flex-col gap-gutter p-4 md:p-6">
       <GlassPanel>
         <div className="flex flex-col gap-5 px-5 py-5 sm:flex-row sm:items-start">
           <div
@@ -140,17 +134,6 @@ export default function TeamPublicPage({ params }: PageProps) {
             </div>
           </div>
 
-          {standing ? (
-            <div className="shrink-0 text-right">
-              <KickerLabel>{t('rankLabel')}</KickerLabel>
-              <div className="font-headline text-2xl font-black leading-none text-primary">
-                #{standing.position}
-              </div>
-              <div className="mt-1 text-kicker text-on-surface-variant">
-                {standing.points} {t('pointsShort')}
-              </div>
-            </div>
-          ) : null}
         </div>
       </GlassPanel>
 
@@ -188,7 +171,12 @@ export default function TeamPublicPage({ params }: PageProps) {
                   <dd className="mt-0.5 text-label font-bold text-on-surface">
                     {team.stadium ? (
                       <>
-                        {team.stadium.name}
+                        <Link
+                          href={`/${locale}/club/stadium?team=${team.id}`}
+                          className="text-primary hover:underline"
+                        >
+                          {team.stadium.name}
+                        </Link>
                         <span className="ml-1.5 font-normal tabular-nums text-on-surface-variant">
                           {team.stadium.capacity.toLocaleString('en-US')}
                         </span>
@@ -216,88 +204,10 @@ export default function TeamPublicPage({ params }: PageProps) {
                   </dd>
                 </div>
 
-                <div>
-                  <dt className="text-kicker text-on-surface-variant">
-                    {t('leaguePosition')}
-                  </dt>
-                  <dd className="mt-0.5 text-label font-bold tabular-nums text-on-surface">
-                    {standing ? (
-                      `#${standing.position}`
-                    ) : (
-                      <span className="font-normal text-on-surface-variant">
-                        —
-                      </span>
-                    )}
-                  </dd>
-                </div>
               </dl>
             </div>
           </GlassPanel>
 
-          <GlassPanel>
-            <div className="px-5 py-4">
-              <div className="flex items-center justify-between">
-                <KickerLabel>{t('seasonRecord')}</KickerLabel>
-                {standing ? (
-                  <span className="text-kicker text-on-surface-variant">
-                    {t('seasonLabel')} {standing.season}
-                  </span>
-                ) : null}
-              </div>
-
-              {standing ? (
-                <div className="mt-3 grid grid-cols-4 gap-2 text-center sm:grid-cols-7">
-                  {[
-                    { label: t('win'), value: standing.wins },
-                    { label: t('draw'), value: standing.draws },
-                    { label: t('loss'), value: standing.losses },
-                    { label: t('goalsForShort'), value: standing.goalsFor },
-                    {
-                      label: t('goalsAgainstShort'),
-                      value: standing.goalsAgainst,
-                    },
-                    {
-                      label: t('goalDifferenceShort'),
-                      value:
-                        standing.goalDifference > 0
-                          ? `+${standing.goalDifference}`
-                          : standing.goalDifference,
-                    },
-                    { label: t('pointsShort'), value: standing.points },
-                  ].map((cell) => (
-                    <div
-                      key={cell.label}
-                      className="rounded-xl bg-surface-container/60 px-2 py-2.5"
-                    >
-                      <div className="font-headline text-title font-black tabular-nums text-on-surface">
-                        {cell.value}
-                      </div>
-                      <div className="mt-0.5 text-kicker text-on-surface-variant">
-                        {cell.label}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <p className="mt-3 text-label text-on-surface-variant">
-                  {t('noStanding')}
-                </p>
-              )}
-
-              {formResults.length > 0 ? (
-                <div className="mt-4 flex items-center gap-2">
-                  <span className="text-kicker text-on-surface-variant">
-                    {t('recentForm')}
-                  </span>
-                  <FormChipStrip
-                    results={formResults}
-                    variant="glyph"
-                    size="sm"
-                  />
-                </div>
-              ) : null}
-            </div>
-          </GlassPanel>
         </div>
 
         <div className="flex w-full shrink-0 flex-col gap-gutter lg:w-[340px]">

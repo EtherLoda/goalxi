@@ -76,7 +76,7 @@ export default function ManagerProfilePage() {
 
   if (!managerId || settled?.failed) {
     return (
-      <div className="mx-auto w-full max-w-[720px] pb-8">
+      <div className="mx-auto w-full max-w-[720px] p-4 md:p-6">
         <GlassPanel>
           <div className="flex flex-col items-center gap-3 px-6 py-14 text-center">
             <AppIcon name="person" className="text-4xl text-outline" />
@@ -94,7 +94,7 @@ export default function ManagerProfilePage() {
 
   if (!settled?.data) {
     return (
-      <div className="mx-auto w-full max-w-[720px] pb-8">
+      <div className="mx-auto w-full max-w-[720px] p-4 md:p-6">
         <GlassPanel>
           <div className="flex animate-pulse items-center gap-5">
             <div className="h-24 w-24 rounded-2xl bg-white/[0.05]" />
@@ -114,7 +114,7 @@ export default function ManagerProfilePage() {
   const joined = formatJoined(manager.joinedAt, locale);
 
   return (
-    <div className="mx-auto w-full max-w-[720px] pb-8">
+    <div className="mx-auto w-full max-w-[720px] p-4 md:p-6">
       <GlassPanel>
         <div className="flex flex-col gap-5 sm:flex-row sm:items-start">
           <div className="flex h-24 w-24 shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-primary/10">
