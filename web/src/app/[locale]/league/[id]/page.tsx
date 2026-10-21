@@ -6,7 +6,6 @@ import { useParams, useSearchParams } from "next/navigation";
 import LeftColumn from "@/components/league/LeftColumn";
 import RightColumn from "@/components/league/RightColumn";
 import LeagueHeader from "@/components/league/LeagueHeader";
-import LeagueKpiStrip from "@/components/league/LeagueKpiStrip";
 import { useAuth } from "@/contexts/AuthContext";
 import { useGameStore } from "@/stores/gameStore";
 import {
@@ -251,7 +250,6 @@ function LeaguePageContent() {
   // value, so it rendered "Round 30 / 16" and a 100% progress bar.
   const matchdayCount = gameState?.total ?? 0;
   const matchdaysPlayed = gameState?.completed ?? 0;
-  const userTeamColor = userTeam?.jerseyColorPrimary || '#00E479';
 
   return (
     <div className="p-6 md:p-8 space-y-6 max-w-7xl mx-auto w-full">
@@ -270,13 +268,6 @@ function LeaguePageContent() {
         locale={locale}
         leagueId={leagueId}
         context={leagueContext}
-      />
-
-      {/* KPI strip */}
-      <LeagueKpiStrip
-        standings={standings}
-        userTeamId={userTeam?.id}
-        userTeamColor={userTeamColor}
       />
 
       {/* Main grid: Matchweek + Standings / Tabs */}
