@@ -33,10 +33,9 @@ export default function TeamStatusTable({
 }: TeamStatusTableProps) {
   const t = useTranslations("league.status");
   const router = useRouter();
-  const { viewTeamId, setViewTeam } = useGameStore();
+  const { viewTeamId } = useGameStore();
 
   const handleTeamClick = (teamId: string) => {
-    setViewTeam(teamId === userTeamId ? userTeamId : teamId);
     router.push(clubHref(locale, teamId));
   };
 

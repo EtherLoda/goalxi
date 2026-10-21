@@ -210,50 +210,7 @@ export default function TeamPublicPage({ params }: PageProps) {
 
         </div>
 
-        <div className="flex w-full shrink-0 flex-col gap-gutter lg:w-[340px]">
-          <GlassPanel>
-            <div className="px-5 py-4">
-              <KickerLabel>{t('recentMatches')}</KickerLabel>
-
-              {team.recentMatches.length === 0 ? (
-                <p className="mt-3 text-label text-on-surface-variant">
-                  {t('noMatches')}
-                </p>
-              ) : (
-                <ul className="mt-2 flex flex-col divide-y divide-outline-variant/20">
-                  {team.recentMatches.map((match) => (
-                    <li key={match.id}>
-                      <Link
-                        href={`/${locale}/matches/${match.id}`}
-                        className="flex items-center gap-2.5 py-2 transition hover:bg-white/[0.03]"
-                      >
-                        <span
-                          className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-[5px] font-label text-[10px] font-black ${
-                            match.result === 'W'
-                              ? 'bg-primary text-on-primary'
-                              : match.result === 'L'
-                                ? 'bg-error/85 text-white'
-                                : 'bg-white/10 text-on-surface-variant'
-                          }`}
-                        >
-                          {match.result}
-                        </span>
-                        <span className="min-w-0 flex-1 truncate text-label text-on-surface">
-                          {match.isHome ? t('home') : t('away')}{' '}
-                          {match.opponentName}
-                        </span>
-                        <span className="shrink-0 font-headline text-label font-black tabular-nums text-on-surface">
-                          {match.goalsFor} - {match.goalsAgainst}
-                        </span>
-                      </Link>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </div>
-          </GlassPanel>
         </div>
-      </div>
     </div>
   );
 }

@@ -59,11 +59,9 @@ export default function StandingsTable({
 }: StandingsTableProps) {
   const t = useTranslations();
   const router = useRouter();
-  const { viewTeamId, setViewTeam } = useGameStore();
+  const { viewTeamId } = useGameStore();
 
   const handleTeamClick = (clickedTeamId: string) => {
-    const isOwnTeam = clickedTeamId === userTeamId;
-    setViewTeam(isOwnTeam ? userTeamId : clickedTeamId);
     router.push(clubHref(locale, clickedTeamId));
   };
 

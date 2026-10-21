@@ -9,9 +9,7 @@ import { getSpecialtyLabel } from "@/lib/specialties";
 import { StatTile } from "@/components/player/profile/player-profile-primitives";
 import { conditionTier, conditionToneClass } from "@/lib/condition-tone";
 import { ExperienceTierLabel } from "@/components/ExperienceTierLabel";
-import { useGameStore } from "@/stores/gameStore";
 import { clubHref } from "@/lib/team-view";
-import { useAuth } from "@/contexts/AuthContext";
 import { useRouter } from "next/navigation";
 
 interface TransferPlayerCardProps {
@@ -70,8 +68,6 @@ export default function TransferPlayerCard({
   const t = useTranslations();
   const locale = useLocale();
   const router = useRouter();
-  const { team: userTeam } = useAuth();
-  const { setViewTeam } = useGameStore();
   const player = transfer.player;
   const initials = player.name
     .split(" ")
@@ -84,13 +80,10 @@ export default function TransferPlayerCard({
   const potential = player.potentialSkills;
   const isGK = player.isGoalkeeper;
 
-  // Mirror the league standings table behavior: clicking another
-  // team's row switches the global `viewTeam` and navigates to the
-  // dashboard in that team's context. Keeps the navbar/sidebar
-  // consistent with the rest of the app when scouting a target.
+  // Clicking the club is a plain navigation to that club's page. It must not
+  // touch the global `viewTeam` state: that state means "show this club's data
+  // in MY dashboard", which is a different thing from "open this club".
   const handleTeamClick = (clickedTeamId: string) => {
-    const isOwnTeam = clickedTeamId === userTeam?.id;
-    setViewTeam(isOwnTeam ? (userTeam?.id ?? null) : clickedTeamId);
     router.push(clubHref(locale, clickedTeamId));
   };
 
