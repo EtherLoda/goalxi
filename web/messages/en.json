@@ -157,7 +157,10 @@
       "settings": "Settings",
       "viewingMyTeam": "View My Team",
       "cup": "Cup"
-    }
+    },
+    "viewTeamFailed": "Could not open that club",
+    "viewTeamFailedHint": "Its data did not load. The club may have been removed or is temporarily unavailable.",
+    "backToMyTeam": "Back to my club"
   },
   "cup": {
     "title": "National Cup",

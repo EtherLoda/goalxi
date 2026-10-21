@@ -100,13 +100,15 @@ export default function GlobalHeader({ locale }: GlobalHeaderProps) {
 
   const isViewingMyTeam = viewTeamId === null || viewTeamId === teamId;
 
-  // Sync URL params to Zustand on mount
+  // The URL owns "whose dashboard is this" — react to query changes, not just
+  // the first mount, or a ?team=A -> ?team=B navigation leaves the header
+  // showing the previous club.
+  const urlTeamId = searchParams.get("team");
   useEffect(() => {
-    const urlTeamId = searchParams.get("team");
     if (urlTeamId) {
       setViewTeam(urlTeamId);
     }
-  }, []);
+  }, [urlTeamId, setViewTeam]);
 
   // Fetch viewed team info when viewing another team
   useEffect(() => {

@@ -157,7 +157,10 @@
       "settings": "俱乐部设置",
       "viewingMyTeam": "返回我的球队",
       "cup": "杯赛"
-    }
+    },
+    "viewTeamFailed": "无法打开这支球队",
+    "viewTeamFailedHint": "这支球队的数据没有加载成功，可能已被删除或暂时不可用。",
+    "backToMyTeam": "回到我的球队"
   },
   "cup": {
     "title": "全国杯",

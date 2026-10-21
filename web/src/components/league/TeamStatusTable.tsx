@@ -5,6 +5,7 @@ import { clsx } from "clsx";
 import { useRouter } from "next/navigation";
 import type { LeagueTeamStatusBoard } from "@/lib/api";
 import { useGameStore } from "@/stores/gameStore";
+import { dashboardTeamHref } from "@/lib/team-view";
 
 interface TeamStatusTableProps {
   board: LeagueTeamStatusBoard | null;
@@ -36,7 +37,7 @@ export default function TeamStatusTable({
 
   const handleTeamClick = (teamId: string) => {
     setViewTeam(teamId === userTeamId ? userTeamId : teamId);
-    router.push(`/${locale}/dashboard?team=${teamId}`);
+    router.push(dashboardTeamHref(locale, teamId));
   };
 
   const rows = board?.items ?? [];

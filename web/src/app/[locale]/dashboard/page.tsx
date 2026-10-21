@@ -48,19 +48,24 @@ function DashboardPageContent() {
   const { user, team, isLoading: authLoading } = useAuth();
   const { viewTeamId, setViewTeam, teamId } = useGameStore();
 
-  // Sync URL params to Zustand on mount
+  // The URL owns "whose dashboard is this". This used to run once on mount
+  // with a captured `viewTeamId`, so a navigation that only changed the query
+  // (?team=A -> ?team=B, or browser back/forward) left the store pointing at
+  // the previous club and the page looked frozen.
+  const urlTeamId = searchParams.get("team");
   useEffect(() => {
-    const urlTeamId = searchParams.get("team");
     if (urlTeamId && urlTeamId !== viewTeamId) {
       setViewTeam(urlTeamId);
     }
-  }, []);
+  }, [urlTeamId, viewTeamId, setViewTeam]);
 
   const myTeam = viewTeamId === null || viewTeamId === teamId;
   const displayTeamId = myTeam ? teamId : viewTeamId;
   const isViewingMyTeam = myTeam;
 
   const [viewedTeam, setViewedTeam] = useState<Team | null>(null);
+  /** The viewed club could not be loaded — distinct from "still loading". */
+  const [viewedTeamFailed, setViewedTeamFailed] = useState(false);
   const [standings, setStandings] = useState<Standing[]>([]);
   const [upcomingMatch, setUpcomingMatch] = useState<Match | null>(null);
   const [recentMatches, setRecentMatches] = useState<Match[]>([]);
@@ -68,15 +73,35 @@ function DashboardPageContent() {
   const [fanData, setFanData] = useState<Fan | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Fetch viewed team info when teamId changes
+  // Fetch viewed team info when teamId changes.
+  //
+  // A failed fetch used to leave `viewedTeam` null with no way to tell the two
+  // states apart, so the whole dashboard rendered empty and the click that got
+  // you here looked like it had done nothing. Track the failure explicitly.
   useEffect(() => {
     if (myTeam) {
       setViewedTeam(null);
+      setViewedTeamFailed(false);
       return;
     }
-    if (viewTeamId) {
-      api.teams.getById(viewTeamId).then(setViewedTeam).catch(() => setViewedTeam(null));
-    }
+    if (!viewTeamId) return;
+
+    let cancelled = false;
+    setViewedTeamFailed(false);
+    api.teams
+      .getById(viewTeamId)
+      .then((next) => {
+        if (!cancelled) setViewedTeam(next);
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setViewedTeam(null);
+        setViewedTeamFailed(true);
+      });
+
+    return () => {
+      cancelled = true;
+    };
   }, [viewTeamId, myTeam]);
 
   // Use viewedTeam when viewing another team, otherwise use team from auth
@@ -221,6 +246,32 @@ function DashboardPageContent() {
 
   if (showSkeleton) {
     return <DashboardSkeleton />;
+  }
+
+  // Someone followed a club link and the club would not load. Say so and offer
+  // the way out, rather than rendering an empty dashboard that reads as a
+  // broken click.
+  if (!myTeam && viewedTeamFailed) {
+    return (
+      <div className="p-6 max-w-7xl mx-auto w-full">
+        <div className="glass-panel rounded-2xl flex flex-col items-center gap-3 px-6 py-20 text-center">
+          <AppIcon name="error" className="text-3xl text-outline" />
+          <p className="font-headline text-lg font-black text-on-surface">
+            {t("dashboard.viewTeamFailed")}
+          </p>
+          <p className="text-sm text-on-surface-variant max-w-md">
+            {t("dashboard.viewTeamFailedHint")}
+          </p>
+          <Link
+            href={`/${(params?.locale as string) ?? "en"}/dashboard`}
+            onClick={() => setViewTeam(teamId ?? null)}
+            className="mt-2 h-9 rounded-lg bg-primary px-4 font-label text-label font-bold text-on-primary transition hover:bg-primary/90 flex items-center"
+          >
+            {t("dashboard.backToMyTeam")}
+          </Link>
+        </div>
+      </div>
+    );
   }
 
   return (

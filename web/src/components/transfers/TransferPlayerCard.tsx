@@ -10,6 +10,7 @@ import { StatTile } from "@/components/player/profile/player-profile-primitives"
 import { conditionTier, conditionToneClass } from "@/lib/condition-tone";
 import { ExperienceTierLabel } from "@/components/ExperienceTierLabel";
 import { useGameStore } from "@/stores/gameStore";
+import { dashboardTeamHref } from "@/lib/team-view";
 import { useAuth } from "@/contexts/AuthContext";
 import { useRouter } from "next/navigation";
 
@@ -87,11 +88,10 @@ export default function TransferPlayerCard({
   // team's row switches the global `viewTeam` and navigates to the
   // dashboard in that team's context. Keeps the navbar/sidebar
   // consistent with the rest of the app when scouting a target.
-  // (StandingsTable.tsx:32-36 has the canonical version.)
   const handleTeamClick = (clickedTeamId: string) => {
     const isOwnTeam = clickedTeamId === userTeam?.id;
     setViewTeam(isOwnTeam ? (userTeam?.id ?? null) : clickedTeamId);
-    router.push(`/${locale}/dashboard?team=${clickedTeamId}`);
+    router.push(dashboardTeamHref(locale, clickedTeamId));
   };
 
   return (
