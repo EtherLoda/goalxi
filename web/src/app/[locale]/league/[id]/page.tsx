@@ -15,6 +15,7 @@ import {
   type Match,
   type LeagueNewsItem,
   type LeagueContext,
+  type LeagueTeamStatusBoard,
 } from "@/lib/api";
 import type { LeagueZoneModel } from "@/lib/league-zones";
 import {
@@ -119,6 +120,14 @@ function LeaguePageContent() {
   const [leagueContext, setLeagueContext] = useState<LeagueContext | null>(
     null,
   );
+  /**
+   * Squad condition board. Fetched with the rest of the page rather than on
+   * first tab open: it is one small indexed query, and a tab that has to spin
+   * on click feels broken next to three that do not.
+   */
+  const [teamStatus, setTeamStatus] = useState<LeagueTeamStatusBoard | null>(
+    null,
+  );
   const [standings, setStandings] = useState<Standing[]>([]);
   // `week` is a MATCHWEEK (1..totalMatchweeks), not a matchday index.
   const [gameState, setGameState] = useState<{
@@ -150,22 +159,30 @@ function LeaguePageContent() {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const [leagueData, standingsData, matchesData, newsData, contextData] =
-          await Promise.all([
-            api.leagues.getById(leagueId).catch(() => null),
-            api.leagues.getStandings(leagueId).catch(() => []),
-            api.matches
-              .getByLeague(leagueId, {})
-              .catch(() => ({ data: [] })),
-            api.news
-              .getLeagueNews(leagueId, { limit: 10 })
-              .catch(() => ({ items: [] })),
-            api.leagues.getContext(leagueId).catch(() => null),
-          ]);
+        const [
+          leagueData,
+          standingsData,
+          matchesData,
+          newsData,
+          contextData,
+          teamStatusData,
+        ] = await Promise.all([
+          api.leagues.getById(leagueId).catch(() => null),
+          api.leagues.getStandings(leagueId).catch(() => []),
+          api.matches
+            .getByLeague(leagueId, {})
+            .catch(() => ({ data: [] })),
+          api.news
+            .getLeagueNews(leagueId, { limit: 10 })
+            .catch(() => ({ items: [] })),
+          api.leagues.getContext(leagueId).catch(() => null),
+          api.leagues.getTeamStatus(leagueId).catch(() => null),
+        ]);
 
         setLeague(leagueData);
         setStandings(standingsData);
         setLeagueContext(contextData);
+        setTeamStatus(teamStatusData);
 
         // League fixtures only. The endpoint returns cup ties too, and a
         // cup row carries `week: 0` plus its own round number (0..11), so
@@ -290,6 +307,7 @@ function LeaguePageContent() {
             allMatches={allMatches}
             locale={locale}
             zones={zoneModel}
+            teamStatus={teamStatus}
           />
         </div>
       </div>

@@ -5,8 +5,9 @@ import { useState } from "react";
 import { useTranslations } from "next-intl";
 import { clsx } from "clsx";
 import StandingsTable from "./StandingsTable";
+import TeamStatusTable from "./TeamStatusTable";
 import { TacticsEntryButton } from "@/components/tactics/shared/TacticsEntryButton";
-import { MATCH_STATUS, type Standing, type Match } from "@/lib/api";
+import { MATCH_STATUS, type Standing, type Match, type LeagueTeamStatusBoard } from "@/lib/api";
 import type { LeagueZoneModel } from "@/lib/league-zones";
 import { matchdayKey } from "@/lib/league-fixtures";
 
@@ -17,14 +18,17 @@ interface RightColumnProps {
   locale?: string;
   /** Promotion / relegation cut-offs for this league, for the standings zones. */
   zones?: LeagueZoneModel | null;
+  /** Squad condition board. `null` while loading or when the call failed. */
+  teamStatus?: LeagueTeamStatusBoard | null;
 }
 
-type TabKey = "standings" | "data" | "fixtures";
+type TabKey = "standings" | "fixtures" | "status" | "data";
 
 const TAB_ICONS: Record<TabKey, MaterialIconName> = {
   standings: "leaderboard",
-  data: "analytics",
   fixtures: "event",
+  status: "medical_information",
+  data: "analytics",
 };
 
 export default function RightColumn({
@@ -33,6 +37,7 @@ export default function RightColumn({
   allMatches = [],
   locale = "en",
   zones = null,
+  teamStatus = null,
 }: RightColumnProps) {
   const t = useTranslations();
   const [activeTab, setActiveTab] = useState<TabKey>("standings");
@@ -40,6 +45,7 @@ export default function RightColumn({
   const tabs: { key: TabKey; label: string }[] = [
     { key: "standings", label: t("league.rightColumn.standings") },
     { key: "fixtures", label: t("league.rightColumn.fixtures") },
+    { key: "status", label: t("league.rightColumn.status") },
     { key: "data", label: t("league.rightColumn.data") },
   ];
 
@@ -119,6 +125,14 @@ export default function RightColumn({
         )}
 
         {activeTab === "data" && <DataEmptyState t={t} />}
+
+        {activeTab === "status" && (
+          <TeamStatusTable
+            board={teamStatus}
+            userTeamId={userTeamId}
+            locale={locale}
+          />
+        )}
 
         {activeTab === "fixtures" && (
           <FixturesTab

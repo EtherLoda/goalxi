@@ -873,7 +873,8 @@
       "data": "联赛数据",
       "fixtures": "对阵表",
       "history": "历史",
-      "comingSoon": "即将推出"
+      "comingSoon": "即将推出",
+      "status": "球队状态"
     },
     "nav": {
       "label": "联赛导航",
@@ -889,6 +890,17 @@
       "down": "降一级联赛",
       "downShort": "下级",
       "goTo": "前往第 {tier} 级第 {n} 组"
+    },
+    "status": {
+      "title": "球队状态",
+      "club": "球队",
+      "redCards": "红牌",
+      "injured": "伤病",
+      "listed": "挂牌",
+      "joined": "转入",
+      "left": "转出",
+      "window": "近 {days} 天",
+      "empty": "暂无数据"
     }
   },
   "finance": {

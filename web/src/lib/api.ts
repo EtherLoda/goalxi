@@ -313,6 +313,38 @@ export interface LeagueSlots {
   relegationSlots: number;
 }
 
+/**
+ * One club's squad condition inside a league.
+ *
+ * `position` is the standings rank, not a row index — the board is sorted by
+ * the same key as the standings table so the two always agree about who is
+ * above whom.
+ */
+export interface LeagueTeamStatus {
+  teamId: string;
+  teamName: string;
+  position: number;
+  /** Red cards shown this season (not the live suspension count). */
+  redCards: number;
+  /** Squad members carrying an injury right now. */
+  injured: number;
+  /** Squad members currently offered on the market. */
+  listed: number;
+  /** Players who joined via a completed transfer inside the window. */
+  joined: number;
+  /** Players who left via a completed transfer inside the window. */
+  left: number;
+}
+
+/** The condition board plus the two facts needed to read it honestly. */
+export interface LeagueTeamStatusBoard {
+  items: LeagueTeamStatus[];
+  /** Season the card/injury counts were taken from. */
+  season: number;
+  /** How many days back `joined` / `left` reach. */
+  transferWindowDays: number;
+}
+
 interface PlayerSkills {
   physical: Record<string, number>;
   technical: Record<string, number>;
@@ -1246,6 +1278,25 @@ export const api = {
      */
     getContext: async (leagueId: string): Promise<LeagueContext> => {
       return request<LeagueContext>(`/leagues/${leagueId}/context`);
+    },
+    /**
+     * Squad condition for every club in the league.
+     *
+     * Omit `season` to get whatever season is current — the server picks the
+     * latest one that actually has standings, so a league that has aged past
+     * season 1 does not open on an empty board.
+     */
+    getTeamStatus: async (
+      leagueId: string,
+      params?: { season?: number },
+    ): Promise<LeagueTeamStatusBoard> => {
+      const qs =
+        params?.season != null
+          ? `?${new URLSearchParams({ season: String(params.season) })}`
+          : '';
+      return request<LeagueTeamStatusBoard>(
+        `/leagues/${leagueId}/team-status${qs}`,
+      );
     },
     getStandings: async (
       leagueId: string,

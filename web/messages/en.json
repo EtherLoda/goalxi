@@ -873,7 +873,8 @@
       "data": "League Data",
       "fixtures": "Fixtures",
       "history": "History",
-      "comingSoon": "Coming Soon"
+      "comingSoon": "Coming Soon",
+      "status": "Status"
     },
     "nav": {
       "label": "League navigation",
@@ -889,6 +890,17 @@
       "down": "League below",
       "downShort": "Below",
       "goTo": "Go to level {tier}, division {n}"
+    },
+    "status": {
+      "title": "Squad status",
+      "club": "Club",
+      "redCards": "RC",
+      "injured": "INJ",
+      "listed": "LIST",
+      "joined": "IN",
+      "left": "OUT",
+      "window": "Last {days}d",
+      "empty": "No data yet"
     }
   },
   "finance": {

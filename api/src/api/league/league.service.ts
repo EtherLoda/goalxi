@@ -18,6 +18,7 @@ import {
   LeagueNeighbourDto,
 } from './dto/league-context.res.dto';
 import { LeagueStandingResDto } from './dto/league-standing.res.dto';
+import { LeagueTeamStatusResDto } from './dto/league-team-status.res.dto';
 import { LeagueResDto } from './dto/league.res.dto';
 import { ListLeagueReqDto } from './dto/list-league.req.dto';
 import { UpdateLeagueReqDto } from './dto/update-league.req.dto';
@@ -27,6 +28,29 @@ import { UpdateLeagueReqDto } from './dto/update-league.req.dto';
  * The DTO contract is 5 (`recentMatches[0]` is "last match").
  */
 const RECENT_FORM_MATCHES = 5;
+
+/**
+ * How far back the arrival/departure counters reach.
+ *
+ * Season-scoped was the obvious alternative and it is wrong: an eleven-week
+ * season leaves every club with a non-zero count by mid-season, so the column
+ * stops distinguishing anyone. A week is roughly one transfer window's worth
+ * of activity in this game's pacing.
+ */
+const TRANSFER_WINDOW_DAYS = 7;
+
+/** One `GROUP BY team_id` counter row. */
+interface CountRow {
+  teamId: string;
+  count: number;
+}
+
+/** One arrival/departure aggregate row. */
+interface TransferRow {
+  teamId: string;
+  joined: number;
+  left: number;
+}
 
 /** One row of the recent-form query (snake_case aliases are mapped in SQL). */
 interface RecentFormRow {
@@ -168,6 +192,166 @@ export class LeagueService {
       tier: league.tier,
       tierDivision: league.tierDivision,
     };
+  }
+
+  /**
+   * Squad condition for every club in one league.
+   *
+   * Four counters from four different tables, all of the shape "count rows
+   * for a set of team ids". They run as four grouped queries and are merged
+   * in Node rather than as one JOIN: a single query would need four LEFT
+   * JOINs, which multiply rows (a club with 3 injured and 2 listed yields 6
+   * rows) and force COUNT(DISTINCT) corrections on every column. Four small
+   * indexed scans are cheaper to read and cheaper to keep correct.
+   *
+   * Rank order is the standings order, so the board lines up with the table
+   * above it and a manager can read "who is 3rd and also has two players
+   * suspended" without re-sorting anything.
+   */
+  async getTeamStatus(
+    id: Uuid,
+    season?: number,
+  ): Promise<LeagueTeamStatusResDto> {
+    const leagueId = (await this.resolveLeagueId(id)) as Uuid;
+    const seasonToUse = season ?? (await this.currentSeasonOf(leagueId));
+
+    // Same sort key as `getStandings`, including the tie-breaks, so the two
+    // tables can never disagree about who is above whom.
+    const ranked: { teamId: string; teamName: string }[] =
+      await this.dataSource.query(
+        `
+          SELECT s.team_id AS "teamId", t.name AS "teamName"
+          FROM league_standing s
+          JOIN team t ON t.id = s.team_id
+          WHERE s.league_id = $1 AND s.season = $2
+          ORDER BY s.points DESC,
+                   (s.goals_for - s.goals_against) DESC,
+                   s.goals_for DESC,
+                   s.wins DESC,
+                   s.goals_against ASC,
+                   s.team_id ASC
+        `,
+        [leagueId, seasonToUse],
+      );
+
+    if (ranked.length === 0) {
+      return plainToInstance(
+        LeagueTeamStatusResDto,
+        {
+          items: [],
+          season: seasonToUse,
+          transferWindowDays: TRANSFER_WINDOW_DAYS,
+        },
+        { excludeExtraneousValues: true },
+      );
+    }
+
+    const teamIds = ranked.map((row) => row.teamId);
+
+    const [redCards, injured, listed, transfers] = await Promise.all([
+      this.dataSource.query(
+        `
+          SELECT e.team_id AS "teamId", COUNT(*)::int AS "count"
+          FROM match_event e
+          JOIN match m ON m.id = e.match_id
+          WHERE m.league_id = $1
+            AND m.season = $2
+            AND e.type_name = 'red_card'
+            AND e.team_id = ANY($3::uuid[])
+          GROUP BY e.team_id
+        `,
+        [leagueId, seasonToUse, teamIds],
+      ) as Promise<CountRow[]>,
+      this.dataSource.query(
+        `
+          SELECT p.team_id AS "teamId", COUNT(*)::int AS "count"
+          FROM player p
+          WHERE p.team_id = ANY($1::uuid[])
+            AND p.injury_state IS NOT NULL
+            AND p.deleted_at IS NULL
+          GROUP BY p.team_id
+        `,
+        [teamIds],
+      ) as Promise<CountRow[]>,
+      this.dataSource.query(
+        `
+          SELECT p.team_id AS "teamId", COUNT(*)::int AS "count"
+          FROM player p
+          WHERE p.team_id = ANY($1::uuid[])
+            AND p.on_transfer = true
+            AND p.deleted_at IS NULL
+          GROUP BY p.team_id
+        `,
+        [teamIds],
+      ) as Promise<CountRow[]>,
+      this.dataSource.query(
+        `
+          SELECT x.team_id AS "teamId",
+                 SUM(x.joined)::int AS "joined",
+                 SUM(x.departed)::int AS "left"
+          FROM (
+            SELECT to_team_id AS team_id, 1 AS joined, 0 AS departed
+            FROM transfer_transaction
+            WHERE status = 'COMPLETED'
+              AND settled_at >= now() - make_interval(days => $2::int)
+              AND to_team_id = ANY($1::uuid[])
+            UNION ALL
+            SELECT from_team_id AS team_id, 0 AS joined, 1 AS departed
+            FROM transfer_transaction
+            WHERE status = 'COMPLETED'
+              AND settled_at >= now() - make_interval(days => $2::int)
+              AND from_team_id = ANY($1::uuid[])
+          ) x
+          GROUP BY x.team_id
+        `,
+        [teamIds, TRANSFER_WINDOW_DAYS],
+      ) as Promise<TransferRow[]>,
+    ]);
+
+    const byTeam = <T extends { teamId: string }>(rows: T[]) =>
+      new Map(rows.map((row) => [row.teamId, row]));
+
+    const redCardMap = byTeam(redCards);
+    const injuredMap = byTeam(injured);
+    const listedMap = byTeam(listed);
+    const transferMap = byTeam(transfers);
+
+    return plainToInstance(
+      LeagueTeamStatusResDto,
+      {
+        items: ranked.map((row, index) => ({
+          teamId: row.teamId,
+          teamName: row.teamName,
+          position: index + 1,
+          redCards: redCardMap.get(row.teamId)?.count ?? 0,
+          injured: injuredMap.get(row.teamId)?.count ?? 0,
+          listed: listedMap.get(row.teamId)?.count ?? 0,
+          joined: transferMap.get(row.teamId)?.joined ?? 0,
+          left: transferMap.get(row.teamId)?.left ?? 0,
+        })),
+        season: seasonToUse,
+        transferWindowDays: TRANSFER_WINDOW_DAYS,
+      },
+      { excludeExtraneousValues: true },
+    );
+  }
+
+  /**
+   * Latest season that has standings rows for this league.
+   *
+   * The standings endpoint defaults `season` to 1 from a pipe, which is fine
+   * for a single-season world and wrong the moment a league ages. This board
+   * defaults to "whatever season is actually current" instead, because a
+   * condition board that opens on an empty season 1 is worse than useless.
+   */
+  private async currentSeasonOf(leagueId: string): Promise<number> {
+    const rows: { season: number | string | null }[] =
+      await this.dataSource.query(
+        'SELECT MAX(season) AS season FROM league_standing WHERE league_id = $1',
+        [leagueId],
+      );
+    const season = Number(rows[0]?.season ?? 0);
+    return Number.isFinite(season) && season > 0 ? season : 1;
   }
 
   private isUuid(str: string): boolean {

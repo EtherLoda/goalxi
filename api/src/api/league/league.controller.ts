@@ -1,5 +1,6 @@
 import { Uuid } from '@/common/types/common.type';
 import {
+  BadRequestException,
   Body,
   Controller,
   DefaultValuePipe,
@@ -17,6 +18,7 @@ import { ApiTags } from '@nestjs/swagger';
 import { CreateLeagueReqDto } from './dto/create-league.req.dto';
 import { LeagueContextResDto } from './dto/league-context.res.dto';
 import { LeagueStandingResDto } from './dto/league-standing.res.dto';
+import { LeagueTeamStatusResDto } from './dto/league-team-status.res.dto';
 import { LeagueResDto } from './dto/league.res.dto';
 import { ListLeagueReqDto } from './dto/list-league.req.dto';
 import { UpdateLeagueReqDto } from './dto/update-league.req.dto';
@@ -67,6 +69,33 @@ export class LeagueController {
   }
 
   @Public()
+  @Get(':id/team-status')
+  @HttpCode(HttpStatus.OK)
+  // Squad condition for every club in the league: red cards this season,
+  // current injuries, players on the market, and arrivals/departures inside
+  // the transfer window. Backs the 球队状态 tab. Public for the same reason
+  // the standings are.
+  async getTeamStatus(
+    @Param('id') id: Uuid,
+    @Query('season') season?: string,
+  ): Promise<LeagueTeamStatusResDto> {
+    // Parsed by hand rather than with `ParseIntPipe({ optional: true })`:
+    // that option is not honoured by this Nest version, so an absent
+    // `?season=` was rejected with "numeric string is expected" — the
+    // endpoint 400'd on its own default. An absent or empty value means
+    // "whatever season is current", and anything else must be a real
+    // season number.
+    if (season === undefined || season === '') {
+      return this.leagueService.getTeamStatus(id);
+    }
+    const parsed = Number(season);
+    if (!Number.isInteger(parsed) || parsed < 1) {
+      throw new BadRequestException('season must be a positive integer');
+    }
+    return this.leagueService.getTeamStatus(id, parsed);
+  }
+
+  @Public()
   @Get(':id/seasons')
   @HttpCode(HttpStatus.OK)
   // List of seasons (past + current) for which a league has at
@@ -76,7 +105,6 @@ export class LeagueController {
   async getPastSeasons(@Param('id') id: Uuid): Promise<{ season: number }[]> {
     return this.leagueService.getPastSeasons(id);
   }
-
   @Post()
   @HttpCode(HttpStatus.CREATED)
   async create(@Body() dto: CreateLeagueReqDto): Promise<LeagueResDto> {

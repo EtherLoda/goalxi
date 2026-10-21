@@ -24,7 +24,7 @@ describe('LeagueService.getPastSeasons (regression for #20)', () => {
   };
 
   beforeAll(() => {
-    // DataSource stub — this block only exercises the standings sort.
+    // DataSource stub 鈥?this block only exercises the standings sort.
     service = new LeagueService({
       query: jest.fn().mockResolvedValue([]),
     } as any);
@@ -176,7 +176,7 @@ describe('LeagueService.getStandings (SQL sort regression)', () => {
     // The recent-form strip used to be `MatchEntity.find(...)` over the
     // WHOLE season, filtered per team in Node. It is now one window-
     // function query (`loadRecentForm`), issued as raw SQL through the
-    // DataSource — see the note on that method for why it cannot be a
+    // DataSource 鈥?see the note on that method for why it cannot be a
     // QueryBuilder.
     // resolveLeagueId hits LeagueEntity.findOne for slug inputs
     // (the test calls getStandings with 'some-league', not a UUID)
@@ -205,7 +205,7 @@ describe('LeagueService.getStandings (SQL sort regression)', () => {
     // tied teams, so we pin the full chain here.
     //
     // Keys 4-6 exist because the previous three-key sort left a total tie
-    // to Postgres heap order — and promotion, relegation, playoff
+    // to Postgres heap order 鈥?and promotion, relegation, playoff
     // qualification and prize money all select by exact `position === N`,
     // so that tie silently decided who was promoted and who was paid.
     expect(qbChain.orderBy).toHaveBeenCalledWith('s.points', 'DESC');
@@ -321,8 +321,8 @@ describe('LeagueService.getStandings (SQL sort regression)', () => {
   it('REGRESSION: builds the recent form with ONE window-function query, not a full-season load', async () => {
     // The old code did `MatchEntity.find({ where: { leagueId, season,
     // status: 'completed' }, relations: ['homeTeam','awayTeam'],
-    // order: { completedAt: 'DESC' } })` — the WHOLE season (240 matches
-    // + 480 joined team rows) — then `.filter(...)` over that array once
+    // order: { completedAt: 'DESC' } })` 鈥?the WHOLE season (240 matches
+    // + 480 joined team rows) 鈥?then `.filter(...)` over that array once
     // per standing. That's O(teams x matches) = 3,840 comparisons per
     // request on a `@Public()` endpoint, and no `match` index covered
     // the predicate, so it was a seq scan + sort on every page view.
@@ -360,7 +360,7 @@ describe('LeagueService.getStandings (SQL sort regression)', () => {
     expect(sql).toContain('ht.name AS home_team_name');
     expect(sql).toContain('at.name AS away_team_name');
     // REGRESSION: the SQL must reach Postgres verbatim. `.from(<string>)`
-    // on a QueryBuilder does NOT take a subquery — TypeORM emits its own
+    // on a QueryBuilder does NOT take a subquery 鈥?TypeORM emits its own
     // main FROM and quotes the string as a table name, which 500s the
     // endpoint. Asserting we go through `query()` is what pins that.
     expect(rawQuery).toHaveBeenCalled();
@@ -368,7 +368,7 @@ describe('LeagueService.getStandings (SQL sort regression)', () => {
 
   it('REGRESSION: groups the recent-form rows per team and keeps them newest-first', async () => {
     // The outer SELECT has no ORDER BY of its own, so `loadRecentForm`
-    // re-sorts each team's slice — the DTO's `recentMatches[0]` is
+    // re-sorts each team's slice 鈥?the DTO's `recentMatches[0]` is
     // "last match" and must not depend on Postgres row order.
     rawQuery.mockResolvedValueOnce([
       row('team-A', '2026-03-01T00:00:00Z'),
@@ -412,8 +412,7 @@ describe('LeagueService.getStandings (SQL sort regression)', () => {
       '2026-02-01T00:00:00Z',
     ]);
 
-    // A team with no rows at all gets an empty array, not undefined —
-    // the DTO declares `recentMatches` as a list, and `undefined` would
+    // A team with no rows at all gets an empty array, not undefined 鈥?    // the DTO declares `recentMatches` as a list, and `undefined` would
     // break any FE that maps over it.
     const teamB = out.find((r) => r.teamId === 'team-B')!;
     expect(teamB.recentMatches).toHaveLength(1);
@@ -480,7 +479,7 @@ describe('LeagueService.getContext (pyramid navigation)', () => {
 
   // A miniature pyramid: one league at tier 1, four at tier 2, four at
   // tier 3 hanging off each tier-2 division. Only the fields the service
-  // reads are populated — the point is the graph walk, not hydration.
+  // reads are populated 鈥?the point is the graph walk, not hydration.
   const TIER_1: LeagueRow = {
     id: L1,
     name: 'League 1.1',
@@ -593,5 +592,171 @@ describe('LeagueService.getContext (pyramid navigation)', () => {
     await expect(service.getContext('no-such-league' as Uuid)).rejects.toThrow(
       /not found/i,
     );
+  });
+});
+
+/**
+ * `getTeamStatus` reads four tables. Every query is raw SQL through the
+ * DataSource, so the stub dispatches on a marker in the SQL text instead of
+ * relying on call order — reordering the Promise.all array must not silently
+ * hand the red-card rows to the injury counter.
+ */
+describe('LeagueService.getTeamStatus (squad condition board)', () => {
+  const LEAGUE = '00000000-0000-4000-8000-000000000001';
+  const TEAM_A = '00000000-0000-4000-8000-0000000000a1';
+  const TEAM_B = '00000000-0000-4000-8000-0000000000b1';
+
+  function build(data: {
+    ranked?: { teamId: string; teamName: string }[];
+    maxSeason?: number | null;
+    redCards?: { teamId: string; count: number }[];
+    injured?: { teamId: string; count: number }[];
+    listed?: { teamId: string; count: number }[];
+    transfers?: { teamId: string; joined: number; left: number }[];
+  }) {
+    const calls: { sql: string; params: unknown[] }[] = [];
+    const query = jest.fn(async (sql: string, params: unknown[] = []) => {
+      calls.push({ sql, params });
+      if (sql.includes('MAX(season)')) {
+        return [{ season: data.maxSeason ?? 1 }];
+      }
+      if (sql.includes('FROM league_standing s')) {
+        return data.ranked ?? [];
+      }
+      if (sql.includes("type_name = 'red_card'")) {
+        return data.redCards ?? [];
+      }
+      if (sql.includes('injury_state')) {
+        return data.injured ?? [];
+      }
+      if (sql.includes('on_transfer = true')) {
+        return data.listed ?? [];
+      }
+      if (sql.includes('transfer_transaction')) {
+        return data.transfers ?? [];
+      }
+      return [];
+    });
+    return { service: new LeagueService({ query } as never), calls };
+  }
+
+  it('merges the four counters onto the standings order', async () => {
+    const { service } = build({
+      ranked: [
+        { teamId: TEAM_A, teamName: 'Alpha' },
+        { teamId: TEAM_B, teamName: 'Beta' },
+      ],
+      redCards: [{ teamId: TEAM_A, count: 3 }],
+      injured: [{ teamId: TEAM_B, count: 2 }],
+      listed: [{ teamId: TEAM_A, count: 1 }],
+      transfers: [{ teamId: TEAM_B, joined: 4, left: 1 }],
+    });
+
+    const result = await service.getTeamStatus(LEAGUE as Uuid, 1);
+
+    expect(result.items).toHaveLength(2);
+    expect(result.items[0]).toMatchObject({
+      teamId: TEAM_A,
+      teamName: 'Alpha',
+      position: 1,
+      redCards: 3,
+      injured: 0,
+      listed: 1,
+      joined: 0,
+      left: 0,
+    });
+    expect(result.items[1]).toMatchObject({
+      teamId: TEAM_B,
+      position: 2,
+      redCards: 0,
+      injured: 2,
+      listed: 0,
+      joined: 4,
+      left: 1,
+    });
+  });
+
+  it('reports zero rather than undefined for clubs with no activity', async () => {
+    // A club with nothing to report must still print five numbers: an
+    // `undefined` here renders as blank cells in the table.
+    const { service } = build({
+      ranked: [{ teamId: TEAM_A, teamName: 'Alpha' }],
+    });
+
+    const result = await service.getTeamStatus(LEAGUE as Uuid, 1);
+
+    expect(result.items[0]).toMatchObject({
+      redCards: 0,
+      injured: 0,
+      listed: 0,
+      joined: 0,
+      left: 0,
+    });
+  });
+
+  it('defaults to the latest season that has standings', async () => {
+    const { service, calls } = build({
+      maxSeason: 7,
+      ranked: [{ teamId: TEAM_A, teamName: 'Alpha' }],
+    });
+
+    const result = await service.getTeamStatus(LEAGUE as Uuid);
+
+    expect(result.season).toBe(7);
+    const standingsCall = calls.find((c) =>
+      c.sql.includes('FROM league_standing s'),
+    );
+    expect(standingsCall?.params).toEqual([LEAGUE, 7]);
+  });
+
+  it('honours an explicit season without querying for the current one', async () => {
+    const { service, calls } = build({
+      ranked: [{ teamId: TEAM_A, teamName: 'Alpha' }],
+    });
+
+    await service.getTeamStatus(LEAGUE as Uuid, 3);
+
+    expect(calls.some((c) => c.sql.includes('MAX(season)'))).toBe(false);
+  });
+
+  it('returns an empty board when the league has no standings yet', async () => {
+    const { service, calls } = build({ ranked: [] });
+
+    const result = await service.getTeamStatus(LEAGUE as Uuid, 1);
+
+    expect(result.items).toEqual([]);
+    // The four counter queries must not fire at all — they take the team-id
+    // array as a parameter, and an empty array would be a wasted round trip.
+    expect(calls.some((c) => c.sql.includes('type_name'))).toBe(false);
+  });
+
+  it('scopes the arrival/departure counters to the transfer window', async () => {
+    const { service, calls } = build({
+      ranked: [{ teamId: TEAM_A, teamName: 'Alpha' }],
+    });
+
+    const result = await service.getTeamStatus(LEAGUE as Uuid, 1);
+
+    const transferCall = calls.find((c) =>
+      c.sql.includes('transfer_transaction'),
+    );
+    // The window is shipped in the DTO so the UI can label the column with
+    // the same number the query used.
+    expect(result.transferWindowDays).toBe(7);
+    expect(transferCall?.params).toEqual([[TEAM_A], 7]);
+    expect(transferCall?.sql).toContain("status = 'COMPLETED'");
+  });
+
+  it('only counts red cards from the season being displayed', async () => {
+    const { service, calls } = build({
+      ranked: [{ teamId: TEAM_A, teamName: 'Alpha' }],
+    });
+
+    await service.getTeamStatus(LEAGUE as Uuid, 2);
+
+    const redCall = calls.find((c) => c.sql.includes("type_name = 'red_card'"));
+    // League + season + team ids: a card from another league or another
+    // season must never reach the board.
+    expect(redCall?.params).toEqual([LEAGUE, 2, [TEAM_A]]);
   });
 });
