@@ -4,6 +4,7 @@ import {
   leagueFixtures,
   matchdayGroups,
   matchdayKey,
+  matchdayProgress,
   totalMatchweeks,
   type FixtureLike,
 } from './league-fixtures';
@@ -239,5 +240,68 @@ describe('matchdayGroups', () => {
   it('has no last matchday before kickoff', () => {
     const rows = [league(1, 1, 1, 'scheduled')];
     expect(matchdayGroups(rows, statuses).lastMatchday).toEqual([]);
+  });
+});
+
+describe('matchdayProgress', () => {
+  it('counts matchdays, not matchweeks', () => {
+    // 10 weeks x 3 rounds = 30 matchdays. `totalMatchweeks` would say 10,
+    // which is what made the header read "1 / 10 已赛" for a 30-match season.
+    const rows = Array.from({ length: 30 }, (_, i) =>
+      league(Math.floor(i / 3) + 1, (i % 3) + 1, i, i === 0 ? 'completed' : 'scheduled'),
+    );
+    expect(totalMatchweeks(rows)).toBe(10);
+    expect(matchdayProgress(rows, 'completed').total).toBe(30);
+  });
+
+  it('reports one played matchday as 1 of 30', () => {
+    const rows = Array.from({ length: 30 }, (_, i) =>
+      league(Math.floor(i / 3) + 1, (i % 3) + 1, i, i === 0 ? 'completed' : 'scheduled'),
+    );
+    const progress = matchdayProgress(rows, 'completed');
+    expect(progress.completed).toBe(1);
+    // The league is now ON the second matchday, so the next kickoff is 2.
+    expect(progress.current).toBe(2);
+  });
+
+  it('needs every fixture of a matchday to count it as played', () => {
+    // One half-played matchday is not a played matchday: counting it would
+    // advance the progress bar while a fixture is still outstanding.
+    const rows = [
+      league(1, 1, 0, 'completed'),
+      league(1, 1, 0, 'scheduled'),
+      league(1, 2, 1, 'scheduled'),
+    ];
+    const progress = matchdayProgress(rows, 'completed');
+    expect(progress.completed).toBe(0);
+    expect(progress.current).toBe(1);
+    expect(progress.total).toBe(2);
+  });
+
+  it('orders matchdays by kickoff, not by the tuple', () => {
+    // A schedule regenerated across seasons must not sort "10:1" before
+    // "2:1" as a string would.
+    const rows = [
+      league(10, 1, 9, 'scheduled'),
+      league(2, 1, 1, 'scheduled'),
+    ];
+    expect(matchdayProgress(rows, 'completed').total).toBe(2);
+  });
+
+  it('clamps a finished season to the last matchday', () => {
+    const rows = Array.from({ length: 6 }, (_, i) =>
+      league(Math.floor(i / 3) + 1, (i % 3) + 1, i),
+    );
+    const progress = matchdayProgress(rows, 'completed');
+    expect(progress.completed).toBe(6);
+    expect(progress.current).toBe(6);
+  });
+
+  it('returns a zero total for an empty fixture list', () => {
+    expect(matchdayProgress([], 'completed')).toEqual({
+      current: 1,
+      total: 0,
+      completed: 0,
+    });
   });
 });

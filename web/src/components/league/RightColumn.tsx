@@ -239,7 +239,7 @@ function FixturesTab({
                       key={match.id}
                       className="flex items-center justify-between text-[11px] py-1.5 px-2.5 rounded-lg hover:bg-white/5 transition-colors"
                     >
-                      <div className="flex items-center gap-2 flex-1 min-w-0">
+                      <div className="flex items-center gap-1.5 flex-1 min-w-0">
                         <span
                           className={clsx(
                             'font-headline font-bold truncate',
@@ -248,12 +248,7 @@ function FixturesTab({
                         >
                           {homeName}
                         </span>
-                      </div>
-                      {/* Same reasoning as the left column's rows: the tactics
-                          entry takes the place of the VS pill instead of
-                          competing with the club names for width. */}
-                      {showTactics ? (
-                        <div className="shrink-0 mx-2">
+                        {showTactics && isUserHome && (
                           <TacticsEntryButton
                             matchId={match.id}
                             matchStatus={match.status}
@@ -261,22 +256,30 @@ function FixturesTab({
                             variant="compact"
                             locale={locale}
                           />
-                        </div>
-                      ) : (
-                        <div
-                          className={clsx(
-                            'font-headline font-black px-2.5 py-0.5 rounded-md shrink-0 mx-2 min-w-[52px] text-center tabular-nums',
-                            isMatchCompleted
-                              ? 'bg-primary/15 text-primary'
-                              : 'bg-white/5 text-on-surface-variant/60',
-                          )}
-                        >
-                          {isMatchCompleted
-                            ? `${match.homeScore ?? 0} - ${match.awayScore ?? 0}`
-                            : tCommon('vs')}
-                        </div>
-                      )}
-                      <div className="flex items-center gap-2 flex-1 min-w-0 justify-end">
+                        )}
+                      </div>
+                      <div
+                        className={clsx(
+                          'font-headline font-black px-2 py-1 rounded-md shrink-0 mx-2 min-w-[46px] text-center tabular-nums',
+                          isMatchCompleted
+                            ? 'bg-primary/15 text-primary'
+                            : 'bg-white/5 text-on-surface-variant/60',
+                        )}
+                      >
+                        {isMatchCompleted
+                          ? `${match.homeScore ?? 0}-${match.awayScore ?? 0}`
+                          : tCommon('vs')}
+                      </div>
+                      <div className="flex items-center gap-1.5 flex-1 min-w-0 justify-end">
+                        {showTactics && isUserAway && (
+                          <TacticsEntryButton
+                            matchId={match.id}
+                            matchStatus={match.status}
+                            scheduledAt={match.scheduledAt}
+                            variant="compact"
+                            locale={locale}
+                          />
+                        )}
                         <span
                           className={clsx(
                             'font-headline font-bold truncate text-right',

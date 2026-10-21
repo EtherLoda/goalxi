@@ -55,80 +55,86 @@ function MatchRow({
   );
 
   return (
-    <div className="flex items-center justify-between py-1.5 px-2.5 rounded-lg hover:bg-white/5 transition-colors group">
-      {/* Home */}
-      <div className="flex items-center gap-2 flex-1 min-w-0">
-        <span
-          className={clsx(
-            'w-1.5 h-1.5 rounded-full shrink-0',
-            homeWin && 'bg-primary shadow-[0_0_6px_rgba(0,228,121,0.7)]',
-            awayWin && 'bg-error/70',
-            draw && 'bg-on-surface-variant/40',
-            !showScore && 'bg-on-surface-variant/30',
+    <div className="flex items-center gap-2 py-1.5 px-2.5 rounded-lg hover:bg-white/5 transition-colors group">
+      {/* Both club names in FULL, stacked. The column is ~270px and a
+          Chinese club name is four to six characters, so a single line
+          with a score pill in the middle could only ever show
+          abbreviations. Stacking buys the width back: each name gets the
+          whole column, and the pill sits outside both. */}
+      <div className="flex flex-1 min-w-0 flex-col gap-1">
+        <div className="flex items-center gap-1.5 min-w-0">
+          <span
+            className={clsx(
+              'w-1.5 h-1.5 rounded-full shrink-0',
+              homeWin && 'bg-primary shadow-[0_0_6px_rgba(0,228,121,0.7)]',
+              awayWin && 'bg-error/70',
+              draw && 'bg-on-surface-variant/40',
+              !showScore && 'bg-on-surface-variant/30',
+            )}
+          />
+          <span
+            className={clsx(
+              'font-headline text-[11px] font-bold truncate',
+              homeWin ? 'text-on-surface' : showScore ? 'text-on-surface-variant' : 'text-on-surface',
+              isUserHome && 'text-primary',
+            )}
+          >
+            {match.homeTeam}
+          </span>
+          {showTacticsButton && isUserHome && (
+            <TacticsEntryButton
+              matchId={match.id}
+              matchStatus={match.status!}
+              scheduledAt={match.scheduledAt!}
+              variant="compact"
+              locale={tacticsLocale!}
+            />
           )}
-        />
-        <span
-          className={clsx(
-            'font-headline text-xs font-bold truncate',
-            homeWin ? 'text-on-surface' : showScore ? 'text-on-surface-variant' : 'text-on-surface',
-            isUserHome && 'text-primary',
+        </div>
+        <div className="flex items-center gap-1.5 min-w-0">
+          <span
+            className={clsx(
+              'w-1.5 h-1.5 rounded-full shrink-0',
+              awayWin && 'bg-primary shadow-[0_0_6px_rgba(0,228,121,0.7)]',
+              homeWin && 'bg-error/70',
+              draw && 'bg-on-surface-variant/40',
+              !showScore && 'bg-on-surface-variant/30',
+            )}
+          />
+          <span
+            className={clsx(
+              'font-headline text-[11px] font-bold truncate',
+              awayWin ? 'text-on-surface' : showScore ? 'text-on-surface-variant' : 'text-on-surface',
+              isUserAway && 'text-primary',
+            )}
+          >
+            {match.awayTeam}
+          </span>
+          {showTacticsButton && isUserAway && (
+            <TacticsEntryButton
+              matchId={match.id}
+              matchStatus={match.status!}
+              scheduledAt={match.scheduledAt!}
+              variant="compact"
+              locale={tacticsLocale!}
+            />
           )}
-        >
-          {match.homeTeamShort}
-        </span>
+        </div>
       </div>
 
-      {/* Centre cell: the score, "vs", or the way into your own tactics.
-          The tactics entry lives here rather than beside a club name,
-          because that is exactly where the VS pill already is: it costs no
-          width, so neither name can be squeezed out of the row. */}
-      {showTacticsButton ? (
-        <div className="shrink-0 mx-2">
-          <TacticsEntryButton
-            matchId={match.id}
-            matchStatus={match.status!}
-            scheduledAt={match.scheduledAt!}
-            variant="compact"
-            locale={tacticsLocale!}
-          />
-        </div>
-      ) : (
-        <div
-          className={clsx(
-            'font-headline font-black px-2.5 py-0.5 rounded-md shrink-0 mx-2 min-w-[52px] text-center text-[11px] tabular-nums',
-            showScore
-              ? homeWin
-                ? 'bg-primary/15 text-primary'
-                : awayWin
-                  ? 'bg-error/10 text-error'
-                  : 'bg-white/5 text-on-surface'
-              : 'bg-white/5 text-on-surface-variant/60',
-          )}
-        >
-          {showScore ? `${match.homeScore} - ${match.awayScore}` : 'vs'}
-        </div>
-      )}
-
-      {/* Away */}
-      <div className="flex items-center gap-2 flex-1 min-w-0 justify-end">
-        <span
-          className={clsx(
-            'font-headline text-xs font-bold truncate text-right',
-            awayWin ? 'text-on-surface' : showScore ? 'text-on-surface-variant' : 'text-on-surface',
-            isUserAway && 'text-primary',
-          )}
-        >
-          {match.awayTeamShort}
-        </span>
-        <span
-          className={clsx(
-            'w-1.5 h-1.5 rounded-full shrink-0',
-            awayWin && 'bg-primary shadow-[0_0_6px_rgba(0,228,121,0.7)]',
-            homeWin && 'bg-error/70',
-            draw && 'bg-on-surface-variant/40',
-            !showScore && 'bg-on-surface-variant/30',
-          )}
-        />
+      <div
+        className={clsx(
+          'font-headline font-black px-2 py-1 rounded-md shrink-0 min-w-[46px] text-center text-[11px] tabular-nums',
+          showScore
+            ? homeWin
+              ? 'bg-primary/15 text-primary'
+              : awayWin
+                ? 'bg-error/10 text-error'
+                : 'bg-white/5 text-on-surface'
+            : 'bg-white/5 text-on-surface-variant/60',
+        )}
+      >
+        {showScore ? `${match.homeScore}-${match.awayScore}` : 'vs'}
       </div>
     </div>
   );

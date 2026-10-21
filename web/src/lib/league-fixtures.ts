@@ -128,6 +128,63 @@ export function currentMatchweek(
   return weeks.length > 0 ? Math.max(...weeks) : 1;
 }
 
+export interface MatchdayProgress {
+  /**
+   * 1-based ordinal of the matchday the league has reached, counted over
+   * the season's ordered `(week, round)` keys. `1` before anything is
+   * played.
+   */
+  current: number;
+  /** How many matchdays the season has in total. */
+  total: number;
+  /** How many matchdays are fully finished. */
+  completed: number;
+}
+
+/**
+ * Where the season is, measured in MATCHDAYS rather than matchweeks.
+ *
+ * A matchweek holds three matchdays, so `totalMatchweeks()` reports 10 for
+ * a 30-match season and the header read "1 / 10 已赛". This derives the
+ * ordinal from the distinct `(week, round)` keys instead, which needs no
+ * rounds-per-week constant and stays correct for a partially generated
+ * schedule.
+ */
+export function matchdayProgress(
+  matches: readonly FixtureLike[],
+  completedStatus: string,
+): MatchdayProgress {
+  if (matches.length === 0) return { current: 1, total: 0, completed: 0 };
+
+  // Order the matchday keys by their earliest kickoff: `(week, round)` is
+  // the identity, but only the timestamp orders a partially played week.
+  const firstKickoff = new Map<string, string>();
+  const allCompleted = new Map<string, boolean>();
+
+  for (const m of matches) {
+    const key = matchdayKey(m);
+    const previous = firstKickoff.get(key);
+    if (previous === undefined || m.scheduledAt < previous) {
+      firstKickoff.set(key, m.scheduledAt);
+    }
+    const wasComplete = allCompleted.get(key) ?? true;
+    allCompleted.set(key, wasComplete && m.status === completedStatus);
+  }
+
+  const ordered = [...firstKickoff.entries()]
+    .sort((a, b) => a[1].localeCompare(b[1]))
+    .map(([key]) => key);
+
+  const total = ordered.length;
+  const completed = ordered.filter((key) => allCompleted.get(key)).length;
+  // The matchday the league is "on" is the first unfinished one, so a
+  // finished season reports `total` rather than `total + 1`.
+  const current = Math.min(total, completed + 1);
+
+  return { current, total, completed };
+}
+
+
 export interface MatchdayGroups<T extends FixtureLike> {
   /** Most recent completed matchday first. */
   lastMatchday: T[];

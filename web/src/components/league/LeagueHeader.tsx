@@ -10,10 +10,16 @@ import type { LeagueContext, LeagueNeighbour } from "@/lib/api";
 interface LeagueHeaderProps {
   leagueName: string;
   season: number;
-  /** Current matchweek (1-based). */
+  /**
+   * Current MATCHDAY (1-based) within the season, not the matchweek.
+   * A matchweek holds three matchdays, so "第 1 / 10 轮" was counting weeks
+   * into a slot labelled as rounds.
+   */
   matchweek: number;
-  /** Total matchweeks in the season. */
+  /** Total matchdays in the season. */
   totalMatchweeks: number;
+  /** Matchdays already finished, for the progress bar. */
+  matchdaysPlayed?: number;
   /** Optional: name of the team being viewed (when not on your own team). */
   viewingTeamName?: string;
   /** Locale for menu hrefs. */
@@ -41,6 +47,7 @@ export default function LeagueHeader({
   season,
   matchweek,
   totalMatchweeks,
+  matchdaysPlayed,
   viewingTeamName,
   locale,
   leagueId,
@@ -48,9 +55,12 @@ export default function LeagueHeader({
 }: LeagueHeaderProps) {
   const t = useTranslations();
 
+  // Played/total, not current/total: a progress bar that counts the
+  // matchday you are ON shows 1/30 before a single ball is kicked.
+  const played = matchdaysPlayed ?? Math.max(0, matchweek - 1);
   const progressPct = Math.min(
     100,
-    Math.round((matchweek / Math.max(1, totalMatchweeks)) * 100),
+    Math.round((played / Math.max(1, totalMatchweeks)) * 100),
   );
 
   return (
@@ -94,7 +104,7 @@ export default function LeagueHeader({
         <div className="flex items-center justify-between mb-1.5">
           <span className="font-label text-kicker font-black uppercase tracking-[0.2em] text-on-surface-variant/70">
             {t("league.hero.completed", {
-              completed: matchweek,
+              completed: played,
               total: totalMatchweeks,
             })}
           </span>

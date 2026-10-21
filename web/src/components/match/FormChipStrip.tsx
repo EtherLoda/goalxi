@@ -3,7 +3,6 @@
 import { clsx } from 'clsx';
 import Link from 'next/link';
 import { useTranslations } from 'next-intl';
-import { AppIcon, type MaterialIconName } from '@/components/icons/AppIcon';
 import { Tooltip } from '@/components/ui/Tooltip';
 
 export type FormResult = 'W' | 'D' | 'L' | 'pending';
@@ -38,11 +37,34 @@ interface FormChipStripProps {
   links?: ReadonlyArray<FormChipLink | null | undefined>;
 }
 
-const GLYPHS: Record<Exclude<FormResult, 'pending'>, MaterialIconName> = {
-  W: 'check',
-  D: 'remove',
-  L: 'close',
+const GLYPH_PATHS: Record<Exclude<FormResult, 'pending'>, string> = {
+  W: 'M2.6 6.1 L5 8.5 L9.4 3.9',
+  D: 'M3 6 L9 6',
+  L: 'M3.2 3.2 L8.8 8.8 M8.8 3.2 L3.2 8.8',
 };
+
+/**
+ * Draws the tick / dash / cross as a hairline stroke instead of a Material
+ * icon. The icon set's tick and cross are heavy filled shapes that turn into
+ * solid blobs at 18px; a 1.7px round-capped stroke stays legible and reads as
+ * a scoreline marker rather than a warning badge.
+ */
+function ResultGlyph({ result }: { result: Exclude<FormResult, 'pending'> }) {
+  return (
+    <svg
+      viewBox="0 0 12 12"
+      aria-hidden="true"
+      className="h-[11px] w-[11px]"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={1.7}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d={GLYPH_PATHS[result]} />
+    </svg>
+  );
+}
 
 /**
  * Stadium scoreboard-style form chip strip used in the match list header.
@@ -70,7 +92,7 @@ export function FormChipStrip({
             className={clsx(
               'flex items-center justify-center font-headline font-black transition-all',
               size === 'sm'
-                ? 'h-5 w-5 rounded text-[10px]'
+                ? 'h-[18px] w-[18px] rounded-[5px]'
                 : 'h-9 w-9 rounded-lg text-xs border',
               // A filled chip carries no border: the fill is the signal, and a
               // ring on a saturated red reads as a second, unrelated state.
@@ -81,14 +103,14 @@ export function FormChipStrip({
               r === 'D' && 'bg-white/10 text-on-surface-variant',
               r === 'D' && !glyph && 'border-white/10',
               r === 'L' &&
-                (glyph ? 'bg-error-dim text-white' : 'bg-error/10 text-error border-error/30'),
+                (glyph ? 'bg-error/85 text-white' : 'bg-error/10 text-error border-error/30'),
               r === 'pending' && 'bg-white/5 text-on-surface-variant',
               isLatest && !glyph && r === 'W' && 'scale-110',
               isLatest && !glyph && r === 'L' && 'scale-110',
             )}
           >
             {glyph && r !== 'pending' ? (
-              <AppIcon name={GLYPHS[r]} className="text-[12px]" />
+              <ResultGlyph result={r} />
             ) : r === 'pending' ? (
               '·'
             ) : (

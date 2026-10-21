@@ -23,7 +23,7 @@ import {
   fixtureSeason,
   leagueFixtures,
   matchdayGroups,
-  totalMatchweeks as countMatchweeks,
+  matchdayProgress,
 } from "@/lib/league-fixtures";
 
 interface MatchResult {
@@ -125,7 +125,12 @@ function LeaguePageContent() {
   const [gameState, setGameState] = useState<{
     season: number;
     week: number;
-    totalMatchweeks: number;
+    /** 1-based ordinal of the current matchday within the season. */
+    current: number;
+    /** Total matchdays in the season. */
+    total: number;
+    /** Matchdays already finished. */
+    completed: number;
   } | null>(null);
   const [lastRoundResults, setLastRoundResults] = useState<MatchResult[]>([]);
   /**
@@ -182,11 +187,12 @@ function LeaguePageContent() {
           upcoming: [MATCH_STATUS.SCHEDULED, MATCH_STATUS.TACTICS_LOCKED],
         });
 
-        const week = currentMatchweek(leagueMatches, MATCH_STATUS.COMPLETED);
+        // Matchdays, not matchweeks: a matchweek holds three matchdays, so
+        // the week count (10) is the wrong denominator for "已赛 1 / N".
         setGameState({
           season: fixtureSeason(leagueMatches) ?? 0,
-          week,
-          totalMatchweeks: countMatchweeks(leagueMatches),
+          week: currentMatchweek(leagueMatches, MATCH_STATUS.COMPLETED),
+          ...matchdayProgress(leagueMatches, MATCH_STATUS.COMPLETED),
         });
 
         setLastRoundResults(lastMatchday.map((m: Match) => matchToResult(m)));
@@ -243,7 +249,8 @@ function LeaguePageContent() {
   // From the fixture list, not a constant. This was a hardcoded 16 while
   // the page also passed a global matchday index (up to 30) as the current
   // value, so it rendered "Round 30 / 16" and a 100% progress bar.
-  const matchweekCount = gameState?.totalMatchweeks ?? 0;
+  const matchdayCount = gameState?.total ?? 0;
+  const matchdaysPlayed = gameState?.completed ?? 0;
   const userTeamColor = userTeam?.jerseyColorPrimary || '#00E479';
 
   return (
@@ -252,8 +259,9 @@ function LeaguePageContent() {
       <LeagueHeader
         leagueName={league?.name || 'League'}
         season={gameState?.season || 0}
-        matchweek={Math.max(1, gameState?.week ?? 1)}
-        totalMatchweeks={matchweekCount}
+        matchweek={Math.max(1, gameState?.current ?? 1)}
+        totalMatchweeks={matchdayCount}
+        matchdaysPlayed={matchdaysPlayed}
         viewingTeamName={
           userTeam && standings.find((s) => s.teamId === userTeam.id)?.teamName
             ? standings.find((s) => s.teamId === userTeam.id)!.teamName

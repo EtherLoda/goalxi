@@ -47,10 +47,11 @@ export function TacticsEntryButton({
 
   if (info.isFinished) return null;
 
-  // -- Compact: the fixture row's own centre cell ----------------------
-  // 24x24, because this button sits WHERE THE "VS" PILL WAS, between two
-  // club names in a ~300px column. The 36px icon variant pushed one of the
-  // names into a truncation or, worse, overlapped it.
+  // -- Compact: a bare glyph that rides alongside a club name -----------
+  // No background, no fixed box. It sits INSIDE the name cell, so anything
+  // with a footprint would either push the name into truncation or overlap
+  // it. A 16px glyph with a colour glow is still unambiguous, and the
+  // title/aria-label carry the full sentence.
   if (variant === 'compact') {
     const label = info.canSet
       ? t('setTactics')
@@ -64,9 +65,7 @@ export function TacticsEntryButton({
       return (
         <span
           className={clsx(
-            'inline-flex h-6 w-6 items-center justify-center rounded-md',
-            'bg-tertiary/10 text-tertiary ring-1 ring-inset ring-tertiary/30',
-            'cursor-not-allowed',
+            'inline-flex shrink-0 items-center justify-center text-tertiary/70',
             className,
           )}
           title={label}
@@ -82,17 +81,16 @@ export function TacticsEntryButton({
       <Link
         href={href}
         className={clsx(
-          'inline-flex h-6 w-6 items-center justify-center rounded-md',
-          'bg-primary text-on-primary',
-          'shadow-[0_0_10px_rgba(0,228,121,0.45)]',
-          'hover:shadow-[0_0_16px_rgba(0,228,121,0.7)] transition-shadow',
+          'inline-flex shrink-0 items-center justify-center text-primary',
+          'drop-shadow-[0_0_6px_rgba(0,228,121,0.65)]',
+          'transition-[filter] hover:brightness-125',
           className,
         )}
         title={label}
         aria-label={label}
         data-testid="tactics-entry"
       >
-        <AppIcon name="tune" className="text-[13px]" />
+        <AppIcon name="tune" className="text-[15px]" />
       </Link>
     );
   }
