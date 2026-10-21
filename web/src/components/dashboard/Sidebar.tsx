@@ -37,13 +37,23 @@ export default function Sidebar() {
 
   const displayTeam = myTeam ? team : viewedTeam;
 
+  // In view mode every entry describes the club being viewed, so 经理档案
+  // must open THAT club’s manager, not the logged-in user.
+  const managerHref = myTeam
+    ? user?.id
+      ? `/${locale}/managers/${user.id}`
+      : `/${locale}/dashboard`
+    : displayTeam?.userId
+      ? `/${locale}/managers/${displayTeam.userId}`
+      : `/${locale}/teams/${currentTeamId}`;
+
   const navGroups = [
     {
       titleKey: "overview",
       items: [
         { labelKey: "dashboard", href: `/${locale}/dashboard?team=${currentTeamId}`, icon: "home" },
         { labelKey: "clubProfile", href: `/${locale}/teams/${currentTeamId}`, icon: "shield" },
-        { labelKey: "managerProfile", href: user?.id ? `/${locale}/managers/${user.id}` : `/${locale}/dashboard`, icon: "person" },
+        { labelKey: "managerProfile", href: managerHref, icon: "person" },
         { labelKey: "squad", href: `/${locale}/teams/squad?team=${currentTeamId}`, icon: "groups" },
         { labelKey: "stadium", href: `/${locale}/club/stadium?team=${currentTeamId}`, icon: "stadium" },
         { labelKey: "matches", href: `/${locale}/matches?team=${currentTeamId}`, icon: "calendar_month" },
@@ -213,7 +223,7 @@ export default function Sidebar() {
               {user?.nickname || "Manager"}
             </div>
             <div className="font-body text-[10px] text-on-surface-variant truncate">
-              {team?.name || "No Team"}
+              {displayTeam?.name || team?.name || "No Team"}
             </div>
           </div>
           <button

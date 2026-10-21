@@ -105,6 +105,8 @@ interface Team {
   staminaTrainingIntensity?: number;
   trainingIntensityLastChangedAt?: string | null;
   benchConfig?: BenchConfig | null;
+  /** Owner id. Present on GET /teams/:id; the manager of a club is public. */
+  userId?: string | null;
 }
 
 /**
