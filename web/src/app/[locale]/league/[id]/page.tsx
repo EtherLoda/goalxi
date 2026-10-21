@@ -286,11 +286,6 @@ function LeaguePageContent() {
         matchweek={Math.max(1, gameState?.current ?? 1)}
         totalMatchweeks={matchdayCount}
         matchdaysPlayed={matchdaysPlayed}
-        viewingTeamName={
-          userTeam && standings.find((s) => s.teamId === userTeam.id)?.teamName
-            ? standings.find((s) => s.teamId === userTeam.id)!.teamName
-            : undefined
-        }
         locale={locale}
         leagueId={leagueId}
         context={leagueContext}

@@ -94,7 +94,11 @@ export default function StandingsTable({
         </div>
       </div>
 
-      <div className="overflow-y-auto custom-scrollbar">
+            {/* 16 rows are always the whole table, so there is nothing to scroll:
+          a nested scrollbar here just hid the bottom clubs behind a
+          hard-to-notice inner rail. Horizontal overflow only appears if
+          the viewport is genuinely too narrow for eleven columns. */}
+      <div className="overflow-x-auto">
         <table className="w-full text-left">
           <thead className="sticky top-0 z-10">
             <tr className="font-label text-kicker font-black uppercase tracking-[0.2em] text-on-surface-variant/70 border-b border-white/5 bg-surface-container/80 backdrop-blur-md">
@@ -104,6 +108,8 @@ export default function StandingsTable({
               <th className="pb-2 text-center w-8">{t("league.standings.w")}</th>
               <th className="pb-2 text-center w-8">{t("league.standings.d")}</th>
               <th className="pb-2 text-center w-8">{t("league.standings.l")}</th>
+              <th className="pb-2 text-center w-9">{t("league.standings.gf")}</th>
+              <th className="pb-2 text-center w-9">{t("league.standings.ga")}</th>
               <th className="pb-2 text-center w-10">{t("league.standings.gd")}</th>
               <th className="pb-2 text-center w-10 font-black text-on-surface">
                 {t("league.standings.pts")}
@@ -195,6 +201,14 @@ export default function StandingsTable({
                   <td className="py-3 text-center">{row.draws}</td>
 
                   <td className="py-3 text-center">{row.losses}</td>
+
+                  <td className="py-3 text-center tabular-nums">
+                    {row.goalsFor}
+                  </td>
+
+                  <td className="py-3 text-center tabular-nums">
+                    {row.goalsAgainst}
+                  </td>
 
                   <td className="py-3 text-center font-headline">
                     <span

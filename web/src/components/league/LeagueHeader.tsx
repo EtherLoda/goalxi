@@ -21,7 +21,6 @@ interface LeagueHeaderProps {
   /** Matchdays already finished, for the progress bar. */
   matchdaysPlayed?: number;
   /** Optional: name of the team being viewed (when not on your own team). */
-  viewingTeamName?: string;
   /** Locale for menu hrefs. */
   locale: string;
   /** League id — used to build the /history href. */
@@ -48,7 +47,6 @@ export default function LeagueHeader({
   matchweek,
   totalMatchweeks,
   matchdaysPlayed,
-  viewingTeamName,
   locale,
   leagueId,
   context,
@@ -80,14 +78,6 @@ export default function LeagueHeader({
 
           <LeagueNav context={context} locale={locale} />
 
-          {viewingTeamName && (
-            <div className="inline-flex items-center gap-2 px-2.5 py-1 rounded-full bg-primary/10 border border-primary/20">
-              <span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
-              <span className="font-label text-kicker font-black uppercase tracking-[0.2em] text-primary">
-                {t("league.hero.viewing", { team: viewingTeamName })}
-              </span>
-            </div>
-          )}
         </div>
 
         <div className="flex flex-col items-start md:items-end gap-2 shrink-0">

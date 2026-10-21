@@ -799,7 +799,6 @@
       "kicker": "League",
       "round": "Round {round} of {total}",
       "completed": "{completed} / {total} played",
-      "viewing": "Viewing {team}",
       "more": "More",
       "menu": {
         "history": "History"
@@ -871,7 +870,9 @@
       "rel": "REL",
       "lastUpdated": "Last updated: Today, 14:32",
       "expand": "Expand",
-      "export": "Export"
+      "export": "Export",
+      "gf": "GF",
+      "ga": "GA"
     },
     "rightColumn": {
       "standings": "Standings",

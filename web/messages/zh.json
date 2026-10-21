@@ -799,7 +799,6 @@
       "kicker": "联赛",
       "round": "第 {round} / {total} 轮",
       "completed": "{completed} / {total} 已赛",
-      "viewing": "正在查看 {team}",
       "more": "更多",
       "menu": {
         "history": "历史"
@@ -871,7 +870,9 @@
       "rel": "降级",
       "lastUpdated": "更新时间: 今天 14:32",
       "expand": "展开",
-      "export": "导出"
+      "export": "导出",
+      "gf": "进球",
+      "ga": "失球"
     },
     "rightColumn": {
       "standings": "积分榜",
