@@ -555,7 +555,10 @@
       "form": "状态",
       "experience": "经验",
       "wage": "周薪"
-    }
+    },
+    "avgStamina": "平均体能",
+    "avgForm": "平均状态",
+    "gkHint": "GK · 门将"
   },
   "transfers": {
     "title": "转会市场",

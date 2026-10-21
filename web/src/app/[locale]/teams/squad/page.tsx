@@ -16,6 +16,7 @@ import {
 } from '@/components/squad/squad-sort';
 import { useAuth } from '@/contexts/AuthContext';
 import { useGameStore } from '@/stores/gameStore';
+import { conditionToneClass } from '@/lib/condition-tone';
 import { api, type Player, type PlayerEvent, type Team } from '@/lib/api';
 
 /** One "label + value" cell in the page header strip. */
@@ -146,6 +147,21 @@ function SquadPageContent() {
     return Math.round(players.reduce((sum, p) => sum + p.overall, 0) / players.length);
   }, [players]);
 
+  const averageCondition = useMemo(() => {
+    if (players.length === 0) return { stamina: 0, form: 0 };
+    const totals = players.reduce(
+      (acc, p) => ({
+        stamina: acc.stamina + (p.stamina || 0),
+        form: acc.form + (p.form || 0),
+      }),
+      { stamina: 0, form: 0 },
+    );
+    return {
+      stamina: totals.stamina / players.length,
+      form: totals.form / players.length,
+    };
+  }, [players]);
+
   const totalWage = useMemo(
     () => players.reduce((sum, p) => sum + (p.currentWage || 0), 0),
     [players],
@@ -172,6 +188,18 @@ function SquadPageContent() {
           <HeaderStat label={t('squad.players')} value={players.length} />
           <span className="h-7 w-px bg-outline-variant/40" />
           <HeaderStat label={t('squad.avgOverall')} value={averageOverall} tone="text-primary" />
+          <span className="h-7 w-px bg-outline-variant/40" />
+          <HeaderStat
+            label={t('squad.avgStamina')}
+            value={averageCondition.stamina.toFixed(1)}
+            tone={conditionToneClass(averageCondition.stamina, 4, 2)}
+          />
+          <span className="h-7 w-px bg-outline-variant/40" />
+          <HeaderStat
+            label={t('squad.avgForm')}
+            value={averageCondition.form.toFixed(1)}
+            tone={conditionToneClass(averageCondition.form, 4, 2)}
+          />
           <span className="h-7 w-px bg-outline-variant/40" />
           <HeaderStat
             label={t('squad.payroll')}

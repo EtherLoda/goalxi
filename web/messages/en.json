@@ -555,7 +555,10 @@
       "form": "Form",
       "experience": "Experience",
       "wage": "Wage"
-    }
+    },
+    "avgStamina": "Avg STA",
+    "avgForm": "Avg FORM",
+    "gkHint": "GK · Goalkeeper"
   },
   "transfers": {
     "title": "Transfer Market",

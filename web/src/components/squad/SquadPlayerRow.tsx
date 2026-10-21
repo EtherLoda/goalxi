@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useTranslations } from 'next-intl';
 import { AppIcon } from '@/components/icons/AppIcon';
 import { InjuryBadge } from '@/components/player/InjuryBadge';
+import { Tooltip } from '@/components/ui/Tooltip';
 import { SpecialtyIcon } from '@/components/player/SpecialtyIcon';
 import { conditionToneClass } from '@/lib/condition-tone';
 import { getSpecialtyLabel } from '@/lib/specialties';
@@ -37,7 +38,9 @@ function initialsOf(name: string): string {
 export function SquadPlayerRow({ player, isSelected, locale, onSelect }: SquadPlayerRowProps) {
   const t = useTranslations();
   const isGk = player.isGoalkeeper;
-  const position = isGk ? 'GK' : (player.position ?? '').toUpperCase();
+  // Goalkeepers are flagged by an icon beside the name instead of a "GK" word in
+  // the meta line, where it competed with the age and condition figures for space.
+  const position = isGk ? '' : (player.position ?? '').toUpperCase();
 
   return (
     <div
@@ -76,6 +79,16 @@ export function SquadPlayerRow({ player, isSelected, locale, onSelect }: SquadPl
           >
             {player.name}
           </Link>
+          {isGk ? (
+            <Tooltip label={t('squad.gkHint')}>
+              <span
+                className="flex h-5 w-5 shrink-0 items-center justify-center text-primary/70"
+                aria-label={t('squad.gkHint')}
+              >
+                <AppIcon name="pan_tool" className="text-lg" />
+              </span>
+            </Tooltip>
+          ) : null}
           {player.coreSpecialty ? (
             <span
               className={`flex h-4 w-4 shrink-0 items-center justify-center ${
@@ -87,12 +100,12 @@ export function SquadPlayerRow({ player, isSelected, locale, onSelect }: SquadPl
               }`}
               title={getSpecialtyLabel(player.coreSpecialty, locale === 'en' ? 'en' : 'zh')}
             >
-              <SpecialtyIcon code={player.coreSpecialty} tier={player.coreSpecialtyTier} size="md" />
+              <SpecialtyIcon code={player.coreSpecialty} tier={player.coreSpecialtyTier} size="lg" />
             </span>
           ) : null}
           {player.onTransfer ? (
-            <span className="flex h-4 w-4 shrink-0 items-center justify-center text-secondary">
-              <AppIcon name="sell" className="text-body" label={t('squad.transfer.listed')} />
+            <span className="flex h-5 w-5 shrink-0 items-center justify-center text-secondary">
+              <AppIcon name="sell" className="text-lg" label={t('squad.transfer.listed')} />
             </span>
           ) : null}
           <InjuryBadge
