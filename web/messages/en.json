@@ -1937,5 +1937,16 @@
     "back": "Back to profile",
     "seasonAll": "All seasons",
     "playerId": "Player ID"
+  },
+  "managers": {
+    "profile": {
+      "notFound": "Manager not found",
+      "notFoundHint": "This account may have been deleted, or the link is wrong.",
+      "joined": "Joined {date}",
+      "supporter": "Supporter Lv.{level}",
+      "edit": "Edit profile",
+      "bio": "About",
+      "noBio": "No bio yet."
+    }
   }
 }

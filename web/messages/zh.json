@@ -1937,5 +1937,16 @@
     "back": "返回球员档案",
     "seasonAll": "全部赛季",
     "playerId": "球员 ID"
+  },
+  "managers": {
+    "profile": {
+      "notFound": "找不到这位经理",
+      "notFoundHint": "这个账号可能已经注销，或者链接有误。",
+      "joined": "加入于 {date}",
+      "supporter": "支持者 Lv.{level}",
+      "edit": "编辑资料",
+      "bio": "简介",
+      "noBio": "还没有填写简介。"
+    }
   }
 }

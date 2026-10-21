@@ -8,6 +8,7 @@ import { ForumModule } from './forum/forum.module';
 import { GameModule } from './game/game.module';
 import { InjuryModule } from './injury/injury.module';
 import { LeagueModule } from './league/league.module';
+import { ManagerModule } from './manager/manager.module';
 import { MatchLiveModule } from './match/match-live.module';
 import { MatchModule } from './match/match.module';
 import { NewsModule } from './news/news.module';
@@ -36,6 +37,7 @@ import { WeatherModule } from './weather/weather.module';
     PlayerModule,
     PlayerEventModule,
     LeagueModule,
+    ManagerModule,
     TeamModule,
     FinanceModule,
     TransferModule,

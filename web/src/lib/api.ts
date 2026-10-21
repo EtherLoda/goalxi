@@ -927,6 +927,23 @@ export interface TeamTacticsResponse {
   familyOrder: PositionFamilyCode[];
 }
 
+/**
+ * Public projection of another user — what `/managers/[id]` is allowed
+ * to render. Deliberately narrower than `User`: the API serves a
+ * white-listed DTO, so `email` / `timezone` / `role` never cross the
+ * wire and must not be added here.
+ */
+export interface ManagerPublic {
+  id: string;
+  username: string;
+  /** `nickname` when set, otherwise `username` — resolved server-side. */
+  displayName: string;
+  avatar: string | null;
+  bio: string | null;
+  supporterLevel: number;
+  joinedAt: string;
+}
+
 export const api = {
   auth: {
     login: async (email: string, password: string): Promise<LoginResponse> => {
@@ -1263,6 +1280,16 @@ export const api = {
       return request<PlayerMatchLog>(
         `/stats/player/${playerId}/matches${qs ? `?${qs}` : ''}`,
       );
+    },
+  },
+
+  managers: {
+    /**
+     * Public manager profile. Unlike `users.me` this is readable
+     * logged out and never returns private account fields.
+     */
+    getById: async (id: string): Promise<ManagerPublic> => {
+      return request<ManagerPublic>(`/managers/${id}`);
     },
   },
 
