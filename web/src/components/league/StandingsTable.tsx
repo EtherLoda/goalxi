@@ -123,13 +123,28 @@ export default function StandingsTable({
               const isUserTeam = row.teamId === userTeamId;
               const isViewingTeam = isCurrentViewTeam(row.teamId);
 
-              const formResults: FormResult[] = (row.recentMatches ?? [])
-                .slice(-5)
-                .map((m) =>
-                  m.result === "W" || m.result === "D" || m.result === "L"
-                    ? m.result
-                    : "pending",
-                );
+              const recent = (row.recentMatches ?? []).slice(-5);
+
+              const formResults: FormResult[] = recent.map((m) =>
+                m.result === "W" || m.result === "D" || m.result === "L"
+                  ? m.result
+                  : "pending",
+              );
+
+              // Each chip links to its match and carries the fixture as a
+              // hover card: the result alone says who won, not against whom,
+              // and the strip has no room for names.
+              const formLinks = recent.map((m) =>
+                m.matchId
+                  ? {
+                      href: `/${locale}/matches/${m.matchId}`,
+                      fixture: m.isHome
+                        ? `${row.teamName} ${m.homeScore} - ${m.awayScore} ${m.opponentName}`
+                        : `${m.opponentName} ${m.homeScore} - ${m.awayScore} ${row.teamName}`,
+                      date: formatMatchDate(m.scheduledAt),
+                    }
+                  : null,
+              );
 
               return (
                 <tr
@@ -205,6 +220,7 @@ export default function StandingsTable({
                         highlightLatest={false}
                         variant="glyph"
                         size="sm"
+                        links={formLinks}
                       />
                     ) : (
                       <span className="text-on-surface-variant text-xs">—</span>
@@ -218,6 +234,14 @@ export default function StandingsTable({
       </div>
     </div>
   );
+}
+
+function formatMatchDate(iso: string): string {
+  if (!iso) return "";
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "";
+  const p = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}/${p(d.getMonth() + 1)}/${p(d.getDate())}`;
 }
 
 function RankBadge({

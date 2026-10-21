@@ -758,6 +758,8 @@ interface MatchListResponse {
 }
 
 interface RecentMatch {
+  /** The match row id, so the form chips can open the report. */
+  matchId: string;
   result: 'W' | 'D' | 'L';
   homeScore: number;
   awayScore: number;

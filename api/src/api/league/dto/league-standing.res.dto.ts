@@ -1,6 +1,10 @@
 import { Expose, Type } from 'class-transformer';
 
 export class RecentMatchDto {
+  /** The match row id, so the form chips can link to the report. */
+  @Expose()
+  matchId: string;
+
   @Expose()
   result: 'W' | 'D' | 'L';
 

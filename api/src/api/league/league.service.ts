@@ -31,6 +31,7 @@ const RECENT_FORM_MATCHES = 5;
 /** One row of the recent-form query (snake_case aliases are mapped in SQL). */
 interface RecentFormRow {
   teamId: string;
+  matchId: string;
   homeTeamId: string;
   awayTeamId: string;
   homeScore: number;
@@ -292,6 +293,7 @@ export class LeagueService {
         else result = 'D';
 
         matches.push({
+          matchId: m.matchId,
           result,
           homeScore: m.homeScore,
           awayScore: m.awayScore,
@@ -383,6 +385,7 @@ export class LeagueService {
       `
         SELECT
           p.team_id            AS "teamId",
+          p.match_id           AS "matchId",
           p.home_score          AS "homeScore",
           p.away_score          AS "awayScore",
           p.home_team_id        AS "homeTeamId",
@@ -395,6 +398,7 @@ export class LeagueService {
           SELECT * FROM (
             SELECT
               m.home_team_id AS team_id,
+              m.id AS match_id,
               m.home_team_id, m.away_team_id,
               m.home_score, m.away_score,
               m.completed_at AS completed_at_iso,
@@ -415,6 +419,7 @@ export class LeagueService {
             UNION ALL
             SELECT
               m.away_team_id AS team_id,
+              m.id AS match_id,
               m.home_team_id, m.away_team_id,
               m.home_score, m.away_score,
               m.completed_at AS completed_at_iso,
