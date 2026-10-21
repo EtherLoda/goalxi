@@ -3,9 +3,8 @@
 import { useTranslations } from "next-intl";
 import { clsx } from "clsx";
 import { useRouter } from "next/navigation";
-import { AppIcon, type MaterialIconName } from "@/components/icons/AppIcon";
 import type { Standing } from "@/lib/api";
-import type { LeagueZoneModel } from "@/lib/league-zones";
+import type { LeagueZone, LeagueZoneModel } from "@/lib/league-zones";
 import { zoneForPosition, zonesPresent } from "@/lib/league-zones";
 import { useGameStore } from "@/stores/gameStore";
 import { FormChipStrip, type FormResult } from "@/components/match/FormChipStrip";
@@ -22,21 +21,29 @@ interface StandingsTableProps {
   zones?: LeagueZoneModel | null;
 }
 
-const ZONE_COLORS = {
-  promote: "#00e479",
-  promotePlayoff: "#a1ffc2",
-  relPlayoff: "#ffcc66",
-  rel: "#ffb4ab",
-} as const;
 
-const ZONE_ICONS: Record<keyof typeof ZONE_COLORS, MaterialIconName> = {
-  promote: "expand_less",
-  promotePlayoff: "swap_vert",
-  relPlayoff: "swap_vert",
-  rel: "expand_more",
+/**
+ * Rank badge per zone. A club outside every zone gets no badge at all — the
+ * badge is the zone marker, so printing one for "9th, nothing happens" would
+ * mean colouring a shape for the absence of news.
+ */
+const ZONE_BADGE: Record<LeagueZone, string> = {
+  promote: "bg-primary text-on-primary",
+  promotePlayoff:
+    "bg-primary/20 text-primary ring-1 ring-inset ring-primary/40",
+  relPlayoff:
+    "bg-signal-gold/25 text-signal-gold ring-1 ring-inset ring-signal-gold/40",
+  rel: "bg-error-dim text-white",
 };
 
-const ZONE_LABEL_KEYS: Record<keyof typeof ZONE_COLORS, string> = {
+const ZONE_SWATCH: Record<LeagueZone, string> = {
+  promote: "bg-primary",
+  promotePlayoff: "bg-primary/30 ring-1 ring-inset ring-primary/50",
+  relPlayoff: "bg-signal-gold/40 ring-1 ring-inset ring-signal-gold/50",
+  rel: "bg-error-dim",
+};
+
+const ZONE_LABEL_KEYS: Record<LeagueZone, string> = {
   promote: "league.standings.promote",
   promotePlayoff: "league.standings.promotePlayoff",
   relPlayoff: "league.standings.relPlayoff",
@@ -133,39 +140,11 @@ export default function StandingsTable({
                     isUserTeam && !isViewingTeam && "bg-primary/5",
                   )}
                 >
-                  {/* Position + the zone rail Hattrick made famous: a colour
-                      stripe down the edge of the row, and an arrow that says
-                      which way the club can move. */}
-                  <td className="relative py-3 pl-4 pr-1">
-                    {zone && (
-                      <span
-                        aria-hidden
-                        className="absolute left-0 top-1.5 bottom-1.5 w-[3px] rounded-r-full"
-                        style={{ backgroundColor: ZONE_COLORS[zone] }}
-                      />
-                    )}
-                    <div className="flex items-center gap-1.5">
-                      <span
-                        className="inline-flex w-3.5 shrink-0 justify-center"
-                        style={zone ? { color: ZONE_COLORS[zone] } : undefined}
-                      >
-                        {zone && (
-                          <AppIcon
-                            name={ZONE_ICONS[zone]}
-                            className="text-[13px]"
-                          />
-                        )}
-                      </span>
-                      <span
-                        className={clsx(
-                          "font-headline font-black text-sm tabular-nums",
-                          !zone && "text-on-surface-variant",
-                        )}
-                        style={zone ? { color: ZONE_COLORS[zone] } : undefined}
-                      >
-                        {String(row.position).padStart(2, "0")}
-                      </span>
-                    </div>
+                  {/* Position, as a zone-coloured badge: the rank itself
+                      carries the promotion / relegation information, so the
+                      row needs no separate rail or arrow. */}
+                  <td className="py-2 pl-4 pr-1">
+                    <RankBadge position={row.position} zone={zone} />
                   </td>
 
                   {/* Club */}
@@ -224,6 +203,8 @@ export default function StandingsTable({
                       <FormChipStrip
                         results={formResults}
                         highlightLatest={false}
+                        variant="glyph"
+                        size="sm"
                       />
                     ) : (
                       <span className="text-on-surface-variant text-xs">—</span>
@@ -239,22 +220,63 @@ export default function StandingsTable({
   );
 }
 
+function RankBadge({
+  position,
+  zone,
+}: {
+  position: number;
+  zone: LeagueZone | null;
+}) {
+  // No zone, no badge: an unmarked rank is not a state, it is the absence of
+  // one, and a grey badge for it would compete with the four that mean
+  // something.
+  if (!zone) {
+    return (
+      <span className="inline-flex h-7 w-7 items-center justify-center font-headline text-sm font-black tabular-nums text-on-surface-variant/70">
+        {position}
+      </span>
+    );
+  }
+
+  return (
+    <span
+      className={clsx(
+        "relative inline-flex h-7 w-7 items-center justify-center overflow-hidden rounded-md",
+        "font-headline text-sm font-black tabular-nums",
+        ZONE_BADGE[zone],
+      )}
+    >
+      {/* The leader's badge carries the diagonal cut from the reference:
+          same zone colour, but it also says "this is the top of the table",
+          which a promotion colour alone does not. */}
+      {position === 1 && (
+        <span
+          aria-hidden
+          className="absolute inset-0"
+          style={{
+            background:
+              "linear-gradient(135deg, rgba(255,255,255,0.30) 0%, rgba(255,255,255,0.30) 46%, transparent 46%)",
+          }}
+        />
+      )}
+      <span className="relative">{position}</span>
+    </span>
+  );
+}
+
 function ZoneLegend({
   zone,
   label,
 }: {
-  zone: keyof typeof ZONE_COLORS;
+  zone: LeagueZone;
   label: string;
 }) {
   return (
     <div className="flex items-center gap-1.5">
       <span
-        className="inline-flex"
-        style={{ color: ZONE_COLORS[zone] }}
+        className={clsx("inline-flex h-3 w-3 rounded-sm", ZONE_SWATCH[zone])}
         aria-hidden
-      >
-        <AppIcon name={ZONE_ICONS[zone]} className="text-[13px]" />
-      </span>
+      />
       <span className="font-label text-kicker font-black uppercase tracking-[0.16em] text-on-surface-variant">
         {label}
       </span>

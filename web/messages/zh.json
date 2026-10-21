@@ -249,7 +249,10 @@
       "fixtures": "{count} 场比赛",
       "nextOpponent": "下一场",
       "noMatchScheduled": "暂无比赛",
-      "formEmpty": "暂无比赛"
+      "formEmpty": "暂无比赛",
+      "W": "胜",
+      "D": "平",
+      "L": "负"
     },
     "filter": {
       "all": "全部",

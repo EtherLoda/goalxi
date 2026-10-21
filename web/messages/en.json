@@ -249,7 +249,10 @@
       "fixtures": "{count, plural, =0 {No fixtures} one {# Fixture} other {# Fixtures}}",
       "nextOpponent": "Next",
       "noMatchScheduled": "No match scheduled",
-      "formEmpty": "No matches yet"
+      "formEmpty": "No matches yet",
+      "W": "Win",
+      "D": "Draw",
+      "L": "Loss"
     },
     "filter": {
       "all": "All",
