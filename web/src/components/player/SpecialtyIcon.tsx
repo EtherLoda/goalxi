@@ -7,9 +7,8 @@ import { getSpecialtyFile, getSpecialtyLabel } from "@/lib/specialties";
 
 /**
  * SpecialtyIcon — renders a v2 player specialty as an inline SVG so
- * the per-tier color (GOLD / SILVER / BRONZE) reaches the *inner*
- * shapes via `currentColor`, while the outer pentagon frame stays a
- * fixed dark color across every tier.
+ * the per-tier color (GOLD / SILVER / BRONZE) reaches the shapes
+ * via `currentColor`.
  *
  * Why inline SVG and not `<img src="…svg">`?
  *
@@ -25,14 +24,14 @@ import { getSpecialtyFile, getSpecialtyLabel } from "@/lib/specialties";
  *   the rest of the page, so `text-amber-300` on the wrapper IS
  *   the SVG's `color`, and `currentColor` inside picks it up.
  *
- * Why a fixed-color frame?
+ * No frame.
  *
- *   v2 design intent: the pentagon reads as a neutral
- *   "specialty chip" badge, and the inner glyph carries the tier
- *   signal (gold/silver/bronze). Coloring the whole chip by tier
- *   was too loud — three bright pentagons fighting for attention
- *   on a player card. The inner glyph + 15% frame fill carry the
- *   tier cue without the visual noise.
+ *   An earlier version could draw a pentagon "medal" behind the
+ *   glyph, in a fixed dark colour so the tier hue stayed on the
+ *   art. It is gone: the frame ate roughly half of a 16px box, it
+ *   made the glyph itself harder to tell apart at list sizes, and
+ *   nothing in the app ever asked for it. The glyph is now drawn
+ *   bare and the tier colour alone carries gold/silver/bronze.
  *
  * v1 → v2 deltas (kept from the previous file's contract):
  *   1. Tier is part of the contract — every specialty has a
@@ -57,14 +56,12 @@ const SIZE_CLASS: Record<Size, string> = {
   lg: "w-5 h-5",
   // 36px — pairs with `text-4xl` headings on the player
   // detail page so the glyph sits visually at the same height
-  // as the player's name. The pentagon frame (when enabled)
-  // scales to match.
+  // as the player's name.
   xl: "w-9 h-9",
 };
 
 /**
- * Per-tier text-color class for the *inner* glyph. The frame uses
- * its own fixed dark color (`FRAME_TEXT`) and ignores this class.
+ * Per-tier text-color class for the glyph.
  *
  * Tier colors are picked to read at small sizes against the dark
  * UI background:
@@ -81,15 +78,6 @@ const TIER_TEXT: Record<Tier, string> = {
   BRONZE: "text-stone-400",
 };
 
-/**
- * Frame color. Fixed across every tier — see the file-level
- * comment for the design rationale. `stone-700` reads as a
- * neutral "specialty chip" outline against the dark UI
- * background without competing with the gold/silver/bronze
- * glyph inside.
- */
-const FRAME_TEXT = "text-stone-700";
-
 type Props = {
   code: string | null | undefined;
   /** v2 tier; if omitted, defaults to BRONZE (the most common case). */
@@ -104,15 +92,6 @@ type Props = {
    * the absence visually.
    */
   noSpec?: boolean;
-  /**
-   * Whether to render the pentagon frame around the inner glyph.
-   * Default `false` — the inner glyph alone is enough at 14-20px
-   * and the chip's pill border (when present) already does the
-   * "specialty badge" framing work. Set to `true` to opt back
-   * into the FIFA 25-style pentagon chip for places that want the
-   * more "stamped medal" look.
-   */
-  frame?: boolean;
   /**
    * Show a styled hover tooltip with the specialty name + tier
    * (e.g. "空霸 · 金"). Default `true` — every consumer wants
@@ -132,28 +111,9 @@ type Props = {
 };
 
 /**
- * Pentagon frame shared by every specialty. Stroke + 15% fill
- * match the previous SVG assets, but the colors are hard-coded
- * dark so the parent tier class never reaches them.
- */
-function Frame() {
-  return (
-    <path
-      d="M32 4 L60 24 L50 56 L14 56 L4 24 Z"
-      fill="currentColor"
-      fillOpacity="0.15"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinejoin="round"
-    />
-  );
-}
-
-/**
- * Per-specialty inner glyphs. Each entry returns only the art
- * inside the pentagon — the Frame is composed separately. Inner
- * shapes use `currentColor` so the tier class on the wrapper
- * propagates through.
+ * Per-specialty inner glyphs. Each entry returns only the art —
+ * there is no frame behind it. Inner shapes use `currentColor` so
+ * the tier class on the wrapper propagates through.
  */
 const GLYPHS: Record<string, () => ReactElement> = {
   // 空霸 — solid head + shoulder silhouette, ball with pentagonal
@@ -475,7 +435,6 @@ export function SpecialtyIcon({
   className,
   title,
   noSpec,
-  frame = false,
   showTooltip = true,
 }: Props) {
   // i18n — read tier labels from the active locale. "specialty"
@@ -483,7 +442,6 @@ export function SpecialtyIcon({
   // `player_events`. Using `useTranslations` (not hardcoded
   // `tier === "GOLD" ? "金" : ...`) means the tooltip follows
   // the user's language automatically, including future locales.
-  const tSpecialty = useTranslations("specialty");
   const tTier = useTranslations("specialty.tier");
   // No specialty → render the "—" placeholder. We do this even when
   // a stale code is present if the caller passes `noSpec`, so the
@@ -565,11 +523,6 @@ export function SpecialtyIcon({
           SIZE_CLASS[size],
         )}
       >
-        {frame && (
-          <g className={FRAME_TEXT} aria-hidden>
-            <Frame />
-          </g>
-        )}
         <g aria-hidden>
           <Glyph />
         </g>

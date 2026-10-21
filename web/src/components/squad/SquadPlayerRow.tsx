@@ -82,10 +82,10 @@ export function SquadPlayerRow({ player, isSelected, locale, onSelect }: SquadPl
           {isGk ? (
             <Tooltip label={t('squad.gkHint')}>
               <span
-                className="flex h-5 w-5 shrink-0 items-center justify-center text-primary/70"
+                className="flex h-[18px] w-[18px] shrink-0 items-center justify-center text-primary/70"
                 aria-label={t('squad.gkHint')}
               >
-                <AppIcon name="pan_tool" className="text-lg" />
+                <AppIcon name="pan_tool" className="text-base" />
               </span>
             </Tooltip>
           ) : null}
@@ -104,8 +104,8 @@ export function SquadPlayerRow({ player, isSelected, locale, onSelect }: SquadPl
             </span>
           ) : null}
           {player.onTransfer ? (
-            <span className="flex h-5 w-5 shrink-0 items-center justify-center text-secondary">
-              <AppIcon name="sell" className="text-lg" label={t('squad.transfer.listed')} />
+            <span className="flex h-[18px] w-[18px] shrink-0 items-center justify-center text-secondary">
+              <AppIcon name="swap_horiz" className="text-base" label={t('squad.transfer.listed')} />
             </span>
           ) : null}
           <InjuryBadge
