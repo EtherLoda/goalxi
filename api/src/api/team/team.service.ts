@@ -10,15 +10,21 @@ import { ValidationException } from '@/exceptions/validation.exception';
 import { paginate } from '@/utils/offset-pagination';
 import {
   BenchConfig,
+  FanEntity,
   GAME_SETTINGS,
   generateUniqueShortCode,
   isValidShortCode,
   LeagueEntity,
+  LeagueStandingEntity,
+  MatchEntity,
+  MatchStatus,
   normalizeShortCode,
   StaffEntity,
   StaffLevel,
   StaffRole,
+  StadiumEntity,
   TeamEntity,
+  UserEntity,
 } from '@goalxi/database';
 import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
@@ -28,6 +34,7 @@ import { DataSource, In, Repository } from 'typeorm';
 import { CreateTeamReqDto } from './dto/create-team.req.dto';
 import { ListTeamReqDto } from './dto/list-team.req.dto';
 import { TeamResDto } from './dto/team.res.dto';
+import { TeamSummaryResDto } from './dto/team-summary.res.dto';
 import { BenchConfigBodyDto } from './dto/update-bench-config.req.dto';
 import { UpdateTeamReqDto } from './dto/update-team.req.dto';
 
@@ -100,6 +107,114 @@ export class TeamService {
       ErrorCode.E002,
       'Invalid team identifier (expected UUID or 5-char short code)',
     );
+  }
+
+  /**
+   * Public club summary for the club page (`/teams/[id]`) — plan §4.1.
+   *
+   * The object is assembled field by field rather than returned from a
+   * `plainToInstance` of the entity, because the entity carries
+   * `userId` / `benchConfig` / `staminaTrainingIntensity` / `eloRating`
+   * and `plainToInstance` copies whatever it is given. Whiteness here is
+   * structural: the payload literally cannot hold a private column.
+   *
+   * Collateral reads (standing, stadium, fans, manager, matches) are all
+   * independent, so they go out in one `Promise.all` — a club page is a
+   * read-heavy page with no user-specific state to sequence around.
+   */
+  async getPublicSummary(idOrCode: string): Promise<TeamSummaryResDto> {
+    assert(idOrCode, 'id is required');
+
+    const team = await this.resolveTeam(idOrCode);
+
+    const [league, standing, manager, stadium, fan, matches] =
+      await Promise.all([
+        team.leagueId
+          ? LeagueEntity.findOneBy({ id: team.leagueId as Uuid })
+          : Promise.resolve(null),
+        LeagueStandingEntity.findOne({
+          where: { teamId: team.id },
+          order: { season: 'DESC' },
+        }),
+        team.userId
+          ? UserEntity.findOneBy({ id: team.userId as Uuid })
+          : Promise.resolve(null),
+        StadiumEntity.findOneBy({ teamId: team.id }),
+        FanEntity.findOneBy({ teamId: team.id }),
+        MatchEntity.find({
+          where: [
+            { homeTeamId: team.id, status: MatchStatus.COMPLETED },
+            { awayTeamId: team.id, status: MatchStatus.COMPLETED },
+          ],
+          order: { scheduledAt: 'DESC' },
+          take: 5,
+        }),
+      ]);
+
+    const recentMatches = matches.map((match) => {
+      const isHome = match.homeTeamId === team.id;
+      const goalsFor = (isHome ? match.homeScore : match.awayScore) ?? 0;
+      const goalsAgainst = (isHome ? match.awayScore : match.homeScore) ?? 0;
+      const result: 'W' | 'D' | 'L' =
+        goalsFor > goalsAgainst ? 'W' : goalsFor < goalsAgainst ? 'L' : 'D';
+
+      return {
+        id: match.id,
+        opponentId: isHome ? match.awayTeamId : match.homeTeamId,
+        opponentName: (isHome ? match.awayTeam?.name : match.homeTeam?.name) ?? '',
+        isHome,
+        goalsFor,
+        goalsAgainst,
+        result,
+        scheduledAt: match.scheduledAt,
+      };
+    });
+
+    return {
+      id: team.id,
+      name: team.name,
+      shortCode: team.shortCode,
+      city: team.city ?? null,
+      foundedYear: team.foundedYear ?? null,
+      logoUrl: team.logoUrl,
+      jerseyColorPrimary: team.jerseyColorPrimary,
+      jerseyColorSecondary: team.jerseyColorSecondary,
+      jerseyColorTertiary: team.jerseyColorTertiary,
+      league: league
+        ? {
+            id: league.id,
+            name: league.name,
+            tier: league.tier,
+            tierDivision: league.tierDivision,
+          }
+        : null,
+      manager: manager
+        ? {
+            id: manager.id,
+            name: manager.nickname || manager.username,
+            avatarUrl: manager.avatar || null,
+          }
+        : null,
+      stadium: stadium
+        ? { name: stadium.name, capacity: stadium.capacity }
+        : null,
+      fans: fan ? { totalFans: fan.totalFans } : null,
+      standing: standing
+        ? {
+            season: standing.season,
+            position: standing.position,
+            played: standing.played,
+            wins: standing.wins,
+            draws: standing.draws,
+            losses: standing.losses,
+            goalsFor: standing.goalsFor,
+            goalsAgainst: standing.goalsAgainst,
+            goalDifference: standing.goalDifference,
+            points: standing.points,
+          }
+        : null,
+      recentMatches,
+    };
   }
 
   async findByUserId(userId: Uuid): Promise<TeamResDto | null> {

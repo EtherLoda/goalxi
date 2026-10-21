@@ -1948,5 +1948,34 @@
       "bio": "About",
       "noBio": "No bio yet."
     }
+  },
+  "team_profile": {
+    "notFound": "Club not found",
+    "notFoundHint": "It may have been dissolved, or the link is wrong.",
+    "noLeague": "No league",
+    "founded": "Founded",
+    "rankLabel": "League rank",
+    "pointsShort": "pts",
+    "profile": "Club details",
+    "manager": "Manager",
+    "unknownManager": "Unnamed manager",
+    "noManager": "No manager",
+    "stadium": "Stadium",
+    "fans": "Supporters",
+    "leaguePosition": "Position",
+    "seasonRecord": "Season record",
+    "seasonLabel": "Season",
+    "win": "W",
+    "draw": "D",
+    "loss": "L",
+    "goalsForShort": "GF",
+    "goalsAgainstShort": "GA",
+    "goalDifferenceShort": "GD",
+    "recentForm": "Form",
+    "noStanding": "No standings yet this season.",
+    "recentMatches": "Recent matches",
+    "noMatches": "No completed matches yet.",
+    "home": "H",
+    "away": "A"
   }
 }

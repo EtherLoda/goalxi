@@ -16,6 +16,7 @@ import { ApiTags } from '@nestjs/swagger';
 import { CreateTeamReqDto } from './dto/create-team.req.dto';
 import { ListTeamReqDto } from './dto/list-team.req.dto';
 import { TeamResDto } from './dto/team.res.dto';
+import { TeamSummaryResDto } from './dto/team-summary.res.dto';
 import { UpdateBenchConfigReqDto } from './dto/update-bench-config.req.dto';
 import { UpdateTeamReqDto } from './dto/update-team.req.dto';
 import { TeamService } from './team.service';
@@ -36,6 +37,18 @@ export class TeamController {
   @HttpCode(HttpStatus.OK)
   async findMany(@Query() query: ListTeamReqDto) {
     return this.teamService.findMany(query);
+  }
+
+  /**
+   * Public club summary for the club page. Declared BEFORE `:id` so the
+   * more specific route always wins, even though Nest matches in
+   * declaration order for same-shape paths.
+   */
+  @Public()
+  @Get(':id/summary')
+  @HttpCode(HttpStatus.OK)
+  async getSummary(@Param('id') id: string): Promise<TeamSummaryResDto> {
+    return this.teamService.getPublicSummary(id);
   }
 
   @Public()

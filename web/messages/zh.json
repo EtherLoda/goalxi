@@ -1948,5 +1948,34 @@
       "bio": "简介",
       "noBio": "还没有填写简介。"
     }
+  },
+  "team_profile": {
+    "notFound": "找不到这支球队",
+    "notFoundHint": "它可能已经解散，或者链接有误。",
+    "noLeague": "暂无联赛",
+    "founded": "成立于",
+    "rankLabel": "联赛排名",
+    "pointsShort": "分",
+    "profile": "俱乐部资料",
+    "manager": "主教练",
+    "unknownManager": "未命名经理",
+    "noManager": "暂无主教练",
+    "stadium": "球场",
+    "fans": "球迷",
+    "leaguePosition": "联赛名次",
+    "seasonRecord": "本季战绩",
+    "seasonLabel": "第",
+    "win": "胜",
+    "draw": "平",
+    "loss": "负",
+    "goalsForShort": "进球",
+    "goalsAgainstShort": "失球",
+    "goalDifferenceShort": "净胜",
+    "recentForm": "近期",
+    "noStanding": "本赛季还没有积分榜数据。",
+    "recentMatches": "最近比赛",
+    "noMatches": "还没有已完成的比赛。",
+    "home": "主",
+    "away": "客"
   }
 }

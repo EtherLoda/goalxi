@@ -107,6 +107,60 @@ interface Team {
   benchConfig?: BenchConfig | null;
 }
 
+/**
+ * Public club summary — the club page's contract.
+ *
+ * Note what is NOT here: `benchConfig`, `staminaTrainingIntensity`,
+ * `eloRating`, `userId`. The API assembles this shape field by field
+ * precisely so those columns cannot ride along.
+ */
+export interface TeamSummary {
+  id: string;
+  name: string;
+  shortCode: string;
+  city: string | null;
+  foundedYear: number | null;
+  logoUrl: string;
+  jerseyColorPrimary: string;
+  jerseyColorSecondary: string;
+  jerseyColorTertiary: string;
+  league: {
+    id: string;
+    name: string;
+    tier: number;
+    tierDivision: number;
+  } | null;
+  manager: {
+    id: string;
+    name: string | null;
+    avatarUrl: string | null;
+  } | null;
+  stadium: { name: string; capacity: number } | null;
+  fans: { totalFans: number } | null;
+  standing: {
+    season: number;
+    position: number;
+    played: number;
+    wins: number;
+    draws: number;
+    losses: number;
+    goalsFor: number;
+    goalsAgainst: number;
+    goalDifference: number;
+    points: number;
+  } | null;
+  recentMatches: Array<{
+    id: string;
+    opponentId: string;
+    opponentName: string;
+    isHome: boolean;
+    goalsFor: number;
+    goalsAgainst: number;
+    result: 'W' | 'D' | 'L';
+    scheduledAt: string;
+  }>;
+}
+
 interface Fan {
   id: string;
   teamId: string;
@@ -1052,6 +1106,9 @@ export const api = {
   teams: {
     getById: async (id: string): Promise<Team> => {
       return request<Team>(`/teams/${id}`);
+    },
+    getSummary: async (id: string): Promise<TeamSummary> => {
+      return request<TeamSummary>(`/teams/${id}/summary`);
     },
     getByUser: async (userId: string, options?: { signal?: AbortSignal }): Promise<Team> => {
       return request<Team>(`/teams/user/${userId}`, options ? { signal: options.signal } : undefined);
