@@ -11,6 +11,7 @@ import { conditionTier, conditionToneClass } from "@/lib/condition-tone";
 import { ExperienceTierLabel } from "@/components/ExperienceTierLabel";
 import { clubHref } from "@/lib/team-view";
 import { useRouter } from "next/navigation";
+import { useGameStore } from "@/stores/gameStore";
 
 interface TransferPlayerCardProps {
   transfer: TransferAuction;
@@ -68,6 +69,7 @@ export default function TransferPlayerCard({
   const t = useTranslations();
   const locale = useLocale();
   const router = useRouter();
+  const { setViewTeam } = useGameStore();
   const player = transfer.player;
   const initials = player.name
     .split(" ")
@@ -80,10 +82,10 @@ export default function TransferPlayerCard({
   const potential = player.potentialSkills;
   const isGK = player.isGoalkeeper;
 
-  // Clicking the club is a plain navigation to that club's page. It must not
-  // touch the global `viewTeam` state: that state means "show this club's data
-  // in MY dashboard", which is a different thing from "open this club".
+  // Same contract as the standings: switch the app into this club's mode, then
+  // open its page. Scouting a target should not leave you in your own club.
   const handleTeamClick = (clickedTeamId: string) => {
+    setViewTeam(clickedTeamId);
     router.push(clubHref(locale, clickedTeamId));
   };
 
