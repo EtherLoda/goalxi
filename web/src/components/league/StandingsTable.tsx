@@ -94,11 +94,12 @@ export default function StandingsTable({
         </div>
       </div>
 
-            {/* 16 rows are always the whole table, so there is nothing to scroll:
-          a nested scrollbar here just hid the bottom clubs behind a
-          hard-to-notice inner rail. Horizontal overflow only appears if
-          the viewport is genuinely too narrow for eleven columns. */}
-      <div className="overflow-x-auto">
+      {/* No scroll container of any kind. `overflow-x-auto` alone still makes
+          the element a scroll container — and a scroll container shows a
+          vertical rail — so the panel grew a scrollbar nobody asked for. The
+          table is 16 rows on 11 columns and always fits the panel it lives in,
+          so it is allowed to size itself and scroll with the page instead. */}
+      <div>
         <table className="w-full text-left">
           {/* No `sticky` header: the table is 16 rows and the PAGE scrolls, so a
               pinned header only managed to swallow the first club underneath
