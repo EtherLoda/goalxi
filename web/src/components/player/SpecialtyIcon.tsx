@@ -2,7 +2,7 @@
 
 import clsx from "clsx";
 import type { ReactElement } from "react";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import { getSpecialtyFile, getSpecialtyLabel } from "@/lib/specialties";
 
 /**
@@ -108,6 +108,12 @@ type Props = {
    * label from `getSpecialtyLabel`).
    */
   showTooltip?: boolean;
+  /**
+   * Which side the tooltip opens on. Rows inside a scrolling list put it
+   * BELOW, because a tooltip anchored above the first row is clipped by the
+   * scroll container and never becomes visible.
+   */
+  tooltipSide?: "top" | "bottom";
 };
 
 /**
@@ -436,6 +442,7 @@ export function SpecialtyIcon({
   title,
   noSpec,
   showTooltip = true,
+  tooltipSide = "top",
 }: Props) {
   // i18n — read tier labels from the active locale. "specialty"
   // namespace was added in messages/{zh,en}.json alongside
@@ -443,6 +450,10 @@ export function SpecialtyIcon({
   // `tier === "GOLD" ? "金" : ...`) means the tooltip follows
   // the user's language automatically, including future locales.
   const tTier = useTranslations("specialty.tier");
+  // Both hooks must run before the placeholder early-return below, or React
+  // sees a changing hook order between a player with a specialty and one
+  // without.
+  const activeLocale = useLocale() === "en" ? "en" : "zh";
   // No specialty → render the "—" placeholder. We do this even when
   // a stale code is present if the caller passes `noSpec`, so the
   // migration window can show "this player used to have a
@@ -487,21 +498,14 @@ export function SpecialtyIcon({
     );
   }
 
-  // The specialty name comes from `getSpecialtyLabel`, which
-  // already speaks both `zh` and `en`. We detect the active
-  // locale via `navigator.language` so the tooltip label and
-  // the SVG `aria-label` line up. The tier label ("金"/"Gold"
-  // etc.) comes from the i18n catalog via `tTier` above so a
-  // future locale (e.g. `ja`) only needs the message file
-  // updated, not this component.
-  const locale =
-    typeof navigator !== "undefined" &&
-    navigator.language?.toLowerCase().startsWith("en")
-      ? "en"
-      : "zh";
+  // The specialty name comes from `getSpecialtyLabel`, which already speaks
+  // both `zh` and `en`. The ACTIVE APP locale decides which one, not the
+  // browser's language — a player reading the game in Chinese got English
+  // specialty names whenever their OS/browser was English.
   const tooltipLabel =
-    title ?? getSpecialtyLabel(code, locale) ?? code;
+    title ?? getSpecialtyLabel(code, activeLocale) ?? code;
   const tierLabel = tTier(tier);
+  const isTop = tooltipSide === "top";
 
   return (
     <span
@@ -528,20 +532,33 @@ export function SpecialtyIcon({
         </g>
       </svg>
 
-      {/* Hover tooltip — name + tier (金/银/铜). Centered above the
-          icon, dark glass background, tier-colored border. Pure CSS via
-          `group/specialty` so no JS state needed; `pointer-events-none`
-          so the tooltip never blocks the icon's hover target. */}
+      {/* Hover tooltip — name + tier (金/银/铜). Centered, dark glass
+          background, tier-colored border. Pure CSS via `group/specialty` so
+          no JS state is needed; `pointer-events-none` so the tooltip never
+          blocks the icon's own hover target. */}
       {showTooltip && (
         <span
           aria-hidden
-          className="pointer-events-none invisible opacity-0 group-hover/specialty:visible group-hover/specialty:opacity-100 group-hover/specialty:-translate-y-0.5 translate-y-1 transition-all duration-base ease-entrance absolute bottom-full left-1/2 -translate-x-1/2 mb-2 z-50 whitespace-nowrap bg-ink-850/95 border border-current rounded-lg px-2.5 py-1.5 text-xs font-bold font-headline shadow-xl shadow-black/40 backdrop-blur-sm"
+          className={clsx(
+            "pointer-events-none invisible absolute left-1/2 z-50 -translate-x-1/2 whitespace-nowrap rounded-lg border border-current bg-ink-850/95 px-2.5 py-1.5 font-headline text-xs font-bold opacity-0 shadow-xl shadow-black/40 backdrop-blur-sm transition-all duration-base ease-entrance",
+            "group-hover/specialty:visible group-hover/specialty:opacity-100",
+            isTop
+              ? "bottom-full mb-2 translate-y-1 group-hover/specialty:-translate-y-0.5"
+              : "top-full mt-2 -translate-y-1 group-hover/specialty:translate-y-0.5",
+          )}
         >
           <span>{tooltipLabel}</span>
           <span className="mx-1.5 opacity-50">·</span>
           <span className="opacity-90">{tierLabel}</span>
-          {/* Small arrow pointing down to the icon */}
-          <span className="absolute top-full left-1/2 -translate-x-1/2 -mt-px w-2 h-2 bg-ink-850/95 border-r border-b border-current rotate-45" />
+          {/* Arrow pointing back at the icon. */}
+          <span
+            className={clsx(
+              "absolute left-1/2 h-2 w-2 -translate-x-1/2 rotate-45 border-current bg-ink-850/95",
+              isTop
+                ? "top-full -mt-px border-r border-b"
+                : "bottom-full -mb-px border-l border-t",
+            )}
+          />
         </span>
       )}
     </span>

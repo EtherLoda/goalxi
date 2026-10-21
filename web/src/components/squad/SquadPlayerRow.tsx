@@ -80,7 +80,7 @@ export function SquadPlayerRow({ player, isSelected, locale, onSelect }: SquadPl
             {player.name}
           </Link>
           {isGk ? (
-            <Tooltip label={t('squad.gkHint')}>
+            <Tooltip label={t('squad.gkHint')} side="bottom">
               <span
                 className="flex h-[18px] w-[18px] shrink-0 items-center justify-center text-primary/70"
                 aria-label={t('squad.gkHint')}
@@ -100,7 +100,12 @@ export function SquadPlayerRow({ player, isSelected, locale, onSelect }: SquadPl
               }`}
               title={getSpecialtyLabel(player.coreSpecialty, locale === 'en' ? 'en' : 'zh')}
             >
-              <SpecialtyIcon code={player.coreSpecialty} tier={player.coreSpecialtyTier} size="lg" />
+              <SpecialtyIcon
+                code={player.coreSpecialty}
+                tier={player.coreSpecialtyTier}
+                size="lg"
+                tooltipSide="bottom"
+              />
             </span>
           ) : null}
           {player.onTransfer ? (
