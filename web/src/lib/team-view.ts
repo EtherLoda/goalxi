@@ -20,3 +20,15 @@ export function dashboardTeamHref(locale: string, teamId: string): string {
 export function ownDashboardHref(locale: string): string {
   return `/${locale}/dashboard`;
 }
+
+/**
+ * Opening another club's PUBLIC page.
+ *
+ * The dashboard copy above opens the same club inside your own management
+ * shell, which is a different thing: it borrows your sidebar, your season
+ * panel and your bank balance. A club name in a table means "who is this",
+ * so it points at the public page.
+ */
+export function clubHref(locale: string, teamId: string): string {
+  return `/${locale}/teams/${teamId}`;
+}

@@ -7,7 +7,7 @@ import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { api, type SearchTeamResult, type SearchPlayerResult, type SearchLeagueResult } from "@/lib/api";
 import { useGameStore } from "@/stores/gameStore";
-import { dashboardTeamHref } from "@/lib/team-view";
+import { clubHref } from "@/lib/team-view";
 import { clsx } from "clsx";
 
 type SearchType = "team" | "player" | "league";
@@ -122,7 +122,7 @@ function SearchPageContent() {
     if (type === "team") {
       const team = result as SearchTeamResult;
       setViewTeam(team.id);
-      router.push(dashboardTeamHref(locale, team.id));
+      router.push(clubHref(locale, team.id));
     } else if (type === "player") {
       const player = result as SearchPlayerResult;
       router.push(`/${locale}/players/${player.id}`);

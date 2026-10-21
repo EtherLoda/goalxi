@@ -10,7 +10,7 @@ import { StatTile } from "@/components/player/profile/player-profile-primitives"
 import { conditionTier, conditionToneClass } from "@/lib/condition-tone";
 import { ExperienceTierLabel } from "@/components/ExperienceTierLabel";
 import { useGameStore } from "@/stores/gameStore";
-import { dashboardTeamHref } from "@/lib/team-view";
+import { clubHref } from "@/lib/team-view";
 import { useAuth } from "@/contexts/AuthContext";
 import { useRouter } from "next/navigation";
 
@@ -91,7 +91,7 @@ export default function TransferPlayerCard({
   const handleTeamClick = (clickedTeamId: string) => {
     const isOwnTeam = clickedTeamId === userTeam?.id;
     setViewTeam(isOwnTeam ? (userTeam?.id ?? null) : clickedTeamId);
-    router.push(dashboardTeamHref(locale, clickedTeamId));
+    router.push(clubHref(locale, clickedTeamId));
   };
 
   return (

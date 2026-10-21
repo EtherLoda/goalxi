@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import type { Standing } from "@/lib/api";
 import type { LeagueZone, LeagueZoneModel } from "@/lib/league-zones";
 import { zoneForPosition, zonesPresent } from "@/lib/league-zones";
-import { dashboardTeamHref } from "@/lib/team-view";
+import { clubHref } from "@/lib/team-view";
 import { useGameStore } from "@/stores/gameStore";
 import { FormChipStrip, type FormResult } from "@/components/match/FormChipStrip";
 
@@ -64,7 +64,7 @@ export default function StandingsTable({
   const handleTeamClick = (clickedTeamId: string) => {
     const isOwnTeam = clickedTeamId === userTeamId;
     setViewTeam(isOwnTeam ? userTeamId : clickedTeamId);
-    router.push(dashboardTeamHref(locale, clickedTeamId));
+    router.push(clubHref(locale, clickedTeamId));
   };
 
   const isCurrentViewTeam = (teamId: string) => {
