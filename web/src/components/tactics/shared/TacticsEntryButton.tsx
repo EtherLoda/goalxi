@@ -12,7 +12,7 @@ interface TacticsEntryButtonProps {
   matchStatus: string;
   scheduledAt: string;
   /** Render as a small "icon-only" button (for list rows) or full CTA. */
-  variant?: 'icon' | 'full';
+  variant?: 'icon' | 'full' | 'compact';
   /** Locale for the link href. */
   locale: string;
   className?: string;
@@ -46,6 +46,56 @@ export function TacticsEntryButton({
   const href = `/${locale}/matches/${matchId}/tactics`;
 
   if (info.isFinished) return null;
+
+  // -- Compact: the fixture row's own centre cell ----------------------
+  // 24x24, because this button sits WHERE THE "VS" PILL WAS, between two
+  // club names in a ~300px column. The 36px icon variant pushed one of the
+  // names into a truncation or, worse, overlapped it.
+  if (variant === 'compact') {
+    const label = info.canSet
+      ? t('setTactics')
+      : info.hasStarted
+        ? t('locked')
+        : t('locksIn', {
+            time: formatLockCountdown(info.secondsUntilLock) ?? '0s',
+          });
+
+    if (!info.canSet) {
+      return (
+        <span
+          className={clsx(
+            'inline-flex h-6 w-6 items-center justify-center rounded-md',
+            'bg-tertiary/10 text-tertiary ring-1 ring-inset ring-tertiary/30',
+            'cursor-not-allowed',
+            className,
+          )}
+          title={label}
+          aria-label={label}
+          data-testid="tactics-entry-locked"
+        >
+          <AppIcon name="lock" className="text-[13px]" />
+        </span>
+      );
+    }
+
+    return (
+      <Link
+        href={href}
+        className={clsx(
+          'inline-flex h-6 w-6 items-center justify-center rounded-md',
+          'bg-primary text-on-primary',
+          'shadow-[0_0_10px_rgba(0,228,121,0.45)]',
+          'hover:shadow-[0_0_16px_rgba(0,228,121,0.7)] transition-shadow',
+          className,
+        )}
+        title={label}
+        aria-label={label}
+        data-testid="tactics-entry"
+      >
+        <AppIcon name="tune" className="text-[13px]" />
+      </Link>
+    );
+  }
 
   // -- Locked (within 30 min or already started) -----------------------
   if (!info.canSet) {

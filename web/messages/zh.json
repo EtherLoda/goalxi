@@ -846,7 +846,8 @@
       "completed": "已结束",
       "upcoming": "待进行",
       "noResults": "暂无赛果",
-      "noUpcoming": "暂无赛程"
+      "noUpcoming": "暂无赛程",
+      "weekRound": "第 {week} 周 · 第 {round} 轮"
     },
     "standings": {
       "title": "积分榜",

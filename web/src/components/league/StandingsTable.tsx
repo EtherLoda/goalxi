@@ -78,7 +78,7 @@ export default function StandingsTable({
     <div className="glass-panel rounded-2xl overflow-hidden flex flex-col">
       <div className="px-5 pt-5 pb-4">
         <div className="flex items-center justify-between gap-4 flex-wrap">
-          <h3 className="font-headline text-base font-black tracking-tight text-on-surface">
+          <h3 className="font-headline text-sm font-black tracking-tight text-on-surface">
             {t("league.standings.title")}
           </h3>
 
@@ -113,7 +113,7 @@ export default function StandingsTable({
               </th>
             </tr>
           </thead>
-          <tbody className="text-sm">
+          <tbody className="text-xs">
             {standings.map((row) => {
               const zone = zoneForPosition(
                 row.position,
@@ -256,7 +256,7 @@ function RankBadge({
   // something.
   if (!zone) {
     return (
-      <span className="inline-flex h-7 w-7 items-center justify-center font-headline text-sm font-black tabular-nums text-on-surface-variant/70">
+      <span className="inline-flex h-6 w-6 items-center justify-center font-headline text-xs font-black tabular-nums text-on-surface-variant/70">
         {position}
       </span>
     );
@@ -265,8 +265,8 @@ function RankBadge({
   return (
     <span
       className={clsx(
-        "relative inline-flex h-7 w-7 items-center justify-center overflow-hidden rounded-md",
-        "font-headline text-sm font-black tabular-nums",
+        "relative inline-flex h-6 w-6 items-center justify-center overflow-hidden rounded-md",
+        "font-headline text-xs font-black tabular-nums",
         ZONE_BADGE[zone],
       )}
     >

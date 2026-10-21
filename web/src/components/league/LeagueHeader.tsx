@@ -64,7 +64,7 @@ export default function LeagueHeader({
           <span className="font-label text-kicker font-black uppercase tracking-[0.3em] text-primary">
             {t("league.hero.kicker")}
           </span>
-          <h1 className="font-headline text-4xl md:text-5xl font-black tracking-tighter text-on-surface uppercase italic leading-none">
+          <h1 className="font-headline text-2xl md:text-3xl font-black tracking-tighter text-on-surface uppercase italic leading-none">
             {leagueName}
           </h1>
 
@@ -84,7 +84,7 @@ export default function LeagueHeader({
           <span className="font-label text-kicker font-black uppercase tracking-[0.25em] text-on-surface-variant/70">
             {t("league.hero.round", { round: matchweek, total: totalMatchweeks })}
           </span>
-          <span className="font-headline text-3xl font-black text-on-surface leading-none">
+          <span className="font-headline text-2xl font-black text-on-surface leading-none">
             S{season}
           </span>
         </div>

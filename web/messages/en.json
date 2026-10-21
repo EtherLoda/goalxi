@@ -846,7 +846,8 @@
       "completed": "Completed",
       "upcoming": "Upcoming",
       "noResults": "No results yet",
-      "noUpcoming": "No fixtures scheduled"
+      "noUpcoming": "No fixtures scheduled",
+      "weekRound": "W{week} · Round {round}"
     },
     "standings": {
       "title": "League Standings",

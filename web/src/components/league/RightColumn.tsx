@@ -69,6 +69,7 @@ export default function RightColumn({
     .map(([key, matches]) => ({
       key,
       week: matches[0]?.week ?? 0,
+      round: matches[0]?.round ?? 0,
       matches,
       firstKickoff: matches.reduce(
         (min, m) => (m.scheduledAt < min ? m.scheduledAt : min),
@@ -139,10 +140,10 @@ function DataEmptyState({ t }: { t: ReturnType<typeof useTranslations> }) {
         <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-primary/10 border border-primary/20 mb-4">
           <AppIcon name="analytics" className="text-4xl text-primary" />
         </div>
-        <p className="font-headline text-base font-black text-on-surface mb-1">
+        <p className="font-headline text-sm font-black text-on-surface mb-1">
           {t('league.empty.dataTitle')}
         </p>
-        <p className="font-body text-sm text-on-surface-variant">
+        <p className="font-body text-xs text-on-surface-variant">
           {t('league.empty.dataDesc')}
         </p>
       </div>
@@ -160,6 +161,7 @@ function FixturesTab({
   sortedMatchdays: {
     key: string;
     week: number;
+    round: number;
     matches: Match[];
     firstKickoff: string;
   }[];
@@ -175,10 +177,10 @@ function FixturesTab({
           <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-primary/10 border border-primary/20 mb-4">
             <AppIcon name="event_busy" className="text-4xl text-primary" />
           </div>
-          <p className="font-headline text-base font-black text-on-surface mb-1">
+          <p className="font-headline text-sm font-black text-on-surface mb-1">
             {t('league.empty.fixturesTitle')}
           </p>
-          <p className="font-body text-sm text-on-surface-variant">
+          <p className="font-body text-xs text-on-surface-variant">
             {t('league.empty.fixturesDesc')}
           </p>
         </div>
@@ -189,7 +191,7 @@ function FixturesTab({
   return (
     <div className="h-full overflow-y-auto custom-scrollbar pr-1">
       <div className="space-y-3 pb-2">
-        {sortedMatchdays.map(({ key, week, matches }) => {
+        {sortedMatchdays.map(({ key, week, round, matches }) => {
           const hasCompleted = matches.some((m) => m.status === MATCH_STATUS.COMPLETED);
           const hasUpcoming = matches.some(
             (m) => m.status === MATCH_STATUS.SCHEDULED || m.status === MATCH_STATUS.TACTICS_LOCKED,
@@ -200,10 +202,13 @@ function FixturesTab({
               key={key}
               className="glass-panel rounded-2xl p-3 border border-white/5"
             >
-              <div className="flex items-center justify-between mb-2 px-1">
+              <div className="flex items-center justify-between mb-1.5 px-1">
                 <div className="flex items-center gap-2">
-                  <span className="font-label text-[9px] font-black uppercase tracking-[0.25em] text-primary">
-                    {t('league.matchweek.thisRound', { round: week })}
+                  {/* The label needs BOTH numbers: a season runs three
+                      matchdays per week, so "round" alone repeats itself
+                      three times and "week" alone names the whole trio. */}
+                  <span className="font-label text-[9px] font-black uppercase tracking-[0.22em] text-primary">
+                    {t('league.matchweek.weekRound', { week, round })}
                   </span>
                 </div>
                 {hasCompleted && (
@@ -227,20 +232,12 @@ function FixturesTab({
                   const isUserHome = userTeamId && match.homeTeam?.id === userTeamId;
                   const isUserAway = userTeamId && match.awayTeam?.id === userTeamId;
                   const isUserMatch = Boolean(isUserHome || isUserAway);
-                  const tacticsButton = isUpcoming && isUserMatch ? (
-                    <TacticsEntryButton
-                      matchId={match.id}
-                      matchStatus={match.status}
-                      scheduledAt={match.scheduledAt}
-                      variant="icon"
-                      locale={locale}
-                    />
-                  ) : null;
+                  const showTactics = Boolean(isUpcoming && isUserMatch);
 
                   return (
                     <div
                       key={match.id}
-                      className="flex items-center justify-between text-xs py-2 px-3 rounded-xl hover:bg-white/5 transition-colors"
+                      className="flex items-center justify-between text-[11px] py-1.5 px-2.5 rounded-lg hover:bg-white/5 transition-colors"
                     >
                       <div className="flex items-center gap-2 flex-1 min-w-0">
                         <span
@@ -251,26 +248,35 @@ function FixturesTab({
                         >
                           {homeName}
                         </span>
-                        {tacticsButton && isUserHome && (
-                          <div className="shrink-0">{tacticsButton}</div>
-                        )}
                       </div>
-                      <div
-                        className={clsx(
-                          'font-headline font-black px-2.5 py-0.5 rounded-lg shrink-0 mx-2 min-w-[58px] text-center',
-                          isMatchCompleted
-                            ? 'bg-primary/15 text-primary'
-                            : 'bg-white/5 text-on-surface-variant/60',
-                        )}
-                      >
-                        {isMatchCompleted
-                          ? `${match.homeScore ?? 0} - ${match.awayScore ?? 0}`
-                          : tCommon('vs')}
-                      </div>
+                      {/* Same reasoning as the left column's rows: the tactics
+                          entry takes the place of the VS pill instead of
+                          competing with the club names for width. */}
+                      {showTactics ? (
+                        <div className="shrink-0 mx-2">
+                          <TacticsEntryButton
+                            matchId={match.id}
+                            matchStatus={match.status}
+                            scheduledAt={match.scheduledAt}
+                            variant="compact"
+                            locale={locale}
+                          />
+                        </div>
+                      ) : (
+                        <div
+                          className={clsx(
+                            'font-headline font-black px-2.5 py-0.5 rounded-md shrink-0 mx-2 min-w-[52px] text-center tabular-nums',
+                            isMatchCompleted
+                              ? 'bg-primary/15 text-primary'
+                              : 'bg-white/5 text-on-surface-variant/60',
+                          )}
+                        >
+                          {isMatchCompleted
+                            ? `${match.homeScore ?? 0} - ${match.awayScore ?? 0}`
+                            : tCommon('vs')}
+                        </div>
+                      )}
                       <div className="flex items-center gap-2 flex-1 min-w-0 justify-end">
-                        {tacticsButton && isUserAway && (
-                          <div className="shrink-0">{tacticsButton}</div>
-                        )}
                         <span
                           className={clsx(
                             'font-headline font-bold truncate text-right',

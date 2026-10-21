@@ -55,7 +55,7 @@ function MatchRow({
   );
 
   return (
-    <div className="flex items-center justify-between py-2 px-2.5 rounded-xl hover:bg-white/5 transition-colors group">
+    <div className="flex items-center justify-between py-1.5 px-2.5 rounded-lg hover:bg-white/5 transition-colors group">
       {/* Home */}
       <div className="flex items-center gap-2 flex-1 min-w-0">
         <span
@@ -69,58 +69,51 @@ function MatchRow({
         />
         <span
           className={clsx(
-            'font-headline text-sm font-bold truncate',
+            'font-headline text-xs font-bold truncate',
             homeWin ? 'text-on-surface' : showScore ? 'text-on-surface-variant' : 'text-on-surface',
             isUserHome && 'text-primary',
           )}
         >
           {match.homeTeamShort}
         </span>
-        {showTacticsButton && isUserHome && (
-          <div className="shrink-0">
-            <TacticsEntryButton
-              matchId={match.id}
-              matchStatus={match.status!}
-              scheduledAt={match.scheduledAt!}
-              variant="icon"
-              locale={tacticsLocale!}
-            />
-          </div>
-        )}
       </div>
 
-      {/* Score or VS */}
-      <div
-        className={clsx(
-          'font-headline font-black px-2.5 py-0.5 rounded-lg shrink-0 mx-2 min-w-[58px] text-center text-xs',
-          showScore
-            ? homeWin
-              ? 'bg-primary/15 text-primary'
-              : awayWin
-                ? 'bg-error/10 text-error'
-                : 'bg-white/5 text-on-surface'
-            : 'bg-white/5 text-on-surface-variant/60',
-        )}
-      >
-        {showScore ? `${match.homeScore} - ${match.awayScore}` : 'vs'}
-      </div>
+      {/* Centre cell: the score, "vs", or the way into your own tactics.
+          The tactics entry lives here rather than beside a club name,
+          because that is exactly where the VS pill already is: it costs no
+          width, so neither name can be squeezed out of the row. */}
+      {showTacticsButton ? (
+        <div className="shrink-0 mx-2">
+          <TacticsEntryButton
+            matchId={match.id}
+            matchStatus={match.status!}
+            scheduledAt={match.scheduledAt!}
+            variant="compact"
+            locale={tacticsLocale!}
+          />
+        </div>
+      ) : (
+        <div
+          className={clsx(
+            'font-headline font-black px-2.5 py-0.5 rounded-md shrink-0 mx-2 min-w-[52px] text-center text-[11px] tabular-nums',
+            showScore
+              ? homeWin
+                ? 'bg-primary/15 text-primary'
+                : awayWin
+                  ? 'bg-error/10 text-error'
+                  : 'bg-white/5 text-on-surface'
+              : 'bg-white/5 text-on-surface-variant/60',
+          )}
+        >
+          {showScore ? `${match.homeScore} - ${match.awayScore}` : 'vs'}
+        </div>
+      )}
 
       {/* Away */}
       <div className="flex items-center gap-2 flex-1 min-w-0 justify-end">
-        {showTacticsButton && isUserAway && (
-          <div className="shrink-0">
-            <TacticsEntryButton
-              matchId={match.id}
-              matchStatus={match.status!}
-              scheduledAt={match.scheduledAt!}
-              variant="icon"
-              locale={tacticsLocale!}
-            />
-          </div>
-        )}
         <span
           className={clsx(
-            'font-headline text-sm font-bold truncate text-right',
+            'font-headline text-xs font-bold truncate text-right',
             awayWin ? 'text-on-surface' : showScore ? 'text-on-surface-variant' : 'text-on-surface',
             isUserAway && 'text-primary',
           )}
@@ -168,12 +161,12 @@ function RoundPanel({
 
   return (
     <div className="glass-panel rounded-2xl overflow-hidden flex flex-col">
-      <div className="flex items-center justify-between px-4 py-3 border-b border-white/5">
+      <div className="flex items-center justify-between px-3 py-2 border-b border-white/5">
         <div className="flex items-center gap-2">
           <span className="font-label text-[9px] font-black uppercase tracking-[0.25em] text-primary">
             {kicker}
           </span>
-          <span className="font-headline text-sm font-black text-on-surface">
+          <span className="font-headline text-xs font-black text-on-surface">
             {round ?? ''}
           </span>
         </div>
