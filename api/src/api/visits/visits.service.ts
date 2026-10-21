@@ -8,6 +8,22 @@ import { VisitListResDto, VisitorDto } from './dto/visit.res.dto';
 import { VisitSubjectType } from './visit-subject.type';
 import { VisitsRepository } from './visits.repository';
 
+/**
+ * How many members to pull out of Redis before filtering.
+ *
+ * The panel shows eight, but insiders are dropped after the read, so the scan
+ * has to be deeper than the visible slice — otherwise a league whose top rows
+ * are all its own clubs would render an empty panel while outsiders sit
+ * further down the set.
+ */
+const SCAN_LIMIT = 200;
+
+/** Start of the current UTC day, the same boundary the panel labels 今天. */
+function todayMidnightUtc(): number {
+  const now = new Date();
+  return Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate());
+}
+
 @Injectable()
 export class VisitsService {
   private readonly logger = new Logger(VisitsService.name);
@@ -53,7 +69,7 @@ export class VisitsService {
 
     let raw;
     try {
-      raw = await this.visits.list(dto.subjectType, dto.subjectId, limit);
+      raw = await this.visits.list(dto.subjectType, dto.subjectId, SCAN_LIMIT);
     } catch (error) {
       this.logger.warn(
         `Could not read visits ${dto.subjectType}:${dto.subjectId} — ${
@@ -65,19 +81,39 @@ export class VisitsService {
 
     if (raw.visitors.length === 0) return { todayCount: 0, visitors: [] };
 
+    // Filtering here as well as in `record()` is what makes the panel
+    // self-healing: a set written before the insider rule existed still holds
+    // those members until the three-day window expires, and the manager who
+    // reported seeing himself had exactly that. Reading defensively means no
+    // backfill job, no purge, and a correct panel one deploy after the rule.
+    const excluded = await this.insiderIds(
+      dto.subjectType,
+      dto.subjectId,
+      raw.visitors.map((v) => v.userId),
+    );
+    const midnightUtc = todayMidnightUtc();
+    const survivors = raw.visitors.filter(
+      (v) => !excluded.has(v.userId) && v.lastVisitAt.getTime() >= midnightUtc,
+    );
+
+    if (survivors.length === 0) return { todayCount: 0, visitors: [] };
+
     // One query for every visitor on the page instead of one per row.
     const users = await this.users.find({
-      where: { id: In(raw.visitors.map((v) => v.userId)) },
+      where: { id: In(survivors.map((v) => v.userId as Uuid)) },
       select: { id: true, nickname: true, username: true, avatar: true },
     });
     const byId = new Map(users.map((u) => [u.id, u]));
 
     const visitors: VisitorDto[] = [];
-    for (const visit of raw.visitors) {
+    let todayCount = 0;
+    for (const visit of survivors) {
       const user = byId.get(visit.userId);
       // A deleted account leaves its id in the set until the window expires;
       // drop it rather than render a nameless row.
       if (!user) continue;
+      todayCount += 1;
+      if (visitors.length >= limit) continue;
       visitors.push({
         userId: user.id,
         displayName: user.nickname?.trim() || user.username,
@@ -86,7 +122,45 @@ export class VisitsService {
       });
     }
 
-    return { todayCount: raw.todayCount, visitors };
+    // Counted from the same filtered set as the rows, so the header can never
+    // credit an insider (or a deleted account) with a visit the panel refuses
+    // to show.
+    return { todayCount, visitors };
+  }
+
+  /**
+   * Who is disqualified from counting as a visitor of this subject.
+   *
+   * Mirrors `isOwnSubject` but works from the visitor list instead of a single
+   * user id, so it covers every row in one round of queries.
+   */
+  private async insiderIds(
+    type: VisitSubjectType,
+    id: string,
+    visitorIds: string[],
+  ): Promise<Set<string>> {
+    if (type === 'user') {
+      return new Set([id]);
+    }
+
+    if (type === 'team') {
+      const owner = await this.teams.findOne({
+        where: { id: id as Uuid },
+        select: { userId: true },
+      });
+      return new Set(owner?.userId ? [owner.userId] : []);
+    }
+
+    // League: everyone whose club plays in it.
+    const members = await this.teams.find({
+      where: { leagueId: id as Uuid, userId: In(visitorIds as Uuid[]) },
+      select: { userId: true },
+    });
+    return new Set(
+      members
+        .map((m) => m.userId)
+        .filter((v): v is string => typeof v === 'string'),
+    );
   }
 
   /**

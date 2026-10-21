@@ -2,7 +2,13 @@ import { VisitsRepository } from './visits.repository';
 import { VisitsService } from './visits.service';
 
 const VISITOR = '00000000-0000-4000-8000-000000000001';
+const OUTSIDER = '00000000-0000-4000-8000-000000000002';
 const TEAM = '00000000-0000-4000-8000-0000000000aa';
+
+/** A moment that is always "today" for the UTC-day filter under test. */
+function recently(): Date {
+  return new Date(Date.now() - 60_000);
+}
 
 function buildService(overrides: {
   record?: jest.Mock;
@@ -10,6 +16,8 @@ function buildService(overrides: {
   counts?: Record<string, number>;
   users?: unknown[];
   owned?: boolean;
+  owner?: string | null;
+  members?: { userId: string }[];
 }) {
   const visits = {
     record: overrides.record ?? jest.fn().mockResolvedValue(undefined),
@@ -32,7 +40,20 @@ function buildService(overrides: {
             : (counts[key] ?? 0),
         ),
       ),
-    find: jest.fn().mockResolvedValue(overrides.users ?? []),
+    // Two different reads go through `find`: hydrating visitors (`where.id`)
+    // and looking up league members (`where.leagueId`).
+    find: jest
+      .fn()
+      .mockImplementation((args?: { where?: { leagueId?: unknown } }) =>
+        Promise.resolve(
+          args?.where?.leagueId !== undefined
+            ? (overrides.members ?? [])
+            : (overrides.users ?? []),
+        ),
+      ),
+    findOne: jest
+      .fn()
+      .mockResolvedValue(overrides.owner ? { userId: overrides.owner } : null),
   });
 
   return {
@@ -47,111 +68,219 @@ function buildService(overrides: {
 }
 
 describe('VisitsService', () => {
-  it('records a visit to a club that exists', async () => {
-    const { service, visits } = buildService({});
-    await service.record({ subjectType: 'team', subjectId: TEAM }, VISITOR);
-    expect(visits.record).toHaveBeenCalledWith('team', TEAM, VISITOR);
-  });
-
-  it('ignores ids that do not point at a row', async () => {
-    const { service, visits } = buildService({ counts: { team: 0 } });
-    await service.record({ subjectType: 'team', subjectId: TEAM }, VISITOR);
-    expect(visits.record).not.toHaveBeenCalled();
-  });
-
-  it('does not record someone visiting their own manager page', async () => {
-    const { service, visits } = buildService({});
-    await service.record({ subjectType: 'user', subjectId: VISITOR }, VISITOR);
-    expect(visits.record).not.toHaveBeenCalled();
-  });
-
-  it('does not record you visiting your own club', async () => {
-    const { service, visits } = buildService({ owned: true });
-    await service.record({ subjectType: 'team', subjectId: TEAM }, VISITOR);
-    expect(visits.record).not.toHaveBeenCalled();
-  });
-
-  it('does not record a manager whose club plays in that league', async () => {
-    const { service, visits } = buildService({ owned: true });
-    await service.record({ subjectType: 'league', subjectId: TEAM }, VISITOR);
-    expect(visits.record).not.toHaveBeenCalled();
-  });
-
-  it('does record an outsider looking at a league', async () => {
-    const { service, visits } = buildService({ owned: false });
-    await service.record({ subjectType: 'league', subjectId: TEAM }, VISITOR);
-    expect(visits.record).toHaveBeenCalledWith('league', TEAM, VISITOR);
-  });
-
-  it('swallows a Redis failure: a page view must never error', async () => {
-    const { service } = buildService({
-      record: jest.fn().mockRejectedValue(new Error('redis down')),
+  describe('record', () => {
+    it('records a visit to a club that exists', async () => {
+      const { service, visits } = buildService({});
+      await service.record({ subjectType: 'team', subjectId: TEAM }, VISITOR);
+      expect(visits.record).toHaveBeenCalledWith('team', TEAM, VISITOR);
     });
-    await expect(
-      service.record({ subjectType: 'team', subjectId: TEAM }, VISITOR),
-    ).resolves.toBeUndefined();
+
+    it('ignores ids that do not point at a row', async () => {
+      const { service, visits } = buildService({ counts: { team: 0 } });
+      await service.record({ subjectType: 'team', subjectId: TEAM }, VISITOR);
+      expect(visits.record).not.toHaveBeenCalled();
+    });
+
+    it('does not record someone visiting their own manager page', async () => {
+      const { service, visits } = buildService({});
+      await service.record(
+        { subjectType: 'user', subjectId: VISITOR },
+        VISITOR,
+      );
+      expect(visits.record).not.toHaveBeenCalled();
+    });
+
+    it('does not record you visiting your own club', async () => {
+      const { service, visits } = buildService({ owned: true });
+      await service.record({ subjectType: 'team', subjectId: TEAM }, VISITOR);
+      expect(visits.record).not.toHaveBeenCalled();
+    });
+
+    it('does not record a manager whose club plays in that league', async () => {
+      const { service, visits } = buildService({ owned: true });
+      await service.record({ subjectType: 'league', subjectId: TEAM }, VISITOR);
+      expect(visits.record).not.toHaveBeenCalled();
+    });
+
+    it('does record an outsider looking at a league', async () => {
+      const { service, visits } = buildService({ owned: false });
+      await service.record({ subjectType: 'league', subjectId: TEAM }, VISITOR);
+      expect(visits.record).toHaveBeenCalledWith('league', TEAM, VISITOR);
+    });
+
+    it('swallows a Redis failure: a page view must never error', async () => {
+      const { service } = buildService({
+        record: jest.fn().mockRejectedValue(new Error('redis down')),
+      });
+      await expect(
+        service.record({ subjectType: 'team', subjectId: TEAM }, VISITOR),
+      ).resolves.toBeUndefined();
+    });
   });
 
-  it('hydrates visitors, falling back to the username', async () => {
-    const { service } = buildService({
-      list: jest.fn().mockResolvedValue({
-        todayCount: 2,
-        visitors: [
-          { userId: VISITOR, lastVisitAt: new Date('2026-10-21T10:00:00Z') },
-          { userId: 'gone', lastVisitAt: new Date('2026-10-21T09:00:00Z') },
+  describe('list', () => {
+    it('hydrates visitors, falling back to the username', async () => {
+      const { service } = buildService({
+        list: jest.fn().mockResolvedValue({
+          todayCount: 2,
+          visitors: [
+            { userId: VISITOR, lastVisitAt: recently() },
+            { userId: 'gone', lastVisitAt: recently() },
+          ],
+        }),
+        users: [{ id: VISITOR, nickname: null, username: 'sw1ng', avatar: '' }],
+      });
+
+      const res = await service.list({ subjectType: 'team', subjectId: TEAM });
+
+      // A deleted account is dropped rather than rendered nameless, and the
+      // header count is derived from the rows that survived.
+      expect(res.visitors).toHaveLength(1);
+      expect(res.todayCount).toBe(1);
+      expect(res.visitors[0]).toEqual({
+        userId: VISITOR,
+        displayName: 'sw1ng',
+        avatarUrl: null,
+        lastVisitAt: expect.any(String),
+      });
+    });
+
+    it('prefers the nickname over the username', async () => {
+      const { service } = buildService({
+        list: jest.fn().mockResolvedValue({
+          todayCount: 1,
+          visitors: [{ userId: VISITOR, lastVisitAt: recently() }],
+        }),
+        users: [
+          {
+            id: VISITOR,
+            nickname: ' McGrady ',
+            username: 'mgrady',
+            avatar: '/a.png',
+          },
         ],
-      }),
-      users: [{ id: VISITOR, nickname: null, username: 'sw1ng', avatar: '' }],
+      });
+
+      const res = await service.list({ subjectType: 'team', subjectId: TEAM });
+      expect(res.visitors[0].displayName).toBe('McGrady');
+      expect(res.visitors[0].avatarUrl).toBe('/a.png');
     });
 
-    const res = await service.list({ subjectType: 'team', subjectId: TEAM });
-
-    expect(res.todayCount).toBe(2);
-    // The deleted account is dropped rather than rendered nameless.
-    expect(res.visitors).toHaveLength(1);
-    expect(res.visitors[0]).toEqual({
-      userId: VISITOR,
-      displayName: 'sw1ng',
-      avatarUrl: null,
-      lastVisitAt: '2026-10-21T10:00:00.000Z',
+    it('returns an empty panel instead of 500 when Redis is unavailable', async () => {
+      const { service } = buildService({
+        list: jest.fn().mockRejectedValue(new Error('redis down')),
+      });
+      await expect(
+        service.list({ subjectType: 'team', subjectId: TEAM }),
+      ).resolves.toEqual({ todayCount: 0, visitors: [] });
     });
-  });
 
-  it('prefers the nickname over the username', async () => {
-    const { service } = buildService({
-      list: jest.fn().mockResolvedValue({
-        todayCount: 1,
-        visitors: [
-          { userId: VISITOR, lastVisitAt: new Date('2026-10-21T10:00:00Z') },
+    it('scans deeper than it shows, so filtered rows cannot leave a gap', async () => {
+      const { service, visits } = buildService({});
+      await service.list({ subjectType: 'team', subjectId: TEAM });
+      expect(visits.list).toHaveBeenCalledWith('team', TEAM, 200);
+    });
+
+    it('never returns more rows than the requested limit', async () => {
+      const visitors = Array.from({ length: 12 }, (_, i) => ({
+        userId: `00000000-0000-4000-8000-0000000000${(10 + i).toString()}`,
+        lastVisitAt: recently(),
+      }));
+      const users = visitors.map((v, i) => ({
+        id: v.userId,
+        nickname: null,
+        username: `u${i}`,
+        avatar: null,
+      }));
+      const { service } = buildService({
+        list: jest.fn().mockResolvedValue({ todayCount: 12, visitors }),
+        users,
+      });
+
+      const res = await service.list({ subjectType: 'team', subjectId: TEAM });
+      expect(res.visitors).toHaveLength(8);
+      // The header counts every distinct visitor today; the list shows eight.
+      expect(res.todayCount).toBe(12);
+    });
+
+    // The reported bug: a manager saw himself in his own league's panel. The
+    // write path had refused him, but a set written before that rule existed
+    // still held his id — so the read path has to be defensive too.
+    it('drops a manager whose club plays in the league', async () => {
+      const { service } = buildService({
+        list: jest.fn().mockResolvedValue({
+          todayCount: 2,
+          visitors: [
+            { userId: VISITOR, lastVisitAt: recently() },
+            { userId: OUTSIDER, lastVisitAt: recently() },
+          ],
+        }),
+        users: [
+          { id: VISITOR, nickname: null, username: 'sw1ng', avatar: null },
+          { id: OUTSIDER, nickname: null, username: 'lara', avatar: null },
         ],
-      }),
-      users: [
-        {
-          id: VISITOR,
-          nickname: ' McGrady ',
-          username: 'mgrady',
-          avatar: '/a.png',
-        },
-      ],
+        members: [{ userId: VISITOR }],
+      });
+
+      const res = await service.list({
+        subjectType: 'league',
+        subjectId: TEAM,
+      });
+
+      expect(res.visitors.map((v) => v.displayName)).toEqual(['lara']);
+      expect(res.todayCount).toBe(1);
     });
 
-    const res = await service.list({ subjectType: 'team', subjectId: TEAM });
-    expect(res.visitors[0].displayName).toBe('McGrady');
-    expect(res.visitors[0].avatarUrl).toBe('/a.png');
-  });
+    it('drops the owner from their own club page', async () => {
+      const { service } = buildService({
+        list: jest.fn().mockResolvedValue({
+          todayCount: 1,
+          visitors: [{ userId: VISITOR, lastVisitAt: recently() }],
+        }),
+        users: [
+          { id: VISITOR, nickname: null, username: 'sw1ng', avatar: null },
+        ],
+        owner: VISITOR,
+      });
 
-  it('returns an empty panel instead of 500 when Redis is unavailable', async () => {
-    const { service } = buildService({
-      list: jest.fn().mockRejectedValue(new Error('redis down')),
+      const res = await service.list({ subjectType: 'team', subjectId: TEAM });
+      expect(res.visitors).toHaveLength(0);
+      expect(res.todayCount).toBe(0);
     });
-    await expect(
-      service.list({ subjectType: 'team', subjectId: TEAM }),
-    ).resolves.toEqual({ todayCount: 0, visitors: [] });
-  });
 
-  it('defaults the limit to 8', async () => {
-    const { service, visits } = buildService({});
-    await service.list({ subjectType: 'team', subjectId: TEAM });
-    expect(visits.list).toHaveBeenCalledWith('team', TEAM, 8);
+    it('drops you from your own manager page', async () => {
+      const { service } = buildService({
+        list: jest.fn().mockResolvedValue({
+          todayCount: 1,
+          visitors: [{ userId: VISITOR, lastVisitAt: recently() }],
+        }),
+        users: [
+          { id: VISITOR, nickname: null, username: 'sw1ng', avatar: null },
+        ],
+      });
+
+      const res = await service.list({
+        subjectType: 'user',
+        subjectId: VISITOR,
+      });
+      expect(res.visitors).toHaveLength(0);
+    });
+
+    it('ignores visitors whose last visit was before today', async () => {
+      const { service } = buildService({
+        list: jest.fn().mockResolvedValue({
+          todayCount: 1,
+          visitors: [
+            { userId: VISITOR, lastVisitAt: new Date('2026-10-19T10:00:00Z') },
+          ],
+        }),
+        users: [
+          { id: VISITOR, nickname: null, username: 'sw1ng', avatar: null },
+        ],
+      });
+
+      const res = await service.list({ subjectType: 'team', subjectId: TEAM });
+      expect(res.todayCount).toBe(0);
+    });
   });
 });

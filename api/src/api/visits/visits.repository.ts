@@ -56,21 +56,19 @@ export class VisitsRepository {
   async list(
     type: VisitSubjectType,
     id: string,
-    limit: number,
+    scanLimit: number,
   ): Promise<RawVisits> {
     const key = this.buildKey(type, id);
-    const midnightUtc = Math.floor(
-      Date.UTC(
-        new Date().getUTCFullYear(),
-        new Date().getUTCMonth(),
-        new Date().getUTCDate(),
-      ) / 1000,
-    );
 
-    const [rows, todayCount] = await Promise.all([
-      this.redis.zrevrange(key, 0, limit - 1, 'WITHSCORES'),
-      this.redis.zcount(key, midnightUtc, '+inf'),
-    ]);
+    // Scanning more members than we intend to show is deliberate: the service
+    // filters insiders out AFTER this call, so a slice taken here would keep
+    // the very rows we are about to drop and leave the panel short.
+    const rows = await this.redis.zrevrange(
+      key,
+      0,
+      scanLimit - 1,
+      'WITHSCORES',
+    );
 
     // ioredis returns a flat [member, score, member, score, …] array.
     const visitors: RawVisit[] = [];
@@ -81,6 +79,6 @@ export class VisitsRepository {
       });
     }
 
-    return { todayCount, visitors };
+    return { todayCount: visitors.length, visitors };
   }
 }
