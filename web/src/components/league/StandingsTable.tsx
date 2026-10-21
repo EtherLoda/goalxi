@@ -100,8 +100,11 @@ export default function StandingsTable({
           the viewport is genuinely too narrow for eleven columns. */}
       <div className="overflow-x-auto">
         <table className="w-full text-left">
-          <thead className="sticky top-0 z-10">
-            <tr className="font-label text-kicker font-black uppercase tracking-[0.2em] text-on-surface-variant/70 border-b border-white/5 bg-surface-container/80 backdrop-blur-md">
+          {/* No `sticky` header: the table is 16 rows and the PAGE scrolls, so a
+              pinned header only managed to swallow the first club underneath
+              itself the moment the page moved. */}
+          <thead>
+            <tr className="font-label text-kicker font-black uppercase tracking-[0.2em] text-on-surface-variant/70 border-b border-white/5">
               <th className="pb-2 pl-4 pr-1 w-14">#</th>
               <th className="pb-2 pr-4">{t("league.standings.club")}</th>
               <th className="pb-2 text-center w-10">{t("league.standings.pl")}</th>
