@@ -6,7 +6,9 @@ import { useTranslations } from 'next-intl';
 import { AppIcon } from '@/components/icons/AppIcon';
 import { GlassPanel } from '@/components/ui/GlassPanel';
 import { KickerLabel } from '@/components/ui/KickerLabel';
-import { api, type TeamSummary } from '@/lib/api';
+import { api, type TeamSummary, type VisitList } from '@/lib/api';
+import { VisitTracker } from '@/components/visits/VisitTracker';
+import { VisitorsPanel } from '@/components/visits/VisitorsPanel';
 
 interface PageProps {
   params: Promise<{ locale: string; id: string }>;
@@ -29,6 +31,7 @@ export default function TeamPublicPage({ params }: PageProps) {
   const [result, setResult] = useState<{
     id: string;
     data?: TeamSummary;
+    visits?: VisitList | null;
     failed?: boolean;
   } | null>(null);
 
@@ -37,10 +40,13 @@ export default function TeamPublicPage({ params }: PageProps) {
 
     let cancelled = false;
 
-    api.teams
-      .getSummary(teamId)
-      .then((data) => {
-        if (!cancelled) setResult({ id: teamId, data });
+    Promise.all([
+      api.teams.getSummary(teamId),
+      // Visitors are decoration: a Redis outage must not blank the page.
+      api.visits.list(`team`, teamId).catch(() => null),
+    ])
+      .then(([data, visits]) => {
+        if (!cancelled) setResult({ id: teamId, data, visits });
       })
       .catch(() => {
         if (!cancelled) setResult({ id: teamId, failed: true });
@@ -88,6 +94,7 @@ export default function TeamPublicPage({ params }: PageProps) {
   }
 
   const team = settled.data;
+  const visits = settled.visits ?? null;
   const accent = team.jerseyColorPrimary || '#00e479';
 
   return (
@@ -210,7 +217,14 @@ export default function TeamPublicPage({ params }: PageProps) {
 
         </div>
 
-        </div>
+        <aside className="flex w-full flex-col gap-gutter lg:w-[300px]">
+          <GlassPanel>
+            <VisitorsPanel visits={visits} />
+          </GlassPanel>
+        </aside>
+      </div>
+
+      <VisitTracker subjectType="team" subjectId={teamId} />
     </div>
   );
 }

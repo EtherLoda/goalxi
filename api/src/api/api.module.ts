@@ -27,6 +27,7 @@ import { TeamModule } from './team/team.module';
 import { TrainingModule } from './training/training.module';
 import { TransferModule } from './transfer/transfer.module';
 import { UserModule } from './user/user.module';
+import { VisitsModule } from './visits/visits.module';
 import { WeatherModule } from './weather/weather.module';
 
 @Module({
@@ -58,6 +59,7 @@ import { WeatherModule } from './weather/weather.module';
     ForumModule,
     ClubAuditModule,
     WeatherModule,
+    VisitsModule,
     CupModule,
   ],
 })

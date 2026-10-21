@@ -116,6 +116,22 @@ interface Team {
  * `eloRating`, `userId`. The API assembles this shape field by field
  * precisely so those columns cannot ride along.
  */
+export type VisitSubjectType = "team" | "league" | "user";
+
+/** One row of the 最近访客 panel. Public by design: name, picture, when. */
+export interface VisitVisitor {
+  userId: string;
+  displayName: string;
+  avatarUrl: string | null;
+  lastVisitAt: string;
+}
+
+export interface VisitList {
+  /** Distinct visitors since 00:00 UTC today. */
+  todayCount: number;
+  visitors: VisitVisitor[];
+}
+
 export interface TeamSummary {
   id: string;
   name: string;
@@ -1349,6 +1365,29 @@ export const api = {
      */
     getById: async (id: string): Promise<ManagerPublic> => {
       return request<ManagerPublic>(`/managers/${id}`);
+    },
+  },
+
+  visits: {
+    /** Who looked at this club/league/manager recently (Redis, 3-day window). */
+    list: async (
+      subjectType: VisitSubjectType,
+      subjectId: string,
+      limit = 8
+    ): Promise<VisitList> => {
+      return request<VisitList>(
+        `/visits?subjectType=${subjectType}&subjectId=${subjectId}&limit=${limit}`
+      );
+    },
+    /** Fire-and-forget page-view ping. The API answers 204 whatever happens. */
+    record: async (
+      subjectType: VisitSubjectType,
+      subjectId: string
+    ): Promise<void> => {
+      await request<void>(`/visits`, {
+        method: `POST`,
+        body: JSON.stringify({ subjectType, subjectId }),
+      });
     },
   },
 
