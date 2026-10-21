@@ -195,9 +195,14 @@ interface StadiumSummary {
   currentSeasonAvgAttendance: number | null;
   /** 最近一场主场比赛的上座率(0-1),用于场馆页大数字展示 */
   lastHomeFillRate: number | null;
+  /** 所在联赛级别(1 = 顶级);球队无联赛时为 null */
+  tier: number | null;
+  /** 单座实际票价(含联赛级别系数),比赛结算用的就是这个数 */
+  ticketPrice: number;
+  /** 按历史上座率推算的每场收入(无历史时为 0) */
   estMatchdayRevenue: number;
-  buildCost: number;
-  demolishRefund: number;
+  /** 满座时的每场收入上限 */
+  maxMatchdayRevenue: number;
   seatAdjustCost: number;
   seatDemolishRefund: number;
 }
@@ -1211,45 +1216,18 @@ export const api = {
         `/teams/${teamId}/stadium/recent-matches?limit=${limit}`,
       );
     },
-    build: async (teamId: string, capacity: number): Promise<{ stadium: unknown; cost: number }> => {
-      return request(`/teams/${teamId}/stadium`, {
-        method: 'POST',
-        body: JSON.stringify({ capacity }),
-      });
-    },
-    demolish: async (teamId: string): Promise<{ cost: number }> => {
-      return request(`/teams/${teamId}/stadium`, { method: 'DELETE' });
-    },
     rename: async (teamId: string, name: string): Promise<unknown> => {
       return request(`/teams/${teamId}/stadium`, {
         method: 'PATCH',
         body: JSON.stringify({ name }),
       });
     },
-    /**
-     * §5 Stadium — 增量调整座位
-     * delta > 0: 扩建(扣费);delta < 0: 拆除(返还)
-     */
-    adjustSeats: async (
-      teamId: string,
-      delta: number,
-    ): Promise<{
-      action: 'expand' | 'demolish';
-      stadium: unknown;
-      cost?: number;
-      refund?: number;
-      newCapacity: number;
-    }> => {
-      return request(`/teams/${teamId}/stadium/seats`, {
-        method: 'PATCH',
-        body: JSON.stringify({ delta }),
-      });
-    },
 
     /**
-     * §5 Stadium — Time-based construction queue (new dialog flow).
-     * `kind`: 'expand' deducts funds immediately and adds seats over weeks;
-     *         'demolish' refunds `refund` on completion.
+     * §5 Stadium — Time-based construction queue.
+     * Capacity only ever changes through this queue: the instant
+     * build / demolish / seats endpoints have been removed, because they
+     * charged the same 50 per seat but skipped the waiting time.
      */
     startConstruction: async (
       teamId: string,

@@ -338,6 +338,17 @@ export default function StadiumPage() {
                     icon="percent"
                   />
                 </div>
+
+                {/* Capacity only pays for itself when somebody sits in it,
+                    so the ceiling and the realistic figure are shown as a
+                    pair rather than as one extrapolated number. */}
+                <p className="mt-4 text-[10px] leading-relaxed text-on-surface-variant">
+                  {tStadium("maxRevenueHint", {
+                    value: summary.maxMatchdayRevenue.toLocaleString(),
+                    seats: summary.capacity.toLocaleString(),
+                    price: summary.ticketPrice.toLocaleString(),
+                  })}
+                </p>
               </div>
             </div>
           </section>
@@ -481,7 +492,7 @@ export default function StadiumPage() {
           teamId={currentTeamId}
           currentCapacity={summary.capacity}
           costPerSeat={summary.seatAdjustCost}
-          currentEstMatchdayRevenue={summary.estMatchdayRevenue}
+          ticketPrice={summary.ticketPrice}
           onCancel={() => setDialogKind(null)}
           onSuccess={handleDialogSuccess}
         />

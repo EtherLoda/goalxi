@@ -1571,7 +1571,7 @@
       "title": "主场",
       "capacity": "容量",
       "avgAttendance": "平均上座",
-      "estRevenue": "预估收入",
+      "estRevenue": "场均收入",
       "demolishRefund": "拆除返还",
       "rebuild": "重建",
       "newCapacity": "新容量",
@@ -1581,7 +1581,8 @@
       "demolishWarn": "返还 30% 建造成本并移除球场。在此重建前,你的球队只能打客场。",
       "demolishConfirmPlaceholder": "输入 'demolish' 以确认",
       "demolish": "拆除",
-      "demolishing": "拆除中..."
+      "demolishing": "拆除中...",
+      "maxRevenueHint": "满座 {value}（{seats} 座 × {price}/座）；实际收入取决于上座率。"
     },
     "stadiumPage": {
       "title": "球场",
@@ -1654,8 +1655,8 @@
         "dragLabel": "调整座位数",
         "previewCurrent": "当前容量",
         "previewNext": "完工后容量",
-        "revenueCurrent": "当前比赛日收入",
-        "revenueNext": "完工后比赛日收入",
+        "revenueCurrent": "当前满座收入",
+        "revenueNext": "完工后满座收入",
         "costLabel": "立即扣除",
         "refundLabel": "完工返还",
         "weeksLabel": "施工时间",

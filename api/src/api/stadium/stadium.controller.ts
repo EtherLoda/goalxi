@@ -1,9 +1,9 @@
 import { Uuid } from '@/common/types/common.type';
+import { CurrentUser } from '@/decorators/current-user.decorator';
 import { Public } from '@/decorators/public.decorator';
 import {
   Body,
   Controller,
-  Delete,
   Get,
   HttpCode,
   HttpStatus,
@@ -14,11 +14,24 @@ import {
 } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
 import { RenameStadiumReqDto } from './dto/rename-stadium.req.dto';
-import { AdjustSeatsReqDto, BuildStadiumReqDto } from './dto/stadium.req.dto';
 import { StartConstructionReqDto } from './dto/start-construction.req.dto';
 import { StadiumConstructionService } from './stadium-construction.service';
 import { StadiumService } from './stadium.service';
 
+/**
+ * §5 Stadium.
+ *
+ * READ endpoints are `@Public()` — a club's capacity and attendance are
+ * public facts, and the club page shows them to visitors.
+ *
+ * WRITE endpoints are deliberately limited to the construction queue.
+ * The stadium used to expose three additional instant writers
+ * (`POST /stadium` build, `DELETE /stadium` demolish, `PATCH /stadium/seats`
+ * expand/demolish) which charged the same 50/seat as the queue but applied
+ * immediately — strictly better than waiting N weeks, so any client could
+ * bypass construction time entirely. The frontend had already stopped
+ * calling them; they are gone rather than merely unused.
+ */
 @ApiTags('Stadium')
 @Controller({
   path: 'teams/:teamId/stadium',
@@ -37,7 +50,7 @@ export class StadiumController {
     return this.stadiumService.getByTeamId(teamId);
   }
 
-  // §5.3 球场摘要 (容量 + 预估收入 + 平均上座率)
+  // §5.3 球场摘要 (容量 + 收入区间 + 平均上座率)
   @Public()
   @Get('summary')
   @HttpCode(HttpStatus.OK)
@@ -65,41 +78,9 @@ export class StadiumController {
   async renameStadium(
     @Param('teamId') teamId: Uuid,
     @Body() dto: RenameStadiumReqDto,
+    @CurrentUser('id') userId: Uuid,
   ) {
-    return this.stadiumService.rename(teamId, dto.name);
-  }
-
-  @Post()
-  @HttpCode(HttpStatus.CREATED)
-  async buildStadium(
-    @Param('teamId') teamId: Uuid,
-    @Body() dto: BuildStadiumReqDto,
-  ) {
-    return this.stadiumService.build(teamId, dto);
-  }
-
-  // §5 Stadium — 增量扩/缩座位(按 delta 符号路由)
-  @Patch('seats')
-  @HttpCode(HttpStatus.OK)
-  async adjustSeats(
-    @Param('teamId') teamId: Uuid,
-    @Body() dto: AdjustSeatsReqDto,
-  ) {
-    if (dto.delta > 0) {
-      const result = await this.stadiumService.expandSeats(teamId, dto.delta);
-      return { action: 'expand', ...result };
-    }
-    const result = await this.stadiumService.demolishSeats(
-      teamId,
-      Math.abs(dto.delta),
-    );
-    return { action: 'demolish', ...result };
-  }
-
-  @Delete()
-  @HttpCode(HttpStatus.OK)
-  async demolishStadium(@Param('teamId') teamId: Uuid) {
-    return this.stadiumService.demolish(teamId);
+    return this.stadiumService.rename(teamId, dto.name, userId);
   }
 
   // §5 Stadium — Time-based construction queue.
@@ -118,7 +99,8 @@ export class StadiumController {
   async startConstruction(
     @Param('teamId') teamId: Uuid,
     @Body() dto: StartConstructionReqDto,
+    @CurrentUser('id') userId: Uuid,
   ) {
-    return this.constructionService.start(teamId, dto.kind, dto.delta);
+    return this.constructionService.start(teamId, dto.kind, dto.delta, userId);
   }
 }

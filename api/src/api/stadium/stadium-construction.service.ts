@@ -11,6 +11,7 @@ import {
   StadiumConstructionKind,
   StadiumConstructionStatus,
   StadiumEntity,
+  TeamEntity,
   TransactionEntity,
   TransactionType,
   computeConstructionWeeks,
@@ -26,6 +27,7 @@ import {
 } from '@nestjs/common';
 import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
 import { DataSource, Repository } from 'typeorm';
+import { assertTeamOwner } from './assert-team-owner';
 
 /**
  * §5 Stadium — Time-based construction queue (api side).
@@ -57,6 +59,8 @@ export class StadiumConstructionService {
     private readonly stadiumRepo: Repository<StadiumEntity>,
     @InjectRepository(MatchEntity)
     private readonly matchRepo: Repository<MatchEntity>,
+    @InjectRepository(TeamEntity)
+    private readonly teamRepo: Repository<TeamEntity>,
     @InjectDataSource() private readonly dataSource: DataSource,
   ) {}
 
@@ -68,12 +72,14 @@ export class StadiumConstructionService {
     teamId: string,
     kind: StadiumConstructionKind,
     delta: number,
+    userId: string,
   ): Promise<{
     construction: StadiumConstructionEntity;
     weeks: number;
     cost: number;
   }> {
     const teamUuid = teamId as Uuid;
+    await assertTeamOwner(this.teamRepo, teamId, userId);
     this.validateDelta(delta);
 
     const stadium = await this.stadiumRepo.findOne({

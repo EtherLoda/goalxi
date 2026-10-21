@@ -22,8 +22,15 @@ interface ConstructionDialogProps {
   currentCapacity: number;
   /** Cost per seat for EXPAND (mirrors `StadiumSummary.seatAdjustCost`). */
   costPerSeat: number;
-  /** Current projected matchday revenue (mirrors `StadiumSummary.estMatchdayRevenue`). */
-  currentEstMatchdayRevenue: number;
+  /**
+   * Per-seat price the match engine actually pays out, already including
+   * the league-tier multiplier (mirrors `StadiumSummary.ticketPrice`).
+   * The preview multiplies it by capacity to show the SOLD-OUT ceiling —
+   * it deliberately does NOT extrapolate the club's current (attendance
+   * based) revenue, because extra seats only earn once somebody sits in
+   * them.
+   */
+  ticketPrice: number;
   onCancel: () => void;
   onSuccess: (info: { delta: number; weeks: number; cost: number }) => void;
 }
@@ -46,7 +53,7 @@ export function ConstructionDialog({
   teamId,
   currentCapacity,
   costPerSeat,
-  currentEstMatchdayRevenue,
+  ticketPrice,
   onCancel,
   onSuccess,
 }: ConstructionDialogProps) {
@@ -90,13 +97,13 @@ export function ConstructionDialog({
       : 0;
   const nextCapacity =
     kind === "expand" ? currentCapacity + delta : currentCapacity - delta;
-  // Scale revenue linearly with capacity (matches the api's fallback:
-  // capacity × DEFAULT_FILL_RATE × TICKET_PRICE).
-  const nextEstMatchdayRevenue =
-    currentCapacity > 0
-      ? Math.round(currentEstMatchdayRevenue * (nextCapacity / currentCapacity))
-      : 0;
-  const revenueDelta = nextEstMatchdayRevenue - currentEstMatchdayRevenue;
+  // Sell-out ceiling before and after. Linear in capacity is correct here
+  // precisely because it is the *ceiling*: every extra seat is worth
+  // exactly one ticket IF somebody sits in it. Whether anybody does is a
+  // question about the fan base, not about the stadium.
+  const currentMaxRevenue = Math.round(currentCapacity * ticketPrice);
+  const nextMaxRevenue = Math.round(nextCapacity * ticketPrice);
+  const revenueDelta = nextMaxRevenue - currentMaxRevenue;
 
   const clamped = Math.min(max, Math.max(min, delta));
   const canSubmit = clamped >= min && clamped <= max && !isSubmitting;
@@ -188,12 +195,12 @@ export function ConstructionDialog({
           />
           <PreviewStat
             label={t("revenueCurrent")}
-            value={currentEstMatchdayRevenue.toLocaleString()}
+            value={currentMaxRevenue.toLocaleString()}
             icon="payments"
           />
           <PreviewStat
             label={t("revenueNext")}
-            value={nextEstMatchdayRevenue.toLocaleString()}
+            value={nextMaxRevenue.toLocaleString()}
             icon="payments"
             tone={
               revenueDelta > 0

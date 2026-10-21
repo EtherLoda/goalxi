@@ -1571,7 +1571,7 @@
       "title": "Home Ground",
       "capacity": "Capacity",
       "avgAttendance": "Avg Att.",
-      "estRevenue": "Est. Revenue",
+      "estRevenue": "Avg. revenue",
       "demolishRefund": "Demolish Refund",
       "rebuild": "Rebuild",
       "newCapacity": "New capacity",
@@ -1581,7 +1581,8 @@
       "demolishWarn": "This refunds 30% of build cost and removes the stadium. Your team will play away until rebuilt.",
       "demolishConfirmPlaceholder": "Type 'demolish' to confirm",
       "demolish": "Demolish",
-      "demolishing": "Demolishing..."
+      "demolishing": "Demolishing...",
+      "maxRevenueHint": "{value} when sold out ({seats} seats × {price}); actual revenue depends on attendance."
     },
     "stadiumPage": {
       "title": "Stadium",
@@ -1654,8 +1655,8 @@
         "dragLabel": "Seats to change",
         "previewCurrent": "Current capacity",
         "previewNext": "After completion",
-        "revenueCurrent": "Current matchday rev.",
-        "revenueNext": "After matchday rev.",
+        "revenueCurrent": "Sold-out revenue",
+        "revenueNext": "Sold-out after",
         "costLabel": "Upfront cost",
         "refundLabel": "Refund on completion",
         "weeksLabel": "Construction time",

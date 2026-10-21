@@ -5,6 +5,7 @@ import {
   StadiumConstructionKind,
   StadiumConstructionStatus,
   StadiumEntity,
+  TeamEntity,
 } from '@goalxi/database';
 import { LOGGER_SERVICE } from '@goalxi/logger';
 import { Test, TestingModule } from '@nestjs/testing';
@@ -16,7 +17,11 @@ describe('StadiumConstructionService', () => {
   let service: StadiumConstructionService;
   let constructionRepo: jest.Mocked<Repository<StadiumConstructionEntity>>;
   let stadiumRepo: jest.Mocked<Repository<StadiumEntity>>;
+  let teamRepo: jest.Mocked<Repository<TeamEntity>>;
   let dataSource: { transaction: jest.Mock };
+
+  /** The manager who owns `team-1` — the only caller allowed to start a job. */
+  const OWNER = 'user-owner';
 
   const mockStadium = (overrides: Record<string, unknown> = {}) =>
     ({
@@ -93,6 +98,17 @@ describe('StadiumConstructionService', () => {
             })),
           },
         },
+        {
+          provide: getRepositoryToken(TeamEntity),
+          useValue: {
+            // Permissive by default: whoever we say owns `team-1` is the
+            // caller. Individual tests override `findOne` to prove the
+            // rejection path.
+            findOne: jest
+              .fn()
+              .mockResolvedValue({ id: 'team-1', userId: OWNER }),
+          },
+        },
         { provide: DataSource, useValue: dataSource },
       ],
     }).compile();
@@ -104,6 +120,32 @@ describe('StadiumConstructionService', () => {
       getRepositoryToken(StadiumConstructionEntity),
     );
     stadiumRepo = module.get(getRepositoryToken(StadiumEntity));
+    teamRepo = module.get(getRepositoryToken(TeamEntity));
+  });
+
+  describe('start — ownership', () => {
+    it('rejects a caller who does not own the team', async () => {
+      teamRepo.findOne.mockResolvedValue({
+        id: 'team-1',
+        userId: 'someone-else',
+      } as TeamEntity);
+
+      await expect(
+        service.start('team-1', StadiumConstructionKind.EXPAND, 5_000, OWNER),
+      ).rejects.toThrow(/only manage your own club/);
+      expect(stadiumRepo.findOne).not.toHaveBeenCalled();
+    });
+
+    it('rejects a bot team, which has no owner', async () => {
+      teamRepo.findOne.mockResolvedValue({
+        id: 'team-1',
+        userId: null,
+      } as unknown as TeamEntity);
+
+      await expect(
+        service.start('team-1', StadiumConstructionKind.EXPAND, 5_000, OWNER),
+      ).rejects.toThrow(/only manage your own club/);
+    });
   });
 
   describe('start — validation', () => {
@@ -115,6 +157,7 @@ describe('StadiumConstructionService', () => {
             'team-1',
             StadiumConstructionKind.EXPAND,
             delta as number,
+            OWNER,
           ),
         ).rejects.toThrow(/must be/);
       },
@@ -123,21 +166,26 @@ describe('StadiumConstructionService', () => {
     it('rejects when stadium missing', async () => {
       stadiumRepo.findOne.mockResolvedValue(null);
       await expect(
-        service.start('team-missing', StadiumConstructionKind.EXPAND, 5_000),
+        service.start(
+          'team-missing',
+          StadiumConstructionKind.EXPAND,
+          5_000,
+          OWNER,
+        ),
       ).rejects.toThrow(/Stadium not found/);
     });
 
     it('rejects expand that pushes capacity past the 200k ceiling', async () => {
       stadiumRepo.findOne.mockResolvedValue(mockStadium({ capacity: 195_000 }));
       await expect(
-        service.start('team-1', StadiumConstructionKind.EXPAND, 10_000),
+        service.start('team-1', StadiumConstructionKind.EXPAND, 10_000, OWNER),
       ).rejects.toThrow(/Cannot expand past/);
     });
 
     it('rejects demolish that drops capacity below 1 000', async () => {
       stadiumRepo.findOne.mockResolvedValue(mockStadium({ capacity: 1_500 }));
       await expect(
-        service.start('team-1', StadiumConstructionKind.DEMOLISH, 1_000),
+        service.start('team-1', StadiumConstructionKind.DEMOLISH, 1_000, OWNER),
       ).rejects.toThrow(/at least 1,000/);
     });
 
@@ -145,7 +193,7 @@ describe('StadiumConstructionService', () => {
       stadiumRepo.findOne.mockResolvedValue(mockStadium());
       constructionRepo.findOne.mockResolvedValue(mockConstruction());
       await expect(
-        service.start('team-1', StadiumConstructionKind.EXPAND, 5_000),
+        service.start('team-1', StadiumConstructionKind.EXPAND, 5_000, OWNER),
       ).rejects.toThrow(/already has a construction/);
     });
   });
@@ -184,6 +232,7 @@ describe('StadiumConstructionService', () => {
         'team-1',
         StadiumConstructionKind.EXPAND,
         5_000,
+        OWNER,
       );
 
       expect(result.weeks).toBe(1); // 5000 seats / 5000 per week = 1
@@ -219,6 +268,7 @@ describe('StadiumConstructionService', () => {
         'team-1',
         StadiumConstructionKind.DEMOLISH,
         10_000,
+        OWNER,
       );
 
       expect(result.weeks).toBe(1); // 10000 / 10000 per week
