@@ -18,16 +18,16 @@ interface VisitorsPanelProps {
  * design, so this is a pulse, not a history.
  */
 export function VisitorsPanel({ visits }: VisitorsPanelProps) {
-  const t = useTranslations('team_profile');
+  const t = useTranslations('visits');
   const locale = useLocale();
 
   return (
     <div className="px-5 py-4">
       <div className="flex items-center justify-between gap-tight">
-        <KickerLabel>{t('visitors')}</KickerLabel>
+        <KickerLabel>{t('title')}</KickerLabel>
         {visits && visits.todayCount > 0 ? (
           <span className="text-kicker tabular-nums text-on-surface-variant">
-            {t('visitorsToday', { count: visits.todayCount })}
+            {t('today', { count: visits.todayCount })}
           </span>
         ) : null}
       </div>
@@ -65,7 +65,7 @@ export function VisitorsPanel({ visits }: VisitorsPanelProps) {
       ) : (
         <p className="mt-3 flex items-center gap-2 text-label text-on-surface-variant/70">
           <AppIcon name="visibility" className="text-base text-outline" />
-          {t('visitorsNone')}
+          {t('none')}
         </p>
       )}
     </div>

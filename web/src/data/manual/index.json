@@ -1,11 +1,14 @@
 {
-  "version": 19,
-  "lastUpdated": "2026-10-19",
+  "version": 20,
+  "lastUpdated": "2026-10-21",
   "format": {
     "manualRoot": "web/src/data/manual",
     "chapterFilePattern": "{order:02d}-{slug}.md",
     "appendixFilePattern": "A{order}-{slug}.md",
-    "locales": ["zh", "en"],
+    "locales": [
+      "zh",
+      "en"
+    ],
     "statusValues": {
       "full": "content complete, ready to ship",
       "partial": "partial content, more to come",
@@ -14,6 +17,12 @@
     }
   },
   "changelog": [
+    {
+      "version": 20,
+      "date": "2026-10-21",
+      "zh": "新增第 29 章:球队主页与访客",
+      "en": "Added chapter 29: club pages and visitors"
+    },
     {
       "version": 19,
       "date": "2026-10-19",
@@ -114,8 +123,14 @@
     {
       "order": 0,
       "slug": "how-to-read",
-      "title": { "zh": "如何阅读这本手册", "en": "How to Read This Manual" },
-      "file": { "zh": "00-how-to-read.md", "en": "00-how-to-read.md" },
+      "title": {
+        "zh": "如何阅读这本手册",
+        "en": "How to Read This Manual"
+      },
+      "file": {
+        "zh": "00-how-to-read.md",
+        "en": "00-how-to-read.md"
+      },
       "status": "full",
       "hattrickEquivalent": null,
       "relatedChapters": [],
@@ -124,147 +139,377 @@
     {
       "order": 1,
       "slug": "game-intro",
-      "title": { "zh": "游戏介绍", "en": "Game Introduction" },
-      "file": { "zh": "01-game-intro.md", "en": "01-game-intro.md" },
+      "title": {
+        "zh": "游戏介绍",
+        "en": "Game Introduction"
+      },
+      "file": {
+        "zh": "01-game-intro.md",
+        "en": "01-game-intro.md"
+      },
       "status": "full",
       "hattrickEquivalent": "Hattrick § 1",
-      "relatedChapters": [2, 3, 4, 5, 15, 18, 19],
-      "relatedEntries": ["pwi-vs-overall", "outfield-skills-meaning", "experience-meaning", "player-event-types", "comparing-two-players"]
+      "relatedChapters": [
+        2,
+        3,
+        4,
+        5,
+        15,
+        18,
+        19
+      ],
+      "relatedEntries": [
+        "pwi-vs-overall",
+        "outfield-skills-meaning",
+        "experience-meaning",
+        "player-event-types",
+        "comparing-two-players"
+      ]
     },
     {
       "order": 2,
       "slug": "player-skills",
-      "title": { "zh": "球员:技能", "en": "Player Skills" },
-      "file": { "zh": "02-player-skills.md", "en": "02-player-skills.md" },
+      "title": {
+        "zh": "球员:技能",
+        "en": "Player Skills"
+      },
+      "file": {
+        "zh": "02-player-skills.md",
+        "en": "02-player-skills.md"
+      },
       "status": "full",
       "hattrickEquivalent": "Hattrick § 2",
-      "relatedChapters": [3, 4, 14, 15],
-      "relatedEntries": ["outfield-skills-meaning", "gk-skills-vs-outfield", "skill-dimensions-note", "skill-priority-w", "skill-priority-cb", "skill-priority-cm-dm-am", "skill-priority-cf", "skill-priority-gk"]
+      "relatedChapters": [
+        3,
+        4,
+        14,
+        15
+      ],
+      "relatedEntries": [
+        "outfield-skills-meaning",
+        "gk-skills-vs-outfield",
+        "skill-dimensions-note",
+        "skill-priority-w",
+        "skill-priority-cb",
+        "skill-priority-cm-dm-am",
+        "skill-priority-cf",
+        "skill-priority-gk"
+      ]
     },
     {
       "order": 3,
       "slug": "positions",
-      "title": { "zh": "球员:位置", "en": "Player Positions" },
-      "file": { "zh": "03-positions.md", "en": "03-positions.md" },
+      "title": {
+        "zh": "球员:位置",
+        "en": "Player Positions"
+      },
+      "file": {
+        "zh": "03-positions.md",
+        "en": "03-positions.md"
+      },
       "status": "full",
       "hattrickEquivalent": "Hattrick § 4 (positions part)",
-      "relatedChapters": [2, 4, 5, 15],
-      "relatedEntries": ["position-keys-glossary", "w-vs-wm", "wbl-vs-lb", "am-vs-cm", "dm-vs-cdm", "cfl-cfr-vs-cf", "cd-cdl-cdr-vs-cb", "skill-priority-w", "skill-priority-cb", "skill-priority-cm-dm-am", "skill-priority-cf", "skill-priority-gk"]
+      "relatedChapters": [
+        2,
+        4,
+        5,
+        15
+      ],
+      "relatedEntries": [
+        "position-keys-glossary",
+        "w-vs-wm",
+        "wbl-vs-lb",
+        "am-vs-cm",
+        "dm-vs-cdm",
+        "cfl-cfr-vs-cf",
+        "cd-cdl-cdr-vs-cb",
+        "skill-priority-w",
+        "skill-priority-cb",
+        "skill-priority-cm-dm-am",
+        "skill-priority-cf",
+        "skill-priority-gk"
+      ]
     },
     {
       "order": 4,
       "slug": "player-attributes",
-      "title": { "zh": "球员:其他属性", "en": "Player Other Attributes" },
-      "file": { "zh": "04-player-attributes.md", "en": "04-player-attributes.md" },
+      "title": {
+        "zh": "球员:其他属性",
+        "en": "Player Other Attributes"
+      },
+      "file": {
+        "zh": "04-player-attributes.md",
+        "en": "04-player-attributes.md"
+      },
       "status": "full",
       "hattrickEquivalent": "Hattrick § 3",
-      "relatedChapters": [2, 3, 5, 18, 19],
-      "relatedEntries": ["pwi-vs-overall", "current-vs-potential-skills", "potential-tier-meaning", "experience-meaning", "specialties-meaning", "condition-form-injury"]
+      "relatedChapters": [
+        2,
+        3,
+        5,
+        18,
+        19
+      ],
+      "relatedEntries": [
+        "pwi-vs-overall",
+        "current-vs-potential-skills",
+        "potential-tier-meaning",
+        "experience-meaning",
+        "specialties-meaning",
+        "condition-form-injury"
+      ]
     },
     {
       "order": 5,
       "slug": "lineup-basics",
-      "title": { "zh": "阵容:基本认识", "en": "Lineup Basics" },
-      "file": { "zh": "05-lineup-basics.md", "en": "05-lineup-basics.md" },
+      "title": {
+        "zh": "阵容:基本认识",
+        "en": "Lineup Basics"
+      },
+      "file": {
+        "zh": "05-lineup-basics.md",
+        "en": "05-lineup-basics.md"
+      },
       "status": "full",
       "hattrickEquivalent": "Hattrick § 4 (lineup part)",
-      "relatedChapters": [2, 3, 4, 6, 14, 15, 16, 19],
-      "relatedEntries": ["position-keys-glossary", "skill-priority-w", "skill-priority-cb", "skill-priority-cm-dm-am", "skill-priority-cf", "skill-priority-gk", "player-event-types"]
+      "relatedChapters": [
+        2,
+        3,
+        4,
+        6,
+        14,
+        15,
+        16,
+        19
+      ],
+      "relatedEntries": [
+        "position-keys-glossary",
+        "skill-priority-w",
+        "skill-priority-cb",
+        "skill-priority-cm-dm-am",
+        "skill-priority-cf",
+        "skill-priority-gk",
+        "player-event-types"
+      ]
     },
     {
       "order": 6,
       "slug": "match-basics",
-      "title": { "zh": "比赛:基本信息", "en": "Match Basics" },
-      "file": { "zh": "06-match-basics.md", "en": "06-match-basics.md" },
+      "title": {
+        "zh": "比赛:基本信息",
+        "en": "Match Basics"
+      },
+      "file": {
+        "zh": "06-match-basics.md",
+        "en": "06-match-basics.md"
+      },
       "status": "full",
       "hattrickEquivalent": "Hattrick § 5",
-      "relatedChapters": [5, 14, 15, 16, 18],
-      "relatedEntries": ["player-event-types", "condition-form-injury", "pwi-vs-overall", "comparing-two-players"]
+      "relatedChapters": [
+        5,
+        14,
+        15,
+        16,
+        18
+      ],
+      "relatedEntries": [
+        "player-event-types",
+        "condition-form-injury",
+        "pwi-vs-overall",
+        "comparing-two-players"
+      ]
     },
     {
       "order": 7,
       "slug": "training",
-      "title": { "zh": "训练", "en": "Training" },
-      "file": { "zh": "07-training.md", "en": "07-training.md" },
+      "title": {
+        "zh": "训练",
+        "en": "Training"
+      },
+      "file": {
+        "zh": "07-training.md",
+        "en": "07-training.md"
+      },
       "status": "full",
       "hattrickEquivalent": "Hattrick § 6",
-      "relatedChapters": [2, 3, 4, 8, 9],
-      "relatedEntries": ["condition-form-injury", "comparing-two-players", "pwi-vs-overall", "outfield-skills-meaning", "gk-skills-vs-outfield"]
+      "relatedChapters": [
+        2,
+        3,
+        4,
+        8,
+        9
+      ],
+      "relatedEntries": [
+        "condition-form-injury",
+        "comparing-two-players",
+        "pwi-vs-overall",
+        "outfield-skills-meaning",
+        "gk-skills-vs-outfield"
+      ]
     },
     {
       "order": 8,
       "slug": "staff",
-      "title": { "zh": "教练", "en": "Coaches" },
-      "file": { "zh": "08-staff.md", "en": "08-staff.md" },
+      "title": {
+        "zh": "教练",
+        "en": "Coaches"
+      },
+      "file": {
+        "zh": "08-staff.md",
+        "en": "08-staff.md"
+      },
       "status": "full",
       "hattrickEquivalent": "Hattrick § 7",
-      "relatedChapters": [7, 9],
-      "relatedEntries": ["comparing-two-players"]
+      "relatedChapters": [
+        7,
+        9
+      ],
+      "relatedEntries": [
+        "comparing-two-players"
+      ]
     },
     {
       "order": 9,
       "slug": "finance",
-      "title": { "zh": "财政", "en": "Finance" },
-      "file": { "zh": "09-finance.md", "en": "09-finance.md" },
+      "title": {
+        "zh": "财政",
+        "en": "Finance"
+      },
+      "file": {
+        "zh": "09-finance.md",
+        "en": "09-finance.md"
+      },
       "status": "full",
       "hattrickEquivalent": "Hattrick § 8",
-      "relatedChapters": [8, 10, 11, 18],
-      "relatedEntries": ["comparing-two-players"]
+      "relatedChapters": [
+        8,
+        10,
+        11,
+        18
+      ],
+      "relatedEntries": [
+        "comparing-two-players"
+      ]
     },
     {
       "order": 10,
       "slug": "fans",
-      "title": { "zh": "球迷", "en": "Fans" },
-      "file": { "zh": "10-fans.md", "en": "10-fans.md" },
+      "title": {
+        "zh": "球迷",
+        "en": "Fans"
+      },
+      "file": {
+        "zh": "10-fans.md",
+        "en": "10-fans.md"
+      },
       "status": "full",
       "hattrickEquivalent": "Hattrick § 9",
-      "relatedChapters": [6, 9, 11],
+      "relatedChapters": [
+        6,
+        9,
+        11
+      ],
       "relatedEntries": []
     },
     {
       "order": 11,
       "slug": "stadium",
-      "title": { "zh": "球场", "en": "Stadium" },
-      "file": { "zh": "11-stadium.md", "en": "11-stadium.md" },
+      "title": {
+        "zh": "球场",
+        "en": "Stadium"
+      },
+      "file": {
+        "zh": "11-stadium.md",
+        "en": "11-stadium.md"
+      },
       "status": "full",
       "hattrickEquivalent": "Hattrick § 10",
-      "relatedChapters": [9, 10],
+      "relatedChapters": [
+        9,
+        10
+      ],
       "relatedEntries": []
     },
     {
       "order": 14,
       "slug": "set-pieces",
-      "title": { "zh": "比赛:定位球和特别事件", "en": "Set Pieces and Special Events" },
-      "file": { "zh": "14-set-pieces.md", "en": "14-set-pieces.md" },
+      "title": {
+        "zh": "比赛:定位球和特别事件",
+        "en": "Set Pieces and Special Events"
+      },
+      "file": {
+        "zh": "14-set-pieces.md",
+        "en": "14-set-pieces.md"
+      },
       "status": "full",
       "hattrickEquivalent": "Hattrick § 13",
-      "relatedChapters": [6, 15],
-      "relatedEntries": ["specialties-meaning", "player-event-types"]
+      "relatedChapters": [
+        6,
+        15
+      ],
+      "relatedEntries": [
+        "specialties-meaning",
+        "player-event-types"
+      ]
     },
     {
       "order": 15,
       "slug": "tactics",
-      "title": { "zh": "比赛:战术", "en": "Match: Tactics" },
-      "file": { "zh": "15-tactics.md", "en": "15-tactics.md" },
+      "title": {
+        "zh": "比赛:战术",
+        "en": "Match: Tactics"
+      },
+      "file": {
+        "zh": "15-tactics.md",
+        "en": "15-tactics.md"
+      },
       "status": "full",
       "hattrickEquivalent": "Hattrick § 14",
-      "relatedChapters": [3, 5, 6, 14, 16],
-      "relatedEntries": ["w-vs-wm", "wbl-vs-lb", "am-vs-cm", "dm-vs-cdm", "cfl-cfr-vs-cf"]
+      "relatedChapters": [
+        3,
+        5,
+        6,
+        14,
+        16
+      ],
+      "relatedEntries": [
+        "w-vs-wm",
+        "wbl-vs-lb",
+        "am-vs-cm",
+        "dm-vs-cdm",
+        "cfl-cfr-vs-cf"
+      ]
     },
     {
       "order": 16,
       "slug": "subs-and-orders",
-      "title": { "zh": "比赛:替补和球队指示", "en": "Subs and Team Orders" },
-      "file": { "zh": "16-subs-and-orders.md", "en": "16-subs-and-orders.md" },
+      "title": {
+        "zh": "比赛:替补和球队指示",
+        "en": "Subs and Team Orders"
+      },
+      "file": {
+        "zh": "16-subs-and-orders.md",
+        "en": "16-subs-and-orders.md"
+      },
       "status": "full",
       "hattrickEquivalent": "Hattrick § 15",
-      "relatedChapters": [5, 6, 15],
-      "relatedEntries": ["condition-form-injury", "player-event-types"]
+      "relatedChapters": [
+        5,
+        6,
+        15
+      ],
+      "relatedEntries": [
+        "condition-form-injury",
+        "player-event-types"
+      ]
     },
     {
       "order": 17,
       "slug": "mental-state",
-      "title": { "zh": "心理状态", "en": "Mental State" },
+      "title": {
+        "zh": "心理状态",
+        "en": "Mental State"
+      },
       "status": "not-applicable",
       "hattrickEquivalent": "Hattrick § 16",
       "relatedChapters": [],
@@ -274,46 +519,90 @@
     {
       "order": 18,
       "slug": "transfer",
-      "title": { "zh": "转会交易", "en": "Transfer Market" },
-      "file": { "zh": "18-transfer.md", "en": "18-transfer.md" },
+      "title": {
+        "zh": "转会交易",
+        "en": "Transfer Market"
+      },
+      "file": {
+        "zh": "18-transfer.md",
+        "en": "18-transfer.md"
+      },
       "status": "full",
       "hattrickEquivalent": "Hattrick § 17",
-      "relatedChapters": [3, 9],
-      "relatedEntries": ["release-list-player", "comparing-two-players", "pwi-vs-overall", "experience-meaning"]
+      "relatedChapters": [
+        3,
+        9
+      ],
+      "relatedEntries": [
+        "release-list-player",
+        "comparing-two-players",
+        "pwi-vs-overall",
+        "experience-meaning"
+      ]
     },
     {
       "order": 19,
       "slug": "youth-and-scouts",
-      "title": { "zh": "青年球员", "en": "Youth Players and Scouts" },
+      "title": {
+        "zh": "青年球员",
+        "en": "Youth Players and Scouts"
+      },
       "status": "stub",
       "hattrickEquivalent": "Hattrick § 18",
-      "relatedChapters": [3, 4, 18],
-      "relatedEntries": ["experience-meaning", "comparing-two-players"]
+      "relatedChapters": [
+        3,
+        4,
+        18
+      ],
+      "relatedEntries": [
+        "experience-meaning",
+        "comparing-two-players"
+      ]
     },
     {
       "order": 20,
       "slug": "league-system",
-      "title": { "zh": "联赛级别系统", "en": "League Tier System" },
-      "file": { "zh": "20-league-system.md", "en": "20-league-system.md" },
+      "title": {
+        "zh": "联赛级别系统",
+        "en": "League Tier System"
+      },
+      "file": {
+        "zh": "20-league-system.md",
+        "en": "20-league-system.md"
+      },
       "status": "full",
       "hattrickEquivalent": "Hattrick § 19",
-      "relatedChapters": [21, 24],
+      "relatedChapters": [
+        21,
+        24
+      ],
       "relatedEntries": []
     },
     {
       "order": 21,
       "slug": "cup-system",
-      "title": { "zh": "杯赛系统", "en": "Cup System" },
-      "file": { "zh": "21-cup-system.md", "en": "21-cup-system.md" },
+      "title": {
+        "zh": "杯赛系统",
+        "en": "Cup System"
+      },
+      "file": {
+        "zh": "21-cup-system.md",
+        "en": "21-cup-system.md"
+      },
       "status": "full",
       "hattrickEquivalent": "Hattrick § 20",
-      "relatedChapters": [20],
+      "relatedChapters": [
+        20
+      ],
       "relatedEntries": []
     },
     {
       "order": 22,
       "slug": "friendly-matches",
-      "title": { "zh": "友谊赛", "en": "Friendly Matches" },
+      "title": {
+        "zh": "友谊赛",
+        "en": "Friendly Matches"
+      },
       "status": "not-applicable",
       "hattrickEquivalent": "Hattrick § 21",
       "relatedChapters": [],
@@ -323,7 +612,10 @@
     {
       "order": 23,
       "slug": "hattrick-arena",
-      "title": { "zh": "Hattrick Arena 竞赛", "en": "Hattrick Arena" },
+      "title": {
+        "zh": "Hattrick Arena 竞赛",
+        "en": "Hattrick Arena"
+      },
       "status": "not-applicable",
       "hattrickEquivalent": "Hattrick § 22",
       "relatedChapters": [],
@@ -333,17 +625,29 @@
     {
       "order": 24,
       "slug": "national-team",
-      "title": { "zh": "国家(代表)队", "en": "National Team" },
+      "title": {
+        "zh": "国家(代表)队",
+        "en": "National Team"
+      },
       "status": "partial",
       "hattrickEquivalent": "Hattrick § 23",
-      "relatedChapters": [4, 20, 21],
-      "relatedEntries": ["experience-meaning"],
+      "relatedChapters": [
+        4,
+        20,
+        21
+      ],
+      "relatedEntries": [
+        "experience-meaning"
+      ],
       "notes": "NATIONAL_TEAM match type exists in the engine (5.0x EXP multiplier), but the full national-team organizational structure (selection process, NT manager UI, NT matches) is not yet implemented as a player-facing feature. Chapter will explain what's available (5x EXP for your players) and what's not (running an NT as a manager)."
     },
     {
       "order": 25,
       "slug": "hattrick-master",
-      "title": { "zh": "Hattrick 大师赛", "en": "Hattrick Masters" },
+      "title": {
+        "zh": "Hattrick 大师赛",
+        "en": "Hattrick Masters"
+      },
       "status": "not-applicable",
       "hattrickEquivalent": "Hattrick § 24",
       "relatedChapters": [],
@@ -353,7 +657,10 @@
     {
       "order": 26,
       "slug": "extra-clubs",
-      "title": { "zh": "额外俱乐部", "en": "Extra Clubs" },
+      "title": {
+        "zh": "额外俱乐部",
+        "en": "Extra Clubs"
+      },
       "status": "not-applicable",
       "hattrickEquivalent": "Hattrick § 25",
       "relatedChapters": [],
@@ -363,54 +670,117 @@
     {
       "order": 27,
       "slug": "rankings",
-      "title": { "zh": "球队排名", "en": "Team Rankings" },
-      "file": { "zh": "27-rankings.md", "en": "27-rankings.md" },
+      "title": {
+        "zh": "球队排名",
+        "en": "Team Rankings"
+      },
+      "file": {
+        "zh": "27-rankings.md",
+        "en": "27-rankings.md"
+      },
       "status": "full",
       "hattrickEquivalent": "Hattrick § 26",
-      "relatedChapters": [20, 21],
+      "relatedChapters": [
+        20,
+        21
+      ],
       "relatedEntries": []
     },
     {
       "order": 28,
       "slug": "team-tactics",
-      "title": { "zh": "比赛:球队战术", "en": "Match: Team Tactics" },
-      "file": { "zh": "28-team-tactics.md", "en": "28-team-tactics.md" },
+      "title": {
+        "zh": "比赛:球队战术",
+        "en": "Match: Team Tactics"
+      },
+      "file": {
+        "zh": "28-team-tactics.md",
+        "en": "28-team-tactics.md"
+      },
       "status": "full",
       "hattrickEquivalent": null,
-      "relatedChapters": [5, 15, 16],
+      "relatedChapters": [
+        5,
+        15,
+        16
+      ],
       "relatedEntries": []
+    },
+    {
+      "order": 29,
+      "slug": "club-page",
+      "status": "full",
+      "file": {
+        "zh": "29-club-page.md",
+        "en": "29-club-page.md"
+      },
+      "title": {
+        "zh": "球队主页与访客",
+        "en": "Club Pages and Visitors"
+      }
     }
   ],
   "appendices": [
     {
       "order": 1,
       "slug": "weekly-cycle",
-      "title": { "zh": "GoalXI 周", "en": "GoalXI Week" },
-      "file": { "zh": "A1-weekly-cycle.md", "en": "A1-weekly-cycle.md" },
+      "title": {
+        "zh": "GoalXI 周",
+        "en": "GoalXI Week"
+      },
+      "file": {
+        "zh": "A1-weekly-cycle.md",
+        "en": "A1-weekly-cycle.md"
+      },
       "status": "full",
       "hattrickEquivalent": "Hattrick 附录 1 (Hattrick Week)",
-      "relatedChapters": [6, 7, 14, 20, 21],
+      "relatedChapters": [
+        6,
+        7,
+        14,
+        20,
+        21
+      ],
       "relatedEntries": []
     },
     {
       "order": 2,
       "slug": "names",
-      "title": { "zh": "名称", "en": "Names" },
-      "file": { "zh": "A2-names.md", "en": "A2-names.md" },
+      "title": {
+        "zh": "名称",
+        "en": "Names"
+      },
+      "file": {
+        "zh": "A2-names.md",
+        "en": "A2-names.md"
+      },
       "status": "full",
       "hattrickEquivalent": "Hattrick 附录 2 (Names)",
-      "relatedChapters": [1],
+      "relatedChapters": [
+        1
+      ],
       "relatedEntries": []
     },
     {
       "order": 3,
       "slug": "tier-labels",
-      "title": { "zh": "球员等级标签", "en": "Player Tier Labels" },
-      "file": { "zh": "A3-tier-labels.md", "en": "A3-tier-labels.md" },
+      "title": {
+        "zh": "球员等级标签",
+        "en": "Player Tier Labels"
+      },
+      "file": {
+        "zh": "A3-tier-labels.md",
+        "en": "A3-tier-labels.md"
+      },
       "status": "full",
       "hattrickEquivalent": "Hattrick 附录 (label tier system)",
-      "relatedChapters": [2, 4],
-      "relatedEntries": ["experience-meaning"],
+      "relatedChapters": [
+        2,
+        4
+      ],
+      "relatedEntries": [
+        "experience-meaning"
+      ],
       "notes": "Moved out of chapter 2 (player skills) on 2026-08-30 — the 21-tier label set is shared by skills (0-20 maps directly) and experience (cumulative maps with a cap at L20 display). Now a standalone reference so each chapter can link to it without duplicating the table."
     }
   ],

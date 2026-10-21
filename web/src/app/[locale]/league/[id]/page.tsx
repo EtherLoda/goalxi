@@ -7,9 +7,13 @@ import LeftColumn from "@/components/league/LeftColumn";
 import RightColumn from "@/components/league/RightColumn";
 import LeagueHeader from "@/components/league/LeagueHeader";
 import { useAuth } from "@/contexts/AuthContext";
+import { VisitTracker } from "@/components/visits/VisitTracker";
+import { VisitorsPanel } from "@/components/visits/VisitorsPanel";
+import { GlassPanel } from "@/components/ui/GlassPanel";
 import { useGameStore } from "@/stores/gameStore";
 import {
   api,
+  type VisitList,
   MATCH_STATUS,
   type Standing,
   type Match,
@@ -155,6 +159,7 @@ function LeaguePageContent() {
   const [allMatches, setAllMatches] = useState<Match[]>([]);
   const [leagueNews, setLeagueNews] = useState<(LeagueNewsItem & { timeAgo: string })[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [visits, setVisits] = useState<VisitList | null>(null);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -166,6 +171,7 @@ function LeaguePageContent() {
           newsData,
           contextData,
           teamStatusData,
+          visitsData,
         ] = await Promise.all([
           api.leagues.getById(leagueId).catch(() => null),
           api.leagues.getStandings(leagueId).catch(() => []),
@@ -177,12 +183,15 @@ function LeaguePageContent() {
             .catch(() => ({ items: [] })),
           api.leagues.getContext(leagueId).catch(() => null),
           api.leagues.getTeamStatus(leagueId).catch(() => null),
+          // Decoration: a Redis outage must not blank the league page.
+          api.visits.list("league", leagueId).catch(() => null),
         ]);
 
         setLeague(leagueData);
         setStandings(standingsData);
         setLeagueContext(contextData);
         setTeamStatus(teamStatusData);
+        setVisits(visitsData);
 
         // League fixtures only. The endpoint returns cup ties too, and a
         // cup row carries `week: 0` plus its own round number (0..11), so
@@ -289,7 +298,7 @@ function LeaguePageContent() {
 
       {/* Main grid: Matchweek + Standings / Tabs */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-        <div className="lg:col-span-5">
+        <div className="flex flex-col gap-6 lg:col-span-5">
           <LeftColumn
             news={leagueNews}
             lastMatchweek={lastMatchweek}
@@ -299,6 +308,9 @@ function LeaguePageContent() {
             userTeamId={userTeam?.id}
             locale={locale}
           />
+          <GlassPanel>
+            <VisitorsPanel visits={visits} />
+          </GlassPanel>
         </div>
         <div className="lg:col-span-7">
           <RightColumn
@@ -311,6 +323,8 @@ function LeaguePageContent() {
           />
         </div>
       </div>
+
+      <VisitTracker subjectType="league" subjectId={leagueId} />
     </div>
   );
 }

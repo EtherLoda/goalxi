@@ -1978,9 +1978,11 @@
     "recentMatches": "Recent matches",
     "noMatches": "No completed matches yet.",
     "home": "H",
-    "away": "A",
-    "visitors": "Recent visitors",
-    "visitorsToday": "{count} today",
-    "visitorsNone": "Nobody has visited yet"
+    "away": "A"
+  },
+  "visits": {
+    "title": "Recent visitors",
+    "today": "{count} today",
+    "none": "Nobody has visited yet"
   }
 }

@@ -1978,9 +1978,11 @@
     "recentMatches": "最近比赛",
     "noMatches": "还没有已完成的比赛。",
     "home": "主",
-    "away": "客",
-    "visitors": "最近访客",
-    "visitorsToday": "今天 {count} 名访客",
-    "visitorsNone": "还没有人访问过"
+    "away": "客"
+  },
+  "visits": {
+    "title": "最近访客",
+    "today": "今天 {count} 名访客",
+    "none": "还没有人访问过"
   }
 }
