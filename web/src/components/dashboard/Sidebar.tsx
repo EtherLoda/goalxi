@@ -76,7 +76,14 @@ export default function Sidebar() {
     <aside className="fixed left-0 top-0 h-screen w-64 bg-surface-container-low border-r border-white/5 flex flex-col z-40">
       {/* Logo */}
       <div className="h-16 flex items-center px-6 border-b border-white/5">
-        <Link href={`/${locale}/dashboard?team=${currentTeamId}`} className="flex items-center gap-2">
+        <Link
+          href={
+            myTeam
+              ? `/${locale}/dashboard?team=${currentTeamId}`
+              : `/${locale}/teams/${currentTeamId}`
+          }
+          className="flex items-center gap-2"
+        >
           <span className="font-headline font-black text-sm uppercase tracking-[0.15em] text-primary">
             GoalXi
           </span>
@@ -103,7 +110,9 @@ export default function Sidebar() {
               </h4>
               <div className="space-y-0.5">
                 {group.items.map((item) => {
-                  const isActive = pathname === item.href || pathname.startsWith(item.href + "/");
+                  const itemPath = item.href.split("?")[0];
+                    const isActive =
+                      pathname === itemPath || pathname.startsWith(itemPath + "/");
                   return (
                     <Link
                       key={item.labelKey}
@@ -133,6 +142,10 @@ export default function Sidebar() {
         ) : (
           navGroups
             .filter((g) => g.titleKey === "overview")
+            .map((group) => ({
+              ...group,
+              items: group.items.filter((item) => item.labelKey !== "dashboard"),
+            }))
             .map((group) => (
               <div key={group.titleKey}>
                 <h4 className="font-label text-[10px] font-black uppercase tracking-[0.2em] text-on-surface-variant/50 mb-3 px-3">
@@ -140,7 +153,9 @@ export default function Sidebar() {
                 </h4>
                 <div className="space-y-0.5">
                   {group.items.map((item) => {
-                    const isActive = pathname === item.href || pathname.startsWith(item.href + "/");
+                    const itemPath = item.href.split("?")[0];
+                    const isActive =
+                      pathname === itemPath || pathname.startsWith(itemPath + "/");
                     return (
                       <Link
                         key={item.labelKey}
