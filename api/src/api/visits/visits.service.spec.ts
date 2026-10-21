@@ -71,6 +71,18 @@ describe('VisitsService', () => {
     expect(visits.record).not.toHaveBeenCalled();
   });
 
+  it('does not record a manager whose club plays in that league', async () => {
+    const { service, visits } = buildService({ owned: true });
+    await service.record({ subjectType: 'league', subjectId: TEAM }, VISITOR);
+    expect(visits.record).not.toHaveBeenCalled();
+  });
+
+  it('does record an outsider looking at a league', async () => {
+    const { service, visits } = buildService({ owned: false });
+    await service.record({ subjectType: 'league', subjectId: TEAM }, VISITOR);
+    expect(visits.record).toHaveBeenCalledWith('league', TEAM, VISITOR);
+  });
+
   it('swallows a Redis failure: a page view must never error', async () => {
     const { service } = buildService({
       record: jest.fn().mockRejectedValue(new Error('redis down')),

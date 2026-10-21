@@ -74,6 +74,9 @@ A few rules worth knowing:
 - **Only signed-in users are recorded.** Browsing while logged out leaves no trace and is
   not counted.
 - **Looking at your own club does not count.** Otherwise every manager would sit at the top
+- **League pages only count visitors from outside the league.** A manager whose club plays
+  in that division does not register — eight clubs touring their own division says nothing,
+  so the panel is often empty, and says "No visitors from outside yet" when it is.
   of their own list forever.
 - **Repeated visits occupy one slot**, showing the most recent time.
 - **The panel can never break the page.** If visitor data cannot be read, the panel is

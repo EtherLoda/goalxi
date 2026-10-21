@@ -1983,6 +1983,7 @@
   "visits": {
     "title": "最近访客",
     "today": "今天 {count} 名访客",
-    "none": "还没有人访问过"
+    "none": "还没有人访问过",
+    "noneOutside": "暂时没有外部访客"
   }
 }

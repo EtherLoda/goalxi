@@ -4,10 +4,15 @@ import Link from 'next/link';
 import { useLocale, useTranslations } from 'next-intl';
 import { AppIcon } from '@/components/icons/AppIcon';
 import { KickerLabel } from '@/components/ui/KickerLabel';
-import type { VisitList } from '@/lib/api';
+import type { VisitList, VisitSubjectType } from '@/lib/api';
 
 interface VisitorsPanelProps {
   visits: VisitList | null;
+  /**
+   * Leagues only count outsiders (see VisitsService), so their empty
+   * state has to say so — "nobody visited" would read as a bug there.
+   */
+  subjectType?: VisitSubjectType;
 }
 
 /**
@@ -17,7 +22,7 @@ interface VisitorsPanelProps {
  * counters beyond today's. The data disappears after three days by
  * design, so this is a pulse, not a history.
  */
-export function VisitorsPanel({ visits }: VisitorsPanelProps) {
+export function VisitorsPanel({ visits, subjectType = 'team' }: VisitorsPanelProps) {
   const t = useTranslations('visits');
   const locale = useLocale();
 
@@ -65,7 +70,7 @@ export function VisitorsPanel({ visits }: VisitorsPanelProps) {
       ) : (
         <p className="mt-3 flex items-center gap-2 text-label text-on-surface-variant/70">
           <AppIcon name="visibility" className="text-base text-outline" />
-          {t('none')}
+          {subjectType === 'league' ? t('noneOutside') : t('none')}
         </p>
       )}
     </div>

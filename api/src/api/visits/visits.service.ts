@@ -109,8 +109,14 @@ export class VisitsService {
         })) > 0
       );
     }
-    // A league is nobody's private property.
-    return false;
+    // A league is nobody's private property, but a manager whose club plays
+    // in it is not an "outsider" either: counting the eight clubs in the
+    // division as visitors of their own division tells nobody anything.
+    return (
+      (await this.teams.count({
+        where: { leagueId: id as Uuid, userId },
+      })) > 0
+    );
   }
 
   /**

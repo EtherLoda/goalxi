@@ -309,7 +309,7 @@ function LeaguePageContent() {
             locale={locale}
           />
           <GlassPanel>
-            <VisitorsPanel visits={visits} />
+            <VisitorsPanel visits={visits} subjectType="league" />
           </GlassPanel>
         </div>
         <div className="lg:col-span-7">
