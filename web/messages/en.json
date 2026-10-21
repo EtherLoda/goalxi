@@ -1986,5 +1986,10 @@
     "today": "{count} today",
     "none": "Nobody has visited yet",
     "noneOutside": "No visitors from outside yet"
+  },
+  "header": {
+    "myClub": "My club",
+    "viewing": "Viewing",
+    "exitView": "Exit and return to my club"
   }
 }

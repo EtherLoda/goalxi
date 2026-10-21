@@ -4,7 +4,8 @@ import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { api } from "@/lib/api";
-import { useParams, useRouter, useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
+import { useTranslations } from "next-intl";
 import { useGameStore } from "@/stores/gameStore";
 import { AppIcon } from "@/components/icons/AppIcon";
 import type { Team } from "@/lib/api";
@@ -90,13 +91,13 @@ function SettingsMenu({ locale }: { locale: string }) {
 
 export default function GlobalHeader({ locale }: GlobalHeaderProps) {
   const { team } = useAuth();
-  const params = useParams();
+  const t = useTranslations("header");
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { viewTeamId, setViewTeam, teamId } = useGameStore();
+  const { viewTeamId, setViewTeam, clearViewTeam, teamId, teamName } =
+    useGameStore();
   const [gameState, setGameState] = useState<GameState | null>(null);
   const [leagueName, setLeagueName] = useState<string | null>(null);
-  const [viewedTeam, setViewedTeam] = useState<Team | null>(null);
 
   const isViewingMyTeam = viewTeamId === null || viewTeamId === teamId;
 
@@ -110,42 +111,64 @@ export default function GlobalHeader({ locale }: GlobalHeaderProps) {
     }
   }, [urlTeamId, setViewTeam]);
 
-  // Fetch viewed team info when viewing another team
+  // Fetch viewed team info when viewing another team. State holds only the
+  // fetched club; "am I viewing someone else" is derived, so the effect never
+  // has to reset state synchronously.
+  const [fetchedViewTeam, setFetchedViewTeam] = useState<Team | null>(null);
   useEffect(() => {
-    if (isViewingMyTeam || !viewTeamId) {
-      setViewedTeam(null);
-      return;
-    }
-    api.teams.getById(viewTeamId).then(setViewedTeam).catch(() => setViewedTeam(null));
+    if (isViewingMyTeam || !viewTeamId) return;
+    let cancelled = false;
+    api.teams
+      .getById(viewTeamId)
+      .then((t) => {
+        if (!cancelled) setFetchedViewTeam(t);
+      })
+      .catch(() => {
+        if (!cancelled) setFetchedViewTeam(null);
+      });
+    return () => {
+      cancelled = true;
+    };
   }, [viewTeamId, isViewingMyTeam]);
 
-  // Display team: own team if viewing my team, otherwise the viewed team
-  const displayTeam = isViewingMyTeam ? team : viewedTeam;
+  const viewedTeam = isViewingMyTeam ? null : fetchedViewTeam;
+
+  // The header chrome describes YOU, never the club you happen to be looking
+  // at. `useAuth().team` is your own club; `viewedTeam` is the other one, and
+  // it belongs in its own chip so the two can never be confused.
+  const ownTeamId = team?.id ?? teamId;
+  const ownTeamName = team?.name ?? (teamName || null);
 
   useEffect(() => {
     api.game.getCurrent().then(setGameState).catch(() => null);
   }, []);
 
   useEffect(() => {
-    const leagueIdToFetch = team?.leagueId || viewedTeam?.leagueId;
-    if (leagueIdToFetch) {
-      api.leagues.getById(leagueIdToFetch).then((league) => setLeagueName(league.name)).catch(() => null);
+    const ownLeagueId = team?.leagueId;
+    if (ownLeagueId) {
+      api.leagues.getById(ownLeagueId).then((league) => setLeagueName(league.name)).catch(() => null);
     }
-  }, [team?.leagueId, viewedTeam?.leagueId]);
+  }, [team?.leagueId]);
 
-  const leagueId = team?.leagueId;
   // From the API, not a literal. This used to be a hardcoded 16, so once
   // the season was compressed to 11 weeks the badge read "MW16/16" for
   // the rest of the season and the progress was meaningless.
   const totalMatchweeks = gameState?.regularSeasonWeeks ?? 0;
 
+  const goHome = () => {
+    clearViewTeam();
+    router.push(`/${locale}/dashboard${ownTeamId ? `?team=${ownTeamId}` : ""}`);
+  };
+
   return (
     <header className="h-16 bg-surface/70 backdrop-blur-2xl border-b border-white/5 flex items-center px-6 relative">
-      {/* Left: League + Team */}
+      {/* Left: your league + your club. These are identity, not navigation
+          context — showing the browsed club here made the header claim you
+          had switched jobs. */}
       <div className="flex items-center gap-6">
-        {displayTeam?.leagueId && leagueName ? (
+        {team?.leagueId && leagueName ? (
           <Link
-            href={`/${locale}/league/${displayTeam.leagueId}`}
+            href={`/${locale}/league/${team.leagueId}`}
             className="font-headline font-black text-sm uppercase tracking-[0.2em] text-primary hover:text-primary/80 transition-colors"
           >
             {leagueName}
@@ -156,20 +179,34 @@ export default function GlobalHeader({ locale }: GlobalHeaderProps) {
           </span>
         )}
         <span className="text-on-surface/20">|</span>
-        {team && !isViewingMyTeam ? (
-          <button
-            onClick={() => {
-              setViewTeam(teamId);
-              router.push(`/${locale}/dashboard?team=${teamId}`);
-            }}
-            className="font-headline font-black text-sm uppercase tracking-[0.2em] text-on-surface hover:text-primary transition-colors flex items-center gap-1"
-          >
-            <AppIcon name="arrow_back" className="text-sm" />
-            {team.name || "Team"}
-          </button>
-        ) : (
-          <span className="font-headline font-black text-sm uppercase tracking-[0.2em] text-on-surface/70">
-            {displayTeam?.name || "Team"}
+        <button
+          type="button"
+          onClick={goHome}
+          title={t("myClub")}
+          className="font-headline font-black text-sm uppercase tracking-[0.2em] text-on-surface hover:text-primary transition-colors"
+        >
+          {ownTeamName || "Team"}
+        </button>
+
+        {/* The browsed club, kept clearly separate from your own name and
+            always exitable — this is the way back that view mode was missing. */}
+        {!isViewingMyTeam && (
+          <span className="flex items-center gap-2 rounded-full border border-primary/30 bg-primary/10 pl-3 pr-1 py-1">
+            <span className="font-label text-kicker font-black uppercase tracking-widest text-primary/80">
+              {t("viewing")}
+            </span>
+            <span className="font-headline text-label font-bold text-on-surface truncate max-w-[160px]">
+              {viewedTeam?.name ?? "…"}
+            </span>
+            <button
+              type="button"
+              onClick={goHome}
+              aria-label={t("exitView")}
+              title={t("exitView")}
+              className="w-6 h-6 rounded-full flex items-center justify-center text-primary hover:bg-primary/20 transition-colors"
+            >
+              <AppIcon name="close" className="text-sm" />
+            </button>
           </span>
         )}
       </div>

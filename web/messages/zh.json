@@ -1986,5 +1986,10 @@
     "today": "今天 {count} 名访客",
     "none": "还没有人访问过",
     "noneOutside": "暂时没有外部访客"
+  },
+  "header": {
+    "myClub": "我的球队",
+    "viewing": "正在查看",
+    "exitView": "退出查看，回到我的球队"
   }
 }

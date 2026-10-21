@@ -18,23 +18,36 @@ export default function Sidebar() {
   const pathname = usePathname();
   const params = useParams();
   const { user, team, logout } = useAuth();
-  const { viewTeamId, setViewTeam, clearViewTeam } = useGameStore();
+  const { viewTeamId } = useGameStore();
 
   const locale = (params.locale as Locale) || "en";
   const myTeam = viewTeamId === null || viewTeamId === team?.id;
   const currentTeamId = viewTeamId || team?.id;
 
-  const [viewedTeam, setViewedTeam] = useState<Team | null>(null);
+  // Only the fetched club is state; whether we are viewing someone else is
+  // derived. Keeping the two apart means the effect never has to reset state
+  // (which React flags as a cascading render) and a stale club can never be
+  // shown for one frame after leaving view mode.
+  const [fetchedViewTeam, setFetchedViewTeam] = useState<Team | null>(null);
+  const viewingOther = !!viewTeamId && !myTeam;
 
-  // Fetch viewed team when viewing another team (regardless of login status)
   useEffect(() => {
-    if (!viewTeamId || myTeam) {
-      setViewedTeam(null);
-      return;
-    }
-    api.teams.getById(viewTeamId).then(setViewedTeam).catch(() => setViewedTeam(null));
-  }, [viewTeamId, myTeam]);
+    if (!viewTeamId || !viewingOther) return;
+    let cancelled = false;
+    api.teams
+      .getById(viewTeamId)
+      .then((t) => {
+        if (!cancelled) setFetchedViewTeam(t);
+      })
+      .catch(() => {
+        if (!cancelled) setFetchedViewTeam(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [viewTeamId, viewingOther]);
 
+  const viewedTeam = viewingOther ? fetchedViewTeam : null;
   const displayTeam = myTeam ? team : viewedTeam;
 
   // In view mode every entry describes the club being viewed, so 经理档案
@@ -223,7 +236,8 @@ export default function Sidebar() {
               {user?.nickname || "Manager"}
             </div>
             <div className="font-body text-[10px] text-on-surface-variant truncate">
-              {displayTeam?.name || team?.name || "No Team"}
+              {/* Your club, not the one you are browsing. */}
+              {team?.name || "No Team"}
             </div>
           </div>
           <button
