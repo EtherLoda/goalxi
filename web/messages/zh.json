@@ -156,7 +156,9 @@
       "academy": "青训",
       "settings": "俱乐部设置",
       "viewingMyTeam": "返回我的球队",
-      "cup": "杯赛"
+      "cup": "杯赛",
+      "clubProfile": "球队档案",
+      "managerProfile": "经理档案"
     },
     "viewTeamFailed": "无法打开这支球队",
     "viewTeamFailedHint": "这支球队的数据没有加载成功，可能已被删除或暂时不可用。",

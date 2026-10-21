@@ -156,7 +156,9 @@
       "academy": "Academy",
       "settings": "Settings",
       "viewingMyTeam": "View My Team",
-      "cup": "Cup"
+      "cup": "Cup",
+      "clubProfile": "Club profile",
+      "managerProfile": "Manager profile"
     },
     "viewTeamFailed": "Could not open that club",
     "viewTeamFailedHint": "Its data did not load. The club may have been removed or is temporarily unavailable.",
