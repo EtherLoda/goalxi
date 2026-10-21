@@ -544,6 +544,17 @@
       "high": "火热",
       "mid": "平稳",
       "low": "低迷"
+    },
+    "sort": {
+      "label": "排序",
+      "groupStatus": "球队状态",
+      "groupSkills": "按技能",
+      "overall": "综合",
+      "age": "年龄",
+      "stamina": "体能",
+      "form": "状态",
+      "experience": "经验",
+      "wage": "周薪"
     }
   },
   "transfers": {

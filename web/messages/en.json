@@ -544,6 +544,17 @@
       "high": "Hot",
       "mid": "Steady",
       "low": "Cold"
+    },
+    "sort": {
+      "label": "Sort",
+      "groupStatus": "Squad",
+      "groupSkills": "By skill",
+      "overall": "Overall",
+      "age": "Age",
+      "stamina": "Condition",
+      "form": "Form",
+      "experience": "Experience",
+      "wage": "Wage"
     }
   },
   "transfers": {

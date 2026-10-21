@@ -8,14 +8,15 @@ import { GlassPanel } from '@/components/ui/GlassPanel';
 import { KickerLabel } from '@/components/ui/KickerLabel';
 import { SquadPlayerDetail } from '@/components/squad/SquadPlayerDetail';
 import { SquadPlayerRow } from '@/components/squad/SquadPlayerRow';
+import { SquadSortMenu } from '@/components/squad/SquadSortMenu';
+import {
+  DEFAULT_SQUAD_SORT,
+  sortSquad,
+  type SquadSort,
+} from '@/components/squad/squad-sort';
 import { useAuth } from '@/contexts/AuthContext';
 import { useGameStore } from '@/stores/gameStore';
 import { api, type Player, type PlayerEvent, type Team } from '@/lib/api';
-
-interface SquadGroup {
-  key: 'GK' | 'OUT';
-  players: Player[];
-}
 
 /** One "label + value" cell in the page header strip. */
 function HeaderStat({ label, value, tone = 'text-on-surface' }: { label: string; value: string | number; tone?: string }) {
@@ -74,6 +75,7 @@ function SquadPageContent() {
   const [selectedPlayer, setSelectedPlayer] = useState<Player | null>(null);
   const [playerEvents, setPlayerEvents] = useState<PlayerEvent[]>([]);
   const [viewedTeam, setViewedTeam] = useState<Team | null>(null);
+  const [sort, setSort] = useState<SquadSort>(DEFAULT_SQUAD_SORT);
 
   useEffect(() => {
     if (isViewingMyTeam) {
@@ -99,13 +101,10 @@ function SquadPageContent() {
       .getByTeam(currentTeamId, isViewingMyTeam)
       .then((data) => {
         if (cancelled) return;
-        // Goalkeepers first, then strongest first — the order a manager reads.
-        const sorted = [...data.items].sort((a, b) => {
-          if (a.isGoalkeeper !== b.isGoalkeeper) return a.isGoalkeeper ? -1 : 1;
-          return b.overall - a.overall;
-        });
-        setPlayers(sorted);
-        setSelectedPlayer(sorted[0] ?? null);
+        // Raw roster only — ordering is the user's choice and lives in
+        // `sortedPlayers`. Nothing is auto-selected either: the detail pane
+        // should describe a player you picked.
+        setPlayers(data.items);
       })
       .catch(() => {
         if (!cancelled) setPlayers([]);
@@ -140,14 +139,7 @@ function SquadPageContent() {
     };
   }, [selectedPlayerId]);
 
-  const groups = useMemo<SquadGroup[]>(() => {
-    const gk = players.filter((p) => p.isGoalkeeper);
-    const out = players.filter((p) => !p.isGoalkeeper);
-    return [
-      { key: 'GK', players: gk },
-      { key: 'OUT', players: out },
-    ].filter((group) => group.players.length > 0) as SquadGroup[];
-  }, [players]);
+  const sortedPlayers = useMemo(() => sortSquad(players, sort), [players, sort]);
 
   const averageOverall = useMemo(() => {
     if (players.length === 0) return 0;
@@ -200,40 +192,28 @@ function SquadPageContent() {
       ) : (
         <div className="grid grid-cols-1 items-start gap-section lg:grid-cols-[360px_minmax(0,1fr)]">
           <GlassPanel size="sm" className="flex flex-col overflow-hidden lg:sticky lg:top-4 lg:max-h-[calc(100dvh-140px)]">
-            <div className="flex items-center justify-between px-micro pb-tight pt-micro">
-              <KickerLabel>{t('squad.squad')}</KickerLabel>
-              <span className="font-label text-kicker tabular-nums text-outline">
-                {players.length} {t('squad.players')}
-              </span>
+            <div className="flex items-center justify-between gap-tight px-micro pb-tight pt-micro">
+              <div className="flex items-baseline gap-tight">
+                <KickerLabel>{t('squad.squad')}</KickerLabel>
+                <span className="font-label text-kicker tabular-nums text-outline">
+                  {players.length} {t('squad.players')}
+                </span>
+              </div>
+              <SquadSortMenu sort={sort} onChange={setSort} />
             </div>
 
             <div className="custom-scrollbar min-h-0 flex-1 overflow-y-auto pr-1">
-              {groups.map((group) => (
-                <div key={group.key} className="mb-tight last:mb-0">
-                  <div className="sticky top-0 z-10 flex items-center gap-micro bg-surface-container-low/95 px-micro py-1.5 backdrop-blur-sm">
-                    <span
-                      className={`h-1.5 w-1.5 rounded-full ${group.key === 'GK' ? 'bg-tertiary' : 'bg-primary'}`}
-                    />
-                    <span className="font-label text-kicker uppercase tracking-[0.12em] text-on-surface-variant/75">
-                      {group.key === 'GK' ? t('squad.gk') : t('squad.field')}
-                    </span>
-                    <span className="font-label text-kicker tabular-nums text-outline">
-                      {group.players.length}
-                    </span>
-                  </div>
-                  <div className="flex flex-col gap-0.5">
-                    {group.players.map((player) => (
-                      <SquadPlayerRow
-                        key={player.id}
-                        player={player}
-                        isSelected={selectedPlayer?.id === player.id}
-                        locale={locale}
-                        onSelect={setSelectedPlayer}
-                      />
-                    ))}
-                  </div>
-                </div>
-              ))}
+              <div className="flex flex-col gap-0.5">
+                {sortedPlayers.map((player) => (
+                  <SquadPlayerRow
+                    key={player.id}
+                    player={player}
+                    isSelected={selectedPlayer?.id === player.id}
+                    locale={locale}
+                    onSelect={setSelectedPlayer}
+                  />
+                ))}
+              </div>
             </div>
           </GlassPanel>
 
