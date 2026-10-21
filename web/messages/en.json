@@ -870,6 +870,21 @@
       "fixtures": "Fixtures",
       "history": "History",
       "comingSoon": "Coming Soon"
+    },
+    "nav": {
+      "label": "League navigation",
+      "prev": "Previous division",
+      "prevShort": "Prev",
+      "next": "Next division",
+      "nextShort": "Next",
+      "division": "Div {n}",
+      "tier": "Level {tier}",
+      "position": "Level {tier} · {division}/{total}",
+      "up": "League above",
+      "upShort": "Above",
+      "down": "League below",
+      "downShort": "Below",
+      "goTo": "Go to level {tier}, division {n}"
     }
   },
   "finance": {

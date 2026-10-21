@@ -7,6 +7,7 @@ import { clsx } from "clsx";
 import StandingsTable from "./StandingsTable";
 import { TacticsEntryButton } from "@/components/tactics/shared/TacticsEntryButton";
 import { MATCH_STATUS, type Standing, type Match } from "@/lib/api";
+import type { LeagueZoneModel } from "@/lib/league-zones";
 import { matchdayKey } from "@/lib/league-fixtures";
 
 interface RightColumnProps {
@@ -14,6 +15,8 @@ interface RightColumnProps {
   userTeamId?: string;
   allMatches?: Match[];
   locale?: string;
+  /** Promotion / relegation cut-offs for this league, for the standings zones. */
+  zones?: LeagueZoneModel | null;
 }
 
 type TabKey = "standings" | "data" | "fixtures";
@@ -29,6 +32,7 @@ export default function RightColumn({
   userTeamId,
   allMatches = [],
   locale = "en",
+  zones = null,
 }: RightColumnProps) {
   const t = useTranslations();
   const [activeTab, setActiveTab] = useState<TabKey>("standings");
@@ -109,6 +113,7 @@ export default function RightColumn({
             standings={standings}
             userTeamId={userTeamId}
             locale={locale}
+            zones={zones}
           />
         )}
 

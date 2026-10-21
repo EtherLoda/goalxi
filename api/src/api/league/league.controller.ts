@@ -15,6 +15,7 @@ import {
 } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
 import { CreateLeagueReqDto } from './dto/create-league.req.dto';
+import { LeagueContextResDto } from './dto/league-context.res.dto';
 import { LeagueStandingResDto } from './dto/league-standing.res.dto';
 import { LeagueResDto } from './dto/league.res.dto';
 import { ListLeagueReqDto } from './dto/list-league.req.dto';
@@ -53,6 +54,16 @@ export class LeagueController {
     @Query('season', new DefaultValuePipe(1), ParseIntPipe) season: number,
   ): Promise<LeagueStandingResDto[]> {
     return this.leagueService.getStandings(id, season);
+  }
+
+  @Public()
+  @Get(':id/context')
+  @HttpCode(HttpStatus.OK)
+  // The league's position in the pyramid plus its four neighbours.
+  // Backs the header's "◀ 48 | 49 of 64 | 50 ▶" strip and the up/down
+  // tier steps. Public: the league pages are readable logged out.
+  async getContext(@Param('id') id: Uuid): Promise<LeagueContextResDto> {
+    return this.leagueService.getContext(id);
   }
 
   @Public()

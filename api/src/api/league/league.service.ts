@@ -13,6 +13,10 @@ import assert from 'assert';
 import { plainToInstance } from 'class-transformer';
 import { DataSource } from 'typeorm';
 import { CreateLeagueReqDto } from './dto/create-league.req.dto';
+import {
+  LeagueContextResDto,
+  LeagueNeighbourDto,
+} from './dto/league-context.res.dto';
 import { LeagueStandingResDto } from './dto/league-standing.res.dto';
 import { LeagueResDto } from './dto/league.res.dto';
 import { ListLeagueReqDto } from './dto/list-league.req.dto';
@@ -82,6 +86,87 @@ export class LeagueService {
     }
 
     return this.mapToResDto(league);
+  }
+
+  /**
+   * Where this league sits in the pyramid, plus its four neighbours.
+   *
+   * Backs the "◀ division 48 / division 50 ▶ · level 4 of 4" strip in the
+   * league header. The sideways neighbours are read off one ordered query
+   * for the whole tier (at most 64 rows today) rather than with two
+   * `tierDivision ± 1` lookups, because divisions are not guaranteed
+   * contiguous — a league deleted between two others would make a
+   * `division - 1` lookup return nothing and strand the user mid-list.
+   */
+  async getContext(id: Uuid): Promise<LeagueContextResDto> {
+    // `resolveLeagueId` returns a plain string (it may have come from a
+    // slug), but every consumer below keys on a uuid column.
+    const leagueId = (await this.resolveLeagueId(id)) as Uuid;
+    const league = await LeagueEntity.findOne({ where: { id: leagueId } });
+    if (!league) {
+      throw new NotFoundException(`League "${id}" not found`);
+    }
+
+    const [siblings, tierRange] = await Promise.all([
+      LeagueEntity.find({
+        where: { tier: league.tier },
+        order: { tierDivision: 'ASC' },
+      }),
+      LeagueEntity.createQueryBuilder('league')
+        .select('MAX(league.tier)', 'maxTier')
+        .getRawOne<{ maxTier: string | null }>(),
+    ]);
+
+    const index = siblings.findIndex((row) => row.id === league.id);
+    const prev = index > 0 ? siblings[index - 1] : null;
+    const next =
+      index >= 0 && index < siblings.length - 1 ? siblings[index + 1] : null;
+
+    // `up` prefers the explicit parent link the pyramid generator writes,
+    // falling back to the first league of the tier above so that a
+    // hand-created league still gets a usable link instead of a dead end.
+    const up =
+      league.tier > 1
+        ? league.parentLeagueId
+          ? await LeagueEntity.findOne({
+              where: { id: league.parentLeagueId },
+            })
+          : await LeagueEntity.findOne({
+              where: { tier: league.tier - 1 },
+              order: { tierDivision: 'ASC' },
+            })
+        : null;
+
+    // `down` is one of possibly four children; the first by division is the
+    // one a reader expects when stepping down a level.
+    const down =
+      (await LeagueEntity.findOne({
+        where: { parentLeagueId: league.id },
+        order: { tierDivision: 'ASC' },
+      })) ??
+      (await LeagueEntity.findOne({
+        where: { tier: league.tier + 1 },
+        order: { tierDivision: 'ASC' },
+      }));
+
+    return plainToInstance(LeagueContextResDto, {
+      league: this.toNeighbour(league),
+      tierCount: Number(tierRange?.maxTier ?? league.tier),
+      divisionsInTier: siblings.length,
+      prev: prev ? this.toNeighbour(prev) : null,
+      next: next ? this.toNeighbour(next) : null,
+      up: up ? this.toNeighbour(up) : null,
+      down: down ? this.toNeighbour(down) : null,
+    });
+  }
+
+  private toNeighbour(league: LeagueEntity): LeagueNeighbourDto {
+    return {
+      id: league.id,
+      name: league.name,
+      tier: league.tier,
+      tierDivision: league.tierDivision,
+    };
   }
 
   private isUuid(str: string): boolean {

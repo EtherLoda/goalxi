@@ -454,3 +454,144 @@ function row(teamId: string, completedAtIso: string) {
     scheduledAtIso: completedAtIso,
   };
 }
+
+describe('LeagueService.getContext (pyramid navigation)', () => {
+  interface LeagueRow {
+    id: string;
+    name: string;
+    tier: number;
+    tierDivision: number;
+    parentLeagueId?: string | null;
+  }
+
+  /**
+   * Fixture ids must be UUID-SHAPED: `resolveLeagueId` treats anything
+   * else as a slug and looks it up by name, so a readable id like "L2-2"
+   * would never reach the graph walk these tests are about.
+   */
+  const uuid = (n: number) =>
+    `00000000-0000-4000-8000-${String(n).padStart(12, '0')}`;
+
+  const L1 = uuid(1);
+  // tier 2 division d -> id
+  const L2 = (d: number) => uuid(10 + d);
+  // tier 3 division d -> id
+  const L3 = (d: number) => uuid(20 + d);
+
+  // A miniature pyramid: one league at tier 1, four at tier 2, four at
+  // tier 3 hanging off each tier-2 division. Only the fields the service
+  // reads are populated — the point is the graph walk, not hydration.
+  const TIER_1: LeagueRow = {
+    id: L1,
+    name: 'League 1.1',
+    tier: 1,
+    tierDivision: 1,
+  };
+  const TIER_2: LeagueRow[] = [1, 2, 3, 4].map((division) => ({
+    id: L2(division),
+    name: `League 2.${division}`,
+    tier: 2,
+    tierDivision: division,
+    parentLeagueId: L1,
+  }));
+  const TIER_3: LeagueRow[] = [1, 2, 3, 4].map((division) => ({
+    id: L3(division),
+    name: `League 3.${division}`,
+    tier: 3,
+    tierDivision: division,
+    parentLeagueId: L2(division),
+  }));
+
+  const pyramid = [TIER_1, ...TIER_2, ...TIER_3];
+  let service: LeagueService;
+
+  beforeAll(() => {
+    service = new LeagueService({
+      query: jest.fn().mockResolvedValue([]),
+    } as any);
+
+    jest
+      .spyOn(LeagueEntity, 'find')
+      .mockImplementation(
+        (opts: any) =>
+          Promise.resolve(
+            pyramid.filter((row) => row.tier === opts.where.tier),
+          ) as any,
+      );
+
+    jest.spyOn(LeagueEntity, 'findOne').mockImplementation((opts: any) => {
+      const where = opts?.where ?? {};
+      let hit: LeagueRow | undefined;
+      if (where.id) {
+        hit = pyramid.find((row) => row.id === where.id);
+      } else if (where.parentLeagueId) {
+        hit = pyramid.find(
+          (row) => row.parentLeagueId === where.parentLeagueId,
+        );
+      } else if (typeof where.tier === 'number') {
+        hit = pyramid.find((row) => row.tier === where.tier);
+      }
+      return Promise.resolve(hit as any);
+    });
+
+    jest.spyOn(LeagueEntity, 'createQueryBuilder').mockReturnValue({
+      select: () => ({
+        getRawOne: () => Promise.resolve({ maxTier: '3' }),
+      }),
+    } as any);
+  });
+
+  afterAll(() => {
+    jest.restoreAllMocks();
+  });
+
+  it('steps sideways to the adjacent divisions of the same tier', async () => {
+    const context = await service.getContext(L2(2) as Uuid);
+
+    expect(context.prev?.id).toBe(L2(1));
+    expect(context.next?.id).toBe(L2(3));
+    expect(context.divisionsInTier).toBe(4);
+    expect(context.tierCount).toBe(3);
+  });
+
+  it('has no previous division at the top of the tier', async () => {
+    const context = await service.getContext(L2(1) as Uuid);
+
+    expect(context.prev).toBeNull();
+    expect(context.next?.id).toBe(L2(2));
+  });
+
+  it('has no next division at the bottom of the tier', async () => {
+    const context = await service.getContext(L2(4) as Uuid);
+
+    expect(context.next).toBeNull();
+    expect(context.prev?.id).toBe(L2(3));
+  });
+
+  it('walks up to the parent league and down to the first child', async () => {
+    const context = await service.getContext(L2(2) as Uuid);
+
+    expect(context.up?.id).toBe(L1);
+    expect(context.down?.id).toBe(L3(2));
+  });
+
+  it('has no way up from the top flight', async () => {
+    const context = await service.getContext(L1 as Uuid);
+
+    expect(context.up).toBeNull();
+    expect(context.down?.id).toBe(L2(1));
+  });
+
+  it('has no way down from the bottom tier', async () => {
+    const context = await service.getContext(L3(3) as Uuid);
+
+    expect(context.down).toBeNull();
+    expect(context.up?.id).toBe(L2(3));
+  });
+
+  it('throws NotFound for a slug that matches no league', async () => {
+    await expect(service.getContext('no-such-league' as Uuid)).rejects.toThrow(
+      /not found/i,
+    );
+  });
+});

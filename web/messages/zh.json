@@ -870,6 +870,21 @@
       "fixtures": "对阵表",
       "history": "历史",
       "comingSoon": "即将推出"
+    },
+    "nav": {
+      "label": "联赛导航",
+      "prev": "上一组",
+      "prevShort": "上一组",
+      "next": "下一组",
+      "nextShort": "下一组",
+      "division": "第 {n} 组",
+      "tier": "第 {tier} 级",
+      "position": "第 {tier} 级 · {division}/{total} 组",
+      "up": "升一级联赛",
+      "upShort": "上级",
+      "down": "降一级联赛",
+      "downShort": "下级",
+      "goTo": "前往第 {tier} 级第 {n} 组"
     }
   },
   "finance": {

@@ -270,6 +270,47 @@ interface League {
   name: string;
   tier: number;
   tierDivision: number;
+  /** Per-league capacity and cut-offs; the standings need them to draw zones. */
+  maxTeams?: number;
+  promotionSlots?: number;
+  playoffSlots?: number;
+  relegationSlots?: number;
+}
+
+/** One step in the league pyramid navigation strip. */
+export interface LeagueNeighbour {
+  id: string;
+  name: string;
+  tier: number;
+  tierDivision: number;
+}
+
+/** Where a league sits in the pyramid, plus its four neighbours. */
+export interface LeagueContext {
+  league: LeagueNeighbour;
+  /** Deepest tier number, so the header can print "level 4 of 4". */
+  tierCount: number;
+  /** How many leagues share this tier, so the header can print "49 of 64". */
+  divisionsInTier: number;
+  prev: LeagueNeighbour | null;
+  next: LeagueNeighbour | null;
+  up: LeagueNeighbour | null;
+  down: LeagueNeighbour | null;
+}
+
+/**
+ * The promotion / relegation cut-offs a league actually uses.
+ *
+ * These are per-league columns, not constants. The standings used to hard-code
+ * "position 1 promotes, 2 is a playoff, 9-12 play out, 13+ go down", which is
+ * wrong for any league whose slot counts differ from the defaults — and it
+ * marked position 2 green although the engine only promotes the champion.
+ */
+export interface LeagueSlots {
+  maxTeams: number;
+  promotionSlots: number;
+  playoffSlots: number;
+  relegationSlots: number;
 }
 
 interface PlayerSkills {
@@ -1194,6 +1235,15 @@ export const api = {
   leagues: {
     getById: async (id: string): Promise<League> => {
       return request<League>(`/leagues/${id}`);
+    },
+    /**
+     * Where this league sits in the pyramid, plus the four neighbours the
+     * header's navigation strip links to. Computed server-side because the
+     * up/down links depend on `parent_league_id`, which no list endpoint
+     * exposes.
+     */
+    getContext: async (leagueId: string): Promise<LeagueContext> => {
+      return request<LeagueContext>(`/leagues/${leagueId}/context`);
     },
     getStandings: async (
       leagueId: string,

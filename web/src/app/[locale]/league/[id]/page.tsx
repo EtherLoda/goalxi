@@ -1,7 +1,7 @@
 "use client";
 
 import { AppIcon } from "@/components/icons/AppIcon";
-import { useEffect, useState, Suspense } from "react";
+import { useEffect, useMemo, useState, Suspense } from "react";
 import { useParams, useSearchParams } from "next/navigation";
 import LeftColumn from "@/components/league/LeftColumn";
 import RightColumn from "@/components/league/RightColumn";
@@ -9,7 +9,15 @@ import LeagueHeader from "@/components/league/LeagueHeader";
 import LeagueKpiStrip from "@/components/league/LeagueKpiStrip";
 import { useAuth } from "@/contexts/AuthContext";
 import { useGameStore } from "@/stores/gameStore";
-import { api, MATCH_STATUS, type Standing, type Match, type LeagueNewsItem } from "@/lib/api";
+import {
+  api,
+  MATCH_STATUS,
+  type Standing,
+  type Match,
+  type LeagueNewsItem,
+  type LeagueContext,
+} from "@/lib/api";
+import type { LeagueZoneModel } from "@/lib/league-zones";
 import {
   currentMatchweek,
   fixtureSeason,
@@ -95,7 +103,23 @@ function LeaguePageContent() {
     }
   }, [searchParams, setViewTeam]);
 
-  const [league, setLeague] = useState<{ name: string; tier: number } | null>(null);
+  const [league, setLeague] = useState<{
+    name: string;
+    tier: number;
+    maxTeams?: number;
+    promotionSlots?: number;
+    playoffSlots?: number;
+    relegationSlots?: number;
+  } | null>(null);
+  /**
+   * Pyramid position + neighbours, for the header's navigation strip. The
+   * row's own `tier`/`tierDivision` are not enough: "level 4 of 4" and the
+   * up/down links come from the whole pyramid, which the league row does not
+   * know about.
+   */
+  const [leagueContext, setLeagueContext] = useState<LeagueContext | null>(
+    null,
+  );
   const [standings, setStandings] = useState<Standing[]>([]);
   // `week` is a MATCHWEEK (1..totalMatchweeks), not a matchday index.
   const [gameState, setGameState] = useState<{
@@ -122,15 +146,22 @@ function LeaguePageContent() {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const [leagueData, standingsData, matchesData, newsData] = await Promise.all([
-          api.leagues.getById(leagueId).catch(() => null),
-          api.leagues.getStandings(leagueId).catch(() => []),
-          api.matches.getByLeague(leagueId, {}).catch(() => ({ data: [] })),
-          api.news.getLeagueNews(leagueId, { limit: 10 }).catch(() => ({ items: [] })),
-        ]);
+        const [leagueData, standingsData, matchesData, newsData, contextData] =
+          await Promise.all([
+            api.leagues.getById(leagueId).catch(() => null),
+            api.leagues.getStandings(leagueId).catch(() => []),
+            api.matches
+              .getByLeague(leagueId, {})
+              .catch(() => ({ data: [] })),
+            api.news
+              .getLeagueNews(leagueId, { limit: 10 })
+              .catch(() => ({ items: [] })),
+            api.leagues.getContext(leagueId).catch(() => null),
+          ]);
 
         setLeague(leagueData);
         setStandings(standingsData);
+        setLeagueContext(contextData);
 
         // League fixtures only. The endpoint returns cup ties too, and a
         // cup row carries `week: 0` plus its own round number (0..11), so
@@ -183,6 +214,24 @@ function LeaguePageContent() {
     fetchData();
   }, [leagueId, bfcacheKey]);
 
+  /**
+   * The standings' promotion / relegation cut-offs. `tierCount` comes from
+   * the context endpoint, so the top flight can be told apart from a middle
+   * division — without it, position 1 would be painted as a promotion even
+   * where there is nothing to be promoted to.
+   */
+  const zoneModel = useMemo<LeagueZoneModel | null>(() => {
+    if (!league) return null;
+    return {
+      tier: league.tier,
+      tierCount: leagueContext?.tierCount ?? league.tier,
+      maxTeams: league.maxTeams ?? 16,
+      promotionSlots: league.promotionSlots ?? 1,
+      playoffSlots: league.playoffSlots ?? 4,
+      relegationSlots: league.relegationSlots ?? 4,
+    };
+  }, [league, leagueContext]);
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
@@ -212,6 +261,7 @@ function LeaguePageContent() {
         }
         locale={locale}
         leagueId={leagueId}
+        context={leagueContext}
       />
 
       {/* KPI strip */}
@@ -240,6 +290,7 @@ function LeaguePageContent() {
             userTeamId={userTeam?.id}
             allMatches={allMatches}
             locale={locale}
+            zones={zoneModel}
           />
         </div>
       </div>
