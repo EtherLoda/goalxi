@@ -140,3 +140,62 @@
 - 键盘可完全操作脊柱
 - 直播页全程可「直接看结果」，结束后不跳转
 - 比赛页与球队页共用同一套页宽、标题、字号 token（`grep 'text-\[10px\]'` 在该目录下为 0）
+
+## 8. D1 差异清单（合并前必须列全）
+
+从两个组件的 JSX 骨架逐条比对得出，不是凭印象。
+
+| 能力 | `MatchLiveView`（330 行） | `TacticalMatchDetail`（595 行） | 合并后 |
+|---|---|---|---|
+| 根容器 | `div.space-y-4` | `div.h-full flex flex-col gap-4` | 统一为 `max-w-7xl mx-auto space-y-4` |
+| 连接错误态 | 有（`GlassPanel` + `wifi_off`） | 无 | 保留，仅 `mode==='live'` |
+| 直播状态条 | 有（图标 + 状态 + 分钟） | 无 | 保留，仅 `mode==='live'` |
+| `MatchScoreHero` | 有 | 有 | 共用，props 取并集 |
+| 赛前阵型 `MatchPitch` | 无 | **有**（`322` 行） | **删掉**，一页不该有两块球场 |
+| 结论卡（战术摘要） | 无 | 有（`337-447`） | 共用（D2 重做） |
+| `MatchTimeline` | 顶部全宽（`251`） | 左栏内（`449`） | 统一进左栏，D3 换成脊柱 |
+| 视图切换（球员/数据） | 有（`277`） | 有（`468`） | 共用 |
+| `MatchPitch`（赛中） | 有（`292`） | 有（`485`） | 共用 |
+| `MatchSubstitutes` | **无** | 有（`504`） | 共用——直播也应有 |
+| `LiveCommentary` | 有（`321`） | 有（`520`） | 共用 |
+| 侧栏 | `MatchPitchSidebar`（天气/上座/关键事件，单块） | `MatchInfoPanel` + `MatchKeyEvents` + `StatsResult` | `MatchInfoPanel` + `MatchKeyEvents` + `StatsResult`；`MatchPitchSidebar` 的天气/上座并进 `MatchInfoPanel` |
+| 结束行为 | 2.5s 后自动跳转 | 无 | **仅**「查看完整战报」按钮，不自动跳转 |
+| 数据来源 | WS + REST | REST | 由调用方注入，组件不关心 |
+
+**四个会丢功能的风险点**（合并时逐个核对）：
+
+1. 直播的**连接状态 / 断线提示**——战报没有这套 UI，丢了用户就不知道比赛是不是卡住了
+2. 战报的**替补席**——直播没有，合并后直播也该有
+3. 战报的**解说**与**关键事件**在侧栏、直播的解说在底部——合并后统一放左栏底部
+4. `MatchScoreHero` 的 props 两边不一致，取并集时要保持两边都不崩
+
+**目标结构**
+
+```
+<MatchPage mode="live" | "report">
+  <article className="max-w-7xl mx-auto space-y-4">
+    {mode === 'live' && <ConnectionBanner />}
+    <MatchScoreHero ... />
+    <MatchVerdict />              {/* D2；当前用战报的结论卡 */}
+    <div className="grid lg:grid-cols-[1fr_300px] gap-4 items-start">
+      <main className="space-y-3">
+        <PitchStage />            {/* 视图切换 + MatchPitch */}
+        <MatchSpine />            {/* D3；当前用 MatchTimeline */}
+        <LiveCommentary />
+        <MatchSubstitutes />
+      </main>
+      <aside className="space-y-3">
+        <MatchInfoPanel /> <MatchKeyEvents /> <StatsResult />
+      </aside>
+    </div>
+    {mode === 'report' && <MatchFooter />}
+  </article>
+</MatchPage>
+```
+
+**执行顺序**：先建 `MatchPage` 壳 + 把 `MatchScoreHero` 的 props 取并集 → 迁直播（差异小）→ 迁战报（删赛前阵型球场、把结论卡与解说搬到目标位置）→ 删掉两个旧组件 → 跑覆盖两边的测试。每一步都必须是独立可运行的提交。
+
+## 9. 进度
+
+- **D0 已完成**（`a530b58`）：字号 token 化（50 处）、页宽 `max-w-7xl`、去斜体、连接错误态改 `GlassPanel`。7/8/18px 保留（在字号体系边界外）。
+- **D1 进行中**：差异清单已在本文第 8 节列全，代码合并未开始。
