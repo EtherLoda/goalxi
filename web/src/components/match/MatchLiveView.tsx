@@ -282,19 +282,21 @@ export function MatchLiveView({
               <span>{statsMode ? t('pitchViewPlayers') : t('pitchViewStats')}</span>
             </button>
           </div>
-          <MatchPitch
-            homeTactics={homeTactics}
-            awayTactics={awayTactics}
-            homeRoster={homeRoster}
-            awayRoster={awayRoster}
-            activeSnapshot={snapshots[activeSnapshotIndex] ?? null}
-            statsMode={statsMode}
-            onToggleStatsMode={() => setStatsMode((v) => !v)}
-            homeForfeit={false}
-            awayForfeit={false}
-            homeTeamName={homeTeamName}
-            awayTeamName={awayTeamName}
-          />
+          <div className="mx-auto w-full max-w-[560px]">
+            <MatchPitch
+              homeTactics={homeTactics}
+              awayTactics={awayTactics}
+              homeRoster={homeRoster}
+              awayRoster={awayRoster}
+              activeSnapshot={snapshots[activeSnapshotIndex] ?? null}
+              statsMode={statsMode}
+              onToggleStatsMode={() => setStatsMode((v) => !v)}
+              homeForfeit={false}
+              awayForfeit={false}
+              homeTeamName={homeTeamName}
+              awayTeamName={awayTeamName}
+            />
+          </div>
         </>
       }
       timeline={

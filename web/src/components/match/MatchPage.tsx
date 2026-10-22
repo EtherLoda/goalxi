@@ -51,18 +51,24 @@ export function MatchPage({
 }: MatchPageProps) {
   return (
     <article
-      className="max-w-7xl mx-auto w-full space-y-4"
+      className="max-w-[1120px] mx-auto w-full space-y-4"
       data-match-page-mode={mode}
     >
       {banner}
 
       {hero}
 
-      <div className="grid grid-cols-1 lg:grid-cols-[1fr_280px] gap-4 items-start">
+      <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_300px] gap-4 items-start">
         <div className="space-y-3">
           {main}
-          {timeline}
-          {commentary}
+          {/* Text blocks never span the full column: a 980px line of prose is
+              unreadable, and the pitch would render at the same width. */}
+          {timeline && (
+            <div className="mx-auto w-full max-w-[720px]">{timeline}</div>
+          )}
+          {commentary && (
+            <div className="mx-auto w-full max-w-[720px]">{commentary}</div>
+          )}
         </div>
 
         <aside

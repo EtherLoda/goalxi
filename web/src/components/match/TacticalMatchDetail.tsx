@@ -314,19 +314,21 @@ export function TacticalMatchDetail({
         mode="report"
         hero={hero}
         main={
-          <MatchPitch
-            homeTactics={null}
-            awayTactics={null}
-            homeRoster={[]}
-            awayRoster={[]}
-            activeSnapshot={null}
-            statsMode={false}
-            onToggleStatsMode={() => {}}
-            homeForfeit={false}
-            awayForfeit={false}
-            homeTeamName={homeName}
-            awayTeamName={awayName}
-          />
+          <div className="mx-auto w-full max-w-[560px]">
+            <MatchPitch
+              homeTactics={null}
+              awayTactics={null}
+              homeRoster={[]}
+              awayRoster={[]}
+              activeSnapshot={null}
+              statsMode={false}
+              onToggleStatsMode={() => {}}
+              homeForfeit={false}
+              awayForfeit={false}
+              homeTeamName={homeName}
+              awayTeamName={awayName}
+            />
+          </div>
         }
         aside={
           <>
@@ -452,19 +454,21 @@ export function TacticalMatchDetail({
               <span>{statsMode ? tChip('playersView') : tChip('statsView')}</span>
             </button>
           </div>
-          <MatchPitch
-            homeTactics={homeTactics}
-            awayTactics={awayTactics}
-            homeRoster={homeRoster}
-            awayRoster={awayRoster}
-            activeSnapshot={activeSnapshot}
-            statsMode={statsMode}
-            onToggleStatsMode={() => setStatsMode((v) => !v)}
-            homeForfeit={match.homeForfeit ?? false}
-            awayForfeit={match.awayForfeit ?? false}
-            homeTeamName={homeName}
-            awayTeamName={awayName}
-          />
+          <div className="mx-auto w-full max-w-[560px]">
+            <MatchPitch
+              homeTactics={homeTactics}
+              awayTactics={awayTactics}
+              homeRoster={homeRoster}
+              awayRoster={awayRoster}
+              activeSnapshot={activeSnapshot}
+              statsMode={statsMode}
+              onToggleStatsMode={() => setStatsMode((v) => !v)}
+              homeForfeit={match.homeForfeit ?? false}
+              awayForfeit={match.awayForfeit ?? false}
+              homeTeamName={homeName}
+              awayTeamName={awayName}
+            />
+          </div>
         </div>
       }
       timeline={
