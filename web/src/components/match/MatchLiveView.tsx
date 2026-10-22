@@ -1,4 +1,4 @@
-﻿/**
+/**
  * MatchLiveView — self-contained live match view rendered inside the unified
  * match page when `mode === 'live'`.
  *
@@ -23,10 +23,10 @@ import { type Player, type Tactics, type Match } from '@/lib/api';
 import { type MatchState, type WsMatchEvent } from '@/hooks/useMatchPage';
 import { LiveCommentary } from './LiveCommentary';
 import { MatchPitch } from './MatchPitch';
-import { MatchTimeline } from './MatchTimeline';
+import { MatchProgressRail } from './MatchProgressRail';
 import { MatchScoreHero } from './bento/MatchScoreHero';
 import { MatchPage } from './MatchPage';
-import { useInjuryWindows } from './match-timeline';
+import { closestSnapshotIndex, useInjuryWindows } from './match-timeline';
 import { MatchInfoPanel } from './MatchInfoPanel';
 import { MatchKeyEvents } from './MatchKeyEvents';
 import { extractSidebarData } from './match-sidebar-data';
@@ -175,18 +175,16 @@ export function MatchLiveView({
     return map;
   }, [homeRoster, awayRoster]);
 
-  // Auto-snap to the latest snapshot as new events arrive — but only when
-  // the user is NOT actively dragging the scrubber. The ref is set by
-  // MatchTimeline's `onScrubStart` / `onScrubEnd` callbacks so the
-  // timeline can yank the playhead back to "latest" while the user
-  // drags back to inspect an earlier minute. We deliberately do NOT
-  // subscribe to this ref in the effect deps — ref changes don't
-  // trigger re-runs anyway, and depending on it would re-run on every
-  // pointer move.
-  const isUserScrubbingRef = useRef(false);
-
+  // Auto-snap to the latest snapshot as new events arrive. The rail is
+  // read-only, so there is no "scrubbing" state to respect any more:
+  // clicking a goal pip only looks back, and the next event returns the
+  // playhead to the latest frame.
   useEffect(() => {
-    const next = resolveAutoSnapIndex(snapshots.length, isUserScrubbingRef.current);
+    const next = resolveAutoSnapIndex(snapshots.length, false);
+    // The snapshot array grows from polling — an external system — so advancing
+    // the playhead here is synchronisation, not derived state. Live is a replay
+    // that happens to be running.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     if (next !== null) setActiveSnapshotIndex(next);
   }, [snapshots.length]);
 
@@ -300,18 +298,12 @@ export function MatchLiveView({
         </>
       }
       timeline={
-        <MatchTimeline
+        <MatchProgressRail
           events={visibleEvents}
-          snapshots={snapshots}
           currentMinute={currentMinute}
-          activeIndex={activeSnapshotIndex}
-          onChange={setActiveSnapshotIndex}
-          onScrubStart={() => {
-            isUserScrubbingRef.current = true;
-          }}
-          onScrubEnd={() => {
-            isUserScrubbingRef.current = false;
-          }}
+          onSelectMinute={(minute) =>
+            setActiveSnapshotIndex(closestSnapshotIndex(snapshots, minute))
+          }
         />
       }
       commentary={
