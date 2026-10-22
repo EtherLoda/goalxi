@@ -14,6 +14,7 @@ import {
 } from "@/lib/api";
 import { useCurrentTeamId } from "@/stores/gameStore";
 import { ConstructionDialog } from "@/components/club/ConstructionDialog";
+import { StadiumStage } from "@/components/club/StadiumStage";
 import { RenameStadiumDialog } from "@/components/club/RenameStadiumDialog";
 
 type Locale = "en" | "zh";
@@ -284,93 +285,64 @@ export default function StadiumPage() {
         <NoStadiumEmpty />
       ) : (
         <>
-          {/* Hero — visual pitch + occupancy gauge */}
-          <section className="relative overflow-hidden rounded-2xl border border-outline-variant/10 bg-gradient-to-br from-surface-container-low via-surface-container to-surface-container-low">
-            <div className="grid grid-cols-1 lg:grid-cols-[1.4fr_1fr] gap-0">
-              {/* Stadium visual */}
-              <div className="p-6 lg:p-8">
-                <div className="flex items-center justify-between mb-4 gap-3">
-                  <div>
-                    <div className="text-[10px] font-black uppercase tracking-[0.3em] text-on-surface-variant mb-1">
-                      {tStadium("title")}
-                    </div>
-                    <div className="flex flex-wrap items-center gap-2">
-                      <h2 className="font-headline text-2xl md:text-3xl font-black text-on-surface">
-                        {summary.name}
-                      </h2>
-                      <span className="inline-flex items-center rounded-full border border-primary/30 bg-primary/10 px-2 py-0.5 font-mono text-[10px] font-black tabular-nums text-primary">
-                        {t("levelBadge", {
-                          level: summary.level,
-                          max: summary.maxLevel,
-                        })}
-                      </span>
-                    </div>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => setIsRenameOpen(true)}
-                    className="inline-flex items-center gap-1.5 rounded-full border border-primary/30 bg-primary/5 px-3 py-1.5 text-[10px] font-black uppercase tracking-widest text-primary hover:bg-primary/15 transition-colors"
-                    aria-label={t("renameCta")}
-                  >
-                    <AppIcon name="edit" className="text-[14px]" />
-                    {t("renameCta")}
-                  </button>
-                </div>
-                <StadiumPitch fillRate={fillRate} capacity={summary.capacity} />
+          {/* Hero — the ground on the left, the money on the right */}
+          <section className="grid grid-cols-1 lg:grid-cols-[minmax(0,1.55fr)_minmax(0,1fr)] gap-4 items-stretch">
+            <StadiumStage
+              level={summary.level}
+              occupancyText={occupancyText}
+              labels={{
+                level: t("levelBadge", {
+                  level: summary.level,
+                  max: summary.maxLevel,
+                }),
+                occupancy: t("lastMatchAttendance"),
+                hint: t("fillRateHint"),
+                cap: t("capacityCapHint", {
+                  cap: summary.capacityCap.toLocaleString(),
+                }),
+                rename: t("renameCta"),
+              }}
+              onRename={() => setIsRenameOpen(true)}
+            >
+              <StadiumPitch fillRate={fillRate} capacity={summary.capacity} />
+            </StadiumStage>
+
+            <aside className="flex flex-col gap-3">
+              <div className="grid grid-cols-2 gap-3">
+                <MiniStat
+                  label={tStadium("capacity")}
+                  value={summary.capacity.toLocaleString()}
+                  hint={t("capacityCapHint", {
+                    cap: summary.capacityCap.toLocaleString(),
+                  })}
+                  icon="event_seat"
+                />
+                <MiniStat
+                  label={tStadium("avgAttendance")}
+                  value={
+                    avgAttendance != null
+                      ? avgAttendance.toLocaleString()
+                      : "—"
+                  }
+                  icon="groups"
+                />
+                <MiniStat
+                  label={tStadium("estRevenue")}
+                  value={summary.estMatchdayRevenue.toLocaleString()}
+                  icon="payments"
+                  tone="primary"
+                />
+                <MiniStat
+                  label={t("maxRevenueLabel")}
+                  value={summary.maxMatchdayRevenue.toLocaleString()}
+                  icon="trending_up"
+                />
               </div>
-
-              {/* Occupancy gauge */}
-              <div className="relative p-6 lg:p-8 lg:border-l border-t lg:border-t-0 border-outline-variant/10 bg-gradient-to-br from-primary/5 via-transparent to-transparent">
-                <div className="text-[10px] font-black uppercase tracking-[0.3em] text-on-surface-variant mb-2">
-                  {t("lastMatchAttendance")}
-                </div>
-                <div className="flex items-end gap-3">
-                  <div className="font-headline text-7xl font-black text-on-surface leading-none">
-                    {occupancyText}
-                  </div>
-                  <div className="pb-2 text-xs text-on-surface-variant">
-                    {t("fillRateHint")}
-                  </div>
-                </div>
-
-                {/* Stats grid — the pitch above already shows the fill, so
-                    the bar that used to live here was the same number twice. */}
-                <div className="grid grid-cols-2 gap-3 mt-6">
-                  <MiniStat
-                    label={tStadium("capacity")}
-                    value={summary.capacity.toLocaleString()}
-                    hint={t("capacityCapHint", {
-                      cap: summary.capacityCap.toLocaleString(),
-                    })}
-                    icon="event_seat"
-                  />
-                  <MiniStat
-                    label={tStadium("avgAttendance")}
-                    value={
-                      avgAttendance != null
-                        ? avgAttendance.toLocaleString()
-                        : "—"
-                    }
-                    icon="groups"
-                  />
-                  <MiniStat
-                    label={tStadium("estRevenue")}
-                    value={summary.estMatchdayRevenue.toLocaleString()}
-                    icon="payments"
-                    tone="primary"
-                  />
-                  <MiniStat
-                    label={t("maxRevenueLabel")}
-                    value={summary.maxMatchdayRevenue.toLocaleString()}
-                    icon="trending_up"
-                  />
-                </div>
-
-              </div>
-            </div>
+            </aside>
           </section>
 
-          {/* Construction — dialog-driven queue */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 items-start">
+{/* Construction — dialog-driven queue */}
           <section className="bg-surface-container-low rounded-2xl p-6 border border-outline-variant/10">
             <header className="flex items-center justify-between mb-5">
               <div>
@@ -495,8 +467,8 @@ export default function StadiumPage() {
                 </p>
               </div>
             ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
-                {recent.map((m) => (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {recent.slice(0, 4).map((m) => (
                   <RecentMatchCard
                     key={m.id}
                     match={m}
@@ -511,6 +483,8 @@ export default function StadiumPage() {
               </div>
             )}
           </section>
+
+          </div>
 
           {/* Recently completed constructions */}
           {completedConstructions.length > 0 && (

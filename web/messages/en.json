@@ -1582,8 +1582,7 @@
       "demolishWarn": "This refunds 30% of build cost and removes the stadium. Your team will play away until rebuilt.",
       "demolishConfirmPlaceholder": "Type 'demolish' to confirm",
       "demolish": "Demolish",
-      "demolishing": "Demolishing...",
-      "maxRevenueHint": "{value} when sold out ({seats} seats × {price}); actual revenue depends on attendance."
+      "demolishing": "Demolishing..."
     },
     "stadiumPage": {
       "title": "Stadium",
@@ -1603,7 +1602,6 @@
       },
       "lastMatchAttendance": "Last Home Attendance",
       "fillRateHint": "of capacity",
-      "seasonAttendance": "Season Avg",
       "recentMatches": {
         "eyebrow": "History",
         "title": "Recent Home Matches",

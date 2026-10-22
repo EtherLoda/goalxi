@@ -1582,8 +1582,7 @@
       "demolishWarn": "返还 30% 建造成本并移除球场。在此重建前,你的球队只能打客场。",
       "demolishConfirmPlaceholder": "输入 'demolish' 以确认",
       "demolish": "拆除",
-      "demolishing": "拆除中...",
-      "maxRevenueHint": "满座 {value}（{seats} 座 × {price}/座）；实际收入取决于上座率。"
+      "demolishing": "拆除中..."
     },
     "stadiumPage": {
       "title": "球场",
@@ -1603,7 +1602,6 @@
       },
       "lastMatchAttendance": "最近主场上座率",
       "fillRateHint": "占容量",
-      "seasonAttendance": "赛季均值",
       "recentMatches": {
         "eyebrow": "历史",
         "title": "最近主场比赛",
