@@ -4,11 +4,15 @@ import {
   MatchStatus,
   SEAT_DEMOLISH_REFUND_RATE,
   STADIUM_COST_PER_SEAT,
+  STADIUM_MAX_LEVEL,
   StadiumEntity,
   TeamEntity,
   TransactionType,
   Uuid,
   getTicketMultiplier,
+  stadiumCapacityCap,
+  stadiumUpgradeCost,
+  stadiumUpgradeWeeks,
 } from '@goalxi/database';
 import { LOGGER_SERVICE, PinoLoggerService } from '@goalxi/logger';
 import { BadRequestException, Inject, Injectable } from '@nestjs/common';
@@ -51,6 +55,18 @@ export interface StadiumSummary {
   seatAdjustCost: number;
   /** 每拆除一座座位的返还 */
   seatDemolishRefund: number;
+  /** 球场等级(1-5)。等级不产生收入,只决定容量上限 */
+  level: number;
+  /** 等级上限 */
+  maxLevel: number;
+  /** 当前等级允许的最大座位数;扩建不能超过这个数 */
+  capacityCap: number;
+  /** 升一级之后允许的座位数(已满级时为 null) */
+  nextLevelCapacityCap: number | null;
+  /** 升一级的一次性费用(已满级时为 null) */
+  upgradeCost: number | null;
+  /** 升一级占用的施工周数(已满级时为 null) */
+  upgradeWeeks: number | null;
 }
 
 export interface RecentHomeMatch {
@@ -166,6 +182,10 @@ export class StadiumService {
       FINANCE_CONSTANTS.TICKET_PRICE * (tier ? getTicketMultiplier(tier) : 1),
     );
 
+    // A level never changes the price — it only unlocks seats, so the two
+    // revenue numbers above stay pure `capacity × attendance × price`.
+    const level = stadium.level ?? 1;
+
     return {
       teamId: stadium.teamId,
       name: stadium.name,
@@ -182,6 +202,17 @@ export class StadiumService {
       seatDemolishRefund: Math.floor(
         STADIUM_COST_PER_SEAT * SEAT_DEMOLISH_REFUND_RATE,
       ),
+      level,
+      maxLevel: STADIUM_MAX_LEVEL,
+      capacityCap: stadiumCapacityCap(level),
+      nextLevelCapacityCap:
+        level < STADIUM_MAX_LEVEL
+          ? stadiumCapacityCap(level + 1)
+          : null,
+      upgradeCost:
+        level < STADIUM_MAX_LEVEL ? stadiumUpgradeCost(level + 1) : null,
+      upgradeWeeks:
+        level < STADIUM_MAX_LEVEL ? stadiumUpgradeWeeks(level + 1) : null,
     };
   }
 

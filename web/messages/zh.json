@@ -1079,7 +1079,8 @@
     "auctionOutbid": "你在 {player} 的竞拍中被超越",
     "auctionWon": "你赢得了 {player} 的竞拍!",
     "auctionLost": "你未能赢得 {player} 的竞拍",
-    "stadiumConstructionCompleted": "球场工程完工 — 容量更新为 {newCapacity}"
+    "stadiumConstructionCompleted": "球场工程完工 — 容量更新为 {newCapacity}",
+    "stadiumUpgradeCompleted": "球场升级完成 — 现为 {level} 级，容量上限 {capacityCap} 座"
   },
   "commentary": {
     "goal": {

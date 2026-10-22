@@ -21,6 +21,17 @@ export class StadiumEntity extends AbstractEntity {
     @Column({ type: 'int', default: 5000 })
     capacity!: number;
 
+    /**
+     * 球场等级 (1-5)。等级本身不产生任何收入 —— 它只是容量上限的通行证:
+     * 等级 N 最多容纳 N × `STADIUM_CAPACITY_PER_LEVEL` 个座位。
+     *
+     * Deliberately not a revenue multiplier: the ground is meant to be a
+     * permanent, capacity-based asset whose value depends on staying
+     * successful enough to fill it, not a compounding edge over new clubs.
+     */
+    @Column({ type: 'int', default: 1 })
+    level!: number;
+
     /** 是否已建成 */
     @Column({ name: 'is_built', type: 'boolean', default: true })
     isBuilt!: boolean;

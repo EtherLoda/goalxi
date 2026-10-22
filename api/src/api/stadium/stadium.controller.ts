@@ -103,4 +103,17 @@ export class StadiumController {
   ) {
     return this.constructionService.start(teamId, dto.kind, dto.delta, userId);
   }
+
+  // §5 Stadium — Queue a level upgrade.
+  // The level adds no seats; it raises the capacity ceiling, so it is the
+  // only way to unlock a ground beyond the current 20,000-seat step. Cost is
+  // debited immediately, same as EXPAND.
+  @Post('upgrade')
+  @HttpCode(HttpStatus.CREATED)
+  async upgradeStadium(
+    @Param('teamId') teamId: Uuid,
+    @CurrentUser('id') userId: Uuid,
+  ) {
+    return this.constructionService.upgrade(teamId, userId);
+  }
 }

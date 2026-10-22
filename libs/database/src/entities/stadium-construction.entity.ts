@@ -31,6 +31,11 @@ import { TeamEntity } from './team.entity';
 export enum StadiumConstructionKind {
   EXPAND = 'EXPAND',
   DEMOLISH = 'DEMOLISH',
+  /**
+   * Raises `StadiumEntity.level` by one. Unlocks capacity, does not add any:
+   * `deltaSeats` is 0 and `endingCapacity` repeats the starting capacity.
+   */
+  UPGRADE = 'UPGRADE',
 }
 
 export enum StadiumConstructionStatus {
@@ -69,6 +74,13 @@ export class StadiumConstructionEntity extends AbstractEntity {
   /** Capacity snapshot at queue time — used to render the project card. */
   @Column({ name: 'starting_capacity', type: 'int' })
   startingCapacity!: number;
+
+  /**
+   * Level this project will set on completion. Only UPGRADE rows carry one;
+   * capacity projects leave it null.
+   */
+  @Column({ name: 'target_level', type: 'int', nullable: true })
+  targetLevel!: number | null;
 
   /** What `StadiumEntity.capacity` will be set to on completion. */
   @Column({ name: 'ending_capacity', type: 'int' })

@@ -18,6 +18,7 @@ import {
   TeamEntity,
   TransactionEntity,
   TransactionType,
+  stadiumCapacityCap,
 } from '@goalxi/database';
 import { NotificationService } from '../notification/notification.service';
 import { NotificationType } from '../notification/notification.service';
@@ -137,11 +138,19 @@ export class StadiumConstructionProcessor extends WorkerHost {
         return;
       }
 
-      const proposed =
-        row.kind === StadiumConstructionKind.EXPAND
-          ? stadium.capacity + row.deltaSeats
-          : stadium.capacity - row.deltaSeats;
-      stadium.capacity = Math.max(STADIUM_MIN_CAPACITY, proposed);
+      if (row.kind === StadiumConstructionKind.UPGRADE) {
+        // An upgrade moves the ceiling, never a seat. `deltaSeats` is 0 on
+        // these rows so the capacity branch would be a no-op, but branching
+        // explicitly keeps a future change to the EXPAND maths from silently
+        // applying a seat delta to an upgrade.
+        stadium.level = row.targetLevel ?? (stadium.level ?? 1) + 1;
+      } else {
+        const proposed =
+          row.kind === StadiumConstructionKind.EXPAND
+            ? stadium.capacity + row.deltaSeats
+            : stadium.capacity - row.deltaSeats;
+        stadium.capacity = Math.max(STADIUM_MIN_CAPACITY, proposed);
+      }
       await stadiumRepo.save(stadium);
 
       if (refundAmount > 0) {
@@ -179,18 +188,29 @@ export class StadiumConstructionProcessor extends WorkerHost {
     });
 
     const team = await this.teamRepo.findOne({ where: { id: row.teamId } });
+    const isUpgrade = row.kind === StadiumConstructionKind.UPGRADE;
     if (team?.userId) {
       await this.notificationService.create(
         team.userId,
         NotificationType.STADIUM_CONSTRUCTION_COMPLETED,
-        'notification.stadiumConstructionCompleted',
-        {
-          teamId: row.teamId,
-          kind: row.kind,
-          delta: row.deltaSeats,
-          newCapacity: row.endingCapacity,
-          weeks: row.totalWeeks,
-        },
+        isUpgrade
+          ? 'notification.stadiumUpgradeCompleted'
+          : 'notification.stadiumConstructionCompleted',
+        isUpgrade
+          ? {
+              teamId: row.teamId,
+              kind: row.kind,
+              level: row.targetLevel,
+              capacityCap: stadiumCapacityCap(row.targetLevel ?? 1),
+              weeks: row.totalWeeks,
+            }
+          : {
+              teamId: row.teamId,
+              kind: row.kind,
+              delta: row.deltaSeats,
+              newCapacity: row.endingCapacity,
+              weeks: row.totalWeeks,
+            },
       );
     } else if (team?.isBot) {
       this.logger.debug(
@@ -203,7 +223,9 @@ export class StadiumConstructionProcessor extends WorkerHost {
     }
 
     this.logger.info(
-      `Stadium ${row.kind.toLowerCase()} completed for team ${row.teamId}: ${row.deltaSeats} seats �?${row.endingCapacity}`,
+      isUpgrade
+        ? `Stadium upgrade completed for team ${row.teamId}: now level ${row.targetLevel}`
+        : `Stadium ${row.kind.toLowerCase()} completed for team ${row.teamId}: ${row.deltaSeats} seats �?${row.endingCapacity}`,
     );
   }
 

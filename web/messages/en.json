@@ -1079,7 +1079,8 @@
     "auctionOutbid": "You've been outbid on {player}",
     "auctionWon": "You won the auction for {player}!",
     "auctionLost": "You lost the auction for {player}",
-    "stadiumConstructionCompleted": "Stadium construction complete — capacity now {newCapacity}"
+    "stadiumConstructionCompleted": "Stadium construction complete — capacity now {newCapacity}",
+    "stadiumUpgradeCompleted": "Stadium upgrade complete — now level {level}, capacity ceiling {capacityCap}"
   },
   "commentary": {
     "goal": {

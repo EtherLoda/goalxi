@@ -5,7 +5,7 @@ import {
   STADIUM_CONSTRUCTION_MAX_SEATS_PER_JOB,
   STADIUM_CONSTRUCTION_MIN_SEATS,
   STADIUM_COST_PER_SEAT,
-  STADIUM_MAX_CAPACITY,
+  STADIUM_MAX_LEVEL,
   STADIUM_MIN_CAPACITY,
   StadiumConstructionEntity,
   StadiumConstructionKind,
@@ -16,6 +16,9 @@ import {
   TransactionType,
   computeConstructionWeeks,
   computeDemolishWeeks,
+  stadiumCapacityCap,
+  stadiumUpgradeCost,
+  stadiumUpgradeWeeks,
 } from '@goalxi/database';
 import { LOGGER_SERVICE, PinoLoggerService } from '@goalxi/logger';
 import {
@@ -90,9 +93,13 @@ export class StadiumConstructionService {
     }
 
     if (kind === StadiumConstructionKind.EXPAND) {
-      if (stadium.capacity + delta > STADIUM_MAX_CAPACITY) {
+      // The ceiling is the stadium's own level, not a global constant: a
+      // level is a permission to hold seats, so it is the only thing that
+      // can authorise a bigger ground.
+      const cap = stadiumCapacityCap(stadium.level ?? 1);
+      if (stadium.capacity + delta > cap) {
         throw new BadRequestException(
-          `Cannot expand past ${STADIUM_MAX_CAPACITY.toLocaleString()} seats`,
+          `Cannot expand past ${cap.toLocaleString()} seats at level ${stadium.level ?? 1}`,
         );
       }
     } else {
@@ -180,6 +187,120 @@ export class StadiumConstructionService {
 
     this.logger.info(
       `Stadium ${kind.toLowerCase()} queued for team ${teamId}: ${delta} seats over ${weeks} weeks`,
+    );
+
+    return { construction, weeks, cost };
+  }
+
+  /**
+   * Queue a stadium level upgrade.
+   *
+   * Adds no seats. It only raises `stadiumCapacityCap(level)`, i.e. the
+   * permission to hold a bigger ground later — the level itself earns
+   * nothing, which is what keeps an established club from compounding a
+   * revenue edge it never has to defend.
+   *
+   * Money is debited at queue time exactly like EXPAND so the two paths
+   * cannot diverge, and the project shares the "one at a time" rule with
+   * `start()`, so an upgrade competes with expansion for the same queue
+   * slot instead of running alongside it.
+   */
+  async upgrade(
+    teamId: string,
+    userId: string,
+  ): Promise<{
+    construction: StadiumConstructionEntity;
+    weeks: number;
+    cost: number;
+  }> {
+    const teamUuid = teamId as Uuid;
+    await assertTeamOwner(this.teamRepo, teamId, userId);
+
+    const stadium = await this.stadiumRepo.findOne({
+      where: { teamId: teamUuid },
+    });
+    if (!stadium) {
+      throw new NotFoundException(`Stadium not found for team ${teamId}`);
+    }
+
+    const currentLevel = stadium.level ?? 1;
+    if (currentLevel >= STADIUM_MAX_LEVEL) {
+      throw new BadRequestException(
+        `Stadium is already at level ${STADIUM_MAX_LEVEL}`,
+      );
+    }
+
+    const targetLevel = currentLevel + 1;
+    const cost = stadiumUpgradeCost(targetLevel);
+    const weeks = stadiumUpgradeWeeks(targetLevel);
+    if (cost === null || weeks === null) {
+      throw new BadRequestException(
+        `Level ${targetLevel} is not purchasable`,
+      );
+    }
+
+    const existing = await this.constructionRepo.findOne({
+      where: {
+        teamId: teamUuid,
+        status: StadiumConstructionStatus.IN_PROGRESS,
+      },
+    });
+    if (existing) {
+      throw new ConflictException(
+        `Team ${teamId} already has a construction in progress`,
+      );
+    }
+
+    const { season, week } = await this.getCurrentSeasonAndWeek();
+
+    const construction = await this.dataSource.transaction(async (manager) => {
+      const constructionRepo = manager.getRepository(
+        StadiumConstructionEntity,
+      );
+      const created = constructionRepo.create({
+        teamId,
+        kind: StadiumConstructionKind.UPGRADE,
+        deltaSeats: 0,
+        startingCapacity: stadium.capacity,
+        endingCapacity: stadium.capacity,
+        targetLevel,
+        totalWeeks: weeks,
+        remainingWeeks: weeks,
+        cost,
+        refund: 0,
+        status: StadiumConstructionStatus.IN_PROGRESS,
+        seasonStarted: season,
+        weekStarted: week,
+      });
+      const saved = await constructionRepo.save(created);
+
+      const financeRepo = manager.getRepository(FinanceEntity);
+      const transactionRepo = manager.getRepository(TransactionEntity);
+      const finance = await financeRepo.findOne({
+        where: { teamId: teamUuid },
+      });
+      if (!finance) {
+        throw new NotFoundException(`Finance record not found for team ${teamId}`);
+      }
+      finance.balance -= cost;
+      await financeRepo.save(finance);
+      await transactionRepo.save(
+        transactionRepo.create({
+          teamId,
+          amount: -cost,
+          type: TransactionType.OTHER_EXPENSE,
+          season,
+          week,
+          description: `Stadium upgrade to level ${targetLevel} queued`,
+          relatedId: saved.id,
+        }),
+      );
+
+      return saved;
+    });
+
+    this.logger.info(
+      `Stadium upgrade queued for team ${teamId}: level ${currentLevel} -> ${targetLevel} over ${weeks} weeks`,
     );
 
     return { construction, weeks, cost };

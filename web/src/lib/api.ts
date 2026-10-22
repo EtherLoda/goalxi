@@ -205,6 +205,15 @@ interface StadiumSummary {
   maxMatchdayRevenue: number;
   seatAdjustCost: number;
   seatDemolishRefund: number;
+  /** 球场等级(1-5)。不产生收入,只决定容量上限 */
+  level: number;
+  maxLevel: number;
+  /** 当前等级允许的最大座位数;扩建不能超过这个数 */
+  capacityCap: number;
+  /** 升一级后的容量上限(已满级时为 null) */
+  nextLevelCapacityCap: number | null;
+  upgradeCost: number | null;
+  upgradeWeeks: number | null;
 }
 
 interface RecentHomeMatch {
@@ -1243,6 +1252,26 @@ export const api = {
           kind: params.kind === 'expand' ? 'EXPAND' : 'DEMOLISH',
           delta: params.delta,
         }),
+      });
+    },
+
+    /**
+     * Queue a stadium level upgrade.
+     *
+     * Adds no seats — the level raises the capacity ceiling, so this is the
+     * only way past the current 20,000-seat step. Cost is debited at queue
+     * time, same as an expansion.
+     */
+    upgradeStadium: async (
+      teamId: string,
+    ): Promise<{
+      construction: StadiumConstruction;
+      weeks: number;
+      cost: number;
+    }> => {
+      return request(`/teams/${teamId}/stadium/upgrade`, {
+        method: 'POST',
+        body: JSON.stringify({}),
       });
     },
 
