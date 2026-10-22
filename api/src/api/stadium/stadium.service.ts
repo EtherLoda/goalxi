@@ -47,6 +47,9 @@ export interface StadiumSummary {
   tier: number | null;
   /** 单座实际票价(含联赛级别系数),比赛结算用的就是这个数 */
   ticketPrice: number;
+  /** Today plus the next two days, each carrying the weather of the nearest
+   *  fixture on or after it (null when no fixture is scheduled yet). */
+  forecast: { date: string; weather: string | null }[];
   /** 按历史上座率推算的每场收入 */
   estMatchdayRevenue: number;
   /** 满座时的每场收入上限 */
@@ -188,6 +191,26 @@ export class StadiumService {
     // revenue numbers above stay pure `capacity × attendance × price`.
     const level = stadium.level ?? 1;
 
+    // Today + the next two days. Weather is assigned per fixture, so each day
+    // carries the weather of the nearest fixture on or after it; a day with no
+    // fixture ahead of it reports null rather than inventing a sky.
+    const upcoming = await this.matchRepository.find({
+      where: [
+        { homeTeamId: stadium.teamId, status: MatchStatus.SCHEDULED },
+        { awayTeamId: stadium.teamId, status: MatchStatus.SCHEDULED },
+      ],
+      order: { scheduledAt: 'ASC' },
+      take: 3,
+    });
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const forecast = [0, 1, 2].map((offset) => {
+      const day = new Date(today);
+      day.setDate(day.getDate() + offset);
+      const next = upcoming.find((m) => new Date(m.scheduledAt) >= day);
+      return { date: day.toISOString(), weather: next?.weather ?? null };
+    });
+
     return {
       teamId: stadium.teamId,
       name: stadium.name,
@@ -200,6 +223,7 @@ export class StadiumService {
       estMatchdayRevenue:
         avgAttendance != null ? Math.round(avgAttendance * ticketPrice) : 0,
       maxMatchdayRevenue: Math.round(stadium.capacity * ticketPrice),
+      forecast,
       seatAdjustCost: STADIUM_COST_PER_SEAT,
       seatDemolishRefund: Math.floor(
         STADIUM_COST_PER_SEAT * SEAT_DEMOLISH_REFUND_RATE,

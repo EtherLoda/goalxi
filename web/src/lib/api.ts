@@ -199,6 +199,7 @@ interface StadiumSummary {
   tier: number | null;
   /** 单座实际票价(含联赛级别系数),比赛结算用的就是这个数 */
   ticketPrice: number;
+  forecast: { date: string; weather: string | null }[];
   /** 按历史上座率推算的每场收入(无历史时为 0) */
   estMatchdayRevenue: number;
   /** 满座时的每场收入上限 */

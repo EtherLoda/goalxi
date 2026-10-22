@@ -1690,7 +1690,12 @@
       },
       "weatherTitle": "主场天气",
       "weatherAttendance": "上一场 {n} 人到场",
-      "weatherNoMatch": "还没有主场记录"
+      "weatherNoMatch": "还没有主场记录",
+      "weatherDay": {
+        "0": "今天",
+        "1": "明天",
+        "2": "后天"
+      }
     }
   },
   "medical": {

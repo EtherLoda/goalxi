@@ -174,9 +174,6 @@ export default function StadiumPage() {
     return `${Math.round(fillRate * 100)}%`;
   }, [fillRate]);
 
-  const lastHomeMatch = recent[0] ?? null;
-  const weatherKey = (lastHomeMatch?.weather ?? "cloudy").toLowerCase();
-  const weatherIcon: MaterialIconName = WEATHER_ICON[weatherKey] ?? "cloud";
 
   const activeConstructions = constructions.filter(
     (c) => c.status === "IN_PROGRESS",
@@ -342,46 +339,31 @@ export default function StadiumPage() {
                   icon="trending_up"
                 />
 
-                <div className="relative flex flex-1 flex-col justify-between overflow-hidden rounded-xl border border-outline-variant/10 bg-gradient-to-br from-surface-container/80 to-surface-container-low/40 p-4">
-                  <div className="flex items-center justify-between">
-                    <div className="text-[10px] font-black uppercase tracking-[0.3em] text-on-surface-variant">
-                      {t("weatherTitle")}
-                    </div>
-                    <span className="font-mono text-[10px] tabular-nums text-on-surface-variant/70">
-                      {lastHomeMatch?.scheduledAt
-                        ? new Date(lastHomeMatch.scheduledAt).toLocaleDateString(
-                            locale === "zh" ? "zh-CN" : "en-GB",
-                            { month: "2-digit", day: "2-digit" },
-                          )
-                        : ""}
-                    </span>
+                <div className="flex flex-1 flex-col rounded-xl border border-outline-variant/10 bg-gradient-to-br from-surface-container/80 to-surface-container-low/40 p-4">
+                  <div className="text-[10px] font-black uppercase tracking-[0.3em] text-on-surface-variant">
+                    {t("weatherTitle")}
                   </div>
-
-                  <div className="mt-3 flex items-center gap-3">
-                    <span className="grid h-12 w-12 place-items-center rounded-xl border border-primary/20 bg-primary/10">
-                      <AppIcon name={weatherIcon} className="text-2xl text-primary" />
-                    </span>
-                    <div className="min-w-0">
-                      <div className="font-headline text-xl font-black text-on-surface">
-                        {t(`weather.${weatherKey}`)}
-                      </div>
-                      <div className="font-mono text-[11px] tabular-nums text-on-surface-variant">
-                        {t("weatherAttendance", {
-                          n: (lastHomeMatch?.attendance ?? 0).toLocaleString(),
-                        })}
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="mt-3 flex items-center justify-between gap-2 border-t border-outline-variant/10 pt-3">
-                    <span className="truncate text-[11px] text-on-surface-variant">
-                      {lastHomeMatch?.opponentName ?? t("weatherNoMatch")}
-                    </span>
-                    <span className="shrink-0 font-mono text-[11px] tabular-nums text-on-surface-variant">
-                      {lastHomeMatch?.fillRate != null
-                        ? `${Math.round(lastHomeMatch.fillRate * 100)}%`
-                        : "—"}
-                    </span>
+                  <div className="mt-3 grid flex-1 grid-cols-3 gap-2">
+                    {(summary.forecast ?? []).map((day, i) => {
+                      const key = (day.weather ?? "").toLowerCase();
+                      return (
+                        <div
+                          key={day.date}
+                          className="flex flex-col items-center justify-center gap-2 rounded-lg border border-outline-variant/10 bg-surface-container/50 py-4"
+                        >
+                          <span className="text-[10px] font-bold tracking-wide text-on-surface-variant">
+                            {t(`weatherDay.${i}`)}
+                          </span>
+                          <AppIcon
+                            name={WEATHER_ICON[key] ?? "cloud"}
+                            className="text-2xl text-primary"
+                          />
+                          <span className="font-headline text-xs font-black text-on-surface">
+                            {key ? t(`weather.${key}`) : "—"}
+                          </span>
+                        </div>
+                      );
+                    })}
                   </div>
                 </div>
               </div>
@@ -771,7 +753,11 @@ function RecentMatchCard({
       className="group relative overflow-hidden rounded-xl border border-outline-variant/10 bg-surface-container/40 hover:bg-surface-container transition-colors p-4"
     >
       <div className="flex items-center justify-between mb-2">
-        <span className="font-mono text-[10px] text-on-surface-variant">
+        <span className="flex items-center gap-1.5 font-mono text-[10px] text-on-surface-variant">
+          <AppIcon
+            name={WEATHER_ICON[(match.weather ?? "").toLowerCase()] ?? "cloud"}
+            className="text-[13px] opacity-70"
+          />
           {dateText}
         </span>
         <span

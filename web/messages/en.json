@@ -1690,7 +1690,12 @@
       },
       "weatherTitle": "Home weather",
       "weatherAttendance": "{n} at the last match",
-      "weatherNoMatch": "No home matches yet"
+      "weatherNoMatch": "No home matches yet",
+      "weatherDay": {
+        "0": "Today",
+        "1": "Tomorrow",
+        "2": "Day +2"
+      }
     }
   },
   "medical": {
