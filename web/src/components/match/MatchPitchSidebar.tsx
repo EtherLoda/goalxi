@@ -70,11 +70,11 @@ export function MatchPitchSidebar({
   if (!hasWeatherOrAttendance && keyEvents.length === 0) {
     return (
       <div className="glass-panel rounded-2xl p-4">
-        <h3 className="font-headline font-bold text-[10px] uppercase tracking-widest text-primary/80 mb-3 flex items-center gap-2">
+        <h3 className="font-headline font-bold text-kicker uppercase tracking-widest text-primary/80 mb-3 flex items-center gap-2">
           <AppIcon name="history" className="text-base" />
           {t('keyEvents') ?? 'Key Events'}
         </h3>
-        <p className="text-[10px] text-on-surface/30 font-headline italic">
+        <p className="text-kicker text-on-surface/30 font-headline">
           {t('waiting') ?? 'Waiting for events…'}
         </p>
       </div>
@@ -86,7 +86,7 @@ export function MatchPitchSidebar({
       {/* Weather + Attendance info */}
       {hasWeatherOrAttendance && (
         <div className="glass-panel rounded-2xl p-4 shrink-0">
-          <h3 className="font-headline font-bold text-[10px] uppercase tracking-widest text-primary/80 mb-3 flex items-center gap-2">
+          <h3 className="font-headline font-bold text-kicker uppercase tracking-widest text-primary/80 mb-3 flex items-center gap-2">
             <AppIcon name="stadium" className="text-base" />
             {t('matchInfo') ?? 'Match Info'}
           </h3>
@@ -101,7 +101,7 @@ export function MatchPitchSidebar({
       {/* Key Events */}
       {keyEvents.length > 0 && (
         <div className="glass-panel rounded-2xl p-4 flex flex-col max-h-56 overflow-y-auto">
-          <h3 className="font-headline font-bold text-[10px] uppercase tracking-widest text-primary/80 mb-3 flex items-center gap-2 shrink-0">
+          <h3 className="font-headline font-bold text-kicker uppercase tracking-widest text-primary/80 mb-3 flex items-center gap-2 shrink-0">
             <AppIcon name="history" className="text-base" />
             {t('keyEvents') ?? 'Key Events'}
           </h3>

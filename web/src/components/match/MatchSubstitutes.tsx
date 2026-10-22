@@ -141,20 +141,20 @@ function SeatCard({ label, isGk, player, color }: SeatCardProps) {
       {player ? (
         <>
           <span
-            className="font-headline font-black text-[10px] text-on-surface truncate w-full text-center"
+            className="font-headline font-black text-kicker text-on-surface truncate w-full text-center"
             title={player.name}
           >
             {player.name.split(' ').pop()}
           </span>
           <span
-            className="font-mono font-black tabular-nums text-[9px]"
+            className="font-mono font-black tabular-nums text-kicker"
             style={{ color }}
           >
             {Math.round(player.overall)}
           </span>
         </>
       ) : (
-        <span className="font-headline text-[10px] text-on-surface-variant/30">—</span>
+        <span className="font-headline text-kicker text-on-surface-variant/30">—</span>
       )}
     </div>
   );
@@ -182,12 +182,12 @@ function TeamBench({
     <div className="min-w-0">
       <div className="flex items-center justify-between mb-2 px-0.5">
         <span
-          className="font-headline font-bold text-[10px] uppercase tracking-widest truncate"
+          className="font-headline font-bold text-kicker uppercase tracking-widest truncate"
           style={{ color }}
         >
           {teamName}
         </span>
-        <span className="text-[9px] font-label uppercase tracking-widest text-on-surface-variant/50 shrink-0 ml-2">
+        <span className="text-kicker font-label uppercase tracking-widest text-on-surface-variant/50 shrink-0 ml-2">
           {t('used', { count: subs.length })}
         </span>
       </div>
@@ -205,10 +205,10 @@ function TeamBench({
           {subs.map((s, i) => (
             <div
               key={i}
-              className="flex items-center gap-1.5 text-[10px] font-mono"
+              className="flex items-center gap-1.5 text-kicker font-mono"
             >
               <span
-                className="font-headline font-black tabular-nums text-[9px] shrink-0"
+                className="font-headline font-black tabular-nums text-kicker shrink-0"
                 style={{ color }}
               >
                 {formatMinute(s.minute)}&apos;
@@ -217,7 +217,7 @@ function TeamBench({
                 className="w-1 h-1 rounded-full shrink-0"
                 style={{ backgroundColor: color }}
               />
-              <span className="font-headline text-[10px] text-on-surface truncate">
+              <span className="font-headline text-kicker text-on-surface truncate">
                 <span className="font-bold">{s.playerIn}</span>
                 <span className="text-on-surface-variant/40 mx-1">←</span>
                 <span className="text-on-surface-variant/70">{s.playerOut}</span>
@@ -265,7 +265,7 @@ export function MatchSubstitutes({
 
   return (
     <div className="glass-panel rounded-2xl p-4">
-      <h3 className="font-headline font-bold text-[10px] uppercase tracking-widest text-primary/80 mb-3 flex items-center gap-2">
+      <h3 className="font-headline font-bold text-kicker uppercase tracking-widest text-primary/80 mb-3 flex items-center gap-2">
         <AppIcon name="groups" className="text-base" />
         {t('title')}
       </h3>

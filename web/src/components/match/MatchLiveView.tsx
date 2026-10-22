@@ -15,6 +15,7 @@
 'use client';
 
 import { AppIcon } from "@/components/icons/AppIcon";
+import { GlassPanel } from '@/components/ui/GlassPanel';
 import { useEffect, useMemo, useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { useTranslations } from 'next-intl';
@@ -189,11 +190,13 @@ export function MatchLiveView({
   if (error && connectionStatus === 'disconnected' && !matchState) {
     return (
       <div className="p-6 md:p-8 max-w-7xl mx-auto w-full">
-        <div className="bg-surface-container-low rounded-2xl p-12 text-center border border-error/20">
-          <AppIcon name="wifi_off" className="text-6xl text-error/50 mb-4 block" />
-          <p className="text-on-surface-variant text-lg font-medium mb-2">{t('connectionLost')}</p>
-          <p className="text-on-surface-variant/70 text-sm mb-4">{error}</p>
-        </div>
+        <GlassPanel className="border-error/20">
+          <div className="p-12 text-center">
+            <AppIcon name="wifi_off" className="text-6xl text-error/50 mb-4 block" />
+            <p className="text-on-surface-variant text-lg font-medium mb-2">{t('connectionLost')}</p>
+            <p className="text-on-surface-variant/70 text-sm mb-4">{error}</p>
+          </div>
+        </GlassPanel>
       </div>
     );
   }

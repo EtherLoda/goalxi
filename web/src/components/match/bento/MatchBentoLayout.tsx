@@ -47,7 +47,7 @@ export function MatchBentoLayout({
   const hasSidebar = sidebar !== undefined && sidebar !== null;
   return (
     <div
-      className={`p-6 md:p-8 max-w-[1600px] mx-auto w-full space-y-4 ${className}`}
+      className={`p-6 md:p-8 max-w-7xl mx-auto w-full space-y-4 ${className}`}
       data-testid="match-bento-layout"
     >
       {/* ROW A — Score Hero (full width) */}

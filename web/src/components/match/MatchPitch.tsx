@@ -429,17 +429,17 @@ function ForfeitBanner({
       role="status"
     >
       <div className="flex items-center gap-3 px-4 py-2 rounded-full bg-error/15 border border-error/40 backdrop-blur-sm">
-        <span className="font-label text-[9px] tracking-[0.3em] uppercase text-error/90">
+        <span className="font-label text-kicker tracking-[0.3em] uppercase text-error/90">
           Forfeit
         </span>
         <span className="font-headline font-black text-sm text-on-surface tabular-nums">
           {homeScore} – {awayScore}
         </span>
-        <span className="font-headline font-bold text-[10px] uppercase tracking-wider text-on-surface whitespace-nowrap">
+        <span className="font-headline font-bold text-kicker uppercase tracking-wider text-on-surface whitespace-nowrap">
           {headline}
         </span>
       </div>
-      <p className="mt-1 text-center font-label text-[9px] tracking-widest uppercase text-outline">
+      <p className="mt-1 text-center font-label text-kicker tracking-widest uppercase text-outline">
         {reason}
       </p>
     </div>

@@ -127,7 +127,7 @@ export function MatchPlayerMarker({
         style={{ width: AVATAR_SIZE, height: AVATAR_SIZE }}
       >
         <div
-          className={`relative rounded-full flex items-center justify-center font-headline font-extrabold text-[13px] uppercase cursor-grab active:cursor-grabbing z-10 transition-all duration-slow ${
+          className={`relative rounded-full flex items-center justify-center font-headline font-extrabold text-body uppercase cursor-grab active:cursor-grabbing z-10 transition-all duration-slow ${
             isSelected ? 'ring-2 ring-white ring-offset-1 ring-offset-ink-750' : ''
           } ${isSubstitute ? 'animate-pulse' : ''}`}
           style={{
@@ -149,7 +149,7 @@ export function MatchPlayerMarker({
               className="absolute -top-2 -right-2 w-5 h-5 rounded-full bg-float border border-white/20 text-on-surface/60 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center"
               aria-label="Remove player"
             >
-              <AppIcon name="close" className="text-[12px]" />
+              <AppIcon name="close" className="text-label" />
             </button>
           )}
         </div>
@@ -157,10 +157,10 @@ export function MatchPlayerMarker({
 
       {/* Name + slot */}
       <div className="flex flex-col items-center leading-none mt-1">
-        <span className="font-label text-[9px] tracking-widest uppercase text-on-surface/40">
+        <span className="font-label text-kicker tracking-widest uppercase text-on-surface/40">
           {positionShortLabel(slot)}
         </span>
-        <span className="font-headline font-bold text-[12px] text-on-surface truncate max-w-[80px] text-center">
+        <span className="font-headline font-bold text-label text-on-surface truncate max-w-[80px] text-center">
           {player.name}
         </span>
       </div>

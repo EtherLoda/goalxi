@@ -540,7 +540,7 @@ export function MatchTimeline({
             track. The half-time label mirrors the tick mark above
             (stoppage-inclusive, e.g. "45+2'") so a reader can read
             the half boundary off either the tick or the axis. */}
-        <div className="absolute inset-x-6 -bottom-0.5 h-4 flex justify-between text-[9px] font-label uppercase tracking-widest text-outline pointer-events-none">
+        <div className="absolute inset-x-6 -bottom-0.5 h-4 flex justify-between text-kicker font-label uppercase tracking-widest text-outline pointer-events-none">
           <span data-testid="timeline-axis-start">0&apos;</span>
           <span data-testid="timeline-axis-mid">{formatMatchMinute(halfTimeMin, injuryWindows)}&apos;</span>
           <span data-testid="timeline-axis-end">{formatMatchMinute(fullTimeMin, injuryWindows)}&apos;</span>
@@ -576,7 +576,7 @@ function TimelineHeader({
         <AppIcon name="timeline" className="text-sm text-primary" />
         {t('title')}
       </h3>
-      <div className="flex items-center gap-3 text-[10px] font-headline uppercase tracking-widest text-on-surface-variant tabular-nums">
+      <div className="flex items-center gap-3 text-kicker font-headline uppercase tracking-widest text-on-surface-variant tabular-nums">
         {totalSnapshots > 0 && (
           <span data-testid="timeline-snap-label">
             {t('snapLabel', {
@@ -687,7 +687,7 @@ function Playhead({
       {/* Minute chip — small label above the thumb showing the current
           scrubbed minute. Always visible so the reader doesn't have to
           hunt. */}
-      <div className="absolute left-1/2 -translate-x-1/2 -top-9 px-1.5 py-0.5 rounded-lg bg-primary text-on-primary font-mono font-black text-[10px] tabular-nums">
+      <div className="absolute left-1/2 -translate-x-1/2 -top-9 px-1.5 py-0.5 rounded-lg bg-primary text-on-primary font-mono font-black text-kicker tabular-nums">
         {minuteLabel}&apos;
       </div>
     </div>
@@ -770,7 +770,7 @@ function Legend() {
         return (
           <span
             key={type}
-            className="inline-flex items-center gap-1.5 text-[9px] font-headline uppercase tracking-widest text-on-surface-variant"
+            className="inline-flex items-center gap-1.5 text-kicker font-headline uppercase tracking-widest text-on-surface-variant"
             data-testid={`timeline-legend-${type.toLowerCase()}`}
           >
             <span

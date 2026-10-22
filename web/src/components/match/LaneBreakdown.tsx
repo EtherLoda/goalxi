@@ -105,13 +105,13 @@ export function LaneBreakdown({
   return (
     <div className="glass-panel rounded-2xl p-4 shrink-0">
       {/* Header */}
-      <h3 className="font-headline font-bold text-[10px] uppercase tracking-widest text-primary/80 mb-3 flex items-center gap-2">
+      <h3 className="font-headline font-bold text-kicker uppercase tracking-widest text-primary/80 mb-3 flex items-center gap-2">
         <AppIcon name="analytics" className="text-base" />
         Lane Breakdown
       </h3>
 
       {/* Team header strip — color swatches + names on each side */}
-      <div className="flex items-center justify-between mb-3 text-[10px] font-headline">
+      <div className="flex items-center justify-between mb-3 text-kicker font-headline">
         <div className="flex items-center gap-1.5 min-w-0">
           <span
             className="w-2.5 h-2.5 rounded-full shrink-0 ring-2 ring-white/10"
@@ -121,7 +121,7 @@ export function LaneBreakdown({
             {homeTeamName}
           </span>
         </div>
-        <span className="text-[9px] font-label text-on-surface-variant/40 px-1">VS</span>
+        <span className="text-kicker font-label text-on-surface-variant/40 px-1">VS</span>
         <div className="flex items-center gap-1.5 min-w-0 justify-end">
           <span
             className="font-bold uppercase tracking-wider truncate"
@@ -154,11 +154,11 @@ export function LaneBreakdown({
               {/* Lane header */}
               <div className="flex items-center justify-between px-2.5 py-1.5 bg-surface-container/50">
                 <div className="flex items-center gap-1.5">
-                  <AppIcon name={lane.icon} className="text-[14px] text-on-surface-variant" />
-                  <span className="font-headline font-black text-[10px] uppercase tracking-wider text-on-surface">
+                  <AppIcon name={lane.icon} className="text-title text-on-surface-variant" />
+                  <span className="font-headline font-black text-kicker uppercase tracking-wider text-on-surface">
                     {lane.label}
                   </span>
-                  <span className="font-mono text-[9px] text-on-surface-variant/50">· {lane.sub}</span>
+                  <span className="font-mono text-kicker text-on-surface-variant/50">· {lane.sub}</span>
                 </div>
                 {winner !== 'draw' && (
                   <span
@@ -213,7 +213,7 @@ export function LaneBreakdown({
                   return (
                     <div
                       key={metric.key}
-                      className="grid grid-cols-[28px_1fr_1fr] items-center gap-1.5 text-[9px]"
+                      className="grid grid-cols-[28px_1fr_1fr] items-center gap-1.5 text-kicker"
                     >
                       <span className="font-headline font-bold text-[8px] uppercase tracking-widest text-on-surface-variant/70 text-center">
                         {metric.short}
@@ -223,7 +223,7 @@ export function LaneBreakdown({
                       <div className="flex items-center gap-1 min-w-0">
                         <div className="flex flex-col items-end shrink-0 w-[60px]">
                           <span
-                            className="font-headline font-bold text-[11px] leading-tight"
+                            className="font-headline font-bold text-label leading-tight"
                             style={{ color: homeCol }}
                             title={`Lane strength ${homeVal.toFixed(1)} / 20`}
                           >
@@ -259,7 +259,7 @@ export function LaneBreakdown({
                         </div>
                         <div className="flex flex-col items-start shrink-0 w-[60px]">
                           <span
-                            className="font-headline font-bold text-[11px] leading-tight"
+                            className="font-headline font-bold text-label leading-tight"
                             style={{ color: awayCol }}
                             title={`Lane strength ${awayVal.toFixed(1)} / 20`}
                           >
@@ -281,19 +281,19 @@ export function LaneBreakdown({
 
       {/* Footer — overall match summary */}
       {(homePossessionPct !== undefined || homeShots !== undefined) && (
-        <div className="mt-3 pt-2.5 border-t border-on-surface/10 flex items-center justify-between text-[9px] font-label uppercase tracking-widest">
+        <div className="mt-3 pt-2.5 border-t border-on-surface/10 flex items-center justify-between text-kicker font-label uppercase tracking-widest">
           {homePossessionPct !== undefined && (
             <div className="flex items-center gap-1.5">
               <span className="text-on-surface-variant/60 font-bold">Poss</span>
               <span
-                className="font-headline font-black tabular-nums text-[11px]"
+                className="font-headline font-black tabular-nums text-label"
                 style={{ color: homeColor }}
               >
                 {homePossessionPct}
               </span>
               <span className="text-on-surface-variant/40">–</span>
               <span
-                className="font-headline font-black tabular-nums text-[11px]"
+                className="font-headline font-black tabular-nums text-label"
                 style={{ color: awayColor }}
               >
                 {awayPossessionPct}
@@ -305,14 +305,14 @@ export function LaneBreakdown({
             <div className="flex items-center gap-1.5">
               <span className="text-on-surface-variant/60 font-bold">Shots</span>
               <span
-                className="font-headline font-black tabular-nums text-[11px]"
+                className="font-headline font-black tabular-nums text-label"
                 style={{ color: homeColor }}
               >
                 {homeShots}
               </span>
               <span className="text-on-surface-variant/40">–</span>
               <span
-                className="font-headline font-black tabular-nums text-[11px]"
+                className="font-headline font-black tabular-nums text-label"
                 style={{ color: awayColor }}
               >
                 {awayShots}

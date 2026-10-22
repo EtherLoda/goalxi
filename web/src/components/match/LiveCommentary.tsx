@@ -162,11 +162,11 @@ export function LiveCommentary({
             {formatMatchMinute(currentMinute, injuryWindows, currentPeriod)}&apos;
           </span>
           {mode === 'live' ? (
-            <span className="text-[9px] font-bold uppercase tracking-widest text-error/80 font-headline animate-pulse">
+            <span className="text-kicker font-bold uppercase tracking-widest text-error/80 font-headline animate-pulse">
               {tChrome('liveTag')}
             </span>
           ) : (
-            <span className="text-[9px] font-bold uppercase tracking-widest text-on-surface-variant/70 font-headline">
+            <span className="text-kicker font-bold uppercase tracking-widest text-on-surface-variant/70 font-headline">
               {tChrome('replayTag')}
             </span>
           )}

@@ -101,7 +101,7 @@ export function MatchKeyEvents({
             >
               <span
                 className={clsx(
-                  'font-mono font-black tabular-nums text-[11px] leading-none',
+                  'font-mono font-black tabular-nums text-label leading-none',
                   entry.minute === currentMinute ? '' : 'opacity-90',
                 )}
                 style={{ color }}
@@ -140,7 +140,7 @@ export function MatchKeyEvents({
               </span>
               <div className="flex-1 min-w-0">
                 <p
-                  className="font-headline font-bold text-[10px] text-on-surface/90 truncate leading-tight"
+                  className="font-headline font-bold text-kicker text-on-surface/90 truncate leading-tight"
                   title={entry.label}
                 >
                   {entry.label}

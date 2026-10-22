@@ -50,14 +50,14 @@ function InfoTile({ icon, caption, value, capitalize }: TileProps) {
   return (
     <div className="flex items-center gap-2 min-w-0">
       <div className="w-7 h-7 shrink-0 rounded-lg bg-primary/10 border border-primary/20 flex items-center justify-center">
-        <AppIcon name={icon} className="text-primary text-[15px] leading-none" />
+        <AppIcon name={icon} className="text-primary text-title leading-none" />
       </div>
       <div className="flex flex-col min-w-0 leading-tight">
         <span className="font-label text-[8px] font-bold uppercase tracking-widest text-on-surface-variant/60">
           {caption}
         </span>
         <span
-          className={`font-headline font-bold text-[11px] text-on-surface truncate ${
+          className={`font-headline font-bold text-label text-on-surface truncate ${
             capitalize ? 'capitalize' : ''
           }`}
           title={value}

@@ -139,11 +139,11 @@ export function FormChipStrip({
               align="end"
               label={
                 <span className="flex flex-col gap-0.5">
-                  <span className="text-[12px] font-bold tracking-normal">
+                  <span className="text-label font-bold tracking-normal">
                     {link.fixture}
                   </span>
                   {link.date && (
-                    <span className="text-[10px] font-normal tracking-normal opacity-70">
+                    <span className="text-kicker font-normal tracking-normal opacity-70">
                       {link.date}
                     </span>
                   )}

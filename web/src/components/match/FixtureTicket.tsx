@@ -64,7 +64,7 @@ export function FixtureTicket({
 
       {/* Date block — neon glow on the day number */}
       <div className="flex flex-col items-center justify-center px-4 py-3 border-r border-white/5 shrink-0 w-20">
-        <span className="font-label text-[9px] font-black uppercase tracking-widest text-on-surface-variant">
+        <span className="font-label text-kicker font-black uppercase tracking-widest text-on-surface-variant">
           {formatMonth(date)}
         </span>
         <span
@@ -73,7 +73,7 @@ export function FixtureTicket({
         >
           {date.getDate()}
         </span>
-        <span className="font-label text-[9px] font-bold uppercase tracking-widest text-on-surface-variant/70 mt-0.5">
+        <span className="font-label text-kicker font-bold uppercase tracking-widest text-on-surface-variant/70 mt-0.5">
           {formatDay(date)}
         </span>
       </div>
@@ -83,7 +83,7 @@ export function FixtureTicket({
         href={`/${locale}/matches/${match.id}`}
         className="flex-1 min-w-0 px-4 py-3 flex flex-col justify-center gap-1 hover:bg-white/2 transition-colors"
       >
-        <div className="flex items-center gap-2 text-[10px] font-label uppercase tracking-widest text-on-surface-variant">
+        <div className="flex items-center gap-2 text-kicker font-label uppercase tracking-widest text-on-surface-variant">
           <MatchTypeBadge
             type={match.type}
             cupRound={match.cupRound ?? null}

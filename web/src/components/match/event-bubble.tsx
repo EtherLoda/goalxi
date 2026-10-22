@@ -162,7 +162,7 @@ export const EventBubble: React.FC<EventBubbleProps> = ({
           aria-hidden
         />
         <span
-          className={`font-mono font-black text-[11px] tabular-nums ${minuteTone}`}
+          className={`font-mono font-black text-label tabular-nums ${minuteTone}`}
           style={minuteStyle}
         >
           {formatMatchMinute(
@@ -181,7 +181,7 @@ export const EventBubble: React.FC<EventBubbleProps> = ({
             {React.createElement(Icon, { size: 13 })}
           </span>
           <div className="flex-1 min-w-0">
-            <p className="text-[13px] leading-snug text-on-surface">{text}</p>
+            <p className="text-body leading-snug text-on-surface">{text}</p>
           </div>
         </div>
       </div>

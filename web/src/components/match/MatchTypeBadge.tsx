@@ -105,8 +105,8 @@ export default function MatchTypeBadge({
 
   const sizing =
     size === "md"
-      ? "text-[11px] px-2 py-0.5 gap-1.5"
-      : "text-[9px] px-1.5 py-0.5 gap-1";
+      ? "text-label px-2 py-0.5 gap-1.5"
+      : "text-kicker px-1.5 py-0.5 gap-1";
 
   return (
     <span
@@ -117,7 +117,7 @@ export default function MatchTypeBadge({
         className,
       )}
     >
-      <AppIcon name={style.icon} className="text-[12px] leading-none" />
+      <AppIcon name={style.icon} className="text-label leading-none" />
       <span className="leading-none">{label}</span>
     </span>
   );

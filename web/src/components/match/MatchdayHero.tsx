@@ -109,32 +109,32 @@ export function MatchdayHero({
           {isLive ? (
             <span className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary/10 border border-primary/30">
               <span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
-              <span className="font-label text-[10px] font-black uppercase tracking-[0.25em] text-primary">
+              <span className="font-label text-kicker font-black uppercase tracking-[0.25em] text-primary">
                 {t('liveLabel')} · {currentMinute ?? pick.round ?? '?'}&apos;
               </span>
             </span>
           ) : featuredRight && pick === featuredRight && !latestCompleted ? (
             <span className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-tertiary/10 border border-tertiary/30">
-              <AppIcon name="event" className="text-[14px] text-tertiary" />
-              <span className="font-label text-[10px] font-black uppercase tracking-[0.25em] text-tertiary">
+              <AppIcon name="event" className="text-title text-tertiary" />
+              <span className="font-label text-kicker font-black uppercase tracking-[0.25em] text-tertiary">
                 {t('nextMatch')} · {dateLabel}
               </span>
             </span>
           ) : (
             <span className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/5 border border-white/10">
-              <AppIcon name="history" className="text-[14px] text-on-surface-variant" />
-              <span className="font-label text-[10px] font-black uppercase tracking-[0.25em] text-on-surface-variant">
+              <AppIcon name="history" className="text-title text-on-surface-variant" />
+              <span className="font-label text-kicker font-black uppercase tracking-[0.25em] text-on-surface-variant">
                 {t('latest')}
               </span>
             </span>
           )}
-          <span className="hidden sm:inline-block font-label text-[10px] font-black uppercase tracking-[0.25em] text-on-surface-variant/60">
+          <span className="hidden sm:inline-block font-label text-kicker font-black uppercase tracking-[0.25em] text-on-surface-variant/60">
             {pick.round ? tCommon('round', { round: pick.round }) : ''} {pick.round ? '·' : ''} {leagueName}
           </span>
         </div>
         <Link
           href={detailHref}
-          className="font-label text-[10px] font-black uppercase tracking-[0.25em] text-primary hover:text-primary-fixed transition-colors flex items-center gap-1"
+          className="font-label text-kicker font-black uppercase tracking-[0.25em] text-primary hover:text-primary-fixed transition-colors flex items-center gap-1"
         >
           {isLive ? t('enterLive') : t('viewReport')}
           <AppIcon name="arrow_forward" className="text-base" />
@@ -150,7 +150,7 @@ export function MatchdayHero({
           <div className="relative z-10 flex flex-col md:flex-row items-center justify-between gap-6 md:gap-8">
             {/* Home team */}
             <div className="flex-1 flex flex-col items-center md:items-end gap-2 text-center md:text-right min-w-0">
-              <span className="font-label text-[9px] font-black uppercase tracking-[0.25em] text-primary/80">
+              <span className="font-label text-kicker font-black uppercase tracking-[0.25em] text-primary/80">
                 {tCommon('home')}
               </span>
               <div className="font-headline text-2xl md:text-3xl lg:text-4xl font-black text-on-surface tracking-tight truncate w-full">
@@ -195,7 +195,7 @@ export function MatchdayHero({
                 </div>
               ) : (
                 <div className="flex flex-col items-center gap-2">
-                  <span className="font-label text-[9px] font-black uppercase tracking-[0.25em] text-on-surface-variant">
+                  <span className="font-label text-kicker font-black uppercase tracking-[0.25em] text-on-surface-variant">
                     {timeLabel} · {isHome ? 'Home' : 'Away'}
                   </span>
                   <span
@@ -206,14 +206,14 @@ export function MatchdayHero({
                   </span>
                 </div>
               )}
-              <span className="font-label text-[9px] font-black uppercase tracking-[0.25em] text-on-surface-variant/60">
+              <span className="font-label text-kicker font-black uppercase tracking-[0.25em] text-on-surface-variant/60">
                 {isLive ? t('inProgress') : pick.status === MATCH_STATUS.COMPLETED ? t('fullTime') : t('kickOff')}
               </span>
             </div>
 
             {/* Away team */}
             <div className="flex-1 flex flex-col items-center md:items-start gap-2 text-center md:text-left min-w-0">
-              <span className="font-label text-[9px] font-black uppercase tracking-[0.25em] text-secondary/80">
+              <span className="font-label text-kicker font-black uppercase tracking-[0.25em] text-secondary/80">
                 {tCommon('away')}
               </span>
               <div className="font-headline text-2xl md:text-3xl lg:text-4xl font-black text-on-surface tracking-tight truncate w-full">
@@ -230,7 +230,7 @@ export function MatchdayHero({
           {/* Footer: venue / live link / tactics entry */}
           <div className="relative z-10 mt-6 pt-4 border-t border-white/5 flex flex-wrap items-center justify-between gap-3">
             <div className="flex items-center gap-2 text-xs text-on-surface-variant">
-              <AppIcon name="stadium" className="text-[14px]" />
+              <AppIcon name="stadium" className="text-title" />
               <span>{pick.venue || t('venueTbd')}</span>
             </div>
             <div className="flex items-center gap-2">

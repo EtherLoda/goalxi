@@ -79,7 +79,7 @@ export function MatchScoreHero({
           >
             {homeTeamName}
           </div>
-          <div className="text-[10px] font-bold uppercase tracking-widest text-on-surface-variant font-headline mt-0.5">
+          <div className="text-kicker font-bold uppercase tracking-widest text-on-surface-variant font-headline mt-0.5">
             {t('home')}
           </div>
         </div>
@@ -107,7 +107,7 @@ export function MatchScoreHero({
           >
             {awayTeamName}
           </div>
-          <div className="text-[10px] font-bold uppercase tracking-widest text-on-surface-variant font-headline mt-0.5">
+          <div className="text-kicker font-bold uppercase tracking-widest text-on-surface-variant font-headline mt-0.5">
             {t('away')}
           </div>
         </div>
@@ -141,7 +141,7 @@ export function MatchScoreHero({
             : `${currentMinute}&apos;`}
         </span>
         {!isComplete && (
-          <span className="text-[10px] font-bold uppercase tracking-widest font-headline">
+          <span className="text-kicker font-bold uppercase tracking-widest font-headline">
             {isConnected
               ? t('liveTag')
               : isReconnecting

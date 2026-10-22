@@ -73,7 +73,7 @@ const TickerChunk: React.FC<TickerChunkProps> = ({ items, formatText, formatMinu
           <span className={`shrink-0 ${isFresh ? 'text-primary' : ''}`}>
             {React.createElement(Icon, { size: 14 })}
           </span>
-          <span className="font-mono text-[11px] font-bold tabular-nums text-primary/90">
+          <span className="font-mono text-label font-bold tabular-nums text-primary/90">
             {formatMinute(e)}&apos;
           </span>
           <span className="text-xs leading-none">{formatText(e)}</span>

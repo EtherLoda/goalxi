@@ -336,7 +336,7 @@ export function TacticalMatchDetail({
           {/* RIGHT — venue + kickoff + weather forecast placeholder */}
           <div className="flex flex-col gap-3">
             <div className="glass-panel rounded-2xl p-4">
-              <h3 className="font-headline font-bold text-[10px] uppercase tracking-widest text-primary/80 mb-3 flex items-center gap-2">
+              <h3 className="font-headline font-bold text-kicker uppercase tracking-widest text-primary/80 mb-3 flex items-center gap-2">
                 <AppIcon name="stadium" className="text-base" />
                 {tLiveChrome('matchInfo') ?? 'Match Info'}
               </h3>
@@ -403,7 +403,7 @@ export function TacticalMatchDetail({
                       {forecast.forecasts.slice(1).map((f: WeatherForecastEntry) => (
                         <span
                           key={f.weather}
-                          className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-surface-container text-[10px] font-label text-on-surface/60"
+                          className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-surface-container text-kicker font-label text-on-surface/60"
                         >
                           <AppIcon name={weatherIconName(f.weather)} />
                           <span className="capitalize">
@@ -426,7 +426,7 @@ export function TacticalMatchDetail({
                   </div>
                 )}
                 {match.status === MATCH_STATUS.CANCELLED && (
-                  <p className="text-[10px] font-label text-error uppercase tracking-widest mt-1">
+                  <p className="text-kicker font-label text-error uppercase tracking-widest mt-1">
                     {tLiveChrome('cancelled') ?? 'Cancelled'}
                   </p>
                 )}
@@ -539,7 +539,7 @@ export function TacticalMatchDetail({
                   (venue / weather / attendance) and a fixed h-32 was
                   overflowing. */}
               <div className="glass-panel rounded-2xl p-4 shrink-0">
-                <h3 className="font-headline font-bold text-[10px] uppercase tracking-widest text-primary/80 mb-3 flex items-center gap-2">
+                <h3 className="font-headline font-bold text-kicker uppercase tracking-widest text-primary/80 mb-3 flex items-center gap-2">
                   <AppIcon name="stadium" className="text-base" />
                   {tLiveChrome('matchInfo') ?? 'Match Info'}
                 </h3>
@@ -558,7 +558,7 @@ export function TacticalMatchDetail({
                   LaneBreakdown consumed ~480px, squeezing this panel to
                   ~0px — hence "no events visible". */}
               <div className="glass-panel rounded-2xl p-4 flex flex-col min-h-[200px] max-h-[420px]">
-                <h3 className="font-headline font-bold text-[10px] uppercase tracking-widest text-primary/80 mb-3 flex items-center gap-2 shrink-0">
+                <h3 className="font-headline font-bold text-kicker uppercase tracking-widest text-primary/80 mb-3 flex items-center gap-2 shrink-0">
                   <AppIcon name="history" className="text-base" />
                   {tLiveChrome('keyEvents') ?? 'Key Events'}
                 </h3>
