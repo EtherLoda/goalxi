@@ -80,7 +80,7 @@ export function MatchKeyEvents({
 
   return (
     // `max-h + overflow-y-auto` on the root so the panel is
-    // self-sufficient — both `MatchPitchSidebar` and
+    // self-sufficient — both the sidebar panels and
     // `TacticalMatchDetail` wrap this in a `glass-panel`, and
     // either wrapper may or may not be height-bounded depending
     // on the layout. The internal scroll means the panel degrades

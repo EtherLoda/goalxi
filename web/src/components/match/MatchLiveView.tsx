@@ -25,8 +25,11 @@ import { LiveCommentary } from './LiveCommentary';
 import { MatchPitch } from './MatchPitch';
 import { MatchTimeline } from './MatchTimeline';
 import { MatchScoreHero } from './bento/MatchScoreHero';
-import { MatchPitchSidebar } from './MatchPitchSidebar';
 import { MatchPage } from './MatchPage';
+import { useInjuryWindows } from './match-timeline';
+import { MatchInfoPanel } from './MatchInfoPanel';
+import { MatchKeyEvents } from './MatchKeyEvents';
+import { extractSidebarData } from './match-sidebar-data';
 import { extractSnapshots, resolveAutoSnapIndex } from './snapshot-stats';
 
 const MATCH_END_REDIRECT_DELAY_MS = 2500;
@@ -161,7 +164,7 @@ export function MatchLiveView({
     () => Math.max(0, snapshots.length - 1),
   );
 
-  // String-keyed roster map for MatchPitchSidebar → MatchKeyEvents.
+  // String-keyed roster map for MatchKeyEvents.
   // MatchEvent.playerId is a string but Player.id is a number, so we
   // stringify at lookup time. Without this, the key events panel
   // can't resolve player names from the events.
@@ -186,6 +189,16 @@ export function MatchLiveView({
     const next = resolveAutoSnapIndex(snapshots.length, isUserScrubbingRef.current);
     if (next !== null) setActiveSnapshotIndex(next);
   }, [snapshots.length]);
+
+  // Same three panels the report renders, fed from the event stream
+  // instead of the finished stats row. Weather and attendance only ever
+  // exist as events, so both modes read them the same way.
+  const {
+    weather: sidebarWeather,
+    attendance: sidebarAttendance,
+    keyEvents,
+  } = useMemo(() => extractSidebarData(visibleEvents), [visibleEvents]);
+  const injuryWindows = useInjuryWindows(visibleEvents);
 
   // ── Connection error state ─────────────────────────────────────────────────
   if (error && connectionStatus === 'disconnected' && !matchState) {
@@ -312,14 +325,36 @@ export function MatchLiveView({
         />
       }
       aside={
-        <MatchPitchSidebar
-          events={visibleEvents}
-          currentMinute={currentMinute}
-          stadium={match?.venue ?? undefined}
-          homeTeamId={match?.homeTeam?.id ?? null}
-          awayTeamId={match?.awayTeam?.id ?? null}
-          rosterById={rosterByIdForKeys}
-        />
+        <>
+          <GlassPanel className="p-4 shrink-0">
+            <h3 className="font-headline font-bold text-kicker uppercase tracking-widest text-primary/80 mb-3 flex items-center gap-2">
+              <AppIcon name="stadium" className="text-base" />
+              {t('matchInfo')}
+            </h3>
+            <MatchInfoPanel
+              stadium={match?.venue ?? undefined}
+              weather={sidebarWeather ?? undefined}
+              attendance={sidebarAttendance ?? undefined}
+            />
+          </GlassPanel>
+
+          <GlassPanel className="p-4 flex flex-col min-h-[200px] max-h-[420px]">
+            <h3 className="font-headline font-bold text-kicker uppercase tracking-widest text-primary/80 mb-3 flex items-center gap-2 shrink-0">
+              <AppIcon name="history" className="text-base" />
+              {t('keyEvents')}
+            </h3>
+            <div className="flex-1 min-h-0 overflow-y-auto">
+              <MatchKeyEvents
+                events={keyEvents}
+                rosterById={rosterByIdForKeys}
+                currentMinute={currentMinute}
+                homeTeamId={match?.homeTeam?.id ?? null}
+                awayTeamId={match?.awayTeam?.id ?? null}
+                injuryWindows={injuryWindows}
+              />
+            </div>
+          </GlassPanel>
+        </>
       }
       asideScroll
     />
