@@ -287,7 +287,7 @@ export default function StadiumPage() {
       ) : (
         <>
           {/* Hero — the ground on the left, the money on the right */}
-          <section className="grid grid-cols-1 lg:grid-cols-[minmax(0,1.55fr)_minmax(0,1fr)] gap-4 items-stretch">
+          <section className="grid grid-cols-1 lg:grid-cols-[minmax(0,1.55fr)_minmax(0,1fr)] gap-4 items-start">
             <StadiumStage
               level={summary.level}
               occupancyText={occupancyText}
@@ -339,33 +339,6 @@ export default function StadiumPage() {
                   icon="trending_up"
                 />
 
-                <div className="flex flex-1 flex-col rounded-xl border border-outline-variant/10 bg-gradient-to-br from-surface-container/80 to-surface-container-low/40 p-4">
-                  <div className="text-[10px] font-black uppercase tracking-[0.3em] text-on-surface-variant">
-                    {t("weatherTitle")}
-                  </div>
-                  <div className="mt-3 grid flex-1 grid-cols-3 gap-2">
-                    {(summary.forecast ?? []).map((day, i) => {
-                      const key = (day.weather ?? "").toLowerCase();
-                      return (
-                        <div
-                          key={day.date}
-                          className="flex flex-col items-center justify-center gap-2 rounded-lg border border-outline-variant/10 bg-surface-container/50 py-4"
-                        >
-                          <span className="text-[10px] font-bold tracking-wide text-on-surface-variant">
-                            {t(`weatherDay.${i}`)}
-                          </span>
-                          <AppIcon
-                            name={WEATHER_ICON[key] ?? "cloud"}
-                            className="text-2xl text-primary"
-                          />
-                          <span className="font-headline text-xs font-black text-on-surface">
-                            {key ? t(`weather.${key}`) : "—"}
-                          </span>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
               </div>
             </aside>
           </section>
@@ -456,8 +429,13 @@ export default function StadiumPage() {
                       construction={c}
                       locale={locale}
                       labels={{
-                        weeksLeft: tConstruction("weeksLeft"),
-                        eta: tConstruction("eta"),
+                        weeksLeft: (n: number) =>
+                          tConstruction("weeksLeft", { n }),
+                        progress: (pct: number) =>
+                          tConstruction("progressPct", { pct }),
+                        expand: tConstruction("kindExpand"),
+                        demolish: tConstruction("kindDemolish"),
+                        seats: tConstruction("unitSeats"),
                       }}
                     />
                   ))}
@@ -577,7 +555,13 @@ function ActiveConstructionCard({
 }: {
   construction: StadiumConstruction;
   locale: Locale;
-  labels: { weeksLeft: string; eta: string };
+  labels: {
+    weeksLeft: (n: number) => string;
+    progress: (pct: number) => string;
+    expand: string;
+    demolish: string;
+    seats: string;
+  };
 }) {
   const isExpand = construction.kind === "EXPAND";
   const progressPct = Math.min(
@@ -600,13 +584,13 @@ function ActiveConstructionCard({
               (isExpand ? "text-primary" : "text-error")
             }
           >
-            {isExpand ? "Expand" : "Demolish"}
+            {isExpand ? labels.expand : labels.demolish}
           </div>
           <div className="font-headline text-xl font-black text-on-surface tabular-nums">
             {sign}
             {construction.deltaSeats.toLocaleString()}{" "}
             <span className="text-xs text-on-surface-variant font-body font-normal">
-              seats
+              {labels.seats}
             </span>
           </div>
           <div className="text-[10px] text-on-surface-variant mt-1">
@@ -616,10 +600,10 @@ function ActiveConstructionCard({
         </div>
         <div className="text-right">
           <div className="font-headline text-sm font-bold text-on-surface">
-            {labels.weeksLeft}
+            {labels.weeksLeft(construction.remainingWeeks)}
           </div>
           <div className="text-[10px] text-on-surface-variant mt-0.5">
-            {labels.eta}
+            {labels.progress(Math.round(progressPct))}
           </div>
         </div>
       </div>

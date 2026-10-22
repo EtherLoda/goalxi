@@ -1654,7 +1654,11 @@
         "nextLevelTitle": "下一级",
         "nextLevelCap": "容量上限 {from} → {to}",
         "upgradeMeta": "{cost} · {weeks} 周",
-        "emptyProjects": "暂无进行中的工程"
+        "emptyProjects": "暂无进行中的工程",
+        "progressPct": "已完成 {pct}%",
+        "kindExpand": "扩建",
+        "kindDemolish": "拆除",
+        "unitSeats": "座"
       },
       "constructionDialog": {
         "titleExpand": "排队扩建",

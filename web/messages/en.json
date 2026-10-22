@@ -1654,7 +1654,11 @@
         "nextLevelTitle": "Next level",
         "nextLevelCap": "Ceiling {from} → {to}",
         "upgradeMeta": "{cost} · {weeks} wk",
-        "emptyProjects": "No projects in progress"
+        "emptyProjects": "No projects in progress",
+        "progressPct": "{pct}% complete",
+        "kindExpand": "Expand",
+        "kindDemolish": "Demolish",
+        "unitSeats": "seats"
       },
       "constructionDialog": {
         "titleExpand": "Queue Expansion",
