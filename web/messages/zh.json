@@ -300,9 +300,19 @@
       "league": "联赛"
     },
     "verdict": {
-      "victory": "胜",
-      "defeat": "负",
-      "draw": "平"
+      "title": "比赛结论",
+      "wonOnLane": "{team} 赢在{lane}，净优势 {edge}。",
+      "possessionButLost": "{team} 控球 {pct}%，却没把它变成比分。",
+      "clinical": "{team} 射正 {onTarget} 次，进 {goals} 球。",
+      "tight": "两队净胜球差不到一球，{team} 拿下了它。",
+      "even": "三路都没拉开差距，这场没有赢家。",
+      "lane": {
+        "left": "左路",
+        "center": "中路",
+        "right": "右路"
+      },
+      "possessionShort": "控球 {home}%–{away}%",
+      "onTargetShort": "射正 {home}–{away}"
     },
     "showAll": "全部 ({count})",
     "showLess": "收起",

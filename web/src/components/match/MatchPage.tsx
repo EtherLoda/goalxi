@@ -24,6 +24,8 @@ interface MatchPageProps {
   /** Full-width strip above the score hero (live connection / full-time state). */
   banner?: React.ReactNode;
   hero: React.ReactNode;
+  /** Full-width verdict strip under the hero (report only, post-match). */
+  verdict?: React.ReactNode;
   /** Pitch + view toggle. */
   main: React.ReactNode;
   /** Minute track / match spine. Sits under the pitch in the left column. */
@@ -42,6 +44,7 @@ export function MatchPage({
   mode,
   banner,
   hero,
+  verdict,
   main,
   timeline,
   commentary,
@@ -57,6 +60,8 @@ export function MatchPage({
       {banner}
 
       {hero}
+
+      {verdict}
 
       <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_300px] gap-4 items-start">
         <div className="space-y-3">

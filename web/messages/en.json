@@ -300,9 +300,19 @@
       "league": "League"
     },
     "verdict": {
-      "victory": "Victory",
-      "defeat": "Defeat",
-      "draw": "Draw"
+      "title": "Verdict",
+      "wonOnLane": "{team} won it down the {lane} — a {edge} net edge.",
+      "possessionButLost": "{team} had {pct}% of the ball and nothing to show for it.",
+      "clinical": "{team} put {onTarget} on target and scored {goals}.",
+      "tight": "Separated by a single goal — {team} took it.",
+      "even": "Nothing separated the three lanes. No winner here.",
+      "lane": {
+        "left": "Left",
+        "center": "Centre",
+        "right": "Right"
+      },
+      "possessionShort": "Possession {home}%–{away}%",
+      "onTargetShort": "On target {home}–{away}"
     },
     "showAll": "All ({count})",
     "showLess": "Show Less",

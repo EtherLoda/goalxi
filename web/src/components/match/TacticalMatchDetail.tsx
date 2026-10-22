@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import { AppIcon, type MaterialIconName } from "@/components/icons/AppIcon";
 import { useEffect, useMemo, useState } from 'react';
@@ -27,6 +27,7 @@ import { MatchInfoPanel } from './MatchInfoPanel';
 import { MatchKeyEvents } from './MatchKeyEvents';
 import { MatchSubstitutes } from './MatchSubstitutes';
 import { StatsResult } from './StatsResult';
+import { MatchVerdict } from './MatchVerdict';
 import { extractSidebarData } from './match-sidebar-data';
 import { MatchScoreHero } from './bento/MatchScoreHero';
 
@@ -144,6 +145,35 @@ export function TacticalMatchDetail({
   // to just the score header and a small pre-match card.
   const isCompleted = match.status === MATCH_STATUS.COMPLETED;
   const isPreMatch = !isLive && !isCompleted;
+
+  // The verdict needs every lane average on both sides. Missing stats (or a
+  // pre-match page) means there is nothing honest to say, so the strip is
+  // simply absent rather than rendered with zeros.
+  const verdict = useMemo(() => {
+    const homeLanes = stats?.homeTeamStats.laneStrengthAverages;
+    const awayLanes = stats?.awayTeamStats.laneStrengthAverages;
+    if (!isCompleted || !homeLanes || !awayLanes) return null;
+    const toPct = (value: string | number | undefined): number => {
+      const n = typeof value === 'string' ? Number.parseFloat(value) : (value ?? 50);
+      return Number.isFinite(n) ? n : 50;
+    };
+    return {
+      home: {
+        name: homeName,
+        goals: stats?.homeTeamStats.score ?? 0,
+        shotsOnTarget: stats?.homeTeamStats.shotsOnTarget ?? 0,
+        possessionPct: toPct(stats?.homeTeamStats.possessionPercentage),
+        lanes: homeLanes,
+      },
+      away: {
+        name: awayName,
+        goals: stats?.awayTeamStats.score ?? 0,
+        shotsOnTarget: stats?.awayTeamStats.shotsOnTarget ?? 0,
+        possessionPct: toPct(stats?.awayTeamStats.possessionPercentage),
+        lanes: awayLanes,
+      },
+    };
+  }, [isCompleted, stats, homeName, awayName]);
   // Derive the minute the report-mode chrome should show. See
   // `getReportCurrentMinute` for the rationale (was hard-coded 90;
   // broke forfeit/extra-time cases).
@@ -436,6 +466,7 @@ export function TacticalMatchDetail({
     <MatchPage
       mode="report"
       hero={hero}
+      verdict={verdict ? <MatchVerdict home={verdict.home} away={verdict.away} /> : undefined}
       main={
         <div className="space-y-3">
           <div className="flex justify-end mb-2">
