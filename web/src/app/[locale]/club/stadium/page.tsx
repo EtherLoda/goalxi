@@ -337,13 +337,58 @@ export default function StadiumPage() {
                   value={summary.maxMatchdayRevenue.toLocaleString()}
                   icon="trending_up"
                 />
+
+                {blockedByActive ? (
+                  <div className="flex flex-1 items-center justify-center rounded-xl border border-outline-variant/10 bg-surface-container/40 p-4 text-center text-xs text-on-surface-variant">
+                    {tDialog("oneAtATime")}
+                  </div>
+                ) : summary.level < summary.maxLevel ? (
+                  <div className="flex flex-1 flex-col justify-between rounded-xl border border-primary/25 bg-primary/[0.06] p-4">
+                    <div>
+                      <div className="text-[10px] font-black uppercase tracking-[0.3em] text-primary/80">
+                        {tConstruction("nextLevelTitle")}
+                      </div>
+                      <div className="mt-1 font-headline text-2xl font-black text-on-surface">
+                        {t("levelBadge", {
+                          level: summary.level + 1,
+                          max: summary.maxLevel,
+                        })}
+                      </div>
+                      <p className="mt-1 font-mono text-[11px] tabular-nums text-on-surface-variant">
+                        {tConstruction("nextLevelCap", {
+                          from: summary.capacityCap.toLocaleString(),
+                          to: (summary.capacityCap + 20000).toLocaleString(),
+                        })}
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => void queueUpgrade()}
+                      disabled={isUpgrading}
+                      className="mt-4 inline-flex items-center justify-center gap-1.5 rounded-full border border-primary/40 bg-primary/10 px-3 py-2 text-[10px] font-black uppercase tracking-widest text-primary transition-colors hover:bg-primary/20 disabled:cursor-not-allowed disabled:opacity-40"
+                    >
+                      <AppIcon name="north" className="text-sm leading-none" />
+                      {tConstruction("upgradeCta", { level: summary.level + 1 })}
+                      <span className="ml-1 font-mono tabular-nums opacity-70">
+                        {tConstruction("upgradeMeta", {
+                          cost: (summary.upgradeCost ?? 0).toLocaleString(),
+                          weeks: summary.upgradeWeeks ?? 0,
+                        })}
+                      </span>
+                    </button>
+                  </div>
+                ) : (
+                  <div className="flex flex-1 items-center justify-center rounded-xl border border-outline-variant/10 bg-surface-container/40 p-4 text-center text-xs text-on-surface-variant">
+                    {tConstruction("upgradeMaxed")}
+                  </div>
+                )}
               </div>
             </aside>
           </section>
 
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 items-start">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 items-stretch">
 {/* Construction — dialog-driven queue */}
-          <section className="bg-surface-container-low rounded-2xl p-6 border border-outline-variant/10">
+          <section className="bg-surface-container-low rounded-2xl p-6 border border-outline-variant/10 flex h-full flex-col">
             <header className="flex items-center justify-between mb-5">
               <div>
                 <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.3em] text-on-surface-variant mb-1">
@@ -360,32 +405,7 @@ export default function StadiumPage() {
             </header>
 
             <div className="flex flex-wrap items-center gap-2">
-              <button
-                type="button"
-                onClick={() => void queueUpgrade()}
-                disabled={
-                  blockedByActive ||
-                  isUpgrading ||
-                  summary.level >= summary.maxLevel
-                }
-                title={
-                  summary.level >= summary.maxLevel
-                    ? tConstruction("upgradeMaxed")
-                    : tConstruction("upgradeHint", {
-                        cost: (summary.upgradeCost ?? 0).toLocaleString(),
-                        weeks: tConstruction("weeksTotal", {
-                          n: summary.upgradeWeeks ?? 0,
-                        }),
-                      })
-                }
-                className="inline-flex items-center gap-1.5 rounded-full border border-primary/40 bg-primary/10 px-3 py-1.5 text-[10px] font-black uppercase tracking-widest text-primary hover:bg-primary/20 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-              >
-                <AppIcon name="north" className="text-sm leading-none" />
-                {tConstruction("upgradeCta", {
-                  level: summary.level + 1,
-                })}
-              </button>
-
+              
               <button
                 type="button"
                 onClick={() => setDialogKind("expand")}
@@ -412,33 +432,35 @@ export default function StadiumPage() {
                 {tDialog("oneAtATime")}
               </p>
             )}
-          </section>
 
-          {/* Active constructions */}
-          {activeConstructions.length > 0 && (
-            <section className="bg-surface-container-low rounded-2xl p-6 border border-outline-variant/10 space-y-3">
-              <header className="flex items-center gap-2 mb-2">
-                <AppIcon name="schedule" className="text-base text-primary" />
-                <h3 className="font-headline text-base font-bold text-on-surface">
+            <div className="mt-auto pt-5">
+              <div className="mb-2 flex items-center gap-2">
+                <AppIcon name="schedule" className="text-sm text-on-surface-variant" />
+                <h4 className="text-[10px] font-black uppercase tracking-widest text-on-surface-variant">
                   {tConstruction("activeProjects")}
-                </h3>
-              </header>
-              {activeConstructions.map((c) => (
-                <ActiveConstructionCard
-                  key={c.id}
-                  construction={c}
-                  locale={locale}
-                  labels={{
-                    weeksLeft: tConstruction("weeksLeft", { n: c.remainingWeeks }),
-                    eta: tConstruction("eta", {
-                      season: c.seasonStarted,
-                      week: c.weekStarted + c.totalWeeks,
-                    }),
-                  }}
-                />
-              ))}
-            </section>
-          )}
+                </h4>
+              </div>
+              {activeConstructions.length === 0 ? (
+                <p className="text-xs text-on-surface-variant">
+                  {tConstruction("emptyProjects")}
+                </p>
+              ) : (
+                <div className="space-y-3">
+                  {activeConstructions.map((c) => (
+                    <ActiveConstructionCard
+                      key={c.id}
+                      construction={c}
+                      locale={locale}
+                      labels={{
+                        weeksLeft: tConstruction("weeksLeft"),
+                        eta: tConstruction("eta"),
+                      }}
+                    />
+                  ))}
+                </div>
+              )}
+            </div>
+          </section>
 
           {/* Recent matches */}
           <section className="bg-surface-container-low rounded-2xl p-6 border border-outline-variant/10">

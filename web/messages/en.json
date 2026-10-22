@@ -1650,7 +1650,11 @@
         "upgradeCta": "Upgrade to {level}",
         "upgradeHint": "{cost} · {weeks}",
         "upgradeMaxed": "Already at top level",
-        "queuedUpgradeToast": "Upgrade queued — ready in {weeks}"
+        "queuedUpgradeToast": "Upgrade queued — ready in {weeks}",
+        "nextLevelTitle": "Next level",
+        "nextLevelCap": "Ceiling {from} → {to}",
+        "upgradeMeta": "{cost} · {weeks} wk",
+        "emptyProjects": "No projects in progress"
       },
       "constructionDialog": {
         "titleExpand": "Queue Expansion",

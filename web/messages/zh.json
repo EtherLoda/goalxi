@@ -1650,7 +1650,11 @@
         "upgradeCta": "升到 {level} 级",
         "upgradeHint": "{cost} · {weeks}",
         "upgradeMaxed": "已是最高等级",
-        "queuedUpgradeToast": "球场升级已排入队列,{weeks}后完成"
+        "queuedUpgradeToast": "球场升级已排入队列,{weeks}后完成",
+        "nextLevelTitle": "下一级",
+        "nextLevelCap": "容量上限 {from} → {to}",
+        "upgradeMeta": "{cost} · {weeks} 周",
+        "emptyProjects": "暂无进行中的工程"
       },
       "constructionDialog": {
         "titleExpand": "排队扩建",
