@@ -17,6 +17,7 @@ import {
 } from '@/lib/api';
 import { MatchPitch, type MatchSnapshot } from './MatchPitch';
 import { MatchTimeline } from './MatchTimeline';
+import { MatchPage } from './MatchPage';
 import { buildCards } from './match-pitch-data';
 import { LiveCommentary } from './LiveCommentary';
 import { extractSnapshots } from './snapshot-stats';
@@ -289,36 +290,30 @@ export function TacticalMatchDetail({
     match.attendance ?? eventAttendance;
   const resolvedVenue: string | null = match.venue ?? null;
 
-  return (
-    <div className="h-full flex flex-col gap-4">
-      {/* Score Hero — D4 fix: was a hand-rolled `glass-panel` header with its
-          own "Home"/"Away" labels and a separate circular avatar per side.
-          The live page already uses `MatchScoreHero` (bento), so the
-          unified /matches/[id] page had two completely different header
-          implementations that the user saw swap out as `mode` flipped
-          from 'live' to 'report'. Now both modes render the same hero
-          (`isConnected={false}` here, the live wrapper passes its own
-          socket state). */}
-      <MatchScoreHero
-        locale={locale}
-        matchId={matchId}
-        homeTeamName={homeName}
-        awayTeamName={awayName}
-        homeScore={match.homeScore ?? 0}
-        awayScore={match.awayScore ?? 0}
-        currentMinute={currentMinute}
-        isComplete={isCompleted}
-        isConnected={false}
-      />
+  const hero = (
+    <MatchScoreHero
+      locale={locale}
+      matchId={matchId}
+      homeTeamName={homeName}
+      awayTeamName={awayName}
+      homeScore={match.homeScore ?? 0}
+      awayScore={match.awayScore ?? 0}
+      currentMinute={currentMinute}
+      isComplete={isCompleted}
+      isConnected={false}
+    />
+  );
 
-      {/* Pre-match: no events, snapshots or stats yet. Show the empty pitch
-          (no players — they haven't taken the field) plus a slim right column
-          with the venue, kickoff time and a weather-forecast placeholder.
-          Everything else (timeline, bench, commentary, key events, lane
-          stats) stays hidden because there's no data behind it. */}
-      {isPreMatch ? (
-        <div className="grid grid-cols-1 lg:grid-cols-[1fr_280px] gap-4 items-start">
-          {/* LEFT — empty pitch */}
+  // Pre-match: no events, snapshots or stats yet. Show the empty pitch plus a
+  // right rail with the venue, kickoff time and the weather forecast. The
+  // timeline, bench, commentary and lane stats stay hidden because there is no
+  // data behind them.
+  if (isPreMatch) {
+    return (
+      <MatchPage
+        mode="report"
+        hero={hero}
+        main={
           <MatchPitch
             homeTactics={null}
             awayTactics={null}
@@ -332,30 +327,21 @@ export function TacticalMatchDetail({
             homeTeamName={homeName}
             awayTeamName={awayName}
           />
-
-          {/* RIGHT — venue + kickoff + weather forecast placeholder */}
-          <div className="flex flex-col gap-3">
+        }
+        aside={
+          <>
             <div className="glass-panel rounded-2xl p-4">
               <h3 className="font-headline font-bold text-kicker uppercase tracking-widest text-primary/80 mb-3 flex items-center gap-2">
                 <AppIcon name="stadium" className="text-base" />
                 {tLiveChrome('matchInfo') ?? 'Match Info'}
               </h3>
               <div className="flex flex-col gap-2">
-                {/* Venue (stadium) — use the resolved match-level field so
-                    pre-match, live and post-match all read from the same
-                    source. */}
                 <div className="flex items-center gap-2">
                   <AppIcon name="place" className="text-on-surface/40 text-sm" />
                   <span className="font-headline font-bold text-sm text-on-surface/90">
                     {resolvedVenue ?? tLiveChrome('venueTbd') ?? 'Venue TBD'}
                   </span>
                 </div>
-                {/* Predicted weather. Priority:
-                    1. match.weather (denormalised by the scheduler/simulator)
-                    2. forecast from the public /weather/forecast endpoint
-                       (only when the match is within MAX_FORECAST_DAYS)
-                    3. "out of range" when the match is too far ahead
-                    4. "decided at kickoff" as a final fallback. */}
                 <div className="flex flex-col gap-1.5">
                   <div className="flex items-center gap-2">
                     <span className="text-base">
@@ -395,27 +381,25 @@ export function TacticalMatchDetail({
                       )}
                     </span>
                   </div>
-                  {/* Alt-forecast chips — only when we have real data */}
                   {forecast &&
                     forecast.source !== 'out_of_range' &&
                     forecast.forecasts.length > 1 && (
-                    <div className="flex flex-wrap gap-1.5 pl-6">
-                      {forecast.forecasts.slice(1).map((f: WeatherForecastEntry) => (
-                        <span
-                          key={f.weather}
-                          className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-surface-container text-kicker font-label text-on-surface/60"
-                        >
-                          <AppIcon name={weatherIconName(f.weather)} />
-                          <span className="capitalize">
-                            {f.weather.replace('_', ' ')}
+                      <div className="flex flex-wrap gap-1.5 pl-6">
+                        {forecast.forecasts.slice(1).map((f: WeatherForecastEntry) => (
+                          <span
+                            key={f.weather}
+                            className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-surface-container text-kicker font-label text-on-surface/60"
+                          >
+                            <AppIcon name={weatherIconName(f.weather)} />
+                            <span className="capitalize">
+                              {f.weather.replace('_', ' ')}
+                            </span>
+                            <span className="text-on-surface/40">{f.probability}%</span>
                           </span>
-                          <span className="text-on-surface/40">{f.probability}%</span>
-                        </span>
-                      ))}
-                    </div>
-                  )}
+                        ))}
+                      </div>
+                    )}
                 </div>
-                {/* Kickoff time */}
                 {match.scheduledAt && (
                   <div className="flex items-center gap-2">
                     <AppIcon name="schedule" className="text-on-surface/40 text-sm" />
@@ -433,7 +417,6 @@ export function TacticalMatchDetail({
               </div>
             </div>
 
-            {/* Pre-match hint card */}
             <div className="glass-panel rounded-2xl p-4 flex flex-col items-center text-center gap-2">
               <AppIcon name="event" className="text-3xl text-primary/40" />
               <p className="text-xs text-on-surface-variant font-headline">
@@ -441,155 +424,129 @@ export function TacticalMatchDetail({
                   'Lineups, live stats and the event timeline will appear here once the match kicks off.'}
               </p>
             </div>
+          </>
+        }
+      />
+    );
+  }
+
+  return (
+    <MatchPage
+      mode="report"
+      hero={hero}
+      main={
+        <div className="space-y-3">
+          <div className="flex justify-end mb-2">
+            <button
+              type="button"
+              onClick={() => setStatsMode((v) => !v)}
+              aria-pressed={statsMode}
+              className={`inline-flex items-center gap-2 px-5 py-2.5 rounded-full font-headline font-bold text-sm transition-all ring-2 shadow-lg ${
+                statsMode
+                  ? 'bg-primary text-on-primary ring-primary shadow-[0_0_16px_rgba(0,228,121,0.45)]'
+                  : 'bg-surface-container-low text-on-surface ring-primary/60 hover:bg-surface-container-high shadow-md'
+              }`}
+              data-testid="pitch-stats-toggle"
+            >
+              <AppIcon name={statsMode ? 'group' : 'monitoring'} className="text-base" />
+              <span>{statsMode ? tChip('playersView') : tChip('statsView')}</span>
+            </button>
           </div>
-        </div>
-      ) : (
-        <>
-          {/* Match timeline */}
-          <MatchTimeline
-            events={events}
-            snapshots={allSnapshots}
-            currentMinute={reportCurrentMinute}
-            activeIndex={activeSnapshotIndex}
-            onChange={setActiveSnapshotIndex}
+          <MatchPitch
+            homeTactics={homeTactics}
+            awayTactics={awayTactics}
+            homeRoster={homeRoster}
+            awayRoster={awayRoster}
+            activeSnapshot={activeSnapshot}
+            statsMode={statsMode}
+            onToggleStatsMode={() => setStatsMode((v) => !v)}
+            homeForfeit={match.homeForfeit ?? false}
+            awayForfeit={match.awayForfeit ?? false}
+            homeTeamName={homeName}
+            awayTeamName={awayName}
           />
+        </div>
+      }
+      timeline={
+        <MatchTimeline
+          events={events}
+          snapshots={allSnapshots}
+          currentMinute={reportCurrentMinute}
+          activeIndex={activeSnapshotIndex}
+          onChange={setActiveSnapshotIndex}
+        />
+      }
+      commentary={
+        <LiveCommentary
+          events={events}
+          currentMinute={reportCurrentMinute}
+          homeTeamName={homeName}
+          awayTeamName={awayName}
+          homeTeamId={match.homeTeam?.id ?? null}
+          awayTeamId={match.awayTeam?.id ?? null}
+          homeScore={match.homeScore ?? 0}
+          awayScore={match.awayScore ?? 0}
+          mode="replay"
+        />
+      }
+      aside={
+        <>
+          <div className="glass-panel rounded-2xl p-4 shrink-0">
+            <h3 className="font-headline font-bold text-kicker uppercase tracking-widest text-primary/80 mb-3 flex items-center gap-2">
+              <AppIcon name="stadium" className="text-base" />
+              {tLiveChrome('matchInfo') ?? 'Match Info'}
+            </h3>
+            <MatchInfoPanel
+              stadium={resolvedVenue ?? undefined}
+              weather={resolvedWeather ?? undefined}
+              attendance={resolvedAttendance ?? undefined}
+            />
+          </div>
 
-          {/* Grid: left=pitch+sub+commentary, right=matchinfo+keyevents */}
-          <div className="grid grid-cols-1 lg:grid-cols-[1fr_280px] gap-4 items-start">
-            {/* LEFT — pitch + sub + commentary. min-w-0 lets the flex column
-                accept a constrained width — without it grid children with
-                intrinsic content width (LiveCommentary's ticker, goal
-                spotlight 3-col grid, bubble feeds) push past the 1fr
-                track and overflow the page on narrow viewports. */}
-            <div className="flex flex-col gap-4 min-w-0">
-              {/* Pitch */}
-              <div className="space-y-3">
-                <div className="flex justify-end mb-2">
-                  <button
-                    type="button"
-                    onClick={() => setStatsMode((v) => !v)}
-                    aria-pressed={statsMode}
-                    className={`inline-flex items-center gap-2 px-5 py-2.5 rounded-full font-headline font-bold text-sm transition-all ring-2 shadow-lg ${
-                      statsMode
-                        ? 'bg-primary text-on-primary ring-primary shadow-[0_0_16px_rgba(0,228,121,0.45)]'
-                        : 'bg-surface-container-low text-on-surface ring-primary/60 hover:bg-surface-container-high shadow-md'
-                    }`}
-                    data-testid="pitch-stats-toggle"
-                  >
-                    <AppIcon name={statsMode ? 'group' : 'monitoring'} className="text-base" />
-                    <span>
-                      {statsMode ? tChip('playersView') : tChip('statsView')}
-                    </span>
-                  </button>
-                </div>
-                <MatchPitch
-                  homeTactics={homeTactics}
-                  awayTactics={awayTactics}
-                  homeRoster={homeRoster}
-                  awayRoster={awayRoster}
-                  activeSnapshot={activeSnapshot}
-                  statsMode={statsMode}
-                  onToggleStatsMode={() => setStatsMode((v) => !v)}
-                  homeForfeit={match.homeForfeit ?? false}
-                  awayForfeit={match.awayForfeit ?? false}
-                  homeTeamName={homeName}
-                  awayTeamName={awayName}
-                />
-              </div>
-
-              {/* Substitutes — read-only match-report view (planned
-                  bench slots + actual subs from the event log). The
-                  tactics page still uses the drag-and-drop BenchStrip;
-                  here we show settled state, no interaction. */}
-              <MatchSubstitutes
-                homeTeamName={homeName}
-                awayTeamName={awayName}
-                homeBench={homeBench}
-                awayBench={awayBench}
-                homeRosterById={homeRosterById}
-                awayRosterById={awayRosterById}
-                events={events}
-                homeTeamId={homeTeamId}
-                awayTeamId={awayTeamId}
+          <div className="glass-panel rounded-2xl p-4 flex flex-col min-h-[200px] max-h-[420px]">
+            <h3 className="font-headline font-bold text-kicker uppercase tracking-widest text-primary/80 mb-3 flex items-center gap-2 shrink-0">
+              <AppIcon name="history" className="text-base" />
+              {tLiveChrome('keyEvents') ?? 'Key Events'}
+            </h3>
+            <div className="flex-1 min-h-0 overflow-y-auto">
+              <MatchKeyEvents
+                events={keyEvents}
+                rosterById={rosterByIdForKeys}
+                currentMinute={currentMinute}
+                homeTeamId={homeTeamId ?? null}
+                awayTeamId={awayTeamId ?? null}
               />
-
-              {/* Commentary — same component the live page uses, in 'replay'
-                  mode so the header shows "FT" instead of "LIVE" and the
-                  dot stops pulsing. The match is over; we're scrubbing
-                  history. */}
-              <LiveCommentary
-                events={events}
-                currentMinute={reportCurrentMinute}
-                homeTeamName={homeName}
-                awayTeamName={awayName}
-                homeTeamId={match.homeTeam?.id ?? null}
-                awayTeamId={match.awayTeam?.id ?? null}
-                homeScore={match.homeScore ?? 0}
-                awayScore={match.awayScore ?? 0}
-                mode="replay"
-              />
-            </div>
-
-            {/* RIGHT — Match Info + Key Events + Lane Stats.
-                No fixed height — letting the column grow with its content
-                (LaneBreakdown alone is ~480px; the previous h-[540px] was
-                squeezing Key Events down to ~0px and hiding all events). */}
-            <div className="flex flex-col gap-3">
-              {/* Match Info — auto-size: now has up to 3 tiles
-                  (venue / weather / attendance) and a fixed h-32 was
-                  overflowing. */}
-              <div className="glass-panel rounded-2xl p-4 shrink-0">
-                <h3 className="font-headline font-bold text-kicker uppercase tracking-widest text-primary/80 mb-3 flex items-center gap-2">
-                  <AppIcon name="stadium" className="text-base" />
-                  {tLiveChrome('matchInfo') ?? 'Match Info'}
-                </h3>
-                <MatchInfoPanel
-                  stadium={resolvedVenue ?? undefined}
-                  weather={resolvedWeather ?? undefined}
-                  attendance={resolvedAttendance ?? undefined}
-                />
-              </div>
-
-              {/* Key Events — uses the same MatchKeyEvents component as
-                  the live view so home/away attribution, minute-badge
-                  tinting and player name resolution stay in sync.
-                  Bounded height: enough room for ~8 events, scrollable
-                  past that. Previously the right column was h-[540px] and
-                  LaneBreakdown consumed ~480px, squeezing this panel to
-                  ~0px — hence "no events visible". */}
-              <div className="glass-panel rounded-2xl p-4 flex flex-col min-h-[200px] max-h-[420px]">
-                <h3 className="font-headline font-bold text-kicker uppercase tracking-widest text-primary/80 mb-3 flex items-center gap-2 shrink-0">
-                  <AppIcon name="history" className="text-base" />
-                  {tLiveChrome('keyEvents') ?? 'Key Events'}
-                </h3>
-                <div className="flex-1 min-h-0 overflow-y-auto">
-                  <MatchKeyEvents
-                    events={keyEvents}
-                    rosterById={rosterByIdForKeys}
-                    currentMinute={currentMinute}
-                    homeTeamId={homeTeamId ?? null}
-                    awayTeamId={awayTeamId ?? null}
-                  />
-                </div>
-              </div>
-
-              {/* Lane Stats Summary */}
-              {stats?.homeTeamStats?.laneStrengthAverages && stats?.awayTeamStats?.laneStrengthAverages && (
-                <StatsResult
-                  homeLaneStrength={stats.homeTeamStats.laneStrengthAverages}
-                  awayLaneStrength={stats.awayTeamStats.laneStrengthAverages}
-                  homeTeamName={homeName}
-                  awayTeamName={awayName}
-                  homePossessionPct={stats.homeTeamStats.possessionPercentage}
-                  awayPossessionPct={stats.awayTeamStats.possessionPercentage}
-                  homeShots={stats.homeTeamStats.shots}
-                  awayShots={stats.awayTeamStats.shots}
-                />
-              )}
             </div>
           </div>
+
+          {stats?.homeTeamStats?.laneStrengthAverages &&
+            stats?.awayTeamStats?.laneStrengthAverages && (
+              <StatsResult
+                homeLaneStrength={stats.homeTeamStats.laneStrengthAverages}
+                awayLaneStrength={stats.awayTeamStats.laneStrengthAverages}
+                homeTeamName={homeName}
+                awayTeamName={awayName}
+                homePossessionPct={stats.homeTeamStats.possessionPercentage}
+                awayPossessionPct={stats.awayTeamStats.possessionPercentage}
+                homeShots={stats.homeTeamStats.shots}
+                awayShots={stats.awayTeamStats.shots}
+              />
+            )}
         </>
-      )}
-    </div>
+      }
+      footer={
+        <MatchSubstitutes
+          homeTeamName={homeName}
+          awayTeamName={awayName}
+          homeBench={homeBench}
+          awayBench={awayBench}
+          homeRosterById={homeRosterById}
+          awayRosterById={awayRosterById}
+          events={events}
+          homeTeamId={homeTeamId}
+          awayTeamId={awayTeamId}
+        />
+      }
+    />
   );
 }
