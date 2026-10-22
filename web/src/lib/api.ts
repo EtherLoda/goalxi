@@ -226,6 +226,8 @@ interface RecentHomeMatch {
   capacity: number;
   fillRate: number | null;
   result: 'W' | 'D' | 'L' | null;
+  /** Weather the match was played in. */
+  weather: string | null;
 }
 
 /**

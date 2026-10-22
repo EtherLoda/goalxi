@@ -174,6 +174,10 @@ export default function StadiumPage() {
     return `${Math.round(fillRate * 100)}%`;
   }, [fillRate]);
 
+  const lastHomeMatch = recent[0] ?? null;
+  const weatherKey = (lastHomeMatch?.weather ?? "cloudy").toLowerCase();
+  const weatherIcon: MaterialIconName = WEATHER_ICON[weatherKey] ?? "cloud";
+
   const activeConstructions = constructions.filter(
     (c) => c.status === "IN_PROGRESS",
   );
@@ -338,50 +342,48 @@ export default function StadiumPage() {
                   icon="trending_up"
                 />
 
-                {blockedByActive ? (
-                  <div className="flex flex-1 items-center justify-center rounded-xl border border-outline-variant/10 bg-surface-container/40 p-4 text-center text-xs text-on-surface-variant">
-                    {tDialog("oneAtATime")}
-                  </div>
-                ) : summary.level < summary.maxLevel ? (
-                  <div className="flex flex-1 flex-col justify-between rounded-xl border border-primary/25 bg-primary/[0.06] p-4">
-                    <div>
-                      <div className="text-[10px] font-black uppercase tracking-[0.3em] text-primary/80">
-                        {tConstruction("nextLevelTitle")}
-                      </div>
-                      <div className="mt-1 font-headline text-2xl font-black text-on-surface">
-                        {t("levelBadge", {
-                          level: summary.level + 1,
-                          max: summary.maxLevel,
-                        })}
-                      </div>
-                      <p className="mt-1 font-mono text-[11px] tabular-nums text-on-surface-variant">
-                        {tConstruction("nextLevelCap", {
-                          from: summary.capacityCap.toLocaleString(),
-                          to: (summary.capacityCap + 20000).toLocaleString(),
-                        })}
-                      </p>
+                <div className="relative flex flex-1 flex-col justify-between overflow-hidden rounded-xl border border-outline-variant/10 bg-gradient-to-br from-surface-container/80 to-surface-container-low/40 p-4">
+                  <div className="flex items-center justify-between">
+                    <div className="text-[10px] font-black uppercase tracking-[0.3em] text-on-surface-variant">
+                      {t("weatherTitle")}
                     </div>
-                    <button
-                      type="button"
-                      onClick={() => void queueUpgrade()}
-                      disabled={isUpgrading}
-                      className="mt-4 inline-flex items-center justify-center gap-1.5 rounded-full border border-primary/40 bg-primary/10 px-3 py-2 text-[10px] font-black uppercase tracking-widest text-primary transition-colors hover:bg-primary/20 disabled:cursor-not-allowed disabled:opacity-40"
-                    >
-                      <AppIcon name="north" className="text-sm leading-none" />
-                      {tConstruction("upgradeCta", { level: summary.level + 1 })}
-                      <span className="ml-1 font-mono tabular-nums opacity-70">
-                        {tConstruction("upgradeMeta", {
-                          cost: (summary.upgradeCost ?? 0).toLocaleString(),
-                          weeks: summary.upgradeWeeks ?? 0,
+                    <span className="font-mono text-[10px] tabular-nums text-on-surface-variant/70">
+                      {lastHomeMatch?.scheduledAt
+                        ? new Date(lastHomeMatch.scheduledAt).toLocaleDateString(
+                            locale === "zh" ? "zh-CN" : "en-GB",
+                            { month: "2-digit", day: "2-digit" },
+                          )
+                        : ""}
+                    </span>
+                  </div>
+
+                  <div className="mt-3 flex items-center gap-3">
+                    <span className="grid h-12 w-12 place-items-center rounded-xl border border-primary/20 bg-primary/10">
+                      <AppIcon name={weatherIcon} className="text-2xl text-primary" />
+                    </span>
+                    <div className="min-w-0">
+                      <div className="font-headline text-xl font-black text-on-surface">
+                        {t(`weather.${weatherKey}`)}
+                      </div>
+                      <div className="font-mono text-[11px] tabular-nums text-on-surface-variant">
+                        {t("weatherAttendance", {
+                          n: (lastHomeMatch?.attendance ?? 0).toLocaleString(),
                         })}
-                      </span>
-                    </button>
+                      </div>
+                    </div>
                   </div>
-                ) : (
-                  <div className="flex flex-1 items-center justify-center rounded-xl border border-outline-variant/10 bg-surface-container/40 p-4 text-center text-xs text-on-surface-variant">
-                    {tConstruction("upgradeMaxed")}
+
+                  <div className="mt-3 flex items-center justify-between gap-2 border-t border-outline-variant/10 pt-3">
+                    <span className="truncate text-[11px] text-on-surface-variant">
+                      {lastHomeMatch?.opponentName ?? t("weatherNoMatch")}
+                    </span>
+                    <span className="shrink-0 font-mono text-[11px] tabular-nums text-on-surface-variant">
+                      {lastHomeMatch?.fillRate != null
+                        ? `${Math.round(lastHomeMatch.fillRate * 100)}%`
+                        : "—"}
+                    </span>
                   </div>
-                )}
+                </div>
               </div>
             </aside>
           </section>
@@ -406,6 +408,26 @@ export default function StadiumPage() {
 
             <div className="flex flex-wrap items-center gap-2">
               
+              <button
+                type="button"
+                onClick={() => void queueUpgrade()}
+                disabled={blockedByActive || isUpgrading || summary.level >= summary.maxLevel}
+                title={
+                  summary.level >= summary.maxLevel
+                    ? tConstruction("upgradeMaxed")
+                    : tConstruction("upgradeHint", {
+                        cost: (summary.upgradeCost ?? 0).toLocaleString(),
+                        weeks: tConstruction("weeksTotal", {
+                          n: summary.upgradeWeeks ?? 0,
+                        }),
+                      })
+                }
+                className="inline-flex items-center gap-1.5 rounded-full border border-primary/40 bg-primary/10 px-3 py-1.5 text-[10px] font-black uppercase tracking-widest text-primary hover:bg-primary/20 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                <AppIcon name="north" className="text-sm leading-none" />
+                {tConstruction("upgradeCta", { level: summary.level + 1 })}
+              </button>
+
               <button
                 type="button"
                 onClick={() => setDialogKind("expand")}
@@ -673,6 +695,16 @@ function NoStadiumEmpty() {
     </div>
   );
 }
+
+const WEATHER_ICON: Record<string, MaterialIconName> = {
+  sunny: "wb_sunny",
+  cloudy: "cloud",
+  rainy: "rainy",
+  windy: "air",
+  foggy: "foggy",
+  snowy: "ac_unit",
+  stormy: "thunderstorm",
+};
 
 function MiniStat({
   label,

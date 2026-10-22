@@ -1678,7 +1678,19 @@
       },
       "levelBadge": "Level {level} / {max}",
       "capacityCapHint": "Ceiling {cap}",
-      "maxRevenueLabel": "Sold-out income"
+      "maxRevenueLabel": "Sold-out income",
+      "weather": {
+        "sunny": "Clear",
+        "cloudy": "Cloudy",
+        "rainy": "Rain",
+        "windy": "Windy",
+        "foggy": "Fog",
+        "snowy": "Snow",
+        "stormy": "Storm"
+      },
+      "weatherTitle": "Home weather",
+      "weatherAttendance": "{n} at the last match",
+      "weatherNoMatch": "No home matches yet"
     }
   },
   "medical": {

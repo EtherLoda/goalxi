@@ -80,6 +80,8 @@ export interface RecentHomeMatch {
   capacity: number;
   fillRate: number | null;
   result: 'W' | 'D' | 'L' | null;
+  /** Weather the match was played in, as accepted by the engine. */
+  weather: string | null;
 }
 
 @Injectable()
@@ -259,6 +261,7 @@ export class StadiumService {
         capacity: stadium.capacity,
         fillRate,
         result,
+        weather: m.weather ?? null,
       };
     });
   }
