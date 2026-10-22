@@ -492,6 +492,24 @@
         "title": "替补席",
         "used": "已用: {count}"
       }
+    },
+    "spine": {
+      "title": "比赛进程",
+      "empty": "这场比赛还没有事件",
+      "chapter": {
+        "half1": "上半场",
+        "half1Stoppage": "上半场补时",
+        "half2": "下半场",
+        "stoppage": "补时"
+      },
+      "type": {
+        "GOAL": "进球",
+        "SUBSTITUTION": "换人",
+        "YELLOW_CARD": "黄牌",
+        "SECOND_YELLOW": "两黄",
+        "RED_CARD": "红牌",
+        "INJURY": "伤病"
+      }
     }
   },
   "squad": {

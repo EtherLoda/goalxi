@@ -492,6 +492,24 @@
         "title": "Substitutes",
         "used": "Used: {count}"
       }
+    },
+    "spine": {
+      "title": "Match flow",
+      "empty": "No events recorded yet",
+      "chapter": {
+        "half1": "First half",
+        "half1Stoppage": "First-half stoppage",
+        "half2": "Second half",
+        "stoppage": "Stoppage"
+      },
+      "type": {
+        "GOAL": "Goal",
+        "SUBSTITUTION": "Substitution",
+        "YELLOW_CARD": "Yellow",
+        "SECOND_YELLOW": "Second yellow",
+        "RED_CARD": "Red",
+        "INJURY": "Injury"
+      }
     }
   },
   "squad": {

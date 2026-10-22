@@ -16,13 +16,12 @@ import {
   type WeatherType,
 } from '@/lib/api';
 import { MatchPitch, type MatchSnapshot } from './MatchPitch';
-import { MatchTimeline } from './MatchTimeline';
+import { MatchSpine } from './MatchSpine';
 import { MatchPage } from './MatchPage';
 import { buildCards } from './match-pitch-data';
 import { LiveCommentary } from './LiveCommentary';
 import { extractSnapshots } from './snapshot-stats';
 import { normalizePitchLineup } from './pitch-coords';
-import { toPitchSlot } from '../tactics/api-helpers';
 import { MatchInfoPanel } from './MatchInfoPanel';
 import { MatchKeyEvents } from './MatchKeyEvents';
 import { MatchSubstitutes } from './MatchSubstitutes';
@@ -30,6 +29,7 @@ import { StatsResult } from './StatsResult';
 import { MatchVerdict } from './MatchVerdict';
 import { extractSidebarData } from './match-sidebar-data';
 import { MatchScoreHero } from './bento/MatchScoreHero';
+import { closestSnapshotIndex } from './match-timeline';
 
 interface TacticalMatchDetailProps {
   matchId: string;
@@ -59,44 +59,6 @@ interface TacticalMatchDetailProps {
   currentMinute?: number;
 }
 
-interface SnapshotData_dead {
-  h: {
-    n?: string;
-    ls: { left: any; center: any; right: any };
-    lc?: {
-      left: { att: number; ps_: number; pr: number; mpr: number };
-      center: { att: number; ps_: number; pr: number; mpr: number };
-      right: { att: number; ps_: number; pr: number; mpr: number };
-    };
-    gk: number;
-    ps: Array<{
-      id: number;
-      p: string;
-      n?: string;
-      st: number;
-      sr: number;
-      em: number;
-    }>;
-  };
-  a: {
-    n?: string;
-    ls: { left: any; center: any; right: any };
-    lc?: {
-      left: { att: number; ps_: number; pr: number; mpr: number };
-      center: { att: number; ps_: number; pr: number; mpr: number };
-      right: { att: number; ps_: number; pr: number; mpr: number };
-    };
-    gk: number;
-    ps: Array<{
-      id: number;
-      p: string;
-      n?: string;
-      st: number;
-      sr: number;
-      em: number;
-    }>;
-  };
-}
 
 /** Maps a weather type to the Material ligature name shown in the
  * pre-match card (resolved to an SVG by <AppIcon>). */
@@ -503,12 +465,14 @@ export function TacticalMatchDetail({
         </div>
       }
       timeline={
-        <MatchTimeline
+        <MatchSpine
           events={events}
-          snapshots={allSnapshots}
-          currentMinute={reportCurrentMinute}
-          activeIndex={activeSnapshotIndex}
-          onChange={setActiveSnapshotIndex}
+          homeTeamName={homeName}
+          awayTeamName={awayName}
+          activeMinute={allSnapshots[activeSnapshotIndex]?.minute}
+          onSelectMinute={(minute) =>
+            setActiveSnapshotIndex(closestSnapshotIndex(allSnapshots, minute))
+          }
         />
       }
       commentary={
