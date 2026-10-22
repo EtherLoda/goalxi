@@ -372,7 +372,9 @@
         "extraTime": "加时赛",
         "penalties": "点球大战",
         "forfeit": "弃权"
-      }
+      },
+      "pitchViewPlayers": "球员视图",
+      "pitchViewStats": "数据视图"
     },
     "zone": {
       "title": "区域控制",

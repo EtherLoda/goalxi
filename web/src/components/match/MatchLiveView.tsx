@@ -26,6 +26,7 @@ import { MatchPitch } from './MatchPitch';
 import { MatchTimeline } from './MatchTimeline';
 import { MatchScoreHero } from './bento/MatchScoreHero';
 import { MatchPitchSidebar } from './MatchPitchSidebar';
+import { MatchPage } from './MatchPage';
 import { extractSnapshots, resolveAutoSnapIndex } from './snapshot-stats';
 
 const MATCH_END_REDIRECT_DELAY_MS = 2500;
@@ -202,76 +203,55 @@ export function MatchLiveView({
   }
 
   return (
-    <div className="space-y-4">
-      {/* Match-end overlay — visible when autoRedirectOnEnd is true and
-          the match has just ended. */}
-      {matchEnded && matchState && (
-        <div
-          role="status"
-          aria-live="polite"
-          className="rounded-xl bg-signal-amber/10 border border-signal-amber/40 px-5 py-4 flex items-center justify-between gap-3"
-        >
-          <div className="flex items-center gap-3">
-            <AppIcon name="sports_score" className="text-signal-amber" />
-            <div>
-              <p className="font-headline font-bold text-signal-amber uppercase tracking-wider text-sm">
-                {t('fullTimeTitle')}
-              </p>
-              <p className="text-on-surface-variant text-sm mt-0.5">
-                {t('fullTimeScore', {
-                  home: matchState.homeTeam.name,
-                  homeScore: matchState.homeScore,
-                  awayScore: matchState.awayScore,
-                  away: matchState.awayTeam.name,
-                })}
-              </p>
+    <MatchPage
+      mode="live"
+      banner={
+        /* Match-end overlay — only when the caller opted into a redirect.
+           The default is to stay put (the plan forbids pinning the user). */
+        matchEnded && matchState ? (
+          <div
+            role="status"
+            aria-live="polite"
+            className="rounded-xl bg-signal-amber/10 border border-signal-amber/40 px-5 py-4 flex items-center justify-between gap-3"
+          >
+            <div className="flex items-center gap-3">
+              <AppIcon name="sports_score" className="text-signal-amber" />
+              <div>
+                <p className="font-headline font-bold text-signal-amber uppercase tracking-wider text-sm">
+                  {t('fullTimeTitle')}
+                </p>
+                <p className="text-on-surface-variant text-sm mt-0.5">
+                  {t('fullTimeScore', {
+                    home: matchState.homeTeam.name,
+                    homeScore: matchState.homeScore,
+                    awayScore: matchState.awayScore,
+                    away: matchState.awayTeam.name,
+                  })}
+                </p>
+              </div>
             </div>
+            <p className="text-xs text-on-surface-variant font-headline uppercase tracking-wider">
+              {t('redirecting')}
+            </p>
           </div>
-          <p className="text-xs text-on-surface-variant font-headline uppercase tracking-wider">
-            {t('redirecting')}
-          </p>
-        </div>
-      )}
-
-      {/* Score Hero */}
-      <MatchScoreHero
-        locale={locale}
-        matchId={matchId}
-        homeTeamName={homeTeamName}
-        awayTeamName={awayTeamName}
-        homeScore={matchState?.homeScore ?? 0}
-        awayScore={matchState?.awayScore ?? 0}
-        currentMinute={currentMinute}
-        isComplete={matchState?.isComplete ?? false}
-        isReconnecting={isReconnecting}
-        isConnected={isConnected}
-      />
-
-      {/* Timeline */}
-      <MatchTimeline
-        events={visibleEvents}
-        snapshots={snapshots}
-        currentMinute={currentMinute}
-        activeIndex={activeSnapshotIndex}
-        onChange={setActiveSnapshotIndex}
-        onScrubStart={() => {
-          isUserScrubbingRef.current = true;
-        }}
-        onScrubEnd={() => {
-          isUserScrubbingRef.current = false;
-        }}
-      />
-
-      {/* Custom grid: pitch takes 1fr, sidebar fixed at 280px.
-          D4+ follow-up: the live page used `4fr_1fr` (sidebar was a
-          thin strip) while the report page used `1fr_280px`. With the
-          score hero unified, the grid proportion was the last visual
-          tell-tale of which mode the page was in — switching between
-          `mode='live'` and `mode='report'` now keeps the layout
-          identical. */}
-      <div className="grid grid-cols-1 lg:grid-cols-[1fr_280px] gap-4 items-start">
-        {/* LEFT — pitch + stats toggle */}
-        <div className="space-y-3">
+        ) : null
+      }
+      hero={
+        <MatchScoreHero
+          locale={locale}
+          matchId={matchId}
+          homeTeamName={homeTeamName}
+          awayTeamName={awayTeamName}
+          homeScore={matchState?.homeScore ?? 0}
+          awayScore={matchState?.awayScore ?? 0}
+          currentMinute={currentMinute}
+          isComplete={matchState?.isComplete ?? false}
+          isReconnecting={isReconnecting}
+          isConnected={isConnected}
+        />
+      }
+      main={
+        <>
           {/* Stats toggle */}
           <div className="flex justify-end">
             <button
@@ -286,7 +266,7 @@ export function MatchLiveView({
               data-testid="pitch-stats-toggle"
             >
               <AppIcon name={statsMode ? 'group' : 'monitoring'} className="text-base" />
-              <span>{statsMode ? '球员视图' : '数据视图'}</span>
+              <span>{statsMode ? t('pitchViewPlayers') : t('pitchViewStats')}</span>
             </button>
           </div>
           <MatchPitch
@@ -302,32 +282,46 @@ export function MatchLiveView({
             homeTeamName={homeTeamName}
             awayTeamName={awayTeamName}
           />
-        </div>
-
-        {/* RIGHT — sidebar */}
-        <div className="flex flex-col gap-3 lg:max-h-[calc(100vh-220px)] lg:overflow-y-auto">
-          <MatchPitchSidebar
-            events={visibleEvents}
-            currentMinute={currentMinute}
-            stadium={match?.venue ?? undefined}
-            homeTeamId={match?.homeTeam?.id ?? null}
-            awayTeamId={match?.awayTeam?.id ?? null}
-            rosterById={rosterByIdForKeys}
-          />
-        </div>
-      </div>
-
-      {/* Commentary — full width below */}
-      <LiveCommentary
-        events={visibleEvents}
-        currentMinute={currentMinute}
-        homeTeamName={homeTeamName}
-        awayTeamName={awayTeamName}
-        homeTeamId={match?.homeTeam?.id ?? null}
-        awayTeamId={match?.awayTeam?.id ?? null}
-        homeScore={matchState?.homeScore ?? 0}
-        awayScore={matchState?.awayScore ?? 0}
-      />
-    </div>
+        </>
+      }
+      timeline={
+        <MatchTimeline
+          events={visibleEvents}
+          snapshots={snapshots}
+          currentMinute={currentMinute}
+          activeIndex={activeSnapshotIndex}
+          onChange={setActiveSnapshotIndex}
+          onScrubStart={() => {
+            isUserScrubbingRef.current = true;
+          }}
+          onScrubEnd={() => {
+            isUserScrubbingRef.current = false;
+          }}
+        />
+      }
+      commentary={
+        <LiveCommentary
+          events={visibleEvents}
+          currentMinute={currentMinute}
+          homeTeamName={homeTeamName}
+          awayTeamName={awayTeamName}
+          homeTeamId={match?.homeTeam?.id ?? null}
+          awayTeamId={match?.awayTeam?.id ?? null}
+          homeScore={matchState?.homeScore ?? 0}
+          awayScore={matchState?.awayScore ?? 0}
+        />
+      }
+      aside={
+        <MatchPitchSidebar
+          events={visibleEvents}
+          currentMinute={currentMinute}
+          stadium={match?.venue ?? undefined}
+          homeTeamId={match?.homeTeam?.id ?? null}
+          awayTeamId={match?.awayTeam?.id ?? null}
+          rosterById={rosterByIdForKeys}
+        />
+      }
+      asideScroll
+    />
   );
 }
