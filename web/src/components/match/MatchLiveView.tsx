@@ -1,4 +1,4 @@
-/**
+﻿/**
  * MatchLiveView — self-contained live match view rendered inside the unified
  * match page when `mode === 'live'`.
  *
@@ -282,7 +282,7 @@ export function MatchLiveView({
               <span>{statsMode ? t('pitchViewPlayers') : t('pitchViewStats')}</span>
             </button>
           </div>
-          <div className="mx-auto w-full max-w-[560px]">
+          <div className="mx-auto w-full max-w-[800px]">
             <MatchPitch
               homeTactics={homeTactics}
               awayTactics={awayTactics}

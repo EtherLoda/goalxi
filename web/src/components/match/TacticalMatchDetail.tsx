@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { AppIcon, type MaterialIconName } from "@/components/icons/AppIcon";
 import { useEffect, useMemo, useState } from 'react';
@@ -314,7 +314,7 @@ export function TacticalMatchDetail({
         mode="report"
         hero={hero}
         main={
-          <div className="mx-auto w-full max-w-[560px]">
+          <div className="mx-auto w-full max-w-[800px]">
             <MatchPitch
               homeTactics={null}
               awayTactics={null}
@@ -454,7 +454,7 @@ export function TacticalMatchDetail({
               <span>{statsMode ? tChip('playersView') : tChip('statsView')}</span>
             </button>
           </div>
-          <div className="mx-auto w-full max-w-[560px]">
+          <div className="mx-auto w-full max-w-[800px]">
             <MatchPitch
               homeTactics={homeTactics}
               awayTactics={awayTactics}

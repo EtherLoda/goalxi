@@ -1,4 +1,4 @@
-/**
+﻿/**
  * MatchPitch.tsx — horizontal side-by-side pitch for the match report.
  *
  *   ┌────────────────────────────────────────────────────────┐
@@ -129,7 +129,7 @@ interface HalfPitchProps {
  * LM, LW) and three bottom positions (RB, RM, RW) render in clean
  * horizontal rails.
  */
-const MATCH_MARKER_SCALE = 0.9;
+const MATCH_MARKER_SCALE = 0.8;
 
 function HalfPitch({
   side,
