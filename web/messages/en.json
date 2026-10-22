@@ -1648,7 +1648,11 @@
         "summaryExpand": "+{delta} seats over {weeks} ({cost})",
         "summaryDemolish": "-{delta} seats over {weeks} (refund {refund} on completion)",
         "queuedExpandToast": "Expansion queued: +{delta} seats, completes in {weeks}.",
-        "queuedDemolishToast": "Demolition queued: -{delta} seats, completes in {weeks}."
+        "queuedDemolishToast": "Demolition queued: -{delta} seats, completes in {weeks}.",
+        "upgradeCta": "Upgrade to {level}",
+        "upgradeHint": "{cost} · {weeks}",
+        "upgradeMaxed": "Already at top level",
+        "queuedUpgradeToast": "Upgrade queued — ready in {weeks}"
       },
       "constructionDialog": {
         "titleExpand": "Queue Expansion",
@@ -1669,7 +1673,10 @@
         "submitting": "Queueing…",
         "minHint": "Min {min} seats",
         "maxHint": "Max {max} seats"
-      }
+      },
+      "levelBadge": "Level {level} / {max}",
+      "capacityCapHint": "Ceiling {cap}",
+      "maxRevenueLabel": "Sold-out income"
     }
   },
   "medical": {

@@ -132,6 +132,7 @@ export default function StadiumPage() {
   // slot rather than overloading `dialogKind` with a
   // "rename" value that would be a type-lie.
   const [isRenameOpen, setIsRenameOpen] = useState(false);
+  const [isUpgrading, setIsUpgrading] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
 
   const refresh = async () => {
@@ -201,6 +202,32 @@ export default function StadiumPage() {
     await refresh();
   };
 
+  /**
+   * Queue the level upgrade. Kept off the construction dialog because an
+   * upgrade has no seat delta to pick — there is exactly one thing to do,
+   * so a dialog would be a form with a single button in it.
+   */
+  const queueUpgrade = async () => {
+    if (!currentTeamId || isUpgrading) return;
+    if (!summary || summary.level >= summary.maxLevel) return;
+    setIsUpgrading(true);
+    setError(null);
+    try {
+      const info = await api.stadium.upgradeStadium(currentTeamId);
+      setToast(
+        tConstruction("queuedUpgradeToast", {
+          level: summary.level + 1,
+          weeks: tConstruction("weeksTotal", { n: info.weeks }),
+        }),
+      );
+      await refresh();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setIsUpgrading(false);
+    }
+  };
+
   if (authLoading) {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
@@ -267,9 +294,17 @@ export default function StadiumPage() {
                     <div className="text-[10px] font-black uppercase tracking-[0.3em] text-on-surface-variant mb-1">
                       {tStadium("title")}
                     </div>
-                    <h2 className="font-headline text-2xl md:text-3xl font-black text-on-surface">
-                      {summary.name}
-                    </h2>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <h2 className="font-headline text-2xl md:text-3xl font-black text-on-surface">
+                        {summary.name}
+                      </h2>
+                      <span className="inline-flex items-center rounded-full border border-primary/30 bg-primary/10 px-2 py-0.5 font-mono text-[10px] font-black tabular-nums text-primary">
+                        {t("levelBadge", {
+                          level: summary.level,
+                          max: summary.maxLevel,
+                        })}
+                      </span>
+                    </div>
                   </div>
                   <button
                     type="button"
@@ -298,19 +333,15 @@ export default function StadiumPage() {
                   </div>
                 </div>
 
-                {/* Bar */}
-                <div className="mt-5 h-2 rounded-full bg-surface-container overflow-hidden">
-                  <div
-                    className="h-full bg-gradient-to-r from-primary via-primary to-amber-300 transition-[width] duration-deliberate"
-                    style={{ width: `${Math.round(fillRate * 100)}%` }}
-                  />
-                </div>
-
-                {/* Stats grid */}
+                {/* Stats grid — the pitch above already shows the fill, so
+                    the bar that used to live here was the same number twice. */}
                 <div className="grid grid-cols-2 gap-3 mt-6">
                   <MiniStat
                     label={tStadium("capacity")}
                     value={summary.capacity.toLocaleString()}
+                    hint={t("capacityCapHint", {
+                      cap: summary.capacityCap.toLocaleString(),
+                    })}
                     icon="event_seat"
                   />
                   <MiniStat
@@ -329,26 +360,12 @@ export default function StadiumPage() {
                     tone="primary"
                   />
                   <MiniStat
-                    label={t("seasonAttendance")}
-                    value={
-                      avgAttendance != null && summary.capacity > 0
-                        ? `${Math.round((avgAttendance / summary.capacity) * 100)}%`
-                        : "—"
-                    }
-                    icon="percent"
+                    label={t("maxRevenueLabel")}
+                    value={summary.maxMatchdayRevenue.toLocaleString()}
+                    icon="trending_up"
                   />
                 </div>
 
-                {/* Capacity only pays for itself when somebody sits in it,
-                    so the ceiling and the realistic figure are shown as a
-                    pair rather than as one extrapolated number. */}
-                <p className="mt-4 text-[10px] leading-relaxed text-on-surface-variant">
-                  {tStadium("maxRevenueHint", {
-                    value: summary.maxMatchdayRevenue.toLocaleString(),
-                    seats: summary.capacity.toLocaleString(),
-                    price: summary.ticketPrice.toLocaleString(),
-                  })}
-                </p>
               </div>
             </div>
           </section>
@@ -370,7 +387,33 @@ export default function StadiumPage() {
               </div>
             </header>
 
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                onClick={() => void queueUpgrade()}
+                disabled={
+                  blockedByActive ||
+                  isUpgrading ||
+                  summary.level >= summary.maxLevel
+                }
+                title={
+                  summary.level >= summary.maxLevel
+                    ? tConstruction("upgradeMaxed")
+                    : tConstruction("upgradeHint", {
+                        cost: (summary.upgradeCost ?? 0).toLocaleString(),
+                        weeks: tConstruction("weeksTotal", {
+                          n: summary.upgradeWeeks ?? 0,
+                        }),
+                      })
+                }
+                className="inline-flex items-center gap-1.5 rounded-full border border-primary/40 bg-primary/10 px-3 py-1.5 text-[10px] font-black uppercase tracking-widest text-primary hover:bg-primary/20 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                <AppIcon name="north" className="text-sm leading-none" />
+                {tConstruction("upgradeCta", {
+                  level: summary.level + 1,
+                })}
+              </button>
+
               <button
                 type="button"
                 onClick={() => setDialogKind("expand")}
@@ -493,6 +536,7 @@ export default function StadiumPage() {
           currentCapacity={summary.capacity}
           costPerSeat={summary.seatAdjustCost}
           ticketPrice={summary.ticketPrice}
+          capacityCap={summary.capacityCap}
           onCancel={() => setDialogKind(null)}
           onSuccess={handleDialogSuccess}
         />
@@ -639,11 +683,13 @@ function MiniStat({
   value,
   icon,
   tone,
+  hint,
 }: {
   label: string;
   value: string;
   icon: MaterialIconName;
   tone?: "primary";
+  hint?: string;
 }) {
   return (
     <div className="bg-surface-container/70 rounded-lg p-3 border border-outline-variant/10">
@@ -656,6 +702,11 @@ function MiniStat({
       <div className="font-headline text-lg font-black text-on-surface">
         {value}
       </div>
+      {hint && (
+        <div className="mt-0.5 font-mono text-[10px] tabular-nums text-on-surface-variant">
+          {hint}
+        </div>
+      )}
     </div>
   );
 }

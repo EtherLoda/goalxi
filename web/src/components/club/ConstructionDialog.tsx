@@ -13,7 +13,6 @@ const STADIUM_CONSTRUCTION_MIN_SEATS = 500;
 const STADIUM_CONSTRUCTION_MAX_SEATS_PER_JOB = 100_000;
 const STADIUM_CONSTRUCTION_SEATS_PER_WEEK = 5_000;
 const STADIUM_DEMOLISH_SEATS_PER_WEEK = 10_000;
-const STADIUM_MAX_CAPACITY = 200_000;
 const STADIUM_MIN_CAPACITY = 1_000;
 
 interface ConstructionDialogProps {
@@ -31,6 +30,12 @@ interface ConstructionDialogProps {
    * them.
    */
   ticketPrice: number;
+  /**
+   * Seats the current stadium LEVEL allows. Expansion is bounded by this,
+   * not by the absolute cap — a level-1 ground cannot be dragged to 25,000
+   * and then rejected, it simply cannot reach it.
+   */
+  capacityCap: number;
   onCancel: () => void;
   onSuccess: (info: { delta: number; weeks: number; cost: number }) => void;
 }
@@ -54,6 +59,7 @@ export function ConstructionDialog({
   currentCapacity,
   costPerSeat,
   ticketPrice,
+  capacityCap,
   onCancel,
   onSuccess,
 }: ConstructionDialogProps) {
@@ -64,7 +70,7 @@ export function ConstructionDialog({
   const max = Math.min(
     STADIUM_CONSTRUCTION_MAX_SEATS_PER_JOB,
     kind === "expand"
-      ? STADIUM_MAX_CAPACITY - currentCapacity
+      ? Math.max(0, capacityCap - currentCapacity)
       : currentCapacity - STADIUM_MIN_CAPACITY,
   );
   const initial = Math.min(
