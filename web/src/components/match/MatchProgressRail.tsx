@@ -139,22 +139,14 @@ export function MatchProgressRail({
         aria-label={t('title')}
         className="flex items-stretch gap-[2px]"
       >
-        {buckets.map((bucket, index) => {
+        {buckets.map((bucket) => {
           const items = byBucket.get(bucket.key) ?? [];
-          const isHalfBreak =
-            index > 0 && bucket.key.startsWith('h2-') && buckets[index - 1].key.startsWith('h1');
           const played = bucket.stoppage
             ? currentMinute >= bucket.start
             : currentMinute >= bucket.end;
 
           return (
             <div key={bucket.key} className="flex min-w-0 flex-1 items-stretch gap-[2px]">
-              {isHalfBreak ? (
-                <span
-                  aria-hidden
-                  className="w-[6px] shrink-0 rounded-full bg-outline-variant/30"
-                />
-              ) : null}
               <BucketCell
                 bucket={bucket}
                 items={items}
