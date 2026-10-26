@@ -1,19 +1,14 @@
-﻿/**
+/**
  * MatchInfoPanel — the "what happened around this fixture" card.
  *
- * Layered on purpose: competition (which trophy, which round), then the
- * facts of the day (kickoff, ground, weather, crowd, money), then the
- * identifier at caption weight — it is for support tickets, not reading.
+ * Rendered INSIDE the caller's GlassPanel, so it draws no panel of its own:
+ * header row, then divider rows down to the identifier. That is the same
+ * shape the neighbouring key-events / stats cards use.
  *
- * The panel owns the formatting because every caller would otherwise
- * repeat the same three derivations (competition label, kickoff string,
- * fill percentage). Callers pass the match and nothing else.
- *
- * Every field is optional: cup and national-team fixtures carry no
- * league round, an away fixture has no gate receipts, and matches
- * settled before the `ticket_revenue` column existed have no revenue.
- * Rows drop out rather than printing zero, so a sparse fixture reads as
- * sparse instead of broken.
+ * Competition is assembled here rather than at the call sites: `type` picks
+ * the label, `round` carries the league matchday, `cupRound` the cup round.
+ * Every field is optional and rows drop out when absent, so a sparse fixture
+ * reads as sparse rather than printing zeros.
  */
 'use client';
 
@@ -36,14 +31,7 @@ export interface MatchInfoSource {
   ticketRevenue?: number | null;
 }
 
-const COMPETITION_KEY: Record<string, string> = {
-  league: 'league',
-  cup: 'cup',
-  playoff: 'playoff',
-  tournament: 'tournament',
-  friendly: 'friendly',
-  national_team: 'nationalTeam',
-};
+type TFn = ReturnType<typeof useTranslations<'matchInfo'>>;
 
 function weatherIconName(w: string): MaterialIconName {
   switch (w.toLowerCase()) {
@@ -66,6 +54,42 @@ function weatherIconName(w: string): MaterialIconName {
   }
 }
 
+function competitionLabel(m: MatchInfoSource, t: TFn): string {
+  const kind = (m.type ?? 'league') as string;
+  const withRound = (base: string, round: number | null | undefined) =>
+    round == null ? base : t('competitionWithRound', { base, round });
+
+  switch (kind) {
+    case 'cup':
+      return withRound(t('competitionCup'), m.cupRound);
+    case 'playoff':
+      return t('competitionPlayoff');
+    case 'tournament':
+      return t('competitionTournament');
+    case 'friendly':
+      return t('competitionFriendly');
+    case 'national_team':
+      return t('competitionNationalTeam');
+    default:
+      return withRound(m.leagueName ?? t('competitionLeague'), m.round);
+  }
+}
+
+function weatherLabel(w: string, t: TFn): string {
+  // Per-type names are flat leaves so the lookup stays type-safe.
+  const map: Record<string, string> = {
+    sunny: 'weatherSunny',
+    cloudy: 'weatherCloudy',
+    rainy: 'weatherRainy',
+    windy: 'weatherWindy',
+    foggy: 'weatherFoggy',
+    snowy: 'weatherSnowy',
+    stormy: 'weatherStormy',
+  };
+  const k = map[w.toLowerCase()];
+  return k ? t(k) : w;
+}
+
 function Row({
   icon,
   caption,
@@ -76,7 +100,7 @@ function Row({
   children: React.ReactNode;
 }) {
   return (
-    <div className="flex items-start gap-3 py-2.5">
+    <div className="flex items-start gap-3 px-4 py-2.5">
       <span className="mt-0.5 grid h-7 w-7 shrink-0 place-items-center rounded-md bg-surface-container-high text-muted">
         <AppIcon name={icon} className="text-body" />
       </span>
@@ -96,18 +120,6 @@ export function MatchInfoPanel({ match }: { match?: MatchInfoSource | null }) {
 
   if (!match) return null;
 
-  const kind = match.type ?? 'league';
-  const compKey = COMPETITION_KEY[kind] ?? 'league';
-  const compBase =
-    kind === 'league' && match.leagueName
-      ? match.leagueName
-      : t(`competition.${compKey}`);
-  const compRound = kind === 'cup' ? match.cupRound : match.round;
-  const competition =
-    compRound != null
-      ? t('competition.withRound', { base: compBase, round: compRound })
-      : compBase;
-
   const kickoff =
     match.scheduledAt == null
       ? null
@@ -125,17 +137,17 @@ export function MatchInfoPanel({ match }: { match?: MatchInfoSource | null }) {
       : null;
 
   return (
-    <section className="glass-panel overflow-hidden">
-      <header className="flex items-center gap-2 px-4 py-3">
+    <div className="flex flex-col">
+      <header className="flex items-center gap-2 px-4 pb-2 pt-3">
         <AppIcon name="info" className="text-body text-primary" />
-        <h3 className="font-headline text-title font-bold tracking-wider text-on-surface">
+        <h3 className="font-headline text-title font-bold tracking-wide text-on-surface">
           {t('title')}
         </h3>
       </header>
 
-      <div className="divide-y divide-outline-variant/40 border-t border-outline-variant/40 px-4">
+      <div className="divide-y divide-outline-variant/40 border-t border-outline-variant/40">
         <Row icon="emoji_events" caption={t('competition')}>
-          {competition}
+          {competitionLabel(match, t)}
         </Row>
 
         {kickoff && (
@@ -151,13 +163,8 @@ export function MatchInfoPanel({ match }: { match?: MatchInfoSource | null }) {
         )}
 
         {match.weather && (
-          <Row
-            icon={weatherIconName(match.weather)}
-            caption={t('weather')}
-          >
-            {t.has(`weather.${match.weather.toLowerCase()}`)
-              ? t(`weather.${match.weather.toLowerCase()}`)
-              : match.weather}
+          <Row icon={weatherIconName(match.weather)} caption={t('weather')}>
+            {weatherLabel(match.weather, t)}
           </Row>
         )}
 
@@ -175,18 +182,19 @@ export function MatchInfoPanel({ match }: { match?: MatchInfoSource | null }) {
             {`£${match.ticketRevenue.toLocaleString()}`}
           </Row>
         )}
-      </div>
 
-      {match.id && (
-        <footer className="flex items-center justify-between gap-3 border-t border-outline-variant/40 px-4 py-2.5">
+        <div className="flex items-center justify-between gap-3 px-4 py-2.5">
           <span className="text-kicker uppercase tracking-wider text-muted">
             {t('matchId')}
           </span>
-          <code className="font-mono text-label text-muted" title={match.id}>
-            {match.id.slice(0, 8)}
+          <code
+            className="font-mono text-label text-muted"
+            title={match.id ?? undefined}
+          >
+            {(match.id ?? '').slice(0, 8)}
           </code>
-        </footer>
-      )}
-    </section>
+        </div>
+      </div>
+    </div>
   );
 }

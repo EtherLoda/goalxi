@@ -701,6 +701,10 @@ interface Match {
    * info card on the match page.
    */
   weather?: WeatherType | null;
+  /** Venue capacity, used for the attendance fill percentage. */
+  capacity?: number | null;
+  /** Gate receipts for this match (home fixtures only). */
+  ticketRevenue?: number | null;
   /** Match-day attendance (home crowd). Only meaningful for completed
    *  matches; `null` for scheduled / in_progress fixtures. */
   attendance?: number | null;

@@ -2057,27 +2057,25 @@
   "matchInfo": {
     "title": "比赛信息",
     "competition": "赛事",
+    "competitionLeague": "联赛",
+    "competitionCup": "杯赛",
+    "competitionPlayoff": "附加赛",
+    "competitionTournament": "锦标赛",
+    "competitionFriendly": "友谊赛",
+    "competitionNationalTeam": "国家队",
+    "competitionWithRound": "{base} · 第 {round} 轮",
     "kickoff": "时间",
     "venue": "场馆",
     "weather": "天气",
     "attendance": "观众",
     "revenue": "收入",
     "matchId": "比赛 ID",
-    "withRound": "{base} · 第 {round} 轮",
-    "league": "联赛",
-    "cup": "杯赛",
-    "playoff": "附加赛",
-    "tournament": "锦标赛",
-    "friendly": "友谊赛",
-    "nationalTeam": "国家队",
-    "weatherTypes": {
-      "sunny": "晴",
-      "cloudy": "多云",
-      "rainy": "雨",
-      "windy": "大风",
-      "foggy": "雾",
-      "snowy": "雪",
-      "stormy": "雷暴"
-    }
+    "weatherSunny": "晴",
+    "weatherCloudy": "多云",
+    "weatherRainy": "雨",
+    "weatherWindy": "大风",
+    "weatherFoggy": "雾",
+    "weatherSnowy": "雪",
+    "weatherStormy": "雷暴"
   }
 }

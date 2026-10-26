@@ -2057,27 +2057,25 @@
   "matchInfo": {
     "title": "Match info",
     "competition": "Competition",
+    "competitionLeague": "League",
+    "competitionCup": "Cup",
+    "competitionPlayoff": "Play-off",
+    "competitionTournament": "Tournament",
+    "competitionFriendly": "Friendly",
+    "competitionNationalTeam": "National team",
+    "competitionWithRound": "{base} · Round {round}",
     "kickoff": "Kick-off",
     "venue": "Venue",
     "weather": "Weather",
     "attendance": "Attendance",
     "revenue": "Revenue",
     "matchId": "Match ID",
-    "withRound": "{base} · Round {round}",
-    "league": "League",
-    "cup": "Cup",
-    "playoff": "Play-off",
-    "tournament": "Tournament",
-    "friendly": "Friendly",
-    "nationalTeam": "National team",
-    "weatherTypes": {
-      "sunny": "Sunny",
-      "cloudy": "Cloudy",
-      "rainy": "Rainy",
-      "windy": "Windy",
-      "foggy": "Foggy",
-      "snowy": "Snowy",
-      "stormy": "Stormy"
-    }
+    "weatherSunny": "Sunny",
+    "weatherCloudy": "Cloudy",
+    "weatherRainy": "Rainy",
+    "weatherWindy": "Windy",
+    "weatherFoggy": "Foggy",
+    "weatherSnowy": "Snowy",
+    "weatherStormy": "Stormy"
   }
 }
