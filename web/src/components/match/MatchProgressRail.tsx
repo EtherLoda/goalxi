@@ -162,6 +162,7 @@ export function MatchProgressRail({
                 onSelect={onSelectMinute}
                 selected={
                   selectedMinute != null &&
+                  (selectedMinute > 45) === bucket.key.startsWith('h2-') &&
                   selectedMinute > bucket.start &&
                   selectedMinute <=
                     (bucket.end === 45 || bucket.end === 90 ? bucket.end + 6 : bucket.end)
