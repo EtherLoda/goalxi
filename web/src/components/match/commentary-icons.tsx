@@ -34,6 +34,7 @@
  */
 import React from 'react';
 import { signalGold } from '@/lib/design-tokens';
+import { shotIcon, shotMarkerFor } from './ShotIcon';
 
 export interface CommentaryIconProps {
   size?: number;
@@ -542,19 +543,24 @@ const CARD_RED_VARIANTS = new Set(['RED_CARD', 'SECOND_YELLOW']);
  * category, but the comment-ticker's `canonicalEventType` still
  * uses `typeName`. Both shapes funnel through this map.
  */
-export function eventIcon(type: CanonicalType): React.FC<CommentaryIconProps> {
+export function eventIcon(
+  type: CanonicalType,
+  data?: Record<string, unknown> | null,
+): React.FC<CommentaryIconProps> {
   const t = type.toUpperCase();
   // Direction-aware shot outcomes default to centre — the engine
   // doesn't track ball-side yet. When/if it does, the FE picks the
   // explicit L/C/R variant.
   if (t === 'GOAL' || t === 'GOAL_CENTER' || t === 'GOAL_LEFT' || t === 'GOAL_RIGHT') {
-    if (t === 'GOAL_LEFT') return GoalLeftIcon;
-    if (t === 'GOAL_RIGHT') return GoalRightIcon;
-    return GoalCenterIcon;
+
+
+    return shotIcon('goal', shotMarkerFor(t, data));
   }
-  if (t === 'MISS_LEFT') return MissLeftIcon;
-  if (t === 'MISS_RIGHT') return MissRightIcon;
-  if (t === 'MISS' || t === 'MISS_CENTER' || t === 'SHOT_OFF_TARGET') return MissCenterIcon;
+  if (t === 'MISS_LEFT') return shotIcon('miss', shotMarkerFor(t, data));
+  if (t === 'MISS_RIGHT') return shotIcon('miss', shotMarkerFor(t, data));
+  if (t === 'MISS' || t === 'MISS_CENTER' || t === 'SHOT_OFF_TARGET') {
+    return shotIcon('miss', shotMarkerFor(t, data));
+  }
   if (t === 'SUBSTITUTION') return SubstitutionIcon;
   if (t === 'YELLOW_CARD') return YellowCardIcon;
   if (CARD_RED_VARIANTS.has(t)) return RedCardIcon;
@@ -570,8 +576,13 @@ export function eventIcon(type: CanonicalType): React.FC<CommentaryIconProps> {
   // engine emits a `turnover` event for possession flips that don't
   // ride on a foul/shot, so a U-turn is the right glyph.
   if (t === 'TURNOVER') return TurnoverIcon;
-  if (t === 'PENALTY' || t === 'PENALTY_MISS') return PenaltyIcon;
-  if (SHOT_VARIANTS.has(t)) return t === 'SAVE' ? SaveIcon : ShotOnTargetIcon;
+  if (t === 'PENALTY') return shotIcon('goal', 'penalty');
+  if (t === 'PENALTY_MISS' || t === 'PENALTY_GOAL') {
+    return shotIcon(t === 'PENALTY_GOAL' ? 'goal' : 'miss', 'penalty');
+  }
+  if (SHOT_VARIANTS.has(t)) {
+    return shotIcon(t === 'SAVE' ? 'miss' : 'ball', shotMarkerFor(t, data));
+  }
   if (t === 'FOUL') return FoulIcon;
   if (t === 'FREE_KICK') return FreeKickIcon;
   if (t === 'KICKOFF') return KickoffIcon;
