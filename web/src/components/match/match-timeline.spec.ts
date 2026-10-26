@@ -2,10 +2,9 @@
  * match-timeline.spec.ts — coverage for the pure helpers in
  * `match-timeline.ts`.
  *
- * Pure data layer — no React, no fetch. `MatchProgressRail.tsx` consumes the
- * minute→position helpers (they are the only place that mapping still exists,
- * because only the live rail places an event on an axis); `MatchSpine.tsx`
- * consumes the marker extraction and ordering helpers.
+ * Pure data layer — no React, no fetch. Both match modes now read the same
+ * `MatchProgressRail.tsx`, which consumes the marker extraction and the
+ * minute→position helpers.
  */
 
 import type { MatchEvent } from '@/lib/api';

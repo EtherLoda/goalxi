@@ -16,9 +16,8 @@ import {
   type WeatherType,
 } from '@/lib/api';
 import { MatchPitch, type MatchSnapshot } from './MatchPitch';
-import { MatchSpine } from './MatchSpine';
+import { MatchProgressRail } from './MatchProgressRail';
 import { MatchPage } from './MatchPage';
-import { buildCards } from './match-pitch-data';
 import { LiveCommentary } from './LiveCommentary';
 import { extractSnapshots } from './snapshot-stats';
 import { normalizePitchLineup } from './pitch-coords';
@@ -26,7 +25,6 @@ import { MatchInfoPanel } from './MatchInfoPanel';
 import { MatchKeyEvents } from './MatchKeyEvents';
 import { MatchSubstitutes } from './MatchSubstitutes';
 import { StatsResult } from './StatsResult';
-import { MatchVerdict } from './MatchVerdict';
 import { extractSidebarData } from './match-sidebar-data';
 import { MatchScoreHero } from './bento/MatchScoreHero';
 import { closestSnapshotIndex } from './match-timeline';
@@ -107,35 +105,6 @@ export function TacticalMatchDetail({
   // to just the score header and a small pre-match card.
   const isCompleted = match.status === MATCH_STATUS.COMPLETED;
   const isPreMatch = !isLive && !isCompleted;
-
-  // The verdict needs every lane average on both sides. Missing stats (or a
-  // pre-match page) means there is nothing honest to say, so the strip is
-  // simply absent rather than rendered with zeros.
-  const verdict = useMemo(() => {
-    const homeLanes = stats?.homeTeamStats.laneStrengthAverages;
-    const awayLanes = stats?.awayTeamStats.laneStrengthAverages;
-    if (!isCompleted || !homeLanes || !awayLanes) return null;
-    const toPct = (value: string | number | undefined): number => {
-      const n = typeof value === 'string' ? Number.parseFloat(value) : (value ?? 50);
-      return Number.isFinite(n) ? n : 50;
-    };
-    return {
-      home: {
-        name: homeName,
-        goals: stats?.homeTeamStats.score ?? 0,
-        shotsOnTarget: stats?.homeTeamStats.shotsOnTarget ?? 0,
-        possessionPct: toPct(stats?.homeTeamStats.possessionPercentage),
-        lanes: homeLanes,
-      },
-      away: {
-        name: awayName,
-        goals: stats?.awayTeamStats.score ?? 0,
-        shotsOnTarget: stats?.awayTeamStats.shotsOnTarget ?? 0,
-        possessionPct: toPct(stats?.awayTeamStats.possessionPercentage),
-        lanes: awayLanes,
-      },
-    };
-  }, [isCompleted, stats, homeName, awayName]);
   // Derive the minute the report-mode chrome should show. See
   // `getReportCurrentMinute` for the rationale (was hard-coded 90;
   // broke forfeit/extra-time cases).
@@ -152,9 +121,6 @@ export function TacticalMatchDetail({
   const allSnapshots = useMemo(() => extractSnapshots(events), [events]);
   // B9: was `getLatestSnapshot(events)`, a hand-rolled sibling of
   // `extractSnapshots` that re-walked the event list and re-shaped
-  // the data into a near-identical `MatchSnapshot`. Same source,
-  // same output — collapsed to a single line.
-  const snapshot = allSnapshots[allSnapshots.length - 1] ?? null;
   const [activeSnapshotIndex, setActiveSnapshotIndex] = useState<number>(
     () => Math.max(0, allSnapshots.length - 1),
   );
@@ -236,12 +202,6 @@ export function TacticalMatchDetail({
     };
   }, [matchId, homeTeamId, awayTeamId]);
 
-  const rosterById = useMemo(() => {
-    const map = new Map<number, Player>();
-    for (const p of homeRoster) map.set(p.id, p);
-    for (const p of awayRoster) map.set(p.id, p);
-    return map;
-  }, [homeRoster, awayRoster]);
 
   // String-keyed roster map for the MatchKeyEvents panel. MatchKeyEvents
   // (and MatchEvent.playerId) work in string keys, but Player.id is a
@@ -263,11 +223,6 @@ export function TacticalMatchDetail({
   const awayBench = useMemo(
     () => (awayTactics?.lineup ? normalizePitchLineup(awayTactics.lineup).bench : {}),
     [awayTactics],
-  );
-
-  const homeLineupCards = useMemo(
-    () => buildCards(homeTactics, snapshot?.h.ps ?? null, rosterById),
-    [homeTactics, snapshot, rosterById],
   );
 
   // Prefer the denormalised match fields — the scheduler and simulator are
@@ -428,7 +383,6 @@ export function TacticalMatchDetail({
     <MatchPage
       mode="report"
       hero={hero}
-      verdict={verdict ? <MatchVerdict home={verdict.home} away={verdict.away} /> : undefined}
       main={
         <div className="space-y-3">
           <div className="flex justify-end mb-2">
@@ -465,11 +419,9 @@ export function TacticalMatchDetail({
         </div>
       }
       timeline={
-        <MatchSpine
+        <MatchProgressRail
           events={events}
-          homeTeamName={homeName}
-          awayTeamName={awayName}
-          activeMinute={allSnapshots[activeSnapshotIndex]?.minute}
+          currentMinute={reportCurrentMinute}
           onSelectMinute={(minute) =>
             setActiveSnapshotIndex(closestSnapshotIndex(allSnapshots, minute))
           }
