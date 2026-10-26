@@ -258,13 +258,13 @@ export function MatchPitch({
   // reader to read a row of numbers as a position on the pitch.
   if (mode === 'grid') {
     return (
-      <div className="relative w-full aspect-video rounded-2xl overflow-hidden border border-white/5 bg-ink-750">
+      <div className="relative w-full aspect-video rounded-none overflow-hidden border border-white/5 bg-ink-750">
         {activeSnapshot ? <PitchStatsOverlay snapshot={activeSnapshot} /> : null}
       </div>
     );
   }
   return (
-    <div className="relative w-full aspect-video rounded-2xl overflow-hidden border border-white/5 bg-ink-750">
+    <div className="relative w-full aspect-video rounded-none overflow-hidden border border-white/5 bg-ink-750">
           {/* Single SVG: pitch markings span the whole pitch. */}
           <svg
             className="absolute inset-0 w-full h-full"
