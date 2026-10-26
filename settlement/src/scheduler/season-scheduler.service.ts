@@ -324,7 +324,7 @@ export class SeasonSchedulerService {
     // apart silently. See `calculateLegDates`.
     const gridWeek = (i: number) =>
       Math.floor(i / GAME_SETTINGS.ROUNDS_PER_WEEK) + 1;
-    const gridRound = (i: number) => (i % GAME_SETTINGS.ROUNDS_PER_WEEK) + 1;
+    const gridRound = (i: number) => i + 1;
 
     const matches: Partial<MatchEntity>[] = [];
     // Leg 1

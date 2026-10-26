@@ -59,7 +59,11 @@ export class MatchEntity extends AbstractEntity {
     @Column({ type: 'int' })
     week!: number;
 
-    /** Round within the week (1 or 2 for double matchweeks) */
+    /**
+     * League matchday for the season (1..ROUNDS_PER_WEEK*weeks). Historically
+     * this held the index within a matchweek (1..ROUNDS_PER_WEEK); migration
+     * 1788000000090 widened the stored value, so treat it as the matchday.
+     */
     @Column({ type: 'int', name: 'round', nullable: true })
     round?: number;
 
@@ -232,6 +236,15 @@ export class MatchEntity extends AbstractEntity {
      *  为 null,前端走 `DEFAULT_FILL_RATE = 0.7` 兜底。 */
     @Column({ name: 'attendance', type: 'int', nullable: true })
     attendance?: number | null;
+
+    /**
+     * Gate receipts for THIS match, credited to the home team at settlement.
+     * Denormalised from the TICKET_INCOME ledger row (which stays the source
+     * of truth); null when the venue was not built, the match predates this
+     * column, or the fixture was away-only for revenue purposes.
+     */
+    @Column({ name: 'ticket_revenue', type: 'int', nullable: true })
+    ticketRevenue?: number | null;
 
     /**
      * [RFC 0001] When this is non-null, the match is a youth-league match

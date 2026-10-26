@@ -377,7 +377,7 @@ export class ScheduleGenerator {
           youthLeagueId: null,
           season: options.season,
           week: this.weekFromScheduledAt(scheduledAt, options.weekOneMonday),
-          round: (r % GAME_SETTINGS.ROUNDS_PER_WEEK) + 1,
+          round: r + 1,
           homeTeamId: home,
           awayTeamId: away,
           stadiumId: options.stadiumIdByTeam.get(home) ?? null,

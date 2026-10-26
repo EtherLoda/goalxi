@@ -771,6 +771,11 @@ export class MatchCompletionService {
       totalAttendance * baseTicketPrice * tierMultiplier,
     );
 
+    // Denormalise the amount onto the match row so the match page can render
+    // it without joining the ledger. The ledger write below stays authoritative.
+    match.ticketRevenue = ticketRevenue;
+    await this.matchRepository.save(match);
+
     // Record ticket revenue
     await this.financeService.processTransaction(
       match.homeTeamId as Uuid,
