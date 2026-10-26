@@ -33,7 +33,10 @@ const UNKNOWN: EventCode = { code: 'UNKNOWN', className: 'UNKNOWN', outcomeName:
  * Storage keeps `typeName`; display must not leak the legacy int enum.
  */
 export function eventCodeOf(
-  axis: { classId: number | null; outcomeCode: string | null } | null | undefined,
+  axis:
+    | { classId?: number | null; outcomeCode?: string | null }
+    | null
+    | undefined,
 ): EventCode {
   if (!axis || axis.classId == null) return UNKNOWN;
   const className = EVENT_CLASS_CODE[axis.classId];

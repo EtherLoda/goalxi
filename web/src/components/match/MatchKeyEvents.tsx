@@ -23,6 +23,8 @@ import { clsx } from 'clsx';
 import type { MatchEvent } from '@/lib/api';
 import { extractKeyEvents } from './extract-key-events';
 import { formatMatchMinute, type InjuryWindow } from './match-timeline';
+import { Tooltip } from '@/components/ui/Tooltip';
+import { eventCodeOf } from '@/lib/event-code';
 
 interface MatchKeyEventsProps {
   events: MatchEvent[];
@@ -132,12 +134,22 @@ export function MatchKeyEvents({
                   reading the source. `outcomeId` is `null` for
                   class-only events (OWN_GOAL, INJURY, etc.) — the
                   tooltip shows "—" rather than 0. */}
-              <span
-                className="shrink-0 inline-flex"
-                title={`c${entry.classId ?? '—'} · o${entry.outcomeId ?? '—'} (${entry.outcomeCode ?? '—'})`}
+              <Tooltip
+                side="top"
+                align="end"
+                label={
+                  <span className="flex flex-col gap-0.5">
+                    <span>{entry.label}</span>
+                    <span className="font-mono text-[10px] tracking-wider text-on-surface/50">
+                      {eventCodeOf(entry).code}
+                    </span>
+                  </span>
+                }
               >
-                <entry.icon size={13} />
-              </span>
+                <span className="shrink-0 inline-flex">
+                  <entry.icon size={24} />
+                </span>
+              </Tooltip>
               <div className="flex-1 min-w-0">
                 <p
                   className="font-headline font-bold text-kicker text-on-surface/90 truncate leading-tight"
