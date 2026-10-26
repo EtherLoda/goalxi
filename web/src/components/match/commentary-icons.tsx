@@ -200,29 +200,35 @@ export const SaveIcon: React.FC<CommentaryIconProps> = ({ size, className }) => 
 // ── Foul: yellow whistle ────────────────────────────────────────────────
 export const FoulIcon: React.FC<CommentaryIconProps> = ({ size, className }) => (
   <svg {...base(size)} className={className}>
-    <rect x="3" y="10" width="13" height="6" rx="2.5" fill={YELLOW} stroke={SLATE} strokeWidth="1.5" />
-    <rect x="14" y="11" width="6" height="4" rx="1" fill={YELLOW} stroke={SLATE} strokeWidth="1.5" />
-    <circle cx="7" cy="13" r="1" fill={SLATE} />
-    <path d="M6 10 L6 7 M9 10 L9 7" stroke={SLATE} strokeWidth="1.4" strokeLinecap="round" />
-    <path d="M3 8 L1 6 M11 8 L13 6" stroke={YELLOW} strokeWidth="1.4" strokeLinecap="round" />
+    <path d="M4.6 6.2 L4.6 9.6" stroke={RED} strokeWidth="1.9" strokeLinecap="round" opacity="0.9" />
+    <path d="M2.2 8.4 L4.4 8.4" stroke={RED} strokeWidth="1.9" strokeLinecap="round" opacity="0.55" />
+    <path d="M2.8 11.2 L4.6 10.2" stroke={RED} strokeWidth="1.9" strokeLinecap="round" opacity="0.35" />
+    <rect x="8.2" y="4.4" width="8" height="6.6" rx="2.4" fill={YELLOW} stroke={SLATE} strokeWidth="1.5" />
+    <path d="M9.6 11 L18.4 11 L16.6 15.6 Q16.2 16.8 15 16.8 L12.6 16.8 Q11.4 16.8 11 15.6 Z" fill={YELLOW} stroke={SLATE} strokeWidth="1.5" strokeLinejoin="round" />
+    <rect x="16.4" y="9.2" width="5" height="3.4" rx="1.1" fill={YELLOW} stroke={SLATE} strokeWidth="1.5" />
+    <circle cx="10.4" cy="7.8" r="1.3" fill={SLATE} />
+    <rect x="9.6" y="17" width="6.4" height="1.8" rx="0.9" fill={YELLOW} stroke={SLATE} strokeWidth="1.2" />
   </svg>
 );
 
-// ── Yellow / Red card ──────────────────────────────────────────────────
 export const YellowCardIcon: React.FC<CommentaryIconProps> = ({ size, className }) => (
   <svg {...base(size)} className={className}>
-    <rect x="5" y="3" width="14" height="18" rx="1.5" fill={YELLOW} stroke={SLATE} strokeWidth="1.5" />
-    <rect x="7" y="8" width="10" height="2" rx="0.5" fill={SLATE} />
-  </svg>
-);
-export const RedCardIcon: React.FC<CommentaryIconProps> = ({ size, className }) => (
-  <svg {...base(size)} className={className}>
-    <rect x="5" y="3" width="14" height="18" rx="1.5" fill={RED} stroke={SLATE} strokeWidth="1.5" />
-    <rect x="7" y="8" width="10" height="2" rx="0.5" fill={SLATE} />
+    <g transform="rotate(-11 12 12)">
+      <rect x="6.4" y="2.8" width="11.2" height="18.4" rx="1.7" fill={YELLOW} stroke={SLATE} strokeWidth="1.6" />
+      <rect x="8.4" y="7" width="7.2" height="1.8" rx="0.6" fill={SLATE} opacity="0.62" />
+      <rect x="8.4" y="10.6" width="7.2" height="1.8" rx="0.6" fill={SLATE} opacity="0.34" />
+    </g>
   </svg>
 );
 
-// ── Substitution: red ← (out) + green → (in), horizontal ───────────────
+export const RedCardIcon: React.FC<CommentaryIconProps> = ({ size, className }) => (
+  <svg {...base(size)} className={className}>
+    <rect x="6.2" y="2.2" width="11.6" height="19.6" rx="1.7" fill={RED} stroke={SLATE} strokeWidth="1.6" />
+    <rect x="6.2" y="15.2" width="11.6" height="3.8" fill={WHITE} opacity="0.94" />
+    <path d="M6.2 15.2 L17.8 15.2 M6.2 19 L17.8 19" stroke={SLATE} strokeWidth="1.2" />
+  </svg>
+);
+
 export const SubstitutionIcon: React.FC<CommentaryIconProps> = ({ size, className }) => (
   <svg {...base(size)} className={className}>
     <path d="M1 9 L9 9 L9 6 L13 12 L9 18 L9 15 L1 15 Z" fill={RED} stroke={SLATE} strokeWidth="1.4" strokeLinejoin="round" />
@@ -249,20 +255,25 @@ export const CornerIcon: React.FC<CommentaryIconProps> = ({ size, className }) =
 // ── Offside: gray pole + yellow checkered flag ─────────────────────────
 export const OffsideIcon: React.FC<CommentaryIconProps> = ({ size, className }) => (
   <svg {...base(size)} className={className}>
-    <path d="M5 21 L5 3" stroke={GRAY} strokeWidth="2" strokeLinecap="round" />
-    <path d="M5 3 L18 3 L18 11 L5 11" fill={YELLOW} stroke={SLATE} strokeWidth="1.5" strokeLinejoin="round" />
-    <g fill={SLATE}>
-      <rect x="6" y="4.5" width="3" height="3" />
-      <rect x="10" y="4.5" width="3" height="3" />
-      <rect x="14" y="4.5" width="3" height="3" />
-      <rect x="6" y="9" width="3" height="3" />
-      <rect x="14" y="9" width="3" height="3" />
-      <rect x="10" y="9" width="3" height="3" />
-    </g>
+    <path
+      d="M14 3.2 L14 6.4 M14 8.4 L14 11.6 M14 13.6 L14 16.8 M14 18.8 L14 21.4"
+      stroke={WHITE}
+      strokeWidth="1.7"
+      strokeLinecap="round"
+    />
+    <circle cx="7.4" cy="9.6" r="3.1" fill={BLUE} stroke={SLATE} strokeWidth="1.5" />
+    <circle cx="19.2" cy="17.4" r="3.1" fill={GREEN} stroke={SLATE} strokeWidth="1.5" />
+    <path
+      d="M15.4 4.6 L21 4.6 M19 2.6 L21.4 4.6 L19 6.6"
+      fill="none"
+      stroke={RED}
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
   </svg>
 );
 
-// ── Free kick: ball + dashed yellow trajectory + arrow ─────────────────
 export const FreeKickIcon: React.FC<CommentaryIconProps> = ({ size, className }) => (
   <svg {...base(size)} className={className}>
     <path
@@ -281,38 +292,47 @@ export const FreeKickIcon: React.FC<CommentaryIconProps> = ({ size, className })
 // ── Penalty: goal + ball + spot ────────────────────────────────────────
 export const PenaltyIcon: React.FC<CommentaryIconProps> = ({ size, className }) => (
   <svg {...base(size)} className={className}>
-    <path d="M3 8 L3 21 L21 21 L21 8" fill="none" stroke={GRAY} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
-    <line x1="3" y1="12" x2="21" y2="12" stroke={GRAY} strokeWidth="1.2" opacity="0.5" />
-    <circle cx="12" cy="18.5" r="1.2" fill={SLATE} />
-    <circle cx="12" cy="9" r="3" fill={WHITE} stroke={SLATE} strokeWidth="1.3" />
-    <path d="M12 7.5 L13 9 L12 10.5 L11 9 Z" fill={SLATE} />
-    <path d="M10 12 L9 14 M14 12 L15 14" stroke={SLATE} strokeWidth="1.3" strokeLinecap="round" />
+    <path d="M9 5 L9 10 M12 5 L12 10 M15 5 L15 10" stroke={GRAY} strokeWidth="1" opacity="0.75" />
+    <rect x="3.2" y="2.2" width="17.6" height="2.4" rx="1.2" fill={WHITE} stroke={SLATE} strokeWidth="1.3" />
+    <rect x="3.2" y="2.2" width="2.3" height="7.8" rx="1.1" fill={WHITE} stroke={SLATE} strokeWidth="1.3" />
+    <rect x="18.5" y="2.2" width="2.3" height="7.8" rx="1.1" fill={WHITE} stroke={SLATE} strokeWidth="1.3" />
+    <path d="M12 19.4 L12 13" stroke={YELLOW} strokeWidth="2" strokeLinecap="round" />
+    <polygon points="12,10.8 9.8 14.2 14.2 14.2" fill={YELLOW} stroke={SLATE} strokeWidth="0.9" strokeLinejoin="round" />
+    <circle cx="12" cy="20.4" r="2.6" fill={WHITE} stroke={SLATE} strokeWidth="1.5" />
   </svg>
 );
 
-// ── Period markers (kickoff, half-time, full-time, etc.) ────────────────
 export const KickoffIcon: React.FC<CommentaryIconProps> = ({ size, className }) => (
   <svg {...base(size)} className={className}>
-    <circle cx="12" cy="12" r="9" fill="none" stroke={GRAY} strokeWidth="1.6" />
-    <circle cx="12" cy="12" r="2.4" fill={GRAY} />
-    <line x1="12" y1="2" x2="12" y2="5" stroke={GRAY} strokeWidth="1.6" strokeLinecap="round" />
-    <line x1="12" y1="19" x2="12" y2="22" stroke={GRAY} strokeWidth="1.6" strokeLinecap="round" />
-    <line x1="2" y1="12" x2="5" y2="12" stroke={GRAY} strokeWidth="1.6" strokeLinecap="round" />
-    <line x1="19" y1="12" x2="22" y2="12" stroke={GRAY} strokeWidth="1.6" strokeLinecap="round" />
+    <circle cx="12" cy="10.6" r="10.2" fill={GREEN} opacity="0.1" />
+    <circle cx="12" cy="10.6" r="6.6" fill="none" stroke={GRAY} strokeWidth="1.6" />
+    <rect x="2" y="16" width="20" height="2.2" rx="1.1" fill={WHITE} stroke={SLATE} strokeWidth="1.3" />
+    <circle cx="12" cy="10.6" r="4" fill={GREEN} stroke={SLATE} strokeWidth="1.5" />
+    <polygon
+      points="12,7.9 14.3,9.6 13.4,12.3 10.6,12.3 9.7,9.6"
+      fill={WHITE}
+      stroke={SLATE}
+      strokeWidth="0.9"
+      strokeLinejoin="round"
+    />
   </svg>
 );
 
 export const PeriodMarkerIcon: React.FC<CommentaryIconProps> = ({ size, className }) => (
   <svg {...base(size)} className={className}>
-    <rect x="3" y="6" width="3" height="12" rx="0.6" fill={GRAY} />
-    <rect x="10.5" y="6" width="3" height="12" rx="0.6" fill={GRAY} />
-    <rect x="18" y="6" width="3" height="12" rx="0.6" fill={GRAY} />
-    <line x1="1" y1="3" x2="23" y2="3" stroke={GRAY} strokeWidth="1.4" strokeLinecap="round" opacity="0.5" />
-    <line x1="1" y1="21" x2="23" y2="21" stroke={GRAY} strokeWidth="1.4" strokeLinecap="round" opacity="0.5" />
+    <path
+      d="M12 1.8 L12 3.8 M12 20.2 L12 22.2 M1.8 12 L3.8 12 M20.2 12 L22.2 12"
+      stroke={GRAY}
+      strokeWidth="1.6"
+      strokeLinecap="round"
+    />
+    <circle cx="12" cy="12" r="8.3" fill={WHITE} stroke={SLATE} strokeWidth="1.6" />
+    <path d="M12 12 L12 6.8" stroke={SLATE} strokeWidth="1.9" strokeLinecap="round" />
+    <path d="M12 12 L15.9 12" stroke={GREEN} strokeWidth="1.9" strokeLinecap="round" />
+    <circle cx="12" cy="12" r="1.2" fill={SLATE} />
   </svg>
 );
 
-// ── Player introduction: blue silhouette ───────────────────────────────
 export const PlayerIntroIcon: React.FC<CommentaryIconProps> = ({ size, className }) => (
   <svg {...base(size)} className={className}>
     <circle cx="12" cy="8" r="4" fill={BLUE} stroke={SLATE} strokeWidth="1.4" />
