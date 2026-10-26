@@ -398,6 +398,7 @@ export function TacticalMatchDetail({
                 <MatchProgressRail
                   events={events}
                   currentMinute={reportCurrentMinute}
+                  selectedMinute={allSnapshots[activeSnapshotIndex]?.minute}
                   onSelectMinute={(minute) =>
                     setActiveSnapshotIndex(closestSnapshotIndex(allSnapshots, minute))
                   }

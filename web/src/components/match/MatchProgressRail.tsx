@@ -34,6 +34,8 @@ export interface MatchProgressRailProps {
   events: MatchEvent[];
   currentMinute: number;
   onSelectMinute?: (minute: number) => void;
+  /** Minute currently on the pitch. Its bucket carries the selected ring. */
+  selectedMinute?: number;
   className?: string;
 }
 
@@ -98,6 +100,7 @@ export function MatchProgressRail({
   events,
   currentMinute,
   onSelectMinute,
+  selectedMinute,
   className,
 }: MatchProgressRailProps) {
   const t = useTranslations('matches.spine');
@@ -157,6 +160,12 @@ export function MatchProgressRail({
                   currentMinute <= bucket.end
                 }
                 onSelect={onSelectMinute}
+                selected={
+                  selectedMinute != null &&
+                  selectedMinute > bucket.start &&
+                  selectedMinute <=
+                    (bucket.end === 45 || bucket.end === 90 ? bucket.end + 6 : bucket.end)
+                }
                 emptyLabel={t('empty')}
               />
             </div>
@@ -187,6 +196,7 @@ function BucketCell({
   items: TimelineMarker[];
   played: boolean;
   active: boolean;
+  selected: boolean;
   onSelect?: (minute: number) => void;
   emptyLabel: string;
 }) {
@@ -208,7 +218,7 @@ function BucketCell({
         }
         className={`flex h-7 w-full items-center justify-center gap-[1px] rounded-sm border transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-primary ${
           active
-            ? 'border-primary/60 bg-primary/15'
+            ? 'border-primary/60 bg-primary/15 ring-1 ring-primary'
             : played
               ? 'border-transparent bg-surface-container-high/70'
               : 'border-transparent bg-surface-container/40'

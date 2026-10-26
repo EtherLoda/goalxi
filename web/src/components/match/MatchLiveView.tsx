@@ -276,6 +276,7 @@ export function MatchLiveView({
                 <MatchProgressRail
                   events={visibleEvents}
                   currentMinute={currentMinute}
+                  selectedMinute={snapshots[activeSnapshotIndex]?.minute}
                   onSelectMinute={(minute) =>
                     setActiveSnapshotIndex(closestSnapshotIndex(snapshots, minute))
                   }
