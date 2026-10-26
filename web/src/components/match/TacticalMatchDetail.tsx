@@ -268,8 +268,7 @@ export function TacticalMatchDetail({
               homeRoster={[]}
               awayRoster={[]}
               activeSnapshot={null}
-              statsMode={false}
-              onToggleStatsMode={() => {}}
+              mode="lineup"
               homeForfeit={false}
               awayForfeit={false}
               homeTeamName={homeName}
@@ -408,8 +407,7 @@ export function TacticalMatchDetail({
               homeRoster={homeRoster}
               awayRoster={awayRoster}
               activeSnapshot={activeSnapshot}
-              statsMode={statsMode}
-              onToggleStatsMode={() => setStatsMode((v) => !v)}
+              mode={statsMode ? 'rating' : 'lineup'}
               homeForfeit={match.homeForfeit ?? false}
               awayForfeit={match.awayForfeit ?? false}
               homeTeamName={homeName}

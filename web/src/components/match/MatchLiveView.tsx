@@ -287,8 +287,7 @@ export function MatchLiveView({
               homeRoster={homeRoster}
               awayRoster={awayRoster}
               activeSnapshot={snapshots[activeSnapshotIndex] ?? null}
-              statsMode={statsMode}
-              onToggleStatsMode={() => setStatsMode((v) => !v)}
+              mode={statsMode ? 'rating' : 'lineup'}
               homeForfeit={false}
               awayForfeit={false}
               homeTeamName={homeTeamName}

@@ -1,4 +1,4 @@
-﻿/**
+/**
  * MatchPitch.tsx — horizontal side-by-side pitch for the match report.
  *
  *   ┌────────────────────────────────────────────────────────┐
@@ -47,8 +47,7 @@ import {
   type PitchCard,
   type MatchSnapshot,
 } from './match-pitch-data';
-import { PitchStatsOverlay } from './PitchStatsOverlay';
-import { PlayerMarker } from '../tactics/pitch/PlayerMarker';
+import { MatchPlayerMarker, type PitchMarkerMode } from './MatchPlayerMarker';
 
 export type { PitchCard, MatchSnapshot, MatchSnapshotSide, MatchSnapshotPlayer } from './match-pitch-data';
 export { buildCards } from './match-pitch-data';
@@ -78,8 +77,8 @@ export interface MatchPitchProps {
    * shown comes from the same `activeSnapshot.h.ls` / `.a.ls` the
    * player view uses for marker states, so no extra fetch is needed.
    */
-  statsMode?: boolean;
-  onToggleStatsMode?: () => void;
+  /** Which of the two pitch reads to print. See `PitchMarkerMode`. */
+  mode?: PitchMarkerMode;
   /**
    * Forfeit flags from the API. When either is true, the simulator
    * never ran the match — no SNAPSHOT events were emitted and any
@@ -111,6 +110,7 @@ interface HalfPitchProps {
    */
   rosterById: Map<number, Player>;
   defensiveLine: 'low' | 'mid' | 'high';
+  mode: PitchMarkerMode;
   pitchWidth: 'narrow' | 'balanced' | 'wide';
 }
 
@@ -136,6 +136,7 @@ function HalfPitch({
   cards,
   rosterById,
   defensiveLine,
+  mode,
   pitchWidth,
 }: HalfPitchProps) {
   const offsets = computeMatchDimensionOffsets(defensiveLine, pitchWidth, side);
@@ -186,7 +187,8 @@ function HalfPitch({
                   transformOrigin: 'center center',
                 }}
               >
-                <PlayerMarker
+                <MatchPlayerMarker
+                  mode={mode}
                   player={player}
                   slot={slotKey}
                   isGkSlot={slotKey === 'GK'}
@@ -213,8 +215,7 @@ export function MatchPitch({
   homeRoster,
   awayRoster,
   activeSnapshot,
-  statsMode = false,
-  onToggleStatsMode,
+  mode = 'lineup',
   homeForfeit = false,
   awayForfeit = false,
   homeTeamName,
@@ -253,19 +254,6 @@ export function MatchPitch({
 
   return (
     <div className="relative w-full aspect-video rounded-2xl overflow-hidden border border-white/5 bg-ink-750">
-      {/* Everything pitch-mode (gradient, stripes, markings, player
-          halves, forfeit chip) is rendered ONLY in non-stats mode.
-          When `statsMode` is true the container shows exclusively the
-          PitchStatsOverlay grid — no overlap, no see-through. The two
-          views are mutually exclusive so the reader can never confuse
-          a player dot for a data point. */}
-      {!statsMode && (
-        <>
-          {/* Pitch surface — emerald gradient + vertical stripes (perpendicular
-              to attack direction in this layout). */}
-          <div className="absolute inset-0 bg-linear-to-r from-pitch-dark/40 via-pitch-deep/30 to-pitch-dark/40" />
-          <div className="absolute inset-0 opacity-20 bg-[repeating-linear-gradient(90deg,transparent,transparent_40px,rgba(0,0,0,0.15)_40px,rgba(0,0,0,0.15)_80px)]" />
-
           {/* Single SVG: pitch markings span the whole pitch. */}
           <svg
             className="absolute inset-0 w-full h-full"
@@ -334,6 +322,7 @@ export function MatchPitch({
 
           {/* Home half — LEFT, defends left goal */}
           <HalfPitch
+            mode={mode}
             side="home"
             cards={homeCards}
             rosterById={rosterById}
@@ -343,6 +332,7 @@ export function MatchPitch({
 
           {/* Away half — RIGHT, defends right goal */}
           <HalfPitch
+            mode={mode}
             side="away"
             cards={awayCards}
             rosterById={rosterById}
@@ -363,20 +353,6 @@ export function MatchPitch({
               awayTeamName={awayTeamName ?? 'Away'}
             />
           )}
-        </>
-      )}
-
-      {/* Stats mode — REPLACES the entire pitch surface with the 3×3
-          data grid (mutually exclusive with the players view above).
-          No `aria-hidden` / `pointer-events-none` here because the
-          overlay IS the content of the container, not an overlay on
-          top — interactions inside the cells (e.g. tooltips, future
-          drill-downs) belong to this surface. */}
-      {statsMode && activeSnapshot && (
-        <div className="absolute inset-0" data-testid="pitch-stats-overlay">
-          <PitchStatsOverlay snapshot={activeSnapshot} />
-        </div>
-      )}
     </div>
   );
 }
@@ -392,6 +368,7 @@ export function MatchPitch({
 interface ForfeitBannerProps {
   homeForfeit: boolean;
   awayForfeit: boolean;
+
   homeTeamName: string;
   awayTeamName: string;
 }
@@ -445,3 +422,4 @@ function ForfeitBanner({
     </div>
   );
 }
+
