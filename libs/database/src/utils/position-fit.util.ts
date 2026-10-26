@@ -776,7 +776,7 @@ export function calculatePositionFit(
     const weights = POSITION_WEIGHTS[positionKey];
     if (!weights) return 0;
 
-    if (positionKey === 'GK') {
+    if ('saveRating' in weights) {
         const gkWeights = weights as GKWeightMatrix;
         const totalWeight = getPhaseWeightTotal(gkWeights.saveRating);
         if (totalWeight === 0) return 0;
