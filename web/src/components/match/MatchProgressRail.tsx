@@ -49,7 +49,7 @@ interface Bucket {
   tick?: string;
 }
 
-function buildBuckets(hasFirstStoppage: boolean, hasSecondStoppage: boolean): Bucket[] {
+function buildBuckets(): Bucket[] {
   const buckets: Bucket[] = [];
   for (let i = 1; i <= CELLS_PER_HALF; i += 1) {
     const start = (i - 1) * CELL_MINUTES;
@@ -62,9 +62,6 @@ function buildBuckets(hasFirstStoppage: boolean, hasSecondStoppage: boolean): Bu
       tick: start % 15 === 0 ? `${start}'` : undefined,
     });
   }
-  if (hasFirstStoppage) {
-    buckets.push({ key: 'h1-stoppage', start: 45, end: 45, stoppage: true, tick: `45+'` });
-  }
   for (let i = 1; i <= CELLS_PER_HALF; i += 1) {
     const start = 45 + (i - 1) * CELL_MINUTES;
     const end = 45 + i * CELL_MINUTES;
@@ -76,9 +73,6 @@ function buildBuckets(hasFirstStoppage: boolean, hasSecondStoppage: boolean): Bu
       tick: start % 15 === 0 ? `${start}'` : undefined,
     });
   }
-  if (hasSecondStoppage) {
-    buckets.push({ key: 'h2-stoppage', start: 90, end: 90, stoppage: true, tick: `90+'` });
-  }
   return buckets;
 }
 
@@ -86,7 +80,7 @@ function buildBuckets(hasFirstStoppage: boolean, hasSecondStoppage: boolean): Bu
 function bucketKeyOf(marker: TimelineMarker): string {
   if (marker.minuteLabel.includes('+')) {
     // 1H stoppage labels read "45+N", 2H ones read "90+N".
-    return marker.minuteLabel.startsWith('45') ? 'h1-stoppage' : 'h2-stoppage';
+    return marker.minuteLabel.startsWith('45') ? 'h1-' + CELLS_PER_HALF : 'h2-' + CELLS_PER_HALF;
   }
   const minute = marker.minute;
   if (minute <= 45) {
@@ -121,7 +115,7 @@ export function MatchProgressRail({
     }
 
     return {
-      buckets: buildBuckets(grouped.has('h1-stoppage'), grouped.has('h2-stoppage')),
+      buckets: buildBuckets(),
       byBucket: grouped,
     };
   }, [events]);
@@ -206,13 +200,13 @@ function BucketCell({
 }) {
   const multiple = items.length > 1;
   const single = items.length === 1 ? items[0] : null;
+  const target = items.length > 0 ? Math.max(...items.map((item) => item.minute)) : bucket.stoppage ? bucket.start : bucket.end;
 
   return (
     <div className="group relative min-w-0 flex-1">
       <button
         type="button"
-        onClick={() => onSelect?.(bucket.stoppage ? bucket.start : bucket.end)}
-        disabled={items.length === 0}
+        onClick={() => onSelect?.(target)}
         aria-label={
           items.length === 0
             ? `${bucket.start}-${bucket.end}: ${emptyLabel}`
