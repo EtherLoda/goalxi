@@ -20,7 +20,7 @@ import type { PitchSlot } from '../tactics/types';
  * players never move between them — flipping the toggle changes what is
  * printed, not who is where.
  */
-export type PitchMarkerMode = 'lineup' | 'rating';
+export type PitchMarkerMode = 'lineup' | 'rating' | 'grid';
 
 interface MatchPlayerMarkerProps {
   player: Player;

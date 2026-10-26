@@ -24,6 +24,7 @@ import { type MatchState, type WsMatchEvent } from '@/hooks/useMatchPage';
 import { LiveCommentary } from './LiveCommentary';
 import { MatchPitch } from './MatchPitch';
 import { MatchPitchStage } from './MatchPitchStage';
+import type { PitchMarkerMode } from './MatchPlayerMarker';
 import { SubbedOffStrip } from './SubbedOffStrip';
 import { subbedOffFrom } from './subbed-off';
 import { MatchProgressRail } from './MatchProgressRail';
@@ -112,7 +113,7 @@ export function MatchLiveView({
 
   const [matchEnded, setMatchEnded] = useState(false);
   const redirectTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const [statsMode, setStatsMode] = useState(false);
+  const [pitchMode, setPitchMode] = useState<PitchMarkerMode>('lineup');
 
   // Show "Match ended" overlay + redirect when the match completes.
   // The `autoRedirectOnEnd` flag lets the standalone live page opt in to
@@ -269,8 +270,17 @@ export function MatchLiveView({
           <div className="mx-auto w-full max-w-[800px]">
             <MatchPitchStage
               clock={`${currentMinute}'`}
-              mode={statsMode ? 'rating' : 'lineup'}
-              onModeChange={(m) => setStatsMode(m === 'rating')}
+              mode={pitchMode}
+              onModeChange={setPitchMode}
+              progress={
+                <MatchProgressRail
+                  events={visibleEvents}
+                  currentMinute={currentMinute}
+                  onSelectMinute={(minute) =>
+                    setActiveSnapshotIndex(closestSnapshotIndex(snapshots, minute))
+                  }
+                />
+              }
               footer={<SubbedOffStrip players={subbedOffFrom(visibleEvents, match?.homeTeam?.id)} />}
             >
               <MatchPitch
@@ -279,7 +289,7 @@ export function MatchLiveView({
                 homeRoster={homeRoster}
                 awayRoster={awayRoster}
                 activeSnapshot={snapshots[activeSnapshotIndex] ?? null}
-                mode={statsMode ? 'rating' : 'lineup'}
+                mode={pitchMode}
                 homeForfeit={false}
                 awayForfeit={false}
                 homeTeamName={homeTeamName}

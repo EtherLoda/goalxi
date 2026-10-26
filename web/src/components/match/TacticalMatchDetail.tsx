@@ -17,9 +17,9 @@ import {
 } from '@/lib/api';
 import { MatchPitch, type MatchSnapshot } from './MatchPitch';
 import { MatchPitchStage } from './MatchPitchStage';
+import type { PitchMarkerMode } from './MatchPlayerMarker';
 import { SubbedOffStrip, type SubbedOffPlayer } from './SubbedOffStrip';
 import { subbedOffFrom } from './subbed-off';
-import type { PitchMarkerMode } from './MatchPlayerMarker';
 import { MatchProgressRail } from './MatchProgressRail';
 import { MatchPage } from './MatchPage';
 import { LiveCommentary } from './LiveCommentary';
@@ -118,7 +118,7 @@ export function TacticalMatchDetail({
     () => currentMinute ?? getReportCurrentMinute(events),
     [currentMinute, events],
   );
-  const [statsMode, setStatsMode] = useState(false);
+  const [pitchMode, setPitchMode] = useState<PitchMarkerMode>('lineup');
   const homeTeamId = match.homeTeam?.id;
   const awayTeamId = match.awayTeam?.id;
   const tLiveChrome = useTranslations('matches.live');
@@ -393,8 +393,17 @@ export function TacticalMatchDetail({
           <div className="mx-auto w-full max-w-[800px]">
             <MatchPitchStage
               clock="FT"
-              mode={statsMode ? 'rating' : 'lineup'}
-              onModeChange={(m) => setStatsMode(m === 'rating')}
+              mode={pitchMode}
+              onModeChange={setPitchMode}
+              progress={
+                <MatchProgressRail
+                  events={events}
+                  currentMinute={reportCurrentMinute}
+                  onSelectMinute={(minute) =>
+                    setActiveSnapshotIndex(closestSnapshotIndex(allSnapshots, minute))
+                  }
+                />
+              }
               footer={<SubbedOffStrip players={subbedOffFrom(events, match.homeTeam?.id)} />}
             >
               <MatchPitch
@@ -403,7 +412,7 @@ export function TacticalMatchDetail({
                 homeRoster={homeRoster}
                 awayRoster={awayRoster}
                 activeSnapshot={activeSnapshot}
-                mode={statsMode ? 'rating' : 'lineup'}
+                mode={pitchMode}
                 homeForfeit={match.homeForfeit ?? false}
                 awayForfeit={match.awayForfeit ?? false}
                 homeTeamName={homeName}

@@ -4,33 +4,33 @@ import React, { useState } from 'react';
 import type { PitchMarkerMode } from './MatchPlayerMarker';
 
 interface MatchPitchStageProps {
-  /** Clock shown in the header left, e.g. `67'` or `FT`. */
+  /** Clock shown in the header, e.g. `67'` or `FT`. */
   clock: string;
   /** Secondary clock detail, e.g. `28/28 · 91'` in a replay. */
   clockNote?: string;
-  /** The two pitch reads, toggled from the header. */
+  /** Which of the three reads the header is on. */
   mode: PitchMarkerMode;
   onModeChange: (mode: PitchMarkerMode) => void;
-  /** The progress strip, shown in a popover anchored to the clock. */
+  /** The progress strip, shown in a popover that opens upwards. */
   progress?: React.ReactNode;
   /** Substitutions, shown as the strip under the pitch. */
   footer?: React.ReactNode;
   children: React.ReactNode;
 }
 
-const MODES: { key: PitchMarkerMode; label: string; icon: string }[] = [
-  { key: 'lineup', label: '阵容', icon: 'group' },
-  { key: 'rating', label: '阵容评级', icon: 'insights' },
+const MODES: { key: PitchMarkerMode; label: string }[] = [
+  { key: 'lineup', label: '阵容' },
+  { key: 'rating', label: '球员评级' },
+  { key: 'grid', label: '阵容评级' },
 ];
 
 /**
- * The frame around the pitch: a header (clock + view switch), the pitch
- * itself, and a footer (substitutions).
+ * The frame around the pitch: header (clock + three-way read switch), pitch,
+ * footer (substitutions).
  *
- * The progress strip lives INSIDE the clock popover rather than above the
- * pitch. It is a navigational aid, not the main event — parking it under a
- * button keeps the pitch at full height while leaving the strip one click
- * away, which is how it gets used: glance, jump, close.
+ * The progress strip opens UPWARDS from the clock icon. It is a navigational
+ * aid, not the main event: parking it under a button keeps the pitch at full
+ * height while leaving the strip one click away — glance, jump, close.
  */
 export function MatchPitchStage({
   clock,
@@ -44,30 +44,38 @@ export function MatchPitchStage({
   const [open, setOpen] = useState(false);
 
   return (
-    <div className="overflow-hidden rounded-2xl border border-white/5 bg-ink-750">
-      {/* ---------------------------------------------------------------- */}
-      {/* Header                                                            */}
-      {/* ---------------------------------------------------------------- */}
-      <div className="flex items-center gap-2 border-b border-white/5 bg-surface-container-low/60 px-2 py-1.5">
+    <div className="relative rounded-2xl border border-white/5 bg-ink-750">
+      <div className="relative flex items-center gap-2 border-b border-white/5 bg-surface-container-low/60 px-2 py-1.5">
         <button
           type="button"
           onClick={() => setOpen((v) => !v)}
           aria-expanded={open}
           aria-label="比赛进度"
-          className={`flex items-center gap-1.5 rounded-lg px-2 py-1 font-headline text-label font-black tabular-nums transition-colors duration-quick ${
-            open ? 'bg-primary/15 text-primary' : 'text-on-surface/80 hover:bg-white/5'
+          disabled={!progress}
+          className={`flex h-7 w-7 items-center justify-center rounded-lg transition-colors duration-quick ${
+            open
+              ? 'bg-primary/15 text-primary'
+              : 'text-on-surface/50 hover:bg-white/5 hover:text-on-surface/80'
           }`}
         >
-          <span className="text-title">{clock}</span>
-          {clockNote && (
-            <span className="font-label text-kicker font-normal tracking-wide text-on-surface/40">
-              {clockNote}
-            </span>
-          )}
-          <svg width="9" height="9" viewBox="0 0 10 10" aria-hidden="true" className="text-on-surface/40">
-            <path d="M1 3l4 4 4-4" fill="none" stroke="currentColor" strokeWidth="1.5" />
+          <svg width="15" height="15" viewBox="0 0 24 24" aria-hidden="true">
+            <circle cx="12" cy="12" r="8.5" fill="none" stroke="currentColor" strokeWidth="1.8" />
+            <path
+              d="M12 7.5V12l3 2"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.8"
+              strokeLinecap="round"
+            />
           </svg>
         </button>
+
+        <span className="font-headline text-label font-black tabular-nums text-on-surface/80">
+          {clock}
+        </span>
+        {clockNote && (
+          <span className="font-label text-kicker tracking-wide text-on-surface/35">{clockNote}</span>
+        )}
 
         <div className="ml-auto flex items-center gap-1">
           {MODES.map((m) => (
@@ -86,23 +94,17 @@ export function MatchPitchStage({
             </button>
           ))}
         </div>
+
+        {/* Strip popover — opens upward, anchored under the clock icon. */}
+        {open && progress && (
+          <div className="absolute left-2 right-2 top-full z-30 mt-1 rounded-xl border border-white/10 bg-surface-container-high/95 p-2 shadow-2xl backdrop-blur">
+            {progress}
+          </div>
+        )}
       </div>
 
-      {/* Clock popover — the strip, only while open. */}
-      {open && progress && (
-        <div className="border-b border-white/5 bg-surface-container-low/40 px-2 py-1.5">
-          {progress}
-        </div>
-      )}
+      <div className="overflow-hidden">{children}</div>
 
-      {/* ---------------------------------------------------------------- */}
-      {/* Pitch                                                             */}
-      {/* ---------------------------------------------------------------- */}
-      {children}
-
-      {/* ---------------------------------------------------------------- */}
-      {/* Footer — substitutions                                            */}
-      {/* ---------------------------------------------------------------- */}
       {footer && (
         <div className="border-t border-white/5 bg-surface-container-low/60 px-2 py-1.5">
           {footer}

@@ -48,6 +48,7 @@ import {
   type MatchSnapshot,
 } from './match-pitch-data';
 import { MatchPlayerMarker, type PitchMarkerMode } from './MatchPlayerMarker';
+import { PitchStatsOverlay } from './PitchStatsOverlay';
 
 export type { PitchCard, MatchSnapshot, MatchSnapshotSide, MatchSnapshotPlayer } from './match-pitch-data';
 export { buildCards } from './match-pitch-data';
@@ -252,6 +253,16 @@ export function MatchPitch({
   const homeWidth = homeTactics?.pitchWidth ?? 'balanced';
   const awayWidth = awayTactics?.pitchWidth ?? 'balanced';
 
+  // The grid read replaces the pitch entirely — it is a table of numbers,
+  // not an overlay on players, so showing both at once would invite the
+  // reader to read a row of numbers as a position on the pitch.
+  if (mode === 'grid') {
+    return (
+      <div className="relative w-full aspect-video rounded-2xl overflow-hidden border border-white/5 bg-ink-750">
+        {activeSnapshot ? <PitchStatsOverlay snapshot={activeSnapshot} /> : null}
+      </div>
+    );
+  }
   return (
     <div className="relative w-full aspect-video rounded-2xl overflow-hidden border border-white/5 bg-ink-750">
           {/* Single SVG: pitch markings span the whole pitch. */}
