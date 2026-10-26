@@ -1,9 +1,21 @@
 export class ConditionSystem {
   // --- Status (Sigmoid) constants ---
-  private static readonly S_MIN = 0.78;
-  private static readonly S_RANGE = 0.34; // (1.12 - 0.78)
-  private static readonly S_K = 1.5;
-  private static readonly S_MID = 3.5;
+  // Status/form curve: exponential saturation from form 1 to 5.99.
+  // 1 -> 0.40, 5.99 -> 1.00, with 1.0 -> 2.0 worth ~24 points and
+  // 5.0 -> 5.99 only ~4. Bad form is a cliff, good form a shallow ramp.
+  private static readonly FORM_MIN = 1.0;
+  private static readonly FORM_MAX = 5.99;
+  private static readonly FORM_FLOOR = 0.4;
+  private static readonly FORM_CURVE_A = 0.45;
+
+  /** form 1..5.99 -> 0.40..1.00, exponential saturation. */
+  private static statusCurve(status: number): number {
+    const span = ConditionSystem.FORM_MAX - ConditionSystem.FORM_MIN;
+    const pct =
+      (1 - Math.exp(-ConditionSystem.FORM_CURVE_A * (status - ConditionSystem.FORM_MIN))) /
+      (1 - Math.exp(-ConditionSystem.FORM_CURVE_A * span));
+    return ConditionSystem.FORM_FLOOR + (1 - ConditionSystem.FORM_FLOOR) * pct;
+  }
 
   // --- Fitness (Exponential Decay) constants ---
   private static readonly F_R_FREE = 0.2;
@@ -59,15 +71,7 @@ export class ConditionSystem {
       exp, this.E_BASE_BONUS, this.E_LIMIT_BONUS, this.E_GROWTH_K,
     );
 
-    // 2. Status/Form Factor (Sigmoid)
-    let statusFactor: number;
-    const sDiff = status - this.S_MID;
-    if (sDiff === 0) {
-      statusFactor = 0.95; // Midpoint approximation
-    } else {
-      statusFactor =
-        this.S_MIN + this.S_RANGE / (1 + Math.exp(-this.S_K * sDiff));
-    }
+    const statusFactor = ConditionSystem.statusCurve(status);
 
     // 3. Fitness Factor (Exponential Decay)
     let fitnessFactor = 1.0;
@@ -106,15 +110,7 @@ export class ConditionSystem {
    * Penalty specific multiplier: Ignores stamina, high experience bonus.
    */
   static calculatePenaltyMultiplier(status: number, exp: number): number {
-    // 1. Status Factor (Sigmoid)
-    let statusFactor: number;
-    const sDiff = status - this.S_MID;
-    if (sDiff === 0) {
-      statusFactor = 0.95;
-    } else {
-      statusFactor =
-        this.S_MIN + this.S_RANGE / (1 + Math.exp(-this.S_K * sDiff));
-    }
+    const statusFactor = ConditionSystem.statusCurve(status);
 
     // 2. Experience Factor (Base + Hyperbolic, penalty-specific cap)
     const expFactor = ConditionSystem.expFactor(
@@ -164,13 +160,9 @@ export class ConditionSystem {
       exp, this.E_BASE_BONUS, this.E_LIMIT_BONUS, this.E_GROWTH_K,
     );
 
-    // 2. Status/Form Factor (Sigmoid) — same formula as
-    //    `calculateMultiplier`.
-    const sDiff = status - this.S_MID;
-    const statusFactor =
-      sDiff === 0
-        ? 0.95
-        : this.S_MIN + this.S_RANGE / (1 + Math.exp(-this.S_K * sDiff));
+    // 2. Status/Form Factor (exponential saturation): same curve as
+    //    calculateMultiplier.
+    const statusFactor = ConditionSystem.statusCurve(status);
 
     // 3. Fitness Factor (Exponential Decay) — once, shared
     //    between the returned `fitnessFactor` and the multiplier.

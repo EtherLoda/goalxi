@@ -26,44 +26,44 @@ describe("ConditionSystem - experience multiplier", () => {
         it("L0 (0 XP) -> expFactor = 1.03 (just the 3% base)", () => {
             const m = ConditionSystem.calculateMultiplier(baseline.currentFit, baseline.startFit, baseline.status, 0);
             // statusFactor is 0.95 at S_MID (the midpoint approximation), so:
-            //   m = 1.0 * 0.95 * (1 + 0.03 + 0) = 0.9785
+            //   m = 1.0 * 0.8531 * (1 + 0.03 + 0) = 0.9785
             // The function rounds to 3 decimals -> 0.978 or 0.979 (FP).
-            expect(m).toBeCloseTo(0.95 * 1.03, 3);
+            expect(m).toBeCloseTo(0.8531 * 1.03, 3);
         });
 
         it("L1 (10 XP) -> expFactor = 1.05 (rookie + first 2% saturation)", () => {
             // 0.03 + 0.22*10/110 = 0.03 + 0.02 = 0.05 -> factor 1.05
             const m = ConditionSystem.calculateMultiplier(baseline.currentFit, baseline.startFit, baseline.status, 10);
-            //   m = 0.95 * 1.05 = 0.9975 (function rounds to 3 dp)
-            expect(m).toBeCloseTo(0.95 * 1.05, 3);
+            //   m = 0.8531 * 1.05 = 0.9975 (function rounds to 3 dp)
+            expect(m).toBeCloseTo(0.8531 * 1.05, 3);
         });
 
         it("L5 (70 XP) -> expFactor = 1.13 (L5 reaches the base+limit/2 mid-point)", () => {
             // At exp=K=100, factor = 1 + base + limit/2 = 1 + 0.03 + 0.11 = 1.14
             // exp=70 is just under 100, so factor ~= 1 + 0.03 + 0.22*70/170 = 1 + 0.03 + 0.0906 = 1.121
             const m = ConditionSystem.calculateMultiplier(baseline.currentFit, baseline.startFit, baseline.status, 70);
-            expect(m).toBeCloseTo(0.95 * (1 + 0.03 + 0.22 * 70 / 170), 3);
+            expect(m).toBeCloseTo(0.8531 * (1 + 0.03 + 0.22 * 70 / 170), 3);
         });
 
         it("L10 (190 XP) -> expFactor = 1.166 (L10 should still feel different from L5)", () => {
             // 0.03 + 0.22*190/290 = 0.03 + 0.1441 = 0.1741 -> factor 1.174
-            // 0.95 * 1.174 = 1.115
+            // 0.8531 * 1.174 = 1.115
             const m = ConditionSystem.calculateMultiplier(baseline.currentFit, baseline.startFit, baseline.status, 190);
-            expect(m).toBeCloseTo(0.95 * (1 + 0.03 + 0.22 * 190 / 290), 3);
+            expect(m).toBeCloseTo(0.8531 * (1 + 0.03 + 0.22 * 190 / 290), 3);
         });
 
         it("L18 (486 XP) -> expFactor ~ 1.21 (approaching the 25% cap)", () => {
             // 0.03 + 0.22*486/586 = 0.03 + 0.1824 = 0.2124 -> factor 1.212
-            // 0.95 * 1.212 = 1.152
+            // 0.8531 * 1.212 = 1.152
             const m = ConditionSystem.calculateMultiplier(baseline.currentFit, baseline.startFit, baseline.status, 486);
-            expect(m).toBeCloseTo(0.95 * (1 + 0.03 + 0.22 * 486 / 586), 3);
+            expect(m).toBeCloseTo(0.8531 * (1 + 0.03 + 0.22 * 486 / 586), 3);
         });
 
         it("exp=INF -> expFactor approaches but never exceeds 1.25 (cap)", () => {
             const m = ConditionSystem.calculateMultiplier(baseline.currentFit, baseline.startFit, baseline.status, 1e9);
-            // 0.95 * 1.25 = 1.1875, but should be < 1.1875 due to cap (limit * exp / (exp+K) < limit strictly)
-            expect(m).toBeLessThan(0.95 * 1.25 + 1e-6);
-            expect(m).toBeGreaterThan(0.95 * 1.24);
+            // 0.8531 * 1.25 = 1.1875, but should be < 1.1875 due to cap (limit * exp / (exp+K) < limit strictly)
+            expect(m).toBeLessThan(0.8531 * 1.25 + 1e-6);
+            expect(m).toBeGreaterThan(0.8531 * 1.24);
         });
 
         it("should be monotonically non-decreasing in exp (L0 < L1 < L2 ... < cap)", () => {
@@ -87,8 +87,8 @@ describe("ConditionSystem - experience multiplier", () => {
     describe("calculatePenaltyMultiplier() - 50% cap", () => {
         it("L0 (0 XP) -> expFactor = 1.03 (same 3% base as general)", () => {
             const m = ConditionSystem.calculatePenaltyMultiplier(3.5, 0);
-            // statusFactor = 0.95 (midpoint), so: 0.95 * (1 + 0.03 + 0) = 0.9785
-            expect(m).toBeCloseTo(0.95 * 1.03, 3);
+            // statusFactor = 0.95 (midpoint), so: 0.8531 * (1 + 0.03 + 0) = 0.9785
+            expect(m).toBeCloseTo(0.8531 * 1.03, 3);
         });
 
         it("L10 (190 XP) -> penalty bonus noticeably higher than general (cap 50% > cap 25%)", () => {
@@ -102,24 +102,24 @@ describe("ConditionSystem - experience multiplier", () => {
 
         it("exp=INF -> penalty multiplier approaches 50% cap (1.5 * general cap)", () => {
             const m = ConditionSystem.calculatePenaltyMultiplier(3.5, 1e9);
-            // 0.95 * 1.50 = 1.425 (status factor * cap)
-            expect(m).toBeLessThan(0.95 * 1.50 + 1e-6);
-            expect(m).toBeGreaterThan(0.95 * 1.49);
+            // 0.8531 * 1.50 = 1.425 (status factor * cap)
+            expect(m).toBeLessThan(0.8531 * 1.50 + 1e-3);
+            expect(m).toBeGreaterThan(0.8531 * 1.49);
         });
     });
 
     describe("getMultiplierWithFitnessFactor() - same exp formula as calculateMultiplier", () => {
-        it("L0 (0 XP, full stamina, mid form) -> multiplier close to 1.0 * 0.95 * 1.03", () => {
+        it("L0 (0 XP, full stamina, mid form) -> multiplier close to 1.0 * 0.8531 * 1.03", () => {
             const r = ConditionSystem.getMultiplierWithFitnessFactor(6, 6, 3.5, 0);
             expect(r.fitnessFactor).toBe(1.0);
-            expect(r.multiplier).toBeCloseTo(0.95 * 1.03, 3);
+            expect(r.multiplier).toBeCloseTo(0.8531 * 1.03, 3);
         });
 
-        it("L20+ (580 XP) -> multiplier near 1.187 (0.95 * 1.25 cap)", () => {
+        it("L20+ (580 XP) -> multiplier near 1.187 (0.8531 * 1.25 cap)", () => {
             const r = ConditionSystem.getMultiplierWithFitnessFactor(6, 6, 3.5, 580);
             expect(r.fitnessFactor).toBe(1.0);
-            // 0.95 * (1 + 0.03 + 0.22*580/680) = 0.95 * 1.218 = 1.157
-            expect(r.multiplier).toBeCloseTo(0.95 * (1 + 0.03 + 0.22 * 580 / 680), 3);
+            // 0.8531 * (1 + 0.03 + 0.22*580/680) = 0.8531 * 1.218 = 1.157
+            expect(r.multiplier).toBeCloseTo(0.8531 * (1 + 0.03 + 0.22 * 580 / 680), 3);
         });
 
         it("should match calculateMultiplier when stamina is full (fitness=1.0)", () => {
