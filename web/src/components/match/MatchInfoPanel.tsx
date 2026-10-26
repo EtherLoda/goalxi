@@ -144,7 +144,7 @@ export function MatchInfoPanel({ match }: { match?: MatchInfoSource | null }) {
         </code>
       </div>
 
-      <div className="divide-y divide-outline-variant/40 border-t border-outline-variant/40">
+      <div className="flex flex-col">
         <Row icon="emoji_events" caption={t('competition')}>
           {competitionLabel(match, t)}
         </Row>
@@ -181,18 +181,6 @@ export function MatchInfoPanel({ match }: { match?: MatchInfoSource | null }) {
             {`£${match.ticketRevenue.toLocaleString()}`}
           </Row>
         )}
-
-        <div className="flex items-center justify-between gap-3 px-4 py-2.5">
-          <span className="text-kicker uppercase tracking-wider text-muted">
-            {t('matchId')}
-          </span>
-          <code
-            className="font-mono text-label text-muted"
-            title={match.id ?? undefined}
-          >
-            {(match.id ?? '').slice(0, 8)}
-          </code>
-        </div>
       </div>
     </div>
   );
