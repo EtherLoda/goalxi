@@ -329,9 +329,9 @@ const POSITION_TO_BENCH_KEY: Record<string, keyof BenchConfig> = {
 // ~18 snapshots = ~400 times per match. The closed form runs
 // the same math in O(1) with no allocation.
 function contributionToStars(contribution: number): number {
-  const i = Math.floor(contribution / 2.2);
+  const i = Math.floor(contribution / 1.25);
   if (i <= 0) return 0;
-  return i * 0.5;
+  return i * 0.25;
 }
 
 export interface MatchEvent {
@@ -4760,7 +4760,7 @@ export class MatchEngine {
           const gkRating =
             AttributeCalculator.calculateAndCacheGKSaveRating(player);
           const rawContribution = gkRating * multiplier;
-          normalizedContribution = rawContribution / 2.15;
+          normalizedContribution = rawContribution / 2.0;
           stars = contributionToStars(normalizedContribution);
         } else {
           // Outfield: apply multiplier then normalize to 0-100 scale
