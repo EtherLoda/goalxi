@@ -4753,14 +4753,14 @@ export class MatchEngine {
         if (tacticalPlayer.positionKey === 'GK') {
           // GK: apply multiplier first, then normalize to 0-100 scale
           // gkRating range: ~100 (skill 10) to ~200 (skill 20).
-          // Divided by 2.05 so a top keeper at a neutral multiplier
-          // (200 × 1.0 ÷ 2.05 ÷ 2.5) lands at ~39 rungs ≈ 19.5, i.e.
+          // Divided by 2.15 so a top keeper at a neutral multiplier
+          // (200 × 1.0 ÷ 2.15 ÷ 2.2) lands at ~42 rungs ≈ 21, i.e.
           // 20 stays reachable but exceptional. No upper clamp: a
           // freak keeper is allowed past 20.
           const gkRating =
             AttributeCalculator.calculateAndCacheGKSaveRating(player);
           const rawContribution = gkRating * multiplier;
-          normalizedContribution = rawContribution / 2.05;
+          normalizedContribution = rawContribution / 2.15;
           stars = contributionToStars(normalizedContribution);
         } else {
           // Outfield: apply multiplier then normalize to 0-100 scale
