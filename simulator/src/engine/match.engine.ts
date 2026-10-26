@@ -331,7 +331,6 @@ const POSITION_TO_BENCH_KEY: Record<string, keyof BenchConfig> = {
 function contributionToStars(contribution: number): number {
   const i = Math.floor(contribution / 2.5);
   if (i <= 0) return 0;
-  if (i >= 40) return 20;
   return i * 0.5;
 }
 
@@ -4753,14 +4752,15 @@ export class MatchEngine {
         let normalizedContribution = totalContribution; // For history tracking
         if (tacticalPlayer.positionKey === 'GK') {
           // GK: apply multiplier first, then normalize to 0-100 scale
-          // gkRating range: ~100 (skill 10) to ~200 (skill 20)
-          // With multiplier 1.2, raw range is ~120 to ~240
-          // Divide by 2.4 to get 0-100 scale (240/2.4 = 100)
+          // gkRating range: ~100 (skill 10) to ~200 (skill 20).
+          // Divided by 2.05 so a top keeper at a neutral multiplier
+          // (200 × 1.0 ÷ 2.05 ÷ 2.5) lands at ~39 rungs ≈ 19.5, i.e.
+          // 20 stays reachable but exceptional. No upper clamp: a
+          // freak keeper is allowed past 20.
           const gkRating =
             AttributeCalculator.calculateAndCacheGKSaveRating(player);
           const rawContribution = gkRating * multiplier;
-          // Normalize: divide by 2.4 to match 0-100 scale
-          normalizedContribution = rawContribution / 2.4;
+          normalizedContribution = rawContribution / 2.05;
           stars = contributionToStars(normalizedContribution);
         } else {
           // Outfield: apply multiplier then normalize to 0-100 scale
@@ -4769,15 +4769,18 @@ export class MatchEngine {
             tacticalPlayer.positionKey,
           );
           const rawContribution = positionFit * multiplier;
-          // Normalize: divide by 1.2 (max multiplier) to get 0-100 scale
-          normalizedContribution = rawContribution / 1.2;
+          // No /1.2 normalisation. Dividing by the theoretical maximum
+          // multiplier assumed "max skills AND best condition at once",
+          // which almost never happens (potential caps growth), so every
+          // real player was pushed down a couple of grades. The raw
+          // contribution already is the 0-100 scale.
+          normalizedContribution = rawContribution;
           stars = contributionToStars(normalizedContribution);
         }
 
-        // Note: GK normalization uses a different divisor (7.5) because gkRating
-        // has a different scale (max ~625 for skills=100). Formula:
-        // (gkRating * multiplier) / 7.5 ≈ (positionFit * multiplier) / 1.2
-        // Both evaluate to ~100 at max quality with max multiplier
+        // Position fit and the GK save rating are on different scales;
+        // each branch carries its own divisor (2.05 for keepers, none for
+        // outfield, where the fit already is a 0-100 number).
 
         // Track contribution and stars history for this player
         // Use normalizedContribution for consistent 0-100 scale across all positions

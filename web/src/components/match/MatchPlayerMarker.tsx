@@ -1,9 +1,9 @@
 'use client';
 
 import React from 'react';
-import { Star } from 'lucide-react';
 import { AppIcon } from '@/components/icons/AppIcon';
 import type { Player } from '@/lib/api';
+import { ratingGrade } from '@/lib/rating-grade';
 import { positionShortLabel } from '../tactics/shared/position-legend';
 import type { PitchSlot } from '../tactics/types';
 
@@ -62,38 +62,23 @@ function conditionTone(fitness: number): string {
   return '#ef4444';
 }
 
-/** Half-star steps, like the ratings a match report prints. */
-function StarRow({ stars }: { stars: number }) {
+/**
+ * The rating badge: a letter, not stars.
+ *
+ * A 0–20+ engine value squeezed into five stars threw away fifteen of its
+ * sixteen steps, and every starter above ~5 came out as five full stars. The
+ * letter ladder keeps the resolution and still sorts at a glance. The number
+ * itself is never printed — the grade is the whole message.
+ */
+function RatingBadge({ power }: { power: number }) {
+  const { letter, tone } = ratingGrade(power);
   return (
-    <div className="mt-0.5 flex items-center gap-px" aria-label={`${stars.toFixed(1)} / 5`}>
-      {Array.from({ length: 5 }).map((_, i) => {
-        const fill = Math.max(0, Math.min(1, stars - i));
-        return (
-          <span key={i} className="relative" style={{ width: 9, height: 9 }}>
-            <Star
-              size={9}
-              strokeWidth={1.5}
-              className="absolute inset-0 text-on-surface/25"
-              aria-hidden="true"
-            />
-            {fill > 0 && (
-              <span
-                className="absolute inset-0 overflow-hidden"
-                style={{ width: `${fill * 100}%` }}
-              >
-                <Star
-                  size={9}
-                  strokeWidth={1.5}
-                  fill="currentColor"
-                  className="text-on-surface/90"
-                  aria-hidden="true"
-                />
-              </span>
-            )}
-          </span>
-        );
-      })}
-    </div>
+    <span
+      className={`mt-0.5 text-[11px] font-black leading-none tracking-tight ${tone}`}
+      aria-label={letter}
+    >
+      {letter}
+    </span>
   );
 }
 
@@ -206,7 +191,7 @@ export function MatchPlayerMarker({
         <span className="max-w-[74px] truncate text-center font-headline text-kicker font-bold text-on-surface/90">
           {player.name}
         </span>
-        {mode === 'rating' && <StarRow stars={stars} />}
+        {mode === 'rating' && <RatingBadge power={stars} />}
       </div>
     </div>
   );
