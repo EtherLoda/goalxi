@@ -189,6 +189,7 @@ function BucketCell({
   items,
   played,
   active,
+  selected,
   onSelect,
   emptyLabel,
 }: {
@@ -217,12 +218,14 @@ function BucketCell({
                 .join(', ')}`
         }
         className={`flex h-7 w-full items-center justify-center gap-[1px] rounded-sm border transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-primary ${
-          active
-            ? 'border-primary/60 bg-primary/15 ring-1 ring-primary'
+          selected
+            ? 'border-primary bg-primary/30 ring-2 ring-primary'
+            : active
+            ? 'border-primary/60 bg-primary/15'
             : played
               ? 'border-transparent bg-surface-container-high/70'
               : 'border-transparent bg-surface-container/40'
-        } ${items.length > 0 ? 'cursor-pointer hover:border-primary/40' : 'cursor-default'}`}
+        } cursor-pointer hover:border-primary/40`}
       >
         {single ? <EventGlyph type={single.type} /> : null}
         {multiple ? (
