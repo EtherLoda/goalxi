@@ -120,11 +120,11 @@ export const MATCH_PITCH_COORDS: Readonly<Record<PitchSlot, MatchPitchPoint>> = 
 
   // DM line — wing-backs sit wider than the touchline (y=4/96) and the
   // central DMs stack across the middle.
-  LWB: { x: 20, y: 4 },
+  LWB: { x: 20, y: 12 },
   DMFL: { x: 20, y: 32 },
   DMF: { x: 20, y: 50 },
   DMFR: { x: 20, y: 68 },
-  RWB: { x: 20, y: 96 },
+  RWB: { x: 20, y: 88 },
 
   // CM line — wide mids share the touchline y with LB/RB so the
   // touchline reads as a single horizontal rail from back to front.
