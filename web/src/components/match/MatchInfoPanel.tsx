@@ -138,12 +138,11 @@ export function MatchInfoPanel({ match }: { match?: MatchInfoSource | null }) {
 
   return (
     <div className="flex flex-col">
-      <header className="flex items-center gap-2 px-4 pb-2 pt-3">
-        <AppIcon name="info" className="text-body text-primary" />
-        <h3 className="font-headline text-title font-bold tracking-wide text-on-surface">
-          {t('title')}
-        </h3>
-      </header>
+      <div className="mb-1 flex justify-end px-4 pt-0.5">
+        <code className="font-mono text-kicker tracking-normal text-muted">
+          {'#' + (match.id ?? '').slice(0, 8)}
+        </code>
+      </div>
 
       <div className="divide-y divide-outline-variant/40 border-t border-outline-variant/40">
         <Row icon="emoji_events" caption={t('competition')}>
