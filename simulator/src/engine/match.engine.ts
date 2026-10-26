@@ -318,8 +318,8 @@ const POSITION_TO_BENCH_KEY: Record<string, keyof BenchConfig> = {
 // and displays - no rescaling.
 //
 // The threshold ladder is a linear mapping: rung `i` has
-// `threshold = i * 2.5` and `power = i * 0.5`. So
-// `contributionToStars(c)` is just `floor(c / 2.5) * 0.5`, with
+// `threshold = i * 2.2` and `power = i * 0.5`. So
+// `contributionToStars(c)` is just `floor(c / 2.2) * 0.5`, with
 // the index clamped to [0, 40] so out-of-range inputs still
 // produce a valid 0–20 power rating (matches the legacy
 // `Math.min(20, stars)` cap). No table needed at runtime — the
@@ -329,7 +329,7 @@ const POSITION_TO_BENCH_KEY: Record<string, keyof BenchConfig> = {
 // ~18 snapshots = ~400 times per match. The closed form runs
 // the same math in O(1) with no allocation.
 function contributionToStars(contribution: number): number {
-  const i = Math.floor(contribution / 2.5);
+  const i = Math.floor(contribution / 2.2);
   if (i <= 0) return 0;
   return i * 0.5;
 }
