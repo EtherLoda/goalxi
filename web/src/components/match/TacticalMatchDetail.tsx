@@ -443,11 +443,7 @@ export function TacticalMatchDetail({
               <AppIcon name="stadium" className="text-base" />
               {tLiveChrome('matchInfo') ?? 'Match Info'}
             </h3>
-            <MatchInfoPanel
-              stadium={resolvedVenue ?? undefined}
-              weather={resolvedWeather ?? undefined}
-              attendance={resolvedAttendance ?? undefined}
-            />
+            <MatchInfoPanel match={match} />
           </div>
 
           <div className="glass-panel rounded-2xl p-4 flex flex-col min-h-[200px] max-h-[420px]">

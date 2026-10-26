@@ -2053,5 +2053,31 @@
     "myClub": "My club",
     "viewing": "Viewing",
     "exitView": "Exit and return to my club"
+  },
+  "matchInfo": {
+    "title": "Match info",
+    "competition": "Competition",
+    "kickoff": "Kick-off",
+    "venue": "Venue",
+    "weather": "Weather",
+    "attendance": "Attendance",
+    "revenue": "Revenue",
+    "matchId": "Match ID",
+    "withRound": "{base} · Round {round}",
+    "league": "League",
+    "cup": "Cup",
+    "playoff": "Play-off",
+    "tournament": "Tournament",
+    "friendly": "Friendly",
+    "nationalTeam": "National team",
+    "weatherTypes": {
+      "sunny": "Sunny",
+      "cloudy": "Cloudy",
+      "rainy": "Rainy",
+      "windy": "Windy",
+      "foggy": "Foggy",
+      "snowy": "Snowy",
+      "stormy": "Stormy"
+    }
   }
 }

@@ -70,4 +70,11 @@ export class MatchResDto {
    */
   cupId?: string | null;
   cupRound?: number | null;
+
+  /** League display name, resolved from the loaded league relation. */
+  leagueName?: string | null;
+  /** Venue capacity, from the loaded stadium relation. */
+  capacity?: number | null;
+  /** Gate receipts credited to the home team at settlement. */
+  ticketRevenue?: number | null;
 }

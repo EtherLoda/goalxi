@@ -1,97 +1,192 @@
-/**
- * MatchInfoPanel — venue / weather / attendance, redesigned as a row of
- * icon+label tiles. The old version was a flat 3-line text list with
- * emoji bullets that read as noise; this version uses the same icon
- * vocabulary as the rest of the match page (AppIcon / Lucide)
- * with a primary-tinted square chip and a small uppercase caption,
- * so each tile is self-contained and the panel as a whole feels like
- * part of the same design system.
+﻿/**
+ * MatchInfoPanel — the "what happened around this fixture" card.
+ *
+ * Layered on purpose: competition (which trophy, which round), then the
+ * facts of the day (kickoff, ground, weather, crowd, money), then the
+ * identifier at caption weight — it is for support tickets, not reading.
+ *
+ * The panel owns the formatting because every caller would otherwise
+ * repeat the same three derivations (competition label, kickoff string,
+ * fill percentage). Callers pass the match and nothing else.
+ *
+ * Every field is optional: cup and national-team fixtures carry no
+ * league round, an away fixture has no gate receipts, and matches
+ * settled before the `ticket_revenue` column existed have no revenue.
+ * Rows drop out rather than printing zero, so a sparse fixture reads as
+ * sparse instead of broken.
  */
 'use client';
 
 import { AppIcon, type MaterialIconName } from "@/components/icons/AppIcon";
+import { useLocale, useTranslations } from 'next-intl';
 import React from 'react';
 
-interface MatchInfoPanelProps {
-  /** e.g. "Emirates Stadium" */
-  stadium?: string;
-  /** e.g. "Sunny", "Rain", "Snow" */
-  weather?: string;
-  /** e.g. 50000 */
-  attendance?: number;
+/** The subset of `Match` this card reads. */
+export interface MatchInfoSource {
+  id?: string | null;
+  type?: string | null;
+  leagueName?: string | null;
+  round?: number | null;
+  cupRound?: number | null;
+  scheduledAt?: string | Date | null;
+  venue?: string | null;
+  weather?: string | null;
+  attendance?: number | null;
+  capacity?: number | null;
+  ticketRevenue?: number | null;
 }
+
+const COMPETITION_KEY: Record<string, string> = {
+  league: 'league',
+  cup: 'cup',
+  playoff: 'playoff',
+  tournament: 'tournament',
+  friendly: 'friendly',
+  national_team: 'nationalTeam',
+};
 
 function weatherIconName(w: string): MaterialIconName {
-  const key = w.toLowerCase();
-  if (key.includes('rain')) return 'rainy';
-  if (key.includes('cloud')) return 'cloud';
-  if (key.includes('snow')) return 'ac_unit';
-  if (key.includes('storm')) return 'thunderstorm';
-  if (key.includes('wind')) return 'air';
-  if (key.includes('fog')) return 'foggy';
-  return 'wb_sunny';
+  switch (w.toLowerCase()) {
+    case 'sunny':
+      return 'wb_sunny';
+    case 'cloudy':
+      return 'cloud';
+    case 'rainy':
+      return 'rainy';
+    case 'windy':
+      return 'air';
+    case 'foggy':
+      return 'foggy';
+    case 'snowy':
+      return 'ac_unit';
+    case 'stormy':
+      return 'thunderstorm';
+    default:
+      return 'cloud';
+  }
 }
 
-function formatAttendance(n?: number): string {
-  if (n === undefined || n === null) return '—';
-  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
-  if (n >= 1_000) return `${(n / 1_000).toFixed(1)}K`;
-  return String(n);
-}
-
-interface TileProps {
+function Row({
+  icon,
+  caption,
+  children,
+}: {
   icon: MaterialIconName;
   caption: string;
-  value: string;
-  capitalize?: boolean;
-}
-
-function InfoTile({ icon, caption, value, capitalize }: TileProps) {
+  children: React.ReactNode;
+}) {
   return (
-    <div className="flex items-center gap-2 min-w-0">
-      <div className="w-7 h-7 shrink-0 rounded-lg bg-primary/10 border border-primary/20 flex items-center justify-center">
-        <AppIcon name={icon} className="text-primary text-title leading-none" />
-      </div>
-      <div className="flex flex-col min-w-0 leading-tight">
-        <span className="font-label text-[8px] font-bold uppercase tracking-widest text-on-surface-variant/60">
+    <div className="flex items-start gap-3 py-2.5">
+      <span className="mt-0.5 grid h-7 w-7 shrink-0 place-items-center rounded-md bg-surface-container-high text-muted">
+        <AppIcon name={icon} className="text-body" />
+      </span>
+      <div className="min-w-0 flex-1">
+        <div className="text-kicker uppercase tracking-wider text-muted">
           {caption}
-        </span>
-        <span
-          className={`font-headline font-bold text-label text-on-surface truncate ${
-            capitalize ? 'capitalize' : ''
-          }`}
-          title={value}
-        >
-          {value}
-        </span>
+        </div>
+        <div className="mt-0.5 text-body text-on-surface">{children}</div>
       </div>
     </div>
   );
 }
 
-export function MatchInfoPanel({ stadium, weather, attendance }: MatchInfoPanelProps) {
-  if (!stadium && !weather && attendance === undefined) return null;
+export function MatchInfoPanel({ match }: { match?: MatchInfoSource | null }) {
+  const t = useTranslations('matchInfo');
+  const locale = useLocale();
+
+  if (!match) return null;
+
+  const kind = match.type ?? 'league';
+  const compKey = COMPETITION_KEY[kind] ?? 'league';
+  const compBase =
+    kind === 'league' && match.leagueName
+      ? match.leagueName
+      : t(`competition.${compKey}`);
+  const compRound = kind === 'cup' ? match.cupRound : match.round;
+  const competition =
+    compRound != null
+      ? t('competition.withRound', { base: compBase, round: compRound })
+      : compBase;
+
+  const kickoff =
+    match.scheduledAt == null
+      ? null
+      : new Date(match.scheduledAt).toLocaleString(locale, {
+          year: 'numeric',
+          month: '2-digit',
+          day: '2-digit',
+          hour: '2-digit',
+          minute: '2-digit',
+        });
+
+  const fillPct =
+    match.attendance != null && match.capacity != null && match.capacity > 0
+      ? Math.round((match.attendance / match.capacity) * 100)
+      : null;
 
   return (
-    <div className="flex flex-col gap-2">
-      {stadium && (
-        <InfoTile icon="stadium" caption="Venue" value={stadium} />
+    <section className="glass-panel overflow-hidden">
+      <header className="flex items-center gap-2 px-4 py-3">
+        <AppIcon name="info" className="text-body text-primary" />
+        <h3 className="font-headline text-title font-bold tracking-wider text-on-surface">
+          {t('title')}
+        </h3>
+      </header>
+
+      <div className="divide-y divide-outline-variant/40 border-t border-outline-variant/40 px-4">
+        <Row icon="emoji_events" caption={t('competition')}>
+          {competition}
+        </Row>
+
+        {kickoff && (
+          <Row icon="schedule" caption={t('kickoff')}>
+            {kickoff}
+          </Row>
+        )}
+
+        {match.venue && (
+          <Row icon="stadium" caption={t('venue')}>
+            {match.venue}
+          </Row>
+        )}
+
+        {match.weather && (
+          <Row
+            icon={weatherIconName(match.weather)}
+            caption={t('weather')}
+          >
+            {t.has(`weather.${match.weather.toLowerCase()}`)
+              ? t(`weather.${match.weather.toLowerCase()}`)
+              : match.weather}
+          </Row>
+        )}
+
+        {match.attendance != null && (
+          <Row icon="group" caption={t('attendance')}>
+            {match.attendance.toLocaleString()}
+            {fillPct != null && (
+              <span className="ml-2 text-label text-muted">{fillPct}%</span>
+            )}
+          </Row>
+        )}
+
+        {match.ticketRevenue != null && (
+          <Row icon="payments" caption={t('revenue')}>
+            {`£${match.ticketRevenue.toLocaleString()}`}
+          </Row>
+        )}
+      </div>
+
+      {match.id && (
+        <footer className="flex items-center justify-between gap-3 border-t border-outline-variant/40 px-4 py-2.5">
+          <span className="text-kicker uppercase tracking-wider text-muted">
+            {t('matchId')}
+          </span>
+          <code className="font-mono text-label text-muted" title={match.id}>
+            {match.id.slice(0, 8)}
+          </code>
+        </footer>
       )}
-      {weather && (
-        <InfoTile
-          icon={weatherIconName(weather)}
-          caption="Weather"
-          value={weather}
-          capitalize
-        />
-      )}
-      {attendance !== undefined && attendance !== null && (
-        <InfoTile
-          icon="groups"
-          caption="Attendance"
-          value={formatAttendance(attendance)}
-        />
-      )}
-    </div>
+    </section>
   );
 }

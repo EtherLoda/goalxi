@@ -791,6 +791,9 @@ export class MatchService {
       weather: match.weather ?? null,
       attendance: match.attendance ?? null,
       venue: match.stadium?.name ?? null,
+    leagueName: match.league?.name ?? null,
+    capacity: match.stadium?.capacity ?? null,
+    ticketRevenue: match.ticketRevenue ?? null,
       // Cup context — only set for single-match fetches (see findOne
       // above). List responses always pass `null` for both because
       // the FE matches/archive/type-filter don't need them.

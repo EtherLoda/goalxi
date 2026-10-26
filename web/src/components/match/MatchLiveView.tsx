@@ -320,11 +320,7 @@ export function MatchLiveView({
               <AppIcon name="stadium" className="text-base" />
               {t('matchInfo')}
             </h3>
-            <MatchInfoPanel
-              stadium={match?.venue ?? undefined}
-              weather={sidebarWeather ?? undefined}
-              attendance={sidebarAttendance ?? undefined}
-            />
+            <MatchInfoPanel match={match} />
           </GlassPanel>
 
           <GlassPanel className="p-4 flex flex-col min-h-[200px] max-h-[420px]">
