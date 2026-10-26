@@ -16,6 +16,10 @@ import {
   type WeatherType,
 } from '@/lib/api';
 import { MatchPitch, type MatchSnapshot } from './MatchPitch';
+import { MatchPitchStage } from './MatchPitchStage';
+import { SubbedOffStrip, type SubbedOffPlayer } from './SubbedOffStrip';
+import { subbedOffFrom } from './subbed-off';
+import type { PitchMarkerMode } from './MatchPlayerMarker';
 import { MatchProgressRail } from './MatchProgressRail';
 import { MatchPage } from './MatchPage';
 import { LiveCommentary } from './LiveCommentary';
@@ -86,6 +90,8 @@ function getReportCurrentMinute(events: MatchEvent[]): number {
   }
   return Math.max(90, max);
 }
+
+
 
 
 export function TacticalMatchDetail({
@@ -384,35 +390,26 @@ export function TacticalMatchDetail({
       hero={hero}
       main={
         <div className="space-y-3">
-          <div className="flex justify-end mb-2">
-            <button
-              type="button"
-              onClick={() => setStatsMode((v) => !v)}
-              aria-pressed={statsMode}
-              className={`inline-flex items-center gap-2 px-5 py-2.5 rounded-full font-headline font-bold text-sm transition-all ring-2 shadow-lg ${
-                statsMode
-                  ? 'bg-primary text-on-primary ring-primary shadow-[0_0_16px_rgba(0,228,121,0.45)]'
-                  : 'bg-surface-container-low text-on-surface ring-primary/60 hover:bg-surface-container-high shadow-md'
-              }`}
-              data-testid="pitch-stats-toggle"
-            >
-              <AppIcon name={statsMode ? 'group' : 'monitoring'} className="text-base" />
-              <span>{statsMode ? tChip('playersView') : tChip('statsView')}</span>
-            </button>
-          </div>
           <div className="mx-auto w-full max-w-[800px]">
-            <MatchPitch
-              homeTactics={homeTactics}
-              awayTactics={awayTactics}
-              homeRoster={homeRoster}
-              awayRoster={awayRoster}
-              activeSnapshot={activeSnapshot}
+            <MatchPitchStage
+              clock="FT"
               mode={statsMode ? 'rating' : 'lineup'}
-              homeForfeit={match.homeForfeit ?? false}
-              awayForfeit={match.awayForfeit ?? false}
-              homeTeamName={homeName}
-              awayTeamName={awayName}
-            />
+              onModeChange={(m) => setStatsMode(m === 'rating')}
+              footer={<SubbedOffStrip players={subbedOffFrom(events, match.homeTeam?.id)} />}
+            >
+              <MatchPitch
+                homeTactics={homeTactics}
+                awayTactics={awayTactics}
+                homeRoster={homeRoster}
+                awayRoster={awayRoster}
+                activeSnapshot={activeSnapshot}
+                mode={statsMode ? 'rating' : 'lineup'}
+                homeForfeit={match.homeForfeit ?? false}
+                awayForfeit={match.awayForfeit ?? false}
+                homeTeamName={homeName}
+                awayTeamName={awayName}
+              />
+            </MatchPitchStage>
           </div>
         </div>
       }

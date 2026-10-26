@@ -23,6 +23,9 @@ import { type Player, type Tactics, type Match } from '@/lib/api';
 import { type MatchState, type WsMatchEvent } from '@/hooks/useMatchPage';
 import { LiveCommentary } from './LiveCommentary';
 import { MatchPitch } from './MatchPitch';
+import { MatchPitchStage } from './MatchPitchStage';
+import { SubbedOffStrip } from './SubbedOffStrip';
+import { subbedOffFrom } from './subbed-off';
 import { MatchProgressRail } from './MatchProgressRail';
 import { MatchScoreHero } from './bento/MatchScoreHero';
 import { MatchPage } from './MatchPage';
@@ -263,36 +266,26 @@ export function MatchLiveView({
       }
       main={
         <>
-          {/* Stats toggle */}
-          <div className="flex justify-end">
-            <button
-              type="button"
-              onClick={() => setStatsMode((v) => !v)}
-              aria-pressed={statsMode}
-              className={`inline-flex items-center gap-2 px-5 py-2.5 rounded-full font-headline font-bold text-sm transition-all ring-2 shadow-lg ${
-                statsMode
-                  ? 'bg-primary text-on-primary ring-primary shadow-[0_0_16px_rgba(0,228,121,0.45)]'
-                  : 'bg-surface-container-low text-on-surface ring-primary/60 hover:bg-surface-container-high shadow-md'
-              }`}
-              data-testid="pitch-stats-toggle"
-            >
-              <AppIcon name={statsMode ? 'group' : 'monitoring'} className="text-base" />
-              <span>{statsMode ? t('pitchViewPlayers') : t('pitchViewStats')}</span>
-            </button>
-          </div>
           <div className="mx-auto w-full max-w-[800px]">
-            <MatchPitch
-              homeTactics={homeTactics}
-              awayTactics={awayTactics}
-              homeRoster={homeRoster}
-              awayRoster={awayRoster}
-              activeSnapshot={snapshots[activeSnapshotIndex] ?? null}
+            <MatchPitchStage
+              clock={`${currentMinute}'`}
               mode={statsMode ? 'rating' : 'lineup'}
-              homeForfeit={false}
-              awayForfeit={false}
-              homeTeamName={homeTeamName}
-              awayTeamName={awayTeamName}
-            />
+              onModeChange={(m) => setStatsMode(m === 'rating')}
+              footer={<SubbedOffStrip players={subbedOffFrom(visibleEvents, match?.homeTeam?.id)} />}
+            >
+              <MatchPitch
+                homeTactics={homeTactics}
+                awayTactics={awayTactics}
+                homeRoster={homeRoster}
+                awayRoster={awayRoster}
+                activeSnapshot={snapshots[activeSnapshotIndex] ?? null}
+                mode={statsMode ? 'rating' : 'lineup'}
+                homeForfeit={false}
+                awayForfeit={false}
+                homeTeamName={homeTeamName}
+                awayTeamName={awayTeamName}
+              />
+            </MatchPitchStage>
           </div>
         </>
       }

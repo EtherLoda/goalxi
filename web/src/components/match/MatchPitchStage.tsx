@@ -12,7 +12,7 @@ interface MatchPitchStageProps {
   mode: PitchMarkerMode;
   onModeChange: (mode: PitchMarkerMode) => void;
   /** The progress strip, shown in a popover anchored to the clock. */
-  progress: React.ReactNode;
+  progress?: React.ReactNode;
   /** Substitutions, shown as the strip under the pitch. */
   footer?: React.ReactNode;
   children: React.ReactNode;
@@ -89,7 +89,7 @@ export function MatchPitchStage({
       </div>
 
       {/* Clock popover — the strip, only while open. */}
-      {open && (
+      {open && progress && (
         <div className="border-b border-white/5 bg-surface-container-low/40 px-2 py-1.5">
           {progress}
         </div>
