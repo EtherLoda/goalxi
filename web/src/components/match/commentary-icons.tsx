@@ -49,7 +49,7 @@ export interface CommentaryIconProps {
  * marks the SVG aria-hidden (icons are decorative; the textual
  * commentary carries the meaning).
  */
-const base = (size = 18): React.SVGAttributes<SVGSVGElement> => ({
+const base = (size = 24): React.SVGAttributes<SVGSVGElement> => ({
   width: size,
   height: size,
   viewBox: '0 0 24 24',
