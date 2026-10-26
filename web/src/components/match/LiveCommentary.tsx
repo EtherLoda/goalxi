@@ -174,12 +174,16 @@ export function LiveCommentary({
       </div>
 
       {/* 1. Ticker — horizontal marquee of all events */}
+      {mode !== 'replay' && (
+      <>
       <TickerStrip
         events={events}
         homeTeamName={homeTeamName}
         awayTeamName={awayTeamName}
         injuryWindows={injuryWindows}
       />
+      </>
+      )}
 
       {/* 2. Feed — single left-aligned chronological column. Home / away /
              neutral events are interleaved by time; side is conveyed by

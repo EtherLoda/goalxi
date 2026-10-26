@@ -27,7 +27,6 @@ import { extractSnapshots } from './snapshot-stats';
 import { normalizePitchLineup } from './pitch-coords';
 import { MatchInfoPanel } from './MatchInfoPanel';
 import { MatchKeyEvents } from './MatchKeyEvents';
-import { MatchSubstitutes } from './MatchSubstitutes';
 import { StatsResult } from './StatsResult';
 import { extractSidebarData } from './match-sidebar-data';
 import { MatchScoreHero } from './bento/MatchScoreHero';
@@ -267,7 +266,7 @@ export function TacticalMatchDetail({
         mode="report"
         hero={hero}
         main={
-          <div className="mx-auto w-full max-w-[800px]">
+          <div className="w-full">
             <MatchPitch
               homeTactics={null}
               awayTactics={null}
@@ -390,7 +389,7 @@ export function TacticalMatchDetail({
       hero={hero}
       main={
         <div className="space-y-3">
-          <div className="mx-auto w-full max-w-[800px]">
+          <div className="w-full">
             <MatchPitchStage
               clock="FT"
               mode={pitchMode}
@@ -480,19 +479,6 @@ export function TacticalMatchDetail({
               />
             )}
         </>
-      }
-      footer={
-        <MatchSubstitutes
-          homeTeamName={homeName}
-          awayTeamName={awayName}
-          homeBench={homeBench}
-          awayBench={awayBench}
-          homeRosterById={homeRosterById}
-          awayRosterById={awayRosterById}
-          events={events}
-          homeTeamId={homeTeamId}
-          awayTeamId={awayTeamId}
-        />
       }
     />
   );
