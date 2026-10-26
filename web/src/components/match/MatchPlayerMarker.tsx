@@ -124,9 +124,15 @@ export function MatchPlayerMarker({
       : Math.max(0, Math.min(20, (overall ?? 10) / 5));
 
   const tone = conditionTone(fitness);
-  // Condition prints as a 1–5 integer, the way the rest of the UI talks
-  // about 体能. `Math.max(1, …)` so a spent player reads 1, never 0.
-  const condition = Math.max(1, Math.round(fitness * 5));
+  // 体能 is shown as the share of the tank still in the player, not the
+  // 1-5 integer the squad page uses: on the pitch the interesting question
+  // is "how much is left", and a ring answers it without reading a number.
+  const pct = Math.round(fitness * 100);
+  const ringPad = 5;
+  const ringBox = AVATAR_SIZE + ringPad * 2;
+  const ringCenter = ringBox / 2;
+  const ringRadius = AVATAR_SIZE / 2 + ringPad - 1.5;
+  const ringLength = 2 * Math.PI * ringRadius;
   // Engine power rating is 0–20; the pitch prints it as 0–5 stars.
   const stars = Math.round((power / 4) * 2) / 2;
 
@@ -142,12 +148,12 @@ export function MatchPlayerMarker({
       role="img"
       aria-label={
         mode === 'rating'
-          ? `${player.name} — ${positionShortLabel(slot)} — 体能 ${condition}, 评分 ${stars}`
+          ? `${player.name} — ${positionShortLabel(slot)} — 体能 ${pct}%, 评分 ${stars}`
           : `${player.name} — ${positionShortLabel(slot)}`
       }
       title={
         mode === 'rating'
-          ? `${player.name} · 体能 ${condition}/5 · 评分 ${stars.toFixed(1)}/5`
+          ? `${player.name} · 体能剩余 ${pct}% · 评分 ${stars.toFixed(1)}/5`
           : player.name
       }
     >
@@ -158,7 +164,7 @@ export function MatchPlayerMarker({
           }`}
           style={{
             background: '#0d1f17',
-            border: `2px solid ${mode === 'rating' ? tone : 'rgba(0,228,121,0.45)'}`,
+            border: `2px solid ${mode === 'rating' ? 'rgba(255,255,255,0.14)' : 'rgba(0,228,121,0.45)'}`,
             color: isGkSlot ? 'rgba(168,85,247,0.95)' : 'rgba(226,232,240,0.92)',
           }}
         >
@@ -179,14 +185,20 @@ export function MatchPlayerMarker({
         </button>
       )}
 
-      {/* Condition badge sitting on the rim, like a squad-number badge. */}
+        {/* Remaining-stamina ring: a full circle reads 100% and the arc
+            shortens as the player empties. Behind the avatar so the
+            initials stay legible. */}
         {mode === 'rating' && (
-          <span
-            className="absolute -bottom-1 left-1/2 z-20 -translate-x-1/2 rounded-full px-1.5 font-headline text-kicker font-black tabular-nums"
-            style={{ background: tone, color: '#07140d' }}
+          <svg
+            className="pointer-events-none absolute left-1/2 top-1/2 z-0 -translate-x-1/2 -translate-y-1/2"
+            width={ringBox}
+            height={ringBox}
+            viewBox={`0 0 ${ringBox} ${ringBox}`}
+            aria-hidden="true"
           >
-            {condition}
-          </span>
+            <circle cx={ringCenter} cy={ringCenter} r={ringRadius} fill="none" stroke="rgba(255,255,255,0.10)" strokeWidth={3} />
+            <circle cx={ringCenter} cy={ringCenter} r={ringRadius} fill="none" stroke={tone} strokeWidth={3} strokeLinecap="round" strokeDasharray={ringLength} strokeDashoffset={ringLength * (1 - fitness)} transform={`rotate(-90 ${ringCenter} ${ringCenter})`} />
+          </svg>
         )}
       </div>
 
