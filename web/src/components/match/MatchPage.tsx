@@ -69,10 +69,10 @@ export function MatchPage({
           {/* Text blocks never span the full column: a 980px line of prose is
               unreadable, and the pitch would render at the same width. */}
           {timeline && (
-            <div className="mx-auto w-full max-w-[720px]">{timeline}</div>
+            <div className="w-full">{timeline}</div>
           )}
           {commentary && (
-            <div className="mx-auto w-full max-w-[720px]">{commentary}</div>
+            <div className="w-full">{commentary}</div>
           )}
         </div>
 

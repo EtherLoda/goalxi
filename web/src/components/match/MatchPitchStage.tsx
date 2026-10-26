@@ -44,7 +44,7 @@ export function MatchPitchStage({
   const [open, setOpen] = useState(false);
 
   return (
-    <div className="relative rounded-2xl border border-white/5 bg-ink-750">
+    <div className="relative rounded-none border border-white/5 bg-ink-750">
       <div className="relative flex items-center gap-2 border-b border-white/5 bg-surface-container-low/60 px-2 py-1.5">
         <button
           type="button"
