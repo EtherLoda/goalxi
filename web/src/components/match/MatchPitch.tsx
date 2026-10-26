@@ -171,8 +171,8 @@ function HalfPitch({
             key={`${side}-${card.playerId}`}
             className="absolute z-10"
             style={{
-              left: `${coords.x}%`,
-              top: `${coords.y}%`,
+              left: `clamp(26px, ${coords.x}%, calc(100% - 26px))`,
+              top: `clamp(30px, ${coords.y}%, calc(100% - 30px))`,
               transform: 'translate(-50%, -50%)',
             }}
           >
