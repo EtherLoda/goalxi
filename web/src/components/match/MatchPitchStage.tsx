@@ -52,13 +52,13 @@ export function MatchPitchStage({
           aria-expanded={open}
           aria-label="比赛进度"
           disabled={!progress}
-          className={`flex h-7 w-7 items-center justify-center rounded-lg transition-colors duration-quick ${
+          className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border transition-colors duration-quick ${
             open
               ? 'bg-primary/15 text-primary'
               : 'text-on-surface/50 hover:bg-white/5 hover:text-on-surface/80'
           }`}
         >
-          <svg width="15" height="15" viewBox="0 0 24 24" aria-hidden="true">
+          <svg width="17" height="17" viewBox="0 0 24 24" aria-hidden="true">
             <circle cx="12" cy="12" r="8.5" fill="none" stroke="currentColor" strokeWidth="1.8" />
             <path
               d="M12 7.5V12l3 2"

@@ -299,15 +299,7 @@ export function MatchLiveView({
           </div>
         </>
       }
-      timeline={
-        <MatchProgressRail
-          events={visibleEvents}
-          currentMinute={currentMinute}
-          onSelectMinute={(minute) =>
-            setActiveSnapshotIndex(closestSnapshotIndex(snapshots, minute))
-          }
-        />
-      }
+      timeline={null}
       commentary={
         <LiveCommentary
           events={visibleEvents}

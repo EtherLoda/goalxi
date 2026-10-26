@@ -422,15 +422,7 @@ export function TacticalMatchDetail({
           </div>
         </div>
       }
-      timeline={
-        <MatchProgressRail
-          events={events}
-          currentMinute={reportCurrentMinute}
-          onSelectMinute={(minute) =>
-            setActiveSnapshotIndex(closestSnapshotIndex(allSnapshots, minute))
-          }
-        />
-      }
+      timeline={null}
       commentary={
         <LiveCommentary
           events={events}
