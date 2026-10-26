@@ -1,28 +1,33 @@
 'use client';
 
 /**
- * MatchProgressRail — the live page's read-only progress track.
+ * MatchProgressRail — the live page's read-only progress strip.
  *
- * Live needs "how much is left", not "read the whole match". So this is one
- * bar in three segments (first half / second half / stoppage) with goal pips
- * pinned on it, and it is deliberately NOT draggable: a slider would imply
- * the viewer can control the match, which they cannot — live is a replay that
- * happens to be running. `role="progressbar"`, not `role="slider"`.
+ * Five-minute cells across the ninety: a cell with one event shows that
+ * event's glyph, a cell with several shows a row of dots whose popover lists
+ * them. Cells already played are lit, cells not yet reached are dim, so the
+ * strip answers "how much is left" and "what already happened" at once.
  *
- * The report does not use this; it reads the vertical spine instead, so the
- * minute→position mapping exists in exactly one place.
+ * It is deliberately not draggable. A slider implies the viewer can control
+ * the match, which they cannot: the engine pre-simulates the fixture and this
+ * page replays it. The strip is a progressbar; clicking a cell looks at that
+ * five-minute snapshot and the next event brings the playhead back.
+ *
+ * Stoppage time gets its own cell at the end of each half rather than being
+ * squeezed into 45' or 90' — the engine varies it per match, and a goal in
+ * the 90+4 would otherwise have nowhere to sit.
  */
 
 import { useMemo } from 'react';
 import { useTranslations } from 'next-intl';
+import { AppIcon } from '@/components/icons/AppIcon';
 import { GlassPanel } from '@/components/ui/GlassPanel';
 import type { MatchEvent } from '@/lib/api';
 import {
   extractInjuryWindows,
   extractTimelineMarkers,
-  minuteToPercent,
-  resolveWhistleMinutes,
-  timelineEnd,
+  type TimelineEventType,
+  type TimelineMarker,
 } from './match-timeline';
 
 export interface MatchProgressRailProps {
@@ -30,6 +35,69 @@ export interface MatchProgressRailProps {
   currentMinute: number;
   onSelectMinute?: (minute: number) => void;
   className?: string;
+}
+
+const CELL_MINUTES = 5;
+const CELLS_PER_HALF = 9; // 45 / 5
+
+interface Bucket {
+  key: string;
+  start: number;
+  end: number;
+  stoppage: boolean;
+  /** Tick label under the strip, only on the quarter hours. */
+  tick?: string;
+}
+
+function buildBuckets(hasFirstStoppage: boolean, hasSecondStoppage: boolean): Bucket[] {
+  const buckets: Bucket[] = [];
+  for (let i = 1; i <= CELLS_PER_HALF; i += 1) {
+    const start = (i - 1) * CELL_MINUTES;
+    const end = i * CELL_MINUTES;
+    buckets.push({
+      key: `h1-${i}`,
+      start,
+      end,
+      stoppage: false,
+      tick: start % 15 === 0 ? `${start}'` : undefined,
+    });
+  }
+  if (hasFirstStoppage) {
+    buckets.push({ key: 'h1-stoppage', start: 45, end: 45, stoppage: true, tick: `45+'` });
+  }
+  for (let i = 1; i <= CELLS_PER_HALF; i += 1) {
+    const start = 45 + (i - 1) * CELL_MINUTES;
+    const end = 45 + i * CELL_MINUTES;
+    buckets.push({
+      key: `h2-${i}`,
+      start,
+      end,
+      stoppage: false,
+      tick: start % 15 === 0 ? `${start}'` : undefined,
+    });
+  }
+  if (hasSecondStoppage) {
+    buckets.push({ key: 'h2-stoppage', start: 90, end: 90, stoppage: true, tick: `90+'` });
+  }
+  return buckets;
+}
+
+/** Which cell a marker belongs to. Stoppage markers key off their label. */
+function bucketKeyOf(marker: TimelineMarker): string {
+  if (marker.minuteLabel.includes('+')) {
+    // 1H stoppage labels read "45+N", 2H ones read "90+N".
+    return marker.minuteLabel.startsWith('45') ? 'h1-stoppage' : 'h2-stoppage';
+  }
+  const minute = marker.minute;
+  if (minute <= 45) {
+    const index = Math.min(CELLS_PER_HALF, Math.max(1, Math.ceil(minute / CELL_MINUTES)));
+    return `h1-${index}`;
+  }
+  const index = Math.min(
+    CELLS_PER_HALF,
+    Math.max(1, Math.ceil((minute - 45) / CELL_MINUTES)),
+  );
+  return `h2-${index}`;
 }
 
 export function MatchProgressRail({
@@ -40,41 +108,23 @@ export function MatchProgressRail({
 }: MatchProgressRailProps) {
   const t = useTranslations('matches.spine');
 
-  const { segments, goals, playhead, end } = useMemo(() => {
+  const { buckets, byBucket } = useMemo(() => {
     const windows = extractInjuryWindows(events);
-    const end = timelineEnd(events, currentMinute, windows);
-    const whistle = resolveWhistleMinutes(events, currentMinute);
     const markers = extractTimelineMarkers(events, windows);
 
-    const pct = (minute: number) => minuteToPercent(minute, end, windows) * 100;
-
-    const halfTime = pct(whistle.halfTime);
-    const fullTime = pct(whistle.fullTime);
+    const grouped = new Map<string, TimelineMarker[]>();
+    for (const marker of markers) {
+      const key = bucketKeyOf(marker);
+      const list = grouped.get(key);
+      if (list) list.push(marker);
+      else grouped.set(key, [marker]);
+    }
 
     return {
-      end,
-      playhead: pct(currentMinute),
-      segments: [
-        { key: 'half1', label: t('chapter.half1'), from: 0, to: halfTime },
-        { key: 'half2', label: t('chapter.half2'), from: halfTime, to: fullTime },
-        {
-          key: 'stoppage',
-          label: t('chapter.stoppage'),
-          from: fullTime,
-          to: 100,
-        },
-      ],
-      goals: markers
-        .filter((marker) => marker.type === 'GOAL')
-        .map((marker) => ({
-          key: marker.key,
-          minute: marker.minute,
-          label: marker.playerName ?? '',
-          isHome: marker.isHome !== false,
-          left: pct(marker.minute),
-        })),
+      buckets: buildBuckets(grouped.has('h1-stoppage'), grouped.has('h2-stoppage')),
+      byBucket: grouped,
     };
-  }, [events, currentMinute, t]);
+  }, [events]);
 
   return (
     <GlassPanel className={`p-3 ${className ?? ''}`} data-testid="match-progress-rail">
@@ -83,71 +133,149 @@ export function MatchProgressRail({
           {t('title')}
         </span>
         <span className="font-mono text-label tabular-nums text-on-surface">
-          {Math.round((playhead / 100) * end)}&apos;
+          {currentMinute}&apos;
         </span>
       </div>
 
       <div
         role="progressbar"
         aria-valuemin={0}
-        aria-valuemax={Math.round(end)}
+        aria-valuemax={Math.max(90, currentMinute)}
         aria-valuenow={Math.round(currentMinute)}
         aria-label={t('title')}
-        className="relative h-2.5 w-full overflow-visible rounded-full bg-surface-container-high"
+        className="flex items-stretch gap-[2px]"
       >
-        {segments.map((segment) => (
-          <span
-            key={segment.key}
-            aria-hidden
-            className="absolute inset-y-0 first:rounded-l-full last:rounded-r-full"
-            style={{
-              left: `${segment.from}%`,
-              width: `${Math.max(0, segment.to - segment.from)}%`,
-              background:
-                segment.key === 'stoppage'
-                  ? 'repeating-linear-gradient(45deg, rgba(255,255,255,0.28) 0 2px, transparent 2px 5px)'
-                  : segment.key === 'half1'
-                    ? 'rgba(255,255,255,0.10)'
-                    : 'rgba(255,255,255,0.16)',
-            }}
-          />
-        ))}
+        {buckets.map((bucket, index) => {
+          const items = byBucket.get(bucket.key) ?? [];
+          const isHalfBreak =
+            index > 0 && bucket.key.startsWith('h2-') && buckets[index - 1].key.startsWith('h1');
+          const played = bucket.stoppage
+            ? currentMinute >= bucket.start
+            : currentMinute >= bucket.end;
 
-        {/* Elapsed fill, drawn under the pips. */}
-        <span
-          aria-hidden
-          className="absolute inset-y-0 left-0 rounded-full bg-primary/70"
-          style={{ width: `${playhead}%` }}
-        />
-
-        <span
-          aria-hidden
-          className="absolute -top-1 bottom-[-4px] w-0.5 rounded-full bg-primary"
-          style={{ left: `calc(${playhead}% - 1px)` }}
-        />
-
-        {goals.map((goal) => (
-          <button
-            key={goal.key}
-            type="button"
-            onClick={() => onSelectMinute?.(goal.minute)}
-            title={goal.label ? `${goal.minute}' · ${goal.label}` : undefined}
-            aria-label={
-              goal.label ? `${goal.minute}' — ${goal.label}` : `${goal.minute}'`
-            }
-            className={`absolute top-1/2 size-2 -translate-x-1/2 -translate-y-1/2 rounded-full ring-2 ring-surface-container transition-transform hover:scale-150 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary ${
-              goal.isHome ? 'bg-primary' : 'bg-on-surface-variant'
-            }`}
-            style={{ left: `${goal.left}%` }}
-          />
-        ))}
+          return (
+            <div key={bucket.key} className="flex min-w-0 flex-1 items-stretch gap-[2px]">
+              {isHalfBreak ? (
+                <span
+                  aria-hidden
+                  className="w-[6px] shrink-0 rounded-full bg-outline-variant/30"
+                />
+              ) : null}
+              <BucketCell
+                bucket={bucket}
+                items={items}
+                played={played}
+                active={
+                  !bucket.stoppage &&
+                  currentMinute > bucket.start &&
+                  currentMinute <= bucket.end
+                }
+                onSelect={onSelectMinute}
+                emptyLabel={t('empty')}
+              />
+            </div>
+          );
+        })}
       </div>
 
-      <div className="mt-1.5 flex justify-between font-headline text-kicker uppercase tracking-widest text-on-surface-variant/50">
-        <span>{t('chapter.half1')}</span>
-        <span>{t('chapter.half2')}</span>
-        <span>{t('chapter.stoppage')}</span>
+      <div className="mt-1 flex gap-[2px] font-headline text-kicker tabular-nums text-on-surface-variant/40">
+        {buckets.map((bucket) => (
+          <span key={`tick-${bucket.key}`} className="min-w-0 flex-1 text-center">
+            {bucket.tick ?? ''}
+          </span>
+        ))}
       </div>
     </GlassPanel>
+  );
+}
+
+function BucketCell({
+  bucket,
+  items,
+  played,
+  active,
+  onSelect,
+  emptyLabel,
+}: {
+  bucket: Bucket;
+  items: TimelineMarker[];
+  played: boolean;
+  active: boolean;
+  onSelect?: (minute: number) => void;
+  emptyLabel: string;
+}) {
+  const multiple = items.length > 1;
+  const single = items.length === 1 ? items[0] : null;
+
+  return (
+    <div className="group relative min-w-0 flex-1">
+      <button
+        type="button"
+        onClick={() => onSelect?.(bucket.stoppage ? bucket.start : bucket.end)}
+        disabled={items.length === 0}
+        aria-label={
+          items.length === 0
+            ? `${bucket.start}-${bucket.end}: ${emptyLabel}`
+            : `${bucket.start}-${bucket.end}: ${items
+                .map((item) => `${item.minuteLabel}' ${item.playerName ?? ''}`.trim())
+                .join(', ')}`
+        }
+        className={`flex h-7 w-full items-center justify-center gap-[1px] rounded-sm border transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-primary ${
+          active
+            ? 'border-primary/60 bg-primary/15'
+            : played
+              ? 'border-transparent bg-surface-container-high/70'
+              : 'border-transparent bg-surface-container/40'
+        } ${items.length > 0 ? 'cursor-pointer hover:border-primary/40' : 'cursor-default'}`}
+      >
+        {single ? <EventGlyph type={single.type} /> : null}
+        {multiple ? (
+          <span aria-hidden className="flex items-center gap-[2px]">
+            <span className="size-[3px] rounded-full bg-on-surface-variant" />
+            <span className="size-[3px] rounded-full bg-on-surface-variant" />
+            <span className="size-[3px] rounded-full bg-on-surface-variant" />
+          </span>
+        ) : null}
+      </button>
+
+      {multiple ? (
+        <div
+          role="tooltip"
+          className="pointer-events-none absolute bottom-full left-1/2 z-20 mb-1 hidden -translate-x-1/2 flex-col gap-1 whitespace-nowrap rounded-md border border-outline-variant/30 bg-surface-container-highest/95 px-2 py-1.5 shadow-lg backdrop-blur-sm group-hover:flex group-focus-within:flex"
+        >
+          {items.map((item) => (
+            <span
+              key={item.key}
+              className="flex items-center gap-1.5 text-kicker text-on-surface"
+            >
+              <EventGlyph type={item.type} />
+              <span className="font-mono tabular-nums text-on-surface-variant">
+                {item.minuteLabel}&apos;
+              </span>
+              <span className="truncate">{item.playerName ?? ''}</span>
+            </span>
+          ))}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+function EventGlyph({ type }: { type: TimelineEventType }) {
+  if (type === 'GOAL') {
+    return <AppIcon name="sports_soccer" className="text-[13px] text-primary" />;
+  }
+  if (type === 'SUBSTITUTION') {
+    return <AppIcon name="swap_horiz" className="text-[13px] text-on-surface-variant" />;
+  }
+  if (type === 'INJURY') {
+    return <AppIcon name="add" className="text-[13px] text-error" />;
+  }
+  if (type === 'RED_CARD') {
+    return <span aria-hidden className="block h-[11px] w-[8px] rounded-[1px] bg-error" />;
+  }
+  // YELLOW_CARD / SECOND_YELLOW
+  return (
+    <span aria-hidden className="block h-[11px] w-[8px] rounded-[1px] bg-signal-amber" />
   );
 }
