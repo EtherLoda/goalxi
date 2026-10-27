@@ -59,8 +59,6 @@ const base = (size = 24): React.SVGAttributes<SVGSVGElement> => ({
 
 // ── Color palette (HT-inspired; locked to dark theme) ───────────────────
 const SLATE = '#0f172a';
-const SLATE_2 = '#1e293b';
-const SLATE_3 = '#334155';
 const WHITE = '#f8fafc';
 const GREEN = '#34d399';
 const RED = '#ef4444';
@@ -527,6 +525,31 @@ const CARD_RED_VARIANTS = new Set(['RED_CARD', 'SECOND_YELLOW']);
  * category, but the comment-ticker's `canonicalEventType` still
  * uses `typeName`. Both shapes funnel through this map.
  */
+export const OwnGoalIcon: React.FC<CommentaryIconProps> = ({ size, className }) => (
+  <svg {...base(size)} className={className}>
+    <path
+      d="M4.2 8.6 L19.8 8.6 M4.2 8.6 L4.2 18 M19.8 8.6 L19.8 18"
+      fill="none"
+      stroke={RED}
+      strokeWidth="2.4"
+      strokeLinecap="round"
+    />
+    <path d="M7 8.6 L7 16 M12 8.6 L12 16 M17 8.6 L17 16" stroke={RED} strokeWidth="0.9" opacity="0.45" />
+    <circle cx="12" cy="14.2" r="3.1" fill={WHITE} stroke={SLATE} strokeWidth="1.4" />
+    <circle cx="12" cy="14.2" r="1.1" fill={SLATE} />
+  </svg>
+);
+
+export const TacticalChangeIcon: React.FC<CommentaryIconProps> = ({ size, className }) => (
+  <svg {...base(size)} className={className}>
+    <circle cx="7.4" cy="7.2" r="3.1" fill="#60a5fa" stroke={SLATE} strokeWidth="1.5" />
+    <circle cx="16.6" cy="16.8" r="3.1" fill="#fbbf24" stroke={SLATE} strokeWidth="1.5" />
+    <path d="M10.2 10 L14 13.8" stroke={WHITE} strokeWidth="1.6" strokeLinecap="round" />
+    <path d="M14 13.8 L11.2 13.4 L13.6 11 Z" fill={WHITE} />
+    <path d="M13.8 14 L10 10.2" stroke={WHITE} strokeWidth="1.6" strokeLinecap="round" />
+    <path d="M10 10.2 L12.8 10.6 L10.4 13 Z" fill={WHITE} />
+  </svg>
+);
 export function eventIcon(
   type: CanonicalType,
   data?: Record<string, unknown> | null,
@@ -567,6 +590,8 @@ export function eventIcon(
   if (SHOT_VARIANTS.has(t)) {
     return shotIcon(t === 'SAVE' ? 'miss' : 'ball', shotMarkerFor(t, data));
   }
+  if (t === 'OWN_GOAL') return OwnGoalIcon;
+  if (t === 'TACTICAL_CHANGE') return TacticalChangeIcon;
   if (t === 'FOUL') return FoulIcon;
   if (t === 'FREE_KICK') return FreeKickIcon;
   if (t === 'KICKOFF') return KickoffIcon;
