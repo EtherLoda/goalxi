@@ -1371,6 +1371,32 @@
       "goal": "进球",
       "miss": "射失",
       "save": "被扑出"
+    },
+    "label": {
+      "goal": "进球",
+      "miss": "射失",
+      "save": "被扑出",
+      "shot": "射门",
+      "corner": "角球",
+      "free_kick": "任意球",
+      "penalty_goal": "点球命中",
+      "penalty_miss": "点球射失",
+      "foul": "犯规",
+      "yellow_card": "黄牌",
+      "red_card": "红牌",
+      "substitution": "换人",
+      "tactical_change": "战术调整",
+      "injury": "受伤",
+      "kickoff": "开球",
+      "half_time": "上半场结束",
+      "second_half": "下半场开始",
+      "full_time": "全场结束",
+      "weather_announcement": "天气",
+      "attendance_announcement": "上座率",
+      "player_introduction": "球员入场",
+      "forfeit": "弃权",
+      "turnover": "丢球权",
+      "snapshot": "快照"
     }
   },
   "tactics": {

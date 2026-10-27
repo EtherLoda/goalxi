@@ -1371,6 +1371,32 @@
       "goal": "goal",
       "miss": "off target",
       "save": "saved"
+    },
+    "label": {
+      "goal": "Goal",
+      "miss": "Off target",
+      "save": "Saved",
+      "shot": "Shot",
+      "corner": "Corner",
+      "free_kick": "Free kick",
+      "penalty_goal": "Penalty scored",
+      "penalty_miss": "Penalty missed",
+      "foul": "Foul",
+      "yellow_card": "Yellow card",
+      "red_card": "Red card",
+      "substitution": "Substitution",
+      "tactical_change": "Tactical change",
+      "injury": "Injury",
+      "kickoff": "Kick-off",
+      "half_time": "Half time",
+      "second_half": "Second half",
+      "full_time": "Full time",
+      "weather_announcement": "Weather",
+      "attendance_announcement": "Attendance",
+      "player_introduction": "Line-ups",
+      "forfeit": "Forfeit",
+      "turnover": "Turnover",
+      "snapshot": "Snapshot"
     }
   },
   "tactics": {

@@ -96,6 +96,7 @@ export const EventBubble: React.FC<EventBubbleProps> = ({
       : /MISS|OFF_TARGET/.test(type)
         ? 'miss'
         : null;
+  const isShot = Boolean(laneKey || shotKey || outcomeKey);
   const shotLabel = [
     laneKey ? t(`lane.${laneKey.toLowerCase()}`) : null,
     shotKey ? t(`shotType.${shotKey.toLowerCase()}`) : null,
@@ -103,6 +104,9 @@ export const EventBubble: React.FC<EventBubbleProps> = ({
   ]
     .filter(Boolean)
     .join(' · ');
+  const hoverLabel = isShot
+    ? shotLabel
+    : t('label.' + String(event.typeName ?? event.type).toLowerCase());
   if (!text) return null;
 
   // Side derivation — shared rule with `MatchKeyEvents` via
@@ -207,7 +211,7 @@ export const EventBubble: React.FC<EventBubbleProps> = ({
                     portal
                     label={
                       <span className="flex flex-col gap-0.5">
-                        <span>{shotLabel}</span>
+                        <span>{hoverLabel}</span>
                         <span className="font-mono text-[10px] tracking-wider text-on-surface/50">
                           {eventCodeFromTypeName(event.typeName ?? String(event.type))}
                         </span>
