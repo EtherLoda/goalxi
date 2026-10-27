@@ -178,7 +178,7 @@ export const EventBubble: React.FC<EventBubbleProps> = ({
       <div className="min-w-0 pl-1">
         <div className="flex items-start gap-1.5">
           <span className={`shrink-0 mt-0.5 ${iconTone}`}>
-            {React.createElement(Icon, { size: 13 })}
+            {React.createElement(Icon, { size: 20 })}
           </span>
           <div className="flex-1 min-w-0">
             <p className="text-body leading-snug text-on-surface">{text}</p>
