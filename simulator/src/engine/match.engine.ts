@@ -2927,6 +2927,22 @@ export class MatchEngine {
         this.possessionTeam = this.defendingTeam;
         this.defendingTeam = temp;
 
+        // 断球是真正的「球权易手 + 就地反击」，所以由它来产出 turnover
+        // 记录（此前这条记录由「推进被拦下」产出，但那条路径没有任何反击
+        // 加成，语义是错位的）。换队之后 possessionTeam 已经是抢下球的
+        // 一方，事件归属它。
+        this.events.push({
+          minute: this.time,
+          clockSeconds: this.currentClockSeconds,
+          type: 'turnover',
+          teamName: this.possessionTeam.name,
+          data: {
+            via: 'intercept',
+            counterAttacking: true,
+            lane: this.currentLane,
+          },
+        });
+
         // 重新计算新进攻方的effectiveAttPower（换了队）
         const newAttPower = this.possessionTeam.calculateLaneStrength(
           this.currentLane,
@@ -4052,7 +4068,11 @@ export class MatchEngine {
         ? attackPush.attackingPlayer
         : null);
 
-    this.events.push({
+    // C 方案：一次「推进被拦下」的进攻没有任何后续后果 —— 牌只来自
+    // resolveFoul，角球只来自 blocked / save，所以它在解说里是纯噪音。
+    // 用丢弃数组而不是跳过整段 push，避免重排下面 40 行事件体。
+    const stoppedAttackSink: typeof this.events = [];
+    (ffinalResult === 'defense_stopped' ? stoppedAttackSink : this.events).push({
       minute: this.time,
       clockSeconds: this.currentClockSeconds,
       type: eventType,

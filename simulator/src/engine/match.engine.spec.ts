@@ -655,6 +655,13 @@ describe('MatchEngine', () => {
         for (const e of events) {
           if (e.type !== 'turnover') continue;
           const data = (e as any).data as any;
+          // 语义变更：turnover 现在只由「断球 + 就地反击」产出，不再由
+          // 「推进被拦下」产出，因此它不再携带 `data.sequence`。这里改为
+          // 断言新来源，旧的序列校验保留给任何仍然带 sequence 的事件。
+          if (data?.via === 'intercept') {
+            sawTurnover = true;
+            continue;
+          }
           const tacklerName = data?.sequence?.attackPush?.defendingPlayer;
           if (tacklerName === undefined) continue;
           // Resolve the named tackler to an ID via the same
