@@ -15,6 +15,7 @@ export const EVENT_CLASS_CODE: Readonly<Record<number, string>> = {
   15: 'ATTENDANCE',
   16: 'FORFEIT',
   17: 'SNAPSHOT',
+  18: 'TURNOVER',
 };
 
 export interface EventCode {
@@ -43,7 +44,7 @@ export const EVENT_TYPE_CODE: Readonly<Record<string, string>> = {
   shot_off_target: 'SHOT.MISS',
   miss: 'SHOT.MISS',
   save: 'SHOT.SAVE',
-  turnover: 'SHOT.MISS',
+  turnover: 'TURNOVER.INTERCEPT',
   foul: 'FOUL.WARNING',
   yellow_card: 'FOUL.YELLOW',
   red_card: 'FOUL.RED',

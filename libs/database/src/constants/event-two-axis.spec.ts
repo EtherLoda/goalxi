@@ -106,15 +106,13 @@ describe('EVENT_TWO_AXIS (RFC 0002 P2)', () => {
             });
         });
 
-        it('turnover maps to class SHOT (3) + outcome MISS (4) — fixed 2026-08-24', () => {
-            // `'turnover'` is emitted by the engine at
-            // match.engine.ts:3366 for failed attack pushes.
-            // The processor maps it to MatchEventType.PASS=5
-            // in the DB. The TS mirror here treats it as a
-            // SHOT class with MISS outcome — same as
-            // shot_off_target.
+        it('turnover maps to class TURNOVER (18) + outcome INTERCEPT (29)', () => {
+            // `'turnover'` used to be emitted for a failed attack push and was
+            // folded into SHOT/MISS. It now comes from the interception gate
+            // only (match.engine.ts), so it is its own class: a possession
+            // change, not a shot.
             expect(getEventTwoAxis('turnover')).toEqual({
-                classId: 3, outcomeId: 4, outcomeCode: 'MISS',
+                classId: 18, outcomeId: 29, outcomeCode: 'INTERCEPT',
             });
         });
 

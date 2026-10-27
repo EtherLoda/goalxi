@@ -101,7 +101,11 @@ export const EVENT_TWO_AXIS: Readonly<Record<string, EventTwoAxis>> = Object.fre
     // simulator's recover-* job (2026-08-26 production incident).
     miss:                    { classId:  3, outcomeId:  4, outcomeCode: 'MISS' },
     save:                    { classId:  3, outcomeId:  2, outcomeCode: 'SAVE' },
-    turnover:                { classId:  3, outcomeId:  4, outcomeCode: 'MISS' },  // 'turnover' = failed attack push (int=5 PASS)
+    // 'turnover' used to be folded into SHOT/MISS, which described it as a
+    // shot that missed. It is not a shot: it is a possession change — the
+    // interception gate fired and the ball went the other way (with the
+    // counter-attack bonus). Class 18 / outcome 29 were free.
+    turnover:                { classId: 18, outcomeId: 29, outcomeCode: 'INTERCEPT' },
 
     // ============== Foul / card ==============
     // D2: FOUL class covers all card events. The outcome
