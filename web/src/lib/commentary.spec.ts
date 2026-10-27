@@ -980,12 +980,11 @@ describe('formatEventCommentary dispatch', () => {
       }
     });
 
-    it('turnover forces tpl_0 when only tackler is present but pusher is missing', () => {
-      // The pusher and the player share the same fallback chain
-      // (data.sequence.attackPush.attackingPlayer → data.attackingPlayer
-      // → data.playerName). If none resolve, tpl_0 is the only safe
-      // variant because every other tpl references either `{player}`,
-      // `{pusher}`, or `{tackler}` and would leak a literal.
+    it('turnover forces tpl_0 when the tackler is missing', () => {
+      // A turnover is emitted by the interception gate, which tracks the
+      // interceptor but not the attacking player. `{pusher}` is gone from
+      // every template, so the only placeholder that can go missing is
+      // `{tackler}` — and tpl_1..3 all reference it.
       const t = jest.fn((key: string) => {
         if (key === 'turnover.tpl_0') {
           return 'Turnover at {team}.';
@@ -994,10 +993,10 @@ describe('formatEventCommentary dispatch', () => {
           return '{tackler} dispossesses {player}.';
         }
         if (key === 'turnover.tpl_2') {
-          return '{pusher} 在中场拿球，{tackler} 上抢！';
+          return '{tackler} 上抢，{team} 反击！';
         }
         if (key === 'turnover.tpl_3') {
-          return 'This could be a turning point! {pusher} loses to {tackler}.';
+          return 'This could be a turning point! {tackler} wins it.';
         }
         return key;
       });
@@ -1008,14 +1007,7 @@ describe('formatEventCommentary dispatch', () => {
           typeName: 'turnover',
           minute: 70,
           isHome: true,
-          data: {
-            sequence: {
-              attackPush: {
-                // attackingPlayer omitted — only the tackler is known
-                defendingPlayer: 'Vitinha',
-              },
-            },
-          },
+          data: {},
         }),
         'Barca',
         'PSG',
@@ -1029,6 +1021,25 @@ describe('formatEventCommentary dispatch', () => {
       expect(tplKeys).not.toContain('turnover.tpl_1');
       expect(tplKeys).not.toContain('turnover.tpl_2');
       expect(tplKeys).not.toContain('turnover.tpl_3');
+    });
+
+    it('turnover names the interceptor from data.tacklerName', () => {
+      const text = formatEventCommentary(
+        baseEvent({
+          type: 'turnover',
+          typeName: 'turnover',
+          minute: 70,
+          isHome: true,
+          data: { tacklerName: 'Vitinha', via: 'intercept' },
+        }),
+        'Barca',
+        'PSG',
+        (key: string) =>
+          key.includes('turnover') ? '{tackler} 断球，{team} 反击！' : key,
+      );
+
+      expect(text).toContain('Vitinha');
+      expect(text).toContain('Barca');
     });
   });
 });

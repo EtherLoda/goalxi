@@ -2976,6 +2976,12 @@ export class MatchEngine {
             defenderName: interceptor
               ? (interceptor.player as Player).name
               : null,
+            // The commentary formatter reads `data.tacklerName` as its
+            // last fallback for `{tackler}`; the interception path has no
+            // `data.sequence.attackPush` to read it from.
+            tacklerName: interceptor
+              ? (interceptor.player as Player).name
+              : null,
           },
         });
 

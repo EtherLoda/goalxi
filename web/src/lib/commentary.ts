@@ -600,18 +600,15 @@ export function formatTurnoverCommentary(
   // same value.
   const pusher = player;
 
-  // When either the tackler or the pusher is missing (legacy rows),
-  // force the template variant that doesn't reference them so we don't
-  // leak the literal placeholder into the UI. We use `tpl_0` because
-  // it's the only variant that references only `{team}`:
+  // When the tackler is missing (legacy rows) we force the variant that
+  // doesn't reference it, so we never leak a literal placeholder:
   //   tpl_0 → {team}
-  //   tpl_1 → {team}, {player}, {tackler}
-  //   tpl_2 → {team}, {tacklerTeam}, {pusher}, {tackler}
-  //   tpl_3 → {team}, {tacklerTeam}, {pusher}, {tackler}
+  //   tpl_1..3 → {team}, {tackler}
+  // `{pusher}` is gone from every template: a turnover is now emitted by the
+  // interception gate, where the attacking player is not tracked.
   const hasTackler = Boolean(tackler);
-  const hasPusher = Boolean(pusher);
   const baseIdx = templateIndexFor(event) % 4;
-  const templateIdx = hasTackler && hasPusher ? baseIdx : 0;
+  const templateIdx = hasTackler ? baseIdx : 0;
 
   return interpolate(
     getTemplate(t, 'commentary.turnover', templateIdx, {

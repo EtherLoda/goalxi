@@ -1252,10 +1252,10 @@
       "tpl_2": "{team} caught pushing in the box — {player} the offender."
     },
     "turnover": {
-      "tpl_0": "Turnover at {team} — possession lost in the middle of the park.",
-      "tpl_1": "{tackler} steps in sharply to dispossess {player} — {team} give the ball away cheaply.",
-      "tpl_2": "{pusher} tries to play through the middle but {tackler} reads it perfectly! Ball poked away, and {tacklerTeam} are off — they're launching a quick counter before {team} can reset!",
-      "tpl_3": "This could be a turning point! {pusher} receives in the center circle and tries to turn past {tackler}, but the defender anticipates perfectly and pokes the ball through! {tacklerTeam} are already breaking at pace — {tackler} is storming into the {team} half. The turnover has turned into a 3-v-2 before the back four can recover!"
+      "tpl_0": "{team} win the ball in midfield — possession changes hands.",
+      "tpl_1": "{tackler} reads it early and cuts it out. {team} go straight onto the front foot!",
+      "tpl_2": "Clean interception by {tackler}! The ball is taken away and {team} turn defence into attack before the opposition can drop back in.",
+      "tpl_3": "{tackler} saw the pass coming and stepped in front of it. {team} do not hesitate — the ball goes forward immediately and the counter is on!"
     },
     "free_kick": {
       "tpl_0": "Free kick to {team} — {player} lines it up.",
