@@ -160,14 +160,14 @@ export const EventBubble: React.FC<EventBubbleProps> = ({
   // the action.
   return (
     <div
-      className={`relative grid grid-cols-[40px_1fr] items-start gap-2 py-1.5 ${rowTint}`}
+      className={`relative grid grid-cols-[44px_1fr] items-start gap-2 py-1.5 border-t border-white/[0.04] first:border-t-0 ${rowTint}`}
     >
       {/* 2. Minute — fixed-width column, mono numerals, team colour,
              with a coloured dot before the number so the side reads
              even if the rest of the row scrolls out of view. */}
       <div className="flex items-start justify-end pt-0.5">
         <span
-          className={`inline-flex h-[22px] min-w-[32px] items-center justify-center rounded-md px-1 font-mono text-[11px] font-black tabular-nums ${isHome ? 'bg-primary/12 text-primary' : isAway ? 'bg-secondary/12 text-secondary' : 'bg-surface-container-high/60 text-on-surface-variant'}`}
+          className={`inline-flex h-[22px] w-[34px] items-center justify-center gap-px rounded-md font-mono text-[11px] font-black tabular-nums ${isHome ? 'bg-primary/20 text-primary' : isAway ? 'bg-secondary/20 text-secondary' : 'bg-surface-container-high/60 text-on-surface-variant'}`}
           style={minuteStyle}
         >
           {formatMatchMinute(
@@ -175,14 +175,14 @@ export const EventBubble: React.FC<EventBubbleProps> = ({
             injuryWindows ?? [],
             (event.data as { period?: string } | undefined)?.period,
           )}
-          &apos;
+          <sup className="text-[8px] font-bold leading-none">&#39;</sup>
         </span>
       </div>
 
       {/* 3. Content — icon + text */}
       <div className="min-w-0">
-        <div className="flex items-start gap-1.5">
-          <span className={`shrink-0 flex h-[18px] items-center ${iconTone}`}>
+        <div className="flex items-start gap-2">
+          <span className={`shrink-0 flex h-6 w-6 items-center justify-center ${iconTone}`}>
             <Tooltip
                     side="top"
                     align="end"
@@ -197,7 +197,7 @@ export const EventBubble: React.FC<EventBubbleProps> = ({
                       </span>
                     }
                   >
-                    <span className="inline-flex">{React.createElement(Icon, { size: 20 })}</span>
+                    <span className="inline-flex">{React.createElement(Icon, { size: 24 })}</span>
                   </Tooltip>
           </span>
           <div className="flex-1 min-w-0">
