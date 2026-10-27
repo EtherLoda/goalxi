@@ -19,6 +19,9 @@ import { useTranslations } from 'next-intl';
 import type { MatchEvent } from '@/lib/api';
 import { canonicalEventType, formatEventCommentary } from '@/lib/commentary';
 import { eventIcon } from './commentary-icons';
+import { Tooltip } from '@/components/ui/Tooltip';
+import { eventCodeFromTypeName } from '@/lib/event-code';
+
 import {
   formatMatchMinute,
   phaseOfEvent,
@@ -71,7 +74,21 @@ const TickerChunk: React.FC<TickerChunkProps> = ({ items, formatText, formatMinu
           } ${isHome ? 'border-l-2 border-l-home' : !e.teamId ? '' : 'border-l-2 border-l-away'}`}
         >
           <span className={`shrink-0 ${isFresh ? 'text-primary' : ''}`}>
-            {React.createElement(Icon, { size: 20 })}
+            <Tooltip
+                    side="top"
+                    align="end"
+                    wrap
+                    label={
+                      <span className="flex flex-col gap-0.5">
+                        <span>formatText(e)</span>
+                        <span className="font-mono text-[10px] tracking-wider text-on-surface/50">
+                          {eventCodeFromTypeName(e.typeName ?? String(e.type))}
+                        </span>
+                      </span>
+                    }
+                  >
+                    <span className="inline-flex">{React.createElement(Icon, { size: 20 })}</span>
+                  </Tooltip>
           </span>
           <span className="font-mono text-label font-bold tabular-nums text-primary/90">
             {formatMinute(e)}&apos;

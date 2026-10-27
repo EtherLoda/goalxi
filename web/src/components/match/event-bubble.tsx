@@ -30,6 +30,9 @@ import { useTranslations } from 'next-intl';
 import type { MatchEvent } from '@/lib/api';
 import { canonicalEventType, formatEventCommentary } from '@/lib/commentary';
 import { eventIcon } from './commentary-icons';
+import { Tooltip } from '@/components/ui/Tooltip';
+import { eventCodeFromTypeName } from '@/lib/event-code';
+
 import { resolveSide } from './match-event-side';
 import { formatMatchMinute, resolveMarkerMinute, type InjuryWindow } from './match-timeline';
 
@@ -178,7 +181,21 @@ export const EventBubble: React.FC<EventBubbleProps> = ({
       <div className="min-w-0 pl-1">
         <div className="flex items-start gap-1.5">
           <span className={`shrink-0 mt-0.5 ${iconTone}`}>
-            {React.createElement(Icon, { size: 20 })}
+            <Tooltip
+                    side="top"
+                    align="end"
+                    wrap
+                    label={
+                      <span className="flex flex-col gap-0.5">
+                        <span>text</span>
+                        <span className="font-mono text-[10px] tracking-wider text-on-surface/50">
+                          {eventCodeFromTypeName(event.typeName ?? String(event.type))}
+                        </span>
+                      </span>
+                    }
+                  >
+                    <span className="inline-flex">{React.createElement(Icon, { size: 20 })}</span>
+                  </Tooltip>
           </span>
           <div className="flex-1 min-w-0">
             <p className="text-body leading-snug text-on-surface">{text}</p>

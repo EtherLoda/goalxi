@@ -27,6 +27,44 @@ export interface EventCode {
 }
 
 const UNKNOWN: EventCode = { code: 'UNKNOWN', className: 'UNKNOWN', outcomeName: '' };
+/**
+ * Engine `typeName` -> code. `web/` does not depend on `@goalxi/database`
+ * (same reason `fan-constants.ts` mirrors the fan rules), so the map is
+ * duplicated here on purpose.
+ */
+export const EVENT_TYPE_CODE: Readonly<Record<string, string>> = {
+  kickoff: 'KICKOFF',
+  half_time: 'PERIOD.END',
+  second_half: 'PERIOD.START',
+  full_time: 'PERIOD.END',
+  forfeit: 'FORFEIT',
+  goal: 'SHOT.GOAL',
+  shot_on_target: 'SHOT',
+  shot_off_target: 'SHOT.MISS',
+  miss: 'SHOT.MISS',
+  save: 'SHOT.SAVE',
+  turnover: 'SHOT.MISS',
+  foul: 'FOUL.WARNING',
+  yellow_card: 'FOUL.YELLOW',
+  red_card: 'FOUL.RED',
+  corner: 'CORNER.TAKEN',
+  free_kick: 'FREEKICK.TAKEN',
+  penalty_goal: 'PENALTY.GOAL',
+  penalty_miss: 'PENALTY.MISS',
+  substitution: 'TACTICAL.TACTICAL',
+  tactical_change: 'TACTICAL.TACTICAL',
+  injury: 'INJURY',
+  snapshot: 'SNAPSHOT',
+  weather_announcement: 'WEATHER',
+  player_introduction: 'INTRO',
+  attendance_announcement: 'ATTENDANCE',
+};
+
+/** Code for an event row, from its `typeName`. */
+export function eventCodeFromTypeName(typeName: string | null | undefined): string {
+  if (!typeName) return UNKNOWN.code;
+  return EVENT_TYPE_CODE[typeName.toLowerCase()] ?? UNKNOWN.code;
+}
 
 /**
  * Build the hover code from the RFC 0002 two-axis tuple.
