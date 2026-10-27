@@ -1363,9 +1363,14 @@
     "shotType": {
       "header": "header",
       "one_on_one": "one-on-one",
-      "normal": "shot",
+      "normal": "Volley",
       "long_shot": "long-range shot",
       "rebound": "rebound"
+    },
+    "outcome": {
+      "goal": "goal",
+      "miss": "off target",
+      "save": "saved"
     }
   },
   "tactics": {

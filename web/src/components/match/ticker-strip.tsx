@@ -78,6 +78,7 @@ const TickerChunk: React.FC<TickerChunkProps> = ({ items, formatText, formatMinu
                     side="top"
                     align="end"
                     wrap
+                    portal
                     label={
                       <span className="flex flex-col gap-0.5">
                         <span>{formatText(e)}</span>

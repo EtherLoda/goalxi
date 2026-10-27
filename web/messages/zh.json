@@ -1363,9 +1363,14 @@
     "shotType": {
       "header": "头球",
       "one_on_one": "单刀",
-      "normal": "射门",
+      "normal": "抽射",
       "long_shot": "远射",
       "rebound": "补射"
+    },
+    "outcome": {
+      "goal": "进球",
+      "miss": "射失",
+      "save": "被扑出"
     }
   },
   "tactics": {

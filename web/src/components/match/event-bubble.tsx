@@ -84,6 +84,25 @@ export const EventBubble: React.FC<EventBubbleProps> = ({
   // removed in D5 — the EventBubble is the single rendering path.
   const Icon = eventIcon(type);
   const text = formatEventCommentary(event, homeTeamName, awayTeamName, t) ?? '';
+  // Hover label: lane · shot type · outcome, e.g. 中路 · 抽射 · 进球.
+  // The full sentence is already in the row, so repeating it in the bubble
+  // would only push the bubble wide enough to cover the panel.
+  const laneKey = (event.data as { lane?: string } | null)?.lane;
+  const shotKey = (event.data as { shot?: { shotType?: string } } | null)?.shot?.shotType;
+  const outcomeKey = /GOAL/.test(type)
+    ? 'goal'
+    : /SAVE/.test(type)
+      ? 'save'
+      : /MISS|OFF_TARGET/.test(type)
+        ? 'miss'
+        : null;
+  const shotLabel = [
+    laneKey ? t(`lane.${laneKey.toLowerCase()}`) : null,
+    shotKey ? t(`shotType.${shotKey.toLowerCase()}`) : null,
+    outcomeKey ? t(`outcome.${outcomeKey}`) : null,
+  ]
+    .filter(Boolean)
+    .join(' · ');
   if (!text) return null;
 
   // Side derivation — shared rule with `MatchKeyEvents` via
@@ -185,9 +204,10 @@ export const EventBubble: React.FC<EventBubbleProps> = ({
                     side="top"
                     align="end"
                     wrap
+                    portal
                     label={
                       <span className="flex flex-col gap-0.5">
-                        <span>{text}</span>
+                        <span>{shotLabel}</span>
                         <span className="font-mono text-[10px] tracking-wider text-on-surface/50">
                           {eventCodeFromTypeName(event.typeName ?? String(event.type))}
                         </span>
