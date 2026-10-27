@@ -116,7 +116,6 @@ export const EventBubble: React.FC<EventBubbleProps> = ({
   const side = resolveSide(event, homeTeamId, awayTeamId);
   const isHome = side === 'home';
   const isAway = side === 'away';
-  const isNeutral = side === 'neutral';
 
   // Tones. Home / away / neutral each get their own colour identity so
   // a single left-aligned column of events still reads as a transcript
@@ -169,24 +168,12 @@ export const EventBubble: React.FC<EventBubbleProps> = ({
   // the action.
   return (
     <div
-      className={`relative grid grid-cols-[6px_44px_1fr] items-stretch gap-2 py-1.5 pl-1 pr-1 rounded-r-md ${rowTint}`}
+      className={`relative grid grid-cols-[40px_1fr] items-start gap-2 py-1.5 ${rowTint}`}
     >
-      {/* 1. Team bar — solid 4px coloured strip on the left */}
-      <div
-        className={`rounded-sm ${barClass}`}
-        style={barStyle}
-        aria-hidden
-      />
-
       {/* 2. Minute — fixed-width column, mono numerals, team colour,
              with a coloured dot before the number so the side reads
              even if the rest of the row scrolls out of view. */}
-      <div className="flex items-center justify-end gap-1 pt-0.5">
-        <span
-          className={`w-1.5 h-1.5 rounded-full shrink-0 ${barClass}`}
-          style={barStyle}
-          aria-hidden
-        />
+      <div className="flex items-start justify-end">
         <span
           className={`font-mono font-black text-label tabular-nums ${minuteTone}`}
           style={minuteStyle}
@@ -201,9 +188,9 @@ export const EventBubble: React.FC<EventBubbleProps> = ({
       </div>
 
       {/* 3. Content — icon + text */}
-      <div className="min-w-0 pl-1">
+      <div className="min-w-0">
         <div className="flex items-start gap-1.5">
-          <span className={`shrink-0 mt-0.5 ${iconTone}`}>
+          <span className={`shrink-0 flex h-[18px] items-center ${iconTone}`}>
             <Tooltip
                     side="top"
                     align="end"
