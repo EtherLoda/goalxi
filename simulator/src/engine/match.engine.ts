@@ -2922,6 +2922,13 @@ export class MatchEngine {
         // 直接断球，防守方获得球权并发动反击
         interceptTriggered = true;
 
+        // 断球者按拦截所在 lane 的防守权重（CB / DM / CM 优先）加权挑选。
+        // 必须在换队之前取，因为此刻 defendingTeam 还是抢下球的那一方。
+        const interceptor = this.pickPlayerBySlotWeight(
+          this.defendingTeam,
+          PUSH_DEFENDER_WEIGHT[this.currentLane],
+        );
+
         // 角色互换： possessionTeam 变成 defendingTeam，defendingTeam 变成 possessionTeam
         const temp = this.possessionTeam;
         this.possessionTeam = this.defendingTeam;
@@ -2936,10 +2943,16 @@ export class MatchEngine {
           clockSeconds: this.currentClockSeconds,
           type: 'turnover',
           teamName: this.possessionTeam.name,
+          relatedPlayerId: interceptor
+            ? (interceptor.player as Player).id
+            : undefined,
           data: {
             via: 'intercept',
             counterAttacking: true,
             lane: this.currentLane,
+            defenderName: interceptor
+              ? (interceptor.player as Player).name
+              : null,
           },
         });
 
