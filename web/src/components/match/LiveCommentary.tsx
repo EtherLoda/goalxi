@@ -31,6 +31,7 @@ import {
 } from './match-timeline';
 
 export interface LiveCommentaryProps {
+  typed?: boolean;
   events: MatchEvent[];
   currentMinute: number;
   homeTeamName: string;
@@ -59,6 +60,7 @@ export interface LiveCommentaryProps {
 }
 
 export function LiveCommentary({
+  typed,
   events,
   currentMinute,
   homeTeamName,

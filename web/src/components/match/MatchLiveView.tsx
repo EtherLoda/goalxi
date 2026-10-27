@@ -303,6 +303,7 @@ export function MatchLiveView({
       timeline={null}
       commentary={
         <LiveCommentary
+            typed
           events={visibleEvents}
           currentMinute={currentMinute}
           homeTeamName={homeTeamName}

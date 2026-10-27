@@ -36,7 +36,37 @@ import { eventCodeFromTypeName } from '@/lib/event-code';
 import { resolveSide } from './match-event-side';
 import { formatMatchMinute, resolveMarkerMinute, type InjuryWindow } from './match-timeline';
 
+/**
+ * Types out the newest event in LIVE mode only - the report has already
+ * finished, so its whole feed appears at once and `typed` stays false.
+ * Older bubbles receive false and render in full immediately.
+ */
+function useTypedText(text: string, typed: boolean): string {
+  const [shown, setShown] = React.useState(typed ? 0 : text.length);
+  React.useEffect(() => {
+    if (!typed) {
+      setShown(text.length);
+      return;
+    }
+    setShown(0);
+    const step = Math.max(12, Math.round(2400 / Math.max(1, text.length)));
+    let i = 0;
+    const timer = window.setInterval(() => {
+      i += 1;
+      setShown(i);
+      if (i >= text.length) window.clearInterval(timer);
+    }, step);
+    return () => window.clearInterval(timer);
+  }, [text, typed]);
+  return typed ? text.slice(0, shown) : text;
+}
+
+function TypedText({ text }: { text: string }) {
+  return <>{useTypedText(text, true)}</>;
+}
+
 export interface EventBubbleProps {
+  typed?: boolean;
   event: MatchEvent;
   homeTeamName: string;
   awayTeamName: string;
@@ -66,6 +96,7 @@ export interface EventBubbleProps {
 }
 
 export const EventBubble: React.FC<EventBubbleProps> = ({
+  typed,
   event,
   homeTeamName,
   awayTeamName,
@@ -160,7 +191,7 @@ export const EventBubble: React.FC<EventBubbleProps> = ({
   // the action.
   return (
     <div
-      className={`relative grid grid-cols-[44px_1fr] items-start gap-2 py-1.5 border-t border-white/[0.04] first:border-t-0 ${rowTint}`}
+      className={`relative grid grid-cols-[44px_1fr] items-start gap-2 py-1.5 ${rowTint}`}
     >
       {/* 2. Minute — fixed-width column, mono numerals, team colour,
              with a coloured dot before the number so the side reads
@@ -201,7 +232,7 @@ export const EventBubble: React.FC<EventBubbleProps> = ({
                   </Tooltip>
           </span>
           <div className="flex-1 min-w-0">
-            <p className="text-body leading-snug text-on-surface">{text}</p>
+            <p className="text-body leading-snug text-on-surface">{typed ? <TypedText text={text} /> : text}</p>
           </div>
         </div>
       </div>
