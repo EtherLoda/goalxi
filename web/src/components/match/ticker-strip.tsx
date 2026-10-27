@@ -80,7 +80,7 @@ const TickerChunk: React.FC<TickerChunkProps> = ({ items, formatText, formatMinu
                     wrap
                     label={
                       <span className="flex flex-col gap-0.5">
-                        <span>formatText(e)</span>
+                        <span>{formatText(e)}</span>
                         <span className="font-mono text-[10px] tracking-wider text-on-surface/50">
                           {eventCodeFromTypeName(e.typeName ?? String(e.type))}
                         </span>

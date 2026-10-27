@@ -187,7 +187,7 @@ export const EventBubble: React.FC<EventBubbleProps> = ({
                     wrap
                     label={
                       <span className="flex flex-col gap-0.5">
-                        <span>text</span>
+                        <span>{text}</span>
                         <span className="font-mono text-[10px] tracking-wider text-on-surface/50">
                           {eventCodeFromTypeName(event.typeName ?? String(event.type))}
                         </span>
