@@ -1988,6 +1988,20 @@ export class MatchEngine {
   /**
    * 获取比赛统计数据
    */
+  /**
+   * 球队级计数。球员级的同名计数在 `playerMatchStats` 里，但那是一个
+   * Map，API 侧要按队汇总还得先拿到阵容；这里直接按队累加，供
+   * `getMatchStats().teamCounters` 输出。
+   */
+  private teamCounters = {
+    home: { tackles: 0, interceptions: 0 },
+    away: { tackles: 0, interceptions: 0 },
+  };
+
+  private sideOf(team: Team): 'home' | 'away' {
+    return team === this.homeTeam ? 'home' : 'away';
+  }
+
   public getMatchStats() {
     const totalAttacks = Object.values(this.matchStats.attackTypeStats).reduce(
       (sum, s) => sum + s.attempts,
@@ -2002,6 +2016,11 @@ export class MatchEngine {
       this.matchStats.possessionStats.away;
 
     return {
+      // 球队级计数（抢断 / 断球）。API 的球队数据面板读这里。
+      teamCounters: {
+        home: { ...this.teamCounters.home },
+        away: { ...this.teamCounters.away },
+      },
       // 进攻类型统计
       attackTypeStats: Object.entries(this.matchStats.attackTypeStats).map(
         ([type, stats]) => ({
@@ -2928,6 +2947,10 @@ export class MatchEngine {
           this.defendingTeam,
           PUSH_DEFENDER_WEIGHT[this.currentLane],
         );
+
+        // 球队级断球计数：此刻 defendingTeam 还是抢下球的一方，
+        // 必须在下面的换队之前记录。
+        this.teamCounters[this.sideOf(this.defendingTeam)].interceptions++;
 
         // 角色互换： possessionTeam 变成 defendingTeam，defendingTeam 变成 possessionTeam
         const temp = this.possessionTeam;
@@ -4067,6 +4090,7 @@ export class MatchEngine {
     // (`attackPush.defendingPlayer`) so the tackle counter and the
     // event's named tackler line up.
     if (ffinalResult === 'defense_stopped' && attackPush.defendingPlayer) {
+      this.teamCounters[this.sideOf(this.defendingTeam)].tackles++;
       const defenderId = (attackPush.defendingPlayer.player as Player).id;
       const stats = this.playerMatchStats.get(defenderId);
       if (stats) {
