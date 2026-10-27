@@ -1327,6 +1327,11 @@ export class SimulationProcessor extends WorkerHost {
           // Read from the engine's running counter (see comment above
           // `calculateStats`); events no longer carry a `foul` row.
           fouls: foulStats[side],
+          // Straight from the engine: the event stream has no TACKLE /
+          // INTERCEPTION rows to count.
+          tackles: matchReport.matchStats.teamCounters[side].tackles,
+          interceptions:
+            matchReport.matchStats.teamCounters[side].interceptions,
           yellowCards: c.yellowCards,
           redCards: c.redCards,
           laneStrengthAverages: teamLaneStrengths,

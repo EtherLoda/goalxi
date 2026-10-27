@@ -63,6 +63,15 @@ export class MatchTeamStatsEntity extends BaseEntity {
     @Column({ type: 'int', default: 0 })
     fouls!: number;
 
+    // Won by this team's defence. Both come from the engine's
+    // `getMatchStats().teamCounters` — the event stream never carried a
+    // TACKLE / INTERCEPTION row, so counting typeNames always returned 0.
+    @Column({ type: 'int', default: 0 })
+    tackles!: number;
+
+    @Column({ type: 'int', default: 0 })
+    interceptions!: number;
+
     @Column({ type: 'int', default: 0 })
     offsides!: number;
 

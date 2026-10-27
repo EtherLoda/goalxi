@@ -106,18 +106,13 @@ export class StatsService {
         (e) => typeNameUpper(e.typeName || '') === 'SAVE',
       ).length;
 
-      // `TACKLE` and `INTERCEPTION` are legacy enum members the live engine
-      // never emits, so counting them by typeName always produced 0. The
-      // engine keeps real counters in the match stats blob instead — read
-      // those, and fall back to 0 for matches simulated before they existed.
-      const rawCounters = rawStats as {
-        tackles?: number;
-        interceptions?: number;
-      };
+      // Real columns on `match_team_stats`, written by the simulator from the
+      // engine's per-side counters. (They used to be counted from event
+      // typeNames TACKLE / INTERCEPTION, which the engine never emits, so both
+      // were permanently 0.)
+      const tackles = rawStats.tackles;
 
-      const tackles = rawCounters.tackles ?? 0;
-
-      const interceptions = rawCounters.interceptions ?? 0;
+      const interceptions = rawStats.interceptions;
 
       const clearances = teamEvents.filter(
         (e) => typeNameUpper(e.typeName || '') === 'CLEARANCE',
