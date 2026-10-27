@@ -397,32 +397,16 @@ export const VarIcon: React.FC<CommentaryIconProps> = ({ size, className }) => (
 // visual-stack tight without the arrow appearing detached.
 export const TurnoverIcon: React.FC<CommentaryIconProps> = ({ size, className }) => (
   <svg {...base(size)} className={className}>
+    <circle cx="13.4" cy="15.4" r="5.4" fill={WHITE} stroke={SLATE} strokeWidth="1.6" />
+    <circle cx="13.4" cy="15.4" r="1.7" fill={SLATE} />
     <path
-      d="M7 6 L7 19 Q7 21 9 21 L12 21 L15 21 Q17 21 17 19 L17 6"
+      d="M19.6 10.6 Q12 5 6 9.8"
       fill="none"
-      stroke={SLATE}
-      strokeWidth="5.5"
+      stroke="#60a5fa"
+      strokeWidth="2.4"
       strokeLinecap="round"
-      strokeLinejoin="round"
     />
-    <path
-      d="M7 6 L7 19 Q7 21 9 21 L12 21"
-      fill="none"
-      stroke={RED}
-      strokeWidth="4"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    />
-    <path
-      d="M12 21 L15 21 Q17 21 17 19 L17 6"
-      fill="none"
-      stroke={GREEN}
-      strokeWidth="4"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    />
-    <path d="M12 6.7 L17 0.7 L22 6.7 Z" fill={SLATE} />
-    <path d="M13 6 L17 1 L21 6 Z" fill={GREEN} stroke={SLATE} strokeWidth="1.4" strokeLinejoin="round" />
+    <path d="M6 9.8 L10 8.6 L8.6 12.5 Z" fill="#60a5fa" />
   </svg>
 );
 

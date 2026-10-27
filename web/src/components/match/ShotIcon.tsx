@@ -15,7 +15,14 @@ import * as React from 'react';
  */
 
 export type ShotOutcome = 'goal' | 'ball' | 'miss';
-export type ShotMarker = 'none' | 'penalty' | 'freekick' | 'longshot';
+export type ShotMarker =
+  | 'none'
+  | 'penalty'
+  | 'freekick'
+  | 'longshot'
+  | 'header'
+  | 'rebound'
+  | 'oneonone';
 
 export interface ShotIconProps {
   size?: number;
@@ -86,6 +93,21 @@ const Marker = ({ marker }: { marker: ShotMarker }) => {
           <circle cx="18.4" cy="16.3" r="1" fill={WHITE} />
         </>
       )}
+      {marker === 'header' && (
+        <path d="M16.5 19.9 L18.4 15.7 L20.3 19.9 Z" fill={WHITE} />
+      )}
+      {marker === 'rebound' && (
+        <>
+          <circle cx="16.9" cy="19.5" r="1.5" fill={WHITE} />
+          <circle cx="19.9" cy="16.5" r="1.5" fill={WHITE} />
+        </>
+      )}
+      {marker === 'oneonone' && (
+        <>
+          <path d="M16.7 14.6 L16.7 21.4" stroke={WHITE} strokeWidth="1.1" strokeDasharray="1.5 1.5" />
+          <path d="M18.4 16.3 L21.6 18 L18.4 19.7 Z" fill={WHITE} />
+        </>
+      )}
       {marker === 'longshot' && (
         <>
           <circle cx="18.4" cy="18" r="1.9" fill="none" stroke={WHITE} strokeWidth="1.2" />
@@ -140,6 +162,10 @@ export function shotMarkerFor(typeName: string, data?: Record<string, unknown> |
   if (t.includes('PENALTY')) return 'penalty';
   const shot = (data as { shot?: { shotType?: string; fromFreeKick?: boolean } } | null)?.shot;
   if (shot?.fromFreeKick) return 'freekick';
-  if (shot?.shotType === 'LONG_SHOT' || shot?.shotType === '4') return 'longshot';
+  const st = shot?.shotType;
+  if (st === 'HEADER' || st === '0') return 'header';
+  if (st === 'REBOUND' || st === '3') return 'rebound';
+  if (st === 'ONE_ON_ONE' || st === '1') return 'oneonone';
+  if (st === 'LONG_SHOT' || st === '4') return 'longshot';
   return 'none';
 }
