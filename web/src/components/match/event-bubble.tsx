@@ -131,19 +131,6 @@ export const EventBubble: React.FC<EventBubbleProps> = ({
   // and otherwise fall back to the theme primary/secondary token. Note
   // we use bg-primary / bg-secondary rather than text-primary, because
   // the bar is a coloured chip, not typography.
-  const barClass = isHome
-    ? 'bg-primary'
-    : isAway
-    ? 'bg-secondary'
-    : 'bg-outline/40';
-  const barStyle = teamColor
-    ? { backgroundColor: teamColor }
-    : undefined;
-  const minuteTone = isHome
-    ? 'text-primary'
-    : isAway
-    ? 'text-secondary'
-    : 'text-on-surface-variant';
   const minuteStyle = teamColor
     ? { color: teamColor }
     : undefined;
@@ -153,7 +140,12 @@ export const EventBubble: React.FC<EventBubbleProps> = ({
   // container-lowest` shell on long feeds. Keep the tone-derivation
   // logic in case we want to re-introduce it later, but no class is
   // applied to the row itself.
-  const rowTint = '';
+  const eventCode = eventCodeFromTypeName(
+    event.typeName ?? String(event.type),
+  );
+  // Goal rows get a faint wash so the eye can find them while scanning;
+  // everything else stays on the panel surface.
+  const rowTint = eventCode.indexOf('.GOAL') >= 0 ? 'bg-primary/[0.06] rounded-md' : '';
   const iconTone = isHome
     ? 'text-primary'
     : isAway
@@ -173,9 +165,9 @@ export const EventBubble: React.FC<EventBubbleProps> = ({
       {/* 2. Minute — fixed-width column, mono numerals, team colour,
              with a coloured dot before the number so the side reads
              even if the rest of the row scrolls out of view. */}
-      <div className="flex items-start justify-end">
+      <div className="flex items-start justify-end pt-0.5">
         <span
-          className={`font-mono font-black text-label tabular-nums ${minuteTone}`}
+          className={`inline-flex h-[22px] min-w-[32px] items-center justify-center rounded-md px-1 font-mono text-[11px] font-black tabular-nums ${isHome ? 'bg-primary/12 text-primary' : isAway ? 'bg-secondary/12 text-secondary' : 'bg-surface-container-high/60 text-on-surface-variant'}`}
           style={minuteStyle}
         >
           {formatMatchMinute(
@@ -200,7 +192,7 @@ export const EventBubble: React.FC<EventBubbleProps> = ({
                       <span className="flex flex-col gap-0.5">
                         <span>{hoverLabel}</span>
                         <span className="font-mono text-[10px] tracking-wider text-on-surface/50">
-                          {eventCodeFromTypeName(event.typeName ?? String(event.type))}
+                          {eventCode}
                         </span>
                       </span>
                     }
