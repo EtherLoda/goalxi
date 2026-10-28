@@ -31,7 +31,13 @@ import {
 } from './match-timeline';
 
 export interface LiveCommentaryProps {
-  typed?: boolean;
+  /**
+   * The one row the live page is typing out right now — an event id, not a
+   * boolean, because the caller also needs that same row for the pitch
+   * spotlight and for fading the highlight when the typing ends. Every other
+   * row renders in full: text that is already on screen is never re-animated.
+   */
+  typedEventId?: string | null;
   events: MatchEvent[];
   currentMinute: number;
   homeTeamName: string;
@@ -69,7 +75,7 @@ export interface LiveCommentaryProps {
 }
 
 export function LiveCommentary({
-  typed,
+  typedEventId,
   events,
   currentMinute,
   homeTeamName,
@@ -219,6 +225,7 @@ export function LiveCommentary({
                 homeColor={homeColor}
                 awayColor={awayColor}
                 injuryWindows={injuryWindows}
+                typed={Boolean(e.id) && e.id === typedEventId}
                 isSelected={Boolean(e.id) && e.id === selectedEventId}
                 onSelect={
                   e.id && onSelectEvent ? () => onSelectEvent(e.id as string) : undefined

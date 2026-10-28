@@ -155,17 +155,21 @@ export function MatchPlayerMarker({
         {/* Selected-event halo. The reader picked a commentary line and the
             pitch answers "which of these 22 is it" — a slow pulse so the eye
             finds it without the marker shouting over the scoreline. Behind
-            the avatar (z-10) so initials and the stamina ring stay legible. */}
-        {isHighlighted && (
-          <span
-            aria-hidden="true"
-            className="pointer-events-none absolute -inset-1.5 rounded-full bg-primary/15 ring-2 ring-primary/70 animate-pulse motion-reduce:animate-none"
-            style={{
-              animationDuration: '2.4s',
-              boxShadow: '0 0 18px 4px rgba(0, 228, 121, 0.3)',
-            }}
-          />
-        )}
+            the avatar (z-10) so initials and the stamina ring stay legible.
+            Always mounted: the live feed lights a player for a few seconds
+            while the remark types out, and the fade is part of telling the
+            reader that window closed (pulse only while lit, otherwise the
+            animation and `opacity-0` fight each other). */}
+        <span
+          aria-hidden="true"
+          className={`pointer-events-none absolute -inset-1.5 rounded-full bg-primary/15 ring-2 ring-primary/70 transition-opacity duration-500 ${
+            isHighlighted ? 'opacity-100 animate-pulse motion-reduce:animate-none' : 'opacity-0'
+          }`}
+          style={{
+            animationDuration: '2.4s',
+            boxShadow: '0 0 18px 4px rgba(0, 228, 121, 0.3)',
+          }}
+        />
         <div
           className={`relative z-10 flex h-full w-full items-center justify-center rounded-full font-headline text-label font-extrabold uppercase ${
             isSelected ? 'ring-2 ring-white ring-offset-1 ring-offset-ink-750' : ''

@@ -36,6 +36,7 @@ import { KeyEventsToggle, MatchKeyEvents } from './MatchKeyEvents';
 import { extractSidebarData } from './match-sidebar-data';
 import { extractSnapshots, resolveAutoSnapIndex } from './snapshot-stats';
 import { playerIdsToHighlight } from './involved-players';
+import { LIVE_TYPING_WINDOW_MS, newestTypedEventId } from './live-typing';
 
 const MATCH_END_REDIRECT_DELAY_MS = 2500;
 
@@ -178,13 +179,34 @@ export function MatchLiveView({
   );
 
   /**
-   * Players on the pitch that the selected commentary line is about. The live
-   * path rebuilds `MatchEvent`s from WS payloads, so the same helper as the
-   * report page applies unchanged.
+   * The row the feed is typing out, and — while it types — the row whose
+   * players the pitch spotlights. One id drives both so the sentence being
+   * written and the lit player can never be talking about different events.
+   */
+  const [typingEventId, setTypingEventId] = useState<string | null>(null);
+
+  // Newest event that has something to say — the row the feed types and the
+  // pitch lights. Snapshots ride the same channel but carry no sentence.
+  const newestEventId = useMemo(() => newestTypedEventId(visibleEvents), [visibleEvents]);
+
+  // An arrival is external state becoming local UI state — the same boundary
+  // the match-end flag above sits on, hence the same targeted opt-out.
+  useEffect(() => {
+    if (!newestEventId) return;
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setTypingEventId(newestEventId);
+    const timer = window.setTimeout(() => setTypingEventId(null), LIVE_TYPING_WINDOW_MS);
+    return () => window.clearTimeout(timer);
+  }, [newestEventId]);
+
+  /**
+   * Players on the pitch the feed is talking about: the row the reader
+   * clicked, or — when they haven't — the row currently being typed. A click
+   * wins over the live stream so mid-match inspection is never yanked away.
    */
   const highlightedPlayerIds = useMemo(
-    () => playerIdsToHighlight(visibleEvents, selectedEventId),
-    [visibleEvents, selectedEventId],
+    () => playerIdsToHighlight(visibleEvents, selectedEventId ?? typingEventId),
+    [visibleEvents, selectedEventId, typingEventId],
   );
 
   // String-keyed roster map for MatchKeyEvents.
@@ -324,7 +346,7 @@ export function MatchLiveView({
       timeline={null}
       commentary={
         <LiveCommentary
-            typed
+          typedEventId={typingEventId}
           events={visibleEvents}
           currentMinute={currentMinute}
           homeTeamName={homeTeamName}
