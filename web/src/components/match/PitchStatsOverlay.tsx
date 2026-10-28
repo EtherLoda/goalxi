@@ -8,7 +8,7 @@
  * home left winger is marked by the away *right* back, not the away left
  * winger.
  *
- * So the table is gone and the numbers sit on a pitch instead:
+ * So the table is gone and the numbers sit in the shape of the pitch:
  *
  *   ┌──────────────┬──────────────┬──────────────┐
  *   │  home def    │  home pos    │  home atk    │   ← top band =
@@ -24,10 +24,13 @@
  * which band, and that is enough. `pitch-duels.ts` owns the mirroring.
  *
  * The share is the headline (it is what "who wins this zone" means), the
- * raw ratings are the footnote. Zones are flush over the whole surface —
- * no padding, no cards — so the mown stripes, halfway line, centre circle
- * and boxes read as one pitch. Each zone tints green→cream at the share
- * boundary, so the colour split is the bar.
+ * raw ratings are the footnote, and each zone tints green→cream at the
+ * share boundary so the colour split *is* the bar.
+ *
+ * The map is inset in its panel rather than bleeding to the edges, and it
+ * carries no pitch markings: nine solid panes are the whole picture. Drawn
+ * over a halfway line and centre circle they read as colour bleeding
+ * through a diagram instead of a clean territory map.
  */
 
 "use client";
@@ -52,10 +55,12 @@ export function PitchStatsOverlay({
   const zones = buildDuels(snapshot);
 
   return (
-    <div className="absolute inset-0" data-testid="pitch-stats-grid">
-      <div className="relative h-full w-full overflow-hidden bg-[#0a2016]">
-        <PitchSurface />
-        <div className="absolute inset-0 grid grid-cols-3 grid-rows-3">
+    <div
+      className="absolute inset-0 flex items-center justify-center bg-[#07130c] p-3 sm:p-4"
+      data-testid="pitch-stats-grid"
+    >
+      <div className="relative h-full w-full overflow-hidden rounded-lg border border-white/10 shadow-[inset_0_1px_0_rgba(255,255,255,0.07)]">
+        <div className="absolute inset-0 grid grid-cols-3 grid-rows-3 gap-1 p-1">
           {zones.map((zone) => (
             <DuelCell
               key={`${zone.column}-${zone.row}`}
@@ -65,37 +70,7 @@ export function PitchStatsOverlay({
             />
           ))}
         </div>
-        {/* Depth: darken the corners so the map sits *in* a stadium rather
-            than floating on a flat fill. Above the zones, below the text. */}
-        <div
-          aria-hidden
-          className="pointer-events-none absolute inset-0 z-[5]"
-          style={{
-            background:
-              "radial-gradient(120% 100% at 50% 50%, transparent 52%, rgba(0,0,0,0.5) 100%)",
-          }}
-        />
       </div>
-    </div>
-  );
-}
-
-// ============================================================================
-// PitchSurface — mown stripes + hairline geometry, so the grid reads as grass
-// ============================================================================
-
-function PitchSurface() {
-  return (
-    <div aria-hidden className="pointer-events-none absolute inset-0 z-10">
-      {/* Halfway line + centre circle + spot */}
-      <div className="absolute inset-y-0 left-1/2 w-px -translate-x-1/2 bg-white/[0.16]" />
-      <div className="absolute left-1/2 top-1/2 h-[34%] w-[21%] -translate-x-1/2 -translate-y-1/2 rounded-full border border-white/[0.14]" />
-      <div className="absolute left-1/2 top-1/2 h-1.5 w-1.5 -translate-x-1/2 -translate-y-1/2 rounded-full bg-white/30" />
-      {/* Penalty and goal areas, one set per end */}
-      <div className="absolute left-0 top-1/2 h-[62%] w-[16%] -translate-y-1/2 border border-l-0 border-white/[0.13]" />
-      <div className="absolute right-0 top-1/2 h-[62%] w-[16%] -translate-y-1/2 border border-r-0 border-white/[0.13]" />
-      <div className="absolute left-0 top-1/2 h-[30%] w-[6%] -translate-y-1/2 border border-l-0 border-white/[0.13]" />
-      <div className="absolute right-0 top-1/2 h-[30%] w-[6%] -translate-y-1/2 border border-r-0 border-white/[0.13]" />
     </div>
   );
 }
@@ -124,18 +99,20 @@ function DuelCell({
 
   return (
     <div
-      className="relative flex"
+      className="relative flex overflow-hidden rounded-md shadow-[inset_0_1px_0_rgba(255,255,255,0.07)]"
       data-testid={`duel-${zone.column}-${zone.row}`}
       title={`${homeTeamName} ${tZone(phaseLabel[zone.homePhase])} ${zone.home.toFixed(1)} · ${awayTeamName} ${tZone(phaseLabel[zone.awayPhase])} ${zone.away.toFixed(1)}`}
     >
       {/* Two solid panes that meet at the share — borrowed from Hattrick's
-          zone map. No borders, no gaps: the colour edge *is* the boundary,
-          so nine zones read as one painted pitch instead of a table. */}
+          zone map. Inside a zone there is no border and no gap: the colour
+          edge *is* the boundary. The zones themselves are separate tiles, so
+          each staircase step stays inside its own tile instead of running
+          down the whole map. */}
       <span
         aria-hidden
         className="absolute inset-0"
         style={{
-          background: `color-mix(in srgb, var(--color-primary) 36%, #0c2418)`,
+          background: `color-mix(in srgb, var(--color-primary) 34%, #07130c)`,
           clipPath: `inset(0 ${awayPct}% 0 0)`,
         }}
       />
@@ -143,7 +120,7 @@ function DuelCell({
         aria-hidden
         className="absolute inset-0"
         style={{
-          background: `color-mix(in srgb, var(--color-secondary) 46%, #0c2418)`,
+          background: `color-mix(in srgb, var(--color-secondary) 46%, #171006)`,
           clipPath: `inset(0 0 0 ${homePct}%)`,
         }}
       />
