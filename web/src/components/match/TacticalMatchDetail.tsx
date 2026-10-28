@@ -168,12 +168,16 @@ export function TacticalMatchDetail({
   // clamp is pure anyway — the slider at the bottom of the page is the only
   // writer, and it always passes an in-range index.
   const lastSnapshotIndex = Math.max(0, allSnapshots.length - 1);
-  const [activeSnapshotIndex, setActiveSnapshotIndex] = useState<number>(
-    () => lastSnapshotIndex,
+  // A finished match opens on the kickoff snapshot: the report is something
+  // you read from the beginning, and parking the pitch — and the progress
+  // strip — on the final frame made every page load look like a live match
+  // that had just ended. Live matches still follow the latest snapshot.
+  const [activeSnapshotIndex, setActiveSnapshotIndex] = useState<number>(() =>
+    isCompleted ? 0 : lastSnapshotIndex,
   );
   const clampedSnapshotIndex = Math.min(activeSnapshotIndex, lastSnapshotIndex);
   const activeSnapshot: MatchSnapshot | null =
-    allSnapshots[clampedSnapshotIndex] ??  null;
+    allSnapshots[clampedSnapshotIndex] ?? null;
 
   const [homeTactics, setHomeTactics] = useState<Tactics | null>(null);
   const [awayTactics, setAwayTactics] = useState<Tactics | null>(null);

@@ -11,7 +11,7 @@ interface MatchPitchStageProps {
   /** Which of the three reads the header is on. */
   mode: PitchMarkerMode;
   onModeChange: (mode: PitchMarkerMode) => void;
-  /** The progress strip, shown in a popover that opens upwards. */
+  /** The progress strip, expanded inline under the header. */
   progress?: React.ReactNode;
   /** Substitutions, shown as the strip under the pitch. */
   footer?: React.ReactNode;
@@ -28,9 +28,10 @@ const MODES: { key: PitchMarkerMode; label: string }[] = [
  * The frame around the pitch: header (clock + three-way read switch), pitch,
  * footer (substitutions).
  *
- * The progress strip opens UPWARDS from the clock icon. It is a navigational
- * aid, not the main event: parking it under a button keeps the pitch at full
- * height while leaving the strip one click away — glance, jump, close.
+ * The progress strip is a navigational aid, not the main event, so it lives
+ * behind the clock button. When open it takes its own row between the header
+ * and the pitch and pushes the pitch down — the earlier overlay version
+ * floated over the top third of the pitch and hid the far-side players.
  */
 export function MatchPitchStage({
   clock,
@@ -50,6 +51,7 @@ export function MatchPitchStage({
           type="button"
           onClick={() => setOpen((v) => !v)}
           aria-expanded={open}
+          aria-controls="match-progress-strip"
           aria-label="比赛进度"
           disabled={!progress}
           className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border transition-colors duration-quick ${
@@ -94,14 +96,19 @@ export function MatchPitchStage({
             </button>
           ))}
         </div>
-
-        {/* Strip popover — opens upward, anchored under the clock icon. */}
-        {open && progress && (
-          <div className="absolute left-2 right-2 top-full z-30 mt-1 rounded-xl border border-white/10 bg-surface-container-high/95 p-2 shadow-2xl backdrop-blur">
-            {progress}
-          </div>
-        )}
       </div>
+
+      {/* Strip panel — expands in the stage's own flow instead of floating
+          over the pitch. The overlaid version covered the far third of the
+          pitch (and whoever stood in it) whenever it was open. */}
+      {open && progress && (
+        <div
+          id="match-progress-strip"
+          className="border-b border-white/5 px-2 pb-2 pt-1.5"
+        >
+          {progress}
+        </div>
+      )}
 
       <div className="overflow-hidden">{children}</div>
 

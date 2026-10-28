@@ -16,12 +16,18 @@
  * Stoppage time gets its own cell at the end of each half rather than being
  * squeezed into 45' or 90' — the engine varies it per match, and a goal in
  * the 90+4 would otherwise have nowhere to sit.
+ *
+ * Cell glyphs come from `eventIcon`, the same lookup the commentary feed and
+ * the ticker use — a yellow card in the strip is the exact card drawn next to
+ * the sentence describing it. The clock on the right shows the playhead, not
+ * the match's end, so a finished fixture opens at 0' with the kickoff eleven
+ * on the pitch and every cell still lit.
  */
 
-import { useMemo } from 'react';
+import { createElement, useMemo } from 'react';
 import { useTranslations } from 'next-intl';
-import { AppIcon } from '@/components/icons/AppIcon';
 import { GlassPanel } from '@/components/ui/GlassPanel';
+import { eventIcon } from './commentary-icons';
 import type { MatchEvent } from '@/lib/api';
 import {
   extractInjuryWindows,
@@ -96,6 +102,20 @@ function bucketKeyOf(marker: TimelineMarker): string {
   return `h2-${index}`;
 }
 
+/**
+ * Which 1-based cell a playhead minute falls in, within its half. Kept
+ * separate from `bucketKeyOf` because that one answers "where does an event
+ * live" (stoppage has its own bucket) while this answers "where is the
+ * cursor" — 0' must land on the first cell, and anything past 90' on the last.
+ */
+function bucketIndexAt(minute: number): number {
+  if (minute <= 0) return 1;
+  if (minute <= 45) {
+    return Math.min(CELLS_PER_HALF, Math.ceil(minute / CELL_MINUTES));
+  }
+  return Math.min(CELLS_PER_HALF, Math.ceil((minute - 45) / CELL_MINUTES));
+}
+
 export function MatchProgressRail({
   events,
   currentMinute,
@@ -123,6 +143,15 @@ export function MatchProgressRail({
     };
   }, [events]);
 
+  // Two different minutes are in play. `currentMinute` is how far the match
+  // has actually run — it decides which cells are lit, so a finished game
+  // still reads as "all of this happened". `selectedMinute` is where the
+  // playhead sits — it decides which cell is ringed and what the clock reads.
+  // A finished match opens on the kickoff snapshot, so the strip starts on
+  // the first cell instead of parking on the last one.
+  const playhead = Math.max(0, selectedMinute ?? currentMinute);
+  const playheadKey = `${playhead > 45 ? 'h2' : 'h1'}-${bucketIndexAt(playhead)}`;
+
   return (
     <GlassPanel className={`p-3 ${className ?? ''}`} data-testid="match-progress-rail">
       <div className="mb-2 flex items-baseline justify-between gap-3">
@@ -130,7 +159,7 @@ export function MatchProgressRail({
           {t('title')}
         </span>
         <span className="font-mono text-label tabular-nums text-on-surface">
-          {currentMinute}&apos;
+          {Math.round(playhead)}&apos;
         </span>
       </div>
 
@@ -138,7 +167,7 @@ export function MatchProgressRail({
         role="progressbar"
         aria-valuemin={0}
         aria-valuemax={Math.max(90, currentMinute)}
-        aria-valuenow={Math.round(currentMinute)}
+        aria-valuenow={Math.round(playhead)}
         aria-label={t('title')}
         className="flex items-stretch gap-[2px]"
       >
@@ -154,19 +183,8 @@ export function MatchProgressRail({
                 bucket={bucket}
                 items={items}
                 played={played}
-                active={
-                  !bucket.stoppage &&
-                  currentMinute > bucket.start &&
-                  currentMinute <= bucket.end
-                }
+                active={bucket.key === playheadKey}
                 onSelect={onSelectMinute}
-                selected={
-                  selectedMinute != null &&
-                  (selectedMinute > 45) === bucket.key.startsWith('h2-') &&
-                  selectedMinute > bucket.start &&
-                  selectedMinute <=
-                    (bucket.end === 45 || bucket.end === 90 ? bucket.end + 6 : bucket.end)
-                }
                 emptyLabel={t('empty')}
               />
             </div>
@@ -190,7 +208,6 @@ function BucketCell({
   items,
   played,
   active,
-  selected,
   onSelect,
   emptyLabel,
 }: {
@@ -198,7 +215,6 @@ function BucketCell({
   items: TimelineMarker[];
   played: boolean;
   active: boolean;
-  selected: boolean;
   onSelect?: (minute: number) => void;
   emptyLabel: string;
 }) {
@@ -219,16 +235,14 @@ function BucketCell({
                 .join(', ')}`
         }
         className={`flex h-7 w-full items-center justify-center gap-[1px] rounded-sm border transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-primary ${
-          selected
-            ? 'border-primary bg-primary/30 ring-2 ring-primary'
-            : active
-            ? 'border-primary/60 bg-primary/15'
+          active
+            ? 'border-primary bg-primary/20 ring-2 ring-primary'
             : played
               ? 'border-transparent bg-surface-container-high/70'
               : 'border-transparent bg-surface-container/40'
         } cursor-pointer hover:border-primary/40`}
       >
-        {single ? <EventGlyph type={single.type} /> : null}
+        {single ? <EventGlyph type={single.type} size={14} /> : null}
         {multiple ? (
           <span aria-hidden className="flex items-center gap-[2px]">
             <span className="size-[3px] rounded-full bg-on-surface-variant" />
@@ -248,7 +262,7 @@ function BucketCell({
               key={item.key}
               className="flex items-center gap-1.5 text-kicker text-on-surface"
             >
-              <EventGlyph type={item.type} />
+              <EventGlyph type={item.type} size={14} />
               <span className="font-mono tabular-nums text-on-surface-variant">
                 {item.minuteLabel}&apos;
               </span>
@@ -261,21 +275,12 @@ function BucketCell({
   );
 }
 
-function EventGlyph({ type }: { type: TimelineEventType }) {
-  if (type === 'GOAL') {
-    return <AppIcon name="sports_soccer" className="text-[13px] text-primary" />;
-  }
-  if (type === 'SUBSTITUTION') {
-    return <AppIcon name="swap_horiz" className="text-[13px] text-on-surface-variant" />;
-  }
-  if (type === 'INJURY') {
-    return <AppIcon name="add" className="text-[13px] text-error" />;
-  }
-  if (type === 'RED_CARD') {
-    return <span aria-hidden className="block h-[11px] w-[8px] rounded-[1px] bg-error" />;
-  }
-  // YELLOW_CARD / SECOND_YELLOW
-  return (
-    <span aria-hidden className="block h-[11px] w-[8px] rounded-[1px] bg-signal-amber" />
-  );
+function EventGlyph({ type, size = 16 }: { type: TimelineEventType; size?: number }) {
+  // Same glyph set as the commentary feed and the ticker: `eventIcon` is the
+  // single mapping for match events, so the strip cannot drift from the
+  // sentences that describe the same moments. `createElement` (rather than
+  // rendering `<Icon />`) matches the other two call sites and keeps the
+  // hooks lint rule from mistaking the lookup for an inline component.
+  const Icon = eventIcon(type);
+  return createElement(Icon, { size });
 }
