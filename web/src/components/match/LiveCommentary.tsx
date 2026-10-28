@@ -174,7 +174,7 @@ export function LiveCommentary({
                 : 'bg-on-surface-variant/50'
             }`}
           />
-          {tChrome('commentary')}
+          {mode === 'replay' ? tChrome('reportTitle') : tChrome('commentary')}
         </h3>
         <div className="flex items-center gap-1.5">
           <span className="font-mono font-black text-sm tabular-nums text-primary">
@@ -206,9 +206,21 @@ export function LiveCommentary({
 
       {/* 2. Feed — single left-aligned chronological column. Home / away /
              neutral events are interleaved by time; side is conveyed by
-             colour (primary / secondary / muted) on the EventBubble. */}
+             colour (primary / secondary / muted) on the EventBubble.
+
+             Height: a finished match is read like a report, so the transcript
+             runs to its natural length and the page scrolls — capping it at
+             480px used to slice a sentence in half with half the screen left
+             empty. A live match keeps a viewport-sized window so the pitch
+             stays in view while the feed grows underneath it. */}
       <div className="rounded-2xl border border-surface-container-high bg-surface-container-lowest/40 overflow-hidden">
-        <div className="max-h-[480px] overflow-y-auto px-3 py-2">
+        <div
+          className={
+            mode === 'replay'
+              ? 'px-3 py-2'
+              : 'max-h-[72vh] overflow-y-auto px-3 py-2'
+          }
+        >
           {sortedFeed.length === 0 ? (
             <p className="text-center text-on-surface-variant text-xs py-6 font-headline uppercase tracking-widest">
               {tChrome('waiting')}

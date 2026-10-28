@@ -340,6 +340,7 @@
     "live": {
       "title": "Live Match",
       "commentary": "Live Commentary",
+      "reportTitle": "Match report",
       "liveTag": "LIVE",
       "replayTag": "FT",
       "waiting": "Waiting for events…",

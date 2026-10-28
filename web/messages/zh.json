@@ -340,6 +340,7 @@
     "live": {
       "title": "直播比赛",
       "commentary": "实时解说",
+      "reportTitle": "战报",
       "liveTag": "直播中",
       "replayTag": "已结束",
       "waiting": "等待事件…",

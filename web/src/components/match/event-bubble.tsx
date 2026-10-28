@@ -165,8 +165,9 @@ export interface EventBubbleProps {
   /**
    * True when the progress strip or the key-events column has picked this
    * event. The row gets a wash + ring and scrolls itself into view, because
-   * the feed is a 480px scroll box and the picked event is often off-screen —
-   * highlighting something nobody can see would read as "nothing happened".
+   * the picked event is often off-screen (a live feed scrolls inside a
+   * viewport-sized box, a finished report is a long page) — highlighting
+   * something nobody can see would read as "nothing happened".
    */
   isSelected?: boolean;
   /** Click handler that reports this row as the selected event. */
