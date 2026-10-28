@@ -1,21 +1,26 @@
 import type { MatchEvent, MatchStatsRes } from '@/lib/api';
 import { canonicalEventType } from '@/lib/commentary';
 import { resolveSide } from './match-event-side';
+import { isOnTarget, isShotAttempt } from './shot-attempts';
 
 /**
  * The numbers behind the "Match stats" card — the kind of row-for-row
  * comparison you get on a Premier League match centre.
  *
- * Two sources, because neither one has everything:
+ * Two sources, and which one owns a row depends on where the truth is:
  *
- * - The persisted `MatchTeamStatsEntity` row owns shots, shots on
- *   target, corners, fouls, offsides and cards. Those counters come
- *   from the engine's own tally, not from the event stream (a foul
- *   never becomes an event row), so they cannot be recomputed here.
- * - Goals and assists come from the event stream. `stats` does carry
- *   `computed.goals`, but the per-goal `assistName` only lives on the
- *   event, and reading both from one place keeps the two rows
- *   consistent with each other.
+ * - **Shots / shots on target** come from the event stream, through the
+ *   same `shot-attempts` predicate the chances card uses. The persisted
+ *   `shots` column is derived by the processor as `goals + misses +
+ *   saves`, which drops set-piece attempts and mis-assigns saves to the
+ *   wrong side, so it disagreed with the chances card on real matches
+ *   (3 : 8 vs 7 : 8). Reading the events keeps the two cards in step for
+ *   historical matches too — no backfill needed.
+ * - **Fouls / offsides / cards / possession** come from
+ *   `match_team_stats`: a foul never becomes an event row, so those
+ *   counters cannot be recomputed here.
+ * - **Goals / assists** come from events as well (`assistName` only
+ *   exists there), so the three event-derived rows agree with each other.
  *
  * The stats row is written when the match finishes, so this card only
  * renders once there is something to show — the caller passes `null`
@@ -46,29 +51,25 @@ interface SideCounts {
   away: number;
 }
 
-/**
- * Count events of one canonical type per side.
- *
- * `predicate` lets the assist row reuse the same walk: an assist is a
- * goal event that carries `data.assistName`, so the filter runs on the
- * event rather than on the tally.
- */
-function countEvents(
+/** Walk the events once and count the ones that match, per side. */
+function tally(
   events: readonly MatchEvent[],
   homeTeamId: string | null,
   awayTeamId: string | null,
-  typeName: string,
-  predicate?: (event: MatchEvent) => boolean,
+  predicate: (event: MatchEvent) => boolean,
 ): SideCounts {
   const counts: SideCounts = { home: 0, away: 0 };
   for (const event of events) {
-    if (canonicalEventType(event.typeName ?? event.type) !== typeName) continue;
-    if (predicate && !predicate(event)) continue;
+    if (!predicate(event)) continue;
     const side = resolveSide(event, homeTeamId, awayTeamId);
     if (side === 'neutral') continue;
     counts[side] += 1;
   }
   return counts;
+}
+
+function isGoal(event: MatchEvent): boolean {
+  return canonicalEventType(event.typeName ?? event.type) === 'GOAL';
 }
 
 function hasAssist(event: MatchEvent): boolean {
@@ -93,26 +94,22 @@ export function buildStatRows(
   const home = stats.homeTeamStats;
   const away = stats.awayTeamStats;
 
-  const goals = countEvents(events, homeTeamId, awayTeamId, 'GOAL');
-  const assists = countEvents(
+  const goals = tally(events, homeTeamId, awayTeamId, isGoal);
+  const assists = tally(
     events,
     homeTeamId,
     awayTeamId,
-    'GOAL',
-    hasAssist,
+    (event) => isGoal(event) && hasAssist(event),
   );
+  const shots = tally(events, homeTeamId, awayTeamId, isShotAttempt);
+  const onTarget = tally(events, homeTeamId, awayTeamId, isOnTarget);
 
   const possessionHome = toNumber(home.possessionPercentage);
   const possessionAway = toNumber(away.possessionPercentage);
 
   const rows: StatRow[] = [
-    { key: 'shots', home: home.shots ?? 0, away: away.shots ?? 0, unit: 'count' },
-    {
-      key: 'shotsOnTarget',
-      home: home.shotsOnTarget ?? 0,
-      away: away.shotsOnTarget ?? 0,
-      unit: 'count',
-    },
+    { key: 'shots', home: shots.home, away: shots.away, unit: 'count' },
+    { key: 'shotsOnTarget', home: onTarget.home, away: onTarget.away, unit: 'count' },
     { key: 'goals', home: goals.home, away: goals.away, unit: 'count' },
     { key: 'assists', home: assists.home, away: assists.away, unit: 'count' },
     { key: 'corners', home: home.corners ?? 0, away: away.corners ?? 0, unit: 'count' },

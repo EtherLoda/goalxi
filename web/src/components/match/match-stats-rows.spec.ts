@@ -54,13 +54,21 @@ describe('buildStatRows', () => {
     expect(buildStatRows(null, [], HOME, AWAY)).toEqual([]);
   });
 
-  it('maps the persisted counters onto rows in display order', () => {
+  it('maps counters onto rows in display order', () => {
+    const events = [
+      ev({ type: 'save', teamId: HOME, data: { lane: 'left', sequence: { shot: { result: 'save' } } } }),
+      ev({ type: 'goal', teamId: HOME, data: { lane: 'center', sequence: { shot: { result: 'goal' } }, assistName: 'B' } }),
+      ev({ type: 'miss', teamId: HOME, data: { lane: 'right', sequence: { shot: { result: 'miss' } } } }),
+      ev({ type: 'corner', teamId: AWAY, data: { setPieceType: 'corner', result: 'save' } }),
+      ev({ type: 'goal', teamId: AWAY, data: { setPieceType: 'penalty', result: 'goal' } }),
+    ];
+
     const rows = buildStatRows(
       stats({
-        home: { shots: 3, shotsOnTarget: 2, corners: 1, fouls: 9, offsides: 1, yellowCards: 2, redCards: 1 },
-        away: { shots: 8, shotsOnTarget: 7, corners: 2, fouls: 11, offsides: 0, yellowCards: 4, redCards: 0 },
+        home: { corners: 1, fouls: 9, offsides: 1, yellowCards: 2, redCards: 1 },
+        away: { corners: 2, fouls: 11, offsides: 0, yellowCards: 4, redCards: 0 },
       }),
-      [],
+      events,
       HOME,
       AWAY,
     );
@@ -77,9 +85,23 @@ describe('buildStatRows', () => {
       'yellowCards',
       'redCards',
     ]);
-    expect(row(rows, 'shots')).toMatchObject({ home: 3, away: 8 });
-    expect(row(rows, 'shotsOnTarget')).toMatchObject({ home: 2, away: 7 });
+    // Every shot attempt, set pieces included — the same predicate the
+    // chances card uses, so 射门 equals its total.
+    expect(row(rows, 'shots')).toMatchObject({ home: 3, away: 2 });
+    expect(row(rows, 'shotsOnTarget')).toMatchObject({ home: 2, away: 2 });
+    expect(row(rows, 'goals')).toMatchObject({ home: 1, away: 1 });
     expect(row(rows, 'fouls')).toMatchObject({ home: 9, away: 11 });
+  });
+
+  it('ignores the persisted shots column so old rows stay consistent', () => {
+    // cd638314 shipped with shots=3/8 while the chances card said 7/8.
+    const rows = buildStatRows(
+      stats({ home: { shots: 3 }, away: { shots: 8 } }),
+      [ev({ type: 'goal', teamId: HOME, data: { lane: 'left', sequence: { shot: { result: 'goal' } } } })],
+      HOME,
+      AWAY,
+    );
+    expect(row(rows, 'shots')).toMatchObject({ home: 1, away: 0 });
   });
 
   it('reads percentages that arrive as strings', () => {

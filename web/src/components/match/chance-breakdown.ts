@@ -23,12 +23,16 @@
  *   5. Everything else (turnovers, cards, fouls, open-play saves at
  *      midfield) is not a chance and is dropped.
  *
+ * "Is this an attempt?" lives in `shot-attempts.ts` and is shared with the
+ * match-stats card, so 射门 always equals the sum of the rows here.
+ *
  * Kept free of React so Jest can unit-test it directly.
  */
 
 import type { MatchEvent } from "@/lib/api";
 import { canonicalEventType } from "@/lib/commentary";
 import { resolveSide } from "./match-event-side";
+import { shotOutcome } from "./shot-attempts";
 
 export type ChanceLane = "left" | "center" | "right" | "setPiece";
 
@@ -75,16 +79,12 @@ function laneOf(event: MatchEvent): ChanceLane | null {
   const type = canonicalEventType(event.typeName ?? event.type);
   if (SHOOTOUT_TYPES.has(type)) return null;
 
+  if (!shotOutcome(event)) return null;
+
   const lane = data.lane;
   if (typeof lane !== "string" || !LANES.has(lane as ChanceLane)) return null;
 
-  // Open-play shot, or a blocked push that got as far as the box. The
-  // persisted payload nests the shot under `data.sequence.shot`; only
-  // the in-memory engine event has it at `data.shot`.
-  const shot = data.shot ?? data.sequence?.shot;
-  if (shot || data.ffinalResult === "blocked") return lane as ChanceLane;
-
-  return null;
+  return lane as ChanceLane;
 }
 
 /**

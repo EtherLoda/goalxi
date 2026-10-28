@@ -1237,27 +1237,31 @@ export class SimulationProcessor extends WorkerHost {
       type PerTeamCounters = {
         goals: number;
         misses: number;
-        savesByOpponent: number;
         corners: number;
         yellowCards: number;
         redCards: number;
+        /** Every shot attempt, set pieces and blocked pushes included. */
+        shots: number;
+        shotsOnTarget: number;
       };
       const counters: Record<'home' | 'away', PerTeamCounters> = {
         home: {
           goals: 0,
           misses: 0,
-          savesByOpponent: 0,
           corners: 0,
           yellowCards: 0,
           redCards: 0,
+          shots: 0,
+          shotsOnTarget: 0,
         },
         away: {
           goals: 0,
           misses: 0,
-          savesByOpponent: 0,
           corners: 0,
           yellowCards: 0,
           redCards: 0,
+          shots: 0,
+          shotsOnTarget: 0,
         },
       };
       for (const e of events) {
@@ -1280,11 +1284,7 @@ export class SimulationProcessor extends WorkerHost {
           case 'miss':
             c.misses++;
             break;
-          case 'save':
-            // A save by the defending GK counts as a
-            // `savesByOpponent` for the OTHER team.
-            counters[side === 'home' ? 'away' : 'home'].savesByOpponent++;
-            break;
+
           case 'corner':
             c.corners++;
             break;
@@ -1298,6 +1298,32 @@ export class SimulationProcessor extends WorkerHost {
           // in `foulStats` (the engine's running counter), not
           // in the event stream. See the comment above
           // `foulStats` for the rationale.
+        }
+
+        // Shot attempts are counted from the event itself, using the same
+        // predicate as the FE (web/src/components/match/shot-attempts.ts):
+        // set pieces carry no shot object, open play nests it under
+        // `sequence.shot`, and a blocked push reached the box without one.
+        // The persisted `shots` column then equals the chances card total
+        // for the same match.
+        const data = (e.data ?? {}) as {
+          setPieceType?: string;
+          result?: string;
+          ffinalResult?: string;
+          shot?: { result?: string };
+          sequence?: { shot?: { result?: string } };
+        };
+        const isSetPiece =
+          typeof data.setPieceType === 'string' && data.setPieceType.length > 0;
+        const shotObject = data.shot ?? data.sequence?.shot;
+        const isAttempt =
+          isSetPiece || Boolean(shotObject) || data.ffinalResult === 'blocked';
+        if (isAttempt) {
+          c.shots++;
+          const outcome = isSetPiece
+            ? data.result
+            : (shotObject?.result ?? data.ffinalResult);
+          if (outcome === 'goal' || outcome === 'save') c.shotsOnTarget++;
         }
       }
 
@@ -1321,8 +1347,8 @@ export class SimulationProcessor extends WorkerHost {
           matchId: match.id,
           teamId,
           possessionPercentage: possessionPercent,
-          shots: c.goals + c.misses + c.savesByOpponent,
-          shotsOnTarget: c.goals + c.savesByOpponent,
+          shots: c.shots,
+          shotsOnTarget: c.shotsOnTarget,
           corners: c.corners,
           // Read from the engine's running counter (see comment above
           // `calculateStats`); events no longer carry a `foul` row.
