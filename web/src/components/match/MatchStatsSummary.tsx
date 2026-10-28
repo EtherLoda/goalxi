@@ -8,9 +8,9 @@ import { buildStatRows, type StatRow, type StatRowKey } from './match-stats-rows
 const HOME_COLOR = 'var(--color-primary)';
 const AWAY_COLOR = 'var(--color-secondary)';
 
-/** Same pane recipe as the chances card, so the two cards read as siblings. */
-const HOME_PANE = 'color-mix(in srgb, var(--color-primary) 26%, #0c2418)';
-const AWAY_PANE = 'color-mix(in srgb, var(--color-secondary) 30%, #0c2418)';
+/** Same panes as the chances card, so the two cards read as siblings. */
+const HOME_PANE = 'var(--color-primary)';
+const AWAY_PANE = 'var(--color-secondary)';
 
 /** Bars grow one after another instead of all at once. */
 const ROW_STAGGER_MS = 45;
@@ -38,11 +38,15 @@ function formatValue(row: StatRow, value: number): string {
  * Match stats — the row-for-row comparison (shots, on target, corners,
  * tackles …), in the shape a Premier League match centre uses.
  *
- * Each row is one bar split at the share line, with the label riding in
- * the middle and the two numbers at the ends. One fixed height for every
- * row is the point: the earlier version laid a segmented bar under each
- * row and the semi-transparent away half read half a pixel thinner than
- * the home half.
+ * Each row is one bar split at the share line, with the two numbers
+ * inside its ends and the label above it. The label stays out of the bar
+ * on purpose: at 10px it was unreadable wherever the seam ran through a
+ * word, and keeping the colour to the bar alone gives the card its
+ * rhythm back.
+ *
+ * Every bar is the same height — an earlier version stacked a segmented
+ * bar under each row, and the translucent away half read a hair thinner
+ * than the home half even though both measured 3px.
  *
  * Renders nothing until the `match_team_stats` row exists: that row is
  * written when the match completes, and inventing live numbers from the
@@ -77,7 +81,7 @@ export function MatchStatsSummary({
         </span>
       </div>
 
-      <dl className="flex flex-col gap-1">
+      <dl className="flex flex-col">
         {rows.map((row, index) => {
           const total = row.home + row.away;
           const homeShare = total > 0 ? (row.home / total) * 100 : 50;
@@ -86,11 +90,14 @@ export function MatchStatsSummary({
           return (
             <div
               key={row.key}
+              className="py-[2px]"
               data-testid={`match-stat-${row.key}`}
               style={{ animation: ROW_IN, animationDelay: `${delay}ms` }}
             >
-              <dt className="sr-only">{label}</dt>
-              <div className="relative flex h-4 overflow-hidden rounded-md bg-white/[0.05]">
+              <dt className="mb-0.5 text-center text-kicker tracking-wider text-on-surface-variant/85">
+                {label}
+              </dt>
+              <dd className="relative m-0 flex h-4 overflow-hidden rounded-md bg-white/[0.05]">
                 <span
                   className="h-full origin-left"
                   style={{
@@ -102,7 +109,7 @@ export function MatchStatsSummary({
                   aria-hidden="true"
                 />
                 <span
-                  className="h-full flex-1 origin-right"
+                  className="-ml-px h-full flex-1 origin-right"
                   style={{
                     backgroundColor: AWAY_PANE,
                     animation: BAR_GROW,
@@ -110,19 +117,13 @@ export function MatchStatsSummary({
                   }}
                   aria-hidden="true"
                 />
-                <span className="pointer-events-none absolute inset-y-0 left-2 flex items-center text-label font-semibold tabular-nums text-on-surface [text-shadow:0_1px_2px_rgba(0,0,0,0.45)]">
+                <span className="pointer-events-none absolute inset-y-0 left-1.5 flex items-center text-label font-semibold tabular-nums text-ink-1000">
                   {formatValue(row, row.home)}
                 </span>
-                <span
-                  aria-hidden="true"
-                  className="pointer-events-none absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 px-1.5 text-kicker tracking-wide text-on-surface [text-shadow:0_1px_2px_rgba(0,0,0,0.55)] whitespace-nowrap"
-                >
-                  {label}
-                </span>
-                <span className="pointer-events-none absolute inset-y-0 right-2 flex items-center text-label font-semibold tabular-nums text-on-surface [text-shadow:0_1px_2px_rgba(0,0,0,0.45)]">
+                <span className="pointer-events-none absolute inset-y-0 right-1.5 flex items-center text-label font-semibold tabular-nums text-ink-1000">
                   {formatValue(row, row.away)}
                 </span>
-              </div>
+              </dd>
             </div>
           );
         })}
