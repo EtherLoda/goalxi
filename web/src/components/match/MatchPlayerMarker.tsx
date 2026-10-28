@@ -125,17 +125,18 @@ export function MatchPlayerMarker({
   const power =
     snapshotStarRating !== undefined
       ? Math.max(0, Math.min(20, snapshotStarRating))
-      : Math.max(0, Math.min(20, (overall ?? 10) / 5));
+      : Math.max(0, Math.min(20, (overall ?? 25) / 5));
 
   // Contribution scale (0–40 in practice) is what the rating ladder grades.
-  // Snapshots that predate `pc` still carry `sr` at a fifth of that scale;
-  // with no snapshot at all (pre-match) fall back to the player's overall,
-  // which is a 0–100 score, i.e. roughly twice the contribution scale.
+  // Snapshots that predate `pc` still carry `sr` at a fifth of that scale.
+  // With no snapshot at all (pre-match) fall back to the player's overall,
+  // which already sits on this scale — the median overall in this world is
+  // ~33, matching the median contribution.
   const contribution =
     snapshotContribution ??
     (snapshotStarRating !== undefined
       ? snapshotStarRating * 5
-      : Math.max(0, (overall ?? 50) * 0.5));
+      : Math.max(0, overall ?? 25));
 
   const tone = conditionTone(fitness);
   // 体能 is shown as the share of the tank still in the player, not the

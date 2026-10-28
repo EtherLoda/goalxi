@@ -2,39 +2,40 @@
  * The player rating ladder.
  *
  * What goes in: the engine's contribution score for one player at one
- * snapshot (`pc` in the snapshot payload) — "position-weighted skills ×
- * current condition". Its practical ceiling sits near 40: a sample of 8,630
- * player-snapshots from 43 matches ran 0–40 with a median of 24.8. The ladder
- * is written directly on that scale, so a median starter reads B+/A, a
- * 30-point game reads A+, and 40 is SSS+.
+ * snapshot (`pc` in the snapshot payload) — position-fit strength × current
+ * condition (stamina, form, experience). Its practical range sits near 0–40:
+ * a sample of 8,630 player-snapshots from 43 matches ran p10 20.2 / median
+ * 24.8 / p90 29.8 / p99 34, and the ladder is written on that scale with an
+ * average game anchored at C+ — the middle of the alphabet, not the top.
  *
- * History: the badge used to be handed `sr` (the same contribution divided by
- * five) and then divide it by four again before grading. Two unit conversions
- * stacked on each other pushed every player below the bottom rung, which is
- * why the whole pitch printed "F".
+ * Anchor points: median 24.8 → C+, p90 29.8 → B+, p99 34 → S, 40 → SSS+.
+ * A weak game (20) reads D+, a great one (34+) starts at S. Grades are two
+ * points wide; below 12 is F and 40+ stays SSS+ (the label describes rarity,
+ * not a precise number, so the raw value is never shown to players).
  *
- * Grades are two points wide, with an open bucket at each end: below 8 is F,
- * and 40+ is SSS+. Above 40 it stays SSS+ — the label describes rarity, not a
- * precise number, and the raw value is deliberately not shown to players.
+ * History: the badge used to be handed `sr` (this same value divided by five)
+ * and then divided by four again before grading — two unit conversions
+ * stacked, which is why the whole pitch once printed "F". The first fix then
+ * anchored the median at B+/A, which made an entire bot league read A..SSS.
  */
 const LADDER: readonly { readonly min: number; readonly letter: string }[] = [
   { min: 40, letter: 'SSS+' },
-  { min: 38, letter: 'SSS' },
-  { min: 36, letter: 'SS+' },
-  { min: 34, letter: 'SS' },
-  { min: 32, letter: 'S+' },
-  { min: 30, letter: 'S' },
-  { min: 28, letter: 'A+' },
-  { min: 26, letter: 'A' },
-  { min: 24, letter: 'B+' },
-  { min: 22, letter: 'B' },
-  { min: 20, letter: 'C+' },
-  { min: 18, letter: 'C' },
-  { min: 16, letter: 'D+' },
-  { min: 14, letter: 'D' },
-  { min: 12, letter: 'E+' },
-  { min: 10, letter: 'E' },
-  { min: 8, letter: 'F+' },
+  { min: 39, letter: 'SSS' },
+  { min: 38, letter: 'SS+' },
+  { min: 37, letter: 'SS' },
+  { min: 36, letter: 'S+' },
+  { min: 34, letter: 'S' },
+  { min: 32, letter: 'A+' },
+  { min: 30, letter: 'A' },
+  { min: 28, letter: 'B+' },
+  { min: 26, letter: 'B' },
+  { min: 24, letter: 'C+' },
+  { min: 22, letter: 'C' },
+  { min: 20, letter: 'D+' },
+  { min: 18, letter: 'D' },
+  { min: 16, letter: 'E+' },
+  { min: 14, letter: 'E' },
+  { min: 12, letter: 'F+' },
 ];
 
 /**
