@@ -71,7 +71,8 @@ interface MatchKeyEventsProps {
    * the commentary feed, which highlights (and scrolls to) the sentence for
    * the same moment. Rows without an id stay inert.
    */
-  onSelectEvent?: (eventId: string) => void;
+  /** Fired with the row's minute so the pitch can jump to that moment. */
+  onSelectEvent?: (eventId: string, minute: number) => void;
 }
 
 const HOME_STRIPE = '#00e479';
@@ -192,7 +193,7 @@ export function MatchKeyEvents({
           isSelected={Boolean(entry.eventId) && entry.eventId === selectedEventId}
           onSelect={
             entry.eventId && onSelectEvent
-              ? () => onSelectEvent(entry.eventId as string)
+              ? () => onSelectEvent(entry.eventId as string, entry.minute)
               : undefined
           }
         />

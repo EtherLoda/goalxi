@@ -54,7 +54,7 @@ export interface MatchProgressRailProps {
    * sentence describing that duck — otherwise a 14px glyph jumps the pitch
    * and the reader still has to find the 55th line of the transcript.
    */
-  onSelectEvent?: (eventId: string) => void;
+  onSelectEvent?: (eventId: string, minute: number) => void;
   /** Event picked in the feed or the key-events column, ringed here too. */
   selectedEventId?: string | null;
   className?: string;
@@ -211,7 +211,7 @@ function BucketCell({
   active: boolean;
   selectedEventId: string | null;
   onSelect?: (minute: number) => void;
-  onSelectEvent?: (eventId: string) => void;
+  onSelectEvent?: (eventId: string, minute: number) => void;
   emptyLabel: string;
 }) {
   const multiple = items.length > 1;
@@ -224,7 +224,7 @@ function BucketCell({
         type="button"
         onClick={() => {
           onSelect?.(target);
-          if (single?.eventId) onSelectEvent?.(single.eventId);
+          if (single?.eventId) onSelectEvent?.(single.eventId, single.minute);
         }}
         aria-label={
           items.length === 0
@@ -262,7 +262,7 @@ function BucketCell({
               type="button"
               onClick={() => {
                 onSelect?.(item.minute);
-                if (item.eventId) onSelectEvent?.(item.eventId);
+                if (item.eventId) onSelectEvent?.(item.eventId, item.minute);
               }}
               className={`flex items-center gap-1.5 rounded-sm px-1 py-0.5 text-left text-kicker transition-colors hover:bg-white/[0.06] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-primary ${
                 item.eventId && item.eventId === selectedEventId

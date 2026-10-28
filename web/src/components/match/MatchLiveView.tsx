@@ -16,7 +16,7 @@
 
 import { AppIcon } from "@/components/icons/AppIcon";
 import { GlassPanel } from '@/components/ui/GlassPanel';
-import { useEffect, useMemo, useState, useRef } from 'react';
+import { useCallback, useEffect, useMemo, useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import { type Player, type Tactics, type Match } from '@/lib/api';
@@ -178,6 +178,16 @@ export function MatchLiveView({
     () => Math.max(0, snapshots.length - 1),
   );
 
+  // Selecting a row (strip glyph, highlights column, commentary) moves the
+  // playhead to that moment — same rule as the report page.
+  const selectEvent = useCallback(
+    (eventId: string, minute: number) => {
+      setSelectedEventId(eventId);
+      setActiveSnapshotIndex(closestSnapshotIndex(snapshots, minute));
+    },
+    [snapshots],
+  );
+
   /**
    * The row the feed is typing out, and — while it types — the row whose
    * players the pitch spotlights. One id drives both so the sentence being
@@ -318,7 +328,7 @@ export function MatchLiveView({
                   currentMinute={currentMinute}
                   selectedMinute={snapshots[activeSnapshotIndex]?.minute}
                   selectedEventId={selectedEventId}
-                  onSelectEvent={setSelectedEventId}
+                  onSelectEvent={selectEvent}
                   onSelectMinute={(minute) =>
                     setActiveSnapshotIndex(closestSnapshotIndex(snapshots, minute))
                   }
@@ -356,7 +366,7 @@ export function MatchLiveView({
           homeScore={matchState?.homeScore ?? 0}
           awayScore={matchState?.awayScore ?? 0}
           selectedEventId={selectedEventId}
-          onSelectEvent={setSelectedEventId}
+          onSelectEvent={selectEvent}
         />
       }
       aside={
@@ -398,7 +408,7 @@ export function MatchLiveView({
                 injuryWindows={injuryWindows}
                 detailed={showChances}
                 selectedEventId={selectedEventId}
-                onSelectEvent={setSelectedEventId}
+                onSelectEvent={selectEvent}
               />
             </div>
           </GlassPanel>

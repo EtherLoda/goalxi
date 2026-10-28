@@ -71,7 +71,7 @@ export interface LiveCommentaryProps {
    */
   selectedEventId?: string | null;
   /** Reports a row click back up so the strip and the list can follow. */
-  onSelectEvent?: (eventId: string) => void;
+  onSelectEvent?: (eventId: string, minute: number) => void;
 }
 
 export function LiveCommentary({
@@ -228,7 +228,7 @@ export function LiveCommentary({
                 typed={Boolean(e.id) && e.id === typedEventId}
                 isSelected={Boolean(e.id) && e.id === selectedEventId}
                 onSelect={
-                  e.id && onSelectEvent ? () => onSelectEvent(e.id as string) : undefined
+                  e.id && onSelectEvent ? () => onSelectEvent(e.id as string, e.minute) : undefined
                 }
               />
             ))

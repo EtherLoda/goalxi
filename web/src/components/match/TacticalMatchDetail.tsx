@@ -1,7 +1,7 @@
 'use client';
 
 import { AppIcon, type MaterialIconName } from "@/components/icons/AppIcon";
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslations, useLocale } from 'next-intl';
 import {
   api,
@@ -204,6 +204,18 @@ export function TacticalMatchDetail({
   const clampedSnapshotIndex = Math.min(activeSnapshotIndex, lastSnapshotIndex);
   const activeSnapshot: MatchSnapshot | null =
     allSnapshots[clampedSnapshotIndex] ?? null;
+
+  // Picking a row — in the strip, the highlights column or the commentary —
+  // means "show me that moment", so it moves the playhead as well as the
+  // highlight. Without the jump the pitch stayed on the kickoff snapshot
+  // while the row lit up, which read like a broken click.
+  const selectEvent = useCallback(
+    (eventId: string, minute: number) => {
+      setSelectedEventId(eventId);
+      setActiveSnapshotIndex(closestSnapshotIndex(allSnapshots, minute));
+    },
+    [allSnapshots],
+  );
 
   const [homeTactics, setHomeTactics] = useState<Tactics | null>(null);
   const [awayTactics, setAwayTactics] = useState<Tactics | null>(null);
@@ -528,7 +540,7 @@ export function TacticalMatchDetail({
                   currentMinute={reportCurrentMinute}
                   selectedMinute={allSnapshots[clampedSnapshotIndex]?.minute}
                   selectedEventId={selectedEventId}
-                  onSelectEvent={setSelectedEventId}
+                  onSelectEvent={selectEvent}
                   onSelectMinute={(minute) =>
                     setActiveSnapshotIndex(closestSnapshotIndex(allSnapshots, minute))
                   }
@@ -566,7 +578,7 @@ export function TacticalMatchDetail({
           awayScore={footballScore ? footballScore.away : (match.awayScore ?? 0)}
           mode="replay"
           selectedEventId={selectedEventId}
-          onSelectEvent={setSelectedEventId}
+          onSelectEvent={selectEvent}
         />
       }
       aside={
@@ -613,7 +625,7 @@ export function TacticalMatchDetail({
                 awayTeamId={awayTeamId ?? null}
                 detailed={showChances}
                 selectedEventId={selectedEventId}
-                onSelectEvent={setSelectedEventId}
+                onSelectEvent={selectEvent}
               />
             </div>
           </div>
