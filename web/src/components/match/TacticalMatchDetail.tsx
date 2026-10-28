@@ -155,6 +155,11 @@ export function TacticalMatchDetail({
   const [pitchMode, setPitchMode] = useState<PitchMarkerMode>('lineup');
   // Compact list by default; the toggle reveals the chances that missed.
   const [showChances, setShowChances] = useState(false);
+  // Cross-panel selection: a glyph in the strip or a row in the key-events
+  // column picks one event, and the commentary feed highlights that sentence.
+  // The three panels describe the same fixture, so a click in one should not
+  // leave the reader hunting for the matching line in the other.
+  const [selectedEventId, setSelectedEventId] = useState<string | null>(null);
   const homeTeamId = match.homeTeam?.id;
   const awayTeamId = match.awayTeam?.id;
   const tLiveChrome = useTranslations('matches.live');
@@ -503,6 +508,8 @@ export function TacticalMatchDetail({
                   events={events}
                   currentMinute={reportCurrentMinute}
                   selectedMinute={allSnapshots[clampedSnapshotIndex]?.minute}
+                  selectedEventId={selectedEventId}
+                  onSelectEvent={setSelectedEventId}
                   onSelectMinute={(minute) =>
                     setActiveSnapshotIndex(closestSnapshotIndex(allSnapshots, minute))
                   }
@@ -538,6 +545,8 @@ export function TacticalMatchDetail({
           homeScore={footballScore ? footballScore.home : (match.homeScore ?? 0)}
           awayScore={footballScore ? footballScore.away : (match.awayScore ?? 0)}
           mode="replay"
+          selectedEventId={selectedEventId}
+          onSelectEvent={setSelectedEventId}
         />
       }
       aside={
@@ -583,6 +592,8 @@ export function TacticalMatchDetail({
                 homeTeamId={homeTeamId ?? null}
                 awayTeamId={awayTeamId ?? null}
                 detailed={showChances}
+                selectedEventId={selectedEventId}
+                onSelectEvent={setSelectedEventId}
               />
             </div>
           </div>

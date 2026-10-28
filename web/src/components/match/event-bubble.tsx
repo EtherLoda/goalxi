@@ -25,7 +25,7 @@
  */
 'use client';
 
-import React from 'react';
+import React, { useEffect, useRef } from 'react';
 import { useTranslations } from 'next-intl';
 import type { MatchEvent } from '@/lib/api';
 import { canonicalEventType, formatEventCommentary } from '@/lib/commentary';
@@ -162,6 +162,15 @@ export interface EventBubbleProps {
    * full_time events haven't fired yet).
    */
   injuryWindows?: InjuryWindow[];
+  /**
+   * True when the progress strip or the key-events column has picked this
+   * event. The row gets a wash + ring and scrolls itself into view, because
+   * the feed is a 480px scroll box and the picked event is often off-screen —
+   * highlighting something nobody can see would read as "nothing happened".
+   */
+  isSelected?: boolean;
+  /** Click handler that reports this row as the selected event. */
+  onSelect?: () => void;
 }
 
 export const EventBubble: React.FC<EventBubbleProps> = ({
@@ -174,8 +183,18 @@ export const EventBubble: React.FC<EventBubbleProps> = ({
   homeColor,
   awayColor,
   injuryWindows,
+  isSelected = false,
+  onSelect,
 }) => {
   const t = useTranslations('commentary');
+  const rowRef = useRef<HTMLDivElement | null>(null);
+
+  // Bring the picked row into view. Runs when the selection *becomes* this
+  // row, so re-renders caused by new live events don't yank the feed around.
+  useEffect(() => {
+    if (!isSelected) return;
+    rowRef.current?.scrollIntoView({ block: 'center', behavior: 'smooth' });
+  }, [isSelected]);
   const type = canonicalEventType(event.typeName ?? event.type);
 
   // Note: every non-snapshot event is rendered in the chronological
@@ -244,8 +263,13 @@ export const EventBubble: React.FC<EventBubbleProps> = ({
     event.typeName ?? String(event.type),
   );
   // Goal rows get a faint wash so the eye can find them while scanning;
-  // everything else stays on the panel surface.
+  // everything else stays on the panel surface. A row picked from the
+  // strip or the key-events column overrides the tint with a stronger
+  // primary wash + ring, so "the event you clicked" is unambiguous.
   const rowTint = eventCode.indexOf('.GOAL') >= 0 ? 'bg-primary/[0.06] rounded-md' : '';
+  const rowState = isSelected
+    ? 'bg-primary/10 ring-1 ring-inset ring-primary/40 rounded-md'
+    : rowTint;
   const iconTone = isHome
     ? 'text-primary'
     : isAway
@@ -258,9 +282,19 @@ export const EventBubble: React.FC<EventBubbleProps> = ({
   // alignment, so the feed always reads top-to-bottom in chronological
   // order and every row is left-aligned regardless of which team did
   // the action.
+  // Clicking a row selects it, but the row is deliberately NOT a tab stop:
+  // a 60-event feed would add 60 stops between the strip and the rest of the
+  // page. The strip cells and the key-events rows are the keyboard path into
+  // the same selection state.
   return (
     <div
-      className={`relative grid grid-cols-[44px_1fr] items-start gap-2 py-1.5 ${rowTint}`}
+      ref={rowRef}
+      data-event-id={event.id ?? undefined}
+      data-selected={isSelected ? 'true' : undefined}
+      onClick={onSelect}
+      className={`relative grid grid-cols-[44px_1fr] items-start gap-2 py-1.5 transition-colors ${rowState} ${
+        onSelect ? 'cursor-pointer hover:bg-white/[0.03]' : ''
+      }`}
     >
       {/* 2. Minute — fixed-width column, mono numerals, team colour,
              with a coloured dot before the number so the side reads

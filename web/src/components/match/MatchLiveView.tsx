@@ -116,6 +116,8 @@ export function MatchLiveView({
   const [pitchMode, setPitchMode] = useState<PitchMarkerMode>('lineup');
   // Compact list by default; the toggle reveals the chances that missed.
   const [showChances, setShowChances] = useState(false);
+  // Cross-panel selection (strip glyph / key-events row → feed highlight).
+  const [selectedEventId, setSelectedEventId] = useState<string | null>(null);
 
   // Show "Match ended" overlay + redirect when the match completes.
   // The `autoRedirectOnEnd` flag lets the standalone live page opt in to
@@ -278,6 +280,8 @@ export function MatchLiveView({
                   events={visibleEvents}
                   currentMinute={currentMinute}
                   selectedMinute={snapshots[activeSnapshotIndex]?.minute}
+                  selectedEventId={selectedEventId}
+                  onSelectEvent={setSelectedEventId}
                   onSelectMinute={(minute) =>
                     setActiveSnapshotIndex(closestSnapshotIndex(snapshots, minute))
                   }
@@ -313,6 +317,8 @@ export function MatchLiveView({
           awayTeamId={match?.awayTeam?.id ?? null}
           homeScore={matchState?.homeScore ?? 0}
           awayScore={matchState?.awayScore ?? 0}
+          selectedEventId={selectedEventId}
+          onSelectEvent={setSelectedEventId}
         />
       }
       aside={
@@ -353,6 +359,8 @@ export function MatchLiveView({
                 awayTeamId={match?.awayTeam?.id ?? null}
                 injuryWindows={injuryWindows}
                 detailed={showChances}
+                selectedEventId={selectedEventId}
+                onSelectEvent={setSelectedEventId}
               />
             </div>
           </GlassPanel>

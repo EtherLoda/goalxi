@@ -42,6 +42,15 @@ export interface MatchProgressRailProps {
   onSelectMinute?: (minute: number) => void;
   /** Minute currently on the pitch. Its bucket carries the selected ring. */
   selectedMinute?: number;
+  /**
+   * Reports the event behind a clicked glyph. Selecting a cell already moves
+   * the playhead; this is what lets the commentary feed highlight the exact
+   * sentence describing that duck — otherwise a 14px glyph jumps the pitch
+   * and the reader still has to find the 55th line of the transcript.
+   */
+  onSelectEvent?: (eventId: string) => void;
+  /** Event picked in the feed or the key-events column, ringed here too. */
+  selectedEventId?: string | null;
   className?: string;
 }
 
@@ -121,6 +130,8 @@ export function MatchProgressRail({
   currentMinute,
   onSelectMinute,
   selectedMinute,
+  onSelectEvent,
+  selectedEventId,
   className,
 }: MatchProgressRailProps) {
   const t = useTranslations('matches.spine');
@@ -184,7 +195,12 @@ export function MatchProgressRail({
                 items={items}
                 played={played}
                 active={bucket.key === playheadKey}
+                hasSelected={Boolean(
+                  selectedEventId && items.some((item) => item.eventId === selectedEventId),
+                )}
+                selectedEventId={selectedEventId ?? null}
                 onSelect={onSelectMinute}
+                onSelectEvent={onSelectEvent}
                 emptyLabel={t('empty')}
               />
             </div>
@@ -208,14 +224,20 @@ function BucketCell({
   items,
   played,
   active,
+  hasSelected,
+  selectedEventId,
   onSelect,
+  onSelectEvent,
   emptyLabel,
 }: {
   bucket: Bucket;
   items: TimelineMarker[];
   played: boolean;
   active: boolean;
+  hasSelected: boolean;
+  selectedEventId: string | null;
   onSelect?: (minute: number) => void;
+  onSelectEvent?: (eventId: string) => void;
   emptyLabel: string;
 }) {
   const multiple = items.length > 1;
@@ -226,7 +248,10 @@ function BucketCell({
     <div className="group relative min-w-0 flex-1">
       <button
         type="button"
-        onClick={() => onSelect?.(target)}
+        onClick={() => {
+          onSelect?.(target);
+          if (single?.eventId) onSelectEvent?.(single.eventId);
+        }}
         aria-label={
           items.length === 0
             ? `${bucket.start}-${bucket.end}: ${emptyLabel}`
@@ -237,9 +262,11 @@ function BucketCell({
         className={`flex h-7 w-full items-center justify-center gap-[1px] rounded-sm border transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-primary ${
           active
             ? 'border-primary bg-primary/20 ring-2 ring-primary'
-            : played
-              ? 'border-transparent bg-surface-container-high/70'
-              : 'border-transparent bg-surface-container/40'
+            : hasSelected
+              ? 'border-primary/60 bg-primary/10 ring-1 ring-primary/40'
+              : played
+                ? 'border-transparent bg-surface-container-high/70'
+                : 'border-transparent bg-surface-container/40'
         } cursor-pointer hover:border-primary/40`}
       >
         {single ? <EventGlyph type={single.type} data={single.data} size={14} /> : null}
@@ -255,19 +282,28 @@ function BucketCell({
       {multiple ? (
         <div
           role="tooltip"
-          className="pointer-events-none absolute bottom-full left-1/2 z-20 mb-1 hidden -translate-x-1/2 flex-col gap-1 whitespace-nowrap rounded-md border border-outline-variant/30 bg-surface-container-highest/95 px-2 py-1.5 shadow-lg backdrop-blur-sm group-hover:flex group-focus-within:flex"
+          className="absolute bottom-full left-1/2 z-20 mb-1 hidden -translate-x-1/2 flex-col gap-0.5 whitespace-nowrap rounded-md border border-outline-variant/30 bg-surface-container-highest/95 px-1 py-1 shadow-lg backdrop-blur-sm group-hover:flex group-focus-within:flex"
         >
           {items.map((item) => (
-            <span
+            <button
               key={item.key}
-              className="flex items-center gap-1.5 text-kicker text-on-surface"
+              type="button"
+              onClick={() => {
+                onSelect?.(item.minute);
+                if (item.eventId) onSelectEvent?.(item.eventId);
+              }}
+              className={`flex items-center gap-1.5 rounded-sm px-1 py-0.5 text-left text-kicker transition-colors hover:bg-white/[0.06] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-primary ${
+                item.eventId && item.eventId === selectedEventId
+                  ? 'bg-primary/10 text-primary'
+                  : 'text-on-surface'
+              }`}
             >
               <EventGlyph type={item.type} data={item.data} size={14} />
               <span className="font-mono tabular-nums text-on-surface-variant">
                 {item.minuteLabel}&apos;
               </span>
-              <span className="truncate">{item.playerName ?? ''}</span>
-            </span>
+              <span className="max-w-[140px] truncate">{item.playerName ?? ''}</span>
+            </button>
           ))}
         </div>
       ) : null}

@@ -109,6 +109,13 @@ export interface TimelineMarker {
   /** Stable id for React keys — event id when present, else a hash. */
   key: string;
   /**
+   * The source event's id, when it has one. `key` falls back to a hash for
+   * id-less (synthetic / legacy) markers, so callers that need to point at a
+   * real feed row — the strip's click-to-highlight wiring — read this instead
+   * of guessing from `key`.
+   */
+  eventId?: string;
+  /**
    * Raw event payload. Carried so glyph lookups that depend on the
    * payload (weather announcements pick their icon from `weatherKey`)
    * can resolve the same glyph the commentary feed draws.
@@ -203,6 +210,7 @@ export function extractTimelineMarkers(
       playerName: (e.data as { playerName?: string } | undefined)?.playerName,
       data: e.data ?? null,
       key: e.id ?? dedupeKey,
+      eventId: e.id,
     });
   }
   out.sort((a, b) => a.minute - b.minute);

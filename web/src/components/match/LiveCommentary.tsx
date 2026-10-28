@@ -57,6 +57,15 @@ export interface LiveCommentaryProps {
    *   clear the user is scrubbing history, not watching live action.
    */
   mode?: 'live' | 'replay';
+  /**
+   * Event id picked from the progress strip or the key-events column.
+   * The matching row gets a wash + ring and scrolls itself into view, so
+   * clicking a glyph in the strip lands on the sentence it belongs to
+   * instead of leaving the reader to hunt for it.
+   */
+  selectedEventId?: string | null;
+  /** Reports a row click back up so the strip and the list can follow. */
+  onSelectEvent?: (eventId: string) => void;
 }
 
 export function LiveCommentary({
@@ -72,6 +81,8 @@ export function LiveCommentary({
   homeScore,
   awayScore,
   mode = 'live',
+  selectedEventId,
+  onSelectEvent,
 }: LiveCommentaryProps) {
   const tChrome = useTranslations('matches.live');
 
@@ -208,6 +219,10 @@ export function LiveCommentary({
                 homeColor={homeColor}
                 awayColor={awayColor}
                 injuryWindows={injuryWindows}
+                isSelected={Boolean(e.id) && e.id === selectedEventId}
+                onSelect={
+                  e.id && onSelectEvent ? () => onSelectEvent(e.id as string) : undefined
+                }
               />
             ))
           )}

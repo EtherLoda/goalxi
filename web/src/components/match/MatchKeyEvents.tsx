@@ -61,6 +61,17 @@ interface MatchKeyEventsProps {
    * caller owns this flag because it renders the toggle.
    */
   detailed?: boolean;
+  /**
+   * Event picked from the strip or from this list. Row gets a wash + ring so
+   * the reader can see which moment the commentary feed is pointing at.
+   */
+  selectedEventId?: string | null;
+  /**
+   * Called on row click with the source event id. The parent forwards it to
+   * the commentary feed, which highlights (and scrolls to) the sentence for
+   * the same moment. Rows without an id stay inert.
+   */
+  onSelectEvent?: (eventId: string) => void;
 }
 
 const HOME_STRIPE = '#00e479';
@@ -153,6 +164,8 @@ export function MatchKeyEvents({
   awayTeamId,
   injuryWindows,
   detailed = false,
+  selectedEventId,
+  onSelectEvent,
 }: MatchKeyEventsProps) {
   // Chronological, earliest first — the same order as the commentary feed.
   // The list is intentionally not sliced; the panel scrolls instead.
@@ -176,6 +189,12 @@ export function MatchKeyEvents({
           score={scores[i] ?? null}
           currentMinute={currentMinute}
           injuryWindows={injuryWindows}
+          isSelected={Boolean(entry.eventId) && entry.eventId === selectedEventId}
+          onSelect={
+            entry.eventId && onSelectEvent
+              ? () => onSelectEvent(entry.eventId as string)
+              : undefined
+          }
         />
       ))}
     </ul>
@@ -187,18 +206,35 @@ function KeyEventRow({
   score,
   currentMinute,
   injuryWindows,
+  isSelected = false,
+  onSelect,
 }: {
   entry: EventEntry;
   score: string | null;
   currentMinute?: number;
   injuryWindows?: InjuryWindow[];
+  isSelected?: boolean;
+  onSelect?: () => void;
 }) {
   const minute = formatMatchMinute(entry.minute, injuryWindows ?? []);
   const isCurrent = currentMinute != null && entry.minute === currentMinute;
   const stripe = entry.side === 'home' ? HOME_STRIPE : AWAY_STRIPE;
 
   return (
-    <li className="flex items-center gap-2 py-1">
+    <li>
+      <button
+        type="button"
+        disabled={!onSelect}
+        onClick={onSelect}
+        aria-pressed={isSelected}
+        className={`flex w-full items-center gap-2 rounded-md py-1 pl-1 pr-0.5 text-left transition-colors disabled:cursor-default ${
+          isSelected
+            ? 'bg-primary/10 ring-1 ring-inset ring-primary/40'
+            : onSelect
+              ? 'hover:bg-white/[0.04]'
+              : ''
+        }`}
+      >
       <span
         className={`w-8 shrink-0 text-right font-label text-label tabular-nums ${
           isCurrent ? 'text-primary' : 'text-muted'
@@ -246,6 +282,7 @@ function KeyEventRow({
           {score}
         </span>
       )}
+      </button>
     </li>
   );
 }

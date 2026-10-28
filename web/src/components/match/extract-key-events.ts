@@ -28,6 +28,13 @@ import {
 export type EventEntry = {
   minute: number;
   /**
+   * The source event's id, when it has one. The key-events column reports
+   * this on row click so the commentary feed can highlight the exact
+   * sentence describing the moment — matching rows by (minute, label)
+   * would collide on double bookings and two goals in the same minute.
+   */
+  eventId: string | null;
+  /**
    * D-style SVG icon component. The sidebar renders it with
    * `<entry.icon size={13} />`. One of the goal / shot / card / sub /
    * injury family — the helper never returns a non-key event.
@@ -244,6 +251,7 @@ export function extractKeyEvents(
             : undefined;
       entries.push({
         minute: resolveMarkerMinute(ev),
+        eventId: ev.id ?? null,
         classId: ev.eventClassId,
         outcomeId: ev.outcomeId,
         outcomeCode: ev.outcomeCode,
@@ -288,6 +296,7 @@ export function extractKeyEvents(
             : 'Missed';
       entries.push({
         minute: resolveMarkerMinute(ev),
+        eventId: ev.id ?? null,
         classId: ev.eventClassId,
         outcomeId: ev.outcomeId,
         outcomeCode: ev.outcomeCode,
@@ -307,6 +316,7 @@ export function extractKeyEvents(
             : 'Yellow';
       entries.push({
         minute: resolveMarkerMinute(ev),
+        eventId: ev.id ?? null,
         classId: ev.eventClassId,
         outcomeId: ev.outcomeId,
         outcomeCode: ev.outcomeCode,
@@ -331,6 +341,7 @@ export function extractKeyEvents(
       const playerOut = ev.data?.playerOut ?? '?';
       entries.push({
         minute: resolveMarkerMinute(ev),
+        eventId: ev.id ?? null,
         classId: ev.eventClassId,
         outcomeId: ev.outcomeId,
         outcomeCode: ev.outcomeCode,
@@ -356,6 +367,7 @@ export function extractKeyEvents(
         severity === 'minor' || severity === 'severe' ? severity : undefined;
       entries.push({
         minute: resolveMarkerMinute(ev),
+        eventId: ev.id ?? null,
         classId: ev.eventClassId,
         outcomeId: ev.outcomeId,
         outcomeCode: ev.outcomeCode,
