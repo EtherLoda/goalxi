@@ -23,10 +23,11 @@
  * the column is which third of the pitch the duel happens in, the row is
  * which band, and that is enough. `pitch-duels.ts` owns the mirroring.
  *
- * The zones are flush — hairlines only, no cards — so the pitch markings
- * underneath (halfway line, centre circle, boxes) tie the numbers to the
- * grass instead of leaving nine boxes floating in space. Each zone tints
- * green→cream at the share boundary, so the colour split is the bar.
+ * The share is the headline (it is what "who wins this zone" means), the
+ * raw ratings are the footnote. Zones are flush over the whole surface —
+ * no padding, no cards — so the mown stripes, halfway line, centre circle
+ * and boxes read as one pitch. Each zone tints green→cream at the share
+ * boundary, so the colour split is the bar.
  */
 
 "use client";
@@ -51,9 +52,9 @@ export function PitchStatsOverlay({
   const zones = buildDuels(snapshot);
 
   return (
-    <div className="absolute inset-0 p-2 sm:p-3" data-testid="pitch-stats-grid">
-      <div className="relative h-full w-full overflow-hidden rounded-lg border border-white/10 bg-[#07170f]">
-        <PitchMarkings />
+    <div className="absolute inset-0" data-testid="pitch-stats-grid">
+      <div className="relative h-full w-full overflow-hidden bg-[#0a2016]">
+        <PitchSurface />
         <div className="absolute inset-0 grid grid-cols-3 grid-rows-3">
           {zones.map((zone, index) => (
             <DuelCell
@@ -71,30 +72,30 @@ export function PitchStatsOverlay({
 }
 
 // ============================================================================
-// PitchMarkings — hairline geometry so the grid reads as a pitch, not a table
+// PitchSurface — mown stripes + hairline geometry, so the grid reads as grass
 // ============================================================================
 
-function PitchMarkings() {
+function PitchSurface() {
   return (
-    <div aria-hidden className="absolute inset-0">
+    <div aria-hidden className="pointer-events-none absolute inset-0 z-10">
       {/* Halfway line + centre circle + spot */}
-      <div className="absolute inset-y-0 left-1/2 w-px -translate-x-1/2 bg-white/[0.09]" />
-      <div className="absolute left-1/2 top-1/2 h-[30%] w-[19%] -translate-x-1/2 -translate-y-1/2 rounded-full border border-white/[0.09]" />
-      <div className="absolute left-1/2 top-1/2 h-1.5 w-1.5 -translate-x-1/2 -translate-y-1/2 rounded-full bg-white/20" />
+      <div className="absolute inset-y-0 left-1/2 w-px -translate-x-1/2 bg-white/[0.16]" />
+      <div className="absolute left-1/2 top-1/2 h-[34%] w-[21%] -translate-x-1/2 -translate-y-1/2 rounded-full border border-white/[0.14]" />
+      <div className="absolute left-1/2 top-1/2 h-1.5 w-1.5 -translate-x-1/2 -translate-y-1/2 rounded-full bg-white/30" />
       {/* Penalty and goal areas, one set per end */}
-      <div className="absolute left-0 top-1/2 h-[60%] w-[16%] -translate-y-1/2 border border-l-0 border-white/[0.09]" />
-      <div className="absolute right-0 top-1/2 h-[60%] w-[16%] -translate-y-1/2 border border-r-0 border-white/[0.09]" />
-      <div className="absolute left-0 top-1/2 h-[28%] w-[6%] -translate-y-1/2 border border-l-0 border-white/[0.09]" />
-      <div className="absolute right-0 top-1/2 h-[28%] w-[6%] -translate-y-1/2 border border-r-0 border-white/[0.09]" />
+      <div className="absolute left-0 top-1/2 h-[62%] w-[16%] -translate-y-1/2 border border-l-0 border-white/[0.13]" />
+      <div className="absolute right-0 top-1/2 h-[62%] w-[16%] -translate-y-1/2 border border-r-0 border-white/[0.13]" />
+      <div className="absolute left-0 top-1/2 h-[30%] w-[6%] -translate-y-1/2 border border-l-0 border-white/[0.13]" />
+      <div className="absolute right-0 top-1/2 h-[30%] w-[6%] -translate-y-1/2 border border-r-0 border-white/[0.13]" />
     </div>
   );
 }
 
 // ============================================================================
-// DuelCell — one zone: the two ratings as a single pair, share tint behind
+// DuelCell — one zone: share as the headline, ratings as the footnote
 // ============================================================================
 
-/** Hairlines on the right/bottom edges only, so the map reads as one surface. */
+/** Hairlines between zones, never on the outer edge of the map. */
 const EDGE_CLASS = [
   "border-r border-b",
   "border-r border-b",
@@ -129,43 +130,40 @@ function DuelCell({
 
   return (
     <div
-      className={`relative flex items-center justify-center border-white/[0.07] ${EDGE_CLASS[index]}`}
+      className={`relative flex flex-col items-center justify-center border-white/[0.08] ${EDGE_CLASS[index]}`}
       data-testid={`duel-${zone.column}-${zone.row}`}
       title={`${homeTeamName} ${tZone(phaseLabel[zone.homePhase])} ${zone.home.toFixed(1)} · ${awayTeamName} ${tZone(phaseLabel[zone.awayPhase])} ${zone.away.toFixed(1)}`}
     >
-      {/* The tint boundary is the share. Light enough that the pitch lines
-          stay visible through it — the position on the grass is the point. */}
+      {/* A soft wash toward whoever owns the zone — uniform, not split, so
+          the nine zones don't stack into coloured stripes and the grass and
+          the pitch lines stay readable. */}
       <span
         aria-hidden
         className="absolute inset-0"
         style={{
-          background: `linear-gradient(90deg, color-mix(in srgb, var(--color-primary) 12%, transparent) ${homePct}%, color-mix(in srgb, var(--color-secondary) 9%, transparent) ${homePct}%)`,
+          background: `color-mix(in srgb, ${
+            homePct >= awayPct ? "var(--color-primary)" : "var(--color-secondary)"
+          } 6%, transparent)`,
         }}
       />
-      <span
-        aria-hidden
-        className="absolute inset-y-2 w-px bg-white/[0.14]"
-        style={{ left: `${homePct}%` }}
-      />
-      <span className="relative flex items-center gap-2.5 sm:gap-4">
-        <span className="flex flex-col items-end">
-          <span className="font-headline text-xl leading-none font-black tabular-nums text-primary sm:text-2xl">
-            {zone.home.toFixed(1)}
-          </span>
-          <span className="mt-1 text-kicker leading-none font-medium tabular-nums text-primary/70">
-            {homePct}%
-          </span>
+      <div className="relative z-20 flex h-full w-full flex-col items-center justify-center px-2">
+        <span className="flex items-baseline gap-3 font-headline leading-none font-black tabular-nums sm:gap-4">
+          <span className="text-2xl text-primary sm:text-3xl">{homePct}%</span>
+          <span className="text-2xl text-secondary sm:text-3xl">{awayPct}%</span>
         </span>
-        <span aria-hidden className="h-7 w-px bg-white/15" />
-        <span className="flex flex-col items-start">
-          <span className="font-headline text-xl leading-none font-black tabular-nums text-secondary sm:text-2xl">
-            {zone.away.toFixed(1)}
-          </span>
-          <span className="mt-1 text-kicker leading-none font-medium tabular-nums text-secondary/70">
-            {awayPct}%
-          </span>
+        <span className="mt-1 flex items-baseline gap-3 text-label leading-none font-medium tabular-nums text-on-surface-variant/70 sm:gap-4">
+          <span>{zone.home.toFixed(1)}</span>
+          <span>{zone.away.toFixed(1)}</span>
         </span>
-      </span>
+        {/* The split lives in the bar, not in the cell fill. */}
+        <span
+          aria-hidden
+          className="mt-2 flex h-1 w-[72%] overflow-hidden rounded-full bg-white/10"
+        >
+          <span className="h-full bg-primary/90" style={{ width: `${homePct}%` }} />
+          <span className="h-full bg-secondary/70" style={{ width: `${awayPct}%` }} />
+        </span>
+      </div>
     </div>
   );
 }
