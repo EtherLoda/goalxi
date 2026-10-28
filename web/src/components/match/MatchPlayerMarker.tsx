@@ -14,7 +14,7 @@ import type { PitchSlot } from '../tactics/types';
  *   read: at a glance you see the shape and the names, nothing that needs
  *   interpreting.
  * - `rating` — adds the two numbers that describe how each player is
- *   doing right now: condition (1–5, the circle) and rating (0–5 stars).
+ *   doing right now: condition (1–5, the circle) and rating (a letter grade).
  *
  * The two are modes of ONE pitch rather than two different renders, so the
  * players never move between them — flipping the toggle changes what is
@@ -81,7 +81,7 @@ function RatingBadge({ power }: { power: number }) {
   const { letter, tone } = ratingGrade(power);
   return (
     <span
-      className={`mt-1 inline-flex min-w-[22px] items-center justify-center rounded-[5px] px-1 py-[1px] text-[11px] font-black leading-none tracking-tight ${tone}`}
+      className={`mt-1 inline-flex min-w-[24px] items-center justify-center rounded-[5px] px-1.5 py-[1px] text-[13px] font-black leading-none tracking-tight ${tone}`}
       style={{
         backgroundColor: 'color-mix(in srgb, currentColor 12%, transparent)',
         boxShadow: 'inset 0 0 0 1px color-mix(in srgb, currentColor 22%, transparent)',
@@ -136,9 +136,6 @@ export function MatchPlayerMarker({
   const ringCenter = ringBox / 2;
   const ringRadius = AVATAR_SIZE / 2 + ringPad - 1.5;
   const ringLength = 2 * Math.PI * ringRadius;
-  // Engine power rating is 0–20; the pitch prints it as 0–5 stars.
-  const stars = Math.round((power / 4) * 2) / 2;
-
   return (
     <div
       className={`group relative flex flex-col items-center select-none transition-all duration-base ${
@@ -152,14 +149,10 @@ export function MatchPlayerMarker({
       role="img"
       aria-label={
         mode === 'rating'
-          ? `${player.name} — ${positionShortLabel(slot)} — 体能 ${pct}%, 评分 ${stars}`
+          ? `${player.name} — ${positionShortLabel(slot)} — 体能 ${pct}%`
           : `${player.name} — ${positionShortLabel(slot)}`
       }
-      title={
-        mode === 'rating'
-          ? `${player.name} · 体能剩余 ${pct}% · 评分 ${stars.toFixed(1)}/5`
-          : player.name
-      }
+      title={mode === 'rating' ? `${player.name} · 体能剩余 ${pct}%` : player.name}
     >
       <div className="relative" style={{ width: AVATAR_SIZE, height: AVATAR_SIZE }}>
         {/* Selected-event halo. The reader picked a commentary line and the
@@ -226,7 +219,7 @@ export function MatchPlayerMarker({
 
       <div className="mt-1 flex w-full flex-col items-center leading-none">
         <span
-          className={`max-w-[86px] truncate text-center font-headline text-label font-semibold ${
+          className={`max-w-[94px] truncate text-center font-headline text-[12px] font-semibold ${
             isHighlighted ? 'text-primary' : 'text-on-surface/90'
           }`}
         >

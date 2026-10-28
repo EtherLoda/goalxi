@@ -119,10 +119,9 @@ interface SeatCardProps {
   label: string;
   isGk: boolean;
   player: Player | null;
-  color: string;
 }
 
-function SeatCard({ label, isGk, player, color }: SeatCardProps) {
+function SeatCard({ label, isGk, player }: SeatCardProps) {
   return (
     <div
       className={clsx(
@@ -139,20 +138,12 @@ function SeatCard({ label, isGk, player, color }: SeatCardProps) {
         {label}
       </span>
       {player ? (
-        <>
-          <span
-            className="font-headline font-black text-kicker text-on-surface truncate w-full text-center"
-            title={player.name}
-          >
-            {player.name.split(' ').pop()}
-          </span>
-          <span
-            className="font-mono font-black tabular-nums text-kicker"
-            style={{ color }}
-          >
-            {Math.round(player.overall)}
-          </span>
-        </>
+        <span
+          className="font-headline font-black text-kicker text-on-surface truncate w-full text-center"
+          title={player.name}
+        >
+          {player.name.split(' ').pop()}
+        </span>
       ) : (
         <span className="font-headline text-kicker text-on-surface-variant/30">—</span>
       )}
@@ -196,7 +187,7 @@ function TeamBench({
           const playerId = bench[key];
           const player = playerId != null ? rosterById.get(playerId) ?? null : null;
           return (
-            <SeatCard key={key} label={label} isGk={isGk} player={player} color={color} />
+            <SeatCard key={key} label={label} isGk={isGk} player={player} />
           );
         })}
       </div>
