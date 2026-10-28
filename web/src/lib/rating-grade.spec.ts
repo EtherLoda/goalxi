@@ -1,35 +1,36 @@
 import { ratingGrade } from './rating-grade';
 
 /**
- * The ladder is calibrated against real snapshots (p10 20.2 / median 24.8 /
- * p90 29.8 / p99 34, ceiling ~40) with an average game anchored at C+ — the
- * middle of the alphabet. These cases pin the calibration so a future
- * "let's rescale the stars" refactor cannot quietly shift the whole pitch
- * up into A..SSS (or back down into F).
+ * The ladder is calibrated against the engine's 0–20+ power rating (`sr`),
+ * which is `positionFit × multiplier / 5`, quarter-point stepped. These cases
+ * pin the calibration that came out of the 5,000-player benchmark in
+ * `d886104e`, so a future refactor cannot quietly shift the alphabet again.
  */
 describe('ratingGrade', () => {
-  it('reads an average game as C+, not B+ or A', () => {
-    expect(ratingGrade(24.8).letter).toBe('C+');
-    expect(ratingGrade(24).letter).toBe('C+');
-    expect(ratingGrade(22).letter).toBe('C');
+  it('reads an average starter as the middle of the alphabet', () => {
+    // Bot-league sample: sr p50 5.75, p90 7.25, max 8.75.
+    expect(ratingGrade(5.75).letter).toBe('E');
+    expect(ratingGrade(7.25).letter).toBe('D');
+    expect(ratingGrade(8.75).letter).toBe('D+');
   });
 
-  it('only climbs into the letters at the top of the distribution', () => {
-    expect(ratingGrade(29.8).letter).toBe('B+');
-    expect(ratingGrade(32).letter).toBe('A+');
-    expect(ratingGrade(34).letter).toBe('S');
-    expect(ratingGrade(36).letter).toBe('S+');
-    expect(ratingGrade(38).letter).toBe('SS+');
-    expect(ratingGrade(40).letter).toBe('SSS+');
-    expect(ratingGrade(47).letter).toBe('SSS+');
+  it('walks one letter per rung from F+ upward', () => {
+    expect(ratingGrade(4).letter).toBe('F+');
+    expect(ratingGrade(5).letter).toBe('E');
+    expect(ratingGrade(6).letter).toBe('E+');
+    expect(ratingGrade(9).letter).toBe('C');
+    expect(ratingGrade(13).letter).toBe('A');
+    expect(ratingGrade(15).letter).toBe('S');
+    expect(ratingGrade(17).letter).toBe('SS');
+    expect(ratingGrade(19).letter).toBe('SSS');
+    expect(ratingGrade(20).letter).toBe('SSS+');
   });
 
-  it('keeps a weak game visible instead of collapsing to F', () => {
-    expect(ratingGrade(20).letter).toBe('D+');
-    expect(ratingGrade(16).letter).toBe('E+');
-    expect(ratingGrade(12).letter).toBe('F+');
-    expect(ratingGrade(11).letter).toBe('F');
+  it('keeps everything below 4 at F and above 20 at SSS+', () => {
+    expect(ratingGrade(3.9).letter).toBe('F');
     expect(ratingGrade(0).letter).toBe('F');
+    expect(ratingGrade(21.5).letter).toBe('SSS+');
+    expect(ratingGrade(30).letter).toBe('SSS+');
   });
 
   it('survives junk input', () => {
@@ -38,7 +39,7 @@ describe('ratingGrade', () => {
   });
 
   it('maps every grade to a tone class', () => {
-    for (const points of [12, 14, 16, 18, 20, 22, 24, 26, 28, 30, 32, 34, 36, 37, 38, 39, 40]) {
+    for (const points of [4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20]) {
       expect(ratingGrade(points).tone).toMatch(/^text-/);
     }
   });

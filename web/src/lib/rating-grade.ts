@@ -1,41 +1,34 @@
 /**
  * The player rating ladder.
  *
- * What goes in: the engine's contribution score for one player at one
- * snapshot (`pc` in the snapshot payload) — position-fit strength × current
- * condition (stamina, form, experience). Its practical range sits near 0–40:
- * a sample of 8,630 player-snapshots from 43 matches ran p10 20.2 / median
- * 24.8 / p90 29.8 / p99 34, and the ladder is written on that scale with an
- * average game anchored at C+ — the middle of the alphabet, not the top.
+ * The engine's `power` is a 0–20+ composite of the player's position-weighted
+ * skills, his current condition and his experience — it has NO upper clamp, so
+ * a genuinely exceptional player can sit above 20 (20 is meant to be hard to
+ * reach, not a wall).
  *
- * Anchor points: median 24.8 → C+, p90 29.8 → B+, p99 34 → S, 40 → SSS+.
- * A weak game (20) reads D+, a great one (34+) starts at S. Grades are two
- * points wide; below 12 is F and 40+ stays SSS+ (the label describes rarity,
- * not a precise number, so the raw value is never shown to players).
- *
- * History: the badge used to be handed `sr` (this same value divided by five)
- * and then divided by four again before grading — two unit conversions
- * stacked, which is why the whole pitch once printed "F". The first fix then
- * anchored the median at B+/A, which made an entire bot league read A..SSS.
+ * Grades are one unit wide from 4 upward, with an open bucket at each end:
+ * below 4 everything is F, and 20+ is SSS+. When the engine value exceeds 20
+ * it stays SSS+ — the label describes rarity, not a precise number, and the
+ * raw value is deliberately not shown to players.
  */
 const LADDER: readonly { readonly min: number; readonly letter: string }[] = [
-  { min: 40, letter: 'SSS+' },
-  { min: 39, letter: 'SSS' },
-  { min: 38, letter: 'SS+' },
-  { min: 37, letter: 'SS' },
-  { min: 36, letter: 'S+' },
-  { min: 34, letter: 'S' },
-  { min: 32, letter: 'A+' },
-  { min: 30, letter: 'A' },
-  { min: 28, letter: 'B+' },
-  { min: 26, letter: 'B' },
-  { min: 24, letter: 'C+' },
-  { min: 22, letter: 'C' },
-  { min: 20, letter: 'D+' },
-  { min: 18, letter: 'D' },
-  { min: 16, letter: 'E+' },
-  { min: 14, letter: 'E' },
-  { min: 12, letter: 'F+' },
+  { min: 20, letter: 'SSS+' },
+  { min: 19, letter: 'SSS' },
+  { min: 18, letter: 'SS+' },
+  { min: 17, letter: 'SS' },
+  { min: 16, letter: 'S+' },
+  { min: 15, letter: 'S' },
+  { min: 14, letter: 'A+' },
+  { min: 13, letter: 'A' },
+  { min: 12, letter: 'B+' },
+  { min: 11, letter: 'B' },
+  { min: 10, letter: 'C+' },
+  { min: 9, letter: 'C' },
+  { min: 8, letter: 'D+' },
+  { min: 7, letter: 'D' },
+  { min: 6, letter: 'E+' },
+  { min: 5, letter: 'E' },
+  { min: 4, letter: 'F+' },
 ];
 
 /**
@@ -71,11 +64,9 @@ export interface RatingGrade {
   readonly tone: string;
 }
 
-/**
- * Grade a raw contribution score against the ladder described above.
- */
-export function ratingGrade(contribution: number): RatingGrade {
-  const value = Number.isFinite(contribution) ? contribution : 0;
+/** Grade a 0–20+ player rating. Values above 20 all land on SSS+. */
+export function ratingGrade(power: number): RatingGrade {
+  const value = Number.isFinite(power) ? power : 0;
   for (const rung of LADDER) {
     if (value >= rung.min) return { letter: rung.letter, tone: TONE[rung.letter] };
   }

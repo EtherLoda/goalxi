@@ -45,11 +45,6 @@ interface MatchPlayerMarkerProps {
   snapshotFitness?: number;
   /** Power rating 0–20 from engine (`sr`) */
   snapshotStarRating?: number;
-  /**
-   * Raw contribution score from the snapshot (`pc`, ~0–40). The rating badge
-   * grades this; without it we reconstruct the same scale from `sr` × 5.
-   */
-  snapshotContribution?: number;
 }
 
 const DRAG_MIME = 'application/x-goalxi-player';
@@ -82,8 +77,8 @@ function conditionTone(fitness: number): string {
  * letter ladder keeps the resolution and still sorts at a glance. The number
  * itself is never printed — the grade is the whole message.
  */
-function RatingBadge({ contribution }: { contribution: number }) {
-  const { letter, tone } = ratingGrade(contribution);
+function RatingBadge({ power }: { power: number }) {
+  const { letter, tone } = ratingGrade(power);
   return (
     <span
       className={`mt-1 inline-flex min-w-[22px] items-center justify-center rounded-[5px] px-1 py-[1px] text-[11px] font-black leading-none tracking-tight ${tone}`}
@@ -114,7 +109,6 @@ export function MatchPlayerMarker({
   onDragEnd,
   snapshotFitness,
   snapshotStarRating,
-  snapshotContribution,
 }: MatchPlayerMarkerProps) {
   const fitness =
     snapshotFitness !== undefined
@@ -122,21 +116,15 @@ export function MatchPlayerMarker({
       : Math.max(0, Math.min(1, player.stamina / 5));
 
   const overall = (player as unknown as Record<string, unknown>).overall as number | undefined;
+  // The engine's `sr` is the 0–20+ power rating the letter ladder is written
+  // for; the match engine divides position fit by 5 to reach this scale.
+  // Older cards have no snapshot at all (pre-match), so fall back to overall,
+  // which sits around 20–40 in this world — `overall / 5` lands on the same
+  // scale as `sr`.
   const power =
     snapshotStarRating !== undefined
-      ? Math.max(0, Math.min(20, snapshotStarRating))
-      : Math.max(0, Math.min(20, (overall ?? 25) / 5));
-
-  // Contribution scale (0–40 in practice) is what the rating ladder grades.
-  // Snapshots that predate `pc` still carry `sr` at a fifth of that scale.
-  // With no snapshot at all (pre-match) fall back to the player's overall,
-  // which already sits on this scale — the median overall in this world is
-  // ~33, matching the median contribution.
-  const contribution =
-    snapshotContribution ??
-    (snapshotStarRating !== undefined
-      ? snapshotStarRating * 5
-      : Math.max(0, overall ?? 25));
+      ? Math.max(0, snapshotStarRating)
+      : Math.max(0, (overall ?? 10) / 5);
 
   const tone = conditionTone(fitness);
   // 体能 is shown as the share of the tank still in the player, not the
@@ -244,7 +232,7 @@ export function MatchPlayerMarker({
         >
           {player.name}
         </span>
-        {mode === 'rating' && <RatingBadge contribution={contribution} />}
+        {mode === 'rating' && <RatingBadge power={power} />}
       </div>
     </div>
   );
