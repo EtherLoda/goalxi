@@ -140,13 +140,29 @@ export function MatchPlayerMarker({
     <div
       className={`group relative flex flex-col items-center select-none transition-all duration-base ${
         isDragging ? 'opacity-30 scale-90' : ''
-      } ${isSelected ? 'scale-110' : ''} ${isSubstitute ? 'animate-pulse' : ''}`}
+      } ${isSelected ? 'scale-110' : ''} ${isSubstitute ? 'animate-pulse' : ''} ${
+        // The pitch lays its markers out inside a pointer-events-none layer so
+        // empty grass cannot swallow drags; a marker that does something on
+        // click has to opt back in.
+        onClick ? 'pointer-events-auto cursor-pointer' : ''
+      }`}
       data-highlighted={isHighlighted ? 'true' : undefined}
       draggable={Boolean(onDragStart)}
       onDragStart={onDragStart}
       onDragEnd={onDragEnd}
       onClick={onClick}
-      role="img"
+      onKeyDown={
+        onClick
+          ? (e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                onClick();
+              }
+            }
+          : undefined
+      }
+      role={onClick ? 'button' : 'img'}
+      tabIndex={onClick ? 0 : undefined}
       aria-label={
         mode === 'rating'
           ? `${player.name} — ${positionShortLabel(slot)} — 体能 ${pct}%`
