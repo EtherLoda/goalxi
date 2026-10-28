@@ -452,15 +452,6 @@
         "switchToStats": "Switch to stats view",
         "switchToPlayers": "Switch to players view"
       },
-      "pitchStats": {
-        "possession": "Possession",
-        "pushRate": "Push Rate",
-        "lane": {
-          "left": "Left",
-          "center": "Center",
-          "right": "Right"
-        }
-      },
       "xg": {
         "title": "Expected Goals",
         "goals": "Goals · {goals}",

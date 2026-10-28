@@ -71,12 +71,14 @@ export interface MatchPitchProps {
    */
   activeSnapshot: MatchSnapshot | null;
   /**
-   * When true, the pitch swaps its player markers for a 3×3 zone grid
-   * showing lane strengths (ATK / POSS / DEF per lane). The toggle chip
-   * is rendered in the top-right corner of the pitch — click it to
-   * flip back to the player view. This is purely visual; the data
-   * shown comes from the same `activeSnapshot.h.ls` / `.a.ls` the
-   * player view uses for marker states, so no extra fetch is needed.
+   * When `'grid'`, the pitch swaps its player markers for the duel map
+   * (see `PitchStatsOverlay`): each third of the pitch shows the home
+   * side's rating there against the away side's opposed rating in the
+   * mirrored band. The toggle chip is rendered in the top-right corner of
+   * the pitch — click it to flip back to the player view. This is purely
+   * visual; the data shown comes from the same `activeSnapshot.h.ls` /
+   * `.a.ls` the player view uses for marker states, so no extra fetch is
+   * needed.
    */
   /** Which of the two pitch reads to print. See `PitchMarkerMode`. */
   mode?: PitchMarkerMode;
@@ -264,13 +266,19 @@ export function MatchPitch({
   const homeWidth = homeTactics?.pitchWidth ?? 'balanced';
   const awayWidth = awayTactics?.pitchWidth ?? 'balanced';
 
-  // The grid read replaces the pitch entirely — it is a table of numbers,
-  // not an overlay on players, so showing both at once would invite the
-  // reader to read a row of numbers as a position on the pitch.
+  // The grid read replaces the pitch entirely — it is a map of duels, not
+  // an overlay on players, so showing both at once would invite the reader
+  // to read a number as a position on the pitch.
   if (mode === 'grid') {
     return (
       <div className="relative w-full aspect-video rounded-none overflow-hidden border border-white/5 bg-ink-750">
-        {activeSnapshot ? <PitchStatsOverlay snapshot={activeSnapshot} /> : null}
+        {activeSnapshot ? (
+          <PitchStatsOverlay
+            snapshot={activeSnapshot}
+            homeTeamName={homeTeamName}
+            awayTeamName={awayTeamName}
+          />
+        ) : null}
       </div>
     );
   }

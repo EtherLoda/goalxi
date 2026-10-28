@@ -1,180 +1,171 @@
 /**
- * PitchStatsOverlay.tsx — 3×3 zone grid rendered ON TOP of the
- * MatchPitch surface when the user toggles "Stats" mode.
+ * PitchStatsOverlay.tsx — the "阵容评级" read, drawn where it happens.
  *
- * Layout (when statsMode is on):
+ * Previously this was a 3×3 table (ATK / POS / DEF × LEFT / CENTRE /
+ * RIGHT) that compared each team's *same* phase in the *same* lane, with
+ * row and column captions. Two problems with that: it reads like a
+ * spreadsheet, and the pairs it compares never meet on the grass — the
+ * home left winger is marked by the away *right* back, not the away left
+ * winger.
  *
- *   ┌───────┬─────────┬─────────┬─────────┐
- *   │       │ LEFT    │ CENTER  │ RIGHT   │
- *   ├───────┼─────────┼─────────┼─────────┤
- *   │ ATK   │ H 5.4   │ H 6.2   │ H 9.0   │
- *   │       │ A 6.6   │ A 5.8   │ A 1.0   │
- *   │       │ 60/40   │ 50/50   │ 80/20   │  ← phase-specific ratio
- *   ├───────┼─────────┼─────────┼─────────┤
- *   │ POS   │ H 5.0   │ H 5.5   │ H 6.0   │
- *   │       │ A 5.0   │ A 4.5   │ A 4.0   │
- *   │       │ 50/50   │ 55/45   │ 60/40   │
- *   ├───────┼─────────┼─────────┼─────────┤
- *   │ DEF   │ ...                         │
- *   └───────┴─────────┴─────────┴─────────┘
+ * So the table is gone and the numbers sit on a pitch instead:
  *
- * Three rows (ATK / POS / DEF) × three lanes (L / C / R). Each cell:
- *   - Top line: home value (primary tint, scaled by 100 — 880 reads
- *     as 8.8 so the text fits the cell).
- *   - Bottom line: away value (secondary tint).
- *   - Footer: a phase-specific ratio in the form `home% / away%`.
- *     ATK → home's attack share of the lane (home.atk / total).
- *     POS → possession share (home.pos / total).
- *     DEF → home's defense share (home.def / total).
- *     So the user sees both the magnitude (H/A numbers) AND the split
- *     (% below) for each cell, without leaving the cell.
+ *   ┌──────────────┬──────────────┬──────────────┐
+ *   │  home def    │  home pos    │  home atk    │   ← top band =
+ *   │  vs away atk │  vs away pos │  vs away def │     home's left
+ *   ├──────────────┼──────────────┼──────────────┤
+ *   │            … centre band …                 │
+ *   ├──────────────┼──────────────┼──────────────┤
+ *   │            … bottom band …                 │
+ *   └──────────────┴──────────────┴──────────────┘
  *
- * The split is computed from the same raw engine values used in the
- * numbers — stays in lockstep when the snapshot scrubs.
+ * No "进攻 / 控球 / 防守" row headers and no "左 / 中 / 右" column headers:
+ * the column is which third of the pitch the duel happens in, the row is
+ * which band, and that is enough. `pitch-duels.ts` owns the mirroring.
+ *
+ * The zones are flush — hairlines only, no cards — so the pitch markings
+ * underneath (halfway line, centre circle, boxes) tie the numbers to the
+ * grass instead of leaving nine boxes floating in space. Each zone tints
+ * green→cream at the share boundary, so the colour split is the bar.
  */
 
 "use client";
 
 import { useTranslations } from "next-intl";
-import { LANES, type Lane, type MatchSnapshot } from "./match-pitch-data";
-
-type Phase = "atk" | "pos" | "def";
-const PHASES: Phase[] = ["atk", "pos", "def"];
-
-// Phase row labels. Reuse `matches.zone.{atk,poss,def}` from the
-// existing zone-panel i18n keys — no need to invent duplicates.
-const PHASE_LABEL_KEY: Record<Phase, "atk" | "poss" | "def"> = {
-  atk: "atk",
-  pos: "poss",
-  def: "def",
-};
+import type { MatchSnapshot } from "./match-pitch-data";
+import { buildDuels, type DuelZone } from "./pitch-duels";
 
 interface PitchStatsOverlayProps {
   snapshot: MatchSnapshot;
+  /** Used in the cell tooltips and nothing else — no captions on the map. */
+  homeTeamName?: string;
+  awayTeamName?: string;
 }
 
-export function PitchStatsOverlay({ snapshot }: PitchStatsOverlayProps) {
-  const t = useTranslations("matches.bento.pitchStats");
+export function PitchStatsOverlay({
+  snapshot,
+  homeTeamName,
+  awayTeamName,
+}: PitchStatsOverlayProps) {
+  const t = useTranslations("matches.live");
+  const zones = buildDuels(snapshot);
 
   return (
-    <div
-      className="absolute inset-0 grid grid-rows-[auto_1fr] gap-1 p-3"
-      data-testid="pitch-stats-grid"
-    >
-      {/* Column header row */}
-      <div className="grid grid-cols-[auto_repeat(3,1fr)] gap-1 items-center">
-        <div className="w-14" />
-        {LANES.map((lane) => (
-          <div
-            key={`col-${lane}`}
-            className="text-center text-sm font-bold uppercase tracking-widest text-on-surface-variant font-headline py-1"
-          >
-            {t(`lane.${lane}`)}
-          </div>
-        ))}
-      </div>
-
-      {/* Body rows: ATK / POS / DEF × 3 lanes */}
-      <div className="grid grid-rows-3 grid-cols-[auto_repeat(3,1fr)] gap-2 flex-1">
-        {PHASES.map((phase) => (
-          <PhaseRow key={phase} phase={phase} snapshot={snapshot} />
-        ))}
+    <div className="absolute inset-0 p-2 sm:p-3" data-testid="pitch-stats-grid">
+      <div className="relative h-full w-full overflow-hidden rounded-lg border border-white/10 bg-[#07170f]">
+        <PitchMarkings />
+        <div className="absolute inset-0 grid grid-cols-3 grid-rows-3">
+          {zones.map((zone, index) => (
+            <DuelCell
+              key={`${zone.column}-${zone.row}`}
+              zone={zone}
+              index={index}
+              homeTeamName={homeTeamName ?? t("home")}
+              awayTeamName={awayTeamName ?? t("away")}
+            />
+          ))}
+        </div>
       </div>
     </div>
   );
 }
 
 // ============================================================================
-// PhaseRow — one label cell + three ZoneCells across the lanes
+// PitchMarkings — hairline geometry so the grid reads as a pitch, not a table
 // ============================================================================
 
-function PhaseRow({
-  phase,
-  snapshot,
-}: {
-  phase: Phase;
-  snapshot: MatchSnapshot;
-}) {
-  const tZone = useTranslations("matches.zone");
+function PitchMarkings() {
   return (
-    <>
-      <div
-        className="px-3 py-2 text-base font-bold uppercase tracking-widest text-on-surface font-headline bg-surface-container rounded flex items-center"
-        role="rowheader"
-      >
-        {tZone(PHASE_LABEL_KEY[phase])}
-      </div>
-      {LANES.map((lane) => (
-        <ZoneCell
-          key={`${phase}-${lane}`}
-          phase={phase}
-          lane={lane}
-          snapshot={snapshot}
-        />
-      ))}
-    </>
+    <div aria-hidden className="absolute inset-0">
+      {/* Halfway line + centre circle + spot */}
+      <div className="absolute inset-y-0 left-1/2 w-px -translate-x-1/2 bg-white/[0.09]" />
+      <div className="absolute left-1/2 top-1/2 h-[30%] w-[19%] -translate-x-1/2 -translate-y-1/2 rounded-full border border-white/[0.09]" />
+      <div className="absolute left-1/2 top-1/2 h-1.5 w-1.5 -translate-x-1/2 -translate-y-1/2 rounded-full bg-white/20" />
+      {/* Penalty and goal areas, one set per end */}
+      <div className="absolute left-0 top-1/2 h-[60%] w-[16%] -translate-y-1/2 border border-l-0 border-white/[0.09]" />
+      <div className="absolute right-0 top-1/2 h-[60%] w-[16%] -translate-y-1/2 border border-r-0 border-white/[0.09]" />
+      <div className="absolute left-0 top-1/2 h-[28%] w-[6%] -translate-y-1/2 border border-l-0 border-white/[0.09]" />
+      <div className="absolute right-0 top-1/2 h-[28%] w-[6%] -translate-y-1/2 border border-r-0 border-white/[0.09]" />
+    </div>
   );
 }
 
 // ============================================================================
-// ZoneCell — single cell: H number / A number / ratio footer
+// DuelCell — one zone: the two ratings as a single pair, share tint behind
 // ============================================================================
 
-function ZoneCell({
-  phase,
-  lane,
-  snapshot,
-}: {
-  phase: Phase;
-  lane: Lane;
-  snapshot: MatchSnapshot;
-}) {
-  // Engine emits values already on the 0–10 display magnitude (see
-  // `formatLanes` in `simulator/src/engine/match.engine.ts`); the FE
-  // is a thin renderer and never has to rescale.
-  const home = snapshot.h.ls?.[lane]?.[phase] ?? 0;
-  const away = snapshot.a.ls?.[lane]?.[phase] ?? 0;
-  const total = home + away;
-  const homeDisplay = home.toFixed(1);
-  const awayDisplay = away.toFixed(1);
+/** Hairlines on the right/bottom edges only, so the map reads as one surface. */
+const EDGE_CLASS = [
+  "border-r border-b",
+  "border-r border-b",
+  "border-b",
+  "border-r border-b",
+  "border-r border-b",
+  "border-b",
+  "border-r",
+  "border-r",
+  "",
+];
 
-  // Phase-specific ratio. ATK/POS/DEF all show the same form:
-  // home's share of total. Side whose total is 0 → 50/50 muted
-  // fallback so the bar never appears empty.
-  const homeShare = total === 0 ? 0.5 : home / total;
-  const awayShare = 1 - homeShare;
-  const homePct = Math.round(homeShare * 100);
-  const awayPct = Math.round(awayShare * 100);
+function DuelCell({
+  zone,
+  index,
+  homeTeamName,
+  awayTeamName,
+}: {
+  zone: DuelZone;
+  index: number;
+  homeTeamName: string;
+  awayTeamName: string;
+}) {
+  const tZone = useTranslations("matches.zone");
+  const homePct = Math.round(zone.homeShare * 100);
+  const awayPct = 100 - homePct;
+  const phaseLabel: Record<DuelZone["homePhase"], "atk" | "poss" | "def"> = {
+    atk: "atk",
+    pos: "poss",
+    def: "def",
+  };
 
   return (
     <div
-      className="rounded-lg overflow-hidden border border-outline-variant/40 flex flex-row"
-      data-testid={`overlay-cell-${lane}-${phase}`}
+      className={`relative flex items-center justify-center border-white/[0.07] ${EDGE_CLASS[index]}`}
+      data-testid={`duel-${zone.column}-${zone.row}`}
+      title={`${homeTeamName} ${tZone(phaseLabel[zone.homePhase])} ${zone.home.toFixed(1)} · ${awayTeamName} ${tZone(phaseLabel[zone.awayPhase])} ${zone.away.toFixed(1)}`}
     >
-      {/* Home (left) */}
-      <div
-        className="flex-1 flex flex-col items-center justify-center px-2 py-2 border-r border-surface-container-high bg-primary/20"
-        title={`Home ${phase}: ${home.toFixed(1)}`}
-      >
-        <span className="font-headline font-black text-3xl tabular-nums text-on-surface leading-none">
-          {homeDisplay}
+      {/* The tint boundary is the share. Light enough that the pitch lines
+          stay visible through it — the position on the grass is the point. */}
+      <span
+        aria-hidden
+        className="absolute inset-0"
+        style={{
+          background: `linear-gradient(90deg, color-mix(in srgb, var(--color-primary) 12%, transparent) ${homePct}%, color-mix(in srgb, var(--color-secondary) 9%, transparent) ${homePct}%)`,
+        }}
+      />
+      <span
+        aria-hidden
+        className="absolute inset-y-2 w-px bg-white/[0.14]"
+        style={{ left: `${homePct}%` }}
+      />
+      <span className="relative flex items-center gap-2.5 sm:gap-4">
+        <span className="flex flex-col items-end">
+          <span className="font-headline text-xl leading-none font-black tabular-nums text-primary sm:text-2xl">
+            {zone.home.toFixed(1)}
+          </span>
+          <span className="mt-1 text-kicker leading-none font-medium tabular-nums text-primary/70">
+            {homePct}%
+          </span>
         </span>
-        <span className="text-sm font-bold tabular-nums text-primary font-headline mt-1">
-          {homePct}%
+        <span aria-hidden className="h-7 w-px bg-white/15" />
+        <span className="flex flex-col items-start">
+          <span className="font-headline text-xl leading-none font-black tabular-nums text-secondary sm:text-2xl">
+            {zone.away.toFixed(1)}
+          </span>
+          <span className="mt-1 text-kicker leading-none font-medium tabular-nums text-secondary/70">
+            {awayPct}%
+          </span>
         </span>
-      </div>
-      {/* Away (right) */}
-      <div
-        className="flex-1 flex flex-col items-center justify-center px-2 py-2 bg-secondary/20"
-        title={`Away ${phase}: ${away.toFixed(1)}`}
-      >
-        <span className="font-headline font-black text-3xl tabular-nums text-on-surface leading-none">
-          {awayDisplay}
-        </span>
-        <span className="text-sm font-bold tabular-nums text-secondary font-headline mt-1">
-          {awayPct}%
-        </span>
-      </div>
+      </span>
     </div>
   );
 }

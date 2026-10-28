@@ -452,15 +452,6 @@
         "switchToStats": "切换到数据视图",
         "switchToPlayers": "切换到球员视图"
       },
-      "pitchStats": {
-        "possession": "控球",
-        "pushRate": "推进",
-        "lane": {
-          "left": "左路",
-          "center": "中路",
-          "right": "右路"
-        }
-      },
       "xg": {
         "title": "预期进球",
         "goals": "进球 · {goals}",
