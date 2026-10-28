@@ -112,17 +112,20 @@ function bucketKeyOf(marker: TimelineMarker): string {
 }
 
 /**
- * Which 1-based cell a playhead minute falls in, within its half. Kept
- * separate from `bucketKeyOf` because that one answers "where does an event
- * live" (stoppage has its own bucket) while this answers "where is the
- * cursor" — 0' must land on the first cell, and anything past 90' on the last.
+ * Which 1-based cell a playhead minute falls in, within its half.
+ *
+ * A cell is keyed by the minute it *starts*, so minute 35 belongs to the
+ * 35–40 cell, not the 30–35 one — same rule `bucketKeyOf` uses for events.
+ * `Math.floor(minute / 5) + 1` is that rule; the earlier `Math.ceil` counted
+ * a 35' playhead into the 30–35 cell, so clicking a cell holding a 36' event
+ * lit the cell *before* the one you clicked.
  */
 function bucketIndexAt(minute: number): number {
   if (minute <= 0) return 1;
   if (minute <= 45) {
-    return Math.min(CELLS_PER_HALF, Math.ceil(minute / CELL_MINUTES));
+    return Math.min(CELLS_PER_HALF, Math.floor(minute / CELL_MINUTES) + 1);
   }
-  return Math.min(CELLS_PER_HALF, Math.ceil((minute - 45) / CELL_MINUTES));
+  return Math.min(CELLS_PER_HALF, Math.floor((minute - 45) / CELL_MINUTES) + 1);
 }
 
 export function MatchProgressRail({
@@ -195,9 +198,6 @@ export function MatchProgressRail({
                 items={items}
                 played={played}
                 active={bucket.key === playheadKey}
-                hasSelected={Boolean(
-                  selectedEventId && items.some((item) => item.eventId === selectedEventId),
-                )}
                 selectedEventId={selectedEventId ?? null}
                 onSelect={onSelectMinute}
                 onSelectEvent={onSelectEvent}
@@ -224,7 +224,6 @@ function BucketCell({
   items,
   played,
   active,
-  hasSelected,
   selectedEventId,
   onSelect,
   onSelectEvent,
@@ -234,7 +233,6 @@ function BucketCell({
   items: TimelineMarker[];
   played: boolean;
   active: boolean;
-  hasSelected: boolean;
   selectedEventId: string | null;
   onSelect?: (minute: number) => void;
   onSelectEvent?: (eventId: string) => void;
@@ -262,11 +260,9 @@ function BucketCell({
         className={`flex h-7 w-full items-center justify-center gap-[1px] rounded-sm border transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-primary ${
           active
             ? 'border-primary bg-primary/20 ring-2 ring-primary'
-            : hasSelected
-              ? 'border-primary/60 bg-primary/10 ring-1 ring-primary/40'
-              : played
-                ? 'border-transparent bg-surface-container-high/70'
-                : 'border-transparent bg-surface-container/40'
+            : played
+              ? 'border-transparent bg-surface-container-high/70'
+              : 'border-transparent bg-surface-container/40'
         } cursor-pointer hover:border-primary/40`}
       >
         {single ? <EventGlyph type={single.type} data={single.data} size={14} /> : null}
