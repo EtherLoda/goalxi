@@ -1199,6 +1199,14 @@
         "tpl_1": "Rebound goal! {shooter} stays alert in the box and taps in after the keeper parries!",
         "tpl_2": "The shot is saved, the keeper spills it — {shooter} is there to smash the rebound into the roof of the net!",
         "tpl_3": "Chaos in the box! The initial effort is blocked, the ball loops back to {shooter} who volleys it into the empty net! {tackler} can only watch. Poacher's instinct."
+      },
+      "corner": {
+        "tpl_0": "{player}'s corner swings straight in — the keeper never moved!",
+        "tpl_1": "Straight from the corner flag, {player} finds the net!"
+      },
+      "free_kick": {
+        "tpl_0": "{player} bends the free kick over the wall and into the top corner!",
+        "tpl_1": "{player} whips the free kick around the wall and inside the near post!"
       }
     },
     "shot_on_target": {
@@ -1430,6 +1438,26 @@
       "forfeit": "Forfeit",
       "turnover": "Turnover",
       "snapshot": "Snapshot"
+    },
+    "corner_saved": {
+      "tpl_0": "Corner from {player} — the header is turned away by the keeper.",
+      "tpl_1": "{player} swings it to the far post; the header is pushed wide. Nothing comes of the corner."
+    },
+    "free_kick_direct_saved": {
+      "tpl_0": "{player} goes for goal from the free kick — the keeper gets across to push it away.",
+      "tpl_1": "Direct free kick from {player}, heading for the corner — the keeper tips it over."
+    },
+    "free_kick_indirect_saved": {
+      "tpl_0": "{player} floats the free kick into the box; the header is gathered by the keeper.",
+      "tpl_1": "{player} picks out the far post, but the header is kept out."
+    },
+    "turnover_counter": {
+      "tpl_0": "{tackler} wins it back — {team} break immediately!",
+      "tpl_1": "{tackler} strips the ball in midfield; {team} are straight onto the front foot."
+    },
+    "turnover_stopped": {
+      "tpl_0": "{tackler} stops it — {team} lose the ball and the move dies here.",
+      "tpl_1": "The attack is broken up by {tackler}; {team} have to start again."
     }
   },
   "tactics": {

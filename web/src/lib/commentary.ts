@@ -345,6 +345,17 @@ export function formatGoalCommentary(
   let section = 'goal';
   if (isPenaltyEvent(event)) {
     section = 'goal.penalty';
+  } else if (data?.setPieceType === 'corner') {
+    // A scored corner arrives as `type: 'goal'` carrying the corner payload,
+    // so it never reaches `formatCornerCommentary`. Without this branch it
+    // fell through to `goal.center_no_assist`, which named the corner taker
+    // as the shooter.
+    section = 'goal.corner';
+  } else if (
+    data?.setPieceType === 'direct_free_kick' ||
+    data?.setPieceType === 'indirect_free_kick'
+  ) {
+    section = 'goal.free_kick';
   } else {
     const shotSection = getShotTypeSection(data);
     if (shotSection === 'header' || shotSection === 'one_on_one'
@@ -614,6 +625,25 @@ export function formatTurnoverCommentary(
   // same value.
   const pusher = player;
 
+  // Two very different things wear the `turnover` label:
+  //
+  //   * `via: 'intercept'` — the defence actually won the ball and the same
+  //     moment carries on into a counter-attack shot (the engine flips
+  //     possession and skips the push). "X wins it and they break" is true.
+  //   * `attackPush.success === false` — the attack was simply stopped; the
+  //     possession ends here and no shot follows. Promising a counter here
+  //     is what made the feed read as if every tackle led to a chance.
+  //
+  // Anything else (legacy rows without either marker) keeps the neutral
+  // section.
+  const isIntercept = data?.via === 'intercept' || data?.counterAttacking === true;
+  const pushFailed = data?.sequence?.attackPush?.success === false;
+  const section = isIntercept
+    ? 'commentary.turnover_counter'
+    : pushFailed
+      ? 'commentary.turnover_stopped'
+      : 'commentary.turnover';
+
   // When the tackler is missing (legacy rows) we force the variant that
   // doesn't reference it, so we never leak a literal placeholder:
   //   tpl_0 → {team}
@@ -625,7 +655,7 @@ export function formatTurnoverCommentary(
   const templateIdx = hasTackler ? baseIdx : 0;
 
   return interpolate(
-    getTemplate(t, 'commentary.turnover', templateIdx, {
+    getTemplate(t, section, templateIdx, {
       team: teamName,
       tacklerTeam,
       player: player ?? '',
@@ -662,11 +692,22 @@ export function formatFreeKickCommentary(
   // the box, Y stands over the ball" feel.
   const foulingTeam = isHome ? awayTeamName : homeTeamName;
   const player: string | undefined = data?.playerName ?? data?.kicker;
+  // The kick has already been taken by the time this event lands: the engine
+  // resolves the duel first and stamps `data.result` on the same event. The
+  // old copy only described "X stands over the ball", so the feed never said
+  // whether it was saved. Scored set pieces arrive as `type: 'goal'`, never
+  // here, so `result` is at most `'save'`.
   const setPieceType = data?.setPieceType;
+  const section =
+    setPieceType === 'direct_free_kick'
+      ? 'commentary.free_kick_direct_saved'
+      : setPieceType === 'indirect_free_kick'
+        ? 'commentary.free_kick_indirect_saved'
+        : 'commentary.free_kick';
 
   const templateIdx = templateIndexFor(event) % 4;
   return interpolate(
-    getTemplate(t, 'commentary.free_kick', templateIdx, {
+    getTemplate(t, section, templateIdx, {
       team: teamName,
       foulingTeam,
       player: player ?? '',
@@ -720,20 +761,33 @@ export function formatCornerCommentary(
   awayTeamName: string,
   t: TranslationFunction,
 ): string {
-  const templateIdx = templateIndexFor(event) % 4;
+  const data = event.data as any;
   const isHome = event.isHome ?? true;
   const teamName = isHome ? homeTeamName : awayTeamName;
   const lane = (event.data as any)?.lane as string | undefined;
-  const data = event.data as any;
   const tackler = getTacklerName(data);
 
+  // As with free kicks, the corner has already been taken: `data.result` is
+  // `'save'` for a corner that produced a saved header, and a converted one
+  // arrives as `type: 'goal'`. The old templates asked "will this create
+  // anything?" and left the reader hanging.
+  const player = (data?.playerName as string | undefined) ?? t('fallback.player');
+  const section = 'commentary.corner_saved';
+  const templateIdx = templateIndexFor(event) % 2;
+
   return interpolate(
-    getTemplate(t, 'commentary.corner', templateIdx, {
+    getTemplate(t, section, templateIdx, {
       team: teamName,
+      player,
       lane: getLaneText(t, lane),
       tackler: tackler || t('fallback.defender'),
     }),
-    { team: teamName, lane: getLaneText(t, lane), tackler: tackler || t('fallback.defender') },
+    {
+      team: teamName,
+      player,
+      lane: getLaneText(t, lane),
+      tackler: tackler || t('fallback.defender'),
+    },
   );
 }
 

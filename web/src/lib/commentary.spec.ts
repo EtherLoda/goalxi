@@ -1531,3 +1531,159 @@ describe('commentary specialty tag (RFC 0003)', () => {
     expect(text).not.toContain('扑救专家');
   });
 });
+
+// ============================================================================
+// set-piece / turnover outcome copy
+// ============================================================================
+
+/**
+ * These formatters used to describe only the *set-up* ("X stands over the
+ * ball"), so the feed never said what came of the corner, the free kick or the
+ * tackle. The engine already stamps the outcome on the same event
+ * (`data.result`, `data.setPieceType`, `via: 'intercept'`, `attackPush.success`),
+ * so the copy can now say what happened.
+ */
+describe('set-piece and turnover outcome copy', () => {
+  /** Records every key the formatter asks for and echoes it back. */
+  function keysT() {
+    const seen: string[] = [];
+    const t = ((key: string, params?: Record<string, unknown>) => {
+      seen.push(key);
+      if (!params) return key;
+      return Object.keys(params)
+        .map((name) => `${name}=${String(params[name])}`)
+        .join('|');
+    }) as never;
+    return { t, seen };
+  }
+
+  it('a corner names the taker and says the header was saved', () => {
+    const { t, seen } = keysT();
+    const text = formatEventCommentary(
+      baseEvent({
+        type: 'corner',
+        typeName: 'corner',
+        data: { setPieceType: 'corner', result: 'save', playerName: 'Kun Xu', lane: 'left' },
+      }),
+      'Home',
+      'Away',
+      t,
+    );
+    expect(seen.some((k) => k.startsWith('corner_saved.tpl_'))).toBe(true);
+    expect(seen.some((k) => k.startsWith('corner.tpl_'))).toBe(false);
+    expect(text).toContain('player=Kun Xu');
+  });
+
+  it('a direct free kick saved goes to its own section', () => {
+    const { t, seen } = keysT();
+    formatEventCommentary(
+      baseEvent({
+        type: 'free_kick',
+        typeName: 'free_kick',
+        data: { setPieceType: 'direct_free_kick', result: 'save', playerName: 'Jun Guo' },
+      }),
+      'Home',
+      'Away',
+      t,
+    );
+    expect(seen.some((k) => k.startsWith('free_kick_direct_saved.tpl_'))).toBe(true);
+  });
+
+  it('an indirect free kick saved goes to its own section', () => {
+    const { t, seen } = keysT();
+    formatEventCommentary(
+      baseEvent({
+        type: 'free_kick',
+        typeName: 'free_kick',
+        data: { setPieceType: 'indirect_free_kick', result: 'save', playerName: 'Jun Guo' },
+      }),
+      'Home',
+      'Away',
+      t,
+    );
+    expect(seen.some((k) => k.startsWith('free_kick_indirect_saved.tpl_'))).toBe(true);
+  });
+
+  it('a scored corner is a goal, not a corner', () => {
+    const { t, seen } = keysT();
+    formatEventCommentary(
+      baseEvent({
+        type: 'goal',
+        typeName: 'goal',
+        data: { setPieceType: 'corner', result: 'goal', playerName: 'Kun Xu' },
+      }),
+      'Home',
+      'Away',
+      t,
+    );
+    expect(seen.some((k) => k.startsWith('goal.corner.tpl_'))).toBe(true);
+    expect(seen.some((k) => k.startsWith('goal.center'))).toBe(false);
+  });
+
+  it('a scored free kick goes to goal.free_kick', () => {
+    const { t, seen } = keysT();
+    formatEventCommentary(
+      baseEvent({
+        type: 'goal',
+        typeName: 'goal',
+        data: { setPieceType: 'direct_free_kick', result: 'goal', playerName: 'Kun Xu' },
+      }),
+      'Home',
+      'Away',
+      t,
+    );
+    expect(seen.some((k) => k.startsWith('goal.free_kick.tpl_'))).toBe(true);
+  });
+
+  it('an interception promises the counter-attack it actually triggers', () => {
+    const { t, seen } = keysT();
+    formatEventCommentary(
+      baseEvent({
+        type: 'turnover',
+        typeName: 'turnover',
+        data: {
+          via: 'intercept',
+          counterAttacking: true,
+          tacklerName: 'Bin Zhu',
+          sequence: { attackPush: { success: true, defendingPlayer: 'Bin Zhu' } },
+        },
+      }),
+      'Home',
+      'Away',
+      t,
+    );
+    expect(seen.some((k) => k.startsWith('turnover_counter.tpl_'))).toBe(true);
+    expect(seen.some((k) => k.startsWith('turnover.tpl_'))).toBe(false);
+  });
+
+  it('a broken-down attack says the move ended instead of promising a counter', () => {
+    const { t, seen } = keysT();
+    formatEventCommentary(
+      baseEvent({
+        type: 'turnover',
+        typeName: 'turnover',
+        data: {
+          sequence: {
+            attackPush: { success: false, defendingPlayer: 'Hao Han' },
+          },
+        },
+      }),
+      'Home',
+      'Away',
+      t,
+    );
+    expect(seen.some((k) => k.startsWith('turnover_stopped.tpl_'))).toBe(true);
+    expect(seen.some((k) => k.startsWith('turnover_counter.tpl_'))).toBe(false);
+  });
+
+  it('legacy turnovers with neither marker keep the neutral section', () => {
+    const { t, seen } = keysT();
+    formatEventCommentary(
+      baseEvent({ type: 'turnover', typeName: 'turnover', data: { tacklerName: 'Bin Zhu' } }),
+      'Home',
+      'Away',
+      t,
+    );
+    expect(seen.some((k) => k.startsWith('turnover.tpl_'))).toBe(true);
+  });
+});
