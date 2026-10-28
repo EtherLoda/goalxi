@@ -33,16 +33,18 @@ const LADDER: readonly { readonly min: number; readonly letter: string }[] = [
 
 /**
  * Tailwind classes per grade. Static strings so the JIT can see them; the
- * ramp runs neutral → green → gold so a glance sorts the eleven players
- * without reading a single letter.
+ * ramp runs neutral → green → violet → gold so a glance sorts the eleven
+ * players without reading a single letter. Violet owns the S rungs: it sits
+ * between the green of a good game and the gold of a rare one, which is
+ * exactly where "excellent" belongs.
  */
 const TONE: Readonly<Record<string, string>> = {
   'SSS+': 'text-amber-300',
   SSS: 'text-amber-300',
   'SS+': 'text-amber-200',
   SS: 'text-amber-200',
-  'S+': 'text-primary',
-  S: 'text-primary',
+  'S+': 'text-violet-300',
+  S: 'text-violet-300',
   'A+': 'text-primary/80',
   A: 'text-primary/80',
   'B+': 'text-on-surface/80',

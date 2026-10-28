@@ -219,7 +219,7 @@ export function MatchPlayerMarker({
 
       <div className="mt-1 flex w-full flex-col items-center leading-none">
         <span
-          className={`max-w-[94px] truncate text-center font-headline text-[12px] font-semibold ${
+          className={`max-w-[102px] truncate text-center font-headline text-[13px] font-semibold ${
             isHighlighted ? 'text-primary' : 'text-on-surface/90'
           }`}
         >
