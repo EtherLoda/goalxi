@@ -137,7 +137,7 @@ function getTemplate(
   const stripped = section.startsWith('commentary.')
     ? section.slice('commentary.'.length)
     : section;
-  const key = `${stripped}.tpl_${idx}`;
+  const requested = `${stripped}.tpl_${idx}`;
   // Pass interpolation params to `t()` so next-intl does ICU MessageFormat
   // substitution itself. Without this, next-intl@4 throws FORMATTING_ERROR
   // for templates that declare `{var}` placeholders (e.g. full_time.tpl_0
@@ -145,7 +145,21 @@ function getTemplate(
   // dotted key in the UI because the formatter's try/catch was missing.
   // The post-call `interpolate()` is intentionally kept for the spec's mock
   // `t()` (which ignores params), so test fixtures still see {var} replaced.
-  return params ? t(key, params) : t(key);
+  // Walk down to tpl_0 instead of assuming four variants exist. The copy is
+  // uneven — `shot_off_target.long_shot` ships two variants while the generic
+  // miss section ships three — and next-intl echoes the dotted key back
+  // instead of throwing when a variant is missing, so a fixed `% 4` index
+  // surfaced raw `commentary.shot_off_target.long_shot.tpl_2` in the feed.
+  for (let i = idx; i >= 0; i--) {
+    const key = `${stripped}.tpl_${i}`;
+    const value = params ? t(key, params) : t(key);
+    // Either spelling counts as "missing": the relative key the hook
+    // received, or the namespaced form next-intl hands back.
+    if (value !== key && value !== `commentary.${key}`) return value;
+  }
+  // Nothing in this section at all — hand the key back so callers can retry
+  // a parent section (see formatShotOffTargetCommentary).
+  return requested;
 }
 
 // Reads `goal.quality_*` strings — two of which ({great}, {good}) contain

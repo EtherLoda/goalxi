@@ -37,6 +37,77 @@ function baseEvent(overrides: Partial<MatchEvent> = {}): MatchEvent {
 }
 
 // ============================================================================
+// variant fallback
+// ============================================================================
+
+describe('template variant fallback', () => {
+  /**
+   * Mirrors next-intl's behaviour on a missing key: it does NOT throw, it
+   * echoes the dotted key back. That is what let a raw
+   * `commentary.shot_off_target.long_shot.tpl_2` reach the feed.
+   */
+  function makeLookupT(messages: Record<string, string>) {
+    return ((key: string, params?: Record<string, unknown>) => {
+      const template = messages[key];
+      if (template == null) return `commentary.${key}`;
+      if (!params) return template;
+      return template.replace(/\{(\w+)\}/g, (_m, name: string) =>
+        String(params[name] ?? `{${name}}`),
+      );
+    }) as never;
+  }
+
+  /** The long-shot miss section ships two variants; the generic one ships three. */
+  const messages = {
+    'shot_off_target.long_shot.tpl_0': 'long 0 {shooter}',
+    'shot_off_target.long_shot.tpl_1': 'long 1 {shooter}',
+    'shot_off_target.tpl_0': 'generic 0 {shooter}',
+    'shot_off_target.tpl_1': 'generic 1 {shooter}',
+    'shot_off_target.tpl_2': 'generic 2 {shooter}',
+  };
+
+  function missEvent(id: string): MatchEvent {
+    return baseEvent({
+      id,
+      minute: 18,
+      type: 'miss',
+      typeName: 'miss',
+      data: {
+        lane: 'center',
+        sequence: { shot: { shooter: 'Niu Ma', shotType: 'LONG_SHOT', result: 'miss' } },
+      },
+    } as Partial<MatchEvent>);
+  }
+
+  it('never surfaces a dotted key, whatever variant the hash picks', () => {
+    const t = makeLookupT(messages);
+    for (let i = 0; i < 40; i++) {
+      const text = formatEventCommentary(missEvent(`evt-${i}`), 'A', 'B', t);
+      expect(text).not.toMatch(/commentary\./);
+      expect(text).toMatch(/^(long|generic) \d Niu Ma$/);
+    }
+  });
+
+  it('falls back to the parent section when the sub-section has no variants', () => {
+    const t = makeLookupT(messages);
+    // A headed miss has no copy of its own in this fixture set.
+    const header = baseEvent({
+      id: 'hdr-1',
+      minute: 30,
+      type: 'miss',
+      typeName: 'miss',
+      data: {
+        lane: 'center',
+        sequence: { shot: { shooter: 'Niu Ma', shotType: 'HEADER', result: 'miss' } },
+      },
+    } as Partial<MatchEvent>);
+    const text = formatEventCommentary(header, 'A', 'B', t);
+    expect(text).not.toMatch(/commentary\./);
+    expect(text).toMatch(/^generic \d Niu Ma$/);
+  });
+});
+
+// ============================================================================
 // canonicalEventType
 // ============================================================================
 
