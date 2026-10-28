@@ -49,6 +49,7 @@ import {
 } from './match-pitch-data';
 import { MatchPlayerMarker, type PitchMarkerMode } from './MatchPlayerMarker';
 import { PitchStatsOverlay } from './PitchStatsOverlay';
+import { usePlayerCardOptional } from './player-card-context';
 
 export type { PitchCard, MatchSnapshot, MatchSnapshotSide, MatchSnapshotPlayer } from './match-pitch-data';
 export { buildCards } from './match-pitch-data';
@@ -242,8 +243,15 @@ export function MatchPitch({
   homeTeamName,
   awayTeamName,
   highlightedPlayerIds,
-  onPlayerClick,
+  onPlayerClick: onPlayerClickProp,
 }: MatchPitchProps) {
+  // The rail's player card lives in a provider that `MatchPage` sets up, i.e.
+  // *inside* this tree — the pages that render `MatchPitch` sit above it and
+  // cannot read that context. Resolving it here is what makes the markers
+  // clickable at all; the prop stays as an override for callers that bring
+  // their own handler.
+  const playerCard = usePlayerCardOptional();
+  const onPlayerClick = onPlayerClickProp ?? playerCard?.openPlayer;
   // Combined map for both player lookup (used by HalfPitch render) AND
   // buildCards display-name fallback. Snapshot playerIds may reference
   // either team, and we resolve display names against this single map.

@@ -22,7 +22,6 @@ import { useTranslations } from 'next-intl';
 import { type Player, type Tactics, type Match } from '@/lib/api';
 import { type MatchState, type WsMatchEvent } from '@/hooks/useMatchPage';
 import { LiveCommentary } from './LiveCommentary';
-import { usePlayerCardOptional } from './player-card-context';
 import { MatchPitch } from './MatchPitch';
 import { MatchPitchStage } from './MatchPitchStage';
 import type { PitchMarkerMode } from './MatchPlayerMarker';
@@ -117,7 +116,6 @@ export function MatchLiveView({
 }: MatchLiveViewProps) {
   const router = useRouter();
   const t = useTranslations('matches.live');
-  const playerCard = usePlayerCardOptional();
 
 
   const [matchEnded, setMatchEnded] = useState(false);
@@ -351,7 +349,6 @@ export function MatchLiveView({
                 homeTeamName={homeTeamName}
                 awayTeamName={awayTeamName}
                 highlightedPlayerIds={highlightedPlayerIds}
-                onPlayerClick={playerCard?.openPlayer}
               />
             </MatchPitchStage>
           </div>
