@@ -575,8 +575,6 @@ export function TacticalMatchDetail({
                 currentMinute={reportCurrentMinute}
                 homeTeamId={homeTeamId ?? null}
                 awayTeamId={awayTeamId ?? null}
-                homeTeamName={homeName}
-                awayTeamName={awayName}
               />
             </div>
           </div>

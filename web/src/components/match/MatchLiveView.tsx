@@ -346,8 +346,6 @@ export function MatchLiveView({
                 homeTeamId={match?.homeTeam?.id ?? null}
                 awayTeamId={match?.awayTeam?.id ?? null}
                 injuryWindows={injuryWindows}
-                homeTeamName={match?.homeTeam?.name ?? null}
-                awayTeamName={match?.awayTeam?.name ?? null}
               />
             </div>
           </GlassPanel>

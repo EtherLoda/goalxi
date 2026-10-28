@@ -17,10 +17,7 @@ import { formatSpecialtyBonus } from '@/lib/specialty-bonus';
 import { getSpecialtyLabel } from '@/lib/specialties';
 import { resolveMarkerMinute } from './match-timeline';
 import {
-  GoalCenterIcon,
-  MissCenterIcon,
-  SaveIcon,
-  TurnoverIcon,
+  eventIcon,
   YellowCardIcon,
   RedCardIcon,
   SubstitutionIcon,
@@ -68,20 +65,9 @@ export type EventEntry = {
    */
   kind: 'goal' | 'shot' | 'card' | 'substitution' | 'injury';
   /**
-   * Compact right-edge tag, when the row has no running score to show
-   * there: `YC` / `RC` / `2Y` for bookings, `INJ` for injuries, and the
-   * `OG` / `PEN` qualifier on goals (rendered inline, next to the name,
-   * because a goal's right-edge slot is taken by the score).
-   *
-   * Kept language-neutral on purpose — the panel is read in both zh and
-   * en, and these are the abbreviations football already uses.
-   */
-  tag?: 'YC' | 'RC' | '2Y' | 'INJ' | 'OG' | 'PEN';
-  /**
-   * Secondary line, only when it carries something the name does not:
-   * who came off for a substitution, or who assisted a goal. Rows
-   * without it stay single-line, which is what keeps a 10-event list
-   * readable at 268px.
+   * Secondary line, only for substitutions: who came off. Every other
+   * row stays single-line — a 268px rail has no room for an assist
+   * credit, and the scorer is the part readers scan for.
    */
   note?: string;
   /**
@@ -248,7 +234,6 @@ export function extractKeyEvents(
 
     if (category === 'goal') {
       const scorer = resolveName(ev, 'playerName');
-      const assist = ev.data?.assistName;
       // PENALTY_GOAL gets a "Penalty" sublabel so the row reads
       // as a spot-kick goal (otherwise it's identical to a regular
       // goal in the icon + name). OWN_GOAL keeps the existing "OG"
@@ -262,22 +247,13 @@ export function extractKeyEvents(
         classId: ev.eventClassId,
         outcomeId: ev.outcomeId,
         outcomeCode: ev.outcomeCode,
-        // D-style: buckyball + green ▲. The engine doesn't yet emit a
-        // ball-side / zone hint on goal events, so the centre variant
-        // is the safe default. When/if it does, swap to the L/R
-        // variant from `commentary-icons` (no helper change needed).
-        icon: GoalCenterIcon,
+        // Same glyph the commentary feed draws for a goal: `eventIcon`
+        // resolves through `shotIcon` (ball + green halo + scene marker).
+        // The sidebar used to hard-code `GoalCenterIcon`, the older
+        // ball-with-a-triangle, so a goal looked different depending on
+        // which panel you read it in.
+        icon: eventIcon('GOAL', ev.data),
         label: scorer,
-        // The assist used to ride inline on the name ("李雷 · A: 韩梅梅"),
-        // where it was the first thing the 268px rail truncated away.
-        // On its own line it survives, and the name column stays a name.
-        note: assist ? `A · ${assist}` : undefined,
-        tag:
-          typeName === 'own_goal'
-            ? 'OG'
-            : typeName === 'penalty_goal'
-              ? 'PEN'
-              : undefined,
         kind: 'goal',
         sublabel: goalSublabel,
         specialtyChip,
@@ -299,10 +275,10 @@ export function extractKeyEvents(
       const isTurnover = typeName === 'turnover';
       const isPenaltyMiss = ev.eventClassId === 7;
       const shotIcon = ev.outcomeId === 2
-        ? SaveIcon
+        ? eventIcon('SAVE', ev.data)
         : isTurnover
-          ? TurnoverIcon
-          : MissCenterIcon;
+          ? eventIcon('TURNOVER', ev.data)
+          : eventIcon(isPenaltyMiss ? 'PENALTY_MISS' : 'MISS', ev.data);
       const shotSublabel = ev.outcomeId === 2
         ? 'Saved'
         : isTurnover
@@ -342,11 +318,6 @@ export function extractKeyEvents(
         icon: typeName === 'red_card' || typeName === 'second_yellow' ? RedCardIcon : YellowCardIcon,
         label: player,
         kind: 'card',
-        // The row's right edge prints this instead of the English
-        // sublabel ("Yellow"/"Red"/"2nd Yellow"), which the redesign no
-        // longer shows — the glyph plus `YC`/`RC`/`2Y` says the same
-        // thing without a word of untranslated copy in a zh panel.
-        tag: typeName === 'second_yellow' ? '2Y' : typeName === 'red_card' ? 'RC' : 'YC',
         sublabel: cardType,
         // Cards don't surface specialty chips in v1 (a TACKLER
         // fouling is the most common case but the engine doesn't
@@ -395,7 +366,6 @@ export function extractKeyEvents(
         icon: InjuryIcon,
         label: player,
         kind: 'injury',
-        tag: 'INJ',
         sublabel,
         side,
       });
