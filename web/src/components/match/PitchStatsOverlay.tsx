@@ -56,16 +56,25 @@ export function PitchStatsOverlay({
       <div className="relative h-full w-full overflow-hidden bg-[#0a2016]">
         <PitchSurface />
         <div className="absolute inset-0 grid grid-cols-3 grid-rows-3">
-          {zones.map((zone, index) => (
+          {zones.map((zone) => (
             <DuelCell
               key={`${zone.column}-${zone.row}`}
               zone={zone}
-              index={index}
               homeTeamName={homeTeamName ?? t("home")}
               awayTeamName={awayTeamName ?? t("away")}
             />
           ))}
         </div>
+        {/* Depth: darken the corners so the map sits *in* a stadium rather
+            than floating on a flat fill. Above the zones, below the text. */}
+        <div
+          aria-hidden
+          className="pointer-events-none absolute inset-0 z-[5]"
+          style={{
+            background:
+              "radial-gradient(120% 100% at 50% 50%, transparent 52%, rgba(0,0,0,0.5) 100%)",
+          }}
+        />
       </div>
     </div>
   );
@@ -92,30 +101,15 @@ function PitchSurface() {
 }
 
 // ============================================================================
-// DuelCell — one zone: share as the headline, ratings as the footnote
+// DuelCell — one zone: two panes meeting at the share
 // ============================================================================
-
-/** Hairlines between zones, never on the outer edge of the map. */
-const EDGE_CLASS = [
-  "border-r border-b",
-  "border-r border-b",
-  "border-b",
-  "border-r border-b",
-  "border-r border-b",
-  "border-b",
-  "border-r",
-  "border-r",
-  "",
-];
 
 function DuelCell({
   zone,
-  index,
   homeTeamName,
   awayTeamName,
 }: {
   zone: DuelZone;
-  index: number;
   homeTeamName: string;
   awayTeamName: string;
 }) {
@@ -130,39 +124,55 @@ function DuelCell({
 
   return (
     <div
-      className={`relative flex flex-col items-center justify-center border-white/[0.08] ${EDGE_CLASS[index]}`}
+      className="relative flex"
       data-testid={`duel-${zone.column}-${zone.row}`}
       title={`${homeTeamName} ${tZone(phaseLabel[zone.homePhase])} ${zone.home.toFixed(1)} · ${awayTeamName} ${tZone(phaseLabel[zone.awayPhase])} ${zone.away.toFixed(1)}`}
     >
-      {/* A soft wash toward whoever owns the zone — uniform, not split, so
-          the nine zones don't stack into coloured stripes and the grass and
-          the pitch lines stay readable. */}
+      {/* Two solid panes that meet at the share — borrowed from Hattrick's
+          zone map. No borders, no gaps: the colour edge *is* the boundary,
+          so nine zones read as one painted pitch instead of a table. */}
       <span
         aria-hidden
         className="absolute inset-0"
         style={{
-          background: `color-mix(in srgb, ${
-            homePct >= awayPct ? "var(--color-primary)" : "var(--color-secondary)"
-          } 6%, transparent)`,
+          background: `color-mix(in srgb, var(--color-primary) 36%, #0c2418)`,
+          clipPath: `inset(0 ${awayPct}% 0 0)`,
         }}
       />
-      <div className="relative z-20 flex h-full w-full flex-col items-center justify-center px-2">
-        <span className="flex items-baseline gap-3 font-headline leading-none font-black tabular-nums sm:gap-4">
-          <span className="text-2xl text-primary sm:text-3xl">{homePct}%</span>
-          <span className="text-2xl text-secondary sm:text-3xl">{awayPct}%</span>
-        </span>
-        <span className="mt-1 flex items-baseline gap-3 text-label leading-none font-medium tabular-nums text-on-surface-variant/70 sm:gap-4">
-          <span>{zone.home.toFixed(1)}</span>
-          <span>{zone.away.toFixed(1)}</span>
-        </span>
-        {/* The split lives in the bar, not in the cell fill. */}
-        <span
-          aria-hidden
-          className="mt-2 flex h-1 w-[72%] overflow-hidden rounded-full bg-white/10"
-        >
-          <span className="h-full bg-primary/90" style={{ width: `${homePct}%` }} />
-          <span className="h-full bg-secondary/70" style={{ width: `${awayPct}%` }} />
-        </span>
+      <span
+        aria-hidden
+        className="absolute inset-0"
+        style={{
+          background: `color-mix(in srgb, var(--color-secondary) 46%, #0c2418)`,
+          clipPath: `inset(0 0 0 ${homePct}%)`,
+        }}
+      />
+      <div className="relative z-20 flex w-full">
+        {[
+          { pct: homePct, rating: zone.home },
+          { pct: awayPct, rating: zone.away },
+        ].map((pane, i) => (
+          // A pane narrower than a quarter of the cell can't hold the rating
+          // footnote without clipping, so it drops to the percentage alone.
+          <div
+            key={i}
+            className="flex flex-col items-center justify-center"
+            style={{ width: `${pane.pct}%` }}
+          >
+            <span
+              className={`font-headline leading-none font-black tabular-nums text-on-surface [text-shadow:0_1px_3px_rgba(0,0,0,0.35)] ${
+                pane.pct < 26 ? 'text-base' : 'text-2xl sm:text-3xl'
+              }`}
+            >
+              {pane.pct}%
+            </span>
+            {pane.pct >= 26 && (
+              <span className="mt-1 text-label leading-none font-medium tabular-nums text-on-surface/55">
+                ({pane.rating.toFixed(1)})
+              </span>
+            )}
+          </div>
+        ))}
       </div>
     </div>
   );
