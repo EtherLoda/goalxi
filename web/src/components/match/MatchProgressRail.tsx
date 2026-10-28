@@ -13,9 +13,9 @@
  * page replays it. The strip is a progressbar; clicking a cell looks at that
  * five-minute snapshot and the next event brings the playhead back.
  *
- * Stoppage time gets its own cell at the end of each half rather than being
- * squeezed into 45' or 90' — the engine varies it per match, and a goal in
- * the 90+4 would otherwise have nowhere to sit.
+ * Stoppage-time markers are filed into the last cell of their half (40–45 and
+ * 85–90) instead of being squeezed onto 45' or 90' — the engine varies added
+ * time per match, and a goal in the 90+4 would otherwise have nowhere to sit.
  *
  * Cell glyphs come from `eventIcon`, the same lookup the commentary feed and
  * the ticker use — a yellow card in the strip is the exact card drawn next to
@@ -35,6 +35,12 @@ import {
   type TimelineEventType,
   type TimelineMarker,
 } from './match-timeline';
+import {
+  CELL_MINUTES,
+  CELLS_PER_HALF,
+  cellIndexAt,
+  cellSeekMinute,
+} from './progress-cells';
 
 export interface MatchProgressRailProps {
   events: MatchEvent[];
@@ -54,9 +60,6 @@ export interface MatchProgressRailProps {
   className?: string;
 }
 
-const CELL_MINUTES = 5;
-const CELLS_PER_HALF = 9; // 45 / 5
-
 interface Bucket {
   key: string;
   start: number;
@@ -65,7 +68,6 @@ interface Bucket {
   /** Tick label under the strip, only on the quarter hours. */
   tick?: string;
 }
-
 function buildBuckets(): Bucket[] {
   const buckets: Bucket[] = [];
   for (let i = 1; i <= CELLS_PER_HALF; i += 1) {
@@ -93,24 +95,6 @@ function buildBuckets(): Bucket[] {
   return buckets;
 }
 
-/**
- * Which 1-based cell a minute falls in, within its half.
- *
- * Cells are keyed by the minute they *start*, so 55' belongs to the 55–60
- * cell — not the 50–55 one. `Math.floor(minute / 5) + 1` is that rule, and
- * both placements use it: an event is filed by its own minute, the playhead
- * by its own minute, so a cell's glyph and the ring can never disagree.
- * `Math.ceil` used to count exact multiples of five into the previous cell,
- * which is what put a 55' goal one cell left of the lit cell.
- */
-function cellIndexAt(minute: number): number {
-  if (minute <= 0) return 1;
-  if (minute <= 45) {
-    return Math.min(CELLS_PER_HALF, Math.floor(minute / CELL_MINUTES) + 1);
-  }
-  return Math.min(CELLS_PER_HALF, Math.floor((minute - 45) / CELL_MINUTES) + 1);
-}
-
 /** Which cell a marker belongs to. Stoppage markers key off their label. */
 function bucketKeyOf(marker: TimelineMarker): string {
   if (marker.minuteLabel.includes('+')) {
@@ -119,14 +103,6 @@ function bucketKeyOf(marker: TimelineMarker): string {
   }
   const minute = marker.minute;
   return `${minute > 45 ? 'h2' : 'h1'}-${cellIndexAt(minute)}`;
-}
-
-/**
- * Which cell the playhead sits in. Same helper as the events above — that is
- * the whole point: one minute, one cell.
- */
-function bucketIndexAt(minute: number): number {
-  return cellIndexAt(minute);
 }
 
 export function MatchProgressRail({
@@ -165,7 +141,7 @@ export function MatchProgressRail({
   // A finished match opens on the kickoff snapshot, so the strip starts on
   // the first cell instead of parking on the last one.
   const playhead = Math.max(0, selectedMinute ?? currentMinute);
-  const playheadKey = `${playhead > 45 ? 'h2' : 'h1'}-${bucketIndexAt(playhead)}`;
+  const playheadKey = `${playhead > 45 ? 'h2' : 'h1'}-${cellIndexAt(playhead)}`;
 
   return (
     <GlassPanel className={`p-3 ${className ?? ''}`} data-testid="match-progress-rail">
@@ -241,7 +217,7 @@ function BucketCell({
 }) {
   const multiple = items.length > 1;
   const single = items.length === 1 ? items[0] : null;
-  const target = items.length > 0 ? Math.max(...items.map((item) => item.minute)) : bucket.stoppage ? bucket.start : bucket.end;
+  const target = cellSeekMinute(bucket.start, items);
 
   return (
     <div className="group relative min-w-0 flex-1">
