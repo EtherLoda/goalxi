@@ -93,6 +93,24 @@ function buildBuckets(): Bucket[] {
   return buckets;
 }
 
+/**
+ * Which 1-based cell a minute falls in, within its half.
+ *
+ * Cells are keyed by the minute they *start*, so 55' belongs to the 55–60
+ * cell — not the 50–55 one. `Math.floor(minute / 5) + 1` is that rule, and
+ * both placements use it: an event is filed by its own minute, the playhead
+ * by its own minute, so a cell's glyph and the ring can never disagree.
+ * `Math.ceil` used to count exact multiples of five into the previous cell,
+ * which is what put a 55' goal one cell left of the lit cell.
+ */
+function cellIndexAt(minute: number): number {
+  if (minute <= 0) return 1;
+  if (minute <= 45) {
+    return Math.min(CELLS_PER_HALF, Math.floor(minute / CELL_MINUTES) + 1);
+  }
+  return Math.min(CELLS_PER_HALF, Math.floor((minute - 45) / CELL_MINUTES) + 1);
+}
+
 /** Which cell a marker belongs to. Stoppage markers key off their label. */
 function bucketKeyOf(marker: TimelineMarker): string {
   if (marker.minuteLabel.includes('+')) {
@@ -100,32 +118,15 @@ function bucketKeyOf(marker: TimelineMarker): string {
     return marker.minuteLabel.startsWith('45') ? 'h1-' + CELLS_PER_HALF : 'h2-' + CELLS_PER_HALF;
   }
   const minute = marker.minute;
-  if (minute <= 45) {
-    const index = Math.min(CELLS_PER_HALF, Math.max(1, Math.ceil(minute / CELL_MINUTES)));
-    return `h1-${index}`;
-  }
-  const index = Math.min(
-    CELLS_PER_HALF,
-    Math.max(1, Math.ceil((minute - 45) / CELL_MINUTES)),
-  );
-  return `h2-${index}`;
+  return `${minute > 45 ? 'h2' : 'h1'}-${cellIndexAt(minute)}`;
 }
 
 /**
- * Which 1-based cell a playhead minute falls in, within its half.
- *
- * A cell is keyed by the minute it *starts*, so minute 35 belongs to the
- * 35–40 cell, not the 30–35 one — same rule `bucketKeyOf` uses for events.
- * `Math.floor(minute / 5) + 1` is that rule; the earlier `Math.ceil` counted
- * a 35' playhead into the 30–35 cell, so clicking a cell holding a 36' event
- * lit the cell *before* the one you clicked.
+ * Which cell the playhead sits in. Same helper as the events above — that is
+ * the whole point: one minute, one cell.
  */
 function bucketIndexAt(minute: number): number {
-  if (minute <= 0) return 1;
-  if (minute <= 45) {
-    return Math.min(CELLS_PER_HALF, Math.floor(minute / CELL_MINUTES) + 1);
-  }
-  return Math.min(CELLS_PER_HALF, Math.floor((minute - 45) / CELL_MINUTES) + 1);
+  return cellIndexAt(minute);
 }
 
 export function MatchProgressRail({
