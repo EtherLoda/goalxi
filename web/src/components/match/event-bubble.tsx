@@ -29,6 +29,7 @@ import React, { useEffect, useRef } from 'react';
 import { useTranslations } from 'next-intl';
 import type { MatchEvent } from '@/lib/api';
 import { canonicalEventType, formatEventCommentary } from '@/lib/commentary';
+import { formationOf, lineOf, sortLineup } from './lineup-order';
 import { eventIcon } from './commentary-icons';
 import { Tooltip } from '@/components/ui/Tooltip';
 import { eventCodeFromTypeName } from '@/lib/event-code';
@@ -96,40 +97,56 @@ function PlayerIntroSheets({
   const away = (data?.awayPlayers as IntroPlayer[] | undefined) ?? [];
   if (home.length === 0 && away.length === 0) return null;
 
+  // The engine hands the XI over in slot-code order (CB, CF, CM, GK, …);
+  // a team sheet reads keeper first, then back line → midfield → attack.
   const sheets = [
-    { key: 'home', team: homeTeamName, players: home, color: homeColor },
-    { key: 'away', team: awayTeamName, players: away, color: awayColor },
+    { key: 'home', team: homeTeamName, players: sortLineup(home), color: homeColor },
+    { key: 'away', team: awayTeamName, players: sortLineup(away), color: awayColor },
   ];
 
   return (
     <div className="mt-2 grid grid-cols-1 gap-x-4 gap-y-2 sm:grid-cols-2">
-      {sheets.map(({ key, team, players, color }) =>
-        players.length === 0 ? null : (
+      {sheets.map(({ key, team, players, color }) => {
+        if (players.length === 0) return null;
+        const formation = formationOf(players);
+        return (
           <div key={key} className="min-w-0">
-            <p className="flex items-center gap-1.5 text-kicker uppercase tracking-[0.14em] text-on-surface-variant">
+            <p className="flex items-baseline gap-1.5 text-kicker uppercase tracking-[0.14em] text-on-surface-variant">
               <span
                 aria-hidden
-                className="inline-block size-1.5 shrink-0 rounded-full"
+                className="inline-block size-1.5 shrink-0 translate-y-[-1px] rounded-full"
                 style={color ? { backgroundColor: color } : undefined}
               />
               <span className="truncate">{team}</span>
+              {formation ? (
+                <span className="shrink-0 font-mono text-[10px] tracking-normal text-on-surface-variant/55">
+                  · {formation}
+                </span>
+              ) : null}
             </p>
-            <ul className="mt-1 space-y-0.5">
-              {players.map((p, i) => (
-                <li
-                  key={`${key}-${i}-${p.name ?? ''}`}
-                  className="flex items-baseline gap-1.5 text-label leading-snug"
-                >
-                  <span className="w-8 shrink-0 font-mono text-[10px] uppercase tracking-wide text-on-surface-variant/70">
-                    {p.position ?? ''}
-                  </span>
-                  <span className="truncate text-on-surface">{p.name ?? ''}</span>
-                </li>
-              ))}
+            <ul className="mt-1">
+              {players.map((p, i) => {
+                // A little air when the line changes, so the sheet reads as
+                // keeper / defence / midfield / attack instead of 11 rows.
+                const newLine = i > 0 && lineOf(p.position) !== lineOf(players[i - 1].position);
+                return (
+                  <li
+                    key={`${key}-${i}-${p.name ?? ''}`}
+                    className={`flex items-baseline gap-1.5 text-label leading-snug ${
+                      newLine ? 'mt-1.5' : ''
+                    }`}
+                  >
+                    <span className="w-8 shrink-0 font-mono text-[10px] uppercase tracking-wide text-on-surface-variant/70">
+                      {p.position ?? ''}
+                    </span>
+                    <span className="truncate text-on-surface">{p.name ?? ''}</span>
+                  </li>
+                );
+              })}
             </ul>
           </div>
-        ),
-      )}
+        );
+      })}
     </div>
   );
 }
