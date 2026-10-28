@@ -16,11 +16,14 @@ import { isOnTarget, isShotAttempt } from './shot-attempts';
  *   wrong side, so it disagreed with the chances card on real matches
  *   (3 : 8 vs 7 : 8). Reading the events keeps the two cards in step for
  *   historical matches too — no backfill needed.
- * - **Fouls / offsides / cards / possession** come from
- *   `match_team_stats`: a foul never becomes an event row, so those
- *   counters cannot be recomputed here.
- * - **Goals / assists** come from events as well (`assistName` only
- *   exists there), so the three event-derived rows agree with each other.
+ * - **Fouls / cards / possession** come from `match_team_stats`: a
+ *   foul never becomes an event row, so those counters cannot be
+ *   recomputed here.
+ * - **Goals / assists / tackles** come from events as well. Assists only
+ *   exist there (`assistName`), and a tackle is the `turnover` the
+ *   engine emits when a defender wins the ball — the offside counter is
+ *   gone entirely because the engine never models offsides, so the
+ *   column was always 0.
  *
  * The stats row is written when the match finishes, so this card only
  * renders once there is something to show — the caller passes `null`
@@ -34,8 +37,8 @@ export type StatRowKey =
   | 'goals'
   | 'assists'
   | 'corners'
+  | 'tackles'
   | 'fouls'
-  | 'offsides'
   | 'yellowCards'
   | 'redCards';
 
@@ -72,6 +75,11 @@ function isGoal(event: MatchEvent): boolean {
   return canonicalEventType(event.typeName ?? event.type) === 'GOAL';
 }
 
+/** A tackle is the turnover the engine emits when a defender wins the ball. */
+function isTackle(event: MatchEvent): boolean {
+  return canonicalEventType(event.typeName ?? event.type) === 'TURNOVER';
+}
+
 function hasAssist(event: MatchEvent): boolean {
   const name = event.data?.assistName;
   return typeof name === 'string' && name.trim().length > 0;
@@ -103,6 +111,7 @@ export function buildStatRows(
   );
   const shots = tally(events, homeTeamId, awayTeamId, isShotAttempt);
   const onTarget = tally(events, homeTeamId, awayTeamId, isOnTarget);
+  const tackles = tally(events, homeTeamId, awayTeamId, isTackle);
 
   const possessionHome = toNumber(home.possessionPercentage);
   const possessionAway = toNumber(away.possessionPercentage);
@@ -113,8 +122,8 @@ export function buildStatRows(
     { key: 'goals', home: goals.home, away: goals.away, unit: 'count' },
     { key: 'assists', home: assists.home, away: assists.away, unit: 'count' },
     { key: 'corners', home: home.corners ?? 0, away: away.corners ?? 0, unit: 'count' },
+    { key: 'tackles', home: tackles.home, away: tackles.away, unit: 'count' },
     { key: 'fouls', home: home.fouls ?? 0, away: away.fouls ?? 0, unit: 'count' },
-    { key: 'offsides', home: home.offsides ?? 0, away: away.offsides ?? 0, unit: 'count' },
     {
       key: 'yellowCards',
       home: home.yellowCards ?? 0,

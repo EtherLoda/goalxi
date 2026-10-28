@@ -401,6 +401,32 @@ body {
 }
 
 /* -------------------------------------------------------------------------
+   MATCH STATS CARD
+   The stats card grows each bar outward from its own edge and lifts each
+   row into place, so the card reads as data arriving instead of a static
+   table. `both` holds the from-state until the per-row delay elapses.
+   ------------------------------------------------------------------------- */
+@keyframes stat-row-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes stat-bar-grow {
+  from {
+    transform: scaleX(0);
+  }
+  to {
+    transform: scaleX(1);
+  }
+}
+
+/* -------------------------------------------------------------------------
    REDUCED MOTION
    Collapses every animation/transition for users who ask for it.
    Perpetual loops (animate-pulse live dots, spinners) become static,

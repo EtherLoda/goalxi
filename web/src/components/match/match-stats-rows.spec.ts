@@ -61,12 +61,13 @@ describe('buildStatRows', () => {
       ev({ type: 'miss', teamId: HOME, data: { lane: 'right', sequence: { shot: { result: 'miss' } } } }),
       ev({ type: 'corner', teamId: AWAY, data: { setPieceType: 'corner', result: 'save' } }),
       ev({ type: 'goal', teamId: AWAY, data: { setPieceType: 'penalty', result: 'goal' } }),
+      ev({ type: 'turnover', teamId: AWAY, data: { via: 'intercept' } }),
     ];
 
     const rows = buildStatRows(
       stats({
-        home: { corners: 1, fouls: 9, offsides: 1, yellowCards: 2, redCards: 1 },
-        away: { corners: 2, fouls: 11, offsides: 0, yellowCards: 4, redCards: 0 },
+        home: { corners: 1, fouls: 9, yellowCards: 2, redCards: 1 },
+        away: { corners: 2, fouls: 11, yellowCards: 4, redCards: 0 },
       }),
       events,
       HOME,
@@ -80,8 +81,8 @@ describe('buildStatRows', () => {
       'goals',
       'assists',
       'corners',
+      'tackles',
       'fouls',
-      'offsides',
       'yellowCards',
       'redCards',
     ]);
@@ -91,6 +92,8 @@ describe('buildStatRows', () => {
     expect(row(rows, 'shotsOnTarget')).toMatchObject({ home: 2, away: 2 });
     expect(row(rows, 'goals')).toMatchObject({ home: 1, away: 1 });
     expect(row(rows, 'fouls')).toMatchObject({ home: 9, away: 11 });
+    // Tackles are turnovers: the defender who won the ball owns the event.
+    expect(row(rows, 'tackles')).toMatchObject({ home: 0, away: 1 });
   });
 
   it('ignores the persisted shots column so old rows stay consistent', () => {

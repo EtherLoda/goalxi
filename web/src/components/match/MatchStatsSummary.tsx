@@ -8,6 +8,11 @@ import { buildStatRows, type StatRow, type StatRowKey } from './match-stats-rows
 const HOME_COLOR = 'var(--color-primary)';
 const AWAY_COLOR = 'var(--color-secondary)';
 
+/** Bars grow one after another instead of all at once. */
+const ROW_STAGGER_MS = 45;
+const BAR_GROW = 'stat-bar-grow 650ms cubic-bezier(0.22, 1, 0.36, 1) both';
+const ROW_IN = 'stat-row-in 400ms ease-out both';
+
 interface MatchStatsSummaryProps {
   stats: MatchStatsRes | null;
   events: readonly MatchEvent[];
@@ -27,11 +32,16 @@ function formatValue(row: StatRow, value: number): string {
 
 /**
  * Match stats — the row-for-row comparison (shots, on target, corners,
- * fouls …), in the shape a Premier League match centre uses.
+ * tackles …), in the shape a Premier League match centre uses.
  *
  * Renders nothing until the `match_team_stats` row exists: that row is
  * written when the match completes, and inventing live numbers from the
  * event stream would disagree with the report at full time.
+ *
+ * The bars animate in on mount (see the `stat-*` keyframes in
+ * `globals.css`). Both fills start at `scaleX(0)` and grow outward from
+ * their own edge, meeting at the share line — the global reduced-motion
+ * block collapses the whole thing to a single frame.
  */
 export function MatchStatsSummary({
   stats,
@@ -63,12 +73,18 @@ export function MatchStatsSummary({
       </div>
 
       <dl className="flex flex-col">
-        {rows.map((row) => {
+        {rows.map((row, index) => {
           const total = row.home + row.away;
           const homeShare = total > 0 ? (row.home / total) * 100 : 50;
           const label = t(`rows.${row.key satisfies StatRowKey}`);
+          const delay = index * ROW_STAGGER_MS;
           return (
-            <div key={row.key} className="py-[3px]" data-testid={`match-stat-${row.key}`}>
+            <div
+              key={row.key}
+              className="py-[2px]"
+              data-testid={`match-stat-${row.key}`}
+              style={{ animation: ROW_IN, animationDelay: `${delay}ms` }}
+            >
               <div className="flex items-baseline justify-between gap-2">
                 <span className="w-10 shrink-0 text-left text-label font-semibold tabular-nums text-primary">
                   {formatValue(row, row.home)}
@@ -81,20 +97,24 @@ export function MatchStatsSummary({
                 </span>
               </div>
               <div
-                className="mt-0.5 flex h-[3px] overflow-hidden rounded-full bg-white/[0.06]"
+                className="mt-1 flex h-1.5 overflow-hidden rounded-full bg-white/[0.07]"
                 aria-hidden="true"
               >
                 <span
+                  className="h-full origin-left rounded-full"
                   style={{
                     width: `${homeShare}%`,
-                    backgroundColor: 'color-mix(in srgb, var(--color-primary) 55%, transparent)',
+                    backgroundColor: 'color-mix(in srgb, var(--color-primary) 60%, transparent)',
+                    animation: BAR_GROW,
+                    animationDelay: `${delay}ms`,
                   }}
-                  className="h-full"
                 />
                 <span
-                  className="h-full flex-1"
+                  className="h-full flex-1 origin-right rounded-full"
                   style={{
-                    backgroundColor: 'color-mix(in srgb, var(--color-secondary) 40%, transparent)',
+                    backgroundColor: 'color-mix(in srgb, var(--color-secondary) 42%, transparent)',
+                    animation: BAR_GROW,
+                    animationDelay: `${delay}ms`,
                   }}
                 />
               </div>
