@@ -29,6 +29,7 @@ import React, { useEffect, useRef } from 'react';
 import { useTranslations } from 'next-intl';
 import type { MatchEvent } from '@/lib/api';
 import { canonicalEventType, formatEventCommentary } from '@/lib/commentary';
+import { LinkedPlayerText } from './linked-player-text';
 import { formationOf, lineOf, sortLineup } from './lineup-order';
 import { eventIcon } from './commentary-icons';
 import { Tooltip } from '@/components/ui/Tooltip';
@@ -360,7 +361,9 @@ export const EventBubble: React.FC<EventBubbleProps> = ({
                   </Tooltip>
           </span>
           <div className="flex-1 min-w-0">
-            <p className="text-body leading-snug text-on-surface">{typed ? <TypedText text={text} /> : text}</p>
+            <p className="text-body leading-snug text-on-surface">
+            {typed ? <TypedText text={text} /> : <LinkedPlayerText text={text} event={event} />}
+          </p>
             {type === 'PLAYER_INTRODUCTION' ? (
               <PlayerIntroSheets
                 data={event.data}

@@ -35,6 +35,12 @@ export type EventEntry = {
    */
   eventId: string | null;
   /**
+   * The player the row is about — scorer, booked player, the man coming on,
+   * the injured player. Drives the rail's player card on click; null when
+   * the event carries no player (e.g. a team-level stoppage).
+   */
+  playerId: number | null;
+  /**
    * D-style SVG icon component. The sidebar renders it with
    * `<entry.icon size={13} />`. One of the goal / shot / card / sub /
    * injury family — the helper never returns a non-key event.
@@ -252,6 +258,7 @@ export function extractKeyEvents(
       entries.push({
         minute: resolveMarkerMinute(ev),
         eventId: ev.id ?? null,
+        playerId: ev.playerId ?? null,
         classId: ev.eventClassId,
         outcomeId: ev.outcomeId,
         outcomeCode: ev.outcomeCode,
@@ -297,6 +304,7 @@ export function extractKeyEvents(
       entries.push({
         minute: resolveMarkerMinute(ev),
         eventId: ev.id ?? null,
+        playerId: ev.playerId ?? null,
         classId: ev.eventClassId,
         outcomeId: ev.outcomeId,
         outcomeCode: ev.outcomeCode,
@@ -317,6 +325,7 @@ export function extractKeyEvents(
       entries.push({
         minute: resolveMarkerMinute(ev),
         eventId: ev.id ?? null,
+        playerId: ev.playerId ?? null,
         classId: ev.eventClassId,
         outcomeId: ev.outcomeId,
         outcomeCode: ev.outcomeCode,
@@ -342,6 +351,7 @@ export function extractKeyEvents(
       entries.push({
         minute: resolveMarkerMinute(ev),
         eventId: ev.id ?? null,
+        playerId: ev.playerId ?? null,
         classId: ev.eventClassId,
         outcomeId: ev.outcomeId,
         outcomeCode: ev.outcomeCode,
@@ -368,6 +378,7 @@ export function extractKeyEvents(
       entries.push({
         minute: resolveMarkerMinute(ev),
         eventId: ev.id ?? null,
+        playerId: ev.playerId ?? null,
         classId: ev.eventClassId,
         outcomeId: ev.outcomeId,
         outcomeCode: ev.outcomeCode,

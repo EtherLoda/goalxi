@@ -104,6 +104,8 @@ export interface MatchPitchProps {
    * up once they've been replaced.
    */
   highlightedPlayerIds?: ReadonlySet<number>;
+  /** Opens the rail's player card on click; absent on the tactics screens. */
+  onPlayerClick?: (playerId: number) => void;
 }
 
 // ============================================================================
@@ -123,6 +125,8 @@ interface HalfPitchProps {
   mode: PitchMarkerMode;
   pitchWidth: 'narrow' | 'balanced' | 'wide';
   highlightedPlayerIds?: ReadonlySet<number>;
+  /** Opens the rail's player card; absent on the tactics screens. */
+  onPlayerClick?: (playerId: number) => void;
 }
 
 /**
@@ -150,6 +154,7 @@ function HalfPitch({
   mode,
   pitchWidth,
   highlightedPlayerIds,
+  onPlayerClick,
 }: HalfPitchProps) {
   const offsets = computeMatchDimensionOffsets(defensiveLine, pitchWidth, side);
   const counterScaleY = 1 / offsets.scaleY;
@@ -208,6 +213,9 @@ function HalfPitch({
                   isHighlighted={highlightedPlayerIds?.has(card.playerId) ?? false}
                   snapshotFitness={card.fitnessFactor}
                   snapshotStarRating={card.starRating}
+                  onClick={
+                    onPlayerClick ? () => onPlayerClick(card.playerId) : undefined
+                  }
                 />
               </div>
             </div>
@@ -234,6 +242,7 @@ export function MatchPitch({
   homeTeamName,
   awayTeamName,
   highlightedPlayerIds,
+  onPlayerClick,
 }: MatchPitchProps) {
   // Combined map for both player lookup (used by HalfPitch render) AND
   // buildCards display-name fallback. Snapshot playerIds may reference
@@ -359,6 +368,7 @@ export function MatchPitch({
             defensiveLine={homeLine}
             pitchWidth={homeWidth}
             highlightedPlayerIds={highlightedPlayerIds}
+            onPlayerClick={onPlayerClick}
           />
 
           {/* Away half — RIGHT, defends right goal */}
@@ -370,6 +380,7 @@ export function MatchPitch({
             defensiveLine={awayLine}
             pitchWidth={awayWidth}
             highlightedPlayerIds={highlightedPlayerIds}
+            onPlayerClick={onPlayerClick}
           />
 
           {/* Forfeit chip — sits at the top of the pitch as a banner,

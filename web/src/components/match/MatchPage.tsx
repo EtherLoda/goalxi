@@ -1,4 +1,6 @@
 import React from 'react';
+import { MatchRailDeck } from './MatchRailDeck';
+import { PlayerCardProvider } from './player-card-context';
 
 /**
  * MatchPage — the one shell both match modes render into.
@@ -53,41 +55,45 @@ export function MatchPage({
   asideScroll = false,
 }: MatchPageProps) {
   return (
-    <article
-      className="max-w-[1120px] mx-auto w-full space-y-4"
-      data-match-page-mode={mode}
-    >
-      {banner}
+    <PlayerCardProvider>
+      <article
+        className="max-w-[1120px] mx-auto w-full space-y-4"
+        data-match-page-mode={mode}
+      >
+        {banner}
 
-      {hero}
+        {hero}
 
-      {verdict}
+        {verdict}
 
-      <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_300px] gap-4 items-start">
-        <div className="space-y-3">
-          {main}
-          {/* Text blocks never span the full column: a 980px line of prose is
-              unreadable, and the pitch would render at the same width. */}
-          {timeline && (
-            <div className="w-full">{timeline}</div>
-          )}
-          {commentary && (
-            <div className="w-full">{commentary}</div>
-          )}
+        <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_300px] gap-4 items-start">
+          <div className="space-y-3">
+            {main}
+            {/* Text blocks never span the full column: a 980px line of prose is
+                unreadable, and the pitch would render at the same width. */}
+            {timeline && (
+              <div className="w-full">{timeline}</div>
+            )}
+            {commentary && (
+              <div className="w-full">{commentary}</div>
+            )}
+          </div>
+
+          <aside
+            className={
+              asideScroll
+                ? 'flex flex-col gap-3 lg:max-h-[calc(100vh-220px)] lg:overflow-y-auto'
+                : 'flex flex-col gap-3'
+            }
+          >
+            {/* The rail is a deck: match panels, or the player card that
+                slides in over them. See MatchRailDeck. */}
+            <MatchRailDeck>{aside}</MatchRailDeck>
+          </aside>
         </div>
 
-        <aside
-          className={
-            asideScroll
-              ? 'flex flex-col gap-3 lg:max-h-[calc(100vh-220px)] lg:overflow-y-auto'
-              : 'flex flex-col gap-3'
-          }
-        >
-          {aside}
-        </aside>
-      </div>
-
-      {footer}
-    </article>
+        {footer}
+      </article>
+    </PlayerCardProvider>
   );
 }

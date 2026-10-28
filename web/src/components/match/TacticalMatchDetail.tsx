@@ -15,6 +15,7 @@ import {
   type WeatherForecastRes,
   type WeatherType,
 } from '@/lib/api';
+import { usePlayerCardOptional } from './player-card-context';
 import { MatchPitch, type MatchSnapshot } from './MatchPitch';
 import { MatchPitchStage } from './MatchPitchStage';
 import type { PitchMarkerMode } from './MatchPlayerMarker';
@@ -216,6 +217,8 @@ export function TacticalMatchDetail({
     },
     [allSnapshots],
   );
+  const playerCard = usePlayerCardOptional();
+
 
   const [homeTactics, setHomeTactics] = useState<Tactics | null>(null);
   const [awayTactics, setAwayTactics] = useState<Tactics | null>(null);
@@ -560,6 +563,7 @@ export function TacticalMatchDetail({
                 homeTeamName={homeName}
                 awayTeamName={awayName}
                 highlightedPlayerIds={highlightedPlayerIds}
+                onPlayerClick={playerCard?.openPlayer}
               />
             </MatchPitchStage>
           </div>

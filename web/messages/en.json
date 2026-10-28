@@ -2147,5 +2147,18 @@
     "weatherFoggy": "Foggy",
     "weatherSnowy": "Snowy",
     "weatherStormy": "Stormy"
+  },
+  "matchPlayerCard": {
+    "title": "Player",
+    "close": "Close",
+    "club": "Club",
+    "age": "Age",
+    "ageValue": "{y}y {d}d",
+    "wage": "Wage",
+    "wageValue": "£{amount}/wk",
+    "potential": "Potential",
+    "specialty": "Specialty",
+    "missing": "Player not found",
+    "viewProfile": "Full profile"
   }
 }

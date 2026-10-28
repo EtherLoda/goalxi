@@ -2147,5 +2147,18 @@
     "weatherFoggy": "雾",
     "weatherSnowy": "雪",
     "weatherStormy": "雷暴"
+  },
+  "matchPlayerCard": {
+    "title": "球员",
+    "close": "关闭",
+    "club": "球队",
+    "age": "年龄",
+    "ageValue": "{y} 岁 {d} 天",
+    "wage": "工资",
+    "wageValue": "£{amount}/周",
+    "potential": "潜力",
+    "specialty": "特长",
+    "missing": "找不到这位球员",
+    "viewProfile": "完整档案"
   }
 }

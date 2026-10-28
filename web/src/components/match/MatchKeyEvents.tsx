@@ -36,6 +36,7 @@ import { extractKeyEvents, type EventEntry } from './extract-key-events';
 import { formatMatchMinute, type InjuryWindow } from './match-timeline';
 import { Tooltip } from '@/components/ui/Tooltip';
 import { AppIcon } from '@/components/icons/AppIcon';
+import { usePlayerCardOptional } from './player-card-context';
 import { eventCodeOf } from '@/lib/event-code';
 
 interface MatchKeyEventsProps {
@@ -220,6 +221,7 @@ function KeyEventRow({
   const minute = formatMatchMinute(entry.minute, injuryWindows ?? []);
   const isCurrent = currentMinute != null && entry.minute === currentMinute;
   const stripe = entry.side === 'home' ? HOME_STRIPE : AWAY_STRIPE;
+  const playerCard = usePlayerCardOptional();
 
   return (
     <li>
@@ -270,7 +272,25 @@ function KeyEventRow({
       </Tooltip>
 
       <span className="min-w-0 flex-1">
-        <span className="block truncate text-body leading-tight text-on-surface">
+        {/* A span rather than a nested button: the row itself is the button
+            that selects the moment, and nesting interactive elements is
+            invalid. The name is a mouse affordance to open the player card —
+            same as the pitch markers and the commentary names. */}
+        <span
+          onClick={
+            entry.playerId != null && playerCard
+              ? (e) => {
+                  e.stopPropagation();
+                  playerCard.openPlayer(entry.playerId as number);
+                }
+              : undefined
+          }
+          className={`block truncate text-body leading-tight text-on-surface ${
+            entry.playerId != null && playerCard
+              ? 'cursor-pointer hover:text-primary hover:underline hover:decoration-primary/50 hover:underline-offset-2'
+              : ''
+          }`}
+        >
           {entry.label}
         </span>
         {entry.note && (
