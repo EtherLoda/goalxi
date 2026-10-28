@@ -39,7 +39,13 @@ function MatchPageContent() {
     awayRoster,
     isLoading,
     error,
-  } = useMatchPage({ matchId });
+  } = useMatchPage({
+    matchId,
+    // Same handshake identity as the standalone live route. Without it the
+    // two URLs would behave differently the moment `join_match` becomes
+    // auth-gated.
+    token: typeof window !== 'undefined' ? localStorage.getItem('goalxi_token') : null,
+  });
 
   // Derive whether we are reconnecting (vs. initial connect).
   // We treat a 'connecting' state after the first successful connect as
@@ -52,7 +58,12 @@ function MatchPageContent() {
     return <MatchPageLoading />;
   }
 
-  if (error || !match) {
+  // Only a missing REST row is terminal. A WebSocket error must NOT blow the
+  // page away: `MatchLiveView` owns its own connection panel, and replacing
+  // the whole document hid the scoreboard and the pitch behind a
+  // "Back to Matches" card during a transient blip. The report route never
+  // touches the socket, so it never reaches this branch either.
+  if (!match) {
     return (
       <div className="p-6 md:p-8 max-w-7xl mx-auto w-full">
         <div className="bg-surface-container-low rounded-2xl p-12 text-center border border-error/20">
@@ -154,6 +165,21 @@ function MatchPageContent() {
       <TacticalMatchDetail
         matchId={match.id}
         match={{
+          // Competition context for the info card. Without these the card can
+          // only say "League" (no name / matchday) and can't compute the
+          // attendance fill percentage, because `capacity` lives on the
+          // joined stadium row rather than on the match itself. The ids are
+          // what turn the title and venue into links.
+          type: match.type ?? null,
+          leagueId: match.leagueId ?? null,
+          cupId: match.cupId ?? null,
+          season: match.season ?? null,
+          leagueName: match.leagueName ?? null,
+          round: match.round ?? null,
+          cupRound: match.cupRound ?? null,
+          capacity: match.capacity ?? null,
+          ticketRevenue: match.ticketRevenue ?? null,
+          stadiumId: match.stadiumId ?? null,
           homeScore: match.homeScore,
           awayScore: match.awayScore,
           homeTeam: match.homeTeam,
@@ -168,6 +194,7 @@ function MatchPageContent() {
         }}
         events={restEvents}
         stats={stats}
+        now={now}
       />
     </div>
   );

@@ -179,6 +179,8 @@ export default function TeamPublicPage({ params }: PageProps) {
                     {team.stadium ? (
                       <>
                         <Link
+                          // Stadium pages are addressed by the ground, not the
+                          // club; this entry point resolves and redirects.
                           href={`/${locale}/club/stadium?team=${team.id}`}
                           className="text-primary hover:underline"
                         >

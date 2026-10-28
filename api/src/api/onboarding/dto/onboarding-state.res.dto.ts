@@ -32,6 +32,15 @@ export class OnboardingTeamSummaryDto {
 
   @Expose()
   botLevel!: number;
+
+  /**
+   * The club's ground, so nav shells can link straight to `/stadium/:id`
+   * without a second lookup. The team row does not own this id — the
+   * `stadium.team_id` FK does — so it is read from the stadium row and is
+   * null for a club whose ground row is missing.
+   */
+  @Expose()
+  stadiumId!: string | null;
 }
 
 /**

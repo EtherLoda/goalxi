@@ -291,8 +291,8 @@ export function MatchLiveView({
                 awayRoster={awayRoster}
                 activeSnapshot={snapshots[activeSnapshotIndex] ?? null}
                 mode={pitchMode}
-                homeForfeit={false}
-                awayForfeit={false}
+                homeForfeit={match?.homeForfeit ?? false}
+                awayForfeit={match?.awayForfeit ?? false}
                 homeTeamName={homeTeamName}
                 awayTeamName={awayTeamName}
               />
@@ -321,7 +321,16 @@ export function MatchLiveView({
               <AppIcon name="stadium" className="text-base" />
               {t('matchInfo')}
             </h3>
-            <MatchInfoPanel match={match} />
+            <MatchInfoPanel
+              match={{
+                ...match,
+                // Same fallback as the report page: the denormalised columns
+                // are nullable, the simulator's `weather_announcement` /
+                // `attendance_announcement` events are the second source.
+                weather: match?.weather ?? sidebarWeather,
+                attendance: match?.attendance ?? sidebarAttendance,
+              }}
+            />
           </GlassPanel>
 
           <GlassPanel className="p-4 flex flex-col min-h-[200px] max-h-[420px]">

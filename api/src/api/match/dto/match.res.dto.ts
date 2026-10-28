@@ -75,6 +75,12 @@ export class MatchResDto {
   leagueName?: string | null;
   /** Venue capacity, from the loaded stadium relation. */
   capacity?: number | null;
+  /**
+   * The venue stadium's own id — the address its page is linked by
+   * (`/stadium/:id`). Not derived from `homeTeamId`: a neutral-venue cup
+   * final is played at a third club's ground.
+   */
+  stadiumId?: string | null;
   /** Gate receipts credited to the home team at settlement. */
   ticketRevenue?: number | null;
 }

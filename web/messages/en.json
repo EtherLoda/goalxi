@@ -352,6 +352,8 @@
       "statsStale": "Stats may be stale — retrying…",
       "fullTimeTitle": "Full Time — Match Ended",
       "fullTimeScore": "{home} {homeScore} – {awayScore} {away}",
+      "afterExtraTime": "AET",
+      "penaltyShootout": "PENS",
       "redirecting": "Redirecting…",
       "connectionLost": "Connection lost",
       "backToMatches": "Back to Matches",
@@ -2045,6 +2047,10 @@
       "noBio": "No bio yet."
     }
   },
+  "stadium_profile": {
+    "notFound": "Stadium not found",
+    "notFoundHint": "It may have been demolished, or the link is wrong."
+  },
   "team_profile": {
     "notFound": "Club not found",
     "notFoundHint": "It may have been dissolved, or the link is wrong.",
@@ -2095,6 +2101,8 @@
     "competitionFriendly": "Friendly",
     "competitionNationalTeam": "National team",
     "competitionWithRound": "{base} · Round {round}",
+    "matchday": "Round {round}",
+    "season": "Season {season}",
     "kickoff": "Kick-off",
     "venue": "Venue",
     "weather": "Weather",

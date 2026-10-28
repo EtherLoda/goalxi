@@ -182,12 +182,39 @@ export function useMatchPage({
   const socketRef = useRef<Socket | null>(null);
   const eventsRef = useRef<Map<string, WsMatchEvent>>(new Map());
 
-  // ── Initial REST fetch (when no initialMatch supplied) ────────────────────
-  useEffect(() => {
-    if (initialMatch) return; // Skip when page already has match data
+  // ── REST loader (initial mount + post-match refresh) ──────────────────────
+  //
+  // Called once on mount and again when the socket reports `match_end`.
+  // The second call is the whole point of the extraction: the report renders
+  // from `match` / `restEvents` / `stats`, all fetched *before* full time.
+  // The per-team stats row in particular is only written by the settlement
+  // transaction at the end of the simulation, so a page opened mid-match has
+  // `stats === null` and an event list truncated at the moment of opening.
+  // Without this refresh the report shows a kickoff-time snapshot — stale
+  // score, half the events, no stats panel — until the user reloads.
+  const loadRestData = useCallback(
+    async (
+      options: { silent?: boolean; isCancelled?: () => boolean } = {},
+    ): Promise<Match | null> => {
+      const { silent = false, isCancelled } = options;
+      if (!silent) {
+        setIsLoading(true);
+        setError(null);
+        // Drop the previous snapshot first so navigating to another fixture
+        // never flashes the old match's events or stats.
+        setRestEvents([]);
+        setStats(null);
+        // Same for the live slate: the event cache is keyed by match, so a
+        // cache left behind by the previous fixture (or by a socket that is
+        // about to be replaced) would be merged into the new match's feed.
+        // The gateway replays the full visible list on `join_match`, so
+        // nothing is lost by starting empty.
+        eventsRef.current = new Map();
+        setWsEvents([]);
+        setMatchState(null);
+        setLineup(null);
+      }
 
-    let cancelled = false;
-    (async () => {
       // Use allSettled so a failure in /events or /stats (e.g. stats 404 for
       // a scheduled match that hasn't started yet) doesn't kill the whole
       // page — the user can still see teams, schedule and other basic info.
@@ -196,27 +223,36 @@ export function useMatchPage({
         api.matches.getEvents(matchId),
         api.matches.getStats(matchId),
       ]);
-      if (cancelled) return;
+      if (isCancelled?.()) return null;
 
       if (matchResult.status === 'rejected') {
         setError('Failed to load match data');
         setIsLoading(false);
-        return;
+        return null;
       }
 
       const matchRes = matchResult.value;
       setMatch(matchRes);
-      if (eventsResult.status === 'fulfilled') {
-        setRestEvents(eventsResult.value.events);
-      }
-      if (statsResult.status === 'fulfilled') {
-        setStats(statsResult.value);
-      }
-      setMode(matchRes.status === MATCH_STATUS.IN_PROGRESS ? 'live' : 'report');
+      setRestEvents(eventsResult.status === 'fulfilled' ? eventsResult.value.events : []);
+      setStats(statsResult.status === 'fulfilled' ? statsResult.value : null);
       setIsLoading(false);
+      return matchRes;
+    },
+    [matchId],
+  );
+
+  // ── Initial REST fetch (when no initialMatch supplied) ────────────────────
+  useEffect(() => {
+    if (initialMatch) return; // Skip when page already has match data
+
+    let cancelled = false;
+    (async () => {
+      const matchRes = await loadRestData({ isCancelled: () => cancelled });
+      if (!matchRes || cancelled) return;
+      setMode(matchRes.status === MATCH_STATUS.IN_PROGRESS ? 'live' : 'report');
     })();
     return () => { cancelled = true; };
-  }, [matchId, initialMatch]);
+  }, [loadRestData, initialMatch]);
 
   // ── REST: tactics + rosters (always needed by the pitch) ──────────────────
   useEffect(() => {
@@ -247,7 +283,6 @@ export function useMatchPage({
   const connectWs = useCallback(() => {
     if (socketRef.current?.connected) return;
 
-    setConnectionStatus('connecting');
     const socket = io(`${WS_URL}/matches`, {
       auth: { token: token || undefined },
       transports: ['websocket', 'polling'],
@@ -265,12 +300,35 @@ export function useMatchPage({
 
     socket.on('disconnect', () => setConnectionStatus('disconnected'));
 
+    // socket.io retries on its own, so neither `connectWs` nor `connect` runs
+    // again for a reconnect. Without this the status stayed 'disconnected' for
+    // the whole backoff window and the hero's caption read "Connecting…"
+    // instead of "Reconnecting…" (`isReconnecting` is derived from this state).
+    //
+    // The initial connect deliberately does NOT set 'connecting' here: doing
+    // so synchronously inside `connectWs` (which an effect calls) is what the
+    // `react-hooks/set-state-in-effect` rule flags, and the UI renders the
+    // same "Connecting…" caption for 'disconnected' + no `matchState`.
+    socket.io.on('reconnect_attempt', () => setConnectionStatus('connecting'));
+
+    // After `reconnectionAttempts` the manager gives up and the socket stays
+    // down. Without this the status would sit on 'connecting' forever and the
+    // hero would keep advertising "Reconnecting…" with nothing in flight.
+    socket.io.on('reconnect_failed', () => setConnectionStatus('disconnected'));
+
     socket.on('connect_error', (err) => {
       setConnectionStatus('disconnected');
       setError(`Connection error: ${err.message}`);
     });
 
-    socket.on('error', (data: { message: string }) => setError(data.message));
+    // Server-sent application error (a rejected `join_match`, for example
+    // because the match is not yet available). Deliberately NOT
+    // `socket.on('error', ...)`: socket.io reserves the bare `error` name
+    // for transport events, so `client.emit('error', ...)` on the server
+    // never reaches a client listener. The gateway emits `error_msg` — see
+    // `match-live.gateway.ts` `handleJoinMatch`. Without this the user sits
+    // on an empty 0-0 board with no explanation.
+    socket.on('error_msg', (data: { message: string }) => setError(data.message));
 
     socket.on('match_state', (state: MatchState) => {
       setMatchState(state);
@@ -312,24 +370,49 @@ export function useMatchPage({
           ? { ...prev, homeScore: data.homeScore, awayScore: data.awayScore, isComplete: data.isComplete }
           : null,
       );
-      // Auto-transition to report mode when the match ends
-      setMode('report');
+      // Flip the REST match row optimistically so the hand-over can't show a
+      // kickoff-time 0-0 for the round-trip. The refresh below overwrites it
+      // with the authoritative row (forfeit flags, venue, attendance, ...).
+      setMatch((prev) =>
+        prev
+          ? {
+              ...prev,
+              homeScore: data.homeScore,
+              awayScore: data.awayScore,
+              status: MATCH_STATUS.COMPLETED,
+            }
+          : prev,
+      );
+      // The report reads `match` / `restEvents` / `stats` from REST. Those
+      // were fetched at mount — i.e. before full time — so switching modes
+      // without refetching renders a kickoff snapshot (stale scoreline,
+      // truncated event list, no per-team stats; the stats row is only
+      // written by the settlement transaction at the end of the simulation).
+      // Failures are non-fatal: the optimistic row above still leaves the
+      // user on a coherent report.
+      void (async () => {
+        await loadRestData({ silent: true });
+        setMode('report');
+      })();
     });
 
     socket.on('match_left', () => {/* no-op */});
 
     socketRef.current = socket;
-  }, [matchId, token]);
+  }, [matchId, token, loadRestData]);
 
   const disconnectWs = useCallback(() => {
     const s = socketRef.current;
     if (s) {
       s.emit('leave_match', { matchId });
+      // The `disconnect` listener registered in `connectWs` flips
+      // `connectionStatus` — deliberately not done inline here, because this
+      // is called from the mode effect and a synchronous setState there is
+      // exactly what `react-hooks/set-state-in-effect` rejects.
       s.disconnect();
       s.removeAllListeners();
       socketRef.current = null;
     }
-    setConnectionStatus('disconnected');
   }, [matchId]);
 
   // Auto-connect/disconnect based on mode

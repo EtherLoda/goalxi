@@ -230,7 +230,10 @@ export class MatchService {
   }
 
   async findOne(id: string): Promise<MatchResDto> {
-    const cacheKey = `match:${id}`;
+    // `v3`: the venue link moved from `stadiumTeamId` to `stadiumId`. Bumping
+    // the key retires the previous entries immediately instead of serving
+    // matches with a link to the wrong page until their hour-long TTL expires.
+    const cacheKey = `match:v3:${id}`;
     const cachedMatch = await this.cacheManager.get<MatchResDto>(cacheKey);
 
     if (cachedMatch) {
@@ -791,9 +794,12 @@ export class MatchService {
       weather: match.weather ?? null,
       attendance: match.attendance ?? null,
       venue: match.stadium?.name ?? null,
-    leagueName: match.league?.name ?? null,
-    capacity: match.stadium?.capacity ?? null,
-    ticketRevenue: match.ticketRevenue ?? null,
+      leagueName: match.league?.name ?? null,
+      capacity: match.stadium?.capacity ?? null,
+      // The venue is addressed by the stadium, not by a club: a neutral-venue
+      // final belongs to a team that is not in this match.
+      stadiumId: match.stadium?.id ?? null,
+      ticketRevenue: match.ticketRevenue ?? null,
       // Cup context — only set for single-match fetches (see findOne
       // above). List responses always pass `null` for both because
       // the FE matches/archive/type-filter don't need them.

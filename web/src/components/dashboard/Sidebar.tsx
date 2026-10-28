@@ -50,6 +50,14 @@ export default function Sidebar() {
   const viewedTeam = viewingOther ? fetchedViewTeam : null;
   const displayTeam = myTeam ? team : viewedTeam;
 
+  // Grounds are addressed by their own id (`/stadium/:id`) so the link works
+  // for a neutral-venue fixture too. Only the onboarding payload carries that
+  // id on the team, so a club fetched through `teams/:id` falls back to the
+  // team-scoped entry point, which resolves and redirects.
+  const stadiumHref = displayTeam?.stadiumId
+    ? `/${locale}/stadium/${displayTeam.stadiumId}`
+    : `/${locale}/club/stadium?team=${currentTeamId}`;
+
   // In view mode every entry describes the club being viewed, so 经理档案
   // must open THAT club’s manager, not the logged-in user.
   const managerHref = myTeam
@@ -68,7 +76,7 @@ export default function Sidebar() {
         { labelKey: "clubProfile", href: `/${locale}/teams/${currentTeamId}`, icon: "shield" },
         { labelKey: "managerProfile", href: managerHref, icon: "person" },
         { labelKey: "squad", href: `/${locale}/teams/squad?team=${currentTeamId}`, icon: "groups" },
-        { labelKey: "stadium", href: `/${locale}/club/stadium?team=${currentTeamId}`, icon: "stadium" },
+        { labelKey: "stadium", href: stadiumHref, icon: "stadium" },
         { labelKey: "matches", href: `/${locale}/matches?team=${currentTeamId}`, icon: "calendar_month" },
         { labelKey: "league", href: displayTeam?.leagueId ? `/${locale}/league/${displayTeam.leagueId}?team=${currentTeamId}` : "#", icon: "emoji_events" },
         { labelKey: "cup", href: `/${locale}/cup`, icon: "workspace_premium" },

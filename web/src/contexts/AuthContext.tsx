@@ -141,6 +141,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           isBot: onboardingState.team.isBot,
           jerseyColorPrimary: '#FF0000',
           jerseyColorSecondary: '#FFFFFF',
+          // Carried through so the sidebar can link straight to /stadium/:id
+          // instead of resolving the ground on every navigation.
+          stadiumId: onboardingState.team.stadiumId ?? null,
         });
         useGameStore.getState().setTeam({
           teamId: onboardingState.team.id,

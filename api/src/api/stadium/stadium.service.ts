@@ -35,6 +35,8 @@ import { assertTeamOwner } from './assert-team-owner';
  * 球队它又因为漏掉 ×2 的级别系数而低估。
  */
 export interface StadiumSummary {
+  /** The stadium's own id — how the FE addresses this ground. */
+  id: string;
   teamId: string;
   name: string;
   capacity: number;
@@ -143,6 +145,33 @@ export class StadiumService {
     if (!stadium) {
       return null;
     }
+    return this.buildSummary(stadium);
+  }
+
+  /**
+   * Same payload as `getSummary(teamId)`, addressed by the stadium's own id.
+   *
+   * The stadium is the addressable object — a ground can be visited by anyone
+   * who follows a link from a match card or a club profile, and those links
+   * carry the venue, not the club that happens to be playing there today
+   * (neutral-venue cup finals are played at a third club's ground).
+   */
+  async getSummaryByStadiumId(
+    stadiumId: string,
+  ): Promise<StadiumSummary | null> {
+    const stadium = await this.stadiumRepository.findOne({
+      where: { id: stadiumId },
+    });
+    if (!stadium) {
+      return null;
+    }
+    return this.buildSummary(stadium);
+  }
+
+  private async buildSummary(
+    stadium: StadiumEntity,
+  ): Promise<StadiumSummary> {
+    const teamId = stadium.teamId;
 
     const [{ season }, tier] = await Promise.all([
       this.getCurrentSeasonAndWeek(),
@@ -212,6 +241,7 @@ export class StadiumService {
     });
 
     return {
+      id: stadium.id,
       teamId: stadium.teamId,
       name: stadium.name,
       capacity: stadium.capacity,

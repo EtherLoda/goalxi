@@ -31,7 +31,7 @@ interface StadiumStageProps {
     cap: string;
     rename: string;
   };
-  onRename: () => void;
+  onRename?: () => void;
 }
 
 /**
@@ -70,15 +70,17 @@ export function StadiumStage({
           <span className="inline-flex items-center rounded-full border border-primary/30 bg-surface-container-highest/70 px-2 py-0.5 font-mono text-[10px] font-black tabular-nums text-primary backdrop-blur-sm">
             {labels.level}
           </span>
-          <button
-            type="button"
-            onClick={onRename}
-            className="inline-flex items-center gap-1.5 rounded-full border border-primary/30 bg-surface-container-highest/70 px-3 py-1.5 text-[10px] font-black uppercase tracking-widest text-primary backdrop-blur-sm hover:bg-primary/15 transition-colors"
-            aria-label={labels.rename}
-          >
-            <AppIcon name="edit" className="text-[14px]" />
-            {labels.rename}
-          </button>
+          {onRename && (
+            <button
+              type="button"
+              onClick={onRename}
+              className="inline-flex items-center gap-1.5 rounded-full border border-primary/30 bg-surface-container-highest/70 px-3 py-1.5 text-[10px] font-black uppercase tracking-widest text-primary backdrop-blur-sm hover:bg-primary/15 transition-colors"
+              aria-label={labels.rename}
+            >
+              <AppIcon name="edit" className="text-[14px]" />
+              {labels.rename}
+            </button>
+          )}
         </div>
 
         {/* Occupancy, bottom edge — one number, no bar */}

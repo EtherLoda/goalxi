@@ -41,6 +41,18 @@ export interface MatchScoreHeroProps {
   isReconnecting?: boolean;
   /** Always true in report mode (no WS involved). Defaults to false. */
   isConnected?: boolean;
+  /**
+   * Static status for a match with no live minute: a scheduled fixture
+   * shows its kickoff time, a cancelled one shows "Cancelled". When set,
+   * the pill drops the WS chrome (pulse, LIVE / CONNECTING caption) and
+   * renders this label in the neutral tone instead.
+   *
+   * Without it a pre-match report page rendered "90' CONNECTING…" — there
+   * is no socket to connect to and 90 is not a meaningful minute.
+   */
+  statusLabel?: string;
+  /** Secondary caption under a `statusLabel` (e.g. "Kickoff"). */
+  statusHint?: string;
 }
 
 export function MatchScoreHero({
@@ -54,8 +66,35 @@ export function MatchScoreHero({
   isComplete,
   isReconnecting = false,
   isConnected = false,
+  statusLabel,
+  statusHint,
 }: MatchScoreHeroProps) {
   const t = useTranslations('matches.live');
+  // Pre-match / cancelled: no socket, no live minute — the caller owns the
+  // label, and the pill is chrome-free.
+  const isStatic = statusLabel != null;
+  const pillTone =
+    isStatic || isComplete
+      ? 'bg-surface-container border border-outline-variant/40 text-on-surface-variant'
+      : isConnected
+        ? 'bg-primary/10 text-primary border border-primary/20'
+        : 'bg-signal-amber/10 text-signal-amber border border-signal-amber/30';
+  const dotTone =
+    isStatic || isComplete
+      ? 'bg-on-surface-variant'
+      : isConnected
+        ? 'bg-primary animate-pulse'
+        : 'bg-signal-amber animate-pulse';
+  const pillValue = statusLabel ?? (isComplete ? 'FT' : `${currentMinute}'`);
+  const pillCaption = isStatic
+    ? statusHint
+    : isComplete
+      ? undefined
+      : isConnected
+        ? t('liveTag')
+        : isReconnecting
+          ? t('reconnecting')
+          : t('connecting');
   return (
     <GlassPanel size="md" className="flex items-center gap-5">
       {/* Back button — kept as a small chip, not a big square */}
@@ -116,37 +155,19 @@ export function MatchScoreHero({
       {/* Minute + connection chip — duplicate of the legacy
           "LIVE • 67'" pill so the new hero feels self-contained. */}
       <div
-        className={`shrink-0 inline-flex items-center gap-2 px-3 py-2 rounded-full ${
-          isComplete
-            ? 'bg-surface-container border border-outline-variant/40 text-on-surface-variant'
-            : isConnected
-              ? 'bg-primary/10 text-primary border border-primary/20'
-              : 'bg-signal-amber/10 text-signal-amber border border-signal-amber/30'
-        }`}
+        className={`shrink-0 inline-flex items-center gap-2 px-3 py-2 rounded-full ${pillTone}`}
         data-testid="match-minute-pill"
       >
         <span
-          className={`w-2 h-2 rounded-full ${
-            isComplete
-              ? 'bg-on-surface-variant'
-              : isConnected
-                ? 'bg-primary animate-pulse'
-                : 'bg-signal-amber animate-pulse'
-          }`}
+          className={`w-2 h-2 rounded-full ${dotTone}`}
           aria-hidden="true"
         />
         <span className="font-mono font-black text-sm tabular-nums">
-          {isComplete
-            ? 'FT'
-            : `${currentMinute}&apos;`}
+          {pillValue}
         </span>
-        {!isComplete && (
+        {pillCaption && (
           <span className="text-kicker font-bold uppercase tracking-widest font-headline">
-            {isConnected
-              ? t('liveTag')
-              : isReconnecting
-                ? t('reconnecting')
-                : t('connecting')}
+            {pillCaption}
           </span>
         )}
       </div>

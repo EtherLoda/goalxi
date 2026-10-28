@@ -1,9 +1,12 @@
 /**
- * useMatchLive.spec.ts — unit tests for the WS-pure helpers exported from
- * `useMatchLive.ts`. The hook itself can't be rendered without a DOM
- * (no @testing-library/react or jest-environment-jsdom in this repo), so
- * we extract + test the dedupe/sort state transition — the load-bearing
+ * useMatchPage.spec.ts — unit tests for the WS-pure helpers exported from
+ * `useMatchPage.ts`. The hook itself can't be rendered without a DOM (no
+ * @testing-library/react or jest-environment-jsdom in this repo), so we
+ * extract + test the dedupe/sort state transition — the load-bearing
  * correctness invariant for live events arriving across reconnects.
+ *
+ * Migrated from `useMatchLive.spec.ts` when that duplicated hook was
+ * deleted; the helpers themselves moved to `useMatchPage` unchanged.
  *
  * Pattern: mirror of `use-tactics-state.spec.ts` — pure-function tests.
  */
@@ -11,10 +14,10 @@
 import {
   matchEventKey,
   mergeAndSortMatchEvents,
-  type MatchEvent,
-} from './useMatchLive';
+  type WsMatchEvent,
+} from './useMatchPage';
 
-function evt(overrides: Partial<MatchEvent>): MatchEvent {
+function evt(overrides: Partial<WsMatchEvent>): WsMatchEvent {
   return {
     id: overrides.id ?? `evt-${Math.random()}`,
     matchId: 'm1',
@@ -22,18 +25,18 @@ function evt(overrides: Partial<MatchEvent>): MatchEvent {
     second: 0,
     type: 'goal',
     typeName: 'goal',
+    data: {},
     ...overrides,
   };
 }
 
 describe('matchEventKey', () => {
   it('uses (type, minute, playerId, teamId) tuple', () => {
-    // MatchEvent.playerId is `number` (mirrors the DB int column),
-    // so the test fixture uses numeric ids. The dedupe key
-    // `matchEventKey` stringifies via template literal so a number
-    // serialises the same way a same-valued string would.
+    // The WS transport serialises `playerId` as a string (the REST/DB
+    // column is numeric), so the fixture and the key both work on the
+    // string form.
     expect(
-      matchEventKey(evt({ type: 'goal', minute: 23, playerId: 1, teamId: 't1' })),
+      matchEventKey(evt({ type: 'goal', minute: 23, playerId: '1', teamId: 't1' })),
     ).toBe('goal-23-1-t1');
   });
 
@@ -44,8 +47,8 @@ describe('matchEventKey', () => {
   });
 
   it('collides when (type, minute, playerId, teamId) are equal — last write wins', () => {
-    const a = evt({ id: 'a', type: 'goal', minute: 10, playerId: 1, teamId: 't1' });
-    const b = evt({ id: 'b', type: 'goal', minute: 10, playerId: 1, teamId: 't1' });
+    const a = evt({ id: 'a', type: 'goal', minute: 10, playerId: '1', teamId: 't1' });
+    const b = evt({ id: 'b', type: 'goal', minute: 10, playerId: '1', teamId: 't1' });
     expect(matchEventKey(a)).toBe(matchEventKey(b));
   });
 });
@@ -72,7 +75,7 @@ describe('mergeAndSortMatchEvents', () => {
     const merged = mergeAndSortMatchEvents(existing, incoming);
 
     expect(merged).toHaveLength(1);
-    expect((merged[0].data as any).v).toBe(2);
+    expect(merged[0].data.v).toBe(2);
   });
 
   it('orders by minute ascending when eventScheduledTime is missing', () => {
@@ -92,7 +95,7 @@ describe('mergeAndSortMatchEvents', () => {
         evt({
           type: 'goal',
           minute: 30,
-          playerId: 1,
+          playerId: '1',
           eventScheduledTime: 200,
         }),
       ],
@@ -100,13 +103,13 @@ describe('mergeAndSortMatchEvents', () => {
         evt({
           type: 'goal',
           minute: 30,
-          playerId: 2,
+          playerId: '2',
           eventScheduledTime: 100,
         }),
         evt({
           type: 'goal',
           minute: 30,
-          playerId: 3,
+          playerId: '3',
           eventScheduledTime: 300,
         }),
       ],

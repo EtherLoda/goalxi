@@ -29,6 +29,8 @@ interface OnboardingTeamSummary {
   isBot: boolean;
   eloRating: number;
   botLevel: number;
+  /** The club's ground — the id `/stadium/:id` is addressed by. */
+  stadiumId: string | null;
 }
 
 interface OnboardingState {
@@ -107,6 +109,12 @@ interface Team {
   benchConfig?: BenchConfig | null;
   /** Owner id. Present on GET /teams/:id; the manager of a club is public. */
   userId?: string | null;
+  /**
+   * The club's ground, so nav links can address `/stadium/:id` directly.
+   * Only the onboarding payload carries it (the team row has no such column —
+   * it is read from `stadium.team_id`), so it is optional everywhere else.
+   */
+  stadiumId?: string | null;
 }
 
 /**
@@ -188,6 +196,8 @@ interface Fan {
 }
 
 interface StadiumSummary {
+  /** The stadium's own id — the address the FE links to (`/stadium/:id`). */
+  id: string;
   teamId: string;
   name: string;
   capacity: number;
@@ -667,6 +677,12 @@ interface Match {
   status: MatchStatus;
   scheduledAt: string;
   round?: number;
+  /**
+   * League display name, returned by `GET /matches/:id` (null for cup ties
+   * and for matches whose league row was deleted). Used by the match info
+   * card so a league fixture doesn't fall back to the generic "League" label.
+   */
+  leagueName?: string | null;
   leagueId: string;
   season: number;
   week: number;
@@ -703,6 +719,12 @@ interface Match {
   weather?: WeatherType | null;
   /** Venue capacity, used for the attendance fill percentage. */
   capacity?: number | null;
+  /**
+   * The venue stadium's own id — what its page is addressed by. Read from the
+   * stadium row, so a neutral-venue final links to the host club's ground
+   * rather than to either finalist.
+   */
+  stadiumId?: string | null;
   /** Gate receipts for this match (home fixtures only). */
   ticketRevenue?: number | null;
   /** Match-day attendance (home crowd). Only meaningful for completed
@@ -1223,6 +1245,15 @@ export const api = {
   stadium: {
     getSummary: async (teamId: string): Promise<StadiumSummary | null> => {
       return request<StadiumSummary | null>(`/teams/${teamId}/stadium/summary`);
+    },
+    /**
+     * Summary addressed by the ground itself, not by the club playing there.
+     * Same payload as `getSummary`, so callers can swap one for the other.
+     */
+    getSummaryById: async (
+      stadiumId: string,
+    ): Promise<StadiumSummary | null> => {
+      return request<StadiumSummary | null>(`/stadiums/${stadiumId}`);
     },
     getRecentHomeMatches: async (
       teamId: string,

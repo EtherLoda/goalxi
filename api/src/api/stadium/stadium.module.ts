@@ -12,6 +12,7 @@ import { FinanceModule } from '../finance/finance.module';
 import { NotificationModule } from '../notification/notification.module';
 import { StadiumConstructionService } from './stadium-construction.service';
 import { StadiumController } from './stadium.controller';
+import { StadiumsController } from './stadiums.controller';
 import { StadiumService } from './stadium.service';
 
 @Module({
@@ -27,7 +28,7 @@ import { StadiumService } from './stadium.service';
     FinanceModule,
     NotificationModule,
   ],
-  controllers: [StadiumController],
+  controllers: [StadiumController, StadiumsController],
   providers: [StadiumService, StadiumConstructionService],
   exports: [StadiumService, StadiumConstructionService],
 })

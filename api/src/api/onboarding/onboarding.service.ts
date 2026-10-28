@@ -1,6 +1,7 @@
 import { QueueName } from '@/constants/job.constant';
 import { ValidationException } from '@/exceptions/validation.exception';
 import {
+  StadiumEntity,
   TeamEntity,
   UserEntity,
   UserOnboardingStatus,
@@ -58,6 +59,8 @@ export class OnboardingService {
     private readonly userRepo: Repository<UserEntity>,
     @InjectRepository(TeamEntity)
     private readonly teamRepo: Repository<TeamEntity>,
+    @InjectRepository(StadiumEntity)
+    private readonly stadiumRepo: Repository<StadiumEntity>,
     @InjectQueue(QueueName.ONBOARDING)
     private readonly onboardingQueue: Queue<AssignTeamJobPayload>,
   ) {}
@@ -81,6 +84,14 @@ export class OnboardingService {
         where: { userId: userId as Uuid, isBot: false },
       });
       if (team) {
+        // The stadium pointer lives on the `stadium` row (`team_id`), not on
+        // the team, so it costs one indexed read to hand the client an
+        // addressable stadium id. Worth it: every nav render would otherwise
+        // have to resolve it through a second endpoint.
+        const stadium = await this.stadiumRepo.findOne({
+          where: { teamId: team.id },
+          select: ['id'],
+        });
         return {
           status: UserOnboardingStatus.ACTIVE,
           hasTeam: true,
@@ -92,6 +103,7 @@ export class OnboardingService {
             isBot: team.isBot,
             eloRating: team.eloRating,
             botLevel: team.botLevel,
+            stadiumId: stadium?.id ?? null,
           },
         };
       }

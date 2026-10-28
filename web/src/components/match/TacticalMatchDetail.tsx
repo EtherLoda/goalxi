@@ -31,10 +31,31 @@ import { StatsResult } from './StatsResult';
 import { extractSidebarData } from './match-sidebar-data';
 import { MatchScoreHero } from './bento/MatchScoreHero';
 import { closestSnapshotIndex } from './match-timeline';
+import { getCompletionInfo, type CompletionInfo } from './match-completion';
 
 interface TacticalMatchDetailProps {
   matchId: string;
   match: {
+    /** `league | cup | playoff | tournament | friendly | national_team` —
+     *  drives the competition label in the info card. */
+    type?: string | null;
+    /** Competition row id — the info card's title links to it. */
+    leagueId?: string | null;
+    /** Cup bracket id, for the title link on cup ties. */
+    cupId?: string | null;
+    leagueName?: string | null;
+    /** Season number, rendered next to the matchday in the info card. */
+    season?: number | null;
+    /** League matchday, rendered as "Matchday N" in the info card. */
+    round?: number | null;
+    /** Cup round, rendered as "Round N" for `type === 'cup'`. */
+    cupRound?: number | null;
+    /** Venue capacity — the denominator of the attendance fill percentage. */
+    capacity?: number | null;
+    /** Gate receipts (home fixtures only). */
+    ticketRevenue?: number | null;
+    /** The venue stadium's own id — the venue link target. */
+    stadiumId?: string | null;
     homeScore?: number | null;
     awayScore?: number | null;
     homeTeam?: { id?: string; name?: string; logoUrl?: string | null };
@@ -58,6 +79,14 @@ interface TacticalMatchDetailProps {
   /** May be null for matches that haven't started yet (no recorded stats). */
   stats?: MatchStatsRes | null;
   currentMinute?: number;
+  /**
+   * Current wall-clock time in ms, supplied by the page. The forecast window
+   * (`daysUntilMatch`) used to call `Date.now()` during render, which React
+   * flags as an impure render and which made the window freeze at the value
+   * captured by the first render. The page already ticks a 30s clock for the
+   * tactics lock countdown, so pass that clock down instead.
+   */
+  now: number;
 }
 
 
@@ -98,7 +127,8 @@ export function TacticalMatchDetail({
   match,
   events,
   stats,
-  currentMinute = 90,
+  currentMinute,
+  now,
 }: TacticalMatchDetailProps) {
   const locale = useLocale();
   const homeName = match.homeTeam?.name || 'Home';
@@ -113,8 +143,13 @@ export function TacticalMatchDetail({
   // Derive the minute the report-mode chrome should show. See
   // `getReportCurrentMinute` for the rationale (was hard-coded 90;
   // broke forfeit/extra-time cases).
+  //
+  // The fallback is `currentMinute === undefined`, not `?? currentMinute`:
+  // the prop used to default to 90, which made the derivation dead code and
+  // left every 120-minute cup tie (and every forfeit that stopped early)
+  // showing "90'" in the commentary header and the progress rail.
   const reportCurrentMinute = useMemo(
-    () => currentMinute ?? getReportCurrentMinute(events),
+    () => (currentMinute != null ? currentMinute : getReportCurrentMinute(events)),
     [currentMinute, events],
   );
   const [pitchMode, setPitchMode] = useState<PitchMarkerMode>('lineup');
@@ -126,15 +161,19 @@ export function TacticalMatchDetail({
   const allSnapshots = useMemo(() => extractSnapshots(events), [events]);
   // B9: was `getLatestSnapshot(events)`, a hand-rolled sibling of
   // `extractSnapshots` that re-walked the event list and re-shaped
+  //
+  // The index is clamped at render time instead of in an effect: the effect
+  // version called `setState` synchronously on every snapshot-count change
+  // (a cascading render the `set-state-in-effect` rule rejects), and the
+  // clamp is pure anyway — the slider at the bottom of the page is the only
+  // writer, and it always passes an in-range index.
+  const lastSnapshotIndex = Math.max(0, allSnapshots.length - 1);
   const [activeSnapshotIndex, setActiveSnapshotIndex] = useState<number>(
-    () => Math.max(0, allSnapshots.length - 1),
+    () => lastSnapshotIndex,
   );
-  useEffect(() => {
-    setActiveSnapshotIndex((idx) =>
-      Math.min(idx, Math.max(0, allSnapshots.length - 1)),
-    );
-  }, [allSnapshots.length]);
-  const activeSnapshot: MatchSnapshot | null = allSnapshots[activeSnapshotIndex] ?? null;
+  const clampedSnapshotIndex = Math.min(activeSnapshotIndex, lastSnapshotIndex);
+  const activeSnapshot: MatchSnapshot | null =
+    allSnapshots[clampedSnapshotIndex] ??  null;
 
   const [homeTactics, setHomeTactics] = useState<Tactics | null>(null);
   const [awayTactics, setAwayTactics] = useState<Tactics | null>(null);
@@ -148,34 +187,47 @@ export function TacticalMatchDetail({
   // Beyond MAX_FORECAST_DAYS we skip the call entirely — typical weather
   // services only have meaningful predictions for ~7 days. The UI shows
   // an "out of range" hint in that case.
-  const [forecast, setForecast] = useState<WeatherForecastRes | null>(null);
+  //
+  // The result is keyed by the forecast date and read through that key rather
+  // than cleared in the effect: clearing it synchronously (`setForecast(null)`
+  // when the window closes) is exactly the cascading-render pattern the
+  // `set-state-in-effect` rule rejects, and a stale-date payload simply fails
+  // the key match on the next render.
   const daysUntilMatch = useMemo(() => {
     if (!match.scheduledAt) return 0;
-    const ms = new Date(match.scheduledAt).getTime() - Date.now();
+    const ms = new Date(match.scheduledAt).getTime() - now;
     return Math.ceil(ms / (24 * 60 * 60 * 1000));
-  }, [match.scheduledAt]);
+  }, [match.scheduledAt, now]);
   const isForecastAvailable =
     isPreMatch && daysUntilMatch > 0 && daysUntilMatch <= MAX_FORECAST_DAYS;
+  const forecastDate =
+    isForecastAvailable && match.scheduledAt
+      ? new Date(match.scheduledAt).toISOString().slice(0, 10)
+      :  null;
+  const [forecastState, setForecastState] = useState<{
+    date: string;
+    res: WeatherForecastRes | null;
+  } | null>(null);
+  const forecast =
+    forecastDate && forecastState?.date === forecastDate
+      ? forecastState.res
+      :  null;
   useEffect(() => {
-    if (!isForecastAvailable) {
-      setForecast(null);
-      return;
-    }
-    const date = new Date(match.scheduledAt!).toISOString().slice(0, 10);
+    if (!forecastDate) return;
     let cancelled = false;
     api.weather
-      .getForecast(date)
+      .getForecast(forecastDate)
       .then((res) => {
-        if (!cancelled) setForecast(res);
+        if (!cancelled) setForecastState({ date: forecastDate, res });
       })
       .catch(() => {
         // Non-fatal — the UI falls back to a "TBD" label.
-        if (!cancelled) setForecast(null);
+        if (!cancelled) setForecastState({ date: forecastDate, res: null });
       });
     return () => {
       cancelled = true;
     };
-  }, [isForecastAvailable, match.scheduledAt]);
+  }, [forecastDate]);
 
   useEffect(() => {
     let cancelled = false;
@@ -240,7 +292,51 @@ export function TacticalMatchDetail({
     match.weather ?? eventWeather;
   const resolvedAttendance: number | null =
     match.attendance ?? eventAttendance;
-  const resolvedVenue: string | null = match.venue ?? null;
+  const resolvedVenue: string | null = match.venue ??  null;
+
+  // Pre-match chrome: a scheduled fixture has no live minute to show, and a
+  // cancelled one has nothing to count. Both used to render "90' CONNECTING…"
+  // in the hero because the component only knew the live / FT dichotomy.
+  // Finished knockout ties swap "FT" for "AET" / "PENS" — see
+  // `getCompletionInfo`. A shootout additionally overwrites the stored score
+  // with the spot-kick tally (deliberate: standings / ELO bookkeeping needs a
+  // decisive scoreline), so the hero is fed the football result from the
+  // closing `full_time` event and the shootout numbers move into the chip.
+  const completion: CompletionInfo = isCompleted
+    ? getCompletionInfo(events)
+    : { marker: null, finalScore: null, penaltyScore: null };
+  const completionMarker = completion.marker;
+  const shootoutScore =
+    completionMarker === 'shootout' ? completion.penaltyScore :  null;
+  const footballScore =
+    shootoutScore ? completion.finalScore :  null;
+
+  const heroStatusLabel =
+    match.status === MATCH_STATUS.CANCELLED
+      ? tLiveChrome('cancelled')
+      : isPreMatch
+        ? match.scheduledAt
+          ? new Date(match.scheduledAt).toLocaleString(locale, {
+              weekday: 'short',
+              hour: '2-digit',
+              minute: '2-digit',
+            })
+          : tLiveChrome('notStartedTitle')
+        : completionMarker === 'shootout'
+          ? tLiveChrome('penaltyShootout')
+          : completionMarker === 'extraTime'
+            ? tLiveChrome('afterExtraTime')
+            : undefined;
+
+  // Only the kickoff-time label gets the "Kickoff" caption; "Cancelled" and
+  // the completion markers are self-describing (the shootout one carries the
+  // spot-kick scoreline, which the hero's `FT`/`PENS` value can't).
+  const heroStatusHint =
+    shootoutScore
+      ? `${shootoutScore.home}–${shootoutScore.away}`
+      : isPreMatch && match.status !== MATCH_STATUS.CANCELLED
+        ? tLiveChrome('scheduledFor')
+        : undefined;
 
   const hero = (
     <MatchScoreHero
@@ -248,11 +344,13 @@ export function TacticalMatchDetail({
       matchId={matchId}
       homeTeamName={homeName}
       awayTeamName={awayName}
-      homeScore={match.homeScore ?? 0}
-      awayScore={match.awayScore ?? 0}
-      currentMinute={currentMinute}
+      homeScore={footballScore ? footballScore.home : (match.homeScore ?? 0)}
+      awayScore={footballScore ? footballScore.away : (match.awayScore ?? 0)}
+      currentMinute={reportCurrentMinute}
       isComplete={isCompleted}
       isConnected={false}
+      statusLabel={heroStatusLabel}
+      statusHint={heroStatusHint}
     />
   );
 
@@ -398,7 +496,7 @@ export function TacticalMatchDetail({
                 <MatchProgressRail
                   events={events}
                   currentMinute={reportCurrentMinute}
-                  selectedMinute={allSnapshots[activeSnapshotIndex]?.minute}
+                  selectedMinute={allSnapshots[clampedSnapshotIndex]?.minute}
                   onSelectMinute={(minute) =>
                     setActiveSnapshotIndex(closestSnapshotIndex(allSnapshots, minute))
                   }
@@ -431,8 +529,8 @@ export function TacticalMatchDetail({
           awayTeamName={awayName}
           homeTeamId={match.homeTeam?.id ?? null}
           awayTeamId={match.awayTeam?.id ?? null}
-          homeScore={match.homeScore ?? 0}
-          awayScore={match.awayScore ?? 0}
+          homeScore={footballScore ? footballScore.home : (match.homeScore ?? 0)}
+          awayScore={footballScore ? footballScore.away : (match.awayScore ?? 0)}
           mode="replay"
         />
       }
@@ -443,7 +541,22 @@ export function TacticalMatchDetail({
               <AppIcon name="stadium" className="text-base" />
               {tLiveChrome('matchInfo') ?? 'Match Info'}
             </h3>
-            <MatchInfoPanel match={match} />
+            <MatchInfoPanel
+              match={{
+                ...match,
+                // The panel reads the *resolved* match-day context, not the
+                // raw columns: `Match.weather` is only written when the
+                // preprocess scheduler found a `weather` row for the fixture
+                // date, so on most fixtures it is still null while the
+                // simulator did announce one (`weather_announcement`). The
+                // resolved values are derived above and already used by the
+                // pre-match card, so reuse them here instead of keeping a
+                // second, weaker resolution path.
+                weather: resolvedWeather,
+                attendance: resolvedAttendance,
+                venue: resolvedVenue,
+              }}
+            />
           </div>
 
           <div className="glass-panel rounded-2xl p-4 flex flex-col min-h-[200px] max-h-[420px]">
@@ -455,7 +568,7 @@ export function TacticalMatchDetail({
               <MatchKeyEvents
                 events={keyEvents}
                 rosterById={rosterByIdForKeys}
-                currentMinute={currentMinute}
+                currentMinute={reportCurrentMinute}
                 homeTeamId={homeTeamId ?? null}
                 awayTeamId={awayTeamId ?? null}
               />
