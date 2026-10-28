@@ -460,8 +460,23 @@
       "commentary": {
         "title": "Live Commentary"
       },
+      "matchStats": {
+        "title": "Match stats",
+        "rows": {
+          "possession": "Possession",
+          "shots": "Shots",
+          "shotsOnTarget": "On target",
+          "goals": "Goals",
+          "assists": "Assists",
+          "corners": "Corners",
+          "fouls": "Fouls",
+          "offsides": "Offsides",
+          "yellowCards": "Yellow cards",
+          "redCards": "Red cards"
+        }
+      },
       "statsResult": {
-        "title": "Stats Result",
+        "title": "Lane matchups",
         "vs": "VS",
         "lane": {
           "left": "Left Wing",

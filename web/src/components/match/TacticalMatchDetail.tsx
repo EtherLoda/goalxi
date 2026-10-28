@@ -28,6 +28,7 @@ import { normalizePitchLineup } from './pitch-coords';
 import { MatchInfoPanel } from './MatchInfoPanel';
 import { KeyEventsToggle, MatchKeyEvents } from './MatchKeyEvents';
 import { StatsResult } from './StatsResult';
+import { MatchStatsSummary } from './MatchStatsSummary';
 import { extractSidebarData } from './match-sidebar-data';
 import { MatchScoreHero } from './bento/MatchScoreHero';
 import { closestSnapshotIndex } from './match-timeline';
@@ -616,6 +617,15 @@ export function TacticalMatchDetail({
               />
             </div>
           </div>
+
+          <MatchStatsSummary
+            stats={stats ?? null}
+            events={events}
+            homeTeamName={homeName}
+            awayTeamName={awayName}
+            homeTeamId={match.homeTeam?.id ?? null}
+            awayTeamId={match.awayTeam?.id ?? null}
+          />
 
           {stats?.homeTeamStats?.laneStrengthAverages &&
             stats?.awayTeamStats?.laneStrengthAverages && (

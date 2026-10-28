@@ -460,8 +460,23 @@
       "commentary": {
         "title": "实时解说"
       },
-      "statsResult": {
+      "matchStats": {
         "title": "数据总结",
+        "rows": {
+          "possession": "控球率",
+          "shots": "射门",
+          "shotsOnTarget": "射正",
+          "goals": "进球",
+          "assists": "助攻",
+          "corners": "角球",
+          "fouls": "犯规",
+          "offsides": "越位",
+          "yellowCards": "黄牌",
+          "redCards": "红牌"
+        }
+      },
+      "statsResult": {
+        "title": "三路对抗",
         "vs": "VS",
         "lane": {
           "left": "左路",
