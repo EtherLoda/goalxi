@@ -33,6 +33,8 @@ import { MatchScoreHero } from './bento/MatchScoreHero';
 import { closestSnapshotIndex } from './match-timeline';
 import { getCompletionInfo, type CompletionInfo } from './match-completion';
 import { playerIdsToHighlight } from './involved-players';
+import { buildChanceBreakdown } from './chance-breakdown';
+import { ChanceDistribution } from './ChanceDistribution';
 
 interface TacticalMatchDetailProps {
   matchId: string;
@@ -169,6 +171,12 @@ export function TacticalMatchDetail({
   const highlightedPlayerIds = useMemo(
     () => playerIdsToHighlight(events, selectedEventId),
     [events, selectedEventId],
+  );
+  // Chances-by-lane card: derived from the event stream, so it works on
+  // the report and the (already completed) live handoff alike.
+  const chanceBreakdown = useMemo(
+    () => buildChanceBreakdown(events, match.homeTeam?.id ?? null, match.awayTeam?.id ?? null),
+    [events, match.homeTeam?.id, match.awayTeam?.id],
   );
   const homeTeamId = match.homeTeam?.id;
   const awayTeamId = match.awayTeam?.id;
@@ -616,12 +624,14 @@ export function TacticalMatchDetail({
                 awayLaneStrength={stats.awayTeamStats.laneStrengthAverages}
                 homeTeamName={homeName}
                 awayTeamName={awayName}
-                homePossessionPct={stats.homeTeamStats.possessionPercentage}
-                awayPossessionPct={stats.awayTeamStats.possessionPercentage}
-                homeShots={stats.homeTeamStats.shots}
-                awayShots={stats.awayTeamStats.shots}
               />
             )}
+
+          <ChanceDistribution
+            breakdown={chanceBreakdown}
+            homeTeamName={homeName}
+            awayTeamName={awayName}
+          />
         </>
       }
     />

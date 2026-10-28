@@ -476,11 +476,16 @@
         "winner": {
           "home": "← 主场",
           "away": "客场 →"
-        },
-        "footer": {
-          "poss": "控球",
-          "shots": "射门",
-          "percent": "%"
+        }
+      },
+      "chanceDistribution": {
+        "title": "机会分布",
+        "empty": "比赛还没有制造出机会",
+        "lane": {
+          "left": "左路",
+          "center": "中路",
+          "right": "右路",
+          "setPiece": "定位球"
         }
       },
       "substitutes": {

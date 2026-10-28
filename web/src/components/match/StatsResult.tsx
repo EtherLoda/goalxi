@@ -54,11 +54,6 @@ export interface StatsResultProps {
   /** Hex strings; fall back to the theme primary/secondary if missing. */
   homeColor?: string;
   awayColor?: string;
-  /** Optional overall match stats for the footer summary. */
-  homePossessionPct?: string | number;
-  awayPossessionPct?: string | number;
-  homeShots?: number;
-  awayShots?: number;
 }
 
 const HOME_FALLBACK = "#00e479";
@@ -94,10 +89,6 @@ export function StatsResult({
   awayTeamName,
   homeColor = HOME_FALLBACK,
   awayColor = AWAY_FALLBACK,
-  homePossessionPct,
-  awayPossessionPct,
-  homeShots,
-  awayShots,
 }: StatsResultProps) {
   const t = useTranslations("matches.bento.statsResult");
 
@@ -225,57 +216,6 @@ export function StatsResult({
           );
         })}
       </div>
-
-      {/* Footer — overall match summary. Possession is sourced from
-          `possessionPercentage` (0-100 string) — not the raw engine
-          `possession` field, which is on a different scale. */}
-      {(homePossessionPct !== undefined || homeShots !== undefined) && (
-        <div className="mt-3 pt-2.5 border-t border-on-surface/10 flex items-center justify-between text-kicker font-label uppercase tracking-widest">
-          {homePossessionPct !== undefined && (
-            <div className="flex items-center gap-1.5">
-              <span className="text-on-surface-variant/60 font-bold">
-                {t("footer.poss")}
-              </span>
-              <span
-                className="font-headline font-black tabular-nums text-label"
-                style={{ color: homeColor }}
-              >
-                {homePossessionPct}
-              </span>
-              <span className="text-on-surface-variant/40">–</span>
-              <span
-                className="font-headline font-black tabular-nums text-label"
-                style={{ color: awayColor }}
-              >
-                {awayPossessionPct}
-              </span>
-              <span className="text-on-surface-variant/60 font-bold">
-                {t("footer.percent")}
-              </span>
-            </div>
-          )}
-          {homeShots !== undefined && (
-            <div className="flex items-center gap-1.5">
-              <span className="text-on-surface-variant/60 font-bold">
-                {t("footer.shots")}
-              </span>
-              <span
-                className="font-headline font-black tabular-nums text-label"
-                style={{ color: homeColor }}
-              >
-                {homeShots}
-              </span>
-              <span className="text-on-surface-variant/40">–</span>
-              <span
-                className="font-headline font-black tabular-nums text-label"
-                style={{ color: awayColor }}
-              >
-                {awayShots}
-              </span>
-            </div>
-          )}
-        </div>
-      )}
     </div>
   );
 }

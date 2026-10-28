@@ -476,11 +476,16 @@
         "winner": {
           "home": "← HOME",
           "away": "AWAY →"
-        },
-        "footer": {
-          "poss": "Poss",
-          "shots": "Shots",
-          "percent": "%"
+        }
+      },
+      "chanceDistribution": {
+        "title": "Chances",
+        "empty": "No chances yet",
+        "lane": {
+          "left": "Left",
+          "center": "Center",
+          "right": "Right",
+          "setPiece": "Set pieces"
         }
       },
       "substitutes": {
