@@ -122,6 +122,12 @@ export interface PitchCard {
   fitnessFactor?: number;
   /** Star rating 0–20 from snapshot. */
   starRating?: number;
+  /**
+   * The engine's raw contribution score for this snapshot ("position-weighted
+   * skills × condition", practical ceiling ~40). This is what the rating
+   * badge grades — `starRating` is the same number divided by five.
+   */
+  contribution?: number;
   /** True when the player entered as a substitute. */
   isSubstitute?: boolean;
 }
@@ -185,6 +191,7 @@ export function buildCards(
         name,
         fitnessFactor: sp.ff,
         starRating: sp.sr,
+        contribution: sp.pc,
         isSubstitute: sp.em !== undefined && sp.em > 0,
       });
     }

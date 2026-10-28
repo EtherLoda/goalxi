@@ -43,8 +43,13 @@ interface MatchPlayerMarkerProps {
   onDragEnd?: (e: React.DragEvent) => void;
   /** Fitness factor 0–1 from ConditionSystem */
   snapshotFitness?: number;
-  /** Power rating 0–20 from engine */
+  /** Power rating 0–20 from engine (`sr`) */
   snapshotStarRating?: number;
+  /**
+   * Raw contribution score from the snapshot (`pc`, ~0–40). The rating badge
+   * grades this; without it we reconstruct the same scale from `sr` × 5.
+   */
+  snapshotContribution?: number;
 }
 
 const DRAG_MIME = 'application/x-goalxi-player';
@@ -77,11 +82,16 @@ function conditionTone(fitness: number): string {
  * letter ladder keeps the resolution and still sorts at a glance. The number
  * itself is never printed — the grade is the whole message.
  */
-function RatingBadge({ power }: { power: number }) {
-  const { letter, tone } = ratingGrade(power);
+function RatingBadge({ contribution }: { contribution: number }) {
+  const { letter, tone } = ratingGrade(contribution);
   return (
     <span
-      className={`mt-0.5 text-[11px] font-black leading-none tracking-tight ${tone}`}
+      className={`mt-1 inline-flex min-w-[22px] items-center justify-center rounded-[5px] px-1 py-[1px] text-[11px] font-black leading-none tracking-tight ${tone}`}
+      style={{
+        backgroundColor: 'color-mix(in srgb, currentColor 12%, transparent)',
+        boxShadow: 'inset 0 0 0 1px color-mix(in srgb, currentColor 22%, transparent)',
+      }}
+      title={letter}
       aria-label={letter}
     >
       {letter}
@@ -104,6 +114,7 @@ export function MatchPlayerMarker({
   onDragEnd,
   snapshotFitness,
   snapshotStarRating,
+  snapshotContribution,
 }: MatchPlayerMarkerProps) {
   const fitness =
     snapshotFitness !== undefined
@@ -115,6 +126,16 @@ export function MatchPlayerMarker({
     snapshotStarRating !== undefined
       ? Math.max(0, Math.min(20, snapshotStarRating))
       : Math.max(0, Math.min(20, (overall ?? 10) / 5));
+
+  // Contribution scale (0–40 in practice) is what the rating ladder grades.
+  // Snapshots that predate `pc` still carry `sr` at a fifth of that scale;
+  // with no snapshot at all (pre-match) fall back to the player's overall,
+  // which is a 0–100 score, i.e. roughly twice the contribution scale.
+  const contribution =
+    snapshotContribution ??
+    (snapshotStarRating !== undefined
+      ? snapshotStarRating * 5
+      : Math.max(0, (overall ?? 50) * 0.5));
 
   const tone = conditionTone(fitness);
   // 体能 is shown as the share of the tank still in the player, not the
@@ -216,13 +237,13 @@ export function MatchPlayerMarker({
 
       <div className="mt-1 flex w-full flex-col items-center leading-none">
         <span
-          className={`max-w-[74px] truncate text-center font-headline text-kicker font-bold ${
+          className={`max-w-[86px] truncate text-center font-headline text-label font-semibold ${
             isHighlighted ? 'text-primary' : 'text-on-surface/90'
           }`}
         >
           {player.name}
         </span>
-        {mode === 'rating' && <RatingBadge power={stars} />}
+        {mode === 'rating' && <RatingBadge contribution={contribution} />}
       </div>
     </div>
   );

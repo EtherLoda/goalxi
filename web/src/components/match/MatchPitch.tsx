@@ -208,6 +208,7 @@ function HalfPitch({
                   isHighlighted={highlightedPlayerIds?.has(card.playerId) ?? false}
                   snapshotFitness={card.fitnessFactor}
                   snapshotStarRating={card.starRating}
+                  snapshotContribution={card.contribution}
                 />
               </div>
             </div>
