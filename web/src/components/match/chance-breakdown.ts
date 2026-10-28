@@ -78,8 +78,11 @@ function laneOf(event: MatchEvent): ChanceLane | null {
   const lane = data.lane;
   if (typeof lane !== "string" || !LANES.has(lane as ChanceLane)) return null;
 
-  // Open-play shot, or a blocked push that got as far as the box.
-  if (data.shot || data.ffinalResult === "blocked") return lane as ChanceLane;
+  // Open-play shot, or a blocked push that got as far as the box. The
+  // persisted payload nests the shot under `data.sequence.shot`; only
+  // the in-memory engine event has it at `data.shot`.
+  const shot = data.shot ?? data.sequence?.shot;
+  if (shot || data.ffinalResult === "blocked") return lane as ChanceLane;
 
   return null;
 }

@@ -88,6 +88,52 @@ describe("buildChanceBreakdown", () => {
     });
   });
 
+  it("reads the shot out of data.sequence for persisted events", () => {
+    // Shape as stored by the API: the shot lives one level down, so a
+    // flat `data.shot` test finds nothing and every open-play chance
+    // silently disappears (this shipped once).
+    const events = [
+      ev({
+        type: "save",
+        teamId: HOME,
+        data: {
+          lane: "left",
+          ffinalResult: "save",
+          sequence: { shot: { result: "save", shooter: "A" }, attackPush: {} },
+        },
+      }),
+      ev({
+        type: "goal",
+        teamId: AWAY,
+        data: {
+          lane: "center",
+          ffinalResult: "goal",
+          sequence: { shot: { result: "goal", shooter: "B" }, attackPush: {} },
+        },
+      }),
+      // A turnover has the same `sequence` wrapper but no shot in it.
+      ev({
+        type: "turnover",
+        teamId: AWAY,
+        data: {
+          lane: "center",
+          ffinalResult: "defense_stopped",
+          sequence: { shot: null, attackPush: {} },
+        },
+      }),
+    ];
+
+    const result = buildChanceBreakdown(events, HOME, AWAY);
+    expect(result.home).toBe(1);
+    expect(result.away).toBe(1);
+    expect(result.rows).toEqual([
+      { lane: "left", home: 1, away: 0 },
+      { lane: "center", home: 0, away: 1 },
+      { lane: "right", home: 0, away: 0 },
+      { lane: "setPiece", home: 0, away: 0 },
+    ]);
+  });
+
   it("skips penalty-shootout kicks", () => {
     const events = [
       ev({ type: "penalty_goal", minute: 120, isHome: true, data: { isPenalty: true } }),
