@@ -62,6 +62,29 @@ export type EventEntry = {
   label: string;
   sublabel?: string;
   /**
+   * Row category. `MatchKeyEvents` needs it to fold the running score
+   * (goals only) without re-deriving the classification from the icon or
+   * from an English sublabel — both would be stringly-typed guesswork.
+   */
+  kind: 'goal' | 'shot' | 'card' | 'substitution' | 'injury';
+  /**
+   * Compact right-edge tag, when the row has no running score to show
+   * there: `YC` / `RC` / `2Y` for bookings, `INJ` for injuries, and the
+   * `OG` / `PEN` qualifier on goals (rendered inline, next to the name,
+   * because a goal's right-edge slot is taken by the score).
+   *
+   * Kept language-neutral on purpose — the panel is read in both zh and
+   * en, and these are the abbreviations football already uses.
+   */
+  tag?: 'YC' | 'RC' | '2Y' | 'INJ' | 'OG' | 'PEN';
+  /**
+   * Secondary line, only when it carries something the name does not:
+   * who came off for a substitution, or who assisted a goal. Rows
+   * without it stay single-line, which is what keeps a 10-event list
+   * readable at 268px.
+   */
+  note?: string;
+  /**
    * RFC 0003 — Specialty Attribution. When the event had a
    * specialty effect (e.g. an AERIAL_THREAT player's header
    * goal), the chip carries the player-facing copy: the
@@ -244,7 +267,18 @@ export function extractKeyEvents(
         // is the safe default. When/if it does, swap to the L/R
         // variant from `commentary-icons` (no helper change needed).
         icon: GoalCenterIcon,
-        label: scorer + (assist ? `  ·  A: ${assist}` : ''),
+        label: scorer,
+        // The assist used to ride inline on the name ("李雷 · A: 韩梅梅"),
+        // where it was the first thing the 268px rail truncated away.
+        // On its own line it survives, and the name column stays a name.
+        note: assist ? `A · ${assist}` : undefined,
+        tag:
+          typeName === 'own_goal'
+            ? 'OG'
+            : typeName === 'penalty_goal'
+              ? 'PEN'
+              : undefined,
+        kind: 'goal',
         sublabel: goalSublabel,
         specialtyChip,
         side,
@@ -283,6 +317,7 @@ export function extractKeyEvents(
         outcomeCode: ev.outcomeCode,
         icon: shotIcon,
         label: shooter,
+        kind: 'shot',
         sublabel: shotSublabel,
         side,
       });
@@ -306,6 +341,12 @@ export function extractKeyEvents(
         // red glyph, not a yellow-on-yellow.
         icon: typeName === 'red_card' || typeName === 'second_yellow' ? RedCardIcon : YellowCardIcon,
         label: player,
+        kind: 'card',
+        // The row's right edge prints this instead of the English
+        // sublabel ("Yellow"/"Red"/"2nd Yellow"), which the redesign no
+        // longer shows — the glyph plus `YC`/`RC`/`2Y` says the same
+        // thing without a word of untranslated copy in a zh panel.
+        tag: typeName === 'second_yellow' ? '2Y' : typeName === 'red_card' ? 'RC' : 'YC',
         sublabel: cardType,
         // Cards don't surface specialty chips in v1 (a TACKLER
         // fouling is the most common case but the engine doesn't
@@ -327,6 +368,10 @@ export function extractKeyEvents(
         // so the row reads as a sub at a glance.
         icon: SubstitutionIcon,
         label: playerIn,
+        kind: 'substitution',
+        // Who came off belongs on the second line, not glued to the
+        // incoming player's name with an arrow and a Japanese-style space.
+        note: `↔ ${playerOut}`,
         sublabel: `↔ ${playerOut}`,
         side,
       });
@@ -349,6 +394,8 @@ export function extractKeyEvents(
         // ambulance).
         icon: InjuryIcon,
         label: player,
+        kind: 'injury',
+        tag: 'INJ',
         sublabel,
         side,
       });

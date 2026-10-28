@@ -1,27 +1,34 @@
 /**
- * MatchKeyEvents — a chronological list of the match's biggest moments
- * (goals, cards, substitutions, injuries). Redesigned as a vertical
- * list of side-tinted rows: a small minute badge on the left uses
- * the team's color (home = primary, away = secondary) so the user
- * can scan who did what without reading the names. Each row also
- * carries the event type icon and the player name, with an optional
- * sub-label (e.g. assist / second yellow / player out).
+ * MatchKeyEvents — the match's defining moments as a dense, scannable list.
  *
- * Rendering order: chronological (earliest first), matching the
- * page-level commentary feed. The previous reverse-chronological
- * order was a "highlight reel" choice that hid every event past
- * the most recent 8 via slice(-MAX_EVENTS) — a reader looking at
- * a 5-goal match only saw the last 3 with no way to see the rest.
- * Now every key event renders, and the panel is internally
- * scrollable (max-h + overflow-y-auto) so it works whether the
- * caller wraps it in a height-bounded container or not.
+ * Design notes
+ * ------------
+ * This panel sits in a 300px rail, under a kicker header supplied by the
+ * caller, and competes with a live commentary feed for attention. The old
+ * layout gave every moment its own bordered chip with a team-tinted minute
+ * badge and a 24px glyph — ten boxes stacked on top of each other, which
+ * read as ten buttons and buried the one thing the list is about: the score
+ * moving.
+ *
+ * The rewrite follows the classic sports-paper "highlights" column:
+ *
+ *   - one continuous list separated by hairlines, no per-row chrome;
+ *   - the minute is a quiet left axis (`tabular-nums`), not a badge;
+ *   - a 2px team stripe carries attribution (green = home, warm = away),
+ *     explained by the legend at the top so it needs no prior knowledge;
+ *   - the glyph shrinks to 14px and stops competing with the name;
+ *   - the right edge is a single tabular column: the running score on goals,
+ *     the card/booking tag otherwise, so goals line up vertically and the
+ *     match story reads down the edge.
+ *
+ * Attribution rules live in `extract-key-events.ts`; this file only decides
+ * how they are drawn.
  */
 'use client';
 
 import React from 'react';
-import { clsx } from 'clsx';
 import type { MatchEvent } from '@/lib/api';
-import { extractKeyEvents } from './extract-key-events';
+import { extractKeyEvents, type EventEntry } from './extract-key-events';
 import { formatMatchMinute, type InjuryWindow } from './match-timeline';
 import { Tooltip } from '@/components/ui/Tooltip';
 import { eventCodeOf } from '@/lib/event-code';
@@ -41,22 +48,53 @@ interface MatchKeyEventsProps {
   homeTeamId?: string | null;
   awayTeamId?: string | null;
   /** Stoppage windows derived from the same `events` list. Used to
-   *  format the minute column with the "+N" suffix (e.g. "45+1'"
-   *  for a 1H+1 stoppage event whose raw minute is 46). Optional
-   *  for backwards-compat; the row falls back to the raw minute
-   *  when this is missing / empty. */
+   *  format the minute column with the "+N" suffix (e.g. "45+1'" */
   injuryWindows?: InjuryWindow[];
+  /**
+   * Team names for the colour legend. Optional so the component still
+   * works when a caller only knows ids; without them the stripes keep
+   * their meaning for anyone who saw the scoreline above, but the
+   * legend is skipped rather than guessing.
+   */
+  homeTeamName?: string | null;
+  awayTeamName?: string | null;
 }
 
-// Fallback cap. The panel is internally scrollable now, so this
-// only kicks in as a defensive ceiling when callers forget to wrap
-// the panel in a height-bounded container. Set high enough that no
-// real match would hit it (10 events is already an unusually busy
-// match); the rendered cap means the page can't paint an
-// unbounded vertical column if the scrollable container is missing.
-const HARD_MAX_EVENTS = 200;
-const HOME_FALLBACK = '#00e479';
-const AWAY_FALLBACK = '#ffdb9d';
+const HOME_STRIPE = '#00e479';
+const AWAY_STRIPE = '#ffdb9d';
+
+/** Tag colour by kind. Deliberately semantic, not decorative: a booking is
+ *  amber/red because that is the card, and `INJ` is rose because it stops
+ *  the player — nobody has to learn a palette. */
+function tagClass(tag: string): string {
+  if (tag === 'YC') return 'text-amber-300';
+  if (tag === 'RC' || tag === '2Y') return 'text-red-400';
+  return 'text-rose-300';
+}
+
+/**
+ * Running score per row, recomputed from the goal rows in order. The
+ * simulator stores the final score on the match, not per event, and own
+ * goals are already credited to the right side by `resolveSide`, so a
+ * plain fold is enough. Kept as a module-level pure function (rather than
+ * a `let` inside the component) so the render body stays free of
+ * post-render mutation.
+ */
+function runningScores(entries: EventEntry[]): (string | null)[] {
+  const scores: (string | null)[] = [];
+  let home = 0;
+  let away = 0;
+  for (const entry of entries) {
+    if (entry.kind !== 'goal') {
+      scores.push(null);
+      continue;
+    }
+    if (entry.side === 'home') home += 1;
+    else away += 1;
+    scores.push(`${home}–${away}`);
+  }
+  return scores;
+}
 
 export function MatchKeyEvents({
   events,
@@ -65,131 +103,140 @@ export function MatchKeyEvents({
   homeTeamId,
   awayTeamId,
   injuryWindows,
+  homeTeamName,
+  awayTeamName,
 }: MatchKeyEventsProps) {
-  // Chronological, earliest first. The list is intentionally not
-  // sliced — readers want to see every key event, not a curated
-  // "highlight reel" of the last 8. The container below is
-  // internally scrollable so a 6-goal match with 4 cards on top
-  // doesn't push the rest of the sidebar off-screen.
-  const entries = extractKeyEvents(events, rosterById, homeTeamId, awayTeamId)
-    .sort(
-      (a, b) =>
-        a.minute - b.minute || a.label.localeCompare(b.label),
-    )
-    .slice(0, HARD_MAX_EVENTS);
+  // Chronological, earliest first — the same order as the commentary feed.
+  // The list is intentionally not sliced; the panel scrolls instead.
+  const entries = extractKeyEvents(events, rosterById, homeTeamId, awayTeamId).sort(
+    (a, b) => a.minute - b.minute || a.label.localeCompare(b.label),
+  );
 
   if (entries.length === 0) return null;
 
-  return (
-    // `max-h + overflow-y-auto` on the root so the panel is
-    // self-sufficient — both the sidebar panels and
-    // `TacticalMatchDetail` wrap this in a `glass-panel`, and
-    // either wrapper may or may not be height-bounded depending
-    // on the layout. The internal scroll means the panel degrades
-    // gracefully when the caller forgets.
-    <div className="flex flex-col gap-1.5 pointer-events-none max-w-[200px] max-h-[420px] overflow-y-auto pr-1">
-      {entries.map((entry, i) => {
-        const color = entry.side === 'home' ? HOME_FALLBACK : AWAY_FALLBACK;
-        return (
-          <div
-            key={i}
-            className="flex items-stretch gap-1.5 rounded-lg overflow-hidden border border-white/5"
-          >
-            {/* Minute badge — side-tinted so the team attribution
-                reads at a glance, even before the user sees the name. */}
-            <div
-              className="flex flex-col items-center justify-center w-9 shrink-0"
-              style={{ backgroundColor: `${color}22` }}
-            >
-              <span
-                className={clsx(
-                  'font-mono font-black tabular-nums text-label leading-none',
-                  entry.minute === currentMinute ? '' : 'opacity-90',
-                )}
-                style={{ color }}
-              >
-                {formatMatchMinute(entry.minute, injuryWindows ?? [])}
-              </span>
-              <span className="font-mono text-[7px] opacity-60 leading-none" style={{ color }}>
-                &apos;
-              </span>
-            </div>
+  const scores = runningScores(entries);
 
-            {/* Event body — transparent background (matches the
-                pre-redesign inline key events so the player name
-                sits on the panel's own background rather than a
-                tinted block). Layout tuned for compactness:
-                py-0.5 (vs py-1) and the sublabel's mt-0 (vs mt-0.5)
-                collapse the row height without losing the
-                label/sublabel two-line read. The outer
-                gap-1.5 between rows is unchanged so inter-event
-                spacing stays consistent. */}
-            <div className="flex-1 min-w-0 flex items-center gap-1.5 px-1.5 py-0.5">
-              {/* D-style SVG icon (replaces the previous emoji). The
-                  component carries its own palette. The `title`
-                  attribute surfaces the RFC 0002 (classId, outcomeId)
-                  tuple as a native browser tooltip on hover — a
-                  dev/debug affordance so the user can verify which
-                  underlying category each row belongs to without
-                  reading the source. `outcomeId` is `null` for
-                  class-only events (OWN_GOAL, INJURY, etc.) — the
-                  tooltip shows "—" rather than 0. */}
-              <Tooltip
-                side="top"
-                align="end"
-                label={
-                  <span className="flex flex-col gap-0.5">
-                    <span>{entry.label}</span>
-                    <span className="font-mono text-[10px] tracking-wider text-on-surface/50">
-                      {eventCodeOf(entry).code}
-                    </span>
-                  </span>
-                }
-              >
-                <span className="shrink-0 inline-flex">
-                  <entry.icon size={24} />
-                </span>
-              </Tooltip>
-              <div className="flex-1 min-w-0">
-                <p
-                  className="font-headline font-bold text-kicker text-on-surface/90 truncate leading-tight"
-                  title={entry.label}
-                >
-                  {entry.label}
-                </p>
-                {(entry.sublabel || entry.specialtyChip) && (
-                  <p className="font-label text-[8px] text-on-surface/40 uppercase tracking-wider truncate leading-tight flex items-center gap-1">
-                    {entry.sublabel}
-                    {entry.specialtyChip && (
-                      // RFC 0003 — Specialty chip. Tier-tinted
-                      // glyph + the localized bonus text
-                      // ("+14% 效果"). Picked tier color matches
-                      // `SpecialtyIcon.tsx`'s `TIER_TEXT` map so
-                      // the chip reads as the same specialty
-                      // chip the user sees on the player card.
-                      <span
-                        className={clsx(
-                          'inline-flex items-center gap-0.5 px-1 rounded-sm border',
-                          entry.specialtyChip.tier === 'GOLD' &&
-                            'text-amber-300 border-amber-300/30 bg-amber-300/10',
-                          entry.specialtyChip.tier === 'SILVER' &&
-                            'text-slate-300 border-slate-300/30 bg-slate-300/10',
-                          entry.specialtyChip.tier === 'BRONZE' &&
-                            'text-stone-400 border-stone-400/30 bg-stone-400/10',
-                        )}
-                        title={`${entry.specialtyChip.label} (${entry.specialtyChip.tier})`}
-                      >
-                        <span className="text-[7px]">{entry.specialtyChip.label}</span>
-                        <span className="text-[8px] font-mono font-bold">{entry.specialtyChip.bonusText}</span>
-                      </span>
-                    )}
-                  </p>
-                )}
-              </div>
-            </div>
-          </div>
-        );
-      })}
+  const legend = Boolean(homeTeamName && awayTeamName);
+
+  return (
+    <div className="flex flex-col">
+      {/* Legend — the stripes are only meaningful if the reader can resolve
+          the two colours. Two dots and two names is the whole price. */}
+      {legend && (
+        <div className="mb-2 flex flex-wrap items-center gap-x-3 gap-y-1 font-label text-label text-muted">
+          <span className="inline-flex min-w-0 items-center gap-1.5">
+            <span
+              aria-hidden
+              className="h-1.5 w-1.5 shrink-0 rounded-full"
+              style={{ backgroundColor: HOME_STRIPE }}
+            />
+            <span className="truncate">{homeTeamName}</span>
+          </span>
+          <span className="inline-flex min-w-0 items-center gap-1.5">
+            <span
+              aria-hidden
+              className="h-1.5 w-1.5 shrink-0 rounded-full"
+              style={{ backgroundColor: AWAY_STRIPE }}
+            />
+            <span className="truncate">{awayTeamName}</span>
+          </span>
+        </div>
+      )}
+
+      <ul className="divide-y divide-white/[0.06]">
+        {entries.map((entry, i) => (
+          <KeyEventRow
+            key={`${entry.minute}-${entry.label}-${i}`}
+            entry={entry}
+            score={scores[i] ?? null}
+            currentMinute={currentMinute}
+            injuryWindows={injuryWindows}
+          />
+        ))}
+      </ul>
     </div>
+  );
+}
+
+function KeyEventRow({
+  entry,
+  score,
+  currentMinute,
+  injuryWindows,
+}: {
+  entry: EventEntry;
+  score: string | null;
+  currentMinute?: number;
+  injuryWindows?: InjuryWindow[];
+}) {
+  const minute = formatMatchMinute(entry.minute, injuryWindows ?? []);
+  const isCurrent = currentMinute != null && entry.minute === currentMinute;
+  const stripe = entry.side === 'home' ? HOME_STRIPE : AWAY_STRIPE;
+  // A goal's right-hand slot is the running score; everything else falls
+  // back to its booking/injury tag. The two never compete for the column,
+  // so a goal that is also "OG"/"PEN" keeps its score on the edge and
+  // shows the qualifier as a small inline chip instead.
+  const right = score ?? entry.tag ?? null;
+  const inlineTag = score ? (entry.tag ?? null) : null;
+
+  return (
+    <li className="flex items-center gap-2 py-[5px]">
+      <span
+        className={`w-8 shrink-0 text-right text-label tabular-nums ${
+          isCurrent ? 'text-primary' : 'text-muted'
+        }`}
+      >
+        {minute}&apos;
+      </span>
+
+      {/* Team attribution. `aria-hidden` because the legend already spells
+          the colours out — the stripe is a redundant cue, not content. */}
+      <span
+        aria-hidden
+        className="w-[2px] shrink-0 self-stretch rounded-full"
+        style={{ backgroundColor: stripe }}
+      />
+
+      <Tooltip
+        side="top"
+        align="end"
+        label={
+          <span className="flex flex-col gap-0.5">
+            <span>{entry.label}</span>
+            <span className="font-mono text-[10px] tracking-wider text-on-surface/50">
+              {eventCodeOf(entry).code}
+            </span>
+          </span>
+        }
+      >
+        <span className="inline-flex shrink-0">
+          <entry.icon size={14} />
+        </span>
+      </Tooltip>
+
+      <span className="min-w-0 flex-1">
+        <span className="flex items-center gap-1">
+          <span className="truncate text-body leading-tight text-on-surface">{entry.label}</span>
+          {inlineTag && (
+            <span className="shrink-0 font-mono text-[9px] uppercase tracking-wide text-muted">
+              {inlineTag}
+            </span>
+          )}
+        </span>
+        {entry.note && (
+          <span className="block truncate text-label leading-tight text-muted">{entry.note}</span>
+        )}
+      </span>
+
+      {right && (
+        <span
+          className={`shrink-0 text-right font-mono text-label font-semibold tabular-nums ${
+            score ? 'text-primary' : tagClass(entry.tag ?? '')
+          }`}
+        >
+          {right}
+        </span>
+      )}
+    </li>
   );
 }

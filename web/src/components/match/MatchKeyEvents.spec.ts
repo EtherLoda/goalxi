@@ -674,4 +674,93 @@ describe('MatchKeyEvents · classId / outcomeId / outcomeCode on entry', () => {
     expect(result[0].classId).toBe(9);
     expect(result[0].outcomeId).toBeNull();
   });
+
+  // ── Row presentation contract (MatchKeyEvents redesign) ────────────────
+  // The panel no longer prints English sublabels ("Yellow", "Red"); it
+  // reads `kind` to fold the running score and `tag` for the right-hand
+  // column. These pin the fields the layout depends on so a classifier
+  // change can't silently blank a column.
+  describe('row presentation fields', () => {
+    it('splits the assist off the scorer name onto its own line', () => {
+      const result = extractKeyEvents(
+        [ev({
+          eventClassId: 3,
+          outcomeId: 1,
+          typeName: 'goal',
+          minute: 23,
+          teamId: home,
+          data: { playerName: '李雷', assistName: '韩梅梅' },
+        })],
+        roster, home, away,
+      );
+      expect(result[0].kind).toBe('goal');
+      expect(result[0].label).toBe('李雷');
+      expect(result[0].note).toBe('A · 韩梅梅');
+      expect(result[0].tag).toBeUndefined();
+    });
+
+    it('tags bookings so the right-hand column never relies on colour alone', () => {
+      const cases: Array<[string, string, number]> = [
+        ['yellow_card', 'YC', 6],
+        ['red_card', 'RC', 8],
+        ['second_yellow', '2Y', 7],
+      ];
+      for (const [typeName, tag, outcomeId] of cases) {
+        const result = extractKeyEvents(
+          [ev({ eventClassId: 4, outcomeId, typeName, minute: 60, teamId: home, data: { playerName: '李雷' } })],
+          roster, home, away,
+        );
+        expect(result[0].kind).toBe('card');
+        expect(result[0].tag).toBe(tag);
+      }
+    });
+
+    it('qualifies own goals and penalties instead of hiding the distinction', () => {
+      const own = extractKeyEvents(
+        [ev({ eventClassId: 11, outcomeId: null, typeName: 'own_goal', minute: 12, teamId: home, data: { playerName: '李雷' } })],
+        roster, home, away,
+      );
+      expect(own[0].kind).toBe('goal');
+      expect(own[0].tag).toBe('OG');
+
+      const pen = extractKeyEvents(
+        [ev({ eventClassId: 7, outcomeId: 1, typeName: 'penalty_goal', minute: 30, teamId: home, data: { playerName: '李雷' } })],
+        roster, home, away,
+      );
+      expect(pen[0].tag).toBe('PEN');
+    });
+
+    it('moves the outgoing player onto the note line for substitutions', () => {
+      const result = extractKeyEvents(
+        [ev({
+          eventClassId: 8,
+          outcomeId: 14,
+          typeName: 'substitution',
+          minute: 70,
+          teamId: home,
+          data: { substitutePlayerName: '韩梅梅', playerOut: '李雷' },
+        })],
+        roster, home, away,
+      );
+      expect(result[0].kind).toBe('substitution');
+      expect(result[0].label).toBe('韩梅梅');
+      expect(result[0].note).toBe('↔ 李雷');
+    });
+
+    it('tags injuries INJ so the row has a right-hand column', () => {
+      const result = extractKeyEvents(
+        [ev({
+          eventClassId: 9,
+          outcomeId: null,
+          typeName: 'injury',
+          minute: 11,
+          teamId: home,
+          data: { playerName: '李雷', severity: 'severe' },
+        })],
+        roster, home, away,
+      );
+      expect(result[0].kind).toBe('injury');
+      expect(result[0].tag).toBe('INJ');
+    });
+  });
 });
