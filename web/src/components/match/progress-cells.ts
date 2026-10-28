@@ -21,13 +21,28 @@ export const CELLS_PER_HALF = 9;
  * by its own minute, so a cell's glyph and the ring can never disagree.
  * `Math.ceil` used to count exact multiples of five into the previous cell,
  * which is what put a 55' goal one cell left of the lit cell.
+ *
+ * 45' starts the second half, not the end of the first: the strip labels the
+ * cell that begins at 45 with "45'", and the 2H first cell *is* 45–50. Filing
+ * 45 into the 1H last cell made clicking that 45' cell light the cell to its
+ * left — the two halves shared one minute and the lookup had to pick a side.
  */
 export function cellIndexAt(minute: number): number {
   if (minute <= 0) return 1;
-  if (minute <= 45) {
+  if (minute < 45) {
     return Math.min(CELLS_PER_HALF, Math.floor(minute / CELL_MINUTES) + 1);
   }
   return Math.min(CELLS_PER_HALF, Math.floor((minute - 45) / CELL_MINUTES) + 1);
+}
+
+/**
+ * The bucket key a minute belongs to, halves included.
+ *
+ * One function for both the marker placement and the playhead, so a glyph and
+ * the ring that points at it cannot land in different halves.
+ */
+export function cellKeyAt(minute: number): string {
+  return `${minute >= 45 ? 'h2' : 'h1'}-${cellIndexAt(minute)}`;
 }
 
 /**

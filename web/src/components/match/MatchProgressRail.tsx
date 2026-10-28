@@ -38,7 +38,7 @@ import {
 import {
   CELL_MINUTES,
   CELLS_PER_HALF,
-  cellIndexAt,
+  cellKeyAt,
   cellSeekMinute,
 } from './progress-cells';
 
@@ -101,8 +101,7 @@ function bucketKeyOf(marker: TimelineMarker): string {
     // 1H stoppage labels read "45+N", 2H ones read "90+N".
     return marker.minuteLabel.startsWith('45') ? 'h1-' + CELLS_PER_HALF : 'h2-' + CELLS_PER_HALF;
   }
-  const minute = marker.minute;
-  return `${minute > 45 ? 'h2' : 'h1'}-${cellIndexAt(minute)}`;
+  return cellKeyAt(marker.minute);
 }
 
 export function MatchProgressRail({
@@ -141,7 +140,7 @@ export function MatchProgressRail({
   // A finished match opens on the kickoff snapshot, so the strip starts on
   // the first cell instead of parking on the last one.
   const playhead = Math.max(0, selectedMinute ?? currentMinute);
-  const playheadKey = `${playhead > 45 ? 'h2' : 'h1'}-${cellIndexAt(playhead)}`;
+  const playheadKey = cellKeyAt(playhead);
 
   return (
     <GlassPanel className={`p-3 ${className ?? ''}`} data-testid="match-progress-rail">
