@@ -32,11 +32,12 @@ const LADDER: readonly { readonly min: number; readonly letter: string }[] = [
 ];
 
 /**
- * Tailwind classes per grade. Static strings so the JIT can see them; the
- * ramp runs neutral → green → violet → gold so a glance sorts the eleven
- * players without reading a single letter. Violet owns the S rungs: it sits
- * between the green of a good game and the gold of a rare one, which is
- * exactly where "excellent" belongs.
+ * Tailwind classes per grade. Static strings so the JIT can see them.
+ *
+ * The ramp is four families wide: grey brightens from F to D, green owns the
+ * solid C/B band, pink marks A, violet marks S, and the two golds are the
+ * rare air of SS and SSS. Adjacent letters never share a hue, so a glance at
+ * the pitch sorts the eleven without reading a single letter.
  */
 const TONE: Readonly<Record<string, string>> = {
   'SSS+': 'text-amber-300',
@@ -45,12 +46,12 @@ const TONE: Readonly<Record<string, string>> = {
   SS: 'text-amber-200',
   'S+': 'text-violet-300',
   S: 'text-violet-300',
-  'A+': 'text-primary/80',
-  A: 'text-primary/80',
-  'B+': 'text-on-surface/80',
-  B: 'text-on-surface/80',
-  'C+': 'text-on-surface/60',
-  C: 'text-on-surface/60',
+  'A+': 'text-pink-300',
+  A: 'text-pink-300',
+  'B+': 'text-primary',
+  B: 'text-primary',
+  'C+': 'text-primary/70',
+  C: 'text-primary/70',
   'D+': 'text-on-surface/50',
   D: 'text-on-surface/50',
   'E+': 'text-on-surface/40',

@@ -81,7 +81,7 @@ function RatingBadge({ power }: { power: number }) {
   const { letter, tone } = ratingGrade(power);
   return (
     <span
-      className={`mt-1 inline-flex min-w-[24px] items-center justify-center rounded-[5px] px-1.5 py-[1px] text-[13px] font-black leading-none tracking-tight ${tone}`}
+      className={`mt-1.5 inline-flex min-w-[24px] items-center justify-center rounded-[5px] px-1.5 py-[1px] text-[13px] font-black leading-none tracking-tight ${tone}`}
       style={{
         backgroundColor: 'color-mix(in srgb, currentColor 12%, transparent)',
         boxShadow: 'inset 0 0 0 1px color-mix(in srgb, currentColor 22%, transparent)',
@@ -217,7 +217,7 @@ export function MatchPlayerMarker({
         )}
       </div>
 
-      <div className="mt-1 flex w-full flex-col items-center leading-none">
+      <div className="mt-1 flex w-full flex-col items-center leading-tight">
         <span
           className={`max-w-[102px] truncate text-center font-headline text-[13px] font-semibold ${
             isHighlighted ? 'text-primary' : 'text-on-surface/90'
