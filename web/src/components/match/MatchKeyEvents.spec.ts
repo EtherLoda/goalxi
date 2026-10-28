@@ -12,6 +12,7 @@
  */
 import type { MatchEvent } from '@/lib/api';
 import { extractKeyEvents } from './extract-key-events';
+import { visibleKeyEvents } from './MatchKeyEvents';
 import {
   YellowCardIcon,
   RedCardIcon,
@@ -759,5 +760,38 @@ describe('MatchKeyEvents · classId / outcomeId / outcomeCode on entry', () => {
       expect(result[0].label).toBe('李雷');
       expect(result[0].note).toBeUndefined();
     });
+  });
+});
+
+describe('visibleKeyEvents (compact vs detailed)', () => {
+  const entries = [
+    { kind: 'goal', label: 'G', minute: 10 },
+    { kind: 'card', label: 'C', minute: 20 },
+    { kind: 'substitution', label: 'S', minute: 30 },
+    { kind: 'shot', label: 'M', minute: 40 },
+    { kind: 'injury', label: 'I', minute: 50 },
+  ] as unknown as Parameters<typeof visibleKeyEvents>[0];
+
+  it('drops the chances that missed in compact mode', () => {
+    expect(visibleKeyEvents(entries, false).map((e) => e.kind)).toEqual([
+      'goal',
+      'card',
+      'substitution',
+    ]);
+  });
+
+  it('adds the chances back in detailed mode', () => {
+    expect(visibleKeyEvents(entries, true).map((e) => e.kind)).toEqual([
+      'goal',
+      'card',
+      'substitution',
+      'shot',
+    ]);
+  });
+
+  it('never lists injuries, in either mode', () => {
+    for (const detailed of [false, true]) {
+      expect(visibleKeyEvents(entries, detailed).some((e) => e.kind === 'injury')).toBe(false);
+    }
   });
 });

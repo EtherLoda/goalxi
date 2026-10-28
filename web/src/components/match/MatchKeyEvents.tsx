@@ -35,6 +35,7 @@ import type { MatchEvent } from '@/lib/api';
 import { extractKeyEvents, type EventEntry } from './extract-key-events';
 import { formatMatchMinute, type InjuryWindow } from './match-timeline';
 import { Tooltip } from '@/components/ui/Tooltip';
+import { AppIcon } from '@/components/icons/AppIcon';
 import { eventCodeOf } from '@/lib/event-code';
 
 interface MatchKeyEventsProps {
@@ -54,6 +55,12 @@ interface MatchKeyEventsProps {
   /** Stoppage windows derived from the same `events` list. Used to
    *  format the minute column with the "+N" suffix (e.g. "45+1'" */
   injuryWindows?: InjuryWindow[];
+  /**
+   * Show the chances that did not end in a goal (saves, misses,
+   * turnovers) in addition to goals, bookings and substitutions. The
+   * caller owns this flag because it renders the toggle.
+   */
+  detailed?: boolean;
 }
 
 const HOME_STRIPE = '#00e479';
@@ -83,6 +90,61 @@ function runningScores(entries: EventEntry[]): (string | null)[] {
   return scores;
 }
 
+/**
+ * Which rows survive in each mode.
+ *
+ * `compact` is the scoreline story: goals, bookings and substitutions.
+ * `detailed` adds the chances that did not go in (saves, misses,
+ * turnovers) — the same two-step Hattrick offers behind the expand icon
+ * in its highlights header, and the reason a 0-0 can still have a
+ * readable list.
+ *
+ * Injuries stay out of both: they arrive as their own event rows and
+ * "player X is hurt" is already the loudest line in the commentary feed.
+ * Exported so the mode contract is testable without a renderer.
+ */
+export function visibleKeyEvents(entries: EventEntry[], detailed: boolean): EventEntry[] {
+  return entries.filter((entry) => {
+    if (entry.kind === 'injury') return false;
+    if (entry.kind === 'shot') return detailed;
+    return true;
+  });
+}
+
+/**
+ * The compact/detailed switch. Lives in the caller's panel header (the
+ * caller owns the `detailed` state), which is why the labels come in as
+ * props rather than from a namespace this component would have to guess.
+ */
+export function KeyEventsToggle({
+  detailed,
+  onToggle,
+  label,
+}: {
+  detailed: boolean;
+  onToggle: () => void;
+  label: string;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onToggle}
+      aria-pressed={detailed}
+      aria-label={label}
+      title={label}
+      className={`ml-auto inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md border transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 ${
+        detailed
+          ? 'border-primary/40 bg-primary/10 text-primary'
+          : 'border-white/10 text-muted hover:border-white/20 hover:text-on-surface'
+      }`}
+    >
+      {/* The glyph is the same either way — "expand this list" — so the
+          pressed state is what tells you the list is already expanded. */}
+      <AppIcon name="expand" className="text-sm" />
+    </button>
+  );
+}
+
 export function MatchKeyEvents({
   events,
   rosterById,
@@ -90,10 +152,14 @@ export function MatchKeyEvents({
   homeTeamId,
   awayTeamId,
   injuryWindows,
+  detailed = false,
 }: MatchKeyEventsProps) {
   // Chronological, earliest first — the same order as the commentary feed.
   // The list is intentionally not sliced; the panel scrolls instead.
-  const entries = extractKeyEvents(events, rosterById, homeTeamId, awayTeamId).sort(
+  const entries = visibleKeyEvents(
+    extractKeyEvents(events, rosterById, homeTeamId, awayTeamId),
+    detailed,
+  ).sort(
     (a, b) => a.minute - b.minute || a.label.localeCompare(b.label),
   );
 

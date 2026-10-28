@@ -32,7 +32,7 @@ import { MatchScoreHero } from './bento/MatchScoreHero';
 import { MatchPage } from './MatchPage';
 import { closestSnapshotIndex, useInjuryWindows } from './match-timeline';
 import { MatchInfoPanel } from './MatchInfoPanel';
-import { MatchKeyEvents } from './MatchKeyEvents';
+import { KeyEventsToggle, MatchKeyEvents } from './MatchKeyEvents';
 import { extractSidebarData } from './match-sidebar-data';
 import { extractSnapshots, resolveAutoSnapIndex } from './snapshot-stats';
 
@@ -114,6 +114,8 @@ export function MatchLiveView({
   const [matchEnded, setMatchEnded] = useState(false);
   const redirectTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [pitchMode, setPitchMode] = useState<PitchMarkerMode>('lineup');
+  // Compact list by default; the toggle reveals the chances that missed.
+  const [showChances, setShowChances] = useState(false);
 
   // Show "Match ended" overlay + redirect when the match completes.
   // The `autoRedirectOnEnd` flag lets the standalone live page opt in to
@@ -195,11 +197,10 @@ export function MatchLiveView({
   // Same three panels the report renders, fed from the event stream
   // instead of the finished stats row. Weather and attendance only ever
   // exist as events, so both modes read them the same way.
-  const {
-    weather: sidebarWeather,
-    attendance: sidebarAttendance,
-    keyEvents,
-  } = useMemo(() => extractSidebarData(visibleEvents), [visibleEvents]);
+  const { weather: sidebarWeather, attendance: sidebarAttendance } = useMemo(
+    () => extractSidebarData(visibleEvents),
+    [visibleEvents],
+  );
   const injuryWindows = useInjuryWindows(visibleEvents);
 
   // ── Connection error state ─────────────────────────────────────────────────
@@ -337,15 +338,21 @@ export function MatchLiveView({
             <h3 className="font-headline font-bold text-kicker uppercase tracking-widest text-primary/80 mb-3 flex items-center gap-2 shrink-0">
               <AppIcon name="history" className="text-base" />
               {t('keyEvents')}
+              <KeyEventsToggle
+                detailed={showChances}
+                onToggle={() => setShowChances((v) => !v)}
+                label={showChances ? t('highlightsOnly') : t('showChances')}
+              />
             </h3>
             <div className="flex-1 min-h-0 overflow-y-auto">
               <MatchKeyEvents
-                events={keyEvents}
+                events={visibleEvents}
                 rosterById={rosterByIdForKeys}
                 currentMinute={currentMinute}
                 homeTeamId={match?.homeTeam?.id ?? null}
                 awayTeamId={match?.awayTeam?.id ?? null}
                 injuryWindows={injuryWindows}
+                detailed={showChances}
               />
             </div>
           </GlassPanel>

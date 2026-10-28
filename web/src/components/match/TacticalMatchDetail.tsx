@@ -26,7 +26,7 @@ import { LiveCommentary } from './LiveCommentary';
 import { extractSnapshots } from './snapshot-stats';
 import { normalizePitchLineup } from './pitch-coords';
 import { MatchInfoPanel } from './MatchInfoPanel';
-import { MatchKeyEvents } from './MatchKeyEvents';
+import { KeyEventsToggle, MatchKeyEvents } from './MatchKeyEvents';
 import { StatsResult } from './StatsResult';
 import { extractSidebarData } from './match-sidebar-data';
 import { MatchScoreHero } from './bento/MatchScoreHero';
@@ -153,6 +153,8 @@ export function TacticalMatchDetail({
     [currentMinute, events],
   );
   const [pitchMode, setPitchMode] = useState<PitchMarkerMode>('lineup');
+  // Compact list by default; the toggle reveals the chances that missed.
+  const [showChances, setShowChances] = useState(false);
   const homeTeamId = match.homeTeam?.id;
   const awayTeamId = match.awayTeam?.id;
   const tLiveChrome = useTranslations('matches.live');
@@ -290,7 +292,7 @@ export function TacticalMatchDetail({
   // the single source of truth. Only fall back to the legacy
   // `weather_announcement` event payload if those are missing (older rows
   // before this column was added, or corrupted data).
-  const { keyEvents, weather: eventWeather, attendance: eventAttendance } =
+  const { weather: eventWeather, attendance: eventAttendance } =
     useMemo(() => extractSidebarData(events), [events]);
   const resolvedWeather: WeatherType | string | null =
     match.weather ?? eventWeather;
@@ -567,14 +569,20 @@ export function TacticalMatchDetail({
             <h3 className="font-headline font-bold text-kicker uppercase tracking-widest text-primary/80 mb-3 flex items-center gap-2 shrink-0">
               <AppIcon name="history" className="text-base" />
               {tLiveChrome('keyEvents') ?? 'Key Events'}
+              <KeyEventsToggle
+                detailed={showChances}
+                onToggle={() => setShowChances((v) => !v)}
+                label={showChances ? tLiveChrome('highlightsOnly') : tLiveChrome('showChances')}
+              />
             </h3>
             <div className="flex-1 min-h-0 overflow-y-auto">
               <MatchKeyEvents
-                events={keyEvents}
+                events={events}
                 rosterById={rosterByIdForKeys}
                 currentMinute={reportCurrentMinute}
                 homeTeamId={homeTeamId ?? null}
                 awayTeamId={awayTeamId ?? null}
+                detailed={showChances}
               />
             </div>
           </div>
