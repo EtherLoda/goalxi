@@ -776,6 +776,18 @@ interface MatchEvent {
    * substitution / goal lands. Use `String(playerId)` before string ops.
    */
   playerId?: number;
+  /**
+   * The second player an event is about, when the engine names one: the
+   * assisting player on a goal, the interceptor on a `turnover`
+   * (`simulator/src/engine/match.engine.ts` sets it to the player who won
+   * the ball). Absent for events that concern one player only — cards,
+   * injuries, saves, kickoff.
+   *
+   * The serializer also resolves it into the readable `data.assistName`,
+   * but ids are the only stable key: names are not unique and are
+   * re-rendered per locale in commentary.
+   */
+  relatedPlayerId?: number;
   data?: any;
   description?: string;
   eventType?: string;

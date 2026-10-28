@@ -35,6 +35,7 @@ import { MatchInfoPanel } from './MatchInfoPanel';
 import { KeyEventsToggle, MatchKeyEvents } from './MatchKeyEvents';
 import { extractSidebarData } from './match-sidebar-data';
 import { extractSnapshots, resolveAutoSnapIndex } from './snapshot-stats';
+import { playerIdsToHighlight } from './involved-players';
 
 const MATCH_END_REDIRECT_DELAY_MS = 2500;
 
@@ -63,6 +64,10 @@ function mapWsEventToApiEvent(wsEvent: WsMatchEvent) {
     typeName: wsEvent.typeName ?? wsEvent.type,
     teamId: wsEvent.teamId,
     playerId: rawPlayerId != null ? Number(rawPlayerId) : undefined,
+    // Same coercion for the second player: the WS payload may serialise it as
+    // a string, and the pitch spotlights by numeric id.
+    relatedPlayerId:
+      wsEvent.relatedPlayerId != null ? Number(wsEvent.relatedPlayerId) : undefined,
     data: wsEvent.data,
     isHome: wsEvent.isHome,
   };
@@ -170,6 +175,16 @@ export function MatchLiveView({
   const snapshots = useMemo(() => extractSnapshots(visibleEvents), [visibleEvents]);
   const [activeSnapshotIndex, setActiveSnapshotIndex] = useState<number>(
     () => Math.max(0, snapshots.length - 1),
+  );
+
+  /**
+   * Players on the pitch that the selected commentary line is about. The live
+   * path rebuilds `MatchEvent`s from WS payloads, so the same helper as the
+   * report page applies unchanged.
+   */
+  const highlightedPlayerIds = useMemo(
+    () => playerIdsToHighlight(visibleEvents, selectedEventId),
+    [visibleEvents, selectedEventId],
   );
 
   // String-keyed roster map for MatchKeyEvents.
@@ -300,6 +315,7 @@ export function MatchLiveView({
                 awayForfeit={match?.awayForfeit ?? false}
                 homeTeamName={homeTeamName}
                 awayTeamName={awayTeamName}
+                highlightedPlayerIds={highlightedPlayerIds}
               />
             </MatchPitchStage>
           </div>

@@ -28,6 +28,13 @@ interface MatchPlayerMarkerProps {
   isGkSlot: boolean;
   mode?: PitchMarkerMode;
   isSelected?: boolean;
+  /**
+   * The player is one of the names on the commentary line the reader
+   * selected (scorer + assister, the booked player, the interceptor…).
+   * Drawn as a halo + glow so the reader can find them on the pitch
+   * without hunting for the shirt number.
+   */
+  isHighlighted?: boolean;
   isDragging?: boolean;
   isSubstitute?: boolean;
   onClick?: () => void;
@@ -88,6 +95,7 @@ export function MatchPlayerMarker({
   isGkSlot,
   mode = 'lineup',
   isSelected = false,
+  isHighlighted = false,
   isDragging = false,
   isSubstitute = false,
   onClick,
@@ -126,6 +134,7 @@ export function MatchPlayerMarker({
       className={`group relative flex flex-col items-center select-none transition-all duration-base ${
         isDragging ? 'opacity-30 scale-90' : ''
       } ${isSelected ? 'scale-110' : ''} ${isSubstitute ? 'animate-pulse' : ''}`}
+      data-highlighted={isHighlighted ? 'true' : undefined}
       draggable={Boolean(onDragStart)}
       onDragStart={onDragStart}
       onDragEnd={onDragEnd}
@@ -143,6 +152,20 @@ export function MatchPlayerMarker({
       }
     >
       <div className="relative" style={{ width: AVATAR_SIZE, height: AVATAR_SIZE }}>
+        {/* Selected-event halo. The reader picked a commentary line and the
+            pitch answers "which of these 22 is it" — a slow pulse so the eye
+            finds it without the marker shouting over the scoreline. Behind
+            the avatar (z-10) so initials and the stamina ring stay legible. */}
+        {isHighlighted && (
+          <span
+            aria-hidden="true"
+            className="pointer-events-none absolute -inset-1.5 rounded-full bg-primary/15 ring-2 ring-primary/70 animate-pulse motion-reduce:animate-none"
+            style={{
+              animationDuration: '2.4s',
+              boxShadow: '0 0 18px 4px rgba(0, 228, 121, 0.3)',
+            }}
+          />
+        )}
         <div
           className={`relative z-10 flex h-full w-full items-center justify-center rounded-full font-headline text-label font-extrabold uppercase ${
             isSelected ? 'ring-2 ring-white ring-offset-1 ring-offset-ink-750' : ''
@@ -188,7 +211,11 @@ export function MatchPlayerMarker({
       </div>
 
       <div className="mt-1 flex w-full flex-col items-center leading-none">
-        <span className="max-w-[74px] truncate text-center font-headline text-kicker font-bold text-on-surface/90">
+        <span
+          className={`max-w-[74px] truncate text-center font-headline text-kicker font-bold ${
+            isHighlighted ? 'text-primary' : 'text-on-surface/90'
+          }`}
+        >
           {player.name}
         </span>
         {mode === 'rating' && <RatingBadge power={stars} />}

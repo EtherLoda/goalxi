@@ -32,6 +32,7 @@ import { extractSidebarData } from './match-sidebar-data';
 import { MatchScoreHero } from './bento/MatchScoreHero';
 import { closestSnapshotIndex } from './match-timeline';
 import { getCompletionInfo, type CompletionInfo } from './match-completion';
+import { playerIdsToHighlight } from './involved-players';
 
 interface TacticalMatchDetailProps {
   matchId: string;
@@ -160,6 +161,15 @@ export function TacticalMatchDetail({
   // The three panels describe the same fixture, so a click in one should not
   // leave the reader hunting for the matching line in the other.
   const [selectedEventId, setSelectedEventId] = useState<string | null>(null);
+  /**
+   * The players the selected line is about, drawn on the pitch. A goal lights
+   * the scorer and the assister, a turnover the interceptor, a card the booked
+   * player — see `involved-players.ts` for the rule.
+   */
+  const highlightedPlayerIds = useMemo(
+    () => playerIdsToHighlight(events, selectedEventId),
+    [events, selectedEventId],
+  );
   const homeTeamId = match.homeTeam?.id;
   const awayTeamId = match.awayTeam?.id;
   const tLiveChrome = useTranslations('matches.live');
@@ -528,6 +538,7 @@ export function TacticalMatchDetail({
                 awayForfeit={match.awayForfeit ?? false}
                 homeTeamName={homeName}
                 awayTeamName={awayName}
+                highlightedPlayerIds={highlightedPlayerIds}
               />
             </MatchPitchStage>
           </div>

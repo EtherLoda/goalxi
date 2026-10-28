@@ -95,6 +95,13 @@ export interface MatchPitchProps {
   awayForfeit?: boolean;
   homeTeamName?: string;
   awayTeamName?: string;
+  /**
+   * Player ids to spotlight — the names on the commentary line the reader
+   * selected (see `involved-players.ts`). Ids that aren't on the pitch in the
+   * active snapshot are ignored, so a subbed-off scorer simply doesn't light
+   * up once they've been replaced.
+   */
+  highlightedPlayerIds?: ReadonlySet<number>;
 }
 
 // ============================================================================
@@ -113,6 +120,7 @@ interface HalfPitchProps {
   defensiveLine: 'low' | 'mid' | 'high';
   mode: PitchMarkerMode;
   pitchWidth: 'narrow' | 'balanced' | 'wide';
+  highlightedPlayerIds?: ReadonlySet<number>;
 }
 
 /**
@@ -139,6 +147,7 @@ function HalfPitch({
   defensiveLine,
   mode,
   pitchWidth,
+  highlightedPlayerIds,
 }: HalfPitchProps) {
   const offsets = computeMatchDimensionOffsets(defensiveLine, pitchWidth, side);
   const counterScaleY = 1 / offsets.scaleY;
@@ -194,6 +203,7 @@ function HalfPitch({
                   slot={slotKey}
                   isGkSlot={slotKey === 'GK'}
                   isSubstitute={card.isSubstitute}
+                  isHighlighted={highlightedPlayerIds?.has(card.playerId) ?? false}
                   snapshotFitness={card.fitnessFactor}
                   snapshotStarRating={card.starRating}
                 />
@@ -221,6 +231,7 @@ export function MatchPitch({
   awayForfeit = false,
   homeTeamName,
   awayTeamName,
+  highlightedPlayerIds,
 }: MatchPitchProps) {
   // Combined map for both player lookup (used by HalfPitch render) AND
   // buildCards display-name fallback. Snapshot playerIds may reference
@@ -339,6 +350,7 @@ export function MatchPitch({
             rosterById={rosterById}
             defensiveLine={homeLine}
             pitchWidth={homeWidth}
+            highlightedPlayerIds={highlightedPlayerIds}
           />
 
           {/* Away half — RIGHT, defends right goal */}
@@ -349,6 +361,7 @@ export function MatchPitch({
             rosterById={rosterById}
             defensiveLine={awayLine}
             pitchWidth={awayWidth}
+            highlightedPlayerIds={highlightedPlayerIds}
           />
 
           {/* Forfeit chip — sits at the top of the pitch as a banner,

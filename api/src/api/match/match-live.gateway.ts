@@ -59,6 +59,13 @@ interface MatchEventPayload {
   minute: number;
   teamId?: string;
   playerId?: number;
+  /**
+   * The second player an event names — the assister on a goal, the
+   * interceptor on a `turnover`. The FE spotlights both on the pitch when
+   * the reader selects the line, so it must travel with the payload the
+   * same way the REST read path serves it.
+   */
+  relatedPlayerId?: number;
   playerName?: string;
   data?: any;
   eventScheduledTime?: number;
@@ -541,6 +548,7 @@ export class MatchLiveGateway
       minute: e.minute,
       teamId: e.teamId,
       playerId: e.playerId,
+      relatedPlayerId: e.relatedPlayerId ?? undefined,
       playerName: (e.data as any)?.playerName,
       data: e.data,
       eventScheduledTime: e.eventScheduledTime?.getTime(),

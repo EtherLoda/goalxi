@@ -17,6 +17,8 @@ export interface WsMatchEvent {
   typeName?: string;
   teamId?: string;
   playerId?: string;
+  /** Second player the event names (assister / interceptor) — see `relatedPlayerId` on `MatchEvent`. */
+  relatedPlayerId?: number | string;
   data: Record<string, unknown>;
   isHome?: boolean;
   eventScheduledTime?: number;
