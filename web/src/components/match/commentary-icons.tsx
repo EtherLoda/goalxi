@@ -576,7 +576,12 @@ export function eventIcon(
   if (t === 'OFFSIDE') return OffsideIcon;
   if (t === 'VAR_DECISION' || t === 'VAR') return VarIcon;
   if (t === 'ATTENDANCE_ANNOUNCEMENT') return AttendanceIcon;
-  if (t === 'WEATHER_ANNOUNCEMENT') return WeatherIcon;
+  if (t === 'WEATHER_ANNOUNCEMENT') {
+    // The event carries `weatherKey` ("cloudy" / "rainy" / …). Reading
+    // it is the whole point of the announcement: returning the bare
+    // WeatherIcon alias (a sunny glyph) made every match look sunny.
+    return weatherIcon(data?.weatherKey as string | undefined);
+  }
   if (t === 'PLAYER_INTRODUCTION') return PlayerIntroIcon;
   if (t === 'FORFEIT') return ForfeitIcon;
   // v1 was missing TURNOVER — it fell through to KickoffIcon. The

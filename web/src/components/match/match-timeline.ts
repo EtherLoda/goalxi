@@ -108,6 +108,12 @@ export interface TimelineMarker {
   playerName?: string;
   /** Stable id for React keys — event id when present, else a hash. */
   key: string;
+  /**
+   * Raw event payload. Carried so glyph lookups that depend on the
+   * payload (weather announcements pick their icon from `weatherKey`)
+   * can resolve the same glyph the commentary feed draws.
+   */
+  data?: Record<string, unknown> | null;
 }
 
 // ============================================================================
@@ -195,6 +201,7 @@ export function extractTimelineMarkers(
       // use, so a hover tooltip on the marker will agree with the
       // text the commentary feed shows for the same event.
       playerName: (e.data as { playerName?: string } | undefined)?.playerName,
+      data: e.data ?? null,
       key: e.id ?? dedupeKey,
     });
   }

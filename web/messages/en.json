@@ -1355,7 +1355,10 @@
       "line": "{count} fans in attendance."
     },
     "player_introduction": {
-      "tpl_0": "Teams ready! {homePlayers} vs {awayPlayers} players"
+      "tpl_0": "Both teams are out — here are the starting elevens."
+    },
+    "injury_send_off": {
+      "tpl_0": "No replacement left on the bench — {player} limps off, and they finish the match a man down."
     },
     "lane": {
       "left": "left wing",

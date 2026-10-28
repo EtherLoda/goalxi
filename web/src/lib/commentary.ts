@@ -756,6 +756,18 @@ export function formatRedCardCommentary(
 
   const player = data?.playerName || 'Unknown Player';
 
+  // An injury the bench cannot cover is a forced exit, not a foul — the
+  // engine still emits a `red_card` (the player leaves the pitch and the
+  // side is a man down), but "straight red for X" right after describing
+  // X's injury reads as if the referee punished the injury. Dedicated
+  // copy for that path.
+  if (data?.reason === 'injury_no_sub') {
+    return interpolate(
+      getTemplate(t, 'commentary.injury_send_off', 0, { player, team: teamName }),
+      { player, team: teamName },
+    );
+  }
+
   return interpolate(
     getTemplate(t, 'commentary.red_card', templateIdx, { player, team: teamName }),
     { player, team: teamName },
@@ -944,6 +956,11 @@ export function formatPlayerIntroductionCommentary(
   const homePlayers = data?.homePlayers?.length || 0;
   const awayPlayers = data?.awayPlayers?.length || 0;
 
+  // The line is the lead-in for the team sheets the bubble prints below
+  // it, so it names what the reader is about to see instead of repeating
+  // the squad sizes. `homePlayers` / `awayPlayers` stay in the params so
+  // locale files can still use them, and so this stays compatible with
+  // any locale that has not been updated yet.
   return interpolate(
     getTemplate(t, 'commentary.player_introduction', 0, { homePlayers, awayPlayers }),
     { homePlayers, awayPlayers },

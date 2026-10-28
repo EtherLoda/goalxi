@@ -257,6 +257,11 @@ export class LeagueService {
           WHERE m.league_id = $1
             AND m.season = $2
             AND e.type_name = 'red_card'
+            -- A forced exit ("injured, nobody left to bring on") is
+            -- stored as a red_card so the pitch state is right, but it
+            -- is not a suspension: the player already misses time
+            -- through the injury itself.
+            AND COALESCE(e.data->>'reason', '') <> 'injury_no_sub'
             AND e.team_id = ANY($3::uuid[])
           GROUP BY e.team_id
         `,

@@ -242,7 +242,7 @@ function BucketCell({
               : 'border-transparent bg-surface-container/40'
         } cursor-pointer hover:border-primary/40`}
       >
-        {single ? <EventGlyph type={single.type} size={14} /> : null}
+        {single ? <EventGlyph type={single.type} data={single.data} size={14} /> : null}
         {multiple ? (
           <span aria-hidden className="flex items-center gap-[2px]">
             <span className="size-[3px] rounded-full bg-on-surface-variant" />
@@ -262,7 +262,7 @@ function BucketCell({
               key={item.key}
               className="flex items-center gap-1.5 text-kicker text-on-surface"
             >
-              <EventGlyph type={item.type} size={14} />
+              <EventGlyph type={item.type} data={item.data} size={14} />
               <span className="font-mono tabular-nums text-on-surface-variant">
                 {item.minuteLabel}&apos;
               </span>
@@ -275,12 +275,22 @@ function BucketCell({
   );
 }
 
-function EventGlyph({ type, size = 16 }: { type: TimelineEventType; size?: number }) {
+function EventGlyph({
+  type,
+  data,
+  size = 16,
+}: {
+  type: TimelineEventType;
+  data?: Record<string, unknown> | null;
+  size?: number;
+}) {
   // Same glyph set as the commentary feed and the ticker: `eventIcon` is the
   // single mapping for match events, so the strip cannot drift from the
   // sentences that describe the same moments. `createElement` (rather than
   // rendering `<Icon />`) matches the other two call sites and keeps the
   // hooks lint rule from mistaking the lookup for an inline component.
-  const Icon = eventIcon(type);
+  // `data` is forwarded because some glyphs are payload-dependent — a
+  // weather cell must draw the announced sky, not a generic cloud.
+  const Icon = eventIcon(type, data);
   return createElement(Icon, { size });
 }

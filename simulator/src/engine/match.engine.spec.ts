@@ -95,10 +95,20 @@ describe('MatchEngine', () => {
     const events = engine.simulateMatch();
     expect(events.length).toBeGreaterThan(0);
 
-    // Check for Kickoff event
-    const firstEvent = events[0];
-    expect(firstEvent.type).toBe('kickoff');
-    expect(firstEvent.minute).toBe(0);
+    // Pre-match build-up is emitted in broadcast order: the line-ups are
+    // announced, then the conditions, then the crowd, and only then does
+    // the whistle go. The feed renders in emission order, so a kickoff
+    // pushed first would put "we're off!" above the team sheets.
+    const preMatch = events
+      .filter((e) => e.minute === 0 && e.type !== 'snapshot')
+      .map((e) => e.type);
+    expect(preMatch).toEqual([
+      'player_introduction',
+      'weather_announcement',
+      'attendance_announcement',
+      'kickoff',
+    ]);
+    expect(events[0].minute).toBe(0);
 
     // Check if last event is full_time
     const lastEvent = events[events.length - 1];

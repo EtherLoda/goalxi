@@ -65,6 +65,75 @@ function TypedText({ text }: { text: string }) {
   return <>{useTypedText(text, true)}</>;
 }
 
+interface IntroPlayer {
+  name?: string;
+  position?: string;
+}
+
+/**
+ * The two team sheets printed under the line-ups line.
+ *
+ * The intro event already ships both starting elevens (`homePlayers` /
+ * `awayPlayers`, each with `name` + `position`), but the feed used to
+ * reduce them to "11 vs 11 names" — the reader could never learn who was
+ * actually playing. Two columns on desktop, stacked on narrow screens,
+ * position first because that is how a team sheet is read.
+ */
+function PlayerIntroSheets({
+  data,
+  homeTeamName,
+  awayTeamName,
+  homeColor,
+  awayColor,
+}: {
+  data: Record<string, unknown> | null | undefined;
+  homeTeamName: string;
+  awayTeamName: string;
+  homeColor?: string | null;
+  awayColor?: string | null;
+}) {
+  const home = (data?.homePlayers as IntroPlayer[] | undefined) ?? [];
+  const away = (data?.awayPlayers as IntroPlayer[] | undefined) ?? [];
+  if (home.length === 0 && away.length === 0) return null;
+
+  const sheets = [
+    { key: 'home', team: homeTeamName, players: home, color: homeColor },
+    { key: 'away', team: awayTeamName, players: away, color: awayColor },
+  ];
+
+  return (
+    <div className="mt-2 grid grid-cols-1 gap-x-4 gap-y-2 sm:grid-cols-2">
+      {sheets.map(({ key, team, players, color }) =>
+        players.length === 0 ? null : (
+          <div key={key} className="min-w-0">
+            <p className="flex items-center gap-1.5 text-kicker uppercase tracking-[0.14em] text-on-surface-variant">
+              <span
+                aria-hidden
+                className="inline-block size-1.5 shrink-0 rounded-full"
+                style={color ? { backgroundColor: color } : undefined}
+              />
+              <span className="truncate">{team}</span>
+            </p>
+            <ul className="mt-1 space-y-0.5">
+              {players.map((p, i) => (
+                <li
+                  key={`${key}-${i}-${p.name ?? ''}`}
+                  className="flex items-baseline gap-1.5 text-label leading-snug"
+                >
+                  <span className="w-8 shrink-0 font-mono text-[10px] uppercase tracking-wide text-on-surface-variant/70">
+                    {p.position ?? ''}
+                  </span>
+                  <span className="truncate text-on-surface">{p.name ?? ''}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        ),
+      )}
+    </div>
+  );
+}
+
 export interface EventBubbleProps {
   typed?: boolean;
   event: MatchEvent;
@@ -113,7 +182,7 @@ export const EventBubble: React.FC<EventBubbleProps> = ({
   // feed (goals, red cards, subs, period transitions all included).
   // The previous "spotlight" filtering + dedicated spotlight card was
   // removed in D5 — the EventBubble is the single rendering path.
-  const Icon = eventIcon(type);
+  const Icon = eventIcon(type, event.data);
   const text = formatEventCommentary(event, homeTeamName, awayTeamName, t) ?? '';
   // Hover label: lane · shot type · outcome, e.g. 中路 · 抽射 · 进球.
   // The full sentence is already in the row, so repeating it in the bubble
@@ -233,6 +302,15 @@ export const EventBubble: React.FC<EventBubbleProps> = ({
           </span>
           <div className="flex-1 min-w-0">
             <p className="text-body leading-snug text-on-surface">{typed ? <TypedText text={text} /> : text}</p>
+            {type === 'PLAYER_INTRODUCTION' ? (
+              <PlayerIntroSheets
+                data={event.data}
+                homeTeamName={homeTeamName}
+                awayTeamName={awayTeamName}
+                homeColor={homeColor}
+                awayColor={awayColor}
+              />
+            ) : null}
           </div>
         </div>
       </div>

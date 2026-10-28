@@ -134,9 +134,15 @@ const subFor = (
   condition,
 });
 
+// Instruction-driven substitutions only. A severe injury can also put a
+// bench player on (the engine now falls back to the spare bench when the
+// manager never stored a `bench_config`), and that forced change is not
+// what these assertions are about — the plan's `swap` carries no `reason`.
 const substitutions = (engine: MatchEngine): MatchEvent[] =>
   (engine as unknown as { events: MatchEvent[] }).events.filter(
-    (e) => e.type === 'substitution',
+    (e) =>
+      e.type === 'substitution' &&
+      (e.data as { reason?: string } | undefined)?.reason !== 'injury',
   );
 
 describe('instruction timing — minute is a floor, condition is the trigger', () => {

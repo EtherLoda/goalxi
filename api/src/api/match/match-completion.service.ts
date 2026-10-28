@@ -721,37 +721,50 @@ export class MatchCompletionService {
     const homeMorale = homeFan.fanEmotion;
     const awayMorale = awayFan?.fanEmotion || 50;
 
-    // Calculate attendance. The result is the single source of truth
-    // for both the per-match revenue transaction AND the denormalised
-    // `match.attendance` column consumed by the Stadium page's
-    // season-average and the simulator's pre-sim emission
-    // (see MatchEngine / `attendance_announcement` event).
-    const totalAttendance = calculateMatchAttendance(
-      homeFans,
-      awayFans,
-      homeMorale,
-      awayMorale,
-      homeStadium.capacity,
-      tier,
-    );
+    // Settle the crowd size. The pre-sim scheduler already drew a figure
+    // from the same `calculateMatchAttendance` inputs and wrote it to
+    // `match.attendance` before kickoff, so the engine has *announced*
+    // that number to the player ("现场观众 4,798 人"). Re-drawing here
+    // would silently change the crowd the commentary just reported —
+    // the card would say 4,724 next to a feed saying 4,798. So the
+    // baked figure wins whenever it exists; we only draw when the row
+    // predates the preprocess step (or the stadium/fan rows were
+    // missing at lock time).
+    //
+    // `totalAttendance` is what the revenue transaction below uses, so
+    // keeping it in step with the announcement also keeps ticket
+    // revenue and the Stadium page's fill-rate honest.
+    const bakedAttendance =
+      match.attendance != null && match.attendance > 0
+        ? match.attendance
+        : null;
+    const totalAttendance =
+      bakedAttendance ??
+      calculateMatchAttendance(
+        homeFans,
+        awayFans,
+        homeMorale,
+        awayMorale,
+        homeStadium.capacity,
+        tier,
+      );
 
     // Persist the attendance figure onto the match row FIRST. The
     // finance transaction below is a separate dataSource.transaction
     // (see FinanceService.processTransaction) — we intentionally do not
     // widen that transaction to cover this save because the two writes
     // are independently safe to retry:
-    //   - This save is idempotent: re-running the same inputs produces
-    //     the same `totalAttendance` (the ±5% fluctuation is the only
-    //     source of non-determinism, and overwriting with a new draw is
-    //     acceptable for a stat column).
+    //   - This save is idempotent: with a baked figure it is a plain
+    //     overwrite of the same value; without one, re-running the same
+    //     inputs produces the same `totalAttendance` (±5% fluctuation is
+    //     the only source of non-determinism).
     //   - The cache guard `isMatchProcessed` in `completeMatch` means a
     //     duplicate job is short-circuited at the entry; we only get
     //     here once per (match, attempt) pair.
     //   - If the finance transaction below fails, the thrown error
-    //     bubbles up and BullMQ retries the job; on the next attempt
-    //     the attendance is recomputed and overwritten with a fresh
-    //     draw, so we never persist a stale number paired with a
-    //     newer revenue record.
+    //     bubbles up and BullMQ retries the job; on the next attempt a
+    //     baked attendance is reused verbatim, so the revenue record and
+    //     the announced crowd can never disagree.
     match.attendance = totalAttendance;
     await this.matchRepository.save(match);
 

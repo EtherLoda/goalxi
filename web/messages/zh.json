@@ -1355,7 +1355,10 @@
       "line": "现场观众 {count} 人。"
     },
     "player_introduction": {
-      "tpl_0": "双方球员就位！{homePlayers} vs {awayPlayers} 名球员"
+      "tpl_0": "双方球员就位，首发名单如下。"
+    },
+    "injury_send_off": {
+      "tpl_0": "伤情严重，替补席上已无人可换——{player} 只能一瘸一拐地离场，球队少打一人。"
     },
     "lane": {
       "left": "左路",

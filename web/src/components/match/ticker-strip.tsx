@@ -61,7 +61,7 @@ const TickerChunk: React.FC<TickerChunkProps> = ({ items, formatText, formatMinu
   <>
     {items.map((e, i) => {
       const type = canonicalEventType(e.typeName ?? e.type);
-      const Icon = eventIcon(type);
+      const Icon = eventIcon(type, e.data);
       const isHome = e.isHome;
       const isFresh = i < 4;
       return (

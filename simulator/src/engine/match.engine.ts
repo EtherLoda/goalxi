@@ -1298,29 +1298,72 @@ export class MatchEngine {
   }
 
   /**
-   * Get substitute player for a specific position
+   * Pick the player who replaces an injured starter.
+   *
+   * Order of preference:
+   *   1. the manager's bench slot for that position (`bench_config`),
+   *   2. any still-spare bench player of the same family
+   *      (a CB for a CB),
+   *   3. any still-spare bench player — a real dugout sends on whoever
+   *      is left rather than playing the rest a man down.
+   *
+   * Step 2/3 exist because `bench_config` is opt-in: a manager who never
+   * opened the bench editor (and every BOT side) stores `null`, and the
+   * old early `if (!benchConfig) return null` turned *every* injury into
+   * a send-off. The bench itself always exists — the substitution plan
+   * (`substitutionsV2`) populates `substitutePlayers` — so falling back
+   * to it is what the player expects to see.
+   *
+   * A returned player is removed from `substitutePlayers`, so the same
+   * body cannot be introduced twice.
    */
   private getSubstituteForPosition(
-    team: Team,
     benchConfig: BenchConfig | null,
     positionKey: string,
   ): TacticalPlayer | null {
-    if (!benchConfig) return null;
-
     const benchKey = POSITION_TO_BENCH_KEY[positionKey];
-    if (!benchKey) return null;
 
-    const subPlayerId = benchConfig[benchKey];
-    if (!subPlayerId) return null;
+    // 1. The manager's explicit plan for this slot.
+    const configuredId = benchConfig && benchKey ? benchConfig[benchKey] : null;
+    if (configuredId) {
+      const configured = this.takeBenchPlayer(configuredId);
+      if (configured) return configured;
+    }
 
-    // Look up in substitutePlayers map first
-    const subPlayer = this.substitutePlayers.get(subPlayerId);
-    if (subPlayer) return subPlayer;
+    // 2./3. Same family first, then anyone still sitting down.
+    return this.takeSpareBenchPlayer(benchKey);
+  }
 
-    // Fallback: search in team players (shouldn't happen normally)
-    return (
-      team.players.find((p) => (p.player as Player).id === subPlayerId) || null
-    );
+  /** Remove and return a bench player by id (null if already used). */
+  private takeBenchPlayer(playerId: number): TacticalPlayer | null {
+    const sub = this.substitutePlayers.get(playerId);
+    if (!sub) return null;
+    this.substitutePlayers.delete(playerId);
+    return sub;
+  }
+
+  /**
+   * Remove and return any unused bench player, preferring the family the
+   * injured starter played in.
+   */
+  private takeSpareBenchPlayer(
+    preferredBenchKey: keyof BenchConfig | undefined,
+  ): TacticalPlayer | null {
+    const spare = [...this.substitutePlayers.values()];
+    if (spare.length === 0) return null;
+
+    const familyOf = (position: string | null | undefined) =>
+      POSITION_TO_BENCH_KEY[(position ?? '').toUpperCase()];
+
+    const preferred = preferredBenchKey
+      ? spare.find(
+          (tp) =>
+            familyOf((tp.player as Player).position) === preferredBenchKey,
+        )
+      : undefined;
+
+    const pick = preferred ?? spare[0];
+    return this.takeBenchPlayer((pick.player as Player).id);
   }
 
   public simulateMatch(): MatchEvent[] {
@@ -1369,50 +1412,20 @@ export class MatchEngine {
     this.time = 0;
     this.freshPossession = false;
 
-    // KICKOFF Event — single emission. Previously three `kickoff` events were
-    // pushed (data-only, home, away); the FE had no way to dedupe them and
-    // "And we're off!" rendered three times at minute 0.
+    // Pre-match build-up. Order matters: the feed renders these in
+    // emission order, and a broadcast opens with the line-ups, then the
+    // conditions, then the crowd, and only then kicks off. The whistle
+    // used to be pushed first, so the feed read "and we're off!" above
+    // the team sheets — the announcer spoiled the match before naming a
+    // single player.
     //
     // `clockSeconds: 0` is the in-game kickoff time. Every minute-0
-    // neutral event (kickoff / weather / attendance / intro) shares
-    // the same value; the FE differentiates by `type`.
-    this.events.push({
-      minute: 0,
-      clockSeconds: 0,
-      type: 'kickoff',
-      data: {
-        homeTeam: this.homeTeam.name,
-        awayTeam: this.awayTeam.name,
-        period: 'first_half',
-      },
-    });
+    // neutral event (intro / weather / attendance / kickoff) shares the
+    // same value; the FE differentiates by `type`.
 
-    // Weather Announcement Event
-    this.events.push(
-      generateWeatherAnnouncementEvent(
-        0,
-        this.weather,
-        this.homeTeam.name,
-        this.awayTeam.name,
-      ),
-    );
-
-    // Attendance Announcement Event — separate neutral event so the FE
-    // can render the crowd line independently of the weather one. The
-    // value is read-only here; the upstream scheduler is responsible
-    // for writing `match.attendance` before kicking off the engine.
-    // A value of 0 (no upstream data) is preserved as-is so legacy
-    // matches and tests still produce a syntactically valid event.
-    this.events.push(
-      generateAttendanceAnnouncementEvent(
-        0,
-        this.attendance,
-        this.homeTeam.name,
-        this.awayTeam.name,
-      ),
-    );
-
-    // Player Introduction Event
+    // Player Introduction Event — the two starting elevens. Carries the
+    // names and slots so the FE can print the team sheets instead of a
+    // bare "11 vs 11".
     const getPlayerInfo = (p: TacticalPlayer) => ({
       name: (p.player as Player).name,
       // Canonical slot the editor stored (e.g. `CBL` not `CB`) so a
@@ -1439,6 +1452,48 @@ export class MatchEngine {
         awayStartingPlayers,
       ),
     );
+
+    // Weather Announcement Event
+    this.events.push(
+      generateWeatherAnnouncementEvent(
+        0,
+        this.weather,
+        this.homeTeam.name,
+        this.awayTeam.name,
+      ),
+    );
+
+    // Attendance Announcement Event — separate neutral event so the FE
+    // can render the crowd line independently of the weather one. The
+    // value is read-only here; the upstream scheduler is responsible
+    // for writing `match.attendance` before kicking off the engine,
+    // and the API's completion step reuses that same figure instead of
+    // drawing a second crowd, so the number announced here is the
+    // number the match card shows afterwards.
+    // A value of 0 (no upstream data) is preserved as-is so legacy
+    // matches and tests still produce a syntactically valid event.
+    this.events.push(
+      generateAttendanceAnnouncementEvent(
+        0,
+        this.attendance,
+        this.homeTeam.name,
+        this.awayTeam.name,
+      ),
+    );
+
+    // KICKOFF Event — single emission. Previously three `kickoff` events were
+    // pushed (data-only, home, away); the FE had no way to dedupe them and
+    // "And we're off!" rendered three times at minute 0.
+    this.events.push({
+      minute: 0,
+      clockSeconds: 0,
+      type: 'kickoff',
+      data: {
+        homeTeam: this.homeTeam.name,
+        awayTeam: this.awayTeam.name,
+        period: 'first_half',
+      },
+    });
 
     // Key moments for the WHOLE match, baked once across 1-90 and shared
     // by both halves. Each half's loop only consumes the minutes inside
@@ -2595,6 +2650,10 @@ export class MatchEngine {
           team.substitutePlayer(ins.playerId, subPlayer);
           subPlayer.entryMinute = minute; // Set entry minute
           team.activeSubstitutions++; // Consume one voluntary-substitution slot
+          // The body is now on the pitch: drop them from the available
+          // bench so a later injury cannot introduce the same player a
+          // second time.
+          this.substitutePlayers.delete(ins.newPlayerId);
 
           (ins as any).playerInName = playerInName;
           (ins as any).playerOutName = playerOutName;
@@ -3733,13 +3792,11 @@ export class MatchEngine {
       // 2026-08-06) forces the player off. The engine tries a
       // same-position sub first; if none is available, the injured
       // player is sent off (10 men) — that is the realistic outcome
-      // of, e.g., using all 3 subs earlier or the bench having no fit
-      // option for that spot.
+      // of, e.g., using all 3 subs earlier or the bench running dry.
       if (injuryResult.severity === 'severe') {
         const benchConfig =
           team === this.homeTeam ? this.homeBenchConfig : this.awayBenchConfig;
         const subPlayer = this.getSubstituteForPosition(
-          team,
           benchConfig,
           tacticalPlayer.positionKey,
         );
