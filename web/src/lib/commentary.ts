@@ -601,11 +601,24 @@ export function formatTurnoverCommentary(
 ): string {
   const data = event.data as any;
   const isHome = event.isHome ?? true;
-  const teamName = isHome ? homeTeamName : awayTeamName;
+
+  // Whose move just ended. The engine stamps the possessor's name on the
+  // sequence, and that copy survives the API's event cache — `isHome` did
+  // not, so every turnover used to be narrated as if the home side had lost
+  // the ball. Prefer the payload, keep the side flag as the fallback.
+  const attackingTeam: string | undefined = data?.sequence?.attackPush?.attackingTeam;
+  const teamName =
+    typeof attackingTeam === 'string' && attackingTeam
+      ? attackingTeam
+      : isHome
+        ? homeTeamName
+        : awayTeamName;
 
   // The defender's team is the one that just won the ball, so it's
   // the "new attacker" — surface it for templates that name the
   // counter side ("{tacklerTeam} launch a quick break").
+  // Derived from the flag rather than from `teamName`, because the payload
+  // name above is the *attacking* side.
   const tacklerTeam = isHome ? awayTeamName : homeTeamName;
 
   const player: string | undefined =
@@ -1252,6 +1265,14 @@ export function formatForfeitCommentary(
 export interface CommentaryContext {
   venue?: string | null;
   capacity?: number | null;
+  /**
+   * Team ids, when the caller has them. They let the dispatcher recover the
+   * side of an event whose `isHome` flag went missing in transit — the API's
+   * event cache dropped it for a while, and every copy that branches on the
+   * side (turnovers, corners, cards) then defaulted to home.
+   */
+  homeTeamId?: string | null;
+  awayTeamId?: string | null;
 }
 
 export function formatEventCommentary(
@@ -1266,6 +1287,22 @@ export function formatEventCommentary(
   // switch keys. Without the alias, ~half the event stream fell through to
   // the default branch.
   const type = canonicalEventType(event.typeName ?? event.type);
+
+  // Recover `isHome` when it is missing but the team ids are known. Without
+  // this, every formatter's `event.isHome ?? true` silently picks the host.
+  const sideResolved =
+    event.isHome == null && event.teamId != null
+      ? {
+          ...event,
+          isHome:
+            context?.homeTeamId != null && event.teamId === context.homeTeamId
+              ? true
+              : context?.awayTeamId != null && event.teamId === context.awayTeamId
+                ? false
+                : undefined,
+        }
+      : event;
+  event = sideResolved;
 
   switch (type) {
     case 'GOAL':

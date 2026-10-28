@@ -1687,3 +1687,60 @@ describe('set-piece and turnover outcome copy', () => {
     expect(seen.some((k) => k.startsWith('turnover.tpl_'))).toBe(true);
   });
 });
+
+describe('turnover side resolution', () => {
+  function keysT() {
+    const seen: string[] = [];
+    const t = ((key: string, params?: Record<string, unknown>) => {
+      seen.push(key);
+      return params ? Object.values(params).map(String).join('|') : key;
+    }) as never;
+    return { t, seen };
+  }
+
+  const awayTurnover = baseEvent({
+    type: 'turnover',
+    typeName: 'turnover',
+    // The API's event cache used to drop `isHome`; the id is what remains.
+    teamId: 'away-id',
+    data: {
+      sequence: { attackPush: { success: false, defendingPlayer: 'Wei Deng' } },
+    },
+  });
+
+  it('recovers the side from teamId when isHome is missing', () => {
+    const { t, seen } = keysT();
+    formatEventCommentary(awayTurnover, 'Hello Goalxi FC', '潍坊化工', t, {
+      homeTeamId: 'home-id',
+      awayTeamId: 'away-id',
+    });
+    expect(seen[0].startsWith('turnover_stopped.tpl_')).toBe(true);
+  });
+
+  it('names the attacking side from the payload, not the side flag', () => {
+    const { t, seen } = keysT();
+    const text = formatEventCommentary(
+      baseEvent({
+        type: 'turnover',
+        typeName: 'turnover',
+        teamId: 'away-id',
+        data: {
+          sequence: {
+            attackPush: {
+              success: false,
+              defendingPlayer: 'Wei Deng',
+              attackingTeam: '潍坊化工',
+            },
+          },
+        },
+      }),
+      'Hello Goalxi FC',
+      '潍坊化工',
+      t,
+    );
+    expect(seen[0].startsWith('turnover_stopped.tpl_')).toBe(true);
+    // {team} must be the side that lost the ball, not the host by default.
+    expect(text).toContain('潍坊化工');
+    expect(text).not.toContain('Hello Goalxi FC');
+  });
+});

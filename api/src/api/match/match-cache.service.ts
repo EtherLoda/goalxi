@@ -3,6 +3,11 @@ import { CACHE_MANAGER } from '@nestjs/cache-manager';
 import { Inject, Injectable, Logger } from '@nestjs/common';
 import { Cache } from 'cache-manager';
 
+// Bump this whenever the projection below gains or loses a field: the
+// version is part of the Redis key, so old entries are simply never read
+// again (a TTL-based invalidation would leave stale shapes for a day).
+const MATCH_EVENTS_CACHE_VERSION = 2;
+
 // Plain object interface for caching (no TypeORM metadata)
 interface CachedMatchEvent {
   id: string;
@@ -13,6 +18,9 @@ interface CachedMatchEvent {
   // The wire format `typeName` (lower_snake) is the only
   // event-class string on the wire.
   typeName: string;
+  phase?: string;
+  lane?: string;
+  isHome?: boolean;
   teamId?: string;
   playerId?: number;
   relatedPlayerId?: number;
@@ -43,7 +51,7 @@ export class MatchCacheService {
 
   async getMatchEvents(matchId: string): Promise<MatchEventEntity[] | null> {
     try {
-      const key = `match_events:${matchId}`;
+      const key = `match_events:v${MATCH_EVENTS_CACHE_VERSION}:${matchId}`;
       const cachedEvents = await this.cacheManager.get<CachedMatchEvent[]>(key);
       if (cachedEvents) {
         this.logger.debug(`Cache hit for match events ${matchId}`);
@@ -65,7 +73,7 @@ export class MatchCacheService {
     events: MatchEventEntity[],
   ): Promise<void> {
     try {
-      const key = `match_events:${matchId}`;
+      const key = `match_events:v${MATCH_EVENTS_CACHE_VERSION}:${matchId}`;
       // Convert entities to plain objects for caching (removes TypeORM metadata)
       const plainEvents: CachedMatchEvent[] = events.map((e) => ({
         id: e.id,
@@ -73,6 +81,9 @@ export class MatchCacheService {
         minute: e.minute,
         second: e.second,
         typeName: e.typeName,
+        phase: e.phase,
+        lane: e.lane,
+        isHome: e.isHome,
         teamId: e.teamId,
         playerId: e.playerId,
         relatedPlayerId: e.relatedPlayerId,
@@ -103,7 +114,7 @@ export class MatchCacheService {
 
   async invalidateMatchCache(matchId: string): Promise<void> {
     try {
-      const key = `match_events:${matchId}`;
+      const key = `match_events:v${MATCH_EVENTS_CACHE_VERSION}:${matchId}`;
       await this.cacheManager.del(key);
       this.logger.debug(`Invalidated cache for match ${matchId}`);
     } catch (error) {

@@ -228,7 +228,12 @@ export const EventBubble: React.FC<EventBubbleProps> = ({
   // removed in D5 — the EventBubble is the single rendering path.
   const Icon = eventIcon(type, event.data);
   const text =
-    formatEventCommentary(event, homeTeamName, awayTeamName, t, { venue, capacity }) ?? '';
+    formatEventCommentary(event, homeTeamName, awayTeamName, t, {
+      venue,
+      capacity,
+      homeTeamId,
+      awayTeamId,
+    }) ?? '';
   // Hover label: lane · shot type · outcome, e.g. 中路 · 抽射 · 进球.
   // The full sentence is already in the row, so repeating it in the bubble
   // would only push the bubble wide enough to cover the panel.
