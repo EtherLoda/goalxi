@@ -53,6 +53,10 @@ export interface LiveCommentaryProps {
   awayTeamId?: string | null;
   homeColor?: string | null;
   awayColor?: string | null;
+  /** Venue name of the ground — only the crowd line at 0' uses it. */
+  venue?: string | null;
+  /** Stadium capacity — lets the crowd line say how full the ground was. */
+  capacity?: number | null;
   homeScore: number;
   awayScore: number;
   /**
@@ -84,6 +88,8 @@ export function LiveCommentary({
   awayTeamId,
   homeColor,
   awayColor,
+  venue,
+  capacity,
   homeScore,
   awayScore,
   mode = 'live',
@@ -237,6 +243,8 @@ export function LiveCommentary({
                 homeColor={homeColor}
                 awayColor={awayColor}
                 injuryWindows={injuryWindows}
+                venue={venue}
+                capacity={capacity}
                 typed={Boolean(e.id) && e.id === typedEventId}
                 isSelected={Boolean(e.id) && e.id === selectedEventId}
                 onSelect={

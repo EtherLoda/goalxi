@@ -1366,7 +1366,21 @@
       "snowy": "大雪纷飞！银装素裹的球场，但球员们要面对挑战了。"
     },
     "attendance": {
-      "line": "现场观众 {count} 人。"
+      "line": "现场观众 {count} 人。",
+      "rich": "{venue} 今天来了 {count} 名观众，上座率 {percent}%——{vibe}。",
+      "vibe": {
+        "packed": "座无虚席，看台被挤得水泄不通",
+        "full": "几乎坐满，主队球迷声势很足",
+        "busy": "上座不错，看台大半是满的",
+        "quiet": "座椅空了不少，气氛偏冷",
+        "empty": "冷冷清清，空座一眼望不到边"
+      }
+    },
+    "fallback": {
+      "player": "一名球员",
+      "defender": "一名防守球员",
+      "teammate": "队友",
+      "keeper": "门将"
     },
     "player_introduction": {
       "tpl_0": "双方球员就位，首发名单如下。"

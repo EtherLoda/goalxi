@@ -347,7 +347,7 @@ export function formatGoalCommentary(
   }
 
   const templateIdx = templateIndexFor(event) % 4;
-  const shooter = getShooterName(data) || 'Unknown Player';
+  const shooter = getShooterName(data) || t('fallback.player');
   const pusher = getPusherName(data);
   const tackler = getTacklerName(data);
   const assist = getAssistName(data);
@@ -356,8 +356,8 @@ export function formatGoalCommentary(
     player: shooter,
     shooter,
     pusher: pusher || shooter,
-    tackler: tackler || 'the defender',
-    assist: assist || 'a teammate',
+    tackler: tackler || t('fallback.defender'),
+    assist: assist || t('fallback.teammate'),
     team: teamName,
     // `{quality}` placeholder is preserved in goal templates for
     // back-compat with already-translated copy that references it.
@@ -433,7 +433,7 @@ export function formatShotOnTargetCommentary(
     : 'shot_on_target';
 
   const templateIdx = templateIndexFor(event) % 4;
-  const shooter = getShooterName(data) || 'Unknown Player';
+  const shooter = getShooterName(data) || t('fallback.player');
   const pusher = getPusherName(data);
   const tackler = getTacklerName(data);
   const assist = getAssistName(data);
@@ -442,8 +442,8 @@ export function formatShotOnTargetCommentary(
     player: shooter,
     shooter,
     pusher: pusher || shooter,
-    tackler: tackler || 'the defender',
-    assist: assist || 'a teammate',
+    tackler: tackler || t('fallback.defender'),
+    assist: assist || t('fallback.teammate'),
     team: teamName,
     // `{quality}` preserved for template back-compat (empty
     // string now; tier system dropped — see getQualityText
@@ -482,7 +482,7 @@ export function formatShotOffTargetCommentary(
     : 'shot_off_target';
 
   const templateIdx = templateIndexFor(event) % 4;
-  const shooter = getShooterName(data) || 'Unknown Player';
+  const shooter = getShooterName(data) || t('fallback.player');
   const pusher = getPusherName(data);
   const tackler = getTacklerName(data);
   const assist = getAssistName(data);
@@ -491,8 +491,8 @@ export function formatShotOffTargetCommentary(
     player: shooter,
     shooter,
     pusher: pusher || shooter,
-    tackler: tackler || 'the defender',
-    assist: assist || 'a teammate',
+    tackler: tackler || t('fallback.defender'),
+    assist: assist || t('fallback.teammate'),
     team: teamName,
     lane: getLaneText(t, data?.lane),
     shotType: getShotTypeText(t, getShotType(data)),
@@ -530,8 +530,8 @@ export function formatSaveCommentary(
   const params: Record<string, string | number> = {
     shooter,
     pusher,
-    assist: assist || 'a teammate',
-    tackler: tackler || 'a defender',
+    assist: assist || t('fallback.teammate'),
+    tackler: tackler || t('fallback.defender'),
     team: teamName,
     lane: getLaneText(t, data?.lane),
     shotType: getShotTypeText(t, getShotType(data)),
@@ -717,9 +717,9 @@ export function formatCornerCommentary(
     getTemplate(t, 'commentary.corner', templateIdx, {
       team: teamName,
       lane: getLaneText(t, lane),
-      tackler: tackler || 'a defender',
+      tackler: tackler || t('fallback.defender'),
     }),
-    { team: teamName, lane: getLaneText(t, lane), tackler: tackler || 'a defender' },
+    { team: teamName, lane: getLaneText(t, lane), tackler: tackler || t('fallback.defender') },
   );
 }
 
@@ -734,7 +734,7 @@ export function formatYellowCardCommentary(
   const isHome = event.isHome ?? true;
   const teamName = isHome ? homeTeamName : awayTeamName;
 
-  const player = data?.playerName || 'Unknown Player';
+  const player = data?.playerName || t('fallback.player');
   const reason = getReasonText(data?.reason);
 
   return interpolate(
@@ -754,7 +754,7 @@ export function formatRedCardCommentary(
   const isHome = event.isHome ?? true;
   const teamName = isHome ? homeTeamName : awayTeamName;
 
-  const player = data?.playerName || 'Unknown Player';
+  const player = data?.playerName || t('fallback.player');
 
   // An injury the bench cannot cover is a forced exit, not a foul — the
   // engine still emits a `red_card` (the player leaves the pitch and the
@@ -804,7 +804,7 @@ export function formatInjuryCommentary(
   const isHome = event.isHome ?? true;
   const teamName = isHome ? homeTeamName : awayTeamName;
 
-  const player = data?.playerName || 'Unknown Player';
+  const player = data?.playerName || t('fallback.player');
   const severity = getSeverityText(data?.severity);
 
   return interpolate(
@@ -881,16 +881,16 @@ export function formatPenaltyMissCommentary(
   const isHome = event.isHome ?? true;
   const teamName = isHome ? homeTeamName : awayTeamName;
   const templateIdx = templateIndexFor(event) % 4;
-  const player = data?.playerName || 'Unknown Player';
+  const player = data?.playerName || t('fallback.player');
   const tackler = getTacklerName(data);
 
   return interpolate(
     getTemplate(t, 'commentary.penalty_miss', templateIdx, {
       team: teamName,
       player,
-      tackler: tackler || 'the keeper',
+      tackler: tackler || t('fallback.keeper'),
     }),
-    { team: teamName, player, tackler: tackler || 'the keeper' },
+    { team: teamName, player, tackler: tackler || t('fallback.keeper') },
   );
 }
 
@@ -924,11 +924,29 @@ export function formatWeatherAnnouncementCommentary(
 export function formatAttendanceAnnouncementCommentary(
   event: MatchEvent,
   t: TranslationFunction,
+  context?: CommentaryContext,
 ): string {
   const data = event.data as any;
   const attendance = typeof data?.attendance === 'number' ? data.attendance : null;
   if (!attendance || attendance <= 0) {
     return '';
+  }
+
+  // When the caller knows the ground and its size, say something about the
+  // crowd instead of just quoting a number: "4,798 at Hello Goalxi FC
+  // Stadium — 47% full, plenty of empty seats". The capacity lives on the
+  // match row (joined from the stadium), not on the event, so it arrives
+  // via the context argument; without it we keep the old one-line version.
+  const capacity = context?.capacity ?? null;
+  const venue = context?.venue ?? null;
+  if (venue && capacity != null && capacity > 0) {
+    const percent = Math.round((attendance / capacity) * 100);
+    return t('attendance.rich', {
+      count: formatNumber(attendance),
+      venue,
+      percent: String(percent),
+      vibe: t('attendance.vibe.' + crowdTier(attendance / capacity)),
+    });
   }
   // Pass the placeholder value to `t` directly rather than running
   // it through our custom `interpolate`. next-intl 3+ validates the
@@ -939,6 +957,19 @@ export function formatAttendanceAnnouncementCommentary(
   // this `t(key, params)` pattern; this one had a custom interpolate
   // that bypassed the check.
   return t('attendance.line', { count: formatNumber(attendance) });
+}
+
+/**
+ * Five buckets from "empty" to "packed". Thresholds are deliberately wide —
+ * a 60% house and a 70% house read the same to anyone in the stand, and a
+ * long list of near-identical tiers would just be noise in the transcript.
+ */
+function crowdTier(fillRate: number): 'packed' | 'full' | 'busy' | 'quiet' | 'empty' {
+  if (fillRate >= 0.98) return 'packed';
+  if (fillRate >= 0.85) return 'full';
+  if (fillRate >= 0.6) return 'busy';
+  if (fillRate >= 0.35) return 'quiet';
+  return 'empty';
 }
 
 function formatNumber(n: number): string {
@@ -1145,11 +1176,22 @@ export function formatForfeitCommentary(
   );
 }
 
+/**
+ * Match-level context the event payload doesn't carry. Only the crowd line
+ * needs it today (venue name + stadium capacity live on the match row), and
+ * it stays optional so every existing call site keeps working.
+ */
+export interface CommentaryContext {
+  venue?: string | null;
+  capacity?: number | null;
+}
+
 export function formatEventCommentary(
   event: MatchEvent,
   homeTeamName: string,
   awayTeamName: string,
   t: TranslationFunction,
+  context?: CommentaryContext,
 ): string {
   // Canonicalize via EVENT_TYPE_ALIAS so simulator strings like `goal`,
   // `miss`, `save`, `second_half`, `penalty_goal` resolve to the formatter's
@@ -1196,7 +1238,7 @@ export function formatEventCommentary(
     case 'WEATHER_ANNOUNCEMENT':
       return formatWeatherAnnouncementCommentary(event, t);
     case 'ATTENDANCE_ANNOUNCEMENT':
-      return formatAttendanceAnnouncementCommentary(event, t);
+      return formatAttendanceAnnouncementCommentary(event, t, context);
     case 'PLAYER_INTRODUCTION':
       return formatPlayerIntroductionCommentary(event, t);
     case 'HALF_TIME':

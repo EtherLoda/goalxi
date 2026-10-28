@@ -172,6 +172,10 @@ export interface EventBubbleProps {
   isSelected?: boolean;
   /** Click handler that reports this row as the selected event. */
   onSelect?: () => void;
+  /** Venue name of the match — only the crowd announcement uses it. */
+  venue?: string | null;
+  /** Stadium capacity of the match — only the crowd announcement uses it. */
+  capacity?: number | null;
 }
 
 export const EventBubble: React.FC<EventBubbleProps> = ({
@@ -186,6 +190,8 @@ export const EventBubble: React.FC<EventBubbleProps> = ({
   injuryWindows,
   isSelected = false,
   onSelect,
+  venue,
+  capacity,
 }) => {
   const t = useTranslations('commentary');
   const rowRef = useRef<HTMLDivElement | null>(null);
@@ -203,7 +209,8 @@ export const EventBubble: React.FC<EventBubbleProps> = ({
   // The previous "spotlight" filtering + dedicated spotlight card was
   // removed in D5 — the EventBubble is the single rendering path.
   const Icon = eventIcon(type, event.data);
-  const text = formatEventCommentary(event, homeTeamName, awayTeamName, t) ?? '';
+  const text =
+    formatEventCommentary(event, homeTeamName, awayTeamName, t, { venue, capacity }) ?? '';
   // Hover label: lane · shot type · outcome, e.g. 中路 · 抽射 · 进球.
   // The full sentence is already in the row, so repeating it in the bubble
   // would only push the bubble wide enough to cover the panel.

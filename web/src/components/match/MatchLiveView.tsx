@@ -365,6 +365,8 @@ export function MatchLiveView({
           awayTeamId={match?.awayTeam?.id ?? null}
           homeScore={matchState?.homeScore ?? 0}
           awayScore={matchState?.awayScore ?? 0}
+          venue={match?.venue ?? null}
+          capacity={match?.capacity ?? null}
           selectedEventId={selectedEventId}
           onSelectEvent={selectEvent}
         />

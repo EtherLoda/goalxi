@@ -1366,7 +1366,21 @@
       "snowy": "Snow is falling at the stadium! A winter wonderland but challenging for the players."
     },
     "attendance": {
-      "line": "{count} fans in attendance."
+      "line": "{count} fans in attendance.",
+      "rich": "{count} fans at {venue} today — {percent}% full, {vibe}.",
+      "vibe": {
+        "packed": "packed to the rafters",
+        "full": "a near-capacity crowd making real noise",
+        "busy": "a healthy crowd, most of the stands filled",
+        "quiet": "plenty of empty seats about",
+        "empty": "a sparse, quiet ground"
+      }
+    },
+    "fallback": {
+      "player": "a player",
+      "defender": "a defender",
+      "teammate": "a teammate",
+      "keeper": "the keeper"
     },
     "player_introduction": {
       "tpl_0": "Both teams are out — here are the starting elevens."

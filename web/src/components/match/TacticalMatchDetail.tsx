@@ -576,6 +576,8 @@ export function TacticalMatchDetail({
           awayTeamId={match.awayTeam?.id ?? null}
           homeScore={footballScore ? footballScore.home : (match.homeScore ?? 0)}
           awayScore={footballScore ? footballScore.away : (match.awayScore ?? 0)}
+          venue={match.venue ?? null}
+          capacity={match.capacity ?? null}
           mode="replay"
           selectedEventId={selectedEventId}
           onSelectEvent={selectEvent}
